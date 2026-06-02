@@ -253,6 +253,8 @@ V1 exercise prompts should support text and math/LaTeX. The product should not s
 
 Uploaded material can contain images or PDF pages, but generated exercises in V1 should render as text/math.
 
+Use KaTeX for rendering generated math in the practice UI unless a later requirement exceeds KaTeX's supported syntax. Symbolic answer checking is separate from display rendering and should use a math equivalence engine when that slice is built.
+
 ## 8. Spaced Repetition Model
 
 ### 8.1 Scheduled Unit
@@ -719,4 +721,3 @@ The demo mode exists so the product can be clicked before external credentials a
 8. Keep the stack boring and reliable.
 9. Make exercise trust the early success metric.
 10. Do not let future classroom scope bloat the V1 product.
-
