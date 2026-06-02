@@ -31,6 +31,19 @@ ALTER TABLE "source_files" DROP CONSTRAINT "source_files_collectionId_fkey";
 -- AlterTable
 ALTER TABLE "skill_source_refs" ADD COLUMN     "userId" TEXT;
 
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM "skill_source_refs"
+        INNER JOIN "skills" ON "skill_source_refs"."skillId" = "skills"."id"
+        INNER JOIN "source_files" ON "skill_source_refs"."sourceFileId" = "source_files"."id"
+        WHERE "source_files"."userId" <> "skills"."userId"
+    ) THEN
+        RAISE EXCEPTION 'Cannot harden skill_source_refs ownership: at least one source ref links a skill and source file owned by different users.';
+    END IF;
+END $$;
+
 UPDATE "skill_source_refs"
 SET "userId" = "skills"."userId"
 FROM "skills"
@@ -70,6 +83,20 @@ ALTER TABLE "source_files" ADD CONSTRAINT "source_files_collectionId_userId_fkey
 
 -- AddForeignKey
 ALTER TABLE "skills" ADD CONSTRAINT "skills_collectionId_userId_fkey" FOREIGN KEY ("collectionId", "userId") REFERENCES "collections"("id", "userId") ON DELETE NO ACTION ON UPDATE CASCADE;
+
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM "skill_source_refs"
+        INNER JOIN "skills" ON "skill_source_refs"."skillId" = "skills"."id"
+        INNER JOIN "source_files" ON "skill_source_refs"."sourceFileId" = "source_files"."id"
+        WHERE "skill_source_refs"."userId" <> "skills"."userId"
+           OR "skill_source_refs"."userId" <> "source_files"."userId"
+    ) THEN
+        RAISE EXCEPTION 'Cannot add owner-aware skill_source_refs foreign keys: skill, source file, and source ref owners must match.';
+    END IF;
+END $$;
 
 -- AddForeignKey
 ALTER TABLE "skill_source_refs" ADD CONSTRAINT "skill_source_refs_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;

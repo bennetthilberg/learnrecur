@@ -320,6 +320,90 @@ describeDatabase("database integration", () => {
       ],
     });
 
+    const parentCascadeExercise = await prisma.exercise.create({
+      data: {
+        userId,
+        skillId: skill.id,
+        type: ExerciseType.EXACT_INPUT,
+        answerKind: AnswerKind.TEXT,
+        prompt: "State the power rule in words.",
+        answerSpec: {
+          kind: "text",
+          accepted: ["multiply by the exponent and reduce it by one"],
+        },
+        correctAnswerDisplay:
+          "Multiply by the exponent and reduce it by one.",
+      },
+    });
+
+    const parentCascadeAttempt = await prisma.exerciseAttempt.create({
+      data: {
+        userId,
+        skillId: skill.id,
+        exerciseId: parentCascadeExercise.id,
+        answer: {
+          raw: "multiply by the exponent and reduce it by one",
+        },
+        normalizedAnswer: "multiply by the exponent and reduce it by one",
+        isCorrect: true,
+        result: ExerciseAttemptResult.CORRECT,
+        finalRating: FsrsRating.GOOD,
+      },
+    });
+
+    const parentCascadeReviewLog = await prisma.reviewLog.create({
+      data: {
+        userId,
+        skillId: skill.id,
+        exerciseAttemptId: parentCascadeAttempt.id,
+        finalRating: FsrsRating.GOOD,
+        nextState: SkillFsrsState.REVIEW,
+        schedulerName: "ts-fsrs",
+        schedulerVersion: "5.x",
+        desiredRetention: 0.9,
+        schedulerParameters: { source: "default" },
+      },
+    });
+
+    const parentCascadeFlag = await prisma.exerciseFlag.create({
+      data: {
+        userId,
+        exerciseId: parentCascadeExercise.id,
+        reason: ExerciseFlagReason.NOT_USEFUL,
+        note: "Parent cascade check.",
+      },
+    });
+
+    await prisma.exerciseAttempt.delete({
+      where: { id: parentCascadeAttempt.id },
+    });
+
+    await expect(
+      Promise.all([
+        prisma.exerciseAttempt.count({
+          where: { id: parentCascadeAttempt.id },
+        }),
+        prisma.reviewLog.count({
+          where: { id: parentCascadeReviewLog.id },
+        }),
+      ]),
+    ).resolves.toEqual([0, 0]);
+
+    await prisma.exercise.delete({
+      where: { id: parentCascadeExercise.id },
+    });
+
+    await expect(
+      Promise.all([
+        prisma.exercise.count({
+          where: { id: parentCascadeExercise.id },
+        }),
+        prisma.exerciseFlag.count({
+          where: { id: parentCascadeFlag.id },
+        }),
+      ]),
+    ).resolves.toEqual([0, 0]);
+
     await prisma.user.delete({
       where: { id: userId },
     });
