@@ -57,7 +57,9 @@ export const ModelName = {
   Skill: 'Skill',
   SkillSourceRef: 'SkillSourceRef',
   Exercise: 'Exercise',
-  ExerciseAttempt: 'ExerciseAttempt'
+  ExerciseAttempt: 'ExerciseAttempt',
+  ReviewLog: 'ReviewLog',
+  ExerciseFlag: 'ExerciseFlag'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -153,6 +155,7 @@ export type SkillScalarFieldEnum = (typeof SkillScalarFieldEnum)[keyof typeof Sk
 
 export const SkillSourceRefScalarFieldEnum = {
   id: 'id',
+  userId: 'userId',
   skillId: 'skillId',
   sourceFileId: 'sourceFileId',
   locator: 'locator',
@@ -177,6 +180,8 @@ export const ExerciseScalarFieldEnum = {
   difficulty: 'difficulty',
   expectedSeconds: 'expectedSeconds',
   verificationStatus: 'verificationStatus',
+  retiredAt: 'retiredAt',
+  retirementReason: 'retirementReason',
   freshnessKey: 'freshnessKey',
   sourceRefs: 'sourceRefs',
   createdAt: 'createdAt',
@@ -196,11 +201,65 @@ export const ExerciseAttemptScalarFieldEnum = {
   isCorrect: 'isCorrect',
   result: 'result',
   responseMs: 'responseMs',
+  proposedRating: 'proposedRating',
+  finalRating: 'finalRating',
   feedbackShownAt: 'feedbackShownAt',
   createdAt: 'createdAt'
 } as const
 
 export type ExerciseAttemptScalarFieldEnum = (typeof ExerciseAttemptScalarFieldEnum)[keyof typeof ExerciseAttemptScalarFieldEnum]
+
+
+export const ReviewLogScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  skillId: 'skillId',
+  exerciseAttemptId: 'exerciseAttemptId',
+  finalRating: 'finalRating',
+  reviewedAt: 'reviewedAt',
+  previousDueAt: 'previousDueAt',
+  nextDueAt: 'nextDueAt',
+  previousStability: 'previousStability',
+  nextStability: 'nextStability',
+  previousDifficulty: 'previousDifficulty',
+  nextDifficulty: 'nextDifficulty',
+  previousElapsedDays: 'previousElapsedDays',
+  nextElapsedDays: 'nextElapsedDays',
+  previousScheduledDays: 'previousScheduledDays',
+  nextScheduledDays: 'nextScheduledDays',
+  previousLearningSteps: 'previousLearningSteps',
+  nextLearningSteps: 'nextLearningSteps',
+  previousRepetitions: 'previousRepetitions',
+  nextRepetitions: 'nextRepetitions',
+  previousLapses: 'previousLapses',
+  nextLapses: 'nextLapses',
+  previousState: 'previousState',
+  nextState: 'nextState',
+  schedulerName: 'schedulerName',
+  schedulerVersion: 'schedulerVersion',
+  desiredRetention: 'desiredRetention',
+  schedulerParameters: 'schedulerParameters',
+  createdAt: 'createdAt'
+} as const
+
+export type ReviewLogScalarFieldEnum = (typeof ReviewLogScalarFieldEnum)[keyof typeof ReviewLogScalarFieldEnum]
+
+
+export const ExerciseFlagScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  exerciseId: 'exerciseId',
+  reason: 'reason',
+  note: 'note',
+  status: 'status',
+  resolvedAt: 'resolvedAt',
+  resolutionNote: 'resolutionNote',
+  retiredExerciseAt: 'retiredExerciseAt',
+  retirementReason: 'retirementReason',
+  createdAt: 'createdAt'
+} as const
+
+export type ExerciseFlagScalarFieldEnum = (typeof ExerciseFlagScalarFieldEnum)[keyof typeof ExerciseFlagScalarFieldEnum]
 
 
 export const SortOrder = {

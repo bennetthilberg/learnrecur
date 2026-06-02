@@ -43,6 +43,8 @@ export type ExerciseAttemptMinAggregateOutputType = {
   isCorrect: boolean | null
   result: $Enums.ExerciseAttemptResult | null
   responseMs: number | null
+  proposedRating: $Enums.FsrsRating | null
+  finalRating: $Enums.FsrsRating | null
   feedbackShownAt: Date | null
   createdAt: Date | null
 }
@@ -56,6 +58,8 @@ export type ExerciseAttemptMaxAggregateOutputType = {
   isCorrect: boolean | null
   result: $Enums.ExerciseAttemptResult | null
   responseMs: number | null
+  proposedRating: $Enums.FsrsRating | null
+  finalRating: $Enums.FsrsRating | null
   feedbackShownAt: Date | null
   createdAt: Date | null
 }
@@ -70,6 +74,8 @@ export type ExerciseAttemptCountAggregateOutputType = {
   isCorrect: number
   result: number
   responseMs: number
+  proposedRating: number
+  finalRating: number
   feedbackShownAt: number
   createdAt: number
   _all: number
@@ -93,6 +99,8 @@ export type ExerciseAttemptMinAggregateInputType = {
   isCorrect?: true
   result?: true
   responseMs?: true
+  proposedRating?: true
+  finalRating?: true
   feedbackShownAt?: true
   createdAt?: true
 }
@@ -106,6 +114,8 @@ export type ExerciseAttemptMaxAggregateInputType = {
   isCorrect?: true
   result?: true
   responseMs?: true
+  proposedRating?: true
+  finalRating?: true
   feedbackShownAt?: true
   createdAt?: true
 }
@@ -120,6 +130,8 @@ export type ExerciseAttemptCountAggregateInputType = {
   isCorrect?: true
   result?: true
   responseMs?: true
+  proposedRating?: true
+  finalRating?: true
   feedbackShownAt?: true
   createdAt?: true
   _all?: true
@@ -221,6 +233,8 @@ export type ExerciseAttemptGroupByOutputType = {
   isCorrect: boolean
   result: $Enums.ExerciseAttemptResult
   responseMs: number | null
+  proposedRating: $Enums.FsrsRating | null
+  finalRating: $Enums.FsrsRating | null
   feedbackShownAt: Date | null
   createdAt: Date
   _count: ExerciseAttemptCountAggregateOutputType | null
@@ -258,11 +272,14 @@ export type ExerciseAttemptWhereInput = {
   isCorrect?: Prisma.BoolFilter<"ExerciseAttempt"> | boolean
   result?: Prisma.EnumExerciseAttemptResultFilter<"ExerciseAttempt"> | $Enums.ExerciseAttemptResult
   responseMs?: Prisma.IntNullableFilter<"ExerciseAttempt"> | number | null
+  proposedRating?: Prisma.EnumFsrsRatingNullableFilter<"ExerciseAttempt"> | $Enums.FsrsRating | null
+  finalRating?: Prisma.EnumFsrsRatingNullableFilter<"ExerciseAttempt"> | $Enums.FsrsRating | null
   feedbackShownAt?: Prisma.DateTimeNullableFilter<"ExerciseAttempt"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"ExerciseAttempt"> | Date | string
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   skill?: Prisma.XOR<Prisma.SkillScalarRelationFilter, Prisma.SkillWhereInput>
   exercise?: Prisma.XOR<Prisma.ExerciseScalarRelationFilter, Prisma.ExerciseWhereInput>
+  reviewLog?: Prisma.XOR<Prisma.ReviewLogNullableScalarRelationFilter, Prisma.ReviewLogWhereInput> | null
 }
 
 export type ExerciseAttemptOrderByWithRelationInput = {
@@ -275,15 +292,20 @@ export type ExerciseAttemptOrderByWithRelationInput = {
   isCorrect?: Prisma.SortOrder
   result?: Prisma.SortOrder
   responseMs?: Prisma.SortOrderInput | Prisma.SortOrder
+  proposedRating?: Prisma.SortOrderInput | Prisma.SortOrder
+  finalRating?: Prisma.SortOrderInput | Prisma.SortOrder
   feedbackShownAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   user?: Prisma.UserOrderByWithRelationInput
   skill?: Prisma.SkillOrderByWithRelationInput
   exercise?: Prisma.ExerciseOrderByWithRelationInput
+  reviewLog?: Prisma.ReviewLogOrderByWithRelationInput
 }
 
 export type ExerciseAttemptWhereUniqueInput = Prisma.AtLeast<{
   id?: string
+  id_userId?: Prisma.ExerciseAttemptIdUserIdCompoundUniqueInput
+  id_skillId_userId?: Prisma.ExerciseAttemptIdSkillIdUserIdCompoundUniqueInput
   AND?: Prisma.ExerciseAttemptWhereInput | Prisma.ExerciseAttemptWhereInput[]
   OR?: Prisma.ExerciseAttemptWhereInput[]
   NOT?: Prisma.ExerciseAttemptWhereInput | Prisma.ExerciseAttemptWhereInput[]
@@ -295,12 +317,15 @@ export type ExerciseAttemptWhereUniqueInput = Prisma.AtLeast<{
   isCorrect?: Prisma.BoolFilter<"ExerciseAttempt"> | boolean
   result?: Prisma.EnumExerciseAttemptResultFilter<"ExerciseAttempt"> | $Enums.ExerciseAttemptResult
   responseMs?: Prisma.IntNullableFilter<"ExerciseAttempt"> | number | null
+  proposedRating?: Prisma.EnumFsrsRatingNullableFilter<"ExerciseAttempt"> | $Enums.FsrsRating | null
+  finalRating?: Prisma.EnumFsrsRatingNullableFilter<"ExerciseAttempt"> | $Enums.FsrsRating | null
   feedbackShownAt?: Prisma.DateTimeNullableFilter<"ExerciseAttempt"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"ExerciseAttempt"> | Date | string
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   skill?: Prisma.XOR<Prisma.SkillScalarRelationFilter, Prisma.SkillWhereInput>
   exercise?: Prisma.XOR<Prisma.ExerciseScalarRelationFilter, Prisma.ExerciseWhereInput>
-}, "id">
+  reviewLog?: Prisma.XOR<Prisma.ReviewLogNullableScalarRelationFilter, Prisma.ReviewLogWhereInput> | null
+}, "id" | "id_userId" | "id_skillId_userId">
 
 export type ExerciseAttemptOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
@@ -312,6 +337,8 @@ export type ExerciseAttemptOrderByWithAggregationInput = {
   isCorrect?: Prisma.SortOrder
   result?: Prisma.SortOrder
   responseMs?: Prisma.SortOrderInput | Prisma.SortOrder
+  proposedRating?: Prisma.SortOrderInput | Prisma.SortOrder
+  finalRating?: Prisma.SortOrderInput | Prisma.SortOrder
   feedbackShownAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   _count?: Prisma.ExerciseAttemptCountOrderByAggregateInput
@@ -334,6 +361,8 @@ export type ExerciseAttemptScalarWhereWithAggregatesInput = {
   isCorrect?: Prisma.BoolWithAggregatesFilter<"ExerciseAttempt"> | boolean
   result?: Prisma.EnumExerciseAttemptResultWithAggregatesFilter<"ExerciseAttempt"> | $Enums.ExerciseAttemptResult
   responseMs?: Prisma.IntNullableWithAggregatesFilter<"ExerciseAttempt"> | number | null
+  proposedRating?: Prisma.EnumFsrsRatingNullableWithAggregatesFilter<"ExerciseAttempt"> | $Enums.FsrsRating | null
+  finalRating?: Prisma.EnumFsrsRatingNullableWithAggregatesFilter<"ExerciseAttempt"> | $Enums.FsrsRating | null
   feedbackShownAt?: Prisma.DateTimeNullableWithAggregatesFilter<"ExerciseAttempt"> | Date | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"ExerciseAttempt"> | Date | string
 }
@@ -345,11 +374,14 @@ export type ExerciseAttemptCreateInput = {
   isCorrect: boolean
   result: $Enums.ExerciseAttemptResult
   responseMs?: number | null
+  proposedRating?: $Enums.FsrsRating | null
+  finalRating?: $Enums.FsrsRating | null
   feedbackShownAt?: Date | string | null
   createdAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutExerciseAttemptsInput
   skill: Prisma.SkillCreateNestedOneWithoutAttemptsInput
   exercise: Prisma.ExerciseCreateNestedOneWithoutAttemptsInput
+  reviewLog?: Prisma.ReviewLogCreateNestedOneWithoutExerciseAttemptInput
 }
 
 export type ExerciseAttemptUncheckedCreateInput = {
@@ -362,8 +394,11 @@ export type ExerciseAttemptUncheckedCreateInput = {
   isCorrect: boolean
   result: $Enums.ExerciseAttemptResult
   responseMs?: number | null
+  proposedRating?: $Enums.FsrsRating | null
+  finalRating?: $Enums.FsrsRating | null
   feedbackShownAt?: Date | string | null
   createdAt?: Date | string
+  reviewLog?: Prisma.ReviewLogUncheckedCreateNestedOneWithoutExerciseAttemptInput
 }
 
 export type ExerciseAttemptUpdateInput = {
@@ -373,11 +408,14 @@ export type ExerciseAttemptUpdateInput = {
   isCorrect?: Prisma.BoolFieldUpdateOperationsInput | boolean
   result?: Prisma.EnumExerciseAttemptResultFieldUpdateOperationsInput | $Enums.ExerciseAttemptResult
   responseMs?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  proposedRating?: Prisma.NullableEnumFsrsRatingFieldUpdateOperationsInput | $Enums.FsrsRating | null
+  finalRating?: Prisma.NullableEnumFsrsRatingFieldUpdateOperationsInput | $Enums.FsrsRating | null
   feedbackShownAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutExerciseAttemptsNestedInput
   skill?: Prisma.SkillUpdateOneRequiredWithoutAttemptsNestedInput
   exercise?: Prisma.ExerciseUpdateOneRequiredWithoutAttemptsNestedInput
+  reviewLog?: Prisma.ReviewLogUpdateOneWithoutExerciseAttemptNestedInput
 }
 
 export type ExerciseAttemptUncheckedUpdateInput = {
@@ -390,8 +428,11 @@ export type ExerciseAttemptUncheckedUpdateInput = {
   isCorrect?: Prisma.BoolFieldUpdateOperationsInput | boolean
   result?: Prisma.EnumExerciseAttemptResultFieldUpdateOperationsInput | $Enums.ExerciseAttemptResult
   responseMs?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  proposedRating?: Prisma.NullableEnumFsrsRatingFieldUpdateOperationsInput | $Enums.FsrsRating | null
+  finalRating?: Prisma.NullableEnumFsrsRatingFieldUpdateOperationsInput | $Enums.FsrsRating | null
   feedbackShownAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  reviewLog?: Prisma.ReviewLogUncheckedUpdateOneWithoutExerciseAttemptNestedInput
 }
 
 export type ExerciseAttemptCreateManyInput = {
@@ -404,6 +445,8 @@ export type ExerciseAttemptCreateManyInput = {
   isCorrect: boolean
   result: $Enums.ExerciseAttemptResult
   responseMs?: number | null
+  proposedRating?: $Enums.FsrsRating | null
+  finalRating?: $Enums.FsrsRating | null
   feedbackShownAt?: Date | string | null
   createdAt?: Date | string
 }
@@ -415,6 +458,8 @@ export type ExerciseAttemptUpdateManyMutationInput = {
   isCorrect?: Prisma.BoolFieldUpdateOperationsInput | boolean
   result?: Prisma.EnumExerciseAttemptResultFieldUpdateOperationsInput | $Enums.ExerciseAttemptResult
   responseMs?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  proposedRating?: Prisma.NullableEnumFsrsRatingFieldUpdateOperationsInput | $Enums.FsrsRating | null
+  finalRating?: Prisma.NullableEnumFsrsRatingFieldUpdateOperationsInput | $Enums.FsrsRating | null
   feedbackShownAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -429,6 +474,8 @@ export type ExerciseAttemptUncheckedUpdateManyInput = {
   isCorrect?: Prisma.BoolFieldUpdateOperationsInput | boolean
   result?: Prisma.EnumExerciseAttemptResultFieldUpdateOperationsInput | $Enums.ExerciseAttemptResult
   responseMs?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  proposedRating?: Prisma.NullableEnumFsrsRatingFieldUpdateOperationsInput | $Enums.FsrsRating | null
+  finalRating?: Prisma.NullableEnumFsrsRatingFieldUpdateOperationsInput | $Enums.FsrsRating | null
   feedbackShownAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -443,6 +490,17 @@ export type ExerciseAttemptOrderByRelationAggregateInput = {
   _count?: Prisma.SortOrder
 }
 
+export type ExerciseAttemptIdUserIdCompoundUniqueInput = {
+  id: string
+  userId: string
+}
+
+export type ExerciseAttemptIdSkillIdUserIdCompoundUniqueInput = {
+  id: string
+  skillId: string
+  userId: string
+}
+
 export type ExerciseAttemptCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   userId?: Prisma.SortOrder
@@ -453,6 +511,8 @@ export type ExerciseAttemptCountOrderByAggregateInput = {
   isCorrect?: Prisma.SortOrder
   result?: Prisma.SortOrder
   responseMs?: Prisma.SortOrder
+  proposedRating?: Prisma.SortOrder
+  finalRating?: Prisma.SortOrder
   feedbackShownAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
@@ -470,6 +530,8 @@ export type ExerciseAttemptMaxOrderByAggregateInput = {
   isCorrect?: Prisma.SortOrder
   result?: Prisma.SortOrder
   responseMs?: Prisma.SortOrder
+  proposedRating?: Prisma.SortOrder
+  finalRating?: Prisma.SortOrder
   feedbackShownAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
@@ -483,12 +545,19 @@ export type ExerciseAttemptMinOrderByAggregateInput = {
   isCorrect?: Prisma.SortOrder
   result?: Prisma.SortOrder
   responseMs?: Prisma.SortOrder
+  proposedRating?: Prisma.SortOrder
+  finalRating?: Prisma.SortOrder
   feedbackShownAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
 
 export type ExerciseAttemptSumOrderByAggregateInput = {
   responseMs?: Prisma.SortOrder
+}
+
+export type ExerciseAttemptScalarRelationFilter = {
+  is?: Prisma.ExerciseAttemptWhereInput
+  isNot?: Prisma.ExerciseAttemptWhereInput
 }
 
 export type ExerciseAttemptCreateNestedManyWithoutUserInput = {
@@ -625,6 +694,24 @@ export type EnumExerciseAttemptResultFieldUpdateOperationsInput = {
   set?: $Enums.ExerciseAttemptResult
 }
 
+export type NullableEnumFsrsRatingFieldUpdateOperationsInput = {
+  set?: $Enums.FsrsRating | null
+}
+
+export type ExerciseAttemptCreateNestedOneWithoutReviewLogInput = {
+  create?: Prisma.XOR<Prisma.ExerciseAttemptCreateWithoutReviewLogInput, Prisma.ExerciseAttemptUncheckedCreateWithoutReviewLogInput>
+  connectOrCreate?: Prisma.ExerciseAttemptCreateOrConnectWithoutReviewLogInput
+  connect?: Prisma.ExerciseAttemptWhereUniqueInput
+}
+
+export type ExerciseAttemptUpdateOneRequiredWithoutReviewLogNestedInput = {
+  create?: Prisma.XOR<Prisma.ExerciseAttemptCreateWithoutReviewLogInput, Prisma.ExerciseAttemptUncheckedCreateWithoutReviewLogInput>
+  connectOrCreate?: Prisma.ExerciseAttemptCreateOrConnectWithoutReviewLogInput
+  upsert?: Prisma.ExerciseAttemptUpsertWithoutReviewLogInput
+  connect?: Prisma.ExerciseAttemptWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.ExerciseAttemptUpdateToOneWithWhereWithoutReviewLogInput, Prisma.ExerciseAttemptUpdateWithoutReviewLogInput>, Prisma.ExerciseAttemptUncheckedUpdateWithoutReviewLogInput>
+}
+
 export type ExerciseAttemptCreateWithoutUserInput = {
   id?: string
   answer: Prisma.JsonNullValueInput | runtime.InputJsonValue
@@ -632,10 +719,13 @@ export type ExerciseAttemptCreateWithoutUserInput = {
   isCorrect: boolean
   result: $Enums.ExerciseAttemptResult
   responseMs?: number | null
+  proposedRating?: $Enums.FsrsRating | null
+  finalRating?: $Enums.FsrsRating | null
   feedbackShownAt?: Date | string | null
   createdAt?: Date | string
   skill: Prisma.SkillCreateNestedOneWithoutAttemptsInput
   exercise: Prisma.ExerciseCreateNestedOneWithoutAttemptsInput
+  reviewLog?: Prisma.ReviewLogCreateNestedOneWithoutExerciseAttemptInput
 }
 
 export type ExerciseAttemptUncheckedCreateWithoutUserInput = {
@@ -647,8 +737,11 @@ export type ExerciseAttemptUncheckedCreateWithoutUserInput = {
   isCorrect: boolean
   result: $Enums.ExerciseAttemptResult
   responseMs?: number | null
+  proposedRating?: $Enums.FsrsRating | null
+  finalRating?: $Enums.FsrsRating | null
   feedbackShownAt?: Date | string | null
   createdAt?: Date | string
+  reviewLog?: Prisma.ReviewLogUncheckedCreateNestedOneWithoutExerciseAttemptInput
 }
 
 export type ExerciseAttemptCreateOrConnectWithoutUserInput = {
@@ -690,6 +783,8 @@ export type ExerciseAttemptScalarWhereInput = {
   isCorrect?: Prisma.BoolFilter<"ExerciseAttempt"> | boolean
   result?: Prisma.EnumExerciseAttemptResultFilter<"ExerciseAttempt"> | $Enums.ExerciseAttemptResult
   responseMs?: Prisma.IntNullableFilter<"ExerciseAttempt"> | number | null
+  proposedRating?: Prisma.EnumFsrsRatingNullableFilter<"ExerciseAttempt"> | $Enums.FsrsRating | null
+  finalRating?: Prisma.EnumFsrsRatingNullableFilter<"ExerciseAttempt"> | $Enums.FsrsRating | null
   feedbackShownAt?: Prisma.DateTimeNullableFilter<"ExerciseAttempt"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"ExerciseAttempt"> | Date | string
 }
@@ -701,23 +796,28 @@ export type ExerciseAttemptCreateWithoutSkillInput = {
   isCorrect: boolean
   result: $Enums.ExerciseAttemptResult
   responseMs?: number | null
+  proposedRating?: $Enums.FsrsRating | null
+  finalRating?: $Enums.FsrsRating | null
   feedbackShownAt?: Date | string | null
   createdAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutExerciseAttemptsInput
   exercise: Prisma.ExerciseCreateNestedOneWithoutAttemptsInput
+  reviewLog?: Prisma.ReviewLogCreateNestedOneWithoutExerciseAttemptInput
 }
 
 export type ExerciseAttemptUncheckedCreateWithoutSkillInput = {
   id?: string
-  userId: string
   exerciseId: string
   answer: Prisma.JsonNullValueInput | runtime.InputJsonValue
   normalizedAnswer?: string | null
   isCorrect: boolean
   result: $Enums.ExerciseAttemptResult
   responseMs?: number | null
+  proposedRating?: $Enums.FsrsRating | null
+  finalRating?: $Enums.FsrsRating | null
   feedbackShownAt?: Date | string | null
   createdAt?: Date | string
+  reviewLog?: Prisma.ReviewLogUncheckedCreateNestedOneWithoutExerciseAttemptInput
 }
 
 export type ExerciseAttemptCreateOrConnectWithoutSkillInput = {
@@ -753,23 +853,27 @@ export type ExerciseAttemptCreateWithoutExerciseInput = {
   isCorrect: boolean
   result: $Enums.ExerciseAttemptResult
   responseMs?: number | null
+  proposedRating?: $Enums.FsrsRating | null
+  finalRating?: $Enums.FsrsRating | null
   feedbackShownAt?: Date | string | null
   createdAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutExerciseAttemptsInput
   skill: Prisma.SkillCreateNestedOneWithoutAttemptsInput
+  reviewLog?: Prisma.ReviewLogCreateNestedOneWithoutExerciseAttemptInput
 }
 
 export type ExerciseAttemptUncheckedCreateWithoutExerciseInput = {
   id?: string
-  userId: string
-  skillId: string
   answer: Prisma.JsonNullValueInput | runtime.InputJsonValue
   normalizedAnswer?: string | null
   isCorrect: boolean
   result: $Enums.ExerciseAttemptResult
   responseMs?: number | null
+  proposedRating?: $Enums.FsrsRating | null
+  finalRating?: $Enums.FsrsRating | null
   feedbackShownAt?: Date | string | null
   createdAt?: Date | string
+  reviewLog?: Prisma.ReviewLogUncheckedCreateNestedOneWithoutExerciseAttemptInput
 }
 
 export type ExerciseAttemptCreateOrConnectWithoutExerciseInput = {
@@ -798,6 +902,86 @@ export type ExerciseAttemptUpdateManyWithWhereWithoutExerciseInput = {
   data: Prisma.XOR<Prisma.ExerciseAttemptUpdateManyMutationInput, Prisma.ExerciseAttemptUncheckedUpdateManyWithoutExerciseInput>
 }
 
+export type ExerciseAttemptCreateWithoutReviewLogInput = {
+  id?: string
+  answer: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  normalizedAnswer?: string | null
+  isCorrect: boolean
+  result: $Enums.ExerciseAttemptResult
+  responseMs?: number | null
+  proposedRating?: $Enums.FsrsRating | null
+  finalRating?: $Enums.FsrsRating | null
+  feedbackShownAt?: Date | string | null
+  createdAt?: Date | string
+  user: Prisma.UserCreateNestedOneWithoutExerciseAttemptsInput
+  skill: Prisma.SkillCreateNestedOneWithoutAttemptsInput
+  exercise: Prisma.ExerciseCreateNestedOneWithoutAttemptsInput
+}
+
+export type ExerciseAttemptUncheckedCreateWithoutReviewLogInput = {
+  id?: string
+  userId: string
+  skillId: string
+  exerciseId: string
+  answer: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  normalizedAnswer?: string | null
+  isCorrect: boolean
+  result: $Enums.ExerciseAttemptResult
+  responseMs?: number | null
+  proposedRating?: $Enums.FsrsRating | null
+  finalRating?: $Enums.FsrsRating | null
+  feedbackShownAt?: Date | string | null
+  createdAt?: Date | string
+}
+
+export type ExerciseAttemptCreateOrConnectWithoutReviewLogInput = {
+  where: Prisma.ExerciseAttemptWhereUniqueInput
+  create: Prisma.XOR<Prisma.ExerciseAttemptCreateWithoutReviewLogInput, Prisma.ExerciseAttemptUncheckedCreateWithoutReviewLogInput>
+}
+
+export type ExerciseAttemptUpsertWithoutReviewLogInput = {
+  update: Prisma.XOR<Prisma.ExerciseAttemptUpdateWithoutReviewLogInput, Prisma.ExerciseAttemptUncheckedUpdateWithoutReviewLogInput>
+  create: Prisma.XOR<Prisma.ExerciseAttemptCreateWithoutReviewLogInput, Prisma.ExerciseAttemptUncheckedCreateWithoutReviewLogInput>
+  where?: Prisma.ExerciseAttemptWhereInput
+}
+
+export type ExerciseAttemptUpdateToOneWithWhereWithoutReviewLogInput = {
+  where?: Prisma.ExerciseAttemptWhereInput
+  data: Prisma.XOR<Prisma.ExerciseAttemptUpdateWithoutReviewLogInput, Prisma.ExerciseAttemptUncheckedUpdateWithoutReviewLogInput>
+}
+
+export type ExerciseAttemptUpdateWithoutReviewLogInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  answer?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  normalizedAnswer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  isCorrect?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  result?: Prisma.EnumExerciseAttemptResultFieldUpdateOperationsInput | $Enums.ExerciseAttemptResult
+  responseMs?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  proposedRating?: Prisma.NullableEnumFsrsRatingFieldUpdateOperationsInput | $Enums.FsrsRating | null
+  finalRating?: Prisma.NullableEnumFsrsRatingFieldUpdateOperationsInput | $Enums.FsrsRating | null
+  feedbackShownAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  user?: Prisma.UserUpdateOneRequiredWithoutExerciseAttemptsNestedInput
+  skill?: Prisma.SkillUpdateOneRequiredWithoutAttemptsNestedInput
+  exercise?: Prisma.ExerciseUpdateOneRequiredWithoutAttemptsNestedInput
+}
+
+export type ExerciseAttemptUncheckedUpdateWithoutReviewLogInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
+  skillId?: Prisma.StringFieldUpdateOperationsInput | string
+  exerciseId?: Prisma.StringFieldUpdateOperationsInput | string
+  answer?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  normalizedAnswer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  isCorrect?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  result?: Prisma.EnumExerciseAttemptResultFieldUpdateOperationsInput | $Enums.ExerciseAttemptResult
+  responseMs?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  proposedRating?: Prisma.NullableEnumFsrsRatingFieldUpdateOperationsInput | $Enums.FsrsRating | null
+  finalRating?: Prisma.NullableEnumFsrsRatingFieldUpdateOperationsInput | $Enums.FsrsRating | null
+  feedbackShownAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
 export type ExerciseAttemptCreateManyUserInput = {
   id?: string
   skillId: string
@@ -807,6 +991,8 @@ export type ExerciseAttemptCreateManyUserInput = {
   isCorrect: boolean
   result: $Enums.ExerciseAttemptResult
   responseMs?: number | null
+  proposedRating?: $Enums.FsrsRating | null
+  finalRating?: $Enums.FsrsRating | null
   feedbackShownAt?: Date | string | null
   createdAt?: Date | string
 }
@@ -818,10 +1004,13 @@ export type ExerciseAttemptUpdateWithoutUserInput = {
   isCorrect?: Prisma.BoolFieldUpdateOperationsInput | boolean
   result?: Prisma.EnumExerciseAttemptResultFieldUpdateOperationsInput | $Enums.ExerciseAttemptResult
   responseMs?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  proposedRating?: Prisma.NullableEnumFsrsRatingFieldUpdateOperationsInput | $Enums.FsrsRating | null
+  finalRating?: Prisma.NullableEnumFsrsRatingFieldUpdateOperationsInput | $Enums.FsrsRating | null
   feedbackShownAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   skill?: Prisma.SkillUpdateOneRequiredWithoutAttemptsNestedInput
   exercise?: Prisma.ExerciseUpdateOneRequiredWithoutAttemptsNestedInput
+  reviewLog?: Prisma.ReviewLogUpdateOneWithoutExerciseAttemptNestedInput
 }
 
 export type ExerciseAttemptUncheckedUpdateWithoutUserInput = {
@@ -833,8 +1022,11 @@ export type ExerciseAttemptUncheckedUpdateWithoutUserInput = {
   isCorrect?: Prisma.BoolFieldUpdateOperationsInput | boolean
   result?: Prisma.EnumExerciseAttemptResultFieldUpdateOperationsInput | $Enums.ExerciseAttemptResult
   responseMs?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  proposedRating?: Prisma.NullableEnumFsrsRatingFieldUpdateOperationsInput | $Enums.FsrsRating | null
+  finalRating?: Prisma.NullableEnumFsrsRatingFieldUpdateOperationsInput | $Enums.FsrsRating | null
   feedbackShownAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  reviewLog?: Prisma.ReviewLogUncheckedUpdateOneWithoutExerciseAttemptNestedInput
 }
 
 export type ExerciseAttemptUncheckedUpdateManyWithoutUserInput = {
@@ -846,19 +1038,22 @@ export type ExerciseAttemptUncheckedUpdateManyWithoutUserInput = {
   isCorrect?: Prisma.BoolFieldUpdateOperationsInput | boolean
   result?: Prisma.EnumExerciseAttemptResultFieldUpdateOperationsInput | $Enums.ExerciseAttemptResult
   responseMs?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  proposedRating?: Prisma.NullableEnumFsrsRatingFieldUpdateOperationsInput | $Enums.FsrsRating | null
+  finalRating?: Prisma.NullableEnumFsrsRatingFieldUpdateOperationsInput | $Enums.FsrsRating | null
   feedbackShownAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 export type ExerciseAttemptCreateManySkillInput = {
   id?: string
-  userId: string
   exerciseId: string
   answer: Prisma.JsonNullValueInput | runtime.InputJsonValue
   normalizedAnswer?: string | null
   isCorrect: boolean
   result: $Enums.ExerciseAttemptResult
   responseMs?: number | null
+  proposedRating?: $Enums.FsrsRating | null
+  finalRating?: $Enums.FsrsRating | null
   feedbackShownAt?: Date | string | null
   createdAt?: Date | string
 }
@@ -870,47 +1065,53 @@ export type ExerciseAttemptUpdateWithoutSkillInput = {
   isCorrect?: Prisma.BoolFieldUpdateOperationsInput | boolean
   result?: Prisma.EnumExerciseAttemptResultFieldUpdateOperationsInput | $Enums.ExerciseAttemptResult
   responseMs?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  proposedRating?: Prisma.NullableEnumFsrsRatingFieldUpdateOperationsInput | $Enums.FsrsRating | null
+  finalRating?: Prisma.NullableEnumFsrsRatingFieldUpdateOperationsInput | $Enums.FsrsRating | null
   feedbackShownAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutExerciseAttemptsNestedInput
   exercise?: Prisma.ExerciseUpdateOneRequiredWithoutAttemptsNestedInput
+  reviewLog?: Prisma.ReviewLogUpdateOneWithoutExerciseAttemptNestedInput
 }
 
 export type ExerciseAttemptUncheckedUpdateWithoutSkillInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  userId?: Prisma.StringFieldUpdateOperationsInput | string
   exerciseId?: Prisma.StringFieldUpdateOperationsInput | string
   answer?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   normalizedAnswer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isCorrect?: Prisma.BoolFieldUpdateOperationsInput | boolean
   result?: Prisma.EnumExerciseAttemptResultFieldUpdateOperationsInput | $Enums.ExerciseAttemptResult
   responseMs?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  proposedRating?: Prisma.NullableEnumFsrsRatingFieldUpdateOperationsInput | $Enums.FsrsRating | null
+  finalRating?: Prisma.NullableEnumFsrsRatingFieldUpdateOperationsInput | $Enums.FsrsRating | null
   feedbackShownAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  reviewLog?: Prisma.ReviewLogUncheckedUpdateOneWithoutExerciseAttemptNestedInput
 }
 
 export type ExerciseAttemptUncheckedUpdateManyWithoutSkillInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  userId?: Prisma.StringFieldUpdateOperationsInput | string
   exerciseId?: Prisma.StringFieldUpdateOperationsInput | string
   answer?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   normalizedAnswer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isCorrect?: Prisma.BoolFieldUpdateOperationsInput | boolean
   result?: Prisma.EnumExerciseAttemptResultFieldUpdateOperationsInput | $Enums.ExerciseAttemptResult
   responseMs?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  proposedRating?: Prisma.NullableEnumFsrsRatingFieldUpdateOperationsInput | $Enums.FsrsRating | null
+  finalRating?: Prisma.NullableEnumFsrsRatingFieldUpdateOperationsInput | $Enums.FsrsRating | null
   feedbackShownAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 export type ExerciseAttemptCreateManyExerciseInput = {
   id?: string
-  userId: string
-  skillId: string
   answer: Prisma.JsonNullValueInput | runtime.InputJsonValue
   normalizedAnswer?: string | null
   isCorrect: boolean
   result: $Enums.ExerciseAttemptResult
   responseMs?: number | null
+  proposedRating?: $Enums.FsrsRating | null
+  finalRating?: $Enums.FsrsRating | null
   feedbackShownAt?: Date | string | null
   createdAt?: Date | string
 }
@@ -922,34 +1123,38 @@ export type ExerciseAttemptUpdateWithoutExerciseInput = {
   isCorrect?: Prisma.BoolFieldUpdateOperationsInput | boolean
   result?: Prisma.EnumExerciseAttemptResultFieldUpdateOperationsInput | $Enums.ExerciseAttemptResult
   responseMs?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  proposedRating?: Prisma.NullableEnumFsrsRatingFieldUpdateOperationsInput | $Enums.FsrsRating | null
+  finalRating?: Prisma.NullableEnumFsrsRatingFieldUpdateOperationsInput | $Enums.FsrsRating | null
   feedbackShownAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutExerciseAttemptsNestedInput
   skill?: Prisma.SkillUpdateOneRequiredWithoutAttemptsNestedInput
+  reviewLog?: Prisma.ReviewLogUpdateOneWithoutExerciseAttemptNestedInput
 }
 
 export type ExerciseAttemptUncheckedUpdateWithoutExerciseInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  userId?: Prisma.StringFieldUpdateOperationsInput | string
-  skillId?: Prisma.StringFieldUpdateOperationsInput | string
   answer?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   normalizedAnswer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isCorrect?: Prisma.BoolFieldUpdateOperationsInput | boolean
   result?: Prisma.EnumExerciseAttemptResultFieldUpdateOperationsInput | $Enums.ExerciseAttemptResult
   responseMs?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  proposedRating?: Prisma.NullableEnumFsrsRatingFieldUpdateOperationsInput | $Enums.FsrsRating | null
+  finalRating?: Prisma.NullableEnumFsrsRatingFieldUpdateOperationsInput | $Enums.FsrsRating | null
   feedbackShownAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  reviewLog?: Prisma.ReviewLogUncheckedUpdateOneWithoutExerciseAttemptNestedInput
 }
 
 export type ExerciseAttemptUncheckedUpdateManyWithoutExerciseInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  userId?: Prisma.StringFieldUpdateOperationsInput | string
-  skillId?: Prisma.StringFieldUpdateOperationsInput | string
   answer?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   normalizedAnswer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isCorrect?: Prisma.BoolFieldUpdateOperationsInput | boolean
   result?: Prisma.EnumExerciseAttemptResultFieldUpdateOperationsInput | $Enums.ExerciseAttemptResult
   responseMs?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  proposedRating?: Prisma.NullableEnumFsrsRatingFieldUpdateOperationsInput | $Enums.FsrsRating | null
+  finalRating?: Prisma.NullableEnumFsrsRatingFieldUpdateOperationsInput | $Enums.FsrsRating | null
   feedbackShownAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -966,11 +1171,14 @@ export type ExerciseAttemptSelect<ExtArgs extends runtime.Types.Extensions.Inter
   isCorrect?: boolean
   result?: boolean
   responseMs?: boolean
+  proposedRating?: boolean
+  finalRating?: boolean
   feedbackShownAt?: boolean
   createdAt?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   skill?: boolean | Prisma.SkillDefaultArgs<ExtArgs>
   exercise?: boolean | Prisma.ExerciseDefaultArgs<ExtArgs>
+  reviewLog?: boolean | Prisma.ExerciseAttempt$reviewLogArgs<ExtArgs>
 }, ExtArgs["result"]["exerciseAttempt"]>
 
 export type ExerciseAttemptSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -983,6 +1191,8 @@ export type ExerciseAttemptSelectCreateManyAndReturn<ExtArgs extends runtime.Typ
   isCorrect?: boolean
   result?: boolean
   responseMs?: boolean
+  proposedRating?: boolean
+  finalRating?: boolean
   feedbackShownAt?: boolean
   createdAt?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
@@ -1000,6 +1210,8 @@ export type ExerciseAttemptSelectUpdateManyAndReturn<ExtArgs extends runtime.Typ
   isCorrect?: boolean
   result?: boolean
   responseMs?: boolean
+  proposedRating?: boolean
+  finalRating?: boolean
   feedbackShownAt?: boolean
   createdAt?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
@@ -1017,15 +1229,18 @@ export type ExerciseAttemptSelectScalar = {
   isCorrect?: boolean
   result?: boolean
   responseMs?: boolean
+  proposedRating?: boolean
+  finalRating?: boolean
   feedbackShownAt?: boolean
   createdAt?: boolean
 }
 
-export type ExerciseAttemptOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "skillId" | "exerciseId" | "answer" | "normalizedAnswer" | "isCorrect" | "result" | "responseMs" | "feedbackShownAt" | "createdAt", ExtArgs["result"]["exerciseAttempt"]>
+export type ExerciseAttemptOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "skillId" | "exerciseId" | "answer" | "normalizedAnswer" | "isCorrect" | "result" | "responseMs" | "proposedRating" | "finalRating" | "feedbackShownAt" | "createdAt", ExtArgs["result"]["exerciseAttempt"]>
 export type ExerciseAttemptInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   skill?: boolean | Prisma.SkillDefaultArgs<ExtArgs>
   exercise?: boolean | Prisma.ExerciseDefaultArgs<ExtArgs>
+  reviewLog?: boolean | Prisma.ExerciseAttempt$reviewLogArgs<ExtArgs>
 }
 export type ExerciseAttemptIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
@@ -1044,6 +1259,7 @@ export type $ExerciseAttemptPayload<ExtArgs extends runtime.Types.Extensions.Int
     user: Prisma.$UserPayload<ExtArgs>
     skill: Prisma.$SkillPayload<ExtArgs>
     exercise: Prisma.$ExercisePayload<ExtArgs>
+    reviewLog: Prisma.$ReviewLogPayload<ExtArgs> | null
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1055,6 +1271,8 @@ export type $ExerciseAttemptPayload<ExtArgs extends runtime.Types.Extensions.Int
     isCorrect: boolean
     result: $Enums.ExerciseAttemptResult
     responseMs: number | null
+    proposedRating: $Enums.FsrsRating | null
+    finalRating: $Enums.FsrsRating | null
     feedbackShownAt: Date | null
     createdAt: Date
   }, ExtArgs["result"]["exerciseAttempt"]>
@@ -1454,6 +1672,7 @@ export interface Prisma__ExerciseAttemptClient<T, Null = never, ExtArgs extends 
   user<T extends Prisma.UserDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.UserDefaultArgs<ExtArgs>>): Prisma.Prisma__UserClient<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   skill<T extends Prisma.SkillDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.SkillDefaultArgs<ExtArgs>>): Prisma.Prisma__SkillClient<runtime.Types.Result.GetResult<Prisma.$SkillPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   exercise<T extends Prisma.ExerciseDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ExerciseDefaultArgs<ExtArgs>>): Prisma.Prisma__ExerciseClient<runtime.Types.Result.GetResult<Prisma.$ExercisePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+  reviewLog<T extends Prisma.ExerciseAttempt$reviewLogArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ExerciseAttempt$reviewLogArgs<ExtArgs>>): Prisma.Prisma__ReviewLogClient<runtime.Types.Result.GetResult<Prisma.$ReviewLogPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1492,6 +1711,8 @@ export interface ExerciseAttemptFieldRefs {
   readonly isCorrect: Prisma.FieldRef<"ExerciseAttempt", 'Boolean'>
   readonly result: Prisma.FieldRef<"ExerciseAttempt", 'ExerciseAttemptResult'>
   readonly responseMs: Prisma.FieldRef<"ExerciseAttempt", 'Int'>
+  readonly proposedRating: Prisma.FieldRef<"ExerciseAttempt", 'FsrsRating'>
+  readonly finalRating: Prisma.FieldRef<"ExerciseAttempt", 'FsrsRating'>
   readonly feedbackShownAt: Prisma.FieldRef<"ExerciseAttempt", 'DateTime'>
   readonly createdAt: Prisma.FieldRef<"ExerciseAttempt", 'DateTime'>
 }
@@ -1892,6 +2113,25 @@ export type ExerciseAttemptDeleteManyArgs<ExtArgs extends runtime.Types.Extensio
    * Limit how many ExerciseAttempts to delete.
    */
   limit?: number
+}
+
+/**
+ * ExerciseAttempt.reviewLog
+ */
+export type ExerciseAttempt$reviewLogArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ReviewLog
+   */
+  select?: Prisma.ReviewLogSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ReviewLog
+   */
+  omit?: Prisma.ReviewLogOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ReviewLogInclude<ExtArgs> | null
+  where?: Prisma.ReviewLogWhereInput
 }
 
 /**

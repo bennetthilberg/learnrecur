@@ -218,6 +218,7 @@ export type CollectionOrderByWithRelationInput = {
 
 export type CollectionWhereUniqueInput = Prisma.AtLeast<{
   id?: string
+  id_userId?: Prisma.CollectionIdUserIdCompoundUniqueInput
   AND?: Prisma.CollectionWhereInput | Prisma.CollectionWhereInput[]
   OR?: Prisma.CollectionWhereInput[]
   NOT?: Prisma.CollectionWhereInput | Prisma.CollectionWhereInput[]
@@ -230,7 +231,7 @@ export type CollectionWhereUniqueInput = Prisma.AtLeast<{
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   skills?: Prisma.SkillListRelationFilter
   sourceFiles?: Prisma.SourceFileListRelationFilter
-}, "id">
+}, "id" | "id_userId">
 
 export type CollectionOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
@@ -343,6 +344,11 @@ export type CollectionListRelationFilter = {
 
 export type CollectionOrderByRelationAggregateInput = {
   _count?: Prisma.SortOrder
+}
+
+export type CollectionIdUserIdCompoundUniqueInput = {
+  id: string
+  userId: string
 }
 
 export type CollectionCountOrderByAggregateInput = {
