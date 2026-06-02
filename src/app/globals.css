@@ -1,20 +1,29 @@
 :root {
-  --lr-ink: #111827;
-  --lr-muted: #4f5f70;
-  --lr-faint: #66758a;
-  --lr-line: #dde6ef;
-  --lr-page: #fbfcfe;
+  --lr-ink: #131a24;
+  --lr-muted: #4b5968;
+  --lr-faint: #687789;
+  --lr-line: #dce3eb;
+  --lr-line-strong: #c7d1dd;
+  --lr-fill: #eef2f7;
+  --lr-fill-strong: #e3e9f1;
+  --lr-page: #f6f8fb;
   --lr-panel: #ffffff;
   --lr-primary: #034cd5;
-  --lr-primary-dark: #12306d;
-  --lr-primary-soft: #e9f0ff;
-  --lr-signal: #2d6cdf;
-  --lr-success: #2e7d32;
-  --lr-warning: #9d6a00;
-  --lr-error: #a4382b;
-  --lr-radius: 12px;
-  --lr-space: 18px;
-  --lr-shadow: 0 1px 2px rgba(18, 29, 51, 0.035), 0 14px 28px rgba(18, 29, 51, 0.052);
+  --lr-primary-hover: #0341b6;
+  --lr-primary-press: #032f86;
+  --lr-primary-soft: #e7eefc;
+  --lr-primary-ink: #023a9e;
+  --lr-primary-ring: rgba(3, 76, 213, 0.32);
+  --lr-accent: #b76a00;
+  --lr-success: #1f7a4d;
+  --lr-warning: #b76a00;
+  --lr-error: #c0392b;
+  --lr-radius-sm: 3px;
+  --lr-radius: 5px;
+  --lr-radius-lg: 10px;
+  --lr-radius-chip: 7px;
+  --lr-shadow: 0 1px 2px rgba(18, 29, 51, 0.035), 0 8px 18px rgba(18, 29, 51, 0.045);
+  --lr-focus-ring: 0 0 0 3px var(--lr-primary-ring);
 }
 
 * {
@@ -42,6 +51,252 @@ select {
   font-family: inherit;
 }
 
+a {
+  color: inherit;
+}
+
 ::selection {
   background: rgba(3, 76, 213, 0.18);
+}
+
+.entryShell,
+.authShell,
+.dashboardShell {
+  min-height: 100vh;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(246, 248, 251, 0.92)),
+    var(--lr-page);
+}
+
+.entryShell {
+  display: grid;
+  place-items: center;
+  padding: 32px;
+}
+
+.entryPanel,
+.authCard,
+.statusPanel,
+.nextStepPanel {
+  background: var(--lr-panel);
+  border: 1px solid var(--lr-line);
+  border-radius: var(--lr-radius-lg);
+  box-shadow: var(--lr-shadow);
+}
+
+.entryPanel {
+  width: min(100%, 680px);
+  padding: 34px;
+}
+
+.entryPanel h1,
+.authIntro h1,
+.dashboardHeader h1 {
+  margin: 8px 0 12px;
+  color: var(--lr-ink);
+  font-size: clamp(28px, 5vw, 38px);
+  font-weight: 500;
+  line-height: 1.16;
+  letter-spacing: 0;
+}
+
+.entryPanel p,
+.authIntro p,
+.nextStepPanel p,
+.statusPanel p {
+  margin: 0;
+  color: var(--lr-muted);
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.eyebrow,
+.statusLabel {
+  margin: 0;
+  color: var(--lr-primary-ink);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0;
+}
+
+.entryActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.primaryButton,
+.secondaryButton {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--lr-radius);
+  padding: 9px 15px;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.2;
+  text-decoration: none;
+}
+
+.primaryButton {
+  background: var(--lr-primary);
+  color: #ffffff;
+}
+
+.primaryButton:hover {
+  background: var(--lr-primary-hover);
+}
+
+.secondaryButton {
+  border: 1px solid var(--lr-line-strong);
+  background: var(--lr-panel);
+  color: var(--lr-ink);
+}
+
+.secondaryButton:hover {
+  background: var(--lr-fill);
+}
+
+.primaryButton:focus-visible,
+.secondaryButton:focus-visible {
+  outline: none;
+  box-shadow: var(--lr-focus-ring);
+}
+
+.authShell {
+  display: grid;
+  grid-template-columns: minmax(260px, 400px) minmax(320px, 440px);
+  align-items: center;
+  justify-content: center;
+  gap: 34px;
+  padding: 40px 28px;
+}
+
+.authIntro {
+  max-width: 390px;
+}
+
+.wordmark {
+  display: inline-flex;
+  margin-bottom: 28px;
+  color: var(--lr-ink);
+  font-size: 18px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.authCard {
+  display: flex;
+  justify-content: center;
+  padding: 18px;
+}
+
+.dashboardShell {
+  padding: 32px;
+}
+
+.dashboardHeader {
+  display: flex;
+  width: min(100%, 1040px);
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin: 0 auto 22px;
+}
+
+.dashboardHeader h1 {
+  font-size: clamp(26px, 4vw, 34px);
+}
+
+.statusGrid {
+  display: grid;
+  width: min(100%, 1040px);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  margin: 0 auto;
+}
+
+.statusPanel,
+.nextStepPanel {
+  padding: 24px;
+}
+
+.statusPanel h2,
+.nextStepPanel h2 {
+  margin: 6px 0 16px;
+  color: var(--lr-ink);
+  font-size: 21px;
+  font-weight: 500;
+  line-height: 1.28;
+  letter-spacing: 0;
+}
+
+.statusPanel dl {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+}
+
+.statusPanel dl div {
+  min-width: 0;
+}
+
+.statusPanel dt {
+  margin-bottom: 3px;
+  color: var(--lr-faint);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.statusPanel dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--lr-ink);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.nextStepPanel {
+  width: min(100%, 1040px);
+  margin: 18px auto 0;
+}
+
+@media (max-width: 780px) {
+  .authShell {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  .authIntro {
+    max-width: none;
+  }
+
+  .statusGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  .entryShell,
+  .authShell,
+  .dashboardShell {
+    padding: 20px;
+  }
+
+  .entryPanel,
+  .statusPanel,
+  .nextStepPanel {
+    padding: 22px;
+  }
+
+  .authCard {
+    padding: 10px;
+  }
+
+  .dashboardHeader {
+    align-items: flex-start;
+  }
 }

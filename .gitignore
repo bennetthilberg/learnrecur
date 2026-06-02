@@ -12,6 +12,8 @@
 
 # testing
 /coverage
+/playwright-report/
+/test-results/
 
 # next.js
 /.next/
@@ -44,3 +46,5 @@ next-env.d.ts
 
 AGENTS.md
 human-stuff.md
+# clerk configuration (can include secrets)
+/.clerk/

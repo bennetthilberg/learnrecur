@@ -1,0 +1,231 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum CollectionStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum SourceFileKind {
+  IMAGE
+  PDF
+  TEXT
+  URL
+  OTHER
+}
+
+enum SourceFileStatus {
+  DRAFT
+  UPLOADED
+  PROCESSING
+  READY
+  FAILED
+}
+
+enum SkillStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+enum SkillFsrsState {
+  NEW
+  LEARNING
+  REVIEW
+  RELEARNING
+}
+
+enum ExerciseType {
+  MULTIPLE_CHOICE
+  EXACT_INPUT
+}
+
+enum AnswerKind {
+  CHOICE
+  TEXT
+  NUMERIC
+  MATH
+}
+
+enum ExerciseVerificationStatus {
+  DRAFT
+  UNVERIFIED
+  VERIFIED
+  REJECTED
+}
+
+enum ExerciseAttemptResult {
+  CORRECT
+  INCORRECT
+  SKIPPED
+}
+
+model User {
+  id         String    @id
+  email      String?
+  name       String?
+  imageUrl   String?
+  lastSeenAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  collections      Collection[]
+  sourceFiles      SourceFile[]
+  skills           Skill[]
+  exercises        Exercise[]
+  exerciseAttempts ExerciseAttempt[]
+
+  @@map("users")
+}
+
+model Collection {
+  id          String           @id @default(cuid())
+  userId      String
+  name        String
+  description String?
+  status      CollectionStatus @default(ACTIVE)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skills      Skill[]
+  sourceFiles SourceFile[]
+
+  @@index([userId, status])
+  @@map("collections")
+}
+
+model SourceFile {
+  id            String           @id @default(cuid())
+  userId        String
+  collectionId  String?
+  kind          SourceFileKind   @default(OTHER)
+  status        SourceFileStatus @default(DRAFT)
+  originalName  String
+  mimeType      String?
+  byteSize      Int?
+  storageBucket String?
+  storageKey    String?
+  publicUrl     String?
+  extractedText String?
+  metadata      Json?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  collection Collection?      @relation(fields: [collectionId], references: [id], onDelete: SetNull)
+  skillRefs  SkillSourceRef[]
+
+  @@index([userId, status])
+  @@index([collectionId])
+  @@map("source_files")
+}
+
+model Skill {
+  id                  String         @id @default(cuid())
+  userId              String
+  collectionId        String?
+  title               String
+  objective           String?
+  rules               Json?
+  examples            Json?
+  exerciseConstraints Json?
+  tags                String[]
+  status              SkillStatus    @default(DRAFT)
+  dueAt               DateTime?
+  stability           Float?
+  difficulty          Float?
+  elapsedDays         Int            @default(0)
+  scheduledDays       Int            @default(0)
+  learningSteps       Int            @default(0)
+  repetitions         Int            @default(0)
+  lapses              Int            @default(0)
+  fsrsState           SkillFsrsState @default(NEW)
+  lastReviewedAt      DateTime?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  collection  Collection?      @relation(fields: [collectionId], references: [id], onDelete: SetNull)
+  sourceRefs  SkillSourceRef[]
+  exercises   Exercise[]
+  attempts    ExerciseAttempt[]
+
+  @@index([userId, status, dueAt])
+  @@index([collectionId])
+  @@map("skills")
+}
+
+model SkillSourceRef {
+  id           String   @id @default(cuid())
+  skillId      String
+  sourceFileId String
+  locator      Json?
+  note         String?
+  createdAt    DateTime @default(now())
+
+  skill      Skill      @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  sourceFile SourceFile @relation(fields: [sourceFileId], references: [id], onDelete: Cascade)
+
+  @@index([sourceFileId])
+  @@unique([skillId, sourceFileId])
+  @@map("skill_source_refs")
+}
+
+model Exercise {
+  id                    String                     @id @default(cuid())
+  userId                String
+  skillId               String
+  type                  ExerciseType
+  answerKind            AnswerKind
+  prompt                String
+  choices               Json?
+  answerSpec            Json
+  correctAnswerDisplay  String
+  explanation           String?
+  difficulty            Int?
+  expectedSeconds       Int?
+  verificationStatus    ExerciseVerificationStatus @default(UNVERIFIED)
+  freshnessKey          String?
+  sourceRefs            Json?
+  createdAt             DateTime                   @default(now())
+  updatedAt             DateTime                   @updatedAt
+
+  user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skill    Skill             @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  attempts ExerciseAttempt[]
+
+  @@index([userId, createdAt])
+  @@index([skillId, verificationStatus])
+  @@map("exercises")
+}
+
+model ExerciseAttempt {
+  id               String                @id @default(cuid())
+  userId           String
+  skillId          String
+  exerciseId       String
+  answer           Json
+  normalizedAnswer String?
+  isCorrect        Boolean
+  result           ExerciseAttemptResult
+  responseMs       Int?
+  feedbackShownAt  DateTime?
+  createdAt        DateTime              @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skill    Skill    @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  exercise Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([skillId, createdAt])
+  @@index([exerciseId])
+  @@map("exercise_attempts")
+}

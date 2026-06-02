@@ -6,22 +6,44 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "vitest run tests/unit",
+    "test:unit": "vitest run tests/unit",
+    "test:db": "RUN_DATABASE_TESTS=1 vitest run tests/integration",
+    "test:e2e": "playwright test",
+    "test:all": "npm run test:unit && npm run test:db && npm run test:e2e",
+    "test:coverage": "vitest run tests/unit --coverage",
+    "prisma:validate": "prisma validate",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:deploy": "prisma migrate deploy"
   },
   "dependencies": {
+    "@clerk/nextjs": "^7.4.2",
     "@mantine/core": "9.2.2",
     "@mantine/hooks": "9.2.2",
+    "@neondatabase/serverless": "^1.1.0",
+    "@prisma/adapter-neon": "^7.8.0",
+    "@prisma/client": "^7.8.0",
     "next": "16.2.6",
     "react": "19.2.6",
-    "react-dom": "19.2.6"
+    "react-dom": "19.2.6",
+    "ws": "^8.21.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@types/node": "25.9.1",
     "@types/react": "19.2.15",
     "@types/react-dom": "19.2.3",
+    "@types/ws": "^8.18.1",
+    "@vitest/coverage-v8": "^4.1.8",
+    "dotenv": "^17.4.2",
     "eslint": "9.39.4",
     "eslint-config-next": "16.2.6",
     "postcss": "8.5.15",
-    "typescript": "6.0.3"
+    "prisma": "^7.8.0",
+    "typescript": "6.0.3",
+    "vitest": "^4.1.8"
   }
 }

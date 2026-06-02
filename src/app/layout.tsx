@@ -1,20 +1,23 @@
 import "@mantine/core/styles.css";
 import "./globals.css";
 
+import { ClerkProvider } from "@clerk/nextjs";
 import { ColorSchemeScript } from "@mantine/core";
 import type { Metadata } from "next";
 import { Lexend } from "next/font/google";
 
+import { Providers } from "./providers";
+
 const lexend = Lexend({
   subsets: ["latin"],
-  weight: ["100", "200", "300", "400", "500", "600", "700", "800", "900"],
+  weight: ["300", "400", "500", "600", "700"],
   variable: "--font-lexend",
   display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "LearnRecur Design Lab",
-  description: "A temporary Mantine design language playground for LearnRecur.",
+  title: "LearnRecur",
+  description: "Focused spaced repetition practice for real academic skills.",
 };
 
 export default function RootLayout({
@@ -27,7 +30,11 @@ export default function RootLayout({
       <head>
         <ColorSchemeScript defaultColorScheme="light" />
       </head>
-      <body>{children}</body>
+      <body>
+        <ClerkProvider>
+          <Providers>{children}</Providers>
+        </ClerkProvider>
+      </body>
     </html>
   );
 }
