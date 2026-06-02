@@ -365,6 +365,7 @@ export type SkillWhereInput = {
   sourceRefs?: Prisma.SkillSourceRefListRelationFilter
   exercises?: Prisma.ExerciseListRelationFilter
   attempts?: Prisma.ExerciseAttemptListRelationFilter
+  reviewLogs?: Prisma.ReviewLogListRelationFilter
 }
 
 export type SkillOrderByWithRelationInput = {
@@ -395,10 +396,12 @@ export type SkillOrderByWithRelationInput = {
   sourceRefs?: Prisma.SkillSourceRefOrderByRelationAggregateInput
   exercises?: Prisma.ExerciseOrderByRelationAggregateInput
   attempts?: Prisma.ExerciseAttemptOrderByRelationAggregateInput
+  reviewLogs?: Prisma.ReviewLogOrderByRelationAggregateInput
 }
 
 export type SkillWhereUniqueInput = Prisma.AtLeast<{
   id?: string
+  id_userId?: Prisma.SkillIdUserIdCompoundUniqueInput
   AND?: Prisma.SkillWhereInput | Prisma.SkillWhereInput[]
   OR?: Prisma.SkillWhereInput[]
   NOT?: Prisma.SkillWhereInput | Prisma.SkillWhereInput[]
@@ -428,7 +431,8 @@ export type SkillWhereUniqueInput = Prisma.AtLeast<{
   sourceRefs?: Prisma.SkillSourceRefListRelationFilter
   exercises?: Prisma.ExerciseListRelationFilter
   attempts?: Prisma.ExerciseAttemptListRelationFilter
-}, "id">
+  reviewLogs?: Prisma.ReviewLogListRelationFilter
+}, "id" | "id_userId">
 
 export type SkillOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
@@ -514,6 +518,7 @@ export type SkillCreateInput = {
   sourceRefs?: Prisma.SkillSourceRefCreateNestedManyWithoutSkillInput
   exercises?: Prisma.ExerciseCreateNestedManyWithoutSkillInput
   attempts?: Prisma.ExerciseAttemptCreateNestedManyWithoutSkillInput
+  reviewLogs?: Prisma.ReviewLogCreateNestedManyWithoutSkillInput
 }
 
 export type SkillUncheckedCreateInput = {
@@ -542,6 +547,7 @@ export type SkillUncheckedCreateInput = {
   sourceRefs?: Prisma.SkillSourceRefUncheckedCreateNestedManyWithoutSkillInput
   exercises?: Prisma.ExerciseUncheckedCreateNestedManyWithoutSkillInput
   attempts?: Prisma.ExerciseAttemptUncheckedCreateNestedManyWithoutSkillInput
+  reviewLogs?: Prisma.ReviewLogUncheckedCreateNestedManyWithoutSkillInput
 }
 
 export type SkillUpdateInput = {
@@ -570,6 +576,7 @@ export type SkillUpdateInput = {
   sourceRefs?: Prisma.SkillSourceRefUpdateManyWithoutSkillNestedInput
   exercises?: Prisma.ExerciseUpdateManyWithoutSkillNestedInput
   attempts?: Prisma.ExerciseAttemptUpdateManyWithoutSkillNestedInput
+  reviewLogs?: Prisma.ReviewLogUpdateManyWithoutSkillNestedInput
 }
 
 export type SkillUncheckedUpdateInput = {
@@ -598,6 +605,7 @@ export type SkillUncheckedUpdateInput = {
   sourceRefs?: Prisma.SkillSourceRefUncheckedUpdateManyWithoutSkillNestedInput
   exercises?: Prisma.ExerciseUncheckedUpdateManyWithoutSkillNestedInput
   attempts?: Prisma.ExerciseAttemptUncheckedUpdateManyWithoutSkillNestedInput
+  reviewLogs?: Prisma.ReviewLogUncheckedUpdateManyWithoutSkillNestedInput
 }
 
 export type SkillCreateManyInput = {
@@ -689,6 +697,11 @@ export type StringNullableListFilter<$PrismaModel = never> = {
   hasEvery?: string[] | Prisma.ListStringFieldRefInput<$PrismaModel>
   hasSome?: string[] | Prisma.ListStringFieldRefInput<$PrismaModel>
   isEmpty?: boolean
+}
+
+export type SkillIdUserIdCompoundUniqueInput = {
+  id: string
+  userId: string
 }
 
 export type SkillCountOrderByAggregateInput = {
@@ -942,6 +955,20 @@ export type SkillUpdateOneRequiredWithoutAttemptsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.SkillUpdateToOneWithWhereWithoutAttemptsInput, Prisma.SkillUpdateWithoutAttemptsInput>, Prisma.SkillUncheckedUpdateWithoutAttemptsInput>
 }
 
+export type SkillCreateNestedOneWithoutReviewLogsInput = {
+  create?: Prisma.XOR<Prisma.SkillCreateWithoutReviewLogsInput, Prisma.SkillUncheckedCreateWithoutReviewLogsInput>
+  connectOrCreate?: Prisma.SkillCreateOrConnectWithoutReviewLogsInput
+  connect?: Prisma.SkillWhereUniqueInput
+}
+
+export type SkillUpdateOneRequiredWithoutReviewLogsNestedInput = {
+  create?: Prisma.XOR<Prisma.SkillCreateWithoutReviewLogsInput, Prisma.SkillUncheckedCreateWithoutReviewLogsInput>
+  connectOrCreate?: Prisma.SkillCreateOrConnectWithoutReviewLogsInput
+  upsert?: Prisma.SkillUpsertWithoutReviewLogsInput
+  connect?: Prisma.SkillWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.SkillUpdateToOneWithWhereWithoutReviewLogsInput, Prisma.SkillUpdateWithoutReviewLogsInput>, Prisma.SkillUncheckedUpdateWithoutReviewLogsInput>
+}
+
 export type SkillCreateWithoutUserInput = {
   id?: string
   title: string
@@ -967,6 +994,7 @@ export type SkillCreateWithoutUserInput = {
   sourceRefs?: Prisma.SkillSourceRefCreateNestedManyWithoutSkillInput
   exercises?: Prisma.ExerciseCreateNestedManyWithoutSkillInput
   attempts?: Prisma.ExerciseAttemptCreateNestedManyWithoutSkillInput
+  reviewLogs?: Prisma.ReviewLogCreateNestedManyWithoutSkillInput
 }
 
 export type SkillUncheckedCreateWithoutUserInput = {
@@ -994,6 +1022,7 @@ export type SkillUncheckedCreateWithoutUserInput = {
   sourceRefs?: Prisma.SkillSourceRefUncheckedCreateNestedManyWithoutSkillInput
   exercises?: Prisma.ExerciseUncheckedCreateNestedManyWithoutSkillInput
   attempts?: Prisma.ExerciseAttemptUncheckedCreateNestedManyWithoutSkillInput
+  reviewLogs?: Prisma.ReviewLogUncheckedCreateNestedManyWithoutSkillInput
 }
 
 export type SkillCreateOrConnectWithoutUserInput = {
@@ -1075,11 +1104,11 @@ export type SkillCreateWithoutCollectionInput = {
   sourceRefs?: Prisma.SkillSourceRefCreateNestedManyWithoutSkillInput
   exercises?: Prisma.ExerciseCreateNestedManyWithoutSkillInput
   attempts?: Prisma.ExerciseAttemptCreateNestedManyWithoutSkillInput
+  reviewLogs?: Prisma.ReviewLogCreateNestedManyWithoutSkillInput
 }
 
 export type SkillUncheckedCreateWithoutCollectionInput = {
   id?: string
-  userId: string
   title: string
   objective?: string | null
   rules?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1102,6 +1131,7 @@ export type SkillUncheckedCreateWithoutCollectionInput = {
   sourceRefs?: Prisma.SkillSourceRefUncheckedCreateNestedManyWithoutSkillInput
   exercises?: Prisma.ExerciseUncheckedCreateNestedManyWithoutSkillInput
   attempts?: Prisma.ExerciseAttemptUncheckedCreateNestedManyWithoutSkillInput
+  reviewLogs?: Prisma.ReviewLogUncheckedCreateNestedManyWithoutSkillInput
 }
 
 export type SkillCreateOrConnectWithoutCollectionInput = {
@@ -1155,6 +1185,7 @@ export type SkillCreateWithoutSourceRefsInput = {
   collection?: Prisma.CollectionCreateNestedOneWithoutSkillsInput
   exercises?: Prisma.ExerciseCreateNestedManyWithoutSkillInput
   attempts?: Prisma.ExerciseAttemptCreateNestedManyWithoutSkillInput
+  reviewLogs?: Prisma.ReviewLogCreateNestedManyWithoutSkillInput
 }
 
 export type SkillUncheckedCreateWithoutSourceRefsInput = {
@@ -1182,6 +1213,7 @@ export type SkillUncheckedCreateWithoutSourceRefsInput = {
   updatedAt?: Date | string
   exercises?: Prisma.ExerciseUncheckedCreateNestedManyWithoutSkillInput
   attempts?: Prisma.ExerciseAttemptUncheckedCreateNestedManyWithoutSkillInput
+  reviewLogs?: Prisma.ReviewLogUncheckedCreateNestedManyWithoutSkillInput
 }
 
 export type SkillCreateOrConnectWithoutSourceRefsInput = {
@@ -1225,6 +1257,7 @@ export type SkillUpdateWithoutSourceRefsInput = {
   collection?: Prisma.CollectionUpdateOneWithoutSkillsNestedInput
   exercises?: Prisma.ExerciseUpdateManyWithoutSkillNestedInput
   attempts?: Prisma.ExerciseAttemptUpdateManyWithoutSkillNestedInput
+  reviewLogs?: Prisma.ReviewLogUpdateManyWithoutSkillNestedInput
 }
 
 export type SkillUncheckedUpdateWithoutSourceRefsInput = {
@@ -1252,6 +1285,7 @@ export type SkillUncheckedUpdateWithoutSourceRefsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   exercises?: Prisma.ExerciseUncheckedUpdateManyWithoutSkillNestedInput
   attempts?: Prisma.ExerciseAttemptUncheckedUpdateManyWithoutSkillNestedInput
+  reviewLogs?: Prisma.ReviewLogUncheckedUpdateManyWithoutSkillNestedInput
 }
 
 export type SkillCreateWithoutExercisesInput = {
@@ -1279,6 +1313,7 @@ export type SkillCreateWithoutExercisesInput = {
   collection?: Prisma.CollectionCreateNestedOneWithoutSkillsInput
   sourceRefs?: Prisma.SkillSourceRefCreateNestedManyWithoutSkillInput
   attempts?: Prisma.ExerciseAttemptCreateNestedManyWithoutSkillInput
+  reviewLogs?: Prisma.ReviewLogCreateNestedManyWithoutSkillInput
 }
 
 export type SkillUncheckedCreateWithoutExercisesInput = {
@@ -1306,6 +1341,7 @@ export type SkillUncheckedCreateWithoutExercisesInput = {
   updatedAt?: Date | string
   sourceRefs?: Prisma.SkillSourceRefUncheckedCreateNestedManyWithoutSkillInput
   attempts?: Prisma.ExerciseAttemptUncheckedCreateNestedManyWithoutSkillInput
+  reviewLogs?: Prisma.ReviewLogUncheckedCreateNestedManyWithoutSkillInput
 }
 
 export type SkillCreateOrConnectWithoutExercisesInput = {
@@ -1349,6 +1385,7 @@ export type SkillUpdateWithoutExercisesInput = {
   collection?: Prisma.CollectionUpdateOneWithoutSkillsNestedInput
   sourceRefs?: Prisma.SkillSourceRefUpdateManyWithoutSkillNestedInput
   attempts?: Prisma.ExerciseAttemptUpdateManyWithoutSkillNestedInput
+  reviewLogs?: Prisma.ReviewLogUpdateManyWithoutSkillNestedInput
 }
 
 export type SkillUncheckedUpdateWithoutExercisesInput = {
@@ -1376,6 +1413,7 @@ export type SkillUncheckedUpdateWithoutExercisesInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sourceRefs?: Prisma.SkillSourceRefUncheckedUpdateManyWithoutSkillNestedInput
   attempts?: Prisma.ExerciseAttemptUncheckedUpdateManyWithoutSkillNestedInput
+  reviewLogs?: Prisma.ReviewLogUncheckedUpdateManyWithoutSkillNestedInput
 }
 
 export type SkillCreateWithoutAttemptsInput = {
@@ -1403,6 +1441,7 @@ export type SkillCreateWithoutAttemptsInput = {
   collection?: Prisma.CollectionCreateNestedOneWithoutSkillsInput
   sourceRefs?: Prisma.SkillSourceRefCreateNestedManyWithoutSkillInput
   exercises?: Prisma.ExerciseCreateNestedManyWithoutSkillInput
+  reviewLogs?: Prisma.ReviewLogCreateNestedManyWithoutSkillInput
 }
 
 export type SkillUncheckedCreateWithoutAttemptsInput = {
@@ -1430,6 +1469,7 @@ export type SkillUncheckedCreateWithoutAttemptsInput = {
   updatedAt?: Date | string
   sourceRefs?: Prisma.SkillSourceRefUncheckedCreateNestedManyWithoutSkillInput
   exercises?: Prisma.ExerciseUncheckedCreateNestedManyWithoutSkillInput
+  reviewLogs?: Prisma.ReviewLogUncheckedCreateNestedManyWithoutSkillInput
 }
 
 export type SkillCreateOrConnectWithoutAttemptsInput = {
@@ -1473,6 +1513,7 @@ export type SkillUpdateWithoutAttemptsInput = {
   collection?: Prisma.CollectionUpdateOneWithoutSkillsNestedInput
   sourceRefs?: Prisma.SkillSourceRefUpdateManyWithoutSkillNestedInput
   exercises?: Prisma.ExerciseUpdateManyWithoutSkillNestedInput
+  reviewLogs?: Prisma.ReviewLogUpdateManyWithoutSkillNestedInput
 }
 
 export type SkillUncheckedUpdateWithoutAttemptsInput = {
@@ -1500,6 +1541,135 @@ export type SkillUncheckedUpdateWithoutAttemptsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sourceRefs?: Prisma.SkillSourceRefUncheckedUpdateManyWithoutSkillNestedInput
   exercises?: Prisma.ExerciseUncheckedUpdateManyWithoutSkillNestedInput
+  reviewLogs?: Prisma.ReviewLogUncheckedUpdateManyWithoutSkillNestedInput
+}
+
+export type SkillCreateWithoutReviewLogsInput = {
+  id?: string
+  title: string
+  objective?: string | null
+  rules?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  examples?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  exerciseConstraints?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  tags?: Prisma.SkillCreatetagsInput | string[]
+  status?: $Enums.SkillStatus
+  dueAt?: Date | string | null
+  stability?: number | null
+  difficulty?: number | null
+  elapsedDays?: number
+  scheduledDays?: number
+  learningSteps?: number
+  repetitions?: number
+  lapses?: number
+  fsrsState?: $Enums.SkillFsrsState
+  lastReviewedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  user: Prisma.UserCreateNestedOneWithoutSkillsInput
+  collection?: Prisma.CollectionCreateNestedOneWithoutSkillsInput
+  sourceRefs?: Prisma.SkillSourceRefCreateNestedManyWithoutSkillInput
+  exercises?: Prisma.ExerciseCreateNestedManyWithoutSkillInput
+  attempts?: Prisma.ExerciseAttemptCreateNestedManyWithoutSkillInput
+}
+
+export type SkillUncheckedCreateWithoutReviewLogsInput = {
+  id?: string
+  userId: string
+  collectionId?: string | null
+  title: string
+  objective?: string | null
+  rules?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  examples?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  exerciseConstraints?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  tags?: Prisma.SkillCreatetagsInput | string[]
+  status?: $Enums.SkillStatus
+  dueAt?: Date | string | null
+  stability?: number | null
+  difficulty?: number | null
+  elapsedDays?: number
+  scheduledDays?: number
+  learningSteps?: number
+  repetitions?: number
+  lapses?: number
+  fsrsState?: $Enums.SkillFsrsState
+  lastReviewedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  sourceRefs?: Prisma.SkillSourceRefUncheckedCreateNestedManyWithoutSkillInput
+  exercises?: Prisma.ExerciseUncheckedCreateNestedManyWithoutSkillInput
+  attempts?: Prisma.ExerciseAttemptUncheckedCreateNestedManyWithoutSkillInput
+}
+
+export type SkillCreateOrConnectWithoutReviewLogsInput = {
+  where: Prisma.SkillWhereUniqueInput
+  create: Prisma.XOR<Prisma.SkillCreateWithoutReviewLogsInput, Prisma.SkillUncheckedCreateWithoutReviewLogsInput>
+}
+
+export type SkillUpsertWithoutReviewLogsInput = {
+  update: Prisma.XOR<Prisma.SkillUpdateWithoutReviewLogsInput, Prisma.SkillUncheckedUpdateWithoutReviewLogsInput>
+  create: Prisma.XOR<Prisma.SkillCreateWithoutReviewLogsInput, Prisma.SkillUncheckedCreateWithoutReviewLogsInput>
+  where?: Prisma.SkillWhereInput
+}
+
+export type SkillUpdateToOneWithWhereWithoutReviewLogsInput = {
+  where?: Prisma.SkillWhereInput
+  data: Prisma.XOR<Prisma.SkillUpdateWithoutReviewLogsInput, Prisma.SkillUncheckedUpdateWithoutReviewLogsInput>
+}
+
+export type SkillUpdateWithoutReviewLogsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  objective?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  rules?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  examples?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  exerciseConstraints?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  tags?: Prisma.SkillUpdatetagsInput | string[]
+  status?: Prisma.EnumSkillStatusFieldUpdateOperationsInput | $Enums.SkillStatus
+  dueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  stability?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  difficulty?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  elapsedDays?: Prisma.IntFieldUpdateOperationsInput | number
+  scheduledDays?: Prisma.IntFieldUpdateOperationsInput | number
+  learningSteps?: Prisma.IntFieldUpdateOperationsInput | number
+  repetitions?: Prisma.IntFieldUpdateOperationsInput | number
+  lapses?: Prisma.IntFieldUpdateOperationsInput | number
+  fsrsState?: Prisma.EnumSkillFsrsStateFieldUpdateOperationsInput | $Enums.SkillFsrsState
+  lastReviewedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  user?: Prisma.UserUpdateOneRequiredWithoutSkillsNestedInput
+  collection?: Prisma.CollectionUpdateOneWithoutSkillsNestedInput
+  sourceRefs?: Prisma.SkillSourceRefUpdateManyWithoutSkillNestedInput
+  exercises?: Prisma.ExerciseUpdateManyWithoutSkillNestedInput
+  attempts?: Prisma.ExerciseAttemptUpdateManyWithoutSkillNestedInput
+}
+
+export type SkillUncheckedUpdateWithoutReviewLogsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
+  collectionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  objective?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  rules?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  examples?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  exerciseConstraints?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  tags?: Prisma.SkillUpdatetagsInput | string[]
+  status?: Prisma.EnumSkillStatusFieldUpdateOperationsInput | $Enums.SkillStatus
+  dueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  stability?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  difficulty?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  elapsedDays?: Prisma.IntFieldUpdateOperationsInput | number
+  scheduledDays?: Prisma.IntFieldUpdateOperationsInput | number
+  learningSteps?: Prisma.IntFieldUpdateOperationsInput | number
+  repetitions?: Prisma.IntFieldUpdateOperationsInput | number
+  lapses?: Prisma.IntFieldUpdateOperationsInput | number
+  fsrsState?: Prisma.EnumSkillFsrsStateFieldUpdateOperationsInput | $Enums.SkillFsrsState
+  lastReviewedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  sourceRefs?: Prisma.SkillSourceRefUncheckedUpdateManyWithoutSkillNestedInput
+  exercises?: Prisma.ExerciseUncheckedUpdateManyWithoutSkillNestedInput
+  attempts?: Prisma.ExerciseAttemptUncheckedUpdateManyWithoutSkillNestedInput
 }
 
 export type SkillCreateManyUserInput = {
@@ -1551,6 +1721,7 @@ export type SkillUpdateWithoutUserInput = {
   sourceRefs?: Prisma.SkillSourceRefUpdateManyWithoutSkillNestedInput
   exercises?: Prisma.ExerciseUpdateManyWithoutSkillNestedInput
   attempts?: Prisma.ExerciseAttemptUpdateManyWithoutSkillNestedInput
+  reviewLogs?: Prisma.ReviewLogUpdateManyWithoutSkillNestedInput
 }
 
 export type SkillUncheckedUpdateWithoutUserInput = {
@@ -1578,6 +1749,7 @@ export type SkillUncheckedUpdateWithoutUserInput = {
   sourceRefs?: Prisma.SkillSourceRefUncheckedUpdateManyWithoutSkillNestedInput
   exercises?: Prisma.ExerciseUncheckedUpdateManyWithoutSkillNestedInput
   attempts?: Prisma.ExerciseAttemptUncheckedUpdateManyWithoutSkillNestedInput
+  reviewLogs?: Prisma.ReviewLogUncheckedUpdateManyWithoutSkillNestedInput
 }
 
 export type SkillUncheckedUpdateManyWithoutUserInput = {
@@ -1606,7 +1778,6 @@ export type SkillUncheckedUpdateManyWithoutUserInput = {
 
 export type SkillCreateManyCollectionInput = {
   id?: string
-  userId: string
   title: string
   objective?: string | null
   rules?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1653,11 +1824,11 @@ export type SkillUpdateWithoutCollectionInput = {
   sourceRefs?: Prisma.SkillSourceRefUpdateManyWithoutSkillNestedInput
   exercises?: Prisma.ExerciseUpdateManyWithoutSkillNestedInput
   attempts?: Prisma.ExerciseAttemptUpdateManyWithoutSkillNestedInput
+  reviewLogs?: Prisma.ReviewLogUpdateManyWithoutSkillNestedInput
 }
 
 export type SkillUncheckedUpdateWithoutCollectionInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  userId?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   objective?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rules?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1680,11 +1851,11 @@ export type SkillUncheckedUpdateWithoutCollectionInput = {
   sourceRefs?: Prisma.SkillSourceRefUncheckedUpdateManyWithoutSkillNestedInput
   exercises?: Prisma.ExerciseUncheckedUpdateManyWithoutSkillNestedInput
   attempts?: Prisma.ExerciseAttemptUncheckedUpdateManyWithoutSkillNestedInput
+  reviewLogs?: Prisma.ReviewLogUncheckedUpdateManyWithoutSkillNestedInput
 }
 
 export type SkillUncheckedUpdateManyWithoutCollectionInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  userId?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   objective?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rules?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1715,12 +1886,14 @@ export type SkillCountOutputType = {
   sourceRefs: number
   exercises: number
   attempts: number
+  reviewLogs: number
 }
 
 export type SkillCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   sourceRefs?: boolean | SkillCountOutputTypeCountSourceRefsArgs
   exercises?: boolean | SkillCountOutputTypeCountExercisesArgs
   attempts?: boolean | SkillCountOutputTypeCountAttemptsArgs
+  reviewLogs?: boolean | SkillCountOutputTypeCountReviewLogsArgs
 }
 
 /**
@@ -1754,6 +1927,13 @@ export type SkillCountOutputTypeCountAttemptsArgs<ExtArgs extends runtime.Types.
   where?: Prisma.ExerciseAttemptWhereInput
 }
 
+/**
+ * SkillCountOutputType without action
+ */
+export type SkillCountOutputTypeCountReviewLogsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.ReviewLogWhereInput
+}
+
 
 export type SkillSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -1783,6 +1963,7 @@ export type SkillSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   sourceRefs?: boolean | Prisma.Skill$sourceRefsArgs<ExtArgs>
   exercises?: boolean | Prisma.Skill$exercisesArgs<ExtArgs>
   attempts?: boolean | Prisma.Skill$attemptsArgs<ExtArgs>
+  reviewLogs?: boolean | Prisma.Skill$reviewLogsArgs<ExtArgs>
   _count?: boolean | Prisma.SkillCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["skill"]>
 
@@ -1872,6 +2053,7 @@ export type SkillInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   sourceRefs?: boolean | Prisma.Skill$sourceRefsArgs<ExtArgs>
   exercises?: boolean | Prisma.Skill$exercisesArgs<ExtArgs>
   attempts?: boolean | Prisma.Skill$attemptsArgs<ExtArgs>
+  reviewLogs?: boolean | Prisma.Skill$reviewLogsArgs<ExtArgs>
   _count?: boolean | Prisma.SkillCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type SkillIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1891,6 +2073,7 @@ export type $SkillPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs 
     sourceRefs: Prisma.$SkillSourceRefPayload<ExtArgs>[]
     exercises: Prisma.$ExercisePayload<ExtArgs>[]
     attempts: Prisma.$ExerciseAttemptPayload<ExtArgs>[]
+    reviewLogs: Prisma.$ReviewLogPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -2314,6 +2497,7 @@ export interface Prisma__SkillClient<T, Null = never, ExtArgs extends runtime.Ty
   sourceRefs<T extends Prisma.Skill$sourceRefsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Skill$sourceRefsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$SkillSourceRefPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   exercises<T extends Prisma.Skill$exercisesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Skill$exercisesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ExercisePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   attempts<T extends Prisma.Skill$attemptsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Skill$attemptsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ExerciseAttemptPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  reviewLogs<T extends Prisma.Skill$reviewLogsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Skill$reviewLogsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ReviewLogPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -2854,6 +3038,30 @@ export type Skill$attemptsArgs<ExtArgs extends runtime.Types.Extensions.Internal
   take?: number
   skip?: number
   distinct?: Prisma.ExerciseAttemptScalarFieldEnum | Prisma.ExerciseAttemptScalarFieldEnum[]
+}
+
+/**
+ * Skill.reviewLogs
+ */
+export type Skill$reviewLogsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ReviewLog
+   */
+  select?: Prisma.ReviewLogSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ReviewLog
+   */
+  omit?: Prisma.ReviewLogOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ReviewLogInclude<ExtArgs> | null
+  where?: Prisma.ReviewLogWhereInput
+  orderBy?: Prisma.ReviewLogOrderByWithRelationInput | Prisma.ReviewLogOrderByWithRelationInput[]
+  cursor?: Prisma.ReviewLogWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.ReviewLogScalarFieldEnum | Prisma.ReviewLogScalarFieldEnum[]
 }
 
 /**

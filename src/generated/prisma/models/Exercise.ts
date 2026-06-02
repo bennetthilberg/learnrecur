@@ -48,6 +48,8 @@ export type ExerciseMinAggregateOutputType = {
   difficulty: number | null
   expectedSeconds: number | null
   verificationStatus: $Enums.ExerciseVerificationStatus | null
+  retiredAt: Date | null
+  retirementReason: $Enums.ExerciseRetirementReason | null
   freshnessKey: string | null
   createdAt: Date | null
   updatedAt: Date | null
@@ -65,6 +67,8 @@ export type ExerciseMaxAggregateOutputType = {
   difficulty: number | null
   expectedSeconds: number | null
   verificationStatus: $Enums.ExerciseVerificationStatus | null
+  retiredAt: Date | null
+  retirementReason: $Enums.ExerciseRetirementReason | null
   freshnessKey: string | null
   createdAt: Date | null
   updatedAt: Date | null
@@ -84,6 +88,8 @@ export type ExerciseCountAggregateOutputType = {
   difficulty: number
   expectedSeconds: number
   verificationStatus: number
+  retiredAt: number
+  retirementReason: number
   freshnessKey: number
   sourceRefs: number
   createdAt: number
@@ -114,6 +120,8 @@ export type ExerciseMinAggregateInputType = {
   difficulty?: true
   expectedSeconds?: true
   verificationStatus?: true
+  retiredAt?: true
+  retirementReason?: true
   freshnessKey?: true
   createdAt?: true
   updatedAt?: true
@@ -131,6 +139,8 @@ export type ExerciseMaxAggregateInputType = {
   difficulty?: true
   expectedSeconds?: true
   verificationStatus?: true
+  retiredAt?: true
+  retirementReason?: true
   freshnessKey?: true
   createdAt?: true
   updatedAt?: true
@@ -150,6 +160,8 @@ export type ExerciseCountAggregateInputType = {
   difficulty?: true
   expectedSeconds?: true
   verificationStatus?: true
+  retiredAt?: true
+  retirementReason?: true
   freshnessKey?: true
   sourceRefs?: true
   createdAt?: true
@@ -257,6 +269,8 @@ export type ExerciseGroupByOutputType = {
   difficulty: number | null
   expectedSeconds: number | null
   verificationStatus: $Enums.ExerciseVerificationStatus
+  retiredAt: Date | null
+  retirementReason: $Enums.ExerciseRetirementReason | null
   freshnessKey: string | null
   sourceRefs: runtime.JsonValue | null
   createdAt: Date
@@ -300,6 +314,8 @@ export type ExerciseWhereInput = {
   difficulty?: Prisma.IntNullableFilter<"Exercise"> | number | null
   expectedSeconds?: Prisma.IntNullableFilter<"Exercise"> | number | null
   verificationStatus?: Prisma.EnumExerciseVerificationStatusFilter<"Exercise"> | $Enums.ExerciseVerificationStatus
+  retiredAt?: Prisma.DateTimeNullableFilter<"Exercise"> | Date | string | null
+  retirementReason?: Prisma.EnumExerciseRetirementReasonNullableFilter<"Exercise"> | $Enums.ExerciseRetirementReason | null
   freshnessKey?: Prisma.StringNullableFilter<"Exercise"> | string | null
   sourceRefs?: Prisma.JsonNullableFilter<"Exercise">
   createdAt?: Prisma.DateTimeFilter<"Exercise"> | Date | string
@@ -307,6 +323,7 @@ export type ExerciseWhereInput = {
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   skill?: Prisma.XOR<Prisma.SkillScalarRelationFilter, Prisma.SkillWhereInput>
   attempts?: Prisma.ExerciseAttemptListRelationFilter
+  flags?: Prisma.ExerciseFlagListRelationFilter
 }
 
 export type ExerciseOrderByWithRelationInput = {
@@ -323,6 +340,8 @@ export type ExerciseOrderByWithRelationInput = {
   difficulty?: Prisma.SortOrderInput | Prisma.SortOrder
   expectedSeconds?: Prisma.SortOrderInput | Prisma.SortOrder
   verificationStatus?: Prisma.SortOrder
+  retiredAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  retirementReason?: Prisma.SortOrderInput | Prisma.SortOrder
   freshnessKey?: Prisma.SortOrderInput | Prisma.SortOrder
   sourceRefs?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -330,10 +349,13 @@ export type ExerciseOrderByWithRelationInput = {
   user?: Prisma.UserOrderByWithRelationInput
   skill?: Prisma.SkillOrderByWithRelationInput
   attempts?: Prisma.ExerciseAttemptOrderByRelationAggregateInput
+  flags?: Prisma.ExerciseFlagOrderByRelationAggregateInput
 }
 
 export type ExerciseWhereUniqueInput = Prisma.AtLeast<{
   id?: string
+  id_userId?: Prisma.ExerciseIdUserIdCompoundUniqueInput
+  id_skillId_userId?: Prisma.ExerciseIdSkillIdUserIdCompoundUniqueInput
   AND?: Prisma.ExerciseWhereInput | Prisma.ExerciseWhereInput[]
   OR?: Prisma.ExerciseWhereInput[]
   NOT?: Prisma.ExerciseWhereInput | Prisma.ExerciseWhereInput[]
@@ -349,6 +371,8 @@ export type ExerciseWhereUniqueInput = Prisma.AtLeast<{
   difficulty?: Prisma.IntNullableFilter<"Exercise"> | number | null
   expectedSeconds?: Prisma.IntNullableFilter<"Exercise"> | number | null
   verificationStatus?: Prisma.EnumExerciseVerificationStatusFilter<"Exercise"> | $Enums.ExerciseVerificationStatus
+  retiredAt?: Prisma.DateTimeNullableFilter<"Exercise"> | Date | string | null
+  retirementReason?: Prisma.EnumExerciseRetirementReasonNullableFilter<"Exercise"> | $Enums.ExerciseRetirementReason | null
   freshnessKey?: Prisma.StringNullableFilter<"Exercise"> | string | null
   sourceRefs?: Prisma.JsonNullableFilter<"Exercise">
   createdAt?: Prisma.DateTimeFilter<"Exercise"> | Date | string
@@ -356,7 +380,8 @@ export type ExerciseWhereUniqueInput = Prisma.AtLeast<{
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   skill?: Prisma.XOR<Prisma.SkillScalarRelationFilter, Prisma.SkillWhereInput>
   attempts?: Prisma.ExerciseAttemptListRelationFilter
-}, "id">
+  flags?: Prisma.ExerciseFlagListRelationFilter
+}, "id" | "id_userId" | "id_skillId_userId">
 
 export type ExerciseOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
@@ -372,6 +397,8 @@ export type ExerciseOrderByWithAggregationInput = {
   difficulty?: Prisma.SortOrderInput | Prisma.SortOrder
   expectedSeconds?: Prisma.SortOrderInput | Prisma.SortOrder
   verificationStatus?: Prisma.SortOrder
+  retiredAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  retirementReason?: Prisma.SortOrderInput | Prisma.SortOrder
   freshnessKey?: Prisma.SortOrderInput | Prisma.SortOrder
   sourceRefs?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -400,6 +427,8 @@ export type ExerciseScalarWhereWithAggregatesInput = {
   difficulty?: Prisma.IntNullableWithAggregatesFilter<"Exercise"> | number | null
   expectedSeconds?: Prisma.IntNullableWithAggregatesFilter<"Exercise"> | number | null
   verificationStatus?: Prisma.EnumExerciseVerificationStatusWithAggregatesFilter<"Exercise"> | $Enums.ExerciseVerificationStatus
+  retiredAt?: Prisma.DateTimeNullableWithAggregatesFilter<"Exercise"> | Date | string | null
+  retirementReason?: Prisma.EnumExerciseRetirementReasonNullableWithAggregatesFilter<"Exercise"> | $Enums.ExerciseRetirementReason | null
   freshnessKey?: Prisma.StringNullableWithAggregatesFilter<"Exercise"> | string | null
   sourceRefs?: Prisma.JsonNullableWithAggregatesFilter<"Exercise">
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"Exercise"> | Date | string
@@ -418,6 +447,8 @@ export type ExerciseCreateInput = {
   difficulty?: number | null
   expectedSeconds?: number | null
   verificationStatus?: $Enums.ExerciseVerificationStatus
+  retiredAt?: Date | string | null
+  retirementReason?: $Enums.ExerciseRetirementReason | null
   freshnessKey?: string | null
   sourceRefs?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
@@ -425,6 +456,7 @@ export type ExerciseCreateInput = {
   user: Prisma.UserCreateNestedOneWithoutExercisesInput
   skill: Prisma.SkillCreateNestedOneWithoutExercisesInput
   attempts?: Prisma.ExerciseAttemptCreateNestedManyWithoutExerciseInput
+  flags?: Prisma.ExerciseFlagCreateNestedManyWithoutExerciseInput
 }
 
 export type ExerciseUncheckedCreateInput = {
@@ -441,11 +473,14 @@ export type ExerciseUncheckedCreateInput = {
   difficulty?: number | null
   expectedSeconds?: number | null
   verificationStatus?: $Enums.ExerciseVerificationStatus
+  retiredAt?: Date | string | null
+  retirementReason?: $Enums.ExerciseRetirementReason | null
   freshnessKey?: string | null
   sourceRefs?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   attempts?: Prisma.ExerciseAttemptUncheckedCreateNestedManyWithoutExerciseInput
+  flags?: Prisma.ExerciseFlagUncheckedCreateNestedManyWithoutExerciseInput
 }
 
 export type ExerciseUpdateInput = {
@@ -460,6 +495,8 @@ export type ExerciseUpdateInput = {
   difficulty?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   expectedSeconds?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   verificationStatus?: Prisma.EnumExerciseVerificationStatusFieldUpdateOperationsInput | $Enums.ExerciseVerificationStatus
+  retiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  retirementReason?: Prisma.NullableEnumExerciseRetirementReasonFieldUpdateOperationsInput | $Enums.ExerciseRetirementReason | null
   freshnessKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sourceRefs?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -467,6 +504,7 @@ export type ExerciseUpdateInput = {
   user?: Prisma.UserUpdateOneRequiredWithoutExercisesNestedInput
   skill?: Prisma.SkillUpdateOneRequiredWithoutExercisesNestedInput
   attempts?: Prisma.ExerciseAttemptUpdateManyWithoutExerciseNestedInput
+  flags?: Prisma.ExerciseFlagUpdateManyWithoutExerciseNestedInput
 }
 
 export type ExerciseUncheckedUpdateInput = {
@@ -483,11 +521,14 @@ export type ExerciseUncheckedUpdateInput = {
   difficulty?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   expectedSeconds?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   verificationStatus?: Prisma.EnumExerciseVerificationStatusFieldUpdateOperationsInput | $Enums.ExerciseVerificationStatus
+  retiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  retirementReason?: Prisma.NullableEnumExerciseRetirementReasonFieldUpdateOperationsInput | $Enums.ExerciseRetirementReason | null
   freshnessKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sourceRefs?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   attempts?: Prisma.ExerciseAttemptUncheckedUpdateManyWithoutExerciseNestedInput
+  flags?: Prisma.ExerciseFlagUncheckedUpdateManyWithoutExerciseNestedInput
 }
 
 export type ExerciseCreateManyInput = {
@@ -504,6 +545,8 @@ export type ExerciseCreateManyInput = {
   difficulty?: number | null
   expectedSeconds?: number | null
   verificationStatus?: $Enums.ExerciseVerificationStatus
+  retiredAt?: Date | string | null
+  retirementReason?: $Enums.ExerciseRetirementReason | null
   freshnessKey?: string | null
   sourceRefs?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
@@ -522,6 +565,8 @@ export type ExerciseUpdateManyMutationInput = {
   difficulty?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   expectedSeconds?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   verificationStatus?: Prisma.EnumExerciseVerificationStatusFieldUpdateOperationsInput | $Enums.ExerciseVerificationStatus
+  retiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  retirementReason?: Prisma.NullableEnumExerciseRetirementReasonFieldUpdateOperationsInput | $Enums.ExerciseRetirementReason | null
   freshnessKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sourceRefs?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -542,6 +587,8 @@ export type ExerciseUncheckedUpdateManyInput = {
   difficulty?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   expectedSeconds?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   verificationStatus?: Prisma.EnumExerciseVerificationStatusFieldUpdateOperationsInput | $Enums.ExerciseVerificationStatus
+  retiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  retirementReason?: Prisma.NullableEnumExerciseRetirementReasonFieldUpdateOperationsInput | $Enums.ExerciseRetirementReason | null
   freshnessKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sourceRefs?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -558,6 +605,17 @@ export type ExerciseOrderByRelationAggregateInput = {
   _count?: Prisma.SortOrder
 }
 
+export type ExerciseIdUserIdCompoundUniqueInput = {
+  id: string
+  userId: string
+}
+
+export type ExerciseIdSkillIdUserIdCompoundUniqueInput = {
+  id: string
+  skillId: string
+  userId: string
+}
+
 export type ExerciseCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   userId?: Prisma.SortOrder
@@ -572,6 +630,8 @@ export type ExerciseCountOrderByAggregateInput = {
   difficulty?: Prisma.SortOrder
   expectedSeconds?: Prisma.SortOrder
   verificationStatus?: Prisma.SortOrder
+  retiredAt?: Prisma.SortOrder
+  retirementReason?: Prisma.SortOrder
   freshnessKey?: Prisma.SortOrder
   sourceRefs?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -595,6 +655,8 @@ export type ExerciseMaxOrderByAggregateInput = {
   difficulty?: Prisma.SortOrder
   expectedSeconds?: Prisma.SortOrder
   verificationStatus?: Prisma.SortOrder
+  retiredAt?: Prisma.SortOrder
+  retirementReason?: Prisma.SortOrder
   freshnessKey?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -612,6 +674,8 @@ export type ExerciseMinOrderByAggregateInput = {
   difficulty?: Prisma.SortOrder
   expectedSeconds?: Prisma.SortOrder
   verificationStatus?: Prisma.SortOrder
+  retiredAt?: Prisma.SortOrder
+  retirementReason?: Prisma.SortOrder
   freshnessKey?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -723,6 +787,10 @@ export type EnumExerciseVerificationStatusFieldUpdateOperationsInput = {
   set?: $Enums.ExerciseVerificationStatus
 }
 
+export type NullableEnumExerciseRetirementReasonFieldUpdateOperationsInput = {
+  set?: $Enums.ExerciseRetirementReason | null
+}
+
 export type ExerciseCreateNestedOneWithoutAttemptsInput = {
   create?: Prisma.XOR<Prisma.ExerciseCreateWithoutAttemptsInput, Prisma.ExerciseUncheckedCreateWithoutAttemptsInput>
   connectOrCreate?: Prisma.ExerciseCreateOrConnectWithoutAttemptsInput
@@ -737,6 +805,20 @@ export type ExerciseUpdateOneRequiredWithoutAttemptsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.ExerciseUpdateToOneWithWhereWithoutAttemptsInput, Prisma.ExerciseUpdateWithoutAttemptsInput>, Prisma.ExerciseUncheckedUpdateWithoutAttemptsInput>
 }
 
+export type ExerciseCreateNestedOneWithoutFlagsInput = {
+  create?: Prisma.XOR<Prisma.ExerciseCreateWithoutFlagsInput, Prisma.ExerciseUncheckedCreateWithoutFlagsInput>
+  connectOrCreate?: Prisma.ExerciseCreateOrConnectWithoutFlagsInput
+  connect?: Prisma.ExerciseWhereUniqueInput
+}
+
+export type ExerciseUpdateOneRequiredWithoutFlagsNestedInput = {
+  create?: Prisma.XOR<Prisma.ExerciseCreateWithoutFlagsInput, Prisma.ExerciseUncheckedCreateWithoutFlagsInput>
+  connectOrCreate?: Prisma.ExerciseCreateOrConnectWithoutFlagsInput
+  upsert?: Prisma.ExerciseUpsertWithoutFlagsInput
+  connect?: Prisma.ExerciseWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.ExerciseUpdateToOneWithWhereWithoutFlagsInput, Prisma.ExerciseUpdateWithoutFlagsInput>, Prisma.ExerciseUncheckedUpdateWithoutFlagsInput>
+}
+
 export type ExerciseCreateWithoutUserInput = {
   id?: string
   type: $Enums.ExerciseType
@@ -749,12 +831,15 @@ export type ExerciseCreateWithoutUserInput = {
   difficulty?: number | null
   expectedSeconds?: number | null
   verificationStatus?: $Enums.ExerciseVerificationStatus
+  retiredAt?: Date | string | null
+  retirementReason?: $Enums.ExerciseRetirementReason | null
   freshnessKey?: string | null
   sourceRefs?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   skill: Prisma.SkillCreateNestedOneWithoutExercisesInput
   attempts?: Prisma.ExerciseAttemptCreateNestedManyWithoutExerciseInput
+  flags?: Prisma.ExerciseFlagCreateNestedManyWithoutExerciseInput
 }
 
 export type ExerciseUncheckedCreateWithoutUserInput = {
@@ -770,11 +855,14 @@ export type ExerciseUncheckedCreateWithoutUserInput = {
   difficulty?: number | null
   expectedSeconds?: number | null
   verificationStatus?: $Enums.ExerciseVerificationStatus
+  retiredAt?: Date | string | null
+  retirementReason?: $Enums.ExerciseRetirementReason | null
   freshnessKey?: string | null
   sourceRefs?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   attempts?: Prisma.ExerciseAttemptUncheckedCreateNestedManyWithoutExerciseInput
+  flags?: Prisma.ExerciseFlagUncheckedCreateNestedManyWithoutExerciseInput
 }
 
 export type ExerciseCreateOrConnectWithoutUserInput = {
@@ -820,6 +908,8 @@ export type ExerciseScalarWhereInput = {
   difficulty?: Prisma.IntNullableFilter<"Exercise"> | number | null
   expectedSeconds?: Prisma.IntNullableFilter<"Exercise"> | number | null
   verificationStatus?: Prisma.EnumExerciseVerificationStatusFilter<"Exercise"> | $Enums.ExerciseVerificationStatus
+  retiredAt?: Prisma.DateTimeNullableFilter<"Exercise"> | Date | string | null
+  retirementReason?: Prisma.EnumExerciseRetirementReasonNullableFilter<"Exercise"> | $Enums.ExerciseRetirementReason | null
   freshnessKey?: Prisma.StringNullableFilter<"Exercise"> | string | null
   sourceRefs?: Prisma.JsonNullableFilter<"Exercise">
   createdAt?: Prisma.DateTimeFilter<"Exercise"> | Date | string
@@ -838,17 +928,19 @@ export type ExerciseCreateWithoutSkillInput = {
   difficulty?: number | null
   expectedSeconds?: number | null
   verificationStatus?: $Enums.ExerciseVerificationStatus
+  retiredAt?: Date | string | null
+  retirementReason?: $Enums.ExerciseRetirementReason | null
   freshnessKey?: string | null
   sourceRefs?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutExercisesInput
   attempts?: Prisma.ExerciseAttemptCreateNestedManyWithoutExerciseInput
+  flags?: Prisma.ExerciseFlagCreateNestedManyWithoutExerciseInput
 }
 
 export type ExerciseUncheckedCreateWithoutSkillInput = {
   id?: string
-  userId: string
   type: $Enums.ExerciseType
   answerKind: $Enums.AnswerKind
   prompt: string
@@ -859,11 +951,14 @@ export type ExerciseUncheckedCreateWithoutSkillInput = {
   difficulty?: number | null
   expectedSeconds?: number | null
   verificationStatus?: $Enums.ExerciseVerificationStatus
+  retiredAt?: Date | string | null
+  retirementReason?: $Enums.ExerciseRetirementReason | null
   freshnessKey?: string | null
   sourceRefs?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   attempts?: Prisma.ExerciseAttemptUncheckedCreateNestedManyWithoutExerciseInput
+  flags?: Prisma.ExerciseFlagUncheckedCreateNestedManyWithoutExerciseInput
 }
 
 export type ExerciseCreateOrConnectWithoutSkillInput = {
@@ -904,12 +999,15 @@ export type ExerciseCreateWithoutAttemptsInput = {
   difficulty?: number | null
   expectedSeconds?: number | null
   verificationStatus?: $Enums.ExerciseVerificationStatus
+  retiredAt?: Date | string | null
+  retirementReason?: $Enums.ExerciseRetirementReason | null
   freshnessKey?: string | null
   sourceRefs?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutExercisesInput
   skill: Prisma.SkillCreateNestedOneWithoutExercisesInput
+  flags?: Prisma.ExerciseFlagCreateNestedManyWithoutExerciseInput
 }
 
 export type ExerciseUncheckedCreateWithoutAttemptsInput = {
@@ -926,10 +1024,13 @@ export type ExerciseUncheckedCreateWithoutAttemptsInput = {
   difficulty?: number | null
   expectedSeconds?: number | null
   verificationStatus?: $Enums.ExerciseVerificationStatus
+  retiredAt?: Date | string | null
+  retirementReason?: $Enums.ExerciseRetirementReason | null
   freshnessKey?: string | null
   sourceRefs?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
+  flags?: Prisma.ExerciseFlagUncheckedCreateNestedManyWithoutExerciseInput
 }
 
 export type ExerciseCreateOrConnectWithoutAttemptsInput = {
@@ -960,12 +1061,15 @@ export type ExerciseUpdateWithoutAttemptsInput = {
   difficulty?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   expectedSeconds?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   verificationStatus?: Prisma.EnumExerciseVerificationStatusFieldUpdateOperationsInput | $Enums.ExerciseVerificationStatus
+  retiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  retirementReason?: Prisma.NullableEnumExerciseRetirementReasonFieldUpdateOperationsInput | $Enums.ExerciseRetirementReason | null
   freshnessKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sourceRefs?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutExercisesNestedInput
   skill?: Prisma.SkillUpdateOneRequiredWithoutExercisesNestedInput
+  flags?: Prisma.ExerciseFlagUpdateManyWithoutExerciseNestedInput
 }
 
 export type ExerciseUncheckedUpdateWithoutAttemptsInput = {
@@ -982,10 +1086,121 @@ export type ExerciseUncheckedUpdateWithoutAttemptsInput = {
   difficulty?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   expectedSeconds?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   verificationStatus?: Prisma.EnumExerciseVerificationStatusFieldUpdateOperationsInput | $Enums.ExerciseVerificationStatus
+  retiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  retirementReason?: Prisma.NullableEnumExerciseRetirementReasonFieldUpdateOperationsInput | $Enums.ExerciseRetirementReason | null
   freshnessKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sourceRefs?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  flags?: Prisma.ExerciseFlagUncheckedUpdateManyWithoutExerciseNestedInput
+}
+
+export type ExerciseCreateWithoutFlagsInput = {
+  id?: string
+  type: $Enums.ExerciseType
+  answerKind: $Enums.AnswerKind
+  prompt: string
+  choices?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  answerSpec: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  correctAnswerDisplay: string
+  explanation?: string | null
+  difficulty?: number | null
+  expectedSeconds?: number | null
+  verificationStatus?: $Enums.ExerciseVerificationStatus
+  retiredAt?: Date | string | null
+  retirementReason?: $Enums.ExerciseRetirementReason | null
+  freshnessKey?: string | null
+  sourceRefs?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  user: Prisma.UserCreateNestedOneWithoutExercisesInput
+  skill: Prisma.SkillCreateNestedOneWithoutExercisesInput
+  attempts?: Prisma.ExerciseAttemptCreateNestedManyWithoutExerciseInput
+}
+
+export type ExerciseUncheckedCreateWithoutFlagsInput = {
+  id?: string
+  userId: string
+  skillId: string
+  type: $Enums.ExerciseType
+  answerKind: $Enums.AnswerKind
+  prompt: string
+  choices?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  answerSpec: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  correctAnswerDisplay: string
+  explanation?: string | null
+  difficulty?: number | null
+  expectedSeconds?: number | null
+  verificationStatus?: $Enums.ExerciseVerificationStatus
+  retiredAt?: Date | string | null
+  retirementReason?: $Enums.ExerciseRetirementReason | null
+  freshnessKey?: string | null
+  sourceRefs?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  attempts?: Prisma.ExerciseAttemptUncheckedCreateNestedManyWithoutExerciseInput
+}
+
+export type ExerciseCreateOrConnectWithoutFlagsInput = {
+  where: Prisma.ExerciseWhereUniqueInput
+  create: Prisma.XOR<Prisma.ExerciseCreateWithoutFlagsInput, Prisma.ExerciseUncheckedCreateWithoutFlagsInput>
+}
+
+export type ExerciseUpsertWithoutFlagsInput = {
+  update: Prisma.XOR<Prisma.ExerciseUpdateWithoutFlagsInput, Prisma.ExerciseUncheckedUpdateWithoutFlagsInput>
+  create: Prisma.XOR<Prisma.ExerciseCreateWithoutFlagsInput, Prisma.ExerciseUncheckedCreateWithoutFlagsInput>
+  where?: Prisma.ExerciseWhereInput
+}
+
+export type ExerciseUpdateToOneWithWhereWithoutFlagsInput = {
+  where?: Prisma.ExerciseWhereInput
+  data: Prisma.XOR<Prisma.ExerciseUpdateWithoutFlagsInput, Prisma.ExerciseUncheckedUpdateWithoutFlagsInput>
+}
+
+export type ExerciseUpdateWithoutFlagsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  type?: Prisma.EnumExerciseTypeFieldUpdateOperationsInput | $Enums.ExerciseType
+  answerKind?: Prisma.EnumAnswerKindFieldUpdateOperationsInput | $Enums.AnswerKind
+  prompt?: Prisma.StringFieldUpdateOperationsInput | string
+  choices?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  answerSpec?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  correctAnswerDisplay?: Prisma.StringFieldUpdateOperationsInput | string
+  explanation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  difficulty?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  expectedSeconds?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  verificationStatus?: Prisma.EnumExerciseVerificationStatusFieldUpdateOperationsInput | $Enums.ExerciseVerificationStatus
+  retiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  retirementReason?: Prisma.NullableEnumExerciseRetirementReasonFieldUpdateOperationsInput | $Enums.ExerciseRetirementReason | null
+  freshnessKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sourceRefs?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  user?: Prisma.UserUpdateOneRequiredWithoutExercisesNestedInput
+  skill?: Prisma.SkillUpdateOneRequiredWithoutExercisesNestedInput
+  attempts?: Prisma.ExerciseAttemptUpdateManyWithoutExerciseNestedInput
+}
+
+export type ExerciseUncheckedUpdateWithoutFlagsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
+  skillId?: Prisma.StringFieldUpdateOperationsInput | string
+  type?: Prisma.EnumExerciseTypeFieldUpdateOperationsInput | $Enums.ExerciseType
+  answerKind?: Prisma.EnumAnswerKindFieldUpdateOperationsInput | $Enums.AnswerKind
+  prompt?: Prisma.StringFieldUpdateOperationsInput | string
+  choices?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  answerSpec?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  correctAnswerDisplay?: Prisma.StringFieldUpdateOperationsInput | string
+  explanation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  difficulty?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  expectedSeconds?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  verificationStatus?: Prisma.EnumExerciseVerificationStatusFieldUpdateOperationsInput | $Enums.ExerciseVerificationStatus
+  retiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  retirementReason?: Prisma.NullableEnumExerciseRetirementReasonFieldUpdateOperationsInput | $Enums.ExerciseRetirementReason | null
+  freshnessKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sourceRefs?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  attempts?: Prisma.ExerciseAttemptUncheckedUpdateManyWithoutExerciseNestedInput
 }
 
 export type ExerciseCreateManyUserInput = {
@@ -1001,6 +1216,8 @@ export type ExerciseCreateManyUserInput = {
   difficulty?: number | null
   expectedSeconds?: number | null
   verificationStatus?: $Enums.ExerciseVerificationStatus
+  retiredAt?: Date | string | null
+  retirementReason?: $Enums.ExerciseRetirementReason | null
   freshnessKey?: string | null
   sourceRefs?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
@@ -1019,12 +1236,15 @@ export type ExerciseUpdateWithoutUserInput = {
   difficulty?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   expectedSeconds?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   verificationStatus?: Prisma.EnumExerciseVerificationStatusFieldUpdateOperationsInput | $Enums.ExerciseVerificationStatus
+  retiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  retirementReason?: Prisma.NullableEnumExerciseRetirementReasonFieldUpdateOperationsInput | $Enums.ExerciseRetirementReason | null
   freshnessKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sourceRefs?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   skill?: Prisma.SkillUpdateOneRequiredWithoutExercisesNestedInput
   attempts?: Prisma.ExerciseAttemptUpdateManyWithoutExerciseNestedInput
+  flags?: Prisma.ExerciseFlagUpdateManyWithoutExerciseNestedInput
 }
 
 export type ExerciseUncheckedUpdateWithoutUserInput = {
@@ -1040,11 +1260,14 @@ export type ExerciseUncheckedUpdateWithoutUserInput = {
   difficulty?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   expectedSeconds?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   verificationStatus?: Prisma.EnumExerciseVerificationStatusFieldUpdateOperationsInput | $Enums.ExerciseVerificationStatus
+  retiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  retirementReason?: Prisma.NullableEnumExerciseRetirementReasonFieldUpdateOperationsInput | $Enums.ExerciseRetirementReason | null
   freshnessKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sourceRefs?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   attempts?: Prisma.ExerciseAttemptUncheckedUpdateManyWithoutExerciseNestedInput
+  flags?: Prisma.ExerciseFlagUncheckedUpdateManyWithoutExerciseNestedInput
 }
 
 export type ExerciseUncheckedUpdateManyWithoutUserInput = {
@@ -1060,6 +1283,8 @@ export type ExerciseUncheckedUpdateManyWithoutUserInput = {
   difficulty?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   expectedSeconds?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   verificationStatus?: Prisma.EnumExerciseVerificationStatusFieldUpdateOperationsInput | $Enums.ExerciseVerificationStatus
+  retiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  retirementReason?: Prisma.NullableEnumExerciseRetirementReasonFieldUpdateOperationsInput | $Enums.ExerciseRetirementReason | null
   freshnessKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sourceRefs?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1068,7 +1293,6 @@ export type ExerciseUncheckedUpdateManyWithoutUserInput = {
 
 export type ExerciseCreateManySkillInput = {
   id?: string
-  userId: string
   type: $Enums.ExerciseType
   answerKind: $Enums.AnswerKind
   prompt: string
@@ -1079,6 +1303,8 @@ export type ExerciseCreateManySkillInput = {
   difficulty?: number | null
   expectedSeconds?: number | null
   verificationStatus?: $Enums.ExerciseVerificationStatus
+  retiredAt?: Date | string | null
+  retirementReason?: $Enums.ExerciseRetirementReason | null
   freshnessKey?: string | null
   sourceRefs?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
@@ -1097,17 +1323,19 @@ export type ExerciseUpdateWithoutSkillInput = {
   difficulty?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   expectedSeconds?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   verificationStatus?: Prisma.EnumExerciseVerificationStatusFieldUpdateOperationsInput | $Enums.ExerciseVerificationStatus
+  retiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  retirementReason?: Prisma.NullableEnumExerciseRetirementReasonFieldUpdateOperationsInput | $Enums.ExerciseRetirementReason | null
   freshnessKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sourceRefs?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutExercisesNestedInput
   attempts?: Prisma.ExerciseAttemptUpdateManyWithoutExerciseNestedInput
+  flags?: Prisma.ExerciseFlagUpdateManyWithoutExerciseNestedInput
 }
 
 export type ExerciseUncheckedUpdateWithoutSkillInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  userId?: Prisma.StringFieldUpdateOperationsInput | string
   type?: Prisma.EnumExerciseTypeFieldUpdateOperationsInput | $Enums.ExerciseType
   answerKind?: Prisma.EnumAnswerKindFieldUpdateOperationsInput | $Enums.AnswerKind
   prompt?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1118,16 +1346,18 @@ export type ExerciseUncheckedUpdateWithoutSkillInput = {
   difficulty?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   expectedSeconds?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   verificationStatus?: Prisma.EnumExerciseVerificationStatusFieldUpdateOperationsInput | $Enums.ExerciseVerificationStatus
+  retiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  retirementReason?: Prisma.NullableEnumExerciseRetirementReasonFieldUpdateOperationsInput | $Enums.ExerciseRetirementReason | null
   freshnessKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sourceRefs?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   attempts?: Prisma.ExerciseAttemptUncheckedUpdateManyWithoutExerciseNestedInput
+  flags?: Prisma.ExerciseFlagUncheckedUpdateManyWithoutExerciseNestedInput
 }
 
 export type ExerciseUncheckedUpdateManyWithoutSkillInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  userId?: Prisma.StringFieldUpdateOperationsInput | string
   type?: Prisma.EnumExerciseTypeFieldUpdateOperationsInput | $Enums.ExerciseType
   answerKind?: Prisma.EnumAnswerKindFieldUpdateOperationsInput | $Enums.AnswerKind
   prompt?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1138,6 +1368,8 @@ export type ExerciseUncheckedUpdateManyWithoutSkillInput = {
   difficulty?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   expectedSeconds?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   verificationStatus?: Prisma.EnumExerciseVerificationStatusFieldUpdateOperationsInput | $Enums.ExerciseVerificationStatus
+  retiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  retirementReason?: Prisma.NullableEnumExerciseRetirementReasonFieldUpdateOperationsInput | $Enums.ExerciseRetirementReason | null
   freshnessKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sourceRefs?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1151,10 +1383,12 @@ export type ExerciseUncheckedUpdateManyWithoutSkillInput = {
 
 export type ExerciseCountOutputType = {
   attempts: number
+  flags: number
 }
 
 export type ExerciseCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   attempts?: boolean | ExerciseCountOutputTypeCountAttemptsArgs
+  flags?: boolean | ExerciseCountOutputTypeCountFlagsArgs
 }
 
 /**
@@ -1174,6 +1408,13 @@ export type ExerciseCountOutputTypeCountAttemptsArgs<ExtArgs extends runtime.Typ
   where?: Prisma.ExerciseAttemptWhereInput
 }
 
+/**
+ * ExerciseCountOutputType without action
+ */
+export type ExerciseCountOutputTypeCountFlagsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.ExerciseFlagWhereInput
+}
+
 
 export type ExerciseSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -1189,6 +1430,8 @@ export type ExerciseSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs
   difficulty?: boolean
   expectedSeconds?: boolean
   verificationStatus?: boolean
+  retiredAt?: boolean
+  retirementReason?: boolean
   freshnessKey?: boolean
   sourceRefs?: boolean
   createdAt?: boolean
@@ -1196,6 +1439,7 @@ export type ExerciseSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   skill?: boolean | Prisma.SkillDefaultArgs<ExtArgs>
   attempts?: boolean | Prisma.Exercise$attemptsArgs<ExtArgs>
+  flags?: boolean | Prisma.Exercise$flagsArgs<ExtArgs>
   _count?: boolean | Prisma.ExerciseCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["exercise"]>
 
@@ -1213,6 +1457,8 @@ export type ExerciseSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Exte
   difficulty?: boolean
   expectedSeconds?: boolean
   verificationStatus?: boolean
+  retiredAt?: boolean
+  retirementReason?: boolean
   freshnessKey?: boolean
   sourceRefs?: boolean
   createdAt?: boolean
@@ -1235,6 +1481,8 @@ export type ExerciseSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Exte
   difficulty?: boolean
   expectedSeconds?: boolean
   verificationStatus?: boolean
+  retiredAt?: boolean
+  retirementReason?: boolean
   freshnessKey?: boolean
   sourceRefs?: boolean
   createdAt?: boolean
@@ -1257,17 +1505,20 @@ export type ExerciseSelectScalar = {
   difficulty?: boolean
   expectedSeconds?: boolean
   verificationStatus?: boolean
+  retiredAt?: boolean
+  retirementReason?: boolean
   freshnessKey?: boolean
   sourceRefs?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type ExerciseOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "skillId" | "type" | "answerKind" | "prompt" | "choices" | "answerSpec" | "correctAnswerDisplay" | "explanation" | "difficulty" | "expectedSeconds" | "verificationStatus" | "freshnessKey" | "sourceRefs" | "createdAt" | "updatedAt", ExtArgs["result"]["exercise"]>
+export type ExerciseOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "skillId" | "type" | "answerKind" | "prompt" | "choices" | "answerSpec" | "correctAnswerDisplay" | "explanation" | "difficulty" | "expectedSeconds" | "verificationStatus" | "retiredAt" | "retirementReason" | "freshnessKey" | "sourceRefs" | "createdAt" | "updatedAt", ExtArgs["result"]["exercise"]>
 export type ExerciseInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   skill?: boolean | Prisma.SkillDefaultArgs<ExtArgs>
   attempts?: boolean | Prisma.Exercise$attemptsArgs<ExtArgs>
+  flags?: boolean | Prisma.Exercise$flagsArgs<ExtArgs>
   _count?: boolean | Prisma.ExerciseCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type ExerciseIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1285,6 +1536,7 @@ export type $ExercisePayload<ExtArgs extends runtime.Types.Extensions.InternalAr
     user: Prisma.$UserPayload<ExtArgs>
     skill: Prisma.$SkillPayload<ExtArgs>
     attempts: Prisma.$ExerciseAttemptPayload<ExtArgs>[]
+    flags: Prisma.$ExerciseFlagPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1300,6 +1552,8 @@ export type $ExercisePayload<ExtArgs extends runtime.Types.Extensions.InternalAr
     difficulty: number | null
     expectedSeconds: number | null
     verificationStatus: $Enums.ExerciseVerificationStatus
+    retiredAt: Date | null
+    retirementReason: $Enums.ExerciseRetirementReason | null
     freshnessKey: string | null
     sourceRefs: runtime.JsonValue | null
     createdAt: Date
@@ -1701,6 +1955,7 @@ export interface Prisma__ExerciseClient<T, Null = never, ExtArgs extends runtime
   user<T extends Prisma.UserDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.UserDefaultArgs<ExtArgs>>): Prisma.Prisma__UserClient<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   skill<T extends Prisma.SkillDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.SkillDefaultArgs<ExtArgs>>): Prisma.Prisma__SkillClient<runtime.Types.Result.GetResult<Prisma.$SkillPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   attempts<T extends Prisma.Exercise$attemptsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Exercise$attemptsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ExerciseAttemptPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  flags<T extends Prisma.Exercise$flagsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Exercise$flagsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ExerciseFlagPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1743,6 +1998,8 @@ export interface ExerciseFieldRefs {
   readonly difficulty: Prisma.FieldRef<"Exercise", 'Int'>
   readonly expectedSeconds: Prisma.FieldRef<"Exercise", 'Int'>
   readonly verificationStatus: Prisma.FieldRef<"Exercise", 'ExerciseVerificationStatus'>
+  readonly retiredAt: Prisma.FieldRef<"Exercise", 'DateTime'>
+  readonly retirementReason: Prisma.FieldRef<"Exercise", 'ExerciseRetirementReason'>
   readonly freshnessKey: Prisma.FieldRef<"Exercise", 'String'>
   readonly sourceRefs: Prisma.FieldRef<"Exercise", 'Json'>
   readonly createdAt: Prisma.FieldRef<"Exercise", 'DateTime'>
@@ -2169,6 +2426,30 @@ export type Exercise$attemptsArgs<ExtArgs extends runtime.Types.Extensions.Inter
   take?: number
   skip?: number
   distinct?: Prisma.ExerciseAttemptScalarFieldEnum | Prisma.ExerciseAttemptScalarFieldEnum[]
+}
+
+/**
+ * Exercise.flags
+ */
+export type Exercise$flagsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ExerciseFlag
+   */
+  select?: Prisma.ExerciseFlagSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ExerciseFlag
+   */
+  omit?: Prisma.ExerciseFlagOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ExerciseFlagInclude<ExtArgs> | null
+  where?: Prisma.ExerciseFlagWhereInput
+  orderBy?: Prisma.ExerciseFlagOrderByWithRelationInput | Prisma.ExerciseFlagOrderByWithRelationInput[]
+  cursor?: Prisma.ExerciseFlagWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.ExerciseFlagScalarFieldEnum | Prisma.ExerciseFlagScalarFieldEnum[]
 }
 
 /**

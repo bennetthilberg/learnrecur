@@ -320,6 +320,7 @@ export type SourceFileOrderByWithRelationInput = {
 
 export type SourceFileWhereUniqueInput = Prisma.AtLeast<{
   id?: string
+  id_userId?: Prisma.SourceFileIdUserIdCompoundUniqueInput
   AND?: Prisma.SourceFileWhereInput | Prisma.SourceFileWhereInput[]
   OR?: Prisma.SourceFileWhereInput[]
   NOT?: Prisma.SourceFileWhereInput | Prisma.SourceFileWhereInput[]
@@ -340,7 +341,7 @@ export type SourceFileWhereUniqueInput = Prisma.AtLeast<{
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   collection?: Prisma.XOR<Prisma.CollectionNullableScalarRelationFilter, Prisma.CollectionWhereInput> | null
   skillRefs?: Prisma.SkillSourceRefListRelationFilter
-}, "id">
+}, "id" | "id_userId">
 
 export type SourceFileOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
@@ -522,6 +523,11 @@ export type SourceFileListRelationFilter = {
 
 export type SourceFileOrderByRelationAggregateInput = {
   _count?: Prisma.SortOrder
+}
+
+export type SourceFileIdUserIdCompoundUniqueInput = {
+  id: string
+  userId: string
 }
 
 export type SourceFileCountOrderByAggregateInput = {
@@ -806,7 +812,6 @@ export type SourceFileCreateWithoutCollectionInput = {
 
 export type SourceFileUncheckedCreateWithoutCollectionInput = {
   id?: string
-  userId: string
   kind?: $Enums.SourceFileKind
   status?: $Enums.SourceFileStatus
   originalName: string
@@ -1008,7 +1013,6 @@ export type SourceFileUncheckedUpdateManyWithoutUserInput = {
 
 export type SourceFileCreateManyCollectionInput = {
   id?: string
-  userId: string
   kind?: $Enums.SourceFileKind
   status?: $Enums.SourceFileStatus
   originalName: string
@@ -1043,7 +1047,6 @@ export type SourceFileUpdateWithoutCollectionInput = {
 
 export type SourceFileUncheckedUpdateWithoutCollectionInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  userId?: Prisma.StringFieldUpdateOperationsInput | string
   kind?: Prisma.EnumSourceFileKindFieldUpdateOperationsInput | $Enums.SourceFileKind
   status?: Prisma.EnumSourceFileStatusFieldUpdateOperationsInput | $Enums.SourceFileStatus
   originalName?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1061,7 +1064,6 @@ export type SourceFileUncheckedUpdateWithoutCollectionInput = {
 
 export type SourceFileUncheckedUpdateManyWithoutCollectionInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  userId?: Prisma.StringFieldUpdateOperationsInput | string
   kind?: Prisma.EnumSourceFileKindFieldUpdateOperationsInput | $Enums.SourceFileKind
   status?: Prisma.EnumSourceFileStatusFieldUpdateOperationsInput | $Enums.SourceFileStatus
   originalName?: Prisma.StringFieldUpdateOperationsInput | string

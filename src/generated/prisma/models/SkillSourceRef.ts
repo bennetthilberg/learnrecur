@@ -26,6 +26,7 @@ export type AggregateSkillSourceRef = {
 
 export type SkillSourceRefMinAggregateOutputType = {
   id: string | null
+  userId: string | null
   skillId: string | null
   sourceFileId: string | null
   note: string | null
@@ -34,6 +35,7 @@ export type SkillSourceRefMinAggregateOutputType = {
 
 export type SkillSourceRefMaxAggregateOutputType = {
   id: string | null
+  userId: string | null
   skillId: string | null
   sourceFileId: string | null
   note: string | null
@@ -42,6 +44,7 @@ export type SkillSourceRefMaxAggregateOutputType = {
 
 export type SkillSourceRefCountAggregateOutputType = {
   id: number
+  userId: number
   skillId: number
   sourceFileId: number
   locator: number
@@ -53,6 +56,7 @@ export type SkillSourceRefCountAggregateOutputType = {
 
 export type SkillSourceRefMinAggregateInputType = {
   id?: true
+  userId?: true
   skillId?: true
   sourceFileId?: true
   note?: true
@@ -61,6 +65,7 @@ export type SkillSourceRefMinAggregateInputType = {
 
 export type SkillSourceRefMaxAggregateInputType = {
   id?: true
+  userId?: true
   skillId?: true
   sourceFileId?: true
   note?: true
@@ -69,6 +74,7 @@ export type SkillSourceRefMaxAggregateInputType = {
 
 export type SkillSourceRefCountAggregateInputType = {
   id?: true
+  userId?: true
   skillId?: true
   sourceFileId?: true
   locator?: true
@@ -151,6 +157,7 @@ export type SkillSourceRefGroupByArgs<ExtArgs extends runtime.Types.Extensions.I
 
 export type SkillSourceRefGroupByOutputType = {
   id: string
+  userId: string
   skillId: string
   sourceFileId: string
   locator: runtime.JsonValue | null
@@ -181,22 +188,26 @@ export type SkillSourceRefWhereInput = {
   OR?: Prisma.SkillSourceRefWhereInput[]
   NOT?: Prisma.SkillSourceRefWhereInput | Prisma.SkillSourceRefWhereInput[]
   id?: Prisma.StringFilter<"SkillSourceRef"> | string
+  userId?: Prisma.StringFilter<"SkillSourceRef"> | string
   skillId?: Prisma.StringFilter<"SkillSourceRef"> | string
   sourceFileId?: Prisma.StringFilter<"SkillSourceRef"> | string
   locator?: Prisma.JsonNullableFilter<"SkillSourceRef">
   note?: Prisma.StringNullableFilter<"SkillSourceRef"> | string | null
   createdAt?: Prisma.DateTimeFilter<"SkillSourceRef"> | Date | string
+  user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   skill?: Prisma.XOR<Prisma.SkillScalarRelationFilter, Prisma.SkillWhereInput>
   sourceFile?: Prisma.XOR<Prisma.SourceFileScalarRelationFilter, Prisma.SourceFileWhereInput>
 }
 
 export type SkillSourceRefOrderByWithRelationInput = {
   id?: Prisma.SortOrder
+  userId?: Prisma.SortOrder
   skillId?: Prisma.SortOrder
   sourceFileId?: Prisma.SortOrder
   locator?: Prisma.SortOrderInput | Prisma.SortOrder
   note?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+  user?: Prisma.UserOrderByWithRelationInput
   skill?: Prisma.SkillOrderByWithRelationInput
   sourceFile?: Prisma.SourceFileOrderByWithRelationInput
 }
@@ -207,17 +218,20 @@ export type SkillSourceRefWhereUniqueInput = Prisma.AtLeast<{
   AND?: Prisma.SkillSourceRefWhereInput | Prisma.SkillSourceRefWhereInput[]
   OR?: Prisma.SkillSourceRefWhereInput[]
   NOT?: Prisma.SkillSourceRefWhereInput | Prisma.SkillSourceRefWhereInput[]
+  userId?: Prisma.StringFilter<"SkillSourceRef"> | string
   skillId?: Prisma.StringFilter<"SkillSourceRef"> | string
   sourceFileId?: Prisma.StringFilter<"SkillSourceRef"> | string
   locator?: Prisma.JsonNullableFilter<"SkillSourceRef">
   note?: Prisma.StringNullableFilter<"SkillSourceRef"> | string | null
   createdAt?: Prisma.DateTimeFilter<"SkillSourceRef"> | Date | string
+  user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   skill?: Prisma.XOR<Prisma.SkillScalarRelationFilter, Prisma.SkillWhereInput>
   sourceFile?: Prisma.XOR<Prisma.SourceFileScalarRelationFilter, Prisma.SourceFileWhereInput>
 }, "id" | "skillId_sourceFileId">
 
 export type SkillSourceRefOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
+  userId?: Prisma.SortOrder
   skillId?: Prisma.SortOrder
   sourceFileId?: Prisma.SortOrder
   locator?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -233,6 +247,7 @@ export type SkillSourceRefScalarWhereWithAggregatesInput = {
   OR?: Prisma.SkillSourceRefScalarWhereWithAggregatesInput[]
   NOT?: Prisma.SkillSourceRefScalarWhereWithAggregatesInput | Prisma.SkillSourceRefScalarWhereWithAggregatesInput[]
   id?: Prisma.StringWithAggregatesFilter<"SkillSourceRef"> | string
+  userId?: Prisma.StringWithAggregatesFilter<"SkillSourceRef"> | string
   skillId?: Prisma.StringWithAggregatesFilter<"SkillSourceRef"> | string
   sourceFileId?: Prisma.StringWithAggregatesFilter<"SkillSourceRef"> | string
   locator?: Prisma.JsonNullableWithAggregatesFilter<"SkillSourceRef">
@@ -245,12 +260,14 @@ export type SkillSourceRefCreateInput = {
   locator?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   note?: string | null
   createdAt?: Date | string
+  user: Prisma.UserCreateNestedOneWithoutSkillSourceRefsInput
   skill: Prisma.SkillCreateNestedOneWithoutSourceRefsInput
   sourceFile: Prisma.SourceFileCreateNestedOneWithoutSkillRefsInput
 }
 
 export type SkillSourceRefUncheckedCreateInput = {
   id?: string
+  userId: string
   skillId: string
   sourceFileId: string
   locator?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -263,12 +280,14 @@ export type SkillSourceRefUpdateInput = {
   locator?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   note?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  user?: Prisma.UserUpdateOneRequiredWithoutSkillSourceRefsNestedInput
   skill?: Prisma.SkillUpdateOneRequiredWithoutSourceRefsNestedInput
   sourceFile?: Prisma.SourceFileUpdateOneRequiredWithoutSkillRefsNestedInput
 }
 
 export type SkillSourceRefUncheckedUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
   skillId?: Prisma.StringFieldUpdateOperationsInput | string
   sourceFileId?: Prisma.StringFieldUpdateOperationsInput | string
   locator?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -278,6 +297,7 @@ export type SkillSourceRefUncheckedUpdateInput = {
 
 export type SkillSourceRefCreateManyInput = {
   id?: string
+  userId: string
   skillId: string
   sourceFileId: string
   locator?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -294,6 +314,7 @@ export type SkillSourceRefUpdateManyMutationInput = {
 
 export type SkillSourceRefUncheckedUpdateManyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
   skillId?: Prisma.StringFieldUpdateOperationsInput | string
   sourceFileId?: Prisma.StringFieldUpdateOperationsInput | string
   locator?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -318,6 +339,7 @@ export type SkillSourceRefSkillIdSourceFileIdCompoundUniqueInput = {
 
 export type SkillSourceRefCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
+  userId?: Prisma.SortOrder
   skillId?: Prisma.SortOrder
   sourceFileId?: Prisma.SortOrder
   locator?: Prisma.SortOrder
@@ -327,6 +349,7 @@ export type SkillSourceRefCountOrderByAggregateInput = {
 
 export type SkillSourceRefMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
+  userId?: Prisma.SortOrder
   skillId?: Prisma.SortOrder
   sourceFileId?: Prisma.SortOrder
   note?: Prisma.SortOrder
@@ -335,10 +358,53 @@ export type SkillSourceRefMaxOrderByAggregateInput = {
 
 export type SkillSourceRefMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
+  userId?: Prisma.SortOrder
   skillId?: Prisma.SortOrder
   sourceFileId?: Prisma.SortOrder
   note?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+}
+
+export type SkillSourceRefCreateNestedManyWithoutUserInput = {
+  create?: Prisma.XOR<Prisma.SkillSourceRefCreateWithoutUserInput, Prisma.SkillSourceRefUncheckedCreateWithoutUserInput> | Prisma.SkillSourceRefCreateWithoutUserInput[] | Prisma.SkillSourceRefUncheckedCreateWithoutUserInput[]
+  connectOrCreate?: Prisma.SkillSourceRefCreateOrConnectWithoutUserInput | Prisma.SkillSourceRefCreateOrConnectWithoutUserInput[]
+  createMany?: Prisma.SkillSourceRefCreateManyUserInputEnvelope
+  connect?: Prisma.SkillSourceRefWhereUniqueInput | Prisma.SkillSourceRefWhereUniqueInput[]
+}
+
+export type SkillSourceRefUncheckedCreateNestedManyWithoutUserInput = {
+  create?: Prisma.XOR<Prisma.SkillSourceRefCreateWithoutUserInput, Prisma.SkillSourceRefUncheckedCreateWithoutUserInput> | Prisma.SkillSourceRefCreateWithoutUserInput[] | Prisma.SkillSourceRefUncheckedCreateWithoutUserInput[]
+  connectOrCreate?: Prisma.SkillSourceRefCreateOrConnectWithoutUserInput | Prisma.SkillSourceRefCreateOrConnectWithoutUserInput[]
+  createMany?: Prisma.SkillSourceRefCreateManyUserInputEnvelope
+  connect?: Prisma.SkillSourceRefWhereUniqueInput | Prisma.SkillSourceRefWhereUniqueInput[]
+}
+
+export type SkillSourceRefUpdateManyWithoutUserNestedInput = {
+  create?: Prisma.XOR<Prisma.SkillSourceRefCreateWithoutUserInput, Prisma.SkillSourceRefUncheckedCreateWithoutUserInput> | Prisma.SkillSourceRefCreateWithoutUserInput[] | Prisma.SkillSourceRefUncheckedCreateWithoutUserInput[]
+  connectOrCreate?: Prisma.SkillSourceRefCreateOrConnectWithoutUserInput | Prisma.SkillSourceRefCreateOrConnectWithoutUserInput[]
+  upsert?: Prisma.SkillSourceRefUpsertWithWhereUniqueWithoutUserInput | Prisma.SkillSourceRefUpsertWithWhereUniqueWithoutUserInput[]
+  createMany?: Prisma.SkillSourceRefCreateManyUserInputEnvelope
+  set?: Prisma.SkillSourceRefWhereUniqueInput | Prisma.SkillSourceRefWhereUniqueInput[]
+  disconnect?: Prisma.SkillSourceRefWhereUniqueInput | Prisma.SkillSourceRefWhereUniqueInput[]
+  delete?: Prisma.SkillSourceRefWhereUniqueInput | Prisma.SkillSourceRefWhereUniqueInput[]
+  connect?: Prisma.SkillSourceRefWhereUniqueInput | Prisma.SkillSourceRefWhereUniqueInput[]
+  update?: Prisma.SkillSourceRefUpdateWithWhereUniqueWithoutUserInput | Prisma.SkillSourceRefUpdateWithWhereUniqueWithoutUserInput[]
+  updateMany?: Prisma.SkillSourceRefUpdateManyWithWhereWithoutUserInput | Prisma.SkillSourceRefUpdateManyWithWhereWithoutUserInput[]
+  deleteMany?: Prisma.SkillSourceRefScalarWhereInput | Prisma.SkillSourceRefScalarWhereInput[]
+}
+
+export type SkillSourceRefUncheckedUpdateManyWithoutUserNestedInput = {
+  create?: Prisma.XOR<Prisma.SkillSourceRefCreateWithoutUserInput, Prisma.SkillSourceRefUncheckedCreateWithoutUserInput> | Prisma.SkillSourceRefCreateWithoutUserInput[] | Prisma.SkillSourceRefUncheckedCreateWithoutUserInput[]
+  connectOrCreate?: Prisma.SkillSourceRefCreateOrConnectWithoutUserInput | Prisma.SkillSourceRefCreateOrConnectWithoutUserInput[]
+  upsert?: Prisma.SkillSourceRefUpsertWithWhereUniqueWithoutUserInput | Prisma.SkillSourceRefUpsertWithWhereUniqueWithoutUserInput[]
+  createMany?: Prisma.SkillSourceRefCreateManyUserInputEnvelope
+  set?: Prisma.SkillSourceRefWhereUniqueInput | Prisma.SkillSourceRefWhereUniqueInput[]
+  disconnect?: Prisma.SkillSourceRefWhereUniqueInput | Prisma.SkillSourceRefWhereUniqueInput[]
+  delete?: Prisma.SkillSourceRefWhereUniqueInput | Prisma.SkillSourceRefWhereUniqueInput[]
+  connect?: Prisma.SkillSourceRefWhereUniqueInput | Prisma.SkillSourceRefWhereUniqueInput[]
+  update?: Prisma.SkillSourceRefUpdateWithWhereUniqueWithoutUserInput | Prisma.SkillSourceRefUpdateWithWhereUniqueWithoutUserInput[]
+  updateMany?: Prisma.SkillSourceRefUpdateManyWithWhereWithoutUserInput | Prisma.SkillSourceRefUpdateManyWithWhereWithoutUserInput[]
+  deleteMany?: Prisma.SkillSourceRefScalarWhereInput | Prisma.SkillSourceRefScalarWhereInput[]
 }
 
 export type SkillSourceRefCreateNestedManyWithoutSourceFileInput = {
@@ -425,11 +491,69 @@ export type SkillSourceRefUncheckedUpdateManyWithoutSkillNestedInput = {
   deleteMany?: Prisma.SkillSourceRefScalarWhereInput | Prisma.SkillSourceRefScalarWhereInput[]
 }
 
+export type SkillSourceRefCreateWithoutUserInput = {
+  id?: string
+  locator?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  note?: string | null
+  createdAt?: Date | string
+  skill: Prisma.SkillCreateNestedOneWithoutSourceRefsInput
+  sourceFile: Prisma.SourceFileCreateNestedOneWithoutSkillRefsInput
+}
+
+export type SkillSourceRefUncheckedCreateWithoutUserInput = {
+  id?: string
+  skillId: string
+  sourceFileId: string
+  locator?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  note?: string | null
+  createdAt?: Date | string
+}
+
+export type SkillSourceRefCreateOrConnectWithoutUserInput = {
+  where: Prisma.SkillSourceRefWhereUniqueInput
+  create: Prisma.XOR<Prisma.SkillSourceRefCreateWithoutUserInput, Prisma.SkillSourceRefUncheckedCreateWithoutUserInput>
+}
+
+export type SkillSourceRefCreateManyUserInputEnvelope = {
+  data: Prisma.SkillSourceRefCreateManyUserInput | Prisma.SkillSourceRefCreateManyUserInput[]
+  skipDuplicates?: boolean
+}
+
+export type SkillSourceRefUpsertWithWhereUniqueWithoutUserInput = {
+  where: Prisma.SkillSourceRefWhereUniqueInput
+  update: Prisma.XOR<Prisma.SkillSourceRefUpdateWithoutUserInput, Prisma.SkillSourceRefUncheckedUpdateWithoutUserInput>
+  create: Prisma.XOR<Prisma.SkillSourceRefCreateWithoutUserInput, Prisma.SkillSourceRefUncheckedCreateWithoutUserInput>
+}
+
+export type SkillSourceRefUpdateWithWhereUniqueWithoutUserInput = {
+  where: Prisma.SkillSourceRefWhereUniqueInput
+  data: Prisma.XOR<Prisma.SkillSourceRefUpdateWithoutUserInput, Prisma.SkillSourceRefUncheckedUpdateWithoutUserInput>
+}
+
+export type SkillSourceRefUpdateManyWithWhereWithoutUserInput = {
+  where: Prisma.SkillSourceRefScalarWhereInput
+  data: Prisma.XOR<Prisma.SkillSourceRefUpdateManyMutationInput, Prisma.SkillSourceRefUncheckedUpdateManyWithoutUserInput>
+}
+
+export type SkillSourceRefScalarWhereInput = {
+  AND?: Prisma.SkillSourceRefScalarWhereInput | Prisma.SkillSourceRefScalarWhereInput[]
+  OR?: Prisma.SkillSourceRefScalarWhereInput[]
+  NOT?: Prisma.SkillSourceRefScalarWhereInput | Prisma.SkillSourceRefScalarWhereInput[]
+  id?: Prisma.StringFilter<"SkillSourceRef"> | string
+  userId?: Prisma.StringFilter<"SkillSourceRef"> | string
+  skillId?: Prisma.StringFilter<"SkillSourceRef"> | string
+  sourceFileId?: Prisma.StringFilter<"SkillSourceRef"> | string
+  locator?: Prisma.JsonNullableFilter<"SkillSourceRef">
+  note?: Prisma.StringNullableFilter<"SkillSourceRef"> | string | null
+  createdAt?: Prisma.DateTimeFilter<"SkillSourceRef"> | Date | string
+}
+
 export type SkillSourceRefCreateWithoutSourceFileInput = {
   id?: string
   locator?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   note?: string | null
   createdAt?: Date | string
+  user: Prisma.UserCreateNestedOneWithoutSkillSourceRefsInput
   skill: Prisma.SkillCreateNestedOneWithoutSourceRefsInput
 }
 
@@ -467,23 +591,12 @@ export type SkillSourceRefUpdateManyWithWhereWithoutSourceFileInput = {
   data: Prisma.XOR<Prisma.SkillSourceRefUpdateManyMutationInput, Prisma.SkillSourceRefUncheckedUpdateManyWithoutSourceFileInput>
 }
 
-export type SkillSourceRefScalarWhereInput = {
-  AND?: Prisma.SkillSourceRefScalarWhereInput | Prisma.SkillSourceRefScalarWhereInput[]
-  OR?: Prisma.SkillSourceRefScalarWhereInput[]
-  NOT?: Prisma.SkillSourceRefScalarWhereInput | Prisma.SkillSourceRefScalarWhereInput[]
-  id?: Prisma.StringFilter<"SkillSourceRef"> | string
-  skillId?: Prisma.StringFilter<"SkillSourceRef"> | string
-  sourceFileId?: Prisma.StringFilter<"SkillSourceRef"> | string
-  locator?: Prisma.JsonNullableFilter<"SkillSourceRef">
-  note?: Prisma.StringNullableFilter<"SkillSourceRef"> | string | null
-  createdAt?: Prisma.DateTimeFilter<"SkillSourceRef"> | Date | string
-}
-
 export type SkillSourceRefCreateWithoutSkillInput = {
   id?: string
   locator?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   note?: string | null
   createdAt?: Date | string
+  user: Prisma.UserCreateNestedOneWithoutSkillSourceRefsInput
   sourceFile: Prisma.SourceFileCreateNestedOneWithoutSkillRefsInput
 }
 
@@ -521,6 +634,42 @@ export type SkillSourceRefUpdateManyWithWhereWithoutSkillInput = {
   data: Prisma.XOR<Prisma.SkillSourceRefUpdateManyMutationInput, Prisma.SkillSourceRefUncheckedUpdateManyWithoutSkillInput>
 }
 
+export type SkillSourceRefCreateManyUserInput = {
+  id?: string
+  skillId: string
+  sourceFileId: string
+  locator?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  note?: string | null
+  createdAt?: Date | string
+}
+
+export type SkillSourceRefUpdateWithoutUserInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  locator?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  note?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  skill?: Prisma.SkillUpdateOneRequiredWithoutSourceRefsNestedInput
+  sourceFile?: Prisma.SourceFileUpdateOneRequiredWithoutSkillRefsNestedInput
+}
+
+export type SkillSourceRefUncheckedUpdateWithoutUserInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  skillId?: Prisma.StringFieldUpdateOperationsInput | string
+  sourceFileId?: Prisma.StringFieldUpdateOperationsInput | string
+  locator?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  note?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
+export type SkillSourceRefUncheckedUpdateManyWithoutUserInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  skillId?: Prisma.StringFieldUpdateOperationsInput | string
+  sourceFileId?: Prisma.StringFieldUpdateOperationsInput | string
+  locator?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  note?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
 export type SkillSourceRefCreateManySourceFileInput = {
   id?: string
   skillId: string
@@ -534,6 +683,7 @@ export type SkillSourceRefUpdateWithoutSourceFileInput = {
   locator?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   note?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  user?: Prisma.UserUpdateOneRequiredWithoutSkillSourceRefsNestedInput
   skill?: Prisma.SkillUpdateOneRequiredWithoutSourceRefsNestedInput
 }
 
@@ -566,6 +716,7 @@ export type SkillSourceRefUpdateWithoutSkillInput = {
   locator?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   note?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  user?: Prisma.UserUpdateOneRequiredWithoutSkillSourceRefsNestedInput
   sourceFile?: Prisma.SourceFileUpdateOneRequiredWithoutSkillRefsNestedInput
 }
 
@@ -589,39 +740,46 @@ export type SkillSourceRefUncheckedUpdateManyWithoutSkillInput = {
 
 export type SkillSourceRefSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
+  userId?: boolean
   skillId?: boolean
   sourceFileId?: boolean
   locator?: boolean
   note?: boolean
   createdAt?: boolean
+  user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   skill?: boolean | Prisma.SkillDefaultArgs<ExtArgs>
   sourceFile?: boolean | Prisma.SourceFileDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["skillSourceRef"]>
 
 export type SkillSourceRefSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
+  userId?: boolean
   skillId?: boolean
   sourceFileId?: boolean
   locator?: boolean
   note?: boolean
   createdAt?: boolean
+  user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   skill?: boolean | Prisma.SkillDefaultArgs<ExtArgs>
   sourceFile?: boolean | Prisma.SourceFileDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["skillSourceRef"]>
 
 export type SkillSourceRefSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
+  userId?: boolean
   skillId?: boolean
   sourceFileId?: boolean
   locator?: boolean
   note?: boolean
   createdAt?: boolean
+  user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   skill?: boolean | Prisma.SkillDefaultArgs<ExtArgs>
   sourceFile?: boolean | Prisma.SourceFileDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["skillSourceRef"]>
 
 export type SkillSourceRefSelectScalar = {
   id?: boolean
+  userId?: boolean
   skillId?: boolean
   sourceFileId?: boolean
   locator?: boolean
@@ -629,16 +787,19 @@ export type SkillSourceRefSelectScalar = {
   createdAt?: boolean
 }
 
-export type SkillSourceRefOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "skillId" | "sourceFileId" | "locator" | "note" | "createdAt", ExtArgs["result"]["skillSourceRef"]>
+export type SkillSourceRefOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "skillId" | "sourceFileId" | "locator" | "note" | "createdAt", ExtArgs["result"]["skillSourceRef"]>
 export type SkillSourceRefInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   skill?: boolean | Prisma.SkillDefaultArgs<ExtArgs>
   sourceFile?: boolean | Prisma.SourceFileDefaultArgs<ExtArgs>
 }
 export type SkillSourceRefIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   skill?: boolean | Prisma.SkillDefaultArgs<ExtArgs>
   sourceFile?: boolean | Prisma.SourceFileDefaultArgs<ExtArgs>
 }
 export type SkillSourceRefIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   skill?: boolean | Prisma.SkillDefaultArgs<ExtArgs>
   sourceFile?: boolean | Prisma.SourceFileDefaultArgs<ExtArgs>
 }
@@ -646,11 +807,13 @@ export type SkillSourceRefIncludeUpdateManyAndReturn<ExtArgs extends runtime.Typ
 export type $SkillSourceRefPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "SkillSourceRef"
   objects: {
+    user: Prisma.$UserPayload<ExtArgs>
     skill: Prisma.$SkillPayload<ExtArgs>
     sourceFile: Prisma.$SourceFilePayload<ExtArgs>
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
+    userId: string
     skillId: string
     sourceFileId: string
     locator: runtime.JsonValue | null
@@ -1050,6 +1213,7 @@ readonly fields: SkillSourceRefFieldRefs;
  */
 export interface Prisma__SkillSourceRefClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
+  user<T extends Prisma.UserDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.UserDefaultArgs<ExtArgs>>): Prisma.Prisma__UserClient<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   skill<T extends Prisma.SkillDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.SkillDefaultArgs<ExtArgs>>): Prisma.Prisma__SkillClient<runtime.Types.Result.GetResult<Prisma.$SkillPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   sourceFile<T extends Prisma.SourceFileDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.SourceFileDefaultArgs<ExtArgs>>): Prisma.Prisma__SourceFileClient<runtime.Types.Result.GetResult<Prisma.$SourceFilePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   /**
@@ -1082,6 +1246,7 @@ export interface Prisma__SkillSourceRefClient<T, Null = never, ExtArgs extends r
  */
 export interface SkillSourceRefFieldRefs {
   readonly id: Prisma.FieldRef<"SkillSourceRef", 'String'>
+  readonly userId: Prisma.FieldRef<"SkillSourceRef", 'String'>
   readonly skillId: Prisma.FieldRef<"SkillSourceRef", 'String'>
   readonly sourceFileId: Prisma.FieldRef<"SkillSourceRef", 'String'>
   readonly locator: Prisma.FieldRef<"SkillSourceRef", 'Json'>

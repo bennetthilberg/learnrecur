@@ -201,8 +201,11 @@ export type UserWhereInput = {
   collections?: Prisma.CollectionListRelationFilter
   sourceFiles?: Prisma.SourceFileListRelationFilter
   skills?: Prisma.SkillListRelationFilter
+  skillSourceRefs?: Prisma.SkillSourceRefListRelationFilter
   exercises?: Prisma.ExerciseListRelationFilter
   exerciseAttempts?: Prisma.ExerciseAttemptListRelationFilter
+  reviewLogs?: Prisma.ReviewLogListRelationFilter
+  exerciseFlags?: Prisma.ExerciseFlagListRelationFilter
 }
 
 export type UserOrderByWithRelationInput = {
@@ -216,8 +219,11 @@ export type UserOrderByWithRelationInput = {
   collections?: Prisma.CollectionOrderByRelationAggregateInput
   sourceFiles?: Prisma.SourceFileOrderByRelationAggregateInput
   skills?: Prisma.SkillOrderByRelationAggregateInput
+  skillSourceRefs?: Prisma.SkillSourceRefOrderByRelationAggregateInput
   exercises?: Prisma.ExerciseOrderByRelationAggregateInput
   exerciseAttempts?: Prisma.ExerciseAttemptOrderByRelationAggregateInput
+  reviewLogs?: Prisma.ReviewLogOrderByRelationAggregateInput
+  exerciseFlags?: Prisma.ExerciseFlagOrderByRelationAggregateInput
 }
 
 export type UserWhereUniqueInput = Prisma.AtLeast<{
@@ -234,8 +240,11 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   collections?: Prisma.CollectionListRelationFilter
   sourceFiles?: Prisma.SourceFileListRelationFilter
   skills?: Prisma.SkillListRelationFilter
+  skillSourceRefs?: Prisma.SkillSourceRefListRelationFilter
   exercises?: Prisma.ExerciseListRelationFilter
   exerciseAttempts?: Prisma.ExerciseAttemptListRelationFilter
+  reviewLogs?: Prisma.ReviewLogListRelationFilter
+  exerciseFlags?: Prisma.ExerciseFlagListRelationFilter
 }, "id">
 
 export type UserOrderByWithAggregationInput = {
@@ -275,8 +284,11 @@ export type UserCreateInput = {
   collections?: Prisma.CollectionCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutUserInput
   skills?: Prisma.SkillCreateNestedManyWithoutUserInput
+  skillSourceRefs?: Prisma.SkillSourceRefCreateNestedManyWithoutUserInput
   exercises?: Prisma.ExerciseCreateNestedManyWithoutUserInput
   exerciseAttempts?: Prisma.ExerciseAttemptCreateNestedManyWithoutUserInput
+  reviewLogs?: Prisma.ReviewLogCreateNestedManyWithoutUserInput
+  exerciseFlags?: Prisma.ExerciseFlagCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateInput = {
@@ -290,8 +302,11 @@ export type UserUncheckedCreateInput = {
   collections?: Prisma.CollectionUncheckedCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutUserInput
   skills?: Prisma.SkillUncheckedCreateNestedManyWithoutUserInput
+  skillSourceRefs?: Prisma.SkillSourceRefUncheckedCreateNestedManyWithoutUserInput
   exercises?: Prisma.ExerciseUncheckedCreateNestedManyWithoutUserInput
   exerciseAttempts?: Prisma.ExerciseAttemptUncheckedCreateNestedManyWithoutUserInput
+  reviewLogs?: Prisma.ReviewLogUncheckedCreateNestedManyWithoutUserInput
+  exerciseFlags?: Prisma.ExerciseFlagUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserUpdateInput = {
@@ -305,8 +320,11 @@ export type UserUpdateInput = {
   collections?: Prisma.CollectionUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUpdateManyWithoutUserNestedInput
   skills?: Prisma.SkillUpdateManyWithoutUserNestedInput
+  skillSourceRefs?: Prisma.SkillSourceRefUpdateManyWithoutUserNestedInput
   exercises?: Prisma.ExerciseUpdateManyWithoutUserNestedInput
   exerciseAttempts?: Prisma.ExerciseAttemptUpdateManyWithoutUserNestedInput
+  reviewLogs?: Prisma.ReviewLogUpdateManyWithoutUserNestedInput
+  exerciseFlags?: Prisma.ExerciseFlagUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateInput = {
@@ -320,8 +338,11 @@ export type UserUncheckedUpdateInput = {
   collections?: Prisma.CollectionUncheckedUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutUserNestedInput
   skills?: Prisma.SkillUncheckedUpdateManyWithoutUserNestedInput
+  skillSourceRefs?: Prisma.SkillSourceRefUncheckedUpdateManyWithoutUserNestedInput
   exercises?: Prisma.ExerciseUncheckedUpdateManyWithoutUserNestedInput
   exerciseAttempts?: Prisma.ExerciseAttemptUncheckedUpdateManyWithoutUserNestedInput
+  reviewLogs?: Prisma.ReviewLogUncheckedUpdateManyWithoutUserNestedInput
+  exerciseFlags?: Prisma.ExerciseFlagUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateManyInput = {
@@ -447,6 +468,20 @@ export type UserUpdateOneRequiredWithoutSkillsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutSkillsInput, Prisma.UserUpdateWithoutSkillsInput>, Prisma.UserUncheckedUpdateWithoutSkillsInput>
 }
 
+export type UserCreateNestedOneWithoutSkillSourceRefsInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutSkillSourceRefsInput, Prisma.UserUncheckedCreateWithoutSkillSourceRefsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutSkillSourceRefsInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneRequiredWithoutSkillSourceRefsNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutSkillSourceRefsInput, Prisma.UserUncheckedCreateWithoutSkillSourceRefsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutSkillSourceRefsInput
+  upsert?: Prisma.UserUpsertWithoutSkillSourceRefsInput
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutSkillSourceRefsInput, Prisma.UserUpdateWithoutSkillSourceRefsInput>, Prisma.UserUncheckedUpdateWithoutSkillSourceRefsInput>
+}
+
 export type UserCreateNestedOneWithoutExercisesInput = {
   create?: Prisma.XOR<Prisma.UserCreateWithoutExercisesInput, Prisma.UserUncheckedCreateWithoutExercisesInput>
   connectOrCreate?: Prisma.UserCreateOrConnectWithoutExercisesInput
@@ -475,6 +510,34 @@ export type UserUpdateOneRequiredWithoutExerciseAttemptsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutExerciseAttemptsInput, Prisma.UserUpdateWithoutExerciseAttemptsInput>, Prisma.UserUncheckedUpdateWithoutExerciseAttemptsInput>
 }
 
+export type UserCreateNestedOneWithoutReviewLogsInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutReviewLogsInput, Prisma.UserUncheckedCreateWithoutReviewLogsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutReviewLogsInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneRequiredWithoutReviewLogsNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutReviewLogsInput, Prisma.UserUncheckedCreateWithoutReviewLogsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutReviewLogsInput
+  upsert?: Prisma.UserUpsertWithoutReviewLogsInput
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutReviewLogsInput, Prisma.UserUpdateWithoutReviewLogsInput>, Prisma.UserUncheckedUpdateWithoutReviewLogsInput>
+}
+
+export type UserCreateNestedOneWithoutExerciseFlagsInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutExerciseFlagsInput, Prisma.UserUncheckedCreateWithoutExerciseFlagsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutExerciseFlagsInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneRequiredWithoutExerciseFlagsNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutExerciseFlagsInput, Prisma.UserUncheckedCreateWithoutExerciseFlagsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutExerciseFlagsInput
+  upsert?: Prisma.UserUpsertWithoutExerciseFlagsInput
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutExerciseFlagsInput, Prisma.UserUpdateWithoutExerciseFlagsInput>, Prisma.UserUncheckedUpdateWithoutExerciseFlagsInput>
+}
+
 export type UserCreateWithoutCollectionsInput = {
   id: string
   email?: string | null
@@ -485,8 +548,11 @@ export type UserCreateWithoutCollectionsInput = {
   updatedAt?: Date | string
   sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutUserInput
   skills?: Prisma.SkillCreateNestedManyWithoutUserInput
+  skillSourceRefs?: Prisma.SkillSourceRefCreateNestedManyWithoutUserInput
   exercises?: Prisma.ExerciseCreateNestedManyWithoutUserInput
   exerciseAttempts?: Prisma.ExerciseAttemptCreateNestedManyWithoutUserInput
+  reviewLogs?: Prisma.ReviewLogCreateNestedManyWithoutUserInput
+  exerciseFlags?: Prisma.ExerciseFlagCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutCollectionsInput = {
@@ -499,8 +565,11 @@ export type UserUncheckedCreateWithoutCollectionsInput = {
   updatedAt?: Date | string
   sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutUserInput
   skills?: Prisma.SkillUncheckedCreateNestedManyWithoutUserInput
+  skillSourceRefs?: Prisma.SkillSourceRefUncheckedCreateNestedManyWithoutUserInput
   exercises?: Prisma.ExerciseUncheckedCreateNestedManyWithoutUserInput
   exerciseAttempts?: Prisma.ExerciseAttemptUncheckedCreateNestedManyWithoutUserInput
+  reviewLogs?: Prisma.ReviewLogUncheckedCreateNestedManyWithoutUserInput
+  exerciseFlags?: Prisma.ExerciseFlagUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutCollectionsInput = {
@@ -529,8 +598,11 @@ export type UserUpdateWithoutCollectionsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sourceFiles?: Prisma.SourceFileUpdateManyWithoutUserNestedInput
   skills?: Prisma.SkillUpdateManyWithoutUserNestedInput
+  skillSourceRefs?: Prisma.SkillSourceRefUpdateManyWithoutUserNestedInput
   exercises?: Prisma.ExerciseUpdateManyWithoutUserNestedInput
   exerciseAttempts?: Prisma.ExerciseAttemptUpdateManyWithoutUserNestedInput
+  reviewLogs?: Prisma.ReviewLogUpdateManyWithoutUserNestedInput
+  exerciseFlags?: Prisma.ExerciseFlagUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutCollectionsInput = {
@@ -543,8 +615,11 @@ export type UserUncheckedUpdateWithoutCollectionsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutUserNestedInput
   skills?: Prisma.SkillUncheckedUpdateManyWithoutUserNestedInput
+  skillSourceRefs?: Prisma.SkillSourceRefUncheckedUpdateManyWithoutUserNestedInput
   exercises?: Prisma.ExerciseUncheckedUpdateManyWithoutUserNestedInput
   exerciseAttempts?: Prisma.ExerciseAttemptUncheckedUpdateManyWithoutUserNestedInput
+  reviewLogs?: Prisma.ReviewLogUncheckedUpdateManyWithoutUserNestedInput
+  exerciseFlags?: Prisma.ExerciseFlagUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutSourceFilesInput = {
@@ -557,8 +632,11 @@ export type UserCreateWithoutSourceFilesInput = {
   updatedAt?: Date | string
   collections?: Prisma.CollectionCreateNestedManyWithoutUserInput
   skills?: Prisma.SkillCreateNestedManyWithoutUserInput
+  skillSourceRefs?: Prisma.SkillSourceRefCreateNestedManyWithoutUserInput
   exercises?: Prisma.ExerciseCreateNestedManyWithoutUserInput
   exerciseAttempts?: Prisma.ExerciseAttemptCreateNestedManyWithoutUserInput
+  reviewLogs?: Prisma.ReviewLogCreateNestedManyWithoutUserInput
+  exerciseFlags?: Prisma.ExerciseFlagCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutSourceFilesInput = {
@@ -571,8 +649,11 @@ export type UserUncheckedCreateWithoutSourceFilesInput = {
   updatedAt?: Date | string
   collections?: Prisma.CollectionUncheckedCreateNestedManyWithoutUserInput
   skills?: Prisma.SkillUncheckedCreateNestedManyWithoutUserInput
+  skillSourceRefs?: Prisma.SkillSourceRefUncheckedCreateNestedManyWithoutUserInput
   exercises?: Prisma.ExerciseUncheckedCreateNestedManyWithoutUserInput
   exerciseAttempts?: Prisma.ExerciseAttemptUncheckedCreateNestedManyWithoutUserInput
+  reviewLogs?: Prisma.ReviewLogUncheckedCreateNestedManyWithoutUserInput
+  exerciseFlags?: Prisma.ExerciseFlagUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutSourceFilesInput = {
@@ -601,8 +682,11 @@ export type UserUpdateWithoutSourceFilesInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   collections?: Prisma.CollectionUpdateManyWithoutUserNestedInput
   skills?: Prisma.SkillUpdateManyWithoutUserNestedInput
+  skillSourceRefs?: Prisma.SkillSourceRefUpdateManyWithoutUserNestedInput
   exercises?: Prisma.ExerciseUpdateManyWithoutUserNestedInput
   exerciseAttempts?: Prisma.ExerciseAttemptUpdateManyWithoutUserNestedInput
+  reviewLogs?: Prisma.ReviewLogUpdateManyWithoutUserNestedInput
+  exerciseFlags?: Prisma.ExerciseFlagUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutSourceFilesInput = {
@@ -615,8 +699,11 @@ export type UserUncheckedUpdateWithoutSourceFilesInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   collections?: Prisma.CollectionUncheckedUpdateManyWithoutUserNestedInput
   skills?: Prisma.SkillUncheckedUpdateManyWithoutUserNestedInput
+  skillSourceRefs?: Prisma.SkillSourceRefUncheckedUpdateManyWithoutUserNestedInput
   exercises?: Prisma.ExerciseUncheckedUpdateManyWithoutUserNestedInput
   exerciseAttempts?: Prisma.ExerciseAttemptUncheckedUpdateManyWithoutUserNestedInput
+  reviewLogs?: Prisma.ReviewLogUncheckedUpdateManyWithoutUserNestedInput
+  exerciseFlags?: Prisma.ExerciseFlagUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutSkillsInput = {
@@ -629,8 +716,11 @@ export type UserCreateWithoutSkillsInput = {
   updatedAt?: Date | string
   collections?: Prisma.CollectionCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutUserInput
+  skillSourceRefs?: Prisma.SkillSourceRefCreateNestedManyWithoutUserInput
   exercises?: Prisma.ExerciseCreateNestedManyWithoutUserInput
   exerciseAttempts?: Prisma.ExerciseAttemptCreateNestedManyWithoutUserInput
+  reviewLogs?: Prisma.ReviewLogCreateNestedManyWithoutUserInput
+  exerciseFlags?: Prisma.ExerciseFlagCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutSkillsInput = {
@@ -643,8 +733,11 @@ export type UserUncheckedCreateWithoutSkillsInput = {
   updatedAt?: Date | string
   collections?: Prisma.CollectionUncheckedCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutUserInput
+  skillSourceRefs?: Prisma.SkillSourceRefUncheckedCreateNestedManyWithoutUserInput
   exercises?: Prisma.ExerciseUncheckedCreateNestedManyWithoutUserInput
   exerciseAttempts?: Prisma.ExerciseAttemptUncheckedCreateNestedManyWithoutUserInput
+  reviewLogs?: Prisma.ReviewLogUncheckedCreateNestedManyWithoutUserInput
+  exerciseFlags?: Prisma.ExerciseFlagUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutSkillsInput = {
@@ -673,8 +766,11 @@ export type UserUpdateWithoutSkillsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   collections?: Prisma.CollectionUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUpdateManyWithoutUserNestedInput
+  skillSourceRefs?: Prisma.SkillSourceRefUpdateManyWithoutUserNestedInput
   exercises?: Prisma.ExerciseUpdateManyWithoutUserNestedInput
   exerciseAttempts?: Prisma.ExerciseAttemptUpdateManyWithoutUserNestedInput
+  reviewLogs?: Prisma.ReviewLogUpdateManyWithoutUserNestedInput
+  exerciseFlags?: Prisma.ExerciseFlagUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutSkillsInput = {
@@ -687,8 +783,95 @@ export type UserUncheckedUpdateWithoutSkillsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   collections?: Prisma.CollectionUncheckedUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutUserNestedInput
+  skillSourceRefs?: Prisma.SkillSourceRefUncheckedUpdateManyWithoutUserNestedInput
   exercises?: Prisma.ExerciseUncheckedUpdateManyWithoutUserNestedInput
   exerciseAttempts?: Prisma.ExerciseAttemptUncheckedUpdateManyWithoutUserNestedInput
+  reviewLogs?: Prisma.ReviewLogUncheckedUpdateManyWithoutUserNestedInput
+  exerciseFlags?: Prisma.ExerciseFlagUncheckedUpdateManyWithoutUserNestedInput
+}
+
+export type UserCreateWithoutSkillSourceRefsInput = {
+  id: string
+  email?: string | null
+  name?: string | null
+  imageUrl?: string | null
+  lastSeenAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  collections?: Prisma.CollectionCreateNestedManyWithoutUserInput
+  sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutUserInput
+  skills?: Prisma.SkillCreateNestedManyWithoutUserInput
+  exercises?: Prisma.ExerciseCreateNestedManyWithoutUserInput
+  exerciseAttempts?: Prisma.ExerciseAttemptCreateNestedManyWithoutUserInput
+  reviewLogs?: Prisma.ReviewLogCreateNestedManyWithoutUserInput
+  exerciseFlags?: Prisma.ExerciseFlagCreateNestedManyWithoutUserInput
+}
+
+export type UserUncheckedCreateWithoutSkillSourceRefsInput = {
+  id: string
+  email?: string | null
+  name?: string | null
+  imageUrl?: string | null
+  lastSeenAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  collections?: Prisma.CollectionUncheckedCreateNestedManyWithoutUserInput
+  sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutUserInput
+  skills?: Prisma.SkillUncheckedCreateNestedManyWithoutUserInput
+  exercises?: Prisma.ExerciseUncheckedCreateNestedManyWithoutUserInput
+  exerciseAttempts?: Prisma.ExerciseAttemptUncheckedCreateNestedManyWithoutUserInput
+  reviewLogs?: Prisma.ReviewLogUncheckedCreateNestedManyWithoutUserInput
+  exerciseFlags?: Prisma.ExerciseFlagUncheckedCreateNestedManyWithoutUserInput
+}
+
+export type UserCreateOrConnectWithoutSkillSourceRefsInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutSkillSourceRefsInput, Prisma.UserUncheckedCreateWithoutSkillSourceRefsInput>
+}
+
+export type UserUpsertWithoutSkillSourceRefsInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutSkillSourceRefsInput, Prisma.UserUncheckedUpdateWithoutSkillSourceRefsInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutSkillSourceRefsInput, Prisma.UserUncheckedCreateWithoutSkillSourceRefsInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutSkillSourceRefsInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutSkillSourceRefsInput, Prisma.UserUncheckedUpdateWithoutSkillSourceRefsInput>
+}
+
+export type UserUpdateWithoutSkillSourceRefsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  imageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  collections?: Prisma.CollectionUpdateManyWithoutUserNestedInput
+  sourceFiles?: Prisma.SourceFileUpdateManyWithoutUserNestedInput
+  skills?: Prisma.SkillUpdateManyWithoutUserNestedInput
+  exercises?: Prisma.ExerciseUpdateManyWithoutUserNestedInput
+  exerciseAttempts?: Prisma.ExerciseAttemptUpdateManyWithoutUserNestedInput
+  reviewLogs?: Prisma.ReviewLogUpdateManyWithoutUserNestedInput
+  exerciseFlags?: Prisma.ExerciseFlagUpdateManyWithoutUserNestedInput
+}
+
+export type UserUncheckedUpdateWithoutSkillSourceRefsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  imageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  collections?: Prisma.CollectionUncheckedUpdateManyWithoutUserNestedInput
+  sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutUserNestedInput
+  skills?: Prisma.SkillUncheckedUpdateManyWithoutUserNestedInput
+  exercises?: Prisma.ExerciseUncheckedUpdateManyWithoutUserNestedInput
+  exerciseAttempts?: Prisma.ExerciseAttemptUncheckedUpdateManyWithoutUserNestedInput
+  reviewLogs?: Prisma.ReviewLogUncheckedUpdateManyWithoutUserNestedInput
+  exerciseFlags?: Prisma.ExerciseFlagUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutExercisesInput = {
@@ -702,7 +885,10 @@ export type UserCreateWithoutExercisesInput = {
   collections?: Prisma.CollectionCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutUserInput
   skills?: Prisma.SkillCreateNestedManyWithoutUserInput
+  skillSourceRefs?: Prisma.SkillSourceRefCreateNestedManyWithoutUserInput
   exerciseAttempts?: Prisma.ExerciseAttemptCreateNestedManyWithoutUserInput
+  reviewLogs?: Prisma.ReviewLogCreateNestedManyWithoutUserInput
+  exerciseFlags?: Prisma.ExerciseFlagCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutExercisesInput = {
@@ -716,7 +902,10 @@ export type UserUncheckedCreateWithoutExercisesInput = {
   collections?: Prisma.CollectionUncheckedCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutUserInput
   skills?: Prisma.SkillUncheckedCreateNestedManyWithoutUserInput
+  skillSourceRefs?: Prisma.SkillSourceRefUncheckedCreateNestedManyWithoutUserInput
   exerciseAttempts?: Prisma.ExerciseAttemptUncheckedCreateNestedManyWithoutUserInput
+  reviewLogs?: Prisma.ReviewLogUncheckedCreateNestedManyWithoutUserInput
+  exerciseFlags?: Prisma.ExerciseFlagUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutExercisesInput = {
@@ -746,7 +935,10 @@ export type UserUpdateWithoutExercisesInput = {
   collections?: Prisma.CollectionUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUpdateManyWithoutUserNestedInput
   skills?: Prisma.SkillUpdateManyWithoutUserNestedInput
+  skillSourceRefs?: Prisma.SkillSourceRefUpdateManyWithoutUserNestedInput
   exerciseAttempts?: Prisma.ExerciseAttemptUpdateManyWithoutUserNestedInput
+  reviewLogs?: Prisma.ReviewLogUpdateManyWithoutUserNestedInput
+  exerciseFlags?: Prisma.ExerciseFlagUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutExercisesInput = {
@@ -760,7 +952,10 @@ export type UserUncheckedUpdateWithoutExercisesInput = {
   collections?: Prisma.CollectionUncheckedUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutUserNestedInput
   skills?: Prisma.SkillUncheckedUpdateManyWithoutUserNestedInput
+  skillSourceRefs?: Prisma.SkillSourceRefUncheckedUpdateManyWithoutUserNestedInput
   exerciseAttempts?: Prisma.ExerciseAttemptUncheckedUpdateManyWithoutUserNestedInput
+  reviewLogs?: Prisma.ReviewLogUncheckedUpdateManyWithoutUserNestedInput
+  exerciseFlags?: Prisma.ExerciseFlagUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutExerciseAttemptsInput = {
@@ -774,7 +969,10 @@ export type UserCreateWithoutExerciseAttemptsInput = {
   collections?: Prisma.CollectionCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutUserInput
   skills?: Prisma.SkillCreateNestedManyWithoutUserInput
+  skillSourceRefs?: Prisma.SkillSourceRefCreateNestedManyWithoutUserInput
   exercises?: Prisma.ExerciseCreateNestedManyWithoutUserInput
+  reviewLogs?: Prisma.ReviewLogCreateNestedManyWithoutUserInput
+  exerciseFlags?: Prisma.ExerciseFlagCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutExerciseAttemptsInput = {
@@ -788,7 +986,10 @@ export type UserUncheckedCreateWithoutExerciseAttemptsInput = {
   collections?: Prisma.CollectionUncheckedCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutUserInput
   skills?: Prisma.SkillUncheckedCreateNestedManyWithoutUserInput
+  skillSourceRefs?: Prisma.SkillSourceRefUncheckedCreateNestedManyWithoutUserInput
   exercises?: Prisma.ExerciseUncheckedCreateNestedManyWithoutUserInput
+  reviewLogs?: Prisma.ReviewLogUncheckedCreateNestedManyWithoutUserInput
+  exerciseFlags?: Prisma.ExerciseFlagUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutExerciseAttemptsInput = {
@@ -818,7 +1019,10 @@ export type UserUpdateWithoutExerciseAttemptsInput = {
   collections?: Prisma.CollectionUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUpdateManyWithoutUserNestedInput
   skills?: Prisma.SkillUpdateManyWithoutUserNestedInput
+  skillSourceRefs?: Prisma.SkillSourceRefUpdateManyWithoutUserNestedInput
   exercises?: Prisma.ExerciseUpdateManyWithoutUserNestedInput
+  reviewLogs?: Prisma.ReviewLogUpdateManyWithoutUserNestedInput
+  exerciseFlags?: Prisma.ExerciseFlagUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutExerciseAttemptsInput = {
@@ -832,7 +1036,178 @@ export type UserUncheckedUpdateWithoutExerciseAttemptsInput = {
   collections?: Prisma.CollectionUncheckedUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutUserNestedInput
   skills?: Prisma.SkillUncheckedUpdateManyWithoutUserNestedInput
+  skillSourceRefs?: Prisma.SkillSourceRefUncheckedUpdateManyWithoutUserNestedInput
   exercises?: Prisma.ExerciseUncheckedUpdateManyWithoutUserNestedInput
+  reviewLogs?: Prisma.ReviewLogUncheckedUpdateManyWithoutUserNestedInput
+  exerciseFlags?: Prisma.ExerciseFlagUncheckedUpdateManyWithoutUserNestedInput
+}
+
+export type UserCreateWithoutReviewLogsInput = {
+  id: string
+  email?: string | null
+  name?: string | null
+  imageUrl?: string | null
+  lastSeenAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  collections?: Prisma.CollectionCreateNestedManyWithoutUserInput
+  sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutUserInput
+  skills?: Prisma.SkillCreateNestedManyWithoutUserInput
+  skillSourceRefs?: Prisma.SkillSourceRefCreateNestedManyWithoutUserInput
+  exercises?: Prisma.ExerciseCreateNestedManyWithoutUserInput
+  exerciseAttempts?: Prisma.ExerciseAttemptCreateNestedManyWithoutUserInput
+  exerciseFlags?: Prisma.ExerciseFlagCreateNestedManyWithoutUserInput
+}
+
+export type UserUncheckedCreateWithoutReviewLogsInput = {
+  id: string
+  email?: string | null
+  name?: string | null
+  imageUrl?: string | null
+  lastSeenAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  collections?: Prisma.CollectionUncheckedCreateNestedManyWithoutUserInput
+  sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutUserInput
+  skills?: Prisma.SkillUncheckedCreateNestedManyWithoutUserInput
+  skillSourceRefs?: Prisma.SkillSourceRefUncheckedCreateNestedManyWithoutUserInput
+  exercises?: Prisma.ExerciseUncheckedCreateNestedManyWithoutUserInput
+  exerciseAttempts?: Prisma.ExerciseAttemptUncheckedCreateNestedManyWithoutUserInput
+  exerciseFlags?: Prisma.ExerciseFlagUncheckedCreateNestedManyWithoutUserInput
+}
+
+export type UserCreateOrConnectWithoutReviewLogsInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutReviewLogsInput, Prisma.UserUncheckedCreateWithoutReviewLogsInput>
+}
+
+export type UserUpsertWithoutReviewLogsInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutReviewLogsInput, Prisma.UserUncheckedUpdateWithoutReviewLogsInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutReviewLogsInput, Prisma.UserUncheckedCreateWithoutReviewLogsInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutReviewLogsInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutReviewLogsInput, Prisma.UserUncheckedUpdateWithoutReviewLogsInput>
+}
+
+export type UserUpdateWithoutReviewLogsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  imageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  collections?: Prisma.CollectionUpdateManyWithoutUserNestedInput
+  sourceFiles?: Prisma.SourceFileUpdateManyWithoutUserNestedInput
+  skills?: Prisma.SkillUpdateManyWithoutUserNestedInput
+  skillSourceRefs?: Prisma.SkillSourceRefUpdateManyWithoutUserNestedInput
+  exercises?: Prisma.ExerciseUpdateManyWithoutUserNestedInput
+  exerciseAttempts?: Prisma.ExerciseAttemptUpdateManyWithoutUserNestedInput
+  exerciseFlags?: Prisma.ExerciseFlagUpdateManyWithoutUserNestedInput
+}
+
+export type UserUncheckedUpdateWithoutReviewLogsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  imageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  collections?: Prisma.CollectionUncheckedUpdateManyWithoutUserNestedInput
+  sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutUserNestedInput
+  skills?: Prisma.SkillUncheckedUpdateManyWithoutUserNestedInput
+  skillSourceRefs?: Prisma.SkillSourceRefUncheckedUpdateManyWithoutUserNestedInput
+  exercises?: Prisma.ExerciseUncheckedUpdateManyWithoutUserNestedInput
+  exerciseAttempts?: Prisma.ExerciseAttemptUncheckedUpdateManyWithoutUserNestedInput
+  exerciseFlags?: Prisma.ExerciseFlagUncheckedUpdateManyWithoutUserNestedInput
+}
+
+export type UserCreateWithoutExerciseFlagsInput = {
+  id: string
+  email?: string | null
+  name?: string | null
+  imageUrl?: string | null
+  lastSeenAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  collections?: Prisma.CollectionCreateNestedManyWithoutUserInput
+  sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutUserInput
+  skills?: Prisma.SkillCreateNestedManyWithoutUserInput
+  skillSourceRefs?: Prisma.SkillSourceRefCreateNestedManyWithoutUserInput
+  exercises?: Prisma.ExerciseCreateNestedManyWithoutUserInput
+  exerciseAttempts?: Prisma.ExerciseAttemptCreateNestedManyWithoutUserInput
+  reviewLogs?: Prisma.ReviewLogCreateNestedManyWithoutUserInput
+}
+
+export type UserUncheckedCreateWithoutExerciseFlagsInput = {
+  id: string
+  email?: string | null
+  name?: string | null
+  imageUrl?: string | null
+  lastSeenAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  collections?: Prisma.CollectionUncheckedCreateNestedManyWithoutUserInput
+  sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutUserInput
+  skills?: Prisma.SkillUncheckedCreateNestedManyWithoutUserInput
+  skillSourceRefs?: Prisma.SkillSourceRefUncheckedCreateNestedManyWithoutUserInput
+  exercises?: Prisma.ExerciseUncheckedCreateNestedManyWithoutUserInput
+  exerciseAttempts?: Prisma.ExerciseAttemptUncheckedCreateNestedManyWithoutUserInput
+  reviewLogs?: Prisma.ReviewLogUncheckedCreateNestedManyWithoutUserInput
+}
+
+export type UserCreateOrConnectWithoutExerciseFlagsInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutExerciseFlagsInput, Prisma.UserUncheckedCreateWithoutExerciseFlagsInput>
+}
+
+export type UserUpsertWithoutExerciseFlagsInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutExerciseFlagsInput, Prisma.UserUncheckedUpdateWithoutExerciseFlagsInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutExerciseFlagsInput, Prisma.UserUncheckedCreateWithoutExerciseFlagsInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutExerciseFlagsInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutExerciseFlagsInput, Prisma.UserUncheckedUpdateWithoutExerciseFlagsInput>
+}
+
+export type UserUpdateWithoutExerciseFlagsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  imageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  collections?: Prisma.CollectionUpdateManyWithoutUserNestedInput
+  sourceFiles?: Prisma.SourceFileUpdateManyWithoutUserNestedInput
+  skills?: Prisma.SkillUpdateManyWithoutUserNestedInput
+  skillSourceRefs?: Prisma.SkillSourceRefUpdateManyWithoutUserNestedInput
+  exercises?: Prisma.ExerciseUpdateManyWithoutUserNestedInput
+  exerciseAttempts?: Prisma.ExerciseAttemptUpdateManyWithoutUserNestedInput
+  reviewLogs?: Prisma.ReviewLogUpdateManyWithoutUserNestedInput
+}
+
+export type UserUncheckedUpdateWithoutExerciseFlagsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  imageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  collections?: Prisma.CollectionUncheckedUpdateManyWithoutUserNestedInput
+  sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutUserNestedInput
+  skills?: Prisma.SkillUncheckedUpdateManyWithoutUserNestedInput
+  skillSourceRefs?: Prisma.SkillSourceRefUncheckedUpdateManyWithoutUserNestedInput
+  exercises?: Prisma.ExerciseUncheckedUpdateManyWithoutUserNestedInput
+  exerciseAttempts?: Prisma.ExerciseAttemptUncheckedUpdateManyWithoutUserNestedInput
+  reviewLogs?: Prisma.ReviewLogUncheckedUpdateManyWithoutUserNestedInput
 }
 
 
@@ -844,16 +1219,22 @@ export type UserCountOutputType = {
   collections: number
   sourceFiles: number
   skills: number
+  skillSourceRefs: number
   exercises: number
   exerciseAttempts: number
+  reviewLogs: number
+  exerciseFlags: number
 }
 
 export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   collections?: boolean | UserCountOutputTypeCountCollectionsArgs
   sourceFiles?: boolean | UserCountOutputTypeCountSourceFilesArgs
   skills?: boolean | UserCountOutputTypeCountSkillsArgs
+  skillSourceRefs?: boolean | UserCountOutputTypeCountSkillSourceRefsArgs
   exercises?: boolean | UserCountOutputTypeCountExercisesArgs
   exerciseAttempts?: boolean | UserCountOutputTypeCountExerciseAttemptsArgs
+  reviewLogs?: boolean | UserCountOutputTypeCountReviewLogsArgs
+  exerciseFlags?: boolean | UserCountOutputTypeCountExerciseFlagsArgs
 }
 
 /**
@@ -890,6 +1271,13 @@ export type UserCountOutputTypeCountSkillsArgs<ExtArgs extends runtime.Types.Ext
 /**
  * UserCountOutputType without action
  */
+export type UserCountOutputTypeCountSkillSourceRefsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.SkillSourceRefWhereInput
+}
+
+/**
+ * UserCountOutputType without action
+ */
 export type UserCountOutputTypeCountExercisesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   where?: Prisma.ExerciseWhereInput
 }
@@ -899,6 +1287,20 @@ export type UserCountOutputTypeCountExercisesArgs<ExtArgs extends runtime.Types.
  */
 export type UserCountOutputTypeCountExerciseAttemptsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   where?: Prisma.ExerciseAttemptWhereInput
+}
+
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountReviewLogsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.ReviewLogWhereInput
+}
+
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountExerciseFlagsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.ExerciseFlagWhereInput
 }
 
 
@@ -913,8 +1315,11 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   collections?: boolean | Prisma.User$collectionsArgs<ExtArgs>
   sourceFiles?: boolean | Prisma.User$sourceFilesArgs<ExtArgs>
   skills?: boolean | Prisma.User$skillsArgs<ExtArgs>
+  skillSourceRefs?: boolean | Prisma.User$skillSourceRefsArgs<ExtArgs>
   exercises?: boolean | Prisma.User$exercisesArgs<ExtArgs>
   exerciseAttempts?: boolean | Prisma.User$exerciseAttemptsArgs<ExtArgs>
+  reviewLogs?: boolean | Prisma.User$reviewLogsArgs<ExtArgs>
+  exerciseFlags?: boolean | Prisma.User$exerciseFlagsArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["user"]>
 
@@ -953,8 +1358,11 @@ export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   collections?: boolean | Prisma.User$collectionsArgs<ExtArgs>
   sourceFiles?: boolean | Prisma.User$sourceFilesArgs<ExtArgs>
   skills?: boolean | Prisma.User$skillsArgs<ExtArgs>
+  skillSourceRefs?: boolean | Prisma.User$skillSourceRefsArgs<ExtArgs>
   exercises?: boolean | Prisma.User$exercisesArgs<ExtArgs>
   exerciseAttempts?: boolean | Prisma.User$exerciseAttemptsArgs<ExtArgs>
+  reviewLogs?: boolean | Prisma.User$reviewLogsArgs<ExtArgs>
+  exerciseFlags?: boolean | Prisma.User$exerciseFlagsArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type UserIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
@@ -966,8 +1374,11 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     collections: Prisma.$CollectionPayload<ExtArgs>[]
     sourceFiles: Prisma.$SourceFilePayload<ExtArgs>[]
     skills: Prisma.$SkillPayload<ExtArgs>[]
+    skillSourceRefs: Prisma.$SkillSourceRefPayload<ExtArgs>[]
     exercises: Prisma.$ExercisePayload<ExtArgs>[]
     exerciseAttempts: Prisma.$ExerciseAttemptPayload<ExtArgs>[]
+    reviewLogs: Prisma.$ReviewLogPayload<ExtArgs>[]
+    exerciseFlags: Prisma.$ExerciseFlagPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1374,8 +1785,11 @@ export interface Prisma__UserClient<T, Null = never, ExtArgs extends runtime.Typ
   collections<T extends Prisma.User$collectionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$collectionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$CollectionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   sourceFiles<T extends Prisma.User$sourceFilesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$sourceFilesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$SourceFilePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   skills<T extends Prisma.User$skillsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$skillsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$SkillPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  skillSourceRefs<T extends Prisma.User$skillSourceRefsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$skillSourceRefsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$SkillSourceRefPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   exercises<T extends Prisma.User$exercisesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$exercisesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ExercisePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   exerciseAttempts<T extends Prisma.User$exerciseAttemptsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$exerciseAttemptsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ExerciseAttemptPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  reviewLogs<T extends Prisma.User$reviewLogsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$reviewLogsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ReviewLogPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  exerciseFlags<T extends Prisma.User$exerciseFlagsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$exerciseFlagsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ExerciseFlagPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1877,6 +2291,30 @@ export type User$skillsArgs<ExtArgs extends runtime.Types.Extensions.InternalArg
 }
 
 /**
+ * User.skillSourceRefs
+ */
+export type User$skillSourceRefsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the SkillSourceRef
+   */
+  select?: Prisma.SkillSourceRefSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the SkillSourceRef
+   */
+  omit?: Prisma.SkillSourceRefOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.SkillSourceRefInclude<ExtArgs> | null
+  where?: Prisma.SkillSourceRefWhereInput
+  orderBy?: Prisma.SkillSourceRefOrderByWithRelationInput | Prisma.SkillSourceRefOrderByWithRelationInput[]
+  cursor?: Prisma.SkillSourceRefWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.SkillSourceRefScalarFieldEnum | Prisma.SkillSourceRefScalarFieldEnum[]
+}
+
+/**
  * User.exercises
  */
 export type User$exercisesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1922,6 +2360,54 @@ export type User$exerciseAttemptsArgs<ExtArgs extends runtime.Types.Extensions.I
   take?: number
   skip?: number
   distinct?: Prisma.ExerciseAttemptScalarFieldEnum | Prisma.ExerciseAttemptScalarFieldEnum[]
+}
+
+/**
+ * User.reviewLogs
+ */
+export type User$reviewLogsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ReviewLog
+   */
+  select?: Prisma.ReviewLogSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ReviewLog
+   */
+  omit?: Prisma.ReviewLogOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ReviewLogInclude<ExtArgs> | null
+  where?: Prisma.ReviewLogWhereInput
+  orderBy?: Prisma.ReviewLogOrderByWithRelationInput | Prisma.ReviewLogOrderByWithRelationInput[]
+  cursor?: Prisma.ReviewLogWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.ReviewLogScalarFieldEnum | Prisma.ReviewLogScalarFieldEnum[]
+}
+
+/**
+ * User.exerciseFlags
+ */
+export type User$exerciseFlagsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ExerciseFlag
+   */
+  select?: Prisma.ExerciseFlagSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ExerciseFlag
+   */
+  omit?: Prisma.ExerciseFlagOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ExerciseFlagInclude<ExtArgs> | null
+  where?: Prisma.ExerciseFlagWhereInput
+  orderBy?: Prisma.ExerciseFlagOrderByWithRelationInput | Prisma.ExerciseFlagOrderByWithRelationInput[]
+  cursor?: Prisma.ExerciseFlagWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.ExerciseFlagScalarFieldEnum | Prisma.ExerciseFlagScalarFieldEnum[]
 }
 
 /**

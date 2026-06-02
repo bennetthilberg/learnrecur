@@ -94,3 +94,49 @@ export const ExerciseAttemptResult = {
 } as const
 
 export type ExerciseAttemptResult = (typeof ExerciseAttemptResult)[keyof typeof ExerciseAttemptResult]
+
+
+export const FsrsRating = {
+  AGAIN: 'AGAIN',
+  HARD: 'HARD',
+  GOOD: 'GOOD',
+  EASY: 'EASY'
+} as const
+
+export type FsrsRating = (typeof FsrsRating)[keyof typeof FsrsRating]
+
+
+export const ExerciseRetirementReason = {
+  FLAGGED_INCORRECT: 'FLAGGED_INCORRECT',
+  FLAGGED_UNCLEAR: 'FLAGGED_UNCLEAR',
+  FLAGGED_UNFAIR: 'FLAGGED_UNFAIR',
+  STALE: 'STALE',
+  DUPLICATE: 'DUPLICATE',
+  REPLACED: 'REPLACED',
+  MANUAL: 'MANUAL',
+  OTHER: 'OTHER'
+} as const
+
+export type ExerciseRetirementReason = (typeof ExerciseRetirementReason)[keyof typeof ExerciseRetirementReason]
+
+
+export const ExerciseFlagReason = {
+  INCORRECT_ANSWER: 'INCORRECT_ANSWER',
+  UNCLEAR_PROMPT: 'UNCLEAR_PROMPT',
+  UNFAIR: 'UNFAIR',
+  STALE: 'STALE',
+  NOT_USEFUL: 'NOT_USEFUL',
+  OFF_TOPIC: 'OFF_TOPIC',
+  OTHER: 'OTHER'
+} as const
+
+export type ExerciseFlagReason = (typeof ExerciseFlagReason)[keyof typeof ExerciseFlagReason]
+
+
+export const ExerciseFlagStatus = {
+  OPEN: 'OPEN',
+  RESOLVED: 'RESOLVED',
+  DISMISSED: 'DISMISSED'
+} as const
+
+export type ExerciseFlagStatus = (typeof ExerciseFlagStatus)[keyof typeof ExerciseFlagStatus]
