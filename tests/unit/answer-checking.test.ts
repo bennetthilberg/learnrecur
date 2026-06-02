@@ -78,6 +78,32 @@ describe("checkAnswer choice answers", () => {
       reason: "missing-correct-choice",
     });
   });
+
+  it("rejects unknown fields in choices and choice answer specs", () => {
+    expect(
+      checkAnswer({
+        answerSpec: { kind: "choice", correctChoiceId: "ser", typo: true },
+        choices,
+        submittedAnswer: "ser",
+      }),
+    ).toMatchObject({
+      status: "invalid-spec",
+      isCorrect: false,
+      reason: "invalid-answer-spec",
+    });
+
+    expect(
+      checkAnswer({
+        answerSpec: { kind: "choice", correctChoiceId: "ser" },
+        choices: [{ id: "ser", label: "ser", typo: true }],
+        submittedAnswer: "ser",
+      }),
+    ).toMatchObject({
+      status: "invalid-spec",
+      isCorrect: false,
+      reason: "invalid-choices",
+    });
+  });
 });
 
 describe("checkAnswer text answers", () => {
@@ -343,6 +369,52 @@ describe("checkAnswer unsupported and invalid specs", () => {
           tolerance: Number.POSITIVE_INFINITY,
         },
         submittedAnswer: "1",
+      }),
+    ).toMatchObject({
+      status: "invalid-spec",
+      isCorrect: false,
+      reason: "invalid-answer-spec",
+    });
+  });
+
+  it("rejects unknown fields in text, numeric, math, and numeric accepted-value specs", () => {
+    expect(
+      checkAnswer({
+        answerSpec: {
+          kind: "text",
+          accepted: ["ser"],
+          typo: true,
+        },
+        submittedAnswer: "ser",
+      }),
+    ).toMatchObject({
+      status: "invalid-spec",
+      isCorrect: false,
+      reason: "invalid-answer-spec",
+    });
+
+    expect(
+      checkAnswer({
+        answerSpec: {
+          kind: "numeric",
+          accepted: [{ type: "decimal", value: 1, typo: true }],
+        },
+        submittedAnswer: "1",
+      }),
+    ).toMatchObject({
+      status: "invalid-spec",
+      isCorrect: false,
+      reason: "invalid-answer-spec",
+    });
+
+    expect(
+      checkAnswer({
+        answerSpec: {
+          kind: "math",
+          acceptedExpressions: ["6x"],
+          typo: true,
+        },
+        submittedAnswer: "6x",
       }),
     ).toMatchObject({
       status: "invalid-spec",

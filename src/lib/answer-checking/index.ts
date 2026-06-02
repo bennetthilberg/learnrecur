@@ -4,19 +4,19 @@ const DEFAULT_NUMERIC_TOLERANCE = 0.001;
 
 const nonEmptyStringSchema = z.string().trim().min(1);
 
-export const choiceSchema = z.object({
+export const choiceSchema = z.strictObject({
   id: nonEmptyStringSchema,
   label: z.string(),
 });
 
 export const choicesSchema = z.array(choiceSchema).min(1);
 
-export const choiceAnswerSpecSchema = z.object({
+export const choiceAnswerSpecSchema = z.strictObject({
   kind: z.literal("choice"),
   correctChoiceId: nonEmptyStringSchema,
 });
 
-export const textAnswerSpecSchema = z.object({
+export const textAnswerSpecSchema = z.strictObject({
   kind: z.literal("text"),
   accepted: z.array(nonEmptyStringSchema).min(1),
   normalizeCase: z.boolean().default(true),
@@ -27,32 +27,32 @@ export const textAnswerSpecSchema = z.object({
 const numericAcceptedValueSchema = z.union([
   z.number().finite(),
   nonEmptyStringSchema,
-  z.object({
+  z.strictObject({
     type: z.literal("integer"),
     value: z.number().int().finite(),
   }),
-  z.object({
+  z.strictObject({
     type: z.literal("decimal"),
     value: z.number().finite(),
   }),
-  z.object({
+  z.strictObject({
     type: z.literal("fraction"),
     numerator: z.number().int().finite(),
     denominator: z.number().int().finite(),
   }),
-  z.object({
+  z.strictObject({
     type: z.literal("fraction"),
     value: nonEmptyStringSchema,
   }),
 ]);
 
-export const numericAnswerSpecSchema = z.object({
+export const numericAnswerSpecSchema = z.strictObject({
   kind: z.literal("numeric"),
   accepted: z.array(numericAcceptedValueSchema).min(1),
   tolerance: z.number().nonnegative().finite().default(DEFAULT_NUMERIC_TOLERANCE),
 });
 
-export const mathAnswerSpecSchema = z.object({
+export const mathAnswerSpecSchema = z.strictObject({
   kind: z.literal("math"),
   acceptedExpressions: z.array(nonEmptyStringSchema).min(1),
   equivalence: z.string().optional(),
