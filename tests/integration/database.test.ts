@@ -374,6 +374,35 @@ describeDatabase("database integration", () => {
       },
     });
 
+    const exerciseCascadeAttempt = await prisma.exerciseAttempt.create({
+      data: {
+        userId,
+        skillId: skill.id,
+        exerciseId: parentCascadeExercise.id,
+        answer: {
+          raw: "power rule",
+        },
+        normalizedAnswer: "power rule",
+        isCorrect: false,
+        result: ExerciseAttemptResult.INCORRECT,
+        finalRating: FsrsRating.HARD,
+      },
+    });
+
+    const exerciseCascadeReviewLog = await prisma.reviewLog.create({
+      data: {
+        userId,
+        skillId: skill.id,
+        exerciseAttemptId: exerciseCascadeAttempt.id,
+        finalRating: FsrsRating.HARD,
+        nextState: SkillFsrsState.LEARNING,
+        schedulerName: "ts-fsrs",
+        schedulerVersion: "5.x",
+        desiredRetention: 0.9,
+        schedulerParameters: { source: "default" },
+      },
+    });
+
     await prisma.exerciseAttempt.delete({
       where: { id: parentCascadeAttempt.id },
     });
@@ -401,8 +430,14 @@ describeDatabase("database integration", () => {
         prisma.exerciseFlag.count({
           where: { id: parentCascadeFlag.id },
         }),
+        prisma.exerciseAttempt.count({
+          where: { id: exerciseCascadeAttempt.id },
+        }),
+        prisma.reviewLog.count({
+          where: { id: exerciseCascadeReviewLog.id },
+        }),
       ]),
-    ).resolves.toEqual([0, 0]);
+    ).resolves.toEqual([0, 0, 0, 0]);
 
     await prisma.user.delete({
       where: { id: userId },
