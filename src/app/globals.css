@@ -1,0 +1,47 @@
+:root {
+  --lr-ink: #111827;
+  --lr-muted: #4f5f70;
+  --lr-faint: #66758a;
+  --lr-line: #dde6ef;
+  --lr-page: #fbfcfe;
+  --lr-panel: #ffffff;
+  --lr-primary: #034cd5;
+  --lr-primary-dark: #12306d;
+  --lr-primary-soft: #e9f0ff;
+  --lr-signal: #2d6cdf;
+  --lr-success: #2e7d32;
+  --lr-warning: #9d6a00;
+  --lr-error: #a4382b;
+  --lr-radius: 12px;
+  --lr-space: 18px;
+  --lr-shadow: 0 1px 2px rgba(18, 29, 51, 0.035), 0 14px 28px rgba(18, 29, 51, 0.052);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-width: 320px;
+  background: var(--lr-page);
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  background: var(--lr-page);
+  color: var(--lr-ink);
+  font-family: var(--font-lexend), sans-serif;
+  letter-spacing: 0;
+}
+
+button,
+input,
+textarea,
+select {
+  font-family: inherit;
+}
+
+::selection {
+  background: rgba(3, 76, 213, 0.18);
+}

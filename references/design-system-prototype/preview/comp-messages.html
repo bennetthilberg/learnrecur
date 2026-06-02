@@ -1,0 +1,15 @@
+<!-- @dsCard group="Components" -->
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><link rel="stylesheet" href="card.css">
+<style>.msg{display:flex;gap:11px;border:1px solid;border-radius:5px;padding:11px 13px;align-items:flex-start;}
+.stripe{width:3px;border-radius:2px;align-self:stretch;flex:none;}
+.msg b{font-weight:500;}</style></head>
+<body><div class="card">
+  <span class="eyebrow" style="display:block; margin-bottom:14px;">Messages — slim stripe + matching soft tint &amp; border</span>
+  <div style="display:flex; flex-direction:column; gap:9px; max-width:440px;">
+    <div class="msg" style="background:var(--success-soft); border-color:var(--success-line);"><span class="stripe" style="background:#1f7a4d;"></span><span class="lr-body"><b>Saved.</b> Next review in 9 days.</span></div>
+    <div class="msg" style="background:var(--warning-soft); border-color:var(--warning-line);"><span class="stripe" style="background:#b76a00;"></span><span class="lr-body"><b>This item has no source.</b> Add one to verify it later.</span></div>
+    <div class="msg" style="background:var(--error-soft); border-color:var(--error-line);"><span class="stripe" style="background:#c0392b;"></span><span class="lr-body"><b>Couldn't save.</b> Check your connection and try again.</span></div>
+    <div class="msg" style="background:var(--info-soft); border-color:var(--info-line);"><span class="stripe" style="background:#034cd5;"></span><span class="lr-body"><b>12 items</b> are due today.</span></div>
+  </div>
+</div></body></html>
