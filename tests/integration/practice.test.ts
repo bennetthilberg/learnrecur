@@ -233,6 +233,17 @@ describeDatabase("practice review service", () => {
       prompt: "Which verb describes identity?",
     });
 
+    const laterReadySkill = await createSkillFixture({
+      userId,
+      title: "later ready skill",
+      dueAt: new Date("2026-06-03T11:00:00.000Z"),
+    });
+    await createChoiceExercise({
+      userId,
+      skillId: laterReadySkill.id,
+      prompt: "Which later verb describes location?",
+    });
+
     await expect(getNextPracticeItem({ userId, now })).resolves.toMatchObject({
       status: "ready",
       skill: {
@@ -255,6 +266,7 @@ describeDatabase("practice review service", () => {
         exerciseId: exercise.id,
         submittedAnswer: "ser",
         responseMs: 20_000,
+        now,
       }),
     ).resolves.toMatchObject({
       status: "checked",
