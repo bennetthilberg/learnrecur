@@ -248,166 +248,169 @@ export async function commitPracticeReview(
 ): Promise<PracticeReviewCommitResult> {
   const prisma = getPrisma();
 
-  return prisma.$transaction(async (tx) => {
-    const existingAttempt = await tx.exerciseAttempt.findUnique({
-      where: { id: input.attemptId },
-      include: {
-        skill: true,
-        reviewLog: true,
-      },
-    });
+  try {
+    return await prisma.$transaction(async (tx) => commitPracticeReviewInTransaction(tx, input));
+  } catch (error) {
+    if (isUniqueConstraintError(error)) {
+      const existingAttempt = await findExistingAttempt(prisma, input.attemptId);
 
-    if (existingAttempt) {
-      return existingAttemptToResult(existingAttempt, input);
-    }
-
-    const exercise = await findEligibleExercise(tx, {
-      userId: input.userId,
-      exerciseId: input.exerciseId,
-      now: input.reviewedAt,
-    });
-
-    if (!exercise) {
-      return exerciseNotFound();
-    }
-
-    const answerCheck = checkAnswer({
-      answerSpec: exercise.answerSpec,
-      choices: exercise.choices,
-      submittedAnswer: input.submittedAnswer,
-    });
-
-    if (answerCheck.status !== "correct" && answerCheck.status !== "incorrect") {
-      return {
-        status: "not-committed",
-        answerCheck,
-        reason: "invalid-answer",
-        message: "Answer was checked but is not commit-ready.",
-      };
-    }
-
-    const proposedRating = mapAttemptToFsrsRating({
-      isCorrect: answerCheck.isCorrect,
-      responseMs: input.responseMs,
-      expectedSeconds: exercise.expectedSeconds,
-    });
-    const finalRating = resolveFinalPracticeRating({
-      isCorrect: answerCheck.isCorrect,
-      proposedRating,
-      manualRating: input.manualRating,
-    });
-    const advancement = advanceSkillSchedule({
-      current: exercise.skill,
-      rating: finalRating,
-      reviewedAt: input.reviewedAt,
-    });
-
-    let attempt: PracticeAttemptSummary;
-
-    try {
-      attempt = await tx.exerciseAttempt.create({
-        data: {
-          id: input.attemptId,
-          userId: input.userId,
-          skillId: exercise.skillId,
-          exerciseId: exercise.id,
-          answer: toStoredAnswer(input.submittedAnswer),
-          normalizedAnswer: answerCheck.normalizedAnswer,
-          isCorrect: answerCheck.isCorrect,
-          result: answerCheck.isCorrect
-            ? ExerciseAttemptResult.CORRECT
-            : ExerciseAttemptResult.INCORRECT,
-          responseMs: input.responseMs ?? null,
-          proposedRating,
-          finalRating,
-          feedbackShownAt: input.reviewedAt,
-        },
-      });
-    } catch (error) {
-      if (isUniqueConstraintError(error)) {
-        const existingAttempt = await findExistingAttempt(tx, input.attemptId);
-
-        if (existingAttempt) {
-          return existingAttemptToResult(existingAttempt, input);
-        }
+      if (existingAttempt) {
+        return existingAttemptToResult(existingAttempt, input);
       }
-
-      throw error;
     }
 
-    const updatedSkill = await tx.skill.update({
-      where: { id: exercise.skillId },
-      data: {
-        dueAt: advancement.skillUpdate.dueAt,
-        stability: advancement.skillUpdate.stability,
-        difficulty: advancement.skillUpdate.difficulty,
-        elapsedDays: advancement.skillUpdate.elapsedDays,
-        scheduledDays: advancement.skillUpdate.scheduledDays,
-        learningSteps: advancement.skillUpdate.learningSteps,
-        repetitions: advancement.skillUpdate.repetitions,
-        lapses: advancement.skillUpdate.lapses,
-        fsrsState: advancement.skillUpdate.fsrsState,
-        lastReviewedAt: advancement.skillUpdate.lastReviewedAt,
-      },
-    });
+    throw error;
+  }
+}
 
-    let reviewLog: PracticeReviewLogSummary;
-
-    try {
-      reviewLog = await tx.reviewLog.create({
-        data: {
-          userId: input.userId,
-          skillId: exercise.skillId,
-          exerciseAttemptId: attempt.id,
-          finalRating,
-          reviewedAt: input.reviewedAt,
-          previousDueAt: advancement.reviewLog.previousDueAt,
-          nextDueAt: advancement.reviewLog.nextDueAt,
-          previousStability: advancement.reviewLog.previousStability,
-          nextStability: advancement.reviewLog.nextStability,
-          previousDifficulty: advancement.reviewLog.previousDifficulty,
-          nextDifficulty: advancement.reviewLog.nextDifficulty,
-          previousElapsedDays: advancement.reviewLog.previousElapsedDays,
-          nextElapsedDays: advancement.reviewLog.nextElapsedDays,
-          previousScheduledDays: advancement.reviewLog.previousScheduledDays,
-          nextScheduledDays: advancement.reviewLog.nextScheduledDays,
-          previousLearningSteps: advancement.reviewLog.previousLearningSteps,
-          nextLearningSteps: advancement.reviewLog.nextLearningSteps,
-          previousRepetitions: advancement.reviewLog.previousRepetitions,
-          nextRepetitions: advancement.reviewLog.nextRepetitions,
-          previousLapses: advancement.reviewLog.previousLapses,
-          nextLapses: advancement.reviewLog.nextLapses,
-          previousState: advancement.reviewLog.previousState,
-          nextState: advancement.reviewLog.nextState,
-          schedulerName: advancement.reviewLog.schedulerName,
-          schedulerVersion: advancement.reviewLog.schedulerVersion,
-          desiredRetention: advancement.reviewLog.desiredRetention,
-          schedulerParameters: advancement.reviewLog.schedulerParameters,
-        },
-      });
-    } catch (error) {
-      if (isUniqueConstraintError(error)) {
-        const existingAttempt = await findExistingAttempt(tx, input.attemptId);
-
-        if (existingAttempt) {
-          return existingAttemptToResult(existingAttempt, input);
-        }
-      }
-
-      throw error;
-    }
-
-    return {
-      status: "committed",
-      idempotent: false,
-      answerCheck,
-      proposedRating,
-      finalRating,
-      attempt: toPracticeAttemptSummary(attempt),
-      reviewLog: toPracticeReviewLogSummary(reviewLog),
-      skill: toPracticeSkillSummary(toPracticeSkillRecordOrThrow(updatedSkill)),
-    };
+async function commitPracticeReviewInTransaction(
+  tx: PracticeQueryClient,
+  input: CommitPracticeReviewInput,
+): Promise<PracticeReviewCommitResult> {
+  const existingAttempt = await tx.exerciseAttempt.findUnique({
+    where: { id: input.attemptId },
+    include: {
+      skill: true,
+      reviewLog: true,
+    },
   });
+
+  if (existingAttempt) {
+    return existingAttemptToResult(existingAttempt, input);
+  }
+
+  const exercise = await findEligibleExercise(tx, {
+    userId: input.userId,
+    exerciseId: input.exerciseId,
+    now: input.reviewedAt,
+  });
+
+  if (!exercise) {
+    return exerciseNotFound();
+  }
+
+  const answerCheck = checkAnswer({
+    answerSpec: exercise.answerSpec,
+    choices: exercise.choices,
+    submittedAnswer: input.submittedAnswer,
+  });
+
+  if (answerCheck.status !== "correct" && answerCheck.status !== "incorrect") {
+    return {
+      status: "not-committed",
+      answerCheck,
+      reason: "invalid-answer",
+      message: "Answer was checked but is not commit-ready.",
+    };
+  }
+
+  const proposedRating = mapAttemptToFsrsRating({
+    isCorrect: answerCheck.isCorrect,
+    responseMs: input.responseMs,
+    expectedSeconds: exercise.expectedSeconds,
+  });
+  const finalRating = resolveFinalPracticeRating({
+    isCorrect: answerCheck.isCorrect,
+    proposedRating,
+    manualRating: input.manualRating,
+  });
+  const advancement = advanceSkillSchedule({
+    current: exercise.skill,
+    rating: finalRating,
+    reviewedAt: input.reviewedAt,
+  });
+
+  let attempt: PracticeAttemptSummary;
+
+  try {
+    attempt = await tx.exerciseAttempt.create({
+      data: {
+        id: input.attemptId,
+        userId: input.userId,
+        skillId: exercise.skillId,
+        exerciseId: exercise.id,
+        answer: toStoredAnswer(input.submittedAnswer),
+        normalizedAnswer: answerCheck.normalizedAnswer,
+        isCorrect: answerCheck.isCorrect,
+        result: answerCheck.isCorrect
+          ? ExerciseAttemptResult.CORRECT
+          : ExerciseAttemptResult.INCORRECT,
+        responseMs: input.responseMs ?? null,
+        proposedRating,
+        finalRating,
+        feedbackShownAt: input.reviewedAt,
+      },
+    });
+  } catch (error) {
+    if (isUniqueConstraintError(error)) {
+      const existingAttempt = await findExistingAttempt(tx, input.attemptId);
+
+      if (existingAttempt) {
+        return existingAttemptToResult(existingAttempt, input);
+      }
+    }
+
+    throw error;
+  }
+
+  const updatedSkill = await tx.skill.update({
+    where: { id: exercise.skillId },
+    data: {
+      dueAt: advancement.skillUpdate.dueAt,
+      stability: advancement.skillUpdate.stability,
+      difficulty: advancement.skillUpdate.difficulty,
+      elapsedDays: advancement.skillUpdate.elapsedDays,
+      scheduledDays: advancement.skillUpdate.scheduledDays,
+      learningSteps: advancement.skillUpdate.learningSteps,
+      repetitions: advancement.skillUpdate.repetitions,
+      lapses: advancement.skillUpdate.lapses,
+      fsrsState: advancement.skillUpdate.fsrsState,
+      lastReviewedAt: advancement.skillUpdate.lastReviewedAt,
+    },
+  });
+
+  const reviewLog = await tx.reviewLog.create({
+    data: {
+      userId: input.userId,
+      skillId: exercise.skillId,
+      exerciseAttemptId: attempt.id,
+      finalRating,
+      reviewedAt: input.reviewedAt,
+      previousDueAt: advancement.reviewLog.previousDueAt,
+      nextDueAt: advancement.reviewLog.nextDueAt,
+      previousStability: advancement.reviewLog.previousStability,
+      nextStability: advancement.reviewLog.nextStability,
+      previousDifficulty: advancement.reviewLog.previousDifficulty,
+      nextDifficulty: advancement.reviewLog.nextDifficulty,
+      previousElapsedDays: advancement.reviewLog.previousElapsedDays,
+      nextElapsedDays: advancement.reviewLog.nextElapsedDays,
+      previousScheduledDays: advancement.reviewLog.previousScheduledDays,
+      nextScheduledDays: advancement.reviewLog.nextScheduledDays,
+      previousLearningSteps: advancement.reviewLog.previousLearningSteps,
+      nextLearningSteps: advancement.reviewLog.nextLearningSteps,
+      previousRepetitions: advancement.reviewLog.previousRepetitions,
+      nextRepetitions: advancement.reviewLog.nextRepetitions,
+      previousLapses: advancement.reviewLog.previousLapses,
+      nextLapses: advancement.reviewLog.nextLapses,
+      previousState: advancement.reviewLog.previousState,
+      nextState: advancement.reviewLog.nextState,
+      schedulerName: advancement.reviewLog.schedulerName,
+      schedulerVersion: advancement.reviewLog.schedulerVersion,
+      desiredRetention: advancement.reviewLog.desiredRetention,
+      schedulerParameters: advancement.reviewLog.schedulerParameters,
+    },
+  });
+
+  return {
+    status: "committed",
+    idempotent: false,
+    answerCheck,
+    proposedRating,
+    finalRating,
+    attempt: toPracticeAttemptSummary(attempt),
+    reviewLog: toPracticeReviewLogSummary(reviewLog),
+    skill: toPracticeSkillSummary(toPracticeSkillRecordOrThrow(updatedSkill)),
+  };
 }
 
 async function findExistingAttempt(
