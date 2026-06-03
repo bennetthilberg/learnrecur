@@ -1,7 +1,8 @@
+import { createRequire } from "node:module";
+
 import {
   createEmptyCard,
   default_request_retention,
-  FSRSVersion,
   fsrs,
   Rating,
   State,
@@ -11,8 +12,11 @@ import {
 
 import { FsrsRating, SkillFsrsState, SkillStatus } from "@/generated/prisma/client";
 
+const _require = createRequire(import.meta.url);
+const _tsFsrsPkg = _require("ts-fsrs/package.json") as { version: string };
+
 export const SCHEDULER_NAME = "ts-fsrs";
-export const SCHEDULER_VERSION = extractTsFsrsPackageVersion(FSRSVersion);
+export const SCHEDULER_VERSION = _tsFsrsPkg.version;
 
 export type SkillScheduleFields = {
   dueAt: Date;
@@ -241,14 +245,4 @@ function fromTsFsrsState(state: State): SkillFsrsState {
     case State.Relearning:
       return SkillFsrsState.RELEARNING;
   }
-}
-
-function extractTsFsrsPackageVersion(versionLabel: string): string {
-  const match = /^v(?<version>\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?)\b/.exec(versionLabel);
-
-  if (!match?.groups?.version) {
-    throw new Error(`Could not derive ${SCHEDULER_NAME} package version from "${versionLabel}".`);
-  }
-
-  return match.groups.version;
 }
