@@ -1,4 +1,8 @@
+import "server-only";
+
+import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
+import { dirname, join } from "node:path";
 
 import {
   createEmptyCard,
@@ -12,11 +16,10 @@ import {
 
 import { FsrsRating, SkillFsrsState, SkillStatus } from "@/generated/prisma/client";
 
-const _require = createRequire(import.meta.url);
-const _tsFsrsPkg = _require("ts-fsrs/package.json") as { version: string };
-
 export const SCHEDULER_NAME = "ts-fsrs";
-export const SCHEDULER_VERSION = _tsFsrsPkg.version;
+const nodeRequire = createRequire(import.meta.url);
+const SCHEDULER_VERSION_FALLBACK = "unknown";
+export const SCHEDULER_VERSION = resolveSchedulerVersion();
 
 export type SkillScheduleFields = {
   dueAt: Date;
@@ -245,4 +248,39 @@ function fromTsFsrsState(state: State): SkillFsrsState {
     case State.Relearning:
       return SkillFsrsState.RELEARNING;
   }
+}
+
+function resolveSchedulerVersion(): string {
+  try {
+    let candidateDir = dirname(nodeRequire.resolve(SCHEDULER_NAME));
+
+    for (let depth = 0; depth < 4; depth += 1) {
+      const packageJsonPath = join(candidateDir, "package.json");
+
+      try {
+        const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf8")) as {
+          name?: string;
+          version?: string;
+        };
+
+        if (packageJson.name === SCHEDULER_NAME && packageJson.version) {
+          return packageJson.version;
+        }
+      } catch {
+        // Keep walking up from the resolved entrypoint until the package root is found.
+      }
+
+      const parentDir = dirname(candidateDir);
+
+      if (parentDir === candidateDir) {
+        break;
+      }
+
+      candidateDir = parentDir;
+    }
+  } catch {
+    // Fall through to the safe default so module initialization never throws.
+  }
+
+  return SCHEDULER_VERSION_FALLBACK;
 }
