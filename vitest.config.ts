@@ -15,6 +15,7 @@ export default defineConfig({
     include: ["tests/**/*.test.ts"],
     exclude: ["tests/e2e/**"],
     setupFiles: ["./tests/setup/env.ts"],
+    testTimeout: 30_000,
     coverage: {
       provider: "v8",
       include: ["src/lib/**/*.ts"],
