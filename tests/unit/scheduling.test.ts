@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 import { describe, expect, it } from "vitest";
 
 import { FsrsRating, SkillFsrsState, SkillStatus } from "@/generated/prisma/client";
@@ -6,10 +8,21 @@ import {
   createInitialSkillSchedule,
   getDueSkills,
   mapAttemptToFsrsRating,
+  SCHEDULER_VERSION,
   toFsrsCard,
 } from "@/lib/scheduling";
 
 const now = new Date("2026-06-02T12:00:00.000Z");
+
+describe("scheduler metadata", () => {
+  it("uses the installed ts-fsrs package version", () => {
+    const tsFsrsPackage = JSON.parse(
+      readFileSync(new URL("../../node_modules/ts-fsrs/package.json", import.meta.url), "utf8"),
+    ) as { version: string };
+
+    expect(SCHEDULER_VERSION).toBe(tsFsrsPackage.version);
+  });
+});
 
 describe("createInitialSkillSchedule", () => {
   it("creates a new due FSRS skill state", () => {
@@ -167,7 +180,7 @@ describe("advanceSkillSchedule", () => {
       nextLapses: result.skillUpdate.lapses,
       nextState: result.skillUpdate.fsrsState,
       schedulerName: "ts-fsrs",
-      schedulerVersion: "5.4.1",
+      schedulerVersion: SCHEDULER_VERSION,
     });
     expect(result.reviewLog.nextDueAt?.getTime()).toBe(result.skillUpdate.dueAt.getTime());
     expect(result.reviewLog.schedulerParameters).toEqual({ source: "ts-fsrs-defaults" });
