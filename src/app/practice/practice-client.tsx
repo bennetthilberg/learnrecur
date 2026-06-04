@@ -33,8 +33,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
-  const itemKey = item.status === "ready" ? item.exercise.id : "none";
-  const timer = useVisibleElapsedMs(itemKey, item.status === "ready" && feedback === null);
+  const timer = useVisibleElapsedMs(attemptId, item.status === "ready" && feedback === null);
   const checkedFeedback = feedback?.status === "checked" ? feedback : null;
   const isCorrect = checkedFeedback?.answerCheck.isCorrect === true;
   const isIncorrect = checkedFeedback?.answerCheck.isCorrect === false;
@@ -285,7 +284,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
   );
 }
 
-function useVisibleElapsedMs(key: string, active: boolean) {
+function useVisibleElapsedMs(attemptKey: string, active: boolean) {
   const [elapsedMs, setElapsedMs] = useState(0);
   const accumulatedMsRef = useRef(0);
   const startedAtRef = useRef<number | null>(null);
@@ -328,7 +327,7 @@ function useVisibleElapsedMs(key: string, active: boolean) {
     }
 
     return () => window.clearTimeout(resetTimer);
-  }, [key]);
+  }, [attemptKey]);
 
   useEffect(() => {
     const handleVisibility = () => {

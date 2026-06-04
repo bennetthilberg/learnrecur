@@ -380,7 +380,7 @@ describeDatabase("practice review service", () => {
     });
   });
 
-  it("fails closed when a choice practice item has malformed choice JSON", async () => {
+  it("fails closed when a choice practice item would drop malformed choices", async () => {
     const userId = await createUser("malformed_choice_query");
     const skill = await createSkillFixture({
       userId,
@@ -395,7 +395,7 @@ describeDatabase("practice review service", () => {
         type: ExerciseType.MULTIPLE_CHOICE,
         answerKind: AnswerKind.CHOICE,
         prompt: "Choose the correct verb.",
-        choices: [{ id: "ser" }],
+        choices: [{ id: "ser", label: "ser" }, { id: "estar" }],
         answerSpec: {
           kind: "choice",
           correctChoiceId: "ser",

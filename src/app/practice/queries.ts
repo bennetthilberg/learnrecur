@@ -26,7 +26,10 @@ export async function getNextChoicePracticeItemForUser(
 
   const parsedChoices = toChoiceOptions(result.exercise.choices);
 
-  if (parsedChoices.length === 0) {
+  if (
+    !Array.isArray(result.exercise.choices) ||
+    parsedChoices.length !== result.exercise.choices.length
+  ) {
     return {
       status: "unavailable",
       message: "This exercise does not have valid answer choices.",
