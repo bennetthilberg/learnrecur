@@ -16,6 +16,7 @@ import {
   getNextPracticeItem,
   previewPracticeAnswer,
 } from "@/lib/practice";
+import { ensureDevPracticeSampleData } from "@/lib/practice/sample-data";
 import { getPrisma } from "@/lib/prisma";
 import { createInitialSkillSchedule } from "@/lib/scheduling";
 
@@ -114,6 +115,35 @@ describeDatabase("practice review service", () => {
         verificationStatus,
         retiredAt,
         retirementReason: retiredAt ? ExerciseRetirementReason.MANUAL : null,
+      },
+    });
+  }
+
+  async function createTextExercise({
+    userId,
+    skillId,
+    prompt = "Type the correct verb.",
+  }: {
+    userId: string;
+    skillId: string;
+    prompt?: string;
+  }) {
+    return prisma.exercise.create({
+      data: {
+        userId,
+        skillId,
+        type: ExerciseType.EXACT_INPUT,
+        answerKind: AnswerKind.TEXT,
+        prompt,
+        answerSpec: {
+          kind: "text",
+          accepted: ["ser"],
+        },
+        correctAnswerDisplay: "ser",
+        explanation: "Use ser for identity.",
+        difficulty: 1,
+        expectedSeconds: 30,
+        verificationStatus: ExerciseVerificationStatus.VERIFIED,
       },
     });
   }
@@ -255,6 +285,149 @@ describeDatabase("practice review service", () => {
         prompt: "Which verb describes identity?",
       },
     });
+  });
+
+  it("filters eligible practice items by answer kind", async () => {
+    const userId = await createUser("answer_kind_filter");
+
+    const textSkill = await createSkillFixture({
+      userId,
+      title: "earlier text skill",
+      dueAt: new Date("2026-06-03T09:00:00.000Z"),
+    });
+    const textExercise = await createTextExercise({
+      userId,
+      skillId: textSkill.id,
+      prompt: "Earlier exact-input prompt.",
+    });
+
+    const choiceSkill = await createSkillFixture({
+      userId,
+      title: "later choice skill",
+      dueAt: new Date("2026-06-03T10:00:00.000Z"),
+    });
+    const choiceExercise = await createChoiceExercise({
+      userId,
+      skillId: choiceSkill.id,
+      prompt: "Later multiple-choice prompt.",
+    });
+
+    await expect(
+      getNextPracticeItem({
+        userId,
+        now,
+        answerKinds: [AnswerKind.CHOICE],
+      }),
+    ).resolves.toMatchObject({
+      status: "ready",
+      skill: {
+        id: choiceSkill.id,
+      },
+      exercise: {
+        id: choiceExercise.id,
+      },
+    });
+
+    await expect(
+      previewPracticeAnswer({
+        userId,
+        exerciseId: textExercise.id,
+        submittedAnswer: "ser",
+        now,
+        answerKinds: [AnswerKind.CHOICE],
+      }),
+    ).resolves.toMatchObject({
+      status: "not-found",
+      reason: "exercise-not-found",
+    });
+  });
+
+  it("keeps unsupported math exercises out even when requested explicitly", async () => {
+    const userId = await createUser("unsupported_math_filter");
+    const mathSkill = await createSkillFixture({
+      userId,
+      title: "math skill",
+      dueAt: new Date("2026-06-03T09:00:00.000Z"),
+    });
+
+    await prisma.exercise.create({
+      data: {
+        userId,
+        skillId: mathSkill.id,
+        type: ExerciseType.EXACT_INPUT,
+        answerKind: AnswerKind.MATH,
+        prompt: "Differentiate x^2.",
+        answerSpec: {
+          kind: "math",
+          acceptedExpressions: ["2x"],
+        },
+        correctAnswerDisplay: "2x",
+        verificationStatus: ExerciseVerificationStatus.VERIFIED,
+      },
+    });
+
+    await expect(
+      getNextPracticeItem({
+        userId,
+        now,
+        answerKinds: [AnswerKind.MATH],
+      }),
+    ).resolves.toMatchObject({
+      status: "none-due",
+    });
+  });
+
+  it("creates idempotent development sample practice data", async () => {
+    const userId = await createUser("sample_data");
+
+    await expect(
+      ensureDevPracticeSampleData({
+        userId,
+        now,
+      }),
+    ).resolves.toMatchObject({
+      status: "ready",
+      skillCount: 2,
+      exerciseCount: 3,
+    });
+
+    await expect(
+      ensureDevPracticeSampleData({
+        userId,
+        now: new Date("2026-06-04T12:00:00.000Z"),
+      }),
+    ).resolves.toMatchObject({
+      status: "ready",
+      skillCount: 2,
+      exerciseCount: 3,
+    });
+
+    await expect(
+      Promise.all([
+        prisma.collection.count({
+          where: {
+            userId,
+            name: "LearnRecur samples",
+          },
+        }),
+        prisma.skill.count({
+          where: {
+            userId,
+            tags: { has: "learnrecur-sample" },
+            status: SkillStatus.ACTIVE,
+            dueAt: { lte: new Date("2026-06-04T12:00:00.000Z") },
+          },
+        }),
+        prisma.exercise.count({
+          where: {
+            userId,
+            freshnessKey: { startsWith: "learnrecur-sample:" },
+            verificationStatus: ExerciseVerificationStatus.VERIFIED,
+            retiredAt: null,
+          },
+        }),
+      ]),
+    ).resolves.toEqual([1, 2, 3]);
   });
 
   it("previews deterministic answer feedback without writing attempts or review logs", async () => {

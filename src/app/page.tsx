@@ -15,9 +15,14 @@ export default async function Home() {
         </p>
         <div className="entryActions">
           {userId ? (
-            <Link className="primaryButton" href="/dashboard">
-              Open dashboard
-            </Link>
+            <>
+              <Link className="primaryButton" href="/practice">
+                Start practice
+              </Link>
+              <Link className="secondaryButton" href="/dashboard">
+                Open dashboard
+              </Link>
+            </>
           ) : (
             <>
               <Link className="primaryButton" href="/sign-in">
