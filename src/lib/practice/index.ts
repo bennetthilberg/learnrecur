@@ -178,6 +178,13 @@ type ExistingAttemptRecord = {
     reviewedAt: Date;
     previousDueAt: Date | null;
     nextDueAt: Date | null;
+    nextStability: number | null;
+    nextDifficulty: number | null;
+    nextElapsedDays: number | null;
+    nextScheduledDays: number | null;
+    nextLearningSteps: number | null;
+    nextRepetitions: number | null;
+    nextLapses: number | null;
     previousState: SkillFsrsState | null;
     nextState: SkillFsrsState | null;
     schedulerName: string;
@@ -320,38 +327,24 @@ async function commitPracticeReviewInTransaction(
     reviewedAt: input.reviewedAt,
   });
 
-  let attempt: PracticeAttemptSummary;
-
-  try {
-    attempt = await tx.exerciseAttempt.create({
-      data: {
-        id: input.attemptId,
-        userId: input.userId,
-        skillId: exercise.skillId,
-        exerciseId: exercise.id,
-        answer: toStoredAnswer(input.submittedAnswer),
-        normalizedAnswer: answerCheck.normalizedAnswer,
-        isCorrect: answerCheck.isCorrect,
-        result: answerCheck.isCorrect
-          ? ExerciseAttemptResult.CORRECT
-          : ExerciseAttemptResult.INCORRECT,
-        responseMs: input.responseMs ?? null,
-        proposedRating,
-        finalRating,
-        feedbackShownAt: input.reviewedAt,
-      },
-    });
-  } catch (error) {
-    if (isUniqueConstraintError(error)) {
-      const existingAttempt = await findExistingAttempt(tx, input.attemptId);
-
-      if (existingAttempt) {
-        return existingAttemptToResult(existingAttempt, input);
-      }
-    }
-
-    throw error;
-  }
+  const attempt = await tx.exerciseAttempt.create({
+    data: {
+      id: input.attemptId,
+      userId: input.userId,
+      skillId: exercise.skillId,
+      exerciseId: exercise.id,
+      answer: toStoredAnswer(input.submittedAnswer),
+      normalizedAnswer: answerCheck.normalizedAnswer,
+      isCorrect: answerCheck.isCorrect,
+      result: answerCheck.isCorrect
+        ? ExerciseAttemptResult.CORRECT
+        : ExerciseAttemptResult.INCORRECT,
+      responseMs: input.responseMs ?? null,
+      proposedRating,
+      finalRating,
+      feedbackShownAt: input.reviewedAt,
+    },
+  });
 
   const updatedSkill = await tx.skill.update({
     where: { id: exercise.skillId },
@@ -527,7 +520,9 @@ function existingAttemptToResult(
     finalRating: attempt.finalRating,
     attempt: toPracticeAttemptSummary(attempt),
     reviewLog: toPracticeReviewLogSummary(attempt.reviewLog),
-    skill: toPracticeSkillSummary(toPracticeSkillRecordOrThrow(attempt.skill)),
+    skill: toPracticeSkillSummary(
+      toPracticeSkillRecordFromReviewLog(attempt) ?? toPracticeSkillRecordOrThrow(attempt.skill),
+    ),
   };
 }
 
@@ -611,6 +606,42 @@ function toPracticeSkillSummary(skill: PracticeSkillRecord): PracticeSkillSummar
     repetitions: skill.repetitions,
     lapses: skill.lapses,
     lastReviewedAt: skill.lastReviewedAt,
+  };
+}
+
+function toPracticeSkillRecordFromReviewLog(
+  attempt: ExistingAttemptRecord,
+): PracticeSkillRecord | null {
+  const { reviewLog } = attempt;
+
+  if (
+    !reviewLog ||
+    reviewLog.nextDueAt === null ||
+    reviewLog.nextStability === null ||
+    reviewLog.nextDifficulty === null ||
+    reviewLog.nextElapsedDays === null ||
+    reviewLog.nextScheduledDays === null ||
+    reviewLog.nextLearningSteps === null ||
+    reviewLog.nextRepetitions === null ||
+    reviewLog.nextLapses === null ||
+    reviewLog.nextState === null
+  ) {
+    return null;
+  }
+
+  return {
+    id: attempt.skill.id,
+    title: attempt.skill.title,
+    dueAt: reviewLog.nextDueAt,
+    stability: reviewLog.nextStability,
+    difficulty: reviewLog.nextDifficulty,
+    elapsedDays: reviewLog.nextElapsedDays,
+    scheduledDays: reviewLog.nextScheduledDays,
+    learningSteps: reviewLog.nextLearningSteps,
+    repetitions: reviewLog.nextRepetitions,
+    lapses: reviewLog.nextLapses,
+    fsrsState: reviewLog.nextState,
+    lastReviewedAt: reviewLog.reviewedAt,
   };
 }
 

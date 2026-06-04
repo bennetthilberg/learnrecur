@@ -575,4 +575,57 @@ describeDatabase("practice review service", () => {
       ]),
     ).resolves.toEqual([1, 1, { repetitions: 1 }]);
   });
+
+  it("returns the committed skill snapshot for idempotent retries", async () => {
+    const { userId, skill, exercise } = await createDueChoiceFixture("idempotent_snapshot");
+    const attemptId = `${runId}_idempotent_snapshot_attempt`;
+
+    const first = await commitPracticeReview({
+      userId,
+      exerciseId: exercise.id,
+      attemptId,
+      submittedAnswer: "ser",
+      responseMs: 20_000,
+      reviewedAt: now,
+    });
+
+    expect(first).toMatchObject({
+      status: "committed",
+      idempotent: false,
+    });
+
+    if (first.status !== "committed") {
+      throw new Error("Expected first review commit to succeed.");
+    }
+
+    await prisma.skill.update({
+      where: { id: skill.id },
+      data: {
+        dueAt: new Date("2026-07-01T12:00:00.000Z"),
+        stability: 99,
+        difficulty: 1,
+        elapsedDays: 99,
+        scheduledDays: 99,
+        learningSteps: 99,
+        repetitions: 99,
+        lapses: 99,
+        lastReviewedAt: new Date("2026-07-01T12:00:00.000Z"),
+      },
+    });
+
+    await expect(
+      commitPracticeReview({
+        userId,
+        exerciseId: exercise.id,
+        attemptId,
+        submittedAnswer: "ser",
+        responseMs: 20_000,
+        reviewedAt: now,
+      }),
+    ).resolves.toMatchObject({
+      status: "committed",
+      idempotent: true,
+      skill: first.skill,
+    });
+  });
 });
