@@ -229,7 +229,7 @@ a {
   justify-self: end;
 }
 
-.dashboardHeader p {
+.dashboardHeader p:not(.eyebrow) {
   max-width: 620px;
   margin: 0;
   color: var(--lr-muted);

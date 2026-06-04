@@ -205,13 +205,7 @@ function isReadyNow(skill: DashboardSkillRecord, now: Date): boolean {
     skill.dueAt.getTime() <= now.getTime() &&
     skill.stability !== null &&
     skill.difficulty !== null &&
-    skill.exercises.some(
-      (exercise) =>
-        exercise.answerKind === AnswerKind.CHOICE &&
-        exercise.verificationStatus === ExerciseVerificationStatus.VERIFIED &&
-        exercise.retiredAt === null &&
-        hasRenderableChoices(exercise.choices),
-    )
+    skill.exercises.some(isPracticeEligibleExercise)
   );
 }
 
@@ -221,13 +215,7 @@ function getDueLabel(skill: DashboardSkillRecord, now: Date): string {
   }
 
   if (
-    !skill.exercises.some(
-      (exercise) =>
-        exercise.answerKind === AnswerKind.CHOICE &&
-        exercise.verificationStatus === ExerciseVerificationStatus.VERIFIED &&
-        exercise.retiredAt === null &&
-        hasRenderableChoices(exercise.choices),
-    )
+    !skill.exercises.some(isPracticeEligibleExercise)
   ) {
     return "Not available in practice yet";
   }
@@ -255,6 +243,15 @@ function getDueLabel(skill: DashboardSkillRecord, now: Date): string {
 
 function hasInitializedSchedule(skill: DashboardSkillRecord): boolean {
   return skill.dueAt !== null && skill.stability !== null && skill.difficulty !== null;
+}
+
+function isPracticeEligibleExercise(exercise: DashboardSkillRecord["exercises"][number]): boolean {
+  return (
+    exercise.answerKind === AnswerKind.CHOICE &&
+    exercise.verificationStatus === ExerciseVerificationStatus.VERIFIED &&
+    exercise.retiredAt === null &&
+    hasRenderableChoices(exercise.choices)
+  );
 }
 
 function hasRenderableChoices(choices: Prisma.JsonValue | null): boolean {
