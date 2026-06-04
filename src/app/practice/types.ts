@@ -75,6 +75,21 @@ export type ChoicePracticeCommitResult =
       message: string;
     };
 
+export type ChoicePracticeFlagResult =
+  | {
+      status: "flagged";
+      message: string;
+      nextItem: ChoicePracticeItem;
+    }
+  | {
+      status: "not-flagged";
+      message: string;
+    }
+  | {
+      status: "not-found";
+      message: string;
+    };
+
 export type ChoicePracticeSeedResult =
   | {
       status: "ready";

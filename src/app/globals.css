@@ -527,6 +527,121 @@ a {
   color: var(--lr-primary-ink);
 }
 
+.flagExercisePanel {
+  margin-top: 20px;
+  border-top: 1px solid var(--lr-line);
+  padding-top: 18px;
+}
+
+.flagExerciseHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.flagExerciseHeader h2 {
+  margin: 0;
+  color: var(--lr-ink);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.25;
+}
+
+.flagExerciseHeader p {
+  margin: 4px 0 0;
+  color: var(--lr-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.flagExerciseForm {
+  display: grid;
+  gap: 14px;
+  margin-top: 15px;
+}
+
+.flagExerciseForm fieldset {
+  margin: 0;
+  border: 0;
+  padding: 0;
+}
+
+.flagExerciseForm legend,
+.flagNoteField span {
+  margin-bottom: 8px;
+  color: var(--lr-faint);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.flagReasonGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.flagReasonOption {
+  display: flex;
+  min-height: 38px;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid var(--lr-line);
+  border-radius: var(--lr-radius);
+  background: #ffffff;
+  color: var(--lr-muted);
+  padding: 9px 10px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.flagReasonOption input {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--lr-primary);
+}
+
+.flagReasonOption:has(input:checked) {
+  border-color: var(--lr-primary);
+  background: var(--lr-primary-soft);
+  color: var(--lr-primary-ink);
+}
+
+.flagReasonOption:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.flagReasonOption:has(input:focus-visible),
+.flagNoteField textarea:focus-visible {
+  outline: none;
+  box-shadow: var(--lr-focus-ring);
+}
+
+.flagNoteField {
+  display: grid;
+  gap: 8px;
+}
+
+.flagNoteField textarea {
+  width: 100%;
+  resize: vertical;
+  border: 1px solid var(--lr-line);
+  border-radius: var(--lr-radius);
+  background: #ffffff;
+  color: var(--lr-ink);
+  padding: 10px 11px;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.flagActions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .practiceActions {
   display: flex;
   justify-content: flex-end;
@@ -582,6 +697,15 @@ a {
 
   .practiceMetricCluster {
     justify-content: flex-start;
+  }
+
+  .flagExerciseHeader {
+    align-items: flex-start;
+    display: grid;
+  }
+
+  .flagReasonGrid {
+    grid-template-columns: 1fr;
   }
 }
 

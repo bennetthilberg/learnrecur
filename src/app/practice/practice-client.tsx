@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 
-import { FsrsRating } from "@/generated/prisma/enums";
+import { ExerciseFlagReason, FsrsRating } from "@/generated/prisma/enums";
 
 import {
   commitChoicePracticeReviewAction,
   ensureDevPracticeSampleDataAction,
+  flagChoicePracticeExerciseAction,
   previewChoicePracticeAnswerAction,
 } from "./actions";
 import type {
@@ -20,7 +21,38 @@ type PracticeClientProps = {
   canUseSampleData: boolean;
 };
 
-type PendingAction = "check" | "continue" | "sample" | null;
+type PendingAction = "check" | "continue" | "flag" | "sample" | null;
+
+const FLAG_REASON_OPTIONS: Array<{ reason: ExerciseFlagReason; label: string }> = [
+  {
+    reason: ExerciseFlagReason.INCORRECT_ANSWER,
+    label: "Correct answer seems wrong",
+  },
+  {
+    reason: ExerciseFlagReason.UNCLEAR_PROMPT,
+    label: "Prompt is unclear",
+  },
+  {
+    reason: ExerciseFlagReason.UNFAIR,
+    label: "Feels unfair or tricky",
+  },
+  {
+    reason: ExerciseFlagReason.STALE,
+    label: "Stale or outdated",
+  },
+  {
+    reason: ExerciseFlagReason.NOT_USEFUL,
+    label: "Not useful for this skill",
+  },
+  {
+    reason: ExerciseFlagReason.OFF_TOPIC,
+    label: "Off topic",
+  },
+  {
+    reason: ExerciseFlagReason.OTHER,
+    label: "Something else",
+  },
+];
 
 export function PracticeClient({ initialItem, canUseSampleData }: PracticeClientProps) {
   const [item, setItem] = useState(initialItem);
@@ -29,6 +61,9 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
   const [feedback, setFeedback] = useState<ChoicePracticePreviewResult | null>(null);
   const [manualRating, setManualRating] = useState<FsrsRating | null>(null);
   const [submittedResponseMs, setSubmittedResponseMs] = useState<number | null>(null);
+  const [flagFormOpen, setFlagFormOpen] = useState(false);
+  const [selectedFlagReasons, setSelectedFlagReasons] = useState<ExerciseFlagReason[]>([]);
+  const [otherFlagNote, setOtherFlagNote] = useState("");
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [, startTransition] = useTransition();
@@ -37,6 +72,9 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
   const checkedFeedback = feedback?.status === "checked" ? feedback : null;
   const isCorrect = checkedFeedback?.answerCheck.isCorrect === true;
   const isIncorrect = checkedFeedback?.answerCheck.isCorrect === false;
+  const selectedOtherFlag = selectedFlagReasons.includes(ExerciseFlagReason.OTHER);
+  const canSubmitFlag =
+    selectedFlagReasons.length > 0 && (!selectedOtherFlag || otherFlagNote.trim().length > 0);
 
   const resetAttemptState = useCallback(() => {
     setSelectedChoiceId(null);
@@ -44,8 +82,19 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
     setFeedback(null);
     setManualRating(null);
     setSubmittedResponseMs(null);
+    setFlagFormOpen(false);
+    setSelectedFlagReasons([]);
+    setOtherFlagNote("");
     setPendingAction(null);
     setStatusMessage(null);
+  }, []);
+
+  const handleFlagReasonToggle = useCallback((reason: ExerciseFlagReason) => {
+    setSelectedFlagReasons((current) =>
+      current.includes(reason)
+        ? current.filter((selectedReason) => selectedReason !== reason)
+        : [...current, reason],
+    );
   }, []);
 
   const handleCheck = useCallback(() => {
@@ -123,6 +172,47 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
     selectedChoiceId,
     submittedResponseMs,
     timer,
+    startTransition,
+  ]);
+
+  const handleFlagSubmit = useCallback(() => {
+    if (
+      item.status !== "ready" ||
+      feedback?.status !== "checked" ||
+      pendingAction !== null ||
+      !canSubmitFlag
+    ) {
+      return;
+    }
+
+    setPendingAction("flag");
+    setStatusMessage(null);
+
+    startTransition(async () => {
+      const result = await flagChoicePracticeExerciseAction({
+        exerciseId: item.exercise.id,
+        reasons: selectedFlagReasons,
+        otherNote: otherFlagNote,
+      });
+
+      setPendingAction(null);
+
+      if (result.status === "flagged") {
+        setItem(result.nextItem);
+        resetAttemptState();
+        setStatusMessage(result.message);
+      } else {
+        setStatusMessage(result.message);
+      }
+    });
+  }, [
+    canSubmitFlag,
+    feedback,
+    item,
+    otherFlagNote,
+    pendingAction,
+    resetAttemptState,
+    selectedFlagReasons,
     startTransition,
   ]);
 
@@ -255,6 +345,71 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
 
       {isIncorrect ? (
         <p className="practiceStatusLine">This review will be scheduled as Again.</p>
+      ) : null}
+
+      {checkedFeedback ? (
+        <section className="flagExercisePanel" aria-labelledby="flag-exercise-title">
+          <div className="flagExerciseHeader">
+            <div>
+              <h2 id="flag-exercise-title">Something wrong?</h2>
+              <p>Report this exercise instead of saving the review.</p>
+            </div>
+            <button
+              className="secondaryButton"
+              type="button"
+              disabled={pendingAction !== null}
+              aria-expanded={flagFormOpen}
+              onClick={() => setFlagFormOpen((open) => !open)}
+            >
+              {flagFormOpen ? "Close report" : "Report issue"}
+            </button>
+          </div>
+
+          {flagFormOpen ? (
+            <div className="flagExerciseForm">
+              <fieldset>
+                <legend>What should we fix?</legend>
+                <div className="flagReasonGrid">
+                  {FLAG_REASON_OPTIONS.map((option) => (
+                    <label key={option.reason} className="flagReasonOption">
+                      <input
+                        type="checkbox"
+                        checked={selectedFlagReasons.includes(option.reason)}
+                        disabled={pendingAction !== null}
+                        onChange={() => handleFlagReasonToggle(option.reason)}
+                      />
+                      <span>{option.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+
+              {selectedOtherFlag ? (
+                <label className="flagNoteField">
+                  <span>What else?</span>
+                  <textarea
+                    value={otherFlagNote}
+                    disabled={pendingAction !== null}
+                    maxLength={500}
+                    rows={3}
+                    onChange={(event) => setOtherFlagNote(event.target.value)}
+                  />
+                </label>
+              ) : null}
+
+              <div className="flagActions">
+                <button
+                  className="secondaryButton"
+                  type="button"
+                  disabled={pendingAction !== null || !canSubmitFlag}
+                  onClick={handleFlagSubmit}
+                >
+                  {pendingAction === "flag" ? "Reporting" : "Submit report"}
+                </button>
+              </div>
+            </div>
+          ) : null}
+        </section>
       ) : null}
 
       <div className="practiceActions">
