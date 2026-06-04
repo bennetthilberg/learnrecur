@@ -1,0 +1,436 @@
+import { randomUUID } from "node:crypto";
+
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+
+import {
+  AnswerKind,
+  CollectionStatus,
+  ExerciseAttemptResult,
+  ExerciseRetirementReason,
+  ExerciseType,
+  ExerciseVerificationStatus,
+  SkillFsrsState,
+  SkillStatus,
+} from "@/generated/prisma/client";
+import { getDashboardHome } from "@/lib/dashboard";
+import { ensureDevPracticeSampleData } from "@/lib/practice/sample-data";
+import { getPrisma } from "@/lib/prisma";
+import { createInitialSkillSchedule } from "@/lib/scheduling";
+
+const runDatabaseTests = process.env.RUN_DATABASE_TESTS === "1";
+const describeDatabase = runDatabaseTests ? describe : describe.skip;
+const runId = `dashboard_${randomUUID()}`;
+const now = new Date("2026-06-04T12:00:00.000Z");
+
+describeDatabase("dashboard home read model", () => {
+  const prisma = getPrisma();
+  const ownedUserIds: string[] = [];
+
+  function makeUserId(label: string) {
+    const userId = `${runId}_${label}`;
+    ownedUserIds.push(userId);
+    return userId;
+  }
+
+  async function cleanupUser(userId: string) {
+    await prisma.user.deleteMany({ where: { id: userId } });
+  }
+
+  async function createUser(label: string) {
+    const userId = makeUserId(label);
+    await cleanupUser(userId);
+    await prisma.user.create({
+      data: {
+        id: userId,
+        email: `${label}@example.com`,
+      },
+    });
+    return userId;
+  }
+
+  async function createCollection(userId: string, name: string) {
+    return prisma.collection.create({
+      data: {
+        userId,
+        name,
+        status: CollectionStatus.ACTIVE,
+      },
+    });
+  }
+
+  async function createSkillFixture({
+    userId,
+    title,
+    collectionId,
+    dueAt = new Date("2026-06-03T09:00:00.000Z"),
+    status = SkillStatus.ACTIVE,
+    initialized = true,
+    tags = [],
+  }: {
+    userId: string;
+    title: string;
+    collectionId?: string | null;
+    dueAt?: Date;
+    status?: SkillStatus;
+    initialized?: boolean;
+    tags?: string[];
+  }) {
+    const schedule = initialized ? createInitialSkillSchedule(dueAt) : {};
+
+    return prisma.skill.create({
+      data: {
+        userId,
+        collectionId,
+        title,
+        tags,
+        status,
+        ...schedule,
+      },
+    });
+  }
+
+  async function createChoiceExercise({
+    userId,
+    skillId,
+    verificationStatus = ExerciseVerificationStatus.VERIFIED,
+    retiredAt = null,
+    choices = [
+      { id: "right", label: "Right" },
+      { id: "wrong", label: "Wrong" },
+    ],
+  }: {
+    userId: string;
+    skillId: string;
+    verificationStatus?: ExerciseVerificationStatus;
+    retiredAt?: Date | null;
+    choices?: Array<{ id: string; label?: string }>;
+  }) {
+    return prisma.exercise.create({
+      data: {
+        userId,
+        skillId,
+        type: ExerciseType.MULTIPLE_CHOICE,
+        answerKind: AnswerKind.CHOICE,
+        prompt: "Choose the right answer.",
+        choices,
+        answerSpec: {
+          kind: "choice",
+          correctChoiceId: "right",
+        },
+        correctAnswerDisplay: "Right",
+        verificationStatus,
+        retiredAt,
+        retirementReason: retiredAt ? ExerciseRetirementReason.MANUAL : null,
+      },
+    });
+  }
+
+  async function createTextExercise(userId: string, skillId: string) {
+    return prisma.exercise.create({
+      data: {
+        userId,
+        skillId,
+        type: ExerciseType.EXACT_INPUT,
+        answerKind: AnswerKind.TEXT,
+        prompt: "Type the right answer.",
+        answerSpec: {
+          kind: "text",
+          accepted: ["right"],
+        },
+        correctAnswerDisplay: "right",
+        verificationStatus: ExerciseVerificationStatus.VERIFIED,
+      },
+    });
+  }
+
+  async function createAttempt({
+    userId,
+    skillId,
+    exerciseId,
+    createdAt,
+    result,
+  }: {
+    userId: string;
+    skillId: string;
+    exerciseId: string;
+    createdAt: Date;
+    result: ExerciseAttemptResult;
+  }) {
+    return prisma.exerciseAttempt.create({
+      data: {
+        userId,
+        skillId,
+        exerciseId,
+        answer: "right",
+        normalizedAnswer: "right",
+        isCorrect: result === ExerciseAttemptResult.CORRECT,
+        result,
+        createdAt,
+      },
+    });
+  }
+
+  beforeAll(async () => {
+    await prisma.$queryRaw`SELECT 1`;
+  });
+
+  afterAll(async () => {
+    for (const userId of ownedUserIds.reverse()) {
+      await cleanupUser(userId);
+    }
+
+    await prisma.$disconnect();
+  });
+
+  it("summarizes ready practice, active skills, collections, and recent accuracy for one user", async () => {
+    const userId = await createUser("home");
+    const grammar = await createCollection(userId, "Spanish grammar");
+    const vocabulary = await createCollection(userId, "Spanish vocabulary");
+
+    const readySkill = await createSkillFixture({
+      userId,
+      collectionId: grammar.id,
+      title: "Ser vs. estar",
+      tags: ["spanish", "grammar"],
+    });
+    const readyExercise = await createChoiceExercise({ userId, skillId: readySkill.id });
+
+    const futureSkill = await createSkillFixture({
+      userId,
+      collectionId: grammar.id,
+      title: "Future tense",
+      dueAt: new Date("2026-06-05T09:00:00.000Z"),
+    });
+    await createChoiceExercise({ userId, skillId: futureSkill.id });
+
+    const textOnlySkill = await createSkillFixture({
+      userId,
+      collectionId: vocabulary.id,
+      title: "Exact accent marks",
+      dueAt: new Date("2026-06-03T09:30:00.000Z"),
+    });
+    await createTextExercise(userId, textOnlySkill.id);
+
+    const pausedSkill = await createSkillFixture({
+      userId,
+      collectionId: vocabulary.id,
+      title: "Paused skill",
+      status: SkillStatus.PAUSED,
+    });
+    await createChoiceExercise({ userId, skillId: pausedSkill.id });
+
+    const draftSkill = await createSkillFixture({
+      userId,
+      collectionId: vocabulary.id,
+      title: "Draft skill",
+      status: SkillStatus.DRAFT,
+    });
+    await createChoiceExercise({ userId, skillId: draftSkill.id });
+
+    const uninitializedSkill = await createSkillFixture({
+      userId,
+      collectionId: vocabulary.id,
+      title: "Missing schedule",
+      initialized: false,
+    });
+    await createChoiceExercise({ userId, skillId: uninitializedSkill.id });
+
+    const unverifiedSkill = await createSkillFixture({
+      userId,
+      collectionId: vocabulary.id,
+      title: "Unverified exercise",
+      dueAt: new Date("2026-06-03T10:00:00.000Z"),
+    });
+    await createChoiceExercise({
+      userId,
+      skillId: unverifiedSkill.id,
+      verificationStatus: ExerciseVerificationStatus.UNVERIFIED,
+    });
+
+    const retiredSkill = await createSkillFixture({
+      userId,
+      collectionId: vocabulary.id,
+      title: "Retired exercise",
+      dueAt: new Date("2026-06-03T10:15:00.000Z"),
+    });
+    await createChoiceExercise({
+      userId,
+      skillId: retiredSkill.id,
+      retiredAt: new Date("2026-06-04T08:00:00.000Z"),
+    });
+
+    await createAttempt({
+      userId,
+      skillId: readySkill.id,
+      exerciseId: readyExercise.id,
+      createdAt: new Date("2026-06-03T11:00:00.000Z"),
+      result: ExerciseAttemptResult.CORRECT,
+    });
+    await createAttempt({
+      userId,
+      skillId: readySkill.id,
+      exerciseId: readyExercise.id,
+      createdAt: new Date("2026-06-02T11:00:00.000Z"),
+      result: ExerciseAttemptResult.INCORRECT,
+    });
+    await createAttempt({
+      userId,
+      skillId: readySkill.id,
+      exerciseId: readyExercise.id,
+      createdAt: new Date("2026-06-01T11:00:00.000Z"),
+      result: ExerciseAttemptResult.SKIPPED,
+    });
+    await createAttempt({
+      userId,
+      skillId: readySkill.id,
+      exerciseId: readyExercise.id,
+      createdAt: new Date("2026-05-01T11:00:00.000Z"),
+      result: ExerciseAttemptResult.CORRECT,
+    });
+
+    const otherUserId = await createUser("other");
+    const otherCollection = await createCollection(otherUserId, "Other collection");
+    const otherSkill = await createSkillFixture({
+      userId: otherUserId,
+      collectionId: otherCollection.id,
+      title: "Other user's ready skill",
+    });
+    await createChoiceExercise({ userId: otherUserId, skillId: otherSkill.id });
+
+    const dashboard = await getDashboardHome({ userId, now });
+
+    expect(dashboard).toMatchObject({
+      readyNowCount: 1,
+      activeSkillCount: 6,
+      recentReviewCount: 2,
+      recentAccuracyPercent: 50,
+      collections: [
+        {
+          id: grammar.id,
+          name: "Spanish grammar",
+          activeSkillCount: 2,
+          readyNowCount: 1,
+        },
+        {
+          id: vocabulary.id,
+          name: "Spanish vocabulary",
+          activeSkillCount: 4,
+          readyNowCount: 0,
+        },
+      ],
+    });
+
+    expect(dashboard.skills.slice(0, 2)).toMatchObject([
+      {
+        id: readySkill.id,
+        title: "Ser vs. estar",
+        collectionName: "Spanish grammar",
+        tags: ["spanish", "grammar"],
+        fsrsState: SkillFsrsState.NEW,
+        repetitions: 0,
+        lapses: 0,
+        isReadyNow: true,
+        dueLabel: "Due now",
+      },
+      {
+        id: textOnlySkill.id,
+        title: "Exact accent marks",
+        isReadyNow: false,
+        dueLabel: "Not available in practice yet",
+      },
+    ]);
+    expect(dashboard.collections).toHaveLength(2);
+    expect(dashboard.skills.map((skill) => skill.title)).not.toContain("Other user's ready skill");
+  });
+
+  it("returns empty recent accuracy when there are no recent committed answers", async () => {
+    const userId = await createUser("no_attempts");
+    const collection = await createCollection(userId, "Empty collection");
+    const skill = await createSkillFixture({
+      userId,
+      collectionId: collection.id,
+      title: "Ready without reviews",
+    });
+    await createChoiceExercise({ userId, skillId: skill.id });
+
+    await expect(getDashboardHome({ userId, now })).resolves.toMatchObject({
+      readyNowCount: 1,
+      activeSkillCount: 1,
+      recentReviewCount: 0,
+      recentAccuracyPercent: null,
+    });
+  });
+
+  it("does not count malformed choice exercises as ready for the current practice UI", async () => {
+    const userId = await createUser("malformed_choices");
+    const collection = await createCollection(userId, "Malformed collection");
+    const skill = await createSkillFixture({
+      userId,
+      collectionId: collection.id,
+      title: "Broken options",
+    });
+    await createChoiceExercise({
+      userId,
+      skillId: skill.id,
+      choices: [{ id: "right" }],
+    });
+
+    await expect(getDashboardHome({ userId, now })).resolves.toMatchObject({
+      readyNowCount: 0,
+      activeSkillCount: 1,
+      collections: [
+        {
+          id: collection.id,
+          readyNowCount: 0,
+        },
+      ],
+      skills: [
+        {
+          id: skill.id,
+          isReadyNow: false,
+          dueLabel: "Not available in practice yet",
+        },
+      ],
+    });
+  });
+
+  it("does not unretire flagged sample exercises when sample data is reseeded", async () => {
+    const userId = await createUser("sample_retirement");
+    const retiredAt = new Date("2026-06-04T09:00:00.000Z");
+
+    await ensureDevPracticeSampleData({ userId, now });
+
+    const sampleExercise = await prisma.exercise.findFirstOrThrow({
+      where: {
+        userId,
+        freshnessKey: { startsWith: "learnrecur-sample:" },
+      },
+    });
+
+    await prisma.exercise.update({
+      where: { id: sampleExercise.id },
+      data: {
+        retiredAt,
+        retirementReason: ExerciseRetirementReason.FLAGGED_UNCLEAR,
+      },
+    });
+
+    await ensureDevPracticeSampleData({
+      userId,
+      now: new Date("2026-06-04T12:30:00.000Z"),
+    });
+
+    await expect(
+      prisma.exercise.findUniqueOrThrow({
+        where: { id: sampleExercise.id },
+        select: {
+          retiredAt: true,
+          retirementReason: true,
+        },
+      }),
+    ).resolves.toEqual({
+      retiredAt,
+      retirementReason: ExerciseRetirementReason.FLAGGED_UNCLEAR,
+    });
+  });
+});

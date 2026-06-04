@@ -195,8 +195,6 @@ export async function ensureDevPracticeSampleData(
         difficulty: exerciseSeed.difficulty,
         expectedSeconds: exerciseSeed.expectedSeconds,
         verificationStatus: ExerciseVerificationStatus.VERIFIED,
-        retiredAt: null,
-        retirementReason: null,
         freshnessKey,
       };
 
@@ -210,6 +208,8 @@ export async function ensureDevPracticeSampleData(
           data: {
             userId: input.userId,
             ...data,
+            retiredAt: null,
+            retirementReason: null,
           },
         });
       }

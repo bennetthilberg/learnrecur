@@ -2,7 +2,7 @@ import { UserButton } from "@clerk/nextjs";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import Link from "next/link";
 
-import { hasClerkEnv } from "@/lib/env";
+import { getDashboardHome, type DashboardHome } from "@/lib/dashboard";
 import { ensureDatabaseUser } from "@/lib/users";
 
 export const dynamic = "force-dynamic";
@@ -10,7 +10,6 @@ export const dynamic = "force-dynamic";
 export default async function DashboardPage() {
   const { userId } = await auth.protect();
   const clerkUser = await currentUser();
-  const clerkEnvReady = hasClerkEnv();
 
   if (!clerkUser) {
     throw new Error(`Clerk returned no user for authenticated user ${userId}.`);
@@ -18,74 +17,216 @@ export default async function DashboardPage() {
 
   const databaseUser = await ensureDatabaseUser(clerkUser);
 
+  if (databaseUser.status !== "ready") {
+    return (
+      <main className="dashboardShell">
+        <DashboardTopbar />
+        <section className="dashboardSetupPanel" aria-labelledby="dashboard-setup-title">
+          <p className="eyebrow">Dashboard</p>
+          <h1 id="dashboard-setup-title">Database setup needs attention.</h1>
+          <p>{databaseUser.message}</p>
+        </section>
+      </main>
+    );
+  }
+
+  const dashboard = await getDashboardHome({
+    userId,
+    now: new Date(),
+  });
+
   return (
     <main className="dashboardShell">
+      <DashboardTopbar />
+
       <header className="dashboardHeader">
         <div>
-          <p className="eyebrow">Authenticated app spine</p>
-          <h1>Dashboard setup check.</h1>
+          <p className="eyebrow">Today</p>
+          <h1>Practice queue.</h1>
+          <p>
+            A compact read on what is ready, what is active, and how the recent
+            review loop is holding up.
+          </p>
         </div>
-        <UserButton />
+        <Link
+          className={dashboard.readyNowCount > 0 ? "primaryButton" : "secondaryButton"}
+          href="/practice"
+        >
+          {dashboard.readyNowCount > 0 ? "Start practice" : "Open practice"}
+        </Link>
       </header>
 
-      <section className="statusGrid" aria-label="Setup status">
-        <article className="statusPanel">
-          <p className="statusLabel">Clerk</p>
-          <h2>Signed in</h2>
-          <dl>
-            <div>
-              <dt>User ID</dt>
-              <dd>{userId}</dd>
-            </div>
-            <div>
-              <dt>Email</dt>
-              <dd>{clerkUser.primaryEmailAddress?.emailAddress ?? "No primary email"}</dd>
-            </div>
-            <div>
-              <dt>Environment</dt>
-              <dd>{clerkEnvReady ? "Clerk keys loaded" : "Add Clerk keys to .env.local"}</dd>
-            </div>
-          </dl>
-        </article>
+      <section className="dashboardMetricGrid" aria-label="Practice summary">
+        <MetricCard
+          label="Ready now"
+          value={formatCount(dashboard.readyNowCount)}
+          detail="multiple-choice ready"
+        />
+        <MetricCard
+          label="Active skills"
+          value={formatCount(dashboard.activeSkillCount)}
+          detail="in the schedule"
+        />
+        <MetricCard
+          label="Recent accuracy"
+          value={formatAccuracy(dashboard.recentAccuracyPercent)}
+          detail="last 14 days"
+        />
+        <MetricCard
+          label="Recent reviews"
+          value={formatCount(dashboard.recentReviewCount)}
+          detail="checked answers"
+        />
+      </section>
 
-        <article className="statusPanel">
-          <p className="statusLabel">Database</p>
-          {databaseUser.status === "ready" ? (
-            <>
-              <h2>User mirror ready</h2>
-              <dl>
-                <div>
-                  <dt>DB user ID</dt>
-                  <dd>{databaseUser.user.id}</dd>
-                </div>
-                <div>
-                  <dt>Created</dt>
-                  <dd>{databaseUser.user.createdAt.toLocaleString()}</dd>
-                </div>
-              </dl>
-            </>
+      <div className="dashboardContentGrid">
+        <section className="dashboardPanel" aria-labelledby="collections-title">
+          <div className="dashboardPanelHeader">
+            <div>
+              <p className="eyebrow">Collections</p>
+              <h2 id="collections-title">Study areas</h2>
+            </div>
+          </div>
+
+          {dashboard.collections.length === 0 ? (
+            <DashboardEmptyState
+              title="No collections yet."
+              detail="Practice can prepare a small local sample set while manual creation is still being built."
+            />
           ) : (
-            <>
-              <h2>Needs setup</h2>
-              <p>{databaseUser.message}</p>
-            </>
+            <div className="collectionList">
+              {dashboard.collections.map((collection) => (
+                <article className="collectionRow" key={collection.id}>
+                  <div>
+                    <h3>{collection.name}</h3>
+                    <p>{formatCount(collection.activeSkillCount)} active skills</p>
+                  </div>
+                  <span className="dashboardChip" data-tone={collection.readyNowCount > 0 ? "ready" : "neutral"}>
+                    {formatCount(collection.readyNowCount)} ready
+                  </span>
+                </article>
+              ))}
+            </div>
           )}
-        </article>
-      </section>
+        </section>
 
-      <section className="nextStepPanel" aria-labelledby="next-step-title">
-        <p className="eyebrow">Practice</p>
-        <h2 id="next-step-title">Review flow is ready for a first pass.</h2>
-        <p>
-          Start with the multiple-choice practice loop. If no exercises are due in
-          local development, the practice page can prepare a small sample set.
-        </p>
-        <div className="entryActions">
-          <Link className="primaryButton" href="/practice">
-            Start practice
-          </Link>
-        </div>
-      </section>
+        <section className="dashboardPanel dashboardPanelPrimary" aria-labelledby="skills-title">
+          <div className="dashboardPanelHeader">
+            <div>
+              <p className="eyebrow">Skills</p>
+              <h2 id="skills-title">Active schedule</h2>
+            </div>
+            <span className="dashboardChip">{formatCount(dashboard.skills.length)} shown</span>
+          </div>
+
+          {dashboard.skills.length === 0 ? (
+            <DashboardEmptyState
+              title="No active skills yet."
+              detail="The first creation flow will add real skills here. For now, sample practice data can exercise the loop."
+            />
+          ) : (
+            <div className="skillList">
+              {dashboard.skills.map((skill) => (
+                <article className="skillRow" key={skill.id}>
+                  <div className="skillRowMain">
+                    <div>
+                      <h3>{skill.title}</h3>
+                      <p>
+                        {skill.collectionName ?? "Uncollected"} / {formatFsrsState(skill.fsrsState)}
+                      </p>
+                    </div>
+                    <span className="dashboardChip" data-tone={skill.isReadyNow ? "ready" : "neutral"}>
+                      {skill.dueLabel}
+                    </span>
+                  </div>
+
+                  <div className="skillMetaLine">
+                    <span>{formatCount(skill.repetitions)} reps</span>
+                    <span>{formatCount(skill.lapses)} lapses</span>
+                    {skill.tags.slice(0, 3).map((tag) => (
+                      <span className="dashboardTag" key={tag}>
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
+
+      {dashboard.readyNowCount === 0 ? (
+        <section className="dashboardMessage" aria-label="Practice status">
+          <div>
+            <p className="eyebrow">Queue</p>
+            <h2>Nothing is ready for multiple-choice practice.</h2>
+          </div>
+          <p>
+            This can mean every active skill is scheduled for later, or the ready skills
+            have exercises the current practice screen cannot render yet.
+          </p>
+        </section>
+      ) : null}
     </main>
   );
+}
+
+function DashboardTopbar() {
+  return (
+    <header className="practiceTopbar">
+      <Link className="practiceWordmark" href="/dashboard">
+        LearnRecur
+      </Link>
+      <nav className="practiceNav" aria-label="Dashboard navigation">
+        <Link aria-current="page" href="/dashboard">
+          Dashboard
+        </Link>
+        <Link href="/practice">Practice</Link>
+      </nav>
+      <UserButton />
+    </header>
+  );
+}
+
+function MetricCard({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: string;
+  detail: string;
+}) {
+  return (
+    <article className="dashboardMetricCard">
+      <p>{label}</p>
+      <strong>{value}</strong>
+      <span>{detail}</span>
+    </article>
+  );
+}
+
+function DashboardEmptyState({ title, detail }: { title: string; detail: string }) {
+  return (
+    <div className="dashboardEmptyState">
+      <h3>{title}</h3>
+      <p>{detail}</p>
+      <Link className="secondaryButton" href="/practice">
+        Open practice
+      </Link>
+    </div>
+  );
+}
+
+function formatCount(count: number) {
+  return new Intl.NumberFormat("en-US").format(count);
+}
+
+function formatAccuracy(accuracy: DashboardHome["recentAccuracyPercent"]) {
+  return accuracy === null ? "No data" : `${accuracy}%`;
+}
+
+function formatFsrsState(state: DashboardHome["skills"][number]["fsrsState"]) {
+  return state.toLowerCase().replaceAll("_", " ");
 }
