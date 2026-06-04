@@ -36,4 +36,11 @@ test.describe("auth spine", () => {
     await expect(page).toHaveURL(/\/sign-in|accounts\.dev\/sign-in/);
     await expect(page.getByText(/authenticated app spine/i)).toHaveCount(0);
   });
+
+  test("practice is protected for signed-out users", async ({ page }) => {
+    await page.goto("/practice");
+
+    await expect(page).toHaveURL(/\/sign-in|accounts\.dev\/sign-in/);
+    await expect(page.getByText(/multiple choice/i)).toHaveCount(0);
+  });
 });

@@ -128,6 +128,7 @@ export type PracticeReviewCommitResult =
 export type GetNextPracticeItemInput = {
   userId: string;
   now: Date;
+  answerKinds?: readonly AnswerKind[];
 };
 
 export type PreviewPracticeAnswerInput = {
@@ -136,6 +137,7 @@ export type PreviewPracticeAnswerInput = {
   submittedAnswer: PracticeSubmittedAnswer;
   responseMs?: number | null;
   now?: Date;
+  answerKinds?: readonly AnswerKind[];
 };
 
 export type CommitPracticeReviewInput = PreviewPracticeAnswerInput & {
@@ -205,6 +207,7 @@ export async function getNextPracticeItem(
   const exercise = await findEligibleExercise(prisma, {
     userId: input.userId,
     now: input.now,
+    answerKinds: input.answerKinds,
   });
 
   if (!exercise) {
@@ -229,6 +232,7 @@ export async function previewPracticeAnswer(
     userId: input.userId,
     exerciseId: input.exerciseId,
     now: input.now ?? new Date(),
+    answerKinds: input.answerKinds,
   });
 
   if (!exercise) {
@@ -290,6 +294,7 @@ async function commitPracticeReviewInTransaction(
     userId: input.userId,
     exerciseId: input.exerciseId,
     now: input.reviewedAt,
+    answerKinds: input.answerKinds,
   });
 
   if (!exercise) {
@@ -445,15 +450,24 @@ async function findEligibleExercise(
     userId: string;
     exerciseId?: string;
     now: Date;
+    answerKinds?: readonly AnswerKind[];
   },
 ): Promise<PracticeExerciseRecord | null> {
+  const answerKinds = [...(input.answerKinds ?? SUPPORTED_ANSWER_KINDS)].filter(
+    isSupportedAnswerKind,
+  );
+
+  if (answerKinds.length === 0) {
+    return null;
+  }
+
   const exercises = await prisma.exercise.findMany({
     where: {
       ...(input.exerciseId ? { id: input.exerciseId } : {}),
       userId: input.userId,
       verificationStatus: ExerciseVerificationStatus.VERIFIED,
       retiredAt: null,
-      answerKind: { in: [...SUPPORTED_ANSWER_KINDS] },
+      answerKind: { in: answerKinds },
       skill: {
         userId: input.userId,
         status: SkillStatus.ACTIVE,
@@ -470,6 +484,14 @@ async function findEligibleExercise(
   return exercises
     .map(toPracticeExerciseRecord)
     .toSorted(comparePracticeExercises)[0] ?? null;
+}
+
+function isSupportedAnswerKind(
+  answerKind: AnswerKind,
+): answerKind is (typeof SUPPORTED_ANSWER_KINDS)[number] {
+  return SUPPORTED_ANSWER_KINDS.includes(
+    answerKind as (typeof SUPPORTED_ANSWER_KINDS)[number],
+  );
 }
 
 function getProposedRating(

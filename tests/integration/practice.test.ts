@@ -9,6 +9,7 @@ import {
   ExerciseType,
   ExerciseVerificationStatus,
   FsrsRating,
+  SkillFsrsState,
   SkillStatus,
 } from "@/generated/prisma/client";
 import {
@@ -16,8 +17,11 @@ import {
   getNextPracticeItem,
   previewPracticeAnswer,
 } from "@/lib/practice";
+import { ensureDevPracticeSampleData } from "@/lib/practice/sample-data";
 import { getPrisma } from "@/lib/prisma";
 import { createInitialSkillSchedule } from "@/lib/scheduling";
+
+import { getNextChoicePracticeItemForUser } from "@/app/practice/queries";
 
 const runDatabaseTests = process.env.RUN_DATABASE_TESTS === "1";
 const describeDatabase = runDatabaseTests ? describe : describe.skip;
@@ -114,6 +118,35 @@ describeDatabase("practice review service", () => {
         verificationStatus,
         retiredAt,
         retirementReason: retiredAt ? ExerciseRetirementReason.MANUAL : null,
+      },
+    });
+  }
+
+  async function createTextExercise({
+    userId,
+    skillId,
+    prompt = "Type the correct verb.",
+  }: {
+    userId: string;
+    skillId: string;
+    prompt?: string;
+  }) {
+    return prisma.exercise.create({
+      data: {
+        userId,
+        skillId,
+        type: ExerciseType.EXACT_INPUT,
+        answerKind: AnswerKind.TEXT,
+        prompt,
+        answerSpec: {
+          kind: "text",
+          accepted: ["ser"],
+        },
+        correctAnswerDisplay: "ser",
+        explanation: "Use ser for identity.",
+        difficulty: 1,
+        expectedSeconds: 30,
+        verificationStatus: ExerciseVerificationStatus.VERIFIED,
       },
     });
   }
@@ -254,6 +287,243 @@ describeDatabase("practice review service", () => {
         id: readyExercise.id,
         prompt: "Which verb describes identity?",
       },
+    });
+  });
+
+  it("filters eligible practice items by answer kind", async () => {
+    const userId = await createUser("answer_kind_filter");
+
+    const textSkill = await createSkillFixture({
+      userId,
+      title: "earlier text skill",
+      dueAt: new Date("2026-06-03T09:00:00.000Z"),
+    });
+    const textExercise = await createTextExercise({
+      userId,
+      skillId: textSkill.id,
+      prompt: "Earlier exact-input prompt.",
+    });
+
+    const choiceSkill = await createSkillFixture({
+      userId,
+      title: "later choice skill",
+      dueAt: new Date("2026-06-03T10:00:00.000Z"),
+    });
+    const choiceExercise = await createChoiceExercise({
+      userId,
+      skillId: choiceSkill.id,
+      prompt: "Later multiple-choice prompt.",
+    });
+
+    await expect(
+      getNextPracticeItem({
+        userId,
+        now,
+        answerKinds: [AnswerKind.CHOICE],
+      }),
+    ).resolves.toMatchObject({
+      status: "ready",
+      skill: {
+        id: choiceSkill.id,
+      },
+      exercise: {
+        id: choiceExercise.id,
+      },
+    });
+
+    await expect(
+      previewPracticeAnswer({
+        userId,
+        exerciseId: textExercise.id,
+        submittedAnswer: "ser",
+        now,
+        answerKinds: [AnswerKind.CHOICE],
+      }),
+    ).resolves.toMatchObject({
+      status: "not-found",
+      reason: "exercise-not-found",
+    });
+  });
+
+  it("keeps unsupported math exercises out even when requested explicitly", async () => {
+    const userId = await createUser("unsupported_math_filter");
+    const mathSkill = await createSkillFixture({
+      userId,
+      title: "math skill",
+      dueAt: new Date("2026-06-03T09:00:00.000Z"),
+    });
+
+    await prisma.exercise.create({
+      data: {
+        userId,
+        skillId: mathSkill.id,
+        type: ExerciseType.EXACT_INPUT,
+        answerKind: AnswerKind.MATH,
+        prompt: "Differentiate x^2.",
+        answerSpec: {
+          kind: "math",
+          acceptedExpressions: ["2x"],
+        },
+        correctAnswerDisplay: "2x",
+        verificationStatus: ExerciseVerificationStatus.VERIFIED,
+      },
+    });
+
+    await expect(
+      getNextPracticeItem({
+        userId,
+        now,
+        answerKinds: [AnswerKind.MATH],
+      }),
+    ).resolves.toMatchObject({
+      status: "none-due",
+    });
+  });
+
+  it("fails closed when a choice practice item would drop malformed choices", async () => {
+    const userId = await createUser("malformed_choice_query");
+    const skill = await createSkillFixture({
+      userId,
+      title: "malformed choices skill",
+      dueAt: new Date("2026-06-03T09:00:00.000Z"),
+    });
+
+    await prisma.exercise.create({
+      data: {
+        userId,
+        skillId: skill.id,
+        type: ExerciseType.MULTIPLE_CHOICE,
+        answerKind: AnswerKind.CHOICE,
+        prompt: "Choose the correct verb.",
+        choices: [{ id: "ser", label: "ser" }, { id: "estar" }],
+        answerSpec: {
+          kind: "choice",
+          correctChoiceId: "ser",
+        },
+        correctAnswerDisplay: "ser",
+        verificationStatus: ExerciseVerificationStatus.VERIFIED,
+      },
+    });
+
+    await expect(getNextChoicePracticeItemForUser(userId, now)).resolves.toMatchObject({
+      status: "unavailable",
+      message: "This exercise does not have valid answer choices.",
+    });
+  });
+
+  it("fails closed when a choice practice item has no choices", async () => {
+    const userId = await createUser("empty_choice_query");
+    const skill = await createSkillFixture({
+      userId,
+      title: "empty choices skill",
+      dueAt: new Date("2026-06-03T09:00:00.000Z"),
+    });
+    await createChoiceExercise({
+      userId,
+      skillId: skill.id,
+      choices: [],
+    });
+
+    await expect(getNextChoicePracticeItemForUser(userId, now)).resolves.toMatchObject({
+      status: "unavailable",
+      message: "This exercise does not have valid answer choices.",
+    });
+  });
+
+  it("creates idempotent development sample practice data", async () => {
+    const userId = await createUser("sample_data");
+
+    await expect(
+      ensureDevPracticeSampleData({
+        userId,
+        now,
+      }),
+    ).resolves.toMatchObject({
+      status: "ready",
+      skillCount: 2,
+      exerciseCount: 3,
+    });
+
+    const reviewedAt = new Date("2026-06-04T09:30:00.000Z");
+    const dueAt = new Date("2026-06-10T12:00:00.000Z");
+    const progressedSkill = await prisma.skill.findFirstOrThrow({
+      where: {
+        userId,
+        title: "Ser vs. estar for identity and location",
+        tags: { has: "learnrecur-sample" },
+      },
+    });
+    await prisma.skill.update({
+      where: { id: progressedSkill.id },
+      data: {
+        dueAt,
+        stability: 8.5,
+        difficulty: 4.25,
+        repetitions: 3,
+        lapses: 1,
+        fsrsState: SkillFsrsState.REVIEW,
+        lastReviewedAt: reviewedAt,
+      },
+    });
+
+    await expect(
+      ensureDevPracticeSampleData({
+        userId,
+        now: new Date("2026-06-04T12:00:00.000Z"),
+      }),
+    ).resolves.toMatchObject({
+      status: "ready",
+      skillCount: 2,
+      exerciseCount: 3,
+    });
+
+    await expect(
+      Promise.all([
+        prisma.collection.count({
+          where: {
+            userId,
+            name: "LearnRecur samples",
+          },
+        }),
+        prisma.skill.count({
+          where: {
+            userId,
+            tags: { has: "learnrecur-sample" },
+            status: SkillStatus.ACTIVE,
+          },
+        }),
+        prisma.exercise.count({
+          where: {
+            userId,
+            freshnessKey: { startsWith: "learnrecur-sample:" },
+            verificationStatus: ExerciseVerificationStatus.VERIFIED,
+            retiredAt: null,
+          },
+        }),
+      ]),
+    ).resolves.toEqual([1, 2, 3]);
+
+    await expect(
+      prisma.skill.findUniqueOrThrow({
+        where: { id: progressedSkill.id },
+        select: {
+          dueAt: true,
+          stability: true,
+          difficulty: true,
+          repetitions: true,
+          lapses: true,
+          fsrsState: true,
+          lastReviewedAt: true,
+        },
+      }),
+    ).resolves.toEqual({
+      dueAt,
+      stability: 8.5,
+      difficulty: 4.25,
+      repetitions: 3,
+      lapses: 1,
+      fsrsState: SkillFsrsState.REVIEW,
+      lastReviewedAt: reviewedAt,
     });
   });
 

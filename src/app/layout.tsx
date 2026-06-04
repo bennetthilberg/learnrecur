@@ -2,7 +2,6 @@ import "@mantine/core/styles.css";
 import "./globals.css";
 
 import { ClerkProvider } from "@clerk/nextjs";
-import { ColorSchemeScript } from "@mantine/core";
 import type { Metadata } from "next";
 import { Lexend } from "next/font/google";
 
@@ -26,10 +25,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={lexend.variable} suppressHydrationWarning>
-      <head>
-        <ColorSchemeScript defaultColorScheme="light" />
-      </head>
+    <html lang="en" className={lexend.variable}>
       <body>
         <ClerkProvider>
           <Providers>{children}</Providers>

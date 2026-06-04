@@ -1,5 +1,6 @@
 import { UserButton } from "@clerk/nextjs";
 import { auth, currentUser } from "@clerk/nextjs/server";
+import Link from "next/link";
 
 import { hasClerkEnv } from "@/lib/env";
 import { ensureDatabaseUser } from "@/lib/users";
@@ -73,13 +74,17 @@ export default async function DashboardPage() {
       </section>
 
       <section className="nextStepPanel" aria-labelledby="next-step-title">
-        <p className="eyebrow">Next implementation slice</p>
-        <h2 id="next-step-title">Still intentionally empty.</h2>
+        <p className="eyebrow">Practice</p>
+        <h2 id="next-step-title">Review flow is ready for a first pass.</h2>
         <p>
-          This page is only proving auth, database configuration, and user ownership.
-          The actual learning and review workflows should be designed in a separate,
-          deliberate slice.
+          Start with the multiple-choice practice loop. If no exercises are due in
+          local development, the practice page can prepare a small sample set.
         </p>
+        <div className="entryActions">
+          <Link className="primaryButton" href="/practice">
+            Start practice
+          </Link>
+        </div>
       </section>
     </main>
   );
