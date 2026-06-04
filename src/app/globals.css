@@ -62,7 +62,8 @@ a {
 .entryShell,
 .authShell,
 .dashboardShell,
-.practiceShell {
+.practiceShell,
+.skillShell {
   min-height: 100vh;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(246, 248, 251, 0.92)),
@@ -211,6 +212,10 @@ a {
   padding: 24px;
 }
 
+.skillShell {
+  padding: 24px;
+}
+
 .dashboardHeader {
   display: flex;
   width: min(100%, 1040px);
@@ -225,8 +230,16 @@ a {
 }
 
 .dashboardHeader .primaryButton,
-.dashboardHeader .secondaryButton {
+.dashboardHeader .secondaryButton,
+.dashboardHeaderActions {
   justify-self: end;
+}
+
+.dashboardHeaderActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
 }
 
 .dashboardHeader p:not(.eyebrow) {
@@ -532,6 +545,7 @@ a {
   font-size: 13px;
   font-weight: 500;
   text-decoration: none;
+  white-space: nowrap;
 }
 
 .practiceNav a[aria-current="page"] {
@@ -884,6 +898,224 @@ a {
   margin-bottom: 0;
 }
 
+.skillHeader {
+  display: flex;
+  width: min(100%, 1040px);
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin: 0 auto 20px;
+}
+
+.skillHeader h1 {
+  margin: 8px 0 10px;
+  color: var(--lr-ink);
+  font-size: clamp(26px, 4vw, 34px);
+  font-weight: 500;
+  line-height: 1.16;
+}
+
+.skillHeader p:not(.eyebrow) {
+  max-width: 680px;
+  margin: 0;
+  color: var(--lr-muted);
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.skillDraftGrid {
+  display: grid;
+  width: min(100%, 1040px);
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 0.42fr);
+  align-items: start;
+  gap: 18px;
+  margin: 0 auto;
+}
+
+.skillDraftGrid .skillDraftForm {
+  grid-column: 1;
+}
+
+.skillPanel,
+.skillMessage {
+  border: 1px solid var(--lr-line);
+  border-radius: var(--lr-radius-lg);
+  background: var(--lr-panel);
+  box-shadow: var(--lr-shadow);
+}
+
+.skillPanel {
+  padding: 22px;
+}
+
+.skillPanelHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.skillPanelHeader h2,
+.skillActivatedPanel h2 {
+  margin: 5px 0 0;
+  color: var(--lr-ink);
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 1.25;
+}
+
+.skillDraftForm {
+  display: grid;
+  gap: 15px;
+}
+
+.skillTwoColumnFields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.skillField {
+  display: grid;
+  gap: 7px;
+}
+
+.skillField span {
+  color: var(--lr-muted);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.skillField input,
+.skillField textarea {
+  width: 100%;
+  border: 1px solid var(--lr-line-strong);
+  border-radius: var(--lr-radius);
+  background: #ffffff;
+  color: var(--lr-ink);
+  padding: 10px 11px;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.skillField input:focus-visible,
+.skillField textarea:focus-visible {
+  outline: none;
+  border-color: var(--lr-primary);
+  box-shadow: var(--lr-focus-ring);
+}
+
+.skillField input[aria-invalid="true"],
+.skillField textarea[aria-invalid="true"] {
+  border-color: rgba(192, 57, 43, 0.58);
+}
+
+.skillField em {
+  color: var(--lr-error);
+  font-size: 12px;
+  font-style: normal;
+  line-height: 1.35;
+}
+
+.skillFormActions,
+.skillActivationForm {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.skillFormMessage,
+.skillMessage {
+  border-left: 4px solid var(--lr-primary);
+  color: var(--lr-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.skillFormMessage {
+  margin: 0;
+  border-radius: var(--lr-radius);
+  background: var(--lr-primary-soft);
+  padding: 11px 12px;
+}
+
+.skillFormMessage[data-tone="error"] {
+  border-left-color: var(--lr-error);
+  background: rgba(192, 57, 43, 0.08);
+}
+
+.skillFormMessage[data-tone="saved"] {
+  border-left-color: var(--lr-success);
+  background: rgba(31, 122, 77, 0.08);
+}
+
+.skillActivationPanel {
+  display: grid;
+  gap: 16px;
+}
+
+.skillActivationPanel p {
+  margin: 0;
+  color: var(--lr-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.skillMessage {
+  width: min(100%, 1040px);
+  margin: 0 auto 18px;
+  padding: 15px 17px;
+}
+
+.skillMessage p {
+  margin: 0;
+}
+
+.skillMessage p + p {
+  margin-top: 6px;
+}
+
+.skillActivatedPanel {
+  display: grid;
+  width: min(100%, 1040px);
+  gap: 18px;
+  margin: 0 auto;
+}
+
+.skillStatusGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.skillStatusGrid div {
+  border-top: 1px solid var(--lr-line);
+  padding-top: 12px;
+}
+
+.skillStatusGrid dt {
+  color: var(--lr-faint);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.skillStatusGrid dd {
+  margin: 5px 0 0;
+  overflow-wrap: anywhere;
+  color: var(--lr-ink);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.skillTagLine {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
 @media (max-width: 780px) {
   .authShell {
     grid-template-columns: 1fr;
@@ -904,8 +1136,13 @@ a {
   }
 
   .dashboardHeader .primaryButton,
-  .dashboardHeader .secondaryButton {
+  .dashboardHeader .secondaryButton,
+  .dashboardHeaderActions {
     justify-self: start;
+  }
+
+  .dashboardHeaderActions {
+    justify-content: flex-start;
   }
 
   .dashboardMetricGrid {
@@ -928,6 +1165,7 @@ a {
 
   .practiceNav a {
     flex: 1;
+    padding-inline: 8px;
     text-align: center;
   }
 
@@ -947,20 +1185,36 @@ a {
   .flagReasonGrid {
     grid-template-columns: 1fr;
   }
+
+  .skillHeader {
+    display: grid;
+  }
+
+  .skillDraftGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .skillTwoColumnFields,
+  .skillStatusGrid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 520px) {
   .entryShell,
   .authShell,
   .dashboardShell,
-  .practiceShell {
+  .practiceShell,
+  .skillShell {
     padding: 20px;
   }
 
   .entryPanel,
   .statusPanel,
   .nextStepPanel,
-  .practiceFrame {
+  .practiceFrame,
+  .skillPanel,
+  .skillActivatedPanel {
     padding: 22px;
   }
 
@@ -973,8 +1227,13 @@ a {
   }
 
   .dashboardHeader .primaryButton,
-  .dashboardHeader .secondaryButton {
+  .dashboardHeader .secondaryButton,
+  .dashboardHeaderActions {
     justify-self: stretch;
+  }
+
+  .dashboardHeaderActions {
+    display: grid;
   }
 
   .dashboardMetricGrid {

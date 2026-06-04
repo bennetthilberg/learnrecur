@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@clerk/nextjs": "^7.4.2",
+    "@google/genai": "^2.8.0",
     "@mantine/core": "9.2.2",
     "@mantine/hooks": "9.2.2",
     "@neondatabase/serverless": "^1.1.0",

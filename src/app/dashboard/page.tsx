@@ -48,12 +48,17 @@ export default async function DashboardPage() {
             review loop is holding up.
           </p>
         </div>
-        <Link
-          className={dashboard.readyNowCount > 0 ? "primaryButton" : "secondaryButton"}
-          href="/practice"
-        >
-          {dashboard.readyNowCount > 0 ? "Start practice" : "Open practice"}
-        </Link>
+        <div className="dashboardHeaderActions">
+          <Link className="secondaryButton" href="/skills/new">
+            Add skill
+          </Link>
+          <Link
+            className={dashboard.readyNowCount > 0 ? "primaryButton" : "secondaryButton"}
+            href="/practice"
+          >
+            {dashboard.readyNowCount > 0 ? "Start practice" : "Open practice"}
+          </Link>
+        </div>
       </header>
 
       <section className="dashboardMetricGrid" aria-label="Practice summary">
@@ -91,7 +96,9 @@ export default async function DashboardPage() {
           {dashboard.collections.length === 0 ? (
             <DashboardEmptyState
               title="No collections yet."
-              detail="Practice can prepare a small local sample set while manual creation is still being built."
+              detail="Create a skill draft with a collection name to start grouping practice."
+              actionHref="/skills/new"
+              actionLabel="Add skill"
             />
           ) : (
             <div className="collectionList">
@@ -122,7 +129,9 @@ export default async function DashboardPage() {
           {dashboard.skills.length === 0 ? (
             <DashboardEmptyState
               title="No active skills yet."
-              detail="The first creation flow will add real skills here. For now, sample practice data can exercise the loop."
+              detail="Define a skill, review the draft, and activate it to generate starter practice."
+              actionHref="/skills/new"
+              actionLabel="Add skill"
             />
           ) : (
             <div className="skillList">
@@ -183,6 +192,7 @@ function DashboardTopbar() {
           Dashboard
         </Link>
         <Link href="/practice">Practice</Link>
+        <Link href="/skills/new">Add skill</Link>
       </nav>
       <UserButton />
     </header>
@@ -207,13 +217,23 @@ function MetricCard({
   );
 }
 
-function DashboardEmptyState({ title, detail }: { title: string; detail: string }) {
+function DashboardEmptyState({
+  title,
+  detail,
+  actionHref = "/practice",
+  actionLabel = "Open practice",
+}: {
+  title: string;
+  detail: string;
+  actionHref?: string;
+  actionLabel?: string;
+}) {
   return (
     <div className="dashboardEmptyState">
       <h3>{title}</h3>
       <p>{detail}</p>
-      <Link className="secondaryButton" href="/practice">
-        Open practice
+      <Link className="secondaryButton" href={actionHref}>
+        {actionLabel}
       </Link>
     </div>
   );
