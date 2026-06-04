@@ -148,11 +148,13 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
     });
   }, [pendingAction, resetAttemptState, startTransition]);
 
-  if (item.status === "none-due") {
+  if (item.status !== "ready") {
     return (
       <section className="practiceFrame practiceEmpty" aria-labelledby="practice-empty-title">
         <p className="eyebrow">Practice queue</p>
-        <h1 id="practice-empty-title">All caught up.</h1>
+        <h1 id="practice-empty-title">
+          {item.status === "none-due" ? "All caught up." : "Practice unavailable."}
+        </h1>
         <p>{item.message}</p>
         {canUseSampleData ? (
           <button
@@ -287,6 +289,7 @@ function useVisibleElapsedMs(key: string, active: boolean) {
   const [elapsedMs, setElapsedMs] = useState(0);
   const accumulatedMsRef = useRef(0);
   const startedAtRef = useRef<number | null>(null);
+  const activeRef = useRef(active);
 
   const pause = useCallback(() => {
     if (startedAtRef.current !== null) {
@@ -312,16 +315,20 @@ function useVisibleElapsedMs(key: string, active: boolean) {
   }, []);
 
   useEffect(() => {
+    activeRef.current = active;
+  }, [active]);
+
+  useEffect(() => {
     accumulatedMsRef.current = 0;
     startedAtRef.current = null;
     const resetTimer = window.setTimeout(() => setElapsedMs(0), 0);
 
-    if (active && document.visibilityState === "visible") {
+    if (activeRef.current && document.visibilityState === "visible") {
       startedAtRef.current = performance.now();
     }
 
     return () => window.clearTimeout(resetTimer);
-  }, [active, key]);
+  }, [key]);
 
   useEffect(() => {
     const handleVisibility = () => {

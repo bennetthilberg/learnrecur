@@ -24,6 +24,15 @@ export async function getNextChoicePracticeItemForUser(
     };
   }
 
+  const parsedChoices = toChoiceOptions(result.exercise.choices);
+
+  if (parsedChoices.length === 0) {
+    return {
+      status: "unavailable",
+      message: "This exercise does not have valid answer choices.",
+    };
+  }
+
   return {
     status: "ready",
     skill: {
@@ -37,7 +46,7 @@ export async function getNextChoicePracticeItemForUser(
       id: result.exercise.id,
       skillId: result.exercise.skillId,
       prompt: result.exercise.prompt,
-      choices: toChoiceOptions(result.exercise.choices),
+      choices: parsedChoices,
       difficulty: result.exercise.difficulty,
       expectedSeconds: result.exercise.expectedSeconds,
     },

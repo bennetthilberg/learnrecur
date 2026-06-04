@@ -9,6 +9,7 @@ import {
   ExerciseType,
   ExerciseVerificationStatus,
   FsrsRating,
+  SkillFsrsState,
   SkillStatus,
 } from "@/generated/prisma/client";
 import {
@@ -19,6 +20,8 @@ import {
 import { ensureDevPracticeSampleData } from "@/lib/practice/sample-data";
 import { getPrisma } from "@/lib/prisma";
 import { createInitialSkillSchedule } from "@/lib/scheduling";
+
+import { getNextChoicePracticeItemForUser } from "@/app/practice/queries";
 
 const runDatabaseTests = process.env.RUN_DATABASE_TESTS === "1";
 const describeDatabase = runDatabaseTests ? describe : describe.skip;
@@ -377,6 +380,37 @@ describeDatabase("practice review service", () => {
     });
   });
 
+  it("fails closed when a choice practice item has malformed choice JSON", async () => {
+    const userId = await createUser("malformed_choice_query");
+    const skill = await createSkillFixture({
+      userId,
+      title: "malformed choices skill",
+      dueAt: new Date("2026-06-03T09:00:00.000Z"),
+    });
+
+    await prisma.exercise.create({
+      data: {
+        userId,
+        skillId: skill.id,
+        type: ExerciseType.MULTIPLE_CHOICE,
+        answerKind: AnswerKind.CHOICE,
+        prompt: "Choose the correct verb.",
+        choices: [{ id: "ser" }],
+        answerSpec: {
+          kind: "choice",
+          correctChoiceId: "ser",
+        },
+        correctAnswerDisplay: "ser",
+        verificationStatus: ExerciseVerificationStatus.VERIFIED,
+      },
+    });
+
+    await expect(getNextChoicePracticeItemForUser(userId, now)).resolves.toMatchObject({
+      status: "unavailable",
+      message: "This exercise does not have valid answer choices.",
+    });
+  });
+
   it("creates idempotent development sample practice data", async () => {
     const userId = await createUser("sample_data");
 
@@ -389,6 +423,28 @@ describeDatabase("practice review service", () => {
       status: "ready",
       skillCount: 2,
       exerciseCount: 3,
+    });
+
+    const reviewedAt = new Date("2026-06-04T09:30:00.000Z");
+    const dueAt = new Date("2026-06-10T12:00:00.000Z");
+    const progressedSkill = await prisma.skill.findFirstOrThrow({
+      where: {
+        userId,
+        title: "Ser vs. estar for identity and location",
+        tags: { has: "learnrecur-sample" },
+      },
+    });
+    await prisma.skill.update({
+      where: { id: progressedSkill.id },
+      data: {
+        dueAt,
+        stability: 8.5,
+        difficulty: 4.25,
+        repetitions: 3,
+        lapses: 1,
+        fsrsState: SkillFsrsState.REVIEW,
+        lastReviewedAt: reviewedAt,
+      },
     });
 
     await expect(
@@ -415,7 +471,6 @@ describeDatabase("practice review service", () => {
             userId,
             tags: { has: "learnrecur-sample" },
             status: SkillStatus.ACTIVE,
-            dueAt: { lte: new Date("2026-06-04T12:00:00.000Z") },
           },
         }),
         prisma.exercise.count({
@@ -428,6 +483,29 @@ describeDatabase("practice review service", () => {
         }),
       ]),
     ).resolves.toEqual([1, 2, 3]);
+
+    await expect(
+      prisma.skill.findUniqueOrThrow({
+        where: { id: progressedSkill.id },
+        select: {
+          dueAt: true,
+          stability: true,
+          difficulty: true,
+          repetitions: true,
+          lapses: true,
+          fsrsState: true,
+          lastReviewedAt: true,
+        },
+      }),
+    ).resolves.toEqual({
+      dueAt,
+      stability: 8.5,
+      difficulty: 4.25,
+      repetitions: 3,
+      lapses: 1,
+      fsrsState: SkillFsrsState.REVIEW,
+      lastReviewedAt: reviewedAt,
+    });
   });
 
   it("previews deterministic answer feedback without writing attempts or review logs", async () => {

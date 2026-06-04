@@ -158,7 +158,6 @@ export async function ensureDevPracticeSampleData(
             objective: skillSeed.objective,
             tags: skillSeed.tags,
             status: SkillStatus.ACTIVE,
-            ...schedule,
           },
         })
       : await prisma.skill.create({

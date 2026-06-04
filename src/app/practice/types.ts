@@ -35,6 +35,10 @@ export type ChoicePracticeItem =
   | {
       status: "none-due";
       message: string;
+    }
+  | {
+      status: "unavailable";
+      message: string;
     };
 
 export type ChoicePracticePreviewResult =
