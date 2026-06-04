@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import {
   activateSkillDraft,
   createSkillDraft,
+  createSkillDraftFromSource,
   updateSkillDraft,
 } from "@/lib/skills";
 import { ensureDatabaseUser } from "@/lib/users";
@@ -102,6 +103,40 @@ export async function activateSkillDraftAction(
   };
 }
 
+export async function generateSkillDraftFromSourceAction(
+  _previousState: SkillFormActionState,
+  formData: FormData,
+): Promise<SkillFormActionState> {
+  const user = await requireSkillActionUser();
+
+  if (user.status === "error") {
+    return user;
+  }
+
+  const result = await createSkillDraftFromSource({
+    userId: user.userId,
+    now: new Date(),
+    input: formDataToSourceDraftInput(formData),
+  });
+
+  if (result.status === "created") {
+    redirect(`/skills/${result.skill.id}`);
+  }
+
+  if (result.status === "invalid") {
+    return {
+      status: "error",
+      message: result.message,
+      fieldErrors: result.fieldErrors,
+    };
+  }
+
+  return {
+    status: "error",
+    message: result.message,
+  };
+}
+
 async function requireSkillActionUser(): Promise<SkillActionUserResult> {
   const { userId } = await auth.protect();
   const clerkUser = await currentUser();
@@ -136,6 +171,16 @@ function formDataToDraftInput(formData: FormData) {
     rules: getFormString(formData, "rules"),
     examples: getFormString(formData, "examples"),
     exerciseConstraints: getFormString(formData, "exerciseConstraints"),
+    tags: getFormString(formData, "tags"),
+  };
+}
+
+function formDataToSourceDraftInput(formData: FormData) {
+  return {
+    sourceText: getFormString(formData, "sourceText"),
+    sourceLabel: getFormString(formData, "sourceLabel"),
+    focusNote: getFormString(formData, "focusNote"),
+    collectionName: getFormString(formData, "collectionName"),
     tags: getFormString(formData, "tags"),
   };
 }

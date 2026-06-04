@@ -10,6 +10,8 @@ import {
   GenerationJobStatus,
   SkillFsrsState,
   SkillStatus,
+  SourceFileKind,
+  SourceFileStatus,
 } from "@/generated/prisma/client";
 import { getNextChoicePracticeItemForUser } from "@/app/practice/queries";
 import { getDashboardHome } from "@/lib/dashboard";
@@ -17,8 +19,10 @@ import { getPrisma } from "@/lib/prisma";
 import {
   activateSkillDraft,
   createSkillDraft,
+  createSkillDraftFromSource,
   updateSkillDraft,
   type ChoiceExerciseGenerator,
+  type SkillDraftGenerator,
 } from "@/lib/skills";
 
 const runDatabaseTests = process.env.RUN_DATABASE_TESTS === "1";
@@ -42,6 +46,17 @@ const generatedExercise = (id: number) => ({
 const successfulGenerator: ChoiceExerciseGenerator = async () => ({
   exercises: [generatedExercise(1), generatedExercise(2), generatedExercise(3)],
 });
+
+const generatedSkillDraft = {
+  title: "Ser vs. estar in classroom sentences",
+  objective: "Choose ser or estar in beginner Spanish sentences about identity and location.",
+  rules: ["Use ser for identity.", "Use estar for location and temporary states."],
+  examples: ["Soy estudiante.", "Estoy en casa."],
+  exerciseConstraints: "Use short multiple-choice prompts with one clear verb choice.",
+  tags: ["Spanish", "grammar"],
+};
+
+const successfulSkillDraftGenerator: SkillDraftGenerator = async () => generatedSkillDraft;
 
 describeDatabase("skill drafts and Gemini activation", () => {
   const prisma = getPrisma();
@@ -286,6 +301,168 @@ describeDatabase("skill drafts and Gemini activation", () => {
       acceptedCount: 2,
       rejectedCount: 0,
     });
+  });
+
+  it("creates a source-backed draft with a ready text source and ownership link", async () => {
+    const userId = await createUser("source_draft");
+    const result = await createSkillDraftFromSource({
+      userId,
+      now,
+      model: "test-gemini",
+      generateSkillDraft: successfulSkillDraftGenerator,
+      input: {
+        sourceText:
+          "Use ser for identity and long-term traits. Use estar for location and temporary states. Classroom practice should use short sentences with one obvious choice.",
+        sourceLabel: "Spanish chapter notes",
+        focusNote: "Keep this at a beginner grammar level.",
+        collectionName: "Spanish grammar",
+        tags: "Spanish, verbs",
+      },
+    });
+
+    expect(result.status).toBe("created");
+
+    if (result.status !== "created") {
+      throw new Error("Expected source draft creation to succeed.");
+    }
+
+    const skill = await prisma.skill.findUniqueOrThrow({
+      where: { id: result.skill.id },
+      include: {
+        collection: true,
+        sourceRefs: {
+          include: {
+            sourceFile: true,
+          },
+        },
+      },
+    });
+
+    expect(skill).toMatchObject({
+      userId,
+      title: generatedSkillDraft.title,
+      objective: generatedSkillDraft.objective,
+      status: SkillStatus.DRAFT,
+      tags: ["spanish", "verbs", "grammar"],
+    });
+    expect(skill.collection?.name).toBe("Spanish grammar");
+    expect(skill.sourceRefs).toHaveLength(1);
+    expect(skill.sourceRefs[0]).toMatchObject({
+      userId,
+      note: "Keep this at a beginner grammar level.",
+    });
+    expect(skill.sourceRefs[0].sourceFile).toMatchObject({
+      userId,
+      collectionId: skill.collectionId,
+      kind: SourceFileKind.TEXT,
+      status: SourceFileStatus.READY,
+      originalName: "Spanish chapter notes",
+      mimeType: "text/plain",
+    });
+    expect(skill.sourceRefs[0].sourceFile.extractedText).toContain("Use ser for identity");
+  });
+
+  it("does not persist a source, skill, or link when generated draft validation fails", async () => {
+    const userId = await createUser("source_invalid_generation");
+    const result = await createSkillDraftFromSource({
+      userId,
+      now,
+      model: "test-gemini",
+      generateSkillDraft: async () => ({
+        title: "Incomplete draft",
+        objective: "too short",
+        rules: [],
+        examples: [],
+        exerciseConstraints: "",
+        tags: [],
+      }),
+      input: {
+        sourceText:
+          "Use ser for identity and long-term traits. Use estar for location and temporary states. Classroom practice should use short sentences with one obvious choice.",
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: "not-created",
+      reason: "invalid-generation",
+    });
+
+    await expect(prisma.skill.count({ where: { userId } })).resolves.toBe(0);
+    await expect(prisma.sourceFile.count({ where: { userId } })).resolves.toBe(0);
+    await expect(prisma.skillSourceRef.count({ where: { userId } })).resolves.toBe(0);
+  });
+
+  it("keeps source-backed drafts isolated by user ownership", async () => {
+    const userId = await createUser("source_owner");
+    const otherUserId = await createUser("source_other");
+    const result = await createSkillDraftFromSource({
+      userId,
+      now,
+      model: "test-gemini",
+      generateSkillDraft: successfulSkillDraftGenerator,
+      input: {
+        sourceText:
+          "Use ser for identity and long-term traits. Use estar for location and temporary states. Classroom practice should use short sentences with one obvious choice.",
+      },
+    });
+
+    if (result.status !== "created") {
+      throw new Error("Expected source draft creation to succeed.");
+    }
+
+    const denied = await activateSkillDraft({
+      userId: otherUserId,
+      skillId: result.skill.id,
+      now,
+      generateChoiceExercises: successfulGenerator,
+      model: "test-gemini",
+    });
+
+    expect(denied).toMatchObject({
+      status: "not-found",
+      reason: "skill-not-found",
+    });
+
+    await expect(prisma.generationJob.count({ where: { userId: otherUserId } })).resolves.toBe(0);
+  });
+
+  it("passes linked source context into activation generation", async () => {
+    const userId = await createUser("source_activation");
+    const result = await createSkillDraftFromSource({
+      userId,
+      now,
+      model: "test-gemini",
+      generateSkillDraft: successfulSkillDraftGenerator,
+      input: {
+        sourceText:
+          "Use ser for identity and long-term traits. Use estar for location and temporary states. Classroom practice should use short sentences with one obvious choice.",
+        sourceLabel: "Activation source",
+      },
+    });
+
+    if (result.status !== "created") {
+      throw new Error("Expected source draft creation to succeed.");
+    }
+
+    let capturedSourceContext: string | null | undefined;
+    const activationGenerator: ChoiceExerciseGenerator = async (input) => {
+      capturedSourceContext = input.sourceContext;
+      return {
+        exercises: [generatedExercise(1), generatedExercise(2), generatedExercise(3)],
+      };
+    };
+
+    const activated = await activateSkillDraft({
+      userId,
+      skillId: result.skill.id,
+      now,
+      generateChoiceExercises: activationGenerator,
+      model: "test-gemini",
+    });
+
+    expect(activated.status).toBe("activated");
+    expect(capturedSourceContext).toContain("Use ser for identity");
+    expect(capturedSourceContext).toContain("Use estar for location");
   });
 
   it("returns a typed setup error without creating practiceable exercises when Gemini env is missing", async () => {

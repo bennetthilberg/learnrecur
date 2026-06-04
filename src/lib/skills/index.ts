@@ -11,6 +11,8 @@ import {
   GenerationJobStatus,
   Prisma,
   SkillStatus,
+  SourceFileKind,
+  SourceFileStatus,
   type Skill,
 } from "@/generated/prisma/client";
 import { choicesSchema } from "@/lib/answer-checking";
@@ -21,6 +23,8 @@ import { createInitialSkillSchedule } from "@/lib/scheduling";
 export const MIN_ACTIVATION_EXERCISES = 3;
 export const REQUESTED_ACTIVATION_EXERCISES = 5;
 export const MAX_GENERATED_EXERCISES = 10;
+export const SOURCE_CONTEXT_CHAR_LIMIT = 4_000;
+export const SOURCE_SKILL_DRAFT_PROMPT_VERSION = "source-skill-draft-v0";
 const GENERATION_TIMEOUT_MS = 45_000;
 export const SKILL_MCQ_PROMPT_VERSION = "skill-mcq-v0";
 export const GEMINI_PROVIDER = "google";
@@ -62,6 +66,26 @@ export type GeneratedChoiceExercise = {
   expectedSeconds: number | null;
 };
 
+export type GeneratedSkillDraft = {
+  title: string;
+  objective: string;
+  rules: string[];
+  examples: string[];
+  exerciseConstraints: string;
+  tags: string[];
+};
+
+export type GeneratedSkillDraftValidationResult =
+  | {
+      status: "ready";
+      draft: GeneratedSkillDraft;
+    }
+  | {
+      status: "invalid";
+      reason: "invalid-response";
+      message: string;
+    };
+
 export type GeneratedChoiceExerciseValidationResult =
   | {
       status: "ready";
@@ -87,12 +111,38 @@ export type ChoiceExerciseGeneratorInput = {
     exerciseConstraints: Prisma.JsonValue | null;
     tags: string[];
   };
+  sourceContext: string | null;
   requestedCount: number;
 };
 
 export type ChoiceExerciseGenerator = (
   input: ChoiceExerciseGeneratorInput,
 ) => Promise<unknown>;
+
+export type NormalizedSourceSkillDraftInput = {
+  sourceText: string;
+  sourceLabel: string | null;
+  focusNote: string | null;
+  collectionName: string | null;
+  tags: string[];
+};
+
+export type SourceSkillDraftInputResult =
+  | {
+      status: "ready";
+      value: NormalizedSourceSkillDraftInput;
+    }
+  | {
+      status: "invalid";
+      message: string;
+      fieldErrors: Record<string, string[]>;
+    };
+
+export type SkillDraftGeneratorInput = NormalizedSourceSkillDraftInput & {
+  sourceContext: string;
+};
+
+export type SkillDraftGenerator = (input: SkillDraftGeneratorInput) => Promise<unknown>;
 
 export type SkillDraftWriteResult =
   | {
@@ -126,6 +176,28 @@ export type ActivateSkillDraftInput = {
   generateChoiceExercises?: ChoiceExerciseGenerator;
   model?: string;
 };
+
+export type CreateSkillDraftFromSourceInput = {
+  userId: string;
+  input: unknown;
+  now: Date;
+  generateSkillDraft?: SkillDraftGenerator;
+  model?: string;
+};
+
+export type SourceSkillDraftWriteResult =
+  | {
+      status: "created";
+      skill: Skill;
+      sourceFileId: string;
+      skillSourceRefId: string;
+    }
+  | Extract<SourceSkillDraftInputResult, { status: "invalid" }>
+  | {
+      status: "not-created";
+      reason: "generation-failed" | "invalid-generation" | "missing-gemini-env";
+      message: string;
+    };
 
 export type SkillActivationResult =
   | {
@@ -170,6 +242,27 @@ const draftInputSchema = z.strictObject({
   examples: optionalTrimmedStringSchema,
   exerciseConstraints: optionalTrimmedStringSchema,
   tags: z.union([z.string(), z.array(z.string())]).optional(),
+});
+
+const sourceSkillDraftInputSchema = z.strictObject({
+  sourceText: z
+    .string()
+    .trim()
+    .min(40, "Paste at least 40 characters of source material.")
+    .max(12_000, "Paste at most 12,000 characters for this first source flow."),
+  sourceLabel: optionalTrimmedStringSchema.pipe(z.string().max(160).optional()),
+  focusNote: optionalTrimmedStringSchema.pipe(z.string().max(800).optional()),
+  collectionName: optionalTrimmedStringSchema,
+  tags: z.union([z.string(), z.array(z.string())]).optional(),
+});
+
+const generatedSkillDraftSchema = z.strictObject({
+  title: z.string().trim().min(1).max(120),
+  objective: z.string().trim().min(12).max(1200),
+  rules: z.array(z.string().trim().min(1).max(500)).min(1).max(8),
+  examples: z.array(z.string().trim().min(1).max(500)).min(1).max(8),
+  exerciseConstraints: z.string().trim().min(1).max(1000),
+  tags: z.array(z.string().trim().min(1).max(40)).max(8),
 });
 
 const generatedChoiceExerciseSchema = z.strictObject({
@@ -224,6 +317,34 @@ const geminiResponseJsonSchema = {
   },
 };
 
+const geminiSkillDraftJsonSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["title", "objective", "rules", "examples", "exerciseConstraints", "tags"],
+  properties: {
+    title: { type: "string" },
+    objective: { type: "string" },
+    rules: {
+      type: "array",
+      minItems: 1,
+      maxItems: 8,
+      items: { type: "string" },
+    },
+    examples: {
+      type: "array",
+      minItems: 1,
+      maxItems: 8,
+      items: { type: "string" },
+    },
+    exerciseConstraints: { type: "string" },
+    tags: {
+      type: "array",
+      maxItems: 8,
+      items: { type: "string" },
+    },
+  },
+};
+
 export function normalizeSkillDraftInput(input: unknown): SkillDraftInputResult {
   const result = draftInputSchema.safeParse(input);
 
@@ -246,6 +367,31 @@ export function normalizeSkillDraftInput(input: unknown): SkillDraftInputResult 
       rules: splitNotes(value.rules),
       examples: splitNotes(value.examples),
       exerciseConstraints: value.exerciseConstraints ?? null,
+      tags: normalizeTags(value.tags),
+    },
+  };
+}
+
+export function normalizeSourceSkillDraftInput(input: unknown): SourceSkillDraftInputResult {
+  const result = sourceSkillDraftInputSchema.safeParse(input);
+
+  if (!result.success) {
+    return {
+      status: "invalid",
+      message: "Source material needs a little more detail.",
+      fieldErrors: z.flattenError(result.error).fieldErrors,
+    };
+  }
+
+  const value = result.data;
+
+  return {
+    status: "ready",
+    value: {
+      sourceText: value.sourceText,
+      sourceLabel: value.sourceLabel ?? null,
+      focusNote: value.focusNote ?? null,
+      collectionName: value.collectionName ?? null,
       tags: normalizeTags(value.tags),
     },
   };
@@ -331,6 +477,112 @@ export async function updateSkillDraft(input: UpdateSkillDraftInput): Promise<Sk
   });
 }
 
+export async function createSkillDraftFromSource(
+  input: CreateSkillDraftFromSourceInput,
+): Promise<SourceSkillDraftWriteResult> {
+  const normalized = normalizeSourceSkillDraftInput(input.input);
+
+  if (normalized.status === "invalid") {
+    return normalized;
+  }
+
+  const setup = resolveSourceDraftSetup(input);
+
+  if (setup.status === "missing-env") {
+    return {
+      status: "not-created",
+      reason: "missing-gemini-env",
+      message: setup.message,
+    };
+  }
+
+  const sourceContext = buildSourceContextExcerpt([normalized.value.sourceText]) ?? normalized.value.sourceText;
+  let rawGeneration: unknown;
+
+  try {
+    rawGeneration = await withTimeout(
+      setup.generateSkillDraft({
+        ...normalized.value,
+        sourceContext,
+      }),
+      GENERATION_TIMEOUT_MS,
+      "generateSkillDraft timed out",
+    );
+  } catch (error) {
+    return {
+      status: "not-created",
+      reason: "generation-failed",
+      message: `Gemini skill draft generation failed: ${formatEnvError(error)}`,
+    };
+  }
+
+  const validation = validateGeneratedSkillDraft(rawGeneration);
+
+  if (validation.status === "invalid") {
+    return {
+      status: "not-created",
+      reason: "invalid-generation",
+      message: validation.message,
+    };
+  }
+
+  const prisma = getPrisma();
+
+  return prisma.$transaction(async (tx) => {
+    const collectionId = await resolveCollectionId(
+      tx,
+      input.userId,
+      normalized.value.collectionName,
+    );
+    const skill = await tx.skill.create({
+      data: {
+        userId: input.userId,
+        collectionId,
+        title: validation.draft.title,
+        objective: validation.draft.objective,
+        rules: toNotesJson(validation.draft.rules),
+        examples: toNotesJson(validation.draft.examples),
+        exerciseConstraints: toConstraintsJson(validation.draft.exerciseConstraints),
+        tags: normalizeTags([...normalized.value.tags, ...validation.draft.tags]),
+        status: SkillStatus.DRAFT,
+      },
+    });
+    const sourceFile = await tx.sourceFile.create({
+      data: {
+        userId: input.userId,
+        collectionId,
+        kind: SourceFileKind.TEXT,
+        status: SourceFileStatus.READY,
+        originalName: normalized.value.sourceLabel ?? "Pasted source",
+        mimeType: "text/plain",
+        byteSize: Buffer.byteLength(normalized.value.sourceText, "utf8"),
+        extractedText: normalized.value.sourceText,
+        metadata: {
+          createdBy: SOURCE_SKILL_DRAFT_PROMPT_VERSION,
+          focusNote: normalized.value.focusNote,
+          model: setup.model,
+          generatedAt: input.now.toISOString(),
+        },
+      },
+    });
+    const sourceRef = await tx.skillSourceRef.create({
+      data: {
+        userId: input.userId,
+        skillId: skill.id,
+        sourceFileId: sourceFile.id,
+        note: normalized.value.focusNote,
+      },
+    });
+
+    return {
+      status: "created",
+      skill,
+      sourceFileId: sourceFile.id,
+      skillSourceRefId: sourceRef.id,
+    };
+  });
+}
+
 export async function activateSkillDraft(
   input: ActivateSkillDraftInput,
 ): Promise<SkillActivationResult> {
@@ -350,6 +602,18 @@ export async function activateSkillDraft(
       exerciseConstraints: true,
       tags: true,
       status: true,
+      sourceRefs: {
+        orderBy: {
+          createdAt: "asc",
+        },
+        select: {
+          sourceFile: {
+            select: {
+              extractedText: true,
+            },
+          },
+        },
+      },
     },
   });
 
@@ -394,9 +658,14 @@ export async function activateSkillDraft(
   let rawGeneration: unknown;
 
   try {
+    const sourceContext = buildSourceContextExcerpt(
+      skill.sourceRefs.map((sourceRef) => sourceRef.sourceFile.extractedText),
+    );
+
     rawGeneration = await withTimeout(
       setup.generateChoiceExercises({
         skill,
+        sourceContext,
         requestedCount: REQUESTED_ACTIVATION_EXERCISES,
       }),
       GENERATION_TIMEOUT_MS,
@@ -543,6 +812,34 @@ export function validateGeneratedChoiceExercises(
   };
 }
 
+export function validateGeneratedSkillDraft(
+  input: unknown,
+): GeneratedSkillDraftValidationResult {
+  const result = generatedSkillDraftSchema.safeParse(input);
+
+  if (!result.success) {
+    return {
+      status: "invalid",
+      reason: "invalid-response",
+      message: "Gemini returned an invalid skill draft.",
+    };
+  }
+
+  const draft = result.data;
+
+  return {
+    status: "ready",
+    draft: {
+      title: draft.title,
+      objective: draft.objective,
+      rules: draft.rules,
+      examples: draft.examples,
+      exerciseConstraints: draft.exerciseConstraints,
+      tags: normalizeTags(draft.tags),
+    },
+  };
+}
+
 function resolveActivationSetup(
   input: ActivateSkillDraftInput,
 ):
@@ -582,6 +879,74 @@ function resolveActivationSetup(
       message: formatEnvError(error),
     };
   }
+}
+
+function resolveSourceDraftSetup(
+  input: CreateSkillDraftFromSourceInput,
+):
+  | {
+      status: "ready";
+      model: string;
+      generateSkillDraft: SkillDraftGenerator;
+    }
+  | {
+      status: "missing-env";
+      model: string;
+      message: string;
+    } {
+  if (input.generateSkillDraft) {
+    return {
+      status: "ready",
+      model: input.model ?? "test-generator",
+      generateSkillDraft: input.generateSkillDraft,
+    };
+  }
+
+  try {
+    const env = getGeminiEnv();
+
+    return {
+      status: "ready",
+      model: env.GEMINI_MODEL,
+      generateSkillDraft: createGeminiSkillDraftGenerator({
+        apiKey: env.GEMINI_API_KEY,
+        model: env.GEMINI_MODEL,
+      }),
+    };
+  } catch (error) {
+    return {
+      status: "missing-env",
+      model: input.model ?? (process.env.GEMINI_MODEL?.trim() || "gemini-3.5-flash"),
+      message: formatEnvError(error),
+    };
+  }
+}
+
+function createGeminiSkillDraftGenerator({
+  apiKey,
+  model,
+}: {
+  apiKey: string;
+  model: string;
+}): SkillDraftGenerator {
+  return async (input) => {
+    const ai = new GoogleGenAI({ apiKey });
+    const response = await ai.models.generateContent({
+      model,
+      contents: buildSourceSkillDraftPrompt(input),
+      config: {
+        responseMimeType: "application/json",
+        responseJsonSchema: geminiSkillDraftJsonSchema,
+      },
+    });
+    const text = response.text;
+
+    if (!text) {
+      throw new Error("Gemini returned no text.");
+    }
+
+    return JSON.parse(text) as unknown;
+  };
 }
 
 function createGeminiChoiceExerciseGenerator({
@@ -627,7 +992,7 @@ async function withTimeout<T>(promise: Promise<T>, ms: number, message: string):
 }
 
 function buildChoiceExercisePrompt(input: ChoiceExerciseGeneratorInput): string {
-  return [
+  const prompt = [
     "Generate starter multiple-choice practice exercises for LearnRecur.",
     "Return only JSON matching the provided response schema.",
     "Do not include markdown, commentary, or answer keys outside the JSON.",
@@ -640,10 +1005,67 @@ function buildChoiceExercisePrompt(input: ChoiceExerciseGeneratorInput): string 
     `Rules: ${summarizeJsonNotes(input.skill.rules)}`,
     `Examples: ${summarizeJsonNotes(input.skill.examples)}`,
     `Exercise constraints: ${summarizeJsonNotes(input.skill.exerciseConstraints)}`,
+  ];
+
+  if (input.sourceContext) {
+    prompt.push(
+      "",
+      "Linked source excerpt. Use this to match the source style and scope, but do not quote long passages.",
+      input.sourceContext,
+    );
+  }
+
+  prompt.push(
     "",
     "Use stable lowercase choice IDs such as a, b, c, d.",
     "Keep choices short, parallel, and plausible.",
+  );
+
+  return prompt.join("\n");
+}
+
+function buildSourceSkillDraftPrompt(input: SkillDraftGeneratorInput): string {
+  return [
+    "Create one editable LearnRecur skill draft from pasted learning material.",
+    "Return only JSON matching the provided response schema.",
+    "Do not include markdown, commentary, exercises, or answer keys.",
+    "The skill must be narrow enough to practice with short objective exercises.",
+    "If the source is broad, choose the most coherent single skill, especially if the focus note points to one.",
+    "",
+    `Source label: ${input.sourceLabel ?? "Pasted source"}`,
+    `Focus note: ${input.focusNote ?? "No extra focus note."}`,
+    `Collection hint: ${input.collectionName ?? "none"}`,
+    `User tags: ${input.tags.join(", ") || "none"}`,
+    "",
+    "Pasted source:",
+    input.sourceContext,
+    "",
+    "Draft requirements:",
+    "- title: short and specific.",
+    "- objective: one sentence describing exactly what the learner should practice.",
+    "- rules: concise source-backed rules or reminders.",
+    "- examples: source-style examples, not exercise questions.",
+    "- exerciseConstraints: guidance for future multiple-choice exercise generation.",
+    "- tags: lowercase topic tags when possible.",
   ].join("\n");
+}
+
+export function buildSourceContextExcerpt(sourceTexts: Array<string | null | undefined>): string | null {
+  const joined = sourceTexts
+    .map((sourceText) => (sourceText ?? "").trim())
+    .filter(Boolean)
+    .join("\n\n---\n\n");
+
+  if (!joined) {
+    return null;
+  }
+
+  if (joined.length <= SOURCE_CONTEXT_CHAR_LIMIT) {
+    return joined;
+  }
+
+  const marker = "\n\n[truncated]";
+  return `${joined.slice(0, SOURCE_CONTEXT_CHAR_LIMIT - marker.length).trimEnd()}${marker}`;
 }
 
 async function resolveCollectionId(

@@ -4,6 +4,7 @@ import { ensureDatabaseUser } from "@/lib/users";
 
 import { SkillDraftForm, type SkillDraftFormValues } from "../skill-draft-form";
 import { SkillsTopbar } from "../skills-topbar";
+import { SourceSkillForm } from "../source-skill-form";
 
 export const dynamic = "force-dynamic";
 
@@ -46,14 +47,27 @@ export default async function NewSkillPage() {
       <header className="skillHeader">
         <div>
           <p className="eyebrow">New skill</p>
-          <h1>Define the skill before generation.</h1>
+          <h1>Create a skill draft.</h1>
           <p>
-            This draft is the review object. Gemini will only generate starter
-            multiple-choice exercises after you activate it.
+            Paste source material for Gemini to shape one editable draft, or define
+            the skill manually. You will review it before activation.
           </p>
         </div>
       </header>
-      <SkillDraftForm initialValues={emptyDraftValues} mode="create" />
+      <div className="skillCreateStack">
+        <SourceSkillForm />
+        <section className="skillManualIntro" aria-labelledby="manual-skill-title">
+          <div>
+            <p className="eyebrow">Manual draft</p>
+            <h2 id="manual-skill-title">Write the skill yourself.</h2>
+          </div>
+          <p>
+            Use this when you already know the exact skill definition and do not need
+            Gemini to interpret source material first.
+          </p>
+        </section>
+        <SkillDraftForm initialValues={emptyDraftValues} mode="create" />
+      </div>
     </main>
   );
 }
