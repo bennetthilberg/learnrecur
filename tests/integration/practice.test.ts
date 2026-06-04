@@ -5,6 +5,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   AnswerKind,
   ExerciseAttemptResult,
+  ExerciseFlagReason,
+  ExerciseFlagStatus,
   ExerciseRetirementReason,
   ExerciseType,
   ExerciseVerificationStatus,
@@ -14,6 +16,7 @@ import {
 } from "@/generated/prisma/client";
 import {
   commitPracticeReview,
+  flagPracticeExercise,
   getNextPracticeItem,
   previewPracticeAnswer,
 } from "@/lib/practice";
@@ -525,6 +528,235 @@ describeDatabase("practice review service", () => {
       fsrsState: SkillFsrsState.REVIEW,
       lastReviewedAt: reviewedAt,
     });
+  });
+
+  it("flags and retires an exercise without committing a review", async () => {
+    const { userId, skill, exercise } = await createDueChoiceFixture("flag_retire");
+    const flaggedAt = new Date("2026-06-03T12:10:00.000Z");
+    const initialSkill = await prisma.skill.findUniqueOrThrow({
+      where: { id: skill.id },
+      select: {
+        dueAt: true,
+        stability: true,
+        difficulty: true,
+        elapsedDays: true,
+        scheduledDays: true,
+        learningSteps: true,
+        repetitions: true,
+        lapses: true,
+        fsrsState: true,
+        lastReviewedAt: true,
+      },
+    });
+
+    await expect(
+      flagPracticeExercise({
+        userId,
+        exerciseId: exercise.id,
+        reasons: [ExerciseFlagReason.UNCLEAR_PROMPT],
+        flaggedAt,
+      }),
+    ).resolves.toMatchObject({
+      status: "flagged",
+      exerciseId: exercise.id,
+      flagCount: 1,
+      retiredAt: flaggedAt,
+      retirementReason: ExerciseRetirementReason.FLAGGED_UNCLEAR,
+    });
+
+    await expect(
+      prisma.exercise.findUniqueOrThrow({
+        where: { id: exercise.id },
+        include: { flags: true },
+      }),
+    ).resolves.toMatchObject({
+      id: exercise.id,
+      retiredAt: flaggedAt,
+      retirementReason: ExerciseRetirementReason.FLAGGED_UNCLEAR,
+      flags: [
+        {
+          reason: ExerciseFlagReason.UNCLEAR_PROMPT,
+          status: ExerciseFlagStatus.RESOLVED,
+          resolvedAt: flaggedAt,
+          resolutionNote: "Retired from practice.",
+          retiredExerciseAt: flaggedAt,
+          retirementReason: ExerciseRetirementReason.FLAGGED_UNCLEAR,
+        },
+      ],
+    });
+
+    await expect(getNextPracticeItem({ userId, now })).resolves.toMatchObject({
+      status: "none-due",
+    });
+
+    await expect(
+      Promise.all([
+        prisma.exerciseAttempt.count({ where: { userId } }),
+        prisma.reviewLog.count({ where: { userId } }),
+        prisma.skill.findUniqueOrThrow({
+          where: { id: skill.id },
+          select: {
+            dueAt: true,
+            stability: true,
+            difficulty: true,
+            elapsedDays: true,
+            scheduledDays: true,
+            learningSteps: true,
+            repetitions: true,
+            lapses: true,
+            fsrsState: true,
+            lastReviewedAt: true,
+          },
+        }),
+      ]),
+    ).resolves.toEqual([0, 0, initialSkill]);
+  });
+
+  it("creates multiple resolved flag rows and stores a custom other note", async () => {
+    const { userId, exercise } = await createDueChoiceFixture("flag_multiple");
+    const flaggedAt = new Date("2026-06-03T12:15:00.000Z");
+
+    await expect(
+      flagPracticeExercise({
+        userId,
+        exerciseId: exercise.id,
+        reasons: [ExerciseFlagReason.INCORRECT_ANSWER, ExerciseFlagReason.OTHER],
+        otherNote: "The answer key disagrees with my worksheet.",
+        flaggedAt,
+      }),
+    ).resolves.toMatchObject({
+      status: "flagged",
+      flagCount: 2,
+      retirementReason: ExerciseRetirementReason.FLAGGED_INCORRECT,
+    });
+
+    await expect(
+      prisma.exerciseFlag.findMany({
+        where: { userId, exerciseId: exercise.id },
+        orderBy: { reason: "asc" },
+        select: {
+          reason: true,
+          note: true,
+          status: true,
+          resolvedAt: true,
+          retiredExerciseAt: true,
+          retirementReason: true,
+        },
+      }),
+    ).resolves.toEqual([
+      {
+        reason: ExerciseFlagReason.INCORRECT_ANSWER,
+        note: null,
+        status: ExerciseFlagStatus.RESOLVED,
+        resolvedAt: flaggedAt,
+        retiredExerciseAt: flaggedAt,
+        retirementReason: ExerciseRetirementReason.FLAGGED_INCORRECT,
+      },
+      {
+        reason: ExerciseFlagReason.OTHER,
+        note: "The answer key disagrees with my worksheet.",
+        status: ExerciseFlagStatus.RESOLVED,
+        resolvedAt: flaggedAt,
+        retiredExerciseAt: flaggedAt,
+        retirementReason: ExerciseRetirementReason.FLAGGED_INCORRECT,
+      },
+    ]);
+  });
+
+  it("does not duplicate flag rows on repeated submissions", async () => {
+    const { userId, exercise } = await createDueChoiceFixture("flag_duplicate");
+    const flaggedAt = new Date("2026-06-03T12:20:00.000Z");
+
+    for (const note of ["First note.", "Updated note."]) {
+      await expect(
+        flagPracticeExercise({
+          userId,
+          exerciseId: exercise.id,
+          reasons: [ExerciseFlagReason.NOT_USEFUL, ExerciseFlagReason.OTHER],
+          otherNote: note,
+          flaggedAt,
+        }),
+      ).resolves.toMatchObject({
+        status: "flagged",
+        flagCount: 2,
+      });
+    }
+
+    await expect(
+      Promise.all([
+        prisma.exerciseFlag.count({ where: { userId, exerciseId: exercise.id } }),
+        prisma.exerciseFlag.findFirstOrThrow({
+          where: { userId, exerciseId: exercise.id, reason: ExerciseFlagReason.OTHER },
+          select: { note: true },
+        }),
+      ]),
+    ).resolves.toEqual([2, { note: "Updated note." }]);
+  });
+
+  it("rejects invalid flags without writing", async () => {
+    const { userId, exercise } = await createDueChoiceFixture("flag_invalid");
+
+    await expect(
+      flagPracticeExercise({
+        userId,
+        exerciseId: exercise.id,
+        reasons: [],
+        flaggedAt: now,
+      }),
+    ).resolves.toMatchObject({
+      status: "not-flagged",
+      reason: "invalid-flag",
+    });
+
+    await expect(
+      flagPracticeExercise({
+        userId,
+        exerciseId: exercise.id,
+        reasons: [ExerciseFlagReason.OTHER],
+        otherNote: "  ",
+        flaggedAt: now,
+      }),
+    ).resolves.toMatchObject({
+      status: "not-flagged",
+      reason: "invalid-flag",
+    });
+
+    await expect(
+      Promise.all([
+        prisma.exerciseFlag.count({ where: { userId, exerciseId: exercise.id } }),
+        prisma.exercise.findUniqueOrThrow({
+          where: { id: exercise.id },
+          select: { retiredAt: true, retirementReason: true },
+        }),
+      ]),
+    ).resolves.toEqual([0, { retiredAt: null, retirementReason: null }]);
+  });
+
+  it("rejects cross-user flagging without writing", async () => {
+    const owner = await createDueChoiceFixture("flag_cross_owner");
+    const otherUserId = await createUser("flag_cross_other");
+
+    await expect(
+      flagPracticeExercise({
+        userId: otherUserId,
+        exerciseId: owner.exercise.id,
+        reasons: [ExerciseFlagReason.OFF_TOPIC],
+        flaggedAt: now,
+      }),
+    ).resolves.toMatchObject({
+      status: "not-found",
+      reason: "exercise-not-found",
+    });
+
+    await expect(
+      Promise.all([
+        prisma.exerciseFlag.count({ where: { exerciseId: owner.exercise.id } }),
+        prisma.exercise.findUniqueOrThrow({
+          where: { id: owner.exercise.id },
+          select: { retiredAt: true, retirementReason: true },
+        }),
+      ]),
+    ).resolves.toEqual([0, { retiredAt: null, retirementReason: null }]);
   });
 
   it("previews deterministic answer feedback without writing attempts or review logs", async () => {

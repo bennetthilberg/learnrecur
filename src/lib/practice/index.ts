@@ -3,6 +3,9 @@ import "server-only";
 import {
   AnswerKind,
   ExerciseAttemptResult,
+  ExerciseFlagReason,
+  ExerciseFlagStatus,
+  ExerciseRetirementReason,
   ExerciseVerificationStatus,
   FsrsRating,
   Prisma,
@@ -125,6 +128,26 @@ export type PracticeReviewCommitResult =
       message: string;
     };
 
+export type PracticeExerciseFlagResult =
+  | {
+      status: "flagged";
+      exerciseId: string;
+      flagCount: number;
+      retiredAt: Date;
+      retirementReason: ExerciseRetirementReason;
+      message: string;
+    }
+  | {
+      status: "not-flagged";
+      reason: "invalid-flag";
+      message: string;
+    }
+  | {
+      status: "not-found";
+      reason: "exercise-not-found";
+      message: string;
+    };
+
 export type GetNextPracticeItemInput = {
   userId: string;
   now: Date;
@@ -144,6 +167,14 @@ export type CommitPracticeReviewInput = PreviewPracticeAnswerInput & {
   attemptId: string;
   manualRating?: FsrsRating | null;
   reviewedAt: Date;
+};
+
+export type FlagPracticeExerciseInput = {
+  userId: string;
+  exerciseId: string;
+  reasons: readonly ExerciseFlagReason[];
+  otherNote?: string | null;
+  flaggedAt: Date;
 };
 
 type PracticeSkillRecord = SkillScheduleFields & {
@@ -199,6 +230,8 @@ type ResolveFinalPracticeRatingInput = {
   proposedRating: FsrsRating;
   manualRating?: FsrsRating | null;
 };
+
+const RETIREMENT_RESOLUTION_NOTE = "Retired from practice.";
 
 export async function getNextPracticeItem(
   input: GetNextPracticeItemInput,
@@ -272,6 +305,125 @@ export async function commitPracticeReview(
 
     throw error;
   }
+}
+
+export async function flagPracticeExercise(
+  input: FlagPracticeExerciseInput,
+): Promise<PracticeExerciseFlagResult> {
+  const uniqueReasons = [...new Set(input.reasons)];
+
+  if (uniqueReasons.length === 0) {
+    return {
+      status: "not-flagged",
+      reason: "invalid-flag",
+      message: "Choose at least one reason to report this exercise.",
+    };
+  }
+
+  const otherNote = input.otherNote?.trim() ?? "";
+
+  if (uniqueReasons.includes(ExerciseFlagReason.OTHER) && otherNote.length === 0) {
+    return {
+      status: "not-flagged",
+      reason: "invalid-flag",
+      message: "Add a short note for something else.",
+    };
+  }
+
+  const retirementReason = toExerciseRetirementReason(uniqueReasons);
+  const prisma = getPrisma();
+
+  return prisma.$transaction(async (tx) => {
+    const exercise = await tx.exercise.findFirst({
+      where: {
+        id: input.exerciseId,
+        userId: input.userId,
+      },
+      select: {
+        id: true,
+        retiredAt: true,
+        retirementReason: true,
+      },
+    });
+
+    if (!exercise) {
+      return exerciseNotFound();
+    }
+
+    await tx.exercise.update({
+      where: { id: exercise.id },
+      data: {
+        retiredAt: exercise.retiredAt ?? input.flaggedAt,
+        retirementReason: exercise.retirementReason ?? retirementReason,
+      },
+    });
+
+    const existingFlags = await tx.exerciseFlag.findMany({
+      where: {
+        userId: input.userId,
+        exerciseId: exercise.id,
+        reason: { in: uniqueReasons },
+      },
+      select: {
+        id: true,
+        reason: true,
+      },
+    });
+    const existingReasons = new Set(existingFlags.map((flag) => flag.reason));
+
+    if (existingFlags.length > 0) {
+      await tx.exerciseFlag.updateMany({
+        where: {
+          id: { in: existingFlags.map((flag) => flag.id) },
+        },
+        data: {
+          status: ExerciseFlagStatus.RESOLVED,
+          resolvedAt: input.flaggedAt,
+          resolutionNote: RETIREMENT_RESOLUTION_NOTE,
+          retiredExerciseAt: exercise.retiredAt ?? input.flaggedAt,
+          retirementReason: exercise.retirementReason ?? retirementReason,
+        },
+      });
+
+      if (existingReasons.has(ExerciseFlagReason.OTHER)) {
+        await tx.exerciseFlag.updateMany({
+          where: {
+            userId: input.userId,
+            exerciseId: exercise.id,
+            reason: ExerciseFlagReason.OTHER,
+          },
+          data: { note: otherNote },
+        });
+      }
+    }
+
+    const missingReasons = uniqueReasons.filter((reason) => !existingReasons.has(reason));
+
+    if (missingReasons.length > 0) {
+      await tx.exerciseFlag.createMany({
+        data: missingReasons.map((reason) => ({
+          userId: input.userId,
+          exerciseId: exercise.id,
+          reason,
+          note: reason === ExerciseFlagReason.OTHER ? otherNote : null,
+          status: ExerciseFlagStatus.RESOLVED,
+          resolvedAt: input.flaggedAt,
+          resolutionNote: RETIREMENT_RESOLUTION_NOTE,
+          retiredExerciseAt: exercise.retiredAt ?? input.flaggedAt,
+          retirementReason: exercise.retirementReason ?? retirementReason,
+        })),
+      });
+    }
+
+    return {
+      status: "flagged",
+      exerciseId: exercise.id,
+      flagCount: uniqueReasons.length,
+      retiredAt: exercise.retiredAt ?? input.flaggedAt,
+      retirementReason: exercise.retirementReason ?? retirementReason,
+      message: "Exercise reported and retired from practice.",
+    };
+  });
 }
 
 async function commitPracticeReviewInTransaction(
@@ -442,6 +594,28 @@ export function resolveFinalPracticeRating(input: ResolveFinalPracticeRatingInpu
   }
 
   return input.proposedRating;
+}
+
+function toExerciseRetirementReason(
+  reasons: readonly ExerciseFlagReason[],
+): ExerciseRetirementReason {
+  if (reasons.includes(ExerciseFlagReason.INCORRECT_ANSWER)) {
+    return ExerciseRetirementReason.FLAGGED_INCORRECT;
+  }
+
+  if (reasons.includes(ExerciseFlagReason.UNCLEAR_PROMPT)) {
+    return ExerciseRetirementReason.FLAGGED_UNCLEAR;
+  }
+
+  if (reasons.includes(ExerciseFlagReason.UNFAIR)) {
+    return ExerciseRetirementReason.FLAGGED_UNFAIR;
+  }
+
+  if (reasons.includes(ExerciseFlagReason.STALE)) {
+    return ExerciseRetirementReason.STALE;
+  }
+
+  return ExerciseRetirementReason.OTHER;
 }
 
 async function findEligibleExercise(
@@ -738,7 +912,7 @@ function toStoredAnswer(submittedAnswer: PracticeSubmittedAnswer): Prisma.InputJ
 
 type PracticeQueryClient = Pick<
   Prisma.TransactionClient,
-  "exercise" | "exerciseAttempt" | "reviewLog" | "skill"
+  "exercise" | "exerciseAttempt" | "exerciseFlag" | "reviewLog" | "skill"
 >;
 
 type RawEligibleExerciseRecord = Awaited<

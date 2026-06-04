@@ -2,9 +2,10 @@
 
 import { auth, currentUser } from "@clerk/nextjs/server";
 
-import { AnswerKind, FsrsRating } from "@/generated/prisma/client";
+import { AnswerKind, ExerciseFlagReason, FsrsRating } from "@/generated/prisma/client";
 import {
   commitPracticeReview,
+  flagPracticeExercise,
   previewPracticeAnswer,
   type PracticeSubmittedAnswer,
 } from "@/lib/practice";
@@ -14,6 +15,7 @@ import { ensureDatabaseUser } from "@/lib/users";
 import { getNextChoicePracticeItemForUser } from "./queries";
 import type {
   ChoicePracticeCommitResult,
+  ChoicePracticeFlagResult,
   ChoicePracticePreviewResult,
   ChoicePracticeSeedResult,
 } from "./types";
@@ -27,6 +29,12 @@ type PreviewChoicePracticeAnswerInput = {
 type CommitChoicePracticeReviewInput = PreviewChoicePracticeAnswerInput & {
   attemptId: string;
   manualRating?: FsrsRating | null;
+};
+
+type FlagChoicePracticeExerciseInput = {
+  exerciseId: string;
+  reasons: string[];
+  otherNote?: string | null;
 };
 
 export async function previewChoicePracticeAnswerAction(
@@ -98,6 +106,49 @@ export async function commitChoicePracticeReviewAction(
   };
 }
 
+export async function flagChoicePracticeExerciseAction(
+  input: FlagChoicePracticeExerciseInput,
+): Promise<ChoicePracticeFlagResult> {
+  const userId = await requirePracticeUserId();
+  const flaggedAt = new Date();
+  const reasons = input.reasons.filter(isExerciseFlagReason);
+
+  if (reasons.length !== input.reasons.length) {
+    return {
+      status: "not-flagged",
+      message: "Choose a valid report reason.",
+    };
+  }
+
+  const result = await flagPracticeExercise({
+    userId,
+    exerciseId: input.exerciseId,
+    reasons,
+    otherNote: input.otherNote,
+    flaggedAt,
+  });
+
+  if (result.status === "flagged") {
+    return {
+      status: "flagged",
+      message: result.message,
+      nextItem: await getNextChoicePracticeItemForUser(userId, flaggedAt),
+    };
+  }
+
+  if (result.status === "not-flagged") {
+    return {
+      status: "not-flagged",
+      message: result.message,
+    };
+  }
+
+  return {
+    status: "not-found",
+    message: result.message,
+  };
+}
+
 export async function ensureDevPracticeSampleDataAction(): Promise<ChoicePracticeSeedResult> {
   const { userId } = await auth.protect();
   const clerkUser = await currentUser();
@@ -153,4 +204,8 @@ function normalizeManualRating(rating?: FsrsRating | null): FsrsRating | null {
   }
 
   return null;
+}
+
+function isExerciseFlagReason(reason: string): reason is ExerciseFlagReason {
+  return Object.values(ExerciseFlagReason).includes(reason as ExerciseFlagReason);
 }
