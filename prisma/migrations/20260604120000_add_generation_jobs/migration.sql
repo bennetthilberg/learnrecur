@@ -23,7 +23,11 @@ CREATE TABLE "generation_jobs" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
-    CONSTRAINT "generation_jobs_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "generation_jobs_pkey" PRIMARY KEY ("id"),
+    CONSTRAINT "generation_jobs_requestedCount_nonnegative_check" CHECK ("requestedCount" >= 0),
+    CONSTRAINT "generation_jobs_acceptedCount_nonnegative_check" CHECK ("acceptedCount" >= 0),
+    CONSTRAINT "generation_jobs_rejectedCount_nonnegative_check" CHECK ("rejectedCount" >= 0),
+    CONSTRAINT "generation_jobs_counts_not_over_requested_check" CHECK (("acceptedCount" + "rejectedCount") <= "requestedCount")
 );
 
 -- CreateIndex

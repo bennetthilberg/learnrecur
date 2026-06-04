@@ -291,23 +291,24 @@ describeDatabase("skill drafts and Gemini activation", () => {
   it("returns a typed setup error without creating practiceable exercises when Gemini env is missing", async () => {
     const originalGeminiApiKey = process.env.GEMINI_API_KEY;
     const originalGeminiModel = process.env.GEMINI_MODEL;
-    delete process.env.GEMINI_API_KEY;
-    delete process.env.GEMINI_MODEL;
-
-    const userId = await createUser("missing_env");
-    const draft = await createSkillDraft({
-      userId,
-      input: {
-        title: "German articles",
-        objective: "Choose the correct German article for common beginner nouns.",
-      },
-    });
-
-    if (draft.status !== "created") {
-      throw new Error("Expected draft creation to succeed.");
-    }
 
     try {
+      delete process.env.GEMINI_API_KEY;
+      delete process.env.GEMINI_MODEL;
+
+      const userId = await createUser("missing_env");
+      const draft = await createSkillDraft({
+        userId,
+        input: {
+          title: "German articles",
+          objective: "Choose the correct German article for common beginner nouns.",
+        },
+      });
+
+      if (draft.status !== "created") {
+        throw new Error("Expected draft creation to succeed.");
+      }
+
       const result = await activateSkillDraft({
         userId,
         skillId: draft.skill.id,

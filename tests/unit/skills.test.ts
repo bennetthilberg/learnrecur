@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  MAX_GENERATED_EXERCISES,
   MIN_ACTIVATION_EXERCISES,
   normalizeSkillDraftInput,
   validateGeneratedChoiceExercises,
@@ -140,6 +141,21 @@ describe("validateGeneratedChoiceExercises", () => {
   it("fails closed for malformed response envelopes", () => {
     const result = validateGeneratedChoiceExercises({
       items: [validExercise(1), validExercise(2), validExercise(3)],
+    });
+
+    expect(result).toMatchObject({
+      status: "invalid",
+      reason: "invalid-response",
+      validCount: 0,
+      rejectedCount: 0,
+    });
+  });
+
+  it("rejects oversized generated exercise envelopes before parsing candidates", () => {
+    const result = validateGeneratedChoiceExercises({
+      exercises: Array.from({ length: MAX_GENERATED_EXERCISES + 1 }, (_, index) =>
+        validExercise(index),
+      ),
     });
 
     expect(result).toMatchObject({

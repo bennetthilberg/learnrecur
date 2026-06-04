@@ -51,9 +51,9 @@ export default async function SkillPage({
           name: true,
         },
       },
-      exercises: {
+      _count: {
         select: {
-          id: true,
+          exercises: true,
         },
       },
       generationJobs: {
@@ -102,7 +102,7 @@ export default async function SkillPage({
           <dl className="skillStatusGrid">
             <div>
               <dt>Exercises</dt>
-              <dd>{skill.exercises.length}</dd>
+              <dd>{skill._count.exercises}</dd>
             </div>
             <div>
               <dt>Collection</dt>

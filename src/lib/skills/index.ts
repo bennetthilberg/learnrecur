@@ -20,6 +20,8 @@ import { createInitialSkillSchedule } from "@/lib/scheduling";
 
 export const MIN_ACTIVATION_EXERCISES = 3;
 export const REQUESTED_ACTIVATION_EXERCISES = 5;
+export const MAX_GENERATED_EXERCISES = 10;
+const GENERATION_TIMEOUT_MS = 45_000;
 export const SKILL_MCQ_PROMPT_VERSION = "skill-mcq-v0";
 export const GEMINI_PROVIDER = "google";
 
@@ -180,7 +182,7 @@ const generatedChoiceExerciseSchema = z.strictObject({
 });
 
 const generatedChoiceEnvelopeSchema = z.strictObject({
-  exercises: z.array(z.unknown()).min(1),
+  exercises: z.array(z.unknown()).min(1).max(MAX_GENERATED_EXERCISES),
 });
 
 const geminiResponseJsonSchema = {
@@ -392,10 +394,14 @@ export async function activateSkillDraft(
   let rawGeneration: unknown;
 
   try {
-    rawGeneration = await setup.generateChoiceExercises({
-      skill,
-      requestedCount: REQUESTED_ACTIVATION_EXERCISES,
-    });
+    rawGeneration = await withTimeout(
+      setup.generateChoiceExercises({
+        skill,
+        requestedCount: REQUESTED_ACTIVATION_EXERCISES,
+      }),
+      GENERATION_TIMEOUT_MS,
+      "generateChoiceExercises timed out",
+    );
   } catch (error) {
     const message = `Gemini exercise generation failed: ${formatEnvError(error)}`;
     await markGenerationJobFailed(prisma, generationJob.id, {
@@ -432,16 +438,20 @@ export async function activateSkillDraft(
   }
 
   return prisma.$transaction(async (tx) => {
-    const draft = await tx.skill.findFirst({
+    const schedule = createInitialSkillSchedule(input.now);
+    const skillUpdate = await tx.skill.updateMany({
       where: {
         id: skill.id,
         userId: input.userId,
         status: SkillStatus.DRAFT,
       },
-      select: { id: true },
+      data: {
+        ...schedule,
+        status: SkillStatus.ACTIVE,
+      },
     });
 
-    if (!draft) {
+    if (skillUpdate.count !== 1) {
       await tx.generationJob.update({
         where: { id: generationJob.id },
         data: {
@@ -474,14 +484,6 @@ export async function activateSkillDraft(
         expectedSeconds: exercise.expectedSeconds,
         verificationStatus: ExerciseVerificationStatus.VERIFIED,
       })),
-    });
-
-    await tx.skill.update({
-      where: { id: skill.id },
-      data: {
-        ...createInitialSkillSchedule(input.now),
-        status: SkillStatus.ACTIVE,
-      },
     });
 
     await tx.generationJob.update({
@@ -607,6 +609,21 @@ function createGeminiChoiceExerciseGenerator({
 
     return JSON.parse(text) as unknown;
   };
+}
+
+async function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error(message)), ms);
+  });
+
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  }
 }
 
 function buildChoiceExercisePrompt(input: ChoiceExerciseGeneratorInput): string {

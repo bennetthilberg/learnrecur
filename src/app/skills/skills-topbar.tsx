@@ -19,7 +19,7 @@ export function SkillsTopbar({
           Practice
         </Link>
         <Link
-          aria-current={current === "new" || current === "skill" ? "page" : undefined}
+          aria-current={current === "new" ? "page" : undefined}
           href="/skills/new"
         >
           Add skill
