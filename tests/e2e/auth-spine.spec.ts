@@ -48,7 +48,8 @@ test.describe("auth spine", () => {
     await page.goto("/skills/new");
 
     await expect(page).toHaveURL(/\/sign-in|accounts\.dev\/sign-in/);
-    await expect(page.getByText(/define the skill before generation/i)).toHaveCount(0);
+    await expect(page.getByText(/create a skill draft/i)).toHaveCount(0);
+    await expect(page.getByText(/paste learning material/i)).toHaveCount(0);
 
     await page.goto("/skills/example-skill-id");
 
