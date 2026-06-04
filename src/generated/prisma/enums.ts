@@ -140,3 +140,20 @@ export const ExerciseFlagStatus = {
 } as const
 
 export type ExerciseFlagStatus = (typeof ExerciseFlagStatus)[keyof typeof ExerciseFlagStatus]
+
+
+export const GenerationJobKind = {
+  CHOICE_EXERCISE_GENERATION: 'CHOICE_EXERCISE_GENERATION'
+} as const
+
+export type GenerationJobKind = (typeof GenerationJobKind)[keyof typeof GenerationJobKind]
+
+
+export const GenerationJobStatus = {
+  PENDING: 'PENDING',
+  RUNNING: 'RUNNING',
+  SUCCEEDED: 'SUCCEEDED',
+  FAILED: 'FAILED'
+} as const
+
+export type GenerationJobStatus = (typeof GenerationJobStatus)[keyof typeof GenerationJobStatus]

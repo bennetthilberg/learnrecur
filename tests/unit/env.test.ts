@@ -6,9 +6,11 @@ import {
   getActiveEnv,
   getClerkEnv,
   getDatabaseEnv,
+  getGeminiEnv,
   hasActiveEnv,
   hasClerkEnv,
   hasDatabaseEnv,
+  hasGeminiEnv,
 } from "@/lib/env";
 
 const managedEnvKeys = [
@@ -17,6 +19,8 @@ const managedEnvKeys = [
   "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
   "CLERK_SECRET_KEY",
   "CLERK_WEBHOOK_SECRET",
+  "GEMINI_API_KEY",
+  "GEMINI_MODEL",
 ] as const;
 
 const originalEnv = process.env;
@@ -89,6 +93,33 @@ describe("environment validation", () => {
     expect(hasActiveEnv()).toBe(false);
     expect(() => getActiveEnv()).toThrow(/NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY/);
     expect(() => getActiveEnv()).toThrow(/CLERK_SECRET_KEY/);
+  });
+
+  it("validates Gemini only when activation asks for Gemini configuration", () => {
+    resetManagedEnv({
+      DATABASE_URL: "postgresql://runtime:secret@example-pooler.aws.neon.tech/neondb?sslmode=require",
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "pk_test_example",
+      CLERK_SECRET_KEY: "sk_test_example",
+      GEMINI_API_KEY: " gemini-secret ",
+      GEMINI_MODEL: "",
+    });
+
+    expect(hasActiveEnv()).toBe(true);
+    expect(hasGeminiEnv()).toBe(true);
+    expect(getGeminiEnv()).toEqual({
+      GEMINI_API_KEY: "gemini-secret",
+      GEMINI_MODEL: "gemini-3.5-flash",
+    });
+
+    resetManagedEnv({
+      DATABASE_URL: "postgresql://runtime:secret@example-pooler.aws.neon.tech/neondb?sslmode=require",
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "pk_test_example",
+      CLERK_SECRET_KEY: "sk_test_example",
+    });
+
+    expect(hasActiveEnv()).toBe(true);
+    expect(hasGeminiEnv()).toBe(false);
+    expect(() => getGeminiEnv()).toThrow(/GEMINI_API_KEY is required/);
   });
 
   it("rejects non-Postgres database URLs", () => {

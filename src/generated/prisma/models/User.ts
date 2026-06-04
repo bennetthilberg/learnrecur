@@ -206,6 +206,7 @@ export type UserWhereInput = {
   exerciseAttempts?: Prisma.ExerciseAttemptListRelationFilter
   reviewLogs?: Prisma.ReviewLogListRelationFilter
   exerciseFlags?: Prisma.ExerciseFlagListRelationFilter
+  generationJobs?: Prisma.GenerationJobListRelationFilter
 }
 
 export type UserOrderByWithRelationInput = {
@@ -224,6 +225,7 @@ export type UserOrderByWithRelationInput = {
   exerciseAttempts?: Prisma.ExerciseAttemptOrderByRelationAggregateInput
   reviewLogs?: Prisma.ReviewLogOrderByRelationAggregateInput
   exerciseFlags?: Prisma.ExerciseFlagOrderByRelationAggregateInput
+  generationJobs?: Prisma.GenerationJobOrderByRelationAggregateInput
 }
 
 export type UserWhereUniqueInput = Prisma.AtLeast<{
@@ -245,6 +247,7 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   exerciseAttempts?: Prisma.ExerciseAttemptListRelationFilter
   reviewLogs?: Prisma.ReviewLogListRelationFilter
   exerciseFlags?: Prisma.ExerciseFlagListRelationFilter
+  generationJobs?: Prisma.GenerationJobListRelationFilter
 }, "id">
 
 export type UserOrderByWithAggregationInput = {
@@ -289,6 +292,7 @@ export type UserCreateInput = {
   exerciseAttempts?: Prisma.ExerciseAttemptCreateNestedManyWithoutUserInput
   reviewLogs?: Prisma.ReviewLogCreateNestedManyWithoutUserInput
   exerciseFlags?: Prisma.ExerciseFlagCreateNestedManyWithoutUserInput
+  generationJobs?: Prisma.GenerationJobCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateInput = {
@@ -307,6 +311,7 @@ export type UserUncheckedCreateInput = {
   exerciseAttempts?: Prisma.ExerciseAttemptUncheckedCreateNestedManyWithoutUserInput
   reviewLogs?: Prisma.ReviewLogUncheckedCreateNestedManyWithoutUserInput
   exerciseFlags?: Prisma.ExerciseFlagUncheckedCreateNestedManyWithoutUserInput
+  generationJobs?: Prisma.GenerationJobUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserUpdateInput = {
@@ -325,6 +330,7 @@ export type UserUpdateInput = {
   exerciseAttempts?: Prisma.ExerciseAttemptUpdateManyWithoutUserNestedInput
   reviewLogs?: Prisma.ReviewLogUpdateManyWithoutUserNestedInput
   exerciseFlags?: Prisma.ExerciseFlagUpdateManyWithoutUserNestedInput
+  generationJobs?: Prisma.GenerationJobUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateInput = {
@@ -343,6 +349,7 @@ export type UserUncheckedUpdateInput = {
   exerciseAttempts?: Prisma.ExerciseAttemptUncheckedUpdateManyWithoutUserNestedInput
   reviewLogs?: Prisma.ReviewLogUncheckedUpdateManyWithoutUserNestedInput
   exerciseFlags?: Prisma.ExerciseFlagUncheckedUpdateManyWithoutUserNestedInput
+  generationJobs?: Prisma.GenerationJobUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateManyInput = {
@@ -538,6 +545,20 @@ export type UserUpdateOneRequiredWithoutExerciseFlagsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutExerciseFlagsInput, Prisma.UserUpdateWithoutExerciseFlagsInput>, Prisma.UserUncheckedUpdateWithoutExerciseFlagsInput>
 }
 
+export type UserCreateNestedOneWithoutGenerationJobsInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutGenerationJobsInput, Prisma.UserUncheckedCreateWithoutGenerationJobsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutGenerationJobsInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneRequiredWithoutGenerationJobsNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutGenerationJobsInput, Prisma.UserUncheckedCreateWithoutGenerationJobsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutGenerationJobsInput
+  upsert?: Prisma.UserUpsertWithoutGenerationJobsInput
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutGenerationJobsInput, Prisma.UserUpdateWithoutGenerationJobsInput>, Prisma.UserUncheckedUpdateWithoutGenerationJobsInput>
+}
+
 export type UserCreateWithoutCollectionsInput = {
   id: string
   email?: string | null
@@ -553,6 +574,7 @@ export type UserCreateWithoutCollectionsInput = {
   exerciseAttempts?: Prisma.ExerciseAttemptCreateNestedManyWithoutUserInput
   reviewLogs?: Prisma.ReviewLogCreateNestedManyWithoutUserInput
   exerciseFlags?: Prisma.ExerciseFlagCreateNestedManyWithoutUserInput
+  generationJobs?: Prisma.GenerationJobCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutCollectionsInput = {
@@ -570,6 +592,7 @@ export type UserUncheckedCreateWithoutCollectionsInput = {
   exerciseAttempts?: Prisma.ExerciseAttemptUncheckedCreateNestedManyWithoutUserInput
   reviewLogs?: Prisma.ReviewLogUncheckedCreateNestedManyWithoutUserInput
   exerciseFlags?: Prisma.ExerciseFlagUncheckedCreateNestedManyWithoutUserInput
+  generationJobs?: Prisma.GenerationJobUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutCollectionsInput = {
@@ -603,6 +626,7 @@ export type UserUpdateWithoutCollectionsInput = {
   exerciseAttempts?: Prisma.ExerciseAttemptUpdateManyWithoutUserNestedInput
   reviewLogs?: Prisma.ReviewLogUpdateManyWithoutUserNestedInput
   exerciseFlags?: Prisma.ExerciseFlagUpdateManyWithoutUserNestedInput
+  generationJobs?: Prisma.GenerationJobUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutCollectionsInput = {
@@ -620,6 +644,7 @@ export type UserUncheckedUpdateWithoutCollectionsInput = {
   exerciseAttempts?: Prisma.ExerciseAttemptUncheckedUpdateManyWithoutUserNestedInput
   reviewLogs?: Prisma.ReviewLogUncheckedUpdateManyWithoutUserNestedInput
   exerciseFlags?: Prisma.ExerciseFlagUncheckedUpdateManyWithoutUserNestedInput
+  generationJobs?: Prisma.GenerationJobUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutSourceFilesInput = {
@@ -637,6 +662,7 @@ export type UserCreateWithoutSourceFilesInput = {
   exerciseAttempts?: Prisma.ExerciseAttemptCreateNestedManyWithoutUserInput
   reviewLogs?: Prisma.ReviewLogCreateNestedManyWithoutUserInput
   exerciseFlags?: Prisma.ExerciseFlagCreateNestedManyWithoutUserInput
+  generationJobs?: Prisma.GenerationJobCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutSourceFilesInput = {
@@ -654,6 +680,7 @@ export type UserUncheckedCreateWithoutSourceFilesInput = {
   exerciseAttempts?: Prisma.ExerciseAttemptUncheckedCreateNestedManyWithoutUserInput
   reviewLogs?: Prisma.ReviewLogUncheckedCreateNestedManyWithoutUserInput
   exerciseFlags?: Prisma.ExerciseFlagUncheckedCreateNestedManyWithoutUserInput
+  generationJobs?: Prisma.GenerationJobUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutSourceFilesInput = {
@@ -687,6 +714,7 @@ export type UserUpdateWithoutSourceFilesInput = {
   exerciseAttempts?: Prisma.ExerciseAttemptUpdateManyWithoutUserNestedInput
   reviewLogs?: Prisma.ReviewLogUpdateManyWithoutUserNestedInput
   exerciseFlags?: Prisma.ExerciseFlagUpdateManyWithoutUserNestedInput
+  generationJobs?: Prisma.GenerationJobUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutSourceFilesInput = {
@@ -704,6 +732,7 @@ export type UserUncheckedUpdateWithoutSourceFilesInput = {
   exerciseAttempts?: Prisma.ExerciseAttemptUncheckedUpdateManyWithoutUserNestedInput
   reviewLogs?: Prisma.ReviewLogUncheckedUpdateManyWithoutUserNestedInput
   exerciseFlags?: Prisma.ExerciseFlagUncheckedUpdateManyWithoutUserNestedInput
+  generationJobs?: Prisma.GenerationJobUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutSkillsInput = {
@@ -721,6 +750,7 @@ export type UserCreateWithoutSkillsInput = {
   exerciseAttempts?: Prisma.ExerciseAttemptCreateNestedManyWithoutUserInput
   reviewLogs?: Prisma.ReviewLogCreateNestedManyWithoutUserInput
   exerciseFlags?: Prisma.ExerciseFlagCreateNestedManyWithoutUserInput
+  generationJobs?: Prisma.GenerationJobCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutSkillsInput = {
@@ -738,6 +768,7 @@ export type UserUncheckedCreateWithoutSkillsInput = {
   exerciseAttempts?: Prisma.ExerciseAttemptUncheckedCreateNestedManyWithoutUserInput
   reviewLogs?: Prisma.ReviewLogUncheckedCreateNestedManyWithoutUserInput
   exerciseFlags?: Prisma.ExerciseFlagUncheckedCreateNestedManyWithoutUserInput
+  generationJobs?: Prisma.GenerationJobUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutSkillsInput = {
@@ -771,6 +802,7 @@ export type UserUpdateWithoutSkillsInput = {
   exerciseAttempts?: Prisma.ExerciseAttemptUpdateManyWithoutUserNestedInput
   reviewLogs?: Prisma.ReviewLogUpdateManyWithoutUserNestedInput
   exerciseFlags?: Prisma.ExerciseFlagUpdateManyWithoutUserNestedInput
+  generationJobs?: Prisma.GenerationJobUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutSkillsInput = {
@@ -788,6 +820,7 @@ export type UserUncheckedUpdateWithoutSkillsInput = {
   exerciseAttempts?: Prisma.ExerciseAttemptUncheckedUpdateManyWithoutUserNestedInput
   reviewLogs?: Prisma.ReviewLogUncheckedUpdateManyWithoutUserNestedInput
   exerciseFlags?: Prisma.ExerciseFlagUncheckedUpdateManyWithoutUserNestedInput
+  generationJobs?: Prisma.GenerationJobUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutSkillSourceRefsInput = {
@@ -805,6 +838,7 @@ export type UserCreateWithoutSkillSourceRefsInput = {
   exerciseAttempts?: Prisma.ExerciseAttemptCreateNestedManyWithoutUserInput
   reviewLogs?: Prisma.ReviewLogCreateNestedManyWithoutUserInput
   exerciseFlags?: Prisma.ExerciseFlagCreateNestedManyWithoutUserInput
+  generationJobs?: Prisma.GenerationJobCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutSkillSourceRefsInput = {
@@ -822,6 +856,7 @@ export type UserUncheckedCreateWithoutSkillSourceRefsInput = {
   exerciseAttempts?: Prisma.ExerciseAttemptUncheckedCreateNestedManyWithoutUserInput
   reviewLogs?: Prisma.ReviewLogUncheckedCreateNestedManyWithoutUserInput
   exerciseFlags?: Prisma.ExerciseFlagUncheckedCreateNestedManyWithoutUserInput
+  generationJobs?: Prisma.GenerationJobUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutSkillSourceRefsInput = {
@@ -855,6 +890,7 @@ export type UserUpdateWithoutSkillSourceRefsInput = {
   exerciseAttempts?: Prisma.ExerciseAttemptUpdateManyWithoutUserNestedInput
   reviewLogs?: Prisma.ReviewLogUpdateManyWithoutUserNestedInput
   exerciseFlags?: Prisma.ExerciseFlagUpdateManyWithoutUserNestedInput
+  generationJobs?: Prisma.GenerationJobUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutSkillSourceRefsInput = {
@@ -872,6 +908,7 @@ export type UserUncheckedUpdateWithoutSkillSourceRefsInput = {
   exerciseAttempts?: Prisma.ExerciseAttemptUncheckedUpdateManyWithoutUserNestedInput
   reviewLogs?: Prisma.ReviewLogUncheckedUpdateManyWithoutUserNestedInput
   exerciseFlags?: Prisma.ExerciseFlagUncheckedUpdateManyWithoutUserNestedInput
+  generationJobs?: Prisma.GenerationJobUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutExercisesInput = {
@@ -889,6 +926,7 @@ export type UserCreateWithoutExercisesInput = {
   exerciseAttempts?: Prisma.ExerciseAttemptCreateNestedManyWithoutUserInput
   reviewLogs?: Prisma.ReviewLogCreateNestedManyWithoutUserInput
   exerciseFlags?: Prisma.ExerciseFlagCreateNestedManyWithoutUserInput
+  generationJobs?: Prisma.GenerationJobCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutExercisesInput = {
@@ -906,6 +944,7 @@ export type UserUncheckedCreateWithoutExercisesInput = {
   exerciseAttempts?: Prisma.ExerciseAttemptUncheckedCreateNestedManyWithoutUserInput
   reviewLogs?: Prisma.ReviewLogUncheckedCreateNestedManyWithoutUserInput
   exerciseFlags?: Prisma.ExerciseFlagUncheckedCreateNestedManyWithoutUserInput
+  generationJobs?: Prisma.GenerationJobUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutExercisesInput = {
@@ -939,6 +978,7 @@ export type UserUpdateWithoutExercisesInput = {
   exerciseAttempts?: Prisma.ExerciseAttemptUpdateManyWithoutUserNestedInput
   reviewLogs?: Prisma.ReviewLogUpdateManyWithoutUserNestedInput
   exerciseFlags?: Prisma.ExerciseFlagUpdateManyWithoutUserNestedInput
+  generationJobs?: Prisma.GenerationJobUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutExercisesInput = {
@@ -956,6 +996,7 @@ export type UserUncheckedUpdateWithoutExercisesInput = {
   exerciseAttempts?: Prisma.ExerciseAttemptUncheckedUpdateManyWithoutUserNestedInput
   reviewLogs?: Prisma.ReviewLogUncheckedUpdateManyWithoutUserNestedInput
   exerciseFlags?: Prisma.ExerciseFlagUncheckedUpdateManyWithoutUserNestedInput
+  generationJobs?: Prisma.GenerationJobUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutExerciseAttemptsInput = {
@@ -973,6 +1014,7 @@ export type UserCreateWithoutExerciseAttemptsInput = {
   exercises?: Prisma.ExerciseCreateNestedManyWithoutUserInput
   reviewLogs?: Prisma.ReviewLogCreateNestedManyWithoutUserInput
   exerciseFlags?: Prisma.ExerciseFlagCreateNestedManyWithoutUserInput
+  generationJobs?: Prisma.GenerationJobCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutExerciseAttemptsInput = {
@@ -990,6 +1032,7 @@ export type UserUncheckedCreateWithoutExerciseAttemptsInput = {
   exercises?: Prisma.ExerciseUncheckedCreateNestedManyWithoutUserInput
   reviewLogs?: Prisma.ReviewLogUncheckedCreateNestedManyWithoutUserInput
   exerciseFlags?: Prisma.ExerciseFlagUncheckedCreateNestedManyWithoutUserInput
+  generationJobs?: Prisma.GenerationJobUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutExerciseAttemptsInput = {
@@ -1023,6 +1066,7 @@ export type UserUpdateWithoutExerciseAttemptsInput = {
   exercises?: Prisma.ExerciseUpdateManyWithoutUserNestedInput
   reviewLogs?: Prisma.ReviewLogUpdateManyWithoutUserNestedInput
   exerciseFlags?: Prisma.ExerciseFlagUpdateManyWithoutUserNestedInput
+  generationJobs?: Prisma.GenerationJobUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutExerciseAttemptsInput = {
@@ -1040,6 +1084,7 @@ export type UserUncheckedUpdateWithoutExerciseAttemptsInput = {
   exercises?: Prisma.ExerciseUncheckedUpdateManyWithoutUserNestedInput
   reviewLogs?: Prisma.ReviewLogUncheckedUpdateManyWithoutUserNestedInput
   exerciseFlags?: Prisma.ExerciseFlagUncheckedUpdateManyWithoutUserNestedInput
+  generationJobs?: Prisma.GenerationJobUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutReviewLogsInput = {
@@ -1057,6 +1102,7 @@ export type UserCreateWithoutReviewLogsInput = {
   exercises?: Prisma.ExerciseCreateNestedManyWithoutUserInput
   exerciseAttempts?: Prisma.ExerciseAttemptCreateNestedManyWithoutUserInput
   exerciseFlags?: Prisma.ExerciseFlagCreateNestedManyWithoutUserInput
+  generationJobs?: Prisma.GenerationJobCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutReviewLogsInput = {
@@ -1074,6 +1120,7 @@ export type UserUncheckedCreateWithoutReviewLogsInput = {
   exercises?: Prisma.ExerciseUncheckedCreateNestedManyWithoutUserInput
   exerciseAttempts?: Prisma.ExerciseAttemptUncheckedCreateNestedManyWithoutUserInput
   exerciseFlags?: Prisma.ExerciseFlagUncheckedCreateNestedManyWithoutUserInput
+  generationJobs?: Prisma.GenerationJobUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutReviewLogsInput = {
@@ -1107,6 +1154,7 @@ export type UserUpdateWithoutReviewLogsInput = {
   exercises?: Prisma.ExerciseUpdateManyWithoutUserNestedInput
   exerciseAttempts?: Prisma.ExerciseAttemptUpdateManyWithoutUserNestedInput
   exerciseFlags?: Prisma.ExerciseFlagUpdateManyWithoutUserNestedInput
+  generationJobs?: Prisma.GenerationJobUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutReviewLogsInput = {
@@ -1124,6 +1172,7 @@ export type UserUncheckedUpdateWithoutReviewLogsInput = {
   exercises?: Prisma.ExerciseUncheckedUpdateManyWithoutUserNestedInput
   exerciseAttempts?: Prisma.ExerciseAttemptUncheckedUpdateManyWithoutUserNestedInput
   exerciseFlags?: Prisma.ExerciseFlagUncheckedUpdateManyWithoutUserNestedInput
+  generationJobs?: Prisma.GenerationJobUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutExerciseFlagsInput = {
@@ -1141,6 +1190,7 @@ export type UserCreateWithoutExerciseFlagsInput = {
   exercises?: Prisma.ExerciseCreateNestedManyWithoutUserInput
   exerciseAttempts?: Prisma.ExerciseAttemptCreateNestedManyWithoutUserInput
   reviewLogs?: Prisma.ReviewLogCreateNestedManyWithoutUserInput
+  generationJobs?: Prisma.GenerationJobCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutExerciseFlagsInput = {
@@ -1158,6 +1208,7 @@ export type UserUncheckedCreateWithoutExerciseFlagsInput = {
   exercises?: Prisma.ExerciseUncheckedCreateNestedManyWithoutUserInput
   exerciseAttempts?: Prisma.ExerciseAttemptUncheckedCreateNestedManyWithoutUserInput
   reviewLogs?: Prisma.ReviewLogUncheckedCreateNestedManyWithoutUserInput
+  generationJobs?: Prisma.GenerationJobUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutExerciseFlagsInput = {
@@ -1191,6 +1242,7 @@ export type UserUpdateWithoutExerciseFlagsInput = {
   exercises?: Prisma.ExerciseUpdateManyWithoutUserNestedInput
   exerciseAttempts?: Prisma.ExerciseAttemptUpdateManyWithoutUserNestedInput
   reviewLogs?: Prisma.ReviewLogUpdateManyWithoutUserNestedInput
+  generationJobs?: Prisma.GenerationJobUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutExerciseFlagsInput = {
@@ -1208,6 +1260,95 @@ export type UserUncheckedUpdateWithoutExerciseFlagsInput = {
   exercises?: Prisma.ExerciseUncheckedUpdateManyWithoutUserNestedInput
   exerciseAttempts?: Prisma.ExerciseAttemptUncheckedUpdateManyWithoutUserNestedInput
   reviewLogs?: Prisma.ReviewLogUncheckedUpdateManyWithoutUserNestedInput
+  generationJobs?: Prisma.GenerationJobUncheckedUpdateManyWithoutUserNestedInput
+}
+
+export type UserCreateWithoutGenerationJobsInput = {
+  id: string
+  email?: string | null
+  name?: string | null
+  imageUrl?: string | null
+  lastSeenAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  collections?: Prisma.CollectionCreateNestedManyWithoutUserInput
+  sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutUserInput
+  skills?: Prisma.SkillCreateNestedManyWithoutUserInput
+  skillSourceRefs?: Prisma.SkillSourceRefCreateNestedManyWithoutUserInput
+  exercises?: Prisma.ExerciseCreateNestedManyWithoutUserInput
+  exerciseAttempts?: Prisma.ExerciseAttemptCreateNestedManyWithoutUserInput
+  reviewLogs?: Prisma.ReviewLogCreateNestedManyWithoutUserInput
+  exerciseFlags?: Prisma.ExerciseFlagCreateNestedManyWithoutUserInput
+}
+
+export type UserUncheckedCreateWithoutGenerationJobsInput = {
+  id: string
+  email?: string | null
+  name?: string | null
+  imageUrl?: string | null
+  lastSeenAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  collections?: Prisma.CollectionUncheckedCreateNestedManyWithoutUserInput
+  sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutUserInput
+  skills?: Prisma.SkillUncheckedCreateNestedManyWithoutUserInput
+  skillSourceRefs?: Prisma.SkillSourceRefUncheckedCreateNestedManyWithoutUserInput
+  exercises?: Prisma.ExerciseUncheckedCreateNestedManyWithoutUserInput
+  exerciseAttempts?: Prisma.ExerciseAttemptUncheckedCreateNestedManyWithoutUserInput
+  reviewLogs?: Prisma.ReviewLogUncheckedCreateNestedManyWithoutUserInput
+  exerciseFlags?: Prisma.ExerciseFlagUncheckedCreateNestedManyWithoutUserInput
+}
+
+export type UserCreateOrConnectWithoutGenerationJobsInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutGenerationJobsInput, Prisma.UserUncheckedCreateWithoutGenerationJobsInput>
+}
+
+export type UserUpsertWithoutGenerationJobsInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutGenerationJobsInput, Prisma.UserUncheckedUpdateWithoutGenerationJobsInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutGenerationJobsInput, Prisma.UserUncheckedCreateWithoutGenerationJobsInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutGenerationJobsInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutGenerationJobsInput, Prisma.UserUncheckedUpdateWithoutGenerationJobsInput>
+}
+
+export type UserUpdateWithoutGenerationJobsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  imageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  collections?: Prisma.CollectionUpdateManyWithoutUserNestedInput
+  sourceFiles?: Prisma.SourceFileUpdateManyWithoutUserNestedInput
+  skills?: Prisma.SkillUpdateManyWithoutUserNestedInput
+  skillSourceRefs?: Prisma.SkillSourceRefUpdateManyWithoutUserNestedInput
+  exercises?: Prisma.ExerciseUpdateManyWithoutUserNestedInput
+  exerciseAttempts?: Prisma.ExerciseAttemptUpdateManyWithoutUserNestedInput
+  reviewLogs?: Prisma.ReviewLogUpdateManyWithoutUserNestedInput
+  exerciseFlags?: Prisma.ExerciseFlagUpdateManyWithoutUserNestedInput
+}
+
+export type UserUncheckedUpdateWithoutGenerationJobsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  imageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  collections?: Prisma.CollectionUncheckedUpdateManyWithoutUserNestedInput
+  sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutUserNestedInput
+  skills?: Prisma.SkillUncheckedUpdateManyWithoutUserNestedInput
+  skillSourceRefs?: Prisma.SkillSourceRefUncheckedUpdateManyWithoutUserNestedInput
+  exercises?: Prisma.ExerciseUncheckedUpdateManyWithoutUserNestedInput
+  exerciseAttempts?: Prisma.ExerciseAttemptUncheckedUpdateManyWithoutUserNestedInput
+  reviewLogs?: Prisma.ReviewLogUncheckedUpdateManyWithoutUserNestedInput
+  exerciseFlags?: Prisma.ExerciseFlagUncheckedUpdateManyWithoutUserNestedInput
 }
 
 
@@ -1224,6 +1365,7 @@ export type UserCountOutputType = {
   exerciseAttempts: number
   reviewLogs: number
   exerciseFlags: number
+  generationJobs: number
 }
 
 export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1235,6 +1377,7 @@ export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.I
   exerciseAttempts?: boolean | UserCountOutputTypeCountExerciseAttemptsArgs
   reviewLogs?: boolean | UserCountOutputTypeCountReviewLogsArgs
   exerciseFlags?: boolean | UserCountOutputTypeCountExerciseFlagsArgs
+  generationJobs?: boolean | UserCountOutputTypeCountGenerationJobsArgs
 }
 
 /**
@@ -1303,6 +1446,13 @@ export type UserCountOutputTypeCountExerciseFlagsArgs<ExtArgs extends runtime.Ty
   where?: Prisma.ExerciseFlagWhereInput
 }
 
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountGenerationJobsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.GenerationJobWhereInput
+}
+
 
 export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -1320,6 +1470,7 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   exerciseAttempts?: boolean | Prisma.User$exerciseAttemptsArgs<ExtArgs>
   reviewLogs?: boolean | Prisma.User$reviewLogsArgs<ExtArgs>
   exerciseFlags?: boolean | Prisma.User$exerciseFlagsArgs<ExtArgs>
+  generationJobs?: boolean | Prisma.User$generationJobsArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["user"]>
 
@@ -1363,6 +1514,7 @@ export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   exerciseAttempts?: boolean | Prisma.User$exerciseAttemptsArgs<ExtArgs>
   reviewLogs?: boolean | Prisma.User$reviewLogsArgs<ExtArgs>
   exerciseFlags?: boolean | Prisma.User$exerciseFlagsArgs<ExtArgs>
+  generationJobs?: boolean | Prisma.User$generationJobsArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type UserIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
@@ -1379,6 +1531,7 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     exerciseAttempts: Prisma.$ExerciseAttemptPayload<ExtArgs>[]
     reviewLogs: Prisma.$ReviewLogPayload<ExtArgs>[]
     exerciseFlags: Prisma.$ExerciseFlagPayload<ExtArgs>[]
+    generationJobs: Prisma.$GenerationJobPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1790,6 +1943,7 @@ export interface Prisma__UserClient<T, Null = never, ExtArgs extends runtime.Typ
   exerciseAttempts<T extends Prisma.User$exerciseAttemptsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$exerciseAttemptsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ExerciseAttemptPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   reviewLogs<T extends Prisma.User$reviewLogsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$reviewLogsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ReviewLogPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   exerciseFlags<T extends Prisma.User$exerciseFlagsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$exerciseFlagsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ExerciseFlagPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  generationJobs<T extends Prisma.User$generationJobsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$generationJobsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$GenerationJobPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -2408,6 +2562,30 @@ export type User$exerciseFlagsArgs<ExtArgs extends runtime.Types.Extensions.Inte
   take?: number
   skip?: number
   distinct?: Prisma.ExerciseFlagScalarFieldEnum | Prisma.ExerciseFlagScalarFieldEnum[]
+}
+
+/**
+ * User.generationJobs
+ */
+export type User$generationJobsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the GenerationJob
+   */
+  select?: Prisma.GenerationJobSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the GenerationJob
+   */
+  omit?: Prisma.GenerationJobOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.GenerationJobInclude<ExtArgs> | null
+  where?: Prisma.GenerationJobWhereInput
+  orderBy?: Prisma.GenerationJobOrderByWithRelationInput | Prisma.GenerationJobOrderByWithRelationInput[]
+  cursor?: Prisma.GenerationJobWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.GenerationJobScalarFieldEnum | Prisma.GenerationJobScalarFieldEnum[]
 }
 
 /**

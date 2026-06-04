@@ -613,6 +613,40 @@ export type EnumExerciseFlagStatusWithAggregatesFilter<$PrismaModel = never> = {
   _max?: Prisma.NestedEnumExerciseFlagStatusFilter<$PrismaModel>
 }
 
+export type EnumGenerationJobKindFilter<$PrismaModel = never> = {
+  equals?: $Enums.GenerationJobKind | Prisma.EnumGenerationJobKindFieldRefInput<$PrismaModel>
+  in?: $Enums.GenerationJobKind[] | Prisma.ListEnumGenerationJobKindFieldRefInput<$PrismaModel>
+  notIn?: $Enums.GenerationJobKind[] | Prisma.ListEnumGenerationJobKindFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumGenerationJobKindFilter<$PrismaModel> | $Enums.GenerationJobKind
+}
+
+export type EnumGenerationJobStatusFilter<$PrismaModel = never> = {
+  equals?: $Enums.GenerationJobStatus | Prisma.EnumGenerationJobStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.GenerationJobStatus[] | Prisma.ListEnumGenerationJobStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.GenerationJobStatus[] | Prisma.ListEnumGenerationJobStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumGenerationJobStatusFilter<$PrismaModel> | $Enums.GenerationJobStatus
+}
+
+export type EnumGenerationJobKindWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.GenerationJobKind | Prisma.EnumGenerationJobKindFieldRefInput<$PrismaModel>
+  in?: $Enums.GenerationJobKind[] | Prisma.ListEnumGenerationJobKindFieldRefInput<$PrismaModel>
+  notIn?: $Enums.GenerationJobKind[] | Prisma.ListEnumGenerationJobKindFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumGenerationJobKindWithAggregatesFilter<$PrismaModel> | $Enums.GenerationJobKind
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumGenerationJobKindFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumGenerationJobKindFilter<$PrismaModel>
+}
+
+export type EnumGenerationJobStatusWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.GenerationJobStatus | Prisma.EnumGenerationJobStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.GenerationJobStatus[] | Prisma.ListEnumGenerationJobStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.GenerationJobStatus[] | Prisma.ListEnumGenerationJobStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumGenerationJobStatusWithAggregatesFilter<$PrismaModel> | $Enums.GenerationJobStatus
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumGenerationJobStatusFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumGenerationJobStatusFilter<$PrismaModel>
+}
+
 export type NestedStringFilter<$PrismaModel = never> = {
   equals?: string | Prisma.StringFieldRefInput<$PrismaModel>
   in?: string[] | Prisma.ListStringFieldRefInput<$PrismaModel>
@@ -1147,6 +1181,40 @@ export type NestedEnumExerciseFlagStatusWithAggregatesFilter<$PrismaModel = neve
   _count?: Prisma.NestedIntFilter<$PrismaModel>
   _min?: Prisma.NestedEnumExerciseFlagStatusFilter<$PrismaModel>
   _max?: Prisma.NestedEnumExerciseFlagStatusFilter<$PrismaModel>
+}
+
+export type NestedEnumGenerationJobKindFilter<$PrismaModel = never> = {
+  equals?: $Enums.GenerationJobKind | Prisma.EnumGenerationJobKindFieldRefInput<$PrismaModel>
+  in?: $Enums.GenerationJobKind[] | Prisma.ListEnumGenerationJobKindFieldRefInput<$PrismaModel>
+  notIn?: $Enums.GenerationJobKind[] | Prisma.ListEnumGenerationJobKindFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumGenerationJobKindFilter<$PrismaModel> | $Enums.GenerationJobKind
+}
+
+export type NestedEnumGenerationJobStatusFilter<$PrismaModel = never> = {
+  equals?: $Enums.GenerationJobStatus | Prisma.EnumGenerationJobStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.GenerationJobStatus[] | Prisma.ListEnumGenerationJobStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.GenerationJobStatus[] | Prisma.ListEnumGenerationJobStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumGenerationJobStatusFilter<$PrismaModel> | $Enums.GenerationJobStatus
+}
+
+export type NestedEnumGenerationJobKindWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.GenerationJobKind | Prisma.EnumGenerationJobKindFieldRefInput<$PrismaModel>
+  in?: $Enums.GenerationJobKind[] | Prisma.ListEnumGenerationJobKindFieldRefInput<$PrismaModel>
+  notIn?: $Enums.GenerationJobKind[] | Prisma.ListEnumGenerationJobKindFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumGenerationJobKindWithAggregatesFilter<$PrismaModel> | $Enums.GenerationJobKind
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumGenerationJobKindFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumGenerationJobKindFilter<$PrismaModel>
+}
+
+export type NestedEnumGenerationJobStatusWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.GenerationJobStatus | Prisma.EnumGenerationJobStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.GenerationJobStatus[] | Prisma.ListEnumGenerationJobStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.GenerationJobStatus[] | Prisma.ListEnumGenerationJobStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumGenerationJobStatusWithAggregatesFilter<$PrismaModel> | $Enums.GenerationJobStatus
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumGenerationJobStatusFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumGenerationJobStatusFilter<$PrismaModel>
 }
 
 

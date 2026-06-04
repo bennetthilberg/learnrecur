@@ -41,10 +41,27 @@ const clerkEnvSchema = z.object({
   CLERK_WEBHOOK_SECRET: optionalNonEmptyString(z.string().trim()),
 });
 
+const geminiModelSchema = z.preprocess((value) => {
+  if (typeof value === "string" && value.trim() === "") {
+    return undefined;
+  }
+
+  return value;
+}, z.string().trim().min(1).default("gemini-3.5-flash"));
+
+const geminiEnvSchema = z.object({
+  GEMINI_API_KEY: z
+    .string({ error: "GEMINI_API_KEY is required" })
+    .trim()
+    .min(1, "GEMINI_API_KEY is required"),
+  GEMINI_MODEL: geminiModelSchema,
+});
+
 const activeEnvSchema = databaseEnvSchema.merge(clerkEnvSchema);
 
 export type DatabaseEnv = z.infer<typeof databaseEnvSchema>;
 export type ClerkEnv = z.infer<typeof clerkEnvSchema>;
+export type GeminiEnv = z.infer<typeof geminiEnvSchema>;
 export type ActiveEnv = z.infer<typeof activeEnvSchema>;
 
 export function getDatabaseEnv(): DatabaseEnv {
@@ -59,6 +76,10 @@ export function getActiveEnv(): ActiveEnv {
   return activeEnvSchema.parse(process.env);
 }
 
+export function getGeminiEnv(): GeminiEnv {
+  return geminiEnvSchema.parse(process.env);
+}
+
 export function hasDatabaseEnv(): boolean {
   return databaseEnvSchema.safeParse(process.env).success;
 }
@@ -69,6 +90,10 @@ export function hasClerkEnv(): boolean {
 
 export function hasActiveEnv(): boolean {
   return activeEnvSchema.safeParse(process.env).success;
+}
+
+export function hasGeminiEnv(): boolean {
+  return geminiEnvSchema.safeParse(process.env).success;
 }
 
 export function formatEnvError(error: unknown): string {

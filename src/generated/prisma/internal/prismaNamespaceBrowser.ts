@@ -59,7 +59,8 @@ export const ModelName = {
   Exercise: 'Exercise',
   ExerciseAttempt: 'ExerciseAttempt',
   ReviewLog: 'ReviewLog',
-  ExerciseFlag: 'ExerciseFlag'
+  ExerciseFlag: 'ExerciseFlag',
+  GenerationJob: 'GenerationJob'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -260,6 +261,28 @@ export const ExerciseFlagScalarFieldEnum = {
 } as const
 
 export type ExerciseFlagScalarFieldEnum = (typeof ExerciseFlagScalarFieldEnum)[keyof typeof ExerciseFlagScalarFieldEnum]
+
+
+export const GenerationJobScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  skillId: 'skillId',
+  kind: 'kind',
+  status: 'status',
+  provider: 'provider',
+  model: 'model',
+  promptVersion: 'promptVersion',
+  requestedCount: 'requestedCount',
+  acceptedCount: 'acceptedCount',
+  rejectedCount: 'rejectedCount',
+  errorMessage: 'errorMessage',
+  startedAt: 'startedAt',
+  completedAt: 'completedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type GenerationJobScalarFieldEnum = (typeof GenerationJobScalarFieldEnum)[keyof typeof GenerationJobScalarFieldEnum]
 
 
 export const SortOrder = {

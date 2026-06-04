@@ -51,6 +51,7 @@ export default async function PracticePage() {
           <Link aria-current="page" href="/practice">
             Practice
           </Link>
+          <Link href="/skills/new">Add skill</Link>
         </nav>
         <UserButton />
       </header>
