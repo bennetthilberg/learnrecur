@@ -411,6 +411,25 @@ describeDatabase("practice review service", () => {
     });
   });
 
+  it("fails closed when a choice practice item has no choices", async () => {
+    const userId = await createUser("empty_choice_query");
+    const skill = await createSkillFixture({
+      userId,
+      title: "empty choices skill",
+      dueAt: new Date("2026-06-03T09:00:00.000Z"),
+    });
+    await createChoiceExercise({
+      userId,
+      skillId: skill.id,
+      choices: [],
+    });
+
+    await expect(getNextChoicePracticeItemForUser(userId, now)).resolves.toMatchObject({
+      status: "unavailable",
+      message: "This exercise does not have valid answer choices.",
+    });
+  });
+
   it("creates idempotent development sample practice data", async () => {
     const userId = await createUser("sample_data");
 

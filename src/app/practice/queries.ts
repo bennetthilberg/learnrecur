@@ -28,6 +28,7 @@ export async function getNextChoicePracticeItemForUser(
 
   if (
     !Array.isArray(result.exercise.choices) ||
+    result.exercise.choices.length === 0 ||
     parsedChoices.length !== result.exercise.choices.length
   ) {
     return {
