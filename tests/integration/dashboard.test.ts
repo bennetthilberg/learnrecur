@@ -9,6 +9,7 @@ import {
   ExerciseRetirementReason,
   ExerciseType,
   ExerciseVerificationStatus,
+  type Prisma,
   SkillFsrsState,
   SkillStatus,
 } from "@/generated/prisma/client";
@@ -16,6 +17,7 @@ import { getDashboardHome } from "@/lib/dashboard";
 import { ensureDevPracticeSampleData } from "@/lib/practice/sample-data";
 import { getPrisma } from "@/lib/prisma";
 import { createInitialSkillSchedule } from "@/lib/scheduling";
+import { EXACT_INPUT_UNLOCK_REPETITIONS } from "@/lib/skills";
 
 const runDatabaseTests = process.env.RUN_DATABASE_TESTS === "1";
 const describeDatabase = runDatabaseTests ? describe : describe.skip;
@@ -65,6 +67,7 @@ describeDatabase("dashboard home read model", () => {
     dueAt = new Date("2026-06-03T09:00:00.000Z"),
     status = SkillStatus.ACTIVE,
     initialized = true,
+    repetitions = 0,
     tags = [],
   }: {
     userId: string;
@@ -73,6 +76,7 @@ describeDatabase("dashboard home read model", () => {
     dueAt?: Date;
     status?: SkillStatus;
     initialized?: boolean;
+    repetitions?: number;
     tags?: string[];
   }) {
     const schedule = initialized ? createInitialSkillSchedule(dueAt) : {};
@@ -85,6 +89,7 @@ describeDatabase("dashboard home read model", () => {
         tags,
         status,
         ...schedule,
+        repetitions,
       },
     });
   }
@@ -125,7 +130,22 @@ describeDatabase("dashboard home read model", () => {
     });
   }
 
-  async function createTextExercise(userId: string, skillId: string) {
+  async function createTextExercise(
+    userId: string,
+    skillId: string,
+    {
+      answerSpec = {
+        kind: "text",
+        accepted: ["right"],
+      },
+      verificationStatus = ExerciseVerificationStatus.VERIFIED,
+      retiredAt = null,
+    }: {
+      answerSpec?: Prisma.InputJsonValue;
+      verificationStatus?: ExerciseVerificationStatus;
+      retiredAt?: Date | null;
+    } = {},
+  ) {
     return prisma.exercise.create({
       data: {
         userId,
@@ -133,11 +153,29 @@ describeDatabase("dashboard home read model", () => {
         type: ExerciseType.EXACT_INPUT,
         answerKind: AnswerKind.TEXT,
         prompt: "Type the right answer.",
-        answerSpec: {
-          kind: "text",
-          accepted: ["right"],
-        },
+        answerSpec,
         correctAnswerDisplay: "right",
+        verificationStatus,
+        retiredAt,
+        retirementReason: retiredAt ? ExerciseRetirementReason.MANUAL : null,
+      },
+    });
+  }
+
+  async function createNumericExercise(userId: string, skillId: string) {
+    return prisma.exercise.create({
+      data: {
+        userId,
+        skillId,
+        type: ExerciseType.EXACT_INPUT,
+        answerKind: AnswerKind.NUMERIC,
+        prompt: "Enter one half.",
+        answerSpec: {
+          kind: "numeric",
+          accepted: ["1/2", 0.5],
+          tolerance: 0,
+        },
+        correctAnswerDisplay: "0.5",
         verificationStatus: ExerciseVerificationStatus.VERIFIED,
       },
     });
@@ -392,6 +430,143 @@ describeDatabase("dashboard home read model", () => {
         },
       ],
     });
+  });
+
+  it("counts exact-input readiness using the current practice eligibility rules", async () => {
+    const userId = await createUser("exact_readiness");
+    const otherUserId = await createUser("exact_readiness_other");
+    const collection = await createCollection(userId, "Exact input collection");
+    const otherCollection = await createCollection(otherUserId, "Other exact collection");
+
+    const readyTextSkill = await createSkillFixture({
+      userId,
+      collectionId: collection.id,
+      title: "Unlocked exact text",
+      repetitions: EXACT_INPUT_UNLOCK_REPETITIONS,
+    });
+    await createTextExercise(userId, readyTextSkill.id);
+
+    const readyNumericSkill = await createSkillFixture({
+      userId,
+      collectionId: collection.id,
+      title: "Unlocked numeric",
+      repetitions: EXACT_INPUT_UNLOCK_REPETITIONS,
+      dueAt: new Date("2026-06-03T09:15:00.000Z"),
+    });
+    await createNumericExercise(userId, readyNumericSkill.id);
+
+    const lockedExactSkill = await createSkillFixture({
+      userId,
+      collectionId: collection.id,
+      title: "Locked exact text",
+      repetitions: EXACT_INPUT_UNLOCK_REPETITIONS - 1,
+      dueAt: new Date("2026-06-03T09:30:00.000Z"),
+    });
+    await createTextExercise(userId, lockedExactSkill.id);
+
+    const malformedExactSkill = await createSkillFixture({
+      userId,
+      collectionId: collection.id,
+      title: "Malformed exact text",
+      repetitions: EXACT_INPUT_UNLOCK_REPETITIONS,
+      dueAt: new Date("2026-06-03T09:45:00.000Z"),
+    });
+    await createTextExercise(userId, malformedExactSkill.id, {
+      answerSpec: {
+        kind: "numeric",
+        accepted: ["1/2"],
+        tolerance: 0,
+      },
+    });
+
+    const unverifiedExactSkill = await createSkillFixture({
+      userId,
+      collectionId: collection.id,
+      title: "Unverified exact text",
+      repetitions: EXACT_INPUT_UNLOCK_REPETITIONS,
+      dueAt: new Date("2026-06-03T10:00:00.000Z"),
+    });
+    await createTextExercise(userId, unverifiedExactSkill.id, {
+      verificationStatus: ExerciseVerificationStatus.UNVERIFIED,
+    });
+
+    const retiredExactSkill = await createSkillFixture({
+      userId,
+      collectionId: collection.id,
+      title: "Retired exact text",
+      repetitions: EXACT_INPUT_UNLOCK_REPETITIONS,
+      dueAt: new Date("2026-06-03T10:15:00.000Z"),
+    });
+    await createTextExercise(userId, retiredExactSkill.id, {
+      retiredAt: new Date("2026-06-04T08:00:00.000Z"),
+    });
+
+    const mathSkill = await createSkillFixture({
+      userId,
+      collectionId: collection.id,
+      title: "Math exact",
+      repetitions: EXACT_INPUT_UNLOCK_REPETITIONS,
+      dueAt: new Date("2026-06-03T10:30:00.000Z"),
+    });
+    await prisma.exercise.create({
+      data: {
+        userId,
+        skillId: mathSkill.id,
+        type: ExerciseType.EXACT_INPUT,
+        answerKind: AnswerKind.MATH,
+        prompt: "Differentiate x^2.",
+        answerSpec: {
+          kind: "math",
+          acceptedExpressions: ["2x"],
+        },
+        correctAnswerDisplay: "2x",
+        verificationStatus: ExerciseVerificationStatus.VERIFIED,
+      },
+    });
+
+    const otherSkill = await createSkillFixture({
+      userId: otherUserId,
+      collectionId: otherCollection.id,
+      title: "Other user's exact skill",
+      repetitions: EXACT_INPUT_UNLOCK_REPETITIONS,
+    });
+    await createTextExercise(otherUserId, otherSkill.id);
+
+    const dashboard = await getDashboardHome({ userId, now });
+
+    expect(dashboard).toMatchObject({
+      readyNowCount: 2,
+      activeSkillCount: 7,
+      collections: [
+        {
+          id: collection.id,
+          readyNowCount: 2,
+        },
+      ],
+    });
+    expect(dashboard.skills.find((skill) => skill.id === readyTextSkill.id)).toMatchObject({
+      isReadyNow: true,
+      dueLabel: "Due now",
+    });
+    expect(dashboard.skills.find((skill) => skill.id === readyNumericSkill.id)).toMatchObject({
+      isReadyNow: true,
+      dueLabel: "Due now",
+    });
+
+    for (const notReadySkill of [
+      lockedExactSkill,
+      malformedExactSkill,
+      unverifiedExactSkill,
+      retiredExactSkill,
+      mathSkill,
+    ]) {
+      expect(dashboard.skills.find((skill) => skill.id === notReadySkill.id)).toMatchObject({
+        isReadyNow: false,
+        dueLabel: "Not available in practice yet",
+      });
+    }
+
+    expect(dashboard.skills.map((skill) => skill.id)).not.toContain(otherSkill.id);
   });
 
   it("does not unretire flagged sample exercises when sample data is reseeded", async () => {

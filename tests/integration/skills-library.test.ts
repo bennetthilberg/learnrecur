@@ -10,12 +10,14 @@ import {
   ExerciseVerificationStatus,
   GenerationJobKind,
   GenerationJobStatus,
+  type Prisma,
   SkillStatus,
   SourceFileKind,
   SourceFileStatus,
 } from "@/generated/prisma/client";
 import { getPrisma } from "@/lib/prisma";
 import { createInitialSkillSchedule } from "@/lib/scheduling";
+import { EXACT_INPUT_UNLOCK_REPETITIONS } from "@/lib/skills";
 import { getSkillsLibrary } from "@/lib/skills/library";
 
 const runDatabaseTests = process.env.RUN_DATABASE_TESTS === "1";
@@ -66,6 +68,7 @@ describeDatabase("skills library read model", () => {
     status,
     dueAt = new Date("2026-06-03T09:00:00.000Z"),
     initialized = true,
+    repetitions = 0,
     tags = [],
   }: {
     userId: string;
@@ -74,6 +77,7 @@ describeDatabase("skills library read model", () => {
     status: SkillStatus;
     dueAt?: Date;
     initialized?: boolean;
+    repetitions?: number;
     tags?: string[];
   }) {
     const schedule =
@@ -88,6 +92,7 @@ describeDatabase("skills library read model", () => {
         status,
         tags,
         ...schedule,
+        repetitions,
       },
     });
   }
@@ -128,7 +133,22 @@ describeDatabase("skills library read model", () => {
     });
   }
 
-  async function createTextExercise(userId: string, skillId: string) {
+  async function createTextExercise(
+    userId: string,
+    skillId: string,
+    {
+      answerSpec = {
+        kind: "text",
+        accepted: ["right"],
+      },
+      verificationStatus = ExerciseVerificationStatus.VERIFIED,
+      retiredAt = null,
+    }: {
+      answerSpec?: Prisma.InputJsonValue;
+      verificationStatus?: ExerciseVerificationStatus;
+      retiredAt?: Date | null;
+    } = {},
+  ) {
     return prisma.exercise.create({
       data: {
         userId,
@@ -136,11 +156,29 @@ describeDatabase("skills library read model", () => {
         type: ExerciseType.EXACT_INPUT,
         answerKind: AnswerKind.TEXT,
         prompt: "Type the right answer.",
-        answerSpec: {
-          kind: "text",
-          accepted: ["right"],
-        },
+        answerSpec,
         correctAnswerDisplay: "right",
+        verificationStatus,
+        retiredAt,
+        retirementReason: retiredAt ? ExerciseRetirementReason.MANUAL : null,
+      },
+    });
+  }
+
+  async function createNumericExercise(userId: string, skillId: string) {
+    return prisma.exercise.create({
+      data: {
+        userId,
+        skillId,
+        type: ExerciseType.EXACT_INPUT,
+        answerKind: AnswerKind.NUMERIC,
+        prompt: "Enter one half.",
+        answerSpec: {
+          kind: "numeric",
+          accepted: ["1/2", 0.5],
+          tolerance: 0,
+        },
+        correctAnswerDisplay: "0.5",
         verificationStatus: ExerciseVerificationStatus.VERIFIED,
       },
     });
@@ -349,6 +387,92 @@ describeDatabase("skills library read model", () => {
 
     expect(library.activeSkills.map((skill) => skill.id)).not.toContain(otherSkill.id);
     expect(library.draftSkills.map((skill) => skill.id)).not.toContain(archivedSkill.id);
+  });
+
+  it("counts exact-input active skills with the current practice eligibility rules", async () => {
+    const userId = await createUser("exact_active_rows");
+    const collection = await createCollection(userId, "Exact library");
+
+    const readyExactSkill = await createSkillFixture({
+      userId,
+      collectionId: collection.id,
+      title: "Unlocked exact skill",
+      status: SkillStatus.ACTIVE,
+      repetitions: EXACT_INPUT_UNLOCK_REPETITIONS,
+    });
+    await createTextExercise(userId, readyExactSkill.id);
+    await createNumericExercise(userId, readyExactSkill.id);
+
+    const lockedExactSkill = await createSkillFixture({
+      userId,
+      collectionId: collection.id,
+      title: "Locked exact skill",
+      status: SkillStatus.ACTIVE,
+      dueAt: new Date("2026-06-03T09:15:00.000Z"),
+      repetitions: EXACT_INPUT_UNLOCK_REPETITIONS - 1,
+    });
+    await createTextExercise(userId, lockedExactSkill.id);
+
+    const malformedExactSkill = await createSkillFixture({
+      userId,
+      collectionId: collection.id,
+      title: "Malformed exact skill",
+      status: SkillStatus.ACTIVE,
+      dueAt: new Date("2026-06-03T09:30:00.000Z"),
+      repetitions: EXACT_INPUT_UNLOCK_REPETITIONS,
+    });
+    await createTextExercise(userId, malformedExactSkill.id, {
+      answerSpec: {
+        kind: "numeric",
+        accepted: ["1/2"],
+        tolerance: 0,
+      },
+    });
+
+    const retiredExactSkill = await createSkillFixture({
+      userId,
+      collectionId: collection.id,
+      title: "Retired exact skill",
+      status: SkillStatus.ACTIVE,
+      dueAt: new Date("2026-06-03T09:45:00.000Z"),
+      repetitions: EXACT_INPUT_UNLOCK_REPETITIONS,
+    });
+    await createTextExercise(userId, retiredExactSkill.id, {
+      retiredAt: new Date("2026-06-04T08:00:00.000Z"),
+    });
+
+    const library = await getSkillsLibrary({ userId, now });
+
+    expect(library.activeSkills.find((skill) => skill.id === readyExactSkill.id)).toMatchObject({
+      isReadyNow: true,
+      dueLabel: "Due now",
+      verifiedExerciseCount: 2,
+      retiredExerciseCount: 0,
+      readyExerciseCount: 2,
+    });
+    expect(library.activeSkills.find((skill) => skill.id === lockedExactSkill.id)).toMatchObject({
+      isReadyNow: false,
+      dueLabel: "Not available in practice yet",
+      verifiedExerciseCount: 1,
+      retiredExerciseCount: 0,
+      readyExerciseCount: 0,
+    });
+    expect(
+      library.activeSkills.find((skill) => skill.id === malformedExactSkill.id),
+    ).toMatchObject({
+      isReadyNow: false,
+      dueLabel: "Not available in practice yet",
+      verifiedExerciseCount: 1,
+      retiredExerciseCount: 0,
+      readyExerciseCount: 0,
+    });
+    expect(library.activeSkills.find((skill) => skill.id === retiredExactSkill.id)).toMatchObject({
+      isReadyNow: false,
+      dueLabel: "Not available in practice yet",
+      verifiedExerciseCount: 1,
+      retiredExerciseCount: 1,
+      readyExerciseCount: 0,
+    });
   });
 
   it("sorts drafts by update time and active skills by due date", async () => {
