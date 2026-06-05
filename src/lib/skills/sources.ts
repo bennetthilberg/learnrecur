@@ -166,6 +166,11 @@ export async function removeSkillSource(
     },
   });
 
+  // V0 keeps S3 network I/O outside the Prisma transaction. If another source
+  // ref is created after this count but before the transaction below, the object
+  // can be deleted while a new ref remains. TODO: add a background storage audit
+  // that scans SourceFile storage keys, detects missing S3 objects, and logs or
+  // repairs orphaned source refs.
   const shouldDeleteStoredObject = initialRefCount === 1;
 
   if (shouldDeleteStoredObject) {
