@@ -154,6 +154,37 @@ describeDatabase("practice review service", () => {
     });
   }
 
+  async function createAttemptFixture({
+    userId,
+    skillId,
+    exerciseId,
+    createdAt,
+    label = randomUUID(),
+  }: {
+    userId: string;
+    skillId: string;
+    exerciseId: string;
+    createdAt: Date;
+    label?: string;
+  }) {
+    return prisma.exerciseAttempt.create({
+      data: {
+        id: `${runId}_rotation_attempt_${label}`,
+        userId,
+        skillId,
+        exerciseId,
+        answer: { raw: "ser" },
+        normalizedAnswer: "ser",
+        isCorrect: true,
+        result: ExerciseAttemptResult.CORRECT,
+        responseMs: 20_000,
+        proposedRating: FsrsRating.GOOD,
+        finalRating: FsrsRating.GOOD,
+        createdAt,
+      },
+    });
+  }
+
   async function createDueChoiceFixture(label: string) {
     const userId = await createUser(label);
     const skill = await createSkillFixture({
@@ -289,6 +320,280 @@ describeDatabase("practice review service", () => {
       exercise: {
         id: readyExercise.id,
         prompt: "Which verb describes identity?",
+      },
+    });
+  });
+
+  it("rotates to an unattempted exercise within the earliest due skill", async () => {
+    const userId = await createUser("rotation_unattempted");
+    const skill = await createSkillFixture({
+      userId,
+      title: "rotation skill",
+      dueAt: new Date("2026-06-03T09:00:00.000Z"),
+    });
+    const attemptedExercise = await createChoiceExercise({
+      userId,
+      skillId: skill.id,
+      prompt: "Already practiced prompt.",
+    });
+    const unattemptedExercise = await createChoiceExercise({
+      userId,
+      skillId: skill.id,
+      prompt: "Fresh prompt.",
+    });
+
+    await createAttemptFixture({
+      userId,
+      skillId: skill.id,
+      exerciseId: attemptedExercise.id,
+      createdAt: new Date("2026-06-03T10:00:00.000Z"),
+      label: "unattempted",
+    });
+
+    await expect(getNextPracticeItem({ userId, now })).resolves.toMatchObject({
+      status: "ready",
+      skill: {
+        id: skill.id,
+      },
+      exercise: {
+        id: unattemptedExercise.id,
+        prompt: "Fresh prompt.",
+      },
+    });
+  });
+
+  it("rotates to the least recently attempted exercise after all candidates have history", async () => {
+    const userId = await createUser("rotation_least_recent");
+    const skill = await createSkillFixture({
+      userId,
+      title: "least recent rotation skill",
+      dueAt: new Date("2026-06-03T09:00:00.000Z"),
+    });
+    const oldestExercise = await createChoiceExercise({
+      userId,
+      skillId: skill.id,
+      prompt: "Oldest practiced prompt.",
+    });
+    const newestExercise = await createChoiceExercise({
+      userId,
+      skillId: skill.id,
+      prompt: "Newest practiced prompt.",
+    });
+
+    await createAttemptFixture({
+      userId,
+      skillId: skill.id,
+      exerciseId: newestExercise.id,
+      createdAt: new Date("2026-06-03T11:00:00.000Z"),
+      label: "newest",
+    });
+    await createAttemptFixture({
+      userId,
+      skillId: skill.id,
+      exerciseId: oldestExercise.id,
+      createdAt: new Date("2026-06-03T08:00:00.000Z"),
+      label: "oldest",
+    });
+
+    await expect(getNextPracticeItem({ userId, now })).resolves.toMatchObject({
+      status: "ready",
+      exercise: {
+        id: oldestExercise.id,
+        prompt: "Oldest practiced prompt.",
+      },
+    });
+  });
+
+  it("uses attempt count after last-attempted ties", async () => {
+    const userId = await createUser("rotation_attempt_count");
+    const skill = await createSkillFixture({
+      userId,
+      title: "attempt count rotation skill",
+      dueAt: new Date("2026-06-03T09:00:00.000Z"),
+    });
+    const fewerAttemptsExercise = await createChoiceExercise({
+      userId,
+      skillId: skill.id,
+      prompt: "Fewer attempts prompt.",
+    });
+    const moreAttemptsExercise = await createChoiceExercise({
+      userId,
+      skillId: skill.id,
+      prompt: "More attempts prompt.",
+    });
+    const tiedLastAttemptedAt = new Date("2026-06-03T10:30:00.000Z");
+
+    await createAttemptFixture({
+      userId,
+      skillId: skill.id,
+      exerciseId: fewerAttemptsExercise.id,
+      createdAt: tiedLastAttemptedAt,
+      label: "fewer",
+    });
+    await createAttemptFixture({
+      userId,
+      skillId: skill.id,
+      exerciseId: moreAttemptsExercise.id,
+      createdAt: new Date("2026-06-03T09:30:00.000Z"),
+      label: "more_old",
+    });
+    await createAttemptFixture({
+      userId,
+      skillId: skill.id,
+      exerciseId: moreAttemptsExercise.id,
+      createdAt: tiedLastAttemptedAt,
+      label: "more_tied",
+    });
+
+    await expect(getNextPracticeItem({ userId, now })).resolves.toMatchObject({
+      status: "ready",
+      exercise: {
+        id: fewerAttemptsExercise.id,
+        prompt: "Fewer attempts prompt.",
+      },
+    });
+  });
+
+  it("keeps due skill priority ahead of exercise rotation freshness", async () => {
+    const userId = await createUser("rotation_due_priority");
+    const earlierSkill = await createSkillFixture({
+      userId,
+      title: "earlier due skill",
+      dueAt: new Date("2026-06-03T09:00:00.000Z"),
+    });
+    const earlierExercise = await createChoiceExercise({
+      userId,
+      skillId: earlierSkill.id,
+      prompt: "Earlier due practiced prompt.",
+    });
+    const laterSkill = await createSkillFixture({
+      userId,
+      title: "later due skill",
+      dueAt: new Date("2026-06-03T10:00:00.000Z"),
+    });
+    const laterFreshExercise = await createChoiceExercise({
+      userId,
+      skillId: laterSkill.id,
+      prompt: "Later due fresh prompt.",
+    });
+
+    await createAttemptFixture({
+      userId,
+      skillId: earlierSkill.id,
+      exerciseId: earlierExercise.id,
+      createdAt: new Date("2026-06-03T11:00:00.000Z"),
+      label: "due_priority",
+    });
+
+    await expect(getNextPracticeItem({ userId, now })).resolves.toMatchObject({
+      status: "ready",
+      skill: {
+        id: earlierSkill.id,
+      },
+      exercise: {
+        id: earlierExercise.id,
+      },
+    });
+
+    await expect(
+      prisma.exerciseAttempt.count({
+        where: {
+          userId,
+          exerciseId: laterFreshExercise.id,
+        },
+      }),
+    ).resolves.toBe(0);
+  });
+
+  it("keeps another user's attempt history isolated from rotation", async () => {
+    const userId = await createUser("rotation_owner");
+    const otherUserId = await createUser("rotation_other");
+    const ownerSkill = await createSkillFixture({
+      userId,
+      title: "owner rotation skill",
+      dueAt: new Date("2026-06-03T09:00:00.000Z"),
+    });
+    const ownerFirstExercise = await createChoiceExercise({
+      userId,
+      skillId: ownerSkill.id,
+      prompt: "Owner first prompt.",
+    });
+    const ownerSecondExercise = await createChoiceExercise({
+      userId,
+      skillId: ownerSkill.id,
+      prompt: "Owner second prompt.",
+    });
+    const otherSkill = await createSkillFixture({
+      userId: otherUserId,
+      title: "other rotation skill",
+      dueAt: new Date("2026-06-03T08:00:00.000Z"),
+    });
+    const otherExercise = await createChoiceExercise({
+      userId: otherUserId,
+      skillId: otherSkill.id,
+      prompt: "Other user prompt.",
+    });
+
+    await createAttemptFixture({
+      userId: otherUserId,
+      skillId: otherSkill.id,
+      exerciseId: otherExercise.id,
+      createdAt: new Date("2026-06-03T11:30:00.000Z"),
+      label: "other_user",
+    });
+
+    await expect(getNextPracticeItem({ userId, now })).resolves.toMatchObject({
+      status: "ready",
+      skill: {
+        id: ownerSkill.id,
+      },
+      exercise: {
+        id: ownerFirstExercise.id,
+      },
+    });
+
+    await expect(
+      prisma.exerciseAttempt.count({
+        where: {
+          userId,
+          exerciseId: { in: [ownerFirstExercise.id, ownerSecondExercise.id] },
+        },
+      }),
+    ).resolves.toBe(0);
+  });
+
+  it("selects the next eligible exercise after one is flagged and retired", async () => {
+    const userId = await createUser("rotation_flagged");
+    const skill = await createSkillFixture({
+      userId,
+      title: "flagged rotation skill",
+    });
+    const flaggedExercise = await createChoiceExercise({
+      userId,
+      skillId: skill.id,
+      prompt: "Bad prompt.",
+    });
+    const remainingExercise = await createChoiceExercise({
+      userId,
+      skillId: skill.id,
+      prompt: "Remaining prompt.",
+    });
+
+    await flagPracticeExercise({
+      userId,
+      exerciseId: flaggedExercise.id,
+      reasons: [ExerciseFlagReason.UNCLEAR_PROMPT],
+      flaggedAt: new Date("2026-06-03T12:30:00.000Z"),
+    });
+
+    await expect(getNextPracticeItem({ userId, now })).resolves.toMatchObject({
+      status: "ready",
+      skill: {
+        id: skill.id,
+      },
+      exercise: {
+        id: remainingExercise.id,
+        prompt: "Remaining prompt.",
       },
     });
   });
