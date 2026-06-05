@@ -10,15 +10,19 @@ import {
   ExerciseVerificationStatus,
   GenerationJobKind,
   GenerationJobStatus,
-  type Prisma,
   SkillStatus,
   SourceFileKind,
   SourceFileStatus,
 } from "@/generated/prisma/client";
 import { getPrisma } from "@/lib/prisma";
-import { createInitialSkillSchedule } from "@/lib/scheduling";
 import { EXACT_INPUT_UNLOCK_REPETITIONS } from "@/lib/skills";
 import { getSkillsLibrary } from "@/lib/skills/library";
+
+import {
+  createNumericExercise,
+  createSkillFixture,
+  createTextExercise,
+} from "./test-helpers";
 
 const runDatabaseTests = process.env.RUN_DATABASE_TESTS === "1";
 const describeDatabase = runDatabaseTests ? describe : describe.skip;
@@ -61,42 +65,6 @@ describeDatabase("skills library read model", () => {
     });
   }
 
-  async function createSkillFixture({
-    userId,
-    title,
-    collectionId,
-    status,
-    dueAt = new Date("2026-06-03T09:00:00.000Z"),
-    initialized = true,
-    repetitions = 0,
-    tags = [],
-  }: {
-    userId: string;
-    title: string;
-    collectionId?: string | null;
-    status: SkillStatus;
-    dueAt?: Date;
-    initialized?: boolean;
-    repetitions?: number;
-    tags?: string[];
-  }) {
-    const schedule =
-      status === SkillStatus.ACTIVE && initialized ? createInitialSkillSchedule(dueAt) : {};
-
-    return prisma.skill.create({
-      data: {
-        userId,
-        collectionId,
-        title,
-        objective: `${title} objective for a compact practice target.`,
-        status,
-        tags,
-        ...schedule,
-        repetitions,
-      },
-    });
-  }
-
   async function createChoiceExercise({
     userId,
     skillId,
@@ -129,57 +97,6 @@ describeDatabase("skills library read model", () => {
         verificationStatus,
         retiredAt,
         retirementReason: retiredAt ? ExerciseRetirementReason.MANUAL : null,
-      },
-    });
-  }
-
-  async function createTextExercise(
-    userId: string,
-    skillId: string,
-    {
-      answerSpec = {
-        kind: "text",
-        accepted: ["right"],
-      },
-      verificationStatus = ExerciseVerificationStatus.VERIFIED,
-      retiredAt = null,
-    }: {
-      answerSpec?: Prisma.InputJsonValue;
-      verificationStatus?: ExerciseVerificationStatus;
-      retiredAt?: Date | null;
-    } = {},
-  ) {
-    return prisma.exercise.create({
-      data: {
-        userId,
-        skillId,
-        type: ExerciseType.EXACT_INPUT,
-        answerKind: AnswerKind.TEXT,
-        prompt: "Type the right answer.",
-        answerSpec,
-        correctAnswerDisplay: "right",
-        verificationStatus,
-        retiredAt,
-        retirementReason: retiredAt ? ExerciseRetirementReason.MANUAL : null,
-      },
-    });
-  }
-
-  async function createNumericExercise(userId: string, skillId: string) {
-    return prisma.exercise.create({
-      data: {
-        userId,
-        skillId,
-        type: ExerciseType.EXACT_INPUT,
-        answerKind: AnswerKind.NUMERIC,
-        prompt: "Enter one half.",
-        answerSpec: {
-          kind: "numeric",
-          accepted: ["1/2", 0.5],
-          tolerance: 0,
-        },
-        correctAnswerDisplay: "0.5",
-        verificationStatus: ExerciseVerificationStatus.VERIFIED,
       },
     });
   }
@@ -258,7 +175,7 @@ describeDatabase("skills library read model", () => {
     const grammar = await createCollection(userId, "Spanish grammar");
     const otherCollection = await createCollection(otherUserId, "Other grammar");
 
-    const draftSkill = await createSkillFixture({
+    const draftSkill = await createSkillFixture(prisma, {
       userId,
       collectionId: grammar.id,
       title: "Ser vs. estar draft",
@@ -280,7 +197,7 @@ describeDatabase("skills library read model", () => {
       createdAt: new Date("2026-06-04T10:00:00.000Z"),
     });
 
-    const readySkill = await createSkillFixture({
+    const readySkill = await createSkillFixture(prisma, {
       userId,
       collectionId: grammar.id,
       title: "Preterite endings",
@@ -294,9 +211,9 @@ describeDatabase("skills library read model", () => {
       skillId: readySkill.id,
       retiredAt: new Date("2026-06-04T08:00:00.000Z"),
     });
-    await createTextExercise(userId, readySkill.id);
+    await createTextExercise(prisma, userId, readySkill.id);
 
-    const futureSkill = await createSkillFixture({
+    const futureSkill = await createSkillFixture(prisma, {
       userId,
       collectionId: grammar.id,
       title: "Future tense",
@@ -305,7 +222,7 @@ describeDatabase("skills library read model", () => {
     });
     await createChoiceExercise({ userId, skillId: futureSkill.id });
 
-    const malformedChoiceSkill = await createSkillFixture({
+    const malformedChoiceSkill = await createSkillFixture(prisma, {
       userId,
       collectionId: grammar.id,
       title: "Malformed choices",
@@ -318,7 +235,7 @@ describeDatabase("skills library read model", () => {
       choices: [{ id: "right" }],
     });
 
-    const archivedSkill = await createSkillFixture({
+    const archivedSkill = await createSkillFixture(prisma, {
       userId,
       collectionId: grammar.id,
       title: "Archived skill",
@@ -326,7 +243,7 @@ describeDatabase("skills library read model", () => {
     });
     await createChoiceExercise({ userId, skillId: archivedSkill.id });
 
-    const otherSkill = await createSkillFixture({
+    const otherSkill = await createSkillFixture(prisma, {
       userId: otherUserId,
       collectionId: otherCollection.id,
       title: "Other user skill",
@@ -393,17 +310,17 @@ describeDatabase("skills library read model", () => {
     const userId = await createUser("exact_active_rows");
     const collection = await createCollection(userId, "Exact library");
 
-    const readyExactSkill = await createSkillFixture({
+    const readyExactSkill = await createSkillFixture(prisma, {
       userId,
       collectionId: collection.id,
       title: "Unlocked exact skill",
       status: SkillStatus.ACTIVE,
       repetitions: EXACT_INPUT_UNLOCK_REPETITIONS,
     });
-    await createTextExercise(userId, readyExactSkill.id);
-    await createNumericExercise(userId, readyExactSkill.id);
+    await createTextExercise(prisma, userId, readyExactSkill.id);
+    await createNumericExercise(prisma, userId, readyExactSkill.id);
 
-    const lockedExactSkill = await createSkillFixture({
+    const lockedExactSkill = await createSkillFixture(prisma, {
       userId,
       collectionId: collection.id,
       title: "Locked exact skill",
@@ -411,9 +328,9 @@ describeDatabase("skills library read model", () => {
       dueAt: new Date("2026-06-03T09:15:00.000Z"),
       repetitions: EXACT_INPUT_UNLOCK_REPETITIONS - 1,
     });
-    await createTextExercise(userId, lockedExactSkill.id);
+    await createTextExercise(prisma, userId, lockedExactSkill.id);
 
-    const malformedExactSkill = await createSkillFixture({
+    const malformedExactSkill = await createSkillFixture(prisma, {
       userId,
       collectionId: collection.id,
       title: "Malformed exact skill",
@@ -421,7 +338,9 @@ describeDatabase("skills library read model", () => {
       dueAt: new Date("2026-06-03T09:30:00.000Z"),
       repetitions: EXACT_INPUT_UNLOCK_REPETITIONS,
     });
-    await createTextExercise(userId, malformedExactSkill.id, {
+    // Deliberately createTextExercise with malformedExactSkill and answerSpec.kind = "numeric"
+    // to validate TEXT exercise/spec-kind mismatch detection.
+    await createTextExercise(prisma, userId, malformedExactSkill.id, {
       answerSpec: {
         kind: "numeric",
         accepted: ["1/2"],
@@ -429,7 +348,7 @@ describeDatabase("skills library read model", () => {
       },
     });
 
-    const retiredExactSkill = await createSkillFixture({
+    const retiredExactSkill = await createSkillFixture(prisma, {
       userId,
       collectionId: collection.id,
       title: "Retired exact skill",
@@ -437,7 +356,7 @@ describeDatabase("skills library read model", () => {
       dueAt: new Date("2026-06-03T09:45:00.000Z"),
       repetitions: EXACT_INPUT_UNLOCK_REPETITIONS,
     });
-    await createTextExercise(userId, retiredExactSkill.id, {
+    await createTextExercise(prisma, userId, retiredExactSkill.id, {
       retiredAt: new Date("2026-06-04T08:00:00.000Z"),
     });
 
@@ -478,12 +397,12 @@ describeDatabase("skills library read model", () => {
   it("sorts drafts by update time and active skills by due date", async () => {
     const userId = await createUser("sorting");
 
-    const olderDraft = await createSkillFixture({
+    const olderDraft = await createSkillFixture(prisma, {
       userId,
       title: "Older draft",
       status: SkillStatus.DRAFT,
     });
-    const newerDraft = await createSkillFixture({
+    const newerDraft = await createSkillFixture(prisma, {
       userId,
       title: "Newer draft",
       status: SkillStatus.DRAFT,
@@ -493,7 +412,7 @@ describeDatabase("skills library read model", () => {
       data: { objective: "Newer draft objective updated after creation." },
     });
 
-    const secondDue = await createSkillFixture({
+    const secondDue = await createSkillFixture(prisma, {
       userId,
       title: "Second due",
       status: SkillStatus.ACTIVE,
@@ -501,7 +420,7 @@ describeDatabase("skills library read model", () => {
     });
     await createChoiceExercise({ userId, skillId: secondDue.id });
 
-    const firstDue = await createSkillFixture({
+    const firstDue = await createSkillFixture(prisma, {
       userId,
       title: "First due",
       status: SkillStatus.ACTIVE,
