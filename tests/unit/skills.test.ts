@@ -7,6 +7,8 @@ import {
   buildSourceContextExcerpt,
   normalizeSourceSkillDraftInput,
   normalizeSkillDraftInput,
+  toGeneratedChoiceExerciseCandidates,
+  validateChoiceExerciseVerification,
   validateGeneratedSkillDraft,
   validateGeneratedChoiceExercises,
   createSkillDraftFromSource,
@@ -168,6 +170,200 @@ describe("validateGeneratedChoiceExercises", () => {
       reason: "invalid-response",
       validCount: 0,
       rejectedCount: 0,
+    });
+  });
+});
+
+describe("validateChoiceExerciseVerification", () => {
+  function candidates(count = 3) {
+    const validation = validateGeneratedChoiceExercises({
+      exercises: Array.from({ length: count }, (_, index) => validExercise(index + 1)),
+    });
+
+    if (validation.status !== "ready") {
+      throw new Error("Expected generated exercises to be valid.");
+    }
+
+    return toGeneratedChoiceExerciseCandidates(validation.exercises);
+  }
+
+  it("accepts one complete verifier decision per candidate", () => {
+    const exerciseCandidates = candidates();
+    const result = validateChoiceExerciseVerification({
+      candidates: exerciseCandidates,
+      rawVerification: {
+        verifications: exerciseCandidates.map((candidate) => ({
+          candidateId: candidate.candidateId,
+          verdict: "verified",
+        })),
+      },
+    });
+
+    expect(result.status).toBe("ready");
+
+    if (result.status === "ready") {
+      expect(result.exercises).toHaveLength(MIN_ACTIVATION_EXERCISES);
+      expect(result.rejectedCount).toBe(0);
+      expect(result.decisions).toEqual(
+        exerciseCandidates.map((candidate) => ({
+          candidateId: candidate.candidateId,
+          verdict: "verified",
+          reason: null,
+          note: null,
+        })),
+      );
+    }
+  });
+
+  it("filters rejected candidates while preserving verified exercise order", () => {
+    const exerciseCandidates = candidates(5);
+    const result = validateChoiceExerciseVerification({
+      candidates: exerciseCandidates,
+      rawVerification: {
+        verifications: [
+          { candidateId: "candidate-1", verdict: "verified" },
+          {
+            candidateId: "candidate-2",
+            verdict: "rejected",
+            reason: "ambiguous",
+            note: "Two choices could be defended.",
+          },
+          { candidateId: "candidate-3", verdict: "verified" },
+          {
+            candidateId: "candidate-4",
+            verdict: "rejected",
+            reason: "weak_distractors",
+          },
+          { candidateId: "candidate-5", verdict: "verified" },
+        ],
+      },
+    });
+
+    expect(result.status).toBe("ready");
+
+    if (result.status === "ready") {
+      expect(result.exercises.map((exercise) => exercise.prompt)).toEqual([
+        "What does sample 1 mean?",
+        "What does sample 3 mean?",
+        "What does sample 5 mean?",
+      ]);
+      expect(result.rejectedCount).toBe(2);
+      expect(result.decisions[1]).toMatchObject({
+        candidateId: "candidate-2",
+        verdict: "rejected",
+        reason: "ambiguous",
+        note: "Two choices could be defended.",
+      });
+    }
+  });
+
+  it("fails closed when verifier output references unknown candidates", () => {
+    const result = validateChoiceExerciseVerification({
+      candidates: candidates(),
+      rawVerification: {
+        verifications: [
+          { candidateId: "candidate-1", verdict: "verified" },
+          { candidateId: "candidate-2", verdict: "verified" },
+          { candidateId: "candidate-999", verdict: "verified" },
+        ],
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: "invalid",
+      reason: "candidate-mismatch",
+      verifiedCount: 0,
+      rejectedCount: 3,
+    });
+  });
+
+  it("fails closed when verifier output omits or duplicates candidate decisions", () => {
+    const missing = validateChoiceExerciseVerification({
+      candidates: candidates(),
+      rawVerification: {
+        verifications: [
+          { candidateId: "candidate-1", verdict: "verified" },
+          { candidateId: "candidate-2", verdict: "verified" },
+        ],
+      },
+    });
+
+    const duplicate = validateChoiceExerciseVerification({
+      candidates: candidates(),
+      rawVerification: {
+        verifications: [
+          { candidateId: "candidate-1", verdict: "verified" },
+          { candidateId: "candidate-1", verdict: "verified" },
+          { candidateId: "candidate-2", verdict: "verified" },
+        ],
+      },
+    });
+
+    expect(missing).toMatchObject({
+      status: "invalid",
+      reason: "candidate-mismatch",
+    });
+    expect(duplicate).toMatchObject({
+      status: "invalid",
+      reason: "candidate-mismatch",
+    });
+  });
+
+  it("rejects malformed verdicts, missing rejection reasons, and oversized notes", () => {
+    const exerciseCandidates = candidates();
+
+    for (const rawVerification of [
+      {
+        verifications: exerciseCandidates.map((candidate) => ({
+          candidateId: candidate.candidateId,
+          verdict: candidate.candidateId === "candidate-1" ? "maybe" : "verified",
+        })),
+      },
+      {
+        verifications: exerciseCandidates.map((candidate) => ({
+          candidateId: candidate.candidateId,
+          verdict: candidate.candidateId === "candidate-1" ? "rejected" : "verified",
+        })),
+      },
+      {
+        verifications: exerciseCandidates.map((candidate) => ({
+          candidateId: candidate.candidateId,
+          verdict: candidate.candidateId === "candidate-1" ? "rejected" : "verified",
+          reason: candidate.candidateId === "candidate-1" ? "other" : undefined,
+          note: candidate.candidateId === "candidate-1" ? "x".repeat(301) : undefined,
+        })),
+      },
+    ]) {
+      expect(
+        validateChoiceExerciseVerification({
+          candidates: exerciseCandidates,
+          rawVerification,
+        }),
+      ).toMatchObject({
+        status: "invalid",
+        reason: "invalid-response",
+      });
+    }
+  });
+
+  it("requires at least three verified exercises after verifier filtering", () => {
+    const exerciseCandidates = candidates();
+    const result = validateChoiceExerciseVerification({
+      candidates: exerciseCandidates,
+      rawVerification: {
+        verifications: [
+          { candidateId: "candidate-1", verdict: "verified" },
+          { candidateId: "candidate-2", verdict: "rejected", reason: "too_easy" },
+          { candidateId: "candidate-3", verdict: "rejected", reason: "source_mismatch" },
+        ],
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: "invalid",
+      reason: "too-few-verified-exercises",
+      verifiedCount: 1,
+      rejectedCount: 2,
     });
   });
 });

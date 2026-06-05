@@ -22,6 +22,7 @@ import {
   createSkillDraftFromSource,
   updateSkillDraft,
   type ChoiceExerciseGenerator,
+  type ChoiceExerciseVerifier,
   type SkillDraftGenerator,
 } from "@/lib/skills";
 
@@ -45,6 +46,13 @@ const generatedExercise = (id: number) => ({
 
 const successfulGenerator: ChoiceExerciseGenerator = async () => ({
   exercises: [generatedExercise(1), generatedExercise(2), generatedExercise(3)],
+});
+
+const acceptAllVerifier: ChoiceExerciseVerifier = async (input) => ({
+  verifications: input.candidates.map((candidate) => ({
+    candidateId: candidate.candidateId,
+    verdict: "verified",
+  })),
 });
 
 const generatedSkillDraft = {
@@ -193,6 +201,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
       skillId: draft.skill.id,
       now,
       generateChoiceExercises: successfulGenerator,
+      verifyChoiceExercises: acceptAllVerifier,
       model: "test-gemini",
     });
 
@@ -253,6 +262,202 @@ describeDatabase("skill drafts and Gemini activation", () => {
       expect(nextPracticeItem.skill.id).toBe(skill.id);
       expect(skill.exercises.map((exercise) => exercise.id)).toContain(nextPracticeItem.exercise.id);
     }
+  });
+
+  it("persists only verifier-approved exercises and counts rejected candidates", async () => {
+    const userId = await createUser("verified_subset");
+    const draft = await createSkillDraft({
+      userId,
+      input: {
+        title: "Spanish prepositions",
+        objective: "Choose the correct meaning for common Spanish prepositions.",
+      },
+    });
+
+    if (draft.status !== "created") {
+      throw new Error("Expected draft creation to succeed.");
+    }
+
+    const selectiveGenerator: ChoiceExerciseGenerator = async () => ({
+      exercises: Array.from({ length: 5 }, (_, index) => generatedExercise(index + 1)),
+    });
+    const selectiveVerifier: ChoiceExerciseVerifier = async (input) => ({
+      verifications: input.candidates.map((candidate) =>
+        candidate.candidateId === "candidate-2" || candidate.candidateId === "candidate-4"
+          ? {
+              candidateId: candidate.candidateId,
+              verdict: "rejected",
+              reason: "ambiguous",
+              note: "The distractors are not clearly wrong.",
+            }
+          : {
+              candidateId: candidate.candidateId,
+              verdict: "verified",
+            },
+      ),
+    });
+
+    const activated = await activateSkillDraft({
+      userId,
+      skillId: draft.skill.id,
+      now,
+      generateChoiceExercises: selectiveGenerator,
+      verifyChoiceExercises: selectiveVerifier,
+      model: "test-gemini",
+    });
+
+    expect(activated).toMatchObject({
+      status: "activated",
+      exerciseCount: 3,
+    });
+
+    const [skill, exercises, generationJob] = await Promise.all([
+      prisma.skill.findUniqueOrThrow({ where: { id: draft.skill.id } }),
+      prisma.exercise.findMany({
+        where: { userId, skillId: draft.skill.id },
+        orderBy: { prompt: "asc" },
+        select: { prompt: true, verificationStatus: true },
+      }),
+      prisma.generationJob.findFirstOrThrow({ where: { userId, skillId: draft.skill.id } }),
+    ]);
+
+    expect(skill.status).toBe(SkillStatus.ACTIVE);
+    expect(exercises.map((exercise) => exercise.prompt)).toEqual([
+      "What is the best translation for item 1?",
+      "What is the best translation for item 3?",
+      "What is the best translation for item 5?",
+    ]);
+    expect(
+      exercises.every(
+        (exercise) => exercise.verificationStatus === ExerciseVerificationStatus.VERIFIED,
+      ),
+    ).toBe(true);
+    expect(generationJob).toMatchObject({
+      status: GenerationJobStatus.SUCCEEDED,
+      acceptedCount: 3,
+      rejectedCount: 2,
+    });
+  });
+
+  it("keeps a skill draft inactive when verification approves too few exercises", async () => {
+    const userId = await createUser("failed_verification");
+    const draft = await createSkillDraft({
+      userId,
+      input: {
+        title: "French classroom verbs",
+        objective: "Choose the correct meaning for common French classroom verbs.",
+      },
+    });
+
+    if (draft.status !== "created") {
+      throw new Error("Expected draft creation to succeed.");
+    }
+
+    const sparseVerifier: ChoiceExerciseVerifier = async (input) => ({
+      verifications: input.candidates.map((candidate) =>
+        candidate.candidateId === "candidate-1"
+          ? {
+              candidateId: candidate.candidateId,
+              verdict: "verified",
+            }
+          : {
+              candidateId: candidate.candidateId,
+              verdict: "rejected",
+              reason: "source_mismatch",
+            },
+      ),
+    });
+
+    const result = await activateSkillDraft({
+      userId,
+      skillId: draft.skill.id,
+      now,
+      generateChoiceExercises: successfulGenerator,
+      verifyChoiceExercises: sparseVerifier,
+      model: "test-gemini",
+    });
+
+    expect(result).toMatchObject({
+      status: "not-activated",
+      reason: "invalid-verification",
+    });
+
+    const [skill, exerciseCount, generationJob, dashboard, nextPracticeItem] = await Promise.all([
+      prisma.skill.findUniqueOrThrow({ where: { id: draft.skill.id } }),
+      prisma.exercise.count({ where: { userId, skillId: draft.skill.id } }),
+      prisma.generationJob.findFirstOrThrow({ where: { userId, skillId: draft.skill.id } }),
+      getDashboardHome({ userId, now }),
+      getNextChoicePracticeItemForUser(userId, now),
+    ]);
+
+    expect(skill.status).toBe(SkillStatus.DRAFT);
+    expect(skill.dueAt).toBeNull();
+    expect(exerciseCount).toBe(0);
+    expect(generationJob).toMatchObject({
+      status: GenerationJobStatus.FAILED,
+      acceptedCount: 1,
+      rejectedCount: 2,
+    });
+    expect(dashboard.readyNowCount).toBe(0);
+    expect(nextPracticeItem.status).toBe("none-due");
+  });
+
+  it("keeps a skill draft inactive when verification fails after structural validation", async () => {
+    const userId = await createUser("verification_error");
+    const draft = await createSkillDraft({
+      userId,
+      input: {
+        title: "German classroom nouns",
+        objective: "Choose the correct meaning for common German classroom nouns.",
+      },
+    });
+
+    if (draft.status !== "created") {
+      throw new Error("Expected draft creation to succeed.");
+    }
+
+    const partiallyValidGenerator: ChoiceExerciseGenerator = async () => ({
+      exercises: [
+        generatedExercise(1),
+        generatedExercise(2),
+        generatedExercise(3),
+        {
+          ...generatedExercise(4),
+          correctChoiceId: "missing",
+        },
+      ],
+    });
+    const failingVerifier: ChoiceExerciseVerifier = async () => {
+      throw new Error("verifier unavailable");
+    };
+
+    const result = await activateSkillDraft({
+      userId,
+      skillId: draft.skill.id,
+      now,
+      generateChoiceExercises: partiallyValidGenerator,
+      verifyChoiceExercises: failingVerifier,
+      model: "test-gemini",
+    });
+
+    expect(result).toMatchObject({
+      status: "not-activated",
+      reason: "verification-failed",
+    });
+
+    const [skill, exerciseCount, generationJob] = await Promise.all([
+      prisma.skill.findUniqueOrThrow({ where: { id: draft.skill.id } }),
+      prisma.exercise.count({ where: { userId, skillId: draft.skill.id } }),
+      prisma.generationJob.findFirstOrThrow({ where: { userId, skillId: draft.skill.id } }),
+    ]);
+
+    expect(skill.status).toBe(SkillStatus.DRAFT);
+    expect(exerciseCount).toBe(0);
+    expect(generationJob).toMatchObject({
+      status: GenerationJobStatus.FAILED,
+      acceptedCount: 0,
+      rejectedCount: 4,
+    });
   });
 
   it("keeps a skill draft inactive when generation validation fails", async () => {
@@ -415,6 +620,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
       skillId: result.skill.id,
       now,
       generateChoiceExercises: successfulGenerator,
+      verifyChoiceExercises: acceptAllVerifier,
       model: "test-gemini",
     });
 
@@ -426,7 +632,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
     await expect(prisma.generationJob.count({ where: { userId: otherUserId } })).resolves.toBe(0);
   });
 
-  it("passes linked source context into activation generation", async () => {
+  it("passes linked source context into activation generation and verification", async () => {
     const userId = await createUser("source_activation");
     const result = await createSkillDraftFromSource({
       userId,
@@ -445,11 +651,16 @@ describeDatabase("skill drafts and Gemini activation", () => {
     }
 
     let capturedSourceContext: string | null | undefined;
+    let capturedVerifierSourceContext: string | null | undefined;
     const activationGenerator: ChoiceExerciseGenerator = async (input) => {
       capturedSourceContext = input.sourceContext;
       return {
         exercises: [generatedExercise(1), generatedExercise(2), generatedExercise(3)],
       };
+    };
+    const activationVerifier: ChoiceExerciseVerifier = async (input) => {
+      capturedVerifierSourceContext = input.sourceContext;
+      return acceptAllVerifier(input);
     };
 
     const activated = await activateSkillDraft({
@@ -457,12 +668,15 @@ describeDatabase("skill drafts and Gemini activation", () => {
       skillId: result.skill.id,
       now,
       generateChoiceExercises: activationGenerator,
+      verifyChoiceExercises: activationVerifier,
       model: "test-gemini",
     });
 
     expect(activated.status).toBe("activated");
     expect(capturedSourceContext).toContain("Use ser for identity");
     expect(capturedSourceContext).toContain("Use estar for location");
+    expect(capturedVerifierSourceContext).toContain("Use ser for identity");
+    expect(capturedVerifierSourceContext).toContain("Use estar for location");
   });
 
   it("returns a typed setup error without creating practiceable exercises when Gemini env is missing", async () => {
