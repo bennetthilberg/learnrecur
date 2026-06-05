@@ -47,9 +47,9 @@ export default async function NewSkillPage() {
       <header className="skillHeader">
         <div>
           <p className="eyebrow">New skill</p>
-          <h1>Create a skill draft.</h1>
+          <h1>Create skill drafts.</h1>
           <p>
-            Paste source material for Gemini to shape one editable draft, or define
+            Paste source material for Gemini to shape one or more editable drafts, or define
             the skill manually. You will review it before activation.
           </p>
         </div>

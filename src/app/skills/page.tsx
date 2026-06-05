@@ -14,9 +14,17 @@ import { SkillsTopbar } from "./skills-topbar";
 
 export const dynamic = "force-dynamic";
 
-export default async function SkillsPage() {
+type SkillsPageProps = {
+  searchParams?: Promise<{
+    createdDrafts?: string | string[];
+  }>;
+};
+
+export default async function SkillsPage({ searchParams }: SkillsPageProps) {
   const { userId } = await auth.protect();
   const clerkUser = await currentUser();
+  const resolvedSearchParams = searchParams ? await searchParams : {};
+  const createdDraftCount = parseCreatedDraftCount(resolvedSearchParams.createdDrafts);
 
   if (!clerkUser) {
     throw new Error(`Clerk returned no user for authenticated user ${userId}.`);
@@ -56,6 +64,13 @@ export default async function SkillsPage() {
           Add skill
         </Link>
       </header>
+
+      {createdDraftCount ? (
+        <p className="skillFormMessage" data-tone="saved" role="status">
+          Generated {formatCount(createdDraftCount)} draft
+          {createdDraftCount === 1 ? "" : "s"}. Review each one before activation.
+        </p>
+      ) : null}
 
       <div className="skillLibraryGrid">
         <section className="skillPanel" aria-labelledby="draft-skills-title">
@@ -207,4 +222,20 @@ function formatSourceCount(count: number) {
 
 function formatFsrsState(state: SkillsLibraryActiveSkill["fsrsState"]) {
   return state.toLowerCase().replaceAll("_", " ");
+}
+
+function parseCreatedDraftCount(value: string | string[] | undefined) {
+  const rawValue = Array.isArray(value) ? value[0] : value;
+
+  if (!rawValue) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(rawValue, 10);
+
+  if (!Number.isInteger(parsed) || parsed < 2 || parsed > 3) {
+    return null;
+  }
+
+  return parsed;
 }

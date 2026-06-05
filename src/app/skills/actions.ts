@@ -124,7 +124,11 @@ export async function generateSkillDraftFromSourceAction(
   });
 
   if (result.status === "created") {
-    redirect(`/skills/${result.skill.id}`);
+    if (result.skills.length === 1) {
+      redirect(`/skills/${result.skills[0].id}`);
+    }
+
+    redirect(`/skills?createdDrafts=${result.skills.length}`);
   }
 
   if (result.status === "invalid") {

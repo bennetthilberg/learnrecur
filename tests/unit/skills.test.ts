@@ -23,7 +23,7 @@ import {
   toGeneratedExactInputExerciseCandidates,
   validateChoiceExerciseVerification,
   validateExactInputExerciseVerification,
-  validateGeneratedSkillDraft,
+  validateGeneratedSkillDrafts,
   validateGeneratedChoiceExercises,
   validateGeneratedExactInputExercises,
   createSkillDraftFromSource,
@@ -74,6 +74,15 @@ const validExactInputExercise = (id: number): GeneratedExactInputExercise => ({
   explanation: `Item ${id} asks for direct recall.`,
   difficulty: 2,
   expectedSeconds: 35,
+});
+
+const validGeneratedSkillDraft = (id: number) => ({
+  title: `Skill draft ${id}`,
+  objective: `Practice source-backed skill ${id} with short objective exercises.`,
+  rules: [`Rule ${id} comes from the pasted source.`],
+  examples: [`Example ${id} from the pasted source.`],
+  exerciseConstraints: `Use concise prompts for skill ${id}.`,
+  tags: ["Spanish", "Grammar", `Topic ${id}`],
 });
 
 describe("normalizeSkillDraftInput", () => {
@@ -718,45 +727,95 @@ describe("normalizeSourceSkillDraftInput", () => {
   });
 });
 
-describe("validateGeneratedSkillDraft", () => {
-  it("accepts a valid generated skill draft and normalizes tag casing", () => {
-    const result = validateGeneratedSkillDraft({
-      title: "Ser vs. estar in short sentences",
-      objective: "Choose ser or estar in beginner Spanish sentences about identity and location.",
-      rules: ["Use ser for identity.", "Use estar for location."],
-      examples: ["Soy estudiante.", "Estoy en casa."],
-      exerciseConstraints: "Use short multiple-choice prompts with one clear answer.",
-      tags: ["Spanish", "grammar", "spanish"],
+describe("validateGeneratedSkillDrafts", () => {
+  it("accepts one valid generated skill draft and normalizes tag casing", () => {
+    const result = validateGeneratedSkillDrafts({
+      drafts: [
+        {
+          title: "Ser vs. estar in short sentences",
+          objective: "Choose ser or estar in beginner Spanish sentences about identity and location.",
+          rules: ["Use ser for identity.", "Use estar for location."],
+          examples: ["Soy estudiante.", "Estoy en casa."],
+          exerciseConstraints: "Use short multiple-choice prompts with one clear answer.",
+          tags: ["Spanish", "grammar", "spanish"],
+        },
+      ],
     });
 
     expect(result).toEqual({
       status: "ready",
-      draft: {
-        title: "Ser vs. estar in short sentences",
-        objective: "Choose ser or estar in beginner Spanish sentences about identity and location.",
-        rules: ["Use ser for identity.", "Use estar for location."],
-        examples: ["Soy estudiante.", "Estoy en casa."],
-        exerciseConstraints: "Use short multiple-choice prompts with one clear answer.",
-        tags: ["spanish", "grammar"],
-      },
+      drafts: [
+        {
+          title: "Ser vs. estar in short sentences",
+          objective: "Choose ser or estar in beginner Spanish sentences about identity and location.",
+          rules: ["Use ser for identity.", "Use estar for location."],
+          examples: ["Soy estudiante.", "Estoy en casa."],
+          exerciseConstraints: "Use short multiple-choice prompts with one clear answer.",
+          tags: ["spanish", "grammar"],
+        },
+      ],
     });
   });
 
-  it("fails closed for malformed generated skill drafts", () => {
-    const result = validateGeneratedSkillDraft({
-      title: "Ser",
-      objective: "too short",
-      rules: [],
-      examples: [],
-      exerciseConstraints: "",
-      tags: ["spanish"],
-      typo: "reject unknown keys",
+  it("accepts three generated skill drafts", () => {
+    const result = validateGeneratedSkillDrafts({
+      drafts: [validGeneratedSkillDraft(1), validGeneratedSkillDraft(2), validGeneratedSkillDraft(3)],
     });
+
+    expect(result.status).toBe("ready");
+
+    if (result.status === "ready") {
+      expect(result.drafts).toHaveLength(3);
+      expect(result.drafts.map((draft) => draft.title)).toEqual([
+        "Skill draft 1",
+        "Skill draft 2",
+        "Skill draft 3",
+      ]);
+    }
+  });
+
+  it.each([
+    { label: "zero drafts", value: { drafts: [] } },
+    {
+      label: "too many drafts",
+      value: {
+        drafts: [
+          validGeneratedSkillDraft(1),
+          validGeneratedSkillDraft(2),
+          validGeneratedSkillDraft(3),
+          validGeneratedSkillDraft(4),
+        ],
+      },
+    },
+    {
+      label: "unknown keys",
+      value: {
+        drafts: [
+          {
+            ...validGeneratedSkillDraft(1),
+            typo: "reject unknown keys",
+          },
+        ],
+      },
+    },
+    {
+      label: "invalid tags",
+      value: {
+        drafts: [
+          {
+            ...validGeneratedSkillDraft(1),
+            tags: ["spanish", ""],
+          },
+        ],
+      },
+    },
+  ])("fails closed for $label in generated skill drafts", ({ value }) => {
+    const result = validateGeneratedSkillDrafts(value);
 
     expect(result).toMatchObject({
       status: "invalid",
       reason: "invalid-response",
-      message: "Gemini returned an invalid skill draft.",
+      message: "Gemini returned invalid skill drafts.",
     });
   });
 });
@@ -839,12 +898,16 @@ describe("createSkillDraftFromSource", () => {
         now: new Date("2026-06-04T16:00:00.000Z"),
         model: "test-gemini",
         generateSkillDraft: async () => ({
-          title: "Bad draft",
-          objective: "too short",
-          rules: [],
-          examples: [],
-          exerciseConstraints: "",
-          tags: [],
+          drafts: [
+            {
+              title: "Bad draft",
+              objective: "too short",
+              rules: [],
+              examples: [],
+              exerciseConstraints: "",
+              tags: [],
+            },
+          ],
         }),
         input: {
           sourceText:
