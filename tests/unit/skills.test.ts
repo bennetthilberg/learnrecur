@@ -27,6 +27,7 @@ import {
   validateGeneratedChoiceExercises,
   validateGeneratedExactInputExercises,
   createSkillDraftFromSource,
+  type GeneratedExactInputExercise,
 } from "@/lib/skills";
 
 const validExercise = (id: number) => ({
@@ -59,7 +60,7 @@ const validGeneratedExercise = (id: number) => ({
   expectedSeconds: 25,
 });
 
-const validExactInputExercise = (id: number) => ({
+const validExactInputExercise = (id: number): GeneratedExactInputExercise => ({
   prompt: `Type the answer for item ${id}.`,
   answerKind: AnswerKind.TEXT,
   answerSpec: {

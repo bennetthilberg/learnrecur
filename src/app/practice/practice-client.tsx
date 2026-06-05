@@ -116,7 +116,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
 
       setPendingAction(null);
 
-      if (result.status === "checked") {
+      if (isTerminalPreviewResult(result)) {
         setFeedback(result);
 
         if (result.answerCheck.isCorrect) {
@@ -125,7 +125,9 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
           setManualRating(FsrsRating.AGAIN);
         }
       } else {
-        setStatusMessage(result.message);
+        setFeedback(null);
+        setManualRating(null);
+        setStatusMessage(getPreviewStatusMessage(result));
       }
     });
   }, [answerValue, item, pendingAction, timer, startTransition]);
@@ -320,7 +322,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
           <span>Your answer</span>
           <input
             value={answerValue}
-            inputMode={isNumericExercise ? "decimal" : "text"}
+            inputMode="text"
             autoComplete="off"
             disabled={feedback !== null || pendingAction !== null}
             placeholder={isNumericExercise ? "Enter a number or fraction" : "Type your answer"}
@@ -568,4 +570,21 @@ function formatRating(rating: FsrsRating): string {
 
 function isAnswerReady(answer: string): boolean {
   return answer.trim().length > 0;
+}
+
+function isTerminalPreviewResult(
+  result: PracticePreviewResult,
+): result is Extract<PracticePreviewResult, { status: "checked" }> {
+  return (
+    result.status === "checked" &&
+    (result.answerCheck.status === "correct" || result.answerCheck.status === "incorrect")
+  );
+}
+
+function getPreviewStatusMessage(result: PracticePreviewResult): string {
+  if (result.status === "not-found") {
+    return result.message;
+  }
+
+  return result.answerCheck.message ?? "Check your answer and try again.";
 }

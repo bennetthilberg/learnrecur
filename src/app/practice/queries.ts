@@ -6,6 +6,7 @@ import { getNextPracticeItem } from "@/lib/practice";
 import type { ChoiceOption, PracticeItem } from "./types";
 
 const CHOICE_ANSWER_KINDS = [AnswerKind.CHOICE] as const;
+const PRACTICE_ANSWER_KINDS = [AnswerKind.CHOICE, AnswerKind.TEXT, AnswerKind.NUMERIC] as const;
 
 export async function getNextChoicePracticeItemForUser(
   userId: string,
@@ -27,6 +28,7 @@ export async function getNextPracticeItemForUser(
   const result = await getNextPracticeItem({
     userId,
     now,
+    answerKinds: PRACTICE_ANSWER_KINDS,
   });
 
   return toPracticeItem(result);

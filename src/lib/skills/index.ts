@@ -83,7 +83,7 @@ export type GeneratedChoiceExerciseCandidate = GeneratedChoiceExercise & {
 
 export type GeneratedExactInputExercise = {
   prompt: string;
-  answerKind: "TEXT" | "NUMERIC";
+  answerKind: typeof AnswerKind.TEXT | typeof AnswerKind.NUMERIC;
   answerSpec: TextAnswerSpec | NumericAnswerSpec;
   correctAnswerDisplay: string;
   explanation: string | null;
@@ -3120,6 +3120,14 @@ function numericAcceptedValueToSubmittedAnswer(
     return acceptedValue;
   }
 
+  if ("numerator" in acceptedValue && "denominator" in acceptedValue) {
+    if (acceptedValue.denominator === 0) {
+      return null;
+    }
+
+    return `${acceptedValue.numerator}/${acceptedValue.denominator}`;
+  }
+
   if (acceptedValue.type === "integer" || acceptedValue.type === "decimal") {
     return acceptedValue.value;
   }
@@ -3128,11 +3136,7 @@ function numericAcceptedValueToSubmittedAnswer(
     return acceptedValue.value;
   }
 
-  if (acceptedValue.denominator === 0) {
-    return null;
-  }
-
-  return `${acceptedValue.numerator}/${acceptedValue.denominator}`;
+  return null;
 }
 
 function invalidGeneratedExercises(

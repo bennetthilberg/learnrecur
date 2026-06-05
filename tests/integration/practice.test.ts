@@ -25,7 +25,10 @@ import { getPrisma } from "@/lib/prisma";
 import { createInitialSkillSchedule } from "@/lib/scheduling";
 import { EXACT_INPUT_UNLOCK_REPETITIONS } from "@/lib/skills";
 
-import { getNextChoicePracticeItemForUser } from "@/app/practice/queries";
+import {
+  getNextChoicePracticeItemForUser,
+  getNextPracticeItemForUser,
+} from "@/app/practice/queries";
 
 const runDatabaseTests = process.env.RUN_DATABASE_TESTS === "1";
 const describeDatabase = runDatabaseTests ? describe : describe.skip;
@@ -776,6 +779,54 @@ describeDatabase("practice review service", () => {
       }),
     ).resolves.toMatchObject({
       status: "none-due",
+    });
+  });
+
+  it("keeps unsupported answer kinds out of the app practice query", async () => {
+    const userId = await createUser("unsupported_app_query_filter");
+    const mathSkill = await createSkillFixture({
+      userId,
+      title: "math app query skill",
+      dueAt: new Date("2026-06-03T08:00:00.000Z"),
+      repetitions: EXACT_INPUT_UNLOCK_REPETITIONS,
+    });
+    const textSkill = await createSkillFixture({
+      userId,
+      title: "text app query skill",
+      dueAt: new Date("2026-06-03T09:00:00.000Z"),
+      repetitions: EXACT_INPUT_UNLOCK_REPETITIONS,
+    });
+
+    await prisma.exercise.create({
+      data: {
+        userId,
+        skillId: mathSkill.id,
+        type: ExerciseType.EXACT_INPUT,
+        answerKind: AnswerKind.MATH,
+        prompt: "Integrate 2x.",
+        answerSpec: {
+          kind: "math",
+          acceptedExpressions: ["x^2"],
+        },
+        correctAnswerDisplay: "x^2",
+        verificationStatus: ExerciseVerificationStatus.VERIFIED,
+      },
+    });
+    const textExercise = await createTextExercise({
+      userId,
+      skillId: textSkill.id,
+      prompt: "Type ser.",
+    });
+
+    await expect(getNextPracticeItemForUser(userId, now)).resolves.toMatchObject({
+      status: "ready",
+      skill: {
+        id: textSkill.id,
+      },
+      exercise: {
+        id: textExercise.id,
+        answerKind: AnswerKind.TEXT,
+      },
     });
   });
 
