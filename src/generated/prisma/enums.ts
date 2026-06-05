@@ -143,7 +143,8 @@ export type ExerciseFlagStatus = (typeof ExerciseFlagStatus)[keyof typeof Exerci
 
 
 export const GenerationJobKind = {
-  CHOICE_EXERCISE_GENERATION: 'CHOICE_EXERCISE_GENERATION'
+  CHOICE_EXERCISE_GENERATION: 'CHOICE_EXERCISE_GENERATION',
+  EXACT_INPUT_EXERCISE_GENERATION: 'EXACT_INPUT_EXERCISE_GENERATION'
 } as const
 
 export type GenerationJobKind = (typeof GenerationJobKind)[keyof typeof GenerationJobKind]

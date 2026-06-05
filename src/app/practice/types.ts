@@ -1,6 +1,6 @@
-import type { FsrsRating, SkillFsrsState } from "@/generated/prisma/enums";
+import { AnswerKind, type FsrsRating, type SkillFsrsState } from "@/generated/prisma/enums";
 
-export type ChoicePracticeAnswerCheckResult = {
+export type PracticeAnswerCheckResult = {
   status: "correct" | "incorrect" | "invalid-input" | "invalid-spec" | "unsupported";
   isCorrect: boolean;
   normalizedAnswer: string | null;
@@ -8,12 +8,33 @@ export type ChoicePracticeAnswerCheckResult = {
   message?: string;
 };
 
+export type ChoicePracticeAnswerCheckResult = PracticeAnswerCheckResult;
+
 export type ChoiceOption = {
   id: string;
   label: string;
 };
 
-export type ChoicePracticeItem =
+export type PracticeExercise =
+  | {
+      id: string;
+      skillId: string;
+      answerKind: typeof AnswerKind.CHOICE;
+      prompt: string;
+      choices: ChoiceOption[];
+      difficulty: number | null;
+      expectedSeconds: number | null;
+    }
+  | {
+      id: string;
+      skillId: string;
+      answerKind: typeof AnswerKind.TEXT | typeof AnswerKind.NUMERIC;
+      prompt: string;
+      difficulty: number | null;
+      expectedSeconds: number | null;
+    };
+
+export type PracticeItem =
   | {
       status: "ready";
       skill: {
@@ -23,14 +44,7 @@ export type ChoicePracticeItem =
         repetitions: number;
         lapses: number;
       };
-      exercise: {
-        id: string;
-        skillId: string;
-        prompt: string;
-        choices: ChoiceOption[];
-        difficulty: number | null;
-        expectedSeconds: number | null;
-      };
+      exercise: PracticeExercise;
     }
   | {
       status: "none-due";
@@ -41,10 +55,12 @@ export type ChoicePracticeItem =
       message: string;
     };
 
-export type ChoicePracticePreviewResult =
+export type ChoicePracticeItem = PracticeItem;
+
+export type PracticePreviewResult =
   | {
       status: "checked";
-      answerCheck: ChoicePracticeAnswerCheckResult;
+      answerCheck: PracticeAnswerCheckResult;
       proposedRating: FsrsRating | null;
       correctAnswerDisplay: string;
       explanation: string | null;
@@ -54,16 +70,18 @@ export type ChoicePracticePreviewResult =
       message: string;
     };
 
-export type ChoicePracticeCommitResult =
+export type ChoicePracticePreviewResult = PracticePreviewResult;
+
+export type PracticeCommitResult =
   | {
       status: "committed";
       idempotent: boolean;
       finalRating: FsrsRating;
-      nextItem: ChoicePracticeItem;
+      nextItem: PracticeItem;
     }
   | {
       status: "not-committed";
-      answerCheck: ChoicePracticeAnswerCheckResult;
+      answerCheck: PracticeAnswerCheckResult;
       message: string;
     }
   | {
@@ -75,11 +93,13 @@ export type ChoicePracticeCommitResult =
       message: string;
     };
 
-export type ChoicePracticeFlagResult =
+export type ChoicePracticeCommitResult = PracticeCommitResult;
+
+export type PracticeFlagResult =
   | {
       status: "flagged";
       message: string;
-      nextItem: ChoicePracticeItem;
+      nextItem: PracticeItem;
     }
   | {
       status: "not-flagged";
@@ -90,13 +110,15 @@ export type ChoicePracticeFlagResult =
       message: string;
     };
 
+export type ChoicePracticeFlagResult = PracticeFlagResult;
+
 export type ChoicePracticeSeedResult =
   | {
       status: "ready";
       message: string;
       skillCount: number;
       exerciseCount: number;
-      nextItem: ChoicePracticeItem;
+      nextItem: PracticeItem;
     }
   | {
       status: "disabled" | "error";

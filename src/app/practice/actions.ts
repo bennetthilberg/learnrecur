@@ -2,7 +2,7 @@
 
 import { auth, currentUser } from "@clerk/nextjs/server";
 
-import { AnswerKind, ExerciseFlagReason, FsrsRating } from "@/generated/prisma/client";
+import { ExerciseFlagReason, FsrsRating } from "@/generated/prisma/client";
 import {
   commitPracticeReview,
   flagPracticeExercise,
@@ -12,21 +12,24 @@ import {
 import { ensureDevPracticeSampleData } from "@/lib/practice/sample-data";
 import { ensureDatabaseUser } from "@/lib/users";
 
-import { getNextChoicePracticeItemForUser } from "./queries";
+import { getNextChoicePracticeItemForUser, getNextPracticeItemForUser } from "./queries";
 import type {
   ChoicePracticeCommitResult,
   ChoicePracticeFlagResult,
   ChoicePracticePreviewResult,
   ChoicePracticeSeedResult,
+  PracticeCommitResult,
+  PracticeFlagResult,
+  PracticePreviewResult,
 } from "./types";
 
-type PreviewChoicePracticeAnswerInput = {
+type PreviewPracticeAnswerInput = {
   exerciseId: string;
-  selectedChoiceId: string;
+  submittedAnswer: string;
   responseMs: number;
 };
 
-type CommitChoicePracticeReviewInput = PreviewChoicePracticeAnswerInput & {
+type CommitPracticeReviewInput = PreviewPracticeAnswerInput & {
   attemptId: string;
   manualRating?: FsrsRating | null;
 };
@@ -38,15 +41,24 @@ type FlagChoicePracticeExerciseInput = {
 };
 
 export async function previewChoicePracticeAnswerAction(
-  input: PreviewChoicePracticeAnswerInput,
+  input: { exerciseId: string; selectedChoiceId: string; responseMs: number },
 ): Promise<ChoicePracticePreviewResult> {
+  return previewPracticeAnswerAction({
+    exerciseId: input.exerciseId,
+    submittedAnswer: input.selectedChoiceId,
+    responseMs: input.responseMs,
+  });
+}
+
+export async function previewPracticeAnswerAction(
+  input: PreviewPracticeAnswerInput,
+): Promise<PracticePreviewResult> {
   const userId = await requirePracticeUserId();
   const result = await previewPracticeAnswer({
     userId,
     exerciseId: input.exerciseId,
-    submittedAnswer: toSubmittedChoice(input.selectedChoiceId),
+    submittedAnswer: toSubmittedAnswer(input.submittedAnswer),
     responseMs: input.responseMs,
-    answerKinds: [AnswerKind.CHOICE],
     now: new Date(),
   });
 
@@ -61,19 +73,36 @@ export async function previewChoicePracticeAnswerAction(
 }
 
 export async function commitChoicePracticeReviewAction(
-  input: CommitChoicePracticeReviewInput,
+  input: {
+    exerciseId: string;
+    selectedChoiceId: string;
+    responseMs: number;
+    attemptId: string;
+    manualRating?: FsrsRating | null;
+  },
 ): Promise<ChoicePracticeCommitResult> {
+  return commitPracticeReviewAction({
+    exerciseId: input.exerciseId,
+    submittedAnswer: input.selectedChoiceId,
+    responseMs: input.responseMs,
+    attemptId: input.attemptId,
+    manualRating: input.manualRating,
+  });
+}
+
+export async function commitPracticeReviewAction(
+  input: CommitPracticeReviewInput,
+): Promise<PracticeCommitResult> {
   const userId = await requirePracticeUserId();
   const reviewedAt = new Date();
   const result = await commitPracticeReview({
     userId,
     exerciseId: input.exerciseId,
     attemptId: input.attemptId,
-    submittedAnswer: toSubmittedChoice(input.selectedChoiceId),
+    submittedAnswer: toSubmittedAnswer(input.submittedAnswer),
     responseMs: input.responseMs,
     manualRating: normalizeManualRating(input.manualRating),
     reviewedAt,
-    answerKinds: [AnswerKind.CHOICE],
   });
 
   if (result.status === "committed") {
@@ -81,7 +110,7 @@ export async function commitChoicePracticeReviewAction(
       status: "committed",
       idempotent: result.idempotent,
       finalRating: result.finalRating,
-      nextItem: await getNextChoicePracticeItemForUser(userId, reviewedAt),
+      nextItem: await getNextPracticeItemForUser(userId, reviewedAt),
     };
   }
 
@@ -109,6 +138,12 @@ export async function commitChoicePracticeReviewAction(
 export async function flagChoicePracticeExerciseAction(
   input: FlagChoicePracticeExerciseInput,
 ): Promise<ChoicePracticeFlagResult> {
+  return flagPracticeExerciseAction(input);
+}
+
+export async function flagPracticeExerciseAction(
+  input: FlagChoicePracticeExerciseInput,
+): Promise<PracticeFlagResult> {
   const userId = await requirePracticeUserId();
   const flaggedAt = new Date();
   const reasons = input.reasons.filter(isExerciseFlagReason);
@@ -132,7 +167,7 @@ export async function flagChoicePracticeExerciseAction(
     return {
       status: "flagged",
       message: result.message,
-      nextItem: await getNextChoicePracticeItemForUser(userId, flaggedAt),
+      nextItem: await getNextPracticeItemForUser(userId, flaggedAt),
     };
   }
 
@@ -190,8 +225,8 @@ async function requirePracticeUserId(): Promise<string> {
   return userId;
 }
 
-function toSubmittedChoice(choiceId: string): PracticeSubmittedAnswer {
-  return choiceId;
+function toSubmittedAnswer(answer: string): PracticeSubmittedAnswer {
+  return answer;
 }
 
 function normalizeManualRating(rating?: FsrsRating | null): FsrsRating | null {

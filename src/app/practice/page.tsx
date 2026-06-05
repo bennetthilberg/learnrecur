@@ -4,7 +4,7 @@ import Link from "next/link";
 
 import { ensureDatabaseUser } from "@/lib/users";
 
-import { getNextChoicePracticeItemForUser } from "./queries";
+import { getNextPracticeItemForUser } from "./queries";
 import { PracticeClient } from "./practice-client";
 
 export const dynamic = "force-dynamic";
@@ -38,7 +38,7 @@ export default async function PracticePage() {
     );
   }
 
-  const initialItem = await getNextChoicePracticeItemForUser(userId);
+  const initialItem = await getNextPracticeItemForUser(userId);
 
   return (
     <main className="practiceShell">

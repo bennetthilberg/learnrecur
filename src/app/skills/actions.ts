@@ -8,6 +8,7 @@ import {
   activateSkillDraft,
   createSkillDraft,
   createSkillDraftFromSource,
+  refillExactInputExercisesForSkill,
   refillChoiceExercisesForSkill,
   updateSkillDraft,
 } from "@/lib/skills";
@@ -179,6 +180,52 @@ export async function refillChoiceExercisesAction(
     status: result.status === "not-refilled" && result.reason === "already-at-target"
       ? "saved"
       : "error",
+    message: result.message,
+  };
+}
+
+export async function refillExactInputExercisesAction(
+  _previousState: SkillFormActionState,
+  formData: FormData,
+): Promise<SkillFormActionState> {
+  const user = await requireSkillActionUser();
+
+  if (user.status === "error") {
+    return user;
+  }
+
+  const skillId = getOptionalFormString(formData, "skillId");
+
+  if (!skillId) {
+    return {
+      status: "error",
+      message: "No active skill was selected.",
+    };
+  }
+
+  const result = await refillExactInputExercisesForSkill({
+    userId: user.userId,
+    skillId,
+    now: new Date(),
+  });
+
+  revalidatePath(`/skills/${skillId}`);
+  revalidatePath("/skills");
+  revalidatePath("/dashboard");
+
+  if (result.status === "refilled") {
+    return {
+      status: "saved",
+      message: `Generated ${result.exerciseCount} exact-input ${result.exerciseCount === 1 ? "exercise" : "exercises"}.`,
+    };
+  }
+
+  return {
+    status:
+      result.status === "not-refilled" &&
+      (result.reason === "already-at-target" || result.reason === "exact-input-locked")
+        ? "saved"
+        : "error",
     message: result.message,
   };
 }

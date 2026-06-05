@@ -2,22 +2,22 @@
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 
-import { ExerciseFlagReason, FsrsRating } from "@/generated/prisma/enums";
+import { AnswerKind, ExerciseFlagReason, FsrsRating } from "@/generated/prisma/enums";
 
 import {
-  commitChoicePracticeReviewAction,
+  commitPracticeReviewAction,
   ensureDevPracticeSampleDataAction,
-  flagChoicePracticeExerciseAction,
-  previewChoicePracticeAnswerAction,
+  flagPracticeExerciseAction,
+  previewPracticeAnswerAction,
 } from "./actions";
 import type {
-  ChoicePracticeItem,
-  ChoicePracticePreviewResult,
   ChoicePracticeSeedResult,
+  PracticeItem,
+  PracticePreviewResult,
 } from "./types";
 
 type PracticeClientProps = {
-  initialItem: ChoicePracticeItem;
+  initialItem: PracticeItem;
   canUseSampleData: boolean;
 };
 
@@ -56,9 +56,9 @@ const FLAG_REASON_OPTIONS: Array<{ reason: ExerciseFlagReason; label: string }> 
 
 export function PracticeClient({ initialItem, canUseSampleData }: PracticeClientProps) {
   const [item, setItem] = useState(initialItem);
-  const [selectedChoiceId, setSelectedChoiceId] = useState<string | null>(null);
+  const [answerValue, setAnswerValue] = useState("");
   const [attemptId, setAttemptId] = useState(() => crypto.randomUUID());
-  const [feedback, setFeedback] = useState<ChoicePracticePreviewResult | null>(null);
+  const [feedback, setFeedback] = useState<PracticePreviewResult | null>(null);
   const [manualRating, setManualRating] = useState<FsrsRating | null>(null);
   const [submittedResponseMs, setSubmittedResponseMs] = useState<number | null>(null);
   const [flagFormOpen, setFlagFormOpen] = useState(false);
@@ -77,7 +77,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
     selectedFlagReasons.length > 0 && (!selectedOtherFlag || otherFlagNote.trim().length > 0);
 
   const resetAttemptState = useCallback(() => {
-    setSelectedChoiceId(null);
+    setAnswerValue("");
     setAttemptId(crypto.randomUUID());
     setFeedback(null);
     setManualRating(null);
@@ -98,7 +98,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
   }, []);
 
   const handleCheck = useCallback(() => {
-    if (item.status !== "ready" || !selectedChoiceId || pendingAction !== null) {
+    if (item.status !== "ready" || !isAnswerReady(answerValue) || pendingAction !== null) {
       return;
     }
 
@@ -108,15 +108,15 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
     setStatusMessage(null);
 
     startTransition(async () => {
-      const result = await previewChoicePracticeAnswerAction({
+      const result = await previewPracticeAnswerAction({
         exerciseId: item.exercise.id,
-        selectedChoiceId,
+        submittedAnswer: answerValue,
         responseMs,
       });
 
       setPendingAction(null);
 
-      if (result.status === "checked") {
+      if (isTerminalPreviewResult(result)) {
         setFeedback(result);
 
         if (result.answerCheck.isCorrect) {
@@ -125,15 +125,25 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
           setManualRating(FsrsRating.AGAIN);
         }
       } else {
-        setStatusMessage(result.message);
+        setFeedback(null);
+        setManualRating(null);
+
+        if (result.status === "not-found") {
+          setItem({
+            status: "unavailable",
+            message: result.message,
+          });
+        }
+
+        setStatusMessage(getPreviewStatusMessage(result));
       }
     });
-  }, [item, pendingAction, selectedChoiceId, timer, startTransition]);
+  }, [answerValue, item, pendingAction, timer, startTransition]);
 
   const handleContinue = useCallback(() => {
     if (
       item.status !== "ready" ||
-      !selectedChoiceId ||
+      !isAnswerReady(answerValue) ||
       feedback?.status !== "checked" ||
       pendingAction !== null
     ) {
@@ -144,9 +154,9 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
     setStatusMessage(null);
 
     startTransition(async () => {
-      const result = await commitChoicePracticeReviewAction({
+      const result = await commitPracticeReviewAction({
         exerciseId: item.exercise.id,
-        selectedChoiceId,
+        submittedAnswer: answerValue,
         responseMs: submittedResponseMs ?? timer.getElapsedMs(),
         attemptId,
         manualRating: feedback.answerCheck.isCorrect ? manualRating : null,
@@ -164,12 +174,12 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
     });
   }, [
     attemptId,
+    answerValue,
     feedback,
     item,
     manualRating,
     pendingAction,
     resetAttemptState,
-    selectedChoiceId,
     submittedResponseMs,
     timer,
     startTransition,
@@ -189,7 +199,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
     setStatusMessage(null);
 
     startTransition(async () => {
-      const result = await flagChoicePracticeExerciseAction({
+      const result = await flagPracticeExerciseAction({
         exerciseId: item.exercise.id,
         reasons: selectedFlagReasons,
         otherNote: otherFlagNote,
@@ -260,11 +270,16 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
     );
   }
 
+  const exercise = item.exercise;
+  const isNumericExercise = exercise.answerKind === AnswerKind.NUMERIC;
+  const practiceModeLabel =
+    exercise.answerKind === AnswerKind.CHOICE ? "Multiple choice" : "Exact input";
+
   return (
     <section className="practiceFrame" aria-labelledby="practice-title">
       <div className="practiceMetaRow">
         <div>
-          <p className="eyebrow">Multiple choice</p>
+          <p className="eyebrow">{practiceModeLabel}</p>
           <h1 id="practice-title">{item.skill.title}</h1>
         </div>
         <div className="practiceMetricCluster" aria-label="Practice status">
@@ -276,39 +291,58 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
       <article className="practicePromptPanel">
         <div className="practicePromptHeader">
           <span>Exercise</span>
-          {item.exercise.difficulty ? <span>Level {item.exercise.difficulty}</span> : null}
+          {exercise.difficulty ? <span>Level {exercise.difficulty}</span> : null}
         </div>
-        <p>{item.exercise.prompt}</p>
+        <p>{exercise.prompt}</p>
       </article>
 
-      <div className="choiceGrid" role="radiogroup" aria-label="Answer choices">
-        {item.exercise.choices.map((choice) => {
-          const selected = selectedChoiceId === choice.id;
-          const checked = feedback?.status === "checked";
-          const tone =
-            checked && selected
-              ? checkedFeedback?.answerCheck.isCorrect
-                ? "correct"
-                : "incorrect"
-              : "neutral";
+      {exercise.answerKind === AnswerKind.CHOICE ? (
+        <div className="choiceGrid" role="radiogroup" aria-label="Answer choices">
+          {exercise.choices.map((choice) => {
+            const selected = answerValue === choice.id;
+            const checked = feedback?.status === "checked";
+            const tone =
+              checked && selected
+                ? checkedFeedback?.answerCheck.isCorrect
+                  ? "correct"
+                  : "incorrect"
+                : "neutral";
 
-          return (
-            <button
-              key={choice.id}
-              className="choiceCard"
-              data-selected={selected ? "true" : "false"}
-              data-tone={tone}
-              type="button"
-              role="radio"
-              aria-checked={selected}
-              disabled={feedback !== null || pendingAction !== null}
-              onClick={() => setSelectedChoiceId(choice.id)}
-            >
-              <span>{choice.label}</span>
-            </button>
-          );
-        })}
-      </div>
+            return (
+              <button
+                key={choice.id}
+                className="choiceCard"
+                data-selected={selected ? "true" : "false"}
+                data-tone={tone}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                disabled={feedback !== null || pendingAction !== null}
+                onClick={() => setAnswerValue(choice.id)}
+              >
+                <span>{choice.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <label className="exactAnswerField">
+          <span>Your answer</span>
+          <input
+            value={answerValue}
+            inputMode="text"
+            autoComplete="off"
+            disabled={feedback !== null || pendingAction !== null}
+            placeholder={isNumericExercise ? "Enter a number or fraction" : "Type your answer"}
+            onChange={(event) => setAnswerValue(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && feedback === null && pendingAction === null) {
+                handleCheck();
+              }
+            }}
+          />
+        </label>
+      )}
 
       {checkedFeedback ? (
         <section
@@ -417,7 +451,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
           <button
             className="primaryButton"
             type="button"
-            disabled={!selectedChoiceId || pendingAction !== null}
+            disabled={!isAnswerReady(answerValue) || pendingAction !== null}
             onClick={handleCheck}
           >
             {pendingAction === "check" ? "Checking" : "Check"}
@@ -540,4 +574,25 @@ function formatFsrsState(state: string): string {
 
 function formatRating(rating: FsrsRating): string {
   return rating.charAt(0) + rating.slice(1).toLowerCase();
+}
+
+function isAnswerReady(answer: string): boolean {
+  return answer.trim().length > 0;
+}
+
+function isTerminalPreviewResult(
+  result: PracticePreviewResult,
+): result is Extract<PracticePreviewResult, { status: "checked" }> {
+  return (
+    result.status === "checked" &&
+    (result.answerCheck.status === "correct" || result.answerCheck.status === "incorrect")
+  );
+}
+
+function getPreviewStatusMessage(result: PracticePreviewResult): string {
+  if (result.status === "not-found") {
+    return result.message;
+  }
+
+  return result.answerCheck.message ?? "Check your answer and try again.";
 }

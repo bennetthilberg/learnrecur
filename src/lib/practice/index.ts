@@ -13,13 +13,19 @@ import {
   type ExerciseType,
   type SkillFsrsState,
 } from "@/generated/prisma/client";
-import { checkAnswer, type AnswerCheckResult } from "@/lib/answer-checking";
+import {
+  checkAnswer,
+  numericAnswerSpecSchema,
+  textAnswerSpecSchema,
+  type AnswerCheckResult,
+} from "@/lib/answer-checking";
 import { getPrisma } from "@/lib/prisma";
 import {
   advanceSkillSchedule,
   mapAttemptToFsrsRating,
   type SkillScheduleFields,
 } from "@/lib/scheduling";
+import { isExactInputUnlocked } from "@/lib/skills";
 
 const SUPPORTED_ANSWER_KINDS = [AnswerKind.CHOICE, AnswerKind.TEXT, AnswerKind.NUMERIC] as const;
 
@@ -659,7 +665,10 @@ async function findEligibleExercise(
       skill: true,
     },
   });
-  const exerciseRecords = exercises.map(toPracticeExerciseRecord);
+  const exerciseRecords = exercises
+    .map(toPracticeExerciseRecord)
+    .filter(hasCompatiblePracticeAnswerSpec)
+    .filter(isPracticeExerciseUnlockedForSkill);
   const attemptStatsByExerciseId = await getExerciseAttemptRotationStats(prisma, {
     userId: input.userId,
     exerciseIds: exerciseRecords.map((exercise) => exercise.id),
@@ -840,6 +849,26 @@ function getExerciseAttemptStats(
       lastAttemptedAt: null,
     }
   );
+}
+
+function isPracticeExerciseUnlockedForSkill(exercise: PracticeExerciseRecord): boolean {
+  if (exercise.answerKind === AnswerKind.TEXT || exercise.answerKind === AnswerKind.NUMERIC) {
+    return isExactInputUnlocked(exercise.skill.repetitions);
+  }
+
+  return true;
+}
+
+function hasCompatiblePracticeAnswerSpec(exercise: PracticeExerciseRecord): boolean {
+  if (exercise.answerKind === AnswerKind.TEXT) {
+    return textAnswerSpecSchema.safeParse(exercise.answerSpec).success;
+  }
+
+  if (exercise.answerKind === AnswerKind.NUMERIC) {
+    return numericAnswerSpecSchema.safeParse(exercise.answerSpec).success;
+  }
+
+  return true;
 }
 
 function toPracticeExerciseRecord(

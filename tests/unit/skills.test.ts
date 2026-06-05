@@ -1,21 +1,33 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  AnswerKind,
+} from "@/generated/prisma/client";
+import {
+  DEFAULT_READY_EXACT_INPUT_TARGET,
   DEFAULT_READY_EXERCISE_TARGET,
+  EXACT_INPUT_UNLOCK_REPETITIONS,
   EXISTING_EXERCISE_CONTEXT_CHAR_LIMIT,
   SOURCE_CONTEXT_CHAR_LIMIT,
   MAX_GENERATED_EXERCISES,
   MIN_ACTIVATION_EXERCISES,
   buildExistingChoiceExerciseContext,
+  buildExistingExactInputExerciseContext,
   buildSourceContextExcerpt,
   filterDuplicateChoiceExercises,
+  filterDuplicateExactInputExercises,
+  isExactInputUnlocked,
   normalizeSourceSkillDraftInput,
   normalizeSkillDraftInput,
   toGeneratedChoiceExerciseCandidates,
+  toGeneratedExactInputExerciseCandidates,
   validateChoiceExerciseVerification,
+  validateExactInputExerciseVerification,
   validateGeneratedSkillDraft,
   validateGeneratedChoiceExercises,
+  validateGeneratedExactInputExercises,
   createSkillDraftFromSource,
+  type GeneratedExactInputExercise,
 } from "@/lib/skills";
 
 const validExercise = (id: number) => ({
@@ -46,6 +58,22 @@ const validGeneratedExercise = (id: number) => ({
   explanation: `Sample ${id} uses the target idea.`,
   difficulty: 2,
   expectedSeconds: 25,
+});
+
+const validExactInputExercise = (id: number): GeneratedExactInputExercise => ({
+  prompt: `Type the answer for item ${id}.`,
+  answerKind: AnswerKind.TEXT,
+  answerSpec: {
+    kind: "text",
+    accepted: [`answer ${id}`],
+    normalizeCase: true,
+    normalizeWhitespace: true,
+    normalizeDiacritics: true,
+  },
+  correctAnswerDisplay: `answer ${id}`,
+  explanation: `Item ${id} asks for direct recall.`,
+  difficulty: 2,
+  expectedSeconds: 35,
 });
 
 describe("normalizeSkillDraftInput", () => {
@@ -240,6 +268,167 @@ describe("validateGeneratedChoiceExercises", () => {
       validCount: 0,
       rejectedCount: 0,
     });
+  });
+});
+
+describe("validateGeneratedExactInputExercises", () => {
+  it("accepts valid text and numeric exact-input exercises", () => {
+    const result = validateGeneratedExactInputExercises({
+      exercises: [
+        validExactInputExercise(1),
+        {
+          prompt: "Enter the decimal equivalent of three fourths.",
+          answerKind: AnswerKind.NUMERIC,
+          answerSpec: {
+            kind: "numeric",
+            accepted: ["3/4", 0.75],
+            tolerance: 0,
+          },
+          correctAnswerDisplay: "0.75",
+          explanation: "Three fourths is 0.75.",
+          difficulty: 2,
+          expectedSeconds: 30,
+        },
+      ],
+    });
+
+    expect(result).toMatchObject({
+      status: "ready",
+      rejectedCount: 0,
+    });
+
+    if (result.status === "ready") {
+      expect(result.exercises).toHaveLength(DEFAULT_READY_EXACT_INPUT_TARGET);
+      expect(result.exercises[0].answerSpec).toMatchObject({
+        kind: "text",
+        accepted: ["answer 1"],
+      });
+      expect(result.exercises[1].answerSpec).toMatchObject({
+        kind: "numeric",
+        tolerance: 0,
+      });
+    }
+  });
+
+  it("rejects math, malformed answer specs, empty accepted answers, and mismatched answer kinds", () => {
+    const result = validateGeneratedExactInputExercises({
+      exercises: [
+        {
+          ...validExactInputExercise(1),
+          answerKind: AnswerKind.TEXT,
+          answerSpec: {
+            kind: "math",
+            acceptedExpressions: ["2x"],
+          },
+        },
+        {
+          ...validExactInputExercise(2),
+          answerSpec: {
+            kind: "text",
+            accepted: [],
+          },
+        },
+        {
+          ...validExactInputExercise(3),
+          answerKind: AnswerKind.NUMERIC,
+          answerSpec: {
+            kind: "text",
+            accepted: ["3"],
+          },
+        },
+        {
+          ...validExactInputExercise(4),
+          answerKind: AnswerKind.NUMERIC,
+          answerSpec: {
+            kind: "numeric",
+            accepted: [{ type: "fraction", numerator: 1, denominator: 0 }],
+          },
+        },
+      ],
+    });
+
+    expect(result).toMatchObject({
+      status: "invalid",
+      reason: "too-few-valid-exercises",
+      validCount: 0,
+      rejectedCount: 4,
+    });
+  });
+
+  it("requires at least one verified exact-input exercise for refill", () => {
+    const candidates = toGeneratedExactInputExerciseCandidates([validExactInputExercise(1)]);
+    const result = validateExactInputExerciseVerification(
+      {
+        candidates,
+        rawVerification: {
+          verifications: [
+            {
+              candidateId: candidates[0].candidateId,
+              verdict: "rejected",
+              reason: "ambiguous",
+            },
+          ],
+        },
+      },
+      { minVerifiedExercises: 1 },
+    );
+
+    expect(result).toMatchObject({
+      status: "invalid",
+      reason: "too-few-verified-exercises",
+      verifiedCount: 0,
+      rejectedCount: 1,
+    });
+  });
+
+  it("filters exact duplicate candidates against existing exercises and within the batch", () => {
+    const duplicate = validExactInputExercise(1);
+    const unique = validExactInputExercise(2);
+    const result = filterDuplicateExactInputExercises(
+      [duplicate, { ...duplicate }, unique],
+      [
+        {
+          prompt: duplicate.prompt,
+          answerKind: duplicate.answerKind,
+          answerSpec: duplicate.answerSpec,
+          correctAnswerDisplay: duplicate.correctAnswerDisplay,
+        },
+      ],
+    );
+
+    expect(result.duplicateCount).toBe(2);
+    expect(result.exercises).toEqual([unique]);
+  });
+
+  it("caps existing exact-input context and omits non-exact exercises", () => {
+    const result = buildExistingExactInputExerciseContext([
+      {
+        prompt: `Exact prompt ${"x".repeat(EXISTING_EXERCISE_CONTEXT_CHAR_LIMIT)}`,
+        answerKind: AnswerKind.TEXT,
+        answerSpec: validExactInputExercise(1).answerSpec,
+        correctAnswerDisplay: "answer 1",
+      },
+      {
+        prompt: "Choice prompt",
+        answerKind: AnswerKind.CHOICE,
+        answerSpec: {
+          kind: "choice",
+          correctChoiceId: "a",
+        },
+        correctAnswerDisplay: "Choice",
+      },
+    ]);
+
+    expect(result).not.toBeNull();
+    expect(result?.length).toBeLessThanOrEqual(EXISTING_EXERCISE_CONTEXT_CHAR_LIMIT);
+    expect(result).not.toContain("Choice prompt");
+  });
+});
+
+describe("isExactInputUnlocked", () => {
+  it("unlocks exact-input practice after the configured review threshold", () => {
+    expect(isExactInputUnlocked(EXACT_INPUT_UNLOCK_REPETITIONS - 1)).toBe(false);
+    expect(isExactInputUnlocked(EXACT_INPUT_UNLOCK_REPETITIONS)).toBe(true);
   });
 });
 
