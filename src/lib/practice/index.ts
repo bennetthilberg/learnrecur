@@ -189,6 +189,11 @@ type PracticeExerciseRecord = PracticeExerciseSummary & {
   skill: PracticeSkillRecord;
 };
 
+type ExerciseAttemptRotationStats = {
+  attemptCount: number;
+  lastAttemptedAt: Date | null;
+};
+
 type ExistingAttemptRecord = {
   id: string;
   userId: string;
@@ -654,10 +659,53 @@ async function findEligibleExercise(
       skill: true,
     },
   });
+  const exerciseRecords = exercises.map(toPracticeExerciseRecord);
+  const attemptStatsByExerciseId = await getExerciseAttemptRotationStats(prisma, {
+    userId: input.userId,
+    exerciseIds: exerciseRecords.map((exercise) => exercise.id),
+  });
 
-  return exercises
-    .map(toPracticeExerciseRecord)
-    .toSorted(comparePracticeExercises)[0] ?? null;
+  return (
+    exerciseRecords.toSorted((left, right) =>
+      comparePracticeExercises(left, right, attemptStatsByExerciseId),
+    )[0] ?? null
+  );
+}
+
+async function getExerciseAttemptRotationStats(
+  prisma: PracticeQueryClient,
+  input: {
+    userId: string;
+    exerciseIds: readonly string[];
+  },
+): Promise<Map<string, ExerciseAttemptRotationStats>> {
+  if (input.exerciseIds.length === 0) {
+    return new Map();
+  }
+
+  const stats = await prisma.exerciseAttempt.groupBy({
+    by: ["exerciseId"],
+    where: {
+      userId: input.userId,
+      exerciseId: { in: [...input.exerciseIds] },
+    },
+    _count: {
+      id: true,
+    },
+    _max: {
+      createdAt: true,
+    },
+  });
+
+  return new Map(
+    stats.map((stat) => [
+      stat.exerciseId,
+      {
+        attemptCount: stat._count.id,
+        lastAttemptedAt: stat._max.createdAt,
+      },
+    ]),
+  );
 }
 
 function isSupportedAnswerKind(
@@ -730,7 +778,11 @@ function exerciseNotFound(): PracticeAnswerPreviewResult & PracticeReviewCommitR
   };
 }
 
-function comparePracticeExercises(left: PracticeExerciseRecord, right: PracticeExerciseRecord) {
+function comparePracticeExercises(
+  left: PracticeExerciseRecord,
+  right: PracticeExerciseRecord,
+  attemptStatsByExerciseId: ReadonlyMap<string, ExerciseAttemptRotationStats> = new Map(),
+) {
   const dueDifference = left.skill.dueAt.getTime() - right.skill.dueAt.getTime();
 
   if (dueDifference !== 0) {
@@ -743,6 +795,32 @@ function comparePracticeExercises(left: PracticeExerciseRecord, right: PracticeE
     return skillDifference;
   }
 
+  const leftAttemptStats = getExerciseAttemptStats(attemptStatsByExerciseId, left.id);
+  const rightAttemptStats = getExerciseAttemptStats(attemptStatsByExerciseId, right.id);
+  const leftWasAttempted = leftAttemptStats.attemptCount > 0;
+  const rightWasAttempted = rightAttemptStats.attemptCount > 0;
+  const attemptedDifference = Number(leftWasAttempted) - Number(rightWasAttempted);
+
+  if (attemptedDifference !== 0) {
+    return attemptedDifference;
+  }
+
+  if (leftWasAttempted && rightWasAttempted) {
+    const lastAttemptDifference =
+      (leftAttemptStats.lastAttemptedAt?.getTime() ?? 0) -
+      (rightAttemptStats.lastAttemptedAt?.getTime() ?? 0);
+
+    if (lastAttemptDifference !== 0) {
+      return lastAttemptDifference;
+    }
+  }
+
+  const attemptCountDifference = leftAttemptStats.attemptCount - rightAttemptStats.attemptCount;
+
+  if (attemptCountDifference !== 0) {
+    return attemptCountDifference;
+  }
+
   const createdDifference = left.createdAt.getTime() - right.createdAt.getTime();
 
   if (createdDifference !== 0) {
@@ -750,6 +828,18 @@ function comparePracticeExercises(left: PracticeExerciseRecord, right: PracticeE
   }
 
   return left.id.localeCompare(right.id);
+}
+
+function getExerciseAttemptStats(
+  attemptStatsByExerciseId: ReadonlyMap<string, ExerciseAttemptRotationStats>,
+  exerciseId: string,
+): ExerciseAttemptRotationStats {
+  return (
+    attemptStatsByExerciseId.get(exerciseId) ?? {
+      attemptCount: 0,
+      lastAttemptedAt: null,
+    }
+  );
 }
 
 function toPracticeExerciseRecord(
