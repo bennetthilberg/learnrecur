@@ -341,8 +341,8 @@ describeDatabase("source material controls", () => {
     await expect(prisma.skillSourceRef.count({ where: { id: otherRef.id } })).resolves.toBe(1);
   });
 
-  it("excludes removed source context from activation and refill generation", async () => {
-    const userId = await createUser("context_removed");
+  it("excludes removed source context from activation generation", async () => {
+    const userId = await createUser("context_removed_activation");
     const draftSkill = await createSkillFixture(prisma, {
       userId,
       title: "Draft without source context after removal",
@@ -386,7 +386,10 @@ describeDatabase("source material controls", () => {
     });
     expect(activationSourceContext).toBeNull();
     expect(activationVerifierSourceContext).toBeNull();
+  });
 
+  it("excludes removed source context from refill generation", async () => {
+    const userId = await createUser("context_removed_refill");
     const refillSkill = await createSkillFixture(prisma, {
       userId,
       title: "Refill without source context after removal",
