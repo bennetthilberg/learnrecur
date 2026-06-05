@@ -1555,15 +1555,7 @@ function invalidChoiceExerciseVerification(
 function stripGeneratedChoiceExerciseCandidate(
   candidate: GeneratedChoiceExerciseCandidate,
 ): GeneratedChoiceExercise {
-  return {
-    prompt: candidate.prompt,
-    choices: candidate.choices,
-    answerSpec: candidate.answerSpec,
-    correctAnswerDisplay: candidate.correctAnswerDisplay,
-    explanation: candidate.explanation,
-    difficulty: candidate.difficulty,
-    expectedSeconds: candidate.expectedSeconds,
-  };
+  return { ...candidate } satisfies GeneratedChoiceExercise;
 }
 
 function toNotesJson(notes: string[]): Prisma.InputJsonValue | typeof Prisma.JsonNull {
