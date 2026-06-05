@@ -247,6 +247,7 @@ describe("validateChoiceExerciseVerification", () => {
         "What does sample 3 mean?",
         "What does sample 5 mean?",
       ]);
+      expect(result.exercises.every((exercise) => !("candidateId" in exercise))).toBe(true);
       expect(result.rejectedCount).toBe(2);
       expect(result.decisions[1]).toMatchObject({
         candidateId: "candidate-2",
