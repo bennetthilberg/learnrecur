@@ -50,9 +50,28 @@ export type SkillsLibraryActiveSkill = {
   dueLabel: string;
 };
 
+export type SkillsLibraryRecoverySkill = {
+  id: string;
+  title: string;
+  objective: string | null;
+  collectionName: string | null;
+  tags: string[];
+  status: Extract<SkillStatus, "PAUSED" | "ARCHIVED">;
+  sourceRefCount: number;
+  updatedAt: Date;
+  dueAt: Date | null;
+  fsrsState: SkillFsrsState;
+  repetitions: number;
+  verifiedExerciseCount: number;
+  retiredExerciseCount: number;
+  readyExerciseCount: number;
+  dueLabel: string;
+};
+
 export type SkillsLibrary = {
   draftSkills: SkillsLibraryDraftSkill[];
   activeSkills: SkillsLibraryActiveSkill[];
+  recoverySkills: SkillsLibraryRecoverySkill[];
 };
 
 export type GetSkillsLibraryInput = {
@@ -95,7 +114,7 @@ export async function getSkillsLibrary(input: GetSkillsLibraryInput): Promise<Sk
     where: {
       userId: input.userId,
       status: {
-        in: [SkillStatus.DRAFT, SkillStatus.ACTIVE],
+        in: [SkillStatus.DRAFT, SkillStatus.ACTIVE, SkillStatus.PAUSED, SkillStatus.ARCHIVED],
       },
     },
     select: {
@@ -154,10 +173,15 @@ export async function getSkillsLibrary(input: GetSkillsLibraryInput): Promise<Sk
     .filter((skill) => skill.status === SkillStatus.ACTIVE)
     .map((skill) => toActiveSkillSummary(skill, input.now))
     .toSorted(compareActiveSkills);
+  const recoverySkills = skills
+    .filter(isRecoverySkillRecord)
+    .map((skill) => toRecoverySkillSummary(skill, input.now))
+    .toSorted(compareRecoverySkills);
 
   return {
     draftSkills,
     activeSkills,
+    recoverySkills,
   };
 }
 
@@ -201,6 +225,41 @@ function toActiveSkillSummary(
     isReadyNow: isReadyNow(skill, now, readyExerciseCount),
     dueLabel: getDueLabel(skill, now, readyExerciseCount),
   };
+}
+
+function toRecoverySkillSummary(
+  skill: SkillsLibrarySkillRecord & { status: Extract<SkillStatus, "PAUSED" | "ARCHIVED"> },
+  now: Date,
+): SkillsLibraryRecoverySkill {
+  const readyExerciseCount = skill.exercises.filter((exercise) =>
+    isPracticeEligibleExercise(skill, exercise),
+  ).length;
+
+  return {
+    id: skill.id,
+    title: skill.title,
+    objective: skill.objective,
+    collectionName: skill.collection?.name ?? null,
+    tags: skill.tags,
+    status: skill.status,
+    sourceRefCount: skill.sourceRefs.length,
+    updatedAt: skill.updatedAt,
+    dueAt: skill.dueAt,
+    fsrsState: skill.fsrsState,
+    repetitions: skill.repetitions,
+    verifiedExerciseCount: skill.exercises.filter(
+      (exercise) => exercise.verificationStatus === ExerciseVerificationStatus.VERIFIED,
+    ).length,
+    retiredExerciseCount: skill.exercises.filter((exercise) => exercise.retiredAt !== null).length,
+    readyExerciseCount,
+    dueLabel: getDueLabel(skill, now, readyExerciseCount),
+  };
+}
+
+function isRecoverySkillRecord(
+  skill: SkillsLibrarySkillRecord,
+): skill is SkillsLibrarySkillRecord & { status: Extract<SkillStatus, "PAUSED" | "ARCHIVED"> } {
+  return skill.status === SkillStatus.PAUSED || skill.status === SkillStatus.ARCHIVED;
 }
 
 function isReadyNow(
@@ -308,4 +367,33 @@ function compareActiveSkills(
   }
 
   return left.id.localeCompare(right.id);
+}
+
+function compareRecoverySkills(
+  left: SkillsLibraryRecoverySkill,
+  right: SkillsLibraryRecoverySkill,
+): number {
+  const statusDifference = getRecoveryStatusRank(left.status) - getRecoveryStatusRank(right.status);
+
+  if (statusDifference !== 0) {
+    return statusDifference;
+  }
+
+  const updatedDifference = right.updatedAt.getTime() - left.updatedAt.getTime();
+
+  if (updatedDifference !== 0) {
+    return updatedDifference;
+  }
+
+  const titleDifference = left.title.localeCompare(right.title);
+
+  if (titleDifference !== 0) {
+    return titleDifference;
+  }
+
+  return left.id.localeCompare(right.id);
+}
+
+function getRecoveryStatusRank(status: SkillsLibraryRecoverySkill["status"]): number {
+  return status === SkillStatus.PAUSED ? 0 : 1;
 }

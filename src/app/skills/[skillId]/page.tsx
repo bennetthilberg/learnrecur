@@ -18,6 +18,7 @@ import { ensureDatabaseUser } from "@/lib/users";
 
 import { SkillDraftForm, type SkillDraftFormValues } from "../skill-draft-form";
 import { SkillExactInputRefillForm } from "../skill-exact-input-refill-form";
+import { SkillLifecycleForm } from "../skill-lifecycle-form";
 import { SkillRefillForm } from "../skill-refill-form";
 import { SkillSourcePanel } from "../skill-source-panel";
 import { SkillsTopbar } from "../skills-topbar";
@@ -105,7 +106,7 @@ export default async function SkillPage({
     tags: skill.tags.join(", "),
   };
 
-  if (skill.status !== SkillStatus.DRAFT) {
+  if (skill.status === SkillStatus.ACTIVE) {
     const inventory = countChoiceExerciseInventory(skill.exercises);
     const exactInputInventory = countExactInputExerciseInventory(skill.exercises);
     const canRefill = inventory.readyExerciseCount < DEFAULT_READY_EXERCISE_TARGET;
@@ -238,7 +239,95 @@ export default async function SkillPage({
             </div>
           ) : null}
         </section>
+        <SkillLifecyclePanel skillId={skill.id} status={skill.status} />
         <SkillSourcePanel skillId={skill.id} sources={sourceSummaries} />
+      </main>
+    );
+  }
+
+  if (skill.status === SkillStatus.PAUSED || skill.status === SkillStatus.ARCHIVED) {
+    const inventory = countChoiceExerciseInventory(skill.exercises);
+    const exactInputInventory = countExactInputExerciseInventory(skill.exercises);
+    const statusCopy =
+      skill.status === SkillStatus.PAUSED
+        ? {
+            eyebrow: "Paused skill",
+            heading: "Paused outside practice.",
+            body: "This skill keeps its schedule and history, but it will not appear in practice until resumed.",
+          }
+        : {
+            eyebrow: "Archived skill",
+            heading: "Archived for recovery.",
+            body: "This skill is hidden from practice and normal dashboard counts. Restore it when you want to review or reactivate it.",
+          };
+
+    return (
+      <main className="skillShell">
+        <SkillsTopbar current="skill" />
+        <header className="skillHeader">
+          <div>
+            <p className="eyebrow">{statusCopy.eyebrow}</p>
+            <h1>{skill.title}</h1>
+            <p>{skill.objective ?? statusCopy.body}</p>
+          </div>
+        </header>
+
+        <section className="skillPanel skillActivatedPanel" aria-labelledby="inactive-skill-title">
+          <div>
+            <p className="eyebrow">Status</p>
+            <h2 id="inactive-skill-title">{statusCopy.heading}</h2>
+            <p className="skillQueueStatus">{statusCopy.body}</p>
+          </div>
+          <dl className="skillStatusGrid">
+            <div>
+              <dt>Exercises</dt>
+              <dd>{skill._count.exercises}</dd>
+            </div>
+            <div>
+              <dt>Ready choices</dt>
+              <dd>{inventory.readyExerciseCount}</dd>
+            </div>
+            <div>
+              <dt>Ready exact input</dt>
+              <dd>{exactInputInventory.readyExerciseCount}</dd>
+            </div>
+            <div>
+              <dt>Verified choices</dt>
+              <dd>{inventory.verifiedExerciseCount}</dd>
+            </div>
+            <div>
+              <dt>Verified exact input</dt>
+              <dd>{exactInputInventory.verifiedExerciseCount}</dd>
+            </div>
+            <div>
+              <dt>Collection</dt>
+              <dd>{skill.collection?.name ?? "Uncollected"}</dd>
+            </div>
+            <div>
+              <dt>FSRS state</dt>
+              <dd>{skill.fsrsState}</dd>
+            </div>
+            <div>
+              <dt>Due</dt>
+              <dd>{skill.dueAt ? skill.dueAt.toLocaleString("en-US") : "Not scheduled"}</dd>
+            </div>
+          </dl>
+          {skill.tags.length > 0 ? (
+            <div className="skillTagLine">
+              {skill.tags.map((tag) => (
+                <span className="dashboardTag" key={tag}>
+                  {tag}
+                </span>
+              ))}
+            </div>
+          ) : null}
+        </section>
+        <SkillLifecyclePanel skillId={skill.id} status={skill.status} />
+        <SkillSourcePanel
+          canRemove={skill.status !== SkillStatus.ARCHIVED}
+          skillId={skill.id}
+          sources={sourceSummaries}
+        />
       </main>
     );
   }
@@ -267,7 +356,68 @@ export default async function SkillPage({
       <SkillSourcePanel skillId={skill.id} sources={sourceSummaries} />
 
       <SkillDraftForm initialValues={draftValues} mode="edit" skillId={skill.id} />
+      <SkillLifecyclePanel skillId={skill.id} status={skill.status} />
     </main>
+  );
+}
+
+function SkillLifecyclePanel({
+  skillId,
+  status,
+}: {
+  skillId: string;
+  status: SkillStatus;
+}) {
+  return (
+    <section className="skillPanel skillLifecyclePanel" aria-labelledby="skill-lifecycle-title">
+      <div className="skillPanelHeader">
+        <div>
+          <p className="eyebrow">Lifecycle</p>
+          <h2 id="skill-lifecycle-title">Control this skill.</h2>
+        </div>
+      </div>
+      <div className="skillLifecycleActions">
+        {status === SkillStatus.ACTIVE ? (
+          <SkillLifecycleForm
+            actionType="pause"
+            buttonLabel="Pause practice"
+            description="Pause keeps the skill and schedule intact but removes it from practice."
+            pendingLabel="Pausing..."
+            skillId={skillId}
+          />
+        ) : null}
+        {status === SkillStatus.PAUSED ? (
+          <SkillLifecycleForm
+            actionType="resume"
+            buttonLabel="Resume practice"
+            description="Resume returns this skill to the active practice schedule."
+            pendingLabel="Resuming..."
+            skillId={skillId}
+          />
+        ) : null}
+        {status === SkillStatus.ARCHIVED ? (
+          <SkillLifecycleForm
+            actionType="restore"
+            buttonLabel="Restore skill"
+            description="Restored scheduled skills return to practice. Unscheduled skills return as drafts."
+            pendingLabel="Restoring..."
+            skillId={skillId}
+          />
+        ) : null}
+        {status !== SkillStatus.ARCHIVED ? (
+          <SkillLifecycleForm
+            actionType="archive"
+            buttonLabel="Archive skill"
+            confirmationLabel="Archive this skill and keep its sources, exercises, and history."
+            description="Archived skills leave the main library and practice flow, but can be restored later."
+            pendingLabel="Archiving..."
+            skillId={skillId}
+            summaryLabel={status === SkillStatus.DRAFT ? "Archive draft" : "Archive skill"}
+            tone="danger"
+          />
+        ) : null}
+      </div>
+    </section>
   );
 }
 

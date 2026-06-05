@@ -6,6 +6,7 @@ import {
   type SkillsLibraryActiveSkill,
   type SkillsLibraryDraftSkill,
   type SkillsLibraryGenerationJobSummary,
+  type SkillsLibraryRecoverySkill,
 } from "@/lib/skills/library";
 import { formatJobStatus } from "@/lib/formatters";
 import { ensureDatabaseUser } from "@/lib/users";
@@ -119,6 +120,23 @@ export default async function SkillsPage({ searchParams }: SkillsPageProps) {
           )}
         </section>
       </div>
+
+      {library.recoverySkills.length > 0 ? (
+        <section className="skillPanel skillRecoveryPanel" aria-labelledby="recovery-skills-title">
+          <div className="skillPanelHeader">
+            <div>
+              <p className="eyebrow">Recovery</p>
+              <h2 id="recovery-skills-title">Paused and archived</h2>
+            </div>
+            <span className="dashboardChip">{formatCount(library.recoverySkills.length)}</span>
+          </div>
+          <div className="skillLibraryList">
+            {library.recoverySkills.map((skill) => (
+              <RecoverySkillRow key={skill.id} skill={skill} />
+            ))}
+          </div>
+        </section>
+      ) : null}
     </main>
   );
 }
@@ -179,6 +197,35 @@ function ActiveSkillRow({ skill }: { skill: SkillsLibraryActiveSkill }) {
   );
 }
 
+function RecoverySkillRow({ skill }: { skill: SkillsLibraryRecoverySkill }) {
+  return (
+    <article className="skillLibraryRow">
+      <div className="skillLibraryRowMain">
+        <div>
+          <Link href={`/skills/${skill.id}`}>{skill.title}</Link>
+          <p>{skill.objective ?? "No objective yet."}</p>
+        </div>
+        <span className="dashboardChip">{formatSkillStatus(skill.status)}</span>
+      </div>
+
+      <div className="skillMetaLine">
+        <span>{skill.collectionName ?? "Uncollected"}</span>
+        <span>{skill.dueLabel}</span>
+        <span>{formatCount(skill.repetitions)} reps</span>
+        <span>{formatCount(skill.verifiedExerciseCount)} verified</span>
+        <span>{formatCount(skill.readyExerciseCount)} ready</span>
+        <span>{formatCount(skill.retiredExerciseCount)} retired</span>
+        <span>{formatSourceCount(skill.sourceRefCount)}</span>
+        {skill.tags.slice(0, 3).map((tag) => (
+          <span className="dashboardTag" key={tag}>
+            {tag}
+          </span>
+        ))}
+      </div>
+    </article>
+  );
+}
+
 function GenerationJobStatusLine({ job }: { job: SkillsLibraryGenerationJobSummary }) {
   const failed = job.status === "FAILED";
 
@@ -222,6 +269,10 @@ function formatSourceCount(count: number) {
 
 function formatFsrsState(state: SkillsLibraryActiveSkill["fsrsState"]) {
   return state.toLowerCase().replaceAll("_", " ");
+}
+
+function formatSkillStatus(status: SkillsLibraryRecoverySkill["status"]) {
+  return status.toLowerCase().replaceAll("_", " ");
 }
 
 function parseCreatedDraftCount(value: string | string[] | undefined) {

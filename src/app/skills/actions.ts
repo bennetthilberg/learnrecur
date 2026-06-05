@@ -13,6 +13,12 @@ import {
   updateSkillDraft,
 } from "@/lib/skills";
 import {
+  archiveSkill,
+  pauseSkill,
+  restoreArchivedSkill,
+  resumeSkill,
+} from "@/lib/skills/lifecycle";
+import {
   completeSourceUploadDrafts,
   prepareSourceUpload,
 } from "@/lib/skills/uploads";
@@ -34,6 +40,8 @@ type SkillActionUserResult =
       status: "error";
       message: string;
     };
+
+type LifecycleAction = "pause" | "resume" | "archive" | "restore";
 
 export type PrepareSourceUploadActionResult =
   | {
@@ -338,6 +346,65 @@ export async function refillExactInputExercisesAction(
   };
 }
 
+export async function updateSkillLifecycleAction(
+  _previousState: SkillFormActionState,
+  formData: FormData,
+): Promise<SkillFormActionState> {
+  const user = await requireSkillActionUser();
+
+  if (user.status === "error") {
+    return user;
+  }
+
+  const skillId = getOptionalFormString(formData, "skillId");
+  const lifecycleAction = getOptionalFormString(formData, "lifecycleAction");
+  const confirmed = formData.get("confirmLifecycle") === "yes";
+
+  if (!skillId || !lifecycleAction) {
+    return {
+      status: "error",
+      message: "No skill lifecycle change was selected.",
+    };
+  }
+
+  if (!isLifecycleAction(lifecycleAction)) {
+    return {
+      status: "error",
+      message: "Unsupported skill lifecycle action.",
+    };
+  }
+
+  if (lifecycleAction === "archive" && !confirmed) {
+    return {
+      status: "error",
+      message: "Confirm archiving before continuing.",
+    };
+  }
+
+  const result = await runLifecycleAction({
+    action: lifecycleAction,
+    userId: user.userId,
+    skillId,
+  });
+
+  revalidatePath(`/skills/${skillId}`);
+  revalidatePath("/skills");
+  revalidatePath("/dashboard");
+  revalidatePath("/practice");
+
+  if (result.status === "updated") {
+    return {
+      status: "saved",
+      message: result.message,
+    };
+  }
+
+  return {
+    status: "error",
+    message: result.message,
+  };
+}
+
 export async function removeSkillSourceAction(
   _previousState: SkillFormActionState,
   formData: FormData,
@@ -387,6 +454,27 @@ export async function removeSkillSourceAction(
     status: "error",
     message: result.message,
   };
+}
+
+async function runLifecycleAction(input: {
+  action: LifecycleAction;
+  userId: string;
+  skillId: string;
+}) {
+  switch (input.action) {
+    case "pause":
+      return pauseSkill(input);
+    case "resume":
+      return resumeSkill(input);
+    case "archive":
+      return archiveSkill(input);
+    case "restore":
+      return restoreArchivedSkill(input);
+  }
+}
+
+function isLifecycleAction(value: string): value is LifecycleAction {
+  return value === "pause" || value === "resume" || value === "archive" || value === "restore";
 }
 
 async function requireSkillActionUser(): Promise<SkillActionUserResult> {
