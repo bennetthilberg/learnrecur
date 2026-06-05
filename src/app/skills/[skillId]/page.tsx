@@ -2,7 +2,12 @@ import { auth, currentUser } from "@clerk/nextjs/server";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { SkillStatus, type Prisma } from "@/generated/prisma/client";
+import {
+  GenerationJobKind,
+  GenerationJobStatus,
+  SkillStatus,
+  type Prisma,
+} from "@/generated/prisma/client";
 import { formatJobStatus } from "@/lib/formatters";
 import { getPrisma } from "@/lib/prisma";
 import {
@@ -74,7 +79,7 @@ export default async function SkillPage({
         orderBy: {
           createdAt: "desc",
         },
-        take: 1,
+        take: 8,
       },
       exercises: {
         select: {
@@ -109,17 +114,42 @@ export default async function SkillPage({
   if (skill.status === SkillStatus.ACTIVE) {
     const inventory = countChoiceExerciseInventory(skill.exercises);
     const exactInputInventory = countExactInputExerciseInventory(skill.exercises);
-    const canRefill = inventory.readyExerciseCount < DEFAULT_READY_EXERCISE_TARGET;
+    const latestChoiceGenerationJob =
+      skill.generationJobs.find((job) => job.kind === GenerationJobKind.CHOICE_EXERCISE_GENERATION) ??
+      null;
+    const latestExactInputGenerationJob =
+      skill.generationJobs.find(
+        (job) => job.kind === GenerationJobKind.EXACT_INPUT_EXERCISE_GENERATION,
+      ) ?? null;
+    const hasActiveChoiceRefillJob = hasActiveGenerationJob(latestChoiceGenerationJob);
+    const hasActiveExactInputRefillJob = hasActiveGenerationJob(latestExactInputGenerationJob);
+    const canRefill =
+      inventory.readyExerciseCount < DEFAULT_READY_EXERCISE_TARGET && !hasActiveChoiceRefillJob;
     const exactInputUnlocked = isExactInputUnlocked(skill.repetitions);
     const canRefillExactInput =
       exactInputUnlocked &&
-      exactInputInventory.readyExerciseCount < DEFAULT_READY_EXACT_INPUT_TARGET;
+      exactInputInventory.readyExerciseCount < DEFAULT_READY_EXACT_INPUT_TARGET &&
+      !hasActiveExactInputRefillJob;
     const exactInputRefillButtonLabel = canRefillExactInput
-      ? "Generate exact input"
+      ? "Queue exact input"
       : exactInputUnlocked
-        ? "Exact input full"
+        ? hasActiveExactInputRefillJob
+          ? "Exact input queued"
+          : "Exact input full"
         : "Exact input locked";
-    const latestGenerationJob = skill.generationJobs[0] ?? null;
+    const choiceRefillButtonLabel = canRefill
+      ? "Queue more exercises"
+      : hasActiveChoiceRefillJob
+        ? "Refill queued"
+        : "Queue full";
+    const choiceRefillStatus =
+      latestChoiceGenerationJob && hasActiveGenerationJob(latestChoiceGenerationJob)
+        ? `Choice refill ${formatJobStatus(latestChoiceGenerationJob.status)}. Refresh in a moment to check the queue.`
+        : null;
+    const exactInputRefillStatus =
+      latestExactInputGenerationJob && hasActiveGenerationJob(latestExactInputGenerationJob)
+        ? `Exact-input refill ${formatJobStatus(latestExactInputGenerationJob.status)}. Refresh in a moment to check the queue.`
+        : null;
 
     return (
       <main className="skillShell">
@@ -194,20 +224,25 @@ export default async function SkillPage({
                 Keep a small set of verified exercises available so practice can stay fast and
                 deterministic.
               </p>
-              {latestGenerationJob ? (
+              {latestChoiceGenerationJob ? (
                 <p className="skillQueueStatus">
-                  Latest generation: {formatJobStatus(latestGenerationJob.status)} ·{" "}
-                  {latestGenerationJob.acceptedCount} accepted /{" "}
-                  {latestGenerationJob.rejectedCount} rejected
+                  Latest choice generation: {formatJobStatus(latestChoiceGenerationJob.status)} ·{" "}
+                  {latestChoiceGenerationJob.acceptedCount} accepted /{" "}
+                  {latestChoiceGenerationJob.rejectedCount} rejected
                 </p>
               ) : null}
-              {latestGenerationJob?.errorMessage ? (
+              {choiceRefillStatus ? <p className="skillQueueStatus">{choiceRefillStatus}</p> : null}
+              {latestChoiceGenerationJob?.errorMessage ? (
                 <p className="skillFormMessage" data-tone="error">
-                  {latestGenerationJob.errorMessage}
+                  {latestChoiceGenerationJob.errorMessage}
                 </p>
               ) : null}
             </div>
-            <SkillRefillForm canRefill={canRefill} skillId={skill.id} />
+            <SkillRefillForm
+              buttonLabel={choiceRefillButtonLabel}
+              canRefill={canRefill}
+              skillId={skill.id}
+            />
           </div>
           <div className="skillQueueBlock">
             <div>
@@ -222,6 +257,22 @@ export default async function SkillPage({
                   ? `${exactInputInventory.readyExerciseCount} ready / ${DEFAULT_READY_EXACT_INPUT_TARGET} target`
                   : `${skill.repetitions} / ${EXACT_INPUT_UNLOCK_REPETITIONS} reviews completed`}
               </p>
+              {latestExactInputGenerationJob ? (
+                <p className="skillQueueStatus">
+                  Latest exact-input generation:{" "}
+                  {formatJobStatus(latestExactInputGenerationJob.status)} ·{" "}
+                  {latestExactInputGenerationJob.acceptedCount} accepted /{" "}
+                  {latestExactInputGenerationJob.rejectedCount} rejected
+                </p>
+              ) : null}
+              {exactInputRefillStatus ? (
+                <p className="skillQueueStatus">{exactInputRefillStatus}</p>
+              ) : null}
+              {latestExactInputGenerationJob?.errorMessage ? (
+                <p className="skillFormMessage" data-tone="error">
+                  {latestExactInputGenerationJob.errorMessage}
+                </p>
+              ) : null}
             </div>
             <SkillExactInputRefillForm
               buttonLabel={exactInputRefillButtonLabel}
@@ -358,6 +409,12 @@ export default async function SkillPage({
       <SkillDraftForm initialValues={draftValues} mode="edit" skillId={skill.id} />
       <SkillLifecyclePanel skillId={skill.id} status={skill.status} />
     </main>
+  );
+}
+
+function hasActiveGenerationJob(job: { status: GenerationJobStatus } | null): boolean {
+  return (
+    job?.status === GenerationJobStatus.PENDING || job?.status === GenerationJobStatus.RUNNING
   );
 }
 

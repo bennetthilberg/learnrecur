@@ -41,6 +41,14 @@ import {
   type SourceTextExtractor,
   type SourceUploadStorage,
 } from "@/lib/skills/uploads";
+import {
+  queueExactInputExerciseRefillForSkill,
+  queueChoiceExerciseRefillForSkill,
+  runChoiceExerciseRefillJob,
+  runExactInputExerciseRefillJob,
+  type RefillQueueResult,
+} from "@/lib/skills/refill-jobs";
+import type { ExerciseRefillEventPayload, ExerciseRefillEventSender } from "@/lib/inngest/events";
 import { getSkillsLibrary } from "@/lib/skills/library";
 import { removeSkillSource } from "@/lib/skills/sources";
 import { createInitialSkillSchedule } from "@/lib/scheduling";
@@ -96,6 +104,35 @@ const acceptAllExactInputVerifier: ExactInputExerciseVerifier = async (input) =>
     verdict: "verified",
   })),
 });
+
+function createFakeRefillSender() {
+  const choiceEvents: ExerciseRefillEventPayload[] = [];
+  const exactInputEvents: ExerciseRefillEventPayload[] = [];
+  const sender: ExerciseRefillEventSender = {
+    async sendChoiceRefillRequested(payload) {
+      choiceEvents.push(payload);
+    },
+    async sendExactInputRefillRequested(payload) {
+      exactInputEvents.push(payload);
+    },
+  };
+
+  return {
+    sender,
+    choiceEvents,
+    exactInputEvents,
+  };
+}
+
+function expectQueued(result: RefillQueueResult): Extract<RefillQueueResult, { status: "queued" }> {
+  expect(result.status).toBe("queued");
+
+  if (result.status !== "queued") {
+    throw new Error(`Expected refill queueing to succeed: ${result.message}`);
+  }
+
+  return result;
+}
 
 const generatedSkillDraft = {
   title: "Ser vs. estar in classroom sentences",
@@ -1317,6 +1354,172 @@ describeDatabase("skill drafts and Gemini activation", () => {
     ).resolves.toEqual([DEFAULT_READY_EXERCISE_TARGET, 0]);
   });
 
+  it("queues choice refill work without creating exercises synchronously", async () => {
+    const userId = await createUser("choice_refill_queue");
+    const skill = await createActiveSkillFixture({
+      userId,
+      title: "Queued refill skill",
+    });
+    await createChoiceExerciseFixture({ userId, skillId: skill.id, id: 1 });
+    await createChoiceExerciseFixture({ userId, skillId: skill.id, id: 2 });
+    const fake = createFakeRefillSender();
+
+    const queued = expectQueued(
+      await queueChoiceExerciseRefillForSkill({
+        userId,
+        skillId: skill.id,
+        now,
+        sender: fake.sender,
+        model: "test-gemini",
+      }),
+    );
+
+    expect(queued.requestedCount).toBe(3);
+    expect(fake.choiceEvents).toEqual([
+      {
+        userId,
+        skillId: skill.id,
+        generationJobId: queued.generationJobId,
+        targetReadyCount: DEFAULT_READY_EXERCISE_TARGET,
+        requestedAt: now.toISOString(),
+      },
+    ]);
+    await expect(
+      prisma.generationJob.findUniqueOrThrow({
+        where: { id: queued.generationJobId },
+        select: { status: true, startedAt: true, completedAt: true },
+      }),
+    ).resolves.toEqual({
+      status: GenerationJobStatus.PENDING,
+      startedAt: null,
+      completedAt: null,
+    });
+    await expect(prisma.exercise.count({ where: { userId, skillId: skill.id } })).resolves.toBe(2);
+  });
+
+  it("runs queued choice refill jobs idempotently", async () => {
+    const userId = await createUser("choice_refill_runner");
+    const skill = await createActiveSkillFixture({
+      userId,
+      title: "Queued runner skill",
+    });
+    await createChoiceExerciseFixture({ userId, skillId: skill.id, id: 1 });
+    await createChoiceExerciseFixture({ userId, skillId: skill.id, id: 2 });
+    const fake = createFakeRefillSender();
+    const queued = expectQueued(
+      await queueChoiceExerciseRefillForSkill({
+        userId,
+        skillId: skill.id,
+        now,
+        sender: fake.sender,
+        model: "test-gemini",
+      }),
+    );
+
+    const firstRun = await runChoiceExerciseRefillJob({
+      userId,
+      skillId: skill.id,
+      generationJobId: queued.generationJobId,
+      targetReadyCount: queued.targetReadyCount,
+      requestedAt: now.toISOString(),
+      now,
+      generateChoiceExercises: async () => ({
+        exercises: [generatedExercise(401), generatedExercise(402), generatedExercise(403)],
+      }),
+      verifyChoiceExercises: acceptAllVerifier,
+      model: "test-gemini",
+    });
+
+    expect(firstRun).toMatchObject({
+      status: "refilled",
+      exerciseCount: 3,
+      readyExerciseCount: DEFAULT_READY_EXERCISE_TARGET,
+    });
+
+    const secondRun = await runChoiceExerciseRefillJob({
+      userId,
+      skillId: skill.id,
+      generationJobId: queued.generationJobId,
+      targetReadyCount: queued.targetReadyCount,
+      requestedAt: now.toISOString(),
+      now,
+      generateChoiceExercises: async () => {
+        throw new Error("Duplicate execution should not generate again.");
+      },
+      verifyChoiceExercises: acceptAllVerifier,
+      model: "test-gemini",
+    });
+
+    expect(secondRun).toMatchObject({
+      status: "not-refilled",
+      reason: "job-not-pending",
+    });
+    await expect(
+      Promise.all([
+        prisma.exercise.count({ where: { userId, skillId: skill.id } }),
+        prisma.generationJob.findUniqueOrThrow({
+          where: { id: queued.generationJobId },
+          select: { status: true, acceptedCount: true, rejectedCount: true },
+        }),
+      ]),
+    ).resolves.toEqual([
+      DEFAULT_READY_EXERCISE_TARGET,
+      {
+        status: GenerationJobStatus.SUCCEEDED,
+        acceptedCount: 3,
+        rejectedCount: 0,
+      },
+    ]);
+  });
+
+  it("does not queue duplicate or locked refill jobs", async () => {
+    const userId = await createUser("refill_queue_guards");
+    const skill = await createActiveSkillFixture({
+      userId,
+      title: "Duplicate queued refill skill",
+    });
+    await createChoiceExerciseFixture({ userId, skillId: skill.id, id: 1 });
+    const fake = createFakeRefillSender();
+    const queued = expectQueued(
+      await queueChoiceExerciseRefillForSkill({
+        userId,
+        skillId: skill.id,
+        now,
+        sender: fake.sender,
+        model: "test-gemini",
+      }),
+    );
+
+    const duplicate = await queueChoiceExerciseRefillForSkill({
+      userId,
+      skillId: skill.id,
+      now,
+      sender: fake.sender,
+      model: "test-gemini",
+    });
+
+    expect(duplicate).toMatchObject({
+      status: "not-queued",
+      reason: "job-in-progress",
+      generationJobId: queued.generationJobId,
+    });
+    expect(fake.choiceEvents).toHaveLength(1);
+
+    const lockedExactInput = await queueExactInputExerciseRefillForSkill({
+      userId,
+      skillId: skill.id,
+      now,
+      sender: fake.sender,
+      model: "test-gemini",
+    });
+
+    expect(lockedExactInput).toMatchObject({
+      status: "not-queued",
+      reason: "exact-input-locked",
+    });
+    expect(fake.exactInputEvents).toHaveLength(0);
+  });
+
   it("refills an active skill below target while preserving schedule state", async () => {
     const userId = await createUser("refill_success");
     const skill = await createActiveSkillFixture({
@@ -1803,6 +2006,65 @@ describeDatabase("skill drafts and Gemini activation", () => {
       rejectedCount: 0,
     });
     expect(choicePracticeItem.status).toBe("none-due");
+  });
+
+  it("queues and runs exact-input refill jobs for unlocked skills", async () => {
+    const userId = await createUser("exact_refill_queue");
+    const skill = await createActiveSkillFixture({
+      userId,
+      repetitions: EXACT_INPUT_UNLOCK_REPETITIONS,
+    });
+    const fake = createFakeRefillSender();
+
+    const queued = expectQueued(
+      await queueExactInputExerciseRefillForSkill({
+        userId,
+        skillId: skill.id,
+        now,
+        sender: fake.sender,
+        model: "test-gemini",
+      }),
+    );
+
+    expect(fake.exactInputEvents).toEqual([
+      {
+        userId,
+        skillId: skill.id,
+        generationJobId: queued.generationJobId,
+        targetReadyCount: DEFAULT_READY_EXACT_INPUT_TARGET,
+        requestedAt: now.toISOString(),
+      },
+    ]);
+    await expect(prisma.exercise.count({ where: { userId, skillId: skill.id } })).resolves.toBe(0);
+
+    const result = await runExactInputExerciseRefillJob({
+      userId,
+      skillId: skill.id,
+      generationJobId: queued.generationJobId,
+      targetReadyCount: queued.targetReadyCount,
+      requestedAt: now.toISOString(),
+      now,
+      generateExactInputExercises: async () => ({
+        exercises: [generatedExactInputExercise(701), generatedExactInputExercise(702)],
+      }),
+      verifyExactInputExercises: acceptAllExactInputVerifier,
+      model: "test-gemini",
+    });
+
+    expect(result).toMatchObject({
+      status: "refilled",
+      exerciseCount: DEFAULT_READY_EXACT_INPUT_TARGET,
+    });
+    await expect(
+      prisma.generationJob.findUniqueOrThrow({
+        where: { id: queued.generationJobId },
+        select: { status: true, acceptedCount: true, rejectedCount: true },
+      }),
+    ).resolves.toEqual({
+      status: GenerationJobStatus.SUCCEEDED,
+      acceptedCount: DEFAULT_READY_EXACT_INPUT_TARGET,
+      rejectedCount: 0,
+    });
   });
 
   it("does not refill exact-input exercises before the review threshold", async () => {
