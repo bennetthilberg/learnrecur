@@ -9,6 +9,7 @@ import {
   type Prisma,
   type SkillFsrsState,
 } from "@/generated/prisma/client";
+import { isPracticeReadModelExerciseReady } from "@/lib/practice/read-model-eligibility";
 import { getPrisma } from "@/lib/prisma";
 
 const RECENT_WINDOW_DAYS = 14;
@@ -69,6 +70,7 @@ type DashboardSkillRecord = {
     verificationStatus: ExerciseVerificationStatus;
     retiredAt: Date | null;
     choices: Prisma.JsonValue | null;
+    answerSpec: Prisma.JsonValue;
   }>;
 };
 
@@ -118,6 +120,7 @@ export async function getDashboardHome(input: GetDashboardHomeInput): Promise<Da
             verificationStatus: true,
             retiredAt: true,
             choices: true,
+            answerSpec: true,
           },
         },
       },
@@ -205,7 +208,7 @@ function isReadyNow(skill: DashboardSkillRecord, now: Date): boolean {
     skill.dueAt.getTime() <= now.getTime() &&
     skill.stability !== null &&
     skill.difficulty !== null &&
-    skill.exercises.some(isPracticeEligibleExercise)
+    skill.exercises.some((exercise) => isPracticeEligibleExercise(skill, exercise))
   );
 }
 
@@ -214,9 +217,7 @@ function getDueLabel(skill: DashboardSkillRecord, now: Date): string {
     return "Not scheduled";
   }
 
-  if (
-    !skill.exercises.some(isPracticeEligibleExercise)
-  ) {
+  if (!skill.exercises.some((exercise) => isPracticeEligibleExercise(skill, exercise))) {
     return "Not available in practice yet";
   }
 
@@ -245,28 +246,11 @@ function hasInitializedSchedule(skill: DashboardSkillRecord): boolean {
   return skill.dueAt !== null && skill.stability !== null && skill.difficulty !== null;
 }
 
-function isPracticeEligibleExercise(exercise: DashboardSkillRecord["exercises"][number]): boolean {
-  return (
-    exercise.answerKind === AnswerKind.CHOICE &&
-    exercise.verificationStatus === ExerciseVerificationStatus.VERIFIED &&
-    exercise.retiredAt === null &&
-    hasRenderableChoices(exercise.choices)
-  );
-}
-
-function hasRenderableChoices(choices: Prisma.JsonValue | null): boolean {
-  return (
-    Array.isArray(choices) &&
-    choices.length > 0 &&
-    choices.every(
-      (choice) =>
-        typeof choice === "object" &&
-        choice !== null &&
-        !Array.isArray(choice) &&
-        typeof choice.id === "string" &&
-        typeof choice.label === "string",
-    )
-  );
+function isPracticeEligibleExercise(
+  skill: DashboardSkillRecord,
+  exercise: DashboardSkillRecord["exercises"][number],
+): boolean {
+  return isPracticeReadModelExerciseReady(exercise, skill);
 }
 
 function compareDashboardSkills(left: DashboardSkillRecord, right: DashboardSkillRecord): number {

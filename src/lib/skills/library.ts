@@ -8,6 +8,7 @@ import {
   type Prisma,
   type SkillFsrsState,
 } from "@/generated/prisma/client";
+import { isPracticeReadModelExerciseReady } from "@/lib/practice/read-model-eligibility";
 import { getPrisma } from "@/lib/prisma";
 
 export type SkillsLibraryGenerationJobSummary = {
@@ -84,6 +85,7 @@ type SkillsLibrarySkillRecord = {
     verificationStatus: ExerciseVerificationStatus;
     retiredAt: Date | null;
     choices: Prisma.JsonValue | null;
+    answerSpec: Prisma.JsonValue;
   }>;
 };
 
@@ -138,6 +140,7 @@ export async function getSkillsLibrary(input: GetSkillsLibraryInput): Promise<Sk
           verificationStatus: true,
           retiredAt: true,
           choices: true,
+          answerSpec: true,
         },
       },
     },
@@ -175,7 +178,9 @@ function toActiveSkillSummary(
   skill: SkillsLibrarySkillRecord,
   now: Date,
 ): SkillsLibraryActiveSkill {
-  const readyExerciseCount = skill.exercises.filter(isPracticeEligibleExercise).length;
+  const readyExerciseCount = skill.exercises.filter((exercise) =>
+    isPracticeEligibleExercise(skill, exercise),
+  ).length;
 
   return {
     id: skill.id,
@@ -251,29 +256,10 @@ function hasInitializedSchedule(skill: SkillsLibrarySkillRecord): boolean {
 }
 
 function isPracticeEligibleExercise(
+  skill: SkillsLibrarySkillRecord,
   exercise: SkillsLibrarySkillRecord["exercises"][number],
 ): boolean {
-  return (
-    exercise.answerKind === AnswerKind.CHOICE &&
-    exercise.verificationStatus === ExerciseVerificationStatus.VERIFIED &&
-    exercise.retiredAt === null &&
-    hasRenderableChoices(exercise.choices)
-  );
-}
-
-function hasRenderableChoices(choices: Prisma.JsonValue | null): boolean {
-  return (
-    Array.isArray(choices) &&
-    choices.length > 0 &&
-    choices.every(
-      (choice) =>
-        typeof choice === "object" &&
-        choice !== null &&
-        !Array.isArray(choice) &&
-        typeof choice.id === "string" &&
-        typeof choice.label === "string",
-    )
-  );
+  return isPracticeReadModelExerciseReady(exercise, skill);
 }
 
 function compareDraftSkills(
