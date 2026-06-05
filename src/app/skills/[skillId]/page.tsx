@@ -5,10 +5,18 @@ import { notFound } from "next/navigation";
 import { SkillStatus, type Prisma } from "@/generated/prisma/client";
 import { formatJobStatus } from "@/lib/formatters";
 import { getPrisma } from "@/lib/prisma";
-import { countChoiceExerciseInventory, DEFAULT_READY_EXERCISE_TARGET } from "@/lib/skills";
+import {
+  countChoiceExerciseInventory,
+  countExactInputExerciseInventory,
+  DEFAULT_READY_EXACT_INPUT_TARGET,
+  DEFAULT_READY_EXERCISE_TARGET,
+  EXACT_INPUT_UNLOCK_REPETITIONS,
+  isExactInputUnlocked,
+} from "@/lib/skills";
 import { ensureDatabaseUser } from "@/lib/users";
 
 import { SkillDraftForm, type SkillDraftFormValues } from "../skill-draft-form";
+import { SkillExactInputRefillForm } from "../skill-exact-input-refill-form";
 import { SkillRefillForm } from "../skill-refill-form";
 import { SkillsTopbar } from "../skills-topbar";
 
@@ -71,6 +79,7 @@ export default async function SkillPage({
           verificationStatus: true,
           retiredAt: true,
           choices: true,
+          answerSpec: true,
         },
       },
     },
@@ -92,7 +101,17 @@ export default async function SkillPage({
 
   if (skill.status !== SkillStatus.DRAFT) {
     const inventory = countChoiceExerciseInventory(skill.exercises);
+    const exactInputInventory = countExactInputExerciseInventory(skill.exercises);
     const canRefill = inventory.readyExerciseCount < DEFAULT_READY_EXERCISE_TARGET;
+    const exactInputUnlocked = isExactInputUnlocked(skill.repetitions);
+    const canRefillExactInput =
+      exactInputUnlocked &&
+      exactInputInventory.readyExerciseCount < DEFAULT_READY_EXACT_INPUT_TARGET;
+    const exactInputRefillButtonLabel = canRefillExactInput
+      ? "Generate exact input"
+      : exactInputUnlocked
+        ? "Exact input full"
+        : "Exact input locked";
     const latestGenerationJob = skill.generationJobs[0] ?? null;
 
     return (
@@ -126,12 +145,26 @@ export default async function SkillPage({
               </dd>
             </div>
             <div>
+              <dt>Ready exact input</dt>
+              <dd>
+                {exactInputInventory.readyExerciseCount} / {DEFAULT_READY_EXACT_INPUT_TARGET}
+              </dd>
+            </div>
+            <div>
               <dt>Verified choices</dt>
               <dd>{inventory.verifiedExerciseCount}</dd>
             </div>
             <div>
+              <dt>Verified exact input</dt>
+              <dd>{exactInputInventory.verifiedExerciseCount}</dd>
+            </div>
+            <div>
               <dt>Retired choices</dt>
               <dd>{inventory.retiredExerciseCount}</dd>
+            </div>
+            <div>
+              <dt>Retired exact input</dt>
+              <dd>{exactInputInventory.retiredExerciseCount}</dd>
             </div>
             <div>
               <dt>Collection</dt>
@@ -168,6 +201,26 @@ export default async function SkillPage({
               ) : null}
             </div>
             <SkillRefillForm canRefill={canRefill} skillId={skill.id} />
+          </div>
+          <div className="skillQueueBlock">
+            <div>
+              <p className="eyebrow">Recall step</p>
+              <h2>Ready exact-input exercises.</h2>
+              <p>
+                Exact input starts after {EXACT_INPUT_UNLOCK_REPETITIONS} saved reviews, once the
+                learner has practiced the skill with multiple choice first.
+              </p>
+              <p className="skillQueueStatus">
+                {exactInputUnlocked
+                  ? `${exactInputInventory.readyExerciseCount} ready / ${DEFAULT_READY_EXACT_INPUT_TARGET} target`
+                  : `${skill.repetitions} / ${EXACT_INPUT_UNLOCK_REPETITIONS} reviews completed`}
+              </p>
+            </div>
+            <SkillExactInputRefillForm
+              buttonLabel={exactInputRefillButtonLabel}
+              canRefill={canRefillExactInput}
+              skillId={skill.id}
+            />
           </div>
           {skill.tags.length > 0 ? (
             <div className="skillTagLine">

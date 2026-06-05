@@ -701,6 +701,42 @@ a {
   line-height: 1.35;
 }
 
+.exactAnswerField {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.exactAnswerField span {
+  color: var(--lr-faint);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.exactAnswerField input {
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid var(--lr-line);
+  border-radius: var(--lr-radius);
+  background: #ffffff;
+  color: var(--lr-ink);
+  padding: 12px 13px;
+  font: inherit;
+  font-size: 16px;
+  line-height: 1.35;
+}
+
+.exactAnswerField input:focus-visible {
+  outline: none;
+  border-color: var(--lr-primary);
+  box-shadow: var(--lr-focus-ring);
+}
+
+.exactAnswerField input:disabled {
+  color: var(--lr-muted);
+  background: #fbfcfe;
+}
+
 .practiceFeedback {
   margin-top: 18px;
   border: 1px solid var(--lr-line);

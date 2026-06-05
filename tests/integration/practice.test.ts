@@ -23,6 +23,7 @@ import {
 import { ensureDevPracticeSampleData } from "@/lib/practice/sample-data";
 import { getPrisma } from "@/lib/prisma";
 import { createInitialSkillSchedule } from "@/lib/scheduling";
+import { EXACT_INPUT_UNLOCK_REPETITIONS } from "@/lib/skills";
 
 import { getNextChoicePracticeItemForUser } from "@/app/practice/queries";
 
@@ -63,12 +64,14 @@ describeDatabase("practice review service", () => {
     dueAt = new Date("2026-06-02T11:00:00.000Z"),
     status = SkillStatus.ACTIVE,
     initialized = true,
+    repetitions = 0,
   }: {
     userId: string;
     title: string;
     dueAt?: Date;
     status?: SkillStatus;
     initialized?: boolean;
+    repetitions?: number;
   }) {
     const schedule = initialized ? createInitialSkillSchedule(dueAt) : {};
 
@@ -78,6 +81,7 @@ describeDatabase("practice review service", () => {
         title,
         status,
         ...schedule,
+        repetitions,
       },
     });
   }
@@ -147,6 +151,36 @@ describeDatabase("practice review service", () => {
         },
         correctAnswerDisplay: "ser",
         explanation: "Use ser for identity.",
+        difficulty: 1,
+        expectedSeconds: 30,
+        verificationStatus: ExerciseVerificationStatus.VERIFIED,
+      },
+    });
+  }
+
+  async function createNumericExercise({
+    userId,
+    skillId,
+    prompt = "Enter one half as a decimal.",
+  }: {
+    userId: string;
+    skillId: string;
+    prompt?: string;
+  }) {
+    return prisma.exercise.create({
+      data: {
+        userId,
+        skillId,
+        type: ExerciseType.EXACT_INPUT,
+        answerKind: AnswerKind.NUMERIC,
+        prompt,
+        answerSpec: {
+          kind: "numeric",
+          accepted: ["1/2", 0.5],
+          tolerance: 0,
+        },
+        correctAnswerDisplay: "0.5",
+        explanation: "One half is 0.5.",
         difficulty: 1,
         expectedSeconds: 30,
         verificationStatus: ExerciseVerificationStatus.VERIFIED,
@@ -653,6 +687,63 @@ describeDatabase("practice review service", () => {
     });
   });
 
+  it("keeps exact-input exercises out before the skill review threshold", async () => {
+    const userId = await createUser("exact_locked_selection");
+    const skill = await createSkillFixture({
+      userId,
+      title: "locked exact skill",
+      dueAt: new Date("2026-06-03T09:00:00.000Z"),
+      repetitions: EXACT_INPUT_UNLOCK_REPETITIONS - 1,
+    });
+    const textExercise = await createTextExercise({
+      userId,
+      skillId: skill.id,
+      prompt: "Locked exact prompt.",
+    });
+
+    await expect(getNextPracticeItem({ userId, now })).resolves.toMatchObject({
+      status: "none-due",
+    });
+
+    await expect(
+      previewPracticeAnswer({
+        userId,
+        exerciseId: textExercise.id,
+        submittedAnswer: "ser",
+        now,
+      }),
+    ).resolves.toMatchObject({
+      status: "not-found",
+      reason: "exercise-not-found",
+    });
+  });
+
+  it("includes exact-input exercises once the skill review threshold is reached", async () => {
+    const userId = await createUser("exact_unlocked_selection");
+    const skill = await createSkillFixture({
+      userId,
+      title: "unlocked exact skill",
+      dueAt: new Date("2026-06-03T09:00:00.000Z"),
+      repetitions: EXACT_INPUT_UNLOCK_REPETITIONS,
+    });
+    const textExercise = await createTextExercise({
+      userId,
+      skillId: skill.id,
+      prompt: "Unlocked exact prompt.",
+    });
+
+    await expect(getNextPracticeItem({ userId, now })).resolves.toMatchObject({
+      status: "ready",
+      skill: {
+        id: skill.id,
+      },
+      exercise: {
+        id: textExercise.id,
+        answerKind: AnswerKind.TEXT,
+      },
+    });
+  });
+
   it("keeps unsupported math exercises out even when requested explicitly", async () => {
     const userId = await createUser("unsupported_math_filter");
     const mathSkill = await createSkillFixture({
@@ -917,6 +1008,47 @@ describeDatabase("practice review service", () => {
     ).resolves.toEqual([0, 0, initialSkill]);
   });
 
+  it("flags an exact-input exercise without committing a review", async () => {
+    const userId = await createUser("flag_exact_input");
+    const skill = await createSkillFixture({
+      userId,
+      title: "exact flag skill",
+      repetitions: EXACT_INPUT_UNLOCK_REPETITIONS,
+    });
+    const exercise = await createTextExercise({ userId, skillId: skill.id });
+
+    await expect(
+      flagPracticeExercise({
+        userId,
+        exerciseId: exercise.id,
+        reasons: [ExerciseFlagReason.NOT_USEFUL],
+        flaggedAt: now,
+      }),
+    ).resolves.toMatchObject({
+      status: "flagged",
+      exerciseId: exercise.id,
+      retirementReason: ExerciseRetirementReason.OTHER,
+    });
+
+    await expect(
+      Promise.all([
+        prisma.exerciseAttempt.count({ where: { userId, exerciseId: exercise.id } }),
+        prisma.reviewLog.count({ where: { userId, skillId: skill.id } }),
+        prisma.exercise.findUniqueOrThrow({
+          where: { id: exercise.id },
+          select: { retiredAt: true, retirementReason: true },
+        }),
+      ]),
+    ).resolves.toEqual([
+      0,
+      0,
+      {
+        retiredAt: now,
+        retirementReason: ExerciseRetirementReason.OTHER,
+      },
+    ]);
+  });
+
   it("creates multiple resolved flag rows and stores a custom other note", async () => {
     const { userId, exercise } = await createDueChoiceFixture("flag_multiple");
     const flaggedAt = new Date("2026-06-03T12:15:00.000Z");
@@ -1153,6 +1285,68 @@ describeDatabase("practice review service", () => {
     });
   });
 
+  it("commits correct text and numeric exact-input reviews", async () => {
+    const userId = await createUser("exact_commit");
+
+    const textSkill = await createSkillFixture({
+      userId,
+      title: "text exact commit skill",
+      repetitions: EXACT_INPUT_UNLOCK_REPETITIONS,
+    });
+    const textExercise = await createTextExercise({ userId, skillId: textSkill.id });
+    const numericSkill = await createSkillFixture({
+      userId,
+      title: "numeric exact commit skill",
+      repetitions: EXACT_INPUT_UNLOCK_REPETITIONS,
+    });
+    const numericExercise = await createNumericExercise({ userId, skillId: numericSkill.id });
+
+    await expect(
+      commitPracticeReview({
+        userId,
+        exerciseId: textExercise.id,
+        attemptId: `${runId}_text_exact_attempt`,
+        submittedAnswer: " SER ",
+        responseMs: 28_000,
+        reviewedAt: now,
+      }),
+    ).resolves.toMatchObject({
+      status: "committed",
+      answerCheck: {
+        status: "correct",
+        normalizedAnswer: "ser",
+      },
+      finalRating: FsrsRating.GOOD,
+    });
+
+    await expect(
+      commitPracticeReview({
+        userId,
+        exerciseId: numericExercise.id,
+        attemptId: `${runId}_numeric_exact_attempt`,
+        submittedAnswer: "1/2",
+        responseMs: 28_000,
+        reviewedAt: now,
+      }),
+    ).resolves.toMatchObject({
+      status: "committed",
+      answerCheck: {
+        status: "correct",
+        normalizedAnswer: "0.5",
+      },
+      finalRating: FsrsRating.GOOD,
+    });
+
+    await expect(
+      prisma.exerciseAttempt.count({
+        where: {
+          userId,
+          exerciseId: { in: [textExercise.id, numericExercise.id] },
+        },
+      }),
+    ).resolves.toBe(2);
+  });
+
   it("maps incorrect committed reviews to Again", async () => {
     const { userId, exercise } = await createDueChoiceFixture("incorrect_commit");
 
@@ -1244,6 +1438,7 @@ describeDatabase("practice review service", () => {
     const unsupportedSkill = await createSkillFixture({
       userId,
       title: "unsupported spec skill",
+      repetitions: EXACT_INPUT_UNLOCK_REPETITIONS,
     });
     const unsupportedExercise = await prisma.exercise.create({
       data: {
@@ -1259,6 +1454,25 @@ describeDatabase("practice review service", () => {
         correctAnswerDisplay: "2x",
         verificationStatus: ExerciseVerificationStatus.VERIFIED,
       },
+    });
+
+    const invalidTextSkill = await createSkillFixture({
+      userId,
+      title: "invalid text skill",
+      repetitions: EXACT_INPUT_UNLOCK_REPETITIONS,
+    });
+    const invalidTextExercise = await createTextExercise({
+      userId,
+      skillId: invalidTextSkill.id,
+    });
+    const invalidNumericSkill = await createSkillFixture({
+      userId,
+      title: "invalid numeric skill",
+      repetitions: EXACT_INPUT_UNLOCK_REPETITIONS,
+    });
+    const invalidNumericExercise = await createNumericExercise({
+      userId,
+      skillId: invalidNumericSkill.id,
     });
 
     await expect(
@@ -1301,6 +1515,34 @@ describeDatabase("practice review service", () => {
     ).resolves.toMatchObject({
       status: "not-committed",
       answerCheck: { status: "unsupported" },
+    });
+
+    await expect(
+      commitPracticeReview({
+        userId,
+        exerciseId: invalidTextExercise.id,
+        attemptId: `${runId}_invalid_text`,
+        submittedAnswer: "   ",
+        responseMs: 4_000,
+        reviewedAt: now,
+      }),
+    ).resolves.toMatchObject({
+      status: "not-committed",
+      answerCheck: { status: "invalid-input" },
+    });
+
+    await expect(
+      commitPracticeReview({
+        userId,
+        exerciseId: invalidNumericExercise.id,
+        attemptId: `${runId}_invalid_numeric`,
+        submittedAnswer: "not a number",
+        responseMs: 4_000,
+        reviewedAt: now,
+      }),
+    ).resolves.toMatchObject({
+      status: "not-committed",
+      answerCheck: { status: "invalid-input" },
     });
 
     await expect(

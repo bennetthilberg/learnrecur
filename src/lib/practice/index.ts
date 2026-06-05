@@ -20,6 +20,7 @@ import {
   mapAttemptToFsrsRating,
   type SkillScheduleFields,
 } from "@/lib/scheduling";
+import { isExactInputUnlocked } from "@/lib/skills";
 
 const SUPPORTED_ANSWER_KINDS = [AnswerKind.CHOICE, AnswerKind.TEXT, AnswerKind.NUMERIC] as const;
 
@@ -659,7 +660,9 @@ async function findEligibleExercise(
       skill: true,
     },
   });
-  const exerciseRecords = exercises.map(toPracticeExerciseRecord);
+  const exerciseRecords = exercises
+    .map(toPracticeExerciseRecord)
+    .filter(isPracticeExerciseUnlockedForSkill);
   const attemptStatsByExerciseId = await getExerciseAttemptRotationStats(prisma, {
     userId: input.userId,
     exerciseIds: exerciseRecords.map((exercise) => exercise.id),
@@ -840,6 +843,14 @@ function getExerciseAttemptStats(
       lastAttemptedAt: null,
     }
   );
+}
+
+function isPracticeExerciseUnlockedForSkill(exercise: PracticeExerciseRecord): boolean {
+  if (exercise.answerKind === AnswerKind.TEXT || exercise.answerKind === AnswerKind.NUMERIC) {
+    return isExactInputUnlocked(exercise.skill.repetitions);
+  }
+
+  return true;
 }
 
 function toPracticeExerciseRecord(

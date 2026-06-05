@@ -15,7 +15,13 @@ import {
   SourceFileStatus,
   type Skill,
 } from "@/generated/prisma/client";
-import { choicesSchema } from "@/lib/answer-checking";
+import {
+  answerSpecSchema,
+  checkAnswer,
+  choicesSchema,
+  type NumericAnswerSpec,
+  type TextAnswerSpec,
+} from "@/lib/answer-checking";
 import { formatEnvError, getGeminiEnv } from "@/lib/env";
 import { getPrisma } from "@/lib/prisma";
 import { createInitialSkillSchedule } from "@/lib/scheduling";
@@ -24,11 +30,14 @@ export const MIN_ACTIVATION_EXERCISES = 3;
 export const REQUESTED_ACTIVATION_EXERCISES = 5;
 export const MAX_GENERATED_EXERCISES = 10;
 export const DEFAULT_READY_EXERCISE_TARGET = 5;
+export const DEFAULT_READY_EXACT_INPUT_TARGET = 2;
+export const EXACT_INPUT_UNLOCK_REPETITIONS = 3;
 export const SOURCE_CONTEXT_CHAR_LIMIT = 4_000;
 export const EXISTING_EXERCISE_CONTEXT_CHAR_LIMIT = 3_000;
 export const SOURCE_SKILL_DRAFT_PROMPT_VERSION = "source-skill-draft-v0";
 const GENERATION_TIMEOUT_MS = 45_000;
 export const SKILL_MCQ_PROMPT_VERSION = "skill-mcq-v0";
+export const SKILL_EXACT_INPUT_PROMPT_VERSION = "skill-exact-input-v0";
 export const GEMINI_PROVIDER = "google";
 
 export type NormalizedSkillDraftInput = {
@@ -72,6 +81,20 @@ export type GeneratedChoiceExerciseCandidate = GeneratedChoiceExercise & {
   candidateId: string;
 };
 
+export type GeneratedExactInputExercise = {
+  prompt: string;
+  answerKind: "TEXT" | "NUMERIC";
+  answerSpec: TextAnswerSpec | NumericAnswerSpec;
+  correctAnswerDisplay: string;
+  explanation: string | null;
+  difficulty: number | null;
+  expectedSeconds: number | null;
+};
+
+export type GeneratedExactInputExerciseCandidate = GeneratedExactInputExercise & {
+  candidateId: string;
+};
+
 const choiceVerificationReasonValues = [
   "irrelevant",
   "ambiguous",
@@ -108,6 +131,25 @@ export type ChoiceExerciseVerificationResult =
       message: string;
       exercises: GeneratedChoiceExercise[];
       decisions: ChoiceExerciseVerificationDecision[];
+      verifiedCount: number;
+      rejectedCount: number;
+    };
+
+export type ExactInputExerciseVerificationDecision = ChoiceExerciseVerificationDecision;
+
+export type ExactInputExerciseVerificationResult =
+  | {
+      status: "ready";
+      exercises: GeneratedExactInputExercise[];
+      decisions: ExactInputExerciseVerificationDecision[];
+      rejectedCount: number;
+    }
+  | {
+      status: "invalid";
+      reason: "invalid-response" | "candidate-mismatch" | "too-few-verified-exercises";
+      message: string;
+      exercises: GeneratedExactInputExercise[];
+      decisions: ExactInputExerciseVerificationDecision[];
       verifiedCount: number;
       rejectedCount: number;
     };
@@ -152,7 +194,31 @@ export type GeneratedChoiceExerciseValidationOptions = {
   maxGeneratedExercises?: number;
 };
 
+export type GeneratedExactInputExerciseValidationResult =
+  | {
+      status: "ready";
+      exercises: GeneratedExactInputExercise[];
+      rejectedCount: number;
+    }
+  | {
+      status: "invalid";
+      reason: "invalid-response" | "too-few-valid-exercises";
+      message: string;
+      exercises: GeneratedExactInputExercise[];
+      validCount: number;
+      rejectedCount: number;
+    };
+
+export type GeneratedExactInputExerciseValidationOptions = {
+  minValidExercises?: number;
+  maxGeneratedExercises?: number;
+};
+
 export type ChoiceExerciseVerificationOptions = {
+  minVerifiedExercises?: number;
+};
+
+export type ExactInputExerciseVerificationOptions = {
   minVerifiedExercises?: number;
 };
 
@@ -184,6 +250,23 @@ export type ChoiceExerciseVerifierInput = {
 
 export type ChoiceExerciseVerifier = (
   input: ChoiceExerciseVerifierInput,
+) => Promise<unknown>;
+
+export type ExactInputExerciseGeneratorInput = ChoiceExerciseGeneratorInput;
+
+export type ExactInputExerciseGenerator = (
+  input: ExactInputExerciseGeneratorInput,
+) => Promise<unknown>;
+
+export type ExactInputExerciseVerifierInput = {
+  skill: ExactInputExerciseGeneratorInput["skill"];
+  sourceContext: string | null;
+  existingExerciseContext?: string | null;
+  candidates: GeneratedExactInputExerciseCandidate[];
+};
+
+export type ExactInputExerciseVerifier = (
+  input: ExactInputExerciseVerifierInput,
 ) => Promise<unknown>;
 
 export type NormalizedSourceSkillDraftInput = {
@@ -252,6 +335,16 @@ export type RefillChoiceExercisesInput = {
   targetReadyCount?: number;
   generateChoiceExercises?: ChoiceExerciseGenerator;
   verifyChoiceExercises?: ChoiceExerciseVerifier;
+  model?: string;
+};
+
+export type RefillExactInputExercisesInput = {
+  userId: string;
+  skillId: string;
+  now: Date;
+  targetReadyCount?: number;
+  generateExactInputExercises?: ExactInputExerciseGenerator;
+  verifyExactInputExercises?: ExactInputExerciseVerifier;
   model?: string;
 };
 
@@ -333,6 +426,38 @@ export type SkillExerciseRefillResult =
       message: string;
     };
 
+export type ExactInputExerciseRefillResult =
+  | {
+      status: "refilled";
+      skillId: string;
+      generationJobId: string;
+      exerciseCount: number;
+      readyExerciseCount: number;
+      targetReadyCount: number;
+    }
+  | {
+      status: "not-refilled";
+      reason:
+        | "already-at-target"
+        | "exact-input-locked"
+        | "generation-failed"
+        | "invalid-generation"
+        | "verification-failed"
+        | "invalid-verification"
+        | "missing-gemini-env"
+        | "no-new-exercises"
+        | "skill-not-active";
+      message: string;
+      generationJobId?: string;
+      readyExerciseCount?: number;
+      targetReadyCount?: number;
+    }
+  | {
+      status: "not-found";
+      reason: "skill-not-found";
+      message: string;
+    };
+
 export type ChoiceExerciseInventoryRecord = {
   answerKind: AnswerKind;
   verificationStatus: ExerciseVerificationStatus;
@@ -341,6 +466,19 @@ export type ChoiceExerciseInventoryRecord = {
 };
 
 export type ChoiceExerciseInventoryCounts = {
+  verifiedExerciseCount: number;
+  retiredExerciseCount: number;
+  readyExerciseCount: number;
+};
+
+export type ExactInputExerciseInventoryRecord = {
+  answerKind: AnswerKind;
+  verificationStatus: ExerciseVerificationStatus;
+  retiredAt: Date | null;
+  answerSpec: Prisma.JsonValue;
+};
+
+export type ExactInputExerciseInventoryCounts = {
   verifiedExerciseCount: number;
   retiredExerciseCount: number;
   readyExerciseCount: number;
@@ -398,7 +536,23 @@ const generatedChoiceExerciseSchema = z.strictObject({
   expectedSeconds: z.number().int().min(5).max(180).optional(),
 });
 
+const generatedExactInputExerciseSchema = z.strictObject({
+  prompt: z.string().trim().min(8).max(1200),
+  answerKind: z.enum([AnswerKind.TEXT, AnswerKind.NUMERIC]),
+  answerSpec: z.unknown(),
+  correctAnswerDisplay: z.string().trim().min(1).max(500),
+  explanation: z.string().trim().min(1).max(1200).optional(),
+  difficulty: z.number().int().min(1).max(5).optional(),
+  expectedSeconds: z.number().int().min(5).max(180).optional(),
+});
+
 function generatedChoiceEnvelopeSchema(maxGeneratedExercises: number) {
+  return z.strictObject({
+    exercises: z.array(z.unknown()).min(1).max(maxGeneratedExercises),
+  });
+}
+
+function generatedExactInputEnvelopeSchema(maxGeneratedExercises: number) {
   return z.strictObject({
     exercises: z.array(z.unknown()).min(1).max(maxGeneratedExercises),
   });
@@ -501,6 +655,44 @@ function buildGeminiChoiceVerificationJsonSchema(candidateCount: number) {
       },
     },
   };
+}
+
+function buildGeminiExactInputResponseJsonSchema(requestedCount: number) {
+  return {
+    type: "object",
+    additionalProperties: false,
+    required: ["exercises"],
+    properties: {
+      exercises: {
+        type: "array",
+        minItems: Math.max(1, Math.min(requestedCount, DEFAULT_READY_EXACT_INPUT_TARGET)),
+        maxItems: Math.max(1, Math.min(requestedCount, MAX_GENERATED_EXERCISES)),
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: ["prompt", "answerKind", "answerSpec", "correctAnswerDisplay", "explanation"],
+          properties: {
+            prompt: { type: "string" },
+            answerKind: {
+              type: "string",
+              enum: [AnswerKind.TEXT, AnswerKind.NUMERIC],
+            },
+            answerSpec: {
+              type: "object",
+            },
+            correctAnswerDisplay: { type: "string" },
+            explanation: { type: "string" },
+            difficulty: { type: "integer", minimum: 1, maximum: 5 },
+            expectedSeconds: { type: "integer", minimum: 5, maximum: 180 },
+          },
+        },
+      },
+    },
+  };
+}
+
+function buildGeminiExactInputVerificationJsonSchema(candidateCount: number) {
+  return buildGeminiChoiceVerificationJsonSchema(candidateCount);
 }
 
 const geminiSkillDraftJsonSchema = {
@@ -1356,6 +1548,363 @@ export async function refillChoiceExercisesForSkill(
   });
 }
 
+export async function refillExactInputExercisesForSkill(
+  input: RefillExactInputExercisesInput,
+): Promise<ExactInputExerciseRefillResult> {
+  const prisma = getPrisma();
+  const targetReadyCount = normalizeReadyExerciseTarget(
+    input.targetReadyCount,
+    DEFAULT_READY_EXACT_INPUT_TARGET,
+  );
+  const skill = await prisma.skill.findFirst({
+    where: {
+      id: input.skillId,
+      userId: input.userId,
+    },
+    select: {
+      id: true,
+      userId: true,
+      title: true,
+      objective: true,
+      rules: true,
+      examples: true,
+      exerciseConstraints: true,
+      tags: true,
+      status: true,
+      repetitions: true,
+      sourceRefs: {
+        orderBy: {
+          createdAt: "asc",
+        },
+        select: {
+          sourceFile: {
+            select: {
+              extractedText: true,
+            },
+          },
+        },
+      },
+      exercises: {
+        orderBy: {
+          createdAt: "asc",
+        },
+        select: {
+          id: true,
+          answerKind: true,
+          answerSpec: true,
+          verificationStatus: true,
+          retiredAt: true,
+          prompt: true,
+          correctAnswerDisplay: true,
+        },
+      },
+    },
+  });
+
+  if (!skill) {
+    return skillNotFound();
+  }
+
+  if (skill.status !== SkillStatus.ACTIVE) {
+    return {
+      status: "not-refilled",
+      reason: "skill-not-active",
+      message: "Only active skills can generate exact-input practice.",
+    };
+  }
+
+  if (!isExactInputUnlocked(skill.repetitions)) {
+    return {
+      status: "not-refilled",
+      reason: "exact-input-locked",
+      message: `Practice multiple-choice reviews first. Exact input unlocks after ${EXACT_INPUT_UNLOCK_REPETITIONS} completed reviews.`,
+    };
+  }
+
+  const inventory = countExactInputExerciseInventory(skill.exercises);
+
+  if (inventory.readyExerciseCount >= targetReadyCount) {
+    return {
+      status: "not-refilled",
+      reason: "already-at-target",
+      message: "This skill already has enough ready exact-input exercises.",
+      readyExerciseCount: inventory.readyExerciseCount,
+      targetReadyCount,
+    };
+  }
+
+  const requestedCount = targetReadyCount - inventory.readyExerciseCount;
+  const setup = resolveExactInputRefillSetup(input);
+  const generationJob = await prisma.generationJob.create({
+    data: {
+      userId: input.userId,
+      skillId: skill.id,
+      kind: GenerationJobKind.EXACT_INPUT_EXERCISE_GENERATION,
+      status: setup.status === "ready" ? GenerationJobStatus.RUNNING : GenerationJobStatus.FAILED,
+      provider: GEMINI_PROVIDER,
+      model: setup.model,
+      promptVersion: SKILL_EXACT_INPUT_PROMPT_VERSION,
+      requestedCount,
+      errorMessage: setup.status === "ready" ? null : setup.message,
+      startedAt: input.now,
+      completedAt: setup.status === "ready" ? null : input.now,
+    },
+  });
+
+  if (setup.status === "missing-env") {
+    return {
+      status: "not-refilled",
+      reason: "missing-gemini-env",
+      message: setup.message,
+      generationJobId: generationJob.id,
+      readyExerciseCount: inventory.readyExerciseCount,
+      targetReadyCount,
+    };
+  }
+
+  const sourceContext = buildSourceContextExcerpt(
+    skill.sourceRefs.map((sourceRef) => sourceRef.sourceFile.extractedText),
+  );
+  const existingExerciseContext = buildExistingExactInputExerciseContext(skill.exercises);
+  let rawGeneration: unknown;
+
+  try {
+    rawGeneration = await withTimeout(
+      setup.generateExactInputExercises({
+        skill,
+        sourceContext,
+        existingExerciseContext,
+        requestedCount,
+      }),
+      GENERATION_TIMEOUT_MS,
+      "generateExactInputExercises timed out",
+    );
+  } catch (error) {
+    const message = `Gemini exact-input exercise generation failed: ${formatEnvError(error)}`;
+    await markGenerationJobFailed(prisma, generationJob.id, {
+      message,
+      acceptedCount: 0,
+      rejectedCount: 0,
+      now: input.now,
+    });
+
+    return {
+      status: "not-refilled",
+      reason: "generation-failed",
+      message,
+      generationJobId: generationJob.id,
+      readyExerciseCount: inventory.readyExerciseCount,
+      targetReadyCount,
+    };
+  }
+
+  const validation = validateGeneratedExactInputExercises(rawGeneration, {
+    minValidExercises: 1,
+    maxGeneratedExercises: requestedCount,
+  });
+
+  if (validation.status === "invalid") {
+    await markGenerationJobFailed(prisma, generationJob.id, {
+      message: validation.message,
+      acceptedCount: validation.validCount,
+      rejectedCount: validation.rejectedCount,
+      now: input.now,
+    });
+
+    return {
+      status: "not-refilled",
+      reason: "invalid-generation",
+      message: validation.message,
+      generationJobId: generationJob.id,
+      readyExerciseCount: inventory.readyExerciseCount,
+      targetReadyCount,
+    };
+  }
+
+  const deduplicated = filterDuplicateExactInputExercises(validation.exercises, skill.exercises);
+
+  if (deduplicated.exercises.length === 0) {
+    const message = "Gemini returned only duplicate exact-input exercises for this skill.";
+    await markGenerationJobFailed(prisma, generationJob.id, {
+      message,
+      acceptedCount: 0,
+      rejectedCount: validation.rejectedCount + deduplicated.duplicateCount,
+      now: input.now,
+    });
+
+    return {
+      status: "not-refilled",
+      reason: "no-new-exercises",
+      message,
+      generationJobId: generationJob.id,
+      readyExerciseCount: inventory.readyExerciseCount,
+      targetReadyCount,
+    };
+  }
+
+  const candidates = toGeneratedExactInputExerciseCandidates(deduplicated.exercises);
+  let rawVerification: unknown;
+
+  try {
+    rawVerification = await withTimeout(
+      setup.verifyExactInputExercises({
+        skill,
+        sourceContext,
+        existingExerciseContext,
+        candidates,
+      }),
+      GENERATION_TIMEOUT_MS,
+      "verifyExactInputExercises timed out",
+    );
+  } catch (error) {
+    const message = `Gemini exact-input exercise verification failed: ${formatEnvError(error)}`;
+    await markGenerationJobFailed(prisma, generationJob.id, {
+      message,
+      acceptedCount: 0,
+      rejectedCount:
+        validation.rejectedCount + deduplicated.duplicateCount + deduplicated.exercises.length,
+      now: input.now,
+    });
+
+    return {
+      status: "not-refilled",
+      reason: "verification-failed",
+      message,
+      generationJobId: generationJob.id,
+      readyExerciseCount: inventory.readyExerciseCount,
+      targetReadyCount,
+    };
+  }
+
+  const verification = validateExactInputExerciseVerification(
+    {
+      candidates,
+      rawVerification,
+    },
+    {
+      minVerifiedExercises: 1,
+    },
+  );
+
+  if (verification.status === "invalid") {
+    await markGenerationJobFailed(prisma, generationJob.id, {
+      message: verification.message,
+      acceptedCount: verification.verifiedCount,
+      rejectedCount:
+        validation.rejectedCount + deduplicated.duplicateCount + verification.rejectedCount,
+      now: input.now,
+    });
+
+    return {
+      status: "not-refilled",
+      reason: "invalid-verification",
+      message: verification.message,
+      generationJobId: generationJob.id,
+      readyExerciseCount: inventory.readyExerciseCount,
+      targetReadyCount,
+    };
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const currentSkill = await tx.skill.findFirst({
+      where: {
+        id: skill.id,
+        userId: input.userId,
+        status: SkillStatus.ACTIVE,
+      },
+      select: {
+        id: true,
+        repetitions: true,
+        exercises: {
+          select: {
+            answerKind: true,
+            verificationStatus: true,
+            retiredAt: true,
+            answerSpec: true,
+          },
+        },
+      },
+    });
+
+    if (!currentSkill || !isExactInputUnlocked(currentSkill.repetitions)) {
+      await tx.generationJob.update({
+        where: { id: generationJob.id },
+        data: {
+          status: GenerationJobStatus.FAILED,
+          errorMessage: "Skill is not ready for exact-input practice.",
+          completedAt: input.now,
+        },
+      });
+
+      return {
+        status: "not-refilled",
+        reason: currentSkill ? "exact-input-locked" : "skill-not-active",
+        message: "Skill is not ready for exact-input practice.",
+        generationJobId: generationJob.id,
+      };
+    }
+
+    const currentInventory = countExactInputExerciseInventory(currentSkill.exercises);
+
+    if (currentInventory.readyExerciseCount >= targetReadyCount) {
+      await tx.generationJob.update({
+        where: { id: generationJob.id },
+        data: {
+          status: GenerationJobStatus.FAILED,
+          errorMessage: "Skill already reached the ready exact-input target.",
+          completedAt: input.now,
+        },
+      });
+
+      return {
+        status: "not-refilled",
+        reason: "already-at-target",
+        message: "This skill already has enough ready exact-input exercises.",
+        generationJobId: generationJob.id,
+        readyExerciseCount: currentInventory.readyExerciseCount,
+        targetReadyCount,
+      };
+    }
+
+    await tx.exercise.createMany({
+      data: verification.exercises.map((exercise) => ({
+        userId: input.userId,
+        skillId: skill.id,
+        type: ExerciseType.EXACT_INPUT,
+        answerKind: exercise.answerKind,
+        prompt: exercise.prompt,
+        choices: Prisma.JsonNull,
+        answerSpec: exercise.answerSpec,
+        correctAnswerDisplay: exercise.correctAnswerDisplay,
+        explanation: exercise.explanation,
+        difficulty: exercise.difficulty,
+        expectedSeconds: exercise.expectedSeconds,
+        verificationStatus: ExerciseVerificationStatus.VERIFIED,
+      })),
+    });
+
+    await tx.generationJob.update({
+      where: { id: generationJob.id },
+      data: {
+        status: GenerationJobStatus.SUCCEEDED,
+        acceptedCount: verification.exercises.length,
+        rejectedCount:
+          validation.rejectedCount + deduplicated.duplicateCount + verification.rejectedCount,
+        completedAt: input.now,
+      },
+    });
+
+    return {
+      status: "refilled",
+      skillId: skill.id,
+      generationJobId: generationJob.id,
+      exerciseCount: verification.exercises.length,
+      readyExerciseCount: currentInventory.readyExerciseCount + verification.exercises.length,
+      targetReadyCount,
+    };
+  });
+}
+
 export function validateGeneratedChoiceExercises(
   input: unknown,
   options: GeneratedChoiceExerciseValidationOptions = {},
@@ -1495,6 +2044,150 @@ export function validateChoiceExerciseVerification(input: {
   };
 }
 
+export function validateGeneratedExactInputExercises(
+  input: unknown,
+  options: GeneratedExactInputExerciseValidationOptions = {},
+): GeneratedExactInputExerciseValidationResult {
+  const minValidExercises = options.minValidExercises ?? 1;
+  const maxGeneratedExercises = options.maxGeneratedExercises ?? MAX_GENERATED_EXERCISES;
+  const envelopeResult = generatedExactInputEnvelopeSchema(maxGeneratedExercises).safeParse(input);
+
+  if (!envelopeResult.success) {
+    return invalidGeneratedExactInputExercises(
+      "invalid-response",
+      [],
+      0,
+      "Gemini returned an invalid exact-input shape.",
+    );
+  }
+
+  const exercises: GeneratedExactInputExercise[] = [];
+  let rejectedCount = 0;
+
+  for (const candidate of envelopeResult.data.exercises) {
+    const parsed = parseGeneratedExactInputExercise(candidate);
+
+    if (parsed) {
+      exercises.push(parsed);
+    } else {
+      rejectedCount += 1;
+    }
+  }
+
+  if (exercises.length < minValidExercises) {
+    return invalidGeneratedExactInputExercises(
+      "too-few-valid-exercises",
+      exercises,
+      rejectedCount,
+      `Gemini returned ${exercises.length} valid exact-input exercises; at least ${minValidExercises} are required.`,
+    );
+  }
+
+  return {
+    status: "ready",
+    exercises,
+    rejectedCount,
+  };
+}
+
+export function toGeneratedExactInputExerciseCandidates(
+  exercises: GeneratedExactInputExercise[],
+): GeneratedExactInputExerciseCandidate[] {
+  return exercises.map((exercise, index) => ({
+    ...exercise,
+    candidateId: `candidate-${index + 1}`,
+  }));
+}
+
+export function validateExactInputExerciseVerification(input: {
+  candidates: GeneratedExactInputExerciseCandidate[];
+  rawVerification: unknown;
+}, options: ExactInputExerciseVerificationOptions = {}): ExactInputExerciseVerificationResult {
+  const minVerifiedExercises = options.minVerifiedExercises ?? 1;
+  const envelopeResult = choiceVerificationEnvelopeSchema(input.candidates.length).safeParse(
+    input.rawVerification,
+  );
+
+  if (!envelopeResult.success) {
+    return invalidExactInputExerciseVerification(
+      "invalid-response",
+      [],
+      [],
+      input.candidates.length,
+      "Gemini returned an invalid exact-input verification shape.",
+    );
+  }
+
+  const expectedCandidateIds = new Set(input.candidates.map((candidate) => candidate.candidateId));
+  const seenCandidateIds = new Set<string>();
+  const decisions: ExactInputExerciseVerificationDecision[] = [];
+
+  for (const verification of envelopeResult.data.verifications) {
+    if (!expectedCandidateIds.has(verification.candidateId)) {
+      return invalidExactInputExerciseVerification(
+        "candidate-mismatch",
+        [],
+        decisions,
+        input.candidates.length,
+        "Gemini exact-input verification referenced an unknown exercise candidate.",
+      );
+    }
+
+    if (seenCandidateIds.has(verification.candidateId)) {
+      return invalidExactInputExerciseVerification(
+        "candidate-mismatch",
+        [],
+        decisions,
+        input.candidates.length,
+        "Gemini exact-input verification returned a duplicate exercise decision.",
+      );
+    }
+
+    seenCandidateIds.add(verification.candidateId);
+    decisions.push({
+      candidateId: verification.candidateId,
+      verdict: verification.verdict,
+      reason: verification.verdict === "rejected" ? verification.reason ?? "other" : null,
+      note: verification.verdict === "rejected" ? verification.note?.trim() || null : null,
+    });
+  }
+
+  if (seenCandidateIds.size !== expectedCandidateIds.size) {
+    return invalidExactInputExerciseVerification(
+      "candidate-mismatch",
+      [],
+      decisions,
+      input.candidates.length,
+      "Gemini exact-input verification did not decide every exercise candidate.",
+    );
+  }
+
+  const decisionsByCandidateId = new Map(
+    decisions.map((decision) => [decision.candidateId, decision]),
+  );
+  const verifiedExercises = input.candidates
+    .filter((candidate) => decisionsByCandidateId.get(candidate.candidateId)?.verdict === "verified")
+    .map(stripGeneratedExactInputExerciseCandidate);
+  const rejectedCount = input.candidates.length - verifiedExercises.length;
+
+  if (verifiedExercises.length < minVerifiedExercises) {
+    return invalidExactInputExerciseVerification(
+      "too-few-verified-exercises",
+      verifiedExercises,
+      decisions,
+      rejectedCount,
+      `Gemini verified ${verifiedExercises.length} exact-input exercises; at least ${minVerifiedExercises} are required.`,
+    );
+  }
+
+  return {
+    status: "ready",
+    exercises: verifiedExercises,
+    decisions,
+    rejectedCount,
+  };
+}
+
 export function validateGeneratedSkillDraft(
   input: unknown,
 ): GeneratedSkillDraftValidationResult {
@@ -1559,6 +2252,56 @@ function resolveActivationSetup(
       verifyChoiceExercises:
         input.verifyChoiceExercises ??
         createGeminiChoiceExerciseVerifier({
+          apiKey: env.GEMINI_API_KEY,
+          model: env.GEMINI_MODEL,
+        }),
+    };
+  } catch (error) {
+    return {
+      status: "missing-env",
+      model: input.model ?? (process.env.GEMINI_MODEL?.trim() || "gemini-3.5-flash"),
+      message: formatEnvError(error),
+    };
+  }
+}
+
+function resolveExactInputRefillSetup(
+  input: RefillExactInputExercisesInput,
+):
+  | {
+      status: "ready";
+      model: string;
+      generateExactInputExercises: ExactInputExerciseGenerator;
+      verifyExactInputExercises: ExactInputExerciseVerifier;
+    }
+  | {
+      status: "missing-env";
+      model: string;
+      message: string;
+    } {
+  if (input.generateExactInputExercises) {
+    return {
+      status: "ready",
+      model: input.model ?? "test-generator",
+      generateExactInputExercises: input.generateExactInputExercises,
+      verifyExactInputExercises:
+        input.verifyExactInputExercises ?? createTrustingExactInputExerciseVerifier(),
+    };
+  }
+
+  try {
+    const env = getGeminiEnv();
+
+    return {
+      status: "ready",
+      model: env.GEMINI_MODEL,
+      generateExactInputExercises: createGeminiExactInputExerciseGenerator({
+        apiKey: env.GEMINI_API_KEY,
+        model: env.GEMINI_MODEL,
+      }),
+      verifyExactInputExercises:
+        input.verifyExactInputExercises ??
+        createGeminiExactInputExerciseVerifier({
           apiKey: env.GEMINI_API_KEY,
           model: env.GEMINI_MODEL,
         }),
@@ -1694,7 +2437,70 @@ function createGeminiChoiceExerciseVerifier({
   };
 }
 
+function createGeminiExactInputExerciseGenerator({
+  apiKey,
+  model,
+}: {
+  apiKey: string;
+  model: string;
+}): ExactInputExerciseGenerator {
+  return async (input) => {
+    const ai = new GoogleGenAI({ apiKey });
+    const response = await ai.models.generateContent({
+      model,
+      contents: buildExactInputExercisePrompt(input),
+      config: {
+        responseMimeType: "application/json",
+        responseJsonSchema: buildGeminiExactInputResponseJsonSchema(input.requestedCount),
+      },
+    });
+    const text = response.text;
+
+    if (!text) {
+      throw new Error("Gemini returned no text.");
+    }
+
+    return JSON.parse(text) as unknown;
+  };
+}
+
+function createGeminiExactInputExerciseVerifier({
+  apiKey,
+  model,
+}: {
+  apiKey: string;
+  model: string;
+}): ExactInputExerciseVerifier {
+  return async (input) => {
+    const ai = new GoogleGenAI({ apiKey });
+    const response = await ai.models.generateContent({
+      model,
+      contents: buildExactInputExerciseVerificationPrompt(input),
+      config: {
+        responseMimeType: "application/json",
+        responseJsonSchema: buildGeminiExactInputVerificationJsonSchema(input.candidates.length),
+      },
+    });
+    const text = response.text;
+
+    if (!text) {
+      throw new Error("Gemini returned no text.");
+    }
+
+    return JSON.parse(text) as unknown;
+  };
+}
+
 function createTrustingChoiceExerciseVerifier(): ChoiceExerciseVerifier {
+  return async (input) => ({
+    verifications: input.candidates.map((candidate) => ({
+      candidateId: candidate.candidateId,
+      verdict: "verified",
+    })),
+  });
+}
+
+function createTrustingExactInputExerciseVerifier(): ExactInputExerciseVerifier {
   return async (input) => ({
     verifications: input.candidates.map((candidate) => ({
       candidateId: candidate.candidateId,
@@ -1812,6 +2618,105 @@ function buildChoiceExerciseVerificationPrompt(input: ChoiceExerciseVerifierInpu
   return prompt.join("\n");
 }
 
+function buildExactInputExercisePrompt(input: ExactInputExerciseGeneratorInput): string {
+  const prompt = [
+    "Generate exact-input practice exercises for LearnRecur.",
+    "Return only JSON matching the provided response schema.",
+    "Do not include markdown, commentary, or answer keys outside the JSON.",
+    `Create exactly ${input.requestedCount} exercises.`,
+    "Each exercise must test the skill directly and have an objectively checkable short answer.",
+    "Use only TEXT or NUMERIC answer kinds. Do not generate math-expression exercises.",
+    "",
+    `Skill title: ${input.skill.title}`,
+    `Skill objective: ${input.skill.objective ?? "No objective provided."}`,
+    `Tags: ${input.skill.tags.join(", ") || "none"}`,
+    `Rules: ${summarizeJsonNotes(input.skill.rules)}`,
+    `Examples: ${summarizeJsonNotes(input.skill.examples)}`,
+    `Exercise constraints: ${summarizeJsonNotes(input.skill.exerciseConstraints)}`,
+  ];
+
+  if (input.sourceContext) {
+    prompt.push(
+      "",
+      "Linked source excerpt. Use this to match the source style and scope, but do not quote long passages.",
+      input.sourceContext,
+    );
+  }
+
+  if (input.existingExerciseContext) {
+    prompt.push(
+      "",
+      "Existing exact-input exercises for this skill. Avoid exact prompt and answer repeats.",
+      input.existingExerciseContext,
+    );
+  }
+
+  prompt.push(
+    "",
+    "For TEXT answers, answerSpec must be { kind: \"text\", accepted: string[], normalizeCase: true, normalizeWhitespace: true, normalizeDiacritics: true }.",
+    "For NUMERIC answers, answerSpec must be { kind: \"numeric\", accepted: number[] or simple numeric strings[], tolerance: number }.",
+    "Keep prompts short and make the required answer format obvious.",
+    "correctAnswerDisplay should be one concise answer the learner can compare against after checking.",
+  );
+
+  return prompt.join("\n");
+}
+
+function buildExactInputExerciseVerificationPrompt(input: ExactInputExerciseVerifierInput): string {
+  const candidates = input.candidates.map((candidate) => ({
+    candidateId: candidate.candidateId,
+    prompt: candidate.prompt,
+    answerKind: candidate.answerKind,
+    answerSpec: candidate.answerSpec,
+    correctAnswerDisplay: candidate.correctAnswerDisplay,
+    explanation: candidate.explanation,
+    difficulty: candidate.difficulty,
+    expectedSeconds: candidate.expectedSeconds,
+  }));
+
+  const prompt = [
+    "Verify generated LearnRecur exact-input exercise candidates.",
+    "Return only JSON matching the provided response schema.",
+    "Do not include markdown, commentary, rewritten exercises, or answer keys outside the JSON.",
+    "Be conservative: reject any candidate you are not confident is clear, fair, source-aligned, and objectively answerable.",
+    "Return exactly one verification decision for every candidateId, and never invent candidate IDs.",
+    "Use verdict verified only when the prompt, answer kind, answer spec, display answer, and explanation all agree.",
+    "Reject math-expression exercises; this verifier is only for TEXT and NUMERIC exact input.",
+    "",
+    `Skill title: ${input.skill.title}`,
+    `Skill objective: ${input.skill.objective ?? "No objective provided."}`,
+    `Tags: ${input.skill.tags.join(", ") || "none"}`,
+    `Rules: ${summarizeJsonNotes(input.skill.rules)}`,
+    `Examples: ${summarizeJsonNotes(input.skill.examples)}`,
+    `Exercise constraints: ${summarizeJsonNotes(input.skill.exerciseConstraints)}`,
+  ];
+
+  if (input.sourceContext) {
+    prompt.push(
+      "",
+      "Linked source excerpt. Use this as the scope boundary for source-backed exercises.",
+      input.sourceContext,
+    );
+  }
+
+  if (input.existingExerciseContext) {
+    prompt.push(
+      "",
+      "Existing exact-input exercises for duplicate checks. Reject exact prompt and answer repeats.",
+      input.existingExerciseContext,
+    );
+  }
+
+  prompt.push(
+    "",
+    "Reject reasons must use one of: irrelevant, ambiguous, answer_mismatch, source_mismatch, weak_distractors, unclear_prompt, too_easy, too_hard, duplicate, other.",
+    "Candidates:",
+    JSON.stringify(candidates, null, 2),
+  );
+
+  return prompt.join("\n");
+}
+
 function buildSourceSkillDraftPrompt(input: SkillDraftGeneratorInput): string {
   return [
     "Create one editable LearnRecur skill draft from pasted learning material.",
@@ -1883,6 +2788,42 @@ export function buildExistingChoiceExerciseContext(
   return `${context.slice(0, EXISTING_EXERCISE_CONTEXT_CHAR_LIMIT - marker.length).trimEnd()}${marker}`;
 }
 
+export function buildExistingExactInputExerciseContext(
+  exercises: Array<{
+    prompt: string;
+    answerKind: AnswerKind;
+    answerSpec: Prisma.JsonValue;
+    correctAnswerDisplay: string;
+  }>,
+): string | null {
+  const exactExercises = exercises.filter(
+    (exercise) => exercise.answerKind === AnswerKind.TEXT || exercise.answerKind === AnswerKind.NUMERIC,
+  );
+
+  if (exactExercises.length === 0) {
+    return null;
+  }
+
+  const context = exactExercises
+    .map(
+      (exercise, index) =>
+        `${index + 1}. Prompt: ${exercise.prompt.trim()}\nAnswer kind: ${exercise.answerKind.toLowerCase()}\nCorrect answer: ${exercise.correctAnswerDisplay.trim()}\nAccepted answer summary: ${summarizeExactAnswerSpec(exercise.answerSpec)}`,
+    )
+    .join("\n\n")
+    .trim();
+
+  if (!context) {
+    return null;
+  }
+
+  if (context.length <= EXISTING_EXERCISE_CONTEXT_CHAR_LIMIT) {
+    return context;
+  }
+
+  const marker = "\n[truncated]";
+  return `${context.slice(0, EXISTING_EXERCISE_CONTEXT_CHAR_LIMIT - marker.length).trimEnd()}${marker}`;
+}
+
 export function filterDuplicateChoiceExercises(
   exercises: GeneratedChoiceExercise[],
   existingExercises: Array<{ prompt: string; correctAnswerDisplay: string }>,
@@ -1893,6 +2834,37 @@ export function filterDuplicateChoiceExercises(
 
   for (const exercise of exercises) {
     const key = toChoiceExerciseDuplicateKey(exercise);
+
+    if (seenKeys.has(key)) {
+      duplicateCount += 1;
+      continue;
+    }
+
+    seenKeys.add(key);
+    filteredExercises.push(exercise);
+  }
+
+  return {
+    exercises: filteredExercises,
+    duplicateCount,
+  };
+}
+
+export function filterDuplicateExactInputExercises(
+  exercises: GeneratedExactInputExercise[],
+  existingExercises: Array<{
+    prompt: string;
+    answerKind: AnswerKind;
+    answerSpec: Prisma.JsonValue;
+    correctAnswerDisplay: string;
+  }>,
+): { exercises: GeneratedExactInputExercise[]; duplicateCount: number } {
+  const seenKeys = new Set(existingExercises.map(toExactInputExerciseDuplicateKey));
+  const filteredExercises: GeneratedExactInputExercise[] = [];
+  let duplicateCount = 0;
+
+  for (const exercise of exercises) {
+    const key = toExactInputExerciseDuplicateKey(exercise);
 
     if (seenKeys.has(key)) {
       duplicateCount += 1;
@@ -1932,6 +2904,48 @@ export function isReadyChoiceExercise(exercise: ChoiceExerciseInventoryRecord): 
     exercise.retiredAt === null &&
     choicesSchema.safeParse(exercise.choices).success
   );
+}
+
+export function countExactInputExerciseInventory(
+  exercises: ExactInputExerciseInventoryRecord[],
+): ExactInputExerciseInventoryCounts {
+  return {
+    verifiedExerciseCount: exercises.filter(
+      (exercise) =>
+        (exercise.answerKind === AnswerKind.TEXT || exercise.answerKind === AnswerKind.NUMERIC) &&
+        exercise.verificationStatus === ExerciseVerificationStatus.VERIFIED,
+    ).length,
+    retiredExerciseCount: exercises.filter(
+      (exercise) =>
+        (exercise.answerKind === AnswerKind.TEXT || exercise.answerKind === AnswerKind.NUMERIC) &&
+        exercise.retiredAt !== null,
+    ).length,
+    readyExerciseCount: exercises.filter(isReadyExactInputExercise).length,
+  };
+}
+
+export function isReadyExactInputExercise(exercise: ExactInputExerciseInventoryRecord): boolean {
+  if (
+    exercise.verificationStatus !== ExerciseVerificationStatus.VERIFIED ||
+    exercise.retiredAt !== null
+  ) {
+    return false;
+  }
+
+  const answerSpecResult = answerSpecSchema.safeParse(exercise.answerSpec);
+
+  if (!answerSpecResult.success) {
+    return false;
+  }
+
+  return (
+    (exercise.answerKind === AnswerKind.TEXT && answerSpecResult.data.kind === "text") ||
+    (exercise.answerKind === AnswerKind.NUMERIC && answerSpecResult.data.kind === "numeric")
+  );
+}
+
+export function isExactInputUnlocked(repetitions: number): boolean {
+  return repetitions >= EXACT_INPUT_UNLOCK_REPETITIONS;
 }
 
 async function resolveCollectionId(
@@ -2039,6 +3053,88 @@ function parseGeneratedChoiceExercise(candidate: unknown): GeneratedChoiceExerci
   };
 }
 
+function parseGeneratedExactInputExercise(candidate: unknown): GeneratedExactInputExercise | null {
+  const result = generatedExactInputExerciseSchema.safeParse(candidate);
+
+  if (!result.success) {
+    return null;
+  }
+
+  const exercise = result.data;
+  const answerSpecResult = answerSpecSchema.safeParse(exercise.answerSpec);
+
+  if (!answerSpecResult.success) {
+    return null;
+  }
+
+  const answerSpec = answerSpecResult.data;
+
+  if (
+    (exercise.answerKind === AnswerKind.TEXT && answerSpec.kind !== "text") ||
+    (exercise.answerKind === AnswerKind.NUMERIC && answerSpec.kind !== "numeric") ||
+    answerSpec.kind === "choice" ||
+    answerSpec.kind === "math"
+  ) {
+    return null;
+  }
+
+  if (answerSpec.kind === "numeric" && !hasValidNumericAcceptedValues(answerSpec)) {
+    return null;
+  }
+
+  return {
+    prompt: exercise.prompt,
+    answerKind: exercise.answerKind,
+    answerSpec,
+    correctAnswerDisplay: exercise.correctAnswerDisplay,
+    explanation: exercise.explanation ?? null,
+    difficulty: exercise.difficulty ?? null,
+    expectedSeconds: exercise.expectedSeconds ?? null,
+  };
+}
+
+function hasValidNumericAcceptedValues(answerSpec: NumericAnswerSpec): boolean {
+  return answerSpec.accepted.every((acceptedValue) => {
+    const submittedAnswer = numericAcceptedValueToSubmittedAnswer(acceptedValue);
+
+    if (submittedAnswer === null) {
+      return false;
+    }
+
+    const result = checkAnswer({
+      answerSpec: {
+        ...answerSpec,
+        accepted: [acceptedValue],
+      },
+      submittedAnswer,
+    });
+
+    return result.status !== "invalid-spec";
+  });
+}
+
+function numericAcceptedValueToSubmittedAnswer(
+  acceptedValue: NumericAnswerSpec["accepted"][number],
+): string | number | null {
+  if (typeof acceptedValue === "number" || typeof acceptedValue === "string") {
+    return acceptedValue;
+  }
+
+  if (acceptedValue.type === "integer" || acceptedValue.type === "decimal") {
+    return acceptedValue.value;
+  }
+
+  if ("value" in acceptedValue) {
+    return acceptedValue.value;
+  }
+
+  if (acceptedValue.denominator === 0) {
+    return null;
+  }
+
+  return `${acceptedValue.numerator}/${acceptedValue.denominator}`;
+}
+
 function invalidGeneratedExercises(
   reason: "invalid-response" | "too-few-valid-exercises",
   exercises: GeneratedChoiceExercise[],
@@ -2073,9 +3169,51 @@ function invalidChoiceExerciseVerification(
   };
 }
 
+function invalidGeneratedExactInputExercises(
+  reason: "invalid-response" | "too-few-valid-exercises",
+  exercises: GeneratedExactInputExercise[],
+  rejectedCount: number,
+  message: string,
+): Extract<GeneratedExactInputExerciseValidationResult, { status: "invalid" }> {
+  return {
+    status: "invalid",
+    reason,
+    message,
+    exercises,
+    validCount: exercises.length,
+    rejectedCount,
+  };
+}
+
+function invalidExactInputExerciseVerification(
+  reason: "invalid-response" | "candidate-mismatch" | "too-few-verified-exercises",
+  exercises: GeneratedExactInputExercise[],
+  decisions: ExactInputExerciseVerificationDecision[],
+  rejectedCount: number,
+  message: string,
+): Extract<ExactInputExerciseVerificationResult, { status: "invalid" }> {
+  return {
+    status: "invalid",
+    reason,
+    message,
+    exercises,
+    decisions,
+    verifiedCount: exercises.length,
+    rejectedCount,
+  };
+}
+
 function stripGeneratedChoiceExerciseCandidate(
   candidate: GeneratedChoiceExerciseCandidate,
 ): GeneratedChoiceExercise {
+  const { candidateId, ...exercise } = candidate;
+  void candidateId;
+  return exercise;
+}
+
+function stripGeneratedExactInputExerciseCandidate(
+  candidate: GeneratedExactInputExerciseCandidate,
+): GeneratedExactInputExercise {
   const { candidateId, ...exercise } = candidate;
   void candidateId;
   return exercise;
@@ -2105,9 +3243,12 @@ function toConstraintsJson(
   };
 }
 
-function normalizeReadyExerciseTarget(targetReadyCount: number | undefined): number {
+function normalizeReadyExerciseTarget(
+  targetReadyCount: number | undefined,
+  defaultTarget = DEFAULT_READY_EXERCISE_TARGET,
+): number {
   if (!targetReadyCount || !Number.isFinite(targetReadyCount)) {
-    return DEFAULT_READY_EXERCISE_TARGET;
+    return defaultTarget;
   }
 
   return Math.max(1, Math.min(MAX_GENERATED_EXERCISES, Math.floor(targetReadyCount)));
@@ -2120,6 +3261,67 @@ function toChoiceExerciseDuplicateKey(exercise: {
   return `${normalizeDuplicateText(exercise.prompt)}\u0000${normalizeDuplicateText(
     exercise.correctAnswerDisplay,
   )}`;
+}
+
+function toExactInputExerciseDuplicateKey(exercise: {
+  prompt: string;
+  answerKind: AnswerKind;
+  answerSpec: Prisma.JsonValue | TextAnswerSpec | NumericAnswerSpec;
+  correctAnswerDisplay: string;
+}): string {
+  return [
+    normalizeDuplicateText(exercise.prompt),
+    exercise.answerKind,
+    normalizeDuplicateText(exercise.correctAnswerDisplay),
+    summarizeExactAnswerSpec(exercise.answerSpec),
+  ].join("\u0000");
+}
+
+function summarizeExactAnswerSpec(
+  answerSpecInput: Prisma.JsonValue | TextAnswerSpec | NumericAnswerSpec,
+): string {
+  const result = answerSpecSchema.safeParse(answerSpecInput);
+
+  if (!result.success) {
+    return "invalid";
+  }
+
+  const answerSpec = result.data;
+
+  if (answerSpec.kind === "text") {
+    return [
+      "text",
+      ...answerSpec.accepted.map(normalizeDuplicateText).toSorted(),
+      `case:${answerSpec.normalizeCase}`,
+      `space:${answerSpec.normalizeWhitespace}`,
+      `diacritics:${answerSpec.normalizeDiacritics}`,
+    ].join("|");
+  }
+
+  if (answerSpec.kind === "numeric") {
+    return [
+      "numeric",
+      ...answerSpec.accepted.map(stableJsonStringify).toSorted(),
+      `tolerance:${answerSpec.tolerance}`,
+    ].join("|");
+  }
+
+  return answerSpec.kind;
+}
+
+function stableJsonStringify(value: unknown): string {
+  if (value === null || typeof value !== "object") {
+    return JSON.stringify(value);
+  }
+
+  if (Array.isArray(value)) {
+    return `[${value.map(stableJsonStringify).join(",")}]`;
+  }
+
+  return `{${Object.entries(value)
+    .toSorted(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey))
+    .map(([key, entryValue]) => `${JSON.stringify(key)}:${stableJsonStringify(entryValue)}`)
+    .join(",")}}`;
 }
 
 function normalizeDuplicateText(value: string): string {
@@ -2144,7 +3346,8 @@ function summarizeJsonNotes(value: Prisma.JsonValue | null): string {
 
 function skillNotFound(): Extract<SkillDraftWriteResult, { status: "not-found" }> &
   Extract<SkillActivationResult, { status: "not-found" }> &
-  Extract<SkillExerciseRefillResult, { status: "not-found" }> {
+  Extract<SkillExerciseRefillResult, { status: "not-found" }> &
+  Extract<ExactInputExerciseRefillResult, { status: "not-found" }> {
   return {
     status: "not-found",
     reason: "skill-not-found",

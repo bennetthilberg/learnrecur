@@ -22,11 +22,16 @@ import {
   activateSkillDraft,
   createSkillDraft,
   createSkillDraftFromSource,
+  DEFAULT_READY_EXACT_INPUT_TARGET,
   DEFAULT_READY_EXERCISE_TARGET,
+  EXACT_INPUT_UNLOCK_REPETITIONS,
+  refillExactInputExercisesForSkill,
   refillChoiceExercisesForSkill,
   updateSkillDraft,
   type ChoiceExerciseGenerator,
   type ChoiceExerciseVerifier,
+  type ExactInputExerciseGenerator,
+  type ExactInputExerciseVerifier,
   type SkillDraftGenerator,
 } from "@/lib/skills";
 import { createInitialSkillSchedule } from "@/lib/scheduling";
@@ -49,11 +54,34 @@ const generatedExercise = (id: number) => ({
   expectedSeconds: 30,
 });
 
+const generatedExactInputExercise = (id: number) => ({
+  prompt: `Type the answer for exact item ${id}.`,
+  answerKind: AnswerKind.TEXT,
+  answerSpec: {
+    kind: "text",
+    accepted: [`exact answer ${id}`],
+    normalizeCase: true,
+    normalizeWhitespace: true,
+    normalizeDiacritics: true,
+  },
+  correctAnswerDisplay: `exact answer ${id}`,
+  explanation: `Exact item ${id} checks direct recall.`,
+  difficulty: 2,
+  expectedSeconds: 35,
+});
+
 const successfulGenerator: ChoiceExerciseGenerator = async () => ({
   exercises: [generatedExercise(1), generatedExercise(2), generatedExercise(3)],
 });
 
 const acceptAllVerifier: ChoiceExerciseVerifier = async (input) => ({
+  verifications: input.candidates.map((candidate) => ({
+    candidateId: candidate.candidateId,
+    verdict: "verified",
+  })),
+});
+
+const acceptAllExactInputVerifier: ExactInputExerciseVerifier = async (input) => ({
   verifications: input.candidates.map((candidate) => ({
     candidateId: candidate.candidateId,
     verdict: "verified",
@@ -101,10 +129,12 @@ describeDatabase("skill drafts and Gemini activation", () => {
     userId,
     title = "Active refill skill",
     status = SkillStatus.ACTIVE,
+    repetitions = 0,
   }: {
     userId: string;
     title?: string;
     status?: SkillStatus;
+    repetitions?: number;
   }) {
     return prisma.skill.create({
       data: {
@@ -114,6 +144,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
         status,
         tags: ["refill"],
         ...createInitialSkillSchedule(now),
+        repetitions,
       },
     });
   }
@@ -161,9 +192,15 @@ describeDatabase("skill drafts and Gemini activation", () => {
   async function createTextExerciseFixture({
     userId,
     skillId,
+    id = 1,
+    verificationStatus = ExerciseVerificationStatus.VERIFIED,
+    retiredAt = null,
   }: {
     userId: string;
     skillId: string;
+    id?: number;
+    verificationStatus?: ExerciseVerificationStatus;
+    retiredAt?: Date | null;
   }) {
     return prisma.exercise.create({
       data: {
@@ -171,12 +208,41 @@ describeDatabase("skill drafts and Gemini activation", () => {
         skillId,
         type: ExerciseType.EXACT_INPUT,
         answerKind: AnswerKind.TEXT,
-        prompt: "Type the exact answer.",
+        prompt: `Type the exact answer ${id}.`,
         answerSpec: {
           kind: "text",
-          accepted: ["answer"],
+          accepted: [`answer ${id}`],
         },
-        correctAnswerDisplay: "answer",
+        correctAnswerDisplay: `answer ${id}`,
+        verificationStatus,
+        retiredAt,
+        retirementReason: retiredAt ? ExerciseRetirementReason.MANUAL : null,
+      },
+    });
+  }
+
+  async function createNumericExerciseFixture({
+    userId,
+    skillId,
+    id = 1,
+  }: {
+    userId: string;
+    skillId: string;
+    id?: number;
+  }) {
+    return prisma.exercise.create({
+      data: {
+        userId,
+        skillId,
+        type: ExerciseType.EXACT_INPUT,
+        answerKind: AnswerKind.NUMERIC,
+        prompt: `Enter the numeric answer ${id}.`,
+        answerSpec: {
+          kind: "numeric",
+          accepted: [id],
+          tolerance: 0,
+        },
+        correctAnswerDisplay: String(id),
         verificationStatus: ExerciseVerificationStatus.VERIFIED,
       },
     });
@@ -1185,6 +1251,342 @@ describeDatabase("skill drafts and Gemini activation", () => {
       targetReadyCount: 2,
     });
     expect(capturedRequestedCount).toBe(1);
+  });
+
+  it("refills exact-input exercises for an unlocked active skill while preserving schedule state", async () => {
+    const userId = await createUser("exact_refill_success");
+    const skill = await createActiveSkillFixture({
+      userId,
+      title: "Unlocked exact refill skill",
+      repetitions: EXACT_INPUT_UNLOCK_REPETITIONS,
+    });
+    const originalSchedule = await prisma.skill.findUniqueOrThrow({
+      where: { id: skill.id },
+      select: {
+        status: true,
+        dueAt: true,
+        stability: true,
+        difficulty: true,
+        elapsedDays: true,
+        scheduledDays: true,
+        learningSteps: true,
+        repetitions: true,
+        lapses: true,
+        fsrsState: true,
+        lastReviewedAt: true,
+      },
+    });
+    let capturedRequestedCount: number | undefined;
+    let capturedExistingExerciseContext: string | null | undefined;
+
+    const generator: ExactInputExerciseGenerator = async (input) => {
+      capturedRequestedCount = input.requestedCount;
+      capturedExistingExerciseContext = input.existingExerciseContext;
+      return {
+        exercises: [
+          generatedExactInputExercise(1),
+          {
+            prompt: "Enter the decimal equivalent of one half.",
+            answerKind: AnswerKind.NUMERIC,
+            answerSpec: {
+              kind: "numeric",
+              accepted: ["1/2", 0.5],
+              tolerance: 0,
+            },
+            correctAnswerDisplay: "0.5",
+            explanation: "One half is 0.5.",
+            difficulty: 2,
+            expectedSeconds: 30,
+          },
+        ],
+      };
+    };
+
+    const result = await refillExactInputExercisesForSkill({
+      userId,
+      skillId: skill.id,
+      now,
+      generateExactInputExercises: generator,
+      verifyExactInputExercises: acceptAllExactInputVerifier,
+      model: "test-gemini",
+    });
+
+    expect(result).toMatchObject({
+      status: "refilled",
+      exerciseCount: DEFAULT_READY_EXACT_INPUT_TARGET,
+      readyExerciseCount: DEFAULT_READY_EXACT_INPUT_TARGET,
+      targetReadyCount: DEFAULT_READY_EXACT_INPUT_TARGET,
+    });
+    expect(capturedRequestedCount).toBe(DEFAULT_READY_EXACT_INPUT_TARGET);
+    expect(capturedExistingExerciseContext).toBeNull();
+
+    const [afterSchedule, exercises, generationJob, choicePracticeItem] = await Promise.all([
+      prisma.skill.findUniqueOrThrow({
+        where: { id: skill.id },
+        select: {
+          status: true,
+          dueAt: true,
+          stability: true,
+          difficulty: true,
+          elapsedDays: true,
+          scheduledDays: true,
+          learningSteps: true,
+          repetitions: true,
+          lapses: true,
+          fsrsState: true,
+          lastReviewedAt: true,
+        },
+      }),
+      prisma.exercise.findMany({
+        where: { userId, skillId: skill.id },
+        orderBy: { createdAt: "asc" },
+      }),
+      prisma.generationJob.findFirstOrThrow({ where: { userId, skillId: skill.id } }),
+      getNextChoicePracticeItemForUser(userId, now),
+    ]);
+
+    expect(afterSchedule).toEqual(originalSchedule);
+    expect(exercises).toHaveLength(DEFAULT_READY_EXACT_INPUT_TARGET);
+    expect(exercises.map((exercise) => exercise.answerKind).toSorted()).toEqual([
+      AnswerKind.NUMERIC,
+      AnswerKind.TEXT,
+    ]);
+    expect(generationJob).toMatchObject({
+      status: GenerationJobStatus.SUCCEEDED,
+      kind: GenerationJobKind.EXACT_INPUT_EXERCISE_GENERATION,
+      acceptedCount: DEFAULT_READY_EXACT_INPUT_TARGET,
+      rejectedCount: 0,
+    });
+    expect(choicePracticeItem.status).toBe("none-due");
+  });
+
+  it("does not refill exact-input exercises before the review threshold", async () => {
+    const userId = await createUser("exact_refill_locked");
+    const skill = await createActiveSkillFixture({
+      userId,
+      repetitions: EXACT_INPUT_UNLOCK_REPETITIONS - 1,
+    });
+
+    const result = await refillExactInputExercisesForSkill({
+      userId,
+      skillId: skill.id,
+      now,
+      generateExactInputExercises: async () => {
+        throw new Error("Generator should not run before exact input unlocks.");
+      },
+      verifyExactInputExercises: acceptAllExactInputVerifier,
+      model: "test-gemini",
+    });
+
+    expect(result).toMatchObject({
+      status: "not-refilled",
+      reason: "exact-input-locked",
+    });
+
+    await expect(
+      Promise.all([
+        prisma.exercise.count({ where: { userId, skillId: skill.id } }),
+        prisma.generationJob.count({ where: { userId, skillId: skill.id } }),
+      ]),
+    ).resolves.toEqual([0, 0]);
+  });
+
+  it("does not refill exact-input exercises that are already at target", async () => {
+    const userId = await createUser("exact_refill_noop");
+    const skill = await createActiveSkillFixture({
+      userId,
+      repetitions: EXACT_INPUT_UNLOCK_REPETITIONS,
+    });
+    await createTextExerciseFixture({ userId, skillId: skill.id, id: 1 });
+    await createNumericExerciseFixture({ userId, skillId: skill.id, id: 2 });
+
+    const result = await refillExactInputExercisesForSkill({
+      userId,
+      skillId: skill.id,
+      now,
+      generateExactInputExercises: async () => {
+        throw new Error("Generator should not run for a full exact-input queue.");
+      },
+      verifyExactInputExercises: acceptAllExactInputVerifier,
+      model: "test-gemini",
+    });
+
+    expect(result).toMatchObject({
+      status: "not-refilled",
+      reason: "already-at-target",
+      readyExerciseCount: DEFAULT_READY_EXACT_INPUT_TARGET,
+    });
+    await expect(
+      prisma.generationJob.count({ where: { userId, skillId: skill.id } }),
+    ).resolves.toBe(0);
+  });
+
+  it("creates a failed exact-input generation job without writing exercises when verification fails", async () => {
+    const userId = await createUser("exact_refill_verification_fail");
+    const skill = await createActiveSkillFixture({
+      userId,
+      repetitions: EXACT_INPUT_UNLOCK_REPETITIONS,
+    });
+
+    const result = await refillExactInputExercisesForSkill({
+      userId,
+      skillId: skill.id,
+      now,
+      generateExactInputExercises: async () => ({
+        exercises: [generatedExactInputExercise(1)],
+      }),
+      verifyExactInputExercises: async (input) => ({
+        verifications: input.candidates.map((candidate) => ({
+          candidateId: candidate.candidateId,
+          verdict: "rejected",
+          reason: "answer_mismatch",
+        })),
+      }),
+      model: "test-gemini",
+    });
+
+    expect(result).toMatchObject({
+      status: "not-refilled",
+      reason: "invalid-verification",
+    });
+
+    const [exerciseCount, generationJob] = await Promise.all([
+      prisma.exercise.count({ where: { userId, skillId: skill.id } }),
+      prisma.generationJob.findFirstOrThrow({ where: { userId, skillId: skill.id } }),
+    ]);
+
+    expect(exerciseCount).toBe(0);
+    expect(generationJob).toMatchObject({
+      status: GenerationJobStatus.FAILED,
+      kind: GenerationJobKind.EXACT_INPUT_EXERCISE_GENERATION,
+      acceptedCount: 0,
+      rejectedCount: 1,
+    });
+  });
+
+  it("rejects non-active, missing, and cross-user exact-input refills without jobs", async () => {
+    const userId = await createUser("exact_refill_rejects");
+    const otherUserId = await createUser("exact_refill_rejects_other");
+    const draftSkill = await createActiveSkillFixture({
+      userId,
+      status: SkillStatus.DRAFT,
+      repetitions: EXACT_INPUT_UNLOCK_REPETITIONS,
+    });
+    const archivedSkill = await createActiveSkillFixture({
+      userId,
+      status: SkillStatus.ARCHIVED,
+      repetitions: EXACT_INPUT_UNLOCK_REPETITIONS,
+    });
+    const otherSkill = await createActiveSkillFixture({
+      userId: otherUserId,
+      repetitions: EXACT_INPUT_UNLOCK_REPETITIONS,
+    });
+
+    for (const skillId of [draftSkill.id, archivedSkill.id]) {
+      await expect(
+        refillExactInputExercisesForSkill({
+          userId,
+          skillId,
+          now,
+          generateExactInputExercises: async () => ({
+            exercises: [generatedExactInputExercise(1)],
+          }),
+          verifyExactInputExercises: acceptAllExactInputVerifier,
+          model: "test-gemini",
+        }),
+      ).resolves.toMatchObject({
+        status: "not-refilled",
+        reason: "skill-not-active",
+      });
+    }
+
+    await expect(
+      refillExactInputExercisesForSkill({
+        userId,
+        skillId: otherSkill.id,
+        now,
+        generateExactInputExercises: async () => ({
+          exercises: [generatedExactInputExercise(1)],
+        }),
+        verifyExactInputExercises: acceptAllExactInputVerifier,
+        model: "test-gemini",
+      }),
+    ).resolves.toMatchObject({
+      status: "not-found",
+      reason: "skill-not-found",
+    });
+
+    await expect(
+      refillExactInputExercisesForSkill({
+        userId,
+        skillId: "missing-skill",
+        now,
+        generateExactInputExercises: async () => ({
+          exercises: [generatedExactInputExercise(1)],
+        }),
+        verifyExactInputExercises: acceptAllExactInputVerifier,
+        model: "test-gemini",
+      }),
+    ).resolves.toMatchObject({
+      status: "not-found",
+      reason: "skill-not-found",
+    });
+
+    await expect(
+      prisma.generationJob.count({
+        where: { userId, kind: GenerationJobKind.EXACT_INPUT_EXERCISE_GENERATION },
+      }),
+    ).resolves.toBe(0);
+  });
+
+  it("returns a typed exact-input setup error when Gemini env is missing", async () => {
+    const originalGeminiApiKey = process.env.GEMINI_API_KEY;
+    const originalGeminiModel = process.env.GEMINI_MODEL;
+
+    try {
+      delete process.env.GEMINI_API_KEY;
+      delete process.env.GEMINI_MODEL;
+
+      const userId = await createUser("exact_refill_missing_env");
+      const skill = await createActiveSkillFixture({
+        userId,
+        repetitions: EXACT_INPUT_UNLOCK_REPETITIONS,
+      });
+
+      const result = await refillExactInputExercisesForSkill({
+        userId,
+        skillId: skill.id,
+        now,
+      });
+
+      expect(result).toMatchObject({
+        status: "not-refilled",
+        reason: "missing-gemini-env",
+      });
+
+      await expect(
+        prisma.generationJob.findFirstOrThrow({
+          where: { userId, skillId: skill.id },
+        }),
+      ).resolves.toMatchObject({
+        status: GenerationJobStatus.FAILED,
+        kind: GenerationJobKind.EXACT_INPUT_EXERCISE_GENERATION,
+        acceptedCount: 0,
+        rejectedCount: 0,
+      });
+    } finally {
+      if (originalGeminiApiKey === undefined) {
+        delete process.env.GEMINI_API_KEY;
+      } else {
+        process.env.GEMINI_API_KEY = originalGeminiApiKey;
+      }
+
+      if (originalGeminiModel === undefined) {
+        delete process.env.GEMINI_MODEL;
+      } else {
+        process.env.GEMINI_MODEL = originalGeminiModel;
+      }
+    }
   });
 
   it("returns a typed setup error without creating practiceable exercises when Gemini env is missing", async () => {

@@ -3,20 +3,38 @@ import "server-only";
 import { AnswerKind, type Prisma } from "@/generated/prisma/client";
 import { getNextPracticeItem } from "@/lib/practice";
 
-import type { ChoiceOption, ChoicePracticeItem } from "./types";
+import type { ChoiceOption, PracticeItem } from "./types";
 
 const CHOICE_ANSWER_KINDS = [AnswerKind.CHOICE] as const;
 
 export async function getNextChoicePracticeItemForUser(
   userId: string,
   now = new Date(),
-): Promise<ChoicePracticeItem> {
+): Promise<PracticeItem> {
   const result = await getNextPracticeItem({
     userId,
     now,
     answerKinds: CHOICE_ANSWER_KINDS,
   });
 
+  return toPracticeItem(result);
+}
+
+export async function getNextPracticeItemForUser(
+  userId: string,
+  now = new Date(),
+): Promise<PracticeItem> {
+  const result = await getNextPracticeItem({
+    userId,
+    now,
+  });
+
+  return toPracticeItem(result);
+}
+
+function toPracticeItem(
+  result: Awaited<ReturnType<typeof getNextPracticeItem>>,
+): PracticeItem {
   if (result.status === "none-due") {
     return {
       status: "none-due",
@@ -24,33 +42,61 @@ export async function getNextChoicePracticeItemForUser(
     };
   }
 
-  const parsedChoices = toChoiceOptions(result.exercise.choices);
+  const skill = {
+    id: result.skill.id,
+    title: result.skill.title,
+    fsrsState: result.skill.fsrsState,
+    repetitions: result.skill.repetitions,
+    lapses: result.skill.lapses,
+  };
+
+  if (result.exercise.answerKind === AnswerKind.CHOICE) {
+    const parsedChoices = toChoiceOptions(result.exercise.choices);
+
+    if (
+      !Array.isArray(result.exercise.choices) ||
+      result.exercise.choices.length === 0 ||
+      parsedChoices.length !== result.exercise.choices.length
+    ) {
+      return {
+        status: "unavailable",
+        message: "This exercise does not have valid answer choices.",
+      };
+    }
+
+    return {
+      status: "ready",
+      skill,
+      exercise: {
+        id: result.exercise.id,
+        skillId: result.exercise.skillId,
+        answerKind: result.exercise.answerKind,
+        prompt: result.exercise.prompt,
+        choices: parsedChoices,
+        difficulty: result.exercise.difficulty,
+        expectedSeconds: result.exercise.expectedSeconds,
+      },
+    };
+  }
 
   if (
-    !Array.isArray(result.exercise.choices) ||
-    result.exercise.choices.length === 0 ||
-    parsedChoices.length !== result.exercise.choices.length
+    result.exercise.answerKind !== AnswerKind.TEXT &&
+    result.exercise.answerKind !== AnswerKind.NUMERIC
   ) {
     return {
       status: "unavailable",
-      message: "This exercise does not have valid answer choices.",
+      message: "This exercise type is not available in practice yet.",
     };
   }
 
   return {
     status: "ready",
-    skill: {
-      id: result.skill.id,
-      title: result.skill.title,
-      fsrsState: result.skill.fsrsState,
-      repetitions: result.skill.repetitions,
-      lapses: result.skill.lapses,
-    },
+    skill,
     exercise: {
       id: result.exercise.id,
       skillId: result.exercise.skillId,
+      answerKind: result.exercise.answerKind,
       prompt: result.exercise.prompt,
-      choices: parsedChoices,
       difficulty: result.exercise.difficulty,
       expectedSeconds: result.exercise.expectedSeconds,
     },
