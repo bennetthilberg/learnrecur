@@ -12,6 +12,7 @@ import {
   refillChoiceExercisesForSkill,
   updateSkillDraft,
 } from "@/lib/skills";
+import { removeSkillSource } from "@/lib/skills/sources";
 import { ensureDatabaseUser } from "@/lib/users";
 
 export type SkillFormActionState = {
@@ -226,6 +227,57 @@ export async function refillExactInputExercisesAction(
       (result.reason === "already-at-target" || result.reason === "exact-input-locked")
         ? "saved"
         : "error",
+    message: result.message,
+  };
+}
+
+export async function removeSkillSourceAction(
+  _previousState: SkillFormActionState,
+  formData: FormData,
+): Promise<SkillFormActionState> {
+  const user = await requireSkillActionUser();
+
+  if (user.status === "error") {
+    return user;
+  }
+
+  const skillId = getOptionalFormString(formData, "skillId");
+  const sourceRefId = getOptionalFormString(formData, "sourceRefId");
+  const confirmed = formData.get("confirmRemove") === "yes";
+
+  if (!skillId || !sourceRefId) {
+    return {
+      status: "error",
+      message: "No source material was selected.",
+    };
+  }
+
+  if (!confirmed) {
+    return {
+      status: "error",
+      message: "Confirm source removal before continuing.",
+    };
+  }
+
+  const result = await removeSkillSource({
+    userId: user.userId,
+    skillId,
+    sourceRefId,
+  });
+
+  revalidatePath(`/skills/${skillId}`);
+  revalidatePath("/skills");
+  revalidatePath("/dashboard");
+
+  if (result.status === "removed") {
+    return {
+      status: "saved",
+      message: result.message,
+    };
+  }
+
+  return {
+    status: "error",
     message: result.message,
   };
 }

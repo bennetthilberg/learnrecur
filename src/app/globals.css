@@ -1,5 +1,6 @@
 :root {
   --lr-ink: #131a24;
+  --lr-ink-soft: #2f3a48;
   --lr-muted: #4b5968;
   --lr-faint: #687789;
   --lr-line: #dce3eb;
@@ -162,6 +163,15 @@ a {
 
 .secondaryButton:hover {
   background: var(--lr-fill);
+}
+
+.secondaryButton[data-tone="danger"] {
+  border-color: rgba(192, 57, 43, 0.34);
+  color: var(--lr-error);
+}
+
+.secondaryButton[data-tone="danger"]:hover {
+  background: rgba(192, 57, 43, 0.07);
 }
 
 .primaryButton:focus-visible,
@@ -1215,6 +1225,114 @@ a {
   margin: 0 auto;
 }
 
+.skillSourcePanel {
+  display: grid;
+  width: min(100%, 1040px);
+  gap: 16px;
+  margin: 18px auto 0;
+}
+
+.skillSourceIntro {
+  max-width: 720px;
+  margin: -4px 0 0;
+  color: var(--lr-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.skillSourceList {
+  display: grid;
+}
+
+.skillSourceRow {
+  border-top: 1px solid var(--lr-line);
+  padding: 16px 0;
+}
+
+.skillSourceRow:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.skillSourceRow:last-child {
+  padding-bottom: 0;
+}
+
+.skillSourceRowHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.skillSourceRow h3 {
+  margin: 0;
+  color: var(--lr-ink);
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.skillSourceNote,
+.skillSourceEmpty {
+  margin: 10px 0 0;
+  color: var(--lr-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.skillSourcePreview {
+  margin: 12px 0 0;
+  border: 1px solid var(--lr-line);
+  border-radius: var(--lr-radius);
+  background: var(--lr-fill);
+  color: var(--lr-ink-soft);
+  padding: 11px 12px;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.skillSourceRemove {
+  min-width: 180px;
+  color: var(--lr-muted);
+  font-size: 13px;
+}
+
+.skillSourceRemove summary {
+  cursor: pointer;
+  color: var(--lr-error);
+  font-weight: 500;
+  list-style-position: inside;
+}
+
+.skillSourceRemove form {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.skillSourceRemove p {
+  margin: 0;
+  color: var(--lr-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.skillSourceConfirm {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: var(--lr-ink-soft);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.skillSourceConfirm input {
+  margin-top: 2px;
+  accent-color: var(--lr-primary);
+}
+
 .skillStatusGrid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1419,6 +1537,10 @@ a {
 
   .skillQueueBlock {
     grid-template-columns: 1fr;
+  }
+
+  .skillSourceRowHeader {
+    display: grid;
   }
 
   .skillRefillForm {

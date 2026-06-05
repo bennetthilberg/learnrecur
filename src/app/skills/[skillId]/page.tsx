@@ -13,11 +13,13 @@ import {
   EXACT_INPUT_UNLOCK_REPETITIONS,
   isExactInputUnlocked,
 } from "@/lib/skills";
+import { getSkillSourceSummaries } from "@/lib/skills/sources";
 import { ensureDatabaseUser } from "@/lib/users";
 
 import { SkillDraftForm, type SkillDraftFormValues } from "../skill-draft-form";
 import { SkillExactInputRefillForm } from "../skill-exact-input-refill-form";
 import { SkillRefillForm } from "../skill-refill-form";
+import { SkillSourcePanel } from "../skill-source-panel";
 import { SkillsTopbar } from "../skills-topbar";
 
 export const dynamic = "force-dynamic";
@@ -88,6 +90,10 @@ export default async function SkillPage({
   if (!skill) {
     notFound();
   }
+
+  const sourceSummariesResult = await getSkillSourceSummaries({ userId, skillId });
+  const sourceSummaries =
+    sourceSummariesResult.status === "ready" ? sourceSummariesResult.sources : [];
 
   const draftValues: SkillDraftFormValues = {
     title: skill.title,
@@ -232,6 +238,7 @@ export default async function SkillPage({
             </div>
           ) : null}
         </section>
+        <SkillSourcePanel skillId={skill.id} sources={sourceSummaries} />
       </main>
     );
   }
@@ -256,6 +263,8 @@ export default async function SkillPage({
           <p>{skill.generationJobs[0].errorMessage}</p>
         </section>
       ) : null}
+
+      <SkillSourcePanel skillId={skill.id} sources={sourceSummaries} />
 
       <SkillDraftForm initialValues={draftValues} mode="edit" skillId={skill.id} />
     </main>
