@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  DEFAULT_READY_EXERCISE_TARGET,
+  EXISTING_EXERCISE_CONTEXT_CHAR_LIMIT,
   SOURCE_CONTEXT_CHAR_LIMIT,
   MAX_GENERATED_EXERCISES,
   MIN_ACTIVATION_EXERCISES,
+  buildExistingChoiceExerciseContext,
   buildSourceContextExcerpt,
+  filterDuplicateChoiceExercises,
   normalizeSourceSkillDraftInput,
   normalizeSkillDraftInput,
   toGeneratedChoiceExerciseCandidates,
@@ -22,6 +26,23 @@ const validExercise = (id: number) => ({
     { id: "c", label: `Distractor ${id}` },
   ],
   correctChoiceId: "a",
+  explanation: `Sample ${id} uses the target idea.`,
+  difficulty: 2,
+  expectedSeconds: 25,
+});
+
+const validGeneratedExercise = (id: number) => ({
+  prompt: `What does sample ${id} mean?`,
+  choices: [
+    { id: "a", label: `Correct ${id}` },
+    { id: "b", label: `Wrong ${id}` },
+    { id: "c", label: `Distractor ${id}` },
+  ],
+  answerSpec: {
+    kind: "choice" as const,
+    correctChoiceId: "a",
+  },
+  correctAnswerDisplay: `Correct ${id}`,
   explanation: `Sample ${id} uses the target idea.`,
   difficulty: 2,
   expectedSeconds: 25,
@@ -145,6 +166,35 @@ describe("validateGeneratedChoiceExercises", () => {
     });
   });
 
+  it("allows refill validation to accept one valid generated exercise", () => {
+    const result = validateGeneratedChoiceExercises(
+      {
+        exercises: [validExercise(1)],
+      },
+      {
+        minValidExercises: 1,
+        maxGeneratedExercises: 1,
+      },
+    );
+
+    expect(result).toMatchObject({
+      status: "ready",
+      rejectedCount: 0,
+    });
+  });
+
+  it("still requires activation validation to use the default minimum", () => {
+    const result = validateGeneratedChoiceExercises({
+      exercises: [validExercise(1)],
+    });
+
+    expect(result).toMatchObject({
+      status: "invalid",
+      reason: "too-few-valid-exercises",
+      validCount: 1,
+    });
+  });
+
   it("fails closed for malformed response envelopes", () => {
     const result = validateGeneratedChoiceExercises({
       items: [validExercise(1), validExercise(2), validExercise(3)],
@@ -164,6 +214,25 @@ describe("validateGeneratedChoiceExercises", () => {
         validExercise(index),
       ),
     });
+
+    expect(result).toMatchObject({
+      status: "invalid",
+      reason: "invalid-response",
+      validCount: 0,
+      rejectedCount: 0,
+    });
+  });
+
+  it("rejects refill envelopes that exceed the requested batch size", () => {
+    const result = validateGeneratedChoiceExercises(
+      {
+        exercises: [validExercise(1), validExercise(2)],
+      },
+      {
+        minValidExercises: 1,
+        maxGeneratedExercises: 1,
+      },
+    );
 
     expect(result).toMatchObject({
       status: "invalid",
@@ -367,6 +436,58 @@ describe("validateChoiceExerciseVerification", () => {
       rejectedCount: 2,
     });
   });
+
+  it("allows refill verification to accept one verified exercise", () => {
+    const exerciseCandidates = toGeneratedChoiceExerciseCandidates([validGeneratedExercise(1)]);
+    const result = validateChoiceExerciseVerification(
+      {
+        candidates: exerciseCandidates,
+        rawVerification: {
+          verifications: [{ candidateId: "candidate-1", verdict: "verified" }],
+        },
+      },
+      {
+        minVerifiedExercises: 1,
+      },
+    );
+
+    expect(result).toMatchObject({
+      status: "ready",
+      rejectedCount: 0,
+    });
+  });
+});
+
+describe("filterDuplicateChoiceExercises", () => {
+  it("filters exact prompt and correct-answer repeats against existing and batch exercises", () => {
+    const result = filterDuplicateChoiceExercises(
+      [
+        validGeneratedExercise(1),
+        {
+          ...validGeneratedExercise(2),
+          prompt: "  what does sample 1 mean?  ",
+          correctAnswerDisplay: "Correct 1",
+        },
+        validGeneratedExercise(2),
+        {
+          ...validGeneratedExercise(3),
+          prompt: "What does sample 2 mean?",
+          correctAnswerDisplay: "Correct 2",
+        },
+      ],
+      [
+        {
+          prompt: "What does sample 1 mean?",
+          correctAnswerDisplay: "Correct 1",
+        },
+      ],
+    );
+
+    expect(result.duplicateCount).toBe(3);
+    expect(result.exercises.map((exercise) => exercise.prompt)).toEqual([
+      "What does sample 2 mean?",
+    ]);
+  });
 });
 
 describe("normalizeSourceSkillDraftInput", () => {
@@ -463,6 +584,25 @@ describe("buildSourceContextExcerpt", () => {
 
   it("returns null when there is no usable source text", () => {
     expect(buildSourceContextExcerpt([null, "   "])).toBeNull();
+  });
+});
+
+describe("buildExistingChoiceExerciseContext", () => {
+  it("caps existing exercise context and marks truncation", () => {
+    const result = buildExistingChoiceExerciseContext(
+      Array.from({ length: DEFAULT_READY_EXERCISE_TARGET + 4 }, (_, index) => ({
+        prompt: `Prompt ${index} ${"x".repeat(EXISTING_EXERCISE_CONTEXT_CHAR_LIMIT)}`,
+        correctAnswerDisplay: `Answer ${index}`,
+      })),
+    );
+
+    expect(result).not.toBeNull();
+    expect(result?.length).toBeLessThanOrEqual(EXISTING_EXERCISE_CONTEXT_CHAR_LIMIT);
+    expect(result?.endsWith("[truncated]")).toBe(true);
+  });
+
+  it("returns null when there are no existing choice exercises", () => {
+    expect(buildExistingChoiceExerciseContext([])).toBeNull();
   });
 });
 

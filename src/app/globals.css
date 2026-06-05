@@ -1117,6 +1117,47 @@ a {
   line-height: 1.5;
 }
 
+.skillQueueBlock {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 18px;
+  border-top: 1px solid var(--lr-line);
+  padding-top: 18px;
+}
+
+.skillQueueBlock h2 {
+  margin: 5px 0 0;
+  color: var(--lr-ink);
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 1.25;
+}
+
+.skillQueueBlock p:not(.eyebrow),
+.skillQueueStatus {
+  max-width: 620px;
+  margin: 9px 0 0;
+  color: var(--lr-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.skillQueueStatus {
+  color: var(--lr-ink-soft);
+  font-weight: 500;
+}
+
+.skillRefillForm {
+  display: grid;
+  justify-items: end;
+  gap: 10px;
+}
+
+.skillRefillForm .skillFormMessage {
+  max-width: 320px;
+}
+
 .skillMessage {
   width: min(100%, 1040px);
   margin: 0 auto 18px;
@@ -1338,6 +1379,14 @@ a {
 
   .skillLibraryGrid {
     grid-template-columns: 1fr;
+  }
+
+  .skillQueueBlock {
+    grid-template-columns: 1fr;
+  }
+
+  .skillRefillForm {
+    justify-items: start;
   }
 
   .skillTwoColumnFields,

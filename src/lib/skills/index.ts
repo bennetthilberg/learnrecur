@@ -23,7 +23,9 @@ import { createInitialSkillSchedule } from "@/lib/scheduling";
 export const MIN_ACTIVATION_EXERCISES = 3;
 export const REQUESTED_ACTIVATION_EXERCISES = 5;
 export const MAX_GENERATED_EXERCISES = 10;
+export const DEFAULT_READY_EXERCISE_TARGET = 5;
 export const SOURCE_CONTEXT_CHAR_LIMIT = 4_000;
+export const EXISTING_EXERCISE_CONTEXT_CHAR_LIMIT = 3_000;
 export const SOURCE_SKILL_DRAFT_PROMPT_VERSION = "source-skill-draft-v0";
 const GENERATION_TIMEOUT_MS = 45_000;
 export const SKILL_MCQ_PROMPT_VERSION = "skill-mcq-v0";
@@ -145,6 +147,15 @@ export type GeneratedChoiceExerciseValidationResult =
       rejectedCount: number;
     };
 
+export type GeneratedChoiceExerciseValidationOptions = {
+  minValidExercises?: number;
+  maxGeneratedExercises?: number;
+};
+
+export type ChoiceExerciseVerificationOptions = {
+  minVerifiedExercises?: number;
+};
+
 export type ChoiceExerciseGeneratorInput = {
   skill: {
     id: string;
@@ -156,6 +167,7 @@ export type ChoiceExerciseGeneratorInput = {
     tags: string[];
   };
   sourceContext: string | null;
+  existingExerciseContext?: string | null;
   requestedCount: number;
 };
 
@@ -166,6 +178,7 @@ export type ChoiceExerciseGenerator = (
 export type ChoiceExerciseVerifierInput = {
   skill: ChoiceExerciseGeneratorInput["skill"];
   sourceContext: string | null;
+  existingExerciseContext?: string | null;
   candidates: GeneratedChoiceExerciseCandidate[];
 };
 
@@ -232,6 +245,16 @@ export type ActivateSkillDraftInput = {
   model?: string;
 };
 
+export type RefillChoiceExercisesInput = {
+  userId: string;
+  skillId: string;
+  now: Date;
+  targetReadyCount?: number;
+  generateChoiceExercises?: ChoiceExerciseGenerator;
+  verifyChoiceExercises?: ChoiceExerciseVerifier;
+  model?: string;
+};
+
 export type CreateSkillDraftFromSourceInput = {
   userId: string;
   input: unknown;
@@ -278,6 +301,50 @@ export type SkillActivationResult =
       reason: "skill-not-found";
       message: string;
     };
+
+export type SkillExerciseRefillResult =
+  | {
+      status: "refilled";
+      skillId: string;
+      generationJobId: string;
+      exerciseCount: number;
+      readyExerciseCount: number;
+      targetReadyCount: number;
+    }
+  | {
+      status: "not-refilled";
+      reason:
+        | "already-at-target"
+        | "generation-failed"
+        | "invalid-generation"
+        | "verification-failed"
+        | "invalid-verification"
+        | "missing-gemini-env"
+        | "no-new-exercises"
+        | "skill-not-active";
+      message: string;
+      generationJobId?: string;
+      readyExerciseCount?: number;
+      targetReadyCount?: number;
+    }
+  | {
+      status: "not-found";
+      reason: "skill-not-found";
+      message: string;
+    };
+
+export type ChoiceExerciseInventoryRecord = {
+  answerKind: AnswerKind;
+  verificationStatus: ExerciseVerificationStatus;
+  retiredAt: Date | null;
+  choices: Prisma.JsonValue | null;
+};
+
+export type ChoiceExerciseInventoryCounts = {
+  verifiedExerciseCount: number;
+  retiredExerciseCount: number;
+  readyExerciseCount: number;
+};
 
 const optionalTrimmedStringSchema = z.preprocess((value) => {
   if (typeof value === "string" && value.trim() === "") {
@@ -331,9 +398,11 @@ const generatedChoiceExerciseSchema = z.strictObject({
   expectedSeconds: z.number().int().min(5).max(180).optional(),
 });
 
-const generatedChoiceEnvelopeSchema = z.strictObject({
-  exercises: z.array(z.unknown()).min(1).max(MAX_GENERATED_EXERCISES),
-});
+function generatedChoiceEnvelopeSchema(maxGeneratedExercises: number) {
+  return z.strictObject({
+    exercises: z.array(z.unknown()).min(1).max(maxGeneratedExercises),
+  });
+}
 
 const choiceVerificationDecisionSchema = z
   .strictObject({
@@ -352,81 +421,87 @@ const choiceVerificationDecisionSchema = z
     }
   });
 
-const choiceVerificationEnvelopeSchema = z.strictObject({
-  verifications: z.array(choiceVerificationDecisionSchema).min(1).max(MAX_GENERATED_EXERCISES),
-});
+function choiceVerificationEnvelopeSchema(maxVerifications: number) {
+  return z.strictObject({
+    verifications: z.array(choiceVerificationDecisionSchema).min(1).max(maxVerifications),
+  });
+}
 
-const geminiResponseJsonSchema = {
-  type: "object",
-  additionalProperties: false,
-  required: ["exercises"],
-  properties: {
-    exercises: {
-      type: "array",
-      minItems: MIN_ACTIVATION_EXERCISES,
-      maxItems: REQUESTED_ACTIVATION_EXERCISES,
-      items: {
-        type: "object",
-        additionalProperties: false,
-        required: ["prompt", "choices", "correctChoiceId", "explanation"],
-        properties: {
-          prompt: { type: "string" },
-          choices: {
-            type: "array",
-            minItems: 3,
-            maxItems: 5,
-            items: {
-              type: "object",
-              additionalProperties: false,
-              required: ["id", "label"],
-              properties: {
-                id: { type: "string" },
-                label: { type: "string" },
+function buildGeminiResponseJsonSchema(requestedCount: number) {
+  return {
+    type: "object",
+    additionalProperties: false,
+    required: ["exercises"],
+    properties: {
+      exercises: {
+        type: "array",
+        minItems: Math.max(1, Math.min(requestedCount, REQUESTED_ACTIVATION_EXERCISES)),
+        maxItems: Math.max(1, Math.min(requestedCount, MAX_GENERATED_EXERCISES)),
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: ["prompt", "choices", "correctChoiceId", "explanation"],
+          properties: {
+            prompt: { type: "string" },
+            choices: {
+              type: "array",
+              minItems: 3,
+              maxItems: 5,
+              items: {
+                type: "object",
+                additionalProperties: false,
+                required: ["id", "label"],
+                properties: {
+                  id: { type: "string" },
+                  label: { type: "string" },
+                },
               },
             },
+            correctChoiceId: { type: "string" },
+            explanation: { type: "string" },
+            difficulty: { type: "integer", minimum: 1, maximum: 5 },
+            expectedSeconds: { type: "integer", minimum: 5, maximum: 180 },
           },
-          correctChoiceId: { type: "string" },
-          explanation: { type: "string" },
-          difficulty: { type: "integer", minimum: 1, maximum: 5 },
-          expectedSeconds: { type: "integer", minimum: 5, maximum: 180 },
         },
       },
     },
-  },
-};
+  };
+}
 
-const geminiChoiceVerificationJsonSchema = {
-  type: "object",
-  additionalProperties: false,
-  required: ["verifications"],
-  properties: {
-    verifications: {
-      type: "array",
-      minItems: MIN_ACTIVATION_EXERCISES,
-      maxItems: REQUESTED_ACTIVATION_EXERCISES,
-      items: {
-        type: "object",
-        additionalProperties: false,
-        required: ["candidateId", "verdict"],
-        properties: {
-          candidateId: { type: "string" },
-          verdict: {
-            type: "string",
-            enum: ["verified", "rejected"],
-          },
-          reason: {
-            type: "string",
-            enum: choiceVerificationReasonValues,
-          },
-          note: {
-            type: "string",
-            maxLength: 300,
+function buildGeminiChoiceVerificationJsonSchema(candidateCount: number) {
+  return {
+    type: "object",
+    additionalProperties: false,
+    required: ["verifications"],
+    properties: {
+      verifications: {
+        type: "array",
+        minItems: candidateCount,
+        maxItems: candidateCount,
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: ["candidateId", "verdict"],
+          properties: {
+            candidateId: { type: "string" },
+            verdict: {
+              type: "string",
+              enum: ["verified", "rejected"],
+            },
+            reason: {
+              type: "string",
+              enum: choiceVerificationReasonValues,
+            },
+            note: {
+              type: "string",
+              maxLength: 300,
+            },
           },
         },
       },
     },
-  },
-};
+  };
+}
 
 const geminiSkillDraftJsonSchema = {
   type: "object",
@@ -776,6 +851,7 @@ export async function activateSkillDraft(
       setup.generateChoiceExercises({
         skill,
         sourceContext,
+        existingExerciseContext: null,
         requestedCount: REQUESTED_ACTIVATION_EXERCISES,
       }),
       GENERATION_TIMEOUT_MS,
@@ -824,6 +900,7 @@ export async function activateSkillDraft(
       setup.verifyChoiceExercises({
         skill,
         sourceContext,
+        existingExerciseContext: null,
         candidates,
       }),
       GENERATION_TIMEOUT_MS,
@@ -935,10 +1012,357 @@ export async function activateSkillDraft(
   });
 }
 
+export async function refillChoiceExercisesForSkill(
+  input: RefillChoiceExercisesInput,
+): Promise<SkillExerciseRefillResult> {
+  const prisma = getPrisma();
+  const targetReadyCount = normalizeReadyExerciseTarget(input.targetReadyCount);
+  const skill = await prisma.skill.findFirst({
+    where: {
+      id: input.skillId,
+      userId: input.userId,
+    },
+    select: {
+      id: true,
+      userId: true,
+      title: true,
+      objective: true,
+      rules: true,
+      examples: true,
+      exerciseConstraints: true,
+      tags: true,
+      status: true,
+      sourceRefs: {
+        orderBy: {
+          createdAt: "asc",
+        },
+        select: {
+          sourceFile: {
+            select: {
+              extractedText: true,
+            },
+          },
+        },
+      },
+      exercises: {
+        orderBy: {
+          createdAt: "asc",
+        },
+        select: {
+          id: true,
+          answerKind: true,
+          verificationStatus: true,
+          retiredAt: true,
+          choices: true,
+          prompt: true,
+          correctAnswerDisplay: true,
+        },
+      },
+    },
+  });
+
+  if (!skill) {
+    return skillNotFound();
+  }
+
+  if (skill.status !== SkillStatus.ACTIVE) {
+    return {
+      status: "not-refilled",
+      reason: "skill-not-active",
+      message: "Only active skills can generate more practice exercises.",
+    };
+  }
+
+  const inventory = countChoiceExerciseInventory(skill.exercises);
+
+  if (inventory.readyExerciseCount >= targetReadyCount) {
+    return {
+      status: "not-refilled",
+      reason: "already-at-target",
+      message: "This skill already has enough ready practice exercises.",
+      readyExerciseCount: inventory.readyExerciseCount,
+      targetReadyCount,
+    };
+  }
+
+  const requestedCount = targetReadyCount - inventory.readyExerciseCount;
+  const setup = resolveActivationSetup(input);
+  const generationJob = await prisma.generationJob.create({
+    data: {
+      userId: input.userId,
+      skillId: skill.id,
+      kind: GenerationJobKind.CHOICE_EXERCISE_GENERATION,
+      status: setup.status === "ready" ? GenerationJobStatus.RUNNING : GenerationJobStatus.FAILED,
+      provider: GEMINI_PROVIDER,
+      model: setup.model,
+      promptVersion: SKILL_MCQ_PROMPT_VERSION,
+      requestedCount,
+      errorMessage: setup.status === "ready" ? null : setup.message,
+      startedAt: input.now,
+      completedAt: setup.status === "ready" ? null : input.now,
+    },
+  });
+
+  if (setup.status === "missing-env") {
+    return {
+      status: "not-refilled",
+      reason: "missing-gemini-env",
+      message: setup.message,
+      generationJobId: generationJob.id,
+      readyExerciseCount: inventory.readyExerciseCount,
+      targetReadyCount,
+    };
+  }
+
+  const sourceContext = buildSourceContextExcerpt(
+    skill.sourceRefs.map((sourceRef) => sourceRef.sourceFile.extractedText),
+  );
+  const existingExerciseContext = buildExistingChoiceExerciseContext(skill.exercises);
+  let rawGeneration: unknown;
+
+  try {
+    rawGeneration = await withTimeout(
+      setup.generateChoiceExercises({
+        skill,
+        sourceContext,
+        existingExerciseContext,
+        requestedCount,
+      }),
+      GENERATION_TIMEOUT_MS,
+      "generateChoiceExercises timed out",
+    );
+  } catch (error) {
+    const message = `Gemini exercise generation failed: ${formatEnvError(error)}`;
+    await markGenerationJobFailed(prisma, generationJob.id, {
+      message,
+      acceptedCount: 0,
+      rejectedCount: 0,
+      now: input.now,
+    });
+
+    return {
+      status: "not-refilled",
+      reason: "generation-failed",
+      message,
+      generationJobId: generationJob.id,
+      readyExerciseCount: inventory.readyExerciseCount,
+      targetReadyCount,
+    };
+  }
+
+  const validation = validateGeneratedChoiceExercises(rawGeneration, {
+    minValidExercises: 1,
+    maxGeneratedExercises: requestedCount,
+  });
+
+  if (validation.status === "invalid") {
+    await markGenerationJobFailed(prisma, generationJob.id, {
+      message: validation.message,
+      acceptedCount: validation.validCount,
+      rejectedCount: validation.rejectedCount,
+      now: input.now,
+    });
+
+    return {
+      status: "not-refilled",
+      reason: "invalid-generation",
+      message: validation.message,
+      generationJobId: generationJob.id,
+      readyExerciseCount: inventory.readyExerciseCount,
+      targetReadyCount,
+    };
+  }
+
+  const deduplicated = filterDuplicateChoiceExercises(validation.exercises, skill.exercises);
+
+  if (deduplicated.exercises.length === 0) {
+    const message = "Gemini returned only duplicate exercises for this skill.";
+    await markGenerationJobFailed(prisma, generationJob.id, {
+      message,
+      acceptedCount: 0,
+      rejectedCount: validation.rejectedCount + deduplicated.duplicateCount,
+      now: input.now,
+    });
+
+    return {
+      status: "not-refilled",
+      reason: "no-new-exercises",
+      message,
+      generationJobId: generationJob.id,
+      readyExerciseCount: inventory.readyExerciseCount,
+      targetReadyCount,
+    };
+  }
+
+  const candidates = toGeneratedChoiceExerciseCandidates(deduplicated.exercises);
+  let rawVerification: unknown;
+
+  try {
+    rawVerification = await withTimeout(
+      setup.verifyChoiceExercises({
+        skill,
+        sourceContext,
+        existingExerciseContext,
+        candidates,
+      }),
+      GENERATION_TIMEOUT_MS,
+      "verifyChoiceExercises timed out",
+    );
+  } catch (error) {
+    const message = `Gemini exercise verification failed: ${formatEnvError(error)}`;
+    await markGenerationJobFailed(prisma, generationJob.id, {
+      message,
+      acceptedCount: 0,
+      rejectedCount:
+        validation.rejectedCount + deduplicated.duplicateCount + deduplicated.exercises.length,
+      now: input.now,
+    });
+
+    return {
+      status: "not-refilled",
+      reason: "verification-failed",
+      message,
+      generationJobId: generationJob.id,
+      readyExerciseCount: inventory.readyExerciseCount,
+      targetReadyCount,
+    };
+  }
+
+  const verification = validateChoiceExerciseVerification(
+    {
+      candidates,
+      rawVerification,
+    },
+    {
+      minVerifiedExercises: 1,
+    },
+  );
+
+  if (verification.status === "invalid") {
+    await markGenerationJobFailed(prisma, generationJob.id, {
+      message: verification.message,
+      acceptedCount: verification.verifiedCount,
+      rejectedCount:
+        validation.rejectedCount + deduplicated.duplicateCount + verification.rejectedCount,
+      now: input.now,
+    });
+
+    return {
+      status: "not-refilled",
+      reason: "invalid-verification",
+      message: verification.message,
+      generationJobId: generationJob.id,
+      readyExerciseCount: inventory.readyExerciseCount,
+      targetReadyCount,
+    };
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const currentSkill = await tx.skill.findFirst({
+      where: {
+        id: skill.id,
+        userId: input.userId,
+        status: SkillStatus.ACTIVE,
+      },
+      select: {
+        id: true,
+        exercises: {
+          select: {
+            answerKind: true,
+            verificationStatus: true,
+            retiredAt: true,
+            choices: true,
+          },
+        },
+      },
+    });
+
+    if (!currentSkill) {
+      await tx.generationJob.update({
+        where: { id: generationJob.id },
+        data: {
+          status: GenerationJobStatus.FAILED,
+          errorMessage: "Skill is no longer active.",
+          completedAt: input.now,
+        },
+      });
+
+      return {
+        status: "not-refilled",
+        reason: "skill-not-active",
+        message: "Skill is no longer active.",
+        generationJobId: generationJob.id,
+      };
+    }
+
+    const currentInventory = countChoiceExerciseInventory(currentSkill.exercises);
+
+    if (currentInventory.readyExerciseCount >= targetReadyCount) {
+      await tx.generationJob.update({
+        where: { id: generationJob.id },
+        data: {
+          status: GenerationJobStatus.FAILED,
+          errorMessage: "Skill already reached the ready exercise target.",
+          completedAt: input.now,
+        },
+      });
+
+      return {
+        status: "not-refilled",
+        reason: "already-at-target",
+        message: "This skill already has enough ready practice exercises.",
+        generationJobId: generationJob.id,
+        readyExerciseCount: currentInventory.readyExerciseCount,
+        targetReadyCount,
+      };
+    }
+
+    await tx.exercise.createMany({
+      data: verification.exercises.map((exercise) => ({
+        userId: input.userId,
+        skillId: skill.id,
+        type: ExerciseType.MULTIPLE_CHOICE,
+        answerKind: AnswerKind.CHOICE,
+        prompt: exercise.prompt,
+        choices: exercise.choices,
+        answerSpec: exercise.answerSpec,
+        correctAnswerDisplay: exercise.correctAnswerDisplay,
+        explanation: exercise.explanation,
+        difficulty: exercise.difficulty,
+        expectedSeconds: exercise.expectedSeconds,
+        verificationStatus: ExerciseVerificationStatus.VERIFIED,
+      })),
+    });
+
+    await tx.generationJob.update({
+      where: { id: generationJob.id },
+      data: {
+        status: GenerationJobStatus.SUCCEEDED,
+        acceptedCount: verification.exercises.length,
+        rejectedCount:
+          validation.rejectedCount + deduplicated.duplicateCount + verification.rejectedCount,
+        completedAt: input.now,
+      },
+    });
+
+    return {
+      status: "refilled",
+      skillId: skill.id,
+      generationJobId: generationJob.id,
+      exerciseCount: verification.exercises.length,
+      readyExerciseCount: currentInventory.readyExerciseCount + verification.exercises.length,
+      targetReadyCount,
+    };
+  });
+}
+
 export function validateGeneratedChoiceExercises(
   input: unknown,
+  options: GeneratedChoiceExerciseValidationOptions = {},
 ): GeneratedChoiceExerciseValidationResult {
-  const envelopeResult = generatedChoiceEnvelopeSchema.safeParse(input);
+  const minValidExercises = options.minValidExercises ?? MIN_ACTIVATION_EXERCISES;
+  const maxGeneratedExercises = options.maxGeneratedExercises ?? MAX_GENERATED_EXERCISES;
+  const envelopeResult = generatedChoiceEnvelopeSchema(maxGeneratedExercises).safeParse(input);
 
   if (!envelopeResult.success) {
     return invalidGeneratedExercises("invalid-response", [], 0, "Gemini returned an invalid shape.");
@@ -957,12 +1381,12 @@ export function validateGeneratedChoiceExercises(
     }
   }
 
-  if (exercises.length < MIN_ACTIVATION_EXERCISES) {
+  if (exercises.length < minValidExercises) {
     return invalidGeneratedExercises(
       "too-few-valid-exercises",
       exercises,
       rejectedCount,
-      `Gemini returned ${exercises.length} valid exercises; at least ${MIN_ACTIVATION_EXERCISES} are required.`,
+      `Gemini returned ${exercises.length} valid exercises; at least ${minValidExercises} are required.`,
     );
   }
 
@@ -985,8 +1409,11 @@ export function toGeneratedChoiceExerciseCandidates(
 export function validateChoiceExerciseVerification(input: {
   candidates: GeneratedChoiceExerciseCandidate[];
   rawVerification: unknown;
-}): ChoiceExerciseVerificationResult {
-  const envelopeResult = choiceVerificationEnvelopeSchema.safeParse(input.rawVerification);
+}, options: ChoiceExerciseVerificationOptions = {}): ChoiceExerciseVerificationResult {
+  const minVerifiedExercises = options.minVerifiedExercises ?? MIN_ACTIVATION_EXERCISES;
+  const envelopeResult = choiceVerificationEnvelopeSchema(input.candidates.length).safeParse(
+    input.rawVerification,
+  );
 
   if (!envelopeResult.success) {
     return invalidChoiceExerciseVerification(
@@ -1050,13 +1477,13 @@ export function validateChoiceExerciseVerification(input: {
     .map(stripGeneratedChoiceExerciseCandidate);
   const rejectedCount = input.candidates.length - verifiedExercises.length;
 
-  if (verifiedExercises.length < MIN_ACTIVATION_EXERCISES) {
+  if (verifiedExercises.length < minVerifiedExercises) {
     return invalidChoiceExerciseVerification(
       "too-few-verified-exercises",
       verifiedExercises,
       decisions,
       rejectedCount,
-      `Gemini verified ${verifiedExercises.length} exercises; at least ${MIN_ACTIVATION_EXERCISES} are required.`,
+      `Gemini verified ${verifiedExercises.length} exercises; at least ${minVerifiedExercises} are required.`,
     );
   }
 
@@ -1227,7 +1654,7 @@ function createGeminiChoiceExerciseGenerator({
       contents: buildChoiceExercisePrompt(input),
       config: {
         responseMimeType: "application/json",
-        responseJsonSchema: geminiResponseJsonSchema,
+        responseJsonSchema: buildGeminiResponseJsonSchema(input.requestedCount),
       },
     });
     const text = response.text;
@@ -1254,7 +1681,7 @@ function createGeminiChoiceExerciseVerifier({
       contents: buildChoiceExerciseVerificationPrompt(input),
       config: {
         responseMimeType: "application/json",
-        responseJsonSchema: geminiChoiceVerificationJsonSchema,
+        responseJsonSchema: buildGeminiChoiceVerificationJsonSchema(input.candidates.length),
       },
     });
     const text = response.text;
@@ -1315,6 +1742,14 @@ function buildChoiceExercisePrompt(input: ChoiceExerciseGeneratorInput): string 
     );
   }
 
+  if (input.existingExerciseContext) {
+    prompt.push(
+      "",
+      "Existing exercises for this skill. Avoid exact prompt and answer repeats.",
+      input.existingExerciseContext,
+    );
+  }
+
   prompt.push(
     "",
     "Use stable lowercase choice IDs such as a, b, c, d.",
@@ -1356,6 +1791,14 @@ function buildChoiceExerciseVerificationPrompt(input: ChoiceExerciseVerifierInpu
       "",
       "Linked source excerpt. Use this as the scope boundary for source-backed exercises.",
       input.sourceContext,
+    );
+  }
+
+  if (input.existingExerciseContext) {
+    prompt.push(
+      "",
+      "Existing exercises for duplicate checks. Reject exact prompt and answer repeats.",
+      input.existingExerciseContext,
     );
   }
 
@@ -1411,6 +1854,84 @@ export function buildSourceContextExcerpt(sourceTexts: Array<string | null | und
 
   const marker = "\n\n[truncated]";
   return `${joined.slice(0, SOURCE_CONTEXT_CHAR_LIMIT - marker.length).trimEnd()}${marker}`;
+}
+
+export function buildExistingChoiceExerciseContext(
+  exercises: Array<{ prompt: string; correctAnswerDisplay: string }>,
+): string | null {
+  if (exercises.length === 0) {
+    return null;
+  }
+
+  const context = exercises
+    .map(
+      (exercise, index) =>
+        `${index + 1}. Prompt: ${exercise.prompt.trim()}\nCorrect answer: ${exercise.correctAnswerDisplay.trim()}`,
+    )
+    .join("\n\n")
+    .trim();
+
+  if (!context) {
+    return null;
+  }
+
+  if (context.length <= EXISTING_EXERCISE_CONTEXT_CHAR_LIMIT) {
+    return context;
+  }
+
+  const marker = "\n[truncated]";
+  return `${context.slice(0, EXISTING_EXERCISE_CONTEXT_CHAR_LIMIT - marker.length).trimEnd()}${marker}`;
+}
+
+export function filterDuplicateChoiceExercises(
+  exercises: GeneratedChoiceExercise[],
+  existingExercises: Array<{ prompt: string; correctAnswerDisplay: string }>,
+): { exercises: GeneratedChoiceExercise[]; duplicateCount: number } {
+  const seenKeys = new Set(existingExercises.map(toChoiceExerciseDuplicateKey));
+  const filteredExercises: GeneratedChoiceExercise[] = [];
+  let duplicateCount = 0;
+
+  for (const exercise of exercises) {
+    const key = toChoiceExerciseDuplicateKey(exercise);
+
+    if (seenKeys.has(key)) {
+      duplicateCount += 1;
+      continue;
+    }
+
+    seenKeys.add(key);
+    filteredExercises.push(exercise);
+  }
+
+  return {
+    exercises: filteredExercises,
+    duplicateCount,
+  };
+}
+
+export function countChoiceExerciseInventory(
+  exercises: ChoiceExerciseInventoryRecord[],
+): ChoiceExerciseInventoryCounts {
+  return {
+    verifiedExerciseCount: exercises.filter(
+      (exercise) =>
+        exercise.answerKind === AnswerKind.CHOICE &&
+        exercise.verificationStatus === ExerciseVerificationStatus.VERIFIED,
+    ).length,
+    retiredExerciseCount: exercises.filter(
+      (exercise) => exercise.answerKind === AnswerKind.CHOICE && exercise.retiredAt !== null,
+    ).length,
+    readyExerciseCount: exercises.filter(isReadyChoiceExercise).length,
+  };
+}
+
+export function isReadyChoiceExercise(exercise: ChoiceExerciseInventoryRecord): boolean {
+  return (
+    exercise.answerKind === AnswerKind.CHOICE &&
+    exercise.verificationStatus === ExerciseVerificationStatus.VERIFIED &&
+    exercise.retiredAt === null &&
+    choicesSchema.safeParse(exercise.choices).success
+  );
 }
 
 async function resolveCollectionId(
@@ -1584,6 +2105,27 @@ function toConstraintsJson(
   };
 }
 
+function normalizeReadyExerciseTarget(targetReadyCount: number | undefined): number {
+  if (!targetReadyCount || !Number.isFinite(targetReadyCount)) {
+    return DEFAULT_READY_EXERCISE_TARGET;
+  }
+
+  return Math.max(1, Math.min(MAX_GENERATED_EXERCISES, Math.floor(targetReadyCount)));
+}
+
+function toChoiceExerciseDuplicateKey(exercise: {
+  prompt: string;
+  correctAnswerDisplay: string;
+}): string {
+  return `${normalizeDuplicateText(exercise.prompt)}\u0000${normalizeDuplicateText(
+    exercise.correctAnswerDisplay,
+  )}`;
+}
+
+function normalizeDuplicateText(value: string): string {
+  return value.trim().replace(/\s+/g, " ").toLocaleLowerCase("en-US");
+}
+
 function summarizeJsonNotes(value: Prisma.JsonValue | null): string {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return "none";
@@ -1601,7 +2143,8 @@ function summarizeJsonNotes(value: Prisma.JsonValue | null): string {
 }
 
 function skillNotFound(): Extract<SkillDraftWriteResult, { status: "not-found" }> &
-  Extract<SkillActivationResult, { status: "not-found" }> {
+  Extract<SkillActivationResult, { status: "not-found" }> &
+  Extract<SkillExerciseRefillResult, { status: "not-found" }> {
   return {
     status: "not-found",
     reason: "skill-not-found",

@@ -7,6 +7,7 @@ import {
   type SkillsLibraryDraftSkill,
   type SkillsLibraryGenerationJobSummary,
 } from "@/lib/skills/library";
+import { formatJobStatus } from "@/lib/formatters";
 import { ensureDatabaseUser } from "@/lib/users";
 
 import { SkillsTopbar } from "./skills-topbar";
@@ -206,8 +207,4 @@ function formatSourceCount(count: number) {
 
 function formatFsrsState(state: SkillsLibraryActiveSkill["fsrsState"]) {
   return state.toLowerCase().replaceAll("_", " ");
-}
-
-function formatJobStatus(status: SkillsLibraryGenerationJobSummary["status"]) {
-  return status.toLowerCase().replaceAll("_", " ");
 }
