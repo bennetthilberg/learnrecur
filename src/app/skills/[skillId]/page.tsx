@@ -4,9 +4,11 @@ import { notFound } from "next/navigation";
 
 import { SkillStatus, type Prisma } from "@/generated/prisma/client";
 import { getPrisma } from "@/lib/prisma";
+import { countChoiceExerciseInventory, DEFAULT_READY_EXERCISE_TARGET } from "@/lib/skills";
 import { ensureDatabaseUser } from "@/lib/users";
 
 import { SkillDraftForm, type SkillDraftFormValues } from "../skill-draft-form";
+import { SkillRefillForm } from "../skill-refill-form";
 import { SkillsTopbar } from "../skills-topbar";
 
 export const dynamic = "force-dynamic";
@@ -62,6 +64,14 @@ export default async function SkillPage({
         },
         take: 1,
       },
+      exercises: {
+        select: {
+          answerKind: true,
+          verificationStatus: true,
+          retiredAt: true,
+          choices: true,
+        },
+      },
     },
   });
 
@@ -80,6 +90,10 @@ export default async function SkillPage({
   };
 
   if (skill.status !== SkillStatus.DRAFT) {
+    const inventory = countChoiceExerciseInventory(skill.exercises);
+    const canRefill = inventory.readyExerciseCount < DEFAULT_READY_EXERCISE_TARGET;
+    const latestGenerationJob = skill.generationJobs[0] ?? null;
+
     return (
       <main className="skillShell">
         <SkillsTopbar current="skill" />
@@ -105,6 +119,20 @@ export default async function SkillPage({
               <dd>{skill._count.exercises}</dd>
             </div>
             <div>
+              <dt>Ready choices</dt>
+              <dd>
+                {inventory.readyExerciseCount} / {DEFAULT_READY_EXERCISE_TARGET}
+              </dd>
+            </div>
+            <div>
+              <dt>Verified choices</dt>
+              <dd>{inventory.verifiedExerciseCount}</dd>
+            </div>
+            <div>
+              <dt>Retired choices</dt>
+              <dd>{inventory.retiredExerciseCount}</dd>
+            </div>
+            <div>
               <dt>Collection</dt>
               <dd>{skill.collection?.name ?? "Uncollected"}</dd>
             </div>
@@ -117,6 +145,29 @@ export default async function SkillPage({
               <dd>{skill.dueAt ? skill.dueAt.toLocaleString("en-US") : "Not scheduled"}</dd>
             </div>
           </dl>
+          <div className="skillQueueBlock">
+            <div>
+              <p className="eyebrow">Exercise queue</p>
+              <h2>Ready choice exercises.</h2>
+              <p>
+                Keep a small set of verified exercises available so practice can stay fast and
+                deterministic.
+              </p>
+              {latestGenerationJob ? (
+                <p className="skillQueueStatus">
+                  Latest generation: {formatJobStatus(latestGenerationJob.status)} ·{" "}
+                  {latestGenerationJob.acceptedCount} accepted /{" "}
+                  {latestGenerationJob.rejectedCount} rejected
+                </p>
+              ) : null}
+              {latestGenerationJob?.errorMessage ? (
+                <p className="skillFormMessage" data-tone="error">
+                  {latestGenerationJob.errorMessage}
+                </p>
+              ) : null}
+            </div>
+            <SkillRefillForm canRefill={canRefill} skillId={skill.id} />
+          </div>
           {skill.tags.length > 0 ? (
             <div className="skillTagLine">
               {skill.tags.map((tag) => (
@@ -171,4 +222,8 @@ function notesToText(value: Prisma.JsonValue | null): string {
   }
 
   return "";
+}
+
+function formatJobStatus(status: string) {
+  return status.toLowerCase().replaceAll("_", " ");
 }

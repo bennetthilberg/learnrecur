@@ -4,10 +4,12 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import {
   AnswerKind,
+  ExerciseRetirementReason,
   ExerciseType,
   ExerciseVerificationStatus,
   GenerationJobKind,
   GenerationJobStatus,
+  Prisma,
   SkillFsrsState,
   SkillStatus,
   SourceFileKind,
@@ -20,11 +22,14 @@ import {
   activateSkillDraft,
   createSkillDraft,
   createSkillDraftFromSource,
+  DEFAULT_READY_EXERCISE_TARGET,
+  refillChoiceExercisesForSkill,
   updateSkillDraft,
   type ChoiceExerciseGenerator,
   type ChoiceExerciseVerifier,
   type SkillDraftGenerator,
 } from "@/lib/skills";
+import { createInitialSkillSchedule } from "@/lib/scheduling";
 
 const runDatabaseTests = process.env.RUN_DATABASE_TESTS === "1";
 const describeDatabase = runDatabaseTests ? describe : describe.skip;
@@ -90,6 +95,91 @@ describeDatabase("skill drafts and Gemini activation", () => {
       },
     });
     return userId;
+  }
+
+  async function createActiveSkillFixture({
+    userId,
+    title = "Active refill skill",
+    status = SkillStatus.ACTIVE,
+  }: {
+    userId: string;
+    title?: string;
+    status?: SkillStatus;
+  }) {
+    return prisma.skill.create({
+      data: {
+        userId,
+        title,
+        objective: "Choose the correct answer for short generated practice items.",
+        status,
+        tags: ["refill"],
+        ...createInitialSkillSchedule(now),
+      },
+    });
+  }
+
+  async function createChoiceExerciseFixture({
+    userId,
+    skillId,
+    id = 1,
+    verificationStatus = ExerciseVerificationStatus.VERIFIED,
+    choices = [
+      { id: "correct", label: `Correct answer ${id}` },
+      { id: "wrong", label: `Wrong answer ${id}` },
+      { id: "close", label: `Close distractor ${id}` },
+    ],
+    retiredAt = null,
+  }: {
+    userId: string;
+    skillId: string;
+    id?: number;
+    verificationStatus?: ExerciseVerificationStatus;
+    choices?: Prisma.InputJsonValue;
+    retiredAt?: Date | null;
+  }) {
+    return prisma.exercise.create({
+      data: {
+        userId,
+        skillId,
+        type: ExerciseType.MULTIPLE_CHOICE,
+        answerKind: AnswerKind.CHOICE,
+        prompt: `Existing refill prompt ${id}?`,
+        choices,
+        answerSpec: {
+          kind: "choice",
+          correctChoiceId: "correct",
+        },
+        correctAnswerDisplay: `Correct answer ${id}`,
+        explanation: `Existing explanation ${id}.`,
+        verificationStatus,
+        retiredAt,
+        retirementReason: retiredAt ? ExerciseRetirementReason.MANUAL : null,
+      },
+    });
+  }
+
+  async function createTextExerciseFixture({
+    userId,
+    skillId,
+  }: {
+    userId: string;
+    skillId: string;
+  }) {
+    return prisma.exercise.create({
+      data: {
+        userId,
+        skillId,
+        type: ExerciseType.EXACT_INPUT,
+        answerKind: AnswerKind.TEXT,
+        prompt: "Type the exact answer.",
+        answerSpec: {
+          kind: "text",
+          accepted: ["answer"],
+        },
+        correctAnswerDisplay: "answer",
+        verificationStatus: ExerciseVerificationStatus.VERIFIED,
+      },
+    });
   }
 
   beforeAll(async () => {
@@ -677,6 +767,420 @@ describeDatabase("skill drafts and Gemini activation", () => {
     expect(capturedSourceContext).toContain("Use estar for location");
     expect(capturedVerifierSourceContext).toContain("Use ser for identity");
     expect(capturedVerifierSourceContext).toContain("Use estar for location");
+  });
+
+  it("does not refill an active skill that already has target ready choice exercises", async () => {
+    const userId = await createUser("refill_noop");
+    const skill = await createActiveSkillFixture({
+      userId,
+      title: "No-op refill skill",
+    });
+
+    for (let index = 1; index <= DEFAULT_READY_EXERCISE_TARGET; index += 1) {
+      await createChoiceExerciseFixture({ userId, skillId: skill.id, id: index });
+    }
+
+    const result = await refillChoiceExercisesForSkill({
+      userId,
+      skillId: skill.id,
+      now,
+      generateChoiceExercises: async () => {
+        throw new Error("Generator should not be called for a full queue.");
+      },
+      verifyChoiceExercises: acceptAllVerifier,
+      model: "test-gemini",
+    });
+
+    expect(result).toMatchObject({
+      status: "not-refilled",
+      reason: "already-at-target",
+      readyExerciseCount: DEFAULT_READY_EXERCISE_TARGET,
+      targetReadyCount: DEFAULT_READY_EXERCISE_TARGET,
+    });
+
+    await expect(
+      Promise.all([
+        prisma.exercise.count({ where: { userId, skillId: skill.id } }),
+        prisma.generationJob.count({ where: { userId, skillId: skill.id } }),
+      ]),
+    ).resolves.toEqual([DEFAULT_READY_EXERCISE_TARGET, 0]);
+  });
+
+  it("refills an active skill below target while preserving schedule state", async () => {
+    const userId = await createUser("refill_success");
+    const skill = await createActiveSkillFixture({
+      userId,
+      title: "Source-backed refill skill",
+    });
+    const sourceFile = await prisma.sourceFile.create({
+      data: {
+        userId,
+        kind: SourceFileKind.TEXT,
+        status: SourceFileStatus.READY,
+        originalName: "Refill source",
+        mimeType: "text/plain",
+        extractedText:
+          "Use source-backed classroom examples with short prompts and clear choices.",
+      },
+    });
+    await prisma.skillSourceRef.create({
+      data: {
+        userId,
+        skillId: skill.id,
+        sourceFileId: sourceFile.id,
+      },
+    });
+    await createChoiceExerciseFixture({ userId, skillId: skill.id, id: 1 });
+    await createChoiceExerciseFixture({ userId, skillId: skill.id, id: 2 });
+
+    const originalSchedule = await prisma.skill.findUniqueOrThrow({
+      where: { id: skill.id },
+      select: {
+        status: true,
+        dueAt: true,
+        stability: true,
+        difficulty: true,
+        elapsedDays: true,
+        scheduledDays: true,
+        learningSteps: true,
+        repetitions: true,
+        lapses: true,
+        fsrsState: true,
+        lastReviewedAt: true,
+      },
+    });
+    let capturedRequestedCount: number | undefined;
+    let capturedSourceContext: string | null | undefined;
+    let capturedExistingExerciseContext: string | null | undefined;
+    let capturedVerifierExistingExerciseContext: string | null | undefined;
+
+    const refillGenerator: ChoiceExerciseGenerator = async (input) => {
+      capturedRequestedCount = input.requestedCount;
+      capturedSourceContext = input.sourceContext;
+      capturedExistingExerciseContext = input.existingExerciseContext;
+      return {
+        exercises: [generatedExercise(101), generatedExercise(102), generatedExercise(103)],
+      };
+    };
+    const refillVerifier: ChoiceExerciseVerifier = async (input) => {
+      capturedVerifierExistingExerciseContext = input.existingExerciseContext;
+      return acceptAllVerifier(input);
+    };
+
+    const result = await refillChoiceExercisesForSkill({
+      userId,
+      skillId: skill.id,
+      now,
+      generateChoiceExercises: refillGenerator,
+      verifyChoiceExercises: refillVerifier,
+      model: "test-gemini",
+    });
+
+    expect(result).toMatchObject({
+      status: "refilled",
+      exerciseCount: 3,
+      readyExerciseCount: DEFAULT_READY_EXERCISE_TARGET,
+      targetReadyCount: DEFAULT_READY_EXERCISE_TARGET,
+    });
+    expect(capturedRequestedCount).toBe(3);
+    expect(capturedSourceContext).toContain("Use source-backed classroom examples");
+    expect(capturedExistingExerciseContext).toContain("Existing refill prompt 1?");
+    expect(capturedExistingExerciseContext).toContain("Correct answer 1");
+    expect(capturedVerifierExistingExerciseContext).toContain("Existing refill prompt 2?");
+
+    const [afterSchedule, exercises, generationJob, nextPracticeItem] = await Promise.all([
+      prisma.skill.findUniqueOrThrow({
+        where: { id: skill.id },
+        select: {
+          status: true,
+          dueAt: true,
+          stability: true,
+          difficulty: true,
+          elapsedDays: true,
+          scheduledDays: true,
+          learningSteps: true,
+          repetitions: true,
+          lapses: true,
+          fsrsState: true,
+          lastReviewedAt: true,
+        },
+      }),
+      prisma.exercise.findMany({
+        where: { userId, skillId: skill.id },
+        orderBy: { createdAt: "asc" },
+      }),
+      prisma.generationJob.findFirstOrThrow({
+        where: { userId, skillId: skill.id },
+      }),
+      getNextChoicePracticeItemForUser(userId, now),
+    ]);
+
+    expect(afterSchedule).toEqual(originalSchedule);
+    expect(exercises).toHaveLength(DEFAULT_READY_EXERCISE_TARGET);
+    expect(exercises.filter((exercise) => exercise.prompt.includes("item 10"))).toHaveLength(3);
+    expect(generationJob).toMatchObject({
+      status: GenerationJobStatus.SUCCEEDED,
+      kind: GenerationJobKind.CHOICE_EXERCISE_GENERATION,
+      provider: "google",
+      model: "test-gemini",
+      promptVersion: "skill-mcq-v0",
+      requestedCount: 3,
+      acceptedCount: 3,
+      rejectedCount: 0,
+      errorMessage: null,
+    });
+    expect(nextPracticeItem.status).toBe("ready");
+  });
+
+  it("filters duplicate generated exercises during refill", async () => {
+    const userId = await createUser("refill_duplicates");
+    const skill = await createActiveSkillFixture({ userId });
+    await createChoiceExerciseFixture({ userId, skillId: skill.id, id: 1 });
+
+    const result = await refillChoiceExercisesForSkill({
+      userId,
+      skillId: skill.id,
+      now,
+      targetReadyCount: 3,
+      generateChoiceExercises: async () => ({
+        exercises: [
+          {
+            ...generatedExercise(100),
+            prompt: "Existing refill prompt 1?",
+            choices: [
+              { id: "correct", label: "Correct answer 1" },
+              { id: "wrong", label: "Wrong answer 1" },
+              { id: "close", label: "Close distractor 1" },
+            ],
+          },
+          generatedExercise(201),
+        ],
+      }),
+      verifyChoiceExercises: acceptAllVerifier,
+      model: "test-gemini",
+    });
+
+    expect(result).toMatchObject({
+      status: "refilled",
+      exerciseCount: 1,
+      readyExerciseCount: 2,
+      targetReadyCount: 3,
+    });
+
+    const [prompts, job] = await Promise.all([
+      prisma.exercise.findMany({
+        where: { userId, skillId: skill.id },
+        orderBy: { createdAt: "asc" },
+        select: { prompt: true },
+      }),
+      prisma.generationJob.findFirstOrThrow({ where: { userId, skillId: skill.id } }),
+    ]);
+
+    expect(prompts.map((exercise) => exercise.prompt)).toEqual([
+      "Existing refill prompt 1?",
+      "What is the best translation for item 201?",
+    ]);
+    expect(job).toMatchObject({
+      status: GenerationJobStatus.SUCCEEDED,
+      requestedCount: 2,
+      acceptedCount: 1,
+      rejectedCount: 1,
+    });
+  });
+
+  it("creates failed generation jobs without writing exercises when refill generation fails", async () => {
+    const userId = await createUser("refill_generation_fail");
+    const skill = await createActiveSkillFixture({ userId });
+
+    const result = await refillChoiceExercisesForSkill({
+      userId,
+      skillId: skill.id,
+      now,
+      targetReadyCount: 2,
+      generateChoiceExercises: async () => {
+        throw new Error("generator unavailable");
+      },
+      verifyChoiceExercises: acceptAllVerifier,
+      model: "test-gemini",
+    });
+
+    expect(result).toMatchObject({
+      status: "not-refilled",
+      reason: "generation-failed",
+    });
+
+    await expect(
+      Promise.all([
+        prisma.exercise.count({ where: { userId, skillId: skill.id } }),
+        prisma.generationJob.findFirstOrThrow({ where: { userId, skillId: skill.id } }),
+      ]),
+    ).resolves.toEqual([
+      0,
+      expect.objectContaining({
+        status: GenerationJobStatus.FAILED,
+        requestedCount: 2,
+        acceptedCount: 0,
+        rejectedCount: 0,
+      }),
+    ]);
+  });
+
+  it("creates failed generation jobs without writing exercises when refill verification fails", async () => {
+    const userId = await createUser("refill_verification_fail");
+    const skill = await createActiveSkillFixture({ userId });
+
+    const result = await refillChoiceExercisesForSkill({
+      userId,
+      skillId: skill.id,
+      now,
+      targetReadyCount: 2,
+      generateChoiceExercises: async () => ({
+        exercises: [generatedExercise(1), generatedExercise(2)],
+      }),
+      verifyChoiceExercises: async () => {
+        throw new Error("verifier unavailable");
+      },
+      model: "test-gemini",
+    });
+
+    expect(result).toMatchObject({
+      status: "not-refilled",
+      reason: "verification-failed",
+    });
+
+    await expect(
+      Promise.all([
+        prisma.exercise.count({ where: { userId, skillId: skill.id } }),
+        prisma.generationJob.findFirstOrThrow({ where: { userId, skillId: skill.id } }),
+      ]),
+    ).resolves.toEqual([
+      0,
+      expect.objectContaining({
+        status: GenerationJobStatus.FAILED,
+        requestedCount: 2,
+        acceptedCount: 0,
+        rejectedCount: 2,
+      }),
+    ]);
+  });
+
+  it("rejects draft, archived, missing, and cross-user refill requests without jobs", async () => {
+    const userId = await createUser("refill_reject");
+    const otherUserId = await createUser("refill_reject_other");
+    const draftSkill = await createActiveSkillFixture({
+      userId,
+      title: "Draft refill skill",
+      status: SkillStatus.DRAFT,
+    });
+    const archivedSkill = await createActiveSkillFixture({
+      userId,
+      title: "Archived refill skill",
+      status: SkillStatus.ARCHIVED,
+    });
+    const otherSkill = await createActiveSkillFixture({
+      userId: otherUserId,
+      title: "Other refill skill",
+    });
+
+    await expect(
+      refillChoiceExercisesForSkill({
+        userId,
+        skillId: draftSkill.id,
+        now,
+        generateChoiceExercises: successfulGenerator,
+        model: "test-gemini",
+      }),
+    ).resolves.toMatchObject({
+      status: "not-refilled",
+      reason: "skill-not-active",
+    });
+    await expect(
+      refillChoiceExercisesForSkill({
+        userId,
+        skillId: archivedSkill.id,
+        now,
+        generateChoiceExercises: successfulGenerator,
+        model: "test-gemini",
+      }),
+    ).resolves.toMatchObject({
+      status: "not-refilled",
+      reason: "skill-not-active",
+    });
+    await expect(
+      refillChoiceExercisesForSkill({
+        userId,
+        skillId: otherSkill.id,
+        now,
+        generateChoiceExercises: successfulGenerator,
+        model: "test-gemini",
+      }),
+    ).resolves.toMatchObject({
+      status: "not-found",
+      reason: "skill-not-found",
+    });
+    await expect(
+      refillChoiceExercisesForSkill({
+        userId,
+        skillId: "missing-skill",
+        now,
+        generateChoiceExercises: successfulGenerator,
+        model: "test-gemini",
+      }),
+    ).resolves.toMatchObject({
+      status: "not-found",
+      reason: "skill-not-found",
+    });
+
+    await expect(prisma.generationJob.count({ where: { userId } })).resolves.toBe(0);
+  });
+
+  it("counts only ready choice exercises when deciding refill size", async () => {
+    const userId = await createUser("refill_ready_count");
+    const skill = await createActiveSkillFixture({ userId });
+    await createChoiceExerciseFixture({ userId, skillId: skill.id, id: 1 });
+    await createChoiceExerciseFixture({
+      userId,
+      skillId: skill.id,
+      id: 2,
+      retiredAt: new Date("2026-06-04T16:05:00.000Z"),
+    });
+    await createChoiceExerciseFixture({
+      userId,
+      skillId: skill.id,
+      id: 3,
+      verificationStatus: ExerciseVerificationStatus.UNVERIFIED,
+    });
+    await createChoiceExerciseFixture({
+      userId,
+      skillId: skill.id,
+      id: 4,
+      choices: [{ id: "correct" }],
+    });
+    await createTextExerciseFixture({ userId, skillId: skill.id });
+    let capturedRequestedCount: number | undefined;
+
+    const result = await refillChoiceExercisesForSkill({
+      userId,
+      skillId: skill.id,
+      now,
+      targetReadyCount: 2,
+      generateChoiceExercises: async (input) => {
+        capturedRequestedCount = input.requestedCount;
+        return {
+          exercises: [generatedExercise(301)],
+        };
+      },
+      verifyChoiceExercises: acceptAllVerifier,
+      model: "test-gemini",
+    });
+
+    expect(result).toMatchObject({
+      status: "refilled",
+      exerciseCount: 1,
+      readyExerciseCount: 2,
+      targetReadyCount: 2,
+    });
+    expect(capturedRequestedCount).toBe(1);
   });
 
   it("returns a typed setup error without creating practiceable exercises when Gemini env is missing", async () => {

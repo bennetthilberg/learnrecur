@@ -1,12 +1,14 @@
 "use server";
 
 import { auth, currentUser } from "@clerk/nextjs/server";
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import {
   activateSkillDraft,
   createSkillDraft,
   createSkillDraftFromSource,
+  refillChoiceExercisesForSkill,
   updateSkillDraft,
 } from "@/lib/skills";
 import { ensureDatabaseUser } from "@/lib/users";
@@ -133,6 +135,50 @@ export async function generateSkillDraftFromSourceAction(
 
   return {
     status: "error",
+    message: result.message,
+  };
+}
+
+export async function refillChoiceExercisesAction(
+  _previousState: SkillFormActionState,
+  formData: FormData,
+): Promise<SkillFormActionState> {
+  const user = await requireSkillActionUser();
+
+  if (user.status === "error") {
+    return user;
+  }
+
+  const skillId = getOptionalFormString(formData, "skillId");
+
+  if (!skillId) {
+    return {
+      status: "error",
+      message: "No active skill was selected.",
+    };
+  }
+
+  const result = await refillChoiceExercisesForSkill({
+    userId: user.userId,
+    skillId,
+    now: new Date(),
+  });
+
+  revalidatePath(`/skills/${skillId}`);
+  revalidatePath("/skills");
+  revalidatePath("/dashboard");
+
+  if (result.status === "refilled") {
+    return {
+      status: "saved",
+      message: `Generated ${result.exerciseCount} new practice ${result.exerciseCount === 1 ? "exercise" : "exercises"}.`,
+    };
+  }
+
+  return {
+    status: result.status === "not-refilled" && result.reason === "already-at-target"
+      ? "saved"
+      : "error",
     message: result.message,
   };
 }
