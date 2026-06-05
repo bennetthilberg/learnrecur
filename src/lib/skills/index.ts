@@ -34,7 +34,8 @@ export const DEFAULT_READY_EXACT_INPUT_TARGET = 2;
 export const EXACT_INPUT_UNLOCK_REPETITIONS = 3;
 export const SOURCE_CONTEXT_CHAR_LIMIT = 4_000;
 export const EXISTING_EXERCISE_CONTEXT_CHAR_LIMIT = 3_000;
-export const SOURCE_SKILL_DRAFT_PROMPT_VERSION = "source-skill-draft-v0";
+export const MAX_GENERATED_SKILL_DRAFTS = 3;
+export const SOURCE_SKILL_DRAFT_PROMPT_VERSION = "source-skill-draft-v1";
 const GENERATION_TIMEOUT_MS = 45_000;
 export const SKILL_MCQ_PROMPT_VERSION = "skill-mcq-v0";
 export const SKILL_EXACT_INPUT_PROMPT_VERSION = "skill-exact-input-v0";
@@ -166,7 +167,7 @@ export type GeneratedSkillDraft = {
 export type GeneratedSkillDraftValidationResult =
   | {
       status: "ready";
-      draft: GeneratedSkillDraft;
+      drafts: GeneratedSkillDraft[];
     }
   | {
       status: "invalid";
@@ -359,9 +360,9 @@ export type CreateSkillDraftFromSourceInput = {
 export type SourceSkillDraftWriteResult =
   | {
       status: "created";
-      skill: Skill;
+      skills: Skill[];
       sourceFileId: string;
-      skillSourceRefId: string;
+      skillSourceRefIds: string[];
     }
   | Extract<SourceSkillDraftInputResult, { status: "invalid" }>
   | {
@@ -525,6 +526,10 @@ const generatedSkillDraftSchema = z.strictObject({
   examples: z.array(z.string().trim().min(1).max(500)).min(1).max(8),
   exerciseConstraints: z.string().trim().min(1).max(1000),
   tags: z.array(z.string().trim().min(1).max(40)).max(8),
+});
+
+const generatedSkillDraftEnvelopeSchema = z.strictObject({
+  drafts: z.array(generatedSkillDraftSchema).min(1).max(MAX_GENERATED_SKILL_DRAFTS),
 });
 
 const generatedChoiceExerciseSchema = z.strictObject({
@@ -698,27 +703,39 @@ function buildGeminiExactInputVerificationJsonSchema(candidateCount: number) {
 const geminiSkillDraftJsonSchema = {
   type: "object",
   additionalProperties: false,
-  required: ["title", "objective", "rules", "examples", "exerciseConstraints", "tags"],
+  required: ["drafts"],
   properties: {
-    title: { type: "string" },
-    objective: { type: "string" },
-    rules: {
+    drafts: {
       type: "array",
       minItems: 1,
-      maxItems: 8,
-      items: { type: "string" },
-    },
-    examples: {
-      type: "array",
-      minItems: 1,
-      maxItems: 8,
-      items: { type: "string" },
-    },
-    exerciseConstraints: { type: "string" },
-    tags: {
-      type: "array",
-      maxItems: 8,
-      items: { type: "string" },
+      maxItems: MAX_GENERATED_SKILL_DRAFTS,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["title", "objective", "rules", "examples", "exerciseConstraints", "tags"],
+        properties: {
+          title: { type: "string" },
+          objective: { type: "string" },
+          rules: {
+            type: "array",
+            minItems: 1,
+            maxItems: 8,
+            items: { type: "string" },
+          },
+          examples: {
+            type: "array",
+            minItems: 1,
+            maxItems: 8,
+            items: { type: "string" },
+          },
+          exerciseConstraints: { type: "string" },
+          tags: {
+            type: "array",
+            maxItems: 8,
+            items: { type: "string" },
+          },
+        },
+      },
     },
   },
 };
@@ -894,7 +911,7 @@ export async function createSkillDraftFromSource(
     };
   }
 
-  const validation = validateGeneratedSkillDraft(rawGeneration);
+  const validation = validateGeneratedSkillDrafts(rawGeneration);
 
   if (validation.status === "invalid") {
     return {
@@ -912,19 +929,6 @@ export async function createSkillDraftFromSource(
       input.userId,
       normalized.value.collectionName,
     );
-    const skill = await tx.skill.create({
-      data: {
-        userId: input.userId,
-        collectionId,
-        title: validation.draft.title,
-        objective: validation.draft.objective,
-        rules: toNotesJson(validation.draft.rules),
-        examples: toNotesJson(validation.draft.examples),
-        exerciseConstraints: toConstraintsJson(validation.draft.exerciseConstraints),
-        tags: normalizeTags([...normalized.value.tags, ...validation.draft.tags]),
-        status: SkillStatus.DRAFT,
-      },
-    });
     const sourceFile = await tx.sourceFile.create({
       data: {
         userId: input.userId,
@@ -943,20 +947,42 @@ export async function createSkillDraftFromSource(
         },
       },
     });
-    const sourceRef = await tx.skillSourceRef.create({
-      data: {
-        userId: input.userId,
-        skillId: skill.id,
-        sourceFileId: sourceFile.id,
-        note: normalized.value.focusNote,
-      },
-    });
+
+    const skills: Skill[] = [];
+    const skillSourceRefIds: string[] = [];
+
+    for (const draft of validation.drafts) {
+      const skill = await tx.skill.create({
+        data: {
+          userId: input.userId,
+          collectionId,
+          title: draft.title,
+          objective: draft.objective,
+          rules: toNotesJson(draft.rules),
+          examples: toNotesJson(draft.examples),
+          exerciseConstraints: toConstraintsJson(draft.exerciseConstraints),
+          tags: normalizeTags([...normalized.value.tags, ...draft.tags]),
+          status: SkillStatus.DRAFT,
+        },
+      });
+      const sourceRef = await tx.skillSourceRef.create({
+        data: {
+          userId: input.userId,
+          skillId: skill.id,
+          sourceFileId: sourceFile.id,
+          note: normalized.value.focusNote,
+        },
+      });
+
+      skills.push(skill);
+      skillSourceRefIds.push(sourceRef.id);
+    }
 
     return {
       status: "created",
-      skill,
+      skills,
       sourceFileId: sourceFile.id,
-      skillSourceRefId: sourceRef.id,
+      skillSourceRefIds,
     };
   });
 }
@@ -2188,31 +2214,31 @@ export function validateExactInputExerciseVerification(input: {
   };
 }
 
-export function validateGeneratedSkillDraft(
+export function validateGeneratedSkillDrafts(
   input: unknown,
 ): GeneratedSkillDraftValidationResult {
-  const result = generatedSkillDraftSchema.safeParse(input);
+  const result = generatedSkillDraftEnvelopeSchema.safeParse(input);
 
   if (!result.success) {
     return {
       status: "invalid",
       reason: "invalid-response",
-      message: "Gemini returned an invalid skill draft.",
+      message: "Gemini returned invalid skill drafts.",
     };
   }
 
-  const draft = result.data;
+  const drafts = result.data.drafts;
 
   return {
     status: "ready",
-    draft: {
+    drafts: drafts.map((draft) => ({
       title: draft.title,
       objective: draft.objective,
       rules: draft.rules,
       examples: draft.examples,
       exerciseConstraints: draft.exerciseConstraints,
       tags: normalizeTags(draft.tags),
-    },
+    })),
   };
 }
 
@@ -2719,11 +2745,13 @@ function buildExactInputExerciseVerificationPrompt(input: ExactInputExerciseVeri
 
 function buildSourceSkillDraftPrompt(input: SkillDraftGeneratorInput): string {
   return [
-    "Create one editable LearnRecur skill draft from pasted learning material.",
+    "Create one to three editable LearnRecur skill drafts from pasted learning material.",
     "Return only JSON matching the provided response schema.",
     "Do not include markdown, commentary, exercises, or answer keys.",
-    "The skill must be narrow enough to practice with short objective exercises.",
-    "If the source is broad, choose the most coherent single skill, especially if the focus note points to one.",
+    "Each skill must be narrow enough to practice with short objective exercises.",
+    "If the source is narrow, return exactly one draft.",
+    `If the source is broad, split it into at most ${MAX_GENERATED_SKILL_DRAFTS} independently practiceable narrow skills.`,
+    "Use the focus note to constrain which skills are worth drafting.",
     "",
     `Source label: ${input.sourceLabel ?? "Pasted source"}`,
     `Focus note: ${input.focusNote ?? "No extra focus note."}`,
@@ -2733,12 +2761,13 @@ function buildSourceSkillDraftPrompt(input: SkillDraftGeneratorInput): string {
     "Pasted source:",
     input.sourceContext,
     "",
-    "Draft requirements:",
-    "- title: short and specific.",
+    "Response requirements:",
+    "- drafts: one to three draft objects.",
+    "- title: short and specific for each draft.",
     "- objective: one sentence describing exactly what the learner should practice.",
     "- rules: concise source-backed rules or reminders.",
     "- examples: source-style examples, not exercise questions.",
-    "- exerciseConstraints: guidance for future multiple-choice exercise generation.",
+    "- exerciseConstraints: guidance for future exercise generation.",
     "- tags: lowercase topic tags when possible.",
   ].join("\n");
 }
