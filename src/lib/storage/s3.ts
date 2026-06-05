@@ -40,11 +40,12 @@ export type SourceObjectStorage = {
   createPresignedUploadUrl(input: {
     key: string;
     mimeType: string;
+    maxBytes?: number;
     expiresInSeconds?: number;
   }): Promise<string>;
-  headObject(input: { key: string }): Promise<SourceObjectHead>;
-  getObjectBytes(input: { key: string }): Promise<Buffer>;
-  deleteObject(input: { key: string }): Promise<void>;
+  headObject(input: { key: string; bucket?: string }): Promise<SourceObjectHead>;
+  getObjectBytes(input: { key: string; bucket?: string }): Promise<Buffer>;
+  deleteObject(input: { key: string; bucket?: string }): Promise<void>;
 };
 
 export type SourceObjectStorageSetup =
@@ -87,6 +88,7 @@ export function createS3SourceObjectStorage(env: S3Env): SourceObjectStorage {
   return {
     bucketName: env.S3_BUCKET_NAME,
     async createPresignedUploadUrl(input) {
+      void input.maxBytes;
       return getSignedUrl(
         client,
         new PutObjectCommand({
@@ -100,9 +102,10 @@ export function createS3SourceObjectStorage(env: S3Env): SourceObjectStorage {
       );
     },
     async headObject(input) {
+      const bucket = input.bucket ?? env.S3_BUCKET_NAME;
       const result = await client.send(
         new HeadObjectCommand({
-          Bucket: env.S3_BUCKET_NAME,
+          Bucket: bucket,
           Key: input.key,
         }),
       );
@@ -113,23 +116,25 @@ export function createS3SourceObjectStorage(env: S3Env): SourceObjectStorage {
       };
     },
     async getObjectBytes(input) {
+      const bucket = input.bucket ?? env.S3_BUCKET_NAME;
       const result = await client.send(
         new GetObjectCommand({
-          Bucket: env.S3_BUCKET_NAME,
+          Bucket: bucket,
           Key: input.key,
         }),
       );
 
       if (!result.Body) {
-        return Buffer.alloc(0);
+        throw new Error(`S3 object ${bucket}/${input.key} had no response body.`);
       }
 
       return streamToBuffer(result.Body as AsyncIterable<Uint8Array>);
     },
     async deleteObject(input) {
+      const bucket = input.bucket ?? env.S3_BUCKET_NAME;
       await client.send(
         new DeleteObjectCommand({
-          Bucket: env.S3_BUCKET_NAME,
+          Bucket: bucket,
           Key: input.key,
         }),
       );

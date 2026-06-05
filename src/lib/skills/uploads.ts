@@ -28,6 +28,7 @@ import {
 export const MAX_SOURCE_UPLOAD_BYTES = 10 * 1024 * 1024;
 export const SOURCE_UPLOAD_PREFIX = "source-uploads";
 export const SOURCE_UPLOAD_PROMPT_VERSION = "source-upload-drafts-v0";
+const SOURCE_UPLOAD_GENERATION_TIMEOUT_MS = 45_000;
 
 const allowedSourceUploadMimeTypes = [
   "image/png",
@@ -285,6 +286,7 @@ export async function prepareSourceUpload(
     const uploadUrl = await storageSetup.storage.createPresignedUploadUrl({
       key: objectKey,
       mimeType: normalized.value.mimeType,
+      maxBytes: MAX_SOURCE_UPLOAD_BYTES,
       expiresInSeconds,
     });
 
@@ -368,7 +370,10 @@ export async function completeSourceUploadDrafts(
   let head;
 
   try {
-    head = await storageSetup.storage.headObject({ key: sourceFile.storageKey });
+    head = await storageSetup.storage.headObject({
+      key: sourceFile.storageKey,
+      bucket: sourceFile.storageBucket,
+    });
   } catch (error) {
     await cleanupUploadedSource(sourceFile, storageSetup.storage);
     return notCreated("invalid-upload", `Could not verify S3 upload: ${formatEnvError(error)}`);
@@ -408,22 +413,35 @@ export async function completeSourceUploadDrafts(
   let bytes: Buffer;
 
   try {
-    bytes = await storageSetup.storage.getObjectBytes({ key: sourceFile.storageKey });
+    bytes = await storageSetup.storage.getObjectBytes({
+      key: sourceFile.storageKey,
+      bucket: sourceFile.storageBucket,
+    });
   } catch (error) {
     await cleanupUploadedSource(sourceFile, storageSetup.storage);
     return notCreated("invalid-upload", `Could not read S3 upload: ${formatEnvError(error)}`);
   }
 
+  if (bytes.length === 0 || bytes.length > MAX_SOURCE_UPLOAD_BYTES) {
+    await cleanupUploadedSource(sourceFile, storageSetup.storage);
+    return notCreated("invalid-upload", "Uploaded file is missing or larger than 10 MB.");
+  }
+
   let rawExtraction: unknown;
 
   try {
-    rawExtraction = await setup.extractSourceText({
-      bytes,
-      mimeType: sourceFile.mimeType,
-      originalName: getMetadataString(sourceFile.metadata, "originalFileName") ?? sourceFile.originalName,
-      sourceLabel: sourceFile.originalName,
-      focusNote: getMetadataString(sourceFile.metadata, "focusNote"),
-    });
+    rawExtraction = await withTimeout(
+      setup.extractSourceText({
+        bytes,
+        mimeType: sourceFile.mimeType,
+        originalName:
+          getMetadataString(sourceFile.metadata, "originalFileName") ?? sourceFile.originalName,
+        sourceLabel: sourceFile.originalName,
+        focusNote: getMetadataString(sourceFile.metadata, "focusNote"),
+      }),
+      SOURCE_UPLOAD_GENERATION_TIMEOUT_MS,
+      "extractSourceText timed out",
+    );
   } catch (error) {
     await cleanupUploadedSource(sourceFile, storageSetup.storage);
     return notCreated(
@@ -442,14 +460,18 @@ export async function completeSourceUploadDrafts(
   let rawDraftGeneration: unknown;
 
   try {
-    rawDraftGeneration = await setup.generateSkillDraft({
-      sourceText: extraction.extractedText,
-      sourceLabel: sourceFile.originalName,
-      focusNote: getMetadataString(sourceFile.metadata, "focusNote"),
-      collectionName: getMetadataString(sourceFile.metadata, "collectionName"),
-      tags: getMetadataStringArray(sourceFile.metadata, "tags"),
-      sourceContext: extraction.extractedText,
-    });
+    rawDraftGeneration = await withTimeout(
+      setup.generateSkillDraft({
+        sourceText: extraction.extractedText,
+        sourceLabel: sourceFile.originalName,
+        focusNote: getMetadataString(sourceFile.metadata, "focusNote"),
+        collectionName: getMetadataString(sourceFile.metadata, "collectionName"),
+        tags: getMetadataStringArray(sourceFile.metadata, "tags"),
+        sourceContext: extraction.extractedText,
+      }),
+      SOURCE_UPLOAD_GENERATION_TIMEOUT_MS,
+      "generateSkillDraft timed out",
+    );
   } catch (error) {
     await cleanupUploadedSource(sourceFile, storageSetup.storage);
     return notCreated(
@@ -639,13 +661,17 @@ async function cleanupUploadedSource(
   sourceFile: {
     id: string;
     userId: string;
+    storageBucket: string | null;
     storageKey: string | null;
   },
   storage: SourceUploadStorage | null,
 ) {
   if (storage && sourceFile.storageKey) {
     try {
-      await storage.deleteObject({ key: sourceFile.storageKey });
+      await storage.deleteObject({
+        key: sourceFile.storageKey,
+        bucket: sourceFile.storageBucket ?? undefined,
+      });
     } catch {
       // Cleanup is best effort; the database row is still removed so the user
       // cannot keep referencing failed private study material.
@@ -658,6 +684,21 @@ async function cleanupUploadedSource(
       userId: sourceFile.userId,
     },
   });
+}
+
+async function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error(message)), ms);
+  });
+
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  }
 }
 
 function buildUploadMetadata({

@@ -35,6 +35,7 @@ import {
   type SkillDraftGenerator,
 } from "@/lib/skills";
 import {
+  MAX_SOURCE_UPLOAD_BYTES,
   completeSourceUploadDrafts,
   prepareSourceUpload,
   type SourceTextExtractor,
@@ -1033,6 +1034,46 @@ describeDatabase("skill drafts and Gemini activation", () => {
     await expect(prisma.skill.count({ where: { userId } })).resolves.toBe(0);
     await expect(prisma.sourceFile.count({ where: { userId } })).resolves.toBe(0);
     await expect(prisma.skillSourceRef.count({ where: { userId } })).resolves.toBe(0);
+    expect(deletedKeys).toEqual([prepared.objectKey]);
+  });
+
+  it("cleans up uploaded source state when downloaded bytes exceed the upload limit", async () => {
+    const userId = await createUser("upload_oversized_download");
+    const { storage, deletedKeys } = createFakeUploadStorage({
+      byteSize: 2048,
+      bytes: Buffer.alloc(MAX_SOURCE_UPLOAD_BYTES + 1, "a"),
+    });
+    const prepared = await prepareSourceUpload({
+      userId,
+      now,
+      storage,
+      input: {
+        originalName: "oversized-after-head.png",
+        mimeType: "image/png",
+        byteSize: "2048",
+      },
+    });
+
+    if (prepared.status !== "prepared") {
+      throw new Error("Expected upload preparation to succeed.");
+    }
+
+    const completed = await completeSourceUploadDrafts({
+      userId,
+      sourceFileId: prepared.sourceFileId,
+      now,
+      storage,
+      extractSourceText: successfulSourceExtractor,
+      generateSkillDraft: successfulSkillDraftGenerator,
+      model: "test-gemini",
+    });
+
+    expect(completed).toMatchObject({
+      status: "not-created",
+      reason: "invalid-upload",
+    });
+    await expect(prisma.skill.count({ where: { userId } })).resolves.toBe(0);
+    await expect(prisma.sourceFile.count({ where: { userId } })).resolves.toBe(0);
     expect(deletedKeys).toEqual([prepared.objectKey]);
   });
 

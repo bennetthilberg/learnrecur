@@ -19,13 +19,20 @@ export function SourceUploadForm() {
   const router = useRouter();
   const fileInputId = useId();
   const formRef = useRef<HTMLFormElement>(null);
+  const submittingRef = useRef(false);
   const [status, setStatus] = useState<UploadStatus>("idle");
   const [message, setMessage] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]> | undefined>();
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPending, startTransition] = useTransition();
 
-  const busy = status === "preparing" || status === "uploading" || status === "generating" || isPending;
+  const busy =
+    isSubmitting ||
+    status === "preparing" ||
+    status === "uploading" ||
+    status === "generating" ||
+    isPending;
 
   return (
     <form
@@ -33,8 +40,16 @@ export function SourceUploadForm() {
       ref={formRef}
       onSubmit={(event) => {
         event.preventDefault();
+        const form = event.currentTarget;
+
+        if (submittingRef.current) {
+          return;
+        }
+
+        submittingRef.current = true;
+        setIsSubmitting(true);
         startTransition(() => {
-          void handleSubmit(event.currentTarget);
+          void submitForm(form);
         });
       }}
     >
@@ -118,6 +133,18 @@ export function SourceUploadForm() {
     </form>
   );
 
+  async function submitForm(form: HTMLFormElement) {
+    try {
+      await handleSubmit(form);
+    } catch (error) {
+      setStatus("error");
+      setMessage(formatClientError(error));
+    } finally {
+      submittingRef.current = false;
+      setIsSubmitting(false);
+    }
+  }
+
   async function handleSubmit(form: HTMLFormElement) {
     setMessage(null);
     setFieldErrors(undefined);
@@ -199,6 +226,14 @@ export function SourceUploadForm() {
     setMessage(result.message);
     setFieldErrors(result.fieldErrors);
   }
+}
+
+function formatClientError(error: unknown) {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+
+  return "Upload failed before drafts could be created. Check the file and try again.";
 }
 
 function buttonText(status: UploadStatus) {

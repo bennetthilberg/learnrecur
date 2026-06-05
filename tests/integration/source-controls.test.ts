@@ -428,6 +428,58 @@ describeDatabase("source material controls", () => {
     await expect(prisma.skillSourceRef.count({ where: { id: sourceRef.id } })).resolves.toBe(1);
   });
 
+  it("does not remove the final source link when the configured bucket differs from the source bucket", async () => {
+    const originalRegion = process.env.AWS_REGION;
+    const originalBucket = process.env.S3_BUCKET_NAME;
+    const originalAccessKey = process.env.AWS_ACCESS_KEY_ID;
+    const originalSecretKey = process.env.AWS_SECRET_ACCESS_KEY;
+
+    try {
+      process.env.AWS_REGION = "us-east-1";
+      process.env.S3_BUCKET_NAME = "learnrecur-dev";
+      process.env.AWS_ACCESS_KEY_ID = "test-access-key";
+      process.env.AWS_SECRET_ACCESS_KEY = "test-secret-key";
+
+      const userId = await createUser("upload_bucket_mismatch");
+      const skill = await createSkillFixture(prisma, {
+        userId,
+        title: "Uploaded-source bucket mismatch skill",
+      });
+      const uploadedSource = await createSourceFile({
+        userId,
+        label: "Uploaded PDF in another bucket",
+        kind: SourceFileKind.PDF,
+        mimeType: "application/pdf",
+        storageBucket: "learnrecur-dev-archive",
+        storageKey: `source-uploads/${userId}/uploaded-source/notes.pdf`,
+        extractedText: "Uploaded PDF source text.",
+      });
+      const sourceRef = await linkSource({
+        userId,
+        skillId: skill.id,
+        sourceFileId: uploadedSource.id,
+      });
+
+      await expect(
+        removeSkillSource({
+          userId,
+          skillId: skill.id,
+          sourceRefId: sourceRef.id,
+        }),
+      ).resolves.toMatchObject({
+        status: "not-removed",
+        reason: "storage-delete-failed",
+      });
+      await expect(prisma.sourceFile.count({ where: { id: uploadedSource.id } })).resolves.toBe(1);
+      await expect(prisma.skillSourceRef.count({ where: { id: sourceRef.id } })).resolves.toBe(1);
+    } finally {
+      restoreEnv("AWS_REGION", originalRegion);
+      restoreEnv("S3_BUCKET_NAME", originalBucket);
+      restoreEnv("AWS_ACCESS_KEY_ID", originalAccessKey);
+      restoreEnv("AWS_SECRET_ACCESS_KEY", originalSecretKey);
+    }
+  });
+
   it("rejects cross-user source removal without changing rows", async () => {
     const userId = await createUser("cross_owner");
     const otherUserId = await createUser("cross_other");
@@ -552,3 +604,11 @@ describeDatabase("source material controls", () => {
     expect(refillVerifierSourceContext).toBeNull();
   });
 });
+
+function restoreEnv(key: string, value: string | undefined) {
+  if (value === undefined) {
+    delete process.env[key];
+  } else {
+    process.env[key] = value;
+  }
+}
