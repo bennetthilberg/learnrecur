@@ -917,7 +917,11 @@ describeDatabase("skill drafts and Gemini activation", () => {
 
     expect(afterSchedule).toEqual(originalSchedule);
     expect(exercises).toHaveLength(DEFAULT_READY_EXERCISE_TARGET);
-    expect(exercises.filter((exercise) => exercise.prompt.includes("item 10"))).toHaveLength(3);
+    expect(
+      exercises.filter((exercise) =>
+        /^What is the best translation for item 10[1-3]\?$/.test(exercise.prompt),
+      ),
+    ).toHaveLength(3);
     expect(generationJob).toMatchObject({
       status: GenerationJobStatus.SUCCEEDED,
       kind: GenerationJobKind.CHOICE_EXERCISE_GENERATION,

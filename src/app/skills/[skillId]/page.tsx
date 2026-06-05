@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { SkillStatus, type Prisma } from "@/generated/prisma/client";
+import { formatJobStatus } from "@/lib/formatters";
 import { getPrisma } from "@/lib/prisma";
 import { countChoiceExerciseInventory, DEFAULT_READY_EXERCISE_TARGET } from "@/lib/skills";
 import { ensureDatabaseUser } from "@/lib/users";
@@ -222,8 +223,4 @@ function notesToText(value: Prisma.JsonValue | null): string {
   }
 
   return "";
-}
-
-function formatJobStatus(status: string) {
-  return status.toLowerCase().replaceAll("_", " ");
 }
