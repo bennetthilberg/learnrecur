@@ -87,19 +87,29 @@ describeDatabase("source material controls", () => {
     userId,
     label = "Pasted notes",
     extractedText = "Use ser for identity.\n\nUse estar for location.",
+    kind = SourceFileKind.TEXT,
+    mimeType = "text/plain",
+    storageBucket = null,
+    storageKey = null,
   }: {
     userId: string;
     label?: string;
     extractedText?: string | null;
+    kind?: SourceFileKind;
+    mimeType?: string | null;
+    storageBucket?: string | null;
+    storageKey?: string | null;
   }) {
     return prisma.sourceFile.create({
       data: {
         userId,
-        kind: SourceFileKind.TEXT,
+        kind,
         status: SourceFileStatus.READY,
         originalName: label,
-        mimeType: "text/plain",
+        mimeType,
         byteSize: extractedText ? Buffer.byteLength(extractedText, "utf8") : null,
+        storageBucket,
+        storageKey,
         extractedText,
       },
     });
@@ -310,6 +320,112 @@ describeDatabase("source material controls", () => {
     expect(library.activeSkills.find((skill) => skill.id === secondSkill.id)).toMatchObject({
       sourceRefCount: 1,
     });
+  });
+
+  it("keeps a shared uploaded source object until the final source link is removed", async () => {
+    const userId = await createUser("shared_upload_source");
+    const firstSkill = await createSkillFixture(prisma, {
+      userId,
+      title: "First uploaded-source skill",
+    });
+    const secondSkill = await createSkillFixture(prisma, {
+      userId,
+      title: "Second uploaded-source skill",
+    });
+    const uploadedSource = await createSourceFile({
+      userId,
+      label: "Uploaded worksheet",
+      kind: SourceFileKind.IMAGE,
+      mimeType: "image/png",
+      storageBucket: "learnrecur-dev",
+      storageKey: `source-uploads/${userId}/uploaded-source/worksheet.png`,
+      extractedText: "Uploaded worksheet text for two generated drafts.",
+    });
+    const firstRef = await linkSource({
+      userId,
+      skillId: firstSkill.id,
+      sourceFileId: uploadedSource.id,
+    });
+    const secondRef = await linkSource({
+      userId,
+      skillId: secondSkill.id,
+      sourceFileId: uploadedSource.id,
+    });
+    const deletedObjects: Array<{ bucketName: string; key: string }> = [];
+    const deleteStoredObject = async (input: { bucketName: string; key: string }) => {
+      deletedObjects.push(input);
+    };
+
+    await expect(
+      removeSkillSource({
+        userId,
+        skillId: firstSkill.id,
+        sourceRefId: firstRef.id,
+        deleteStoredObject,
+      }),
+    ).resolves.toMatchObject({
+      status: "removed",
+      sourceFileDeleted: false,
+    });
+    expect(deletedObjects).toEqual([]);
+    await expect(prisma.sourceFile.count({ where: { id: uploadedSource.id } })).resolves.toBe(1);
+
+    await expect(
+      removeSkillSource({
+        userId,
+        skillId: secondSkill.id,
+        sourceRefId: secondRef.id,
+        deleteStoredObject,
+      }),
+    ).resolves.toMatchObject({
+      status: "removed",
+      sourceFileDeleted: true,
+    });
+    expect(deletedObjects).toEqual([
+      {
+        bucketName: "learnrecur-dev",
+        key: `source-uploads/${userId}/uploaded-source/worksheet.png`,
+      },
+    ]);
+    await expect(prisma.sourceFile.count({ where: { id: uploadedSource.id } })).resolves.toBe(0);
+  });
+
+  it("does not remove the final source link when uploaded object deletion fails", async () => {
+    const userId = await createUser("upload_delete_failed");
+    const skill = await createSkillFixture(prisma, {
+      userId,
+      title: "Uploaded-source delete failure skill",
+    });
+    const uploadedSource = await createSourceFile({
+      userId,
+      label: "Uploaded PDF",
+      kind: SourceFileKind.PDF,
+      mimeType: "application/pdf",
+      storageBucket: "learnrecur-dev",
+      storageKey: `source-uploads/${userId}/uploaded-source/notes.pdf`,
+      extractedText: "Uploaded PDF source text.",
+    });
+    const sourceRef = await linkSource({
+      userId,
+      skillId: skill.id,
+      sourceFileId: uploadedSource.id,
+    });
+
+    await expect(
+      removeSkillSource({
+        userId,
+        skillId: skill.id,
+        sourceRefId: sourceRef.id,
+        deleteStoredObject: async () => {
+          throw new Error("s3 delete failed");
+        },
+      }),
+    ).resolves.toMatchObject({
+      status: "not-removed",
+      reason: "storage-delete-failed",
+    });
+    await expect(prisma.sourceFile.count({ where: { id: uploadedSource.id } })).resolves.toBe(1);
+    await expect(prisma.skillSourceRef.count({ where: { id: sourceRef.id } })).resolves.toBe(1);
   });
 
   it("rejects cross-user source removal without changing rows", async () => {

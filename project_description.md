@@ -497,7 +497,7 @@ The selected stack is:
 - Clerk for user management.
 - Neon Postgres.
 - Prisma.
-- Cloudflare R2 for object storage.
+- Amazon S3 for private object storage.
 - Google Gemini for AI extraction, generation, and verification.
 - Inngest for background jobs.
 - Resend for email.
@@ -551,7 +551,7 @@ Neon is the intended hosted Postgres provider. It works well with serverless Nex
 
 ### 14.6 Storage Decision
 
-Use S3-compatible object storage, specifically Cloudflare R2. Uploaded originals should be kept with the skill so the user can review, reprocess, or improve the skill later.
+Use Amazon S3 private object storage. Uploaded originals should be kept with the skill so the user can review, reprocess, or improve the skill later.
 
 ### 14.7 Background Jobs Decision
 
@@ -700,7 +700,7 @@ As of the first implementation pass, the repository includes:
 - FSRS review mapping.
 - Prisma schema.
 - Gemini service layer skeleton.
-- R2 upload-signing endpoint.
+- S3 upload-signing endpoint.
 - Inngest endpoint and placeholder functions.
 - Resend reminder helper.
 - Clerk webhook endpoint and optional middleware.

@@ -27,6 +27,10 @@ export function SourceSkillForm() {
           <h2>Paste learning material.</h2>
         </div>
       </div>
+      <p className="skillUploadIntro">
+        Use this when the source text is already copied out. Gemini can split broader material
+        into one to three narrow drafts.
+      </p>
 
       <SkillTextArea
         error={state.fieldErrors?.sourceText?.[0]}

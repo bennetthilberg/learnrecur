@@ -1,0 +1,121 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  MAX_SOURCE_UPLOAD_BYTES,
+  buildSourceUploadObjectKey,
+  normalizeSourceUploadInput,
+  validateExtractedSourceText,
+} from "@/lib/skills/uploads";
+import { SOURCE_CONTEXT_CHAR_LIMIT } from "@/lib/skills";
+import { getS3Env } from "@/lib/storage/s3";
+
+describe("normalizeSourceUploadInput", () => {
+  it("accepts image and pdf metadata and normalizes optional fields", () => {
+    const result = normalizeSourceUploadInput({
+      originalName: "  Worksheet Page 1.PNG  ",
+      mimeType: "image/png",
+      byteSize: String(1024),
+      sourceLabel: "  Unit review  ",
+      focusNote: "  Split into grammar topics.  ",
+      collectionName: "  Spanish  ",
+      tags: " Spanish, Grammar ",
+    });
+
+    expect(result).toEqual({
+      status: "ready",
+      value: {
+        originalName: "Worksheet Page 1.PNG",
+        mimeType: "image/png",
+        byteSize: 1024,
+        sourceLabel: "Unit review",
+        focusNote: "Split into grammar topics.",
+        collectionName: "Spanish",
+        tags: ["spanish", "grammar"],
+      },
+    });
+  });
+
+  it("rejects unsupported mime types and oversized files", () => {
+    const result = normalizeSourceUploadInput({
+      originalName: "notes.txt",
+      mimeType: "text/plain",
+      byteSize: MAX_SOURCE_UPLOAD_BYTES + 1,
+    });
+
+    expect(result.status).toBe("invalid");
+
+    if (result.status === "invalid") {
+      expect(result.fieldErrors.mimeType).toEqual(["Upload a PNG, JPEG, WebP, or PDF file."]);
+      expect(result.fieldErrors.byteSize).toEqual(["Upload a file smaller than 10 MB."]);
+    }
+  });
+});
+
+describe("buildSourceUploadObjectKey", () => {
+  it("uses the source upload prefix, user id, source file id, and sanitized file name", () => {
+    expect(
+      buildSourceUploadObjectKey({
+        userId: "user/abc",
+        sourceFileId: "src_123",
+        originalName: "Worksheet Page 1!!.pdf",
+      }),
+    ).toBe("source-uploads/user-abc/src_123/worksheet-page-1.pdf");
+  });
+});
+
+describe("validateExtractedSourceText", () => {
+  it("accepts and caps extracted source text", () => {
+    const result = validateExtractedSourceText({
+      extractedText: `A${"b".repeat(SOURCE_CONTEXT_CHAR_LIMIT + 200)}`,
+    });
+
+    expect(result.status).toBe("ready");
+
+    if (result.status === "ready") {
+      expect(result.extractedText.length).toBeLessThanOrEqual(SOURCE_CONTEXT_CHAR_LIMIT);
+      expect(result.extractedText.endsWith("[truncated]")).toBe(true);
+    }
+  });
+
+  it("rejects empty or malformed extraction responses", () => {
+    expect(validateExtractedSourceText({ extractedText: "  " })).toMatchObject({
+      status: "invalid",
+      reason: "invalid-response",
+    });
+    expect(validateExtractedSourceText({ text: "wrong key" })).toMatchObject({
+      status: "invalid",
+      reason: "invalid-response",
+    });
+  });
+});
+
+describe("getS3Env", () => {
+  it("returns a typed setup error when S3 env is missing", () => {
+    const originalRegion = process.env.AWS_REGION;
+    const originalBucket = process.env.S3_BUCKET_NAME;
+    const originalAccessKey = process.env.AWS_ACCESS_KEY_ID;
+    const originalSecretKey = process.env.AWS_SECRET_ACCESS_KEY;
+
+    try {
+      delete process.env.AWS_REGION;
+      delete process.env.S3_BUCKET_NAME;
+      delete process.env.AWS_ACCESS_KEY_ID;
+      delete process.env.AWS_SECRET_ACCESS_KEY;
+
+      expect(() => getS3Env()).toThrow(/AWS_REGION is required/);
+    } finally {
+      restoreEnv("AWS_REGION", originalRegion);
+      restoreEnv("S3_BUCKET_NAME", originalBucket);
+      restoreEnv("AWS_ACCESS_KEY_ID", originalAccessKey);
+      restoreEnv("AWS_SECRET_ACCESS_KEY", originalSecretKey);
+    }
+  });
+});
+
+function restoreEnv(key: string, value: string | undefined) {
+  if (value === undefined) {
+    delete process.env[key];
+  } else {
+    process.env[key] = value;
+  }
+}

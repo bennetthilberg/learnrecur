@@ -3,6 +3,7 @@ import { auth, currentUser } from "@clerk/nextjs/server";
 import { ensureDatabaseUser } from "@/lib/users";
 
 import { SkillDraftForm, type SkillDraftFormValues } from "../skill-draft-form";
+import { SourceUploadForm } from "../source-upload-form";
 import { SkillsTopbar } from "../skills-topbar";
 import { SourceSkillForm } from "../source-skill-form";
 
@@ -49,12 +50,13 @@ export default async function NewSkillPage() {
           <p className="eyebrow">New skill</p>
           <h1>Create skill drafts.</h1>
           <p>
-            Paste source material for Gemini to shape one or more editable drafts, or define
-            the skill manually. You will review it before activation.
+            Upload or paste source material for Gemini to shape one or more editable
+            drafts, or define the skill manually. You will review it before activation.
           </p>
         </div>
       </header>
       <div className="skillCreateStack">
+        <SourceUploadForm />
         <SourceSkillForm />
         <section className="skillManualIntro" aria-labelledby="manual-skill-title">
           <div>
