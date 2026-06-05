@@ -76,11 +76,10 @@ Define these environment variables:
 - `DATABASE_URL`.
 - `GEMINI_API_KEY`.
 - `GEMINI_MODEL`.
-- `R2_ACCOUNT_ID`.
-- `R2_ACCESS_KEY_ID`.
-- `R2_SECRET_ACCESS_KEY`.
-- `R2_BUCKET_NAME`.
-- `R2_PUBLIC_BASE_URL`.
+- `AWS_REGION`.
+- `S3_BUCKET_NAME`.
+- `AWS_ACCESS_KEY_ID`.
+- `AWS_SECRET_ACCESS_KEY`.
 - `INNGEST_EVENT_KEY`.
 - `INNGEST_SIGNING_KEY`.
 - `RESEND_API_KEY`.
@@ -482,9 +481,9 @@ V1 supports small uploads:
 
 Large textbooks, whole chapters, and long documents are later-scope.
 
-### 11.3 R2 Storage
+### 11.3 S3 Storage
 
-Use Cloudflare R2 for source files:
+Use Amazon S3 for source files:
 
 - Private bucket by default.
 - Signed upload URLs.
@@ -520,7 +519,7 @@ Do not overbuild exact region citations in V1.
 ### 11.6 Acceptance Criteria
 
 - User can upload a small image/PDF.
-- File is stored in R2.
+- File is stored in S3.
 - SourceFile record is created.
 - User can see source associated with generated skills.
 - User can delete source files and associated records.
@@ -1005,7 +1004,7 @@ Improve:
 
 - Job retries.
 - AI failure handling.
-- R2 cleanup.
+- S3 cleanup.
 - Database indexes.
 - Rate limits.
 - Cost controls.
@@ -1479,7 +1478,7 @@ A polished LearnRecur should have:
 5. Dashboard: due count, skills, collections, mastery labels.
 6. Manual skill creation: structured drafts and activation.
 7. Auth and persistence: Clerk plus Postgres.
-8. Uploads: R2 source storage.
+8. Uploads: S3 source storage.
 9. AI extraction: source to skill drafts.
 10. AI generation: skill to exercises.
 11. AI verification: conservative quality gate.
@@ -1560,4 +1559,3 @@ Whenever a future decision is unclear, choose the option that makes this loop be
 4. The user practices quickly.
 5. The app schedules the skill intelligently.
 6. The user returns and remembers more.
-

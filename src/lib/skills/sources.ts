@@ -5,6 +5,7 @@ import {
   type SourceFileStatus,
 } from "@/generated/prisma/client";
 import { getPrisma } from "@/lib/prisma";
+import { resolveS3SourceObjectStorage } from "@/lib/storage/s3";
 
 export const SOURCE_PREVIEW_CHAR_LIMIT = 520;
 
@@ -40,6 +41,11 @@ export type RemoveSkillSourceResult =
       message: string;
     }
   | {
+      status: "not-removed";
+      reason: "storage-delete-failed";
+      message: string;
+    }
+  | {
       status: "not-found";
       reason: "source-not-found";
       message: string;
@@ -52,6 +58,7 @@ export type GetSkillSourceSummariesInput = {
 
 export type RemoveSkillSourceInput = GetSkillSourceSummariesInput & {
   sourceRefId: string;
+  deleteStoredObject?: (input: { bucketName: string; key: string }) => Promise<void>;
 };
 
 export function buildSourcePreview(sourceText: string | null | undefined): string | null {
@@ -130,28 +137,69 @@ export async function removeSkillSource(
 ): Promise<RemoveSkillSourceResult> {
   const prisma = getPrisma();
 
+  const sourceRef = await prisma.skillSourceRef.findFirst({
+    where: {
+      id: input.sourceRefId,
+      userId: input.userId,
+      skillId: input.skillId,
+    },
+    select: {
+      id: true,
+      sourceFileId: true,
+      sourceFile: {
+        select: {
+          storageBucket: true,
+          storageKey: true,
+        },
+      },
+    },
+  });
+
+  if (!sourceRef) {
+    return sourceNotFound("Source material was not found for this skill.");
+  }
+
+  const initialRefCount = await prisma.skillSourceRef.count({
+    where: {
+      userId: input.userId,
+      sourceFileId: sourceRef.sourceFileId,
+    },
+  });
+
+  // V0 keeps S3 network I/O outside the Prisma transaction. If another source
+  // ref is created after this count but before the transaction below, the object
+  // can be deleted while a new ref remains. TODO: add a background storage audit
+  // that scans SourceFile storage keys, detects missing S3 objects, and logs or
+  // repairs orphaned source refs.
+  const shouldDeleteStoredObject = initialRefCount === 1;
+
+  if (shouldDeleteStoredObject) {
+    const storedObjectDeleted = await deleteStoredSourceObject({
+      sourceFile: sourceRef.sourceFile,
+      deleteStoredObject: input.deleteStoredObject,
+    });
+
+    if (storedObjectDeleted.status === "failed") {
+      return {
+        status: "not-removed",
+        reason: "storage-delete-failed",
+        message: storedObjectDeleted.message,
+      };
+    }
+  }
+
   return prisma.$transaction(async (tx) => {
-    const sourceRef = await tx.skillSourceRef.findFirst({
+    const deletedRef = await tx.skillSourceRef.deleteMany({
       where: {
-        id: input.sourceRefId,
+        id: sourceRef.id,
         userId: input.userId,
         skillId: input.skillId,
       },
-      select: {
-        id: true,
-        sourceFileId: true,
-      },
     });
 
-    if (!sourceRef) {
+    if (deletedRef.count !== 1) {
       return sourceNotFound("Source material was not found for this skill.");
     }
-
-    await tx.skillSourceRef.delete({
-      where: {
-        id: sourceRef.id,
-      },
-    });
 
     const remainingRefCount = await tx.skillSourceRef.count({
       where: {
@@ -159,10 +207,9 @@ export async function removeSkillSource(
         sourceFileId: sourceRef.sourceFileId,
       },
     });
-
     let sourceFileDeleted = false;
 
-    if (remainingRefCount === 0) {
+    if (shouldDeleteStoredObject && remainingRefCount === 0) {
       const deleted = await tx.sourceFile.deleteMany({
         where: {
           id: sourceRef.sourceFileId,
@@ -180,6 +227,70 @@ export async function removeSkillSource(
       message: "Source material removed.",
     };
   });
+}
+
+async function deleteStoredSourceObject({
+  sourceFile,
+  deleteStoredObject,
+}: {
+  sourceFile: {
+    storageBucket: string | null;
+    storageKey: string | null;
+  };
+  deleteStoredObject?: (input: { bucketName: string; key: string }) => Promise<void>;
+}): Promise<
+  | {
+      status: "ready";
+    }
+  | {
+      status: "failed";
+      message: string;
+    }
+> {
+  if (!sourceFile.storageBucket || !sourceFile.storageKey) {
+    return {
+      status: "ready",
+    };
+  }
+
+  try {
+    if (deleteStoredObject) {
+      await deleteStoredObject({
+        bucketName: sourceFile.storageBucket,
+        key: sourceFile.storageKey,
+      });
+    } else {
+      const storageSetup = resolveS3SourceObjectStorage();
+
+      if (storageSetup.status === "missing-env") {
+        return {
+          status: "failed",
+          message: storageSetup.message,
+        };
+      }
+
+      if (storageSetup.storage.bucketName !== sourceFile.storageBucket) {
+        return {
+          status: "failed",
+          message: "Stored source bucket does not match the configured S3 bucket.",
+        };
+      }
+
+      await storageSetup.storage.deleteObject({
+        key: sourceFile.storageKey,
+        bucket: sourceFile.storageBucket,
+      });
+    }
+
+    return {
+      status: "ready",
+    };
+  } catch (error) {
+    return {
+      status: "failed",
+      message: error instanceof Error ? error.message : "Could not delete stored source object.",
+    };
+  }
 }
 
 function sourceNotFound(message: string): Extract<RemoveSkillSourceResult, { status: "not-found" }> {

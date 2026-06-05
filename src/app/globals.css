@@ -1003,9 +1003,64 @@ a {
   margin: 0;
 }
 
-.skillSourceForm {
+.skillSourceForm,
+.skillUploadForm {
   display: grid;
   gap: 15px;
+}
+
+.skillUploadIntro,
+.skillUploadMeta {
+  margin: 0;
+  color: var(--lr-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.skillUploadMeta {
+  color: var(--lr-faint);
+  font-size: 13px;
+}
+
+.skillUploadForm input[type="file"] {
+  padding: 9px 11px;
+}
+
+.skillFileControl {
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--lr-line-strong);
+  border-radius: var(--lr-radius);
+  background: #ffffff;
+  padding: 6px;
+}
+
+.skillFileInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  padding: 0;
+  white-space: nowrap;
+}
+
+.skillFileButton {
+  min-height: 30px;
+  padding: 6px 10px;
+}
+
+.skillFileName {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--lr-muted);
+  font-size: 13px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .skillManualIntro {

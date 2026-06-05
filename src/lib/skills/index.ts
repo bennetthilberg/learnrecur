@@ -357,6 +357,19 @@ export type CreateSkillDraftFromSourceInput = {
   model?: string;
 };
 
+export type CreateGeneratedSkillDraftsForSourceFileInput = {
+  userId: string;
+  sourceFileId: string;
+  collectionName: string | null;
+  focusNote: string | null;
+  tags: string[];
+  drafts: GeneratedSkillDraft[];
+  sourceFileUpdate?: Pick<
+    Prisma.SourceFileUncheckedUpdateInput,
+    "status" | "byteSize" | "extractedText" | "metadata"
+  >;
+};
+
 export type SourceSkillDraftWriteResult =
   | {
       status: "created";
@@ -924,15 +937,9 @@ export async function createSkillDraftFromSource(
   const prisma = getPrisma();
 
   return prisma.$transaction(async (tx) => {
-    const collectionId = await resolveCollectionId(
-      tx,
-      input.userId,
-      normalized.value.collectionName,
-    );
     const sourceFile = await tx.sourceFile.create({
       data: {
         userId: input.userId,
-        collectionId,
         kind: SourceFileKind.TEXT,
         status: SourceFileStatus.READY,
         originalName: normalized.value.sourceLabel ?? "Pasted source",
@@ -947,42 +954,67 @@ export async function createSkillDraftFromSource(
         },
       },
     });
-
-    const skills: Skill[] = [];
-    const skillSourceRefIds: string[] = [];
-
-    for (const draft of validation.drafts) {
-      const skill = await tx.skill.create({
-        data: {
-          userId: input.userId,
-          collectionId,
-          title: draft.title,
-          objective: draft.objective,
-          rules: toNotesJson(draft.rules),
-          examples: toNotesJson(draft.examples),
-          exerciseConstraints: toConstraintsJson(draft.exerciseConstraints),
-          tags: normalizeTags([...normalized.value.tags, ...draft.tags]),
-          status: SkillStatus.DRAFT,
-        },
-      });
-      const sourceRef = await tx.skillSourceRef.create({
-        data: {
-          userId: input.userId,
-          skillId: skill.id,
-          sourceFileId: sourceFile.id,
-          note: normalized.value.focusNote,
-        },
-      });
-
-      skills.push(skill);
-      skillSourceRefIds.push(sourceRef.id);
-    }
+    const createdDrafts = await createGeneratedSkillDraftsForSourceFileInTransaction(tx, {
+      userId: input.userId,
+      sourceFileId: sourceFile.id,
+      collectionName: normalized.value.collectionName,
+      focusNote: normalized.value.focusNote,
+      tags: normalized.value.tags,
+      drafts: validation.drafts,
+    });
 
     return {
       status: "created",
-      skills,
+      skills: createdDrafts.skills,
       sourceFileId: sourceFile.id,
-      skillSourceRefIds,
+      skillSourceRefIds: createdDrafts.skillSourceRefIds,
+    };
+  });
+}
+
+export async function createGeneratedSkillDraftsForSourceFile(
+  input: CreateGeneratedSkillDraftsForSourceFileInput,
+): Promise<
+  | {
+      status: "created";
+      skills: Skill[];
+      sourceFileId: string;
+      skillSourceRefIds: string[];
+    }
+  | {
+      status: "not-found";
+      reason: "source-not-found";
+      message: string;
+    }
+> {
+  const prisma = getPrisma();
+
+  return prisma.$transaction(async (tx) => {
+    const sourceFile = await tx.sourceFile.findFirst({
+      where: {
+        id: input.sourceFileId,
+        userId: input.userId,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!sourceFile) {
+      return {
+        status: "not-found",
+        reason: "source-not-found",
+        message: "Uploaded source material was not found.",
+      };
+    }
+
+    const result = await createGeneratedSkillDraftsForSourceFileInTransaction(tx, input);
+
+    return {
+      status: "created",
+      sourceFileId: input.sourceFileId,
+      skills: result.skills,
+      skillSourceRefIds: result.skillSourceRefIds,
     };
   });
 }
@@ -2382,7 +2414,7 @@ function resolveSourceDraftSetup(
   }
 }
 
-function createGeminiSkillDraftGenerator({
+export function createGeminiSkillDraftGenerator({
   apiKey,
   model,
 }: {
@@ -3009,6 +3041,64 @@ async function resolveCollectionId(
   return collection.id;
 }
 
+async function createGeneratedSkillDraftsForSourceFileInTransaction(
+  tx: SkillWriteClient,
+  input: CreateGeneratedSkillDraftsForSourceFileInput,
+): Promise<{
+  skills: Skill[];
+  skillSourceRefIds: string[];
+}> {
+  const collectionId = await resolveCollectionId(tx, input.userId, input.collectionName);
+
+  await tx.sourceFile.update({
+    where: {
+      id_userId: {
+        id: input.sourceFileId,
+        userId: input.userId,
+      },
+    },
+    data: {
+      ...input.sourceFileUpdate,
+      collectionId,
+    },
+  });
+
+  const skills: Skill[] = [];
+  const skillSourceRefIds: string[] = [];
+
+  for (const draft of input.drafts) {
+    const skill = await tx.skill.create({
+      data: {
+        userId: input.userId,
+        collectionId,
+        title: draft.title,
+        objective: draft.objective,
+        rules: toNotesJson(draft.rules),
+        examples: toNotesJson(draft.examples),
+        exerciseConstraints: toConstraintsJson(draft.exerciseConstraints),
+        tags: normalizeTags([...input.tags, ...draft.tags]),
+        status: SkillStatus.DRAFT,
+      },
+    });
+    const sourceRef = await tx.skillSourceRef.create({
+      data: {
+        userId: input.userId,
+        skillId: skill.id,
+        sourceFileId: input.sourceFileId,
+        note: input.focusNote,
+      },
+    });
+
+    skills.push(skill);
+    skillSourceRefIds.push(sourceRef.id);
+  }
+
+  return {
+    skills,
+    skillSourceRefIds,
+  };
+}
+
 async function markGenerationJobFailed(
   prisma: Pick<Prisma.TransactionClient, "generationJob">,
   generationJobId: string,
@@ -3399,7 +3489,7 @@ function splitNotes(value?: string): string[] {
     .filter(Boolean);
 }
 
-function normalizeTags(value?: string | string[]): string[] {
+export function normalizeTags(value?: string | string[]): string[] {
   const rawTags = Array.isArray(value) ? value : value?.split(/[,\n]+/) ?? [];
   const seen = new Set<string>();
   const tags: string[] = [];
@@ -3418,4 +3508,7 @@ function normalizeTags(value?: string | string[]): string[] {
   return tags.slice(0, 12);
 }
 
-type SkillWriteClient = Pick<Prisma.TransactionClient, "collection" | "skill">;
+type SkillWriteClient = Pick<
+  Prisma.TransactionClient,
+  "collection" | "skill" | "sourceFile" | "skillSourceRef"
+>;

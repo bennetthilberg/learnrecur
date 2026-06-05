@@ -12,6 +12,10 @@ import {
   refillChoiceExercisesForSkill,
   updateSkillDraft,
 } from "@/lib/skills";
+import {
+  completeSourceUploadDrafts,
+  prepareSourceUpload,
+} from "@/lib/skills/uploads";
 import { removeSkillSource } from "@/lib/skills/sources";
 import { ensureDatabaseUser } from "@/lib/users";
 
@@ -25,6 +29,31 @@ type SkillActionUserResult =
   | {
       status: "ready";
       userId: string;
+    }
+  | {
+      status: "error";
+      message: string;
+    };
+
+export type PrepareSourceUploadActionResult =
+  | {
+      status: "prepared";
+      sourceFileId: string;
+      uploadUrl: string;
+      headers: Record<string, string>;
+      expiresInSeconds: number;
+    }
+  | {
+      status: "error";
+      message: string;
+      fieldErrors?: Record<string, string[]>;
+    };
+
+export type CompleteSourceUploadActionResult =
+  | {
+      status: "created";
+      message: string;
+      redirectTo: string;
     }
   | {
       status: "error";
@@ -136,6 +165,80 @@ export async function generateSkillDraftFromSourceAction(
       status: "error",
       message: result.message,
       fieldErrors: result.fieldErrors,
+    };
+  }
+
+  return {
+    status: "error",
+    message: result.message,
+  };
+}
+
+export async function prepareSourceUploadAction(
+  formData: FormData,
+): Promise<PrepareSourceUploadActionResult> {
+  const user = await requireSkillActionUser();
+
+  if (user.status === "error") {
+    return user;
+  }
+
+  const result = await prepareSourceUpload({
+    userId: user.userId,
+    now: new Date(),
+    input: formDataToSourceUploadInput(formData),
+  });
+
+  if (result.status === "prepared") {
+    return {
+      status: "prepared",
+      sourceFileId: result.sourceFileId,
+      uploadUrl: result.uploadUrl,
+      headers: result.headers,
+      expiresInSeconds: result.expiresInSeconds,
+    };
+  }
+
+  if (result.status === "invalid") {
+    return {
+      status: "error",
+      message: result.message,
+      fieldErrors: result.fieldErrors,
+    };
+  }
+
+  return {
+    status: "error",
+    message: result.message,
+  };
+}
+
+export async function completeSourceUploadAction(input: {
+  sourceFileId: string;
+}): Promise<CompleteSourceUploadActionResult> {
+  const user = await requireSkillActionUser();
+
+  if (user.status === "error") {
+    return user;
+  }
+
+  const result = await completeSourceUploadDrafts({
+    userId: user.userId,
+    sourceFileId: input.sourceFileId,
+    now: new Date(),
+  });
+
+  if (result.status === "created") {
+    revalidatePath("/skills");
+    revalidatePath("/dashboard");
+
+    return {
+      status: "created",
+      message: `Created ${result.skills.length} editable ${result.skills.length === 1 ? "draft" : "drafts"}.`,
+      redirectTo:
+        result.skills.length === 1
+          ? `/skills/${result.skills[0].id}`
+          : `/skills?createdDrafts=${result.skills.length}`,
     };
   }
 
@@ -327,6 +430,18 @@ function formDataToDraftInput(formData: FormData) {
 function formDataToSourceDraftInput(formData: FormData) {
   return {
     sourceText: getFormString(formData, "sourceText"),
+    sourceLabel: getFormString(formData, "sourceLabel"),
+    focusNote: getFormString(formData, "focusNote"),
+    collectionName: getFormString(formData, "collectionName"),
+    tags: getFormString(formData, "tags"),
+  };
+}
+
+function formDataToSourceUploadInput(formData: FormData) {
+  return {
+    originalName: getFormString(formData, "originalName"),
+    mimeType: getFormString(formData, "mimeType"),
+    byteSize: getFormString(formData, "byteSize"),
     sourceLabel: getFormString(formData, "sourceLabel"),
     focusNote: getFormString(formData, "focusNote"),
     collectionName: getFormString(formData, "collectionName"),
