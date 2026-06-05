@@ -11,6 +11,7 @@ import {
   ExerciseType,
   ExerciseVerificationStatus,
   FsrsRating,
+  type Prisma,
   SkillFsrsState,
   SkillStatus,
 } from "@/generated/prisma/client";
@@ -136,10 +137,12 @@ describeDatabase("practice review service", () => {
     userId,
     skillId,
     prompt = "Type the correct verb.",
+    answerSpec,
   }: {
     userId: string;
     skillId: string;
     prompt?: string;
+    answerSpec?: Prisma.InputJsonValue;
   }) {
     return prisma.exercise.create({
       data: {
@@ -148,7 +151,7 @@ describeDatabase("practice review service", () => {
         type: ExerciseType.EXACT_INPUT,
         answerKind: AnswerKind.TEXT,
         prompt,
-        answerSpec: {
+        answerSpec: answerSpec ?? {
           kind: "text",
           accepted: ["ser"],
         },
@@ -165,10 +168,12 @@ describeDatabase("practice review service", () => {
     userId,
     skillId,
     prompt = "Enter one half as a decimal.",
+    answerSpec,
   }: {
     userId: string;
     skillId: string;
     prompt?: string;
+    answerSpec?: Prisma.InputJsonValue;
   }) {
     return prisma.exercise.create({
       data: {
@@ -177,7 +182,7 @@ describeDatabase("practice review service", () => {
         type: ExerciseType.EXACT_INPUT,
         answerKind: AnswerKind.NUMERIC,
         prompt,
-        answerSpec: {
+        answerSpec: answerSpec ?? {
           kind: "numeric",
           accepted: ["1/2", 0.5],
           tolerance: 0,
@@ -827,6 +832,63 @@ describeDatabase("practice review service", () => {
         id: textExercise.id,
         answerKind: AnswerKind.TEXT,
       },
+    });
+  });
+
+  it("skips exact-input exercises with incompatible answer specs", async () => {
+    const userId = await createUser("incompatible_exact_spec_filter");
+    const malformedSkill = await createSkillFixture({
+      userId,
+      title: "malformed exact skill",
+      dueAt: new Date("2026-06-03T08:00:00.000Z"),
+      repetitions: EXACT_INPUT_UNLOCK_REPETITIONS,
+    });
+    const validSkill = await createSkillFixture({
+      userId,
+      title: "valid exact skill",
+      dueAt: new Date("2026-06-03T09:00:00.000Z"),
+      repetitions: EXACT_INPUT_UNLOCK_REPETITIONS,
+    });
+
+    const malformedExercise = await createTextExercise({
+      userId,
+      skillId: malformedSkill.id,
+      prompt: "Malformed text prompt.",
+      answerSpec: {
+        kind: "numeric",
+        accepted: ["1/2"],
+        tolerance: 0,
+      },
+    });
+    const validExercise = await createNumericExercise({
+      userId,
+      skillId: validSkill.id,
+      prompt: "Valid numeric prompt.",
+    });
+
+    await expect(getNextPracticeItemForUser(userId, now)).resolves.toMatchObject({
+      status: "ready",
+      skill: {
+        id: validSkill.id,
+      },
+      exercise: {
+        id: validExercise.id,
+        answerKind: AnswerKind.NUMERIC,
+      },
+    });
+
+    await expect(
+      commitPracticeReview({
+        userId,
+        exerciseId: malformedExercise.id,
+        attemptId: `${runId}_malformed_exact_spec`,
+        submittedAnswer: "1/2",
+        responseMs: 4_000,
+        reviewedAt: now,
+      }),
+    ).resolves.toMatchObject({
+      status: "not-found",
+      reason: "exercise-not-found",
     });
   });
 
@@ -1564,8 +1626,8 @@ describeDatabase("practice review service", () => {
         reviewedAt: now,
       }),
     ).resolves.toMatchObject({
-      status: "not-committed",
-      answerCheck: { status: "unsupported" },
+      status: "not-found",
+      reason: "exercise-not-found",
     });
 
     await expect(

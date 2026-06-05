@@ -127,6 +127,14 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
       } else {
         setFeedback(null);
         setManualRating(null);
+
+        if (result.status === "not-found") {
+          setItem({
+            status: "unavailable",
+            message: result.message,
+          });
+        }
+
         setStatusMessage(getPreviewStatusMessage(result));
       }
     });
