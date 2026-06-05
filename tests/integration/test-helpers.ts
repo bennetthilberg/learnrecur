@@ -88,6 +88,48 @@ export async function createTextExercise(
   });
 }
 
+export async function createChoiceExercise({
+  prisma,
+  userId,
+  skillId,
+  prompt = "Choose the right answer.",
+  correctChoiceId = "right",
+  choices = [
+    { id: "right", label: "Right" },
+    { id: "wrong", label: "Wrong" },
+  ],
+  verificationStatus = ExerciseVerificationStatus.VERIFIED,
+  retiredAt = null,
+}: {
+  prisma: TestPrismaClient;
+  userId: string;
+  skillId: string;
+  prompt?: string;
+  correctChoiceId?: string;
+  choices?: Array<{ id: string; label?: string }>;
+  verificationStatus?: ExerciseVerificationStatus;
+  retiredAt?: Date | null;
+}) {
+  return prisma.exercise.create({
+    data: {
+      userId,
+      skillId,
+      type: ExerciseType.MULTIPLE_CHOICE,
+      answerKind: AnswerKind.CHOICE,
+      prompt,
+      choices,
+      answerSpec: {
+        kind: "choice",
+        correctChoiceId,
+      },
+      correctAnswerDisplay: correctChoiceId,
+      verificationStatus,
+      retiredAt,
+      retirementReason: retiredAt ? ExerciseRetirementReason.MANUAL : null,
+    },
+  });
+}
+
 type NumericExerciseOverrides = Partial<
   Pick<
     Prisma.ExerciseUncheckedCreateInput,

@@ -1388,6 +1388,59 @@ a {
   accent-color: var(--lr-primary);
 }
 
+.skillLifecyclePanel,
+.skillRecoveryPanel {
+  width: min(100%, 1040px);
+  margin: 18px auto 0;
+}
+
+.skillLifecycleActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.skillLifecycleForm {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+  max-width: 360px;
+}
+
+.skillLifecycleForm p:not(.skillFormMessage),
+.skillLifecycleDetails {
+  margin: 0;
+  color: var(--lr-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.skillLifecycleDetails summary {
+  cursor: pointer;
+  color: var(--lr-error);
+  font-weight: 500;
+  list-style-position: inside;
+}
+
+.skillLifecycleDetails .skillLifecycleForm {
+  margin-top: 10px;
+}
+
+.skillLifecycleConfirm {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: var(--lr-ink-soft);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.skillLifecycleConfirm input {
+  margin-top: 2px;
+  accent-color: var(--lr-primary);
+}
+
 .skillStatusGrid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

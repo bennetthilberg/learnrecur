@@ -3,9 +3,11 @@ import type { SkillSourceSummary } from "@/lib/skills/sources";
 import { SkillSourceRemoveForm } from "./skill-source-remove-form";
 
 export function SkillSourcePanel({
+  canRemove = true,
   skillId,
   sources,
 }: {
+  canRemove?: boolean;
   skillId: string;
   sources: SkillSourceSummary[];
 }) {
@@ -39,7 +41,9 @@ export function SkillSourcePanel({
                   <span>Added {formatDate(source.createdAt)}</span>
                 </div>
               </div>
-              <SkillSourceRemoveForm skillId={skillId} sourceRefId={source.id} />
+              {canRemove ? (
+                <SkillSourceRemoveForm skillId={skillId} sourceRefId={source.id} />
+              ) : null}
             </div>
             {source.note ? <p className="skillSourceNote">{source.note}</p> : null}
             {source.preview ? (

@@ -3,11 +3,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import {
-  AnswerKind,
   CollectionStatus,
-  ExerciseRetirementReason,
-  ExerciseType,
-  ExerciseVerificationStatus,
   GenerationJobKind,
   GenerationJobStatus,
   SkillStatus,
@@ -19,6 +15,7 @@ import { EXACT_INPUT_UNLOCK_REPETITIONS } from "@/lib/skills";
 import { getSkillsLibrary } from "@/lib/skills/library";
 
 import {
+  createChoiceExercise,
   createNumericExercise,
   createSkillFixture,
   createTextExercise,
@@ -61,42 +58,6 @@ describeDatabase("skills library read model", () => {
         userId,
         name,
         status: CollectionStatus.ACTIVE,
-      },
-    });
-  }
-
-  async function createChoiceExercise({
-    userId,
-    skillId,
-    verificationStatus = ExerciseVerificationStatus.VERIFIED,
-    retiredAt = null,
-    choices = [
-      { id: "right", label: "Right" },
-      { id: "wrong", label: "Wrong" },
-    ],
-  }: {
-    userId: string;
-    skillId: string;
-    verificationStatus?: ExerciseVerificationStatus;
-    retiredAt?: Date | null;
-    choices?: Array<{ id: string; label?: string }>;
-  }) {
-    return prisma.exercise.create({
-      data: {
-        userId,
-        skillId,
-        type: ExerciseType.MULTIPLE_CHOICE,
-        answerKind: AnswerKind.CHOICE,
-        prompt: "Choose the right answer.",
-        choices,
-        answerSpec: {
-          kind: "choice",
-          correctChoiceId: "right",
-        },
-        correctAnswerDisplay: "Right",
-        verificationStatus,
-        retiredAt,
-        retirementReason: retiredAt ? ExerciseRetirementReason.MANUAL : null,
       },
     });
   }
@@ -205,8 +166,9 @@ describeDatabase("skills library read model", () => {
       dueAt: new Date("2026-06-03T09:00:00.000Z"),
       tags: ["verbs"],
     });
-    await createChoiceExercise({ userId, skillId: readySkill.id });
+    await createChoiceExercise({ prisma, userId, skillId: readySkill.id });
     await createChoiceExercise({
+      prisma,
       userId,
       skillId: readySkill.id,
       retiredAt: new Date("2026-06-04T08:00:00.000Z"),
@@ -220,7 +182,7 @@ describeDatabase("skills library read model", () => {
       status: SkillStatus.ACTIVE,
       dueAt: new Date("2026-06-05T09:00:00.000Z"),
     });
-    await createChoiceExercise({ userId, skillId: futureSkill.id });
+    await createChoiceExercise({ prisma, userId, skillId: futureSkill.id });
 
     const malformedChoiceSkill = await createSkillFixture(prisma, {
       userId,
@@ -230,6 +192,7 @@ describeDatabase("skills library read model", () => {
       dueAt: new Date("2026-06-03T09:30:00.000Z"),
     });
     await createChoiceExercise({
+      prisma,
       userId,
       skillId: malformedChoiceSkill.id,
       choices: [{ id: "right" }],
@@ -241,7 +204,20 @@ describeDatabase("skills library read model", () => {
       title: "Archived skill",
       status: SkillStatus.ARCHIVED,
     });
-    await createChoiceExercise({ userId, skillId: archivedSkill.id });
+    await createChoiceExercise({ prisma, userId, skillId: archivedSkill.id });
+
+    const pausedSkill = await createSkillFixture(prisma, {
+      userId,
+      collectionId: grammar.id,
+      title: "Paused skill",
+      status: SkillStatus.ACTIVE,
+      dueAt: new Date("2026-06-03T08:45:00.000Z"),
+    });
+    await prisma.skill.update({
+      where: { id: pausedSkill.id },
+      data: { status: SkillStatus.PAUSED },
+    });
+    await createChoiceExercise({ prisma, userId, skillId: pausedSkill.id });
 
     const otherSkill = await createSkillFixture(prisma, {
       userId: otherUserId,
@@ -249,12 +225,13 @@ describeDatabase("skills library read model", () => {
       title: "Other user skill",
       status: SkillStatus.ACTIVE,
     });
-    await createChoiceExercise({ userId: otherUserId, skillId: otherSkill.id });
+    await createChoiceExercise({ prisma, userId: otherUserId, skillId: otherSkill.id });
 
     const library = await getSkillsLibrary({ userId, now });
 
     expect(library.draftSkills).toHaveLength(1);
     expect(library.activeSkills).toHaveLength(3);
+    expect(library.recoverySkills).toHaveLength(2);
 
     expect(library.draftSkills[0]).toMatchObject({
       id: draftSkill.id,
@@ -304,6 +281,20 @@ describeDatabase("skills library read model", () => {
 
     expect(library.activeSkills.map((skill) => skill.id)).not.toContain(otherSkill.id);
     expect(library.draftSkills.map((skill) => skill.id)).not.toContain(archivedSkill.id);
+    expect(library.recoverySkills.map((skill) => skill.id)).toEqual([
+      pausedSkill.id,
+      archivedSkill.id,
+    ]);
+    expect(library.recoverySkills[0]).toMatchObject({
+      status: SkillStatus.PAUSED,
+      dueLabel: "Due now",
+      readyExerciseCount: 1,
+    });
+    expect(library.recoverySkills[1]).toMatchObject({
+      status: SkillStatus.ARCHIVED,
+      dueLabel: "Not scheduled",
+      readyExerciseCount: 1,
+    });
   });
 
   it("counts exact-input active skills with the current practice eligibility rules", async () => {
@@ -418,7 +409,7 @@ describeDatabase("skills library read model", () => {
       status: SkillStatus.ACTIVE,
       dueAt: new Date("2026-06-03T10:00:00.000Z"),
     });
-    await createChoiceExercise({ userId, skillId: secondDue.id });
+    await createChoiceExercise({ prisma, userId, skillId: secondDue.id });
 
     const firstDue = await createSkillFixture(prisma, {
       userId,
@@ -426,7 +417,7 @@ describeDatabase("skills library read model", () => {
       status: SkillStatus.ACTIVE,
       dueAt: new Date("2026-06-03T09:00:00.000Z"),
     });
-    await createChoiceExercise({ userId, skillId: firstDue.id });
+    await createChoiceExercise({ prisma, userId, skillId: firstDue.id });
 
     const library = await getSkillsLibrary({ userId, now });
 
