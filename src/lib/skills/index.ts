@@ -66,6 +66,50 @@ export type GeneratedChoiceExercise = {
   expectedSeconds: number | null;
 };
 
+export type GeneratedChoiceExerciseCandidate = GeneratedChoiceExercise & {
+  candidateId: string;
+};
+
+const choiceVerificationReasonValues = [
+  "irrelevant",
+  "ambiguous",
+  "answer_mismatch",
+  "source_mismatch",
+  "weak_distractors",
+  "unclear_prompt",
+  "too_easy",
+  "too_hard",
+  "duplicate",
+  "other",
+] as const;
+
+export type ChoiceExerciseVerificationReason =
+  (typeof choiceVerificationReasonValues)[number];
+
+export type ChoiceExerciseVerificationDecision = {
+  candidateId: string;
+  verdict: "verified" | "rejected";
+  reason: ChoiceExerciseVerificationReason | null;
+  note: string | null;
+};
+
+export type ChoiceExerciseVerificationResult =
+  | {
+      status: "ready";
+      exercises: GeneratedChoiceExercise[];
+      decisions: ChoiceExerciseVerificationDecision[];
+      rejectedCount: number;
+    }
+  | {
+      status: "invalid";
+      reason: "invalid-response" | "candidate-mismatch" | "too-few-verified-exercises";
+      message: string;
+      exercises: GeneratedChoiceExercise[];
+      decisions: ChoiceExerciseVerificationDecision[];
+      verifiedCount: number;
+      rejectedCount: number;
+    };
+
 export type GeneratedSkillDraft = {
   title: string;
   objective: string;
@@ -117,6 +161,16 @@ export type ChoiceExerciseGeneratorInput = {
 
 export type ChoiceExerciseGenerator = (
   input: ChoiceExerciseGeneratorInput,
+) => Promise<unknown>;
+
+export type ChoiceExerciseVerifierInput = {
+  skill: ChoiceExerciseGeneratorInput["skill"];
+  sourceContext: string | null;
+  candidates: GeneratedChoiceExerciseCandidate[];
+};
+
+export type ChoiceExerciseVerifier = (
+  input: ChoiceExerciseVerifierInput,
 ) => Promise<unknown>;
 
 export type NormalizedSourceSkillDraftInput = {
@@ -174,6 +228,7 @@ export type ActivateSkillDraftInput = {
   skillId: string;
   now: Date;
   generateChoiceExercises?: ChoiceExerciseGenerator;
+  verifyChoiceExercises?: ChoiceExerciseVerifier;
   model?: string;
 };
 
@@ -211,6 +266,8 @@ export type SkillActivationResult =
       reason:
         | "generation-failed"
         | "invalid-generation"
+        | "verification-failed"
+        | "invalid-verification"
         | "missing-gemini-env"
         | "skill-not-draft";
       message: string;
@@ -278,6 +335,27 @@ const generatedChoiceEnvelopeSchema = z.strictObject({
   exercises: z.array(z.unknown()).min(1).max(MAX_GENERATED_EXERCISES),
 });
 
+const choiceVerificationDecisionSchema = z
+  .strictObject({
+    candidateId: z.string().trim().min(1).max(80),
+    verdict: z.enum(["verified", "rejected"]),
+    reason: z.enum(choiceVerificationReasonValues).optional(),
+    note: z.string().trim().max(300).optional(),
+  })
+  .superRefine((decision, context) => {
+    if (decision.verdict === "rejected" && !decision.reason) {
+      context.addIssue({
+        code: "custom",
+        path: ["reason"],
+        message: "Rejected candidates require a reason.",
+      });
+    }
+  });
+
+const choiceVerificationEnvelopeSchema = z.strictObject({
+  verifications: z.array(choiceVerificationDecisionSchema).min(1).max(MAX_GENERATED_EXERCISES),
+});
+
 const geminiResponseJsonSchema = {
   type: "object",
   additionalProperties: false,
@@ -311,6 +389,39 @@ const geminiResponseJsonSchema = {
           explanation: { type: "string" },
           difficulty: { type: "integer", minimum: 1, maximum: 5 },
           expectedSeconds: { type: "integer", minimum: 5, maximum: 180 },
+        },
+      },
+    },
+  },
+};
+
+const geminiChoiceVerificationJsonSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["verifications"],
+  properties: {
+    verifications: {
+      type: "array",
+      minItems: MIN_ACTIVATION_EXERCISES,
+      maxItems: REQUESTED_ACTIVATION_EXERCISES,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["candidateId", "verdict"],
+        properties: {
+          candidateId: { type: "string" },
+          verdict: {
+            type: "string",
+            enum: ["verified", "rejected"],
+          },
+          reason: {
+            type: "string",
+            enum: choiceVerificationReasonValues,
+          },
+          note: {
+            type: "string",
+            maxLength: 300,
+          },
         },
       },
     },
@@ -655,13 +766,12 @@ export async function activateSkillDraft(
     };
   }
 
+  const sourceContext = buildSourceContextExcerpt(
+    skill.sourceRefs.map((sourceRef) => sourceRef.sourceFile.extractedText),
+  );
   let rawGeneration: unknown;
 
   try {
-    const sourceContext = buildSourceContextExcerpt(
-      skill.sourceRefs.map((sourceRef) => sourceRef.sourceFile.extractedText),
-    );
-
     rawGeneration = await withTimeout(
       setup.generateChoiceExercises({
         skill,
@@ -706,6 +816,57 @@ export async function activateSkillDraft(
     };
   }
 
+  const candidates = toGeneratedChoiceExerciseCandidates(validation.exercises);
+  let rawVerification: unknown;
+
+  try {
+    rawVerification = await withTimeout(
+      setup.verifyChoiceExercises({
+        skill,
+        sourceContext,
+        candidates,
+      }),
+      GENERATION_TIMEOUT_MS,
+      "verifyChoiceExercises timed out",
+    );
+  } catch (error) {
+    const message = `Gemini exercise verification failed: ${formatEnvError(error)}`;
+    await markGenerationJobFailed(prisma, generationJob.id, {
+      message,
+      acceptedCount: 0,
+      rejectedCount: validation.rejectedCount + validation.exercises.length,
+      now: input.now,
+    });
+
+    return {
+      status: "not-activated",
+      reason: "verification-failed",
+      message,
+      generationJobId: generationJob.id,
+    };
+  }
+
+  const verification = validateChoiceExerciseVerification({
+    candidates,
+    rawVerification,
+  });
+
+  if (verification.status === "invalid") {
+    await markGenerationJobFailed(prisma, generationJob.id, {
+      message: verification.message,
+      acceptedCount: verification.verifiedCount,
+      rejectedCount: validation.rejectedCount + verification.rejectedCount,
+      now: input.now,
+    });
+
+    return {
+      status: "not-activated",
+      reason: "invalid-verification",
+      message: verification.message,
+      generationJobId: generationJob.id,
+    };
+  }
+
   return prisma.$transaction(async (tx) => {
     const schedule = createInitialSkillSchedule(input.now);
     const skillUpdate = await tx.skill.updateMany({
@@ -739,7 +900,7 @@ export async function activateSkillDraft(
     }
 
     await tx.exercise.createMany({
-      data: validation.exercises.map((exercise) => ({
+      data: verification.exercises.map((exercise) => ({
         userId: input.userId,
         skillId: skill.id,
         type: ExerciseType.MULTIPLE_CHOICE,
@@ -759,8 +920,8 @@ export async function activateSkillDraft(
       where: { id: generationJob.id },
       data: {
         status: GenerationJobStatus.SUCCEEDED,
-        acceptedCount: validation.exercises.length,
-        rejectedCount: validation.rejectedCount,
+        acceptedCount: verification.exercises.length,
+        rejectedCount: validation.rejectedCount + verification.rejectedCount,
         completedAt: input.now,
       },
     });
@@ -769,7 +930,7 @@ export async function activateSkillDraft(
       status: "activated",
       skillId: skill.id,
       generationJobId: generationJob.id,
-      exerciseCount: validation.exercises.length,
+      exerciseCount: verification.exercises.length,
     };
   });
 }
@@ -812,6 +973,101 @@ export function validateGeneratedChoiceExercises(
   };
 }
 
+export function toGeneratedChoiceExerciseCandidates(
+  exercises: GeneratedChoiceExercise[],
+): GeneratedChoiceExerciseCandidate[] {
+  return exercises.map((exercise, index) => ({
+    ...exercise,
+    candidateId: `candidate-${index + 1}`,
+  }));
+}
+
+export function validateChoiceExerciseVerification(input: {
+  candidates: GeneratedChoiceExerciseCandidate[];
+  rawVerification: unknown;
+}): ChoiceExerciseVerificationResult {
+  const envelopeResult = choiceVerificationEnvelopeSchema.safeParse(input.rawVerification);
+
+  if (!envelopeResult.success) {
+    return invalidChoiceExerciseVerification(
+      "invalid-response",
+      [],
+      [],
+      input.candidates.length,
+      "Gemini returned an invalid verification shape.",
+    );
+  }
+
+  const expectedCandidateIds = new Set(input.candidates.map((candidate) => candidate.candidateId));
+  const seenCandidateIds = new Set<string>();
+  const decisions: ChoiceExerciseVerificationDecision[] = [];
+
+  for (const verification of envelopeResult.data.verifications) {
+    if (!expectedCandidateIds.has(verification.candidateId)) {
+      return invalidChoiceExerciseVerification(
+        "candidate-mismatch",
+        [],
+        decisions,
+        input.candidates.length,
+        "Gemini verification referenced an unknown exercise candidate.",
+      );
+    }
+
+    if (seenCandidateIds.has(verification.candidateId)) {
+      return invalidChoiceExerciseVerification(
+        "candidate-mismatch",
+        [],
+        decisions,
+        input.candidates.length,
+        "Gemini verification returned a duplicate exercise decision.",
+      );
+    }
+
+    seenCandidateIds.add(verification.candidateId);
+    decisions.push({
+      candidateId: verification.candidateId,
+      verdict: verification.verdict,
+      reason: verification.verdict === "rejected" ? verification.reason ?? "other" : null,
+      note: verification.verdict === "rejected" ? verification.note?.trim() || null : null,
+    });
+  }
+
+  if (seenCandidateIds.size !== expectedCandidateIds.size) {
+    return invalidChoiceExerciseVerification(
+      "candidate-mismatch",
+      [],
+      decisions,
+      input.candidates.length,
+      "Gemini verification did not decide every exercise candidate.",
+    );
+  }
+
+  const decisionsByCandidateId = new Map(
+    decisions.map((decision) => [decision.candidateId, decision]),
+  );
+  const verifiedExercises = input.candidates
+    .filter((candidate) => decisionsByCandidateId.get(candidate.candidateId)?.verdict === "verified")
+    .map(stripGeneratedChoiceExerciseCandidate);
+  const rejectedCount = input.candidates.length - verifiedExercises.length;
+
+  if (verifiedExercises.length < MIN_ACTIVATION_EXERCISES) {
+    return invalidChoiceExerciseVerification(
+      "too-few-verified-exercises",
+      verifiedExercises,
+      decisions,
+      rejectedCount,
+      `Gemini verified ${verifiedExercises.length} exercises; at least ${MIN_ACTIVATION_EXERCISES} are required.`,
+    );
+  }
+
+  return {
+    status: "ready",
+    exercises: verifiedExercises,
+    decisions,
+    rejectedCount,
+  };
+}
+
 export function validateGeneratedSkillDraft(
   input: unknown,
 ): GeneratedSkillDraftValidationResult {
@@ -847,6 +1103,7 @@ function resolveActivationSetup(
       status: "ready";
       model: string;
       generateChoiceExercises: ChoiceExerciseGenerator;
+      verifyChoiceExercises: ChoiceExerciseVerifier;
     }
   | {
       status: "missing-env";
@@ -858,6 +1115,7 @@ function resolveActivationSetup(
       status: "ready",
       model: input.model ?? "test-generator",
       generateChoiceExercises: input.generateChoiceExercises,
+      verifyChoiceExercises: input.verifyChoiceExercises ?? createTrustingChoiceExerciseVerifier(),
     };
   }
 
@@ -871,6 +1129,12 @@ function resolveActivationSetup(
         apiKey: env.GEMINI_API_KEY,
         model: env.GEMINI_MODEL,
       }),
+      verifyChoiceExercises:
+        input.verifyChoiceExercises ??
+        createGeminiChoiceExerciseVerifier({
+          apiKey: env.GEMINI_API_KEY,
+          model: env.GEMINI_MODEL,
+        }),
     };
   } catch (error) {
     return {
@@ -976,6 +1240,42 @@ function createGeminiChoiceExerciseGenerator({
   };
 }
 
+function createGeminiChoiceExerciseVerifier({
+  apiKey,
+  model,
+}: {
+  apiKey: string;
+  model: string;
+}): ChoiceExerciseVerifier {
+  return async (input) => {
+    const ai = new GoogleGenAI({ apiKey });
+    const response = await ai.models.generateContent({
+      model,
+      contents: buildChoiceExerciseVerificationPrompt(input),
+      config: {
+        responseMimeType: "application/json",
+        responseJsonSchema: geminiChoiceVerificationJsonSchema,
+      },
+    });
+    const text = response.text;
+
+    if (!text) {
+      throw new Error("Gemini returned no text.");
+    }
+
+    return JSON.parse(text) as unknown;
+  };
+}
+
+function createTrustingChoiceExerciseVerifier(): ChoiceExerciseVerifier {
+  return async (input) => ({
+    verifications: input.candidates.map((candidate) => ({
+      candidateId: candidate.candidateId,
+      verdict: "verified",
+    })),
+  });
+}
+
 async function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) => {
@@ -1019,6 +1319,51 @@ function buildChoiceExercisePrompt(input: ChoiceExerciseGeneratorInput): string 
     "",
     "Use stable lowercase choice IDs such as a, b, c, d.",
     "Keep choices short, parallel, and plausible.",
+  );
+
+  return prompt.join("\n");
+}
+
+function buildChoiceExerciseVerificationPrompt(input: ChoiceExerciseVerifierInput): string {
+  const candidates = input.candidates.map((candidate) => ({
+    candidateId: candidate.candidateId,
+    prompt: candidate.prompt,
+    choices: candidate.choices,
+    correctChoiceId: candidate.answerSpec.correctChoiceId,
+    explanation: candidate.explanation,
+    difficulty: candidate.difficulty,
+    expectedSeconds: candidate.expectedSeconds,
+  }));
+
+  const prompt = [
+    "Verify generated LearnRecur multiple-choice exercise candidates.",
+    "Return only JSON matching the provided response schema.",
+    "Do not include markdown, commentary, rewritten exercises, or answer keys outside the JSON.",
+    "Be conservative: reject any candidate you are not confident is clear, fair, source-aligned, and objectively answerable.",
+    "Return exactly one verification decision for every candidateId, and never invent candidate IDs.",
+    "Use verdict verified only when the stated correct choice is unambiguously best.",
+    "",
+    `Skill title: ${input.skill.title}`,
+    `Skill objective: ${input.skill.objective ?? "No objective provided."}`,
+    `Tags: ${input.skill.tags.join(", ") || "none"}`,
+    `Rules: ${summarizeJsonNotes(input.skill.rules)}`,
+    `Examples: ${summarizeJsonNotes(input.skill.examples)}`,
+    `Exercise constraints: ${summarizeJsonNotes(input.skill.exerciseConstraints)}`,
+  ];
+
+  if (input.sourceContext) {
+    prompt.push(
+      "",
+      "Linked source excerpt. Use this as the scope boundary for source-backed exercises.",
+      input.sourceContext,
+    );
+  }
+
+  prompt.push(
+    "",
+    "Reject reasons must use one of: irrelevant, ambiguous, answer_mismatch, source_mismatch, weak_distractors, unclear_prompt, too_easy, too_hard, duplicate, other.",
+    "Candidates:",
+    JSON.stringify(candidates, null, 2),
   );
 
   return prompt.join("\n");
@@ -1187,6 +1532,32 @@ function invalidGeneratedExercises(
     validCount: exercises.length,
     rejectedCount,
   };
+}
+
+function invalidChoiceExerciseVerification(
+  reason: "invalid-response" | "candidate-mismatch" | "too-few-verified-exercises",
+  exercises: GeneratedChoiceExercise[],
+  decisions: ChoiceExerciseVerificationDecision[],
+  rejectedCount: number,
+  message: string,
+): Extract<ChoiceExerciseVerificationResult, { status: "invalid" }> {
+  return {
+    status: "invalid",
+    reason,
+    message,
+    exercises,
+    decisions,
+    verifiedCount: exercises.length,
+    rejectedCount,
+  };
+}
+
+function stripGeneratedChoiceExerciseCandidate(
+  candidate: GeneratedChoiceExerciseCandidate,
+): GeneratedChoiceExercise {
+  const { candidateId, ...exercise } = candidate;
+  void candidateId;
+  return exercise;
 }
 
 function toNotesJson(notes: string[]): Prisma.InputJsonValue | typeof Prisma.JsonNull {
