@@ -45,6 +45,11 @@ test.describe("auth spine", () => {
   });
 
   test("skill creation routes are protected for signed-out users", async ({ page }) => {
+    await page.goto("/skills");
+
+    await expect(page).toHaveURL(/\/sign-in|accounts\.dev\/sign-in/);
+    await expect(page.getByText(/skill library/i)).toHaveCount(0);
+
     await page.goto("/skills/new");
 
     await expect(page).toHaveURL(/\/sign-in|accounts\.dev\/sign-in/);

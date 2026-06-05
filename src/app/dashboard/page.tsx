@@ -123,7 +123,9 @@ export default async function DashboardPage() {
               <p className="eyebrow">Skills</p>
               <h2 id="skills-title">Active schedule</h2>
             </div>
-            <span className="dashboardChip">{formatCount(dashboard.skills.length)} shown</span>
+            <Link className="dashboardPanelLink" href="/skills">
+              View all skills
+            </Link>
           </div>
 
           {dashboard.skills.length === 0 ? (
@@ -192,6 +194,7 @@ function DashboardTopbar() {
           Dashboard
         </Link>
         <Link href="/practice">Practice</Link>
+        <Link href="/skills">Skills</Link>
         <Link href="/skills/new">Add skill</Link>
       </nav>
       <UserButton />
