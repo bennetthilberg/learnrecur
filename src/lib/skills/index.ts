@@ -4522,7 +4522,7 @@ function parseGeneratedMathExercise(candidate: unknown): GeneratedMathExercise |
     submittedAnswer: exercise.correctAnswerDisplay,
   });
 
-  if (displayCheck.status === "invalid-input" || displayCheck.status === "invalid-spec") {
+  if (displayCheck.status !== "correct") {
     return null;
   }
 

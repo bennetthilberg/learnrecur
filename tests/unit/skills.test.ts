@@ -521,6 +521,24 @@ describe("validateGeneratedMathExercises", () => {
     });
   });
 
+  it("rejects math exercises whose display answer does not match the answer spec", () => {
+    const result = validateGeneratedMathExercises({
+      exercises: [
+        {
+          ...validMathExercise(1),
+          correctAnswerDisplay: "3x",
+        },
+      ],
+    });
+
+    expect(result).toMatchObject({
+      status: "invalid",
+      reason: "too-few-valid-exercises",
+      validCount: 0,
+      rejectedCount: 1,
+    });
+  });
+
   it("requires at least one verified math exercise for refill", () => {
     const candidates = toGeneratedMathExerciseCandidates([validMathExercise(1)]);
     const result = validateMathExerciseVerification(
