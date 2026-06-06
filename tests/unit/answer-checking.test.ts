@@ -280,8 +280,8 @@ describe("checkAnswer numeric answers", () => {
   });
 });
 
-describe("checkAnswer unsupported and invalid specs", () => {
-  it("returns unsupported for math answer specs until symbolic equivalence exists", () => {
+describe("checkAnswer math answers", () => {
+  it("accepts equivalent basic expressions", () => {
     expect(
       checkAnswer({
         answerSpec: {
@@ -292,14 +292,111 @@ describe("checkAnswer unsupported and invalid specs", () => {
         submittedAnswer: "6*x",
       }),
     ).toEqual({
-      status: "unsupported",
-      isCorrect: false,
-      normalizedAnswer: null,
-      reason: "math-not-implemented",
-      message: "Math equivalence checking is not available yet.",
+      status: "correct",
+      isCorrect: true,
+      normalizedAnswer: "6x",
     });
   });
 
+  it("handles fractions, powers, variables, whitespace, and parenthesized expressions", () => {
+    expect(
+      checkAnswer({
+        answerSpec: {
+          kind: "math",
+          acceptedExpressions: ["x^2 + 2x + 1"],
+        },
+        submittedAnswer: " (x + 1)^2 ",
+      }),
+    ).toMatchObject({
+      status: "correct",
+      isCorrect: true,
+    });
+
+    expect(
+      checkAnswer({
+        answerSpec: {
+          kind: "math",
+          acceptedExpressions: ["-0.75"],
+        },
+        submittedAnswer: "-3/4",
+      }),
+    ).toEqual({
+      status: "correct",
+      isCorrect: true,
+      normalizedAnswer: "-3/4",
+    });
+  });
+
+  it("rejects non-equivalent expressions", () => {
+    expect(
+      checkAnswer({
+        answerSpec: {
+          kind: "math",
+          acceptedExpressions: ["2x"],
+        },
+        submittedAnswer: "3x",
+      }),
+    ).toEqual({
+      status: "incorrect",
+      isCorrect: false,
+      normalizedAnswer: "3x",
+    });
+  });
+
+  it("returns structured invalid input for empty or malformed math answers", () => {
+    expect(
+      checkAnswer({
+        answerSpec: {
+          kind: "math",
+          acceptedExpressions: ["2x"],
+        },
+        submittedAnswer: "   ",
+      }),
+    ).toEqual({
+      status: "invalid-input",
+      isCorrect: false,
+      normalizedAnswer: null,
+      reason: "empty-answer",
+      message: "Enter a math expression.",
+    });
+
+    expect(
+      checkAnswer({
+        answerSpec: {
+          kind: "math",
+          acceptedExpressions: ["2x"],
+        },
+        submittedAnswer: "x**2",
+      }),
+    ).toEqual({
+      status: "invalid-input",
+      isCorrect: false,
+      normalizedAnswer: null,
+      reason: "malformed-math-expression",
+      message: "Enter a valid math expression.",
+    });
+  });
+
+  it("returns invalid spec for malformed accepted expressions", () => {
+    expect(
+      checkAnswer({
+        answerSpec: {
+          kind: "math",
+          acceptedExpressions: ["x**2"],
+        },
+        submittedAnswer: "x^2",
+      }),
+    ).toEqual({
+      status: "invalid-spec",
+      isCorrect: false,
+      normalizedAnswer: null,
+      reason: "invalid-accepted-expression",
+      message: "Accepted math expressions must be valid.",
+    });
+  });
+});
+
+describe("checkAnswer invalid specs", () => {
   it("rejects invalid answer specs before grading", () => {
     expect(
       checkAnswer({

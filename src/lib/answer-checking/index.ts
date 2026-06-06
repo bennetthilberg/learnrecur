@@ -1,6 +1,8 @@
+import { ComputeEngine, type Expression } from "@cortex-js/compute-engine";
 import { z } from "zod";
 
 const DEFAULT_NUMERIC_TOLERANCE = 0.001;
+const computeEngine = new ComputeEngine();
 
 const nonEmptyStringSchema = z.string().trim().min(1);
 
@@ -89,10 +91,11 @@ export type AnswerCheckReason =
   | "duplicate-choice-id"
   | "empty-answer"
   | "invalid-accepted-number"
+  | "invalid-accepted-expression"
   | "invalid-answer-spec"
   | "invalid-choices"
+  | "malformed-math-expression"
   | "malformed-number"
-  | "math-not-implemented"
   | "missing-correct-choice"
   | "unknown-choice"
   | "wrong-answer-shape"
@@ -140,14 +143,20 @@ export function checkAnswer(input: CheckAnswerInput): AnswerCheckResult {
     case "numeric":
       return checkNumericAnswer(answerSpec, input.submittedAnswer);
     case "math":
-      return {
-        status: "unsupported",
-        isCorrect: false,
-        normalizedAnswer: null,
-        reason: "math-not-implemented",
-        message: "Math equivalence checking is not available yet.",
-      };
+      return checkMathAnswer(answerSpec, input.submittedAnswer);
   }
+}
+
+export function isUsableMathAnswerSpec(input: unknown): boolean {
+  const answerSpecResult = mathAnswerSpecSchema.safeParse(input);
+
+  if (!answerSpecResult.success) {
+    return false;
+  }
+
+  return answerSpecResult.data.acceptedExpressions.every(
+    (acceptedExpression) => parseMathExpression(acceptedExpression).ok,
+  );
 }
 
 function checkChoiceAnswer(
@@ -257,6 +266,40 @@ function checkNumericAnswer(
   };
 }
 
+function checkMathAnswer(answerSpec: MathAnswerSpec, submittedAnswer: unknown): AnswerCheckResult {
+  if (typeof submittedAnswer !== "string") {
+    return invalidInput("wrong-answer-shape", "Enter a math expression.");
+  }
+
+  const parsedSubmittedAnswer = parseMathExpression(submittedAnswer);
+
+  if (!parsedSubmittedAnswer.ok) {
+    return invalidInput(parsedSubmittedAnswer.reason, parsedSubmittedAnswer.message);
+  }
+
+  const acceptedExpressions: Expression[] = [];
+
+  for (const acceptedExpression of answerSpec.acceptedExpressions) {
+    const parsedAcceptedExpression = parseMathExpression(acceptedExpression);
+
+    if (!parsedAcceptedExpression.ok) {
+      return invalidSpec("invalid-accepted-expression", "Accepted math expressions must be valid.");
+    }
+
+    acceptedExpressions.push(parsedAcceptedExpression.expression);
+  }
+
+  const isCorrect = acceptedExpressions.some((acceptedExpression) =>
+    areMathExpressionsEquivalent(parsedSubmittedAnswer.expression, acceptedExpression),
+  );
+
+  return {
+    status: isCorrect ? "correct" : "incorrect",
+    isCorrect,
+    normalizedAnswer: parsedSubmittedAnswer.normalized,
+  };
+}
+
 function parseSelectedChoiceId(submittedAnswer: unknown): string | null {
   if (typeof submittedAnswer === "string") {
     return submittedAnswer.trim();
@@ -290,6 +333,72 @@ function normalizeTextAnswer(answer: string, options: TextAnswerSpec): string {
   }
 
   return normalized;
+}
+
+type ParsedMathExpression =
+  | {
+      ok: true;
+      expression: Expression;
+      normalized: string;
+    }
+  | {
+      ok: false;
+      reason: Extract<AnswerCheckReason, "empty-answer" | "malformed-math-expression">;
+      message: string;
+    };
+
+function parseMathExpression(input: string): ParsedMathExpression {
+  const trimmed = input.trim();
+
+  if (trimmed === "") {
+    return {
+      ok: false,
+      reason: "empty-answer",
+      message: "Enter a math expression.",
+    };
+  }
+
+  try {
+    const expression = computeEngine.parse(trimmed);
+
+    if (!expression.isValid) {
+      return malformedMathExpression();
+    }
+
+    const simplifiedExpression = expression.simplify();
+
+    if (!simplifiedExpression.isValid) {
+      return malformedMathExpression();
+    }
+
+    return {
+      ok: true,
+      expression,
+      normalized: simplifiedExpression.toString(),
+    };
+  } catch {
+    return malformedMathExpression();
+  }
+}
+
+function malformedMathExpression(): ParsedMathExpression {
+  return {
+    ok: false,
+    reason: "malformed-math-expression",
+    message: "Enter a valid math expression.",
+  };
+}
+
+function areMathExpressionsEquivalent(left: Expression, right: Expression): boolean {
+  try {
+    if (left.isEqual(right) === true) {
+      return true;
+    }
+
+    return left.simplify().isEqual(right.simplify()) === true;
+  } catch {
+    return false;
+  }
 }
 
 function parseAcceptedNumericValue(acceptedValue: NumericAnswerSpec["accepted"][number]): ParsedNumber {

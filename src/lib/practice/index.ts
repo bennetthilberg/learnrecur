@@ -15,6 +15,7 @@ import {
 } from "@/generated/prisma/client";
 import {
   checkAnswer,
+  isUsableMathAnswerSpec,
   numericAnswerSpecSchema,
   textAnswerSpecSchema,
   type AnswerCheckResult,
@@ -34,7 +35,12 @@ import {
   type RefillQueueResult,
 } from "@/lib/skills/refill-jobs";
 
-const SUPPORTED_ANSWER_KINDS = [AnswerKind.CHOICE, AnswerKind.TEXT, AnswerKind.NUMERIC] as const;
+const SUPPORTED_ANSWER_KINDS = [
+  AnswerKind.CHOICE,
+  AnswerKind.TEXT,
+  AnswerKind.NUMERIC,
+  AnswerKind.MATH,
+] as const;
 
 export type PracticeSubmittedAnswer = Prisma.InputJsonValue;
 
@@ -1041,7 +1047,11 @@ function getExerciseAttemptStats(
 }
 
 function isPracticeExerciseUnlockedForSkill(exercise: PracticeExerciseRecord): boolean {
-  if (exercise.answerKind === AnswerKind.TEXT || exercise.answerKind === AnswerKind.NUMERIC) {
+  if (
+    exercise.answerKind === AnswerKind.TEXT ||
+    exercise.answerKind === AnswerKind.NUMERIC ||
+    exercise.answerKind === AnswerKind.MATH
+  ) {
     return isExactInputUnlocked(exercise.skill.repetitions);
   }
 
@@ -1055,6 +1065,10 @@ function hasCompatiblePracticeAnswerSpec(exercise: PracticeExerciseRecord): bool
 
   if (exercise.answerKind === AnswerKind.NUMERIC) {
     return numericAnswerSpecSchema.safeParse(exercise.answerSpec).success;
+  }
+
+  if (exercise.answerKind === AnswerKind.MATH) {
+    return isUsableMathAnswerSpec(exercise.answerSpec);
   }
 
   return true;

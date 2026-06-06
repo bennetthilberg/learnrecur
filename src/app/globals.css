@@ -695,6 +695,21 @@ a {
   line-height: 1.5;
 }
 
+.mathTextInline {
+  display: inline;
+}
+
+.mathTextDisplay {
+  display: block;
+  margin: 12px 0;
+  overflow-x: auto;
+  color: var(--lr-ink);
+}
+
+.practiceFeedback .mathTextDisplay {
+  margin: 8px 0;
+}
+
 .choiceGrid {
   display: grid;
   gap: 10px;

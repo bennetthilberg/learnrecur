@@ -7,7 +7,12 @@ import { getPrisma } from "@/lib/prisma";
 import type { ChoiceOption, PracticeItem, PracticeScope } from "./types";
 
 const CHOICE_ANSWER_KINDS = [AnswerKind.CHOICE] as const;
-const PRACTICE_ANSWER_KINDS = [AnswerKind.CHOICE, AnswerKind.TEXT, AnswerKind.NUMERIC] as const;
+const PRACTICE_ANSWER_KINDS = [
+  AnswerKind.CHOICE,
+  AnswerKind.TEXT,
+  AnswerKind.NUMERIC,
+  AnswerKind.MATH,
+] as const;
 const COLLECTION_SCOPE_UNAVAILABLE_MESSAGE =
   "That collection is not available for scoped practice.";
 
@@ -173,7 +178,8 @@ function toPracticeItem(
 
   if (
     result.exercise.answerKind !== AnswerKind.TEXT &&
-    result.exercise.answerKind !== AnswerKind.NUMERIC
+    result.exercise.answerKind !== AnswerKind.NUMERIC &&
+    result.exercise.answerKind !== AnswerKind.MATH
   ) {
     return {
       status: "unavailable",

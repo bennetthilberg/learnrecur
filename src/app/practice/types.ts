@@ -28,7 +28,7 @@ export type PracticeExercise =
   | {
       id: string;
       skillId: string;
-      answerKind: typeof AnswerKind.TEXT | typeof AnswerKind.NUMERIC;
+      answerKind: typeof AnswerKind.TEXT | typeof AnswerKind.NUMERIC | typeof AnswerKind.MATH;
       prompt: string;
       difficulty: number | null;
       expectedSeconds: number | null;

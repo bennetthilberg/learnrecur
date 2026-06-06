@@ -11,6 +11,7 @@ import {
   flagPracticeExerciseAction,
   previewPracticeAnswerAction,
 } from "./actions";
+import { MathText } from "./math-text";
 import type {
   ChoicePracticeSeedResult,
   PracticeItem,
@@ -284,8 +285,13 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
 
   const exercise = item.exercise;
   const isNumericExercise = exercise.answerKind === AnswerKind.NUMERIC;
+  const isMathExercise = exercise.answerKind === AnswerKind.MATH;
   const practiceModeLabel =
-    exercise.answerKind === AnswerKind.CHOICE ? "Multiple choice" : "Exact input";
+    exercise.answerKind === AnswerKind.CHOICE
+      ? "Multiple choice"
+      : isMathExercise
+        ? "Math input"
+        : "Exact input";
 
   return (
     <>
@@ -307,7 +313,9 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
           <span>Exercise</span>
           {exercise.difficulty ? <span>Level {exercise.difficulty}</span> : null}
         </div>
-        <p>{exercise.prompt}</p>
+        <p>
+          <MathText text={exercise.prompt} />
+        </p>
       </article>
 
       {exercise.answerKind === AnswerKind.CHOICE ? (
@@ -347,7 +355,13 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
             inputMode="text"
             autoComplete="off"
             disabled={feedback !== null || pendingAction !== null}
-            placeholder={isNumericExercise ? "Enter a number or fraction" : "Type your answer"}
+            placeholder={
+              isMathExercise
+                ? "Enter a math expression"
+                : isNumericExercise
+                  ? "Enter a number or fraction"
+                  : "Type your answer"
+            }
             onChange={(event) => setAnswerValue(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === "Enter" && feedback === null && pendingAction === null) {
@@ -366,9 +380,16 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
         >
           <h2>{isCorrect ? "Correct." : "Not quite."}</h2>
           <p>
-            Correct answer: <strong>{checkedFeedback.correctAnswerDisplay}</strong>
+            Correct answer:{" "}
+            <strong>
+              <MathText text={checkedFeedback.correctAnswerDisplay} />
+            </strong>
           </p>
-          {checkedFeedback.explanation ? <p>{checkedFeedback.explanation}</p> : null}
+          {checkedFeedback.explanation ? (
+            <p>
+              <MathText text={checkedFeedback.explanation} />
+            </p>
+          ) : null}
         </section>
       ) : null}
 

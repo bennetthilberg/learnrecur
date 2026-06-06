@@ -172,3 +172,45 @@ export async function createNumericExercise(
     },
   });
 }
+
+type MathExerciseOverrides = Partial<
+  Pick<
+    Prisma.ExerciseUncheckedCreateInput,
+    | "prompt"
+    | "answerSpec"
+    | "correctAnswerDisplay"
+    | "verificationStatus"
+    | "retiredAt"
+    | "retirementReason"
+    | "difficulty"
+    | "expectedSeconds"
+  >
+>;
+
+export async function createMathExercise(
+  prisma: TestPrismaClient,
+  userId: string,
+  skillId: string,
+  overrides: MathExerciseOverrides = {},
+) {
+  const retiredAt = overrides.retiredAt ?? null;
+
+  return prisma.exercise.create({
+    data: {
+      userId,
+      skillId,
+      type: ExerciseType.EXACT_INPUT,
+      answerKind: AnswerKind.MATH,
+      prompt: "Simplify x + x.",
+      answerSpec: {
+        kind: "math",
+        acceptedExpressions: ["2x"],
+      },
+      correctAnswerDisplay: "2x",
+      verificationStatus: ExerciseVerificationStatus.VERIFIED,
+      retiredAt,
+      retirementReason: retiredAt ? ExerciseRetirementReason.MANUAL : null,
+      ...overrides,
+    },
+  });
+}

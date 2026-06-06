@@ -1,5 +1,7 @@
 import "server-only";
 
+import { AnswerKind, ExerciseVerificationStatus } from "@/generated/prisma/client";
+import { isUsableMathAnswerSpec } from "@/lib/answer-checking";
 import {
   isExactInputUnlocked,
   isReadyChoiceExercise,
@@ -27,5 +29,14 @@ export function isPracticeReadModelExerciseReady(
     return false;
   }
 
-  return isReadyExactInputExercise(exercise);
+  return isReadyExactInputExercise(exercise) || isReadyMathExercise(exercise);
+}
+
+function isReadyMathExercise(exercise: PracticeReadModelExercise): boolean {
+  return (
+    exercise.answerKind === AnswerKind.MATH &&
+    exercise.verificationStatus === ExerciseVerificationStatus.VERIFIED &&
+    exercise.retiredAt === null &&
+    isUsableMathAnswerSpec(exercise.answerSpec)
+  );
 }
