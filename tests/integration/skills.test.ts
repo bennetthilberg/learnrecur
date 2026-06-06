@@ -1201,6 +1201,18 @@ describeDatabase("skill drafts and Gemini activation", () => {
     });
     expect(failedSource.status).toBe(SourceFileStatus.FAILED);
     expect(failedSource.storageKey).toBeNull();
+    expect(failedSource.metadata).toMatchObject({
+      failureReason: "invalid-upload",
+      errorMessage: "Uploaded file is missing or larger than 10 MB.",
+    });
+    const library = await getSkillsLibrary({ userId, now });
+    const sourceProcessing = library.sourceProcessing.find(
+      (sourceFile) => sourceFile.id === prepared.sourceFileId,
+    );
+    expect(sourceProcessing).toMatchObject({
+      status: SourceFileStatus.FAILED,
+      errorMessage: "Uploaded file is missing or larger than 10 MB.",
+    });
     expect(deletedKeys).toEqual([prepared.objectKey]);
   });
 
