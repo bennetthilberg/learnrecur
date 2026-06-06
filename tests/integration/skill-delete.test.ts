@@ -47,7 +47,7 @@ describeDatabase("skill permanent delete", () => {
     await prisma.user.create({
       data: {
         id: userId,
-        email: `${label}@example.com`,
+        email: `${label}-${runId}@example.com`,
       },
     });
     return userId;

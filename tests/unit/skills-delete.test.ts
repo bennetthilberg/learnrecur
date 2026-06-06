@@ -32,8 +32,8 @@ describe("skill permanent delete helpers", () => {
       getOrphanSourceFileIdsForSkillDelete([
         { sourceFileId: "source-final", referenceCount: 1 },
         { sourceFileId: "source-shared", referenceCount: 2 },
-        { sourceFileId: "source-final", referenceCount: 1 },
+        { sourceFileId: "source-final-2", referenceCount: 1 },
       ]),
-    ).toEqual(["source-final"]);
+    ).toEqual(["source-final", "source-final-2"]);
   });
 });
