@@ -664,9 +664,19 @@ export async function requeueSourceUploadDraft(
       requestedAt: input.now.toISOString(),
     });
   } catch (error) {
-    // Unlike the initial upload completion path, requeue is a recovery action.
-    // Preserve the source row and private object so the user can retry after a
-    // transient Inngest outage instead of losing the uploaded study material.
+    await prisma.sourceFile.updateMany({
+      where: {
+        id: sourceFile.id,
+        userId: input.userId,
+        status: SourceFileStatus.UPLOADED,
+      },
+      data: {
+        status: sourceFile.status,
+        byteSize: sourceFile.byteSize,
+        metadata: sourceFile.metadata ?? Prisma.DbNull,
+      },
+    });
+
     return requeueNotQueued(
       "event-send-failed",
       `Could not requeue source processing: ${formatEnvError(error)}`,

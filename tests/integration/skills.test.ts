@@ -1428,7 +1428,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
     });
   });
 
-  it("preserves uploaded source state when requeue event sending fails", async () => {
+  it("rolls back requeue state when event sending fails", async () => {
     const userId = await createUser("upload_requeue_send_failure");
     const { storage, deletedKeys } = createFakeUploadStorage({
       byteSize: 4096,
@@ -1455,6 +1455,20 @@ describeDatabase("skill drafts and Gemini activation", () => {
       storage,
       eventSender: createFakeSourceUploadSender().sender,
     });
+    const originalMetadata = {
+      processingStartedAt: new Date(
+        now.getTime() - SOURCE_PROCESSING_STALE_AFTER_MS,
+      ).toISOString(),
+      retryCount: 2,
+    };
+    await prisma.sourceFile.update({
+      where: { id: prepared.sourceFileId },
+      data: {
+        status: SourceFileStatus.PROCESSING,
+        byteSize: 2048,
+        metadata: originalMetadata,
+      },
+    });
 
     const requeued = await requeueSourceUploadDraft({
       userId,
@@ -1475,7 +1489,9 @@ describeDatabase("skill drafts and Gemini activation", () => {
     const sourceFile = await prisma.sourceFile.findUniqueOrThrow({
       where: { id: prepared.sourceFileId },
     });
-    expect(sourceFile.status).toBe(SourceFileStatus.UPLOADED);
+    expect(sourceFile.status).toBe(SourceFileStatus.PROCESSING);
+    expect(sourceFile.byteSize).toBe(2048);
+    expect(sourceFile.metadata).toEqual(originalMetadata);
     expect(sourceFile.storageKey).toBe(prepared.objectKey);
     expect(deletedKeys).toEqual([]);
   });

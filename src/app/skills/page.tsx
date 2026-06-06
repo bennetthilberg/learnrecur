@@ -277,7 +277,7 @@ function SourceProcessingRow({
         <span>{formatSourceKind(sourceFile.kind)}</span>
         <span>{formatByteSize(sourceFile.byteSize)}</span>
         <span>Updated {formatDate(sourceFile.updatedAt)}</span>
-        {sourceFile.retryCount > 0 ? <span>{formatCount(sourceFile.retryCount)} retries</span> : null}
+        {sourceFile.retryCount > 0 ? <span>{formatRetryCount(sourceFile.retryCount)}</span> : null}
       </div>
       {failed && sourceFile.errorMessage ? (
         <div className="skillLibraryStatus" data-tone="error">
@@ -334,6 +334,10 @@ function formatSourceCount(count: number) {
   return count === 1 ? "1 source" : `${formatCount(count)} sources`;
 }
 
+function formatRetryCount(count: number) {
+  return count === 1 ? "1 retry" : `${formatCount(count)} retries`;
+}
+
 function formatFsrsState(state: SkillsLibraryActiveSkill["fsrsState"]) {
   return state.toLowerCase().replaceAll("_", " ");
 }
@@ -364,6 +368,10 @@ function formatByteSize(byteSize: number | null) {
 
 function getSourceProcessingStatusCopy(sourceFile: SkillsLibrarySourceProcessingSummary) {
   if (sourceFile.status === "FAILED") {
+    if (!sourceFile.canDismiss) {
+      return "Processing failed. This source is linked to a skill, so upload the material again if you need a fresh draft.";
+    }
+
     return "Processing failed. Dismiss this row, then upload again when you are ready.";
   }
 
