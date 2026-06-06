@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import Link from "next/link";
 
 import { AnswerKind, ExerciseFlagReason, FsrsRating } from "@/generated/prisma/enums";
 
@@ -14,6 +15,7 @@ import type {
   ChoicePracticeSeedResult,
   PracticeItem,
   PracticePreviewResult,
+  PracticeScope,
 } from "./types";
 
 type PracticeClientProps = {
@@ -75,6 +77,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
   const selectedOtherFlag = selectedFlagReasons.includes(ExerciseFlagReason.OTHER);
   const canSubmitFlag =
     selectedFlagReasons.length > 0 && (!selectedOtherFlag || otherFlagNote.trim().length > 0);
+  const scopedCollectionId = getScopedCollectionId(item);
 
   const resetAttemptState = useCallback(() => {
     setAnswerValue("");
@@ -112,6 +115,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
         exerciseId: item.exercise.id,
         submittedAnswer: answerValue,
         responseMs,
+        collectionId: scopedCollectionId,
       });
 
       setPendingAction(null);
@@ -132,13 +136,14 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
           setItem({
             status: "unavailable",
             message: result.message,
+            scope: item.scope,
           });
         }
 
         setStatusMessage(getPreviewStatusMessage(result));
       }
     });
-  }, [answerValue, item, pendingAction, timer, startTransition]);
+  }, [answerValue, item, pendingAction, scopedCollectionId, timer, startTransition]);
 
   const handleContinue = useCallback(() => {
     if (
@@ -160,6 +165,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
         responseMs: submittedResponseMs ?? timer.getElapsedMs(),
         attemptId,
         manualRating: feedback.answerCheck.isCorrect ? manualRating : null,
+        collectionId: scopedCollectionId,
       });
 
       setPendingAction(null);
@@ -180,6 +186,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
     manualRating,
     pendingAction,
     resetAttemptState,
+    scopedCollectionId,
     submittedResponseMs,
     timer,
     startTransition,
@@ -203,6 +210,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
         exerciseId: item.exercise.id,
         reasons: selectedFlagReasons,
         otherNote: otherFlagNote,
+        collectionId: scopedCollectionId,
       });
 
       setPendingAction(null);
@@ -222,6 +230,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
     otherFlagNote,
     pendingAction,
     resetAttemptState,
+    scopedCollectionId,
     selectedFlagReasons,
     startTransition,
   ]);
@@ -249,24 +258,27 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
 
   if (item.status !== "ready") {
     return (
-      <section className="practiceFrame practiceEmpty" aria-labelledby="practice-empty-title">
-        <p className="eyebrow">Practice queue</p>
-        <h1 id="practice-empty-title">
-          {item.status === "none-due" ? "All caught up." : "Practice unavailable."}
-        </h1>
-        <p>{item.message}</p>
-        {canUseSampleData ? (
-          <button
-            className="primaryButton"
-            type="button"
-            onClick={handleSampleData}
-            disabled={pendingAction === "sample"}
-          >
-            {pendingAction === "sample" ? "Preparing sample" : "Create sample practice"}
-          </button>
-        ) : null}
-        {statusMessage ? <p className="practiceStatusLine">{statusMessage}</p> : null}
-      </section>
+      <>
+        <PracticeScopeBar scope={item.scope} />
+        <section className="practiceFrame practiceEmpty" aria-labelledby="practice-empty-title">
+          <p className="eyebrow">Practice queue</p>
+          <h1 id="practice-empty-title">
+            {item.status === "none-due" ? "All caught up." : "Practice unavailable."}
+          </h1>
+          <p>{item.message}</p>
+          {canUseSampleData && item.scope?.kind !== "collection" ? (
+            <button
+              className="primaryButton"
+              type="button"
+              onClick={handleSampleData}
+              disabled={pendingAction === "sample"}
+            >
+              {pendingAction === "sample" ? "Preparing sample" : "Create sample practice"}
+            </button>
+          ) : null}
+          {statusMessage ? <p className="practiceStatusLine">{statusMessage}</p> : null}
+        </section>
+      </>
     );
   }
 
@@ -276,17 +288,19 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
     exercise.answerKind === AnswerKind.CHOICE ? "Multiple choice" : "Exact input";
 
   return (
-    <section className="practiceFrame" aria-labelledby="practice-title">
-      <div className="practiceMetaRow">
-        <div>
-          <p className="eyebrow">{practiceModeLabel}</p>
-          <h1 id="practice-title">{item.skill.title}</h1>
+    <>
+      <PracticeScopeBar scope={item.scope} />
+      <section className="practiceFrame" aria-labelledby="practice-title">
+        <div className="practiceMetaRow">
+          <div>
+            <p className="eyebrow">{practiceModeLabel}</p>
+            <h1 id="practice-title">{item.skill.title}</h1>
+          </div>
+          <div className="practiceMetricCluster" aria-label="Practice status">
+            <span className="practiceChip">{formatFsrsState(item.skill.fsrsState)}</span>
+            <span className="practiceChip">{formatElapsed(timer.elapsedMs)}</span>
+          </div>
         </div>
-        <div className="practiceMetricCluster" aria-label="Practice status">
-          <span className="practiceChip">{formatFsrsState(item.skill.fsrsState)}</span>
-          <span className="practiceChip">{formatElapsed(timer.elapsedMs)}</span>
-        </div>
-      </div>
 
       <article className="practicePromptPanel">
         <div className="practicePromptHeader">
@@ -469,8 +483,27 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
       </div>
 
       {statusMessage ? <p className="practiceStatusLine">{statusMessage}</p> : null}
-    </section>
+      </section>
+    </>
   );
+}
+
+function PracticeScopeBar({ scope }: { scope?: PracticeScope }) {
+  if (!scope || scope.kind !== "collection") {
+    return null;
+  }
+
+  return (
+    <div className="practiceScopeBar" aria-label="Practice scope">
+      <span>Collection</span>
+      <strong>{scope.collectionName}</strong>
+      <Link href="/practice">All practice</Link>
+    </div>
+  );
+}
+
+function getScopedCollectionId(item: PracticeItem): string | null {
+  return item.scope?.kind === "collection" ? item.scope.collectionId : null;
 }
 
 function useVisibleElapsedMs(attemptKey: string, active: boolean) {

@@ -34,9 +34,20 @@ export type PracticeExercise =
       expectedSeconds: number | null;
     };
 
+export type PracticeScope =
+  | {
+      kind: "all";
+    }
+  | {
+      kind: "collection";
+      collectionId: string;
+      collectionName: string;
+    };
+
 export type PracticeItem =
   | {
       status: "ready";
+      scope: PracticeScope;
       skill: {
         id: string;
         title: string;
@@ -49,10 +60,12 @@ export type PracticeItem =
   | {
       status: "none-due";
       message: string;
+      scope: PracticeScope;
     }
   | {
       status: "unavailable";
       message: string;
+      scope?: PracticeScope;
     };
 
 export type ChoicePracticeItem = PracticeItem;

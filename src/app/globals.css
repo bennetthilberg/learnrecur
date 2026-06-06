@@ -386,6 +386,14 @@ a {
   gap: 14px;
 }
 
+.collectionRowPractice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
 .collectionRow h3,
 .skillRow h3,
 .dashboardEmptyState h3 {
@@ -588,6 +596,40 @@ a {
   background: var(--lr-panel);
   box-shadow: var(--lr-shadow);
   padding: 26px;
+}
+
+.practiceScopeBar {
+  display: flex;
+  width: min(100%, 820px);
+  align-items: center;
+  gap: 9px;
+  margin: 0 auto 12px;
+  color: var(--lr-muted);
+  font-size: 13px;
+}
+
+.practiceScopeBar span {
+  color: var(--lr-faint);
+}
+
+.practiceScopeBar strong {
+  border: 1px solid var(--lr-line);
+  border-radius: var(--lr-radius-chip);
+  background: var(--lr-fill);
+  color: var(--lr-ink);
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.practiceScopeBar a {
+  color: var(--lr-primary-ink);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.practiceScopeBar a:hover {
+  text-decoration: underline;
 }
 
 .practiceFrame h1 {
@@ -1698,6 +1740,12 @@ a {
     display: grid;
   }
 
+  .practiceScopeBar {
+    align-items: flex-start;
+    display: grid;
+    justify-items: start;
+  }
+
   .practiceMetricCluster {
     justify-content: flex-start;
   }
@@ -1739,6 +1787,10 @@ a {
     display: grid;
   }
 
+  .collectionRowPractice {
+    justify-content: flex-start;
+  }
+
   .skillRefillForm {
     justify-items: start;
   }
@@ -1773,6 +1825,12 @@ a {
 
   .dashboardHeader {
     align-items: flex-start;
+  }
+
+  .collectionRow {
+    align-items: flex-start;
+    display: grid;
+    justify-content: stretch;
   }
 
   .dashboardHeader .primaryButton,

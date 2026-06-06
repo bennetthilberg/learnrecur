@@ -42,6 +42,11 @@ test.describe("auth spine", () => {
 
     await expect(page).toHaveURL(/\/sign-in|accounts\.dev\/sign-in/);
     await expect(page.getByText(/multiple choice/i)).toHaveCount(0);
+
+    await page.goto("/practice?collectionId=example-collection");
+
+    await expect(page).toHaveURL(/\/sign-in|accounts\.dev\/sign-in/);
+    await expect(page.getByText(/collection/i)).toHaveCount(0);
   });
 
   test("skill creation routes are protected for signed-out users", async ({ page }) => {

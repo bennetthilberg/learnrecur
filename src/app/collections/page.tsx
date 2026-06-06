@@ -139,6 +139,9 @@ function ActiveCollectionRow({
       </div>
       <CollectionMetaLine collection={collection} />
       <div className="collectionRowActions">
+        <Link className="secondaryButton" href={`/practice?collectionId=${collection.id}`}>
+          Practice
+        </Link>
         <CollectionUpdateForm collection={collection} />
         <CollectionArchiveForm collectionId={collection.id} />
       </div>

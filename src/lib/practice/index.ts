@@ -41,6 +41,7 @@ export type PracticeSubmittedAnswer = Prisma.InputJsonValue;
 export type PracticeSkillSummary = {
   id: string;
   title: string;
+  collectionId: string | null;
   dueAt: Date | null;
   stability: number | null;
   difficulty: number | null;
@@ -200,6 +201,7 @@ export type GetNextPracticeItemInput = {
   userId: string;
   now: Date;
   answerKinds?: readonly AnswerKind[];
+  collectionId?: string | null;
 };
 
 export type PreviewPracticeAnswerInput = {
@@ -209,6 +211,7 @@ export type PreviewPracticeAnswerInput = {
   responseMs?: number | null;
   now?: Date;
   answerKinds?: readonly AnswerKind[];
+  collectionId?: string | null;
 };
 
 export type CommitPracticeReviewInput = PreviewPracticeAnswerInput & {
@@ -223,6 +226,7 @@ export type FlagPracticeExerciseInput = {
   reasons: readonly ExerciseFlagReason[];
   otherNote?: string | null;
   flaggedAt: Date;
+  collectionId?: string | null;
 };
 
 export type FlagPracticeExerciseAndQueueRefillInput = FlagPracticeExerciseInput & {
@@ -233,6 +237,7 @@ export type FlagPracticeExerciseAndQueueRefillInput = FlagPracticeExerciseInput 
 type PracticeSkillRecord = SkillScheduleFields & {
   id: string;
   title: string;
+  collectionId: string | null;
 };
 
 type PracticeExerciseRecord = PracticeExerciseSummary & {
@@ -261,6 +266,7 @@ type ExistingAttemptRecord = {
   skill: NullableSkillScheduleRecord & {
     id: string;
     title: string;
+    collectionId: string | null;
   };
   reviewLog: {
     id: string;
@@ -299,6 +305,7 @@ export async function getNextPracticeItem(
     userId: input.userId,
     now: input.now,
     answerKinds: input.answerKinds,
+    collectionId: input.collectionId,
   });
 
   if (!exercise) {
@@ -324,6 +331,7 @@ export async function previewPracticeAnswer(
     exerciseId: input.exerciseId,
     now: input.now ?? new Date(),
     answerKinds: input.answerKinds,
+    collectionId: input.collectionId,
   });
 
   if (!exercise) {
@@ -396,6 +404,13 @@ export async function flagPracticeExercise(
       where: {
         id: input.exerciseId,
         userId: input.userId,
+        ...(input.collectionId
+          ? {
+              skill: {
+                collectionId: input.collectionId,
+              },
+            }
+          : {}),
       },
       select: {
         id: true,
@@ -625,6 +640,7 @@ async function commitPracticeReviewInTransaction(
     exerciseId: input.exerciseId,
     now: input.reviewedAt,
     answerKinds: input.answerKinds,
+    collectionId: input.collectionId,
   });
 
   if (!exercise) {
@@ -803,6 +819,7 @@ async function findEligibleExercise(
     exerciseId?: string;
     now: Date;
     answerKinds?: readonly AnswerKind[];
+    collectionId?: string | null;
   },
 ): Promise<PracticeExerciseRecord | null> {
   const answerKinds = [...(input.answerKinds ?? SUPPORTED_ANSWER_KINDS)].filter(
@@ -822,6 +839,7 @@ async function findEligibleExercise(
       answerKind: { in: answerKinds },
       skill: {
         userId: input.userId,
+        ...(input.collectionId ? { collectionId: input.collectionId } : {}),
         status: SkillStatus.ACTIVE,
         dueAt: { lte: input.now },
         stability: { not: null },
@@ -918,6 +936,10 @@ function existingAttemptToResult(
       reason: "attempt-id-conflict",
       message: "Attempt ID has already been used for a different practice review.",
     };
+  }
+
+  if (input.collectionId && attempt.skill.collectionId !== input.collectionId) {
+    return exerciseNotFound();
   }
 
   if (!attempt.reviewLog || !attempt.finalRating || !attempt.proposedRating) {
@@ -1062,7 +1084,7 @@ function toPracticeExerciseRecord(
 }
 
 function toPracticeSkillRecordOrThrow(
-  skill: NullableSkillScheduleRecord & { id: string; title: string },
+  skill: NullableSkillScheduleRecord & { id: string; title: string; collectionId: string | null },
 ): PracticeSkillRecord {
   const schedule = toSkillScheduleFields(skill);
 
@@ -1073,6 +1095,7 @@ function toPracticeSkillRecordOrThrow(
   return {
     id: skill.id,
     title: skill.title,
+    collectionId: skill.collectionId,
     ...schedule,
   };
 }
@@ -1081,6 +1104,7 @@ function toPracticeSkillSummary(skill: PracticeSkillRecord): PracticeSkillSummar
   return {
     id: skill.id,
     title: skill.title,
+    collectionId: skill.collectionId,
     dueAt: skill.dueAt,
     stability: skill.stability,
     difficulty: skill.difficulty,
@@ -1114,6 +1138,7 @@ function toPracticeSkillRecordFromReviewLog(
   return {
     id: attempt.skill.id,
     title: attempt.skill.title,
+    collectionId: attempt.skill.collectionId,
     dueAt: reviewLog.nextDueAt,
     stability: reviewLog.nextStability,
     difficulty: reviewLog.nextDifficulty,
@@ -1207,10 +1232,12 @@ type RawEligibleExerciseRecord = Awaited<
   skill: NullableSkillScheduleRecord & {
     id: string;
     title: string;
+    collectionId: string | null;
   };
 };
 
 type NullableSkillScheduleRecord = {
+  collectionId: string | null;
   dueAt: Date | null;
   stability: number | null;
   difficulty: number | null;

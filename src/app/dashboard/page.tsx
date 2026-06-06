@@ -111,9 +111,14 @@ export default async function DashboardPage() {
                     <h3>{collection.name}</h3>
                     <p>{formatCount(collection.activeSkillCount)} active skills</p>
                   </div>
-                  <span className="dashboardChip" data-tone={collection.readyNowCount > 0 ? "ready" : "neutral"}>
-                    {formatCount(collection.readyNowCount)} ready
-                  </span>
+                  <div className="collectionRowPractice">
+                    <span className="dashboardChip" data-tone={collection.readyNowCount > 0 ? "ready" : "neutral"}>
+                      {formatCount(collection.readyNowCount)} ready
+                    </span>
+                    <Link className="dashboardPanelLink" href={`/practice?collectionId=${collection.id}`}>
+                      Practice
+                    </Link>
+                  </div>
                 </article>
               ))}
             </div>

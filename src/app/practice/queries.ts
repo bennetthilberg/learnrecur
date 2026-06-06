@@ -1,46 +1,134 @@
 import "server-only";
 
-import { AnswerKind, type Prisma } from "@/generated/prisma/client";
+import { AnswerKind, CollectionStatus, type Prisma } from "@/generated/prisma/client";
 import { getNextPracticeItem } from "@/lib/practice";
+import { getPrisma } from "@/lib/prisma";
 
-import type { ChoiceOption, PracticeItem } from "./types";
+import type { ChoiceOption, PracticeItem, PracticeScope } from "./types";
 
 const CHOICE_ANSWER_KINDS = [AnswerKind.CHOICE] as const;
 const PRACTICE_ANSWER_KINDS = [AnswerKind.CHOICE, AnswerKind.TEXT, AnswerKind.NUMERIC] as const;
+const COLLECTION_SCOPE_UNAVAILABLE_MESSAGE =
+  "That collection is not available for scoped practice.";
+
+export type PracticeScopeInput = {
+  collectionId?: string | null;
+};
+
+type PracticeScopeResult =
+  | {
+      status: "ready";
+      scope: PracticeScope;
+      collectionId?: string;
+    }
+  | {
+      status: "unavailable";
+      message: string;
+    };
 
 export async function getNextChoicePracticeItemForUser(
   userId: string,
   now = new Date(),
+  scopeInput: PracticeScopeInput = {},
 ): Promise<PracticeItem> {
+  const scope = await resolvePracticeScopeForUser(userId, scopeInput);
+
+  if (scope.status === "unavailable") {
+    return {
+      status: "unavailable",
+      message: scope.message,
+    };
+  }
+
   const result = await getNextPracticeItem({
     userId,
     now,
     answerKinds: CHOICE_ANSWER_KINDS,
+    collectionId: scope.collectionId,
   });
 
-  return toPracticeItem(result);
+  return toPracticeItem(result, scope.scope);
 }
 
 export async function getNextPracticeItemForUser(
   userId: string,
   now = new Date(),
+  scopeInput: PracticeScopeInput = {},
 ): Promise<PracticeItem> {
+  const scope = await resolvePracticeScopeForUser(userId, scopeInput);
+
+  if (scope.status === "unavailable") {
+    return {
+      status: "unavailable",
+      message: scope.message,
+    };
+  }
+
   const result = await getNextPracticeItem({
     userId,
     now,
     answerKinds: PRACTICE_ANSWER_KINDS,
+    collectionId: scope.collectionId,
   });
 
-  return toPracticeItem(result);
+  return toPracticeItem(result, scope.scope);
+}
+
+export async function resolvePracticeScopeForUser(
+  userId: string,
+  input: PracticeScopeInput = {},
+): Promise<PracticeScopeResult> {
+  if (!input.collectionId) {
+    return {
+      status: "ready",
+      scope: {
+        kind: "all",
+      },
+    };
+  }
+
+  const collection = await getPrisma().collection.findFirst({
+    where: {
+      id: input.collectionId,
+      userId,
+      status: CollectionStatus.ACTIVE,
+    },
+    select: {
+      id: true,
+      name: true,
+    },
+  });
+
+  if (!collection) {
+    return {
+      status: "unavailable",
+      message: COLLECTION_SCOPE_UNAVAILABLE_MESSAGE,
+    };
+  }
+
+  return {
+    status: "ready",
+    collectionId: collection.id,
+    scope: {
+      kind: "collection",
+      collectionId: collection.id,
+      collectionName: collection.name,
+    },
+  };
 }
 
 function toPracticeItem(
   result: Awaited<ReturnType<typeof getNextPracticeItem>>,
+  scope: PracticeScope,
 ): PracticeItem {
   if (result.status === "none-due") {
     return {
       status: "none-due",
-      message: result.message,
+      message:
+        scope.kind === "collection"
+          ? `No due practice item is ready in ${scope.collectionName}.`
+          : result.message,
+      scope,
     };
   }
 
@@ -63,11 +151,13 @@ function toPracticeItem(
       return {
         status: "unavailable",
         message: "This exercise does not have valid answer choices.",
+        scope,
       };
     }
 
     return {
       status: "ready",
+      scope,
       skill,
       exercise: {
         id: result.exercise.id,
@@ -88,11 +178,13 @@ function toPracticeItem(
     return {
       status: "unavailable",
       message: "This exercise type is not available in practice yet.",
+      scope,
     };
   }
 
   return {
     status: "ready",
+    scope,
     skill,
     exercise: {
       id: result.exercise.id,
