@@ -20,6 +20,7 @@ export const dynamic = "force-dynamic";
 type SkillsPageProps = {
   searchParams?: Promise<{
     createdDrafts?: string | string[];
+    deletedSkill?: string | string[];
     sourceQueued?: string | string[];
   }>;
 };
@@ -29,6 +30,7 @@ export default async function SkillsPage({ searchParams }: SkillsPageProps) {
   const clerkUser = await currentUser();
   const resolvedSearchParams = searchParams ? await searchParams : {};
   const createdDraftCount = parseCreatedDraftCount(resolvedSearchParams.createdDrafts);
+  const deletedSkill = parseDeletedSkill(resolvedSearchParams.deletedSkill);
   const sourceQueued = parseSourceQueued(resolvedSearchParams.sourceQueued);
 
   if (!clerkUser) {
@@ -80,6 +82,12 @@ export default async function SkillsPage({ searchParams }: SkillsPageProps) {
       {sourceQueued ? (
         <p className="skillFormMessage" data-tone="saved" role="status">
           Source upload queued. Drafts will appear under Needs review after processing.
+        </p>
+      ) : null}
+
+      {deletedSkill ? (
+        <p className="skillFormMessage" data-tone="saved" role="status">
+          Skill permanently deleted.
         </p>
       ) : null}
 
@@ -403,6 +411,11 @@ function parseCreatedDraftCount(value: string | string[] | undefined) {
 }
 
 function parseSourceQueued(value: string | string[] | undefined) {
+  const rawValue = Array.isArray(value) ? value[0] : value;
+  return rawValue === "1" || rawValue === "true";
+}
+
+function parseDeletedSkill(value: string | string[] | undefined) {
   const rawValue = Array.isArray(value) ? value[0] : value;
   return rawValue === "1" || rawValue === "true";
 }

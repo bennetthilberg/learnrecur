@@ -21,6 +21,7 @@ import {
   restoreArchivedSkill,
   resumeSkill,
 } from "@/lib/skills/lifecycle";
+import { deleteSkillPermanently } from "@/lib/skills/delete";
 import {
   dismissFailedSourceUpload,
   prepareSourceUpload,
@@ -532,6 +533,46 @@ export async function updateSkillLifecycleAction(
       status: "saved",
       message: result.message,
     };
+  }
+
+  return {
+    status: "error",
+    message: result.message,
+  };
+}
+
+export async function deleteSkillPermanentlyAction(
+  _previousState: SkillFormActionState,
+  formData: FormData,
+): Promise<SkillFormActionState> {
+  const user = await requireSkillActionUser();
+
+  if (user.status === "error") {
+    return user;
+  }
+
+  const skillId = getOptionalFormString(formData, "skillId");
+  const confirmationTitle = getOptionalFormString(formData, "confirmationTitle");
+
+  if (!skillId || !confirmationTitle) {
+    return {
+      status: "error",
+      message: "Type the skill title to confirm deletion.",
+    };
+  }
+
+  const result = await deleteSkillPermanently({
+    userId: user.userId,
+    skillId,
+    confirmationTitle,
+  });
+
+  if (result.status === "deleted") {
+    revalidatePath(`/skills/${skillId}`);
+    revalidatePath("/skills");
+    revalidatePath("/dashboard");
+    revalidatePath("/practice");
+    redirect("/skills?deletedSkill=1");
   }
 
   return {
