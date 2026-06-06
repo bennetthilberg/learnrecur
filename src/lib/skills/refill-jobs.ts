@@ -18,19 +18,26 @@ import { getPrisma } from "@/lib/prisma";
 import {
   DEFAULT_READY_EXACT_INPUT_TARGET,
   DEFAULT_READY_EXERCISE_TARGET,
+  DEFAULT_READY_MATH_TARGET,
   GEMINI_PROVIDER,
   SKILL_EXACT_INPUT_PROMPT_VERSION,
+  SKILL_MATH_PROMPT_VERSION,
   SKILL_MCQ_PROMPT_VERSION,
   countChoiceExerciseInventory,
   countExactInputExerciseInventory,
+  countMathExerciseInventory,
   isExactInputUnlocked,
   refillChoiceExercisesForSkill,
   refillExactInputExercisesForSkill,
+  refillMathExercisesForSkill,
   type ChoiceExerciseGenerator,
   type ChoiceExerciseVerifier,
   type ExactInputExerciseGenerator,
   type ExactInputExerciseVerifier,
   type ExactInputExerciseRefillResult,
+  type MathExerciseGenerator,
+  type MathExerciseRefillResult,
+  type MathExerciseVerifier,
   type SkillExerciseRefillResult,
 } from ".";
 
@@ -87,6 +94,13 @@ type RunExactInputExerciseRefillJobInput = ExerciseRefillEventPayload & {
   now?: Date;
   generateExactInputExercises?: ExactInputExerciseGenerator;
   verifyExactInputExercises?: ExactInputExerciseVerifier;
+  model?: string;
+};
+
+type RunMathExerciseRefillJobInput = ExerciseRefillEventPayload & {
+  now?: Date;
+  generateMathExercises?: MathExerciseGenerator;
+  verifyMathExercises?: MathExerciseVerifier;
   model?: string;
 };
 
@@ -236,6 +250,81 @@ export async function queueExactInputExerciseRefillForSkill(
   });
 }
 
+export async function queueMathExerciseRefillForSkill(
+  input: QueueExerciseRefillInput,
+): Promise<RefillQueueResult> {
+  const prisma = getPrisma();
+  const targetReadyCount = normalizeQueueTarget(
+    input.targetReadyCount,
+    DEFAULT_READY_MATH_TARGET,
+  );
+  const skill = await prisma.skill.findFirst({
+    where: {
+      id: input.skillId,
+      userId: input.userId,
+    },
+    select: {
+      id: true,
+      status: true,
+      repetitions: true,
+      exercises: {
+        select: {
+          answerKind: true,
+          verificationStatus: true,
+          retiredAt: true,
+          answerSpec: true,
+        },
+      },
+    },
+  });
+
+  if (!skill) {
+    return skillNotFound();
+  }
+
+  if (skill.status !== SkillStatus.ACTIVE) {
+    return skillNotActive("Only active skills can queue math practice.");
+  }
+
+  if (!isExactInputUnlocked(skill.repetitions)) {
+    return {
+      status: "not-queued",
+      reason: "exact-input-locked",
+      message: "Practice multiple-choice reviews first before queueing math exercises.",
+    };
+  }
+
+  const activeJob = await findActiveGenerationJob(
+    input.userId,
+    skill.id,
+    GenerationJobKind.MATH_EXERCISE_GENERATION,
+  );
+
+  if (activeJob) {
+    return jobInProgress(activeJob.id, "Math generation is already queued or running.");
+  }
+
+  const inventory = countMathExerciseInventory(skill.exercises);
+
+  if (inventory.readyExerciseCount >= targetReadyCount) {
+    return alreadyAtTarget(
+      "This skill already has enough ready math exercises.",
+      inventory.readyExerciseCount,
+      targetReadyCount,
+    );
+  }
+
+  return queueExerciseRefillJob({
+    input,
+    kind: GenerationJobKind.MATH_EXERCISE_GENERATION,
+    promptVersion: SKILL_MATH_PROMPT_VERSION,
+    requestedCount: targetReadyCount - inventory.readyExerciseCount,
+    readyExerciseCount: inventory.readyExerciseCount,
+    targetReadyCount,
+    sendEvent: (sender, payload) => sender.sendMathRefillRequested(payload),
+  });
+}
+
 export async function runChoiceExerciseRefillJob(
   input: RunChoiceExerciseRefillJobInput,
 ): Promise<SkillExerciseRefillResult> {
@@ -262,6 +351,21 @@ export async function runExactInputExerciseRefillJob(
     now: input.now ?? new Date(),
     generateExactInputExercises: input.generateExactInputExercises,
     verifyExactInputExercises: input.verifyExactInputExercises,
+    model: input.model,
+  });
+}
+
+export async function runMathExerciseRefillJob(
+  input: RunMathExerciseRefillJobInput,
+): Promise<MathExerciseRefillResult> {
+  return refillMathExercisesForSkill({
+    userId: input.userId,
+    skillId: input.skillId,
+    generationJobId: input.generationJobId,
+    targetReadyCount: input.targetReadyCount,
+    now: input.now ?? new Date(),
+    generateMathExercises: input.generateMathExercises,
+    verifyMathExercises: input.verifyMathExercises,
     model: input.model,
   });
 }

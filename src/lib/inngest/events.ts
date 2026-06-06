@@ -6,6 +6,7 @@ import { inngest } from "./client";
 
 export const CHOICE_REFILL_REQUESTED_EVENT = "learnrecur/choice-refill.requested";
 export const EXACT_INPUT_REFILL_REQUESTED_EVENT = "learnrecur/exact-input-refill.requested";
+export const MATH_REFILL_REQUESTED_EVENT = "learnrecur/math-refill.requested";
 export const SOURCE_UPLOAD_DRAFT_REQUESTED_EVENT =
   "learnrecur/source-upload-draft.requested";
 
@@ -31,6 +32,7 @@ export type SourceUploadDraftEventPayload = z.infer<
 export type ExerciseRefillEventSender = {
   sendChoiceRefillRequested(payload: ExerciseRefillEventPayload): Promise<void>;
   sendExactInputRefillRequested(payload: ExerciseRefillEventPayload): Promise<void>;
+  sendMathRefillRequested(payload: ExerciseRefillEventPayload): Promise<void>;
 };
 
 export type SourceUploadDraftEventSender = {
@@ -57,6 +59,12 @@ export const inngestExerciseRefillEventSender: ExerciseRefillEventSender = {
   async sendExactInputRefillRequested(payload) {
     await inngest.send({
       name: EXACT_INPUT_REFILL_REQUESTED_EVENT,
+      data: payload,
+    });
+  },
+  async sendMathRefillRequested(payload) {
+    await inngest.send({
+      name: MATH_REFILL_REQUESTED_EVENT,
       data: payload,
     });
   },

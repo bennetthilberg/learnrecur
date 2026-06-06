@@ -7,12 +7,14 @@ import {
 import {
   runChoiceExerciseRefillJob,
   runExactInputExerciseRefillJob,
+  runMathExerciseRefillJob,
 } from "@/lib/skills/refill-jobs";
 import { runQueuedSourceUploadDraftJob } from "@/lib/skills/uploads";
 
 import {
   CHOICE_REFILL_REQUESTED_EVENT,
   EXACT_INPUT_REFILL_REQUESTED_EVENT,
+  MATH_REFILL_REQUESTED_EVENT,
   SOURCE_UPLOAD_DRAFT_REQUESTED_EVENT,
 } from "./events";
 import { inngest } from "./client";
@@ -51,6 +53,23 @@ export const exactInputExerciseRefillFunction = inngest.createFunction(
   },
 );
 
+export const mathExerciseRefillFunction = inngest.createFunction(
+  {
+    id: "math-exercise-refill",
+    triggers: [{ event: MATH_REFILL_REQUESTED_EVENT }],
+  },
+  async ({ event, step }) => {
+    const payload = parseExerciseRefillEventPayload(event.data);
+
+    return step.run("refill math exercises", () =>
+      runMathExerciseRefillJob({
+        ...payload,
+        now: new Date(),
+      }),
+    );
+  },
+);
+
 export const sourceUploadDraftFunction = inngest.createFunction(
   {
     id: "source-upload-draft",
@@ -71,5 +90,6 @@ export const sourceUploadDraftFunction = inngest.createFunction(
 export const learnRecurInngestFunctions = [
   choiceExerciseRefillFunction,
   exactInputExerciseRefillFunction,
+  mathExerciseRefillFunction,
   sourceUploadDraftFunction,
 ];

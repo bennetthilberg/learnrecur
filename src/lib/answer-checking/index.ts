@@ -3,10 +3,11 @@ import { z } from "zod";
 
 const DEFAULT_NUMERIC_TOLERANCE = 0.001;
 const DEFAULT_MATH_EQUIVALENCE = "basic-symbolic";
-const MAX_MATH_EXPRESSION_LENGTH = 500;
-const MAX_MATH_EXPRESSION_NESTING = 32;
+export const MAX_MATH_EXPRESSION_LENGTH = 500;
+export const MAX_MATH_EXPRESSION_NESTING = 32;
 
 const nonEmptyStringSchema = z.string().trim().min(1);
+const mathExpressionStringSchema = nonEmptyStringSchema.max(MAX_MATH_EXPRESSION_LENGTH);
 
 export const choiceSchema = z.strictObject({
   id: nonEmptyStringSchema,
@@ -58,7 +59,7 @@ export const numericAnswerSpecSchema = z.strictObject({
 
 export const mathAnswerSpecSchema = z.strictObject({
   kind: z.literal("math"),
-  acceptedExpressions: z.array(nonEmptyStringSchema).min(1),
+  acceptedExpressions: z.array(mathExpressionStringSchema).min(1),
   equivalence: z.literal(DEFAULT_MATH_EQUIVALENCE).default(DEFAULT_MATH_EQUIVALENCE),
 });
 
@@ -133,6 +134,10 @@ export function checkAnswer(input: CheckAnswerInput): AnswerCheckResult {
   const specResult = answerSpecSchema.safeParse(input.answerSpec);
 
   if (!specResult.success) {
+    if (isMathAcceptedExpressionSchemaFailure(input.answerSpec, specResult.error)) {
+      return invalidSpec("invalid-accepted-expression", "Accepted math expressions must be valid.");
+    }
+
     return invalidSpec("invalid-answer-spec", formatZodIssues(specResult.error));
   }
 
@@ -626,6 +631,20 @@ function invalidSpec(reason: AnswerCheckReason, message: string): AnswerCheckRes
     reason,
     message,
   };
+}
+
+function isMathAcceptedExpressionSchemaFailure(input: unknown, error: z.ZodError): boolean {
+  return (
+    typeof input === "object" &&
+    input !== null &&
+    "kind" in input &&
+    input.kind === "math" &&
+    error.issues.some(
+      (issue) =>
+        issue.path[0] === "acceptedExpressions" &&
+        (issue.code === "too_big" || issue.code === "too_small" || issue.code === "invalid_type"),
+    )
+  );
 }
 
 function formatZodIssues(error: z.ZodError): string {

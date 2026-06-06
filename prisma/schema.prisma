@@ -104,6 +104,7 @@ enum ExerciseFlagStatus {
 enum GenerationJobKind {
   CHOICE_EXERCISE_GENERATION
   EXACT_INPUT_EXERCISE_GENERATION
+  MATH_EXERCISE_GENERATION
 }
 
 enum GenerationJobStatus {

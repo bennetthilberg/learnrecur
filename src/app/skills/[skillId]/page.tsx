@@ -13,6 +13,8 @@ import { getPrisma } from "@/lib/prisma";
 import {
   countChoiceExerciseInventory,
   countExactInputExerciseInventory,
+  countMathExerciseInventory,
+  DEFAULT_READY_MATH_TARGET,
   DEFAULT_READY_EXACT_INPUT_TARGET,
   DEFAULT_READY_EXERCISE_TARGET,
   EXACT_INPUT_UNLOCK_REPETITIONS,
@@ -24,6 +26,7 @@ import { ensureDatabaseUser } from "@/lib/users";
 import { SkillDraftForm, type SkillDraftFormValues } from "../skill-draft-form";
 import { SkillExactInputRefillForm } from "../skill-exact-input-refill-form";
 import { SkillLifecycleForm } from "../skill-lifecycle-form";
+import { SkillMathRefillForm } from "../skill-math-refill-form";
 import { SkillRefillForm } from "../skill-refill-form";
 import { SkillSourcePanel } from "../skill-source-panel";
 import { SkillsTopbar } from "../skills-topbar";
@@ -100,7 +103,7 @@ export default async function SkillPage({
   const sourceSummariesResult = await getSkillSourceSummaries({ userId, skillId });
   const sourceSummaries =
     sourceSummariesResult.status === "ready" ? sourceSummariesResult.sources : [];
-  const [latestChoiceGenerationJob, latestExactInputGenerationJob] =
+  const [latestChoiceGenerationJob, latestExactInputGenerationJob, latestMathGenerationJob] =
     skill.status === SkillStatus.ACTIVE
       ? await Promise.all([
           prisma.generationJob.findFirst({
@@ -123,8 +126,18 @@ export default async function SkillPage({
               createdAt: "desc",
             },
           }),
+          prisma.generationJob.findFirst({
+            where: {
+              userId,
+              skillId: skill.id,
+              kind: GenerationJobKind.MATH_EXERCISE_GENERATION,
+            },
+            orderBy: {
+              createdAt: "desc",
+            },
+          }),
         ])
-      : [null, null];
+      : [null, null, null];
 
   const draftValues: SkillDraftFormValues = {
     title: skill.title,
@@ -139,8 +152,10 @@ export default async function SkillPage({
   if (skill.status === SkillStatus.ACTIVE) {
     const inventory = countChoiceExerciseInventory(skill.exercises);
     const exactInputInventory = countExactInputExerciseInventory(skill.exercises);
+    const mathInventory = countMathExerciseInventory(skill.exercises);
     const hasActiveChoiceRefillJob = hasActiveGenerationJob(latestChoiceGenerationJob);
     const hasActiveExactInputRefillJob = hasActiveGenerationJob(latestExactInputGenerationJob);
+    const hasActiveMathRefillJob = hasActiveGenerationJob(latestMathGenerationJob);
     const canRefill =
       inventory.readyExerciseCount < DEFAULT_READY_EXERCISE_TARGET && !hasActiveChoiceRefillJob;
     const exactInputUnlocked = isExactInputUnlocked(skill.repetitions);
@@ -148,6 +163,10 @@ export default async function SkillPage({
       exactInputUnlocked &&
       exactInputInventory.readyExerciseCount < DEFAULT_READY_EXACT_INPUT_TARGET &&
       !hasActiveExactInputRefillJob;
+    const canRefillMath =
+      exactInputUnlocked &&
+      mathInventory.readyExerciseCount < DEFAULT_READY_MATH_TARGET &&
+      !hasActiveMathRefillJob;
     const exactInputRefillButtonLabel = canRefillExactInput
       ? "Queue exact input"
       : exactInputUnlocked
@@ -160,6 +179,13 @@ export default async function SkillPage({
       : hasActiveChoiceRefillJob
         ? "Refill queued"
         : "Queue full";
+    const mathRefillButtonLabel = canRefillMath
+      ? "Queue math"
+      : exactInputUnlocked
+        ? hasActiveMathRefillJob
+          ? "Math queued"
+          : "Math full"
+        : "Math locked";
     const choiceRefillStatus =
       latestChoiceGenerationJob && hasActiveGenerationJob(latestChoiceGenerationJob)
         ? `Choice refill ${formatJobStatus(latestChoiceGenerationJob.status)}. Refresh in a moment to check the queue.`
@@ -167,6 +193,10 @@ export default async function SkillPage({
     const exactInputRefillStatus =
       latestExactInputGenerationJob && hasActiveGenerationJob(latestExactInputGenerationJob)
         ? `Exact-input refill ${formatJobStatus(latestExactInputGenerationJob.status)}. Refresh in a moment to check the queue.`
+        : null;
+    const mathRefillStatus =
+      latestMathGenerationJob && hasActiveGenerationJob(latestMathGenerationJob)
+        ? `Math refill ${formatJobStatus(latestMathGenerationJob.status)}. Refresh in a moment to check the queue.`
         : null;
 
     return (
@@ -214,12 +244,26 @@ export default async function SkillPage({
               <dd>{exactInputInventory.verifiedExerciseCount}</dd>
             </div>
             <div>
+              <dt>Ready math</dt>
+              <dd>
+                {mathInventory.readyExerciseCount} / {DEFAULT_READY_MATH_TARGET}
+              </dd>
+            </div>
+            <div>
+              <dt>Verified math</dt>
+              <dd>{mathInventory.verifiedExerciseCount}</dd>
+            </div>
+            <div>
               <dt>Retired choices</dt>
               <dd>{inventory.retiredExerciseCount}</dd>
             </div>
             <div>
               <dt>Retired exact input</dt>
               <dd>{exactInputInventory.retiredExerciseCount}</dd>
+            </div>
+            <div>
+              <dt>Retired math</dt>
+              <dd>{mathInventory.retiredExerciseCount}</dd>
             </div>
             <div>
               <dt>Collection</dt>
@@ -298,6 +342,39 @@ export default async function SkillPage({
               skillId={skill.id}
             />
           </div>
+          <div className="skillQueueBlock">
+            <div>
+              <p className="eyebrow">Math recall</p>
+              <h2>Ready math exercises.</h2>
+              <p>
+                Math practice uses deterministic symbolic checking for single-expression answers
+                after the learner has completed a few scheduled reviews.
+              </p>
+              <p className="skillQueueStatus">
+                {exactInputUnlocked
+                  ? `${mathInventory.readyExerciseCount} ready / ${DEFAULT_READY_MATH_TARGET} target`
+                  : `${skill.repetitions} / ${EXACT_INPUT_UNLOCK_REPETITIONS} reviews completed`}
+              </p>
+              {latestMathGenerationJob ? (
+                <p className="skillQueueStatus">
+                  Latest math generation: {formatJobStatus(latestMathGenerationJob.status)} ·{" "}
+                  {latestMathGenerationJob.acceptedCount} accepted /{" "}
+                  {latestMathGenerationJob.rejectedCount} rejected
+                </p>
+              ) : null}
+              {mathRefillStatus ? <p className="skillQueueStatus">{mathRefillStatus}</p> : null}
+              {latestMathGenerationJob?.errorMessage ? (
+                <p className="skillFormMessage" data-tone="error">
+                  {latestMathGenerationJob.errorMessage}
+                </p>
+              ) : null}
+            </div>
+            <SkillMathRefillForm
+              buttonLabel={mathRefillButtonLabel}
+              canRefill={canRefillMath}
+              skillId={skill.id}
+            />
+          </div>
           {skill.tags.length > 0 ? (
             <div className="skillTagLine">
               {skill.tags.map((tag) => (
@@ -317,6 +394,7 @@ export default async function SkillPage({
   if (skill.status === SkillStatus.PAUSED || skill.status === SkillStatus.ARCHIVED) {
     const inventory = countChoiceExerciseInventory(skill.exercises);
     const exactInputInventory = countExactInputExerciseInventory(skill.exercises);
+    const mathInventory = countMathExerciseInventory(skill.exercises);
     const statusCopy =
       skill.status === SkillStatus.PAUSED
         ? {
@@ -367,6 +445,14 @@ export default async function SkillPage({
             <div>
               <dt>Verified exact input</dt>
               <dd>{exactInputInventory.verifiedExerciseCount}</dd>
+            </div>
+            <div>
+              <dt>Ready math</dt>
+              <dd>{mathInventory.readyExerciseCount}</dd>
+            </div>
+            <div>
+              <dt>Verified math</dt>
+              <dd>{mathInventory.verifiedExerciseCount}</dd>
             </div>
             <div>
               <dt>Collection</dt>

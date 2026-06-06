@@ -44,6 +44,7 @@ const now = new Date("2026-06-03T12:00:00.000Z");
 function createFakeRefillSender() {
   const choiceEvents: ExerciseRefillEventPayload[] = [];
   const exactInputEvents: ExerciseRefillEventPayload[] = [];
+  const mathEvents: ExerciseRefillEventPayload[] = [];
   const sender: ExerciseRefillEventSender = {
     async sendChoiceRefillRequested(payload) {
       choiceEvents.push(payload);
@@ -51,12 +52,16 @@ function createFakeRefillSender() {
     async sendExactInputRefillRequested(payload) {
       exactInputEvents.push(payload);
     },
+    async sendMathRefillRequested(payload) {
+      mathEvents.push(payload);
+    },
   };
 
   return {
     sender,
     choiceEvents,
     exactInputEvents,
+    mathEvents,
   };
 }
 
@@ -66,6 +71,9 @@ function createFailingRefillSender(message: string): ExerciseRefillEventSender {
       throw new Error(message);
     },
     async sendExactInputRefillRequested() {
+      throw new Error(message);
+    },
+    async sendMathRefillRequested() {
       throw new Error(message);
     },
   };
@@ -1631,7 +1639,7 @@ describeDatabase("practice review service", () => {
     ).resolves.toEqual([0, { retiredAt: now }]);
   });
 
-  it("flags math exercises without queueing refill work", async () => {
+  it("queues math refill work after flagging an unlocked math exercise", async () => {
     const userId = await createUser("flag_math_refill");
     const skill = await createSkillFixture({
       userId,
@@ -1654,13 +1662,72 @@ describeDatabase("practice review service", () => {
       status: "flagged",
       answerKind: AnswerKind.MATH,
       refill: {
-        status: "not-queued",
-        reason: "unsupported-answer-kind",
+        status: "queued",
       },
     });
 
     expect(fake.choiceEvents).toEqual([]);
     expect(fake.exactInputEvents).toEqual([]);
+    expect(fake.mathEvents).toEqual([
+      {
+        userId,
+        skillId: skill.id,
+        generationJobId: expect.any(String),
+        targetReadyCount: 2,
+        requestedAt: now.toISOString(),
+      },
+    ]);
+    await expect(
+      prisma.generationJob.findFirstOrThrow({
+        where: {
+          userId,
+          skillId: skill.id,
+          kind: GenerationJobKind.MATH_EXERCISE_GENERATION,
+        },
+        select: {
+          status: true,
+          requestedCount: true,
+          promptVersion: true,
+        },
+      }),
+    ).resolves.toEqual({
+      status: GenerationJobStatus.PENDING,
+      requestedCount: 2,
+      promptVersion: "skill-math-v0",
+    });
+  });
+
+  it("flags math exercises below the unlock threshold without queueing refill work", async () => {
+    const userId = await createUser("flag_math_locked_refill");
+    const skill = await createSkillFixture({
+      userId,
+      title: "locked math flag refill skill",
+      repetitions: EXACT_INPUT_UNLOCK_REPETITIONS - 1,
+    });
+    const exercise = await createMathExercise({ userId, skillId: skill.id });
+    const fake = createFakeRefillSender();
+
+    await expect(
+      flagPracticeExerciseAndQueueRefill({
+        userId,
+        exerciseId: exercise.id,
+        reasons: [ExerciseFlagReason.NOT_USEFUL],
+        flaggedAt: now,
+        refillSender: fake.sender,
+        model: "test-gemini",
+      }),
+    ).resolves.toMatchObject({
+      status: "flagged",
+      answerKind: AnswerKind.MATH,
+      refill: {
+        status: "not-queued",
+        reason: "exact-input-locked",
+      },
+    });
+
+    expect(fake.choiceEvents).toEqual([]);
+    expect(fake.exactInputEvents).toEqual([]);
+    expect(fake.mathEvents).toEqual([]);
     await expect(
       Promise.all([
         prisma.generationJob.count({ where: { userId, skillId: skill.id } }),

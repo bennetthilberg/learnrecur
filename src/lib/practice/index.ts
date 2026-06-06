@@ -32,6 +32,7 @@ import { isExactInputUnlocked } from "@/lib/skills";
 import {
   queueChoiceExerciseRefillForSkill,
   queueExactInputExerciseRefillForSkill,
+  queueMathExerciseRefillForSkill,
   type RefillQueueResult,
 } from "@/lib/skills/refill-jobs";
 
@@ -572,11 +573,15 @@ async function queueRefillAfterPracticeFlag({
           }),
         );
       case AnswerKind.MATH:
-        return {
-          status: "not-queued",
-          reason: "unsupported-answer-kind",
-          message: "Replacement generation is not available for math exercises yet.",
-        };
+        return toPracticeFlagRefillResult(
+          await queueMathExerciseRefillForSkill({
+            userId,
+            skillId,
+            now,
+            sender,
+            model,
+          }),
+        );
     }
   } catch (error) {
     return {
