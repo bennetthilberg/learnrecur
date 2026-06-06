@@ -320,8 +320,8 @@ async function queueExerciseRefillJob({
     if (!activeJob) {
       try {
         generationJob = await createJob();
-      } catch {
-        throw error;
+      } catch (retryError) {
+        throw retryError;
       }
     } else {
       return jobInProgress(activeJob.id, "Exercise generation is already queued or running.");
