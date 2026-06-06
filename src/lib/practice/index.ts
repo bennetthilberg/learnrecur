@@ -19,6 +19,8 @@ import {
   textAnswerSpecSchema,
   type AnswerCheckResult,
 } from "@/lib/answer-checking";
+import { formatEnvError } from "@/lib/env";
+import type { ExerciseRefillEventSender } from "@/lib/inngest/events";
 import { getPrisma } from "@/lib/prisma";
 import {
   advanceSkillSchedule,
@@ -26,6 +28,11 @@ import {
   type SkillScheduleFields,
 } from "@/lib/scheduling";
 import { isExactInputUnlocked } from "@/lib/skills";
+import {
+  queueChoiceExerciseRefillForSkill,
+  queueExactInputExerciseRefillForSkill,
+  type RefillQueueResult,
+} from "@/lib/skills/refill-jobs";
 
 const SUPPORTED_ANSWER_KINDS = [AnswerKind.CHOICE, AnswerKind.TEXT, AnswerKind.NUMERIC] as const;
 
@@ -138,6 +145,8 @@ export type PracticeExerciseFlagResult =
   | {
       status: "flagged";
       exerciseId: string;
+      skillId: string;
+      answerKind: AnswerKind;
       flagCount: number;
       retiredAt: Date;
       retirementReason: ExerciseRetirementReason;
@@ -153,6 +162,39 @@ export type PracticeExerciseFlagResult =
       reason: "exercise-not-found";
       message: string;
     };
+
+export type PracticeFlagRefillResult =
+  | {
+      status: "queued";
+      generationJobId: string;
+      requestedCount: number;
+      readyExerciseCount: number;
+      targetReadyCount: number;
+      message: string;
+    }
+  | {
+      status: "not-queued";
+      reason:
+        | "already-at-target"
+        | "event-send-failed"
+        | "exact-input-locked"
+        | "job-in-progress"
+        | "missing-inngest-env"
+        | "queue-error"
+        | "skill-not-active"
+        | "skill-not-found"
+        | "unsupported-answer-kind";
+      message: string;
+      generationJobId?: string;
+      readyExerciseCount?: number;
+      targetReadyCount?: number;
+    };
+
+export type PracticeExerciseFlagWithRefillResult =
+  | (Extract<PracticeExerciseFlagResult, { status: "flagged" }> & {
+      refill: PracticeFlagRefillResult;
+    })
+  | Extract<PracticeExerciseFlagResult, { status: "not-flagged" | "not-found" }>;
 
 export type GetNextPracticeItemInput = {
   userId: string;
@@ -181,6 +223,11 @@ export type FlagPracticeExerciseInput = {
   reasons: readonly ExerciseFlagReason[];
   otherNote?: string | null;
   flaggedAt: Date;
+};
+
+export type FlagPracticeExerciseAndQueueRefillInput = FlagPracticeExerciseInput & {
+  refillSender?: ExerciseRefillEventSender;
+  model?: string;
 };
 
 type PracticeSkillRecord = SkillScheduleFields & {
@@ -352,6 +399,8 @@ export async function flagPracticeExercise(
       },
       select: {
         id: true,
+        skillId: true,
+        answerKind: true,
         retiredAt: true,
         retirementReason: true,
       },
@@ -429,12 +478,130 @@ export async function flagPracticeExercise(
     return {
       status: "flagged",
       exerciseId: exercise.id,
+      skillId: exercise.skillId,
+      answerKind: exercise.answerKind,
       flagCount: uniqueReasons.length,
       retiredAt: exercise.retiredAt ?? input.flaggedAt,
       retirementReason: exercise.retirementReason ?? retirementReason,
       message: "Exercise reported and retired from practice.",
     };
   });
+}
+
+export async function flagPracticeExerciseAndQueueRefill(
+  input: FlagPracticeExerciseAndQueueRefillInput,
+): Promise<PracticeExerciseFlagWithRefillResult> {
+  const flagResult = await flagPracticeExercise(input);
+
+  if (flagResult.status !== "flagged") {
+    return flagResult;
+  }
+
+  const refill = await queueRefillAfterPracticeFlag({
+    userId: input.userId,
+    skillId: flagResult.skillId,
+    answerKind: flagResult.answerKind,
+    now: input.flaggedAt,
+    sender: input.refillSender,
+    model: input.model,
+  });
+
+  return {
+    ...flagResult,
+    refill,
+  };
+}
+
+async function queueRefillAfterPracticeFlag({
+  userId,
+  skillId,
+  answerKind,
+  now,
+  sender,
+  model,
+}: {
+  userId: string;
+  skillId: string;
+  answerKind: AnswerKind;
+  now: Date;
+  sender?: ExerciseRefillEventSender;
+  model?: string;
+}): Promise<PracticeFlagRefillResult> {
+  try {
+    switch (answerKind) {
+      case AnswerKind.CHOICE:
+        return toPracticeFlagRefillResult(
+          await queueChoiceExerciseRefillForSkill({
+            userId,
+            skillId,
+            now,
+            sender,
+            model,
+          }),
+        );
+      case AnswerKind.TEXT:
+      case AnswerKind.NUMERIC:
+        return toPracticeFlagRefillResult(
+          await queueExactInputExerciseRefillForSkill({
+            userId,
+            skillId,
+            now,
+            sender,
+            model,
+          }),
+        );
+      case AnswerKind.MATH:
+        return {
+          status: "not-queued",
+          reason: "unsupported-answer-kind",
+          message: "Replacement generation is not available for math exercises yet.",
+        };
+    }
+  } catch (error) {
+    return {
+      status: "not-queued",
+      reason: "queue-error",
+      message: `Replacement generation was not queued: ${formatEnvError(error)}`,
+    };
+  }
+}
+
+function toPracticeFlagRefillResult(result: RefillQueueResult): PracticeFlagRefillResult {
+  if (result.status === "queued") {
+    return {
+      status: "queued",
+      generationJobId: result.generationJobId,
+      requestedCount: result.requestedCount,
+      readyExerciseCount: result.readyExerciseCount,
+      targetReadyCount: result.targetReadyCount,
+      message: result.message,
+    };
+  }
+
+  if (result.status === "not-queued") {
+    return {
+      status: "not-queued",
+      reason: result.reason,
+      message: result.message,
+      generationJobId: result.generationJobId,
+      readyExerciseCount: result.readyExerciseCount,
+      targetReadyCount: result.targetReadyCount,
+    };
+  }
+
+  if (result.status === "missing-inngest-env") {
+    return {
+      status: "not-queued",
+      reason: "missing-inngest-env",
+      message: result.message,
+    };
+  }
+
+  return {
+    status: "not-queued",
+    reason: "skill-not-found",
+    message: result.message,
+  };
 }
 
 async function commitPracticeReviewInTransaction(
