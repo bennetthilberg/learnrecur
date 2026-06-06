@@ -18,6 +18,7 @@ import { getPrisma } from "@/lib/prisma";
 import { EXACT_INPUT_UNLOCK_REPETITIONS } from "@/lib/skills";
 
 import {
+  createMathExercise,
   createNumericExercise,
   createSkillFixture,
   createTextExercise,
@@ -422,26 +423,26 @@ describeDatabase("dashboard home read model", () => {
       retiredAt: new Date("2026-06-04T08:00:00.000Z"),
     });
 
-    const mathSkill = await createSkillFixture(prisma, {
+    const readyMathSkill = await createSkillFixture(prisma, {
       userId,
       collectionId: collection.id,
-      title: "Math exact",
+      title: "Unlocked math",
       repetitions: EXACT_INPUT_UNLOCK_REPETITIONS,
       dueAt: new Date("2026-06-03T10:30:00.000Z"),
     });
-    await prisma.exercise.create({
-      data: {
-        userId,
-        skillId: mathSkill.id,
-        type: ExerciseType.EXACT_INPUT,
-        answerKind: AnswerKind.MATH,
-        prompt: "Differentiate x^2.",
-        answerSpec: {
-          kind: "math",
-          acceptedExpressions: ["2x"],
-        },
-        correctAnswerDisplay: "2x",
-        verificationStatus: ExerciseVerificationStatus.VERIFIED,
+    await createMathExercise(prisma, userId, readyMathSkill.id);
+
+    const malformedMathSkill = await createSkillFixture(prisma, {
+      userId,
+      collectionId: collection.id,
+      title: "Malformed math",
+      repetitions: EXACT_INPUT_UNLOCK_REPETITIONS,
+      dueAt: new Date("2026-06-03T10:45:00.000Z"),
+    });
+    await createMathExercise(prisma, userId, malformedMathSkill.id, {
+      answerSpec: {
+        kind: "math",
+        acceptedExpressions: ["x**2"],
       },
     });
 
@@ -456,12 +457,12 @@ describeDatabase("dashboard home read model", () => {
     const dashboard = await getDashboardHome({ userId, now });
 
     expect(dashboard).toMatchObject({
-      readyNowCount: 2,
-      activeSkillCount: 7,
+      readyNowCount: 3,
+      activeSkillCount: 8,
       collections: [
         {
           id: collection.id,
-          readyNowCount: 2,
+          readyNowCount: 3,
         },
       ],
     });
@@ -473,13 +474,17 @@ describeDatabase("dashboard home read model", () => {
       isReadyNow: true,
       dueLabel: "Due now",
     });
+    expect(dashboard.skills.find((skill) => skill.id === readyMathSkill.id)).toMatchObject({
+      isReadyNow: true,
+      dueLabel: "Due now",
+    });
 
     for (const notReadySkill of [
       lockedExactSkill,
       malformedExactSkill,
       unverifiedExactSkill,
       retiredExactSkill,
-      mathSkill,
+      malformedMathSkill,
     ]) {
       expect(dashboard.skills.find((skill) => skill.id === notReadySkill.id)).toMatchObject({
         isReadyNow: false,

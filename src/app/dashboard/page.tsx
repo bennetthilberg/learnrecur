@@ -65,7 +65,7 @@ export default async function DashboardPage() {
         <MetricCard
           label="Ready now"
           value={formatCount(dashboard.readyNowCount)}
-          detail="multiple-choice ready"
+          detail="practice ready"
         />
         <MetricCard
           label="Active skills"
@@ -183,11 +183,11 @@ export default async function DashboardPage() {
         <section className="dashboardMessage" aria-label="Practice status">
           <div>
             <p className="eyebrow">Queue</p>
-            <h2>Nothing is ready for multiple-choice practice.</h2>
+            <h2>Nothing is ready for practice.</h2>
           </div>
           <p>
             This can mean every active skill is scheduled for later, or the ready skills
-            have exercises the current practice screen cannot render yet.
+            do not have verified practiceable exercises yet.
           </p>
         </section>
       ) : null}

@@ -16,6 +16,7 @@ import { getSkillsLibrary } from "@/lib/skills/library";
 
 import {
   createChoiceExercise,
+  createMathExercise,
   createNumericExercise,
   createSkillFixture,
   createTextExercise,
@@ -310,6 +311,7 @@ describeDatabase("skills library read model", () => {
     });
     await createTextExercise(prisma, userId, readyExactSkill.id);
     await createNumericExercise(prisma, userId, readyExactSkill.id);
+    await createMathExercise(prisma, userId, readyExactSkill.id);
 
     const lockedExactSkill = await createSkillFixture(prisma, {
       userId,
@@ -338,6 +340,12 @@ describeDatabase("skills library read model", () => {
         tolerance: 0,
       },
     });
+    await createMathExercise(prisma, userId, malformedExactSkill.id, {
+      answerSpec: {
+        kind: "math",
+        acceptedExpressions: ["x**2"],
+      },
+    });
 
     const retiredExactSkill = await createSkillFixture(prisma, {
       userId,
@@ -356,9 +364,9 @@ describeDatabase("skills library read model", () => {
     expect(library.activeSkills.find((skill) => skill.id === readyExactSkill.id)).toMatchObject({
       isReadyNow: true,
       dueLabel: "Due now",
-      verifiedExerciseCount: 2,
+      verifiedExerciseCount: 3,
       retiredExerciseCount: 0,
-      readyExerciseCount: 2,
+      readyExerciseCount: 3,
     });
     expect(library.activeSkills.find((skill) => skill.id === lockedExactSkill.id)).toMatchObject({
       isReadyNow: false,
@@ -372,7 +380,7 @@ describeDatabase("skills library read model", () => {
     ).toMatchObject({
       isReadyNow: false,
       dueLabel: "Not available in practice yet",
-      verifiedExerciseCount: 1,
+      verifiedExerciseCount: 2,
       retiredExerciseCount: 0,
       readyExerciseCount: 0,
     });

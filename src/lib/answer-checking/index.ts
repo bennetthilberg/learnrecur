@@ -1,6 +1,10 @@
+import { ComputeEngine, type Expression } from "@cortex-js/compute-engine";
 import { z } from "zod";
 
 const DEFAULT_NUMERIC_TOLERANCE = 0.001;
+const DEFAULT_MATH_EQUIVALENCE = "basic-symbolic";
+const MAX_MATH_EXPRESSION_LENGTH = 500;
+const MAX_MATH_EXPRESSION_NESTING = 32;
 
 const nonEmptyStringSchema = z.string().trim().min(1);
 
@@ -55,7 +59,7 @@ export const numericAnswerSpecSchema = z.strictObject({
 export const mathAnswerSpecSchema = z.strictObject({
   kind: z.literal("math"),
   acceptedExpressions: z.array(nonEmptyStringSchema).min(1),
-  equivalence: z.string().optional(),
+  equivalence: z.literal(DEFAULT_MATH_EQUIVALENCE).default(DEFAULT_MATH_EQUIVALENCE),
 });
 
 export const answerSpecSchema = z.discriminatedUnion("kind", [
@@ -89,10 +93,12 @@ export type AnswerCheckReason =
   | "duplicate-choice-id"
   | "empty-answer"
   | "invalid-accepted-number"
+  | "invalid-accepted-expression"
   | "invalid-answer-spec"
   | "invalid-choices"
+  | "math-expression-too-large"
+  | "malformed-math-expression"
   | "malformed-number"
-  | "math-not-implemented"
   | "missing-correct-choice"
   | "unknown-choice"
   | "wrong-answer-shape"
@@ -140,14 +146,29 @@ export function checkAnswer(input: CheckAnswerInput): AnswerCheckResult {
     case "numeric":
       return checkNumericAnswer(answerSpec, input.submittedAnswer);
     case "math":
-      return {
-        status: "unsupported",
-        isCorrect: false,
-        normalizedAnswer: null,
-        reason: "math-not-implemented",
-        message: "Math equivalence checking is not available yet.",
-      };
+      return checkMathAnswer(answerSpec, input.submittedAnswer);
   }
+}
+
+export function isUsableMathAnswerSpec(input: unknown): boolean {
+  const answerSpecResult = mathAnswerSpecSchema.safeParse(input);
+
+  if (!answerSpecResult.success) {
+    return false;
+  }
+
+  if (
+    !answerSpecResult.data.acceptedExpressions.every(
+      (acceptedExpression) => checkMathExpressionBudget(acceptedExpression).ok,
+    )
+  ) {
+    return false;
+  }
+
+  const computeEngine = new ComputeEngine();
+  return answerSpecResult.data.acceptedExpressions.every(
+    (acceptedExpression) => parseMathExpression(acceptedExpression, computeEngine).ok,
+  );
 }
 
 function checkChoiceAnswer(
@@ -257,6 +278,62 @@ function checkNumericAnswer(
   };
 }
 
+function checkMathAnswer(answerSpec: MathAnswerSpec, submittedAnswer: unknown): AnswerCheckResult {
+  if (answerSpec.equivalence !== DEFAULT_MATH_EQUIVALENCE) {
+    return invalidSpec(
+      "invalid-answer-spec",
+      `Unsupported math equivalence mode: ${answerSpec.equivalence}`,
+    );
+  }
+
+  if (typeof submittedAnswer !== "string") {
+    return invalidInput("wrong-answer-shape", "Enter a math expression.");
+  }
+
+  const submittedBudget = checkMathExpressionBudget(submittedAnswer);
+
+  if (!submittedBudget.ok) {
+    return invalidInput(submittedBudget.reason, submittedBudget.message);
+  }
+
+  if (
+    !answerSpec.acceptedExpressions.every(
+      (acceptedExpression) => checkMathExpressionBudget(acceptedExpression).ok,
+    )
+  ) {
+    return invalidSpec("invalid-accepted-expression", "Accepted math expressions must be valid.");
+  }
+
+  const computeEngine = new ComputeEngine();
+  const parsedSubmittedAnswer = parseMathExpression(submittedAnswer, computeEngine);
+
+  if (!parsedSubmittedAnswer.ok) {
+    return invalidInput(parsedSubmittedAnswer.reason, parsedSubmittedAnswer.message);
+  }
+
+  const acceptedExpressions: Expression[] = [];
+
+  for (const acceptedExpression of answerSpec.acceptedExpressions) {
+    const parsedAcceptedExpression = parseMathExpression(acceptedExpression, computeEngine);
+
+    if (!parsedAcceptedExpression.ok) {
+      return invalidSpec("invalid-accepted-expression", "Accepted math expressions must be valid.");
+    }
+
+    acceptedExpressions.push(parsedAcceptedExpression.expression);
+  }
+
+  const isCorrect = acceptedExpressions.some((acceptedExpression) =>
+    areMathExpressionsEquivalent(parsedSubmittedAnswer.expression, acceptedExpression),
+  );
+
+  return {
+    status: isCorrect ? "correct" : "incorrect",
+    isCorrect,
+    normalizedAnswer: parsedSubmittedAnswer.normalized,
+  };
+}
+
 function parseSelectedChoiceId(submittedAnswer: unknown): string | null {
   if (typeof submittedAnswer === "string") {
     return submittedAnswer.trim();
@@ -290,6 +367,122 @@ function normalizeTextAnswer(answer: string, options: TextAnswerSpec): string {
   }
 
   return normalized;
+}
+
+type ParsedMathExpression =
+  | {
+      ok: true;
+      expression: Expression;
+      normalized: string;
+    }
+  | {
+      ok: false;
+      reason: Extract<
+        AnswerCheckReason,
+        "empty-answer" | "malformed-math-expression" | "math-expression-too-large"
+      >;
+      message: string;
+    };
+
+function parseMathExpression(input: string, computeEngine: ComputeEngine): ParsedMathExpression {
+  const budgetResult = checkMathExpressionBudget(input);
+
+  if (!budgetResult.ok) {
+    return budgetResult;
+  }
+
+  try {
+    const expression = computeEngine.parse(budgetResult.trimmed);
+
+    if (!expression.isValid) {
+      return malformedMathExpression();
+    }
+
+    const simplifiedExpression = expression.simplify();
+
+    if (!simplifiedExpression.isValid) {
+      return malformedMathExpression();
+    }
+
+    return {
+      ok: true,
+      expression,
+      normalized: simplifiedExpression.toString(),
+    };
+  } catch {
+    return malformedMathExpression();
+  }
+}
+
+type MathExpressionBudgetResult =
+  | {
+      ok: true;
+      trimmed: string;
+    }
+  | Extract<ParsedMathExpression, { ok: false }>;
+
+function checkMathExpressionBudget(input: string): MathExpressionBudgetResult {
+  const trimmed = input.trim();
+
+  if (trimmed === "") {
+    return {
+      ok: false,
+      reason: "empty-answer",
+      message: "Enter a math expression.",
+    };
+  }
+
+  if (
+    trimmed.length > MAX_MATH_EXPRESSION_LENGTH ||
+    getMaxMathExpressionNesting(trimmed) > MAX_MATH_EXPRESSION_NESTING
+  ) {
+    return {
+      ok: false,
+      reason: "math-expression-too-large",
+      message: "Enter a shorter math expression.",
+    };
+  }
+
+  return {
+    ok: true,
+    trimmed,
+  };
+}
+
+function getMaxMathExpressionNesting(input: string): number {
+  let depth = 0;
+  let maxDepth = 0;
+
+  for (const character of input) {
+    if (character === "(" || character === "[" || character === "{") {
+      depth += 1;
+      maxDepth = Math.max(maxDepth, depth);
+    } else if (character === ")" || character === "]" || character === "}") {
+      depth = Math.max(0, depth - 1);
+    }
+  }
+
+  return maxDepth;
+}
+
+function malformedMathExpression(): ParsedMathExpression {
+  return {
+    ok: false,
+    reason: "malformed-math-expression",
+    message: "Enter a valid math expression.",
+  };
+}
+
+function areMathExpressionsEquivalent(left: Expression, right: Expression): boolean {
+  try {
+    if (left.isEqual(right) === true) {
+      return true;
+    }
+
+    return left.simplify().isEqual(right.simplify()) === true;
+  } catch {
+    return false;
+  }
 }
 
 function parseAcceptedNumericValue(acceptedValue: NumericAnswerSpec["accepted"][number]): ParsedNumber {

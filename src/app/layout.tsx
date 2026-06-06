@@ -1,4 +1,5 @@
 import "@mantine/core/styles.css";
+import "katex/dist/katex.min.css";
 import "./globals.css";
 
 import { ClerkProvider } from "@clerk/nextjs";
