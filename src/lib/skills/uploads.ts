@@ -33,6 +33,7 @@ import {
 export const MAX_SOURCE_UPLOAD_BYTES = 10 * 1024 * 1024;
 export const SOURCE_UPLOAD_PREFIX = "source-uploads";
 export const SOURCE_UPLOAD_PROMPT_VERSION = "source-upload-drafts-v0";
+export const SOURCE_PROCESSING_STALE_AFTER_MS = 15 * 60 * 1000;
 const SOURCE_UPLOAD_GENERATION_TIMEOUT_MS = 45_000;
 
 const allowedSourceUploadMimeTypes = [
@@ -163,6 +164,59 @@ export type QueueSourceUploadDraftsResult =
       message: string;
     };
 
+export type RequeueSourceUploadDraftInput = {
+  userId: string;
+  sourceFileId: string;
+  now: Date;
+  storage?: SourceUploadStorage;
+  eventSender?: SourceUploadDraftEventSender;
+};
+
+export type RequeueSourceUploadDraftResult =
+  | {
+      status: "queued";
+      sourceFileId: string;
+      message: string;
+    }
+  | {
+      status: "not-found";
+      reason: "source-not-found";
+      message: string;
+    }
+  | {
+      status: "not-queued";
+      reason:
+        | "missing-s3-env"
+        | "missing-inngest-env"
+        | "invalid-upload"
+        | "event-send-failed"
+        | "not-stale"
+        | "not-requeueable";
+      message: string;
+    };
+
+export type DismissFailedSourceUploadInput = {
+  userId: string;
+  sourceFileId: string;
+};
+
+export type DismissFailedSourceUploadResult =
+  | {
+      status: "dismissed";
+      sourceFileId: string;
+      message: string;
+    }
+  | {
+      status: "not-found";
+      reason: "source-not-found";
+      message: string;
+    }
+  | {
+      status: "not-dismissed";
+      reason: "not-failed" | "linked-source";
+      message: string;
+    };
+
 export type CompleteSourceUploadDraftsResult =
   | {
       status: "created";
@@ -238,6 +292,42 @@ export function buildSourceUploadObjectKey({
   return `${SOURCE_UPLOAD_PREFIX}/${sanitizeKeySegment(userId)}/${sanitizeKeySegment(
     sourceFileId,
   )}/${sanitizeFileName(originalName)}`;
+}
+
+export function isSourceUploadProcessingStale(
+  metadata: Prisma.JsonValue | null,
+  now: Date,
+  staleAfterMs = SOURCE_PROCESSING_STALE_AFTER_MS,
+): boolean {
+  const startedAt = getMetadataString(metadata, "processingStartedAt");
+
+  if (!startedAt) {
+    return false;
+  }
+
+  const startedAtTime = Date.parse(startedAt);
+
+  if (!Number.isFinite(startedAtTime)) {
+    return false;
+  }
+
+  return now.getTime() - startedAtTime >= staleAfterMs;
+}
+
+export function buildSourceUploadRequeueMetadata(
+  metadata: Prisma.JsonValue | null,
+  now: Date,
+): Prisma.InputJsonObject {
+  const metadataObject = getMetadataObject(metadata);
+  const retryCount = typeof metadataObject.retryCount === "number" ? metadataObject.retryCount : 0;
+  const timestamp = now.toISOString();
+
+  return {
+    ...metadataObject,
+    queuedAt: timestamp,
+    requeuedAt: timestamp,
+    retryCount: retryCount + 1,
+  };
 }
 
 export function validateExtractedSourceText(input: unknown): ExtractedSourceTextValidationResult {
@@ -493,6 +583,173 @@ export async function queueSourceUploadDrafts(
     status: "queued",
     sourceFileId: sourceFile.id,
     message: "Upload queued. Drafts will appear in the skill library after processing.",
+  };
+}
+
+export async function requeueSourceUploadDraft(
+  input: RequeueSourceUploadDraftInput,
+): Promise<RequeueSourceUploadDraftResult> {
+  const prisma = getPrisma();
+  const sourceFile = await prisma.sourceFile.findFirst({
+    where: {
+      id: input.sourceFileId,
+      userId: input.userId,
+    },
+  });
+
+  if (!sourceFile) {
+    return sourceUploadSourceNotFound();
+  }
+
+  if (sourceFile.status === SourceFileStatus.PROCESSING) {
+    if (!isSourceUploadProcessingStale(sourceFile.metadata, input.now)) {
+      return requeueNotQueued(
+        "not-stale",
+        "Source processing is still recent. Give the background worker a little more time.",
+      );
+    }
+  } else if (sourceFile.status !== SourceFileStatus.UPLOADED) {
+    return requeueNotQueued(
+      "not-requeueable",
+      "Only queued or stale processing uploads can be requeued.",
+    );
+  }
+
+  const storageSetup = resolveUploadStorage(input.storage);
+
+  if (storageSetup.status === "missing-env") {
+    return requeueNotQueued("missing-s3-env", storageSetup.message);
+  }
+
+  const uploadValidation = await validateStoredSourceUpload(sourceFile, storageSetup.storage);
+
+  if (uploadValidation.status === "invalid") {
+    return requeueNotQueued("invalid-upload", uploadValidation.message);
+  }
+
+  if (!input.eventSender) {
+    const inngestEnv = getInngestEnvStatus();
+
+    if (inngestEnv.status === "missing-env") {
+      return requeueNotQueued("missing-inngest-env", inngestEnv.message);
+    }
+  }
+
+  const requeued = await prisma.sourceFile.updateMany({
+    where: {
+      id: sourceFile.id,
+      userId: input.userId,
+      status: sourceFile.status,
+    },
+    data: {
+      status: SourceFileStatus.UPLOADED,
+      byteSize: uploadValidation.byteSize,
+      metadata: buildSourceUploadRequeueMetadata(sourceFile.metadata, input.now),
+    },
+  });
+
+  if (requeued.count !== 1) {
+    return requeueNotQueued(
+      "invalid-upload",
+      "This upload changed while it was being requeued. Refresh and try again.",
+    );
+  }
+
+  const eventSender = input.eventSender ?? inngestSourceUploadDraftEventSender;
+
+  try {
+    await eventSender.sendSourceUploadDraftRequested({
+      userId: input.userId,
+      sourceFileId: sourceFile.id,
+      requestedAt: input.now.toISOString(),
+    });
+  } catch (error) {
+    await prisma.sourceFile.updateMany({
+      where: {
+        id: sourceFile.id,
+        userId: input.userId,
+        status: SourceFileStatus.UPLOADED,
+      },
+      data: {
+        status: sourceFile.status,
+        byteSize: sourceFile.byteSize,
+        metadata: sourceFile.metadata ?? Prisma.DbNull,
+      },
+    });
+
+    return requeueNotQueued(
+      "event-send-failed",
+      `Could not requeue source processing: ${formatEnvError(error)}`,
+    );
+  }
+
+  return {
+    status: "queued",
+    sourceFileId: sourceFile.id,
+    message: "Source processing was requeued.",
+  };
+}
+
+export async function dismissFailedSourceUpload(
+  input: DismissFailedSourceUploadInput,
+): Promise<DismissFailedSourceUploadResult> {
+  const prisma = getPrisma();
+  const sourceFile = await prisma.sourceFile.findFirst({
+    where: {
+      id: input.sourceFileId,
+      userId: input.userId,
+    },
+    select: {
+      id: true,
+      kind: true,
+      status: true,
+      _count: {
+        select: {
+          skillRefs: true,
+        },
+      },
+    },
+  });
+
+  if (!sourceFile) {
+    return sourceUploadSourceNotFound();
+  }
+
+  if (
+    sourceFile.status !== SourceFileStatus.FAILED ||
+    (sourceFile.kind !== SourceFileKind.IMAGE && sourceFile.kind !== SourceFileKind.PDF)
+  ) {
+    return {
+      status: "not-dismissed",
+      reason: "not-failed",
+      message: "Only failed uploaded sources can be dismissed.",
+    };
+  }
+
+  if (sourceFile._count.skillRefs > 0) {
+    return {
+      status: "not-dismissed",
+      reason: "linked-source",
+      message: "Linked source material cannot be dismissed from the processing list.",
+    };
+  }
+
+  const deleted = await prisma.sourceFile.deleteMany({
+    where: {
+      id: sourceFile.id,
+      userId: input.userId,
+      status: SourceFileStatus.FAILED,
+    },
+  });
+
+  if (deleted.count !== 1) {
+    return sourceUploadSourceNotFound();
+  }
+
+  return {
+    status: "dismissed",
+    sourceFileId: sourceFile.id,
+    message: "Failed source upload dismissed.",
   };
 }
 
@@ -1027,6 +1284,74 @@ function isAllowedSourceUploadMimeType(mimeType: string): mimeType is SourceUplo
   return allowedSourceUploadMimeTypes.includes(mimeType as SourceUploadMimeType);
 }
 
+async function validateStoredSourceUpload(
+  sourceFile: {
+    storageBucket: string | null;
+    storageKey: string | null;
+    mimeType: string | null;
+    byteSize: number | null;
+  },
+  storage: SourceUploadStorage,
+): Promise<
+  | {
+      status: "ready";
+      byteSize: number;
+    }
+  | {
+      status: "invalid";
+      message: string;
+    }
+> {
+  if (!sourceFile.storageKey || !sourceFile.storageBucket || !sourceFile.mimeType) {
+    return {
+      status: "invalid",
+      message: "Uploaded source metadata is incomplete.",
+    };
+  }
+
+  if (!isAllowedSourceUploadMimeType(sourceFile.mimeType)) {
+    return {
+      status: "invalid",
+      message: "Uploaded source MIME type is not supported.",
+    };
+  }
+
+  let head;
+
+  try {
+    head = await storage.headObject({
+      key: sourceFile.storageKey,
+      bucket: sourceFile.storageBucket,
+    });
+  } catch (error) {
+    return {
+      status: "invalid",
+      message: `Could not verify S3 upload: ${formatEnvError(error)}`,
+    };
+  }
+
+  const actualByteSize = head.byteSize ?? sourceFile.byteSize;
+
+  if (!actualByteSize || actualByteSize > MAX_SOURCE_UPLOAD_BYTES) {
+    return {
+      status: "invalid",
+      message: "Uploaded file is missing or larger than 10 MB.",
+    };
+  }
+
+  if (head.mimeType && head.mimeType !== sourceFile.mimeType) {
+    return {
+      status: "invalid",
+      message: "Uploaded file type did not match the prepared upload.",
+    };
+  }
+
+  return {
+    status: "ready",
+    byteSize: actualByteSize,
+  };
+}
+
 function notCreated(
   reason: Extract<CompleteSourceUploadDraftsResult, { status: "not-created" }>["reason"],
   message: string,
@@ -1042,6 +1367,17 @@ function notQueued(
   reason: Extract<QueueSourceUploadDraftsResult, { status: "not-queued" }>["reason"],
   message: string,
 ): Extract<QueueSourceUploadDraftsResult, { status: "not-queued" }> {
+  return {
+    status: "not-queued",
+    reason,
+    message,
+  };
+}
+
+function requeueNotQueued(
+  reason: Extract<RequeueSourceUploadDraftResult, { status: "not-queued" }>["reason"],
+  message: string,
+): Extract<RequeueSourceUploadDraftResult, { status: "not-queued" }> {
   return {
     status: "not-queued",
     reason,

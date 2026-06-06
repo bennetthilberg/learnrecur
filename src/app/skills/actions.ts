@@ -21,8 +21,10 @@ import {
   resumeSkill,
 } from "@/lib/skills/lifecycle";
 import {
+  dismissFailedSourceUpload,
   prepareSourceUpload,
   queueSourceUploadDrafts,
+  requeueSourceUploadDraft,
 } from "@/lib/skills/uploads";
 import { removeSkillSource } from "@/lib/skills/sources";
 import { ensureDatabaseUser } from "@/lib/users";
@@ -246,6 +248,87 @@ export async function completeSourceUploadAction(input: {
       status: "queued",
       message: result.message,
       redirectTo: "/skills?sourceQueued=1",
+    };
+  }
+
+  return {
+    status: "error",
+    message: result.message,
+  };
+}
+
+export async function requeueSourceUploadAction(
+  _previousState: SkillFormActionState,
+  formData: FormData,
+): Promise<SkillFormActionState> {
+  const user = await requireSkillActionUser();
+
+  if (user.status === "error") {
+    return user;
+  }
+
+  const sourceFileId = getOptionalFormString(formData, "sourceFileId");
+
+  if (!sourceFileId) {
+    return {
+      status: "error",
+      message: "No uploaded source was selected.",
+    };
+  }
+
+  const result = await requeueSourceUploadDraft({
+    userId: user.userId,
+    sourceFileId,
+    now: new Date(),
+  });
+
+  revalidatePath("/skills");
+  revalidatePath("/dashboard");
+
+  if (result.status === "queued") {
+    return {
+      status: "saved",
+      message: result.message,
+    };
+  }
+
+  return {
+    status: "error",
+    message: result.message,
+  };
+}
+
+export async function dismissFailedSourceUploadAction(
+  _previousState: SkillFormActionState,
+  formData: FormData,
+): Promise<SkillFormActionState> {
+  const user = await requireSkillActionUser();
+
+  if (user.status === "error") {
+    return user;
+  }
+
+  const sourceFileId = getOptionalFormString(formData, "sourceFileId");
+
+  if (!sourceFileId) {
+    return {
+      status: "error",
+      message: "No failed source was selected.",
+    };
+  }
+
+  const result = await dismissFailedSourceUpload({
+    userId: user.userId,
+    sourceFileId,
+  });
+
+  revalidatePath("/skills");
+  revalidatePath("/dashboard");
+
+  if (result.status === "dismissed") {
+    return {
+      status: "saved",
+      message: result.message,
     };
   }
 

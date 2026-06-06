@@ -12,6 +12,7 @@ import {
 import { formatJobStatus } from "@/lib/formatters";
 import { ensureDatabaseUser } from "@/lib/users";
 
+import { SourceProcessingControls } from "./source-processing-controls";
 import { SkillsTopbar } from "./skills-topbar";
 
 export const dynamic = "force-dynamic";
@@ -258,15 +259,17 @@ function SourceProcessingRow({
   sourceFile: SkillsLibrarySourceProcessingSummary;
 }) {
   const failed = sourceFile.status === "FAILED";
+  const stale = sourceFile.isStaleProcessing;
+  const statusCopy = getSourceProcessingStatusCopy(sourceFile);
 
   return (
     <article className="skillLibraryRow">
       <div className="skillLibraryRowMain">
         <div>
           <strong>{sourceFile.originalName}</strong>
-          <p>{failed ? "Processing failed." : "Draft generation is running in the background."}</p>
+          <p>{statusCopy}</p>
         </div>
-        <span className="dashboardChip" data-tone={failed ? "neutral" : "ready"}>
+        <span className="dashboardChip" data-tone={failed || stale ? "neutral" : "ready"}>
           {formatSourceFileStatus(sourceFile.status)}
         </span>
       </div>
@@ -274,12 +277,18 @@ function SourceProcessingRow({
         <span>{formatSourceKind(sourceFile.kind)}</span>
         <span>{formatByteSize(sourceFile.byteSize)}</span>
         <span>Updated {formatDate(sourceFile.updatedAt)}</span>
+        {sourceFile.retryCount > 0 ? <span>{formatRetryCount(sourceFile.retryCount)}</span> : null}
       </div>
       {failed && sourceFile.errorMessage ? (
         <div className="skillLibraryStatus" data-tone="error">
           <p>{sourceFile.errorMessage}</p>
         </div>
       ) : null}
+      <SourceProcessingControls
+        sourceFileId={sourceFile.id}
+        canRequeue={sourceFile.canRequeue}
+        canDismiss={sourceFile.canDismiss}
+      />
     </article>
   );
 }
@@ -325,6 +334,10 @@ function formatSourceCount(count: number) {
   return count === 1 ? "1 source" : `${formatCount(count)} sources`;
 }
 
+function formatRetryCount(count: number) {
+  return count === 1 ? "1 retry" : `${formatCount(count)} retries`;
+}
+
 function formatFsrsState(state: SkillsLibraryActiveSkill["fsrsState"]) {
   return state.toLowerCase().replaceAll("_", " ");
 }
@@ -351,6 +364,26 @@ function formatByteSize(byteSize: number | null) {
   }
 
   return `${(byteSize / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function getSourceProcessingStatusCopy(sourceFile: SkillsLibrarySourceProcessingSummary) {
+  if (sourceFile.status === "FAILED") {
+    if (!sourceFile.canDismiss) {
+      return "Processing failed. This source is linked to a skill, so upload the material again if you need a fresh draft.";
+    }
+
+    return "Processing failed. Dismiss this row, then upload again when you are ready.";
+  }
+
+  if (sourceFile.status === "UPLOADED") {
+    return "Queued and waiting for the background worker.";
+  }
+
+  if (sourceFile.isStaleProcessing) {
+    return "Processing appears stuck. Requeue it when the background worker is running.";
+  }
+
+  return "Draft generation is running in the background.";
 }
 
 function parseCreatedDraftCount(value: string | string[] | undefined) {

@@ -12,6 +12,10 @@ import {
 } from "@/generated/prisma/client";
 import { isPracticeReadModelExerciseReady } from "@/lib/practice/read-model-eligibility";
 import { getPrisma } from "@/lib/prisma";
+import {
+  isSourceUploadProcessingStale,
+  SOURCE_PROCESSING_STALE_AFTER_MS,
+} from "@/lib/skills/uploads";
 
 export type SkillsLibraryGenerationJobSummary = {
   id: string;
@@ -77,6 +81,10 @@ export type SkillsLibrarySourceProcessingSummary = {
   status: Extract<SourceFileStatus, "UPLOADED" | "PROCESSING" | "FAILED">;
   byteSize: number | null;
   errorMessage: string | null;
+  retryCount: number;
+  isStaleProcessing: boolean;
+  canRequeue: boolean;
+  canDismiss: boolean;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -197,6 +205,11 @@ export async function getSkillsLibrary(input: GetSkillsLibraryInput): Promise<Sk
         status: true,
         byteSize: true,
         metadata: true,
+        _count: {
+          select: {
+            skillRefs: true,
+          },
+        },
         createdAt: true,
         updatedAt: true,
       },
@@ -205,16 +218,7 @@ export async function getSkillsLibrary(input: GetSkillsLibraryInput): Promise<Sk
 
   const sourceProcessing = sourceProcessingRows
     .filter(isSourceProcessingRecord)
-    .map((sourceFile) => ({
-      id: sourceFile.id,
-      originalName: sourceFile.originalName,
-      kind: sourceFile.kind,
-      status: sourceFile.status,
-      byteSize: sourceFile.byteSize,
-      errorMessage: getMetadataString(sourceFile.metadata, "errorMessage"),
-      createdAt: sourceFile.createdAt,
-      updatedAt: sourceFile.updatedAt,
-    }));
+    .map((sourceFile) => toSourceProcessingSummary(sourceFile, input.now));
 
   const draftSkills = skills
     .filter((skill) => skill.status === SkillStatus.DRAFT)
@@ -247,6 +251,42 @@ function isSourceProcessingRecord<T extends { status: SourceFileStatus }>(
     sourceFile.status === SourceFileStatus.PROCESSING ||
     sourceFile.status === SourceFileStatus.FAILED
   );
+}
+
+function toSourceProcessingSummary(
+  sourceFile: {
+    id: string;
+    originalName: string;
+    kind: SourceFileKind;
+    status: Extract<SourceFileStatus, "UPLOADED" | "PROCESSING" | "FAILED">;
+    byteSize: number | null;
+    metadata: Prisma.JsonValue | null;
+    _count: {
+      skillRefs: number;
+    };
+    createdAt: Date;
+    updatedAt: Date;
+  },
+  now: Date,
+): SkillsLibrarySourceProcessingSummary {
+  const isStaleProcessing =
+    sourceFile.status === SourceFileStatus.PROCESSING &&
+    isSourceUploadProcessingStale(sourceFile.metadata, now, SOURCE_PROCESSING_STALE_AFTER_MS);
+
+  return {
+    id: sourceFile.id,
+    originalName: sourceFile.originalName,
+    kind: sourceFile.kind,
+    status: sourceFile.status,
+    byteSize: sourceFile.byteSize,
+    errorMessage: getMetadataString(sourceFile.metadata, "errorMessage"),
+    retryCount: getMetadataNumber(sourceFile.metadata, "retryCount"),
+    isStaleProcessing,
+    canRequeue: sourceFile.status === SourceFileStatus.UPLOADED || isStaleProcessing,
+    canDismiss: sourceFile.status === SourceFileStatus.FAILED && sourceFile._count.skillRefs === 0,
+    createdAt: sourceFile.createdAt,
+    updatedAt: sourceFile.updatedAt,
+  };
 }
 
 function toDraftSkillSummary(skill: SkillsLibrarySkillRecord): SkillsLibraryDraftSkill {
@@ -469,4 +509,13 @@ function getMetadataString(metadata: Prisma.JsonValue | null, key: string): stri
 
   const value = (metadata as Record<string, unknown>)[key];
   return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+function getMetadataNumber(metadata: Prisma.JsonValue | null, key: string): number {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+    return 0;
+  }
+
+  const value = (metadata as Record<string, unknown>)[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
