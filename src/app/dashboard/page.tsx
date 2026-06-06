@@ -116,6 +116,7 @@ export default async function DashboardPage() {
                       {formatCount(collection.readyNowCount)} ready
                     </span>
                     <Link
+                      aria-label={`Practice collection ${collection.name}`}
                       className="dashboardPanelLink"
                       href={`/practice?collectionId=${encodeURIComponent(collection.id)}`}
                     >

@@ -140,6 +140,7 @@ function ActiveCollectionRow({
       <CollectionMetaLine collection={collection} />
       <div className="collectionRowActions">
         <Link
+          aria-label={`Practice collection ${collection.name}`}
           className="secondaryButton"
           href={`/practice?collectionId=${encodeURIComponent(collection.id)}`}
         >
