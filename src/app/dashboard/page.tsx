@@ -115,7 +115,10 @@ export default async function DashboardPage() {
                     <span className="dashboardChip" data-tone={collection.readyNowCount > 0 ? "ready" : "neutral"}>
                       {formatCount(collection.readyNowCount)} ready
                     </span>
-                    <Link className="dashboardPanelLink" href={`/practice?collectionId=${collection.id}`}>
+                    <Link
+                      className="dashboardPanelLink"
+                      href={`/practice?collectionId=${encodeURIComponent(collection.id)}`}
+                    >
                       Practice
                     </Link>
                   </div>

@@ -139,7 +139,10 @@ function ActiveCollectionRow({
       </div>
       <CollectionMetaLine collection={collection} />
       <div className="collectionRowActions">
-        <Link className="secondaryButton" href={`/practice?collectionId=${collection.id}`}>
+        <Link
+          className="secondaryButton"
+          href={`/practice?collectionId=${encodeURIComponent(collection.id)}`}
+        >
           Practice
         </Link>
         <CollectionUpdateForm collection={collection} />
