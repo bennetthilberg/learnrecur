@@ -395,6 +395,23 @@ describe("checkAnswer math answers", () => {
       message: "Accepted math expressions must be valid.",
     });
   });
+
+  it("rejects unsupported math equivalence modes", () => {
+    expect(
+      checkAnswer({
+        answerSpec: {
+          kind: "math",
+          acceptedExpressions: ["2x"],
+          equivalence: "semantic",
+        },
+        submittedAnswer: "x+x",
+      }),
+    ).toMatchObject({
+      status: "invalid-spec",
+      isCorrect: false,
+      reason: "invalid-answer-spec",
+    });
+  });
 });
 
 describe("checkAnswer invalid specs", () => {

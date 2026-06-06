@@ -2,6 +2,7 @@ import { ComputeEngine, type Expression } from "@cortex-js/compute-engine";
 import { z } from "zod";
 
 const DEFAULT_NUMERIC_TOLERANCE = 0.001;
+const DEFAULT_MATH_EQUIVALENCE = "basic-symbolic";
 
 const nonEmptyStringSchema = z.string().trim().min(1);
 
@@ -56,7 +57,7 @@ export const numericAnswerSpecSchema = z.strictObject({
 export const mathAnswerSpecSchema = z.strictObject({
   kind: z.literal("math"),
   acceptedExpressions: z.array(nonEmptyStringSchema).min(1),
-  equivalence: z.string().optional(),
+  equivalence: z.literal(DEFAULT_MATH_EQUIVALENCE).default(DEFAULT_MATH_EQUIVALENCE),
 });
 
 export const answerSpecSchema = z.discriminatedUnion("kind", [
@@ -268,6 +269,13 @@ function checkNumericAnswer(
 }
 
 function checkMathAnswer(answerSpec: MathAnswerSpec, submittedAnswer: unknown): AnswerCheckResult {
+  if (answerSpec.equivalence !== DEFAULT_MATH_EQUIVALENCE) {
+    return invalidSpec(
+      "invalid-answer-spec",
+      `Unsupported math equivalence mode: ${answerSpec.equivalence}`,
+    );
+  }
+
   if (typeof submittedAnswer !== "string") {
     return invalidInput("wrong-answer-shape", "Enter a math expression.");
   }
