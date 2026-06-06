@@ -8,10 +8,12 @@ import {
   activateSkillDraft,
   createSkillDraft,
   createSkillDraftFromSource,
-  refillExactInputExercisesForSkill,
-  refillChoiceExercisesForSkill,
   updateSkillDraft,
 } from "@/lib/skills";
+import {
+  queueExactInputExerciseRefillForSkill,
+  queueChoiceExerciseRefillForSkill,
+} from "@/lib/skills/refill-jobs";
 import {
   archiveSkill,
   pauseSkill,
@@ -275,7 +277,7 @@ export async function refillChoiceExercisesAction(
     };
   }
 
-  const result = await refillChoiceExercisesForSkill({
+  const result = await queueChoiceExerciseRefillForSkill({
     userId: user.userId,
     skillId,
     now: new Date(),
@@ -285,17 +287,19 @@ export async function refillChoiceExercisesAction(
   revalidatePath("/skills");
   revalidatePath("/dashboard");
 
-  if (result.status === "refilled") {
+  if (result.status === "queued") {
     return {
       status: "saved",
-      message: `Generated ${result.exerciseCount} new practice ${result.exerciseCount === 1 ? "exercise" : "exercises"}.`,
+      message: result.message,
     };
   }
 
   return {
-    status: result.status === "not-refilled" && result.reason === "already-at-target"
-      ? "saved"
-      : "error",
+    status:
+      result.status === "not-queued" &&
+      (result.reason === "already-at-target" || result.reason === "job-in-progress")
+        ? "saved"
+        : "error",
     message: result.message,
   };
 }
@@ -319,7 +323,7 @@ export async function refillExactInputExercisesAction(
     };
   }
 
-  const result = await refillExactInputExercisesForSkill({
+  const result = await queueExactInputExerciseRefillForSkill({
     userId: user.userId,
     skillId,
     now: new Date(),
@@ -329,17 +333,19 @@ export async function refillExactInputExercisesAction(
   revalidatePath("/skills");
   revalidatePath("/dashboard");
 
-  if (result.status === "refilled") {
+  if (result.status === "queued") {
     return {
       status: "saved",
-      message: `Generated ${result.exerciseCount} exact-input ${result.exerciseCount === 1 ? "exercise" : "exercises"}.`,
+      message: result.message,
     };
   }
 
   return {
     status:
-      result.status === "not-refilled" &&
-      (result.reason === "already-at-target" || result.reason === "exact-input-locked")
+      result.status === "not-queued" &&
+      (result.reason === "already-at-target" ||
+        result.reason === "exact-input-locked" ||
+        result.reason === "job-in-progress")
         ? "saved"
         : "error",
     message: result.message,

@@ -7,6 +7,7 @@ import { refillChoiceExercisesAction, type SkillFormActionState } from "./action
 type SkillRefillFormProps = {
   skillId: string;
   canRefill: boolean;
+  buttonLabel?: string;
 };
 
 const idleState: SkillFormActionState = {
@@ -14,14 +15,18 @@ const idleState: SkillFormActionState = {
   message: null,
 };
 
-export function SkillRefillForm({ skillId, canRefill }: SkillRefillFormProps) {
+export function SkillRefillForm({
+  skillId,
+  canRefill,
+  buttonLabel = "Queue more exercises",
+}: SkillRefillFormProps) {
   const [state, action, isPending] = useActionState(refillChoiceExercisesAction, idleState);
 
   return (
     <form action={action} className="skillRefillForm">
       <input name="skillId" type="hidden" value={skillId} />
       <button className="primaryButton" disabled={!canRefill || isPending} type="submit">
-        {isPending ? "Generating..." : canRefill ? "Generate more exercises" : "Queue full"}
+        {isPending ? "Queuing..." : buttonLabel}
       </button>
       {state.message ? (
         <p className="skillFormMessage" data-tone={state.status}>

@@ -333,6 +333,7 @@ export type RefillChoiceExercisesInput = {
   userId: string;
   skillId: string;
   now: Date;
+  generationJobId?: string;
   targetReadyCount?: number;
   generateChoiceExercises?: ChoiceExerciseGenerator;
   verifyChoiceExercises?: ChoiceExerciseVerifier;
@@ -343,6 +344,7 @@ export type RefillExactInputExercisesInput = {
   userId: string;
   skillId: string;
   now: Date;
+  generationJobId?: string;
   targetReadyCount?: number;
   generateExactInputExercises?: ExactInputExerciseGenerator;
   verifyExactInputExercises?: ExactInputExerciseVerifier;
@@ -426,6 +428,7 @@ export type SkillExerciseRefillResult =
         | "invalid-generation"
         | "verification-failed"
         | "invalid-verification"
+        | "job-not-pending"
         | "missing-gemini-env"
         | "no-new-exercises"
         | "skill-not-active";
@@ -458,6 +461,7 @@ export type ExactInputExerciseRefillResult =
         | "invalid-generation"
         | "verification-failed"
         | "invalid-verification"
+        | "job-not-pending"
         | "missing-gemini-env"
         | "no-new-exercises"
         | "skill-not-active";
@@ -1326,6 +1330,29 @@ export async function refillChoiceExercisesForSkill(
   const inventory = countChoiceExerciseInventory(skill.exercises);
 
   if (inventory.readyExerciseCount >= targetReadyCount) {
+    if (input.generationJobId) {
+      const generationJobResult = await failPendingRefillGenerationJob({
+        prisma,
+        generationJobId: input.generationJobId,
+        userId: input.userId,
+        skillId: skill.id,
+        kind: GenerationJobKind.CHOICE_EXERCISE_GENERATION,
+        message: "Skill already reached the ready exercise target.",
+        now: input.now,
+      });
+
+      if (generationJobResult.status === "not-ready") {
+        return {
+          status: "not-refilled",
+          reason: "job-not-pending",
+          message: generationJobResult.message,
+          generationJobId: input.generationJobId,
+          readyExerciseCount: inventory.readyExerciseCount,
+          targetReadyCount,
+        };
+      }
+    }
+
     return {
       status: "not-refilled",
       reason: "already-at-target",
@@ -1337,21 +1364,30 @@ export async function refillChoiceExercisesForSkill(
 
   const requestedCount = targetReadyCount - inventory.readyExerciseCount;
   const setup = resolveActivationSetup(input);
-  const generationJob = await prisma.generationJob.create({
-    data: {
-      userId: input.userId,
-      skillId: skill.id,
-      kind: GenerationJobKind.CHOICE_EXERCISE_GENERATION,
-      status: setup.status === "ready" ? GenerationJobStatus.RUNNING : GenerationJobStatus.FAILED,
-      provider: GEMINI_PROVIDER,
-      model: setup.model,
-      promptVersion: SKILL_MCQ_PROMPT_VERSION,
-      requestedCount,
-      errorMessage: setup.status === "ready" ? null : setup.message,
-      startedAt: input.now,
-      completedAt: setup.status === "ready" ? null : input.now,
-    },
+  const generationJobResult = await createOrClaimRefillGenerationJob({
+    prisma,
+    generationJobId: input.generationJobId,
+    userId: input.userId,
+    skillId: skill.id,
+    kind: GenerationJobKind.CHOICE_EXERCISE_GENERATION,
+    promptVersion: SKILL_MCQ_PROMPT_VERSION,
+    setup,
+    requestedCount,
+    now: input.now,
   });
+
+  if (generationJobResult.status === "not-ready") {
+    return {
+      status: "not-refilled",
+      reason: "job-not-pending",
+      message: generationJobResult.message,
+      generationJobId: input.generationJobId,
+      readyExerciseCount: inventory.readyExerciseCount,
+      targetReadyCount,
+    };
+  }
+
+  const generationJob = generationJobResult.generationJob;
 
   if (setup.status === "missing-env") {
     return {
@@ -1682,6 +1718,29 @@ export async function refillExactInputExercisesForSkill(
   const inventory = countExactInputExerciseInventory(skill.exercises);
 
   if (inventory.readyExerciseCount >= targetReadyCount) {
+    if (input.generationJobId) {
+      const generationJobResult = await failPendingRefillGenerationJob({
+        prisma,
+        generationJobId: input.generationJobId,
+        userId: input.userId,
+        skillId: skill.id,
+        kind: GenerationJobKind.EXACT_INPUT_EXERCISE_GENERATION,
+        message: "Skill already reached the ready exact-input target.",
+        now: input.now,
+      });
+
+      if (generationJobResult.status === "not-ready") {
+        return {
+          status: "not-refilled",
+          reason: "job-not-pending",
+          message: generationJobResult.message,
+          generationJobId: input.generationJobId,
+          readyExerciseCount: inventory.readyExerciseCount,
+          targetReadyCount,
+        };
+      }
+    }
+
     return {
       status: "not-refilled",
       reason: "already-at-target",
@@ -1693,21 +1752,30 @@ export async function refillExactInputExercisesForSkill(
 
   const requestedCount = targetReadyCount - inventory.readyExerciseCount;
   const setup = resolveExactInputRefillSetup(input);
-  const generationJob = await prisma.generationJob.create({
-    data: {
-      userId: input.userId,
-      skillId: skill.id,
-      kind: GenerationJobKind.EXACT_INPUT_EXERCISE_GENERATION,
-      status: setup.status === "ready" ? GenerationJobStatus.RUNNING : GenerationJobStatus.FAILED,
-      provider: GEMINI_PROVIDER,
-      model: setup.model,
-      promptVersion: SKILL_EXACT_INPUT_PROMPT_VERSION,
-      requestedCount,
-      errorMessage: setup.status === "ready" ? null : setup.message,
-      startedAt: input.now,
-      completedAt: setup.status === "ready" ? null : input.now,
-    },
+  const generationJobResult = await createOrClaimRefillGenerationJob({
+    prisma,
+    generationJobId: input.generationJobId,
+    userId: input.userId,
+    skillId: skill.id,
+    kind: GenerationJobKind.EXACT_INPUT_EXERCISE_GENERATION,
+    promptVersion: SKILL_EXACT_INPUT_PROMPT_VERSION,
+    setup,
+    requestedCount,
+    now: input.now,
   });
+
+  if (generationJobResult.status === "not-ready") {
+    return {
+      status: "not-refilled",
+      reason: "job-not-pending",
+      message: generationJobResult.message,
+      generationJobId: input.generationJobId,
+      readyExerciseCount: inventory.readyExerciseCount,
+      targetReadyCount,
+    };
+  }
+
+  const generationJob = generationJobResult.generationJob;
 
   if (setup.status === "missing-env") {
     return {
@@ -3119,6 +3187,186 @@ async function markGenerationJobFailed(
       completedAt: input.now,
     },
   });
+}
+
+type RefillGenerationSetup =
+  | {
+      status: "ready";
+      model: string;
+    }
+  | {
+      status: "missing-env";
+      model: string;
+      message: string;
+    };
+
+type RefillGenerationJobClient = Pick<Prisma.TransactionClient, "generationJob">;
+
+async function createOrClaimRefillGenerationJob({
+  prisma,
+  generationJobId,
+  userId,
+  skillId,
+  kind,
+  promptVersion,
+  setup,
+  requestedCount,
+  now,
+}: {
+  prisma: RefillGenerationJobClient;
+  generationJobId: string | undefined;
+  userId: string;
+  skillId: string;
+  kind: GenerationJobKind;
+  promptVersion: string;
+  setup: RefillGenerationSetup;
+  requestedCount: number;
+  now: Date;
+}): Promise<
+  | {
+      status: "ready";
+      generationJob: {
+        id: string;
+      };
+    }
+  | {
+      status: "not-ready";
+      message: string;
+    }
+> {
+  const data = {
+    userId,
+    skillId,
+    kind,
+    status: setup.status === "ready" ? GenerationJobStatus.RUNNING : GenerationJobStatus.FAILED,
+    provider: GEMINI_PROVIDER,
+    model: setup.model,
+    promptVersion,
+    requestedCount,
+    errorMessage: setup.status === "ready" ? null : setup.message,
+    startedAt: now,
+    completedAt: setup.status === "ready" ? null : now,
+  };
+
+  if (!generationJobId) {
+    const generationJob = await prisma.generationJob.create({
+      data,
+      select: {
+        id: true,
+      },
+    });
+
+    return {
+      status: "ready",
+      generationJob,
+    };
+  }
+
+  const claim = await prisma.generationJob.updateMany({
+    where: {
+      id: generationJobId,
+      userId,
+      skillId,
+      kind,
+      status: GenerationJobStatus.PENDING,
+    },
+    data,
+  });
+
+  if (claim.count === 1) {
+    return {
+      status: "ready",
+      generationJob: {
+        id: generationJobId,
+      },
+    };
+  }
+
+  const existingJob = await prisma.generationJob.findFirst({
+    where: {
+      id: generationJobId,
+      userId,
+      skillId,
+      kind,
+    },
+    select: {
+      status: true,
+    },
+  });
+
+  return {
+    status: "not-ready",
+    message: existingJob
+      ? `Refill job is already ${existingJob.status.toLowerCase().replaceAll("_", " ")}.`
+      : "Refill job was not found or does not belong to this skill.",
+  };
+}
+
+async function failPendingRefillGenerationJob({
+  prisma,
+  generationJobId,
+  userId,
+  skillId,
+  kind,
+  message,
+  now,
+}: {
+  prisma: RefillGenerationJobClient;
+  generationJobId: string;
+  userId: string;
+  skillId: string;
+  kind: GenerationJobKind;
+  message: string;
+  now: Date;
+}): Promise<
+  | {
+      status: "ready";
+    }
+  | {
+      status: "not-ready";
+      message: string;
+    }
+> {
+  const claim = await prisma.generationJob.updateMany({
+    where: {
+      id: generationJobId,
+      userId,
+      skillId,
+      kind,
+      status: GenerationJobStatus.PENDING,
+    },
+    data: {
+      status: GenerationJobStatus.FAILED,
+      errorMessage: message,
+      startedAt: now,
+      completedAt: now,
+    },
+  });
+
+  if (claim.count === 1) {
+    return {
+      status: "ready",
+    };
+  }
+
+  const existingJob = await prisma.generationJob.findFirst({
+    where: {
+      id: generationJobId,
+      userId,
+      skillId,
+      kind,
+    },
+    select: {
+      status: true,
+    },
+  });
+
+  return {
+    status: "not-ready",
+    message: existingJob
+      ? `Refill job is already ${existingJob.status.toLowerCase().replaceAll("_", " ")}.`
+      : "Refill job was not found or does not belong to this skill.",
+  };
 }
 
 function parseGeneratedChoiceExercise(candidate: unknown): GeneratedChoiceExercise | null {

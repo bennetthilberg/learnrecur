@@ -29,7 +29,7 @@ export function SkillExactInputRefillForm({
     <form className="skillRefillForm" action={formAction}>
       <input name="skillId" type="hidden" value={skillId} />
       <button className="secondaryButton" type="submit" disabled={!canRefill || pending}>
-        {pending ? "Generating" : buttonLabel}
+        {pending ? "Queuing" : buttonLabel}
       </button>
       {state.message ? (
         <p className="skillFormMessage" data-tone={state.status === "error" ? "error" : "saved"}>

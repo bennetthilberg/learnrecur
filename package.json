@@ -28,6 +28,7 @@
     "@neondatabase/serverless": "^1.1.0",
     "@prisma/adapter-neon": "^7.8.0",
     "@prisma/client": "^7.8.0",
+    "inngest": "^4.5.0",
     "next": "16.2.6",
     "react": "19.2.6",
     "react-dom": "19.2.6",
