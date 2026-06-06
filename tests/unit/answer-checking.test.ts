@@ -378,6 +378,40 @@ describe("checkAnswer math answers", () => {
     });
   });
 
+  it("rejects math answers that exceed the cheap parse budget", () => {
+    expect(
+      checkAnswer({
+        answerSpec: {
+          kind: "math",
+          acceptedExpressions: ["2x"],
+        },
+        submittedAnswer: "x".repeat(501),
+      }),
+    ).toEqual({
+      status: "invalid-input",
+      isCorrect: false,
+      normalizedAnswer: null,
+      reason: "math-expression-too-large",
+      message: "Enter a shorter math expression.",
+    });
+
+    expect(
+      checkAnswer({
+        answerSpec: {
+          kind: "math",
+          acceptedExpressions: ["2x"],
+        },
+        submittedAnswer: `${"(".repeat(33)}x${")".repeat(33)}`,
+      }),
+    ).toEqual({
+      status: "invalid-input",
+      isCorrect: false,
+      normalizedAnswer: null,
+      reason: "math-expression-too-large",
+      message: "Enter a shorter math expression.",
+    });
+  });
+
   it("returns invalid spec for malformed accepted expressions", () => {
     expect(
       checkAnswer({
@@ -386,6 +420,24 @@ describe("checkAnswer math answers", () => {
           acceptedExpressions: ["x**2"],
         },
         submittedAnswer: "x^2",
+      }),
+    ).toEqual({
+      status: "invalid-spec",
+      isCorrect: false,
+      normalizedAnswer: null,
+      reason: "invalid-accepted-expression",
+      message: "Accepted math expressions must be valid.",
+    });
+  });
+
+  it("returns invalid spec for accepted math expressions that exceed the parse budget", () => {
+    expect(
+      checkAnswer({
+        answerSpec: {
+          kind: "math",
+          acceptedExpressions: ["x".repeat(501)],
+        },
+        submittedAnswer: "x",
       }),
     ).toEqual({
       status: "invalid-spec",

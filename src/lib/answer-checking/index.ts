@@ -3,6 +3,8 @@ import { z } from "zod";
 
 const DEFAULT_NUMERIC_TOLERANCE = 0.001;
 const DEFAULT_MATH_EQUIVALENCE = "basic-symbolic";
+const MAX_MATH_EXPRESSION_LENGTH = 500;
+const MAX_MATH_EXPRESSION_NESTING = 32;
 
 const nonEmptyStringSchema = z.string().trim().min(1);
 
@@ -94,6 +96,7 @@ export type AnswerCheckReason =
   | "invalid-accepted-expression"
   | "invalid-answer-spec"
   | "invalid-choices"
+  | "math-expression-too-large"
   | "malformed-math-expression"
   | "malformed-number"
   | "missing-correct-choice"
@@ -154,8 +157,15 @@ export function isUsableMathAnswerSpec(input: unknown): boolean {
     return false;
   }
 
-  const computeEngine = new ComputeEngine();
+  if (
+    !answerSpecResult.data.acceptedExpressions.every(
+      (acceptedExpression) => checkMathExpressionBudget(acceptedExpression).ok,
+    )
+  ) {
+    return false;
+  }
 
+  const computeEngine = new ComputeEngine();
   return answerSpecResult.data.acceptedExpressions.every(
     (acceptedExpression) => parseMathExpression(acceptedExpression, computeEngine).ok,
   );
@@ -280,6 +290,20 @@ function checkMathAnswer(answerSpec: MathAnswerSpec, submittedAnswer: unknown): 
     return invalidInput("wrong-answer-shape", "Enter a math expression.");
   }
 
+  const submittedBudget = checkMathExpressionBudget(submittedAnswer);
+
+  if (!submittedBudget.ok) {
+    return invalidInput(submittedBudget.reason, submittedBudget.message);
+  }
+
+  if (
+    !answerSpec.acceptedExpressions.every(
+      (acceptedExpression) => checkMathExpressionBudget(acceptedExpression).ok,
+    )
+  ) {
+    return invalidSpec("invalid-accepted-expression", "Accepted math expressions must be valid.");
+  }
+
   const computeEngine = new ComputeEngine();
   const parsedSubmittedAnswer = parseMathExpression(submittedAnswer, computeEngine);
 
@@ -353,23 +377,22 @@ type ParsedMathExpression =
     }
   | {
       ok: false;
-      reason: Extract<AnswerCheckReason, "empty-answer" | "malformed-math-expression">;
+      reason: Extract<
+        AnswerCheckReason,
+        "empty-answer" | "malformed-math-expression" | "math-expression-too-large"
+      >;
       message: string;
     };
 
 function parseMathExpression(input: string, computeEngine: ComputeEngine): ParsedMathExpression {
-  const trimmed = input.trim();
+  const budgetResult = checkMathExpressionBudget(input);
 
-  if (trimmed === "") {
-    return {
-      ok: false,
-      reason: "empty-answer",
-      message: "Enter a math expression.",
-    };
+  if (!budgetResult.ok) {
+    return budgetResult;
   }
 
   try {
-    const expression = computeEngine.parse(trimmed);
+    const expression = computeEngine.parse(budgetResult.trimmed);
 
     if (!expression.isValid) {
       return malformedMathExpression();
@@ -389,6 +412,57 @@ function parseMathExpression(input: string, computeEngine: ComputeEngine): Parse
   } catch {
     return malformedMathExpression();
   }
+}
+
+type MathExpressionBudgetResult =
+  | {
+      ok: true;
+      trimmed: string;
+    }
+  | Extract<ParsedMathExpression, { ok: false }>;
+
+function checkMathExpressionBudget(input: string): MathExpressionBudgetResult {
+  const trimmed = input.trim();
+
+  if (trimmed === "") {
+    return {
+      ok: false,
+      reason: "empty-answer",
+      message: "Enter a math expression.",
+    };
+  }
+
+  if (
+    trimmed.length > MAX_MATH_EXPRESSION_LENGTH ||
+    getMaxMathExpressionNesting(trimmed) > MAX_MATH_EXPRESSION_NESTING
+  ) {
+    return {
+      ok: false,
+      reason: "math-expression-too-large",
+      message: "Enter a shorter math expression.",
+    };
+  }
+
+  return {
+    ok: true,
+    trimmed,
+  };
+}
+
+function getMaxMathExpressionNesting(input: string): number {
+  let depth = 0;
+  let maxDepth = 0;
+
+  for (const character of input) {
+    if (character === "(" || character === "[" || character === "{") {
+      depth += 1;
+      maxDepth = Math.max(maxDepth, depth);
+    } else if (character === ")" || character === "]" || character === "}") {
+      depth = Math.max(0, depth - 1);
+    }
+  }
+
+  return maxDepth;
 }
 
 function malformedMathExpression(): ParsedMathExpression {
