@@ -13,6 +13,7 @@ import {
 import {
   queueExactInputExerciseRefillForSkill,
   queueChoiceExerciseRefillForSkill,
+  queueMathExerciseRefillForSkill,
 } from "@/lib/skills/refill-jobs";
 import {
   archiveSkill,
@@ -404,6 +405,54 @@ export async function refillExactInputExercisesAction(
   }
 
   const result = await queueExactInputExerciseRefillForSkill({
+    userId: user.userId,
+    skillId,
+    now: new Date(),
+  });
+
+  revalidatePath(`/skills/${skillId}`);
+  revalidatePath("/skills");
+  revalidatePath("/dashboard");
+
+  if (result.status === "queued") {
+    return {
+      status: "saved",
+      message: result.message,
+    };
+  }
+
+  return {
+    status:
+      result.status === "not-queued" &&
+      (result.reason === "already-at-target" ||
+        result.reason === "exact-input-locked" ||
+        result.reason === "job-in-progress")
+        ? "saved"
+        : "error",
+    message: result.message,
+  };
+}
+
+export async function refillMathExercisesAction(
+  _previousState: SkillFormActionState,
+  formData: FormData,
+): Promise<SkillFormActionState> {
+  const user = await requireSkillActionUser();
+
+  if (user.status === "error") {
+    return user;
+  }
+
+  const skillId = getOptionalFormString(formData, "skillId");
+
+  if (!skillId) {
+    return {
+      status: "error",
+      message: "No active skill was selected.",
+    };
+  }
+
+  const result = await queueMathExerciseRefillForSkill({
     userId: user.userId,
     skillId,
     now: new Date(),

@@ -15,7 +15,10 @@ import {
   SourceFileKind,
   SourceFileStatus,
 } from "@/generated/prisma/client";
-import { getNextChoicePracticeItemForUser } from "@/app/practice/queries";
+import {
+  getNextChoicePracticeItemForUser,
+  getNextPracticeItemForUser,
+} from "@/app/practice/queries";
 import { getDashboardHome } from "@/lib/dashboard";
 import { getPrisma } from "@/lib/prisma";
 import {
@@ -24,7 +27,9 @@ import {
   createSkillDraftFromSource,
   DEFAULT_READY_EXACT_INPUT_TARGET,
   DEFAULT_READY_EXERCISE_TARGET,
+  DEFAULT_READY_MATH_TARGET,
   EXACT_INPUT_UNLOCK_REPETITIONS,
+  refillMathExercisesForSkill,
   refillExactInputExercisesForSkill,
   refillChoiceExercisesForSkill,
   updateSkillDraft,
@@ -32,6 +37,7 @@ import {
   type ChoiceExerciseVerifier,
   type ExactInputExerciseGenerator,
   type ExactInputExerciseVerifier,
+  type MathExerciseVerifier,
   type SkillDraftGenerator,
 } from "@/lib/skills";
 import {
@@ -48,8 +54,10 @@ import {
 import {
   queueExactInputExerciseRefillForSkill,
   queueChoiceExerciseRefillForSkill,
+  queueMathExerciseRefillForSkill,
   runChoiceExerciseRefillJob,
   runExactInputExerciseRefillJob,
+  runMathExerciseRefillJob,
   type RefillQueueResult,
 } from "@/lib/skills/refill-jobs";
 import type {
@@ -96,6 +104,20 @@ const generatedExactInputExercise = (id: number) => ({
   expectedSeconds: 35,
 });
 
+const generatedMathExercise = (id: number) => ({
+  prompt: `Simplify math item ${id}: x + ${id}x.`,
+  answerKind: AnswerKind.MATH,
+  answerSpec: {
+    kind: "math",
+    acceptedExpressions: [`${id + 1}x`],
+    equivalence: "basic-symbolic",
+  },
+  correctAnswerDisplay: `${id + 1}x`,
+  explanation: `Combine like terms to get ${id + 1}x.`,
+  difficulty: 2,
+  expectedSeconds: 35,
+});
+
 const successfulGenerator: ChoiceExerciseGenerator = async () => ({
   exercises: [generatedExercise(1), generatedExercise(2), generatedExercise(3)],
 });
@@ -114,9 +136,17 @@ const acceptAllExactInputVerifier: ExactInputExerciseVerifier = async (input) =>
   })),
 });
 
+const acceptAllMathVerifier: MathExerciseVerifier = async (input) => ({
+  verifications: input.candidates.map((candidate) => ({
+    candidateId: candidate.candidateId,
+    verdict: "verified",
+  })),
+});
+
 function createFakeRefillSender() {
   const choiceEvents: ExerciseRefillEventPayload[] = [];
   const exactInputEvents: ExerciseRefillEventPayload[] = [];
+  const mathEvents: ExerciseRefillEventPayload[] = [];
   const sender: ExerciseRefillEventSender = {
     async sendChoiceRefillRequested(payload) {
       choiceEvents.push(payload);
@@ -124,12 +154,16 @@ function createFakeRefillSender() {
     async sendExactInputRefillRequested(payload) {
       exactInputEvents.push(payload);
     },
+    async sendMathRefillRequested(payload) {
+      mathEvents.push(payload);
+    },
   };
 
   return {
     sender,
     choiceEvents,
     exactInputEvents,
+    mathEvents,
   };
 }
 
@@ -383,6 +417,39 @@ describeDatabase("skill drafts and Gemini activation", () => {
         },
         correctAnswerDisplay: String(id),
         verificationStatus: ExerciseVerificationStatus.VERIFIED,
+      },
+    });
+  }
+
+  async function createMathExerciseFixture({
+    userId,
+    skillId,
+    id = 1,
+    verificationStatus = ExerciseVerificationStatus.VERIFIED,
+    retiredAt = null,
+  }: {
+    userId: string;
+    skillId: string;
+    id?: number;
+    verificationStatus?: ExerciseVerificationStatus;
+    retiredAt?: Date | null;
+  }) {
+    return prisma.exercise.create({
+      data: {
+        userId,
+        skillId,
+        type: ExerciseType.EXACT_INPUT,
+        answerKind: AnswerKind.MATH,
+        prompt: `Simplify the math answer ${id}.`,
+        answerSpec: {
+          kind: "math",
+          acceptedExpressions: [`${id + 1}x`],
+          equivalence: "basic-symbolic",
+        },
+        correctAnswerDisplay: `${id + 1}x`,
+        verificationStatus,
+        retiredAt,
+        retirementReason: retiredAt ? ExerciseRetirementReason.MANUAL : null,
       },
     });
   }
@@ -2791,6 +2858,78 @@ describeDatabase("skill drafts and Gemini activation", () => {
     });
   });
 
+  it("queues and runs math refill jobs for unlocked skills", async () => {
+    const userId = await createUser("math_refill_queue");
+    const skill = await createActiveSkillFixture({
+      userId,
+      repetitions: EXACT_INPUT_UNLOCK_REPETITIONS,
+    });
+    const fake = createFakeRefillSender();
+
+    const queued = expectQueued(
+      await queueMathExerciseRefillForSkill({
+        userId,
+        skillId: skill.id,
+        now,
+        sender: fake.sender,
+        model: "test-gemini",
+      }),
+    );
+
+    expect(fake.mathEvents).toEqual([
+      {
+        userId,
+        skillId: skill.id,
+        generationJobId: queued.generationJobId,
+        targetReadyCount: DEFAULT_READY_MATH_TARGET,
+        requestedAt: now.toISOString(),
+      },
+    ]);
+    await expect(prisma.exercise.count({ where: { userId, skillId: skill.id } })).resolves.toBe(0);
+
+    const result = await runMathExerciseRefillJob({
+      userId,
+      skillId: skill.id,
+      generationJobId: queued.generationJobId,
+      targetReadyCount: queued.targetReadyCount,
+      requestedAt: now.toISOString(),
+      now,
+      generateMathExercises: async () => ({
+        exercises: [generatedMathExercise(701), generatedMathExercise(702)],
+      }),
+      verifyMathExercises: acceptAllMathVerifier,
+      model: "test-gemini",
+    });
+
+    expect(result).toMatchObject({
+      status: "refilled",
+      exerciseCount: DEFAULT_READY_MATH_TARGET,
+      readyExerciseCount: DEFAULT_READY_MATH_TARGET,
+    });
+    await expect(
+      Promise.all([
+        prisma.generationJob.findUniqueOrThrow({
+          where: { id: queued.generationJobId },
+          select: { status: true, acceptedCount: true, rejectedCount: true, kind: true },
+        }),
+        getNextPracticeItemForUser(userId, now),
+      ]),
+    ).resolves.toEqual([
+      {
+        status: GenerationJobStatus.SUCCEEDED,
+        acceptedCount: DEFAULT_READY_MATH_TARGET,
+        rejectedCount: 0,
+        kind: GenerationJobKind.MATH_EXERCISE_GENERATION,
+      },
+      expect.objectContaining({
+        status: "ready",
+        exercise: expect.objectContaining({
+          answerKind: AnswerKind.MATH,
+        }),
+      }),
+    ]);
+  });
+
   it("does not refill exact-input exercises before the review threshold", async () => {
     const userId = await createUser("exact_refill_locked");
     const skill = await createActiveSkillFixture({
@@ -2966,6 +3105,185 @@ describeDatabase("skill drafts and Gemini activation", () => {
     await expect(
       prisma.generationJob.count({
         where: { userId, kind: GenerationJobKind.EXACT_INPUT_EXERCISE_GENERATION },
+      }),
+    ).resolves.toBe(0);
+  });
+
+  it("does not refill math exercises before the review threshold", async () => {
+    const userId = await createUser("math_refill_locked");
+    const skill = await createActiveSkillFixture({
+      userId,
+      repetitions: EXACT_INPUT_UNLOCK_REPETITIONS - 1,
+    });
+
+    const result = await refillMathExercisesForSkill({
+      userId,
+      skillId: skill.id,
+      now,
+      generateMathExercises: async () => {
+        throw new Error("Generator should not run before math input unlocks.");
+      },
+      verifyMathExercises: acceptAllMathVerifier,
+      model: "test-gemini",
+    });
+
+    expect(result).toMatchObject({
+      status: "not-refilled",
+      reason: "exact-input-locked",
+    });
+
+    await expect(
+      Promise.all([
+        prisma.exercise.count({ where: { userId, skillId: skill.id } }),
+        prisma.generationJob.count({ where: { userId, skillId: skill.id } }),
+      ]),
+    ).resolves.toEqual([0, 0]);
+  });
+
+  it("does not refill math exercises that are already at target", async () => {
+    const userId = await createUser("math_refill_noop");
+    const skill = await createActiveSkillFixture({
+      userId,
+      repetitions: EXACT_INPUT_UNLOCK_REPETITIONS,
+    });
+    await createMathExerciseFixture({ userId, skillId: skill.id, id: 1 });
+    await createMathExerciseFixture({ userId, skillId: skill.id, id: 2 });
+
+    const result = await refillMathExercisesForSkill({
+      userId,
+      skillId: skill.id,
+      now,
+      generateMathExercises: async () => {
+        throw new Error("Generator should not run for a full math queue.");
+      },
+      verifyMathExercises: acceptAllMathVerifier,
+      model: "test-gemini",
+    });
+
+    expect(result).toMatchObject({
+      status: "not-refilled",
+      reason: "already-at-target",
+      readyExerciseCount: DEFAULT_READY_MATH_TARGET,
+    });
+    await expect(
+      prisma.generationJob.count({ where: { userId, skillId: skill.id } }),
+    ).resolves.toBe(0);
+  });
+
+  it("creates a failed math generation job without writing exercises when verification fails", async () => {
+    const userId = await createUser("math_refill_verification_fail");
+    const skill = await createActiveSkillFixture({
+      userId,
+      repetitions: EXACT_INPUT_UNLOCK_REPETITIONS,
+    });
+
+    const result = await refillMathExercisesForSkill({
+      userId,
+      skillId: skill.id,
+      now,
+      generateMathExercises: async () => ({
+        exercises: [generatedMathExercise(1)],
+      }),
+      verifyMathExercises: async (input) => ({
+        verifications: input.candidates.map((candidate) => ({
+          candidateId: candidate.candidateId,
+          verdict: "rejected",
+          reason: "answer_mismatch",
+        })),
+      }),
+      model: "test-gemini",
+    });
+
+    expect(result).toMatchObject({
+      status: "not-refilled",
+      reason: "invalid-verification",
+    });
+
+    const [exerciseCount, generationJob] = await Promise.all([
+      prisma.exercise.count({ where: { userId, skillId: skill.id } }),
+      prisma.generationJob.findFirstOrThrow({ where: { userId, skillId: skill.id } }),
+    ]);
+
+    expect(exerciseCount).toBe(0);
+    expect(generationJob).toMatchObject({
+      status: GenerationJobStatus.FAILED,
+      kind: GenerationJobKind.MATH_EXERCISE_GENERATION,
+      acceptedCount: 0,
+      rejectedCount: 1,
+    });
+  });
+
+  it("rejects non-active, missing, and cross-user math refills without jobs", async () => {
+    const userId = await createUser("math_refill_rejects");
+    const otherUserId = await createUser("math_refill_rejects_other");
+    const draftSkill = await createActiveSkillFixture({
+      userId,
+      status: SkillStatus.DRAFT,
+      repetitions: EXACT_INPUT_UNLOCK_REPETITIONS,
+    });
+    const archivedSkill = await createActiveSkillFixture({
+      userId,
+      status: SkillStatus.ARCHIVED,
+      repetitions: EXACT_INPUT_UNLOCK_REPETITIONS,
+    });
+    const otherSkill = await createActiveSkillFixture({
+      userId: otherUserId,
+      repetitions: EXACT_INPUT_UNLOCK_REPETITIONS,
+    });
+
+    for (const skillId of [draftSkill.id, archivedSkill.id]) {
+      await expect(
+        refillMathExercisesForSkill({
+          userId,
+          skillId,
+          now,
+          generateMathExercises: async () => ({
+            exercises: [generatedMathExercise(1)],
+          }),
+          verifyMathExercises: acceptAllMathVerifier,
+          model: "test-gemini",
+        }),
+      ).resolves.toMatchObject({
+        status: "not-refilled",
+        reason: "skill-not-active",
+      });
+    }
+
+    await expect(
+      refillMathExercisesForSkill({
+        userId,
+        skillId: otherSkill.id,
+        now,
+        generateMathExercises: async () => ({
+          exercises: [generatedMathExercise(1)],
+        }),
+        verifyMathExercises: acceptAllMathVerifier,
+        model: "test-gemini",
+      }),
+    ).resolves.toMatchObject({
+      status: "not-found",
+      reason: "skill-not-found",
+    });
+
+    await expect(
+      refillMathExercisesForSkill({
+        userId,
+        skillId: "missing-skill",
+        now,
+        generateMathExercises: async () => ({
+          exercises: [generatedMathExercise(1)],
+        }),
+        verifyMathExercises: acceptAllMathVerifier,
+        model: "test-gemini",
+      }),
+    ).resolves.toMatchObject({
+      status: "not-found",
+      reason: "skill-not-found",
+    });
+
+    await expect(
+      prisma.generationJob.count({
+        where: { userId, kind: GenerationJobKind.MATH_EXERCISE_GENERATION },
       }),
     ).resolves.toBe(0);
   });

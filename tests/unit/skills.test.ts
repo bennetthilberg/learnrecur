@@ -6,6 +6,7 @@ import {
 import {
   DEFAULT_READY_EXACT_INPUT_TARGET,
   DEFAULT_READY_EXERCISE_TARGET,
+  DEFAULT_READY_MATH_TARGET,
   EXACT_INPUT_UNLOCK_REPETITIONS,
   EXISTING_EXERCISE_CONTEXT_CHAR_LIMIT,
   SOURCE_CONTEXT_CHAR_LIMIT,
@@ -13,21 +14,27 @@ import {
   MIN_ACTIVATION_EXERCISES,
   buildExistingChoiceExerciseContext,
   buildExistingExactInputExerciseContext,
+  buildExistingMathExerciseContext,
   buildSourceContextExcerpt,
   filterDuplicateChoiceExercises,
   filterDuplicateExactInputExercises,
+  filterDuplicateMathExercises,
   isExactInputUnlocked,
   normalizeSourceSkillDraftInput,
   normalizeSkillDraftInput,
   toGeneratedChoiceExerciseCandidates,
   toGeneratedExactInputExerciseCandidates,
+  toGeneratedMathExerciseCandidates,
   validateChoiceExerciseVerification,
   validateExactInputExerciseVerification,
+  validateMathExerciseVerification,
   validateGeneratedSkillDrafts,
   validateGeneratedChoiceExercises,
   validateGeneratedExactInputExercises,
+  validateGeneratedMathExercises,
   createSkillDraftFromSource,
   type GeneratedExactInputExercise,
+  type GeneratedMathExercise,
 } from "@/lib/skills";
 
 const validExercise = (id: number) => ({
@@ -72,6 +79,20 @@ const validExactInputExercise = (id: number): GeneratedExactInputExercise => ({
   },
   correctAnswerDisplay: `answer ${id}`,
   explanation: `Item ${id} asks for direct recall.`,
+  difficulty: 2,
+  expectedSeconds: 35,
+});
+
+const validMathExercise = (id: number): GeneratedMathExercise => ({
+  prompt: `Simplify the expression for item ${id}: x + ${id}x.`,
+  answerKind: AnswerKind.MATH,
+  answerSpec: {
+    kind: "math",
+    acceptedExpressions: [`${id + 1}x`],
+    equivalence: "basic-symbolic",
+  },
+  correctAnswerDisplay: `${id + 1}x`,
+  explanation: `Combine x and ${id}x to get ${id + 1}x.`,
   difficulty: 2,
   expectedSeconds: 35,
 });
@@ -431,6 +452,139 @@ describe("validateGeneratedExactInputExercises", () => {
     expect(result).not.toBeNull();
     expect(result?.length).toBeLessThanOrEqual(EXISTING_EXERCISE_CONTEXT_CHAR_LIMIT);
     expect(result).not.toContain("Choice prompt");
+  });
+});
+
+describe("validateGeneratedMathExercises", () => {
+  it("accepts valid generated math exercises", () => {
+    const result = validateGeneratedMathExercises({
+      exercises: [validMathExercise(1), validMathExercise(2)],
+    });
+
+    expect(result).toMatchObject({
+      status: "ready",
+      rejectedCount: 0,
+    });
+
+    if (result.status === "ready") {
+      expect(result.exercises).toHaveLength(DEFAULT_READY_MATH_TARGET);
+      expect(result.exercises[0]).toMatchObject({
+        answerKind: AnswerKind.MATH,
+        answerSpec: {
+          kind: "math",
+          acceptedExpressions: ["2x"],
+          equivalence: "basic-symbolic",
+        },
+      });
+    }
+  });
+
+  it("rejects non-math, malformed specs, unsupported equivalence, and oversized expressions", () => {
+    const result = validateGeneratedMathExercises({
+      exercises: [
+        {
+          ...validMathExercise(1),
+          answerKind: AnswerKind.TEXT,
+        },
+        {
+          ...validMathExercise(2),
+          answerSpec: {
+            kind: "math",
+            acceptedExpressions: [],
+            equivalence: "basic-symbolic",
+          },
+        },
+        {
+          ...validMathExercise(3),
+          answerSpec: {
+            kind: "math",
+            acceptedExpressions: ["4x"],
+            equivalence: "numeric-only",
+          },
+        },
+        {
+          ...validMathExercise(4),
+          answerSpec: {
+            kind: "math",
+            acceptedExpressions: ["x".repeat(501)],
+            equivalence: "basic-symbolic",
+          },
+        },
+      ],
+    });
+
+    expect(result).toMatchObject({
+      status: "invalid",
+      reason: "too-few-valid-exercises",
+      validCount: 0,
+      rejectedCount: 4,
+    });
+  });
+
+  it("requires at least one verified math exercise for refill", () => {
+    const candidates = toGeneratedMathExerciseCandidates([validMathExercise(1)]);
+    const result = validateMathExerciseVerification(
+      {
+        candidates,
+        rawVerification: {
+          verifications: [
+            {
+              candidateId: candidates[0].candidateId,
+              verdict: "rejected",
+              reason: "answer_mismatch",
+            },
+          ],
+        },
+      },
+      { minVerifiedExercises: 1 },
+    );
+
+    expect(result).toMatchObject({
+      status: "invalid",
+      reason: "too-few-verified-exercises",
+      verifiedCount: 0,
+      rejectedCount: 1,
+    });
+  });
+
+  it("filters exact duplicate math candidates against existing exercises and within the batch", () => {
+    const duplicate = validMathExercise(1);
+    const unique = validMathExercise(2);
+    const result = filterDuplicateMathExercises(
+      [duplicate, { ...duplicate }, unique],
+      [
+        {
+          prompt: duplicate.prompt,
+          answerKind: duplicate.answerKind,
+          answerSpec: duplicate.answerSpec,
+          correctAnswerDisplay: duplicate.correctAnswerDisplay,
+        },
+      ],
+    );
+
+    expect(result.duplicateCount).toBe(2);
+    expect(result.exercises).toEqual([unique]);
+  });
+
+  it("caps existing math context and omits non-math exercises", () => {
+    const result = buildExistingMathExerciseContext([
+      {
+        prompt: `Math prompt ${"x".repeat(EXISTING_EXERCISE_CONTEXT_CHAR_LIMIT)}`,
+        answerKind: AnswerKind.MATH,
+        answerSpec: validMathExercise(1).answerSpec,
+        correctAnswerDisplay: "2x",
+      },
+      {
+        prompt: "Text prompt",
+        answerKind: AnswerKind.TEXT,
+        answerSpec: validExactInputExercise(1).answerSpec,
+        correctAnswerDisplay: "answer 1",
+      },
+    ]);
+
+    expect(result).not.toBeNull();
+    expect(result?.length).toBeLessThanOrEqual(EXISTING_EXERCISE_CONTEXT_CHAR_LIMIT);
+    expect(result).not.toContain("Text prompt");
   });
 });
 
