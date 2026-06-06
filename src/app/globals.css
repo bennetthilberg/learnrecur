@@ -1511,13 +1511,13 @@ a {
   width: 100%;
   border: 1px solid var(--lr-line-strong);
   border-radius: var(--lr-radius);
-  background: var(--lr-surface);
+  background: var(--lr-panel);
   color: var(--lr-ink);
   padding: 9px 10px;
   font: inherit;
 }
 
-.skillDeleteConfirm input:focus {
+.skillDeleteConfirm input:focus-visible {
   border-color: var(--lr-primary);
   outline: 3px solid rgba(3, 76, 213, 0.16);
   outline-offset: 0;
