@@ -33,7 +33,7 @@ export function MathText({ text, className }: MathTextProps) {
   return (
     <span className={className}>
       {segments.map((segment, index) => (
-        <Fragment key={`${segment.kind}-${index}-${segment.value.slice(0, 8)}`}>
+        <Fragment key={index}>
           {renderSegment(segment)}
         </Fragment>
       ))}

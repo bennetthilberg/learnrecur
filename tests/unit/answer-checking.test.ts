@@ -307,9 +307,10 @@ describe("checkAnswer math answers", () => {
         },
         submittedAnswer: " (x + 1)^2 ",
       }),
-    ).toMatchObject({
+    ).toEqual({
       status: "correct",
       isCorrect: true,
+      normalizedAnswer: "(x + 1)^2",
     });
 
     expect(

@@ -2,7 +2,6 @@ import { ComputeEngine, type Expression } from "@cortex-js/compute-engine";
 import { z } from "zod";
 
 const DEFAULT_NUMERIC_TOLERANCE = 0.001;
-const computeEngine = new ComputeEngine();
 
 const nonEmptyStringSchema = z.string().trim().min(1);
 
@@ -154,8 +153,10 @@ export function isUsableMathAnswerSpec(input: unknown): boolean {
     return false;
   }
 
+  const computeEngine = new ComputeEngine();
+
   return answerSpecResult.data.acceptedExpressions.every(
-    (acceptedExpression) => parseMathExpression(acceptedExpression).ok,
+    (acceptedExpression) => parseMathExpression(acceptedExpression, computeEngine).ok,
   );
 }
 
@@ -271,7 +272,8 @@ function checkMathAnswer(answerSpec: MathAnswerSpec, submittedAnswer: unknown): 
     return invalidInput("wrong-answer-shape", "Enter a math expression.");
   }
 
-  const parsedSubmittedAnswer = parseMathExpression(submittedAnswer);
+  const computeEngine = new ComputeEngine();
+  const parsedSubmittedAnswer = parseMathExpression(submittedAnswer, computeEngine);
 
   if (!parsedSubmittedAnswer.ok) {
     return invalidInput(parsedSubmittedAnswer.reason, parsedSubmittedAnswer.message);
@@ -280,7 +282,7 @@ function checkMathAnswer(answerSpec: MathAnswerSpec, submittedAnswer: unknown): 
   const acceptedExpressions: Expression[] = [];
 
   for (const acceptedExpression of answerSpec.acceptedExpressions) {
-    const parsedAcceptedExpression = parseMathExpression(acceptedExpression);
+    const parsedAcceptedExpression = parseMathExpression(acceptedExpression, computeEngine);
 
     if (!parsedAcceptedExpression.ok) {
       return invalidSpec("invalid-accepted-expression", "Accepted math expressions must be valid.");
@@ -347,7 +349,7 @@ type ParsedMathExpression =
       message: string;
     };
 
-function parseMathExpression(input: string): ParsedMathExpression {
+function parseMathExpression(input: string, computeEngine: ComputeEngine): ParsedMathExpression {
   const trimmed = input.trim();
 
   if (trimmed === "") {
