@@ -29,6 +29,27 @@ describe("Inngest configuration", () => {
       message: "Missing Inngest environment configuration: INNGEST_EVENT_KEY, INNGEST_SIGNING_KEY.",
     });
   });
+
+  it("parses INNGEST_DEV as an explicit boolean instead of any non-empty string", () => {
+    expect(
+      isInngestDevMode({
+        NODE_ENV: "production",
+        INNGEST_DEV: "false",
+      } as NodeJS.ProcessEnv),
+    ).toBe(false);
+    expect(
+      isInngestDevMode({
+        NODE_ENV: "production",
+        INNGEST_DEV: " yes ",
+      } as NodeJS.ProcessEnv),
+    ).toBe(true);
+    expect(
+      isInngestDevMode({
+        NODE_ENV: "production",
+        INNGEST_DEV: "http://localhost:8290",
+      } as NodeJS.ProcessEnv),
+    ).toBe(true);
+  });
 });
 
 describe("Inngest refill event payloads", () => {

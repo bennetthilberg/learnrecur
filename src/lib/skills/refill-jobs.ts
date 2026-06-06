@@ -3,6 +3,7 @@ import "server-only";
 import {
   GenerationJobKind,
   GenerationJobStatus,
+  Prisma,
   SkillStatus,
 } from "@/generated/prisma/client";
 import { formatEnvError } from "@/lib/env";
@@ -296,21 +297,37 @@ async function queueExerciseRefillJob({
 
   const prisma = getPrisma();
   const sender = input.sender ?? inngestExerciseRefillEventSender;
-  const generationJob = await prisma.generationJob.create({
-    data: {
-      userId: input.userId,
-      skillId: input.skillId,
-      kind,
-      status: GenerationJobStatus.PENDING,
-      provider: GEMINI_PROVIDER,
-      model: input.model?.trim() || process.env.GEMINI_MODEL?.trim() || "gemini-3.5-flash",
-      promptVersion,
-      requestedCount,
-    },
-    select: {
-      id: true,
-    },
-  });
+  let generationJob: { id: string };
+
+  try {
+    generationJob = await prisma.generationJob.create({
+      data: {
+        userId: input.userId,
+        skillId: input.skillId,
+        kind,
+        status: GenerationJobStatus.PENDING,
+        provider: GEMINI_PROVIDER,
+        model: input.model?.trim() || process.env.GEMINI_MODEL?.trim() || "gemini-3.5-flash",
+        promptVersion,
+        requestedCount,
+      },
+      select: {
+        id: true,
+      },
+    });
+  } catch (error) {
+    if (!isUniqueConstraintError(error)) {
+      throw error;
+    }
+
+    const activeJob = await findActiveGenerationJob(input.userId, input.skillId, kind);
+
+    if (!activeJob) {
+      throw error;
+    }
+
+    return jobInProgress(activeJob.id, "Exercise generation is already queued or running.");
+  }
 
   try {
     await sendEvent(sender, {
@@ -425,4 +442,8 @@ function jobInProgress(
     message,
     generationJobId,
   };
+}
+
+function isUniqueConstraintError(error: unknown): boolean {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
 }

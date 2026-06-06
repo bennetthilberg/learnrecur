@@ -79,7 +79,7 @@ export default async function SkillPage({
         orderBy: {
           createdAt: "desc",
         },
-        take: 8,
+        take: 1,
       },
       exercises: {
         select: {
@@ -100,6 +100,31 @@ export default async function SkillPage({
   const sourceSummariesResult = await getSkillSourceSummaries({ userId, skillId });
   const sourceSummaries =
     sourceSummariesResult.status === "ready" ? sourceSummariesResult.sources : [];
+  const [latestChoiceGenerationJob, latestExactInputGenerationJob] =
+    skill.status === SkillStatus.ACTIVE
+      ? await Promise.all([
+          prisma.generationJob.findFirst({
+            where: {
+              userId,
+              skillId: skill.id,
+              kind: GenerationJobKind.CHOICE_EXERCISE_GENERATION,
+            },
+            orderBy: {
+              createdAt: "desc",
+            },
+          }),
+          prisma.generationJob.findFirst({
+            where: {
+              userId,
+              skillId: skill.id,
+              kind: GenerationJobKind.EXACT_INPUT_EXERCISE_GENERATION,
+            },
+            orderBy: {
+              createdAt: "desc",
+            },
+          }),
+        ])
+      : [null, null];
 
   const draftValues: SkillDraftFormValues = {
     title: skill.title,
@@ -114,13 +139,6 @@ export default async function SkillPage({
   if (skill.status === SkillStatus.ACTIVE) {
     const inventory = countChoiceExerciseInventory(skill.exercises);
     const exactInputInventory = countExactInputExerciseInventory(skill.exercises);
-    const latestChoiceGenerationJob =
-      skill.generationJobs.find((job) => job.kind === GenerationJobKind.CHOICE_EXERCISE_GENERATION) ??
-      null;
-    const latestExactInputGenerationJob =
-      skill.generationJobs.find(
-        (job) => job.kind === GenerationJobKind.EXACT_INPUT_EXERCISE_GENERATION,
-      ) ?? null;
     const hasActiveChoiceRefillJob = hasActiveGenerationJob(latestChoiceGenerationJob);
     const hasActiveExactInputRefillJob = hasActiveGenerationJob(latestExactInputGenerationJob);
     const canRefill =

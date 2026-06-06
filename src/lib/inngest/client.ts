@@ -20,8 +20,24 @@ export function getInngestAppId(env: NodeJS.ProcessEnv = process.env): string {
 }
 
 export function isInngestDevMode(env: NodeJS.ProcessEnv = process.env): boolean {
-  if (env.INNGEST_DEV?.trim()) {
-    return true;
+  const rawDevMode = env.INNGEST_DEV?.trim().toLowerCase();
+
+  if (rawDevMode) {
+    if (["1", "true", "yes", "y", "on"].includes(rawDevMode)) {
+      return true;
+    }
+
+    if (["0", "false", "no", "n", "off"].includes(rawDevMode)) {
+      return false;
+    }
+
+    try {
+      new URL(rawDevMode);
+      return true;
+    } catch {
+      // Unknown strings fall back to NODE_ENV so values like "false" do not
+      // accidentally enable dev mode.
+    }
   }
 
   return env.NODE_ENV !== "production";

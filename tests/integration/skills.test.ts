@@ -1520,6 +1520,62 @@ describeDatabase("skill drafts and Gemini activation", () => {
     expect(fake.exactInputEvents).toHaveLength(0);
   });
 
+  it("enforces one pending or running generation job per user skill and kind", async () => {
+    const userId = await createUser("refill_queue_unique_index");
+    const skill = await createActiveSkillFixture({
+      userId,
+      title: "Unique queued refill skill",
+    });
+    const jobDefaults = {
+      userId,
+      skillId: skill.id,
+      provider: "google",
+      model: "test-gemini",
+      promptVersion: "skill-mcq-v0",
+      requestedCount: 3,
+    };
+
+    await prisma.generationJob.create({
+      data: {
+        ...jobDefaults,
+        kind: GenerationJobKind.CHOICE_EXERCISE_GENERATION,
+        status: GenerationJobStatus.PENDING,
+      },
+    });
+
+    await expect(
+      prisma.generationJob.create({
+        data: {
+          ...jobDefaults,
+          kind: GenerationJobKind.CHOICE_EXERCISE_GENERATION,
+          status: GenerationJobStatus.RUNNING,
+        },
+      }),
+    ).rejects.toMatchObject({ code: "P2002" });
+
+    await expect(
+      prisma.generationJob.create({
+        data: {
+          ...jobDefaults,
+          kind: GenerationJobKind.CHOICE_EXERCISE_GENERATION,
+          status: GenerationJobStatus.FAILED,
+          errorMessage: "older failed job",
+        },
+      }),
+    ).resolves.toBeTruthy();
+
+    await expect(
+      prisma.generationJob.create({
+        data: {
+          ...jobDefaults,
+          kind: GenerationJobKind.EXACT_INPUT_EXERCISE_GENERATION,
+          status: GenerationJobStatus.PENDING,
+          promptVersion: "skill-exact-input-v0",
+        },
+      }),
+    ).resolves.toBeTruthy();
+  });
+
   it("refills an active skill below target while preserving schedule state", async () => {
     const userId = await createUser("refill_success");
     const skill = await createActiveSkillFixture({
