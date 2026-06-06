@@ -5,9 +5,10 @@ import { auth, currentUser } from "@clerk/nextjs/server";
 import { ExerciseFlagReason, FsrsRating } from "@/generated/prisma/client";
 import {
   commitPracticeReview,
-  flagPracticeExercise,
+  flagPracticeExerciseAndQueueRefill,
   previewPracticeAnswer,
   type PracticeSubmittedAnswer,
+  type PracticeFlagRefillResult,
 } from "@/lib/practice";
 import { ensureDevPracticeSampleData } from "@/lib/practice/sample-data";
 import { ensureDatabaseUser } from "@/lib/users";
@@ -155,7 +156,7 @@ export async function flagPracticeExerciseAction(
     };
   }
 
-  const result = await flagPracticeExercise({
+  const result = await flagPracticeExerciseAndQueueRefill({
     userId,
     exerciseId: input.exerciseId,
     reasons,
@@ -166,7 +167,7 @@ export async function flagPracticeExerciseAction(
   if (result.status === "flagged") {
     return {
       status: "flagged",
-      message: result.message,
+      message: formatFlagMessage(result.message, result.refill),
       nextItem: await getNextPracticeItemForUser(userId, flaggedAt),
     };
   }
@@ -243,4 +244,27 @@ function normalizeManualRating(rating?: FsrsRating | null): FsrsRating | null {
 
 function isExerciseFlagReason(reason: string): reason is ExerciseFlagReason {
   return Object.values(ExerciseFlagReason).includes(reason as ExerciseFlagReason);
+}
+
+function formatFlagMessage(flagMessage: string, refill: PracticeFlagRefillResult): string {
+  return `${flagMessage} ${formatFlagRefillMessage(refill)}`;
+}
+
+function formatFlagRefillMessage(refill: PracticeFlagRefillResult): string {
+  if (refill.status === "queued") {
+    return "Replacement generation queued.";
+  }
+
+  switch (refill.reason) {
+    case "already-at-target":
+      return "This skill already has enough replacement exercises ready.";
+    case "exact-input-locked":
+      return "Replacement generation will unlock after more multiple-choice practice.";
+    case "job-in-progress":
+      return "Replacement generation is already queued or running.";
+    case "unsupported-answer-kind":
+      return "Replacement generation is not available for this exercise type yet.";
+    default:
+      return "Replacement generation was not queued.";
+  }
 }

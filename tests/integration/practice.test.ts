@@ -11,16 +11,20 @@ import {
   ExerciseType,
   ExerciseVerificationStatus,
   FsrsRating,
+  GenerationJobKind,
+  GenerationJobStatus,
   type Prisma,
   SkillFsrsState,
   SkillStatus,
 } from "@/generated/prisma/client";
 import {
   commitPracticeReview,
+  flagPracticeExerciseAndQueueRefill,
   flagPracticeExercise,
   getNextPracticeItem,
   previewPracticeAnswer,
 } from "@/lib/practice";
+import type { ExerciseRefillEventPayload, ExerciseRefillEventSender } from "@/lib/inngest/events";
 import { ensureDevPracticeSampleData } from "@/lib/practice/sample-data";
 import { getPrisma } from "@/lib/prisma";
 import { createInitialSkillSchedule } from "@/lib/scheduling";
@@ -35,6 +39,36 @@ const runDatabaseTests = process.env.RUN_DATABASE_TESTS === "1";
 const describeDatabase = runDatabaseTests ? describe : describe.skip;
 const runId = `practice_${randomUUID()}`;
 const now = new Date("2026-06-03T12:00:00.000Z");
+
+function createFakeRefillSender() {
+  const choiceEvents: ExerciseRefillEventPayload[] = [];
+  const exactInputEvents: ExerciseRefillEventPayload[] = [];
+  const sender: ExerciseRefillEventSender = {
+    async sendChoiceRefillRequested(payload) {
+      choiceEvents.push(payload);
+    },
+    async sendExactInputRefillRequested(payload) {
+      exactInputEvents.push(payload);
+    },
+  };
+
+  return {
+    sender,
+    choiceEvents,
+    exactInputEvents,
+  };
+}
+
+function createFailingRefillSender(message: string): ExerciseRefillEventSender {
+  return {
+    async sendChoiceRefillRequested() {
+      throw new Error(message);
+    },
+    async sendExactInputRefillRequested() {
+      throw new Error(message);
+    },
+  };
+}
 
 describeDatabase("practice review service", () => {
   const prisma = getPrisma();
@@ -1119,6 +1153,310 @@ describeDatabase("practice review service", () => {
         }),
       ]),
     ).resolves.toEqual([0, 0, initialSkill]);
+  });
+
+  it("queues choice refill work after flagging a low-inventory choice exercise", async () => {
+    const { userId, skill, exercise } = await createDueChoiceFixture("flag_choice_refill");
+    const flaggedAt = new Date("2026-06-03T12:11:00.000Z");
+    const fake = createFakeRefillSender();
+
+    const result = await flagPracticeExerciseAndQueueRefill({
+      userId,
+      exerciseId: exercise.id,
+      reasons: [ExerciseFlagReason.UNCLEAR_PROMPT],
+      flaggedAt,
+      refillSender: fake.sender,
+      model: "test-gemini",
+    });
+
+    expect(result).toMatchObject({
+      status: "flagged",
+      exerciseId: exercise.id,
+      skillId: skill.id,
+      answerKind: AnswerKind.CHOICE,
+      refill: {
+        status: "queued",
+      },
+    });
+
+    if (result.status !== "flagged" || result.refill.status !== "queued") {
+      throw new Error("Expected choice flagging to queue refill work.");
+    }
+
+    expect(fake.choiceEvents).toEqual([
+      {
+        userId,
+        skillId: skill.id,
+        generationJobId: result.refill.generationJobId,
+        targetReadyCount: 5,
+        requestedAt: flaggedAt.toISOString(),
+      },
+    ]);
+    expect(fake.exactInputEvents).toEqual([]);
+    await expect(
+      Promise.all([
+        prisma.generationJob.findUniqueOrThrow({
+          where: { id: result.refill.generationJobId },
+          select: {
+            kind: true,
+            status: true,
+            requestedCount: true,
+            provider: true,
+            model: true,
+            promptVersion: true,
+          },
+        }),
+        prisma.exercise.findUniqueOrThrow({
+          where: { id: exercise.id },
+          select: { retiredAt: true },
+        }),
+      ]),
+    ).resolves.toEqual([
+      {
+        kind: GenerationJobKind.CHOICE_EXERCISE_GENERATION,
+        status: GenerationJobStatus.PENDING,
+        requestedCount: 5,
+        provider: "google",
+        model: "test-gemini",
+        promptVersion: "skill-mcq-v0",
+      },
+      {
+        retiredAt: flaggedAt,
+      },
+    ]);
+  });
+
+  it("queues exact-input refill work after flagging an unlocked exact-input exercise", async () => {
+    const userId = await createUser("flag_exact_refill");
+    const skill = await createSkillFixture({
+      userId,
+      title: "exact flag refill skill",
+      repetitions: EXACT_INPUT_UNLOCK_REPETITIONS,
+    });
+    const exercise = await createNumericExercise({ userId, skillId: skill.id });
+    const fake = createFakeRefillSender();
+
+    const result = await flagPracticeExerciseAndQueueRefill({
+      userId,
+      exerciseId: exercise.id,
+      reasons: [ExerciseFlagReason.NOT_USEFUL],
+      flaggedAt: now,
+      refillSender: fake.sender,
+      model: "test-gemini",
+    });
+
+    expect(result).toMatchObject({
+      status: "flagged",
+      skillId: skill.id,
+      answerKind: AnswerKind.NUMERIC,
+      refill: {
+        status: "queued",
+      },
+    });
+
+    if (result.status !== "flagged" || result.refill.status !== "queued") {
+      throw new Error("Expected exact-input flagging to queue refill work.");
+    }
+
+    expect(fake.choiceEvents).toEqual([]);
+    expect(fake.exactInputEvents).toEqual([
+      {
+        userId,
+        skillId: skill.id,
+        generationJobId: result.refill.generationJobId,
+        targetReadyCount: 2,
+        requestedAt: now.toISOString(),
+      },
+    ]);
+    await expect(
+      prisma.generationJob.findUniqueOrThrow({
+        where: { id: result.refill.generationJobId },
+        select: {
+          kind: true,
+          status: true,
+          requestedCount: true,
+          promptVersion: true,
+        },
+      }),
+    ).resolves.toEqual({
+      kind: GenerationJobKind.EXACT_INPUT_EXERCISE_GENERATION,
+      status: GenerationJobStatus.PENDING,
+      requestedCount: 2,
+      promptVersion: "skill-exact-input-v0",
+    });
+  });
+
+  it("flags exact-input exercises below the unlock threshold without queueing refill work", async () => {
+    const userId = await createUser("flag_exact_locked_refill");
+    const skill = await createSkillFixture({
+      userId,
+      title: "locked exact flag refill skill",
+      repetitions: EXACT_INPUT_UNLOCK_REPETITIONS - 1,
+    });
+    const exercise = await createTextExercise({ userId, skillId: skill.id });
+    const fake = createFakeRefillSender();
+
+    await expect(
+      flagPracticeExerciseAndQueueRefill({
+        userId,
+        exerciseId: exercise.id,
+        reasons: [ExerciseFlagReason.NOT_USEFUL],
+        flaggedAt: now,
+        refillSender: fake.sender,
+        model: "test-gemini",
+      }),
+    ).resolves.toMatchObject({
+      status: "flagged",
+      refill: {
+        status: "not-queued",
+        reason: "exact-input-locked",
+      },
+    });
+
+    expect(fake.choiceEvents).toEqual([]);
+    expect(fake.exactInputEvents).toEqual([]);
+    await expect(
+      Promise.all([
+        prisma.generationJob.count({ where: { userId, skillId: skill.id } }),
+        prisma.exercise.findUniqueOrThrow({
+          where: { id: exercise.id },
+          select: { retiredAt: true },
+        }),
+      ]),
+    ).resolves.toEqual([0, { retiredAt: now }]);
+  });
+
+  it("does not enqueue duplicate refill jobs after flagging when a job is already active", async () => {
+    const { userId, skill, exercise } = await createDueChoiceFixture("flag_duplicate_refill");
+    const existingJob = await prisma.generationJob.create({
+      data: {
+        userId,
+        skillId: skill.id,
+        kind: GenerationJobKind.CHOICE_EXERCISE_GENERATION,
+        status: GenerationJobStatus.PENDING,
+        provider: "google",
+        model: "test-gemini",
+        promptVersion: "skill-mcq-v0",
+        requestedCount: 3,
+      },
+    });
+    const fake = createFakeRefillSender();
+
+    await expect(
+      flagPracticeExerciseAndQueueRefill({
+        userId,
+        exerciseId: exercise.id,
+        reasons: [ExerciseFlagReason.STALE],
+        flaggedAt: now,
+        refillSender: fake.sender,
+        model: "test-gemini",
+      }),
+    ).resolves.toMatchObject({
+      status: "flagged",
+      refill: {
+        status: "not-queued",
+        reason: "job-in-progress",
+        generationJobId: existingJob.id,
+      },
+    });
+
+    expect(fake.choiceEvents).toEqual([]);
+    await expect(
+      prisma.generationJob.count({
+        where: {
+          userId,
+          skillId: skill.id,
+          kind: GenerationJobKind.CHOICE_EXERCISE_GENERATION,
+        },
+      }),
+    ).resolves.toBe(1);
+  });
+
+  it("keeps flagging successful when refill event sending fails", async () => {
+    const { userId, exercise } = await createDueChoiceFixture("flag_refill_send_failed");
+
+    const result = await flagPracticeExerciseAndQueueRefill({
+      userId,
+      exerciseId: exercise.id,
+      reasons: [ExerciseFlagReason.OFF_TOPIC],
+      flaggedAt: now,
+      refillSender: createFailingRefillSender("dev server offline"),
+      model: "test-gemini",
+    });
+
+    expect(result).toMatchObject({
+      status: "flagged",
+      refill: {
+        status: "not-queued",
+        reason: "event-send-failed",
+      },
+    });
+
+    if (result.status !== "flagged" || result.refill.status !== "not-queued") {
+      throw new Error("Expected flagging to succeed while refill queueing fails.");
+    }
+
+    await expect(
+      Promise.all([
+        prisma.exercise.findUniqueOrThrow({
+          where: { id: exercise.id },
+          select: { retiredAt: true, retirementReason: true },
+        }),
+        prisma.exerciseFlag.count({ where: { userId, exerciseId: exercise.id } }),
+        prisma.generationJob.findUniqueOrThrow({
+          where: { id: result.refill.generationJobId },
+          select: {
+            kind: true,
+            status: true,
+            errorMessage: true,
+          },
+        }),
+      ]),
+    ).resolves.toEqual([
+      {
+        retiredAt: now,
+        retirementReason: ExerciseRetirementReason.OTHER,
+      },
+      1,
+      {
+        kind: GenerationJobKind.CHOICE_EXERCISE_GENERATION,
+        status: GenerationJobStatus.FAILED,
+        errorMessage: expect.stringContaining("dev server offline"),
+      },
+    ]);
+  });
+
+  it("rejects cross-user flag refill attempts without writing flags or jobs", async () => {
+    const owner = await createDueChoiceFixture("flag_refill_cross_owner");
+    const otherUserId = await createUser("flag_refill_cross_other");
+    const fake = createFakeRefillSender();
+
+    await expect(
+      flagPracticeExerciseAndQueueRefill({
+        userId: otherUserId,
+        exerciseId: owner.exercise.id,
+        reasons: [ExerciseFlagReason.OFF_TOPIC],
+        flaggedAt: now,
+        refillSender: fake.sender,
+        model: "test-gemini",
+      }),
+    ).resolves.toMatchObject({
+      status: "not-found",
+      reason: "exercise-not-found",
+    });
+
+    expect(fake.choiceEvents).toEqual([]);
+    expect(fake.exactInputEvents).toEqual([]);
+    await expect(
+      Promise.all([
+        prisma.exerciseFlag.count({ where: { exerciseId: owner.exercise.id } }),
+        prisma.generationJob.count({ where: { skillId: owner.skill.id } }),
+        prisma.exercise.findUniqueOrThrow({
+          where: { id: owner.exercise.id },
+          select: { retiredAt: true, retirementReason: true },
+        }),
+      ]),
+    ).resolves.toEqual([0, 0, { retiredAt: null, retirementReason: null }]);
   });
 
   it("flags an exact-input exercise without committing a review", async () => {
