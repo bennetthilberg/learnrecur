@@ -68,7 +68,7 @@ export async function previewPracticeAnswerAction(
   input: PreviewPracticeAnswerInput,
 ): Promise<PracticePreviewResult> {
   const userId = await requirePracticeUserId();
-  const scope = await requireActivePracticeScope(userId, input);
+  const scope = await resolveActivePracticeScope(userId, input);
 
   if (scope.status === "unavailable") {
     return {
@@ -121,7 +121,7 @@ export async function commitPracticeReviewAction(
 ): Promise<PracticeCommitResult> {
   const userId = await requirePracticeUserId();
   const reviewedAt = new Date();
-  const scope = await requireActivePracticeScope(userId, input);
+  const scope = await resolveActivePracticeScope(userId, input);
 
   if (scope.status === "unavailable") {
     return {
@@ -184,7 +184,7 @@ export async function flagPracticeExerciseAction(
 ): Promise<PracticeFlagResult> {
   const userId = await requirePracticeUserId();
   const flaggedAt = new Date();
-  const scope = await requireActivePracticeScope(userId, input);
+  const scope = await resolveActivePracticeScope(userId, input);
 
   if (scope.status === "unavailable") {
     return {
@@ -275,7 +275,7 @@ async function requirePracticeUserId(): Promise<string> {
   return userId;
 }
 
-async function requireActivePracticeScope(
+async function resolveActivePracticeScope(
   userId: string,
   input: PracticeScopeInput,
 ): ReturnType<typeof resolvePracticeScopeForUser> {
