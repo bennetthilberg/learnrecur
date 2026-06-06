@@ -36,8 +36,9 @@ import {
 } from "@/lib/skills";
 import {
   MAX_SOURCE_UPLOAD_BYTES,
-  completeSourceUploadDrafts,
   prepareSourceUpload,
+  queueSourceUploadDrafts,
+  runQueuedSourceUploadDraftJob,
   type SourceTextExtractor,
   type SourceUploadStorage,
 } from "@/lib/skills/uploads";
@@ -48,7 +49,12 @@ import {
   runExactInputExerciseRefillJob,
   type RefillQueueResult,
 } from "@/lib/skills/refill-jobs";
-import type { ExerciseRefillEventPayload, ExerciseRefillEventSender } from "@/lib/inngest/events";
+import type {
+  ExerciseRefillEventPayload,
+  ExerciseRefillEventSender,
+  SourceUploadDraftEventPayload,
+  SourceUploadDraftEventSender,
+} from "@/lib/inngest/events";
 import { getSkillsLibrary } from "@/lib/skills/library";
 import { removeSkillSource } from "@/lib/skills/sources";
 import { createInitialSkillSchedule } from "@/lib/scheduling";
@@ -121,6 +127,20 @@ function createFakeRefillSender() {
     sender,
     choiceEvents,
     exactInputEvents,
+  };
+}
+
+function createFakeSourceUploadSender() {
+  const events: SourceUploadDraftEventPayload[] = [];
+  const sender: SourceUploadDraftEventSender = {
+    async sendSourceUploadDraftRequested(payload) {
+      events.push(payload);
+    },
+  };
+
+  return {
+    sender,
+    events,
   };
 }
 
@@ -941,6 +961,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
     const { storage } = createFakeUploadStorage({
       byteSize: 4096,
     });
+    const { sender, events } = createFakeSourceUploadSender();
     const prepared = await prepareSourceUpload({
       userId,
       now,
@@ -966,7 +987,36 @@ describeDatabase("skill drafts and Gemini activation", () => {
     expect(prepared.headers).toEqual({ "Content-Type": "image/png" });
     expect(prepared.objectKey).toContain(`source-uploads/${userId}/`);
 
-    const completed = await completeSourceUploadDrafts({
+    const queued = await queueSourceUploadDrafts({
+      userId,
+      sourceFileId: prepared.sourceFileId,
+      now,
+      storage,
+      eventSender: sender,
+    });
+
+    expect(queued).toMatchObject({
+      status: "queued",
+      sourceFileId: prepared.sourceFileId,
+    });
+    expect(events).toEqual([
+      {
+        userId,
+        sourceFileId: prepared.sourceFileId,
+        requestedAt: now.toISOString(),
+      },
+    ]);
+    await expect(prisma.skill.count({ where: { userId } })).resolves.toBe(0);
+
+    const queuedLibrary = await getSkillsLibrary({ userId, now });
+    expect(queuedLibrary.sourceProcessing).toHaveLength(1);
+    expect(queuedLibrary.sourceProcessing[0]).toMatchObject({
+      id: prepared.sourceFileId,
+      originalName: "Uploaded worksheet",
+      status: SourceFileStatus.UPLOADED,
+    });
+
+    const completed = await runQueuedSourceUploadDraftJob({
       userId,
       sourceFileId: prepared.sourceFileId,
       now,
@@ -1029,6 +1079,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
       splitGeneratedSkillDrafts.map((draft) => draft.title).toSorted(),
     );
     expect(library.draftSkills.every((skill) => skill.sourceRefCount === 1)).toBe(true);
+    expect(library.sourceProcessing).toHaveLength(0);
   });
 
   it("cleans up uploaded source state when extraction validation fails", async () => {
@@ -1052,7 +1103,18 @@ describeDatabase("skill drafts and Gemini activation", () => {
       throw new Error("Expected upload preparation to succeed.");
     }
 
-    const completed = await completeSourceUploadDrafts({
+    const { sender } = createFakeSourceUploadSender();
+    const queued = await queueSourceUploadDrafts({
+      userId,
+      sourceFileId: prepared.sourceFileId,
+      now,
+      storage,
+      eventSender: sender,
+    });
+
+    expect(queued.status).toBe("queued");
+
+    const completed = await runQueuedSourceUploadDraftJob({
       userId,
       sourceFileId: prepared.sourceFileId,
       now,
@@ -1069,7 +1131,20 @@ describeDatabase("skill drafts and Gemini activation", () => {
       reason: "invalid-extraction",
     });
     await expect(prisma.skill.count({ where: { userId } })).resolves.toBe(0);
-    await expect(prisma.sourceFile.count({ where: { userId } })).resolves.toBe(0);
+    const failedSource = await prisma.sourceFile.findUniqueOrThrow({
+      where: { id: prepared.sourceFileId },
+    });
+    expect(failedSource.status).toBe(SourceFileStatus.FAILED);
+    expect(failedSource.storageKey).toBeNull();
+    expect(failedSource.metadata).toMatchObject({
+      failureReason: "invalid-extraction",
+    });
+    const library = await getSkillsLibrary({ userId, now });
+    expect(library.sourceProcessing).toHaveLength(1);
+    expect(library.sourceProcessing[0]).toMatchObject({
+      status: SourceFileStatus.FAILED,
+      errorMessage: "Gemini could not extract enough study text from this file.",
+    });
     await expect(prisma.skillSourceRef.count({ where: { userId } })).resolves.toBe(0);
     expect(deletedKeys).toEqual([prepared.objectKey]);
   });
@@ -1095,7 +1170,18 @@ describeDatabase("skill drafts and Gemini activation", () => {
       throw new Error("Expected upload preparation to succeed.");
     }
 
-    const completed = await completeSourceUploadDrafts({
+    const { sender } = createFakeSourceUploadSender();
+    const queued = await queueSourceUploadDrafts({
+      userId,
+      sourceFileId: prepared.sourceFileId,
+      now,
+      storage,
+      eventSender: sender,
+    });
+
+    expect(queued.status).toBe("queued");
+
+    const completed = await runQueuedSourceUploadDraftJob({
       userId,
       sourceFileId: prepared.sourceFileId,
       now,
@@ -1110,7 +1196,11 @@ describeDatabase("skill drafts and Gemini activation", () => {
       reason: "invalid-upload",
     });
     await expect(prisma.skill.count({ where: { userId } })).resolves.toBe(0);
-    await expect(prisma.sourceFile.count({ where: { userId } })).resolves.toBe(0);
+    const failedSource = await prisma.sourceFile.findUniqueOrThrow({
+      where: { id: prepared.sourceFileId },
+    });
+    expect(failedSource.status).toBe(SourceFileStatus.FAILED);
+    expect(failedSource.storageKey).toBeNull();
     expect(deletedKeys).toEqual([prepared.objectKey]);
   });
 
@@ -1134,7 +1224,18 @@ describeDatabase("skill drafts and Gemini activation", () => {
       throw new Error("Expected upload preparation to succeed.");
     }
 
-    const firstCompletion = await completeSourceUploadDrafts({
+    const { sender } = createFakeSourceUploadSender();
+    const queued = await queueSourceUploadDrafts({
+      userId,
+      sourceFileId: prepared.sourceFileId,
+      now,
+      storage,
+      eventSender: sender,
+    });
+
+    expect(queued.status).toBe("queued");
+
+    const firstCompletion = await runQueuedSourceUploadDraftJob({
       userId,
       sourceFileId: prepared.sourceFileId,
       now,
@@ -1146,7 +1247,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
 
     expect(firstCompletion.status).toBe("created");
 
-    const secondCompletion = await completeSourceUploadDrafts({
+    const secondCompletion = await runQueuedSourceUploadDraftJob({
       userId,
       sourceFileId: prepared.sourceFileId,
       now,
@@ -1184,14 +1285,12 @@ describeDatabase("skill drafts and Gemini activation", () => {
     }
 
     await expect(
-      completeSourceUploadDrafts({
+      queueSourceUploadDrafts({
         userId: otherUserId,
         sourceFileId: prepared.sourceFileId,
         now,
         storage,
-        extractSourceText: successfulSourceExtractor,
-        generateSkillDraft: successfulSkillDraftGenerator,
-        model: "test-gemini",
+        eventSender: createFakeSourceUploadSender().sender,
       }),
     ).resolves.toMatchObject({
       status: "not-found",
@@ -1199,6 +1298,48 @@ describeDatabase("skill drafts and Gemini activation", () => {
     });
     await expect(prisma.sourceFile.count({ where: { id: prepared.sourceFileId } })).resolves.toBe(1);
     expect(deletedKeys).toEqual([]);
+  });
+
+  it("cleans up uploaded source state when queueing fails before the job starts", async () => {
+    const userId = await createUser("upload_queue_failure");
+    const { storage, deletedKeys } = createFakeUploadStorage({
+      byteSize: 4096,
+    });
+    const prepared = await prepareSourceUpload({
+      userId,
+      now,
+      storage,
+      input: {
+        originalName: "queue-failure.png",
+        mimeType: "image/png",
+        byteSize: "4096",
+      },
+    });
+
+    if (prepared.status !== "prepared") {
+      throw new Error("Expected upload preparation to succeed.");
+    }
+
+    const queued = await queueSourceUploadDrafts({
+      userId,
+      sourceFileId: prepared.sourceFileId,
+      now,
+      storage,
+      eventSender: {
+        async sendSourceUploadDraftRequested() {
+          throw new Error("event transport down");
+        },
+      },
+    });
+
+    expect(queued).toMatchObject({
+      status: "not-queued",
+      reason: "event-send-failed",
+    });
+    await expect(prisma.sourceFile.count({ where: { id: prepared.sourceFileId } })).resolves.toBe(
+      0,
+    );
+    expect(deletedKeys).toEqual([prepared.objectKey]);
   });
 
   it("does not persist a source, skill, or link when generated draft validation fails", async () => {

@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import { getInngestEnvStatus, isInngestDevMode } from "@/lib/inngest/client";
-import { parseExerciseRefillEventPayload } from "@/lib/inngest/events";
+import {
+  parseExerciseRefillEventPayload,
+  parseSourceUploadDraftEventPayload,
+} from "@/lib/inngest/events";
 
 describe("Inngest configuration", () => {
   it("allows local development without cloud keys", () => {
@@ -78,6 +81,33 @@ describe("Inngest refill event payloads", () => {
         skillId: "skill_123",
         generationJobId: "",
         targetReadyCount: 0,
+        requestedAt: "2026-06-05T12:00:00.000Z",
+        extra: true,
+      }),
+    ).toThrow();
+  });
+});
+
+describe("Inngest source upload event payloads", () => {
+  it("accepts a valid source upload draft payload", () => {
+    expect(
+      parseSourceUploadDraftEventPayload({
+        userId: "user_123",
+        sourceFileId: "source_123",
+        requestedAt: "2026-06-05T12:00:00.000Z",
+      }),
+    ).toEqual({
+      userId: "user_123",
+      sourceFileId: "source_123",
+      requestedAt: "2026-06-05T12:00:00.000Z",
+    });
+  });
+
+  it("rejects malformed source upload draft payloads", () => {
+    expect(() =>
+      parseSourceUploadDraftEventPayload({
+        userId: "user_123",
+        sourceFileId: "",
         requestedAt: "2026-06-05T12:00:00.000Z",
         extra: true,
       }),

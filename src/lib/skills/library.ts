@@ -5,6 +5,8 @@ import {
   ExerciseVerificationStatus,
   GenerationJobStatus,
   SkillStatus,
+  SourceFileKind,
+  SourceFileStatus,
   type Prisma,
   type SkillFsrsState,
 } from "@/generated/prisma/client";
@@ -68,10 +70,22 @@ export type SkillsLibraryRecoverySkill = {
   dueLabel: string;
 };
 
+export type SkillsLibrarySourceProcessingSummary = {
+  id: string;
+  originalName: string;
+  kind: SourceFileKind;
+  status: Extract<SourceFileStatus, "UPLOADED" | "PROCESSING" | "FAILED">;
+  byteSize: number | null;
+  errorMessage: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 export type SkillsLibrary = {
   draftSkills: SkillsLibraryDraftSkill[];
   activeSkills: SkillsLibraryActiveSkill[];
   recoverySkills: SkillsLibraryRecoverySkill[];
+  sourceProcessing: SkillsLibrarySourceProcessingSummary[];
 };
 
 export type GetSkillsLibraryInput = {
@@ -110,60 +124,97 @@ type SkillsLibrarySkillRecord = {
 
 export async function getSkillsLibrary(input: GetSkillsLibraryInput): Promise<SkillsLibrary> {
   const prisma = getPrisma();
-  const skills = await prisma.skill.findMany({
-    where: {
-      userId: input.userId,
-      status: {
-        in: [SkillStatus.DRAFT, SkillStatus.ACTIVE, SkillStatus.PAUSED, SkillStatus.ARCHIVED],
-      },
-    },
-    select: {
-      id: true,
-      title: true,
-      objective: true,
-      tags: true,
-      status: true,
-      dueAt: true,
-      stability: true,
-      difficulty: true,
-      fsrsState: true,
-      repetitions: true,
-      lapses: true,
-      updatedAt: true,
-      collection: {
-        select: {
-          name: true,
+  const [skills, sourceProcessingRows] = await Promise.all([
+    prisma.skill.findMany({
+      where: {
+        userId: input.userId,
+        status: {
+          in: [SkillStatus.DRAFT, SkillStatus.ACTIVE, SkillStatus.PAUSED, SkillStatus.ARCHIVED],
         },
       },
-      sourceRefs: {
-        select: {
-          id: true,
+      select: {
+        id: true,
+        title: true,
+        objective: true,
+        tags: true,
+        status: true,
+        dueAt: true,
+        stability: true,
+        difficulty: true,
+        fsrsState: true,
+        repetitions: true,
+        lapses: true,
+        updatedAt: true,
+        collection: {
+          select: {
+            name: true,
+          },
+        },
+        sourceRefs: {
+          select: {
+            id: true,
+          },
+        },
+        generationJobs: {
+          orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+          take: 1,
+          select: {
+            id: true,
+            status: true,
+            errorMessage: true,
+            acceptedCount: true,
+            rejectedCount: true,
+            completedAt: true,
+            createdAt: true,
+          },
+        },
+        exercises: {
+          select: {
+            answerKind: true,
+            verificationStatus: true,
+            retiredAt: true,
+            choices: true,
+            answerSpec: true,
+          },
         },
       },
-      generationJobs: {
-        orderBy: [{ createdAt: "desc" }, { id: "asc" }],
-        take: 1,
-        select: {
-          id: true,
-          status: true,
-          errorMessage: true,
-          acceptedCount: true,
-          rejectedCount: true,
-          completedAt: true,
-          createdAt: true,
+    }),
+    prisma.sourceFile.findMany({
+      where: {
+        userId: input.userId,
+        status: {
+          in: [SourceFileStatus.UPLOADED, SourceFileStatus.PROCESSING, SourceFileStatus.FAILED],
+        },
+        kind: {
+          in: [SourceFileKind.IMAGE, SourceFileKind.PDF],
         },
       },
-      exercises: {
-        select: {
-          answerKind: true,
-          verificationStatus: true,
-          retiredAt: true,
-          choices: true,
-          answerSpec: true,
-        },
+      orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
+      select: {
+        id: true,
+        originalName: true,
+        kind: true,
+        status: true,
+        byteSize: true,
+        metadata: true,
+        createdAt: true,
+        updatedAt: true,
       },
-    },
-  });
+    }),
+  ]);
+
+  const sourceProcessing = sourceProcessingRows
+    .filter(isSourceProcessingRecord)
+    .map((sourceFile) => ({
+      id: sourceFile.id,
+      originalName: sourceFile.originalName,
+      kind: sourceFile.kind,
+      status: sourceFile.status,
+      byteSize: sourceFile.byteSize,
+      errorMessage: getMetadataString(sourceFile.metadata, "errorMessage"),
+      createdAt: sourceFile.createdAt,
+      updatedAt: sourceFile.updatedAt,
+    }));
 
   const draftSkills = skills
     .filter((skill) => skill.status === SkillStatus.DRAFT)
@@ -182,7 +233,20 @@ export async function getSkillsLibrary(input: GetSkillsLibraryInput): Promise<Sk
     draftSkills,
     activeSkills,
     recoverySkills,
+    sourceProcessing,
   };
+}
+
+function isSourceProcessingRecord<T extends { status: SourceFileStatus }>(
+  sourceFile: T,
+): sourceFile is T & {
+  status: Extract<SourceFileStatus, "UPLOADED" | "PROCESSING" | "FAILED">;
+} {
+  return (
+    sourceFile.status === SourceFileStatus.UPLOADED ||
+    sourceFile.status === SourceFileStatus.PROCESSING ||
+    sourceFile.status === SourceFileStatus.FAILED
+  );
 }
 
 function toDraftSkillSummary(skill: SkillsLibrarySkillRecord): SkillsLibraryDraftSkill {
@@ -396,4 +460,13 @@ function compareRecoverySkills(
 
 function getRecoveryStatusRank(status: SkillsLibraryRecoverySkill["status"]): number {
   return status === SkillStatus.PAUSED ? 0 : 1;
+}
+
+function getMetadataString(metadata: Prisma.JsonValue | null, key: string): string | null {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+    return null;
+  }
+
+  const value = (metadata as Record<string, unknown>)[key];
+  return typeof value === "string" && value.length > 0 ? value : null;
 }
