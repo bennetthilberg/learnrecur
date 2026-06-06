@@ -7,6 +7,7 @@ import {
   type SkillsLibraryDraftSkill,
   type SkillsLibraryGenerationJobSummary,
   type SkillsLibraryRecoverySkill,
+  type SkillsLibrarySourceProcessingSummary,
 } from "@/lib/skills/library";
 import { formatJobStatus } from "@/lib/formatters";
 import { ensureDatabaseUser } from "@/lib/users";
@@ -18,6 +19,7 @@ export const dynamic = "force-dynamic";
 type SkillsPageProps = {
   searchParams?: Promise<{
     createdDrafts?: string | string[];
+    sourceQueued?: string | string[];
   }>;
 };
 
@@ -26,6 +28,7 @@ export default async function SkillsPage({ searchParams }: SkillsPageProps) {
   const clerkUser = await currentUser();
   const resolvedSearchParams = searchParams ? await searchParams : {};
   const createdDraftCount = parseCreatedDraftCount(resolvedSearchParams.createdDrafts);
+  const sourceQueued = parseSourceQueued(resolvedSearchParams.sourceQueued);
 
   if (!clerkUser) {
     throw new Error(`Clerk returned no user for authenticated user ${userId}.`);
@@ -71,6 +74,29 @@ export default async function SkillsPage({ searchParams }: SkillsPageProps) {
           Generated {formatCount(createdDraftCount)} draft
           {createdDraftCount === 1 ? "" : "s"}. Review each one before activation.
         </p>
+      ) : null}
+
+      {sourceQueued ? (
+        <p className="skillFormMessage" data-tone="saved" role="status">
+          Source upload queued. Drafts will appear under Needs review after processing.
+        </p>
+      ) : null}
+
+      {library.sourceProcessing.length > 0 ? (
+        <section className="skillPanel skillRecoveryPanel" aria-labelledby="source-processing-title">
+          <div className="skillPanelHeader">
+            <div>
+              <p className="eyebrow">Source processing</p>
+              <h2 id="source-processing-title">Uploaded material</h2>
+            </div>
+            <span className="dashboardChip">{formatCount(library.sourceProcessing.length)}</span>
+          </div>
+          <div className="skillLibraryList">
+            {library.sourceProcessing.map((sourceFile) => (
+              <SourceProcessingRow key={sourceFile.id} sourceFile={sourceFile} />
+            ))}
+          </div>
+        </section>
       ) : null}
 
       <div className="skillLibraryGrid">
@@ -226,6 +252,38 @@ function RecoverySkillRow({ skill }: { skill: SkillsLibraryRecoverySkill }) {
   );
 }
 
+function SourceProcessingRow({
+  sourceFile,
+}: {
+  sourceFile: SkillsLibrarySourceProcessingSummary;
+}) {
+  const failed = sourceFile.status === "FAILED";
+
+  return (
+    <article className="skillLibraryRow">
+      <div className="skillLibraryRowMain">
+        <div>
+          <strong>{sourceFile.originalName}</strong>
+          <p>{failed ? "Processing failed." : "Draft generation is running in the background."}</p>
+        </div>
+        <span className="dashboardChip" data-tone={failed ? "neutral" : "ready"}>
+          {formatSourceFileStatus(sourceFile.status)}
+        </span>
+      </div>
+      <div className="skillMetaLine">
+        <span>{formatSourceKind(sourceFile.kind)}</span>
+        <span>{formatByteSize(sourceFile.byteSize)}</span>
+        <span>Updated {formatDate(sourceFile.updatedAt)}</span>
+      </div>
+      {failed && sourceFile.errorMessage ? (
+        <div className="skillLibraryStatus" data-tone="error">
+          <p>{sourceFile.errorMessage}</p>
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
 function GenerationJobStatusLine({ job }: { job: SkillsLibraryGenerationJobSummary }) {
   const failed = job.status === "FAILED";
 
@@ -275,6 +333,26 @@ function formatSkillStatus(status: SkillsLibraryRecoverySkill["status"]) {
   return status.toLowerCase().replaceAll("_", " ");
 }
 
+function formatSourceFileStatus(status: SkillsLibrarySourceProcessingSummary["status"]) {
+  return status.toLowerCase().replaceAll("_", " ");
+}
+
+function formatSourceKind(kind: SkillsLibrarySourceProcessingSummary["kind"]) {
+  return kind.toLowerCase().replaceAll("_", " ");
+}
+
+function formatByteSize(byteSize: number | null) {
+  if (!byteSize) {
+    return "Size unknown";
+  }
+
+  if (byteSize < 1024 * 1024) {
+    return `${formatCount(Math.ceil(byteSize / 1024))} KB`;
+  }
+
+  return `${(byteSize / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 function parseCreatedDraftCount(value: string | string[] | undefined) {
   const rawValue = Array.isArray(value) ? value[0] : value;
 
@@ -289,4 +367,9 @@ function parseCreatedDraftCount(value: string | string[] | undefined) {
   }
 
   return parsed;
+}
+
+function parseSourceQueued(value: string | string[] | undefined) {
+  const rawValue = Array.isArray(value) ? value[0] : value;
+  return rawValue === "1" || rawValue === "true";
 }

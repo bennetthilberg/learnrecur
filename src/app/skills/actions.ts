@@ -21,8 +21,8 @@ import {
   resumeSkill,
 } from "@/lib/skills/lifecycle";
 import {
-  completeSourceUploadDrafts,
   prepareSourceUpload,
+  queueSourceUploadDrafts,
 } from "@/lib/skills/uploads";
 import { removeSkillSource } from "@/lib/skills/sources";
 import { ensureDatabaseUser } from "@/lib/users";
@@ -61,7 +61,7 @@ export type PrepareSourceUploadActionResult =
 
 export type CompleteSourceUploadActionResult =
   | {
-      status: "created";
+      status: "queued";
       message: string;
       redirectTo: string;
     }
@@ -232,23 +232,20 @@ export async function completeSourceUploadAction(input: {
     return user;
   }
 
-  const result = await completeSourceUploadDrafts({
+  const result = await queueSourceUploadDrafts({
     userId: user.userId,
     sourceFileId: input.sourceFileId,
     now: new Date(),
   });
 
-  if (result.status === "created") {
+  if (result.status === "queued") {
     revalidatePath("/skills");
     revalidatePath("/dashboard");
 
     return {
-      status: "created",
-      message: `Created ${result.skills.length} editable ${result.skills.length === 1 ? "draft" : "drafts"}.`,
-      redirectTo:
-        result.skills.length === 1
-          ? `/skills/${result.skills[0].id}`
-          : `/skills?createdDrafts=${result.skills.length}`,
+      status: "queued",
+      message: result.message,
+      redirectTo: "/skills?sourceQueued=1",
     };
   }
 

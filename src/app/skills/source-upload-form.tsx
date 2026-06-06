@@ -13,7 +13,7 @@ import {
 const acceptedMimeTypes = ["image/png", "image/jpeg", "image/webp", "application/pdf"];
 const maxUploadBytes = 10 * 1024 * 1024;
 
-type UploadStatus = "idle" | "preparing" | "uploading" | "generating" | "error";
+type UploadStatus = "idle" | "preparing" | "uploading" | "queueing" | "error";
 
 export function SourceUploadForm() {
   const router = useRouter();
@@ -31,7 +31,7 @@ export function SourceUploadForm() {
     isSubmitting ||
     status === "preparing" ||
     status === "uploading" ||
-    status === "generating" ||
+    status === "queueing" ||
     isPending;
 
   return (
@@ -61,7 +61,7 @@ export function SourceUploadForm() {
       </div>
       <p className="skillUploadIntro">
         Upload a small worksheet, notes photo, screenshot, or PDF. The file stays private in S3;
-        Gemini extracts study text, then LearnRecur creates one or more editable drafts.
+        LearnRecur processes it in the background and creates one or more editable drafts.
       </p>
 
       <div className="skillField">
@@ -206,13 +206,13 @@ export function SourceUploadForm() {
       return;
     }
 
-    setStatus("generating");
-    setMessage("Upload complete. Extracting study text and drafting skills...");
+    setStatus("queueing");
+    setMessage("Upload complete. Queueing source processing...");
     const completed = await completeSourceUploadAction({
       sourceFileId: prepared.sourceFileId,
     });
 
-    if (completed.status === "created") {
+    if (completed.status === "queued") {
       router.push(completed.redirectTo);
       return;
     }
@@ -242,10 +242,10 @@ function buttonText(status: UploadStatus) {
       return "Preparing upload...";
     case "uploading":
       return "Uploading...";
-    case "generating":
-      return "Generating drafts...";
+    case "queueing":
+      return "Queueing...";
     default:
-      return "Upload and generate drafts";
+      return "Upload and queue drafts";
   }
 }
 
