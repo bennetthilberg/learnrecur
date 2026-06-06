@@ -9,9 +9,17 @@ import { PracticeClient } from "./practice-client";
 
 export const dynamic = "force-dynamic";
 
-export default async function PracticePage() {
+type PracticePageProps = {
+  searchParams?: Promise<{
+    collectionId?: string | string[];
+  }>;
+};
+
+export default async function PracticePage({ searchParams }: PracticePageProps) {
   const { userId } = await auth.protect();
   const clerkUser = await currentUser();
+  const resolvedSearchParams = searchParams ? await searchParams : {};
+  const collectionId = parseCollectionId(resolvedSearchParams.collectionId);
 
   if (!clerkUser) {
     throw new Error(`Clerk returned no user for authenticated user ${userId}.`);
@@ -38,7 +46,9 @@ export default async function PracticePage() {
     );
   }
 
-  const initialItem = await getNextPracticeItemForUser(userId);
+  const initialItem = await getNextPracticeItemForUser(userId, new Date(), {
+    collectionId,
+  });
 
   return (
     <main className="practiceShell">
@@ -64,4 +74,12 @@ export default async function PracticePage() {
       />
     </main>
   );
+}
+
+function parseCollectionId(value: string | string[] | undefined): string | null {
+  if (Array.isArray(value)) {
+    return value[0]?.trim() || null;
+  }
+
+  return value?.trim() || null;
 }

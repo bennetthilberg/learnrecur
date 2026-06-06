@@ -13,7 +13,12 @@ import {
 import { ensureDevPracticeSampleData } from "@/lib/practice/sample-data";
 import { ensureDatabaseUser } from "@/lib/users";
 
-import { getNextChoicePracticeItemForUser, getNextPracticeItemForUser } from "./queries";
+import {
+  getNextChoicePracticeItemForUser,
+  getNextPracticeItemForUser,
+  resolvePracticeScopeForUser,
+  type PracticeScopeInput,
+} from "./queries";
 import type {
   ChoicePracticeCommitResult,
   ChoicePracticeFlagResult,
@@ -28,6 +33,7 @@ type PreviewPracticeAnswerInput = {
   exerciseId: string;
   submittedAnswer: string;
   responseMs: number;
+  collectionId?: string | null;
 };
 
 type CommitPracticeReviewInput = PreviewPracticeAnswerInput & {
@@ -39,15 +45,22 @@ type FlagChoicePracticeExerciseInput = {
   exerciseId: string;
   reasons: string[];
   otherNote?: string | null;
+  collectionId?: string | null;
 };
 
 export async function previewChoicePracticeAnswerAction(
-  input: { exerciseId: string; selectedChoiceId: string; responseMs: number },
+  input: {
+    exerciseId: string;
+    selectedChoiceId: string;
+    responseMs: number;
+    collectionId?: string | null;
+  },
 ): Promise<ChoicePracticePreviewResult> {
   return previewPracticeAnswerAction({
     exerciseId: input.exerciseId,
     submittedAnswer: input.selectedChoiceId,
     responseMs: input.responseMs,
+    collectionId: input.collectionId,
   });
 }
 
@@ -55,12 +68,22 @@ export async function previewPracticeAnswerAction(
   input: PreviewPracticeAnswerInput,
 ): Promise<PracticePreviewResult> {
   const userId = await requirePracticeUserId();
+  const scope = await resolveActivePracticeScope(userId, input);
+
+  if (scope.status === "unavailable") {
+    return {
+      status: "not-found",
+      message: scope.message,
+    };
+  }
+
   const result = await previewPracticeAnswer({
     userId,
     exerciseId: input.exerciseId,
     submittedAnswer: toSubmittedAnswer(input.submittedAnswer),
     responseMs: input.responseMs,
     now: new Date(),
+    collectionId: scope.collectionId,
   });
 
   if (result.status === "not-found") {
@@ -80,6 +103,7 @@ export async function commitChoicePracticeReviewAction(
     responseMs: number;
     attemptId: string;
     manualRating?: FsrsRating | null;
+    collectionId?: string | null;
   },
 ): Promise<ChoicePracticeCommitResult> {
   return commitPracticeReviewAction({
@@ -88,6 +112,7 @@ export async function commitChoicePracticeReviewAction(
     responseMs: input.responseMs,
     attemptId: input.attemptId,
     manualRating: input.manualRating,
+    collectionId: input.collectionId,
   });
 }
 
@@ -96,6 +121,15 @@ export async function commitPracticeReviewAction(
 ): Promise<PracticeCommitResult> {
   const userId = await requirePracticeUserId();
   const reviewedAt = new Date();
+  const scope = await resolveActivePracticeScope(userId, input);
+
+  if (scope.status === "unavailable") {
+    return {
+      status: "not-found",
+      message: scope.message,
+    };
+  }
+
   const result = await commitPracticeReview({
     userId,
     exerciseId: input.exerciseId,
@@ -104,6 +138,7 @@ export async function commitPracticeReviewAction(
     responseMs: input.responseMs,
     manualRating: normalizeManualRating(input.manualRating),
     reviewedAt,
+    collectionId: scope.collectionId,
   });
 
   if (result.status === "committed") {
@@ -111,7 +146,9 @@ export async function commitPracticeReviewAction(
       status: "committed",
       idempotent: result.idempotent,
       finalRating: result.finalRating,
-      nextItem: await getNextPracticeItemForUser(userId, reviewedAt),
+      nextItem: await getNextPracticeItemForUser(userId, reviewedAt, {
+        collectionId: scope.collectionId,
+      }),
     };
   }
 
@@ -147,6 +184,15 @@ export async function flagPracticeExerciseAction(
 ): Promise<PracticeFlagResult> {
   const userId = await requirePracticeUserId();
   const flaggedAt = new Date();
+  const scope = await resolveActivePracticeScope(userId, input);
+
+  if (scope.status === "unavailable") {
+    return {
+      status: "not-found",
+      message: scope.message,
+    };
+  }
+
   const reasons = input.reasons.filter(isExerciseFlagReason);
 
   if (reasons.length !== input.reasons.length) {
@@ -162,13 +208,16 @@ export async function flagPracticeExerciseAction(
     reasons,
     otherNote: input.otherNote,
     flaggedAt,
+    collectionId: scope.collectionId,
   });
 
   if (result.status === "flagged") {
     return {
       status: "flagged",
       message: formatFlagMessage(result.message, result.refill),
-      nextItem: await getNextPracticeItemForUser(userId, flaggedAt),
+      nextItem: await getNextPracticeItemForUser(userId, flaggedAt, {
+        collectionId: scope.collectionId,
+      }),
     };
   }
 
@@ -224,6 +273,15 @@ export async function ensureDevPracticeSampleDataAction(): Promise<ChoicePractic
 async function requirePracticeUserId(): Promise<string> {
   const { userId } = await auth.protect();
   return userId;
+}
+
+async function resolveActivePracticeScope(
+  userId: string,
+  input: PracticeScopeInput,
+): ReturnType<typeof resolvePracticeScopeForUser> {
+  return resolvePracticeScopeForUser(userId, {
+    collectionId: input.collectionId,
+  });
 }
 
 function toSubmittedAnswer(answer: string): PracticeSubmittedAnswer {

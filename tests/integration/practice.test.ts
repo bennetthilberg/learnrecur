@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import {
   AnswerKind,
+  CollectionStatus,
   ExerciseAttemptResult,
   ExerciseFlagReason,
   ExerciseFlagStatus,
@@ -99,6 +100,7 @@ describeDatabase("practice review service", () => {
   async function createSkillFixture({
     userId,
     title,
+    collectionId = null,
     dueAt = new Date("2026-06-02T11:00:00.000Z"),
     status = SkillStatus.ACTIVE,
     initialized = true,
@@ -106,6 +108,7 @@ describeDatabase("practice review service", () => {
   }: {
     userId: string;
     title: string;
+    collectionId?: string | null;
     dueAt?: Date;
     status?: SkillStatus;
     initialized?: boolean;
@@ -116,6 +119,7 @@ describeDatabase("practice review service", () => {
     return prisma.skill.create({
       data: {
         userId,
+        collectionId,
         title,
         status,
         ...schedule,
@@ -398,6 +402,182 @@ describeDatabase("practice review service", () => {
         prompt: "Which verb describes identity?",
       },
     });
+  });
+
+  it("scopes practice selection to one active collection without changing global priority", async () => {
+    const userId = await createUser("collection_scope_selection");
+    const targetCollection = await prisma.collection.create({
+      data: {
+        userId,
+        name: "Target collection",
+      },
+    });
+    const otherCollection = await prisma.collection.create({
+      data: {
+        userId,
+        name: "Other collection",
+      },
+    });
+    const otherEarlierSkill = await createSkillFixture({
+      userId,
+      collectionId: otherCollection.id,
+      title: "other earlier skill",
+      dueAt: new Date("2026-06-03T08:00:00.000Z"),
+    });
+    const otherExercise = await createChoiceExercise({
+      userId,
+      skillId: otherEarlierSkill.id,
+      prompt: "Other collection prompt.",
+    });
+    const targetSkill = await createSkillFixture({
+      userId,
+      collectionId: targetCollection.id,
+      title: "target scoped skill",
+      dueAt: new Date("2026-06-03T10:00:00.000Z"),
+    });
+    const targetExercise = await createChoiceExercise({
+      userId,
+      skillId: targetSkill.id,
+      prompt: "Target collection prompt.",
+    });
+
+    await expect(getNextPracticeItem({ userId, now })).resolves.toMatchObject({
+      status: "ready",
+      skill: {
+        id: otherEarlierSkill.id,
+      },
+      exercise: {
+        id: otherExercise.id,
+      },
+    });
+
+    await expect(
+      getNextPracticeItem({
+        userId,
+        now,
+        collectionId: targetCollection.id,
+      }),
+    ).resolves.toMatchObject({
+      status: "ready",
+      skill: {
+        id: targetSkill.id,
+      },
+      exercise: {
+        id: targetExercise.id,
+      },
+    });
+
+    await expect(
+      getNextPracticeItemForUser(userId, now, { collectionId: targetCollection.id }),
+    ).resolves.toMatchObject({
+      status: "ready",
+      scope: {
+        kind: "collection",
+        collectionId: targetCollection.id,
+        collectionName: "Target collection",
+      },
+      skill: {
+        id: targetSkill.id,
+      },
+      exercise: {
+        id: targetExercise.id,
+      },
+    });
+  });
+
+  it("keeps invalid and archived collection scopes unavailable without falling back globally", async () => {
+    const userId = await createUser("collection_scope_unavailable");
+    const otherUserId = await createUser("collection_scope_unavailable_other");
+    const archivedCollection = await prisma.collection.create({
+      data: {
+        userId,
+        name: "Archived scope",
+        status: CollectionStatus.ARCHIVED,
+      },
+    });
+    const otherUserCollection = await prisma.collection.create({
+      data: {
+        userId: otherUserId,
+        name: "Other user scope",
+      },
+    });
+    const archivedCollectionSkill = await createSkillFixture({
+      userId,
+      collectionId: archivedCollection.id,
+      title: "archived collection active skill",
+      dueAt: new Date("2026-06-03T08:00:00.000Z"),
+    });
+    const archivedCollectionExercise = await createChoiceExercise({
+      userId,
+      skillId: archivedCollectionSkill.id,
+      prompt: "Archived collection prompt.",
+    });
+    const activeGlobalSkill = await createSkillFixture({
+      userId,
+      title: "global ready skill",
+      dueAt: new Date("2026-06-03T09:00:00.000Z"),
+    });
+    const activeGlobalExercise = await createChoiceExercise({
+      userId,
+      skillId: activeGlobalSkill.id,
+      prompt: "Global prompt.",
+    });
+
+    await expect(getNextPracticeItem({ userId, now })).resolves.toMatchObject({
+      status: "ready",
+      skill: {
+        id: archivedCollectionSkill.id,
+      },
+      exercise: {
+        id: archivedCollectionExercise.id,
+      },
+    });
+
+    for (const collectionId of [
+      archivedCollection.id,
+      otherUserCollection.id,
+      `${runId}_missing_collection_scope`,
+    ]) {
+      await expect(
+        getNextPracticeItemForUser(userId, now, { collectionId }),
+      ).resolves.toMatchObject({
+        status: "unavailable",
+        message: "That collection is not available for scoped practice.",
+      });
+    }
+
+    await expect(
+      getNextPracticeItem({
+        userId,
+        now,
+        collectionId: archivedCollection.id,
+      }),
+    ).resolves.toMatchObject({
+      status: "ready",
+      skill: {
+        id: archivedCollectionSkill.id,
+      },
+      exercise: {
+        id: archivedCollectionExercise.id,
+      },
+    });
+
+    await expect(getNextPracticeItemForUser(userId, now)).resolves.toMatchObject({
+      status: "ready",
+      skill: {
+        id: archivedCollectionSkill.id,
+      },
+      exercise: {
+        id: archivedCollectionExercise.id,
+      },
+    });
+
+    await expect(
+      prisma.exercise.findUniqueOrThrow({
+        where: { id: activeGlobalExercise.id },
+        select: { id: true },
+      }),
+    ).resolves.toEqual({ id: activeGlobalExercise.id });
   });
 
   it("rotates to an unattempted exercise within the earliest due skill", async () => {
@@ -781,6 +961,70 @@ describeDatabase("practice review service", () => {
       },
       exercise: {
         id: textExercise.id,
+        answerKind: AnswerKind.TEXT,
+      },
+    });
+  });
+
+  it("applies exact-input unlock and rotation rules inside a collection scope", async () => {
+    const userId = await createUser("collection_scope_exact_input");
+    const collection = await prisma.collection.create({
+      data: {
+        userId,
+        name: "Exact scoped collection",
+      },
+    });
+    const lockedSkill = await createSkillFixture({
+      userId,
+      collectionId: collection.id,
+      title: "locked scoped exact skill",
+      dueAt: new Date("2026-06-03T08:00:00.000Z"),
+      repetitions: EXACT_INPUT_UNLOCK_REPETITIONS - 1,
+    });
+    await createTextExercise({
+      userId,
+      skillId: lockedSkill.id,
+      prompt: "Locked scoped exact prompt.",
+    });
+    const unlockedSkill = await createSkillFixture({
+      userId,
+      collectionId: collection.id,
+      title: "unlocked scoped exact skill",
+      dueAt: new Date("2026-06-03T09:00:00.000Z"),
+      repetitions: EXACT_INPUT_UNLOCK_REPETITIONS,
+    });
+    const attemptedExercise = await createTextExercise({
+      userId,
+      skillId: unlockedSkill.id,
+      prompt: "Attempted scoped exact prompt.",
+    });
+    const freshExercise = await createTextExercise({
+      userId,
+      skillId: unlockedSkill.id,
+      prompt: "Fresh scoped exact prompt.",
+    });
+
+    await createAttemptFixture({
+      userId,
+      skillId: unlockedSkill.id,
+      exerciseId: attemptedExercise.id,
+      createdAt: new Date("2026-06-03T10:00:00.000Z"),
+      label: "collection_scope_exact",
+    });
+
+    await expect(
+      getNextPracticeItem({
+        userId,
+        now,
+        collectionId: collection.id,
+      }),
+    ).resolves.toMatchObject({
+      status: "ready",
+      skill: {
+        id: unlockedSkill.id,
+      },
+      exercise: {
+        id: freshExercise.id,
         answerKind: AnswerKind.TEXT,
       },
     });
@@ -2032,6 +2276,166 @@ describeDatabase("practice review service", () => {
         }),
       ]),
     ).resolves.toEqual([0, 0]);
+  });
+
+  it("rejects preview, commit, and flag attempts outside the selected collection", async () => {
+    const userId = await createUser("collection_scope_outside_submission");
+    const scopedCollection = await prisma.collection.create({
+      data: {
+        userId,
+        name: "Scoped collection",
+      },
+    });
+    const outsideCollection = await prisma.collection.create({
+      data: {
+        userId,
+        name: "Outside collection",
+      },
+    });
+    const outsideSkill = await createSkillFixture({
+      userId,
+      collectionId: outsideCollection.id,
+      title: "outside scoped skill",
+    });
+    const outsideExercise = await createChoiceExercise({
+      userId,
+      skillId: outsideSkill.id,
+    });
+
+    await expect(
+      previewPracticeAnswer({
+        userId,
+        exerciseId: outsideExercise.id,
+        submittedAnswer: "ser",
+        now,
+        collectionId: scopedCollection.id,
+      }),
+    ).resolves.toMatchObject({
+      status: "not-found",
+      reason: "exercise-not-found",
+    });
+
+    await expect(
+      commitPracticeReview({
+        userId,
+        exerciseId: outsideExercise.id,
+        attemptId: `${runId}_outside_scope_attempt`,
+        submittedAnswer: "ser",
+        responseMs: 4_000,
+        reviewedAt: now,
+        collectionId: scopedCollection.id,
+      }),
+    ).resolves.toMatchObject({
+      status: "not-found",
+      reason: "exercise-not-found",
+    });
+
+    await expect(
+      flagPracticeExercise({
+        userId,
+        exerciseId: outsideExercise.id,
+        reasons: [ExerciseFlagReason.NOT_USEFUL],
+        flaggedAt: now,
+        collectionId: scopedCollection.id,
+      }),
+    ).resolves.toMatchObject({
+      status: "not-found",
+      reason: "exercise-not-found",
+    });
+
+    await expect(
+      Promise.all([
+        prisma.exerciseAttempt.count({ where: { userId, exerciseId: outsideExercise.id } }),
+        prisma.reviewLog.count({ where: { userId, skillId: outsideSkill.id } }),
+        prisma.exerciseFlag.count({ where: { userId, exerciseId: outsideExercise.id } }),
+        prisma.exercise.findUniqueOrThrow({
+          where: { id: outsideExercise.id },
+          select: { retiredAt: true, retirementReason: true },
+        }),
+      ]),
+    ).resolves.toEqual([0, 0, 0, { retiredAt: null, retirementReason: null }]);
+  });
+
+  it("keeps scoped continuation inside the selected collection", async () => {
+    const userId = await createUser("collection_scope_continuation");
+    const scopedCollection = await prisma.collection.create({
+      data: {
+        userId,
+        name: "Continuation scope",
+      },
+    });
+    const outsideCollection = await prisma.collection.create({
+      data: {
+        userId,
+        name: "Outside continuation scope",
+      },
+    });
+    const outsideSkill = await createSkillFixture({
+      userId,
+      collectionId: outsideCollection.id,
+      title: "outside continuation skill",
+      dueAt: new Date("2026-06-03T08:00:00.000Z"),
+    });
+    await createChoiceExercise({
+      userId,
+      skillId: outsideSkill.id,
+      prompt: "Outside continuation prompt.",
+    });
+    const firstScopedSkill = await createSkillFixture({
+      userId,
+      collectionId: scopedCollection.id,
+      title: "first scoped continuation skill",
+      dueAt: new Date("2026-06-03T09:00:00.000Z"),
+    });
+    const firstScopedExercise = await createChoiceExercise({
+      userId,
+      skillId: firstScopedSkill.id,
+      prompt: "First scoped continuation prompt.",
+    });
+    const secondScopedSkill = await createSkillFixture({
+      userId,
+      collectionId: scopedCollection.id,
+      title: "second scoped continuation skill",
+      dueAt: new Date("2026-06-03T10:00:00.000Z"),
+    });
+    const secondScopedExercise = await createChoiceExercise({
+      userId,
+      skillId: secondScopedSkill.id,
+      prompt: "Second scoped continuation prompt.",
+    });
+
+    await expect(
+      commitPracticeReview({
+        userId,
+        exerciseId: firstScopedExercise.id,
+        attemptId: `${runId}_scoped_continuation_attempt`,
+        submittedAnswer: "ser",
+        responseMs: 4_000,
+        reviewedAt: now,
+        collectionId: scopedCollection.id,
+      }),
+    ).resolves.toMatchObject({
+      status: "committed",
+      skill: {
+        id: firstScopedSkill.id,
+      },
+    });
+
+    await expect(
+      getNextPracticeItemForUser(userId, now, { collectionId: scopedCollection.id }),
+    ).resolves.toMatchObject({
+      status: "ready",
+      scope: {
+        kind: "collection",
+        collectionId: scopedCollection.id,
+      },
+      skill: {
+        id: secondScopedSkill.id,
+      },
+      exercise: {
+        id: secondScopedExercise.id,
+      },
+    });
   });
 
   it("treats duplicate attempt IDs as idempotent and does not double-advance FSRS", async () => {
