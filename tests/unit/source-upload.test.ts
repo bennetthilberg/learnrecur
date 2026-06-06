@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import {
   MAX_SOURCE_UPLOAD_BYTES,
+  SOURCE_PROCESSING_STALE_AFTER_MS,
+  buildSourceUploadRequeueMetadata,
   buildSourceUploadObjectKey,
+  isSourceUploadProcessingStale,
   normalizeSourceUploadInput,
   validateExtractedSourceText,
 } from "@/lib/skills/uploads";
@@ -87,6 +90,107 @@ describe("validateExtractedSourceText", () => {
       reason: "invalid-response",
     });
   });
+});
+
+describe("source upload recovery helpers", () => {
+  const now = new Date("2026-06-05T12:00:00.000Z");
+
+  it.each([
+    {
+      name: "missing metadata",
+      metadata: null,
+      expected: false,
+    },
+    {
+      name: "undefined metadata",
+      metadata: undefined as never,
+      expected: false,
+    },
+    {
+      name: "empty metadata",
+      metadata: {},
+      expected: false,
+    },
+    {
+      name: "invalid timestamp",
+      metadata: {
+        processingStartedAt: "not-a-date",
+      },
+      expected: false,
+    },
+    {
+      name: "just before threshold",
+      metadata: {
+        processingStartedAt: new Date(
+          now.getTime() - SOURCE_PROCESSING_STALE_AFTER_MS + 1,
+        ).toISOString(),
+      },
+      expected: false,
+    },
+    {
+      name: "at threshold",
+      metadata: {
+        processingStartedAt: new Date(
+          now.getTime() - SOURCE_PROCESSING_STALE_AFTER_MS,
+        ).toISOString(),
+      },
+      expected: true,
+    },
+    {
+      name: "after threshold",
+      metadata: {
+        processingStartedAt: new Date(
+          now.getTime() - SOURCE_PROCESSING_STALE_AFTER_MS - 1,
+        ).toISOString(),
+      },
+      expected: true,
+    },
+  ])("detects stale processing uploads for $name", ({ metadata, expected }) => {
+    expect(isSourceUploadProcessingStale(metadata, now)).toBe(expected);
+  });
+
+  it.each([
+    {
+      name: "missing metadata",
+      metadata: null,
+      expectedRetryCount: 1,
+      expectedExtraFields: {},
+    },
+    {
+      name: "undefined metadata",
+      metadata: undefined as never,
+      expectedRetryCount: 1,
+      expectedExtraFields: {},
+    },
+    {
+      name: "non-numeric retry count",
+      metadata: { retryCount: "bad" },
+      expectedRetryCount: 1,
+      expectedExtraFields: {},
+    },
+    {
+      name: "existing retry count and extra fields",
+      metadata: {
+        retryCount: 2,
+        queuedAt: "2026-06-05T11:00:00.000Z",
+        originalFileName: "worksheet.png",
+      },
+      expectedRetryCount: 3,
+      expectedExtraFields: {
+        originalFileName: "worksheet.png",
+      },
+    },
+  ])(
+    "increments retry count and records requeue timestamp for $name",
+    ({ metadata, expectedRetryCount, expectedExtraFields }) => {
+      expect(buildSourceUploadRequeueMetadata(metadata, now)).toMatchObject({
+        ...expectedExtraFields,
+        retryCount: expectedRetryCount,
+        queuedAt: "2026-06-05T12:00:00.000Z",
+        requeuedAt: "2026-06-05T12:00:00.000Z",
+      });
+    },
+  );
 });
 
 describe("getS3Env", () => {

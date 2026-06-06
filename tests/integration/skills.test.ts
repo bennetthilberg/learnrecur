@@ -36,8 +36,11 @@ import {
 } from "@/lib/skills";
 import {
   MAX_SOURCE_UPLOAD_BYTES,
+  SOURCE_PROCESSING_STALE_AFTER_MS,
+  dismissFailedSourceUpload,
   prepareSourceUpload,
   queueSourceUploadDrafts,
+  requeueSourceUploadDraft,
   runQueuedSourceUploadDraftJob,
   type SourceTextExtractor,
   type SourceUploadStorage,
@@ -193,10 +196,12 @@ function createFakeUploadStorage({
   ),
   mimeType = "image/png",
   byteSize = bytes.byteLength,
+  headError = null,
 }: {
   bytes?: Buffer;
   mimeType?: string;
   byteSize?: number;
+  headError?: Error | null;
 } = {}) {
   const deletedKeys: string[] = [];
   const storage: SourceUploadStorage = {
@@ -205,6 +210,10 @@ function createFakeUploadStorage({
       return "https://s3.example.test/presigned-upload";
     },
     async headObject() {
+      if (headError) {
+        throw headError;
+      }
+
       return {
         byteSize,
         mimeType,
@@ -1352,6 +1361,496 @@ describeDatabase("skill drafts and Gemini activation", () => {
       0,
     );
     expect(deletedKeys).toEqual([prepared.objectKey]);
+  });
+
+  it("requeues an uploaded source without creating drafts synchronously", async () => {
+    const userId = await createUser("upload_requeue_uploaded");
+    const { storage } = createFakeUploadStorage({
+      byteSize: 4096,
+    });
+    const prepared = await prepareSourceUpload({
+      userId,
+      now,
+      storage,
+      input: {
+        originalName: "queued-again.png",
+        mimeType: "image/png",
+        byteSize: "4096",
+      },
+    });
+
+    if (prepared.status !== "prepared") {
+      throw new Error("Expected upload preparation to succeed.");
+    }
+
+    const firstSender = createFakeSourceUploadSender();
+    await expect(
+      queueSourceUploadDrafts({
+        userId,
+        sourceFileId: prepared.sourceFileId,
+        now,
+        storage,
+        eventSender: firstSender.sender,
+      }),
+    ).resolves.toMatchObject({ status: "queued" });
+
+    const { sender, events } = createFakeSourceUploadSender();
+    const requeueAt = new Date(now.getTime() + 60_000);
+    const requeued = await requeueSourceUploadDraft({
+      userId,
+      sourceFileId: prepared.sourceFileId,
+      now: requeueAt,
+      storage,
+      eventSender: sender,
+    });
+
+    expect(requeued).toMatchObject({
+      status: "queued",
+      sourceFileId: prepared.sourceFileId,
+    });
+    expect(events).toEqual([
+      {
+        userId,
+        sourceFileId: prepared.sourceFileId,
+        requestedAt: requeueAt.toISOString(),
+      },
+    ]);
+    await expect(prisma.skill.count({ where: { userId } })).resolves.toBe(0);
+
+    const sourceFile = await prisma.sourceFile.findUniqueOrThrow({
+      where: { id: prepared.sourceFileId },
+    });
+    expect(sourceFile.status).toBe(SourceFileStatus.UPLOADED);
+    expect(sourceFile.metadata).toMatchObject({
+      queuedAt: requeueAt.toISOString(),
+      requeuedAt: requeueAt.toISOString(),
+      retryCount: 1,
+    });
+  });
+
+  it("preserves uploaded source state when requeue event sending fails", async () => {
+    const userId = await createUser("upload_requeue_send_failure");
+    const { storage, deletedKeys } = createFakeUploadStorage({
+      byteSize: 4096,
+    });
+    const prepared = await prepareSourceUpload({
+      userId,
+      now,
+      storage,
+      input: {
+        originalName: "requeue-send-failure.png",
+        mimeType: "image/png",
+        byteSize: "4096",
+      },
+    });
+
+    if (prepared.status !== "prepared") {
+      throw new Error("Expected upload preparation to succeed.");
+    }
+
+    await queueSourceUploadDrafts({
+      userId,
+      sourceFileId: prepared.sourceFileId,
+      now,
+      storage,
+      eventSender: createFakeSourceUploadSender().sender,
+    });
+
+    const requeued = await requeueSourceUploadDraft({
+      userId,
+      sourceFileId: prepared.sourceFileId,
+      now,
+      storage,
+      eventSender: {
+        async sendSourceUploadDraftRequested() {
+          throw new Error("event transport down");
+        },
+      },
+    });
+
+    expect(requeued).toMatchObject({
+      status: "not-queued",
+      reason: "event-send-failed",
+    });
+    const sourceFile = await prisma.sourceFile.findUniqueOrThrow({
+      where: { id: prepared.sourceFileId },
+    });
+    expect(sourceFile.status).toBe(SourceFileStatus.UPLOADED);
+    expect(sourceFile.storageKey).toBe(prepared.objectKey);
+    expect(deletedKeys).toEqual([]);
+  });
+
+  it("requeues stale processing sources and rejects fresh processing sources", async () => {
+    const userId = await createUser("upload_requeue_processing");
+    const { storage } = createFakeUploadStorage({
+      byteSize: 4096,
+    });
+    const prepared = await prepareSourceUpload({
+      userId,
+      now,
+      storage,
+      input: {
+        originalName: "stale-processing.png",
+        mimeType: "image/png",
+        byteSize: "4096",
+      },
+    });
+
+    if (prepared.status !== "prepared") {
+      throw new Error("Expected upload preparation to succeed.");
+    }
+
+    await queueSourceUploadDrafts({
+      userId,
+      sourceFileId: prepared.sourceFileId,
+      now,
+      storage,
+      eventSender: createFakeSourceUploadSender().sender,
+    });
+
+    const staleStartedAt = new Date(
+      now.getTime() - SOURCE_PROCESSING_STALE_AFTER_MS,
+    ).toISOString();
+    await prisma.sourceFile.update({
+      where: { id: prepared.sourceFileId },
+      data: {
+        status: SourceFileStatus.PROCESSING,
+        metadata: {
+          processingStartedAt: staleStartedAt,
+        },
+      },
+    });
+
+    const { sender, events } = createFakeSourceUploadSender();
+    const requeued = await requeueSourceUploadDraft({
+      userId,
+      sourceFileId: prepared.sourceFileId,
+      now,
+      storage,
+      eventSender: sender,
+    });
+
+    expect(requeued).toMatchObject({
+      status: "queued",
+      sourceFileId: prepared.sourceFileId,
+    });
+    expect(events).toHaveLength(1);
+    const sourceFile = await prisma.sourceFile.findUniqueOrThrow({
+      where: { id: prepared.sourceFileId },
+    });
+    expect(sourceFile.status).toBe(SourceFileStatus.UPLOADED);
+    expect(sourceFile.metadata).toMatchObject({
+      processingStartedAt: staleStartedAt,
+      requeuedAt: now.toISOString(),
+      retryCount: 1,
+    });
+
+    const freshPrepared = await prepareSourceUpload({
+      userId,
+      now,
+      storage,
+      input: {
+        originalName: "fresh-processing.png",
+        mimeType: "image/png",
+        byteSize: "4096",
+      },
+    });
+
+    if (freshPrepared.status !== "prepared") {
+      throw new Error("Expected upload preparation to succeed.");
+    }
+
+    await queueSourceUploadDrafts({
+      userId,
+      sourceFileId: freshPrepared.sourceFileId,
+      now,
+      storage,
+      eventSender: createFakeSourceUploadSender().sender,
+    });
+    await prisma.sourceFile.update({
+      where: { id: freshPrepared.sourceFileId },
+      data: {
+        status: SourceFileStatus.PROCESSING,
+        metadata: {
+          processingStartedAt: now.toISOString(),
+        },
+      },
+    });
+
+    const freshSender = createFakeSourceUploadSender();
+    await expect(
+      requeueSourceUploadDraft({
+        userId,
+        sourceFileId: freshPrepared.sourceFileId,
+        now,
+        storage,
+        eventSender: freshSender.sender,
+      }),
+    ).resolves.toMatchObject({
+      status: "not-queued",
+      reason: "not-stale",
+    });
+    expect(freshSender.events).toHaveLength(0);
+  });
+
+  it("rejects requeue for non-recoverable, missing, and cross-user sources", async () => {
+    const userId = await createUser("upload_requeue_reject");
+    const otherUserId = await createUser("upload_requeue_reject_other");
+    const { storage } = createFakeUploadStorage();
+    const readySource = await prisma.sourceFile.create({
+      data: {
+        userId,
+        kind: SourceFileKind.IMAGE,
+        status: SourceFileStatus.READY,
+        originalName: "ready upload",
+        mimeType: "image/png",
+        byteSize: 1024,
+        storageBucket: "learnrecur-dev",
+        storageKey: `source-uploads/${userId}/ready.png`,
+      },
+    });
+    const failedSource = await prisma.sourceFile.create({
+      data: {
+        userId,
+        kind: SourceFileKind.IMAGE,
+        status: SourceFileStatus.FAILED,
+        originalName: "failed upload",
+        mimeType: "image/png",
+      },
+    });
+
+    await expect(
+      requeueSourceUploadDraft({
+        userId,
+        sourceFileId: readySource.id,
+        now,
+        storage,
+        eventSender: createFakeSourceUploadSender().sender,
+      }),
+    ).resolves.toMatchObject({
+      status: "not-queued",
+      reason: "not-requeueable",
+    });
+    await expect(
+      requeueSourceUploadDraft({
+        userId,
+        sourceFileId: failedSource.id,
+        now,
+        storage,
+        eventSender: createFakeSourceUploadSender().sender,
+      }),
+    ).resolves.toMatchObject({
+      status: "not-queued",
+      reason: "not-requeueable",
+    });
+    await expect(
+      requeueSourceUploadDraft({
+        userId,
+        sourceFileId: "missing-source-file",
+        now,
+        storage,
+        eventSender: createFakeSourceUploadSender().sender,
+      }),
+    ).resolves.toMatchObject({
+      status: "not-found",
+      reason: "source-not-found",
+    });
+    await expect(
+      requeueSourceUploadDraft({
+        userId: otherUserId,
+        sourceFileId: readySource.id,
+        now,
+        storage,
+        eventSender: createFakeSourceUploadSender().sender,
+      }),
+    ).resolves.toMatchObject({
+      status: "not-found",
+      reason: "source-not-found",
+    });
+  });
+
+  it("rejects requeue when storage metadata or the S3 object is missing", async () => {
+    const userId = await createUser("upload_requeue_missing_storage");
+    const incompleteSource = await prisma.sourceFile.create({
+      data: {
+        userId,
+        kind: SourceFileKind.IMAGE,
+        status: SourceFileStatus.UPLOADED,
+        originalName: "incomplete upload",
+        mimeType: "image/png",
+        byteSize: 2048,
+        storageBucket: "learnrecur-dev",
+      },
+    });
+    const missingObjectSource = await prisma.sourceFile.create({
+      data: {
+        userId,
+        kind: SourceFileKind.IMAGE,
+        status: SourceFileStatus.UPLOADED,
+        originalName: "missing object",
+        mimeType: "image/png",
+        byteSize: 2048,
+        storageBucket: "learnrecur-dev",
+        storageKey: `source-uploads/${userId}/missing-object.png`,
+      },
+    });
+    const sender = createFakeSourceUploadSender();
+
+    await expect(
+      requeueSourceUploadDraft({
+        userId,
+        sourceFileId: incompleteSource.id,
+        now,
+        storage: createFakeUploadStorage().storage,
+        eventSender: sender.sender,
+      }),
+    ).resolves.toMatchObject({
+      status: "not-queued",
+      reason: "invalid-upload",
+    });
+    await expect(
+      requeueSourceUploadDraft({
+        userId,
+        sourceFileId: missingObjectSource.id,
+        now,
+        storage: createFakeUploadStorage({
+          headError: new Error("object missing"),
+        }).storage,
+        eventSender: sender.sender,
+      }),
+    ).resolves.toMatchObject({
+      status: "not-queued",
+      reason: "invalid-upload",
+    });
+    expect(sender.events).toHaveLength(0);
+  });
+
+  it("dismisses failed uploaded source rows from the processing list", async () => {
+    const userId = await createUser("upload_dismiss_failed");
+    const failedSource = await prisma.sourceFile.create({
+      data: {
+        userId,
+        kind: SourceFileKind.PDF,
+        status: SourceFileStatus.FAILED,
+        originalName: "failed worksheet",
+        mimeType: "application/pdf",
+        metadata: {
+          errorMessage: "Gemini could not extract enough study text from this file.",
+        },
+      },
+    });
+
+    await expect(getSkillsLibrary({ userId, now })).resolves.toMatchObject({
+      sourceProcessing: [
+        {
+          id: failedSource.id,
+          status: SourceFileStatus.FAILED,
+          canDismiss: true,
+        },
+      ],
+    });
+
+    await expect(
+      dismissFailedSourceUpload({
+        userId,
+        sourceFileId: failedSource.id,
+      }),
+    ).resolves.toMatchObject({
+      status: "dismissed",
+      sourceFileId: failedSource.id,
+    });
+    await expect(prisma.sourceFile.count({ where: { id: failedSource.id } })).resolves.toBe(0);
+    await expect(getSkillsLibrary({ userId, now })).resolves.toMatchObject({
+      sourceProcessing: [],
+    });
+  });
+
+  it("rejects dismissal for cross-user, linked, and non-failed uploaded sources", async () => {
+    const userId = await createUser("upload_dismiss_reject");
+    const otherUserId = await createUser("upload_dismiss_reject_other");
+    const linkedSkill = await createSkillDraft({
+      userId,
+      input: {
+        title: "Linked failed source skill",
+        objective: "Review a linked failed source without deleting its history.",
+      },
+    });
+
+    if (linkedSkill.status !== "created") {
+      throw new Error("Expected draft creation to succeed.");
+    }
+
+    const linkedFailedSource = await prisma.sourceFile.create({
+      data: {
+        userId,
+        kind: SourceFileKind.IMAGE,
+        status: SourceFileStatus.FAILED,
+        originalName: "linked failed source",
+        mimeType: "image/png",
+      },
+    });
+    await prisma.skillSourceRef.create({
+      data: {
+        userId,
+        skillId: linkedSkill.skill.id,
+        sourceFileId: linkedFailedSource.id,
+      },
+    });
+    const readySource = await prisma.sourceFile.create({
+      data: {
+        userId,
+        kind: SourceFileKind.IMAGE,
+        status: SourceFileStatus.READY,
+        originalName: "ready source",
+        mimeType: "image/png",
+      },
+    });
+
+    const library = await getSkillsLibrary({ userId, now });
+    expect(library.sourceProcessing).toEqual([
+      expect.objectContaining({
+        id: linkedFailedSource.id,
+        status: SourceFileStatus.FAILED,
+        canDismiss: false,
+      }),
+    ]);
+
+    await expect(
+      dismissFailedSourceUpload({
+        userId,
+        sourceFileId: linkedFailedSource.id,
+      }),
+    ).resolves.toMatchObject({
+      status: "not-dismissed",
+      reason: "linked-source",
+    });
+    await expect(
+      dismissFailedSourceUpload({
+        userId,
+        sourceFileId: readySource.id,
+      }),
+    ).resolves.toMatchObject({
+      status: "not-dismissed",
+      reason: "not-failed",
+    });
+    await expect(
+      dismissFailedSourceUpload({
+        userId: otherUserId,
+        sourceFileId: linkedFailedSource.id,
+      }),
+    ).resolves.toMatchObject({
+      status: "not-found",
+      reason: "source-not-found",
+    });
+    await expect(
+      prisma.sourceFile.count({
+        where: {
+          id: {
+            in: [linkedFailedSource.id, readySource.id],
+          },
+        },
+      }),
+    ).resolves.toBe(2);
   });
 
   it("does not persist a source, skill, or link when generated draft validation fails", async () => {
