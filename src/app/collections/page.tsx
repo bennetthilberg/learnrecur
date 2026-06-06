@@ -1,0 +1,221 @@
+import { auth, currentUser } from "@clerk/nextjs/server";
+import Link from "next/link";
+
+import {
+  getCollectionsHome,
+  type CollectionSkillCounts,
+  type CollectionSummary,
+} from "@/lib/collections";
+import { ensureDatabaseUser } from "@/lib/users";
+
+import {
+  CollectionArchiveForm,
+  CollectionCreateForm,
+  CollectionRestoreForm,
+  CollectionUpdateForm,
+} from "./collection-forms";
+import { SkillsTopbar } from "../skills/skills-topbar";
+
+export const dynamic = "force-dynamic";
+
+export default async function CollectionsPage() {
+  const { userId } = await auth.protect();
+  const clerkUser = await currentUser();
+
+  if (!clerkUser) {
+    throw new Error(`Clerk returned no user for authenticated user ${userId}.`);
+  }
+
+  const databaseUser = await ensureDatabaseUser(clerkUser);
+
+  if (databaseUser.status !== "ready") {
+    return (
+      <main className="skillShell">
+        <SkillsTopbar current="collections" />
+        <section className="dashboardSetupPanel" aria-labelledby="collections-setup-title">
+          <p className="eyebrow">Collections</p>
+          <h1 id="collections-setup-title">Database setup needs attention.</h1>
+          <p>{databaseUser.message}</p>
+        </section>
+      </main>
+    );
+  }
+
+  const home = await getCollectionsHome({
+    userId,
+    now: new Date(),
+  });
+
+  return (
+    <main className="skillShell">
+      <SkillsTopbar current="collections" />
+
+      <header className="skillHeader">
+        <div>
+          <p className="eyebrow">Collections</p>
+          <h1>Collection management.</h1>
+          <p>
+            Create, describe, archive, and restore the study areas that organize
+            your skills.
+          </p>
+        </div>
+        <Link className="secondaryButton" href="/skills/new">
+          Add skill
+        </Link>
+      </header>
+
+      <section className="skillPanel collectionCreatePanel" aria-labelledby="create-collection-title">
+        <div className="skillPanelHeader">
+          <div>
+            <p className="eyebrow">New collection</p>
+            <h2 id="create-collection-title">Add a study area</h2>
+          </div>
+        </div>
+        <CollectionCreateForm />
+      </section>
+
+      <section className="skillPanel collectionManagementPanel" aria-labelledby="active-collections-title">
+        <div className="skillPanelHeader">
+          <div>
+            <p className="eyebrow">Active</p>
+            <h2 id="active-collections-title">Current collections</h2>
+          </div>
+          <span className="dashboardChip">{formatCount(home.activeCollections.length)}</span>
+        </div>
+
+        {home.activeCollections.length === 0 ? (
+          <CollectionEmptyState
+            title="No active collections yet."
+            detail="Create one here or add a collection name while drafting a skill."
+          />
+        ) : (
+          <div className="skillLibraryList">
+            {home.activeCollections.map((collection) => (
+              <ActiveCollectionRow collection={collection} key={collection.id} />
+            ))}
+          </div>
+        )}
+      </section>
+
+      {home.archivedCollections.length > 0 ? (
+        <section
+          className="skillPanel collectionManagementPanel skillRecoveryPanel"
+          aria-labelledby="archived-collections-title"
+        >
+          <div className="skillPanelHeader">
+            <div>
+              <p className="eyebrow">Recovery</p>
+              <h2 id="archived-collections-title">Archived collections</h2>
+            </div>
+            <span className="dashboardChip">{formatCount(home.archivedCollections.length)}</span>
+          </div>
+
+          <div className="skillLibraryList">
+            {home.archivedCollections.map((collection) => (
+              <ArchivedCollectionRow collection={collection} key={collection.id} />
+            ))}
+          </div>
+        </section>
+      ) : null}
+    </main>
+  );
+}
+
+function ActiveCollectionRow({
+  collection,
+}: {
+  collection: CollectionSummary;
+}) {
+  return (
+    <article className="skillLibraryRow collectionManagementRow">
+      <div className="skillLibraryRowMain">
+        <div>
+          <strong>{collection.name}</strong>
+          <p>{collection.description ?? "No description yet."}</p>
+        </div>
+        <span className="dashboardChip" data-tone={collection.readyNowCount > 0 ? "ready" : "neutral"}>
+          {formatCount(collection.readyNowCount)} ready
+        </span>
+      </div>
+      <CollectionMetaLine collection={collection} />
+      <div className="collectionRowActions">
+        <CollectionUpdateForm collection={collection} />
+        <CollectionArchiveForm collectionId={collection.id} />
+      </div>
+    </article>
+  );
+}
+
+function ArchivedCollectionRow({
+  collection,
+}: {
+  collection: CollectionSummary;
+}) {
+  return (
+    <article className="skillLibraryRow collectionManagementRow">
+      <div className="skillLibraryRowMain">
+        <div>
+          <strong>{collection.name}</strong>
+          <p>
+            {collection.description ??
+              "Archived from dashboard summaries. Skills inside remain recoverable."}
+          </p>
+        </div>
+        <span className="dashboardChip">Archived</span>
+      </div>
+      <CollectionMetaLine collection={collection} />
+      <CollectionRestoreForm collectionId={collection.id} />
+    </article>
+  );
+}
+
+function CollectionMetaLine({
+  collection,
+}: {
+  collection: CollectionSummary;
+}) {
+  return (
+    <div className="skillMetaLine">
+      <span>{formatSkillCount("active", collection.skillCounts.active)}</span>
+      <span>{formatSkillCount("draft", collection.skillCounts.draft)}</span>
+      <span>{formatSkillCount("paused", collection.skillCounts.paused)}</span>
+      <span>{formatSkillCount("archived", collection.skillCounts.archived)}</span>
+      <span>{formatSourceCount(collection.sourceCount)}</span>
+      <span>Updated {formatDate(collection.updatedAt)}</span>
+    </div>
+  );
+}
+
+function CollectionEmptyState({
+  title,
+  detail,
+}: {
+  title: string;
+  detail: string;
+}) {
+  return (
+    <div className="dashboardEmptyState">
+      <h3>{title}</h3>
+      <p>{detail}</p>
+    </div>
+  );
+}
+
+function formatSkillCount(label: keyof CollectionSkillCounts, count: number) {
+  return `${formatCount(count)} ${label}`;
+}
+
+function formatSourceCount(count: number) {
+  return count === 1 ? "1 source" : `${formatCount(count)} sources`;
+}
+
+function formatCount(count: number) {
+  return new Intl.NumberFormat("en-US").format(count);
+}
+
+function formatDate(date: Date) {
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+}

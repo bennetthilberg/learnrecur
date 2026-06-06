@@ -1578,6 +1578,69 @@ a {
   font-size: 12px;
 }
 
+.collectionCreatePanel,
+.collectionManagementPanel {
+  width: min(100%, 1040px);
+  margin: 18px auto 0;
+}
+
+.collectionCreateForm,
+.collectionInlineForm,
+.collectionRestoreForm {
+  display: grid;
+  gap: 12px;
+}
+
+.collectionManagementRow .skillLibraryRowMain strong {
+  color: var(--lr-ink);
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.collectionRowActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 16px;
+  margin-top: 13px;
+}
+
+.collectionInlineDetails {
+  min-width: min(100%, 290px);
+  color: var(--lr-muted);
+  font-size: 13px;
+}
+
+.collectionInlineDetails summary {
+  cursor: pointer;
+  color: var(--lr-primary-ink);
+  font-weight: 500;
+  list-style-position: inside;
+}
+
+.collectionInlineDetailsDanger summary {
+  color: var(--lr-error);
+}
+
+.collectionInlineForm {
+  margin-top: 10px;
+}
+
+.collectionInlineForm p {
+  margin: 0;
+  color: var(--lr-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.collectionInlineForm .skillFormMessage,
+.collectionRestoreForm .skillFormMessage {
+  max-width: 360px;
+  padding: 8px 10px;
+  font-size: 12px;
+}
+
 @media (max-width: 780px) {
   .authShell {
     grid-template-columns: 1fr;
@@ -1672,6 +1735,10 @@ a {
     display: grid;
   }
 
+  .collectionRowActions {
+    display: grid;
+  }
+
   .skillRefillForm {
     justify-items: start;
   }
@@ -1720,6 +1787,16 @@ a {
 
   .dashboardMetricGrid {
     grid-template-columns: 1fr;
+  }
+
+  .practiceNav {
+    flex-wrap: wrap;
+  }
+
+  .practiceNav a {
+    flex: 1 1 calc(50% - 4px);
+    padding-inline: 6px;
+    font-size: 12px;
   }
 
   .dashboardMetricCard {

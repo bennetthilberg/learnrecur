@@ -4,7 +4,7 @@ import Link from "next/link";
 export function SkillsTopbar({
   current,
 }: {
-  current: "dashboard" | "practice" | "skills" | "new" | "skill";
+  current: "dashboard" | "practice" | "skills" | "collections" | "new" | "skill";
 }) {
   return (
     <header className="practiceTopbar">
@@ -23,6 +23,9 @@ export function SkillsTopbar({
           href="/skills"
         >
           Skills
+        </Link>
+        <Link aria-current={current === "collections" ? "page" : undefined} href="/collections">
+          Collections
         </Link>
         <Link
           aria-current={current === "new" ? "page" : undefined}

@@ -52,6 +52,7 @@ export default async function PracticePage() {
             Practice
           </Link>
           <Link href="/skills">Skills</Link>
+          <Link href="/collections">Collections</Link>
           <Link href="/skills/new">Add skill</Link>
         </nav>
         <UserButton />

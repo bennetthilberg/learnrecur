@@ -91,6 +91,9 @@ export default async function DashboardPage() {
               <p className="eyebrow">Collections</p>
               <h2 id="collections-title">Study areas</h2>
             </div>
+            <Link className="dashboardPanelLink" href="/collections">
+              Manage collections
+            </Link>
           </div>
 
           {dashboard.collections.length === 0 ? (
@@ -195,6 +198,7 @@ function DashboardTopbar() {
         </Link>
         <Link href="/practice">Practice</Link>
         <Link href="/skills">Skills</Link>
+        <Link href="/collections">Collections</Link>
         <Link href="/skills/new">Add skill</Link>
       </nav>
       <UserButton />
