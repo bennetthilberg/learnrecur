@@ -2,10 +2,10 @@ import "server-only";
 
 import {
   AnswerKind,
+  CollectionStatus,
   ExerciseAttemptResult,
   ExerciseVerificationStatus,
   SkillStatus,
-  type CollectionStatus,
   type Prisma,
   type SkillFsrsState,
 } from "@/generated/prisma/client";
@@ -82,6 +82,7 @@ export async function getDashboardHome(input: GetDashboardHomeInput): Promise<Da
     prisma.collection.findMany({
       where: {
         userId: input.userId,
+        status: CollectionStatus.ACTIVE,
       },
       orderBy: [{ name: "asc" }, { id: "asc" }],
       select: {

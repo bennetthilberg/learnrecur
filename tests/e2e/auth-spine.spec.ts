@@ -61,4 +61,11 @@ test.describe("auth spine", () => {
     await expect(page).toHaveURL(/\/sign-in|accounts\.dev\/sign-in/);
     await expect(page.getByText(/review the definition/i)).toHaveCount(0);
   });
+
+  test("collection management is protected for signed-out users", async ({ page }) => {
+    await page.goto("/collections");
+
+    await expect(page).toHaveURL(/\/sign-in|accounts\.dev\/sign-in/);
+    await expect(page.getByText(/collection management/i)).toHaveCount(0);
+  });
 });
