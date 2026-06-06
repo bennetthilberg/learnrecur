@@ -42,9 +42,9 @@ export async function createCollectionAction(
     input: formDataToCollectionInput(formData),
   });
 
-  revalidateCollectionPaths();
-
   if (result.status === "created") {
+    revalidateCollectionPaths();
+
     return {
       status: "saved",
       message: "Collection created.",
@@ -83,9 +83,9 @@ export async function updateCollectionAction(
     input: formDataToCollectionInput(formData),
   });
 
-  revalidateCollectionPaths();
-
   if (result.status === "updated") {
+    revalidateCollectionPaths();
+
     return {
       status: "saved",
       message: "Collection updated.",
@@ -130,9 +130,9 @@ export async function archiveCollectionAction(
     collectionId,
   });
 
-  revalidateCollectionPaths();
-
   if (result.status === "updated") {
+    revalidateCollectionPaths();
+
     return {
       status: "saved",
       message: result.message,
@@ -170,9 +170,9 @@ export async function restoreCollectionAction(
     collectionId,
   });
 
-  revalidateCollectionPaths();
-
   if (result.status === "updated") {
+    revalidateCollectionPaths();
+
     return {
       status: "saved",
       message: result.message,

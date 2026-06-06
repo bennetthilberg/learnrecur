@@ -36,12 +36,13 @@ export function CollectionCreateForm() {
         </label>
         <label className="skillField">
           <span>Description</span>
-          <input
+          <textarea
             aria-invalid={hasFieldError(state, "description") ? "true" : undefined}
             disabled={pending}
             maxLength={500}
             name="description"
             placeholder="Optional"
+            rows={3}
           />
           <FieldError state={state} name="description" />
         </label>

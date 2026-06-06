@@ -109,6 +109,8 @@ type CollectionNotFoundResult = {
   message: string;
 };
 
+type CollectionMutationClient = Pick<Prisma.TransactionClient, "$executeRaw" | "collection">;
+
 type CollectionRecord = {
   id: string;
   name: string;
@@ -222,28 +224,33 @@ export async function createCollection(input: {
   }
 
   const prisma = getPrisma();
-  const duplicate = await findActiveCollectionNameConflict(prisma, {
-    userId: input.userId,
-    nameKey: normalized.value.nameKey,
-  });
 
-  if (duplicate) {
-    return duplicateCollectionName();
-  }
+  return prisma.$transaction(async (tx) => {
+    await lockActiveCollectionName(tx, input.userId, normalized.value.nameKey);
 
-  const collection = await prisma.collection.create({
-    data: {
+    const duplicate = await findActiveCollectionNameConflict(tx, {
       userId: input.userId,
-      name: normalized.value.name,
-      description: normalized.value.description,
-      status: CollectionStatus.ACTIVE,
-    },
-  });
+      nameKey: normalized.value.nameKey,
+    });
 
-  return {
-    status: "created",
-    collection,
-  };
+    if (duplicate) {
+      return duplicateCollectionName();
+    }
+
+    const collection = await tx.collection.create({
+      data: {
+        userId: input.userId,
+        name: normalized.value.name,
+        description: normalized.value.description,
+        status: CollectionStatus.ACTIVE,
+      },
+    });
+
+    return {
+      status: "created",
+      collection,
+    };
+  });
 }
 
 export async function updateCollection(input: {
@@ -258,46 +265,50 @@ export async function updateCollection(input: {
   }
 
   const prisma = getPrisma();
-  const collection = await prisma.collection.findFirst({
-    where: {
-      id: input.collectionId,
-      userId: input.userId,
-    },
-  });
-
-  if (!collection) {
-    return collectionNotFound();
-  }
-
-  if (collection.status === CollectionStatus.ACTIVE) {
-    const duplicate = await findActiveCollectionNameConflict(prisma, {
-      userId: input.userId,
-      nameKey: normalized.value.nameKey,
-      excludeCollectionId: collection.id,
-    });
-
-    if (duplicate) {
-      return duplicateCollectionName();
-    }
-  }
-
-  const updated = await prisma.collection.update({
-    where: {
-      id_userId: {
-        id: collection.id,
+  return prisma.$transaction(async (tx) => {
+    const collection = await tx.collection.findFirst({
+      where: {
+        id: input.collectionId,
         userId: input.userId,
       },
-    },
-    data: {
-      name: normalized.value.name,
-      description: normalized.value.description,
-    },
-  });
+    });
 
-  return {
-    status: "updated",
-    collection: updated,
-  };
+    if (!collection) {
+      return collectionNotFound();
+    }
+
+    if (collection.status === CollectionStatus.ACTIVE) {
+      await lockActiveCollectionName(tx, input.userId, normalized.value.nameKey);
+
+      const duplicate = await findActiveCollectionNameConflict(tx, {
+        userId: input.userId,
+        nameKey: normalized.value.nameKey,
+        excludeCollectionId: collection.id,
+      });
+
+      if (duplicate) {
+        return duplicateCollectionName();
+      }
+    }
+
+    const updated = await tx.collection.update({
+      where: {
+        id_userId: {
+          id: collection.id,
+          userId: input.userId,
+        },
+      },
+      data: {
+        name: normalized.value.name,
+        description: normalized.value.description,
+      },
+    });
+
+    return {
+      status: "updated",
+      collection: updated,
+    };
+  });
 }
 
 export async function archiveCollection(input: {
@@ -349,57 +360,63 @@ export async function restoreCollection(input: {
   collectionId: string;
 }): Promise<CollectionLifecycleResult> {
   const prisma = getPrisma();
-  const collection = await prisma.collection.findFirst({
-    where: {
-      id: input.collectionId,
-      userId: input.userId,
-    },
-  });
 
-  if (!collection) {
-    return collectionNotFound();
-  }
-
-  if (collection.status === CollectionStatus.ACTIVE) {
-    return {
-      status: "not-updated",
-      reason: "already-active",
-      message: "This collection is already active.",
-    };
-  }
-
-  const duplicate = await findActiveCollectionNameConflict(prisma, {
-    userId: input.userId,
-    nameKey: toCollectionNameKey(collection.name),
-    excludeCollectionId: collection.id,
-  });
-
-  if (duplicate) {
-    return duplicateCollectionName();
-  }
-
-  const updated = await prisma.collection.update({
-    where: {
-      id_userId: {
-        id: collection.id,
+  return prisma.$transaction(async (tx) => {
+    const collection = await tx.collection.findFirst({
+      where: {
+        id: input.collectionId,
         userId: input.userId,
       },
-    },
-    data: {
-      status: CollectionStatus.ACTIVE,
-    },
-  });
+    });
 
-  return {
-    status: "updated",
-    previousStatus: collection.status,
-    collection: updated,
-    message: "Collection restored.",
-  };
+    if (!collection) {
+      return collectionNotFound();
+    }
+
+    if (collection.status === CollectionStatus.ACTIVE) {
+      return {
+        status: "not-updated",
+        reason: "already-active",
+        message: "This collection is already active.",
+      };
+    }
+
+    const nameKey = toCollectionNameKey(collection.name);
+    await lockActiveCollectionName(tx, input.userId, nameKey);
+
+    const duplicate = await findActiveCollectionNameConflict(tx, {
+      userId: input.userId,
+      nameKey,
+      excludeCollectionId: collection.id,
+    });
+
+    if (duplicate) {
+      return duplicateCollectionName();
+    }
+
+    const updated = await tx.collection.update({
+      where: {
+        id_userId: {
+          id: collection.id,
+          userId: input.userId,
+        },
+      },
+      data: {
+        status: CollectionStatus.ACTIVE,
+      },
+    });
+
+    return {
+      status: "updated",
+      previousStatus: collection.status,
+      collection: updated,
+      message: "Collection restored.",
+    };
+  });
 }
 
 async function findActiveCollectionNameConflict(
-  prisma: ReturnType<typeof getPrisma>,
+  prisma: Pick<CollectionMutationClient, "collection">,
   input: {
     userId: string;
     nameKey: string;
@@ -427,6 +444,16 @@ async function findActiveCollectionNameConflict(
   return activeCollections.find(
     (collection) => toCollectionNameKey(collection.name) === input.nameKey,
   );
+}
+
+async function lockActiveCollectionName(
+  prisma: Pick<CollectionMutationClient, "$executeRaw">,
+  userId: string,
+  nameKey: string,
+) {
+  const lockKey = `learnrecur:active-collection-name:${userId}:${nameKey}`;
+  // Serializes service-level active name checks without adding a V0 schema column.
+  await prisma.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`;
 }
 
 function toCollectionSummary(collection: CollectionRecord, now: Date): CollectionSummary {
@@ -527,5 +554,5 @@ function optionalTrimmedString() {
     }
 
     return value;
-  }, z.string().trim().nullable());
+  }, z.string().nullable());
 }
