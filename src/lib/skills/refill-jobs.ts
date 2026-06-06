@@ -297,24 +297,19 @@ async function queueExerciseRefillJob({
 
   const prisma = getPrisma();
   const sender = input.sender ?? inngestExerciseRefillEventSender;
+  const createJob = () =>
+    createNewGenerationJob({
+      userId: input.userId,
+      skillId: input.skillId,
+      kind,
+      promptVersion,
+      requestedCount,
+      model: input.model,
+    });
   let generationJob: { id: string };
 
   try {
-    generationJob = await prisma.generationJob.create({
-      data: {
-        userId: input.userId,
-        skillId: input.skillId,
-        kind,
-        status: GenerationJobStatus.PENDING,
-        provider: GEMINI_PROVIDER,
-        model: input.model?.trim() || process.env.GEMINI_MODEL?.trim() || "gemini-3.5-flash",
-        promptVersion,
-        requestedCount,
-      },
-      select: {
-        id: true,
-      },
-    });
+    generationJob = await createJob();
   } catch (error) {
     if (!isUniqueConstraintError(error)) {
       throw error;
@@ -323,10 +318,14 @@ async function queueExerciseRefillJob({
     const activeJob = await findActiveGenerationJob(input.userId, input.skillId, kind);
 
     if (!activeJob) {
-      throw error;
+      try {
+        generationJob = await createJob();
+      } catch {
+        throw error;
+      }
+    } else {
+      return jobInProgress(activeJob.id, "Exercise generation is already queued or running.");
     }
-
-    return jobInProgress(activeJob.id, "Exercise generation is already queued or running.");
   }
 
   try {
@@ -369,6 +368,38 @@ async function queueExerciseRefillJob({
     targetReadyCount,
     message: "Refill queued. Refresh in a moment to see the updated exercise inventory.",
   };
+}
+
+async function createNewGenerationJob({
+  userId,
+  skillId,
+  kind,
+  promptVersion,
+  requestedCount,
+  model,
+}: {
+  userId: string;
+  skillId: string;
+  kind: GenerationJobKind;
+  promptVersion: string;
+  requestedCount: number;
+  model?: string;
+}): Promise<{ id: string }> {
+  return getPrisma().generationJob.create({
+    data: {
+      userId,
+      skillId,
+      kind,
+      status: GenerationJobStatus.PENDING,
+      provider: GEMINI_PROVIDER,
+      model: model?.trim() || process.env.GEMINI_MODEL?.trim() || "gemini-3.5-flash",
+      promptVersion,
+      requestedCount,
+    },
+    select: {
+      id: true,
+    },
+  });
 }
 
 async function findActiveGenerationJob(
