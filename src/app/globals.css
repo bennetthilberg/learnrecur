@@ -2882,20 +2882,25 @@ a {
 }
 
 .historyAnswerLine {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2px 5px;
-  align-items: baseline;
+  display: inline-grid;
+  max-width: 100%;
+  gap: 2px;
+  border: 1px solid var(--lr-line);
+  border-radius: var(--lr-radius);
+  background: var(--lr-panel-soft);
   color: var(--lr-faint);
   font-size: var(--lr-text-2xs);
   font-weight: 500;
   line-height: var(--lr-leading-compact);
+  padding: 7px 9px;
 }
 
 .historyAnswerLine strong {
+  overflow-wrap: anywhere;
   color: var(--lr-ink-soft);
   font-size: var(--lr-text-xs);
   font-weight: 500;
+  line-height: var(--lr-leading-label);
 }
 
 .historyTransitionText {
@@ -3480,6 +3485,18 @@ a {
     height: 1px;
     clip-path: inset(50%);
     white-space: nowrap;
+  }
+
+  .historyTable thead tr,
+  .historyTable thead th {
+    overflow: hidden;
+    width: 1px;
+    max-width: 1px;
+    height: 1px;
+    border: 0;
+    padding: 0;
+    font-size: 0;
+    line-height: 0;
   }
 
   .historyTable tr {
