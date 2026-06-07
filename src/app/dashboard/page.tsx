@@ -49,6 +49,9 @@ export default async function DashboardPage() {
           </p>
         </div>
         <div className="dashboardHeaderActions">
+          <Link className="secondaryButton" href="/history">
+            Review history
+          </Link>
           <Link className="secondaryButton" href="/settings">
             Reminder settings
           </Link>
@@ -209,6 +212,7 @@ function DashboardTopbar() {
           Dashboard
         </Link>
         <Link href="/practice">Practice</Link>
+        <Link href="/history">History</Link>
         <Link href="/skills">Skills</Link>
         <Link href="/collections">Collections</Link>
         <Link href="/settings">Settings</Link>

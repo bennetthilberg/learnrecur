@@ -1674,6 +1674,111 @@ a {
   color: var(--lr-muted);
 }
 
+.historyTableWrapper {
+  overflow-x: auto;
+}
+
+.historyTable {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.historyTable th,
+.historyTable td {
+  border-top: 1px solid var(--lr-line);
+  padding: 14px 12px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.historyTable th {
+  color: var(--lr-faint);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.historyTable tbody tr:first-child td {
+  border-top-color: var(--lr-line-strong);
+}
+
+.historyTable td {
+  color: var(--lr-ink);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.historyPrimaryText,
+.historySkillLink {
+  display: block;
+  color: var(--lr-ink);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.historySkillLink:hover {
+  color: var(--lr-primary-ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.historySubText {
+  display: block;
+  margin-top: 5px;
+  color: var(--lr-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.skillReviewList {
+  display: grid;
+}
+
+.skillReviewRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  border-top: 1px solid var(--lr-line);
+  padding: 14px 0;
+}
+
+.skillReviewRow:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.skillReviewRow:last-child {
+  padding-bottom: 0;
+}
+
+.skillReviewRow strong {
+  color: var(--lr-ink);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.skillReviewRow p {
+  margin: 5px 0 0;
+  color: var(--lr-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.skillReviewSchedule {
+  display: flex;
+  max-width: 52%;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 7px;
+  color: var(--lr-faint);
+  font-size: 12px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.35;
+}
+
 .sourceProcessingControls {
   display: flex;
   flex-wrap: wrap;
@@ -1873,6 +1978,57 @@ a {
   .skillTwoColumnFields,
   .skillStatusGrid {
     grid-template-columns: 1fr;
+  }
+
+  .historyTable,
+  .historyTable thead,
+  .historyTable tbody,
+  .historyTable tr,
+  .historyTable th,
+  .historyTable td {
+    display: block;
+  }
+
+  .historyTable thead {
+    position: absolute;
+    overflow: hidden;
+    width: 1px;
+    height: 1px;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .historyTable tr {
+    border-top: 1px solid var(--lr-line);
+    padding: 12px 0;
+  }
+
+  .historyTable tr:first-child {
+    border-top-color: var(--lr-line-strong);
+  }
+
+  .historyTable td {
+    border-top: 0;
+    padding: 7px 0;
+  }
+
+  .historyTable td::before {
+    display: block;
+    margin-bottom: 3px;
+    color: var(--lr-faint);
+    content: attr(data-label);
+    font-size: 11px;
+    font-weight: 500;
+  }
+
+  .skillReviewRow {
+    display: grid;
+  }
+
+  .skillReviewSchedule {
+    max-width: none;
+    justify-content: flex-start;
   }
 }
 

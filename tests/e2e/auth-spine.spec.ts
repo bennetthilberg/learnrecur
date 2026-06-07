@@ -80,4 +80,11 @@ test.describe("auth spine", () => {
     await expect(page).toHaveURL(/\/sign-in|accounts\.dev\/sign-in/);
     await expect(page.getByText(/reminder settings/i)).toHaveCount(0);
   });
+
+  test("practice history is protected for signed-out users", async ({ page }) => {
+    await page.goto("/history");
+
+    await expect(page).toHaveURL(/\/sign-in|accounts\.dev\/sign-in/);
+    await expect(page.getByText(/review ledger/i)).toHaveCount(0);
+  });
 });

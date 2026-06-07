@@ -7,6 +7,7 @@ export function SkillsTopbar({
   current:
     | "dashboard"
     | "practice"
+    | "history"
     | "skills"
     | "collections"
     | "settings"
@@ -24,6 +25,9 @@ export function SkillsTopbar({
         </Link>
         <Link aria-current={current === "practice" ? "page" : undefined} href="/practice">
           Practice
+        </Link>
+        <Link aria-current={current === "history" ? "page" : undefined} href="/history">
+          History
         </Link>
         <Link
           aria-current={current === "skills" || current === "skill" ? "page" : undefined}
