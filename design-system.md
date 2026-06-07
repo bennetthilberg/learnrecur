@@ -122,6 +122,10 @@ Destructive secondary actions should use the danger-tinted surface with danger i
 
 Buttons should not be oversized. Use compact, tool-like button proportions.
 
+### Forms
+
+Form controls should inherit the app's neutral system rather than browser defaults. Placeholder text uses the faint steel token with full opacity; disabled fields use a quiet panel fill and muted text so state is visible without washing out labels.
+
 ### Cards And Panels
 
 Surface separation: hairline.

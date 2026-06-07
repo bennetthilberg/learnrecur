@@ -98,6 +98,12 @@ select {
   font-family: inherit;
 }
 
+input::placeholder,
+textarea::placeholder {
+  color: var(--lr-faint);
+  opacity: 1;
+}
+
 a {
   color: inherit;
 }
@@ -1537,6 +1543,14 @@ a {
 .skillField select[aria-invalid="true"],
 .skillField textarea[aria-invalid="true"] {
   border-color: hsl(6 63% 46% / 0.58);
+}
+
+.skillField input:disabled,
+.skillField select:disabled,
+.skillField textarea:disabled {
+  cursor: not-allowed;
+  background: var(--lr-panel-soft);
+  color: var(--lr-muted);
 }
 
 .skillField em {
