@@ -582,33 +582,70 @@ a {
   gap: 14px;
 }
 
+.dashboardCollectionRow {
+  align-items: flex-start;
+}
+
+.dashboardCollectionMain {
+  display: grid;
+  min-width: 0;
+  gap: 10px;
+}
+
+.dashboardCollectionFacts {
+  display: inline-grid;
+  width: fit-content;
+  max-width: 100%;
+  grid-template-columns: repeat(2, minmax(74px, auto));
+  margin: 0;
+  border-top: 1px solid var(--lr-line);
+  border-bottom: 1px solid var(--lr-line);
+}
+
+.dashboardCollectionFacts div {
+  display: grid;
+  gap: 3px;
+  padding: 8px 11px;
+}
+
+.dashboardCollectionFacts div:first-child {
+  padding-left: 0;
+}
+
+.dashboardCollectionFacts div + div {
+  border-left: 1px solid var(--lr-line);
+}
+
+.dashboardCollectionFacts dt,
+.dashboardCollectionFacts dd {
+  margin: 0;
+}
+
+.dashboardCollectionFacts dt {
+  color: var(--lr-faint);
+  font-size: var(--lr-text-2xs);
+  font-weight: 500;
+  line-height: var(--lr-leading-label);
+}
+
+.dashboardCollectionFacts dd {
+  color: var(--lr-ink);
+  font-size: var(--lr-text-sm);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  line-height: var(--lr-leading-label);
+}
+
+.dashboardCollectionFacts dd[data-ready="true"] {
+  color: var(--lr-primary-ink);
+}
+
 .collectionRowPractice {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
   gap: 10px;
-}
-
-.collectionRowReady {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 4px;
-  color: var(--lr-muted);
-  font-size: var(--lr-text-xs);
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-  line-height: var(--lr-leading-label);
-}
-
-.collectionRowReady strong {
-  color: var(--lr-ink);
-  font-size: var(--lr-text-sm);
-  font-weight: 500;
-}
-
-.collectionRowReady[data-ready="true"] strong {
-  color: var(--lr-primary-ink);
 }
 
 .collectionRow h3,
@@ -3482,6 +3519,11 @@ a {
     align-items: flex-start;
     display: grid;
     justify-content: stretch;
+  }
+
+  .dashboardCollectionFacts {
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .dashboardHeader .primaryButton,

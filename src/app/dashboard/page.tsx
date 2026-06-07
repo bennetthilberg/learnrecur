@@ -113,18 +113,26 @@ export default async function DashboardPage() {
           ) : (
             <div className="collectionList">
               {dashboard.collections.map((collection) => (
-                <article className="collectionRow" key={collection.id}>
-                  <div>
+                <article className="collectionRow dashboardCollectionRow" key={collection.id}>
+                  <div className="dashboardCollectionMain">
                     <h3>{collection.name}</h3>
-                    <p>{formatCount(collection.activeSkillCount)} active skills</p>
+                    <dl
+                      className="dashboardCollectionFacts"
+                      aria-label={`${collection.name} collection summary`}
+                    >
+                      <div>
+                        <dt>Ready</dt>
+                        <dd data-ready={collection.readyNowCount > 0 ? "true" : "false"}>
+                          {formatCount(collection.readyNowCount)}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Active</dt>
+                        <dd>{formatCount(collection.activeSkillCount)}</dd>
+                      </div>
+                    </dl>
                   </div>
                   <div className="collectionRowPractice">
-                    <span
-                      className="collectionRowReady"
-                      data-ready={collection.readyNowCount > 0 ? "true" : "false"}
-                    >
-                      <strong>{formatCount(collection.readyNowCount)}</strong> ready
-                    </span>
                     <Link
                       aria-label={`Practice collection ${collection.name}`}
                       className="dashboardPanelLink"
