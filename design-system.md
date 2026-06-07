@@ -27,7 +27,7 @@ Mantine components are allowed, but Mantine defaults are not the design language
 
 ### Primary Color
 
-- Primary blue: `#034cd5`.
+- Primary blue: `hsl(219 97% 42%)` (`#034cd5`).
 - White text contrast on primary: approximately `7.00:1`.
 - Use this for primary actions, selected states, progress, active navigation, and high-signal system UI.
 
@@ -40,6 +40,14 @@ Rationale: this keeps the Login.gov-like professional blue direction while reach
 - Body weight: typically `400`.
 - Supporting labels and controls: `500` to `560` only when needed.
 - Numeric text: Lexend with tabular figures where possible.
+- Type scale:
+  - `11px` only for cramped responsive navigation.
+  - `12px` for chips, table metadata, compact labels, and counters.
+  - `13px` for secondary labels and compact supporting copy.
+  - `14px` for controls.
+  - `15px` for body copy and row titles.
+  - `16px+` only for emphasized form/report text and major wordmarks.
+  - Page headings use responsive tokens rather than ad hoc viewport math.
 
 Rationale: Lexend can look chunky, so avoid very heavy headings. The practical weight jump in the loaded Google Font is not smooth; `500` is the preferred heading appearance.
 
@@ -74,18 +82,18 @@ Rationale: a cool-tinted canvas supports the blue system and avoids default gray
 
 Current neutral family: Steel.
 
-- Ink: `#131a24`.
-- Muted text: `#4b5968`.
-- Faint text: `#687789`.
-- Line: `#dce3eb`.
-- Page base: `#f6f8fb`.
-- Panel: `#ffffff`.
+- Ink: `hsl(215 31% 11%)`.
+- Muted text: `hsl(211 16% 35%)`.
+- Faint text: `hsl(213 14% 47%)`.
+- Line: `hsl(212 27% 89%)`.
+- Page base: `hsl(216 38% 97%)`.
+- Panel: `hsl(0 0% 100%)`.
 
 Rationale: neutrals should carry a subtle blue/steel cast. Avoid warm gray, zinc/slate defaults, washed-out body copy, and low-contrast gray text.
 
 ### Accent
 
-- Accent: Amber `#b76a00`.
+- Accent: Amber `hsl(35 100% 36%)`.
 - Accent ink: `#6f4200`.
 
 Use amber for review warnings, source gaps, and secondary attention. Do not drift this accent toward purple.
@@ -94,7 +102,7 @@ Use amber for review warnings, source gaps, and secondary attention. Do not drif
 
 Current default: Soft.
 
-- Shadow: `0 1px 2px rgba(18, 29, 51, 0.035), 0 8px 18px rgba(18, 29, 51, 0.045)`.
+- Shadow: `0 1px 2px hsl(219 48% 10% / 0.035), 0 8px 18px hsl(219 48% 10% / 0.045)`.
 - Borders remain subtle unless a future surface-separation decision removes them.
 
 Rationale: two subtle shadows feel more natural than one generic shadow. Avoid glow, heavy blur, and identical elevation on everything.
