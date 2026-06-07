@@ -422,20 +422,23 @@ a {
 .dashboardMetricGrid {
   display: grid;
   width: min(100%, 1040px);
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: minmax(280px, 1.45fr) repeat(3, minmax(130px, 0.7fr));
   gap: 12px;
   margin: 0 auto 18px;
 }
 
 .dashboardMetricCard {
+  display: grid;
+  align-content: start;
   min-height: 132px;
   box-shadow: none;
-  padding: 20px;
+  padding: 18px;
 }
 
 .dashboardMetricCard:first-child {
   border-color: hsl(219 97% 42% / 0.24);
   background: var(--lr-panel-cool);
+  padding: 24px;
 }
 
 .dashboardMetricCard:first-child strong {
@@ -459,6 +462,12 @@ a {
   font-weight: 500;
   font-variant-numeric: tabular-nums;
   line-height: var(--lr-leading-metric);
+}
+
+.dashboardMetricCard:not(:first-child) strong {
+  margin: 11px 0 7px;
+  font-size: var(--lr-text-2xl);
+  line-height: var(--lr-leading-title);
 }
 
 .dashboardContentGrid {
@@ -2232,6 +2241,10 @@ a {
 
   .dashboardMetricGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboardMetricCard:first-child {
+    grid-column: 1 / -1;
   }
 
   .dashboardContentGrid {
