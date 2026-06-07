@@ -498,12 +498,17 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
           role="status"
         >
           <h2>{isCorrect ? "Correct." : "Not quite."}</h2>
-          <p>
-            Correct answer:{" "}
-            <strong>
-              <MathText text={checkedFeedback.correctAnswerDisplay} />
-            </strong>
-          </p>
+          <dl
+            className="practiceFeedbackAnswer"
+            aria-label={`Correct answer: ${checkedFeedback.correctAnswerDisplay}`}
+          >
+            <div>
+              <dt>Correct answer</dt>
+              <dd>
+                <MathText text={checkedFeedback.correctAnswerDisplay} />
+              </dd>
+            </div>
+          </dl>
           {checkedFeedback.explanation ? (
             <p>
               <MathText text={checkedFeedback.explanation} />

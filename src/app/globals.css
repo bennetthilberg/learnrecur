@@ -1222,6 +1222,45 @@ a {
   line-height: var(--lr-leading-title);
 }
 
+.practiceFeedbackAnswer {
+  display: grid;
+  margin: 10px 0;
+  border-top: 1px solid var(--lr-line);
+  border-bottom: 1px solid var(--lr-line);
+  padding: 9px 0;
+}
+
+.practiceFeedback[data-tone="correct"] .practiceFeedbackAnswer {
+  border-color: hsl(151 62% 21% / 0.18);
+}
+
+.practiceFeedback[data-tone="incorrect"] .practiceFeedbackAnswer {
+  border-color: hsl(4 70% 32% / 0.18);
+}
+
+.practiceFeedbackAnswer div {
+  display: grid;
+  gap: 3px;
+}
+
+.practiceFeedbackAnswer dt,
+.practiceFeedbackAnswer dd {
+  margin: 0;
+}
+
+.practiceFeedbackAnswer dt {
+  font-size: var(--lr-text-2xs);
+  font-weight: 500;
+  line-height: var(--lr-leading-label);
+}
+
+.practiceFeedbackAnswer dd {
+  color: var(--lr-ink);
+  font-size: var(--lr-text-md);
+  font-weight: 500;
+  line-height: var(--lr-leading-copy);
+}
+
 .practiceFeedback p,
 .practiceStatusLine,
 .practiceEmpty p {
@@ -1236,7 +1275,8 @@ a {
 }
 
 .practiceFeedback[data-tone] h2,
-.practiceFeedback[data-tone] p {
+.practiceFeedback[data-tone] p,
+.practiceFeedback[data-tone] .practiceFeedbackAnswer dd {
   color: inherit;
 }
 
