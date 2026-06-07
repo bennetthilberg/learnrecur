@@ -15,8 +15,8 @@ import {
 } from "@/lib/practice/history";
 import {
   formatDueLabel,
-  formatHistoryEnum,
-  formatNullableHistoryEnum,
+  formatHistoryLabel,
+  formatNullableHistoryLabel,
   formatResponseTime,
   formatReviewDate,
   formatReviewResult,
@@ -246,7 +246,7 @@ export default async function SkillPage({
               label="Collection"
               value={skill.collection?.name ?? "Uncollected"}
             />
-            <SkillStatusSummaryItem label="FSRS state" value={formatHistoryEnum(skill.fsrsState)} />
+            <SkillStatusSummaryItem label="FSRS state" value={formatHistoryLabel(skill.fsrsState)} />
             <SkillStatusSummaryItem label="Reviews" value={formatCount(skill.repetitions)} />
             <SkillStatusSummaryItem label="Exercises" value={formatCount(skill._count.exercises)} />
           </dl>
@@ -653,14 +653,14 @@ function SkillRecentReviewsPanel({ reviews }: { reviews: PracticeHistoryReview[]
             <div>
               <strong>{formatReviewDate(review.reviewedAt)}</strong>
               <p>
-                {formatReviewResult(review.result)} / {formatHistoryEnum(review.finalRating)} /{" "}
+                {formatReviewResult(review.result)} / {formatHistoryLabel(review.finalRating)} /{" "}
                 {formatResponseTime(review.responseMs)}
               </p>
             </div>
             <div className="skillReviewSchedule">
-              <span>{formatNullableHistoryEnum(review.previousState)}</span>
+              <span>{formatNullableHistoryLabel(review.previousState)}</span>
               <span aria-hidden="true">to</span>
-              <span>{formatNullableHistoryEnum(review.nextState)}</span>
+              <span>{formatNullableHistoryLabel(review.nextState)}</span>
               <span>Next: {formatDueLabel(review.nextDueAt)}</span>
             </div>
           </article>

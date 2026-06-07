@@ -8,6 +8,8 @@ import {
 import {
   formatDueLabel,
   formatHistoryEnum,
+  formatHistoryLabel,
+  formatNullableHistoryLabel,
   formatResponseTime,
   formatReviewResult,
 } from "@/lib/practice/history-formatters";
@@ -140,11 +142,11 @@ function HistoryTable({ reviews }: { reviews: PracticeHistoryReview[] }) {
                 <span className="historySubText">{formatResponseTime(review.responseMs)}</span>
               </td>
               <td data-label="Rating">
-                <span className="historyPrimaryText">{formatLedgerEnum(review.finalRating)}</span>
+                <span className="historyPrimaryText">{formatHistoryLabel(review.finalRating)}</span>
                 <span className="historyTransitionText">
-                  <span>{formatNullableLedgerEnum(review.previousState)}</span>
+                  <span>{formatNullableHistoryLabel(review.previousState)}</span>
                   <span aria-hidden="true">to</span>
-                  <span>{formatNullableLedgerEnum(review.nextState)}</span>
+                  <span>{formatNullableHistoryLabel(review.nextState)}</span>
                 </span>
               </td>
               <td data-label="Schedule">
@@ -179,18 +181,6 @@ function formatReviewTime(date: Date) {
   });
 }
 
-function formatLedgerEnum(value: string) {
-  return toTitleCase(formatHistoryEnum(value));
-}
-
-function formatNullableLedgerEnum(value: string | null) {
-  return value ? formatLedgerEnum(value) : "Unknown";
-}
-
 function formatCount(count: number) {
   return new Intl.NumberFormat("en-US").format(count);
-}
-
-function toTitleCase(value: string) {
-  return value.replace(/\b[a-z]/g, (letter) => letter.toUpperCase());
 }
