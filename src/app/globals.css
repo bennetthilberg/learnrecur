@@ -598,18 +598,16 @@ a {
   max-width: 100%;
   grid-template-columns: repeat(2, minmax(74px, auto));
   margin: 0;
-  border-top: 1px solid var(--lr-line);
-  border-bottom: 1px solid var(--lr-line);
+  overflow: hidden;
+  border: 1px solid var(--lr-line);
+  border-radius: var(--lr-radius);
+  background: var(--lr-panel-soft);
 }
 
 .dashboardCollectionFacts div {
   display: grid;
   gap: 3px;
   padding: 8px 11px;
-}
-
-.dashboardCollectionFacts div:first-child {
-  padding-left: 0;
 }
 
 .dashboardCollectionFacts div + div {
