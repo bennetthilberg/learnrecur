@@ -234,14 +234,7 @@ function ActiveSkillRow({ skill }: { skill: SkillsLibraryActiveSkill }) {
         <span>{formatCount(skill.repetitions)} reps</span>
         <span>{formatCount(skill.lapses)} lapses</span>
       </div>
-      <div className="skillLibraryInventoryLine" aria-label="Exercise inventory">
-        <span data-priority="primary">
-          <strong>{formatCount(skill.readyExerciseCount)}</strong> ready
-        </span>
-        <span>{formatCount(skill.verifiedExerciseCount)} verified</span>
-        <span>{formatCount(skill.retiredExerciseCount)} retired</span>
-        <span>{formatSourceCount(skill.sourceRefCount)}</span>
-      </div>
+      <SkillLibraryInventoryFacts skill={skill} />
     </article>
   );
 }
@@ -266,17 +259,45 @@ function RecoverySkillRow({ skill }: { skill: SkillsLibraryRecoverySkill }) {
         <span>{skill.collectionName ?? "Uncollected"}</span>
         <span>{skill.dueLabel}</span>
         <span>{formatCount(skill.repetitions)} reps</span>
-        <span>{formatCount(skill.verifiedExerciseCount)} verified</span>
-        <span>{formatCount(skill.readyExerciseCount)} ready</span>
-        <span>{formatCount(skill.retiredExerciseCount)} retired</span>
-        <span>{formatSourceCount(skill.sourceRefCount)}</span>
         {skill.tags.slice(0, 3).map((tag) => (
           <span className="dashboardTag" key={tag}>
             {tag}
           </span>
         ))}
       </div>
+      <SkillLibraryInventoryFacts skill={skill} />
     </article>
+  );
+}
+
+type SkillLibraryInventoryFactSource = {
+  readyExerciseCount: number;
+  retiredExerciseCount: number;
+  sourceRefCount: number;
+  title: string;
+  verifiedExerciseCount: number;
+};
+
+function SkillLibraryInventoryFacts({ skill }: { skill: SkillLibraryInventoryFactSource }) {
+  return (
+    <dl className="skillLibraryFacts" aria-label={`${skill.title} exercise inventory`}>
+      <div data-priority="primary">
+        <dt>Ready</dt>
+        <dd>{formatCount(skill.readyExerciseCount)}</dd>
+      </div>
+      <div>
+        <dt>Verified</dt>
+        <dd>{formatCount(skill.verifiedExerciseCount)}</dd>
+      </div>
+      <div>
+        <dt>Retired</dt>
+        <dd>{formatCount(skill.retiredExerciseCount)}</dd>
+      </div>
+      <div>
+        <dt>Sources</dt>
+        <dd>{formatSourceCount(skill.sourceRefCount)}</dd>
+      </div>
+    </dl>
   );
 }
 

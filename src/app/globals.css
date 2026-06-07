@@ -2197,7 +2197,8 @@ a {
 .skillSourceFacts,
 .sourceProcessingFacts,
 .settingsExportFacts,
-.collectionFacts {
+.collectionFacts,
+.skillLibraryFacts {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0;
@@ -2211,7 +2212,8 @@ a {
 .skillSourceFacts div,
 .sourceProcessingFacts div,
 .settingsExportFacts div,
-.collectionFacts div {
+.collectionFacts div,
+.skillLibraryFacts div {
   min-width: 0;
   padding: 10px 12px;
 }
@@ -2219,7 +2221,8 @@ a {
 .skillSourceFacts div + div,
 .sourceProcessingFacts div + div,
 .settingsExportFacts div + div,
-.collectionFacts div + div {
+.collectionFacts div + div,
+.skillLibraryFacts div + div {
   border-left: 1px solid var(--lr-line);
 }
 
@@ -2230,14 +2233,17 @@ a {
 .settingsExportFacts dt,
 .settingsExportFacts dd,
 .collectionFacts dt,
-.collectionFacts dd {
+.collectionFacts dd,
+.skillLibraryFacts dt,
+.skillLibraryFacts dd {
   margin: 0;
 }
 
 .skillSourceFacts dt,
 .sourceProcessingFacts dt,
 .settingsExportFacts dt,
-.collectionFacts dt {
+.collectionFacts dt,
+.skillLibraryFacts dt {
   color: var(--lr-faint);
   font-size: var(--lr-text-2xs);
   font-weight: 500;
@@ -2247,7 +2253,8 @@ a {
 .skillSourceFacts dd,
 .sourceProcessingFacts dd,
 .settingsExportFacts dd,
-.collectionFacts dd {
+.collectionFacts dd,
+.skillLibraryFacts dd {
   margin-top: 3px;
   overflow: hidden;
   color: var(--lr-ink);
@@ -2257,6 +2264,10 @@ a {
   line-height: var(--lr-leading-label);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.skillLibraryFacts div[data-priority="primary"] dd {
+  color: var(--lr-primary-ink);
 }
 
 .skillSourcePreview {
@@ -2714,39 +2725,6 @@ a {
   background: transparent;
   color: var(--lr-muted);
   padding: 0;
-}
-
-.skillLibraryInventoryLine {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 14px;
-  margin-top: 12px;
-  color: var(--lr-muted);
-  font-size: var(--lr-text-xs);
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-  line-height: var(--lr-leading-label);
-}
-
-.skillLibraryInventoryLine span {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 4px;
-}
-
-.skillLibraryInventoryLine span + span {
-  border-left: 1px solid var(--lr-line);
-  padding-left: 14px;
-}
-
-.skillLibraryInventoryLine span[data-priority="primary"] {
-  color: var(--lr-primary-ink);
-}
-
-.skillLibraryInventoryLine strong {
-  color: inherit;
-  font-size: var(--lr-text-sm);
-  font-weight: 500;
 }
 
 .skillLibraryStatus {
@@ -3337,16 +3315,6 @@ a {
     grid-template-columns: 1fr;
   }
 
-  .skillLibraryInventoryLine {
-    display: grid;
-    gap: 7px;
-  }
-
-  .skillLibraryInventoryLine span + span {
-    border-left: 0;
-    padding-left: 0;
-  }
-
   .skillQueueBlock {
     grid-template-columns: 1fr;
   }
@@ -3386,28 +3354,32 @@ a {
   .skillSourceFacts,
   .sourceProcessingFacts,
   .settingsExportFacts,
-  .collectionFacts {
+  .collectionFacts,
+  .skillLibraryFacts {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .skillSourceFacts div + div,
   .sourceProcessingFacts div + div,
   .settingsExportFacts div + div,
-  .collectionFacts div + div {
+  .collectionFacts div + div,
+  .skillLibraryFacts div + div {
     border-left: 0;
   }
 
   .skillSourceFacts div:nth-child(even),
   .sourceProcessingFacts div:nth-child(even),
   .settingsExportFacts div:nth-child(even),
-  .collectionFacts div:nth-child(even) {
+  .collectionFacts div:nth-child(even),
+  .skillLibraryFacts div:nth-child(even) {
     border-left: 1px solid var(--lr-line);
   }
 
   .skillSourceFacts div:nth-child(n + 3),
   .sourceProcessingFacts div:nth-child(n + 3),
   .settingsExportFacts div:nth-child(n + 3),
-  .collectionFacts div:nth-child(n + 3) {
+  .collectionFacts div:nth-child(n + 3),
+  .skillLibraryFacts div:nth-child(n + 3) {
     border-top: 1px solid var(--lr-line);
   }
 
@@ -3592,21 +3564,24 @@ a {
   .skillSourceFacts,
   .sourceProcessingFacts,
   .settingsExportFacts,
-  .collectionFacts {
+  .collectionFacts,
+  .skillLibraryFacts {
     grid-template-columns: 1fr;
   }
 
   .skillSourceFacts div:nth-child(even),
   .sourceProcessingFacts div:nth-child(even),
   .settingsExportFacts div:nth-child(even),
-  .collectionFacts div:nth-child(even) {
+  .collectionFacts div:nth-child(even),
+  .skillLibraryFacts div:nth-child(even) {
     border-left: 0;
   }
 
   .skillSourceFacts div + div,
   .sourceProcessingFacts div + div,
   .settingsExportFacts div + div,
-  .collectionFacts div + div {
+  .collectionFacts div + div,
+  .skillLibraryFacts div + div {
     border-top: 1px solid var(--lr-line);
   }
 }
