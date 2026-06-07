@@ -130,12 +130,12 @@ function HistoryTable({ reviews }: { reviews: PracticeHistoryReview[] }) {
                 <div className="historyResultStack">
                   <span
                     className="dashboardChip"
-                    data-tone={review.result === "CORRECT" ? "ready" : "neutral"}
+                    data-tone={review.result === "CORRECT" ? "ready" : "danger"}
                   >
                     {formatReviewResult(review.result)}
                   </span>
                   <span className="historyAnswerLine">
-                    <span>Answer</span>
+                    <span>Correct answer</span>
                     <strong>{review.correctAnswerDisplay}</strong>
                   </span>
                 </div>

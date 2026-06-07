@@ -586,6 +586,12 @@ a {
   color: var(--lr-primary-ink);
 }
 
+.dashboardChip[data-tone="danger"] {
+  border-color: var(--lr-danger-line);
+  background: var(--lr-danger-soft);
+  color: var(--lr-danger-ink);
+}
+
 .dashboardPanelLink {
   color: var(--lr-primary-ink);
   font-size: var(--lr-text-sm);
