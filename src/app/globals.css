@@ -1498,6 +1498,31 @@ a {
   accent-color: var(--lr-primary);
 }
 
+.skillDeleteConfirm {
+  display: grid;
+  gap: 7px;
+  width: min(100%, 340px);
+  color: var(--lr-ink-soft);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.skillDeleteConfirm input {
+  width: 100%;
+  border: 1px solid var(--lr-line-strong);
+  border-radius: var(--lr-radius);
+  background: var(--lr-panel);
+  color: var(--lr-ink);
+  padding: 9px 10px;
+  font: inherit;
+}
+
+.skillDeleteConfirm input:focus-visible {
+  border-color: var(--lr-primary);
+  outline: 3px solid rgba(3, 76, 213, 0.16);
+  outline-offset: 0;
+}
+
 .skillStatusGrid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

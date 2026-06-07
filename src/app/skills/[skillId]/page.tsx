@@ -24,6 +24,7 @@ import { getSkillSourceSummaries } from "@/lib/skills/sources";
 import { ensureDatabaseUser } from "@/lib/users";
 
 import { SkillDraftForm, type SkillDraftFormValues } from "../skill-draft-form";
+import { SkillDeleteForm } from "../skill-delete-form";
 import { SkillExactInputRefillForm } from "../skill-exact-input-refill-form";
 import { SkillLifecycleForm } from "../skill-lifecycle-form";
 import { SkillMathRefillForm } from "../skill-math-refill-form";
@@ -385,7 +386,7 @@ export default async function SkillPage({
             </div>
           ) : null}
         </section>
-        <SkillLifecyclePanel skillId={skill.id} status={skill.status} />
+        <SkillLifecyclePanel skillId={skill.id} skillTitle={skill.title} status={skill.status} />
         <SkillSourcePanel skillId={skill.id} sources={sourceSummaries} />
       </main>
     );
@@ -477,7 +478,7 @@ export default async function SkillPage({
             </div>
           ) : null}
         </section>
-        <SkillLifecyclePanel skillId={skill.id} status={skill.status} />
+        <SkillLifecyclePanel skillId={skill.id} skillTitle={skill.title} status={skill.status} />
         <SkillSourcePanel
           canRemove={skill.status !== SkillStatus.ARCHIVED}
           skillId={skill.id}
@@ -511,7 +512,7 @@ export default async function SkillPage({
       <SkillSourcePanel skillId={skill.id} sources={sourceSummaries} />
 
       <SkillDraftForm initialValues={draftValues} mode="edit" skillId={skill.id} />
-      <SkillLifecyclePanel skillId={skill.id} status={skill.status} />
+      <SkillLifecyclePanel skillId={skill.id} skillTitle={skill.title} status={skill.status} />
     </main>
   );
 }
@@ -524,9 +525,11 @@ function hasActiveGenerationJob(job: { status: GenerationJobStatus } | null): bo
 
 function SkillLifecyclePanel({
   skillId,
+  skillTitle,
   status,
 }: {
   skillId: string;
+  skillTitle: string;
   status: SkillStatus;
 }) {
   return (
@@ -576,6 +579,9 @@ function SkillLifecyclePanel({
             summaryLabel={status === SkillStatus.DRAFT ? "Archive draft" : "Archive skill"}
             tone="danger"
           />
+        ) : null}
+        {status === SkillStatus.DRAFT || status === SkillStatus.ARCHIVED ? (
+          <SkillDeleteForm skillId={skillId} skillTitle={skillTitle} />
         ) : null}
       </div>
     </section>
