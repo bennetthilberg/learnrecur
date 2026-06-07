@@ -105,10 +105,10 @@ export default async function DashboardPage() {
 
           {dashboard.collections.length === 0 ? (
             <DashboardEmptyState
-              title="No collections yet."
-              detail="Create a skill draft with a collection name to start grouping practice."
-              actionHref="/skills/new"
-              actionLabel="Add skill"
+              title="No study areas yet."
+              detail="Create a collection first, or add a collection name while drafting a skill."
+              actionHref="/collections"
+              actionLabel="Manage collections"
             />
           ) : (
             <div className="collectionList">
@@ -149,8 +149,8 @@ export default async function DashboardPage() {
 
           {dashboard.skills.length === 0 ? (
             <DashboardEmptyState
-              title="No active skills yet."
-              detail="Define a skill, review the draft, and activate it to generate starter practice."
+              title="No scheduled skills."
+              detail="Drafts stay out of practice until you review and activate them."
               actionHref="/skills/new"
               actionLabel="Add skill"
             />
