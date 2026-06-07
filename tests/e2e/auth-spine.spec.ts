@@ -18,7 +18,7 @@ test.describe("auth spine", () => {
     await page.goto("/sign-in");
 
     await expect(page.getByRole("heading", { name: /sign in to learnrecur/i })).toBeVisible();
-    await expect(page.getByText(/use your development clerk account/i)).toBeVisible();
+    await expect(page.getByText(/return to your due skills/i)).toBeVisible();
     await expect(page.getByLabel(/email address/i)).toBeVisible();
   });
 
@@ -26,7 +26,7 @@ test.describe("auth spine", () => {
     await page.goto("/sign-up");
 
     await expect(page.getByRole("heading", { name: /create a learnrecur account/i })).toBeVisible();
-    await expect(page.getByText(/verify clerk and database ownership/i)).toBeVisible();
+    await expect(page.getByText(/private study space/i)).toBeVisible();
     await expect(page.getByLabel(/email address/i)).toBeVisible();
   });
 

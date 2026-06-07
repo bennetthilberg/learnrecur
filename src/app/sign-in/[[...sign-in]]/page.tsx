@@ -7,7 +7,7 @@ export default function SignInPage() {
   return (
     <AuthShell
       title="Sign in to LearnRecur."
-      description="Use your development Clerk account to test the protected app spine."
+      description="Return to your due skills, drafts, source material, and review history."
     >
       <SignIn
         appearance={clerkAppearance}

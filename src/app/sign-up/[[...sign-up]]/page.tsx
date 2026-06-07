@@ -7,7 +7,7 @@ export default function SignUpPage() {
   return (
     <AuthShell
       title="Create a LearnRecur account."
-      description="This temporary sign-up screen exists so we can verify Clerk and database ownership."
+      description="Start a private study space for source-backed skills, verified practice, and due reminders."
     >
       <SignUp
         appearance={clerkAppearance}
