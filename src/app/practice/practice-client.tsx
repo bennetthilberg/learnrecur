@@ -374,6 +374,10 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
             {item.status === "none-due" ? "All caught up." : "Practice unavailable."}
           </h1>
           <p>{item.message}</p>
+          <PracticeEmptyDetails
+            scoped={item.scope?.kind === "collection"}
+            status={item.status}
+          />
           <PracticeEmptyActions scoped={item.scope?.kind === "collection"} />
           {canUseSampleData && item.scope?.kind !== "collection" ? (
             <button
@@ -664,6 +668,41 @@ function PracticeEmptyActions({ scoped }: { scoped: boolean }) {
         Add skill
       </Link>
     </div>
+  );
+}
+
+function PracticeEmptyDetails({
+  scoped,
+  status,
+}: {
+  scoped: boolean;
+  status: Exclude<PracticeItem["status"], "ready">;
+}) {
+  const details =
+    status === "none-due"
+      ? scoped
+        ? [
+            ["Scope", "Only active skills in this collection are checked."],
+            ["Ready means", "Due schedule plus verified practiceable exercises."],
+          ]
+        : [
+            ["Schedule", "No active skill is due right now."],
+            ["Ready means", "Due schedule plus verified practiceable exercises."],
+          ]
+      : [
+          ["Scope", scoped ? "The selected collection is not practiceable." : "No practiceable item was found."],
+          ["Next step", scoped ? "Try all practice or review the collection." : "Review skills and exercise inventory."],
+        ];
+
+  return (
+    <dl className="practiceEmptyDetails" aria-label="Practice queue checks">
+      {details.map(([label, detail]) => (
+        <div key={label}>
+          <dt>{label}</dt>
+          <dd>{detail}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 

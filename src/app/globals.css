@@ -1364,6 +1364,40 @@ a {
   margin-top: 2px;
 }
 
+.practiceEmptyDetails {
+  display: grid;
+  gap: 0;
+  width: min(100%, 560px);
+  margin: 2px 0 0;
+  border-top: 1px solid var(--lr-line);
+  border-bottom: 1px solid var(--lr-line);
+}
+
+.practiceEmptyDetails div {
+  display: grid;
+  grid-template-columns: minmax(88px, 0.28fr) minmax(0, 1fr);
+  gap: 14px;
+  padding: 9px 0;
+}
+
+.practiceEmptyDetails div + div {
+  border-top: 1px solid var(--lr-line);
+}
+
+.practiceEmptyDetails dt {
+  color: var(--lr-primary-ink);
+  font-size: var(--lr-text-xs);
+  font-weight: 500;
+  line-height: var(--lr-leading-label);
+}
+
+.practiceEmptyDetails dd {
+  margin: 0;
+  color: var(--lr-muted);
+  font-size: var(--lr-text-sm);
+  line-height: var(--lr-leading-copy);
+}
+
 .skillHeader {
   display: flex;
   width: min(100%, 1040px);
