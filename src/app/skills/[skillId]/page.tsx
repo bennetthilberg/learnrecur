@@ -253,20 +253,23 @@ export default async function SkillPage({
           <div className="skillInventoryGrid" aria-label="Exercise inventory">
             <SkillInventoryGroup
               label="Choice"
-              readyLabel={`${inventory.readyExerciseCount} / ${DEFAULT_READY_EXERCISE_TARGET} ready`}
+              readyCount={inventory.readyExerciseCount}
               retiredCount={inventory.retiredExerciseCount}
+              targetCount={DEFAULT_READY_EXERCISE_TARGET}
               verifiedCount={inventory.verifiedExerciseCount}
             />
             <SkillInventoryGroup
               label="Exact input"
-              readyLabel={`${exactInputInventory.readyExerciseCount} / ${DEFAULT_READY_EXACT_INPUT_TARGET} ready`}
+              readyCount={exactInputInventory.readyExerciseCount}
               retiredCount={exactInputInventory.retiredExerciseCount}
+              targetCount={DEFAULT_READY_EXACT_INPUT_TARGET}
               verifiedCount={exactInputInventory.verifiedExerciseCount}
             />
             <SkillInventoryGroup
               label="Math"
-              readyLabel={`${mathInventory.readyExerciseCount} / ${DEFAULT_READY_MATH_TARGET} ready`}
+              readyCount={mathInventory.readyExerciseCount}
               retiredCount={mathInventory.retiredExerciseCount}
+              targetCount={DEFAULT_READY_MATH_TARGET}
               verifiedCount={mathInventory.verifiedExerciseCount}
             />
           </div>
@@ -536,20 +539,25 @@ function SkillStatusSummaryItem({
 
 function SkillInventoryGroup({
   label,
-  readyLabel,
+  readyCount,
   retiredCount,
+  targetCount,
   verifiedCount,
 }: {
   label: string;
-  readyLabel: string;
+  readyCount: number;
   retiredCount: number;
+  targetCount: number;
   verifiedCount: number;
 }) {
   return (
     <section className="skillInventoryGroup" aria-label={`${label} inventory`}>
-      <div>
+      <div className="skillInventoryReady">
         <span>{label}</span>
-        <strong>{readyLabel}</strong>
+        <strong>
+          <span>{formatCount(readyCount)}</span>
+          <small>/ {formatCount(targetCount)} ready</small>
+        </strong>
       </div>
       <dl>
         <div>

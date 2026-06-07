@@ -2302,21 +2302,37 @@ a {
   border-right: 0;
 }
 
-.skillInventoryGroup > div:first-child {
+.skillInventoryReady {
   display: grid;
-  gap: 4px;
+  gap: 6px;
 }
 
-.skillInventoryGroup span,
+.skillInventoryReady > span,
 .skillInventoryGroup dt {
   color: var(--lr-faint);
   font-size: var(--lr-text-xs);
   font-weight: 500;
 }
 
-.skillInventoryGroup strong {
+.skillInventoryReady strong {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
   color: var(--lr-ink);
-  font-size: var(--lr-text-md);
+  font-weight: 500;
+  line-height: var(--lr-leading-label);
+}
+
+.skillInventoryReady strong span {
+  color: var(--lr-primary-ink);
+  font-size: var(--lr-text-2xl);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--lr-leading-title);
+}
+
+.skillInventoryReady small {
+  color: var(--lr-muted);
+  font-size: var(--lr-text-xs);
   font-weight: 500;
   line-height: var(--lr-leading-label);
 }
