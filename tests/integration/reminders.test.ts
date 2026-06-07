@@ -339,8 +339,10 @@ describeDatabase("due email reminders", () => {
     });
     await createChoiceExercise({ prisma, userId, skillId: futureSkill.id });
 
-    expect(await getDuePracticeSkillCount({ userId, now })).toBe(1);
     expect(readySkill.status).toBe(SkillStatus.ACTIVE);
+    expect(draftSkill.status).toBe(SkillStatus.DRAFT);
+    expect(futureSkill.status).toBe(SkillStatus.ACTIVE);
+    expect(await getDuePracticeSkillCount({ userId, now })).toBe(1);
   });
 
   async function expectReminderLog(
