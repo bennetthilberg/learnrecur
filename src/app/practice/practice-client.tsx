@@ -422,10 +422,11 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
         </div>
 
       <article className="practicePromptPanel">
-        <div className="practicePromptHeader">
-          <span>Exercise</span>
-          {exercise.difficulty ? <span>Level {exercise.difficulty}</span> : null}
-        </div>
+        {exercise.difficulty ? (
+          <div className="practicePromptHeader" aria-label="Exercise metadata">
+            <span>Level {exercise.difficulty}</span>
+          </div>
+        ) : null}
         <p>
           <MathText text={exercise.prompt} />
         </p>

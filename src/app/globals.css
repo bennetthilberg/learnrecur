@@ -726,7 +726,7 @@ a {
   color: var(--lr-ink);
   font-size: var(--lr-text-lg);
   font-weight: 500;
-  letter-spacing: -0.005em;
+  letter-spacing: 0;
   text-decoration: none;
 }
 
@@ -843,7 +843,7 @@ a {
   font-size: var(--lr-practice-heading);
   font-weight: 500;
   line-height: var(--lr-leading-practice);
-  letter-spacing: -0.008em;
+  letter-spacing: 0;
 }
 
 .practiceMetaRow {
@@ -876,20 +876,31 @@ a {
 }
 
 .practicePromptPanel {
-  border: 1px solid var(--lr-line-strong);
+  border: 1px solid hsl(219 97% 42% / 0.16);
   border-radius: var(--lr-radius);
-  background: var(--lr-panel);
+  background: var(--lr-panel-cool);
   padding: 22px 22px 24px;
 }
 
 .practicePromptHeader {
   display: flex;
-  justify-content: space-between;
-  gap: 14px;
+  justify-content: flex-end;
+  gap: 8px;
   margin-bottom: 12px;
-  color: var(--lr-muted);
+}
+
+.practicePromptHeader span {
+  display: inline-flex;
+  min-height: 24px;
+  align-items: center;
+  border: 1px solid hsl(219 97% 42% / 0.18);
+  border-radius: var(--lr-radius-chip);
+  background: var(--lr-primary-soft);
+  color: var(--lr-primary-ink);
+  padding: 4px 8px;
   font-size: var(--lr-text-xs);
   font-weight: 500;
+  line-height: var(--lr-leading-compact);
 }
 
 .practicePromptPanel p {
@@ -898,7 +909,7 @@ a {
   font-size: var(--lr-prompt-heading);
   font-weight: 500;
   line-height: var(--lr-leading-copy);
-  letter-spacing: -0.006em;
+  letter-spacing: 0;
 }
 
 .mathTextInline {

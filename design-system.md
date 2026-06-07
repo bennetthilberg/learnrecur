@@ -40,6 +40,7 @@ Rationale: this keeps the Login.gov-like professional blue direction while reach
 - Body weight: typically `400`.
 - Supporting labels and controls: `500` to `560` only when needed.
 - Numeric text: Lexend with tabular figures where possible.
+- Letter spacing stays at `0`; do not squeeze Lexend with negative tracking.
 - Type scale:
   - `11px` only for cramped responsive navigation.
   - `12px` for chips, table metadata, compact labels, and counters.
@@ -159,6 +160,10 @@ Message treatment: stripe.
 
 Inline feedback, warnings, and system notes should use a slim colored stripe paired with concise copy. The stripe should identify the message type without turning the whole message into a loud colored panel.
 When a message sits on a tinted semantic surface, its copy should use the matching semantic ink color. Avoid muted neutral text on colored message backgrounds; the result looks less intentional and weakens the state.
+
+### Practice Prompt
+
+The practice prompt is the core reading surface. Avoid redundant labels such as "Exercise" when the layout already makes the role clear; use small chips only for useful metadata such as difficulty.
 
 ### Empty States
 
