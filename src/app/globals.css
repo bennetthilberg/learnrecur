@@ -2279,13 +2279,27 @@ a {
   color: var(--lr-primary-ink);
 }
 
-.skillLibraryOpenCue {
+.skillRow h3 a {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 7px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.skillRow h3 a:hover {
+  color: var(--lr-primary-ink);
+}
+
+.rowOpenCue {
   color: var(--lr-primary-ink);
   font-size: var(--lr-text-xs);
   font-weight: 500;
 }
 
-.skillLibraryRowMain a:hover .skillLibraryOpenCue {
+.skillLibraryRowMain a:hover .rowOpenCue,
+.skillRow h3 a:hover .rowOpenCue {
   text-decoration: underline;
   text-underline-offset: 3px;
 }

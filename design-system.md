@@ -145,6 +145,8 @@ Data table treatment: rules.
 
 Tables should favor scanability through clear horizontal rules, strong alignment, and restrained header styling. Prefer rules over zebra bands for the default table language because rules feel cleaner, more precise, and more scientific in this system. Numeric columns should use tabular figures. Avoid low-contrast table headers and excessive row chrome.
 
+Navigable row titles should look like text-first links, not full-card buttons. Add a small, low-emphasis action cue such as Open when the row is primarily for recovery, browsing, or drilling into detail, so the affordance is visible without adding another button column.
+
 Metric summaries should not default to equal four-card grids. Give the primary product state a wider or otherwise stronger position, then let supporting metrics read smaller and quieter.
 Status surfaces should separate primary state from supporting inventory. Prefer a short summary strip for schedule/status facts and grouped rule-separated inventory rows over a large grid where every metric has identical weight.
 

@@ -183,7 +183,7 @@ function DraftSkillRow({ skill }: { skill: SkillsLibraryDraftSkill }) {
         <div>
           <Link aria-label={`Open ${skill.title}`} href={`/skills/${skill.id}`}>
             {skill.title}
-            <span className="skillLibraryOpenCue" aria-hidden="true">
+            <span className="rowOpenCue" aria-hidden="true">
               Open
             </span>
           </Link>
@@ -217,7 +217,7 @@ function ActiveSkillRow({ skill }: { skill: SkillsLibraryActiveSkill }) {
         <div>
           <Link aria-label={`Open ${skill.title}`} href={`/skills/${skill.id}`}>
             {skill.title}
-            <span className="skillLibraryOpenCue" aria-hidden="true">
+            <span className="rowOpenCue" aria-hidden="true">
               Open
             </span>
           </Link>
@@ -251,7 +251,7 @@ function RecoverySkillRow({ skill }: { skill: SkillsLibraryRecoverySkill }) {
         <div>
           <Link aria-label={`Open ${skill.title}`} href={`/skills/${skill.id}`}>
             {skill.title}
-            <span className="skillLibraryOpenCue" aria-hidden="true">
+            <span className="rowOpenCue" aria-hidden="true">
               Open
             </span>
           </Link>

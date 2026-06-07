@@ -160,7 +160,14 @@ export default async function DashboardPage() {
                 <article className="skillRow" key={skill.id}>
                   <div className="skillRowMain">
                     <div>
-                      <h3>{skill.title}</h3>
+                      <h3>
+                        <Link aria-label={`Open ${skill.title}`} href={`/skills/${skill.id}`}>
+                          {skill.title}
+                          <span className="rowOpenCue" aria-hidden="true">
+                            Open
+                          </span>
+                        </Link>
+                      </h3>
                       <p>
                         {skill.collectionName ?? "Uncollected"} / {formatFsrsState(skill.fsrsState)}
                       </p>
