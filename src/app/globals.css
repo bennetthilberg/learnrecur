@@ -746,7 +746,25 @@ a {
 
 .practiceNav {
   display: grid;
+  gap: 13px;
+}
+
+.practiceNavGroup {
+  display: grid;
   gap: 5px;
+}
+
+.practiceNavGroup + .practiceNavGroup {
+  border-top: 1px solid var(--lr-line);
+  padding-top: 12px;
+}
+
+.practiceNavSection {
+  margin: 0 8px 2px;
+  color: var(--lr-faint);
+  font-size: var(--lr-text-2xs);
+  font-weight: 500;
+  line-height: var(--lr-leading-label);
 }
 
 .practiceNav a {
@@ -776,7 +794,6 @@ a {
 }
 
 .practiceNav a[data-intent="create"] {
-  margin-top: 8px;
   border-color: var(--lr-primary);
   background: var(--lr-primary);
   color: var(--lr-white);
@@ -2300,6 +2317,19 @@ a {
     justify-self: stretch;
     border-top: 1px solid var(--lr-line);
     padding-top: 10px;
+  }
+
+  .practiceNavGroup {
+    display: contents;
+  }
+
+  .practiceNavGroup + .practiceNavGroup {
+    border-top: 0;
+    padding-top: 0;
+  }
+
+  .practiceNavSection {
+    display: none;
   }
 
   .practiceNav a {

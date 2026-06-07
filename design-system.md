@@ -177,6 +177,7 @@ Prefer naming the missing object and the next control to use over generic "get s
 Navigation posture: responsive sidebar-to-tabs.
 
 Use a sidebar on wide screen sizes where persistent navigation helps the app feel stable and tool-like. Collapse to tabs on narrower layouts, including mobile, where a sidebar would consume too much horizontal space. Avoid a rail as the default navigation pattern.
+Desktop navigation should group related routes with spacing and quiet labels. Mobile navigation should suppress those labels and keep the links as compact tabs.
 
 ### Focus States
 
