@@ -92,11 +92,13 @@ a {
 
 .entryShell {
   display: grid;
-  place-items: center;
-  padding: 32px;
+  grid-template-columns: minmax(300px, 520px) minmax(280px, 380px);
+  align-content: center;
+  justify-content: center;
+  gap: 56px;
+  padding: 48px 32px;
 }
 
-.entryPanel,
 .authCard,
 .statusPanel,
 .nextStepPanel {
@@ -107,8 +109,7 @@ a {
 }
 
 .entryPanel {
-  width: min(100%, 680px);
-  padding: 34px;
+  width: min(100%, 520px);
 }
 
 .entryPanel h1,
@@ -130,6 +131,77 @@ a {
   color: var(--lr-muted);
   font-size: 15px;
   line-height: 1.55;
+}
+
+.entryProcessPanel {
+  border: 1px solid var(--lr-line);
+  border-radius: var(--lr-radius-lg);
+  background: var(--lr-panel);
+  box-shadow: var(--lr-shadow);
+  padding: 20px;
+}
+
+.entryProcessHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  border-bottom: 1px solid var(--lr-line);
+  padding-bottom: 14px;
+}
+
+.entryProcessHeader span {
+  color: var(--lr-primary-ink);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.entryProcessHeader strong {
+  color: var(--lr-ink);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.entryProcessList {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.entryProcessList li {
+  display: grid;
+  grid-template-columns: 76px 1fr;
+  gap: 14px;
+  border-bottom: 1px solid var(--lr-line);
+  padding: 16px 0;
+}
+
+.entryProcessList li:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.entryProcessList span {
+  align-self: start;
+  color: var(--lr-faint);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.entryProcessList strong {
+  display: block;
+  color: var(--lr-ink);
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.entryProcessList p {
+  margin: 4px 0 0;
+  color: var(--lr-muted);
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 .eyebrow,
@@ -2040,6 +2112,16 @@ a {
 }
 
 @media (max-width: 780px) {
+  .entryShell {
+    grid-template-columns: minmax(0, 1fr);
+    align-content: start;
+    gap: 28px;
+  }
+
+  .entryPanel {
+    width: min(100%, 540px);
+  }
+
   .dashboardShell,
   .practiceShell,
   .skillShell {
@@ -2249,7 +2331,6 @@ a {
     padding: 20px;
   }
 
-  .entryPanel,
   .statusPanel,
   .nextStepPanel,
   .practiceFrame,

@@ -35,6 +35,35 @@ export default async function Home() {
           )}
         </div>
       </section>
+      <aside className="entryProcessPanel" aria-label="How LearnRecur works">
+        <div className="entryProcessHeader">
+          <span>Study loop</span>
+          <strong>1 due skill</strong>
+        </div>
+        <ol className="entryProcessList">
+          <li>
+            <span>Source</span>
+            <div>
+              <strong>Add source material</strong>
+              <p>Use a short excerpt, worksheet, screenshot, or manual skill definition.</p>
+            </div>
+          </li>
+          <li>
+            <span>Draft</span>
+            <div>
+              <strong>Review narrow drafts</strong>
+              <p>Keep only skills that match what you actually want to practice.</p>
+            </div>
+          </li>
+          <li>
+            <span>Due</span>
+            <div>
+              <strong>Answer the next due exercise</strong>
+              <p>Get deterministic feedback, update the schedule, and move on.</p>
+            </div>
+          </li>
+        </ol>
+      </aside>
     </main>
   );
 }
