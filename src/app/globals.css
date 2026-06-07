@@ -3055,7 +3055,7 @@ a {
 }
 
 .collectionInlineDetails[open] {
-  flex-basis: min(100%, 320px);
+  flex-basis: min(100%, 360px);
 }
 
 .collectionInlineDetails summary {
@@ -3109,7 +3109,12 @@ a {
 }
 
 .collectionInlineForm {
+  width: min(100%, 360px);
   margin-top: 10px;
+}
+
+.collectionInlineDetails:not([open]) .collectionInlineForm {
+  display: none;
 }
 
 .collectionInlineForm p {
