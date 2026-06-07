@@ -343,6 +343,36 @@ a {
   max-width: 390px;
 }
 
+.authAccessList {
+  display: grid;
+  gap: 0;
+  margin: 28px 0 0;
+  border-top: 1px solid var(--lr-line);
+  padding: 0;
+}
+
+.authAccessList div {
+  display: grid;
+  grid-template-columns: minmax(96px, 0.38fr) minmax(0, 1fr);
+  gap: 14px;
+  border-bottom: 1px solid var(--lr-line);
+  padding: 12px 0;
+}
+
+.authAccessList dt {
+  color: var(--lr-primary-ink);
+  font-size: var(--lr-text-xs);
+  font-weight: 500;
+  line-height: var(--lr-leading-label);
+}
+
+.authAccessList dd {
+  margin: 0;
+  color: var(--lr-muted);
+  font-size: var(--lr-text-sm);
+  line-height: var(--lr-leading-copy);
+}
+
 .wordmark {
   display: inline-flex;
   margin-bottom: 28px;
