@@ -8,9 +8,7 @@ import {
 import {
   formatDueLabel,
   formatHistoryEnum,
-  formatNullableHistoryEnum,
   formatResponseTime,
-  formatReviewDate,
   formatReviewResult,
 } from "@/lib/practice/history-formatters";
 import { ensureDatabaseUser } from "@/lib/users";
@@ -115,7 +113,8 @@ function HistoryTable({ reviews }: { reviews: PracticeHistoryReview[] }) {
           {reviews.map((review) => (
             <tr key={review.id}>
               <td data-label="Reviewed">
-                <span className="historyPrimaryText">{formatReviewDate(review.reviewedAt)}</span>
+                <span className="historyDateText">{formatReviewDay(review.reviewedAt)}</span>
+                <span className="historySubText">{formatReviewTime(review.reviewedAt)}</span>
               </td>
               <td data-label="Skill">
                 <Link className="historySkillLink" href={`/skills/${review.skillId}`}>
@@ -126,20 +125,26 @@ function HistoryTable({ reviews }: { reviews: PracticeHistoryReview[] }) {
                 </span>
               </td>
               <td data-label="Result">
-                <span
-                  className="dashboardChip"
-                  data-tone={review.result === "CORRECT" ? "ready" : "neutral"}
-                >
-                  {formatReviewResult(review.result)}
-                </span>
-                <span className="historySubText">Answer: {review.correctAnswerDisplay}</span>
+                <div className="historyResultStack">
+                  <span
+                    className="dashboardChip"
+                    data-tone={review.result === "CORRECT" ? "ready" : "neutral"}
+                  >
+                    {formatReviewResult(review.result)}
+                  </span>
+                  <span className="historyAnswerLine">
+                    <span>Answer</span>
+                    <strong>{review.correctAnswerDisplay}</strong>
+                  </span>
+                </div>
                 <span className="historySubText">{formatResponseTime(review.responseMs)}</span>
               </td>
               <td data-label="Rating">
-                <span className="historyPrimaryText">{formatHistoryEnum(review.finalRating)}</span>
-                <span className="historySubText">
-                  {formatNullableHistoryEnum(review.previousState)} to{" "}
-                  {formatNullableHistoryEnum(review.nextState)}
+                <span className="historyPrimaryText">{formatLedgerEnum(review.finalRating)}</span>
+                <span className="historyTransitionText">
+                  <span>{formatNullableLedgerEnum(review.previousState)}</span>
+                  <span aria-hidden="true">to</span>
+                  <span>{formatNullableLedgerEnum(review.nextState)}</span>
                 </span>
               </td>
               <td data-label="Schedule">
@@ -160,6 +165,32 @@ function formatAnswerKind(kind: PracticeHistoryReview["answerKind"]) {
   return formatHistoryEnum(kind).replace("multiple choice", "choice");
 }
 
+function formatReviewDay(date: Date) {
+  return date.toLocaleDateString("en-US", {
+    day: "numeric",
+    month: "short",
+  });
+}
+
+function formatReviewTime(date: Date) {
+  return date.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function formatLedgerEnum(value: string) {
+  return toTitleCase(formatHistoryEnum(value));
+}
+
+function formatNullableLedgerEnum(value: string | null) {
+  return value ? formatLedgerEnum(value) : "Unknown";
+}
+
 function formatCount(count: number) {
   return new Intl.NumberFormat("en-US").format(count);
+}
+
+function toTitleCase(value: string) {
+  return value.replace(/\b[a-z]/g, (letter) => letter.toUpperCase());
 }

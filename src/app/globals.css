@@ -2213,11 +2213,17 @@ a {
 }
 
 .historyPrimaryText,
-.historySkillLink {
+.historySkillLink,
+.historyDateText {
   display: block;
   color: var(--lr-ink);
   font-weight: 500;
   text-decoration: none;
+}
+
+.historyDateText {
+  color: var(--lr-primary-ink);
+  font-size: var(--lr-text-md);
 }
 
 .historySkillLink:hover {
@@ -2228,6 +2234,39 @@ a {
 
 .historySubText {
   display: block;
+  margin-top: 5px;
+  color: var(--lr-muted);
+  font-size: var(--lr-text-xs);
+  line-height: var(--lr-leading-normal);
+}
+
+.historyResultStack {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+}
+
+.historyAnswerLine {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 5px;
+  align-items: baseline;
+  color: var(--lr-faint);
+  font-size: var(--lr-text-2xs);
+  font-weight: 500;
+  line-height: var(--lr-leading-compact);
+}
+
+.historyAnswerLine strong {
+  color: var(--lr-ink-soft);
+  font-size: var(--lr-text-xs);
+  font-weight: 500;
+}
+
+.historyTransitionText {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
   margin-top: 5px;
   color: var(--lr-muted);
   font-size: var(--lr-text-xs);
