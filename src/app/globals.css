@@ -2481,8 +2481,10 @@ a {
   }
 
   .authShell {
+    align-content: start;
     grid-template-columns: 1fr;
     align-items: start;
+    gap: 26px;
   }
 
   .authIntro {
