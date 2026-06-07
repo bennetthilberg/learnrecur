@@ -159,3 +159,13 @@ export const GenerationJobStatus = {
 } as const
 
 export type GenerationJobStatus = (typeof GenerationJobStatus)[keyof typeof GenerationJobStatus]
+
+
+export const ReminderSendStatus = {
+  PENDING: 'PENDING',
+  SKIPPED: 'SKIPPED',
+  SENT: 'SENT',
+  FAILED: 'FAILED'
+} as const
+
+export type ReminderSendStatus = (typeof ReminderSendStatus)[keyof typeof ReminderSendStatus]

@@ -60,7 +60,9 @@ export const ModelName = {
   ExerciseAttempt: 'ExerciseAttempt',
   ReviewLog: 'ReviewLog',
   ExerciseFlag: 'ExerciseFlag',
-  GenerationJob: 'GenerationJob'
+  GenerationJob: 'GenerationJob',
+  ReminderPreference: 'ReminderPreference',
+  ReminderSendLog: 'ReminderSendLog'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -283,6 +285,38 @@ export const GenerationJobScalarFieldEnum = {
 } as const
 
 export type GenerationJobScalarFieldEnum = (typeof GenerationJobScalarFieldEnum)[keyof typeof GenerationJobScalarFieldEnum]
+
+
+export const ReminderPreferenceScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  enabled: 'enabled',
+  email: 'email',
+  localHour: 'localHour',
+  timezone: 'timezone',
+  minimumDueCount: 'minimumDueCount',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ReminderPreferenceScalarFieldEnum = (typeof ReminderPreferenceScalarFieldEnum)[keyof typeof ReminderPreferenceScalarFieldEnum]
+
+
+export const ReminderSendLogScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  localDate: 'localDate',
+  status: 'status',
+  dueCount: 'dueCount',
+  email: 'email',
+  provider: 'provider',
+  providerMessageId: 'providerMessageId',
+  errorMessage: 'errorMessage',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ReminderSendLogScalarFieldEnum = (typeof ReminderSendLogScalarFieldEnum)[keyof typeof ReminderSendLogScalarFieldEnum]
 
 
 export const SortOrder = {

@@ -7,10 +7,12 @@ import {
   getClerkEnv,
   getDatabaseEnv,
   getGeminiEnv,
+  getResendEnv,
   hasActiveEnv,
   hasClerkEnv,
   hasDatabaseEnv,
   hasGeminiEnv,
+  hasResendEnv,
 } from "@/lib/env";
 
 const managedEnvKeys = [
@@ -21,6 +23,9 @@ const managedEnvKeys = [
   "CLERK_WEBHOOK_SECRET",
   "GEMINI_API_KEY",
   "GEMINI_MODEL",
+  "RESEND_API_KEY",
+  "RESEND_FROM_EMAIL",
+  "NEXT_PUBLIC_APP_URL",
 ] as const;
 
 const originalEnv = process.env;
@@ -120,6 +125,54 @@ describe("environment validation", () => {
     expect(hasActiveEnv()).toBe(true);
     expect(hasGeminiEnv()).toBe(false);
     expect(() => getGeminiEnv()).toThrow(/GEMINI_API_KEY is required/);
+  });
+
+  it("validates Resend only when reminder sending asks for email configuration", () => {
+    resetManagedEnv({
+      DATABASE_URL: "postgresql://runtime:secret@example-pooler.aws.neon.tech/neondb?sslmode=require",
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "pk_test_example",
+      CLERK_SECRET_KEY: "sk_test_example",
+      RESEND_API_KEY: " re_example ",
+      RESEND_FROM_EMAIL: " LearnRecur <reminders@example.com> ",
+      NEXT_PUBLIC_APP_URL: " http://localhost:3000 ",
+    });
+
+    expect(hasActiveEnv()).toBe(true);
+    expect(hasResendEnv()).toBe(true);
+    expect(getResendEnv()).toEqual({
+      RESEND_API_KEY: "re_example",
+      RESEND_FROM_EMAIL: "LearnRecur <reminders@example.com>",
+      NEXT_PUBLIC_APP_URL: "http://localhost:3000",
+    });
+
+    resetManagedEnv({
+      RESEND_API_KEY: "not-a-resend-key",
+      RESEND_FROM_EMAIL: "LearnRecur reminders",
+      NEXT_PUBLIC_APP_URL: "wat",
+    });
+
+    expect(hasResendEnv()).toBe(false);
+    expect(() => getResendEnv()).toThrow(/RESEND_API_KEY must start with re_/);
+    expect(() => getResendEnv()).toThrow(
+      /RESEND_FROM_EMAIL must contain a valid email address/,
+    );
+    expect(() => getResendEnv()).toThrow(/NEXT_PUBLIC_APP_URL must be a valid URL/);
+  });
+
+  it("requires an app URL outside local development", () => {
+    resetManagedEnv({
+      RESEND_API_KEY: "re_example",
+      RESEND_FROM_EMAIL: "LearnRecur <reminders@example.com>",
+    });
+
+    expect(hasResendEnv()).toBe(false);
+    expect(() => getResendEnv()).toThrow(/NEXT_PUBLIC_APP_URL is required/);
+
+    process.env.NODE_ENV = "development";
+
+    expect(getResendEnv()).toMatchObject({
+      NEXT_PUBLIC_APP_URL: "http://localhost:3000",
+    });
   });
 
   it("rejects non-Postgres database URLs", () => {
