@@ -53,8 +53,8 @@ export default async function SettingsPage() {
 
       <header className="skillHeader">
         <div>
-          <p className="eyebrow">Settings</p>
-          <h1>Settings.</h1>
+          <p className="eyebrow">Account controls</p>
+          <h1>Reminders and data.</h1>
           <p>
             Manage quiet reminders and download a copy of your study data.
           </p>

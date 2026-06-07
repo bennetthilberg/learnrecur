@@ -63,8 +63,8 @@ export default async function SkillsPage({ searchParams }: SkillsPageProps) {
 
       <header className="skillHeader">
         <div>
-          <p className="eyebrow">Skills</p>
-          <h1>Skill library.</h1>
+          <p className="eyebrow">Library</p>
+          <h1>Recover and schedule skills.</h1>
           <p>Resume draft review, check activation issues, and scan active practice targets.</p>
         </div>
         <Link className="primaryButton" href="/skills/new">

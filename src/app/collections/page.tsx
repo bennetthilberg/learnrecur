@@ -52,8 +52,8 @@ export default async function CollectionsPage() {
 
       <header className="skillHeader">
         <div>
-          <p className="eyebrow">Collections</p>
-          <h1>Collection management.</h1>
+          <p className="eyebrow">Study areas</p>
+          <h1>Organize practice.</h1>
           <p>
             Create, describe, archive, and restore the study areas that organize
             your skills.
