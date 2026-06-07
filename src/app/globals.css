@@ -1000,8 +1000,13 @@ a {
   margin-top: 22px;
 }
 
-.practiceFrame:focus {
+.practiceFrame:focus:not(:focus-visible) {
   outline: none;
+}
+
+.practiceFrame:focus-visible {
+  outline: none;
+  box-shadow: var(--lr-focus-ring), var(--lr-shadow);
 }
 
 .practiceStatusLine {

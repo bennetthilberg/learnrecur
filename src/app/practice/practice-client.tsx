@@ -552,14 +552,10 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
               <fieldset>
                 <legend>What should we fix?</legend>
                 <div className="flagReasonGrid">
-                  {FLAG_REASON_OPTIONS.map((option) => (
+                  {FLAG_REASON_OPTIONS.map((option, index) => (
                     <label key={option.reason} className="flagReasonOption">
                       <input
-                        ref={
-                          option.reason === FLAG_REASON_OPTIONS[0]?.reason
-                            ? firstFlagReasonRef
-                            : undefined
-                        }
+                        ref={index === 0 ? firstFlagReasonRef : undefined}
                         type="checkbox"
                         checked={selectedFlagReasons.includes(option.reason)}
                         disabled={pendingAction !== null}
