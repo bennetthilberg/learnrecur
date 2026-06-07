@@ -166,11 +166,11 @@ a {
 }
 
 .entryProcessPanel {
+  overflow: hidden;
   border: 1px solid var(--lr-line);
   border-radius: var(--lr-radius-lg);
   background: var(--lr-panel);
   box-shadow: var(--lr-shadow);
-  padding: 20px;
 }
 
 .entryProcessHeader {
@@ -179,7 +179,8 @@ a {
   justify-content: space-between;
   gap: 14px;
   border-bottom: 1px solid var(--lr-line);
-  padding-bottom: 14px;
+  background: var(--lr-panel-cool);
+  padding: 16px 18px;
 }
 
 .entryProcessHeader span {
@@ -206,19 +207,27 @@ a {
   grid-template-columns: 76px 1fr;
   gap: 14px;
   border-bottom: 1px solid var(--lr-line);
-  padding: 16px 0;
+  padding: 16px 18px;
 }
 
 .entryProcessList li:last-child {
   border-bottom: 0;
-  padding-bottom: 0;
 }
 
 .entryProcessList span {
+  display: inline-flex;
+  min-height: 24px;
+  align-items: center;
   align-self: start;
-  color: var(--lr-faint);
+  justify-content: center;
+  border: 1px solid var(--lr-line);
+  border-radius: var(--lr-radius-chip);
+  background: var(--lr-fill);
+  color: var(--lr-primary-ink);
   font-size: var(--lr-text-xs);
   font-weight: 500;
+  line-height: var(--lr-leading-compact);
+  padding: 4px 8px;
 }
 
 .entryProcessList strong {

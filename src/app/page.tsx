@@ -38,7 +38,7 @@ export default async function Home() {
       <aside className="entryProcessPanel" aria-label="How LearnRecur works">
         <div className="entryProcessHeader">
           <span>Study loop</span>
-          <strong>1 due skill</strong>
+          <strong>Memory schedule</strong>
         </div>
         <ol className="entryProcessList">
           <li>
@@ -56,7 +56,7 @@ export default async function Home() {
             </div>
           </li>
           <li>
-            <span>Due</span>
+            <span>Practice</span>
             <div>
               <strong>Answer the next due exercise</strong>
               <p>Get deterministic feedback, update the schedule, and move on.</p>
