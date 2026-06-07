@@ -60,17 +60,17 @@ export default async function NewSkillPage() {
           <SourceUploadForm />
           <SourceSkillForm />
         </section>
-        <section className="skillManualIntro" aria-labelledby="manual-skill-title">
-          <div>
+        <section className="skillManualSection" aria-labelledby="manual-skill-title">
+          <div className="skillManualIntro">
             <p className="eyebrow">Manual draft</p>
             <h2 id="manual-skill-title">Write the skill yourself.</h2>
+            <p>
+              Use this when you already know the exact skill definition and do not
+              need Gemini to interpret source material first.
+            </p>
           </div>
-          <p>
-            Use this when you already know the exact skill definition and do not need
-            Gemini to interpret source material first.
-          </p>
+          <SkillDraftForm initialValues={emptyDraftValues} mode="create" />
         </section>
-        <SkillDraftForm initialValues={emptyDraftValues} mode="create" />
       </div>
     </main>
   );
