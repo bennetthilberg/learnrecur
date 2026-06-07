@@ -118,6 +118,7 @@ When a choice is made, move it from this section into Locked Tokens or Component
 ### Buttons
 
 Primary buttons use `#034cd5` with white text. Secondary buttons should use a light blue background and dark blue text. Default or ghost buttons should be white with a clear but quiet boundary.
+Destructive secondary actions should use the danger-tinted surface with danger ink text; reserve brighter red for boundaries, status stripes, or compact emphasis.
 
 Buttons should not be oversized. Use compact, tool-like button proportions.
 

@@ -292,7 +292,7 @@ a {
 .secondaryButton[data-tone="danger"] {
   border-color: hsl(6 63% 46% / 0.34);
   background: var(--lr-danger-soft);
-  color: var(--lr-error);
+  color: var(--lr-danger-ink);
 }
 
 .secondaryButton[data-tone="danger"]:hover {
@@ -1518,7 +1518,7 @@ a {
 }
 
 .skillField em {
-  color: var(--lr-error);
+  color: var(--lr-danger-ink);
   font-size: var(--lr-text-xs);
   font-style: normal;
   line-height: var(--lr-leading-label);
@@ -1733,7 +1733,7 @@ a {
 
 .skillSourceRemove summary {
   cursor: pointer;
-  color: var(--lr-error);
+  color: var(--lr-danger-ink);
   font-weight: 500;
   list-style-position: inside;
 }
@@ -1796,7 +1796,7 @@ a {
 
 .skillLifecycleDetails summary {
   cursor: pointer;
-  color: var(--lr-error);
+  color: var(--lr-danger-ink);
   font-weight: 500;
   list-style-position: inside;
 }
@@ -2151,7 +2151,7 @@ a {
 }
 
 .collectionInlineDetailsDanger summary {
-  color: var(--lr-error);
+  color: var(--lr-danger-ink);
 }
 
 .collectionInlineForm {
