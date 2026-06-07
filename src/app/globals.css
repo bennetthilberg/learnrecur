@@ -146,6 +146,7 @@ a {
   font-weight: 500;
   line-height: var(--lr-leading-heading);
   letter-spacing: 0;
+  text-wrap: balance;
 }
 
 .entryPanel p,
@@ -488,6 +489,7 @@ a {
   font-size: var(--lr-text-2xl);
   font-weight: 500;
   line-height: var(--lr-leading-title);
+  text-wrap: balance;
 }
 
 .collectionList,
@@ -1589,6 +1591,7 @@ a {
   font-size: var(--lr-text-2xl);
   font-weight: 500;
   line-height: var(--lr-leading-title);
+  text-wrap: balance;
 }
 
 .skillQueueBlock p:not(.eyebrow),
@@ -1825,11 +1828,15 @@ a {
 .skillStatusGrid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+  column-gap: 14px;
+  row-gap: 18px;
   margin: 0;
 }
 
 .skillStatusGrid div {
+  display: grid;
+  align-content: start;
+  gap: 5px;
   border-top: 1px solid var(--lr-line);
   padding-top: 12px;
 }
@@ -1841,11 +1848,12 @@ a {
 }
 
 .skillStatusGrid dd {
-  margin: 5px 0 0;
+  margin: 0;
   overflow-wrap: anywhere;
   color: var(--lr-ink);
   font-size: var(--lr-text-md);
   font-weight: 500;
+  font-variant-numeric: tabular-nums;
   line-height: var(--lr-leading-label);
 }
 
@@ -1964,6 +1972,18 @@ a {
   font-size: var(--lr-text-xs);
   font-weight: 500;
   line-height: var(--lr-leading-table);
+}
+
+.historyTable th:nth-child(1),
+.historyTable td:nth-child(1) {
+  width: 112px;
+}
+
+.historyTable th:nth-child(4),
+.historyTable td:nth-child(4),
+.historyTable th:nth-child(5),
+.historyTable td:nth-child(5) {
+  width: 124px;
 }
 
 .historyTable tbody tr:first-child td {
@@ -2320,6 +2340,7 @@ a {
   }
 
   .historyTable td {
+    width: auto;
     border-top: 0;
     padding: 7px 0;
   }
