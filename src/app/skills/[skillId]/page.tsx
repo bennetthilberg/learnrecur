@@ -9,6 +9,18 @@ import {
   type Prisma,
 } from "@/generated/prisma/client";
 import { formatJobStatus } from "@/lib/formatters";
+import {
+  getSkillPracticeHistory,
+  type PracticeHistoryReview,
+} from "@/lib/practice/history";
+import {
+  formatDueLabel,
+  formatHistoryEnum,
+  formatNullableHistoryEnum,
+  formatResponseTime,
+  formatReviewDate,
+  formatReviewResult,
+} from "@/lib/practice/history-formatters";
 import { getPrisma } from "@/lib/prisma";
 import {
   countChoiceExerciseInventory,
@@ -101,9 +113,14 @@ export default async function SkillPage({
     notFound();
   }
 
-  const sourceSummariesResult = await getSkillSourceSummaries({ userId, skillId });
+  const [sourceSummariesResult, recentReviewsResult] = await Promise.all([
+    getSkillSourceSummaries({ userId, skillId }),
+    getSkillPracticeHistory({ userId, skillId, now: new Date(), limit: 5 }),
+  ]);
   const sourceSummaries =
     sourceSummariesResult.status === "ready" ? sourceSummariesResult.sources : [];
+  const recentReviews =
+    recentReviewsResult.status === "ready" ? recentReviewsResult.reviews : [];
   const [latestChoiceGenerationJob, latestExactInputGenerationJob, latestMathGenerationJob] =
     skill.status === SkillStatus.ACTIVE
       ? await Promise.all([
@@ -388,6 +405,7 @@ export default async function SkillPage({
         </section>
         <SkillLifecyclePanel skillId={skill.id} skillTitle={skill.title} status={skill.status} />
         <SkillSourcePanel skillId={skill.id} sources={sourceSummaries} />
+        <SkillRecentReviewsPanel reviews={recentReviews} />
       </main>
     );
   }
@@ -484,6 +502,7 @@ export default async function SkillPage({
           skillId={skill.id}
           sources={sourceSummaries}
         />
+        <SkillRecentReviewsPanel reviews={recentReviews} />
       </main>
     );
   }
@@ -510,6 +529,7 @@ export default async function SkillPage({
       ) : null}
 
       <SkillSourcePanel skillId={skill.id} sources={sourceSummaries} />
+      <SkillRecentReviewsPanel reviews={recentReviews} />
 
       <SkillDraftForm initialValues={draftValues} mode="edit" skillId={skill.id} />
       <SkillLifecyclePanel skillId={skill.id} skillTitle={skill.title} status={skill.status} />
@@ -583,6 +603,46 @@ function SkillLifecyclePanel({
         {status === SkillStatus.DRAFT || status === SkillStatus.ARCHIVED ? (
           <SkillDeleteForm skillId={skillId} skillTitle={skillTitle} />
         ) : null}
+      </div>
+    </section>
+  );
+}
+
+function SkillRecentReviewsPanel({ reviews }: { reviews: PracticeHistoryReview[] }) {
+  if (reviews.length === 0) {
+    return null;
+  }
+
+  return (
+    <section className="skillPanel skillRecentReviewsPanel" aria-labelledby="skill-reviews-title">
+      <div className="skillPanelHeader">
+        <div>
+          <p className="eyebrow">History</p>
+          <h2 id="skill-reviews-title">Recent reviews</h2>
+        </div>
+        <Link className="dashboardPanelLink" href="/history">
+          Full history
+        </Link>
+      </div>
+
+      <div className="skillReviewList">
+        {reviews.map((review) => (
+          <article className="skillReviewRow" key={review.id}>
+            <div>
+              <strong>{formatReviewDate(review.reviewedAt)}</strong>
+              <p>
+                {formatReviewResult(review.result)} / {formatHistoryEnum(review.finalRating)} /{" "}
+                {formatResponseTime(review.responseMs)}
+              </p>
+            </div>
+            <div className="skillReviewSchedule">
+              <span>{formatNullableHistoryEnum(review.previousState)}</span>
+              <span aria-hidden="true">to</span>
+              <span>{formatNullableHistoryEnum(review.nextState)}</span>
+              <span>Next: {formatDueLabel(review.nextDueAt)}</span>
+            </div>
+          </article>
+        ))}
       </div>
     </section>
   );

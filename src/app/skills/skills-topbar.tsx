@@ -7,6 +7,7 @@ export function SkillsTopbar({
   current:
     | "dashboard"
     | "practice"
+    | "history"
     | "skills"
     | "collections"
     | "settings"
@@ -18,12 +19,15 @@ export function SkillsTopbar({
       <Link className="practiceWordmark" href="/dashboard">
         LearnRecur
       </Link>
-      <nav className="practiceNav" aria-label="Skills navigation">
+      <nav className="practiceNav" aria-label="Primary navigation">
         <Link aria-current={current === "dashboard" ? "page" : undefined} href="/dashboard">
           Dashboard
         </Link>
         <Link aria-current={current === "practice" ? "page" : undefined} href="/practice">
           Practice
+        </Link>
+        <Link aria-current={current === "history" ? "page" : undefined} href="/history">
+          History
         </Link>
         <Link
           aria-current={current === "skills" || current === "skill" ? "page" : undefined}
