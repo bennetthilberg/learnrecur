@@ -1000,6 +1000,10 @@ a {
   margin-top: 22px;
 }
 
+.practiceFrame:focus {
+  outline: none;
+}
+
 .practiceStatusLine {
   margin-top: 12px;
 }
@@ -1012,6 +1016,13 @@ a {
 
 .practiceEmpty h1 {
   margin-bottom: 0;
+}
+
+.practiceEmptyActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 2px;
 }
 
 .skillHeader {

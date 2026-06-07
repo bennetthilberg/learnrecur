@@ -4,6 +4,10 @@ import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 
 import { AnswerKind, ExerciseFlagReason, FsrsRating } from "@/generated/prisma/enums";
+import {
+  getPracticeShortcutIntent,
+  type PracticeShortcutTargetRole,
+} from "@/lib/practice-shortcuts";
 
 import {
   commitPracticeReviewAction,
@@ -70,6 +74,11 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [, startTransition] = useTransition();
+  const answerInputRef = useRef<HTMLInputElement>(null);
+  const continueButtonRef = useRef<HTMLButtonElement>(null);
+  const firstFlagReasonRef = useRef<HTMLInputElement>(null);
+  const practiceFrameRef = useRef<HTMLElement>(null);
+  const reportToggleRef = useRef<HTMLButtonElement>(null);
 
   const timer = useVisibleElapsedMs(attemptId, item.status === "ready" && feedback === null);
   const checkedFeedback = feedback?.status === "checked" ? feedback : null;
@@ -257,6 +266,104 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
     });
   }, [pendingAction, resetAttemptState, startTransition]);
 
+  useEffect(() => {
+    if (item.status !== "ready") {
+      return;
+    }
+
+    const focusTarget = window.requestAnimationFrame(() => {
+      if (item.exercise.answerKind === AnswerKind.CHOICE) {
+        practiceFrameRef.current?.focus({ preventScroll: true });
+      } else {
+        answerInputRef.current?.focus({ preventScroll: true });
+      }
+    });
+
+    return () => window.cancelAnimationFrame(focusTarget);
+  }, [attemptId, item]);
+
+  useEffect(() => {
+    if (!checkedFeedback) {
+      return;
+    }
+
+    const focusTarget = window.requestAnimationFrame(() => {
+      continueButtonRef.current?.focus({ preventScroll: true });
+    });
+
+    return () => window.cancelAnimationFrame(focusTarget);
+  }, [checkedFeedback]);
+
+  useEffect(() => {
+    if (!flagFormOpen) {
+      return;
+    }
+
+    const focusTarget = window.requestAnimationFrame(() => {
+      firstFlagReasonRef.current?.focus({ preventScroll: true });
+    });
+
+    return () => window.cancelAnimationFrame(focusTarget);
+  }, [flagFormOpen]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (item.status !== "ready") {
+        return;
+      }
+
+      const choiceCount =
+        item.exercise.answerKind === AnswerKind.CHOICE ? item.exercise.choices.length : 0;
+      const intent = getPracticeShortcutIntent({
+        answerKind: item.exercise.answerKind,
+        answerReady: isAnswerReady(answerValue),
+        choiceCount,
+        feedbackVisible: feedback !== null,
+        flagFormOpen,
+        key: event.key,
+        pending: pendingAction !== null,
+        targetRole: getShortcutTargetRole(event.target, answerInputRef.current),
+      });
+
+      if (intent.type === "none") {
+        return;
+      }
+
+      event.preventDefault();
+
+      if (intent.type === "select-choice" && item.exercise.answerKind === AnswerKind.CHOICE) {
+        const choice = item.exercise.choices[intent.choiceIndex];
+
+        if (choice) {
+          setAnswerValue(choice.id);
+        }
+
+        return;
+      }
+
+      if (intent.type === "check-answer") {
+        handleCheck();
+        return;
+      }
+
+      if (intent.type === "continue") {
+        handleContinue();
+        return;
+      }
+
+      if (intent.type === "close-report") {
+        setFlagFormOpen(false);
+        window.requestAnimationFrame(() => {
+          reportToggleRef.current?.focus({ preventScroll: true });
+        });
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [answerValue, feedback, flagFormOpen, handleCheck, handleContinue, item, pendingAction]);
+
   if (item.status !== "ready") {
     return (
       <>
@@ -267,6 +374,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
             {item.status === "none-due" ? "All caught up." : "Practice unavailable."}
           </h1>
           <p>{item.message}</p>
+          <PracticeEmptyActions scoped={item.scope?.kind === "collection"} />
           {canUseSampleData && item.scope?.kind !== "collection" ? (
             <button
               className="primaryButton"
@@ -277,7 +385,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
               {pendingAction === "sample" ? "Preparing sample" : "Create sample practice"}
             </button>
           ) : null}
-          {statusMessage ? <p className="practiceStatusLine">{statusMessage}</p> : null}
+          <PracticeStatusMessage message={statusMessage} />
         </section>
       </>
     );
@@ -296,7 +404,12 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
   return (
     <>
       <PracticeScopeBar scope={item.scope} />
-      <section className="practiceFrame" aria-labelledby="practice-title">
+      <section
+        ref={practiceFrameRef}
+        className="practiceFrame"
+        aria-labelledby="practice-title"
+        tabIndex={-1}
+      >
         <div className="practiceMetaRow">
           <div>
             <p className="eyebrow">{practiceModeLabel}</p>
@@ -320,7 +433,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
 
       {exercise.answerKind === AnswerKind.CHOICE ? (
         <div className="choiceGrid" role="radiogroup" aria-label="Answer choices">
-          {exercise.choices.map((choice) => {
+          {exercise.choices.map((choice, index) => {
             const selected = answerValue === choice.id;
             const checked = feedback?.status === "checked";
             const tone =
@@ -339,6 +452,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
                 type="button"
                 role="radio"
                 aria-checked={selected}
+                aria-label={`Choice ${index + 1}: ${choice.label}`}
                 disabled={feedback !== null || pendingAction !== null}
                 onClick={() => setAnswerValue(choice.id)}
               >
@@ -351,6 +465,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
         <label className="exactAnswerField">
           <span>Your answer</span>
           <input
+            ref={answerInputRef}
             value={answerValue}
             inputMode="text"
             autoComplete="off"
@@ -363,11 +478,6 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
                   : "Type your answer"
             }
             onChange={(event) => setAnswerValue(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && feedback === null && pendingAction === null) {
-                handleCheck();
-              }
-            }}
           />
         </label>
       )}
@@ -377,6 +487,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
           className="practiceFeedback"
           data-tone={isCorrect ? "correct" : "incorrect"}
           aria-live="polite"
+          role="status"
         >
           <h2>{isCorrect ? "Correct." : "Not quite."}</h2>
           <p>
@@ -424,9 +535,11 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
               <p>Report this exercise instead of saving the review.</p>
             </div>
             <button
+              ref={reportToggleRef}
               className="secondaryButton"
               type="button"
               disabled={pendingAction !== null}
+              aria-controls={flagFormOpen ? "practice-report-form" : undefined}
               aria-expanded={flagFormOpen}
               onClick={() => setFlagFormOpen((open) => !open)}
             >
@@ -435,13 +548,18 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
           </div>
 
           {flagFormOpen ? (
-            <div className="flagExerciseForm">
+            <div className="flagExerciseForm" id="practice-report-form">
               <fieldset>
                 <legend>What should we fix?</legend>
                 <div className="flagReasonGrid">
                   {FLAG_REASON_OPTIONS.map((option) => (
                     <label key={option.reason} className="flagReasonOption">
                       <input
+                        ref={
+                          option.reason === FLAG_REASON_OPTIONS[0]?.reason
+                            ? firstFlagReasonRef
+                            : undefined
+                        }
                         type="checkbox"
                         checked={selectedFlagReasons.includes(option.reason)}
                         disabled={pendingAction !== null}
@@ -497,13 +615,14 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
             type="button"
             disabled={pendingAction !== null || feedback.status !== "checked"}
             onClick={handleContinue}
+            ref={continueButtonRef}
           >
             {pendingAction === "continue" ? "Saving" : "Continue"}
           </button>
         )}
       </div>
 
-      {statusMessage ? <p className="practiceStatusLine">{statusMessage}</p> : null}
+      <PracticeStatusMessage message={statusMessage} />
       </section>
     </>
   );
@@ -525,6 +644,64 @@ function PracticeScopeBar({ scope }: { scope?: PracticeScope }) {
 
 function getScopedCollectionId(item: PracticeItem): string | null {
   return item.scope?.kind === "collection" ? item.scope.collectionId : null;
+}
+
+function PracticeEmptyActions({ scoped }: { scoped: boolean }) {
+  return (
+    <div className="practiceEmptyActions" aria-label="Practice next actions">
+      {scoped ? (
+        <Link className="primaryButton" href="/practice">
+          All practice
+        </Link>
+      ) : null}
+      <Link className={scoped ? "secondaryButton" : "primaryButton"} href="/dashboard">
+        Dashboard
+      </Link>
+      <Link className="secondaryButton" href="/skills">
+        Skills
+      </Link>
+      <Link className="secondaryButton" href="/skills/new">
+        Add skill
+      </Link>
+    </div>
+  );
+}
+
+function PracticeStatusMessage({ message }: { message: string | null }) {
+  if (!message) {
+    return null;
+  }
+
+  return (
+    <p className="practiceStatusLine" aria-live="polite" role="status">
+      {message}
+    </p>
+  );
+}
+
+function getShortcutTargetRole(
+  target: EventTarget | null,
+  answerInput: HTMLInputElement | null,
+): PracticeShortcutTargetRole {
+  if (!(target instanceof HTMLElement)) {
+    return "document";
+  }
+
+  if (answerInput && target === answerInput) {
+    return "answer-input";
+  }
+
+  if (
+    target instanceof HTMLButtonElement ||
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLSelectElement ||
+    target instanceof HTMLTextAreaElement ||
+    target.isContentEditable
+  ) {
+    return "form-control";
+  }
+
+  return "document";
 }
 
 function useVisibleElapsedMs(attemptKey: string, active: boolean) {
