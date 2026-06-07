@@ -1193,6 +1193,14 @@ a {
   line-height: 1.25;
 }
 
+.skillPanelCopy {
+  max-width: 720px;
+  margin: 0;
+  color: var(--lr-muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
 .skillDraftForm {
   display: grid;
   gap: 15px;
