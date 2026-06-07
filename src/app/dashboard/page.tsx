@@ -50,20 +50,20 @@ export default async function DashboardPage() {
           </p>
         </div>
         <div className="dashboardHeaderActions">
-          <Link className="secondaryButton" href="/history">
-            Review history
-          </Link>
-          <Link className="secondaryButton" href="/settings">
-            Reminder settings
-          </Link>
-          <Link className="secondaryButton" href="/skills/new">
-            Add skill
-          </Link>
           <Link
             className={dashboard.readyNowCount > 0 ? "primaryButton" : "secondaryButton"}
             href="/practice"
           >
             {dashboard.readyNowCount > 0 ? "Start practice" : "Open practice"}
+          </Link>
+          <Link className="secondaryButton" href="/skills/new">
+            Add skill
+          </Link>
+          <Link className="secondaryButton" href="/history">
+            Review history
+          </Link>
+          <Link className="secondaryButton" href="/settings">
+            Reminder settings
           </Link>
         </div>
       </header>
