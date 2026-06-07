@@ -1673,19 +1673,19 @@ a {
   gap: 15px;
 }
 
-.skillDraftFieldset {
+.skillFormFieldset {
   min-width: 0;
   margin: 0;
   border: 0;
   padding: 0;
 }
 
-.skillDraftFieldset + .skillDraftFieldset {
+.skillFormFieldset + .skillFormFieldset {
   border-top: 1px solid var(--lr-line);
   padding-top: 16px;
 }
 
-.skillDraftFieldset legend {
+.skillFormFieldset legend {
   margin: 0 0 12px;
   color: var(--lr-primary-ink);
   font-size: var(--lr-text-xs);
@@ -1693,7 +1693,7 @@ a {
   line-height: var(--lr-leading-label);
 }
 
-.skillDraftFieldsetBody {
+.skillFormFieldsetBody {
   display: grid;
   gap: 15px;
 }

@@ -64,62 +64,71 @@ export function SourceUploadForm() {
         LearnRecur processes it in the background and creates one or more editable drafts.
       </p>
 
-      <div className="skillField">
-        <span>File</span>
-        <div className="skillFileControl">
-          <input
-            accept={acceptedMimeTypes.join(",")}
-            aria-invalid={hasFileError(fieldErrors) ? "true" : undefined}
-            className="skillFileInput"
-            id={fileInputId}
-            name="sourceFile"
-            onChange={(event) => {
-              setSelectedFileName(event.currentTarget.files?.[0]?.name ?? null);
-            }}
-            required
-            type="file"
-          />
-          <label className="secondaryButton skillFileButton" htmlFor={fileInputId}>
-            Choose file
-          </label>
-          <span className="skillFileName" data-state={selectedFileName ? "selected" : "empty"}>
-            {selectedFileName ?? "No file selected"}
-          </span>
+      <fieldset className="skillFormFieldset">
+        <legend>Source file</legend>
+        <div className="skillFormFieldsetBody">
+          <div className="skillField">
+            <span>File</span>
+            <div className="skillFileControl">
+              <input
+                accept={acceptedMimeTypes.join(",")}
+                aria-invalid={hasFileError(fieldErrors) ? "true" : undefined}
+                className="skillFileInput"
+                id={fileInputId}
+                name="sourceFile"
+                onChange={(event) => {
+                  setSelectedFileName(event.currentTarget.files?.[0]?.name ?? null);
+                }}
+                required
+                type="file"
+              />
+              <label className="secondaryButton skillFileButton" htmlFor={fileInputId}>
+                Choose file
+              </label>
+              <span className="skillFileName" data-state={selectedFileName ? "selected" : "empty"}>
+                {selectedFileName ?? "No file selected"}
+              </span>
+            </div>
+            {fileErrorMessage(fieldErrors) ? <em>{fileErrorMessage(fieldErrors)}</em> : null}
+          </div>
+          <p className="skillUploadMeta">PNG, JPEG, WebP, or PDF. Maximum 10 MB.</p>
         </div>
-        {fileErrorMessage(fieldErrors) ? <em>{fileErrorMessage(fieldErrors)}</em> : null}
-      </div>
+      </fieldset>
 
-      <div className="skillTwoColumnFields">
-        <SkillTextField
-          error={fieldErrors?.sourceLabel?.[0]}
-          label="Source label"
-          name="sourceLabel"
-          placeholder="Worksheet page 3"
-        />
-        <SkillTextField
-          error={fieldErrors?.collectionName?.[0]}
-          label="Collection"
-          name="collectionName"
-          placeholder="Spanish grammar"
-        />
-      </div>
+      <fieldset className="skillFormFieldset">
+        <legend>Draft context</legend>
+        <div className="skillFormFieldsetBody">
+          <div className="skillTwoColumnFields">
+            <SkillTextField
+              error={fieldErrors?.sourceLabel?.[0]}
+              label="Source label"
+              name="sourceLabel"
+              placeholder="Worksheet page 3"
+            />
+            <SkillTextField
+              error={fieldErrors?.collectionName?.[0]}
+              label="Collection"
+              name="collectionName"
+              placeholder="Spanish grammar"
+            />
+          </div>
 
-      <SkillTextArea
-        error={fieldErrors?.focusNote?.[0]}
-        label="Focus note"
-        name="focusNote"
-        placeholder="Focus on the grammar rules, not the vocabulary list."
-        rows={3}
-      />
+          <SkillTextArea
+            error={fieldErrors?.focusNote?.[0]}
+            label="Focus note"
+            name="focusNote"
+            placeholder="Focus on the grammar rules, not the vocabulary list."
+            rows={3}
+          />
 
-      <SkillTextField
-        error={fieldErrors?.tags?.[0]}
-        label="Tags"
-        name="tags"
-        placeholder="spanish, worksheet, grammar"
-      />
-
-      <p className="skillUploadMeta">PNG, JPEG, WebP, or PDF. Maximum 10 MB.</p>
+          <SkillTextField
+            error={fieldErrors?.tags?.[0]}
+            label="Tags"
+            name="tags"
+            placeholder="spanish, worksheet, grammar"
+          />
+        </div>
+      </fieldset>
 
       {message ? (
         <p className="skillFormMessage" data-tone={status === "error" ? "error" : "saved"}>

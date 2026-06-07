@@ -49,9 +49,9 @@ export function SkillDraftForm({ mode, skillId, initialValues }: SkillDraftFormP
 
         {skillId ? <input name="skillId" type="hidden" value={skillId} /> : null}
 
-        <fieldset className="skillDraftFieldset">
+        <fieldset className="skillFormFieldset">
           <legend>Core definition</legend>
-          <div className="skillDraftFieldsetBody">
+          <div className="skillFormFieldsetBody">
             <SkillTextField
               error={draftState.fieldErrors?.title?.[0]}
               label="Title"
@@ -90,9 +90,9 @@ export function SkillDraftForm({ mode, skillId, initialValues }: SkillDraftFormP
           </div>
         </fieldset>
 
-        <fieldset className="skillDraftFieldset">
+        <fieldset className="skillFormFieldset">
           <legend>Practice guidance</legend>
-          <div className="skillDraftFieldsetBody">
+          <div className="skillFormFieldsetBody">
             <SkillTextArea
               error={draftState.fieldErrors?.rules?.[0]}
               label="Rules"

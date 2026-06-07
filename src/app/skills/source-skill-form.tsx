@@ -32,44 +32,54 @@ export function SourceSkillForm() {
         into one to three narrow drafts.
       </p>
 
-      <SkillTextArea
-        error={state.fieldErrors?.sourceText?.[0]}
-        label="Source text"
-        name="sourceText"
-        placeholder="Paste notes, a copied textbook excerpt, worksheet instructions, or a short explanation from class."
-        required
-        rows={9}
-      />
+      <fieldset className="skillFormFieldset">
+        <legend>Source text</legend>
+        <div className="skillFormFieldsetBody">
+          <SkillTextArea
+            error={state.fieldErrors?.sourceText?.[0]}
+            label="Learning material"
+            name="sourceText"
+            placeholder="Paste notes, a copied textbook excerpt, worksheet instructions, or a short explanation from class."
+            required
+            rows={9}
+          />
+        </div>
+      </fieldset>
 
-      <div className="skillTwoColumnFields">
-        <SkillTextField
-          error={state.fieldErrors?.sourceLabel?.[0]}
-          label="Source label"
-          name="sourceLabel"
-          placeholder="Spanish chapter notes"
-        />
-        <SkillTextField
-          error={state.fieldErrors?.collectionName?.[0]}
-          label="Collection"
-          name="collectionName"
-          placeholder="Spanish grammar"
-        />
-      </div>
+      <fieldset className="skillFormFieldset">
+        <legend>Draft context</legend>
+        <div className="skillFormFieldsetBody">
+          <div className="skillTwoColumnFields">
+            <SkillTextField
+              error={state.fieldErrors?.sourceLabel?.[0]}
+              label="Source label"
+              name="sourceLabel"
+              placeholder="Spanish chapter notes"
+            />
+            <SkillTextField
+              error={state.fieldErrors?.collectionName?.[0]}
+              label="Collection"
+              name="collectionName"
+              placeholder="Spanish grammar"
+            />
+          </div>
 
-      <SkillTextArea
-        error={state.fieldErrors?.focusNote?.[0]}
-        label="Focus note"
-        name="focusNote"
-        placeholder="Focus on when to choose ser vs. estar, not vocabulary memorization."
-        rows={3}
-      />
+          <SkillTextArea
+            error={state.fieldErrors?.focusNote?.[0]}
+            label="Focus note"
+            name="focusNote"
+            placeholder="Focus on when to choose ser vs. estar, not vocabulary memorization."
+            rows={3}
+          />
 
-      <SkillTextField
-        error={state.fieldErrors?.tags?.[0]}
-        label="Tags"
-        name="tags"
-        placeholder="spanish, verbs, grammar"
-      />
+          <SkillTextField
+            error={state.fieldErrors?.tags?.[0]}
+            label="Tags"
+            name="tags"
+            placeholder="spanish, verbs, grammar"
+          />
+        </div>
+      </fieldset>
 
       {state.message ? (
         <p className="skillFormMessage" data-tone={state.status}>
