@@ -277,6 +277,14 @@ export default async function SkillPage({
             <div>
               <p className="eyebrow">Exercise queue</p>
               <h2>Ready choice exercises.</h2>
+              <SkillQueueStateStrip
+                readyCount={inventory.readyExerciseCount}
+                stateLabel={
+                  hasActiveChoiceRefillJob ? "Refill running" : canRefill ? "Below target" : "Full"
+                }
+                stateTone={canRefill || hasActiveChoiceRefillJob ? "attention" : "ready"}
+                targetCount={DEFAULT_READY_EXERCISE_TARGET}
+              />
               <p>
                 Keep a small set of verified exercises available so practice can stay fast and
                 deterministic.
@@ -305,14 +313,29 @@ export default async function SkillPage({
             <div>
               <p className="eyebrow">Recall step</p>
               <h2>Ready exact-input exercises.</h2>
+              <SkillQueueStateStrip
+                readyCount={exactInputInventory.readyExerciseCount}
+                stateLabel={
+                  exactInputUnlocked
+                    ? hasActiveExactInputRefillJob
+                      ? "Refill running"
+                      : canRefillExactInput
+                        ? "Below target"
+                        : "Full"
+                    : `${skill.repetitions} / ${EXACT_INPUT_UNLOCK_REPETITIONS} reviews`
+                }
+                stateTone={
+                  exactInputUnlocked
+                    ? canRefillExactInput || hasActiveExactInputRefillJob
+                      ? "attention"
+                      : "ready"
+                    : "locked"
+                }
+                targetCount={DEFAULT_READY_EXACT_INPUT_TARGET}
+              />
               <p>
                 Exact input starts after {EXACT_INPUT_UNLOCK_REPETITIONS} saved reviews, once the
                 learner has practiced the skill with multiple choice first.
-              </p>
-              <p className="skillQueueStatus">
-                {exactInputUnlocked
-                  ? `${exactInputInventory.readyExerciseCount} ready / ${DEFAULT_READY_EXACT_INPUT_TARGET} target`
-                  : `${skill.repetitions} / ${EXACT_INPUT_UNLOCK_REPETITIONS} reviews completed`}
               </p>
               {latestExactInputGenerationJob ? (
                 <p className="skillQueueStatus">
@@ -341,14 +364,29 @@ export default async function SkillPage({
             <div>
               <p className="eyebrow">Math recall</p>
               <h2>Ready math exercises.</h2>
+              <SkillQueueStateStrip
+                readyCount={mathInventory.readyExerciseCount}
+                stateLabel={
+                  exactInputUnlocked
+                    ? hasActiveMathRefillJob
+                      ? "Refill running"
+                      : canRefillMath
+                        ? "Below target"
+                        : "Full"
+                    : `${skill.repetitions} / ${EXACT_INPUT_UNLOCK_REPETITIONS} reviews`
+                }
+                stateTone={
+                  exactInputUnlocked
+                    ? canRefillMath || hasActiveMathRefillJob
+                      ? "attention"
+                      : "ready"
+                    : "locked"
+                }
+                targetCount={DEFAULT_READY_MATH_TARGET}
+              />
               <p>
                 Math practice uses deterministic symbolic checking for single-expression answers
                 after the learner has completed a few scheduled reviews.
-              </p>
-              <p className="skillQueueStatus">
-                {exactInputUnlocked
-                  ? `${mathInventory.readyExerciseCount} ready / ${DEFAULT_READY_MATH_TARGET} target`
-                  : `${skill.repetitions} / ${EXACT_INPUT_UNLOCK_REPETITIONS} reviews completed`}
               </p>
               {latestMathGenerationJob ? (
                 <p className="skillQueueStatus">
@@ -570,6 +608,33 @@ function SkillInventoryGroup({
         </div>
       </dl>
     </section>
+  );
+}
+
+function SkillQueueStateStrip({
+  readyCount,
+  stateLabel,
+  stateTone,
+  targetCount,
+}: {
+  readyCount: number;
+  stateLabel: string;
+  stateTone: "attention" | "locked" | "ready";
+  targetCount: number;
+}) {
+  return (
+    <dl className="skillQueueStateStrip" data-tone={stateTone}>
+      <div>
+        <dt>Ready</dt>
+        <dd>
+          {formatCount(readyCount)} / {formatCount(targetCount)}
+        </dd>
+      </div>
+      <div>
+        <dt>State</dt>
+        <dd>{stateLabel}</dd>
+      </div>
+    </dl>
   );
 }
 

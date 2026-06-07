@@ -1931,6 +1931,56 @@ a {
   text-wrap: balance;
 }
 
+.skillQueueStateStrip {
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(96px, auto));
+  margin: 11px 0 2px;
+  border-top: 1px solid var(--lr-line);
+  border-bottom: 1px solid var(--lr-line);
+}
+
+.skillQueueStateStrip div {
+  display: grid;
+  gap: 4px;
+  padding: 9px 13px;
+}
+
+.skillQueueStateStrip div:first-child {
+  padding-left: 0;
+}
+
+.skillQueueStateStrip div + div {
+  border-left: 1px solid var(--lr-line);
+}
+
+.skillQueueStateStrip dt {
+  color: var(--lr-faint);
+  font-size: var(--lr-text-xs);
+  font-weight: 500;
+  line-height: var(--lr-leading-label);
+}
+
+.skillQueueStateStrip dd {
+  margin: 0;
+  color: var(--lr-ink);
+  font-size: var(--lr-text-sm);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  line-height: var(--lr-leading-label);
+}
+
+.skillQueueStateStrip[data-tone="attention"] dd {
+  color: var(--lr-accent-ink);
+}
+
+.skillQueueStateStrip[data-tone="locked"] dd {
+  color: var(--lr-muted);
+}
+
+.skillQueueStateStrip[data-tone="ready"] dd {
+  color: var(--lr-primary-ink);
+}
+
 .skillQueueBlock p:not(.eyebrow),
 .skillQueueStatus {
   max-width: 620px;
@@ -3098,6 +3148,19 @@ a {
 
   .skillQueueBlock {
     grid-template-columns: 1fr;
+  }
+
+  .skillQueueStateStrip {
+    grid-template-columns: 1fr;
+  }
+
+  .skillQueueStateStrip div:first-child {
+    padding-left: 13px;
+  }
+
+  .skillQueueStateStrip div + div {
+    border-top: 1px solid var(--lr-line);
+    border-left: 0;
   }
 
   .skillLifecycleActions {
