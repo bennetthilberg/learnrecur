@@ -314,7 +314,20 @@ a {
 .primaryButton:disabled,
 .secondaryButton:disabled {
   cursor: not-allowed;
-  opacity: 0.58;
+}
+
+.primaryButton:disabled,
+.primaryButton:disabled:hover {
+  border-color: var(--lr-line-strong);
+  background: var(--lr-fill-strong);
+  color: var(--lr-faint);
+}
+
+.secondaryButton:disabled,
+.secondaryButton:disabled:hover {
+  border-color: var(--lr-line);
+  background: var(--lr-panel-soft);
+  color: var(--lr-faint);
 }
 
 .authShell {
