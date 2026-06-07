@@ -123,6 +123,8 @@ Destructive secondary actions should use the danger-tinted surface with danger i
 
 Buttons should not be oversized. Use compact, tool-like button proportions.
 
+Disclosure actions in management rows should look like intentional controls, not native browser summaries with default markers. Keep closed disclosures compact; let only the open inline form claim extra row width.
+
 ### Forms
 
 Form controls should inherit the app's neutral system rather than browser defaults. Placeholder text uses the faint steel token with full opacity; disabled fields use a quiet panel fill and muted text so state is visible without washing out labels.
