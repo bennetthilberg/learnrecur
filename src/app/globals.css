@@ -1220,7 +1220,7 @@ a {
   font-size: 13px;
 }
 
-.skillUploadForm input[type="file"] {
+.skillUploadForm input[type="file"]:not(.skillFileInput) {
   padding: 9px 11px;
 }
 
@@ -1243,6 +1243,7 @@ a {
   width: 1px;
   max-width: 1px;
   height: 1px;
+  min-height: 1px;
   margin: -1px;
   border: 0;
   overflow: hidden;
@@ -1374,6 +1375,15 @@ a {
 .skillField input,
 .skillField select {
   min-height: 42px;
+}
+
+.skillField .skillFileInput {
+  width: 1px;
+  max-width: 1px;
+  height: 1px;
+  min-height: 1px;
+  border: 0;
+  padding: 0;
 }
 
 .skillField input:focus-visible,
