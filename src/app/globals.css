@@ -2544,13 +2544,26 @@ a {
 }
 
 .historyTransitionText {
-  display: flex;
+  display: inline-flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 4px 6px;
   margin-top: 5px;
   color: var(--lr-muted);
   font-size: var(--lr-text-xs);
   line-height: var(--lr-leading-normal);
+}
+
+.historyTransitionArrow {
+  display: inline-flex;
+  min-width: 18px;
+  justify-content: center;
+  border: 1px solid var(--lr-line);
+  border-radius: var(--lr-radius-sm);
+  background: var(--lr-fill);
+  color: var(--lr-primary-ink);
+  font-size: var(--lr-text-2xs);
+  line-height: 1.35;
 }
 
 .skillReviewList {

@@ -143,11 +143,7 @@ function HistoryTable({ reviews }: { reviews: PracticeHistoryReview[] }) {
               </td>
               <td data-label="Rating">
                 <span className="historyPrimaryText">{formatHistoryLabel(review.finalRating)}</span>
-                <span className="historyTransitionText">
-                  <span>{formatNullableHistoryLabel(review.previousState)}</span>
-                  <span aria-hidden="true">to</span>
-                  <span>{formatNullableHistoryLabel(review.nextState)}</span>
-                </span>
+                <HistoryStateTransition review={review} />
               </td>
               <td data-label="Schedule">
                 <span className="historyPrimaryText">{formatDueLabel(review.nextDueAt)}</span>
@@ -160,6 +156,24 @@ function HistoryTable({ reviews }: { reviews: PracticeHistoryReview[] }) {
         </tbody>
       </table>
     </div>
+  );
+}
+
+function HistoryStateTransition({ review }: { review: PracticeHistoryReview }) {
+  const previousState = formatNullableHistoryLabel(review.previousState);
+  const nextState = formatNullableHistoryLabel(review.nextState);
+
+  return (
+    <span
+      className="historyTransitionText"
+      aria-label={`State changed from ${previousState} to ${nextState}`}
+    >
+      <span>{previousState}</span>
+      <span className="historyTransitionArrow" aria-hidden="true">
+        &rarr;
+      </span>
+      <span>{nextState}</span>
+    </span>
   );
 }
 
