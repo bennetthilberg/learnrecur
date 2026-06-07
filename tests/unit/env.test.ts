@@ -147,13 +147,15 @@ describe("environment validation", () => {
 
     resetManagedEnv({
       RESEND_API_KEY: "not-a-resend-key",
-      RESEND_FROM_EMAIL: "",
+      RESEND_FROM_EMAIL: "LearnRecur reminders",
       NEXT_PUBLIC_APP_URL: "wat",
     });
 
     expect(hasResendEnv()).toBe(false);
     expect(() => getResendEnv()).toThrow(/RESEND_API_KEY must start with re_/);
-    expect(() => getResendEnv()).toThrow(/RESEND_FROM_EMAIL is required/);
+    expect(() => getResendEnv()).toThrow(
+      /RESEND_FROM_EMAIL must contain a valid email address/,
+    );
     expect(() => getResendEnv()).toThrow(/NEXT_PUBLIC_APP_URL must be a valid URL/);
   });
 

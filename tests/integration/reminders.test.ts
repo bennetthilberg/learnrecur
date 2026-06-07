@@ -278,6 +278,57 @@ describeDatabase("due email reminders", () => {
     });
   });
 
+  it("retries stale pending reminder logs", async () => {
+    const userId = await createUser("stale_pending");
+    await createDueChoiceSkill(userId, "stale pending");
+    await prisma.reminderPreference.create({
+      data: {
+        userId,
+        enabled: true,
+        email: "pending@example.com",
+        localHour: 9,
+        timezone: "America/New_York",
+        minimumDueCount: 1,
+      },
+    });
+    await prisma.reminderSendLog.create({
+      data: {
+        userId,
+        localDate,
+        status: ReminderSendStatus.PENDING,
+        dueCount: 1,
+        email: "pending@example.com",
+        provider: "resend",
+        createdAt: new Date(now.getTime() - 10 * 60 * 1000),
+      },
+    });
+    const sender = createRecordingSender("email_retry");
+
+    const result = await processDueReminderBatch({
+      userIds: [userId],
+      now,
+      appUrl: "https://learnrecur.example",
+      sender,
+    });
+
+    expect(result.results).toEqual([
+      {
+        status: "sent",
+        userId,
+        localDate,
+        dueCount: 1,
+        providerMessageId: "email_retry",
+      },
+    ]);
+    expect(sender.payloads).toHaveLength(1);
+    expect(await prisma.reminderSendLog.count({ where: { userId } })).toBe(1);
+    await expectReminderLog(userId, {
+      status: ReminderSendStatus.SENT,
+      dueCount: 1,
+      providerMessageId: "email_retry",
+    });
+  });
+
   it("records provider failures without losing the audit log", async () => {
     const userId = await createUser("send_failure");
     await createDueChoiceSkill(userId, "failure");

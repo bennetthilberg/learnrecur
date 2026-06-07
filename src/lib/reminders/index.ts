@@ -19,6 +19,7 @@ export const DEFAULT_REMINDER_MINIMUM_DUE_COUNT = 1;
 export const DEFAULT_REMINDER_TIMEZONE = "America/New_York";
 export const MAX_REMINDER_MINIMUM_DUE_COUNT = 99;
 export const REMINDER_PROVIDER = "resend";
+export const STALE_PENDING_REMINDER_MS = 5 * 60 * 1000;
 
 export type NormalizedReminderPreferenceInput = {
   enabled: boolean;
@@ -382,11 +383,16 @@ export async function processDueReminderPreference(input: {
       },
     },
     select: {
+      createdAt: true,
       status: true,
     },
   });
 
-  if (existingLog) {
+  const shouldRetryPendingLog =
+    existingLog?.status === ReminderSendStatus.PENDING &&
+    isStalePendingReminderLog(existingLog.createdAt, input.now);
+
+  if (existingLog && !shouldRetryPendingLog) {
     return {
       status: "already-processed",
       userId: input.preference.userId,
@@ -402,15 +408,34 @@ export async function processDueReminderPreference(input: {
 
   if (dueCount < input.preference.minimumDueCount) {
     try {
-      await prisma.reminderSendLog.create({
-        data: {
-          userId: input.preference.userId,
-          localDate,
-          status: ReminderSendStatus.SKIPPED,
-          dueCount,
-          email: input.preference.email,
-        },
-      });
+      if (shouldRetryPendingLog) {
+        await prisma.reminderSendLog.update({
+          where: {
+            userId_localDate: {
+              userId: input.preference.userId,
+              localDate,
+            },
+          },
+          data: {
+            status: ReminderSendStatus.SKIPPED,
+            dueCount,
+            email: input.preference.email,
+            provider: null,
+            providerMessageId: null,
+            errorMessage: null,
+          },
+        });
+      } else {
+        await prisma.reminderSendLog.create({
+          data: {
+            userId: input.preference.userId,
+            localDate,
+            status: ReminderSendStatus.SKIPPED,
+            dueCount,
+            email: input.preference.email,
+          },
+        });
+      }
     } catch (error) {
       if (isUniqueConstraintError(error)) {
         return existingLogResult(input.preference.userId, localDate);
@@ -428,16 +453,35 @@ export async function processDueReminderPreference(input: {
   }
 
   try {
-    await prisma.reminderSendLog.create({
-      data: {
-        userId: input.preference.userId,
-        localDate,
-        status: ReminderSendStatus.PENDING,
-        dueCount,
-        email: input.preference.email,
-        provider: REMINDER_PROVIDER,
-      },
-    });
+    if (shouldRetryPendingLog) {
+      await prisma.reminderSendLog.update({
+        where: {
+          userId_localDate: {
+            userId: input.preference.userId,
+            localDate,
+          },
+        },
+        data: {
+          status: ReminderSendStatus.PENDING,
+          dueCount,
+          email: input.preference.email,
+          provider: REMINDER_PROVIDER,
+          providerMessageId: null,
+          errorMessage: null,
+        },
+      });
+    } else {
+      await prisma.reminderSendLog.create({
+        data: {
+          userId: input.preference.userId,
+          localDate,
+          status: ReminderSendStatus.PENDING,
+          dueCount,
+          email: input.preference.email,
+          provider: REMINDER_PROVIDER,
+        },
+      });
+    }
   } catch (error) {
     if (isUniqueConstraintError(error)) {
       return existingLogResult(input.preference.userId, localDate);
@@ -637,6 +681,10 @@ function parseBooleanish(value: unknown): unknown {
   }
 
   return value;
+}
+
+function isStalePendingReminderLog(createdAt: Date, now: Date): boolean {
+  return now.getTime() - createdAt.getTime() >= STALE_PENDING_REMINDER_MS;
 }
 
 function getReminderDateTimeParts(now: Date, timezone: string) {

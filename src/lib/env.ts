@@ -80,7 +80,10 @@ const resendEnvSchema = z.object({
   RESEND_FROM_EMAIL: z
     .string({ error: "RESEND_FROM_EMAIL is required" })
     .trim()
-    .min(1, "RESEND_FROM_EMAIL is required"),
+    .min(1, "RESEND_FROM_EMAIL is required")
+    .refine(isValidSenderEmail, {
+      message: "RESEND_FROM_EMAIL must contain a valid email address",
+    }),
   NEXT_PUBLIC_APP_URL: appUrlSchema,
 });
 
@@ -142,4 +145,10 @@ export function formatEnvError(error: unknown): string {
   }
 
   return "Missing or invalid environment configuration.";
+}
+
+function isValidSenderEmail(value: string): boolean {
+  const addressMatch = value.match(/<([^<>]+)>$/);
+  const address = addressMatch ? addressMatch[1].trim() : value;
+  return z.string().email().safeParse(address).success;
 }

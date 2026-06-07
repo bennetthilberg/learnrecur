@@ -50,7 +50,7 @@ export default async function DashboardPage() {
         </div>
         <div className="dashboardHeaderActions">
           <Link className="secondaryButton" href="/settings">
-            Reminders
+            Reminder settings
           </Link>
           <Link className="secondaryButton" href="/skills/new">
             Add skill

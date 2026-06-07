@@ -14,7 +14,7 @@ export default async function SettingsPage() {
   const clerkUser = await currentUser();
 
   if (!clerkUser) {
-    throw new Error(`Clerk returned no user for authenticated user ${userId}.`);
+    throw new Error("Clerk returned no authenticated user.");
   }
 
   const databaseUser = await ensureDatabaseUser(clerkUser);
