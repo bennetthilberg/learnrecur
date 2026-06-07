@@ -317,7 +317,7 @@ function formatFlagRefillMessage(refill: PracticeFlagRefillResult): string {
     case "already-at-target":
       return "This skill already has enough replacement exercises ready.";
     case "exact-input-locked":
-      return "Replacement generation will unlock after more multiple-choice practice.";
+      return "Replacement generation starts after more multiple-choice practice.";
     case "job-in-progress":
       return "Replacement generation is already queued or running.";
     case "unsupported-answer-kind":

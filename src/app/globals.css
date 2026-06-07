@@ -85,9 +85,7 @@ a {
 .practiceShell,
 .skillShell {
   min-height: 100vh;
-  background:
-    linear-gradient(180deg, hsl(0 0% 100% / 0.72), hsl(216 38% 97% / 0.92)),
-    var(--lr-page);
+  background: var(--lr-page);
 }
 
 .entryShell {
@@ -673,9 +671,7 @@ a {
   flex-direction: column;
   gap: 22px;
   border-right: 1px solid var(--lr-line);
-  background:
-    linear-gradient(180deg, hsl(0 0% 100% / 0.96), hsl(214 100% 99% / 0.96)),
-    var(--lr-panel);
+  background: var(--lr-panel);
   padding: 18px 14px;
 }
 
@@ -838,9 +834,7 @@ a {
 .practicePromptPanel {
   border: 1px solid var(--lr-line-strong);
   border-radius: var(--lr-radius);
-  background:
-    linear-gradient(180deg, var(--lr-white), var(--lr-panel-soft)),
-    var(--lr-panel);
+  background: var(--lr-panel);
   padding: 22px 22px 24px;
 }
 
