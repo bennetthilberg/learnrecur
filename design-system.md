@@ -161,9 +161,9 @@ Use semantic colors that harmonize with the system:
 
 Feedback should be exact and encouraging, not overly warm or chatty.
 
-Message treatment: stripe.
+Message treatment: bounded signal.
 
-Inline feedback, warnings, and system notes should use a slim colored stripe paired with concise copy. The stripe should identify the message type without turning the whole message into a loud colored panel.
+Inline feedback, warnings, and system notes should use a full, quiet border paired with concise copy and a restrained semantic background. Avoid one-sided colored accent bars; they make rows and panels feel like generic template cards rather than considered product states.
 When a message sits on a tinted semantic surface, its copy should use the matching semantic ink color. Avoid muted neutral text on colored message backgrounds; the result looks less intentional and weakens the state.
 
 Privacy and data-control explanations should be structured into explicit groups such as Included and Left out. Avoid asking users to parse a long paragraph to understand what data leaves or stays in the system.
