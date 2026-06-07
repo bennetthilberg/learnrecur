@@ -1439,6 +1439,41 @@ a {
   margin: 0 auto;
 }
 
+.skillCreationPath {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px solid var(--lr-line);
+  border-bottom: 1px solid var(--lr-line);
+}
+
+.skillCreationPath div {
+  display: grid;
+  gap: 5px;
+  padding: 12px 16px;
+}
+
+.skillCreationPath div:first-child {
+  padding-left: 0;
+}
+
+.skillCreationPath div + div {
+  border-left: 1px solid var(--lr-line);
+}
+
+.skillCreationPath span {
+  color: var(--lr-primary-ink);
+  font-size: var(--lr-text-xs);
+  font-weight: 500;
+  line-height: var(--lr-leading-label);
+}
+
+.skillCreationPath strong {
+  color: var(--lr-ink);
+  font-size: var(--lr-text-sm);
+  font-weight: 500;
+  line-height: var(--lr-leading-copy);
+}
+
 .skillSourceEntryGrid {
   display: grid;
   grid-template-columns: minmax(280px, 0.9fr) minmax(0, 1.1fr);
@@ -2899,6 +2934,19 @@ a {
 
   .skillHeader {
     display: grid;
+  }
+
+  .skillCreationPath {
+    grid-template-columns: 1fr;
+  }
+
+  .skillCreationPath div:first-child {
+    padding-left: 16px;
+  }
+
+  .skillCreationPath div + div {
+    border-top: 1px solid var(--lr-line);
+    border-left: 0;
   }
 
   .skillManualSection {
