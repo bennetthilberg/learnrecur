@@ -96,12 +96,22 @@ export default async function SettingsPage() {
           </Link>
         </div>
 
-        <p className="skillPanelCopy">
-          The export includes your collections, skills, stored source text,
-          exercises, attempts, review logs, flags, generation job metadata, and
-          reminder records. It does not include original uploaded file bytes,
-          private storage locations, API keys, or raw AI prompts.
-        </p>
+        <div className="settingsExportSummary">
+          <section>
+            <h3>Included</h3>
+            <p>
+              Collections, skills, stored source text, exercises, attempts,
+              review logs, flags, generation job metadata, and reminder records.
+            </p>
+          </section>
+          <section>
+            <h3>Left out</h3>
+            <p>
+              Original uploaded file bytes, private storage locations, API keys,
+              and raw AI prompts.
+            </p>
+          </section>
+        </div>
       </section>
     </main>
   );

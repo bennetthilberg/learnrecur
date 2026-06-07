@@ -1674,6 +1674,40 @@ a {
   margin: 0;
 }
 
+.settingsExportSummary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.88fr);
+  gap: 18px;
+  border-top: 1px solid var(--lr-line);
+  padding-top: 18px;
+}
+
+.settingsExportSummary section {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+}
+
+.settingsExportSummary section + section {
+  border-left: 1px solid var(--lr-line);
+  padding-left: 18px;
+}
+
+.settingsExportSummary h3 {
+  margin: 0;
+  color: var(--lr-ink);
+  font-size: var(--lr-text-md);
+  font-weight: 500;
+  line-height: var(--lr-leading-label);
+}
+
+.settingsExportSummary p {
+  margin: 0;
+  color: var(--lr-muted);
+  font-size: var(--lr-text-sm);
+  line-height: var(--lr-leading-copy);
+}
+
 .skillActivationPanel {
   display: grid;
   gap: 16px;
@@ -2675,6 +2709,17 @@ a {
 
   .skillSourceEntryGrid {
     grid-template-columns: 1fr;
+  }
+
+  .settingsExportSummary {
+    grid-template-columns: 1fr;
+  }
+
+  .settingsExportSummary section + section {
+    border-top: 1px solid var(--lr-line);
+    border-left: 0;
+    padding-top: 14px;
+    padding-left: 0;
   }
 
   .skillDraftGrid {
