@@ -1402,10 +1402,15 @@ a {
   min-height: 42px;
   align-items: center;
   gap: 10px;
-  border: 1px solid var(--lr-line-strong);
+  border: 1px dashed hsl(219 97% 42% / 0.28);
   border-radius: var(--lr-radius);
-  background: var(--lr-white);
+  background: hsl(219 97% 42% / 0.025);
   padding: 6px;
+}
+
+.skillFileControl:focus-within {
+  border-color: var(--lr-primary);
+  box-shadow: var(--lr-focus-ring);
 }
 
 .skillFileInput {
@@ -1432,11 +1437,19 @@ a {
 .skillFileName {
   min-width: 0;
   overflow: hidden;
-  color: var(--lr-muted);
   font-size: var(--lr-text-sm);
   line-height: var(--lr-leading-label);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.skillFileName[data-state="empty"] {
+  color: var(--lr-faint);
+}
+
+.skillFileName[data-state="selected"] {
+  color: var(--lr-ink);
+  font-weight: 500;
 }
 
 .skillManualIntro {

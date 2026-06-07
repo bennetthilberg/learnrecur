@@ -82,7 +82,9 @@ export function SourceUploadForm() {
           <label className="secondaryButton skillFileButton" htmlFor={fileInputId}>
             Choose file
           </label>
-          <span className="skillFileName">{selectedFileName ?? "No file selected"}</span>
+          <span className="skillFileName" data-state={selectedFileName ? "selected" : "empty"}>
+            {selectedFileName ?? "No file selected"}
+          </span>
         </div>
         {fileErrorMessage(fieldErrors) ? <em>{fileErrorMessage(fieldErrors)}</em> : null}
       </div>
