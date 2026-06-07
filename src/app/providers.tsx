@@ -3,16 +3,16 @@
 import { MantineProvider, createTheme, type MantineColorsTuple } from "@mantine/core";
 
 const learnRecurBlue: MantineColorsTuple = [
-  "#eef4ff",
-  "#dce8ff",
-  "#b8d0ff",
-  "#8db4fb",
-  "#6598f2",
-  "#3e7ee8",
-  "#1d65df",
-  "#034cd5",
-  "#033fae",
-  "#032f86",
+  "hsl(219 100% 97%)",
+  "hsl(219 100% 93%)",
+  "hsl(220 100% 86%)",
+  "hsl(219 93% 77%)",
+  "hsl(218 84% 67%)",
+  "hsl(217 79% 58%)",
+  "hsl(218 77% 49%)",
+  "hsl(219 97% 42%)",
+  "hsl(219 97% 35%)",
+  "hsl(220 96% 27%)",
 ];
 
 const theme = createTheme({

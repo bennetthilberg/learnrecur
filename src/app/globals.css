@@ -1,29 +1,44 @@
 :root {
-  --lr-ink: #131a24;
-  --lr-ink-soft: #2f3a48;
-  --lr-muted: #4b5968;
-  --lr-faint: #687789;
-  --lr-line: #dce3eb;
-  --lr-line-strong: #c7d1dd;
-  --lr-fill: #eef2f7;
-  --lr-fill-strong: #e3e9f1;
-  --lr-page: #f6f8fb;
-  --lr-panel: #ffffff;
-  --lr-primary: #034cd5;
-  --lr-primary-hover: #0341b6;
-  --lr-primary-press: #032f86;
-  --lr-primary-soft: #e7eefc;
-  --lr-primary-ink: #023a9e;
-  --lr-primary-ring: rgba(3, 76, 213, 0.32);
-  --lr-accent: #b76a00;
-  --lr-success: #1f7a4d;
-  --lr-warning: #b76a00;
-  --lr-error: #c0392b;
+  --lr-white: hsl(0 0% 100%);
+  --lr-ink: hsl(215 31% 11%);
+  --lr-ink-soft: hsl(214 21% 23%);
+  --lr-muted: hsl(211 16% 35%);
+  --lr-faint: hsl(213 14% 47%);
+  --lr-line: hsl(212 27% 89%);
+  --lr-line-strong: hsl(213 24% 82%);
+  --lr-fill: hsl(213 36% 95%);
+  --lr-fill-strong: hsl(214 33% 92%);
+  --lr-page: hsl(216 38% 97%);
+  --lr-panel: var(--lr-white);
+  --lr-panel-soft: hsl(220 60% 99%);
+  --lr-panel-cool: hsl(214 100% 99%);
+  --lr-primary: hsl(219 97% 42%);
+  --lr-primary-hover: hsl(219 97% 36%);
+  --lr-primary-press: hsl(220 96% 27%);
+  --lr-primary-soft: hsl(220 78% 95%);
+  --lr-primary-muted: hsl(219 79% 92%);
+  --lr-primary-ink: hsl(218 98% 31%);
+  --lr-primary-ring: hsl(219 97% 42% / 0.32);
+  --lr-accent: hsl(35 100% 36%);
+  --lr-success: hsl(150 59% 30%);
+  --lr-success-soft: hsl(150 40% 98%);
+  --lr-success-fill: hsl(152 35% 92%);
+  --lr-success-line: hsl(148 35% 80%);
+  --lr-success-ink: hsl(151 62% 21%);
+  --lr-warning: var(--lr-accent);
+  --lr-error: hsl(6 63% 46%);
+  --lr-danger-soft: hsl(7 100% 98%);
+  --lr-danger-subtle: hsl(9 100% 99%);
+  --lr-danger-fill: hsl(8 74% 94%);
+  --lr-danger-line: hsl(7 56% 83%);
+  --lr-danger-ink: hsl(4 70% 32%);
   --lr-radius-sm: 3px;
   --lr-radius: 5px;
   --lr-radius-lg: 10px;
   --lr-radius-chip: 7px;
-  --lr-shadow: 0 1px 2px rgba(18, 29, 51, 0.035), 0 8px 18px rgba(18, 29, 51, 0.045);
+  --lr-shadow:
+    0 1px 2px hsl(219 48% 10% / 0.035),
+    0 8px 18px hsl(219 48% 10% / 0.045);
   --lr-focus-ring: 0 0 0 3px var(--lr-primary-ring);
   --lr-sidebar-width: 248px;
   --lr-page-gutter: 32px;
@@ -61,7 +76,7 @@ a {
 }
 
 ::selection {
-  background: rgba(3, 76, 213, 0.18);
+  background: hsl(219 97% 42% / 0.18);
 }
 
 .entryShell,
@@ -71,7 +86,7 @@ a {
 .skillShell {
   min-height: 100vh;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(246, 248, 251, 0.92)),
+    linear-gradient(180deg, hsl(0 0% 100% / 0.72), hsl(216 38% 97% / 0.92)),
     var(--lr-page);
 }
 
@@ -158,7 +173,7 @@ a {
 .primaryButton {
   border: 1px solid var(--lr-primary);
   background: var(--lr-primary);
-  color: #ffffff;
+  color: var(--lr-white);
 }
 
 .primaryButton:hover {
@@ -166,24 +181,24 @@ a {
 }
 
 .secondaryButton {
-  border: 1px solid rgba(3, 76, 213, 0.22);
+  border: 1px solid hsl(219 97% 42% / 0.22);
   background: var(--lr-primary-soft);
   color: var(--lr-primary-ink);
 }
 
 .secondaryButton:hover {
-  border-color: rgba(3, 76, 213, 0.32);
-  background: #dce7fb;
+  border-color: hsl(219 97% 42% / 0.32);
+  background: var(--lr-primary-muted);
 }
 
 .secondaryButton[data-tone="danger"] {
-  border-color: rgba(192, 57, 43, 0.34);
-  background: #fff8f7;
+  border-color: hsl(6 63% 46% / 0.34);
+  background: var(--lr-danger-soft);
   color: var(--lr-error);
 }
 
 .secondaryButton[data-tone="danger"]:hover {
-  background: rgba(192, 57, 43, 0.07);
+  background: hsl(6 63% 46% / 0.07);
 }
 
 .primaryButton:focus-visible,
@@ -282,7 +297,7 @@ a {
   border: 1px solid var(--lr-line);
   border-radius: var(--lr-radius-lg);
   background: var(--lr-panel);
-  box-shadow: 0 1px 2px rgba(18, 29, 51, 0.025), 0 10px 24px rgba(18, 29, 51, 0.04);
+  box-shadow: 0 1px 2px hsl(219 48% 10% / 0.025), 0 10px 24px hsl(219 48% 10% / 0.04);
 }
 
 .dashboardSetupPanel {
@@ -321,8 +336,8 @@ a {
 }
 
 .dashboardMetricCard:first-child {
-  border-color: rgba(3, 76, 213, 0.24);
-  background: #f8fbff;
+  border-color: hsl(219 97% 42% / 0.24);
+  background: var(--lr-panel-cool);
 }
 
 .dashboardMetricCard:first-child strong {
@@ -447,12 +462,12 @@ a {
 }
 
 .dashboardChip[data-tone="neutral"] {
-  background: #fbfcfe;
+  background: var(--lr-panel-soft);
   color: var(--lr-ink-soft);
 }
 
 .dashboardChip[data-tone="ready"] {
-  border-color: rgba(3, 76, 213, 0.24);
+  border-color: hsl(219 97% 42% / 0.24);
   background: var(--lr-primary-soft);
   color: var(--lr-primary-ink);
 }
@@ -494,7 +509,7 @@ a {
   align-items: center;
   border: 1px solid var(--lr-line);
   border-radius: var(--lr-radius-chip);
-  background: #fbfcfe;
+  background: var(--lr-panel-soft);
   color: var(--lr-muted);
   padding: 4px 8px;
   line-height: 1.1;
@@ -502,7 +517,7 @@ a {
 
 .dashboardTag {
   min-height: 24px;
-  background: #ffffff;
+  background: var(--lr-white);
 }
 
 .dashboardEmptyState {
@@ -587,7 +602,7 @@ a {
   gap: 22px;
   border-right: 1px solid var(--lr-line);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 251, 255, 0.96)),
+    linear-gradient(180deg, hsl(0 0% 100% / 0.96), hsl(214 100% 99% / 0.96)),
     var(--lr-panel);
   padding: 18px 14px;
 }
@@ -608,9 +623,9 @@ a {
   width: 30px;
   height: 30px;
   place-items: center;
-  border: 1px solid rgba(3, 76, 213, 0.28);
+  border: 1px solid hsl(219 97% 42% / 0.28);
   border-radius: var(--lr-radius);
-  background: #f8fbff;
+  background: var(--lr-panel-cool);
   color: var(--lr-primary-ink);
   content: "L";
   font-size: 14px;
@@ -643,7 +658,7 @@ a {
 }
 
 .practiceNav a[aria-current="page"] {
-  border-color: rgba(3, 76, 213, 0.22);
+  border-color: hsl(219 97% 42% / 0.22);
   background: var(--lr-primary-soft);
   color: var(--lr-primary-ink);
 }
@@ -652,13 +667,13 @@ a {
   margin-top: 8px;
   border-color: var(--lr-primary);
   background: var(--lr-primary);
-  color: #ffffff;
+  color: var(--lr-white);
 }
 
 .practiceNav a[data-intent="create"]:hover {
   border-color: var(--lr-primary-hover);
   background: var(--lr-primary-hover);
-  color: #ffffff;
+  color: var(--lr-white);
 }
 
 .practiceTopbar > :last-child {
@@ -672,7 +687,7 @@ a {
   border: 1px solid var(--lr-line);
   border-radius: var(--lr-radius-lg);
   background: var(--lr-panel);
-  box-shadow: 0 1px 2px rgba(18, 29, 51, 0.03), 0 14px 34px rgba(18, 29, 51, 0.055);
+  box-shadow: 0 1px 2px hsl(219 48% 10% / 0.03), 0 14px 34px hsl(219 48% 10% / 0.055);
   padding: 28px;
 }
 
@@ -740,7 +755,7 @@ a {
   align-items: center;
   border: 1px solid var(--lr-line-strong);
   border-radius: var(--lr-radius-chip);
-  background: #fbfcfe;
+  background: var(--lr-panel-soft);
   color: var(--lr-ink-soft);
   padding: 5px 9px;
   font-size: 12px;
@@ -752,7 +767,7 @@ a {
   border: 1px solid var(--lr-line-strong);
   border-radius: var(--lr-radius);
   background:
-    linear-gradient(180deg, #ffffff, #fbfcfe),
+    linear-gradient(180deg, var(--lr-white), var(--lr-panel-soft)),
     var(--lr-panel);
   padding: 22px 22px 24px;
 }
@@ -805,12 +820,12 @@ a {
   gap: 12px;
   border: 1px solid var(--lr-line-strong);
   border-radius: var(--lr-radius);
-  background: #ffffff;
+  background: var(--lr-white);
   color: var(--lr-ink);
   padding: 12px 14px;
   text-align: left;
   cursor: pointer;
-  box-shadow: 0 1px 1px rgba(18, 29, 51, 0.025);
+  box-shadow: 0 1px 1px hsl(219 48% 10% / 0.025);
   transition:
     background-color 140ms ease,
     border-color 140ms ease,
@@ -819,8 +834,8 @@ a {
 }
 
 .choiceCard:hover:not(:disabled) {
-  border-color: rgba(3, 76, 213, 0.28);
-  background: #fbfcfe;
+  border-color: hsl(219 97% 42% / 0.28);
+  background: var(--lr-panel-soft);
 }
 
 .choiceCard:focus-visible,
@@ -837,15 +852,15 @@ a {
 }
 
 .choiceCard[data-tone="correct"] {
-  border-color: #b9ddca;
-  background: #e2f1ea;
-  color: #145536;
+  border-color: var(--lr-success-line);
+  background: var(--lr-success-fill);
+  color: var(--lr-success-ink);
 }
 
 .choiceCard[data-tone="incorrect"] {
-  border-color: #ecc1bb;
-  background: #fbe7e4;
-  color: #8a2018;
+  border-color: var(--lr-danger-line);
+  background: var(--lr-danger-fill);
+  color: var(--lr-danger-ink);
 }
 
 .choiceCard:disabled {
@@ -875,17 +890,17 @@ a {
 
 .choiceCard[data-selected="true"] .choiceIndex {
   background: var(--lr-primary);
-  color: #ffffff;
+  color: var(--lr-white);
 }
 
 .choiceCard[data-tone="correct"] .choiceIndex {
   background: var(--lr-success);
-  color: #ffffff;
+  color: var(--lr-white);
 }
 
 .choiceCard[data-tone="incorrect"] .choiceIndex {
   background: var(--lr-error);
-  color: #ffffff;
+  color: var(--lr-white);
 }
 
 .exactAnswerField {
@@ -905,7 +920,7 @@ a {
   min-height: 48px;
   border: 1px solid var(--lr-line);
   border-radius: var(--lr-radius);
-  background: #ffffff;
+  background: var(--lr-white);
   color: var(--lr-ink);
   padding: 12px 13px;
   font: inherit;
@@ -921,7 +936,7 @@ a {
 
 .exactAnswerField input:disabled {
   color: var(--lr-muted);
-  background: #fbfcfe;
+  background: var(--lr-panel-soft);
 }
 
 .practiceFeedback {
@@ -929,18 +944,18 @@ a {
   border: 1px solid var(--lr-line);
   border-left-width: 4px;
   border-radius: var(--lr-radius);
-  background: #ffffff;
+  background: var(--lr-white);
   padding: 15px 17px;
 }
 
 .practiceFeedback[data-tone="correct"] {
   border-left-color: var(--lr-success);
-  background: #f8fcfa;
+  background: var(--lr-success-soft);
 }
 
 .practiceFeedback[data-tone="incorrect"] {
   border-left-color: var(--lr-error);
-  background: #fff9f8;
+  background: var(--lr-danger-subtle);
 }
 
 .practiceFeedback h2 {
@@ -999,9 +1014,9 @@ a {
 }
 
 .ratingButton[data-selected="true"] {
-  background: #ffffff;
+  background: var(--lr-white);
   color: var(--lr-ink);
-  box-shadow: 0 1px 2px rgba(18, 29, 51, 0.06);
+  box-shadow: 0 1px 2px hsl(219 48% 10% / 0.06);
 }
 
 .flagExercisePanel {
@@ -1065,7 +1080,7 @@ a {
   gap: 9px;
   border: 1px solid var(--lr-line);
   border-radius: var(--lr-radius);
-  background: #ffffff;
+  background: var(--lr-white);
   color: var(--lr-muted);
   padding: 9px 10px;
   font-size: 13px;
@@ -1106,7 +1121,7 @@ a {
   resize: vertical;
   border: 1px solid var(--lr-line);
   border-radius: var(--lr-radius);
-  background: #ffffff;
+  background: var(--lr-white);
   color: var(--lr-ink);
   padding: 10px 11px;
   font: inherit;
@@ -1232,7 +1247,7 @@ a {
   gap: 10px;
   border: 1px solid var(--lr-line-strong);
   border-radius: var(--lr-radius);
-  background: #ffffff;
+  background: var(--lr-white);
   padding: 6px;
 }
 
@@ -1364,7 +1379,7 @@ a {
   width: 100%;
   border: 1px solid var(--lr-line-strong);
   border-radius: var(--lr-radius);
-  background: #ffffff;
+  background: var(--lr-white);
   color: var(--lr-ink);
   padding: 10px 11px;
   font: inherit;
@@ -1397,7 +1412,7 @@ a {
 .skillField input[aria-invalid="true"],
 .skillField select[aria-invalid="true"],
 .skillField textarea[aria-invalid="true"] {
-  border-color: rgba(192, 57, 43, 0.58);
+  border-color: hsl(6 63% 46% / 0.58);
 }
 
 .skillField em {
@@ -1430,12 +1445,12 @@ a {
 
 .skillFormMessage[data-tone="error"] {
   border-left-color: var(--lr-error);
-  background: rgba(192, 57, 43, 0.08);
+  background: hsl(6 63% 46% / 0.08);
 }
 
 .skillFormMessage[data-tone="saved"] {
   border-left-color: var(--lr-success);
-  background: rgba(31, 122, 77, 0.08);
+  background: hsl(150 59% 30% / 0.08);
 }
 
 .settingsToggle {
@@ -1710,7 +1725,7 @@ a {
 
 .skillDeleteConfirm input:focus-visible {
   border-color: var(--lr-primary);
-  outline: 3px solid rgba(3, 76, 213, 0.16);
+  outline: 3px solid hsl(219 97% 42% / 0.16);
   outline-offset: 0;
 }
 
@@ -1810,7 +1825,7 @@ a {
   display: grid;
   gap: 5px;
   margin-top: 12px;
-  border: 1px solid rgba(3, 76, 213, 0.18);
+  border: 1px solid hsl(219 97% 42% / 0.18);
   border-radius: var(--lr-radius);
   background: var(--lr-primary-soft);
   color: var(--lr-muted);
@@ -1820,8 +1835,8 @@ a {
 }
 
 .skillLibraryStatus[data-tone="error"] {
-  border-color: rgba(192, 57, 43, 0.22);
-  background: rgba(192, 57, 43, 0.08);
+  border-color: hsl(6 63% 46% / 0.22);
+  background: hsl(6 63% 46% / 0.08);
 }
 
 .skillLibraryStatus span:first-child {
@@ -2079,7 +2094,7 @@ a {
     margin: 0 auto 22px;
     border: 1px solid var(--lr-line);
     border-radius: var(--lr-radius-lg);
-    background: rgba(255, 255, 255, 0.94);
+    background: hsl(0 0% 100% / 0.94);
     padding: 10px;
   }
 

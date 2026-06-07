@@ -1,7 +1,7 @@
 export const clerkAppearance = {
   variables: {
     borderRadius: "5px",
-    colorPrimary: "#034cd5",
+    colorPrimary: "hsl(219 97% 42%)",
     fontFamily: "var(--font-lexend), Lexend, sans-serif",
   },
   elements: {
