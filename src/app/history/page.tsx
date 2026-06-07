@@ -122,8 +122,12 @@ function HistoryTable({ reviews }: { reviews: PracticeHistoryReview[] }) {
                 <Link className="historySkillLink" href={`/skills/${review.skillId}`}>
                   {review.skillTitle}
                 </Link>
-                <span className="historySubText">
-                  {review.collectionName ?? "Uncollected"} / {formatAnswerKind(review.answerKind)}
+                <span
+                  className="historyMetaLine"
+                  aria-label={`${review.collectionName ?? "Uncollected"} collection, ${formatAnswerKind(review.answerKind)} answer kind`}
+                >
+                  <span>{review.collectionName ?? "Uncollected"}</span>
+                  <span>{formatAnswerKind(review.answerKind)}</span>
                 </span>
               </td>
               <td data-label="Result">
@@ -146,16 +150,32 @@ function HistoryTable({ reviews }: { reviews: PracticeHistoryReview[] }) {
                 <HistoryStateTransition review={review} />
               </td>
               <td data-label="Schedule">
-                <span className="historyPrimaryText">{formatDueLabel(review.nextDueAt)}</span>
-                <span className="historySubText">
-                  Previous: {formatDueLabel(review.previousDueAt)}
-                </span>
+                <span className="historyPrimaryText">Next: {formatDueLabel(review.nextDueAt)}</span>
+                <HistoryDueTransition review={review} />
               </td>
             </tr>
           ))}
         </tbody>
       </table>
     </div>
+  );
+}
+
+function HistoryDueTransition({ review }: { review: PracticeHistoryReview }) {
+  const previousDue = formatDueLabel(review.previousDueAt);
+  const nextDue = formatDueLabel(review.nextDueAt);
+
+  return (
+    <span
+      className="historyTransitionText"
+      aria-label={`Due date changed from ${previousDue} to ${nextDue}`}
+    >
+      <span>{previousDue}</span>
+      <span className="historyTransitionArrow" aria-hidden="true">
+        &rarr;
+      </span>
+      <span>{nextDue}</span>
+    </span>
   );
 }
 
