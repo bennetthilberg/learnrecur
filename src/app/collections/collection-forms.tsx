@@ -109,14 +109,16 @@ export function CollectionUpdateForm({
 
 export function CollectionArchiveForm({
   collectionId,
+  collectionName,
 }: {
   collectionId: string;
+  collectionName: string;
 }) {
   const [state, formAction, pending] = useActionState(archiveCollectionAction, idleState);
 
   return (
     <details className="collectionInlineDetails collectionInlineDetailsDanger">
-      <summary>Archive</summary>
+      <summary aria-label={`Archive collection ${collectionName}`}>Archive</summary>
       <form action={formAction} className="collectionInlineForm">
         <input name="collectionId" type="hidden" value={collectionId} />
         <p>Archive this collection from dashboard summaries. Its skills stay practiceable.</p>
@@ -131,15 +133,22 @@ export function CollectionArchiveForm({
 
 export function CollectionRestoreForm({
   collectionId,
+  collectionName,
 }: {
   collectionId: string;
+  collectionName: string;
 }) {
   const [state, formAction, pending] = useActionState(restoreCollectionAction, idleState);
 
   return (
     <form action={formAction} className="collectionRestoreForm">
       <input name="collectionId" type="hidden" value={collectionId} />
-      <button className="secondaryButton" disabled={pending} type="submit">
+      <button
+        aria-label={`Restore collection ${collectionName}`}
+        className="secondaryButton"
+        disabled={pending}
+        type="submit"
+      >
         Restore collection
       </button>
       <FormMessage state={state} />

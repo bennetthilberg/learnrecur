@@ -2110,7 +2110,8 @@ a {
 
 .skillSourceFacts,
 .sourceProcessingFacts,
-.settingsExportFacts {
+.settingsExportFacts,
+.collectionFacts {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0;
@@ -2123,14 +2124,16 @@ a {
 
 .skillSourceFacts div,
 .sourceProcessingFacts div,
-.settingsExportFacts div {
+.settingsExportFacts div,
+.collectionFacts div {
   min-width: 0;
   padding: 10px 12px;
 }
 
 .skillSourceFacts div + div,
 .sourceProcessingFacts div + div,
-.settingsExportFacts div + div {
+.settingsExportFacts div + div,
+.collectionFacts div + div {
   border-left: 1px solid var(--lr-line);
 }
 
@@ -2139,13 +2142,16 @@ a {
 .sourceProcessingFacts dt,
 .sourceProcessingFacts dd,
 .settingsExportFacts dt,
-.settingsExportFacts dd {
+.settingsExportFacts dd,
+.collectionFacts dt,
+.collectionFacts dd {
   margin: 0;
 }
 
 .skillSourceFacts dt,
 .sourceProcessingFacts dt,
-.settingsExportFacts dt {
+.settingsExportFacts dt,
+.collectionFacts dt {
   color: var(--lr-faint);
   font-size: var(--lr-text-2xs);
   font-weight: 500;
@@ -2154,7 +2160,8 @@ a {
 
 .skillSourceFacts dd,
 .sourceProcessingFacts dd,
-.settingsExportFacts dd {
+.settingsExportFacts dd,
+.collectionFacts dd {
   margin-top: 3px;
   overflow: hidden;
   color: var(--lr-ink);
@@ -2976,6 +2983,10 @@ a {
   color: var(--lr-primary-ink);
 }
 
+.collectionFacts {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
 .collectionRowActions {
   display: flex;
   flex-wrap: wrap;
@@ -3305,25 +3316,29 @@ a {
 
   .skillSourceFacts,
   .sourceProcessingFacts,
-  .settingsExportFacts {
+  .settingsExportFacts,
+  .collectionFacts {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .skillSourceFacts div + div,
   .sourceProcessingFacts div + div,
-  .settingsExportFacts div + div {
+  .settingsExportFacts div + div,
+  .collectionFacts div + div {
     border-left: 0;
   }
 
   .skillSourceFacts div:nth-child(even),
   .sourceProcessingFacts div:nth-child(even),
-  .settingsExportFacts div:nth-child(even) {
+  .settingsExportFacts div:nth-child(even),
+  .collectionFacts div:nth-child(even) {
     border-left: 1px solid var(--lr-line);
   }
 
   .skillSourceFacts div:nth-child(n + 3),
   .sourceProcessingFacts div:nth-child(n + 3),
-  .settingsExportFacts div:nth-child(n + 3) {
+  .settingsExportFacts div:nth-child(n + 3),
+  .collectionFacts div:nth-child(n + 3) {
     border-top: 1px solid var(--lr-line);
   }
 
@@ -3503,19 +3518,22 @@ a {
 
   .skillSourceFacts,
   .sourceProcessingFacts,
-  .settingsExportFacts {
+  .settingsExportFacts,
+  .collectionFacts {
     grid-template-columns: 1fr;
   }
 
   .skillSourceFacts div:nth-child(even),
   .sourceProcessingFacts div:nth-child(even),
-  .settingsExportFacts div:nth-child(even) {
+  .settingsExportFacts div:nth-child(even),
+  .collectionFacts div:nth-child(even) {
     border-left: 0;
   }
 
   .skillSourceFacts div + div,
   .sourceProcessingFacts div + div,
-  .settingsExportFacts div + div {
+  .settingsExportFacts div + div,
+  .collectionFacts div + div {
     border-top: 1px solid var(--lr-line);
   }
 }

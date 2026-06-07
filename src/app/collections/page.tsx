@@ -3,7 +3,6 @@ import Link from "next/link";
 
 import {
   getCollectionsHome,
-  type CollectionSkillCounts,
   type CollectionSummary,
 } from "@/lib/collections";
 import { ensureDatabaseUser } from "@/lib/users";
@@ -151,7 +150,7 @@ function ActiveCollectionRow({
           Practice
         </Link>
         <CollectionUpdateForm collection={collection} />
-        <CollectionArchiveForm collectionId={collection.id} />
+        <CollectionArchiveForm collectionId={collection.id} collectionName={collection.name} />
       </div>
     </article>
   );
@@ -175,7 +174,7 @@ function ArchivedCollectionRow({
         <span className="dashboardChip">Archived</span>
       </div>
       <CollectionMetaLine collection={collection} />
-      <CollectionRestoreForm collectionId={collection.id} />
+      <CollectionRestoreForm collectionId={collection.id} collectionName={collection.name} />
     </article>
   );
 }
@@ -186,14 +185,32 @@ function CollectionMetaLine({
   collection: CollectionSummary;
 }) {
   return (
-    <div className="skillMetaLine">
-      <span>{formatSkillCount("active", collection.skillCounts.active)}</span>
-      <span>{formatSkillCount("draft", collection.skillCounts.draft)}</span>
-      <span>{formatSkillCount("paused", collection.skillCounts.paused)}</span>
-      <span>{formatSkillCount("archived", collection.skillCounts.archived)}</span>
-      <span>{formatSourceCount(collection.sourceCount)}</span>
-      <span>Updated {formatDate(collection.updatedAt)}</span>
-    </div>
+    <dl className="collectionFacts" aria-label={`${collection.name} collection details`}>
+      <div>
+        <dt>Active</dt>
+        <dd>{formatCount(collection.skillCounts.active)}</dd>
+      </div>
+      <div>
+        <dt>Drafts</dt>
+        <dd>{formatCount(collection.skillCounts.draft)}</dd>
+      </div>
+      <div>
+        <dt>Paused</dt>
+        <dd>{formatCount(collection.skillCounts.paused)}</dd>
+      </div>
+      <div>
+        <dt>Archived</dt>
+        <dd>{formatCount(collection.skillCounts.archived)}</dd>
+      </div>
+      <div>
+        <dt>Sources</dt>
+        <dd>{formatSourceCount(collection.sourceCount)}</dd>
+      </div>
+      <div>
+        <dt>Updated</dt>
+        <dd>{formatDate(collection.updatedAt)}</dd>
+      </div>
+    </dl>
   );
 }
 
@@ -210,10 +227,6 @@ function CollectionEmptyState({
       <p>{detail}</p>
     </div>
   );
-}
-
-function formatSkillCount(label: keyof CollectionSkillCounts, count: number) {
-  return `${formatCount(count)} ${label}`;
 }
 
 function formatSourceCount(count: number) {
