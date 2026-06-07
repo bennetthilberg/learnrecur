@@ -2347,6 +2347,10 @@ a {
   text-align: left;
 }
 
+.skillSourceRemove:not([open]) form {
+  display: none;
+}
+
 .skillSourceRemove p {
   margin: 0;
   color: var(--lr-muted);
@@ -2478,6 +2482,10 @@ a {
 
 .skillLifecycleDetails .skillLifecycleForm {
   margin-top: 10px;
+}
+
+.skillLifecycleDetails:not([open]) .skillLifecycleForm {
+  display: none;
 }
 
 .skillLifecycleConfirm {
