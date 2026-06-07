@@ -236,66 +236,40 @@ export default async function SkillPage({
             <p className="eyebrow">Status</p>
             <h2 id="active-skill-title">Active in the schedule.</h2>
           </div>
-          <dl className="skillStatusGrid">
-            <div>
-              <dt>Exercises</dt>
-              <dd>{skill._count.exercises}</dd>
-            </div>
-            <div>
-              <dt>Ready choices</dt>
-              <dd>
-                {inventory.readyExerciseCount} / {DEFAULT_READY_EXERCISE_TARGET}
-              </dd>
-            </div>
-            <div>
-              <dt>Ready exact input</dt>
-              <dd>
-                {exactInputInventory.readyExerciseCount} / {DEFAULT_READY_EXACT_INPUT_TARGET}
-              </dd>
-            </div>
-            <div>
-              <dt>Verified choices</dt>
-              <dd>{inventory.verifiedExerciseCount}</dd>
-            </div>
-            <div>
-              <dt>Verified exact input</dt>
-              <dd>{exactInputInventory.verifiedExerciseCount}</dd>
-            </div>
-            <div>
-              <dt>Ready math</dt>
-              <dd>
-                {mathInventory.readyExerciseCount} / {DEFAULT_READY_MATH_TARGET}
-              </dd>
-            </div>
-            <div>
-              <dt>Verified math</dt>
-              <dd>{mathInventory.verifiedExerciseCount}</dd>
-            </div>
-            <div>
-              <dt>Retired choices</dt>
-              <dd>{inventory.retiredExerciseCount}</dd>
-            </div>
-            <div>
-              <dt>Retired exact input</dt>
-              <dd>{exactInputInventory.retiredExerciseCount}</dd>
-            </div>
-            <div>
-              <dt>Retired math</dt>
-              <dd>{mathInventory.retiredExerciseCount}</dd>
-            </div>
-            <div>
-              <dt>Collection</dt>
-              <dd>{skill.collection?.name ?? "Uncollected"}</dd>
-            </div>
-            <div>
-              <dt>FSRS state</dt>
-              <dd>{skill.fsrsState}</dd>
-            </div>
-            <div>
-              <dt>Due</dt>
-              <dd>{skill.dueAt ? skill.dueAt.toLocaleString("en-US") : "Not scheduled"}</dd>
-            </div>
+          <dl className="skillStatusSummary">
+            <SkillStatusSummaryItem
+              label="Due"
+              priority="primary"
+              value={skill.dueAt ? formatReviewDate(skill.dueAt) : "Not scheduled"}
+            />
+            <SkillStatusSummaryItem
+              label="Collection"
+              value={skill.collection?.name ?? "Uncollected"}
+            />
+            <SkillStatusSummaryItem label="FSRS state" value={formatHistoryEnum(skill.fsrsState)} />
+            <SkillStatusSummaryItem label="Reviews" value={formatCount(skill.repetitions)} />
+            <SkillStatusSummaryItem label="Exercises" value={formatCount(skill._count.exercises)} />
           </dl>
+          <div className="skillInventoryGrid" aria-label="Exercise inventory">
+            <SkillInventoryGroup
+              label="Choice"
+              readyLabel={`${inventory.readyExerciseCount} / ${DEFAULT_READY_EXERCISE_TARGET} ready`}
+              retiredCount={inventory.retiredExerciseCount}
+              verifiedCount={inventory.verifiedExerciseCount}
+            />
+            <SkillInventoryGroup
+              label="Exact input"
+              readyLabel={`${exactInputInventory.readyExerciseCount} / ${DEFAULT_READY_EXACT_INPUT_TARGET} ready`}
+              retiredCount={exactInputInventory.retiredExerciseCount}
+              verifiedCount={exactInputInventory.verifiedExerciseCount}
+            />
+            <SkillInventoryGroup
+              label="Math"
+              readyLabel={`${mathInventory.readyExerciseCount} / ${DEFAULT_READY_MATH_TARGET} ready`}
+              retiredCount={mathInventory.retiredExerciseCount}
+              verifiedCount={mathInventory.verifiedExerciseCount}
+            />
+          </div>
           <div className="skillQueueBlock">
             <div>
               <p className="eyebrow">Exercise queue</p>
@@ -543,6 +517,54 @@ function hasActiveGenerationJob(job: { status: GenerationJobStatus } | null): bo
   );
 }
 
+function SkillStatusSummaryItem({
+  label,
+  priority,
+  value,
+}: {
+  label: string;
+  priority?: "primary";
+  value: string;
+}) {
+  return (
+    <div data-priority={priority}>
+      <dt>{label}</dt>
+      <dd>{value}</dd>
+    </div>
+  );
+}
+
+function SkillInventoryGroup({
+  label,
+  readyLabel,
+  retiredCount,
+  verifiedCount,
+}: {
+  label: string;
+  readyLabel: string;
+  retiredCount: number;
+  verifiedCount: number;
+}) {
+  return (
+    <section className="skillInventoryGroup" aria-label={`${label} inventory`}>
+      <div>
+        <span>{label}</span>
+        <strong>{readyLabel}</strong>
+      </div>
+      <dl>
+        <div>
+          <dt>Verified</dt>
+          <dd>{formatCount(verifiedCount)}</dd>
+        </div>
+        <div>
+          <dt>Retired</dt>
+          <dd>{formatCount(retiredCount)}</dd>
+        </div>
+      </dl>
+    </section>
+  );
+}
+
 function SkillLifecyclePanel({
   skillId,
   skillTitle,
@@ -662,4 +684,8 @@ function notesToText(value: Prisma.JsonValue | null): string {
   }
 
   return "";
+}
+
+function formatCount(count: number) {
+  return new Intl.NumberFormat("en-US").format(count);
 }

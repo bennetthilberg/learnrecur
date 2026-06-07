@@ -1940,6 +1940,107 @@ a {
   line-height: var(--lr-leading-label);
 }
 
+.skillStatusSummary {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.25fr) repeat(4, minmax(0, 1fr));
+  margin: 0;
+  border-top: 1px solid var(--lr-line);
+  border-bottom: 1px solid var(--lr-line);
+}
+
+.skillStatusSummary div {
+  display: grid;
+  align-content: start;
+  gap: 5px;
+  min-height: 74px;
+  padding: 13px 14px;
+  border-right: 1px solid var(--lr-line);
+}
+
+.skillStatusSummary div:last-child {
+  border-right: 0;
+}
+
+.skillStatusSummary dt {
+  color: var(--lr-faint);
+  font-size: var(--lr-text-xs);
+  font-weight: 500;
+}
+
+.skillStatusSummary dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--lr-ink);
+  font-size: var(--lr-text-md);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  line-height: var(--lr-leading-label);
+}
+
+.skillStatusSummary div[data-priority="primary"] dd {
+  color: var(--lr-primary-ink);
+  font-size: var(--lr-text-lg);
+}
+
+.skillInventoryGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 16px;
+  border-top: 1px solid var(--lr-line);
+  border-bottom: 1px solid var(--lr-line);
+}
+
+.skillInventoryGroup {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border-right: 1px solid var(--lr-line);
+}
+
+.skillInventoryGroup:last-child {
+  border-right: 0;
+}
+
+.skillInventoryGroup > div:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.skillInventoryGroup span,
+.skillInventoryGroup dt {
+  color: var(--lr-faint);
+  font-size: var(--lr-text-xs);
+  font-weight: 500;
+}
+
+.skillInventoryGroup strong {
+  color: var(--lr-ink);
+  font-size: var(--lr-text-md);
+  font-weight: 500;
+  line-height: var(--lr-leading-label);
+}
+
+.skillInventoryGroup dl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  margin: 0;
+}
+
+.skillInventoryGroup dl div {
+  display: flex;
+  gap: 5px;
+  align-items: baseline;
+}
+
+.skillInventoryGroup dd {
+  margin: 0;
+  color: var(--lr-ink);
+  font-size: var(--lr-text-sm);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
 .skillTagLine {
   display: flex;
   flex-wrap: wrap;
@@ -2458,6 +2559,22 @@ a {
   .skillTwoColumnFields,
   .skillStatusGrid {
     grid-template-columns: 1fr;
+  }
+
+  .skillStatusSummary,
+  .skillInventoryGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .skillStatusSummary div,
+  .skillInventoryGroup {
+    border-right: 0;
+    border-bottom: 1px solid var(--lr-line);
+  }
+
+  .skillStatusSummary div:last-child,
+  .skillInventoryGroup:last-child {
+    border-bottom: 0;
   }
 
   .historyTable,
