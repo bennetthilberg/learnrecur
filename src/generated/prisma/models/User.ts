@@ -207,6 +207,8 @@ export type UserWhereInput = {
   reviewLogs?: Prisma.ReviewLogListRelationFilter
   exerciseFlags?: Prisma.ExerciseFlagListRelationFilter
   generationJobs?: Prisma.GenerationJobListRelationFilter
+  reminderPreference?: Prisma.XOR<Prisma.ReminderPreferenceNullableScalarRelationFilter, Prisma.ReminderPreferenceWhereInput> | null
+  reminderSendLogs?: Prisma.ReminderSendLogListRelationFilter
 }
 
 export type UserOrderByWithRelationInput = {
@@ -226,6 +228,8 @@ export type UserOrderByWithRelationInput = {
   reviewLogs?: Prisma.ReviewLogOrderByRelationAggregateInput
   exerciseFlags?: Prisma.ExerciseFlagOrderByRelationAggregateInput
   generationJobs?: Prisma.GenerationJobOrderByRelationAggregateInput
+  reminderPreference?: Prisma.ReminderPreferenceOrderByWithRelationInput
+  reminderSendLogs?: Prisma.ReminderSendLogOrderByRelationAggregateInput
 }
 
 export type UserWhereUniqueInput = Prisma.AtLeast<{
@@ -248,6 +252,8 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   reviewLogs?: Prisma.ReviewLogListRelationFilter
   exerciseFlags?: Prisma.ExerciseFlagListRelationFilter
   generationJobs?: Prisma.GenerationJobListRelationFilter
+  reminderPreference?: Prisma.XOR<Prisma.ReminderPreferenceNullableScalarRelationFilter, Prisma.ReminderPreferenceWhereInput> | null
+  reminderSendLogs?: Prisma.ReminderSendLogListRelationFilter
 }, "id">
 
 export type UserOrderByWithAggregationInput = {
@@ -293,6 +299,8 @@ export type UserCreateInput = {
   reviewLogs?: Prisma.ReviewLogCreateNestedManyWithoutUserInput
   exerciseFlags?: Prisma.ExerciseFlagCreateNestedManyWithoutUserInput
   generationJobs?: Prisma.GenerationJobCreateNestedManyWithoutUserInput
+  reminderPreference?: Prisma.ReminderPreferenceCreateNestedOneWithoutUserInput
+  reminderSendLogs?: Prisma.ReminderSendLogCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateInput = {
@@ -312,6 +320,8 @@ export type UserUncheckedCreateInput = {
   reviewLogs?: Prisma.ReviewLogUncheckedCreateNestedManyWithoutUserInput
   exerciseFlags?: Prisma.ExerciseFlagUncheckedCreateNestedManyWithoutUserInput
   generationJobs?: Prisma.GenerationJobUncheckedCreateNestedManyWithoutUserInput
+  reminderPreference?: Prisma.ReminderPreferenceUncheckedCreateNestedOneWithoutUserInput
+  reminderSendLogs?: Prisma.ReminderSendLogUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserUpdateInput = {
@@ -331,6 +341,8 @@ export type UserUpdateInput = {
   reviewLogs?: Prisma.ReviewLogUpdateManyWithoutUserNestedInput
   exerciseFlags?: Prisma.ExerciseFlagUpdateManyWithoutUserNestedInput
   generationJobs?: Prisma.GenerationJobUpdateManyWithoutUserNestedInput
+  reminderPreference?: Prisma.ReminderPreferenceUpdateOneWithoutUserNestedInput
+  reminderSendLogs?: Prisma.ReminderSendLogUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateInput = {
@@ -350,6 +362,8 @@ export type UserUncheckedUpdateInput = {
   reviewLogs?: Prisma.ReviewLogUncheckedUpdateManyWithoutUserNestedInput
   exerciseFlags?: Prisma.ExerciseFlagUncheckedUpdateManyWithoutUserNestedInput
   generationJobs?: Prisma.GenerationJobUncheckedUpdateManyWithoutUserNestedInput
+  reminderPreference?: Prisma.ReminderPreferenceUncheckedUpdateOneWithoutUserNestedInput
+  reminderSendLogs?: Prisma.ReminderSendLogUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateManyInput = {
@@ -559,6 +573,34 @@ export type UserUpdateOneRequiredWithoutGenerationJobsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutGenerationJobsInput, Prisma.UserUpdateWithoutGenerationJobsInput>, Prisma.UserUncheckedUpdateWithoutGenerationJobsInput>
 }
 
+export type UserCreateNestedOneWithoutReminderPreferenceInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutReminderPreferenceInput, Prisma.UserUncheckedCreateWithoutReminderPreferenceInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutReminderPreferenceInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneRequiredWithoutReminderPreferenceNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutReminderPreferenceInput, Prisma.UserUncheckedCreateWithoutReminderPreferenceInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutReminderPreferenceInput
+  upsert?: Prisma.UserUpsertWithoutReminderPreferenceInput
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutReminderPreferenceInput, Prisma.UserUpdateWithoutReminderPreferenceInput>, Prisma.UserUncheckedUpdateWithoutReminderPreferenceInput>
+}
+
+export type UserCreateNestedOneWithoutReminderSendLogsInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutReminderSendLogsInput, Prisma.UserUncheckedCreateWithoutReminderSendLogsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutReminderSendLogsInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneRequiredWithoutReminderSendLogsNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutReminderSendLogsInput, Prisma.UserUncheckedCreateWithoutReminderSendLogsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutReminderSendLogsInput
+  upsert?: Prisma.UserUpsertWithoutReminderSendLogsInput
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutReminderSendLogsInput, Prisma.UserUpdateWithoutReminderSendLogsInput>, Prisma.UserUncheckedUpdateWithoutReminderSendLogsInput>
+}
+
 export type UserCreateWithoutCollectionsInput = {
   id: string
   email?: string | null
@@ -575,6 +617,8 @@ export type UserCreateWithoutCollectionsInput = {
   reviewLogs?: Prisma.ReviewLogCreateNestedManyWithoutUserInput
   exerciseFlags?: Prisma.ExerciseFlagCreateNestedManyWithoutUserInput
   generationJobs?: Prisma.GenerationJobCreateNestedManyWithoutUserInput
+  reminderPreference?: Prisma.ReminderPreferenceCreateNestedOneWithoutUserInput
+  reminderSendLogs?: Prisma.ReminderSendLogCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutCollectionsInput = {
@@ -593,6 +637,8 @@ export type UserUncheckedCreateWithoutCollectionsInput = {
   reviewLogs?: Prisma.ReviewLogUncheckedCreateNestedManyWithoutUserInput
   exerciseFlags?: Prisma.ExerciseFlagUncheckedCreateNestedManyWithoutUserInput
   generationJobs?: Prisma.GenerationJobUncheckedCreateNestedManyWithoutUserInput
+  reminderPreference?: Prisma.ReminderPreferenceUncheckedCreateNestedOneWithoutUserInput
+  reminderSendLogs?: Prisma.ReminderSendLogUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutCollectionsInput = {
@@ -627,6 +673,8 @@ export type UserUpdateWithoutCollectionsInput = {
   reviewLogs?: Prisma.ReviewLogUpdateManyWithoutUserNestedInput
   exerciseFlags?: Prisma.ExerciseFlagUpdateManyWithoutUserNestedInput
   generationJobs?: Prisma.GenerationJobUpdateManyWithoutUserNestedInput
+  reminderPreference?: Prisma.ReminderPreferenceUpdateOneWithoutUserNestedInput
+  reminderSendLogs?: Prisma.ReminderSendLogUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutCollectionsInput = {
@@ -645,6 +693,8 @@ export type UserUncheckedUpdateWithoutCollectionsInput = {
   reviewLogs?: Prisma.ReviewLogUncheckedUpdateManyWithoutUserNestedInput
   exerciseFlags?: Prisma.ExerciseFlagUncheckedUpdateManyWithoutUserNestedInput
   generationJobs?: Prisma.GenerationJobUncheckedUpdateManyWithoutUserNestedInput
+  reminderPreference?: Prisma.ReminderPreferenceUncheckedUpdateOneWithoutUserNestedInput
+  reminderSendLogs?: Prisma.ReminderSendLogUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutSourceFilesInput = {
@@ -663,6 +713,8 @@ export type UserCreateWithoutSourceFilesInput = {
   reviewLogs?: Prisma.ReviewLogCreateNestedManyWithoutUserInput
   exerciseFlags?: Prisma.ExerciseFlagCreateNestedManyWithoutUserInput
   generationJobs?: Prisma.GenerationJobCreateNestedManyWithoutUserInput
+  reminderPreference?: Prisma.ReminderPreferenceCreateNestedOneWithoutUserInput
+  reminderSendLogs?: Prisma.ReminderSendLogCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutSourceFilesInput = {
@@ -681,6 +733,8 @@ export type UserUncheckedCreateWithoutSourceFilesInput = {
   reviewLogs?: Prisma.ReviewLogUncheckedCreateNestedManyWithoutUserInput
   exerciseFlags?: Prisma.ExerciseFlagUncheckedCreateNestedManyWithoutUserInput
   generationJobs?: Prisma.GenerationJobUncheckedCreateNestedManyWithoutUserInput
+  reminderPreference?: Prisma.ReminderPreferenceUncheckedCreateNestedOneWithoutUserInput
+  reminderSendLogs?: Prisma.ReminderSendLogUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutSourceFilesInput = {
@@ -715,6 +769,8 @@ export type UserUpdateWithoutSourceFilesInput = {
   reviewLogs?: Prisma.ReviewLogUpdateManyWithoutUserNestedInput
   exerciseFlags?: Prisma.ExerciseFlagUpdateManyWithoutUserNestedInput
   generationJobs?: Prisma.GenerationJobUpdateManyWithoutUserNestedInput
+  reminderPreference?: Prisma.ReminderPreferenceUpdateOneWithoutUserNestedInput
+  reminderSendLogs?: Prisma.ReminderSendLogUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutSourceFilesInput = {
@@ -733,6 +789,8 @@ export type UserUncheckedUpdateWithoutSourceFilesInput = {
   reviewLogs?: Prisma.ReviewLogUncheckedUpdateManyWithoutUserNestedInput
   exerciseFlags?: Prisma.ExerciseFlagUncheckedUpdateManyWithoutUserNestedInput
   generationJobs?: Prisma.GenerationJobUncheckedUpdateManyWithoutUserNestedInput
+  reminderPreference?: Prisma.ReminderPreferenceUncheckedUpdateOneWithoutUserNestedInput
+  reminderSendLogs?: Prisma.ReminderSendLogUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutSkillsInput = {
@@ -751,6 +809,8 @@ export type UserCreateWithoutSkillsInput = {
   reviewLogs?: Prisma.ReviewLogCreateNestedManyWithoutUserInput
   exerciseFlags?: Prisma.ExerciseFlagCreateNestedManyWithoutUserInput
   generationJobs?: Prisma.GenerationJobCreateNestedManyWithoutUserInput
+  reminderPreference?: Prisma.ReminderPreferenceCreateNestedOneWithoutUserInput
+  reminderSendLogs?: Prisma.ReminderSendLogCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutSkillsInput = {
@@ -769,6 +829,8 @@ export type UserUncheckedCreateWithoutSkillsInput = {
   reviewLogs?: Prisma.ReviewLogUncheckedCreateNestedManyWithoutUserInput
   exerciseFlags?: Prisma.ExerciseFlagUncheckedCreateNestedManyWithoutUserInput
   generationJobs?: Prisma.GenerationJobUncheckedCreateNestedManyWithoutUserInput
+  reminderPreference?: Prisma.ReminderPreferenceUncheckedCreateNestedOneWithoutUserInput
+  reminderSendLogs?: Prisma.ReminderSendLogUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutSkillsInput = {
@@ -803,6 +865,8 @@ export type UserUpdateWithoutSkillsInput = {
   reviewLogs?: Prisma.ReviewLogUpdateManyWithoutUserNestedInput
   exerciseFlags?: Prisma.ExerciseFlagUpdateManyWithoutUserNestedInput
   generationJobs?: Prisma.GenerationJobUpdateManyWithoutUserNestedInput
+  reminderPreference?: Prisma.ReminderPreferenceUpdateOneWithoutUserNestedInput
+  reminderSendLogs?: Prisma.ReminderSendLogUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutSkillsInput = {
@@ -821,6 +885,8 @@ export type UserUncheckedUpdateWithoutSkillsInput = {
   reviewLogs?: Prisma.ReviewLogUncheckedUpdateManyWithoutUserNestedInput
   exerciseFlags?: Prisma.ExerciseFlagUncheckedUpdateManyWithoutUserNestedInput
   generationJobs?: Prisma.GenerationJobUncheckedUpdateManyWithoutUserNestedInput
+  reminderPreference?: Prisma.ReminderPreferenceUncheckedUpdateOneWithoutUserNestedInput
+  reminderSendLogs?: Prisma.ReminderSendLogUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutSkillSourceRefsInput = {
@@ -839,6 +905,8 @@ export type UserCreateWithoutSkillSourceRefsInput = {
   reviewLogs?: Prisma.ReviewLogCreateNestedManyWithoutUserInput
   exerciseFlags?: Prisma.ExerciseFlagCreateNestedManyWithoutUserInput
   generationJobs?: Prisma.GenerationJobCreateNestedManyWithoutUserInput
+  reminderPreference?: Prisma.ReminderPreferenceCreateNestedOneWithoutUserInput
+  reminderSendLogs?: Prisma.ReminderSendLogCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutSkillSourceRefsInput = {
@@ -857,6 +925,8 @@ export type UserUncheckedCreateWithoutSkillSourceRefsInput = {
   reviewLogs?: Prisma.ReviewLogUncheckedCreateNestedManyWithoutUserInput
   exerciseFlags?: Prisma.ExerciseFlagUncheckedCreateNestedManyWithoutUserInput
   generationJobs?: Prisma.GenerationJobUncheckedCreateNestedManyWithoutUserInput
+  reminderPreference?: Prisma.ReminderPreferenceUncheckedCreateNestedOneWithoutUserInput
+  reminderSendLogs?: Prisma.ReminderSendLogUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutSkillSourceRefsInput = {
@@ -891,6 +961,8 @@ export type UserUpdateWithoutSkillSourceRefsInput = {
   reviewLogs?: Prisma.ReviewLogUpdateManyWithoutUserNestedInput
   exerciseFlags?: Prisma.ExerciseFlagUpdateManyWithoutUserNestedInput
   generationJobs?: Prisma.GenerationJobUpdateManyWithoutUserNestedInput
+  reminderPreference?: Prisma.ReminderPreferenceUpdateOneWithoutUserNestedInput
+  reminderSendLogs?: Prisma.ReminderSendLogUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutSkillSourceRefsInput = {
@@ -909,6 +981,8 @@ export type UserUncheckedUpdateWithoutSkillSourceRefsInput = {
   reviewLogs?: Prisma.ReviewLogUncheckedUpdateManyWithoutUserNestedInput
   exerciseFlags?: Prisma.ExerciseFlagUncheckedUpdateManyWithoutUserNestedInput
   generationJobs?: Prisma.GenerationJobUncheckedUpdateManyWithoutUserNestedInput
+  reminderPreference?: Prisma.ReminderPreferenceUncheckedUpdateOneWithoutUserNestedInput
+  reminderSendLogs?: Prisma.ReminderSendLogUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutExercisesInput = {
@@ -927,6 +1001,8 @@ export type UserCreateWithoutExercisesInput = {
   reviewLogs?: Prisma.ReviewLogCreateNestedManyWithoutUserInput
   exerciseFlags?: Prisma.ExerciseFlagCreateNestedManyWithoutUserInput
   generationJobs?: Prisma.GenerationJobCreateNestedManyWithoutUserInput
+  reminderPreference?: Prisma.ReminderPreferenceCreateNestedOneWithoutUserInput
+  reminderSendLogs?: Prisma.ReminderSendLogCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutExercisesInput = {
@@ -945,6 +1021,8 @@ export type UserUncheckedCreateWithoutExercisesInput = {
   reviewLogs?: Prisma.ReviewLogUncheckedCreateNestedManyWithoutUserInput
   exerciseFlags?: Prisma.ExerciseFlagUncheckedCreateNestedManyWithoutUserInput
   generationJobs?: Prisma.GenerationJobUncheckedCreateNestedManyWithoutUserInput
+  reminderPreference?: Prisma.ReminderPreferenceUncheckedCreateNestedOneWithoutUserInput
+  reminderSendLogs?: Prisma.ReminderSendLogUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutExercisesInput = {
@@ -979,6 +1057,8 @@ export type UserUpdateWithoutExercisesInput = {
   reviewLogs?: Prisma.ReviewLogUpdateManyWithoutUserNestedInput
   exerciseFlags?: Prisma.ExerciseFlagUpdateManyWithoutUserNestedInput
   generationJobs?: Prisma.GenerationJobUpdateManyWithoutUserNestedInput
+  reminderPreference?: Prisma.ReminderPreferenceUpdateOneWithoutUserNestedInput
+  reminderSendLogs?: Prisma.ReminderSendLogUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutExercisesInput = {
@@ -997,6 +1077,8 @@ export type UserUncheckedUpdateWithoutExercisesInput = {
   reviewLogs?: Prisma.ReviewLogUncheckedUpdateManyWithoutUserNestedInput
   exerciseFlags?: Prisma.ExerciseFlagUncheckedUpdateManyWithoutUserNestedInput
   generationJobs?: Prisma.GenerationJobUncheckedUpdateManyWithoutUserNestedInput
+  reminderPreference?: Prisma.ReminderPreferenceUncheckedUpdateOneWithoutUserNestedInput
+  reminderSendLogs?: Prisma.ReminderSendLogUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutExerciseAttemptsInput = {
@@ -1015,6 +1097,8 @@ export type UserCreateWithoutExerciseAttemptsInput = {
   reviewLogs?: Prisma.ReviewLogCreateNestedManyWithoutUserInput
   exerciseFlags?: Prisma.ExerciseFlagCreateNestedManyWithoutUserInput
   generationJobs?: Prisma.GenerationJobCreateNestedManyWithoutUserInput
+  reminderPreference?: Prisma.ReminderPreferenceCreateNestedOneWithoutUserInput
+  reminderSendLogs?: Prisma.ReminderSendLogCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutExerciseAttemptsInput = {
@@ -1033,6 +1117,8 @@ export type UserUncheckedCreateWithoutExerciseAttemptsInput = {
   reviewLogs?: Prisma.ReviewLogUncheckedCreateNestedManyWithoutUserInput
   exerciseFlags?: Prisma.ExerciseFlagUncheckedCreateNestedManyWithoutUserInput
   generationJobs?: Prisma.GenerationJobUncheckedCreateNestedManyWithoutUserInput
+  reminderPreference?: Prisma.ReminderPreferenceUncheckedCreateNestedOneWithoutUserInput
+  reminderSendLogs?: Prisma.ReminderSendLogUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutExerciseAttemptsInput = {
@@ -1067,6 +1153,8 @@ export type UserUpdateWithoutExerciseAttemptsInput = {
   reviewLogs?: Prisma.ReviewLogUpdateManyWithoutUserNestedInput
   exerciseFlags?: Prisma.ExerciseFlagUpdateManyWithoutUserNestedInput
   generationJobs?: Prisma.GenerationJobUpdateManyWithoutUserNestedInput
+  reminderPreference?: Prisma.ReminderPreferenceUpdateOneWithoutUserNestedInput
+  reminderSendLogs?: Prisma.ReminderSendLogUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutExerciseAttemptsInput = {
@@ -1085,6 +1173,8 @@ export type UserUncheckedUpdateWithoutExerciseAttemptsInput = {
   reviewLogs?: Prisma.ReviewLogUncheckedUpdateManyWithoutUserNestedInput
   exerciseFlags?: Prisma.ExerciseFlagUncheckedUpdateManyWithoutUserNestedInput
   generationJobs?: Prisma.GenerationJobUncheckedUpdateManyWithoutUserNestedInput
+  reminderPreference?: Prisma.ReminderPreferenceUncheckedUpdateOneWithoutUserNestedInput
+  reminderSendLogs?: Prisma.ReminderSendLogUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutReviewLogsInput = {
@@ -1103,6 +1193,8 @@ export type UserCreateWithoutReviewLogsInput = {
   exerciseAttempts?: Prisma.ExerciseAttemptCreateNestedManyWithoutUserInput
   exerciseFlags?: Prisma.ExerciseFlagCreateNestedManyWithoutUserInput
   generationJobs?: Prisma.GenerationJobCreateNestedManyWithoutUserInput
+  reminderPreference?: Prisma.ReminderPreferenceCreateNestedOneWithoutUserInput
+  reminderSendLogs?: Prisma.ReminderSendLogCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutReviewLogsInput = {
@@ -1121,6 +1213,8 @@ export type UserUncheckedCreateWithoutReviewLogsInput = {
   exerciseAttempts?: Prisma.ExerciseAttemptUncheckedCreateNestedManyWithoutUserInput
   exerciseFlags?: Prisma.ExerciseFlagUncheckedCreateNestedManyWithoutUserInput
   generationJobs?: Prisma.GenerationJobUncheckedCreateNestedManyWithoutUserInput
+  reminderPreference?: Prisma.ReminderPreferenceUncheckedCreateNestedOneWithoutUserInput
+  reminderSendLogs?: Prisma.ReminderSendLogUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutReviewLogsInput = {
@@ -1155,6 +1249,8 @@ export type UserUpdateWithoutReviewLogsInput = {
   exerciseAttempts?: Prisma.ExerciseAttemptUpdateManyWithoutUserNestedInput
   exerciseFlags?: Prisma.ExerciseFlagUpdateManyWithoutUserNestedInput
   generationJobs?: Prisma.GenerationJobUpdateManyWithoutUserNestedInput
+  reminderPreference?: Prisma.ReminderPreferenceUpdateOneWithoutUserNestedInput
+  reminderSendLogs?: Prisma.ReminderSendLogUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutReviewLogsInput = {
@@ -1173,6 +1269,8 @@ export type UserUncheckedUpdateWithoutReviewLogsInput = {
   exerciseAttempts?: Prisma.ExerciseAttemptUncheckedUpdateManyWithoutUserNestedInput
   exerciseFlags?: Prisma.ExerciseFlagUncheckedUpdateManyWithoutUserNestedInput
   generationJobs?: Prisma.GenerationJobUncheckedUpdateManyWithoutUserNestedInput
+  reminderPreference?: Prisma.ReminderPreferenceUncheckedUpdateOneWithoutUserNestedInput
+  reminderSendLogs?: Prisma.ReminderSendLogUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutExerciseFlagsInput = {
@@ -1191,6 +1289,8 @@ export type UserCreateWithoutExerciseFlagsInput = {
   exerciseAttempts?: Prisma.ExerciseAttemptCreateNestedManyWithoutUserInput
   reviewLogs?: Prisma.ReviewLogCreateNestedManyWithoutUserInput
   generationJobs?: Prisma.GenerationJobCreateNestedManyWithoutUserInput
+  reminderPreference?: Prisma.ReminderPreferenceCreateNestedOneWithoutUserInput
+  reminderSendLogs?: Prisma.ReminderSendLogCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutExerciseFlagsInput = {
@@ -1209,6 +1309,8 @@ export type UserUncheckedCreateWithoutExerciseFlagsInput = {
   exerciseAttempts?: Prisma.ExerciseAttemptUncheckedCreateNestedManyWithoutUserInput
   reviewLogs?: Prisma.ReviewLogUncheckedCreateNestedManyWithoutUserInput
   generationJobs?: Prisma.GenerationJobUncheckedCreateNestedManyWithoutUserInput
+  reminderPreference?: Prisma.ReminderPreferenceUncheckedCreateNestedOneWithoutUserInput
+  reminderSendLogs?: Prisma.ReminderSendLogUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutExerciseFlagsInput = {
@@ -1243,6 +1345,8 @@ export type UserUpdateWithoutExerciseFlagsInput = {
   exerciseAttempts?: Prisma.ExerciseAttemptUpdateManyWithoutUserNestedInput
   reviewLogs?: Prisma.ReviewLogUpdateManyWithoutUserNestedInput
   generationJobs?: Prisma.GenerationJobUpdateManyWithoutUserNestedInput
+  reminderPreference?: Prisma.ReminderPreferenceUpdateOneWithoutUserNestedInput
+  reminderSendLogs?: Prisma.ReminderSendLogUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutExerciseFlagsInput = {
@@ -1261,6 +1365,8 @@ export type UserUncheckedUpdateWithoutExerciseFlagsInput = {
   exerciseAttempts?: Prisma.ExerciseAttemptUncheckedUpdateManyWithoutUserNestedInput
   reviewLogs?: Prisma.ReviewLogUncheckedUpdateManyWithoutUserNestedInput
   generationJobs?: Prisma.GenerationJobUncheckedUpdateManyWithoutUserNestedInput
+  reminderPreference?: Prisma.ReminderPreferenceUncheckedUpdateOneWithoutUserNestedInput
+  reminderSendLogs?: Prisma.ReminderSendLogUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutGenerationJobsInput = {
@@ -1279,6 +1385,8 @@ export type UserCreateWithoutGenerationJobsInput = {
   exerciseAttempts?: Prisma.ExerciseAttemptCreateNestedManyWithoutUserInput
   reviewLogs?: Prisma.ReviewLogCreateNestedManyWithoutUserInput
   exerciseFlags?: Prisma.ExerciseFlagCreateNestedManyWithoutUserInput
+  reminderPreference?: Prisma.ReminderPreferenceCreateNestedOneWithoutUserInput
+  reminderSendLogs?: Prisma.ReminderSendLogCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutGenerationJobsInput = {
@@ -1297,6 +1405,8 @@ export type UserUncheckedCreateWithoutGenerationJobsInput = {
   exerciseAttempts?: Prisma.ExerciseAttemptUncheckedCreateNestedManyWithoutUserInput
   reviewLogs?: Prisma.ReviewLogUncheckedCreateNestedManyWithoutUserInput
   exerciseFlags?: Prisma.ExerciseFlagUncheckedCreateNestedManyWithoutUserInput
+  reminderPreference?: Prisma.ReminderPreferenceUncheckedCreateNestedOneWithoutUserInput
+  reminderSendLogs?: Prisma.ReminderSendLogUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutGenerationJobsInput = {
@@ -1331,6 +1441,8 @@ export type UserUpdateWithoutGenerationJobsInput = {
   exerciseAttempts?: Prisma.ExerciseAttemptUpdateManyWithoutUserNestedInput
   reviewLogs?: Prisma.ReviewLogUpdateManyWithoutUserNestedInput
   exerciseFlags?: Prisma.ExerciseFlagUpdateManyWithoutUserNestedInput
+  reminderPreference?: Prisma.ReminderPreferenceUpdateOneWithoutUserNestedInput
+  reminderSendLogs?: Prisma.ReminderSendLogUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutGenerationJobsInput = {
@@ -1349,6 +1461,200 @@ export type UserUncheckedUpdateWithoutGenerationJobsInput = {
   exerciseAttempts?: Prisma.ExerciseAttemptUncheckedUpdateManyWithoutUserNestedInput
   reviewLogs?: Prisma.ReviewLogUncheckedUpdateManyWithoutUserNestedInput
   exerciseFlags?: Prisma.ExerciseFlagUncheckedUpdateManyWithoutUserNestedInput
+  reminderPreference?: Prisma.ReminderPreferenceUncheckedUpdateOneWithoutUserNestedInput
+  reminderSendLogs?: Prisma.ReminderSendLogUncheckedUpdateManyWithoutUserNestedInput
+}
+
+export type UserCreateWithoutReminderPreferenceInput = {
+  id: string
+  email?: string | null
+  name?: string | null
+  imageUrl?: string | null
+  lastSeenAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  collections?: Prisma.CollectionCreateNestedManyWithoutUserInput
+  sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutUserInput
+  skills?: Prisma.SkillCreateNestedManyWithoutUserInput
+  skillSourceRefs?: Prisma.SkillSourceRefCreateNestedManyWithoutUserInput
+  exercises?: Prisma.ExerciseCreateNestedManyWithoutUserInput
+  exerciseAttempts?: Prisma.ExerciseAttemptCreateNestedManyWithoutUserInput
+  reviewLogs?: Prisma.ReviewLogCreateNestedManyWithoutUserInput
+  exerciseFlags?: Prisma.ExerciseFlagCreateNestedManyWithoutUserInput
+  generationJobs?: Prisma.GenerationJobCreateNestedManyWithoutUserInput
+  reminderSendLogs?: Prisma.ReminderSendLogCreateNestedManyWithoutUserInput
+}
+
+export type UserUncheckedCreateWithoutReminderPreferenceInput = {
+  id: string
+  email?: string | null
+  name?: string | null
+  imageUrl?: string | null
+  lastSeenAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  collections?: Prisma.CollectionUncheckedCreateNestedManyWithoutUserInput
+  sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutUserInput
+  skills?: Prisma.SkillUncheckedCreateNestedManyWithoutUserInput
+  skillSourceRefs?: Prisma.SkillSourceRefUncheckedCreateNestedManyWithoutUserInput
+  exercises?: Prisma.ExerciseUncheckedCreateNestedManyWithoutUserInput
+  exerciseAttempts?: Prisma.ExerciseAttemptUncheckedCreateNestedManyWithoutUserInput
+  reviewLogs?: Prisma.ReviewLogUncheckedCreateNestedManyWithoutUserInput
+  exerciseFlags?: Prisma.ExerciseFlagUncheckedCreateNestedManyWithoutUserInput
+  generationJobs?: Prisma.GenerationJobUncheckedCreateNestedManyWithoutUserInput
+  reminderSendLogs?: Prisma.ReminderSendLogUncheckedCreateNestedManyWithoutUserInput
+}
+
+export type UserCreateOrConnectWithoutReminderPreferenceInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutReminderPreferenceInput, Prisma.UserUncheckedCreateWithoutReminderPreferenceInput>
+}
+
+export type UserUpsertWithoutReminderPreferenceInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutReminderPreferenceInput, Prisma.UserUncheckedUpdateWithoutReminderPreferenceInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutReminderPreferenceInput, Prisma.UserUncheckedCreateWithoutReminderPreferenceInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutReminderPreferenceInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutReminderPreferenceInput, Prisma.UserUncheckedUpdateWithoutReminderPreferenceInput>
+}
+
+export type UserUpdateWithoutReminderPreferenceInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  imageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  collections?: Prisma.CollectionUpdateManyWithoutUserNestedInput
+  sourceFiles?: Prisma.SourceFileUpdateManyWithoutUserNestedInput
+  skills?: Prisma.SkillUpdateManyWithoutUserNestedInput
+  skillSourceRefs?: Prisma.SkillSourceRefUpdateManyWithoutUserNestedInput
+  exercises?: Prisma.ExerciseUpdateManyWithoutUserNestedInput
+  exerciseAttempts?: Prisma.ExerciseAttemptUpdateManyWithoutUserNestedInput
+  reviewLogs?: Prisma.ReviewLogUpdateManyWithoutUserNestedInput
+  exerciseFlags?: Prisma.ExerciseFlagUpdateManyWithoutUserNestedInput
+  generationJobs?: Prisma.GenerationJobUpdateManyWithoutUserNestedInput
+  reminderSendLogs?: Prisma.ReminderSendLogUpdateManyWithoutUserNestedInput
+}
+
+export type UserUncheckedUpdateWithoutReminderPreferenceInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  imageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  collections?: Prisma.CollectionUncheckedUpdateManyWithoutUserNestedInput
+  sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutUserNestedInput
+  skills?: Prisma.SkillUncheckedUpdateManyWithoutUserNestedInput
+  skillSourceRefs?: Prisma.SkillSourceRefUncheckedUpdateManyWithoutUserNestedInput
+  exercises?: Prisma.ExerciseUncheckedUpdateManyWithoutUserNestedInput
+  exerciseAttempts?: Prisma.ExerciseAttemptUncheckedUpdateManyWithoutUserNestedInput
+  reviewLogs?: Prisma.ReviewLogUncheckedUpdateManyWithoutUserNestedInput
+  exerciseFlags?: Prisma.ExerciseFlagUncheckedUpdateManyWithoutUserNestedInput
+  generationJobs?: Prisma.GenerationJobUncheckedUpdateManyWithoutUserNestedInput
+  reminderSendLogs?: Prisma.ReminderSendLogUncheckedUpdateManyWithoutUserNestedInput
+}
+
+export type UserCreateWithoutReminderSendLogsInput = {
+  id: string
+  email?: string | null
+  name?: string | null
+  imageUrl?: string | null
+  lastSeenAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  collections?: Prisma.CollectionCreateNestedManyWithoutUserInput
+  sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutUserInput
+  skills?: Prisma.SkillCreateNestedManyWithoutUserInput
+  skillSourceRefs?: Prisma.SkillSourceRefCreateNestedManyWithoutUserInput
+  exercises?: Prisma.ExerciseCreateNestedManyWithoutUserInput
+  exerciseAttempts?: Prisma.ExerciseAttemptCreateNestedManyWithoutUserInput
+  reviewLogs?: Prisma.ReviewLogCreateNestedManyWithoutUserInput
+  exerciseFlags?: Prisma.ExerciseFlagCreateNestedManyWithoutUserInput
+  generationJobs?: Prisma.GenerationJobCreateNestedManyWithoutUserInput
+  reminderPreference?: Prisma.ReminderPreferenceCreateNestedOneWithoutUserInput
+}
+
+export type UserUncheckedCreateWithoutReminderSendLogsInput = {
+  id: string
+  email?: string | null
+  name?: string | null
+  imageUrl?: string | null
+  lastSeenAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  collections?: Prisma.CollectionUncheckedCreateNestedManyWithoutUserInput
+  sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutUserInput
+  skills?: Prisma.SkillUncheckedCreateNestedManyWithoutUserInput
+  skillSourceRefs?: Prisma.SkillSourceRefUncheckedCreateNestedManyWithoutUserInput
+  exercises?: Prisma.ExerciseUncheckedCreateNestedManyWithoutUserInput
+  exerciseAttempts?: Prisma.ExerciseAttemptUncheckedCreateNestedManyWithoutUserInput
+  reviewLogs?: Prisma.ReviewLogUncheckedCreateNestedManyWithoutUserInput
+  exerciseFlags?: Prisma.ExerciseFlagUncheckedCreateNestedManyWithoutUserInput
+  generationJobs?: Prisma.GenerationJobUncheckedCreateNestedManyWithoutUserInput
+  reminderPreference?: Prisma.ReminderPreferenceUncheckedCreateNestedOneWithoutUserInput
+}
+
+export type UserCreateOrConnectWithoutReminderSendLogsInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutReminderSendLogsInput, Prisma.UserUncheckedCreateWithoutReminderSendLogsInput>
+}
+
+export type UserUpsertWithoutReminderSendLogsInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutReminderSendLogsInput, Prisma.UserUncheckedUpdateWithoutReminderSendLogsInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutReminderSendLogsInput, Prisma.UserUncheckedCreateWithoutReminderSendLogsInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutReminderSendLogsInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutReminderSendLogsInput, Prisma.UserUncheckedUpdateWithoutReminderSendLogsInput>
+}
+
+export type UserUpdateWithoutReminderSendLogsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  imageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  collections?: Prisma.CollectionUpdateManyWithoutUserNestedInput
+  sourceFiles?: Prisma.SourceFileUpdateManyWithoutUserNestedInput
+  skills?: Prisma.SkillUpdateManyWithoutUserNestedInput
+  skillSourceRefs?: Prisma.SkillSourceRefUpdateManyWithoutUserNestedInput
+  exercises?: Prisma.ExerciseUpdateManyWithoutUserNestedInput
+  exerciseAttempts?: Prisma.ExerciseAttemptUpdateManyWithoutUserNestedInput
+  reviewLogs?: Prisma.ReviewLogUpdateManyWithoutUserNestedInput
+  exerciseFlags?: Prisma.ExerciseFlagUpdateManyWithoutUserNestedInput
+  generationJobs?: Prisma.GenerationJobUpdateManyWithoutUserNestedInput
+  reminderPreference?: Prisma.ReminderPreferenceUpdateOneWithoutUserNestedInput
+}
+
+export type UserUncheckedUpdateWithoutReminderSendLogsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  imageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  collections?: Prisma.CollectionUncheckedUpdateManyWithoutUserNestedInput
+  sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutUserNestedInput
+  skills?: Prisma.SkillUncheckedUpdateManyWithoutUserNestedInput
+  skillSourceRefs?: Prisma.SkillSourceRefUncheckedUpdateManyWithoutUserNestedInput
+  exercises?: Prisma.ExerciseUncheckedUpdateManyWithoutUserNestedInput
+  exerciseAttempts?: Prisma.ExerciseAttemptUncheckedUpdateManyWithoutUserNestedInput
+  reviewLogs?: Prisma.ReviewLogUncheckedUpdateManyWithoutUserNestedInput
+  exerciseFlags?: Prisma.ExerciseFlagUncheckedUpdateManyWithoutUserNestedInput
+  generationJobs?: Prisma.GenerationJobUncheckedUpdateManyWithoutUserNestedInput
+  reminderPreference?: Prisma.ReminderPreferenceUncheckedUpdateOneWithoutUserNestedInput
 }
 
 
@@ -1366,6 +1672,7 @@ export type UserCountOutputType = {
   reviewLogs: number
   exerciseFlags: number
   generationJobs: number
+  reminderSendLogs: number
 }
 
 export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1378,6 +1685,7 @@ export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.I
   reviewLogs?: boolean | UserCountOutputTypeCountReviewLogsArgs
   exerciseFlags?: boolean | UserCountOutputTypeCountExerciseFlagsArgs
   generationJobs?: boolean | UserCountOutputTypeCountGenerationJobsArgs
+  reminderSendLogs?: boolean | UserCountOutputTypeCountReminderSendLogsArgs
 }
 
 /**
@@ -1453,6 +1761,13 @@ export type UserCountOutputTypeCountGenerationJobsArgs<ExtArgs extends runtime.T
   where?: Prisma.GenerationJobWhereInput
 }
 
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountReminderSendLogsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.ReminderSendLogWhereInput
+}
+
 
 export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -1471,6 +1786,8 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   reviewLogs?: boolean | Prisma.User$reviewLogsArgs<ExtArgs>
   exerciseFlags?: boolean | Prisma.User$exerciseFlagsArgs<ExtArgs>
   generationJobs?: boolean | Prisma.User$generationJobsArgs<ExtArgs>
+  reminderPreference?: boolean | Prisma.User$reminderPreferenceArgs<ExtArgs>
+  reminderSendLogs?: boolean | Prisma.User$reminderSendLogsArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["user"]>
 
@@ -1515,6 +1832,8 @@ export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   reviewLogs?: boolean | Prisma.User$reviewLogsArgs<ExtArgs>
   exerciseFlags?: boolean | Prisma.User$exerciseFlagsArgs<ExtArgs>
   generationJobs?: boolean | Prisma.User$generationJobsArgs<ExtArgs>
+  reminderPreference?: boolean | Prisma.User$reminderPreferenceArgs<ExtArgs>
+  reminderSendLogs?: boolean | Prisma.User$reminderSendLogsArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type UserIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
@@ -1532,6 +1851,8 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     reviewLogs: Prisma.$ReviewLogPayload<ExtArgs>[]
     exerciseFlags: Prisma.$ExerciseFlagPayload<ExtArgs>[]
     generationJobs: Prisma.$GenerationJobPayload<ExtArgs>[]
+    reminderPreference: Prisma.$ReminderPreferencePayload<ExtArgs> | null
+    reminderSendLogs: Prisma.$ReminderSendLogPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1944,6 +2265,8 @@ export interface Prisma__UserClient<T, Null = never, ExtArgs extends runtime.Typ
   reviewLogs<T extends Prisma.User$reviewLogsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$reviewLogsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ReviewLogPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   exerciseFlags<T extends Prisma.User$exerciseFlagsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$exerciseFlagsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ExerciseFlagPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   generationJobs<T extends Prisma.User$generationJobsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$generationJobsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$GenerationJobPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  reminderPreference<T extends Prisma.User$reminderPreferenceArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$reminderPreferenceArgs<ExtArgs>>): Prisma.Prisma__ReminderPreferenceClient<runtime.Types.Result.GetResult<Prisma.$ReminderPreferencePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+  reminderSendLogs<T extends Prisma.User$reminderSendLogsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$reminderSendLogsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ReminderSendLogPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -2586,6 +2909,49 @@ export type User$generationJobsArgs<ExtArgs extends runtime.Types.Extensions.Int
   take?: number
   skip?: number
   distinct?: Prisma.GenerationJobScalarFieldEnum | Prisma.GenerationJobScalarFieldEnum[]
+}
+
+/**
+ * User.reminderPreference
+ */
+export type User$reminderPreferenceArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ReminderPreference
+   */
+  select?: Prisma.ReminderPreferenceSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ReminderPreference
+   */
+  omit?: Prisma.ReminderPreferenceOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ReminderPreferenceInclude<ExtArgs> | null
+  where?: Prisma.ReminderPreferenceWhereInput
+}
+
+/**
+ * User.reminderSendLogs
+ */
+export type User$reminderSendLogsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ReminderSendLog
+   */
+  select?: Prisma.ReminderSendLogSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ReminderSendLog
+   */
+  omit?: Prisma.ReminderSendLogOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ReminderSendLogInclude<ExtArgs> | null
+  where?: Prisma.ReminderSendLogWhereInput
+  orderBy?: Prisma.ReminderSendLogOrderByWithRelationInput | Prisma.ReminderSendLogOrderByWithRelationInput[]
+  cursor?: Prisma.ReminderSendLogWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.ReminderSendLogScalarFieldEnum | Prisma.ReminderSendLogScalarFieldEnum[]
 }
 
 /**

@@ -73,4 +73,11 @@ test.describe("auth spine", () => {
     await expect(page).toHaveURL(/\/sign-in|accounts\.dev\/sign-in/);
     await expect(page.getByText(/collection management/i)).toHaveCount(0);
   });
+
+  test("reminder settings are protected for signed-out users", async ({ page }) => {
+    await page.goto("/settings");
+
+    await expect(page).toHaveURL(/\/sign-in|accounts\.dev\/sign-in/);
+    await expect(page.getByText(/reminder settings/i)).toHaveCount(0);
+  });
 });

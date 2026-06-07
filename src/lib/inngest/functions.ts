@@ -4,6 +4,7 @@ import {
   parseExerciseRefillEventPayload,
   parseSourceUploadDraftEventPayload,
 } from "@/lib/inngest/events";
+import { processDueReminderBatch } from "@/lib/reminders";
 import {
   runChoiceExerciseRefillJob,
   runExactInputExerciseRefillJob,
@@ -87,9 +88,23 @@ export const sourceUploadDraftFunction = inngest.createFunction(
   },
 );
 
+export const duePracticeReminderFunction = inngest.createFunction(
+  {
+    id: "due-practice-reminders",
+    triggers: [{ cron: "0 * * * *" }],
+  },
+  async ({ step }) =>
+    step.run("send due practice reminders", () =>
+      processDueReminderBatch({
+        now: new Date(),
+      }),
+    ),
+);
+
 export const learnRecurInngestFunctions = [
   choiceExerciseRefillFunction,
   exactInputExerciseRefillFunction,
   mathExerciseRefillFunction,
   sourceUploadDraftFunction,
+  duePracticeReminderFunction,
 ];

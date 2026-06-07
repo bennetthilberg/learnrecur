@@ -57,11 +57,39 @@ const geminiEnvSchema = z.object({
   GEMINI_MODEL: geminiModelSchema,
 });
 
+const appUrlSchema = z.preprocess((value) => {
+  if (typeof value === "string" && value.trim() === "") {
+    return undefined;
+  }
+
+  return value;
+}, z
+  .string()
+  .trim()
+  .url("NEXT_PUBLIC_APP_URL must be a valid URL")
+  .default("http://localhost:3000"));
+
+const resendEnvSchema = z.object({
+  RESEND_API_KEY: z
+    .string({ error: "RESEND_API_KEY is required" })
+    .trim()
+    .min(1, "RESEND_API_KEY is required")
+    .refine((value) => value.startsWith("re_"), {
+      message: "RESEND_API_KEY must start with re_",
+    }),
+  RESEND_FROM_EMAIL: z
+    .string({ error: "RESEND_FROM_EMAIL is required" })
+    .trim()
+    .min(1, "RESEND_FROM_EMAIL is required"),
+  NEXT_PUBLIC_APP_URL: appUrlSchema,
+});
+
 const activeEnvSchema = databaseEnvSchema.merge(clerkEnvSchema);
 
 export type DatabaseEnv = z.infer<typeof databaseEnvSchema>;
 export type ClerkEnv = z.infer<typeof clerkEnvSchema>;
 export type GeminiEnv = z.infer<typeof geminiEnvSchema>;
+export type ResendEnv = z.infer<typeof resendEnvSchema>;
 export type ActiveEnv = z.infer<typeof activeEnvSchema>;
 
 export function getDatabaseEnv(): DatabaseEnv {
@@ -80,6 +108,10 @@ export function getGeminiEnv(): GeminiEnv {
   return geminiEnvSchema.parse(process.env);
 }
 
+export function getResendEnv(): ResendEnv {
+  return resendEnvSchema.parse(process.env);
+}
+
 export function hasDatabaseEnv(): boolean {
   return databaseEnvSchema.safeParse(process.env).success;
 }
@@ -94,6 +126,10 @@ export function hasActiveEnv(): boolean {
 
 export function hasGeminiEnv(): boolean {
   return geminiEnvSchema.safeParse(process.env).success;
+}
+
+export function hasResendEnv(): boolean {
+  return resendEnvSchema.safeParse(process.env).success;
 }
 
 export function formatEnvError(error: unknown): string {

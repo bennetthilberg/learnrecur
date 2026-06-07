@@ -1217,6 +1217,7 @@ a {
 }
 
 .skillField input,
+.skillField select,
 .skillField textarea {
   width: 100%;
   border: 1px solid var(--lr-line-strong);
@@ -1230,6 +1231,7 @@ a {
 }
 
 .skillField input:focus-visible,
+.skillField select:focus-visible,
 .skillField textarea:focus-visible {
   outline: none;
   border-color: var(--lr-primary);
@@ -1237,6 +1239,7 @@ a {
 }
 
 .skillField input[aria-invalid="true"],
+.skillField select[aria-invalid="true"],
 .skillField textarea[aria-invalid="true"] {
   border-color: rgba(192, 57, 43, 0.58);
 }
@@ -1277,6 +1280,22 @@ a {
 .skillFormMessage[data-tone="saved"] {
   border-left-color: var(--lr-success);
   background: rgba(31, 122, 77, 0.08);
+}
+
+.settingsToggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--lr-ink);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.settingsToggle input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--lr-primary);
 }
 
 .skillActivationPanel {
