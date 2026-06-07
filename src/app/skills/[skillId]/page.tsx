@@ -459,48 +459,46 @@ export default async function SkillPage({
             <h2 id="inactive-skill-title">{statusCopy.heading}</h2>
             <p className="skillQueueStatus">{statusCopy.body}</p>
           </div>
-          <dl className="skillStatusGrid">
-            <div>
-              <dt>Exercises</dt>
-              <dd>{skill._count.exercises}</dd>
-            </div>
-            <div>
-              <dt>Ready choices</dt>
-              <dd>{inventory.readyExerciseCount}</dd>
-            </div>
-            <div>
-              <dt>Ready exact input</dt>
-              <dd>{exactInputInventory.readyExerciseCount}</dd>
-            </div>
-            <div>
-              <dt>Verified choices</dt>
-              <dd>{inventory.verifiedExerciseCount}</dd>
-            </div>
-            <div>
-              <dt>Verified exact input</dt>
-              <dd>{exactInputInventory.verifiedExerciseCount}</dd>
-            </div>
-            <div>
-              <dt>Ready math</dt>
-              <dd>{mathInventory.readyExerciseCount}</dd>
-            </div>
-            <div>
-              <dt>Verified math</dt>
-              <dd>{mathInventory.verifiedExerciseCount}</dd>
-            </div>
-            <div>
-              <dt>Collection</dt>
-              <dd>{skill.collection?.name ?? "Uncollected"}</dd>
-            </div>
-            <div>
-              <dt>FSRS state</dt>
-              <dd>{skill.fsrsState}</dd>
-            </div>
-            <div>
-              <dt>Due</dt>
-              <dd>{skill.dueAt ? skill.dueAt.toLocaleString("en-US") : "Not scheduled"}</dd>
-            </div>
+          <dl className="skillStatusSummary">
+            <SkillStatusSummaryItem
+              label="Status"
+              priority="primary"
+              value={formatHistoryLabel(skill.status)}
+            />
+            <SkillStatusSummaryItem
+              label="Due"
+              value={skill.dueAt ? formatReviewDate(skill.dueAt) : "Not scheduled"}
+            />
+            <SkillStatusSummaryItem
+              label="Collection"
+              value={skill.collection?.name ?? "Uncollected"}
+            />
+            <SkillStatusSummaryItem label="FSRS state" value={formatHistoryLabel(skill.fsrsState)} />
+            <SkillStatusSummaryItem label="Reviews" value={formatCount(skill.repetitions)} />
           </dl>
+          <div className="skillInventoryGrid" aria-label="Exercise inventory">
+            <SkillInventoryGroup
+              label="Choice"
+              readyCount={inventory.readyExerciseCount}
+              retiredCount={inventory.retiredExerciseCount}
+              targetCount={DEFAULT_READY_EXERCISE_TARGET}
+              verifiedCount={inventory.verifiedExerciseCount}
+            />
+            <SkillInventoryGroup
+              label="Exact input"
+              readyCount={exactInputInventory.readyExerciseCount}
+              retiredCount={exactInputInventory.retiredExerciseCount}
+              targetCount={DEFAULT_READY_EXACT_INPUT_TARGET}
+              verifiedCount={exactInputInventory.verifiedExerciseCount}
+            />
+            <SkillInventoryGroup
+              label="Math"
+              readyCount={mathInventory.readyExerciseCount}
+              retiredCount={mathInventory.retiredExerciseCount}
+              targetCount={DEFAULT_READY_MATH_TARGET}
+              verifiedCount={mathInventory.verifiedExerciseCount}
+            />
+          </div>
           {skill.tags.length > 0 ? (
             <div className="skillTagLine">
               {skill.tags.map((tag) => (

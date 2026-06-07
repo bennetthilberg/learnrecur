@@ -2494,38 +2494,6 @@ a {
   outline-offset: 0;
 }
 
-.skillStatusGrid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  column-gap: 14px;
-  row-gap: 18px;
-  margin: 0;
-}
-
-.skillStatusGrid div {
-  display: grid;
-  align-content: start;
-  gap: 5px;
-  border-top: 1px solid var(--lr-line);
-  padding-top: 12px;
-}
-
-.skillStatusGrid dt {
-  color: var(--lr-faint);
-  font-size: var(--lr-text-xs);
-  font-weight: 500;
-}
-
-.skillStatusGrid dd {
-  margin: 0;
-  overflow-wrap: anywhere;
-  color: var(--lr-ink);
-  font-size: var(--lr-text-md);
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-  line-height: var(--lr-leading-label);
-}
-
 .skillStatusSummary {
   display: grid;
   grid-template-columns: minmax(180px, 1.25fr) repeat(4, minmax(0, 1fr));
@@ -3472,8 +3440,7 @@ a {
     justify-items: start;
   }
 
-  .skillTwoColumnFields,
-  .skillStatusGrid {
+  .skillTwoColumnFields {
     grid-template-columns: 1fr;
   }
 
