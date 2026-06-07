@@ -134,7 +134,7 @@ describe("environment validation", () => {
       CLERK_SECRET_KEY: "sk_test_example",
       RESEND_API_KEY: " re_example ",
       RESEND_FROM_EMAIL: " LearnRecur <reminders@example.com> ",
-      NEXT_PUBLIC_APP_URL: "",
+      NEXT_PUBLIC_APP_URL: " http://localhost:3000 ",
     });
 
     expect(hasActiveEnv()).toBe(true);
@@ -157,6 +157,22 @@ describe("environment validation", () => {
       /RESEND_FROM_EMAIL must contain a valid email address/,
     );
     expect(() => getResendEnv()).toThrow(/NEXT_PUBLIC_APP_URL must be a valid URL/);
+  });
+
+  it("requires an app URL outside local development", () => {
+    resetManagedEnv({
+      RESEND_API_KEY: "re_example",
+      RESEND_FROM_EMAIL: "LearnRecur <reminders@example.com>",
+    });
+
+    expect(hasResendEnv()).toBe(false);
+    expect(() => getResendEnv()).toThrow(/NEXT_PUBLIC_APP_URL is required/);
+
+    process.env.NODE_ENV = "development";
+
+    expect(getResendEnv()).toMatchObject({
+      NEXT_PUBLIC_APP_URL: "http://localhost:3000",
+    });
   });
 
   it("rejects non-Postgres database URLs", () => {

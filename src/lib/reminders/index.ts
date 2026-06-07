@@ -383,14 +383,26 @@ export async function processDueReminderPreference(input: {
       },
     },
     select: {
-      createdAt: true,
       status: true,
+      updatedAt: true,
     },
   });
 
   const shouldRetryPendingLog =
     existingLog?.status === ReminderSendStatus.PENDING &&
-    isStalePendingReminderLog(existingLog.createdAt, input.now);
+    isStalePendingReminderLog(existingLog.updatedAt, input.now);
+
+  if (shouldRetryPendingLog && existingLog) {
+    const claimedLog = await claimStalePendingReminderLog({
+      localDate,
+      updatedAt: existingLog.updatedAt,
+      userId: input.preference.userId,
+    });
+
+    if (!claimedLog) {
+      return existingLogResult(input.preference.userId, localDate);
+    }
+  }
 
   if (existingLog && !shouldRetryPendingLog) {
     return {
@@ -662,6 +674,10 @@ async function existingLogResult(
 }
 
 function parseBooleanish(value: unknown): unknown {
+  if (value === undefined || value === null) {
+    return false;
+  }
+
   if (typeof value === "boolean") {
     return value;
   }
@@ -683,8 +699,30 @@ function parseBooleanish(value: unknown): unknown {
   return value;
 }
 
-function isStalePendingReminderLog(createdAt: Date, now: Date): boolean {
-  return now.getTime() - createdAt.getTime() >= STALE_PENDING_REMINDER_MS;
+function isStalePendingReminderLog(lastTouchedAt: Date, now: Date): boolean {
+  return now.getTime() - lastTouchedAt.getTime() >= STALE_PENDING_REMINDER_MS;
+}
+
+async function claimStalePendingReminderLog(input: {
+  localDate: string;
+  updatedAt: Date;
+  userId: string;
+}): Promise<boolean> {
+  const prisma = getPrisma();
+  const result = await prisma.reminderSendLog.updateMany({
+    where: {
+      localDate: input.localDate,
+      status: ReminderSendStatus.PENDING,
+      updatedAt: input.updatedAt,
+      userId: input.userId,
+    },
+    data: {
+      errorMessage: null,
+      providerMessageId: null,
+    },
+  });
+
+  return result.count === 1;
 }
 
 function getReminderDateTimeParts(now: Date, timezone: string) {

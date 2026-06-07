@@ -62,12 +62,17 @@ const appUrlSchema = z.preprocess((value) => {
     return undefined;
   }
 
+  if (value === undefined && process.env.NODE_ENV === "development") {
+    return "http://localhost:3000";
+  }
+
   return value;
 }, z
-  .string()
+  .string({ error: "NEXT_PUBLIC_APP_URL is required" })
   .trim()
+  .min(1, "NEXT_PUBLIC_APP_URL is required")
   .url("NEXT_PUBLIC_APP_URL must be a valid URL")
-  .default("http://localhost:3000"));
+);
 
 const resendEnvSchema = z.object({
   RESEND_API_KEY: z

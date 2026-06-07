@@ -300,6 +300,7 @@ describeDatabase("due email reminders", () => {
         email: "pending@example.com",
         provider: "resend",
         createdAt: new Date(now.getTime() - 10 * 60 * 1000),
+        updatedAt: new Date(now.getTime() - 10 * 60 * 1000),
       },
     });
     const sender = createRecordingSender("email_retry");
@@ -326,6 +327,56 @@ describeDatabase("due email reminders", () => {
       status: ReminderSendStatus.SENT,
       dueCount: 1,
       providerMessageId: "email_retry",
+    });
+  });
+
+  it("does not retry fresh pending reminder logs", async () => {
+    const userId = await createUser("fresh_pending");
+    await createDueChoiceSkill(userId, "fresh pending");
+    await prisma.reminderPreference.create({
+      data: {
+        userId,
+        enabled: true,
+        email: "fresh-pending@example.com",
+        localHour: 9,
+        timezone: "America/New_York",
+        minimumDueCount: 1,
+      },
+    });
+    await prisma.reminderSendLog.create({
+      data: {
+        userId,
+        localDate,
+        status: ReminderSendStatus.PENDING,
+        dueCount: 1,
+        email: "fresh-pending@example.com",
+        provider: "resend",
+        createdAt: new Date(now.getTime() - 10 * 60 * 1000),
+        updatedAt: new Date(now.getTime() - 60 * 1000),
+      },
+    });
+    const sender = createRecordingSender("email_should_not_send");
+
+    const result = await processDueReminderBatch({
+      userIds: [userId],
+      now,
+      appUrl: "https://learnrecur.example",
+      sender,
+    });
+
+    expect(result.results).toEqual([
+      {
+        status: "already-processed",
+        userId,
+        localDate,
+        logStatus: ReminderSendStatus.PENDING,
+      },
+    ]);
+    expect(sender.payloads).toHaveLength(0);
+    await expectReminderLog(userId, {
+      status: ReminderSendStatus.PENDING,
+      dueCount: 1,
+      providerMessageId: null,
     });
   });
 

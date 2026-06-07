@@ -31,6 +31,26 @@ describe("reminder preference input", () => {
     });
   });
 
+  it("normalizes omitted checkbox values to disabled", () => {
+    expect(
+      normalizeReminderPreferenceInput({
+        email: "learner@example.com",
+        localHour: 9,
+        timezone: "America/New_York",
+        minimumDueCount: 1,
+      }),
+    ).toEqual({
+      status: "valid",
+      input: {
+        enabled: false,
+        email: "learner@example.com",
+        localHour: 9,
+        timezone: "America/New_York",
+        minimumDueCount: 1,
+      },
+    });
+  });
+
   it("rejects invalid reminder settings with field errors", () => {
     const result = normalizeReminderPreferenceInput({
       enabled: "maybe",
