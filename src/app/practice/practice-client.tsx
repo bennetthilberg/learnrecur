@@ -456,6 +456,9 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
                 disabled={feedback !== null || pendingAction !== null}
                 onClick={() => setAnswerValue(choice.id)}
               >
+                <span className="choiceIndex" aria-hidden="true">
+                  {index + 1}
+                </span>
                 <span>{choice.label}</span>
               </button>
             );
