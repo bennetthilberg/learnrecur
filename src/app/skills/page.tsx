@@ -290,7 +290,7 @@ function SourceProcessingRow({
   const statusCopy = getSourceProcessingStatusCopy(sourceFile);
 
   return (
-    <article className="skillLibraryRow">
+    <article className="skillLibraryRow sourceProcessingRow">
       <div className="skillLibraryRowMain">
         <div>
           <strong>{sourceFile.originalName}</strong>
@@ -300,12 +300,24 @@ function SourceProcessingRow({
           {formatSourceFileStatus(sourceFile.status)}
         </span>
       </div>
-      <div className="skillMetaLine">
-        <span>{formatSourceKind(sourceFile.kind)}</span>
-        <span>{formatByteSize(sourceFile.byteSize)}</span>
-        <span>Updated {formatDate(sourceFile.updatedAt)}</span>
-        {sourceFile.retryCount > 0 ? <span>{formatRetryCount(sourceFile.retryCount)}</span> : null}
-      </div>
+      <dl className="sourceProcessingFacts" aria-label={`${sourceFile.originalName} processing details`}>
+        <div>
+          <dt>Type</dt>
+          <dd>{formatSourceKind(sourceFile.kind)}</dd>
+        </div>
+        <div>
+          <dt>Size</dt>
+          <dd>{formatByteSize(sourceFile.byteSize)}</dd>
+        </div>
+        <div>
+          <dt>Updated</dt>
+          <dd>{formatDate(sourceFile.updatedAt)}</dd>
+        </div>
+        <div>
+          <dt>Retries</dt>
+          <dd>{sourceFile.retryCount > 0 ? formatRetryCount(sourceFile.retryCount) : "None"}</dd>
+        </div>
+      </dl>
       {failed && sourceFile.errorMessage ? (
         <div className="skillLibraryStatus" data-tone="error">
           <p>{sourceFile.errorMessage}</p>
@@ -313,6 +325,7 @@ function SourceProcessingRow({
       ) : null}
       <SourceProcessingControls
         sourceFileId={sourceFile.id}
+        sourceFileName={sourceFile.originalName}
         canRequeue={sourceFile.canRequeue}
         canDismiss={sourceFile.canDismiss}
       />

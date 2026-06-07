@@ -2107,7 +2107,8 @@ a {
   line-height: var(--lr-leading-copy);
 }
 
-.skillSourceFacts {
+.skillSourceFacts,
+.sourceProcessingFacts {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0;
@@ -2118,28 +2119,34 @@ a {
   background: var(--lr-panel-soft);
 }
 
-.skillSourceFacts div {
+.skillSourceFacts div,
+.sourceProcessingFacts div {
   min-width: 0;
   padding: 10px 12px;
 }
 
-.skillSourceFacts div + div {
+.skillSourceFacts div + div,
+.sourceProcessingFacts div + div {
   border-left: 1px solid var(--lr-line);
 }
 
 .skillSourceFacts dt,
-.skillSourceFacts dd {
+.skillSourceFacts dd,
+.sourceProcessingFacts dt,
+.sourceProcessingFacts dd {
   margin: 0;
 }
 
-.skillSourceFacts dt {
+.skillSourceFacts dt,
+.sourceProcessingFacts dt {
   color: var(--lr-faint);
   font-size: var(--lr-text-2xs);
   font-weight: 500;
   line-height: var(--lr-leading-label);
 }
 
-.skillSourceFacts dd {
+.skillSourceFacts dd,
+.sourceProcessingFacts dd {
   margin-top: 3px;
   overflow: hidden;
   color: var(--lr-ink);
@@ -3246,19 +3253,23 @@ a {
     text-align: left;
   }
 
-  .skillSourceFacts {
+  .skillSourceFacts,
+  .sourceProcessingFacts {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .skillSourceFacts div + div {
+  .skillSourceFacts div + div,
+  .sourceProcessingFacts div + div {
     border-left: 0;
   }
 
-  .skillSourceFacts div:nth-child(even) {
+  .skillSourceFacts div:nth-child(even),
+  .sourceProcessingFacts div:nth-child(even) {
     border-left: 1px solid var(--lr-line);
   }
 
-  .skillSourceFacts div:nth-child(n + 3) {
+  .skillSourceFacts div:nth-child(n + 3),
+  .sourceProcessingFacts div:nth-child(n + 3) {
     border-top: 1px solid var(--lr-line);
   }
 
@@ -3436,15 +3447,18 @@ a {
     display: grid;
   }
 
-  .skillSourceFacts {
+  .skillSourceFacts,
+  .sourceProcessingFacts {
     grid-template-columns: 1fr;
   }
 
-  .skillSourceFacts div:nth-child(even) {
+  .skillSourceFacts div:nth-child(even),
+  .sourceProcessingFacts div:nth-child(even) {
     border-left: 0;
   }
 
-  .skillSourceFacts div + div {
+  .skillSourceFacts div + div,
+  .sourceProcessingFacts div + div {
     border-top: 1px solid var(--lr-line);
   }
 }

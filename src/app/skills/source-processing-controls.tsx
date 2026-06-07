@@ -15,10 +15,12 @@ const idleState: SkillFormActionState = {
 
 export function SourceProcessingControls({
   sourceFileId,
+  sourceFileName,
   canRequeue,
   canDismiss,
 }: {
   sourceFileId: string;
+  sourceFileName: string;
   canRequeue: boolean;
   canDismiss: boolean;
 }) {
@@ -40,7 +42,12 @@ export function SourceProcessingControls({
       {canRequeue ? (
         <form action={requeueAction}>
           <input name="sourceFileId" type="hidden" value={sourceFileId} />
-          <button className="secondaryButton" disabled={requeuePending} type="submit">
+          <button
+            aria-label={`Requeue source upload ${sourceFileName}`}
+            className="secondaryButton"
+            disabled={requeuePending}
+            type="submit"
+          >
             {requeuePending ? "Requeueing..." : "Requeue"}
           </button>
           {requeueState.message ? (
@@ -55,6 +62,7 @@ export function SourceProcessingControls({
         <form action={dismissAction}>
           <input name="sourceFileId" type="hidden" value={sourceFileId} />
           <button
+            aria-label={`Dismiss failed source upload ${sourceFileName}`}
             className="secondaryButton"
             data-tone="danger"
             disabled={dismissPending}
