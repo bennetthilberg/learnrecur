@@ -1064,11 +1064,12 @@ a {
 }
 
 .choiceCard {
-  display: flex;
+  display: grid;
   width: 100%;
+  grid-template-columns: 30px minmax(0, 1fr);
   min-height: 54px;
   align-items: center;
-  gap: 12px;
+  gap: 13px;
   border: 1px solid var(--lr-line-strong);
   border-radius: var(--lr-radius);
   background: var(--lr-white);
@@ -1119,20 +1120,22 @@ a {
 }
 
 .choiceCard span:not(.choiceIndex) {
+  min-width: 0;
   font-size: var(--lr-text-body);
   font-weight: 500;
-  line-height: var(--lr-leading-label);
+  line-height: var(--lr-leading-copy);
 }
 
 .choiceIndex {
   display: inline-flex;
-  width: 24px;
-  height: 24px;
+  width: 30px;
+  height: 30px;
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
+  border: 1px solid var(--lr-line);
   border-radius: var(--lr-radius);
-  background: var(--lr-fill);
+  background: var(--lr-panel-soft);
   color: var(--lr-muted);
   font-size: var(--lr-text-xs);
   font-weight: 500;
@@ -1140,16 +1143,19 @@ a {
 }
 
 .choiceCard[data-selected="true"] .choiceIndex {
+  border-color: var(--lr-primary);
   background: var(--lr-primary);
   color: var(--lr-white);
 }
 
 .choiceCard[data-tone="correct"] .choiceIndex {
+  border-color: var(--lr-success);
   background: var(--lr-success);
   color: var(--lr-white);
 }
 
 .choiceCard[data-tone="incorrect"] .choiceIndex {
+  border-color: var(--lr-error);
   background: var(--lr-error);
   color: var(--lr-white);
 }
@@ -1221,9 +1227,9 @@ a {
 .practiceFeedbackAnswer {
   display: grid;
   margin: 10px 0;
-  border-top: 1px solid var(--lr-line);
-  border-bottom: 1px solid var(--lr-line);
-  padding: 9px 0;
+  border: 1px solid var(--lr-line);
+  border-radius: var(--lr-radius);
+  background: hsl(0 0% 100% / 0.64);
 }
 
 .practiceFeedback[data-tone="correct"] .practiceFeedbackAnswer {
@@ -1237,6 +1243,7 @@ a {
 .practiceFeedbackAnswer div {
   display: grid;
   gap: 3px;
+  padding: 9px 11px;
 }
 
 .practiceFeedbackAnswer dt,
