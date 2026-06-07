@@ -762,8 +762,7 @@ a {
 .dashboardMessage {
   width: min(100%, 1040px);
   margin: 18px auto 0;
-  border-left-width: 4px;
-  border-left-color: var(--lr-primary);
+  border-color: var(--lr-primary-muted);
   padding: 18px 20px;
 }
 
@@ -1196,20 +1195,19 @@ a {
 .practiceFeedback {
   margin-top: 18px;
   border: 1px solid var(--lr-line);
-  border-left-width: 4px;
   border-radius: var(--lr-radius);
   background: var(--lr-white);
   padding: 15px 17px;
 }
 
 .practiceFeedback[data-tone="correct"] {
-  border-left-color: var(--lr-success);
+  border-color: var(--lr-success-line);
   background: var(--lr-success-soft);
   color: var(--lr-success-ink);
 }
 
 .practiceFeedback[data-tone="incorrect"] {
-  border-left-color: var(--lr-error);
+  border-color: var(--lr-danger-line);
   background: var(--lr-danger-subtle);
   color: var(--lr-danger-ink);
 }
@@ -1877,7 +1875,7 @@ a {
 
 .skillFormMessage,
 .skillMessage {
-  border-left: 4px solid var(--lr-primary);
+  border: 1px solid var(--lr-primary-muted);
   color: var(--lr-primary-ink);
   font-size: var(--lr-text-sm);
   line-height: var(--lr-leading-copy);
@@ -1891,19 +1889,19 @@ a {
 }
 
 .skillFormMessage[data-tone="error"] {
-  border-left-color: var(--lr-error);
+  border-color: var(--lr-danger-line);
   background: hsl(6 63% 46% / 0.08);
   color: var(--lr-danger-ink);
 }
 
 .skillFormMessage[data-tone="saved"] {
-  border-left-color: var(--lr-success);
+  border-color: var(--lr-success-line);
   background: hsl(150 59% 30% / 0.08);
   color: var(--lr-success-ink);
 }
 
 .skillMessage[data-tone="error"] {
-  border-left-color: var(--lr-error);
+  border-color: var(--lr-danger-line);
   background: var(--lr-danger-subtle);
   color: var(--lr-danger-ink);
 }
@@ -1932,8 +1930,10 @@ a {
   display: grid;
   grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.35fr) minmax(0, 0.9fr);
   margin: 0;
-  border-top: 1px solid var(--lr-line);
-  border-bottom: 1px solid var(--lr-line);
+  overflow: hidden;
+  border: 1px solid var(--lr-line);
+  border-radius: var(--lr-radius);
+  background: var(--lr-panel-soft);
 }
 
 .settingsScheduleSummary div {
@@ -1941,10 +1941,6 @@ a {
   align-content: start;
   gap: 5px;
   padding: 12px 14px;
-}
-
-.settingsScheduleSummary div:first-child {
-  padding-left: 0;
 }
 
 .settingsScheduleSummary div + div {
@@ -1975,7 +1971,8 @@ a {
 
 .settingsPrivacyNote {
   margin-top: 2px;
-  border-left: 4px solid var(--lr-primary);
+  border: 1px solid var(--lr-primary-muted);
+  border-radius: var(--lr-radius);
   background: var(--lr-primary-soft);
   color: var(--lr-primary-ink);
   padding: 11px 12px;
