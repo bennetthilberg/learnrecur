@@ -59,6 +59,8 @@ export type GetSkillPracticeHistoryInput = GetPracticeHistoryInput & {
 export async function getPracticeHistory(
   input: GetPracticeHistoryInput,
 ): Promise<PracticeHistoryResult> {
+  assertValidHistoryDate(input.now, "getPracticeHistory");
+
   return {
     status: "ready",
     reviews: await findPracticeHistoryReviews(input),
@@ -68,6 +70,8 @@ export async function getPracticeHistory(
 export async function getSkillPracticeHistory(
   input: GetSkillPracticeHistoryInput,
 ): Promise<SkillPracticeHistoryResult> {
+  assertValidHistoryDate(input.now, "getSkillPracticeHistory");
+
   const prisma = getPrisma();
   const skill = await prisma.skill.findFirst({
     where: {
@@ -173,4 +177,10 @@ function normalizeHistoryLimit(limit: number | undefined): number {
   }
 
   return Math.min(MAX_HISTORY_LIMIT, Math.max(1, Math.trunc(limit)));
+}
+
+function assertValidHistoryDate(now: Date, caller: string) {
+  if (!(now instanceof Date) || Number.isNaN(now.getTime())) {
+    throw new Error(`${caller} requires a valid now Date.`);
+  }
 }
