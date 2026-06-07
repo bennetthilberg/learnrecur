@@ -581,6 +581,27 @@ a {
   gap: 10px;
 }
 
+.collectionRowReady {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  color: var(--lr-muted);
+  font-size: var(--lr-text-xs);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  line-height: var(--lr-leading-label);
+}
+
+.collectionRowReady strong {
+  color: var(--lr-ink);
+  font-size: var(--lr-text-sm);
+  font-weight: 500;
+}
+
+.collectionRowReady[data-ready="true"] strong {
+  color: var(--lr-primary-ink);
+}
+
 .collectionRow h3,
 .skillRow h3,
 .dashboardEmptyState h3 {

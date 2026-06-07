@@ -119,8 +119,11 @@ export default async function DashboardPage() {
                     <p>{formatCount(collection.activeSkillCount)} active skills</p>
                   </div>
                   <div className="collectionRowPractice">
-                    <span className="dashboardChip" data-tone={collection.readyNowCount > 0 ? "ready" : "neutral"}>
-                      {formatCount(collection.readyNowCount)} ready
+                    <span
+                      className="collectionRowReady"
+                      data-ready={collection.readyNowCount > 0 ? "true" : "false"}
+                    >
+                      <strong>{formatCount(collection.readyNowCount)}</strong> ready
                     </span>
                     <Link
                       aria-label={`Practice collection ${collection.name}`}
