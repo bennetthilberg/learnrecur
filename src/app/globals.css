@@ -2050,7 +2050,7 @@ a {
 .skillLibraryGrid {
   display: grid;
   width: min(100%, 1040px);
-  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  grid-template-columns: minmax(260px, 0.78fr) minmax(0, 1.22fr);
   align-items: start;
   gap: 18px;
   margin: 0 auto;
@@ -2104,6 +2104,23 @@ a {
 
 .skillLibraryRow .dashboardChip {
   margin-top: 1px;
+}
+
+.skillLibraryActivePanel .skillMetaLineSchedule {
+  gap: 8px 14px;
+  margin-top: 9px;
+}
+
+.skillLibraryActivePanel .skillMetaLineSchedule > span {
+  min-height: auto;
+  border: 0;
+  background: transparent;
+  color: var(--lr-muted);
+  padding: 0;
+}
+
+.skillLibraryActivePanel .skillMetaLineInventory {
+  margin-top: 12px;
 }
 
 .skillLibraryStatus {

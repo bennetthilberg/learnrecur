@@ -109,7 +109,7 @@ export default async function SkillsPage({ searchParams }: SkillsPageProps) {
       ) : null}
 
       <div className="skillLibraryGrid">
-        <section className="skillPanel" aria-labelledby="draft-skills-title">
+        <section className="skillPanel skillLibraryDraftPanel" aria-labelledby="draft-skills-title">
           <div className="skillPanelHeader">
             <div>
               <p className="eyebrow">Needs review</p>
@@ -132,7 +132,7 @@ export default async function SkillsPage({ searchParams }: SkillsPageProps) {
           )}
         </section>
 
-        <section className="skillPanel" aria-labelledby="active-skills-title">
+        <section className="skillPanel skillLibraryActivePanel" aria-labelledby="active-skills-title">
           <div className="skillPanelHeader">
             <div>
               <p className="eyebrow">Active schedule</p>
@@ -218,11 +218,13 @@ function ActiveSkillRow({ skill }: { skill: SkillsLibraryActiveSkill }) {
         </span>
       </div>
 
-      <div className="skillMetaLine">
+      <div className="skillMetaLine skillMetaLineSchedule">
         <span>{skill.collectionName ?? "Uncollected"}</span>
         <span>{formatFsrsState(skill.fsrsState)}</span>
         <span>{formatCount(skill.repetitions)} reps</span>
         <span>{formatCount(skill.lapses)} lapses</span>
+      </div>
+      <div className="skillMetaLine skillMetaLineInventory">
         <span>{formatCount(skill.verifiedExerciseCount)} verified</span>
         <span>{formatCount(skill.readyExerciseCount)} ready</span>
         <span>{formatCount(skill.retiredExerciseCount)} retired</span>
