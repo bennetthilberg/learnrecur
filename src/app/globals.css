@@ -2463,8 +2463,37 @@ a {
   padding: 0;
 }
 
-.skillLibraryActivePanel .skillMetaLineInventory {
+.skillLibraryInventoryLine {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
   margin-top: 12px;
+  color: var(--lr-muted);
+  font-size: var(--lr-text-xs);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  line-height: var(--lr-leading-label);
+}
+
+.skillLibraryInventoryLine span {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.skillLibraryInventoryLine span + span {
+  border-left: 1px solid var(--lr-line);
+  padding-left: 14px;
+}
+
+.skillLibraryInventoryLine span[data-priority="primary"] {
+  color: var(--lr-primary-ink);
+}
+
+.skillLibraryInventoryLine strong {
+  color: inherit;
+  font-size: var(--lr-text-sm);
+  font-weight: 500;
 }
 
 .skillLibraryStatus {
@@ -3034,6 +3063,16 @@ a {
 
   .skillLibraryGrid {
     grid-template-columns: 1fr;
+  }
+
+  .skillLibraryInventoryLine {
+    display: grid;
+    gap: 7px;
+  }
+
+  .skillLibraryInventoryLine span + span {
+    border-left: 0;
+    padding-left: 0;
   }
 
   .skillQueueBlock {

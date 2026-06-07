@@ -234,9 +234,11 @@ function ActiveSkillRow({ skill }: { skill: SkillsLibraryActiveSkill }) {
         <span>{formatCount(skill.repetitions)} reps</span>
         <span>{formatCount(skill.lapses)} lapses</span>
       </div>
-      <div className="skillMetaLine skillMetaLineInventory">
+      <div className="skillLibraryInventoryLine" aria-label="Exercise inventory">
+        <span data-priority="primary">
+          <strong>{formatCount(skill.readyExerciseCount)}</strong> ready
+        </span>
         <span>{formatCount(skill.verifiedExerciseCount)} verified</span>
-        <span>{formatCount(skill.readyExerciseCount)} ready</span>
         <span>{formatCount(skill.retiredExerciseCount)} retired</span>
         <span>{formatSourceCount(skill.sourceRefCount)}</span>
       </div>
