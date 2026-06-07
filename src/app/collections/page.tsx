@@ -133,9 +133,13 @@ function ActiveCollectionRow({
           <strong>{collection.name}</strong>
           <p>{collection.description ?? "No description yet."}</p>
         </div>
-        <span className="dashboardChip" data-tone={collection.readyNowCount > 0 ? "ready" : "neutral"}>
-          {formatCount(collection.readyNowCount)} ready
-        </span>
+        <div
+          className="collectionReadyStat"
+          data-ready={collection.readyNowCount > 0 ? "true" : "false"}
+        >
+          <span>Ready now</span>
+          <strong>{formatCount(collection.readyNowCount)}</strong>
+        </div>
       </div>
       <CollectionMetaLine collection={collection} />
       <div className="collectionRowActions">
