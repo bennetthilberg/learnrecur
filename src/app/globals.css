@@ -1549,18 +1549,22 @@ a {
 .skillCreationPath {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  border-top: 1px solid var(--lr-line);
-  border-bottom: 1px solid var(--lr-line);
+  overflow: hidden;
+  border: 1px solid var(--lr-line);
+  border-radius: var(--lr-radius-lg);
+  background: var(--lr-panel);
+  box-shadow: var(--lr-shadow);
 }
 
 .skillCreationPath div {
   display: grid;
-  gap: 5px;
-  padding: 12px 16px;
+  align-content: start;
+  gap: 7px;
+  padding: 14px 16px;
 }
 
 .skillCreationPath div:first-child {
-  padding-left: 0;
+  background: var(--lr-panel-cool);
 }
 
 .skillCreationPath div + div {
@@ -1568,10 +1572,14 @@ a {
 }
 
 .skillCreationPath span {
-  color: var(--lr-primary-ink);
+  color: var(--lr-faint);
   font-size: var(--lr-text-xs);
   font-weight: 500;
   line-height: var(--lr-leading-label);
+}
+
+.skillCreationPath div:first-child span {
+  color: var(--lr-primary-ink);
 }
 
 .skillCreationPath strong {
@@ -1584,7 +1592,7 @@ a {
 .skillSourceEntryGrid {
   display: grid;
   grid-template-columns: minmax(280px, 0.9fr) minmax(0, 1.1fr);
-  align-items: start;
+  align-items: stretch;
   gap: 18px;
 }
 
@@ -1601,6 +1609,7 @@ a {
 .skillUploadForm {
   display: grid;
   gap: 15px;
+  align-content: start;
 }
 
 .skillPanel.skillUploadForm {
