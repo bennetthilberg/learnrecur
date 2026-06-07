@@ -2072,7 +2072,7 @@ a {
 
 .skillSourceRow {
   border-top: 1px solid var(--lr-line);
-  padding: 16px 0;
+  padding: 18px 0;
 }
 
 .skillSourceRow:first-child {
@@ -2088,7 +2088,7 @@ a {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
+  gap: 18px;
 }
 
 .skillSourceRow h3 {
@@ -2107,6 +2107,50 @@ a {
   line-height: var(--lr-leading-copy);
 }
 
+.skillSourceFacts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  margin: 14px 0 0;
+  overflow: hidden;
+  border: 1px solid var(--lr-line);
+  border-radius: var(--lr-radius);
+  background: var(--lr-panel-soft);
+}
+
+.skillSourceFacts div {
+  min-width: 0;
+  padding: 10px 12px;
+}
+
+.skillSourceFacts div + div {
+  border-left: 1px solid var(--lr-line);
+}
+
+.skillSourceFacts dt,
+.skillSourceFacts dd {
+  margin: 0;
+}
+
+.skillSourceFacts dt {
+  color: var(--lr-faint);
+  font-size: var(--lr-text-2xs);
+  font-weight: 500;
+  line-height: var(--lr-leading-label);
+}
+
+.skillSourceFacts dd {
+  margin-top: 3px;
+  overflow: hidden;
+  color: var(--lr-ink);
+  font-size: var(--lr-text-xs);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  line-height: var(--lr-leading-label);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .skillSourcePreview {
   margin: 12px 0 0;
   border: 1px solid var(--lr-line);
@@ -2119,9 +2163,10 @@ a {
 }
 
 .skillSourceRemove {
-  min-width: 180px;
+  min-width: 172px;
   color: var(--lr-muted);
   font-size: var(--lr-text-sm);
+  text-align: right;
 }
 
 .skillSourceRemove summary {
@@ -2166,6 +2211,7 @@ a {
   justify-items: start;
   gap: 10px;
   margin-top: 10px;
+  text-align: left;
 }
 
 .skillSourceRemove p {
@@ -3196,6 +3242,26 @@ a {
     display: grid;
   }
 
+  .skillSourceRemove {
+    text-align: left;
+  }
+
+  .skillSourceFacts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .skillSourceFacts div + div {
+    border-left: 0;
+  }
+
+  .skillSourceFacts div:nth-child(even) {
+    border-left: 1px solid var(--lr-line);
+  }
+
+  .skillSourceFacts div:nth-child(n + 3) {
+    border-top: 1px solid var(--lr-line);
+  }
+
   .collectionRowActions {
     display: grid;
   }
@@ -3368,5 +3434,17 @@ a {
   .skillLibraryRowMain {
     align-items: flex-start;
     display: grid;
+  }
+
+  .skillSourceFacts {
+    grid-template-columns: 1fr;
+  }
+
+  .skillSourceFacts div:nth-child(even) {
+    border-left: 0;
+  }
+
+  .skillSourceFacts div + div {
+    border-top: 1px solid var(--lr-line);
   }
 }

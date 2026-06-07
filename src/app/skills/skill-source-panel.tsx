@@ -34,18 +34,34 @@ export function SkillSourcePanel({
             <div className="skillSourceRowHeader">
               <div>
                 <h3>{source.label}</h3>
-                <div className="skillMetaLine">
-                  <span>{formatSourceKind(source.kind)}</span>
-                  <span>{source.status.toLowerCase()}</span>
-                  <span>{formatBytes(source.byteSize)}</span>
-                  <span>Added {formatDate(source.createdAt)}</span>
-                </div>
+                {source.note ? <p className="skillSourceNote">{source.note}</p> : null}
               </div>
               {canRemove ? (
-                <SkillSourceRemoveForm skillId={skillId} sourceRefId={source.id} />
+                <SkillSourceRemoveForm
+                  skillId={skillId}
+                  sourceLabel={source.label}
+                  sourceRefId={source.id}
+                />
               ) : null}
             </div>
-            {source.note ? <p className="skillSourceNote">{source.note}</p> : null}
+            <dl className="skillSourceFacts" aria-label={`${source.label} source details`}>
+              <div>
+                <dt>Type</dt>
+                <dd>{formatSourceKind(source.kind)}</dd>
+              </div>
+              <div>
+                <dt>Status</dt>
+                <dd>{formatSourceStatus(source.status)}</dd>
+              </div>
+              <div>
+                <dt>Size</dt>
+                <dd>{formatBytes(source.byteSize)}</dd>
+              </div>
+              <div>
+                <dt>Added</dt>
+                <dd>{formatDate(source.createdAt)}</dd>
+              </div>
+            </dl>
             {source.preview ? (
               <blockquote className="skillSourcePreview">{source.preview}</blockquote>
             ) : (
@@ -64,6 +80,10 @@ function formatSourceCount(count: number) {
 
 function formatSourceKind(kind: SkillSourceSummary["kind"]) {
   return kind.toLowerCase();
+}
+
+function formatSourceStatus(status: SkillSourceSummary["status"]) {
+  return status.toLowerCase();
 }
 
 function formatDate(date: Date) {
