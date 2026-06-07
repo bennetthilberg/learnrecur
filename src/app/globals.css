@@ -146,6 +146,7 @@ a {
   font-weight: 500;
   line-height: 1.2;
   text-decoration: none;
+  white-space: nowrap;
   cursor: pointer;
   transition:
     background-color 140ms ease,
@@ -445,6 +446,11 @@ a {
   line-height: 1.1;
 }
 
+.dashboardChip[data-tone="neutral"] {
+  background: #fbfcfe;
+  color: var(--lr-ink-soft);
+}
+
 .dashboardChip[data-tone="ready"] {
   border-color: rgba(3, 76, 213, 0.24);
   background: var(--lr-primary-soft);
@@ -480,6 +486,18 @@ a {
   font-size: 12px;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
+}
+
+.skillMetaLine > span {
+  display: inline-flex;
+  min-height: 24px;
+  align-items: center;
+  border: 1px solid var(--lr-line);
+  border-radius: var(--lr-radius-chip);
+  background: #fbfcfe;
+  color: var(--lr-muted);
+  padding: 4px 8px;
+  line-height: 1.1;
 }
 
 .dashboardTag {
@@ -1289,6 +1307,8 @@ a {
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 16px;
+  border-bottom: 1px solid var(--lr-line);
+  padding-bottom: 14px;
 }
 
 .skillPanelHeader h2,
@@ -1316,6 +1336,7 @@ a {
 .skillTwoColumnFields {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
   gap: 12px;
 }
 
@@ -1343,6 +1364,11 @@ a {
   font: inherit;
   font-size: 14px;
   line-height: 1.45;
+}
+
+.skillField input,
+.skillField select {
+  min-height: 42px;
 }
 
 .skillField input:focus-visible,
@@ -1721,7 +1747,7 @@ a {
 
 .skillLibraryRow {
   border-top: 1px solid var(--lr-line);
-  padding: 16px 0;
+  padding: 18px 0;
 }
 
 .skillLibraryRow:first-child {
@@ -1759,6 +1785,10 @@ a {
   font-size: 13px;
   line-height: 1.45;
   -webkit-line-clamp: 2;
+}
+
+.skillLibraryRow .dashboardChip {
+  margin-top: 1px;
 }
 
 .skillLibraryStatus {
@@ -1820,6 +1850,7 @@ a {
 .historyTable td {
   color: var(--lr-ink);
   font-size: 13px;
+  font-variant-numeric: tabular-nums;
   line-height: 1.45;
 }
 
