@@ -2230,6 +2230,10 @@ a {
 }
 
 .skillLibraryRowMain a {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 7px;
   color: var(--lr-ink);
   font-size: var(--lr-text-body);
   font-weight: 500;
@@ -2239,6 +2243,15 @@ a {
 
 .skillLibraryRowMain a:hover {
   color: var(--lr-primary-ink);
+}
+
+.skillLibraryOpenCue {
+  color: var(--lr-primary-ink);
+  font-size: var(--lr-text-xs);
+  font-weight: 500;
+}
+
+.skillLibraryRowMain a:hover .skillLibraryOpenCue {
   text-decoration: underline;
   text-underline-offset: 3px;
 }

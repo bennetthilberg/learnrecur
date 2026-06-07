@@ -181,7 +181,12 @@ function DraftSkillRow({ skill }: { skill: SkillsLibraryDraftSkill }) {
     <article className="skillLibraryRow">
       <div className="skillLibraryRowMain">
         <div>
-          <Link href={`/skills/${skill.id}`}>{skill.title}</Link>
+          <Link aria-label={`Open ${skill.title}`} href={`/skills/${skill.id}`}>
+            {skill.title}
+            <span className="skillLibraryOpenCue" aria-hidden="true">
+              Open
+            </span>
+          </Link>
           <p>{skill.objective ?? "No objective yet."}</p>
         </div>
         <span className="dashboardChip">Draft</span>
@@ -210,7 +215,12 @@ function ActiveSkillRow({ skill }: { skill: SkillsLibraryActiveSkill }) {
     <article className="skillLibraryRow">
       <div className="skillLibraryRowMain">
         <div>
-          <Link href={`/skills/${skill.id}`}>{skill.title}</Link>
+          <Link aria-label={`Open ${skill.title}`} href={`/skills/${skill.id}`}>
+            {skill.title}
+            <span className="skillLibraryOpenCue" aria-hidden="true">
+              Open
+            </span>
+          </Link>
           <p>{skill.objective ?? "No objective yet."}</p>
         </div>
         <span className="dashboardChip" data-tone={skill.isReadyNow ? "ready" : "neutral"}>
@@ -239,7 +249,12 @@ function RecoverySkillRow({ skill }: { skill: SkillsLibraryRecoverySkill }) {
     <article className="skillLibraryRow">
       <div className="skillLibraryRowMain">
         <div>
-          <Link href={`/skills/${skill.id}`}>{skill.title}</Link>
+          <Link aria-label={`Open ${skill.title}`} href={`/skills/${skill.id}`}>
+            {skill.title}
+            <span className="skillLibraryOpenCue" aria-hidden="true">
+              Open
+            </span>
+          </Link>
           <p>{skill.objective ?? "No objective yet."}</p>
         </div>
         <span className="dashboardChip">{formatSkillStatus(skill.status)}</span>
