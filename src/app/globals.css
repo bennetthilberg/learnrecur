@@ -1226,6 +1226,7 @@ a {
 
 .skillFileControl {
   display: flex;
+  position: relative;
   min-height: 42px;
   align-items: center;
   gap: 10px;
@@ -1237,8 +1238,12 @@ a {
 
 .skillFileInput {
   position: absolute;
+  top: 6px;
+  left: 6px;
   width: 1px;
+  max-width: 1px;
   height: 1px;
+  margin: -1px;
   border: 0;
   overflow: hidden;
   clip-path: inset(50%);
