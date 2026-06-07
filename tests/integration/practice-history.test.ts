@@ -64,6 +64,7 @@ describeDatabase("practice history read model", () => {
     correctAnswerDisplay = "Right",
     finalRating = FsrsRating.GOOD,
     label,
+    attemptFinalRating = finalRating,
     nextDueAt = new Date("2026-06-08T10:00:00.000Z"),
     nextState = SkillFsrsState.REVIEW,
     previousDueAt = new Date("2026-06-06T10:00:00.000Z"),
@@ -74,6 +75,7 @@ describeDatabase("practice history read model", () => {
     status = SkillStatus.ACTIVE,
     userId,
   }: {
+    attemptFinalRating?: FsrsRating | null;
     collectionId?: string | null;
     correctAnswerDisplay?: string;
     finalRating?: FsrsRating;
@@ -116,7 +118,7 @@ describeDatabase("practice history read model", () => {
         result,
         responseMs,
         proposedRating: finalRating,
-        finalRating,
+        finalRating: attemptFinalRating,
         createdAt: reviewedAt,
       },
     });
@@ -241,23 +243,11 @@ describeDatabase("practice history read model", () => {
       label: "future",
       reviewedAt: new Date("2026-06-08T12:00:00.000Z"),
     });
-    const skill = await createSkillFixture(prisma, {
+    await createReviewedAttempt({
       userId,
-      title: "Non committed skill",
-    });
-    const exercise = await createChoiceExercise({ prisma, userId, skillId: skill.id });
-    await prisma.exerciseAttempt.create({
-      data: {
-        userId,
-        skillId: skill.id,
-        exerciseId: exercise.id,
-        answer: "right",
-        normalizedAnswer: "right",
-        isCorrect: true,
-        result: ExerciseAttemptResult.CORRECT,
-        finalRating: FsrsRating.GOOD,
-        createdAt: new Date("2026-06-05T14:00:00.000Z"),
-      },
+      label: "non-committed",
+      reviewedAt: new Date("2026-06-05T14:00:00.000Z"),
+      attemptFinalRating: null,
     });
 
     const history = await getPracticeHistory({ userId, now });

@@ -13,6 +13,14 @@ import {
   getSkillPracticeHistory,
   type PracticeHistoryReview,
 } from "@/lib/practice/history";
+import {
+  formatDueLabel,
+  formatHistoryEnum,
+  formatNullableHistoryEnum,
+  formatResponseTime,
+  formatReviewDate,
+  formatReviewResult,
+} from "@/lib/practice/history-formatters";
 import { getPrisma } from "@/lib/prisma";
 import {
   countChoiceExerciseInventory,
@@ -631,7 +639,7 @@ function SkillRecentReviewsPanel({ reviews }: { reviews: PracticeHistoryReview[]
               <span>{formatNullableHistoryEnum(review.previousState)}</span>
               <span aria-hidden="true">to</span>
               <span>{formatNullableHistoryEnum(review.nextState)}</span>
-              <span>{formatReviewDueLabel(review.nextDueAt)}</span>
+              <span>Next: {formatDueLabel(review.nextDueAt)}</span>
             </div>
           </article>
         ))}
@@ -654,44 +662,4 @@ function notesToText(value: Prisma.JsonValue | null): string {
   }
 
   return "";
-}
-
-function formatReviewDate(date: Date) {
-  return date.toLocaleString("en-US", {
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    month: "short",
-  });
-}
-
-function formatReviewDueLabel(date: Date | null) {
-  if (!date) {
-    return "Not scheduled";
-  }
-
-  return `Next ${date.toLocaleDateString("en-US", {
-    day: "numeric",
-    month: "short",
-  })}`;
-}
-
-function formatResponseTime(responseMs: number | null) {
-  if (responseMs === null) {
-    return "no timer";
-  }
-
-  return `${(responseMs / 1000).toFixed(1)}s`;
-}
-
-function formatReviewResult(result: PracticeHistoryReview["result"]) {
-  return result === "CORRECT" ? "correct" : "incorrect";
-}
-
-function formatNullableHistoryEnum(value: string | null) {
-  return value ? formatHistoryEnum(value) : "unknown";
-}
-
-function formatHistoryEnum(value: string) {
-  return value.toLowerCase().replaceAll("_", " ");
 }

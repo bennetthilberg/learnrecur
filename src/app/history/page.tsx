@@ -5,6 +5,14 @@ import {
   getPracticeHistory,
   type PracticeHistoryReview,
 } from "@/lib/practice/history";
+import {
+  formatDueLabel,
+  formatHistoryEnum,
+  formatNullableHistoryEnum,
+  formatResponseTime,
+  formatReviewDate,
+  formatReviewResult,
+} from "@/lib/practice/history-formatters";
 import { ensureDatabaseUser } from "@/lib/users";
 
 import { SkillsTopbar } from "../skills/skills-topbar";
@@ -107,7 +115,7 @@ function HistoryTable({ reviews }: { reviews: PracticeHistoryReview[] }) {
           {reviews.map((review) => (
             <tr key={review.id}>
               <td data-label="Reviewed">
-                <span className="historyPrimaryText">{formatDateTime(review.reviewedAt)}</span>
+                <span className="historyPrimaryText">{formatReviewDate(review.reviewedAt)}</span>
               </td>
               <td data-label="Skill">
                 <Link className="historySkillLink" href={`/skills/${review.skillId}`}>
@@ -118,21 +126,27 @@ function HistoryTable({ reviews }: { reviews: PracticeHistoryReview[] }) {
                 </span>
               </td>
               <td data-label="Result">
-                <span className="dashboardChip" data-tone={review.result === "CORRECT" ? "ready" : "neutral"}>
-                  {formatResult(review.result)}
+                <span
+                  className="dashboardChip"
+                  data-tone={review.result === "CORRECT" ? "ready" : "neutral"}
+                >
+                  {formatReviewResult(review.result)}
                 </span>
                 <span className="historySubText">Answer: {review.correctAnswerDisplay}</span>
                 <span className="historySubText">{formatResponseTime(review.responseMs)}</span>
               </td>
               <td data-label="Rating">
-                <span className="historyPrimaryText">{formatEnumLabel(review.finalRating)}</span>
+                <span className="historyPrimaryText">{formatHistoryEnum(review.finalRating)}</span>
                 <span className="historySubText">
-                  {formatNullableEnum(review.previousState)} to {formatNullableEnum(review.nextState)}
+                  {formatNullableHistoryEnum(review.previousState)} to{" "}
+                  {formatNullableHistoryEnum(review.nextState)}
                 </span>
               </td>
               <td data-label="Schedule">
                 <span className="historyPrimaryText">{formatDueLabel(review.nextDueAt)}</span>
-                <span className="historySubText">Previous: {formatDueLabel(review.previousDueAt)}</span>
+                <span className="historySubText">
+                  Previous: {formatDueLabel(review.previousDueAt)}
+                </span>
               </td>
             </tr>
           ))}
@@ -142,48 +156,8 @@ function HistoryTable({ reviews }: { reviews: PracticeHistoryReview[] }) {
   );
 }
 
-function formatDateTime(date: Date) {
-  return date.toLocaleString("en-US", {
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    month: "short",
-  });
-}
-
-function formatDueLabel(date: Date | null) {
-  if (!date) {
-    return "Not scheduled";
-  }
-
-  return date.toLocaleDateString("en-US", {
-    day: "numeric",
-    month: "short",
-  });
-}
-
-function formatResponseTime(responseMs: number | null) {
-  if (responseMs === null) {
-    return "No response time";
-  }
-
-  return `${(responseMs / 1000).toFixed(1)}s response`;
-}
-
 function formatAnswerKind(kind: PracticeHistoryReview["answerKind"]) {
-  return formatEnumLabel(kind).replace("multiple choice", "choice");
-}
-
-function formatResult(result: PracticeHistoryReview["result"]) {
-  return result === "CORRECT" ? "Correct" : "Incorrect";
-}
-
-function formatNullableEnum(value: string | null) {
-  return value ? formatEnumLabel(value) : "unknown";
-}
-
-function formatEnumLabel(value: string) {
-  return value.toLowerCase().replaceAll("_", " ");
+  return formatHistoryEnum(kind).replace("multiple choice", "choice");
 }
 
 function formatCount(count: number) {

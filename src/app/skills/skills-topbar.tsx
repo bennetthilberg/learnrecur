@@ -19,7 +19,7 @@ export function SkillsTopbar({
       <Link className="practiceWordmark" href="/dashboard">
         LearnRecur
       </Link>
-      <nav className="practiceNav" aria-label="Skills navigation">
+      <nav className="practiceNav" aria-label="Primary navigation">
         <Link aria-current={current === "dashboard" ? "page" : undefined} href="/dashboard">
           Dashboard
         </Link>

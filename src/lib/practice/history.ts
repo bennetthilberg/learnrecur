@@ -108,6 +108,9 @@ async function findPracticeHistoryReviews(
         lte: input.now,
       },
       exerciseAttempt: {
+        finalRating: {
+          not: null,
+        },
         result: {
           in: [ExerciseAttemptResult.CORRECT, ExerciseAttemptResult.INCORRECT],
         },
