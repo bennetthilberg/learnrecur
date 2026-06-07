@@ -1313,6 +1313,13 @@ a {
   margin: 0 auto;
 }
 
+.skillSourceEntryGrid {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.9fr) minmax(0, 1.1fr);
+  align-items: start;
+  gap: 18px;
+}
+
 .skillCreateStack .skillDraftGrid {
   width: 100%;
   margin: 0;
@@ -1322,6 +1329,11 @@ a {
 .skillUploadForm {
   display: grid;
   gap: 15px;
+}
+
+.skillPanel.skillUploadForm {
+  border-color: hsl(219 97% 42% / 0.22);
+  background: var(--lr-panel-cool);
 }
 
 .skillUploadIntro,
@@ -1389,8 +1401,9 @@ a {
   align-items: flex-start;
   justify-content: space-between;
   gap: 18px;
+  margin-top: 6px;
   border-top: 1px solid var(--lr-line);
-  padding-top: 18px;
+  padding-top: 22px;
 }
 
 .skillManualIntro h2 {
@@ -2297,6 +2310,10 @@ a {
 
   .skillManualIntro {
     display: grid;
+  }
+
+  .skillSourceEntryGrid {
+    grid-template-columns: 1fr;
   }
 
   .skillDraftGrid {

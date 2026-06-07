@@ -56,8 +56,10 @@ export default async function NewSkillPage() {
         </div>
       </header>
       <div className="skillCreateStack">
-        <SourceUploadForm />
-        <SourceSkillForm />
+        <section className="skillSourceEntryGrid" aria-label="Source-backed draft options">
+          <SourceUploadForm />
+          <SourceSkillForm />
+        </section>
         <section className="skillManualIntro" aria-labelledby="manual-skill-title">
           <div>
             <p className="eyebrow">Manual draft</p>
