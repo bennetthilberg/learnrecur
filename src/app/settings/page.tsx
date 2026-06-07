@@ -102,6 +102,25 @@ export default async function SettingsPage() {
           </Link>
         </div>
 
+        <dl className="settingsExportFacts" aria-label="Data export details">
+          <div>
+            <dt>Format</dt>
+            <dd>JSON</dd>
+          </div>
+          <div>
+            <dt>Scope</dt>
+            <dd>Your study data</dd>
+          </div>
+          <div>
+            <dt>Access</dt>
+            <dd>Signed-in only</dd>
+          </div>
+          <div>
+            <dt>Files</dt>
+            <dd>No originals</dd>
+          </div>
+        </dl>
+
         <div className="settingsExportSummary">
           <section>
             <h3>Included</h3>
