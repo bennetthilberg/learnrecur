@@ -76,14 +76,13 @@ export default async function SettingsPage() {
         </div>
 
         <ReminderSettingsForm preference={settings.preference} />
-      </section>
-
-      <section className="skillMessage" aria-label="Reminder privacy">
-        <p>
-          Reminder emails include the number of due skills and a practice link.
-          They do not include skill titles, source text, answers, or exercise
-          content.
-        </p>
+        <div className="settingsPrivacyNote" role="note" aria-label="Reminder privacy">
+          <p>
+            Reminder emails include the number of due skills and a practice link.
+            They do not include skill titles, source text, answers, or exercise
+            content.
+          </p>
+        </div>
       </section>
 
       <section className="skillPanel" aria-labelledby="data-export-title">

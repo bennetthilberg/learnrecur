@@ -1660,6 +1660,20 @@ a {
   accent-color: var(--lr-primary);
 }
 
+.settingsPrivacyNote {
+  margin-top: 2px;
+  border-left: 4px solid var(--lr-primary);
+  background: var(--lr-primary-soft);
+  color: var(--lr-primary-ink);
+  padding: 11px 12px;
+  font-size: var(--lr-text-sm);
+  line-height: var(--lr-leading-copy);
+}
+
+.settingsPrivacyNote p {
+  margin: 0;
+}
+
 .skillActivationPanel {
   display: grid;
   gap: 16px;
