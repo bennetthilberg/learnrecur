@@ -75,6 +75,12 @@ export default async function SettingsPage() {
           </span>
         </div>
 
+        <ReminderScheduleSummary
+          enabled={settings.preference.enabled}
+          localHour={settings.preference.localHour}
+          minimumDueCount={settings.preference.minimumDueCount}
+          timezone={settings.preference.timezone}
+        />
         <ReminderSettingsForm preference={settings.preference} />
         <div className="settingsPrivacyNote" role="note" aria-label="Reminder privacy">
           <p>
@@ -115,4 +121,45 @@ export default async function SettingsPage() {
       </section>
     </main>
   );
+}
+
+function ReminderScheduleSummary({
+  enabled,
+  localHour,
+  minimumDueCount,
+  timezone,
+}: {
+  enabled: boolean;
+  localHour: number;
+  minimumDueCount: number;
+  timezone: string;
+}) {
+  return (
+    <dl className="settingsScheduleSummary" aria-label="Saved reminder schedule">
+      <div data-state={enabled ? "enabled" : "disabled"}>
+        <dt>Status</dt>
+        <dd>{enabled ? "Sending when due" : "Paused"}</dd>
+      </div>
+      <div>
+        <dt>Local check</dt>
+        <dd>
+          {formatReminderHour(localHour)} in {timezone}
+        </dd>
+      </div>
+      <div>
+        <dt>Threshold</dt>
+        <dd>{formatDueThreshold(minimumDueCount)}</dd>
+      </div>
+    </dl>
+  );
+}
+
+function formatReminderHour(hour: number) {
+  const displayHour = hour % 12 === 0 ? 12 : hour % 12;
+  const meridiem = hour < 12 ? "AM" : "PM";
+  return `${displayHour} ${meridiem}`;
+}
+
+function formatDueThreshold(count: number) {
+  return `${count} due ${count === 1 ? "skill" : "skills"} minimum`;
 }
