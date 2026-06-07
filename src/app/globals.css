@@ -2650,6 +2650,10 @@ a {
   line-height: var(--lr-leading-label);
 }
 
+.skillReviewSchedule .historyTransitionText {
+  margin-top: 0;
+}
+
 .sourceProcessingControls {
   display: flex;
   flex-wrap: wrap;

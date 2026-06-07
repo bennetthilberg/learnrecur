@@ -658,15 +658,31 @@ function SkillRecentReviewsPanel({ reviews }: { reviews: PracticeHistoryReview[]
               </p>
             </div>
             <div className="skillReviewSchedule">
-              <span>{formatNullableHistoryLabel(review.previousState)}</span>
-              <span aria-hidden="true">to</span>
-              <span>{formatNullableHistoryLabel(review.nextState)}</span>
+              <SkillReviewStateTransition review={review} />
               <span>Next: {formatDueLabel(review.nextDueAt)}</span>
             </div>
           </article>
         ))}
       </div>
     </section>
+  );
+}
+
+function SkillReviewStateTransition({ review }: { review: PracticeHistoryReview }) {
+  const previousState = formatNullableHistoryLabel(review.previousState);
+  const nextState = formatNullableHistoryLabel(review.nextState);
+
+  return (
+    <span
+      className="historyTransitionText"
+      aria-label={`State changed from ${previousState} to ${nextState}`}
+    >
+      <span>{previousState}</span>
+      <span className="historyTransitionArrow" aria-hidden="true">
+        &rarr;
+      </span>
+      <span>{nextState}</span>
+    </span>
   );
 }
 
