@@ -2483,6 +2483,23 @@ a {
   gap: 12px;
 }
 
+.collectionCreateGrid {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.8fr) minmax(260px, 1.1fr) auto;
+  align-items: end;
+  gap: 14px;
+}
+
+.collectionCreateAction {
+  display: flex;
+  justify-content: flex-end;
+  padding-bottom: 1px;
+}
+
+.collectionCreateAction .primaryButton {
+  white-space: nowrap;
+}
+
 .collectionManagementRow .skillLibraryRowMain strong {
   color: var(--lr-ink);
   font-size: var(--lr-text-body);
@@ -2755,6 +2772,14 @@ a {
 
   .collectionRowActions {
     display: grid;
+  }
+
+  .collectionCreateGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .collectionCreateAction {
+    justify-content: flex-start;
   }
 
   .collectionRowPractice {

@@ -22,7 +22,7 @@ export function CollectionCreateForm() {
 
   return (
     <form action={formAction} className="collectionCreateForm">
-      <div className="skillTwoColumnFields">
+      <div className="collectionCreateGrid">
         <label className="skillField">
           <span>Name</span>
           <input
@@ -30,6 +30,7 @@ export function CollectionCreateForm() {
             disabled={pending}
             maxLength={80}
             name="name"
+            placeholder="Spanish grammar"
             required
           />
           <FieldError state={state} name="name" />
@@ -41,18 +42,18 @@ export function CollectionCreateForm() {
             disabled={pending}
             maxLength={500}
             name="description"
-            placeholder="Optional"
-            rows={3}
+            placeholder="What belongs in this study area?"
+            rows={2}
           />
           <FieldError state={state} name="description" />
         </label>
+        <div className="collectionCreateAction">
+          <button className="primaryButton" disabled={pending} type="submit">
+            Create collection
+          </button>
+        </div>
       </div>
 
-      <div className="skillFormActions">
-        <button className="primaryButton" disabled={pending} type="submit">
-          Create collection
-        </button>
-      </div>
       <FormMessage state={state} />
     </form>
   );
