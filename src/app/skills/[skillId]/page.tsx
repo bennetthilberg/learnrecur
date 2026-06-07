@@ -522,7 +522,7 @@ export default async function SkillPage({
       </header>
 
       {skill.generationJobs[0]?.errorMessage ? (
-        <section className="skillMessage" aria-label="Latest generation error">
+        <section className="skillMessage" data-tone="error" aria-label="Latest generation error">
           <p className="eyebrow">Latest activation attempt</p>
           <p>{skill.generationJobs[0].errorMessage}</p>
         </section>

@@ -149,6 +149,7 @@ Feedback should be exact and encouraging, not overly warm or chatty.
 Message treatment: stripe.
 
 Inline feedback, warnings, and system notes should use a slim colored stripe paired with concise copy. The stripe should identify the message type without turning the whole message into a loud colored panel.
+When a message sits on a tinted semantic surface, its copy should use the matching semantic ink color. Avoid muted neutral text on colored message backgrounds; the result looks less intentional and weakens the state.
 
 ### Empty States
 

@@ -1046,11 +1046,13 @@ a {
 .practiceFeedback[data-tone="correct"] {
   border-left-color: var(--lr-success);
   background: var(--lr-success-soft);
+  color: var(--lr-success-ink);
 }
 
 .practiceFeedback[data-tone="incorrect"] {
   border-left-color: var(--lr-error);
   background: var(--lr-danger-subtle);
+  color: var(--lr-danger-ink);
 }
 
 .practiceFeedback h2 {
@@ -1072,6 +1074,11 @@ a {
 
 .practiceFeedback p + p {
   margin-top: 6px;
+}
+
+.practiceFeedback[data-tone] h2,
+.practiceFeedback[data-tone] p {
+  color: inherit;
 }
 
 .ratingOverride {
@@ -1526,7 +1533,7 @@ a {
 .skillFormMessage,
 .skillMessage {
   border-left: 4px solid var(--lr-primary);
-  color: var(--lr-muted);
+  color: var(--lr-primary-ink);
   font-size: var(--lr-text-sm);
   line-height: var(--lr-leading-copy);
 }
@@ -1541,11 +1548,23 @@ a {
 .skillFormMessage[data-tone="error"] {
   border-left-color: var(--lr-error);
   background: hsl(6 63% 46% / 0.08);
+  color: var(--lr-danger-ink);
 }
 
 .skillFormMessage[data-tone="saved"] {
   border-left-color: var(--lr-success);
   background: hsl(150 59% 30% / 0.08);
+  color: var(--lr-success-ink);
+}
+
+.skillMessage[data-tone="error"] {
+  border-left-color: var(--lr-error);
+  background: var(--lr-danger-subtle);
+  color: var(--lr-danger-ink);
+}
+
+.skillMessage[data-tone="error"] .eyebrow {
+  color: var(--lr-danger-ink);
 }
 
 .settingsToggle {
@@ -1929,7 +1948,7 @@ a {
   border: 1px solid hsl(219 97% 42% / 0.18);
   border-radius: var(--lr-radius);
   background: var(--lr-primary-soft);
-  color: var(--lr-muted);
+  color: var(--lr-primary-ink);
   padding: 10px 12px;
   font-size: var(--lr-text-xs);
   line-height: var(--lr-leading-label);
@@ -1938,16 +1957,17 @@ a {
 .skillLibraryStatus[data-tone="error"] {
   border-color: hsl(6 63% 46% / 0.22);
   background: hsl(6 63% 46% / 0.08);
+  color: var(--lr-danger-ink);
 }
 
 .skillLibraryStatus span:first-child {
-  color: var(--lr-ink);
+  color: inherit;
   font-weight: 500;
 }
 
 .skillLibraryStatus p {
   margin: 0;
-  color: var(--lr-muted);
+  color: inherit;
 }
 
 .historyTableWrapper {
