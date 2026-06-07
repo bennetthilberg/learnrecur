@@ -2051,18 +2051,16 @@ a {
   display: inline-grid;
   grid-template-columns: repeat(2, minmax(96px, auto));
   margin: 11px 0 2px;
-  border-top: 1px solid var(--lr-line);
-  border-bottom: 1px solid var(--lr-line);
+  overflow: hidden;
+  border: 1px solid var(--lr-line);
+  border-radius: var(--lr-radius);
+  background: var(--lr-panel-soft);
 }
 
 .skillQueueStateStrip div {
   display: grid;
   gap: 4px;
   padding: 9px 13px;
-}
-
-.skillQueueStateStrip div:first-child {
-  padding-left: 0;
 }
 
 .skillQueueStateStrip div + div {
@@ -2140,6 +2138,18 @@ a {
   width: min(100%, 1040px);
   gap: 18px;
   margin: 0 auto;
+}
+
+.skillQueuePanel {
+  display: grid;
+  width: min(100%, 1040px);
+  gap: 18px;
+  margin: 18px auto 0;
+}
+
+.skillQueuePanel .skillPanelHeader + .skillQueueBlock {
+  border-top: 0;
+  padding-top: 0;
 }
 
 .skillSourcePanel {
@@ -3329,11 +3339,9 @@ a {
   }
 
   .skillQueueStateStrip {
+    display: grid;
+    width: 100%;
     grid-template-columns: 1fr;
-  }
-
-  .skillQueueStateStrip div:first-child {
-    padding-left: 13px;
   }
 
   .skillQueueStateStrip div + div {

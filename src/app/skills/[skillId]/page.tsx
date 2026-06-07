@@ -273,6 +273,24 @@ export default async function SkillPage({
               verifiedCount={mathInventory.verifiedExerciseCount}
             />
           </div>
+          {skill.tags.length > 0 ? (
+            <div className="skillTagLine">
+              {skill.tags.map((tag) => (
+                <span className="dashboardTag" key={tag}>
+                  {tag}
+                </span>
+              ))}
+            </div>
+          ) : null}
+        </section>
+
+        <section className="skillPanel skillQueuePanel" aria-labelledby="skill-queue-title">
+          <div className="skillPanelHeader">
+            <div>
+              <p className="eyebrow">Generation</p>
+              <h2 id="skill-queue-title">Exercise queues</h2>
+            </div>
+          </div>
           <div className="skillQueueBlock">
             <div>
               <p className="eyebrow">Exercise queue</p>
@@ -408,15 +426,6 @@ export default async function SkillPage({
               skillId={skill.id}
             />
           </div>
-          {skill.tags.length > 0 ? (
-            <div className="skillTagLine">
-              {skill.tags.map((tag) => (
-                <span className="dashboardTag" key={tag}>
-                  {tag}
-                </span>
-              ))}
-            </div>
-          ) : null}
         </section>
         <SkillLifecyclePanel skillId={skill.id} skillTitle={skill.title} status={skill.status} />
         <SkillSourcePanel skillId={skill.id} sources={sourceSummaries} />
