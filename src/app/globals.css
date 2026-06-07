@@ -1673,6 +1673,31 @@ a {
   gap: 15px;
 }
 
+.skillDraftFieldset {
+  min-width: 0;
+  margin: 0;
+  border: 0;
+  padding: 0;
+}
+
+.skillDraftFieldset + .skillDraftFieldset {
+  border-top: 1px solid var(--lr-line);
+  padding-top: 16px;
+}
+
+.skillDraftFieldset legend {
+  margin: 0 0 12px;
+  color: var(--lr-primary-ink);
+  font-size: var(--lr-text-xs);
+  font-weight: 500;
+  line-height: var(--lr-leading-label);
+}
+
+.skillDraftFieldsetBody {
+  display: grid;
+  gap: 15px;
+}
+
 .skillTwoColumnFields {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

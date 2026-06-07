@@ -49,68 +49,78 @@ export function SkillDraftForm({ mode, skillId, initialValues }: SkillDraftFormP
 
         {skillId ? <input name="skillId" type="hidden" value={skillId} /> : null}
 
-        <SkillTextField
-          error={draftState.fieldErrors?.title?.[0]}
-          label="Title"
-          name="title"
-          placeholder="Ser vs. estar in everyday sentences"
-          required
-          defaultValue={initialValues.title}
-        />
+        <fieldset className="skillDraftFieldset">
+          <legend>Core definition</legend>
+          <div className="skillDraftFieldsetBody">
+            <SkillTextField
+              error={draftState.fieldErrors?.title?.[0]}
+              label="Title"
+              name="title"
+              placeholder="Ser vs. estar in everyday sentences"
+              required
+              defaultValue={initialValues.title}
+            />
 
-        <SkillTextArea
-          error={draftState.fieldErrors?.objective?.[0]}
-          label="Objective"
-          name="objective"
-          placeholder="Choose whether ser or estar fits a short Spanish sentence, focusing on identity, location, and temporary state."
-          required
-          defaultValue={initialValues.objective}
-          rows={4}
-        />
+            <SkillTextArea
+              error={draftState.fieldErrors?.objective?.[0]}
+              label="Objective"
+              name="objective"
+              placeholder="Choose whether ser or estar fits a short Spanish sentence, focusing on identity, location, and temporary state."
+              required
+              defaultValue={initialValues.objective}
+              rows={4}
+            />
 
-        <div className="skillTwoColumnFields">
-          <SkillTextField
-            error={draftState.fieldErrors?.collectionName?.[0]}
-            label="Collection"
-            name="collectionName"
-            placeholder="Spanish grammar"
-            defaultValue={initialValues.collectionName}
-          />
-          <SkillTextField
-            error={draftState.fieldErrors?.tags?.[0]}
-            label="Tags"
-            name="tags"
-            placeholder="spanish, verbs, grammar"
-            defaultValue={initialValues.tags}
-          />
-        </div>
+            <div className="skillTwoColumnFields">
+              <SkillTextField
+                error={draftState.fieldErrors?.collectionName?.[0]}
+                label="Collection"
+                name="collectionName"
+                placeholder="Spanish grammar"
+                defaultValue={initialValues.collectionName}
+              />
+              <SkillTextField
+                error={draftState.fieldErrors?.tags?.[0]}
+                label="Tags"
+                name="tags"
+                placeholder="spanish, verbs, grammar"
+                defaultValue={initialValues.tags}
+              />
+            </div>
+          </div>
+        </fieldset>
 
-        <SkillTextArea
-          error={draftState.fieldErrors?.rules?.[0]}
-          label="Rules"
-          name="rules"
-          placeholder={"Use ser for identity.\nUse estar for location and temporary state."}
-          defaultValue={initialValues.rules}
-          rows={4}
-        />
+        <fieldset className="skillDraftFieldset">
+          <legend>Practice guidance</legend>
+          <div className="skillDraftFieldsetBody">
+            <SkillTextArea
+              error={draftState.fieldErrors?.rules?.[0]}
+              label="Rules"
+              name="rules"
+              placeholder={"Use ser for identity.\nUse estar for location and temporary state."}
+              defaultValue={initialValues.rules}
+              rows={4}
+            />
 
-        <SkillTextArea
-          error={draftState.fieldErrors?.examples?.[0]}
-          label="Examples"
-          name="examples"
-          placeholder={"Soy estudiante.\nEstoy en casa."}
-          defaultValue={initialValues.examples}
-          rows={4}
-        />
+            <SkillTextArea
+              error={draftState.fieldErrors?.examples?.[0]}
+              label="Examples"
+              name="examples"
+              placeholder={"Soy estudiante.\nEstoy en casa."}
+              defaultValue={initialValues.examples}
+              rows={4}
+            />
 
-        <SkillTextArea
-          error={draftState.fieldErrors?.exerciseConstraints?.[0]}
-          label="Exercise constraints"
-          name="exerciseConstraints"
-          placeholder="Use short choices, avoid trick questions, and keep the first batch beginner-friendly."
-          defaultValue={initialValues.exerciseConstraints}
-          rows={3}
-        />
+            <SkillTextArea
+              error={draftState.fieldErrors?.exerciseConstraints?.[0]}
+              label="Exercise constraints"
+              name="exerciseConstraints"
+              placeholder="Use short choices, avoid trick questions, and keep the first batch beginner-friendly."
+              defaultValue={initialValues.exerciseConstraints}
+              rows={3}
+            />
+          </div>
+        </fieldset>
 
         {draftState.message ? (
           <p className="skillFormMessage" data-tone={draftState.status}>
