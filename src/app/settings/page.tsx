@@ -54,10 +54,9 @@ export default async function SettingsPage() {
       <header className="skillHeader">
         <div>
           <p className="eyebrow">Settings</p>
-          <h1>Reminder settings.</h1>
+          <h1>Settings.</h1>
           <p>
-            Opt in to a single count-only email when enough practice is due at
-            your chosen local hour.
+            Manage quiet reminders and download a copy of your study data.
           </p>
         </div>
         <Link className="secondaryButton" href="/dashboard">
@@ -84,6 +83,25 @@ export default async function SettingsPage() {
           Reminder emails include the number of due skills and a practice link.
           They do not include skill titles, source text, answers, or exercise
           content.
+        </p>
+      </section>
+
+      <section className="skillPanel" aria-labelledby="data-export-title">
+        <div className="skillPanelHeader">
+          <div>
+            <p className="eyebrow">Data export</p>
+            <h2 id="data-export-title">Download study data</h2>
+          </div>
+          <Link className="secondaryButton" href="/settings/export" prefetch={false}>
+            Download JSON
+          </Link>
+        </div>
+
+        <p className="skillPanelCopy">
+          The export includes your collections, skills, stored source text,
+          exercises, attempts, review logs, flags, generation job metadata, and
+          reminder records. It does not include original uploaded file bytes,
+          private storage locations, API keys, or raw AI prompts.
         </p>
       </section>
     </main>

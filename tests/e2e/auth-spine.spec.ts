@@ -79,6 +79,11 @@ test.describe("auth spine", () => {
 
     await expect(page).toHaveURL(/\/sign-in|accounts\.dev\/sign-in/);
     await expect(page.getByText(/reminder settings/i)).toHaveCount(0);
+
+    await page.goto("/settings/export");
+
+    await expect(page).toHaveURL(/\/sign-in|accounts\.dev\/sign-in/);
+    await expect(page.getByText(/download study data/i)).toHaveCount(0);
   });
 
   test("practice history is protected for signed-out users", async ({ page }) => {
