@@ -1956,17 +1956,21 @@ a {
 }
 
 .skillLifecycleActions {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(240px, 0.68fr);
   align-items: flex-start;
-  gap: 10px;
+  gap: 16px 24px;
+}
+
+.skillLifecycleActions > * {
+  min-width: 0;
 }
 
 .skillLifecycleForm {
   display: grid;
   justify-items: start;
   gap: 10px;
-  max-width: 360px;
+  max-width: 420px;
 }
 
 .skillLifecycleForm p:not(.skillFormMessage),
@@ -2015,7 +2019,7 @@ a {
 }
 
 .skillLifecycleDetails[open] {
-  flex-basis: min(100%, 360px);
+  width: min(100%, 420px);
 }
 
 .skillLifecycleDetails .skillLifecycleForm {
@@ -2789,6 +2793,10 @@ a {
   }
 
   .skillQueueBlock {
+    grid-template-columns: 1fr;
+  }
+
+  .skillLifecycleActions {
     grid-template-columns: 1fr;
   }
 
