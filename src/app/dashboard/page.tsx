@@ -1,9 +1,10 @@
-import { UserButton } from "@clerk/nextjs";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import Link from "next/link";
 
 import { getDashboardHome, type DashboardHome } from "@/lib/dashboard";
 import { ensureDatabaseUser } from "@/lib/users";
+
+import { SkillsTopbar } from "../skills/skills-topbar";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,7 @@ export default async function DashboardPage() {
   if (databaseUser.status !== "ready") {
     return (
       <main className="dashboardShell">
-        <DashboardTopbar />
+        <SkillsTopbar current="dashboard" />
         <section className="dashboardSetupPanel" aria-labelledby="dashboard-setup-title">
           <p className="eyebrow">Dashboard</p>
           <h1 id="dashboard-setup-title">Database setup needs attention.</h1>
@@ -37,7 +38,7 @@ export default async function DashboardPage() {
 
   return (
     <main className="dashboardShell">
-      <DashboardTopbar />
+      <SkillsTopbar current="dashboard" />
 
       <header className="dashboardHeader">
         <div>
@@ -198,28 +199,6 @@ export default async function DashboardPage() {
         </section>
       ) : null}
     </main>
-  );
-}
-
-function DashboardTopbar() {
-  return (
-    <header className="practiceTopbar">
-      <Link className="practiceWordmark" href="/dashboard">
-        LearnRecur
-      </Link>
-      <nav className="practiceNav" aria-label="Dashboard navigation">
-        <Link aria-current="page" href="/dashboard">
-          Dashboard
-        </Link>
-        <Link href="/practice">Practice</Link>
-        <Link href="/history">History</Link>
-        <Link href="/skills">Skills</Link>
-        <Link href="/collections">Collections</Link>
-        <Link href="/settings">Settings</Link>
-        <Link href="/skills/new">Add skill</Link>
-      </nav>
-      <UserButton />
-    </header>
   );
 }
 

@@ -43,6 +43,7 @@ export function SkillsTopbar({
         </Link>
         <Link
           aria-current={current === "new" ? "page" : undefined}
+          data-intent="create"
           href="/skills/new"
         >
           Add skill

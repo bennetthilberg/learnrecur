@@ -25,6 +25,8 @@
   --lr-radius-chip: 7px;
   --lr-shadow: 0 1px 2px rgba(18, 29, 51, 0.035), 0 8px 18px rgba(18, 29, 51, 0.045);
   --lr-focus-ring: 0 0 0 3px var(--lr-primary-ring);
+  --lr-sidebar-width: 248px;
+  --lr-page-gutter: 32px;
 }
 
 * {
@@ -43,6 +45,8 @@ body {
   color: var(--lr-ink);
   font-family: var(--font-lexend), sans-serif;
   letter-spacing: 0;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 button,
@@ -143,6 +147,11 @@ a {
   line-height: 1.2;
   text-decoration: none;
   cursor: pointer;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    color 140ms ease;
 }
 
 .primaryButton {
@@ -156,17 +165,19 @@ a {
 }
 
 .secondaryButton {
-  border: 1px solid var(--lr-line-strong);
-  background: var(--lr-panel);
-  color: var(--lr-ink);
+  border: 1px solid rgba(3, 76, 213, 0.22);
+  background: var(--lr-primary-soft);
+  color: var(--lr-primary-ink);
 }
 
 .secondaryButton:hover {
-  background: var(--lr-fill);
+  border-color: rgba(3, 76, 213, 0.32);
+  background: #dce7fb;
 }
 
 .secondaryButton[data-tone="danger"] {
   border-color: rgba(192, 57, 43, 0.34);
+  background: #fff8f7;
   color: var(--lr-error);
 }
 
@@ -215,15 +226,18 @@ a {
 }
 
 .dashboardShell {
-  padding: 32px;
+  padding: var(--lr-page-gutter) var(--lr-page-gutter) var(--lr-page-gutter)
+    calc(var(--lr-sidebar-width) + var(--lr-page-gutter));
 }
 
 .practiceShell {
-  padding: 24px;
+  padding: var(--lr-page-gutter) var(--lr-page-gutter) var(--lr-page-gutter)
+    calc(var(--lr-sidebar-width) + var(--lr-page-gutter));
 }
 
 .skillShell {
-  padding: 24px;
+  padding: var(--lr-page-gutter) var(--lr-page-gutter) var(--lr-page-gutter)
+    calc(var(--lr-sidebar-width) + var(--lr-page-gutter));
 }
 
 .dashboardHeader {
@@ -267,7 +281,7 @@ a {
   border: 1px solid var(--lr-line);
   border-radius: var(--lr-radius-lg);
   background: var(--lr-panel);
-  box-shadow: var(--lr-shadow);
+  box-shadow: 0 1px 2px rgba(18, 29, 51, 0.025), 0 10px 24px rgba(18, 29, 51, 0.04);
 }
 
 .dashboardSetupPanel {
@@ -544,34 +558,59 @@ a {
 }
 
 .practiceTopbar {
-  display: grid;
-  width: min(100%, 1080px);
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-  gap: 18px;
-  margin: 0 auto 22px;
+  position: fixed;
+  z-index: 20;
+  top: 0;
+  left: 0;
+  display: flex;
+  width: var(--lr-sidebar-width);
+  height: 100vh;
+  flex-direction: column;
+  gap: 22px;
+  border-right: 1px solid var(--lr-line);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 251, 255, 0.96)),
+    var(--lr-panel);
+  padding: 18px 14px;
 }
 
 .practiceWordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   color: var(--lr-ink);
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 500;
+  letter-spacing: -0.005em;
   text-decoration: none;
 }
 
-.practiceNav {
-  display: inline-flex;
-  justify-self: center;
-  border: 1px solid var(--lr-line);
+.practiceWordmark::before {
+  display: inline-grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 1px solid rgba(3, 76, 213, 0.28);
   border-radius: var(--lr-radius);
-  background: rgba(255, 255, 255, 0.72);
-  padding: 3px;
+  background: #f8fbff;
+  color: var(--lr-primary-ink);
+  content: "L";
+  font-size: 14px;
+  font-weight: 560;
+}
+
+.practiceNav {
+  display: grid;
+  gap: 5px;
 }
 
 .practiceNav a {
-  min-height: 32px;
-  border-radius: var(--lr-radius-sm);
-  padding: 7px 11px;
+  display: flex;
+  min-height: 36px;
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: var(--lr-radius);
+  padding: 8px 10px;
   color: var(--lr-muted);
   font-size: 13px;
   font-weight: 500;
@@ -579,13 +618,34 @@ a {
   white-space: nowrap;
 }
 
+.practiceNav a:hover {
+  border-color: var(--lr-line);
+  background: var(--lr-fill);
+  color: var(--lr-ink);
+}
+
 .practiceNav a[aria-current="page"] {
+  border-color: rgba(3, 76, 213, 0.22);
   background: var(--lr-primary-soft);
   color: var(--lr-primary-ink);
 }
 
+.practiceNav a[data-intent="create"] {
+  margin-top: 8px;
+  border-color: var(--lr-primary);
+  background: var(--lr-primary);
+  color: #ffffff;
+}
+
+.practiceNav a[data-intent="create"]:hover {
+  border-color: var(--lr-primary-hover);
+  background: var(--lr-primary-hover);
+  color: #ffffff;
+}
+
 .practiceTopbar > :last-child {
-  justify-self: end;
+  margin-top: auto;
+  align-self: flex-start;
 }
 
 .practiceFrame {
@@ -1872,6 +1932,12 @@ a {
 }
 
 @media (max-width: 780px) {
+  .dashboardShell,
+  .practiceShell,
+  .skillShell {
+    padding: 24px;
+  }
+
   .authShell {
     grid-template-columns: 1fr;
     align-items: start;
@@ -1909,19 +1975,46 @@ a {
   }
 
   .practiceTopbar {
+    position: sticky;
+    top: 0;
+    display: grid;
+    width: min(100%, 1080px);
+    height: auto;
     grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 12px;
+    margin: 0 auto 22px;
+    border: 1px solid var(--lr-line);
+    border-radius: var(--lr-radius-lg);
+    background: rgba(255, 255, 255, 0.94);
+    padding: 10px;
   }
 
   .practiceNav {
+    display: flex;
+    overflow-x: auto;
     grid-column: 1 / -1;
     grid-row: 2;
     justify-self: stretch;
+    border-top: 1px solid var(--lr-line);
+    padding-top: 10px;
   }
 
   .practiceNav a {
     flex: 1;
+    justify-content: center;
     padding-inline: 8px;
     text-align: center;
+  }
+
+  .practiceNav a[data-intent="create"] {
+    margin-top: 0;
+  }
+
+  .practiceTopbar > :last-child {
+    margin-top: 0;
+    align-self: center;
+    justify-self: end;
   }
 
   .practiceMetaRow {

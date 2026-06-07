@@ -1,9 +1,8 @@
-import { UserButton } from "@clerk/nextjs";
 import { auth, currentUser } from "@clerk/nextjs/server";
-import Link from "next/link";
 
 import { ensureDatabaseUser } from "@/lib/users";
 
+import { SkillsTopbar } from "../skills/skills-topbar";
 import { getNextPracticeItemForUser } from "./queries";
 import { PracticeClient } from "./practice-client";
 
@@ -30,12 +29,7 @@ export default async function PracticePage({ searchParams }: PracticePageProps) 
   if (databaseUser.status !== "ready") {
     return (
       <main className="practiceShell">
-        <header className="practiceTopbar">
-          <Link className="practiceWordmark" href="/dashboard">
-            LearnRecur
-          </Link>
-          <UserButton />
-        </header>
+        <SkillsTopbar current="practice" />
 
         <section className="practiceFrame practiceEmpty" aria-labelledby="practice-setup-title">
           <p className="eyebrow">Practice</p>
@@ -52,21 +46,7 @@ export default async function PracticePage({ searchParams }: PracticePageProps) 
 
   return (
     <main className="practiceShell">
-      <header className="practiceTopbar">
-        <Link className="practiceWordmark" href="/dashboard">
-          LearnRecur
-        </Link>
-        <nav className="practiceNav" aria-label="Practice navigation">
-          <Link href="/dashboard">Dashboard</Link>
-          <Link aria-current="page" href="/practice">
-            Practice
-          </Link>
-          <Link href="/skills">Skills</Link>
-          <Link href="/collections">Collections</Link>
-          <Link href="/skills/new">Add skill</Link>
-        </nav>
-        <UserButton />
-      </header>
+      <SkillsTopbar current="practice" />
 
       <PracticeClient
         initialItem={initialItem}
