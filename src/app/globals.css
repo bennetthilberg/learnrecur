@@ -2255,8 +2255,43 @@ a {
   gap: 16px 24px;
 }
 
+.skillLifecycleActions[data-layout="single"] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .skillLifecycleActions > * {
   min-width: 0;
+}
+
+.skillLifecycleGroup {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+}
+
+.skillLifecycleGroup + .skillLifecycleGroup {
+  border-left: 1px solid var(--lr-line);
+  padding-left: 24px;
+}
+
+.skillLifecycleGroup h3 {
+  margin: 0;
+  color: var(--lr-ink);
+  font-size: var(--lr-text-body);
+  font-weight: 500;
+  line-height: var(--lr-leading-label);
+}
+
+.skillLifecycleGroup > p {
+  max-width: 460px;
+  margin: -3px 0 2px;
+  color: var(--lr-muted);
+  font-size: var(--lr-text-sm);
+  line-height: var(--lr-leading-copy);
+}
+
+.skillLifecycleGroup[data-tone="danger"] h3 {
+  color: var(--lr-danger-ink);
 }
 
 .skillLifecycleForm {
@@ -3243,6 +3278,13 @@ a {
 
   .skillLifecycleActions {
     grid-template-columns: 1fr;
+  }
+
+  .skillLifecycleGroup + .skillLifecycleGroup {
+    border-top: 1px solid var(--lr-line);
+    border-left: 0;
+    padding-top: 16px;
+    padding-left: 0;
   }
 
   .skillSourceRowHeader {

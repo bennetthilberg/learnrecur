@@ -647,6 +647,11 @@ function SkillLifecyclePanel({
   skillTitle: string;
   status: SkillStatus;
 }) {
+  const showPracticeStateControls =
+    status === SkillStatus.ACTIVE ||
+    status === SkillStatus.PAUSED ||
+    status === SkillStatus.ARCHIVED;
+
   return (
     <section className="skillPanel skillLifecyclePanel" aria-labelledby="skill-lifecycle-title">
       <div className="skillPanelHeader">
@@ -655,49 +660,62 @@ function SkillLifecyclePanel({
           <h2 id="skill-lifecycle-title">Control this skill.</h2>
         </div>
       </div>
-      <div className="skillLifecycleActions">
-        {status === SkillStatus.ACTIVE ? (
-          <SkillLifecycleForm
-            actionType="pause"
-            buttonLabel="Pause practice"
-            description="Pause keeps the skill and schedule intact but removes it from practice."
-            pendingLabel="Pausing..."
-            skillId={skillId}
-          />
+      <div
+        className="skillLifecycleActions"
+        data-layout={showPracticeStateControls ? "split" : "single"}
+      >
+        {showPracticeStateControls ? (
+          <div className="skillLifecycleGroup">
+            <h3>Practice state</h3>
+            <p>Control whether this skill can appear in due practice.</p>
+            {status === SkillStatus.ACTIVE ? (
+              <SkillLifecycleForm
+                actionType="pause"
+                buttonLabel="Pause practice"
+                description="Pause keeps the skill and schedule intact but removes it from practice."
+                pendingLabel="Pausing..."
+                skillId={skillId}
+              />
+            ) : null}
+            {status === SkillStatus.PAUSED ? (
+              <SkillLifecycleForm
+                actionType="resume"
+                buttonLabel="Resume practice"
+                description="Resume returns this skill to the active practice schedule."
+                pendingLabel="Resuming..."
+                skillId={skillId}
+              />
+            ) : null}
+            {status === SkillStatus.ARCHIVED ? (
+              <SkillLifecycleForm
+                actionType="restore"
+                buttonLabel="Restore skill"
+                description="Restored scheduled skills return to practice. Unscheduled skills return as drafts."
+                pendingLabel="Restoring..."
+                skillId={skillId}
+              />
+            ) : null}
+          </div>
         ) : null}
-        {status === SkillStatus.PAUSED ? (
-          <SkillLifecycleForm
-            actionType="resume"
-            buttonLabel="Resume practice"
-            description="Resume returns this skill to the active practice schedule."
-            pendingLabel="Resuming..."
-            skillId={skillId}
-          />
-        ) : null}
-        {status === SkillStatus.ARCHIVED ? (
-          <SkillLifecycleForm
-            actionType="restore"
-            buttonLabel="Restore skill"
-            description="Restored scheduled skills return to practice. Unscheduled skills return as drafts."
-            pendingLabel="Restoring..."
-            skillId={skillId}
-          />
-        ) : null}
-        {status !== SkillStatus.ARCHIVED ? (
-          <SkillLifecycleForm
-            actionType="archive"
-            buttonLabel="Archive skill"
-            confirmationLabel="Archive this skill and keep its sources, exercises, and history."
-            description="Archived skills leave the main library and practice flow, but can be restored later."
-            pendingLabel="Archiving..."
-            skillId={skillId}
-            summaryLabel={status === SkillStatus.DRAFT ? "Archive draft" : "Archive skill"}
-            tone="danger"
-          />
-        ) : null}
-        {status === SkillStatus.DRAFT || status === SkillStatus.ARCHIVED ? (
-          <SkillDeleteForm skillId={skillId} skillTitle={skillTitle} />
-        ) : null}
+        <div className="skillLifecycleGroup" data-tone="danger">
+          <h3>Archive and delete</h3>
+          <p>Archive first when you may want this skill later. Permanent delete is final.</p>
+          {status !== SkillStatus.ARCHIVED ? (
+            <SkillLifecycleForm
+              actionType="archive"
+              buttonLabel="Archive skill"
+              confirmationLabel="Archive this skill and keep its sources, exercises, and history."
+              description="Archived skills leave the main library and practice flow, but can be restored later."
+              pendingLabel="Archiving..."
+              skillId={skillId}
+              summaryLabel={status === SkillStatus.DRAFT ? "Archive draft" : "Archive skill"}
+              tone="danger"
+            />
+          ) : null}
+          {status === SkillStatus.DRAFT || status === SkillStatus.ARCHIVED ? (
+            <SkillDeleteForm skillId={skillId} skillTitle={skillTitle} />
+          ) : null}
+        </div>
       </div>
     </section>
   );
