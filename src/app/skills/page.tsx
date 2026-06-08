@@ -307,7 +307,6 @@ function SourceProcessingRow({
   sourceFile: SkillsLibrarySourceProcessingSummary;
 }) {
   const failed = sourceFile.status === "FAILED";
-  const stale = sourceFile.isStaleProcessing;
   const statusCopy = getSourceProcessingStatusCopy(sourceFile);
 
   return (
@@ -317,7 +316,7 @@ function SourceProcessingRow({
           <strong>{sourceFile.originalName}</strong>
           <p>{statusCopy}</p>
         </div>
-        <span className="dashboardChip" data-tone={failed || stale ? "neutral" : "ready"}>
+        <span className="dashboardChip" data-tone={getSourceProcessingStatusTone(sourceFile)}>
           {formatSourceFileStatus(sourceFile.status)}
         </span>
       </div>
@@ -455,6 +454,18 @@ function getSourceProcessingStatusCopy(sourceFile: SkillsLibrarySourceProcessing
   }
 
   return "Draft generation is running in the background.";
+}
+
+function getSourceProcessingStatusTone(sourceFile: SkillsLibrarySourceProcessingSummary) {
+  if (sourceFile.status === "FAILED") {
+    return "danger";
+  }
+
+  if (sourceFile.isStaleProcessing) {
+    return "attention";
+  }
+
+  return "ready";
 }
 
 function parseCreatedDraftCount(value: string | string[] | undefined) {

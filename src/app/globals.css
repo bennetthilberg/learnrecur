@@ -882,6 +882,12 @@ a {
   color: var(--lr-primary-ink);
 }
 
+.dashboardChip[data-tone="attention"] {
+  border-color: var(--lr-accent);
+  background: var(--lr-panel);
+  color: var(--lr-accent-ink);
+}
+
 .dashboardChip[data-tone="danger"] {
   border-color: var(--lr-danger-line);
   background: var(--lr-danger-soft);
