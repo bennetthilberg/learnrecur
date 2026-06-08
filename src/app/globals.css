@@ -4061,6 +4061,38 @@ a {
     grid-template-columns: minmax(320px, 1.08fr) minmax(280px, 0.92fr);
   }
 
+  .collectionManagementRow .skillLibraryRowMain {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+  }
+
+  .collectionManagementRow .collectionReadyStat {
+    width: auto;
+    min-width: 82px;
+    justify-items: end;
+    border-top: 0;
+    border-left: 1px solid var(--lr-line);
+    padding-top: 0;
+    padding-left: 16px;
+  }
+
+  .collectionManagementRow .collectionFacts {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .collectionManagementRow .collectionFacts div + div {
+    border-top: 0;
+    border-left: 1px solid var(--lr-line);
+  }
+
+  .collectionManagementRow .collectionFacts div:nth-child(4) {
+    border-left: 0;
+  }
+
+  .collectionManagementRow .collectionFacts div:nth-child(n + 4) {
+    border-top: 1px solid var(--lr-line);
+  }
+
   .skillStatusSummary {
     grid-template-columns: minmax(160px, 1.2fr) repeat(4, minmax(0, 1fr));
   }
