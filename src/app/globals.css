@@ -1332,23 +1332,23 @@ a {
 }
 
 .practiceSessionFacts {
-  display: inline-grid;
-  grid-template-columns: minmax(84px, auto) minmax(68px, auto);
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: baseline;
+  gap: 7px 14px;
   margin: 2px 0 0;
-  overflow: hidden;
-  border: 1px solid var(--lr-line);
-  border-radius: var(--lr-radius);
-  background: var(--lr-panel-soft);
 }
 
 .practiceSessionFacts div {
-  display: grid;
-  gap: 3px;
-  padding: 7px 9px;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 0;
 }
 
 .practiceSessionFacts div + div {
   border-left: 1px solid var(--lr-line);
+  padding-left: 14px;
 }
 
 .practiceSessionFacts dt,
@@ -1371,7 +1371,7 @@ a {
 }
 
 .practiceSessionFacts div[data-priority="primary"] {
-  background: var(--lr-panel);
+  background: transparent;
 }
 
 .practiceSessionFacts div[data-priority="primary"] dd {
