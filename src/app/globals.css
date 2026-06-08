@@ -2589,8 +2589,8 @@ a {
 
 .skillDeleteConfirm input:focus-visible {
   border-color: var(--lr-primary);
-  outline: 3px solid hsl(219 97% 42% / 0.16);
-  outline-offset: 0;
+  outline: none;
+  box-shadow: var(--lr-focus-ring);
 }
 
 .skillStatusSummary {
