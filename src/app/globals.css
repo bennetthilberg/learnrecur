@@ -2453,18 +2453,44 @@ a {
 }
 
 .settingsPrivacyNote {
+  display: grid;
+  grid-template-columns: minmax(0, 0.78fr) minmax(0, 1fr);
   margin-top: 2px;
   border: 1px solid var(--lr-primary-muted);
   border-radius: var(--lr-radius);
   background: var(--lr-primary-soft);
   color: var(--lr-primary-ink);
+  overflow: hidden;
+}
+
+.settingsPrivacyNote section {
+  display: grid;
+  align-content: start;
+  gap: 4px;
   padding: 11px 12px;
-  font-size: var(--lr-text-sm);
-  line-height: var(--lr-leading-copy);
+}
+
+.settingsPrivacyNote section + section {
+  border-left: 1px solid hsl(219 79% 42% / 0.14);
+  background: hsl(220 78% 97%);
+}
+
+.settingsPrivacyNote h3,
+.settingsPrivacyNote p {
+  margin: 0;
+}
+
+.settingsPrivacyNote h3 {
+  color: var(--lr-primary-ink);
+  font-size: var(--lr-text-xs);
+  font-weight: 500;
+  line-height: var(--lr-leading-label);
 }
 
 .settingsPrivacyNote p {
-  margin: 0;
+  color: var(--lr-primary-ink);
+  font-size: var(--lr-text-sm);
+  line-height: var(--lr-leading-copy);
 }
 
 .settingsExportDetails {
@@ -5123,6 +5149,15 @@ a {
   .settingsScheduleSummary dd {
     font-size: var(--lr-text-xs);
     line-height: var(--lr-leading-normal);
+  }
+
+  .settingsPrivacyNote {
+    grid-template-columns: 1fr;
+  }
+
+  .settingsPrivacyNote section + section {
+    border-top: 1px solid hsl(219 79% 42% / 0.14);
+    border-left: 0;
   }
 
   .settingsExportFacts {
