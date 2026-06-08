@@ -25,11 +25,11 @@ export default async function Home() {
             </>
           ) : (
             <>
-              <Link className="primaryButton" href="/sign-in">
-                Sign in
-              </Link>
-              <Link className="secondaryButton" href="/sign-up">
+              <Link className="primaryButton" href="/sign-up">
                 Create account
+              </Link>
+              <Link className="secondaryButton" href="/sign-in">
+                Sign in
               </Link>
             </>
           )}
