@@ -4402,7 +4402,7 @@ a {
   }
 
   .settingsScheduleSummary {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .settingsScheduleSummary div {
@@ -4410,12 +4410,24 @@ a {
   }
 
   .settingsScheduleSummary div:first-child {
+    order: 1;
     padding-left: 8px;
   }
 
   .settingsScheduleSummary div + div {
     border-top: 0;
     border-left: 1px solid var(--lr-line);
+  }
+
+  .settingsScheduleSummary div:nth-child(2) {
+    order: 3;
+    grid-column: 1 / -1;
+    border-top: 1px solid var(--lr-line);
+    border-left: 0;
+  }
+
+  .settingsScheduleSummary div:nth-child(3) {
+    order: 2;
   }
 
   .settingsScheduleSummary dt {
