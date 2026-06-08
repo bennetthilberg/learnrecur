@@ -155,6 +155,7 @@ Data table treatment: rules.
 
 Tables should favor scanability through clear horizontal rules, strong alignment, and restrained header styling. Prefer rules over zebra bands for the default table language because rules feel cleaner, more precise, and more scientific in this system. Numeric columns should use tabular figures. Avoid low-contrast table headers and excessive row chrome.
 Ledger details should stay flat. Use inline labels and thin rules for secondary values such as correct answers; avoid boxed mini-surfaces inside table rows.
+Ledger header counts should be labeled, not bare numeric chips. Counts such as rows shown, recent reviews, or filtered results are metadata; render them as compact labeled facts so the number has context.
 
 Navigable row titles should look like text-first links, not full-card buttons. Add a small, low-emphasis action cue such as Open when the row is primarily for recovery, browsing, or drilling into detail, so the affordance is visible without adding another button column.
 

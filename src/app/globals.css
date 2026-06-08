@@ -3819,6 +3819,37 @@ a {
   overflow-x: auto;
 }
 
+.historyPanelCount {
+  margin: 0;
+  border-left: 1px solid var(--lr-line);
+  padding-left: 14px;
+}
+
+.historyPanelCount div {
+  display: grid;
+  justify-items: end;
+  gap: 3px;
+}
+
+.historyPanelCount dt,
+.historyPanelCount dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  line-height: var(--lr-leading-label);
+}
+
+.historyPanelCount dt {
+  color: var(--lr-faint);
+  font-size: var(--lr-text-2xs);
+  font-weight: 500;
+}
+
+.historyPanelCount dd {
+  color: var(--lr-primary-ink);
+  font-size: var(--lr-text-lg);
+  font-weight: 500;
+}
+
 .historyTable {
   width: 100%;
   border-collapse: collapse;
@@ -4796,6 +4827,18 @@ a {
 
   .historyAnswerLine {
     min-width: 0;
+  }
+
+  .historyPanelCount {
+    align-self: stretch;
+    border-top: 1px solid var(--lr-line);
+    border-left: 0;
+    padding-top: 10px;
+    padding-left: 0;
+  }
+
+  .historyPanelCount div {
+    justify-items: start;
   }
 
   .skillReviewRow {

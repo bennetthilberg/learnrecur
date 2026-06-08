@@ -76,7 +76,12 @@ export default async function HistoryPage() {
             <p className="eyebrow">Completed reviews</p>
             <h2 id="review-history-title">Latest scheduled review events</h2>
           </div>
-          <span className="dashboardChip">{formatCount(history.reviews.length)}</span>
+          <dl className="historyPanelCount" aria-label="Review rows shown">
+            <div>
+              <dt>Shown</dt>
+              <dd>{formatCount(history.reviews.length)}</dd>
+            </div>
+          </dl>
         </div>
 
         {history.reviews.length === 0 ? (
