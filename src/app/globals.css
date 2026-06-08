@@ -1146,8 +1146,46 @@ a {
 }
 
 .practiceUserMenu {
+  position: relative;
   margin-top: auto;
   align-self: flex-start;
+}
+
+.practiceUserMenu[data-custom-avatar="false"] .cl-userButtonAvatarImage {
+  opacity: 0 !important;
+}
+
+.practiceUserMenu[data-custom-avatar="false"]::after {
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border-radius: var(--lr-radius-sm);
+  color: var(--lr-primary-ink);
+  content: attr(data-initial);
+  font-size: var(--lr-text-xs);
+  font-weight: 500;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.learnrecurUserButton {
+  border-radius: var(--lr-radius) !important;
+  color: var(--lr-primary-ink) !important;
+}
+
+.learnrecurUserButton:focus-visible {
+  outline: none !important;
+  box-shadow: var(--lr-focus-ring) !important;
+}
+
+.learnrecurUserAvatar {
+  border: 1px solid var(--lr-primary-muted) !important;
+  border-radius: var(--lr-radius) !important;
+  background: var(--lr-primary-soft) !important;
 }
 
 .practiceFrame {

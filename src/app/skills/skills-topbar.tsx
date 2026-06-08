@@ -1,6 +1,6 @@
 "use client";
 
-import { UserButton } from "@clerk/nextjs";
+import { UserButton, useUser } from "@clerk/nextjs";
 import Link from "next/link";
 import { useEffect, useRef } from "react";
 
@@ -18,6 +18,9 @@ export function SkillsTopbar({
     | "skill";
 }) {
   const navRef = useRef<HTMLElement | null>(null);
+  const { user } = useUser();
+  const userInitial = getUserInitial(user);
+  const hasCustomAvatar = user?.hasImage === true;
 
   useEffect(() => {
     const activeLink = navRef.current?.querySelector<HTMLAnchorElement>(
@@ -81,9 +84,32 @@ export function SkillsTopbar({
           </Link>
         </div>
       </nav>
-      <div className="practiceUserMenu">
-        <UserButton />
+      <div
+        className="practiceUserMenu"
+        data-custom-avatar={hasCustomAvatar}
+        data-initial={userInitial}
+      >
+        <UserButton
+          appearance={{
+            elements: {
+              userButtonAvatarBox: "learnrecurUserAvatar",
+              userButtonTrigger: "learnrecurUserButton",
+            },
+            variables: {
+              colorPrimary: "hsl(219 97% 42%)",
+            },
+          }}
+        />
       </div>
     </header>
   );
+}
+
+function getUserInitial(user: ReturnType<typeof useUser>["user"]) {
+  const initial =
+    [user?.firstName, user?.primaryEmailAddress?.emailAddress]
+      .map((value) => value?.trim().charAt(0))
+      .find(Boolean) ?? "L";
+
+  return initial.toUpperCase();
 }
