@@ -4754,6 +4754,21 @@ a {
     padding: 10px;
   }
 
+  .skillCreationPath {
+    grid-template-columns: 1fr;
+  }
+
+  .skillCreationPath div {
+    grid-template-columns: 74px minmax(0, 1fr);
+    align-items: baseline;
+    gap: 10px;
+  }
+
+  .skillCreationPath div + div {
+    border-top: 1px solid var(--lr-line);
+    border-left: 0;
+  }
+
   .dashboardHeader {
     align-items: flex-start;
   }
