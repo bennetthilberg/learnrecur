@@ -4070,7 +4070,7 @@ a {
   }
 
   .dashboardMetricGrid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .practiceNav {
@@ -4085,7 +4085,42 @@ a {
   }
 
   .dashboardMetricCard {
-    min-height: 112px;
+    min-height: 104px;
+    padding: 15px;
+  }
+
+  .dashboardMetricCard:first-child {
+    grid-column: 1 / -1;
+    min-height: 98px;
+    padding: 18px;
+  }
+
+  .dashboardMetricCard strong {
+    margin: 9px 0 6px;
+    font-size: var(--lr-heading-md);
+  }
+
+  .dashboardMetricCard:not(:first-child) strong {
+    margin: 8px 0 5px;
+    font-size: var(--lr-text-xl);
+  }
+
+  .dashboardMetricCard:last-child {
+    grid-column: 1 / -1;
+    min-height: 76px;
+    grid-template-columns: minmax(0, 1fr) minmax(48px, auto);
+    align-items: end;
+  }
+
+  .dashboardMetricCard:last-child strong {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    margin: 0;
+  }
+
+  .dashboardMetricCard:last-child p,
+  .dashboardMetricCard:last-child span {
+    grid-column: 1;
   }
 
   .dashboardPanel,
