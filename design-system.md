@@ -160,6 +160,7 @@ Metric summaries should not default to equal four-card grids. Give the primary p
 The dashboard summary uses this rule explicitly: ready practice is the dominant panel, while active skills, recent accuracy, and recent reviews sit in a rule-divided support strip.
 Status surfaces should separate primary state from supporting inventory. Prefer a short summary strip for schedule/status facts and grouped rule-separated inventory rows over a large grid where every metric has identical weight.
 Settings summaries follow the same pattern: the saved state appears first and supporting schedule constraints are grouped beside or beneath it.
+Skills-library inventory strips should lead with ready practice inventory, then show verified, retired, and source counts as quieter supporting facts.
 
 Collection-scoped practice actions should reflect readiness. When a collection has due work, the row action may use the primary blue treatment and a specific label such as Practice due; collections without due work should keep a quieter secondary action so users do not read every row as equally urgent.
 

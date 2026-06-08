@@ -3110,6 +3110,10 @@ a {
   background: var(--lr-panel-soft);
 }
 
+.skillLibraryFacts {
+  grid-template-columns: minmax(132px, 1.18fr) repeat(3, minmax(78px, 0.68fr));
+}
+
 .skillSourceFacts div,
 .sourceProcessingFacts div,
 .settingsExportFacts div,
@@ -3167,8 +3171,13 @@ a {
   white-space: nowrap;
 }
 
+.skillLibraryFacts div[data-priority="primary"] {
+  background: var(--lr-panel);
+}
+
 .skillLibraryFacts div[data-priority="primary"] dd {
   color: var(--lr-primary-ink);
+  font-size: var(--lr-text-sm);
 }
 
 .settingsExportFacts {
