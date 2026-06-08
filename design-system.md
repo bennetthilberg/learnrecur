@@ -174,6 +174,7 @@ Source material metadata should lead with readiness/status before file mechanics
 Uploaded-source processing rows use the same treatment: status copy and status chip carry the state; file mechanics and retry counts stay flat and inline.
 Practice session metadata should be compact and explicitly labeled. Avoid floating unlabeled chips for mixed facts such as FSRS state and elapsed time; a small rule-separated status strip is clearer and quieter.
 Practice history is a ledger, not a stack of cards. On narrow screens, keep review rows rule-separated with explicit labels instead of wrapping each review in a mini-card.
+Lifecycle controls should be rule-separated inside the skill panel, not nested in another rounded card. Danger copy and destructive buttons can carry the warning tone without tinting an entire inner container.
 
 Collection-scoped practice actions should reflect readiness. When a collection has due work, the row action may use the primary blue treatment and a specific label such as Practice due; collections without due work should keep a quieter secondary action so users do not read every row as equally urgent.
 
