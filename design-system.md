@@ -165,6 +165,7 @@ Skills-library inventory strips should lead with ready practice inventory, then 
 Active skill detail inventory uses the same ready-first emphasis: the current choice queue gets the strongest position, while later recall modes remain supporting until the learner unlocks or fills them.
 Exercise queue state strips should also be ready-first. The ready count is the actionable inventory signal; running/full/locked labels are supporting state and should not receive equal layout weight.
 Source material metadata should lead with readiness/status before file mechanics. Type, size, and added date are supporting facts; they should not compete with whether the source can be trusted for generation or preview.
+Practice session metadata should be compact and explicitly labeled. Avoid floating unlabeled chips for mixed facts such as FSRS state and elapsed time; a small rule-separated status strip is clearer and quieter.
 
 Collection-scoped practice actions should reflect readiness. When a collection has due work, the row action may use the primary blue treatment and a specific label such as Practice due; collections without due work should keep a quieter secondary action so users do not read every row as equally urgent.
 

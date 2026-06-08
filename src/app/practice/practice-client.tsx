@@ -419,10 +419,16 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
             <p className="eyebrow">{practiceModeLabel}</p>
             <h1 id="practice-title">{item.skill.title}</h1>
           </div>
-          <div className="practiceMetricCluster" aria-label="Practice status">
-            <span className="practiceChip">{formatFsrsState(item.skill.fsrsState)}</span>
-            <span className="practiceChip">{formatElapsed(timer.elapsedMs)}</span>
-          </div>
+          <dl className="practiceSessionFacts" aria-label="Practice status">
+            <div data-priority="primary">
+              <dt>State</dt>
+              <dd>{formatFsrsState(item.skill.fsrsState)}</dd>
+            </div>
+            <div>
+              <dt>Time</dt>
+              <dd>{formatElapsed(timer.elapsedMs)}</dd>
+            </div>
+          </dl>
         </div>
 
       <article className="practicePromptPanel">

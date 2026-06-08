@@ -1323,25 +1323,51 @@ a {
   margin-bottom: 22px;
 }
 
-.practiceMetricCluster {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 7px;
+.practiceSessionFacts {
+  display: inline-grid;
+  grid-template-columns: minmax(84px, auto) minmax(68px, auto);
+  margin: 2px 0 0;
+  overflow: hidden;
+  border: 1px solid var(--lr-line);
+  border-radius: var(--lr-radius);
+  background: var(--lr-panel-soft);
 }
 
-.practiceChip {
-  display: inline-flex;
-  min-height: 28px;
-  align-items: center;
-  border: 1px solid var(--lr-line-strong);
-  border-radius: var(--lr-radius-chip);
-  background: var(--lr-panel-soft);
-  color: var(--lr-ink-soft);
-  padding: 5px 9px;
+.practiceSessionFacts div {
+  display: grid;
+  gap: 3px;
+  padding: 7px 9px;
+}
+
+.practiceSessionFacts div + div {
+  border-left: 1px solid var(--lr-line);
+}
+
+.practiceSessionFacts dt,
+.practiceSessionFacts dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  line-height: var(--lr-leading-label);
+}
+
+.practiceSessionFacts dt {
+  color: var(--lr-faint);
+  font-size: var(--lr-text-2xs);
+  font-weight: 500;
+}
+
+.practiceSessionFacts dd {
+  color: var(--lr-muted);
   font-size: var(--lr-text-xs);
   font-weight: 500;
-  font-variant-numeric: tabular-nums;
+}
+
+.practiceSessionFacts div[data-priority="primary"] {
+  background: var(--lr-panel);
+}
+
+.practiceSessionFacts div[data-priority="primary"] dd {
+  color: var(--lr-primary-ink);
 }
 
 .practicePromptPanel {
@@ -4380,8 +4406,8 @@ a {
     justify-items: start;
   }
 
-  .practiceMetricCluster {
-    justify-content: flex-start;
+  .practiceSessionFacts {
+    justify-self: start;
   }
 
   .flagExerciseHeader {
