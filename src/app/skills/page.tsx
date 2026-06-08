@@ -1,6 +1,7 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import Link from "next/link";
 
+import { PanelHeaderCount } from "@/components/app/panel-header-count";
 import {
   getSkillsLibrary,
   type SkillsLibraryActiveSkill,
@@ -98,7 +99,11 @@ export default async function SkillsPage({ searchParams }: SkillsPageProps) {
               <p className="eyebrow">Source processing</p>
               <h2 id="source-processing-title">Uploaded material</h2>
             </div>
-            <span className="dashboardChip">{formatCount(library.sourceProcessing.length)}</span>
+            <PanelHeaderCount
+              ariaLabel="Uploaded source processing rows shown"
+              label="Uploads"
+              value={formatCount(library.sourceProcessing.length)}
+            />
           </div>
           <div className="skillLibraryList">
             {library.sourceProcessing.map((sourceFile) => (
@@ -115,7 +120,11 @@ export default async function SkillsPage({ searchParams }: SkillsPageProps) {
               <p className="eyebrow">Needs review</p>
               <h2 id="draft-skills-title">Draft skills</h2>
             </div>
-            <span className="dashboardChip">{formatCount(library.draftSkills.length)}</span>
+            <PanelHeaderCount
+              ariaLabel="Draft skills shown"
+              label="Drafts"
+              value={formatCount(library.draftSkills.length)}
+            />
           </div>
 
           {library.draftSkills.length === 0 ? (
@@ -138,7 +147,11 @@ export default async function SkillsPage({ searchParams }: SkillsPageProps) {
               <p className="eyebrow">Active schedule</p>
               <h2 id="active-skills-title">Practice targets</h2>
             </div>
-            <span className="dashboardChip">{formatCount(library.activeSkills.length)}</span>
+            <PanelHeaderCount
+              ariaLabel="Active skills shown"
+              label="Active"
+              value={formatCount(library.activeSkills.length)}
+            />
           </div>
 
           {library.activeSkills.length === 0 ? (
@@ -163,7 +176,11 @@ export default async function SkillsPage({ searchParams }: SkillsPageProps) {
               <p className="eyebrow">Recovery</p>
               <h2 id="recovery-skills-title">Paused and archived</h2>
             </div>
-            <span className="dashboardChip">{formatCount(library.recoverySkills.length)}</span>
+            <PanelHeaderCount
+              ariaLabel="Recovery skills shown"
+              label="Recovery"
+              value={formatCount(library.recoverySkills.length)}
+            />
           </div>
           <div className="skillLibraryList">
             {library.recoverySkills.map((skill) => (

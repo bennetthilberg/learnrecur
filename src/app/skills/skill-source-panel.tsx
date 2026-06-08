@@ -1,3 +1,4 @@
+import { PanelHeaderCount } from "@/components/app/panel-header-count";
 import type { SkillSourceSummary } from "@/lib/skills/sources";
 
 import { SkillSourceRemoveForm } from "./skill-source-remove-form";
@@ -22,7 +23,11 @@ export function SkillSourcePanel({
           <p className="eyebrow">Source material</p>
           <h2 id="skill-source-title">Stored source context.</h2>
         </div>
-        <span className="dashboardChip">{formatSourceCount(sources.length)}</span>
+        <PanelHeaderCount
+          ariaLabel="Linked sources shown"
+          label="Sources"
+          value={formatCount(sources.length)}
+        />
       </div>
       <p className="skillSourceIntro">
         Linked source text helps future exercise generation match this skill. Previews are capped
@@ -74,12 +79,12 @@ export function SkillSourcePanel({
   );
 }
 
-function formatSourceCount(count: number) {
-  return count === 1 ? "1 source" : `${count} sources`;
-}
-
 function formatSourceKind(kind: SkillSourceSummary["kind"]) {
   return kind.toLowerCase();
+}
+
+function formatCount(count: number) {
+  return new Intl.NumberFormat("en-US").format(count);
 }
 
 function formatSourceStatus(status: SkillSourceSummary["status"]) {

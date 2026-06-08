@@ -1,6 +1,7 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import Link from "next/link";
 
+import { PanelHeaderCount } from "@/components/app/panel-header-count";
 import {
   getPracticeHistory,
   type PracticeHistoryReview,
@@ -76,12 +77,11 @@ export default async function HistoryPage() {
             <p className="eyebrow">Completed reviews</p>
             <h2 id="review-history-title">Latest scheduled review events</h2>
           </div>
-          <dl className="historyPanelCount" aria-label="Review rows shown">
-            <div>
-              <dt>Shown</dt>
-              <dd>{formatCount(history.reviews.length)}</dd>
-            </div>
-          </dl>
+          <PanelHeaderCount
+            ariaLabel="Review rows shown"
+            label="Shown"
+            value={formatCount(history.reviews.length)}
+          />
         </div>
 
         {history.reviews.length === 0 ? (

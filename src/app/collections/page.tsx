@@ -1,6 +1,7 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import Link from "next/link";
 
+import { PanelHeaderCount } from "@/components/app/panel-header-count";
 import {
   getCollectionsHome,
   type CollectionSummary,
@@ -79,7 +80,11 @@ export default async function CollectionsPage() {
             <p className="eyebrow">Active</p>
             <h2 id="active-collections-title">Current collections</h2>
           </div>
-          <CollectionPanelCount count={home.activeCollections.length} label="Active" />
+          <PanelHeaderCount
+            ariaLabel="Active collections shown"
+            label="Active"
+            value={formatCount(home.activeCollections.length)}
+          />
         </div>
 
         {home.activeCollections.length === 0 ? (
@@ -106,7 +111,11 @@ export default async function CollectionsPage() {
               <p className="eyebrow">Recovery</p>
               <h2 id="archived-collections-title">Archived collections</h2>
             </div>
-            <CollectionPanelCount count={home.archivedCollections.length} label="Archived" />
+            <PanelHeaderCount
+              ariaLabel="Archived collections shown"
+              label="Archived"
+              value={formatCount(home.archivedCollections.length)}
+            />
           </div>
 
           <div className="skillLibraryList">
@@ -177,23 +186,6 @@ function ArchivedCollectionRow({
       <CollectionMetaLine collection={collection} />
       <CollectionRestoreForm collectionId={collection.id} collectionName={collection.name} />
     </article>
-  );
-}
-
-function CollectionPanelCount({
-  count,
-  label,
-}: {
-  count: number;
-  label: string;
-}) {
-  return (
-    <dl className="collectionPanelCount" aria-label={`${label} collections shown`}>
-      <div>
-        <dt>{label}</dt>
-        <dd>{formatCount(count)}</dd>
-      </div>
-    </dl>
   );
 }
 
