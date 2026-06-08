@@ -2419,7 +2419,11 @@ a {
   display: grid;
   grid-template-columns: minmax(260px, 1fr) minmax(240px, 0.68fr);
   align-items: flex-start;
-  gap: 16px 24px;
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid var(--lr-line);
+  border-radius: var(--lr-radius);
+  background: var(--lr-panel-soft);
 }
 
 .skillLifecycleActions[data-layout="single"] {
@@ -2434,11 +2438,17 @@ a {
   display: grid;
   align-content: start;
   gap: 10px;
+  min-height: 100%;
+  padding: 14px;
 }
 
 .skillLifecycleGroup + .skillLifecycleGroup {
   border-left: 1px solid var(--lr-line);
-  padding-left: 24px;
+}
+
+.skillLifecycleGroup[data-tone="danger"] {
+  border-color: var(--lr-danger-line);
+  background: var(--lr-danger-subtle);
 }
 
 .skillLifecycleGroup h3 {
@@ -3414,8 +3424,10 @@ a {
   .skillLifecycleGroup + .skillLifecycleGroup {
     border-top: 1px solid var(--lr-line);
     border-left: 0;
-    padding-top: 16px;
-    padding-left: 0;
+  }
+
+  .skillLifecycleGroup[data-tone="danger"] {
+    border-top-color: var(--lr-danger-line);
   }
 
   .skillSourceRowHeader {
