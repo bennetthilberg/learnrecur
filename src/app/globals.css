@@ -821,29 +821,28 @@ a {
 }
 
 .dashboardCollectionFacts {
-  display: inline-grid;
+  display: flex;
+  flex-wrap: wrap;
   width: fit-content;
   max-width: 100%;
-  grid-template-columns: minmax(86px, 1fr) minmax(66px, auto);
+  gap: 7px 16px;
   margin: 0;
-  overflow: hidden;
-  border: 1px solid var(--lr-line);
-  border-radius: var(--lr-radius);
-  background: var(--lr-panel-soft);
 }
 
 .dashboardCollectionFacts div {
-  display: grid;
-  gap: 3px;
-  padding: 8px 11px;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
 }
 
 .dashboardCollectionFacts div + div {
   border-left: 1px solid var(--lr-line);
+  padding-left: 16px;
 }
 
 .dashboardCollectionFacts div[data-priority="primary"] {
-  background: var(--lr-panel);
+  color: var(--lr-primary-ink);
 }
 
 .dashboardCollectionFacts dt,
@@ -860,14 +859,14 @@ a {
 
 .dashboardCollectionFacts dd {
   color: var(--lr-ink);
-  font-size: var(--lr-text-xs);
+  font-size: var(--lr-text-sm);
   font-weight: 500;
   font-variant-numeric: tabular-nums;
   line-height: var(--lr-leading-label);
 }
 
 .dashboardCollectionFacts div[data-priority="primary"] dd {
-  font-size: var(--lr-text-sm);
+  font-size: var(--lr-text-md);
 }
 
 .dashboardCollectionFacts dd[data-ready="true"] {
@@ -5210,7 +5209,7 @@ a {
 
   .dashboardCollectionFacts {
     width: 100%;
-    grid-template-columns: minmax(86px, 1fr) minmax(66px, 0.78fr);
+    gap: 8px 14px;
   }
 
   .dashboardHeader .primaryButton,
