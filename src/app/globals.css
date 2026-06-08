@@ -3268,6 +3268,33 @@ a {
   margin-top: 0;
 }
 
+.sourceProcessingFacts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 18px;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.sourceProcessingFacts div {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 0;
+}
+
+.sourceProcessingFacts div + div {
+  border-left: 1px solid var(--lr-line);
+  padding-left: 18px;
+}
+
+.sourceProcessingFacts dd {
+  margin-top: 0;
+}
+
 .skillLibraryFacts div[data-priority="primary"] {
   background: var(--lr-panel);
 }
@@ -4661,25 +4688,21 @@ a {
     text-align: left;
   }
 
-  .sourceProcessingFacts,
   .collectionFacts,
   .skillLibraryFacts {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .sourceProcessingFacts div + div,
   .collectionFacts div + div,
   .skillLibraryFacts div + div {
     border-left: 0;
   }
 
-  .sourceProcessingFacts div:nth-child(even),
   .collectionFacts div:nth-child(even),
   .skillLibraryFacts div:nth-child(even) {
     border-left: 1px solid var(--lr-line);
   }
 
-  .sourceProcessingFacts div:nth-child(n + 3),
   .collectionFacts div:nth-child(n + 3),
   .skillLibraryFacts div:nth-child(n + 3) {
     border-top: 1px solid var(--lr-line);
@@ -5488,19 +5511,16 @@ a {
     gap: 8px;
   }
 
-  .sourceProcessingFacts,
   .collectionFacts,
   .skillLibraryFacts {
     grid-template-columns: 1fr;
   }
 
-  .sourceProcessingFacts div:nth-child(even),
   .collectionFacts div:nth-child(even),
   .skillLibraryFacts div:nth-child(even) {
     border-left: 0;
   }
 
-  .sourceProcessingFacts div + div,
   .collectionFacts div + div,
   .skillLibraryFacts div + div {
     border-top: 1px solid var(--lr-line);
