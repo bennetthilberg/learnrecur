@@ -1042,6 +1042,7 @@ a {
   display: flex;
   min-height: 36px;
   align-items: center;
+  gap: 8px;
   border: 1px solid transparent;
   border-radius: var(--lr-radius);
   padding: 8px 10px;
@@ -1052,10 +1053,24 @@ a {
   white-space: nowrap;
 }
 
+.practiceNav a::before {
+  display: block;
+  width: 4px;
+  height: 16px;
+  flex: 0 0 auto;
+  border-radius: var(--lr-radius-sm);
+  background: transparent;
+  content: "";
+}
+
 .practiceNav a:hover {
   border-color: var(--lr-line);
   background: var(--lr-fill);
   color: var(--lr-ink);
+}
+
+.practiceNav a:hover::before {
+  background: var(--lr-line-strong);
 }
 
 .practiceNav a[aria-current="page"] {
@@ -1064,10 +1079,18 @@ a {
   color: var(--lr-primary-ink);
 }
 
+.practiceNav a[aria-current="page"]::before {
+  background: var(--lr-primary);
+}
+
 .practiceNav a[data-intent="create"] {
   border-color: var(--lr-primary);
   background: var(--lr-primary);
   color: var(--lr-white);
+}
+
+.practiceNav a[data-intent="create"]::before {
+  background: hsl(0 0% 100% / 0.78);
 }
 
 .practiceNav a[data-intent="create"]:hover {
