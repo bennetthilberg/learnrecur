@@ -1012,7 +1012,7 @@ a {
   color: var(--lr-primary-ink);
   content: "L";
   font-size: var(--lr-text-md);
-  font-weight: 560;
+  font-weight: 600;
 }
 
 .practiceNav {
