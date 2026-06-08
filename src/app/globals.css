@@ -45,11 +45,11 @@
   --lr-text-xl: 18px;
   --lr-text-2xl: 20px;
   --lr-text-brand: 21px;
-  --lr-heading-sm: clamp(26px, 4vw, 34px);
-  --lr-heading-md: clamp(28px, 5vw, 38px);
-  --lr-heading-lg: clamp(28px, 5vw, 42px);
-  --lr-practice-heading: clamp(25px, 4vw, 34px);
-  --lr-prompt-heading: clamp(19px, 3vw, 24px);
+  --lr-heading-sm: 26px;
+  --lr-heading-md: 28px;
+  --lr-heading-lg: 28px;
+  --lr-practice-heading: 25px;
+  --lr-prompt-heading: 19px;
   --lr-leading-compact: 1.1;
   --lr-leading-control: 1.2;
   --lr-leading-heading: 1.16;
@@ -69,6 +69,26 @@
   --lr-focus-ring: 0 0 0 3px var(--lr-primary-ring);
   --lr-sidebar-width: 248px;
   --lr-page-gutter: 32px;
+}
+
+@media (min-width: 781px) {
+  :root {
+    --lr-heading-sm: 32px;
+    --lr-heading-md: 36px;
+    --lr-heading-lg: 40px;
+    --lr-practice-heading: 32px;
+    --lr-prompt-heading: 23px;
+  }
+}
+
+@media (min-width: 1180px) {
+  :root {
+    --lr-heading-sm: 34px;
+    --lr-heading-md: 38px;
+    --lr-heading-lg: 42px;
+    --lr-practice-heading: 34px;
+    --lr-prompt-heading: 24px;
+  }
 }
 
 * {

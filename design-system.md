@@ -41,6 +41,7 @@ Rationale: this keeps the Login.gov-like professional blue direction while reach
 - Supporting labels and controls: `500` to `560` only when needed.
 - Numeric text: Lexend with tabular figures where possible.
 - Letter spacing stays at `0`; do not squeeze Lexend with negative tracking.
+- Heading tokens use fixed breakpoint steps, not viewport-fluid `vw` or `clamp()` sizing.
 - Type scale:
   - `11px` only for cramped responsive navigation.
   - `12px` for chips, table metadata, compact labels, and counters.
