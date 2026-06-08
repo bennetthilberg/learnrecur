@@ -288,7 +288,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
     }
 
     const focusTarget = window.requestAnimationFrame(() => {
-      continueButtonRef.current?.focus({ preventScroll: true });
+      continueButtonRef.current?.focus();
     });
 
     return () => window.cancelAnimationFrame(focusTarget);
@@ -490,6 +490,19 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
         </label>
       )}
 
+      {feedback === null ? (
+        <div className="practiceActions">
+          <button
+            className="primaryButton"
+            type="button"
+            disabled={!isAnswerReady(answerValue) || pendingAction !== null}
+            onClick={handleCheck}
+          >
+            {pendingAction === "check" ? "Checking" : "Check"}
+          </button>
+        </div>
+      ) : null}
+
       {checkedFeedback ? (
         <section
           className="practiceFeedback"
@@ -534,6 +547,20 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
             ))}
           </div>
         </fieldset>
+      ) : null}
+
+      {feedback !== null ? (
+        <div className="practiceActions">
+          <button
+            className="primaryButton"
+            type="button"
+            disabled={pendingAction !== null || feedback.status !== "checked"}
+            onClick={handleContinue}
+            ref={continueButtonRef}
+          >
+            {pendingAction === "continue" ? "Saving" : "Continue"}
+          </button>
+        </div>
       ) : null}
 
       {isIncorrect ? (
@@ -607,29 +634,6 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
           ) : null}
         </section>
       ) : null}
-
-      <div className="practiceActions">
-        {feedback === null ? (
-          <button
-            className="primaryButton"
-            type="button"
-            disabled={!isAnswerReady(answerValue) || pendingAction !== null}
-            onClick={handleCheck}
-          >
-            {pendingAction === "check" ? "Checking" : "Check"}
-          </button>
-        ) : (
-          <button
-            className="primaryButton"
-            type="button"
-            disabled={pendingAction !== null || feedback.status !== "checked"}
-            onClick={handleContinue}
-            ref={continueButtonRef}
-          >
-            {pendingAction === "continue" ? "Saving" : "Continue"}
-          </button>
-        )}
-      </div>
 
       <PracticeStatusMessage message={statusMessage} />
       </section>
