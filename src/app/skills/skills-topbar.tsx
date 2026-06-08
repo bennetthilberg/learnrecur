@@ -1,5 +1,8 @@
+"use client";
+
 import { UserButton } from "@clerk/nextjs";
 import Link from "next/link";
+import { useEffect, useRef } from "react";
 
 export function SkillsTopbar({
   current,
@@ -14,12 +17,25 @@ export function SkillsTopbar({
     | "new"
     | "skill";
 }) {
+  const navRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const activeLink = navRef.current?.querySelector<HTMLAnchorElement>(
+      'a[aria-current="page"]',
+    );
+
+    activeLink?.scrollIntoView({
+      block: "nearest",
+      inline: "start",
+    });
+  }, [current]);
+
   return (
     <header className="practiceTopbar">
       <Link className="practiceWordmark" href="/dashboard">
         LearnRecur
       </Link>
-      <nav className="practiceNav" aria-label="Primary navigation">
+      <nav ref={navRef} className="practiceNav" aria-label="Primary navigation">
         <div className="practiceNavGroup">
           <span className="practiceNavSection" aria-hidden="true">
             Practice loop
