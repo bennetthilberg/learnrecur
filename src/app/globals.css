@@ -3826,12 +3826,13 @@ a {
   }
 
   .practiceNav {
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
   }
 
   .practiceNav a {
-    flex: 1 1 calc(50% - 4px);
-    padding-inline: 6px;
+    min-width: 82px;
+    flex: 0 0 auto;
+    padding-inline: 8px;
     font-size: var(--lr-text-xs);
   }
 
