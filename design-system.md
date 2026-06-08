@@ -96,9 +96,11 @@ Rationale: neutrals should carry a subtle blue/steel cast. Avoid warm gray, zinc
 ### Accent
 
 - Accent: Amber `hsl(35 100% 36%)`.
+- Accent soft: `hsl(39 100% 98%)`.
+- Accent line: `hsl(35 72% 82%)`.
 - Accent ink: `#6f4200`.
 
-Use amber for review warnings, source gaps, and secondary attention. Do not drift this accent toward purple.
+Use amber for review warnings, source gaps, and secondary attention. Use the soft fill and line for bounded status surfaces; reserve the full accent for rare high-signal details. Do not drift this accent toward purple.
 
 ### Elevation
 
