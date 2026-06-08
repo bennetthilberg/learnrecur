@@ -4156,6 +4156,21 @@ a {
 
   .practiceNav {
     flex-wrap: nowrap;
+    scrollbar-color: var(--lr-line-strong) transparent;
+    scrollbar-width: thin;
+  }
+
+  .practiceNav::-webkit-scrollbar {
+    height: 4px;
+  }
+
+  .practiceNav::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .practiceNav::-webkit-scrollbar-thumb {
+    border-radius: var(--lr-radius-chip);
+    background: var(--lr-line-strong);
   }
 
   .practiceNav a {
