@@ -3762,7 +3762,7 @@ a {
   }
 
   .settingsScheduleSummary {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.35fr) minmax(0, 0.9fr);
   }
 
   .settingsReminderForm {
@@ -3781,8 +3781,8 @@ a {
   }
 
   .settingsScheduleSummary div + div {
-    border-top: 1px solid var(--lr-line);
-    border-left: 0;
+    border-top: 0;
+    border-left: 1px solid var(--lr-line);
   }
 
   .settingsExportSummary {
