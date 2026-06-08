@@ -4159,4 +4159,36 @@ a {
   .skillLibraryFacts div:nth-child(n + 3) {
     border-top: 1px solid var(--lr-line);
   }
+
+  .collectionManagementRow .skillLibraryRowMain {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+  }
+
+  .collectionManagementRow .collectionReadyStat {
+    width: auto;
+    min-width: 66px;
+    justify-items: end;
+    border-top: 0;
+    border-left: 1px solid var(--lr-line);
+    padding-top: 0;
+    padding-left: 12px;
+  }
+
+  .collectionManagementRow .collectionFacts {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .collectionManagementRow .collectionFacts div + div {
+    border-top: 0;
+    border-left: 1px solid var(--lr-line);
+  }
+
+  .collectionManagementRow .collectionFacts div:nth-child(4) {
+    border-left: 0;
+  }
+
+  .collectionManagementRow .collectionFacts div:nth-child(n + 4) {
+    border-top: 1px solid var(--lr-line);
+  }
 }
