@@ -2488,27 +2488,25 @@ a {
 .settingsExportSummary {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 0.88fr);
-  gap: 10px;
-  margin-top: 10px;
+  gap: 0;
+  margin-top: 12px;
+  border-top: 1px solid var(--lr-line);
+  border-bottom: 1px solid var(--lr-line);
 }
 
 .settingsExportSummary section {
   display: grid;
   align-content: start;
   gap: 6px;
-  border: 1px solid var(--lr-line);
-  border-radius: var(--lr-radius);
-  background: var(--lr-panel-soft);
-  padding: 12px;
+  padding: 12px 14px;
 }
 
-.settingsExportSummary section:first-child {
-  border-color: var(--lr-primary-muted);
-  background: var(--lr-primary-soft);
+.settingsExportSummary section:first-child h3 {
+  color: var(--lr-primary-ink);
 }
 
 .settingsExportSummary section + section {
-  border-color: var(--lr-line-strong);
+  border-left: 1px solid var(--lr-line);
 }
 
 .settingsExportSummary h3 {
@@ -4006,6 +4004,11 @@ a {
 
   .settingsExportSummary {
     grid-template-columns: 1fr;
+  }
+
+  .settingsExportSummary section + section {
+    border-top: 1px solid var(--lr-line);
+    border-left: 0;
   }
 
   .skillDraftGrid {
