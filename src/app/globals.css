@@ -4786,7 +4786,13 @@ a {
     padding: 20px;
   }
 
+  .practiceFrame h1 {
+    font-size: var(--lr-text-2xl);
+    line-height: var(--lr-leading-title);
+  }
+
   .practiceMetaRow {
+    gap: 12px;
     margin-bottom: 18px;
   }
 
