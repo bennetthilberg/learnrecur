@@ -2258,11 +2258,85 @@ a {
   margin: 0;
 }
 
+.settingsExportDetails {
+  margin-top: 16px;
+}
+
+.settingsExportDetails summary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  border: 1px solid var(--lr-line);
+  border-radius: var(--lr-radius);
+  background: var(--lr-panel-soft);
+  cursor: pointer;
+  list-style: none;
+  padding: 11px 12px;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.settingsExportDetails summary::marker,
+.settingsExportDetails summary::-webkit-details-marker {
+  display: none;
+}
+
+.settingsExportDetails summary::after {
+  display: inline-flex;
+  grid-column: 3;
+  min-width: 22px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--lr-line);
+  border-radius: var(--lr-radius-chip);
+  background: var(--lr-white);
+  color: var(--lr-primary-ink);
+  content: "+";
+  font-size: var(--lr-text-sm);
+  font-weight: 500;
+}
+
+.settingsExportDetails[open] summary::after {
+  content: "-";
+}
+
+.settingsExportDetails summary span {
+  grid-column: 1;
+  min-width: 0;
+  color: var(--lr-ink);
+  font-size: var(--lr-text-md);
+  font-weight: 500;
+  line-height: var(--lr-leading-label);
+}
+
+.settingsExportDetails summary small {
+  grid-column: 2;
+  min-width: 0;
+  color: var(--lr-muted);
+  font-size: var(--lr-text-xs);
+  line-height: var(--lr-leading-normal);
+}
+
+.settingsExportDetails summary:hover,
+.settingsExportDetails[open] summary {
+  border-color: var(--lr-primary-muted);
+  background: var(--lr-primary-soft);
+}
+
+.settingsExportDetails summary:focus-visible {
+  outline: none;
+  box-shadow: var(--lr-focus-ring);
+}
+
 .settingsExportSummary {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 0.88fr);
   gap: 10px;
-  margin-top: 16px;
+  margin-top: 10px;
 }
 
 .settingsExportSummary section {
@@ -4158,6 +4232,64 @@ a {
   .collectionFacts div:nth-child(n + 3),
   .skillLibraryFacts div:nth-child(n + 3) {
     border-top: 1px solid var(--lr-line);
+  }
+
+  .settingsScheduleSummary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .settingsScheduleSummary div {
+    padding: 10px 8px;
+  }
+
+  .settingsScheduleSummary div:first-child {
+    padding-left: 8px;
+  }
+
+  .settingsScheduleSummary div + div {
+    border-top: 0;
+    border-left: 1px solid var(--lr-line);
+  }
+
+  .settingsScheduleSummary dt {
+    font-size: var(--lr-text-2xs);
+  }
+
+  .settingsScheduleSummary dd {
+    font-size: var(--lr-text-xs);
+    line-height: var(--lr-leading-normal);
+  }
+
+  .settingsExportFacts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .settingsExportFacts div + div {
+    border-top: 0;
+  }
+
+  .settingsExportFacts div:nth-child(even) {
+    border-left: 1px solid var(--lr-line);
+  }
+
+  .settingsExportFacts div:nth-child(n + 3) {
+    border-top: 1px solid var(--lr-line);
+  }
+
+  .settingsExportDetails summary {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 3px 14px;
+  }
+
+  .settingsExportDetails summary::after {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
+
+  .settingsExportDetails summary span,
+  .settingsExportDetails summary small {
+    grid-column: 1;
   }
 
   .collectionManagementRow .skillLibraryRowMain {

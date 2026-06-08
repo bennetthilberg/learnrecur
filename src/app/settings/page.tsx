@@ -121,22 +121,28 @@ export default async function SettingsPage() {
           </div>
         </dl>
 
-        <div className="settingsExportSummary">
-          <section>
-            <h3>Included</h3>
-            <p>
-              Collections, skills, stored source text, exercises, attempts,
-              review logs, flags, generation job metadata, and reminder records.
-            </p>
-          </section>
-          <section>
-            <h3>Left out</h3>
-            <p>
-              Original uploaded file bytes, private storage locations, API keys,
-              and raw AI prompts.
-            </p>
-          </section>
-        </div>
+        <details className="settingsExportDetails">
+          <summary>
+            <span>Export contents and exclusions</span>
+            <small>No original uploaded files or private storage locations.</small>
+          </summary>
+          <div className="settingsExportSummary">
+            <section>
+              <h3>Included</h3>
+              <p>
+                Collections, skills, stored source text, exercises, attempts,
+                review logs, flags, generation job metadata, and reminder records.
+              </p>
+            </section>
+            <section>
+              <h3>Left out</h3>
+              <p>
+                Original uploaded file bytes, private storage locations, API keys,
+                and raw AI prompts.
+              </p>
+            </section>
+          </div>
+        </details>
       </section>
     </main>
   );
