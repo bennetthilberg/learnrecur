@@ -188,6 +188,7 @@ Data export summaries should lead with scope before mechanics. Format, access, a
 ### Practice Prompt
 
 The practice prompt is the core reading surface. Avoid redundant labels such as "Exercise" when the layout already makes the role clear; use small chips only for useful metadata such as difficulty.
+Difficulty metadata should not become a full card header. Keep it as a quiet inline chip so the prompt remains the dominant object.
 
 ### Empty States
 
