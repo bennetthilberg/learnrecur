@@ -749,8 +749,10 @@ a {
 }
 
 .dashboardEmptyState {
-  border-top: 1px solid var(--lr-line);
-  padding-top: 16px;
+  border: 1px solid var(--lr-line);
+  border-radius: var(--lr-radius);
+  background: var(--lr-panel-soft);
+  padding: 14px;
 }
 
 .dashboardEmptyState .secondaryButton {
