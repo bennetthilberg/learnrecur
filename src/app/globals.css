@@ -2080,10 +2080,17 @@ a {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  border-radius: var(--lr-radius-sm);
+  min-height: 38px;
+  border: 1px solid var(--lr-line);
+  border-radius: var(--lr-radius);
+  background: var(--lr-panel-soft);
   cursor: pointer;
   list-style: none;
-  padding: 2px 0;
+  padding: 8px 10px;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease;
 }
 
 .skillFormDetails summary::marker,
@@ -2099,7 +2106,7 @@ a {
   justify-content: center;
   border: 1px solid var(--lr-line);
   border-radius: var(--lr-radius-chip);
-  background: var(--lr-panel-soft);
+  background: var(--lr-white);
   color: var(--lr-primary-ink);
   content: "+";
   font-size: var(--lr-text-sm);
@@ -2125,6 +2132,12 @@ a {
   line-height: var(--lr-leading-label);
 }
 
+.skillFormDetails summary:hover,
+.skillFormDetails[open] summary {
+  border-color: var(--lr-primary-muted);
+  background: var(--lr-primary-soft);
+}
+
 .skillFormDetails summary:hover span,
 .skillFormDetails[open] summary span {
   color: var(--lr-primary);
@@ -2136,7 +2149,7 @@ a {
 }
 
 .skillFormDetails[open] .skillFormFieldsetBody {
-  margin-top: 12px;
+  margin-top: 14px;
 }
 
 .skillFormFieldsetBody {
