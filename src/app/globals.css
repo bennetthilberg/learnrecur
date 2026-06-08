@@ -4269,6 +4269,43 @@ a {
     border-top: 1px solid var(--lr-line);
   }
 
+  .skillLibraryActivePanel .skillLibraryRowMain {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+  }
+
+  .skillLibraryActivePanel .skillLibraryRowMain p {
+    -webkit-line-clamp: 1;
+  }
+
+  .skillLibraryActivePanel .skillLibraryRow .dashboardChip {
+    max-width: 86px;
+    justify-self: end;
+    text-align: center;
+  }
+
+  .skillLibraryActivePanel .skillLibraryFacts {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .skillLibraryActivePanel .skillLibraryFacts div {
+    padding: 8px 6px;
+  }
+
+  .skillLibraryActivePanel .skillLibraryFacts div + div {
+    border-top: 0;
+    border-left: 1px solid var(--lr-line);
+  }
+
+  .skillLibraryActivePanel .skillLibraryFacts div:nth-child(n + 3) {
+    border-top: 0;
+  }
+
+  .skillLibraryActivePanel .skillLibraryFacts dt,
+  .skillLibraryActivePanel .skillLibraryFacts dd {
+    font-size: var(--lr-text-2xs);
+  }
+
   .settingsScheduleSummary {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
