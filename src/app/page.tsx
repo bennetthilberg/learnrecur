@@ -13,6 +13,24 @@ export default async function Home() {
           Upload a page, paste notes, or define a skill. Review the draft, then work
           through verified exercises whenever the schedule says it is time.
         </p>
+        <dl className="entryCapabilityList" aria-label="LearnRecur capabilities">
+          <div>
+            <dt>Practice modes</dt>
+            <dd>Choice, text, numeric, and math answers</dd>
+          </div>
+          <div>
+            <dt>Source paths</dt>
+            <dd>Paste text or upload private images and PDFs</dd>
+          </div>
+          <div>
+            <dt>Trust loop</dt>
+            <dd>Verified generation, deterministic grading, and flag recovery</dd>
+          </div>
+          <div>
+            <dt>Data controls</dt>
+            <dd>History, reminders, archive, delete, and JSON export</dd>
+          </div>
+        </dl>
         <div className="entryActions">
           {userId ? (
             <>
