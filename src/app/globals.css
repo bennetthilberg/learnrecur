@@ -4418,7 +4418,7 @@ a {
 
 }
 
-@media (min-width: 641px) and (max-width: 740px) {
+@media (min-width: 641px) and (max-width: 860px) {
   .skillSourceEntryGrid {
     grid-template-columns: 1fr;
   }
