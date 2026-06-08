@@ -3653,6 +3653,17 @@ a {
   font-size: var(--lr-text-xs);
 }
 
+@media (min-width: 781px) and (max-width: 1179px) {
+  .collectionCreateGrid {
+    grid-template-columns: minmax(220px, 0.82fr) minmax(0, 1.18fr);
+  }
+
+  .collectionCreateAction {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+}
+
 @media (max-width: 780px) {
   .entryShell {
     grid-template-columns: minmax(0, 1fr);
@@ -4163,12 +4174,13 @@ a {
   }
 
   .collectionCreateGrid {
-    grid-template-columns: minmax(135px, 0.7fr) minmax(190px, 1fr) auto;
+    grid-template-columns: minmax(180px, 0.8fr) minmax(0, 1.2fr);
     gap: 12px;
   }
 
   .collectionCreateAction {
-    justify-content: flex-end;
+    grid-column: 1 / -1;
+    justify-content: flex-start;
   }
 
   .dashboardMetricGrid {
