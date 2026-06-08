@@ -3876,19 +3876,23 @@ a {
     border-top: 1px solid var(--lr-line);
   }
 
-  .collectionFacts {
+  .collectionFacts,
+  .skillLibraryFacts {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .collectionFacts div + div {
+  .collectionFacts div + div,
+  .skillLibraryFacts div + div {
     border-top: 0;
   }
 
-  .collectionFacts div:nth-child(even) {
+  .collectionFacts div:nth-child(even),
+  .skillLibraryFacts div:nth-child(even) {
     border-left: 1px solid var(--lr-line);
   }
 
-  .collectionFacts div:nth-child(n + 3) {
+  .collectionFacts div:nth-child(n + 3),
+  .skillLibraryFacts div:nth-child(n + 3) {
     border-top: 1px solid var(--lr-line);
   }
 }
