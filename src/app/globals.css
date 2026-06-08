@@ -4056,6 +4056,53 @@ a {
   }
 }
 
+@media (min-width: 641px) and (max-width: 780px) {
+  .skillStatusSummary {
+    grid-template-columns: minmax(160px, 1.2fr) repeat(4, minmax(0, 1fr));
+  }
+
+  .skillStatusSummary div {
+    border-right: 1px solid var(--lr-line);
+    border-bottom: 0;
+  }
+
+  .skillStatusSummary div:last-child {
+    border-right: 0;
+  }
+
+  .skillInventoryGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .skillInventoryGroup {
+    border-right: 1px solid var(--lr-line);
+    border-bottom: 0;
+  }
+
+  .skillInventoryGroup:last-child {
+    border-right: 0;
+  }
+
+  .skillQueueBlock {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+  }
+
+  .skillQueueStateStrip {
+    width: auto;
+    grid-template-columns: repeat(2, minmax(96px, auto));
+  }
+
+  .skillQueueStateStrip div + div {
+    border-top: 0;
+    border-left: 1px solid var(--lr-line);
+  }
+
+  .skillRefillForm {
+    justify-items: end;
+  }
+}
+
 @media (max-width: 520px) {
   .entryShell,
   .authShell,
