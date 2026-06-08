@@ -126,6 +126,12 @@ Buttons should not be oversized. Use compact, tool-like button proportions.
 
 Disclosure actions in management rows should look like intentional controls, not native browser summaries with default markers. Keep closed disclosures compact; let only the open inline form claim extra row width.
 
+Creation-path disclosures should also hide native markers and show an
+explicit compact affordance. Optional source context uses a bounded utility row
+with a small plus/minus control; the manual draft fallback uses the same
+affordance language inside its larger recovery panel so users can see that it
+opens.
+
 ### Forms
 
 Form controls should inherit the app's neutral system rather than browser defaults. Placeholder text uses the faint steel token with full opacity; disabled fields use a quiet panel fill and muted text so state is visible without washing out labels.
