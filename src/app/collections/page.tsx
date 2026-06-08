@@ -145,9 +145,10 @@ function ActiveCollectionRow({
         <Link
           aria-label={`Practice collection ${collection.name}`}
           className="secondaryButton collectionPracticeLink"
+          data-ready={collection.readyNowCount > 0 ? "true" : "false"}
           href={`/practice?collectionId=${encodeURIComponent(collection.id)}`}
         >
-          Practice
+          {collection.readyNowCount > 0 ? "Practice due" : "Practice"}
         </Link>
         <CollectionUpdateForm collection={collection} />
         <CollectionArchiveForm collectionId={collection.id} collectionName={collection.name} />

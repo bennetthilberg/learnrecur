@@ -919,6 +919,17 @@ a {
   text-decoration: none;
 }
 
+.dashboardCollectionPracticeLink[data-ready="true"] {
+  border-color: var(--lr-primary);
+  background: var(--lr-primary);
+  color: var(--lr-white);
+}
+
+.dashboardCollectionPracticeLink[data-ready="true"]:hover {
+  border-color: var(--lr-primary-hover);
+  background: var(--lr-primary-hover);
+}
+
 .skillRowMain {
   display: flex;
   align-items: flex-start;
@@ -3769,6 +3780,17 @@ a {
 .collectionPracticeLink:hover {
   border-color: hsl(219 97% 42% / 0.3);
   background: var(--lr-primary-soft);
+}
+
+.collectionPracticeLink[data-ready="true"] {
+  border-color: var(--lr-primary);
+  background: var(--lr-primary);
+  color: var(--lr-white);
+}
+
+.collectionPracticeLink[data-ready="true"]:hover {
+  border-color: var(--lr-primary-hover);
+  background: var(--lr-primary-hover);
 }
 
 .collectionInlineDetails {

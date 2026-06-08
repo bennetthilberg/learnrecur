@@ -136,9 +136,10 @@ export default async function DashboardPage() {
                     <Link
                       aria-label={`Practice collection ${collection.name}`}
                       className="dashboardPanelLink dashboardCollectionPracticeLink"
+                      data-ready={collection.readyNowCount > 0 ? "true" : "false"}
                       href={`/practice?collectionId=${encodeURIComponent(collection.id)}`}
                     >
-                      Practice
+                      {collection.readyNowCount > 0 ? "Practice due" : "Practice"}
                     </Link>
                   </div>
                 </article>
