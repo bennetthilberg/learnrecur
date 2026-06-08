@@ -2915,6 +2915,11 @@ a {
   width: 112px;
 }
 
+.historyTable th:nth-child(3),
+.historyTable td:nth-child(3) {
+  width: 188px;
+}
+
 .historyTable th:nth-child(4),
 .historyTable td:nth-child(4),
 .historyTable th:nth-child(5),
@@ -2984,6 +2989,7 @@ a {
 
 .historyAnswerLine {
   display: inline-grid;
+  min-width: min(100%, 148px);
   max-width: 100%;
   gap: 2px;
   border: 1px solid var(--lr-line);
