@@ -24,10 +24,11 @@ export function SkillsTopbar({
       'a[aria-current="page"]',
     );
 
-    activeLink?.scrollIntoView({
-      block: "nearest",
-      inline: "start",
-    });
+    if (!activeLink || !navRef.current) {
+      return;
+    }
+
+    navRef.current.scrollLeft = Math.max(activeLink.offsetLeft - navRef.current.offsetLeft, 0);
   }, [current]);
 
   return (

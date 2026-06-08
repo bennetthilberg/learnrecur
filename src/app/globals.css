@@ -97,7 +97,6 @@
 }
 
 html {
-  min-width: 320px;
   background: var(--lr-page);
 }
 
@@ -1809,6 +1808,10 @@ a {
   width: min(100%, 1040px);
   gap: 18px;
   margin: 0 auto;
+}
+
+.skillCreateStack > * {
+  min-width: 0;
 }
 
 .skillCreationPath {
