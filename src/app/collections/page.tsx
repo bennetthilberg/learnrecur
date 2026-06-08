@@ -79,7 +79,7 @@ export default async function CollectionsPage() {
             <p className="eyebrow">Active</p>
             <h2 id="active-collections-title">Current collections</h2>
           </div>
-          <span className="dashboardChip">{formatCount(home.activeCollections.length)}</span>
+          <CollectionPanelCount count={home.activeCollections.length} label="Active" />
         </div>
 
         {home.activeCollections.length === 0 ? (
@@ -106,7 +106,7 @@ export default async function CollectionsPage() {
               <p className="eyebrow">Recovery</p>
               <h2 id="archived-collections-title">Archived collections</h2>
             </div>
-            <span className="dashboardChip">{formatCount(home.archivedCollections.length)}</span>
+            <CollectionPanelCount count={home.archivedCollections.length} label="Archived" />
           </div>
 
           <div className="skillLibraryList">
@@ -177,6 +177,23 @@ function ArchivedCollectionRow({
       <CollectionMetaLine collection={collection} />
       <CollectionRestoreForm collectionId={collection.id} collectionName={collection.name} />
     </article>
+  );
+}
+
+function CollectionPanelCount({
+  count,
+  label,
+}: {
+  count: number;
+  label: string;
+}) {
+  return (
+    <dl className="collectionPanelCount" aria-label={`${label} collections shown`}>
+      <div>
+        <dt>{label}</dt>
+        <dd>{formatCount(count)}</dd>
+      </div>
+    </dl>
   );
 }
 

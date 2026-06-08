@@ -3819,32 +3819,38 @@ a {
   overflow-x: auto;
 }
 
-.historyPanelCount {
+.historyPanelCount,
+.collectionPanelCount {
   margin: 0;
   border-left: 1px solid var(--lr-line);
   padding-left: 14px;
 }
 
-.historyPanelCount div {
+.historyPanelCount div,
+.collectionPanelCount div {
   display: grid;
   justify-items: end;
   gap: 3px;
 }
 
 .historyPanelCount dt,
-.historyPanelCount dd {
+.historyPanelCount dd,
+.collectionPanelCount dt,
+.collectionPanelCount dd {
   margin: 0;
   font-variant-numeric: tabular-nums;
   line-height: var(--lr-leading-label);
 }
 
-.historyPanelCount dt {
+.historyPanelCount dt,
+.collectionPanelCount dt {
   color: var(--lr-faint);
   font-size: var(--lr-text-2xs);
   font-weight: 500;
 }
 
-.historyPanelCount dd {
+.historyPanelCount dd,
+.collectionPanelCount dd {
   color: var(--lr-primary-ink);
   font-size: var(--lr-text-lg);
   font-weight: 500;
@@ -4829,7 +4835,8 @@ a {
     min-width: 0;
   }
 
-  .historyPanelCount {
+  .historyPanelCount,
+  .collectionPanelCount {
     align-self: stretch;
     border-top: 1px solid var(--lr-line);
     border-left: 0;
@@ -4837,7 +4844,8 @@ a {
     padding-left: 0;
   }
 
-  .historyPanelCount div {
+  .historyPanelCount div,
+  .collectionPanelCount div {
     justify-items: start;
   }
 
