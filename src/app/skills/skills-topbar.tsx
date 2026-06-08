@@ -80,7 +80,9 @@ export function SkillsTopbar({
           </Link>
         </div>
       </nav>
-      <UserButton />
+      <div className="practiceUserMenu">
+        <UserButton />
+      </div>
     </header>
   );
 }

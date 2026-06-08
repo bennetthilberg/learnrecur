@@ -1041,7 +1041,7 @@ a {
   color: var(--lr-white);
 }
 
-.practiceTopbar > :last-child {
+.practiceUserMenu {
   margin-top: auto;
   align-self: flex-start;
 }
@@ -3775,7 +3775,7 @@ a {
     margin-top: 0;
   }
 
-  .practiceTopbar > :last-child {
+  .practiceUserMenu {
     margin-top: 0;
     align-self: center;
     justify-self: end;
