@@ -4166,8 +4166,39 @@ a {
   grid-template-columns: minmax(220px, 1fr) minmax(96px, 0.34fr) minmax(110px, 0.38fr);
 }
 
+.collectionManagementRow .collectionFacts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 18px;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.collectionManagementRow .collectionFacts div {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 0;
+}
+
+.collectionManagementRow .collectionFacts div + div {
+  border-left: 1px solid var(--lr-line);
+  padding-left: 18px;
+}
+
 .collectionFacts div[data-priority="primary"] {
   background: var(--lr-panel);
+}
+
+.collectionManagementRow .collectionFacts div[data-priority="primary"] {
+  background: transparent;
+}
+
+.collectionManagementRow .collectionFacts dd {
+  margin-top: 0;
 }
 
 .collectionSkillMix {
@@ -4883,10 +4914,6 @@ a {
     border-left: 1px solid var(--lr-line);
     padding-top: 0;
     padding-left: 16px;
-  }
-
-  .collectionManagementRow .collectionFacts {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .collectionManagementRow .collectionFacts div + div {
@@ -5619,24 +5646,8 @@ a {
     padding-left: 12px;
   }
 
-  .collectionManagementRow .collectionFacts {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .collectionManagementRow .collectionFacts div + div {
-    border-top: 1px solid var(--lr-line);
-    border-left: 0;
-  }
-
-  .collectionManagementRow .collectionFacts div[data-priority="primary"] {
-    grid-column: 1 / -1;
-  }
-
-  .collectionManagementRow .collectionFacts div:nth-child(2) {
-    border-left: 0;
-  }
-
-  .collectionManagementRow .collectionFacts div:nth-child(3) {
+    border-top: 0;
     border-left: 1px solid var(--lr-line);
   }
 }
