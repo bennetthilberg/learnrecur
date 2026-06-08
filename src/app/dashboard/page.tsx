@@ -50,21 +50,21 @@ export default async function DashboardPage() {
           </p>
         </div>
         <div className="dashboardHeaderActions">
-          <Link
-            className={dashboard.readyNowCount > 0 ? "primaryButton" : "secondaryButton"}
-            href="/practice"
-          >
-            {dashboard.readyNowCount > 0 ? "Start practice" : "Open practice"}
-          </Link>
-          <Link className="secondaryButton" href="/skills/new">
-            Add skill
-          </Link>
-          <Link className="secondaryButton" href="/history">
-            Review history
-          </Link>
-          <Link className="secondaryButton" href="/settings">
-            Reminder settings
-          </Link>
+          <div className="dashboardHeaderPrimaryActions">
+            <Link
+              className={dashboard.readyNowCount > 0 ? "primaryButton" : "secondaryButton"}
+              href="/practice"
+            >
+              {dashboard.readyNowCount > 0 ? "Start practice" : "Open practice"}
+            </Link>
+            <Link className="secondaryButton" href="/skills/new">
+              Add skill
+            </Link>
+          </div>
+          <div className="dashboardHeaderUtilityLinks" aria-label="Dashboard utility links">
+            <Link href="/history">Review history</Link>
+            <Link href="/settings">Reminder settings</Link>
+          </div>
         </div>
       </header>
 

@@ -474,9 +474,36 @@ a {
 
 .dashboardHeaderActions {
   display: grid;
-  grid-template-columns: repeat(2, max-content);
+  justify-items: end;
+  justify-content: flex-end;
+  gap: 9px;
+}
+
+.dashboardHeaderPrimaryActions {
+  display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   gap: 10px;
+}
+
+.dashboardHeaderUtilityLinks {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.dashboardHeaderUtilityLinks a {
+  color: var(--lr-primary-ink);
+  font-size: var(--lr-text-sm);
+  font-weight: 500;
+  line-height: var(--lr-leading-label);
+  text-decoration: none;
+}
+
+.dashboardHeaderUtilityLinks a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .dashboardHeader p:not(.eyebrow) {
@@ -3360,6 +3387,12 @@ a {
   }
 
   .dashboardHeaderActions {
+    justify-items: start;
+    justify-content: flex-start;
+  }
+
+  .dashboardHeaderPrimaryActions,
+  .dashboardHeaderUtilityLinks {
     justify-content: flex-start;
   }
 
@@ -3733,6 +3766,17 @@ a {
 
   .dashboardHeaderActions {
     grid-template-columns: 1fr;
+  }
+
+  .dashboardHeaderPrimaryActions {
+    display: grid;
+    width: 100%;
+    grid-template-columns: 1fr;
+  }
+
+  .dashboardHeaderUtilityLinks {
+    width: 100%;
+    justify-content: flex-start;
   }
 
   .dashboardMetricGrid {
