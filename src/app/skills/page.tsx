@@ -359,10 +359,20 @@ function GenerationJobStatusLine({ job }: { job: SkillsLibraryGenerationJobSumma
 
   return (
     <div className="skillLibraryStatus" data-tone={failed ? "error" : "neutral"}>
-      <span>{formatJobStatus(job.status)}</span>
-      <span>
-        {formatCount(job.acceptedCount)} accepted / {formatCount(job.rejectedCount)} rejected
-      </span>
+      <dl className="skillLibraryStatusFacts" aria-label="Latest generation job">
+        <div>
+          <dt>Latest job</dt>
+          <dd>{formatJobStatus(job.status)}</dd>
+        </div>
+        <div>
+          <dt>Accepted</dt>
+          <dd>{formatCount(job.acceptedCount)}</dd>
+        </div>
+        <div>
+          <dt>Rejected</dt>
+          <dd>{formatCount(job.rejectedCount)}</dd>
+        </div>
+      </dl>
       {failed && job.errorMessage ? <p>{job.errorMessage}</p> : null}
     </div>
   );
