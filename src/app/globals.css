@@ -2992,19 +2992,27 @@ a {
 
 .historyTable th:nth-child(1),
 .historyTable td:nth-child(1) {
-  width: 112px;
+  width: 118px;
+}
+
+.historyTable th:nth-child(2),
+.historyTable td:nth-child(2) {
+  width: auto;
 }
 
 .historyTable th:nth-child(3),
 .historyTable td:nth-child(3) {
-  width: 188px;
+  width: 176px;
 }
 
 .historyTable th:nth-child(4),
-.historyTable td:nth-child(4),
+.historyTable td:nth-child(4) {
+  width: 152px;
+}
+
 .historyTable th:nth-child(5),
 .historyTable td:nth-child(5) {
-  width: 124px;
+  width: 164px;
 }
 
 .historyTable tbody tr:first-child td {
