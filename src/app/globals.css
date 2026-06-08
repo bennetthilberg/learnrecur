@@ -210,6 +210,10 @@ a {
   padding: 16px 18px;
 }
 
+.entryProcessList li:first-child {
+  background: var(--lr-panel-cool);
+}
+
 .entryProcessList li:last-child {
   border-bottom: 0;
 }
@@ -228,6 +232,12 @@ a {
   font-weight: 500;
   line-height: var(--lr-leading-compact);
   padding: 4px 8px;
+}
+
+.entryProcessList li:first-child span {
+  border-color: var(--lr-primary-muted);
+  background: var(--lr-white);
+  color: var(--lr-primary-ink);
 }
 
 .entryProcessList strong {
