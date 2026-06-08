@@ -197,6 +197,7 @@ Privacy and data-control explanations should be structured into explicit groups 
 Reminder privacy notes should sit as quiet rule-separated metadata under the form, not as tinted nested panels.
 Data export summaries should lead with scope before mechanics. Format, access, and file exclusions are supporting facts.
 Data export mechanics should render as flat inline facts, not boxed equal cells. The Included and Left out sections are the real explanatory content and should receive the heavier structure.
+Data export disclosures should not use tinted nested summary boxes. Keep the disclosure control flat and let the included/excluded sections provide the visual grouping.
 
 ### Practice Prompt
 

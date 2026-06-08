@@ -2673,6 +2673,8 @@ a {
 
 .settingsExportDetails {
   margin-top: 16px;
+  border-top: 1px solid var(--lr-line);
+  padding-top: 14px;
 }
 
 .settingsExportDetails summary {
@@ -2680,15 +2682,11 @@ a {
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 14px;
-  border: 1px solid var(--lr-line);
-  border-radius: var(--lr-radius);
-  background: var(--lr-panel-soft);
   cursor: pointer;
   list-style: none;
-  padding: 11px 12px;
+  padding: 0;
   transition:
-    background-color 140ms ease,
-    border-color 140ms ease,
+    color 140ms ease,
     box-shadow 140ms ease;
 }
 
@@ -2736,8 +2734,12 @@ a {
 
 .settingsExportDetails summary:hover,
 .settingsExportDetails[open] summary {
-  border-color: var(--lr-primary-muted);
-  background: var(--lr-primary-soft);
+  color: var(--lr-primary-ink);
+}
+
+.settingsExportDetails summary:hover span,
+.settingsExportDetails[open] summary span {
+  color: var(--lr-primary-ink);
 }
 
 .settingsExportDetails summary:focus-visible {
