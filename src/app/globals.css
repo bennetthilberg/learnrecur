@@ -4001,8 +4001,7 @@ a {
 
   .historyTable td:nth-child(3) {
     order: 3;
-    grid-column: 1 / -1;
-    border-top: 1px solid var(--lr-line);
+    border-left: 1px solid var(--lr-line);
   }
 
   .historyTable td:nth-child(4) {
@@ -4026,12 +4025,20 @@ a {
   }
 
   .historyResultStack {
-    grid-template-columns: auto minmax(0, 1fr);
     align-items: start;
   }
 
-  .historyResultStack .historySubText {
-    grid-column: 1 / -1;
+  .historyTable td:nth-child(3) .historyResultStack {
+    gap: 6px;
+    justify-items: stretch;
+  }
+
+  .historyTable td:nth-child(3) .dashboardChip {
+    justify-self: start;
+  }
+
+  .historyTable td:nth-child(3) .historySubText {
+    margin-top: 7px;
   }
 
   .historyAnswerLine {
