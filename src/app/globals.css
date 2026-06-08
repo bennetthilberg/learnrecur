@@ -4162,6 +4162,20 @@ a {
     grid-column: 1 / -1;
   }
 
+  .skillLibraryFacts {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .skillLibraryFacts div + div,
+  .skillLibraryFacts div:nth-child(even) {
+    border-top: 0;
+    border-left: 1px solid var(--lr-line);
+  }
+
+  .skillLibraryFacts div:nth-child(n + 3) {
+    border-top: 0;
+  }
+
   .skillStatusSummary {
     grid-template-columns: minmax(160px, 1.2fr) repeat(4, minmax(0, 1fr));
   }
