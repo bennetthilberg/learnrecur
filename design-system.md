@@ -198,6 +198,7 @@ Navigation posture: responsive sidebar-to-tabs.
 
 Use a sidebar on wide screen sizes where persistent navigation helps the app feel stable and tool-like. Collapse to tabs on narrower layouts, including mobile, where a sidebar would consume too much horizontal space. Avoid a rail as the default navigation pattern.
 Desktop navigation should group related routes with spacing and quiet labels. Mobile navigation should suppress those labels and keep the links as compact tabs.
+Persistent navigation links should not masquerade as page-level primary actions. The Add skill destination uses a quiet blue utility treatment by default; it only takes the strongest create treatment when that route is current.
 
 ### Focus States
 

@@ -1194,19 +1194,29 @@ a {
 }
 
 .practiceNav a[data-intent="create"] {
+  border-color: var(--lr-primary-muted);
+  background: var(--lr-panel-cool);
+  color: var(--lr-primary-ink);
+}
+
+.practiceNav a[data-intent="create"]::before {
+  background: hsl(219 97% 42% / 0.32);
+}
+
+.practiceNav a[data-intent="create"]:hover {
+  border-color: hsl(219 97% 42% / 0.32);
+  background: var(--lr-primary-soft);
+  color: var(--lr-primary-ink);
+}
+
+.practiceNav a[data-intent="create"][aria-current="page"] {
   border-color: var(--lr-primary);
   background: var(--lr-primary);
   color: var(--lr-white);
 }
 
-.practiceNav a[data-intent="create"]::before {
+.practiceNav a[data-intent="create"][aria-current="page"]::before {
   background: hsl(0 0% 100% / 0.78);
-}
-
-.practiceNav a[data-intent="create"]:hover {
-  border-color: var(--lr-primary-hover);
-  background: var(--lr-primary-hover);
-  color: var(--lr-white);
 }
 
 .practiceUserMenu {
