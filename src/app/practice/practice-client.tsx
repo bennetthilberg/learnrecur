@@ -381,7 +381,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
           <PracticeEmptyActions scoped={item.scope?.kind === "collection"} />
           {canUseSampleData && item.scope?.kind !== "collection" ? (
             <button
-              className="primaryButton"
+              className="secondaryButton"
               type="button"
               onClick={handleSampleData}
               disabled={pendingAction === "sample"}
@@ -658,20 +658,20 @@ function getScopedCollectionId(item: PracticeItem): string | null {
 function PracticeEmptyActions({ scoped }: { scoped: boolean }) {
   return (
     <div className="practiceEmptyActions" aria-label="Practice next actions">
-      {scoped ? (
-        <Link className="primaryButton" href="/practice">
-          All practice
+      <div className="practiceEmptyPrimaryActions">
+        {scoped ? (
+          <Link className="primaryButton" href="/practice">
+            All practice
+          </Link>
+        ) : null}
+        <Link className={scoped ? "secondaryButton" : "primaryButton"} href="/dashboard">
+          Dashboard
         </Link>
-      ) : null}
-      <Link className={scoped ? "secondaryButton" : "primaryButton"} href="/dashboard">
-        Dashboard
-      </Link>
-      <Link className="secondaryButton" href="/skills">
-        Skills
-      </Link>
-      <Link className="secondaryButton" href="/skills/new">
-        Add skill
-      </Link>
+      </div>
+      <div className="practiceEmptyUtilityLinks">
+        <Link href="/skills">Skills</Link>
+        <Link href="/skills/new">Add skill</Link>
+      </div>
     </div>
   );
 }

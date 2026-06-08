@@ -1703,10 +1703,35 @@ a {
 }
 
 .practiceEmptyActions {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
   gap: 9px;
   margin-top: 2px;
+}
+
+.practiceEmptyPrimaryActions,
+.practiceEmptyUtilityLinks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 9px;
+}
+
+.practiceEmptyUtilityLinks {
+  gap: 12px;
+  padding-top: 2px;
+}
+
+.practiceEmptyUtilityLinks a {
+  color: var(--lr-primary-ink);
+  font-size: var(--lr-text-sm);
+  font-weight: 500;
+  line-height: var(--lr-leading-label);
+  text-decoration: none;
+}
+
+.practiceEmptyUtilityLinks a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .practiceEmptyDetails {
