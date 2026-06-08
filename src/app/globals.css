@@ -2066,6 +2066,24 @@ a {
   opacity: 0.68;
 }
 
+.settingsReminderForm {
+  grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+  align-items: start;
+  column-gap: 18px;
+}
+
+.settingsReminderForm .skillFormFieldset + .skillFormFieldset {
+  border-top: 0;
+  border-left: 1px solid var(--lr-line);
+  padding-top: 0;
+  padding-left: 18px;
+}
+
+.settingsReminderForm .skillFormActions,
+.settingsReminderForm .skillFormMessage {
+  grid-column: 1 / -1;
+}
+
 .settingsScheduleSummary {
   display: grid;
   grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.35fr) minmax(0, 0.9fr);
@@ -3514,6 +3532,17 @@ a {
 
   .settingsScheduleSummary {
     grid-template-columns: 1fr;
+  }
+
+  .settingsReminderForm {
+    grid-template-columns: 1fr;
+  }
+
+  .settingsReminderForm .skillFormFieldset + .skillFormFieldset {
+    border-top: 1px solid var(--lr-line);
+    border-left: 0;
+    padding-top: 16px;
+    padding-left: 0;
   }
 
   .settingsScheduleSummary div:first-child {

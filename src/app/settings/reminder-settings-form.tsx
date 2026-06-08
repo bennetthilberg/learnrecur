@@ -39,7 +39,7 @@ export function ReminderSettingsForm({
   );
 
   return (
-    <form action={formAction} className="skillDraftForm">
+    <form action={formAction} className="skillDraftForm settingsReminderForm">
       <fieldset className="skillFormFieldset">
         <legend>Recipient</legend>
         <div className="skillFormFieldsetBody">
