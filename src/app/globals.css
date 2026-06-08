@@ -2634,24 +2634,23 @@ a {
 .settingsPrivacyNote {
   display: grid;
   grid-template-columns: minmax(0, 0.78fr) minmax(0, 1fr);
-  margin-top: 2px;
-  border: 1px solid var(--lr-primary-muted);
-  border-radius: var(--lr-radius);
-  background: var(--lr-primary-soft);
-  color: var(--lr-primary-ink);
-  overflow: hidden;
+  gap: 0;
+  margin-top: 16px;
+  border-top: 1px solid var(--lr-line);
+  color: var(--lr-muted);
+  padding-top: 13px;
 }
 
 .settingsPrivacyNote section {
   display: grid;
   align-content: start;
   gap: 4px;
-  padding: 11px 12px;
+  padding: 0 18px 0 0;
 }
 
 .settingsPrivacyNote section + section {
-  border-left: 1px solid hsl(219 79% 42% / 0.14);
-  background: hsl(220 78% 97%);
+  border-left: 1px solid var(--lr-line);
+  padding: 0 0 0 18px;
 }
 
 .settingsPrivacyNote h3,
@@ -2660,14 +2659,14 @@ a {
 }
 
 .settingsPrivacyNote h3 {
-  color: var(--lr-primary-ink);
+  color: var(--lr-ink);
   font-size: var(--lr-text-xs);
   font-weight: 500;
   line-height: var(--lr-leading-label);
 }
 
 .settingsPrivacyNote p {
-  color: var(--lr-primary-ink);
+  color: var(--lr-muted);
   font-size: var(--lr-text-sm);
   line-height: var(--lr-leading-copy);
 }
@@ -5630,11 +5629,17 @@ a {
 
   .settingsPrivacyNote {
     grid-template-columns: 1fr;
+    gap: 11px;
+  }
+
+  .settingsPrivacyNote section {
+    padding: 0;
   }
 
   .settingsPrivacyNote section + section {
-    border-top: 1px solid hsl(219 79% 42% / 0.14);
+    border-top: 1px solid var(--lr-line);
     border-left: 0;
+    padding: 11px 0 0;
   }
 
   .settingsExportPanel .skillPanelHeader {
