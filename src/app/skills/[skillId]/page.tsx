@@ -750,9 +750,10 @@ function SkillRecentReviewsPanel({ reviews }: { reviews: PracticeHistoryReview[]
           <article className="skillReviewRow" key={review.id}>
             <div>
               <strong>{formatReviewDate(review.reviewedAt)}</strong>
-              <p>
-                {formatReviewResult(review.result)} / {formatHistoryLabel(review.finalRating)} /{" "}
-                {formatResponseTime(review.responseMs)}
+              <p className="skillReviewMeta">
+                <span>{formatReviewResult(review.result)}</span>
+                <span>{formatHistoryLabel(review.finalRating)}</span>
+                <span>{formatResponseTime(review.responseMs)}</span>
               </p>
             </div>
             <div className="skillReviewSchedule">

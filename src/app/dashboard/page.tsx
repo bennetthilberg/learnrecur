@@ -179,8 +179,9 @@ export default async function DashboardPage() {
                           </span>
                         </Link>
                       </h3>
-                      <p>
-                        {skill.collectionName ?? "Uncollected"} / {formatFsrsState(skill.fsrsState)}
+                      <p className="skillRowContext">
+                        <span>{skill.collectionName ?? "Uncollected"}</span>
+                        <span>{formatFsrsState(skill.fsrsState)}</span>
                       </p>
                     </div>
                     <span className="dashboardChip" data-tone={skill.isReadyNow ? "ready" : "neutral"}>

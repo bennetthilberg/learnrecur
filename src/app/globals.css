@@ -837,6 +837,24 @@ a {
   line-height: var(--lr-leading-copy);
 }
 
+.skillRowContext,
+.skillReviewMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+
+.skillRowContext span,
+.skillReviewMeta span {
+  min-width: 0;
+}
+
+.skillRowContext span + span,
+.skillReviewMeta span + span {
+  border-left: 1px solid var(--lr-line);
+  padding-left: 10px;
+}
+
 .dashboardChip,
 .dashboardTag {
   display: inline-flex;
