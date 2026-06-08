@@ -417,6 +417,27 @@ a {
   padding: 18px;
 }
 
+.authCard .cl-formButtonPrimary {
+  box-shadow: none !important;
+}
+
+.authCard .cl-socialButtonsIconButton {
+  background: var(--lr-panel) !important;
+  box-shadow: 0 0 0 1px var(--lr-line) !important;
+}
+
+.authCard .cl-input {
+  border: 1px solid var(--lr-line-strong) !important;
+  box-shadow: none !important;
+}
+
+.authCard .cl-input:focus {
+  border-color: var(--lr-primary) !important;
+  outline: 3px solid var(--lr-primary-ring) !important;
+  outline-offset: 1px !important;
+  box-shadow: var(--lr-focus-ring) !important;
+}
+
 .dashboardShell {
   padding: var(--lr-page-gutter) var(--lr-page-gutter) var(--lr-page-gutter)
     calc(var(--lr-sidebar-width) + var(--lr-page-gutter));

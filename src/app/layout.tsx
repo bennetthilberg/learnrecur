@@ -6,6 +6,8 @@ import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata } from "next";
 import { Lexend } from "next/font/google";
 
+import { clerkLocalization } from "@/components/app/clerk-appearance";
+
 import { Providers } from "./providers";
 
 const lexend = Lexend({
@@ -28,7 +30,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={lexend.variable}>
       <body>
-        <ClerkProvider>
+        <ClerkProvider localization={clerkLocalization}>
           <Providers>{children}</Providers>
         </ClerkProvider>
       </body>
