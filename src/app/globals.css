@@ -1203,17 +1203,21 @@ a {
 }
 
 .practicePromptPanel {
+  overflow: hidden;
   border: 1px solid hsl(219 97% 42% / 0.16);
   border-radius: var(--lr-radius);
   background: var(--lr-panel-cool);
-  padding: 22px 22px 24px;
+  padding: 0;
 }
 
 .practicePromptHeader {
   display: flex;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: 8px;
-  margin-bottom: 12px;
+  margin: 0;
+  border-bottom: 1px solid hsl(219 97% 42% / 0.12);
+  background: hsl(220 78% 95% / 0.52);
+  padding: 10px 12px;
 }
 
 .practicePromptHeader span {
@@ -1237,6 +1241,7 @@ a {
   font-weight: 500;
   line-height: var(--lr-leading-copy);
   letter-spacing: 0;
+  padding: 22px;
 }
 
 .mathTextInline {
@@ -4572,11 +4577,16 @@ a {
   }
 
   .practicePromptPanel {
-    padding: 18px;
+    padding: 0;
   }
 
   .practicePromptHeader {
-    margin-bottom: 8px;
+    margin: 0;
+    padding: 9px 10px;
+  }
+
+  .practicePromptPanel p {
+    padding: 18px;
   }
 
   .choiceGrid {
