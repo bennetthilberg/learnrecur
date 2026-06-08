@@ -4751,6 +4751,15 @@ a {
     gap: 5px;
   }
 
+  .entryProcessList li {
+    grid-template-columns: 1fr;
+    gap: 9px;
+  }
+
+  .entryProcessList span {
+    justify-self: start;
+  }
+
   .statusPanel,
   .nextStepPanel,
   .practiceFrame,
