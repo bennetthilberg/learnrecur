@@ -4093,6 +4093,27 @@ a {
     border-top: 1px solid var(--lr-line);
   }
 
+  .dashboardMetricGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .dashboardMetricCard {
+    min-height: 118px;
+    padding: 16px;
+  }
+
+  .dashboardMetricCard:first-child {
+    grid-column: auto;
+    padding: 16px;
+  }
+
+  .dashboardMetricCard strong,
+  .dashboardMetricCard:not(:first-child) strong {
+    margin: 10px 0 7px;
+    font-size: var(--lr-text-2xl);
+    line-height: var(--lr-leading-title);
+  }
+
   .skillStatusSummary {
     grid-template-columns: minmax(160px, 1.2fr) repeat(4, minmax(0, 1fr));
   }
