@@ -2789,6 +2789,41 @@ a {
   max-width: 320px;
 }
 
+.skillQueueActionStatus {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  justify-self: end;
+  border: 1px solid var(--lr-line);
+  border-radius: var(--lr-radius);
+  background: var(--lr-panel-soft);
+  color: var(--lr-muted);
+  font-size: var(--lr-text-sm);
+  font-weight: 500;
+  line-height: var(--lr-leading-control);
+  padding: 7px 11px;
+  white-space: nowrap;
+}
+
+.skillQueueActionStatus[data-tone="attention"] {
+  border-color: var(--lr-accent);
+  background: var(--lr-panel);
+  color: var(--lr-accent-ink);
+}
+
+.skillQueueActionStatus[data-tone="ready"] {
+  border-color: var(--lr-primary-muted);
+  background: var(--lr-panel);
+  color: var(--lr-primary-ink);
+}
+
+.skillQueueActionStatus[data-tone="locked"] {
+  border-color: var(--lr-line);
+  background: var(--lr-fill);
+  color: var(--lr-muted);
+}
+
 .skillMessage {
   width: min(100%, 1040px);
   margin: 0 auto 18px;
@@ -2844,9 +2879,17 @@ a {
     min-height: 100%;
   }
 
-  .skillQueuePanel .skillRefillForm {
+  .skillQueuePanel .skillRefillForm,
+  .skillQueuePanel .skillQueueActionStatus {
     align-self: end;
+  }
+
+  .skillQueuePanel .skillRefillForm {
     justify-items: start;
+  }
+
+  .skillQueuePanel .skillQueueActionStatus {
+    justify-self: start;
   }
 
   .skillQueuePanel .skillQueueStateStrip {
@@ -2876,6 +2919,10 @@ a {
 
   .skillQueuePanel .skillRefillForm {
     justify-items: start;
+  }
+
+  .skillQueuePanel .skillQueueActionStatus {
+    justify-self: start;
   }
 
   .skillQueuePanel .skillQueueStateStrip {
@@ -4363,8 +4410,10 @@ a {
     width: 100%;
   }
 
-  .skillRefillForm {
+  .skillRefillForm,
+  .skillQueueActionStatus {
     justify-items: start;
+    justify-self: start;
   }
 
   .skillTwoColumnFields {
@@ -4726,6 +4775,10 @@ a {
 
   .skillQueuePanel .skillRefillForm {
     justify-items: start;
+  }
+
+  .skillQueuePanel .skillQueueActionStatus {
+    justify-self: start;
   }
 
   .skillQueueStateStrip {

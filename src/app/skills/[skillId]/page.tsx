@@ -323,11 +323,18 @@ export default async function SkillPage({
                 </p>
               ) : null}
             </div>
-            <SkillRefillForm
-              buttonLabel={choiceRefillButtonLabel}
-              canRefill={canRefill}
-              skillId={skill.id}
-            />
+            {canRefill ? (
+              <SkillRefillForm
+                buttonLabel={choiceRefillButtonLabel}
+                canRefill={canRefill}
+                skillId={skill.id}
+              />
+            ) : (
+              <SkillQueueActionStatus
+                label={choiceRefillButtonLabel}
+                tone={hasActiveChoiceRefillJob ? "attention" : "ready"}
+              />
+            )}
           </div>
           <div className="skillQueueBlock">
             <div>
@@ -372,11 +379,24 @@ export default async function SkillPage({
                 </p>
               ) : null}
             </div>
-            <SkillExactInputRefillForm
-              buttonLabel={exactInputRefillButtonLabel}
-              canRefill={canRefillExactInput}
-              skillId={skill.id}
-            />
+            {canRefillExactInput ? (
+              <SkillExactInputRefillForm
+                buttonLabel={exactInputRefillButtonLabel}
+                canRefill={canRefillExactInput}
+                skillId={skill.id}
+              />
+            ) : (
+              <SkillQueueActionStatus
+                label={exactInputRefillButtonLabel}
+                tone={
+                  !exactInputUnlocked
+                    ? "locked"
+                    : hasActiveExactInputRefillJob
+                      ? "attention"
+                      : "ready"
+                }
+              />
+            )}
           </div>
           <div className="skillQueueBlock">
             <div>
@@ -407,7 +427,10 @@ export default async function SkillPage({
                 after the learner has completed a few scheduled reviews.
               </p>
               {latestMathGenerationJob ? (
-                <SkillQueueJobStatus job={latestMathGenerationJob} label="Latest math generation" />
+                <SkillQueueJobStatus
+                  job={latestMathGenerationJob}
+                  label="Latest math generation"
+                />
               ) : null}
               {mathRefillStatus ? <p className="skillQueueStatus">{mathRefillStatus}</p> : null}
               {latestMathGenerationJob?.errorMessage ? (
@@ -416,11 +439,20 @@ export default async function SkillPage({
                 </p>
               ) : null}
             </div>
-            <SkillMathRefillForm
-              buttonLabel={mathRefillButtonLabel}
-              canRefill={canRefillMath}
-              skillId={skill.id}
-            />
+            {canRefillMath ? (
+              <SkillMathRefillForm
+                buttonLabel={mathRefillButtonLabel}
+                canRefill={canRefillMath}
+                skillId={skill.id}
+              />
+            ) : (
+              <SkillQueueActionStatus
+                label={mathRefillButtonLabel}
+                tone={
+                  !exactInputUnlocked ? "locked" : hasActiveMathRefillJob ? "attention" : "ready"
+                }
+              />
+            )}
           </div>
         </section>
         <SkillLifecyclePanel skillId={skill.id} skillTitle={skill.title} status={skill.status} />
@@ -638,6 +670,20 @@ function SkillQueueStateStrip({
         <dd>{stateLabel}</dd>
       </div>
     </dl>
+  );
+}
+
+function SkillQueueActionStatus({
+  label,
+  tone,
+}: {
+  label: string;
+  tone: "attention" | "locked" | "ready";
+}) {
+  return (
+    <div className="skillQueueActionStatus" data-tone={tone}>
+      {label}
+    </div>
   );
 }
 
