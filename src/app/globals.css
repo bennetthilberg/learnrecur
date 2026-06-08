@@ -4225,6 +4225,20 @@ a {
     border-left: 1px solid var(--lr-line);
   }
 
+  .skillLifecycleGroup {
+    gap: 8px;
+    padding: 12px;
+  }
+
+  .skillLifecycleGroup > p,
+  .skillLifecycleForm > p:not(.skillFormMessage) {
+    display: none;
+  }
+
+  .skillLifecycleForm {
+    gap: 8px;
+  }
+
   .skillSourceFacts,
   .sourceProcessingFacts,
   .settingsExportFacts,
