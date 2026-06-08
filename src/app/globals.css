@@ -4159,6 +4159,19 @@ a {
     justify-items: end;
   }
 
+  .skillLifecycleActions[data-layout="split"] {
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 0.82fr);
+  }
+
+  .skillLifecycleActions[data-layout="split"] .skillLifecycleGroup + .skillLifecycleGroup {
+    border-top: 0;
+    border-left: 1px solid var(--lr-line);
+  }
+
+  .skillLifecycleActions[data-layout="split"] .skillLifecycleGroup[data-tone="danger"] {
+    border-left-color: var(--lr-danger-line);
+  }
+
   .historyTable {
     display: table;
     border-collapse: collapse;
