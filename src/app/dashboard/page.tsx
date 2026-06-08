@@ -136,7 +136,7 @@ export default async function DashboardPage() {
                       className="dashboardCollectionFacts"
                       aria-label={`${collection.name} collection summary`}
                     >
-                      <div>
+                      <div data-priority="primary">
                         <dt>Ready</dt>
                         <dd data-ready={collection.readyNowCount > 0 ? "true" : "false"}>
                           {formatCount(collection.readyNowCount)}
