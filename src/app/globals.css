@@ -3740,16 +3740,17 @@ a {
   }
 
   .skillCreationPath {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  .skillCreationPath div:first-child {
-    padding-left: 16px;
+  .skillCreationPath div {
+    gap: 5px;
+    padding: 12px;
   }
 
   .skillCreationPath div + div {
-    border-top: 1px solid var(--lr-line);
-    border-left: 0;
+    border-top: 0;
+    border-left: 1px solid var(--lr-line);
   }
 
   .skillManualSection {

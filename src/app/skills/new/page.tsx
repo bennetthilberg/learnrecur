@@ -59,15 +59,15 @@ export default async function NewSkillPage() {
         <section className="skillCreationPath" aria-label="Source-backed skill creation path">
           <div>
             <span>Input</span>
-            <strong>Upload or paste source material.</strong>
+            <strong>Upload or paste source.</strong>
           </div>
           <div>
             <span>Review</span>
-            <strong>Edit one or more generated skill drafts.</strong>
+            <strong>Edit generated drafts.</strong>
           </div>
           <div>
             <span>Activate</span>
-            <strong>Verified exercises enter the practice queue.</strong>
+            <strong>Queue verified exercises.</strong>
           </div>
         </section>
         <section className="skillSourceEntryGrid" aria-label="Source-backed draft options">
