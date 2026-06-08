@@ -3130,6 +3130,10 @@ a {
   background: var(--lr-panel-soft);
 }
 
+.skillSourceFacts {
+  grid-template-columns: minmax(116px, 0.92fr) repeat(3, minmax(82px, 0.68fr));
+}
+
 .skillLibraryFacts {
   grid-template-columns: minmax(132px, 1.18fr) repeat(3, minmax(78px, 0.68fr));
 }
@@ -3189,6 +3193,15 @@ a {
   line-height: var(--lr-leading-label);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.skillSourceFacts div[data-priority="primary"] {
+  background: var(--lr-panel);
+}
+
+.skillSourceFacts div[data-priority="primary"] dd {
+  color: var(--lr-primary-ink);
+  font-size: var(--lr-text-sm);
 }
 
 .skillLibraryFacts div[data-priority="primary"] {

@@ -45,13 +45,13 @@ export function SkillSourcePanel({
               ) : null}
             </div>
             <dl className="skillSourceFacts" aria-label={`${source.label} source details`}>
+              <div data-priority="primary">
+                <dt>Status</dt>
+                <dd>{formatSourceStatus(source.status)}</dd>
+              </div>
               <div>
                 <dt>Type</dt>
                 <dd>{formatSourceKind(source.kind)}</dd>
-              </div>
-              <div>
-                <dt>Status</dt>
-                <dd>{formatSourceStatus(source.status)}</dd>
               </div>
               <div>
                 <dt>Size</dt>
