@@ -4390,12 +4390,11 @@ a {
 
   .historyTable tbody tr {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    overflow: hidden;
+    grid-template-columns: minmax(0, 1fr);
     border: 1px solid var(--lr-line);
     border-radius: var(--lr-radius);
-    background: var(--lr-panel);
-    padding: 0;
+    background: var(--lr-panel-soft);
+    padding: 12px;
   }
 
   .historyTable tbody tr:first-child {
@@ -4405,7 +4404,7 @@ a {
   .historyTable td {
     min-width: 0;
     border-top: 0;
-    padding: 11px 12px;
+    padding: 0;
   }
 
   .historyTable td:nth-child(n) {
@@ -4414,28 +4413,31 @@ a {
 
   .historyTable td:nth-child(1) {
     order: 2;
+    margin-top: 11px;
+    border-top: 1px solid var(--lr-line);
+    padding-top: 11px;
   }
 
   .historyTable td:nth-child(2) {
     order: 1;
     grid-column: 1 / -1;
-    border-bottom: 1px solid var(--lr-line);
   }
 
   .historyTable td:nth-child(3) {
     order: 3;
-    border-left: 1px solid var(--lr-line);
+    margin-top: 11px;
+    border-top: 1px solid var(--lr-line);
+    padding-top: 11px;
   }
 
   .historyTable td:nth-child(4) {
     order: 4;
-    border-top: 1px solid var(--lr-line);
+    margin-top: 11px;
   }
 
   .historyTable td:nth-child(5) {
     order: 5;
-    border-top: 1px solid var(--lr-line);
-    border-left: 1px solid var(--lr-line);
+    margin-top: 11px;
   }
 
   .historyTable td::before {
@@ -4445,6 +4447,24 @@ a {
     content: attr(data-label);
     font-size: var(--lr-text-2xs);
     font-weight: 500;
+  }
+
+  .historyTable td:nth-child(2)::before {
+    content: "Skill practiced";
+  }
+
+  .historyTable td:nth-child(4),
+  .historyTable td:nth-child(5) {
+    border-top: 1px solid var(--lr-line);
+    padding-top: 11px;
+  }
+
+  .historyTable td:nth-child(4)::before {
+    content: "Review state";
+  }
+
+  .historyTable td:nth-child(5)::before {
+    content: "Next due";
   }
 
   .historyResultStack {
@@ -5204,27 +5224,10 @@ a {
     line-height: var(--lr-leading-normal);
   }
 
-  .historyTable td:nth-child(1) {
-    order: 3;
-    grid-column: 1;
-    border-top: 1px solid var(--lr-line);
-  }
-
-  .historyTable td:nth-child(3) {
-    order: 2;
-    grid-column: 1 / -1;
-    border-top: 1px solid var(--lr-line);
-    border-left: 0;
-  }
-
-  .historyTable td:nth-child(4) {
-    order: 4;
-    grid-column: 2;
-    border-left: 1px solid var(--lr-line);
-  }
-
+  .historyTable td:nth-child(1),
+  .historyTable td:nth-child(3),
+  .historyTable td:nth-child(4),
   .historyTable td:nth-child(5) {
-    order: 5;
     grid-column: 1 / -1;
     border-left: 0;
   }
