@@ -68,27 +68,43 @@ export default async function DashboardPage() {
         </div>
       </header>
 
-      <section className="dashboardMetricGrid" aria-label="Practice summary">
-        <MetricCard
-          label="Ready now"
-          value={formatCount(dashboard.readyNowCount)}
-          detail="practice ready"
-        />
-        <MetricCard
-          label="Active skills"
-          value={formatCount(dashboard.activeSkillCount)}
-          detail="in the schedule"
-        />
-        <MetricCard
-          label="Recent accuracy"
-          value={formatAccuracy(dashboard.recentAccuracyPercent)}
-          detail="last 14 days"
-        />
-        <MetricCard
-          label="Recent reviews"
-          value={formatCount(dashboard.recentReviewCount)}
-          detail="checked answers"
-        />
+      <section className="dashboardPracticeSummary" aria-label="Practice summary">
+        <article
+          className="dashboardReadySummary"
+          data-ready={dashboard.readyNowCount > 0 ? "true" : "false"}
+        >
+          <p className="eyebrow">Ready now</p>
+          <div className="dashboardReadyValue">
+            <strong>{formatCount(dashboard.readyNowCount)}</strong>
+            <span>{formatReadySummaryDetail(dashboard.readyNowCount)}</span>
+          </div>
+          <p>
+            {dashboard.readyNowCount > 0
+              ? "Start with the earliest due active skill, then keep moving through the queue."
+              : "Every active skill is scheduled for later or waiting on verified exercises."}
+          </p>
+        </article>
+        <dl className="dashboardSupportMetrics">
+          <div>
+            <dt>Active skills</dt>
+            <dd className="dashboardSupportMetricValue">{formatCount(dashboard.activeSkillCount)}</dd>
+            <dd className="dashboardSupportMetricDetail">in schedule</dd>
+          </div>
+          <div>
+            <dt>Recent accuracy</dt>
+            <dd className="dashboardSupportMetricValue">
+              {formatAccuracy(dashboard.recentAccuracyPercent)}
+            </dd>
+            <dd className="dashboardSupportMetricDetail">last 14 days</dd>
+          </div>
+          <div>
+            <dt>Recent reviews</dt>
+            <dd className="dashboardSupportMetricValue">
+              {formatCount(dashboard.recentReviewCount)}
+            </dd>
+            <dd className="dashboardSupportMetricDetail">checked answers</dd>
+          </div>
+        </dl>
       </section>
 
       <div className="dashboardContentGrid">
@@ -222,24 +238,6 @@ export default async function DashboardPage() {
   );
 }
 
-function MetricCard({
-  label,
-  value,
-  detail,
-}: {
-  label: string;
-  value: string;
-  detail: string;
-}) {
-  return (
-    <article className="dashboardMetricCard">
-      <p>{label}</p>
-      <strong>{value}</strong>
-      <span>{detail}</span>
-    </article>
-  );
-}
-
 function DashboardEmptyState({
   title,
   detail,
@@ -268,6 +266,10 @@ function formatCount(count: number) {
 
 function formatAccuracy(accuracy: DashboardHome["recentAccuracyPercent"]) {
   return accuracy === null ? "No data" : `${accuracy}%`;
+}
+
+function formatReadySummaryDetail(count: number) {
+  return count === 1 ? "skill can be practiced" : "skills can be practiced";
 }
 
 function formatFsrsState(state: DashboardHome["skills"][number]["fsrsState"]) {

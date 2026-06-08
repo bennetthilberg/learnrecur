@@ -619,7 +619,8 @@ a {
 }
 
 .dashboardSetupPanel,
-.dashboardMetricCard,
+.dashboardReadySummary,
+.dashboardSupportMetrics,
 .dashboardPanel,
 .dashboardMessage {
   border: 1px solid var(--lr-line);
@@ -649,54 +650,109 @@ a {
   line-height: var(--lr-leading-body);
 }
 
-.dashboardMetricGrid {
+.dashboardPracticeSummary {
   display: grid;
   width: min(100%, 1040px);
-  grid-template-columns: minmax(280px, 1.45fr) repeat(3, minmax(130px, 0.7fr));
-  gap: 12px;
-  margin: 0 auto 18px;
+  grid-template-columns: minmax(300px, 1.2fr) minmax(340px, 0.8fr);
+  gap: 14px;
+  margin: 0 auto 20px;
+  align-items: stretch;
 }
 
-.dashboardMetricCard {
+.dashboardReadySummary {
   display: grid;
-  align-content: start;
-  min-height: 132px;
+  min-height: 154px;
+  align-content: center;
+  gap: 13px;
   box-shadow: none;
-  padding: 18px;
-}
-
-.dashboardMetricCard:first-child {
   border-color: hsl(219 97% 42% / 0.24);
   background: var(--lr-panel-cool);
   padding: 24px;
 }
 
-.dashboardMetricCard:first-child strong {
-  color: var(--lr-primary-ink);
+.dashboardReadySummary[data-ready="false"] {
+  border-color: var(--lr-line);
+  background: var(--lr-panel);
 }
 
-.dashboardMetricCard p,
-.dashboardMetricCard span {
+.dashboardReadySummary .eyebrow,
+.dashboardReadySummary p {
   margin: 0;
-  color: var(--lr-faint);
-  font-size: var(--lr-text-xs);
-  font-weight: 500;
-  line-height: var(--lr-leading-label);
 }
 
-.dashboardMetricCard strong {
-  display: block;
-  margin: 13px 0 8px;
-  color: var(--lr-ink);
+.dashboardReadySummary > p:not(.eyebrow) {
+  max-width: 440px;
+  color: var(--lr-muted);
+  font-size: var(--lr-text-sm);
+  line-height: var(--lr-leading-copy);
+}
+
+.dashboardReadyValue {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 10px 14px;
+}
+
+.dashboardReadyValue strong {
+  color: var(--lr-primary-ink);
   font-size: var(--lr-heading-lg);
   font-weight: 500;
   font-variant-numeric: tabular-nums;
   line-height: var(--lr-leading-metric);
 }
 
-.dashboardMetricCard:not(:first-child) strong {
-  margin: 11px 0 7px;
+.dashboardReadySummary[data-ready="false"] .dashboardReadyValue strong {
+  color: var(--lr-ink);
+}
+
+.dashboardReadyValue span {
+  max-width: 210px;
+  padding-bottom: 4px;
+  color: var(--lr-ink-soft);
+  font-size: var(--lr-text-sm);
+  font-weight: 500;
+  line-height: var(--lr-leading-label);
+}
+
+.dashboardSupportMetrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+  overflow: hidden;
+  box-shadow: none;
+}
+
+.dashboardSupportMetrics div {
+  display: grid;
+  align-content: center;
+  min-height: 154px;
+  gap: 7px;
+  padding: 22px 18px;
+}
+
+.dashboardSupportMetrics div + div {
+  border-left: 1px solid var(--lr-line);
+}
+
+.dashboardSupportMetrics dt,
+.dashboardSupportMetrics dd {
+  margin: 0;
+}
+
+.dashboardSupportMetrics dt,
+.dashboardSupportMetricDetail {
+  color: var(--lr-faint);
+  font-size: var(--lr-text-xs);
+  font-weight: 500;
+  line-height: var(--lr-leading-label);
+}
+
+.dashboardSupportMetricValue {
+  color: var(--lr-ink);
   font-size: var(--lr-text-2xl);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
   line-height: var(--lr-leading-title);
 }
 
@@ -4122,12 +4178,12 @@ a {
     justify-content: flex-start;
   }
 
-  .dashboardMetricGrid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .dashboardPracticeSummary {
+    grid-template-columns: 1fr;
   }
 
-  .dashboardMetricCard:first-child {
-    grid-column: 1 / -1;
+  .dashboardSupportMetrics div {
+    min-height: 116px;
   }
 
   .dashboardContentGrid {
@@ -4664,33 +4720,6 @@ a {
     justify-content: flex-start;
   }
 
-  .dashboardMetricGrid {
-    grid-template-columns: minmax(180px, 1.35fr) repeat(3, minmax(110px, 1fr));
-  }
-
-  .dashboardMetricCard {
-    min-height: 118px;
-    padding: 16px;
-  }
-
-  .dashboardMetricCard:first-child {
-    grid-column: auto;
-    padding: 18px;
-  }
-
-  .dashboardMetricCard strong,
-  .dashboardMetricCard:not(:first-child) strong {
-    margin: 10px 0 7px;
-    font-size: var(--lr-text-2xl);
-    line-height: var(--lr-leading-title);
-  }
-
-  .dashboardMetricCard:first-child strong {
-    margin-top: 11px;
-    font-size: var(--lr-heading-md);
-    line-height: var(--lr-leading-metric);
-  }
-
   .dashboardHeader {
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: end;
@@ -5016,8 +5045,8 @@ a {
     justify-content: flex-start;
   }
 
-  .dashboardMetricGrid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .dashboardPracticeSummary {
+    gap: 12px;
   }
 
   .practiceNav {
@@ -5035,42 +5064,40 @@ a {
     order: -1;
   }
 
-  .dashboardMetricCard {
-    min-height: 104px;
-    padding: 15px;
+  .dashboardReadySummary {
+    min-height: auto;
+    padding: 20px;
   }
 
-  .dashboardMetricCard:first-child {
-    grid-column: 1 / -1;
-    min-height: 98px;
-    padding: 18px;
-  }
-
-  .dashboardMetricCard strong {
-    margin: 9px 0 6px;
+  .dashboardReadyValue strong {
     font-size: var(--lr-heading-md);
   }
 
-  .dashboardMetricCard:not(:first-child) strong {
-    margin: 8px 0 5px;
-    font-size: var(--lr-text-xl);
+  .dashboardSupportMetrics {
+    grid-template-columns: 1fr;
   }
 
-  .dashboardMetricCard:last-child {
-    grid-column: 1 / -1;
-    min-height: 76px;
+  .dashboardSupportMetrics div {
     grid-template-columns: minmax(0, 1fr) minmax(48px, auto);
     align-items: end;
+    min-height: 72px;
+    padding: 14px 16px;
   }
 
-  .dashboardMetricCard:last-child strong {
+  .dashboardSupportMetrics div + div {
+    border-top: 1px solid var(--lr-line);
+    border-left: 0;
+  }
+
+  .dashboardSupportMetricValue {
     grid-column: 2;
     grid-row: 1 / span 2;
     margin: 0;
+    font-size: var(--lr-text-xl);
   }
 
-  .dashboardMetricCard:last-child p,
-  .dashboardMetricCard:last-child span {
+  .dashboardSupportMetrics dt,
+  .dashboardSupportMetricDetail {
     grid-column: 1;
   }
 
