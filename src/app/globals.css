@@ -3237,6 +3237,37 @@ a {
   font-size: var(--lr-text-sm);
 }
 
+.skillSourceFacts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 18px;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.skillSourceFacts div {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 0;
+}
+
+.skillSourceFacts div + div {
+  border-left: 1px solid var(--lr-line);
+  padding-left: 18px;
+}
+
+.skillSourceFacts div[data-priority="primary"] {
+  background: transparent;
+}
+
+.skillSourceFacts dd {
+  margin-top: 0;
+}
+
 .skillLibraryFacts div[data-priority="primary"] {
   background: var(--lr-panel);
 }
@@ -4630,28 +4661,24 @@ a {
     text-align: left;
   }
 
-  .skillSourceFacts,
   .sourceProcessingFacts,
   .collectionFacts,
   .skillLibraryFacts {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .skillSourceFacts div + div,
   .sourceProcessingFacts div + div,
   .collectionFacts div + div,
   .skillLibraryFacts div + div {
     border-left: 0;
   }
 
-  .skillSourceFacts div:nth-child(even),
   .sourceProcessingFacts div:nth-child(even),
   .collectionFacts div:nth-child(even),
   .skillLibraryFacts div:nth-child(even) {
     border-left: 1px solid var(--lr-line);
   }
 
-  .skillSourceFacts div:nth-child(n + 3),
   .sourceProcessingFacts div:nth-child(n + 3),
   .collectionFacts div:nth-child(n + 3),
   .skillLibraryFacts div:nth-child(n + 3) {
@@ -5461,21 +5488,18 @@ a {
     gap: 8px;
   }
 
-  .skillSourceFacts,
   .sourceProcessingFacts,
   .collectionFacts,
   .skillLibraryFacts {
     grid-template-columns: 1fr;
   }
 
-  .skillSourceFacts div:nth-child(even),
   .sourceProcessingFacts div:nth-child(even),
   .collectionFacts div:nth-child(even),
   .skillLibraryFacts div:nth-child(even) {
     border-left: 0;
   }
 
-  .skillSourceFacts div + div,
   .sourceProcessingFacts div + div,
   .collectionFacts div + div,
   .skillLibraryFacts div + div {
