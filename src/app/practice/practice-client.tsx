@@ -564,7 +564,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
       ) : null}
 
       {isIncorrect ? (
-        <p className="practiceStatusLine">This review will be scheduled as Again.</p>
+        <p className="practiceStatusLine">Schedule impact: this review will be saved as Again.</p>
       ) : null}
 
       {checkedFeedback ? (
