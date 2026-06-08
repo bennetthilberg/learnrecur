@@ -5182,6 +5182,12 @@ a {
     display: none;
   }
 
+  .skillLifecycleGroup[data-tone="danger"] > p,
+  .skillLifecycleGroup[data-tone="danger"] .skillLifecycleForm > p:not(.skillFormMessage),
+  .skillDeleteForm > p:not(.skillFormMessage) {
+    display: block;
+  }
+
   .skillLifecycleForm {
     gap: 8px;
   }
