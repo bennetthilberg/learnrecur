@@ -204,7 +204,7 @@ a {
   text-wrap: balance;
 }
 
-.entryPanel p,
+.entryPanel p:not(.entryBrand),
 .authIntro p,
 .nextStepPanel p,
 .statusPanel p {
