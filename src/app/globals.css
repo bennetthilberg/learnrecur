@@ -4006,7 +4006,8 @@ a {
     margin: 0 auto 22px;
     border: 1px solid var(--lr-line);
     border-radius: var(--lr-radius-lg);
-    background: hsl(0 0% 100% / 0.94);
+    background: var(--lr-panel);
+    box-shadow: 0 1px 2px hsl(219 48% 10% / 0.035);
     padding: 10px;
   }
 
