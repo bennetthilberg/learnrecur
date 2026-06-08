@@ -5088,6 +5088,14 @@ a {
     border-top: 1px solid var(--lr-line);
   }
 
+  .settingsExportPanel .skillPanelHeader {
+    display: grid;
+  }
+
+  .settingsExportPanel .skillPanelHeader .secondaryButton {
+    justify-self: start;
+  }
+
   .settingsExportDetails summary {
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;

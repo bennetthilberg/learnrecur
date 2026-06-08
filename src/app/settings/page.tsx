@@ -91,7 +91,7 @@ export default async function SettingsPage() {
         </div>
       </section>
 
-      <section className="skillPanel" aria-labelledby="data-export-title">
+      <section className="skillPanel settingsExportPanel" aria-labelledby="data-export-title">
         <div className="skillPanelHeader">
           <div>
             <p className="eyebrow">Data export</p>
