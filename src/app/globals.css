@@ -4123,6 +4123,27 @@ a {
     line-height: var(--lr-leading-title);
   }
 
+  .dashboardHeader {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 16px;
+  }
+
+  .dashboardHeader > div:first-child {
+    min-width: 0;
+  }
+
+  .dashboardHeaderActions {
+    justify-self: end;
+    justify-items: end;
+    justify-content: flex-end;
+  }
+
+  .dashboardHeaderPrimaryActions,
+  .dashboardHeaderUtilityLinks {
+    justify-content: flex-end;
+  }
+
   .skillStatusSummary {
     grid-template-columns: minmax(160px, 1.2fr) repeat(4, minmax(0, 1fr));
   }
