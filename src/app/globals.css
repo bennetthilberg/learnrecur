@@ -1364,8 +1364,10 @@ a {
 
 .flagExercisePanel {
   margin-top: 20px;
-  border-top: 1px solid var(--lr-line);
-  padding-top: 18px;
+  border: 1px solid var(--lr-line);
+  border-radius: var(--lr-radius);
+  background: var(--lr-panel-soft);
+  padding: 14px;
 }
 
 .flagExerciseHeader {
