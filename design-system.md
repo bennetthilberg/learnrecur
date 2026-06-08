@@ -162,7 +162,7 @@ Navigable row titles should look like text-first links, not full-card buttons. A
 Metric summaries should not default to equal four-card grids. Give the primary product state a wider or otherwise stronger position, then let supporting metrics read smaller and quieter.
 The dashboard summary uses this rule explicitly: ready practice is the dominant panel, while active skills, recent accuracy, and recent reviews sit in a rule-divided support strip.
 Status surfaces should separate primary state from supporting inventory. Prefer a short summary strip for schedule/status facts and grouped rule-separated inventory rows over a large grid where every metric has identical weight.
-Settings summaries follow the same pattern: the saved state appears first and supporting schedule constraints are grouped beside or beneath it.
+Settings summaries follow the same pattern: the saved state appears first and supporting schedule constraints are grouped beside or beneath it. Do not repeat that state as a header badge when the summary immediately follows the panel title.
 Dashboard collection summaries should lead with ready-now count because it determines whether the scoped practice action is urgent; active skill count is supporting context.
 Dashboard collection facts should stay flat inside collection rows. Use compact inline labels, tabular numbers, and a thin divider between related facts rather than boxed mini-stat cards inside the panel.
 Skills-library inventory strips should lead with ready practice inventory, then show verified, retired, and source counts as quieter supporting facts.

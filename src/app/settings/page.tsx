@@ -70,9 +70,6 @@ export default async function SettingsPage() {
             <p className="eyebrow">Email reminders</p>
             <h2 id="reminder-settings-title">Due practice check</h2>
           </div>
-          <span className="dashboardChip" data-tone={settings.preference.enabled ? "ready" : "neutral"}>
-            {settings.preference.enabled ? "On" : "Off"}
-          </span>
         </div>
 
         <ReminderScheduleSummary

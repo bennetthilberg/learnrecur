@@ -2574,10 +2574,8 @@ a {
   display: grid;
   grid-template-columns: minmax(150px, 0.55fr) minmax(0, 1.45fr);
   margin: 0;
-  overflow: hidden;
-  border: 1px solid var(--lr-line);
-  border-radius: var(--lr-radius);
-  background: var(--lr-panel-soft);
+  border-bottom: 1px solid var(--lr-line);
+  padding-bottom: 14px;
 }
 
 .settingsScheduleSummary div {
@@ -2588,7 +2586,11 @@ a {
   display: grid;
   align-content: start;
   gap: 5px;
-  padding: 12px 14px;
+  padding: 0 14px;
+}
+
+.settingsScheduleSummary > div:first-child {
+  padding-left: 0;
 }
 
 .settingsScheduleSummary > div + div {
@@ -2606,7 +2608,7 @@ a {
   display: grid;
   align-content: start;
   gap: 5px;
-  padding: 12px 14px;
+  padding: 0 14px;
 }
 
 .settingsScheduleDetails div + div {
@@ -4517,10 +4519,6 @@ a {
     padding-left: 0;
   }
 
-  .settingsScheduleSummary > div:first-child {
-    padding-left: 14px;
-  }
-
   .settingsScheduleSummary > div + div {
     border-top: 0;
     border-left: 1px solid var(--lr-line);
@@ -5512,11 +5510,7 @@ a {
 
   .settingsScheduleSummary > div,
   .settingsScheduleDetails div {
-    padding: 10px 8px;
-  }
-
-  .settingsScheduleSummary > div:first-child {
-    padding-left: 8px;
+    padding: 10px 0;
   }
 
   .settingsScheduleSummary > div + div {
