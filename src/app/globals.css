@@ -4746,6 +4746,11 @@ a {
     padding: 20px;
   }
 
+  .entryCapabilityList div {
+    grid-template-columns: 1fr;
+    gap: 5px;
+  }
+
   .statusPanel,
   .nextStepPanel,
   .practiceFrame,
