@@ -201,6 +201,7 @@ Data export mechanics should render as flat inline facts, not boxed equal cells.
 
 The practice prompt is the core reading surface. Avoid redundant labels such as "Exercise" when the layout already makes the role clear; use small chips only for useful metadata such as difficulty.
 Difficulty metadata should not become a full card header. Keep it as a quiet inline chip so the prompt remains the dominant object.
+Do not put the prompt in a nested card inside the practice frame. Use type scale, spacing, and light horizontal rules to set it apart from the answer controls.
 
 ### Empty States
 
