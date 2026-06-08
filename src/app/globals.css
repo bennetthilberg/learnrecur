@@ -4403,6 +4403,12 @@ a {
 
 }
 
+@media (min-width: 641px) and (max-width: 740px) {
+  .skillSourceEntryGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 520px) {
   .entryShell,
   .authShell,
