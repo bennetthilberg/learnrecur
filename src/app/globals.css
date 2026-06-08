@@ -4101,6 +4101,103 @@ a {
   .skillRefillForm {
     justify-items: end;
   }
+
+  .historyTable {
+    display: table;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+
+  .historyTable thead {
+    position: static;
+    display: table-header-group;
+    overflow: visible;
+    width: auto;
+    height: auto;
+    clip-path: none;
+    white-space: normal;
+  }
+
+  .historyTable tbody {
+    display: table-row-group;
+  }
+
+  .historyTable tbody tr {
+    display: table-row;
+    grid-template-columns: none;
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    padding: 0;
+  }
+
+  .historyTable thead tr,
+  .historyTable thead th {
+    overflow: visible;
+    width: auto;
+    max-width: none;
+    height: auto;
+    border-top: 1px solid var(--lr-line);
+    padding: 14px 12px;
+    font-size: var(--lr-text-xs);
+    line-height: var(--lr-leading-table);
+  }
+
+  .historyTable th,
+  .historyTable td {
+    display: table-cell;
+    min-width: 0;
+    border-top: 1px solid var(--lr-line);
+    padding: 12px 10px;
+  }
+
+  .historyTable td:nth-child(n) {
+    border-left: 0;
+    border-bottom: 0;
+  }
+
+  .historyTable th:nth-child(1),
+  .historyTable td:nth-child(1) {
+    width: 96px;
+  }
+
+  .historyTable th:nth-child(2),
+  .historyTable td:nth-child(2) {
+    width: 196px;
+  }
+
+  .historyTable th:nth-child(3),
+  .historyTable td:nth-child(3) {
+    width: 128px;
+  }
+
+  .historyTable th:nth-child(4),
+  .historyTable td:nth-child(4) {
+    width: 112px;
+  }
+
+  .historyTable th:nth-child(5),
+  .historyTable td:nth-child(5) {
+    width: 126px;
+  }
+
+  .historyTable td:nth-child(1),
+  .historyTable td:nth-child(2),
+  .historyTable td:nth-child(3),
+  .historyTable td:nth-child(4),
+  .historyTable td:nth-child(5) {
+    order: initial;
+    grid-column: auto;
+  }
+
+  .historyTable td::before {
+    display: none;
+  }
+
+  .historyResultStack {
+    grid-template-columns: none;
+  }
 }
 
 @media (max-width: 520px) {
