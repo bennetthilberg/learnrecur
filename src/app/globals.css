@@ -475,11 +475,27 @@ a {
 
 .wordmark {
   display: inline-flex;
+  align-items: center;
+  gap: 10px;
   margin-bottom: 28px;
   color: var(--lr-ink);
   font-size: var(--lr-text-xl);
   font-weight: 500;
   text-decoration: none;
+}
+
+.wordmark::before {
+  display: inline-grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 1px solid hsl(219 97% 42% / 0.28);
+  border-radius: var(--lr-radius);
+  background: var(--lr-panel-cool);
+  color: var(--lr-primary-ink);
+  content: "L";
+  font-size: var(--lr-text-md);
+  font-weight: 600;
 }
 
 .authCard {
