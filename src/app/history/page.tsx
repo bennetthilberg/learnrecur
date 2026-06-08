@@ -61,11 +61,11 @@ export default async function HistoryPage() {
           </p>
         </div>
         <div className="dashboardHeaderActions">
-          <Link className="secondaryButton" href="/dashboard">
-            Back to dashboard
-          </Link>
           <Link className="primaryButton" href="/practice">
             Start practice
+          </Link>
+          <Link className="secondaryButton" href="/dashboard">
+            Back to dashboard
           </Link>
         </div>
       </header>
