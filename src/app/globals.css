@@ -1018,16 +1018,17 @@ a {
   font-variant-numeric: tabular-nums;
 }
 
-.skillMetaLine > span {
+.skillMetaLine > span:not(.dashboardTag) {
   display: inline-flex;
-  min-height: 24px;
+  min-height: auto;
   align-items: center;
-  border: 1px solid var(--lr-line);
-  border-radius: var(--lr-radius-chip);
-  background: var(--lr-panel-soft);
   color: var(--lr-muted);
-  padding: 4px 8px;
   line-height: var(--lr-leading-compact);
+}
+
+.skillMetaLine > span:not(.dashboardTag) + span:not(.dashboardTag) {
+  border-left: 1px solid var(--lr-line);
+  padding-left: 10px;
 }
 
 .dashboardTag {
