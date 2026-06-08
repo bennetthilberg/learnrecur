@@ -303,7 +303,7 @@ export default async function SkillPage({
                 stateTone={canRefill || hasActiveChoiceRefillJob ? "attention" : "ready"}
                 targetCount={DEFAULT_READY_EXERCISE_TARGET}
               />
-              <p>
+              <p className="skillQueueCopy">
                 Keep a small set of verified exercises available so practice can stay fast and
                 deterministic.
               </p>
@@ -351,7 +351,7 @@ export default async function SkillPage({
                 }
                 targetCount={DEFAULT_READY_EXACT_INPUT_TARGET}
               />
-              <p>
+              <p className="skillQueueCopy">
                 Exact input starts after {EXACT_INPUT_UNLOCK_REPETITIONS} saved reviews, once the
                 learner has practiced the skill with multiple choice first.
               </p>
@@ -402,7 +402,7 @@ export default async function SkillPage({
                 }
                 targetCount={DEFAULT_READY_MATH_TARGET}
               />
-              <p>
+              <p className="skillQueueCopy">
                 Math practice uses deterministic symbolic checking for single-expression answers
                 after the learner has completed a few scheduled reviews.
               </p>

@@ -4051,6 +4051,62 @@ a {
     border-top: 1px solid var(--lr-line);
   }
 
+  .skillInventoryGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .skillInventoryGroup {
+    gap: 9px;
+    padding: 10px 8px;
+    border-right: 1px solid var(--lr-line);
+    border-bottom: 0;
+  }
+
+  .skillInventoryGroup:last-child {
+    border-right: 0;
+  }
+
+  .skillInventoryReady {
+    gap: 4px;
+  }
+
+  .skillInventoryReady strong {
+    display: grid;
+    gap: 3px;
+  }
+
+  .skillInventoryReady strong span {
+    font-size: var(--lr-text-xl);
+  }
+
+  .skillInventoryGroup dl {
+    display: grid;
+    gap: 4px;
+  }
+
+  .skillInventoryGroup dl div {
+    justify-content: space-between;
+  }
+
+  .skillInventoryGroup dt,
+  .skillInventoryGroup dd,
+  .skillInventoryReady small {
+    font-size: var(--lr-text-2xs);
+  }
+
+  .skillQueueBlock {
+    gap: 12px;
+    padding-top: 14px;
+  }
+
+  .skillQueueBlock h2 {
+    font-size: var(--lr-text-lg);
+  }
+
+  .skillQueueCopy {
+    display: none;
+  }
+
   .skillQueueStateStrip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
