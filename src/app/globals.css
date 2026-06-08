@@ -1960,9 +1960,14 @@ a {
 
 .settingsToggle {
   display: flex;
+  min-height: 44px;
   align-items: center;
   gap: 10px;
+  border: 1px solid var(--lr-line);
+  border-radius: var(--lr-radius);
+  background: var(--lr-panel-soft);
   color: var(--lr-ink);
+  padding: 10px 12px;
   font-size: var(--lr-text-md);
   font-weight: 500;
   line-height: var(--lr-leading-normal);
@@ -1971,7 +1976,24 @@ a {
 .settingsToggle input {
   width: 18px;
   height: 18px;
+  flex: 0 0 auto;
   accent-color: var(--lr-primary);
+}
+
+.settingsToggle:has(input:checked) {
+  border-color: var(--lr-primary-muted);
+  background: var(--lr-primary-soft);
+  color: var(--lr-primary-ink);
+}
+
+.settingsToggle:has(input:focus-visible) {
+  outline: none;
+  box-shadow: var(--lr-focus-ring);
+}
+
+.settingsToggle:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.68;
 }
 
 .settingsScheduleSummary {
