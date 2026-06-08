@@ -14,13 +14,13 @@ export default async function Home() {
           through verified exercises whenever the schedule says it is time.
         </p>
         <dl className="entryCapabilityList" aria-label="LearnRecur capabilities">
-          <div>
-            <dt>Practice modes</dt>
-            <dd>Choice, text, numeric, and math answers</dd>
+          <div data-priority="primary">
+            <dt>Source setup</dt>
+            <dd>Paste text or upload private images and PDFs</dd>
           </div>
           <div>
-            <dt>Source paths</dt>
-            <dd>Paste text or upload private images and PDFs</dd>
+            <dt>Due practice</dt>
+            <dd>Choice, text, numeric, and math answers</dd>
           </div>
           <div>
             <dt>Trust loop</dt>

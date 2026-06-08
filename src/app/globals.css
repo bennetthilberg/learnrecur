@@ -183,6 +183,10 @@ a {
   border-top: 1px solid var(--lr-line);
 }
 
+.entryCapabilityList div[data-priority="primary"] {
+  padding-block: 13px;
+}
+
 .entryCapabilityList dt,
 .entryCapabilityList dd {
   margin: 0;
@@ -199,6 +203,17 @@ a {
   color: var(--lr-ink-soft);
   font-size: var(--lr-text-sm);
   line-height: var(--lr-leading-copy);
+}
+
+.entryCapabilityList div[data-priority="primary"] dt {
+  color: var(--lr-ink);
+  font-size: var(--lr-text-sm);
+}
+
+.entryCapabilityList div[data-priority="primary"] dd {
+  color: var(--lr-ink);
+  font-size: var(--lr-text-md);
+  font-weight: 500;
 }
 
 .entryProcessPanel {
