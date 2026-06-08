@@ -185,23 +185,19 @@ function CollectionMetaLine({
 }: {
   collection: CollectionSummary;
 }) {
+  const skillMix = formatCollectionSkillMix(collection);
+
   return (
     <dl className="collectionFacts" aria-label={`${collection.name} collection details`}>
-      <div>
-        <dt>Active</dt>
-        <dd>{formatCount(collection.skillCounts.active)}</dd>
-      </div>
-      <div>
-        <dt>Drafts</dt>
-        <dd>{formatCount(collection.skillCounts.draft)}</dd>
-      </div>
-      <div>
-        <dt>Paused</dt>
-        <dd>{formatCount(collection.skillCounts.paused)}</dd>
-      </div>
-      <div>
-        <dt>Archived</dt>
-        <dd>{formatCount(collection.skillCounts.archived)}</dd>
+      <div data-priority="primary">
+        <dt>Skill mix</dt>
+        <dd className="collectionSkillMix">
+          {skillMix.map((item) => (
+            <span key={item.label}>
+              <strong>{formatCount(item.count)}</strong> {formatSkillMixLabel(item)}
+            </span>
+          ))}
+        </dd>
       </div>
       <div>
         <dt>Sources</dt>
@@ -232,6 +228,25 @@ function CollectionEmptyState({
 
 function formatSourceCount(count: number) {
   return count === 1 ? "1 source" : `${formatCount(count)} sources`;
+}
+
+function formatCollectionSkillMix(collection: CollectionSummary) {
+  const mix = [
+    { count: collection.skillCounts.active, label: "active" },
+    { count: collection.skillCounts.draft, label: "draft" },
+    { count: collection.skillCounts.paused, label: "paused" },
+    { count: collection.skillCounts.archived, label: "archived" },
+  ].filter((item) => item.count > 0);
+
+  return mix.length > 0 ? mix : [{ count: 0, label: "skills" }];
+}
+
+function formatSkillMixLabel(item: { count: number; label: string }) {
+  if (item.label === "draft") {
+    return item.count === 1 ? "draft" : "drafts";
+  }
+
+  return item.label;
 }
 
 function formatCount(count: number) {
