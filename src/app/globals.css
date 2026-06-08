@@ -4144,6 +4144,24 @@ a {
     justify-content: flex-end;
   }
 
+  .settingsReminderForm {
+    grid-template-columns: minmax(210px, 0.9fr) minmax(270px, 1.1fr);
+    align-items: start;
+    column-gap: 16px;
+  }
+
+  .settingsReminderForm .skillFormFieldset + .skillFormFieldset {
+    border-top: 0;
+    border-left: 1px solid var(--lr-line);
+    padding-top: 0;
+    padding-left: 16px;
+  }
+
+  .settingsReminderForm .skillFormActions,
+  .settingsReminderForm .skillFormMessage {
+    grid-column: 1 / -1;
+  }
+
   .skillStatusSummary {
     grid-template-columns: minmax(160px, 1.2fr) repeat(4, minmax(0, 1fr));
   }
