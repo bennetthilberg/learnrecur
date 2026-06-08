@@ -168,15 +168,17 @@ function ReminderScheduleSummary({
         <dt>Status</dt>
         <dd>{enabled ? "Sending when due" : "Paused"}</dd>
       </div>
-      <div>
-        <dt>Local check</dt>
-        <dd>
-          {formatReminderHour(localHour)} in {timezone}
-        </dd>
-      </div>
-      <div>
-        <dt>Threshold</dt>
-        <dd>{formatDueThreshold(minimumDueCount)}</dd>
+      <div className="settingsScheduleDetails">
+        <div>
+          <dt>Local check</dt>
+          <dd>
+            {formatReminderHour(localHour)} in {timezone}
+          </dd>
+        </div>
+        <div>
+          <dt>Threshold</dt>
+          <dd>{formatDueThreshold(minimumDueCount)}</dd>
+        </div>
       </div>
     </dl>
   );
