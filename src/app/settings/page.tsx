@@ -106,13 +106,13 @@ export default async function SettingsPage() {
         </div>
 
         <dl className="settingsExportFacts" aria-label="Data export details">
+          <div data-priority="primary">
+            <dt>Scope</dt>
+            <dd>Your study data</dd>
+          </div>
           <div>
             <dt>Format</dt>
             <dd>JSON</dd>
-          </div>
-          <div>
-            <dt>Scope</dt>
-            <dd>Your study data</dd>
           </div>
           <div>
             <dt>Access</dt>

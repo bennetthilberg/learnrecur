@@ -180,6 +180,7 @@ Inline feedback, warnings, and system notes should use a full, quiet border pair
 When a message sits on a tinted semantic surface, its copy should use the matching semantic ink color. Avoid muted neutral text on colored message backgrounds; the result looks less intentional and weakens the state.
 
 Privacy and data-control explanations should be structured into explicit groups such as Included and Left out. Avoid asking users to parse a long paragraph to understand what data leaves or stays in the system.
+Data export summaries should lead with scope before mechanics. Format, access, and file exclusions are supporting facts.
 
 ### Practice Prompt
 

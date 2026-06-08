@@ -3171,6 +3171,19 @@ a {
   color: var(--lr-primary-ink);
 }
 
+.settingsExportFacts {
+  grid-template-columns: minmax(170px, 1.12fr) repeat(3, minmax(92px, 0.52fr));
+}
+
+.settingsExportFacts div[data-priority="primary"] {
+  background: var(--lr-panel);
+}
+
+.settingsExportFacts div[data-priority="primary"] dd {
+  color: var(--lr-primary-ink);
+  font-size: var(--lr-text-sm);
+}
+
 .skillSourcePreview {
   margin: 12px 0 0;
   border: 1px solid var(--lr-line);
@@ -5449,6 +5462,23 @@ a {
 
   .settingsExportFacts div:nth-child(n + 3) {
     border-top: 1px solid var(--lr-line);
+  }
+
+  .settingsExportFacts div[data-priority="primary"] {
+    grid-column: 1 / -1;
+  }
+
+  .settingsExportFacts div:nth-child(2) {
+    border-top: 1px solid var(--lr-line);
+    border-left: 0;
+  }
+
+  .settingsExportFacts div:nth-child(3) {
+    border-left: 1px solid var(--lr-line);
+  }
+
+  .settingsExportFacts div:nth-child(4) {
+    border-left: 0;
   }
 
   .settingsExportPanel .skillPanelHeader {
