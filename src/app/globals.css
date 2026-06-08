@@ -2460,14 +2460,18 @@ a {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  color: var(--lr-ink-soft);
+  border: 1px solid var(--lr-danger-line);
+  border-radius: var(--lr-radius);
+  background: var(--lr-panel);
+  color: var(--lr-danger-ink);
   font-size: var(--lr-text-xs);
   line-height: var(--lr-leading-normal);
+  padding: 9px 10px;
 }
 
 .skillSourceConfirm input {
   margin-top: 2px;
-  accent-color: var(--lr-primary);
+  accent-color: var(--lr-danger-ink);
 }
 
 .skillLifecyclePanel,
@@ -2600,23 +2604,31 @@ a {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  color: var(--lr-ink-soft);
+  border: 1px solid var(--lr-danger-line);
+  border-radius: var(--lr-radius);
+  background: var(--lr-panel);
+  color: var(--lr-danger-ink);
   font-size: var(--lr-text-xs);
   line-height: var(--lr-leading-normal);
+  padding: 9px 10px;
 }
 
 .skillLifecycleConfirm input {
   margin-top: 2px;
-  accent-color: var(--lr-primary);
+  accent-color: var(--lr-danger-ink);
 }
 
 .skillDeleteConfirm {
   display: grid;
   gap: 7px;
   width: min(100%, 340px);
-  color: var(--lr-ink-soft);
+  border: 1px solid var(--lr-danger-line);
+  border-radius: var(--lr-radius);
+  background: var(--lr-panel);
+  color: var(--lr-danger-ink);
   font-size: var(--lr-text-xs);
   line-height: var(--lr-leading-normal);
+  padding: 10px;
 }
 
 .skillDeleteConfirm input {
