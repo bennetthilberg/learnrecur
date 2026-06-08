@@ -3508,7 +3508,7 @@ a {
 
 .skillInventoryGrid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(220px, 1.18fr) repeat(2, minmax(0, 0.82fr));
   margin-top: 16px;
   border-top: 1px solid var(--lr-line);
   border-bottom: 1px solid var(--lr-line);
@@ -3523,6 +3523,14 @@ a {
 
 .skillInventoryGroup:last-child {
   border-right: 0;
+}
+
+.skillInventoryGroup:first-child {
+  background: var(--lr-panel);
+}
+
+.skillInventoryGroup:first-child .skillInventoryReady > span {
+  color: var(--lr-primary-ink);
 }
 
 .skillInventoryReady {
