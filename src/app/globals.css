@@ -3268,11 +3268,7 @@ a {
   flex-wrap: wrap;
   align-items: flex-start;
   gap: 8px;
-  margin-top: 14px;
-  border: 1px solid var(--lr-line);
-  border-radius: var(--lr-radius);
-  background: var(--lr-panel-soft);
-  padding: 8px;
+  margin-top: 12px;
 }
 
 .collectionPracticeLink {
@@ -3644,6 +3640,15 @@ a {
 
   .collectionRowActions {
     display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .collectionPracticeLink {
+    grid-column: 1 / -1;
+  }
+
+  .collectionInlineDetails summary {
+    width: 100%;
   }
 
   .collectionReadyStat {
@@ -3868,6 +3873,22 @@ a {
   .settingsExportFacts div + div,
   .collectionFacts div + div,
   .skillLibraryFacts div + div {
+    border-top: 1px solid var(--lr-line);
+  }
+
+  .collectionFacts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .collectionFacts div + div {
+    border-top: 0;
+  }
+
+  .collectionFacts div:nth-child(even) {
+    border-left: 1px solid var(--lr-line);
+  }
+
+  .collectionFacts div:nth-child(n + 3) {
     border-top: 1px solid var(--lr-line);
   }
 }
