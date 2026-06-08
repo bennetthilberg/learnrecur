@@ -181,6 +181,7 @@ Message treatment: bounded signal.
 
 Inline feedback, warnings, and system notes should use a full, quiet border paired with concise copy and a restrained semantic background. Avoid one-sided colored accent bars; they make rows and panels feel like generic template cards rather than considered product states.
 When a message sits on a tinted semantic surface, its copy should use the matching semantic ink color. Avoid muted neutral text on colored message backgrounds; the result looks less intentional and weakens the state.
+Inside a feedback panel, answer details should be flat and rule-separated rather than boxed again. The feedback panel is already the bounded signal.
 
 Privacy and data-control explanations should be structured into explicit groups such as Included and Left out. Avoid asking users to parse a long paragraph to understand what data leaves or stays in the system.
 Data export summaries should lead with scope before mechanics. Format, access, and file exclusions are supporting facts.

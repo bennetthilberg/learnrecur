@@ -1572,24 +1572,23 @@ a {
 
 .practiceFeedbackAnswer {
   display: grid;
-  margin: 10px 0;
-  border: 1px solid var(--lr-line);
-  border-radius: var(--lr-radius);
-  background: hsl(0 0% 100% / 0.64);
+  margin: 10px 0 0;
+  border-top: 1px solid currentColor;
+  padding-top: 9px;
+  opacity: 0.96;
 }
 
 .practiceFeedback[data-tone="correct"] .practiceFeedbackAnswer {
-  border-color: hsl(151 62% 21% / 0.18);
+  border-top-color: hsl(151 62% 21% / 0.2);
 }
 
 .practiceFeedback[data-tone="incorrect"] .practiceFeedbackAnswer {
-  border-color: hsl(4 70% 32% / 0.18);
+  border-top-color: hsl(4 70% 32% / 0.2);
 }
 
 .practiceFeedbackAnswer div {
   display: grid;
   gap: 3px;
-  padding: 9px 11px;
 }
 
 .practiceFeedbackAnswer dt,
