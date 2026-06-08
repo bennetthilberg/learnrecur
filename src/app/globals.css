@@ -4760,6 +4760,11 @@ a {
     justify-self: start;
   }
 
+  .authAccessList div {
+    grid-template-columns: 1fr;
+    gap: 5px;
+  }
+
   .statusPanel,
   .nextStepPanel,
   .practiceFrame,
