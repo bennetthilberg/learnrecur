@@ -1659,7 +1659,7 @@ a {
 .skillSourceEntryGrid {
   display: grid;
   grid-template-columns: minmax(320px, 1.08fr) minmax(280px, 0.92fr);
-  align-items: stretch;
+  align-items: start;
   gap: 18px;
 }
 
