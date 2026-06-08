@@ -193,6 +193,7 @@ Inside a feedback panel, answer details should be flat and rule-separated rather
 
 Privacy and data-control explanations should be structured into explicit groups such as Included and Left out. Avoid asking users to parse a long paragraph to understand what data leaves or stays in the system.
 Data export summaries should lead with scope before mechanics. Format, access, and file exclusions are supporting facts.
+Data export mechanics should render as flat inline facts, not boxed equal cells. The Included and Left out sections are the real explanatory content and should receive the heavier structure.
 
 ### Practice Prompt
 
