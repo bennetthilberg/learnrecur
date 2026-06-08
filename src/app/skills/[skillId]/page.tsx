@@ -659,13 +659,13 @@ function SkillQueueStateStrip({
 }) {
   return (
     <dl className="skillQueueStateStrip" data-tone={stateTone}>
-      <div>
+      <div data-priority="primary">
         <dt>Ready</dt>
         <dd>
           {formatCount(readyCount)} of {formatCount(targetCount)}
         </dd>
       </div>
-      <div>
+      <div data-role="state">
         <dt>State</dt>
         <dd>{stateLabel}</dd>
       </div>

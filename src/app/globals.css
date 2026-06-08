@@ -2788,7 +2788,7 @@ a {
 
 .skillQueueStateStrip {
   display: inline-grid;
-  grid-template-columns: repeat(2, minmax(96px, auto));
+  grid-template-columns: minmax(132px, 1.16fr) minmax(96px, auto);
   margin: 11px 0 2px;
   overflow: hidden;
   border: 1px solid var(--lr-line);
@@ -2804,6 +2804,14 @@ a {
 
 .skillQueueStateStrip div + div {
   border-left: 1px solid var(--lr-line);
+}
+
+.skillQueueStateStrip div[data-priority="primary"] {
+  background: var(--lr-panel);
+}
+
+.skillQueueStateStrip div[data-role="state"] {
+  min-width: 104px;
 }
 
 .skillQueueStateStrip dt {
@@ -2822,15 +2830,26 @@ a {
   line-height: var(--lr-leading-label);
 }
 
-.skillQueueStateStrip[data-tone="attention"] dd {
+.skillQueueStateStrip div[data-priority="primary"] dd {
+  font-size: var(--lr-text-md);
+}
+
+.skillQueueStateStrip div[data-role="state"] dd {
+  color: var(--lr-muted);
+  font-size: var(--lr-text-xs);
+}
+
+.skillQueueStateStrip[data-tone="attention"] div[data-priority="primary"] dd,
+.skillQueueStateStrip[data-tone="attention"] div[data-role="state"] dd {
   color: var(--lr-accent-ink);
 }
 
-.skillQueueStateStrip[data-tone="locked"] dd {
+.skillQueueStateStrip[data-tone="locked"] div[data-priority="primary"] dd,
+.skillQueueStateStrip[data-tone="locked"] div[data-role="state"] dd {
   color: var(--lr-muted);
 }
 
-.skillQueueStateStrip[data-tone="ready"] dd {
+.skillQueueStateStrip[data-tone="ready"] div[data-priority="primary"] dd {
   color: var(--lr-primary-ink);
 }
 
@@ -3003,7 +3022,7 @@ a {
 
   .skillQueuePanel .skillQueueStateStrip {
     width: 100%;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(132px, 1.16fr) minmax(96px, 0.84fr);
   }
 }
 
@@ -3036,7 +3055,7 @@ a {
 
   .skillQueuePanel .skillQueueStateStrip {
     width: 100%;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(132px, 1.16fr) minmax(96px, 0.84fr);
   }
 }
 
@@ -4904,12 +4923,12 @@ a {
 
   .skillQueueStateStrip {
     width: auto;
-    grid-template-columns: repeat(2, minmax(96px, auto));
+    grid-template-columns: minmax(132px, 1.16fr) minmax(96px, auto);
   }
 
   .skillQueuePanel .skillQueueStateStrip {
     width: 100%;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(132px, 1.16fr) minmax(96px, 0.84fr);
   }
 
   .skillQueueStateStrip div + div {
@@ -5287,7 +5306,7 @@ a {
   }
 
   .skillQueueStateStrip {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(126px, 1.12fr) minmax(90px, 0.88fr);
   }
 
   .skillQueueStateStrip div + div {
