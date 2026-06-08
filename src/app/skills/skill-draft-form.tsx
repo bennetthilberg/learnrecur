@@ -129,7 +129,11 @@ export function SkillDraftForm({ mode, skillId, initialValues }: SkillDraftFormP
         ) : null}
 
         <div className="skillFormActions">
-          <button className="primaryButton" disabled={isSaving} type="submit">
+          <button
+            className={mode === "create" ? "secondaryButton" : "primaryButton"}
+            disabled={isSaving}
+            type="submit"
+          >
             {isSaving ? "Saving..." : mode === "create" ? "Create draft" : "Save draft"}
           </button>
         </div>
