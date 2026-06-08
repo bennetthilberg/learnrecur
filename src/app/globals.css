@@ -2604,7 +2604,7 @@ a {
   color: var(--lr-primary-ink);
 }
 
-.skillQueueBlock p:not(.eyebrow),
+.skillQueueBlock p:not(.eyebrow):not(.skillFormMessage),
 .skillQueueStatus {
   max-width: 620px;
   margin: 9px 0 0;
