@@ -596,7 +596,7 @@ a {
 }
 
 .dashboardHeaderUtilityLinks a {
-  color: var(--lr-primary-ink);
+  color: var(--lr-muted);
   font-size: var(--lr-text-sm);
   font-weight: 500;
   line-height: var(--lr-leading-label);
@@ -604,6 +604,7 @@ a {
 }
 
 .dashboardHeaderUtilityLinks a:hover {
+  color: var(--lr-primary-ink);
   text-decoration: underline;
   text-underline-offset: 3px;
 }
