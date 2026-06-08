@@ -168,7 +168,7 @@ Dashboard collection facts should stay flat inside collection rows. Use compact 
 Skills-library inventory strips should lead with ready practice inventory, then show verified, retired, and source counts as quieter supporting facts.
 Ordinary skill metadata such as collection, FSRS state, repetitions, lapses, and update dates should render as flat inline facts with light dividers. Reserve chip styling for actual statuses, tags, and selectable/meaningful categories.
 Active skill detail inventory uses the same ready-first emphasis: the current choice queue gets the strongest position, while later recall modes remain supporting until the learner unlocks or fills them.
-Exercise queue state strips should also be ready-first. The ready count is the actionable inventory signal; running/full/locked labels are supporting state and should not receive equal layout weight.
+Exercise queue state strips should also be ready-first. The ready count is the actionable inventory signal; running/full/locked labels are supporting state and should not receive equal layout weight. Keep these strips flat and inline rather than boxed into equal stat cells.
 Source material metadata should lead with readiness/status before file mechanics. Type, size, and added date are supporting facts; they should not compete with whether the source can be trusted for generation or preview.
 Practice session metadata should be compact and explicitly labeled. Avoid floating unlabeled chips for mixed facts such as FSRS state and elapsed time; a small rule-separated status strip is clearer and quieter.
 
