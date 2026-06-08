@@ -4165,6 +4165,10 @@ a {
     font-size: var(--lr-text-xs);
   }
 
+  .practiceNav a[aria-current="page"] {
+    order: -1;
+  }
+
   .dashboardMetricCard {
     min-height: 104px;
     padding: 15px;
