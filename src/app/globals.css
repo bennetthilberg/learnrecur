@@ -4120,7 +4120,7 @@ a {
 
 @media (min-width: 641px) and (max-width: 780px) {
   .skillSourceEntryGrid {
-    grid-template-columns: minmax(320px, 1.08fr) minmax(280px, 0.92fr);
+    grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
   }
 
   .collectionManagementRow .skillLibraryRowMain {
