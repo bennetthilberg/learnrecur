@@ -1807,19 +1807,52 @@ a {
 }
 
 .skillManualSection {
-  display: grid;
-  grid-template-columns: minmax(220px, 0.34fr) minmax(0, 0.66fr);
-  align-items: start;
-  gap: 18px;
   margin-top: 6px;
   border-top: 1px solid var(--lr-line);
   padding-top: 22px;
 }
 
+.skillManualSummary {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  border: 1px solid var(--lr-line);
+  border-radius: var(--lr-radius-lg);
+  background: var(--lr-panel);
+  box-shadow: var(--lr-shadow);
+  cursor: pointer;
+  list-style: none;
+  padding: 18px 20px;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.skillManualSummary::marker,
+.skillManualSummary::-webkit-details-marker {
+  display: none;
+}
+
+.skillManualSummary:hover,
+.skillManualSection[open] .skillManualSummary {
+  border-color: var(--lr-primary-muted);
+  background: var(--lr-panel-cool);
+}
+
+.skillManualSummary:focus-visible {
+  outline: none;
+  box-shadow: var(--lr-focus-ring);
+}
+
+.skillManualSummary .skillPathBadge {
+  flex: 0 0 auto;
+}
+
 .skillManualIntro {
   display: grid;
   gap: 10px;
-  padding-top: 2px;
 }
 
 .skillManualIntro h2 {
@@ -1832,6 +1865,18 @@ a {
 
 .skillManualIntro p:not(.eyebrow) {
   margin: 0;
+  color: var(--lr-muted);
+  font-size: var(--lr-text-md);
+  line-height: var(--lr-leading-reading);
+}
+
+.skillManualBody {
+  margin-top: 18px;
+}
+
+.skillManualBodyCopy {
+  max-width: 620px;
+  margin: 0 0 14px;
   color: var(--lr-muted);
   font-size: var(--lr-text-md);
   line-height: var(--lr-leading-reading);
@@ -1902,6 +1947,77 @@ a {
   font-size: var(--lr-text-xs);
   font-weight: 500;
   line-height: var(--lr-leading-label);
+}
+
+.skillFormDetails {
+  margin: 0;
+  border: 0;
+  border-top: 1px solid var(--lr-line);
+  padding-top: 14px;
+}
+
+.skillFormDetails summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-radius: var(--lr-radius-sm);
+  cursor: pointer;
+  list-style: none;
+  padding: 2px 0;
+}
+
+.skillFormDetails summary::marker,
+.skillFormDetails summary::-webkit-details-marker {
+  display: none;
+}
+
+.skillFormDetails summary::after {
+  display: inline-flex;
+  min-width: 22px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--lr-line);
+  border-radius: var(--lr-radius-chip);
+  background: var(--lr-panel-soft);
+  color: var(--lr-primary-ink);
+  content: "+";
+  font-size: var(--lr-text-sm);
+  font-weight: 500;
+}
+
+.skillFormDetails[open] summary::after {
+  content: "-";
+}
+
+.skillFormDetails summary span {
+  color: var(--lr-primary-ink);
+  font-size: var(--lr-text-xs);
+  font-weight: 500;
+  line-height: var(--lr-leading-label);
+}
+
+.skillFormDetails summary small {
+  min-width: 0;
+  flex: 1;
+  color: var(--lr-faint);
+  font-size: var(--lr-text-xs);
+  line-height: var(--lr-leading-label);
+}
+
+.skillFormDetails summary:hover span,
+.skillFormDetails[open] summary span {
+  color: var(--lr-primary);
+}
+
+.skillFormDetails summary:focus-visible {
+  outline: none;
+  box-shadow: var(--lr-focus-ring);
+}
+
+.skillFormDetails[open] .skillFormFieldsetBody {
+  margin-top: 12px;
 }
 
 .skillFormFieldsetBody {

@@ -74,17 +74,22 @@ export default async function NewSkillPage() {
           <SourceUploadForm />
           <SourceSkillForm />
         </section>
-        <section className="skillManualSection" aria-labelledby="manual-skill-title">
-          <div className="skillManualIntro">
-            <p className="eyebrow">Manual draft</p>
-            <h2 id="manual-skill-title">Write the skill yourself.</h2>
-            <p>
+        <details className="skillManualSection" aria-labelledby="manual-skill-title">
+          <summary className="skillManualSummary">
+            <div className="skillManualIntro">
+              <p className="eyebrow">Manual draft</p>
+              <h2 id="manual-skill-title">Write the skill yourself.</h2>
+            </div>
+            <span className="skillPathBadge">Optional path</span>
+          </summary>
+          <div className="skillManualBody">
+            <p className="skillManualBodyCopy">
               Use this when you already know the exact skill definition and do not
               need Gemini to interpret source material first.
             </p>
+            <SkillDraftForm initialValues={emptyDraftValues} mode="create" />
           </div>
-          <SkillDraftForm initialValues={emptyDraftValues} mode="create" />
-        </section>
+        </details>
       </div>
     </main>
   );

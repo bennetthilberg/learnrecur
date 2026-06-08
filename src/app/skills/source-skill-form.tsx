@@ -47,8 +47,21 @@ export function SourceSkillForm() {
         </div>
       </fieldset>
 
-      <fieldset className="skillFormFieldset">
-        <legend>Draft context</legend>
+      <details
+        className="skillFormDetails"
+        open={
+          state.fieldErrors?.sourceLabel?.length ||
+            state.fieldErrors?.collectionName?.length ||
+            state.fieldErrors?.focusNote?.length ||
+            state.fieldErrors?.tags?.length
+            ? true
+            : undefined
+        }
+      >
+        <summary>
+          <span>Draft context</span>
+          <small>Collection, focus, and tags</small>
+        </summary>
         <div className="skillFormFieldsetBody">
           <div className="skillTwoColumnFields">
             <SkillTextField
@@ -80,7 +93,7 @@ export function SourceSkillForm() {
             placeholder="spanish, verbs, grammar"
           />
         </div>
-      </fieldset>
+      </details>
 
       {state.message ? (
         <p className="skillFormMessage" data-tone={state.status}>

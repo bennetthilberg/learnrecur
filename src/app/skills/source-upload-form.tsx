@@ -98,8 +98,21 @@ export function SourceUploadForm() {
         </div>
       </fieldset>
 
-      <fieldset className="skillFormFieldset">
-        <legend>Draft context</legend>
+      <details
+        className="skillFormDetails"
+        open={
+          fieldErrors?.sourceLabel?.length ||
+            fieldErrors?.collectionName?.length ||
+            fieldErrors?.focusNote?.length ||
+            fieldErrors?.tags?.length
+            ? true
+            : undefined
+        }
+      >
+        <summary>
+          <span>Draft context</span>
+          <small>Collection, focus, and tags</small>
+        </summary>
         <div className="skillFormFieldsetBody">
           <div className="skillTwoColumnFields">
             <SkillTextField
@@ -131,7 +144,7 @@ export function SourceUploadForm() {
             placeholder="spanish, worksheet, grammar"
           />
         </div>
-      </fieldset>
+      </details>
 
       {message ? (
         <p className="skillFormMessage" data-tone={status === "error" ? "error" : "saved"}>
