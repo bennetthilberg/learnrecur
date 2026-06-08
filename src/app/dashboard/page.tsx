@@ -135,7 +135,7 @@ export default async function DashboardPage() {
                   <div className="collectionRowPractice">
                     <Link
                       aria-label={`Practice collection ${collection.name}`}
-                      className="dashboardPanelLink"
+                      className="dashboardPanelLink dashboardCollectionPracticeLink"
                       href={`/practice?collectionId=${encodeURIComponent(collection.id)}`}
                     >
                       Practice

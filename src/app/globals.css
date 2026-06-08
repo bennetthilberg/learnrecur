@@ -713,6 +713,23 @@ a {
   text-underline-offset: 3px;
 }
 
+.dashboardCollectionPracticeLink {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--lr-primary-muted);
+  border-radius: var(--lr-radius);
+  background: var(--lr-panel-cool);
+  padding: 7px 10px;
+}
+
+.dashboardCollectionPracticeLink:hover {
+  border-color: hsl(219 97% 42% / 0.32);
+  background: var(--lr-primary-soft);
+  text-decoration: none;
+}
+
 .skillRowMain {
   display: flex;
   align-items: flex-start;
@@ -3495,6 +3512,10 @@ a {
 
   .collectionRowPractice {
     justify-content: flex-start;
+  }
+
+  .dashboardCollectionPracticeLink {
+    width: 100%;
   }
 
   .skillRefillForm {
