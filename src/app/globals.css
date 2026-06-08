@@ -3851,6 +3851,11 @@ a {
     display: grid;
   }
 
+  .skillHeader > .primaryButton,
+  .skillHeader > .secondaryButton {
+    justify-self: start;
+  }
+
   .skillCreationPath {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -4203,6 +4208,18 @@ a {
 
   .collectionManagementRow .collectionFacts div:nth-child(n + 4) {
     border-top: 1px solid var(--lr-line);
+  }
+
+  .collectionManagementRow .collectionRowActions {
+    display: flex;
+  }
+
+  .collectionManagementRow .collectionPracticeLink {
+    grid-column: auto;
+  }
+
+  .collectionManagementRow .collectionInlineDetails summary {
+    width: auto;
   }
 
   .collectionCreateGrid {
