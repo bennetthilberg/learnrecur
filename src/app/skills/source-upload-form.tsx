@@ -58,6 +58,9 @@ export function SourceUploadForm() {
           <p className="eyebrow">Upload source</p>
           <h2>Use an image or PDF.</h2>
         </div>
+        <span className="skillPathBadge" data-tone="primary">
+          Primary path
+        </span>
       </div>
       <p className="skillUploadIntro">
         Upload a small worksheet, notes photo, screenshot, or PDF. The file stays private in S3;

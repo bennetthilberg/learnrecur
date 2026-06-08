@@ -26,6 +26,7 @@ export function SourceSkillForm() {
           <p className="eyebrow">Source draft</p>
           <h2>Paste learning material.</h2>
         </div>
+        <span className="skillPathBadge">Copied text</span>
       </div>
       <p className="skillUploadIntro">
         Use this when the source text is already copied out. Gemini can split broader material

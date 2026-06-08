@@ -1596,7 +1596,7 @@ a {
 
 .skillSourceEntryGrid {
   display: grid;
-  grid-template-columns: minmax(280px, 0.9fr) minmax(0, 1.1fr);
+  grid-template-columns: minmax(320px, 1.08fr) minmax(280px, 0.92fr);
   align-items: stretch;
   gap: 18px;
 }
@@ -1618,8 +1618,30 @@ a {
 }
 
 .skillPanel.skillUploadForm {
-  border-color: hsl(219 97% 42% / 0.22);
+  border-color: hsl(219 97% 42% / 0.3);
   background: var(--lr-panel-cool);
+}
+
+.skillPathBadge {
+  display: inline-flex;
+  min-height: 26px;
+  align-items: center;
+  align-self: flex-start;
+  border: 1px solid var(--lr-line);
+  border-radius: var(--lr-radius-chip);
+  background: var(--lr-panel-soft);
+  color: var(--lr-muted);
+  padding: 5px 8px;
+  font-size: var(--lr-text-xs);
+  font-weight: 500;
+  line-height: var(--lr-leading-compact);
+  white-space: nowrap;
+}
+
+.skillPathBadge[data-tone="primary"] {
+  border-color: var(--lr-primary-muted);
+  background: var(--lr-white);
+  color: var(--lr-primary-ink);
 }
 
 .skillUploadIntro,
