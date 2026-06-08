@@ -7,7 +7,7 @@ export default async function Home() {
   return (
     <main className="entryShell">
       <section className="entryPanel" aria-labelledby="home-title">
-        <p className="eyebrow">LearnRecur</p>
+        <p className="entryBrand">LearnRecur</p>
         <h1 id="home-title">Skill practice, scheduled by memory.</h1>
         <p>
           Upload a page, paste notes, or define a skill. Review the draft, then work
