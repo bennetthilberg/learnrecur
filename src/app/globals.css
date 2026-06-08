@@ -1909,7 +1909,7 @@ a {
 .skillManualSummary {
   display: flex;
   align-items: flex-start;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 18px;
   border: 1px solid var(--lr-line);
   border-radius: var(--lr-radius-lg);
@@ -1929,6 +1929,27 @@ a {
   display: none;
 }
 
+.skillManualSummary::after {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--lr-line);
+  border-radius: var(--lr-radius-chip);
+  background: var(--lr-panel-soft);
+  color: var(--lr-primary-ink);
+  content: "+";
+  font-size: var(--lr-text-md);
+  font-weight: 500;
+  line-height: 1;
+}
+
+.skillManualSection[open] .skillManualSummary::after {
+  content: "-";
+}
+
 .skillManualSummary:hover,
 .skillManualSection[open] .skillManualSummary {
   border-color: var(--lr-primary-muted);
@@ -1942,10 +1963,13 @@ a {
 
 .skillManualSummary .skillPathBadge {
   flex: 0 0 auto;
+  margin-left: auto;
 }
 
 .skillManualIntro {
   display: grid;
+  min-width: 0;
+  flex: 1 1 auto;
   gap: 10px;
 }
 
