@@ -25,7 +25,11 @@ export function SkillRefillForm({
   return (
     <form action={action} className="skillRefillForm">
       <input name="skillId" type="hidden" value={skillId} />
-      <button className="primaryButton" disabled={!canRefill || isPending} type="submit">
+      <button
+        className={canRefill || isPending ? "primaryButton" : "secondaryButton"}
+        disabled={!canRefill || isPending}
+        type="submit"
+      >
         {isPending ? "Queuing..." : buttonLabel}
       </button>
       {state.message ? (
