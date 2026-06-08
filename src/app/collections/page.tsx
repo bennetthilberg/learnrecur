@@ -144,7 +144,7 @@ function ActiveCollectionRow({
       <div className="collectionRowActions">
         <Link
           aria-label={`Practice collection ${collection.name}`}
-          className="secondaryButton"
+          className="secondaryButton collectionPracticeLink"
           href={`/practice?collectionId=${encodeURIComponent(collection.id)}`}
         >
           Practice

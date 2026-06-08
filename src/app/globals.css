@@ -3080,8 +3080,23 @@ a {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
-  gap: 10px;
-  margin-top: 13px;
+  gap: 8px;
+  margin-top: 14px;
+  border: 1px solid var(--lr-line);
+  border-radius: var(--lr-radius);
+  background: var(--lr-panel-soft);
+  padding: 8px;
+}
+
+.collectionPracticeLink {
+  border-color: var(--lr-primary-muted);
+  background: var(--lr-white);
+  color: var(--lr-primary-ink);
+}
+
+.collectionPracticeLink:hover {
+  border-color: hsl(219 97% 42% / 0.3);
+  background: var(--lr-primary-soft);
 }
 
 .collectionInlineDetails {
