@@ -1975,27 +1975,22 @@ a {
 
 .skillCreationPath {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  overflow: hidden;
-  border: 1px solid var(--lr-line);
-  border-radius: var(--lr-radius-lg);
-  background: var(--lr-panel);
-  box-shadow: var(--lr-shadow);
+  grid-template-columns: minmax(0, 1.08fr) repeat(2, minmax(0, 0.96fr));
+  border-top: 1px solid var(--lr-line);
+  border-bottom: 1px solid var(--lr-line);
 }
 
 .skillCreationPath div {
   display: grid;
   align-content: start;
-  gap: 7px;
-  padding: 14px 16px;
-}
-
-.skillCreationPath div:first-child {
-  background: var(--lr-panel-cool);
+  gap: 6px;
+  padding: 13px 0 14px;
 }
 
 .skillCreationPath div + div {
+  margin-left: 18px;
   border-left: 1px solid var(--lr-line);
+  padding-left: 18px;
 }
 
 .skillCreationPath span {
@@ -2006,6 +2001,10 @@ a {
 }
 
 .skillCreationPath div:first-child span {
+  color: var(--lr-primary-ink);
+}
+
+.skillCreationPath div:first-child strong {
   color: var(--lr-primary-ink);
 }
 
@@ -4437,17 +4436,19 @@ a {
   }
 
   .skillCreationPath {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1.08fr) repeat(2, minmax(0, 0.96fr));
   }
 
   .skillCreationPath div {
     gap: 5px;
-    padding: 12px;
+    padding: 12px 0;
   }
 
   .skillCreationPath div + div {
+    margin-left: 14px;
     border-top: 0;
     border-left: 1px solid var(--lr-line);
+    padding-left: 14px;
   }
 
   .skillManualSection {
@@ -5092,11 +5093,14 @@ a {
     grid-template-columns: 74px minmax(0, 1fr);
     align-items: baseline;
     gap: 10px;
+    padding: 11px 0;
   }
 
   .skillCreationPath div + div {
+    margin-left: 0;
     border-top: 1px solid var(--lr-line);
     border-left: 0;
+    padding-left: 0;
   }
 
   .dashboardHeader {

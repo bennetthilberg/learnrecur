@@ -147,6 +147,7 @@ Panels and cards should use a crisp, cool hairline border with restrained shadow
 Do not use subtle 3D card edges as part of the core design language. The app should stay flat, precise, and modern rather than skeuomorphic. The earlier dimensional-card experiment is retired unless deliberately reopened later.
 
 Creation entry points should show product priority through layout. Source-backed creation is the primary path and may use an asymmetric grid or lightly cool panel treatment; manual authoring should read as a fallback path instead of another identical card in a stack.
+Process helper strips should stay flatter than interactive panels. Use rules and text hierarchy for small workflow explanations; reserve bordered, shadowed panels for controls that actually collect input or show persistent records.
 
 ### Tables And Lists
 
