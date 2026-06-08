@@ -1478,16 +1478,18 @@ a {
   display: grid;
   gap: 0;
   width: min(100%, 560px);
-  margin: 2px 0 0;
-  border-top: 1px solid var(--lr-line);
-  border-bottom: 1px solid var(--lr-line);
+  margin: 4px 0 0;
+  overflow: hidden;
+  border: 1px solid var(--lr-line);
+  border-radius: var(--lr-radius);
+  background: var(--lr-panel-soft);
 }
 
 .practiceEmptyDetails div {
   display: grid;
   grid-template-columns: minmax(88px, 0.28fr) minmax(0, 1fr);
   gap: 14px;
-  padding: 9px 0;
+  padding: 10px 12px;
 }
 
 .practiceEmptyDetails div + div {
@@ -1992,21 +1994,27 @@ a {
 .settingsExportSummary {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 0.88fr);
-  gap: 18px;
+  gap: 10px;
   margin-top: 16px;
-  border-top: 1px solid var(--lr-line);
-  padding-top: 18px;
 }
 
 .settingsExportSummary section {
   display: grid;
   align-content: start;
   gap: 6px;
+  border: 1px solid var(--lr-line);
+  border-radius: var(--lr-radius);
+  background: var(--lr-panel-soft);
+  padding: 12px;
+}
+
+.settingsExportSummary section:first-child {
+  border-color: var(--lr-primary-muted);
+  background: var(--lr-primary-soft);
 }
 
 .settingsExportSummary section + section {
-  border-left: 1px solid var(--lr-line);
-  padding-left: 18px;
+  border-color: var(--lr-line-strong);
 }
 
 .settingsExportSummary h3 {
@@ -3337,13 +3345,6 @@ a {
 
   .settingsExportSummary {
     grid-template-columns: 1fr;
-  }
-
-  .settingsExportSummary section + section {
-    border-top: 1px solid var(--lr-line);
-    border-left: 0;
-    padding-top: 14px;
-    padding-left: 0;
   }
 
   .skillDraftGrid {
