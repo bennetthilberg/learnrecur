@@ -4816,20 +4816,19 @@ a {
 
   .historyTable tbody {
     display: grid;
-    gap: 12px;
+    gap: 0;
   }
 
   .historyTable tbody tr {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-    border: 1px solid var(--lr-line);
-    border-radius: var(--lr-radius);
-    background: var(--lr-panel-soft);
-    padding: 12px;
+    border-top: 1px solid var(--lr-line);
+    background: transparent;
+    padding: 14px 0;
   }
 
   .historyTable tbody tr:first-child {
-    border-color: var(--lr-line-strong);
+    border-top-color: var(--lr-line-strong);
   }
 
   .historyTable td {
