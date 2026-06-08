@@ -121,7 +121,7 @@ export default async function SettingsPage() {
           </div>
         </dl>
 
-        <details className="settingsExportDetails">
+        <details className="settingsExportDetails" open>
           <summary>
             <span>Export contents and exclusions</span>
             <small>No original uploaded files or private storage locations.</small>
