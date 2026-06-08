@@ -4093,6 +4093,15 @@ a {
     border-top: 1px solid var(--lr-line);
   }
 
+  .collectionCreateGrid {
+    grid-template-columns: minmax(135px, 0.7fr) minmax(190px, 1fr) auto;
+    gap: 12px;
+  }
+
+  .collectionCreateAction {
+    justify-content: flex-end;
+  }
+
   .dashboardMetricGrid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
