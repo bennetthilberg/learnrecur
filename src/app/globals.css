@@ -4081,6 +4081,43 @@ a {
     align-items: flex-start;
   }
 
+  .practiceFrame {
+    padding: 20px;
+  }
+
+  .practiceMetaRow {
+    margin-bottom: 18px;
+  }
+
+  .practicePromptPanel {
+    padding: 18px;
+  }
+
+  .practicePromptHeader {
+    margin-bottom: 8px;
+  }
+
+  .choiceGrid {
+    gap: 8px;
+    margin-top: 16px;
+  }
+
+  .choiceCard {
+    grid-template-columns: 28px minmax(0, 1fr);
+    min-height: 50px;
+    gap: 11px;
+    padding: 10px 12px;
+  }
+
+  .choiceIndex {
+    width: 28px;
+    height: 28px;
+  }
+
+  .practiceActions {
+    margin-top: 18px;
+  }
+
   .collectionRow {
     align-items: flex-start;
     display: grid;
