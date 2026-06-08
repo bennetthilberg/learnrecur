@@ -3846,19 +3846,64 @@ a {
     line-height: 0;
   }
 
-  .historyTable tr {
-    border-top: 1px solid var(--lr-line);
-    padding: 12px 0;
+  .historyTableWrapper {
+    overflow-x: visible;
   }
 
-  .historyTable tr:first-child {
-    border-top-color: var(--lr-line-strong);
+  .historyTable tbody {
+    display: grid;
+    gap: 12px;
+  }
+
+  .historyTable tbody tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    overflow: hidden;
+    border: 1px solid var(--lr-line);
+    border-radius: var(--lr-radius);
+    background: var(--lr-panel);
+    padding: 0;
+  }
+
+  .historyTable tbody tr:first-child {
+    border-color: var(--lr-line-strong);
   }
 
   .historyTable td {
-    width: auto;
+    min-width: 0;
     border-top: 0;
-    padding: 7px 0;
+    padding: 11px 12px;
+  }
+
+  .historyTable td:nth-child(n) {
+    width: 100%;
+  }
+
+  .historyTable td:nth-child(1) {
+    order: 2;
+  }
+
+  .historyTable td:nth-child(2) {
+    order: 1;
+    grid-column: 1 / -1;
+    border-bottom: 1px solid var(--lr-line);
+  }
+
+  .historyTable td:nth-child(3) {
+    order: 3;
+    grid-column: 1 / -1;
+    border-top: 1px solid var(--lr-line);
+  }
+
+  .historyTable td:nth-child(4) {
+    order: 4;
+    border-top: 1px solid var(--lr-line);
+  }
+
+  .historyTable td:nth-child(5) {
+    order: 5;
+    border-top: 1px solid var(--lr-line);
+    border-left: 1px solid var(--lr-line);
   }
 
   .historyTable td::before {
@@ -3868,6 +3913,19 @@ a {
     content: attr(data-label);
     font-size: var(--lr-text-2xs);
     font-weight: 500;
+  }
+
+  .historyResultStack {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .historyResultStack .historySubText {
+    grid-column: 1 / -1;
+  }
+
+  .historyAnswerLine {
+    min-width: 0;
   }
 
   .skillReviewRow {
