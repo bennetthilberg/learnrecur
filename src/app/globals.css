@@ -3860,17 +3860,15 @@ a {
 
 .historyAnswerLine {
   display: inline-grid;
-  min-width: min(100%, 148px);
+  min-width: min(100%, 136px);
   max-width: 100%;
-  gap: 2px;
-  border: 1px solid var(--lr-line);
-  border-radius: var(--lr-radius);
-  background: var(--lr-panel-soft);
+  gap: 3px;
+  border-top: 1px solid var(--lr-line);
   color: var(--lr-faint);
   font-size: var(--lr-text-2xs);
   font-weight: 500;
   line-height: var(--lr-leading-compact);
-  padding: 7px 9px;
+  padding-top: 7px;
 }
 
 .historyAnswerLine strong {
