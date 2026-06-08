@@ -2636,6 +2636,46 @@ a {
   font-weight: 500;
 }
 
+.skillQueueJobStatus {
+  display: grid;
+  max-width: 620px;
+  margin: 12px 0 0;
+  border-top: 1px solid var(--lr-line);
+  border-bottom: 1px solid var(--lr-line);
+}
+
+.skillQueueJobStatus div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  min-width: 0;
+  padding: 7px 0;
+}
+
+.skillQueueJobStatus div + div {
+  border-top: 1px solid var(--lr-line);
+}
+
+.skillQueueJobStatus dt {
+  overflow: hidden;
+  color: var(--lr-faint);
+  font-size: var(--lr-text-xs);
+  font-weight: 500;
+  line-height: var(--lr-leading-label);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.skillQueueJobStatus dd {
+  margin: 0;
+  color: var(--lr-ink-soft);
+  font-size: var(--lr-text-sm);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  line-height: var(--lr-leading-label);
+}
+
 .skillRefillForm {
   display: grid;
   justify-items: end;

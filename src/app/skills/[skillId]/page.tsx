@@ -185,6 +185,9 @@ export default async function SkillPage({
       exactInputUnlocked &&
       mathInventory.readyExerciseCount < DEFAULT_READY_MATH_TARGET &&
       !hasActiveMathRefillJob;
+    const unlockProgressLabel = `${formatCount(skill.repetitions)} of ${formatCount(
+      EXACT_INPUT_UNLOCK_REPETITIONS,
+    )} reviews`;
     const exactInputRefillButtonLabel = canRefillExactInput
       ? "Queue exact input"
       : exactInputUnlocked
@@ -308,11 +311,10 @@ export default async function SkillPage({
                 deterministic.
               </p>
               {latestChoiceGenerationJob ? (
-                <p className="skillQueueStatus">
-                  Latest choice generation: {formatJobStatus(latestChoiceGenerationJob.status)} ·{" "}
-                  {latestChoiceGenerationJob.acceptedCount} accepted /{" "}
-                  {latestChoiceGenerationJob.rejectedCount} rejected
-                </p>
+                <SkillQueueJobStatus
+                  job={latestChoiceGenerationJob}
+                  label="Latest choice generation"
+                />
               ) : null}
               {choiceRefillStatus ? <p className="skillQueueStatus">{choiceRefillStatus}</p> : null}
               {latestChoiceGenerationJob?.errorMessage ? (
@@ -340,7 +342,7 @@ export default async function SkillPage({
                       : canRefillExactInput
                         ? "Below target"
                         : "Full"
-                    : `${skill.repetitions} / ${EXACT_INPUT_UNLOCK_REPETITIONS} reviews`
+                    : unlockProgressLabel
                 }
                 stateTone={
                   exactInputUnlocked
@@ -356,12 +358,10 @@ export default async function SkillPage({
                 learner has practiced the skill with multiple choice first.
               </p>
               {latestExactInputGenerationJob ? (
-                <p className="skillQueueStatus">
-                  Latest exact-input generation:{" "}
-                  {formatJobStatus(latestExactInputGenerationJob.status)} ·{" "}
-                  {latestExactInputGenerationJob.acceptedCount} accepted /{" "}
-                  {latestExactInputGenerationJob.rejectedCount} rejected
-                </p>
+                <SkillQueueJobStatus
+                  job={latestExactInputGenerationJob}
+                  label="Latest exact-input generation"
+                />
               ) : null}
               {exactInputRefillStatus ? (
                 <p className="skillQueueStatus">{exactInputRefillStatus}</p>
@@ -391,7 +391,7 @@ export default async function SkillPage({
                       : canRefillMath
                         ? "Below target"
                         : "Full"
-                    : `${skill.repetitions} / ${EXACT_INPUT_UNLOCK_REPETITIONS} reviews`
+                    : unlockProgressLabel
                 }
                 stateTone={
                   exactInputUnlocked
@@ -407,11 +407,7 @@ export default async function SkillPage({
                 after the learner has completed a few scheduled reviews.
               </p>
               {latestMathGenerationJob ? (
-                <p className="skillQueueStatus">
-                  Latest math generation: {formatJobStatus(latestMathGenerationJob.status)} ·{" "}
-                  {latestMathGenerationJob.acceptedCount} accepted /{" "}
-                  {latestMathGenerationJob.rejectedCount} rejected
-                </p>
+                <SkillQueueJobStatus job={latestMathGenerationJob} label="Latest math generation" />
               ) : null}
               {mathRefillStatus ? <p className="skillQueueStatus">{mathRefillStatus}</p> : null}
               {latestMathGenerationJob?.errorMessage ? (
@@ -601,7 +597,7 @@ function SkillInventoryGroup({
         <span>{label}</span>
         <strong>
           <span>{formatCount(readyCount)}</span>
-          <small>/ {formatCount(targetCount)} ready</small>
+          <small>of {formatCount(targetCount)} ready</small>
         </strong>
       </div>
       <dl>
@@ -634,12 +630,41 @@ function SkillQueueStateStrip({
       <div>
         <dt>Ready</dt>
         <dd>
-          {formatCount(readyCount)} / {formatCount(targetCount)}
+          {formatCount(readyCount)} of {formatCount(targetCount)}
         </dd>
       </div>
       <div>
         <dt>State</dt>
         <dd>{stateLabel}</dd>
+      </div>
+    </dl>
+  );
+}
+
+function SkillQueueJobStatus({
+  job,
+  label,
+}: {
+  job: {
+    acceptedCount: number;
+    rejectedCount: number;
+    status: GenerationJobStatus;
+  };
+  label: string;
+}) {
+  return (
+    <dl className="skillQueueJobStatus" aria-label={label}>
+      <div>
+        <dt>{label}</dt>
+        <dd>{formatJobStatus(job.status)}</dd>
+      </div>
+      <div>
+        <dt>Accepted</dt>
+        <dd>{formatCount(job.acceptedCount)}</dd>
+      </div>
+      <div>
+        <dt>Rejected</dt>
+        <dd>{formatCount(job.rejectedCount)}</dd>
       </div>
     </dl>
   );
