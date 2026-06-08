@@ -2544,6 +2544,68 @@ a {
   padding-top: 0;
 }
 
+@media (min-width: 1180px) {
+  .skillQueuePanel {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: stretch;
+  }
+
+  .skillQueuePanel .skillPanelHeader {
+    grid-column: 1 / -1;
+  }
+
+  .skillQueuePanel .skillPanelHeader + .skillQueueBlock {
+    grid-column: auto;
+  }
+
+  .skillQueuePanel .skillQueueBlock {
+    grid-template-columns: minmax(0, 1fr);
+    align-content: start;
+    align-items: start;
+    gap: 14px;
+    min-height: 100%;
+  }
+
+  .skillQueuePanel .skillRefillForm {
+    align-self: end;
+    justify-items: start;
+  }
+
+  .skillQueuePanel .skillQueueStateStrip {
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 781px) and (max-width: 1179px) {
+  .skillQueuePanel {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+  }
+
+  .skillQueuePanel .skillPanelHeader,
+  .skillQueuePanel .skillPanelHeader + .skillQueueBlock {
+    grid-column: 1 / -1;
+  }
+
+  .skillQueuePanel .skillQueueBlock {
+    grid-template-columns: minmax(0, 1fr);
+    align-content: start;
+    align-items: start;
+    gap: 12px;
+    min-height: 100%;
+  }
+
+  .skillQueuePanel .skillRefillForm {
+    justify-items: start;
+  }
+
+  .skillQueuePanel .skillQueueStateStrip {
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .skillSourcePanel {
   display: grid;
   width: min(100%, 1040px);
@@ -4207,9 +4269,36 @@ a {
     align-items: end;
   }
 
+  .skillQueuePanel {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+  }
+
+  .skillQueuePanel .skillPanelHeader,
+  .skillQueuePanel .skillPanelHeader + .skillQueueBlock {
+    grid-column: 1 / -1;
+  }
+
+  .skillQueuePanel .skillQueueBlock {
+    grid-template-columns: minmax(0, 1fr);
+    align-content: start;
+    align-items: start;
+    gap: 12px;
+    min-height: 100%;
+  }
+
+  .skillQueuePanel .skillRefillForm {
+    justify-items: start;
+  }
+
   .skillQueueStateStrip {
     width: auto;
     grid-template-columns: repeat(2, minmax(96px, auto));
+  }
+
+  .skillQueuePanel .skillQueueStateStrip {
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .skillQueueStateStrip div + div {
