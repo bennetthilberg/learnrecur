@@ -2039,10 +2039,10 @@ a {
   min-height: 42px;
   align-items: center;
   gap: 10px;
-  border: 1px dashed hsl(219 97% 42% / 0.28);
+  border: 1px solid var(--lr-line-strong);
   border-radius: var(--lr-radius);
-  background: hsl(219 97% 42% / 0.025);
-  padding: 6px;
+  background: var(--lr-white);
+  padding: 6px 9px 6px 6px;
 }
 
 .skillFileControl:focus-within {
@@ -2073,7 +2073,9 @@ a {
 
 .skillFileName {
   min-width: 0;
+  border-left: 1px solid var(--lr-line);
   overflow: hidden;
+  padding-left: 10px;
   font-size: var(--lr-text-sm);
   line-height: var(--lr-leading-label);
   text-overflow: ellipsis;
