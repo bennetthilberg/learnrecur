@@ -204,7 +204,7 @@ function DraftSkillRow({ skill }: { skill: SkillsLibraryDraftSkill }) {
               Open
             </span>
           </Link>
-          <p>{skill.objective ?? "No objective yet."}</p>
+          <p>{skill.objective ?? "Objective not set."}</p>
         </div>
         <span className="dashboardChip">Draft</span>
       </div>
@@ -238,7 +238,7 @@ function ActiveSkillRow({ skill }: { skill: SkillsLibraryActiveSkill }) {
               Open
             </span>
           </Link>
-          <p>{skill.objective ?? "No objective yet."}</p>
+          <p>{skill.objective ?? "Objective not set."}</p>
         </div>
         <span className="dashboardChip" data-tone={skill.isReadyNow ? "ready" : "neutral"}>
           {skill.dueLabel}
@@ -267,7 +267,7 @@ function RecoverySkillRow({ skill }: { skill: SkillsLibraryRecoverySkill }) {
               Open
             </span>
           </Link>
-          <p>{skill.objective ?? "No objective yet."}</p>
+          <p>{skill.objective ?? "Objective not set."}</p>
         </div>
         <span className="dashboardChip">{formatSkillStatus(skill.status)}</span>
       </div>
@@ -426,11 +426,11 @@ function formatRetryCount(count: number) {
 }
 
 function formatFsrsState(state: SkillsLibraryActiveSkill["fsrsState"]) {
-  return state.toLowerCase().replaceAll("_", " ");
+  return formatDisplayLabel(state);
 }
 
 function formatSkillStatus(status: SkillsLibraryRecoverySkill["status"]) {
-  return status.toLowerCase().replaceAll("_", " ");
+  return formatDisplayLabel(status);
 }
 
 function formatSourceFileStatus(status: SkillsLibrarySourceProcessingSummary["status"]) {
@@ -445,7 +445,14 @@ function formatSourceFileStatus(status: SkillsLibrarySourceProcessingSummary["st
 }
 
 function formatSourceKind(kind: SkillsLibrarySourceProcessingSummary["kind"]) {
-  return kind.toLowerCase().replaceAll("_", " ");
+  return formatDisplayLabel(kind);
+}
+
+function formatDisplayLabel(value: string) {
+  return value
+    .toLowerCase()
+    .replaceAll("_", " ")
+    .replace(/\b[a-z]/g, (letter) => letter.toUpperCase());
 }
 
 function formatByteSize(byteSize: number | null) {

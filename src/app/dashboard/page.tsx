@@ -273,5 +273,8 @@ function formatReadySummaryDetail(count: number) {
 }
 
 function formatFsrsState(state: DashboardHome["skills"][number]["fsrsState"]) {
-  return state.toLowerCase().replaceAll("_", " ");
+  return state
+    .toLowerCase()
+    .replaceAll("_", " ")
+    .replace(/\b[a-z]/g, (letter) => letter.toUpperCase());
 }
