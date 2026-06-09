@@ -261,6 +261,7 @@ Use chip-like badges for status, source labels, and small categorical metadata. 
 - White text on primary blue is acceptable.
 - Do not use light-gray body copy.
 - Interactive controls need visible focus states.
+- Dynamic form feedback that appears after an action should use a status role so visual confirmation is also announced.
 - Text should not overflow controls or cards at mobile widths.
 
 ## Anti-Slop Rules

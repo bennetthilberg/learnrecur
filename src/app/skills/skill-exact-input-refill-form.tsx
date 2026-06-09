@@ -32,7 +32,11 @@ export function SkillExactInputRefillForm({
         {pending ? "Queuing" : buttonLabel}
       </button>
       {state.message ? (
-        <p className="skillFormMessage" data-tone={state.status === "error" ? "error" : "saved"}>
+        <p
+          className="skillFormMessage"
+          data-tone={state.status === "error" ? "error" : "saved"}
+          role="status"
+        >
           {state.message}
         </p>
       ) : null}

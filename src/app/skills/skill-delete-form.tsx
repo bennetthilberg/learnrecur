@@ -41,7 +41,7 @@ export function SkillDeleteForm({ skillId, skillTitle }: SkillDeleteFormProps) {
           />
         </label>
         {state.message ? (
-          <p className="skillFormMessage" data-tone={state.status}>
+          <p className="skillFormMessage" data-tone={state.status} role="status">
             {state.message}
           </p>
         ) : null}

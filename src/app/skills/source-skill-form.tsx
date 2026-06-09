@@ -96,7 +96,7 @@ export function SourceSkillForm() {
       </details>
 
       {state.message ? (
-        <p className="skillFormMessage" data-tone={state.status}>
+        <p className="skillFormMessage" data-tone={state.status} role="status">
           {state.message}
         </p>
       ) : null}

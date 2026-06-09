@@ -38,7 +38,7 @@ export function SkillSourceRemoveForm({
           definition without this source.
         </p>
         {state.message ? (
-          <p className="skillFormMessage" data-tone={state.status}>
+          <p className="skillFormMessage" data-tone={state.status} role="status">
             {state.message}
           </p>
         ) : null}

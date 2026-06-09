@@ -123,7 +123,7 @@ export function SkillDraftForm({ mode, skillId, initialValues }: SkillDraftFormP
         </fieldset>
 
         {draftState.message ? (
-          <p className="skillFormMessage" data-tone={draftState.status}>
+          <p className="skillFormMessage" data-tone={draftState.status} role="status">
             {draftState.message}
           </p>
         ) : null}
@@ -153,7 +153,7 @@ export function SkillDraftForm({ mode, skillId, initialValues }: SkillDraftFormP
           </p>
 
           {activationState.message ? (
-            <p className="skillFormMessage" data-tone="error">
+            <p className="skillFormMessage" data-tone="error" role="status">
               {activationState.message}
             </p>
           ) : null}

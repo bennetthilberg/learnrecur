@@ -147,7 +147,11 @@ export function SourceUploadForm() {
       </details>
 
       {message ? (
-        <p className="skillFormMessage" data-tone={status === "error" ? "error" : "saved"}>
+        <p
+          className="skillFormMessage"
+          data-tone={status === "error" ? "error" : "saved"}
+          role="status"
+        >
           {message}
         </p>
       ) : null}

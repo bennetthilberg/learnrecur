@@ -46,7 +46,7 @@ export function SkillLifecycleForm({
       ) : null}
       {description ? <p>{description}</p> : null}
       {state.message ? (
-        <p className="skillFormMessage" data-tone={state.status}>
+        <p className="skillFormMessage" data-tone={state.status} role="status">
           {state.message}
         </p>
       ) : null}
