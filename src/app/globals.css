@@ -152,9 +152,7 @@ a {
   padding: 48px 32px;
 }
 
-.authCard,
-.statusPanel,
-.nextStepPanel {
+.authCard {
   background: var(--lr-panel);
   border: 1px solid var(--lr-line);
   border-radius: var(--lr-radius-lg);
@@ -206,9 +204,7 @@ a {
 }
 
 .entryPanel p:not(.entryBrand),
-.authIntro p,
-.nextStepPanel p,
-.statusPanel p {
+.authIntro p {
   margin: 0;
   color: var(--lr-muted);
   font-size: var(--lr-text-body);
@@ -1044,59 +1040,6 @@ a {
   margin: 18px auto 0;
   border-color: var(--lr-primary-muted);
   padding: 18px 20px;
-}
-
-.statusGrid {
-  display: grid;
-  width: min(100%, 1040px);
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px;
-  margin: 0 auto;
-}
-
-.statusPanel,
-.nextStepPanel {
-  padding: 24px;
-}
-
-.statusPanel h2,
-.nextStepPanel h2 {
-  margin: 6px 0 16px;
-  color: var(--lr-ink);
-  font-size: var(--lr-text-brand);
-  font-weight: 500;
-  line-height: var(--lr-leading-brand);
-  letter-spacing: 0;
-}
-
-.statusPanel dl {
-  display: grid;
-  gap: 12px;
-  margin: 0;
-}
-
-.statusPanel dl div {
-  min-width: 0;
-}
-
-.statusPanel dt {
-  margin-bottom: 3px;
-  color: var(--lr-faint);
-  font-size: var(--lr-text-xs);
-  font-weight: 500;
-}
-
-.statusPanel dd {
-  margin: 0;
-  overflow-wrap: anywhere;
-  color: var(--lr-ink);
-  font-size: var(--lr-text-md);
-  line-height: var(--lr-leading-copy);
-}
-
-.nextStepPanel {
-  width: min(100%, 1040px);
-  margin: 18px auto 0;
 }
 
 .practiceTopbar {
@@ -4459,10 +4402,6 @@ a {
     max-width: none;
   }
 
-  .statusGrid {
-    grid-template-columns: 1fr;
-  }
-
   .dashboardHeader {
     align-items: flex-start;
     display: grid;
@@ -5215,8 +5154,6 @@ a {
     gap: 5px;
   }
 
-  .statusPanel,
-  .nextStepPanel,
   .practiceFrame,
   .skillPanel,
   .skillActivatedPanel {
