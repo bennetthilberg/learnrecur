@@ -3697,7 +3697,7 @@ a {
 }
 
 .rowOpenCue {
-  color: var(--lr-primary-ink);
+  color: var(--lr-faint);
   font-size: var(--lr-text-xs);
   font-weight: 500;
 }
@@ -3706,6 +3706,7 @@ a {
 .skillLibraryRowMain a:focus-visible .rowOpenCue,
 .skillRow h3 a:hover .rowOpenCue,
 .skillRow h3 a:focus-visible .rowOpenCue {
+  color: var(--lr-primary-ink);
   text-decoration: underline;
   text-underline-offset: 3px;
 }
