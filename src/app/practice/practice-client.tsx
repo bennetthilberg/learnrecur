@@ -421,7 +421,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
           </div>
           <dl className="practiceSessionFacts" aria-label="Practice status">
             <div data-priority="primary">
-              <dt>Schedule</dt>
+              <dt>Memory stage</dt>
               <dd>{formatFsrsState(item.skill.fsrsState)}</dd>
             </div>
             <div>
@@ -538,7 +538,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
 
       {isCorrect ? (
         <fieldset className="ratingOverride">
-          <legend>Schedule rating</legend>
+          <legend>Review rating</legend>
           <div>
             {[FsrsRating.HARD, FsrsRating.GOOD, FsrsRating.EASY].map((rating) => (
               <button
@@ -572,7 +572,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
 
       {isIncorrect ? (
         <p className="practiceStatusLine" data-tone="attention">
-          Schedule rating: Again.
+          Review rating: Again.
         </p>
       ) : null}
 

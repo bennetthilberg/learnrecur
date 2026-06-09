@@ -194,7 +194,7 @@ function HistoryStateTransition({ review }: { review: PracticeHistoryReview }) {
   return (
     <span
       className="historyTransitionText"
-      aria-label={`State changed from ${previousState} to ${nextState}`}
+      aria-label={`Memory stage changed from ${previousState} to ${nextState}`}
     >
       <span>{previousState}</span>
       <span className="historyTransitionArrow" aria-hidden="true">

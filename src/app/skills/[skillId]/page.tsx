@@ -249,7 +249,7 @@ export default async function SkillPage({
               label="Collection"
               value={skill.collection?.name ?? "Uncollected"}
             />
-            <SkillStatusSummaryItem label="Schedule state" value={formatHistoryLabel(skill.fsrsState)} />
+            <SkillStatusSummaryItem label="Memory stage" value={formatHistoryLabel(skill.fsrsState)} />
             <SkillStatusSummaryItem label="Reviews" value={formatCount(skill.repetitions)} />
             <SkillStatusSummaryItem label="Exercises" value={formatCount(skill._count.exercises)} />
           </dl>
@@ -509,7 +509,7 @@ export default async function SkillPage({
               label="Collection"
               value={skill.collection?.name ?? "Uncollected"}
             />
-            <SkillStatusSummaryItem label="Schedule state" value={formatHistoryLabel(skill.fsrsState)} />
+            <SkillStatusSummaryItem label="Memory stage" value={formatHistoryLabel(skill.fsrsState)} />
             <SkillStatusSummaryItem label="Reviews" value={formatCount(skill.repetitions)} />
           </dl>
           <div className="skillInventoryGrid" aria-label="Exercise inventory">
@@ -743,7 +743,7 @@ function SkillLifecyclePanel({
       >
         {showPracticeStateControls ? (
           <div className="skillLifecycleGroup">
-            <h3>Practice state</h3>
+            <h3>Practice controls</h3>
             <p>Control whether this skill can appear in due practice.</p>
             {status === SkillStatus.ACTIVE ? (
               <SkillLifecycleForm
@@ -844,7 +844,7 @@ function SkillReviewStateTransition({ review }: { review: PracticeHistoryReview 
   return (
     <span
       className="historyTransitionText"
-      aria-label={`State changed from ${previousState} to ${nextState}`}
+      aria-label={`Memory stage changed from ${previousState} to ${nextState}`}
     >
       <span>{previousState}</span>
       <span className="historyTransitionArrow" aria-hidden="true">
