@@ -616,8 +616,7 @@ a {
 
 .dashboardReadySummary,
 .dashboardSupportMetrics,
-.dashboardPanel,
-.dashboardMessage {
+.dashboardPanel {
   border: 1px solid var(--lr-line);
   border-radius: var(--lr-radius-lg);
   background: var(--lr-panel);
@@ -1055,8 +1054,9 @@ a {
 .dashboardMessage {
   width: min(100%, 1040px);
   margin: 18px auto 0;
-  border-color: var(--lr-primary-muted);
-  padding: 18px 20px;
+  border-top: 1px solid var(--lr-primary-muted);
+  border-bottom: 1px solid var(--lr-primary-muted);
+  padding: 16px 0;
 }
 
 .practiceTopbar {
@@ -5352,9 +5352,12 @@ a {
   }
 
   .dashboardPanel,
-  .dashboardSetupPanel,
-  .dashboardMessage {
+  .dashboardSetupPanel {
     padding: 20px;
+  }
+
+  .dashboardMessage {
+    padding: 16px 0;
   }
 
   .collectionRow,
