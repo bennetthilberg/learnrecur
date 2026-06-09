@@ -122,6 +122,7 @@ When a choice is made, move it from this section into Locked Tokens or Component
 ### Entry Surface
 
 The public entry surface should feel like a compact product orientation, not a generic SaaS hero. Use concrete capability rows and a flat study-loop ledger; avoid placing the process explanation in a decorative mock card beside the headline.
+Auth pages should keep the third-party sign-in/up form as the only heavy bounded object. Account-context facts belong in a flat rule-separated list beside it.
 
 ### Buttons
 
