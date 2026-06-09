@@ -3753,6 +3753,12 @@ a {
   color: var(--lr-primary-ink);
 }
 
+.skillLibraryRowMain a:focus-visible {
+  outline: none;
+  color: var(--lr-primary-ink);
+  box-shadow: var(--lr-focus-ring);
+}
+
 .skillRow h3 a {
   display: inline-flex;
   flex-wrap: wrap;
@@ -3766,6 +3772,12 @@ a {
   color: var(--lr-primary-ink);
 }
 
+.skillRow h3 a:focus-visible {
+  outline: none;
+  color: var(--lr-primary-ink);
+  box-shadow: var(--lr-focus-ring);
+}
+
 .rowOpenCue {
   color: var(--lr-primary-ink);
   font-size: var(--lr-text-xs);
@@ -3773,7 +3785,9 @@ a {
 }
 
 .skillLibraryRowMain a:hover .rowOpenCue,
-.skillRow h3 a:hover .rowOpenCue {
+.skillLibraryRowMain a:focus-visible .rowOpenCue,
+.skillRow h3 a:hover .rowOpenCue,
+.skillRow h3 a:focus-visible .rowOpenCue {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
