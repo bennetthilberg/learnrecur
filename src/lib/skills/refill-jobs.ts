@@ -151,7 +151,7 @@ export async function queueChoiceExerciseRefillForSkill(
   );
 
   if (activeJob) {
-    return jobInProgress(activeJob.id, "Choice exercise generation is already queued or running.");
+    return jobInProgress(activeJob.id, "Choice exercise preparation has already started.");
   }
 
   const inventory = countChoiceExerciseInventory(skill.exercises);
@@ -226,7 +226,7 @@ export async function queueExactInputExerciseRefillForSkill(
   );
 
   if (activeJob) {
-    return jobInProgress(activeJob.id, "Exact-input generation is already queued or running.");
+    return jobInProgress(activeJob.id, "Exact-input exercise preparation has already started.");
   }
 
   const inventory = countExactInputExerciseInventory(skill.exercises);
@@ -301,7 +301,7 @@ export async function queueMathExerciseRefillForSkill(
   );
 
   if (activeJob) {
-    return jobInProgress(activeJob.id, "Math generation is already queued or running.");
+    return jobInProgress(activeJob.id, "Math exercise preparation has already started.");
   }
 
   const inventory = countMathExerciseInventory(skill.exercises);
@@ -428,7 +428,7 @@ async function queueExerciseRefillJob({
         throw retryError;
       }
     } else {
-      return jobInProgress(activeJob.id, "Exercise generation is already queued or running.");
+      return jobInProgress(activeJob.id, "Exercise preparation has already started.");
     }
   }
 
@@ -470,7 +470,7 @@ async function queueExerciseRefillJob({
     requestedCount,
     readyExerciseCount,
     targetReadyCount,
-    message: "Refill queued. Refresh in a moment to see the updated exercise inventory.",
+    message: "Exercise preparation started. Refresh in a moment to see the updated inventory.",
   };
 }
 

@@ -587,7 +587,7 @@ async function queueRefillAfterPracticeFlag({
     return {
       status: "not-queued",
       reason: "queue-error",
-      message: `Replacement generation was not queued: ${formatEnvError(error)}`,
+      message: `Replacement preparation could not start: ${formatEnvError(error)}`,
     };
   }
 }

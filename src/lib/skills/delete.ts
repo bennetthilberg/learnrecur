@@ -151,7 +151,7 @@ export async function deleteSkillPermanently(
       return {
         status: "not-deleted",
         reason: "job-in-progress",
-        message: "Wait for the current generation job to finish before deleting this skill.",
+        message: "Wait for the current exercise preparation to finish before deleting this skill.",
       };
     }
 

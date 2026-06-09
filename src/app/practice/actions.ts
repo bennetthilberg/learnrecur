@@ -323,6 +323,6 @@ function formatFlagRefillMessage(refill: PracticeFlagRefillResult): string {
     case "unsupported-answer-kind":
       return "Replacement exercises are not available for this answer type yet.";
     default:
-      return "No replacement exercise was queued.";
+      return "Replacement preparation could not start.";
   }
 }
