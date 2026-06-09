@@ -318,7 +318,7 @@ a {
   border: 1px solid var(--lr-line);
   border-radius: var(--lr-radius-chip);
   background: var(--lr-fill);
-  color: var(--lr-primary-ink);
+  color: var(--lr-muted);
   font-size: var(--lr-text-xs);
   font-weight: 500;
   line-height: var(--lr-leading-compact);
