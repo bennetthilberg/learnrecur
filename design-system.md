@@ -154,6 +154,8 @@ Do not use subtle 3D card edges as part of the core design language. The app sho
 Creation entry points should show product priority through layout. Source-backed creation is the primary path and may use an asymmetric grid or lightly cool panel treatment; manual authoring should read as a fallback path instead of another identical card in a stack.
 Process helper strips should stay flatter than interactive panels. Use rules and text hierarchy for small workflow explanations; reserve bordered, shadowed panels for controls that actually collect input or show persistent records.
 
+Setup and infrastructure-unavailable notices should also stay flat. Use a narrow ruled text block for database/auth/provider setup states instead of a centered shadowed card, since these states support recovery rather than presenting a primary product object.
+
 ### Tables And Lists
 
 Data table treatment: rules.
