@@ -634,6 +634,7 @@ a {
 
 .dashboardSetupPanel p {
   margin: 0;
+  overflow-wrap: anywhere;
   color: var(--lr-muted);
   font-size: var(--lr-text-body);
   line-height: var(--lr-leading-body);
