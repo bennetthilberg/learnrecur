@@ -3310,12 +3310,12 @@ a {
 }
 
 .skillSourcePreview {
-  margin: 12px 0 0;
-  border: 1px solid var(--lr-line);
-  border-radius: var(--lr-radius);
-  background: var(--lr-fill);
+  margin: 13px 0 0;
+  border-top: 1px solid var(--lr-line);
+  border-bottom: 1px solid var(--lr-line);
+  background: transparent;
   color: var(--lr-ink-soft);
-  padding: 11px 12px;
+  padding: 10px 0 10px 12px;
   font-size: var(--lr-text-sm);
   line-height: var(--lr-leading-body);
 }
