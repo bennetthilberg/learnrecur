@@ -119,6 +119,10 @@ When a choice is made, move it from this section into Locked Tokens or Component
 
 ## Component Principles
 
+### Entry Surface
+
+The public entry surface should feel like a compact product orientation, not a generic SaaS hero. Use concrete capability rows and a flat study-loop ledger; avoid placing the process explanation in a decorative mock card beside the headline.
+
 ### Buttons
 
 Primary buttons use `#034cd5` with white text. Secondary buttons should use a light blue background and dark blue text. Default or ghost buttons should be white with a clear but quiet boundary.

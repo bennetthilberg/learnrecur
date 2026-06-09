@@ -267,11 +267,10 @@ a {
 }
 
 .entryProcessPanel {
-  overflow: hidden;
-  border: 1px solid var(--lr-line);
-  border-radius: var(--lr-radius-lg);
-  background: var(--lr-panel);
-  box-shadow: var(--lr-shadow);
+  align-self: start;
+  border-top: 1px solid var(--lr-line);
+  border-bottom: 1px solid var(--lr-line);
+  background: transparent;
 }
 
 .entryProcessHeader {
@@ -280,8 +279,7 @@ a {
   justify-content: space-between;
   gap: 14px;
   border-bottom: 1px solid var(--lr-line);
-  background: var(--lr-panel-cool);
-  padding: 16px 18px;
+  padding: 0 0 14px;
 }
 
 .entryProcessHeader span {
@@ -308,11 +306,7 @@ a {
   grid-template-columns: 76px 1fr;
   gap: 14px;
   border-bottom: 1px solid var(--lr-line);
-  padding: 16px 18px;
-}
-
-.entryProcessList li:first-child {
-  background: var(--lr-panel-cool);
+  padding: 16px 0;
 }
 
 .entryProcessList li:last-child {
