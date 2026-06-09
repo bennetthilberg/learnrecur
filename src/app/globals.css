@@ -348,7 +348,7 @@ a {
 
 .eyebrow {
   margin: 0;
-  color: var(--lr-primary-ink);
+  color: var(--lr-muted);
   font-size: var(--lr-text-sm);
   font-weight: 500;
   line-height: var(--lr-leading-normal);
@@ -696,6 +696,10 @@ a {
 .dashboardReadySummary .eyebrow,
 .dashboardReadySummary p {
   margin: 0;
+}
+
+.dashboardReadySummary[data-ready="true"] .eyebrow {
+  color: var(--lr-primary-ink);
 }
 
 .dashboardReadySummary > p:not(.eyebrow) {
