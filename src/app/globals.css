@@ -1079,8 +1079,8 @@ a {
 .dashboardMessage {
   width: min(100%, 1040px);
   margin: 18px auto 0;
-  border-top: 1px solid var(--lr-primary-muted);
-  border-bottom: 1px solid var(--lr-primary-muted);
+  border-top: 1px solid var(--lr-line);
+  border-bottom: 1px solid var(--lr-line);
   padding: 16px 0;
 }
 
