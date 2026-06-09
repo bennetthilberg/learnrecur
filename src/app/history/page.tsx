@@ -16,6 +16,7 @@ import {
 } from "@/lib/practice/history-formatters";
 import { ensureDatabaseUser } from "@/lib/users";
 
+import { MathText } from "../practice/math-text";
 import { SkillsTopbar } from "../skills/skills-topbar";
 
 export const dynamic = "force-dynamic";
@@ -145,7 +146,9 @@ function HistoryTable({ reviews }: { reviews: PracticeHistoryReview[] }) {
                   </span>
                   <span className="historyAnswerLine">
                     <span>Correct answer</span>
-                    <strong>{review.correctAnswerDisplay}</strong>
+                    <strong>
+                      <MathText text={review.correctAnswerDisplay} />
+                    </strong>
                   </span>
                 </div>
                 <span className="historySubText">{formatResponseTime(review.responseMs)}</span>
