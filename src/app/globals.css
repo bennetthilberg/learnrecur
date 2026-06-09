@@ -1374,10 +1374,10 @@ a {
   display: inline-flex;
   min-height: 24px;
   align-items: center;
-  border: 1px solid var(--lr-primary-muted);
+  border: 1px solid var(--lr-line);
   border-radius: var(--lr-radius-chip);
-  background: var(--lr-panel);
-  color: var(--lr-primary-ink);
+  background: var(--lr-fill);
+  color: var(--lr-muted);
   padding: 4px 8px;
   font-size: var(--lr-text-xs);
   font-weight: 500;
