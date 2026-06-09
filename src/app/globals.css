@@ -2078,8 +2078,6 @@ a {
 
 .skillManualSection {
   margin-top: 6px;
-  border-top: 1px solid var(--lr-line);
-  padding-top: 22px;
 }
 
 .skillManualSummary {
@@ -2087,17 +2085,15 @@ a {
   align-items: flex-start;
   justify-content: flex-start;
   gap: 18px;
-  border: 1px solid var(--lr-line);
-  border-radius: var(--lr-radius-lg);
-  background: var(--lr-panel);
-  box-shadow: var(--lr-shadow);
+  border-top: 1px solid var(--lr-line);
+  border-bottom: 1px solid var(--lr-line);
+  background: transparent;
   cursor: pointer;
   list-style: none;
-  padding: 18px 20px;
+  padding: 16px 0;
   transition:
     background-color 140ms ease,
-    border-color 140ms ease,
-    box-shadow 140ms ease;
+    border-color 140ms ease;
 }
 
 .skillManualSummary::marker,
@@ -2128,8 +2124,8 @@ a {
 
 .skillManualSummary:hover,
 .skillManualSection[open] .skillManualSummary {
-  border-color: var(--lr-primary-muted);
-  background: var(--lr-panel-cool);
+  border-color: hsl(219 97% 42% / 0.24);
+  background: transparent;
 }
 
 .skillManualSummary:focus-visible {
