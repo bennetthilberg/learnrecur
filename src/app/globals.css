@@ -1818,7 +1818,7 @@ a {
 }
 
 .practiceEmptyUtilityLinks a {
-  color: var(--lr-primary-ink);
+  color: var(--lr-muted);
   font-size: var(--lr-text-sm);
   font-weight: 500;
   line-height: var(--lr-leading-label);
@@ -1826,8 +1826,15 @@ a {
 }
 
 .practiceEmptyUtilityLinks a:hover {
+  color: var(--lr-primary-ink);
   text-decoration: underline;
   text-underline-offset: 3px;
+}
+
+.practiceEmptyUtilityLinks a:focus-visible {
+  outline: none;
+  color: var(--lr-primary-ink);
+  box-shadow: var(--lr-focus-ring);
 }
 
 .practiceEmptyDetails {
@@ -1835,17 +1842,15 @@ a {
   gap: 0;
   width: min(100%, 560px);
   margin: 4px 0 0;
-  overflow: hidden;
-  border: 1px solid var(--lr-line);
-  border-radius: var(--lr-radius);
-  background: var(--lr-panel-soft);
+  border-top: 1px solid var(--lr-line);
+  border-bottom: 1px solid var(--lr-line);
 }
 
 .practiceEmptyDetails div {
   display: grid;
   grid-template-columns: minmax(88px, 0.28fr) minmax(0, 1fr);
   gap: 14px;
-  padding: 10px 12px;
+  padding: 10px 0;
 }
 
 .practiceEmptyDetails div + div {
