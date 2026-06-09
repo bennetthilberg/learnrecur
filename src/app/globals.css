@@ -606,7 +606,6 @@ a {
   line-height: var(--lr-leading-body);
 }
 
-.dashboardSetupPanel,
 .dashboardReadySummary,
 .dashboardSupportMetrics,
 .dashboardPanel,
@@ -620,7 +619,9 @@ a {
 .dashboardSetupPanel {
   width: min(100%, 680px);
   margin: 0 auto;
-  padding: 26px;
+  border-top: 1px solid var(--lr-line);
+  border-bottom: 1px solid var(--lr-line);
+  padding: 22px 0;
 }
 
 .dashboardSetupPanel h1 {
