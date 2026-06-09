@@ -68,7 +68,7 @@ export function CollectionUpdateForm({
 
   return (
     <details className="collectionInlineDetails">
-      <summary>Edit</summary>
+      <summary aria-label={`Edit collection ${collection.name}`}>Edit</summary>
       <form action={formAction} className="collectionInlineForm">
         <input name="collectionId" type="hidden" value={collection.id} />
         <label className="skillField">
