@@ -193,7 +193,7 @@ Practice session metadata should be compact and explicitly labeled. Avoid floati
 Practice report controls sit inside the review frame, so their wrapper should be a rule-separated disclosure block rather than a nested mini-card. The reason checkboxes remain visible controls; the panel itself should not compete with answer feedback.
 Practice history is a ledger, not a stack of cards. On narrow screens, keep review rows rule-separated with explicit labels instead of wrapping each review in a mini-card.
 Ledger transition marks such as due-date or FSRS-state arrows should stay typographic. Avoid turning every arrow into a bordered badge inside dense history rows.
-Lifecycle controls should be rule-separated inside the skill panel, not nested in another rounded card. Danger copy and destructive buttons can carry the warning tone without tinting an entire inner container.
+Lifecycle controls should be rule-separated inside the skill panel, not nested in another rounded card. Danger copy and destructive buttons can carry the warning tone without tinting an entire inner container. Destructive checkbox confirmations should also be ruled rows; reserve full input boxes for exact-title confirmation fields.
 
 Collection-scoped practice actions should reflect readiness. When a collection has due work, the row action may use the primary blue treatment and a specific label such as Practice due; collections without due work should keep a quieter secondary action so users do not read every row as equally urgent.
 

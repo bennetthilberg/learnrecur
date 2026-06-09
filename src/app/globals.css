@@ -3389,13 +3389,13 @@ a {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  border: 1px solid var(--lr-danger-line);
-  border-radius: var(--lr-radius);
-  background: var(--lr-panel);
+  border-top: 1px solid var(--lr-danger-line);
+  border-bottom: 1px solid var(--lr-danger-line);
+  background: transparent;
   color: var(--lr-danger-ink);
   font-size: var(--lr-text-xs);
   line-height: var(--lr-leading-normal);
-  padding: 9px 10px;
+  padding: 9px 0;
 }
 
 .skillSourceConfirm input {
@@ -3537,13 +3537,13 @@ a {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  border: 1px solid var(--lr-danger-line);
-  border-radius: var(--lr-radius);
-  background: var(--lr-panel);
+  border-top: 1px solid var(--lr-danger-line);
+  border-bottom: 1px solid var(--lr-danger-line);
+  background: transparent;
   color: var(--lr-danger-ink);
   font-size: var(--lr-text-xs);
   line-height: var(--lr-leading-normal);
-  padding: 9px 10px;
+  padding: 9px 0;
 }
 
 .skillLifecycleConfirm input {
