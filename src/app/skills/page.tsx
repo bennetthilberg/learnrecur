@@ -375,9 +375,9 @@ function GenerationJobStatusLine({ job }: { job: SkillsLibraryGenerationJobSumma
 
   return (
     <div className="skillLibraryStatus" data-tone={failed ? "error" : "neutral"}>
-      <dl className="skillLibraryStatusFacts" aria-label="Latest generation job">
+      <dl className="skillLibraryStatusFacts" aria-label="Latest generation run">
         <div>
-          <dt>Latest job</dt>
+          <dt>Latest generation</dt>
           <dd>{formatJobStatus(job.status)}</dd>
         </div>
         <div>

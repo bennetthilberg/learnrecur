@@ -131,14 +131,14 @@ export default async function SettingsPage() {
               <h3>Included</h3>
               <p>
                 Collections, skills, stored source text, exercises, attempts,
-                review logs, flags, generation job metadata, and reminder records.
+                review history, flags, generation status records, and reminders.
               </p>
             </section>
             <section>
               <h3>Left out</h3>
               <p>
                 Original uploaded file bytes, private storage locations, API keys,
-                and raw AI prompts.
+                and private model prompts.
               </p>
             </section>
           </div>

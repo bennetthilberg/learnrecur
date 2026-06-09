@@ -249,7 +249,7 @@ export default async function SkillPage({
               label="Collection"
               value={skill.collection?.name ?? "Uncollected"}
             />
-            <SkillStatusSummaryItem label="FSRS state" value={formatHistoryLabel(skill.fsrsState)} />
+            <SkillStatusSummaryItem label="Schedule state" value={formatHistoryLabel(skill.fsrsState)} />
             <SkillStatusSummaryItem label="Reviews" value={formatCount(skill.repetitions)} />
             <SkillStatusSummaryItem label="Exercises" value={formatCount(skill._count.exercises)} />
           </dl>
@@ -509,7 +509,7 @@ export default async function SkillPage({
               label="Collection"
               value={skill.collection?.name ?? "Uncollected"}
             />
-            <SkillStatusSummaryItem label="FSRS state" value={formatHistoryLabel(skill.fsrsState)} />
+            <SkillStatusSummaryItem label="Schedule state" value={formatHistoryLabel(skill.fsrsState)} />
             <SkillStatusSummaryItem label="Reviews" value={formatCount(skill.repetitions)} />
           </dl>
           <div className="skillInventoryGrid" aria-label="Exercise inventory">
