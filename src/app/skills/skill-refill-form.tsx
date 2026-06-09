@@ -18,7 +18,7 @@ const idleState: SkillFormActionState = {
 export function SkillRefillForm({
   skillId,
   canRefill,
-  buttonLabel = "Queue more exercises",
+  buttonLabel = "Prepare more exercises",
 }: SkillRefillFormProps) {
   const [state, action, isPending] = useActionState(refillChoiceExercisesAction, idleState);
 
@@ -30,7 +30,7 @@ export function SkillRefillForm({
         disabled={!canRefill || isPending}
         type="submit"
       >
-        {isPending ? "Queuing" : buttonLabel}
+        {isPending ? "Preparing" : buttonLabel}
       </button>
       {state.message ? (
         <p className="skillFormMessage" data-tone={state.status} role="status">

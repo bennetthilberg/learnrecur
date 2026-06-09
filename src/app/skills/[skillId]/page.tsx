@@ -189,23 +189,23 @@ export default async function SkillPage({
       EXACT_INPUT_UNLOCK_REPETITIONS,
     )} reviews`;
     const exactInputRefillButtonLabel = canRefillExactInput
-      ? "Queue exact input"
+      ? "Prepare exact input"
       : exactInputUnlocked
         ? hasActiveExactInputRefillJob
-          ? "Exact input queued"
-          : "Exact input full"
+          ? "Preparing exact input"
+          : "Target met"
         : `After ${formatCount(EXACT_INPUT_UNLOCK_REPETITIONS)} reviews`;
     const choiceRefillButtonLabel = canRefill
-      ? "Queue more exercises"
+      ? "Prepare more exercises"
       : hasActiveChoiceRefillJob
-        ? "Refill queued"
-        : "Queue full";
+        ? "Preparing exercises"
+        : "Target met";
     const mathRefillButtonLabel = canRefillMath
-      ? "Queue math"
+      ? "Prepare math"
       : exactInputUnlocked
         ? hasActiveMathRefillJob
-          ? "Math queued"
-          : "Math full"
+          ? "Preparing math"
+          : "Target met"
         : `After ${formatCount(EXACT_INPUT_UNLOCK_REPETITIONS)} reviews`;
     const choiceRefillStatus =
       latestChoiceGenerationJob && hasActiveGenerationJob(latestChoiceGenerationJob)
@@ -301,7 +301,7 @@ export default async function SkillPage({
               <SkillQueueStateStrip
                 readyCount={inventory.readyExerciseCount}
                 stateLabel={
-                  hasActiveChoiceRefillJob ? "Refill running" : canRefill ? "Below target" : "Full"
+                  hasActiveChoiceRefillJob ? "Preparing" : canRefill ? "Below target" : "Target met"
                 }
                 stateTone={canRefill || hasActiveChoiceRefillJob ? "attention" : "ready"}
                 targetCount={DEFAULT_READY_EXERCISE_TARGET}
@@ -344,10 +344,10 @@ export default async function SkillPage({
                 stateLabel={
                   exactInputUnlocked
                     ? hasActiveExactInputRefillJob
-                      ? "Refill running"
+                      ? "Preparing"
                       : canRefillExactInput
                         ? "Below target"
-                        : "Full"
+                        : "Target met"
                     : reviewProgressLabel
                 }
                 stateTone={
@@ -406,10 +406,10 @@ export default async function SkillPage({
                 stateLabel={
                   exactInputUnlocked
                     ? hasActiveMathRefillJob
-                      ? "Refill running"
+                      ? "Preparing"
                       : canRefillMath
                         ? "Below target"
-                        : "Full"
+                        : "Target met"
                     : reviewProgressLabel
                 }
                 stateTone={

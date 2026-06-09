@@ -29,7 +29,7 @@ export function SkillMathRefillForm({
     <form className="skillRefillForm" action={formAction}>
       <input name="skillId" type="hidden" value={skillId} />
       <button className="secondaryButton" type="submit" disabled={!canRefill || pending}>
-        {pending ? "Queuing" : buttonLabel}
+        {pending ? "Preparing" : buttonLabel}
       </button>
       {state.message ? (
         <p
