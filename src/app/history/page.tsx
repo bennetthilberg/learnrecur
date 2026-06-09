@@ -58,8 +58,8 @@ export default async function HistoryPage() {
           <p className="eyebrow">History</p>
           <h1>Review ledger.</h1>
           <p>
-            A compact record of completed reviews, deterministic grading, and
-            the FSRS schedule transition after each answer.
+            A compact record of completed reviews, grading outcomes, and how each
+            answer changed the schedule.
           </p>
         </div>
         <div className="dashboardHeaderActions">
@@ -89,8 +89,8 @@ export default async function HistoryPage() {
           <div className="dashboardEmptyState">
             <h3>No completed reviews yet.</h3>
             <p>
-              Answer a practice item, check it, then press Continue to write the
-              first review log.
+              Answer a practice item, check it, then continue to record your
+              first completed review.
             </p>
             <Link className="secondaryButton" href="/practice">
               Open practice

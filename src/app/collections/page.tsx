@@ -90,7 +90,7 @@ export default async function CollectionsPage() {
         {home.activeCollections.length === 0 ? (
           <CollectionEmptyState
             title="No active collections yet."
-            detail="Use the form above to create the first study area, then scope practice from its row."
+            detail="Create a study area, then use its row to practice only that collection."
           />
         ) : (
           <div className="skillLibraryList">

@@ -122,7 +122,7 @@ export default async function DashboardPage() {
           {dashboard.collections.length === 0 ? (
             <DashboardEmptyState
               title="No study areas yet."
-              detail="Create a collection first, or add a collection name while drafting a skill."
+              detail="Create a study area, or name one while drafting a skill."
               actionHref="/collections"
               actionLabel="Manage collections"
             />
