@@ -178,6 +178,7 @@ Settings summaries follow the same pattern: the saved state appears first and su
 Dashboard collection summaries should lead with ready-now count because it determines whether the scoped practice action is urgent; active skill count is supporting context.
 Dashboard collection facts should stay flat inside collection rows. Use compact inline labels, tabular numbers, and a thin divider between related facts rather than boxed mini-stat cards inside the panel.
 Collection management rows follow the same rule: ready-now count is the row-level action signal, while skill mix, sources, and update date stay as flat inline metadata.
+When collection metadata wraps on narrow screens, drop inline dividers and rely on spacing; separators should never appear at the beginning of a wrapped fact.
 Skills-library inventory strips should lead with ready practice inventory, then show verified, retired, and source counts as quieter supporting facts. If the strip wraps on narrow screens, remove vertical dividers rather than letting separators appear at the start of a new line.
 Ordinary skill metadata such as collection, FSRS state, repetitions, lapses, and update dates should render as flat inline facts with light dividers. Reserve chip styling for actual statuses, tags, and selectable/meaningful categories.
 Active skill detail inventory uses the same ready-first emphasis: the current choice queue gets the strongest position, while later recall modes remain supporting until the learner unlocks or fills them.
