@@ -463,14 +463,14 @@ function getSourceProcessingStatusCopy(sourceFile: SkillsLibrarySourceProcessing
   }
 
   if (sourceFile.status === "UPLOADED") {
-    return "Queued for draft generation. Check back after processing starts.";
+    return "Queued for draft generation. Check back soon.";
   }
 
   if (sourceFile.isStaleProcessing) {
     return "Processing appears stuck. Requeue it when you are ready to try again.";
   }
 
-  return "Draft generation is running in the background.";
+  return "Draft generation is in progress.";
 }
 
 function getSourceProcessingStatusTone(sourceFile: SkillsLibrarySourceProcessingSummary) {
