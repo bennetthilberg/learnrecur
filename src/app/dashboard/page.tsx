@@ -43,7 +43,7 @@ export default async function DashboardPage() {
       <header className="dashboardHeader">
         <div>
           <p className="eyebrow">Today</p>
-          <h1>Practice queue.</h1>
+          <h1>Due practice.</h1>
           <p>
             A compact read on what is ready, what is active, and how the recent
             review loop is holding up.
@@ -80,7 +80,7 @@ export default async function DashboardPage() {
           </div>
           <p>
             {dashboard.readyNowCount > 0
-              ? "Start with the earliest due active skill, then keep moving through the queue."
+              ? "Start with the earliest due active skill, then continue through today's reviews."
               : "Every active skill is scheduled for later or waiting on verified exercises."}
           </p>
         </article>
@@ -225,7 +225,7 @@ export default async function DashboardPage() {
       {dashboard.readyNowCount === 0 ? (
         <section className="dashboardMessage" aria-label="Practice status">
           <div>
-            <p className="eyebrow">Queue</p>
+            <p className="eyebrow">Due practice</p>
             <h2>Nothing is ready for practice.</h2>
           </div>
           <p>

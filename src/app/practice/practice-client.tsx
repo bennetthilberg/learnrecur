@@ -369,7 +369,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
       <>
         <PracticeScopeBar scope={item.scope} />
         <section className="practiceFrame practiceEmpty" aria-labelledby="practice-empty-title">
-          <p className="eyebrow">Practice queue</p>
+          <p className="eyebrow">Due practice</p>
           <h1 id="practice-empty-title">
             {item.status === "none-due" ? "All caught up." : "No practice item found."}
           </h1>
