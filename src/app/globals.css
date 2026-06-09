@@ -5400,6 +5400,14 @@ a {
     padding-left: 0;
   }
 
+  .skillRowContext span + span,
+  .skillReviewMeta span + span,
+  .skillMetaLine > span:not(.dashboardTag) + span:not(.dashboardTag),
+  .historyMetaLine span + span {
+    border-left: 0;
+    padding-left: 0;
+  }
+
   .skillLibraryActivePanel .skillLibraryRowMain {
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: start;
