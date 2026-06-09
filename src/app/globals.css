@@ -239,7 +239,7 @@ a {
 }
 
 .entryCapabilityList dt {
-  color: var(--lr-primary-ink);
+  color: var(--lr-muted);
   font-size: var(--lr-text-xs);
   font-weight: 500;
   line-height: var(--lr-leading-label);
