@@ -121,9 +121,9 @@ export default async function SettingsPage() {
           </div>
         </dl>
 
-        <details className="settingsExportDetails" open>
+        <details className="settingsExportDetails">
           <summary>
-            <span>Export contents and exclusions</span>
+            <span>What the JSON includes</span>
             <small>No original uploaded files or private storage locations.</small>
           </summary>
           <div className="settingsExportSummary">

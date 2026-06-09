@@ -181,6 +181,7 @@ The dashboard summary uses this rule explicitly: ready practice is the dominant 
 Dashboard queue availability messages are support notices, not feature cards. Render them as narrow ruled text blocks so a no-work state does not compete visually with the primary ready-practice summary.
 Status surfaces should separate primary state from supporting inventory. Prefer a short summary strip for schedule/status facts and grouped rule-separated inventory rows over a large grid where every metric has identical weight.
 Settings summaries follow the same pattern: the saved state appears first and supporting schedule constraints are grouped beside or beneath it. Do not repeat that state as a header badge when the summary immediately follows the panel title.
+Settings secondary details should default to collapsed when the panel already exposes the action, state, and privacy-critical summary. Use the disclosure summary to name the hidden detail clearly.
 Dashboard collection summaries should lead with ready-now count because it determines whether the scoped practice action is urgent; active skill count is supporting context.
 Dashboard collection facts should stay flat inside collection rows. Use compact inline labels, tabular numbers, and a thin divider between related facts rather than boxed mini-stat cards inside the panel.
 Collection management rows follow the same rule: ready-now count is the row-level action signal, while skill mix, sources, and update date stay as flat inline metadata.
