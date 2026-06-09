@@ -346,8 +346,7 @@ a {
   line-height: var(--lr-leading-copy);
 }
 
-.eyebrow,
-.statusLabel {
+.eyebrow {
   margin: 0;
   color: var(--lr-primary-ink);
   font-size: var(--lr-text-sm);
@@ -2219,14 +2218,6 @@ a {
   font-size: var(--lr-text-2xl);
   font-weight: 500;
   line-height: var(--lr-leading-title);
-}
-
-.skillPanelCopy {
-  max-width: 720px;
-  margin: 0;
-  color: var(--lr-muted);
-  font-size: var(--lr-text-md);
-  line-height: var(--lr-leading-body);
 }
 
 .skillDraftForm {
