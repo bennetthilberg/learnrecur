@@ -186,6 +186,7 @@ Source material metadata should lead with readiness/status before file mechanics
 Uploaded-source processing rows use the same treatment: status copy and status chip carry the state; file mechanics and retry counts stay flat and inline.
 Generation job and failed-source status inside library rows should be ruled strips, not tinted mini-cards. Keep counts inline and let error text use danger ink without wrapping the whole row in another surface.
 Practice session metadata should be compact and explicitly labeled. Avoid floating unlabeled chips for mixed facts such as FSRS state and elapsed time; a small rule-separated status strip is clearer and quieter.
+Practice report controls sit inside the review frame, so their wrapper should be a rule-separated disclosure block rather than a nested mini-card. The reason checkboxes remain visible controls; the panel itself should not compete with answer feedback.
 Practice history is a ledger, not a stack of cards. On narrow screens, keep review rows rule-separated with explicit labels instead of wrapping each review in a mini-card.
 Lifecycle controls should be rule-separated inside the skill panel, not nested in another rounded card. Danger copy and destructive buttons can carry the warning tone without tinting an entire inner container.
 
