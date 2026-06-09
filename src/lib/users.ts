@@ -112,9 +112,24 @@ export async function ensureDatabaseUser(
   } catch (error) {
     return {
       status: "error",
-      message: formatEnvError(error),
+      message: formatDatabaseUserError(error),
     };
   }
+}
+
+function formatDatabaseUserError(error: unknown): string {
+  const message = formatEnvError(error);
+  const collapsedMessage = message.replace(/\s+/g, " ").trim();
+
+  if (/Authentication failed against the database server/i.test(collapsedMessage)) {
+    return "Database authentication failed. Check DATABASE_URL in .env.local, restart the dev server, then reload this page.";
+  }
+
+  if (/Can't reach database server/i.test(collapsedMessage)) {
+    return "Could not reach the database server. Check DATABASE_URL and network access, then reload this page.";
+  }
+
+  return message;
 }
 
 function getDisplayName(user: ClerkUserSnapshot): string | null {

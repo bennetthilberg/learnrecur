@@ -205,4 +205,27 @@ describe("ensureDatabaseUser", () => {
       message: "database is unavailable",
     });
   });
+
+  it("removes Prisma invocation noise from database authentication errors", async () => {
+    const { client } = makeMirrorClient(async () => {
+      throw new Error(
+        "Invalid `prisma.user.upsert()` invocation in /Users/main/repos/learnrecur/.next/dev/server/chunks/ssr/app.js:5378:40\n\n" +
+          "5375 const prisma = options.prisma\n" +
+          "5376 const email = clerkUser.primaryEmailAddress?.emailAddress ?? null\n" +
+          "→ 5378 const user = await prisma.user.upsert(\n" +
+          "Authentication failed against the database server, the provided database credentials for `(not available)` are not valid",
+      );
+    });
+
+    await expect(
+      ensureDatabaseUser(baseClerkUser, {
+        prisma: client,
+        skipEnvCheck: true,
+      }),
+    ).resolves.toEqual({
+      status: "error",
+      message:
+        "Database authentication failed. Check DATABASE_URL in .env.local, restart the dev server, then reload this page.",
+    });
+  });
 });
