@@ -4701,6 +4701,19 @@ a {
     padding-left: 0;
   }
 
+  .skillSourceFacts,
+  .sourceProcessingFacts,
+  .settingsExportFacts {
+    gap: 7px 13px;
+  }
+
+  .skillSourceFacts div + div,
+  .sourceProcessingFacts div + div,
+  .settingsExportFacts div + div {
+    border-left: 0;
+    padding-left: 0;
+  }
+
   .collectionRowActions {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
