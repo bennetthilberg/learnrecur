@@ -209,15 +209,15 @@ export default async function SkillPage({
         : `After ${formatCount(EXACT_INPUT_UNLOCK_REPETITIONS)} reviews`;
     const choiceRefillStatus =
       latestChoiceGenerationJob && hasActiveGenerationJob(latestChoiceGenerationJob)
-        ? `Choice refill ${formatJobStatus(latestChoiceGenerationJob.status)}. Counts update after the job finishes.`
+        ? `Choice exercise preparation is ${formatJobStatus(latestChoiceGenerationJob.status)}. Counts update when it finishes.`
         : null;
     const exactInputRefillStatus =
       latestExactInputGenerationJob && hasActiveGenerationJob(latestExactInputGenerationJob)
-        ? `Exact-input refill ${formatJobStatus(latestExactInputGenerationJob.status)}. Counts update after the job finishes.`
+        ? `Exact-input exercise preparation is ${formatJobStatus(latestExactInputGenerationJob.status)}. Counts update when it finishes.`
         : null;
     const mathRefillStatus =
       latestMathGenerationJob && hasActiveGenerationJob(latestMathGenerationJob)
-        ? `Math refill ${formatJobStatus(latestMathGenerationJob.status)}. Counts update after the job finishes.`
+        ? `Math exercise preparation is ${formatJobStatus(latestMathGenerationJob.status)}. Counts update when it finishes.`
         : null;
 
     return (
@@ -312,7 +312,7 @@ export default async function SkillPage({
               {latestChoiceGenerationJob ? (
                 <SkillQueueJobStatus
                   job={latestChoiceGenerationJob}
-                  label="Latest choice generation"
+                  label="Latest choice preparation"
                 />
               ) : null}
               {choiceRefillStatus ? <p className="skillQueueStatus">{choiceRefillStatus}</p> : null}
@@ -366,7 +366,7 @@ export default async function SkillPage({
               {latestExactInputGenerationJob ? (
                 <SkillQueueJobStatus
                   job={latestExactInputGenerationJob}
-                  label="Latest exact-input generation"
+                  label="Latest exact-input preparation"
                 />
               ) : null}
               {exactInputRefillStatus ? (
@@ -428,7 +428,7 @@ export default async function SkillPage({
               {latestMathGenerationJob ? (
                 <SkillQueueJobStatus
                   job={latestMathGenerationJob}
-                  label="Latest math generation"
+                  label="Latest math preparation"
                 />
               ) : null}
               {mathRefillStatus ? <p className="skillQueueStatus">{mathRefillStatus}</p> : null}
@@ -564,7 +564,7 @@ export default async function SkillPage({
           <p className="eyebrow">Draft skill</p>
           <h1>{skill.title}</h1>
           <p>
-            Review the definition, save any changes, then activate it to generate
+            Review the definition, save any changes, then activate it to prepare
             starter multiple-choice practice.
           </p>
         </div>

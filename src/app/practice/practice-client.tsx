@@ -433,7 +433,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
 
       <article className="practicePromptPanel">
         {exercise.difficulty ? (
-          <div className="practicePromptHeader" aria-label="Exercise metadata">
+          <div className="practicePromptHeader" aria-label="Exercise details">
             <span>Level {exercise.difficulty}</span>
           </div>
         ) : null}
@@ -713,7 +713,7 @@ function PracticeEmptyDetails({
         ];
 
   return (
-    <dl className="practiceEmptyDetails" aria-label="Practice queue checks">
+    <dl className="practiceEmptyDetails" aria-label="Practice availability checks">
       {details.map(([label, detail]) => (
         <div key={label}>
           <dt>{label}</dt>

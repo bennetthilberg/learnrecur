@@ -241,7 +241,7 @@ export function SourceUploadForm() {
     }
 
     setStatus("queueing");
-    setMessage("Upload complete. Draft preparation is queued.");
+    setMessage("Upload complete. Draft preparation will start shortly.");
     const completed = await completeSourceUploadAction({
       sourceFileId: prepared.sourceFileId,
     });

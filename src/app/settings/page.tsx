@@ -131,7 +131,7 @@ export default async function SettingsPage() {
               <h3>Included</h3>
               <p>
                 Collections, skills, stored source text, exercises, attempts,
-                review history, flags, generation status records, and reminders.
+                review history, flags, preparation status records, and reminders.
               </p>
             </section>
             <section>

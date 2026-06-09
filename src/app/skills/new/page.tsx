@@ -63,7 +63,7 @@ export default async function NewSkillPage() {
           </div>
           <div>
             <span>Review</span>
-            <strong>Edit generated drafts.</strong>
+            <strong>Edit the drafts.</strong>
           </div>
           <div>
             <span>Activate</span>

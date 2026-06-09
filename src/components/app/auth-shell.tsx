@@ -23,7 +23,7 @@ export function AuthShell({ title, description, children }: AuthShellProps) {
           </div>
           <div>
             <dt>Drafts and sources</dt>
-            <dd>Private source material, generated drafts, and exercise inventory.</dd>
+            <dd>Private source material, editable drafts, and exercise inventory.</dd>
           </div>
           <div>
             <dt>Review record</dt>

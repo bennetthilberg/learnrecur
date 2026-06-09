@@ -75,7 +75,7 @@ export default async function SkillsPage({ searchParams }: SkillsPageProps) {
 
       {createdDraftCount ? (
         <p className="skillFormMessage" data-tone="saved" role="status">
-          Generated {formatCount(createdDraftCount)} draft
+          Created {formatCount(createdDraftCount)} draft
           {createdDraftCount === 1 ? "" : "s"}. Review each one before activation.
         </p>
       ) : null}
@@ -375,9 +375,9 @@ function GenerationJobStatusLine({ job }: { job: SkillsLibraryGenerationJobSumma
 
   return (
     <div className="skillLibraryStatus" data-tone={failed ? "error" : "neutral"}>
-      <dl className="skillLibraryStatusFacts" aria-label="Latest generation run">
+      <dl className="skillLibraryStatusFacts" aria-label="Latest preparation run">
         <div>
-          <dt>Latest generation</dt>
+          <dt>Latest preparation</dt>
           <dd>{formatJobStatus(job.status)}</dd>
         </div>
         <div>
