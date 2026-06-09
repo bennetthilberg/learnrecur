@@ -30,8 +30,8 @@ export function SkillSourcePanel({
         />
       </div>
       <p className="skillSourceIntro">
-        Linked source text helps future exercise generation match this skill. Previews are capped
-        here so the page does not expose the full pasted material at a glance.
+        Linked source text helps future exercises match this skill. Previews are capped here so
+        the full source stays out of view.
       </p>
       <div className="skillSourceList">
         {sources.map((source) => (
@@ -80,7 +80,7 @@ export function SkillSourcePanel({
 }
 
 function formatSourceKind(kind: SkillSourceSummary["kind"]) {
-  return kind.toLowerCase();
+  return formatSourceLabel(kind);
 }
 
 function formatCount(count: number) {
@@ -88,7 +88,14 @@ function formatCount(count: number) {
 }
 
 function formatSourceStatus(status: SkillSourceSummary["status"]) {
-  return status.toLowerCase();
+  return formatSourceLabel(status);
+}
+
+function formatSourceLabel(value: string) {
+  return value
+    .toLowerCase()
+    .replaceAll("_", " ")
+    .replace(/\b[a-z]/g, (letter) => letter.toUpperCase());
 }
 
 function formatDate(date: Date) {

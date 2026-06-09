@@ -26,8 +26,8 @@ export function SkillDeleteForm({ skillId, skillTitle }: SkillDeleteFormProps) {
       <form className="skillLifecycleForm skillDeleteForm" action={formAction}>
         <input name="skillId" type="hidden" value={skillId} />
         <p>
-          Permanent delete removes this skill and its generated practice history. Shared source
-          material stays linked to any other skills.
+          Permanent delete removes this skill, its exercises, and its practice history. Shared
+          source material stays linked to any other skills.
         </p>
         <label className="skillDeleteConfirm">
           <span>Type the skill title to confirm.</span>

@@ -34,8 +34,8 @@ export function SkillSourceRemoveForm({
           <span>Remove {sourceLabel} from this skill.</span>
         </label>
         <p>
-          Existing exercises and review history will stay. Future generation will use the skill
-          definition without this source.
+          Existing exercises and review history will stay. Future exercise preparation will use
+          the skill definition without this source.
         </p>
         {state.message ? (
           <p className="skillFormMessage" data-tone={state.status} role="status">
