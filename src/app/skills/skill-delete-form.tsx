@@ -22,7 +22,7 @@ export function SkillDeleteForm({ skillId, skillTitle }: SkillDeleteFormProps) {
 
   return (
     <details className="skillLifecycleDetails skillDeleteDetails">
-      <summary>Delete permanently</summary>
+      <summary aria-label={`Delete skill ${skillTitle} permanently`}>Delete permanently</summary>
       <form className="skillLifecycleForm skillDeleteForm" action={formAction}>
         <input name="skillId" type="hidden" value={skillId} />
         <p>
