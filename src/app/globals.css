@@ -2212,8 +2212,7 @@ a {
   grid-column: 1;
 }
 
-.skillPanel,
-.skillMessage {
+.skillPanel {
   border: 1px solid var(--lr-line);
   border-radius: var(--lr-radius-lg);
   background: var(--lr-panel);
@@ -2957,6 +2956,8 @@ a {
 .skillMessage {
   width: min(100%, 1040px);
   margin: 0 auto 18px;
+  border-radius: var(--lr-radius);
+  box-shadow: none;
   padding: 15px 17px;
 }
 
