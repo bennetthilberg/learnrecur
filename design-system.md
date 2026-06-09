@@ -123,6 +123,7 @@ When a choice is made, move it from this section into Locked Tokens or Component
 
 The public entry surface should feel like a compact product orientation, not a generic SaaS hero. Use concrete capability rows and a flat study-loop ledger; avoid placing the process explanation in a decorative mock card beside the headline.
 Auth pages should keep the third-party sign-in/up form as the only heavy bounded object. Account-context facts belong in a flat rule-separated list beside it.
+In auth-context lists, only the most important workspace fact should receive primary color. Supporting facts should use faint labels and muted copy so the account form remains the dominant object.
 
 ### Buttons
 

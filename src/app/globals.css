@@ -478,10 +478,19 @@ a {
 }
 
 .authAccessList dt {
-  color: var(--lr-primary-ink);
+  color: var(--lr-faint);
   font-size: var(--lr-text-xs);
   font-weight: 500;
   line-height: var(--lr-leading-label);
+}
+
+.authAccessList div:first-child dt,
+.authAccessList div:first-child dd {
+  color: var(--lr-primary-ink);
+}
+
+.authAccessList div:first-child dd {
+  font-weight: 500;
 }
 
 .authAccessList dd {
