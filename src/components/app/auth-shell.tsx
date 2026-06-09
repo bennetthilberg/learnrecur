@@ -18,8 +18,8 @@ export function AuthShell({ title, description, children }: AuthShellProps) {
         <p>{description}</p>
         <dl className="authAccessList" aria-label="Account workspace includes">
           <div>
-            <dt>Due queue</dt>
-            <dd>Scheduled skills and current practice readiness.</dd>
+            <dt>Due practice</dt>
+            <dd>Scheduled skills and current review readiness.</dd>
           </div>
           <div>
             <dt>Drafts and sources</dt>
