@@ -67,7 +67,7 @@ export default async function NewSkillPage() {
           </div>
           <div>
             <span>Activate</span>
-            <strong>Queue verified exercises.</strong>
+            <strong>Prepare verified exercises.</strong>
           </div>
         </section>
         <section className="skillSourceEntryGrid" aria-label="Source-backed draft options">

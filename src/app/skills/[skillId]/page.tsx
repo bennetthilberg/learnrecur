@@ -290,13 +290,13 @@ export default async function SkillPage({
         <section className="skillPanel skillQueuePanel" aria-labelledby="skill-queue-title">
           <div className="skillPanelHeader">
             <div>
-              <p className="eyebrow">Generation</p>
-              <h2 id="skill-queue-title">Exercise queues</h2>
+              <p className="eyebrow">Practice inventory</p>
+              <h2 id="skill-queue-title">Ready exercises</h2>
             </div>
           </div>
           <div className="skillQueueBlock">
             <div>
-              <p className="eyebrow">Exercise queue</p>
+              <p className="eyebrow">Choice practice</p>
               <h2>Ready choice exercises.</h2>
               <SkillQueueStateStrip
                 readyCount={inventory.readyExerciseCount}
@@ -665,7 +665,7 @@ function SkillQueueStateStrip({
         </dd>
       </div>
       <div data-role="state">
-        <dt>State</dt>
+        <dt>Status</dt>
         <dd>{stateLabel}</dd>
       </div>
     </dl>

@@ -421,7 +421,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
           </div>
           <dl className="practiceSessionFacts" aria-label="Practice status">
             <div data-priority="primary">
-              <dt>State</dt>
+              <dt>Schedule</dt>
               <dd>{formatFsrsState(item.skill.fsrsState)}</dd>
             </div>
             <div>
@@ -857,7 +857,10 @@ function formatElapsed(ms: number): string {
 }
 
 function formatFsrsState(state: string): string {
-  return state.charAt(0) + state.slice(1).toLowerCase();
+  return state
+    .toLowerCase()
+    .replaceAll("_", " ")
+    .replace(/\b[a-z]/g, (letter) => letter.toUpperCase());
 }
 
 function formatRating(rating: FsrsRating): string {
