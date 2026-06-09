@@ -23,8 +23,8 @@ export default async function Home() {
             <dd>Choice, text, numeric, and math answers</dd>
           </div>
           <div>
-            <dt>Trust loop</dt>
-            <dd>Verified generation, deterministic grading, and flag recovery</dd>
+            <dt>Exercise trust</dt>
+            <dd>Verified exercises, instant grading, and issue reporting</dd>
           </div>
           <div>
             <dt>Data controls</dt>
@@ -77,7 +77,7 @@ export default async function Home() {
             <span>Practice</span>
             <div>
               <strong>Answer the next due exercise</strong>
-              <p>Get deterministic feedback, update the schedule, and move on.</p>
+              <p>Get immediate feedback, update the schedule, and move on.</p>
             </div>
           </li>
         </ol>
