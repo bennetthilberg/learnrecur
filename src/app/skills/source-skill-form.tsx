@@ -29,8 +29,8 @@ export function SourceSkillForm() {
         <span className="skillPathBadge">Copied text</span>
       </div>
       <p className="skillUploadIntro">
-        Use this when the source text is already copied out. Broader material can split into
-        one to three narrow drafts.
+        Paste copied notes, excerpts, or worksheet text. Broad material can become up
+        to three narrow drafts.
       </p>
 
       <fieldset className="skillFormFieldset">

@@ -50,7 +50,7 @@ export default async function NewSkillPage() {
           <p className="eyebrow">New skill</p>
           <h1>Create skill drafts.</h1>
           <p>
-            Upload or paste source material to shape one or more editable drafts,
+            Upload or paste source material to shape one to three editable drafts,
             or define the skill manually. You will review each draft before activation.
           </p>
         </div>

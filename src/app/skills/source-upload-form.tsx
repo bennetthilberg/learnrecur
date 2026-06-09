@@ -65,8 +65,8 @@ export function SourceUploadForm() {
         </span>
       </div>
       <p className="skillUploadIntro">
-        Upload a small worksheet, notes photo, screenshot, or PDF. The original file stays private;
-        LearnRecur reads it privately and queues one or more editable drafts.
+        Upload a small worksheet, notes photo, screenshot, or PDF. The file stays private;
+        LearnRecur reads it and prepares one to three editable drafts.
       </p>
 
       <fieldset className="skillFormFieldset">
@@ -241,7 +241,7 @@ export function SourceUploadForm() {
     }
 
     setStatus("queueing");
-    setMessage("Upload complete. Queueing source processing.");
+    setMessage("Upload complete. Draft preparation is queued.");
     const completed = await completeSourceUploadAction({
       sourceFileId: prepared.sourceFileId,
     });
@@ -277,9 +277,9 @@ function buttonText(status: UploadStatus) {
     case "uploading":
       return "Uploading";
     case "queueing":
-      return "Queueing";
+      return "Preparing drafts";
     default:
-      return "Upload and queue drafts";
+      return "Create drafts from file";
   }
 }
 
