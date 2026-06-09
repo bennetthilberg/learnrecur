@@ -134,7 +134,7 @@ export function SkillDraftForm({ mode, skillId, initialValues }: SkillDraftFormP
             disabled={isSaving}
             type="submit"
           >
-            {isSaving ? "Saving..." : mode === "create" ? "Create draft" : "Save draft"}
+            {isSaving ? "Saving" : mode === "create" ? "Create draft" : "Save draft"}
           </button>
         </div>
       </form>
@@ -161,7 +161,7 @@ export function SkillDraftForm({ mode, skillId, initialValues }: SkillDraftFormP
           <form action={activateAction} className="skillActivationForm">
             <input name="skillId" type="hidden" value={skillId} />
             <button className="primaryButton" disabled={isActivating} type="submit">
-              {isActivating ? "Activating..." : "Activate with Gemini"}
+              {isActivating ? "Activating" : "Activate with Gemini"}
             </button>
           </form>
         </section>

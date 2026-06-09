@@ -48,7 +48,7 @@ export function SourceProcessingControls({
             disabled={requeuePending}
             type="submit"
           >
-            {requeuePending ? "Requeueing..." : "Requeue"}
+            {requeuePending ? "Requeueing" : "Requeue"}
           </button>
           {requeueState.message ? (
             <p className="skillFormMessage" data-tone={requeueState.status} role="status">
@@ -68,7 +68,7 @@ export function SourceProcessingControls({
             disabled={dismissPending}
             type="submit"
           >
-            {dismissPending ? "Dismissing..." : "Dismiss"}
+            {dismissPending ? "Dismissing" : "Dismiss"}
           </button>
           {dismissState.message ? (
             <p className="skillFormMessage" data-tone={dismissState.status} role="status">

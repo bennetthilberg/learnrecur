@@ -751,7 +751,7 @@ function SkillLifecyclePanel({
                 actionType="pause"
                 buttonLabel="Pause practice"
                 description="Pause keeps the skill and schedule intact but removes it from practice."
-                pendingLabel="Pausing..."
+                pendingLabel="Pausing"
                 skillId={skillId}
               />
             ) : null}
@@ -760,7 +760,7 @@ function SkillLifecyclePanel({
                 actionType="resume"
                 buttonLabel="Resume practice"
                 description="Resume returns this skill to the active practice schedule."
-                pendingLabel="Resuming..."
+                pendingLabel="Resuming"
                 skillId={skillId}
               />
             ) : null}
@@ -769,7 +769,7 @@ function SkillLifecyclePanel({
                 actionType="restore"
                 buttonLabel="Restore skill"
                 description="Restored scheduled skills return to practice. Unscheduled skills return as drafts."
-                pendingLabel="Restoring..."
+                pendingLabel="Restoring"
                 skillId={skillId}
               />
             ) : null}
@@ -784,7 +784,7 @@ function SkillLifecyclePanel({
               buttonLabel="Archive skill"
               confirmationLabel="Archive this skill and keep its sources, exercises, and history."
               description="Archived skills leave the main library and practice flow, but can be restored later."
-              pendingLabel="Archiving..."
+              pendingLabel="Archiving"
               skillId={skillId}
               summaryLabel={status === SkillStatus.DRAFT ? "Archive draft" : "Archive skill"}
               tone="danger"

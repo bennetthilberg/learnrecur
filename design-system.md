@@ -133,6 +133,7 @@ Primary buttons use `#034cd5` with white text. Secondary buttons should use a li
 Destructive secondary actions should use the danger-tinted surface with danger ink text; reserve brighter red for boundaries, status stripes, or compact emphasis.
 
 Buttons should not be oversized. Use compact, tool-like button proportions.
+Pending button labels should stay steady and literal, such as Saving or Queueing, without decorative ellipses.
 
 Disclosure actions in management rows should look like intentional controls, not native browser summaries with default markers. Keep closed disclosures compact; let only the open inline form claim extra row width.
 

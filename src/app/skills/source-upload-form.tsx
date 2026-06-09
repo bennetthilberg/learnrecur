@@ -273,11 +273,11 @@ function formatClientError(error: unknown) {
 function buttonText(status: UploadStatus) {
   switch (status) {
     case "preparing":
-      return "Preparing upload...";
+      return "Preparing upload";
     case "uploading":
-      return "Uploading...";
+      return "Uploading";
     case "queueing":
-      return "Queueing...";
+      return "Queueing";
     default:
       return "Upload and queue drafts";
   }

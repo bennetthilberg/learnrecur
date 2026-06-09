@@ -30,7 +30,7 @@ export function SkillRefillForm({
         disabled={!canRefill || isPending}
         type="submit"
       >
-        {isPending ? "Queuing..." : buttonLabel}
+        {isPending ? "Queuing" : buttonLabel}
       </button>
       {state.message ? (
         <p className="skillFormMessage" data-tone={state.status} role="status">

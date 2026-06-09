@@ -43,7 +43,7 @@ export function SkillSourceRemoveForm({
           </p>
         ) : null}
         <button className="secondaryButton" data-tone="danger" disabled={isPending} type="submit">
-          {isPending ? "Removing..." : "Remove"}
+          {isPending ? "Removing" : "Remove"}
         </button>
       </form>
     </details>

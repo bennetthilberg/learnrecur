@@ -103,7 +103,7 @@ export function SourceSkillForm() {
 
       <div className="skillFormActions">
         <button className="primaryButton" disabled={isGenerating} type="submit">
-          {isGenerating ? "Generating..." : "Generate drafts"}
+          {isGenerating ? "Generating" : "Generate drafts"}
         </button>
       </div>
     </form>

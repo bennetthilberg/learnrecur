@@ -46,7 +46,7 @@ export function SkillDeleteForm({ skillId, skillTitle }: SkillDeleteFormProps) {
           </p>
         ) : null}
         <button className="secondaryButton" data-tone="danger" disabled={pending} type="submit">
-          {pending ? "Deleting..." : "Delete skill"}
+          {pending ? "Deleting" : "Delete skill"}
         </button>
       </form>
     </details>
