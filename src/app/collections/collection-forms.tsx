@@ -55,7 +55,7 @@ export function CollectionCreateForm() {
         </label>
         <div className="collectionCreateAction">
           <button className="primaryButton" disabled={pending} type="submit">
-            Create collection
+            {pending ? "Creating" : "Create collection"}
           </button>
         </div>
       </div>
@@ -110,7 +110,7 @@ export function CollectionUpdateForm({
 
         <div className="skillFormActions">
           <button className="secondaryButton" disabled={pending} type="submit">
-            Save changes
+            {pending ? "Saving" : "Save changes"}
           </button>
         </div>
         <FormMessage state={state} />
@@ -135,7 +135,7 @@ export function CollectionArchiveForm({
         <input name="collectionId" type="hidden" value={collectionId} />
         <p>Archive this collection from dashboard summaries. Its skills stay practiceable.</p>
         <button className="secondaryButton" data-tone="danger" disabled={pending} type="submit">
-          Archive collection
+          {pending ? "Archiving" : "Archive collection"}
         </button>
         <FormMessage state={state} />
       </form>
@@ -161,7 +161,7 @@ export function CollectionRestoreForm({
         disabled={pending}
         type="submit"
       >
-        Restore collection
+        {pending ? "Restoring" : "Restore collection"}
       </button>
       <FormMessage state={state} />
     </form>
