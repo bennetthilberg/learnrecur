@@ -3826,30 +3826,38 @@ a {
   display: grid;
   gap: 5px;
   margin-top: 12px;
-  border: 1px solid hsl(219 97% 42% / 0.18);
-  border-radius: var(--lr-radius);
-  background: var(--lr-primary-soft);
+  border-top: 1px solid hsl(219 97% 42% / 0.18);
+  border-bottom: 1px solid hsl(219 97% 42% / 0.18);
+  background: transparent;
   color: var(--lr-primary-ink);
-  padding: 10px 12px;
+  padding: 9px 0;
   font-size: var(--lr-text-xs);
   line-height: var(--lr-leading-label);
 }
 
 .skillLibraryStatus[data-tone="error"] {
-  border-color: hsl(6 63% 46% / 0.22);
-  background: hsl(6 63% 46% / 0.08);
+  border-color: var(--lr-danger-line);
+  background: transparent;
   color: var(--lr-danger-ink);
 }
 
 .skillLibraryStatusFacts {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
   margin: 0;
 }
 
 .skillLibraryStatusFacts div {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
   min-width: 0;
+}
+
+.skillLibraryStatusFacts div + div {
+  border-left: 1px solid var(--lr-line);
+  padding-left: 14px;
 }
 
 .skillLibraryStatusFacts dt,
@@ -3865,7 +3873,7 @@ a {
 }
 
 .skillLibraryStatusFacts dd {
-  margin-top: 2px;
+  margin-top: 0;
   font-size: var(--lr-text-xs);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
