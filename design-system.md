@@ -210,6 +210,7 @@ Use semantic colors that harmonize with the system:
 - Info: primary blue or primary-soft.
 
 Feedback should be exact and encouraging, not overly warm or chatty.
+Background-processing status should name the user-visible state and next action, not internal worker mechanics.
 
 Message treatment: bounded signal.
 
