@@ -130,7 +130,7 @@ export default async function SkillsPage({ searchParams }: SkillsPageProps) {
           {library.draftSkills.length === 0 ? (
             <SkillLibraryEmptyState
               title="No drafts waiting."
-              detail="Generate a source-backed draft or write a manual one when you are ready."
+              detail="Create a source-backed draft or write a manual one when you are ready."
             />
           ) : (
             <div className="skillLibraryList">

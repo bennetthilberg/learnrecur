@@ -115,7 +115,7 @@ export function SkillDraftForm({ mode, skillId, initialValues }: SkillDraftFormP
               error={draftState.fieldErrors?.exerciseConstraints?.[0]}
               label="Exercise constraints"
               name="exerciseConstraints"
-              placeholder="Use short choices, avoid trick questions, and keep the first batch beginner-friendly."
+              placeholder="Use short choices, avoid trick questions, and keep starter exercises beginner-friendly."
               defaultValue={initialValues.exerciseConstraints}
               rows={3}
             />
@@ -144,12 +144,12 @@ export function SkillDraftForm({ mode, skillId, initialValues }: SkillDraftFormP
           <div className="skillPanelHeader">
             <div>
               <p className="eyebrow">Activation</p>
-              <h2 id="activate-skill-title">Generate starter practice.</h2>
+              <h2 id="activate-skill-title">Prepare starter practice.</h2>
             </div>
           </div>
           <p>
-            Activation asks Gemini for a first batch of multiple-choice exercises, validates
-            the structure, then schedules this skill for practice.
+            Activation prepares and verifies a starter set of multiple-choice exercises, then
+            schedules this skill for practice.
           </p>
 
           {activationState.message ? (
@@ -161,7 +161,7 @@ export function SkillDraftForm({ mode, skillId, initialValues }: SkillDraftFormP
           <form action={activateAction} className="skillActivationForm">
             <input name="skillId" type="hidden" value={skillId} />
             <button className="primaryButton" disabled={isActivating} type="submit">
-              {isActivating ? "Activating" : "Activate with Gemini"}
+              {isActivating ? "Activating" : "Activate skill"}
             </button>
           </form>
         </section>
