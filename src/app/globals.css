@@ -2778,10 +2778,14 @@ a {
 .skillQueueBlock h2 {
   margin: 5px 0 0;
   color: var(--lr-ink);
-  font-size: var(--lr-text-2xl);
+  font-size: var(--lr-text-xl);
   font-weight: 500;
   line-height: var(--lr-leading-title);
   text-wrap: balance;
+}
+
+.skillQueuePanel .skillPanelHeader + .skillQueueBlock h2 {
+  font-size: var(--lr-text-2xl);
 }
 
 .skillQueueStateStrip {
@@ -2985,7 +2989,9 @@ a {
 
 @media (min-width: 1180px) {
   .skillQueuePanel {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns:
+      minmax(0, 1.26fr) minmax(0, 0.87fr)
+      minmax(0, 0.87fr);
     align-items: stretch;
   }
 
