@@ -31,7 +31,7 @@ export default async function PracticePage({ searchParams }: PracticePageProps) 
       <main className="practiceShell">
         <SkillsTopbar current="practice" />
 
-        <section className="practiceFrame practiceEmpty" aria-labelledby="practice-setup-title">
+        <section className="dashboardSetupPanel" aria-labelledby="practice-setup-title">
           <p className="eyebrow">Practice</p>
           <h1 id="practice-setup-title">Database setup needs attention.</h1>
           <p>{databaseUser.message}</p>
