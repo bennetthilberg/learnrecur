@@ -3744,10 +3744,10 @@ a {
   display: grid;
   gap: 5px;
   margin-top: 12px;
-  border-top: 1px solid hsl(219 97% 42% / 0.18);
-  border-bottom: 1px solid hsl(219 97% 42% / 0.18);
+  border-top: 1px solid var(--lr-line);
+  border-bottom: 1px solid var(--lr-line);
   background: transparent;
-  color: var(--lr-primary-ink);
+  color: var(--lr-muted);
   padding: 9px 0;
   font-size: var(--lr-text-xs);
   line-height: var(--lr-leading-label);
