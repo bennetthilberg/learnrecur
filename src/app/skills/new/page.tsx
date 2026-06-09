@@ -50,8 +50,8 @@ export default async function NewSkillPage() {
           <p className="eyebrow">New skill</p>
           <h1>Create skill drafts.</h1>
           <p>
-            Upload or paste source material for Gemini to shape one or more editable
-            drafts, or define the skill manually. You will review it before activation.
+            Upload or paste source material to shape one or more editable drafts,
+            or define the skill manually. You will review each draft before activation.
           </p>
         </div>
       </header>
@@ -85,7 +85,7 @@ export default async function NewSkillPage() {
           <div className="skillManualBody">
             <p className="skillManualBodyCopy">
               Use this when you already know the exact skill definition and do not
-              need Gemini to interpret source material first.
+              need source material interpreted first.
             </p>
             <SkillDraftForm initialValues={emptyDraftValues} mode="create" />
           </div>
