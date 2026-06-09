@@ -279,7 +279,7 @@ a {
 }
 
 .entryProcessHeader span {
-  color: var(--lr-primary-ink);
+  color: var(--lr-muted);
   font-size: var(--lr-text-sm);
   font-weight: 500;
 }
