@@ -525,6 +525,11 @@ a {
   box-shadow: 0 0 0 1px var(--lr-line) !important;
 }
 
+.authCard .cl-socialButtonsIconButton__facebook {
+  background: hsl(218 80% 42%) !important;
+  box-shadow: 0 0 0 1px hsl(218 80% 34%) !important;
+}
+
 .authCard .cl-input {
   border: 1px solid var(--lr-line-strong) !important;
   box-shadow: none !important;
