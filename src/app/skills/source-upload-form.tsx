@@ -236,12 +236,12 @@ export function SourceUploadForm() {
 
     if (!uploadResponse.ok) {
       setStatus("error");
-      setMessage("S3 did not accept the upload. Check the bucket CORS settings and try again.");
+      setMessage("The private upload failed. Check upload setup, then try again.");
       return;
     }
 
     setStatus("queueing");
-    setMessage("Upload complete. Queueing source processing...");
+    setMessage("Upload complete. Queueing source processing.");
     const completed = await completeSourceUploadAction({
       sourceFileId: prepared.sourceFileId,
     });
