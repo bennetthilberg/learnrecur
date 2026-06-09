@@ -4778,7 +4778,7 @@ a {
   }
 
   .historyTable td:nth-child(4)::before {
-    content: "Review state";
+    content: "Review rating";
   }
 
   .historyTable td:nth-child(5)::before {

@@ -59,7 +59,7 @@ export default async function HistoryPage() {
           <h1>Review ledger.</h1>
           <p>
             A compact record of completed reviews, grading outcomes, and how each
-            answer changed the schedule.
+            answer changed the memory schedule.
           </p>
         </div>
         <div className="dashboardHeaderActions">
@@ -76,7 +76,7 @@ export default async function HistoryPage() {
         <div className="skillPanelHeader">
           <div>
             <p className="eyebrow">Completed reviews</p>
-            <h2 id="review-history-title">Latest scheduled review events</h2>
+            <h2 id="review-history-title">Latest completed reviews</h2>
           </div>
           <PanelHeaderCount
             ariaLabel="Review rows shown"
@@ -114,7 +114,7 @@ function HistoryTable({ reviews }: { reviews: PracticeHistoryReview[] }) {
             <th scope="col">Skill</th>
             <th scope="col">Result</th>
             <th scope="col">Rating</th>
-            <th scope="col">Schedule</th>
+            <th scope="col">Next due</th>
           </tr>
         </thead>
         <tbody>
@@ -157,7 +157,7 @@ function HistoryTable({ reviews }: { reviews: PracticeHistoryReview[] }) {
                 <span className="historyPrimaryText">{formatHistoryLabel(review.finalRating)}</span>
                 <HistoryStateTransition review={review} />
               </td>
-              <td data-label="Schedule">
+              <td data-label="Next due">
                 <span className="historyPrimaryText">Next: {formatDueLabel(review.nextDueAt)}</span>
                 <HistoryDueTransition review={review} />
               </td>
