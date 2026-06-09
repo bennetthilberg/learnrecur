@@ -950,7 +950,7 @@ a {
 }
 
 .dashboardPanelLink {
-  color: var(--lr-primary-ink);
+  color: var(--lr-muted);
   font-size: var(--lr-text-sm);
   font-weight: 500;
   text-decoration: none;
@@ -958,8 +958,15 @@ a {
 }
 
 .dashboardPanelLink:hover {
+  color: var(--lr-primary-ink);
   text-decoration: underline;
   text-underline-offset: 3px;
+}
+
+.dashboardPanelLink:focus-visible {
+  outline: none;
+  color: var(--lr-primary-ink);
+  box-shadow: var(--lr-focus-ring);
 }
 
 .dashboardCollectionPracticeLink {
