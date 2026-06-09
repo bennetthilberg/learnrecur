@@ -146,6 +146,7 @@ opens.
 
 Form controls should inherit the app's neutral system rather than browser defaults. Placeholder text uses the faint steel token with full opacity; disabled fields use a quiet panel fill and muted text so state is visible without washing out labels.
 File upload controls should read as precise file-selection rows: a compact action, selected-file metadata, and a strong focus halo. Avoid dashed drop-zone styling unless the interaction actually supports drag-and-drop.
+Learner-facing upload copy should describe privacy and processing behavior, not storage provider names, unless the user needs that provider detail to complete setup or troubleshoot.
 
 ### Cards And Panels
 

@@ -65,7 +65,7 @@ export function SourceUploadForm() {
         </span>
       </div>
       <p className="skillUploadIntro">
-        Upload a small worksheet, notes photo, screenshot, or PDF. The file stays private in S3;
+        Upload a small worksheet, notes photo, screenshot, or PDF. The original file stays private;
         LearnRecur processes it in the background and creates one or more editable drafts.
       </p>
 
