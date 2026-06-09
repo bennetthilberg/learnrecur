@@ -217,6 +217,7 @@ Do not put the prompt in a nested card inside the practice frame. Use type scale
 Empty state posture: technical-minimal.
 
 Empty states should be specific, functional, and quiet. They should tell the user what is missing, show one useful next action, and avoid decorative illustrations for ordinary tool states. Use exact language and small structural details such as a checklist row, source requirement, or status line when it helps the user understand what comes next.
+When an empty state appears inside an existing panel, use a rule-separated block rather than a bordered mini-card.
 Prefer naming the missing object and the next control to use over generic "get started" copy.
 When an empty state needs multiple destinations, separate them by action hierarchy: one primary recovery action, at most one secondary button, and additional paths as text-first utility links.
 

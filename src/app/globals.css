@@ -1029,10 +1029,10 @@ a {
 }
 
 .dashboardEmptyState {
-  border: 1px solid var(--lr-line);
-  border-radius: var(--lr-radius);
-  background: var(--lr-panel-soft);
-  padding: 14px;
+  border-top: 1px solid var(--lr-line);
+  border-bottom: 1px solid var(--lr-line);
+  background: transparent;
+  padding: 15px 0;
 }
 
 .dashboardEmptyState .secondaryButton {
