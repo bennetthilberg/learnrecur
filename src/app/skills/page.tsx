@@ -82,7 +82,7 @@ export default async function SkillsPage({ searchParams }: SkillsPageProps) {
 
       {sourceQueued ? (
         <p className="skillFormMessage" data-tone="saved" role="status">
-          Source upload queued. Drafts will appear under Needs review after processing.
+          File received. Drafts will appear under Needs review after preparation.
         </p>
       ) : null}
 
@@ -96,11 +96,11 @@ export default async function SkillsPage({ searchParams }: SkillsPageProps) {
         <section className="skillPanel skillRecoveryPanel" aria-labelledby="source-processing-title">
           <div className="skillPanelHeader">
             <div>
-              <p className="eyebrow">Source processing</p>
+              <p className="eyebrow">Draft preparation</p>
               <h2 id="source-processing-title">Uploaded material</h2>
             </div>
             <PanelHeaderCount
-              ariaLabel="Uploaded source processing rows shown"
+              ariaLabel="Uploaded material rows shown"
               label="Uploads"
               value={formatCount(library.sourceProcessing.length)}
             />
@@ -337,7 +337,7 @@ function SourceProcessingRow({
           {formatSourceFileStatus(sourceFile.status)}
         </span>
       </div>
-      <dl className="sourceProcessingFacts" aria-label={`${sourceFile.originalName} processing details`}>
+      <dl className="sourceProcessingFacts" aria-label={`${sourceFile.originalName} draft preparation details`}>
         <div>
           <dt>Type</dt>
           <dd>{formatSourceKind(sourceFile.kind)}</dd>
@@ -434,7 +434,14 @@ function formatSkillStatus(status: SkillsLibraryRecoverySkill["status"]) {
 }
 
 function formatSourceFileStatus(status: SkillsLibrarySourceProcessingSummary["status"]) {
-  return status.toLowerCase().replaceAll("_", " ");
+  switch (status) {
+    case "FAILED":
+      return "Needs attention";
+    case "PROCESSING":
+      return "Preparing drafts";
+    case "UPLOADED":
+      return "File received";
+  }
 }
 
 function formatSourceKind(kind: SkillsLibrarySourceProcessingSummary["kind"]) {
@@ -456,21 +463,21 @@ function formatByteSize(byteSize: number | null) {
 function getSourceProcessingStatusCopy(sourceFile: SkillsLibrarySourceProcessingSummary) {
   if (sourceFile.status === "FAILED") {
     if (!sourceFile.canDismiss) {
-      return "Processing failed. This source is linked to a skill, so upload the material again if you need a fresh draft.";
+      return "Draft preparation failed. This file is linked to a skill, so upload the material again if you need another draft.";
     }
 
-    return "Processing failed. Dismiss this row, then upload again when you are ready.";
+    return "Draft preparation failed. Dismiss this row, then upload again when you are ready.";
   }
 
   if (sourceFile.status === "UPLOADED") {
-    return "Queued for draft generation. Check back soon.";
+    return "File received. Drafts will appear here when preparation finishes.";
   }
 
   if (sourceFile.isStaleProcessing) {
-    return "Processing appears stuck. Requeue it when you are ready to try again.";
+    return "Draft preparation appears stuck. Try again when you are ready.";
   }
 
-  return "Draft generation is in progress.";
+  return "Draft preparation is in progress.";
 }
 
 function getSourceProcessingStatusTone(sourceFile: SkillsLibrarySourceProcessingSummary) {

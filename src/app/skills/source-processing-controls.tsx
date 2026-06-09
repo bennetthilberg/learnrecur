@@ -43,12 +43,12 @@ export function SourceProcessingControls({
         <form action={requeueAction}>
           <input name="sourceFileId" type="hidden" value={sourceFileId} />
           <button
-            aria-label={`Requeue source upload ${sourceFileName}`}
+            aria-label={`Try draft preparation again for ${sourceFileName}`}
             className="secondaryButton"
             disabled={requeuePending}
             type="submit"
           >
-            {requeuePending ? "Requeueing" : "Requeue"}
+            {requeuePending ? "Trying again" : "Try again"}
           </button>
           {requeueState.message ? (
             <p className="skillFormMessage" data-tone={requeueState.status} role="status">
