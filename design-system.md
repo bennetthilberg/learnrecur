@@ -166,6 +166,7 @@ Panel header counts should be labeled, not bare numeric chips. Counts such as ro
 
 Navigable row titles should look like text-first links, not full-card buttons. Add a small, low-emphasis action cue such as Open when the row is primarily for recovery, browsing, or drilling into detail, so the affordance is visible without adding another button column.
 Utility links in panel headers should usually be muted until hover or focus. Reserve persistent primary-blue text for active states, true calls to action, and controls whose urgency is already proven by the data.
+Inline management rows should not turn every secondary action into a button. Keep the primary row action button-like, and render edit/archive/recovery disclosures as quieter text utilities until the user opens them.
 
 Metric summaries should not default to equal four-card grids. Give the primary product state a wider or otherwise stronger position, then let supporting metrics read smaller and quieter.
 The dashboard summary uses this rule explicitly: ready practice is the dominant panel, while active skills, recent accuracy, and recent reviews sit in a rule-divided support strip.

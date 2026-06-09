@@ -4284,19 +4284,19 @@ a {
 
 .collectionInlineDetails summary {
   display: inline-flex;
-  min-height: 38px;
+  min-height: 34px;
   align-items: center;
-  justify-content: center;
-  border: 1px solid hsl(219 97% 42% / 0.18);
+  justify-content: flex-start;
+  border: 1px solid transparent;
   border-radius: var(--lr-radius);
-  background: var(--lr-panel-cool);
+  background: transparent;
   cursor: pointer;
-  color: var(--lr-primary-ink);
-  font-size: var(--lr-text-md);
+  color: var(--lr-muted);
+  font-size: var(--lr-text-sm);
   font-weight: 500;
   line-height: var(--lr-leading-control);
   list-style: none;
-  padding: 9px 14px;
+  padding: 7px 9px;
   transition:
     background-color 140ms ease,
     border-color 140ms ease,
@@ -4311,8 +4311,9 @@ a {
 
 .collectionInlineDetails summary:hover,
 .collectionInlineDetails[open] summary {
-  border-color: hsl(219 97% 42% / 0.3);
+  border-color: hsl(219 97% 42% / 0.2);
   background: var(--lr-primary-soft);
+  color: var(--lr-primary-ink);
 }
 
 .collectionInlineDetails summary:focus-visible {
@@ -4321,8 +4322,8 @@ a {
 }
 
 .collectionInlineDetailsDanger summary {
-  border-color: hsl(6 63% 46% / 0.24);
-  background: var(--lr-danger-subtle);
+  border-color: transparent;
+  background: transparent;
   color: var(--lr-danger-ink);
 }
 
