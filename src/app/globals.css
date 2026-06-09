@@ -4692,6 +4692,15 @@ a {
     border-top: 1px solid var(--lr-line);
   }
 
+  .skillLibraryStatusFacts {
+    gap: 6px 12px;
+  }
+
+  .skillLibraryStatusFacts div + div {
+    border-left: 0;
+    padding-left: 0;
+  }
+
   .collectionRowActions {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
