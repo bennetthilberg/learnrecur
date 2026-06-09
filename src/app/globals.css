@@ -4648,7 +4648,8 @@ a {
   }
 
   .skillQueueStateStrip div + div {
-    border-left: 1px solid var(--lr-line);
+    border-left: 0;
+    padding-left: 0;
   }
 
   .skillLifecycleActions {
@@ -5117,7 +5118,8 @@ a {
   }
 
   .skillQueueStateStrip div + div {
-    border-left: 1px solid var(--lr-line);
+    border-left: 0;
+    padding-left: 0;
   }
 
   .skillRefillForm {
@@ -5486,7 +5488,8 @@ a {
   }
 
   .skillQueueStateStrip div + div {
-    border-left: 1px solid var(--lr-line);
+    border-left: 0;
+    padding-left: 0;
   }
 
   .skillLifecycleGroup {
