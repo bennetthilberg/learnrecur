@@ -66,7 +66,7 @@ export function SourceUploadForm() {
       </div>
       <p className="skillUploadIntro">
         Upload a small worksheet, notes photo, screenshot, or PDF. The original file stays private;
-        LearnRecur processes it in the background and creates one or more editable drafts.
+        LearnRecur reads it privately and queues one or more editable drafts.
       </p>
 
       <fieldset className="skillFormFieldset">
