@@ -15,12 +15,12 @@ export default async function Home() {
         </p>
         <dl className="entryCapabilityList" aria-label="LearnRecur capabilities">
           <div data-priority="primary">
-            <dt>Source setup</dt>
-            <dd>Paste text or upload private images and PDFs</dd>
-          </div>
-          <div>
             <dt>Due practice</dt>
             <dd>Choice, text, numeric, and math answers</dd>
+          </div>
+          <div>
+            <dt>Source setup</dt>
+            <dd>Paste text or upload private images and PDFs</dd>
           </div>
           <div>
             <dt>Exercise trust</dt>
