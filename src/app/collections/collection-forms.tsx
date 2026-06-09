@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useId } from "react";
 
 import type { CollectionSummary } from "@/lib/collections";
 
@@ -19,6 +19,8 @@ const idleState: CollectionFormActionState = {
 
 export function CollectionCreateForm() {
   const [state, formAction, pending] = useActionState(createCollectionAction, idleState);
+  const nameErrorId = useId();
+  const descriptionErrorId = useId();
 
   return (
     <form action={formAction} className="collectionCreateForm">
@@ -26,6 +28,7 @@ export function CollectionCreateForm() {
         <label className="skillField">
           <span>Name</span>
           <input
+            aria-describedby={hasFieldError(state, "name") ? nameErrorId : undefined}
             aria-invalid={hasFieldError(state, "name") ? "true" : undefined}
             disabled={pending}
             maxLength={80}
@@ -33,11 +36,14 @@ export function CollectionCreateForm() {
             placeholder="Spanish grammar"
             required
           />
-          <FieldError state={state} name="name" />
+          <FieldError id={nameErrorId} state={state} name="name" />
         </label>
         <label className="skillField">
           <span>Description</span>
           <textarea
+            aria-describedby={
+              hasFieldError(state, "description") ? descriptionErrorId : undefined
+            }
             aria-invalid={hasFieldError(state, "description") ? "true" : undefined}
             disabled={pending}
             maxLength={500}
@@ -45,7 +51,7 @@ export function CollectionCreateForm() {
             placeholder="What belongs in this study area?"
             rows={2}
           />
-          <FieldError state={state} name="description" />
+          <FieldError id={descriptionErrorId} state={state} name="description" />
         </label>
         <div className="collectionCreateAction">
           <button className="primaryButton" disabled={pending} type="submit">
@@ -65,6 +71,8 @@ export function CollectionUpdateForm({
   collection: CollectionSummary;
 }) {
   const [state, formAction, pending] = useActionState(updateCollectionAction, idleState);
+  const nameErrorId = useId();
+  const descriptionErrorId = useId();
 
   return (
     <details className="collectionInlineDetails">
@@ -74,6 +82,7 @@ export function CollectionUpdateForm({
         <label className="skillField">
           <span>Name</span>
           <input
+            aria-describedby={hasFieldError(state, "name") ? nameErrorId : undefined}
             aria-invalid={hasFieldError(state, "name") ? "true" : undefined}
             defaultValue={collection.name}
             disabled={pending}
@@ -81,11 +90,14 @@ export function CollectionUpdateForm({
             name="name"
             required
           />
-          <FieldError state={state} name="name" />
+          <FieldError id={nameErrorId} state={state} name="name" />
         </label>
         <label className="skillField">
           <span>Description</span>
           <textarea
+            aria-describedby={
+              hasFieldError(state, "description") ? descriptionErrorId : undefined
+            }
             aria-invalid={hasFieldError(state, "description") ? "true" : undefined}
             defaultValue={collection.description ?? ""}
             disabled={pending}
@@ -93,7 +105,7 @@ export function CollectionUpdateForm({
             name="description"
             rows={3}
           />
-          <FieldError state={state} name="description" />
+          <FieldError id={descriptionErrorId} state={state} name="description" />
         </label>
 
         <div className="skillFormActions">
@@ -157,9 +169,11 @@ export function CollectionRestoreForm({
 }
 
 function FieldError({
+  id,
   state,
   name,
 }: {
+  id: string;
   state: CollectionFormActionState;
   name: string;
 }) {
@@ -169,7 +183,7 @@ function FieldError({
     return null;
   }
 
-  return <em>{error}</em>;
+  return <em id={id}>{error}</em>;
 }
 
 function FormMessage({ state }: { state: CollectionFormActionState }) {

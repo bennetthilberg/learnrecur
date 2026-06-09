@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useId } from "react";
 
 import type { NormalizedReminderPreferenceInput } from "@/lib/reminders";
 
@@ -37,6 +37,10 @@ export function ReminderSettingsForm({
     saveReminderSettingsAction,
     idleState,
   );
+  const emailErrorId = useId();
+  const localHourErrorId = useId();
+  const timezoneErrorId = useId();
+  const minimumDueCountErrorId = useId();
 
   return (
     <form action={formAction} className="skillDraftForm settingsReminderForm">
@@ -56,6 +60,7 @@ export function ReminderSettingsForm({
           <label className="skillField">
             <span>Reminder email</span>
             <input
+              aria-describedby={hasFieldError(state, "email") ? emailErrorId : undefined}
               aria-invalid={hasFieldError(state, "email") ? "true" : undefined}
               autoComplete="email"
               defaultValue={preference.email}
@@ -65,7 +70,7 @@ export function ReminderSettingsForm({
               required
               type="email"
             />
-            <FieldError state={state} name="email" />
+            <FieldError id={emailErrorId} state={state} name="email" />
           </label>
         </div>
       </fieldset>
@@ -77,6 +82,9 @@ export function ReminderSettingsForm({
             <label className="skillField">
               <span>Local hour</span>
               <select
+                aria-describedby={
+                  hasFieldError(state, "localHour") ? localHourErrorId : undefined
+                }
                 aria-invalid={hasFieldError(state, "localHour") ? "true" : undefined}
                 defaultValue={preference.localHour}
                 disabled={pending}
@@ -89,12 +97,15 @@ export function ReminderSettingsForm({
                   </option>
                 ))}
               </select>
-              <FieldError state={state} name="localHour" />
+              <FieldError id={localHourErrorId} state={state} name="localHour" />
             </label>
 
             <label className="skillField">
               <span>Timezone</span>
               <input
+                aria-describedby={
+                  hasFieldError(state, "timezone") ? timezoneErrorId : undefined
+                }
                 aria-invalid={hasFieldError(state, "timezone") ? "true" : undefined}
                 defaultValue={preference.timezone}
                 disabled={pending}
@@ -108,13 +119,16 @@ export function ReminderSettingsForm({
                   <option key={timezone} value={timezone} />
                 ))}
               </datalist>
-              <FieldError state={state} name="timezone" />
+              <FieldError id={timezoneErrorId} state={state} name="timezone" />
             </label>
           </div>
 
           <label className="skillField">
             <span>Minimum due skills</span>
             <input
+              aria-describedby={
+                hasFieldError(state, "minimumDueCount") ? minimumDueCountErrorId : undefined
+              }
               aria-invalid={hasFieldError(state, "minimumDueCount") ? "true" : undefined}
               defaultValue={preference.minimumDueCount}
               disabled={pending}
@@ -124,7 +138,11 @@ export function ReminderSettingsForm({
               required
               type="number"
             />
-            <FieldError state={state} name="minimumDueCount" />
+            <FieldError
+              id={minimumDueCountErrorId}
+              state={state}
+              name="minimumDueCount"
+            />
           </label>
         </div>
       </fieldset>
@@ -140,9 +158,11 @@ export function ReminderSettingsForm({
 }
 
 function FieldError({
+  id,
   state,
   name,
 }: {
+  id: string;
   state: ReminderSettingsActionState;
   name: string;
 }) {
@@ -152,7 +172,7 @@ function FieldError({
     return null;
   }
 
-  return <em>{error}</em>;
+  return <em id={id}>{error}</em>;
 }
 
 function FormMessage({ state }: { state: ReminderSettingsActionState }) {

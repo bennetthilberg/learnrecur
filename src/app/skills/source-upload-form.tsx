@@ -18,6 +18,7 @@ type UploadStatus = "idle" | "preparing" | "uploading" | "queueing" | "error";
 export function SourceUploadForm() {
   const router = useRouter();
   const fileInputId = useId();
+  const fileErrorId = useId();
   const formRef = useRef<HTMLFormElement>(null);
   const submittingRef = useRef(false);
   const [status, setStatus] = useState<UploadStatus>("idle");
@@ -33,6 +34,7 @@ export function SourceUploadForm() {
     status === "uploading" ||
     status === "queueing" ||
     isPending;
+  const fileError = fileErrorMessage(fieldErrors);
 
   return (
     <form
@@ -75,6 +77,7 @@ export function SourceUploadForm() {
             <div className="skillFileControl">
               <input
                 accept={acceptedMimeTypes.join(",")}
+                aria-describedby={fileError ? fileErrorId : undefined}
                 aria-invalid={hasFileError(fieldErrors) ? "true" : undefined}
                 className="skillFileInput"
                 id={fileInputId}
@@ -92,7 +95,7 @@ export function SourceUploadForm() {
                 {selectedFileName ?? "No file selected"}
               </span>
             </div>
-            {fileErrorMessage(fieldErrors) ? <em>{fileErrorMessage(fieldErrors)}</em> : null}
+            {fileError ? <em id={fileErrorId}>{fileError}</em> : null}
           </div>
           <p className="skillUploadMeta">PNG, JPEG, WebP, or PDF. Maximum 10 MB.</p>
         </div>
@@ -294,17 +297,26 @@ function SkillTextField({
   label,
   name,
   error,
+  "aria-describedby": ariaDescribedBy,
   ...props
 }: {
   label: string;
   name: string;
   error?: string;
 } & React.InputHTMLAttributes<HTMLInputElement>) {
+  const errorId = useId();
+  const describedBy = [ariaDescribedBy, error ? errorId : null].filter(Boolean).join(" ") || undefined;
+
   return (
     <label className="skillField">
       <span>{label}</span>
-      <input aria-invalid={error ? "true" : undefined} name={name} {...props} />
-      {error ? <em>{error}</em> : null}
+      <input
+        aria-describedby={describedBy}
+        aria-invalid={error ? "true" : undefined}
+        name={name}
+        {...props}
+      />
+      {error ? <em id={errorId}>{error}</em> : null}
     </label>
   );
 }
@@ -313,17 +325,26 @@ function SkillTextArea({
   label,
   name,
   error,
+  "aria-describedby": ariaDescribedBy,
   ...props
 }: {
   label: string;
   name: string;
   error?: string;
 } & React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  const errorId = useId();
+  const describedBy = [ariaDescribedBy, error ? errorId : null].filter(Boolean).join(" ") || undefined;
+
   return (
     <label className="skillField">
       <span>{label}</span>
-      <textarea aria-invalid={error ? "true" : undefined} name={name} {...props} />
-      {error ? <em>{error}</em> : null}
+      <textarea
+        aria-describedby={describedBy}
+        aria-invalid={error ? "true" : undefined}
+        name={name}
+        {...props}
+      />
+      {error ? <em id={errorId}>{error}</em> : null}
     </label>
   );
 }

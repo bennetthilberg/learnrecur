@@ -266,6 +266,7 @@ Use chip-like badges for status, source labels, and small categorical metadata. 
 - Do not use light-gray body copy.
 - Interactive controls need visible focus states.
 - Dynamic form feedback that appears after an action should use a status role so visual confirmation is also announced.
+- Field-level validation copy should be programmatically associated with the affected control.
 - Segmented controls and toggle-like button groups should expose selected state semantically, not only through color or background.
 - Repeated row utilities with short visible labels, such as Edit or Archive, need accessible names that include the row object.
 - Text should not overflow controls or cards at mobile widths.
