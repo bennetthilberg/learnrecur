@@ -543,6 +543,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
             {[FsrsRating.HARD, FsrsRating.GOOD, FsrsRating.EASY].map((rating) => (
               <button
                 key={rating}
+                aria-pressed={manualRating === rating}
                 className="ratingButton"
                 data-selected={manualRating === rating ? "true" : "false"}
                 type="button"

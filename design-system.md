@@ -266,6 +266,7 @@ Use chip-like badges for status, source labels, and small categorical metadata. 
 - Do not use light-gray body copy.
 - Interactive controls need visible focus states.
 - Dynamic form feedback that appears after an action should use a status role so visual confirmation is also announced.
+- Segmented controls and toggle-like button groups should expose selected state semantically, not only through color or background.
 - Text should not overflow controls or cards at mobile widths.
 
 ## Anti-Slop Rules
