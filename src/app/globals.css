@@ -530,6 +530,22 @@ a {
   box-shadow: 0 0 0 1px hsl(218 80% 34%) !important;
 }
 
+.authCard .cl-footerItem {
+  border-top: 1px solid var(--lr-line) !important;
+  background: var(--lr-panel-soft) !important;
+  background-image: none !important;
+  color: var(--lr-faint) !important;
+}
+
+.authCard .cl-footerItem > * {
+  background: var(--lr-panel-soft) !important;
+  background-image: none !important;
+}
+
+.authCard .cl-footerItem * {
+  color: var(--lr-faint) !important;
+}
+
 .authCard .cl-input {
   border: 1px solid var(--lr-line-strong) !important;
   box-shadow: none !important;
