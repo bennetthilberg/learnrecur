@@ -4116,10 +4116,6 @@ a {
   color: var(--lr-primary-ink);
 }
 
-.collectionFacts {
-  grid-template-columns: minmax(220px, 1fr) minmax(96px, 0.34fr) minmax(110px, 0.38fr);
-}
-
 .collectionManagementRow .collectionFacts {
   display: flex;
   flex-wrap: wrap;

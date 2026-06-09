@@ -185,7 +185,7 @@ export default async function SkillPage({
       exactInputUnlocked &&
       mathInventory.readyExerciseCount < DEFAULT_READY_MATH_TARGET &&
       !hasActiveMathRefillJob;
-    const unlockProgressLabel = `${formatCount(skill.repetitions)} of ${formatCount(
+    const reviewProgressLabel = `${formatCount(skill.repetitions)} of ${formatCount(
       EXACT_INPUT_UNLOCK_REPETITIONS,
     )} reviews`;
     const exactInputRefillButtonLabel = canRefillExactInput
@@ -194,7 +194,7 @@ export default async function SkillPage({
         ? hasActiveExactInputRefillJob
           ? "Exact input queued"
           : "Exact input full"
-        : "Exact input locked";
+        : `After ${formatCount(EXACT_INPUT_UNLOCK_REPETITIONS)} reviews`;
     const choiceRefillButtonLabel = canRefill
       ? "Queue more exercises"
       : hasActiveChoiceRefillJob
@@ -206,18 +206,18 @@ export default async function SkillPage({
         ? hasActiveMathRefillJob
           ? "Math queued"
           : "Math full"
-        : "Math locked";
+        : `After ${formatCount(EXACT_INPUT_UNLOCK_REPETITIONS)} reviews`;
     const choiceRefillStatus =
       latestChoiceGenerationJob && hasActiveGenerationJob(latestChoiceGenerationJob)
-        ? `Choice refill ${formatJobStatus(latestChoiceGenerationJob.status)}. Refresh in a moment to check the queue.`
+        ? `Choice refill ${formatJobStatus(latestChoiceGenerationJob.status)}. Counts update after the job finishes.`
         : null;
     const exactInputRefillStatus =
       latestExactInputGenerationJob && hasActiveGenerationJob(latestExactInputGenerationJob)
-        ? `Exact-input refill ${formatJobStatus(latestExactInputGenerationJob.status)}. Refresh in a moment to check the queue.`
+        ? `Exact-input refill ${formatJobStatus(latestExactInputGenerationJob.status)}. Counts update after the job finishes.`
         : null;
     const mathRefillStatus =
       latestMathGenerationJob && hasActiveGenerationJob(latestMathGenerationJob)
-        ? `Math refill ${formatJobStatus(latestMathGenerationJob.status)}. Refresh in a moment to check the queue.`
+        ? `Math refill ${formatJobStatus(latestMathGenerationJob.status)}. Counts update after the job finishes.`
         : null;
 
     return (
@@ -307,8 +307,7 @@ export default async function SkillPage({
                 targetCount={DEFAULT_READY_EXERCISE_TARGET}
               />
               <p className="skillQueueCopy">
-                Keep a small set of verified exercises available so practice can stay fast and
-                deterministic.
+                Keep verified choice exercises available for the next due review.
               </p>
               {latestChoiceGenerationJob ? (
                 <SkillQueueJobStatus
@@ -349,7 +348,7 @@ export default async function SkillPage({
                       : canRefillExactInput
                         ? "Below target"
                         : "Full"
-                    : unlockProgressLabel
+                    : reviewProgressLabel
                 }
                 stateTone={
                   exactInputUnlocked
@@ -361,8 +360,8 @@ export default async function SkillPage({
                 targetCount={DEFAULT_READY_EXACT_INPUT_TARGET}
               />
               <p className="skillQueueCopy">
-                Exact input starts after {EXACT_INPUT_UNLOCK_REPETITIONS} saved reviews, once the
-                learner has practiced the skill with multiple choice first.
+                Exact input begins after {EXACT_INPUT_UNLOCK_REPETITIONS} saved reviews, once the
+                skill has a short multiple-choice history.
               </p>
               {latestExactInputGenerationJob ? (
                 <SkillQueueJobStatus
@@ -411,7 +410,7 @@ export default async function SkillPage({
                       : canRefillMath
                         ? "Below target"
                         : "Full"
-                    : unlockProgressLabel
+                    : reviewProgressLabel
                 }
                 stateTone={
                   exactInputUnlocked
@@ -423,8 +422,8 @@ export default async function SkillPage({
                 targetCount={DEFAULT_READY_MATH_TARGET}
               />
               <p className="skillQueueCopy">
-                Math practice uses deterministic symbolic checking for single-expression answers
-                after the learner has completed a few scheduled reviews.
+                Math practice begins after a few scheduled reviews and accepts
+                single-expression answers.
               </p>
               {latestMathGenerationJob ? (
                 <SkillQueueJobStatus
