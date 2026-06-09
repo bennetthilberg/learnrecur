@@ -580,8 +580,8 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
         <section className="flagExercisePanel" aria-labelledby="flag-exercise-title">
           <div className="flagExerciseHeader">
             <div>
-              <h2 id="flag-exercise-title">Something wrong?</h2>
-              <p>Report this exercise instead of saving the review.</p>
+              <h2 id="flag-exercise-title">Report an issue</h2>
+              <p>Retire this exercise instead of saving the review.</p>
             </div>
             <button
               ref={reportToggleRef}
@@ -599,7 +599,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
           {flagFormOpen ? (
             <div className="flagExerciseForm" id="practice-report-form">
               <fieldset>
-                <legend>What should we fix?</legend>
+                <legend>Issue type</legend>
                 <div className="flagReasonGrid">
                   {FLAG_REASON_OPTIONS.map((option, index) => (
                     <label key={option.reason} className="flagReasonOption">
@@ -618,7 +618,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
 
               {selectedOtherFlag ? (
                 <label className="flagNoteField">
-                  <span>What else?</span>
+                  <span>Note</span>
                   <textarea
                     value={otherFlagNote}
                     disabled={pendingAction !== null}
