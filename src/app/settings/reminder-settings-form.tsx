@@ -149,7 +149,7 @@ export function ReminderSettingsForm({
 
       <div className="skillFormActions">
         <button className="primaryButton" disabled={pending} type="submit">
-          Save reminders
+          {pending ? "Saving" : "Save reminders"}
         </button>
       </div>
       <FormMessage state={state} />
