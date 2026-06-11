@@ -1179,13 +1179,13 @@ a {
 }
 
 .practiceNav a[data-intent="create"] {
-  border-color: var(--lr-primary-muted);
-  background: var(--lr-panel-cool);
-  color: var(--lr-primary-ink);
+  border-color: var(--lr-line);
+  background: var(--lr-panel-soft);
+  color: var(--lr-muted);
 }
 
 .practiceNav a[data-intent="create"]::before {
-  background: hsl(219 97% 42% / 0.32);
+  background: var(--lr-line-strong);
 }
 
 .practiceNav a[data-intent="create"]:hover {
