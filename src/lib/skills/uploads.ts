@@ -489,7 +489,7 @@ export async function queueSourceUploadDrafts(
       return {
         status: "queued",
         sourceFileId: sourceFile.id,
-        message: "Upload processing is already queued.",
+        message: "Draft preparation has already started.",
       };
     }
 
@@ -575,14 +575,14 @@ export async function queueSourceUploadDrafts(
     await cleanupUploadedSource(sourceFile, storageSetup.storage);
     return notQueued(
       "event-send-failed",
-      `Could not queue source processing: ${formatEnvError(error)}`,
+      `Could not start draft preparation: ${formatEnvError(error)}`,
     );
   }
 
   return {
     status: "queued",
     sourceFileId: sourceFile.id,
-    message: "Upload queued. Drafts will appear in the skill library after processing.",
+    message: "Upload received. Drafts will appear in the skill library after preparation.",
   };
 }
 
@@ -611,7 +611,7 @@ export async function requeueSourceUploadDraft(
   } else if (sourceFile.status !== SourceFileStatus.UPLOADED) {
     return requeueNotQueued(
       "not-requeueable",
-      "Only queued or stale processing uploads can be requeued.",
+      "Only waiting or stale draft preparation can be restarted.",
     );
   }
 
@@ -651,7 +651,7 @@ export async function requeueSourceUploadDraft(
   if (requeued.count !== 1) {
     return requeueNotQueued(
       "invalid-upload",
-      "This upload changed while it was being requeued. Refresh and try again.",
+      "This upload changed while preparation was restarting. Refresh and try again.",
     );
   }
 
@@ -679,14 +679,14 @@ export async function requeueSourceUploadDraft(
 
     return requeueNotQueued(
       "event-send-failed",
-      `Could not requeue source processing: ${formatEnvError(error)}`,
+      `Could not restart draft preparation: ${formatEnvError(error)}`,
     );
   }
 
   return {
     status: "queued",
     sourceFileId: sourceFile.id,
-    message: "Source processing was requeued.",
+    message: "Draft preparation restarted.",
   };
 }
 

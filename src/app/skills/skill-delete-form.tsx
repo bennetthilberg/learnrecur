@@ -22,12 +22,12 @@ export function SkillDeleteForm({ skillId, skillTitle }: SkillDeleteFormProps) {
 
   return (
     <details className="skillLifecycleDetails skillDeleteDetails">
-      <summary>Delete permanently</summary>
+      <summary aria-label={`Delete skill ${skillTitle} permanently`}>Delete permanently</summary>
       <form className="skillLifecycleForm skillDeleteForm" action={formAction}>
         <input name="skillId" type="hidden" value={skillId} />
         <p>
-          Permanent delete removes this skill and its generated practice history. Shared source
-          material stays linked to any other skills.
+          Permanent delete removes this skill, its exercises, and its practice history. Shared
+          source material stays linked to any other skills.
         </p>
         <label className="skillDeleteConfirm">
           <span>Type the skill title to confirm.</span>
@@ -41,12 +41,12 @@ export function SkillDeleteForm({ skillId, skillTitle }: SkillDeleteFormProps) {
           />
         </label>
         {state.message ? (
-          <p className="skillFormMessage" data-tone={state.status}>
+          <p className="skillFormMessage" data-tone={state.status} role="status">
             {state.message}
           </p>
         ) : null}
         <button className="secondaryButton" data-tone="danger" disabled={pending} type="submit">
-          {pending ? "Deleting..." : "Delete skill"}
+          {pending ? "Deleting" : "Delete skill"}
         </button>
       </form>
     </details>

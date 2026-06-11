@@ -1,6 +1,7 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import Link from "next/link";
 
+import { PanelHeaderCount } from "@/components/app/panel-header-count";
 import {
   getSkillsLibrary,
   type SkillsLibraryActiveSkill,
@@ -9,7 +10,7 @@ import {
   type SkillsLibraryRecoverySkill,
   type SkillsLibrarySourceProcessingSummary,
 } from "@/lib/skills/library";
-import { formatJobStatus } from "@/lib/formatters";
+import { formatDisplayLabel, formatFsrsState, formatJobStatus } from "@/lib/formatters";
 import { ensureDatabaseUser } from "@/lib/users";
 
 import { SourceProcessingControls } from "./source-processing-controls";
@@ -63,8 +64,8 @@ export default async function SkillsPage({ searchParams }: SkillsPageProps) {
 
       <header className="skillHeader">
         <div>
-          <p className="eyebrow">Skills</p>
-          <h1>Skill library.</h1>
+          <p className="eyebrow">Library</p>
+          <h1>Recover and schedule skills</h1>
           <p>Resume draft review, check activation issues, and scan active practice targets.</p>
         </div>
         <Link className="primaryButton" href="/skills/new">
@@ -74,14 +75,14 @@ export default async function SkillsPage({ searchParams }: SkillsPageProps) {
 
       {createdDraftCount ? (
         <p className="skillFormMessage" data-tone="saved" role="status">
-          Generated {formatCount(createdDraftCount)} draft
+          Created {formatCount(createdDraftCount)} draft
           {createdDraftCount === 1 ? "" : "s"}. Review each one before activation.
         </p>
       ) : null}
 
       {sourceQueued ? (
         <p className="skillFormMessage" data-tone="saved" role="status">
-          Source upload queued. Drafts will appear under Needs review after processing.
+          File received. Drafts will appear under Needs review after preparation.
         </p>
       ) : null}
 
@@ -95,10 +96,14 @@ export default async function SkillsPage({ searchParams }: SkillsPageProps) {
         <section className="skillPanel skillRecoveryPanel" aria-labelledby="source-processing-title">
           <div className="skillPanelHeader">
             <div>
-              <p className="eyebrow">Source processing</p>
-              <h2 id="source-processing-title">Uploaded material</h2>
+              <p className="eyebrow">Draft preparation</p>
+              <h2 id="source-processing-title">Uploads being prepared</h2>
             </div>
-            <span className="dashboardChip">{formatCount(library.sourceProcessing.length)}</span>
+            <PanelHeaderCount
+              ariaLabel="Uploaded material rows shown"
+              label="Files"
+              value={formatCount(library.sourceProcessing.length)}
+            />
           </div>
           <div className="skillLibraryList">
             {library.sourceProcessing.map((sourceFile) => (
@@ -109,19 +114,23 @@ export default async function SkillsPage({ searchParams }: SkillsPageProps) {
       ) : null}
 
       <div className="skillLibraryGrid">
-        <section className="skillPanel" aria-labelledby="draft-skills-title">
+        <section className="skillPanel skillLibraryDraftPanel" aria-labelledby="draft-skills-title">
           <div className="skillPanelHeader">
             <div>
               <p className="eyebrow">Needs review</p>
               <h2 id="draft-skills-title">Draft skills</h2>
             </div>
-            <span className="dashboardChip">{formatCount(library.draftSkills.length)}</span>
+            <PanelHeaderCount
+              ariaLabel="Draft skills shown"
+              label="Drafts"
+              value={formatCount(library.draftSkills.length)}
+            />
           </div>
 
           {library.draftSkills.length === 0 ? (
             <SkillLibraryEmptyState
-              title="No drafts waiting."
-              detail="Generate a source-backed draft or write a manual one when you are ready."
+              title="No drafts waiting"
+              detail="Create a source-backed draft or write a manual one when you are ready."
             />
           ) : (
             <div className="skillLibraryList">
@@ -132,18 +141,22 @@ export default async function SkillsPage({ searchParams }: SkillsPageProps) {
           )}
         </section>
 
-        <section className="skillPanel" aria-labelledby="active-skills-title">
+        <section className="skillPanel skillLibraryActivePanel" aria-labelledby="active-skills-title">
           <div className="skillPanelHeader">
             <div>
               <p className="eyebrow">Active schedule</p>
               <h2 id="active-skills-title">Practice targets</h2>
             </div>
-            <span className="dashboardChip">{formatCount(library.activeSkills.length)}</span>
+            <PanelHeaderCount
+              ariaLabel="Active skills shown"
+              label="Active"
+              value={formatCount(library.activeSkills.length)}
+            />
           </div>
 
           {library.activeSkills.length === 0 ? (
             <SkillLibraryEmptyState
-              title="No active skills yet."
+              title="No active skills yet"
               detail="Activate a reviewed draft to put it into the practice schedule."
             />
           ) : (
@@ -160,10 +173,14 @@ export default async function SkillsPage({ searchParams }: SkillsPageProps) {
         <section className="skillPanel skillRecoveryPanel" aria-labelledby="recovery-skills-title">
           <div className="skillPanelHeader">
             <div>
-              <p className="eyebrow">Recovery</p>
-              <h2 id="recovery-skills-title">Paused and archived</h2>
+              <p className="eyebrow">Saved for later</p>
+              <h2 id="recovery-skills-title">Paused and archived skills</h2>
             </div>
-            <span className="dashboardChip">{formatCount(library.recoverySkills.length)}</span>
+            <PanelHeaderCount
+              ariaLabel="Paused and archived skills shown"
+              label="Skills"
+              value={formatCount(library.recoverySkills.length)}
+            />
           </div>
           <div className="skillLibraryList">
             {library.recoverySkills.map((skill) => (
@@ -181,8 +198,13 @@ function DraftSkillRow({ skill }: { skill: SkillsLibraryDraftSkill }) {
     <article className="skillLibraryRow">
       <div className="skillLibraryRowMain">
         <div>
-          <Link href={`/skills/${skill.id}`}>{skill.title}</Link>
-          <p>{skill.objective ?? "No objective yet."}</p>
+          <Link aria-label={`Open ${skill.title}`} href={`/skills/${skill.id}`}>
+            {skill.title}
+            <span className="rowOpenCue" aria-hidden="true">
+              Open
+            </span>
+          </Link>
+          <p>{skill.objective ?? "Objective not set."}</p>
         </div>
         <span className="dashboardChip">Draft</span>
       </div>
@@ -210,24 +232,26 @@ function ActiveSkillRow({ skill }: { skill: SkillsLibraryActiveSkill }) {
     <article className="skillLibraryRow">
       <div className="skillLibraryRowMain">
         <div>
-          <Link href={`/skills/${skill.id}`}>{skill.title}</Link>
-          <p>{skill.objective ?? "No objective yet."}</p>
+          <Link aria-label={`Open ${skill.title}`} href={`/skills/${skill.id}`}>
+            {skill.title}
+            <span className="rowOpenCue" aria-hidden="true">
+              Open
+            </span>
+          </Link>
+          <p>{skill.objective ?? "Objective not set."}</p>
         </div>
         <span className="dashboardChip" data-tone={skill.isReadyNow ? "ready" : "neutral"}>
           {skill.dueLabel}
         </span>
       </div>
 
-      <div className="skillMetaLine">
+      <div className="skillMetaLine skillMetaLineSchedule">
         <span>{skill.collectionName ?? "Uncollected"}</span>
         <span>{formatFsrsState(skill.fsrsState)}</span>
         <span>{formatCount(skill.repetitions)} reps</span>
         <span>{formatCount(skill.lapses)} lapses</span>
-        <span>{formatCount(skill.verifiedExerciseCount)} verified</span>
-        <span>{formatCount(skill.readyExerciseCount)} ready</span>
-        <span>{formatCount(skill.retiredExerciseCount)} retired</span>
-        <span>{formatSourceCount(skill.sourceRefCount)}</span>
       </div>
+      <SkillLibraryInventoryFacts skill={skill} />
     </article>
   );
 }
@@ -237,8 +261,13 @@ function RecoverySkillRow({ skill }: { skill: SkillsLibraryRecoverySkill }) {
     <article className="skillLibraryRow">
       <div className="skillLibraryRowMain">
         <div>
-          <Link href={`/skills/${skill.id}`}>{skill.title}</Link>
-          <p>{skill.objective ?? "No objective yet."}</p>
+          <Link aria-label={`Open ${skill.title}`} href={`/skills/${skill.id}`}>
+            {skill.title}
+            <span className="rowOpenCue" aria-hidden="true">
+              Open
+            </span>
+          </Link>
+          <p>{skill.objective ?? "Objective not set."}</p>
         </div>
         <span className="dashboardChip">{formatSkillStatus(skill.status)}</span>
       </div>
@@ -247,17 +276,45 @@ function RecoverySkillRow({ skill }: { skill: SkillsLibraryRecoverySkill }) {
         <span>{skill.collectionName ?? "Uncollected"}</span>
         <span>{skill.dueLabel}</span>
         <span>{formatCount(skill.repetitions)} reps</span>
-        <span>{formatCount(skill.verifiedExerciseCount)} verified</span>
-        <span>{formatCount(skill.readyExerciseCount)} ready</span>
-        <span>{formatCount(skill.retiredExerciseCount)} retired</span>
-        <span>{formatSourceCount(skill.sourceRefCount)}</span>
         {skill.tags.slice(0, 3).map((tag) => (
           <span className="dashboardTag" key={tag}>
             {tag}
           </span>
         ))}
       </div>
+      <SkillLibraryInventoryFacts skill={skill} />
     </article>
+  );
+}
+
+type SkillLibraryInventoryFactSource = {
+  readyExerciseCount: number;
+  retiredExerciseCount: number;
+  sourceRefCount: number;
+  title: string;
+  verifiedExerciseCount: number;
+};
+
+function SkillLibraryInventoryFacts({ skill }: { skill: SkillLibraryInventoryFactSource }) {
+  return (
+    <dl className="skillLibraryFacts" aria-label={`${skill.title} exercise inventory`}>
+      <div data-priority="primary">
+        <dt>Ready</dt>
+        <dd>{formatCount(skill.readyExerciseCount)}</dd>
+      </div>
+      <div>
+        <dt>Verified</dt>
+        <dd>{formatCount(skill.verifiedExerciseCount)}</dd>
+      </div>
+      <div>
+        <dt>Retired</dt>
+        <dd>{formatCount(skill.retiredExerciseCount)}</dd>
+      </div>
+      <div>
+        <dt>Sources</dt>
+        <dd>{formatSourceCount(skill.sourceRefCount)}</dd>
+      </div>
+    </dl>
   );
 }
 
@@ -267,26 +324,37 @@ function SourceProcessingRow({
   sourceFile: SkillsLibrarySourceProcessingSummary;
 }) {
   const failed = sourceFile.status === "FAILED";
-  const stale = sourceFile.isStaleProcessing;
   const statusCopy = getSourceProcessingStatusCopy(sourceFile);
 
   return (
-    <article className="skillLibraryRow">
+    <article className="skillLibraryRow sourceProcessingRow">
       <div className="skillLibraryRowMain">
         <div>
           <strong>{sourceFile.originalName}</strong>
           <p>{statusCopy}</p>
         </div>
-        <span className="dashboardChip" data-tone={failed || stale ? "neutral" : "ready"}>
+        <span className="dashboardChip" data-tone={getSourceProcessingStatusTone(sourceFile)}>
           {formatSourceFileStatus(sourceFile.status)}
         </span>
       </div>
-      <div className="skillMetaLine">
-        <span>{formatSourceKind(sourceFile.kind)}</span>
-        <span>{formatByteSize(sourceFile.byteSize)}</span>
-        <span>Updated {formatDate(sourceFile.updatedAt)}</span>
-        {sourceFile.retryCount > 0 ? <span>{formatRetryCount(sourceFile.retryCount)}</span> : null}
-      </div>
+      <dl className="sourceProcessingFacts" aria-label={`${sourceFile.originalName} draft preparation details`}>
+        <div>
+          <dt>Type</dt>
+          <dd>{formatSourceKind(sourceFile.kind)}</dd>
+        </div>
+        <div>
+          <dt>Size</dt>
+          <dd>{formatByteSize(sourceFile.byteSize)}</dd>
+        </div>
+        <div>
+          <dt>Updated</dt>
+          <dd>{formatDate(sourceFile.updatedAt)}</dd>
+        </div>
+        <div>
+          <dt>Retries</dt>
+          <dd>{sourceFile.retryCount > 0 ? formatRetryCount(sourceFile.retryCount) : "None"}</dd>
+        </div>
+      </dl>
       {failed && sourceFile.errorMessage ? (
         <div className="skillLibraryStatus" data-tone="error">
           <p>{sourceFile.errorMessage}</p>
@@ -294,6 +362,7 @@ function SourceProcessingRow({
       ) : null}
       <SourceProcessingControls
         sourceFileId={sourceFile.id}
+        sourceFileName={sourceFile.originalName}
         canRequeue={sourceFile.canRequeue}
         canDismiss={sourceFile.canDismiss}
       />
@@ -306,10 +375,20 @@ function GenerationJobStatusLine({ job }: { job: SkillsLibraryGenerationJobSumma
 
   return (
     <div className="skillLibraryStatus" data-tone={failed ? "error" : "neutral"}>
-      <span>{formatJobStatus(job.status)}</span>
-      <span>
-        {formatCount(job.acceptedCount)} accepted / {formatCount(job.rejectedCount)} rejected
-      </span>
+      <dl className="skillLibraryStatusFacts" aria-label="Latest preparation result">
+        <div>
+          <dt>Latest preparation</dt>
+          <dd>{formatJobStatus(job.status)}</dd>
+        </div>
+        <div>
+          <dt>Kept</dt>
+          <dd>{formatCount(job.acceptedCount)}</dd>
+        </div>
+        <div>
+          <dt>Skipped</dt>
+          <dd>{formatCount(job.rejectedCount)}</dd>
+        </div>
+      </dl>
       {failed && job.errorMessage ? <p>{job.errorMessage}</p> : null}
     </div>
   );
@@ -346,20 +425,23 @@ function formatRetryCount(count: number) {
   return count === 1 ? "1 retry" : `${formatCount(count)} retries`;
 }
 
-function formatFsrsState(state: SkillsLibraryActiveSkill["fsrsState"]) {
-  return state.toLowerCase().replaceAll("_", " ");
-}
-
 function formatSkillStatus(status: SkillsLibraryRecoverySkill["status"]) {
-  return status.toLowerCase().replaceAll("_", " ");
+  return formatDisplayLabel(status);
 }
 
 function formatSourceFileStatus(status: SkillsLibrarySourceProcessingSummary["status"]) {
-  return status.toLowerCase().replaceAll("_", " ");
+  switch (status) {
+    case "FAILED":
+      return "Needs attention";
+    case "PROCESSING":
+      return "Preparing drafts";
+    case "UPLOADED":
+      return "File received";
+  }
 }
 
 function formatSourceKind(kind: SkillsLibrarySourceProcessingSummary["kind"]) {
-  return kind.toLowerCase().replaceAll("_", " ");
+  return formatDisplayLabel(kind);
 }
 
 function formatByteSize(byteSize: number | null) {
@@ -377,21 +459,33 @@ function formatByteSize(byteSize: number | null) {
 function getSourceProcessingStatusCopy(sourceFile: SkillsLibrarySourceProcessingSummary) {
   if (sourceFile.status === "FAILED") {
     if (!sourceFile.canDismiss) {
-      return "Processing failed. This source is linked to a skill, so upload the material again if you need a fresh draft.";
+      return "Draft preparation failed. This file is linked to a skill, so upload the material again if you need another draft.";
     }
 
-    return "Processing failed. Dismiss this row, then upload again when you are ready.";
+    return "Draft preparation failed. Dismiss this row, then upload again when you are ready.";
   }
 
   if (sourceFile.status === "UPLOADED") {
-    return "Queued and waiting for the background worker.";
+    return "File received. Drafts will appear under Needs review when preparation finishes.";
   }
 
   if (sourceFile.isStaleProcessing) {
-    return "Processing appears stuck. Requeue it when the background worker is running.";
+    return "Draft preparation appears stuck. Try again when you are ready.";
   }
 
-  return "Draft generation is running in the background.";
+  return "Draft preparation is in progress.";
+}
+
+function getSourceProcessingStatusTone(sourceFile: SkillsLibrarySourceProcessingSummary) {
+  if (sourceFile.status === "FAILED") {
+    return "danger";
+  }
+
+  if (sourceFile.isStaleProcessing) {
+    return "attention";
+  }
+
+  return sourceFile.status === "PROCESSING" ? "attention" : "neutral";
 }
 
 function parseCreatedDraftCount(value: string | string[] | undefined) {

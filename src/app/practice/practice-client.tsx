@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 
 import { AnswerKind, ExerciseFlagReason, FsrsRating } from "@/generated/prisma/enums";
+import { formatFsrsState } from "@/lib/formatters";
 import {
   getPracticeShortcutIntent,
   type PracticeShortcutTargetRole,
@@ -288,7 +289,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
     }
 
     const focusTarget = window.requestAnimationFrame(() => {
-      continueButtonRef.current?.focus({ preventScroll: true });
+      continueButtonRef.current?.focus();
     });
 
     return () => window.cancelAnimationFrame(focusTarget);
@@ -369,15 +370,19 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
       <>
         <PracticeScopeBar scope={item.scope} />
         <section className="practiceFrame practiceEmpty" aria-labelledby="practice-empty-title">
-          <p className="eyebrow">Practice queue</p>
+          <p className="eyebrow">Due practice</p>
           <h1 id="practice-empty-title">
-            {item.status === "none-due" ? "All caught up." : "Practice unavailable."}
+            {item.status === "none-due" ? "All caught up." : "Practice is unavailable."}
           </h1>
           <p>{item.message}</p>
+          <PracticeEmptyDetails
+            scoped={item.scope?.kind === "collection"}
+            status={item.status}
+          />
           <PracticeEmptyActions scoped={item.scope?.kind === "collection"} />
           {canUseSampleData && item.scope?.kind !== "collection" ? (
             <button
-              className="primaryButton"
+              className="secondaryButton"
               type="button"
               onClick={handleSampleData}
               disabled={pendingAction === "sample"}
@@ -415,17 +420,24 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
             <p className="eyebrow">{practiceModeLabel}</p>
             <h1 id="practice-title">{item.skill.title}</h1>
           </div>
-          <div className="practiceMetricCluster" aria-label="Practice status">
-            <span className="practiceChip">{formatFsrsState(item.skill.fsrsState)}</span>
-            <span className="practiceChip">{formatElapsed(timer.elapsedMs)}</span>
-          </div>
+          <dl className="practiceSessionFacts" aria-label="Practice status">
+            <div data-priority="primary">
+              <dt>Memory stage</dt>
+              <dd>{formatFsrsState(item.skill.fsrsState)}</dd>
+            </div>
+            <div>
+              <dt>Time</dt>
+              <dd>{formatElapsed(timer.elapsedMs)}</dd>
+            </div>
+          </dl>
         </div>
 
       <article className="practicePromptPanel">
-        <div className="practicePromptHeader">
-          <span>Exercise</span>
-          {exercise.difficulty ? <span>Level {exercise.difficulty}</span> : null}
-        </div>
+        {exercise.difficulty ? (
+          <div className="practicePromptHeader" role="group" aria-label="Exercise details">
+            <span>Level {exercise.difficulty}</span>
+          </div>
+        ) : null}
         <p>
           <MathText text={exercise.prompt} />
         </p>
@@ -456,6 +468,9 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
                 disabled={feedback !== null || pendingAction !== null}
                 onClick={() => setAnswerValue(choice.id)}
               >
+                <span className="choiceIndex" aria-hidden="true">
+                  {index + 1}
+                </span>
                 <span>{choice.label}</span>
               </button>
             );
@@ -482,6 +497,19 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
         </label>
       )}
 
+      {feedback === null ? (
+        <div className="practiceActions">
+          <button
+            className="primaryButton"
+            type="button"
+            disabled={!isAnswerReady(answerValue) || pendingAction !== null}
+            onClick={handleCheck}
+          >
+            {pendingAction === "check" ? "Checking" : "Check"}
+          </button>
+        </div>
+      ) : null}
+
       {checkedFeedback ? (
         <section
           className="practiceFeedback"
@@ -490,12 +518,17 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
           role="status"
         >
           <h2>{isCorrect ? "Correct." : "Not quite."}</h2>
-          <p>
-            Correct answer:{" "}
-            <strong>
-              <MathText text={checkedFeedback.correctAnswerDisplay} />
-            </strong>
-          </p>
+          <dl
+            className="practiceFeedbackAnswer"
+            aria-label={`Correct answer: ${checkedFeedback.correctAnswerDisplay}`}
+          >
+            <div>
+              <dt>Correct answer</dt>
+              <dd>
+                <MathText text={checkedFeedback.correctAnswerDisplay} />
+              </dd>
+            </div>
+          </dl>
           {checkedFeedback.explanation ? (
             <p>
               <MathText text={checkedFeedback.explanation} />
@@ -506,11 +539,13 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
 
       {isCorrect ? (
         <fieldset className="ratingOverride">
-          <legend>Schedule rating</legend>
-          <div>
+          <legend>Review rating</legend>
+          <div role="radiogroup" aria-label="Review rating">
             {[FsrsRating.HARD, FsrsRating.GOOD, FsrsRating.EASY].map((rating) => (
               <button
                 key={rating}
+                role="radio"
+                aria-checked={manualRating === rating}
                 className="ratingButton"
                 data-selected={manualRating === rating ? "true" : "false"}
                 type="button"
@@ -523,16 +558,32 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
         </fieldset>
       ) : null}
 
+      {feedback !== null ? (
+        <div className="practiceActions">
+          <button
+            className="primaryButton"
+            type="button"
+            disabled={pendingAction !== null || feedback.status !== "checked"}
+            onClick={handleContinue}
+            ref={continueButtonRef}
+          >
+            {pendingAction === "continue" ? "Saving" : "Continue"}
+          </button>
+        </div>
+      ) : null}
+
       {isIncorrect ? (
-        <p className="practiceStatusLine">This review will be scheduled as Again.</p>
+        <p className="practiceStatusLine" data-tone="attention">
+          Review rating: Again.
+        </p>
       ) : null}
 
       {checkedFeedback ? (
         <section className="flagExercisePanel" aria-labelledby="flag-exercise-title">
           <div className="flagExerciseHeader">
             <div>
-              <h2 id="flag-exercise-title">Something wrong?</h2>
-              <p>Report this exercise instead of saving the review.</p>
+              <h2 id="flag-exercise-title">Report an issue</h2>
+              <p>Retire this exercise instead of saving the review.</p>
             </div>
             <button
               ref={reportToggleRef}
@@ -550,7 +601,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
           {flagFormOpen ? (
             <div className="flagExerciseForm" id="practice-report-form">
               <fieldset>
-                <legend>What should we fix?</legend>
+                <legend>Issue type</legend>
                 <div className="flagReasonGrid">
                   {FLAG_REASON_OPTIONS.map((option, index) => (
                     <label key={option.reason} className="flagReasonOption">
@@ -569,7 +620,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
 
               {selectedOtherFlag ? (
                 <label className="flagNoteField">
-                  <span>What else?</span>
+                  <span>Note</span>
                   <textarea
                     value={otherFlagNote}
                     disabled={pendingAction !== null}
@@ -594,29 +645,6 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
           ) : null}
         </section>
       ) : null}
-
-      <div className="practiceActions">
-        {feedback === null ? (
-          <button
-            className="primaryButton"
-            type="button"
-            disabled={!isAnswerReady(answerValue) || pendingAction !== null}
-            onClick={handleCheck}
-          >
-            {pendingAction === "check" ? "Checking" : "Check"}
-          </button>
-        ) : (
-          <button
-            className="primaryButton"
-            type="button"
-            disabled={pendingAction !== null || feedback.status !== "checked"}
-            onClick={handleContinue}
-            ref={continueButtonRef}
-          >
-            {pendingAction === "continue" ? "Saving" : "Continue"}
-          </button>
-        )}
-      </div>
 
       <PracticeStatusMessage message={statusMessage} />
       </section>
@@ -645,21 +673,66 @@ function getScopedCollectionId(item: PracticeItem): string | null {
 function PracticeEmptyActions({ scoped }: { scoped: boolean }) {
   return (
     <div className="practiceEmptyActions" aria-label="Practice next actions">
-      {scoped ? (
-        <Link className="primaryButton" href="/practice">
-          All practice
+      <div className="practiceEmptyPrimaryActions">
+        {scoped ? (
+          <Link className="primaryButton" href="/practice">
+            All practice
+          </Link>
+        ) : null}
+        <Link className={scoped ? "secondaryButton" : "primaryButton"} href="/dashboard">
+          Dashboard
         </Link>
-      ) : null}
-      <Link className={scoped ? "secondaryButton" : "primaryButton"} href="/dashboard">
-        Dashboard
-      </Link>
-      <Link className="secondaryButton" href="/skills">
-        Skills
-      </Link>
-      <Link className="secondaryButton" href="/skills/new">
-        Add skill
-      </Link>
+      </div>
+      <div className="practiceEmptyUtilityLinks">
+        <Link href="/skills">Skills</Link>
+        <Link href="/skills/new">Add skill</Link>
+      </div>
     </div>
+  );
+}
+
+function PracticeEmptyDetails({
+  scoped,
+  status,
+}: {
+  scoped: boolean;
+  status: Exclude<PracticeItem["status"], "ready">;
+}) {
+  const details =
+    status === "none-due"
+      ? scoped
+        ? [
+            ["Scope", "Only active skills in this collection are checked."],
+            ["Ready exercise", "A due skill with verified exercises."],
+          ]
+        : [
+            ["Schedule", "No active skill is due right now."],
+            ["Ready exercise", "A due skill with verified exercises."],
+          ]
+      : [
+          [
+            "Scope",
+            scoped
+              ? "This collection cannot be selected for practice."
+              : "No due exercise could be selected.",
+          ],
+          [
+            "Next step",
+            scoped
+              ? "Try all practice or review the collection."
+              : "Review skills and exercise inventory.",
+          ],
+        ];
+
+  return (
+    <dl className="practiceEmptyDetails" aria-label="Practice availability checks">
+      {details.map(([label, detail]) => (
+        <div key={label}>
+          <dt>{label}</dt>
+          <dd>{detail}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 
@@ -793,10 +866,6 @@ function formatElapsed(ms: number): string {
   const remainingSeconds = seconds % 60;
 
   return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
-}
-
-function formatFsrsState(state: string): string {
-  return state.charAt(0) + state.slice(1).toLowerCase();
 }
 
 function formatRating(rating: FsrsRating): string {

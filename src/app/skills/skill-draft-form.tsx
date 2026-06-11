@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useId } from "react";
 import type React from "react";
 
 import {
@@ -43,84 +43,98 @@ export function SkillDraftForm({ mode, skillId, initialValues }: SkillDraftFormP
         <div className="skillPanelHeader">
           <div>
             <p className="eyebrow">Skill definition</p>
-            <h2>{mode === "create" ? "Create a draft." : "Review the draft."}</h2>
+            <h2>{mode === "create" ? "Create a draft" : "Review the draft"}</h2>
           </div>
         </div>
 
         {skillId ? <input name="skillId" type="hidden" value={skillId} /> : null}
 
-        <SkillTextField
-          error={draftState.fieldErrors?.title?.[0]}
-          label="Title"
-          name="title"
-          placeholder="Ser vs. estar in everyday sentences"
-          required
-          defaultValue={initialValues.title}
-        />
+        <fieldset className="skillFormFieldset">
+          <legend>Core definition</legend>
+          <div className="skillFormFieldsetBody">
+            <SkillTextField
+              error={draftState.fieldErrors?.title?.[0]}
+              label="Title"
+              name="title"
+              placeholder="Ser vs. estar in everyday sentences"
+              required
+              defaultValue={initialValues.title}
+            />
 
-        <SkillTextArea
-          error={draftState.fieldErrors?.objective?.[0]}
-          label="Objective"
-          name="objective"
-          placeholder="Choose whether ser or estar fits a short Spanish sentence, focusing on identity, location, and temporary state."
-          required
-          defaultValue={initialValues.objective}
-          rows={4}
-        />
+            <SkillTextArea
+              error={draftState.fieldErrors?.objective?.[0]}
+              label="Objective"
+              name="objective"
+              placeholder="Choose whether ser or estar fits a short Spanish sentence, focusing on identity, location, and temporary state."
+              required
+              defaultValue={initialValues.objective}
+              rows={4}
+            />
 
-        <div className="skillTwoColumnFields">
-          <SkillTextField
-            error={draftState.fieldErrors?.collectionName?.[0]}
-            label="Collection"
-            name="collectionName"
-            placeholder="Spanish grammar"
-            defaultValue={initialValues.collectionName}
-          />
-          <SkillTextField
-            error={draftState.fieldErrors?.tags?.[0]}
-            label="Tags"
-            name="tags"
-            placeholder="spanish, verbs, grammar"
-            defaultValue={initialValues.tags}
-          />
-        </div>
+            <div className="skillTwoColumnFields">
+              <SkillTextField
+                error={draftState.fieldErrors?.collectionName?.[0]}
+                label="Collection"
+                name="collectionName"
+                placeholder="Spanish grammar"
+                defaultValue={initialValues.collectionName}
+              />
+              <SkillTextField
+                error={draftState.fieldErrors?.tags?.[0]}
+                label="Tags"
+                name="tags"
+                placeholder="spanish, verbs, grammar"
+                defaultValue={initialValues.tags}
+              />
+            </div>
+          </div>
+        </fieldset>
 
-        <SkillTextArea
-          error={draftState.fieldErrors?.rules?.[0]}
-          label="Rules"
-          name="rules"
-          placeholder={"Use ser for identity.\nUse estar for location and temporary state."}
-          defaultValue={initialValues.rules}
-          rows={4}
-        />
+        <fieldset className="skillFormFieldset">
+          <legend>Practice guidance</legend>
+          <div className="skillFormFieldsetBody">
+            <SkillTextArea
+              error={draftState.fieldErrors?.rules?.[0]}
+              label="Rules"
+              name="rules"
+              placeholder={"Use ser for identity.\nUse estar for location and temporary state."}
+              defaultValue={initialValues.rules}
+              rows={4}
+            />
 
-        <SkillTextArea
-          error={draftState.fieldErrors?.examples?.[0]}
-          label="Examples"
-          name="examples"
-          placeholder={"Soy estudiante.\nEstoy en casa."}
-          defaultValue={initialValues.examples}
-          rows={4}
-        />
+            <SkillTextArea
+              error={draftState.fieldErrors?.examples?.[0]}
+              label="Examples"
+              name="examples"
+              placeholder={"Soy estudiante.\nEstoy en casa."}
+              defaultValue={initialValues.examples}
+              rows={4}
+            />
 
-        <SkillTextArea
-          error={draftState.fieldErrors?.exerciseConstraints?.[0]}
-          label="Exercise constraints"
-          name="exerciseConstraints"
-          placeholder="Use short choices, avoid trick questions, and keep the first batch beginner-friendly."
-          defaultValue={initialValues.exerciseConstraints}
-          rows={3}
-        />
+            <SkillTextArea
+              error={draftState.fieldErrors?.exerciseConstraints?.[0]}
+              label="Exercise constraints"
+              name="exerciseConstraints"
+              placeholder="Use short choices, avoid trick questions, and keep starter exercises beginner-friendly."
+              defaultValue={initialValues.exerciseConstraints}
+              rows={3}
+            />
+          </div>
+        </fieldset>
 
         {draftState.message ? (
-          <p className="skillFormMessage" data-tone={draftState.status}>
+          <p className="skillFormMessage" data-tone={draftState.status} role="status">
             {draftState.message}
           </p>
         ) : null}
 
         <div className="skillFormActions">
-          <button className="primaryButton" disabled={isSaving} type="submit">
-            {isSaving ? "Saving..." : mode === "create" ? "Create draft" : "Save draft"}
+          <button
+            className={mode === "create" ? "secondaryButton" : "primaryButton"}
+            disabled={isSaving}
+            type="submit"
+          >
+            {isSaving ? "Saving" : mode === "create" ? "Create draft" : "Save draft"}
           </button>
         </div>
       </form>
@@ -130,16 +144,16 @@ export function SkillDraftForm({ mode, skillId, initialValues }: SkillDraftFormP
           <div className="skillPanelHeader">
             <div>
               <p className="eyebrow">Activation</p>
-              <h2 id="activate-skill-title">Generate starter practice.</h2>
+              <h2 id="activate-skill-title">Prepare starter practice</h2>
             </div>
           </div>
           <p>
-            Activation asks Gemini for a first batch of multiple-choice exercises, validates
-            the structure, then schedules this skill for practice.
+            Activation prepares and verifies a starter set of multiple-choice exercises, then
+            schedules this skill for practice.
           </p>
 
           {activationState.message ? (
-            <p className="skillFormMessage" data-tone="error">
+            <p className="skillFormMessage" data-tone="error" role="status">
               {activationState.message}
             </p>
           ) : null}
@@ -147,7 +161,7 @@ export function SkillDraftForm({ mode, skillId, initialValues }: SkillDraftFormP
           <form action={activateAction} className="skillActivationForm">
             <input name="skillId" type="hidden" value={skillId} />
             <button className="primaryButton" disabled={isActivating} type="submit">
-              {isActivating ? "Activating..." : "Activate with Gemini"}
+              {isActivating ? "Activating" : "Activate skill"}
             </button>
           </form>
         </section>
@@ -160,17 +174,26 @@ function SkillTextField({
   label,
   name,
   error,
+  "aria-describedby": ariaDescribedBy,
   ...props
 }: {
   label: string;
   name: string;
   error?: string;
 } & React.InputHTMLAttributes<HTMLInputElement>) {
+  const errorId = useId();
+  const describedBy = [ariaDescribedBy, error ? errorId : null].filter(Boolean).join(" ") || undefined;
+
   return (
     <label className="skillField">
       <span>{label}</span>
-      <input aria-invalid={error ? "true" : undefined} name={name} {...props} />
-      {error ? <em>{error}</em> : null}
+      <input
+        aria-describedby={describedBy}
+        aria-invalid={error ? "true" : undefined}
+        name={name}
+        {...props}
+      />
+      {error ? <em id={errorId}>{error}</em> : null}
     </label>
   );
 }
@@ -179,17 +202,26 @@ function SkillTextArea({
   label,
   name,
   error,
+  "aria-describedby": ariaDescribedBy,
   ...props
 }: {
   label: string;
   name: string;
   error?: string;
 } & React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  const errorId = useId();
+  const describedBy = [ariaDescribedBy, error ? errorId : null].filter(Boolean).join(" ") || undefined;
+
   return (
     <label className="skillField">
       <span>{label}</span>
-      <textarea aria-invalid={error ? "true" : undefined} name={name} {...props} />
-      {error ? <em>{error}</em> : null}
+      <textarea
+        aria-describedby={describedBy}
+        aria-invalid={error ? "true" : undefined}
+        name={name}
+        {...props}
+      />
+      {error ? <em id={errorId}>{error}</em> : null}
     </label>
   );
 }

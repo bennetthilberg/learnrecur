@@ -1,3 +1,5 @@
+import { PanelHeaderCount } from "@/components/app/panel-header-count";
+import { formatDisplayLabel } from "@/lib/formatters";
 import type { SkillSourceSummary } from "@/lib/skills/sources";
 
 import { SkillSourceRemoveForm } from "./skill-source-remove-form";
@@ -20,13 +22,17 @@ export function SkillSourcePanel({
       <div className="skillPanelHeader">
         <div>
           <p className="eyebrow">Source material</p>
-          <h2 id="skill-source-title">Stored source context.</h2>
+          <h2 id="skill-source-title">Linked source material</h2>
         </div>
-        <span className="dashboardChip">{formatSourceCount(sources.length)}</span>
+        <PanelHeaderCount
+          ariaLabel="Linked sources shown"
+          label="Sources"
+          value={formatCount(sources.length)}
+        />
       </div>
       <p className="skillSourceIntro">
-        Linked source text helps future exercise generation match this skill. Previews are capped
-        here so the page does not expose the full pasted material at a glance.
+        Linked source text helps future exercises match this skill. Previews are capped here so
+        the full source stays out of view.
       </p>
       <div className="skillSourceList">
         {sources.map((source) => (
@@ -34,18 +40,34 @@ export function SkillSourcePanel({
             <div className="skillSourceRowHeader">
               <div>
                 <h3>{source.label}</h3>
-                <div className="skillMetaLine">
-                  <span>{formatSourceKind(source.kind)}</span>
-                  <span>{source.status.toLowerCase()}</span>
-                  <span>{formatBytes(source.byteSize)}</span>
-                  <span>Added {formatDate(source.createdAt)}</span>
-                </div>
+                {source.note ? <p className="skillSourceNote">{source.note}</p> : null}
               </div>
               {canRemove ? (
-                <SkillSourceRemoveForm skillId={skillId} sourceRefId={source.id} />
+                <SkillSourceRemoveForm
+                  skillId={skillId}
+                  sourceLabel={source.label}
+                  sourceRefId={source.id}
+                />
               ) : null}
             </div>
-            {source.note ? <p className="skillSourceNote">{source.note}</p> : null}
+            <dl className="skillSourceFacts" aria-label={`${source.label} source details`}>
+              <div data-priority="primary">
+                <dt>Status</dt>
+                <dd>{formatSourceStatus(source.status)}</dd>
+              </div>
+              <div>
+                <dt>Type</dt>
+                <dd>{formatSourceKind(source.kind)}</dd>
+              </div>
+              <div>
+                <dt>Size</dt>
+                <dd>{formatBytes(source.byteSize)}</dd>
+              </div>
+              <div>
+                <dt>Added</dt>
+                <dd>{formatDate(source.createdAt)}</dd>
+              </div>
+            </dl>
             {source.preview ? (
               <blockquote className="skillSourcePreview">{source.preview}</blockquote>
             ) : (
@@ -58,12 +80,16 @@ export function SkillSourcePanel({
   );
 }
 
-function formatSourceCount(count: number) {
-  return count === 1 ? "1 source" : `${count} sources`;
+function formatSourceKind(kind: SkillSourceSummary["kind"]) {
+  return formatDisplayLabel(kind);
 }
 
-function formatSourceKind(kind: SkillSourceSummary["kind"]) {
-  return kind.toLowerCase();
+function formatCount(count: number) {
+  return new Intl.NumberFormat("en-US").format(count);
+}
+
+function formatSourceStatus(status: SkillSourceSummary["status"]) {
+  return formatDisplayLabel(status);
 }
 
 function formatDate(date: Date) {

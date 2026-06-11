@@ -18,18 +18,22 @@ const idleState: SkillFormActionState = {
 export function SkillRefillForm({
   skillId,
   canRefill,
-  buttonLabel = "Queue more exercises",
+  buttonLabel = "Prepare more exercises",
 }: SkillRefillFormProps) {
   const [state, action, isPending] = useActionState(refillChoiceExercisesAction, idleState);
 
   return (
     <form action={action} className="skillRefillForm">
       <input name="skillId" type="hidden" value={skillId} />
-      <button className="primaryButton" disabled={!canRefill || isPending} type="submit">
-        {isPending ? "Queuing..." : buttonLabel}
+      <button
+        className={canRefill || isPending ? "primaryButton" : "secondaryButton"}
+        disabled={!canRefill || isPending}
+        type="submit"
+      >
+        {isPending ? "Preparing" : buttonLabel}
       </button>
       {state.message ? (
-        <p className="skillFormMessage" data-tone={state.status}>
+        <p className="skillFormMessage" data-tone={state.status} role="status">
           {state.message}
         </p>
       ) : null}

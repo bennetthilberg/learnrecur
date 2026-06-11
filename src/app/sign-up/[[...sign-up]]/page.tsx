@@ -6,12 +6,11 @@ import { clerkAppearance } from "@/components/app/clerk-appearance";
 export default function SignUpPage() {
   return (
     <AuthShell
-      title="Create a LearnRecur account."
-      description="This temporary sign-up screen exists so we can verify Clerk and database ownership."
+      title="Create a LearnRecur account"
+      description="Start a private study space for source-backed skills, verified practice, and due reminders."
     >
       <SignUp
         appearance={clerkAppearance}
-        fallbackRedirectUrl="/dashboard"
         forceRedirectUrl="/dashboard"
         path="/sign-up"
         routing="path"

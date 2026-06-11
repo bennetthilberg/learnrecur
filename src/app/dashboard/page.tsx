@@ -1,9 +1,11 @@
-import { UserButton } from "@clerk/nextjs";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import Link from "next/link";
 
 import { getDashboardHome, type DashboardHome } from "@/lib/dashboard";
+import { formatFsrsState } from "@/lib/formatters";
 import { ensureDatabaseUser } from "@/lib/users";
+
+import { SkillsTopbar } from "../skills/skills-topbar";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +22,7 @@ export default async function DashboardPage() {
   if (databaseUser.status !== "ready") {
     return (
       <main className="dashboardShell">
-        <DashboardTopbar />
+        <SkillsTopbar current="dashboard" />
         <section className="dashboardSetupPanel" aria-labelledby="dashboard-setup-title">
           <p className="eyebrow">Dashboard</p>
           <h1 id="dashboard-setup-title">Database setup needs attention.</h1>
@@ -37,57 +39,77 @@ export default async function DashboardPage() {
 
   return (
     <main className="dashboardShell">
-      <DashboardTopbar />
+      <SkillsTopbar current="dashboard" />
 
       <header className="dashboardHeader">
         <div>
           <p className="eyebrow">Today</p>
-          <h1>Practice queue.</h1>
+          <h1>Due practice</h1>
           <p>
             A compact read on what is ready, what is active, and how the recent
             review loop is holding up.
           </p>
         </div>
         <div className="dashboardHeaderActions">
-          <Link className="secondaryButton" href="/history">
-            Review history
-          </Link>
-          <Link className="secondaryButton" href="/settings">
-            Reminder settings
-          </Link>
-          <Link className="secondaryButton" href="/skills/new">
-            Add skill
-          </Link>
-          <Link
-            className={dashboard.readyNowCount > 0 ? "primaryButton" : "secondaryButton"}
-            href="/practice"
+          <div className="dashboardHeaderPrimaryActions">
+            <Link
+              className={dashboard.readyNowCount > 0 ? "primaryButton" : "secondaryButton"}
+              href="/practice"
+            >
+              {dashboard.readyNowCount > 0 ? "Start practice" : "Open practice"}
+            </Link>
+            <Link className="secondaryButton" href="/skills/new">
+              Add skill
+            </Link>
+          </div>
+          <div
+            className="dashboardHeaderUtilityLinks"
+            role="group"
+            aria-label="Dashboard utility links"
           >
-            {dashboard.readyNowCount > 0 ? "Start practice" : "Open practice"}
-          </Link>
+            <Link href="/history">Review history</Link>
+            <Link href="/settings">Settings</Link>
+          </div>
         </div>
       </header>
 
-      <section className="dashboardMetricGrid" aria-label="Practice summary">
-        <MetricCard
-          label="Ready now"
-          value={formatCount(dashboard.readyNowCount)}
-          detail="practice ready"
-        />
-        <MetricCard
-          label="Active skills"
-          value={formatCount(dashboard.activeSkillCount)}
-          detail="in the schedule"
-        />
-        <MetricCard
-          label="Recent accuracy"
-          value={formatAccuracy(dashboard.recentAccuracyPercent)}
-          detail="last 14 days"
-        />
-        <MetricCard
-          label="Recent reviews"
-          value={formatCount(dashboard.recentReviewCount)}
-          detail="checked answers"
-        />
+      <section className="dashboardPracticeSummary" aria-label="Practice summary">
+        <article
+          className="dashboardReadySummary"
+          data-ready={dashboard.readyNowCount > 0 ? "true" : "false"}
+        >
+          <p className="eyebrow">Ready now</p>
+          <div className="dashboardReadyValue">
+            <strong>{formatCount(dashboard.readyNowCount)}</strong>
+            <span>{formatReadySummaryDetail(dashboard.readyNowCount)}</span>
+          </div>
+          <p>
+            {dashboard.readyNowCount > 0
+              ? "Start with the earliest due active skill, then continue through today's reviews."
+              : "Every active skill is scheduled for later or waiting on verified exercises."}
+          </p>
+        </article>
+        <dl className="dashboardSupportMetrics">
+          <div>
+            <dt>Active skills</dt>
+            <dd className="dashboardSupportMetricValue">{formatCount(dashboard.activeSkillCount)}</dd>
+            <dd className="dashboardSupportMetricDetail">in schedule</dd>
+          </div>
+          <div>
+            <dt>Recent accuracy</dt>
+            <dd className="dashboardSupportMetricValue">
+              {formatAccuracy(dashboard.recentAccuracyPercent)}
+            </dd>
+            <dd className="dashboardSupportMetricDetail">last 14 days</dd>
+          </div>
+          <div>
+            <dt>Recent reviews</dt>
+            <dd className="dashboardSupportMetricValue">
+              {formatCount(dashboard.recentReviewCount)}
+            </dd>
+            <dd className="dashboardSupportMetricDetail">checked answers</dd>
+          </div>
+        </dl>
       </section>
 
       <div className="dashboardContentGrid">
@@ -104,29 +126,41 @@ export default async function DashboardPage() {
 
           {dashboard.collections.length === 0 ? (
             <DashboardEmptyState
-              title="No collections yet."
-              detail="Create a skill draft with a collection name to start grouping practice."
-              actionHref="/skills/new"
-              actionLabel="Add skill"
+              title="No study areas yet"
+              detail="Create a study area, or name one while drafting a skill."
+              actionHref="/collections"
+              actionLabel="Manage collections"
             />
           ) : (
             <div className="collectionList">
               {dashboard.collections.map((collection) => (
-                <article className="collectionRow" key={collection.id}>
-                  <div>
+                <article className="collectionRow dashboardCollectionRow" key={collection.id}>
+                  <div className="dashboardCollectionMain">
                     <h3>{collection.name}</h3>
-                    <p>{formatCount(collection.activeSkillCount)} active skills</p>
+                    <dl
+                      className="dashboardCollectionFacts"
+                      aria-label={`${collection.name} collection summary`}
+                    >
+                      <div data-priority="primary">
+                        <dt>Ready</dt>
+                        <dd data-ready={collection.readyNowCount > 0 ? "true" : "false"}>
+                          {formatCount(collection.readyNowCount)}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Active</dt>
+                        <dd>{formatCount(collection.activeSkillCount)}</dd>
+                      </div>
+                    </dl>
                   </div>
                   <div className="collectionRowPractice">
-                    <span className="dashboardChip" data-tone={collection.readyNowCount > 0 ? "ready" : "neutral"}>
-                      {formatCount(collection.readyNowCount)} ready
-                    </span>
                     <Link
                       aria-label={`Practice collection ${collection.name}`}
-                      className="dashboardPanelLink"
+                      className="dashboardPanelLink dashboardCollectionPracticeLink"
+                      data-ready={collection.readyNowCount > 0 ? "true" : "false"}
                       href={`/practice?collectionId=${encodeURIComponent(collection.id)}`}
                     >
-                      Practice
+                      {collection.readyNowCount > 0 ? "Practice now" : "Open practice"}
                     </Link>
                   </div>
                 </article>
@@ -148,8 +182,8 @@ export default async function DashboardPage() {
 
           {dashboard.skills.length === 0 ? (
             <DashboardEmptyState
-              title="No active skills yet."
-              detail="Define a skill, review the draft, and activate it to generate starter practice."
+              title="No scheduled skills"
+              detail="Drafts stay out of practice until you review and activate them."
               actionHref="/skills/new"
               actionLabel="Add skill"
             />
@@ -159,9 +193,17 @@ export default async function DashboardPage() {
                 <article className="skillRow" key={skill.id}>
                   <div className="skillRowMain">
                     <div>
-                      <h3>{skill.title}</h3>
-                      <p>
-                        {skill.collectionName ?? "Uncollected"} / {formatFsrsState(skill.fsrsState)}
+                      <h3>
+                        <Link aria-label={`Open ${skill.title}`} href={`/skills/${skill.id}`}>
+                          {skill.title}
+                          <span className="rowOpenCue" aria-hidden="true">
+                            Open
+                          </span>
+                        </Link>
+                      </h3>
+                      <p className="skillRowContext">
+                        <span>{skill.collectionName ?? "Uncollected"}</span>
+                        <span>{formatFsrsState(skill.fsrsState)}</span>
                       </p>
                     </div>
                     <span className="dashboardChip" data-tone={skill.isReadyNow ? "ready" : "neutral"}>
@@ -188,56 +230,16 @@ export default async function DashboardPage() {
       {dashboard.readyNowCount === 0 ? (
         <section className="dashboardMessage" aria-label="Practice status">
           <div>
-            <p className="eyebrow">Queue</p>
-            <h2>Nothing is ready for practice.</h2>
+            <p className="eyebrow">Due practice</p>
+            <h2>Nothing is ready for practice</h2>
           </div>
           <p>
             This can mean every active skill is scheduled for later, or the ready skills
-            do not have verified practiceable exercises yet.
+            do not yet have verified exercises for the practice screen.
           </p>
         </section>
       ) : null}
     </main>
-  );
-}
-
-function DashboardTopbar() {
-  return (
-    <header className="practiceTopbar">
-      <Link className="practiceWordmark" href="/dashboard">
-        LearnRecur
-      </Link>
-      <nav className="practiceNav" aria-label="Dashboard navigation">
-        <Link aria-current="page" href="/dashboard">
-          Dashboard
-        </Link>
-        <Link href="/practice">Practice</Link>
-        <Link href="/history">History</Link>
-        <Link href="/skills">Skills</Link>
-        <Link href="/collections">Collections</Link>
-        <Link href="/settings">Settings</Link>
-        <Link href="/skills/new">Add skill</Link>
-      </nav>
-      <UserButton />
-    </header>
-  );
-}
-
-function MetricCard({
-  label,
-  value,
-  detail,
-}: {
-  label: string;
-  value: string;
-  detail: string;
-}) {
-  return (
-    <article className="dashboardMetricCard">
-      <p>{label}</p>
-      <strong>{value}</strong>
-      <span>{detail}</span>
-    </article>
   );
 }
 
@@ -268,9 +270,9 @@ function formatCount(count: number) {
 }
 
 function formatAccuracy(accuracy: DashboardHome["recentAccuracyPercent"]) {
-  return accuracy === null ? "No data" : `${accuracy}%`;
+  return accuracy === null ? "No reviews" : `${accuracy}%`;
 }
 
-function formatFsrsState(state: DashboardHome["skills"][number]["fsrsState"]) {
-  return state.toLowerCase().replaceAll("_", " ");
+function formatReadySummaryDetail(count: number) {
+  return count === 1 ? "skill ready" : "skills ready";
 }

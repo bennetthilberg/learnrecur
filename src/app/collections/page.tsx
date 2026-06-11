@@ -1,9 +1,9 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import Link from "next/link";
 
+import { PanelHeaderCount } from "@/components/app/panel-header-count";
 import {
   getCollectionsHome,
-  type CollectionSkillCounts,
   type CollectionSummary,
 } from "@/lib/collections";
 import { ensureDatabaseUser } from "@/lib/users";
@@ -52,8 +52,8 @@ export default async function CollectionsPage() {
 
       <header className="skillHeader">
         <div>
-          <p className="eyebrow">Collections</p>
-          <h1>Collection management.</h1>
+          <p className="eyebrow">Study areas</p>
+          <h1>Organize practice</h1>
           <p>
             Create, describe, archive, and restore the study areas that organize
             your skills.
@@ -80,13 +80,17 @@ export default async function CollectionsPage() {
             <p className="eyebrow">Active</p>
             <h2 id="active-collections-title">Current collections</h2>
           </div>
-          <span className="dashboardChip">{formatCount(home.activeCollections.length)}</span>
+          <PanelHeaderCount
+            ariaLabel="Active collections shown"
+            label="Active"
+            value={formatCount(home.activeCollections.length)}
+          />
         </div>
 
         {home.activeCollections.length === 0 ? (
           <CollectionEmptyState
-            title="No active collections yet."
-            detail="Create one here or add a collection name while drafting a skill."
+            title="No active collections yet"
+            detail="Create a study area, then use its row to practice only that collection."
           />
         ) : (
           <div className="skillLibraryList">
@@ -104,10 +108,14 @@ export default async function CollectionsPage() {
         >
           <div className="skillPanelHeader">
             <div>
-              <p className="eyebrow">Recovery</p>
+              <p className="eyebrow">Archived</p>
               <h2 id="archived-collections-title">Archived collections</h2>
             </div>
-            <span className="dashboardChip">{formatCount(home.archivedCollections.length)}</span>
+            <PanelHeaderCount
+              ariaLabel="Archived collections shown"
+              label="Archived"
+              value={formatCount(home.archivedCollections.length)}
+            />
           </div>
 
           <div className="skillLibraryList">
@@ -131,23 +139,28 @@ function ActiveCollectionRow({
       <div className="skillLibraryRowMain">
         <div>
           <strong>{collection.name}</strong>
-          <p>{collection.description ?? "No description yet."}</p>
+          <p>{collection.description ?? "Description not set."}</p>
         </div>
-        <span className="dashboardChip" data-tone={collection.readyNowCount > 0 ? "ready" : "neutral"}>
-          {formatCount(collection.readyNowCount)} ready
-        </span>
+        <div
+          className="collectionReadyStat"
+          data-ready={collection.readyNowCount > 0 ? "true" : "false"}
+        >
+          <span>Ready now</span>
+          <strong>{formatCount(collection.readyNowCount)}</strong>
+        </div>
       </div>
       <CollectionMetaLine collection={collection} />
       <div className="collectionRowActions">
         <Link
           aria-label={`Practice collection ${collection.name}`}
-          className="secondaryButton"
+          className="secondaryButton collectionPracticeLink"
+          data-ready={collection.readyNowCount > 0 ? "true" : "false"}
           href={`/practice?collectionId=${encodeURIComponent(collection.id)}`}
         >
-          Practice
+          {collection.readyNowCount > 0 ? "Practice now" : "Open practice"}
         </Link>
         <CollectionUpdateForm collection={collection} />
-        <CollectionArchiveForm collectionId={collection.id} />
+        <CollectionArchiveForm collectionId={collection.id} collectionName={collection.name} />
       </div>
     </article>
   );
@@ -171,7 +184,7 @@ function ArchivedCollectionRow({
         <span className="dashboardChip">Archived</span>
       </div>
       <CollectionMetaLine collection={collection} />
-      <CollectionRestoreForm collectionId={collection.id} />
+      <CollectionRestoreForm collectionId={collection.id} collectionName={collection.name} />
     </article>
   );
 }
@@ -181,15 +194,29 @@ function CollectionMetaLine({
 }: {
   collection: CollectionSummary;
 }) {
+  const skillMix = formatCollectionSkillMix(collection);
+
   return (
-    <div className="skillMetaLine">
-      <span>{formatSkillCount("active", collection.skillCounts.active)}</span>
-      <span>{formatSkillCount("draft", collection.skillCounts.draft)}</span>
-      <span>{formatSkillCount("paused", collection.skillCounts.paused)}</span>
-      <span>{formatSkillCount("archived", collection.skillCounts.archived)}</span>
-      <span>{formatSourceCount(collection.sourceCount)}</span>
-      <span>Updated {formatDate(collection.updatedAt)}</span>
-    </div>
+    <dl className="collectionFacts" aria-label={`${collection.name} collection details`}>
+      <div data-priority="primary">
+        <dt>Skill mix</dt>
+        <dd className="collectionSkillMix">
+          {skillMix.map((item) => (
+            <span key={item.label}>
+              <strong>{formatCount(item.count)}</strong> {formatSkillMixLabel(item)}
+            </span>
+          ))}
+        </dd>
+      </div>
+      <div>
+        <dt>Sources</dt>
+        <dd>{formatSourceCount(collection.sourceCount)}</dd>
+      </div>
+      <div>
+        <dt>Updated</dt>
+        <dd>{formatDate(collection.updatedAt)}</dd>
+      </div>
+    </dl>
   );
 }
 
@@ -208,12 +235,27 @@ function CollectionEmptyState({
   );
 }
 
-function formatSkillCount(label: keyof CollectionSkillCounts, count: number) {
-  return `${formatCount(count)} ${label}`;
-}
-
 function formatSourceCount(count: number) {
   return count === 1 ? "1 source" : `${formatCount(count)} sources`;
+}
+
+function formatCollectionSkillMix(collection: CollectionSummary) {
+  const mix = [
+    { count: collection.skillCounts.active, label: "active" },
+    { count: collection.skillCounts.draft, label: "draft" },
+    { count: collection.skillCounts.paused, label: "paused" },
+    { count: collection.skillCounts.archived, label: "archived" },
+  ].filter((item) => item.count > 0);
+
+  return mix.length > 0 ? mix : [{ count: 0, label: "skills" }];
+}
+
+function formatSkillMixLabel(item: { count: number; label: string }) {
+  if (item.label === "draft") {
+    return item.count === 1 ? "draft" : "drafts";
+  }
+
+  return item.label;
 }
 
 function formatCount(count: number) {

@@ -6,12 +6,11 @@ import { clerkAppearance } from "@/components/app/clerk-appearance";
 export default function SignInPage() {
   return (
     <AuthShell
-      title="Sign in to LearnRecur."
-      description="Use your development Clerk account to test the protected app spine."
+      title="Sign in to LearnRecur"
+      description="Return to your due skills, drafts, source material, and review history."
     >
       <SignIn
         appearance={clerkAppearance}
-        fallbackRedirectUrl="/dashboard"
         forceRedirectUrl="/dashboard"
         path="/sign-in"
         routing="path"

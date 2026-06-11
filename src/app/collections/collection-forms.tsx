@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useId } from "react";
 
 import type { CollectionSummary } from "@/lib/collections";
 
@@ -19,40 +19,47 @@ const idleState: CollectionFormActionState = {
 
 export function CollectionCreateForm() {
   const [state, formAction, pending] = useActionState(createCollectionAction, idleState);
+  const nameErrorId = useId();
+  const descriptionErrorId = useId();
 
   return (
     <form action={formAction} className="collectionCreateForm">
-      <div className="skillTwoColumnFields">
+      <div className="collectionCreateGrid">
         <label className="skillField">
           <span>Name</span>
           <input
+            aria-describedby={hasFieldError(state, "name") ? nameErrorId : undefined}
             aria-invalid={hasFieldError(state, "name") ? "true" : undefined}
             disabled={pending}
             maxLength={80}
             name="name"
+            placeholder="Spanish grammar"
             required
           />
-          <FieldError state={state} name="name" />
+          <FieldError id={nameErrorId} state={state} name="name" />
         </label>
         <label className="skillField">
           <span>Description</span>
           <textarea
+            aria-describedby={
+              hasFieldError(state, "description") ? descriptionErrorId : undefined
+            }
             aria-invalid={hasFieldError(state, "description") ? "true" : undefined}
             disabled={pending}
             maxLength={500}
             name="description"
-            placeholder="Optional"
-            rows={3}
+            placeholder="What belongs in this study area?"
+            rows={2}
           />
-          <FieldError state={state} name="description" />
+          <FieldError id={descriptionErrorId} state={state} name="description" />
         </label>
+        <div className="collectionCreateAction">
+          <button className="primaryButton" disabled={pending} type="submit">
+            {pending ? "Creating" : "Create collection"}
+          </button>
+        </div>
       </div>
 
-      <div className="skillFormActions">
-        <button className="primaryButton" disabled={pending} type="submit">
-          Create collection
-        </button>
-      </div>
       <FormMessage state={state} />
     </form>
   );
@@ -64,15 +71,18 @@ export function CollectionUpdateForm({
   collection: CollectionSummary;
 }) {
   const [state, formAction, pending] = useActionState(updateCollectionAction, idleState);
+  const nameErrorId = useId();
+  const descriptionErrorId = useId();
 
   return (
     <details className="collectionInlineDetails">
-      <summary>Edit</summary>
+      <summary aria-label={`Edit collection ${collection.name}`}>Edit</summary>
       <form action={formAction} className="collectionInlineForm">
         <input name="collectionId" type="hidden" value={collection.id} />
         <label className="skillField">
           <span>Name</span>
           <input
+            aria-describedby={hasFieldError(state, "name") ? nameErrorId : undefined}
             aria-invalid={hasFieldError(state, "name") ? "true" : undefined}
             defaultValue={collection.name}
             disabled={pending}
@@ -80,11 +90,14 @@ export function CollectionUpdateForm({
             name="name"
             required
           />
-          <FieldError state={state} name="name" />
+          <FieldError id={nameErrorId} state={state} name="name" />
         </label>
         <label className="skillField">
           <span>Description</span>
           <textarea
+            aria-describedby={
+              hasFieldError(state, "description") ? descriptionErrorId : undefined
+            }
             aria-invalid={hasFieldError(state, "description") ? "true" : undefined}
             defaultValue={collection.description ?? ""}
             disabled={pending}
@@ -92,12 +105,12 @@ export function CollectionUpdateForm({
             name="description"
             rows={3}
           />
-          <FieldError state={state} name="description" />
+          <FieldError id={descriptionErrorId} state={state} name="description" />
         </label>
 
         <div className="skillFormActions">
           <button className="secondaryButton" disabled={pending} type="submit">
-            Save changes
+            {pending ? "Saving" : "Save changes"}
           </button>
         </div>
         <FormMessage state={state} />
@@ -108,19 +121,24 @@ export function CollectionUpdateForm({
 
 export function CollectionArchiveForm({
   collectionId,
+  collectionName,
 }: {
   collectionId: string;
+  collectionName: string;
 }) {
   const [state, formAction, pending] = useActionState(archiveCollectionAction, idleState);
 
   return (
     <details className="collectionInlineDetails collectionInlineDetailsDanger">
-      <summary>Archive</summary>
+      <summary aria-label={`Archive collection ${collectionName}`}>Archive</summary>
       <form action={formAction} className="collectionInlineForm">
         <input name="collectionId" type="hidden" value={collectionId} />
-        <p>Archive this collection from dashboard summaries. Its skills stay practiceable.</p>
+        <p>
+          Archive this collection from dashboard summaries. Its skills can still appear in
+          practice.
+        </p>
         <button className="secondaryButton" data-tone="danger" disabled={pending} type="submit">
-          Archive collection
+          {pending ? "Archiving" : "Archive collection"}
         </button>
         <FormMessage state={state} />
       </form>
@@ -130,16 +148,23 @@ export function CollectionArchiveForm({
 
 export function CollectionRestoreForm({
   collectionId,
+  collectionName,
 }: {
   collectionId: string;
+  collectionName: string;
 }) {
   const [state, formAction, pending] = useActionState(restoreCollectionAction, idleState);
 
   return (
     <form action={formAction} className="collectionRestoreForm">
       <input name="collectionId" type="hidden" value={collectionId} />
-      <button className="secondaryButton" disabled={pending} type="submit">
-        Restore collection
+      <button
+        aria-label={`Restore collection ${collectionName}`}
+        className="secondaryButton"
+        disabled={pending}
+        type="submit"
+      >
+        {pending ? "Restoring" : "Restore collection"}
       </button>
       <FormMessage state={state} />
     </form>
@@ -147,9 +172,11 @@ export function CollectionRestoreForm({
 }
 
 function FieldError({
+  id,
   state,
   name,
 }: {
+  id: string;
   state: CollectionFormActionState;
   name: string;
 }) {
@@ -159,7 +186,7 @@ function FieldError({
     return null;
   }
 
-  return <em>{error}</em>;
+  return <em id={id}>{error}</em>;
 }
 
 function FormMessage({ state }: { state: CollectionFormActionState }) {

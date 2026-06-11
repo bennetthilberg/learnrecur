@@ -318,7 +318,7 @@ export async function getNextPracticeItem(
   if (!exercise) {
     return {
       status: "none-due",
-      message: "No due practice item is ready.",
+      message: "No due exercise is ready.",
     };
   }
 
@@ -587,7 +587,7 @@ async function queueRefillAfterPracticeFlag({
     return {
       status: "not-queued",
       reason: "queue-error",
-      message: `Replacement generation was not queued: ${formatEnvError(error)}`,
+      message: `Replacement preparation could not start: ${formatEnvError(error)}`,
     };
   }
 }

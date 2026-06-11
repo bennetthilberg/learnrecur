@@ -37,3 +37,15 @@ export function formatNullableHistoryEnum(value: string | null) {
 export function formatHistoryEnum(value: string) {
   return value.toLowerCase().replaceAll("_", " ");
 }
+
+export function formatNullableHistoryLabel(value: string | null) {
+  return value ? formatHistoryLabel(value) : "Unknown";
+}
+
+export function formatHistoryLabel(value: string) {
+  return toTitleCase(formatHistoryEnum(value));
+}
+
+function toTitleCase(value: string) {
+  return value.replace(/\b[a-z]/g, (letter) => letter.toUpperCase());
+}

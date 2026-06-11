@@ -310,19 +310,19 @@ function formatFlagMessage(flagMessage: string, refill: PracticeFlagRefillResult
 
 function formatFlagRefillMessage(refill: PracticeFlagRefillResult): string {
   if (refill.status === "queued") {
-    return "Replacement generation queued.";
+    return "A replacement exercise is being prepared.";
   }
 
   switch (refill.reason) {
     case "already-at-target":
       return "This skill already has enough replacement exercises ready.";
     case "exact-input-locked":
-      return "Replacement generation will unlock after more multiple-choice practice.";
+      return "Replacement exercises start after more multiple-choice practice.";
     case "job-in-progress":
-      return "Replacement generation is already queued or running.";
+      return "A replacement exercise is already being prepared.";
     case "unsupported-answer-kind":
-      return "Replacement generation is not available for this exercise type yet.";
+      return "Replacement exercises are not available for this answer type yet.";
     default:
-      return "Replacement generation was not queued.";
+      return "Replacement preparation could not start.";
   }
 }

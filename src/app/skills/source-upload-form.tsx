@@ -18,6 +18,7 @@ type UploadStatus = "idle" | "preparing" | "uploading" | "queueing" | "error";
 export function SourceUploadForm() {
   const router = useRouter();
   const fileInputId = useId();
+  const fileErrorId = useId();
   const formRef = useRef<HTMLFormElement>(null);
   const submittingRef = useRef(false);
   const [status, setStatus] = useState<UploadStatus>("idle");
@@ -33,6 +34,7 @@ export function SourceUploadForm() {
     status === "uploading" ||
     status === "queueing" ||
     isPending;
+  const fileError = fileErrorMessage(fieldErrors);
 
   return (
     <form
@@ -56,71 +58,101 @@ export function SourceUploadForm() {
       <div className="skillPanelHeader">
         <div>
           <p className="eyebrow">Upload source</p>
-          <h2>Use an image or PDF.</h2>
+          <h2>Use an image or PDF</h2>
         </div>
+        <span className="skillPathBadge">Private file</span>
       </div>
       <p className="skillUploadIntro">
-        Upload a small worksheet, notes photo, screenshot, or PDF. The file stays private in S3;
-        LearnRecur processes it in the background and creates one or more editable drafts.
+        Upload a small worksheet, notes photo, screenshot, or PDF. The file stays private;
+        LearnRecur reads it and prepares one to three editable drafts.
       </p>
 
-      <div className="skillField">
-        <span>File</span>
-        <div className="skillFileControl">
-          <input
-            accept={acceptedMimeTypes.join(",")}
-            aria-invalid={hasFileError(fieldErrors) ? "true" : undefined}
-            className="skillFileInput"
-            id={fileInputId}
-            name="sourceFile"
-            onChange={(event) => {
-              setSelectedFileName(event.currentTarget.files?.[0]?.name ?? null);
-            }}
-            required
-            type="file"
-          />
-          <label className="secondaryButton skillFileButton" htmlFor={fileInputId}>
-            Choose file
-          </label>
-          <span className="skillFileName">{selectedFileName ?? "No file selected"}</span>
+      <fieldset className="skillFormFieldset">
+        <legend>Source file</legend>
+        <div className="skillFormFieldsetBody">
+          <div className="skillField">
+            <span>File</span>
+            <div className="skillFileControl">
+              <input
+                accept={acceptedMimeTypes.join(",")}
+                aria-describedby={fileError ? fileErrorId : undefined}
+                aria-invalid={hasFileError(fieldErrors) ? "true" : undefined}
+                className="skillFileInput"
+                id={fileInputId}
+                name="sourceFile"
+                onChange={(event) => {
+                  setSelectedFileName(event.currentTarget.files?.[0]?.name ?? null);
+                }}
+                required
+                type="file"
+              />
+              <label className="secondaryButton skillFileButton" htmlFor={fileInputId}>
+                Choose file
+              </label>
+              <span className="skillFileName" data-state={selectedFileName ? "selected" : "empty"}>
+                {selectedFileName ?? "No file selected"}
+              </span>
+            </div>
+            {fileError ? <em id={fileErrorId}>{fileError}</em> : null}
+          </div>
+          <p className="skillUploadMeta">PNG, JPEG, WebP, or PDF. Maximum 10 MB.</p>
         </div>
-        {fileErrorMessage(fieldErrors) ? <em>{fileErrorMessage(fieldErrors)}</em> : null}
-      </div>
+      </fieldset>
 
-      <div className="skillTwoColumnFields">
-        <SkillTextField
-          error={fieldErrors?.sourceLabel?.[0]}
-          label="Source label"
-          name="sourceLabel"
-          placeholder="Worksheet page 3"
-        />
-        <SkillTextField
-          error={fieldErrors?.collectionName?.[0]}
-          label="Collection"
-          name="collectionName"
-          placeholder="Spanish grammar"
-        />
-      </div>
+      <details
+        className="skillFormDetails"
+        open={
+          fieldErrors?.sourceLabel?.length ||
+            fieldErrors?.collectionName?.length ||
+            fieldErrors?.focusNote?.length ||
+            fieldErrors?.tags?.length
+            ? true
+            : undefined
+        }
+      >
+        <summary>
+          <span>Draft context</span>
+          <small>Collection, focus, and tags</small>
+        </summary>
+        <div className="skillFormFieldsetBody">
+          <div className="skillTwoColumnFields">
+            <SkillTextField
+              error={fieldErrors?.sourceLabel?.[0]}
+              label="Source label"
+              name="sourceLabel"
+              placeholder="Worksheet page 3"
+            />
+            <SkillTextField
+              error={fieldErrors?.collectionName?.[0]}
+              label="Collection"
+              name="collectionName"
+              placeholder="Spanish grammar"
+            />
+          </div>
 
-      <SkillTextArea
-        error={fieldErrors?.focusNote?.[0]}
-        label="Focus note"
-        name="focusNote"
-        placeholder="Focus on the grammar rules, not the vocabulary list."
-        rows={3}
-      />
+          <SkillTextArea
+            error={fieldErrors?.focusNote?.[0]}
+            label="Focus note"
+            name="focusNote"
+            placeholder="Focus on the grammar rules, not the vocabulary list."
+            rows={3}
+          />
 
-      <SkillTextField
-        error={fieldErrors?.tags?.[0]}
-        label="Tags"
-        name="tags"
-        placeholder="spanish, worksheet, grammar"
-      />
-
-      <p className="skillUploadMeta">PNG, JPEG, WebP, or PDF. Maximum 10 MB.</p>
+          <SkillTextField
+            error={fieldErrors?.tags?.[0]}
+            label="Tags"
+            name="tags"
+            placeholder="spanish, worksheet, grammar"
+          />
+        </div>
+      </details>
 
       {message ? (
-        <p className="skillFormMessage" data-tone={status === "error" ? "error" : "saved"}>
+        <p
+          className="skillFormMessage"
+          data-tone={status === "error" ? "error" : "saved"}
+          role="status"
+        >
           {message}
         </p>
       ) : null}
@@ -202,12 +234,12 @@ export function SourceUploadForm() {
 
     if (!uploadResponse.ok) {
       setStatus("error");
-      setMessage("S3 did not accept the upload. Check the bucket CORS settings and try again.");
+      setMessage("The private upload failed. Check file upload settings, then try again.");
       return;
     }
 
     setStatus("queueing");
-    setMessage("Upload complete. Queueing source processing...");
+    setMessage("Upload complete. Draft preparation will start shortly.");
     const completed = await completeSourceUploadAction({
       sourceFileId: prepared.sourceFileId,
     });
@@ -239,13 +271,13 @@ function formatClientError(error: unknown) {
 function buttonText(status: UploadStatus) {
   switch (status) {
     case "preparing":
-      return "Preparing upload...";
+      return "Preparing upload";
     case "uploading":
-      return "Uploading...";
+      return "Uploading";
     case "queueing":
-      return "Queueing...";
+      return "Preparing drafts";
     default:
-      return "Upload and queue drafts";
+      return "Create drafts from file";
   }
 }
 
@@ -263,17 +295,26 @@ function SkillTextField({
   label,
   name,
   error,
+  "aria-describedby": ariaDescribedBy,
   ...props
 }: {
   label: string;
   name: string;
   error?: string;
 } & React.InputHTMLAttributes<HTMLInputElement>) {
+  const errorId = useId();
+  const describedBy = [ariaDescribedBy, error ? errorId : null].filter(Boolean).join(" ") || undefined;
+
   return (
     <label className="skillField">
       <span>{label}</span>
-      <input aria-invalid={error ? "true" : undefined} name={name} {...props} />
-      {error ? <em>{error}</em> : null}
+      <input
+        aria-describedby={describedBy}
+        aria-invalid={error ? "true" : undefined}
+        name={name}
+        {...props}
+      />
+      {error ? <em id={errorId}>{error}</em> : null}
     </label>
   );
 }
@@ -282,17 +323,26 @@ function SkillTextArea({
   label,
   name,
   error,
+  "aria-describedby": ariaDescribedBy,
   ...props
 }: {
   label: string;
   name: string;
   error?: string;
 } & React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  const errorId = useId();
+  const describedBy = [ariaDescribedBy, error ? errorId : null].filter(Boolean).join(" ") || undefined;
+
   return (
     <label className="skillField">
       <span>{label}</span>
-      <textarea aria-invalid={error ? "true" : undefined} name={name} {...props} />
-      {error ? <em>{error}</em> : null}
+      <textarea
+        aria-describedby={describedBy}
+        aria-invalid={error ? "true" : undefined}
+        name={name}
+        {...props}
+      />
+      {error ? <em id={errorId}>{error}</em> : null}
     </label>
   );
 }

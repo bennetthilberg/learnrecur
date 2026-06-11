@@ -48,27 +48,48 @@ export default async function NewSkillPage() {
       <header className="skillHeader">
         <div>
           <p className="eyebrow">New skill</p>
-          <h1>Create skill drafts.</h1>
+          <h1>Create skill drafts</h1>
           <p>
-            Upload or paste source material for Gemini to shape one or more editable
-            drafts, or define the skill manually. You will review it before activation.
+            Upload or paste source material to shape one to three editable drafts,
+            or define the skill manually. You will review each draft before activation.
           </p>
         </div>
       </header>
       <div className="skillCreateStack">
-        <SourceUploadForm />
-        <SourceSkillForm />
-        <section className="skillManualIntro" aria-labelledby="manual-skill-title">
+        <section className="skillCreationPath" aria-label="Source-backed skill creation path">
           <div>
-            <p className="eyebrow">Manual draft</p>
-            <h2 id="manual-skill-title">Write the skill yourself.</h2>
+            <span>Input</span>
+            <strong>Upload or paste source.</strong>
           </div>
-          <p>
-            Use this when you already know the exact skill definition and do not need
-            Gemini to interpret source material first.
-          </p>
+          <div>
+            <span>Review</span>
+            <strong>Edit the drafts.</strong>
+          </div>
+          <div>
+            <span>Activate</span>
+            <strong>Prepare verified exercises.</strong>
+          </div>
         </section>
-        <SkillDraftForm initialValues={emptyDraftValues} mode="create" />
+        <section className="skillSourceEntryGrid" aria-label="Source-backed draft options">
+          <SourceUploadForm />
+          <SourceSkillForm />
+        </section>
+        <details className="skillManualSection">
+          <summary className="skillManualSummary">
+            <div className="skillManualIntro">
+              <p className="eyebrow">Manual draft</p>
+              <h2 id="manual-skill-title">Write the skill yourself</h2>
+            </div>
+            <span className="skillPathBadge">Manual entry</span>
+          </summary>
+          <div className="skillManualBody">
+            <p className="skillManualBodyCopy">
+              Use this when you already know the exact skill definition and do not
+              need source material interpreted first.
+            </p>
+            <SkillDraftForm initialValues={emptyDraftValues} mode="create" />
+          </div>
+        </details>
       </div>
     </main>
   );

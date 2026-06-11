@@ -53,8 +53,8 @@ export default async function SettingsPage() {
 
       <header className="skillHeader">
         <div>
-          <p className="eyebrow">Settings</p>
-          <h1>Settings.</h1>
+          <p className="eyebrow">Account controls</p>
+          <h1>Reminders and data</h1>
           <p>
             Manage quiet reminders and download a copy of your study data.
           </p>
@@ -68,42 +68,125 @@ export default async function SettingsPage() {
         <div className="skillPanelHeader">
           <div>
             <p className="eyebrow">Email reminders</p>
-            <h2 id="reminder-settings-title">Due practice check</h2>
+            <h2 id="reminder-settings-title">Due-practice email</h2>
           </div>
-          <span className="dashboardChip" data-tone={settings.preference.enabled ? "ready" : "neutral"}>
-            {settings.preference.enabled ? "On" : "Off"}
-          </span>
         </div>
 
+        <ReminderScheduleSummary
+          enabled={settings.preference.enabled}
+          localHour={settings.preference.localHour}
+          minimumDueCount={settings.preference.minimumDueCount}
+          timezone={settings.preference.timezone}
+        />
         <ReminderSettingsForm preference={settings.preference} />
+        <div className="settingsPrivacyNote" role="note" aria-label="Reminder privacy">
+          <section>
+            <h3>Email includes</h3>
+            <p>Due skill count and one practice link.</p>
+          </section>
+          <section>
+            <h3>Kept out</h3>
+            <p>Skill titles, source text, answers, and exercise content.</p>
+          </section>
+        </div>
       </section>
 
-      <section className="skillMessage" aria-label="Reminder privacy">
-        <p>
-          Reminder emails include the number of due skills and a practice link.
-          They do not include skill titles, source text, answers, or exercise
-          content.
-        </p>
-      </section>
-
-      <section className="skillPanel" aria-labelledby="data-export-title">
+      <section className="skillPanel settingsExportPanel" aria-labelledby="data-export-title">
         <div className="skillPanelHeader">
           <div>
             <p className="eyebrow">Data export</p>
             <h2 id="data-export-title">Download study data</h2>
           </div>
           <Link className="secondaryButton" href="/settings/export" prefetch={false}>
-            Download JSON
+            Download export
           </Link>
         </div>
 
-        <p className="skillPanelCopy">
-          The export includes your collections, skills, stored source text,
-          exercises, attempts, review logs, flags, generation job metadata, and
-          reminder records. It does not include original uploaded file bytes,
-          private storage locations, API keys, or raw AI prompts.
-        </p>
+        <dl className="settingsExportFacts" aria-label="Data export details">
+          <div data-priority="primary">
+            <dt>Scope</dt>
+            <dd>Study records</dd>
+          </div>
+          <div>
+            <dt>Format</dt>
+            <dd>JSON file</dd>
+          </div>
+          <div>
+            <dt>Access</dt>
+            <dd>Signed-in only</dd>
+          </div>
+          <div>
+            <dt>Originals</dt>
+            <dd>Excluded</dd>
+          </div>
+        </dl>
+
+        <details className="settingsExportDetails">
+          <summary>
+            <span>What the JSON includes</span>
+            <small>No original uploaded files or private storage locations.</small>
+          </summary>
+          <div className="settingsExportSummary">
+            <section>
+              <h3>Included</h3>
+              <p>
+                Collections, skills, stored source text, exercises, attempts,
+                review history, flags, preparation status records, and reminders.
+              </p>
+            </section>
+            <section>
+              <h3>Left out</h3>
+              <p>
+                Original uploaded file bytes, private storage locations, API keys,
+                and private model prompts.
+              </p>
+            </section>
+          </div>
+        </details>
       </section>
     </main>
   );
+}
+
+function ReminderScheduleSummary({
+  enabled,
+  localHour,
+  minimumDueCount,
+  timezone,
+}: {
+  enabled: boolean;
+  localHour: number;
+  minimumDueCount: number;
+  timezone: string;
+}) {
+  return (
+    <dl className="settingsScheduleSummary" aria-label="Saved reminder schedule">
+      <div data-state={enabled ? "enabled" : "disabled"}>
+        <dt>Status</dt>
+        <dd>{enabled ? "Sending when due" : "Paused"}</dd>
+      </div>
+      <div className="settingsScheduleDetails">
+        <div>
+          <dt>Local check</dt>
+          <dd>
+            {formatReminderHour(localHour)} in {timezone}
+          </dd>
+        </div>
+        <div>
+          <dt>Threshold</dt>
+          <dd>{formatDueThreshold(minimumDueCount)}</dd>
+        </div>
+      </div>
+    </dl>
+  );
+}
+
+function formatReminderHour(hour: number) {
+  const displayHour = hour % 12 === 0 ? 12 : hour % 12;
+  const meridiem = hour < 12 ? "AM" : "PM";
+  return `${displayHour} ${meridiem}`;
+}
+
+function formatDueThreshold(count: number) {
+  return `At least ${count} due ${count === 1 ? "skill" : "skills"}`;
 }

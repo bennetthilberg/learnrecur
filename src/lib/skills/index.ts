@@ -1913,7 +1913,7 @@ export async function refillExactInputExercisesForSkill(
     return {
       status: "not-refilled",
       reason: "exact-input-locked",
-      message: `Practice multiple-choice reviews first. Exact input unlocks after ${EXACT_INPUT_UNLOCK_REPETITIONS} completed reviews.`,
+      message: `Practice multiple-choice reviews first. Exact input starts after ${EXACT_INPUT_UNLOCK_REPETITIONS} completed reviews.`,
     };
   }
 
@@ -2302,7 +2302,7 @@ export async function refillMathExercisesForSkill(
     return {
       status: "not-refilled",
       reason: "exact-input-locked",
-      message: `Practice multiple-choice reviews first. Math input unlocks after ${EXACT_INPUT_UNLOCK_REPETITIONS} completed reviews.`,
+      message: `Practice multiple-choice reviews first. Math input starts after ${EXACT_INPUT_UNLOCK_REPETITIONS} completed reviews.`,
     };
   }
 
