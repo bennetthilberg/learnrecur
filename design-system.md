@@ -123,13 +123,13 @@ When a choice is made, move it from this section into Locked Tokens or Component
 
 The public entry surface should feel like a compact product orientation, not a generic SaaS hero. Use concrete capability rows and a flat study-loop ledger; avoid placing the process explanation in a decorative mock card beside the headline.
 Auth pages should keep the third-party sign-in/up form as the only heavy bounded object. Account-context facts belong in a flat rule-separated list beside it.
-In auth-context lists, only the most important workspace fact should receive primary color. Supporting facts should use faint labels and muted copy so the account form remains the dominant object.
+In auth-context lists, avoid using primary color for facts that are not links or active states. The most important workspace fact can use stronger weight and ink, while supporting facts use faint labels and muted copy so the account form remains the dominant object.
 Third-party auth provider buttons must preserve icon contrast. If a provider icon is white, use the provider-colored button fill instead of leaving an empty-looking white control.
 Provider development or environment footers should read as quiet metadata, not warnings or promotional strips. Use the app's rule-separated footer treatment when a stable provider class is available.
 
 ### Buttons
 
-Primary buttons use `#034cd5` with white text. Secondary buttons should use a light blue background and dark blue text. Default or ghost buttons should be white with a clear but quiet boundary.
+Primary buttons use `#034cd5` with white text. Secondary buttons should default to a neutral panel background, strong ink text, and a clear but quiet boundary. They may shift toward the primary blue on hover/focus, but blue-tinted secondary actions should be reserved for explicit selected, ready, or high-signal states.
 Destructive secondary actions should use the danger-tinted surface with danger ink text; reserve brighter red for boundaries, status stripes, or compact emphasis.
 
 Buttons should not be oversized. Use compact, tool-like button proportions.
