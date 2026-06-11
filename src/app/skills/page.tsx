@@ -173,12 +173,12 @@ export default async function SkillsPage({ searchParams }: SkillsPageProps) {
         <section className="skillPanel skillRecoveryPanel" aria-labelledby="recovery-skills-title">
           <div className="skillPanelHeader">
             <div>
-              <p className="eyebrow">Paused and archived</p>
-              <h2 id="recovery-skills-title">Paused and archived</h2>
+              <p className="eyebrow">Saved for later</p>
+              <h2 id="recovery-skills-title">Paused and archived skills</h2>
             </div>
             <PanelHeaderCount
               ariaLabel="Paused and archived skills shown"
-              label="Shown"
+              label="Skills"
               value={formatCount(library.recoverySkills.length)}
             />
           </div>
