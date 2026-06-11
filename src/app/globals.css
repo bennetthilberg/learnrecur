@@ -2159,7 +2159,7 @@ a {
   border: 1px solid var(--lr-line);
   border-radius: var(--lr-radius-chip);
   background: var(--lr-panel-soft);
-  color: var(--lr-primary-ink);
+  color: var(--lr-muted);
   content: "+";
   font-size: var(--lr-text-md);
   font-weight: 500;
@@ -2167,6 +2167,7 @@ a {
 }
 
 .skillManualSection[open] .skillManualSummary::after {
+  color: var(--lr-primary-ink);
   content: "-";
 }
 
@@ -2174,6 +2175,10 @@ a {
 .skillManualSection[open] .skillManualSummary {
   border-color: hsl(219 97% 42% / 0.24);
   background: transparent;
+}
+
+.skillManualSummary:hover::after {
+  color: var(--lr-primary-ink);
 }
 
 .skillManualSummary:focus-visible {
