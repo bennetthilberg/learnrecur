@@ -701,11 +701,11 @@ function PracticeEmptyDetails({
       ? scoped
         ? [
             ["Scope", "Only active skills in this collection are checked."],
-            ["Ready work", "A due skill with verified exercises."],
+            ["Ready exercise", "A due skill with verified exercises."],
           ]
         : [
             ["Schedule", "No active skill is due right now."],
-            ["Ready work", "A due skill with verified exercises."],
+            ["Ready exercise", "A due skill with verified exercises."],
           ]
       : [
           [
