@@ -86,7 +86,7 @@ Current neutral family: Steel.
 
 - Ink: `hsl(215 31% 11%)`.
 - Muted text: `hsl(211 16% 35%)`.
-- Faint text: `hsl(213 14% 47%)`.
+- Faint text: `hsl(213 14% 45%)`.
 - Line: `hsl(212 27% 89%)`.
 - Page base: `hsl(216 38% 97%)`.
 - Panel: `hsl(0 0% 100%)`.
