@@ -19,7 +19,7 @@ export default async function Home() {
             <dd>Choice, text, numeric, and math answers</dd>
           </div>
           <div>
-            <dt>Source setup</dt>
+            <dt>Source material</dt>
             <dd>Paste text or upload private images and PDFs</dd>
           </div>
           <div>
