@@ -106,6 +106,8 @@ memory.
   and study-loop content render on localhost.
 - Current automated checks passing during this branch include lint, build, unit,
   e2e auth-spine, and Prisma schema validation.
+- Final wrap-up validation also passed Prisma client generation and public
+  desktop/mobile screenshot capture through headless Playwright.
 
 ## Remaining Audit Targets
 
@@ -115,6 +117,8 @@ memory.
 - Populated protected-page screenshots remain blocked locally by database
   authentication failure in the running app. Fresh check of `/skills/new` shows
   "Database setup needs attention" with a `DATABASE_URL` authentication message.
+  The opt-in integration suite fails at the same connection step with Neon
+  `28P01` password authentication failure before any assertions run.
   Source-level checks have continued, but final visual completion needs a working
   signed-in database session.
 - Continue auditing dense protected surfaces once reachable:
