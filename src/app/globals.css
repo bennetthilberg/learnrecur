@@ -2347,18 +2347,18 @@ a {
 
 .skillFormDetails summary:hover,
 .skillFormDetails[open] summary {
-  border-color: var(--lr-primary-muted);
-  background: var(--lr-primary-soft);
+  border-color: hsl(219 97% 42% / 0.24);
+  background: var(--lr-panel);
 }
 
 .skillFormDetails summary:hover span,
 .skillFormDetails[open] summary span {
-  color: var(--lr-primary);
+  color: var(--lr-ink);
 }
 
 .skillFormDetails summary:hover::after,
 .skillFormDetails[open] summary::after {
-  color: var(--lr-primary);
+  color: var(--lr-primary-ink);
 }
 
 .skillFormDetails summary:focus-visible {
