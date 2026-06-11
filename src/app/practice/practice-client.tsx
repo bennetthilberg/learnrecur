@@ -701,11 +701,11 @@ function PracticeEmptyDetails({
       ? scoped
         ? [
             ["Scope", "Only active skills in this collection are checked."],
-            ["Practice-ready", "A due skill with verified exercises."],
+            ["Ready work", "A due skill with verified exercises."],
           ]
         : [
             ["Schedule", "No active skill is due right now."],
-            ["Practice-ready", "A due skill with verified exercises."],
+            ["Ready work", "A due skill with verified exercises."],
           ]
       : [
           ["Scope", scoped ? "The selected collection is not practiceable." : "No practiceable item was found."],
