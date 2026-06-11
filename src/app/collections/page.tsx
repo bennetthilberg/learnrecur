@@ -108,7 +108,7 @@ export default async function CollectionsPage() {
         >
           <div className="skillPanelHeader">
             <div>
-              <p className="eyebrow">Recovery</p>
+              <p className="eyebrow">Archived</p>
               <h2 id="archived-collections-title">Archived collections</h2>
             </div>
             <PanelHeaderCount
@@ -139,7 +139,7 @@ function ActiveCollectionRow({
       <div className="skillLibraryRowMain">
         <div>
           <strong>{collection.name}</strong>
-          <p>{collection.description ?? "No description yet."}</p>
+          <p>{collection.description ?? "Description not set."}</p>
         </div>
         <div
           className="collectionReadyStat"

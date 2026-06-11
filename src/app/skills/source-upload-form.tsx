@@ -234,7 +234,7 @@ export function SourceUploadForm() {
 
     if (!uploadResponse.ok) {
       setStatus("error");
-      setMessage("The private upload failed. Check upload setup, then try again.");
+      setMessage("The private upload failed. Check file upload settings, then try again.");
       return;
     }
 

@@ -265,7 +265,7 @@ function formatCount(count: number) {
 }
 
 function formatAccuracy(accuracy: DashboardHome["recentAccuracyPercent"]) {
-  return accuracy === null ? "No data" : `${accuracy}%`;
+  return accuracy === null ? "No reviews" : `${accuracy}%`;
 }
 
 function formatReadySummaryDetail(count: number) {
