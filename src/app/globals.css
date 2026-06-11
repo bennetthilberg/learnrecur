@@ -1807,10 +1807,10 @@ a {
 
 .practiceStatusLine {
   margin-top: 12px;
-  border: 1px solid var(--lr-primary-muted);
+  border: 1px solid var(--lr-line);
   border-radius: var(--lr-radius);
-  background: var(--lr-primary-soft);
-  color: var(--lr-primary-ink);
+  background: var(--lr-panel-soft);
+  color: var(--lr-ink-soft);
   padding: 9px 11px;
   font-weight: 500;
 }
