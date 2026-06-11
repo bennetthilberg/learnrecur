@@ -269,7 +269,7 @@ function formatAccuracy(accuracy: DashboardHome["recentAccuracyPercent"]) {
 }
 
 function formatReadySummaryDetail(count: number) {
-  return count === 1 ? "skill can be practiced" : "skills can be practiced";
+  return count === 1 ? "skill ready" : "skills ready";
 }
 
 function formatFsrsState(state: DashboardHome["skills"][number]["fsrsState"]) {
