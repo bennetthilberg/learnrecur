@@ -32,6 +32,9 @@ memory.
 
 - Ready practice is the dominant dashboard state; supporting metrics are smaller.
 - Active skill inventory leads with ready count, not equal stat cards.
+- Active skill detail now weights its header practice action by real readiness:
+  due skills with selectable exercises get the primary action; inactive inventory
+  or future-due skills get a quieter practice link.
 - Secondary actions now use neutral treatment by default; blue is reserved for
   primary, current, ready, selected, and hover/focus states.
 - Danger sections keep warning tone on headings/actions without turning all help
@@ -86,6 +89,9 @@ memory.
 
 ## Remaining Audit Targets
 
+- Keep sweeping against the reference categories directly: feature-first
+  priority, hierarchy, spacing, text, color, depth, image/upload handling, and
+  finishing details.
 - Populated protected-page screenshots remain blocked locally by database
   authentication failure in the running app. Source-level checks have continued,
   but final visual completion needs a working signed-in database session.
