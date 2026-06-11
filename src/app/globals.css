@@ -4190,9 +4190,9 @@ a {
 }
 
 .collectionPracticeLink {
-  border-color: var(--lr-primary-muted);
-  background: var(--lr-white);
-  color: var(--lr-primary-ink);
+  border-color: var(--lr-line);
+  background: var(--lr-panel-soft);
+  color: var(--lr-muted);
 }
 
 .collectionPracticeLink:hover {
