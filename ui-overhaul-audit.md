@@ -100,6 +100,8 @@ memory.
 - Focus states use the shared halo.
 - Public home and sign-in have been screenshot-checked at desktop and mobile
   widths.
+- Public home DOM smoke on this branch confirms the current signed-in entry copy
+  and study-loop content render on localhost.
 - Current automated checks passing during this branch include lint, build, unit,
   e2e auth-spine, and Prisma schema validation.
 
@@ -109,8 +111,10 @@ memory.
   priority, hierarchy, spacing, text, color, depth, image/upload handling, and
   finishing details.
 - Populated protected-page screenshots remain blocked locally by database
-  authentication failure in the running app. Source-level checks have continued,
-  but final visual completion needs a working signed-in database session.
+  authentication failure in the running app. Fresh check of `/skills/new` shows
+  "Database setup needs attention" with a `DATABASE_URL` authentication message.
+  Source-level checks have continued, but final visual completion needs a working
+  signed-in database session.
 - Continue auditing dense protected surfaces once reachable:
   - dashboard with real collection/skill rows,
   - `/skills/new` populated upload/paste/manual form states,
