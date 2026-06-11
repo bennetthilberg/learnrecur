@@ -68,7 +68,7 @@ export default async function SettingsPage() {
         <div className="skillPanelHeader">
           <div>
             <p className="eyebrow">Email reminders</p>
-            <h2 id="reminder-settings-title">Due practice check</h2>
+            <h2 id="reminder-settings-title">Due-practice email</h2>
           </div>
         </div>
 
@@ -98,26 +98,26 @@ export default async function SettingsPage() {
             <h2 id="data-export-title">Download study data</h2>
           </div>
           <Link className="secondaryButton" href="/settings/export" prefetch={false}>
-            Download JSON
+            Download export
           </Link>
         </div>
 
         <dl className="settingsExportFacts" aria-label="Data export details">
           <div data-priority="primary">
             <dt>Scope</dt>
-            <dd>Your study data</dd>
+            <dd>Study records</dd>
           </div>
           <div>
             <dt>Format</dt>
-            <dd>JSON</dd>
+            <dd>JSON file</dd>
           </div>
           <div>
             <dt>Access</dt>
             <dd>Signed-in only</dd>
           </div>
           <div>
-            <dt>Files</dt>
-            <dd>No originals</dd>
+            <dt>Originals</dt>
+            <dd>Excluded</dd>
           </div>
         </dl>
 
@@ -188,5 +188,5 @@ function formatReminderHour(hour: number) {
 }
 
 function formatDueThreshold(count: number) {
-  return `${count} due ${count === 1 ? "skill" : "skills"} minimum`;
+  return `At least ${count} due ${count === 1 ? "skill" : "skills"}`;
 }
