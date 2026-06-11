@@ -2040,12 +2040,6 @@ a {
   white-space: nowrap;
 }
 
-.skillPathBadge[data-tone="primary"] {
-  border-color: var(--lr-primary-muted);
-  background: var(--lr-white);
-  color: var(--lr-primary-ink);
-}
-
 .skillUploadIntro,
 .skillUploadMeta {
   margin: 0;
