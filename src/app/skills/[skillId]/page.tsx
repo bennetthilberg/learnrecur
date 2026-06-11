@@ -235,7 +235,7 @@ export default async function SkillPage({
           <div>
             <p className="eyebrow">Skill</p>
             <h1>{skill.title}</h1>
-            <p>{skill.objective ?? "This skill is active and ready for practice."}</p>
+            <p>{skill.objective ?? "This skill is active in the practice schedule."}</p>
           </div>
           <Link
             className={isReadyForPractice ? "primaryButton" : "secondaryButton"}
@@ -248,7 +248,7 @@ export default async function SkillPage({
         <section className="skillPanel skillActivatedPanel" aria-labelledby="active-skill-title">
           <div>
             <p className="eyebrow">Status</p>
-            <h2 id="active-skill-title">Active in the schedule.</h2>
+            <h2 id="active-skill-title">Active schedule</h2>
           </div>
           <dl className="skillStatusSummary">
             <SkillStatusSummaryItem
@@ -302,13 +302,13 @@ export default async function SkillPage({
           <div className="skillPanelHeader">
             <div>
               <p className="eyebrow">Practice inventory</p>
-              <h2 id="skill-queue-title">Ready exercises</h2>
+              <h2 id="skill-queue-title">Exercise queues</h2>
             </div>
           </div>
           <div className="skillQueueBlock">
             <div>
               <p className="eyebrow">Choice practice</p>
-              <h2>Ready choice exercises.</h2>
+              <h2>Choice exercises</h2>
               <SkillQueueStateStrip
                 readyCount={inventory.readyExerciseCount}
                 stateLabel={
@@ -349,7 +349,7 @@ export default async function SkillPage({
           <div className="skillQueueBlock">
             <div>
               <p className="eyebrow">Recall step</p>
-              <h2>Ready exact-input exercises.</h2>
+              <h2>Exact-input exercises</h2>
               <SkillQueueStateStrip
                 readyCount={exactInputInventory.readyExerciseCount}
                 stateLabel={
@@ -411,7 +411,7 @@ export default async function SkillPage({
           <div className="skillQueueBlock">
             <div>
               <p className="eyebrow">Math recall</p>
-              <h2>Ready math exercises.</h2>
+              <h2>Math exercises</h2>
               <SkillQueueStateStrip
                 readyCount={mathInventory.readyExerciseCount}
                 stateLabel={
@@ -745,7 +745,7 @@ function SkillLifecyclePanel({
       <div className="skillPanelHeader">
         <div>
           <p className="eyebrow">Lifecycle</p>
-          <h2 id="skill-lifecycle-title">Control this skill.</h2>
+          <h2 id="skill-lifecycle-title">Skill controls</h2>
         </div>
       </div>
       <div
