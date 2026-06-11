@@ -433,8 +433,8 @@ export default async function SkillPage({
                 targetCount={DEFAULT_READY_MATH_TARGET}
               />
               <p className="skillQueueCopy">
-                Math practice begins after a few scheduled reviews and accepts
-                single-expression answers.
+                Math practice begins after {EXACT_INPUT_UNLOCK_REPETITIONS} saved reviews, once
+                the skill has a short multiple-choice history.
               </p>
               {latestMathGenerationJob ? (
                 <SkillQueueJobStatus

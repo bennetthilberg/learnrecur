@@ -68,17 +68,13 @@ export const clerkLocalization = {
   signIn: {
     start: {
       subtitle: "Use your account to continue.",
-      subtitleCombined: "Use your account to continue.",
       title: "Sign in",
-      titleCombined: "Sign in",
     },
   },
   signUp: {
     start: {
       subtitle: "Create your private study workspace.",
-      subtitleCombined: "Create your private study workspace.",
       title: "Create account",
-      titleCombined: "Create account",
     },
   },
 } as const;

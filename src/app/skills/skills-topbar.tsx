@@ -4,6 +4,8 @@ import { UserButton, useUser } from "@clerk/nextjs";
 import Link from "next/link";
 import { useEffect, useRef } from "react";
 
+import { designTokens } from "@/lib/design-tokens";
+
 export function SkillsTopbar({
   current,
 }: {
@@ -27,11 +29,11 @@ export function SkillsTopbar({
       'a[aria-current="page"]',
     );
 
-    if (!activeLink || !navRef.current) {
+    if (!activeLink || typeof activeLink.scrollIntoView !== "function") {
       return;
     }
 
-    navRef.current.scrollLeft = Math.max(activeLink.offsetLeft - navRef.current.offsetLeft, 0);
+    activeLink.scrollIntoView({ block: "nearest", inline: "nearest" });
   }, [current]);
 
   return (
@@ -58,6 +60,7 @@ export function SkillsTopbar({
           <span className="practiceNavSection" aria-hidden="true">
             Content
           </span>
+          {/* Keep Skills highlighted on both the index and individual skill pages. */}
           <Link
             aria-current={current === "skills" || current === "skill" ? "page" : undefined}
             href="/skills"
@@ -96,7 +99,7 @@ export function SkillsTopbar({
               userButtonTrigger: "learnrecurUserButton",
             },
             variables: {
-              colorPrimary: "hsl(219 97% 42%)",
+              colorPrimary: designTokens.colorPrimaryHsl,
             },
           }}
         />
@@ -105,6 +108,7 @@ export function SkillsTopbar({
   );
 }
 
+// "L" intentionally falls back to the LearnRecur initial when Clerk has no name or email.
 function getUserInitial(user: ReturnType<typeof useUser>["user"]) {
   const initial =
     [user?.firstName, user?.primaryEmailAddress?.emailAddress]

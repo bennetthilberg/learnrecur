@@ -74,7 +74,7 @@ export default async function NewSkillPage() {
           <SourceUploadForm />
           <SourceSkillForm />
         </section>
-        <details className="skillManualSection" aria-labelledby="manual-skill-title">
+        <details className="skillManualSection">
           <summary className="skillManualSummary">
             <div className="skillManualIntro">
               <p className="eyebrow">Manual draft</p>

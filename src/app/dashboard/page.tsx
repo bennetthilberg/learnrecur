@@ -2,6 +2,7 @@ import { auth, currentUser } from "@clerk/nextjs/server";
 import Link from "next/link";
 
 import { getDashboardHome, type DashboardHome } from "@/lib/dashboard";
+import { formatFsrsState } from "@/lib/formatters";
 import { ensureDatabaseUser } from "@/lib/users";
 
 import { SkillsTopbar } from "../skills/skills-topbar";
@@ -270,11 +271,4 @@ function formatAccuracy(accuracy: DashboardHome["recentAccuracyPercent"]) {
 
 function formatReadySummaryDetail(count: number) {
   return count === 1 ? "skill ready" : "skills ready";
-}
-
-function formatFsrsState(state: DashboardHome["skills"][number]["fsrsState"]) {
-  return state
-    .toLowerCase()
-    .replaceAll("_", " ")
-    .replace(/\b[a-z]/g, (letter) => letter.toUpperCase());
 }

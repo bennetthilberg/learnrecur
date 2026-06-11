@@ -1,17 +1,9 @@
 import { SignIn } from "@clerk/nextjs";
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
 
 import { AuthShell } from "@/components/app/auth-shell";
 import { clerkAppearance } from "@/components/app/clerk-appearance";
 
-export default async function SignInPage() {
-  const { userId } = await auth();
-
-  if (userId) {
-    redirect("/dashboard");
-  }
-
+export default function SignInPage() {
   return (
     <AuthShell
       title="Sign in to LearnRecur"
@@ -19,7 +11,6 @@ export default async function SignInPage() {
     >
       <SignIn
         appearance={clerkAppearance}
-        fallbackRedirectUrl="/dashboard"
         forceRedirectUrl="/dashboard"
         path="/sign-in"
         routing="path"

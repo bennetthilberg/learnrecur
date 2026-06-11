@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 
 import { AnswerKind, ExerciseFlagReason, FsrsRating } from "@/generated/prisma/enums";
+import { formatFsrsState } from "@/lib/formatters";
 import {
   getPracticeShortcutIntent,
   type PracticeShortcutTargetRole,
@@ -864,13 +865,6 @@ function formatElapsed(ms: number): string {
   const remainingSeconds = seconds % 60;
 
   return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
-}
-
-function formatFsrsState(state: string): string {
-  return state
-    .toLowerCase()
-    .replaceAll("_", " ")
-    .replace(/\b[a-z]/g, (letter) => letter.toUpperCase());
 }
 
 function formatRating(rating: FsrsRating): string {

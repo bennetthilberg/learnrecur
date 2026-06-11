@@ -1,4 +1,5 @@
 import { PanelHeaderCount } from "@/components/app/panel-header-count";
+import { formatDisplayLabel } from "@/lib/formatters";
 import type { SkillSourceSummary } from "@/lib/skills/sources";
 
 import { SkillSourceRemoveForm } from "./skill-source-remove-form";
@@ -80,7 +81,7 @@ export function SkillSourcePanel({
 }
 
 function formatSourceKind(kind: SkillSourceSummary["kind"]) {
-  return formatSourceLabel(kind);
+  return formatDisplayLabel(kind);
 }
 
 function formatCount(count: number) {
@@ -88,14 +89,7 @@ function formatCount(count: number) {
 }
 
 function formatSourceStatus(status: SkillSourceSummary["status"]) {
-  return formatSourceLabel(status);
-}
-
-function formatSourceLabel(value: string) {
-  return value
-    .toLowerCase()
-    .replaceAll("_", " ")
-    .replace(/\b[a-z]/g, (letter) => letter.toUpperCase());
+  return formatDisplayLabel(status);
 }
 
 function formatDate(date: Date) {

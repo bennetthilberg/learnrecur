@@ -10,7 +10,7 @@ import {
   type SkillsLibraryRecoverySkill,
   type SkillsLibrarySourceProcessingSummary,
 } from "@/lib/skills/library";
-import { formatJobStatus } from "@/lib/formatters";
+import { formatDisplayLabel, formatFsrsState, formatJobStatus } from "@/lib/formatters";
 import { ensureDatabaseUser } from "@/lib/users";
 
 import { SourceProcessingControls } from "./source-processing-controls";
@@ -425,10 +425,6 @@ function formatRetryCount(count: number) {
   return count === 1 ? "1 retry" : `${formatCount(count)} retries`;
 }
 
-function formatFsrsState(state: SkillsLibraryActiveSkill["fsrsState"]) {
-  return formatDisplayLabel(state);
-}
-
 function formatSkillStatus(status: SkillsLibraryRecoverySkill["status"]) {
   return formatDisplayLabel(status);
 }
@@ -446,13 +442,6 @@ function formatSourceFileStatus(status: SkillsLibrarySourceProcessingSummary["st
 
 function formatSourceKind(kind: SkillsLibrarySourceProcessingSummary["kind"]) {
   return formatDisplayLabel(kind);
-}
-
-function formatDisplayLabel(value: string) {
-  return value
-    .toLowerCase()
-    .replaceAll("_", " ")
-    .replace(/\b[a-z]/g, (letter) => letter.toUpperCase());
 }
 
 function formatByteSize(byteSize: number | null) {
