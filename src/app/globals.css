@@ -4253,11 +4253,14 @@ a {
   display: none;
 }
 
-.collectionInlineDetails summary:hover,
-.collectionInlineDetails[open] summary {
-  border-color: hsl(219 97% 42% / 0.2);
-  background: var(--lr-primary-soft);
+.collectionInlineDetails summary:hover {
   color: var(--lr-primary-ink);
+}
+
+.collectionInlineDetails[open] summary {
+  border-color: var(--lr-line);
+  background: var(--lr-panel);
+  color: var(--lr-ink);
 }
 
 .collectionInlineDetails summary:focus-visible {
@@ -4271,10 +4274,14 @@ a {
   color: var(--lr-danger-ink);
 }
 
-.collectionInlineDetailsDanger summary:hover,
+.collectionInlineDetailsDanger summary:hover {
+  color: var(--lr-danger-ink);
+}
+
 .collectionInlineDetailsDanger[open] summary {
-  border-color: hsl(6 63% 46% / 0.38);
-  background: var(--lr-danger-soft);
+  border-color: hsl(6 63% 46% / 0.28);
+  background: var(--lr-panel);
+  color: var(--lr-danger-ink);
 }
 
 .collectionInlineForm {
