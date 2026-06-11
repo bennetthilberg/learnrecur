@@ -62,7 +62,11 @@ export default async function DashboardPage() {
               Add skill
             </Link>
           </div>
-          <div className="dashboardHeaderUtilityLinks" aria-label="Dashboard utility links">
+          <div
+            className="dashboardHeaderUtilityLinks"
+            role="group"
+            aria-label="Dashboard utility links"
+          >
             <Link href="/history">Review history</Link>
             <Link href="/settings">Settings</Link>
           </div>

@@ -540,11 +540,12 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
       {isCorrect ? (
         <fieldset className="ratingOverride">
           <legend>Review rating</legend>
-          <div>
+          <div role="radiogroup" aria-label="Review rating">
             {[FsrsRating.HARD, FsrsRating.GOOD, FsrsRating.EASY].map((rating) => (
               <button
                 key={rating}
-                aria-pressed={manualRating === rating}
+                role="radio"
+                aria-checked={manualRating === rating}
                 className="ratingButton"
                 data-selected={manualRating === rating ? "true" : "false"}
                 type="button"
