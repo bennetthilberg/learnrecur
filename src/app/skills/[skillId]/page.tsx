@@ -113,9 +113,10 @@ export default async function SkillPage({
     notFound();
   }
 
+  const now = new Date();
   const [sourceSummariesResult, recentReviewsResult] = await Promise.all([
     getSkillSourceSummaries({ userId, skillId }),
-    getSkillPracticeHistory({ userId, skillId, now: new Date(), limit: 5 }),
+    getSkillPracticeHistory({ userId, skillId, now, limit: 5 }),
   ]);
   const sourceSummaries =
     sourceSummariesResult.status === "ready" ? sourceSummariesResult.sources : [];
@@ -185,6 +186,13 @@ export default async function SkillPage({
       exactInputUnlocked &&
       mathInventory.readyExerciseCount < DEFAULT_READY_MATH_TARGET &&
       !hasActiveMathRefillJob;
+    const readyPracticeCount =
+      inventory.readyExerciseCount +
+      (exactInputUnlocked
+        ? exactInputInventory.readyExerciseCount + mathInventory.readyExerciseCount
+        : 0);
+    const isReadyForPractice =
+      skill.dueAt !== null && skill.dueAt <= now && readyPracticeCount > 0;
     const reviewProgressLabel = `${formatCount(skill.repetitions)} of ${formatCount(
       EXACT_INPUT_UNLOCK_REPETITIONS,
     )} reviews`;
@@ -229,8 +237,11 @@ export default async function SkillPage({
             <h1>{skill.title}</h1>
             <p>{skill.objective ?? "This skill is active and ready for practice."}</p>
           </div>
-          <Link className="primaryButton" href="/practice">
-            Start practice
+          <Link
+            className={isReadyForPractice ? "primaryButton" : "secondaryButton"}
+            href="/practice"
+          >
+            {isReadyForPractice ? "Start practice" : "Open practice"}
           </Link>
         </header>
 
