@@ -3394,12 +3394,6 @@ a {
   color: var(--lr-danger-ink);
 }
 
-.skillLifecycleGroup[data-tone="danger"] > p,
-.skillLifecycleGroup[data-tone="danger"] .skillLifecycleForm p:not(.skillFormMessage),
-.skillLifecycleGroup[data-tone="danger"] .skillLifecycleDetails {
-  color: var(--lr-danger-ink);
-}
-
 .skillLifecycleForm {
   display: grid;
   justify-items: start;
