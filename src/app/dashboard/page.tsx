@@ -63,7 +63,7 @@ export default async function DashboardPage() {
           </div>
           <div className="dashboardHeaderUtilityLinks" aria-label="Dashboard utility links">
             <Link href="/history">Review history</Link>
-            <Link href="/settings">Reminder settings</Link>
+            <Link href="/settings">Settings</Link>
           </div>
         </div>
       </header>

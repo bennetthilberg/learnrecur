@@ -35,6 +35,8 @@ memory.
 - Active skill detail now weights its header practice action by real readiness:
   due skills with selectable exercises get the primary action; inactive inventory
   or future-due skills get a quieter practice link.
+- Collection practice links now use action language: ready collections say
+  "Practice now"; non-ready scoped routes say "Open practice."
 - Secondary actions now use neutral treatment by default; blue is reserved for
   primary, current, ready, selected, and hover/focus states.
 - Danger sections keep warning tone on headings/actions without turning all help
@@ -61,6 +63,8 @@ memory.
   with concrete user-facing language.
 - Recent practice copy cleanup replaced internal eligibility wording such as
   "practiceable" with learner-facing availability language.
+- Settings copy now distinguishes reminder configuration from data export, with
+  export facts written as user-facing privacy facts instead of terse system labels.
 
 ### Color
 
