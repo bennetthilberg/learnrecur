@@ -394,14 +394,15 @@ a {
 }
 
 .secondaryButton {
-  border: 1px solid hsl(219 97% 42% / 0.22);
-  background: var(--lr-primary-soft);
-  color: var(--lr-primary-ink);
+  border: 1px solid var(--lr-line-strong);
+  background: var(--lr-panel);
+  color: var(--lr-ink);
 }
 
 .secondaryButton:hover {
-  border-color: hsl(219 97% 42% / 0.32);
-  background: var(--lr-primary-muted);
+  border-color: hsl(219 97% 42% / 0.26);
+  background: var(--lr-panel-cool);
+  color: var(--lr-primary-ink);
 }
 
 .secondaryButton[data-tone="danger"] {
