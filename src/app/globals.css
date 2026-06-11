@@ -484,12 +484,8 @@ a {
   line-height: var(--lr-leading-label);
 }
 
-.authAccessList div:first-child dt,
 .authAccessList div:first-child dd {
-  color: var(--lr-primary-ink);
-}
-
-.authAccessList div:first-child dd {
+  color: var(--lr-ink);
   font-weight: 500;
 }
 
