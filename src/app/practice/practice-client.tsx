@@ -371,7 +371,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
         <section className="practiceFrame practiceEmpty" aria-labelledby="practice-empty-title">
           <p className="eyebrow">Due practice</p>
           <h1 id="practice-empty-title">
-            {item.status === "none-due" ? "All caught up." : "No practice item found."}
+            {item.status === "none-due" ? "All caught up." : "Practice is unavailable."}
           </h1>
           <p>{item.message}</p>
           <PracticeEmptyDetails
@@ -708,8 +708,18 @@ function PracticeEmptyDetails({
             ["Ready work", "A due skill with verified exercises."],
           ]
       : [
-          ["Scope", scoped ? "The selected collection is not practiceable." : "No practiceable item was found."],
-          ["Next step", scoped ? "Try all practice or review the collection." : "Review skills and exercise inventory."],
+          [
+            "Scope",
+            scoped
+              ? "This collection cannot be selected for practice."
+              : "No due exercise could be selected.",
+          ],
+          [
+            "Next step",
+            scoped
+              ? "Try all practice or review the collection."
+              : "Review skills and exercise inventory.",
+          ],
         ];
 
   return (

@@ -133,7 +133,10 @@ export function CollectionArchiveForm({
       <summary aria-label={`Archive collection ${collectionName}`}>Archive</summary>
       <form action={formAction} className="collectionInlineForm">
         <input name="collectionId" type="hidden" value={collectionId} />
-        <p>Archive this collection from dashboard summaries. Its skills stay practiceable.</p>
+        <p>
+          Archive this collection from dashboard summaries. Its skills can still appear in
+          practice.
+        </p>
         <button className="secondaryButton" data-tone="danger" disabled={pending} type="submit">
           {pending ? "Archiving" : "Archive collection"}
         </button>

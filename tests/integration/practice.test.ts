@@ -587,7 +587,7 @@ describeDatabase("practice review service", () => {
         getNextPracticeItemForUser(userId, now, { collectionId }),
       ).resolves.toMatchObject({
         status: "unavailable",
-        message: "That collection is not available for scoped practice.",
+        message: "That collection is not available for practice.",
       });
     }
 

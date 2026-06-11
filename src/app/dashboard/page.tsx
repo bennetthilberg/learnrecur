@@ -230,7 +230,7 @@ export default async function DashboardPage() {
           </div>
           <p>
             This can mean every active skill is scheduled for later, or the ready skills
-            do not have verified practiceable exercises yet.
+            do not have verified exercises practice can use yet.
           </p>
         </section>
       ) : null}

@@ -14,7 +14,7 @@ const PRACTICE_ANSWER_KINDS = [
   AnswerKind.MATH,
 ] as const;
 const COLLECTION_SCOPE_UNAVAILABLE_MESSAGE =
-  "That collection is not available for scoped practice.";
+  "That collection is not available for practice.";
 
 export type PracticeScopeInput = {
   collectionId?: string | null;
@@ -131,7 +131,7 @@ function toPracticeItem(
       status: "none-due",
       message:
         scope.kind === "collection"
-          ? `No due practice item is ready in ${scope.collectionName}.`
+          ? `No due exercise is ready in ${scope.collectionName}.`
           : result.message,
       scope,
     };
