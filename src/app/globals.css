@@ -2691,13 +2691,14 @@ a {
   border: 1px solid var(--lr-line);
   border-radius: var(--lr-radius-chip);
   background: var(--lr-white);
-  color: var(--lr-primary-ink);
+  color: var(--lr-muted);
   content: "+";
   font-size: var(--lr-text-sm);
   font-weight: 500;
 }
 
 .settingsExportDetails[open] summary::after {
+  color: var(--lr-primary-ink);
   content: "-";
 }
 
@@ -2725,6 +2726,10 @@ a {
 
 .settingsExportDetails summary:hover span,
 .settingsExportDetails[open] summary span {
+  color: var(--lr-primary-ink);
+}
+
+.settingsExportDetails summary:hover::after {
   color: var(--lr-primary-ink);
 }
 
