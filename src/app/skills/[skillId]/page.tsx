@@ -209,15 +209,15 @@ export default async function SkillPage({
         : `After ${formatCount(EXACT_INPUT_UNLOCK_REPETITIONS)} reviews`;
     const choiceRefillStatus =
       latestChoiceGenerationJob && hasActiveGenerationJob(latestChoiceGenerationJob)
-        ? `Choice exercise preparation is ${formatJobStatus(latestChoiceGenerationJob.status)}. Counts update when it finishes.`
+        ? "Choice exercises are being prepared. Counts update after the run finishes."
         : null;
     const exactInputRefillStatus =
       latestExactInputGenerationJob && hasActiveGenerationJob(latestExactInputGenerationJob)
-        ? `Exact-input exercise preparation is ${formatJobStatus(latestExactInputGenerationJob.status)}. Counts update when it finishes.`
+        ? "Exact-input exercises are being prepared. Counts update after the run finishes."
         : null;
     const mathRefillStatus =
       latestMathGenerationJob && hasActiveGenerationJob(latestMathGenerationJob)
-        ? `Math exercise preparation is ${formatJobStatus(latestMathGenerationJob.status)}. Counts update when it finishes.`
+        ? "Math exercises are being prepared. Counts update after the run finishes."
         : null;
 
     return (
