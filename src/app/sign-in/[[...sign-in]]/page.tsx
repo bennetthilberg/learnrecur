@@ -14,7 +14,7 @@ export default async function SignInPage() {
 
   return (
     <AuthShell
-      title="Sign in to LearnRecur."
+      title="Sign in to LearnRecur"
       description="Return to your due skills, drafts, source material, and review history."
     >
       <SignIn

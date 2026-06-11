@@ -69,6 +69,8 @@ memory.
   "practiceable" with learner-facing availability language.
 - Settings copy now distinguishes reminder configuration from data export, with
   export facts written as user-facing privacy facts instead of terse system labels.
+- Structural app headings now favor compact label-style text; sentence
+  punctuation is reserved for body copy, feedback, and error messages.
 
 ### Color
 

@@ -43,7 +43,7 @@ export function SkillDraftForm({ mode, skillId, initialValues }: SkillDraftFormP
         <div className="skillPanelHeader">
           <div>
             <p className="eyebrow">Skill definition</p>
-            <h2>{mode === "create" ? "Create a draft." : "Review the draft."}</h2>
+            <h2>{mode === "create" ? "Create a draft" : "Review the draft"}</h2>
           </div>
         </div>
 
@@ -144,7 +144,7 @@ export function SkillDraftForm({ mode, skillId, initialValues }: SkillDraftFormP
           <div className="skillPanelHeader">
             <div>
               <p className="eyebrow">Activation</p>
-              <h2 id="activate-skill-title">Prepare starter practice.</h2>
+              <h2 id="activate-skill-title">Prepare starter practice</h2>
             </div>
           </div>
           <p>

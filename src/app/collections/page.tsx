@@ -53,7 +53,7 @@ export default async function CollectionsPage() {
       <header className="skillHeader">
         <div>
           <p className="eyebrow">Study areas</p>
-          <h1>Organize practice.</h1>
+          <h1>Organize practice</h1>
           <p>
             Create, describe, archive, and restore the study areas that organize
             your skills.
@@ -89,7 +89,7 @@ export default async function CollectionsPage() {
 
         {home.activeCollections.length === 0 ? (
           <CollectionEmptyState
-            title="No active collections yet."
+            title="No active collections yet"
             detail="Create a study area, then use its row to practice only that collection."
           />
         ) : (

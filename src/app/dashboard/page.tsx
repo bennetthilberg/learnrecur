@@ -43,7 +43,7 @@ export default async function DashboardPage() {
       <header className="dashboardHeader">
         <div>
           <p className="eyebrow">Today</p>
-          <h1>Due practice.</h1>
+          <h1>Due practice</h1>
           <p>
             A compact read on what is ready, what is active, and how the recent
             review loop is holding up.
@@ -121,7 +121,7 @@ export default async function DashboardPage() {
 
           {dashboard.collections.length === 0 ? (
             <DashboardEmptyState
-              title="No study areas yet."
+              title="No study areas yet"
               detail="Create a study area, or name one while drafting a skill."
               actionHref="/collections"
               actionLabel="Manage collections"
@@ -177,7 +177,7 @@ export default async function DashboardPage() {
 
           {dashboard.skills.length === 0 ? (
             <DashboardEmptyState
-              title="No scheduled skills."
+              title="No scheduled skills"
               detail="Drafts stay out of practice until you review and activate them."
               actionHref="/skills/new"
               actionLabel="Add skill"
@@ -226,7 +226,7 @@ export default async function DashboardPage() {
         <section className="dashboardMessage" aria-label="Practice status">
           <div>
             <p className="eyebrow">Due practice</p>
-            <h2>Nothing is ready for practice.</h2>
+            <h2>Nothing is ready for practice</h2>
           </div>
           <p>
             This can mean every active skill is scheduled for later, or the ready skills

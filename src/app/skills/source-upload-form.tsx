@@ -58,7 +58,7 @@ export function SourceUploadForm() {
       <div className="skillPanelHeader">
         <div>
           <p className="eyebrow">Upload source</p>
-          <h2>Use an image or PDF.</h2>
+          <h2>Use an image or PDF</h2>
         </div>
         <span className="skillPathBadge">Private file</span>
       </div>

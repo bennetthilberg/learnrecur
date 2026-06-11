@@ -65,7 +65,7 @@ export default async function SkillsPage({ searchParams }: SkillsPageProps) {
       <header className="skillHeader">
         <div>
           <p className="eyebrow">Library</p>
-          <h1>Recover and schedule skills.</h1>
+          <h1>Recover and schedule skills</h1>
           <p>Resume draft review, check activation issues, and scan active practice targets.</p>
         </div>
         <Link className="primaryButton" href="/skills/new">
@@ -129,7 +129,7 @@ export default async function SkillsPage({ searchParams }: SkillsPageProps) {
 
           {library.draftSkills.length === 0 ? (
             <SkillLibraryEmptyState
-              title="No drafts waiting."
+              title="No drafts waiting"
               detail="Create a source-backed draft or write a manual one when you are ready."
             />
           ) : (
@@ -156,7 +156,7 @@ export default async function SkillsPage({ searchParams }: SkillsPageProps) {
 
           {library.activeSkills.length === 0 ? (
             <SkillLibraryEmptyState
-              title="No active skills yet."
+              title="No active skills yet"
               detail="Activate a reviewed draft to put it into the practice schedule."
             />
           ) : (

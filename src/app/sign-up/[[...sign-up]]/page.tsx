@@ -14,7 +14,7 @@ export default async function SignUpPage() {
 
   return (
     <AuthShell
-      title="Create a LearnRecur account."
+      title="Create a LearnRecur account"
       description="Start a private study space for source-backed skills, verified practice, and due reminders."
     >
       <SignUp

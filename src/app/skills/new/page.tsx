@@ -48,7 +48,7 @@ export default async function NewSkillPage() {
       <header className="skillHeader">
         <div>
           <p className="eyebrow">New skill</p>
-          <h1>Create skill drafts.</h1>
+          <h1>Create skill drafts</h1>
           <p>
             Upload or paste source material to shape one to three editable drafts,
             or define the skill manually. You will review each draft before activation.
@@ -78,7 +78,7 @@ export default async function NewSkillPage() {
           <summary className="skillManualSummary">
             <div className="skillManualIntro">
               <p className="eyebrow">Manual draft</p>
-              <h2 id="manual-skill-title">Write the skill yourself.</h2>
+              <h2 id="manual-skill-title">Write the skill yourself</h2>
             </div>
             <span className="skillPathBadge">Manual entry</span>
           </summary>

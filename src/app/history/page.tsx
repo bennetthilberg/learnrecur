@@ -56,7 +56,7 @@ export default async function HistoryPage() {
       <header className="skillHeader">
         <div>
           <p className="eyebrow">History</p>
-          <h1>Review ledger.</h1>
+          <h1>Review ledger</h1>
           <p>
             A compact record of completed reviews, grading outcomes, and how each
             answer changed the memory schedule.
@@ -87,7 +87,7 @@ export default async function HistoryPage() {
 
         {history.reviews.length === 0 ? (
           <div className="dashboardEmptyState">
-            <h3>No completed reviews yet.</h3>
+            <h3>No completed reviews yet</h3>
             <p>
               Answer a practice exercise, check it, then continue to record your
               first completed review.

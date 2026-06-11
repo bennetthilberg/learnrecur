@@ -480,12 +480,12 @@ export default async function SkillPage({
       skill.status === SkillStatus.PAUSED
         ? {
             eyebrow: "Paused skill",
-            heading: "Paused outside practice.",
+            heading: "Paused outside practice",
             body: "This skill keeps its schedule and history, but it will not appear in practice until resumed.",
           }
         : {
             eyebrow: "Archived skill",
-            heading: "Archived for recovery.",
+            heading: "Archived for recovery",
             body: "This skill is hidden from practice and normal dashboard counts. Restore it when you want to review or reactivate it.",
           };
 
