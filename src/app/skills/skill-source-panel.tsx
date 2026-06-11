@@ -21,7 +21,7 @@ export function SkillSourcePanel({
       <div className="skillPanelHeader">
         <div>
           <p className="eyebrow">Source material</p>
-          <h2 id="skill-source-title">Stored source context.</h2>
+          <h2 id="skill-source-title">Linked source material</h2>
         </div>
         <PanelHeaderCount
           ariaLabel="Linked sources shown"

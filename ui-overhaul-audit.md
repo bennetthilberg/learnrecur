@@ -74,6 +74,8 @@ memory.
 - `--lr-faint` now passes contrast on both white panels and the cool page tint.
 - Semantic surfaces use matching semantic ink instead of weak gray text.
 - Primary blue is not used for ordinary facts or default secondary actions.
+- Upload processing statuses avoid ready/primary color until drafts are actually
+  available for review.
 
 ### Depth
 
@@ -88,6 +90,8 @@ memory.
 - V0 UI does not display arbitrary uploaded originals; source previews are capped
   text excerpts.
 - File upload rows are compact controls, not decorative dashed drop zones.
+- Linked source panels describe material plainly instead of calling it internal
+  context.
 
 ### Finishing Touches
 

@@ -97,11 +97,11 @@ export default async function SkillsPage({ searchParams }: SkillsPageProps) {
           <div className="skillPanelHeader">
             <div>
               <p className="eyebrow">Draft preparation</p>
-              <h2 id="source-processing-title">Uploaded material</h2>
+              <h2 id="source-processing-title">Uploads being prepared</h2>
             </div>
             <PanelHeaderCount
               ariaLabel="Uploaded material rows shown"
-              label="Uploads"
+              label="Files"
               value={formatCount(library.sourceProcessing.length)}
             />
           </div>
@@ -477,7 +477,7 @@ function getSourceProcessingStatusCopy(sourceFile: SkillsLibrarySourceProcessing
   }
 
   if (sourceFile.status === "UPLOADED") {
-    return "File received. Drafts will appear here when preparation finishes.";
+    return "File received. Drafts will appear under Needs review when preparation finishes.";
   }
 
   if (sourceFile.isStaleProcessing) {
@@ -496,7 +496,7 @@ function getSourceProcessingStatusTone(sourceFile: SkillsLibrarySourceProcessing
     return "attention";
   }
 
-  return "ready";
+  return sourceFile.status === "PROCESSING" ? "attention" : "neutral";
 }
 
 function parseCreatedDraftCount(value: string | string[] | undefined) {
