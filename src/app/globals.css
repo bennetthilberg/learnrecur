@@ -3919,7 +3919,7 @@ a {
 }
 
 .historyDateText {
-  color: var(--lr-primary-ink);
+  color: var(--lr-ink);
   font-size: var(--lr-text-md);
 }
 
