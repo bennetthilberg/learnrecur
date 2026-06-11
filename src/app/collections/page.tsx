@@ -157,7 +157,7 @@ function ActiveCollectionRow({
           data-ready={collection.readyNowCount > 0 ? "true" : "false"}
           href={`/practice?collectionId=${encodeURIComponent(collection.id)}`}
         >
-          {collection.readyNowCount > 0 ? "Practice due" : "Practice"}
+          {collection.readyNowCount > 0 ? "Practice now" : "Open practice"}
         </Link>
         <CollectionUpdateForm collection={collection} />
         <CollectionArchiveForm collectionId={collection.id} collectionName={collection.name} />
