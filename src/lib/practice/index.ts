@@ -318,7 +318,7 @@ export async function getNextPracticeItem(
   if (!exercise) {
     return {
       status: "none-due",
-      message: "No due practice item is ready.",
+      message: "No due exercise is ready.",
     };
   }
 

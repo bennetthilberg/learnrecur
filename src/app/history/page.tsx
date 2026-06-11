@@ -89,7 +89,7 @@ export default async function HistoryPage() {
           <div className="dashboardEmptyState">
             <h3>No completed reviews yet.</h3>
             <p>
-              Answer a practice item, check it, then continue to record your
+              Answer a practice exercise, check it, then continue to record your
               first completed review.
             </p>
             <Link className="secondaryButton" href="/practice">
