@@ -35,6 +35,8 @@ memory.
 - Active skill detail now weights its header practice action by real readiness:
   due skills with selectable exercises get the primary action; inactive inventory
   or future-due skills get a quieter practice link.
+- Entry and history surfaces avoid promising "Start practice" when they do not
+  know whether any exercise is actually due.
 - Collection practice links now use action language: ready collections say
   "Practice now"; non-ready scoped routes say "Open practice."
 - Secondary actions now use neutral treatment by default; blue is reserved for
