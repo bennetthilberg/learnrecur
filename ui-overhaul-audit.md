@@ -46,6 +46,8 @@ memory.
 - Major content uses constrained widths instead of filling the whole viewport.
 - Dashboard and skill queue layouts are asymmetric where priority differs.
 - Empty states inside panels are ruled blocks, not nested cards.
+- Practice empty states name the selected scope problem or missing due exercise
+  without falling back to implementation terms.
 - Responsive metadata strips remove dividers where wrapping would create leading
   separators.
 
@@ -57,6 +59,8 @@ memory.
 - Links that are utilities are muted until hover/focus.
 - Recent copy cleanup replaced internal labels such as "Recovery" and "No data"
   with concrete user-facing language.
+- Recent practice copy cleanup replaced internal eligibility wording such as
+  "practiceable" with learner-facing availability language.
 
 ### Color
 
