@@ -1282,13 +1282,21 @@ a {
 }
 
 .practiceScopeBar a {
-  color: var(--lr-primary-ink);
+  color: var(--lr-muted);
   font-weight: 500;
   text-decoration: none;
 }
 
 .practiceScopeBar a:hover {
+  color: var(--lr-primary-ink);
   text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.practiceScopeBar a:focus-visible {
+  outline: none;
+  color: var(--lr-primary-ink);
+  box-shadow: var(--lr-focus-ring);
 }
 
 .practiceFrame h1 {
