@@ -80,7 +80,7 @@ export default async function NewSkillPage() {
               <p className="eyebrow">Manual draft</p>
               <h2 id="manual-skill-title">Write the skill yourself.</h2>
             </div>
-            <span className="skillPathBadge">Optional path</span>
+            <span className="skillPathBadge">Manual entry</span>
           </summary>
           <div className="skillManualBody">
             <p className="skillManualBodyCopy">
