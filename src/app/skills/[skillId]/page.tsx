@@ -704,11 +704,11 @@ function SkillQueueJobStatus({
         <dd>{formatJobStatus(job.status)}</dd>
       </div>
       <div>
-        <dt>Accepted</dt>
+        <dt>Kept</dt>
         <dd>{formatCount(job.acceptedCount)}</dd>
       </div>
       <div>
-        <dt>Rejected</dt>
+        <dt>Skipped</dt>
         <dd>{formatCount(job.rejectedCount)}</dd>
       </div>
     </dl>
