@@ -2754,10 +2754,6 @@ a {
   padding: 12px 14px;
 }
 
-.settingsExportSummary section:first-child h3 {
-  color: var(--lr-primary-ink);
-}
-
 .settingsExportSummary section + section {
   border-left: 1px solid var(--lr-line);
 }
