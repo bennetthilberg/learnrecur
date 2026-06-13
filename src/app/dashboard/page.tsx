@@ -146,7 +146,7 @@ function DashboardReviewCard({
   const counterTotal = Math.max(dashboard.activeSkillCount, 1);
 
   return (
-    <section className="openWaterSection" aria-labelledby="up-next-title">
+    <section className="openWaterSection openWaterReviewSection" aria-labelledby="up-next-title">
       <h2 id="up-next-title" className="disp openWaterSectionTitle">
         Up next
       </h2>
@@ -358,7 +358,7 @@ function Forecast({ dashboard, now }: { dashboard: DashboardHome; now: Date }) {
   const forecastCount = Math.max(dashboard.readyNowCount, 0) + dashboard.skills.length * 2;
 
   return (
-    <section className="openWaterSection" aria-labelledby="forecast-title">
+    <section className="openWaterSection openWaterCompactSection" aria-labelledby="forecast-title">
       <div className="openWaterForecastCard">
         <div className="openWaterForecastHeader">
           <h2 id="forecast-title" className="disp">
@@ -389,7 +389,7 @@ function Forecast({ dashboard, now }: { dashboard: DashboardHome; now: Date }) {
 
 function SessionPreferences() {
   return (
-    <section className="openWaterSection" aria-labelledby="session-preferences-title">
+    <section className="openWaterSection openWaterCompactSection" aria-labelledby="session-preferences-title">
       <div className="openWaterPrefsCard">
         <h2 id="session-preferences-title" className="disp">
           Session preferences
