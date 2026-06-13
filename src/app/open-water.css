@@ -2,7 +2,6 @@
 body {
   display: block;
   background: var(--lr-canvas);
-  overflow-x: hidden;
 }
 
 .bpbtn {
@@ -39,7 +38,7 @@ body {
 .openWaterBackground {
   position: fixed;
   inset: 0;
-  width: 100vw;
+  width: 100%;
   height: 100vh;
   pointer-events: none;
   z-index: 0;
@@ -416,7 +415,7 @@ body {
   letter-spacing: -0.01em;
 }
 
-.openWaterReviewPrompt span {
+.openWaterReviewPromptHighlight {
   border-bottom: 2.5px solid var(--lr-yellow);
   color: var(--lr-blue);
 }
@@ -483,20 +482,18 @@ body {
   gap: 7px;
 }
 
-.openWaterChips button {
-  appearance: none;
+.openWaterChips span {
   border: 1px solid var(--lr-chip-border);
   border-radius: 7px;
   background: #FFFFFF;
   color: var(--lr-icon);
-  cursor: pointer;
   font-size: 12.5px;
   font-weight: 500;
   line-height: 1.2;
   padding: 5px 12px;
 }
 
-.openWaterChips button[aria-pressed="true"] {
+.openWaterChips span[data-active="true"] {
   border-color: #1C44A8;
   background: #1C44A8;
   color: #FFFFFF;
@@ -504,7 +501,6 @@ body {
   padding: 6px 12px;
 }
 
-.openWaterChips button:focus-visible,
 .openWaterToggleRow:focus-visible {
   outline: 2px solid #1C44A8;
   outline-offset: 2px;
@@ -780,7 +776,6 @@ body {
   border-bottom: 1px solid var(--lr-divider);
   background: #FFFFFF;
   color: var(--lr-pref-label);
-  cursor: pointer;
   font-size: 13.5px;
   font-weight: 400;
   line-height: 1.2;
@@ -906,7 +901,7 @@ body {
 .ratingButton:focus-visible {
   outline: 2px solid #1C44A8;
   outline-offset: 2px;
-  box-shadow:0 3px 0 currentColor;
+  box-shadow:0 3px 0 currentcolor;
 }
 
 .primaryButton:disabled,

@@ -88,7 +88,7 @@ export default async function DashboardPage() {
       <DashboardReviewCard dashboard={dashboard} item={nextPracticeItem} />
       <DashboardDecks dashboard={dashboard} />
       <section className="openWaterTwoColumn">
-        <ActivityHeatmap />
+        <ActivityHeatmap activityValues={dashboard.activityValues} />
         <WeeklyGoal recentReviewCount={dashboard.recentReviewCount} />
       </section>
       <Forecast dashboard={dashboard} now={now} />
@@ -162,10 +162,12 @@ function DashboardReviewCard({
         <p className="disp openWaterReviewPrompt">
           <HighlightedPrompt prompt={prompt} />
         </p>
-        <p className="openWaterReviewNote">
-          <strong>Instant check.</strong> Open practice to answer this{" "}
-          <span>verified exercise</span> and update the memory schedule.
-        </p>
+        {ready ? (
+          <p className="openWaterReviewNote">
+            <strong>Instant check.</strong> Open practice to answer this{" "}
+            <span>verified exercise</span> and update the memory schedule.
+          </p>
+        ) : null}
         <div className="openWaterGradeGrid" aria-label="Review rating shortcuts">
           <Link className="bpbtn bpbtn-again" href="/practice">
             Again
@@ -194,13 +196,19 @@ function HighlightedPrompt({ prompt }: { prompt: string }) {
 
   const highlightIndex = words.findIndex((word) => word.length > 4);
   const index = highlightIndex === -1 ? words.length - 1 : highlightIndex;
+  const prefix = words.slice(0, index).join(" ");
+  const highlighted = words[index];
+  const suffix = words.slice(index + 1).join(" ");
 
   return (
     <>
-      {words.slice(0, index).join(" ")}
-      {index > 0 ? " " : ""}
-      <span>{words[index]}</span>
-      {index < words.length - 1 ? ` ${words.slice(index + 1).join(" ")}` : ""}
+      {prefix ? <MathText text={prefix} /> : null}
+      {prefix ? " " : ""}
+      <span className="openWaterReviewPromptHighlight">
+        <MathText text={highlighted} />
+      </span>
+      {suffix ? " " : ""}
+      {suffix ? <MathText text={suffix} /> : null}
     </>
   );
 }
@@ -219,21 +227,14 @@ function DashboardDecks({ dashboard }: { dashboard: DashboardHome }) {
         </Link>
       </div>
       <div className="openWaterDeckTools">
-        <div className="openWaterChips" aria-label="Deck filters">
-          <button type="button" aria-pressed="true">
-            All
-          </button>
-          <button type="button" aria-pressed="false">
-            Due
-          </button>
-          <button type="button" aria-pressed="false">
-            Stable
-          </button>
+        <div className="openWaterChips" aria-hidden="true">
+          <span data-active="true">All</span>
+          <span>Due</span>
+          <span>Stable</span>
         </div>
-        <div className="openWaterSearch" aria-label="Search decks">
+        <div className="openWaterSearch" aria-hidden="true">
           <IconSearch aria-hidden="true" size={14} />
           <span>Search</span>
-          <kbd>⌘K</kbd>
         </div>
       </div>
       <div className="openWaterDeckList">
@@ -274,23 +275,15 @@ function DashboardDecks({ dashboard }: { dashboard: DashboardHome }) {
   );
 }
 
-function ActivityHeatmap() {
-  const values = [
-    0, 1, 2, 0, 3, 4, 2,
-    1, 0, 2, 3, 1, 2, 4,
-    0, 2, 1, 4, 3, 0, 1,
-    2, 3, 0, 1, 4, 2, 3,
-    1, 0, 3, 2, 4, 1, 2,
-  ];
-
+function ActivityHeatmap({ activityValues }: { activityValues: number[] }) {
   return (
     <section className="openWaterSmallCard" aria-labelledby="activity-title">
       <h2 id="activity-title" className="disp">
         Activity
       </h2>
       <div className="openWaterHeatmap" aria-hidden="true">
-        {values.map((value, index) => (
-          <span data-heat={value} key={index} />
+        {activityValues.map((value, index) => (
+          <span data-heat={clampHeatValue(value)} key={index} />
         ))}
       </div>
       <div className="openWaterLegend" aria-hidden="true">
@@ -302,6 +295,10 @@ function ActivityHeatmap() {
       </div>
     </section>
   );
+}
+
+function clampHeatValue(value: number) {
+  return Math.min(4, Math.max(0, Math.round(value)));
 }
 
 function WeeklyGoal({ recentReviewCount }: { recentReviewCount: number }) {
@@ -353,9 +350,15 @@ function WeeklyGoal({ recentReviewCount }: { recentReviewCount: number }) {
 }
 
 function Forecast({ dashboard, now }: { dashboard: DashboardHome; now: Date }) {
-  const bars = ["100%", "64%", "44%", "82%", "30%", "54%", "38%"];
   const labels = getForecastLabels(now);
-  const forecastCount = Math.max(dashboard.readyNowCount, 0) + dashboard.skills.length * 2;
+  const counts = getForecastCounts(dashboard.skills, now);
+  const maxCount = Math.max(...counts, 1);
+  const bars = counts.map(
+    (count) => `${Math.min(100, Math.round((count / maxCount) * 100))}%`,
+  );
+  const forecastCount =
+    Math.max(dashboard.readyNowCount, 0) +
+    counts.reduce((total, count) => total + count, 0);
 
   return (
     <section className="openWaterSection openWaterCompactSection" aria-labelledby="forecast-title">
@@ -370,7 +373,7 @@ function Forecast({ dashboard, now }: { dashboard: DashboardHome; now: Date }) {
           {bars.map((height, index) => (
             <span
               data-today={index === 0 ? "true" : "false"}
-              key={height}
+              key={index}
               style={{ height }}
             />
           ))}
@@ -385,6 +388,43 @@ function Forecast({ dashboard, now }: { dashboard: DashboardHome; now: Date }) {
       </div>
     </section>
   );
+}
+
+function getForecastCounts(skills: DashboardHome["skills"], now: Date) {
+  const today = startOfLocalDay(now);
+  const counts = Array.from({ length: 7 }, () => 0);
+
+  for (const skill of skills) {
+    if (!skill.dueAt) {
+      continue;
+    }
+
+    const dueAt = new Date(skill.dueAt);
+
+    if (Number.isNaN(dueAt.getTime()) || dueAt < now) {
+      continue;
+    }
+
+    const dayIndex = daysBetween(today, startOfLocalDay(dueAt));
+
+    if (dayIndex >= 0 && dayIndex < counts.length) {
+      counts[dayIndex] += 1;
+    }
+  }
+
+  return counts;
+}
+
+function startOfLocalDay(date: Date) {
+  const start = new Date(date);
+  start.setHours(0, 0, 0, 0);
+  return start;
+}
+
+function daysBetween(start: Date, end: Date) {
+  const millisecondsPerDay = 24 * 60 * 60 * 1000;
+
+  return Math.floor((end.getTime() - start.getTime()) / millisecondsPerDay);
 }
 
 function SessionPreferences() {
@@ -404,12 +444,12 @@ function SessionPreferences() {
 
 function PreferenceSwitch({ label, checked }: { label: string; checked: boolean }) {
   return (
-    <button className="openWaterToggleRow" type="button" role="switch" aria-checked={checked}>
+    <div className="openWaterToggleRow">
       <span>{label}</span>
       <i data-checked={checked ? "true" : "false"} aria-hidden="true">
         <span />
       </i>
-    </button>
+    </div>
   );
 }
 
@@ -422,11 +462,19 @@ function formatAccuracy(accuracy: DashboardHome["recentAccuracyPercent"]) {
 }
 
 function formatAverageInterval(dashboard: DashboardHome) {
-  if (dashboard.activeSkillCount === 0) {
+  const intervals = dashboard.skills
+    .map((skill) => skill.stability)
+    .filter((stability): stability is number => typeof stability === "number" && stability > 0);
+
+  if (intervals.length === 0) {
     return "0";
   }
 
-  return String(Math.max(1, Math.round((dashboard.recentReviewCount + dashboard.activeSkillCount) / 2)));
+  const meanIntervalDays =
+    intervals.reduce((total, interval) => total + interval, 0) /
+    intervals.length;
+
+  return String(Math.max(1, Math.round(meanIntervalDays)));
 }
 
 function formatHeroDate(date: Date) {
