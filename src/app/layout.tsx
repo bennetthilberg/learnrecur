@@ -1,19 +1,27 @@
 import "@mantine/core/styles.css";
 import "katex/dist/katex.min.css";
 import "./globals.css";
+import "./open-water.css";
 
 import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata } from "next";
-import { Lexend } from "next/font/google";
+import { Instrument_Sans, Plus_Jakarta_Sans } from "next/font/google";
 
 import { clerkLocalization } from "@/components/app/clerk-appearance";
 
 import { Providers } from "./providers";
 
-const lexend = Lexend({
+const instrumentSans = Instrument_Sans({
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
-  variable: "--font-lexend",
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-instrument-sans",
+  display: "swap",
+});
+
+const plusJakartaSans = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  weight: ["700", "800"],
+  variable: "--font-plus-jakarta-sans",
   display: "swap",
 });
 
@@ -28,7 +36,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={lexend.variable}>
+    <html lang="en" className={`${instrumentSans.variable} ${plusJakartaSans.variable}`}>
       <body>
         <ClerkProvider localization={clerkLocalization}>
           <Providers>{children}</Providers>
