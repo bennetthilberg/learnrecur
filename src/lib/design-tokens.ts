@@ -1,3 +1,3 @@
 export const designTokens = {
-  colorPrimaryHsl: "hsl(219 97% 42%)",
+  colorPrimary: "#1C44A8",
 } as const;

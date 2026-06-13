@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { OpenWaterBackground, OpenWaterLogoMark } from "@/components/app/open-water";
+
 type AuthShellProps = {
   title: string;
   description: string;
@@ -9,9 +11,11 @@ type AuthShellProps = {
 export function AuthShell({ title, description, children }: AuthShellProps) {
   return (
     <main className="authShell">
+      <OpenWaterBackground />
       <section className="authIntro" aria-labelledby="auth-title">
         <Link className="wordmark" href="/">
-          LearnRecur
+          <OpenWaterLogoMark />
+          <span>LearnRecur</span>
         </Link>
         <p className="eyebrow">Account access</p>
         <h1 id="auth-title">{title}</h1>

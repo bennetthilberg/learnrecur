@@ -13,6 +13,7 @@ import { isPracticeReadModelExerciseReady } from "@/lib/practice/read-model-elig
 import { getPrisma } from "@/lib/prisma";
 
 const RECENT_WINDOW_DAYS = 14;
+const ACTIVITY_WINDOW_DAYS = 35;
 
 export type DashboardCollectionSummary = {
   id: string;
@@ -31,6 +32,7 @@ export type DashboardSkillSummary = {
   repetitions: number;
   lapses: number;
   dueAt: Date | null;
+  stability: number | null;
   isReadyNow: boolean;
   dueLabel: string;
 };
@@ -40,6 +42,7 @@ export type DashboardHome = {
   activeSkillCount: number;
   recentReviewCount: number;
   recentAccuracyPercent: number | null;
+  activityValues: number[];
   collections: DashboardCollectionSummary[];
   skills: DashboardSkillSummary[];
 };
@@ -77,8 +80,10 @@ type DashboardSkillRecord = {
 export async function getDashboardHome(input: GetDashboardHomeInput): Promise<DashboardHome> {
   const prisma = getPrisma();
   const recentSince = new Date(input.now.getTime() - RECENT_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+  const activitySince = startOfLocalDay(input.now);
+  activitySince.setDate(activitySince.getDate() - (ACTIVITY_WINDOW_DAYS - 1));
 
-  const [collections, activeSkills, recentAttempts] = await Promise.all([
+  const [collections, activeSkills, activityAttempts] = await Promise.all([
     prisma.collection.findMany({
       where: {
         userId: input.userId,
@@ -130,7 +135,7 @@ export async function getDashboardHome(input: GetDashboardHomeInput): Promise<Da
       where: {
         userId: input.userId,
         createdAt: {
-          gte: recentSince,
+          gte: activitySince,
           lte: input.now,
         },
         result: {
@@ -138,12 +143,14 @@ export async function getDashboardHome(input: GetDashboardHomeInput): Promise<Da
         },
       },
       select: {
+        createdAt: true,
         result: true,
       },
     }),
   ]);
 
   const sortedActiveSkills = activeSkills.toSorted(compareDashboardSkills);
+  const recentAttempts = activityAttempts.filter((attempt) => attempt.createdAt >= recentSince);
   const readySkillIds = new Set(
     sortedActiveSkills.filter((skill) => isReadyNow(skill, input.now)).map((skill) => skill.id),
   );
@@ -180,6 +187,7 @@ export async function getDashboardHome(input: GetDashboardHomeInput): Promise<Da
       recentAttempts.length === 0
         ? null
         : Math.round((correctReviewCount / recentAttempts.length) * 100),
+    activityValues: buildActivityValues(activityAttempts, input.now),
     collections: collections.map((collection) => ({
       id: collection.id,
       name: collection.name,
@@ -196,10 +204,43 @@ export async function getDashboardHome(input: GetDashboardHomeInput): Promise<Da
       repetitions: skill.repetitions,
       lapses: skill.lapses,
       dueAt: skill.dueAt,
+      stability: skill.stability,
       isReadyNow: readySkillIds.has(skill.id),
       dueLabel: getDueLabel(skill, input.now),
     })),
   };
+}
+
+function buildActivityValues(
+  attempts: Array<{ createdAt: Date }>,
+  now: Date,
+): number[] {
+  const start = startOfLocalDay(new Date(now));
+  start.setDate(start.getDate() - (ACTIVITY_WINDOW_DAYS - 1));
+
+  const counts = Array.from({ length: ACTIVITY_WINDOW_DAYS }, () => 0);
+
+  for (const attempt of attempts) {
+    const dayIndex = daysBetween(start, startOfLocalDay(attempt.createdAt));
+
+    if (dayIndex >= 0 && dayIndex < counts.length) {
+      counts[dayIndex] += 1;
+    }
+  }
+
+  return counts.map((count) => Math.min(4, count));
+}
+
+function startOfLocalDay(date: Date): Date {
+  const start = new Date(date);
+  start.setHours(0, 0, 0, 0);
+  return start;
+}
+
+function daysBetween(start: Date, end: Date): number {
+  const millisecondsPerDay = 24 * 60 * 60 * 1000;
+
+  return Math.floor((end.getTime() - start.getTime()) / millisecondsPerDay);
 }
 
 function isReadyNow(skill: DashboardSkillRecord, now: Date): boolean {
