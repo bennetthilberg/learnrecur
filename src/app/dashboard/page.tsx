@@ -401,7 +401,7 @@ function getForecastCounts(skills: DashboardHome["skills"], now: Date) {
 
     const dueAt = new Date(skill.dueAt);
 
-    if (Number.isNaN(dueAt.getTime()) || dueAt < now) {
+    if (Number.isNaN(dueAt.getTime()) || dueAt <= now) {
       continue;
     }
 
@@ -423,8 +423,10 @@ function startOfLocalDay(date: Date) {
 
 function daysBetween(start: Date, end: Date) {
   const millisecondsPerDay = 24 * 60 * 60 * 1000;
+  const startUtc = Date.UTC(start.getFullYear(), start.getMonth(), start.getDate());
+  const endUtc = Date.UTC(end.getFullYear(), end.getMonth(), end.getDate());
 
-  return Math.floor((end.getTime() - start.getTime()) / millisecondsPerDay);
+  return Math.floor((endUtc - startUtc) / millisecondsPerDay);
 }
 
 function SessionPreferences() {

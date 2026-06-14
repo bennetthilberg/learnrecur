@@ -239,8 +239,10 @@ function startOfLocalDay(date: Date): Date {
 
 function daysBetween(start: Date, end: Date): number {
   const millisecondsPerDay = 24 * 60 * 60 * 1000;
+  const startUtc = Date.UTC(start.getFullYear(), start.getMonth(), start.getDate());
+  const endUtc = Date.UTC(end.getFullYear(), end.getMonth(), end.getDate());
 
-  return Math.floor((end.getTime() - start.getTime()) / millisecondsPerDay);
+  return Math.floor((endUtc - startUtc) / millisecondsPerDay);
 }
 
 function isReadyNow(skill: DashboardSkillRecord, now: Date): boolean {
