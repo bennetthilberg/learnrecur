@@ -4,6 +4,7 @@ import { UserButton, useUser } from "@clerk/nextjs";
 import Link from "next/link";
 import { useEffect, useRef } from "react";
 
+import { OpenWaterBackground, OpenWaterLogoMark } from "@/components/app/open-water";
 import { designTokens } from "@/lib/design-tokens";
 
 export function SkillsTopbar({
@@ -37,74 +38,64 @@ export function SkillsTopbar({
   }, [current]);
 
   return (
-    <header className="practiceTopbar">
-      <Link className="practiceWordmark" href="/dashboard">
-        LearnRecur
-      </Link>
-      <nav ref={navRef} className="practiceNav" aria-label="Primary navigation">
-        <div className="practiceNavGroup">
-          <span className="practiceNavSection" aria-hidden="true">
-            Practice loop
-          </span>
-          <Link aria-current={current === "dashboard" ? "page" : undefined} href="/dashboard">
-            Dashboard
-          </Link>
-          <Link aria-current={current === "practice" ? "page" : undefined} href="/practice">
-            Practice
-          </Link>
-          <Link aria-current={current === "history" ? "page" : undefined} href="/history">
-            History
-          </Link>
-        </div>
-        <div className="practiceNavGroup">
-          <span className="practiceNavSection" aria-hidden="true">
-            Content
-          </span>
-          {/* Keep Skills highlighted on both the index and individual skill pages. */}
-          <Link
-            aria-current={current === "skills" || current === "skill" ? "page" : undefined}
-            href="/skills"
+    <>
+      <OpenWaterBackground />
+      <header className="practiceTopbar">
+        <Link className="practiceWordmark" href="/dashboard">
+          <OpenWaterLogoMark />
+          <span>LearnRecur</span>
+        </Link>
+        <div className="practiceTopbarRight">
+          <nav ref={navRef} className="practiceNav" aria-label="Primary navigation">
+            <Link aria-current={current === "dashboard" ? "page" : undefined} href="/dashboard">
+              Dashboard
+            </Link>
+            <Link aria-current={current === "practice" ? "page" : undefined} href="/practice">
+              Practice
+            </Link>
+            <Link aria-current={current === "history" ? "page" : undefined} href="/history">
+              History
+            </Link>
+            <Link
+              aria-current={current === "skills" || current === "skill" ? "page" : undefined}
+              href="/skills"
+            >
+              Skills
+            </Link>
+            <Link aria-current={current === "collections" ? "page" : undefined} href="/collections">
+              Collections
+            </Link>
+            <Link
+              aria-current={current === "new" ? "page" : undefined}
+              data-intent="create"
+              href="/skills/new"
+            >
+              Add
+            </Link>
+            <Link aria-current={current === "settings" ? "page" : undefined} href="/settings">
+              Settings
+            </Link>
+          </nav>
+          <div
+            className="practiceUserMenu"
+            data-custom-avatar={hasCustomAvatar}
+            data-initial={userInitial}
           >
-            Skills
-          </Link>
-          <Link aria-current={current === "collections" ? "page" : undefined} href="/collections">
-            Collections
-          </Link>
-          <Link
-            aria-current={current === "new" ? "page" : undefined}
-            data-intent="create"
-            href="/skills/new"
-          >
-            Add skill
-          </Link>
+            <UserButton
+              appearance={{
+                elements: {
+                  userButtonAvatarBox: "learnrecurUserAvatar",
+                  userButtonTrigger: "learnrecurUserButton",
+                },
+                variables: {
+                  colorPrimary: designTokens.colorPrimary,
+                },
+              }}
+            />
+          </div>
         </div>
-        <div className="practiceNavGroup">
-          <span className="practiceNavSection" aria-hidden="true">
-            Account
-          </span>
-          <Link aria-current={current === "settings" ? "page" : undefined} href="/settings">
-            Settings
-          </Link>
-        </div>
-      </nav>
-      <div
-        className="practiceUserMenu"
-        data-custom-avatar={hasCustomAvatar}
-        data-initial={userInitial}
-      >
-        <UserButton
-          appearance={{
-            elements: {
-              userButtonAvatarBox: "learnrecurUserAvatar",
-              userButtonTrigger: "learnrecurUserButton",
-            },
-            variables: {
-              colorPrimary: designTokens.colorPrimaryHsl,
-            },
-          }}
-        />
-      </div>
-    </header>
+      </header>
+    </>
   );
 }
 

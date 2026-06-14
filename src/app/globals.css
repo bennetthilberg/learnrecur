@@ -1,43 +1,73 @@
 :root {
-  --lr-white: hsl(0 0% 100%);
-  --lr-ink: hsl(215 31% 11%);
-  --lr-ink-soft: hsl(214 21% 23%);
-  --lr-muted: hsl(211 16% 35%);
-  --lr-faint: hsl(213 14% 45%);
-  --lr-line: hsl(212 27% 89%);
-  --lr-line-strong: hsl(213 24% 82%);
-  --lr-fill: hsl(213 36% 95%);
-  --lr-fill-strong: hsl(214 33% 92%);
-  --lr-page: hsl(216 38% 97%);
-  --lr-panel: var(--lr-white);
-  --lr-panel-soft: hsl(220 60% 99%);
-  --lr-panel-cool: hsl(214 100% 99%);
-  --lr-primary: hsl(219 97% 42%);
-  --lr-primary-hover: hsl(219 97% 36%);
-  --lr-primary-press: hsl(220 96% 27%);
-  --lr-primary-soft: hsl(220 78% 95%);
-  --lr-primary-muted: hsl(219 79% 92%);
-  --lr-primary-ink: hsl(218 98% 31%);
-  --lr-primary-ring: hsl(219 97% 42% / 0.32);
-  --lr-accent: hsl(35 100% 36%);
-  --lr-accent-soft: hsl(39 100% 98%);
-  --lr-accent-line: hsl(35 72% 82%);
-  --lr-accent-ink: hsl(36 100% 22%);
-  --lr-success: hsl(150 59% 30%);
-  --lr-success-soft: hsl(150 40% 98%);
-  --lr-success-fill: hsl(152 35% 92%);
-  --lr-success-line: hsl(148 35% 80%);
-  --lr-success-ink: hsl(151 62% 21%);
-  --lr-warning: var(--lr-accent);
-  --lr-error: hsl(6 63% 46%);
-  --lr-danger-soft: hsl(7 100% 98%);
-  --lr-danger-subtle: hsl(9 100% 99%);
-  --lr-danger-fill: hsl(8 74% 94%);
-  --lr-danger-line: hsl(7 56% 83%);
-  --lr-danger-ink: hsl(4 70% 32%);
+  /* surfaces */
+  --lr-canvas:#F6F7F9; --lr-canvas-border:#E4E5EA;
+  --lr-wave-1:#F1F3F6; --lr-wave-2:#EDEFF3; --lr-wave-3:#E9EBF0;
+  --lr-wave-crest-1:#E4E6EB; --lr-wave-crest-2:#E0E3E9; --lr-wave-crest-3:#DCDFE6;
+  --lr-card:#FFFFFF; --lr-card-border:#E4E8F1; --lr-divider:#EEF1F7; --lr-icon-tile-border:#DBE1EC;
+  /* ink */
+  --lr-ink:#15233F; --lr-text-secondary:#5A6480; --lr-text-muted:#6E7689;
+  --lr-nav-inactive:#4C5870; --lr-pref-label:#2B3754; --lr-icon:#44557A;
+  /* blue */
+  --lr-blue:#1C44A8; --lr-blue-hover:#2150BC; --lr-blue-active:#193E9C; --lr-blue-edge:#143479;
+  --lr-blue-tint:#ECF0FA; --lr-blue-bar-2:#BBCAEC;
+  --lr-hero-wave-1:#173A93; --lr-hero-wave-2:#112F78; --lr-hero-eyebrow:#B9C9EF;
+  /* green */
+  --lr-green:#0C7D52; --lr-green-hover:#0F8E5D; --lr-green-active:#0A6C47; --lr-green-edge:#08573A;
+  /* amber + yellow */
+  --lr-amber:#B8440F; --lr-yellow:#FFD43B;
+  /* button neutrals */
+  --lr-btn-white-border:#DDE3EE; --lr-btn-white-edge:#CDD4E1;
+  --lr-btn-white-hover:#F5F7FB; --lr-btn-white-active:#EDF0F6;
+  --lr-btn-again-hover:#FCF6F3; --lr-btn-again-active:#F7EBE5;
+  --lr-btn-hero-edge:#C2CFEA; --lr-btn-hero-hover:#EFF3FB; --lr-btn-hero-active:#E4ECF8;
+  /* misc */
+  --lr-toggle-off:#C9CFDC; --lr-chip-border:#DCE2EC; --lr-avatar-bg:#15233F;
+  --lr-heat-0:#E8EEF8; --lr-heat-1:#C2D2F0; --lr-heat-2:#7E9CE4; --lr-heat-3:#3D63D2; --lr-heat-4:#1C44A8;
+  /* radii */
+  --lr-r-container:12px; --lr-r-card:8px; --lr-r-button:8px;
+  --lr-r-icon-tile:6px; --lr-r-badge:6px; --lr-r-chip:7px; --lr-r-pill:999px;
+  /* fonts */
+  --lr-font-body:'Instrument Sans', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  --lr-font-display:'Plus Jakarta Sans', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  /* compatibility aliases for existing app classes */
+  --lr-white: var(--lr-card);
+  --lr-ink-soft: var(--lr-pref-label);
+  --lr-muted: var(--lr-text-secondary);
+  --lr-faint: var(--lr-text-muted);
+  --lr-line: var(--lr-card-border);
+  --lr-line-strong: var(--lr-chip-border);
+  --lr-fill: var(--lr-blue-tint);
+  --lr-fill-strong: #EDEFF3;
+  --lr-page: var(--lr-canvas);
+  --lr-panel: var(--lr-card);
+  --lr-panel-soft: #F5F7FB;
+  --lr-panel-cool: #ECF0FA;
+  --lr-primary: var(--lr-blue);
+  --lr-primary-hover: var(--lr-blue-hover);
+  --lr-primary-press: var(--lr-blue-active);
+  --lr-primary-soft: var(--lr-blue-tint);
+  --lr-primary-muted: #BBCAEC;
+  --lr-primary-ink: var(--lr-blue);
+  --lr-primary-ring: #1C44A8;
+  --lr-accent: var(--lr-amber);
+  --lr-accent-soft: #FCF6F3;
+  --lr-accent-line: #DDE3EE;
+  --lr-accent-ink: var(--lr-amber);
+  --lr-success: var(--lr-green);
+  --lr-success-soft: #E7F5EE;
+  --lr-success-fill: #CBEAD9;
+  --lr-success-line: #9AD6B8;
+  --lr-success-ink: var(--lr-green);
+  --lr-warning: var(--lr-amber);
+  --lr-error: var(--lr-amber);
+  --lr-danger-soft: #FCF6F3;
+  --lr-danger-subtle: #FFFFFF;
+  --lr-danger-fill: #F7EBE5;
+  --lr-danger-line: #DDE3EE;
+  --lr-danger-ink: var(--lr-amber);
   --lr-radius-sm: 3px;
-  --lr-radius: 5px;
-  --lr-radius-lg: 10px;
+  --lr-radius: 8px;
+  --lr-radius-lg: 8px;
   --lr-radius-chip: 7px;
   --lr-text-2xs: 11px;
   --lr-text-xs: 12px;
@@ -49,14 +79,14 @@
   --lr-text-2xl: 20px;
   --lr-text-brand: 21px;
   --lr-heading-sm: 26px;
-  --lr-heading-md: 28px;
-  --lr-heading-lg: 28px;
-  --lr-practice-heading: 25px;
-  --lr-prompt-heading: 19px;
+  --lr-heading-md: 26px;
+  --lr-heading-lg: 26px;
+  --lr-practice-heading: 21px;
+  --lr-prompt-heading: 21px;
   --lr-leading-compact: 1.1;
   --lr-leading-control: 1.2;
-  --lr-leading-heading: 1.16;
-  --lr-leading-practice: 1.14;
+  --lr-leading-heading: 1.18;
+  --lr-leading-practice: 1.18;
   --lr-leading-title: 1.25;
   --lr-leading-brand: 1.28;
   --lr-leading-table: 1.3;
@@ -66,12 +96,10 @@
   --lr-leading-reading: 1.5;
   --lr-leading-body: 1.55;
   --lr-leading-metric: 0.95;
-  --lr-shadow:
-    0 1px 2px hsl(219 48% 10% / 0.035),
-    0 8px 18px hsl(219 48% 10% / 0.045);
-  --lr-focus-ring: 0 0 0 3px var(--lr-primary-ring);
-  --lr-sidebar-width: 248px;
-  --lr-page-gutter: 32px;
+  --lr-shadow: none;
+  --lr-focus-ring: 0 0 0 2px var(--lr-blue);
+  --lr-sidebar-width: 0px;
+  --lr-page-gutter: 0px;
 }
 
 @media (min-width: 781px) {
@@ -102,12 +130,17 @@ html {
   background: var(--lr-page);
 }
 
+html,
+body {
+  color-scheme: light;
+}
+
 body {
   min-height: 100vh;
   margin: 0;
   background: var(--lr-page);
   color: var(--lr-ink);
-  font-family: var(--font-lexend), sans-serif;
+  font-family: var(--lr-font-body);
   letter-spacing: 0;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
@@ -117,7 +150,7 @@ button,
 input,
 textarea,
 select {
-  font-family: inherit;
+  font-family: var(--lr-font-body);
 }
 
 input::placeholder,
@@ -131,7 +164,106 @@ a {
 }
 
 ::selection {
-  background: hsl(219 97% 42% / 0.18);
+  background: #ECF0FA;
+}
+
+.lr-app,
+.entryShell,
+.authShell,
+.dashboardShell,
+.practiceShell,
+.skillShell {
+  font-family: var(--lr-font-body);
+  color: var(--lr-ink);
+}
+
+.disp,
+.entryPanel h1,
+.authIntro h1,
+.dashboardHeader h1,
+.dashboardPanelHeader h2,
+.dashboardMessage h2,
+.skillHeader h1,
+.skillPanelHeader h2,
+.practiceFrame h1,
+.practiceFeedback h2,
+.skillQueueBlock h2,
+.historyDateText {
+  font-family: var(--lr-font-display);
+}
+
+.tnum,
+.dashboardReadyValue strong,
+.dashboardSupportMetricValue,
+.dashboardCollectionFacts dd,
+.skillStatusSummary dd,
+.skillInventoryReady strong,
+.skillInventoryGroup dd,
+.panelHeaderCount dd,
+.historyPrimaryText,
+.historyDateText,
+.historyTransitionText,
+.collectionReadyStat strong {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ===== LearnRecur PressButton system ===== */
+.bpbtn {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Instrument Sans', sans-serif;
+  font-weight: 600;
+  font-size: 13.5px;
+  line-height: 1.2;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  margin: 0;
+  user-select: none;
+  -webkit-user-select: none;
+  transform: translateY(0);
+  transition: transform .08s ease, box-shadow .08s ease, background-color .12s ease;
+}
+.bpbtn:focus-visible { outline: 2px solid #1C44A8; outline-offset: 2px; }
+.bpbtn:disabled { opacity: .5; cursor: not-allowed; }
+
+/* Primary (blue) */
+.bpbtn-blue { background-color:#1C44A8; color:#FFFFFF; box-shadow:0 3px 0 #143479; }
+.bpbtn-blue:hover { background-color:#2150BC; box-shadow:0 2px 0 #143479; transform:translateY(1px); }
+.bpbtn-blue:active { background-color:#193E9C; box-shadow:0 1px 0 #143479; transform:translateY(2px); }
+
+/* Success (green) — "Easy" */
+.bpbtn-green { background-color:#0C7D52; color:#FFFFFF; box-shadow:0 3px 0 #08573A; }
+.bpbtn-green:hover { background-color:#0F8E5D; box-shadow:0 2px 0 #08573A; transform:translateY(1px); }
+.bpbtn-green:active { background-color:#0A6C47; box-shadow:0 1px 0 #08573A; transform:translateY(2px); }
+
+/* Neutral white (bordered) — "Hard", "Edit card" */
+.bpbtn-white { background-color:#FFFFFF; color:#15233F; border-color:#DDE3EE; box-shadow:0 3px 0 #CDD4E1; }
+.bpbtn-white:hover { background-color:#F5F7FB; box-shadow:0 2px 0 #CDD4E1; transform:translateY(1px); }
+.bpbtn-white:active { background-color:#EDF0F6; box-shadow:0 1px 0 #CDD4E1; transform:translateY(2px); }
+
+/* White with amber text — "Again" */
+.bpbtn-again { background-color:#FFFFFF; color:#B8440F; border-color:#DDE3EE; box-shadow:0 3px 0 #CDD4E1; }
+.bpbtn-again:hover { background-color:#FCF6F3; box-shadow:0 2px 0 #CDD4E1; transform:translateY(1px); }
+.bpbtn-again:active { background-color:#F7EBE5; box-shadow:0 1px 0 #CDD4E1; transform:translateY(2px); }
+
+/* White on blue hero — "Start session" */
+.bpbtn-hero { background-color:#FFFFFF; color:#1C44A8; box-shadow:0 3px 0 #C2CFEA; }
+.bpbtn-hero:hover { background-color:#EFF3FB; box-shadow:0 2px 0 #C2CFEA; transform:translateY(1px); }
+.bpbtn-hero:active { background-color:#E4ECF8; box-shadow:0 1px 0 #C2CFEA; transform:translateY(2px); }
+
+/* Ghost on blue hero — "Browse decks" */
+.bpbtn-ghost { background-color:rgba(255,255,255,0); color:#FFFFFF; border-color:rgba(255,255,255,0.55); box-shadow:0 3px 0 rgba(255,255,255,0.20); }
+.bpbtn-ghost:hover { background-color:rgba(255,255,255,0.12); box-shadow:0 2px 0 rgba(255,255,255,0.20); transform:translateY(1px); }
+.bpbtn-ghost:active { background-color:rgba(255,255,255,0.18); box-shadow:0 1px 0 rgba(255,255,255,0.20); transform:translateY(2px); }
+
+@media (prefers-reduced-motion: reduce) {
+  .bpbtn { transition: none; }
 }
 
 .entryShell,
@@ -181,7 +313,7 @@ a {
   width: 30px;
   height: 30px;
   place-items: center;
-  border: 1px solid hsl(219 97% 42% / 0.28);
+  border: 1px solid #BBCAEC;
   border-radius: var(--lr-radius);
   background: var(--lr-panel-cool);
   color: var(--lr-primary-ink);
@@ -400,19 +532,19 @@ a {
 }
 
 .secondaryButton:hover {
-  border-color: hsl(219 97% 42% / 0.26);
+  border-color: #BBCAEC;
   background: var(--lr-panel-cool);
   color: var(--lr-primary-ink);
 }
 
 .secondaryButton[data-tone="danger"] {
-  border-color: hsl(6 63% 46% / 0.34);
+  border-color: #DDE3EE;
   background: var(--lr-danger-soft);
   color: var(--lr-danger-ink);
 }
 
 .secondaryButton[data-tone="danger"]:hover {
-  background: hsl(6 63% 46% / 0.07);
+  background: #FCF6F3;
 }
 
 .primaryButton:focus-visible,
@@ -523,8 +655,8 @@ a {
 }
 
 .authCard .cl-socialButtonsIconButton__facebook {
-  background: hsl(218 80% 42%) !important;
-  box-shadow: 0 0 0 1px hsl(218 80% 34%) !important;
+  background: #1C44A8 !important;
+  box-shadow: 0 0 0 1px #143479 !important;
 }
 
 .authCard .cl-footerItem {
@@ -638,7 +770,7 @@ a {
   border: 1px solid var(--lr-line);
   border-radius: var(--lr-radius-lg);
   background: var(--lr-panel);
-  box-shadow: 0 1px 2px hsl(219 48% 10% / 0.025), 0 10px 24px hsl(219 48% 10% / 0.04);
+  box-shadow: none;
 }
 
 .dashboardSetupPanel {
@@ -680,7 +812,7 @@ a {
   align-content: center;
   gap: 13px;
   box-shadow: none;
-  border-color: hsl(219 97% 42% / 0.24);
+  border-color: #BBCAEC;
   background: var(--lr-panel-cool);
   padding: 24px;
 }
@@ -961,7 +1093,7 @@ a {
 }
 
 .dashboardChip[data-tone="ready"] {
-  border-color: hsl(219 97% 42% / 0.24);
+  border-color: #BBCAEC;
   background: var(--lr-primary-soft);
   color: var(--lr-primary-ink);
 }
@@ -1010,7 +1142,7 @@ a {
 }
 
 .dashboardCollectionPracticeLink:hover {
-  border-color: hsl(219 97% 42% / 0.32);
+  border-color: #BBCAEC;
   background: var(--lr-primary-soft);
   text-decoration: none;
 }
@@ -1166,7 +1298,7 @@ a {
 }
 
 .practiceNav a[aria-current="page"] {
-  border-color: hsl(219 97% 42% / 0.22);
+  border-color: #BBCAEC;
   background: var(--lr-primary-soft);
   color: var(--lr-primary-ink);
 }
@@ -1186,7 +1318,7 @@ a {
 }
 
 .practiceNav a[data-intent="create"]:hover {
-  border-color: hsl(219 97% 42% / 0.32);
+  border-color: #BBCAEC;
   background: var(--lr-primary-soft);
   color: var(--lr-primary-ink);
 }
@@ -1198,7 +1330,7 @@ a {
 }
 
 .practiceNav a[data-intent="create"][aria-current="page"]::before {
-  background: hsl(0 0% 100% / 0.78);
+  background: #FFFFFF;
 }
 
 .practiceUserMenu {
@@ -1250,7 +1382,7 @@ a {
   border: 1px solid var(--lr-line);
   border-radius: var(--lr-radius-lg);
   background: var(--lr-panel);
-  box-shadow: 0 1px 2px hsl(219 48% 10% / 0.03), 0 14px 34px hsl(219 48% 10% / 0.055);
+  box-shadow: none;
   padding: 28px;
 }
 
@@ -1433,7 +1565,7 @@ a {
   padding: 12px 14px;
   text-align: left;
   cursor: pointer;
-  box-shadow: 0 1px 1px hsl(219 48% 10% / 0.025);
+  box-shadow: none;
   transition:
     background-color 140ms ease,
     border-color 140ms ease,
@@ -1442,7 +1574,7 @@ a {
 }
 
 .choiceCard:hover:not(:disabled) {
-  border-color: hsl(219 97% 42% / 0.28);
+  border-color: #BBCAEC;
   background: var(--lr-panel-soft);
 }
 
@@ -1589,11 +1721,11 @@ a {
 }
 
 .practiceFeedback[data-tone="correct"] .practiceFeedbackAnswer {
-  border-top-color: hsl(151 62% 21% / 0.2);
+  border-top-color: #9AD6B8;
 }
 
 .practiceFeedback[data-tone="incorrect"] .practiceFeedbackAnswer {
-  border-top-color: hsl(4 70% 32% / 0.2);
+  border-top-color: #DDE3EE;
 }
 
 .practiceFeedbackAnswer div {
@@ -1675,7 +1807,7 @@ a {
 .ratingButton[data-selected="true"] {
   background: var(--lr-white);
   color: var(--lr-ink);
-  box-shadow: 0 1px 2px hsl(219 48% 10% / 0.06);
+  box-shadow: none;
 }
 
 .flagExercisePanel {
@@ -2020,7 +2152,7 @@ a {
 }
 
 .skillPanel.skillUploadForm {
-  border-color: hsl(219 97% 42% / 0.3);
+  border-color: #BBCAEC;
   background: var(--lr-panel-cool);
 }
 
@@ -2164,7 +2296,7 @@ a {
 
 .skillManualSummary:hover,
 .skillManualSection[open] .skillManualSummary {
-  border-color: hsl(219 97% 42% / 0.24);
+  border-color: #BBCAEC;
   background: transparent;
 }
 
@@ -2341,7 +2473,7 @@ a {
 
 .skillFormDetails summary:hover,
 .skillFormDetails[open] summary {
-  border-color: hsl(219 97% 42% / 0.24);
+  border-color: #BBCAEC;
   background: var(--lr-panel);
 }
 
@@ -2427,7 +2559,7 @@ a {
 .skillField input[aria-invalid="true"],
 .skillField select[aria-invalid="true"],
 .skillField textarea[aria-invalid="true"] {
-  border-color: hsl(6 63% 46% / 0.58);
+  border-color: #B8440F;
 }
 
 .skillField input:disabled,
@@ -2468,13 +2600,13 @@ a {
 
 .skillFormMessage[data-tone="error"] {
   border-color: var(--lr-danger-line);
-  background: hsl(6 63% 46% / 0.08);
+  background: #FCF6F3;
   color: var(--lr-danger-ink);
 }
 
 .skillFormMessage[data-tone="saved"] {
   border-color: var(--lr-success-line);
-  background: hsl(150 59% 30% / 0.08);
+  background: #E7F5EE;
   color: var(--lr-success-ink);
 }
 
@@ -3259,7 +3391,7 @@ a {
   min-height: 36px;
   align-items: center;
   justify-content: center;
-  border: 1px solid hsl(6 63% 46% / 0.24);
+  border: 1px solid #DDE3EE;
   border-radius: var(--lr-radius);
   background: var(--lr-danger-subtle);
   cursor: pointer;
@@ -3282,7 +3414,7 @@ a {
 
 .skillSourceRemove summary:hover,
 .skillSourceRemove[open] summary {
-  border-color: hsl(6 63% 46% / 0.38);
+  border-color: #DDE3EE;
   background: var(--lr-danger-soft);
 }
 
@@ -3408,7 +3540,7 @@ a {
   min-height: 38px;
   align-items: center;
   justify-content: center;
-  border: 1px solid hsl(6 63% 46% / 0.24);
+  border: 1px solid #DDE3EE;
   border-radius: var(--lr-radius);
   background: var(--lr-danger-subtle);
   cursor: pointer;
@@ -3431,7 +3563,7 @@ a {
 
 .skillLifecycleDetails summary:hover,
 .skillLifecycleDetails[open] summary {
-  border-color: hsl(6 63% 46% / 0.38);
+  border-color: #DDE3EE;
   background: var(--lr-danger-soft);
 }
 
@@ -4195,7 +4327,7 @@ a {
 }
 
 .collectionPracticeLink:hover {
-  border-color: hsl(219 97% 42% / 0.3);
+  border-color: #BBCAEC;
   background: var(--lr-primary-soft);
 }
 
@@ -4273,7 +4405,7 @@ a {
 }
 
 .collectionInlineDetailsDanger[open] summary {
-  border-color: hsl(6 63% 46% / 0.28);
+  border-color: #DDE3EE;
   background: var(--lr-panel);
   color: var(--lr-danger-ink);
 }
@@ -4387,7 +4519,7 @@ a {
     border: 1px solid var(--lr-line);
     border-radius: var(--lr-radius-lg);
     background: var(--lr-panel);
-    box-shadow: 0 1px 2px hsl(219 48% 10% / 0.035);
+    box-shadow: none;
     padding: 10px;
   }
 

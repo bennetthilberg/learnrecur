@@ -1,0 +1,1991 @@
+/* ===== OpenWaterIII retrofit layer ===== */
+body {
+  display: block;
+  background: var(--lr-canvas);
+}
+
+.bpbtn {
+  text-decoration: none;
+}
+
+.entryShell,
+.authShell,
+.dashboardShell,
+.practiceShell,
+.skillShell {
+  position: relative;
+  width: 100%;
+  max-width: 580px;
+  min-height: 100vh;
+  margin: 0 auto;
+  overflow: visible;
+  border: 1px solid var(--lr-canvas-border);
+  border-radius: var(--lr-r-container);
+  background: transparent;
+  padding: 0 0 20px;
+  box-shadow: none;
+}
+
+.entryShell > :not(.openWaterBackground),
+.authShell > :not(.openWaterBackground),
+.dashboardShell > :not(.openWaterBackground),
+.practiceShell > :not(.openWaterBackground),
+.skillShell > :not(.openWaterBackground) {
+  position: relative;
+  z-index: 1;
+}
+
+.openWaterBackground {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.openWaterHeroWaves {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 54px;
+}
+
+.openWaterHeroRings {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+}
+
+.practiceTopbar {
+  position: relative;
+  top: auto;
+  left: auto;
+  display: flex;
+  width: 100%;
+  height: auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 14px 22px 12px;
+  box-shadow: none;
+}
+
+.practiceWordmark,
+.entryBrand,
+.wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--lr-ink);
+  font-family: var(--lr-font-display);
+  font-size: 16.5px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+}
+
+.entryBrand {
+  margin: 0;
+}
+
+.entryBrand::before,
+.wordmark::before,
+.practiceWordmark::before {
+  display: none;
+}
+
+.practiceTopbarRight {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 13px;
+}
+
+.practiceNav {
+  display: flex;
+  width: auto;
+  min-width: 0;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 18px;
+  overflow-x: auto;
+  border: 0;
+  padding: 0;
+  scrollbar-width: none;
+}
+
+.practiceNav::-webkit-scrollbar {
+  display: none;
+}
+
+.practiceNav a {
+  position: relative;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--lr-nav-inactive);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.2;
+  padding: 0 0 6px;
+  text-decoration: none;
+}
+
+.practiceNav a::before {
+  display: none;
+}
+
+.practiceNav a:hover,
+.practiceNav a[data-intent="create"]:hover {
+  border: 0;
+  background: transparent;
+  color: var(--lr-ink);
+}
+
+.practiceNav a[aria-current="page"],
+.practiceNav a[data-intent="create"][aria-current="page"] {
+  border: 0;
+  background: transparent;
+  color: var(--lr-ink);
+  font-weight: 600;
+}
+
+.practiceNav a[aria-current="page"] {
+  border-bottom: 3px solid var(--lr-yellow);
+  padding-bottom: 3px;
+}
+
+.practiceNav a[data-intent="create"] {
+  margin: 0;
+  color: var(--lr-blue);
+}
+
+.practiceNav a:focus-visible,
+.dashboardPanelLink:focus-visible,
+.skillLibraryRowMain a:focus-visible,
+.skillRow h3 a:focus-visible,
+.historySkillLink:focus-visible,
+.collectionInlineDetails summary:focus-visible,
+.skillLifecycleDetails summary:focus-visible,
+.skillSourceRemove summary:focus-visible {
+  outline: 2px solid #1C44A8;
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+.practiceUserMenu {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  margin: 0;
+}
+
+.practiceUserMenu::after {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--lr-avatar-bg);
+  color: #FFFFFF;
+  content: attr(data-initial);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.practiceUserMenu[data-custom-avatar="true"]::after {
+  display: none;
+}
+
+.learnrecurUserButton,
+.learnrecurUserAvatar {
+  width: 28px !important;
+  height: 28px !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  background: var(--lr-avatar-bg) !important;
+  color: #FFFFFF !important;
+  box-shadow: none !important;
+}
+
+.openWaterHero {
+  position: relative;
+  overflow: hidden;
+  margin: 4px 14px 0;
+  border-radius: 8px;
+  background: #1C44A8;
+}
+
+.openWaterHeroContent {
+  position: relative;
+  z-index: 1;
+  padding: 20px 22px 22px;
+}
+
+.openWaterHeroEyebrow {
+  margin: 0 0 7px;
+  color: var(--lr-hero-eyebrow);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.2;
+  letter-spacing: 0.09em;
+}
+
+.openWaterHero h1 {
+  margin: 0 0 15px;
+  color: #FFFFFF;
+  font-family: var(--lr-font-display);
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1.18;
+  letter-spacing: -0.02em;
+}
+
+.openWaterHero p:not(.openWaterHeroEyebrow) {
+  max-width: 420px;
+  margin: 0 0 15px;
+  color: var(--lr-hero-eyebrow);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.openWaterHeroActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.openWaterHeroActions .bpbtn-hero {
+  padding: 9px 18px;
+}
+
+.openWaterHeroActions .bpbtn-ghost {
+  padding: 9px 16px;
+}
+
+.openWaterHeroMicro {
+  color: var(--lr-hero-eyebrow);
+  font-size: 12px;
+}
+
+.openWaterStatGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  padding: 14px 14px 0;
+}
+
+.openWaterStatTile,
+.openWaterReviewCard,
+.openWaterDeckList,
+.openWaterSmallCard,
+.openWaterForecastCard,
+.openWaterPrefsCard,
+.dashboardPanel,
+.dashboardReadySummary,
+.dashboardSupportMetrics,
+.practiceFrame,
+.skillPanel,
+.authCard {
+  border: 1px solid var(--lr-card-border);
+  border-radius: 8px;
+  background: #FFFFFF;
+  box-shadow: none !important;
+}
+
+.openWaterStatTile {
+  padding: 12px 14px;
+}
+
+.openWaterStatTile p {
+  margin: 0 0 3px;
+  color: var(--lr-text-secondary);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.25;
+  letter-spacing: 0.04em;
+}
+
+.openWaterStatTile strong {
+  display: block;
+  color: var(--lr-ink);
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.openWaterStatTile strong[data-tone="blue"] {
+  color: var(--lr-blue);
+}
+
+.openWaterStatTile strong[data-tone="green"] {
+  color: var(--lr-green);
+}
+
+.openWaterStatTile strong span {
+  color: var(--lr-text-muted);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.openWaterSection {
+  padding: 18px 14px 0;
+}
+
+.openWaterReviewSection,
+.openWaterCompactSection {
+  max-width: none;
+}
+
+.openWaterSectionTitle {
+  margin: 0 0 9px;
+  color: var(--lr-ink);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+
+.openWaterReviewCard {
+  padding: 16px 18px;
+}
+
+.openWaterReviewTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  color: var(--lr-text-secondary);
+  font-size: 12px;
+}
+
+.openWaterReviewTop span:last-child {
+  color: var(--lr-text-muted);
+}
+
+.openWaterProgress,
+.openWaterMiniProgress {
+  overflow: hidden;
+  background: var(--lr-blue-tint);
+}
+
+.openWaterProgress {
+  height: 4px;
+  margin-bottom: 16px;
+  border-radius: 3px;
+}
+
+.openWaterProgress span,
+.openWaterMiniProgress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--lr-blue);
+}
+
+.openWaterMiniProgress span[data-complete="true"] {
+  background: var(--lr-green);
+}
+
+.openWaterReviewHint {
+  margin: 0 0 7px;
+  color: var(--lr-text-secondary);
+  font-size: 12.5px;
+}
+
+.openWaterReviewPrompt {
+  margin: 0;
+  color: var(--lr-ink);
+  font-size: 21px;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+}
+
+.openWaterReviewPromptHighlight {
+  border-bottom: 2.5px solid var(--lr-yellow);
+  color: var(--lr-blue);
+}
+
+.openWaterReviewNote {
+  margin: 13px 0 0;
+  color: var(--lr-text-secondary);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.openWaterReviewNote strong {
+  color: var(--lr-ink);
+  font-weight: 600;
+}
+
+.openWaterReviewNote span {
+  color: var(--lr-amber);
+}
+
+.openWaterGradeGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.openWaterGradeGrid .bpbtn {
+  width: 100%;
+  padding: 8px 0;
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.openWaterSectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.openWaterSectionHeader .openWaterSectionTitle {
+  margin: 0;
+}
+
+.openWaterNewDeck {
+  padding: 7px 13px;
+  font-size: 12.5px;
+  text-decoration: none;
+}
+
+.openWaterDeckTools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.openWaterChips {
+  display: flex;
+  gap: 7px;
+}
+
+.openWaterChips span {
+  border: 1px solid var(--lr-chip-border);
+  border-radius: 7px;
+  background: #FFFFFF;
+  color: var(--lr-icon);
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.2;
+  padding: 5px 12px;
+}
+
+.openWaterChips span[data-active="true"] {
+  border-color: #1C44A8;
+  background: #1C44A8;
+  color: #FFFFFF;
+  font-weight: 600;
+  padding: 6px 12px;
+}
+
+.openWaterToggleRow:focus-visible {
+  outline: 2px solid #1C44A8;
+  outline-offset: 2px;
+}
+
+.openWaterSearch {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--lr-chip-border);
+  border-radius: 8px;
+  background: #FFFFFF;
+  color: var(--lr-text-muted);
+  font-size: 12px;
+  padding: 6px 9px;
+}
+
+.openWaterSearch svg {
+  color: var(--lr-text-muted);
+}
+
+.openWaterSearch kbd {
+  border: 1px solid var(--lr-chip-border);
+  border-radius: 4px;
+  background: #FFFFFF;
+  color: var(--lr-text-muted);
+  font-family: var(--lr-font-body);
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 1.2;
+  padding: 1px 5px;
+}
+
+.openWaterDeckList {
+  overflow: hidden;
+}
+
+.openWaterDeckRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid var(--lr-divider);
+  padding: 12px 15px;
+}
+
+.openWaterDeckRow:last-child {
+  border-bottom: 0;
+}
+
+.openWaterDeckIcon {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  place-items: center;
+  border: 1px solid var(--lr-icon-tile-border);
+  border-radius: 6px;
+  background: #FFFFFF;
+  color: var(--lr-icon);
+}
+
+.openWaterDeckMain {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.openWaterDeckMain strong {
+  display: block;
+  overflow: hidden;
+  color: var(--lr-ink);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.openWaterDeckMain span {
+  display: block;
+  overflow: hidden;
+  color: var(--lr-text-secondary);
+  font-size: 12px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.openWaterMiniProgress {
+  width: 56px;
+  height: 5px;
+  flex: 0 0 56px;
+  border-radius: 3px;
+}
+
+.openWaterStatusBadge {
+  flex: 0 0 auto;
+  border: 1.5px solid;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.2;
+  padding: 2px 8px;
+}
+
+.openWaterStatusBadge[data-tone="due"] {
+  border-color: var(--lr-amber);
+  color: var(--lr-amber);
+}
+
+.openWaterStatusBadge[data-tone="stable"] {
+  border-color: var(--lr-green);
+  color: var(--lr-green);
+}
+
+.openWaterTwoColumn {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 10px;
+  padding: 18px 14px 0;
+}
+
+.openWaterSmallCard {
+  padding: 14px 16px;
+}
+
+.openWaterSmallCard h2,
+.openWaterForecastHeader h2,
+.openWaterPrefsCard h2 {
+  margin: 0;
+  color: var(--lr-ink);
+  font-size: 13.5px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+
+.openWaterHeatmap {
+  display: grid;
+  grid-template-rows: repeat(5, 15px);
+  grid-auto-flow: column;
+  grid-auto-columns: 15px;
+  gap: 5px;
+  margin-top: 12px;
+}
+
+.openWaterHeatmap span,
+.openWaterLegend i {
+  border-radius: 3px;
+}
+
+.openWaterHeatmap span[data-heat="0"],
+.openWaterLegend i[data-heat="0"] { background: var(--lr-heat-0); }
+.openWaterHeatmap span[data-heat="1"],
+.openWaterLegend i[data-heat="1"] { background: var(--lr-heat-1); }
+.openWaterHeatmap span[data-heat="2"],
+.openWaterLegend i[data-heat="2"] { background: var(--lr-heat-2); }
+.openWaterHeatmap span[data-heat="3"],
+.openWaterLegend i[data-heat="3"] { background: var(--lr-heat-3); }
+.openWaterHeatmap span[data-heat="4"],
+.openWaterLegend i[data-heat="4"] { background: var(--lr-heat-4); }
+
+.openWaterLegend {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 10px;
+  color: var(--lr-text-muted);
+  font-size: 10.5px;
+}
+
+.openWaterLegend i {
+  display: block;
+  width: 11px;
+  height: 11px;
+}
+
+.openWaterGoalCard {
+  display: grid;
+  justify-items: center;
+  gap: 7px;
+}
+
+.openWaterGoalCard h2 {
+  justify-self: start;
+}
+
+.openWaterGoalCard p {
+  margin: 0;
+  color: var(--lr-green);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.openWaterForecastCard {
+  padding: 14px 16px;
+}
+
+.openWaterForecastHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.openWaterForecastHeader span,
+.openWaterForecastLabels span,
+.openWaterForecastCount {
+  color: var(--lr-text-muted);
+  font-size: 12px;
+}
+
+.openWaterForecastBars {
+  display: flex;
+  height: 46px;
+  align-items: end;
+  gap: 11px;
+  margin-top: 13px;
+}
+
+.openWaterForecastBars span {
+  flex: 1 1 0;
+  border-radius: 4px 4px 0 0;
+  background: var(--lr-blue-bar-2);
+}
+
+.openWaterForecastBars span[data-today="true"] {
+  background: var(--lr-blue);
+}
+
+.openWaterForecastLabels {
+  display: flex;
+  gap: 11px;
+  margin-top: 7px;
+  text-align: center;
+}
+
+.openWaterForecastLabels span {
+  flex: 1 1 0;
+  font-size: 11px;
+}
+
+.openWaterForecastLabels span[data-today="true"] {
+  color: var(--lr-ink);
+  font-weight: 600;
+}
+
+.openWaterForecastLabels span[data-today="true"]::after {
+  display: block;
+  width: 31px;
+  height: 2.5px;
+  margin: 2px auto 0;
+  border-radius: 999px;
+  background: var(--lr-yellow);
+  content: "";
+}
+
+.openWaterPrefsCard {
+  overflow: hidden;
+  padding: 0;
+}
+
+.openWaterPrefsCard h2 {
+  border-bottom: 1px solid var(--lr-divider);
+  padding: 13px 16px 11px;
+}
+
+.openWaterToggleRow {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  border: 0;
+  border-bottom: 1px solid var(--lr-divider);
+  background: #FFFFFF;
+  color: var(--lr-pref-label);
+  font-size: 13.5px;
+  font-weight: 400;
+  line-height: 1.2;
+  padding: 11px 16px;
+  text-align: left;
+}
+
+.openWaterToggleRow:last-child {
+  border-bottom: 0;
+}
+
+.openWaterToggleRow i {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  flex: 0 0 36px;
+  border-radius: 999px;
+  background: var(--lr-toggle-off);
+}
+
+.openWaterToggleRow i[data-checked="true"] {
+  background: var(--lr-blue);
+}
+
+.openWaterToggleRow i span {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: #FFFFFF;
+}
+
+.openWaterToggleRow i[data-checked="true"] span {
+  right: 2px;
+  left: auto;
+}
+
+.primaryButton,
+.secondaryButton,
+.ratingButton {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: 'Instrument Sans', sans-serif;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.2;
+  min-height: auto;
+  margin: 0;
+  padding: 10px 18px;
+  text-decoration: none;
+  transform: translateY(0);
+  transition: transform .08s ease, box-shadow .08s ease, background-color .12s ease;
+  user-select: none;
+}
+
+.primaryButton,
+.ratingButton[data-selected="true"] {
+  background-color:#1C44A8;
+  color:#FFFFFF;
+  box-shadow:0 3px 0 #143479;
+}
+
+.primaryButton:hover,
+.ratingButton[data-selected="true"]:hover {
+  background-color:#2150BC;
+  box-shadow:0 2px 0 #143479;
+  transform:translateY(1px);
+}
+
+.primaryButton:active,
+.ratingButton[data-selected="true"]:active {
+  background-color:#193E9C;
+  box-shadow:0 1px 0 #143479;
+  transform:translateY(2px);
+}
+
+.secondaryButton,
+.ratingButton {
+  border-color:#DDE3EE;
+  background-color:#FFFFFF;
+  color:#15233F;
+  box-shadow:0 3px 0 #CDD4E1;
+}
+
+.secondaryButton:hover,
+.ratingButton:hover {
+  background-color:#F5F7FB;
+  box-shadow:0 2px 0 #CDD4E1;
+  transform:translateY(1px);
+}
+
+.secondaryButton:active,
+.ratingButton:active {
+  background-color:#EDF0F6;
+  box-shadow:0 1px 0 #CDD4E1;
+  transform:translateY(2px);
+}
+
+.secondaryButton[data-tone="danger"] {
+  border-color:#DDE3EE;
+  background-color:#FFFFFF;
+  color:#B8440F;
+  box-shadow:0 3px 0 #CDD4E1;
+}
+
+.secondaryButton[data-tone="danger"]:hover {
+  background-color:#FCF6F3;
+  box-shadow:0 2px 0 #CDD4E1;
+  transform:translateY(1px);
+}
+
+.primaryButton:focus-visible,
+.secondaryButton:focus-visible,
+.ratingButton:focus-visible {
+  outline: 2px solid #1C44A8;
+  outline-offset: 2px;
+  box-shadow:0 3px 0 currentcolor;
+}
+
+.primaryButton:disabled,
+.secondaryButton:disabled,
+.ratingButton:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+  transform: translateY(0);
+}
+
+.dashboardSetupPanel,
+.dashboardMessage,
+.skillHeader,
+.dashboardHeader,
+.practiceScopeBar,
+.practiceFrame,
+.skillPanel {
+  margin: 18px 14px 0;
+}
+
+.dashboardSetupPanel,
+.dashboardMessage {
+  border-top: 1px solid var(--lr-divider);
+  border-bottom: 1px solid var(--lr-divider);
+  padding: 16px 0;
+}
+
+.skillHeader,
+.dashboardHeader {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0;
+}
+
+.skillHeader h1,
+.dashboardHeader h1,
+.dashboardSetupPanel h1,
+.practiceFrame h1 {
+  color: var(--lr-ink);
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1.18;
+  letter-spacing: -0.02em;
+}
+
+.skillHeader p,
+.dashboardHeader p,
+.dashboardSetupPanel p,
+.practiceFrame p,
+.dashboardMessage p {
+  color: var(--lr-text-secondary);
+}
+
+.eyebrow {
+  color: var(--lr-text-secondary);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.25;
+  letter-spacing: 0.04em;
+}
+
+.practiceFrame,
+.skillPanel,
+.authCard {
+  padding: 16px 18px;
+}
+
+.skillShell > .skillLibraryGrid,
+.skillShell > .skillDraftGrid,
+.skillShell > .skillCreateStack {
+  width: calc(100% - 28px);
+  margin-right: auto;
+  margin-left: auto;
+}
+
+.skillHeader + .skillLibraryGrid,
+.skillHeader + .skillDraftGrid,
+.skillHeader + .skillCreateStack {
+  margin-top: 18px;
+}
+
+.skillLibraryGrid > .skillPanel,
+.skillDraftGrid > .skillPanel,
+.skillSourceEntryGrid > .skillPanel,
+.skillCreateStack > .skillPanel {
+  width: auto;
+  margin: 0;
+  justify-self: stretch;
+}
+
+.skillPanelHeader,
+.dashboardPanelHeader,
+.practiceMetaRow,
+.flagExerciseHeader {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 14px;
+  border-bottom: 1px solid var(--lr-divider);
+  padding-bottom: 12px;
+}
+
+.skillPanelHeader h2,
+.dashboardPanelHeader h2,
+.flagExerciseHeader h2,
+.practiceFeedback h2 {
+  color: var(--lr-ink);
+  font-family: var(--lr-font-display);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+
+.dashboardChip,
+.dashboardTag {
+  border: 1.5px solid var(--lr-chip-border);
+  border-radius: 6px;
+  background: #FFFFFF;
+  color: var(--lr-icon);
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.2;
+  padding: 2px 8px;
+}
+
+.dashboardChip[data-tone="ready"],
+.dashboardChip[data-tone="attention"] {
+  border-color: var(--lr-amber);
+  background: #FFFFFF;
+  color: var(--lr-amber);
+}
+
+.dashboardChip[data-tone="neutral"],
+.dashboardChip[data-tone="saved"] {
+  border-color: var(--lr-green);
+  background: #FFFFFF;
+  color: var(--lr-green);
+}
+
+.dashboardPanelLink,
+.dashboardHeaderUtilityLinks a,
+.practiceEmptyUtilityLinks a {
+  color: var(--lr-nav-inactive);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.dashboardPanelLink:hover,
+.dashboardHeaderUtilityLinks a:hover,
+.practiceEmptyUtilityLinks a:hover {
+  color: var(--lr-blue);
+}
+
+.collectionList,
+.skillList,
+.skillLibraryList,
+.skillReviewList {
+  margin-top: 0;
+}
+
+.collectionRow,
+.skillRow,
+.skillLibraryRow,
+.skillReviewRow {
+  border-top: 1px solid var(--lr-divider);
+  padding: 12px 0;
+}
+
+.collectionRow:first-child,
+.skillRow:first-child,
+.skillLibraryRow:first-child,
+.skillReviewRow:first-child {
+  border-top: 0;
+}
+
+.skillMetaLine,
+.skillRowContext,
+.historyMetaLine,
+.collectionFacts,
+.skillLibraryFacts,
+.skillSourceFacts,
+.sourceProcessingFacts,
+.settingsExportFacts,
+.practiceSessionFacts,
+.practiceEmptyDetails {
+  color: var(--lr-text-secondary);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.skillFormFieldset,
+.ratingOverride,
+.flagExercisePanel,
+.settingsPrivacyNote,
+.settingsExportDetails,
+.skillLifecycleGroup,
+.skillQueueBlock,
+.skillStatusSummary,
+.skillInventoryGrid,
+.settingsScheduleSummary {
+  border-color: var(--lr-divider);
+  box-shadow: none !important;
+}
+
+.skillField input,
+.skillField textarea,
+.skillField select,
+.exactAnswerField input,
+.flagNoteField textarea,
+.skillDeleteConfirm input,
+.authCard .cl-input {
+  border: 1px solid var(--lr-chip-border) !important;
+  border-radius: 8px !important;
+  background: #FFFFFF !important;
+  color: var(--lr-ink) !important;
+  box-shadow: none !important;
+}
+
+.skillField input:focus-visible,
+.skillField textarea:focus-visible,
+.skillField select:focus-visible,
+.exactAnswerField input:focus-visible,
+.flagNoteField textarea:focus-visible,
+.skillDeleteConfirm input:focus-visible,
+.authCard .cl-input:focus {
+  border-color: #1C44A8 !important;
+  outline: 2px solid #1C44A8 !important;
+  outline-offset: 2px;
+  box-shadow: none !important;
+}
+
+.practicePromptPanel {
+  border-top: 1px solid var(--lr-divider);
+  border-bottom: 1px solid var(--lr-divider);
+  padding: 18px 0;
+}
+
+.practicePromptPanel p {
+  color: var(--lr-ink);
+  font-family: var(--lr-font-display);
+  font-size: 21px;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+}
+
+.choiceCard {
+  border: 1px solid var(--lr-card-border);
+  border-radius: 8px;
+  background: #FFFFFF;
+  color: var(--lr-ink);
+  box-shadow: none !important;
+}
+
+.choiceCard:hover:not(:disabled) {
+  border-color: var(--lr-blue-bar-2);
+  background: #F5F7FB;
+}
+
+.choiceCard[data-selected="true"] {
+  border-color: var(--lr-blue);
+  background: var(--lr-blue-tint);
+}
+
+.choiceCard[data-tone="correct"] {
+  border-color: var(--lr-green);
+  background: #E7F5EE;
+}
+
+.choiceCard[data-tone="incorrect"] {
+  border-color: var(--lr-amber);
+  background: #FCF6F3;
+}
+
+.choiceIndex {
+  border: 1px solid var(--lr-icon-tile-border);
+  border-radius: 6px;
+  background: #FFFFFF;
+  color: var(--lr-icon);
+}
+
+.practiceFeedback,
+.skillFormMessage,
+.practiceStatusLine,
+.skillMessage,
+.dashboardMessage,
+.skillLibraryStatus {
+  border: 1px solid var(--lr-card-border);
+  border-radius: 8px;
+  background: #FFFFFF;
+  color: var(--lr-text-secondary);
+  box-shadow: none !important;
+}
+
+.practiceFeedback[data-tone="correct"],
+.skillFormMessage[data-tone="saved"] {
+  border-color: var(--lr-green);
+  color: var(--lr-green);
+}
+
+.practiceFeedback[data-tone="incorrect"],
+.skillFormMessage[data-tone="error"],
+.practiceStatusLine[data-tone="attention"],
+.skillMessage[data-tone="error"],
+.skillLibraryStatus[data-tone="error"] {
+  border-color: var(--lr-amber);
+  color: var(--lr-amber);
+}
+
+.settingsToggle {
+  border: 0;
+  border-bottom: 1px solid var(--lr-divider);
+  border-radius: 0;
+  background: #FFFFFF;
+  color: var(--lr-pref-label);
+  box-shadow: none !important;
+}
+
+.settingsToggle input {
+  accent-color: var(--lr-blue);
+}
+
+.authShell {
+  display: grid;
+  width: 100%;
+  max-width: none;
+  min-height: 100vh;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: stretch;
+  align-items: stretch;
+  justify-content: stretch;
+  gap: 0;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+}
+
+.authLayout {
+  display: grid;
+  width: calc(100% - 32px);
+  max-width: 1080px;
+  min-height: 100vh;
+  align-content: center;
+  justify-self: center;
+  gap: 24px;
+  padding: 24px 0 34px;
+}
+
+.authIntro,
+.entryPanel,
+.entryProcessPanel {
+  width: auto;
+  max-width: none;
+  margin: 0 14px;
+}
+
+.authIntro {
+  max-width: 620px;
+  margin-right: 0;
+  margin-left: 0;
+  padding-top: 0;
+}
+
+.authIntro .wordmark {
+  margin-bottom: 34px;
+}
+
+.authIntro h1 {
+  max-width: 600px;
+  margin: 18px 0 14px;
+  color: var(--lr-ink);
+  font-family: var(--lr-font-display);
+  font-size: 38px;
+  font-weight: 800;
+  line-height: 1.08;
+}
+
+.authIntro > p:not(.eyebrow) {
+  max-width: 560px;
+  margin: 0;
+  color: var(--lr-text-secondary);
+  font-size: 17px;
+  line-height: 1.55;
+}
+
+.authCardColumn {
+  display: flex;
+  min-width: 0;
+  justify-content: center;
+}
+
+.authCard {
+  width: 100%;
+  max-width: 520px;
+  margin-right: auto;
+  margin-left: auto;
+  overflow: visible;
+}
+
+.authCard .cl-rootBox,
+.authCard .cl-card,
+.authCard .cl-cardBox {
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow: visible !important;
+}
+
+.authCard .cl-main,
+.authCard .cl-footer,
+.authCard .cl-footerAction,
+.authCard .cl-footerPages,
+.authCard .cl-socialButtons,
+.authCard .cl-alternativeMethods,
+.authCard .cl-alternativeMethodsBlockButton,
+.authCard .cl-socialButtonsBlockButton,
+.authCard .cl-socialButtonsIconButton {
+  overflow: visible !important;
+}
+
+.authAccessList,
+.entryCapabilityList,
+.entryProcessPanel {
+  border-color: var(--lr-divider);
+}
+
+.entryShell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: 18px;
+}
+
+.entryPanel {
+  padding-top: 14px;
+}
+
+.entryHero {
+  margin: 14px 0 0;
+}
+
+.entryCapabilityList {
+  margin-top: 18px;
+}
+
+.entryProcessPanel {
+  border-top: 1px solid var(--lr-divider);
+  border-bottom: 1px solid var(--lr-divider);
+}
+
+.authCard .cl-formButtonPrimary {
+  background-color:#1C44A8 !important;
+  color:#FFFFFF !important;
+  box-shadow:0 3px 0 #143479 !important;
+}
+
+.authCard .cl-socialButtonsIconButton {
+  min-height: 44px !important;
+  border: 1px solid #DDE3EE !important;
+  border-radius: 8px !important;
+  background: #FFFFFF !important;
+  padding: 2px 12px 5px !important;
+  box-shadow:0 3px 0 #CDD4E1 !important;
+}
+
+.authCard .cl-socialButtons {
+  gap: 12px !important;
+  padding-bottom: 4px !important;
+}
+
+.authCard .cl-formButtonPrimary {
+  min-height: 44px !important;
+}
+
+.authCard .cl-footerAction {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  justify-content: center !important;
+  gap: 4px !important;
+  margin-top: 18px !important;
+  padding-top: 18px !important;
+  text-align: center !important;
+}
+
+.authCard .cl-footerActionText,
+.authCard .cl-footerActionLink {
+  flex: 0 0 auto !important;
+  width: auto !important;
+  margin: 0 !important;
+}
+
+.authCard .cl-footerPages {
+  margin-top: 18px !important;
+}
+
+.authCard .cl-alternativeMethods {
+  margin-top: 18px !important;
+}
+
+.authCard .cl-alternativeMethodsBlockButton {
+  min-height: 38px !important;
+  margin-top: 14px !important;
+  margin-bottom: 18px !important;
+}
+
+@media (min-width: 560px) and (max-width: 719px) {
+  .entryShell,
+  .dashboardShell,
+  .practiceShell,
+  .skillShell {
+    max-width: calc(100vw - 32px);
+  }
+}
+
+@media (max-width: 719px) {
+  .practiceTopbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    padding: 14px 14px 12px;
+  }
+
+  .practiceTopbarRight {
+    display: contents;
+  }
+
+  .practiceNav {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    order: 3;
+    gap: 8px;
+    overflow: visible;
+    padding-top: 4px;
+  }
+
+  .practiceNav a,
+  .practiceNav a[data-intent="create"] {
+    display: flex;
+    min-height: 31px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    padding: 7px 6px;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .practiceNav a:hover,
+  .practiceNav a[data-intent="create"]:hover {
+    border-color: var(--lr-card-border);
+    background: #FFFFFF;
+  }
+
+  .practiceNav a[aria-current="page"],
+  .practiceNav a[data-intent="create"][aria-current="page"] {
+    border: 1px solid var(--lr-card-border);
+    background: #FFFFFF;
+    box-shadow: inset 0 -3px 0 var(--lr-yellow);
+    padding: 7px 6px;
+  }
+
+  .practiceUserMenu {
+    justify-self: end;
+  }
+}
+
+@media (max-width: 620px) {
+  .entryShell,
+  .dashboardShell,
+  .practiceShell,
+  .skillShell {
+    min-height: 100vh;
+    border-radius: var(--lr-r-container);
+  }
+
+  .openWaterStatGrid,
+  .openWaterTwoColumn {
+    grid-template-columns: 1fr;
+  }
+
+  .openWaterDeckRow {
+    display: grid;
+    grid-template-columns: 32px minmax(0, 1fr) auto;
+  }
+
+  .openWaterMiniProgress {
+    grid-column: 2 / -1;
+    width: 100%;
+  }
+
+  .openWaterGradeGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .skillHeader,
+  .dashboardHeader,
+  .skillPanelHeader,
+  .dashboardPanelHeader,
+  .practiceMetaRow,
+  .flagExerciseHeader {
+    display: grid;
+  }
+}
+
+@media (max-width: 420px) {
+  .practiceNav {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .practiceNav a,
+  .practiceNav a[data-intent="create"] {
+    font-size: 12px;
+  }
+}
+
+@media (min-width: 720px) {
+  .dashboardShell,
+  .practiceShell,
+  .skillShell {
+    max-width: min(900px, calc(100vw - 32px));
+  }
+
+  .entryShell {
+    max-width: min(860px, calc(100vw - 32px));
+  }
+
+  .practiceTopbar {
+    padding: 18px 28px 14px;
+  }
+
+  .practiceTopbarRight {
+    gap: 18px;
+  }
+
+  .practiceNav {
+    gap: 20px;
+  }
+
+  .openWaterHero {
+    width: min(calc(100% - 48px), 1040px);
+    margin: 8px 24px 0;
+    margin-right: auto;
+    margin-left: auto;
+  }
+
+  .openWaterHeroContent {
+    padding: 24px 28px 28px;
+  }
+
+  .openWaterHero h1 {
+    max-width: 720px;
+    font-size: 30px;
+  }
+
+  .openWaterHero p:not(.openWaterHeroEyebrow) {
+    max-width: 640px;
+  }
+
+  .dashboardShell .openWaterStatGrid {
+    width: min(calc(100% - 48px), 1040px);
+    gap: 14px;
+    margin-right: auto;
+    margin-left: auto;
+    padding: 18px 0 0;
+  }
+
+  .dashboardShell .openWaterSection,
+  .dashboardShell .openWaterTwoColumn {
+    width: min(calc(100% - 48px), 1040px);
+    margin-right: auto;
+    margin-left: auto;
+    padding: 22px 0 0;
+  }
+
+  .dashboardShell .openWaterReviewSection {
+    max-width: 920px;
+  }
+
+  .dashboardShell .openWaterCompactSection {
+    max-width: 780px;
+  }
+
+  .dashboardShell .openWaterReviewCard {
+    padding: 22px 24px;
+  }
+
+  .dashboardShell .openWaterGradeGrid {
+    max-width: 760px;
+    margin-right: auto;
+    margin-left: auto;
+  }
+
+  .dashboardShell .openWaterDeckTools {
+    gap: 16px;
+  }
+
+  .dashboardShell .openWaterDeckRow {
+    padding: 14px 17px;
+  }
+
+  .dashboardSetupPanel,
+  .dashboardMessage,
+  .skillHeader,
+  .dashboardHeader,
+  .practiceScopeBar,
+  .practiceFrame,
+  .skillPanel {
+    margin-right: 24px;
+    margin-left: 24px;
+  }
+
+  .practiceFrame,
+  .skillPanel,
+  .authCard {
+    padding: 22px 24px;
+  }
+
+  .skillShell > .skillLibraryGrid,
+  .skillShell > .skillDraftGrid,
+  .skillShell > .skillCreateStack {
+    width: calc(100% - 48px);
+  }
+
+  .entryPanel,
+  .entryProcessPanel {
+    margin-right: 24px;
+    margin-left: 24px;
+  }
+}
+
+@media (min-width: 1120px) {
+  .dashboardShell,
+  .practiceShell,
+  .skillShell {
+    display: grid;
+    max-width: min(1360px, calc(100vw - 64px));
+    grid-template-columns: 244px minmax(0, 1fr);
+    grid-auto-rows: min-content;
+    column-gap: 0;
+    align-content: start;
+    padding: 0;
+  }
+
+  .dashboardShell > :not(.openWaterBackground):not(.practiceTopbar),
+  .practiceShell > :not(.openWaterBackground):not(.practiceTopbar),
+  .skillShell > :not(.openWaterBackground):not(.practiceTopbar) {
+    grid-column: 2;
+    min-width: 0;
+  }
+
+  .dashboardShell .openWaterBackground,
+  .practiceShell .openWaterBackground,
+  .skillShell .openWaterBackground {
+    grid-column: 1 / -1;
+  }
+
+  .dashboardShell .practiceTopbar,
+  .practiceShell .practiceTopbar,
+  .skillShell .practiceTopbar {
+    position: relative;
+    grid-column: 1;
+    grid-row: 1 / span 100;
+    display: flex;
+    min-height: 100vh;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 26px;
+    border-right: 1px solid var(--lr-canvas-border);
+    padding: 30px 20px 24px;
+  }
+
+  .dashboardShell .practiceWordmark,
+  .practiceShell .practiceWordmark,
+  .skillShell .practiceWordmark {
+    justify-content: flex-start;
+  }
+
+  .dashboardShell .practiceTopbarRight,
+  .practiceShell .practiceTopbarRight,
+  .skillShell .practiceTopbarRight {
+    display: flex;
+    min-height: 0;
+    flex: 1 1 auto;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 18px;
+  }
+
+  .dashboardShell .practiceNav,
+  .practiceShell .practiceNav,
+  .skillShell .practiceNav {
+    display: grid;
+    flex: 0 0 auto;
+    gap: 5px;
+    overflow: visible;
+  }
+
+  .dashboardShell .practiceNav a,
+  .practiceShell .practiceNav a,
+  .skillShell .practiceNav a {
+    display: flex;
+    min-height: 34px;
+    align-items: center;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    color: var(--lr-nav-inactive);
+    padding: 8px 11px;
+  }
+
+  .dashboardShell .practiceNav a:hover,
+  .practiceShell .practiceNav a:hover,
+  .skillShell .practiceNav a:hover {
+    border-color: var(--lr-card-border);
+    background: #FFFFFF;
+    color: var(--lr-ink);
+  }
+
+  .dashboardShell .practiceNav a[aria-current="page"],
+  .practiceShell .practiceNav a[aria-current="page"],
+  .skillShell .practiceNav a[aria-current="page"] {
+    border: 1px solid var(--lr-card-border);
+    background: #FFFFFF;
+    color: var(--lr-ink);
+    box-shadow: inset 0 -3px 0 var(--lr-yellow);
+    padding: 8px 11px;
+  }
+
+  .dashboardShell .practiceUserMenu,
+  .practiceShell .practiceUserMenu,
+  .skillShell .practiceUserMenu {
+    margin-top: auto;
+  }
+
+  .dashboardShell .openWaterHero,
+  .practiceShell .openWaterHero,
+  .skillShell .openWaterHero {
+    width: min(calc(100% - 68px), 1040px);
+    margin: 28px auto 0;
+  }
+
+  .dashboardShell .openWaterHeroContent {
+    padding: 34px 38px 36px;
+  }
+
+  .dashboardShell .openWaterHero h1 {
+    font-size: 34px;
+  }
+
+  .dashboardShell .openWaterStatGrid {
+    width: min(calc(100% - 68px), 1040px);
+    padding: 22px 0 0;
+  }
+
+  .dashboardShell .openWaterSection,
+  .dashboardShell .openWaterTwoColumn {
+    width: min(calc(100% - 68px), 1040px);
+    padding: 24px 0 0;
+  }
+
+  .dashboardShell .openWaterReviewSection {
+    max-width: 920px;
+  }
+
+  .dashboardShell .openWaterCompactSection {
+    max-width: 780px;
+  }
+
+  .dashboardShell .openWaterReviewPrompt {
+    max-width: 820px;
+  }
+
+  .dashboardShell .openWaterDecks {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dashboardSetupPanel,
+  .dashboardMessage,
+  .skillHeader,
+  .dashboardHeader,
+  .practiceScopeBar,
+  .practiceFrame,
+  .skillPanel {
+    margin-right: 34px;
+    margin-left: 34px;
+  }
+
+  .practiceFrame {
+    max-width: 920px;
+    justify-self: center;
+    width: calc(100% - 68px);
+  }
+
+  .skillHeader,
+  .skillPanel,
+  .dashboardSetupPanel,
+  .dashboardMessage {
+    width: calc(100% - 68px);
+    justify-self: center;
+  }
+
+  .dashboardShell .dashboardContentGrid,
+  .skillShell > .skillLibraryGrid,
+  .skillShell > .skillDraftGrid,
+  .skillShell > .skillCreateStack {
+    width: calc(100% - 68px);
+    justify-self: center;
+  }
+}
+
+.authShell {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+  max-width: none;
+  margin: 0;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.authLayout {
+  position: relative;
+  z-index: 1;
+}
+
+.authIntro {
+  margin: 0;
+}
+
+.authCard {
+  padding: 26px 28px 28px;
+}
+
+.authAccessList {
+  margin-top: 30px;
+}
+
+.authCard .cl-cardBox,
+.authCard .cl-card,
+.authCard .cl-rootBox,
+.authCard .cl-main {
+  background: #FFFFFF !important;
+}
+
+.authCard .cl-footerAction,
+.authCard .cl-footerPages,
+.authCard .cl-footerItem {
+  background-image: none !important;
+}
+
+.authCard .cl-formButtonPrimary,
+.authCard .cl-alternativeMethodsBlockButton,
+.authCard .cl-socialButtonsIconButton,
+.authCard .cl-socialButtonsBlockButton {
+  overflow: visible !important;
+}
+
+@media (min-width: 900px) {
+  .authLayout {
+    width: calc(100% - 64px);
+    max-width: 1120px;
+    grid-template-columns: minmax(360px, 1fr) minmax(420px, 500px);
+    align-items: center;
+    gap: 64px;
+    padding: 54px 0;
+  }
+
+  .authIntro h1 {
+    font-size: 44px;
+  }
+
+  .authIntro > p:not(.eyebrow) {
+    font-size: 18px;
+  }
+
+  .authCardColumn {
+    justify-content: flex-end;
+  }
+
+  .authCard {
+    max-width: 500px;
+    margin-right: 0;
+    margin-left: 0;
+    padding: 30px 32px 32px;
+  }
+
+  .authAccessList {
+    max-width: 560px;
+    margin-top: 38px;
+  }
+}
+
+@media (min-width: 1280px) {
+  .authLayout {
+    width: calc(100% - 88px);
+    max-width: 1180px;
+    grid-template-columns: minmax(420px, 1fr) minmax(440px, 510px);
+    gap: 86px;
+  }
+
+  .authCard {
+    max-width: 510px;
+  }
+}
+
+@media (max-width: 899px) {
+  .authLayout {
+    width: calc(100% - 32px);
+    max-width: 620px;
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: stretch;
+  }
+
+  .authIntro .wordmark {
+    margin-bottom: 26px;
+  }
+
+  .authCard {
+    max-width: 540px;
+  }
+}
+
+@media (max-width: 620px) {
+  .authLayout {
+    width: calc(100% - 28px);
+    max-width: 520px;
+    gap: 18px;
+    padding: 18px 0 28px;
+  }
+
+  .authIntro h1 {
+    margin-top: 14px;
+    font-size: 32px;
+    line-height: 1.12;
+  }
+
+  .authIntro > p:not(.eyebrow) {
+    font-size: 15px;
+    line-height: 1.5;
+  }
+
+  .authAccessList {
+    display: none;
+  }
+
+  .authCard {
+    padding: 22px 18px 24px;
+  }
+
+  .authCard .cl-socialButtons {
+    gap: 10px !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .authLayout {
+    width: calc(100% - 28px);
+    max-width: 390px;
+  }
+
+  .authIntro h1 {
+    font-size: 30px;
+  }
+
+  .authCard {
+    padding: 20px 14px 22px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .entryShell *,
+  .authShell *,
+  .dashboardShell *,
+  .practiceShell *,
+  .skillShell * {
+    animation-duration: .001ms !important;
+    transition-duration: .001ms !important;
+  }
+}
