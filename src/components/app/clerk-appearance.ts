@@ -12,21 +12,50 @@ export const clerkAppearance = {
     fontSize: "14px",
   },
   elements: {
+    alternativeMethods: {
+      marginTop: "18px",
+      overflow: "visible",
+    },
+    alternativeMethodsBlockButton: {
+      marginBottom: "18px",
+      marginTop: "14px",
+      minHeight: "38px",
+      overflow: "visible",
+    },
     card: {
       boxShadow: "none",
+      overflow: "visible",
       padding: "0",
       width: "100%",
     },
     cardBox: {
       boxShadow: "none",
+      overflow: "visible",
       width: "100%",
+    },
+    footerAction: {
+      display: "flex",
+      flexWrap: "wrap",
+      gap: "4px",
+      justifyContent: "center",
+      marginTop: "18px",
+      paddingTop: "18px",
+      textAlign: "center",
     },
     footerActionLink: {
       color: "#1C44A8",
+      flex: "0 0 auto",
       fontWeight: "600",
+      margin: "0",
+      width: "auto",
+    },
+    footerActionText: {
+      flex: "0 0 auto",
+      margin: "0",
+      width: "auto",
     },
     formButtonPrimary: {
-      minHeight: "38px",
+      minHeight: "44px",
       borderRadius: "8px",
       boxShadow: "0 3px 0 #143479",
       fontSize: "13.5px",
@@ -54,11 +83,27 @@ export const clerkAppearance = {
       fontWeight: "700",
       lineHeight: "1.25",
     },
+    main: {
+      overflow: "visible",
+    },
     rootBox: {
+      overflow: "visible",
       width: "100%",
     },
+    socialButtons: {
+      gap: "12px",
+      overflow: "visible",
+      paddingBottom: "4px",
+    },
+    socialButtonsBlockButton: {
+      minHeight: "44px",
+      overflow: "visible",
+    },
     socialButtonsIconButton: {
-      minHeight: "38px",
+      minHeight: "44px",
+      overflow: "visible",
+      paddingBottom: "5px",
+      paddingTop: "2px",
       boxShadow: "0 3px 0 #CDD4E1",
     },
   },
