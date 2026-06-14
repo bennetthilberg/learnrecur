@@ -65,6 +65,12 @@
   --lr-danger-fill: #F7EBE5;
   --lr-danger-line: #DDE3EE;
   --lr-danger-ink: var(--lr-amber);
+  /* destructive (delete/archive/remove) — a distinct red so it does not read as a routine "due"/amber state */
+  --lr-destructive: #B42318;
+  --lr-destructive-ink: #B42318;
+  --lr-destructive-soft: #FBEDEB;
+  --lr-destructive-fill: #F6D9D5;
+  --lr-destructive-line: #E4BDB7;
   --lr-radius-sm: 3px;
   --lr-radius: 8px;
   --lr-radius-lg: 8px;
@@ -98,8 +104,6 @@
   --lr-leading-metric: 0.95;
   --lr-shadow: none;
   --lr-focus-ring: 0 0 0 2px var(--lr-blue);
-  --lr-sidebar-width: 0px;
-  --lr-page-gutter: 0px;
 }
 
 @media (min-width: 781px) {
@@ -187,8 +191,7 @@ a {
 .skillPanelHeader h2,
 .practiceFrame h1,
 .practiceFeedback h2,
-.skillQueueBlock h2,
-.historyDateText {
+.skillQueueBlock h2 {
   font-family: var(--lr-font-display);
 }
 
@@ -494,83 +497,12 @@ a {
   margin-top: 22px;
 }
 
-.primaryButton,
-.secondaryButton {
-  display: inline-flex;
-  min-height: 38px;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--lr-radius);
-  padding: 9px 15px;
-  font-size: var(--lr-text-md);
-  font-weight: 500;
-  line-height: var(--lr-leading-control);
-  text-decoration: none;
-  white-space: nowrap;
-  cursor: pointer;
-  transition:
-    background-color 140ms ease,
-    border-color 140ms ease,
-    box-shadow 140ms ease,
-    color 140ms ease;
-}
-
-.primaryButton {
-  border: 1px solid var(--lr-primary);
-  background: var(--lr-primary);
-  color: var(--lr-white);
-}
-
-.primaryButton:hover {
-  background: var(--lr-primary-hover);
-}
-
-.secondaryButton {
-  border: 1px solid var(--lr-line-strong);
-  background: var(--lr-panel);
-  color: var(--lr-ink);
-}
-
-.secondaryButton:hover {
-  border-color: #BBCAEC;
-  background: var(--lr-panel-cool);
-  color: var(--lr-primary-ink);
-}
-
-.secondaryButton[data-tone="danger"] {
-  border-color: #DDE3EE;
-  background: var(--lr-danger-soft);
-  color: var(--lr-danger-ink);
-}
-
-.secondaryButton[data-tone="danger"]:hover {
-  background: #FCF6F3;
-}
-
-.primaryButton:focus-visible,
-.secondaryButton:focus-visible {
-  outline: none;
-  box-shadow: var(--lr-focus-ring);
-}
-
-.primaryButton:disabled,
-.secondaryButton:disabled {
-  cursor: not-allowed;
-}
-
-.primaryButton:disabled,
-.primaryButton:disabled:hover {
-  border-color: var(--lr-line-strong);
-  background: var(--lr-fill-strong);
-  color: var(--lr-faint);
-}
-
-.secondaryButton:disabled,
-.secondaryButton:disabled:hover {
-  border-color: var(--lr-line);
-  background: var(--lr-panel-soft);
-  color: var(--lr-faint);
-}
+/*
+ * Primary/secondary button appearance is owned by the PressButton system in
+ * open-water.css (the 3D press buttons). The old flat definitions were removed
+ * so there is a single source of truth; layout-only rules (justify-self, etc.)
+ * for these classes remain elsewhere in this file.
+ */
 
 .authShell {
   display: grid;
@@ -685,21 +617,6 @@ a {
   outline: 3px solid var(--lr-primary-ring) !important;
   outline-offset: 1px !important;
   box-shadow: var(--lr-focus-ring) !important;
-}
-
-.dashboardShell {
-  padding: var(--lr-page-gutter) var(--lr-page-gutter) var(--lr-page-gutter)
-    calc(var(--lr-sidebar-width) + var(--lr-page-gutter));
-}
-
-.practiceShell {
-  padding: var(--lr-page-gutter) var(--lr-page-gutter) var(--lr-page-gutter)
-    calc(var(--lr-sidebar-width) + var(--lr-page-gutter));
-}
-
-.skillShell {
-  padding: var(--lr-page-gutter) var(--lr-page-gutter) var(--lr-page-gutter)
-    calc(var(--lr-sidebar-width) + var(--lr-page-gutter));
 }
 
 .dashboardHeader {
@@ -1213,20 +1130,12 @@ a {
   padding: 16px 0;
 }
 
-.practiceTopbar {
-  position: fixed;
-  z-index: 20;
-  top: 0;
-  left: 0;
-  display: flex;
-  width: var(--lr-sidebar-width);
-  height: 100vh;
-  flex-direction: column;
-  gap: 22px;
-  border-right: 1px solid var(--lr-line);
-  background: var(--lr-panel);
-  padding: 18px 14px;
-}
+/*
+ * The header/nav (.practiceTopbar) is fully defined in open-water.css:
+ * a horizontal top bar by default, a stacked grid on narrow screens, and a
+ * vertical sidebar at >=1120px. The old fixed-sidebar base block (which also
+ * leaked flex-direction: column onto the 720-1119px range) was removed.
+ */
 
 .practiceWordmark {
   display: inline-flex;
@@ -1700,7 +1609,7 @@ a {
 
 .practiceFeedback[data-tone="incorrect"] {
   border-color: var(--lr-danger-line);
-  background: var(--lr-danger-subtle);
+  background: var(--lr-accent-soft);
   color: var(--lr-danger-ink);
 }
 
@@ -5698,4 +5607,46 @@ a {
     border-left: 0;
     padding-left: 0;
   }
+}
+
+/*
+ * Destructive theming (single source).
+ * Delete / archive / remove controls use a distinct red so they no longer read
+ * the same as the amber used for routine "due" / "again" / incorrect / error
+ * states. The amber --lr-danger-* tokens remain for those non-destructive
+ * states; these rules only repaint the truly destructive controls in red.
+ */
+.skillSourceRemove summary,
+.skillLifecycleDetails summary,
+.skillLifecycleGroup[data-tone="danger"] h3,
+.collectionInlineDetailsDanger summary,
+.collectionInlineDetailsDanger summary:hover,
+.collectionInlineDetailsDanger[open] summary,
+.skillDeleteConfirm,
+.skillSourceConfirm,
+.skillLifecycleConfirm {
+  color: var(--lr-destructive-ink);
+}
+
+.skillSourceRemove summary:hover,
+.skillSourceRemove[open] summary,
+.skillLifecycleDetails summary:hover,
+.skillLifecycleDetails[open] summary {
+  background: var(--lr-destructive-soft);
+}
+
+.skillSourceConfirm,
+.skillLifecycleConfirm {
+  border-top-color: var(--lr-destructive-line);
+  border-bottom-color: var(--lr-destructive-line);
+}
+
+.skillDeleteConfirm,
+.skillLifecycleGroup[data-tone="danger"] {
+  border-color: var(--lr-destructive-line);
+}
+
+.skillSourceConfirm input,
+.skillLifecycleConfirm input {
+  accent-color: var(--lr-destructive);
 }

@@ -1,5 +1,5 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
-import { IconAffiliate, IconGauge, IconLanguage, IconSearch } from "@tabler/icons-react";
+import { IconAffiliate, IconGauge, IconLanguage } from "@tabler/icons-react";
 import Link from "next/link";
 
 import {
@@ -65,12 +65,8 @@ export default async function DashboardPage() {
               Start session
             </Link>
             <Link className="bpbtn bpbtn-ghost" href="/skills">
-              Browse decks
+              Browse skills
             </Link>
-            <span className="openWaterHeroMicro tnum">
-              Reviews {formatCount(dashboard.recentReviewCount)} · Retention{" "}
-              {formatAccuracy(dashboard.recentAccuracyPercent)}
-            </span>
           </div>
         </div>
       </section>
@@ -85,14 +81,13 @@ export default async function DashboardPage() {
         <StatTile label="Avg interval" value={formatAverageInterval(dashboard)} unit=" d" />
       </section>
 
-      <DashboardReviewCard dashboard={dashboard} item={nextPracticeItem} />
-      <DashboardDecks dashboard={dashboard} />
+      <DashboardReviewCard item={nextPracticeItem} />
+      <DashboardCollections dashboard={dashboard} />
       <section className="openWaterTwoColumn">
         <ActivityHeatmap activityValues={dashboard.activityValues} />
         <WeeklyGoal recentReviewCount={dashboard.recentReviewCount} />
       </section>
       <Forecast dashboard={dashboard} now={now} />
-      <SessionPreferences />
 
       {dashboard.readyNowCount === 0 ? (
         <section className="dashboardMessage" aria-label="Practice status">
@@ -132,18 +127,11 @@ function StatTile({
   );
 }
 
-function DashboardReviewCard({
-  dashboard,
-  item,
-}: {
-  dashboard: DashboardHome;
-  item: PracticeItem;
-}) {
+function DashboardReviewCard({ item }: { item: PracticeItem }) {
   const ready = item.status === "ready";
   const prompt = ready ? item.exercise.prompt : "No verified exercise is due right now.";
   const skillTitle = ready ? item.skill.title : "Schedule clear";
   const label = ready ? formatFsrsState(item.skill.fsrsState) : "Waiting on the next due skill";
-  const counterTotal = Math.max(dashboard.activeSkillCount, 1);
 
   return (
     <section className="openWaterSection openWaterReviewSection" aria-labelledby="up-next-title">
@@ -153,35 +141,25 @@ function DashboardReviewCard({
       <article className="openWaterReviewCard">
         <div className="openWaterReviewTop">
           <span>{label}</span>
-          <span className="tnum">Card 1 / {formatCount(counterTotal)}</span>
-        </div>
-        <div className="openWaterProgress" aria-hidden="true">
-          <span style={{ width: ready ? "44%" : "12%" }} />
+          <span>{ready ? "Next due skill" : "Up to date"}</span>
         </div>
         <p className="openWaterReviewHint">{skillTitle}</p>
         <p className="disp openWaterReviewPrompt">
           <HighlightedPrompt prompt={prompt} />
         </p>
         {ready ? (
-          <p className="openWaterReviewNote">
-            <strong>Instant check.</strong> Open practice to answer this{" "}
-            <span>verified exercise</span> and update the memory schedule.
-          </p>
+          <>
+            <p className="openWaterReviewNote">
+              <strong>Instant check.</strong> Open practice to answer this{" "}
+              <span>verified exercise</span> and update the memory schedule.
+            </p>
+            <div className="openWaterReviewActions">
+              <Link className="bpbtn bpbtn-blue" href="/practice">
+                Open practice
+              </Link>
+            </div>
+          </>
         ) : null}
-        <div className="openWaterGradeGrid" aria-label="Review rating shortcuts">
-          <Link className="bpbtn bpbtn-again" href="/practice">
-            Again
-          </Link>
-          <Link className="bpbtn bpbtn-white" href="/practice">
-            Hard
-          </Link>
-          <Link className="bpbtn bpbtn-blue" href="/practice">
-            Good
-          </Link>
-          <Link className="bpbtn bpbtn-green" href="/practice">
-            Easy
-          </Link>
-        </div>
       </article>
     </section>
   );
@@ -213,59 +191,48 @@ function HighlightedPrompt({ prompt }: { prompt: string }) {
   );
 }
 
-function DashboardDecks({ dashboard }: { dashboard: DashboardHome }) {
-  const decks = getDeckRows(dashboard);
+function DashboardCollections({ dashboard }: { dashboard: DashboardHome }) {
+  const rows = getCollectionRows(dashboard);
 
   return (
-    <section className="openWaterSection openWaterDecks" aria-labelledby="decks-title">
+    <section className="openWaterSection openWaterDecks" aria-labelledby="collections-title">
       <div className="openWaterSectionHeader">
-        <h2 id="decks-title" className="disp openWaterSectionTitle">
-          Decks
+        <h2 id="collections-title" className="disp openWaterSectionTitle">
+          Collections
         </h2>
         <Link className="bpbtn bpbtn-blue openWaterNewDeck" href="/skills/new">
-          + New deck
+          Add skill
         </Link>
       </div>
-      <div className="openWaterDeckTools">
-        <div className="openWaterChips" aria-hidden="true">
-          <span data-active="true">All</span>
-          <span>Due</span>
-          <span>Stable</span>
-        </div>
-        <div className="openWaterSearch" aria-hidden="true">
-          <IconSearch aria-hidden="true" size={14} />
-          <span>Search</span>
-        </div>
-      </div>
       <div className="openWaterDeckList">
-        {decks.map((deck, index) => {
+        {rows.map((row, index) => {
           const Icon = getDeckIcon(index);
-          const progress = deck.activeCount === 0 ? 100 : Math.round(
-            ((deck.activeCount - deck.readyCount) / deck.activeCount) * 100,
+          const progress = row.activeCount === 0 ? 100 : Math.round(
+            ((row.activeCount - row.readyCount) / row.activeCount) * 100,
           );
 
           return (
-            <article className="openWaterDeckRow" key={deck.id}>
+            <article className="openWaterDeckRow" key={row.id}>
               <div className="openWaterDeckIcon" aria-hidden="true">
                 <Icon size={17} />
               </div>
               <div className="openWaterDeckMain">
-                <strong>{deck.name}</strong>
+                <strong>{row.name}</strong>
                 <span className="tnum">
-                  {formatCount(deck.activeCount)} skills · {deck.meta}
+                  {formatCount(row.activeCount)} active skill{row.activeCount === 1 ? "" : "s"}
                 </span>
               </div>
               <div className="openWaterMiniProgress" aria-hidden="true">
                 <span
-                  data-complete={deck.readyCount === 0 ? "true" : "false"}
+                  data-complete={row.readyCount === 0 ? "true" : "false"}
                   style={{ width: `${Math.max(progress, 8)}%` }}
                 />
               </div>
               <span
                 className="openWaterStatusBadge tnum"
-                data-tone={deck.readyCount > 0 ? "due" : "stable"}
+                data-tone={row.readyCount > 0 ? "due" : "stable"}
               >
-                {deck.readyCount > 0 ? `${formatCount(deck.readyCount)} due` : "Stable"}
+                {row.readyCount > 0 ? `${formatCount(row.readyCount)} due` : "Stable"}
               </span>
             </article>
           );
@@ -302,7 +269,12 @@ function clampHeatValue(value: number) {
 }
 
 function WeeklyGoal({ recentReviewCount }: { recentReviewCount: number }) {
-  const days = Math.min(7, Math.max(1, Math.ceil(recentReviewCount / 2)));
+  const goalDays = 7;
+  // Approximate active days from recent reviews (~2 reviews per active day).
+  const days = Math.min(goalDays, Math.floor(recentReviewCount / 2));
+  const circumference = 2 * Math.PI * 29;
+  const filled = Math.round((days / goalDays) * circumference);
+  const status = days >= 5 ? "On track" : days > 0 ? "Keep going" : "No reviews yet";
 
   return (
     <section className="openWaterSmallCard openWaterGoalCard" aria-labelledby="goal-title">
@@ -319,7 +291,7 @@ function WeeklyGoal({ recentReviewCount }: { recentReviewCount: number }) {
           stroke="#1C44A8"
           strokeWidth="7"
           strokeLinecap="round"
-          strokeDasharray="130 182"
+          strokeDasharray={`${filled} ${Math.round(circumference)}`}
           transform="rotate(-90 37 37)"
         />
         <text
@@ -331,7 +303,7 @@ function WeeklyGoal({ recentReviewCount }: { recentReviewCount: number }) {
           fontWeight="700"
           fill="#15233F"
         >
-          {days}/7
+          {days}/{goalDays}
         </text>
         <text
           x="37"
@@ -344,7 +316,7 @@ function WeeklyGoal({ recentReviewCount }: { recentReviewCount: number }) {
           days
         </text>
       </svg>
-      <p>On track</p>
+      <p data-status={status === "On track" ? "ontrack" : "progress"}>{status}</p>
     </section>
   );
 }
@@ -429,32 +401,6 @@ function daysBetween(start: Date, end: Date) {
   return Math.floor((endUtc - startUtc) / millisecondsPerDay);
 }
 
-function SessionPreferences() {
-  return (
-    <section className="openWaterSection openWaterCompactSection" aria-labelledby="session-preferences-title">
-      <div className="openWaterPrefsCard">
-        <h2 id="session-preferences-title" className="disp">
-          Session preferences
-        </h2>
-        <PreferenceSwitch label="Include exact input" checked />
-        <PreferenceSwitch label="Show explanations" checked />
-        <PreferenceSwitch label="Reduced motion" checked={false} />
-      </div>
-    </section>
-  );
-}
-
-function PreferenceSwitch({ label, checked }: { label: string; checked: boolean }) {
-  return (
-    <div className="openWaterToggleRow">
-      <span>{label}</span>
-      <i data-checked={checked ? "true" : "false"} aria-hidden="true">
-        <span />
-      </i>
-    </div>
-  );
-}
-
 function formatCount(count: number) {
   return new Intl.NumberFormat("en-US").format(count);
 }
@@ -487,14 +433,13 @@ function formatHeroDate(date: Date) {
   }).toUpperCase();
 }
 
-function getDeckRows(dashboard: DashboardHome) {
+function getCollectionRows(dashboard: DashboardHome) {
   if (dashboard.collections.length > 0) {
     return dashboard.collections.slice(0, 4).map((collection) => ({
       id: collection.id,
       name: collection.name,
       activeCount: collection.activeSkillCount,
       readyCount: collection.readyNowCount,
-      meta: collection.readyNowCount > 0 ? "last reviewed today" : "caught up",
     }));
   }
 
@@ -504,17 +449,15 @@ function getDeckRows(dashboard: DashboardHome) {
       name: skill.title,
       activeCount: 1,
       readyCount: skill.isReadyNow ? 1 : 0,
-      meta: skill.dueLabel.toLowerCase(),
     }));
   }
 
   return [
     {
       id: "empty",
-      name: "No decks yet",
+      name: "No collections yet",
       activeCount: 0,
       readyCount: 0,
-      meta: "add a skill to begin",
     },
   ];
 }

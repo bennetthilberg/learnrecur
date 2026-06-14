@@ -7,7 +7,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata } from "next";
 import { Instrument_Sans, Plus_Jakarta_Sans } from "next/font/google";
 
-import { clerkLocalization } from "@/components/app/clerk-appearance";
+import { clerkBaseAppearance, clerkLocalization } from "@/components/app/clerk-appearance";
 
 import { Providers } from "./providers";
 
@@ -38,7 +38,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${instrumentSans.variable} ${plusJakartaSans.variable}`}>
       <body>
-        <ClerkProvider localization={clerkLocalization}>
+        <ClerkProvider appearance={clerkBaseAppearance} localization={clerkLocalization}>
           <Providers>{children}</Providers>
         </ClerkProvider>
       </body>

@@ -109,6 +109,14 @@ export const clerkAppearance = {
   },
 } as const;
 
+// Applied globally at <ClerkProvider> so non-auth Clerk surfaces (the header
+// UserButton popover, account management) inherit the app's color/font/radius
+// tokens instead of Clerk defaults. The full element styling above is kept on
+// the SignIn/SignUp cards.
+export const clerkBaseAppearance = {
+  variables: clerkAppearance.variables,
+} as const;
+
 export const clerkLocalization = {
   signIn: {
     start: {
