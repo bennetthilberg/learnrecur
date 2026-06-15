@@ -271,7 +271,12 @@ function clampHeatValue(value: number) {
 function WeeklyGoal({ recentReviewCount }: { recentReviewCount: number }) {
   const goalDays = 7;
   // Approximate active days from recent reviews (~2 reviews per active day).
-  const days = Math.min(goalDays, Math.floor(recentReviewCount / 2));
+  // Any review counts as at least one day so a single review never reads as
+  // "No reviews yet"; 0 reviews stays at 0.
+  const days =
+    recentReviewCount === 0
+      ? 0
+      : Math.min(goalDays, Math.max(1, Math.round(recentReviewCount / 2)));
   const circumference = 2 * Math.PI * 29;
   const filled = Math.round((days / goalDays) * circumference);
   const status = days >= 5 ? "On track" : days > 0 ? "Keep going" : "No reviews yet";
