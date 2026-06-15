@@ -42,6 +42,7 @@ export type DashboardHome = {
   activeSkillCount: number;
   recentReviewCount: number;
   recentAccuracyPercent: number | null;
+  activityReviewCount: number;
   activityValues: number[];
   collections: DashboardCollectionSummary[];
   skills: DashboardSkillSummary[];
@@ -187,6 +188,7 @@ export async function getDashboardHome(input: GetDashboardHomeInput): Promise<Da
       recentAttempts.length === 0
         ? null
         : Math.round((correctReviewCount / recentAttempts.length) * 100),
+    activityReviewCount: activityAttempts.length,
     activityValues: buildActivityValues(activityAttempts, input.now),
     collections: collections.map((collection) => ({
       id: collection.id,
