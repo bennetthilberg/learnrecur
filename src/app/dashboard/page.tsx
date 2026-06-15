@@ -94,19 +94,6 @@ export default async function DashboardPage() {
         />
         <Forecast dashboard={dashboard} now={now} />
       </section>
-
-      {dashboard.readyNowCount === 0 ? (
-        <section className="dashboardMessage" aria-label="Practice status">
-          <div>
-            <p className="eyebrow">Due practice</p>
-            <h2>Nothing is ready for practice</h2>
-          </div>
-          <p>
-            This can mean every active skill is scheduled for later, or the ready skills
-            do not yet have verified exercises for the practice screen.
-          </p>
-        </section>
-      ) : null}
     </main>
   );
 }
@@ -141,9 +128,9 @@ function DashboardReviewCard({
   item: PracticeItem;
 }) {
   const ready = item.status === "ready";
-  const prompt = ready ? item.exercise.prompt : "No verified exercise is due right now.";
-  const skillTitle = ready ? item.skill.title : "Schedule clear";
-  const label = ready ? formatFsrsState(item.skill.fsrsState) : "Waiting on the next due skill";
+  const prompt = ready ? item.exercise.prompt : "You're all caught up for now.";
+  const skillTitle = ready ? item.skill.title : "Due queue clear";
+  const label = ready ? formatFsrsState(item.skill.fsrsState) : "No due practice right now";
   const activeSummary = `${formatCount(dashboard.activeSkillCount)} active skill${
     dashboard.activeSkillCount === 1 ? "" : "s"
   }`;
@@ -160,7 +147,7 @@ function DashboardReviewCard({
         </div>
         <p className="openWaterReviewHint">{skillTitle}</p>
         <p className="disp openWaterReviewPrompt">
-          <HighlightedPrompt prompt={prompt} />
+          {ready ? <HighlightedPrompt prompt={prompt} /> : <MathText text={prompt} />}
         </p>
         {ready ? (
           <p className="openWaterReviewNote">
