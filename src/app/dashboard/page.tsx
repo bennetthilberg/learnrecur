@@ -165,12 +165,20 @@ function DashboardReviewCard({
           </p>
         ) : null}
         <div className="openWaterReviewActions">
-          <Link className="bpbtn bpbtn-blue" href="/practice">
-            {ready ? "Practice now" : "Open practice"}
-          </Link>
-          <Link className="bpbtn bpbtn-white" href="/skills">
-            Review skills
-          </Link>
+          {ready ? (
+            <>
+              <Link className="bpbtn bpbtn-blue" href="/practice">
+                Practice now
+              </Link>
+              <Link className="bpbtn bpbtn-white" href="/skills">
+                Review skills
+              </Link>
+            </>
+          ) : (
+            <Link className="bpbtn bpbtn-blue" href="/skills">
+              Review skills
+            </Link>
+          )}
         </div>
       </article>
     </section>
@@ -219,9 +227,10 @@ function DashboardCollections({ dashboard }: { dashboard: DashboardHome }) {
       <div className="openWaterDeckList">
         {rows.map((row, index) => {
           const Icon = getCollectionIcon(index);
-          const progress = row.activeCount === 0 ? 100 : Math.round(
+          const hasActiveSkills = row.activeCount > 0;
+          const progress = hasActiveSkills ? Math.round(
             ((row.activeCount - row.readyCount) / row.activeCount) * 100,
-          );
+          ) : 0;
 
           return (
             <article className="openWaterDeckRow" key={row.id}>
@@ -235,18 +244,22 @@ function DashboardCollections({ dashboard }: { dashboard: DashboardHome }) {
                   {row.activeCount === 1 ? "" : "s"} · {row.meta}
                 </span>
               </div>
-              <div className="openWaterMiniProgress" aria-hidden="true">
-                <span
-                  data-complete={row.readyCount === 0 ? "true" : "false"}
-                  style={{ width: `${Math.max(progress, 8)}%` }}
-                />
-              </div>
-              <span
-                className="openWaterStatusBadge tnum"
-                data-tone={row.readyCount > 0 ? "due" : "stable"}
-              >
-                {row.readyCount > 0 ? `${formatCount(row.readyCount)} ready` : "Scheduled"}
-              </span>
+              {hasActiveSkills ? (
+                <>
+                  <div className="openWaterMiniProgress" aria-hidden="true">
+                    <span
+                      data-complete={row.readyCount === 0 ? "true" : "false"}
+                      style={{ width: `${Math.max(progress, 8)}%` }}
+                    />
+                  </div>
+                  <span
+                    className="openWaterStatusBadge tnum"
+                    data-tone={row.readyCount > 0 ? "due" : "stable"}
+                  >
+                    {row.readyCount > 0 ? `${formatCount(row.readyCount)} ready` : "Scheduled"}
+                  </span>
+                </>
+              ) : null}
               {row.href ? (
                 <Link className="openWaterRowLink" href={row.href}>
                   {row.readyCount > 0 ? "Practice" : "Open"}
