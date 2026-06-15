@@ -53,7 +53,7 @@ export default async function HistoryPage() {
     <main className="skillShell">
       <SkillsTopbar current="history" />
 
-      <header className="skillHeader">
+      <header className="skillHeader historyHeader">
         <div>
           <p className="eyebrow">History</p>
           <h1>Review ledger</h1>

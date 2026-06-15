@@ -60,7 +60,7 @@ export const clerkAppearance = {
       minHeight: "44px",
       borderRadius: designTokens.radius,
       boxShadow: `0 3px 0 ${designTokens.colorPrimaryEdge}`,
-      fontSize: "13.5px",
+      fontSize: "15px",
       fontWeight: "600",
     },
     formFieldInput: {
@@ -115,7 +115,7 @@ export const clerkAppearance = {
 export const clerkLocalization = {
   signIn: {
     start: {
-      subtitle: "Use your account to continue.",
+      subtitle: "Sign in with your LearnRecur account.",
       title: "Sign in",
     },
   },

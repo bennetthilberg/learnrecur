@@ -41,6 +41,9 @@ export function ReminderSettingsForm({
   const localHourErrorId = useId();
   const timezoneErrorId = useId();
   const minimumDueCountErrorId = useId();
+  const timezoneOptions = timezones.includes(preference.timezone)
+    ? timezones
+    : [preference.timezone, ...timezones];
 
   return (
     <form action={formAction} className="skillDraftForm settingsReminderForm">
@@ -102,23 +105,22 @@ export function ReminderSettingsForm({
 
             <label className="skillField">
               <span>Timezone</span>
-              <input
+              <select
                 aria-describedby={
                   hasFieldError(state, "timezone") ? timezoneErrorId : undefined
                 }
                 aria-invalid={hasFieldError(state, "timezone") ? "true" : undefined}
                 defaultValue={preference.timezone}
                 disabled={pending}
-                list="reminder-timezones"
-                maxLength={80}
                 name="timezone"
                 required
-              />
-              <datalist id="reminder-timezones">
-                {timezones.map((timezone) => (
-                  <option key={timezone} value={timezone} />
+              >
+                {timezoneOptions.map((timezone) => (
+                  <option key={timezone} value={timezone}>
+                    {timezone}
+                  </option>
                 ))}
-              </datalist>
+              </select>
               <FieldError id={timezoneErrorId} state={state} name="timezone" />
             </label>
           </div>

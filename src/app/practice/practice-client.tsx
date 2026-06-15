@@ -62,6 +62,12 @@ const FLAG_REASON_OPTIONS: Array<{ reason: ExerciseFlagReason; label: string }> 
   },
 ];
 
+const RATING_OPTIONS: Array<{ rating: FsrsRating; shortcut: string }> = [
+  { rating: FsrsRating.HARD, shortcut: "2" },
+  { rating: FsrsRating.GOOD, shortcut: "3" },
+  { rating: FsrsRating.EASY, shortcut: "4" },
+];
+
 export function PracticeClient({ initialItem, canUseSampleData }: PracticeClientProps) {
   const [item, setItem] = useState(initialItem);
   const [answerValue, setAnswerValue] = useState("");
@@ -323,6 +329,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
         flagFormOpen,
         key: event.key,
         pending: pendingAction !== null,
+        ratingAvailable: isCorrect,
         targetRole: getShortcutTargetRole(event.target, answerInputRef.current),
       });
 
@@ -352,6 +359,11 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
         return;
       }
 
+      if (intent.type === "set-rating") {
+        setManualRating(shortcutRatingToFsrs(intent.rating));
+        return;
+      }
+
       if (intent.type === "close-report") {
         setFlagFormOpen(false);
         window.requestAnimationFrame(() => {
@@ -363,7 +375,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
     window.addEventListener("keydown", handleKeyDown);
 
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [answerValue, feedback, flagFormOpen, handleCheck, handleContinue, item, pendingAction]);
+  }, [answerValue, feedback, flagFormOpen, handleCheck, handleContinue, isCorrect, item, pendingAction]);
 
   if (item.status !== "ready") {
     return (
@@ -508,7 +520,11 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
             disabled={!isAnswerReady(answerValue) || pendingAction !== null}
             onClick={handleCheck}
           >
-            {pendingAction === "check" ? "Checking" : "Check"}
+            <PendingButtonContent
+              active={pendingAction === "check"}
+              idleText="Check"
+              pendingText="Checking"
+            />
           </button>
         </div>
       ) : null}
@@ -543,18 +559,21 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
       {isCorrect ? (
         <fieldset className="ratingOverride">
           <legend>Review rating</legend>
+          <p className="ratingOverrideHint">How hard was that?</p>
           <div role="radiogroup" aria-label="Review rating">
-            {[FsrsRating.HARD, FsrsRating.GOOD, FsrsRating.EASY].map((rating) => (
+            {RATING_OPTIONS.map(({ rating, shortcut }) => (
               <button
                 key={rating}
                 role="radio"
                 aria-checked={manualRating === rating}
+                aria-label={`${formatRating(rating)} rating, shortcut ${shortcut}`}
                 className="ratingButton"
                 data-selected={manualRating === rating ? "true" : "false"}
                 type="button"
                 onClick={() => setManualRating(rating)}
               >
-                {formatRating(rating)}
+                <span>{formatRating(rating)}</span>
+                <kbd aria-hidden="true">{shortcut}</kbd>
               </button>
             ))}
           </div>
@@ -570,7 +589,11 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
             onClick={handleContinue}
             ref={continueButtonRef}
           >
-            {pendingAction === "continue" ? "Saving" : "Continue"}
+            <PendingButtonContent
+              active={pendingAction === "continue"}
+              idleText="Continue"
+              pendingText="Saving"
+            />
           </button>
         </div>
       ) : null}
@@ -873,6 +896,31 @@ function formatElapsed(ms: number): string {
 
 function formatRating(rating: FsrsRating): string {
   return rating.charAt(0) + rating.slice(1).toLowerCase();
+}
+
+function shortcutRatingToFsrs(rating: "hard" | "good" | "easy"): FsrsRating {
+  return {
+    hard: FsrsRating.HARD,
+    good: FsrsRating.GOOD,
+    easy: FsrsRating.EASY,
+  }[rating];
+}
+
+function PendingButtonContent({
+  active,
+  idleText,
+  pendingText,
+}: {
+  active: boolean;
+  idleText: string;
+  pendingText: string;
+}) {
+  return (
+    <span className="buttonPendingContent">
+      {active ? <span className="buttonSpinner" aria-hidden="true" /> : null}
+      <span>{active ? pendingText : idleText}</span>
+    </span>
+  );
 }
 
 function isAnswerReady(answer: string): boolean {

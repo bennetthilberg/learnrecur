@@ -3,6 +3,7 @@
 import { useId, useRef, useState, useTransition } from "react";
 import type React from "react";
 import { useRouter } from "next/navigation";
+import { IconUpload } from "@tabler/icons-react";
 
 import {
   completeSourceUploadAction,
@@ -20,10 +21,12 @@ export function SourceUploadForm() {
   const fileInputId = useId();
   const fileErrorId = useId();
   const formRef = useRef<HTMLFormElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const submittingRef = useRef(false);
   const [status, setStatus] = useState<UploadStatus>("idle");
   const [message, setMessage] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]> | undefined>();
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -72,7 +75,65 @@ export function SourceUploadForm() {
         <div className="skillFormFieldsetBody">
           <div className="skillField">
             <span>File</span>
-            <div className="skillFileControl">
+            <label
+              className="skillFileControl skillFileDropzone"
+              data-dragging={isDraggingFile ? "true" : "false"}
+              htmlFor={fileInputId}
+              onDragEnter={(event) => {
+                event.preventDefault();
+                setIsDraggingFile(true);
+              }}
+              onDragLeave={(event) => {
+                event.preventDefault();
+
+                if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                  setIsDraggingFile(false);
+                }
+              }}
+              onDragOver={(event) => {
+                event.preventDefault();
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                setIsDraggingFile(false);
+
+                const file = event.dataTransfer.files.item(0);
+
+                if (!file || !fileInputRef.current) {
+                  return;
+                }
+
+                if (!acceptedMimeTypes.includes(file.type)) {
+                  fileInputRef.current.value = "";
+                  setSelectedFileName(null);
+                  setStatus("error");
+                  setMessage(null);
+                  setFieldErrors({
+                    mimeType: ["Upload a PNG, JPEG, WebP, or PDF file."],
+                  });
+                  return;
+                }
+
+                if (file.size > maxUploadBytes) {
+                  fileInputRef.current.value = "";
+                  setSelectedFileName(null);
+                  setStatus("error");
+                  setMessage(null);
+                  setFieldErrors({
+                    byteSize: ["Upload a file smaller than 10 MB."],
+                  });
+                  return;
+                }
+
+                const transfer = new DataTransfer();
+                transfer.items.add(file);
+                fileInputRef.current.files = transfer.files;
+                setSelectedFileName(file.name);
+                setStatus("idle");
+                setMessage(null);
+                setFieldErrors(undefined);
+              }}
+            >
               <input
                 accept={acceptedMimeTypes.join(",")}
                 aria-describedby={fileError ? fileErrorId : undefined}
@@ -82,17 +143,23 @@ export function SourceUploadForm() {
                 name="sourceFile"
                 onChange={(event) => {
                   setSelectedFileName(event.currentTarget.files?.[0]?.name ?? null);
+                  setFieldErrors(undefined);
                 }}
+                ref={fileInputRef}
                 required
                 type="file"
               />
-              <label className="secondaryButton skillFileButton" htmlFor={fileInputId}>
+              <span className="skillFileDropzoneIcon" aria-hidden="true">
+                <IconUpload aria-hidden="true" size={18} stroke={1.8} />
+              </span>
+              <span className="secondaryButton skillFileButton">
                 Choose file
-              </label>
+              </span>
+              <span className="skillFileDropzoneText">or drag a file here to upload</span>
               <span className="skillFileName" data-state={selectedFileName ? "selected" : "empty"}>
                 {selectedFileName ?? "No file selected"}
               </span>
-            </div>
+            </label>
             {fileError ? <em id={fileErrorId}>{fileError}</em> : null}
           </div>
           <p className="skillUploadMeta">PNG, JPEG, WebP, or PDF. Maximum 10 MB.</p>

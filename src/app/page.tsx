@@ -23,7 +23,6 @@ export default async function Home() {
           <OpenWaterHeroWaves />
           <OpenWaterHeroRings />
           <div className="openWaterHeroContent">
-            <p className="openWaterHeroEyebrow">SPACED PRACTICE</p>
             <h1 id="home-title" className="disp">
               Skill practice, scheduled by memory.
             </h1>

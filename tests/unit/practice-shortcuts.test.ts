@@ -10,6 +10,7 @@ const defaultInput: PracticeShortcutInput = {
   flagFormOpen: false,
   key: "1",
   pending: false,
+  ratingAvailable: false,
   targetRole: "document",
 };
 
@@ -34,6 +35,45 @@ describe("getPracticeShortcutIntent", () => {
     expect(getPracticeShortcutIntent({ ...defaultInput, feedbackVisible: true, key: "1" })).toEqual({
       type: "none",
     });
+  });
+
+  it("maps number keys to review ratings when rating is available", () => {
+    expect(
+      getPracticeShortcutIntent({
+        ...defaultInput,
+        feedbackVisible: true,
+        key: "2",
+        ratingAvailable: true,
+      }),
+    ).toEqual({ rating: "hard", type: "set-rating" });
+    expect(
+      getPracticeShortcutIntent({
+        ...defaultInput,
+        feedbackVisible: true,
+        key: "3",
+        ratingAvailable: true,
+      }),
+    ).toEqual({ rating: "good", type: "set-rating" });
+    expect(
+      getPracticeShortcutIntent({
+        ...defaultInput,
+        feedbackVisible: true,
+        key: "4",
+        ratingAvailable: true,
+        targetRole: "form-control",
+      }),
+    ).toEqual({ rating: "easy", type: "set-rating" });
+  });
+
+  it("does not map rating keys while the report form is open", () => {
+    expect(
+      getPracticeShortcutIntent({
+        ...defaultInput,
+        flagFormOpen: true,
+        key: "3",
+        ratingAvailable: true,
+      }),
+    ).toEqual({ type: "none" });
   });
 
   it("maps Enter to check before feedback and continue after feedback", () => {
