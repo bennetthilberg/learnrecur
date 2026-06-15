@@ -2,6 +2,7 @@ import { auth, currentUser } from "@clerk/nextjs/server";
 import { IconAffiliate, IconGauge, IconLanguage } from "@tabler/icons-react";
 import Link from "next/link";
 
+import { SkillFsrsState } from "@/generated/prisma/enums";
 import {
   OpenWaterHeroRings,
   OpenWaterHeroWaves,
@@ -45,6 +46,9 @@ export default async function DashboardPage() {
     userId,
     now,
   });
+  const newSkillCount = dashboard.skills.filter(
+    (skill) => skill.fsrsState === SkillFsrsState.NEW,
+  ).length;
   const nextPracticeItem = await getNextPracticeItemForUser(userId, now);
 
   return (
@@ -61,11 +65,11 @@ export default async function DashboardPage() {
             {dashboard.readyNowCount === 1 ? "" : "s"} are ready.
           </h1>
           <div className="openWaterHeroActions">
-            <Link className="bpbtn bpbtn-hero" href="/practice">
-              Start practice
-            </Link>
             <Link className="bpbtn bpbtn-ghost" href="/skills">
               Browse skills
+            </Link>
+            <Link className="bpbtn bpbtn-hero" href="/practice">
+              Start practice
             </Link>
           </div>
         </div>
@@ -73,12 +77,12 @@ export default async function DashboardPage() {
 
       <section className="openWaterStatGrid" aria-label="Practice summary">
         <StatTile label="Due" value={formatCount(dashboard.readyNowCount)} tone="blue" />
+        <StatTile label="New" value={formatCount(newSkillCount)} />
         <StatTile
           label="Retention"
           value={formatAccuracy(dashboard.recentAccuracyPercent)}
           tone="green"
         />
-        <StatTile label="Avg interval" value={formatAverageInterval(dashboard)} unit=" d" />
       </section>
 
       <DashboardReviewCard dashboard={dashboard} item={nextPracticeItem} />
@@ -397,22 +401,6 @@ function formatCount(count: number) {
 
 function formatAccuracy(accuracy: DashboardHome["recentAccuracyPercent"]) {
   return accuracy === null ? "No reviews" : `${accuracy}%`;
-}
-
-function formatAverageInterval(dashboard: DashboardHome) {
-  const intervals = dashboard.skills
-    .map((skill) => skill.stability)
-    .filter((stability): stability is number => typeof stability === "number" && stability > 0);
-
-  if (intervals.length === 0) {
-    return "0";
-  }
-
-  const meanIntervalDays =
-    intervals.reduce((total, interval) => total + interval, 0) /
-    intervals.length;
-
-  return String(Math.max(1, Math.round(meanIntervalDays)));
 }
 
 function formatHeroDate(date: Date) {

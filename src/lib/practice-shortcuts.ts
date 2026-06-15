@@ -17,8 +17,14 @@ export type PracticeShortcutIntent =
       type: "select-choice";
     }
   | {
+      rating: PracticeShortcutRating;
+      type: "set-rating";
+    }
+  | {
       type: "none";
     };
+
+export type PracticeShortcutRating = "hard" | "good" | "easy";
 
 export type PracticeShortcutInput = {
   answerKind: PracticeShortcutAnswerKind;
@@ -28,6 +34,7 @@ export type PracticeShortcutInput = {
   flagFormOpen: boolean;
   key: string;
   pending: boolean;
+  ratingAvailable: boolean;
   targetRole: PracticeShortcutTargetRole;
 };
 
@@ -40,6 +47,21 @@ export function getPracticeShortcutIntent(input: PracticeShortcutInput): Practic
 
   if (input.flagFormOpen && input.key === "Escape") {
     return { type: "close-report" };
+  }
+
+  if (input.flagFormOpen) {
+    return NO_SHORTCUT;
+  }
+
+  if (input.ratingAvailable) {
+    const rating = keyToRating(input.key);
+
+    if (rating !== null) {
+      return {
+        rating,
+        type: "set-rating",
+      };
+    }
   }
 
   if (input.targetRole === "form-control") {
@@ -88,4 +110,20 @@ function keyToChoiceIndex(key: string): number | null {
   }
 
   return Number.parseInt(key, 10) - 1;
+}
+
+function keyToRating(key: string): PracticeShortcutRating | null {
+  if (key === "2") {
+    return "hard";
+  }
+
+  if (key === "3") {
+    return "good";
+  }
+
+  if (key === "4") {
+    return "easy";
+  }
+
+  return null;
 }

@@ -176,9 +176,9 @@ body {
 .collectionInlineDetails summary:focus-visible,
 .skillLifecycleDetails summary:focus-visible,
 .skillSourceRemove summary:focus-visible {
-  outline: 2px solid #1C44A8;
-  outline-offset: 2px;
-  box-shadow: none;
+  outline: 2px solid var(--lr-focus-outline);
+  outline-offset: 3px;
+  box-shadow: var(--lr-focus-ring);
 }
 
 .practiceUserMenu {
@@ -771,14 +771,14 @@ body {
 .primaryButton:focus-visible,
 .secondaryButton:focus-visible,
 .ratingButton:focus-visible {
-  outline: 2px solid #1C44A8;
-  outline-offset: 2px;
-  box-shadow:0 3px 0 #CDD4E1;
+  outline: 2px solid var(--lr-focus-outline);
+  outline-offset: 3px;
+  box-shadow:0 3px 0 #CDD4E1, var(--lr-focus-ring);
 }
 
 .primaryButton:focus-visible,
 .ratingButton[data-selected="true"]:focus-visible {
-  box-shadow:0 3px 0 #143479;
+  box-shadow:0 3px 0 #143479, var(--lr-focus-ring);
 }
 
 .primaryButton:disabled,
@@ -817,13 +817,22 @@ body {
 
 .skillHeader h1,
 .dashboardHeader h1,
-.dashboardSetupPanel h1,
-.practiceFrame h1 {
+.dashboardSetupPanel h1 {
   color: var(--lr-ink);
   font-size: 26px;
   font-weight: 800;
   line-height: 1.18;
   letter-spacing: -0.02em;
+}
+
+.practiceFrame h1 {
+  margin: 6px 0 0;
+  color: var(--lr-text-secondary);
+  font-family: var(--lr-font-body);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.35;
+  letter-spacing: 0;
 }
 
 .skillHeader p,
@@ -999,6 +1008,10 @@ body {
   background: #FFFFFF;
   color: var(--lr-ink);
   box-shadow: none;
+  transition:
+    border-color 120ms ease,
+    box-shadow 120ms ease,
+    outline-offset 120ms ease;
 }
 
 .authCard .cl-input {
@@ -1015,17 +1028,17 @@ body {
 .exactAnswerField input:focus-visible,
 .flagNoteField textarea:focus-visible,
 .skillDeleteConfirm input:focus-visible {
-  border-color: #1C44A8;
-  outline: 2px solid #1C44A8;
-  outline-offset: 2px;
-  box-shadow: none;
+  border-color: var(--lr-blue);
+  outline: 2px solid var(--lr-focus-outline);
+  outline-offset: 3px;
+  box-shadow: var(--lr-focus-ring);
 }
 
 .authCard .cl-input:focus {
-  border-color: #1C44A8 !important;
-  outline: 2px solid #1C44A8 !important;
-  outline-offset: 2px;
-  box-shadow: none !important;
+  border-color: var(--lr-blue) !important;
+  outline: 2px solid var(--lr-focus-outline) !important;
+  outline-offset: 3px !important;
+  box-shadow: var(--lr-focus-ring) !important;
 }
 
 .practicePromptPanel {
@@ -1037,7 +1050,7 @@ body {
 .practicePromptPanel p {
   color: var(--lr-ink);
   font-family: var(--lr-font-display);
-  font-size: 21px;
+  font-size: 24px;
   font-weight: 700;
   line-height: 1.35;
   letter-spacing: -0.01em;
@@ -1057,9 +1070,9 @@ body {
 }
 
 .choiceCard:focus-visible {
-  outline: 2px solid #1C44A8;
-  outline-offset: 2px;
-  box-shadow: none;
+  outline: 2px solid var(--lr-focus-outline);
+  outline-offset: 3px;
+  box-shadow: var(--lr-focus-ring);
 }
 
 .choiceCard[data-selected="true"] {
@@ -1279,6 +1292,7 @@ body {
 
 .authCard .cl-formButtonPrimary {
   min-height: 44px !important;
+  font-size: 15px !important;
 }
 
 .authCard .cl-footerAction {
@@ -1303,13 +1317,13 @@ body {
 }
 
 .authCard .cl-alternativeMethods {
-  margin-top: 18px !important;
+  margin-top: 10px !important;
 }
 
 .authCard .cl-alternativeMethodsBlockButton {
   min-height: 38px !important;
-  margin-top: 14px !important;
-  margin-bottom: 24px !important;
+  margin-top: 8px !important;
+  margin-bottom: 18px !important;
 }
 
 @media (min-width: 560px) and (max-width: 719px) {
@@ -1421,8 +1435,7 @@ body {
   .openWaterHero h1,
   .skillHeader h1,
   .dashboardHeader h1,
-  .dashboardSetupPanel h1,
-  .practiceFrame h1 {
+  .dashboardSetupPanel h1 {
     font-size: 24px;
     line-height: 1.16;
   }
@@ -1507,7 +1520,10 @@ body {
   }
 
   .dashboardShell .openWaterReviewSection {
+    width: min(calc(100% - 48px), 920px);
     max-width: 920px;
+    margin-right: auto;
+    margin-left: max(24px, calc((100% - 1040px) / 2));
   }
 
   .dashboardShell .openWaterCompactSection {
@@ -1725,7 +1741,10 @@ body {
   }
 
   .dashboardShell .openWaterReviewSection {
+    width: min(calc(100% - 68px), 920px);
     max-width: 920px;
+    margin-right: auto;
+    margin-left: max(34px, calc((100% - 1040px) / 2));
   }
 
   .dashboardShell .openWaterCompactSection {

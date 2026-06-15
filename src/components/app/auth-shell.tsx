@@ -18,23 +18,8 @@ export function AuthShell({ title, description, children }: AuthShellProps) {
             <OpenWaterLogoMark />
             <span>LearnRecur</span>
           </Link>
-          <p className="eyebrow">Account access</p>
           <h1 id="auth-title">{title}</h1>
           <p>{description}</p>
-          <dl className="authAccessList" aria-label="Account workspace includes">
-            <div>
-              <dt>Due practice</dt>
-              <dd>Scheduled skills and current review readiness.</dd>
-            </div>
-            <div>
-              <dt>Drafts and sources</dt>
-              <dd>Private source material, editable drafts, and exercise inventory.</dd>
-            </div>
-            <div>
-              <dt>Review record</dt>
-              <dd>Completed reviews, grading outcomes, and reminder preferences.</dd>
-            </div>
-          </dl>
         </section>
         <section className="authCardColumn" aria-label={title}>
           <div className="authCard">{children}</div>

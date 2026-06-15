@@ -64,7 +64,7 @@ export default async function SettingsPage() {
         </Link>
       </header>
 
-      <section className="skillPanel" aria-labelledby="reminder-settings-title">
+      <section className="skillPanel settingsPanel" aria-labelledby="reminder-settings-title">
         <div className="skillPanelHeader">
           <div>
             <p className="eyebrow">Email reminders</p>

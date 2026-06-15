@@ -151,6 +151,8 @@ function ActiveCollectionRow({
       </div>
       <CollectionMetaLine collection={collection} />
       <div className="collectionRowActions">
+        <CollectionArchiveForm collectionId={collection.id} collectionName={collection.name} />
+        <CollectionUpdateForm collection={collection} />
         <Link
           aria-label={`Practice collection ${collection.name}`}
           className="secondaryButton collectionPracticeLink"
@@ -159,8 +161,6 @@ function ActiveCollectionRow({
         >
           {collection.readyNowCount > 0 ? "Practice now" : "Open practice"}
         </Link>
-        <CollectionUpdateForm collection={collection} />
-        <CollectionArchiveForm collectionId={collection.id} collectionName={collection.name} />
       </div>
     </article>
   );
