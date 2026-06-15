@@ -128,9 +128,22 @@ function DashboardReviewCard({
   item: PracticeItem;
 }) {
   const ready = item.status === "ready";
-  const prompt = ready ? item.exercise.prompt : "You're all caught up for now.";
-  const skillTitle = ready ? item.skill.title : "Due queue clear";
-  const label = ready ? formatFsrsState(item.skill.fsrsState) : "No due practice right now";
+  const caughtUp = item.status === "none-due";
+  const prompt = ready
+    ? item.exercise.prompt
+    : caughtUp
+      ? "You're all caught up for now."
+      : "Practice is unavailable right now.";
+  const skillTitle = ready
+    ? item.skill.title
+    : caughtUp
+      ? "Due queue clear"
+      : "Practice unavailable";
+  const label = ready
+    ? formatFsrsState(item.skill.fsrsState)
+    : caughtUp
+      ? "No due practice right now"
+      : "Practice needs attention";
   const activeSummary = `${formatCount(dashboard.activeSkillCount)} active skill${
     dashboard.activeSkillCount === 1 ? "" : "s"
   }`;
