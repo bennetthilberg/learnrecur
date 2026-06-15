@@ -2031,6 +2031,181 @@ body {
   }
 }
 
+.practiceComplete {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  justify-content: start;
+  gap: 18px 20px;
+  padding: 28px 30px;
+}
+
+.practiceCompleteIcon {
+  display: inline-flex;
+  width: 52px;
+  height: 52px;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--lr-r-card);
+  background: var(--lr-blue);
+  color: #FFFFFF;
+  box-shadow: 0 3px 0 var(--lr-blue-edge);
+}
+
+.practiceCompleteIcon svg {
+  display: block;
+}
+
+.practiceCompleteCopy,
+.practiceCompleteSummary,
+.practiceCompleteActions,
+.practiceCompleteStatus,
+.practiceCompleteDevAction {
+  grid-column: 2;
+}
+
+.practiceComplete .eyebrow {
+  color: var(--lr-text-secondary);
+}
+
+.practiceComplete h1 {
+  margin: 5px 0 0;
+  color: var(--lr-ink);
+  font-family: var(--lr-font-display);
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1.12;
+  letter-spacing: -0.01em;
+}
+
+.practiceComplete p {
+  max-width: 620px;
+  margin: 10px 0 0;
+  color: var(--lr-text-secondary);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.practiceCompleteSummary {
+  display: grid;
+  width: min(100%, 640px);
+  grid-template-columns: minmax(0, .82fr) minmax(0, 1.18fr);
+  border-top: 1px solid var(--lr-divider);
+  border-bottom: 1px solid var(--lr-divider);
+}
+
+.practiceCompleteSummary div {
+  display: grid;
+  gap: 4px;
+  padding: 12px 0;
+}
+
+.practiceCompleteSummary div + div {
+  border-left: 1px solid var(--lr-divider);
+  padding-left: 18px;
+}
+
+.practiceCompleteSummary span {
+  color: var(--lr-text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.practiceCompleteSummary strong {
+  color: var(--lr-ink);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.practiceCompleteActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.practiceCompleteStatus {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--lr-green);
+  border-radius: var(--lr-r-card);
+  background: #E7F5EE;
+  color: var(--lr-green);
+  padding: 7px 10px;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.practiceCompleteStatus svg {
+  display: block;
+  flex: 0 0 auto;
+}
+
+.practiceCompleteDevAction {
+  display: flex;
+  width: min(100%, 640px);
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-top: 1px solid var(--lr-divider);
+  padding-top: 14px;
+}
+
+.practiceCompleteDevAction span {
+  color: var(--lr-text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+@media (min-width: 1120px) {
+  .practiceShell .practiceComplete {
+    width: min(calc(100% - 68px), 760px);
+    max-width: 760px;
+    margin-top: 64px;
+  }
+}
+
+@media (max-width: 620px) {
+  .practiceComplete {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 15px;
+    padding: 24px 22px;
+  }
+
+  .practiceCompleteCopy,
+  .practiceCompleteSummary,
+  .practiceCompleteActions,
+  .practiceCompleteStatus,
+  .practiceCompleteDevAction {
+    grid-column: 1;
+  }
+
+  .practiceComplete h1 {
+    font-size: 24px;
+    line-height: 1.15;
+  }
+
+  .practiceCompleteSummary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .practiceCompleteSummary div + div {
+    border-top: 1px solid var(--lr-divider);
+    border-left: 0;
+    padding-left: 0;
+  }
+
+  .practiceCompleteActions {
+    align-items: stretch;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .entryShell *,
   .authShell *,
