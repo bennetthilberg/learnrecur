@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
+import { CheckCircle } from "@phosphor-icons/react";
 
 import { AnswerKind, ExerciseFlagReason, FsrsRating } from "@/generated/prisma/enums";
 import { formatFsrsState } from "@/lib/formatters";
@@ -378,32 +379,40 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
   }, [answerValue, feedback, flagFormOpen, handleCheck, handleContinue, isCorrect, item, pendingAction]);
 
   if (item.status !== "ready") {
+    const scoped = item.scope?.kind === "collection";
+
     return (
       <>
         <PracticeScopeBar scope={item.scope} />
-        <section className="practiceFrame practiceEmpty" aria-labelledby="practice-empty-title">
-          <p className="eyebrow">Due practice</p>
-          <h1 id="practice-empty-title">
-            {item.status === "none-due" ? "All caught up." : "Practice is unavailable."}
-          </h1>
-          <p>{item.message}</p>
-          <PracticeEmptyDetails
-            scoped={item.scope?.kind === "collection"}
-            status={item.status}
+        {item.status === "none-due" ? (
+          <PracticeCompleteState
+            canUseSampleData={canUseSampleData && !scoped}
+            message={item.message}
+            onSampleData={handleSampleData}
+            pendingSample={pendingAction === "sample"}
+            scoped={scoped}
+            statusMessage={statusMessage}
           />
-          <PracticeEmptyActions scoped={item.scope?.kind === "collection"} />
-          {canUseSampleData && item.scope?.kind !== "collection" ? (
-            <button
-              className="secondaryButton"
-              type="button"
-              onClick={handleSampleData}
-              disabled={pendingAction === "sample"}
-            >
-              {pendingAction === "sample" ? "Preparing sample" : "Create sample practice"}
-            </button>
-          ) : null}
-          <PracticeStatusMessage message={statusMessage} />
-        </section>
+        ) : (
+          <section className="practiceFrame practiceEmpty" aria-labelledby="practice-empty-title">
+            <p className="eyebrow">Due practice</p>
+            <h1 id="practice-empty-title">Practice is unavailable.</h1>
+            <p>{item.message}</p>
+            <PracticeEmptyDetails scoped={scoped} status={item.status} />
+            <PracticeEmptyActions scoped={scoped} />
+            {canUseSampleData && !scoped ? (
+              <button
+                className="secondaryButton"
+                type="button"
+                onClick={handleSampleData}
+                disabled={pendingAction === "sample"}
+              >
+                {pendingAction === "sample" ? "Preparing sample" : "Create sample practice"}
+              </button>
+            ) : null}
+            <PracticeStatusMessage message={statusMessage} />
+          </section>
+        )}
       </>
     );
   }
@@ -694,6 +703,99 @@ function PracticeScopeBar({ scope }: { scope?: PracticeScope }) {
 
 function getScopedCollectionId(item: PracticeItem): string | null {
   return item.scope?.kind === "collection" ? item.scope.collectionId : null;
+}
+
+function PracticeCompleteState({
+  canUseSampleData,
+  message,
+  onSampleData,
+  pendingSample,
+  scoped,
+  statusMessage,
+}: {
+  canUseSampleData: boolean;
+  message: string;
+  onSampleData: () => void;
+  pendingSample: boolean;
+  scoped: boolean;
+  statusMessage: string | null;
+}) {
+  return (
+    <section
+      className="practiceFrame practiceEmpty practiceComplete"
+      aria-labelledby="practice-empty-title"
+    >
+      <div className="practiceCompleteIcon" aria-hidden="true">
+        <CheckCircle size={28} weight="bold" />
+      </div>
+      <div className="practiceCompleteCopy">
+        <p className="eyebrow">Due practice complete</p>
+        <h1 id="practice-empty-title">Nice work. You&apos;re all caught up.</h1>
+        <p>
+          {scoped
+            ? "Every due exercise in this collection is finished for now."
+            : "Every due exercise is finished for now."}{" "}
+          LearnRecur will bring skills back when the schedule says they are ready.
+        </p>
+      </div>
+      <div className="practiceCompleteSummary" aria-label="Practice completion summary">
+        <div>
+          <span>Queue</span>
+          <strong>Clear for now</strong>
+        </div>
+        <div>
+          <span>Schedule</span>
+          <strong>{message}</strong>
+        </div>
+      </div>
+      <PracticeCompleteActions scoped={scoped} />
+      {statusMessage ? (
+        <p className="practiceCompleteStatus" aria-live="polite" role="status">
+          <CheckCircle size={16} weight="bold" aria-hidden="true" />
+          <span>{statusMessage}</span>
+        </p>
+      ) : null}
+      {canUseSampleData ? (
+        <div className="practiceCompleteDevAction">
+          <span>Development mode</span>
+          <button
+            className="secondaryButton"
+            type="button"
+            onClick={onSampleData}
+            disabled={pendingSample}
+          >
+            {pendingSample ? "Preparing sample" : "Create sample practice"}
+          </button>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function PracticeCompleteActions({ scoped }: { scoped: boolean }) {
+  return (
+    <div className="practiceCompleteActions" aria-label="Practice next actions">
+      {scoped ? (
+        <>
+          <Link className="primaryButton" href="/practice">
+            Try all practice
+          </Link>
+          <Link className="secondaryButton" href="/dashboard">
+            Dashboard
+          </Link>
+        </>
+      ) : (
+        <>
+          <Link className="primaryButton" href="/dashboard">
+            Dashboard
+          </Link>
+          <Link className="secondaryButton" href="/skills">
+            Review skills
+          </Link>
+        </>
+      )}
+    </div>
+  );
 }
 
 function PracticeEmptyActions({ scoped }: { scoped: boolean }) {
