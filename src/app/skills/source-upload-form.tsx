@@ -3,7 +3,7 @@
 import { useId, useRef, useState, useTransition } from "react";
 import type React from "react";
 import { useRouter } from "next/navigation";
-import { IconUpload } from "@tabler/icons-react";
+import { UploadSimple } from "@phosphor-icons/react";
 
 import {
   completeSourceUploadAction,
@@ -63,7 +63,9 @@ export function SourceUploadForm() {
           <p className="eyebrow">Upload source</p>
           <h2>Use an image or PDF</h2>
         </div>
-        <span className="skillPathBadge">Private file</span>
+        <span className="skillPanelHeaderIcon" aria-hidden="true">
+          <UploadSimple size={18} weight="bold" />
+        </span>
       </div>
       <p className="skillUploadIntro">
         Upload a small worksheet, notes photo, screenshot, or PDF. The file stays private;
@@ -143,6 +145,8 @@ export function SourceUploadForm() {
                 name="sourceFile"
                 onChange={(event) => {
                   setSelectedFileName(event.currentTarget.files?.[0]?.name ?? null);
+                  setStatus("idle");
+                  setMessage(null);
                   setFieldErrors(undefined);
                 }}
                 ref={fileInputRef}
@@ -150,7 +154,7 @@ export function SourceUploadForm() {
                 type="file"
               />
               <span className="skillFileDropzoneIcon" aria-hidden="true">
-                <IconUpload aria-hidden="true" size={18} stroke={1.8} />
+                <UploadSimple aria-hidden="true" size={19} weight="bold" />
               </span>
               <span className="secondaryButton skillFileButton">
                 Choose file

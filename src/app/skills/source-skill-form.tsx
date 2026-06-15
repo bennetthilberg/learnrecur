@@ -2,6 +2,7 @@
 
 import { useActionState, useId } from "react";
 import type React from "react";
+import { ClipboardText } from "@phosphor-icons/react";
 
 import {
   generateSkillDraftFromSourceAction,
@@ -26,7 +27,9 @@ export function SourceSkillForm() {
           <p className="eyebrow">Source draft</p>
           <h2>Paste learning material</h2>
         </div>
-        <span className="skillPathBadge">Copied text</span>
+        <span className="skillPanelHeaderIcon" aria-hidden="true">
+          <ClipboardText size={18} weight="bold" />
+        </span>
       </div>
       <p className="skillUploadIntro">
         Paste copied notes, excerpts, or worksheet text. Broad material can become up

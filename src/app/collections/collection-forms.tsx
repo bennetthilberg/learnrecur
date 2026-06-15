@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useId } from "react";
+import { Archive, ArrowClockwise, PencilSimple } from "@phosphor-icons/react";
 
 import type { CollectionSummary } from "@/lib/collections";
 
@@ -76,7 +77,10 @@ export function CollectionUpdateForm({
 
   return (
     <details className="collectionInlineDetails">
-      <summary aria-label={`Edit collection ${collection.name}`}>Edit</summary>
+      <summary aria-label={`Edit collection ${collection.name}`}>
+        <PencilSimple aria-hidden="true" size={17} weight="regular" />
+        <span>Edit</span>
+      </summary>
       <form action={formAction} className="collectionInlineForm">
         <input name="collectionId" type="hidden" value={collection.id} />
         <label className="skillField">
@@ -130,7 +134,10 @@ export function CollectionArchiveForm({
 
   return (
     <details className="collectionInlineDetails collectionInlineDetailsDanger">
-      <summary aria-label={`Archive collection ${collectionName}`}>Archive</summary>
+      <summary aria-label={`Archive collection ${collectionName}`}>
+        <Archive aria-hidden="true" size={17} weight="regular" />
+        <span>Archive</span>
+      </summary>
       <form action={formAction} className="collectionInlineForm">
         <input name="collectionId" type="hidden" value={collectionId} />
         <p>
@@ -164,6 +171,7 @@ export function CollectionRestoreForm({
         disabled={pending}
         type="submit"
       >
+        <ArrowClockwise aria-hidden="true" size={17} weight="regular" />
         {pending ? "Restoring" : "Restore collection"}
       </button>
       <FormMessage state={state} />
