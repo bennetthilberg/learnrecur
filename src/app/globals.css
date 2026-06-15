@@ -2021,6 +2021,23 @@ a {
   white-space: nowrap;
 }
 
+.skillPanelHeaderIcon {
+  display: inline-flex;
+  width: 34px;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  align-self: flex-start;
+  border: 1px solid var(--lr-line);
+  border-radius: var(--lr-radius);
+  background: var(--lr-panel-soft);
+  color: var(--lr-primary-ink);
+}
+
+.skillPanelHeaderIcon svg {
+  display: block;
+}
+
 .skillUploadIntro,
 .skillUploadMeta {
   margin: 0;
@@ -2097,13 +2114,14 @@ a {
 }
 
 .skillFileDropzone {
-  min-height: 178px;
+  min-height: 210px;
   flex-direction: column;
   justify-content: center;
-  gap: 9px;
-  border-style: dashed;
-  border-color: var(--lr-line-strong);
-  padding: 22px 18px;
+  gap: 12px;
+  border-width: 2px;
+  border-style: dotted;
+  border-color: #8995AA;
+  padding: 26px 18px;
   text-align: center;
   cursor: pointer;
 }
@@ -2115,8 +2133,8 @@ a {
 
 .skillFileDropzoneIcon {
   display: inline-flex;
-  width: 34px;
-  height: 34px;
+  width: 40px;
+  height: 40px;
   align-items: center;
   justify-content: center;
   border: 1px solid var(--lr-line);
@@ -2134,6 +2152,7 @@ a {
 
 .skillFileDropzone .skillFileButton {
   min-height: 36px;
+  margin-top: 2px;
   padding: 8px 15px;
 }
 
@@ -2147,6 +2166,7 @@ a {
   max-width: 100%;
   border-left: 0;
   padding-left: 0;
+  font-size: var(--lr-text-xs);
 }
 
 .skillManualSection {
@@ -2437,7 +2457,16 @@ a {
 }
 
 .skillField select {
-  padding-right: 34px;
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, currentcolor 50%),
+    linear-gradient(135deg, currentcolor 50%, transparent 50%);
+  background-position:
+    calc(100% - 19px) calc(50% - 2px),
+    calc(100% - 13px) calc(50% - 2px);
+  background-repeat: no-repeat;
+  background-size: 6px 6px;
+  padding-right: 44px;
 }
 
 .skillField input,
@@ -2536,6 +2565,7 @@ a {
   background: var(--lr-panel-soft);
   color: var(--lr-ink);
   padding: 10px 12px;
+  cursor: pointer;
   font-size: var(--lr-text-md);
   font-weight: 500;
   line-height: var(--lr-leading-normal);
@@ -3867,6 +3897,10 @@ a {
   overflow-x: auto;
 }
 
+.historyPanel {
+  overflow: hidden;
+}
+
 .panelHeaderCount {
   margin: 0;
   border-left: 1px solid var(--lr-line);
@@ -3896,6 +3930,41 @@ a {
   color: var(--lr-primary-ink);
   font-size: var(--lr-text-lg);
   font-weight: 500;
+}
+
+@media (min-width: 861px) {
+  .historyPanel {
+    --history-panel-x: 22px;
+  }
+
+  .historyPanel > .skillPanelHeader {
+    align-items: stretch;
+    margin-right: calc(var(--history-panel-x) * -1);
+    margin-left: calc(var(--history-panel-x) * -1);
+    padding-right: var(--history-panel-x);
+    padding-left: var(--history-panel-x);
+  }
+
+  .historyPanel .panelHeaderCount {
+    display: flex;
+    align-items: center;
+    padding-left: 22px;
+  }
+
+  .historyPanel .historyTableWrapper {
+    margin-right: calc(var(--history-panel-x) * -1);
+    margin-left: calc(var(--history-panel-x) * -1);
+  }
+
+  .historyPanel .historyTable th:first-child,
+  .historyPanel .historyTable td:first-child {
+    padding-left: var(--history-panel-x);
+  }
+
+  .historyPanel .historyTable th:last-child,
+  .historyPanel .historyTable td:last-child {
+    padding-right: var(--history-panel-x);
+  }
 }
 
 .historyTable {
@@ -4245,11 +4314,14 @@ a {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
-  gap: 8px;
-  margin-top: 12px;
+  gap: 14px;
+  margin-top: 18px;
 }
 
 .collectionPracticeLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   border-color: var(--lr-line);
   background: var(--lr-panel-soft);
   color: var(--lr-muted);
@@ -4271,6 +4343,12 @@ a {
   background: var(--lr-primary-hover);
 }
 
+.collectionRestoreForm .secondaryButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .collectionInlineDetails {
   min-width: 0;
   color: var(--lr-muted);
@@ -4286,6 +4364,7 @@ a {
   min-height: 34px;
   align-items: center;
   justify-content: flex-start;
+  gap: 8px;
   border: 1px solid transparent;
   border-radius: var(--lr-radius);
   background: transparent;
@@ -4306,6 +4385,13 @@ a {
 .collectionInlineDetails summary::marker,
 .collectionInlineDetails summary::-webkit-details-marker {
   display: none;
+}
+
+.collectionInlineDetails summary svg,
+.collectionPracticeLink svg,
+.collectionRestoreForm .secondaryButton svg {
+  display: block;
+  flex: 0 0 auto;
 }
 
 .collectionInlineDetails summary:hover {

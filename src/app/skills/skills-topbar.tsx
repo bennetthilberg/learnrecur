@@ -1,29 +1,98 @@
 "use client";
 
-import { UserButton, useUser } from "@clerk/nextjs";
+import { UserButton } from "@clerk/nextjs";
 import Link from "next/link";
 import { useEffect, useRef } from "react";
+import {
+  Cards,
+  ClockCounterClockwise,
+  Folders,
+  Gauge,
+  GearSix,
+  PlayCircle,
+  PlusCircle,
+} from "@phosphor-icons/react";
+import type { Icon } from "@phosphor-icons/react";
 
 import { OpenWaterBackground, OpenWaterLogoMark } from "@/components/app/open-water";
 import { designTokens } from "@/lib/design-tokens";
 
+const navItems: {
+  href: string;
+  label: string;
+  key: "dashboard" | "practice" | "history" | "skills" | "collections" | "settings" | "new";
+  icon: Icon;
+  isCurrent: (current: SkillsTopbarCurrent) => boolean;
+  intent?: "create";
+}[] = [
+  {
+    href: "/dashboard",
+    label: "Dashboard",
+    key: "dashboard",
+    icon: Gauge,
+    isCurrent: (current) => current === "dashboard",
+  },
+  {
+    href: "/practice",
+    label: "Practice",
+    key: "practice",
+    icon: PlayCircle,
+    isCurrent: (current) => current === "practice",
+  },
+  {
+    href: "/history",
+    label: "History",
+    key: "history",
+    icon: ClockCounterClockwise,
+    isCurrent: (current) => current === "history",
+  },
+  {
+    href: "/skills",
+    label: "Skills",
+    key: "skills",
+    icon: Cards,
+    isCurrent: (current) => current === "skills" || current === "skill",
+  },
+  {
+    href: "/collections",
+    label: "Collections",
+    key: "collections",
+    icon: Folders,
+    isCurrent: (current) => current === "collections",
+  },
+  {
+    href: "/skills/new",
+    label: "Add",
+    key: "new",
+    icon: PlusCircle,
+    isCurrent: (current) => current === "new",
+    intent: "create",
+  },
+  {
+    href: "/settings",
+    label: "Settings",
+    key: "settings",
+    icon: GearSix,
+    isCurrent: (current) => current === "settings",
+  },
+];
+
+type SkillsTopbarCurrent =
+  | "dashboard"
+  | "practice"
+  | "history"
+  | "skills"
+  | "collections"
+  | "settings"
+  | "new"
+  | "skill";
+
 export function SkillsTopbar({
   current,
 }: {
-  current:
-    | "dashboard"
-    | "practice"
-    | "history"
-    | "skills"
-    | "collections"
-    | "settings"
-    | "new"
-    | "skill";
+  current: SkillsTopbarCurrent;
 }) {
   const navRef = useRef<HTMLElement | null>(null);
-  const { user } = useUser();
-  const userInitial = getUserInitial(user);
-  const hasCustomAvatar = user?.hasImage === true;
 
   useEffect(() => {
     const activeLink = navRef.current?.querySelector<HTMLAnchorElement>(
@@ -47,40 +116,28 @@ export function SkillsTopbar({
         </Link>
         <div className="practiceTopbarRight">
           <nav ref={navRef} className="practiceNav" aria-label="Primary navigation">
-            <Link aria-current={current === "dashboard" ? "page" : undefined} href="/dashboard">
-              Dashboard
-            </Link>
-            <Link aria-current={current === "practice" ? "page" : undefined} href="/practice">
-              Practice
-            </Link>
-            <Link aria-current={current === "history" ? "page" : undefined} href="/history">
-              History
-            </Link>
-            <Link
-              aria-current={current === "skills" || current === "skill" ? "page" : undefined}
-              href="/skills"
-            >
-              Skills
-            </Link>
-            <Link aria-current={current === "collections" ? "page" : undefined} href="/collections">
-              Collections
-            </Link>
-            <Link
-              aria-current={current === "new" ? "page" : undefined}
-              data-intent="create"
-              href="/skills/new"
-            >
-              Add
-            </Link>
-            <Link aria-current={current === "settings" ? "page" : undefined} href="/settings">
-              Settings
-            </Link>
+            {navItems.map((item) => {
+              const NavIcon = item.icon;
+
+              return (
+                <Link
+                  aria-current={item.isCurrent(current) ? "page" : undefined}
+                  data-intent={item.intent}
+                  href={item.href}
+                  key={item.key}
+                >
+                  <NavIcon
+                    aria-hidden="true"
+                    className="practiceNavIcon"
+                    size={18}
+                    weight="regular"
+                  />
+                  <span>{item.label}</span>
+                </Link>
+              );
+            })}
           </nav>
-          <div
-            className="practiceUserMenu"
-            data-custom-avatar={hasCustomAvatar}
-            data-initial={userInitial}
-          >
+          <div className="practiceUserMenu">
             <UserButton
               appearance={{
                 elements: {
@@ -97,14 +154,4 @@ export function SkillsTopbar({
       </header>
     </>
   );
-}
-
-// "L" intentionally falls back to the LearnRecur initial when Clerk has no name or email.
-function getUserInitial(user: ReturnType<typeof useUser>["user"]) {
-  const initial =
-    [user?.firstName, user?.primaryEmailAddress?.emailAddress]
-      .map((value) => value?.trim().charAt(0))
-      .find(Boolean) ?? "L";
-
-  return initial.toUpperCase();
 }

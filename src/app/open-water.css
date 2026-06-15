@@ -127,7 +127,10 @@ body {
 
 .practiceNav a {
   position: relative;
+  display: inline-flex;
   flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -165,7 +168,13 @@ body {
 
 .practiceNav a[data-intent="create"] {
   margin: 0;
+  background: transparent;
   color: var(--lr-blue);
+}
+
+.practiceNavIcon {
+  display: block;
+  flex: 0 0 auto;
 }
 
 .practiceNav a:focus-visible,
@@ -190,7 +199,7 @@ body {
 }
 
 .practiceUserMenu::after {
-  display: grid;
+  display: none;
   width: 28px;
   height: 28px;
   place-items: center;
@@ -1014,6 +1023,20 @@ body {
     outline-offset 120ms ease;
 }
 
+.skillField select {
+  appearance: none;
+  background-color: #FFFFFF;
+  background-image:
+    linear-gradient(45deg, transparent 50%, currentcolor 50%),
+    linear-gradient(135deg, currentcolor 50%, transparent 50%);
+  background-position:
+    calc(100% - 19px) calc(50% - 2px),
+    calc(100% - 13px) calc(50% - 2px);
+  background-repeat: no-repeat;
+  background-size: 6px 6px;
+  padding-right: 44px;
+}
+
 .authCard .cl-input {
   border: 1px solid var(--lr-chip-border) !important;
   border-radius: 8px !important;
@@ -1135,6 +1158,7 @@ body {
   border-radius: 0;
   background: #FFFFFF;
   color: var(--lr-pref-label);
+  cursor: pointer;
   box-shadow: none;
 }
 
@@ -1360,6 +1384,7 @@ body {
   .practiceNav a,
   .practiceNav a[data-intent="create"] {
     display: flex;
+    order: 0;
     min-height: 31px;
     align-items: center;
     justify-content: center;
@@ -1368,6 +1393,10 @@ body {
     padding: 7px 6px;
     text-align: center;
     white-space: nowrap;
+  }
+
+  .practiceNavIcon {
+    display: none;
   }
 
   .practiceNav a:hover,
@@ -1656,6 +1685,7 @@ body {
   .practiceShell .practiceWordmark,
   .skillShell .practiceWordmark {
     justify-content: flex-start;
+    padding-right: 42px;
   }
 
   .dashboardShell .practiceTopbarRight,
@@ -1682,12 +1712,21 @@ body {
   .practiceShell .practiceNav a,
   .skillShell .practiceNav a {
     display: flex;
-    min-height: 34px;
+    min-height: 38px;
     align-items: center;
     border: 1px solid transparent;
     border-radius: 8px;
+    background: transparent;
     color: var(--lr-nav-inactive);
-    padding: 8px 11px;
+    padding: 9px 11px;
+  }
+
+  .dashboardShell .practiceNav a[data-intent="create"]:not([aria-current="page"]),
+  .practiceShell .practiceNav a[data-intent="create"]:not([aria-current="page"]),
+  .skillShell .practiceNav a[data-intent="create"]:not([aria-current="page"]) {
+    border-color: transparent;
+    background: transparent;
+    color: var(--lr-nav-inactive);
   }
 
   .dashboardShell .practiceNav a:hover,
@@ -1705,13 +1744,16 @@ body {
     background: #FFFFFF;
     color: var(--lr-ink);
     box-shadow: inset 0 -3px 0 var(--lr-yellow);
-    padding: 8px 11px;
+    padding: 9px 11px;
   }
 
   .dashboardShell .practiceUserMenu,
   .practiceShell .practiceUserMenu,
   .skillShell .practiceUserMenu {
-    margin-top: auto;
+    position: absolute;
+    top: 30px;
+    right: 20px;
+    margin: 0;
   }
 
   .dashboardShell .openWaterHero,

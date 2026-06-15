@@ -1,5 +1,5 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
-import { IconAffiliate, IconGauge, IconLanguage } from "@tabler/icons-react";
+import { CirclesThreePlus, Gauge, Translate } from "@phosphor-icons/react/dist/ssr";
 import Link from "next/link";
 
 import { SkillFsrsState } from "@/generated/prisma/enums";
@@ -239,7 +239,7 @@ function DashboardCollections({ dashboard }: { dashboard: DashboardHome }) {
           return (
             <article className="openWaterDeckRow" key={row.id}>
               <div className="openWaterDeckIcon" aria-hidden="true">
-                <Icon size={17} />
+                <Icon size={17} weight="regular" />
               </div>
               <div className="openWaterDeckMain">
                 <strong>{row.name}</strong>
@@ -450,7 +450,7 @@ function getCollectionRows(dashboard: DashboardHome) {
 }
 
 function getCollectionIcon(index: number) {
-  const icons = [IconLanguage, IconGauge, IconAffiliate];
+  const icons = [Translate, Gauge, CirclesThreePlus];
 
   return icons[index % icons.length];
 }

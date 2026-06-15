@@ -1,5 +1,6 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import Link from "next/link";
+import { PlayCircle } from "@phosphor-icons/react/dist/ssr";
 
 import { PanelHeaderCount } from "@/components/app/panel-header-count";
 import {
@@ -159,6 +160,7 @@ function ActiveCollectionRow({
           data-ready={collection.readyNowCount > 0 ? "true" : "false"}
           href={`/practice?collectionId=${encodeURIComponent(collection.id)}`}
         >
+          <PlayCircle aria-hidden="true" size={18} weight="regular" />
           {collection.readyNowCount > 0 ? "Practice now" : "Open practice"}
         </Link>
       </div>
