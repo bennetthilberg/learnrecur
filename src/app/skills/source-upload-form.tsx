@@ -103,10 +103,34 @@ export function SourceUploadForm() {
                   return;
                 }
 
+                if (!acceptedMimeTypes.includes(file.type)) {
+                  fileInputRef.current.value = "";
+                  setSelectedFileName(null);
+                  setStatus("error");
+                  setMessage(null);
+                  setFieldErrors({
+                    mimeType: ["Upload a PNG, JPEG, WebP, or PDF file."],
+                  });
+                  return;
+                }
+
+                if (file.size > maxUploadBytes) {
+                  fileInputRef.current.value = "";
+                  setSelectedFileName(null);
+                  setStatus("error");
+                  setMessage(null);
+                  setFieldErrors({
+                    byteSize: ["Upload a file smaller than 10 MB."],
+                  });
+                  return;
+                }
+
                 const transfer = new DataTransfer();
                 transfer.items.add(file);
                 fileInputRef.current.files = transfer.files;
                 setSelectedFileName(file.name);
+                setStatus("idle");
+                setMessage(null);
                 setFieldErrors(undefined);
               }}
             >

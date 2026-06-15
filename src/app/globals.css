@@ -1923,7 +1923,7 @@ a {
   color: var(--lr-ink);
 }
 
-.skillCreationTabs a[aria-selected="true"] {
+.skillCreationTabs a[aria-current="page"] {
   background: var(--lr-primary);
   color: var(--lr-white);
   box-shadow: 0 2px 0 #143479;
@@ -3273,6 +3273,7 @@ a {
 .settingsPanel,
 .settingsExportPanel {
   --settings-card-x: clamp(18px, 2.2vw, 24px);
+
   overflow: hidden;
 }
 

@@ -67,20 +67,16 @@ export default async function NewSkillPage({ searchParams }: NewSkillPageProps) 
         </div>
       </header>
       <div className="skillCreateStack">
-        <nav className="skillCreationTabs" aria-label="Skill creation mode" role="tablist">
+        <nav className="skillCreationTabs" aria-label="Skill creation mode">
           <Link
             aria-current={mode === "auto" ? "page" : undefined}
-            aria-selected={mode === "auto"}
             href="/skills/new"
-            role="tab"
           >
             Auto draft
           </Link>
           <Link
             aria-current={mode === "manual" ? "page" : undefined}
-            aria-selected={mode === "manual"}
             href="/skills/new?mode=manual"
-            role="tab"
           >
             Manual
           </Link>

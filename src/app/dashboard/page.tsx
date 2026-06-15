@@ -65,11 +65,11 @@ export default async function DashboardPage() {
             {dashboard.readyNowCount === 1 ? "" : "s"} are ready.
           </h1>
           <div className="openWaterHeroActions">
-            <Link className="bpbtn bpbtn-ghost" href="/skills">
-              Browse skills
-            </Link>
             <Link className="bpbtn bpbtn-hero" href="/practice">
               Start practice
+            </Link>
+            <Link className="bpbtn bpbtn-ghost" href="/skills">
+              Browse skills
             </Link>
           </div>
         </div>
