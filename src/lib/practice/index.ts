@@ -15,6 +15,7 @@ import {
 } from "@/generated/prisma/client";
 import {
   checkAnswer,
+  choiceAnswerSpecSchema,
   isUsableMathAnswerSpec,
   numericAnswerSpecSchema,
   textAnswerSpecSchema,
@@ -112,6 +113,7 @@ export type PracticeAnswerPreviewResult =
       status: "checked";
       answerCheck: AnswerCheckResult;
       proposedRating: FsrsRating | null;
+      correctChoiceId: string | null;
       correctAnswerDisplay: string;
       explanation: string | null;
     }
@@ -355,6 +357,7 @@ export async function previewPracticeAnswer(
     status: "checked",
     answerCheck,
     proposedRating: getProposedRating(answerCheck, exercise.expectedSeconds, input.responseMs),
+    correctChoiceId: getCorrectChoiceId(exercise),
     correctAnswerDisplay: exercise.correctAnswerDisplay,
     explanation: exercise.explanation,
   };
@@ -1184,6 +1187,16 @@ function toPracticeExerciseSummary(exercise: PracticeExerciseRecord): PracticeEx
     difficulty: exercise.difficulty,
     expectedSeconds: exercise.expectedSeconds,
   };
+}
+
+function getCorrectChoiceId(exercise: PracticeExerciseRecord): string | null {
+  if (exercise.answerKind !== AnswerKind.CHOICE) {
+    return null;
+  }
+
+  const result = choiceAnswerSpecSchema.safeParse(exercise.answerSpec);
+
+  return result.success ? result.data.correctChoiceId : null;
 }
 
 function toPracticeAttemptSummary(attempt: PracticeAttemptSummary): PracticeAttemptSummary {

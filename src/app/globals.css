@@ -59,12 +59,17 @@
   --lr-success-line: #9AD6B8;
   --lr-success-ink: var(--lr-green);
   --lr-warning: var(--lr-amber);
-  --lr-error: var(--lr-amber);
-  --lr-danger-soft: #FCF6F3;
-  --lr-danger-subtle: #FFFFFF;
-  --lr-danger-fill: #F7EBE5;
-  --lr-danger-line: #DDE3EE;
-  --lr-danger-ink: var(--lr-amber);
+  --lr-destructive: #B42318;
+  --lr-destructive-ink: #B42318;
+  --lr-destructive-soft: #FBEDEB;
+  --lr-destructive-fill: #F6D9D5;
+  --lr-destructive-line: #E4BDB7;
+  --lr-error: var(--lr-destructive);
+  --lr-danger-soft: var(--lr-destructive-soft);
+  --lr-danger-subtle: #FFF7F6;
+  --lr-danger-fill: var(--lr-destructive-fill);
+  --lr-danger-line: var(--lr-destructive-line);
+  --lr-danger-ink: var(--lr-destructive-ink);
   --lr-radius-sm: 3px;
   --lr-radius: 8px;
   --lr-radius-lg: 8px;
@@ -98,8 +103,6 @@
   --lr-leading-metric: 0.95;
   --lr-shadow: none;
   --lr-focus-ring: 0 0 0 2px var(--lr-blue);
-  --lr-sidebar-width: 0px;
-  --lr-page-gutter: 0px;
 }
 
 @media (min-width: 781px) {
@@ -257,7 +260,7 @@ a {
 .bpbtn-hero:hover { background-color:#EFF3FB; box-shadow:0 2px 0 #C2CFEA; transform:translateY(1px); }
 .bpbtn-hero:active { background-color:#E4ECF8; box-shadow:0 1px 0 #C2CFEA; transform:translateY(2px); }
 
-/* Ghost on blue hero — "Browse decks" */
+/* Ghost on blue hero secondary action */
 .bpbtn-ghost { background-color:rgba(255,255,255,0); color:#FFFFFF; border-color:rgba(255,255,255,0.55); box-shadow:0 3px 0 rgba(255,255,255,0.20); }
 .bpbtn-ghost:hover { background-color:rgba(255,255,255,0.12); box-shadow:0 2px 0 rgba(255,255,255,0.20); transform:translateY(1px); }
 .bpbtn-ghost:active { background-color:rgba(255,255,255,0.18); box-shadow:0 1px 0 rgba(255,255,255,0.20); transform:translateY(2px); }
@@ -494,213 +497,12 @@ a {
   margin-top: 22px;
 }
 
-.primaryButton,
-.secondaryButton {
-  display: inline-flex;
-  min-height: 38px;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--lr-radius);
-  padding: 9px 15px;
-  font-size: var(--lr-text-md);
-  font-weight: 500;
-  line-height: var(--lr-leading-control);
-  text-decoration: none;
-  white-space: nowrap;
-  cursor: pointer;
-  transition:
-    background-color 140ms ease,
-    border-color 140ms ease,
-    box-shadow 140ms ease,
-    color 140ms ease;
-}
-
-.primaryButton {
-  border: 1px solid var(--lr-primary);
-  background: var(--lr-primary);
-  color: var(--lr-white);
-}
-
-.primaryButton:hover {
-  background: var(--lr-primary-hover);
-}
-
-.secondaryButton {
-  border: 1px solid var(--lr-line-strong);
-  background: var(--lr-panel);
-  color: var(--lr-ink);
-}
-
-.secondaryButton:hover {
-  border-color: #BBCAEC;
-  background: var(--lr-panel-cool);
-  color: var(--lr-primary-ink);
-}
-
-.secondaryButton[data-tone="danger"] {
-  border-color: #DDE3EE;
-  background: var(--lr-danger-soft);
-  color: var(--lr-danger-ink);
-}
-
-.secondaryButton[data-tone="danger"]:hover {
-  background: #FCF6F3;
-}
-
-.primaryButton:focus-visible,
-.secondaryButton:focus-visible {
-  outline: none;
-  box-shadow: var(--lr-focus-ring);
-}
-
-.primaryButton:disabled,
-.secondaryButton:disabled {
-  cursor: not-allowed;
-}
-
-.primaryButton:disabled,
-.primaryButton:disabled:hover {
-  border-color: var(--lr-line-strong);
-  background: var(--lr-fill-strong);
-  color: var(--lr-faint);
-}
-
-.secondaryButton:disabled,
-.secondaryButton:disabled:hover {
-  border-color: var(--lr-line);
-  background: var(--lr-panel-soft);
-  color: var(--lr-faint);
-}
-
-.authShell {
-  display: grid;
-  grid-template-columns: minmax(260px, 400px) minmax(320px, 440px);
-  align-items: center;
-  justify-content: center;
-  gap: 34px;
-  padding: 40px 28px;
-}
-
-.authIntro {
-  max-width: 390px;
-}
-
-.authAccessList {
-  display: grid;
-  gap: 0;
-  margin: 28px 0 0;
-  border-top: 1px solid var(--lr-line);
-  border-bottom: 1px solid var(--lr-line);
-  padding: 0;
-}
-
-.authAccessList div {
-  display: grid;
-  grid-template-columns: minmax(96px, 0.38fr) minmax(0, 1fr);
-  gap: 14px;
-  padding: 12px 0;
-}
-
-.authAccessList div + div {
-  border-top: 1px solid var(--lr-line);
-}
-
-.authAccessList div:first-child {
-  padding-top: 14px;
-}
-
-.authAccessList dt {
-  color: var(--lr-faint);
-  font-size: var(--lr-text-xs);
-  font-weight: 500;
-  line-height: var(--lr-leading-label);
-}
-
-.authAccessList div:first-child dd {
-  color: var(--lr-ink);
-  font-weight: 500;
-}
-
-.authAccessList dd {
-  margin: 0;
-  color: var(--lr-muted);
-  font-size: var(--lr-text-sm);
-  line-height: var(--lr-leading-copy);
-}
-
-.wordmark {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 28px;
-  color: var(--lr-ink);
-  font-size: var(--lr-text-xl);
-  font-weight: 500;
-  text-decoration: none;
-}
-
-.authCard {
-  display: flex;
-  justify-content: center;
-  padding: 18px;
-}
-
-.authCard .cl-formButtonPrimary {
-  box-shadow: none !important;
-}
-
-.authCard .cl-socialButtonsIconButton {
-  background: var(--lr-panel) !important;
-  box-shadow: 0 0 0 1px var(--lr-line) !important;
-}
-
-.authCard .cl-socialButtonsIconButton__facebook {
-  background: #1C44A8 !important;
-  box-shadow: 0 0 0 1px #143479 !important;
-}
-
-.authCard .cl-footerItem {
-  border-top: 1px solid var(--lr-line) !important;
-  background: var(--lr-panel-soft) !important;
-  background-image: none !important;
-  color: var(--lr-faint) !important;
-}
-
-.authCard .cl-footerItem > * {
-  background: var(--lr-panel-soft) !important;
-  background-image: none !important;
-}
-
-.authCard .cl-footerItem * {
-  color: var(--lr-faint) !important;
-}
-
-.authCard .cl-input {
-  border: 1px solid var(--lr-line-strong) !important;
-  box-shadow: none !important;
-}
-
-.authCard .cl-input:focus {
-  border-color: var(--lr-primary) !important;
-  outline: 3px solid var(--lr-primary-ring) !important;
-  outline-offset: 1px !important;
-  box-shadow: var(--lr-focus-ring) !important;
-}
-
-.dashboardShell {
-  padding: var(--lr-page-gutter) var(--lr-page-gutter) var(--lr-page-gutter)
-    calc(var(--lr-sidebar-width) + var(--lr-page-gutter));
-}
-
-.practiceShell {
-  padding: var(--lr-page-gutter) var(--lr-page-gutter) var(--lr-page-gutter)
-    calc(var(--lr-sidebar-width) + var(--lr-page-gutter));
-}
-
-.skillShell {
-  padding: var(--lr-page-gutter) var(--lr-page-gutter) var(--lr-page-gutter)
-    calc(var(--lr-sidebar-width) + var(--lr-page-gutter));
-}
+/*
+ * Open Water owns primary/secondary button styling, auth layout, Clerk form
+ * styling, and responsive app-shell navigation in open-water.css. The old
+ * flat button/auth/sidebar definitions were removed from this legacy section
+ * so import order is not responsible for visible correctness.
+ */
 
 .dashboardHeader {
   display: flex;
@@ -1213,20 +1015,7 @@ a {
   padding: 16px 0;
 }
 
-.practiceTopbar {
-  position: fixed;
-  z-index: 20;
-  top: 0;
-  left: 0;
-  display: flex;
-  width: var(--lr-sidebar-width);
-  height: 100vh;
-  flex-direction: column;
-  gap: 22px;
-  border-right: 1px solid var(--lr-line);
-  background: var(--lr-panel);
-  padding: 18px 14px;
-}
+/* .practiceTopbar layout is defined in open-water.css. */
 
 .practiceWordmark {
   display: inline-flex;
@@ -1337,43 +1126,6 @@ a {
   position: relative;
   margin-top: auto;
   align-self: flex-start;
-}
-
-.practiceUserMenu[data-custom-avatar="false"] .cl-userButtonAvatarImage {
-  opacity: 0 !important;
-}
-
-.practiceUserMenu[data-custom-avatar="false"]::after {
-  position: absolute;
-  top: 1px;
-  left: 1px;
-  display: grid;
-  width: 26px;
-  height: 26px;
-  place-items: center;
-  border-radius: var(--lr-radius-sm);
-  color: var(--lr-primary-ink);
-  content: attr(data-initial);
-  font-size: var(--lr-text-xs);
-  font-weight: 500;
-  line-height: 1;
-  pointer-events: none;
-}
-
-.learnrecurUserButton {
-  border-radius: var(--lr-radius) !important;
-  color: var(--lr-primary-ink) !important;
-}
-
-.learnrecurUserButton:focus-visible {
-  outline: none !important;
-  box-shadow: var(--lr-focus-ring) !important;
-}
-
-.learnrecurUserAvatar {
-  border: 1px solid var(--lr-primary-muted) !important;
-  border-radius: var(--lr-radius) !important;
-  background: var(--lr-primary-soft) !important;
 }
 
 .practiceFrame {
@@ -1579,7 +1331,6 @@ a {
 }
 
 .choiceCard:focus-visible,
-.ratingButton:focus-visible,
 .practiceNav a:focus-visible {
   outline: none;
   box-shadow: var(--lr-focus-ring);
@@ -1790,24 +1541,6 @@ a {
   border-radius: var(--lr-radius);
   background: var(--lr-fill);
   padding: 3px;
-}
-
-.ratingButton {
-  min-height: 34px;
-  border: 0;
-  border-radius: var(--lr-radius-sm);
-  background: transparent;
-  color: var(--lr-muted);
-  padding: 7px 14px;
-  font-size: var(--lr-text-sm);
-  font-weight: 500;
-  cursor: pointer;
-}
-
-.ratingButton[data-selected="true"] {
-  background: var(--lr-white);
-  color: var(--lr-ink);
-  box-shadow: none;
 }
 
 .flagExercisePanel {

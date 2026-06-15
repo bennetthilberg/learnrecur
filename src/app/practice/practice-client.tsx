@@ -448,11 +448,14 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
           {exercise.choices.map((choice, index) => {
             const selected = answerValue === choice.id;
             const checked = feedback?.status === "checked";
+            const correctChoice = checkedFeedback?.correctChoiceId === choice.id;
             const tone =
-              checked && selected
+              checked && (selected || correctChoice)
                 ? checkedFeedback?.answerCheck.isCorrect
                   ? "correct"
-                  : "incorrect"
+                  : correctChoice
+                    ? "correct"
+                    : "incorrect"
                 : "neutral";
 
             return (

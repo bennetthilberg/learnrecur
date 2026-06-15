@@ -75,6 +75,7 @@ export type PracticePreviewResult =
       status: "checked";
       answerCheck: PracticeAnswerCheckResult;
       proposedRating: FsrsRating | null;
+      correctChoiceId: string | null;
       correctAnswerDisplay: string;
       explanation: string | null;
     }

@@ -1,4 +1,4 @@
-/* ===== OpenWaterIII retrofit layer ===== */
+/* ===== OpenWaterIII application layer ===== */
 body {
   display: block;
   background: var(--lr-canvas);
@@ -19,8 +19,8 @@ body {
   min-height: 100vh;
   margin: 0 auto;
   overflow: visible;
-  border: 1px solid var(--lr-canvas-border);
-  border-radius: var(--lr-r-container);
+  border: 0;
+  border-radius: 0;
   background: transparent;
   padding: 0 0 20px;
   box-shadow: none;
@@ -291,7 +291,6 @@ body {
 .openWaterDeckList,
 .openWaterSmallCard,
 .openWaterForecastCard,
-.openWaterPrefsCard,
 .dashboardPanel,
 .dashboardReadySummary,
 .dashboardSupportMetrics,
@@ -301,7 +300,7 @@ body {
   border: 1px solid var(--lr-card-border);
   border-radius: 8px;
   background: #FFFFFF;
-  box-shadow: none !important;
+  box-shadow: none;
 }
 
 .openWaterStatTile {
@@ -376,19 +375,11 @@ body {
   color: var(--lr-text-muted);
 }
 
-.openWaterProgress,
 .openWaterMiniProgress {
   overflow: hidden;
   background: var(--lr-blue-tint);
 }
 
-.openWaterProgress {
-  height: 4px;
-  margin-bottom: 16px;
-  border-radius: 3px;
-}
-
-.openWaterProgress span,
 .openWaterMiniProgress span {
   display: block;
   height: 100%;
@@ -436,16 +427,15 @@ body {
   color: var(--lr-amber);
 }
 
-.openWaterGradeGrid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
+.openWaterReviewActions {
+  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin-top: 16px;
 }
 
-.openWaterGradeGrid .bpbtn {
-  width: 100%;
-  padding: 8px 0;
+.openWaterReviewActions .bpbtn {
+  padding: 8px 14px;
   font-size: 13px;
   text-decoration: none;
 }
@@ -468,78 +458,13 @@ body {
   text-decoration: none;
 }
 
-.openWaterDeckTools {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 10px;
-}
-
-.openWaterChips {
-  display: flex;
-  gap: 7px;
-}
-
-.openWaterChips span {
-  border: 1px solid var(--lr-chip-border);
-  border-radius: 7px;
-  background: #FFFFFF;
-  color: var(--lr-icon);
-  font-size: 12.5px;
-  font-weight: 500;
-  line-height: 1.2;
-  padding: 5px 12px;
-}
-
-.openWaterChips span[data-active="true"] {
-  border-color: #1C44A8;
-  background: #1C44A8;
-  color: #FFFFFF;
-  font-weight: 600;
-  padding: 6px 12px;
-}
-
-.openWaterToggleRow:focus-visible {
-  outline: 2px solid #1C44A8;
-  outline-offset: 2px;
-}
-
-.openWaterSearch {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  border: 1px solid var(--lr-chip-border);
-  border-radius: 8px;
-  background: #FFFFFF;
-  color: var(--lr-text-muted);
-  font-size: 12px;
-  padding: 6px 9px;
-}
-
-.openWaterSearch svg {
-  color: var(--lr-text-muted);
-}
-
-.openWaterSearch kbd {
-  border: 1px solid var(--lr-chip-border);
-  border-radius: 4px;
-  background: #FFFFFF;
-  color: var(--lr-text-muted);
-  font-family: var(--lr-font-body);
-  font-size: 10px;
-  font-weight: 400;
-  line-height: 1.2;
-  padding: 1px 5px;
-}
-
 .openWaterDeckList {
   overflow: hidden;
 }
 
 .openWaterDeckRow {
-  display: flex;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) minmax(48px, 56px) auto auto;
   align-items: center;
   gap: 12px;
   border-bottom: 1px solid var(--lr-divider);
@@ -615,6 +540,22 @@ body {
   color: var(--lr-green);
 }
 
+.openWaterRowLink {
+  color: var(--lr-blue);
+  font-size: 12.5px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.openWaterRowLink:hover {
+  text-decoration: underline;
+}
+
+.openWaterRowLink:focus-visible {
+  outline: 2px solid #1C44A8;
+  outline-offset: 2px;
+}
+
 .openWaterTwoColumn {
   display: grid;
   grid-template-columns: 1.4fr 1fr;
@@ -627,14 +568,20 @@ body {
 }
 
 .openWaterSmallCard h2,
-.openWaterForecastHeader h2,
-.openWaterPrefsCard h2 {
+.openWaterForecastHeader h2 {
   margin: 0;
   color: var(--lr-ink);
   font-size: 13.5px;
   font-weight: 700;
   line-height: 1.25;
   letter-spacing: -0.01em;
+}
+
+.openWaterCardSummary {
+  margin: 8px 0 0;
+  color: var(--lr-text-secondary);
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .openWaterHeatmap {
@@ -675,23 +622,6 @@ body {
   display: block;
   width: 11px;
   height: 11px;
-}
-
-.openWaterGoalCard {
-  display: grid;
-  justify-items: center;
-  gap: 7px;
-}
-
-.openWaterGoalCard h2 {
-  justify-self: start;
-}
-
-.openWaterGoalCard p {
-  margin: 0;
-  color: var(--lr-green);
-  font-size: 11.5px;
-  font-weight: 600;
 }
 
 .openWaterForecastCard {
@@ -755,64 +685,6 @@ body {
   border-radius: 999px;
   background: var(--lr-yellow);
   content: "";
-}
-
-.openWaterPrefsCard {
-  overflow: hidden;
-  padding: 0;
-}
-
-.openWaterPrefsCard h2 {
-  border-bottom: 1px solid var(--lr-divider);
-  padding: 13px 16px 11px;
-}
-
-.openWaterToggleRow {
-  display: flex;
-  width: 100%;
-  align-items: center;
-  justify-content: space-between;
-  border: 0;
-  border-bottom: 1px solid var(--lr-divider);
-  background: #FFFFFF;
-  color: var(--lr-pref-label);
-  font-size: 13.5px;
-  font-weight: 400;
-  line-height: 1.2;
-  padding: 11px 16px;
-  text-align: left;
-}
-
-.openWaterToggleRow:last-child {
-  border-bottom: 0;
-}
-
-.openWaterToggleRow i {
-  position: relative;
-  width: 36px;
-  height: 20px;
-  flex: 0 0 36px;
-  border-radius: 999px;
-  background: var(--lr-toggle-off);
-}
-
-.openWaterToggleRow i[data-checked="true"] {
-  background: var(--lr-blue);
-}
-
-.openWaterToggleRow i span {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 16px;
-  height: 16px;
-  border-radius: 999px;
-  background: #FFFFFF;
-}
-
-.openWaterToggleRow i[data-checked="true"] span {
-  right: 2px;
-  left: auto;
 }
 
 .primaryButton,
@@ -886,12 +758,12 @@ body {
 .secondaryButton[data-tone="danger"] {
   border-color:#DDE3EE;
   background-color:#FFFFFF;
-  color:#B8440F;
+  color:var(--lr-danger-ink);
   box-shadow:0 3px 0 #CDD4E1;
 }
 
 .secondaryButton[data-tone="danger"]:hover {
-  background-color:#FCF6F3;
+  background-color:var(--lr-danger-subtle);
   box-shadow:0 2px 0 #CDD4E1;
   transform:translateY(1px);
 }
@@ -901,7 +773,12 @@ body {
 .ratingButton:focus-visible {
   outline: 2px solid #1C44A8;
   outline-offset: 2px;
-  box-shadow:0 3px 0 currentcolor;
+  box-shadow:0 3px 0 #CDD4E1;
+}
+
+.primaryButton:focus-visible,
+.ratingButton[data-selected="true"]:focus-visible {
+  box-shadow:0 3px 0 #143479;
 }
 
 .primaryButton:disabled,
@@ -1009,7 +886,8 @@ body {
 .skillPanelHeader h2,
 .dashboardPanelHeader h2,
 .flagExerciseHeader h2,
-.practiceFeedback h2 {
+.practiceFeedback h2,
+.skillQueueBlock h2 {
   color: var(--lr-ink);
   font-family: var(--lr-font-display);
   font-size: 16px;
@@ -1107,7 +985,7 @@ body {
 .skillInventoryGrid,
 .settingsScheduleSummary {
   border-color: var(--lr-divider);
-  box-shadow: none !important;
+  box-shadow: none;
 }
 
 .skillField input,
@@ -1115,7 +993,14 @@ body {
 .skillField select,
 .exactAnswerField input,
 .flagNoteField textarea,
-.skillDeleteConfirm input,
+.skillDeleteConfirm input {
+  border: 1px solid var(--lr-chip-border);
+  border-radius: 8px;
+  background: #FFFFFF;
+  color: var(--lr-ink);
+  box-shadow: none;
+}
+
 .authCard .cl-input {
   border: 1px solid var(--lr-chip-border) !important;
   border-radius: 8px !important;
@@ -1129,7 +1014,13 @@ body {
 .skillField select:focus-visible,
 .exactAnswerField input:focus-visible,
 .flagNoteField textarea:focus-visible,
-.skillDeleteConfirm input:focus-visible,
+.skillDeleteConfirm input:focus-visible {
+  border-color: #1C44A8;
+  outline: 2px solid #1C44A8;
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
 .authCard .cl-input:focus {
   border-color: #1C44A8 !important;
   outline: 2px solid #1C44A8 !important;
@@ -1157,12 +1048,18 @@ body {
   border-radius: 8px;
   background: #FFFFFF;
   color: var(--lr-ink);
-  box-shadow: none !important;
+  box-shadow: none;
 }
 
 .choiceCard:hover:not(:disabled) {
   border-color: var(--lr-blue-bar-2);
   background: #F5F7FB;
+}
+
+.choiceCard:focus-visible {
+  outline: 2px solid #1C44A8;
+  outline-offset: 2px;
+  box-shadow: none;
 }
 
 .choiceCard[data-selected="true"] {
@@ -1176,8 +1073,8 @@ body {
 }
 
 .choiceCard[data-tone="incorrect"] {
-  border-color: var(--lr-amber);
-  background: #FCF6F3;
+  border-color: var(--lr-danger-line);
+  background: var(--lr-danger-subtle);
 }
 
 .choiceIndex {
@@ -1197,7 +1094,7 @@ body {
   border-radius: 8px;
   background: #FFFFFF;
   color: var(--lr-text-secondary);
-  box-shadow: none !important;
+  box-shadow: none;
 }
 
 .practiceFeedback[data-tone="correct"],
@@ -1208,9 +1105,13 @@ body {
 
 .practiceFeedback[data-tone="incorrect"],
 .skillFormMessage[data-tone="error"],
-.practiceStatusLine[data-tone="attention"],
 .skillMessage[data-tone="error"],
 .skillLibraryStatus[data-tone="error"] {
+  border-color: var(--lr-danger-line);
+  color: var(--lr-danger-ink);
+}
+
+.practiceStatusLine[data-tone="attention"] {
   border-color: var(--lr-amber);
   color: var(--lr-amber);
 }
@@ -1221,7 +1122,7 @@ body {
   border-radius: 0;
   background: #FFFFFF;
   color: var(--lr-pref-label);
-  box-shadow: none !important;
+  box-shadow: none;
 }
 
 .settingsToggle input {
@@ -1362,11 +1263,12 @@ body {
 }
 
 .authCard .cl-socialButtonsIconButton {
-  min-height: 44px !important;
+  min-height: 46px !important;
   border: 1px solid #DDE3EE !important;
   border-radius: 8px !important;
   background: #FFFFFF !important;
-  padding: 2px 12px 5px !important;
+  align-items: center !important;
+  padding: 4px 12px 6px !important;
   box-shadow:0 3px 0 #CDD4E1 !important;
 }
 
@@ -1384,8 +1286,8 @@ body {
   flex-wrap: wrap !important;
   justify-content: center !important;
   gap: 4px !important;
-  margin-top: 18px !important;
-  padding-top: 18px !important;
+  margin-top: 22px !important;
+  padding-top: 22px !important;
   text-align: center !important;
 }
 
@@ -1407,7 +1309,7 @@ body {
 .authCard .cl-alternativeMethodsBlockButton {
   min-height: 38px !important;
   margin-top: 14px !important;
-  margin-bottom: 18px !important;
+  margin-bottom: 24px !important;
 }
 
 @media (min-width: 560px) and (max-width: 719px) {
@@ -1479,7 +1381,7 @@ body {
   .practiceShell,
   .skillShell {
     min-height: 100vh;
-    border-radius: var(--lr-r-container);
+    border-radius: 0;
   }
 
   .openWaterStatGrid,
@@ -1497,8 +1399,14 @@ body {
     width: 100%;
   }
 
-  .openWaterGradeGrid {
-    grid-template-columns: repeat(2, 1fr);
+  .openWaterStatusBadge {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .openWaterRowLink {
+    grid-column: 3;
+    justify-self: end;
   }
 
   .skillHeader,
@@ -1508,6 +1416,23 @@ body {
   .practiceMetaRow,
   .flagExerciseHeader {
     display: grid;
+  }
+
+  .openWaterHero h1,
+  .skillHeader h1,
+  .dashboardHeader h1,
+  .dashboardSetupPanel h1,
+  .practiceFrame h1 {
+    font-size: 24px;
+    line-height: 1.16;
+  }
+
+  .entryHero h1 {
+    font-size: 28px;
+  }
+
+  .openWaterReviewPrompt {
+    font-size: 19px;
   }
 }
 
@@ -1593,16 +1518,6 @@ body {
     padding: 22px 24px;
   }
 
-  .dashboardShell .openWaterGradeGrid {
-    max-width: 760px;
-    margin-right: auto;
-    margin-left: auto;
-  }
-
-  .dashboardShell .openWaterDeckTools {
-    gap: 16px;
-  }
-
   .dashboardShell .openWaterDeckRow {
     padding: 14px 17px;
   }
@@ -1634,6 +1549,48 @@ body {
   .entryProcessPanel {
     margin-right: 24px;
     margin-left: 24px;
+  }
+}
+
+@media (min-width: 900px) {
+  .entryShell {
+    width: calc(100% - 64px);
+    max-width: 1180px;
+    min-height: 100vh;
+    grid-template-columns: minmax(460px, 1.1fr) minmax(320px, 0.8fr);
+    align-content: center;
+    align-items: center;
+    gap: 54px;
+    padding: 52px 0;
+  }
+
+  .entryPanel,
+  .entryProcessPanel {
+    margin: 0;
+  }
+
+  .entryPanel {
+    padding-top: 0;
+  }
+
+  .entryHero {
+    width: 100%;
+    margin: 0;
+  }
+
+  .entryCapabilityList {
+    max-width: 680px;
+    margin-top: 22px;
+  }
+
+  .entryCapabilityList div {
+    grid-template-columns: minmax(132px, 0.34fr) minmax(0, 1fr);
+    gap: 24px;
+  }
+
+  .entryProcessPanel {
+    align-self: center;
+    max-width: 420px;
   }
 }
 
@@ -1779,7 +1736,7 @@ body {
     max-width: 820px;
   }
 
-  .dashboardShell .openWaterDecks {
+  .dashboardShell .openWaterCollections {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
   }
@@ -1837,6 +1794,40 @@ body {
 
 .authIntro {
   margin: 0;
+}
+
+.authAccessList {
+  display: grid;
+  gap: 0;
+  margin: 34px 0 0;
+  border-top: 1px solid var(--lr-divider);
+  border-bottom: 1px solid var(--lr-divider);
+  padding: 0;
+}
+
+.authAccessList div {
+  display: grid;
+  grid-template-columns: minmax(128px, 0.34fr) minmax(0, 1fr);
+  gap: 22px;
+  padding: 14px 0;
+}
+
+.authAccessList div + div {
+  border-top: 1px solid var(--lr-divider);
+}
+
+.authAccessList dt {
+  color: var(--lr-text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.authAccessList dd {
+  margin: 0;
+  color: var(--lr-ink);
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 .authCard {
