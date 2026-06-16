@@ -2,7 +2,8 @@
 
 import { UserButton } from "@clerk/nextjs";
 import Link from "next/link";
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
+import type { MouseEvent } from "react";
 import {
   Cards,
   ClockCounterClockwise,
@@ -16,6 +17,26 @@ import type { Icon } from "@phosphor-icons/react";
 
 import { OpenWaterBackground, OpenWaterLogoMark } from "@/components/app/open-water";
 import { designTokens } from "@/lib/design-tokens";
+
+const previousNavKeyStorage = "learnrecur:previous-primary-nav-key";
+const skipNavMountAnimationStorage = "learnrecur:skip-primary-nav-mount-animation";
+
+function setNavIndicatorFromLink(nav: HTMLElement, link: HTMLElement) {
+  const navRect = nav.getBoundingClientRect();
+  const linkRect = link.getBoundingClientRect();
+
+  nav.style.setProperty(
+    "--practice-nav-indicator-x",
+    `${linkRect.left - navRect.left + nav.scrollLeft}px`,
+  );
+  nav.style.setProperty(
+    "--practice-nav-indicator-y",
+    `${linkRect.top - navRect.top + nav.scrollTop}px`,
+  );
+  nav.style.setProperty("--practice-nav-indicator-width", `${linkRect.width}px`);
+  nav.style.setProperty("--practice-nav-indicator-height", `${linkRect.height}px`);
+  nav.style.setProperty("--practice-nav-indicator-opacity", "1");
+}
 
 const navItems: {
   href: string;
@@ -93,18 +114,106 @@ export function SkillsTopbar({
   current: SkillsTopbarCurrent;
 }) {
   const navRef = useRef<HTMLElement | null>(null);
+  const activeIndicatorRef = useRef<HTMLSpanElement | null>(null);
+  const previousNavKeyRef = useRef<string | null>(null);
+  const currentNavKey = navItems.find((item) => item.isCurrent(current))?.key;
+
+  const positionActiveIndicator = useCallback(
+    (animate: boolean) => {
+      const nav = navRef.current;
+      const indicator = activeIndicatorRef.current;
+      const activeLink = nav?.querySelector<HTMLAnchorElement>('a[aria-current="page"]');
+
+      if (!nav || !indicator || !activeLink) {
+        return;
+      }
+
+      const skipMountAnimation =
+        window.sessionStorage.getItem(skipNavMountAnimationStorage) === "true";
+      const storedPreviousKey = window.sessionStorage.getItem(previousNavKeyStorage);
+      const previousNavKey =
+        !skipMountAnimation && storedPreviousKey && storedPreviousKey !== currentNavKey
+          ? storedPreviousKey
+          : previousNavKeyRef.current;
+      const previousLink =
+        animate && previousNavKey && previousNavKey !== currentNavKey
+          ? nav.querySelector<HTMLAnchorElement>(`a[data-nav-key="${previousNavKey}"]`)
+          : null;
+
+      if (previousLink && previousLink !== activeLink) {
+        indicator.style.transition = "none";
+        setNavIndicatorFromLink(nav, previousLink);
+        indicator.getBoundingClientRect();
+        window.requestAnimationFrame(() => {
+          indicator.style.transition = "";
+          setNavIndicatorFromLink(nav, activeLink);
+        });
+      } else {
+        indicator.style.transition = "none";
+        setNavIndicatorFromLink(nav, activeLink);
+        window.requestAnimationFrame(() => {
+          indicator.style.transition = "";
+        });
+      }
+
+      window.sessionStorage.removeItem(previousNavKeyStorage);
+      window.sessionStorage.removeItem(skipNavMountAnimationStorage);
+      previousNavKeyRef.current = currentNavKey ?? null;
+
+      if (typeof activeLink.scrollIntoView === "function") {
+        activeLink.scrollIntoView({ block: "nearest", inline: "nearest" });
+      }
+    },
+    [currentNavKey],
+  );
+
+  useLayoutEffect(() => {
+    positionActiveIndicator(true);
+  }, [positionActiveIndicator]);
 
   useEffect(() => {
-    const activeLink = navRef.current?.querySelector<HTMLAnchorElement>(
-      'a[aria-current="page"]',
-    );
+    const handleViewportChange = () => {
+      positionActiveIndicator(false);
+    };
 
-    if (!activeLink || typeof activeLink.scrollIntoView !== "function") {
-      return;
-    }
+    window.addEventListener("resize", handleViewportChange);
 
-    activeLink.scrollIntoView({ block: "nearest", inline: "nearest" });
-  }, [current]);
+    return () => {
+      window.removeEventListener("resize", handleViewportChange);
+    };
+  }, [positionActiveIndicator]);
+
+  const handleNavClick = useCallback(
+    (targetKey: string, event: MouseEvent<HTMLAnchorElement>) => {
+      if (
+        event.defaultPrevented ||
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey
+      ) {
+        return;
+      }
+
+      if (currentNavKey && currentNavKey !== targetKey) {
+        window.sessionStorage.setItem(previousNavKeyStorage, currentNavKey);
+
+        const nav = navRef.current;
+        const indicator = activeIndicatorRef.current;
+        const targetLink = nav?.querySelector<HTMLAnchorElement>(
+          `a[data-nav-key="${targetKey}"]`,
+        );
+
+        if (nav && indicator && targetLink) {
+          indicator.style.transition = "";
+          setNavIndicatorFromLink(nav, targetLink);
+          window.sessionStorage.setItem(skipNavMountAnimationStorage, "true");
+        }
+      }
+    },
+    [currentNavKey],
+  );
 
   return (
     <>
@@ -116,6 +225,7 @@ export function SkillsTopbar({
         </Link>
         <div className="practiceTopbarRight">
           <nav ref={navRef} className="practiceNav" aria-label="Primary navigation">
+            <span ref={activeIndicatorRef} className="practiceNavActiveIndicator" aria-hidden="true" />
             {navItems.map((item) => {
               const NavIcon = item.icon;
 
@@ -123,8 +233,10 @@ export function SkillsTopbar({
                 <Link
                   aria-current={item.isCurrent(current) ? "page" : undefined}
                   data-intent={item.intent}
+                  data-nav-key={item.key}
                   href={item.href}
                   key={item.key}
+                  onClick={(event) => handleNavClick(item.key, event)}
                 >
                   <NavIcon
                     aria-hidden="true"
