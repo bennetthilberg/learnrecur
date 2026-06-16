@@ -24,8 +24,11 @@ import {
   primaryRouteLoadingByKey,
 } from "./primary-route-loading-content";
 
-const previousNavKeyStorage = "learnrecur:previous-primary-nav-key";
-const skipNavMountAnimationStorage = "learnrecur:skip-primary-nav-mount-animation";
+const floatingIndicatorActiveClass = "practiceNavFloatingActive";
+const floatingIndicatorClass = "practiceNavFloatingIndicator";
+let floatingIndicatorElement: HTMLSpanElement | null = null;
+let floatingIndicatorFrame: number | null = null;
+let floatingIndicatorTimeout: number | null = null;
 
 function setNavIndicatorFromLink(nav: HTMLElement, link: HTMLElement) {
   const navRect = nav.getBoundingClientRect();
@@ -42,6 +45,92 @@ function setNavIndicatorFromLink(nav: HTMLElement, link: HTMLElement) {
   nav.style.setProperty("--practice-nav-indicator-width", `${linkRect.width}px`);
   nav.style.setProperty("--practice-nav-indicator-height", `${linkRect.height}px`);
   nav.style.setProperty("--practice-nav-indicator-opacity", "1");
+}
+
+function setFloatingIndicatorRect(element: HTMLElement, rect: DOMRect) {
+  element.style.width = `${rect.width}px`;
+  element.style.height = `${rect.height}px`;
+  element.style.transform = `translate3d(${rect.left}px, ${rect.top}px, 0)`;
+}
+
+function clearFloatingIndicatorTimer() {
+  if (floatingIndicatorTimeout !== null) {
+    window.clearTimeout(floatingIndicatorTimeout);
+    floatingIndicatorTimeout = null;
+  }
+}
+
+function clearFloatingIndicatorFrame() {
+  if (floatingIndicatorFrame !== null) {
+    window.cancelAnimationFrame(floatingIndicatorFrame);
+    floatingIndicatorFrame = null;
+  }
+}
+
+function finishFloatingIndicator() {
+  clearFloatingIndicatorFrame();
+  clearFloatingIndicatorTimer();
+  document.body.classList.remove(floatingIndicatorActiveClass);
+  floatingIndicatorElement?.remove();
+  floatingIndicatorElement = null;
+}
+
+function getFloatingIndicatorStartRect(nav: HTMLElement, targetLink: HTMLElement) {
+  if (floatingIndicatorElement) {
+    return floatingIndicatorElement.getBoundingClientRect();
+  }
+
+  const localIndicator = nav.querySelector<HTMLElement>(".practiceNavActiveIndicator");
+  const indicatorRect = localIndicator?.getBoundingClientRect();
+
+  if (localIndicator && indicatorRect && indicatorRect.width > 0 && indicatorRect.height > 0) {
+    return indicatorRect;
+  }
+
+  const activeLink =
+    nav.querySelector<HTMLElement>('a[data-nav-active="true"]') ??
+    nav.querySelector<HTMLElement>('a[aria-current="page"]');
+
+  return (activeLink ?? targetLink).getBoundingClientRect();
+}
+
+function moveFloatingIndicatorToLink(targetLink: HTMLElement) {
+  const nav = targetLink.closest<HTMLElement>(".practiceNav");
+  const localIndicator = nav?.querySelector<HTMLElement>(".practiceNavActiveIndicator");
+
+  if (!nav || !localIndicator || getComputedStyle(localIndicator).display === "none") {
+    return;
+  }
+
+  const startRect = getFloatingIndicatorStartRect(nav, targetLink);
+  const targetRect = targetLink.getBoundingClientRect();
+
+  if (!floatingIndicatorElement) {
+    floatingIndicatorElement = document.createElement("span");
+    floatingIndicatorElement.className = floatingIndicatorClass;
+    floatingIndicatorElement.setAttribute("aria-hidden", "true");
+    document.body.appendChild(floatingIndicatorElement);
+  }
+
+  clearFloatingIndicatorFrame();
+  clearFloatingIndicatorTimer();
+  document.body.classList.add(floatingIndicatorActiveClass);
+  floatingIndicatorElement.style.transition = "none";
+  setFloatingIndicatorRect(floatingIndicatorElement, startRect);
+  floatingIndicatorElement.getBoundingClientRect();
+
+  floatingIndicatorFrame = window.requestAnimationFrame(() => {
+    floatingIndicatorFrame = null;
+
+    if (!floatingIndicatorElement) {
+      return;
+    }
+
+    floatingIndicatorElement.style.transition = "";
+    setFloatingIndicatorRect(floatingIndicatorElement, targetRect);
+  });
+
+  floatingIndicatorTimeout = window.setTimeout(finishFloatingIndicator, 240);
 }
 
 function scrollNavLinkIntoView(nav: HTMLElement, link: HTMLElement) {
@@ -152,8 +241,6 @@ export function SkillsTopbar({
   const navRef = useRef<HTMLElement | null>(null);
   const activeIndicatorRef = useRef<HTMLSpanElement | null>(null);
   const indicatorFrameRef = useRef<number | null>(null);
-  const navTransitionTimeoutRef = useRef<number | null>(null);
-  const previousNavKeyRef = useRef<string | null>(null);
   const currentNavKey = navItems.find((item) => item.isCurrent(current))?.key;
   const [pendingNavKey, setPendingNavKey] = useState<PrimaryNavKey | null>(null);
   const pendingNavKeyRef = useRef<PrimaryNavKey | null>(null);
@@ -186,27 +273,8 @@ export function SkillsTopbar({
     [cancelIndicatorFrame],
   );
 
-  const markNavTransitioning = useCallback(() => {
-    const nav = navRef.current;
-
-    if (!nav) {
-      return;
-    }
-
-    nav.dataset.navTransitioning = "true";
-
-    if (navTransitionTimeoutRef.current !== null) {
-      window.clearTimeout(navTransitionTimeoutRef.current);
-    }
-
-    navTransitionTimeoutRef.current = window.setTimeout(() => {
-      nav.removeAttribute("data-nav-transitioning");
-      navTransitionTimeoutRef.current = null;
-    }, 210);
-  }, []);
-
   const positionActiveIndicator = useCallback(
-    (animate: boolean) => {
+    () => {
       const nav = navRef.current;
       const indicator = activeIndicatorRef.current;
       const activeLink =
@@ -217,43 +285,15 @@ export function SkillsTopbar({
         return;
       }
 
-      const skipMountAnimation =
-        window.sessionStorage.getItem(skipNavMountAnimationStorage) === "true";
-      const storedPreviousKey = window.sessionStorage.getItem(previousNavKeyStorage);
-      const previousNavKey =
-        !skipMountAnimation && storedPreviousKey && storedPreviousKey !== currentNavKey
-          ? storedPreviousKey
-          : previousNavKeyRef.current;
-      const previousLink =
-        animate && previousNavKey && previousNavKey !== currentNavKey
-          ? nav.querySelector<HTMLAnchorElement>(`a[data-nav-key="${previousNavKey}"]`)
-          : null;
-
       scrollNavLinkIntoView(nav, activeLink);
-
-      if (previousLink && previousLink !== activeLink) {
-        markNavTransitioning();
-        indicator.style.transition = "none";
-        setNavIndicatorFromLink(nav, previousLink);
-        indicator.getBoundingClientRect();
-        queueIndicatorFrame(() => {
-          indicator.style.transition = "";
-          setNavIndicatorFromLink(nav, activeLink);
-        });
-      } else {
-        cancelIndicatorFrame();
-        indicator.style.transition = "none";
-        setNavIndicatorFromLink(nav, activeLink);
-        queueIndicatorFrame(() => {
-          indicator.style.transition = "";
-        });
-      }
-
-      window.sessionStorage.removeItem(previousNavKeyStorage);
-      window.sessionStorage.removeItem(skipNavMountAnimationStorage);
-      previousNavKeyRef.current = currentNavKey ?? null;
+      cancelIndicatorFrame();
+      indicator.style.transition = "none";
+      setNavIndicatorFromLink(nav, activeLink);
+      queueIndicatorFrame(() => {
+        indicator.style.transition = "";
+      });
     },
-    [cancelIndicatorFrame, currentNavKey, markNavTransitioning, queueIndicatorFrame],
+    [cancelIndicatorFrame, queueIndicatorFrame],
   );
 
   const moveVisualIndicator = useCallback((targetKey: PrimaryNavKey, targetLink: HTMLElement) => {
@@ -265,25 +305,20 @@ export function SkillsTopbar({
 
     if (nav && indicator) {
       cancelIndicatorFrame();
-      markNavTransitioning();
       scrollNavLinkIntoView(nav, targetLink);
       indicator.style.transition = "";
       setNavIndicatorFromLink(nav, targetLink);
     }
-  }, [cancelIndicatorFrame, markNavTransitioning]);
+  }, [cancelIndicatorFrame]);
 
   useEffect(() => {
     return () => {
       cancelIndicatorFrame();
-      if (navTransitionTimeoutRef.current !== null) {
-        window.clearTimeout(navTransitionTimeoutRef.current);
-        navTransitionTimeoutRef.current = null;
-      }
     };
   }, [cancelIndicatorFrame]);
 
   useLayoutEffect(() => {
-    positionActiveIndicator(true);
+    positionActiveIndicator();
   }, [positionActiveIndicator]);
 
   useEffect(() => {
@@ -297,7 +332,8 @@ export function SkillsTopbar({
 
   useEffect(() => {
     const handleViewportChange = () => {
-      positionActiveIndicator(false);
+      finishFloatingIndicator();
+      positionActiveIndicator();
     };
 
     window.addEventListener("resize", handleViewportChange);
@@ -334,6 +370,7 @@ export function SkillsTopbar({
         return;
       }
 
+      moveFloatingIndicatorToLink(event.currentTarget);
       moveVisualIndicator(targetKey, event.currentTarget);
     },
     [moveVisualIndicator],
@@ -346,7 +383,6 @@ export function SkillsTopbar({
       }
 
       const pendingBeforeClick = pendingNavKeyRef.current;
-      const previousVisualKey = visualNavKeyRef.current ?? currentNavKey ?? null;
       const isCurrentRouteClick = currentNavKey === targetKey;
 
       if (!pendingBeforeClick && isCurrentRouteClick) {
@@ -355,13 +391,7 @@ export function SkillsTopbar({
 
       event.preventDefault();
 
-      if (previousVisualKey && previousVisualKey !== targetKey) {
-        window.sessionStorage.setItem(previousNavKeyStorage, previousVisualKey);
-      } else if (currentNavKey) {
-        window.sessionStorage.setItem(previousNavKeyStorage, currentNavKey);
-      }
-
-      window.sessionStorage.setItem(skipNavMountAnimationStorage, "true");
+      moveFloatingIndicatorToLink(event.currentTarget);
       moveVisualIndicator(targetKey, event.currentTarget);
 
       const shell = event.currentTarget.closest<HTMLElement>(
