@@ -45,6 +45,14 @@ body {
   min-width: 0;
 }
 
+.routePendingContent > .skillLibraryGrid,
+.routePendingContent > .skillDraftGrid,
+.routePendingContent > .skillCreateStack {
+  width: calc(100% - 28px);
+  margin-right: auto;
+  margin-left: auto;
+}
+
 .openWaterBackground {
   position: fixed;
   inset: 0;
@@ -980,14 +988,14 @@ body {
 }
 
 .routeLoadingHero .routeSkeleton {
-  background-color: rgba(255, 255, 255, .14) !important;
+  background-color: rgba(255, 255, 255, .08) !important;
 }
 
 .routeLoadingHero .routeSkeleton::after {
   background-image: linear-gradient(
     90deg,
     transparent,
-    rgba(255, 255, 255, .18),
+    rgba(255, 255, 255, .12),
     transparent
   ) !important;
 }
@@ -1034,7 +1042,7 @@ body {
 }
 
 .routeLoadingHeroButton {
-  border: 1px solid rgba(255, 255, 255, .18);
+  border: 1px solid rgba(255, 255, 255, .12);
 }
 
 .routeLoadingStatTile {
@@ -1841,6 +1849,14 @@ body {
     padding: 18px 0 0;
   }
 
+  .routePendingContent[data-route-kind="dashboard"] .openWaterStatGrid {
+    width: min(calc(100% - 48px), 1040px);
+    gap: 14px;
+    margin-right: auto;
+    margin-left: auto;
+    padding: 18px 0 0;
+  }
+
   .dashboardShell .openWaterSection,
   .dashboardShell .openWaterTwoColumn {
     width: min(calc(100% - 48px), 1040px);
@@ -1849,7 +1865,22 @@ body {
     padding: 22px 0 0;
   }
 
+  .routePendingContent[data-route-kind="dashboard"] .openWaterSection,
+  .routePendingContent[data-route-kind="dashboard"] .openWaterTwoColumn {
+    width: min(calc(100% - 48px), 1040px);
+    margin-right: auto;
+    margin-left: auto;
+    padding: 22px 0 0;
+  }
+
   .dashboardShell .openWaterReviewSection {
+    width: min(calc(100% - 48px), 920px);
+    max-width: 920px;
+    margin-right: auto;
+    margin-left: max(24px, calc((100% - 1040px) / 2));
+  }
+
+  .routePendingContent[data-route-kind="dashboard"] .openWaterReviewSection {
     width: min(calc(100% - 48px), 920px);
     max-width: 920px;
     margin-right: auto;
@@ -1864,7 +1895,15 @@ body {
     padding: 22px 24px;
   }
 
+  .routePendingContent[data-route-kind="dashboard"] .openWaterReviewCard {
+    padding: 22px 24px;
+  }
+
   .dashboardShell .openWaterDeckRow {
+    padding: 14px 17px;
+  }
+
+  .routePendingContent[data-route-kind="dashboard"] .openWaterDeckRow {
     padding: 14px 17px;
   }
 
@@ -1888,6 +1927,12 @@ body {
   .skillShell > .skillLibraryGrid,
   .skillShell > .skillDraftGrid,
   .skillShell > .skillCreateStack {
+    width: calc(100% - 48px);
+  }
+
+  .routePendingContent > .skillLibraryGrid,
+  .routePendingContent > .skillDraftGrid,
+  .routePendingContent > .skillCreateStack {
     width: calc(100% - 48px);
   }
 
@@ -2102,11 +2147,24 @@ body {
     padding: 34px 38px 36px;
   }
 
+  .routePendingContent[data-route-kind="dashboard"] .openWaterHeroContent {
+    padding: 34px 38px 36px;
+  }
+
   .dashboardShell .openWaterHero h1 {
     font-size: 34px;
   }
 
+  .routePendingContent[data-route-kind="dashboard"] .openWaterHero h1 {
+    font-size: 34px;
+  }
+
   .dashboardShell .openWaterStatGrid {
+    width: min(calc(100% - 68px), 1040px);
+    padding: 22px 0 0;
+  }
+
+  .routePendingContent[data-route-kind="dashboard"] .openWaterStatGrid {
     width: min(calc(100% - 68px), 1040px);
     padding: 22px 0 0;
   }
@@ -2117,7 +2175,20 @@ body {
     padding: 24px 0 0;
   }
 
+  .routePendingContent[data-route-kind="dashboard"] .openWaterSection,
+  .routePendingContent[data-route-kind="dashboard"] .openWaterTwoColumn {
+    width: min(calc(100% - 68px), 1040px);
+    padding: 24px 0 0;
+  }
+
   .dashboardShell .openWaterReviewSection {
+    width: min(calc(100% - 68px), 920px);
+    max-width: 920px;
+    margin-right: auto;
+    margin-left: max(34px, calc((100% - 1040px) / 2));
+  }
+
+  .routePendingContent[data-route-kind="dashboard"] .openWaterReviewSection {
     width: min(calc(100% - 68px), 920px);
     max-width: 920px;
     margin-right: auto;
@@ -2132,7 +2203,16 @@ body {
     max-width: 820px;
   }
 
+  .routePendingContent[data-route-kind="dashboard"] .openWaterReviewPrompt {
+    max-width: 820px;
+  }
+
   .dashboardShell .openWaterCollections {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .routePendingContent[data-route-kind="dashboard"] .openWaterCollections {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
   }
@@ -2168,6 +2248,14 @@ body {
   .skillShell > .skillCreateStack {
     width: calc(100% - 68px);
     justify-self: center;
+  }
+
+  .routePendingContent > .skillLibraryGrid,
+  .routePendingContent > .skillDraftGrid,
+  .routePendingContent > .skillCreateStack {
+    width: calc(100% - 68px);
+    margin-right: auto;
+    margin-left: auto;
   }
 }
 
