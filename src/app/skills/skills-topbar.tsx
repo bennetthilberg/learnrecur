@@ -45,7 +45,6 @@ const navItems: {
   key: "dashboard" | "practice" | "history" | "skills" | "collections" | "settings" | "new";
   icon: Icon;
   isCurrent: (current: SkillsTopbarCurrent) => boolean;
-  intent?: "create";
 }[] = [
   {
     href: "/dashboard",
@@ -88,7 +87,6 @@ const navItems: {
     key: "new",
     icon: PlusCircle,
     isCurrent: (current) => current === "new",
-    intent: "create",
   },
   {
     href: "/settings",
@@ -270,7 +268,6 @@ export function SkillsTopbar({
               return (
                 <Link
                   aria-current={isCurrentPage ? "page" : undefined}
-                  data-intent={item.intent}
                   data-nav-active={isCurrentPage ? "true" : undefined}
                   data-nav-key={item.key}
                   href={item.href}
