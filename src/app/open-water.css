@@ -2147,7 +2147,7 @@ body {
   .dashboardShell .practiceNav a[aria-current="page"]:not([data-nav-active="true"]),
   .practiceShell .practiceNav a[aria-current="page"]:not([data-nav-active="true"]),
   .skillShell .practiceNav a[aria-current="page"]:not([data-nav-active="true"]) {
-    border-color: transparent;
+    border: 1px solid transparent;
     background: transparent;
     color: var(--lr-nav-inactive);
     font-weight: 400;
