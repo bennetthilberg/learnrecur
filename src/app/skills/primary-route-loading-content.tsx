@@ -123,13 +123,11 @@ function RouteHeader({
 function PanelSkeleton({
   children,
   className,
-  countLabel,
   eyebrow,
   title,
 }: {
   children: ReactNode;
   className?: string;
-  countLabel?: string;
   eyebrow: string;
   title: string;
 }) {
@@ -140,12 +138,6 @@ function PanelSkeleton({
           <p className="eyebrow">{eyebrow}</p>
           <h2>{title}</h2>
         </div>
-        {countLabel ? (
-          <div className="routeLoadingPanelCount" aria-hidden="true">
-            <span>{countLabel}</span>
-            <Skeleton className="routeSkeleton" height={26} radius={6} width={28} />
-          </div>
-        ) : null}
       </div>
       {children}
     </section>
@@ -161,8 +153,12 @@ function DashboardRouteLoading() {
         <div className="openWaterHeroContent">
           <p className="openWaterHeroEyebrow">{formatRouteLoadingDate(new Date())}</p>
           <h1 className="disp routeLoadingHeroTitle">
-            <Skeleton className="routeSkeleton routeLoadingHeroCount" height={42} radius={8} width={44} />
-            <span>due skills are ready.</span>
+            <Skeleton
+              className="routeSkeleton routeLoadingHeroSentence"
+              height={42}
+              radius={8}
+              width="min(560px, 84%)"
+            />
           </h1>
           <div className="openWaterHeroActions" aria-hidden="true">
             <Skeleton className="routeSkeleton routeLoadingHeroButton" height={44} radius={8} width={140} />
@@ -222,8 +218,7 @@ function DashboardDeckRowSkeleton() {
         <Skeleton className="routeSkeleton" height={15} radius={5} width={190} />
         <Skeleton className="routeSkeleton" height={12} radius={5} width={132} />
       </div>
-      <Skeleton className="routeSkeleton" height={5} radius={3} width={56} />
-      <Skeleton className="routeSkeleton" height={24} radius={6} width={56} />
+      <Skeleton className="routeSkeleton" height={24} radius={6} width={92} />
     </article>
   );
 }
@@ -270,13 +265,13 @@ function SkillsRouteLoading({ config }: { config: PrimaryRouteLoadingConfig }) {
     <>
       <RouteHeader actionCount={1} config={config} />
       <div className="skillLibraryGrid">
-        <PanelSkeleton countLabel="Drafts" eyebrow="Needs review" title="Draft skills">
+        <PanelSkeleton eyebrow="Needs review" title="Draft skills">
           <div className="skillLibraryList">
             <SkillLibraryRowSkeleton />
             <SkillLibraryRowSkeleton compact />
           </div>
         </PanelSkeleton>
-        <PanelSkeleton countLabel="Active" eyebrow="Active schedule" title="Practice targets">
+        <PanelSkeleton eyebrow="Active schedule" title="Practice targets">
           <div className="skillLibraryList">
             <SkillLibraryRowSkeleton withFacts />
             <SkillLibraryRowSkeleton compact withFacts />
@@ -373,10 +368,6 @@ function HistoryRouteLoading({ config }: { config: PrimaryRouteLoadingConfig }) 
             <p className="eyebrow">Completed reviews</p>
             <h2>Latest completed reviews</h2>
           </div>
-          <div className="routeLoadingPanelCount" aria-hidden="true">
-            <span>Shown</span>
-            <Skeleton className="routeSkeleton" height={26} radius={6} width={28} />
-          </div>
         </div>
         <div className="historyTableWrapper">
           <table className="historyTable routeLoadingHistoryTable">
@@ -441,7 +432,6 @@ function CollectionsRouteLoading({ config }: { config: PrimaryRouteLoadingConfig
       </PanelSkeleton>
       <PanelSkeleton
         className="collectionManagementPanel"
-        countLabel="Active"
         eyebrow="Active"
         title="Current collections"
       >

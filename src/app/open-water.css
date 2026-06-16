@@ -974,31 +974,20 @@ body {
   gap: 16px;
 }
 
-.routeLoadingPanelCount {
-  display: grid;
-  min-width: 72px;
-  justify-items: center;
-  border-left: 1px solid var(--lr-divider);
-  padding-left: 18px;
-  color: var(--lr-text-secondary);
-  font-size: 12px;
-  line-height: 1.2;
-}
-
 .routeLoadingHero {
   position: relative;
   overflow: hidden;
 }
 
 .routeLoadingHero .routeSkeleton {
-  background-color: rgba(255, 255, 255, .22) !important;
+  background-color: rgba(255, 255, 255, .14) !important;
 }
 
 .routeLoadingHero .routeSkeleton::after {
   background-image: linear-gradient(
     90deg,
     transparent,
-    rgba(255, 255, 255, .32),
+    rgba(255, 255, 255, .18),
     transparent
   ) !important;
 }
@@ -1040,19 +1029,12 @@ body {
 }
 
 .routeLoadingHeroTitle {
-  display: flex;
+  display: block;
   max-width: 760px;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-}
-
-.routeLoadingHeroTitle span {
-  color: #FFFFFF;
 }
 
 .routeLoadingHeroButton {
-  border: 1px solid rgba(255, 255, 255, .32);
+  border: 1px solid rgba(255, 255, 255, .18);
 }
 
 .routeLoadingStatTile {
@@ -1767,10 +1749,6 @@ body {
     justify-content: start;
   }
 
-  .routeLoadingHeroTitle {
-    gap: 8px;
-  }
-
   .routeLoadingHeroRings {
     right: 18px;
     width: 62px;
@@ -1783,13 +1761,6 @@ body {
   .routeLoadingTwoColumn,
   .routeLoadingCollectionRow {
     grid-template-columns: 1fr;
-  }
-
-  .routeLoadingPanelCount {
-    min-width: 0;
-    justify-items: start;
-    border-left: 0;
-    padding-left: 0;
   }
 
   .openWaterHero h1,
