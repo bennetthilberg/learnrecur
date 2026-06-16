@@ -933,6 +933,11 @@ body {
   color: var(--lr-amber);
 }
 
+.historyTable .dashboardChip[data-tone="ready"] {
+  border-color: var(--lr-green);
+  color: var(--lr-green);
+}
+
 .dashboardChip[data-tone="neutral"],
 .dashboardChip[data-tone="saved"] {
   border-color: var(--lr-green);
