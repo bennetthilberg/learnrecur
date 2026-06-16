@@ -185,7 +185,7 @@ body {
   border: 0;
   background: transparent;
   color: var(--lr-ink);
-  font-weight: 600;
+  font-weight: 400;
 }
 
 .practiceNav a[data-nav-active="true"] {
@@ -204,6 +204,34 @@ body {
 .practiceNavIcon {
   display: block;
   flex: 0 0 auto;
+}
+
+.practiceNavLabel {
+  display: inline-grid;
+  align-items: center;
+}
+
+.practiceNavLabel,
+.practiceNavLabel::after {
+  grid-area: 1 / 1;
+}
+
+.practiceNavLabel::after {
+  overflow: hidden;
+  width: auto;
+  height: 0;
+  content: attr(data-label);
+  font-weight: 600;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.practiceNav a[data-nav-active="true"] .practiceNavLabel {
+  text-shadow: .2px 0 0 currentcolor;
+}
+
+.practiceNav a[aria-current="page"]:not([data-nav-active="true"]) .practiceNavLabel {
+  text-shadow: none;
 }
 
 .practiceNav a:focus-visible,

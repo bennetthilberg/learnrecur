@@ -44,6 +44,22 @@ function setNavIndicatorFromLink(nav: HTMLElement, link: HTMLElement) {
   nav.style.setProperty("--practice-nav-indicator-opacity", "1");
 }
 
+function scrollNavLinkIntoView(nav: HTMLElement, link: HTMLElement) {
+  if (nav.scrollWidth <= nav.clientWidth + 1) {
+    return;
+  }
+
+  const navRect = nav.getBoundingClientRect();
+  const linkRect = link.getBoundingClientRect();
+  const safeInset = 8;
+
+  if (linkRect.left < navRect.left + safeInset) {
+    nav.scrollLeft += linkRect.left - navRect.left - safeInset;
+  } else if (linkRect.right > navRect.right - safeInset) {
+    nav.scrollLeft += linkRect.right - navRect.right + safeInset;
+  }
+}
+
 const navItems: {
   href: string;
   label: string;
@@ -174,6 +190,8 @@ export function SkillsTopbar({
           ? nav.querySelector<HTMLAnchorElement>(`a[data-nav-key="${previousNavKey}"]`)
           : null;
 
+      scrollNavLinkIntoView(nav, activeLink);
+
       if (previousLink && previousLink !== activeLink) {
         indicator.style.transition = "none";
         setNavIndicatorFromLink(nav, previousLink);
@@ -193,10 +211,6 @@ export function SkillsTopbar({
       window.sessionStorage.removeItem(previousNavKeyStorage);
       window.sessionStorage.removeItem(skipNavMountAnimationStorage);
       previousNavKeyRef.current = currentNavKey ?? null;
-
-      if (typeof activeLink.scrollIntoView === "function") {
-        activeLink.scrollIntoView({ block: "nearest", inline: "nearest" });
-      }
     },
     [currentNavKey],
   );
@@ -209,12 +223,9 @@ export function SkillsTopbar({
     const indicator = activeIndicatorRef.current;
 
     if (nav && indicator) {
+      scrollNavLinkIntoView(nav, targetLink);
       indicator.style.transition = "";
       setNavIndicatorFromLink(nav, targetLink);
-    }
-
-    if (typeof targetLink.scrollIntoView === "function") {
-      targetLink.scrollIntoView({ block: "nearest", inline: "nearest" });
     }
   }, []);
 
@@ -364,7 +375,9 @@ export function SkillsTopbar({
                     size={18}
                     weight="regular"
                   />
-                  <span>{item.label}</span>
+                  <span className="practiceNavLabel" data-label={item.label}>
+                    {item.label}
+                  </span>
                 </Link>
               );
             })}
