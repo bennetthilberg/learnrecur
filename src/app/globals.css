@@ -132,6 +132,7 @@
 
 html {
   background: var(--lr-page);
+  scrollbar-gutter: stable;
 }
 
 html,

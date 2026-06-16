@@ -164,17 +164,25 @@ body {
   color: var(--lr-ink);
 }
 
-.practiceNav a[aria-current="page"],
-.practiceNav a[data-intent="create"][aria-current="page"] {
+.practiceNav a[data-nav-active="true"],
+.practiceNav a[data-intent="create"][data-nav-active="true"] {
   border: 0;
   background: transparent;
   color: var(--lr-ink);
   font-weight: 600;
 }
 
-.practiceNav a[aria-current="page"] {
+.practiceNav a[data-nav-active="true"] {
   border-bottom: 3px solid var(--lr-yellow);
   padding-bottom: 3px;
+}
+
+.practiceNav a[aria-current="page"]:not([data-nav-active="true"]) {
+  border: 0;
+  background: transparent;
+  color: var(--lr-nav-inactive);
+  font-weight: 400;
+  padding-bottom: 6px;
 }
 
 .practiceNav a[data-intent="create"] {
@@ -1435,11 +1443,18 @@ body {
     background: #FFFFFF;
   }
 
-  .practiceNav a[aria-current="page"],
-  .practiceNav a[data-intent="create"][aria-current="page"] {
+  .practiceNav a[data-nav-active="true"],
+  .practiceNav a[data-intent="create"][data-nav-active="true"] {
     border: 1px solid var(--lr-card-border);
     background: #FFFFFF;
     box-shadow: inset 0 -3px 0 var(--lr-yellow);
+    padding: 7px 6px;
+  }
+
+  .practiceNav a[aria-current="page"]:not([data-nav-active="true"]) {
+    border: 1px solid transparent;
+    background: transparent;
+    box-shadow: none;
     padding: 7px 6px;
   }
 
@@ -1798,12 +1813,31 @@ body {
     color: var(--lr-ink);
   }
 
-  .dashboardShell .practiceNav a[aria-current="page"],
-  .practiceShell .practiceNav a[aria-current="page"],
-  .skillShell .practiceNav a[aria-current="page"] {
+  .dashboardShell .practiceNav a[data-intent="create"]:not([aria-current="page"]):hover,
+  .practiceShell .practiceNav a[data-intent="create"]:not([aria-current="page"]):hover,
+  .skillShell .practiceNav a[data-intent="create"]:not([aria-current="page"]):hover {
+    border-color: var(--lr-card-border);
+    background: #FFFFFF;
+    color: var(--lr-ink);
+  }
+
+  .dashboardShell .practiceNav a[data-nav-active="true"],
+  .practiceShell .practiceNav a[data-nav-active="true"],
+  .skillShell .practiceNav a[data-nav-active="true"] {
     border-color: transparent;
     background: transparent;
     color: var(--lr-ink);
+    box-shadow: none;
+    padding: 9px 11px;
+  }
+
+  .dashboardShell .practiceNav a[aria-current="page"]:not([data-nav-active="true"]),
+  .practiceShell .practiceNav a[aria-current="page"]:not([data-nav-active="true"]),
+  .skillShell .practiceNav a[aria-current="page"]:not([data-nav-active="true"]) {
+    border-color: transparent;
+    background: transparent;
+    color: var(--lr-nav-inactive);
+    font-weight: 400;
     box-shadow: none;
     padding: 9px 11px;
   }

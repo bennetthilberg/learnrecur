@@ -2,6 +2,7 @@
 
 import { UserButton } from "@clerk/nextjs";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import type { MouseEvent } from "react";
 import {
@@ -113,6 +114,7 @@ export function SkillsTopbar({
 }: {
   current: SkillsTopbarCurrent;
 }) {
+  const router = useRouter();
   const navRef = useRef<HTMLElement | null>(null);
   const activeIndicatorRef = useRef<HTMLSpanElement | null>(null);
   const previousNavKeyRef = useRef<string | null>(null);
@@ -183,6 +185,36 @@ export function SkillsTopbar({
     };
   }, [positionActiveIndicator]);
 
+  useEffect(() => {
+    const prefetchPrimaryRoutes = () => {
+      for (const item of navItems) {
+        if (item.key !== currentNavKey) {
+          router.prefetch(item.href);
+        }
+      }
+    };
+    const idleWindow = window as Window & {
+      cancelIdleCallback?: (handle: number) => void;
+      requestIdleCallback?: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number;
+    };
+
+    if (idleWindow.requestIdleCallback) {
+      const idleHandle = idleWindow.requestIdleCallback(prefetchPrimaryRoutes, {
+        timeout: 2500,
+      });
+
+      return () => {
+        idleWindow.cancelIdleCallback?.(idleHandle);
+      };
+    }
+
+    const timeoutHandle = window.setTimeout(prefetchPrimaryRoutes, 400);
+
+    return () => {
+      window.clearTimeout(timeoutHandle);
+    };
+  }, [currentNavKey, router]);
+
   const handleNavClick = useCallback(
     (targetKey: string, event: MouseEvent<HTMLAnchorElement>) => {
       if (
@@ -201,9 +233,14 @@ export function SkillsTopbar({
 
         const nav = navRef.current;
         const indicator = activeIndicatorRef.current;
-        const targetLink = nav?.querySelector<HTMLAnchorElement>(
-          `a[data-nav-key="${targetKey}"]`,
-        );
+        const targetLink = event.currentTarget;
+
+        if (nav) {
+          nav.querySelectorAll<HTMLAnchorElement>("a[data-nav-active]").forEach((link) => {
+            link.removeAttribute("data-nav-active");
+          });
+          targetLink.setAttribute("data-nav-active", "true");
+        }
 
         if (nav && indicator && targetLink) {
           indicator.style.transition = "";
@@ -228,15 +265,18 @@ export function SkillsTopbar({
             <span ref={activeIndicatorRef} className="practiceNavActiveIndicator" aria-hidden="true" />
             {navItems.map((item) => {
               const NavIcon = item.icon;
+              const isCurrentPage = item.isCurrent(current);
 
               return (
                 <Link
-                  aria-current={item.isCurrent(current) ? "page" : undefined}
+                  aria-current={isCurrentPage ? "page" : undefined}
                   data-intent={item.intent}
+                  data-nav-active={isCurrentPage ? "true" : undefined}
                   data-nav-key={item.key}
                   href={item.href}
                   key={item.key}
                   onClick={(event) => handleNavClick(item.key, event)}
+                  onPointerEnter={() => router.prefetch(item.href)}
                 >
                   <NavIcon
                     aria-hidden="true"
