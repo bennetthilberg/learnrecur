@@ -35,6 +35,24 @@ body {
   z-index: 1;
 }
 
+.dashboardShell[data-route-pending="true"] > :not(.openWaterBackground):not(.practiceTopbar):not(.routePendingContent),
+.practiceShell[data-route-pending="true"] > :not(.openWaterBackground):not(.practiceTopbar):not(.routePendingContent),
+.skillShell[data-route-pending="true"] > :not(.openWaterBackground):not(.practiceTopbar):not(.routePendingContent) {
+  display: none;
+}
+
+.routePendingContent {
+  min-width: 0;
+}
+
+.routePendingContent > .skillLibraryGrid,
+.routePendingContent > .skillDraftGrid,
+.routePendingContent > .skillCreateStack {
+  width: calc(100% - 28px);
+  margin-right: auto;
+  margin-left: auto;
+}
+
 .openWaterBackground {
   position: fixed;
   inset: 0;
@@ -109,6 +127,13 @@ body {
 }
 
 .practiceNav {
+  --practice-nav-indicator-height: 0px;
+  --practice-nav-indicator-opacity: 0;
+  --practice-nav-indicator-width: 0px;
+  --practice-nav-indicator-x: 0px;
+  --practice-nav-indicator-y: 0px;
+
+  position: relative;
   display: flex;
   width: auto;
   min-width: 0;
@@ -123,6 +148,28 @@ body {
 
 .practiceNav::-webkit-scrollbar {
   display: none;
+}
+
+.practiceNavActiveIndicator {
+  display: none;
+}
+
+.practiceNavFloatingIndicator {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  display: block;
+  border: 1px solid var(--lr-card-border);
+  border-radius: 8px;
+  background: #FFFFFF;
+  box-shadow: inset 0 -3px 0 var(--lr-yellow);
+  pointer-events: none;
+  transition:
+    transform 175ms cubic-bezier(0.2, 0.9, 0.2, 1),
+    width 175ms cubic-bezier(0.2, 0.9, 0.2, 1),
+    height 175ms cubic-bezier(0.2, 0.9, 0.2, 1);
+  will-change: transform, width, height;
 }
 
 .practiceNav a {
@@ -146,30 +193,30 @@ body {
   display: none;
 }
 
-.practiceNav a:hover,
-.practiceNav a[data-intent="create"]:hover {
+.practiceNav a:hover {
   border: 0;
   background: transparent;
   color: var(--lr-ink);
 }
 
-.practiceNav a[aria-current="page"],
-.practiceNav a[data-intent="create"][aria-current="page"] {
+.practiceNav a[data-nav-active="true"] {
   border: 0;
   background: transparent;
   color: var(--lr-ink);
-  font-weight: 600;
+  font-weight: 400;
 }
 
-.practiceNav a[aria-current="page"] {
+.practiceNav a[data-nav-active="true"] {
   border-bottom: 3px solid var(--lr-yellow);
   padding-bottom: 3px;
 }
 
-.practiceNav a[data-intent="create"] {
-  margin: 0;
+.practiceNav a[aria-current="page"]:not([data-nav-active="true"]) {
+  border: 0;
   background: transparent;
-  color: var(--lr-blue);
+  color: var(--lr-nav-inactive);
+  font-weight: 400;
+  padding-bottom: 6px;
 }
 
 .practiceNavIcon {
@@ -177,7 +224,36 @@ body {
   flex: 0 0 auto;
 }
 
+.practiceNavLabel {
+  display: inline-grid;
+  align-items: center;
+}
+
+.practiceNavLabel,
+.practiceNavLabel::after {
+  grid-area: 1 / 1;
+}
+
+.practiceNavLabel::after {
+  overflow: hidden;
+  width: auto;
+  height: 0;
+  content: attr(data-label);
+  font-weight: 600;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.practiceNav a[data-nav-active="true"] .practiceNavLabel {
+  text-shadow: .2px 0 0 currentcolor;
+}
+
+.practiceNav a[aria-current="page"]:not([data-nav-active="true"]) .practiceNavLabel {
+  text-shadow: none;
+}
+
 .practiceNav a:focus-visible,
+.practiceUserIdentity:focus-visible,
 .dashboardPanelLink:focus-visible,
 .skillLibraryRowMain a:focus-visible,
 .skillRow h3 a:focus-visible,
@@ -196,6 +272,64 @@ body {
   height: 28px;
   flex: 0 0 28px;
   margin: 0;
+}
+
+.practiceUserProfile {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.practiceUserProfile .cl-userButton-root {
+  width: 28px !important;
+  flex: 0 0 28px !important;
+}
+
+.practiceUserFallbackAvatar {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--lr-avatar-bg);
+  color: #FFFFFF;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.practiceUserProfile:has(.learnrecurUserButton) .practiceUserFallbackAvatar {
+  display: none;
+}
+
+.practiceUserIdentity {
+  display: none;
+}
+
+.practiceUserName,
+.practiceUserMeta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.practiceUserName {
+  color: var(--lr-ink);
+  font-family: var(--lr-font-display);
+  font-size: 13.5px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+.practiceUserMeta {
+  color: var(--lr-text-secondary);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.25;
 }
 
 .practiceUserMenu::after {
@@ -715,10 +849,25 @@ body {
   min-height: auto;
   margin: 0;
   padding: 10px 18px;
+  position: relative;
   text-decoration: none;
   transform: translateY(0);
   transition: transform .08s ease, box-shadow .08s ease, background-color .12s ease;
   user-select: none;
+}
+
+.primaryButton::after,
+.secondaryButton::after,
+.ratingButton::after {
+  position: absolute;
+  inset: -5px -5px -8px;
+  border: 2px solid var(--lr-focus-outline);
+  border-radius: 13px;
+  box-shadow: var(--lr-focus-ring);
+  content: "";
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .12s ease;
 }
 
 .primaryButton,
@@ -780,14 +929,13 @@ body {
 .primaryButton:focus-visible,
 .secondaryButton:focus-visible,
 .ratingButton:focus-visible {
-  outline: 2px solid var(--lr-focus-outline);
-  outline-offset: 3px;
-  box-shadow:0 3px 0 #CDD4E1, var(--lr-focus-ring);
+  outline: none;
 }
 
-.primaryButton:focus-visible,
-.ratingButton[data-selected="true"]:focus-visible {
-  box-shadow:0 3px 0 #143479, var(--lr-focus-ring);
+.primaryButton:focus-visible::after,
+.secondaryButton:focus-visible::after,
+.ratingButton:focus-visible::after {
+  opacity: 1;
 }
 
 .primaryButton:disabled,
@@ -914,6 +1062,245 @@ body {
   letter-spacing: -0.01em;
 }
 
+.routeLoadingHeaderActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: end;
+  gap: 10px;
+}
+
+.routeSkeleton {
+  background-color: #E7EDF7 !important;
+}
+
+.routeSkeleton::after {
+  background-image: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, .68),
+    transparent
+  ) !important;
+}
+
+.routeLoadingPanel {
+  display: grid;
+  gap: 16px;
+}
+
+.routeLoadingHero {
+  position: relative;
+  overflow: hidden;
+}
+
+.routeLoadingHero .routeSkeleton {
+  background-color: rgba(255, 255, 255, .08) !important;
+}
+
+.routeLoadingHero .routeSkeleton::after {
+  background-image: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, .12),
+    transparent
+  ) !important;
+}
+
+.routeLoadingHeroWave {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 46px;
+  background: rgba(11, 44, 127, .55);
+  clip-path: ellipse(78% 42% at 56% 100%);
+}
+
+.routeLoadingHeroRings {
+  position: absolute;
+  top: 28px;
+  right: 32px;
+  width: 86px;
+  height: 86px;
+  border: 2px solid rgba(255, 255, 255, .18);
+  border-radius: 50%;
+}
+
+.routeLoadingHeroRings::before,
+.routeLoadingHeroRings::after {
+  position: absolute;
+  content: "";
+  border: 2px solid rgba(255, 255, 255, .18);
+  border-radius: 50%;
+}
+
+.routeLoadingHeroRings::before {
+  inset: 14px;
+}
+
+.routeLoadingHeroRings::after {
+  inset: 28px;
+}
+
+.routeLoadingHeroTitle {
+  display: block;
+  max-width: 760px;
+}
+
+.routeLoadingHeroButton {
+  border: 1px solid rgba(255, 255, 255, .12);
+}
+
+.routeLoadingStatTile {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+}
+
+.routeLoadingReviewCard {
+  display: grid;
+  gap: 14px;
+}
+
+.routeLoadingReviewPrompt {
+  margin-top: 2px;
+}
+
+.routeLoadingActionButton {
+  flex: 0 0 auto;
+}
+
+.routeLoadingDeckRow {
+  align-items: center;
+}
+
+.routeLoadingDeckText,
+.routeLoadingLibraryCopy,
+.routeLoadingFormStack {
+  display: grid;
+  gap: 9px;
+  min-width: 0;
+}
+
+.routeLoadingMetaLine {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.routeLoadingFactsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.routeLoadingScope {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.routeLoadingPracticeFrame {
+  display: grid;
+  gap: 18px;
+}
+
+.routeLoadingPracticeFacts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: end;
+  gap: 10px;
+}
+
+.routeLoadingPracticePrompt {
+  margin-top: 14px;
+}
+
+.routeLoadingChoice {
+  min-width: 0;
+}
+
+.routeLoadingCreateStack {
+  display: grid;
+  gap: 18px;
+}
+
+.routeLoadingTabs span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 8px 14px;
+  color: var(--lr-nav-inactive);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.routeLoadingTabs span[aria-current="page"] {
+  border-color: var(--lr-card-border);
+  background: #FFFFFF;
+  color: var(--lr-ink);
+  box-shadow: inset 0 -3px 0 var(--lr-yellow);
+}
+
+.routeLoadingDropzone {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  border: 1.5px dashed var(--lr-card-border);
+  border-radius: 8px;
+  padding: 28px 18px;
+  text-align: center;
+}
+
+.routeLoadingHistoryTable .routeSkeleton {
+  display: block;
+}
+
+.routeLoadingCollectionRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 24px;
+  border-top: 1px solid var(--lr-divider);
+  padding: 24px 0;
+}
+
+.routeLoadingCollectionActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.routeLoadingSettingsSummary {
+  display: grid;
+  grid-template-columns: .7fr 1fr 1fr;
+  gap: 18px;
+}
+
+.routeLoadingSettingsForm {
+  display: grid;
+  grid-template-columns: minmax(260px, .9fr) minmax(0, 1fr);
+  gap: 30px;
+  border-top: 1px solid var(--lr-divider);
+  padding-top: 18px;
+}
+
+.routeLoadingTwoColumn {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.routeLoadingPrivacyNote {
+  margin-top: 0;
+}
+
 .dashboardChip,
 .dashboardTag {
   border: 1.5px solid var(--lr-chip-border);
@@ -931,6 +1318,11 @@ body {
   border-color: var(--lr-amber);
   background: #FFFFFF;
   color: var(--lr-amber);
+}
+
+.historyTable .dashboardChip[data-tone="ready"] {
+  border-color: var(--lr-green);
+  color: var(--lr-green);
 }
 
 .dashboardChip[data-tone="neutral"],
@@ -1381,8 +1773,7 @@ body {
     padding-top: 4px;
   }
 
-  .practiceNav a,
-  .practiceNav a[data-intent="create"] {
+  .practiceNav a {
     display: flex;
     order: 0;
     min-height: 31px;
@@ -1399,17 +1790,22 @@ body {
     display: none;
   }
 
-  .practiceNav a:hover,
-  .practiceNav a[data-intent="create"]:hover {
+  .practiceNav a:hover {
     border-color: var(--lr-card-border);
     background: #FFFFFF;
   }
 
-  .practiceNav a[aria-current="page"],
-  .practiceNav a[data-intent="create"][aria-current="page"] {
+  .practiceNav a[data-nav-active="true"] {
     border: 1px solid var(--lr-card-border);
     background: #FFFFFF;
     box-shadow: inset 0 -3px 0 var(--lr-yellow);
+    padding: 7px 6px;
+  }
+
+  .practiceNav a[aria-current="page"]:not([data-nav-active="true"]) {
+    border: 1px solid transparent;
+    background: transparent;
+    box-shadow: none;
     padding: 7px 6px;
   }
 
@@ -1461,6 +1857,25 @@ body {
     display: grid;
   }
 
+  .routeLoadingHeaderActions,
+  .routeLoadingPracticeFacts {
+    justify-content: start;
+  }
+
+  .routeLoadingHeroRings {
+    right: 18px;
+    width: 62px;
+    height: 62px;
+  }
+
+  .routeLoadingFactsGrid,
+  .routeLoadingSettingsSummary,
+  .routeLoadingSettingsForm,
+  .routeLoadingTwoColumn,
+  .routeLoadingCollectionRow {
+    grid-template-columns: 1fr;
+  }
+
   .openWaterHero h1,
   .skillHeader h1,
   .dashboardHeader h1,
@@ -1483,8 +1898,7 @@ body {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  .practiceNav a,
-  .practiceNav a[data-intent="create"] {
+  .practiceNav a {
     font-size: 12px;
   }
 }
@@ -1540,6 +1954,14 @@ body {
     padding: 18px 0 0;
   }
 
+  .routePendingContent[data-route-kind="dashboard"] .openWaterStatGrid {
+    width: min(calc(100% - 48px), 1040px);
+    gap: 14px;
+    margin-right: auto;
+    margin-left: auto;
+    padding: 18px 0 0;
+  }
+
   .dashboardShell .openWaterSection,
   .dashboardShell .openWaterTwoColumn {
     width: min(calc(100% - 48px), 1040px);
@@ -1548,7 +1970,22 @@ body {
     padding: 22px 0 0;
   }
 
+  .routePendingContent[data-route-kind="dashboard"] .openWaterSection,
+  .routePendingContent[data-route-kind="dashboard"] .openWaterTwoColumn {
+    width: min(calc(100% - 48px), 1040px);
+    margin-right: auto;
+    margin-left: auto;
+    padding: 22px 0 0;
+  }
+
   .dashboardShell .openWaterReviewSection {
+    width: min(calc(100% - 48px), 920px);
+    max-width: 920px;
+    margin-right: auto;
+    margin-left: max(24px, calc((100% - 1040px) / 2));
+  }
+
+  .routePendingContent[data-route-kind="dashboard"] .openWaterReviewSection {
     width: min(calc(100% - 48px), 920px);
     max-width: 920px;
     margin-right: auto;
@@ -1563,7 +2000,15 @@ body {
     padding: 22px 24px;
   }
 
+  .routePendingContent[data-route-kind="dashboard"] .openWaterReviewCard {
+    padding: 22px 24px;
+  }
+
   .dashboardShell .openWaterDeckRow {
+    padding: 14px 17px;
+  }
+
+  .routePendingContent[data-route-kind="dashboard"] .openWaterDeckRow {
     padding: 14px 17px;
   }
 
@@ -1587,6 +2032,12 @@ body {
   .skillShell > .skillLibraryGrid,
   .skillShell > .skillDraftGrid,
   .skillShell > .skillCreateStack {
+    width: calc(100% - 48px);
+  }
+
+  .routePendingContent > .skillLibraryGrid,
+  .routePendingContent > .skillDraftGrid,
+  .routePendingContent > .skillCreateStack {
     width: calc(100% - 48px);
   }
 
@@ -1644,7 +2095,8 @@ body {
   .practiceShell,
   .skillShell {
     display: grid;
-    max-width: min(1360px, calc(100vw - 64px));
+    max-width: none;
+    margin: 0;
     grid-template-columns: 244px minmax(0, 1fr);
     grid-auto-rows: min-content;
     column-gap: 0;
@@ -1669,6 +2121,7 @@ body {
   .practiceShell .practiceTopbar,
   .skillShell .practiceTopbar {
     position: relative;
+    z-index: auto;
     grid-column: 1;
     grid-row: 1 / span 100;
     display: flex;
@@ -1678,13 +2131,18 @@ body {
     justify-content: flex-start;
     gap: 26px;
     border-right: 1px solid var(--lr-canvas-border);
-    padding: 30px 20px 24px;
+    background: var(--lr-wave-1);
+    padding: 30px 0 0;
   }
 
   .dashboardShell .practiceWordmark,
   .practiceShell .practiceWordmark,
   .skillShell .practiceWordmark {
+    position: relative;
+    z-index: 3;
     justify-content: flex-start;
+    margin-right: 20px;
+    margin-left: 20px;
     padding-right: 42px;
   }
 
@@ -1702,10 +2160,42 @@ body {
   .dashboardShell .practiceNav,
   .practiceShell .practiceNav,
   .skillShell .practiceNav {
+    position: relative;
     display: grid;
     flex: 0 0 auto;
     gap: 5px;
+    margin-right: 20px;
+    margin-left: 20px;
     overflow: visible;
+  }
+
+  .dashboardShell .practiceNavActiveIndicator,
+  .practiceShell .practiceNavActiveIndicator,
+  .skillShell .practiceNavActiveIndicator {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 0;
+    display: block;
+    width: var(--practice-nav-indicator-width);
+    height: var(--practice-nav-indicator-height);
+    border: 1px solid var(--lr-card-border);
+    border-radius: 8px;
+    background: #FFFFFF;
+    box-shadow: inset 0 -3px 0 var(--lr-yellow);
+    opacity: var(--practice-nav-indicator-opacity);
+    pointer-events: none;
+    transform: translate3d(
+      var(--practice-nav-indicator-x),
+      var(--practice-nav-indicator-y),
+      0
+    );
+    transition:
+      transform 175ms cubic-bezier(0.2, 0.9, 0.2, 1),
+      width 175ms cubic-bezier(0.2, 0.9, 0.2, 1),
+      height 175ms cubic-bezier(0.2, 0.9, 0.2, 1),
+      opacity 80ms ease-out;
+    will-change: transform, width, height;
   }
 
   .dashboardShell .practiceNav a,
@@ -1719,14 +2209,7 @@ body {
     background: transparent;
     color: var(--lr-nav-inactive);
     padding: 9px 11px;
-  }
-
-  .dashboardShell .practiceNav a[data-intent="create"]:not([aria-current="page"]),
-  .practiceShell .practiceNav a[data-intent="create"]:not([aria-current="page"]),
-  .skillShell .practiceNav a[data-intent="create"]:not([aria-current="page"]) {
-    border-color: transparent;
-    background: transparent;
-    color: var(--lr-nav-inactive);
+    z-index: 3;
   }
 
   .dashboardShell .practiceNav a:hover,
@@ -1737,29 +2220,125 @@ body {
     color: var(--lr-ink);
   }
 
-  .dashboardShell .practiceNav a[aria-current="page"],
-  .practiceShell .practiceNav a[aria-current="page"],
-  .skillShell .practiceNav a[aria-current="page"] {
-    border: 1px solid var(--lr-card-border);
-    background: #FFFFFF;
+  body.practiceNavFloatingActive .dashboardShell .practiceNavActiveIndicator,
+  body.practiceNavFloatingActive .practiceShell .practiceNavActiveIndicator,
+  body.practiceNavFloatingActive .skillShell .practiceNavActiveIndicator {
+    visibility: hidden;
+  }
+
+  body.practiceNavFloatingActive .dashboardShell .practiceNav a:hover,
+  body.practiceNavFloatingActive .practiceShell .practiceNav a:hover,
+  body.practiceNavFloatingActive .skillShell .practiceNav a:hover {
+    border-color: transparent;
+    background: transparent;
+  }
+
+  .dashboardShell .practiceNav a[data-nav-active="true"],
+  .practiceShell .practiceNav a[data-nav-active="true"],
+  .skillShell .practiceNav a[data-nav-active="true"] {
+    border-color: transparent;
+    background: transparent;
     color: var(--lr-ink);
-    box-shadow: inset 0 -3px 0 var(--lr-yellow);
+    box-shadow: none;
+    padding: 9px 11px;
+  }
+
+  .dashboardShell .practiceNav a[aria-current="page"]:not([data-nav-active="true"]),
+  .practiceShell .practiceNav a[aria-current="page"]:not([data-nav-active="true"]),
+  .skillShell .practiceNav a[aria-current="page"]:not([data-nav-active="true"]) {
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--lr-nav-inactive);
+    font-weight: 400;
+    box-shadow: none;
     padding: 9px 11px;
   }
 
   .dashboardShell .practiceUserMenu,
   .practiceShell .practiceUserMenu,
   .skillShell .practiceUserMenu {
+    position: relative;
+    z-index: 3;
+    width: 100%;
+    height: auto;
+    flex: 0 0 auto;
+    margin-top: auto;
+  }
+
+  .dashboardShell .practiceUserProfile,
+  .practiceShell .practiceUserProfile,
+  .skillShell .practiceUserProfile {
+    width: 100%;
+    min-width: 0;
+    min-height: 68px;
+    gap: 11px;
+    border: 0;
+    border-top: 1px solid var(--lr-card-border);
+    border-radius: 5px 5px 0 0;
+    background: var(--lr-canvas);
+    padding: 13px 16px 14px;
+  }
+
+  .dashboardShell .practiceUserProfile:hover,
+  .practiceShell .practiceUserProfile:hover,
+  .skillShell .practiceUserProfile:hover {
+    background: var(--lr-wave-2);
+  }
+
+  .dashboardShell .learnrecurUserButton,
+  .practiceShell .learnrecurUserButton,
+  .skillShell .learnrecurUserButton,
+  .dashboardShell .learnrecurUserAvatar,
+  .practiceShell .learnrecurUserAvatar,
+  .skillShell .learnrecurUserAvatar {
+    width: 38px !important;
+    height: 38px !important;
+    flex: 0 0 38px !important;
+  }
+
+  .dashboardShell .practiceUserProfile .cl-userButton-root,
+  .practiceShell .practiceUserProfile .cl-userButton-root,
+  .skillShell .practiceUserProfile .cl-userButton-root {
+    position: relative;
+    z-index: 1;
+    width: 38px !important;
+    flex: 0 0 38px !important;
+  }
+
+  .dashboardShell .practiceUserFallbackAvatar,
+  .practiceShell .practiceUserFallbackAvatar,
+  .skillShell .practiceUserFallbackAvatar {
+    position: relative;
+    z-index: 1;
+    width: 38px;
+    height: 38px;
+    flex-basis: 38px;
+    font-size: 14px;
+  }
+
+  .dashboardShell .practiceUserIdentity,
+  .practiceShell .practiceUserIdentity,
+  .skillShell .practiceUserIdentity {
     position: absolute;
-    top: 30px;
-    right: 20px;
-    margin: 0;
+    inset: -1px 0 0;
+    z-index: 2;
+    display: grid;
+    min-width: 0;
+    width: 100%;
+    align-content: center;
+    gap: 3px;
+    border: 0;
+    background: transparent;
+    padding: 0 16px 0 65px;
+    text-align: left;
+    cursor: pointer;
   }
 
   .dashboardShell .openWaterHero,
   .practiceShell .openWaterHero,
   .skillShell .openWaterHero {
     width: min(calc(100% - 68px), 1040px);
+    justify-self: center;
     margin: 28px auto 0;
   }
 
@@ -1767,22 +2346,54 @@ body {
     padding: 34px 38px 36px;
   }
 
+  .routePendingContent[data-route-kind="dashboard"] .openWaterHeroContent {
+    padding: 34px 38px 36px;
+  }
+
   .dashboardShell .openWaterHero h1 {
+    font-size: 34px;
+  }
+
+  .routePendingContent[data-route-kind="dashboard"] .openWaterHero h1 {
     font-size: 34px;
   }
 
   .dashboardShell .openWaterStatGrid {
     width: min(calc(100% - 68px), 1040px);
+    justify-self: center;
+    padding: 22px 0 0;
+  }
+
+  .routePendingContent[data-route-kind="dashboard"] .openWaterStatGrid {
+    width: min(calc(100% - 68px), 1040px);
+    margin-right: auto;
+    margin-left: auto;
     padding: 22px 0 0;
   }
 
   .dashboardShell .openWaterSection,
   .dashboardShell .openWaterTwoColumn {
     width: min(calc(100% - 68px), 1040px);
+    justify-self: center;
+    padding: 24px 0 0;
+  }
+
+  .routePendingContent[data-route-kind="dashboard"] .openWaterSection,
+  .routePendingContent[data-route-kind="dashboard"] .openWaterTwoColumn {
+    width: min(calc(100% - 68px), 1040px);
+    margin-right: auto;
+    margin-left: auto;
     padding: 24px 0 0;
   }
 
   .dashboardShell .openWaterReviewSection {
+    width: min(calc(100% - 68px), 920px);
+    max-width: 920px;
+    margin-right: auto;
+    margin-left: max(34px, calc((100% - 1040px) / 2));
+  }
+
+  .routePendingContent[data-route-kind="dashboard"] .openWaterReviewSection {
     width: min(calc(100% - 68px), 920px);
     max-width: 920px;
     margin-right: auto;
@@ -1797,7 +2408,16 @@ body {
     max-width: 820px;
   }
 
+  .routePendingContent[data-route-kind="dashboard"] .openWaterReviewPrompt {
+    max-width: 820px;
+  }
+
   .dashboardShell .openWaterCollections {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .routePendingContent[data-route-kind="dashboard"] .openWaterCollections {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
   }
@@ -1824,6 +2444,7 @@ body {
   .dashboardSetupPanel,
   .dashboardMessage {
     width: calc(100% - 68px);
+    max-width: 1048px;
     justify-self: center;
   }
 
@@ -1832,7 +2453,17 @@ body {
   .skillShell > .skillDraftGrid,
   .skillShell > .skillCreateStack {
     width: calc(100% - 68px);
+    max-width: 1048px;
     justify-self: center;
+  }
+
+  .routePendingContent > .skillLibraryGrid,
+  .routePendingContent > .skillDraftGrid,
+  .routePendingContent > .skillCreateStack {
+    width: calc(100% - 68px);
+    max-width: 1048px;
+    margin-right: auto;
+    margin-left: auto;
   }
 }
 
@@ -2211,7 +2842,8 @@ body {
   .authShell *,
   .dashboardShell *,
   .practiceShell *,
-  .skillShell * {
+  .skillShell *,
+  .practiceNavFloatingIndicator {
     animation-duration: .001ms !important;
     transition-duration: .001ms !important;
   }

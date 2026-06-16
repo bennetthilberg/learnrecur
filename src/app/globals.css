@@ -132,6 +132,7 @@
 
 html {
   background: var(--lr-page);
+  scrollbar-gutter: stable;
 }
 
 html,
@@ -227,6 +228,7 @@ a {
   border: 1px solid transparent;
   border-radius: 8px;
   cursor: pointer;
+  position: relative;
   margin: 0;
   user-select: none;
   -webkit-user-select: none;
@@ -234,13 +236,27 @@ a {
   transition:
     transform .08s ease,
     box-shadow .12s ease,
-    background-color .12s ease,
-    outline-color .12s ease,
-    outline-offset .12s ease;
+    background-color .12s ease;
 }
+
+.bpbtn::after {
+  position: absolute;
+  inset: -5px -5px -8px;
+  border: 2px solid var(--lr-focus-outline);
+  border-radius: 13px;
+  box-shadow: var(--lr-focus-ring);
+  content: "";
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .12s ease;
+}
+
 .bpbtn:focus-visible {
-  outline: 2px solid var(--lr-focus-outline);
-  outline-offset: 3px;
+  outline: none;
+}
+
+.bpbtn:focus-visible::after {
+  opacity: 1;
 }
 .bpbtn:disabled { opacity: .5; cursor: not-allowed; }
 

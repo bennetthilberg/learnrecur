@@ -9,7 +9,7 @@ export function OpenWaterBackground() {
       viewBox="0 0 580 1600"
     >
       <path d="M0 250 Q 145 205 290 250 T 580 250 V1600 H0 Z" fill="#F1F3F6" />
-      <path d="M0 680 Q 145 635 290 680 T 580 680 V1600 H0 Z" fill="#EDEFF3" />
+      <path d="M0 680 Q 145 725 290 680 T 580 680 V1600 H0 Z" fill="#EDEFF3" />
       <path d="M0 1120 Q 145 1075 290 1120 T 580 1120 V1600 H0 Z" fill="#E9EBF0" />
       <path
         d="M0 250 Q 145 205 290 250 T 580 250"
@@ -18,7 +18,7 @@ export function OpenWaterBackground() {
         strokeWidth="1"
       />
       <path
-        d="M0 680 Q 145 635 290 680 T 580 680"
+        d="M0 680 Q 145 725 290 680 T 580 680"
         fill="none"
         stroke="#E0E3E9"
         strokeWidth="1"
