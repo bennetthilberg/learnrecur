@@ -86,6 +86,8 @@ export function PrimaryRouteLoadingContent({
       return <CollectionsRouteLoading config={config} />;
     case "settings":
       return <SettingsRouteLoading config={config} />;
+    default:
+      throw new Error(`Unexpected route loading kind: ${(config as { kind: string }).kind}`);
   }
 }
 
@@ -505,7 +507,7 @@ function SettingsRouteLoading({ config }: { config: PrimaryRouteLoadingConfig })
 }
 
 function formatRouteLoadingDate(date: Date) {
-  return date.toLocaleDateString("en-US", {
+  return date.toLocaleDateString(undefined, {
     day: "numeric",
     month: "long",
     weekday: "long",

@@ -275,9 +275,11 @@ body {
 }
 
 .practiceUserProfile {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 10px;
+  cursor: pointer;
 }
 
 .practiceUserProfile .cl-userButton-root {
@@ -2272,7 +2274,7 @@ body {
     gap: 11px;
     border: 0;
     border-top: 1px solid var(--lr-card-border);
-    border-radius: 0;
+    border-radius: 5px 5px 0 0;
     background: var(--lr-canvas);
     padding: 13px 16px 14px;
   }
@@ -2297,6 +2299,8 @@ body {
   .dashboardShell .practiceUserProfile .cl-userButton-root,
   .practiceShell .practiceUserProfile .cl-userButton-root,
   .skillShell .practiceUserProfile .cl-userButton-root {
+    position: relative;
+    z-index: 1;
     width: 38px !important;
     flex: 0 0 38px !important;
   }
@@ -2304,6 +2308,8 @@ body {
   .dashboardShell .practiceUserFallbackAvatar,
   .practiceShell .practiceUserFallbackAvatar,
   .skillShell .practiceUserFallbackAvatar {
+    position: relative;
+    z-index: 1;
     width: 38px;
     height: 38px;
     flex-basis: 38px;
@@ -2313,13 +2319,17 @@ body {
   .dashboardShell .practiceUserIdentity,
   .practiceShell .practiceUserIdentity,
   .skillShell .practiceUserIdentity {
+    position: absolute;
+    inset: -1px 0 0;
+    z-index: 2;
     display: grid;
     min-width: 0;
-    flex: 1 1 auto;
+    width: 100%;
+    align-content: center;
     gap: 3px;
     border: 0;
     background: transparent;
-    padding: 0;
+    padding: 0 16px 0 65px;
     text-align: left;
     cursor: pointer;
   }
