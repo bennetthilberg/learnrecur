@@ -949,41 +949,261 @@ body {
   letter-spacing: -0.01em;
 }
 
+.routeLoadingHeaderActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: end;
+  gap: 10px;
+}
+
+.routeSkeleton {
+  background-color: #E7EDF7 !important;
+}
+
+.routeSkeleton::after {
+  background-image: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, .68),
+    transparent
+  ) !important;
+}
+
 .routeLoadingPanel {
   display: grid;
-  gap: 12px;
-  min-height: 172px;
+  gap: 16px;
 }
 
-.routeLoadingLine,
-.routeLoadingRows span {
-  display: block;
-  border-radius: 6px;
-  background: var(--lr-blue-tint);
+.routeLoadingPanelCount {
+  display: grid;
+  min-width: 72px;
+  justify-items: center;
+  border-left: 1px solid var(--lr-divider);
+  padding-left: 18px;
+  color: var(--lr-text-secondary);
+  font-size: 12px;
+  line-height: 1.2;
 }
 
-.routeLoadingLine {
-  height: 14px;
+.routeLoadingHero {
+  position: relative;
+  overflow: hidden;
 }
 
-.routeLoadingLine[data-width="wide"] {
-  width: min(420px, 86%);
+.routeLoadingHero .routeSkeleton {
+  background-color: rgba(255, 255, 255, .22) !important;
 }
 
-.routeLoadingLine[data-width="medium"] {
-  width: min(300px, 64%);
+.routeLoadingHero .routeSkeleton::after {
+  background-image: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, .32),
+    transparent
+  ) !important;
 }
 
-.routeLoadingRows {
+.routeLoadingHeroWave {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 46px;
+  background: rgba(11, 44, 127, .55);
+  clip-path: ellipse(78% 42% at 56% 100%);
+}
+
+.routeLoadingHeroRings {
+  position: absolute;
+  top: 28px;
+  right: 32px;
+  width: 86px;
+  height: 86px;
+  border: 2px solid rgba(255, 255, 255, .18);
+  border-radius: 50%;
+}
+
+.routeLoadingHeroRings::before,
+.routeLoadingHeroRings::after {
+  position: absolute;
+  content: "";
+  border: 2px solid rgba(255, 255, 255, .18);
+  border-radius: 50%;
+}
+
+.routeLoadingHeroRings::before {
+  inset: 14px;
+}
+
+.routeLoadingHeroRings::after {
+  inset: 28px;
+}
+
+.routeLoadingHeroTitle {
+  display: flex;
+  max-width: 760px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.routeLoadingHeroTitle span {
+  color: #FFFFFF;
+}
+
+.routeLoadingHeroButton {
+  border: 1px solid rgba(255, 255, 255, .32);
+}
+
+.routeLoadingStatTile {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+}
+
+.routeLoadingReviewCard {
+  display: grid;
+  gap: 14px;
+}
+
+.routeLoadingReviewPrompt {
+  margin-top: 2px;
+}
+
+.routeLoadingActionButton {
+  flex: 0 0 auto;
+}
+
+.routeLoadingDeckRow {
+  align-items: center;
+}
+
+.routeLoadingDeckText,
+.routeLoadingLibraryCopy,
+.routeLoadingFormStack {
   display: grid;
   gap: 9px;
-  margin-top: 8px;
+  min-width: 0;
 }
 
-.routeLoadingRows span {
-  height: 38px;
-  border: 1px solid var(--lr-card-border);
+.routeLoadingMetaLine {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.routeLoadingFactsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.routeLoadingScope {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.routeLoadingPracticeFrame {
+  display: grid;
+  gap: 18px;
+}
+
+.routeLoadingPracticeFacts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: end;
+  gap: 10px;
+}
+
+.routeLoadingPracticePrompt {
+  margin-top: 14px;
+}
+
+.routeLoadingChoice {
+  min-width: 0;
+}
+
+.routeLoadingCreateStack {
+  display: grid;
+  gap: 18px;
+}
+
+.routeLoadingTabs span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 8px 14px;
+  color: var(--lr-nav-inactive);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.routeLoadingTabs span[aria-current="page"] {
+  border-color: var(--lr-card-border);
   background: #FFFFFF;
+  color: var(--lr-ink);
+  box-shadow: inset 0 -3px 0 var(--lr-yellow);
+}
+
+.routeLoadingDropzone {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  border: 1.5px dashed var(--lr-card-border);
+  border-radius: 8px;
+  padding: 28px 18px;
+  text-align: center;
+}
+
+.routeLoadingHistoryTable .routeSkeleton {
+  display: block;
+}
+
+.routeLoadingCollectionRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 24px;
+  border-top: 1px solid var(--lr-divider);
+  padding: 24px 0;
+}
+
+.routeLoadingCollectionActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.routeLoadingSettingsSummary {
+  display: grid;
+  grid-template-columns: .7fr 1fr 1fr;
+  gap: 18px;
+}
+
+.routeLoadingSettingsForm {
+  display: grid;
+  grid-template-columns: minmax(260px, .9fr) minmax(0, 1fr);
+  gap: 30px;
+  border-top: 1px solid var(--lr-divider);
+  padding-top: 18px;
+}
+
+.routeLoadingTwoColumn {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.routeLoadingPrivacyNote {
+  margin-top: 0;
 }
 
 .dashboardChip,
@@ -1540,6 +1760,36 @@ body {
   .practiceMetaRow,
   .flagExerciseHeader {
     display: grid;
+  }
+
+  .routeLoadingHeaderActions,
+  .routeLoadingPracticeFacts {
+    justify-content: start;
+  }
+
+  .routeLoadingHeroTitle {
+    gap: 8px;
+  }
+
+  .routeLoadingHeroRings {
+    right: 18px;
+    width: 62px;
+    height: 62px;
+  }
+
+  .routeLoadingFactsGrid,
+  .routeLoadingSettingsSummary,
+  .routeLoadingSettingsForm,
+  .routeLoadingTwoColumn,
+  .routeLoadingCollectionRow {
+    grid-template-columns: 1fr;
+  }
+
+  .routeLoadingPanelCount {
+    min-width: 0;
+    justify-items: start;
+    border-left: 0;
+    padding-left: 0;
   }
 
   .openWaterHero h1,
