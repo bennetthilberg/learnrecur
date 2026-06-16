@@ -3,7 +3,8 @@
 import { UserButton } from "@clerk/nextjs";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import type { MouseEvent } from "react";
 import {
   Cards,
@@ -18,6 +19,11 @@ import type { Icon } from "@phosphor-icons/react";
 
 import { OpenWaterBackground, OpenWaterLogoMark } from "@/components/app/open-water";
 import { designTokens } from "@/lib/design-tokens";
+
+import {
+  PrimaryRouteLoadingContent,
+  primaryRouteLoadingByKey,
+} from "./primary-route-loading-content";
 
 const previousNavKeyStorage = "learnrecur:previous-primary-nav-key";
 const skipNavMountAnimationStorage = "learnrecur:skip-primary-nav-mount-animation";
@@ -97,7 +103,7 @@ const navItems: {
   },
 ];
 
-type SkillsTopbarCurrent =
+export type SkillsTopbarCurrent =
   | "dashboard"
   | "practice"
   | "history"
@@ -106,6 +112,8 @@ type SkillsTopbarCurrent =
   | "settings"
   | "new"
   | "skill";
+
+type PrimaryNavKey = Exclude<SkillsTopbarCurrent, "skill">;
 
 export function SkillsTopbar({
   current,
@@ -117,6 +125,15 @@ export function SkillsTopbar({
   const activeIndicatorRef = useRef<HTMLSpanElement | null>(null);
   const previousNavKeyRef = useRef<string | null>(null);
   const currentNavKey = navItems.find((item) => item.isCurrent(current))?.key;
+  const [pendingNavKey, setPendingNavKey] = useState<PrimaryNavKey | null>(null);
+  const pendingConfig = pendingNavKey ? primaryRouteLoadingByKey[pendingNavKey] : null;
+
+  const prefetchNavRoute = useCallback(
+    (href: string) => {
+      router.prefetch(href);
+    },
+    [router],
+  );
 
   const positionActiveIndicator = useCallback(
     (animate: boolean) => {
@@ -187,34 +204,25 @@ export function SkillsTopbar({
     const prefetchPrimaryRoutes = () => {
       for (const item of navItems) {
         if (item.key !== currentNavKey) {
-          router.prefetch(item.href);
+          prefetchNavRoute(item.href);
         }
       }
     };
-    const idleWindow = window as Window & {
-      cancelIdleCallback?: (handle: number) => void;
-      requestIdleCallback?: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number;
-    };
-
-    if (idleWindow.requestIdleCallback) {
-      const idleHandle = idleWindow.requestIdleCallback(prefetchPrimaryRoutes, {
-        timeout: 2500,
-      });
-
-      return () => {
-        idleWindow.cancelIdleCallback?.(idleHandle);
-      };
-    }
-
-    const timeoutHandle = window.setTimeout(prefetchPrimaryRoutes, 400);
+    let timeoutHandle: number | null = null;
+    const frameHandle = window.requestAnimationFrame(() => {
+      timeoutHandle = window.setTimeout(prefetchPrimaryRoutes, 80);
+    });
 
     return () => {
-      window.clearTimeout(timeoutHandle);
+      window.cancelAnimationFrame(frameHandle);
+      if (timeoutHandle !== null) {
+        window.clearTimeout(timeoutHandle);
+      }
     };
-  }, [currentNavKey, router]);
+  }, [currentNavKey, prefetchNavRoute]);
 
   const handleNavClick = useCallback(
-    (targetKey: string, event: MouseEvent<HTMLAnchorElement>) => {
+    (targetKey: PrimaryNavKey, event: MouseEvent<HTMLAnchorElement>) => {
       if (
         event.defaultPrevented ||
         event.button !== 0 ||
@@ -228,6 +236,13 @@ export function SkillsTopbar({
 
       if (currentNavKey && currentNavKey !== targetKey) {
         window.sessionStorage.setItem(previousNavKeyStorage, currentNavKey);
+
+        event.currentTarget
+          .closest<HTMLElement>(".dashboardShell, .practiceShell, .skillShell")
+          ?.setAttribute("data-route-pending", "true");
+        flushSync(() => {
+          setPendingNavKey(targetKey);
+        });
 
         const nav = navRef.current;
         const indicator = activeIndicatorRef.current;
@@ -273,7 +288,10 @@ export function SkillsTopbar({
                   href={item.href}
                   key={item.key}
                   onClick={(event) => handleNavClick(item.key, event)}
-                  onPointerEnter={() => router.prefetch(item.href)}
+                  onFocus={() => prefetchNavRoute(item.href)}
+                  onPointerDown={() => prefetchNavRoute(item.href)}
+                  onPointerEnter={() => prefetchNavRoute(item.href)}
+                  prefetch={true}
                 >
                   <NavIcon
                     aria-hidden="true"
@@ -301,6 +319,11 @@ export function SkillsTopbar({
           </div>
         </div>
       </header>
+      {pendingConfig ? (
+        <div className="routePendingContent" aria-live="polite">
+          <PrimaryRouteLoadingContent config={pendingConfig} />
+        </div>
+      ) : null}
     </>
   );
 }

@@ -35,6 +35,16 @@ body {
   z-index: 1;
 }
 
+.dashboardShell[data-route-pending="true"] > :not(.openWaterBackground):not(.practiceTopbar):not(.routePendingContent),
+.practiceShell[data-route-pending="true"] > :not(.openWaterBackground):not(.practiceTopbar):not(.routePendingContent),
+.skillShell[data-route-pending="true"] > :not(.openWaterBackground):not(.practiceTopbar):not(.routePendingContent) {
+  display: none;
+}
+
+.routePendingContent {
+  min-width: 0;
+}
+
 .openWaterBackground {
   position: fixed;
   inset: 0;
@@ -937,6 +947,43 @@ body {
   font-weight: 700;
   line-height: 1.25;
   letter-spacing: -0.01em;
+}
+
+.routeLoadingPanel {
+  display: grid;
+  gap: 12px;
+  min-height: 172px;
+}
+
+.routeLoadingLine,
+.routeLoadingRows span {
+  display: block;
+  border-radius: 6px;
+  background: var(--lr-blue-tint);
+}
+
+.routeLoadingLine {
+  height: 14px;
+}
+
+.routeLoadingLine[data-width="wide"] {
+  width: min(420px, 86%);
+}
+
+.routeLoadingLine[data-width="medium"] {
+  width: min(300px, 64%);
+}
+
+.routeLoadingRows {
+  display: grid;
+  gap: 9px;
+  margin-top: 8px;
+}
+
+.routeLoadingRows span {
+  height: 38px;
+  border: 1px solid var(--lr-card-border);
+  background: #FFFFFF;
 }
 
 .dashboardChip,
