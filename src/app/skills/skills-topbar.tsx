@@ -1,6 +1,6 @@
 "use client";
 
-import { UserButton } from "@clerk/nextjs";
+import { UserButton, useUser } from "@clerk/nextjs";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -246,7 +246,14 @@ export function SkillsTopbar({
   const pendingNavKeyRef = useRef<PrimaryNavKey | null>(null);
   const [visualNavKey, setVisualNavKey] = useState<PrimaryNavKey | undefined>(currentNavKey);
   const visualNavKeyRef = useRef<PrimaryNavKey | undefined>(currentNavKey);
+  const userMenuRef = useRef<HTMLDivElement | null>(null);
+  const { isLoaded: isUserLoaded, user } = useUser();
   const pendingConfig = pendingNavKey ? primaryRouteLoadingByKey[pendingNavKey] : null;
+  const primaryEmail = user?.primaryEmailAddress?.emailAddress ?? user?.emailAddresses[0]?.emailAddress;
+  const userDisplayName =
+    user?.fullName ?? user?.firstName ?? user?.username ?? primaryEmail ?? "Account";
+  const userDetail = primaryEmail ?? (isUserLoaded ? "Signed in" : "Loading profile");
+  const userInitial = userDisplayName.trim().charAt(0).toUpperCase() || "A";
 
   const prefetchNavRoute = useCallback(
     (href: string) => {
@@ -420,6 +427,10 @@ export function SkillsTopbar({
     [currentNavKey, moveVisualIndicator, router],
   );
 
+  const openUserMenu = useCallback(() => {
+    userMenuRef.current?.querySelector<HTMLButtonElement>(".learnrecurUserButton")?.click();
+  }, []);
+
   return (
     <>
       <OpenWaterBackground />
@@ -465,18 +476,32 @@ export function SkillsTopbar({
               );
             })}
           </nav>
-          <div className="practiceUserMenu">
-            <UserButton
-              appearance={{
-                elements: {
-                  userButtonAvatarBox: "learnrecurUserAvatar",
-                  userButtonTrigger: "learnrecurUserButton",
-                },
-                variables: {
-                  colorPrimary: designTokens.colorPrimary,
-                },
-              }}
-            />
+          <div ref={userMenuRef} className="practiceUserMenu">
+            <div className="practiceUserProfile">
+              <span className="practiceUserFallbackAvatar" aria-hidden="true">
+                {userInitial}
+              </span>
+              <UserButton
+                appearance={{
+                  elements: {
+                    userButtonAvatarBox: "learnrecurUserAvatar",
+                    userButtonTrigger: "learnrecurUserButton",
+                  },
+                  variables: {
+                    colorPrimary: designTokens.colorPrimary,
+                  },
+                }}
+              />
+              <button
+                type="button"
+                className="practiceUserIdentity"
+                onClick={openUserMenu}
+                aria-label={`Open account menu for ${userDisplayName}`}
+              >
+                <span className="practiceUserName">{userDisplayName}</span>
+                <span className="practiceUserMeta">{userDetail}</span>
+              </button>
+            </div>
           </div>
         </div>
       </header>
