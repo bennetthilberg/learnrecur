@@ -151,6 +151,8 @@ export function SkillsTopbar({
   const router = useRouter();
   const navRef = useRef<HTMLElement | null>(null);
   const activeIndicatorRef = useRef<HTMLSpanElement | null>(null);
+  const indicatorFrameRef = useRef<number | null>(null);
+  const navTransitionTimeoutRef = useRef<number | null>(null);
   const previousNavKeyRef = useRef<string | null>(null);
   const currentNavKey = navItems.find((item) => item.isCurrent(current))?.key;
   const [pendingNavKey, setPendingNavKey] = useState<PrimaryNavKey | null>(null);
@@ -165,6 +167,43 @@ export function SkillsTopbar({
     },
     [router],
   );
+
+  const cancelIndicatorFrame = useCallback(() => {
+    if (indicatorFrameRef.current !== null) {
+      window.cancelAnimationFrame(indicatorFrameRef.current);
+      indicatorFrameRef.current = null;
+    }
+  }, []);
+
+  const queueIndicatorFrame = useCallback(
+    (callback: () => void) => {
+      cancelIndicatorFrame();
+      indicatorFrameRef.current = window.requestAnimationFrame(() => {
+        indicatorFrameRef.current = null;
+        callback();
+      });
+    },
+    [cancelIndicatorFrame],
+  );
+
+  const markNavTransitioning = useCallback(() => {
+    const nav = navRef.current;
+
+    if (!nav) {
+      return;
+    }
+
+    nav.dataset.navTransitioning = "true";
+
+    if (navTransitionTimeoutRef.current !== null) {
+      window.clearTimeout(navTransitionTimeoutRef.current);
+    }
+
+    navTransitionTimeoutRef.current = window.setTimeout(() => {
+      nav.removeAttribute("data-nav-transitioning");
+      navTransitionTimeoutRef.current = null;
+    }, 210);
+  }, []);
 
   const positionActiveIndicator = useCallback(
     (animate: boolean) => {
@@ -193,17 +232,19 @@ export function SkillsTopbar({
       scrollNavLinkIntoView(nav, activeLink);
 
       if (previousLink && previousLink !== activeLink) {
+        markNavTransitioning();
         indicator.style.transition = "none";
         setNavIndicatorFromLink(nav, previousLink);
         indicator.getBoundingClientRect();
-        window.requestAnimationFrame(() => {
+        queueIndicatorFrame(() => {
           indicator.style.transition = "";
           setNavIndicatorFromLink(nav, activeLink);
         });
       } else {
+        cancelIndicatorFrame();
         indicator.style.transition = "none";
         setNavIndicatorFromLink(nav, activeLink);
-        window.requestAnimationFrame(() => {
+        queueIndicatorFrame(() => {
           indicator.style.transition = "";
         });
       }
@@ -212,7 +253,7 @@ export function SkillsTopbar({
       window.sessionStorage.removeItem(skipNavMountAnimationStorage);
       previousNavKeyRef.current = currentNavKey ?? null;
     },
-    [currentNavKey],
+    [cancelIndicatorFrame, currentNavKey, markNavTransitioning, queueIndicatorFrame],
   );
 
   const moveVisualIndicator = useCallback((targetKey: PrimaryNavKey, targetLink: HTMLElement) => {
@@ -223,11 +264,23 @@ export function SkillsTopbar({
     const indicator = activeIndicatorRef.current;
 
     if (nav && indicator) {
+      cancelIndicatorFrame();
+      markNavTransitioning();
       scrollNavLinkIntoView(nav, targetLink);
       indicator.style.transition = "";
       setNavIndicatorFromLink(nav, targetLink);
     }
-  }, []);
+  }, [cancelIndicatorFrame, markNavTransitioning]);
+
+  useEffect(() => {
+    return () => {
+      cancelIndicatorFrame();
+      if (navTransitionTimeoutRef.current !== null) {
+        window.clearTimeout(navTransitionTimeoutRef.current);
+        navTransitionTimeoutRef.current = null;
+      }
+    };
+  }, [cancelIndicatorFrame]);
 
   useLayoutEffect(() => {
     positionActiveIndicator(true);

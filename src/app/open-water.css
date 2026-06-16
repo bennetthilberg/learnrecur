@@ -2134,6 +2134,13 @@ body {
     color: var(--lr-ink);
   }
 
+  .dashboardShell .practiceNav[data-nav-transitioning="true"] a:hover,
+  .practiceShell .practiceNav[data-nav-transitioning="true"] a:hover,
+  .skillShell .practiceNav[data-nav-transitioning="true"] a:hover {
+    border-color: transparent;
+    background: transparent;
+  }
+
   .dashboardShell .practiceNav a[data-nav-active="true"],
   .practiceShell .practiceNav a[data-nav-active="true"],
   .skillShell .practiceNav a[data-nav-active="true"] {
