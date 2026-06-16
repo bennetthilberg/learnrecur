@@ -4,8 +4,7 @@ import { UserButton } from "@clerk/nextjs";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { flushSync } from "react-dom";
-import type { MouseEvent } from "react";
+import type { MouseEvent, PointerEvent } from "react";
 import {
   Cards,
   ClockCounterClockwise,
@@ -115,6 +114,19 @@ export type SkillsTopbarCurrent =
 
 type PrimaryNavKey = Exclude<SkillsTopbarCurrent, "skill">;
 
+function isPrimaryUnmodifiedEvent(
+  event: MouseEvent<HTMLAnchorElement> | PointerEvent<HTMLAnchorElement>,
+) {
+  return (
+    !event.defaultPrevented &&
+    event.button === 0 &&
+    !event.metaKey &&
+    !event.ctrlKey &&
+    !event.shiftKey &&
+    !event.altKey
+  );
+}
+
 export function SkillsTopbar({
   current,
 }: {
@@ -126,6 +138,9 @@ export function SkillsTopbar({
   const previousNavKeyRef = useRef<string | null>(null);
   const currentNavKey = navItems.find((item) => item.isCurrent(current))?.key;
   const [pendingNavKey, setPendingNavKey] = useState<PrimaryNavKey | null>(null);
+  const pendingNavKeyRef = useRef<PrimaryNavKey | null>(null);
+  const [visualNavKey, setVisualNavKey] = useState<PrimaryNavKey | undefined>(currentNavKey);
+  const visualNavKeyRef = useRef<PrimaryNavKey | undefined>(currentNavKey);
   const pendingConfig = pendingNavKey ? primaryRouteLoadingByKey[pendingNavKey] : null;
 
   const prefetchNavRoute = useCallback(
@@ -139,7 +154,9 @@ export function SkillsTopbar({
     (animate: boolean) => {
       const nav = navRef.current;
       const indicator = activeIndicatorRef.current;
-      const activeLink = nav?.querySelector<HTMLAnchorElement>('a[aria-current="page"]');
+      const activeLink =
+        nav?.querySelector<HTMLAnchorElement>('a[data-nav-active="true"]') ??
+        nav?.querySelector<HTMLAnchorElement>('a[aria-current="page"]');
 
       if (!nav || !indicator || !activeLink) {
         return;
@@ -184,9 +201,35 @@ export function SkillsTopbar({
     [currentNavKey],
   );
 
+  const moveVisualIndicator = useCallback((targetKey: PrimaryNavKey, targetLink: HTMLElement) => {
+    visualNavKeyRef.current = targetKey;
+    setVisualNavKey(targetKey);
+
+    const nav = navRef.current;
+    const indicator = activeIndicatorRef.current;
+
+    if (nav && indicator) {
+      indicator.style.transition = "";
+      setNavIndicatorFromLink(nav, targetLink);
+    }
+
+    if (typeof targetLink.scrollIntoView === "function") {
+      targetLink.scrollIntoView({ block: "nearest", inline: "nearest" });
+    }
+  }, []);
+
   useLayoutEffect(() => {
     positionActiveIndicator(true);
   }, [positionActiveIndicator]);
+
+  useEffect(() => {
+    if (pendingNavKeyRef.current) {
+      return;
+    }
+
+    visualNavKeyRef.current = currentNavKey;
+    setVisualNavKey(currentNavKey);
+  }, [currentNavKey]);
 
   useEffect(() => {
     const handleViewportChange = () => {
@@ -221,48 +264,66 @@ export function SkillsTopbar({
     };
   }, [currentNavKey, prefetchNavRoute]);
 
-  const handleNavClick = useCallback(
-    (targetKey: PrimaryNavKey, event: MouseEvent<HTMLAnchorElement>) => {
-      if (
-        event.defaultPrevented ||
-        event.button !== 0 ||
-        event.metaKey ||
-        event.ctrlKey ||
-        event.shiftKey ||
-        event.altKey
-      ) {
+  const handleNavPointerDown = useCallback(
+    (targetKey: PrimaryNavKey, event: PointerEvent<HTMLAnchorElement>) => {
+      if (!isPrimaryUnmodifiedEvent(event) || visualNavKeyRef.current === targetKey) {
         return;
       }
 
-      if (currentNavKey && currentNavKey !== targetKey) {
+      moveVisualIndicator(targetKey, event.currentTarget);
+    },
+    [moveVisualIndicator],
+  );
+
+  const handleNavClick = useCallback(
+    (targetKey: PrimaryNavKey, href: string, event: MouseEvent<HTMLAnchorElement>) => {
+      if (!isPrimaryUnmodifiedEvent(event)) {
+        return;
+      }
+
+      const pendingBeforeClick = pendingNavKeyRef.current;
+      const previousVisualKey = visualNavKeyRef.current ?? currentNavKey ?? null;
+      const isCurrentRouteClick = currentNavKey === targetKey;
+
+      if (!pendingBeforeClick && isCurrentRouteClick) {
+        return;
+      }
+
+      event.preventDefault();
+
+      if (previousVisualKey && previousVisualKey !== targetKey) {
+        window.sessionStorage.setItem(previousNavKeyStorage, previousVisualKey);
+      } else if (currentNavKey) {
         window.sessionStorage.setItem(previousNavKeyStorage, currentNavKey);
+      }
 
-        event.currentTarget
-          .closest<HTMLElement>(".dashboardShell, .practiceShell, .skillShell")
-          ?.setAttribute("data-route-pending", "true");
-        flushSync(() => {
-          setPendingNavKey(targetKey);
-        });
+      window.sessionStorage.setItem(skipNavMountAnimationStorage, "true");
+      moveVisualIndicator(targetKey, event.currentTarget);
 
-        const nav = navRef.current;
-        const indicator = activeIndicatorRef.current;
-        const targetLink = event.currentTarget;
+      const shell = event.currentTarget.closest<HTMLElement>(
+        ".dashboardShell, .practiceShell, .skillShell",
+      );
 
-        if (nav) {
-          nav.querySelectorAll<HTMLAnchorElement>("a[data-nav-active]").forEach((link) => {
-            link.removeAttribute("data-nav-active");
-          });
-          targetLink.setAttribute("data-nav-active", "true");
-        }
+      if (isCurrentRouteClick) {
+        shell?.removeAttribute("data-route-pending");
+        pendingNavKeyRef.current = null;
+        setPendingNavKey(null);
+        router.replace(href);
 
-        if (nav && indicator && targetLink) {
-          indicator.style.transition = "";
-          setNavIndicatorFromLink(nav, targetLink);
-          window.sessionStorage.setItem(skipNavMountAnimationStorage, "true");
-        }
+        return;
+      }
+
+      shell?.setAttribute("data-route-pending", "true");
+      pendingNavKeyRef.current = targetKey;
+      setPendingNavKey(targetKey);
+
+      if (pendingBeforeClick) {
+        router.replace(href);
+      } else {
+        router.push(href);
       }
     },
-    [currentNavKey],
+    [currentNavKey, moveVisualIndicator, router],
   );
 
   return (
@@ -279,17 +340,21 @@ export function SkillsTopbar({
             {navItems.map((item) => {
               const NavIcon = item.icon;
               const isCurrentPage = item.isCurrent(current);
+              const isVisuallyActive = visualNavKey === item.key;
 
               return (
                 <Link
                   aria-current={isCurrentPage ? "page" : undefined}
-                  data-nav-active={isCurrentPage ? "true" : undefined}
+                  data-nav-active={isVisuallyActive ? "true" : undefined}
                   data-nav-key={item.key}
                   href={item.href}
                   key={item.key}
-                  onClick={(event) => handleNavClick(item.key, event)}
+                  onClick={(event) => handleNavClick(item.key, item.href, event)}
                   onFocus={() => prefetchNavRoute(item.href)}
-                  onPointerDown={() => prefetchNavRoute(item.href)}
+                  onPointerDown={(event) => {
+                    prefetchNavRoute(item.href);
+                    handleNavPointerDown(item.key, event);
+                  }}
                   onPointerEnter={() => prefetchNavRoute(item.href)}
                   prefetch={true}
                 >
