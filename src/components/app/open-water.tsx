@@ -87,15 +87,15 @@ export function OpenWaterHeroRings() {
 export function OpenWaterLogoMark({ className }: { className?: string }) {
   return (
     <svg
-      width="32"
-      height="32"
+      width="31"
+      height="31"
       viewBox="0 0 64 64"
       aria-hidden="true"
       focusable="false"
       className={className}
     >
       <path
-        fill="var(--lr-blue, #1C44A8)"
+        fill="currentColor"
         fillRule="evenodd"
         clipRule="evenodd"
         transform="translate(11.3 0.6) scale(0.1045)"
