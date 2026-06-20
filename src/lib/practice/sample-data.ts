@@ -60,7 +60,7 @@ const SAMPLE_SKILLS: SampleSkillSeed[] = [
     exercises: [
       {
         key: "profession",
-        prompt: "Choose the verb that best completes the sentence: Ella ___ profesora.",
+        prompt: "Choose the verb that best completes the sentence:\nElla ___ profesora.",
         choices: [
           { id: "ser", label: "es" },
           { id: "estar", label: "está" },
@@ -74,7 +74,7 @@ const SAMPLE_SKILLS: SampleSkillSeed[] = [
       },
       {
         key: "location",
-        prompt: "Choose the verb that best completes the sentence: El libro ___ en la mesa.",
+        prompt: "Choose the verb that best completes the sentence:\nEl libro ___ en la mesa.",
         choices: [
           { id: "ser", label: "es" },
           { id: "estar", label: "está" },
@@ -96,7 +96,7 @@ const SAMPLE_SKILLS: SampleSkillSeed[] = [
     exercises: [
       {
         key: "temporary-condition",
-        prompt: "Choose the verb that best completes the sentence: Hoy nosotros ___ cansados.",
+        prompt: "Choose the verb that best completes the sentence:\nHoy nosotros ___ cansados.",
         choices: [
           { id: "ser", label: "somos" },
           { id: "estar", label: "estamos" },
