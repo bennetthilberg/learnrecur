@@ -69,6 +69,8 @@ const RATING_OPTIONS: Array<{ rating: FsrsRating; shortcut: string }> = [
   { rating: FsrsRating.EASY, shortcut: "4" },
 ];
 
+const REVIEW_SAVED_MESSAGES = new Set(["Review saved.", "Review already saved."]);
+
 export function PracticeClient({ initialItem, canUseSampleData }: PracticeClientProps) {
   const [item, setItem] = useState(initialItem);
   const [answerValue, setAnswerValue] = useState("");
@@ -864,7 +866,7 @@ function PracticeStatusMessage({ message }: { message: string | null }) {
   if (!message) {
     return null;
   }
-  const saved = message.toLowerCase().includes("saved");
+  const saved = REVIEW_SAVED_MESSAGES.has(message);
 
   return (
     <p
