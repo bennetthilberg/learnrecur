@@ -69,6 +69,8 @@ const RATING_OPTIONS: Array<{ rating: FsrsRating; shortcut: string }> = [
   { rating: FsrsRating.EASY, shortcut: "4" },
 ];
 
+const REVIEW_SAVED_MESSAGES = new Set(["Review saved.", "Review already saved."]);
+
 export function PracticeClient({ initialItem, canUseSampleData }: PracticeClientProps) {
   const [item, setItem] = useState(initialItem);
   const [answerValue, setAnswerValue] = useState("");
@@ -454,13 +456,8 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
         </div>
 
       <article className="practicePromptPanel">
-        {exercise.difficulty ? (
-          <div className="practicePromptHeader" role="group" aria-label="Exercise details">
-            <span>Level {exercise.difficulty}</span>
-          </div>
-        ) : null}
         <p>
-          <MathText text={exercise.prompt} />
+          <MathText formatBlanks text={exercise.prompt} />
         </p>
       </article>
 
@@ -602,6 +599,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
               active={pendingAction === "continue"}
               idleText="Continue"
               pendingText="Saving"
+              shortcut="Enter"
             />
           </button>
         </div>
@@ -868,10 +866,17 @@ function PracticeStatusMessage({ message }: { message: string | null }) {
   if (!message) {
     return null;
   }
+  const saved = REVIEW_SAVED_MESSAGES.has(message);
 
   return (
-    <p className="practiceStatusLine" aria-live="polite" role="status">
-      {message}
+    <p
+      className="practiceStatusLine"
+      data-tone={saved ? "saved" : undefined}
+      aria-live="polite"
+      role="status"
+    >
+      {saved ? <CheckCircle size={17} weight="bold" aria-hidden="true" /> : null}
+      <span>{message}</span>
     </p>
   );
 }
@@ -1012,15 +1017,18 @@ function PendingButtonContent({
   active,
   idleText,
   pendingText,
+  shortcut,
 }: {
   active: boolean;
   idleText: string;
   pendingText: string;
+  shortcut?: string;
 }) {
   return (
     <span className="buttonPendingContent">
       {active ? <span className="buttonSpinner" aria-hidden="true" /> : null}
       <span>{active ? pendingText : idleText}</span>
+      {!active && shortcut ? <kbd aria-hidden="true">{shortcut}</kbd> : null}
     </span>
   );
 }

@@ -10,9 +10,13 @@ const KATEX_OPTIONS = {
   trust: false,
 } as const;
 
+const BLANK_SPLIT_PATTERN = /(\{\{\s*blank\s*\}\}|_(?:[ \t\u00a0]*_){1,})/gi;
+const BLANK_PART_PATTERN = /^\{\{\s*blank\s*\}\}$|^_(?:[ \t\u00a0]*_){1,}$/i;
+
 type MathTextProps = {
   text: string;
   className?: string;
+  formatBlanks?: boolean;
 };
 
 type MathTextSegment =
@@ -27,23 +31,23 @@ type MathTextSegment =
       original: string;
     };
 
-export function MathText({ text, className }: MathTextProps) {
+export function MathText({ text, className, formatBlanks = false }: MathTextProps) {
   const segments = splitMathText(text);
 
   return (
     <span className={className}>
       {segments.map((segment, index) => (
         <Fragment key={index}>
-          {renderSegment(segment)}
+          {renderSegment(segment, formatBlanks)}
         </Fragment>
       ))}
     </span>
   );
 }
 
-function renderSegment(segment: MathTextSegment): ReactNode {
+function renderSegment(segment: MathTextSegment, formatBlanks: boolean): ReactNode {
   if (segment.kind === "text") {
-    return segment.value;
+    return formatBlanks ? renderTextWithBlanks(segment.value) : segment.value;
   }
 
   const html = renderKatex(segment.value, segment.displayMode);
@@ -58,6 +62,33 @@ function renderSegment(segment: MathTextSegment): ReactNode {
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );
+}
+
+function renderTextWithBlanks(value: string): ReactNode {
+  const parts = value.split(BLANK_SPLIT_PATTERN);
+
+  if (parts.length === 1) {
+    return value;
+  }
+
+  return parts.map((part, index) => {
+    if (!part) {
+      return null;
+    }
+
+    if (BLANK_PART_PATTERN.test(part)) {
+      return (
+        <span
+          aria-label="blank"
+          className="mathTextBlank"
+          key={`${index}-blank`}
+          role="img"
+        />
+      );
+    }
+
+    return <Fragment key={index}>{part}</Fragment>;
+  });
 }
 
 function renderKatex(value: string, displayMode: boolean): string | null {

@@ -946,6 +946,20 @@ body {
   transform: translateY(0);
 }
 
+.buttonPendingContent kbd {
+  min-width: 38px;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 5px;
+  background: #FFFFFF;
+  color: var(--lr-blue);
+  font-family: var(--lr-font-body);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.1;
+  padding: 2px 7px;
+  text-align: center;
+}
+
 .dashboardSetupPanel,
 .dashboardMessage,
 .skillHeader,
@@ -1469,6 +1483,17 @@ body {
   font-weight: 700;
   line-height: 1.35;
   letter-spacing: -0.01em;
+  white-space: pre-line;
+}
+
+.mathTextBlank {
+  display: inline-block;
+  width: 2.45em;
+  height: 0;
+  margin: 0 .08em;
+  border-bottom: .12em solid currentcolor;
+  border-radius: 0;
+  vertical-align: 0.05em;
 }
 
 .choiceCard {
@@ -1539,9 +1564,26 @@ body {
   color: var(--lr-danger-ink);
 }
 
+.practiceFeedback[data-tone="incorrect"] .practiceFeedbackAnswer dd {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
 .practiceStatusLine[data-tone="attention"] {
   border-color: var(--lr-amber);
   color: var(--lr-amber);
+}
+
+.practiceStatusLine[data-tone="saved"] {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 18px;
+  border: 0;
+  background: transparent;
+  color: var(--lr-green);
+  padding: 0;
 }
 
 .settingsToggle {

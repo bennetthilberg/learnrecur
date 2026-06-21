@@ -53,6 +53,10 @@ export function getPracticeShortcutIntent(input: PracticeShortcutInput): Practic
     return NO_SHORTCUT;
   }
 
+  if (input.key === "Enter" && input.feedbackVisible) {
+    return { type: "continue" };
+  }
+
   if (input.ratingAvailable) {
     const rating = keyToRating(input.key);
 
@@ -77,10 +81,6 @@ export function getPracticeShortcutIntent(input: PracticeShortcutInput): Practic
   }
 
   if (input.key === "Enter") {
-    if (input.feedbackVisible) {
-      return { type: "continue" };
-    }
-
     if (input.answerReady) {
       return { type: "check-answer" };
     }

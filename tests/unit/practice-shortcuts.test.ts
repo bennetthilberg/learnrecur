@@ -94,6 +94,19 @@ describe("getPracticeShortcutIntent", () => {
     ).toEqual({ type: "continue" });
   });
 
+  it("maps Enter to continue after feedback even from a focused control", () => {
+    expect(
+      getPracticeShortcutIntent({
+        ...defaultInput,
+        answerReady: true,
+        feedbackVisible: true,
+        key: "Enter",
+        ratingAvailable: true,
+        targetRole: "form-control",
+      }),
+    ).toEqual({ type: "continue" });
+  });
+
   it("does not check an empty answer", () => {
     expect(getPracticeShortcutIntent({ ...defaultInput, key: "Enter" })).toEqual({ type: "none" });
   });
