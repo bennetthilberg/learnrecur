@@ -50,13 +50,19 @@ export default async function DashboardPage() {
     (skill) => skill.fsrsState === SkillFsrsState.NEW,
   ).length;
   const nextPracticeItem = await getNextPracticeItemForUser(userId, now);
+  const hasDuePractice = dashboard.readyNowCount > 0;
 
   return (
     <main className="dashboardShell">
       <SkillsTopbar current="dashboard" />
 
-      <section className="openWaterHero dashboardHero" aria-labelledby="dashboard-title">
+      <section
+        className="openWaterHero dashboardHero"
+        data-practice-clear={hasDuePractice ? "false" : "true"}
+        aria-labelledby="dashboard-title"
+      >
         <OpenWaterHeroWaves />
+        {hasDuePractice ? null : <DashboardHeroShoreWave />}
         <OpenWaterHeroRings />
         <div className="openWaterHeroContent">
           <p className="openWaterHeroEyebrow">{formatHeroDate(now)}</p>
@@ -64,14 +70,21 @@ export default async function DashboardPage() {
             {formatCount(dashboard.readyNowCount)} due skill
             {dashboard.readyNowCount === 1 ? "" : "s"} are ready.
           </h1>
-          <div className="openWaterHeroActions">
-            <Link className="bpbtn bpbtn-hero" href="/practice">
-              Start practice
-            </Link>
-            <Link className="bpbtn bpbtn-ghost" href="/skills">
-              Browse skills
-            </Link>
-          </div>
+          {hasDuePractice ? (
+            <div className="openWaterHeroActions">
+              <Link className="bpbtn bpbtn-hero" href="/practice">
+                Start practice
+              </Link>
+              <Link className="bpbtn bpbtn-ghost" href="/skills">
+                Browse skills
+              </Link>
+            </div>
+          ) : (
+            <p className="dashboardHeroComplete">
+              You&apos;ve completed all your exercises for today. Check back tomorrow for the
+              next wave of practice.
+            </p>
+          )}
         </div>
       </section>
 
@@ -95,6 +108,25 @@ export default async function DashboardPage() {
         <Forecast dashboard={dashboard} now={now} />
       </section>
     </main>
+  );
+}
+
+function DashboardHeroShoreWave() {
+  return (
+    <svg
+      viewBox="0 0 580 60"
+      preserveAspectRatio="none"
+      aria-hidden="true"
+      className="dashboardHeroShoreWave"
+    >
+      <path d="M0 43 Q 72 31 145 43 T 290 43 T 435 43 T 580 43 V60 H0 Z" fill="#E3CE98" />
+      <path
+        d="M0 43 Q 72 31 145 43 T 290 43 T 435 43 T 580 43"
+        fill="none"
+        stroke="rgba(255,255,255,0.42)"
+        strokeWidth="1.2"
+      />
+    </svg>
   );
 }
 
