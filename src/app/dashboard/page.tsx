@@ -119,7 +119,7 @@ function DashboardHeroShoreWave() {
       aria-hidden="true"
       className="dashboardHeroShoreWave"
     >
-      <path d="M0 43 Q 72 31 145 43 T 290 43 T 435 43 T 580 43 V60 H0 Z" fill="#D9C28F" />
+      <path d="M0 43 Q 72 31 145 43 T 290 43 T 435 43 T 580 43 V60 H0 Z" fill="#E3CE98" />
       <path
         d="M0 43 Q 72 31 145 43 T 290 43 T 435 43 T 580 43"
         fill="none"
