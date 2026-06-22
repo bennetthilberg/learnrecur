@@ -66,7 +66,7 @@ This document specifies the exact look and feel of the approved LearnRecur dashb
 | `blue-bar-2` | `#BBCAEC` | Secondary (non-today) forecast bars |
 | `hero-wave-1` | `#173A93` | Hero internal wave layer 1 |
 | `hero-wave-2` | `#112F78` | Hero internal wave layer 2 |
-| `hero-eyebrow` | `#B9C9EF` | Hero eyebrow + micro-stat text (on blue) |
+| `hero-muted` | `#B9C9EF` | Hero supporting copy + micro-stat text (on blue) |
 
 #### Green (stable / retention / "Easy")
 | Token | Hex | Usage |
@@ -128,7 +128,7 @@ Paste into the global stylesheet (`:root`). Component CSS below references these
   /* blue */
   --lr-blue:#1C44A8; --lr-blue-hover:#2150BC; --lr-blue-active:#193E9C; --lr-blue-edge:#143479;
   --lr-blue-tint:#ECF0FA; --lr-blue-bar-2:#BBCAEC;
-  --lr-hero-wave-1:#173A93; --lr-hero-wave-2:#112F78; --lr-hero-eyebrow:#B9C9EF;
+  --lr-hero-wave-1:#173A93; --lr-hero-wave-2:#112F78; --lr-hero-muted:#B9C9EF;
   /* green */
   --lr-green:#0C7D52; --lr-green-hover:#0F8E5D; --lr-green-active:#0A6C47; --lr-green-edge:#08573A;
   /* amber + yellow */
@@ -198,7 +198,7 @@ Two families. **Display = Plus Jakarta Sans. Body/UI = Instrument Sans.** Button
 
 **Display (Plus Jakarta Sans):** wordmark; hero headline; all big stat numbers; the goal-ring center number; section titles ("Up next", "Decks", "Activity", "Weekly goal", "Next 7 days", "Session preferences"); the review-card prompt sentence.
 
-**Body (Instrument Sans):** everything else — nav links, eyebrows, stat labels, deck names/meta, card meta, chips, badges, search, toggle labels, legends, day labels, the "days" sublabel in the ring, **and all button labels.**
+**Body (Instrument Sans):** everything else — nav links, supporting labels, stat labels, deck names/meta, card meta, chips, badges, search, toggle labels, legends, day labels, the "days" sublabel in the ring, **and all button labels.**
 
 ### 2.3 Type scale (literal — size / weight / tracking / font)
 
@@ -207,9 +207,9 @@ Two families. **Display = Plus Jakarta Sans. Body/UI = Instrument Sans.** Button
 | Wordmark | 16.5px | 700 | -0.01em | Display | `ink` |
 | Nav link (active) | 13px | 600 | — | Body | `ink` (with yellow underline) |
 | Nav link (inactive) | 13px | 400 | — | Body | `nav-inactive` |
-| Hero eyebrow | 11px | 400 | 0.09em | Body | `hero-eyebrow` (UPPERCASE content) |
+| Hero supporting copy | 12px | 400 | — | Body | `hero-muted` |
 | Hero headline | 26px | 800 | -0.02em | Display | `#FFFFFF` (line-height 1.18) |
-| Hero micro-stats | 12px | 400 | — | Body | `hero-eyebrow` |
+| Hero micro-stats | 12px | 400 | — | Body | `hero-muted` |
 | Stat label | 11px | 400 | 0.04em | Body | `text-secondary` |
 | Stat number | 24px | 700 | -0.02em | Display | varies (blue/green/ink); unit suffix 14px/700/`text-muted` |
 | Section title | 16px | 700 | -0.01em | Display | `ink` |
@@ -473,9 +473,9 @@ Usage:
 - Wrapper: `margin: 4px 14px 0; border-radius: 8px; background:#1C44A8; position:relative; overflow:hidden;`
 - Internal waves §4.2 + rings §4.3.
 - Content (`position:relative`): padding `20px 22px 22px`.
-  - Eyebrow: 11/400/0.09em, `hero-eyebrow`, UPPERCASE (e.g. `THURSDAY, 11 JUNE`), `margin 0 0 7px`.
   - Headline (`disp`): 26/800/-0.02em, line-height 1.18, `#FFFFFF`, tabular-nums, `margin 0 0 15px`.
-  - Action row: flex, gap 10px, wrap. Hero primary + ghost (Section 5.3) + micro-stat span (12px `hero-eyebrow`, tabular: `Streak 23 · Retention 91%`).
+  - Supporting copy or micro-stat text, when present: 12/400, `hero-muted`, tabular when numeric.
+  - Action row: flex, gap 10px, wrap. Hero primary + ghost (Section 5.3) + optional micro-stat span (12px `hero-muted`, tabular: `Streak 23 · Retention 91%`).
 
 ### 6.3 Stat tiles
 - Grid of 3, gap 10px, top padding 14px, side padding 14px.
@@ -633,7 +633,7 @@ html, body, #root { background: var(--lr-canvas); }
 ## 11. Accessibility & compatibility (must pass)
 
 ### 11.1 Contrast — one required hardening
-Most pairs clear WCAG AA comfortably (ink ~14:1; secondary `#5A6480` ~5.7:1; blue/white ~9.3:1; green/white ~4.8:1; amber/white ~6.5:1; hero eyebrow on blue ~5.6:1). **Exception:** `text-muted #8A92A6` is ~3.1:1 on white — below AA for normal-size text. For any muted text that conveys information (counters, day labels, forecast count, "days"), darken it to **`#6E7689`** (≈4.6:1) in production. Keep `#8A92A6` only for purely decorative glyphs. (Provide this as `--lr-text-muted` if you want it global.)
+Most pairs clear WCAG AA comfortably (ink ~14:1; secondary `#5A6480` ~5.7:1; blue/white ~9.3:1; green/white ~4.8:1; amber/white ~6.5:1; hero muted text on blue ~5.6:1). **Exception:** `text-muted #8A92A6` is ~3.1:1 on white — below AA for normal-size text. For any muted text that conveys information (counters, day labels, forecast count, "days"), darken it to **`#6E7689`** (≈4.6:1) in production. Keep `#8A92A6` only for purely decorative glyphs. (Provide this as `--lr-text-muted` if you want it global.)
 
 ### 11.2 Focus
 - Keyboard focus ring on buttons: `outline: 2px solid #1C44A8; outline-offset: 2px;` (already in §5.2). Ensure all interactive elements (chips, toggles, nav, deck rows if clickable) have an equivalent visible focus state.
