@@ -66,7 +66,7 @@ export default async function DashboardPage() {
         <div className="openWaterHeroContent">
           <h1 id="dashboard-title" className="disp tnum">
             {formatCount(dashboard.readyNowCount)} due skill
-            {dashboard.readyNowCount === 1 ? "" : "s"} are ready.
+            {dashboard.readyNowCount === 1 ? " is" : "s are"} ready.
           </h1>
           {hasDuePractice ? (
             <div className="openWaterHeroActions">

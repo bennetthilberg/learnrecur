@@ -1472,7 +1472,7 @@ body {
 }
 
 .practicePromptPanel {
-  border-top: 1px solid var(--lr-divider);
+  border-top: 0;
   border-bottom: 1px solid var(--lr-divider);
   padding: 18px 0;
 }
