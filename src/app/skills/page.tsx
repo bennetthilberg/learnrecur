@@ -45,7 +45,6 @@ export default async function SkillsPage({ searchParams }: SkillsPageProps) {
       <main className="skillShell">
         <SkillsTopbar current="skills" />
         <section className="dashboardSetupPanel" aria-labelledby="skills-setup-title">
-          <p className="eyebrow">Skills</p>
           <h1 id="skills-setup-title">Database setup needs attention.</h1>
           <p>{databaseUser.message}</p>
         </section>
@@ -64,7 +63,6 @@ export default async function SkillsPage({ searchParams }: SkillsPageProps) {
 
       <header className="skillHeader">
         <div>
-          <p className="eyebrow">Library</p>
           <h1>Recover and schedule skills</h1>
           <p>Resume draft review, check activation issues, and scan active practice targets.</p>
         </div>
@@ -96,7 +94,6 @@ export default async function SkillsPage({ searchParams }: SkillsPageProps) {
         <section className="skillPanel skillRecoveryPanel" aria-labelledby="source-processing-title">
           <div className="skillPanelHeader">
             <div>
-              <p className="eyebrow">Draft preparation</p>
               <h2 id="source-processing-title">Uploads being prepared</h2>
             </div>
             <PanelHeaderCount
@@ -117,7 +114,6 @@ export default async function SkillsPage({ searchParams }: SkillsPageProps) {
         <section className="skillPanel skillLibraryDraftPanel" aria-labelledby="draft-skills-title">
           <div className="skillPanelHeader">
             <div>
-              <p className="eyebrow">Needs review</p>
               <h2 id="draft-skills-title">Draft skills</h2>
             </div>
             <PanelHeaderCount
@@ -144,7 +140,6 @@ export default async function SkillsPage({ searchParams }: SkillsPageProps) {
         <section className="skillPanel skillLibraryActivePanel" aria-labelledby="active-skills-title">
           <div className="skillPanelHeader">
             <div>
-              <p className="eyebrow">Active schedule</p>
               <h2 id="active-skills-title">Practice targets</h2>
             </div>
             <PanelHeaderCount
@@ -173,7 +168,6 @@ export default async function SkillsPage({ searchParams }: SkillsPageProps) {
         <section className="skillPanel skillRecoveryPanel" aria-labelledby="recovery-skills-title">
           <div className="skillPanelHeader">
             <div>
-              <p className="eyebrow">Saved for later</p>
               <h2 id="recovery-skills-title">Paused and archived skills</h2>
             </div>
             <PanelHeaderCount

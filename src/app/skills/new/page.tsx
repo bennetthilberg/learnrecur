@@ -45,7 +45,6 @@ export default async function NewSkillPage({ searchParams }: NewSkillPageProps) 
       <main className="skillShell">
         <SkillsTopbar current="new" />
         <section className="dashboardSetupPanel" aria-labelledby="skills-setup-title">
-          <p className="eyebrow">Skills</p>
           <h1 id="skills-setup-title">Database setup needs attention.</h1>
           <p>{databaseUser.message}</p>
         </section>
@@ -58,7 +57,6 @@ export default async function NewSkillPage({ searchParams }: NewSkillPageProps) 
       <SkillsTopbar current="new" />
       <header className="skillHeader">
         <div>
-          <p className="eyebrow">New skill</p>
           <h1>Create skill drafts</h1>
           <p>
             Upload or paste source material to shape one to three editable drafts,
@@ -106,7 +104,6 @@ export default async function NewSkillPage({ searchParams }: NewSkillPageProps) 
         ) : (
           <div className="skillManualBody">
             <div className="skillManualIntro">
-              <p className="eyebrow">Manual draft</p>
               <h2 id="manual-skill-title">Write the skill yourself</h2>
             </div>
             <p className="skillManualBodyCopy">

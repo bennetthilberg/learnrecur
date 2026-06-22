@@ -21,7 +21,6 @@ export function SkillSourcePanel({
     <section className="skillPanel skillSourcePanel" aria-labelledby="skill-source-title">
       <div className="skillPanelHeader">
         <div>
-          <p className="eyebrow">Source material</p>
           <h2 id="skill-source-title">Linked source material</h2>
         </div>
         <PanelHeaderCount

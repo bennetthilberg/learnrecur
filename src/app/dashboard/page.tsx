@@ -33,7 +33,6 @@ export default async function DashboardPage() {
       <main className="dashboardShell">
         <SkillsTopbar current="dashboard" />
         <section className="dashboardSetupPanel" aria-labelledby="dashboard-setup-title">
-          <p className="eyebrow">Dashboard</p>
           <h1 id="dashboard-setup-title">Database setup needs attention.</h1>
           <p>{databaseUser.message}</p>
         </section>
@@ -65,7 +64,6 @@ export default async function DashboardPage() {
         {hasDuePractice ? null : <DashboardHeroShoreWave />}
         <OpenWaterHeroRings />
         <div className="openWaterHeroContent">
-          <p className="openWaterHeroEyebrow">{formatHeroDate(now)}</p>
           <h1 id="dashboard-title" className="disp tnum">
             {formatCount(dashboard.readyNowCount)} due skill
             {dashboard.readyNowCount === 1 ? "" : "s"} are ready.
@@ -433,14 +431,6 @@ function formatCount(count: number) {
 
 function formatAccuracy(accuracy: DashboardHome["recentAccuracyPercent"]) {
   return accuracy === null ? "No reviews" : `${accuracy}%`;
-}
-
-function formatHeroDate(date: Date) {
-  return date.toLocaleDateString("en-US", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  }).toUpperCase();
 }
 
 function getCollectionRows(dashboard: DashboardHome) {
