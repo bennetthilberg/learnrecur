@@ -10,7 +10,7 @@
   /* blue */
   --lr-blue:#1C44A8; --lr-blue-hover:#2150BC; --lr-blue-active:#193E9C; --lr-blue-edge:#143479;
   --lr-blue-tint:#ECF0FA; --lr-blue-bar-2:#BBCAEC;
-  --lr-hero-wave-1:#173A93; --lr-hero-wave-2:#112F78; --lr-hero-eyebrow:#B9C9EF;
+  --lr-hero-wave-1:#173A93; --lr-hero-wave-2:#112F78; --lr-hero-muted:#B9C9EF;
   /* green */
   --lr-green:#0C7D52; --lr-green-hover:#0F8E5D; --lr-green-active:#0A6C47; --lr-green-edge:#08573A;
   /* amber + yellow */
@@ -533,15 +533,6 @@ a {
   line-height: var(--lr-leading-copy);
 }
 
-.eyebrow {
-  margin: 0;
-  color: var(--lr-muted);
-  font-size: var(--lr-text-sm);
-  font-weight: 500;
-  line-height: var(--lr-leading-normal);
-  letter-spacing: 0;
-}
-
 .entryActions {
   display: flex;
   flex-wrap: wrap;
@@ -610,7 +601,7 @@ a {
   text-underline-offset: 3px;
 }
 
-.dashboardHeader p:not(.eyebrow) {
+.dashboardHeader p {
   max-width: 620px;
   margin: 0;
   color: var(--lr-muted);
@@ -676,16 +667,11 @@ a {
   background: var(--lr-panel);
 }
 
-.dashboardReadySummary .eyebrow,
 .dashboardReadySummary p {
   margin: 0;
 }
 
-.dashboardReadySummary[data-ready="true"] .eyebrow {
-  color: var(--lr-primary-ink);
-}
-
-.dashboardReadySummary > p:not(.eyebrow) {
+.dashboardReadySummary > p {
   max-width: 440px;
   color: var(--lr-muted);
   font-size: var(--lr-text-sm);
@@ -1878,7 +1864,7 @@ a {
   line-height: var(--lr-leading-heading);
 }
 
-.skillHeader p:not(.eyebrow) {
+.skillHeader p {
   max-width: 680px;
   margin: 0;
   color: var(--lr-muted);
@@ -2267,7 +2253,7 @@ a {
   line-height: var(--lr-leading-title);
 }
 
-.skillManualIntro p:not(.eyebrow) {
+.skillManualIntro p {
   margin: 0;
   color: var(--lr-muted);
   font-size: var(--lr-text-md);
@@ -2564,10 +2550,6 @@ a {
 .skillMessage[data-tone="error"] {
   border-color: var(--lr-danger-line);
   background: var(--lr-danger-subtle);
-  color: var(--lr-danger-ink);
-}
-
-.skillMessage[data-tone="error"] .eyebrow {
   color: var(--lr-danger-ink);
 }
 
@@ -2953,7 +2935,7 @@ a {
   color: var(--lr-primary-ink);
 }
 
-.skillQueueBlock p:not(.eyebrow):not(.skillFormMessage),
+.skillQueueBlock p:not(.skillFormMessage),
 .skillQueueStatus {
   max-width: 620px;
   margin: 9px 0 0;
@@ -4067,7 +4049,7 @@ a {
   line-height: var(--lr-leading-normal);
 }
 
-.historyHeader > div > p:not(.eyebrow) {
+.historyHeader > div > p {
   color: var(--lr-ink-soft);
 }
 

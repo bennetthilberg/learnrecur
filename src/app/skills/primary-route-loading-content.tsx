@@ -16,7 +16,6 @@ type PrimaryRouteLoadingKind =
 
 export type PrimaryRouteLoadingConfig = {
   detail: string;
-  eyebrow: string;
   kind: PrimaryRouteLoadingKind;
   title: string;
 };
@@ -24,43 +23,36 @@ export type PrimaryRouteLoadingConfig = {
 export const primaryRouteLoadingByKey: Record<PrimaryRouteKey, PrimaryRouteLoadingConfig> = {
   collections: {
     detail: "Create, describe, archive, and restore the study areas that organize your skills.",
-    eyebrow: "Study areas",
     kind: "collections",
     title: "Organize practice",
   },
   dashboard: {
     detail: "Loading your due skills and recent practice activity.",
-    eyebrow: "Dashboard",
     kind: "dashboard",
     title: "Due skills are ready.",
   },
   history: {
     detail: "A compact record of completed reviews, grading outcomes, and how each answer changed the memory schedule.",
-    eyebrow: "History",
     kind: "history",
     title: "Review ledger",
   },
   new: {
     detail: "Upload or paste source material to shape one to three editable drafts, or define the skill manually. You will review each draft before activation.",
-    eyebrow: "New skill",
     kind: "new",
     title: "Create skill drafts",
   },
   practice: {
     detail: "Preparing the next due exercise.",
-    eyebrow: "Due practice",
     kind: "practice",
     title: "Practice",
   },
   settings: {
     detail: "Manage quiet reminders and download a copy of your study data.",
-    eyebrow: "Account controls",
     kind: "settings",
     title: "Reminders and data",
   },
   skills: {
     detail: "Resume draft review, check activation issues, and scan active practice targets.",
-    eyebrow: "Library",
     kind: "skills",
     title: "Recover and schedule skills",
   },
@@ -101,7 +93,6 @@ function RouteHeader({
   return (
     <header className="skillHeader routeLoadingHeader">
       <div>
-        <p className="eyebrow">{config.eyebrow}</p>
         <h1>{config.title}</h1>
         <p>{config.detail}</p>
       </div>
@@ -125,19 +116,16 @@ function RouteHeader({
 function PanelSkeleton({
   children,
   className,
-  eyebrow,
   title,
 }: {
   children: ReactNode;
   className?: string;
-  eyebrow: string;
   title: string;
 }) {
   return (
     <section className={`skillPanel routeLoadingPanel ${className ?? ""}`.trim()}>
       <div className="skillPanelHeader">
         <div>
-          <p className="eyebrow">{eyebrow}</p>
           <h2>{title}</h2>
         </div>
       </div>
@@ -153,7 +141,6 @@ function DashboardRouteLoading() {
         <div className="routeLoadingHeroWave" aria-hidden="true" />
         <div className="routeLoadingHeroRings" aria-hidden="true" />
         <div className="openWaterHeroContent">
-          <p className="openWaterHeroEyebrow">{formatRouteLoadingDate(new Date())}</p>
           <h1 className="disp routeLoadingHeroTitle">
             <Skeleton
               className="routeSkeleton routeLoadingHeroSentence"
@@ -235,7 +222,6 @@ function PracticeRouteLoading({ config }: { config: PrimaryRouteLoadingConfig })
       <section className="practiceFrame routeLoadingPracticeFrame" aria-label={`${config.title} loading`}>
         <div className="practiceMetaRow">
           <div>
-            <p className="eyebrow">{config.eyebrow}</p>
             <h1>{config.title}</h1>
           </div>
           <div className="routeLoadingPracticeFacts" aria-hidden="true">
@@ -267,13 +253,13 @@ function SkillsRouteLoading({ config }: { config: PrimaryRouteLoadingConfig }) {
     <>
       <RouteHeader actionCount={1} config={config} />
       <div className="skillLibraryGrid">
-        <PanelSkeleton eyebrow="Needs review" title="Draft skills">
+        <PanelSkeleton title="Draft skills">
           <div className="skillLibraryList">
             <SkillLibraryRowSkeleton />
             <SkillLibraryRowSkeleton compact />
           </div>
         </PanelSkeleton>
-        <PanelSkeleton eyebrow="Active schedule" title="Practice targets">
+        <PanelSkeleton title="Practice targets">
           <div className="skillLibraryList">
             <SkillLibraryRowSkeleton withFacts />
             <SkillLibraryRowSkeleton compact withFacts />
@@ -340,14 +326,14 @@ function NewSkillRouteLoading({ config }: { config: PrimaryRouteLoadingConfig })
           </div>
         </section>
         <section className="skillSourceEntryGrid" aria-label="Source-backed draft options loading">
-          <PanelSkeleton eyebrow="File source" title="Upload material">
+          <PanelSkeleton title="Upload material">
             <div className="routeLoadingDropzone" aria-hidden="true">
               <Skeleton className="routeSkeleton" height={44} radius={8} width={154} />
               <Skeleton className="routeSkeleton" height={14} radius={5} width="58%" />
               <Skeleton className="routeSkeleton" height={12} radius={5} width="42%" />
             </div>
           </PanelSkeleton>
-          <PanelSkeleton eyebrow="Text source" title="Paste material">
+          <PanelSkeleton title="Paste material">
             <div className="routeLoadingFormStack" aria-hidden="true">
               <Skeleton className="routeSkeleton" height={116} radius={8} />
               <Skeleton className="routeSkeleton" height={40} radius={8} />
@@ -367,7 +353,6 @@ function HistoryRouteLoading({ config }: { config: PrimaryRouteLoadingConfig }) 
       <section className="skillPanel historyPanel routeLoadingPanel" aria-label="Review history loading">
         <div className="skillPanelHeader">
           <div>
-            <p className="eyebrow">Completed reviews</p>
             <h2>Latest completed reviews</h2>
           </div>
         </div>
@@ -425,18 +410,14 @@ function CollectionsRouteLoading({ config }: { config: PrimaryRouteLoadingConfig
   return (
     <>
       <RouteHeader actionCount={1} config={config} />
-      <PanelSkeleton className="collectionCreatePanel" eyebrow="New collection" title="Add a study area">
+      <PanelSkeleton className="collectionCreatePanel" title="Add a study area">
         <div className="routeLoadingFormStack" aria-hidden="true">
           <Skeleton className="routeSkeleton" height={42} radius={8} />
           <Skeleton className="routeSkeleton" height={82} radius={8} />
           <Skeleton className="routeSkeleton routeLoadingActionButton" height={42} radius={8} width={148} />
         </div>
       </PanelSkeleton>
-      <PanelSkeleton
-        className="collectionManagementPanel"
-        eyebrow="Active"
-        title="Current collections"
-      >
+      <PanelSkeleton className="collectionManagementPanel" title="Current collections">
         <article className="routeLoadingCollectionRow" aria-hidden="true">
           <div>
             <Skeleton className="routeSkeleton" height={20} radius={5} width={190} />
@@ -463,7 +444,7 @@ function SettingsRouteLoading({ config }: { config: PrimaryRouteLoadingConfig })
   return (
     <>
       <RouteHeader actionCount={1} config={config} />
-      <PanelSkeleton className="settingsPanel" eyebrow="Email reminders" title="Due-practice email">
+      <PanelSkeleton className="settingsPanel" title="Due-practice email">
         <div className="routeLoadingSettingsSummary" aria-hidden="true">
           <Skeleton className="routeSkeleton" height={48} radius={8} />
           <Skeleton className="routeSkeleton" height={48} radius={8} />
@@ -494,7 +475,7 @@ function SettingsRouteLoading({ config }: { config: PrimaryRouteLoadingConfig })
           </section>
         </div>
       </PanelSkeleton>
-      <PanelSkeleton className="settingsExportPanel" eyebrow="Data export" title="Download study data">
+      <PanelSkeleton className="settingsExportPanel" title="Download study data">
         <div className="routeLoadingFactsGrid" aria-hidden="true">
           {Array.from({ length: 4 }, (_, index) => (
             <Skeleton className="routeSkeleton" height={48} key={index} radius={6} />
@@ -504,12 +485,4 @@ function SettingsRouteLoading({ config }: { config: PrimaryRouteLoadingConfig })
       </PanelSkeleton>
     </>
   );
-}
-
-function formatRouteLoadingDate(date: Date) {
-  return date.toLocaleDateString(undefined, {
-    day: "numeric",
-    month: "long",
-    weekday: "long",
-  }).toUpperCase();
 }

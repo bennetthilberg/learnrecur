@@ -24,7 +24,6 @@ export function SourceSkillForm() {
     <form action={action} className="skillPanel skillSourceForm">
       <div className="skillPanelHeader">
         <div>
-          <p className="eyebrow">Source draft</p>
           <h2>Paste learning material</h2>
         </div>
         <span className="skillPanelHeaderIcon" aria-hidden="true">

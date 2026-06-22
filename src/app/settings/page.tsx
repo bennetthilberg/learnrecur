@@ -24,7 +24,6 @@ export default async function SettingsPage() {
       <main className="skillShell">
         <SkillsTopbar current="settings" />
         <section className="dashboardSetupPanel" aria-labelledby="settings-setup-title">
-          <p className="eyebrow">Settings</p>
           <h1 id="settings-setup-title">Database setup needs attention.</h1>
           <p>{databaseUser.message}</p>
         </section>
@@ -39,7 +38,6 @@ export default async function SettingsPage() {
       <main className="skillShell">
         <SkillsTopbar current="settings" />
         <section className="dashboardSetupPanel" aria-labelledby="settings-user-title">
-          <p className="eyebrow">Settings</p>
           <h1 id="settings-user-title">Reminder settings are unavailable.</h1>
           <p>{settings.message}</p>
         </section>
@@ -53,7 +51,6 @@ export default async function SettingsPage() {
 
       <header className="skillHeader">
         <div>
-          <p className="eyebrow">Account controls</p>
           <h1>Reminders and data</h1>
           <p>
             Manage quiet reminders and download a copy of your study data.
@@ -67,7 +64,6 @@ export default async function SettingsPage() {
       <section className="skillPanel settingsPanel" aria-labelledby="reminder-settings-title">
         <div className="skillPanelHeader">
           <div>
-            <p className="eyebrow">Email reminders</p>
             <h2 id="reminder-settings-title">Due-practice email</h2>
           </div>
         </div>
@@ -94,7 +90,6 @@ export default async function SettingsPage() {
       <section className="skillPanel settingsExportPanel" aria-labelledby="data-export-title">
         <div className="skillPanelHeader">
           <div>
-            <p className="eyebrow">Data export</p>
             <h2 id="data-export-title">Download study data</h2>
           </div>
           <Link className="secondaryButton" href="/settings/export" prefetch={false}>

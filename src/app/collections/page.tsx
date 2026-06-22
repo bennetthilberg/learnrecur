@@ -34,7 +34,6 @@ export default async function CollectionsPage() {
       <main className="skillShell">
         <SkillsTopbar current="collections" />
         <section className="dashboardSetupPanel" aria-labelledby="collections-setup-title">
-          <p className="eyebrow">Collections</p>
           <h1 id="collections-setup-title">Database setup needs attention.</h1>
           <p>{databaseUser.message}</p>
         </section>
@@ -53,7 +52,6 @@ export default async function CollectionsPage() {
 
       <header className="skillHeader">
         <div>
-          <p className="eyebrow">Study areas</p>
           <h1>Organize practice</h1>
           <p>
             Create, describe, archive, and restore the study areas that organize
@@ -68,7 +66,6 @@ export default async function CollectionsPage() {
       <section className="skillPanel collectionCreatePanel" aria-labelledby="create-collection-title">
         <div className="skillPanelHeader">
           <div>
-            <p className="eyebrow">New collection</p>
             <h2 id="create-collection-title">Add a study area</h2>
           </div>
         </div>
@@ -78,7 +75,6 @@ export default async function CollectionsPage() {
       <section className="skillPanel collectionManagementPanel" aria-labelledby="active-collections-title">
         <div className="skillPanelHeader">
           <div>
-            <p className="eyebrow">Active</p>
             <h2 id="active-collections-title">Current collections</h2>
           </div>
           <PanelHeaderCount
@@ -109,7 +105,6 @@ export default async function CollectionsPage() {
         >
           <div className="skillPanelHeader">
             <div>
-              <p className="eyebrow">Archived</p>
               <h2 id="archived-collections-title">Archived collections</h2>
             </div>
             <PanelHeaderCount

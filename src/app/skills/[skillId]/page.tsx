@@ -66,7 +66,6 @@ export default async function SkillPage({
       <main className="skillShell">
         <SkillsTopbar current="skill" />
         <section className="dashboardSetupPanel" aria-labelledby="skills-setup-title">
-          <p className="eyebrow">Skills</p>
           <h1 id="skills-setup-title">Database setup needs attention.</h1>
           <p>{databaseUser.message}</p>
         </section>
@@ -233,7 +232,6 @@ export default async function SkillPage({
         <SkillsTopbar current="skill" />
         <header className="skillHeader">
           <div>
-            <p className="eyebrow">Skill</p>
             <h1>{skill.title}</h1>
             <p>{skill.objective ?? "This skill is active in the practice schedule."}</p>
           </div>
@@ -247,7 +245,6 @@ export default async function SkillPage({
 
         <section className="skillPanel skillActivatedPanel" aria-labelledby="active-skill-title">
           <div>
-            <p className="eyebrow">Status</p>
             <h2 id="active-skill-title">Active schedule</h2>
           </div>
           <dl className="skillStatusSummary">
@@ -301,13 +298,11 @@ export default async function SkillPage({
         <section className="skillPanel skillQueuePanel" aria-labelledby="skill-queue-title">
           <div className="skillPanelHeader">
             <div>
-              <p className="eyebrow">Practice inventory</p>
               <h2 id="skill-queue-title">Exercise queues</h2>
             </div>
           </div>
           <div className="skillQueueBlock">
             <div>
-              <p className="eyebrow">Choice practice</p>
               <h2>Choice exercises</h2>
               <SkillQueueStateStrip
                 readyCount={inventory.readyExerciseCount}
@@ -348,7 +343,6 @@ export default async function SkillPage({
           </div>
           <div className="skillQueueBlock">
             <div>
-              <p className="eyebrow">Recall step</p>
               <h2>Exact-input exercises</h2>
               <SkillQueueStateStrip
                 readyCount={exactInputInventory.readyExerciseCount}
@@ -410,7 +404,6 @@ export default async function SkillPage({
           </div>
           <div className="skillQueueBlock">
             <div>
-              <p className="eyebrow">Math recall</p>
               <h2>Math exercises</h2>
               <SkillQueueStateStrip
                 readyCount={mathInventory.readyExerciseCount}
@@ -479,12 +472,10 @@ export default async function SkillPage({
     const statusCopy =
       skill.status === SkillStatus.PAUSED
         ? {
-            eyebrow: "Paused skill",
             heading: "Paused outside practice",
             body: "This skill keeps its schedule and history, but it will not appear in practice until resumed.",
           }
         : {
-            eyebrow: "Archived skill",
             heading: "Archived for recovery",
             body: "This skill is hidden from practice and normal dashboard counts. Restore it when you want to review or reactivate it.",
           };
@@ -494,7 +485,6 @@ export default async function SkillPage({
         <SkillsTopbar current="skill" />
         <header className="skillHeader">
           <div>
-            <p className="eyebrow">{statusCopy.eyebrow}</p>
             <h1>{skill.title}</h1>
             <p>{skill.objective ?? statusCopy.body}</p>
           </div>
@@ -502,7 +492,6 @@ export default async function SkillPage({
 
         <section className="skillPanel skillActivatedPanel" aria-labelledby="inactive-skill-title">
           <div>
-            <p className="eyebrow">Status</p>
             <h2 id="inactive-skill-title">{statusCopy.heading}</h2>
             <p className="skillQueueStatus">{statusCopy.body}</p>
           </div>
@@ -572,7 +561,6 @@ export default async function SkillPage({
       <SkillsTopbar current="skill" />
       <header className="skillHeader">
         <div>
-          <p className="eyebrow">Draft skill</p>
           <h1>{skill.title}</h1>
           <p>
             Review the definition, save any changes, then activate it to prepare
@@ -583,7 +571,6 @@ export default async function SkillPage({
 
       {skill.generationJobs[0]?.errorMessage ? (
         <section className="skillMessage" data-tone="error" aria-label="Latest activation issue">
-          <p className="eyebrow">Latest activation attempt</p>
           <p>{skill.generationJobs[0].errorMessage}</p>
         </section>
       ) : null}
@@ -744,7 +731,6 @@ function SkillLifecyclePanel({
     <section className="skillPanel skillLifecyclePanel" aria-labelledby="skill-lifecycle-title">
       <div className="skillPanelHeader">
         <div>
-          <p className="eyebrow">Lifecycle</p>
           <h2 id="skill-lifecycle-title">Skill controls</h2>
         </div>
       </div>
@@ -818,7 +804,6 @@ function SkillRecentReviewsPanel({ reviews }: { reviews: PracticeHistoryReview[]
     <section className="skillPanel skillRecentReviewsPanel" aria-labelledby="skill-reviews-title">
       <div className="skillPanelHeader">
         <div>
-          <p className="eyebrow">History</p>
           <h2 id="skill-reviews-title">Recent reviews</h2>
         </div>
         <Link className="dashboardPanelLink" href="/history">

@@ -397,7 +397,6 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
           />
         ) : (
           <section className="practiceFrame practiceEmpty" aria-labelledby="practice-empty-title">
-            <p className="eyebrow">Due practice</p>
             <h1 id="practice-empty-title">Practice is unavailable.</h1>
             <p>{item.message}</p>
             <PracticeEmptyDetails scoped={scoped} status={item.status} />
@@ -422,12 +421,6 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
   const exercise = item.exercise;
   const isNumericExercise = exercise.answerKind === AnswerKind.NUMERIC;
   const isMathExercise = exercise.answerKind === AnswerKind.MATH;
-  const practiceModeLabel =
-    exercise.answerKind === AnswerKind.CHOICE
-      ? "Multiple choice"
-      : isMathExercise
-        ? "Math input"
-        : "Exact input";
 
   return (
     <>
@@ -440,7 +433,6 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
       >
         <div className="practiceMetaRow">
           <div>
-            <p className="eyebrow">{practiceModeLabel}</p>
             <h1 id="practice-title">{item.skill.title}</h1>
           </div>
           <dl className="practiceSessionFacts" aria-label="Practice status">
@@ -727,7 +719,6 @@ function PracticeCompleteState({
         <CheckCircle size={28} weight="bold" />
       </div>
       <div className="practiceCompleteCopy">
-        <p className="eyebrow">Due practice complete</p>
         <h1 id="practice-empty-title">Nice work. You&apos;re all caught up.</h1>
         <p>
           {scoped

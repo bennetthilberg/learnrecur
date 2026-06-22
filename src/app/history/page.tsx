@@ -36,7 +36,6 @@ export default async function HistoryPage() {
       <main className="skillShell">
         <SkillsTopbar current="history" />
         <section className="dashboardSetupPanel" aria-labelledby="history-setup-title">
-          <p className="eyebrow">History</p>
           <h1 id="history-setup-title">Database setup needs attention.</h1>
           <p>{databaseUser.message}</p>
         </section>
@@ -55,7 +54,6 @@ export default async function HistoryPage() {
 
       <header className="skillHeader historyHeader">
         <div>
-          <p className="eyebrow">History</p>
           <h1>Review ledger</h1>
           <p>
             A compact record of completed reviews, grading outcomes, and how each
@@ -75,7 +73,6 @@ export default async function HistoryPage() {
       <section className="skillPanel historyPanel" aria-labelledby="review-history-title">
         <div className="skillPanelHeader">
           <div>
-            <p className="eyebrow">Completed reviews</p>
             <h2 id="review-history-title">Latest completed reviews</h2>
           </div>
           <PanelHeaderCount
