@@ -256,6 +256,8 @@ body {
 .practiceUserIdentity:focus-visible,
 .dashboardPanelLink:focus-visible,
 .skillLibraryRowMain a:focus-visible,
+.skillRowActionsTrigger:focus-visible,
+.skillRowActionItem:focus-visible,
 .skillRow h3 a:focus-visible,
 .historySkillLink:focus-visible,
 .collectionInlineDetails summary:focus-visible,
@@ -1399,6 +1401,94 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+.skillLibraryRowControls {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: flex-start;
+  gap: 7px;
+}
+
+.skillRowActions {
+  position: relative;
+  flex: 0 0 auto;
+  margin-top: -3px;
+}
+
+.skillRowActionsTrigger {
+  display: inline-flex;
+  width: 30px;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--lr-muted);
+  cursor: pointer;
+  padding: 0;
+}
+
+.skillRowActionsTrigger:hover,
+.skillRowActions:has(.skillRowActionsMenu) .skillRowActionsTrigger {
+  border-color: var(--lr-card-border);
+  background: #FFFFFF;
+  color: var(--lr-ink);
+}
+
+.skillRowActionsMenu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 12;
+  display: grid;
+  min-width: 148px;
+  gap: 2px;
+  border: 1px solid var(--lr-card-border);
+  border-radius: 8px;
+  background: #FFFFFF;
+  padding: 5px;
+  box-shadow: 0 10px 22px rgb(21 35 63 / 10%);
+}
+
+.skillRowActionsMenu form {
+  margin: 0;
+}
+
+.skillRowActionItem {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: flex-start;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--lr-ink);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.2;
+  padding: 8px 9px;
+  text-align: left;
+}
+
+.skillRowActionItem:hover {
+  background: var(--lr-wave-2);
+}
+
+.skillRowActionItem[data-tone="danger"] {
+  color: var(--lr-danger-ink);
+}
+
+.skillRowActionItem[data-tone="danger"]:hover {
+  background: var(--lr-danger-subtle);
+}
+
+.skillRowActionItem:disabled {
+  cursor: default;
+  opacity: .62;
+}
+
 .skillFormFieldset,
 .ratingOverride,
 .flagExercisePanel,
@@ -2130,6 +2220,46 @@ body {
   .entryProcessPanel {
     align-self: center;
     max-width: 420px;
+  }
+}
+
+@media (min-width: 720px) and (max-width: 1119px) {
+  .dashboardShell,
+  .practiceShell,
+  .skillShell {
+    max-width: none;
+    margin: 0;
+  }
+
+  .dashboardShell > :not(.openWaterBackground):not(.practiceTopbar),
+  .practiceShell > :not(.openWaterBackground):not(.practiceTopbar),
+  .skillShell > :not(.openWaterBackground):not(.practiceTopbar) {
+    width: min(900px, calc(100% - 32px));
+    margin-right: auto;
+    margin-left: auto;
+  }
+
+  .dashboardShell .practiceTopbar,
+  .practiceShell .practiceTopbar,
+  .skillShell .practiceTopbar {
+    min-height: 74px;
+    align-items: center;
+    padding: 17px 28px 15px;
+  }
+
+  .dashboardShell .practiceWordmark,
+  .practiceShell .practiceWordmark,
+  .skillShell .practiceWordmark,
+  .dashboardShell .practiceTopbarRight,
+  .practiceShell .practiceTopbarRight,
+  .skillShell .practiceTopbarRight {
+    align-self: center;
+  }
+
+  .dashboardShell .practiceNav,
+  .practiceShell .practiceNav,
+  .skillShell .practiceNav {
+    align-items: center;
   }
 }
 

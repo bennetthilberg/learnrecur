@@ -14,6 +14,7 @@ import { formatDisplayLabel, formatFsrsState, formatJobStatus } from "@/lib/form
 import { ensureDatabaseUser } from "@/lib/users";
 
 import { SourceProcessingControls } from "./source-processing-controls";
+import { SkillRowActions } from "./skill-row-actions";
 import { SkillsTopbar } from "./skills-topbar";
 
 export const dynamic = "force-dynamic";
@@ -200,7 +201,10 @@ function DraftSkillRow({ skill }: { skill: SkillsLibraryDraftSkill }) {
           </Link>
           <p>{skill.objective ?? "Objective not set."}</p>
         </div>
-        <span className="dashboardChip">Draft</span>
+        <div className="skillLibraryRowControls">
+          <span className="dashboardChip">Draft</span>
+          <SkillRowActions skillId={skill.id} skillTitle={skill.title} status="DRAFT" />
+        </div>
       </div>
 
       <div className="skillMetaLine">
@@ -234,9 +238,12 @@ function ActiveSkillRow({ skill }: { skill: SkillsLibraryActiveSkill }) {
           </Link>
           <p>{skill.objective ?? "Objective not set."}</p>
         </div>
-        <span className="dashboardChip" data-tone={skill.isReadyNow ? "ready" : "neutral"}>
-          {skill.dueLabel}
-        </span>
+        <div className="skillLibraryRowControls">
+          <span className="dashboardChip" data-tone={skill.isReadyNow ? "ready" : "neutral"}>
+            {skill.dueLabel}
+          </span>
+          <SkillRowActions skillId={skill.id} skillTitle={skill.title} status="ACTIVE" />
+        </div>
       </div>
 
       <div className="skillMetaLine skillMetaLineSchedule">
@@ -263,7 +270,10 @@ function RecoverySkillRow({ skill }: { skill: SkillsLibraryRecoverySkill }) {
           </Link>
           <p>{skill.objective ?? "Objective not set."}</p>
         </div>
-        <span className="dashboardChip">{formatSkillStatus(skill.status)}</span>
+        <div className="skillLibraryRowControls">
+          <span className="dashboardChip">{formatSkillStatus(skill.status)}</span>
+          <SkillRowActions skillId={skill.id} skillTitle={skill.title} status={skill.status} />
+        </div>
       </div>
 
       <div className="skillMetaLine">
