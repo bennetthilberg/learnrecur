@@ -522,6 +522,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
               active={pendingAction === "check"}
               idleText="Check"
               pendingText="Checking"
+              shortcut="Enter"
             />
           </button>
         </div>
