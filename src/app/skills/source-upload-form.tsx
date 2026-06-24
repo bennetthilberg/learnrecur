@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useId, useRef, useState, useTransition } from "react";
 import type React from "react";
 import { useRouter } from "next/navigation";
 import { UploadSimple } from "@phosphor-icons/react";
@@ -10,9 +10,11 @@ import {
   prepareSourceUploadAction,
   type PrepareSourceUploadActionResult,
 } from "./actions";
-
-const acceptedMimeTypes = ["image/png", "image/jpeg", "image/webp", "application/pdf"];
-const maxUploadBytes = 10 * 1024 * 1024;
+import {
+  acceptedSourceUploadMimeTypes,
+  getClipboardSourceFile,
+  getSourceUploadFileError,
+} from "./source-upload-clipboard";
 
 type UploadStatus = "idle" | "preparing" | "uploading" | "queueing" | "error";
 
@@ -38,6 +40,59 @@ export function SourceUploadForm() {
     status === "queueing" ||
     isPending;
   const fileError = fileErrorMessage(fieldErrors);
+  const selectUploadFile = useCallback((file: File, successMessage: string | null = null) => {
+    const fileError = getSourceUploadFileError(file);
+
+    if (fileError) {
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+
+      setSelectedFileName(null);
+      setStatus("error");
+      setMessage(null);
+      setFieldErrors({
+        [fileError.field]: [fileError.message],
+      });
+      return false;
+    }
+
+    if (!fileInputRef.current) {
+      return false;
+    }
+
+    const transfer = new DataTransfer();
+    transfer.items.add(file);
+    fileInputRef.current.files = transfer.files;
+    setSelectedFileName(file.name);
+    setStatus("idle");
+    setMessage(successMessage);
+    setFieldErrors(undefined);
+    return true;
+  }, []);
+
+  useEffect(() => {
+    function handleDocumentPaste(event: ClipboardEvent) {
+      if (busy) {
+        return;
+      }
+
+      const pastedFile = getClipboardSourceFile(event.clipboardData);
+
+      if (!pastedFile) {
+        return;
+      }
+
+      event.preventDefault();
+      selectUploadFile(pastedFile, "Pasted file added. Create drafts when ready.");
+    }
+
+    document.addEventListener("paste", handleDocumentPaste);
+
+    return () => {
+      document.removeEventListener("paste", handleDocumentPaste);
+    };
+  }, [busy, selectUploadFile]);
 
   return (
     <form
@@ -104,39 +159,11 @@ export function SourceUploadForm() {
                   return;
                 }
 
-                if (!acceptedMimeTypes.includes(file.type)) {
-                  fileInputRef.current.value = "";
-                  setSelectedFileName(null);
-                  setStatus("error");
-                  setMessage(null);
-                  setFieldErrors({
-                    mimeType: ["Upload a PNG, JPEG, WebP, or PDF file."],
-                  });
-                  return;
-                }
-
-                if (file.size > maxUploadBytes) {
-                  fileInputRef.current.value = "";
-                  setSelectedFileName(null);
-                  setStatus("error");
-                  setMessage(null);
-                  setFieldErrors({
-                    byteSize: ["Upload a file smaller than 10 MB."],
-                  });
-                  return;
-                }
-
-                const transfer = new DataTransfer();
-                transfer.items.add(file);
-                fileInputRef.current.files = transfer.files;
-                setSelectedFileName(file.name);
-                setStatus("idle");
-                setMessage(null);
-                setFieldErrors(undefined);
+                selectUploadFile(file);
               }}
             >
               <input
-                accept={acceptedMimeTypes.join(",")}
+                accept={acceptedSourceUploadMimeTypes.join(",")}
                 aria-describedby={fileError ? fileErrorId : undefined}
                 aria-invalid={hasFileError(fieldErrors) ? "true" : undefined}
                 className="skillFileInput"
@@ -158,7 +185,7 @@ export function SourceUploadForm() {
               <span className="secondaryButton skillFileButton">
                 Choose file
               </span>
-              <span className="skillFileDropzoneText">or drag a file here to upload</span>
+              <span className="skillFileDropzoneText">Drag a file here, or paste a screenshot.</span>
               <span className="skillFileName" data-state={selectedFileName ? "selected" : "empty"}>
                 {selectedFileName ?? "No file selected"}
               </span>
@@ -265,18 +292,12 @@ export function SourceUploadForm() {
       return;
     }
 
-    if (!acceptedMimeTypes.includes(file.type)) {
-      setStatus("error");
-      setFieldErrors({
-        mimeType: ["Upload a PNG, JPEG, WebP, or PDF file."],
-      });
-      return;
-    }
+    const fileError = getSourceUploadFileError(file);
 
-    if (file.size > maxUploadBytes) {
+    if (fileError) {
       setStatus("error");
       setFieldErrors({
-        byteSize: ["Upload a file smaller than 10 MB."],
+        [fileError.field]: [fileError.message],
       });
       return;
     }

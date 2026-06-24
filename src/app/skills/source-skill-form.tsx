@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useId } from "react";
+import { useActionState, useEffect, useId, useRef } from "react";
 import type React from "react";
 import { ClipboardText } from "@phosphor-icons/react";
 
@@ -15,10 +15,23 @@ const idleState: SkillFormActionState = {
 };
 
 export function SourceSkillForm() {
+  const sourceTextRef = useRef<HTMLTextAreaElement>(null);
   const [state, action, isGenerating] = useActionState(
     generateSkillDraftFromSourceAction,
     idleState,
   );
+
+  useEffect(() => {
+    sourceTextRef.current?.focus({ preventScroll: true });
+
+    const animationFrame = window.requestAnimationFrame(() => {
+      sourceTextRef.current?.focus({ preventScroll: true });
+    });
+
+    return () => {
+      window.cancelAnimationFrame(animationFrame);
+    };
+  }, []);
 
   return (
     <form action={action} className="skillPanel skillSourceForm">
@@ -39,7 +52,9 @@ export function SourceSkillForm() {
         <legend>Source text</legend>
         <div className="skillFormFieldsetBody">
           <SkillTextArea
+            autoFocus
             error={state.fieldErrors?.sourceText?.[0]}
+            inputRef={sourceTextRef}
             label="Learning material"
             name="sourceText"
             placeholder="Paste notes, a copied textbook excerpt, worksheet instructions, or a short explanation from class."
@@ -144,12 +159,14 @@ function SkillTextArea({
   label,
   name,
   error,
+  inputRef,
   "aria-describedby": ariaDescribedBy,
   ...props
 }: {
   label: string;
   name: string;
   error?: string;
+  inputRef?: React.Ref<HTMLTextAreaElement>;
 } & React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
   const errorId = useId();
   const describedBy = [ariaDescribedBy, error ? errorId : null].filter(Boolean).join(" ") || undefined;
@@ -161,6 +178,7 @@ function SkillTextArea({
         aria-describedby={describedBy}
         aria-invalid={error ? "true" : undefined}
         name={name}
+        ref={inputRef}
         {...props}
       />
       {error ? <em id={errorId}>{error}</em> : null}
