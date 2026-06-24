@@ -173,6 +173,8 @@ const inngestProductionEnvSchema = z.object({
     .min(1, "INNGEST_SIGNING_KEY is required"),
 });
 
+const falseEnvValues = new Set(["0", "false", "no", "n", "off"]);
+
 const listEnvSchema = z.preprocess((value) => {
   if (typeof value !== "string") {
     return [];
@@ -214,10 +216,7 @@ const productionEnvSchema = requiredDatabaseEnvSchema
       });
     }
 
-    if (
-      value.INNGEST_DEV &&
-      ["1", "true", "yes", "y", "on"].includes(value.INNGEST_DEV.toLowerCase())
-    ) {
+    if (value.INNGEST_DEV && !falseEnvValues.has(value.INNGEST_DEV.toLowerCase())) {
       context.addIssue({
         code: "custom",
         path: ["INNGEST_DEV"],

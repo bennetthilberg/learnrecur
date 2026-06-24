@@ -1,4 +1,4 @@
-import { getAlphaAccessEnv, parseEnvList } from "./env";
+import { parseEnvList } from "./env";
 
 export type AlphaAccessDecision =
   | {
@@ -58,15 +58,6 @@ export function checkAlphaAccessForEmail(
     reason: "not-allowed",
     message: "This alpha is invite-only. Ask the founder to add this email before continuing.",
   };
-}
-
-export function getConfiguredAlphaAccessDecision(email: string | null | undefined) {
-  const env = getAlphaAccessEnv();
-
-  return checkAlphaAccessForEmail(email, {
-    ALPHA_ALLOWED_EMAILS: env.ALPHA_ALLOWED_EMAILS.join(","),
-    ALPHA_ALLOWED_DOMAINS: env.ALPHA_ALLOWED_DOMAINS.join(","),
-  });
 }
 
 function normalizeEmailList(values: string[]): Set<string> {

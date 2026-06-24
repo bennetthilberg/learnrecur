@@ -134,7 +134,7 @@ export async function checkSkillActivationUsageLimit(input: {
     prisma.generationJob.count({
       where: {
         userId: input.userId,
-        kind: GenerationJobKind.CHOICE_EXERCISE_GENERATION,
+        kind: GenerationJobKind.SKILL_ACTIVATION,
         createdAt: {
           gte: dayStart,
         },

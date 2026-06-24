@@ -2682,20 +2682,23 @@ a {
   display: grid;
   grid-template-columns: minmax(0, 0.78fr) minmax(0, 1fr);
   gap: 0;
-  margin-top: 16px;
+  margin: 16px 0 0;
   border-top: 1px solid var(--lr-line);
   color: var(--lr-muted);
-  padding-top: 13px;
+  padding: 13px 0 0;
+  list-style: none;
 }
 
-.settingsPrivacyNote section {
+.settingsPrivacyNote section,
+.settingsPrivacyNote li {
   display: grid;
   align-content: start;
   gap: 4px;
   padding: 0 18px 0 0;
 }
 
-.settingsPrivacyNote section + section {
+.settingsPrivacyNote section + section,
+.settingsPrivacyNote li + li {
   border-left: 1px solid var(--lr-line);
   padding: 0 0 0 18px;
 }
@@ -5653,11 +5656,13 @@ a {
     gap: 11px;
   }
 
-  .settingsPrivacyNote section {
+  .settingsPrivacyNote section,
+  .settingsPrivacyNote li {
     padding: 0;
   }
 
-  .settingsPrivacyNote section + section {
+  .settingsPrivacyNote section + section,
+  .settingsPrivacyNote li + li {
     border-top: 1px solid var(--lr-line);
     border-left: 0;
     padding: 11px 0 0;

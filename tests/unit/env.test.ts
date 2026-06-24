@@ -268,6 +268,32 @@ describe("environment validation", () => {
     expect(() => getProductionEnv()).toThrow(/OPS_ALLOWED_EMAILS/);
   });
 
+  it("rejects unexpected INNGEST_DEV values in production", () => {
+    resetManagedEnv({
+      NEXT_PUBLIC_APP_URL: "https://app.learnrecur.com",
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "pk_live_example",
+      CLERK_SECRET_KEY: "sk_live_example",
+      DATABASE_URL: "postgresql://runtime:secret@example-pooler.aws.neon.tech/neondb?sslmode=require",
+      DIRECT_URL: "postgresql://migrate:secret@example.aws.neon.tech/neondb?sslmode=require",
+      GEMINI_API_KEY: "gemini-secret",
+      AWS_REGION: "us-east-1",
+      S3_BUCKET_NAME: "learnrecur-prod-source-uploads",
+      AWS_ACCESS_KEY_ID: "prod-access-key",
+      AWS_SECRET_ACCESS_KEY: "prod-secret",
+      INNGEST_APP_ID: "learnrecur",
+      INNGEST_DEV: "banana",
+      INNGEST_EVENT_KEY: "inngest-event-key",
+      INNGEST_SIGNING_KEY: "inngest-signing-key",
+      RESEND_API_KEY: "re_example",
+      RESEND_FROM_EMAIL: "LearnRecur <practice@app.learnrecur.com>",
+      ALPHA_ALLOWED_EMAILS: "founder@example.com",
+      OPS_ALLOWED_EMAILS: "founder@example.com",
+    });
+
+    expect(hasProductionEnv()).toBe(false);
+    expect(() => getProductionEnv()).toThrow(/INNGEST_DEV must be absent or false/);
+  });
+
   it("requires an app URL outside local development", () => {
     resetManagedEnv({
       RESEND_API_KEY: "re_example",

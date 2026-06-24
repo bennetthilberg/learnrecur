@@ -31,7 +31,9 @@ export default async function OpsPage() {
     );
   }
 
-  const databaseUser = await ensureDatabaseUser(clerkUser);
+  const databaseUser = await ensureDatabaseUser(clerkUser, {
+    skipAlphaAccessCheck: true,
+  });
 
   if (databaseUser.status !== "ready") {
     return (
@@ -194,10 +196,10 @@ function OpsUsage({ overview }: { overview: OpsOverview }) {
           <h2 id="ops-usage-title">Daily usage</h2>
         </div>
       </div>
-      <div className="settingsPrivacyNote" role="list" aria-label="Daily usage leaders">
+      <ul className="settingsPrivacyNote" aria-label="Daily usage leaders">
         <UsageList title="Generation jobs" rows={overview.dailyGenerationUsage} />
         <UsageList title="Source rows" rows={overview.dailySourceUsage} />
-      </div>
+      </ul>
     </section>
   );
 }
@@ -213,7 +215,7 @@ function UsageList({
   }>;
 }) {
   return (
-    <section>
+    <li>
       <h3>{title}</h3>
       {rows.length === 0 ? (
         <p>No usage today.</p>
@@ -224,7 +226,7 @@ function UsageList({
             .join("; ")}
         </p>
       )}
-    </section>
+    </li>
   );
 }
 

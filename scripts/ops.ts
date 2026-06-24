@@ -144,18 +144,18 @@ async function deleteUser() {
     throw new Error(storageSetup.message);
   }
 
+  await prisma.user.delete({
+    where: {
+      id: userId,
+    },
+  });
+
   for (const object of storageObjects) {
     await storageSetup.storage.deleteObject({
       bucket: object.bucket ?? undefined,
       key: object.key,
     });
   }
-
-  await prisma.user.delete({
-    where: {
-      id: userId,
-    },
-  });
 
   console.log(JSON.stringify({ deleted: true, ...summary }, null, 2));
 }
@@ -236,18 +236,48 @@ async function storageAudit() {
       updatedAt: true,
     },
   });
-  const dbKeys = new Set(dbRows.map((row) => row.storageKey).filter(Boolean));
-  const s3Keys = await storageSetup.storage.listObjects({ prefix: "source-uploads/" });
-  const s3KeySet = new Set(s3Keys);
-  const missingObjects = dbRows.filter((row) => row.storageKey && !s3KeySet.has(row.storageKey));
-  const orphanObjects = s3Keys.filter((key) => !dbKeys.has(key));
+  const bucketNames = new Set(
+    dbRows.map((row) => row.storageBucket ?? storageSetup.storage.bucketName),
+  );
+  bucketNames.add(storageSetup.storage.bucketName);
+
+  const s3Objects = (
+    await Promise.all(
+      [...bucketNames].map(async (bucket) =>
+        (await storageSetup.storage.listObjects({ bucket, prefix: "source-uploads/" })).map(
+          (key) => ({ bucket, key }),
+        ),
+      ),
+    )
+  ).flat();
+
+  const dbKeys = new Set(
+    dbRows.flatMap((row) =>
+      row.storageKey
+        ? [storageObjectId(row.storageBucket ?? storageSetup.storage.bucketName, row.storageKey)]
+        : [],
+    ),
+  );
+  const s3KeySet = new Set(
+    s3Objects.map((object) => storageObjectId(object.bucket, object.key)),
+  );
+  const missingObjects = dbRows.filter(
+    (row) =>
+      row.storageKey &&
+      !s3KeySet.has(
+        storageObjectId(row.storageBucket ?? storageSetup.storage.bucketName, row.storageKey),
+      ),
+  );
+  const orphanObjects = s3Objects.filter(
+    (object) => !dbKeys.has(storageObjectId(object.bucket, object.key)),
+  );
 
   console.log(
     JSON.stringify(
       {
         dryRun: true,
         dbObjectRows: dbRows.length,
-        s3Objects: s3Keys.length,
+        s3Objects: s3Objects.length,
         missingObjects,
         orphanObjects,
       },
@@ -255,6 +285,10 @@ async function storageAudit() {
       2,
     ),
   );
+}
+
+function storageObjectId(bucket: string, key: string): string {
+  return `${bucket}:${key}`;
 }
 
 function parseArgs(values: string[]): Args {

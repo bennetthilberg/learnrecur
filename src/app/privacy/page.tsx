@@ -23,7 +23,7 @@ export default function PrivacyPage() {
               <p>Alpha policy draft. Review before inviting external testers.</p>
             </div>
           </div>
-          <div className="policyGrid" role="list" aria-label="Privacy summary">
+          <div className="policyGrid">
             <section>
               <h2>Account data</h2>
               <p>

@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  GenerationJobKind,
+  SkillStatus,
+} from "@/generated/prisma/client";
+import {
   ALPHA_ACTIVE_SKILLS,
   ALPHA_EXERCISE_REFILL_JOBS_PER_DAY,
   ALPHA_SKILL_ACTIVATIONS_PER_DAY,
@@ -121,6 +125,36 @@ describe("usage limits", () => {
     ).resolves.toMatchObject({
       status: "limited",
       code: "daily-activation-limit",
+    });
+
+    await expect(
+      checkSkillActivationUsageLimit({
+        userId: "user_1",
+        now,
+        prisma: {
+          skill: {
+            count: vi.fn(async (args) => {
+              expect(args.where).toMatchObject({
+                status: {
+                  in: [SkillStatus.ACTIVE, SkillStatus.PAUSED],
+                },
+              });
+
+              return ALPHA_ACTIVE_SKILLS - 1;
+            }),
+          },
+          generationJob: {
+            count: vi.fn(async (args) => {
+              return args.where.kind === GenerationJobKind.SKILL_ACTIVATION
+                ? 0
+                : ALPHA_SKILL_ACTIVATIONS_PER_DAY;
+            }),
+          },
+          sourceFile: {},
+        } as never,
+      }),
+    ).resolves.toEqual({
+      status: "ok",
     });
   });
 

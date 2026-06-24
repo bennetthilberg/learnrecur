@@ -1321,7 +1321,7 @@ export async function activateSkillDraft(
     data: {
       userId: input.userId,
       skillId: skill.id,
-      kind: GenerationJobKind.CHOICE_EXERCISE_GENERATION,
+      kind: GenerationJobKind.SKILL_ACTIVATION,
       status: setup.status === "ready" ? GenerationJobStatus.RUNNING : GenerationJobStatus.FAILED,
       provider: GEMINI_PROVIDER,
       model: setup.model,
