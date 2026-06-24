@@ -343,11 +343,12 @@ export function formatEnvError(error: unknown): string {
 function formatZodIssue(issue: z.core.$ZodIssue): string {
   const path = issue.path.join(".");
 
-  if (path && issue.message === "Invalid input: expected string, received undefined") {
-    return `${path} is required`;
-  }
-
-  if (path && issue.message === "Invalid input: expected string, received null") {
+  if (
+    path &&
+    issue.code === "invalid_type" &&
+    issue.expected === "string" &&
+    (issue.input === undefined || issue.input === null)
+  ) {
     return `${path} is required`;
   }
 

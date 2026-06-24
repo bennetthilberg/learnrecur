@@ -285,6 +285,18 @@ describe("environment validation", () => {
       expect(message).toContain("CLERK_SECRET_KEY is required");
       expect(message).not.toContain("Invalid input: expected string, received undefined");
     }
+
+    const zodError = new z.ZodError([
+      {
+        code: "invalid_type",
+        expected: "string",
+        input: undefined,
+        path: ["DIRECT_URL"],
+        message: "zod changed this default message",
+      },
+    ]);
+
+    expect(formatEnvError(zodError)).toBe("DIRECT_URL is required");
   });
 
   it("rejects unexpected INNGEST_DEV values in production", () => {
