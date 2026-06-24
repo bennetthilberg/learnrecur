@@ -7,12 +7,18 @@ import {
   getClerkEnv,
   getDatabaseEnv,
   getGeminiEnv,
+  getProductionEnv,
   getResendEnv,
+  getS3Env,
   hasActiveEnv,
   hasClerkEnv,
   hasDatabaseEnv,
   hasGeminiEnv,
+  hasProductionEnv,
   hasResendEnv,
+  hasS3Env,
+  parseEnvList,
+  shouldCheckProductionEnv,
 } from "@/lib/env";
 
 const managedEnvKeys = [
@@ -26,6 +32,19 @@ const managedEnvKeys = [
   "RESEND_API_KEY",
   "RESEND_FROM_EMAIL",
   "NEXT_PUBLIC_APP_URL",
+  "AWS_REGION",
+  "S3_BUCKET_NAME",
+  "AWS_ACCESS_KEY_ID",
+  "AWS_SECRET_ACCESS_KEY",
+  "INNGEST_APP_ID",
+  "INNGEST_DEV",
+  "INNGEST_EVENT_KEY",
+  "INNGEST_SIGNING_KEY",
+  "ALPHA_ALLOWED_EMAILS",
+  "ALPHA_ALLOWED_DOMAINS",
+  "OPS_ALLOWED_EMAILS",
+  "LEARNRECUR_STRICT_ENV",
+  "VERCEL_ENV",
 ] as const;
 
 const originalEnv = process.env;
@@ -159,6 +178,96 @@ describe("environment validation", () => {
     expect(() => getResendEnv()).toThrow(/NEXT_PUBLIC_APP_URL must be a valid URL/);
   });
 
+  it("validates S3 only when source upload storage asks for S3 configuration", () => {
+    resetManagedEnv({
+      AWS_REGION: " us-east-1 ",
+      S3_BUCKET_NAME: " learnrecur-prod-source-uploads ",
+      AWS_ACCESS_KEY_ID: " prod-access-key ",
+      AWS_SECRET_ACCESS_KEY: " prod-secret ",
+    });
+
+    expect(hasS3Env()).toBe(true);
+    expect(getS3Env()).toEqual({
+      AWS_REGION: "us-east-1",
+      S3_BUCKET_NAME: "learnrecur-prod-source-uploads",
+      AWS_ACCESS_KEY_ID: "prod-access-key",
+      AWS_SECRET_ACCESS_KEY: "prod-secret",
+    });
+  });
+
+  it("validates the full production deployment environment", () => {
+    resetManagedEnv({
+      NEXT_PUBLIC_APP_URL: " https://app.learnrecur.com ",
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: " pk_live_example ",
+      CLERK_SECRET_KEY: " sk_live_example ",
+      DATABASE_URL: "postgresql://runtime:secret@example-pooler.aws.neon.tech/neondb?sslmode=require",
+      DIRECT_URL: "postgresql://migrate:secret@example.aws.neon.tech/neondb?sslmode=require",
+      GEMINI_API_KEY: "gemini-secret",
+      GEMINI_MODEL: "gemini-3.5-flash",
+      AWS_REGION: "us-east-1",
+      S3_BUCKET_NAME: "learnrecur-prod-source-uploads",
+      AWS_ACCESS_KEY_ID: "prod-access-key",
+      AWS_SECRET_ACCESS_KEY: "prod-secret",
+      INNGEST_APP_ID: "learnrecur",
+      INNGEST_DEV: "0",
+      INNGEST_EVENT_KEY: "inngest-event-key",
+      INNGEST_SIGNING_KEY: "inngest-signing-key",
+      RESEND_API_KEY: "re_example",
+      RESEND_FROM_EMAIL: "LearnRecur <practice@app.learnrecur.com>",
+      ALPHA_ALLOWED_EMAILS: "founder@example.com tester@example.com",
+      ALPHA_ALLOWED_DOMAINS: "",
+      OPS_ALLOWED_EMAILS: "founder@example.com",
+    });
+
+    expect(hasProductionEnv()).toBe(true);
+    expect(getProductionEnv()).toMatchObject({
+      NEXT_PUBLIC_APP_URL: "https://app.learnrecur.com",
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "pk_live_example",
+      CLERK_SECRET_KEY: "sk_live_example",
+      DATABASE_URL: "postgresql://runtime:secret@example-pooler.aws.neon.tech/neondb?sslmode=require",
+      DIRECT_URL: "postgresql://migrate:secret@example.aws.neon.tech/neondb?sslmode=require",
+      INNGEST_APP_ID: "learnrecur",
+      INNGEST_DEV: "0",
+      ALPHA_ALLOWED_EMAILS: ["founder@example.com", "tester@example.com"],
+      OPS_ALLOWED_EMAILS: ["founder@example.com"],
+    });
+  });
+
+  it("rejects unsafe production deployment configuration", () => {
+    resetManagedEnv({
+      NEXT_PUBLIC_APP_URL: "http://localhost:3000",
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "pk_test_example",
+      CLERK_SECRET_KEY: "sk_test_example",
+      DATABASE_URL: "postgresql://runtime:secret@example-pooler.aws.neon.tech/neondb?sslmode=require",
+      DIRECT_URL: "",
+      GEMINI_API_KEY: "gemini-secret",
+      AWS_REGION: "us-east-1",
+      S3_BUCKET_NAME: "learnrecur-prod-source-uploads",
+      AWS_ACCESS_KEY_ID: "prod-access-key",
+      AWS_SECRET_ACCESS_KEY: "prod-secret",
+      INNGEST_APP_ID: "learnrecur-dev",
+      INNGEST_DEV: "1",
+      INNGEST_EVENT_KEY: "inngest-event-key",
+      INNGEST_SIGNING_KEY: "inngest-signing-key",
+      RESEND_API_KEY: "re_example",
+      RESEND_FROM_EMAIL: "LearnRecur <practice@app.learnrecur.com>",
+      ALPHA_ALLOWED_EMAILS: "",
+      ALPHA_ALLOWED_DOMAINS: "",
+      OPS_ALLOWED_EMAILS: "",
+    });
+
+    expect(hasProductionEnv()).toBe(false);
+    expect(() => getProductionEnv()).toThrow(/NEXT_PUBLIC_APP_URL must use https:\/\//);
+    expect(() => getProductionEnv()).toThrow(/NEXT_PUBLIC_APP_URL must not point at localhost/);
+    expect(() => getProductionEnv()).toThrow(/pk_live_/);
+    expect(() => getProductionEnv()).toThrow(/sk_live_/);
+    expect(() => getProductionEnv()).toThrow(/DIRECT_URL is required/);
+    expect(() => getProductionEnv()).toThrow(/INNGEST_APP_ID must not be learnrecur-dev/);
+    expect(() => getProductionEnv()).toThrow(/INNGEST_DEV must be absent or false/);
+    expect(() => getProductionEnv()).toThrow(/ALPHA_ALLOWED_EMAILS or ALPHA_ALLOWED_DOMAINS/);
+    expect(() => getProductionEnv()).toThrow(/OPS_ALLOWED_EMAILS/);
+  });
+
   it("requires an app URL outside local development", () => {
     resetManagedEnv({
       RESEND_API_KEY: "re_example",
@@ -211,5 +320,21 @@ describe("environment validation", () => {
     expect(formatEnvError(zodError)).toBe("database went sideways");
     expect(formatEnvError(new Error("plain error"))).toBe("plain error");
     expect(formatEnvError("wat")).toBe("Missing or invalid environment configuration.");
+  });
+
+  it("parses comma and whitespace separated env lists", () => {
+    expect(parseEnvList(" ada@example.com, grace@example.com\nteam@example.com ")).toEqual([
+      "ada@example.com",
+      "grace@example.com",
+      "team@example.com",
+    ]);
+    expect(parseEnvList(undefined)).toEqual([]);
+  });
+
+  it("runs strict production checks only for explicit strict or Vercel production contexts", () => {
+    expect(shouldCheckProductionEnv({})).toBe(false);
+    expect(shouldCheckProductionEnv({ VERCEL_ENV: "preview" })).toBe(false);
+    expect(shouldCheckProductionEnv({ VERCEL_ENV: "production" })).toBe(true);
+    expect(shouldCheckProductionEnv({ LEARNRECUR_STRICT_ENV: "1" })).toBe(true);
   });
 });

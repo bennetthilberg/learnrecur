@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildPracticeUrl,
   buildReminderIdempotencyKey,
+  buildSettingsUrl,
   getReminderLocalDate,
   isReminderLocalHourDue,
   normalizeReminderPreferenceInput,
@@ -98,6 +99,9 @@ describe("reminder scheduling helpers", () => {
     expect(buildPracticeUrl("https://learnrecur.example")).toBe(
       "https://learnrecur.example/practice",
     );
+    expect(buildSettingsUrl("https://learnrecur.example")).toBe(
+      "https://learnrecur.example/settings",
+    );
     expect(buildReminderIdempotencyKey("user_123", "2026-06-04")).toBe(
       "learnrecur:due-reminder:user_123:2026-06-04",
     );
@@ -109,12 +113,14 @@ describe("reminder email rendering", () => {
     const email = renderDueReminderEmail({
       dueCount: 3,
       practiceUrl: "https://learnrecur.example/practice",
+      settingsUrl: "https://learnrecur.example/settings",
     });
     const combined = `${email.subject}\n${email.text}\n${email.html}`;
 
     expect(email.subject).toBe("3 skills are ready for practice");
     expect(combined).toContain("3 skills are");
     expect(combined).toContain("https://learnrecur.example/practice");
+    expect(combined).toContain("https://learnrecur.example/settings");
     expect(combined).not.toMatch(/ser vs estar|source|answer|exercise/i);
   });
 });

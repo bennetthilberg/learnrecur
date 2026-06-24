@@ -16,7 +16,7 @@ export async function GET() {
   const databaseUser = await ensureDatabaseUser(clerkUser);
 
   if (databaseUser.status !== "ready") {
-    return jsonError(databaseUser.message, 503);
+    return jsonError(databaseUser.message, databaseUser.status === "access-denied" ? 403 : 503);
   }
 
   const result = await getUserDataExport({

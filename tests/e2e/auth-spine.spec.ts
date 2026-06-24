@@ -10,8 +10,27 @@ test.describe("auth spine", () => {
       "href",
       "/sign-up",
     );
+    await expect(page.getByRole("link", { name: /^privacy$/i })).toHaveAttribute(
+      "href",
+      "/privacy",
+    );
+    await expect(page.getByRole("link", { name: /^terms$/i })).toHaveAttribute("href", "/terms");
     await expect(page.getByText(/work through verified exercises/i)).toBeVisible();
     await expect(page.getByText(/canvas tint|heading weight|border radius/i)).toHaveCount(0);
+  });
+
+  test("policy pages are public alpha drafts", async ({ page }) => {
+    await page.goto("/privacy");
+
+    await expect(page.getByRole("heading", { name: /^privacy$/i })).toBeVisible();
+    await expect(page.getByText(/ai processing/i)).toBeVisible();
+    await expect(page.getByText(/legal review/i)).toBeVisible();
+
+    await page.goto("/terms");
+
+    await expect(page.getByRole("heading", { name: /^terms$/i })).toBeVisible();
+    await expect(page.getByText(/alpha access/i)).toBeVisible();
+    await expect(page.getByText(/legal review/i)).toBeVisible();
   });
 
   test("sign-in renders the LearnRecur auth shell and Clerk form", async ({ page }) => {
@@ -91,5 +110,12 @@ test.describe("auth spine", () => {
 
     await expect(page).toHaveURL(/\/sign-in|accounts\.dev\/sign-in/);
     await expect(page.getByText(/review ledger/i)).toHaveCount(0);
+  });
+
+  test("operations page is protected for signed-out users", async ({ page }) => {
+    await page.goto("/ops");
+
+    await expect(page).toHaveURL(/\/sign-in|accounts\.dev\/sign-in/);
+    await expect(page.getByText(/production operations/i)).toHaveCount(0);
   });
 });

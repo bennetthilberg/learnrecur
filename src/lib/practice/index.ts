@@ -190,6 +190,7 @@ export type PracticeFlagRefillResult =
         | "exact-input-locked"
         | "job-in-progress"
         | "missing-inngest-env"
+        | "quota-exceeded"
         | "queue-error"
         | "skill-not-active"
         | "skill-not-found"

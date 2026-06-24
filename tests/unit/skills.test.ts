@@ -1085,6 +1085,7 @@ describe("createSkillDraftFromSource", () => {
           sourceText:
             "Use ser for identity and long-term traits. Use estar for location and temporary states. Practice short classroom-style sentences.",
         },
+        skipUsageLimitCheck: true,
       }),
     ).resolves.toMatchObject({
       status: "not-created",

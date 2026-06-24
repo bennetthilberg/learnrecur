@@ -7,6 +7,7 @@ import {
   OpenWaterHeroRings,
   OpenWaterHeroWaves,
 } from "@/components/app/open-water";
+import { UserStatusPanel } from "@/components/app/user-status-panel";
 import { getDashboardHome, type DashboardHome } from "@/lib/dashboard";
 import { formatFsrsState } from "@/lib/formatters";
 import { ensureDatabaseUser } from "@/lib/users";
@@ -32,10 +33,7 @@ export default async function DashboardPage() {
     return (
       <main className="dashboardShell">
         <SkillsTopbar current="dashboard" />
-        <section className="dashboardSetupPanel" aria-labelledby="dashboard-setup-title">
-          <h1 id="dashboard-setup-title">Database setup needs attention.</h1>
-          <p>{databaseUser.message}</p>
-        </section>
+        <UserStatusPanel id="dashboard-setup-title" status={databaseUser} />
       </main>
     );
   }

@@ -270,6 +270,7 @@ describeDatabase("due email reminders", () => {
       dueCount: 1,
       idempotencyKey: `learnrecur:due-reminder:${userId}:${localDate}`,
       practiceUrl: "https://learnrecur.example/practice",
+      settingsUrl: "https://learnrecur.example/settings",
     });
     await expectReminderLog(userId, {
       status: ReminderSendStatus.SENT,

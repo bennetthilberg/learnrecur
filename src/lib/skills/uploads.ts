@@ -29,6 +29,7 @@ import {
   resolveS3SourceObjectStorage,
   type SourceObjectStorage,
 } from "@/lib/storage/s3";
+import { checkSourceUploadUsageLimit } from "@/lib/usage-limits";
 
 export const MAX_SOURCE_UPLOAD_BYTES = 10 * 1024 * 1024;
 export const SOURCE_UPLOAD_PREFIX = "source-uploads";
@@ -110,7 +111,7 @@ export type PrepareSourceUploadResult =
   | Extract<SourceUploadInputResult, { status: "invalid" }>
   | {
       status: "not-prepared";
-      reason: "missing-s3-env" | "storage-failed";
+      reason: "missing-s3-env" | "quota-exceeded" | "storage-failed";
       message: string;
     };
 
@@ -368,6 +369,21 @@ export async function prepareSourceUpload(
   }
 
   const prisma = getPrisma();
+  const quota = await checkSourceUploadUsageLimit({
+    userId: input.userId,
+    byteSize: normalized.value.byteSize,
+    now: input.now,
+    prisma,
+  });
+
+  if (quota.status === "limited") {
+    return {
+      status: "not-prepared",
+      reason: "quota-exceeded",
+      message: quota.message,
+    };
+  }
+
   const sourceFile = await prisma.sourceFile.create({
     data: {
       userId: input.userId,

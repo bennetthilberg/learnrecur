@@ -23,6 +23,11 @@ const databaseEnvSchema = z.object({
   DIRECT_URL: optionalNonEmptyString(postgresUrlSchema("DIRECT_URL")),
 });
 
+const requiredDatabaseEnvSchema = z.object({
+  DATABASE_URL: postgresUrlSchema("DATABASE_URL"),
+  DIRECT_URL: postgresUrlSchema("DIRECT_URL"),
+});
+
 const clerkEnvSchema = z.object({
   NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: z
     .string()
@@ -39,6 +44,23 @@ const clerkEnvSchema = z.object({
       message: "CLERK_SECRET_KEY must start with sk_",
     }),
   CLERK_WEBHOOK_SECRET: optionalNonEmptyString(z.string().trim()),
+});
+
+const productionClerkEnvSchema = clerkEnvSchema.extend({
+  NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: z
+    .string()
+    .trim()
+    .min(1, "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY is required")
+    .refine((value) => value.startsWith("pk_live_"), {
+      message: "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY must be a production pk_live_ key",
+    }),
+  CLERK_SECRET_KEY: z
+    .string()
+    .trim()
+    .min(1, "CLERK_SECRET_KEY is required")
+    .refine((value) => value.startsWith("sk_live_"), {
+      message: "CLERK_SECRET_KEY must be a production sk_live_ key",
+    }),
 });
 
 const geminiModelSchema = z.preprocess((value) => {
@@ -74,6 +96,30 @@ const appUrlSchema = z.preprocess((value) => {
   .url("NEXT_PUBLIC_APP_URL must be a valid URL")
 );
 
+const productionAppUrlSchema = appUrlSchema.superRefine((value, context) => {
+  let url: URL;
+
+  try {
+    url = new URL(value);
+  } catch {
+    return;
+  }
+
+  if (url.protocol !== "https:") {
+    context.addIssue({
+      code: "custom",
+      message: "NEXT_PUBLIC_APP_URL must use https:// in production",
+    });
+  }
+
+  if (["localhost", "127.0.0.1", "::1"].includes(url.hostname)) {
+    context.addIssue({
+      code: "custom",
+      message: "NEXT_PUBLIC_APP_URL must not point at localhost in production",
+    });
+  }
+});
+
 const resendEnvSchema = z.object({
   RESEND_API_KEY: z
     .string({ error: "RESEND_API_KEY is required" })
@@ -92,12 +138,119 @@ const resendEnvSchema = z.object({
   NEXT_PUBLIC_APP_URL: appUrlSchema,
 });
 
+const s3EnvSchema = z.object({
+  AWS_REGION: z
+    .string({ error: "AWS_REGION is required" })
+    .trim()
+    .min(1, "AWS_REGION is required"),
+  S3_BUCKET_NAME: z
+    .string({ error: "S3_BUCKET_NAME is required" })
+    .trim()
+    .min(1, "S3_BUCKET_NAME is required"),
+  AWS_ACCESS_KEY_ID: z
+    .string({ error: "AWS_ACCESS_KEY_ID is required" })
+    .trim()
+    .min(1, "AWS_ACCESS_KEY_ID is required"),
+  AWS_SECRET_ACCESS_KEY: z
+    .string({ error: "AWS_SECRET_ACCESS_KEY is required" })
+    .trim()
+    .min(1, "AWS_SECRET_ACCESS_KEY is required"),
+});
+
+const inngestProductionEnvSchema = z.object({
+  INNGEST_APP_ID: z
+    .string({ error: "INNGEST_APP_ID is required" })
+    .trim()
+    .min(1, "INNGEST_APP_ID is required"),
+  INNGEST_DEV: optionalNonEmptyString(z.string().trim()),
+  INNGEST_EVENT_KEY: z
+    .string({ error: "INNGEST_EVENT_KEY is required" })
+    .trim()
+    .min(1, "INNGEST_EVENT_KEY is required"),
+  INNGEST_SIGNING_KEY: z
+    .string({ error: "INNGEST_SIGNING_KEY is required" })
+    .trim()
+    .min(1, "INNGEST_SIGNING_KEY is required"),
+});
+
+const listEnvSchema = z.preprocess((value) => {
+  if (typeof value !== "string") {
+    return [];
+  }
+
+  return value
+    .split(/[\s,]+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}, z.array(z.string().trim().min(1)));
+
+const alphaAccessEnvSchema = z.object({
+  ALPHA_ALLOWED_EMAILS: listEnvSchema,
+  ALPHA_ALLOWED_DOMAINS: listEnvSchema,
+});
+
+const opsAccessEnvSchema = z.object({
+  OPS_ALLOWED_EMAILS: listEnvSchema,
+});
+
+const productionEnvSchema = requiredDatabaseEnvSchema
+  .merge(productionClerkEnvSchema)
+  .merge(geminiEnvSchema)
+  .merge(
+    resendEnvSchema.extend({
+      NEXT_PUBLIC_APP_URL: productionAppUrlSchema,
+    }),
+  )
+  .merge(s3EnvSchema)
+  .merge(inngestProductionEnvSchema)
+  .merge(alphaAccessEnvSchema)
+  .merge(opsAccessEnvSchema)
+  .superRefine((value, context) => {
+    if (value.INNGEST_APP_ID === "learnrecur-dev") {
+      context.addIssue({
+        code: "custom",
+        path: ["INNGEST_APP_ID"],
+        message: "INNGEST_APP_ID must not be learnrecur-dev in production",
+      });
+    }
+
+    if (
+      value.INNGEST_DEV &&
+      ["1", "true", "yes", "y", "on"].includes(value.INNGEST_DEV.toLowerCase())
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["INNGEST_DEV"],
+        message: "INNGEST_DEV must be absent or false in production",
+      });
+    }
+
+    if (value.ALPHA_ALLOWED_EMAILS.length === 0 && value.ALPHA_ALLOWED_DOMAINS.length === 0) {
+      context.addIssue({
+        code: "custom",
+        message:
+          "Set ALPHA_ALLOWED_EMAILS or ALPHA_ALLOWED_DOMAINS before production deploys",
+      });
+    }
+
+    if (value.OPS_ALLOWED_EMAILS.length === 0) {
+      context.addIssue({
+        code: "custom",
+        message: "Set OPS_ALLOWED_EMAILS before production deploys",
+      });
+    }
+  });
+
 const activeEnvSchema = databaseEnvSchema.merge(clerkEnvSchema);
 
 export type DatabaseEnv = z.infer<typeof databaseEnvSchema>;
 export type ClerkEnv = z.infer<typeof clerkEnvSchema>;
 export type GeminiEnv = z.infer<typeof geminiEnvSchema>;
 export type ResendEnv = z.infer<typeof resendEnvSchema>;
+export type S3Env = z.infer<typeof s3EnvSchema>;
+export type AlphaAccessEnv = z.infer<typeof alphaAccessEnvSchema>;
+export type OpsAccessEnv = z.infer<typeof opsAccessEnvSchema>;
+export type ProductionEnv = z.infer<typeof productionEnvSchema>;
 export type ActiveEnv = z.infer<typeof activeEnvSchema>;
 
 export function getDatabaseEnv(): DatabaseEnv {
@@ -120,6 +273,22 @@ export function getResendEnv(): ResendEnv {
   return resendEnvSchema.parse(process.env);
 }
 
+export function getS3Env(): S3Env {
+  return s3EnvSchema.parse(process.env);
+}
+
+export function getAlphaAccessEnv(): AlphaAccessEnv {
+  return alphaAccessEnvSchema.parse(process.env);
+}
+
+export function getOpsAccessEnv(): OpsAccessEnv {
+  return opsAccessEnvSchema.parse(process.env);
+}
+
+export function getProductionEnv(): ProductionEnv {
+  return productionEnvSchema.parse(process.env);
+}
+
 export function hasDatabaseEnv(): boolean {
   return databaseEnvSchema.safeParse(process.env).success;
 }
@@ -140,6 +309,26 @@ export function hasResendEnv(): boolean {
   return resendEnvSchema.safeParse(process.env).success;
 }
 
+export function hasS3Env(): boolean {
+  return s3EnvSchema.safeParse(process.env).success;
+}
+
+export function hasAlphaAccessEnv(): boolean {
+  return alphaAccessEnvSchema.safeParse(process.env).success;
+}
+
+export function hasOpsAccessEnv(): boolean {
+  return opsAccessEnvSchema.safeParse(process.env).success;
+}
+
+export function hasProductionEnv(): boolean {
+  return productionEnvSchema.safeParse(process.env).success;
+}
+
+export function shouldCheckProductionEnv(env: NodeJS.ProcessEnv = process.env): boolean {
+  return env.LEARNRECUR_STRICT_ENV === "1" || env.VERCEL_ENV === "production";
+}
+
 export function formatEnvError(error: unknown): string {
   if (error instanceof z.ZodError) {
     return error.issues.map((issue) => issue.message).join("; ");
@@ -150,6 +339,10 @@ export function formatEnvError(error: unknown): string {
   }
 
   return "Missing or invalid environment configuration.";
+}
+
+export function parseEnvList(value: string | undefined): string[] {
+  return listEnvSchema.parse(value);
 }
 
 function isValidSenderEmail(value: string): boolean {
