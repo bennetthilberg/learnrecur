@@ -330,7 +330,7 @@ export function shouldCheckProductionEnv(env: NodeJS.ProcessEnv = process.env): 
 
 export function formatEnvError(error: unknown): string {
   if (error instanceof z.ZodError) {
-    return error.issues.map((issue) => issue.message).join("; ");
+    return error.issues.map(formatZodIssue).join("; ");
   }
 
   if (error instanceof Error) {
@@ -338,6 +338,20 @@ export function formatEnvError(error: unknown): string {
   }
 
   return "Missing or invalid environment configuration.";
+}
+
+function formatZodIssue(issue: z.core.$ZodIssue): string {
+  const path = issue.path.join(".");
+
+  if (path && issue.message === "Invalid input: expected string, received undefined") {
+    return `${path} is required`;
+  }
+
+  if (path && issue.message === "Invalid input: expected string, received null") {
+    return `${path} is required`;
+  }
+
+  return issue.message;
 }
 
 export function parseEnvList(value: string | undefined): string[] {
