@@ -268,6 +268,37 @@ describe("environment validation", () => {
     expect(() => getProductionEnv()).toThrow(/OPS_ALLOWED_EMAILS/);
   });
 
+  it("formats missing production environment variables by name", () => {
+    resetManagedEnv({
+      VERCEL_ENV: "production",
+    });
+
+    try {
+      getProductionEnv();
+      throw new Error("Expected production env validation to fail.");
+    } catch (error) {
+      const message = formatEnvError(error);
+
+      expect(message).toContain("DATABASE_URL is required");
+      expect(message).toContain("DIRECT_URL is required");
+      expect(message).toContain("NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY is required");
+      expect(message).toContain("CLERK_SECRET_KEY is required");
+      expect(message).not.toContain("Invalid input: expected string, received undefined");
+    }
+
+    const zodError = new z.ZodError([
+      {
+        code: "invalid_type",
+        expected: "string",
+        input: undefined,
+        path: ["DIRECT_URL"],
+        message: "zod changed this default message",
+      },
+    ]);
+
+    expect(formatEnvError(zodError)).toBe("DIRECT_URL is required");
+  });
+
   it("rejects unexpected INNGEST_DEV values in production", () => {
     resetManagedEnv({
       NEXT_PUBLIC_APP_URL: "https://app.learnrecur.com",
