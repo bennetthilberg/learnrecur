@@ -16,8 +16,6 @@ export function UserStatusPanel({ id, status }: UserStatusPanelProps) {
 
 export function getUserStatusTitle(status: Exclude<DatabaseUserStatus, { status: "ready" }>) {
   switch (status.status) {
-    case "access-denied":
-      return "Alpha access is invite-only.";
     case "missing-env":
       return "Database setup needs attention.";
     case "error":

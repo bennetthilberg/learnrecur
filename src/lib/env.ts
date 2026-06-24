@@ -175,26 +175,6 @@ const inngestProductionEnvSchema = z.object({
 
 const falseEnvValues = new Set(["0", "false", "no", "n", "off"]);
 
-const listEnvSchema = z.preprocess((value) => {
-  if (typeof value !== "string") {
-    return [];
-  }
-
-  return value
-    .split(/[\s,]+/)
-    .map((item) => item.trim())
-    .filter(Boolean);
-}, z.array(z.string().trim().min(1)));
-
-const alphaAccessEnvSchema = z.object({
-  ALPHA_ALLOWED_EMAILS: listEnvSchema,
-  ALPHA_ALLOWED_DOMAINS: listEnvSchema,
-});
-
-const opsAccessEnvSchema = z.object({
-  OPS_ALLOWED_EMAILS: listEnvSchema,
-});
-
 const productionEnvSchema = requiredDatabaseEnvSchema
   .merge(productionClerkEnvSchema)
   .merge(geminiEnvSchema)
@@ -205,8 +185,6 @@ const productionEnvSchema = requiredDatabaseEnvSchema
   )
   .merge(s3EnvSchema)
   .merge(inngestProductionEnvSchema)
-  .merge(alphaAccessEnvSchema)
-  .merge(opsAccessEnvSchema)
   .superRefine((value, context) => {
     if (value.INNGEST_APP_ID === "learnrecur-dev") {
       context.addIssue({
@@ -223,21 +201,6 @@ const productionEnvSchema = requiredDatabaseEnvSchema
         message: "INNGEST_DEV must be absent or false in production",
       });
     }
-
-    if (value.ALPHA_ALLOWED_EMAILS.length === 0 && value.ALPHA_ALLOWED_DOMAINS.length === 0) {
-      context.addIssue({
-        code: "custom",
-        message:
-          "Set ALPHA_ALLOWED_EMAILS or ALPHA_ALLOWED_DOMAINS before production deploys",
-      });
-    }
-
-    if (value.OPS_ALLOWED_EMAILS.length === 0) {
-      context.addIssue({
-        code: "custom",
-        message: "Set OPS_ALLOWED_EMAILS before production deploys",
-      });
-    }
   });
 
 const activeEnvSchema = databaseEnvSchema.merge(clerkEnvSchema);
@@ -247,8 +210,6 @@ export type ClerkEnv = z.infer<typeof clerkEnvSchema>;
 export type GeminiEnv = z.infer<typeof geminiEnvSchema>;
 export type ResendEnv = z.infer<typeof resendEnvSchema>;
 export type S3Env = z.infer<typeof s3EnvSchema>;
-export type AlphaAccessEnv = z.infer<typeof alphaAccessEnvSchema>;
-export type OpsAccessEnv = z.infer<typeof opsAccessEnvSchema>;
 export type ProductionEnv = z.infer<typeof productionEnvSchema>;
 export type ActiveEnv = z.infer<typeof activeEnvSchema>;
 
@@ -274,14 +235,6 @@ export function getResendEnv(): ResendEnv {
 
 export function getS3Env(): S3Env {
   return s3EnvSchema.parse(process.env);
-}
-
-export function getAlphaAccessEnv(): AlphaAccessEnv {
-  return alphaAccessEnvSchema.parse(process.env);
-}
-
-export function getOpsAccessEnv(): OpsAccessEnv {
-  return opsAccessEnvSchema.parse(process.env);
 }
 
 export function getProductionEnv(): ProductionEnv {
@@ -310,14 +263,6 @@ export function hasResendEnv(): boolean {
 
 export function hasS3Env(): boolean {
   return s3EnvSchema.safeParse(process.env).success;
-}
-
-export function hasAlphaAccessEnv(): boolean {
-  return alphaAccessEnvSchema.safeParse(process.env).success;
-}
-
-export function hasOpsAccessEnv(): boolean {
-  return opsAccessEnvSchema.safeParse(process.env).success;
 }
 
 export function hasProductionEnv(): boolean {
@@ -353,10 +298,6 @@ function formatZodIssue(issue: z.core.$ZodIssue): string {
   }
 
   return issue.message;
-}
-
-export function parseEnvList(value: string | undefined): string[] {
-  return listEnvSchema.parse(value);
 }
 
 function isValidSenderEmail(value: string): boolean {

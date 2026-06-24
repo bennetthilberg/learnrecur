@@ -6,19 +6,9 @@ import {
   ReminderSendStatus,
   SourceFileStatus,
 } from "@/generated/prisma/client";
-import { parseEnvList } from "@/lib/env";
 import { getPrisma } from "@/lib/prisma";
 import { SOURCE_PROCESSING_STALE_AFTER_MS } from "@/lib/skills/uploads";
 import { startOfUtcDay } from "@/lib/usage-limits";
-
-export type OpsAccessDecision =
-  | {
-      allowed: true;
-    }
-  | {
-      allowed: false;
-      message: string;
-    };
 
 export type OpsOverview = {
   generatedAt: Date;
@@ -68,39 +58,6 @@ export type OpsOverview = {
     count: number;
   }>;
 };
-
-type OpsAccessEnvLike = Record<string, string | undefined>;
-
-export function checkOpsAccessForEmail(
-  email: string | null | undefined,
-  env: OpsAccessEnvLike = process.env,
-): OpsAccessDecision {
-  const allowedEmails = new Set(
-    parseEnvList(env.OPS_ALLOWED_EMAILS).map((allowedEmail) =>
-      allowedEmail.trim().toLowerCase(),
-    ),
-  );
-
-  if (allowedEmails.size === 0) {
-    return {
-      allowed: false,
-      message: "Operations access is not configured. Set OPS_ALLOWED_EMAILS before using /ops.",
-    };
-  }
-
-  const normalizedEmail = email?.trim().toLowerCase();
-
-  if (normalizedEmail && allowedEmails.has(normalizedEmail)) {
-    return {
-      allowed: true,
-    };
-  }
-
-  return {
-    allowed: false,
-    message: "Operations access is restricted to configured founder emails.",
-  };
-}
 
 export async function getOpsOverview(input: { now: Date }): Promise<OpsOverview> {
   const prisma = getPrisma();

@@ -17,7 +17,6 @@ import {
   hasProductionEnv,
   hasResendEnv,
   hasS3Env,
-  parseEnvList,
   shouldCheckProductionEnv,
 } from "@/lib/env";
 
@@ -40,9 +39,6 @@ const managedEnvKeys = [
   "INNGEST_DEV",
   "INNGEST_EVENT_KEY",
   "INNGEST_SIGNING_KEY",
-  "ALPHA_ALLOWED_EMAILS",
-  "ALPHA_ALLOWED_DOMAINS",
-  "OPS_ALLOWED_EMAILS",
   "LEARNRECUR_STRICT_ENV",
   "VERCEL_ENV",
 ] as const;
@@ -214,9 +210,6 @@ describe("environment validation", () => {
       INNGEST_SIGNING_KEY: "inngest-signing-key",
       RESEND_API_KEY: "re_example",
       RESEND_FROM_EMAIL: "LearnRecur <practice@app.learnrecur.com>",
-      ALPHA_ALLOWED_EMAILS: "founder@example.com tester@example.com",
-      ALPHA_ALLOWED_DOMAINS: "",
-      OPS_ALLOWED_EMAILS: "founder@example.com",
     });
 
     expect(hasProductionEnv()).toBe(true);
@@ -228,8 +221,6 @@ describe("environment validation", () => {
       DIRECT_URL: "postgresql://migrate:secret@example.aws.neon.tech/neondb?sslmode=require",
       INNGEST_APP_ID: "learnrecur",
       INNGEST_DEV: "0",
-      ALPHA_ALLOWED_EMAILS: ["founder@example.com", "tester@example.com"],
-      OPS_ALLOWED_EMAILS: ["founder@example.com"],
     });
   });
 
@@ -251,9 +242,6 @@ describe("environment validation", () => {
       INNGEST_SIGNING_KEY: "inngest-signing-key",
       RESEND_API_KEY: "re_example",
       RESEND_FROM_EMAIL: "LearnRecur <practice@app.learnrecur.com>",
-      ALPHA_ALLOWED_EMAILS: "",
-      ALPHA_ALLOWED_DOMAINS: "",
-      OPS_ALLOWED_EMAILS: "",
     });
 
     expect(hasProductionEnv()).toBe(false);
@@ -264,8 +252,6 @@ describe("environment validation", () => {
     expect(() => getProductionEnv()).toThrow(/DIRECT_URL is required/);
     expect(() => getProductionEnv()).toThrow(/INNGEST_APP_ID must not be learnrecur-dev/);
     expect(() => getProductionEnv()).toThrow(/INNGEST_DEV must be absent or false/);
-    expect(() => getProductionEnv()).toThrow(/ALPHA_ALLOWED_EMAILS or ALPHA_ALLOWED_DOMAINS/);
-    expect(() => getProductionEnv()).toThrow(/OPS_ALLOWED_EMAILS/);
   });
 
   it("formats missing production environment variables by name", () => {
@@ -317,8 +303,6 @@ describe("environment validation", () => {
       INNGEST_SIGNING_KEY: "inngest-signing-key",
       RESEND_API_KEY: "re_example",
       RESEND_FROM_EMAIL: "LearnRecur <practice@app.learnrecur.com>",
-      ALPHA_ALLOWED_EMAILS: "founder@example.com",
-      OPS_ALLOWED_EMAILS: "founder@example.com",
     });
 
     expect(hasProductionEnv()).toBe(false);
@@ -377,15 +361,6 @@ describe("environment validation", () => {
     expect(formatEnvError(zodError)).toBe("database went sideways");
     expect(formatEnvError(new Error("plain error"))).toBe("plain error");
     expect(formatEnvError("wat")).toBe("Missing or invalid environment configuration.");
-  });
-
-  it("parses comma and whitespace separated env lists", () => {
-    expect(parseEnvList(" ada@example.com, grace@example.com\nteam@example.com ")).toEqual([
-      "ada@example.com",
-      "grace@example.com",
-      "team@example.com",
-    ]);
-    expect(parseEnvList(undefined)).toEqual([]);
   });
 
   it("runs strict production checks only for explicit strict or Vercel production contexts", () => {

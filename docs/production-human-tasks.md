@@ -4,7 +4,7 @@ Date: 2026-06-24
 
 Branch: `a/production-readiness`
 
-This checklist starts where the code-side production-readiness work stops. The app now has stricter production env validation, alpha access checks, quota guards, security headers, CI, an operations page, operations scripts, and public alpha policy drafts. The remaining work requires provider accounts, billing, DNS, emails, production credentials, dashboard setup, and live smoke tests.
+This checklist starts where the code-side production-readiness work stops. The app now has stricter production env validation, quota guards, security headers, CI, operations scripts, and public alpha policy drafts. The remaining work requires provider accounts, billing, DNS, emails, production credentials, dashboard setup, and live smoke tests.
 
 Do not invite external alpha users until every P0 item below is complete.
 
@@ -79,15 +79,7 @@ Steps:
 5. Invite your first test account.
 6. Confirm a non-invited email cannot sign up.
 
-Also set app-level alpha env values:
-
-```text
-ALPHA_ALLOWED_EMAILS=your-founder-email@example.com,first-tester@example.com
-ALPHA_ALLOWED_DOMAINS=
-OPS_ALLOWED_EMAILS=your-founder-email@example.com
-```
-
-The production env check will fail until alpha and ops allowlists are set.
+The app no longer has separate alpha or ops allowlist env vars. Use Clerk's production sign-up restrictions and invitations as the alpha access control.
 
 ### 5. Create the private S3 bucket
 
@@ -213,9 +205,6 @@ INNGEST_EVENT_KEY=...
 INNGEST_SIGNING_KEY=...
 RESEND_API_KEY=re_...
 RESEND_FROM_EMAIL=LearnRecur <practice@app.learnrecur.com>
-ALPHA_ALLOWED_EMAILS=...
-ALPHA_ALLOWED_DOMAINS=
-OPS_ALLOWED_EMAILS=...
 ```
 
 Optional:
@@ -251,21 +240,21 @@ Use an invited production alpha account.
 
 1. Visit `/dashboard` while signed out. Confirm redirect to `/sign-in`.
 2. Sign in. Confirm `/dashboard` loads.
-3. Visit `/ops` as the founder account. Confirm the read-only ops page loads.
-4. Visit `/ops` as a normal alpha user. Confirm access is denied.
-5. Try signing up with a non-allowed email. Confirm access is blocked.
-6. Create a manual draft skill.
-7. Paste source material and generate drafts.
-8. Upload a small PNG source.
-9. Upload a small PDF source.
-10. Confirm Inngest processes upload jobs.
-11. Activate a draft skill.
-12. Confirm verified exercises are created.
-13. Open `/practice`.
-14. Answer an exercise and confirm instant feedback.
-15. Confirm `/history` records the review.
-16. Enable reminders and confirm a real email arrives.
-17. Download `/settings/export`.
+3. Try signing up with a non-invited email. Confirm Clerk blocks access.
+4. Confirm `/ops` returns not found for a signed-in user.
+5. Create a manual draft skill.
+6. Paste source material and generate drafts.
+7. Upload a small PNG source.
+8. Upload a small PDF source.
+9. Confirm Inngest processes upload jobs.
+10. Activate a draft skill.
+11. Confirm verified exercises are created.
+12. Open `/practice`.
+13. Answer an exercise and confirm instant feedback.
+14. Confirm `/history` records the review.
+15. Enable reminders and confirm a real email arrives.
+16. Download `/settings/export`.
+17. Run `npm run ops -- report` from a trusted local machine with production env configured.
 18. Confirm Vercel logs have no unexpected server errors.
 19. Confirm Inngest shows successful function runs.
 20. Confirm Neon connection counts look normal.
