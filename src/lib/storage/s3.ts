@@ -4,31 +4,15 @@ import {
   DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { z } from "zod";
 
-import { formatEnvError } from "@/lib/env";
+import { formatEnvError, getS3Env, type S3Env } from "@/lib/env";
 
-const s3EnvSchema = z.object({
-  AWS_REGION: z.string({ error: "AWS_REGION is required" }).trim().min(1, "AWS_REGION is required"),
-  S3_BUCKET_NAME: z
-    .string({ error: "S3_BUCKET_NAME is required" })
-    .trim()
-    .min(1, "S3_BUCKET_NAME is required"),
-  AWS_ACCESS_KEY_ID: z
-    .string({ error: "AWS_ACCESS_KEY_ID is required" })
-    .trim()
-    .min(1, "AWS_ACCESS_KEY_ID is required"),
-  AWS_SECRET_ACCESS_KEY: z
-    .string({ error: "AWS_SECRET_ACCESS_KEY is required" })
-    .trim()
-    .min(1, "AWS_SECRET_ACCESS_KEY is required"),
-});
-
-export type S3Env = z.infer<typeof s3EnvSchema>;
+export { getS3Env };
 
 export type SourceObjectHead = {
   byteSize: number | null;
@@ -45,6 +29,7 @@ export type SourceObjectStorage = {
   }): Promise<string>;
   headObject(input: { key: string; bucket?: string }): Promise<SourceObjectHead>;
   getObjectBytes(input: { key: string; bucket?: string }): Promise<Buffer>;
+  listObjects(input?: { prefix?: string; bucket?: string }): Promise<string[]>;
   deleteObject(input: { key: string; bucket?: string }): Promise<void>;
 };
 
@@ -57,10 +42,6 @@ export type SourceObjectStorageSetup =
       status: "missing-env";
       message: string;
     };
-
-export function getS3Env(): S3Env {
-  return s3EnvSchema.parse(process.env);
-}
 
 export function resolveS3SourceObjectStorage(): SourceObjectStorageSetup {
   try {
@@ -129,6 +110,31 @@ export function createS3SourceObjectStorage(env: S3Env): SourceObjectStorage {
       }
 
       return streamToBuffer(result.Body as AsyncIterable<Uint8Array>);
+    },
+    async listObjects(input = {}) {
+      const bucket = input.bucket ?? env.S3_BUCKET_NAME;
+      const keys: string[] = [];
+      let continuationToken: string | undefined;
+
+      do {
+        const result = await client.send(
+          new ListObjectsV2Command({
+            Bucket: bucket,
+            Prefix: input.prefix,
+            ContinuationToken: continuationToken,
+          }),
+        );
+
+        for (const object of result.Contents ?? []) {
+          if (object.Key) {
+            keys.push(object.Key);
+          }
+        }
+
+        continuationToken = result.NextContinuationToken;
+      } while (continuationToken);
+
+      return keys;
     },
     async deleteObject(input) {
       const bucket = input.bucket ?? env.S3_BUCKET_NAME;

@@ -51,6 +51,8 @@ describe("ensureDatabaseUser", () => {
     process.env = { ...originalEnv };
     delete process.env.DATABASE_URL;
     delete process.env.DIRECT_URL;
+    delete process.env.ALPHA_ALLOWED_EMAILS;
+    delete process.env.ALPHA_ALLOWED_DOMAINS;
   });
 
   afterEach(() => {
@@ -107,6 +109,22 @@ describe("ensureDatabaseUser", () => {
         updatedAt: true,
       },
     });
+  });
+
+  it("blocks non-allowlisted alpha users before touching Prisma", async () => {
+    process.env.ALPHA_ALLOWED_EMAILS = "founder@example.com";
+    const { client, upsert } = makeMirrorClient();
+
+    await expect(
+      ensureDatabaseUser(baseClerkUser, {
+        prisma: client,
+        skipEnvCheck: true,
+      }),
+    ).resolves.toMatchObject({
+      status: "access-denied",
+      message: "This alpha is invite-only. Ask the founder to add this email before continuing.",
+    });
+    expect(upsert).not.toHaveBeenCalled();
   });
 
   it("falls back from full name to first/last name, then username, then null", async () => {

@@ -29,6 +29,7 @@ import {
   resolveS3SourceObjectStorage,
   type SourceObjectStorage,
 } from "@/lib/storage/s3";
+import { checkSourceUploadUsageLimit } from "@/lib/usage-limits";
 
 export const MAX_SOURCE_UPLOAD_BYTES = 10 * 1024 * 1024;
 export const SOURCE_UPLOAD_PREFIX = "source-uploads";
@@ -110,7 +111,7 @@ export type PrepareSourceUploadResult =
   | Extract<SourceUploadInputResult, { status: "invalid" }>
   | {
       status: "not-prepared";
-      reason: "missing-s3-env" | "storage-failed";
+      reason: "missing-s3-env" | "quota-exceeded" | "storage-failed";
       message: string;
     };
 
@@ -367,48 +368,27 @@ export async function prepareSourceUpload(
     };
   }
 
-  const prisma = getPrisma();
-  const sourceFile = await prisma.sourceFile.create({
-    data: {
-      userId: input.userId,
-      kind: sourceFileKindFromMimeType(normalized.value.mimeType),
-      status: SourceFileStatus.DRAFT,
-      originalName: normalized.value.sourceLabel ?? normalized.value.originalName,
-      mimeType: normalized.value.mimeType,
-      byteSize: normalized.value.byteSize,
-      storageBucket: storageSetup.storage.bucketName,
-      metadata: buildUploadMetadata({
-        normalized: normalized.value,
-        model: null,
-        now: input.now,
-      }),
-    },
-    select: {
-      id: true,
-    },
-  });
-  const objectKey = buildSourceUploadObjectKey({
+  const preparedRecord = await createSourceUploadRecord({
     userId: input.userId,
-    sourceFileId: sourceFile.id,
-    originalName: normalized.value.originalName,
+    now: input.now,
+    normalized: normalized.value,
+    storageBucket: storageSetup.storage.bucketName,
   });
 
-  await prisma.sourceFile.update({
-    where: {
-      id_userId: {
-        id: sourceFile.id,
-        userId: input.userId,
-      },
-    },
-    data: {
-      storageKey: objectKey,
-    },
-  });
+  if (preparedRecord.status === "limited") {
+    return {
+      status: "not-prepared",
+      reason: "quota-exceeded",
+      message: preparedRecord.message,
+    };
+  }
+
+  const prisma = getPrisma();
 
   try {
     const expiresInSeconds = 600;
     const uploadUrl = await storageSetup.storage.createPresignedUploadUrl({
-      key: objectKey,
+      key: preparedRecord.objectKey,
       mimeType: normalized.value.mimeType,
       maxBytes: MAX_SOURCE_UPLOAD_BYTES,
       expiresInSeconds,
@@ -416,9 +396,9 @@ export async function prepareSourceUpload(
 
     return {
       status: "prepared",
-      sourceFileId: sourceFile.id,
+      sourceFileId: preparedRecord.sourceFileId,
       uploadUrl,
-      objectKey,
+      objectKey: preparedRecord.objectKey,
       headers: {
         "Content-Type": normalized.value.mimeType,
       },
@@ -427,7 +407,7 @@ export async function prepareSourceUpload(
   } catch (error) {
     await prisma.sourceFile.deleteMany({
       where: {
-        id: sourceFile.id,
+        id: preparedRecord.sourceFileId,
         userId: input.userId,
       },
     });
@@ -438,6 +418,102 @@ export async function prepareSourceUpload(
       message: `S3 upload preparation failed: ${formatEnvError(error)}`,
     };
   }
+}
+
+async function createSourceUploadRecord(input: {
+  userId: string;
+  now: Date;
+  normalized: NormalizedSourceUploadInput;
+  storageBucket: string;
+}): Promise<
+  | {
+      status: "created";
+      sourceFileId: string;
+      objectKey: string;
+    }
+  | {
+      status: "limited";
+      message: string;
+    }
+> {
+  const prisma = getPrisma();
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      return await prisma.$transaction(
+        async (tx) => {
+          const quota = await checkSourceUploadUsageLimit({
+            userId: input.userId,
+            byteSize: input.normalized.byteSize,
+            now: input.now,
+            prisma: tx,
+          });
+
+          if (quota.status === "limited") {
+            return {
+              status: "limited" as const,
+              message: quota.message,
+            };
+          }
+
+          const sourceFile = await tx.sourceFile.create({
+            data: {
+              userId: input.userId,
+              kind: sourceFileKindFromMimeType(input.normalized.mimeType),
+              status: SourceFileStatus.DRAFT,
+              originalName: input.normalized.sourceLabel ?? input.normalized.originalName,
+              mimeType: input.normalized.mimeType,
+              byteSize: input.normalized.byteSize,
+              storageBucket: input.storageBucket,
+              metadata: buildUploadMetadata({
+                normalized: input.normalized,
+                model: null,
+                now: input.now,
+              }),
+            },
+            select: {
+              id: true,
+            },
+          });
+          const objectKey = buildSourceUploadObjectKey({
+            userId: input.userId,
+            sourceFileId: sourceFile.id,
+            originalName: input.normalized.originalName,
+          });
+
+          await tx.sourceFile.update({
+            where: {
+              id_userId: {
+                id: sourceFile.id,
+                userId: input.userId,
+              },
+            },
+            data: {
+              storageKey: objectKey,
+            },
+          });
+
+          return {
+            status: "created" as const,
+            sourceFileId: sourceFile.id,
+            objectKey,
+          };
+        },
+        {
+          isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+        },
+      );
+    } catch (error) {
+      if (!isTransactionWriteConflict(error) || attempt === 1) {
+        throw error;
+      }
+    }
+  }
+
+  return {
+    status: "limited",
+    message: "Upload quota changed while preparing this upload. Try again.",
+  };
 }
 
 export async function completeSourceUploadDrafts(
@@ -1461,4 +1537,8 @@ function getMetadataStringArray(metadata: Prisma.JsonValue | null, key: string):
   }
 
   return value.filter((item): item is string => typeof item === "string");
+}
+
+function isTransactionWriteConflict(error: unknown): boolean {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034";
 }

@@ -4,9 +4,12 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "env:check": "tsx scripts/check-production-env.ts --strict",
+    "prebuild": "tsx scripts/check-production-env.ts",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "ops": "NODE_OPTIONS='--conditions=react-server' tsx scripts/ops.ts",
     "test": "vitest run tests/unit",
     "test:unit": "vitest run tests/unit",
     "test:db": "RUN_DATABASE_TESTS=1 vitest run tests/integration",
@@ -53,7 +56,12 @@
     "eslint-config-next": "16.2.6",
     "postcss": "8.5.15",
     "prisma": "^7.8.0",
+    "tsx": "^4.22.4",
     "typescript": "6.0.3",
     "vitest": "^4.1.8"
+  },
+  "overrides": {
+    "@hono/node-server": "1.19.13",
+    "postcss": "8.5.15"
   }
 }

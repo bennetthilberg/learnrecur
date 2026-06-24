@@ -72,6 +72,7 @@ export type ReminderEmailPayload = {
   email: string;
   idempotencyKey: string;
   practiceUrl: string;
+  settingsUrl: string;
 };
 
 export type ReminderEmailSendResult = {
@@ -504,13 +505,16 @@ export async function processDueReminderPreference(input: {
 
   try {
     const sender = input.sender ?? createResendReminderEmailSender();
-    const practiceUrl = buildPracticeUrl(input.appUrl ?? getResendEnv().NEXT_PUBLIC_APP_URL);
+    const appUrl = input.appUrl ?? getResendEnv().NEXT_PUBLIC_APP_URL;
+    const practiceUrl = buildPracticeUrl(appUrl);
+    const settingsUrl = buildSettingsUrl(appUrl);
     const idempotencyKey = buildReminderIdempotencyKey(input.preference.userId, localDate);
     const sendResult = await sender.sendDueReminder({
       dueCount,
       email: input.preference.email,
       idempotencyKey,
       practiceUrl,
+      settingsUrl,
     });
 
     await prisma.reminderSendLog.update({
@@ -568,6 +572,7 @@ export function createResendReminderEmailSender(env: ResendEnv = getResendEnv())
       const email = renderDueReminderEmail({
         dueCount: payload.dueCount,
         practiceUrl: payload.practiceUrl,
+        settingsUrl: payload.settingsUrl,
       });
       const response = await resend.emails.send(
         {
@@ -596,6 +601,7 @@ export function createResendReminderEmailSender(env: ResendEnv = getResendEnv())
 export function renderDueReminderEmail(input: {
   dueCount: number;
   practiceUrl: string;
+  settingsUrl: string;
 }): {
   subject: string;
   text: string;
@@ -603,11 +609,12 @@ export function renderDueReminderEmail(input: {
 } {
   const countLabel = formatDueCount(input.dueCount);
   const escapedUrl = escapeHtml(input.practiceUrl);
+  const escapedSettingsUrl = escapeHtml(input.settingsUrl);
 
   return {
     subject: `${countLabel} ready for practice`,
-    text: `You have ${countLabel.toLowerCase()} ready in LearnRecur.\n\nPractice now: ${input.practiceUrl}`,
-    html: `<p>You have <strong>${escapeHtml(countLabel.toLowerCase())}</strong> ready in LearnRecur.</p><p><a href="${escapedUrl}">Practice now</a></p>`,
+    text: `You have ${countLabel.toLowerCase()} ready in LearnRecur.\n\nPractice now: ${input.practiceUrl}\nManage reminders: ${input.settingsUrl}`,
+    html: `<p>You have <strong>${escapeHtml(countLabel.toLowerCase())}</strong> ready in LearnRecur.</p><p><a href="${escapedUrl}">Practice now</a></p><p><a href="${escapedSettingsUrl}">Manage reminders</a></p>`,
   };
 }
 
@@ -617,6 +624,10 @@ export function buildReminderIdempotencyKey(userId: string, localDate: string): 
 
 export function buildPracticeUrl(appUrl: string): string {
   return new URL("/practice", appUrl).toString();
+}
+
+export function buildSettingsUrl(appUrl: string): string {
+  return new URL("/settings", appUrl).toString();
 }
 
 export function isReminderLocalHourDue(

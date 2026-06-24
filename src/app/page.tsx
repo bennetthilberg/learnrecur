@@ -71,6 +71,10 @@ export default async function Home() {
             <dd>History, reminders, archive, delete, and JSON export</dd>
           </div>
         </dl>
+        <nav className="entryPolicyLinks" aria-label="Policies">
+          <Link href="/privacy">Privacy</Link>
+          <Link href="/terms">Terms</Link>
+        </nav>
       </section>
       <aside className="entryProcessPanel" aria-label="How LearnRecur works">
         <div className="entryProcessHeader">

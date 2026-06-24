@@ -3,6 +3,7 @@ import Link from "next/link";
 import { PlayCircle } from "@phosphor-icons/react/dist/ssr";
 
 import { PanelHeaderCount } from "@/components/app/panel-header-count";
+import { UserStatusPanel } from "@/components/app/user-status-panel";
 import {
   getCollectionsHome,
   type CollectionSummary,
@@ -33,10 +34,7 @@ export default async function CollectionsPage() {
     return (
       <main className="skillShell">
         <SkillsTopbar current="collections" />
-        <section className="dashboardSetupPanel" aria-labelledby="collections-setup-title">
-          <h1 id="collections-setup-title">Database setup needs attention.</h1>
-          <p>{databaseUser.message}</p>
-        </section>
+        <UserStatusPanel id="collections-setup-title" status={databaseUser} />
       </main>
     );
   }

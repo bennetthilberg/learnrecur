@@ -8,6 +8,7 @@ import {
   SkillStatus,
   type Prisma,
 } from "@/generated/prisma/client";
+import { UserStatusPanel } from "@/components/app/user-status-panel";
 import { formatJobStatus } from "@/lib/formatters";
 import {
   getSkillPracticeHistory,
@@ -65,10 +66,7 @@ export default async function SkillPage({
     return (
       <main className="skillShell">
         <SkillsTopbar current="skill" />
-        <section className="dashboardSetupPanel" aria-labelledby="skills-setup-title">
-          <h1 id="skills-setup-title">Database setup needs attention.</h1>
-          <p>{databaseUser.message}</p>
-        </section>
+        <UserStatusPanel id="skills-setup-title" status={databaseUser} />
       </main>
     );
   }

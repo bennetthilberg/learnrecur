@@ -14,6 +14,7 @@ import {
   type ExerciseRefillEventSender,
 } from "@/lib/inngest/events";
 import { getPrisma } from "@/lib/prisma";
+import { checkExerciseRefillUsageLimit } from "@/lib/usage-limits";
 
 import {
   DEFAULT_READY_EXACT_INPUT_TARGET,
@@ -58,6 +59,7 @@ export type RefillQueueResult =
         | "event-send-failed"
         | "exact-input-locked"
         | "job-in-progress"
+        | "quota-exceeded"
         | "skill-not-active";
       message: string;
       generationJobId?: string;
@@ -401,6 +403,22 @@ async function queueExerciseRefillJob({
 
   const prisma = getPrisma();
   const sender = input.sender ?? inngestExerciseRefillEventSender;
+  const quota = await checkExerciseRefillUsageLimit({
+    userId: input.userId,
+    now: input.now,
+    prisma,
+  });
+
+  if (quota.status === "limited") {
+    return {
+      status: "not-queued",
+      reason: "quota-exceeded",
+      message: quota.message,
+      readyExerciseCount,
+      targetReadyCount,
+    };
+  }
+
   const createJob = () =>
     createNewGenerationJob({
       userId: input.userId,

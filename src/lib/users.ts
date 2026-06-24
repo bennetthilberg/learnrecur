@@ -1,3 +1,4 @@
+import { checkAlphaAccessForEmail } from "./alpha-access";
 import { formatEnvError, hasDatabaseEnv } from "./env";
 import { getPrisma } from "./prisma";
 
@@ -20,6 +21,10 @@ export type DatabaseUserStatus =
     }
   | {
       status: "missing-env";
+      message: string;
+    }
+  | {
+      status: "access-denied";
       message: string;
     }
   | {
@@ -65,6 +70,7 @@ export type UserMirrorClient = {
 
 type EnsureDatabaseUserOptions = {
   prisma?: UserMirrorClient;
+  skipAlphaAccessCheck?: boolean;
   skipEnvCheck?: boolean;
 };
 
@@ -80,9 +86,20 @@ export async function ensureDatabaseUser(
   }
 
   try {
-    const prisma = options.prisma ?? getPrisma();
     const email = clerkUser.primaryEmailAddress?.emailAddress ?? null;
     const name = getDisplayName(clerkUser);
+    const alphaAccess = options.skipAlphaAccessCheck
+      ? { allowed: true as const, reason: "open" as const }
+      : checkAlphaAccessForEmail(email);
+
+    if (!alphaAccess.allowed) {
+      return {
+        status: "access-denied",
+        message: alphaAccess.message,
+      };
+    }
+
+    const prisma = options.prisma ?? getPrisma();
 
     const user = await prisma.user.upsert({
       where: { id: clerkUser.id },

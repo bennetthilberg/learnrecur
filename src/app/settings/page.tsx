@@ -1,6 +1,7 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import Link from "next/link";
 
+import { UserStatusPanel } from "@/components/app/user-status-panel";
 import { getReminderSettings } from "@/lib/reminders";
 import { ensureDatabaseUser } from "@/lib/users";
 
@@ -23,10 +24,7 @@ export default async function SettingsPage() {
     return (
       <main className="skillShell">
         <SkillsTopbar current="settings" />
-        <section className="dashboardSetupPanel" aria-labelledby="settings-setup-title">
-          <h1 id="settings-setup-title">Database setup needs attention.</h1>
-          <p>{databaseUser.message}</p>
-        </section>
+        <UserStatusPanel id="settings-setup-title" status={databaseUser} />
       </main>
     );
   }

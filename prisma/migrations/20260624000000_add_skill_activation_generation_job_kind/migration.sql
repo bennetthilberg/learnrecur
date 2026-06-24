@@ -1,0 +1,1 @@
+ALTER TYPE "GenerationJobKind" ADD VALUE 'SKILL_ACTIVATION';

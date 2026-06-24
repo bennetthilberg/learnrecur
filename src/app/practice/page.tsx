@@ -1,5 +1,6 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 
+import { UserStatusPanel } from "@/components/app/user-status-panel";
 import { ensureDatabaseUser } from "@/lib/users";
 
 import { SkillsTopbar } from "../skills/skills-topbar";
@@ -30,11 +31,7 @@ export default async function PracticePage({ searchParams }: PracticePageProps) 
     return (
       <main className="practiceShell">
         <SkillsTopbar current="practice" />
-
-        <section className="dashboardSetupPanel" aria-labelledby="practice-setup-title">
-          <h1 id="practice-setup-title">Database setup needs attention.</h1>
-          <p>{databaseUser.message}</p>
-        </section>
+        <UserStatusPanel id="practice-setup-title" status={databaseUser} />
       </main>
     );
   }

@@ -1,6 +1,7 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import Link from "next/link";
 
+import { UserStatusPanel } from "@/components/app/user-status-panel";
 import { ensureDatabaseUser } from "@/lib/users";
 
 import { SkillDraftForm, type SkillDraftFormValues } from "../skill-draft-form";
@@ -44,10 +45,7 @@ export default async function NewSkillPage({ searchParams }: NewSkillPageProps) 
     return (
       <main className="skillShell">
         <SkillsTopbar current="new" />
-        <section className="dashboardSetupPanel" aria-labelledby="skills-setup-title">
-          <h1 id="skills-setup-title">Database setup needs attention.</h1>
-          <p>{databaseUser.message}</p>
-        </section>
+        <UserStatusPanel id="skills-setup-title" status={databaseUser} />
       </main>
     );
   }

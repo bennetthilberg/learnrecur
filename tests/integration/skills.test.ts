@@ -602,7 +602,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
     expect(skill.generationJobs).toHaveLength(1);
     expect(skill.generationJobs[0]).toMatchObject({
       userId,
-      kind: GenerationJobKind.CHOICE_EXERCISE_GENERATION,
+      kind: GenerationJobKind.SKILL_ACTIVATION,
       status: GenerationJobStatus.SUCCEEDED,
       provider: "google",
       model: "test-gemini",

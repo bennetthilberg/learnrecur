@@ -28,6 +28,10 @@ import {
 import { formatEnvError, getGeminiEnv } from "@/lib/env";
 import { getPrisma } from "@/lib/prisma";
 import { createInitialSkillSchedule } from "@/lib/scheduling";
+import {
+  checkPastedSourceDraftUsageLimit,
+  checkSkillActivationUsageLimit,
+} from "@/lib/usage-limits";
 
 export const MIN_ACTIVATION_EXERCISES = 3;
 export const REQUESTED_ACTIVATION_EXERCISES = 5;
@@ -406,6 +410,7 @@ export type ActivateSkillDraftInput = {
   generateChoiceExercises?: ChoiceExerciseGenerator;
   verifyChoiceExercises?: ChoiceExerciseVerifier;
   model?: string;
+  skipUsageLimitCheck?: boolean;
 };
 
 export type RefillChoiceExercisesInput = {
@@ -447,6 +452,7 @@ export type CreateSkillDraftFromSourceInput = {
   now: Date;
   generateSkillDraft?: SkillDraftGenerator;
   model?: string;
+  skipUsageLimitCheck?: boolean;
 };
 
 export type CreateGeneratedSkillDraftsForSourceFileInput = {
@@ -472,7 +478,11 @@ export type SourceSkillDraftWriteResult =
   | Extract<SourceSkillDraftInputResult, { status: "invalid" }>
   | {
       status: "not-created";
-      reason: "generation-failed" | "invalid-generation" | "missing-gemini-env";
+      reason:
+        | "generation-failed"
+        | "invalid-generation"
+        | "missing-gemini-env"
+        | "quota-exceeded";
       message: string;
     };
 
@@ -491,6 +501,7 @@ export type SkillActivationResult =
         | "verification-failed"
         | "invalid-verification"
         | "missing-gemini-env"
+        | "quota-exceeded"
         | "skill-not-draft";
       message: string;
       generationJobId?: string;
@@ -1110,6 +1121,24 @@ export async function createSkillDraftFromSource(
     };
   }
 
+  let prisma = input.skipUsageLimitCheck ? null : getPrisma();
+
+  if (!input.skipUsageLimitCheck) {
+    const quota = await checkPastedSourceDraftUsageLimit({
+      userId: input.userId,
+      now: input.now,
+      prisma: prisma ?? undefined,
+    });
+
+    if (quota.status === "limited") {
+      return {
+        status: "not-created",
+        reason: "quota-exceeded",
+        message: quota.message,
+      };
+    }
+  }
+
   const sourceContext = buildSourceContextExcerpt([normalized.value.sourceText]) ?? normalized.value.sourceText;
   let rawGeneration: unknown;
 
@@ -1140,7 +1169,7 @@ export async function createSkillDraftFromSource(
     };
   }
 
-  const prisma = getPrisma();
+  prisma ??= getPrisma();
 
   return prisma.$transaction(async (tx) => {
     const sourceFile = await tx.sourceFile.create({
@@ -1271,12 +1300,28 @@ export async function activateSkillDraft(
     };
   }
 
+  if (!input.skipUsageLimitCheck) {
+    const quota = await checkSkillActivationUsageLimit({
+      userId: input.userId,
+      now: input.now,
+      prisma,
+    });
+
+    if (quota.status === "limited") {
+      return {
+        status: "not-activated",
+        reason: "quota-exceeded",
+        message: quota.message,
+      };
+    }
+  }
+
   const setup = resolveActivationSetup(input);
   const generationJob = await prisma.generationJob.create({
     data: {
       userId: input.userId,
       skillId: skill.id,
-      kind: GenerationJobKind.CHOICE_EXERCISE_GENERATION,
+      kind: GenerationJobKind.SKILL_ACTIVATION,
       status: setup.status === "ready" ? GenerationJobStatus.RUNNING : GenerationJobStatus.FAILED,
       provider: GEMINI_PROVIDER,
       model: setup.model,

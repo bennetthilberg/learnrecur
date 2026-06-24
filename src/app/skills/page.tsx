@@ -2,6 +2,7 @@ import { auth, currentUser } from "@clerk/nextjs/server";
 import Link from "next/link";
 
 import { PanelHeaderCount } from "@/components/app/panel-header-count";
+import { UserStatusPanel } from "@/components/app/user-status-panel";
 import {
   getSkillsLibrary,
   type SkillsLibraryActiveSkill,
@@ -45,10 +46,7 @@ export default async function SkillsPage({ searchParams }: SkillsPageProps) {
     return (
       <main className="skillShell">
         <SkillsTopbar current="skills" />
-        <section className="dashboardSetupPanel" aria-labelledby="skills-setup-title">
-          <h1 id="skills-setup-title">Database setup needs attention.</h1>
-          <p>{databaseUser.message}</p>
-        </section>
+        <UserStatusPanel id="skills-setup-title" status={databaseUser} />
       </main>
     );
   }
