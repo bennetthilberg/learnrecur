@@ -29,20 +29,20 @@ import {
   resolveS3SourceObjectStorage,
   type SourceObjectStorage,
 } from "@/lib/storage/s3";
+import {
+  MAX_SOURCE_UPLOAD_BYTES,
+  SOURCE_UPLOAD_MAX_BYTES_ERROR,
+  SOURCE_UPLOAD_MIME_TYPE_ERROR,
+  isSourceUploadMimeType,
+  type SourceUploadMimeType,
+} from "@/lib/skills/source-upload-policy";
 import { checkSourceUploadUsageLimit } from "@/lib/usage-limits";
 
-export const MAX_SOURCE_UPLOAD_BYTES = 10 * 1024 * 1024;
 export const SOURCE_UPLOAD_PREFIX = "source-uploads";
 export const SOURCE_UPLOAD_PROMPT_VERSION = "source-upload-drafts-v0";
 export const SOURCE_PROCESSING_STALE_AFTER_MS = 15 * 60 * 1000;
 const SOURCE_UPLOAD_GENERATION_TIMEOUT_MS = 45_000;
-
-const allowedSourceUploadMimeTypes = [
-  "image/png",
-  "image/jpeg",
-  "image/webp",
-  "application/pdf",
-] as const;
+export { MAX_SOURCE_UPLOAD_BYTES } from "@/lib/skills/source-upload-policy";
 
 const sourceUploadInputSchema = z.strictObject({
   originalName: z.string().trim().min(1, "Choose a file to upload.").max(220),
@@ -50,15 +50,14 @@ const sourceUploadInputSchema = z.strictObject({
     .string()
     .trim()
     .refine(
-      (mimeType): mimeType is SourceUploadMimeType =>
-        allowedSourceUploadMimeTypes.includes(mimeType as SourceUploadMimeType),
-      "Upload a PNG, JPEG, WebP, or PDF file.",
+      (mimeType): mimeType is SourceUploadMimeType => isSourceUploadMimeType(mimeType),
+      SOURCE_UPLOAD_MIME_TYPE_ERROR,
     ),
   byteSize: z.coerce
     .number()
     .int()
     .positive("Upload a non-empty file.")
-    .max(MAX_SOURCE_UPLOAD_BYTES, "Upload a file smaller than 10 MB."),
+    .max(MAX_SOURCE_UPLOAD_BYTES, SOURCE_UPLOAD_MAX_BYTES_ERROR),
   sourceLabel: optionalTrimmedString().pipe(z.string().max(160).optional()),
   focusNote: optionalTrimmedString().pipe(z.string().max(800).optional()),
   collectionName: optionalTrimmedString(),
@@ -68,8 +67,6 @@ const sourceUploadInputSchema = z.strictObject({
 const extractedSourceTextSchema = z.strictObject({
   extractedText: z.string().trim().min(40).max(80_000),
 });
-
-type SourceUploadMimeType = (typeof allowedSourceUploadMimeTypes)[number];
 
 export type NormalizedSourceUploadInput = {
   originalName: string;
@@ -1357,7 +1354,7 @@ function sourceFileKindFromMimeType(mimeType: SourceUploadMimeType) {
 }
 
 function isAllowedSourceUploadMimeType(mimeType: string): mimeType is SourceUploadMimeType {
-  return allowedSourceUploadMimeTypes.includes(mimeType as SourceUploadMimeType);
+  return isSourceUploadMimeType(mimeType);
 }
 
 async function validateStoredSourceUpload(

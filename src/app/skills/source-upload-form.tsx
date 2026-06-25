@@ -10,11 +10,8 @@ import {
   prepareSourceUploadAction,
   type PrepareSourceUploadActionResult,
 } from "./actions";
-import {
-  acceptedSourceUploadMimeTypes,
-  getClipboardSourceFile,
-  getSourceUploadFileError,
-} from "./source-upload-clipboard";
+import { SOURCE_UPLOAD_MIME_TYPES } from "@/lib/skills/source-upload-policy";
+import { getClipboardSourceFile, getSourceUploadFileError } from "./source-upload-clipboard";
 
 type UploadStatus = "idle" | "preparing" | "uploading" | "queueing" | "error";
 
@@ -163,7 +160,7 @@ export function SourceUploadForm() {
               }}
             >
               <input
-                accept={acceptedSourceUploadMimeTypes.join(",")}
+                accept={SOURCE_UPLOAD_MIME_TYPES.join(",")}
                 aria-describedby={fileError ? fileErrorId : undefined}
                 aria-invalid={hasFileError(fieldErrors) ? "true" : undefined}
                 className="skillFileInput"

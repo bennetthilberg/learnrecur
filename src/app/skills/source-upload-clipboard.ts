@@ -1,11 +1,9 @@
-export const acceptedSourceUploadMimeTypes = [
-  "image/png",
-  "image/jpeg",
-  "image/webp",
-  "application/pdf",
-] as const;
-
-export const maxSourceUploadBytes = 10 * 1024 * 1024;
+import {
+  MAX_SOURCE_UPLOAD_BYTES,
+  SOURCE_UPLOAD_MAX_BYTES_ERROR,
+  SOURCE_UPLOAD_MIME_TYPE_ERROR,
+  isSourceUploadMimeType,
+} from "@/lib/skills/source-upload-policy";
 
 type ClipboardFileItem = {
   kind?: string;
@@ -40,17 +38,17 @@ export function getClipboardSourceFile(
 }
 
 export function getSourceUploadFileError(file: File): SourceUploadFileError | null {
-  if (!acceptedSourceUploadMimeTypes.includes(file.type as (typeof acceptedSourceUploadMimeTypes)[number])) {
+  if (!isSourceUploadMimeType(file.type)) {
     return {
       field: "mimeType",
-      message: "Upload a PNG, JPEG, WebP, or PDF file.",
+      message: SOURCE_UPLOAD_MIME_TYPE_ERROR,
     };
   }
 
-  if (file.size > maxSourceUploadBytes) {
+  if (file.size > MAX_SOURCE_UPLOAD_BYTES) {
     return {
       field: "byteSize",
-      message: "Upload a file smaller than 10 MB.",
+      message: SOURCE_UPLOAD_MAX_BYTES_ERROR,
     };
   }
 

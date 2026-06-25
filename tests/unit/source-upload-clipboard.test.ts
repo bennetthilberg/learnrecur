@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   getClipboardSourceFile,
   getSourceUploadFileError,
-  maxSourceUploadBytes,
 } from "@/app/skills/source-upload-clipboard";
+import { MAX_SOURCE_UPLOAD_BYTES } from "@/lib/skills/source-upload-policy";
 
 describe("source upload clipboard helpers", () => {
   it("turns generic pasted image names into stable source upload names", () => {
@@ -54,7 +54,7 @@ describe("source upload clipboard helpers", () => {
 
     expect(
       getSourceUploadFileError(
-        new File(["x".repeat(maxSourceUploadBytes + 1)], "large.png", {
+        new File(["x".repeat(MAX_SOURCE_UPLOAD_BYTES + 1)], "large.png", {
           type: "image/png",
         }),
       ),
