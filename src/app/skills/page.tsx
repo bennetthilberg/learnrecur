@@ -62,8 +62,8 @@ export default async function SkillsPage({ searchParams }: SkillsPageProps) {
 
       <header className="skillHeader">
         <div>
-          <h1>Recover and schedule skills</h1>
-          <p>Resume draft review, check activation issues, and scan active practice targets.</p>
+          <h1>Skills</h1>
+          <p>Review drafts and active practice targets.</p>
         </div>
         <Link className="primaryButton" href="/skills/new">
           Add skill
@@ -247,10 +247,7 @@ function ActiveSkillRow({ skill }: { skill: SkillsLibraryActiveSkill }) {
       <div className="skillMetaLine skillMetaLineSchedule">
         <span>{skill.collectionName ?? "Uncollected"}</span>
         <span>{formatFsrsState(skill.fsrsState)}</span>
-        <span>{formatCount(skill.repetitions)} reps</span>
-        <span>{formatCount(skill.lapses)} lapses</span>
       </div>
-      <SkillLibraryInventoryFacts skill={skill} />
     </article>
   );
 }
@@ -277,46 +274,13 @@ function RecoverySkillRow({ skill }: { skill: SkillsLibraryRecoverySkill }) {
       <div className="skillMetaLine">
         <span>{skill.collectionName ?? "Uncollected"}</span>
         <span>{skill.dueLabel}</span>
-        <span>{formatCount(skill.repetitions)} reps</span>
         {skill.tags.slice(0, 3).map((tag) => (
           <span className="dashboardTag" key={tag}>
             {tag}
           </span>
         ))}
       </div>
-      <SkillLibraryInventoryFacts skill={skill} />
     </article>
-  );
-}
-
-type SkillLibraryInventoryFactSource = {
-  readyExerciseCount: number;
-  retiredExerciseCount: number;
-  sourceRefCount: number;
-  title: string;
-  verifiedExerciseCount: number;
-};
-
-function SkillLibraryInventoryFacts({ skill }: { skill: SkillLibraryInventoryFactSource }) {
-  return (
-    <dl className="skillLibraryFacts" aria-label={`${skill.title} exercise inventory`}>
-      <div data-priority="primary">
-        <dt>Ready</dt>
-        <dd>{formatCount(skill.readyExerciseCount)}</dd>
-      </div>
-      <div>
-        <dt>Verified</dt>
-        <dd>{formatCount(skill.verifiedExerciseCount)}</dd>
-      </div>
-      <div>
-        <dt>Retired</dt>
-        <dd>{formatCount(skill.retiredExerciseCount)}</dd>
-      </div>
-      <div>
-        <dt>Sources</dt>
-        <dd>{formatSourceCount(skill.sourceRefCount)}</dd>
-      </div>
-    </dl>
   );
 }
 
@@ -357,9 +321,9 @@ function SourceProcessingRow({
           <dd>{sourceFile.retryCount > 0 ? formatRetryCount(sourceFile.retryCount) : "None"}</dd>
         </div>
       </dl>
-      {failed && sourceFile.errorMessage ? (
+      {failed ? (
         <div className="skillLibraryStatus" data-tone="error">
-          <p>{sourceFile.errorMessage}</p>
+          <p>Skill preparation failed. Try again, or upload a clearer excerpt.</p>
         </div>
       ) : null}
       <SourceProcessingControls
@@ -391,7 +355,7 @@ function GenerationJobStatusLine({ job }: { job: SkillsLibraryGenerationJobSumma
           <dd>{formatCount(job.rejectedCount)}</dd>
         </div>
       </dl>
-      {failed && job.errorMessage ? <p>{job.errorMessage}</p> : null}
+      {failed ? <p>Latest preparation failed. Try again when you are ready.</p> : null}
     </div>
   );
 }
@@ -487,7 +451,7 @@ function getSourceProcessingStatusTone(sourceFile: SkillsLibrarySourceProcessing
     return "attention";
   }
 
-  return sourceFile.status === "PROCESSING" ? "attention" : "neutral";
+  return "neutral";
 }
 
 function parseCreatedDraftCount(value: string | string[] | undefined) {

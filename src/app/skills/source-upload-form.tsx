@@ -332,7 +332,7 @@ export function SourceUploadForm({
 
     onGenerationStart?.({
       title: "Creating a skill from your file",
-      detail: "Uploading the source material, then Gemini will read it and write a focused skill.",
+      detail: "Uploading the source material, then preparing a focused skill for review.",
     });
     setStatus("preparing");
     const prepared = await prepareSourceUploadAction(formData);

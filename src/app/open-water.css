@@ -102,7 +102,7 @@ body {
   gap: 6px;
   color: var(--lr-ink);
   font-family: var(--lr-font-display);
-  font-size: 17.5px;
+  font-size: 16.5px;
   font-weight: 700;
   line-height: 1.2;
   letter-spacing: -0.01em;
@@ -203,7 +203,7 @@ body {
   border: 0;
   background: transparent;
   color: var(--lr-ink);
-  font-weight: 400;
+  font-weight: 600;
 }
 
 .practiceNav a[data-nav-active="true"] {
@@ -244,14 +244,6 @@ body {
   visibility: hidden;
 }
 
-.practiceNav a[data-nav-active="true"] .practiceNavLabel {
-  text-shadow: .2px 0 0 currentcolor;
-}
-
-.practiceNav a[aria-current="page"]:not([data-nav-active="true"]) .practiceNavLabel {
-  text-shadow: none;
-}
-
 .practiceNav a:focus-visible,
 .practiceUserIdentity:focus-visible,
 .dashboardPanelLink:focus-visible,
@@ -265,7 +257,7 @@ body {
 .skillSourceRemove summary:focus-visible {
   outline: 2px solid var(--lr-focus-outline);
   outline-offset: 3px;
-  box-shadow: var(--lr-focus-ring);
+  box-shadow: none;
 }
 
 .practiceUserMenu {
@@ -402,6 +394,11 @@ body {
   gap: 10px;
 }
 
+.entryPanel .openWaterHeroContent p,
+.dashboardHero .openWaterHeroContent p {
+  color: #DCE6FA;
+}
+
 .openWaterHeroActions .bpbtn-hero {
   padding: 9px 18px;
 }
@@ -421,16 +418,6 @@ body {
   color: #DCE6FA;
   font-size: 14px;
   font-weight: 600;
-}
-
-.dashboardHeroShoreWave {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  height: 52px;
-  opacity: .94;
-  pointer-events: none;
 }
 
 .openWaterStatGrid {
@@ -616,6 +603,10 @@ body {
   overflow: hidden;
 }
 
+.openWaterDeckEmpty {
+  padding: 15px;
+}
+
 .openWaterDeckRow {
   display: grid;
   grid-template-columns: 32px minmax(0, 1fr) minmax(48px, 56px) auto auto;
@@ -623,6 +614,10 @@ body {
   gap: 12px;
   border-bottom: 1px solid var(--lr-divider);
   padding: 12px 15px;
+}
+
+.openWaterDeckRow[data-has-icon="false"] {
+  grid-template-columns: minmax(0, 1fr) minmax(48px, 56px) auto auto;
 }
 
 .openWaterDeckRow:last-child {
@@ -861,7 +856,6 @@ body {
   min-height: auto;
   margin: 0;
   padding: 10px 18px;
-  position: relative;
   text-decoration: none;
   transform: translateY(0);
   transition: transform .08s ease, box-shadow .08s ease, background-color .12s ease;
@@ -871,15 +865,7 @@ body {
 .primaryButton::after,
 .secondaryButton::after,
 .ratingButton::after {
-  position: absolute;
-  inset: -5px -5px -8px;
-  border: 2px solid var(--lr-focus-outline);
-  border-radius: 13px;
-  box-shadow: var(--lr-focus-ring);
-  content: "";
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity .12s ease;
+  display: none;
 }
 
 .primaryButton,
@@ -941,13 +927,8 @@ body {
 .primaryButton:focus-visible,
 .secondaryButton:focus-visible,
 .ratingButton:focus-visible {
-  outline: none;
-}
-
-.primaryButton:focus-visible::after,
-.secondaryButton:focus-visible::after,
-.ratingButton:focus-visible::after {
-  opacity: 1;
+  outline: 2px solid #1C44A8;
+  outline-offset: 2px;
 }
 
 .primaryButton:disabled,
@@ -1016,6 +997,14 @@ body {
   font-weight: 500;
   line-height: 1.35;
   letter-spacing: 0;
+}
+
+.practiceMetaSummary {
+  margin: 5px 0 0;
+  color: var(--lr-text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
 }
 
 .skillHeader p,
@@ -1092,12 +1081,8 @@ body {
 }
 
 .routeSkeleton::after {
-  background-image: linear-gradient(
-    90deg,
-    transparent,
-    rgba(255, 255, 255, .68),
-    transparent
-  ) !important;
+  display: none !important;
+  background-image: none !important;
 }
 
 .routeLoadingPanel {
@@ -1115,32 +1100,15 @@ body {
 }
 
 .routeLoadingHero .routeSkeleton::after {
-  background-image: linear-gradient(
-    90deg,
-    transparent,
-    rgba(255, 255, 255, .12),
-    transparent
-  ) !important;
+  background-image: none !important;
 }
 
 .routeLoadingHeroWave {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  height: 46px;
-  background: rgba(11, 44, 127, .55);
-  clip-path: ellipse(78% 42% at 56% 100%);
+  display: none;
 }
 
 .routeLoadingHeroRings {
-  position: absolute;
-  top: 28px;
-  right: 32px;
-  width: 86px;
-  height: 86px;
-  border: 2px solid rgba(255, 255, 255, .18);
-  border-radius: 50%;
+  display: none;
 }
 
 .routeLoadingHeroRings::before,
@@ -1343,11 +1311,16 @@ body {
   color: var(--lr-green);
 }
 
-.dashboardChip[data-tone="neutral"],
 .dashboardChip[data-tone="saved"] {
   border-color: var(--lr-green);
   background: #FFFFFF;
   color: var(--lr-green);
+}
+
+.dashboardChip[data-tone="neutral"] {
+  border-color: var(--lr-chip-border);
+  background: #FFFFFF;
+  color: var(--lr-icon);
 }
 
 .dashboardPanelLink,
@@ -1448,7 +1421,7 @@ body {
   border-radius: 8px;
   background: #FFFFFF;
   padding: 5px;
-  box-shadow: 0 10px 22px rgb(21 35 63 / 10%);
+  box-shadow: none;
 }
 
 .skillRowActionsMenu form {
@@ -1552,14 +1525,14 @@ body {
   border-color: var(--lr-blue);
   outline: 2px solid var(--lr-focus-outline);
   outline-offset: 3px;
-  box-shadow: var(--lr-focus-ring);
+  box-shadow: none;
 }
 
 .authCard .cl-input:focus {
   border-color: var(--lr-blue) !important;
   outline: 2px solid var(--lr-focus-outline) !important;
   outline-offset: 3px !important;
-  box-shadow: var(--lr-focus-ring) !important;
+  box-shadow: none !important;
 }
 
 .practicePromptPanel {
@@ -1604,7 +1577,7 @@ body {
 .choiceCard:focus-visible {
   outline: 2px solid var(--lr-focus-outline);
   outline-offset: 3px;
-  box-shadow: var(--lr-focus-ring);
+  box-shadow: none;
 }
 
 .choiceCard[data-selected="true"] {
@@ -1682,6 +1655,39 @@ body {
   background: transparent;
   color: var(--lr-green);
   padding: 0;
+}
+
+.flagExerciseInline {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.quietButton {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--lr-nav-inactive);
+  cursor: pointer;
+  font-family: var(--lr-font-body);
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.2;
+  padding: 2px 0;
+}
+
+.quietButton:hover {
+  color: var(--lr-blue);
+}
+
+.quietButton:focus-visible {
+  outline: 2px solid #1C44A8;
+  outline-offset: 3px;
+}
+
+.quietButton:disabled {
+  cursor: not-allowed;
+  opacity: .5;
 }
 
 .settingsToggle {
@@ -1802,10 +1808,8 @@ body {
 }
 
 .entryShell {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  display: block;
   align-content: start;
-  gap: 18px;
 }
 
 .entryPanel {
@@ -1971,16 +1975,16 @@ body {
 
   .practiceNav {
     grid-column: 1 / -1;
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    display: flex;
     order: 3;
     gap: 8px;
-    overflow: visible;
+    overflow-x: auto;
     padding-top: 4px;
   }
 
   .practiceNav a {
     display: flex;
+    flex: 0 0 auto;
     order: 0;
     min-height: 31px;
     align-items: center;
@@ -2037,6 +2041,10 @@ body {
   .openWaterDeckRow {
     display: grid;
     grid-template-columns: 32px minmax(0, 1fr) auto;
+  }
+
+  .openWaterDeckRow[data-has-icon="false"] {
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 
   .openWaterMiniProgress {
@@ -2100,10 +2108,6 @@ body {
 }
 
 @media (max-width: 420px) {
-  .practiceNav {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
   .practiceNav a {
     font-size: 12px;
   }
@@ -2256,32 +2260,27 @@ body {
 
 @media (min-width: 900px) {
   .entryShell {
-    width: calc(100% - 64px);
-    max-width: 1180px;
+    width: 100%;
+    max-width: 580px;
     min-height: 100vh;
-    grid-template-columns: minmax(460px, 1.1fr) minmax(320px, 0.8fr);
-    align-content: center;
-    align-items: center;
-    gap: 54px;
-    padding: 52px 0;
+    padding: 0 0 20px;
   }
 
   .entryPanel,
   .entryProcessPanel {
-    margin: 0;
+    margin-right: 14px;
+    margin-left: 14px;
   }
 
   .entryPanel {
-    padding-top: 0;
+    padding-top: 14px;
   }
 
   .entryHero {
-    width: 100%;
-    margin: 0;
+    margin: 14px 0 0;
   }
 
   .entryCapabilityList {
-    max-width: 680px;
     margin-top: 22px;
   }
 
@@ -2291,8 +2290,7 @@ body {
   }
 
   .entryProcessPanel {
-    align-self: center;
-    max-width: 420px;
+    max-width: none;
   }
 }
 
@@ -2909,10 +2907,10 @@ body {
 }
 
 .practiceComplete {
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
   justify-content: start;
-  gap: 18px 20px;
+  gap: 16px;
   padding: 28px 30px;
 }
 
@@ -2933,11 +2931,10 @@ body {
 }
 
 .practiceCompleteCopy,
-.practiceCompleteSummary,
 .practiceCompleteActions,
 .practiceCompleteStatus,
 .practiceCompleteDevAction {
-  grid-column: 2;
+  grid-column: 1;
 }
 
 .practiceComplete h1 {

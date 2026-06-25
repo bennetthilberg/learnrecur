@@ -103,7 +103,7 @@
   --lr-leading-metric: 0.95;
   --lr-shadow: none;
   --lr-focus-outline: rgba(28, 68, 168, 0.72);
-  --lr-focus-ring: 0 0 0 4px rgba(28, 68, 168, 0.16);
+  --lr-focus-ring: none;
 }
 
 @media (min-width: 781px) {
@@ -228,36 +228,13 @@ a {
   border: 1px solid transparent;
   border-radius: 8px;
   cursor: pointer;
-  position: relative;
   margin: 0;
   user-select: none;
   -webkit-user-select: none;
   transform: translateY(0);
-  transition:
-    transform .08s ease,
-    box-shadow .12s ease,
-    background-color .12s ease;
+  transition: transform .08s ease, box-shadow .08s ease, background-color .12s ease;
 }
-
-.bpbtn::after {
-  position: absolute;
-  inset: -5px -5px -8px;
-  border: 2px solid var(--lr-focus-outline);
-  border-radius: 13px;
-  box-shadow: var(--lr-focus-ring);
-  content: "";
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity .12s ease;
-}
-
-.bpbtn:focus-visible {
-  outline: none;
-}
-
-.bpbtn:focus-visible::after {
-  opacity: 1;
-}
+.bpbtn:focus-visible { outline: 2px solid #1C44A8; outline-offset: 2px; }
 .bpbtn:disabled { opacity: .5; cursor: not-allowed; }
 
 /* Primary (blue) */
@@ -969,9 +946,10 @@ a {
 }
 
 .dashboardPanelLink:focus-visible {
-  outline: none;
+  outline: 2px solid var(--lr-focus-outline);
+  outline-offset: 3px;
   color: var(--lr-primary-ink);
-  box-shadow: var(--lr-focus-ring);
+  box-shadow: none;
 }
 
 .dashboardCollectionPracticeLink {
@@ -1226,9 +1204,10 @@ a {
 }
 
 .practiceScopeBar a:focus-visible {
-  outline: none;
+  outline: 2px solid var(--lr-focus-outline);
+  outline-offset: 3px;
   color: var(--lr-primary-ink);
-  box-shadow: var(--lr-focus-ring);
+  box-shadow: none;
 }
 
 .practiceFrame h1 {
@@ -1384,8 +1363,9 @@ a {
 
 .choiceCard:focus-visible,
 .practiceNav a:focus-visible {
-  outline: none;
-  box-shadow: var(--lr-focus-ring);
+  outline: 2px solid var(--lr-focus-outline);
+  outline-offset: 3px;
+  box-shadow: none;
 }
 
 .choiceCard[data-selected="true"] {
@@ -1477,9 +1457,10 @@ a {
 }
 
 .exactAnswerField input:focus-visible {
-  outline: none;
+  outline: 2px solid var(--lr-focus-outline);
+  outline-offset: 3px;
   border-color: var(--lr-primary);
-  box-shadow: var(--lr-focus-ring);
+  box-shadow: none;
 }
 
 .exactAnswerField input:disabled {
@@ -1594,30 +1575,15 @@ a {
 }
 
 .ratingOverride div {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: 3px;
-  border-radius: var(--lr-radius);
-  background: var(--lr-fill);
-  padding: 3px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
 }
 
 .ratingButton {
-  gap: 9px;
-}
-
-.ratingButton kbd {
-  min-width: 22px;
-  border: 1px solid var(--lr-chip-border);
-  border-radius: 5px;
-  background: #FFFFFF;
-  color: var(--lr-text-secondary);
-  font-family: var(--lr-font-body);
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1.1;
-  padding: 2px 6px;
-  text-align: center;
+  width: 100%;
+  padding: 8px 0;
+  font-size: 13px;
 }
 
 .flagExercisePanel {
@@ -1710,8 +1676,9 @@ a {
 
 .flagReasonOption:has(input:focus-visible),
 .flagNoteField textarea:focus-visible {
-  outline: none;
-  box-shadow: var(--lr-focus-ring);
+  outline: 2px solid var(--lr-focus-outline);
+  outline-offset: 3px;
+  box-shadow: none;
 }
 
 .flagNoteField {
@@ -1748,8 +1715,9 @@ a {
 }
 
 .practiceFrame:focus-visible {
-  outline: none;
-  box-shadow: var(--lr-focus-ring), var(--lr-shadow);
+  outline: 2px solid var(--lr-focus-outline);
+  outline-offset: 3px;
+  box-shadow: none;
 }
 
 .practiceStatusLine {
@@ -1812,9 +1780,10 @@ a {
 }
 
 .practiceEmptyUtilityLinks a:focus-visible {
-  outline: none;
+  outline: 2px solid var(--lr-focus-outline);
+  outline-offset: 3px;
   color: var(--lr-primary-ink);
-  box-shadow: var(--lr-focus-ring);
+  box-shadow: none;
 }
 
 .practiceEmptyDetails {
@@ -1938,7 +1907,7 @@ a {
 .skillCreationTabs a:focus-visible {
   outline: 2px solid var(--lr-focus-outline);
   outline-offset: 3px;
-  box-shadow: var(--lr-focus-ring);
+  box-shadow: none;
 }
 
 .skillCreationPath {
@@ -1998,10 +1967,10 @@ a {
   display: grid;
   min-height: 390px;
   align-content: center;
-  justify-items: center;
+  justify-items: stretch;
   gap: 18px;
   padding: 42px 24px;
-  text-align: center;
+  text-align: left;
 }
 
 .learnrecurNotification {
@@ -2009,6 +1978,8 @@ a {
 }
 
 .sourceGenerationPanel h2 {
+  width: min(100%, 440px);
+  justify-self: center;
   margin: 0;
   color: var(--lr-ink);
   font-family: var(--lr-font-display);
@@ -2018,14 +1989,16 @@ a {
 }
 
 .sourceGenerationPanel p {
-  max-width: 440px;
-  margin: 8px auto 0;
+  width: min(100%, 440px);
+  justify-self: center;
+  margin: 8px 0 0;
   color: var(--lr-muted);
   font-size: var(--lr-text-md);
   line-height: var(--lr-leading-reading);
 }
 
 .sourceGenerationSpinner {
+  justify-self: center;
   width: 54px;
   height: 54px;
   border: 2px solid #BBCAEC;
@@ -2046,7 +2019,10 @@ a {
 }
 
 .skillManualSection .skillDraftGrid {
+  max-width: 820px;
   grid-template-columns: 1fr;
+  margin-right: auto;
+  margin-left: auto;
 }
 
 .skillSourceForm,
@@ -2125,7 +2101,7 @@ a {
 
 .skillFileControl:focus-within {
   border-color: var(--lr-primary);
-  box-shadow: var(--lr-focus-ring);
+  box-shadow: none;
 }
 
 .skillFileInput {
@@ -2283,8 +2259,9 @@ a {
 }
 
 .skillManualSummary:focus-visible {
-  outline: none;
-  box-shadow: var(--lr-focus-ring);
+  outline: 2px solid var(--lr-focus-outline);
+  outline-offset: 3px;
+  box-shadow: none;
 }
 
 .skillManualSummary .skillPathBadge {
@@ -2466,8 +2443,9 @@ a {
 }
 
 .skillFormDetails summary:focus-visible {
-  outline: none;
-  box-shadow: var(--lr-focus-ring);
+  outline: 2px solid var(--lr-focus-outline);
+  outline-offset: 3px;
+  box-shadow: none;
 }
 
 .skillFormDetails[open] .skillFormFieldsetBody {
@@ -2542,9 +2520,10 @@ a {
 .skillField input:focus-visible,
 .skillField select:focus-visible,
 .skillField textarea:focus-visible {
-  outline: none;
+  outline: 2px solid var(--lr-focus-outline);
+  outline-offset: 3px;
   border-color: var(--lr-primary);
-  box-shadow: var(--lr-focus-ring);
+  box-shadow: none;
 }
 
 .skillField input[aria-invalid="true"],
@@ -2645,7 +2624,7 @@ a {
 .settingsToggle:has(input:focus-visible) {
   outline: 2px solid var(--lr-focus-outline);
   outline-offset: 3px;
-  box-shadow: var(--lr-focus-ring);
+  box-shadow: none;
 }
 
 .settingsToggle:has(input:disabled) {
@@ -2657,6 +2636,11 @@ a {
   grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
   align-items: start;
   column-gap: 18px;
+}
+
+.settingsReminderForm input,
+.settingsReminderForm select {
+  font-variant-numeric: tabular-nums;
 }
 
 .settingsReminderForm .skillFormFieldset + .skillFormFieldset {
@@ -2727,6 +2711,7 @@ a {
   margin: 0;
   color: var(--lr-ink);
   font-size: var(--lr-text-sm);
+  font-variant-numeric: tabular-nums;
   line-height: var(--lr-leading-copy);
 }
 
@@ -2858,8 +2843,9 @@ a {
 }
 
 .settingsExportDetails summary:focus-visible {
-  outline: none;
-  box-shadow: var(--lr-focus-ring);
+  outline: 2px solid var(--lr-focus-outline);
+  outline-offset: 3px;
+  box-shadow: none;
 }
 
 .settingsExportSummary {
@@ -3436,8 +3422,9 @@ a {
 }
 
 .skillSourcePreviewDetails summary:focus-visible {
-  outline: none;
-  box-shadow: var(--lr-focus-ring);
+  outline: 2px solid var(--lr-focus-outline);
+  outline-offset: 3px;
+  box-shadow: none;
 }
 
 .skillSourceRemove {
@@ -3481,8 +3468,9 @@ a {
 }
 
 .skillSourceRemove summary:focus-visible {
-  outline: none;
-  box-shadow: var(--lr-focus-ring);
+  outline: 2px solid var(--lr-focus-outline);
+  outline-offset: 3px;
+  box-shadow: none;
 }
 
 .skillSourceRemove form {
@@ -3630,8 +3618,9 @@ a {
 }
 
 .skillLifecycleDetails summary:focus-visible {
-  outline: none;
-  box-shadow: var(--lr-focus-ring);
+  outline: 2px solid var(--lr-focus-outline);
+  outline-offset: 3px;
+  box-shadow: none;
 }
 
 .skillLifecycleDetails[open] {
@@ -3689,8 +3678,9 @@ a {
 
 .skillDeleteConfirm input:focus-visible {
   border-color: var(--lr-primary);
-  outline: none;
-  box-shadow: var(--lr-focus-ring);
+  outline: 2px solid var(--lr-focus-outline);
+  outline-offset: 3px;
+  box-shadow: none;
 }
 
 .skillStatusSummary {
@@ -3827,7 +3817,7 @@ a {
 .skillLibraryGrid {
   display: grid;
   width: min(100%, 1040px);
-  grid-template-columns: minmax(260px, 0.78fr) minmax(0, 1.22fr);
+  grid-template-columns: minmax(260px, 360px) minmax(0, 1fr);
   align-items: start;
   gap: 18px;
   margin: 0 auto;
@@ -3870,9 +3860,10 @@ a {
 }
 
 .skillLibraryRowMain a:focus-visible {
-  outline: none;
+  outline: 2px solid var(--lr-focus-outline);
+  outline-offset: 3px;
   color: var(--lr-primary-ink);
-  box-shadow: var(--lr-focus-ring);
+  box-shadow: none;
 }
 
 .skillRow h3 a {
@@ -3889,9 +3880,10 @@ a {
 }
 
 .skillRow h3 a:focus-visible {
-  outline: none;
+  outline: 2px solid var(--lr-focus-outline);
+  outline-offset: 3px;
   color: var(--lr-primary-ink);
-  box-shadow: var(--lr-focus-ring);
+  box-shadow: none;
 }
 
 .rowOpenCue {
@@ -4513,8 +4505,9 @@ a {
 }
 
 .collectionInlineDetails summary:focus-visible {
-  outline: none;
-  box-shadow: var(--lr-focus-ring);
+  outline: 2px solid var(--lr-focus-outline);
+  outline-offset: 3px;
+  box-shadow: none;
 }
 
 .collectionInlineDetailsDanger summary {
@@ -5544,14 +5537,9 @@ a {
     display: grid;
   }
 
-  .skillStatusSummary {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .skillStatusSummary div {
-    min-height: 66px;
     border-right: 0;
-    border-bottom: 0;
+    border-bottom: 1px solid var(--lr-line);
   }
 
   .skillStatusSummary div[data-priority="primary"] {

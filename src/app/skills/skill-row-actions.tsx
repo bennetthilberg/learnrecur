@@ -90,7 +90,6 @@ export function SkillRowActions({ skillId, skillTitle, status }: SkillRowActions
       <button
         aria-controls={open ? menuId : undefined}
         aria-expanded={open}
-        aria-haspopup="menu"
         aria-label={`Open actions for ${skillTitle}`}
         className="skillRowActionsTrigger"
         onClick={() => setOpen((currentOpen) => !currentOpen)}
@@ -100,9 +99,9 @@ export function SkillRowActions({ skillId, skillTitle, status }: SkillRowActions
       </button>
 
       {open ? (
-        <div className="skillRowActionsMenu" id={menuId} role="menu">
+        <div className="skillRowActionsMenu" id={menuId}>
           {lifecycleItems.map((item) => (
-            <form action={lifecycleFormAction} key={item.actionType} role="none">
+            <form action={lifecycleFormAction} key={item.actionType}>
               <input name="skillId" type="hidden" value={skillId} />
               <input name="lifecycleAction" type="hidden" value={item.actionType} />
               {item.actionType === "archive" ? (
@@ -113,7 +112,6 @@ export function SkillRowActions({ skillId, skillTitle, status }: SkillRowActions
                 data-tone={item.tone}
                 disabled={busy}
                 onClick={() => setPendingLifecycleAction(item.actionType)}
-                role="menuitem"
                 type="submit"
               >
                 {lifecyclePending && pendingLifecycleAction === item.actionType
@@ -124,14 +122,13 @@ export function SkillRowActions({ skillId, skillTitle, status }: SkillRowActions
           ))}
 
           {canDelete ? (
-            <form action={deleteFormAction} onSubmit={handleDeleteSubmit} role="none">
+            <form action={deleteFormAction} onSubmit={handleDeleteSubmit}>
               <input name="skillId" type="hidden" value={skillId} />
               <input name="confirmationTitle" type="hidden" value={skillTitle} />
               <button
                 className="skillRowActionItem"
                 data-tone="danger"
                 disabled={busy}
-                role="menuitem"
                 type="submit"
               >
                 {deletePending ? "Deleting" : "Delete"}
