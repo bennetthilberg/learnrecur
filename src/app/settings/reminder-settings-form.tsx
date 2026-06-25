@@ -1,6 +1,9 @@
 "use client";
 
-import { useActionState, useId } from "react";
+import { useCallback, useId, useRef, useState } from "react";
+import type { ChangeEvent, FormEvent } from "react";
+import { CheckCircle, WarningCircle } from "@phosphor-icons/react";
+import { notifications } from "@mantine/notifications";
 
 import type { NormalizedReminderPreferenceInput } from "@/lib/reminders";
 
@@ -13,6 +16,8 @@ const idleState: ReminderSettingsActionState = {
   status: "idle",
   message: null,
 };
+
+const reminderSettingsNotificationId = "settings-reminder-settings-notice";
 
 const timezones = [
   "America/New_York",
@@ -33,10 +38,9 @@ export function ReminderSettingsForm({
 }: {
   preference: NormalizedReminderPreferenceInput;
 }) {
-  const [state, formAction, pending] = useActionState(
-    saveReminderSettingsAction,
-    idleState,
-  );
+  const [state, setState] = useState<ReminderSettingsActionState>(idleState);
+  const [pending, setPending] = useState(false);
+  const pendingRef = useRef(false);
   const emailErrorId = useId();
   const localHourErrorId = useId();
   const timezoneErrorId = useId();
@@ -45,8 +49,76 @@ export function ReminderSettingsForm({
     ? timezones
     : [preference.timezone, ...timezones];
 
+  const saveForm = useCallback(
+    async (
+      form: HTMLFormElement,
+      source: "form" | "toggle",
+    ): Promise<ReminderSettingsActionState | null> => {
+      if (pendingRef.current) {
+        return null;
+      }
+
+      const formData = new FormData(form);
+      const enabled = formData.get("enabled") === "on";
+
+      pendingRef.current = true;
+      setPending(true);
+
+      try {
+        const result = await saveReminderSettingsAction(idleState, formData);
+
+        setState(result);
+        showReminderSettingsNotification(result, source, enabled);
+
+        return result;
+      } catch {
+        const result: ReminderSettingsActionState = {
+          status: "error",
+          message: "Could not save reminder settings. Try again.",
+        };
+
+        setState(result);
+        showReminderSettingsNotification(result, source, enabled);
+
+        return result;
+      } finally {
+        pendingRef.current = false;
+        setPending(false);
+      }
+    },
+    [],
+  );
+
+  const handleSubmit = useCallback(
+    (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      void saveForm(event.currentTarget, "form");
+    },
+    [saveForm],
+  );
+
+  const handleEnabledChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      const checkbox = event.currentTarget;
+      const form = checkbox.form;
+
+      if (!form) {
+        return;
+      }
+
+      const checked = checkbox.checked;
+
+      void saveForm(form, "toggle").then((result) => {
+        if (!result || result.status !== "saved") {
+          checkbox.checked = !checked;
+        }
+      });
+    },
+    [saveForm],
+  );
+
   return (
-    <form action={formAction} className="settingsReminderForm">
+    <form className="settingsReminderForm" onSubmit={handleSubmit}>
       <fieldset className="skillFormFieldset settingsReminderFieldset">
         <legend>General</legend>
         <div className="skillFormFieldsetBody settingsReminderFields">
@@ -56,6 +128,7 @@ export function ReminderSettingsForm({
               defaultChecked={preference.enabled}
               disabled={pending}
               name="enabled"
+              onChange={handleEnabledChange}
               type="checkbox"
             />
             <span className="settingsSwitchControl" aria-hidden="true" />
@@ -159,7 +232,6 @@ export function ReminderSettingsForm({
           {pending ? "Saving" : "Save changes"}
         </button>
       </div>
-      <FormMessage state={state} />
     </form>
   );
 }
@@ -182,22 +254,6 @@ function FieldError({
   return <em id={id}>{error}</em>;
 }
 
-function FormMessage({ state }: { state: ReminderSettingsActionState }) {
-  if (!state.message || state.status === "idle") {
-    return null;
-  }
-
-  return (
-    <p
-      className="skillFormMessage"
-      data-tone={state.status === "saved" ? "saved" : "error"}
-      role="status"
-    >
-      {state.message}
-    </p>
-  );
-}
-
 function hasFieldError(state: ReminderSettingsActionState, field: string) {
   return Boolean(state.fieldErrors?.[field]?.length);
 }
@@ -206,4 +262,38 @@ function formatHour(hour: number) {
   const displayHour = hour % 12 === 0 ? 12 : hour % 12;
   const meridiem = hour < 12 ? "AM" : "PM";
   return `${displayHour} ${meridiem}`;
+}
+
+function showReminderSettingsNotification(
+  state: ReminderSettingsActionState,
+  source: "form" | "toggle",
+  enabled: boolean,
+) {
+  if (!state.message || state.status === "idle") {
+    return;
+  }
+
+  const saved = state.status === "saved";
+  const message = saved && source === "toggle"
+    ? enabled
+      ? "Reminders are on."
+      : "Reminders are off."
+    : state.message;
+
+  notifications.show({
+    id: reminderSettingsNotificationId,
+    autoClose: saved ? 3500 : 8000,
+    className: "learnrecurNotification",
+    color: saved ? "leaf" : "amber",
+    icon: saved ? (
+      <CheckCircle size={18} weight="bold" />
+    ) : (
+      <WarningCircle size={18} weight="bold" />
+    ),
+    message,
+    position: "top-right",
+    title: saved ? "Reminder settings saved" : "Could not save reminders",
+    withBorder: true,
+    withCloseButton: true,
+  });
 }

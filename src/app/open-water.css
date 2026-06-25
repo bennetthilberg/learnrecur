@@ -3100,7 +3100,7 @@ body {
   margin: 0;
   color: var(--lr-ink);
   font-family: var(--lr-font-display);
-  font-size: 46px;
+  font-size: 42px;
   font-weight: 800;
   line-height: 1.08;
   letter-spacing: 0;
@@ -3288,10 +3288,6 @@ body {
   margin-top: -2px;
 }
 
-.settingsReminderForm .skillFormMessage {
-  margin: -10px 0 0;
-}
-
 .settingsShell .settingsPrivacyNote {
   display: block;
   margin: 28px 0 0;
@@ -3377,7 +3373,7 @@ body {
   }
 
   .settingsShell .settingsHeader h1 {
-    font-size: 34px;
+    font-size: 32px;
   }
 
   .settingsShell .settingsPanel,
