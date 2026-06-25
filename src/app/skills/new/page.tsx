@@ -1,4 +1,5 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
+import { Badge, Card, TabNav } from "@radix-ui/themes";
 import Link from "next/link";
 
 import { UserStatusPanel } from "@/components/app/user-status-panel";
@@ -63,37 +64,43 @@ export default async function NewSkillPage({ searchParams }: NewSkillPageProps) 
         </div>
       </header>
       <div className="skillCreateStack">
-        <nav className="skillCreationTabs" aria-label="Skill creation mode">
-          <Link
-            aria-current={mode === "auto" ? "page" : undefined}
-            href="/skills/new"
-          >
-            From source
-          </Link>
-          <Link
-            aria-current={mode === "manual" ? "page" : undefined}
-            href="/skills/new?mode=manual"
-          >
-            Manual
-          </Link>
-        </nav>
+        <TabNav.Root className="skillCreationTabs" aria-label="Skill creation mode">
+          <TabNav.Link active={mode === "auto"} asChild>
+            <Link aria-current={mode === "auto" ? "page" : undefined} href="/skills/new">
+              From source
+            </Link>
+          </TabNav.Link>
+          <TabNav.Link active={mode === "manual"} asChild>
+            <Link aria-current={mode === "manual" ? "page" : undefined} href="/skills/new?mode=manual">
+              Manual
+            </Link>
+          </TabNav.Link>
+        </TabNav.Root>
 
         {mode === "auto" ? (
           <>
-            <section className="skillCreationPath" aria-label="Source-backed skill creation path">
-              <div>
-                <span>Input</span>
-                <strong>Add source material.</strong>
-              </div>
-              <div>
-                <span>Create</span>
-                <strong>Wait while LearnRecur writes the skill.</strong>
-              </div>
-              <div>
-                <span>Add</span>
-                <strong>Review, edit, then add it to practice.</strong>
-              </div>
-            </section>
+            <Card asChild className="skillCreationPath" size="2" variant="surface">
+              <section aria-label="Source-backed skill creation path">
+                <div>
+                  <Badge color="blue" highContrast variant="surface">
+                    Input
+                  </Badge>
+                  <strong>Add source material.</strong>
+                </div>
+                <div>
+                  <Badge color="blue" highContrast variant="surface">
+                    Create
+                  </Badge>
+                  <strong>Wait while LearnRecur writes the skill.</strong>
+                </div>
+                <div>
+                  <Badge color="blue" highContrast variant="surface">
+                    Add
+                  </Badge>
+                  <strong>Review, edit, then add it to practice.</strong>
+                </div>
+              </section>
+            </Card>
             <SourceCreationWorkspace />
           </>
         ) : (

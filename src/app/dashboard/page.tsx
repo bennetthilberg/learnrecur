@@ -1,10 +1,11 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
+import { Badge, Card, Progress } from "@radix-ui/themes";
 import { CirclesThreePlus, Gauge, Translate } from "@phosphor-icons/react/dist/ssr";
-import Link from "next/link";
 
 import {
   OpenWaterHeroRings,
   OpenWaterHeroWaves,
+  PressLink,
 } from "@/components/app/open-water";
 import { UserStatusPanel } from "@/components/app/user-status-panel";
 import { getDashboardHome, type DashboardHome } from "@/lib/dashboard";
@@ -63,12 +64,12 @@ export default async function DashboardPage() {
           </h1>
           {hasDuePractice ? (
             <div className="openWaterHeroActions">
-              <Link className="bpbtn bpbtn-hero" href="/practice">
+              <PressLink className="openWaterHeroButton" href="/practice" variant="hero">
                 Start practice
-              </Link>
-              <Link className="bpbtn bpbtn-ghost" href="/skills">
+              </PressLink>
+              <PressLink className="openWaterHeroButton" href="/skills" variant="ghost">
                 Browse skills
-              </Link>
+              </PressLink>
             </div>
           ) : (
             <p className="dashboardHeroComplete">
@@ -107,13 +108,15 @@ function StatTile({
   tone?: "blue" | "green" | "ink";
 }) {
   return (
-    <article className="openWaterStatTile">
+    <Card asChild size="2" variant="surface">
+      <article className="openWaterStatTile">
       <p>{label}</p>
       <strong className="disp tnum" data-tone={tone}>
         {value}
         {unit ? <span>{unit}</span> : null}
       </strong>
-    </article>
+      </article>
+    </Card>
   );
 }
 
@@ -150,38 +153,40 @@ function DashboardReviewCard({
       <h2 id="up-next-title" className="disp openWaterSectionTitle">
         Up next
       </h2>
-      <article className="openWaterReviewCard">
-        <div className="openWaterReviewTop">
-          <span>{label}</span>
-          <span className="tnum">{activeSummary}</span>
-        </div>
-        <p className="openWaterReviewHint">{skillTitle}</p>
-        <p className="disp openWaterReviewPrompt">
-          <MathText text={prompt} />
-        </p>
-        {ready ? (
-          <p className="openWaterReviewNote">
-            <strong>Instant check.</strong> Open practice to answer this{" "}
-            <span>verified exercise</span> and update the memory schedule.
+      <Card asChild size="3" variant="surface">
+        <article className="openWaterReviewCard">
+          <div className="openWaterReviewTop">
+            <span>{label}</span>
+            <span className="tnum">{activeSummary}</span>
+          </div>
+          <p className="openWaterReviewHint">{skillTitle}</p>
+          <p className="disp openWaterReviewPrompt">
+            <MathText text={prompt} />
           </p>
-        ) : null}
-        <div className="openWaterReviewActions">
           {ready ? (
-            <>
-              <Link className="bpbtn bpbtn-blue" href="/practice">
-                Practice now
-              </Link>
-              <Link className="bpbtn bpbtn-white" href="/skills">
+            <p className="openWaterReviewNote">
+              <strong>Instant check.</strong> Open practice to answer this{" "}
+              <span>verified exercise</span> and update the memory schedule.
+            </p>
+          ) : null}
+          <div className="openWaterReviewActions">
+            {ready ? (
+              <>
+                <PressLink href="/practice">
+                  Practice now
+                </PressLink>
+                <PressLink href="/skills" variant="white">
+                  Review skills
+                </PressLink>
+              </>
+            ) : (
+              <PressLink href="/skills">
                 Review skills
-              </Link>
-            </>
-          ) : (
-            <Link className="bpbtn bpbtn-blue" href="/skills">
-              Review skills
-            </Link>
-          )}
-        </div>
-      </article>
+              </PressLink>
+            )}
+          </div>
+        </article>
+      </Card>
     </section>
   );
 }
@@ -195,19 +200,22 @@ function DashboardCollections({ dashboard }: { dashboard: DashboardHome }) {
         <h2 id="collections-title" className="disp openWaterSectionTitle">
           Collections
         </h2>
-        <Link className="bpbtn bpbtn-blue openWaterNewDeck" href="/skills/new">
+        <PressLink className="openWaterNewDeck" href="/skills/new">
           + New skill
-        </Link>
+        </PressLink>
       </div>
       {rows.length === 0 ? (
-        <div className="openWaterDeckList">
-          <div className="dashboardEmptyState openWaterDeckEmpty">
-            <h3>No active skills yet</h3>
-            <p>Add a skill to start the practice schedule.</p>
+        <Card asChild size="3" variant="surface">
+          <div className="openWaterDeckList">
+            <div className="dashboardEmptyState openWaterDeckEmpty">
+              <h3>No active skills yet</h3>
+              <p>Add a skill to start the practice schedule.</p>
+            </div>
           </div>
-        </div>
+        </Card>
       ) : (
-        <div className="openWaterDeckList">
+        <Card asChild size="3" variant="surface">
+          <div className="openWaterDeckList">
           {rows.map((row, index) => {
             const Icon = row.kind === "collection" ? getCollectionIcon(index) : null;
             const hasActiveSkills = row.activeCount > 0;
@@ -221,43 +229,53 @@ function DashboardCollections({ dashboard }: { dashboard: DashboardHome }) {
                 data-has-icon={Icon ? "true" : "false"}
                 key={row.id}
               >
-                {Icon ? (
-                  <div className="openWaterDeckIcon" aria-hidden="true">
-                    <Icon size={17} weight="regular" />
-                  </div>
-                ) : null}
-                <div className="openWaterDeckMain">
-                  <strong>{row.name}</strong>
-                  <span className="tnum">
-                    {formatCount(row.activeCount)} active skill
-                    {row.activeCount === 1 ? "" : "s"} · {row.meta}
-                  </span>
-                </div>
-                {hasActiveSkills ? (
-                  <>
-                    <div className="openWaterMiniProgress" aria-hidden="true">
-                      <span
-                        data-complete={row.readyCount === 0 ? "true" : "false"}
-                        style={{ width: `${Math.max(progress, 8)}%` }}
-                      />
+                  {Icon ? (
+                    <div className="openWaterDeckIcon" aria-hidden="true">
+                      <Icon size={17} weight="regular" />
                     </div>
-                    <span
-                      className="openWaterStatusBadge tnum"
-                      data-tone={row.readyCount > 0 ? "due" : "stable"}
-                    >
-                      {row.readyCount > 0 ? `${formatCount(row.readyCount)} due` : "Stable"}
+                  ) : null}
+                  <div className="openWaterDeckMain">
+                    <strong>{row.name}</strong>
+                    <span className="tnum">
+                      {formatCount(row.activeCount)} active skill
+                      {row.activeCount === 1 ? "" : "s"} · {row.meta}
                     </span>
-                  </>
-                ) : null}
-                {row.href ? (
-                  <Link className="openWaterRowLink" href={row.href}>
-                    {row.readyCount > 0 ? "Practice" : "Open"}
-                  </Link>
-                ) : null}
+                  </div>
+                  {hasActiveSkills ? (
+                    <>
+                      <Progress
+                        aria-hidden="true"
+                        className="openWaterMiniProgress"
+                        color={row.readyCount === 0 ? "green" : "blue"}
+                        max={100}
+                        radius="small"
+                        size="1"
+                        value={Math.max(progress, 8)}
+                        variant="soft"
+                      />
+                      <Badge
+                        className="openWaterStatusBadge tnum"
+                        color={row.readyCount > 0 ? "amber" : "green"}
+                        data-tone={row.readyCount > 0 ? "due" : "stable"}
+                        highContrast
+                        radius="small"
+                        size="1"
+                        variant="outline"
+                      >
+                        {row.readyCount > 0 ? `${formatCount(row.readyCount)} due` : "Stable"}
+                      </Badge>
+                    </>
+                  ) : null}
+                  {row.href ? (
+                    <PressLink className="openWaterRowLink" href={row.href} variant="white">
+                      {row.readyCount > 0 ? "Practice" : "Open"}
+                    </PressLink>
+                  ) : null}
               </article>
             );
           })}
-        </div>
+          </div>
+        </Card>
       )}
     </section>
   );

@@ -2,6 +2,9 @@
 
 import { useActionState } from "react";
 
+import { PressButton } from "@/components/app/open-water";
+import { RadixFormMessage } from "@/components/app/radix-form";
+
 import { refillMathExercisesAction, type SkillFormActionState } from "./actions";
 
 type SkillMathRefillFormProps = {
@@ -28,17 +31,13 @@ export function SkillMathRefillForm({
   return (
     <form className="skillRefillForm" action={formAction}>
       <input name="skillId" type="hidden" value={skillId} />
-      <button className="secondaryButton" type="submit" disabled={!canRefill || pending}>
+      <PressButton className="secondaryButton" type="submit" disabled={!canRefill || pending} variant="white">
         {pending ? "Preparing" : buttonLabel}
-      </button>
+      </PressButton>
       {state.message ? (
-        <p
-          className="skillFormMessage"
-          data-tone={state.status === "error" ? "error" : "saved"}
-          role="status"
-        >
+        <RadixFormMessage tone={state.status === "error" ? "error" : "saved"}>
           {state.message}
-        </p>
+        </RadixFormMessage>
       ) : null}
     </form>
   );

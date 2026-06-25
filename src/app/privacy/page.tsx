@@ -1,3 +1,4 @@
+import { Callout, Card } from "@radix-ui/themes";
 import Link from "next/link";
 
 import { OpenWaterBackground, OpenWaterLogoMark } from "@/components/app/open-water";
@@ -16,7 +17,8 @@ export default function PrivacyPage() {
           <OpenWaterLogoMark />
           <span>LearnRecur</span>
         </Link>
-        <article className="skillPanel policyArticle">
+        <Card asChild className="skillPanel policyArticle" size="3" variant="surface">
+        <article>
           <div className="skillPanelHeader">
             <div>
               <h1 id="privacy-title">Privacy</h1>
@@ -68,10 +70,20 @@ export default function PrivacyPage() {
               </p>
             </section>
           </div>
-          <p className="skillFormMessage policyNotice" data-tone="error" role="note">
-            This is a product draft, not legal advice. Final copy needs founder and legal review.
-          </p>
+          <Callout.Root
+            className="skillFormMessage policyNotice"
+            color="red"
+            data-tone="error"
+            role="note"
+            size="1"
+            variant="surface"
+          >
+            <Callout.Text>
+              This is a product draft, not legal advice. Final copy needs founder and legal review.
+            </Callout.Text>
+          </Callout.Root>
         </article>
+        </Card>
       </section>
     </main>
   );

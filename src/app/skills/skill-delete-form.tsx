@@ -2,6 +2,9 @@
 
 import { useActionState } from "react";
 
+import { PressButton } from "@/components/app/open-water";
+import { RadixFormMessage, RadixTextField } from "@/components/app/radix-form";
+
 import { deleteSkillPermanentlyAction, type SkillFormActionState } from "./actions";
 
 type SkillDeleteFormProps = {
@@ -29,25 +32,24 @@ export function SkillDeleteForm({ skillId, skillTitle }: SkillDeleteFormProps) {
           Permanent delete removes this skill, its exercises, and its practice history. Shared
           source material stays linked to any other skills.
         </p>
-        <label className="skillDeleteConfirm">
-          <span>Type the skill title to confirm.</span>
-          <input
-            autoComplete="off"
-            disabled={pending}
-            name="confirmationTitle"
-            placeholder={skillTitle}
-            required
-            type="text"
-          />
-        </label>
+        <RadixTextField
+          autoComplete="off"
+          disabled={pending}
+          error={state.fieldErrors?.confirmationTitle?.[0]}
+          label="Type the skill title to confirm."
+          name="confirmationTitle"
+          placeholder={skillTitle}
+          required
+          type="text"
+        />
         {state.message ? (
-          <p className="skillFormMessage" data-tone={state.status} role="status">
+          <RadixFormMessage tone={state.status === "saved" ? "saved" : "error"}>
             {state.message}
-          </p>
+          </RadixFormMessage>
         ) : null}
-        <button className="secondaryButton" data-tone="danger" disabled={pending} type="submit">
+        <PressButton className="secondaryButton" data-tone="danger" disabled={pending} type="submit" variant="white">
           {pending ? "Deleting" : "Delete skill"}
-        </button>
+        </PressButton>
       </form>
     </details>
   );

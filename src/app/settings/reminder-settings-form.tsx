@@ -1,9 +1,12 @@
 "use client";
 
+import { Select, Switch } from "@radix-ui/themes";
 import { useCallback, useId, useRef, useState } from "react";
-import type { ChangeEvent, FormEvent } from "react";
+import type { FormEvent } from "react";
 import { CheckCircle, WarningCircle } from "@phosphor-icons/react";
-import { notifications } from "@mantine/notifications";
+import { notifications } from "@/components/app/notifications";
+import { PressButton } from "@/components/app/open-water";
+import { RadixTextField } from "@/components/app/radix-form";
 
 import type { NormalizedReminderPreferenceInput } from "@/lib/reminders";
 
@@ -40,11 +43,13 @@ export function ReminderSettingsForm({
 }) {
   const [state, setState] = useState<ReminderSettingsActionState>(idleState);
   const [pending, setPending] = useState(false);
+  const [enabled, setEnabled] = useState(preference.enabled);
+  const [localHour, setLocalHour] = useState(String(preference.localHour));
+  const [timezone, setTimezone] = useState(preference.timezone);
+  const formRef = useRef<HTMLFormElement>(null);
   const pendingRef = useRef(false);
-  const emailErrorId = useId();
   const localHourErrorId = useId();
   const timezoneErrorId = useId();
-  const minimumDueCountErrorId = useId();
   const timezoneOptions = timezones.includes(preference.timezone)
     ? timezones
     : [preference.timezone, ...timezones];
@@ -53,12 +58,16 @@ export function ReminderSettingsForm({
     async (
       form: HTMLFormElement,
       source: "form" | "toggle",
+      enabledOverride?: boolean,
     ): Promise<ReminderSettingsActionState | null> => {
       if (pendingRef.current) {
         return null;
       }
 
       const formData = new FormData(form);
+      if (enabledOverride !== undefined) {
+        formData.set("enabled", enabledOverride ? "on" : "off");
+      }
       const enabled = formData.get("enabled") === "on";
 
       pendingRef.current = true;
@@ -98,58 +107,57 @@ export function ReminderSettingsForm({
   );
 
   const handleEnabledChange = useCallback(
-    (event: ChangeEvent<HTMLInputElement>) => {
-      const checkbox = event.currentTarget;
-      const form = checkbox.form;
+    (checked: boolean) => {
+      const form = formRef.current;
 
       if (!form) {
         return;
       }
 
-      const checked = checkbox.checked;
+      const previousEnabled = enabled;
+      setEnabled(checked);
 
-      void saveForm(form, "toggle").then((result) => {
+      void saveForm(form, "toggle", checked).then((result) => {
         if (!result || result.status !== "saved") {
-          checkbox.checked = !checked;
+          setEnabled(previousEnabled);
         }
       });
     },
-    [saveForm],
+    [enabled, saveForm],
   );
 
   return (
-    <form className="settingsReminderForm" onSubmit={handleSubmit}>
+    <form className="settingsReminderForm" onSubmit={handleSubmit} ref={formRef}>
       <fieldset className="skillFormFieldset settingsReminderFieldset">
         <legend>General</legend>
         <div className="skillFormFieldsetBody settingsReminderFields">
           <label className="settingsSwitchRow">
-            <input
-              className="settingsSwitchInput"
-              defaultChecked={preference.enabled}
+            <input name="enabled" type="hidden" value={enabled ? "on" : "off"} />
+            <Switch
+              checked={enabled}
+              className="settingsRadixSwitch"
+              color="blue"
               disabled={pending}
-              name="enabled"
-              onChange={handleEnabledChange}
-              type="checkbox"
+              highContrast
+              onCheckedChange={handleEnabledChange}
+              radius="full"
+              size="2"
+              variant="surface"
             />
-            <span className="settingsSwitchControl" aria-hidden="true" />
             <span className="settingsSwitchLabel">Email me when practice is due</span>
           </label>
 
-          <label className="skillField">
-            <span>Send email to</span>
-            <input
-              aria-describedby={hasFieldError(state, "email") ? emailErrorId : undefined}
-              aria-invalid={hasFieldError(state, "email") ? "true" : undefined}
-              autoComplete="email"
-              defaultValue={preference.email}
-              disabled={pending}
-              maxLength={254}
-              name="email"
-              required
-              type="email"
-            />
-            <FieldError id={emailErrorId} state={state} name="email" />
-          </label>
+          <RadixTextField
+            error={state.fieldErrors?.email?.[0]}
+            label="Send email to"
+            name="email"
+            autoComplete="email"
+            defaultValue={preference.email}
+            disabled={pending}
+            maxLength={254}
+            required
+            type="email"
+          />
         </div>
       </fieldset>
 
@@ -162,75 +170,83 @@ export function ReminderSettingsForm({
           <div className="skillTwoColumnFields">
             <label className="skillField">
               <span>Local hour</span>
-              <select
-                aria-describedby={
-                  hasFieldError(state, "localHour") ? localHourErrorId : undefined
-                }
-                aria-invalid={hasFieldError(state, "localHour") ? "true" : undefined}
-                defaultValue={preference.localHour}
+              <input name="localHour" type="hidden" value={localHour} />
+              <Select.Root
                 disabled={pending}
-                name="localHour"
-                required
+                onValueChange={setLocalHour}
+                size="2"
+                value={localHour}
               >
-                {Array.from({ length: 24 }, (_, hour) => (
-                  <option key={hour} value={hour}>
-                    {formatHour(hour)}
-                  </option>
-                ))}
-              </select>
+                <Select.Trigger
+                  aria-describedby={
+                    hasFieldError(state, "localHour") ? localHourErrorId : undefined
+                  }
+                  aria-invalid={hasFieldError(state, "localHour") ? "true" : undefined}
+                  className="settingsRadixSelect"
+                  color={hasFieldError(state, "localHour") ? "red" : "blue"}
+                  radius="medium"
+                  variant="surface"
+                />
+                <Select.Content color="blue" variant="solid">
+                  {Array.from({ length: 24 }, (_, hour) => (
+                    <Select.Item key={hour} value={String(hour)}>
+                      {formatHour(hour)}
+                    </Select.Item>
+                  ))}
+                </Select.Content>
+              </Select.Root>
               <FieldError id={localHourErrorId} state={state} name="localHour" />
             </label>
 
             <label className="skillField">
               <span>Timezone</span>
-              <select
-                aria-describedby={
-                  hasFieldError(state, "timezone") ? timezoneErrorId : undefined
-                }
-                aria-invalid={hasFieldError(state, "timezone") ? "true" : undefined}
-                defaultValue={preference.timezone}
+              <input name="timezone" type="hidden" value={timezone} />
+              <Select.Root
                 disabled={pending}
-                name="timezone"
-                required
+                onValueChange={setTimezone}
+                size="2"
+                value={timezone}
               >
-                {timezoneOptions.map((timezone) => (
-                  <option key={timezone} value={timezone}>
-                    {timezone}
-                  </option>
-                ))}
-              </select>
+                <Select.Trigger
+                aria-describedby={
+                    hasFieldError(state, "timezone") ? timezoneErrorId : undefined
+                }
+                  aria-invalid={hasFieldError(state, "timezone") ? "true" : undefined}
+                  className="settingsRadixSelect"
+                  color={hasFieldError(state, "timezone") ? "red" : "blue"}
+                  radius="medium"
+                  variant="surface"
+                />
+                <Select.Content color="blue" variant="solid">
+                  {timezoneOptions.map((timezone) => (
+                    <Select.Item key={timezone} value={timezone}>
+                      {timezone}
+                    </Select.Item>
+                  ))}
+                </Select.Content>
+              </Select.Root>
               <FieldError id={timezoneErrorId} state={state} name="timezone" />
             </label>
           </div>
 
-          <label className="skillField">
-            <span>Minimum due skills</span>
-            <input
-              aria-describedby={
-                hasFieldError(state, "minimumDueCount") ? minimumDueCountErrorId : undefined
-              }
-              aria-invalid={hasFieldError(state, "minimumDueCount") ? "true" : undefined}
-              defaultValue={preference.minimumDueCount}
-              disabled={pending}
-              max={99}
-              min={1}
-              name="minimumDueCount"
-              required
-              type="number"
-            />
-            <FieldError
-              id={minimumDueCountErrorId}
-              state={state}
-              name="minimumDueCount"
-            />
-          </label>
+          <RadixTextField
+            error={state.fieldErrors?.minimumDueCount?.[0]}
+            label="Minimum due skills"
+            name="minimumDueCount"
+            defaultValue={preference.minimumDueCount}
+            disabled={pending}
+            max={99}
+            min={1}
+            required
+            type="number"
+          />
         </div>
       </fieldset>
 
       <div className="skillFormActions">
-        <button className="primaryButton" disabled={pending} type="submit">
+        <PressButton className="primaryButton" disabled={pending} type="submit">
           {pending ? "Saving" : "Save changes"}
-        </button>
+        </PressButton>
       </div>
     </form>
   );

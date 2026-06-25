@@ -98,8 +98,10 @@ body {
 .entryBrand,
 .wordmark {
   display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
   gap: 6px;
+  min-width: max-content;
   color: var(--lr-ink);
   font-family: var(--lr-font-display);
   font-size: 16.5px;
@@ -107,6 +109,12 @@ body {
   line-height: 1.2;
   letter-spacing: -0.01em;
   text-decoration: none;
+}
+
+.practiceWordmark svg,
+.entryBrand svg,
+.wordmark svg {
+  flex: 0 0 auto;
 }
 
 .entryBrand {
@@ -262,6 +270,7 @@ body {
 
 .practiceUserMenu {
   position: relative;
+  display: none;
   width: 28px;
   height: 28px;
   flex: 0 0 28px;
@@ -2503,6 +2512,7 @@ body {
   .skillShell .practiceUserMenu {
     position: relative;
     z-index: 3;
+    display: block;
     width: 100%;
     height: auto;
     flex: 0 0 auto;
@@ -3397,4 +3407,386 @@ body {
     animation-duration: .001ms !important;
     transition-duration: .001ms !important;
   }
+}
+
+/* ===== Radix Themes experiment layer ===== */
+.learnrecurRadixTheme {
+  --default-font-family: var(--lr-font-body);
+  --heading-font-family: var(--lr-font-display);
+  --code-font-family: Menlo, Monaco, Consolas, monospace;
+  --strong-font-family: var(--lr-font-body);
+  --em-font-family: var(--lr-font-body);
+  --cursor-button: pointer;
+  --radius-1: 3px;
+  --radius-2: 6px;
+  --radius-3: 8px;
+  --radius-4: 8px;
+  --radius-5: 12px;
+  --radius-6: 12px;
+  --shadow-1: none;
+  --shadow-2: none;
+  --shadow-3: none;
+  --shadow-4: none;
+  --shadow-5: none;
+  --shadow-6: none;
+  --color-page-background: var(--lr-canvas);
+  --gray-1: #F6F7F9;
+  --gray-2: #F1F3F6;
+  --gray-3: #EDEFF3;
+  --gray-4: #E4E8F1;
+  --gray-5: #DCE2EC;
+  --gray-6: #D7DAE2;
+  --gray-7: #C9CFDC;
+  --gray-8: #8A92A6;
+  --gray-9: #6E7689;
+  --gray-10: #5A6480;
+  --gray-11: #44557A;
+  --gray-12: #15233F;
+  --blue-1: #F8FAFE;
+  --blue-2: #F3F6FD;
+  --blue-3: #ECF0FA;
+  --blue-4: #D7E2F6;
+  --blue-5: #BBCAEC;
+  --blue-6: #AEC2EC;
+  --blue-7: #8099DE;
+  --blue-8: #4F6ECB;
+  --blue-9: #1C44A8;
+  --blue-10: #2150BC;
+  --blue-11: #1C44A8;
+  --blue-12: #15233F;
+  --green-1: #F6FBF8;
+  --green-2: #EEF8F2;
+  --green-3: #E7F5EE;
+  --green-4: #CBEAD9;
+  --green-5: #9AD6B8;
+  --green-6: #63BE92;
+  --green-7: #2E9E6E;
+  --green-8: #13885A;
+  --green-9: #0C7D52;
+  --green-10: #0F8E5D;
+  --green-11: #0A6C47;
+  --green-12: #063F2A;
+  --amber-1: #FFF9F6;
+  --amber-2: #FCF6F3;
+  --amber-3: #FBEDE6;
+  --amber-4: #F6D2C2;
+  --amber-5: #EDA888;
+  --amber-6: #E27C52;
+  --amber-7: #D2592A;
+  --amber-8: #C44C18;
+  --amber-9: #B8440F;
+  --amber-10: #9C3A0D;
+  --amber-11: #B8440F;
+  --amber-12: #5C2208;
+}
+
+.learnrecurRadixTheme .rt-Card,
+.learnrecurRadixTheme .rt-CalloutRoot,
+.learnrecurRadixTheme .rt-DataListRoot,
+.learnrecurRadixTheme .rt-TableRoot,
+.learnrecurRadixTheme .rt-TextFieldRoot,
+.learnrecurRadixTheme .rt-TextAreaRoot,
+.learnrecurRadixTheme .rt-SelectTrigger,
+.learnrecurRadixTheme .rt-DropdownMenuContent {
+  box-shadow: none;
+}
+
+.learnrecurRadixTheme .rt-Card::before,
+.learnrecurRadixTheme .rt-Card::after,
+.learnrecurRadixTheme .rt-TableRoot::before,
+.learnrecurRadixTheme .rt-TableRoot::after {
+  box-shadow: none;
+}
+
+.openWaterRadixCard.rt-Card {
+  border: 1px solid var(--lr-card-border);
+  border-radius: 8px;
+  background: var(--lr-card);
+}
+
+.openWaterRadixCard.rt-Card::before {
+  border-color: var(--lr-card-border);
+  border-radius: inherit;
+  box-shadow: none;
+}
+
+.learnrecurRadixTheme .rt-Button.bpbtn,
+.learnrecurRadixTheme .rt-Button.primaryButton,
+.learnrecurRadixTheme .rt-Button.secondaryButton,
+.learnrecurRadixTheme .rt-Button.ratingButton,
+.learnrecurRadixTheme .rt-Button.choiceCard {
+  height: auto;
+  min-height: auto;
+  gap: 8px;
+  padding: 10px 18px;
+  font-family: var(--lr-font-body);
+  letter-spacing: 0;
+}
+
+.learnrecurRadixTheme .rt-Button.bpbtn,
+.learnrecurRadixTheme .rt-Button.primaryButton,
+.learnrecurRadixTheme .rt-Button.secondaryButton,
+.learnrecurRadixTheme .rt-Button.ratingButton {
+  --base-button-height: auto;
+  --base-button-padding-x: 0;
+}
+
+.radixSkillField .rt-TextFieldRoot,
+.radixSkillField .rt-TextAreaRoot {
+  width: 100%;
+  border: 1px solid var(--lr-chip-border);
+  border-radius: 8px;
+  background: #FFFFFF;
+  color: var(--lr-ink);
+  box-shadow: none;
+}
+
+.radixSkillField .rt-TextFieldRoot::before,
+.radixSkillField .rt-TextAreaRoot::before {
+  box-shadow: none;
+}
+
+.radixSkillField .rt-TextFieldRoot:focus-within,
+.radixSkillField .rt-TextAreaRoot:focus-within {
+  border-color: var(--lr-blue);
+  outline: 2px solid var(--lr-focus-outline);
+  outline-offset: 3px;
+}
+
+.radixSkillField .rt-TextFieldInput,
+.radixSkillField .rt-TextAreaInput {
+  color: var(--lr-ink);
+  font-family: var(--lr-font-body);
+}
+
+.radixFormMessage.rt-CalloutRoot,
+.learnrecurNotification.rt-CalloutRoot {
+  border: 1px solid var(--lr-card-border);
+  border-radius: 8px;
+  background: #FFFFFF;
+  color: var(--lr-ink);
+  box-shadow: none;
+}
+
+.radixFormMessage[data-tone="saved"],
+.learnrecurNotification[data-tone="success"] {
+  border-color: var(--lr-success-line);
+  background: var(--lr-success-soft);
+}
+
+.radixFormMessage[data-tone="error"],
+.learnrecurNotification[data-tone="attention"],
+.learnrecurNotification[data-tone="danger"] {
+  border-color: var(--lr-danger-line);
+  background: var(--lr-danger-soft);
+}
+
+.learnrecurNotificationViewport {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 3000;
+  display: grid;
+  width: min(360px, calc(100vw - 32px));
+  gap: 10px;
+}
+
+.learnrecurNotification {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+  padding: 12px 14px;
+}
+
+.learnrecurNotificationBody {
+  display: grid;
+  gap: 3px;
+}
+
+.learnrecurNotificationBody strong {
+  color: var(--lr-ink);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.learnrecurNotificationBody .rt-CalloutText {
+  margin: 0;
+  color: var(--lr-text-secondary);
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+
+.learnrecurNotificationClose.rt-IconButton {
+  margin: -4px -6px 0 0;
+  color: var(--lr-text-secondary);
+}
+
+.practiceTopbar .rt-TabNavRoot {
+  width: auto;
+}
+
+.practiceNav.rt-TabNavRoot::before {
+  display: none;
+}
+
+.practiceNav .rt-TabNavLink {
+  color: var(--lr-nav-inactive);
+}
+
+.practiceNav .rt-TabNavLink[data-nav-active="true"] {
+  color: var(--lr-ink);
+}
+
+.practiceUserIdentity.rt-Button {
+  --base-button-height: auto;
+  --base-button-padding-x: 0;
+  min-height: 0;
+  padding: 0;
+  font-family: var(--lr-font-body);
+  letter-spacing: 0;
+  text-align: left;
+}
+
+.panelHeaderCount.rt-DataListRoot,
+.skillStatusSummary.rt-DataListRoot,
+.skillQueueStateStrip.rt-DataListRoot,
+.skillQueueJobStatus.rt-DataListRoot,
+.skillSourceFacts.rt-DataListRoot,
+.collectionFacts.rt-DataListRoot,
+.skillLibraryFacts.rt-DataListRoot,
+.sourceProcessingFacts.rt-DataListRoot,
+.settingsExportFacts.rt-DataListRoot,
+.practiceSessionFacts.rt-DataListRoot,
+.practiceEmptyDetails.rt-DataListRoot {
+  --data-list-row-min-height: auto;
+  color: var(--lr-text-secondary);
+  font-family: var(--lr-font-body);
+}
+
+.panelHeaderCount .rt-DataListLabel,
+.skillStatusSummary .rt-DataListLabel,
+.skillQueueStateStrip .rt-DataListLabel,
+.skillQueueJobStatus .rt-DataListLabel,
+.skillSourceFacts .rt-DataListLabel,
+.collectionFacts .rt-DataListLabel,
+.skillLibraryFacts .rt-DataListLabel,
+.sourceProcessingFacts .rt-DataListLabel,
+.settingsExportFacts .rt-DataListLabel,
+.practiceSessionFacts .rt-DataListLabel,
+.practiceEmptyDetails .rt-DataListLabel {
+  color: var(--lr-text-muted);
+  font-size: inherit;
+  font-weight: 500;
+}
+
+.panelHeaderCount .rt-DataListValue,
+.skillStatusSummary .rt-DataListValue,
+.skillQueueStateStrip .rt-DataListValue,
+.skillQueueJobStatus .rt-DataListValue,
+.skillSourceFacts .rt-DataListValue,
+.collectionFacts .rt-DataListValue,
+.skillLibraryFacts .rt-DataListValue,
+.sourceProcessingFacts .rt-DataListValue,
+.settingsExportFacts .rt-DataListValue,
+.practiceSessionFacts .rt-DataListValue,
+.practiceEmptyDetails .rt-DataListValue {
+  color: var(--lr-ink);
+  font-size: inherit;
+  font-weight: 650;
+}
+
+.openWaterMiniProgress.rt-ProgressRoot {
+  width: 56px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--lr-blue-tint);
+}
+
+.openWaterMiniProgress.rt-ProgressRoot .rt-ProgressIndicator {
+  background: var(--lr-blue);
+}
+
+.openWaterMiniProgress.rt-ProgressRoot[data-value="100"] .rt-ProgressIndicator {
+  background: var(--lr-green);
+}
+
+.historyTable.rt-TableRoot {
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.historyTable .rt-TableCell,
+.historyTable .rt-TableColumnHeaderCell {
+  vertical-align: top;
+}
+
+.skillRowActionsTrigger.rt-IconButton {
+  --base-button-height: 30px;
+  --base-button-padding-x: 0;
+  color: var(--lr-muted);
+}
+
+.skillRowActionsMenu.rt-DropdownMenuContent {
+  min-width: 160px;
+  border: 1px solid var(--lr-card-border);
+  border-radius: 8px;
+  background: #FFFFFF;
+  padding: 5px;
+}
+
+.skillRowActionItem.rt-DropdownMenuItem {
+  color: var(--lr-ink);
+  font-family: var(--lr-font-body);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.settingsRadixSwitch.rt-SwitchRoot {
+  --switch-width: 42px;
+  --switch-height: 24px;
+  --switch-thumb-size: 18px;
+  flex: 0 0 auto;
+}
+
+.settingsRadixSelect.rt-SelectTrigger {
+  min-height: 48px;
+  width: 100%;
+  justify-content: space-between;
+  border: 1px solid var(--lr-chip-border);
+  border-radius: 8px;
+  background: #FFFFFF;
+  color: var(--lr-ink);
+  font-family: var(--lr-font-body);
+  font-size: 16px;
+  box-shadow: none;
+}
+
+.sourceGenerationSpinner.rt-Spinner {
+  color: var(--lr-blue);
+}
+
+.choiceGrid.rt-RadioCardsRoot,
+.ratingRadioCards.rt-RadioCardsRoot {
+  --radio-cards-item-padding: 0;
+}
+
+.choiceCard.rt-RadioCardsItem,
+.ratingButton.rt-RadioCardsItem {
+  color: var(--lr-ink);
+  font-family: var(--lr-font-body);
+  box-shadow: none;
+}
+
+.choiceCard.rt-RadioCardsItem::before,
+.ratingButton.rt-RadioCardsItem::before {
+  box-shadow: none;
+}
+
+.flagReasonOption .rt-CheckboxRoot,
+.skillSourceRemove .rt-CheckboxRoot {
+  color: var(--lr-blue);
 }

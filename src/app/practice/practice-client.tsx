@@ -1,9 +1,11 @@
 "use client";
 
+import { Callout, Card, Checkbox, RadioCards, TextArea, TextField } from "@radix-ui/themes";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { CheckCircle } from "@phosphor-icons/react";
 
+import { PressButton, PressLink } from "@/components/app/open-water";
 import { AnswerKind, ExerciseFlagReason, FsrsRating } from "@/generated/prisma/enums";
 import { formatFsrsState } from "@/lib/formatters";
 import {
@@ -82,7 +84,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
   const [, startTransition] = useTransition();
   const answerInputRef = useRef<HTMLInputElement>(null);
   const continueButtonRef = useRef<HTMLButtonElement>(null);
-  const firstFlagReasonRef = useRef<HTMLInputElement>(null);
+  const firstFlagReasonRef = useRef<HTMLButtonElement>(null);
   const practiceFrameRef = useRef<HTMLElement>(null);
   const reportToggleRef = useRef<HTMLButtonElement>(null);
 
@@ -391,23 +393,26 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
             statusMessage={statusMessage}
           />
         ) : (
-          <section className="practiceFrame practiceEmpty" aria-labelledby="practice-empty-title">
-            <h1 id="practice-empty-title">Practice is unavailable.</h1>
-            <p>{item.message}</p>
-            <PracticeEmptyDetails scoped={scoped} status={item.status} />
-            <PracticeEmptyActions scoped={scoped} />
-            {canUseSampleData && !scoped ? (
-              <button
-                className="secondaryButton"
-                type="button"
-                onClick={handleSampleData}
-                disabled={pendingAction === "sample"}
-              >
-                {pendingAction === "sample" ? "Preparing sample" : "Create sample practice"}
-              </button>
-            ) : null}
-            <PracticeStatusMessage message={statusMessage} />
-          </section>
+          <Card asChild size="4" variant="surface">
+            <section className="practiceFrame practiceEmpty" aria-labelledby="practice-empty-title">
+              <h1 id="practice-empty-title">Practice is unavailable.</h1>
+              <p>{item.message}</p>
+              <PracticeEmptyDetails scoped={scoped} status={item.status} />
+              <PracticeEmptyActions scoped={scoped} />
+              {canUseSampleData && !scoped ? (
+                <PressButton
+                  className="secondaryButton"
+                  type="button"
+                  onClick={handleSampleData}
+                  disabled={pendingAction === "sample"}
+                  variant="white"
+                >
+                  {pendingAction === "sample" ? "Preparing sample" : "Create sample practice"}
+                </PressButton>
+              ) : null}
+              <PracticeStatusMessage message={statusMessage} />
+            </section>
+          </Card>
         )}
       </>
     );
@@ -420,12 +425,13 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
   return (
     <>
       <PracticeScopeBar scope={item.scope} />
-      <section
-        ref={practiceFrameRef}
-        className="practiceFrame"
-        aria-labelledby="practice-title"
-        tabIndex={-1}
-      >
+      <Card asChild size="4" variant="surface">
+        <section
+          ref={practiceFrameRef}
+          className="practiceFrame"
+          aria-labelledby="practice-title"
+          tabIndex={-1}
+        >
         <div className="practiceMetaRow">
           <div>
             <h1 id="practice-title">{item.skill.title}</h1>
@@ -435,14 +441,26 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
           </div>
         </div>
 
-      <article className="practicePromptPanel">
-        <p>
-          <MathText formatBlanks text={exercise.prompt} />
-        </p>
-      </article>
+      <Card asChild size="3" variant="surface">
+        <article className="practicePromptPanel">
+          <p>
+            <MathText formatBlanks text={exercise.prompt} />
+          </p>
+        </article>
+      </Card>
 
       {exercise.answerKind === AnswerKind.CHOICE ? (
-        <div className="choiceGrid" role="radiogroup" aria-label="Answer choices">
+        <RadioCards.Root
+          className="choiceGrid"
+          aria-label="Answer choices"
+          color="blue"
+          disabled={feedback !== null || pendingAction !== null}
+          highContrast
+          onValueChange={setAnswerValue}
+          size="3"
+          value={answerValue}
+          variant="surface"
+        >
           {exercise.choices.map((choice, index) => {
             const selected = answerValue === choice.id;
             const checked = feedback?.status === "checked";
@@ -457,32 +475,29 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
                 : "neutral";
 
             return (
-              <button
+              <RadioCards.Item
                 key={choice.id}
                 className="choiceCard"
                 data-selected={selected ? "true" : "false"}
                 data-tone={tone}
-                type="button"
-                role="radio"
-                aria-checked={selected}
                 aria-label={`Choice ${index + 1}: ${choice.label}`}
-                disabled={feedback !== null || pendingAction !== null}
-                onClick={() => setAnswerValue(choice.id)}
+                value={choice.id}
               >
                 <span className="choiceIndex" aria-hidden="true">
                   {index + 1}
                 </span>
                 <span>{choice.label}</span>
-              </button>
+              </RadioCards.Item>
             );
           })}
-        </div>
+        </RadioCards.Root>
       ) : (
         <label className="exactAnswerField">
           <span>Your answer</span>
-          <input
+          <TextField.Root
             ref={answerInputRef}
             value={answerValue}
+            color="blue"
             inputMode="text"
             autoComplete="off"
             disabled={feedback !== null || pendingAction !== null}
@@ -494,13 +509,16 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
                   : "Type your answer"
             }
             onChange={(event) => setAnswerValue(event.target.value)}
+            radius="medium"
+            size="3"
+            variant="surface"
           />
         </label>
       )}
 
       {feedback === null ? (
         <div className="practiceActions">
-          <button
+          <PressButton
             className="primaryButton"
             type="button"
             disabled={!isAnswerReady(answerValue) || pendingAction !== null}
@@ -511,63 +529,72 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
               idleText="Check"
               pendingText="Checking"
             />
-          </button>
+          </PressButton>
         </div>
       ) : null}
 
       {checkedFeedback ? (
-        <section
+        <Callout.Root
+          asChild
+          color={isCorrect ? "green" : "amber"}
+          variant="surface"
           className="practiceFeedback"
           data-tone={isCorrect ? "correct" : "incorrect"}
-          aria-live="polite"
-          role="status"
         >
-          <h2>{isCorrect ? "Correct." : "Not quite."}</h2>
-          <dl
-            className="practiceFeedbackAnswer"
-            aria-label={`Correct answer: ${checkedFeedback.correctAnswerDisplay}`}
-          >
-            <div>
-              <dt>Correct answer</dt>
-              <dd>
-                <MathText text={checkedFeedback.correctAnswerDisplay} />
-              </dd>
-            </div>
-          </dl>
-          {checkedFeedback.explanation ? (
-            <p>
-              <MathText text={checkedFeedback.explanation} />
-            </p>
-          ) : null}
-        </section>
+          <section aria-live="polite" role="status">
+            <h2>{isCorrect ? "Correct." : "Not quite."}</h2>
+            <dl
+              className="practiceFeedbackAnswer"
+              aria-label={`Correct answer: ${checkedFeedback.correctAnswerDisplay}`}
+            >
+              <div>
+                <dt>Correct answer</dt>
+                <dd>
+                  <MathText text={checkedFeedback.correctAnswerDisplay} />
+                </dd>
+              </div>
+            </dl>
+            {checkedFeedback.explanation ? (
+              <p>
+                <MathText text={checkedFeedback.explanation} />
+              </p>
+            ) : null}
+          </section>
+        </Callout.Root>
       ) : null}
 
       {isCorrect ? (
         <fieldset className="ratingOverride">
           <legend>Review rating</legend>
           <p className="ratingOverrideHint">How hard was that?</p>
-          <div role="radiogroup" aria-label="Review rating">
+          <RadioCards.Root
+            aria-label="Review rating"
+            className="ratingRadioCards"
+            color="blue"
+            highContrast
+            onValueChange={(value) => setManualRating(value as FsrsRating)}
+            size="2"
+            value={manualRating ?? undefined}
+            variant="surface"
+          >
             {RATING_OPTIONS.map((rating) => (
-              <button
+              <RadioCards.Item
                 key={rating}
-                role="radio"
-                aria-checked={manualRating === rating}
                 aria-label={`${formatRating(rating)} rating`}
                 className="ratingButton"
                 data-selected={manualRating === rating ? "true" : "false"}
-                type="button"
-                onClick={() => setManualRating(rating)}
+                value={rating}
               >
                 <span>{formatRating(rating)}</span>
-              </button>
+              </RadioCards.Item>
             ))}
-          </div>
+          </RadioCards.Root>
         </fieldset>
       ) : null}
 
       {feedback !== null ? (
         <div className="practiceActions">
-          <button
+          <PressButton
             className="primaryButton"
             type="button"
             disabled={pendingAction !== null || feedback.status !== "checked"}
@@ -579,7 +606,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
               idleText="Continue"
               pendingText="Saving"
             />
-          </button>
+          </PressButton>
         </div>
       ) : null}
 
@@ -591,27 +618,29 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
 
       {checkedFeedback && !flagFormOpen ? (
         <div className="flagExerciseInline">
-          <button
+          <PressButton
             ref={reportToggleRef}
             className="quietButton"
             type="button"
             disabled={pendingAction !== null}
             aria-expanded={false}
             onClick={() => setFlagFormOpen(true)}
+            variant="white"
           >
             Report issue
-          </button>
+          </PressButton>
         </div>
       ) : null}
 
       {checkedFeedback && flagFormOpen ? (
-        <section className="flagExercisePanel" aria-labelledby="flag-exercise-title">
+        <Card asChild size="3" variant="surface">
+          <section className="flagExercisePanel" aria-labelledby="flag-exercise-title">
           <div className="flagExerciseHeader">
             <div>
               <h2 id="flag-exercise-title">Report an issue</h2>
               <p>Retire this exercise instead of saving the review.</p>
             </div>
-            <button
+            <PressButton
               ref={reportToggleRef}
               className="secondaryButton"
               type="button"
@@ -619,9 +648,10 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
               aria-controls="practice-report-form"
               aria-expanded={flagFormOpen}
               onClick={() => setFlagFormOpen((open) => !open)}
+              variant="white"
             >
               Close report
-            </button>
+            </PressButton>
           </div>
 
           <div className="flagExerciseForm" id="practice-report-form">
@@ -630,12 +660,15 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
               <div className="flagReasonGrid">
                 {FLAG_REASON_OPTIONS.map((option, index) => (
                   <label key={option.reason} className="flagReasonOption">
-                    <input
+                    <Checkbox
                       ref={index === 0 ? firstFlagReasonRef : undefined}
-                      type="checkbox"
                       checked={selectedFlagReasons.includes(option.reason)}
+                      color="blue"
                       disabled={pendingAction !== null}
-                      onChange={() => handleFlagReasonToggle(option.reason)}
+                      highContrast
+                      onCheckedChange={() => handleFlagReasonToggle(option.reason)}
+                      size="2"
+                      variant="surface"
                     />
                     <span>{option.label}</span>
                   </label>
@@ -646,32 +679,39 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
             {selectedOtherFlag ? (
               <label className="flagNoteField">
                 <span>Note</span>
-                <textarea
+                <TextArea
                   value={otherFlagNote}
+                  color="blue"
                   disabled={pendingAction !== null}
                   maxLength={500}
+                  radius="medium"
                   rows={3}
+                  size="2"
                   onChange={(event) => setOtherFlagNote(event.target.value)}
+                  variant="surface"
                 />
               </label>
             ) : null}
 
             <div className="flagActions">
-              <button
+              <PressButton
                 className="secondaryButton"
                 type="button"
                 disabled={pendingAction !== null || !canSubmitFlag}
                 onClick={handleFlagSubmit}
+                variant="white"
               >
                 {pendingAction === "flag" ? "Reporting" : "Submit report"}
-              </button>
+              </PressButton>
             </div>
           </div>
-        </section>
+          </section>
+        </Card>
       ) : null}
 
       <PracticeStatusMessage message={statusMessage} />
-      </section>
+        </section>
+      </Card>
     </>
   );
 }
@@ -708,39 +748,48 @@ function PracticeCompleteState({
   statusMessage: string | null;
 }) {
   return (
-    <section
-      className="practiceFrame practiceEmpty practiceComplete"
-      aria-labelledby="practice-empty-title"
-    >
-      <div className="practiceCompleteCopy">
-        <h1 id="practice-empty-title">Nice work. You&apos;re all caught up.</h1>
-        <p>
-          {scoped
-            ? "Every due exercise in this collection is finished for now."
-            : "Every due exercise is finished for now."}{" "}
-          LearnRecur will bring skills back when the schedule says they are ready.
-        </p>
-      </div>
-      <PracticeCompleteActions scoped={scoped} />
-      {statusMessage ? (
-        <p className="practiceCompleteStatus" aria-live="polite" role="status">
-          <span>{statusMessage}</span>
-        </p>
-      ) : null}
-      {canUseSampleData ? (
-        <div className="practiceCompleteDevAction">
-          <span>Development mode</span>
-          <button
-            className="secondaryButton"
-            type="button"
-            onClick={onSampleData}
-            disabled={pendingSample}
-          >
-            {pendingSample ? "Preparing sample" : "Create sample practice"}
-          </button>
+    <Card asChild size="4" variant="surface">
+      <section
+        className="practiceFrame practiceEmpty practiceComplete"
+        aria-labelledby="practice-empty-title"
+      >
+        <div className="practiceCompleteCopy">
+          <h1 id="practice-empty-title">Nice work. You&apos;re all caught up.</h1>
+          <p>
+            {scoped
+              ? "Every due exercise in this collection is finished for now."
+              : "Every due exercise is finished for now."}{" "}
+            LearnRecur will bring skills back when the schedule says they are ready.
+          </p>
         </div>
-      ) : null}
-    </section>
+        <PracticeCompleteActions scoped={scoped} />
+        {statusMessage ? (
+          <Callout.Root
+            className="practiceCompleteStatus"
+            color="green"
+            role="status"
+            size="1"
+            variant="surface"
+          >
+            <Callout.Text>{statusMessage}</Callout.Text>
+          </Callout.Root>
+        ) : null}
+        {canUseSampleData ? (
+          <div className="practiceCompleteDevAction">
+            <span>Development mode</span>
+            <PressButton
+              className="secondaryButton"
+              type="button"
+              onClick={onSampleData}
+              disabled={pendingSample}
+              variant="white"
+            >
+              {pendingSample ? "Preparing sample" : "Create sample practice"}
+            </PressButton>
+          </div>
+        ) : null}
+      </section>
+    </Card>
   );
 }
 
@@ -749,21 +798,21 @@ function PracticeCompleteActions({ scoped }: { scoped: boolean }) {
     <div className="practiceCompleteActions" aria-label="Practice next actions">
       {scoped ? (
         <>
-          <Link className="primaryButton" href="/practice">
+          <PressLink className="primaryButton" href="/practice">
             Try all practice
-          </Link>
-          <Link className="secondaryButton" href="/dashboard">
+          </PressLink>
+          <PressLink className="secondaryButton" href="/dashboard" variant="white">
             Dashboard
-          </Link>
+          </PressLink>
         </>
       ) : (
         <>
-          <Link className="primaryButton" href="/dashboard">
+          <PressLink className="primaryButton" href="/dashboard">
             Dashboard
-          </Link>
-          <Link className="secondaryButton" href="/skills">
+          </PressLink>
+          <PressLink className="secondaryButton" href="/skills" variant="white">
             Review skills
-          </Link>
+          </PressLink>
         </>
       )}
     </div>
@@ -775,13 +824,17 @@ function PracticeEmptyActions({ scoped }: { scoped: boolean }) {
     <div className="practiceEmptyActions" aria-label="Practice next actions">
       <div className="practiceEmptyPrimaryActions">
         {scoped ? (
-          <Link className="primaryButton" href="/practice">
+          <PressLink className="primaryButton" href="/practice">
             All practice
-          </Link>
+          </PressLink>
         ) : null}
-        <Link className={scoped ? "secondaryButton" : "primaryButton"} href="/dashboard">
+        <PressLink
+          className={scoped ? "secondaryButton" : "primaryButton"}
+          href="/dashboard"
+          variant={scoped ? "white" : "blue"}
+        >
           Dashboard
-        </Link>
+        </PressLink>
       </div>
       <div className="practiceEmptyUtilityLinks">
         <Link href="/skills">Skills</Link>
@@ -843,15 +896,18 @@ function PracticeStatusMessage({ message }: { message: string | null }) {
   const saved = REVIEW_SAVED_MESSAGES.has(message);
 
   return (
-    <p
+    <Callout.Root
       className="practiceStatusLine"
+      color={saved ? "green" : "amber"}
       data-tone={saved ? "saved" : undefined}
       aria-live="polite"
       role="status"
+      size="1"
+      variant="surface"
     >
       {saved ? <CheckCircle size={17} weight="bold" aria-hidden="true" /> : null}
-      <span>{message}</span>
-    </p>
+      <Callout.Text>{message}</Callout.Text>
+    </Callout.Root>
   );
 }
 

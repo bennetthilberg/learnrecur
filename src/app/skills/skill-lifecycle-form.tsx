@@ -2,6 +2,9 @@
 
 import { useActionState } from "react";
 
+import { PressButton } from "@/components/app/open-water";
+import { RadixFormMessage } from "@/components/app/radix-form";
+
 import { updateSkillLifecycleAction, type SkillFormActionState } from "./actions";
 
 type SkillLifecycleFormProps = {
@@ -46,18 +49,19 @@ export function SkillLifecycleForm({
       ) : null}
       {description ? <p>{description}</p> : null}
       {state.message ? (
-        <p className="skillFormMessage" data-tone={state.status} role="status">
+        <RadixFormMessage tone={state.status === "saved" ? "saved" : "error"}>
           {state.message}
-        </p>
+        </RadixFormMessage>
       ) : null}
-      <button
+      <PressButton
         className="secondaryButton"
         data-tone={tone === "danger" ? "danger" : undefined}
         disabled={pending}
         type="submit"
+        variant="white"
       >
         {pending ? pendingLabel : buttonLabel}
-      </button>
+      </PressButton>
     </form>
   );
 

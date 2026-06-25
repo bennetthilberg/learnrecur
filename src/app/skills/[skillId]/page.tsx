@@ -1,6 +1,7 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
-import Link from "next/link";
+import { Badge, Callout, Card, DataList } from "@radix-ui/themes";
 import { notFound } from "next/navigation";
+import type { ReactNode } from "react";
 
 import {
   GenerationJobKind,
@@ -8,6 +9,7 @@ import {
   SkillStatus,
   type Prisma,
 } from "@/generated/prisma/client";
+import { PressLink } from "@/components/app/open-water";
 import { UserStatusPanel } from "@/components/app/user-status-panel";
 import { formatJobStatus } from "@/lib/formatters";
 import {
@@ -233,72 +235,79 @@ export default async function SkillPage({
             <h1>{skill.title}</h1>
             <p>{skill.objective ?? "This skill is active in the practice schedule."}</p>
           </div>
-          <Link
+          <PressLink
             className={isReadyForPractice ? "primaryButton" : "secondaryButton"}
             href="/practice"
+            variant={isReadyForPractice ? "blue" : "white"}
           >
             {isReadyForPractice ? "Start practice" : "Open practice"}
-          </Link>
+          </PressLink>
         </header>
 
-        <section className="skillPanel skillActivatedPanel" aria-labelledby="active-skill-title">
-          <div>
-            <h2 id="active-skill-title">Active schedule</h2>
-          </div>
-          <dl className="skillStatusSummary">
-            <SkillStatusSummaryItem
-              label="Due"
-              priority="primary"
-              value={skill.dueAt ? formatReviewDate(skill.dueAt) : "Not scheduled"}
-            />
-            <SkillStatusSummaryItem
-              label="Collection"
-              value={skill.collection?.name ?? "Uncollected"}
-            />
-            <SkillStatusSummaryItem label="Memory stage" value={formatHistoryLabel(skill.fsrsState)} />
-            <SkillStatusSummaryItem label="Reviews" value={formatCount(skill.repetitions)} />
-            <SkillStatusSummaryItem label="Exercises" value={formatCount(skill._count.exercises)} />
-          </dl>
-          <div className="skillInventoryGrid" aria-label="Exercise inventory">
-            <SkillInventoryGroup
-              label="Choice"
-              readyCount={inventory.readyExerciseCount}
-              retiredCount={inventory.retiredExerciseCount}
-              targetCount={DEFAULT_READY_EXERCISE_TARGET}
-              verifiedCount={inventory.verifiedExerciseCount}
-            />
-            <SkillInventoryGroup
-              label="Exact input"
-              readyCount={exactInputInventory.readyExerciseCount}
-              retiredCount={exactInputInventory.retiredExerciseCount}
-              targetCount={DEFAULT_READY_EXACT_INPUT_TARGET}
-              verifiedCount={exactInputInventory.verifiedExerciseCount}
-            />
-            <SkillInventoryGroup
-              label="Math"
-              readyCount={mathInventory.readyExerciseCount}
-              retiredCount={mathInventory.retiredExerciseCount}
-              targetCount={DEFAULT_READY_MATH_TARGET}
-              verifiedCount={mathInventory.verifiedExerciseCount}
-            />
-          </div>
-          {skill.tags.length > 0 ? (
-            <div className="skillTagLine">
-              {skill.tags.map((tag) => (
-                <span className="dashboardTag" key={tag}>
-                  {tag}
-                </span>
-              ))}
+        <Card asChild className="skillPanel skillActivatedPanel" size="3" variant="surface">
+          <section aria-labelledby="active-skill-title">
+            <div>
+              <h2 id="active-skill-title">Active schedule</h2>
             </div>
-          ) : null}
-        </section>
+            <DataList.Root className="skillStatusSummary" orientation="horizontal">
+              <SkillStatusSummaryItem
+                label="Due"
+                priority="primary"
+                value={skill.dueAt ? formatReviewDate(skill.dueAt) : "Not scheduled"}
+              />
+              <SkillStatusSummaryItem
+                label="Collection"
+                value={skill.collection?.name ?? "Uncollected"}
+              />
+              <SkillStatusSummaryItem
+                label="Memory stage"
+                value={formatHistoryLabel(skill.fsrsState)}
+              />
+              <SkillStatusSummaryItem label="Reviews" value={formatCount(skill.repetitions)} />
+              <SkillStatusSummaryItem label="Exercises" value={formatCount(skill._count.exercises)} />
+            </DataList.Root>
+            <div className="skillInventoryGrid" aria-label="Exercise inventory">
+              <SkillInventoryGroup
+                label="Choice"
+                readyCount={inventory.readyExerciseCount}
+                retiredCount={inventory.retiredExerciseCount}
+                targetCount={DEFAULT_READY_EXERCISE_TARGET}
+                verifiedCount={inventory.verifiedExerciseCount}
+              />
+              <SkillInventoryGroup
+                label="Exact input"
+                readyCount={exactInputInventory.readyExerciseCount}
+                retiredCount={exactInputInventory.retiredExerciseCount}
+                targetCount={DEFAULT_READY_EXACT_INPUT_TARGET}
+                verifiedCount={exactInputInventory.verifiedExerciseCount}
+              />
+              <SkillInventoryGroup
+                label="Math"
+                readyCount={mathInventory.readyExerciseCount}
+                retiredCount={mathInventory.retiredExerciseCount}
+                targetCount={DEFAULT_READY_MATH_TARGET}
+                verifiedCount={mathInventory.verifiedExerciseCount}
+              />
+            </div>
+            {skill.tags.length > 0 ? (
+              <div className="skillTagLine">
+                {skill.tags.map((tag) => (
+                  <Badge className="dashboardTag" color="blue" key={tag} variant="surface">
+                    {tag}
+                  </Badge>
+                ))}
+              </div>
+            ) : null}
+          </section>
+        </Card>
 
-        <details className="skillPanel skillQueuePanel skillFormDetails">
-          <summary>
-            <span>Exercise preparation</span>
-            <small>Ready counts and generation status</small>
-          </summary>
-          <div className="skillQueueBlock">
+        <Card asChild className="skillPanel skillQueuePanel skillFormDetails" size="3" variant="surface">
+          <details>
+            <summary>
+              <span>Exercise preparation</span>
+              <small>Ready counts and generation status</small>
+            </summary>
+            <div className="skillQueueBlock">
             <div>
               <h2>Choice exercises</h2>
               <SkillQueueStateStrip
@@ -320,9 +329,9 @@ export default async function SkillPage({
               ) : null}
               {choiceRefillStatus ? <p className="skillQueueStatus">{choiceRefillStatus}</p> : null}
               {latestChoiceGenerationJob?.errorMessage ? (
-                <p className="skillFormMessage" data-tone="error">
+                <SkillQueueErrorMessage>
                   Choice exercise preparation failed. Try again when you are ready.
-                </p>
+                </SkillQueueErrorMessage>
               ) : null}
             </div>
             {canRefill ? (
@@ -375,9 +384,9 @@ export default async function SkillPage({
                 <p className="skillQueueStatus">{exactInputRefillStatus}</p>
               ) : null}
               {latestExactInputGenerationJob?.errorMessage ? (
-                <p className="skillFormMessage" data-tone="error">
+                <SkillQueueErrorMessage>
                   Exact-input exercise preparation failed. Try again when you are ready.
-                </p>
+                </SkillQueueErrorMessage>
               ) : null}
             </div>
             {canRefillExactInput ? (
@@ -434,9 +443,9 @@ export default async function SkillPage({
               ) : null}
               {mathRefillStatus ? <p className="skillQueueStatus">{mathRefillStatus}</p> : null}
               {latestMathGenerationJob?.errorMessage ? (
-                <p className="skillFormMessage" data-tone="error">
+                <SkillQueueErrorMessage>
                   Math exercise preparation failed. Try again when you are ready.
-                </p>
+                </SkillQueueErrorMessage>
               ) : null}
             </div>
             {canRefillMath ? (
@@ -453,8 +462,9 @@ export default async function SkillPage({
                 }
               />
             )}
-          </div>
-        </details>
+            </div>
+          </details>
+        </Card>
         <SkillLifecyclePanel skillId={skill.id} skillTitle={skill.title} status={skill.status} />
         <SkillSourcePanel skillId={skill.id} sources={sourceSummaries} />
         <SkillRecentReviewsPanel reviews={recentReviews} />
@@ -487,61 +497,66 @@ export default async function SkillPage({
           </div>
         </header>
 
-        <section className="skillPanel skillActivatedPanel" aria-labelledby="inactive-skill-title">
-          <div>
-            <h2 id="inactive-skill-title">{statusCopy.heading}</h2>
-            <p className="skillQueueStatus">{statusCopy.body}</p>
-          </div>
-          <dl className="skillStatusSummary">
-            <SkillStatusSummaryItem
-              label="Status"
-              priority="primary"
-              value={formatHistoryLabel(skill.status)}
-            />
-            <SkillStatusSummaryItem
-              label="Due"
-              value={skill.dueAt ? formatReviewDate(skill.dueAt) : "Not scheduled"}
-            />
-            <SkillStatusSummaryItem
-              label="Collection"
-              value={skill.collection?.name ?? "Uncollected"}
-            />
-            <SkillStatusSummaryItem label="Memory stage" value={formatHistoryLabel(skill.fsrsState)} />
-            <SkillStatusSummaryItem label="Reviews" value={formatCount(skill.repetitions)} />
-          </dl>
-          <div className="skillInventoryGrid" aria-label="Exercise inventory">
-            <SkillInventoryGroup
-              label="Choice"
-              readyCount={inventory.readyExerciseCount}
-              retiredCount={inventory.retiredExerciseCount}
-              targetCount={DEFAULT_READY_EXERCISE_TARGET}
-              verifiedCount={inventory.verifiedExerciseCount}
-            />
-            <SkillInventoryGroup
-              label="Exact input"
-              readyCount={exactInputInventory.readyExerciseCount}
-              retiredCount={exactInputInventory.retiredExerciseCount}
-              targetCount={DEFAULT_READY_EXACT_INPUT_TARGET}
-              verifiedCount={exactInputInventory.verifiedExerciseCount}
-            />
-            <SkillInventoryGroup
-              label="Math"
-              readyCount={mathInventory.readyExerciseCount}
-              retiredCount={mathInventory.retiredExerciseCount}
-              targetCount={DEFAULT_READY_MATH_TARGET}
-              verifiedCount={mathInventory.verifiedExerciseCount}
-            />
-          </div>
-          {skill.tags.length > 0 ? (
-            <div className="skillTagLine">
-              {skill.tags.map((tag) => (
-                <span className="dashboardTag" key={tag}>
-                  {tag}
-                </span>
-              ))}
+        <Card asChild className="skillPanel skillActivatedPanel" size="3" variant="surface">
+          <section aria-labelledby="inactive-skill-title">
+            <div>
+              <h2 id="inactive-skill-title">{statusCopy.heading}</h2>
+              <p className="skillQueueStatus">{statusCopy.body}</p>
             </div>
-          ) : null}
-        </section>
+            <DataList.Root className="skillStatusSummary" orientation="horizontal">
+              <SkillStatusSummaryItem
+                label="Status"
+                priority="primary"
+                value={formatHistoryLabel(skill.status)}
+              />
+              <SkillStatusSummaryItem
+                label="Due"
+                value={skill.dueAt ? formatReviewDate(skill.dueAt) : "Not scheduled"}
+              />
+              <SkillStatusSummaryItem
+                label="Collection"
+                value={skill.collection?.name ?? "Uncollected"}
+              />
+              <SkillStatusSummaryItem
+                label="Memory stage"
+                value={formatHistoryLabel(skill.fsrsState)}
+              />
+              <SkillStatusSummaryItem label="Reviews" value={formatCount(skill.repetitions)} />
+            </DataList.Root>
+            <div className="skillInventoryGrid" aria-label="Exercise inventory">
+              <SkillInventoryGroup
+                label="Choice"
+                readyCount={inventory.readyExerciseCount}
+                retiredCount={inventory.retiredExerciseCount}
+                targetCount={DEFAULT_READY_EXERCISE_TARGET}
+                verifiedCount={inventory.verifiedExerciseCount}
+              />
+              <SkillInventoryGroup
+                label="Exact input"
+                readyCount={exactInputInventory.readyExerciseCount}
+                retiredCount={exactInputInventory.retiredExerciseCount}
+                targetCount={DEFAULT_READY_EXACT_INPUT_TARGET}
+                verifiedCount={exactInputInventory.verifiedExerciseCount}
+              />
+              <SkillInventoryGroup
+                label="Math"
+                readyCount={mathInventory.readyExerciseCount}
+                retiredCount={mathInventory.retiredExerciseCount}
+                targetCount={DEFAULT_READY_MATH_TARGET}
+                verifiedCount={mathInventory.verifiedExerciseCount}
+              />
+            </div>
+            {skill.tags.length > 0 ? (
+              <div className="skillTagLine">
+                {skill.tags.map((tag) => (
+                  <Badge className="dashboardTag" color="blue" key={tag} variant="surface">
+                    {tag}
+                  </Badge>
+                ))}
+              </div>
+            ) : null}
+          </section>
+        </Card>
         <SkillLifecyclePanel skillId={skill.id} skillTitle={skill.title} status={skill.status} />
         <SkillSourcePanel
           canRemove={skill.status !== SkillStatus.ARCHIVED}
@@ -566,9 +581,18 @@ export default async function SkillPage({
       </header>
 
       {skill.generationJobs[0]?.errorMessage ? (
-        <section className="skillMessage" data-tone="error" aria-label="Latest add issue">
-          <p>Skill preparation failed. Review the draft and try again when you are ready.</p>
-        </section>
+        <Callout.Root
+          className="skillMessage"
+          color="red"
+          data-tone="error"
+          role="status"
+          size="1"
+          variant="surface"
+        >
+          <Callout.Text>
+            Skill preparation failed. Review the draft and try again when you are ready.
+          </Callout.Text>
+        </Callout.Root>
       ) : null}
 
       <SkillSourcePanel skillId={skill.id} sources={sourceSummaries} />
@@ -594,10 +618,10 @@ function SkillStatusSummaryItem({
   value: string;
 }) {
   return (
-    <div data-priority={priority}>
-      <dt>{label}</dt>
-      <dd>{value}</dd>
-    </div>
+    <DataList.Item data-priority={priority}>
+      <DataList.Label>{label}</DataList.Label>
+      <DataList.Value>{value}</DataList.Value>
+    </DataList.Item>
   );
 }
 
@@ -617,22 +641,24 @@ function SkillInventoryGroup({
   return (
     <section className="skillInventoryGroup" aria-label={`${label} inventory`}>
       <div className="skillInventoryReady">
-        <span>{label}</span>
+        <Badge color="blue" highContrast variant="surface">
+          {label}
+        </Badge>
         <strong>
           <span>{formatCount(readyCount)}</span>
           <small>of {formatCount(targetCount)} ready</small>
         </strong>
       </div>
-      <dl>
-        <div>
-          <dt>Verified</dt>
-          <dd>{formatCount(verifiedCount)}</dd>
-        </div>
-        <div>
-          <dt>Retired</dt>
-          <dd>{formatCount(retiredCount)}</dd>
-        </div>
-      </dl>
+      <DataList.Root orientation="horizontal">
+        <DataList.Item>
+          <DataList.Label>Verified</DataList.Label>
+          <DataList.Value>{formatCount(verifiedCount)}</DataList.Value>
+        </DataList.Item>
+        <DataList.Item>
+          <DataList.Label>Retired</DataList.Label>
+          <DataList.Value>{formatCount(retiredCount)}</DataList.Value>
+        </DataList.Item>
+      </DataList.Root>
     </section>
   );
 }
@@ -649,18 +675,26 @@ function SkillQueueStateStrip({
   targetCount: number;
 }) {
   return (
-    <dl className="skillQueueStateStrip" data-tone={stateTone}>
-      <div data-priority="primary">
-        <dt>Ready</dt>
-        <dd>
+    <DataList.Root className="skillQueueStateStrip" data-tone={stateTone} orientation="horizontal">
+      <DataList.Item data-priority="primary">
+        <DataList.Label>Ready</DataList.Label>
+        <DataList.Value>
           {formatCount(readyCount)} of {formatCount(targetCount)}
-        </dd>
-      </div>
-      <div data-role="state">
-        <dt>Status</dt>
-        <dd>{stateLabel}</dd>
-      </div>
-    </dl>
+        </DataList.Value>
+      </DataList.Item>
+      <DataList.Item data-role="state">
+        <DataList.Label>Status</DataList.Label>
+        <DataList.Value>
+          <Badge
+            color={stateTone === "ready" ? "green" : stateTone === "attention" ? "amber" : "gray"}
+            highContrast
+            variant="surface"
+          >
+            {stateLabel}
+          </Badge>
+        </DataList.Value>
+      </DataList.Item>
+    </DataList.Root>
   );
 }
 
@@ -672,9 +706,15 @@ function SkillQueueActionStatus({
   tone: "attention" | "locked" | "ready";
 }) {
   return (
-    <div className="skillQueueActionStatus" data-tone={tone}>
+    <Badge
+      className="skillQueueActionStatus"
+      color={tone === "ready" ? "green" : tone === "attention" ? "amber" : "gray"}
+      data-tone={tone}
+      highContrast
+      variant="surface"
+    >
       {label}
-    </div>
+    </Badge>
   );
 }
 
@@ -690,20 +730,35 @@ function SkillQueueJobStatus({
   label: string;
 }) {
   return (
-    <dl className="skillQueueJobStatus" aria-label={label}>
-      <div>
-        <dt>{label}</dt>
-        <dd>{formatJobStatus(job.status)}</dd>
-      </div>
-      <div>
-        <dt>Kept</dt>
-        <dd>{formatCount(job.acceptedCount)}</dd>
-      </div>
-      <div>
-        <dt>Skipped</dt>
-        <dd>{formatCount(job.rejectedCount)}</dd>
-      </div>
-    </dl>
+    <DataList.Root className="skillQueueJobStatus" aria-label={label} orientation="horizontal">
+      <DataList.Item>
+        <DataList.Label>{label}</DataList.Label>
+        <DataList.Value>{formatJobStatus(job.status)}</DataList.Value>
+      </DataList.Item>
+      <DataList.Item>
+        <DataList.Label>Kept</DataList.Label>
+        <DataList.Value>{formatCount(job.acceptedCount)}</DataList.Value>
+      </DataList.Item>
+      <DataList.Item>
+        <DataList.Label>Skipped</DataList.Label>
+        <DataList.Value>{formatCount(job.rejectedCount)}</DataList.Value>
+      </DataList.Item>
+    </DataList.Root>
+  );
+}
+
+function SkillQueueErrorMessage({ children }: { children: ReactNode }) {
+  return (
+    <Callout.Root
+      className="skillFormMessage"
+      color="red"
+      data-tone="error"
+      role="status"
+      size="1"
+      variant="surface"
+    >
+      <Callout.Text>{children}</Callout.Text>
+    </Callout.Root>
   );
 }
 
@@ -722,70 +777,72 @@ function SkillLifecyclePanel({
     status === SkillStatus.ARCHIVED;
 
   return (
-    <section className="skillPanel skillLifecyclePanel" aria-labelledby="skill-lifecycle-title">
-      <div className="skillPanelHeader">
-        <div>
-          <h2 id="skill-lifecycle-title">Skill controls</h2>
+    <Card asChild className="skillPanel skillLifecyclePanel" size="3" variant="surface">
+      <section aria-labelledby="skill-lifecycle-title">
+        <div className="skillPanelHeader">
+          <div>
+            <h2 id="skill-lifecycle-title">Skill controls</h2>
+          </div>
         </div>
-      </div>
-      <div
-        className="skillLifecycleActions"
-        data-layout={showPracticeStateControls ? "split" : "single"}
-      >
-        {showPracticeStateControls ? (
-          <div className="skillLifecycleGroup">
-            <h3>Practice controls</h3>
-            <p>Control whether this skill can appear in due practice.</p>
-            {status === SkillStatus.ACTIVE ? (
+        <div
+          className="skillLifecycleActions"
+          data-layout={showPracticeStateControls ? "split" : "single"}
+        >
+          {showPracticeStateControls ? (
+            <div className="skillLifecycleGroup">
+              <h3>Practice controls</h3>
+              <p>Control whether this skill can appear in due practice.</p>
+              {status === SkillStatus.ACTIVE ? (
+                <SkillLifecycleForm
+                  actionType="pause"
+                  buttonLabel="Pause practice"
+                  description="Pause keeps the skill and schedule intact but removes it from practice."
+                  pendingLabel="Pausing"
+                  skillId={skillId}
+                />
+              ) : null}
+              {status === SkillStatus.PAUSED ? (
+                <SkillLifecycleForm
+                  actionType="resume"
+                  buttonLabel="Resume practice"
+                  description="Resume returns this skill to the active practice schedule."
+                  pendingLabel="Resuming"
+                  skillId={skillId}
+                />
+              ) : null}
+              {status === SkillStatus.ARCHIVED ? (
+                <SkillLifecycleForm
+                  actionType="restore"
+                  buttonLabel="Restore skill"
+                  description="Restored scheduled skills return to practice. Unscheduled skills return as drafts."
+                  pendingLabel="Restoring"
+                  skillId={skillId}
+                />
+              ) : null}
+            </div>
+          ) : null}
+          <div className="skillLifecycleGroup" data-tone="danger">
+            <h3>Archive and delete</h3>
+            <p>Archive first when you may want this skill later. Permanent delete is final.</p>
+            {status !== SkillStatus.ARCHIVED ? (
               <SkillLifecycleForm
-                actionType="pause"
-                buttonLabel="Pause practice"
-                description="Pause keeps the skill and schedule intact but removes it from practice."
-                pendingLabel="Pausing"
+                actionType="archive"
+                buttonLabel="Archive skill"
+                confirmationLabel="Archive this skill and keep its sources, exercises, and history."
+                description="Archived skills leave the main library and practice flow, but can be restored later."
+                pendingLabel="Archiving"
                 skillId={skillId}
+                summaryLabel={status === SkillStatus.DRAFT ? "Archive draft" : "Archive skill"}
+                tone="danger"
               />
             ) : null}
-            {status === SkillStatus.PAUSED ? (
-              <SkillLifecycleForm
-                actionType="resume"
-                buttonLabel="Resume practice"
-                description="Resume returns this skill to the active practice schedule."
-                pendingLabel="Resuming"
-                skillId={skillId}
-              />
-            ) : null}
-            {status === SkillStatus.ARCHIVED ? (
-              <SkillLifecycleForm
-                actionType="restore"
-                buttonLabel="Restore skill"
-                description="Restored scheduled skills return to practice. Unscheduled skills return as drafts."
-                pendingLabel="Restoring"
-                skillId={skillId}
-              />
+            {status === SkillStatus.DRAFT || status === SkillStatus.ARCHIVED ? (
+              <SkillDeleteForm skillId={skillId} skillTitle={skillTitle} />
             ) : null}
           </div>
-        ) : null}
-        <div className="skillLifecycleGroup" data-tone="danger">
-          <h3>Archive and delete</h3>
-          <p>Archive first when you may want this skill later. Permanent delete is final.</p>
-          {status !== SkillStatus.ARCHIVED ? (
-            <SkillLifecycleForm
-              actionType="archive"
-              buttonLabel="Archive skill"
-              confirmationLabel="Archive this skill and keep its sources, exercises, and history."
-              description="Archived skills leave the main library and practice flow, but can be restored later."
-              pendingLabel="Archiving"
-              skillId={skillId}
-              summaryLabel={status === SkillStatus.DRAFT ? "Archive draft" : "Archive skill"}
-              tone="danger"
-            />
-          ) : null}
-          {status === SkillStatus.DRAFT || status === SkillStatus.ARCHIVED ? (
-            <SkillDeleteForm skillId={skillId} skillTitle={skillTitle} />
-          ) : null}
         </div>
-      </div>
-    </section>
+      </section>
+    </Card>
   );
 }
 
@@ -795,35 +852,45 @@ function SkillRecentReviewsPanel({ reviews }: { reviews: PracticeHistoryReview[]
   }
 
   return (
-    <section className="skillPanel skillRecentReviewsPanel" aria-labelledby="skill-reviews-title">
-      <div className="skillPanelHeader">
-        <div>
-          <h2 id="skill-reviews-title">Recent reviews</h2>
+    <Card asChild className="skillPanel skillRecentReviewsPanel" size="3" variant="surface">
+      <section aria-labelledby="skill-reviews-title">
+        <div className="skillPanelHeader">
+          <div>
+            <h2 id="skill-reviews-title">Recent reviews</h2>
+          </div>
+          <PressLink className="dashboardPanelLink" href="/history" variant="white">
+            Full history
+          </PressLink>
         </div>
-        <Link className="dashboardPanelLink" href="/history">
-          Full history
-        </Link>
-      </div>
 
-      <div className="skillReviewList">
-        {reviews.map((review) => (
-          <article className="skillReviewRow" key={review.id}>
-            <div>
-              <strong>{formatReviewDate(review.reviewedAt)}</strong>
-              <p className="skillReviewMeta">
-                <span>{formatReviewResult(review.result)}</span>
-                <span>{formatHistoryLabel(review.finalRating)}</span>
-                <span>{formatResponseTime(review.responseMs)}</span>
-              </p>
-            </div>
-            <div className="skillReviewSchedule">
-              <SkillReviewStateTransition review={review} />
-              <span>Next: {formatDueLabel(review.nextDueAt)}</span>
-            </div>
-          </article>
-        ))}
-      </div>
-    </section>
+        <div className="skillReviewList">
+          {reviews.map((review) => (
+            <article className="skillReviewRow" key={review.id}>
+              <div>
+                <strong>{formatReviewDate(review.reviewedAt)}</strong>
+                <p className="skillReviewMeta">
+                  <Badge
+                    color={review.result === "CORRECT" ? "green" : "red"}
+                    highContrast
+                    variant="surface"
+                  >
+                    {formatReviewResult(review.result)}
+                  </Badge>
+                  <Badge color="blue" variant="surface">
+                    {formatHistoryLabel(review.finalRating)}
+                  </Badge>
+                  <span>{formatResponseTime(review.responseMs)}</span>
+                </p>
+              </div>
+              <div className="skillReviewSchedule">
+                <SkillReviewStateTransition review={review} />
+                <span>Next: {formatDueLabel(review.nextDueAt)}</span>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+    </Card>
   );
 }
 

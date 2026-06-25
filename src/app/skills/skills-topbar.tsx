@@ -1,6 +1,7 @@
 "use client";
 
 import { UserButton, useUser } from "@clerk/nextjs";
+import { Avatar, Button, TabNav } from "@radix-ui/themes";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -441,7 +442,7 @@ export function SkillsTopbar({
           <span>LearnRecur</span>
         </Link>
         <div className="practiceTopbarRight">
-          <nav ref={navRef} className="practiceNav" aria-label="Primary navigation">
+          <TabNav.Root ref={navRef} className="practiceNav" aria-label="Primary navigation">
             <span ref={activeIndicatorRef} className="practiceNavActiveIndicator" aria-hidden="true" />
             {navItems.map((item) => {
               const NavIcon = item.icon;
@@ -449,39 +450,47 @@ export function SkillsTopbar({
               const isVisuallyActive = visualNavKey === item.key;
 
               return (
-                <Link
-                  aria-current={isCurrentPage ? "page" : undefined}
-                  data-nav-active={isVisuallyActive ? "true" : undefined}
-                  data-nav-key={item.key}
-                  href={item.href}
-                  key={item.key}
-                  onClick={(event) => handleNavClick(item.key, item.href, event)}
-                  onFocus={() => prefetchNavRoute(item.href)}
-                  onPointerDown={(event) => {
-                    prefetchNavRoute(item.href);
-                    handleNavPointerDown(item.key, event);
-                  }}
-                  onPointerEnter={() => prefetchNavRoute(item.href)}
-                  prefetch={true}
-                >
-                  <NavIcon
-                    aria-hidden="true"
-                    className="practiceNavIcon"
-                    size={18}
-                    weight="regular"
-                  />
-                  <span className="practiceNavLabel" data-label={item.label}>
-                    {item.label}
-                  </span>
-                </Link>
+                <TabNav.Link active={isVisuallyActive} asChild key={item.key}>
+                  <Link
+                    aria-current={isCurrentPage ? "page" : undefined}
+                    data-nav-active={isVisuallyActive ? "true" : undefined}
+                    data-nav-key={item.key}
+                    href={item.href}
+                    onClick={(event) => handleNavClick(item.key, item.href, event)}
+                    onFocus={() => prefetchNavRoute(item.href)}
+                    onPointerDown={(event) => {
+                      prefetchNavRoute(item.href);
+                      handleNavPointerDown(item.key, event);
+                    }}
+                    onPointerEnter={() => prefetchNavRoute(item.href)}
+                    prefetch={true}
+                  >
+                    <NavIcon
+                      aria-hidden="true"
+                      className="practiceNavIcon"
+                      size={18}
+                      weight="regular"
+                    />
+                    <span className="practiceNavLabel" data-label={item.label}>
+                      {item.label}
+                    </span>
+                  </Link>
+                </TabNav.Link>
               );
             })}
-          </nav>
+          </TabNav.Root>
           <div ref={userMenuRef} className="practiceUserMenu">
             <div className="practiceUserProfile">
-              <span className="practiceUserFallbackAvatar" aria-hidden="true">
-                {userInitial}
-              </span>
+              <Avatar
+                aria-hidden="true"
+                className="practiceUserFallbackAvatar"
+                color="blue"
+                fallback={userInitial}
+                highContrast
+                radius="full"
+                size="2"
+                variant="solid"
+              />
               <UserButton
                 appearance={{
                   elements: {
@@ -493,15 +502,19 @@ export function SkillsTopbar({
                   },
                 }}
               />
-              <button
+              <Button
+                color="gray"
+                highContrast
+                radius="medium"
                 type="button"
+                variant="ghost"
                 className="practiceUserIdentity"
                 onClick={openUserMenu}
                 aria-label={`Open account menu for ${userDisplayName}`}
               >
                 <span className="practiceUserName">{userDisplayName}</span>
                 <span className="practiceUserMeta">{userDetail}</span>
-              </button>
+              </Button>
             </div>
           </div>
         </div>

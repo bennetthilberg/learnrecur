@@ -1,14 +1,16 @@
 "use client";
 
-import { useActionState, useEffect, useId } from "react";
-import type React from "react";
+import { Card } from "@radix-ui/themes";
+import { useActionState, useEffect } from "react";
 import {
   CheckCircle,
   FloppyDisk,
   PlusCircle,
   WarningCircle,
 } from "@phosphor-icons/react";
-import { notifications } from "@mantine/notifications";
+import { notifications } from "@/components/app/notifications";
+import { PressButton } from "@/components/app/open-water";
+import { RadixTextArea, RadixTextField } from "@/components/app/radix-form";
 
 import {
   activateSkillDraftAction,
@@ -92,179 +94,128 @@ export function SkillDraftForm({ mode, skillId, initialValues }: SkillDraftFormP
 
   return (
     <div className="skillDraftGrid">
-      <form action={saveAction} className="skillPanel skillDraftForm">
-        <div className="skillPanelHeader">
-          <div>
-            <h2>{mode === "create" ? "Write the skill" : "Review generated skill"}</h2>
-          </div>
-        </div>
-
-        {skillId ? <input name="skillId" type="hidden" value={skillId} /> : null}
-
-        <fieldset className="skillFormFieldset">
-          <legend>Core definition</legend>
-          <div className="skillFormFieldsetBody">
-            <SkillTextField
-              error={draftState.fieldErrors?.title?.[0]}
-              label="Title"
-              name="title"
-              placeholder="Ser vs. estar in everyday sentences"
-              required
-              defaultValue={initialValues.title}
-            />
-
-            <SkillTextArea
-              error={draftState.fieldErrors?.objective?.[0]}
-              label="Objective"
-              name="objective"
-              placeholder="Choose whether ser or estar fits a short Spanish sentence, focusing on identity, location, and temporary state."
-              required
-              defaultValue={initialValues.objective}
-              rows={4}
-            />
-
-            <div className="skillTwoColumnFields">
-              <SkillTextField
-                error={draftState.fieldErrors?.collectionName?.[0]}
-                label="Collection"
-                name="collectionName"
-                placeholder="Spanish grammar"
-                defaultValue={initialValues.collectionName}
-              />
-              <SkillTextField
-                error={draftState.fieldErrors?.tags?.[0]}
-                label="Tags"
-                name="tags"
-                placeholder="spanish, verbs, grammar"
-                defaultValue={initialValues.tags}
-              />
-            </div>
-          </div>
-        </fieldset>
-
-        <fieldset className="skillFormFieldset">
-          <legend>Practice guidance</legend>
-          <div className="skillFormFieldsetBody">
-            <SkillTextArea
-              error={draftState.fieldErrors?.rules?.[0]}
-              label="Rules"
-              name="rules"
-              placeholder={"Use ser for identity.\nUse estar for location and temporary state."}
-              defaultValue={initialValues.rules}
-              rows={4}
-            />
-
-            <SkillTextArea
-              error={draftState.fieldErrors?.examples?.[0]}
-              label="Examples"
-              name="examples"
-              placeholder={"Soy estudiante.\nEstoy en casa."}
-              defaultValue={initialValues.examples}
-              rows={4}
-            />
-
-            <SkillTextArea
-              error={draftState.fieldErrors?.exerciseConstraints?.[0]}
-              label="Exercise constraints"
-              name="exerciseConstraints"
-              placeholder="Use short choices, avoid trick questions, and keep starter exercises beginner-friendly."
-              defaultValue={initialValues.exerciseConstraints}
-              rows={3}
-            />
-          </div>
-        </fieldset>
-
-        <div className="skillFormActions">
-          <button
-            className={mode === "create" ? "secondaryButton" : "primaryButton"}
-            disabled={isSaving}
-            type="submit"
-          >
-            <FloppyDisk size={18} weight="bold" aria-hidden="true" />
-            <span>
-              {isSaving ? "Saving" : mode === "create" ? "Create skill" : "Save changes"}
-            </span>
-          </button>
-        </div>
-      </form>
-
-      {mode === "edit" && skillId ? (
-        <section className="skillPanel skillActivationPanel" aria-labelledby="activate-skill-title">
+      <Card asChild size="3" variant="surface">
+        <form action={saveAction} className="skillPanel skillDraftForm">
           <div className="skillPanelHeader">
             <div>
-              <h2 id="activate-skill-title">Add to practice</h2>
+              <h2>{mode === "create" ? "Write the skill" : "Review generated skill"}</h2>
             </div>
           </div>
-          <p>
-            LearnRecur prepares and verifies starter exercises, then schedules this skill
-            for practice.
-          </p>
 
-          <form action={activateAction} className="skillActivationForm">
-            <input name="skillId" type="hidden" value={skillId} />
-            <button className="primaryButton" disabled={isActivating} type="submit">
-              <PlusCircle size={18} weight="bold" aria-hidden="true" />
-              <span>{isActivating ? "Adding" : "Add skill"}</span>
-            </button>
-          </form>
-        </section>
+          {skillId ? <input name="skillId" type="hidden" value={skillId} /> : null}
+
+          <fieldset className="skillFormFieldset">
+            <legend>Core definition</legend>
+            <div className="skillFormFieldsetBody">
+              <RadixTextField
+                error={draftState.fieldErrors?.title?.[0]}
+                label="Title"
+                name="title"
+                placeholder="Ser vs. estar in everyday sentences"
+                required
+                defaultValue={initialValues.title}
+              />
+
+              <RadixTextArea
+                error={draftState.fieldErrors?.objective?.[0]}
+                label="Objective"
+                name="objective"
+                placeholder="Choose whether ser or estar fits a short Spanish sentence, focusing on identity, location, and temporary state."
+                required
+                defaultValue={initialValues.objective}
+                rows={4}
+              />
+
+              <div className="skillTwoColumnFields">
+                <RadixTextField
+                  error={draftState.fieldErrors?.collectionName?.[0]}
+                  label="Collection"
+                  name="collectionName"
+                  placeholder="Spanish grammar"
+                  defaultValue={initialValues.collectionName}
+                />
+                <RadixTextField
+                  error={draftState.fieldErrors?.tags?.[0]}
+                  label="Tags"
+                  name="tags"
+                  placeholder="spanish, verbs, grammar"
+                  defaultValue={initialValues.tags}
+                />
+              </div>
+            </div>
+          </fieldset>
+
+          <fieldset className="skillFormFieldset">
+            <legend>Practice guidance</legend>
+            <div className="skillFormFieldsetBody">
+              <RadixTextArea
+                error={draftState.fieldErrors?.rules?.[0]}
+                label="Rules"
+                name="rules"
+                placeholder={"Use ser for identity.\nUse estar for location and temporary state."}
+                defaultValue={initialValues.rules}
+                rows={4}
+              />
+
+              <RadixTextArea
+                error={draftState.fieldErrors?.examples?.[0]}
+                label="Examples"
+                name="examples"
+                placeholder={"Soy estudiante.\nEstoy en casa."}
+                defaultValue={initialValues.examples}
+                rows={4}
+              />
+
+              <RadixTextArea
+                error={draftState.fieldErrors?.exerciseConstraints?.[0]}
+                label="Exercise constraints"
+                name="exerciseConstraints"
+                placeholder="Use short choices, avoid trick questions, and keep starter exercises beginner-friendly."
+                defaultValue={initialValues.exerciseConstraints}
+                rows={3}
+              />
+            </div>
+          </fieldset>
+
+          <div className="skillFormActions">
+            <PressButton
+              className={mode === "create" ? "secondaryButton" : "primaryButton"}
+              disabled={isSaving}
+              type="submit"
+              variant={mode === "create" ? "white" : "blue"}
+            >
+              <FloppyDisk size={18} weight="bold" aria-hidden="true" />
+              <span>
+                {isSaving ? "Saving" : mode === "create" ? "Create skill" : "Save changes"}
+              </span>
+            </PressButton>
+          </div>
+        </form>
+      </Card>
+
+      {mode === "edit" && skillId ? (
+        <Card asChild size="3" variant="surface">
+          <section className="skillPanel skillActivationPanel" aria-labelledby="activate-skill-title">
+            <div className="skillPanelHeader">
+              <div>
+                <h2 id="activate-skill-title">Add to practice</h2>
+              </div>
+            </div>
+            <p>
+              LearnRecur prepares and verifies starter exercises, then schedules this skill
+              for practice.
+            </p>
+
+            <form action={activateAction} className="skillActivationForm">
+              <input name="skillId" type="hidden" value={skillId} />
+              <PressButton className="primaryButton" disabled={isActivating} type="submit">
+                <PlusCircle size={18} weight="bold" aria-hidden="true" />
+                <span>{isActivating ? "Adding" : "Add skill"}</span>
+              </PressButton>
+            </form>
+          </section>
+        </Card>
       ) : null}
     </div>
-  );
-}
-
-function SkillTextField({
-  label,
-  name,
-  error,
-  "aria-describedby": ariaDescribedBy,
-  ...props
-}: {
-  label: string;
-  name: string;
-  error?: string;
-} & React.InputHTMLAttributes<HTMLInputElement>) {
-  const errorId = useId();
-  const describedBy = [ariaDescribedBy, error ? errorId : null].filter(Boolean).join(" ") || undefined;
-
-  return (
-    <label className="skillField">
-      <span>{label}</span>
-      <input
-        aria-describedby={describedBy}
-        aria-invalid={error ? "true" : undefined}
-        name={name}
-        {...props}
-      />
-      {error ? <em id={errorId}>{error}</em> : null}
-    </label>
-  );
-}
-
-function SkillTextArea({
-  label,
-  name,
-  error,
-  "aria-describedby": ariaDescribedBy,
-  ...props
-}: {
-  label: string;
-  name: string;
-  error?: string;
-} & React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  const errorId = useId();
-  const describedBy = [ariaDescribedBy, error ? errorId : null].filter(Boolean).join(" ") || undefined;
-
-  return (
-    <label className="skillField">
-      <span>{label}</span>
-      <textarea
-        aria-describedby={describedBy}
-        aria-invalid={error ? "true" : undefined}
-        name={name}
-        {...props}
-      />
-      {error ? <em id={errorId}>{error}</em> : null}
-    </label>
   );
 }

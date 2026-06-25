@@ -2,6 +2,9 @@
 
 import { useActionState } from "react";
 
+import { PressButton } from "@/components/app/open-water";
+import { RadixFormMessage } from "@/components/app/radix-form";
+
 import {
   dismissFailedSourceUploadAction,
   requeueSourceUploadAction,
@@ -42,18 +45,19 @@ export function SourceProcessingControls({
       {canRequeue ? (
         <form action={requeueAction}>
           <input name="sourceFileId" type="hidden" value={sourceFileId} />
-          <button
+          <PressButton
             aria-label={`Try draft preparation again for ${sourceFileName}`}
             className="secondaryButton"
             disabled={requeuePending}
             type="submit"
+            variant="white"
           >
             {requeuePending ? "Trying again" : "Try again"}
-          </button>
+          </PressButton>
           {requeueState.message ? (
-            <p className="skillFormMessage" data-tone={requeueState.status} role="status">
+            <RadixFormMessage tone={requeueState.status === "saved" ? "saved" : "error"}>
               {requeueState.message}
-            </p>
+            </RadixFormMessage>
           ) : null}
         </form>
       ) : null}
@@ -61,19 +65,20 @@ export function SourceProcessingControls({
       {canDismiss ? (
         <form action={dismissAction}>
           <input name="sourceFileId" type="hidden" value={sourceFileId} />
-          <button
+          <PressButton
             aria-label={`Dismiss failed source upload ${sourceFileName}`}
             className="secondaryButton"
             data-tone="danger"
             disabled={dismissPending}
             type="submit"
+            variant="white"
           >
             {dismissPending ? "Dismissing" : "Dismiss"}
-          </button>
+          </PressButton>
           {dismissState.message ? (
-            <p className="skillFormMessage" data-tone={dismissState.status} role="status">
+            <RadixFormMessage tone={dismissState.status === "saved" ? "saved" : "error"}>
               {dismissState.message}
-            </p>
+            </RadixFormMessage>
           ) : null}
         </form>
       ) : null}

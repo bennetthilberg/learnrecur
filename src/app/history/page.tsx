@@ -1,7 +1,9 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
+import { Badge, Card, Table } from "@radix-ui/themes";
 import Link from "next/link";
 
 import { PanelHeaderCount } from "@/components/app/panel-header-count";
+import { PressLink } from "@/components/app/open-water";
 import { UserStatusPanel } from "@/components/app/user-status-panel";
 import {
   getPracticeHistory,
@@ -59,42 +61,44 @@ export default async function HistoryPage() {
           </p>
         </div>
         <div className="dashboardHeaderActions">
-          <Link className="secondaryButton" href="/practice">
+          <PressLink className="secondaryButton" href="/practice" variant="white">
             Open practice
-          </Link>
-          <Link className="secondaryButton" href="/dashboard">
+          </PressLink>
+          <PressLink className="secondaryButton" href="/dashboard" variant="white">
             Back to dashboard
-          </Link>
+          </PressLink>
         </div>
       </header>
 
-      <section className="skillPanel historyPanel" aria-labelledby="review-history-title">
-        <div className="skillPanelHeader">
-          <div>
-            <h2 id="review-history-title">Latest completed reviews</h2>
+      <Card asChild className="skillPanel historyPanel" size="3" variant="surface">
+        <section aria-labelledby="review-history-title">
+          <div className="skillPanelHeader">
+            <div>
+              <h2 id="review-history-title">Latest completed reviews</h2>
+            </div>
+            <PanelHeaderCount
+              ariaLabel="Review rows shown"
+              label="Shown"
+              value={formatCount(history.reviews.length)}
+            />
           </div>
-          <PanelHeaderCount
-            ariaLabel="Review rows shown"
-            label="Shown"
-            value={formatCount(history.reviews.length)}
-          />
-        </div>
 
-        {history.reviews.length === 0 ? (
-          <div className="dashboardEmptyState">
-            <h3>No completed reviews yet</h3>
-            <p>
-              Answer a practice exercise, check it, then continue to record your
-              first completed review.
-            </p>
-            <Link className="secondaryButton" href="/practice">
-              Open practice
-            </Link>
-          </div>
-        ) : (
-          <HistoryTable reviews={history.reviews} />
-        )}
-      </section>
+          {history.reviews.length === 0 ? (
+            <div className="dashboardEmptyState">
+              <h3>No completed reviews yet</h3>
+              <p>
+                Answer a practice exercise, check it, then continue to record your
+                first completed review.
+              </p>
+              <PressLink className="secondaryButton" href="/practice" variant="white">
+                Open practice
+              </PressLink>
+            </div>
+          ) : (
+            <HistoryTable reviews={history.reviews} />
+          )}
+        </section>
+      </Card>
     </main>
   );
 }
@@ -102,24 +106,24 @@ export default async function HistoryPage() {
 function HistoryTable({ reviews }: { reviews: PracticeHistoryReview[] }) {
   return (
     <div className="historyTableWrapper">
-      <table className="historyTable">
-        <thead>
-          <tr>
-            <th scope="col">Reviewed</th>
-            <th scope="col">Skill</th>
-            <th scope="col">Result</th>
-            <th scope="col">Rating</th>
-            <th scope="col">Next due</th>
-          </tr>
-        </thead>
-        <tbody>
+      <Table.Root className="historyTable" layout="auto" size="2" variant="surface">
+        <Table.Header>
+          <Table.Row>
+            <Table.ColumnHeaderCell scope="col">Reviewed</Table.ColumnHeaderCell>
+            <Table.ColumnHeaderCell scope="col">Skill</Table.ColumnHeaderCell>
+            <Table.ColumnHeaderCell scope="col">Result</Table.ColumnHeaderCell>
+            <Table.ColumnHeaderCell scope="col">Rating</Table.ColumnHeaderCell>
+            <Table.ColumnHeaderCell scope="col">Next due</Table.ColumnHeaderCell>
+          </Table.Row>
+        </Table.Header>
+        <Table.Body>
           {reviews.map((review) => (
-            <tr key={review.id}>
-              <td data-label="Reviewed">
+            <Table.Row key={review.id}>
+              <Table.Cell data-label="Reviewed">
                 <span className="historyDateText">{formatReviewDay(review.reviewedAt)}</span>
                 <span className="historySubText">{formatReviewTime(review.reviewedAt)}</span>
-              </td>
-              <td data-label="Skill">
+              </Table.Cell>
+              <Table.Cell data-label="Skill">
                 <Link className="historySkillLink" href={`/skills/${review.skillId}`}>
                   {review.skillTitle}
                 </Link>
@@ -130,15 +134,18 @@ function HistoryTable({ reviews }: { reviews: PracticeHistoryReview[] }) {
                   <span>{review.collectionName ?? "Uncollected"}</span>
                   <span>{formatAnswerKind(review.answerKind)}</span>
                 </span>
-              </td>
-              <td data-label="Result">
+              </Table.Cell>
+              <Table.Cell data-label="Result">
                 <div className="historyResultStack">
-                  <span
+                  <Badge
                     className="dashboardChip"
+                    color={review.result === "CORRECT" ? "green" : "red"}
                     data-tone={review.result === "CORRECT" ? "ready" : "danger"}
+                    highContrast
+                    variant="surface"
                   >
                     {formatReviewResult(review.result)}
-                  </span>
+                  </Badge>
                   <span className="historyAnswerLine">
                     <span>Correct answer</span>
                     <strong>
@@ -147,19 +154,19 @@ function HistoryTable({ reviews }: { reviews: PracticeHistoryReview[] }) {
                   </span>
                 </div>
                 <span className="historySubText">{formatResponseTime(review.responseMs)}</span>
-              </td>
-              <td data-label="Rating">
+              </Table.Cell>
+              <Table.Cell data-label="Rating">
                 <span className="historyPrimaryText">{formatHistoryLabel(review.finalRating)}</span>
                 <HistoryStateTransition review={review} />
-              </td>
-              <td data-label="Next due">
+              </Table.Cell>
+              <Table.Cell data-label="Next due">
                 <span className="historyPrimaryText">Next: {formatDueLabel(review.nextDueAt)}</span>
                 <HistoryDueTransition review={review} />
-              </td>
-            </tr>
+              </Table.Cell>
+            </Table.Row>
           ))}
-        </tbody>
-      </table>
+        </Table.Body>
+      </Table.Root>
     </div>
   );
 }

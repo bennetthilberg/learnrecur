@@ -1,7 +1,42 @@
-import { Skeleton } from "@mantine/core";
-import type { ReactNode } from "react";
+import { Badge, Card, Skeleton as RadixSkeleton, Table, TabNav } from "@radix-ui/themes";
+import type { CSSProperties, ReactNode } from "react";
 
 import type { SkillsTopbarCurrent } from "./skills-topbar";
+
+type RouteSkeletonProps = {
+  children?: ReactNode;
+  className?: string;
+  height?: number | string;
+  mt?: number | string;
+  radius?: number | string;
+  width?: number | string;
+};
+
+function toCssLength(value: number | string | undefined) {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  return typeof value === "number" ? `${value}px` : value;
+}
+
+function Skeleton({ children, className, height, mt, radius, width }: RouteSkeletonProps) {
+  const style: CSSProperties = {
+    borderRadius: toCssLength(radius),
+    marginTop: toCssLength(mt),
+  };
+
+  return (
+    <RadixSkeleton
+      className={className}
+      height={toCssLength(height)}
+      style={style}
+      width={toCssLength(width)}
+    >
+      {children}
+    </RadixSkeleton>
+  );
+}
 
 export type PrimaryRouteKey = Exclude<SkillsTopbarCurrent, "skill">;
 
@@ -123,14 +158,16 @@ function PanelSkeleton({
   title: string;
 }) {
   return (
-    <section className={`skillPanel routeLoadingPanel ${className ?? ""}`.trim()}>
-      <div className="skillPanelHeader">
-        <div>
-          <h2>{title}</h2>
+    <Card asChild className={`skillPanel routeLoadingPanel ${className ?? ""}`.trim()} size="3" variant="surface">
+      <section>
+        <div className="skillPanelHeader">
+          <div>
+            <h2>{title}</h2>
+          </div>
         </div>
-      </div>
-      {children}
-    </section>
+        {children}
+      </section>
+    </Card>
   );
 }
 
@@ -307,24 +344,36 @@ function NewSkillRouteLoading({ config }: { config: PrimaryRouteLoadingConfig })
     <>
       <RouteHeader config={config} />
       <div className="skillCreateStack routeLoadingCreateStack">
-        <nav className="skillCreationTabs routeLoadingTabs" aria-label="Skill creation mode">
-          <span aria-current="page">From source</span>
-          <span>Manual</span>
-        </nav>
-        <section className="skillCreationPath" aria-label="Source-backed skill creation path">
-          <div>
-            <span>Input</span>
-            <strong>Add source material.</strong>
-          </div>
-          <div>
-            <span>Create</span>
-            <strong>Wait while LearnRecur writes the skill.</strong>
-          </div>
-          <div>
-            <span>Add</span>
-            <strong>Review, edit, then add it to practice.</strong>
-          </div>
-        </section>
+        <TabNav.Root className="skillCreationTabs routeLoadingTabs" aria-label="Skill creation mode">
+          <TabNav.Link active asChild>
+            <span aria-current="page">From source</span>
+          </TabNav.Link>
+          <TabNav.Link asChild>
+            <span>Manual</span>
+          </TabNav.Link>
+        </TabNav.Root>
+        <Card asChild className="skillCreationPath" size="2" variant="surface">
+          <section aria-label="Source-backed skill creation path">
+            <div>
+              <Badge color="blue" highContrast variant="surface">
+                Input
+              </Badge>
+              <strong>Add source material.</strong>
+            </div>
+            <div>
+              <Badge color="blue" highContrast variant="surface">
+                Create
+              </Badge>
+              <strong>Wait while LearnRecur writes the skill.</strong>
+            </div>
+            <div>
+              <Badge color="blue" highContrast variant="surface">
+                Add
+              </Badge>
+              <strong>Review, edit, then add it to practice.</strong>
+            </div>
+          </section>
+        </Card>
         <section className="skillSourceEntryGrid" aria-label="Source-backed skill options loading">
           <PanelSkeleton title="Upload material">
             <div className="routeLoadingDropzone" aria-hidden="true">
@@ -350,59 +399,61 @@ function HistoryRouteLoading({ config }: { config: PrimaryRouteLoadingConfig }) 
   return (
     <>
       <RouteHeader actionCount={2} config={config} />
-      <section className="skillPanel historyPanel routeLoadingPanel" aria-label="Review history loading">
-        <div className="skillPanelHeader">
-          <div>
-            <h2>Latest completed reviews</h2>
+      <Card asChild className="skillPanel historyPanel routeLoadingPanel" size="3" variant="surface">
+        <section aria-label="Review history loading">
+          <div className="skillPanelHeader">
+            <div>
+              <h2>Latest completed reviews</h2>
+            </div>
           </div>
-        </div>
-        <div className="historyTableWrapper">
-          <table className="historyTable routeLoadingHistoryTable">
-            <thead>
-              <tr>
-                <th scope="col">Reviewed</th>
-                <th scope="col">Skill</th>
-                <th scope="col">Result</th>
-                <th scope="col">Rating</th>
-                <th scope="col">Next due</th>
-              </tr>
-            </thead>
-            <tbody aria-hidden="true">
+          <div className="historyTableWrapper">
+            <Table.Root className="historyTable routeLoadingHistoryTable" layout="auto" size="2" variant="surface">
+              <Table.Header>
+                <Table.Row>
+                  <Table.ColumnHeaderCell scope="col">Reviewed</Table.ColumnHeaderCell>
+                  <Table.ColumnHeaderCell scope="col">Skill</Table.ColumnHeaderCell>
+                  <Table.ColumnHeaderCell scope="col">Result</Table.ColumnHeaderCell>
+                  <Table.ColumnHeaderCell scope="col">Rating</Table.ColumnHeaderCell>
+                  <Table.ColumnHeaderCell scope="col">Next due</Table.ColumnHeaderCell>
+                </Table.Row>
+              </Table.Header>
+              <Table.Body aria-hidden="true">
               {Array.from({ length: 3 }, (_, index) => (
                 <HistoryRowSkeleton key={index} />
               ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+              </Table.Body>
+            </Table.Root>
+          </div>
+        </section>
+      </Card>
     </>
   );
 }
 
 function HistoryRowSkeleton() {
   return (
-    <tr>
-      <td>
+    <Table.Row>
+      <Table.Cell>
         <Skeleton className="routeSkeleton" height={18} radius={5} width={72} />
         <Skeleton className="routeSkeleton" height={13} radius={5} mt={10} width={62} />
-      </td>
-      <td>
+      </Table.Cell>
+      <Table.Cell>
         <Skeleton className="routeSkeleton" height={18} radius={5} width="76%" />
         <Skeleton className="routeSkeleton" height={13} radius={5} mt={12} width="48%" />
-      </td>
-      <td>
+      </Table.Cell>
+      <Table.Cell>
         <Skeleton className="routeSkeleton" height={36} radius={8} width={96} />
         <Skeleton className="routeSkeleton" height={13} radius={5} mt={14} width={150} />
-      </td>
-      <td>
+      </Table.Cell>
+      <Table.Cell>
         <Skeleton className="routeSkeleton" height={18} radius={5} width={58} />
         <Skeleton className="routeSkeleton" height={13} radius={5} mt={12} width={132} />
-      </td>
-      <td>
+      </Table.Cell>
+      <Table.Cell>
         <Skeleton className="routeSkeleton" height={18} radius={5} width={94} />
         <Skeleton className="routeSkeleton" height={13} radius={5} mt={12} width={122} />
-      </td>
-    </tr>
+      </Table.Cell>
+    </Table.Row>
   );
 }
 

@@ -1,8 +1,10 @@
 "use client";
 
-import { useActionState, useId } from "react";
+import { useActionState } from "react";
 import { Archive, ArrowClockwise, PencilSimple } from "@phosphor-icons/react";
 
+import { PressButton } from "@/components/app/open-water";
+import { RadixFormMessage, RadixTextArea, RadixTextField } from "@/components/app/radix-form";
 import type { CollectionSummary } from "@/lib/collections";
 
 import {
@@ -20,44 +22,32 @@ const idleState: CollectionFormActionState = {
 
 export function CollectionCreateForm() {
   const [state, formAction, pending] = useActionState(createCollectionAction, idleState);
-  const nameErrorId = useId();
-  const descriptionErrorId = useId();
 
   return (
     <form action={formAction} className="collectionCreateForm">
       <div className="collectionCreateGrid">
-        <label className="skillField">
-          <span>Name</span>
-          <input
-            aria-describedby={hasFieldError(state, "name") ? nameErrorId : undefined}
-            aria-invalid={hasFieldError(state, "name") ? "true" : undefined}
-            disabled={pending}
-            maxLength={80}
-            name="name"
-            placeholder="Spanish grammar"
-            required
-          />
-          <FieldError id={nameErrorId} state={state} name="name" />
-        </label>
-        <label className="skillField">
-          <span>Description</span>
-          <textarea
-            aria-describedby={
-              hasFieldError(state, "description") ? descriptionErrorId : undefined
-            }
-            aria-invalid={hasFieldError(state, "description") ? "true" : undefined}
-            disabled={pending}
-            maxLength={500}
-            name="description"
-            placeholder="What belongs in this study area?"
-            rows={2}
-          />
-          <FieldError id={descriptionErrorId} state={state} name="description" />
-        </label>
+        <RadixTextField
+          error={state.fieldErrors?.name?.[0]}
+          label="Name"
+          name="name"
+          disabled={pending}
+          maxLength={80}
+          placeholder="Spanish grammar"
+          required
+        />
+        <RadixTextArea
+          error={state.fieldErrors?.description?.[0]}
+          label="Description"
+          name="description"
+          disabled={pending}
+          maxLength={500}
+          placeholder="What belongs in this study area?"
+          rows={2}
+        />
         <div className="collectionCreateAction">
-          <button className="primaryButton" disabled={pending} type="submit">
+          <PressButton className="primaryButton" disabled={pending} type="submit">
             {pending ? "Creating" : "Create collection"}
-          </button>
+          </PressButton>
         </div>
       </div>
 
@@ -72,8 +62,6 @@ export function CollectionUpdateForm({
   collection: CollectionSummary;
 }) {
   const [state, formAction, pending] = useActionState(updateCollectionAction, idleState);
-  const nameErrorId = useId();
-  const descriptionErrorId = useId();
 
   return (
     <details className="collectionInlineDetails">
@@ -83,39 +71,29 @@ export function CollectionUpdateForm({
       </summary>
       <form action={formAction} className="collectionInlineForm">
         <input name="collectionId" type="hidden" value={collection.id} />
-        <label className="skillField">
-          <span>Name</span>
-          <input
-            aria-describedby={hasFieldError(state, "name") ? nameErrorId : undefined}
-            aria-invalid={hasFieldError(state, "name") ? "true" : undefined}
-            defaultValue={collection.name}
-            disabled={pending}
-            maxLength={80}
-            name="name"
-            required
-          />
-          <FieldError id={nameErrorId} state={state} name="name" />
-        </label>
-        <label className="skillField">
-          <span>Description</span>
-          <textarea
-            aria-describedby={
-              hasFieldError(state, "description") ? descriptionErrorId : undefined
-            }
-            aria-invalid={hasFieldError(state, "description") ? "true" : undefined}
-            defaultValue={collection.description ?? ""}
-            disabled={pending}
-            maxLength={500}
-            name="description"
-            rows={3}
-          />
-          <FieldError id={descriptionErrorId} state={state} name="description" />
-        </label>
+        <RadixTextField
+          error={state.fieldErrors?.name?.[0]}
+          label="Name"
+          name="name"
+          defaultValue={collection.name}
+          disabled={pending}
+          maxLength={80}
+          required
+        />
+        <RadixTextArea
+          error={state.fieldErrors?.description?.[0]}
+          label="Description"
+          name="description"
+          defaultValue={collection.description ?? ""}
+          disabled={pending}
+          maxLength={500}
+          rows={3}
+        />
 
         <div className="skillFormActions">
-          <button className="secondaryButton" disabled={pending} type="submit">
+          <PressButton className="secondaryButton" disabled={pending} type="submit" variant="white">
             {pending ? "Saving" : "Save changes"}
-          </button>
+          </PressButton>
         </div>
         <FormMessage state={state} />
       </form>
@@ -144,9 +122,15 @@ export function CollectionArchiveForm({
           Archive this collection from dashboard summaries. Its skills can still appear in
           practice.
         </p>
-        <button className="secondaryButton" data-tone="danger" disabled={pending} type="submit">
+        <PressButton
+          className="secondaryButton"
+          data-tone="danger"
+          disabled={pending}
+          type="submit"
+          variant="white"
+        >
           {pending ? "Archiving" : "Archive collection"}
-        </button>
+        </PressButton>
         <FormMessage state={state} />
       </form>
     </details>
@@ -165,36 +149,19 @@ export function CollectionRestoreForm({
   return (
     <form action={formAction} className="collectionRestoreForm">
       <input name="collectionId" type="hidden" value={collectionId} />
-      <button
+      <PressButton
         aria-label={`Restore collection ${collectionName}`}
         className="secondaryButton"
         disabled={pending}
         type="submit"
+        variant="white"
       >
         <ArrowClockwise aria-hidden="true" size={17} weight="regular" />
         {pending ? "Restoring" : "Restore collection"}
-      </button>
+      </PressButton>
       <FormMessage state={state} />
     </form>
   );
-}
-
-function FieldError({
-  id,
-  state,
-  name,
-}: {
-  id: string;
-  state: CollectionFormActionState;
-  name: string;
-}) {
-  const error = state.fieldErrors?.[name]?.[0];
-
-  if (!error) {
-    return null;
-  }
-
-  return <em id={id}>{error}</em>;
 }
 
 function FormMessage({ state }: { state: CollectionFormActionState }) {
@@ -203,12 +170,8 @@ function FormMessage({ state }: { state: CollectionFormActionState }) {
   }
 
   return (
-    <p className="skillFormMessage" data-tone={state.status === "saved" ? "saved" : "error"} role="status">
+    <RadixFormMessage tone={state.status === "saved" ? "saved" : "error"}>
       {state.message}
-    </p>
+    </RadixFormMessage>
   );
-}
-
-function hasFieldError(state: CollectionFormActionState, field: string) {
-  return Boolean(state.fieldErrors?.[field]?.length);
 }

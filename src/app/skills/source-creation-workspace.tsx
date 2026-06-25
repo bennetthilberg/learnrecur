@@ -1,8 +1,9 @@
 "use client";
 
+import { Card, Spinner } from "@radix-ui/themes";
 import { useCallback, useState } from "react";
 import { CheckCircle, WarningCircle } from "@phosphor-icons/react";
-import { notifications } from "@mantine/notifications";
+import { notifications } from "@/components/app/notifications";
 
 import { SourceSkillForm } from "./source-skill-form";
 import { SourceUploadForm } from "./source-upload-form";
@@ -84,12 +85,14 @@ export function SourceCreationWorkspace() {
 
 function SourceGenerationPanel({ status }: { status: SourceGenerationStatus }) {
   return (
-    <section className="skillPanel sourceGenerationPanel" aria-live="polite" role="status">
-      <div className="sourceGenerationSpinner" aria-hidden="true" />
-      <div>
-        <h2>{status.title || defaultGenerationStatus.title}</h2>
-        <p>{status.detail || defaultGenerationStatus.detail}</p>
-      </div>
-    </section>
+    <Card asChild size="4" variant="surface">
+      <section className="skillPanel sourceGenerationPanel" aria-live="polite" role="status">
+        <Spinner className="sourceGenerationSpinner" size="3" aria-hidden="true" />
+        <div>
+          <h2>{status.title || defaultGenerationStatus.title}</h2>
+          <p>{status.detail || defaultGenerationStatus.detail}</p>
+        </div>
+      </section>
+    </Card>
   );
 }

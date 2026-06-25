@@ -1,8 +1,9 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
-import Link from "next/link";
+import { Badge, Card, DataList } from "@radix-ui/themes";
 import { PlayCircle } from "@phosphor-icons/react/dist/ssr";
 
 import { PanelHeaderCount } from "@/components/app/panel-header-count";
+import { PressLink } from "@/components/app/open-water";
 import { UserStatusPanel } from "@/components/app/user-status-panel";
 import {
   getCollectionsHome,
@@ -56,68 +57,74 @@ export default async function CollectionsPage() {
             your skills.
           </p>
         </div>
-        <Link className="secondaryButton" href="/skills/new">
+        <PressLink className="secondaryButton" href="/skills/new" variant="white">
           Add skill
-        </Link>
+        </PressLink>
       </header>
 
-      <section className="skillPanel collectionCreatePanel" aria-labelledby="create-collection-title">
-        <div className="skillPanelHeader">
-          <div>
-            <h2 id="create-collection-title">Add a study area</h2>
-          </div>
-        </div>
-        <CollectionCreateForm />
-      </section>
-
-      <section className="skillPanel collectionManagementPanel" aria-labelledby="active-collections-title">
-        <div className="skillPanelHeader">
-          <div>
-            <h2 id="active-collections-title">Current collections</h2>
-          </div>
-          <PanelHeaderCount
-            ariaLabel="Active collections shown"
-            label="Active"
-            value={formatCount(home.activeCollections.length)}
-          />
-        </div>
-
-        {home.activeCollections.length === 0 ? (
-          <CollectionEmptyState
-            title="No active collections yet"
-            detail="Create a study area, then use its row to practice only that collection."
-          />
-        ) : (
-          <div className="skillLibraryList">
-            {home.activeCollections.map((collection) => (
-              <ActiveCollectionRow collection={collection} key={collection.id} />
-            ))}
-          </div>
-        )}
-      </section>
-
-      {home.archivedCollections.length > 0 ? (
-        <section
-          className="skillPanel collectionManagementPanel skillRecoveryPanel"
-          aria-labelledby="archived-collections-title"
-        >
+      <Card asChild size="3" variant="surface">
+        <section className="skillPanel collectionCreatePanel" aria-labelledby="create-collection-title">
           <div className="skillPanelHeader">
             <div>
-              <h2 id="archived-collections-title">Archived collections</h2>
+              <h2 id="create-collection-title">Add a study area</h2>
+            </div>
+          </div>
+          <CollectionCreateForm />
+        </section>
+      </Card>
+
+      <Card asChild size="3" variant="surface">
+        <section className="skillPanel collectionManagementPanel" aria-labelledby="active-collections-title">
+          <div className="skillPanelHeader">
+            <div>
+              <h2 id="active-collections-title">Current collections</h2>
             </div>
             <PanelHeaderCount
-              ariaLabel="Archived collections shown"
-              label="Archived"
-              value={formatCount(home.archivedCollections.length)}
+              ariaLabel="Active collections shown"
+              label="Active"
+              value={formatCount(home.activeCollections.length)}
             />
           </div>
 
-          <div className="skillLibraryList">
-            {home.archivedCollections.map((collection) => (
-              <ArchivedCollectionRow collection={collection} key={collection.id} />
-            ))}
-          </div>
+          {home.activeCollections.length === 0 ? (
+            <CollectionEmptyState
+              title="No active collections yet"
+              detail="Create a study area, then use its row to practice only that collection."
+            />
+          ) : (
+            <div className="skillLibraryList">
+              {home.activeCollections.map((collection) => (
+                <ActiveCollectionRow collection={collection} key={collection.id} />
+              ))}
+            </div>
+          )}
         </section>
+      </Card>
+
+      {home.archivedCollections.length > 0 ? (
+        <Card asChild size="3" variant="surface">
+          <section
+            className="skillPanel collectionManagementPanel skillRecoveryPanel"
+            aria-labelledby="archived-collections-title"
+          >
+            <div className="skillPanelHeader">
+              <div>
+                <h2 id="archived-collections-title">Archived collections</h2>
+              </div>
+              <PanelHeaderCount
+                ariaLabel="Archived collections shown"
+                label="Archived"
+                value={formatCount(home.archivedCollections.length)}
+              />
+            </div>
+
+            <div className="skillLibraryList">
+              {home.archivedCollections.map((collection) => (
+                <ArchivedCollectionRow collection={collection} key={collection.id} />
+              ))}
+            </div>
+          </section>
+        </Card>
       ) : null}
     </main>
   );
@@ -147,15 +154,16 @@ function ActiveCollectionRow({
       <div className="collectionRowActions">
         <CollectionArchiveForm collectionId={collection.id} collectionName={collection.name} />
         <CollectionUpdateForm collection={collection} />
-        <Link
+        <PressLink
           aria-label={`Practice collection ${collection.name}`}
           className="secondaryButton collectionPracticeLink"
           data-ready={collection.readyNowCount > 0 ? "true" : "false"}
           href={`/practice?collectionId=${encodeURIComponent(collection.id)}`}
+          variant="white"
         >
           <PlayCircle aria-hidden="true" size={18} weight="regular" />
           {collection.readyNowCount > 0 ? "Practice now" : "Open practice"}
-        </Link>
+        </PressLink>
       </div>
     </article>
   );
@@ -176,7 +184,9 @@ function ArchivedCollectionRow({
               "Archived from dashboard summaries. Skills inside remain recoverable."}
           </p>
         </div>
-        <span className="dashboardChip">Archived</span>
+        <Badge className="dashboardChip" color="gray" radius="small" size="1" variant="surface">
+          Archived
+        </Badge>
       </div>
       <CollectionMetaLine collection={collection} />
       <CollectionRestoreForm collectionId={collection.id} collectionName={collection.name} />
@@ -192,26 +202,26 @@ function CollectionMetaLine({
   const skillMix = formatCollectionSkillMix(collection);
 
   return (
-    <dl className="collectionFacts" aria-label={`${collection.name} collection details`}>
-      <div data-priority="primary">
-        <dt>Skill mix</dt>
-        <dd className="collectionSkillMix">
+    <DataList.Root className="collectionFacts" aria-label={`${collection.name} collection details`}>
+      <DataList.Item data-priority="primary">
+        <DataList.Label>Skill mix</DataList.Label>
+        <DataList.Value className="collectionSkillMix">
           {skillMix.map((item) => (
             <span key={item.label}>
               <strong>{formatCount(item.count)}</strong> {formatSkillMixLabel(item)}
             </span>
           ))}
-        </dd>
-      </div>
-      <div>
-        <dt>Sources</dt>
-        <dd>{formatSourceCount(collection.sourceCount)}</dd>
-      </div>
-      <div>
-        <dt>Updated</dt>
-        <dd>{formatDate(collection.updatedAt)}</dd>
-      </div>
-    </dl>
+        </DataList.Value>
+      </DataList.Item>
+      <DataList.Item>
+        <DataList.Label>Sources</DataList.Label>
+        <DataList.Value>{formatSourceCount(collection.sourceCount)}</DataList.Value>
+      </DataList.Item>
+      <DataList.Item>
+        <DataList.Label>Updated</DataList.Label>
+        <DataList.Value>{formatDate(collection.updatedAt)}</DataList.Value>
+      </DataList.Item>
+    </DataList.Root>
   );
 }
 

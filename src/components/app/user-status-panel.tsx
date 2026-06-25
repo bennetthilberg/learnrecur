@@ -1,3 +1,5 @@
+import { Card } from "@radix-ui/themes";
+
 import type { DatabaseUserStatus } from "@/lib/users";
 
 type UserStatusPanelProps = {
@@ -7,10 +9,12 @@ type UserStatusPanelProps = {
 
 export function UserStatusPanel({ id, status }: UserStatusPanelProps) {
   return (
-    <section className="dashboardSetupPanel" aria-labelledby={id}>
-      <h1 id={id}>{getUserStatusTitle(status)}</h1>
-      <p>{status.message}</p>
-    </section>
+    <Card asChild className="dashboardSetupPanel" size="3" variant="surface">
+      <section aria-labelledby={id}>
+        <h1 id={id}>{getUserStatusTitle(status)}</h1>
+        <p>{status.message}</p>
+      </section>
+    </Card>
   );
 }
 

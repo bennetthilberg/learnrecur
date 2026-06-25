@@ -1,3 +1,5 @@
+import { Badge, Card, DataList } from "@radix-ui/themes";
+
 import { PanelHeaderCount } from "@/components/app/panel-header-count";
 import { formatDisplayLabel } from "@/lib/formatters";
 import type { SkillSourceSummary } from "@/lib/skills/sources";
@@ -18,63 +20,74 @@ export function SkillSourcePanel({
   }
 
   return (
-    <section className="skillPanel skillSourcePanel" aria-labelledby="skill-source-title">
-      <div className="skillPanelHeader">
-        <div>
-          <h2 id="skill-source-title">Linked source material</h2>
+    <Card asChild className="skillPanel skillSourcePanel" size="3" variant="surface">
+      <section aria-labelledby="skill-source-title">
+        <div className="skillPanelHeader">
+          <div>
+            <h2 id="skill-source-title">Linked source material</h2>
+          </div>
+          <PanelHeaderCount
+            ariaLabel="Linked sources shown"
+            label="Sources"
+            value={formatCount(sources.length)}
+          />
         </div>
-        <PanelHeaderCount
-          ariaLabel="Linked sources shown"
-          label="Sources"
-          value={formatCount(sources.length)}
-        />
-      </div>
-      <div className="skillSourceList">
-        {sources.map((source) => (
-          <article className="skillSourceRow" key={source.id}>
-            <div className="skillSourceRowHeader">
-              <div>
-                <h3>{source.label}</h3>
-                {source.note ? <p className="skillSourceNote">{source.note}</p> : null}
+
+        <div className="skillSourceList">
+          {sources.map((source) => (
+            <article className="skillSourceRow" key={source.id}>
+              <div className="skillSourceRowHeader">
+                <div>
+                  <h3>{source.label}</h3>
+                  {source.note ? <p className="skillSourceNote">{source.note}</p> : null}
+                </div>
+                {canRemove ? (
+                  <SkillSourceRemoveForm
+                    skillId={skillId}
+                    sourceLabel={source.label}
+                    sourceRefId={source.id}
+                  />
+                ) : null}
               </div>
-              {canRemove ? (
-                <SkillSourceRemoveForm
-                  skillId={skillId}
-                  sourceLabel={source.label}
-                  sourceRefId={source.id}
-                />
-              ) : null}
-            </div>
-            <dl className="skillSourceFacts" aria-label={`${source.label} source details`}>
-              <div data-priority="primary">
-                <dt>Status</dt>
-                <dd>{formatSourceStatus(source.status)}</dd>
-              </div>
-              <div>
-                <dt>Type</dt>
-                <dd>{formatSourceKind(source.kind)}</dd>
-              </div>
-              <div>
-                <dt>Size</dt>
-                <dd>{formatBytes(source.byteSize)}</dd>
-              </div>
-              <div>
-                <dt>Added</dt>
-                <dd>{formatDate(source.createdAt)}</dd>
-              </div>
-            </dl>
-            {source.preview ? (
-              <details className="skillSourcePreviewDetails">
-                <summary>View extracted text preview</summary>
-                <blockquote className="skillSourcePreview">{source.preview}</blockquote>
-              </details>
-            ) : (
-              <p className="skillSourceEmpty">No extracted text preview is available.</p>
-            )}
-          </article>
-        ))}
-      </div>
-    </section>
+              <DataList.Root
+                className="skillSourceFacts"
+                aria-label={`${source.label} source details`}
+                orientation="horizontal"
+              >
+                <DataList.Item data-priority="primary">
+                  <DataList.Label>Status</DataList.Label>
+                  <DataList.Value>
+                    <Badge color="blue" highContrast variant="surface">
+                      {formatSourceStatus(source.status)}
+                    </Badge>
+                  </DataList.Value>
+                </DataList.Item>
+                <DataList.Item>
+                  <DataList.Label>Type</DataList.Label>
+                  <DataList.Value>{formatSourceKind(source.kind)}</DataList.Value>
+                </DataList.Item>
+                <DataList.Item>
+                  <DataList.Label>Size</DataList.Label>
+                  <DataList.Value>{formatBytes(source.byteSize)}</DataList.Value>
+                </DataList.Item>
+                <DataList.Item>
+                  <DataList.Label>Added</DataList.Label>
+                  <DataList.Value>{formatDate(source.createdAt)}</DataList.Value>
+                </DataList.Item>
+              </DataList.Root>
+              {source.preview ? (
+                <details className="skillSourcePreviewDetails">
+                  <summary>View extracted text preview</summary>
+                  <blockquote className="skillSourcePreview">{source.preview}</blockquote>
+                </details>
+              ) : (
+                <p className="skillSourceEmpty">No extracted text preview is available.</p>
+              )}
+            </article>
+          ))}
+        </div>
+      </section>
+    </Card>
   );
 }
 

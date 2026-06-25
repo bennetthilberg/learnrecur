@@ -7,6 +7,7 @@ import {
   OpenWaterHeroRings,
   OpenWaterHeroWaves,
   OpenWaterLogoMark,
+  PressLink,
 } from "@/components/app/open-water";
 
 export default async function Home() {
@@ -36,12 +37,12 @@ export default async function Home() {
               through verified exercises whenever the schedule says it is time.
             </p>
             <div className="openWaterHeroActions">
-              <Link className="bpbtn bpbtn-hero" href="/sign-up">
+              <PressLink href="/sign-up" variant="hero">
                 Create account
-              </Link>
-              <Link className="bpbtn bpbtn-ghost" href="/sign-in">
+              </PressLink>
+              <PressLink href="/sign-in" variant="ghost">
                 Sign in
-              </Link>
+              </PressLink>
             </div>
           </div>
         </div>

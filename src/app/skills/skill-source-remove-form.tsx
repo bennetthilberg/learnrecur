@@ -2,7 +2,9 @@
 
 import { useActionState, useEffect } from "react";
 import { CheckCircle, Trash, WarningCircle } from "@phosphor-icons/react";
-import { notifications } from "@mantine/notifications";
+import { Checkbox } from "@radix-ui/themes";
+import { notifications } from "@/components/app/notifications";
+import { PressButton } from "@/components/app/open-water";
 
 import {
   removeSkillSourceAction,
@@ -61,17 +63,25 @@ export function SkillSourceRemoveForm({
         <input name="skillId" type="hidden" value={skillId} />
         <input name="sourceRefId" type="hidden" value={sourceRefId} />
         <label className="skillSourceConfirm">
-          <input name="confirmRemove" required type="checkbox" value="yes" />
+          <Checkbox
+            color="blue"
+            highContrast
+            name="confirmRemove"
+            required
+            size="2"
+            value="yes"
+            variant="surface"
+          />
           <span>Remove {sourceLabel} from this skill.</span>
         </label>
         <p>
           Existing exercises and review history will stay. Future exercise preparation will use
           the skill definition without this source.
         </p>
-        <button className="secondaryButton" data-tone="danger" disabled={isPending} type="submit">
+        <PressButton className="secondaryButton" data-tone="danger" disabled={isPending} type="submit" variant="white">
           <Trash size={16} weight="bold" aria-hidden="true" />
           <span>{isPending ? "Removing" : "Remove"}</span>
-        </button>
+        </PressButton>
       </form>
     </details>
   );

@@ -1,4 +1,6 @@
-import { forwardRef } from "react";
+import { Button, Card, type ButtonProps, type CardProps } from "@radix-ui/themes";
+import Link from "next/link";
+import { forwardRef, type ComponentProps, type ReactNode } from "react";
 
 export function OpenWaterBackground() {
   return (
@@ -107,19 +109,58 @@ export function OpenWaterLogoMark({ className }: { className?: string }) {
 
 type PressVariant = "blue" | "green" | "white" | "again" | "hero" | "ghost";
 
-interface PressButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+interface PressButtonProps extends Omit<ButtonProps, "color" | "variant"> {
   variant?: PressVariant;
 }
 
 export const PressButton = forwardRef<HTMLButtonElement, PressButtonProps>(
   ({ variant = "blue", className = "", style, type = "button", ...rest }, ref) => (
-    <button
+    <Button
       ref={ref}
       type={type}
+      highContrast
       className={`bpbtn bpbtn-${variant} ${className}`}
+      radius="medium"
+      size="2"
       style={style}
+      variant="solid"
       {...rest}
     />
   ),
 );
 PressButton.displayName = "PressButton";
+
+type PressLinkProps = ComponentProps<typeof Link> & {
+  children: ReactNode;
+  className?: string;
+  variant?: PressVariant;
+};
+
+export function PressLink({ children, className = "", variant = "blue", ...props }: PressLinkProps) {
+  return (
+    <Button
+      asChild
+      highContrast
+      className={`bpbtn bpbtn-${variant} ${className}`.trim()}
+      radius="medium"
+      size="2"
+      variant="solid"
+    >
+      <Link {...props}>{children}</Link>
+    </Button>
+  );
+}
+
+export function OpenWaterCard({
+  children,
+  className = "",
+  size = "2",
+  variant = "surface",
+  ...props
+}: CardProps & { children: ReactNode }) {
+  return (
+    <Card className={`openWaterRadixCard ${className}`.trim()} size={size} variant={variant} {...props}>
+      {children}
+    </Card>
+  );
+}

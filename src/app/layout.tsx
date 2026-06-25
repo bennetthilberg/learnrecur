@@ -1,5 +1,4 @@
-import "@mantine/core/styles.css";
-import "@mantine/notifications/styles.css";
+import "@radix-ui/themes/styles.css";
 import "katex/dist/katex.min.css";
 import "./globals.css";
 import "./open-water.css";

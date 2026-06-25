@@ -1,10 +1,12 @@
 "use client";
 
+import { Card } from "@radix-ui/themes";
 import { useCallback, useEffect, useId, useRef, useState, useTransition } from "react";
-import type React from "react";
 import { useRouter } from "next/navigation";
 import { UploadSimple } from "@phosphor-icons/react";
 
+import { PressButton } from "@/components/app/open-water";
+import { RadixTextArea, RadixTextField } from "@/components/app/radix-form";
 import {
   completeSourceUploadAction,
   prepareSourceUploadAction,
@@ -113,161 +115,163 @@ export function SourceUploadForm({
   }, [busy, selectUploadFile]);
 
   return (
-    <form
-      className="skillPanel skillUploadForm"
-      ref={formRef}
-      onSubmit={(event) => {
-        event.preventDefault();
-        const form = event.currentTarget;
+    <Card asChild size="3" variant="surface">
+      <form
+        className="skillPanel skillUploadForm"
+        ref={formRef}
+        onSubmit={(event) => {
+          event.preventDefault();
+          const form = event.currentTarget;
 
-        if (submittingRef.current) {
-          return;
-        }
+          if (submittingRef.current) {
+            return;
+          }
 
-        submittingRef.current = true;
-        setIsSubmitting(true);
-        startTransition(() => {
-          void submitForm(form);
-        });
-      }}
-    >
-      <div className="skillPanelHeader">
-        <div>
-          <h2>Use an image or PDF</h2>
-        </div>
-        <span className="skillPanelHeaderIcon" aria-hidden="true">
-          <UploadSimple size={18} weight="bold" />
-        </span>
-      </div>
-      <p className="skillUploadIntro">
-        Upload a small worksheet, notes photo, screenshot, or PDF. You will review
-        the generated skill before adding it.
-      </p>
-
-      <fieldset className="skillFormFieldset">
-        <legend>Source file</legend>
-        <div className="skillFormFieldsetBody">
-          <div className="skillField">
-            <span>File</span>
-            <label
-              className="skillFileControl skillFileDropzone"
-              data-dragging={isDraggingFile ? "true" : "false"}
-              htmlFor={fileInputId}
-              onDragEnter={(event) => {
-                event.preventDefault();
-                setIsDraggingFile(true);
-              }}
-              onDragLeave={(event) => {
-                event.preventDefault();
-
-                if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
-                  setIsDraggingFile(false);
-                }
-              }}
-              onDragOver={(event) => {
-                event.preventDefault();
-              }}
-              onDrop={(event) => {
-                event.preventDefault();
-                setIsDraggingFile(false);
-
-                const file = event.dataTransfer.files.item(0);
-
-                if (!file || !fileInputRef.current) {
-                  return;
-                }
-
-                selectUploadFile(file);
-              }}
-            >
-              <input
-                accept={SOURCE_UPLOAD_MIME_TYPES.join(",")}
-                aria-describedby={fileError ? fileErrorId : undefined}
-                aria-invalid={hasFileError(fieldErrors) ? "true" : undefined}
-                className="skillFileInput"
-                id={fileInputId}
-                name="sourceFile"
-                onChange={(event) => {
-                  setSelectedFileName(event.currentTarget.files?.[0]?.name ?? null);
-                  setStatus("idle");
-                  onNotice?.(null);
-                  setFieldErrors(undefined);
-                }}
-                ref={fileInputRef}
-                required
-                type="file"
-              />
-              <span className="skillFileDropzoneIcon" aria-hidden="true">
-                <UploadSimple aria-hidden="true" size={19} weight="bold" />
-              </span>
-              <span className="secondaryButton skillFileButton">
-                Choose file
-              </span>
-              <span className="skillFileDropzoneText">Drag a file here, or paste a screenshot.</span>
-              <span className="skillFileName" data-state={selectedFileName ? "selected" : "empty"}>
-                {selectedFileName ?? "No file selected"}
-              </span>
-            </label>
-            {fileError ? <em id={fileErrorId}>{fileError}</em> : null}
-          </div>
-          <p className="skillUploadMeta">PNG, JPEG, WebP, or PDF. Maximum 10 MB.</p>
-        </div>
-      </fieldset>
-
-      <details
-        className="skillFormDetails"
-        open={
-          fieldErrors?.sourceLabel?.length ||
-            fieldErrors?.collectionName?.length ||
-            fieldErrors?.focusNote?.length ||
-            fieldErrors?.tags?.length
-            ? true
-            : undefined
-        }
+          submittingRef.current = true;
+          setIsSubmitting(true);
+          startTransition(() => {
+            void submitForm(form);
+          });
+        }}
       >
-        <summary>
-          <span>Optional context</span>
-          <small>Collection, focus, and tags</small>
-        </summary>
-        <div className="skillFormFieldsetBody">
-          <div className="skillTwoColumnFields">
-            <SkillTextField
-              error={fieldErrors?.sourceLabel?.[0]}
-              label="Source label"
-              name="sourceLabel"
-              placeholder="Worksheet page 3"
+        <div className="skillPanelHeader">
+          <div>
+            <h2>Use an image or PDF</h2>
+          </div>
+          <span className="skillPanelHeaderIcon" aria-hidden="true">
+            <UploadSimple size={18} weight="bold" />
+          </span>
+        </div>
+        <p className="skillUploadIntro">
+          Upload a small worksheet, notes photo, screenshot, or PDF. You will review
+          the generated skill before adding it.
+        </p>
+
+        <fieldset className="skillFormFieldset">
+          <legend>Source file</legend>
+          <div className="skillFormFieldsetBody">
+            <div className="skillField">
+              <span>File</span>
+              <label
+                className="skillFileControl skillFileDropzone"
+                data-dragging={isDraggingFile ? "true" : "false"}
+                htmlFor={fileInputId}
+                onDragEnter={(event) => {
+                  event.preventDefault();
+                  setIsDraggingFile(true);
+                }}
+                onDragLeave={(event) => {
+                  event.preventDefault();
+
+                  if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                    setIsDraggingFile(false);
+                  }
+                }}
+                onDragOver={(event) => {
+                  event.preventDefault();
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  setIsDraggingFile(false);
+
+                  const file = event.dataTransfer.files.item(0);
+
+                  if (!file || !fileInputRef.current) {
+                    return;
+                  }
+
+                  selectUploadFile(file);
+                }}
+              >
+                <input
+                  accept={SOURCE_UPLOAD_MIME_TYPES.join(",")}
+                  aria-describedby={fileError ? fileErrorId : undefined}
+                  aria-invalid={hasFileError(fieldErrors) ? "true" : undefined}
+                  className="skillFileInput"
+                  id={fileInputId}
+                  name="sourceFile"
+                  onChange={(event) => {
+                    setSelectedFileName(event.currentTarget.files?.[0]?.name ?? null);
+                    setStatus("idle");
+                    onNotice?.(null);
+                    setFieldErrors(undefined);
+                  }}
+                  ref={fileInputRef}
+                  required
+                  type="file"
+                />
+                <span className="skillFileDropzoneIcon" aria-hidden="true">
+                  <UploadSimple aria-hidden="true" size={19} weight="bold" />
+                </span>
+                <span className="secondaryButton skillFileButton">
+                  Choose file
+                </span>
+                <span className="skillFileDropzoneText">Drag a file here, or paste a screenshot.</span>
+                <span className="skillFileName" data-state={selectedFileName ? "selected" : "empty"}>
+                  {selectedFileName ?? "No file selected"}
+                </span>
+              </label>
+              {fileError ? <em id={fileErrorId}>{fileError}</em> : null}
+            </div>
+            <p className="skillUploadMeta">PNG, JPEG, WebP, or PDF. Maximum 10 MB.</p>
+          </div>
+        </fieldset>
+
+        <details
+          className="skillFormDetails"
+          open={
+            fieldErrors?.sourceLabel?.length ||
+              fieldErrors?.collectionName?.length ||
+              fieldErrors?.focusNote?.length ||
+              fieldErrors?.tags?.length
+              ? true
+              : undefined
+          }
+        >
+          <summary>
+            <span>Optional context</span>
+            <small>Collection, focus, and tags</small>
+          </summary>
+          <div className="skillFormFieldsetBody">
+            <div className="skillTwoColumnFields">
+              <RadixTextField
+                error={fieldErrors?.sourceLabel?.[0]}
+                label="Source label"
+                name="sourceLabel"
+                placeholder="Worksheet page 3"
+              />
+              <RadixTextField
+                error={fieldErrors?.collectionName?.[0]}
+                label="Collection"
+                name="collectionName"
+                placeholder="Spanish grammar"
+              />
+            </div>
+
+            <RadixTextArea
+              error={fieldErrors?.focusNote?.[0]}
+              label="Focus note"
+              name="focusNote"
+              placeholder="Focus on the grammar rules, not the vocabulary list."
+              rows={3}
             />
-            <SkillTextField
-              error={fieldErrors?.collectionName?.[0]}
-              label="Collection"
-              name="collectionName"
-              placeholder="Spanish grammar"
+
+            <RadixTextField
+              error={fieldErrors?.tags?.[0]}
+              label="Tags"
+              name="tags"
+              placeholder="spanish, worksheet, grammar"
             />
           </div>
+        </details>
 
-          <SkillTextArea
-            error={fieldErrors?.focusNote?.[0]}
-            label="Focus note"
-            name="focusNote"
-            placeholder="Focus on the grammar rules, not the vocabulary list."
-            rows={3}
-          />
-
-          <SkillTextField
-            error={fieldErrors?.tags?.[0]}
-            label="Tags"
-            name="tags"
-            placeholder="spanish, worksheet, grammar"
-          />
+        <div className="skillFormActions">
+          <PressButton className="primaryButton" disabled={busy} type="submit">
+            {buttonText(status)}
+          </PressButton>
         </div>
-      </details>
-
-      <div className="skillFormActions">
-        <button className="primaryButton" disabled={busy} type="submit">
-          {buttonText(status)}
-        </button>
-      </div>
-    </form>
+      </form>
+    </Card>
   );
 
   async function submitForm(form: HTMLFormElement) {
@@ -417,61 +421,5 @@ function hasFileError(fieldErrors: Record<string, string[]> | undefined) {
 function fileErrorMessage(fieldErrors: Record<string, string[]> | undefined) {
   return (
     fieldErrors?.originalName?.[0] ?? fieldErrors?.mimeType?.[0] ?? fieldErrors?.byteSize?.[0] ?? null
-  );
-}
-
-function SkillTextField({
-  label,
-  name,
-  error,
-  "aria-describedby": ariaDescribedBy,
-  ...props
-}: {
-  label: string;
-  name: string;
-  error?: string;
-} & React.InputHTMLAttributes<HTMLInputElement>) {
-  const errorId = useId();
-  const describedBy = [ariaDescribedBy, error ? errorId : null].filter(Boolean).join(" ") || undefined;
-
-  return (
-    <label className="skillField">
-      <span>{label}</span>
-      <input
-        aria-describedby={describedBy}
-        aria-invalid={error ? "true" : undefined}
-        name={name}
-        {...props}
-      />
-      {error ? <em id={errorId}>{error}</em> : null}
-    </label>
-  );
-}
-
-function SkillTextArea({
-  label,
-  name,
-  error,
-  "aria-describedby": ariaDescribedBy,
-  ...props
-}: {
-  label: string;
-  name: string;
-  error?: string;
-} & React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  const errorId = useId();
-  const describedBy = [ariaDescribedBy, error ? errorId : null].filter(Boolean).join(" ") || undefined;
-
-  return (
-    <label className="skillField">
-      <span>{label}</span>
-      <textarea
-        aria-describedby={describedBy}
-        aria-invalid={error ? "true" : undefined}
-        name={name}
-        {...props}
-      />
-      {error ? <em id={errorId}>{error}</em> : null}
-    </label>
   );
 }

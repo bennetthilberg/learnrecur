@@ -1,3 +1,5 @@
+import { DataList } from "@radix-ui/themes";
+
 export function PanelHeaderCount({
   ariaLabel,
   label,
@@ -8,11 +10,11 @@ export function PanelHeaderCount({
   value: string;
 }) {
   return (
-    <dl className="panelHeaderCount" aria-label={ariaLabel}>
-      <div>
-        <dt>{label}</dt>
-        <dd>{value}</dd>
-      </div>
-    </dl>
+    <DataList.Root className="panelHeaderCount" aria-label={ariaLabel} orientation="horizontal">
+      <DataList.Item>
+        <DataList.Label>{label}</DataList.Label>
+        <DataList.Value>{value}</DataList.Value>
+      </DataList.Item>
+    </DataList.Root>
   );
 }

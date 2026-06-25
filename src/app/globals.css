@@ -27,8 +27,8 @@
   --lr-r-container:12px; --lr-r-card:8px; --lr-r-button:8px;
   --lr-r-icon-tile:6px; --lr-r-badge:6px; --lr-r-chip:7px; --lr-r-pill:999px;
   /* fonts */
-  --lr-font-body:'Instrument Sans', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  --lr-font-display:'Plus Jakarta Sans', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  --lr-font-body:'Instrument Sans', sans-serif;
+  --lr-font-display:'Plus Jakarta Sans', sans-serif;
   /* compatibility aliases for existing app classes */
   --lr-white: var(--lr-card);
   --lr-ink-soft: var(--lr-pref-label);
