@@ -98,7 +98,13 @@ const theme = createTheme({
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <MantineProvider defaultColorScheme="light" theme={theme}>
-      <Notifications autoClose={5000} limit={3} position="top-right" zIndex={3000} />
+      <Notifications
+        autoClose={5000}
+        containerWidth={360}
+        limit={3}
+        position="top-right"
+        zIndex={3000}
+      />
       {children}
     </MantineProvider>
   );

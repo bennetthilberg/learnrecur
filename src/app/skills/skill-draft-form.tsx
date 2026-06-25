@@ -1,7 +1,14 @@
 "use client";
 
-import { useActionState, useId } from "react";
+import { useActionState, useEffect, useId } from "react";
 import type React from "react";
+import {
+  CheckCircle,
+  FloppyDisk,
+  PlusCircle,
+  WarningCircle,
+} from "@phosphor-icons/react";
+import { notifications } from "@mantine/notifications";
 
 import {
   activateSkillDraftAction,
@@ -30,12 +37,58 @@ const idleState: SkillFormActionState = {
   message: null,
 };
 
+const draftNotificationId = "skill-draft-form-notice";
+const activationNotificationId = "skill-draft-activation-notice";
+
 export function SkillDraftForm({ mode, skillId, initialValues }: SkillDraftFormProps) {
   const [draftState, saveAction, isSaving] = useActionState(saveSkillDraftAction, idleState);
   const [activationState, activateAction, isActivating] = useActionState(
     activateSkillDraftAction,
     idleState,
   );
+
+  useEffect(() => {
+    if (!draftState.message || draftState.status === "idle") {
+      return;
+    }
+
+    const isSaved = draftState.status === "saved";
+    notifications.show({
+      id: draftNotificationId,
+      autoClose: isSaved ? 3500 : 8000,
+      className: "learnrecurNotification",
+      color: isSaved ? "leaf" : "amber",
+      icon: isSaved ? (
+        <CheckCircle size={18} weight="bold" />
+      ) : (
+        <WarningCircle size={18} weight="bold" />
+      ),
+      message: isSaved ? "Your changes are saved." : draftState.message,
+      position: "top-right",
+      title: isSaved ? "Draft saved" : "Could not save draft",
+      withBorder: true,
+      withCloseButton: true,
+    });
+  }, [draftState]);
+
+  useEffect(() => {
+    if (!activationState.message || activationState.status === "idle") {
+      return;
+    }
+
+    notifications.show({
+      id: activationNotificationId,
+      autoClose: 8000,
+      className: "learnrecurNotification",
+      color: "amber",
+      icon: <WarningCircle size={18} weight="bold" />,
+      message: activationState.message,
+      position: "top-right",
+      title: "Could not add skill",
+      withBorder: true,
+      withCloseButton: true,
+    });
+  }, [activationState]);
 
   return (
     <div className="skillDraftGrid">
@@ -121,19 +174,16 @@ export function SkillDraftForm({ mode, skillId, initialValues }: SkillDraftFormP
           </div>
         </fieldset>
 
-        {draftState.message ? (
-          <p className="skillFormMessage" data-tone={draftState.status} role="status">
-            {draftState.message}
-          </p>
-        ) : null}
-
         <div className="skillFormActions">
           <button
             className={mode === "create" ? "secondaryButton" : "primaryButton"}
             disabled={isSaving}
             type="submit"
           >
-            {isSaving ? "Saving" : mode === "create" ? "Create skill" : "Save changes"}
+            <FloppyDisk size={18} weight="bold" aria-hidden="true" />
+            <span>
+              {isSaving ? "Saving" : mode === "create" ? "Create skill" : "Save changes"}
+            </span>
           </button>
         </div>
       </form>
@@ -150,16 +200,11 @@ export function SkillDraftForm({ mode, skillId, initialValues }: SkillDraftFormP
             for practice.
           </p>
 
-          {activationState.message ? (
-            <p className="skillFormMessage" data-tone="error" role="status">
-              {activationState.message}
-            </p>
-          ) : null}
-
           <form action={activateAction} className="skillActivationForm">
             <input name="skillId" type="hidden" value={skillId} />
             <button className="primaryButton" disabled={isActivating} type="submit">
-              {isActivating ? "Adding" : "Add skill"}
+              <PlusCircle size={18} weight="bold" aria-hidden="true" />
+              <span>{isActivating ? "Adding" : "Add skill"}</span>
             </button>
           </form>
         </section>

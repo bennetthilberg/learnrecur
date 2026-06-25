@@ -850,6 +850,7 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 8px;
   border: 1px solid transparent;
   border-radius: 8px;
   cursor: pointer;

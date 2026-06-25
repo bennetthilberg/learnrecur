@@ -573,8 +573,6 @@ export default async function SkillPage({
       ) : null}
 
       <SkillSourcePanel skillId={skill.id} sources={sourceSummaries} />
-      <SkillRecentReviewsPanel reviews={recentReviews} />
-
       <SkillDraftForm initialValues={draftValues} mode="edit" skillId={skill.id} />
       <SkillLifecyclePanel skillId={skill.id} skillTitle={skill.title} status={skill.status} />
     </main>

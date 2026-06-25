@@ -3213,6 +3213,10 @@ a {
   margin: 18px auto 0;
 }
 
+.skillSourcePanel + .skillDraftGrid {
+  margin-top: 18px;
+}
+
 .skillSourceIntro {
   max-width: 720px;
   margin: -4px 0 0;
@@ -3385,13 +3389,55 @@ a {
 
 .skillSourcePreview {
   margin: 13px 0 0;
-  border-top: 1px solid var(--lr-line);
   border-bottom: 1px solid var(--lr-line);
   background: transparent;
   color: var(--lr-ink-soft);
   padding: 10px 0 10px 12px;
   font-size: var(--lr-text-sm);
   line-height: var(--lr-leading-body);
+}
+
+.skillSourcePreviewDetails {
+  margin-top: 12px;
+  border-top: 1px solid var(--lr-line);
+  padding-top: 10px;
+}
+
+.skillSourcePreviewDetails summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  color: var(--lr-muted);
+  font-size: var(--lr-text-sm);
+  font-weight: 500;
+  line-height: var(--lr-leading-label);
+  list-style: none;
+}
+
+.skillSourcePreviewDetails summary::marker,
+.skillSourcePreviewDetails summary::-webkit-details-marker {
+  display: none;
+}
+
+.skillSourcePreviewDetails summary::after {
+  display: inline-block;
+  color: var(--lr-faint);
+  content: "+";
+  font-weight: 600;
+}
+
+.skillSourcePreviewDetails[open] summary {
+  color: var(--lr-ink);
+}
+
+.skillSourcePreviewDetails[open] summary::after {
+  content: "-";
+}
+
+.skillSourcePreviewDetails summary:focus-visible {
+  outline: none;
+  box-shadow: var(--lr-focus-ring);
 }
 
 .skillSourceRemove {
@@ -3406,6 +3452,7 @@ a {
   min-height: 36px;
   align-items: center;
   justify-content: center;
+  gap: 7px;
   border: 1px solid #DDE3EE;
   border-radius: var(--lr-radius);
   background: var(--lr-danger-subtle);
