@@ -167,7 +167,16 @@ export async function generateSkillDraftFromSourceAction(
   });
 
   if (result.status === "created") {
-    redirect(`/skills/${result.skills[0].id}`);
+    const skill = result.skills[0];
+
+    if (skill) {
+      redirect(`/skills/${skill.id}`);
+    }
+
+    return {
+      status: "error",
+      message: "LearnRecur could not create a skill from that source. Try again with a clearer excerpt.",
+    };
   }
 
   if (result.status === "invalid") {
@@ -239,14 +248,23 @@ export async function completeSourceUploadAction(input: {
   });
 
   if (result.status === "created") {
+    const skill = result.skills[0];
+
+    if (!skill) {
+      return {
+        status: "error",
+        message: "LearnRecur could not create a skill from that source. Try again with a clearer excerpt.",
+      };
+    }
+
     revalidatePath("/skills");
     revalidatePath("/dashboard");
-    revalidatePath(`/skills/${result.skills[0].id}`);
+    revalidatePath(`/skills/${skill.id}`);
 
     return {
       status: "created",
       message: "Skill created.",
-      redirectTo: `/skills/${result.skills[0].id}`,
+      redirectTo: `/skills/${skill.id}`,
     };
   }
 

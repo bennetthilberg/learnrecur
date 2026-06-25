@@ -110,4 +110,21 @@ describe("Gemini fallback helpers", () => {
     );
     expect(getPublicGeminiFailureMessage(error)).not.toContain("{");
   });
+
+  it("treats Gemini rate limits as retryable capacity failures", () => {
+    const error = new Error(
+      JSON.stringify({
+        error: {
+          code: 429,
+          message: "Quota exceeded for this request.",
+          status: "RESOURCE_EXHAUSTED",
+        },
+      }),
+    );
+
+    expect(isRetryableGeminiModelError(error)).toBe(true);
+    expect(getPublicGeminiFailureMessage(error)).toBe(
+      "The AI service is busy right now, so LearnRecur could not finish creating this skill. Try again in a minute.",
+    );
+  });
 });

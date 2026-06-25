@@ -2031,10 +2031,10 @@ a {
   border: 2px solid #BBCAEC;
   border-top-color: var(--lr-primary);
   border-radius: 999px;
-  animation: sourceGenerationSpin 900ms linear infinite;
+  animation: source-generation-spin 900ms linear infinite;
 }
 
-@keyframes sourceGenerationSpin {
+@keyframes source-generation-spin {
   to {
     transform: rotate(1turn);
   }

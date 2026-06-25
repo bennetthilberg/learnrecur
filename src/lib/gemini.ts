@@ -88,12 +88,7 @@ export async function runWithGeminiModelFallback<T>({
 export function isRetryableGeminiModelError(error: unknown): boolean {
   const details = getGeminiErrorDetails(error);
 
-  return (
-    details.code === 500 ||
-    details.code === 503 ||
-    details.status === "INTERNAL" ||
-    details.status === "UNAVAILABLE"
-  );
+  return isRetryableGeminiErrorDetails(details);
 }
 
 export function getPublicGeminiFailureMessage(error: unknown): string {
@@ -101,10 +96,7 @@ export function getPublicGeminiFailureMessage(error: unknown): string {
   const message = details.message?.toLowerCase() ?? "";
 
   if (
-    details.code === 500 ||
-    details.code === 503 ||
-    details.status === "INTERNAL" ||
-    details.status === "UNAVAILABLE" ||
+    isRetryableGeminiErrorDetails(details) ||
     message.includes("high demand") ||
     message.includes("temporarily overloaded") ||
     message.includes("temporarily running out of capacity")
@@ -167,6 +159,19 @@ function getGeminiErrorDetails(error: unknown): GeminiErrorDetails {
     status: null,
     message: null,
   };
+}
+
+function isRetryableGeminiErrorDetails(details: GeminiErrorDetails): boolean {
+  const status = details.status?.toUpperCase() ?? null;
+
+  return (
+    details.code === 429 ||
+    details.code === 500 ||
+    details.code === 503 ||
+    status === "INTERNAL" ||
+    status === "RESOURCE_EXHAUSTED" ||
+    status === "UNAVAILABLE"
+  );
 }
 
 function collectErrorRecords(error: unknown): Array<Record<string, unknown>> {

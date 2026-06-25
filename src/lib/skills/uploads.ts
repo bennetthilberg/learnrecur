@@ -1010,7 +1010,8 @@ export async function runQueuedSourceUploadDraftJob(
       "generateSkillDraft timed out",
     );
   } catch (error) {
-    const message = `Gemini skill draft generation failed: ${formatEnvError(error)}`;
+    const message = getPublicGeminiFailureMessage(error);
+    console.error("[gemini] source draft generation failed", getGeminiErrorLogDetails(error));
     await markUploadedSourceFailed(
       sourceFile,
       storageSetup.storage,
