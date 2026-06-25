@@ -3155,20 +3155,12 @@ body {
   gap: 18px;
   margin: 0;
   border: 0;
-  border-top: 1px solid var(--lr-divider);
   border-radius: 0;
-  padding: 28px 0 0;
-}
-
-.settingsReminderFieldset:first-child {
-  border-top: 0;
-  padding-top: 0;
+  padding: 0;
 }
 
 .settingsReminderForm .settingsReminderFieldset + .settingsReminderFieldset {
-  border-top: 1px solid var(--lr-divider);
   border-left: 0;
-  padding-top: 28px;
   padding-left: 0;
 }
 
