@@ -850,6 +850,7 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 8px;
   border: 1px solid transparent;
   border-radius: 8px;
   cursor: pointer;
@@ -1639,6 +1640,12 @@ body {
   background: #FFFFFF;
   color: var(--lr-text-secondary);
   box-shadow: none;
+}
+
+.skillShell > .skillFormMessage,
+.skillShell > .skillMessage {
+  width: calc(100% - 28px);
+  margin: 14px auto 0;
 }
 
 .practiceFeedback[data-tone="correct"],

@@ -10,6 +10,11 @@ import {
   type Skill,
 } from "@/generated/prisma/client";
 import { formatEnvError, getGeminiEnv } from "@/lib/env";
+import {
+  getGeminiErrorLogDetails,
+  getPublicGeminiFailureMessage,
+  runWithGeminiModelFallback,
+} from "@/lib/gemini";
 import { getInngestEnvStatus } from "@/lib/inngest/client";
 import {
   inngestSourceUploadDraftEventSender,
@@ -29,20 +34,20 @@ import {
   resolveS3SourceObjectStorage,
   type SourceObjectStorage,
 } from "@/lib/storage/s3";
+import {
+  MAX_SOURCE_UPLOAD_BYTES,
+  SOURCE_UPLOAD_MAX_BYTES_ERROR,
+  SOURCE_UPLOAD_MIME_TYPE_ERROR,
+  isSourceUploadMimeType,
+  type SourceUploadMimeType,
+} from "@/lib/skills/source-upload-policy";
 import { checkSourceUploadUsageLimit } from "@/lib/usage-limits";
 
-export const MAX_SOURCE_UPLOAD_BYTES = 10 * 1024 * 1024;
 export const SOURCE_UPLOAD_PREFIX = "source-uploads";
 export const SOURCE_UPLOAD_PROMPT_VERSION = "source-upload-drafts-v0";
 export const SOURCE_PROCESSING_STALE_AFTER_MS = 15 * 60 * 1000;
 const SOURCE_UPLOAD_GENERATION_TIMEOUT_MS = 45_000;
-
-const allowedSourceUploadMimeTypes = [
-  "image/png",
-  "image/jpeg",
-  "image/webp",
-  "application/pdf",
-] as const;
+export { MAX_SOURCE_UPLOAD_BYTES } from "@/lib/skills/source-upload-policy";
 
 const sourceUploadInputSchema = z.strictObject({
   originalName: z.string().trim().min(1, "Choose a file to upload.").max(220),
@@ -50,15 +55,14 @@ const sourceUploadInputSchema = z.strictObject({
     .string()
     .trim()
     .refine(
-      (mimeType): mimeType is SourceUploadMimeType =>
-        allowedSourceUploadMimeTypes.includes(mimeType as SourceUploadMimeType),
-      "Upload a PNG, JPEG, WebP, or PDF file.",
+      (mimeType): mimeType is SourceUploadMimeType => isSourceUploadMimeType(mimeType),
+      SOURCE_UPLOAD_MIME_TYPE_ERROR,
     ),
   byteSize: z.coerce
     .number()
     .int()
     .positive("Upload a non-empty file.")
-    .max(MAX_SOURCE_UPLOAD_BYTES, "Upload a file smaller than 10 MB."),
+    .max(MAX_SOURCE_UPLOAD_BYTES, SOURCE_UPLOAD_MAX_BYTES_ERROR),
   sourceLabel: optionalTrimmedString().pipe(z.string().max(160).optional()),
   focusNote: optionalTrimmedString().pipe(z.string().max(800).optional()),
   collectionName: optionalTrimmedString(),
@@ -68,8 +72,6 @@ const sourceUploadInputSchema = z.strictObject({
 const extractedSourceTextSchema = z.strictObject({
   extractedText: z.string().trim().min(40).max(80_000),
 });
-
-type SourceUploadMimeType = (typeof allowedSourceUploadMimeTypes)[number];
 
 export type NormalizedSourceUploadInput = {
   originalName: string;
@@ -967,7 +969,8 @@ export async function runQueuedSourceUploadDraftJob(
       "extractSourceText timed out",
     );
   } catch (error) {
-    const message = `Gemini source extraction failed: ${formatEnvError(error)}`;
+    const message = getPublicGeminiFailureMessage(error);
+    console.error("[gemini] source extraction failed", getGeminiErrorLogDetails(error));
     await markUploadedSourceFailed(
       sourceFile,
       storageSetup.storage,
@@ -1007,7 +1010,8 @@ export async function runQueuedSourceUploadDraftJob(
       "generateSkillDraft timed out",
     );
   } catch (error) {
-    const message = `Gemini skill draft generation failed: ${formatEnvError(error)}`;
+    const message = getPublicGeminiFailureMessage(error);
+    console.error("[gemini] source draft generation failed", getGeminiErrorLogDetails(error));
     await markUploadedSourceFailed(
       sourceFile,
       storageSetup.storage,
@@ -1110,10 +1114,12 @@ function resolveUploadGenerationSetup(
       extractSourceText: input.extractSourceText ?? createGeminiSourceTextExtractor({
         apiKey: env.GEMINI_API_KEY,
         model: env.GEMINI_MODEL,
+        fallbackModels: env.GEMINI_FALLBACK_MODELS,
       }),
       generateSkillDraft: input.generateSkillDraft ?? createGeminiSkillDraftGenerator({
         apiKey: env.GEMINI_API_KEY,
         model: env.GEMINI_MODEL,
+        fallbackModels: env.GEMINI_FALLBACK_MODELS,
       }),
     };
   } catch (error) {
@@ -1127,30 +1133,38 @@ function resolveUploadGenerationSetup(
 
 function createGeminiSourceTextExtractor({
   apiKey,
+  fallbackModels,
   model,
 }: {
   apiKey: string;
+  fallbackModels?: readonly string[];
   model: string;
 }): SourceTextExtractor {
   return async (input) => {
     const ai = new GoogleGenAI({ apiKey });
-    const response = await ai.models.generateContent({
-      model,
-      contents: [
-        {
-          inlineData: {
-            data: input.bytes.toString("base64"),
-            mimeType: input.mimeType,
+    const response = await runWithGeminiModelFallback({
+      fallbackModels,
+      operation: "source text extraction",
+      primaryModel: model,
+      run: (activeModel) =>
+        ai.models.generateContent({
+          model: activeModel,
+          contents: [
+            {
+              inlineData: {
+                data: input.bytes.toString("base64"),
+                mimeType: input.mimeType,
+              },
+            },
+            {
+              text: buildSourceExtractionPrompt(input),
+            },
+          ],
+          config: {
+            responseMimeType: "application/json",
+            responseJsonSchema: geminiSourceExtractionJsonSchema,
           },
-        },
-        {
-          text: buildSourceExtractionPrompt(input),
-        },
-      ],
-      config: {
-        responseMimeType: "application/json",
-        responseJsonSchema: geminiSourceExtractionJsonSchema,
-      },
+        }),
     });
     const text = response.text;
 
@@ -1357,7 +1371,7 @@ function sourceFileKindFromMimeType(mimeType: SourceUploadMimeType) {
 }
 
 function isAllowedSourceUploadMimeType(mimeType: string): mimeType is SourceUploadMimeType {
-  return allowedSourceUploadMimeTypes.includes(mimeType as SourceUploadMimeType);
+  return isSourceUploadMimeType(mimeType);
 }
 
 async function validateStoredSourceUpload(

@@ -1,7 +1,14 @@
 "use client";
 
-import { useActionState, useId } from "react";
+import { useActionState, useEffect, useId } from "react";
 import type React from "react";
+import {
+  CheckCircle,
+  FloppyDisk,
+  PlusCircle,
+  WarningCircle,
+} from "@phosphor-icons/react";
+import { notifications } from "@mantine/notifications";
 
 import {
   activateSkillDraftAction,
@@ -30,6 +37,9 @@ const idleState: SkillFormActionState = {
   message: null,
 };
 
+const draftNotificationId = "skill-draft-form-notice";
+const activationNotificationId = "skill-draft-activation-notice";
+
 export function SkillDraftForm({ mode, skillId, initialValues }: SkillDraftFormProps) {
   const [draftState, saveAction, isSaving] = useActionState(saveSkillDraftAction, idleState);
   const [activationState, activateAction, isActivating] = useActionState(
@@ -37,12 +47,55 @@ export function SkillDraftForm({ mode, skillId, initialValues }: SkillDraftFormP
     idleState,
   );
 
+  useEffect(() => {
+    if (!draftState.message || draftState.status === "idle") {
+      return;
+    }
+
+    const isSaved = draftState.status === "saved";
+    notifications.show({
+      id: draftNotificationId,
+      autoClose: isSaved ? 3500 : 8000,
+      className: "learnrecurNotification",
+      color: isSaved ? "leaf" : "amber",
+      icon: isSaved ? (
+        <CheckCircle size={18} weight="bold" />
+      ) : (
+        <WarningCircle size={18} weight="bold" />
+      ),
+      message: isSaved ? "Your changes are saved." : draftState.message,
+      position: "top-right",
+      title: isSaved ? "Draft saved" : "Could not save draft",
+      withBorder: true,
+      withCloseButton: true,
+    });
+  }, [draftState]);
+
+  useEffect(() => {
+    if (!activationState.message || activationState.status === "idle") {
+      return;
+    }
+
+    notifications.show({
+      id: activationNotificationId,
+      autoClose: 8000,
+      className: "learnrecurNotification",
+      color: "amber",
+      icon: <WarningCircle size={18} weight="bold" />,
+      message: activationState.message,
+      position: "top-right",
+      title: "Could not add skill",
+      withBorder: true,
+      withCloseButton: true,
+    });
+  }, [activationState]);
+
   return (
     <div className="skillDraftGrid">
       <form action={saveAction} className="skillPanel skillDraftForm">
         <div className="skillPanelHeader">
           <div>
-            <h2>{mode === "create" ? "Create a draft" : "Review the draft"}</h2>
+            <h2>{mode === "create" ? "Write the skill" : "Review generated skill"}</h2>
           </div>
         </div>
 
@@ -121,19 +174,16 @@ export function SkillDraftForm({ mode, skillId, initialValues }: SkillDraftFormP
           </div>
         </fieldset>
 
-        {draftState.message ? (
-          <p className="skillFormMessage" data-tone={draftState.status} role="status">
-            {draftState.message}
-          </p>
-        ) : null}
-
         <div className="skillFormActions">
           <button
             className={mode === "create" ? "secondaryButton" : "primaryButton"}
             disabled={isSaving}
             type="submit"
           >
-            {isSaving ? "Saving" : mode === "create" ? "Create draft" : "Save draft"}
+            <FloppyDisk size={18} weight="bold" aria-hidden="true" />
+            <span>
+              {isSaving ? "Saving" : mode === "create" ? "Create skill" : "Save changes"}
+            </span>
           </button>
         </div>
       </form>
@@ -142,24 +192,19 @@ export function SkillDraftForm({ mode, skillId, initialValues }: SkillDraftFormP
         <section className="skillPanel skillActivationPanel" aria-labelledby="activate-skill-title">
           <div className="skillPanelHeader">
             <div>
-              <h2 id="activate-skill-title">Prepare starter practice</h2>
+              <h2 id="activate-skill-title">Add to practice</h2>
             </div>
           </div>
           <p>
-            Activation prepares and verifies a starter set of multiple-choice exercises, then
-            schedules this skill for practice.
+            LearnRecur prepares and verifies starter exercises, then schedules this skill
+            for practice.
           </p>
-
-          {activationState.message ? (
-            <p className="skillFormMessage" data-tone="error" role="status">
-              {activationState.message}
-            </p>
-          ) : null}
 
           <form action={activateAction} className="skillActivationForm">
             <input name="skillId" type="hidden" value={skillId} />
             <button className="primaryButton" disabled={isActivating} type="submit">
-              {isActivating ? "Activating" : "Activate skill"}
+              <PlusCircle size={18} weight="bold" aria-hidden="true" />
+              <span>{isActivating ? "Adding" : "Add skill"}</span>
             </button>
           </form>
         </section>

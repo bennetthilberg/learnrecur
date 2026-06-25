@@ -5,11 +5,11 @@ import { UserStatusPanel } from "@/components/app/user-status-panel";
 import { ensureDatabaseUser } from "@/lib/users";
 
 import { SkillDraftForm, type SkillDraftFormValues } from "../skill-draft-form";
-import { SourceUploadForm } from "../source-upload-form";
+import { SourceCreationWorkspace } from "../source-creation-workspace";
 import { SkillsTopbar } from "../skills-topbar";
-import { SourceSkillForm } from "../source-skill-form";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 120;
 
 type NewSkillPageProps = {
   searchParams?: Promise<{
@@ -55,10 +55,10 @@ export default async function NewSkillPage({ searchParams }: NewSkillPageProps) 
       <SkillsTopbar current="new" />
       <header className="skillHeader">
         <div>
-          <h1>Create skill drafts</h1>
+          <h1>Create a skill</h1>
           <p>
-            Upload or paste source material to shape one to three editable drafts,
-            or define the skill manually. You will review each draft before activation.
+            Upload, paste, or write source material. LearnRecur will create a skill
+            for you to review before adding it to practice.
           </p>
         </div>
       </header>
@@ -68,7 +68,7 @@ export default async function NewSkillPage({ searchParams }: NewSkillPageProps) 
             aria-current={mode === "auto" ? "page" : undefined}
             href="/skills/new"
           >
-            Auto draft
+            From source
           </Link>
           <Link
             aria-current={mode === "manual" ? "page" : undefined}
@@ -83,21 +83,18 @@ export default async function NewSkillPage({ searchParams }: NewSkillPageProps) 
             <section className="skillCreationPath" aria-label="Source-backed skill creation path">
               <div>
                 <span>Input</span>
-                <strong>Upload or paste source.</strong>
+                <strong>Add source material.</strong>
               </div>
               <div>
-                <span>Review</span>
-                <strong>Edit the drafts.</strong>
+                <span>Create</span>
+                <strong>Wait while LearnRecur writes the skill.</strong>
               </div>
               <div>
-                <span>Activate</span>
-                <strong>Prepare verified exercises.</strong>
+                <span>Add</span>
+                <strong>Review, edit, then add it to practice.</strong>
               </div>
             </section>
-            <section className="skillSourceEntryGrid" aria-label="Source-backed draft options">
-              <SourceUploadForm />
-              <SourceSkillForm />
-            </section>
+            <SourceCreationWorkspace />
           </>
         ) : (
           <div className="skillManualBody">

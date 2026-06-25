@@ -23,9 +23,9 @@ import {
 } from "@/lib/skills/lifecycle";
 import { deleteSkillPermanently } from "@/lib/skills/delete";
 import {
+  completeSourceUploadDrafts,
   dismissFailedSourceUpload,
   prepareSourceUpload,
-  queueSourceUploadDrafts,
   requeueSourceUploadDraft,
 } from "@/lib/skills/uploads";
 import { removeSkillSource } from "@/lib/skills/sources";
@@ -65,7 +65,7 @@ export type PrepareSourceUploadActionResult =
 
 export type CompleteSourceUploadActionResult =
   | {
-      status: "queued";
+      status: "created";
       message: string;
       redirectTo: string;
     }
@@ -167,11 +167,16 @@ export async function generateSkillDraftFromSourceAction(
   });
 
   if (result.status === "created") {
-    if (result.skills.length === 1) {
-      redirect(`/skills/${result.skills[0].id}`);
+    const skill = result.skills[0];
+
+    if (skill) {
+      redirect(`/skills/${skill.id}`);
     }
 
-    redirect(`/skills?createdDrafts=${result.skills.length}`);
+    return {
+      status: "error",
+      message: "LearnRecur could not create a skill from that source. Try again with a clearer excerpt.",
+    };
   }
 
   if (result.status === "invalid") {
@@ -236,20 +241,30 @@ export async function completeSourceUploadAction(input: {
     return user;
   }
 
-  const result = await queueSourceUploadDrafts({
+  const result = await completeSourceUploadDrafts({
     userId: user.userId,
     sourceFileId: input.sourceFileId,
     now: new Date(),
   });
 
-  if (result.status === "queued") {
+  if (result.status === "created") {
+    const skill = result.skills[0];
+
+    if (!skill) {
+      return {
+        status: "error",
+        message: "LearnRecur could not create a skill from that source. Try again with a clearer excerpt.",
+      };
+    }
+
     revalidatePath("/skills");
     revalidatePath("/dashboard");
+    revalidatePath(`/skills/${skill.id}`);
 
     return {
-      status: "queued",
-      message: result.message,
-      redirectTo: "/skills?sourceQueued=1",
+      status: "created",
+      message: "Skill created.",
+      redirectTo: `/skills/${skill.id}`,
     };
   }
 

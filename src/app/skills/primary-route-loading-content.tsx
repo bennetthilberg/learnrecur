@@ -37,9 +37,9 @@ export const primaryRouteLoadingByKey: Record<PrimaryRouteKey, PrimaryRouteLoadi
     title: "Review ledger",
   },
   new: {
-    detail: "Upload or paste source material to shape one to three editable drafts, or define the skill manually. You will review each draft before activation.",
+    detail: "Upload, paste, or write source material. LearnRecur will create a skill for review before practice.",
     kind: "new",
-    title: "Create skill drafts",
+    title: "Create a skill",
   },
   practice: {
     detail: "Preparing the next due exercise.",
@@ -308,24 +308,24 @@ function NewSkillRouteLoading({ config }: { config: PrimaryRouteLoadingConfig })
       <RouteHeader config={config} />
       <div className="skillCreateStack routeLoadingCreateStack">
         <nav className="skillCreationTabs routeLoadingTabs" aria-label="Skill creation mode">
-          <span aria-current="page">Auto draft</span>
+          <span aria-current="page">From source</span>
           <span>Manual</span>
         </nav>
         <section className="skillCreationPath" aria-label="Source-backed skill creation path">
           <div>
             <span>Input</span>
-            <strong>Upload or paste source.</strong>
+            <strong>Add source material.</strong>
           </div>
           <div>
-            <span>Review</span>
-            <strong>Edit the drafts.</strong>
+            <span>Create</span>
+            <strong>Wait while LearnRecur writes the skill.</strong>
           </div>
           <div>
-            <span>Activate</span>
-            <strong>Prepare verified exercises.</strong>
+            <span>Add</span>
+            <strong>Review, edit, then add it to practice.</strong>
           </div>
         </section>
-        <section className="skillSourceEntryGrid" aria-label="Source-backed draft options loading">
+        <section className="skillSourceEntryGrid" aria-label="Source-backed skill options loading">
           <PanelSkeleton title="Upload material">
             <div className="routeLoadingDropzone" aria-hidden="true">
               <Skeleton className="routeSkeleton" height={44} radius={8} width={154} />

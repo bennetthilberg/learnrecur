@@ -28,6 +28,7 @@ const managedEnvKeys = [
   "CLERK_WEBHOOK_SECRET",
   "GEMINI_API_KEY",
   "GEMINI_MODEL",
+  "GEMINI_FALLBACK_MODELS",
   "RESEND_API_KEY",
   "RESEND_FROM_EMAIL",
   "NEXT_PUBLIC_APP_URL",
@@ -129,6 +130,7 @@ describe("environment validation", () => {
     expect(getGeminiEnv()).toEqual({
       GEMINI_API_KEY: "gemini-secret",
       GEMINI_MODEL: "gemini-3.5-flash",
+      GEMINI_FALLBACK_MODELS: ["gemini-3.1-flash-lite"],
     });
 
     resetManagedEnv({
@@ -200,6 +202,7 @@ describe("environment validation", () => {
       DIRECT_URL: "postgresql://migrate:secret@example.aws.neon.tech/neondb?sslmode=require",
       GEMINI_API_KEY: "gemini-secret",
       GEMINI_MODEL: "gemini-3.5-flash",
+      GEMINI_FALLBACK_MODELS: "gemini-3.1-flash-lite, gemma-4-31b-it",
       AWS_REGION: "us-east-1",
       S3_BUCKET_NAME: "learnrecur-prod-source-uploads",
       AWS_ACCESS_KEY_ID: "prod-access-key",
@@ -219,6 +222,7 @@ describe("environment validation", () => {
       CLERK_SECRET_KEY: "sk_live_example",
       DATABASE_URL: "postgresql://runtime:secret@example-pooler.aws.neon.tech/neondb?sslmode=require",
       DIRECT_URL: "postgresql://migrate:secret@example.aws.neon.tech/neondb?sslmode=require",
+      GEMINI_FALLBACK_MODELS: ["gemini-3.1-flash-lite", "gemma-4-31b-it"],
       INNGEST_APP_ID: "learnrecur",
       INNGEST_DEV: "0",
     });

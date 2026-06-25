@@ -29,10 +29,6 @@ export function SkillSourcePanel({
           value={formatCount(sources.length)}
         />
       </div>
-      <p className="skillSourceIntro">
-        Linked source text helps future exercises match this skill. Previews are capped here so
-        the full source stays out of view.
-      </p>
       <div className="skillSourceList">
         {sources.map((source) => (
           <article className="skillSourceRow" key={source.id}>
@@ -68,7 +64,10 @@ export function SkillSourcePanel({
               </div>
             </dl>
             {source.preview ? (
-              <blockquote className="skillSourcePreview">{source.preview}</blockquote>
+              <details className="skillSourcePreviewDetails">
+                <summary>View extracted text preview</summary>
+                <blockquote className="skillSourcePreview">{source.preview}</blockquote>
+              </details>
             ) : (
               <p className="skillSourceEmpty">No extracted text preview is available.</p>
             )}

@@ -319,6 +319,10 @@ a {
   .buttonSpinner {
     animation: none;
   }
+
+  .sourceGenerationSpinner {
+    animation: none;
+  }
 }
 
 .entryShell,
@@ -1986,6 +1990,56 @@ a {
   gap: 18px;
 }
 
+.skillSourceEntryGrid[hidden] {
+  display: none;
+}
+
+.sourceGenerationPanel {
+  display: grid;
+  min-height: 390px;
+  align-content: center;
+  justify-items: center;
+  gap: 18px;
+  padding: 42px 24px;
+  text-align: center;
+}
+
+.learnrecurNotification {
+  box-shadow: none;
+}
+
+.sourceGenerationPanel h2 {
+  margin: 0;
+  color: var(--lr-ink);
+  font-family: var(--lr-font-display);
+  font-size: var(--lr-text-2xl);
+  font-weight: 600;
+  line-height: var(--lr-leading-title);
+}
+
+.sourceGenerationPanel p {
+  max-width: 440px;
+  margin: 8px auto 0;
+  color: var(--lr-muted);
+  font-size: var(--lr-text-md);
+  line-height: var(--lr-leading-reading);
+}
+
+.sourceGenerationSpinner {
+  width: 54px;
+  height: 54px;
+  border: 2px solid #BBCAEC;
+  border-top-color: var(--lr-primary);
+  border-radius: 999px;
+  animation: source-generation-spin 900ms linear infinite;
+}
+
+@keyframes source-generation-spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
 .skillCreateStack .skillDraftGrid {
   width: 100%;
   margin: 0;
@@ -2533,6 +2587,12 @@ a {
   border-radius: var(--lr-radius);
   background: var(--lr-panel-soft);
   padding: 11px 12px;
+}
+
+.skillShell > .skillFormMessage,
+.skillShell > .skillMessage {
+  width: min(100%, 1040px);
+  margin: 14px auto 0;
 }
 
 .skillFormMessage[data-tone="error"] {
@@ -3153,6 +3213,10 @@ a {
   margin: 18px auto 0;
 }
 
+.skillSourcePanel + .skillDraftGrid {
+  margin-top: 18px;
+}
+
 .skillSourceIntro {
   max-width: 720px;
   margin: -4px 0 0;
@@ -3325,13 +3389,55 @@ a {
 
 .skillSourcePreview {
   margin: 13px 0 0;
-  border-top: 1px solid var(--lr-line);
   border-bottom: 1px solid var(--lr-line);
   background: transparent;
   color: var(--lr-ink-soft);
   padding: 10px 0 10px 12px;
   font-size: var(--lr-text-sm);
   line-height: var(--lr-leading-body);
+}
+
+.skillSourcePreviewDetails {
+  margin-top: 12px;
+  border-top: 1px solid var(--lr-line);
+  padding-top: 10px;
+}
+
+.skillSourcePreviewDetails summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  color: var(--lr-muted);
+  font-size: var(--lr-text-sm);
+  font-weight: 500;
+  line-height: var(--lr-leading-label);
+  list-style: none;
+}
+
+.skillSourcePreviewDetails summary::marker,
+.skillSourcePreviewDetails summary::-webkit-details-marker {
+  display: none;
+}
+
+.skillSourcePreviewDetails summary::after {
+  display: inline-block;
+  color: var(--lr-faint);
+  content: "+";
+  font-weight: 600;
+}
+
+.skillSourcePreviewDetails[open] summary {
+  color: var(--lr-ink);
+}
+
+.skillSourcePreviewDetails[open] summary::after {
+  content: "-";
+}
+
+.skillSourcePreviewDetails summary:focus-visible {
+  outline: none;
+  box-shadow: var(--lr-focus-ring);
 }
 
 .skillSourceRemove {
@@ -3346,6 +3452,7 @@ a {
   min-height: 36px;
   align-items: center;
   justify-content: center;
+  gap: 7px;
   border: 1px solid #DDE3EE;
   border-radius: var(--lr-radius);
   background: var(--lr-danger-subtle);
@@ -4640,6 +4747,11 @@ a {
 
   .skillSourceEntryGrid {
     grid-template-columns: 1fr;
+  }
+
+  .sourceGenerationPanel {
+    min-height: 320px;
+    padding: 34px 18px;
   }
 
   .skillFormDetails summary {
