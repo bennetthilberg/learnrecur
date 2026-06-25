@@ -293,12 +293,11 @@ export default async function SkillPage({
           ) : null}
         </section>
 
-        <section className="skillPanel skillQueuePanel" aria-labelledby="skill-queue-title">
-          <div className="skillPanelHeader">
-            <div>
-              <h2 id="skill-queue-title">Exercise queues</h2>
-            </div>
-          </div>
+        <details className="skillPanel skillQueuePanel skillFormDetails">
+          <summary>
+            <span>Exercise preparation</span>
+            <small>Ready counts and generation status</small>
+          </summary>
           <div className="skillQueueBlock">
             <div>
               <h2>Choice exercises</h2>
@@ -322,7 +321,7 @@ export default async function SkillPage({
               {choiceRefillStatus ? <p className="skillQueueStatus">{choiceRefillStatus}</p> : null}
               {latestChoiceGenerationJob?.errorMessage ? (
                 <p className="skillFormMessage" data-tone="error">
-                  {latestChoiceGenerationJob.errorMessage}
+                  Choice exercise preparation failed. Try again when you are ready.
                 </p>
               ) : null}
             </div>
@@ -377,7 +376,7 @@ export default async function SkillPage({
               ) : null}
               {latestExactInputGenerationJob?.errorMessage ? (
                 <p className="skillFormMessage" data-tone="error">
-                  {latestExactInputGenerationJob.errorMessage}
+                  Exact-input exercise preparation failed. Try again when you are ready.
                 </p>
               ) : null}
             </div>
@@ -436,7 +435,7 @@ export default async function SkillPage({
               {mathRefillStatus ? <p className="skillQueueStatus">{mathRefillStatus}</p> : null}
               {latestMathGenerationJob?.errorMessage ? (
                 <p className="skillFormMessage" data-tone="error">
-                  {latestMathGenerationJob.errorMessage}
+                  Math exercise preparation failed. Try again when you are ready.
                 </p>
               ) : null}
             </div>
@@ -455,7 +454,7 @@ export default async function SkillPage({
               />
             )}
           </div>
-        </section>
+        </details>
         <SkillLifecyclePanel skillId={skill.id} skillTitle={skill.title} status={skill.status} />
         <SkillSourcePanel skillId={skill.id} sources={sourceSummaries} />
         <SkillRecentReviewsPanel reviews={recentReviews} />
@@ -568,7 +567,7 @@ export default async function SkillPage({
 
       {skill.generationJobs[0]?.errorMessage ? (
         <section className="skillMessage" data-tone="error" aria-label="Latest add issue">
-          <p>{skill.generationJobs[0].errorMessage}</p>
+          <p>Skill preparation failed. Review the draft and try again when you are ready.</p>
         </section>
       ) : null}
 

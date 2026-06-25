@@ -87,7 +87,7 @@ export function SourceSkillForm({
         onNotice?.(null);
         onGenerationStart?.({
           title: "Creating a skill from your text",
-          detail: "Gemini is reading the pasted material and writing a focused skill.",
+          detail: "Reading the pasted material and preparing a focused skill for review.",
         });
       }}
     >
