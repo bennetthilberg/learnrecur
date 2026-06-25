@@ -1,5 +1,6 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import Link from "next/link";
+import { DownloadSimpleIcon } from "@phosphor-icons/react/dist/ssr";
 
 import { UserStatusPanel } from "@/components/app/user-status-panel";
 import { getReminderSettings } from "@/lib/reminders";
@@ -44,53 +45,45 @@ export default async function SettingsPage() {
   }
 
   return (
-    <main className="skillShell">
+    <main className="skillShell settingsShell">
       <SkillsTopbar current="settings" />
 
-      <header className="skillHeader">
-        <div>
-          <h1>Reminders and data</h1>
-          <p>
-            Manage quiet reminders and download a copy of your study data.
-          </p>
-        </div>
-        <Link className="secondaryButton" href="/dashboard">
-          Back to dashboard
-        </Link>
+      <header className="skillHeader settingsHeader">
+        <h1>Settings</h1>
       </header>
 
       <section className="skillPanel settingsPanel" aria-labelledby="reminder-settings-title">
-        <div className="skillPanelHeader">
-          <div>
-            <h2 id="reminder-settings-title">Due-practice email</h2>
-          </div>
+        <div className="settingsSectionIntro" id="email-reminders">
+          <h2 id="reminder-settings-title">Email reminders</h2>
+          <p>
+            LearnRecur can send one quiet email when enough skills are ready to practice.
+          </p>
         </div>
 
-        <ReminderScheduleSummary
-          enabled={settings.preference.enabled}
-          localHour={settings.preference.localHour}
-          minimumDueCount={settings.preference.minimumDueCount}
-          timezone={settings.preference.timezone}
-        />
         <ReminderSettingsForm preference={settings.preference} />
         <div className="settingsPrivacyNote" role="note" aria-label="Reminder privacy">
-          <section>
-            <h3>Email includes</h3>
-            <p>Due skill count and one practice link.</p>
-          </section>
-          <section>
-            <h3>Kept out</h3>
-            <p>Skill titles, source text, answers, and exercise content.</p>
-          </section>
+          <p>
+            Reminder emails include the number of due skills and one practice link.
+            They do not include skill titles, source text, answers, or exercise content.
+          </p>
         </div>
       </section>
 
-      <section className="skillPanel settingsExportPanel" aria-labelledby="data-export-title">
-        <div className="skillPanelHeader">
-          <div>
-            <h2 id="data-export-title">Download study data</h2>
-          </div>
+      <section className="skillPanel settingsExportPanel" aria-labelledby="data-export-title" id="study-data">
+        <div className="settingsSectionIntro">
+          <h2 id="data-export-title">Study data</h2>
+          <p>
+            Download a JSON copy of the study records saved for your account.
+          </p>
+        </div>
+
+        <div className="settingsExportBody">
+          <p>
+            The export includes collections, skills, source text records, exercises,
+            attempts, review history, flags, preparation records, and reminder settings.
+          </p>
           <Link className="secondaryButton" href="/settings/export" prefetch={false}>
+            <DownloadSimpleIcon aria-hidden="true" size={16} weight="bold" />
             Download export
           </Link>
         </div>
@@ -110,76 +103,15 @@ export default async function SettingsPage() {
           </div>
           <div>
             <dt>Originals</dt>
-            <dd>Excluded</dd>
+            <dd>Not included</dd>
           </div>
         </dl>
 
-        <details className="settingsExportDetails">
-          <summary>
-            <span>What the JSON includes</span>
-            <small>No original uploaded files or private storage locations.</small>
-          </summary>
-          <div className="settingsExportSummary">
-            <section>
-              <h3>Included</h3>
-              <p>
-                Collections, skills, stored source text, exercises, attempts,
-                review history, flags, preparation status records, and reminders.
-              </p>
-            </section>
-            <section>
-              <h3>Left out</h3>
-              <p>
-                Original uploaded file bytes, private storage locations, API keys,
-                and private model prompts.
-              </p>
-            </section>
-          </div>
-        </details>
+        <p className="settingsFinePrint">
+          Original uploaded file bytes, private storage locations, API keys, and private model prompts
+          are not included.
+        </p>
       </section>
     </main>
   );
-}
-
-function ReminderScheduleSummary({
-  enabled,
-  localHour,
-  minimumDueCount,
-  timezone,
-}: {
-  enabled: boolean;
-  localHour: number;
-  minimumDueCount: number;
-  timezone: string;
-}) {
-  return (
-    <dl className="settingsScheduleSummary" aria-label="Saved reminder schedule">
-      <div data-state={enabled ? "enabled" : "disabled"}>
-        <dt>Status</dt>
-        <dd>{enabled ? "Sending when due" : "Paused"}</dd>
-      </div>
-      <div className="settingsScheduleDetails">
-        <div>
-          <dt>Local check</dt>
-          <dd>
-            {formatReminderHour(localHour)} in {timezone}
-          </dd>
-        </div>
-        <div>
-          <dt>Threshold</dt>
-          <dd>{formatDueThreshold(minimumDueCount)}</dd>
-        </div>
-      </div>
-    </dl>
-  );
-}
-
-function formatReminderHour(hour: number) {
-  const displayHour = hour % 12 === 0 ? 12 : hour % 12;
-  const meridiem = hour < 12 ? "AM" : "PM";
-  return `${displayHour} ${meridiem}`;
-}
-
-function formatDueThreshold(count: number) {
-  return `At least ${count} due ${count === 1 ? "skill" : "skills"}`;
 }
