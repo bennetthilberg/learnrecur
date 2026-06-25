@@ -29,6 +29,7 @@
     "@google/genai": "^2.8.0",
     "@mantine/core": "9.2.2",
     "@mantine/hooks": "9.2.2",
+    "@mantine/notifications": "^9.2.2",
     "@neondatabase/serverless": "^1.1.0",
     "@phosphor-icons/react": "^2.1.10",
     "@prisma/adapter-neon": "^7.8.0",

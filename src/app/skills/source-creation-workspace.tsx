@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { X } from "@phosphor-icons/react";
+import { CheckCircle, WarningCircle } from "@phosphor-icons/react";
+import { notifications } from "@mantine/notifications";
 
 import { SourceSkillForm } from "./source-skill-form";
 import { SourceUploadForm } from "./source-upload-form";
@@ -16,6 +17,8 @@ export type SourceCreationNotice = {
   message: string;
 };
 
+const sourceCreationNotificationId = "source-creation-notice";
+
 const defaultGenerationStatus: SourceGenerationStatus = {
   title: "Creating your skill",
   detail: "Reading the source material and writing a focused skill for review.",
@@ -23,21 +26,41 @@ const defaultGenerationStatus: SourceGenerationStatus = {
 
 export function SourceCreationWorkspace() {
   const [generationStatus, setGenerationStatus] = useState<SourceGenerationStatus | null>(null);
-  const [notice, setNotice] = useState<SourceCreationNotice | null>(null);
   const showGenerationStatus = useCallback((status: SourceGenerationStatus) => {
-    setNotice(null);
+    notifications.hide(sourceCreationNotificationId);
     setGenerationStatus(status);
   }, []);
   const hideGenerationStatus = useCallback(() => {
     setGenerationStatus(null);
   }, []);
   const showNotice = useCallback((nextNotice: SourceCreationNotice | null) => {
-    setNotice(nextNotice);
+    notifications.hide(sourceCreationNotificationId);
+
+    if (!nextNotice) {
+      return;
+    }
+
+    notifications.show({
+      id: sourceCreationNotificationId,
+      autoClose: nextNotice.tone === "error" ? 8000 : 4500,
+      className: "learnrecurNotification",
+      color: nextNotice.tone === "error" ? "amber" : "leaf",
+      icon:
+        nextNotice.tone === "error" ? (
+          <WarningCircle size={18} weight="bold" />
+        ) : (
+          <CheckCircle size={18} weight="bold" />
+        ),
+      message: nextNotice.message,
+      position: "top-right",
+      title: nextNotice.tone === "error" ? "Could not create skill" : "Source added",
+      withBorder: true,
+      withCloseButton: true,
+    });
   }, []);
 
   return (
     <>
-      {notice ? <SourceCreationToast notice={notice} onDismiss={() => setNotice(null)} /> : null}
       {generationStatus ? <SourceGenerationPanel status={generationStatus} /> : null}
       <section
         aria-label="Source-backed skill creation options"
@@ -56,28 +79,6 @@ export function SourceCreationWorkspace() {
         />
       </section>
     </>
-  );
-}
-
-function SourceCreationToast({
-  notice,
-  onDismiss,
-}: {
-  notice: SourceCreationNotice;
-  onDismiss: () => void;
-}) {
-  return (
-    <div
-      aria-live={notice.tone === "error" ? "assertive" : "polite"}
-      className="sourceCreationToast"
-      data-tone={notice.tone}
-      role={notice.tone === "error" ? "alert" : "status"}
-    >
-      <p>{notice.message}</p>
-      <button aria-label="Dismiss message" onClick={onDismiss} type="button">
-        <X size={16} weight="bold" />
-      </button>
-    </div>
   );
 }
 

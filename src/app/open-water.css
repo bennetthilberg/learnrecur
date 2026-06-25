@@ -1647,57 +1647,6 @@ body {
   margin: 14px auto 0;
 }
 
-.sourceCreationToast {
-  position: sticky;
-  top: 14px;
-  z-index: 8;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
-  gap: 14px;
-  border: 1px solid var(--lr-card-border);
-  border-radius: 8px;
-  background: #FFFFFF;
-  padding: 14px 16px;
-  color: var(--lr-ink);
-  box-shadow: none;
-}
-
-.sourceCreationToast p {
-  margin: 0;
-  color: inherit;
-  font-size: 14px;
-  line-height: 1.5;
-}
-
-.sourceCreationToast button {
-  display: inline-grid;
-  width: 28px;
-  height: 28px;
-  place-items: center;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  background: transparent;
-  color: currentcolor;
-  cursor: pointer;
-}
-
-.sourceCreationToast button:hover {
-  background: #F5F7FB;
-}
-
-.sourceCreationToast[data-tone="error"] {
-  border-color: var(--lr-danger-line);
-  background: var(--lr-danger-subtle);
-  color: var(--lr-danger-ink);
-}
-
-.sourceCreationToast[data-tone="success"] {
-  border-color: var(--lr-green);
-  background: #E7F5EE;
-  color: var(--lr-green);
-}
-
 .practiceFeedback[data-tone="correct"],
 .skillFormMessage[data-tone="saved"] {
   border-color: var(--lr-green);

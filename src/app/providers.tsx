@@ -1,6 +1,7 @@
 "use client";
 
 import { MantineProvider, createTheme, rem } from "@mantine/core";
+import { Notifications } from "@mantine/notifications";
 
 const theme = createTheme({
   fontFamily: "'Instrument Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
@@ -71,12 +72,33 @@ const theme = createTheme({
     },
     Paper: { defaultProps: { radius: rem(8) } },
     Badge: { defaultProps: { radius: rem(6) } },
+    Notification: {
+      defaultProps: { radius: rem(8), withBorder: true },
+      styles: {
+        root: {
+          borderColor: "#E4E8F1",
+          boxShadow: "none",
+        },
+        title: {
+          color: "#15233F",
+          fontFamily: "'Instrument Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
+          fontSize: rem(14),
+          fontWeight: 700,
+        },
+        description: {
+          color: "#5A6480",
+          fontSize: rem(13.5),
+          lineHeight: 1.45,
+        },
+      },
+    },
   },
 });
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <MantineProvider defaultColorScheme="light" theme={theme}>
+      <Notifications autoClose={5000} limit={3} position="top-right" zIndex={3000} />
       {children}
     </MantineProvider>
   );
