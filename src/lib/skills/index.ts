@@ -26,6 +26,11 @@ import {
   type TextAnswerSpec,
 } from "@/lib/answer-checking";
 import { formatEnvError, getGeminiEnv } from "@/lib/env";
+import {
+  getGeminiErrorLogDetails,
+  getPublicGeminiFailureMessage,
+  runWithGeminiModelFallback,
+} from "@/lib/gemini";
 import { getPrisma } from "@/lib/prisma";
 import { createInitialSkillSchedule } from "@/lib/scheduling";
 import {
@@ -1152,10 +1157,12 @@ export async function createSkillDraftFromSource(
       "generateSkillDraft timed out",
     );
   } catch (error) {
+    console.error("[gemini] skill draft generation failed", getGeminiErrorLogDetails(error));
+
     return {
       status: "not-created",
       reason: "generation-failed",
-      message: `Gemini skill draft generation failed: ${formatEnvError(error)}`,
+      message: getPublicGeminiFailureMessage(error),
     };
   }
 
@@ -3300,6 +3307,7 @@ function resolveSourceDraftSetup(
       generateSkillDraft: createGeminiSkillDraftGenerator({
         apiKey: env.GEMINI_API_KEY,
         model: env.GEMINI_MODEL,
+        fallbackModels: env.GEMINI_FALLBACK_MODELS,
       }),
     };
   } catch (error) {
@@ -3313,20 +3321,28 @@ function resolveSourceDraftSetup(
 
 export function createGeminiSkillDraftGenerator({
   apiKey,
+  fallbackModels,
   model,
 }: {
   apiKey: string;
+  fallbackModels?: readonly string[];
   model: string;
 }): SkillDraftGenerator {
   return async (input) => {
     const ai = new GoogleGenAI({ apiKey });
-    const response = await ai.models.generateContent({
-      model,
-      contents: buildSourceSkillDraftPrompt(input),
-      config: {
-        responseMimeType: "application/json",
-        responseJsonSchema: geminiSkillDraftJsonSchema,
-      },
+    const response = await runWithGeminiModelFallback({
+      fallbackModels,
+      operation: "skill draft generation",
+      primaryModel: model,
+      run: (activeModel) =>
+        ai.models.generateContent({
+          model: activeModel,
+          contents: buildSourceSkillDraftPrompt(input),
+          config: {
+            responseMimeType: "application/json",
+            responseJsonSchema: geminiSkillDraftJsonSchema,
+          },
+        }),
     });
     const text = response.text;
 

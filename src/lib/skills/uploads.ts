@@ -10,6 +10,11 @@ import {
   type Skill,
 } from "@/generated/prisma/client";
 import { formatEnvError, getGeminiEnv } from "@/lib/env";
+import {
+  getGeminiErrorLogDetails,
+  getPublicGeminiFailureMessage,
+  runWithGeminiModelFallback,
+} from "@/lib/gemini";
 import { getInngestEnvStatus } from "@/lib/inngest/client";
 import {
   inngestSourceUploadDraftEventSender,
@@ -964,7 +969,8 @@ export async function runQueuedSourceUploadDraftJob(
       "extractSourceText timed out",
     );
   } catch (error) {
-    const message = `Gemini source extraction failed: ${formatEnvError(error)}`;
+    const message = getPublicGeminiFailureMessage(error);
+    console.error("[gemini] source extraction failed", getGeminiErrorLogDetails(error));
     await markUploadedSourceFailed(
       sourceFile,
       storageSetup.storage,
@@ -1107,10 +1113,12 @@ function resolveUploadGenerationSetup(
       extractSourceText: input.extractSourceText ?? createGeminiSourceTextExtractor({
         apiKey: env.GEMINI_API_KEY,
         model: env.GEMINI_MODEL,
+        fallbackModels: env.GEMINI_FALLBACK_MODELS,
       }),
       generateSkillDraft: input.generateSkillDraft ?? createGeminiSkillDraftGenerator({
         apiKey: env.GEMINI_API_KEY,
         model: env.GEMINI_MODEL,
+        fallbackModels: env.GEMINI_FALLBACK_MODELS,
       }),
     };
   } catch (error) {
@@ -1124,30 +1132,38 @@ function resolveUploadGenerationSetup(
 
 function createGeminiSourceTextExtractor({
   apiKey,
+  fallbackModels,
   model,
 }: {
   apiKey: string;
+  fallbackModels?: readonly string[];
   model: string;
 }): SourceTextExtractor {
   return async (input) => {
     const ai = new GoogleGenAI({ apiKey });
-    const response = await ai.models.generateContent({
-      model,
-      contents: [
-        {
-          inlineData: {
-            data: input.bytes.toString("base64"),
-            mimeType: input.mimeType,
+    const response = await runWithGeminiModelFallback({
+      fallbackModels,
+      operation: "source text extraction",
+      primaryModel: model,
+      run: (activeModel) =>
+        ai.models.generateContent({
+          model: activeModel,
+          contents: [
+            {
+              inlineData: {
+                data: input.bytes.toString("base64"),
+                mimeType: input.mimeType,
+              },
+            },
+            {
+              text: buildSourceExtractionPrompt(input),
+            },
+          ],
+          config: {
+            responseMimeType: "application/json",
+            responseJsonSchema: geminiSourceExtractionJsonSchema,
           },
-        },
-        {
-          text: buildSourceExtractionPrompt(input),
-        },
-      ],
-      config: {
-        responseMimeType: "application/json",
-        responseJsonSchema: geminiSourceExtractionJsonSchema,
-      },
+        }),
     });
     const text = response.text;
 

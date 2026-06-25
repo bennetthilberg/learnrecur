@@ -1,5 +1,10 @@
 import { z } from "zod";
 
+import {
+  DEFAULT_GEMINI_FALLBACK_MODELS,
+  parseGeminiFallbackModels,
+} from "@/lib/gemini";
+
 const optionalNonEmptyString = (schema: z.ZodString) =>
   z.preprocess((value) => {
     if (typeof value === "string" && value.trim() === "") {
@@ -77,6 +82,10 @@ const geminiEnvSchema = z.object({
     .trim()
     .min(1, "GEMINI_API_KEY is required"),
   GEMINI_MODEL: geminiModelSchema,
+  GEMINI_FALLBACK_MODELS: z.preprocess(
+    parseGeminiFallbackModels,
+    z.array(z.string().trim().min(1)).default([...DEFAULT_GEMINI_FALLBACK_MODELS]),
+  ),
 });
 
 const appUrlSchema = z.preprocess((value) => {

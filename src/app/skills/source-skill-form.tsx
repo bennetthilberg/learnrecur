@@ -8,7 +8,10 @@ import {
   generateSkillDraftFromSourceAction,
   type SkillFormActionState,
 } from "./actions";
-import type { SourceGenerationStatus } from "./source-creation-workspace";
+import type {
+  SourceCreationNotice,
+  SourceGenerationStatus,
+} from "./source-creation-workspace";
 
 const idleState: SkillFormActionState = {
   status: "idle",
@@ -18,11 +21,17 @@ const idleState: SkillFormActionState = {
 type SourceSkillFormProps = {
   onGenerationEnd?: () => void;
   onGenerationStart?: (status: SourceGenerationStatus) => void;
+  onNotice?: (notice: SourceCreationNotice | null) => void;
 };
 
-export function SourceSkillForm({ onGenerationEnd, onGenerationStart }: SourceSkillFormProps) {
+export function SourceSkillForm({
+  onGenerationEnd,
+  onGenerationStart,
+  onNotice,
+}: SourceSkillFormProps) {
   const sourceTextRef = useRef<HTMLTextAreaElement>(null);
   const submittedRef = useRef(false);
+  const latestNoticeRef = useRef<string | null>(null);
   const [state, action, isGenerating] = useActionState(
     generateSkillDraftFromSourceAction,
     idleState,
@@ -51,12 +60,31 @@ export function SourceSkillForm({ onGenerationEnd, onGenerationStart }: SourceSk
     }
   }, [isGenerating, onGenerationEnd, state.status]);
 
+  useEffect(() => {
+    if (!state.message || state.status === "idle") {
+      return;
+    }
+
+    const nextNoticeKey = `${state.status}:${state.message}`;
+
+    if (latestNoticeRef.current === nextNoticeKey) {
+      return;
+    }
+
+    latestNoticeRef.current = nextNoticeKey;
+    onNotice?.({
+      tone: state.status === "saved" ? "success" : "error",
+      message: state.message,
+    });
+  }, [onNotice, state.message, state.status]);
+
   return (
     <form
       action={action}
       className="skillPanel skillSourceForm"
       onSubmit={() => {
         submittedRef.current = true;
+        onNotice?.(null);
         onGenerationStart?.({
           title: "Creating a skill from your text",
           detail: "Gemini is reading the pasted material and writing a focused skill.",
@@ -139,12 +167,6 @@ export function SourceSkillForm({ onGenerationEnd, onGenerationStart }: SourceSk
           />
         </div>
       </details>
-
-      {state.message ? (
-        <p className="skillFormMessage" data-tone={state.status} role="status">
-          {state.message}
-        </p>
-      ) : null}
 
       <div className="skillFormActions">
         <button className="primaryButton" disabled={isGenerating} type="submit">

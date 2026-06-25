@@ -8,21 +8,28 @@ import { UploadSimple } from "@phosphor-icons/react";
 import {
   completeSourceUploadAction,
   prepareSourceUploadAction,
-  type CompleteSourceUploadActionResult,
   type PrepareSourceUploadActionResult,
 } from "./actions";
 import { SOURCE_UPLOAD_MIME_TYPES } from "@/lib/skills/source-upload-policy";
-import type { SourceGenerationStatus } from "./source-creation-workspace";
+import type {
+  SourceCreationNotice,
+  SourceGenerationStatus,
+} from "./source-creation-workspace";
 import { getClipboardSourceFile, getSourceUploadFileError } from "./source-upload-clipboard";
 
 type SourceUploadFormProps = {
   onGenerationEnd?: () => void;
   onGenerationStart?: (status: SourceGenerationStatus) => void;
+  onNotice?: (notice: SourceCreationNotice | null) => void;
 };
 
 type UploadStatus = "idle" | "preparing" | "uploading" | "generating" | "error";
 
-export function SourceUploadForm({ onGenerationEnd, onGenerationStart }: SourceUploadFormProps) {
+export function SourceUploadForm({
+  onGenerationEnd,
+  onGenerationStart,
+  onNotice,
+}: SourceUploadFormProps) {
   const router = useRouter();
   const fileInputId = useId();
   const fileErrorId = useId();
@@ -30,7 +37,6 @@ export function SourceUploadForm({ onGenerationEnd, onGenerationStart }: SourceU
   const fileInputRef = useRef<HTMLInputElement>(null);
   const submittingRef = useRef(false);
   const [status, setStatus] = useState<UploadStatus>("idle");
-  const [message, setMessage] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]> | undefined>();
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
@@ -54,7 +60,10 @@ export function SourceUploadForm({ onGenerationEnd, onGenerationStart }: SourceU
 
       setSelectedFileName(null);
       setStatus("error");
-      setMessage(null);
+      onNotice?.({
+        tone: "error",
+        message: fileError.message,
+      });
       setFieldErrors({
         [fileError.field]: [fileError.message],
       });
@@ -70,10 +79,15 @@ export function SourceUploadForm({ onGenerationEnd, onGenerationStart }: SourceU
     fileInputRef.current.files = transfer.files;
     setSelectedFileName(file.name);
     setStatus("idle");
-    setMessage(successMessage);
+    if (successMessage) {
+      onNotice?.({
+        tone: "success",
+        message: successMessage,
+      });
+    }
     setFieldErrors(undefined);
     return true;
-  }, []);
+  }, [onNotice]);
 
   useEffect(() => {
     function handleDocumentPaste(event: ClipboardEvent) {
@@ -176,7 +190,7 @@ export function SourceUploadForm({ onGenerationEnd, onGenerationStart }: SourceU
                 onChange={(event) => {
                   setSelectedFileName(event.currentTarget.files?.[0]?.name ?? null);
                   setStatus("idle");
-                  setMessage(null);
+                  onNotice?.(null);
                   setFieldErrors(undefined);
                 }}
                 ref={fileInputRef}
@@ -248,16 +262,6 @@ export function SourceUploadForm({ onGenerationEnd, onGenerationStart }: SourceU
         </div>
       </details>
 
-      {message ? (
-        <p
-          className="skillFormMessage"
-          data-tone={status === "error" ? "error" : "saved"}
-          role="status"
-        >
-          {message}
-        </p>
-      ) : null}
-
       <div className="skillFormActions">
         <button className="primaryButton" disabled={busy} type="submit">
           {buttonText(status)}
@@ -272,7 +276,10 @@ export function SourceUploadForm({ onGenerationEnd, onGenerationStart }: SourceU
     } catch (error) {
       onGenerationEnd?.();
       setStatus("error");
-      setMessage(formatClientError(error));
+      onNotice?.({
+        tone: "error",
+        message: formatClientError(error),
+      });
     } finally {
       submittingRef.current = false;
       setIsSubmitting(false);
@@ -280,7 +287,7 @@ export function SourceUploadForm({ onGenerationEnd, onGenerationStart }: SourceU
   }
 
   async function handleSubmit(form: HTMLFormElement) {
-    setMessage(null);
+    onNotice?.(null);
     setFieldErrors(undefined);
 
     const fileInput = form.elements.namedItem("sourceFile");
@@ -295,6 +302,10 @@ export function SourceUploadForm({ onGenerationEnd, onGenerationStart }: SourceU
       setFieldErrors({
         originalName: ["Choose a file to upload."],
       });
+      onNotice?.({
+        tone: "error",
+        message: "Choose a file to upload.",
+      });
       return;
     }
 
@@ -305,6 +316,10 @@ export function SourceUploadForm({ onGenerationEnd, onGenerationStart }: SourceU
       setStatus("error");
       setFieldErrors({
         [fileError.field]: [fileError.message],
+      });
+      onNotice?.({
+        tone: "error",
+        message: fileError.message,
       });
       return;
     }
@@ -338,12 +353,15 @@ export function SourceUploadForm({ onGenerationEnd, onGenerationStart }: SourceU
     if (!uploadResponse.ok) {
       onGenerationEnd?.();
       setStatus("error");
-      setMessage("The private upload failed. Check file upload settings, then try again.");
+      onNotice?.({
+        tone: "error",
+        message: "The private upload failed. Check file upload settings, then try again.",
+      });
       return;
     }
 
     setStatus("generating");
-    setMessage(null);
+    onNotice?.(null);
     const completed = await completeSourceUploadAction({
       sourceFileId: prepared.sourceFileId,
     });
@@ -355,12 +373,18 @@ export function SourceUploadForm({ onGenerationEnd, onGenerationStart }: SourceU
 
     onGenerationEnd?.();
     setStatus("error");
-    setMessage(formatCompletionError(completed));
+    onNotice?.({
+      tone: "error",
+      message: completed.message,
+    });
   }
 
   function handleActionError(result: Extract<PrepareSourceUploadActionResult, { status: "error" }>) {
     setStatus("error");
-    setMessage(result.message);
+    onNotice?.({
+      tone: "error",
+      message: result.message,
+    });
     setFieldErrors(result.fieldErrors);
   }
 }
@@ -384,10 +408,6 @@ function buttonText(status: UploadStatus) {
     default:
       return "Create skill from file";
   }
-}
-
-function formatCompletionError(result: Extract<CompleteSourceUploadActionResult, { status: "error" }>) {
-  return result.message;
 }
 
 function hasFileError(fieldErrors: Record<string, string[]> | undefined) {

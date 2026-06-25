@@ -1994,6 +1994,55 @@ a {
   display: none;
 }
 
+.sourceCreationToast {
+  position: sticky;
+  top: 14px;
+  z-index: 8;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 14px;
+  border: 1px solid var(--lr-line);
+  border-radius: var(--lr-radius);
+  background: var(--lr-card);
+  padding: 14px 16px;
+  color: var(--lr-ink);
+}
+
+.sourceCreationToast p {
+  margin: 0;
+  font-size: var(--lr-text-sm);
+  line-height: var(--lr-leading-copy);
+}
+
+.sourceCreationToast button {
+  display: inline-grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: currentcolor;
+  cursor: pointer;
+}
+
+.sourceCreationToast button:hover {
+  background: var(--lr-panel-soft);
+}
+
+.sourceCreationToast[data-tone="error"] {
+  border-color: var(--lr-danger-line);
+  background: #FCF6F3;
+  color: var(--lr-danger-ink);
+}
+
+.sourceCreationToast[data-tone="success"] {
+  border-color: var(--lr-success-line);
+  background: #E7F5EE;
+  color: var(--lr-success-ink);
+}
+
 .sourceGenerationPanel {
   display: grid;
   min-height: 390px;

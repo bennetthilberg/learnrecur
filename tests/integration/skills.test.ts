@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import {
   AnswerKind,
@@ -1223,6 +1223,97 @@ describeDatabase("skill drafts and Gemini activation", () => {
     });
     await expect(prisma.skillSourceRef.count({ where: { userId } })).resolves.toBe(0);
     expect(deletedKeys).toEqual([prepared.objectKey]);
+  });
+
+  it("stores a public error when uploaded source extraction is temporarily unavailable", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const userId = await createUser("upload_extraction_unavailable");
+    const { storage, deletedKeys } = createFakeUploadStorage({
+      byteSize: 2048,
+      mimeType: "image/png",
+    });
+    const prepared = await prepareSourceUpload({
+      userId,
+      now,
+      storage,
+      input: {
+        originalName: "busy-model.png",
+        mimeType: "image/png",
+        byteSize: "2048",
+      },
+    });
+
+    if (prepared.status !== "prepared") {
+      throw new Error("Expected upload preparation to succeed.");
+    }
+
+    const { sender } = createFakeSourceUploadSender();
+    const queued = await queueSourceUploadDrafts({
+      userId,
+      sourceFileId: prepared.sourceFileId,
+      now,
+      storage,
+      eventSender: sender,
+    });
+
+    expect(queued.status).toBe("queued");
+
+    try {
+      const completed = await runQueuedSourceUploadDraftJob({
+        userId,
+        sourceFileId: prepared.sourceFileId,
+        now,
+        storage,
+        extractSourceText: async () => {
+          throw new Error(
+            JSON.stringify({
+              error: {
+                code: 503,
+                message: "This model is currently experiencing high demand.",
+                status: "UNAVAILABLE",
+              },
+            }),
+          );
+        },
+        generateSkillDraft: successfulSkillDraftGenerator,
+        model: "test-gemini",
+      });
+
+      expect(completed).toMatchObject({
+        status: "not-created",
+        reason: "extraction-failed",
+        message:
+          "The AI service is busy right now, so LearnRecur could not finish creating this skill. Try again in a minute.",
+      });
+      expect(completed.message).not.toContain("{");
+
+      const failedSource = await prisma.sourceFile.findUniqueOrThrow({
+        where: { id: prepared.sourceFileId },
+      });
+      expect(failedSource.metadata).toMatchObject({
+        failureReason: "extraction-failed",
+        errorMessage:
+          "The AI service is busy right now, so LearnRecur could not finish creating this skill. Try again in a minute.",
+      });
+
+      const library = await getSkillsLibrary({ userId, now });
+      expect(library.sourceProcessing[0]).toMatchObject({
+        status: SourceFileStatus.FAILED,
+        errorMessage:
+          "The AI service is busy right now, so LearnRecur could not finish creating this skill. Try again in a minute.",
+      });
+      expect(library.sourceProcessing[0].errorMessage).not.toContain("{");
+      expect(deletedKeys).toEqual([prepared.objectKey]);
+      expect(consoleError).toHaveBeenCalledWith(
+        "[gemini] source extraction failed",
+        expect.objectContaining({
+          code: 503,
+          status: "UNAVAILABLE",
+        }),
+      );
+    } finally {
+      consoleError.mockRestore();
+    }
   });
 
   it("cleans up uploaded source state when downloaded bytes exceed the upload limit", async () => {
