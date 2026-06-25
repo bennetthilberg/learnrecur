@@ -42,7 +42,7 @@ export function SkillDraftForm({ mode, skillId, initialValues }: SkillDraftFormP
       <form action={saveAction} className="skillPanel skillDraftForm">
         <div className="skillPanelHeader">
           <div>
-            <h2>{mode === "create" ? "Create a draft" : "Review the draft"}</h2>
+            <h2>{mode === "create" ? "Write the skill" : "Review generated skill"}</h2>
           </div>
         </div>
 
@@ -133,7 +133,7 @@ export function SkillDraftForm({ mode, skillId, initialValues }: SkillDraftFormP
             disabled={isSaving}
             type="submit"
           >
-            {isSaving ? "Saving" : mode === "create" ? "Create draft" : "Save draft"}
+            {isSaving ? "Saving" : mode === "create" ? "Create skill" : "Save changes"}
           </button>
         </div>
       </form>
@@ -142,12 +142,12 @@ export function SkillDraftForm({ mode, skillId, initialValues }: SkillDraftFormP
         <section className="skillPanel skillActivationPanel" aria-labelledby="activate-skill-title">
           <div className="skillPanelHeader">
             <div>
-              <h2 id="activate-skill-title">Prepare starter practice</h2>
+              <h2 id="activate-skill-title">Add to practice</h2>
             </div>
           </div>
           <p>
-            Activation prepares and verifies a starter set of multiple-choice exercises, then
-            schedules this skill for practice.
+            LearnRecur prepares and verifies starter exercises, then schedules this skill
+            for practice.
           </p>
 
           {activationState.message ? (
@@ -159,7 +159,7 @@ export function SkillDraftForm({ mode, skillId, initialValues }: SkillDraftFormP
           <form action={activateAction} className="skillActivationForm">
             <input name="skillId" type="hidden" value={skillId} />
             <button className="primaryButton" disabled={isActivating} type="submit">
-              {isActivating ? "Activating" : "Activate skill"}
+              {isActivating ? "Adding" : "Add skill"}
             </button>
           </form>
         </section>

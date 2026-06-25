@@ -319,6 +319,10 @@ a {
   .buttonSpinner {
     animation: none;
   }
+
+  .sourceGenerationSpinner {
+    animation: none;
+  }
 }
 
 .entryShell,
@@ -1986,6 +1990,52 @@ a {
   gap: 18px;
 }
 
+.skillSourceEntryGrid[hidden] {
+  display: none;
+}
+
+.sourceGenerationPanel {
+  display: grid;
+  min-height: 390px;
+  align-content: center;
+  justify-items: center;
+  gap: 18px;
+  padding: 42px 24px;
+  text-align: center;
+}
+
+.sourceGenerationPanel h2 {
+  margin: 0;
+  color: var(--lr-ink);
+  font-family: var(--lr-font-display);
+  font-size: var(--lr-text-2xl);
+  font-weight: 600;
+  line-height: var(--lr-leading-title);
+}
+
+.sourceGenerationPanel p {
+  max-width: 440px;
+  margin: 8px auto 0;
+  color: var(--lr-muted);
+  font-size: var(--lr-text-md);
+  line-height: var(--lr-leading-reading);
+}
+
+.sourceGenerationSpinner {
+  width: 54px;
+  height: 54px;
+  border: 2px solid #BBCAEC;
+  border-top-color: var(--lr-primary);
+  border-radius: 999px;
+  animation: sourceGenerationSpin 900ms linear infinite;
+}
+
+@keyframes sourceGenerationSpin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
 .skillCreateStack .skillDraftGrid {
   width: 100%;
   margin: 0;
@@ -2533,6 +2583,12 @@ a {
   border-radius: var(--lr-radius);
   background: var(--lr-panel-soft);
   padding: 11px 12px;
+}
+
+.skillShell > .skillFormMessage,
+.skillShell > .skillMessage {
+  width: min(100%, 1040px);
+  margin: 14px auto 0;
 }
 
 .skillFormMessage[data-tone="error"] {
@@ -4640,6 +4696,11 @@ a {
 
   .skillSourceEntryGrid {
     grid-template-columns: 1fr;
+  }
+
+  .sourceGenerationPanel {
+    min-height: 320px;
+    padding: 34px 18px;
   }
 
   .skillFormDetails summary {

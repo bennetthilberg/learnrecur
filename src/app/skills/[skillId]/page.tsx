@@ -561,14 +561,13 @@ export default async function SkillPage({
         <div>
           <h1>{skill.title}</h1>
           <p>
-            Review the definition, save any changes, then activate it to prepare
-            starter multiple-choice practice.
+            Review the generated definition, save any changes, then add it to practice.
           </p>
         </div>
       </header>
 
       {skill.generationJobs[0]?.errorMessage ? (
-        <section className="skillMessage" data-tone="error" aria-label="Latest activation issue">
+        <section className="skillMessage" data-tone="error" aria-label="Latest add issue">
           <p>{skill.generationJobs[0].errorMessage}</p>
         </section>
       ) : null}

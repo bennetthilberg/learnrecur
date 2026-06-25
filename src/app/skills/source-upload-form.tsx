@@ -8,14 +8,21 @@ import { UploadSimple } from "@phosphor-icons/react";
 import {
   completeSourceUploadAction,
   prepareSourceUploadAction,
+  type CompleteSourceUploadActionResult,
   type PrepareSourceUploadActionResult,
 } from "./actions";
 import { SOURCE_UPLOAD_MIME_TYPES } from "@/lib/skills/source-upload-policy";
+import type { SourceGenerationStatus } from "./source-creation-workspace";
 import { getClipboardSourceFile, getSourceUploadFileError } from "./source-upload-clipboard";
 
-type UploadStatus = "idle" | "preparing" | "uploading" | "queueing" | "error";
+type SourceUploadFormProps = {
+  onGenerationEnd?: () => void;
+  onGenerationStart?: (status: SourceGenerationStatus) => void;
+};
 
-export function SourceUploadForm() {
+type UploadStatus = "idle" | "preparing" | "uploading" | "generating" | "error";
+
+export function SourceUploadForm({ onGenerationEnd, onGenerationStart }: SourceUploadFormProps) {
   const router = useRouter();
   const fileInputId = useId();
   const fileErrorId = useId();
@@ -34,7 +41,7 @@ export function SourceUploadForm() {
     isSubmitting ||
     status === "preparing" ||
     status === "uploading" ||
-    status === "queueing" ||
+    status === "generating" ||
     isPending;
   const fileError = fileErrorMessage(fieldErrors);
   const selectUploadFile = useCallback((file: File, successMessage: string | null = null) => {
@@ -81,7 +88,7 @@ export function SourceUploadForm() {
       }
 
       event.preventDefault();
-      selectUploadFile(pastedFile, "Pasted file added. Create drafts when ready.");
+      selectUploadFile(pastedFile, "Pasted file added. Create the skill when ready.");
     }
 
     document.addEventListener("paste", handleDocumentPaste);
@@ -119,8 +126,8 @@ export function SourceUploadForm() {
         </span>
       </div>
       <p className="skillUploadIntro">
-        Upload a small worksheet, notes photo, screenshot, or PDF. The file stays private;
-        LearnRecur reads it and prepares one to three editable drafts.
+        Upload a small worksheet, notes photo, screenshot, or PDF. You will review
+        the generated skill before adding it.
       </p>
 
       <fieldset className="skillFormFieldset">
@@ -205,7 +212,7 @@ export function SourceUploadForm() {
         }
       >
         <summary>
-          <span>Draft context</span>
+          <span>Optional context</span>
           <small>Collection, focus, and tags</small>
         </summary>
         <div className="skillFormFieldsetBody">
@@ -263,6 +270,7 @@ export function SourceUploadForm() {
     try {
       await handleSubmit(form);
     } catch (error) {
+      onGenerationEnd?.();
       setStatus("error");
       setMessage(formatClientError(error));
     } finally {
@@ -282,6 +290,7 @@ export function SourceUploadForm() {
         : null;
 
     if (!file) {
+      onGenerationEnd?.();
       setStatus("error");
       setFieldErrors({
         originalName: ["Choose a file to upload."],
@@ -292,6 +301,7 @@ export function SourceUploadForm() {
     const fileError = getSourceUploadFileError(file);
 
     if (fileError) {
+      onGenerationEnd?.();
       setStatus("error");
       setFieldErrors({
         [fileError.field]: [fileError.message],
@@ -305,10 +315,15 @@ export function SourceUploadForm() {
     formData.set("byteSize", String(file.size));
     formData.delete("sourceFile");
 
+    onGenerationStart?.({
+      title: "Creating a skill from your file",
+      detail: "Uploading the source material, then Gemini will read it and write a focused skill.",
+    });
     setStatus("preparing");
     const prepared = await prepareSourceUploadAction(formData);
 
     if (prepared.status !== "prepared") {
+      onGenerationEnd?.();
       handleActionError(prepared);
       return;
     }
@@ -321,24 +336,26 @@ export function SourceUploadForm() {
     });
 
     if (!uploadResponse.ok) {
+      onGenerationEnd?.();
       setStatus("error");
       setMessage("The private upload failed. Check file upload settings, then try again.");
       return;
     }
 
-    setStatus("queueing");
-    setMessage("Upload complete. Draft preparation will start shortly.");
+    setStatus("generating");
+    setMessage(null);
     const completed = await completeSourceUploadAction({
       sourceFileId: prepared.sourceFileId,
     });
 
-    if (completed.status === "queued") {
+    if (completed.status === "created") {
       router.push(completed.redirectTo);
       return;
     }
 
+    onGenerationEnd?.();
     setStatus("error");
-    setMessage(completed.message);
+    setMessage(formatCompletionError(completed));
   }
 
   function handleActionError(result: Extract<PrepareSourceUploadActionResult, { status: "error" }>) {
@@ -353,7 +370,7 @@ function formatClientError(error: unknown) {
     return error.message;
   }
 
-  return "Upload failed before drafts could be created. Check the file and try again.";
+  return "Upload failed before the skill could be created. Check the file and try again.";
 }
 
 function buttonText(status: UploadStatus) {
@@ -362,11 +379,15 @@ function buttonText(status: UploadStatus) {
       return "Preparing upload";
     case "uploading":
       return "Uploading";
-    case "queueing":
-      return "Preparing drafts";
+    case "generating":
+      return "Creating skill";
     default:
-      return "Create drafts from file";
+      return "Create skill from file";
   }
+}
+
+function formatCompletionError(result: Extract<CompleteSourceUploadActionResult, { status: "error" }>) {
+  return result.message;
 }
 
 function hasFileError(fieldErrors: Record<string, string[]> | undefined) {

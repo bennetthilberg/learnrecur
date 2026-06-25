@@ -8,14 +8,21 @@ import {
   generateSkillDraftFromSourceAction,
   type SkillFormActionState,
 } from "./actions";
+import type { SourceGenerationStatus } from "./source-creation-workspace";
 
 const idleState: SkillFormActionState = {
   status: "idle",
   message: null,
 };
 
-export function SourceSkillForm() {
+type SourceSkillFormProps = {
+  onGenerationEnd?: () => void;
+  onGenerationStart?: (status: SourceGenerationStatus) => void;
+};
+
+export function SourceSkillForm({ onGenerationEnd, onGenerationStart }: SourceSkillFormProps) {
   const sourceTextRef = useRef<HTMLTextAreaElement>(null);
+  const submittedRef = useRef(false);
   const [state, action, isGenerating] = useActionState(
     generateSkillDraftFromSourceAction,
     idleState,
@@ -33,8 +40,29 @@ export function SourceSkillForm() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!submittedRef.current || isGenerating) {
+      return;
+    }
+
+    if (state.status === "error") {
+      submittedRef.current = false;
+      onGenerationEnd?.();
+    }
+  }, [isGenerating, onGenerationEnd, state.status]);
+
   return (
-    <form action={action} className="skillPanel skillSourceForm">
+    <form
+      action={action}
+      className="skillPanel skillSourceForm"
+      onSubmit={() => {
+        submittedRef.current = true;
+        onGenerationStart?.({
+          title: "Creating a skill from your text",
+          detail: "Gemini is reading the pasted material and writing a focused skill.",
+        });
+      }}
+    >
       <div className="skillPanelHeader">
         <div>
           <h2>Paste learning material</h2>
@@ -44,8 +72,8 @@ export function SourceSkillForm() {
         </span>
       </div>
       <p className="skillUploadIntro">
-        Paste copied notes, excerpts, or worksheet text. Broad material can become up
-        to three narrow drafts.
+        Paste copied notes, excerpts, or worksheet text. You will review the generated skill
+        before adding it.
       </p>
 
       <fieldset className="skillFormFieldset">
@@ -76,7 +104,7 @@ export function SourceSkillForm() {
         }
       >
         <summary>
-          <span>Draft context</span>
+          <span>Optional context</span>
           <small>Collection, focus, and tags</small>
         </summary>
         <div className="skillFormFieldsetBody">
@@ -120,7 +148,7 @@ export function SourceSkillForm() {
 
       <div className="skillFormActions">
         <button className="primaryButton" disabled={isGenerating} type="submit">
-          {isGenerating ? "Creating" : "Create drafts from text"}
+          {isGenerating ? "Creating" : "Create skill from text"}
         </button>
       </div>
     </form>

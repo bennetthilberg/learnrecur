@@ -1641,6 +1641,12 @@ body {
   box-shadow: none;
 }
 
+.skillShell > .skillFormMessage,
+.skillShell > .skillMessage {
+  width: calc(100% - 28px);
+  margin: 14px auto 0;
+}
+
 .practiceFeedback[data-tone="correct"],
 .skillFormMessage[data-tone="saved"] {
   border-color: var(--lr-green);
