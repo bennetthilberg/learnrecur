@@ -8,8 +8,9 @@ import {
   PlusCircle,
   WarningCircle,
 } from "@phosphor-icons/react";
-import { notifications } from "@mantine/notifications";
+import { TextArea, TextField } from "@radix-ui/themes";
 
+import { notifications } from "@/components/app/notifications";
 import {
   activateSkillDraftAction,
   saveSkillDraftAction,
@@ -31,6 +32,21 @@ type SkillDraftFormProps = {
   skillId?: string;
   initialValues: SkillDraftFormValues;
 };
+
+type RadixTextInputType =
+  | "date"
+  | "datetime-local"
+  | "email"
+  | "hidden"
+  | "month"
+  | "number"
+  | "password"
+  | "search"
+  | "tel"
+  | "text"
+  | "time"
+  | "url"
+  | "week";
 
 const idleState: SkillFormActionState = {
   status: "idle",
@@ -223,17 +239,26 @@ function SkillTextField({
   label: string;
   name: string;
   error?: string;
-} & React.InputHTMLAttributes<HTMLInputElement>) {
+} & Omit<
+    React.InputHTMLAttributes<HTMLInputElement>,
+    "color" | "defaultValue" | "size" | "type" | "value"
+  > & {
+    defaultValue?: string | number;
+    type?: RadixTextInputType;
+    value?: string | number;
+  }) {
   const errorId = useId();
   const describedBy = [ariaDescribedBy, error ? errorId : null].filter(Boolean).join(" ") || undefined;
 
   return (
     <label className="skillField">
       <span>{label}</span>
-      <input
+      <TextField.Root
         aria-describedby={describedBy}
         aria-invalid={error ? "true" : undefined}
         name={name}
+        radius="medium"
+        variant="surface"
         {...props}
       />
       {error ? <em id={errorId}>{error}</em> : null}
@@ -251,17 +276,26 @@ function SkillTextArea({
   label: string;
   name: string;
   error?: string;
-} & React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+} & Omit<
+    React.TextareaHTMLAttributes<HTMLTextAreaElement>,
+    "color" | "defaultValue" | "value"
+  > & {
+    defaultValue?: string;
+    value?: string;
+  }) {
   const errorId = useId();
   const describedBy = [ariaDescribedBy, error ? errorId : null].filter(Boolean).join(" ") || undefined;
 
   return (
     <label className="skillField">
       <span>{label}</span>
-      <textarea
+      <TextArea
         aria-describedby={describedBy}
         aria-invalid={error ? "true" : undefined}
         name={name}
+        radius="medium"
+        resize="vertical"
+        variant="surface"
         {...props}
       />
       {error ? <em id={errorId}>{error}</em> : null}

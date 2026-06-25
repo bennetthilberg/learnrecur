@@ -2,8 +2,8 @@
 
 import { useActionState, useEffect } from "react";
 import { CheckCircle, Trash, WarningCircle } from "@phosphor-icons/react";
-import { notifications } from "@mantine/notifications";
 
+import { notifications } from "@/components/app/notifications";
 import {
   removeSkillSourceAction,
   type SkillFormActionState,

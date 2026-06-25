@@ -27,8 +27,8 @@
   --lr-r-container:12px; --lr-r-card:8px; --lr-r-button:8px;
   --lr-r-icon-tile:6px; --lr-r-badge:6px; --lr-r-chip:7px; --lr-r-pill:999px;
   /* fonts */
-  --lr-font-body:'Instrument Sans', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  --lr-font-display:'Plus Jakarta Sans', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  --lr-font-body:'Instrument Sans', sans-serif;
+  --lr-font-display:'Plus Jakarta Sans', sans-serif;
   /* compatibility aliases for existing app classes */
   --lr-white: var(--lr-card);
   --lr-ink-soft: var(--lr-pref-label);
@@ -104,6 +104,143 @@
   --lr-shadow: none;
   --lr-focus-outline: rgba(28, 68, 168, 0.72);
   --lr-focus-ring: 0 0 0 4px rgba(28, 68, 168, 0.16);
+}
+
+.radix-themes.learnrecurRadixTheme {
+  --default-font-family: var(--lr-font-body);
+  --heading-font-family: var(--lr-font-display);
+  --code-font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  --strong-font-family: var(--lr-font-body);
+  --color-background: var(--lr-canvas);
+  --color-panel-solid: var(--lr-card);
+  --color-panel-translucent: var(--lr-card);
+  --color-surface: var(--lr-card);
+  --color-overlay: rgba(21, 35, 63, 0.38);
+  --shadow-1: none;
+  --shadow-2: none;
+  --shadow-3: none;
+  --shadow-4: none;
+  --shadow-5: none;
+  --shadow-6: none;
+  --base-card-surface-box-shadow: 0 0 0 1px var(--lr-card-border);
+  --base-card-surface-hover-box-shadow: 0 0 0 1px var(--lr-card-border);
+  --base-card-surface-active-box-shadow: 0 0 0 1px var(--lr-card-border);
+
+  --blue-1: #EEF3FC;
+  --blue-2: #D7E2F6;
+  --blue-3: #ECF0FA;
+  --blue-4: #BBCAEC;
+  --blue-5: #AEC2EC;
+  --blue-6: #8099DE;
+  --blue-7: #4F6ECB;
+  --blue-8: #2C53BB;
+  --blue-9: #1C44A8;
+  --blue-10: #2150BC;
+  --blue-11: #1C44A8;
+  --blue-12: #15233F;
+  --blue-a1: rgba(28, 68, 168, 0.04);
+  --blue-a2: rgba(28, 68, 168, 0.07);
+  --blue-a3: rgba(28, 68, 168, 0.09);
+  --blue-a4: rgba(28, 68, 168, 0.18);
+  --blue-a5: rgba(28, 68, 168, 0.24);
+  --blue-a6: rgba(28, 68, 168, 0.36);
+  --blue-a7: rgba(28, 68, 168, 0.48);
+  --blue-a8: rgba(28, 68, 168, 0.68);
+  --blue-a9: rgba(28, 68, 168, 1);
+  --blue-a10: rgba(33, 80, 188, 1);
+  --blue-a11: rgba(28, 68, 168, 1);
+  --blue-a12: rgba(21, 35, 63, 1);
+  --blue-contrast: #FFFFFF;
+  --blue-surface: #FFFFFF;
+  --blue-indicator: var(--lr-blue);
+  --blue-track: var(--lr-blue-tint);
+
+  --green-1: #E7F5EE;
+  --green-2: #CBEAD9;
+  --green-3: #E7F5EE;
+  --green-4: #CBEAD9;
+  --green-5: #9AD6B8;
+  --green-6: #63BE92;
+  --green-7: #2E9E6E;
+  --green-8: #13885A;
+  --green-9: #0C7D52;
+  --green-10: #0F8E5D;
+  --green-11: #0C7D52;
+  --green-12: #15233F;
+  --green-a1: rgba(12, 125, 82, 0.05);
+  --green-a2: rgba(12, 125, 82, 0.09);
+  --green-a3: rgba(12, 125, 82, 0.12);
+  --green-a4: rgba(12, 125, 82, 0.18);
+  --green-a5: rgba(12, 125, 82, 0.26);
+  --green-a6: rgba(12, 125, 82, 0.38);
+  --green-a7: rgba(12, 125, 82, 0.5);
+  --green-a8: rgba(12, 125, 82, 0.72);
+  --green-a9: rgba(12, 125, 82, 1);
+  --green-a10: rgba(15, 142, 93, 1);
+  --green-a11: rgba(12, 125, 82, 1);
+  --green-a12: rgba(21, 35, 63, 1);
+  --green-contrast: #FFFFFF;
+  --green-surface: #FFFFFF;
+  --green-indicator: var(--lr-green);
+  --green-track: var(--lr-success-soft);
+
+  --amber-1: #FBEDE6;
+  --amber-2: #F6D2C2;
+  --amber-3: #FCF6F3;
+  --amber-4: #F7EBE5;
+  --amber-5: #EDA888;
+  --amber-6: #E27C52;
+  --amber-7: #D2592A;
+  --amber-8: #C44C18;
+  --amber-9: #B8440F;
+  --amber-10: #C44C18;
+  --amber-11: #B8440F;
+  --amber-12: #15233F;
+  --amber-a1: rgba(184, 68, 15, 0.05);
+  --amber-a2: rgba(184, 68, 15, 0.08);
+  --amber-a3: rgba(184, 68, 15, 0.1);
+  --amber-a4: rgba(184, 68, 15, 0.15);
+  --amber-a5: rgba(184, 68, 15, 0.24);
+  --amber-a6: rgba(184, 68, 15, 0.34);
+  --amber-a7: rgba(184, 68, 15, 0.48);
+  --amber-a8: rgba(184, 68, 15, 0.72);
+  --amber-a9: rgba(184, 68, 15, 1);
+  --amber-a10: rgba(196, 76, 24, 1);
+  --amber-a11: rgba(184, 68, 15, 1);
+  --amber-a12: rgba(21, 35, 63, 1);
+  --amber-contrast: #FFFFFF;
+  --amber-surface: #FFFFFF;
+  --amber-indicator: var(--lr-amber);
+  --amber-track: var(--lr-btn-again-hover);
+
+  --slate-1: #F6F7F9;
+  --slate-2: #EDEFF3;
+  --slate-3: #E4E8F1;
+  --slate-4: #D7DAE2;
+  --slate-5: #C9CFDC;
+  --slate-6: #DDE3EE;
+  --slate-7: #DCE2EC;
+  --slate-8: #DBE1EC;
+  --slate-9: #8A92A6;
+  --slate-10: #6E7689;
+  --slate-11: #5A6480;
+  --slate-12: #15233F;
+  --slate-a1: rgba(21, 35, 63, 0.03);
+  --slate-a2: rgba(21, 35, 63, 0.05);
+  --slate-a3: rgba(21, 35, 63, 0.08);
+  --slate-a4: rgba(21, 35, 63, 0.12);
+  --slate-a5: rgba(21, 35, 63, 0.16);
+  --slate-a6: rgba(21, 35, 63, 0.2);
+  --slate-a7: rgba(21, 35, 63, 0.24);
+  --slate-a8: rgba(21, 35, 63, 0.3);
+  --slate-a9: rgba(21, 35, 63, 0.46);
+  --slate-a10: rgba(21, 35, 63, 0.58);
+  --slate-a11: rgba(21, 35, 63, 0.72);
+  --slate-a12: rgba(21, 35, 63, 1);
+  --slate-contrast: #FFFFFF;
+  --slate-surface: #FFFFFF;
+  --slate-indicator: var(--lr-icon);
+  --slate-track: var(--lr-blue-tint);
 }
 
 @media (min-width: 781px) {
@@ -2004,8 +2141,67 @@ a {
   text-align: center;
 }
 
+.learnrecurNotificationViewport {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  z-index: 3000;
+  display: grid;
+  width: min(360px, calc(100vw - 28px));
+  gap: 10px;
+  pointer-events: none;
+}
+
 .learnrecurNotification {
+  position: relative;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  border: 1px solid var(--lr-card-border);
+  border-radius: 8px;
+  background: #FFFFFF;
   box-shadow: none;
+  color: var(--lr-ink);
+  pointer-events: auto;
+}
+
+.learnrecurNotification[data-tone="success"] .rt-CalloutIcon {
+  color: var(--lr-green);
+}
+
+.learnrecurNotification[data-tone="attention"] .rt-CalloutIcon {
+  color: var(--lr-amber);
+}
+
+.learnrecurNotification[data-tone="danger"] .rt-CalloutIcon {
+  color: var(--lr-destructive);
+}
+
+.learnrecurNotification[data-tone="primary"] .rt-CalloutIcon {
+  color: var(--lr-blue);
+}
+
+.learnrecurNotificationBody {
+  min-width: 0;
+}
+
+.learnrecurNotificationBody strong {
+  display: block;
+  margin: 0 0 3px;
+  color: var(--lr-ink);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: var(--lr-leading-title);
+}
+
+.learnrecurNotificationBody .rt-CalloutText {
+  color: var(--lr-text-secondary);
+  font-size: 13.5px;
+  line-height: var(--lr-leading-copy);
+}
+
+.learnrecurNotificationClose {
+  margin: -2px -4px 0 4px;
+  color: var(--lr-icon);
 }
 
 .sourceGenerationPanel h2 {
@@ -2512,6 +2708,43 @@ a {
   line-height: var(--lr-leading-copy);
 }
 
+.skillField .rt-TextFieldRoot,
+.skillField .rt-TextAreaRoot {
+  width: 100%;
+  border: 1px solid var(--lr-line-strong);
+  border-radius: var(--lr-radius);
+  background: var(--lr-white);
+  box-shadow: none;
+}
+
+.skillField .rt-TextFieldRoot::before,
+.skillField .rt-TextFieldRoot::after,
+.skillField .rt-TextAreaRoot::before,
+.skillField .rt-TextAreaRoot::after {
+  box-shadow: none;
+}
+
+.skillField .rt-TextFieldInput,
+.skillField .rt-TextAreaInput {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--lr-ink);
+  font: inherit;
+  font-size: var(--lr-text-md);
+  line-height: var(--lr-leading-copy);
+}
+
+.skillField .rt-TextFieldInput {
+  min-height: 40px;
+  padding: 10px 11px;
+}
+
+.skillField .rt-TextAreaInput {
+  padding: 10px 11px;
+}
+
 .skillField select {
   appearance: none;
   background-image:
@@ -2547,9 +2780,20 @@ a {
   box-shadow: var(--lr-focus-ring);
 }
 
+.skillField .rt-TextFieldRoot:focus-within,
+.skillField .rt-TextAreaRoot:focus-within {
+  border-color: var(--lr-primary);
+  box-shadow: var(--lr-focus-ring);
+}
+
 .skillField input[aria-invalid="true"],
 .skillField select[aria-invalid="true"],
 .skillField textarea[aria-invalid="true"] {
+  border-color: #B8440F;
+}
+
+.skillField .rt-TextFieldRoot:has([aria-invalid="true"]),
+.skillField .rt-TextAreaRoot:has([aria-invalid="true"]) {
   border-color: #B8440F;
 }
 
@@ -2558,6 +2802,17 @@ a {
 .skillField textarea:disabled {
   cursor: not-allowed;
   background: var(--lr-panel-soft);
+  color: var(--lr-muted);
+}
+
+.skillField .rt-TextFieldRoot:has(:disabled),
+.skillField .rt-TextAreaRoot:has(:disabled) {
+  background: var(--lr-panel-soft);
+}
+
+.skillField .rt-TextFieldInput:disabled,
+.skillField .rt-TextAreaInput:disabled {
+  cursor: not-allowed;
   color: var(--lr-muted);
 }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useId } from "react";
+import { TextField } from "@radix-ui/themes";
 
 import type { NormalizedReminderPreferenceInput } from "@/lib/reminders";
 
@@ -62,7 +63,7 @@ export function ReminderSettingsForm({
 
           <label className="skillField">
             <span>Reminder email</span>
-            <input
+            <TextField.Root
               aria-describedby={hasFieldError(state, "email") ? emailErrorId : undefined}
               aria-invalid={hasFieldError(state, "email") ? "true" : undefined}
               autoComplete="email"
@@ -70,8 +71,10 @@ export function ReminderSettingsForm({
               disabled={pending}
               maxLength={254}
               name="email"
+              radius="medium"
               required
               type="email"
+              variant="surface"
             />
             <FieldError id={emailErrorId} state={state} name="email" />
           </label>
@@ -127,7 +130,7 @@ export function ReminderSettingsForm({
 
           <label className="skillField">
             <span>Minimum due skills</span>
-            <input
+            <TextField.Root
               aria-describedby={
                 hasFieldError(state, "minimumDueCount") ? minimumDueCountErrorId : undefined
               }
@@ -137,8 +140,10 @@ export function ReminderSettingsForm({
               max={99}
               min={1}
               name="minimumDueCount"
+              radius="medium"
               required
               type="number"
+              variant="surface"
             />
             <FieldError
               id={minimumDueCountErrorId}

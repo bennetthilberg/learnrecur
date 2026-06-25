@@ -2,8 +2,8 @@
 
 import { useCallback, useState } from "react";
 import { CheckCircle, WarningCircle } from "@phosphor-icons/react";
-import { notifications } from "@mantine/notifications";
 
+import { notifications } from "@/components/app/notifications";
 import { SourceSkillForm } from "./source-skill-form";
 import { SourceUploadForm } from "./source-upload-form";
 

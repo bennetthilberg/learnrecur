@@ -1,7 +1,42 @@
-import { Skeleton } from "@mantine/core";
-import type { ReactNode } from "react";
+import { Skeleton as RadixSkeleton } from "@radix-ui/themes";
+import type { CSSProperties, ReactNode } from "react";
 
 import type { SkillsTopbarCurrent } from "./skills-topbar";
+
+type RouteSkeletonProps = {
+  children?: ReactNode;
+  className?: string;
+  height?: number | string;
+  mt?: number | string;
+  radius?: number | string;
+  width?: number | string;
+};
+
+function toCssLength(value: number | string | undefined) {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  return typeof value === "number" ? `${value}px` : value;
+}
+
+function Skeleton({ children, className, height, mt, radius, width }: RouteSkeletonProps) {
+  const style: CSSProperties = {
+    borderRadius: toCssLength(radius),
+    marginTop: toCssLength(mt),
+  };
+
+  return (
+    <RadixSkeleton
+      className={className}
+      height={toCssLength(height)}
+      style={style}
+      width={toCssLength(width)}
+    >
+      {children}
+    </RadixSkeleton>
+  );
+}
 
 export type PrimaryRouteKey = Exclude<SkillsTopbarCurrent, "skill">;
 

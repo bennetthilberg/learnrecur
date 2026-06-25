@@ -4,6 +4,7 @@ import { useCallback, useEffect, useId, useRef, useState, useTransition } from "
 import type React from "react";
 import { useRouter } from "next/navigation";
 import { UploadSimple } from "@phosphor-icons/react";
+import { TextArea, TextField } from "@radix-ui/themes";
 
 import {
   completeSourceUploadAction,
@@ -22,6 +23,21 @@ type SourceUploadFormProps = {
   onGenerationStart?: (status: SourceGenerationStatus) => void;
   onNotice?: (notice: SourceCreationNotice | null) => void;
 };
+
+type RadixTextInputType =
+  | "date"
+  | "datetime-local"
+  | "email"
+  | "hidden"
+  | "month"
+  | "number"
+  | "password"
+  | "search"
+  | "tel"
+  | "text"
+  | "time"
+  | "url"
+  | "week";
 
 type UploadStatus = "idle" | "preparing" | "uploading" | "generating" | "error";
 
@@ -430,17 +446,26 @@ function SkillTextField({
   label: string;
   name: string;
   error?: string;
-} & React.InputHTMLAttributes<HTMLInputElement>) {
+} & Omit<
+    React.InputHTMLAttributes<HTMLInputElement>,
+    "color" | "defaultValue" | "size" | "type" | "value"
+  > & {
+    defaultValue?: string | number;
+    type?: RadixTextInputType;
+    value?: string | number;
+  }) {
   const errorId = useId();
   const describedBy = [ariaDescribedBy, error ? errorId : null].filter(Boolean).join(" ") || undefined;
 
   return (
     <label className="skillField">
       <span>{label}</span>
-      <input
+      <TextField.Root
         aria-describedby={describedBy}
         aria-invalid={error ? "true" : undefined}
         name={name}
+        radius="medium"
+        variant="surface"
         {...props}
       />
       {error ? <em id={errorId}>{error}</em> : null}
@@ -458,17 +483,26 @@ function SkillTextArea({
   label: string;
   name: string;
   error?: string;
-} & React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+} & Omit<
+    React.TextareaHTMLAttributes<HTMLTextAreaElement>,
+    "color" | "defaultValue" | "value"
+  > & {
+    defaultValue?: string;
+    value?: string;
+  }) {
   const errorId = useId();
   const describedBy = [ariaDescribedBy, error ? errorId : null].filter(Boolean).join(" ") || undefined;
 
   return (
     <label className="skillField">
       <span>{label}</span>
-      <textarea
+      <TextArea
         aria-describedby={describedBy}
         aria-invalid={error ? "true" : undefined}
         name={name}
+        radius="medium"
+        resize="vertical"
+        variant="surface"
         {...props}
       />
       {error ? <em id={errorId}>{error}</em> : null}

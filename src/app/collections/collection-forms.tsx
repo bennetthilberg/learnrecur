@@ -2,6 +2,7 @@
 
 import { useActionState, useId } from "react";
 import { Archive, ArrowClockwise, PencilSimple } from "@phosphor-icons/react";
+import { TextArea, TextField } from "@radix-ui/themes";
 
 import type { CollectionSummary } from "@/lib/collections";
 
@@ -28,20 +29,22 @@ export function CollectionCreateForm() {
       <div className="collectionCreateGrid">
         <label className="skillField">
           <span>Name</span>
-          <input
+          <TextField.Root
             aria-describedby={hasFieldError(state, "name") ? nameErrorId : undefined}
             aria-invalid={hasFieldError(state, "name") ? "true" : undefined}
             disabled={pending}
             maxLength={80}
             name="name"
             placeholder="Spanish grammar"
+            radius="medium"
             required
+            variant="surface"
           />
           <FieldError id={nameErrorId} state={state} name="name" />
         </label>
         <label className="skillField">
           <span>Description</span>
-          <textarea
+          <TextArea
             aria-describedby={
               hasFieldError(state, "description") ? descriptionErrorId : undefined
             }
@@ -50,7 +53,10 @@ export function CollectionCreateForm() {
             maxLength={500}
             name="description"
             placeholder="What belongs in this study area?"
+            radius="medium"
+            resize="vertical"
             rows={2}
+            variant="surface"
           />
           <FieldError id={descriptionErrorId} state={state} name="description" />
         </label>
@@ -85,20 +91,22 @@ export function CollectionUpdateForm({
         <input name="collectionId" type="hidden" value={collection.id} />
         <label className="skillField">
           <span>Name</span>
-          <input
+          <TextField.Root
             aria-describedby={hasFieldError(state, "name") ? nameErrorId : undefined}
             aria-invalid={hasFieldError(state, "name") ? "true" : undefined}
             defaultValue={collection.name}
             disabled={pending}
             maxLength={80}
             name="name"
+            radius="medium"
             required
+            variant="surface"
           />
           <FieldError id={nameErrorId} state={state} name="name" />
         </label>
         <label className="skillField">
           <span>Description</span>
-          <textarea
+          <TextArea
             aria-describedby={
               hasFieldError(state, "description") ? descriptionErrorId : undefined
             }
@@ -107,7 +115,10 @@ export function CollectionUpdateForm({
             disabled={pending}
             maxLength={500}
             name="description"
+            radius="medium"
+            resize="vertical"
             rows={3}
+            variant="surface"
           />
           <FieldError id={descriptionErrorId} state={state} name="description" />
         </label>

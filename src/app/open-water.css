@@ -458,6 +458,10 @@ body {
 }
 
 .openWaterStatTile {
+  --base-card-padding-top: 12px;
+  --base-card-padding-right: 14px;
+  --base-card-padding-bottom: 12px;
+  --base-card-padding-left: 14px;
   padding: 12px 14px;
 }
 
@@ -512,6 +516,10 @@ body {
 }
 
 .openWaterReviewCard {
+  --base-card-padding-top: 16px;
+  --base-card-padding-right: 18px;
+  --base-card-padding-bottom: 16px;
+  --base-card-padding-left: 18px;
   padding: 16px 18px;
 }
 
@@ -542,6 +550,24 @@ body {
 }
 
 .openWaterMiniProgress span[data-complete="true"] {
+  background: var(--lr-green);
+}
+
+.openWaterMiniProgress.rt-ProgressRoot {
+  background: var(--lr-blue-tint);
+  background-image: none;
+}
+
+.openWaterMiniProgress.rt-ProgressRoot::after {
+  box-shadow: none;
+}
+
+.openWaterMiniProgress :where(.rt-ProgressIndicator) {
+  background: var(--lr-blue);
+  background-image: none;
+}
+
+.openWaterMiniProgress[data-complete="true"] :where(.rt-ProgressIndicator) {
   background: var(--lr-green);
 }
 
@@ -613,6 +639,10 @@ body {
 }
 
 .openWaterDeckList {
+  --base-card-padding-top: 0;
+  --base-card-padding-right: 0;
+  --base-card-padding-bottom: 0;
+  --base-card-padding-left: 0;
   overflow: hidden;
 }
 
@@ -718,7 +748,18 @@ body {
 }
 
 .openWaterSmallCard {
+  --base-card-padding-top: 14px;
+  --base-card-padding-right: 16px;
+  --base-card-padding-bottom: 14px;
+  --base-card-padding-left: 16px;
   padding: 14px 16px;
+}
+
+.openWaterStatTile.rt-Card::after,
+.openWaterReviewCard.rt-Card::after,
+.openWaterDeckList.rt-Card::after,
+.openWaterSmallCard.rt-Card::after {
+  box-shadow: none;
 }
 
 .openWaterSmallCard h2,
@@ -1521,6 +1562,43 @@ body {
     outline-offset 120ms ease;
 }
 
+.skillField .rt-TextFieldRoot,
+.skillField .rt-TextAreaRoot {
+  width: 100%;
+  border: 1px solid var(--lr-chip-border);
+  border-radius: 8px;
+  background: #FFFFFF;
+  box-shadow: none;
+  transition:
+    border-color 120ms ease,
+    box-shadow 120ms ease,
+    outline-offset 120ms ease;
+}
+
+.skillField .rt-TextFieldRoot::before,
+.skillField .rt-TextFieldRoot::after,
+.skillField .rt-TextAreaRoot::before,
+.skillField .rt-TextAreaRoot::after {
+  box-shadow: none;
+}
+
+.skillField .rt-TextFieldInput,
+.skillField .rt-TextAreaInput {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--lr-ink);
+}
+
+.skillField .rt-TextFieldInput {
+  min-height: 40px;
+  padding: 10px 11px;
+}
+
+.skillField .rt-TextAreaInput {
+  padding: 10px 11px;
+}
+
 .skillField select {
   appearance: none;
   background-color: #FFFFFF;
@@ -1549,6 +1627,14 @@ body {
 .exactAnswerField input:focus-visible,
 .flagNoteField textarea:focus-visible,
 .skillDeleteConfirm input:focus-visible {
+  border-color: var(--lr-blue);
+  outline: 2px solid var(--lr-focus-outline);
+  outline-offset: 3px;
+  box-shadow: var(--lr-focus-ring);
+}
+
+.skillField .rt-TextFieldRoot:focus-within,
+.skillField .rt-TextAreaRoot:focus-within {
   border-color: var(--lr-blue);
   outline: 2px solid var(--lr-focus-outline);
   outline-offset: 3px;

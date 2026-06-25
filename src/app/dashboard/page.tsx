@@ -1,5 +1,6 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { CirclesThreePlus, Gauge, Translate } from "@phosphor-icons/react/dist/ssr";
+import { Badge, Card, Progress } from "@radix-ui/themes";
 import Link from "next/link";
 
 import { SkillFsrsState } from "@/generated/prisma/enums";
@@ -138,13 +139,15 @@ function StatTile({
   tone?: "blue" | "green" | "ink";
 }) {
   return (
-    <article className="openWaterStatTile">
-      <p>{label}</p>
-      <strong className="disp tnum" data-tone={tone}>
-        {value}
-        {unit ? <span>{unit}</span> : null}
-      </strong>
-    </article>
+    <Card asChild className="openWaterStatTile">
+      <article>
+        <p>{label}</p>
+        <strong className="disp tnum" data-tone={tone}>
+          {value}
+          {unit ? <span>{unit}</span> : null}
+        </strong>
+      </article>
+    </Card>
   );
 }
 
@@ -181,38 +184,40 @@ function DashboardReviewCard({
       <h2 id="up-next-title" className="disp openWaterSectionTitle">
         Up next
       </h2>
-      <article className="openWaterReviewCard">
-        <div className="openWaterReviewTop">
-          <span>{label}</span>
-          <span className="tnum">{activeSummary}</span>
-        </div>
-        <p className="openWaterReviewHint">{skillTitle}</p>
-        <p className="disp openWaterReviewPrompt">
-          {ready ? <HighlightedPrompt prompt={prompt} /> : <MathText text={prompt} />}
-        </p>
-        {ready ? (
-          <p className="openWaterReviewNote">
-            <strong>Instant check.</strong> Open practice to answer this{" "}
-            <span>verified exercise</span> and update the memory schedule.
+      <Card asChild className="openWaterReviewCard">
+        <article>
+          <div className="openWaterReviewTop">
+            <span>{label}</span>
+            <span className="tnum">{activeSummary}</span>
+          </div>
+          <p className="openWaterReviewHint">{skillTitle}</p>
+          <p className="disp openWaterReviewPrompt">
+            {ready ? <HighlightedPrompt prompt={prompt} /> : <MathText text={prompt} />}
           </p>
-        ) : null}
-        <div className="openWaterReviewActions">
           {ready ? (
-            <>
-              <Link className="bpbtn bpbtn-blue" href="/practice">
-                Practice now
-              </Link>
-              <Link className="bpbtn bpbtn-white" href="/skills">
+            <p className="openWaterReviewNote">
+              <strong>Instant check.</strong> Open practice to answer this{" "}
+              <span>verified exercise</span> and update the memory schedule.
+            </p>
+          ) : null}
+          <div className="openWaterReviewActions">
+            {ready ? (
+              <>
+                <Link className="bpbtn bpbtn-blue" href="/practice">
+                  Practice now
+                </Link>
+                <Link className="bpbtn bpbtn-white" href="/skills">
+                  Review skills
+                </Link>
+              </>
+            ) : (
+              <Link className="bpbtn bpbtn-blue" href="/skills">
                 Review skills
               </Link>
-            </>
-          ) : (
-            <Link className="bpbtn bpbtn-blue" href="/skills">
-              Review skills
-            </Link>
-          )}
-        </div>
-      </article>
+            )}
+          </div>
+        </article>
+      </Card>
     </section>
   );
 }
@@ -256,51 +261,65 @@ function DashboardCollections({ dashboard }: { dashboard: DashboardHome }) {
           + New skill
         </Link>
       </div>
-      <div className="openWaterDeckList">
-        {rows.map((row, index) => {
-          const Icon = getCollectionIcon(index);
-          const hasActiveSkills = row.activeCount > 0;
-          const progress = hasActiveSkills ? Math.round(
-            ((row.activeCount - row.readyCount) / row.activeCount) * 100,
-          ) : 0;
+      <Card asChild className="openWaterDeckList">
+        <div>
+          {rows.map((row, index) => {
+            const Icon = getCollectionIcon(index);
+            const hasActiveSkills = row.activeCount > 0;
+            const progress = hasActiveSkills
+              ? Math.round(((row.activeCount - row.readyCount) / row.activeCount) * 100)
+              : 0;
 
-          return (
-            <article className="openWaterDeckRow" key={row.id}>
-              <div className="openWaterDeckIcon" aria-hidden="true">
-                <Icon size={17} weight="regular" />
-              </div>
-              <div className="openWaterDeckMain">
-                <strong>{row.name}</strong>
-                <span className="tnum">
-                  {formatCount(row.activeCount)} active skill
-                  {row.activeCount === 1 ? "" : "s"} · {row.meta}
-                </span>
-              </div>
-              {hasActiveSkills ? (
-                <>
-                  <div className="openWaterMiniProgress" aria-hidden="true">
-                    <span
-                      data-complete={row.readyCount === 0 ? "true" : "false"}
-                      style={{ width: `${Math.max(progress, 8)}%` }}
-                    />
-                  </div>
-                  <span
-                    className="openWaterStatusBadge tnum"
-                    data-tone={row.readyCount > 0 ? "due" : "stable"}
-                  >
-                    {row.readyCount > 0 ? `${formatCount(row.readyCount)} ready` : "Scheduled"}
+            return (
+              <article className="openWaterDeckRow" key={row.id}>
+                <div className="openWaterDeckIcon" aria-hidden="true">
+                  <Icon size={17} weight="regular" />
+                </div>
+                <div className="openWaterDeckMain">
+                  <strong>{row.name}</strong>
+                  <span className="tnum">
+                    {formatCount(row.activeCount)} active skill
+                    {row.activeCount === 1 ? "" : "s"} · {row.meta}
                   </span>
-                </>
-              ) : null}
-              {row.href ? (
-                <Link className="openWaterRowLink" href={row.href}>
-                  {row.readyCount > 0 ? "Practice" : "Open"}
-                </Link>
-              ) : null}
-            </article>
-          );
-        })}
-      </div>
+                </div>
+                {hasActiveSkills ? (
+                  <>
+                    <Progress
+                      aria-hidden="true"
+                      className="openWaterMiniProgress"
+                      color={row.readyCount === 0 ? "green" : "blue"}
+                      data-complete={row.readyCount === 0 ? "true" : "false"}
+                      max={100}
+                      value={Math.max(progress, 8)}
+                      variant="soft"
+                    />
+                    <Badge
+                      asChild
+                      color={row.readyCount > 0 ? "amber" : "green"}
+                      radius="small"
+                      variant="outline"
+                    >
+                      <span
+                        className="openWaterStatusBadge tnum"
+                        data-tone={row.readyCount > 0 ? "due" : "stable"}
+                      >
+                        {row.readyCount > 0
+                          ? `${formatCount(row.readyCount)} ready`
+                          : "Scheduled"}
+                      </span>
+                    </Badge>
+                  </>
+                ) : null}
+                {row.href ? (
+                  <Link className="openWaterRowLink" href={row.href}>
+                    {row.readyCount > 0 ? "Practice" : "Open"}
+                  </Link>
+                ) : null}
+              </article>
+            );
+          })}
+        </div>
+      </Card>
     </section>
   );
 }
@@ -313,27 +332,29 @@ function ActivityHeatmap({
   reviewCount: number;
 }) {
   return (
-    <section className="openWaterSmallCard" aria-labelledby="activity-title">
-      <h2 id="activity-title" className="disp">
-        Activity
-      </h2>
-      <p className="openWaterCardSummary tnum">
-        {formatCount(reviewCount)} completed review{reviewCount === 1 ? "" : "s"} in the
-        last 35 days.
-      </p>
-      <div className="openWaterHeatmap" aria-hidden="true">
-        {activityValues.map((value, index) => (
-          <span data-heat={clampHeatValue(value)} key={index} />
-        ))}
-      </div>
-      <div className="openWaterLegend" aria-hidden="true">
-        <span>Less</span>
-        {[0, 1, 2, 3, 4].map((value) => (
-          <i data-heat={value} key={value} />
-        ))}
-        <span>More</span>
-      </div>
-    </section>
+    <Card asChild className="openWaterSmallCard">
+      <section aria-labelledby="activity-title">
+        <h2 id="activity-title" className="disp">
+          Activity
+        </h2>
+        <p className="openWaterCardSummary tnum">
+          {formatCount(reviewCount)} completed review{reviewCount === 1 ? "" : "s"} in the
+          last 35 days.
+        </p>
+        <div className="openWaterHeatmap" aria-hidden="true">
+          {activityValues.map((value, index) => (
+            <span data-heat={clampHeatValue(value)} key={index} />
+          ))}
+        </div>
+        <div className="openWaterLegend" aria-hidden="true">
+          <span>Less</span>
+          {[0, 1, 2, 3, 4].map((value) => (
+            <i data-heat={value} key={value} />
+          ))}
+          <span>More</span>
+        </div>
+      </section>
+    </Card>
   );
 }
 
@@ -353,34 +374,36 @@ function Forecast({ dashboard, now }: { dashboard: DashboardHome; now: Date }) {
     counts.reduce((total, count) => total + count, 0);
 
   return (
-    <section className="openWaterSmallCard openWaterForecastCard" aria-labelledby="forecast-title">
-      <div className="openWaterForecastHeader">
-        <h2 id="forecast-title" className="disp">
-          Next 7 days
-        </h2>
-        <span className="tnum">{formatCount(forecastCount)} skills scheduled</span>
-      </div>
-      <p className="openWaterCardSummary tnum">
-        {formatCount(dashboard.readyNowCount)} ready now;{" "}
-        {formatCount(counts.reduce((total, count) => total + count, 0))} scheduled later.
-      </p>
-      <div className="openWaterForecastBars" aria-hidden="true">
-        {bars.map((height, index) => (
-          <span
-            data-today={index === 0 ? "true" : "false"}
-            key={index}
-            style={{ height }}
-          />
-        ))}
-      </div>
-      <div className="openWaterForecastLabels" aria-hidden="true">
-        {labels.map((label, index) => (
-          <span data-today={index === 0 ? "true" : "false"} key={label}>
-            {label}
-          </span>
-        ))}
-      </div>
-    </section>
+    <Card asChild className="openWaterSmallCard openWaterForecastCard">
+      <section aria-labelledby="forecast-title">
+        <div className="openWaterForecastHeader">
+          <h2 id="forecast-title" className="disp">
+            Next 7 days
+          </h2>
+          <span className="tnum">{formatCount(forecastCount)} skills scheduled</span>
+        </div>
+        <p className="openWaterCardSummary tnum">
+          {formatCount(dashboard.readyNowCount)} ready now;{" "}
+          {formatCount(counts.reduce((total, count) => total + count, 0))} scheduled later.
+        </p>
+        <div className="openWaterForecastBars" aria-hidden="true">
+          {bars.map((height, index) => (
+            <span
+              data-today={index === 0 ? "true" : "false"}
+              key={index}
+              style={{ height }}
+            />
+          ))}
+        </div>
+        <div className="openWaterForecastLabels" aria-hidden="true">
+          {labels.map((label, index) => (
+            <span data-today={index === 0 ? "true" : "false"} key={label}>
+              {label}
+            </span>
+          ))}
+        </div>
+      </section>
+    </Card>
   );
 }
 
