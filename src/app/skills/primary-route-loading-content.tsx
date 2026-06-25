@@ -444,10 +444,6 @@ function SettingsRouteLoading({ config }: { config: PrimaryRouteLoadingConfig })
   return (
     <>
       <RouteHeader config={config} />
-      <div className="settingsTabs routeLoadingSettingsTabs" aria-hidden="true">
-        <Skeleton className="routeSkeleton" height={31} radius={4} width={56} />
-        <Skeleton className="routeSkeleton" height={31} radius={4} width={48} />
-      </div>
       <PanelSkeleton className="settingsPanel" title="Email reminders">
         <div className="routeLoadingSettingsForm" aria-hidden="true">
           <Skeleton className="routeSkeleton" height={22} radius={6} width="76%" />

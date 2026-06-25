@@ -3081,7 +3081,6 @@ body {
 
 /* ===== Settings page simplification ===== */
 .settingsShell .settingsHeader,
-.settingsShell .settingsTabs,
 .settingsShell .settingsPanel,
 .settingsShell .settingsExportPanel {
   width: calc(100% - 28px);
@@ -3105,41 +3104,6 @@ body {
   font-weight: 800;
   line-height: 1.08;
   letter-spacing: 0;
-}
-
-.settingsTabs {
-  display: flex;
-  align-items: end;
-  gap: 24px;
-  margin-top: 28px;
-  border-bottom: 1px solid var(--lr-divider);
-}
-
-.settingsTabs a {
-  display: inline-flex;
-  min-height: 42px;
-  align-items: center;
-  border-bottom: 4px solid transparent;
-  color: var(--lr-text-secondary);
-  font-size: 16px;
-  font-weight: 600;
-  line-height: 1.2;
-  text-decoration: none;
-}
-
-.settingsTabs a:hover {
-  color: var(--lr-ink);
-}
-
-.settingsTabs a:focus-visible {
-  outline: 2px solid var(--lr-focus-outline);
-  outline-offset: 3px;
-  box-shadow: var(--lr-focus-ring);
-}
-
-.settingsTabs a[aria-current="page"] {
-  border-bottom-color: var(--lr-blue);
-  color: var(--lr-blue);
 }
 
 .settingsShell .settingsPanel,
@@ -3199,6 +3163,13 @@ body {
 .settingsReminderFieldset:first-child {
   border-top: 0;
   padding-top: 0;
+}
+
+.settingsReminderForm .settingsReminderFieldset + .settingsReminderFieldset {
+  border-top: 1px solid var(--lr-divider);
+  border-left: 0;
+  padding-top: 28px;
+  padding-left: 0;
 }
 
 .settingsReminderFieldset legend {
@@ -3264,7 +3235,6 @@ body {
   width: 1px;
   height: 1px;
   overflow: hidden;
-  clip: rect(0 0 0 0);
   clip-path: inset(50%);
   white-space: nowrap;
 }
@@ -3389,10 +3359,6 @@ body {
   padding-top: 16px;
 }
 
-.routeLoadingSettingsTabs {
-  pointer-events: none;
-}
-
 .settingsShell .routeLoadingSettingsForm {
   grid-template-columns: minmax(0, 1fr);
   gap: 18px;
@@ -3412,11 +3378,6 @@ body {
 
   .settingsShell .settingsHeader h1 {
     font-size: 34px;
-  }
-
-  .settingsTabs {
-    gap: 22px;
-    margin-top: 22px;
   }
 
   .settingsShell .settingsPanel,

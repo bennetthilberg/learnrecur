@@ -1,5 +1,6 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import Link from "next/link";
+import { DownloadSimpleIcon } from "@phosphor-icons/react/dist/ssr";
 
 import { UserStatusPanel } from "@/components/app/user-status-panel";
 import { getReminderSettings } from "@/lib/reminders";
@@ -51,13 +52,6 @@ export default async function SettingsPage() {
         <h1>Settings</h1>
       </header>
 
-      <nav className="settingsTabs" aria-label="Settings sections">
-        <a aria-current="page" href="#email-reminders">
-          Email
-        </a>
-        <a href="#study-data">Data</a>
-      </nav>
-
       <section className="skillPanel settingsPanel" aria-labelledby="reminder-settings-title">
         <div className="settingsSectionIntro" id="email-reminders">
           <h2 id="reminder-settings-title">Email reminders</h2>
@@ -89,6 +83,7 @@ export default async function SettingsPage() {
             attempts, review history, flags, preparation records, and reminder settings.
           </p>
           <Link className="secondaryButton" href="/settings/export" prefetch={false}>
+            <DownloadSimpleIcon aria-hidden="true" size={16} weight="bold" />
             Download export
           </Link>
         </div>
