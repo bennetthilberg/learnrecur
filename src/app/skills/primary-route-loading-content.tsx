@@ -47,9 +47,9 @@ export const primaryRouteLoadingByKey: Record<PrimaryRouteKey, PrimaryRouteLoadi
     title: "Practice",
   },
   settings: {
-    detail: "Manage quiet reminders and download a copy of your study data.",
+    detail: "Email reminders and study data export.",
     kind: "settings",
-    title: "Reminders and data",
+    title: "Settings",
   },
   skills: {
     detail: "Resume draft review, check activation issues, and scan active practice targets.",
@@ -443,45 +443,34 @@ function CollectionsRouteLoading({ config }: { config: PrimaryRouteLoadingConfig
 function SettingsRouteLoading({ config }: { config: PrimaryRouteLoadingConfig }) {
   return (
     <>
-      <RouteHeader actionCount={1} config={config} />
-      <PanelSkeleton className="settingsPanel" title="Due-practice email">
-        <div className="routeLoadingSettingsSummary" aria-hidden="true">
-          <Skeleton className="routeSkeleton" height={48} radius={8} />
-          <Skeleton className="routeSkeleton" height={48} radius={8} />
-          <Skeleton className="routeSkeleton" height={48} radius={8} />
-        </div>
+      <RouteHeader config={config} />
+      <div className="settingsTabs routeLoadingSettingsTabs" aria-hidden="true">
+        <Skeleton className="routeSkeleton" height={31} radius={4} width={56} />
+        <Skeleton className="routeSkeleton" height={31} radius={4} width={48} />
+      </div>
+      <PanelSkeleton className="settingsPanel" title="Email reminders">
         <div className="routeLoadingSettingsForm" aria-hidden="true">
-          <div>
-            <Skeleton className="routeSkeleton" height={36} radius={6} width="62%" />
-            <Skeleton className="routeSkeleton" height={58} radius={8} mt={18} />
+          <Skeleton className="routeSkeleton" height={22} radius={6} width="76%" />
+          <Skeleton className="routeSkeleton" height={58} radius={8} />
+          <div className="routeLoadingTwoColumn">
+            <Skeleton className="routeSkeleton" height={58} radius={8} />
+            <Skeleton className="routeSkeleton" height={58} radius={8} />
           </div>
-          <div>
-            <div className="routeLoadingTwoColumn">
-              <Skeleton className="routeSkeleton" height={58} radius={8} />
-              <Skeleton className="routeSkeleton" height={58} radius={8} />
-            </div>
-            <Skeleton className="routeSkeleton" height={58} radius={8} mt={18} />
-            <Skeleton className="routeSkeleton routeLoadingActionButton" height={44} radius={8} mt={22} width={160} />
-          </div>
+          <Skeleton className="routeSkeleton" height={58} radius={8} />
+          <Skeleton className="routeSkeleton routeLoadingActionButton" height={44} radius={8} width={144} />
         </div>
         <div className="settingsPrivacyNote routeLoadingPrivacyNote" aria-hidden="true">
-          <section>
-            <h3>Email includes</h3>
-            <Skeleton className="routeSkeleton" height={15} radius={5} width="68%" />
-          </section>
-          <section>
-            <h3>Kept out</h3>
-            <Skeleton className="routeSkeleton" height={15} radius={5} width="82%" />
-          </section>
+          <Skeleton className="routeSkeleton" height={15} radius={5} width="82%" />
         </div>
       </PanelSkeleton>
-      <PanelSkeleton className="settingsExportPanel" title="Download study data">
+      <PanelSkeleton className="settingsExportPanel" title="Study data">
+        <Skeleton className="routeSkeleton" height={44} radius={7} width="86%" />
         <div className="routeLoadingFactsGrid" aria-hidden="true">
           {Array.from({ length: 4 }, (_, index) => (
             <Skeleton className="routeSkeleton" height={48} key={index} radius={6} />
           ))}
         </div>
-        <Skeleton className="routeSkeleton" height={70} radius={8} />
+        <Skeleton className="routeSkeleton" height={16} radius={5} width="78%" />
       </PanelSkeleton>
     </>
   );

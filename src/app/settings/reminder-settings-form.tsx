@@ -46,22 +46,24 @@ export function ReminderSettingsForm({
     : [preference.timezone, ...timezones];
 
   return (
-    <form action={formAction} className="skillDraftForm settingsReminderForm">
-      <fieldset className="skillFormFieldset">
-        <legend>Recipient</legend>
-        <div className="skillFormFieldsetBody">
-          <label className="settingsToggle">
+    <form action={formAction} className="settingsReminderForm">
+      <fieldset className="skillFormFieldset settingsReminderFieldset">
+        <legend>General</legend>
+        <div className="skillFormFieldsetBody settingsReminderFields">
+          <label className="settingsSwitchRow">
             <input
+              className="settingsSwitchInput"
               defaultChecked={preference.enabled}
               disabled={pending}
               name="enabled"
               type="checkbox"
             />
-            <span>Email me when practice is due</span>
+            <span className="settingsSwitchControl" aria-hidden="true" />
+            <span className="settingsSwitchLabel">Email me when practice is due</span>
           </label>
 
           <label className="skillField">
-            <span>Reminder email</span>
+            <span>Send email to</span>
             <input
               aria-describedby={hasFieldError(state, "email") ? emailErrorId : undefined}
               aria-invalid={hasFieldError(state, "email") ? "true" : undefined}
@@ -78,9 +80,12 @@ export function ReminderSettingsForm({
         </div>
       </fieldset>
 
-      <fieldset className="skillFormFieldset">
+      <fieldset className="skillFormFieldset settingsReminderFieldset">
         <legend>Schedule</legend>
-        <div className="skillFormFieldsetBody">
+        <p className="settingsFieldHint">
+          We check once a day and send only if your due count meets this threshold.
+        </p>
+        <div className="skillFormFieldsetBody settingsReminderFields">
           <div className="skillTwoColumnFields">
             <label className="skillField">
               <span>Local hour</span>
@@ -151,7 +156,7 @@ export function ReminderSettingsForm({
 
       <div className="skillFormActions">
         <button className="primaryButton" disabled={pending} type="submit">
-          {pending ? "Saving" : "Save reminders"}
+          {pending ? "Saving" : "Save changes"}
         </button>
       </div>
       <FormMessage state={state} />
