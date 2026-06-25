@@ -299,14 +299,14 @@ Inside the blue hero, anchored to its bottom:
 </svg>
 ```
 
-### 4.4 Seahorse / spiral logo mark
-22×22 in the wordmark; scalable.
-```html
-<svg width="22" height="22" viewBox="0 0 42 42" aria-hidden="true">
-  <path d="M21 8 C29 8 34 14 34 21 C34 29 27 34 20 34 C13 34 9 29 9 23 C9 17 13 13 19 13 C24 13 27 17 27 21 C27 25 24 28 20 28 C17 28 15 26 15 23"
-        fill="none" stroke="#1C44A8" stroke-width="2.7" stroke-linecap="round"/>
-</svg>
-```
+### 4.4 Seahorse logo mark
+The detailed seahorse is the approved LearnRecur logo. Use the `OpenWaterLogoMark`
+component in `src/components/app/open-water.tsx` as the source of truth.
+
+- Wordmark placement: `31×31`, `viewBox="0 0 64 64"`, `aria-hidden="true"`.
+- Fill: `currentColor`, inherited from the wordmark color.
+- Do not replace this mark with the simplified spiral. The spiral was an earlier
+  placeholder and is no longer the product logo.
 
 ---
 
@@ -465,7 +465,7 @@ Usage:
 ### 6.1 App container & header
 - Container: §3 + §4.1 background.
 - Header: flex row, `space-between`, padding `14px 22px 12px`.
-  - Left: logo mark (§4.4, 22px) + wordmark (`disp`, 16.5/700/-0.01em, `ink`), gap 8px.
+  - Left: seahorse logo mark (§4.4, 31px) + wordmark (`disp`, 16.5/700/-0.01em, `ink`), gap 8px.
   - Right: nav links (gap 18px, 13px) + avatar. Active link: `ink`, 600, `border-bottom: 3px solid var(--lr-yellow); padding-bottom: 3px;`. Inactive: `nav-inactive`, 400.
   - Avatar: `28px` circle, `background: var(--lr-avatar-bg); color:#FFF;` initial 12/600.
 
