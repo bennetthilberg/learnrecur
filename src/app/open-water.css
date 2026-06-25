@@ -3356,6 +3356,328 @@ body {
   display: block;
 }
 
+/* ===== History page simplification ===== */
+.historyShell .historyHeader,
+.historyShell .historyPanel {
+  width: calc(100% - 28px);
+  max-width: 860px;
+  margin-right: auto;
+  margin-left: auto;
+  justify-self: center;
+}
+
+.historyShell .historyHeader {
+  align-items: start;
+  margin-top: 52px;
+}
+
+.historyShell .historyHeader h1 {
+  margin: 0;
+  color: var(--lr-ink);
+  font-family: var(--lr-font-display);
+  font-size: 42px;
+  font-weight: 800;
+  line-height: 1.08;
+  letter-spacing: 0;
+}
+
+.historyShell .historyHeader p {
+  max-width: 560px;
+  margin: 12px 0 0;
+  color: var(--lr-text-secondary);
+  font-size: 15px;
+  line-height: 1.48;
+}
+
+.historyShell .historyPanel {
+  margin-top: 24px;
+  overflow: hidden;
+  padding: 0;
+}
+
+.historyPanelIntro {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 18px;
+  border-bottom: 1px solid var(--lr-divider);
+  padding: 30px 36px 22px;
+}
+
+.historyPanelIntro h2 {
+  margin: 0;
+  color: var(--lr-ink);
+  font-family: var(--lr-font-display);
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1.18;
+  letter-spacing: 0;
+}
+
+.historyPanelIntro p {
+  margin: 3px 0 0;
+  color: var(--lr-text-secondary);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.4;
+  text-align: right;
+}
+
+.historySimpleTableWrap {
+  overflow-x: visible;
+}
+
+.historySimpleTable {
+  width: 100%;
+  border-collapse: collapse;
+  color: var(--lr-ink);
+}
+
+.historySimpleTable th,
+.historySimpleTable td {
+  border-top: 0;
+  border-bottom: 1px solid var(--lr-divider);
+  padding: 16px 22px;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.historySimpleTable th {
+  color: var(--lr-text-secondary);
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.historySimpleTable td {
+  color: var(--lr-ink);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.35;
+}
+
+.historySimpleTable th:nth-child(1),
+.historySimpleTable td:nth-child(1) {
+  width: 118px;
+  padding-left: 36px;
+}
+
+.historySimpleTable th:nth-child(2),
+.historySimpleTable td:nth-child(2) {
+  min-width: 230px;
+}
+
+.historySimpleTable th:nth-child(3),
+.historySimpleTable td:nth-child(3) {
+  width: 116px;
+}
+
+.historySimpleTable th:nth-child(4),
+.historySimpleTable td:nth-child(4) {
+  width: 104px;
+}
+
+.historySimpleTable th:nth-child(5),
+.historySimpleTable td:nth-child(5) {
+  width: 118px;
+}
+
+.historySimpleTable th:nth-child(6),
+.historySimpleTable td:nth-child(6) {
+  width: 104px;
+  padding-right: 36px;
+  text-align: right;
+}
+
+.historySimpleTable tbody tr {
+  background: #FFFFFF;
+  transition: background-color 120ms ease;
+}
+
+.historySimpleTable tbody tr:hover {
+  background: #F8FAFD;
+}
+
+.historySkillName {
+  display: block;
+  color: var(--lr-ink);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.historyResultBadge {
+  font-family: var(--lr-font-body);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.historyDetailsButton {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  border: 1px solid var(--lr-btn-white-border);
+  border-radius: 8px;
+  background: #FFFFFF;
+  color: var(--lr-blue);
+  cursor: pointer;
+  font-family: var(--lr-font-body);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
+  padding: 7px 12px;
+}
+
+.historyDetailsButton:hover {
+  background: var(--lr-btn-white-hover);
+}
+
+.historyDetailsButton:focus-visible {
+  outline: 2px solid var(--lr-focus-outline);
+  outline-offset: 2px;
+}
+
+.historyReviewModalRoot {
+  position: fixed;
+  inset: 0;
+  z-index: 2200 !important;
+  pointer-events: none;
+}
+
+.historyReviewModalContent {
+  position: relative;
+  z-index: 1;
+  border: 1px solid var(--lr-card-border);
+  background: #FFFFFF;
+  box-shadow: none;
+  pointer-events: auto;
+}
+
+.historyReviewModalInner {
+  z-index: 1;
+}
+
+.historyReviewModalOverlay {
+  background: rgba(21, 35, 63, 0.34);
+  pointer-events: auto;
+}
+
+.historyReviewModalHeader {
+  border-bottom: 1px solid var(--lr-divider);
+  background: #FFFFFF;
+  padding: 22px 24px 18px;
+}
+
+.historyReviewModalTitle {
+  color: var(--lr-ink);
+  font-family: var(--lr-font-display);
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.18;
+}
+
+.historyReviewModalBody {
+  padding: 24px;
+}
+
+.historyReviewDetails {
+  display: grid;
+  gap: 22px;
+}
+
+.historyReviewDetailsHeader {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+}
+
+.historyReviewDetailsHeader h3,
+.historyReviewAnswer h4 {
+  margin: 0;
+  color: var(--lr-ink);
+  font-family: var(--lr-font-display);
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.historyReviewDetailsHeader h3 {
+  font-size: 21px;
+  line-height: 1.22;
+}
+
+.historyReviewDetailsHeader p {
+  margin: 0;
+  color: var(--lr-text-secondary);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.historyReviewAnswer {
+  display: grid;
+  gap: 8px;
+  border-top: 1px solid var(--lr-divider);
+  padding-top: 18px;
+}
+
+.historyReviewAnswer h4 {
+  font-size: 16px;
+  line-height: 1.25;
+}
+
+.historyReviewAnswer p {
+  margin: 0;
+  color: var(--lr-ink);
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.historyReviewDetailGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 22px;
+  margin: 0;
+}
+
+.historyReviewDetailGrid div {
+  display: grid;
+  gap: 4px;
+  border-top: 1px solid var(--lr-divider);
+  padding-top: 12px;
+}
+
+.historyReviewDetailGrid dt,
+.historyReviewDetailGrid dd {
+  margin: 0;
+  line-height: 1.35;
+}
+
+.historyReviewDetailGrid dt {
+  color: var(--lr-text-secondary);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.historyReviewDetailGrid dd {
+  color: var(--lr-ink);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.historyReviewModalActions {
+  border-top: 1px solid var(--lr-divider);
+  padding-top: 18px;
+}
+
+.historyShell .dashboardEmptyState {
+  margin: 0;
+  padding: 36px;
+}
+
 @media (max-width: 620px) {
   .settingsShell .settingsHeader {
     margin-top: 28px;
@@ -3384,6 +3706,111 @@ body {
 
   .settingsShell .settingsExportFacts {
     grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 760px) {
+  .historyShell .historyHeader {
+    grid-template-columns: minmax(0, 1fr);
+    margin-top: 28px;
+  }
+
+  .historyShell .historyHeader h1 {
+    font-size: 32px;
+  }
+
+  .historyPanelIntro {
+    display: grid;
+    padding: 26px 22px 18px;
+  }
+
+  .historyPanelIntro p {
+    text-align: left;
+  }
+
+  .historySimpleTable,
+  .historySimpleTable thead,
+  .historySimpleTable tbody,
+  .historySimpleTable tr,
+  .historySimpleTable th,
+  .historySimpleTable td {
+    display: block;
+  }
+
+  .historySimpleTable thead {
+    position: absolute;
+    overflow: hidden;
+    width: 1px;
+    height: 1px;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .historySimpleTable tbody tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    border-bottom: 1px solid var(--lr-divider);
+    padding: 16px 22px;
+  }
+
+  .historySimpleTable th,
+  .historySimpleTable td,
+  .historySimpleTable th:nth-child(n),
+  .historySimpleTable td:nth-child(n) {
+    width: 100%;
+    min-width: 0;
+    border-bottom: 0;
+    padding: 0;
+    text-align: left;
+  }
+
+  .historySimpleTable td {
+    display: grid;
+    grid-template-columns: 92px minmax(0, 1fr);
+    gap: 12px;
+    align-items: start;
+    padding: 5px 0;
+  }
+
+  .historySimpleTable td::before {
+    color: var(--lr-text-secondary);
+    content: attr(data-label);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.35;
+  }
+
+  .historySimpleTable td > * {
+    grid-column: 2;
+  }
+
+  .historySimpleTable td:nth-child(2) {
+    padding-bottom: 9px;
+  }
+
+  .historySimpleTable td:nth-child(6) {
+    display: block;
+    padding-top: 12px;
+  }
+
+  .historySimpleTable td:nth-child(6) > * {
+    grid-column: auto;
+  }
+
+  .historySimpleTable td:nth-child(6)::before {
+    content: none;
+  }
+
+  .historyDetailsButton {
+    min-height: 36px;
+  }
+
+  .historyReviewDetailGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .historyReviewModalBody {
+    padding: 22px;
   }
 }
 

@@ -1,7 +1,6 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import Link from "next/link";
 
-import { PanelHeaderCount } from "@/components/app/panel-header-count";
 import { UserStatusPanel } from "@/components/app/user-status-panel";
 import {
   getPracticeHistory,
@@ -17,8 +16,11 @@ import {
 } from "@/lib/practice/history-formatters";
 import { ensureDatabaseUser } from "@/lib/users";
 
-import { MathText } from "../practice/math-text";
 import { SkillsTopbar } from "../skills/skills-topbar";
+import {
+  HistoryReviewsTable,
+  type HistoryReviewRow,
+} from "./history-reviews-table";
 
 export const dynamic = "force-dynamic";
 
@@ -46,38 +48,31 @@ export default async function HistoryPage() {
     now: new Date(),
   });
 
+  const reviewRows = history.reviews.map(toHistoryReviewRow);
+
   return (
-    <main className="skillShell">
+    <main className="skillShell historyShell">
       <SkillsTopbar current="history" />
 
       <header className="skillHeader historyHeader">
         <div>
-          <h1>Review ledger</h1>
+          <h1>History</h1>
           <p>
-            A compact record of completed reviews, grading outcomes, and how each
-            answer changed the memory schedule.
+            Scan completed reviews, then open a row when you need the answer
+            and schedule details.
           </p>
         </div>
         <div className="dashboardHeaderActions">
           <Link className="secondaryButton" href="/practice">
             Open practice
           </Link>
-          <Link className="secondaryButton" href="/dashboard">
-            Back to dashboard
-          </Link>
         </div>
       </header>
 
       <section className="skillPanel historyPanel" aria-labelledby="review-history-title">
-        <div className="skillPanelHeader">
-          <div>
-            <h2 id="review-history-title">Latest completed reviews</h2>
-          </div>
-          <PanelHeaderCount
-            ariaLabel="Review rows shown"
-            label="Shown"
-            value={formatCount(history.reviews.length)}
-          />
+        <div className="historyPanelIntro">
+          <h2 id="review-history-title">Completed reviews</h2>
+          <p>Showing {formatCount(history.reviews.length)} most recent.</p>
         </div>
 
         {history.reviews.length === 0 ? (
@@ -92,116 +87,37 @@ export default async function HistoryPage() {
             </Link>
           </div>
         ) : (
-          <HistoryTable reviews={history.reviews} />
+          <HistoryReviewsTable reviews={reviewRows} />
         )}
       </section>
     </main>
   );
 }
 
-function HistoryTable({ reviews }: { reviews: PracticeHistoryReview[] }) {
-  return (
-    <div className="historyTableWrapper">
-      <table className="historyTable">
-        <thead>
-          <tr>
-            <th scope="col">Reviewed</th>
-            <th scope="col">Skill</th>
-            <th scope="col">Result</th>
-            <th scope="col">Rating</th>
-            <th scope="col">Next due</th>
-          </tr>
-        </thead>
-        <tbody>
-          {reviews.map((review) => (
-            <tr key={review.id}>
-              <td data-label="Reviewed">
-                <span className="historyDateText">{formatReviewDay(review.reviewedAt)}</span>
-                <span className="historySubText">{formatReviewTime(review.reviewedAt)}</span>
-              </td>
-              <td data-label="Skill">
-                <Link className="historySkillLink" href={`/skills/${review.skillId}`}>
-                  {review.skillTitle}
-                </Link>
-                <span
-                  className="historyMetaLine"
-                  aria-label={`${review.collectionName ?? "Uncollected"} collection, ${formatAnswerKind(review.answerKind)} answer kind`}
-                >
-                  <span>{review.collectionName ?? "Uncollected"}</span>
-                  <span>{formatAnswerKind(review.answerKind)}</span>
-                </span>
-              </td>
-              <td data-label="Result">
-                <div className="historyResultStack">
-                  <span
-                    className="dashboardChip"
-                    data-tone={review.result === "CORRECT" ? "ready" : "danger"}
-                  >
-                    {formatReviewResult(review.result)}
-                  </span>
-                  <span className="historyAnswerLine">
-                    <span>Correct answer</span>
-                    <strong>
-                      <MathText text={review.correctAnswerDisplay} />
-                    </strong>
-                  </span>
-                </div>
-                <span className="historySubText">{formatResponseTime(review.responseMs)}</span>
-              </td>
-              <td data-label="Rating">
-                <span className="historyPrimaryText">{formatHistoryLabel(review.finalRating)}</span>
-                <HistoryStateTransition review={review} />
-              </td>
-              <td data-label="Next due">
-                <span className="historyPrimaryText">Next: {formatDueLabel(review.nextDueAt)}</span>
-                <HistoryDueTransition review={review} />
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function HistoryDueTransition({ review }: { review: PracticeHistoryReview }) {
-  const previousDue = formatDueLabel(review.previousDueAt);
-  const nextDue = formatDueLabel(review.nextDueAt);
-
-  return (
-    <span
-      className="historyTransitionText"
-      aria-label={`Due date changed from ${previousDue} to ${nextDue}`}
-    >
-      <span>{previousDue}</span>
-      <span className="historyTransitionArrow" aria-hidden="true">
-        &rarr;
-      </span>
-      <span>{nextDue}</span>
-    </span>
-  );
-}
-
-function HistoryStateTransition({ review }: { review: PracticeHistoryReview }) {
-  const previousState = formatNullableHistoryLabel(review.previousState);
-  const nextState = formatNullableHistoryLabel(review.nextState);
-
-  return (
-    <span
-      className="historyTransitionText"
-      aria-label={`Memory stage changed from ${previousState} to ${nextState}`}
-    >
-      <span>{previousState}</span>
-      <span className="historyTransitionArrow" aria-hidden="true">
-        &rarr;
-      </span>
-      <span>{nextState}</span>
-    </span>
-  );
-}
-
 function formatAnswerKind(kind: PracticeHistoryReview["answerKind"]) {
   return formatHistoryEnum(kind).replace("multiple choice", "choice");
+}
+
+function toHistoryReviewRow(review: PracticeHistoryReview): HistoryReviewRow {
+  return {
+    id: review.id,
+    answerKindLabel: formatAnswerKind(review.answerKind),
+    collectionName: review.collectionName ?? "Uncollected",
+    correctAnswerDisplay: review.correctAnswerDisplay,
+    finalRatingLabel: formatHistoryLabel(review.finalRating),
+    nextDueLabel: formatDueLabel(review.nextDueAt),
+    previousDueLabel: formatDueLabel(review.previousDueAt),
+    previousStateLabel: formatNullableHistoryLabel(review.previousState),
+    responseTimeLabel: formatResponseTime(review.responseMs),
+    result: review.result === "CORRECT" ? "correct" : "incorrect",
+    resultLabel: formatReviewResult(review.result),
+    reviewedFullLabel: formatReviewFull(review.reviewedAt),
+    reviewedDayLabel: formatReviewDay(review.reviewedAt),
+    reviewedTimeLabel: formatReviewTime(review.reviewedAt),
+    skillId: review.skillId,
+    skillTitle: review.skillTitle,
+    nextStateLabel: formatNullableHistoryLabel(review.nextState),
+  };
 }
 
 function formatReviewDay(date: Date) {
@@ -215,6 +131,15 @@ function formatReviewTime(date: Date) {
   return date.toLocaleTimeString("en-US", {
     hour: "numeric",
     minute: "2-digit",
+  });
+}
+
+function formatReviewFull(date: Date) {
+  return date.toLocaleString("en-US", {
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    month: "short",
   });
 }
 

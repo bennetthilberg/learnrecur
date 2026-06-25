@@ -32,9 +32,9 @@ export const primaryRouteLoadingByKey: Record<PrimaryRouteKey, PrimaryRouteLoadi
     title: "Due skills are ready.",
   },
   history: {
-    detail: "A compact record of completed reviews, grading outcomes, and how each answer changed the memory schedule.",
+    detail: "Scan completed reviews and open details when you need the answer or schedule changes.",
     kind: "history",
-    title: "Review ledger",
+    title: "History",
   },
   new: {
     detail: "Upload, paste, or write source material. LearnRecur will create a skill for review before practice.",
@@ -349,15 +349,14 @@ function NewSkillRouteLoading({ config }: { config: PrimaryRouteLoadingConfig })
 function HistoryRouteLoading({ config }: { config: PrimaryRouteLoadingConfig }) {
   return (
     <>
-      <RouteHeader actionCount={2} config={config} />
+      <RouteHeader actionCount={1} config={config} />
       <section className="skillPanel historyPanel routeLoadingPanel" aria-label="Review history loading">
-        <div className="skillPanelHeader">
-          <div>
-            <h2>Latest completed reviews</h2>
-          </div>
+        <div className="historyPanelIntro">
+          <h2>Completed reviews</h2>
+          <Skeleton className="routeSkeleton" height={16} radius={5} width={140} />
         </div>
-        <div className="historyTableWrapper">
-          <table className="historyTable routeLoadingHistoryTable">
+        <div className="historySimpleTableWrap">
+          <table className="historySimpleTable routeLoadingHistoryTable">
             <thead>
               <tr>
                 <th scope="col">Reviewed</th>
@@ -365,6 +364,7 @@ function HistoryRouteLoading({ config }: { config: PrimaryRouteLoadingConfig }) 
                 <th scope="col">Result</th>
                 <th scope="col">Rating</th>
                 <th scope="col">Next due</th>
+                <th scope="col">Details</th>
               </tr>
             </thead>
             <tbody aria-hidden="true">
@@ -391,16 +391,16 @@ function HistoryRowSkeleton() {
         <Skeleton className="routeSkeleton" height={13} radius={5} mt={12} width="48%" />
       </td>
       <td>
-        <Skeleton className="routeSkeleton" height={36} radius={8} width={96} />
-        <Skeleton className="routeSkeleton" height={13} radius={5} mt={14} width={150} />
+        <Skeleton className="routeSkeleton" height={24} radius={6} width={76} />
       </td>
       <td>
         <Skeleton className="routeSkeleton" height={18} radius={5} width={58} />
-        <Skeleton className="routeSkeleton" height={13} radius={5} mt={12} width={132} />
       </td>
       <td>
         <Skeleton className="routeSkeleton" height={18} radius={5} width={94} />
-        <Skeleton className="routeSkeleton" height={13} radius={5} mt={12} width={122} />
+      </td>
+      <td>
+        <Skeleton className="routeSkeleton" height={34} radius={8} width={70} />
       </td>
     </tr>
   );
