@@ -3331,6 +3331,105 @@ body {
   width: calc(100% - 28px);
   max-width: 760px;
   margin: 24px auto 0;
+  min-height: 535px;
+  align-content: center;
+  justify-items: center;
+  gap: 24px;
+  padding: 56px 32px;
+  text-align: center;
+}
+
+.createSkillGenerationPanel .sourceGenerationSpinner {
+  display: grid;
+  width: 80px;
+  height: 58px;
+  grid-template-columns: repeat(3, 16px);
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  border: 0;
+  border-radius: 0;
+  animation: none;
+}
+
+.createSkillGenerationPanel .sourceGenerationSpinner span {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--lr-blue);
+  border-radius: 6px;
+  background: #ffffff;
+  box-shadow: 0 2px 0 #bbcaec;
+  animation:
+    source-generation-hop 1.45s ease-in-out infinite,
+    source-generation-shift 4.8s ease-in-out infinite;
+}
+
+.createSkillGenerationPanel .sourceGenerationSpinner span:nth-child(2) {
+  animation-duration: 1.62s, 5.1s;
+  animation-delay: 0.16s, 0.32s;
+}
+
+.createSkillGenerationPanel .sourceGenerationSpinner span:nth-child(3) {
+  animation-duration: 1.32s, 4.5s;
+  animation-delay: 0.32s, 0.64s;
+}
+
+.createSkillGenerationPanel .sourceGenerationCopy {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+}
+
+.createSkillGenerationPanel h2,
+.createSkillGenerationPanel p {
+  justify-self: center;
+  text-align: center;
+}
+
+.sourceGenerationStatusLine {
+  min-height: 1.35em;
+  color: var(--lr-blue);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+@keyframes source-generation-hop {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+
+  36% {
+    transform: translateY(-9px) scale(1.06);
+  }
+
+  66% {
+    transform: translateY(3px) scale(0.96);
+  }
+}
+
+@keyframes source-generation-shift {
+  0%,
+  100% {
+    border-color: var(--lr-blue);
+    box-shadow: 0 2px 0 #bbcaec;
+  }
+
+  40% {
+    border-color: var(--lr-green);
+    box-shadow: 0 2px 0 #bfe3d2;
+  }
+
+  75% {
+    border-color: var(--lr-amber);
+    box-shadow: 0 2px 0 #f2c6b4;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .createSkillGenerationPanel .sourceGenerationSpinner span {
+    animation: none;
+  }
 }
 
 .createSkillShell .routeSkeleton {

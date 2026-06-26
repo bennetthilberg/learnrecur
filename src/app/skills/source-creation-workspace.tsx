@@ -43,6 +43,19 @@ const defaultGenerationStatus: SourceGenerationStatus = {
   detail: "Reading your material and turning it into a focused practice skill.",
 };
 
+const uploadStatusMessages = [
+  "Keeping the upload private.",
+  "Checking the file shape.",
+  "Getting the material ready.",
+];
+
+const skillStatusMessages = [
+  "Finding the smallest useful skill.",
+  "Pulling out rules and examples.",
+  "Keeping it narrow enough to practice.",
+  "Shaping it into a review target.",
+];
+
 export function SourceCreationWorkspace() {
   const router = useRouter();
   const fileInputId = useId();
@@ -498,12 +511,31 @@ export function SourceCreationWorkspace() {
 }
 
 function SourceGenerationPanel({ status }: { status: SourceGenerationStatus }) {
+  const messages =
+    status.title === "Uploading your file" ? uploadStatusMessages : skillStatusMessages;
+  const [messageIndex, setMessageIndex] = useState(0);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setMessageIndex((currentIndex) => (currentIndex + 1) % messages.length);
+    }, 2300);
+
+    return () => window.clearInterval(intervalId);
+  }, [messages]);
+
   return (
     <section className="skillPanel sourceGenerationPanel createSkillGenerationPanel" aria-live="polite" role="status">
-      <div className="sourceGenerationSpinner" aria-hidden="true" />
-      <div>
+      <div className="sourceGenerationSpinner" aria-hidden="true">
+        <span />
+        <span />
+        <span />
+      </div>
+      <div className="sourceGenerationCopy">
         <h2>{status.title || defaultGenerationStatus.title}</h2>
         <p>{status.detail || defaultGenerationStatus.detail}</p>
+        <p aria-hidden="true" className="sourceGenerationStatusLine">
+          {messages[messageIndex % messages.length]}
+        </p>
       </div>
     </section>
   );
