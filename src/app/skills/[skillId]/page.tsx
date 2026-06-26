@@ -571,6 +571,7 @@ export default async function SkillPage({
 
       <SkillDraftForm initialValues={draftValues} mode="edit" skillId={skill.id} />
       <SkillSourcePanel skillId={skill.id} sources={sourceSummaries} />
+      <SkillLifecyclePanel skillId={skill.id} skillTitle={skill.title} status={skill.status} />
     </main>
   );
 }

@@ -30,6 +30,8 @@ export type SourceCreationNotice = {
 type UploadStatus = "idle" | "preparing" | "uploading" | "generating" | "error";
 
 const sourceCreationNotificationId = "source-creation-notice";
+const emptySourceTextMessage =
+  "Add learning material first. Paste text, describe the skill, or choose a PDF or image.";
 
 const idleState: SkillFormActionState = {
   status: "idle",
@@ -44,6 +46,8 @@ const defaultGenerationStatus: SourceGenerationStatus = {
 export function SourceCreationWorkspace() {
   const router = useRouter();
   const fileInputId = useId();
+  const sourceTextId = useId();
+  const sourceTextErrorId = useId();
   const formRef = useRef<HTMLFormElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [textState, textAction, isGeneratingFromText] = useActionState(
@@ -69,8 +73,13 @@ export function SourceCreationWorkspace() {
     uploadBusy,
     uploadStatus,
   });
-  const activeFieldErrors =
-    textState.status === "error" ? textState.fieldErrors ?? fieldErrors : fieldErrors;
+  const activeFieldErrors = selectedFile
+    ? fieldErrors
+    : fieldErrors ?? (textState.status === "error" ? textState.fieldErrors : undefined);
+  const sourceTextError = activeFieldErrors?.sourceText?.[0];
+  const sourceTextDescribedBy = ["create-skill-input-help", sourceTextError ? sourceTextErrorId : null]
+    .filter(Boolean)
+    .join(" ");
 
   const showNotice = useCallback((nextNotice: SourceCreationNotice | null) => {
     notifications.hide(sourceCreationNotificationId);
@@ -196,6 +205,22 @@ export function SourceCreationWorkspace() {
           return;
         }
 
+        const formData = new FormData(event.currentTarget);
+        const sourceText = stringFormValue(formData.get("sourceText"));
+
+        if (!sourceText) {
+          event.preventDefault();
+          setFieldErrors({
+            sourceText: [emptySourceTextMessage],
+          });
+          showNotice({
+            tone: "error",
+            message: emptySourceTextMessage,
+          });
+          focusSourceText(event.currentTarget);
+          return;
+        }
+
         setFieldErrors(undefined);
         showNotice(null);
       }}
@@ -244,10 +269,12 @@ export function SourceCreationWorkspace() {
           }}
         >
           <textarea
-            aria-describedby="create-skill-input-help"
-            aria-invalid={activeFieldErrors?.sourceText ? "true" : undefined}
+            aria-describedby={sourceTextDescribedBy}
+            aria-invalid={sourceTextError ? "true" : undefined}
+            aria-labelledby="create-skill-input-title"
             className="createSkillTextarea"
             disabled={busy}
+            id={sourceTextId}
             name="sourceText"
             placeholder="Paste notes, describe the skill, or drop a worksheet here."
             rows={10}
@@ -297,9 +324,9 @@ export function SourceCreationWorkspace() {
           </div>
         </div>
 
-        {activeFieldErrors?.sourceText?.[0] ? (
-          <p className="skillFormMessage" data-tone="error">
-            {activeFieldErrors.sourceText[0]}
+        {sourceTextError ? (
+          <p className="skillFormMessage" data-tone="error" id={sourceTextErrorId}>
+            {sourceTextError}
           </p>
         ) : null}
         {fileErrorMessage(activeFieldErrors) ? (
@@ -621,6 +648,14 @@ function clearFileInput(input: HTMLInputElement | null) {
 
 function stringFormValue(value: FormDataEntryValue | null) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function focusSourceText(form: HTMLFormElement) {
+  const sourceText = form.elements.namedItem("sourceText");
+
+  if (sourceText instanceof HTMLTextAreaElement) {
+    sourceText.focus();
+  }
 }
 
 function formatClientError(error: unknown) {

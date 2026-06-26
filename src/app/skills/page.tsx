@@ -113,8 +113,12 @@ export default async function SkillsPage({ searchParams }: SkillsPageProps) {
 
           {library.activeSkills.length === 0 ? (
             <SkillLibraryEmptyState
-              title="No skills yet"
-              detail="Add a skill to put it into practice."
+              title="No active skills"
+              detail={
+                library.recoverySkills.length > 0
+                  ? "Restore a paused or archived skill below, or add a new one."
+                  : "Add a skill to put it into practice."
+              }
             />
           ) : (
             <div className="skillLibraryList">

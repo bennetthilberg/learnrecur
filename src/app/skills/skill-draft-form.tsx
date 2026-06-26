@@ -21,11 +21,17 @@ export type SkillDraftFormValues = {
   tags: string;
 };
 
-type SkillDraftFormProps = {
-  mode: "create" | "edit";
-  skillId?: string;
-  initialValues: SkillDraftFormValues;
-};
+type SkillDraftFormProps =
+  | {
+      mode: "create";
+      skillId?: never;
+      initialValues: SkillDraftFormValues;
+    }
+  | {
+      mode: "edit";
+      skillId: string;
+      initialValues: SkillDraftFormValues;
+    };
 
 const idleState: SkillFormActionState = {
   status: "idle",
@@ -35,15 +41,17 @@ const idleState: SkillFormActionState = {
 const draftNotificationId = "skill-draft-form-notice";
 const addSkillNotificationId = "skill-add-notice";
 
-export function SkillDraftForm({ mode, skillId, initialValues }: SkillDraftFormProps) {
+export function SkillDraftForm(props: SkillDraftFormProps) {
+  const { initialValues, mode } = props;
+  const isEditMode = mode === "edit";
   const [draftState, saveAction, isSaving] = useActionState(saveSkillDraftAction, idleState);
   const [addSkillState, addSkillAction, isAddingSkill] = useActionState(
     addSkillDraftToPracticeAction,
     idleState,
   );
-  const formAction = mode === "edit" && skillId ? addSkillAction : saveAction;
-  const formState = mode === "edit" && skillId ? addSkillState : draftState;
-  const isSubmitting = mode === "edit" && skillId ? isAddingSkill : isSaving;
+  const formAction = isEditMode ? addSkillAction : saveAction;
+  const formState = isEditMode ? addSkillState : draftState;
+  const isSubmitting = isEditMode ? isAddingSkill : isSaving;
 
   useEffect(() => {
     if (!draftState.message || draftState.status === "idle") {
@@ -74,6 +82,7 @@ export function SkillDraftForm({ mode, skillId, initialValues }: SkillDraftFormP
       return;
     }
 
+    const savedButNotAdded = addSkillState.status === "saved";
     notifications.show({
       id: addSkillNotificationId,
       autoClose: 8000,
@@ -82,7 +91,7 @@ export function SkillDraftForm({ mode, skillId, initialValues }: SkillDraftFormP
       icon: <WarningCircle size={18} weight="bold" />,
       message: addSkillState.message,
       position: "top-right",
-      title: "Could not add skill",
+      title: savedButNotAdded ? "Changes saved, skill not added" : "Could not add skill",
       withBorder: true,
       withCloseButton: true,
     });
@@ -93,11 +102,11 @@ export function SkillDraftForm({ mode, skillId, initialValues }: SkillDraftFormP
       <form action={formAction} className="skillPanel skillDraftForm">
         <div className="skillPanelHeader">
           <div>
-            <h2>{mode === "create" ? "Write the skill" : "Review the skill"}</h2>
+            <h2>{isEditMode ? "Review the skill" : "Write the skill"}</h2>
           </div>
         </div>
 
-        {skillId ? <input name="skillId" type="hidden" value={skillId} /> : null}
+        {isEditMode ? <input name="skillId" type="hidden" value={props.skillId} /> : null}
 
         <fieldset className="skillFormFieldset">
           <legend>Core definition</legend>
@@ -178,17 +187,17 @@ export function SkillDraftForm({ mode, skillId, initialValues }: SkillDraftFormP
             disabled={isSubmitting}
             type="submit"
           >
-            {mode === "edit" ? (
+            {isEditMode ? (
               <CheckCircle size={18} weight="bold" aria-hidden="true" />
             ) : (
               <FloppyDisk size={18} weight="bold" aria-hidden="true" />
             )}
             <span>
               {isSubmitting
-                ? mode === "edit"
+                ? isEditMode
                   ? "Adding"
                   : "Saving"
-                : mode === "edit"
+                : isEditMode
                   ? "Add skill"
                   : "Create skill"}
             </span>

@@ -206,8 +206,8 @@ export async function addSkillDraftToPracticeAction(
   }
 
   return {
-    status: "error",
-    message: addResult.message,
+    status: "saved",
+    message: `Your changes were saved, but the skill was not added. ${addResult.message}`,
   };
 }
 
