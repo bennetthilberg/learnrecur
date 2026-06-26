@@ -55,6 +55,7 @@ export default async function DashboardPage() {
         aria-labelledby="dashboard-title"
       >
         <OpenWaterHeroWaves />
+        {hasDuePractice ? null : <DashboardHeroShoreWave />}
         <OpenWaterHeroRings />
         <div className="openWaterHeroContent">
           <h1 id="dashboard-title" className="disp tnum">
@@ -92,6 +93,25 @@ export default async function DashboardPage() {
       <DashboardReviewCard dashboard={dashboard} item={nextPracticeItem} />
       <DashboardCollections dashboard={dashboard} />
     </main>
+  );
+}
+
+function DashboardHeroShoreWave() {
+  return (
+    <svg
+      viewBox="0 0 580 60"
+      preserveAspectRatio="none"
+      aria-hidden="true"
+      className="dashboardHeroShoreWave"
+    >
+      <path d="M0 43 Q 72 31 145 43 T 290 43 T 435 43 T 580 43 V60 H0 Z" fill="#E3CE98" />
+      <path
+        d="M0 43 Q 72 31 145 43 T 290 43 T 435 43 T 580 43"
+        fill="none"
+        stroke="rgba(255,255,255,0.42)"
+        strokeWidth="1.2"
+      />
+    </svg>
   );
 }
 
