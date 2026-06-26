@@ -225,6 +225,7 @@ export async function generateSkillDraftFromSourceAction(
     userId: user.userId,
     now: new Date(),
     input: formDataToSourceDraftInput(formData),
+    persistFailedSource: true,
   });
 
   if (result.status === "created") {
@@ -250,7 +251,10 @@ export async function generateSkillDraftFromSourceAction(
 
   return {
     status: "error",
-    message: result.message,
+    message:
+      result.reason === "generation-failed" || result.reason === "invalid-generation"
+        ? `${result.message} Your material was saved, so you can try again without losing it.`
+        : result.message,
   };
 }
 
@@ -331,7 +335,10 @@ export async function completeSourceUploadAction(input: {
 
   return {
     status: "error",
-    message: result.message,
+    message:
+      result.status === "not-created"
+        ? `${result.message} Your upload was saved, so you can try preparation again from Skills.`
+        : result.message,
   };
 }
 

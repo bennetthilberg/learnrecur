@@ -458,6 +458,7 @@ export type CreateSkillDraftFromSourceInput = {
   generateSkillDraft?: SkillDraftGenerator;
   model?: string;
   skipUsageLimitCheck?: boolean;
+  persistFailedSource?: boolean;
 };
 
 export type CreateGeneratedSkillDraftsForSourceFileInput = {
@@ -1145,6 +1146,32 @@ export async function createSkillDraftFromSource(
   }
 
   const sourceContext = buildSourceContextExcerpt([normalized.value.sourceText]) ?? normalized.value.sourceText;
+  let persistedSourceFileId: string | null = null;
+
+  if (input.persistFailedSource) {
+    prisma ??= getPrisma();
+    const sourceFile = await prisma.sourceFile.create({
+      data: {
+        userId: input.userId,
+        kind: SourceFileKind.TEXT,
+        status: SourceFileStatus.PROCESSING,
+        originalName: normalized.value.sourceLabel ?? "Pasted source",
+        mimeType: "text/plain",
+        byteSize: Buffer.byteLength(normalized.value.sourceText, "utf8"),
+        extractedText: normalized.value.sourceText,
+        metadata: buildPastedSourceMetadata({
+          normalized: normalized.value,
+          model: setup.model,
+          now: input.now,
+        }),
+      },
+      select: {
+        id: true,
+      },
+    });
+    persistedSourceFileId = sourceFile.id;
+  }
+
   let rawGeneration: unknown;
 
   try {
@@ -1158,17 +1185,44 @@ export async function createSkillDraftFromSource(
     );
   } catch (error) {
     console.error("[gemini] skill draft generation failed", getGeminiErrorLogDetails(error));
+    const message = getPublicGeminiFailureMessage(error);
+
+    if (persistedSourceFileId && prisma) {
+      await markPastedSourceFailed({
+        prisma,
+        userId: input.userId,
+        sourceFileId: persistedSourceFileId,
+        now: input.now,
+        reason: "generation-failed",
+        message,
+        normalized: normalized.value,
+        model: setup.model,
+      });
+    }
 
     return {
       status: "not-created",
       reason: "generation-failed",
-      message: getPublicGeminiFailureMessage(error),
+      message,
     };
   }
 
   const validation = validateGeneratedSkillDrafts(rawGeneration);
 
   if (validation.status === "invalid") {
+    if (persistedSourceFileId && prisma) {
+      await markPastedSourceFailed({
+        prisma,
+        userId: input.userId,
+        sourceFileId: persistedSourceFileId,
+        now: input.now,
+        reason: "invalid-generation",
+        message: validation.message,
+        normalized: normalized.value,
+        model: setup.model,
+      });
+    }
+
     return {
       status: "not-created",
       reason: "invalid-generation",
@@ -1179,23 +1233,28 @@ export async function createSkillDraftFromSource(
   prisma ??= getPrisma();
 
   return prisma.$transaction(async (tx) => {
-    const sourceFile = await tx.sourceFile.create({
-      data: {
-        userId: input.userId,
-        kind: SourceFileKind.TEXT,
-        status: SourceFileStatus.READY,
-        originalName: normalized.value.sourceLabel ?? "Pasted source",
-        mimeType: "text/plain",
-        byteSize: Buffer.byteLength(normalized.value.sourceText, "utf8"),
-        extractedText: normalized.value.sourceText,
-        metadata: {
-          createdBy: SOURCE_SKILL_DRAFT_PROMPT_VERSION,
-          focusNote: normalized.value.focusNote,
-          model: setup.model,
-          generatedAt: input.now.toISOString(),
-        },
-      },
-    });
+    const sourceFile = persistedSourceFileId
+      ? { id: persistedSourceFileId }
+      : await tx.sourceFile.create({
+          data: {
+            userId: input.userId,
+            kind: SourceFileKind.TEXT,
+            status: SourceFileStatus.READY,
+            originalName: normalized.value.sourceLabel ?? "Pasted source",
+            mimeType: "text/plain",
+            byteSize: Buffer.byteLength(normalized.value.sourceText, "utf8"),
+            extractedText: normalized.value.sourceText,
+            metadata: buildPastedSourceMetadata({
+              normalized: normalized.value,
+              model: setup.model,
+              now: input.now,
+              generated: true,
+            }),
+          },
+          select: {
+            id: true,
+          },
+        });
     const createdDrafts = await createGeneratedSkillDraftsForSourceFileInTransaction(tx, {
       userId: input.userId,
       sourceFileId: sourceFile.id,
@@ -1203,6 +1262,19 @@ export async function createSkillDraftFromSource(
       focusNote: normalized.value.focusNote,
       tags: normalized.value.tags,
       drafts: validation.drafts,
+      sourceFileUpdate: persistedSourceFileId
+        ? {
+            status: SourceFileStatus.READY,
+            byteSize: Buffer.byteLength(normalized.value.sourceText, "utf8"),
+            extractedText: normalized.value.sourceText,
+            metadata: buildPastedSourceMetadata({
+              normalized: normalized.value,
+              model: setup.model,
+              now: input.now,
+              generated: true,
+            }),
+          }
+        : undefined,
     });
 
     return {
@@ -1258,6 +1330,67 @@ export async function createGeneratedSkillDraftsForSourceFile(
       skills: result.skills,
       skillSourceRefIds: result.skillSourceRefIds,
     };
+  });
+}
+
+function buildPastedSourceMetadata({
+  generated = false,
+  model,
+  normalized,
+  now,
+}: {
+  generated?: boolean;
+  model: string;
+  normalized: NormalizedSourceSkillDraftInput;
+  now: Date;
+}): Prisma.InputJsonObject {
+  return {
+    createdBy: SOURCE_SKILL_DRAFT_PROMPT_VERSION,
+    focusNote: normalized.focusNote,
+    model,
+    submittedAt: now.toISOString(),
+    ...(generated ? { generatedAt: now.toISOString() } : {}),
+  };
+}
+
+async function markPastedSourceFailed({
+  message,
+  model,
+  normalized,
+  now,
+  prisma,
+  reason,
+  sourceFileId,
+  userId,
+}: {
+  message: string;
+  model: string;
+  normalized: NormalizedSourceSkillDraftInput;
+  now: Date;
+  prisma: Pick<Prisma.TransactionClient, "sourceFile">;
+  reason: string;
+  sourceFileId: string;
+  userId: string;
+}) {
+  await prisma.sourceFile.updateMany({
+    where: {
+      id: sourceFileId,
+      userId,
+    },
+    data: {
+      status: SourceFileStatus.FAILED,
+      publicUrl: null,
+      metadata: {
+        ...buildPastedSourceMetadata({
+          normalized,
+          model,
+          now,
+        }),
+        failedAt: now.toISOString(),
+        failureReason: reason,
+        errorMessage: message.slice(0, 500),
+      },
+    },
   });
 }
 

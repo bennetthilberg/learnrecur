@@ -932,6 +932,56 @@ describeDatabase("skill drafts and Gemini activation", () => {
     expect(skill.sourceRefs[0].sourceFile.extractedText).toContain("Use ser for identity");
   });
 
+  it("saves pasted source material when skill preparation fails", async () => {
+    const userId = await createUser("source_draft_failed_saved");
+    const sourceText =
+      "Use ser for identity and long-term traits. Use estar for location and temporary states. Classroom practice should use short sentences with one obvious choice.";
+    const result = await createSkillDraftFromSource({
+      userId,
+      now,
+      model: "test-gemini",
+      generateSkillDraft: async () => ({
+        drafts: [
+          {
+            title: "Bad draft",
+            objective: "too short",
+            rules: [],
+            examples: [],
+            exerciseConstraints: "",
+            tags: [],
+          },
+        ],
+      }),
+      input: {
+        sourceText,
+        sourceLabel: "Pasted ser estar notes",
+      },
+      persistFailedSource: true,
+      skipUsageLimitCheck: true,
+    });
+
+    expect(result).toMatchObject({
+      status: "not-created",
+      reason: "invalid-generation",
+    });
+
+    const sourceFile = await prisma.sourceFile.findFirstOrThrow({
+      where: {
+        userId,
+        kind: SourceFileKind.TEXT,
+      },
+    });
+    expect(sourceFile).toMatchObject({
+      status: SourceFileStatus.FAILED,
+      originalName: "Pasted ser estar notes",
+      mimeType: "text/plain",
+      extractedText: sourceText,
+    });
+    expect(sourceFile.metadata).toMatchObject({
+      failureReason: "invalid-generation",
+    });
+  });
+
   it("splits broad source material into multiple draft skills linked to one source", async () => {
     const userId = await createUser("source_split");
     const result = await createSkillDraftFromSource({
@@ -1211,7 +1261,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
       where: { id: prepared.sourceFileId },
     });
     expect(failedSource.status).toBe(SourceFileStatus.FAILED);
-    expect(failedSource.storageKey).toBeNull();
+    expect(failedSource.storageKey).toBe(prepared.objectKey);
     expect(failedSource.metadata).toMatchObject({
       failureReason: "invalid-extraction",
     });
@@ -1220,9 +1270,10 @@ describeDatabase("skill drafts and Gemini activation", () => {
     expect(library.sourceProcessing[0]).toMatchObject({
       status: SourceFileStatus.FAILED,
       errorMessage: "Gemini could not extract enough study text from this file.",
+      canRequeue: true,
     });
     await expect(prisma.skillSourceRef.count({ where: { userId } })).resolves.toBe(0);
-    expect(deletedKeys).toEqual([prepared.objectKey]);
+    expect(deletedKeys).toEqual([]);
   });
 
   it("stores a public error when uploaded source extraction is temporarily unavailable", async () => {
@@ -1290,6 +1341,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
       const failedSource = await prisma.sourceFile.findUniqueOrThrow({
         where: { id: prepared.sourceFileId },
       });
+      expect(failedSource.storageKey).toBe(prepared.objectKey);
       expect(failedSource.metadata).toMatchObject({
         failureReason: "extraction-failed",
         errorMessage:
@@ -1301,9 +1353,10 @@ describeDatabase("skill drafts and Gemini activation", () => {
         status: SourceFileStatus.FAILED,
         errorMessage:
           "The AI service is busy right now, so LearnRecur could not finish creating this skill. Try again in a minute.",
+        canRequeue: true,
       });
       expect(library.sourceProcessing[0].errorMessage).not.toContain("{");
-      expect(deletedKeys).toEqual([prepared.objectKey]);
+      expect(deletedKeys).toEqual([]);
       expect(consoleError).toHaveBeenCalledWith(
         "[gemini] source extraction failed",
         expect.objectContaining({
@@ -1367,7 +1420,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
       where: { id: prepared.sourceFileId },
     });
     expect(failedSource.status).toBe(SourceFileStatus.FAILED);
-    expect(failedSource.storageKey).toBeNull();
+    expect(failedSource.storageKey).toBe(prepared.objectKey);
     expect(failedSource.metadata).toMatchObject({
       failureReason: "invalid-upload",
       errorMessage: "Uploaded file is missing or larger than 10 MB.",
@@ -1379,8 +1432,9 @@ describeDatabase("skill drafts and Gemini activation", () => {
     expect(sourceProcessing).toMatchObject({
       status: SourceFileStatus.FAILED,
       errorMessage: "Uploaded file is missing or larger than 10 MB.",
+      canRequeue: true,
     });
-    expect(deletedKeys).toEqual([prepared.objectKey]);
+    expect(deletedKeys).toEqual([]);
   });
 
   it("does not process the same uploaded source twice", async () => {
@@ -1792,6 +1846,18 @@ describeDatabase("skill drafts and Gemini activation", () => {
         mimeType: "image/png",
       },
     });
+    const savedFailedSource = await prisma.sourceFile.create({
+      data: {
+        userId,
+        kind: SourceFileKind.IMAGE,
+        status: SourceFileStatus.FAILED,
+        originalName: "saved failed upload",
+        mimeType: "image/png",
+        byteSize: 1024,
+        storageBucket: "learnrecur-dev",
+        storageKey: `source-uploads/${userId}/failed.png`,
+      },
+    });
 
     await expect(
       requeueSourceUploadDraft({
@@ -1815,8 +1881,23 @@ describeDatabase("skill drafts and Gemini activation", () => {
       }),
     ).resolves.toMatchObject({
       status: "not-queued",
-      reason: "not-requeueable",
+      reason: "invalid-upload",
     });
+
+    const retrySender = createFakeSourceUploadSender();
+    await expect(
+      requeueSourceUploadDraft({
+        userId,
+        sourceFileId: savedFailedSource.id,
+        now,
+        storage,
+        eventSender: retrySender.sender,
+      }),
+    ).resolves.toMatchObject({
+      status: "queued",
+      sourceFileId: savedFailedSource.id,
+    });
+    expect(retrySender.events).toHaveLength(1);
     await expect(
       requeueSourceUploadDraft({
         userId,
@@ -1899,8 +1980,8 @@ describeDatabase("skill drafts and Gemini activation", () => {
     expect(sender.events).toHaveLength(0);
   });
 
-  it("dismisses failed uploaded source rows from the processing list", async () => {
-    const userId = await createUser("upload_dismiss_failed");
+  it("keeps failed uploaded source rows visible without a dismiss path", async () => {
+    const userId = await createUser("upload_failed_saved_row");
     const failedSource = await prisma.sourceFile.create({
       data: {
         userId,
@@ -1908,6 +1989,9 @@ describeDatabase("skill drafts and Gemini activation", () => {
         status: SourceFileStatus.FAILED,
         originalName: "failed worksheet",
         mimeType: "application/pdf",
+        byteSize: 1024,
+        storageBucket: "learnrecur-dev",
+        storageKey: `source-uploads/${userId}/failed.pdf`,
         metadata: {
           errorMessage: "Gemini could not extract enough study text from this file.",
         },
@@ -1919,24 +2003,13 @@ describeDatabase("skill drafts and Gemini activation", () => {
         {
           id: failedSource.id,
           status: SourceFileStatus.FAILED,
-          canDismiss: true,
+          canDismiss: false,
+          canRequeue: true,
         },
       ],
     });
 
-    await expect(
-      dismissFailedSourceUpload({
-        userId,
-        sourceFileId: failedSource.id,
-      }),
-    ).resolves.toMatchObject({
-      status: "dismissed",
-      sourceFileId: failedSource.id,
-    });
-    await expect(prisma.sourceFile.count({ where: { id: failedSource.id } })).resolves.toBe(0);
-    await expect(getSkillsLibrary({ userId, now })).resolves.toMatchObject({
-      sourceProcessing: [],
-    });
+    await expect(prisma.sourceFile.count({ where: { id: failedSource.id } })).resolves.toBe(1);
   });
 
   it("rejects dismissal for cross-user, linked, and non-failed uploaded sources", async () => {

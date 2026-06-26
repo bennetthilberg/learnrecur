@@ -194,7 +194,7 @@ export async function getSkillsLibrary(input: GetSkillsLibraryInput): Promise<Sk
           in: [SourceFileStatus.UPLOADED, SourceFileStatus.PROCESSING, SourceFileStatus.FAILED],
         },
         kind: {
-          in: [SourceFileKind.IMAGE, SourceFileKind.PDF],
+          in: [SourceFileKind.IMAGE, SourceFileKind.PDF, SourceFileKind.TEXT],
         },
       },
       orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
@@ -204,6 +204,7 @@ export async function getSkillsLibrary(input: GetSkillsLibraryInput): Promise<Sk
         kind: true,
         status: true,
         byteSize: true,
+        storageKey: true,
         metadata: true,
         _count: {
           select: {
@@ -261,6 +262,7 @@ function toSourceProcessingSummary(
     status: Extract<SourceFileStatus, "UPLOADED" | "PROCESSING" | "FAILED">;
     byteSize: number | null;
     metadata: Prisma.JsonValue | null;
+    storageKey: string | null;
     _count: {
       skillRefs: number;
     };
@@ -282,11 +284,32 @@ function toSourceProcessingSummary(
     errorMessage: getMetadataString(sourceFile.metadata, "errorMessage"),
     retryCount: getMetadataNumber(sourceFile.metadata, "retryCount"),
     isStaleProcessing,
-    canRequeue: sourceFile.status === SourceFileStatus.UPLOADED || isStaleProcessing,
-    canDismiss: sourceFile.status === SourceFileStatus.FAILED && sourceFile._count.skillRefs === 0,
+    canRequeue:
+      sourceFile.status === SourceFileStatus.UPLOADED ||
+      isStaleProcessing ||
+      (sourceFile.status === SourceFileStatus.FAILED && isSavedSourceRetryable(sourceFile)),
+    canDismiss: false,
     createdAt: sourceFile.createdAt,
     updatedAt: sourceFile.updatedAt,
   };
+}
+
+function isSavedSourceRetryable(sourceFile: {
+  kind: SourceFileKind;
+  storageKey: string | null;
+  _count: {
+    skillRefs: number;
+  };
+}) {
+  if (sourceFile._count.skillRefs > 0) {
+    return false;
+  }
+
+  if (sourceFile.kind === SourceFileKind.TEXT) {
+    return false;
+  }
+
+  return Boolean(sourceFile.storageKey);
 }
 
 function toDraftSkillSummary(skill: SkillsLibrarySkillRecord): SkillsLibraryDraftSkill {

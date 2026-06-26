@@ -686,10 +686,13 @@ export async function requeueSourceUploadDraft(
         "Source processing is still recent. Give the background worker a little more time.",
       );
     }
-  } else if (sourceFile.status !== SourceFileStatus.UPLOADED) {
+  } else if (
+    sourceFile.status !== SourceFileStatus.UPLOADED &&
+    sourceFile.status !== SourceFileStatus.FAILED
+  ) {
     return requeueNotQueued(
       "not-requeueable",
-      "Only waiting or stale draft preparation can be restarted.",
+      "Only waiting, failed, or stale draft preparation can be restarted.",
     );
   }
 
@@ -1263,17 +1266,7 @@ async function markUploadedSourceFailed(
   reason: string,
   message: string,
 ) {
-  if (storage && sourceFile.storageKey) {
-    try {
-      await storage.deleteObject({
-        key: sourceFile.storageKey,
-        bucket: sourceFile.storageBucket ?? undefined,
-      });
-    } catch {
-      // Deleting the private object is best effort. The failed source row keeps
-      // a redacted audit trail and can be reconciled by a future cleanup job.
-    }
-  }
+  void storage;
 
   await getPrisma().sourceFile.updateMany({
     where: {
@@ -1282,10 +1275,7 @@ async function markUploadedSourceFailed(
     },
     data: {
       status: SourceFileStatus.FAILED,
-      storageBucket: null,
-      storageKey: null,
       publicUrl: null,
-      extractedText: null,
       metadata: buildFailedUploadMetadata(sourceFile.metadata, now, reason, message),
     },
   });

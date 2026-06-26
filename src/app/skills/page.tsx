@@ -13,6 +13,7 @@ import { formatDisplayLabel, formatFsrsState } from "@/lib/formatters";
 import { ensureDatabaseUser } from "@/lib/users";
 
 import { SourceProcessingControls } from "./source-processing-controls";
+import { SourceProcessingNotifications } from "./source-processing-notifications";
 import { SkillRowActions } from "./skill-row-actions";
 import { SkillsTopbar } from "./skills-topbar";
 
@@ -55,6 +56,17 @@ export default async function SkillsPage({ searchParams }: SkillsPageProps) {
   return (
     <main className="skillShell">
       <SkillsTopbar current="skills" />
+      <SourceProcessingNotifications
+        failures={library.sourceProcessing
+          .filter((sourceFile) => sourceFile.status === "FAILED")
+          .map((sourceFile) => ({
+            id: sourceFile.id,
+            message: sourceFile.errorMessage ?? "LearnRecur could not turn this material into a skill.",
+            name: sourceFile.originalName,
+            noticeKey: `${sourceFile.id}:${sourceFile.updatedAt.toISOString()}:${sourceFile.errorMessage ?? ""}`,
+            retryable: sourceFile.canRequeue,
+          }))}
+      />
 
       <header className="skillHeader">
         <div>
@@ -82,11 +94,11 @@ export default async function SkillsPage({ searchParams }: SkillsPageProps) {
         <section className="skillPanel skillRecoveryPanel" aria-labelledby="source-processing-title">
           <div className="skillPanelHeader">
             <div>
-              <h2 id="source-processing-title">Uploads being prepared</h2>
+              <h2 id="source-processing-title">Learning material</h2>
             </div>
             <PanelHeaderCount
-              ariaLabel="Uploaded material rows shown"
-              label="Files"
+              ariaLabel="Learning material rows shown"
+              label="Items"
               value={formatCount(library.sourceProcessing.length)}
             />
           </div>
@@ -219,7 +231,6 @@ function SourceProcessingRow({
 }: {
   sourceFile: SkillsLibrarySourceProcessingSummary;
 }) {
-  const failed = sourceFile.status === "FAILED";
   const statusCopy = getSourceProcessingStatusCopy(sourceFile);
 
   return (
@@ -251,16 +262,10 @@ function SourceProcessingRow({
           <dd>{sourceFile.retryCount > 0 ? formatRetryCount(sourceFile.retryCount) : "None"}</dd>
         </div>
       </dl>
-      {failed ? (
-        <div className="skillLibraryStatus" data-tone="error">
-          <p>Skill preparation failed. Try again, or upload a clearer excerpt.</p>
-        </div>
-      ) : null}
       <SourceProcessingControls
         sourceFileId={sourceFile.id}
         sourceFileName={sourceFile.originalName}
         canRequeue={sourceFile.canRequeue}
-        canDismiss={sourceFile.canDismiss}
       />
     </article>
   );
@@ -326,11 +331,11 @@ function formatByteSize(byteSize: number | null) {
 
 function getSourceProcessingStatusCopy(sourceFile: SkillsLibrarySourceProcessingSummary) {
   if (sourceFile.status === "FAILED") {
-    if (!sourceFile.canDismiss) {
-      return "Skill preparation failed. This file is linked to a skill, so upload the material again if you need another one.";
+    if (sourceFile.canRequeue) {
+      return "Skill preparation failed, but the material was saved. Try again when you are ready.";
     }
 
-    return "Skill preparation failed. Dismiss this row, then upload again when you are ready.";
+    return "Skill preparation failed. The material was saved, but this item cannot be restarted from here.";
   }
 
   if (sourceFile.status === "UPLOADED") {

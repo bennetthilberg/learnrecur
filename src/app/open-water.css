@@ -3267,13 +3267,14 @@ body {
 .createSkillInputFooter {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 14px;
   border-top: 1px solid var(--lr-divider);
   padding: 12px 14px;
 }
 
 .createSkillInputFooter p {
+  flex: 0 1 auto;
+  min-width: 0;
   margin: 0;
   color: var(--lr-text-secondary);
   font-size: 13px;
@@ -3282,9 +3283,12 @@ body {
 
 .createSkillFilePill {
   display: inline-flex;
-  max-width: min(100%, 360px);
+  flex: 1 1 320px;
+  min-width: 0;
+  max-width: 100%;
   align-items: center;
   gap: 10px;
+  margin-left: auto;
   border: 1px solid var(--lr-card-border);
   border-radius: 999px;
   background: #FFFFFF;
@@ -3296,6 +3300,8 @@ body {
 }
 
 .createSkillFilePill span {
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -4161,6 +4167,7 @@ body {
 
   .createSkillFilePill {
     max-width: 100%;
+    margin-left: 0;
     justify-self: start;
   }
 

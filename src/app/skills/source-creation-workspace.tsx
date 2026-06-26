@@ -319,7 +319,7 @@ export function SourceCreationWorkspace() {
             </p>
             {selectedFile ? (
               <div className="createSkillFilePill">
-                <span>{selectedFile.name}</span>
+                <span title={selectedFile.name}>{selectedFile.name}</span>
                 <button
                   aria-label={`Remove ${selectedFile.name}`}
                   disabled={busy}
