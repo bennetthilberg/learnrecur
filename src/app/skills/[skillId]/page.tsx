@@ -554,26 +554,23 @@ export default async function SkillPage({
   }
 
   return (
-    <main className="skillShell">
+    <main className="skillShell createSkillReviewShell">
       <SkillsTopbar current="skill" />
-      <header className="skillHeader">
+      <header className="skillHeader createSkillHeader">
         <div>
           <h1>{skill.title}</h1>
-          <p>
-            Review the generated definition, save any changes, then add it to practice.
-          </p>
+          <p>Check what LearnRecur made, make any edits, then add the skill.</p>
         </div>
       </header>
 
       {skill.generationJobs[0]?.errorMessage ? (
         <section className="skillMessage" data-tone="error" aria-label="Latest add issue">
-          <p>Skill preparation failed. Review the draft and try again when you are ready.</p>
+          <p>Skill preparation failed. Review the details and try again when you are ready.</p>
         </section>
       ) : null}
 
-      <SkillSourcePanel skillId={skill.id} sources={sourceSummaries} />
       <SkillDraftForm initialValues={draftValues} mode="edit" skillId={skill.id} />
-      <SkillLifecyclePanel skillId={skill.id} skillTitle={skill.title} status={skill.status} />
+      <SkillSourcePanel skillId={skill.id} sources={sourceSummaries} />
     </main>
   );
 }
@@ -758,7 +755,7 @@ function SkillLifecyclePanel({
               <SkillLifecycleForm
                 actionType="restore"
                 buttonLabel="Restore skill"
-                description="Restored scheduled skills return to practice. Unscheduled skills return as drafts."
+                description="Restored scheduled skills return to practice. Other restored skills reopen for review."
                 pendingLabel="Restoring"
                 skillId={skillId}
               />
@@ -776,7 +773,7 @@ function SkillLifecyclePanel({
               description="Archived skills leave the main library and practice flow, but can be restored later."
               pendingLabel="Archiving"
               skillId={skillId}
-              summaryLabel={status === SkillStatus.DRAFT ? "Archive draft" : "Archive skill"}
+              summaryLabel="Archive skill"
               tone="danger"
             />
           ) : null}

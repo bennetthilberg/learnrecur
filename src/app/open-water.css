@@ -1119,6 +1119,8 @@ body {
 
 .historyShell .routeSkeleton::after,
 .routePendingContent[data-route-kind="history"] .routeSkeleton::after,
+.createSkillShell .routeSkeleton::after,
+.routePendingContent[data-route-kind="new"] .routeSkeleton::after,
 .settingsShell .routeSkeleton::after,
 .routePendingContent[data-route-kind="settings"] .routeSkeleton::after {
   display: block !important;
@@ -3134,6 +3136,229 @@ body {
   }
 }
 
+/* ===== Skill creation simplification ===== */
+.createSkillShell .createSkillHeader,
+.createSkillShell .skillCreateStack,
+.createSkillReviewShell .createSkillHeader,
+.createSkillReviewShell .skillDraftGrid,
+.createSkillReviewShell .skillSourcePanel {
+  width: calc(100% - 28px);
+  max-width: 760px;
+  margin-right: auto;
+  margin-left: auto;
+  justify-self: center;
+}
+
+.createSkillShell .createSkillHeader,
+.createSkillReviewShell .createSkillHeader {
+  display: block;
+  margin-top: 40px;
+  padding: 0;
+}
+
+.createSkillShell .createSkillHeader h1,
+.createSkillReviewShell .createSkillHeader h1 {
+  margin: 0;
+  color: var(--lr-ink);
+  font-family: var(--lr-font-display);
+  font-size: 35px;
+  font-weight: 800;
+  line-height: 1.08;
+  letter-spacing: 0;
+}
+
+.createSkillShell .createSkillHeader p,
+.createSkillReviewShell .createSkillHeader p {
+  max-width: 560px;
+  margin: 12px 0 0;
+  color: var(--lr-text-secondary);
+  font-size: 15px;
+  line-height: 1.48;
+}
+
+.createSkillShell .skillCreateStack,
+.createSkillReviewShell .skillDraftGrid {
+  margin-top: 24px;
+}
+
+.createSkillReviewShell .skillDraftGrid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.createSkillReviewShell .skillSourcePanel {
+  margin-top: 18px;
+}
+
+.skillLibraryGrid[data-layout="single"] {
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 860px;
+}
+
+.createSkillPanel {
+  display: grid;
+  gap: 22px;
+  padding: 36px 38px;
+}
+
+.createSkillPanelHeader {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.createSkillPanelHeader h2 {
+  margin: 0;
+  color: var(--lr-ink);
+  font-family: var(--lr-font-display);
+  font-size: 25px;
+  font-weight: 800;
+  line-height: 1.16;
+}
+
+.createSkillFileButton {
+  min-height: 42px;
+  flex: 0 0 auto;
+}
+
+.createSkillInputBox {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid var(--lr-card-border);
+  border-radius: 8px;
+  background: #FFFFFF;
+  transition:
+    border-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.createSkillInputBox:focus-within {
+  border-color: var(--lr-blue);
+  outline: 2px solid var(--lr-focus-outline);
+  outline-offset: 3px;
+  box-shadow: none;
+}
+
+.createSkillInputBox[data-dragging="true"] {
+  border-color: var(--lr-blue);
+  box-shadow: inset 0 0 0 1px var(--lr-blue);
+}
+
+.createSkillTextarea {
+  min-height: 260px;
+  border: 0;
+  background: transparent;
+  color: var(--lr-ink);
+  font: inherit;
+  font-size: 16px;
+  line-height: 1.5;
+  padding: 18px;
+  resize: vertical;
+}
+
+.createSkillTextarea::placeholder {
+  color: var(--lr-text-secondary);
+}
+
+.createSkillTextarea:focus {
+  outline: 0;
+}
+
+.createSkillInputFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border-top: 1px solid var(--lr-divider);
+  padding: 12px 14px;
+}
+
+.createSkillInputFooter p {
+  margin: 0;
+  color: var(--lr-text-secondary);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.createSkillFilePill {
+  display: inline-flex;
+  max-width: min(100%, 360px);
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--lr-card-border);
+  border-radius: 999px;
+  background: #FFFFFF;
+  color: var(--lr-ink);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+  padding: 5px 8px 5px 11px;
+}
+
+.createSkillFilePill span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.createSkillFilePill button {
+  flex: 0 0 auto;
+  border: 0;
+  background: transparent;
+  color: var(--lr-blue);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 4px;
+}
+
+.createSkillFilePill button:focus-visible {
+  outline: 2px solid var(--lr-focus-outline);
+  outline-offset: 2px;
+}
+
+.createSkillOptions {
+  margin: 0;
+}
+
+.createSkillActions {
+  justify-content: start;
+  margin-top: 0;
+}
+
+.createSkillGenerationPanel {
+  width: calc(100% - 28px);
+  max-width: 760px;
+  margin: 24px auto 0;
+}
+
+.createSkillShell .routeSkeleton {
+  display: block;
+}
+
+.routeLoadingCreatePanel {
+  min-height: 535px;
+}
+
+.routeLoadingCreateInput {
+  pointer-events: none;
+}
+
+.routeLoadingCreateText {
+  width: 100% !important;
+}
+
+.routeLoadingCreateInput:focus-within {
+  border-color: var(--lr-card-border);
+  outline: 0;
+}
+
+.routeLoadingCreateOptions {
+  display: grid;
+  gap: 7px;
+}
+
 /* ===== Settings page simplification ===== */
 .settingsShell .settingsHeader,
 .settingsShell .settingsPanel,
@@ -3786,12 +4011,64 @@ body {
 }
 
 @media (min-width: 720px) and (max-width: 1119px) {
+  .createSkillShell .createSkillHeader,
+  .createSkillReviewShell .createSkillHeader {
+    margin-top: 22px;
+  }
+
   .historyShell .historyHeader {
     margin-top: 22px;
   }
 }
 
 @media (max-width: 620px) {
+  .createSkillShell .createSkillHeader,
+  .createSkillReviewShell .createSkillHeader {
+    margin-top: 20px;
+  }
+
+  .createSkillShell .createSkillHeader h1,
+  .createSkillReviewShell .createSkillHeader h1 {
+    font-size: 30px;
+  }
+
+  .createSkillPanel,
+  .createSkillReviewShell .skillDraftForm {
+    padding: 26px 22px;
+  }
+
+  .createSkillPanelHeader {
+    display: grid;
+  }
+
+  .createSkillPanelHeader h2 {
+    font-size: 23px;
+  }
+
+  .createSkillFileButton {
+    justify-self: start;
+  }
+
+  .createSkillTextarea {
+    min-height: 220px;
+    font-size: 15px;
+    padding: 16px;
+  }
+
+  .createSkillInputFooter {
+    display: grid;
+    align-items: start;
+  }
+
+  .createSkillFilePill {
+    max-width: 100%;
+    justify-self: start;
+  }
+
+  .routeLoadingCreatePanel {
+    min-height: 513px;
+  }
+
   .settingsShell .settingsHeader {
     margin-top: 20px;
   }

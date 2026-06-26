@@ -43,7 +43,7 @@ export function SourceProcessingControls({
         <form action={requeueAction}>
           <input name="sourceFileId" type="hidden" value={sourceFileId} />
           <button
-            aria-label={`Try draft preparation again for ${sourceFileName}`}
+            aria-label={`Try skill preparation again for ${sourceFileName}`}
             className="secondaryButton"
             disabled={requeuePending}
             type="submit"

@@ -37,7 +37,7 @@ export const primaryRouteLoadingByKey: Record<PrimaryRouteKey, PrimaryRouteLoadi
     title: "History",
   },
   new: {
-    detail: "Upload, paste, or write source material. LearnRecur will create a skill for review before practice.",
+    detail: "Paste notes, describe what you want to practice, or drop in a PDF or image.",
     kind: "new",
     title: "Create a skill",
   },
@@ -52,9 +52,9 @@ export const primaryRouteLoadingByKey: Record<PrimaryRouteKey, PrimaryRouteLoadi
     title: "Settings",
   },
   skills: {
-    detail: "Resume draft review, check activation issues, and scan active practice targets.",
+    detail: "Manage the skills in your practice schedule.",
     kind: "skills",
-    title: "Recover and schedule skills",
+    title: "Skills",
   },
 };
 
@@ -252,14 +252,8 @@ function SkillsRouteLoading({ config }: { config: PrimaryRouteLoadingConfig }) {
   return (
     <>
       <RouteHeader actionCount={1} config={config} />
-      <div className="skillLibraryGrid">
-        <PanelSkeleton title="Draft skills">
-          <div className="skillLibraryList">
-            <SkillLibraryRowSkeleton />
-            <SkillLibraryRowSkeleton compact />
-          </div>
-        </PanelSkeleton>
-        <PanelSkeleton title="Practice targets">
+      <div className="skillLibraryGrid" data-layout="single">
+        <PanelSkeleton title="Skills">
           <div className="skillLibraryList">
             <SkillLibraryRowSkeleton withFacts />
             <SkillLibraryRowSkeleton compact withFacts />
@@ -305,41 +299,43 @@ function SkillLibraryRowSkeleton({
 function NewSkillRouteLoading({ config }: { config: PrimaryRouteLoadingConfig }) {
   return (
     <>
-      <RouteHeader config={config} />
+      <header className="skillHeader createSkillHeader routeLoadingHeader">
+        <div>
+          <h1>{config.title}</h1>
+          <p>{config.detail}</p>
+        </div>
+      </header>
       <div className="skillCreateStack routeLoadingCreateStack">
-        <nav className="skillCreationTabs routeLoadingTabs" aria-label="Skill creation mode">
-          <span aria-current="page">From source</span>
-          <span>Manual</span>
-        </nav>
-        <section className="skillCreationPath" aria-label="Source-backed skill creation path">
-          <div>
-            <span>Input</span>
-            <strong>Add source material.</strong>
+        <section
+          className="skillPanel createSkillPanel routeLoadingCreatePanel"
+          aria-label="Skill creation loading"
+        >
+          <div className="createSkillPanelHeader" aria-hidden="true">
+            <Skeleton className="routeSkeleton" height={28} radius={6} width={196} />
+            <Skeleton
+              className="routeSkeleton routeLoadingActionButton"
+              height={42}
+              radius={8}
+              width={126}
+            />
           </div>
-          <div>
-            <span>Create</span>
-            <strong>Wait while LearnRecur writes the skill.</strong>
-          </div>
-          <div>
-            <span>Add</span>
-            <strong>Review, edit, then add it to practice.</strong>
-          </div>
-        </section>
-        <section className="skillSourceEntryGrid" aria-label="Source-backed skill options loading">
-          <PanelSkeleton title="Upload material">
-            <div className="routeLoadingDropzone" aria-hidden="true">
-              <Skeleton className="routeSkeleton" height={44} radius={8} width={154} />
-              <Skeleton className="routeSkeleton" height={14} radius={5} width="58%" />
-              <Skeleton className="routeSkeleton" height={12} radius={5} width="42%" />
+          <div className="createSkillInputBox routeLoadingCreateInput" aria-hidden="true">
+            <Skeleton className="routeSkeleton routeLoadingCreateText" height={260} radius={0} />
+            <div className="createSkillInputFooter">
+              <Skeleton className="routeSkeleton" height={16} radius={5} width="min(100%, 286px)" />
+              <Skeleton className="routeSkeleton" height={28} radius={999} width={132} />
             </div>
-          </PanelSkeleton>
-          <PanelSkeleton title="Paste material">
-            <div className="routeLoadingFormStack" aria-hidden="true">
-              <Skeleton className="routeSkeleton" height={116} radius={8} />
-              <Skeleton className="routeSkeleton" height={40} radius={8} />
-              <Skeleton className="routeSkeleton routeLoadingActionButton" height={42} radius={8} width={142} />
-            </div>
-          </PanelSkeleton>
+          </div>
+          <div className="routeLoadingCreateOptions" aria-hidden="true">
+            <Skeleton className="routeSkeleton" height={24} radius={6} width={148} />
+            <Skeleton className="routeSkeleton" height={14} radius={5} width={220} />
+          </div>
+          <Skeleton
+            className="routeSkeleton routeLoadingActionButton"
+            height={44}
+            radius={8}
+            width={132}
+          />
         </section>
       </div>
     </>

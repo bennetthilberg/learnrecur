@@ -680,7 +680,7 @@ const sourceSkillDraftInputSchema = z.strictObject({
   sourceText: z
     .string()
     .trim()
-    .min(40, "Paste at least 40 characters of source material.")
+    .min(12, "Enter at least 12 characters of learning material or a skill description.")
     .max(12_000, "Paste at most 12,000 characters for this first source flow."),
   sourceLabel: optionalTrimmedStringSchema.pipe(z.string().max(160).optional()),
   focusNote: optionalTrimmedStringSchema.pipe(z.string().max(800).optional()),
@@ -3853,27 +3853,27 @@ function buildMathExerciseVerificationPrompt(input: MathExerciseVerifierInput): 
 
 function buildSourceSkillDraftPrompt(input: SkillDraftGeneratorInput): string {
   return [
-    "Create one to three editable LearnRecur skill drafts from pasted learning material.",
+    "Create one editable LearnRecur skill draft from the user's learning input.",
     "Return only JSON matching the provided response schema.",
     "Do not include markdown, commentary, exercises, or answer keys.",
     "Each skill must be narrow enough to practice with short objective exercises.",
-    "If the source is narrow, return exactly one draft.",
-    `If the source is broad, split it into at most ${MAX_GENERATED_SKILL_DRAFTS} independently practiceable narrow skills.`,
+    "The input may be pasted source material or the user's plain-language description of a skill they want to practice.",
+    "Return exactly one draft. If the input is broad, choose the clearest narrow skill to practice first.",
     "Use the focus note to constrain which skills are worth drafting.",
     "",
-    `Source label: ${input.sourceLabel ?? "Pasted source"}`,
+    `Source label: ${input.sourceLabel ?? "Learning input"}`,
     `Focus note: ${input.focusNote ?? "No extra focus note."}`,
     `Collection hint: ${input.collectionName ?? "none"}`,
     `User tags: ${input.tags.join(", ") || "none"}`,
     "",
-    "Pasted source:",
+    "User input:",
     input.sourceContext,
     "",
     "Response requirements:",
-    "- drafts: one to three draft objects.",
+    "- drafts: exactly one draft object.",
     "- title: short and specific for each draft.",
     "- objective: one sentence describing exactly what the learner should practice.",
-    "- rules: concise source-backed rules or reminders.",
+    "- rules: concise rules or reminders grounded in the input.",
     "- examples: source-style examples, not exercise questions.",
     "- exerciseConstraints: guidance for future exercise generation.",
     "- tags: lowercase topic tags when possible.",

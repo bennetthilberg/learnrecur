@@ -6,12 +6,10 @@ import { UserStatusPanel } from "@/components/app/user-status-panel";
 import {
   getSkillsLibrary,
   type SkillsLibraryActiveSkill,
-  type SkillsLibraryDraftSkill,
-  type SkillsLibraryGenerationJobSummary,
   type SkillsLibraryRecoverySkill,
   type SkillsLibrarySourceProcessingSummary,
 } from "@/lib/skills/library";
-import { formatDisplayLabel, formatFsrsState, formatJobStatus } from "@/lib/formatters";
+import { formatDisplayLabel, formatFsrsState } from "@/lib/formatters";
 import { ensureDatabaseUser } from "@/lib/users";
 
 import { SourceProcessingControls } from "./source-processing-controls";
@@ -22,7 +20,6 @@ export const dynamic = "force-dynamic";
 
 type SkillsPageProps = {
   searchParams?: Promise<{
-    createdDrafts?: string | string[];
     deletedSkill?: string | string[];
     sourceQueued?: string | string[];
   }>;
@@ -32,7 +29,6 @@ export default async function SkillsPage({ searchParams }: SkillsPageProps) {
   const { userId } = await auth.protect();
   const clerkUser = await currentUser();
   const resolvedSearchParams = searchParams ? await searchParams : {};
-  const createdDraftCount = parseCreatedDraftCount(resolvedSearchParams.createdDrafts);
   const deletedSkill = parseDeletedSkill(resolvedSearchParams.deletedSkill);
   const sourceQueued = parseSourceQueued(resolvedSearchParams.sourceQueued);
 
@@ -63,23 +59,16 @@ export default async function SkillsPage({ searchParams }: SkillsPageProps) {
       <header className="skillHeader">
         <div>
           <h1>Skills</h1>
-          <p>Review drafts and active practice targets.</p>
+          <p>Manage the skills in your practice schedule.</p>
         </div>
         <Link className="primaryButton" href="/skills/new">
           Add skill
         </Link>
       </header>
 
-      {createdDraftCount ? (
-        <p className="skillFormMessage" data-tone="saved" role="status">
-          Created {formatCount(createdDraftCount)} draft
-          {createdDraftCount === 1 ? "" : "s"}. Review each one before activation.
-        </p>
-      ) : null}
-
       {sourceQueued ? (
         <p className="skillFormMessage" data-tone="saved" role="status">
-          File received. Drafts will appear under Needs review after preparation.
+          File received. Skills will appear after preparation finishes.
         </p>
       ) : null}
 
@@ -109,49 +98,23 @@ export default async function SkillsPage({ searchParams }: SkillsPageProps) {
         </section>
       ) : null}
 
-      <div className="skillLibraryGrid">
-        <section className="skillPanel skillLibraryDraftPanel" aria-labelledby="draft-skills-title">
-          <div className="skillPanelHeader">
-            <div>
-              <h2 id="draft-skills-title">Draft skills</h2>
-            </div>
-            <PanelHeaderCount
-              ariaLabel="Draft skills shown"
-              label="Drafts"
-              value={formatCount(library.draftSkills.length)}
-            />
-          </div>
-
-          {library.draftSkills.length === 0 ? (
-            <SkillLibraryEmptyState
-              title="No drafts waiting"
-              detail="Create a source-backed draft or write a manual one when you are ready."
-            />
-          ) : (
-            <div className="skillLibraryList">
-              {library.draftSkills.map((skill) => (
-                <DraftSkillRow key={skill.id} skill={skill} />
-              ))}
-            </div>
-          )}
-        </section>
-
+      <div className="skillLibraryGrid" data-layout="single">
         <section className="skillPanel skillLibraryActivePanel" aria-labelledby="active-skills-title">
           <div className="skillPanelHeader">
             <div>
-              <h2 id="active-skills-title">Practice targets</h2>
+              <h2 id="active-skills-title">Skills</h2>
             </div>
             <PanelHeaderCount
-              ariaLabel="Active skills shown"
-              label="Active"
+              ariaLabel="Skills shown"
+              label="Skills"
               value={formatCount(library.activeSkills.length)}
             />
           </div>
 
           {library.activeSkills.length === 0 ? (
             <SkillLibraryEmptyState
-              title="No active skills yet"
-              detail="Activate a reviewed draft to put it into the practice schedule."
+              title="No skills yet"
+              detail="Add a skill to put it into practice."
             />
           ) : (
             <div className="skillLibraryList">
@@ -183,43 +146,6 @@ export default async function SkillsPage({ searchParams }: SkillsPageProps) {
         </section>
       ) : null}
     </main>
-  );
-}
-
-function DraftSkillRow({ skill }: { skill: SkillsLibraryDraftSkill }) {
-  return (
-    <article className="skillLibraryRow">
-      <div className="skillLibraryRowMain">
-        <div>
-          <Link aria-label={`Open ${skill.title}`} href={`/skills/${skill.id}`}>
-            {skill.title}
-            <span className="rowOpenCue" aria-hidden="true">
-              Open
-            </span>
-          </Link>
-          <p>{skill.objective ?? "Objective not set."}</p>
-        </div>
-        <div className="skillLibraryRowControls">
-          <span className="dashboardChip">Draft</span>
-          <SkillRowActions skillId={skill.id} skillTitle={skill.title} status="DRAFT" />
-        </div>
-      </div>
-
-      <div className="skillMetaLine">
-        <span>{skill.collectionName ?? "Uncollected"}</span>
-        <span>{formatSourceCount(skill.sourceRefCount)}</span>
-        <span>Updated {formatDate(skill.updatedAt)}</span>
-        {skill.tags.slice(0, 3).map((tag) => (
-          <span className="dashboardTag" key={tag}>
-            {tag}
-          </span>
-        ))}
-      </div>
-
-      {skill.latestGenerationJob ? (
-        <GenerationJobStatusLine job={skill.latestGenerationJob} />
-      ) : null}
-    </article>
   );
 }
 
@@ -303,7 +229,7 @@ function SourceProcessingRow({
           {formatSourceFileStatus(sourceFile.status)}
         </span>
       </div>
-      <dl className="sourceProcessingFacts" aria-label={`${sourceFile.originalName} draft preparation details`}>
+      <dl className="sourceProcessingFacts" aria-label={`${sourceFile.originalName} preparation details`}>
         <div>
           <dt>Type</dt>
           <dd>{formatSourceKind(sourceFile.kind)}</dd>
@@ -336,30 +262,6 @@ function SourceProcessingRow({
   );
 }
 
-function GenerationJobStatusLine({ job }: { job: SkillsLibraryGenerationJobSummary }) {
-  const failed = job.status === "FAILED";
-
-  return (
-    <div className="skillLibraryStatus" data-tone={failed ? "error" : "neutral"}>
-      <dl className="skillLibraryStatusFacts" aria-label="Latest preparation result">
-        <div>
-          <dt>Latest preparation</dt>
-          <dd>{formatJobStatus(job.status)}</dd>
-        </div>
-        <div>
-          <dt>Kept</dt>
-          <dd>{formatCount(job.acceptedCount)}</dd>
-        </div>
-        <div>
-          <dt>Skipped</dt>
-          <dd>{formatCount(job.rejectedCount)}</dd>
-        </div>
-      </dl>
-      {failed ? <p>Latest preparation failed. Try again when you are ready.</p> : null}
-    </div>
-  );
-}
-
 function SkillLibraryEmptyState({ title, detail }: { title: string; detail: string }) {
   return (
     <div className="dashboardEmptyState">
@@ -383,10 +285,6 @@ function formatDate(date: Date) {
   });
 }
 
-function formatSourceCount(count: number) {
-  return count === 1 ? "1 source" : `${formatCount(count)} sources`;
-}
-
 function formatRetryCount(count: number) {
   return count === 1 ? "1 retry" : `${formatCount(count)} retries`;
 }
@@ -400,7 +298,7 @@ function formatSourceFileStatus(status: SkillsLibrarySourceProcessingSummary["st
     case "FAILED":
       return "Needs attention";
     case "PROCESSING":
-      return "Preparing drafts";
+      return "Preparing";
     case "UPLOADED":
       return "File received";
   }
@@ -425,21 +323,21 @@ function formatByteSize(byteSize: number | null) {
 function getSourceProcessingStatusCopy(sourceFile: SkillsLibrarySourceProcessingSummary) {
   if (sourceFile.status === "FAILED") {
     if (!sourceFile.canDismiss) {
-      return "Draft preparation failed. This file is linked to a skill, so upload the material again if you need another draft.";
+      return "Skill preparation failed. This file is linked to a skill, so upload the material again if you need another one.";
     }
 
-    return "Draft preparation failed. Dismiss this row, then upload again when you are ready.";
+    return "Skill preparation failed. Dismiss this row, then upload again when you are ready.";
   }
 
   if (sourceFile.status === "UPLOADED") {
-    return "File received. Drafts will appear under Needs review when preparation finishes.";
+    return "File received. Skills will appear when preparation finishes.";
   }
 
   if (sourceFile.isStaleProcessing) {
-    return "Draft preparation appears stuck. Try again when you are ready.";
+    return "Skill preparation appears stuck. Try again when you are ready.";
   }
 
-  return "Draft preparation is in progress.";
+  return "Skill preparation is in progress.";
 }
 
 function getSourceProcessingStatusTone(sourceFile: SkillsLibrarySourceProcessingSummary) {
@@ -452,22 +350,6 @@ function getSourceProcessingStatusTone(sourceFile: SkillsLibrarySourceProcessing
   }
 
   return "neutral";
-}
-
-function parseCreatedDraftCount(value: string | string[] | undefined) {
-  const rawValue = Array.isArray(value) ? value[0] : value;
-
-  if (!rawValue) {
-    return null;
-  }
-
-  const parsed = Number.parseInt(rawValue, 10);
-
-  if (!Number.isInteger(parsed) || parsed < 2 || parsed > 3) {
-    return null;
-  }
-
-  return parsed;
 }
 
 function parseSourceQueued(value: string | string[] | undefined) {

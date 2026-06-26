@@ -2,16 +2,11 @@
 
 import { useActionState, useEffect, useId } from "react";
 import type React from "react";
-import {
-  CheckCircle,
-  FloppyDisk,
-  PlusCircle,
-  WarningCircle,
-} from "@phosphor-icons/react";
+import { CheckCircle, FloppyDisk, WarningCircle } from "@phosphor-icons/react";
 import { notifications } from "@mantine/notifications";
 
 import {
-  activateSkillDraftAction,
+  addSkillDraftToPracticeAction,
   saveSkillDraftAction,
   type SkillFormActionState,
 } from "./actions";
@@ -38,14 +33,17 @@ const idleState: SkillFormActionState = {
 };
 
 const draftNotificationId = "skill-draft-form-notice";
-const activationNotificationId = "skill-draft-activation-notice";
+const addSkillNotificationId = "skill-add-notice";
 
 export function SkillDraftForm({ mode, skillId, initialValues }: SkillDraftFormProps) {
   const [draftState, saveAction, isSaving] = useActionState(saveSkillDraftAction, idleState);
-  const [activationState, activateAction, isActivating] = useActionState(
-    activateSkillDraftAction,
+  const [addSkillState, addSkillAction, isAddingSkill] = useActionState(
+    addSkillDraftToPracticeAction,
     idleState,
   );
+  const formAction = mode === "edit" && skillId ? addSkillAction : saveAction;
+  const formState = mode === "edit" && skillId ? addSkillState : draftState;
+  const isSubmitting = mode === "edit" && skillId ? isAddingSkill : isSaving;
 
   useEffect(() => {
     if (!draftState.message || draftState.status === "idle") {
@@ -65,37 +63,37 @@ export function SkillDraftForm({ mode, skillId, initialValues }: SkillDraftFormP
       ),
       message: isSaved ? "Your changes are saved." : draftState.message,
       position: "top-right",
-      title: isSaved ? "Draft saved" : "Could not save draft",
+      title: isSaved ? "Changes saved" : "Could not save skill",
       withBorder: true,
       withCloseButton: true,
     });
   }, [draftState]);
 
   useEffect(() => {
-    if (!activationState.message || activationState.status === "idle") {
+    if (!addSkillState.message || addSkillState.status === "idle") {
       return;
     }
 
     notifications.show({
-      id: activationNotificationId,
+      id: addSkillNotificationId,
       autoClose: 8000,
       className: "learnrecurNotification",
       color: "amber",
       icon: <WarningCircle size={18} weight="bold" />,
-      message: activationState.message,
+      message: addSkillState.message,
       position: "top-right",
       title: "Could not add skill",
       withBorder: true,
       withCloseButton: true,
     });
-  }, [activationState]);
+  }, [addSkillState]);
 
   return (
     <div className="skillDraftGrid">
-      <form action={saveAction} className="skillPanel skillDraftForm">
+      <form action={formAction} className="skillPanel skillDraftForm">
         <div className="skillPanelHeader">
           <div>
-            <h2>{mode === "create" ? "Write the skill" : "Review generated skill"}</h2>
+            <h2>{mode === "create" ? "Write the skill" : "Review the skill"}</h2>
           </div>
         </div>
 
@@ -105,7 +103,7 @@ export function SkillDraftForm({ mode, skillId, initialValues }: SkillDraftFormP
           <legend>Core definition</legend>
           <div className="skillFormFieldsetBody">
             <SkillTextField
-              error={draftState.fieldErrors?.title?.[0]}
+              error={formState.fieldErrors?.title?.[0]}
               label="Title"
               name="title"
               placeholder="Ser vs. estar in everyday sentences"
@@ -114,7 +112,7 @@ export function SkillDraftForm({ mode, skillId, initialValues }: SkillDraftFormP
             />
 
             <SkillTextArea
-              error={draftState.fieldErrors?.objective?.[0]}
+              error={formState.fieldErrors?.objective?.[0]}
               label="Objective"
               name="objective"
               placeholder="Choose whether ser or estar fits a short Spanish sentence, focusing on identity, location, and temporary state."
@@ -125,14 +123,14 @@ export function SkillDraftForm({ mode, skillId, initialValues }: SkillDraftFormP
 
             <div className="skillTwoColumnFields">
               <SkillTextField
-                error={draftState.fieldErrors?.collectionName?.[0]}
+                error={formState.fieldErrors?.collectionName?.[0]}
                 label="Collection"
                 name="collectionName"
                 placeholder="Spanish grammar"
                 defaultValue={initialValues.collectionName}
               />
               <SkillTextField
-                error={draftState.fieldErrors?.tags?.[0]}
+                error={formState.fieldErrors?.tags?.[0]}
                 label="Tags"
                 name="tags"
                 placeholder="spanish, verbs, grammar"
@@ -146,7 +144,7 @@ export function SkillDraftForm({ mode, skillId, initialValues }: SkillDraftFormP
           <legend>Practice guidance</legend>
           <div className="skillFormFieldsetBody">
             <SkillTextArea
-              error={draftState.fieldErrors?.rules?.[0]}
+              error={formState.fieldErrors?.rules?.[0]}
               label="Rules"
               name="rules"
               placeholder={"Use ser for identity.\nUse estar for location and temporary state."}
@@ -155,7 +153,7 @@ export function SkillDraftForm({ mode, skillId, initialValues }: SkillDraftFormP
             />
 
             <SkillTextArea
-              error={draftState.fieldErrors?.examples?.[0]}
+              error={formState.fieldErrors?.examples?.[0]}
               label="Examples"
               name="examples"
               placeholder={"Soy estudiante.\nEstoy en casa."}
@@ -164,7 +162,7 @@ export function SkillDraftForm({ mode, skillId, initialValues }: SkillDraftFormP
             />
 
             <SkillTextArea
-              error={draftState.fieldErrors?.exerciseConstraints?.[0]}
+              error={formState.fieldErrors?.exerciseConstraints?.[0]}
               label="Exercise constraints"
               name="exerciseConstraints"
               placeholder="Use short choices, avoid trick questions, and keep starter exercises beginner-friendly."
@@ -176,39 +174,27 @@ export function SkillDraftForm({ mode, skillId, initialValues }: SkillDraftFormP
 
         <div className="skillFormActions">
           <button
-            className={mode === "create" ? "secondaryButton" : "primaryButton"}
-            disabled={isSaving}
+            className="primaryButton"
+            disabled={isSubmitting}
             type="submit"
           >
-            <FloppyDisk size={18} weight="bold" aria-hidden="true" />
+            {mode === "edit" ? (
+              <CheckCircle size={18} weight="bold" aria-hidden="true" />
+            ) : (
+              <FloppyDisk size={18} weight="bold" aria-hidden="true" />
+            )}
             <span>
-              {isSaving ? "Saving" : mode === "create" ? "Create skill" : "Save changes"}
+              {isSubmitting
+                ? mode === "edit"
+                  ? "Adding"
+                  : "Saving"
+                : mode === "edit"
+                  ? "Add skill"
+                  : "Create skill"}
             </span>
           </button>
         </div>
       </form>
-
-      {mode === "edit" && skillId ? (
-        <section className="skillPanel skillActivationPanel" aria-labelledby="activate-skill-title">
-          <div className="skillPanelHeader">
-            <div>
-              <h2 id="activate-skill-title">Add to practice</h2>
-            </div>
-          </div>
-          <p>
-            LearnRecur prepares and verifies starter exercises, then schedules this skill
-            for practice.
-          </p>
-
-          <form action={activateAction} className="skillActivationForm">
-            <input name="skillId" type="hidden" value={skillId} />
-            <button className="primaryButton" disabled={isActivating} type="submit">
-              <PlusCircle size={18} weight="bold" aria-hidden="true" />
-              <span>{isActivating ? "Adding" : "Add skill"}</span>
-            </button>
-          </form>
-        </section>
-      ) : null}
     </div>
   );
 }

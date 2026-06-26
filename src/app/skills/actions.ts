@@ -111,7 +111,7 @@ export async function saveSkillDraftAction(
 
   return {
     status: "saved",
-    message: "Draft saved.",
+    message: "Skill saved.",
   };
 }
 
@@ -130,7 +130,7 @@ export async function activateSkillDraftAction(
   if (!skillId) {
     return {
       status: "error",
-      message: "No skill draft was selected.",
+      message: "No skill was selected.",
     };
   }
 
@@ -147,6 +147,67 @@ export async function activateSkillDraftAction(
   return {
     status: "error",
     message: result.message,
+  };
+}
+
+export async function addSkillDraftToPracticeAction(
+  _previousState: SkillFormActionState,
+  formData: FormData,
+): Promise<SkillFormActionState> {
+  const user = await requireSkillActionUser();
+
+  if (user.status === "error") {
+    return user;
+  }
+
+  const skillId = getOptionalFormString(formData, "skillId");
+
+  if (!skillId) {
+    return {
+      status: "error",
+      message: "No skill was selected.",
+    };
+  }
+
+  const draftInput = formDataToDraftInput(formData);
+  const saveResult = await updateSkillDraft({
+    userId: user.userId,
+    skillId,
+    input: draftInput,
+  });
+
+  if (saveResult.status === "invalid") {
+    return {
+      status: "error",
+      message: saveResult.message,
+      fieldErrors: saveResult.fieldErrors,
+    };
+  }
+
+  if (saveResult.status === "not-found") {
+    return {
+      status: "error",
+      message: saveResult.message,
+    };
+  }
+
+  const addResult = await activateSkillDraft({
+    userId: user.userId,
+    skillId,
+    now: new Date(),
+  });
+
+  if (addResult.status === "activated") {
+    revalidatePath(`/skills/${addResult.skillId}`);
+    revalidatePath("/skills");
+    revalidatePath("/dashboard");
+    revalidatePath("/practice");
+    redirect(`/skills/${addResult.skillId}`);
+  }
+
+  return {
+    status: "error",
+    message: addResult.message,
   };
 }
 
