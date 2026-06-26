@@ -1668,6 +1668,11 @@ body {
   color: var(--lr-amber);
 }
 
+.practiceStatusLine[data-tone="error"] {
+  border-color: var(--lr-danger-line);
+  color: var(--lr-danger-ink);
+}
+
 .practiceStatusLine[data-tone="saved"] {
   display: inline-flex;
   align-items: center;
@@ -3023,14 +3028,26 @@ body {
   width: fit-content;
   align-items: center;
   gap: 7px;
-  border: 1px solid var(--lr-green);
+  border: 1px solid var(--lr-card-border);
   border-radius: var(--lr-r-card);
-  background: #E7F5EE;
-  color: var(--lr-green);
+  background: #FFFFFF;
+  color: var(--lr-text-secondary);
   padding: 7px 10px;
   font-size: 13px;
   font-weight: 700;
   line-height: 1.25;
+}
+
+.practiceCompleteStatus[data-tone="saved"] {
+  border-color: var(--lr-green);
+  background: #E7F5EE;
+  color: var(--lr-green);
+}
+
+.practiceCompleteStatus[data-tone="error"] {
+  border-color: var(--lr-danger-line);
+  background: var(--lr-danger-subtle);
+  color: var(--lr-danger-ink);
 }
 
 .practiceCompleteStatus svg {
