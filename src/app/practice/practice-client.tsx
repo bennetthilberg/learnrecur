@@ -63,7 +63,11 @@ const FLAG_REASON_OPTIONS: Array<{ reason: ExerciseFlagReason; label: string }> 
   },
 ];
 
-const RATING_OPTIONS = [FsrsRating.HARD, FsrsRating.GOOD, FsrsRating.EASY];
+const RATING_OPTIONS: Array<{ rating: FsrsRating; shortcut: string }> = [
+  { rating: FsrsRating.HARD, shortcut: "2" },
+  { rating: FsrsRating.GOOD, shortcut: "3" },
+  { rating: FsrsRating.EASY, shortcut: "4" },
+];
 
 const REVIEW_SAVED_MESSAGES = new Set(["Review saved.", "Review already saved."]);
 
@@ -385,6 +389,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
         {item.status === "none-due" ? (
           <PracticeCompleteState
             canUseSampleData={canUseSampleData && !scoped}
+            message={item.message}
             onSampleData={handleSampleData}
             pendingSample={pendingAction === "sample"}
             scoped={scoped}
@@ -510,6 +515,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
               active={pendingAction === "check"}
               idleText="Check"
               pendingText="Checking"
+              shortcut="Enter"
             />
           </button>
         </div>
@@ -547,18 +553,19 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
           <legend>Review rating</legend>
           <p className="ratingOverrideHint">How hard was that?</p>
           <div role="radiogroup" aria-label="Review rating">
-            {RATING_OPTIONS.map((rating) => (
+            {RATING_OPTIONS.map(({ rating, shortcut }) => (
               <button
                 key={rating}
                 role="radio"
                 aria-checked={manualRating === rating}
-                aria-label={`${formatRating(rating)} rating`}
+                aria-label={`${formatRating(rating)} rating, shortcut ${shortcut}`}
                 className="ratingButton"
                 data-selected={manualRating === rating ? "true" : "false"}
                 type="button"
                 onClick={() => setManualRating(rating)}
               >
                 <span>{formatRating(rating)}</span>
+                <kbd aria-hidden="true">{shortcut}</kbd>
               </button>
             ))}
           </div>
@@ -578,6 +585,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
               active={pendingAction === "continue"}
               idleText="Continue"
               pendingText="Saving"
+              shortcut="Enter"
             />
           </button>
         </div>
@@ -696,12 +704,14 @@ function getScopedCollectionId(item: PracticeItem): string | null {
 
 function PracticeCompleteState({
   canUseSampleData,
+  message,
   onSampleData,
   pendingSample,
   scoped,
   statusMessage,
 }: {
   canUseSampleData: boolean;
+  message: string;
   onSampleData: () => void;
   pendingSample: boolean;
   scoped: boolean;
@@ -712,6 +722,9 @@ function PracticeCompleteState({
       className="practiceFrame practiceEmpty practiceComplete"
       aria-labelledby="practice-empty-title"
     >
+      <div className="practiceCompleteIcon" aria-hidden="true">
+        <CheckCircle size={28} weight="bold" />
+      </div>
       <div className="practiceCompleteCopy">
         <h1 id="practice-empty-title">Nice work. You&apos;re all caught up.</h1>
         <p>
@@ -721,9 +734,20 @@ function PracticeCompleteState({
           LearnRecur will bring skills back when the schedule says they are ready.
         </p>
       </div>
+      <div className="practiceCompleteSummary" aria-label="Practice completion summary">
+        <div>
+          <span>Queue</span>
+          <strong>Clear for now</strong>
+        </div>
+        <div>
+          <span>Schedule</span>
+          <strong>{message}</strong>
+        </div>
+      </div>
       <PracticeCompleteActions scoped={scoped} />
       {statusMessage ? (
         <p className="practiceCompleteStatus" aria-live="polite" role="status">
+          <CheckCircle size={16} weight="bold" aria-hidden="true" />
           <span>{statusMessage}</span>
         </p>
       ) : null}
@@ -991,15 +1015,18 @@ function PendingButtonContent({
   active,
   idleText,
   pendingText,
+  shortcut,
 }: {
   active: boolean;
   idleText: string;
   pendingText: string;
+  shortcut?: string;
 }) {
   return (
     <span className="buttonPendingContent">
       {active ? <span className="buttonSpinner" aria-hidden="true" /> : null}
       <span>{active ? pendingText : idleText}</span>
+      {!active && shortcut ? <kbd aria-hidden="true">{shortcut}</kbd> : null}
     </span>
   );
 }
