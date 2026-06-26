@@ -382,24 +382,24 @@ function HistoryRouteLoading({ config }: { config: PrimaryRouteLoadingConfig }) 
 function HistoryRowSkeleton() {
   return (
     <tr>
-      <td>
+      <td data-label="Reviewed">
         <Skeleton className="routeSkeleton" height={18} radius={5} width={72} />
         <Skeleton className="routeSkeleton" height={13} radius={5} mt={10} width={62} />
       </td>
-      <td>
+      <td data-label="Skill">
         <Skeleton className="routeSkeleton" height={18} radius={5} width="76%" />
         <Skeleton className="routeSkeleton" height={13} radius={5} mt={12} width="48%" />
       </td>
-      <td>
+      <td data-label="Result">
         <Skeleton className="routeSkeleton" height={24} radius={6} width={76} />
       </td>
-      <td>
+      <td data-label="Rating">
         <Skeleton className="routeSkeleton" height={18} radius={5} width={58} />
       </td>
-      <td>
+      <td data-label="Next due">
         <Skeleton className="routeSkeleton" height={18} radius={5} width={94} />
       </td>
-      <td>
+      <td data-label="Details">
         <Skeleton className="routeSkeleton" height={34} radius={8} width={70} />
       </td>
     </tr>

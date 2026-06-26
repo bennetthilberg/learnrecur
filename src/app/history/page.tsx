@@ -135,6 +135,7 @@ function formatReviewFull(date: Date) {
     hour: "numeric",
     minute: "2-digit",
     month: "short",
+    year: "numeric",
   });
 }
 
