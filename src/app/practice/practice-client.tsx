@@ -31,6 +31,11 @@ type PracticeClientProps = {
 };
 
 type PendingAction = "check" | "continue" | "flag" | "sample" | null;
+type PracticeStatusTone = "neutral" | "saved" | "error";
+type PracticeStatusNotice = {
+  message: string;
+  tone: PracticeStatusTone;
+};
 
 const FLAG_REASON_OPTIONS: Array<{ reason: ExerciseFlagReason; label: string }> = [
   {
@@ -63,7 +68,11 @@ const FLAG_REASON_OPTIONS: Array<{ reason: ExerciseFlagReason; label: string }> 
   },
 ];
 
-const RATING_OPTIONS = [FsrsRating.HARD, FsrsRating.GOOD, FsrsRating.EASY];
+const RATING_OPTIONS: Array<{ rating: FsrsRating; shortcut: string }> = [
+  { rating: FsrsRating.HARD, shortcut: "2" },
+  { rating: FsrsRating.GOOD, shortcut: "3" },
+  { rating: FsrsRating.EASY, shortcut: "4" },
+];
 
 const REVIEW_SAVED_MESSAGES = new Set(["Review saved.", "Review already saved."]);
 
@@ -78,7 +87,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
   const [selectedFlagReasons, setSelectedFlagReasons] = useState<ExerciseFlagReason[]>([]);
   const [otherFlagNote, setOtherFlagNote] = useState("");
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [statusNotice, setStatusNotice] = useState<PracticeStatusNotice | null>(null);
   const [, startTransition] = useTransition();
   const answerInputRef = useRef<HTMLInputElement>(null);
   const continueButtonRef = useRef<HTMLButtonElement>(null);
@@ -105,7 +114,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
     setSelectedFlagReasons([]);
     setOtherFlagNote("");
     setPendingAction(null);
-    setStatusMessage(null);
+    setStatusNotice(null);
   }, []);
 
   const handleFlagReasonToggle = useCallback((reason: ExerciseFlagReason) => {
@@ -124,7 +133,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
     const responseMs = timer.getElapsedMs();
     setSubmittedResponseMs(responseMs);
     setPendingAction("check");
-    setStatusMessage(null);
+    setStatusNotice(null);
 
     startTransition(async () => {
       const result = await previewPracticeAnswerAction({
@@ -156,7 +165,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
           });
         }
 
-        setStatusMessage(getPreviewStatusMessage(result));
+        setStatusNotice(createStatusNotice(getPreviewStatusMessage(result)));
       }
     });
   }, [answerValue, item, pendingAction, scopedCollectionId, timer, startTransition]);
@@ -172,7 +181,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
     }
 
     setPendingAction("continue");
-    setStatusMessage(null);
+    setStatusNotice(null);
 
     startTransition(async () => {
       const result = await commitPracticeReviewAction({
@@ -189,9 +198,11 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
       if (result.status === "committed") {
         setItem(result.nextItem);
         resetAttemptState();
-        setStatusMessage(result.idempotent ? "Review already saved." : "Review saved.");
+        setStatusNotice(
+          createStatusNotice(result.idempotent ? "Review already saved." : "Review saved."),
+        );
       } else {
-        setStatusMessage(result.message);
+        setStatusNotice(createStatusNotice(result.message));
       }
     });
   }, [
@@ -219,7 +230,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
     }
 
     setPendingAction("flag");
-    setStatusMessage(null);
+    setStatusNotice(null);
 
     startTransition(async () => {
       const result = await flagPracticeExerciseAction({
@@ -234,9 +245,9 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
       if (result.status === "flagged") {
         setItem(result.nextItem);
         resetAttemptState();
-        setStatusMessage(result.message);
+        setStatusNotice(createStatusNotice(result.message));
       } else {
-        setStatusMessage(result.message);
+        setStatusNotice(createStatusNotice(result.message));
       }
     });
   }, [
@@ -257,7 +268,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
     }
 
     setPendingAction("sample");
-    setStatusMessage(null);
+    setStatusNotice(null);
 
     startTransition(async () => {
       const result: ChoicePracticeSeedResult = await ensureDevPracticeSampleDataAction();
@@ -268,7 +279,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
         resetAttemptState();
       }
 
-      setStatusMessage(result.message);
+      setStatusNotice(createStatusNotice(result.message, getSampleDataStatusTone(result.status)));
     });
   }, [pendingAction, resetAttemptState, startTransition]);
 
@@ -385,10 +396,11 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
         {item.status === "none-due" ? (
           <PracticeCompleteState
             canUseSampleData={canUseSampleData && !scoped}
+            message={item.message}
             onSampleData={handleSampleData}
             pendingSample={pendingAction === "sample"}
             scoped={scoped}
-            statusMessage={statusMessage}
+            statusNotice={statusNotice}
           />
         ) : (
           <section className="practiceFrame practiceEmpty" aria-labelledby="practice-empty-title">
@@ -406,7 +418,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
                 {pendingAction === "sample" ? "Preparing sample" : "Create sample practice"}
               </button>
             ) : null}
-            <PracticeStatusMessage message={statusMessage} />
+            <PracticeStatusMessage notice={statusNotice} />
           </section>
         )}
       </>
@@ -510,6 +522,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
               active={pendingAction === "check"}
               idleText="Check"
               pendingText="Checking"
+              shortcut="Enter"
             />
           </button>
         </div>
@@ -547,18 +560,19 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
           <legend>Review rating</legend>
           <p className="ratingOverrideHint">How hard was that?</p>
           <div role="radiogroup" aria-label="Review rating">
-            {RATING_OPTIONS.map((rating) => (
+            {RATING_OPTIONS.map(({ rating, shortcut }) => (
               <button
                 key={rating}
                 role="radio"
                 aria-checked={manualRating === rating}
-                aria-label={`${formatRating(rating)} rating`}
+                aria-label={`${formatRating(rating)} rating, shortcut ${shortcut}`}
                 className="ratingButton"
                 data-selected={manualRating === rating ? "true" : "false"}
                 type="button"
                 onClick={() => setManualRating(rating)}
               >
                 <span>{formatRating(rating)}</span>
+                <kbd aria-hidden="true">{shortcut}</kbd>
               </button>
             ))}
           </div>
@@ -578,6 +592,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
               active={pendingAction === "continue"}
               idleText="Continue"
               pendingText="Saving"
+              shortcut="Enter"
             />
           </button>
         </div>
@@ -670,7 +685,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
         </section>
       ) : null}
 
-      <PracticeStatusMessage message={statusMessage} />
+      <PracticeStatusMessage notice={statusNotice} />
       </section>
     </>
   );
@@ -696,22 +711,27 @@ function getScopedCollectionId(item: PracticeItem): string | null {
 
 function PracticeCompleteState({
   canUseSampleData,
+  message,
   onSampleData,
   pendingSample,
   scoped,
-  statusMessage,
+  statusNotice,
 }: {
   canUseSampleData: boolean;
+  message: string;
   onSampleData: () => void;
   pendingSample: boolean;
   scoped: boolean;
-  statusMessage: string | null;
+  statusNotice: PracticeStatusNotice | null;
 }) {
   return (
     <section
       className="practiceFrame practiceEmpty practiceComplete"
       aria-labelledby="practice-empty-title"
     >
+      <div className="practiceCompleteIcon" aria-hidden="true">
+        <CheckCircle size={28} weight="bold" />
+      </div>
       <div className="practiceCompleteCopy">
         <h1 id="practice-empty-title">Nice work. You&apos;re all caught up.</h1>
         <p>
@@ -721,10 +741,28 @@ function PracticeCompleteState({
           LearnRecur will bring skills back when the schedule says they are ready.
         </p>
       </div>
+      <div className="practiceCompleteSummary" aria-label="Practice completion summary">
+        <div>
+          <span>Queue</span>
+          <strong>Clear for now</strong>
+        </div>
+        <div>
+          <span>Schedule</span>
+          <strong>{message}</strong>
+        </div>
+      </div>
       <PracticeCompleteActions scoped={scoped} />
-      {statusMessage ? (
-        <p className="practiceCompleteStatus" aria-live="polite" role="status">
-          <span>{statusMessage}</span>
+      {statusNotice ? (
+        <p
+          className="practiceCompleteStatus"
+          data-tone={statusNotice.tone}
+          aria-live="polite"
+          role="status"
+        >
+          {statusNotice.tone === "saved" ? (
+            <CheckCircle size={16} weight="bold" aria-hidden="true" />
+          ) : null}
+          <span>{statusNotice.message}</span>
         </p>
       ) : null}
       {canUseSampleData ? (
@@ -836,23 +874,37 @@ function PracticeEmptyDetails({
   );
 }
 
-function PracticeStatusMessage({ message }: { message: string | null }) {
-  if (!message) {
+function PracticeStatusMessage({ notice }: { notice: PracticeStatusNotice | null }) {
+  if (!notice) {
     return null;
   }
-  const saved = REVIEW_SAVED_MESSAGES.has(message);
 
   return (
     <p
       className="practiceStatusLine"
-      data-tone={saved ? "saved" : undefined}
+      data-tone={notice.tone}
       aria-live="polite"
       role="status"
     >
-      {saved ? <CheckCircle size={17} weight="bold" aria-hidden="true" /> : null}
-      <span>{message}</span>
+      {notice.tone === "saved" ? <CheckCircle size={17} weight="bold" aria-hidden="true" /> : null}
+      <span>{notice.message}</span>
     </p>
   );
+}
+
+function createStatusNotice(
+  message: string,
+  tone: PracticeStatusTone = REVIEW_SAVED_MESSAGES.has(message) ? "saved" : "neutral",
+): PracticeStatusNotice {
+  return { message, tone };
+}
+
+function getSampleDataStatusTone(status: ChoicePracticeSeedResult["status"]): PracticeStatusTone {
+  if (status === "ready") {
+    return "saved";
+  }
+
+  return status === "error" ? "error" : "neutral";
 }
 
 function getShortcutTargetRole(
@@ -991,15 +1043,18 @@ function PendingButtonContent({
   active,
   idleText,
   pendingText,
+  shortcut,
 }: {
   active: boolean;
   idleText: string;
   pendingText: string;
+  shortcut?: string;
 }) {
   return (
     <span className="buttonPendingContent">
       {active ? <span className="buttonSpinner" aria-hidden="true" /> : null}
       <span>{active ? pendingText : idleText}</span>
+      {!active && shortcut ? <kbd aria-hidden="true">{shortcut}</kbd> : null}
     </span>
   );
 }

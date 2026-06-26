@@ -963,6 +963,28 @@ body {
   text-align: center;
 }
 
+.ratingButton kbd {
+  display: inline-flex;
+  min-width: 24px;
+  min-height: 24px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--lr-icon-tile-border);
+  border-radius: 6px;
+  background: #FFFFFF;
+  color: var(--lr-icon);
+  font-family: var(--lr-font-body);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 2px 7px;
+}
+
+.ratingButton[data-selected="true"] kbd {
+  border-color: rgba(255, 255, 255, 0.72);
+  color: var(--lr-blue);
+}
+
 .dashboardSetupPanel,
 .dashboardMessage,
 .skillHeader,
@@ -1654,6 +1676,11 @@ body {
 .practiceStatusLine[data-tone="attention"] {
   border-color: var(--lr-amber);
   color: var(--lr-amber);
+}
+
+.practiceStatusLine[data-tone="error"] {
+  border-color: var(--lr-danger-line);
+  color: var(--lr-danger-ink);
 }
 
 .practiceStatusLine[data-tone="saved"] {
@@ -2917,10 +2944,10 @@ body {
 }
 
 .practiceComplete {
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: start;
   justify-content: start;
-  gap: 16px;
+  gap: 18px 20px;
   padding: 28px 30px;
 }
 
@@ -2941,10 +2968,11 @@ body {
 }
 
 .practiceCompleteCopy,
+.practiceCompleteSummary,
 .practiceCompleteActions,
 .practiceCompleteStatus,
 .practiceCompleteDevAction {
-  grid-column: 1;
+  grid-column: 2;
 }
 
 .practiceComplete h1 {
@@ -3010,14 +3038,26 @@ body {
   width: fit-content;
   align-items: center;
   gap: 7px;
-  border: 1px solid var(--lr-green);
+  border: 1px solid var(--lr-card-border);
   border-radius: var(--lr-r-card);
-  background: #E7F5EE;
-  color: var(--lr-green);
+  background: #FFFFFF;
+  color: var(--lr-text-secondary);
   padding: 7px 10px;
   font-size: 13px;
   font-weight: 700;
   line-height: 1.25;
+}
+
+.practiceCompleteStatus[data-tone="saved"] {
+  border-color: var(--lr-green);
+  background: #E7F5EE;
+  color: var(--lr-green);
+}
+
+.practiceCompleteStatus[data-tone="error"] {
+  border-color: var(--lr-danger-line);
+  background: var(--lr-danger-subtle);
+  color: var(--lr-danger-ink);
 }
 
 .practiceCompleteStatus svg {
