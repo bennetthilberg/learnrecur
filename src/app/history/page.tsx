@@ -62,11 +62,6 @@ export default async function HistoryPage() {
             and schedule details.
           </p>
         </div>
-        <div className="dashboardHeaderActions">
-          <Link className="secondaryButton" href="/practice">
-            Open practice
-          </Link>
-        </div>
       </header>
 
       <section className="skillPanel historyPanel" aria-labelledby="review-history-title">

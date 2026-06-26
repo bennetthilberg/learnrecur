@@ -3375,7 +3375,7 @@ body {
   margin: 0;
   color: var(--lr-ink);
   font-family: var(--lr-font-display);
-  font-size: 42px;
+  font-size: 39px;
   font-weight: 800;
   line-height: 1.08;
   letter-spacing: 0;
@@ -3549,7 +3549,7 @@ body {
 
 .historyReviewModalContent {
   position: relative;
-  z-index: 1;
+  z-index: 2;
   border: 1px solid var(--lr-card-border);
   background: #FFFFFF;
   box-shadow: none;
@@ -3557,12 +3557,16 @@ body {
 }
 
 .historyReviewModalInner {
+  position: fixed;
+  inset: 0;
   z-index: 1;
+  pointer-events: none;
 }
 
 .historyReviewModalOverlay {
   background: rgba(21, 35, 63, 0.34);
   pointer-events: auto;
+  z-index: 0;
 }
 
 .historyReviewModalHeader {
@@ -3678,6 +3682,12 @@ body {
   padding: 36px;
 }
 
+@media (min-width: 720px) and (max-width: 1119px) {
+  .historyShell .historyHeader {
+    margin-top: 28px;
+  }
+}
+
 @media (max-width: 620px) {
   .settingsShell .settingsHeader {
     margin-top: 28px;
@@ -3712,11 +3722,11 @@ body {
 @media (max-width: 760px) {
   .historyShell .historyHeader {
     grid-template-columns: minmax(0, 1fr);
-    margin-top: 28px;
+    margin-top: 18px;
   }
 
   .historyShell .historyHeader h1 {
-    font-size: 32px;
+    font-size: 30px;
   }
 
   .historyPanelIntro {

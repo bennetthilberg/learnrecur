@@ -103,6 +103,7 @@ export function HistoryReviewsTable({ reviews }: { reviews: HistoryReviewRow[] }
         }}
         onClose={() => setSelectedReview(null)}
         opened={Boolean(selectedReview)}
+        lockScroll={false}
         radius="md"
         size="lg"
         title="Review details"

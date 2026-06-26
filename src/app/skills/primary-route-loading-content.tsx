@@ -349,7 +349,7 @@ function NewSkillRouteLoading({ config }: { config: PrimaryRouteLoadingConfig })
 function HistoryRouteLoading({ config }: { config: PrimaryRouteLoadingConfig }) {
   return (
     <>
-      <RouteHeader actionCount={1} config={config} />
+      <RouteHeader config={config} />
       <section className="skillPanel historyPanel routeLoadingPanel" aria-label="Review history loading">
         <div className="historyPanelIntro">
           <h2>Completed reviews</h2>
