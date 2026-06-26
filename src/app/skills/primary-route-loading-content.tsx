@@ -32,7 +32,7 @@ export const primaryRouteLoadingByKey: Record<PrimaryRouteKey, PrimaryRouteLoadi
     title: "Due skills are ready.",
   },
   history: {
-    detail: "Scan completed reviews and open details when you need the answer or schedule changes.",
+    detail: "See recent review results, ratings, next due dates, and the details behind each answer.",
     kind: "history",
     title: "History",
   },

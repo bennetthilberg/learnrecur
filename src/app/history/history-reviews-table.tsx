@@ -173,7 +173,7 @@ function HistoryReviewDetails({ review }: { review: HistoryReviewRow }) {
       </dl>
 
       <div className="historyReviewModalActions">
-        <Link className="secondaryButton" href={`/skills/${review.skillId}`}>
+        <Link className="primaryButton" href={`/skills/${review.skillId}`}>
           Open skill
         </Link>
       </div>

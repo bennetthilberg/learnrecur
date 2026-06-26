@@ -58,8 +58,8 @@ export default async function HistoryPage() {
         <div>
           <h1>History</h1>
           <p>
-            Scan completed reviews, then open a row when you need the answer
-            and schedule details.
+            See your recent review results, ratings, and next due dates. Choose
+            Details for the answer, response time, and schedule change.
           </p>
         </div>
       </header>
