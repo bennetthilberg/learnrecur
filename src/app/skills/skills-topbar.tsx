@@ -507,7 +507,15 @@ export function SkillsTopbar({
         </div>
       </header>
       {pendingConfig ? (
-        <div className="routePendingContent" data-route-kind={pendingConfig.kind} aria-live="polite">
+        <div
+          className={
+            pendingConfig.kind === "settings"
+              ? "routePendingContent settingsShell"
+              : "routePendingContent"
+          }
+          data-route-kind={pendingConfig.kind}
+          aria-live="polite"
+        >
           <PrimaryRouteLoadingContent config={pendingConfig} />
         </div>
       ) : null}

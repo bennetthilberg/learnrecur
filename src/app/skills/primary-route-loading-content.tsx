@@ -442,14 +442,33 @@ function CollectionsRouteLoading({ config }: { config: PrimaryRouteLoadingConfig
 
 function SettingsRouteLoading({ config }: { config: PrimaryRouteLoadingConfig }) {
   return (
-    <div className="settingsShell routeLoadingSettingsShell">
+    <>
       <header className="skillHeader settingsHeader">
-        <h1>{config.title}</h1>
+        <h1 aria-label={config.title}>
+          <Skeleton
+            aria-hidden="true"
+            className="routeSkeleton routeLoadingSettingsTitle"
+            height={42}
+            radius={7}
+            width={164}
+          />
+        </h1>
       </header>
 
-      <section className="skillPanel settingsPanel" aria-label="Email reminders loading">
+      <section
+        className="skillPanel settingsPanel routeLoadingSettingsPanel"
+        aria-label="Email reminders loading"
+      >
         <div className="settingsSectionIntro">
-          <h2>Email reminders</h2>
+          <h2 aria-label="Email reminders">
+            <Skeleton
+              aria-hidden="true"
+              className="routeSkeleton routeLoadingSettingsSectionTitle"
+              height={30}
+              radius={6}
+              width={194}
+            />
+          </h2>
           <Skeleton
             className="routeSkeleton"
             height={16}
@@ -460,7 +479,9 @@ function SettingsRouteLoading({ config }: { config: PrimaryRouteLoadingConfig })
 
         <div className="settingsReminderForm routeLoadingSettingsForm" aria-hidden="true">
           <fieldset className="skillFormFieldset settingsReminderFieldset">
-            <legend>General</legend>
+            <legend>
+              <Skeleton className="routeSkeleton" height={25} radius={6} width={82} />
+            </legend>
             <div className="skillFormFieldsetBody settingsReminderFields">
               <div className="settingsSwitchRow">
                 <Skeleton className="routeSkeleton" height={24} radius={999} width={42} />
@@ -468,14 +489,16 @@ function SettingsRouteLoading({ config }: { config: PrimaryRouteLoadingConfig })
               </div>
 
               <label className="skillField">
-                <span>Send email to</span>
+                <Skeleton className="routeSkeleton" height={20} radius={5} width={110} />
                 <Skeleton className="routeSkeleton" height={48} radius={8} />
               </label>
             </div>
           </fieldset>
 
           <fieldset className="skillFormFieldset settingsReminderFieldset">
-            <legend>Schedule</legend>
+            <legend>
+              <Skeleton className="routeSkeleton" height={25} radius={6} width={94} />
+            </legend>
             <Skeleton
               className="routeSkeleton"
               height={16}
@@ -485,18 +508,18 @@ function SettingsRouteLoading({ config }: { config: PrimaryRouteLoadingConfig })
             <div className="skillFormFieldsetBody settingsReminderFields">
               <div className="skillTwoColumnFields">
                 <label className="skillField">
-                  <span>Local hour</span>
+                  <Skeleton className="routeSkeleton" height={20} radius={5} width={92} />
                   <Skeleton className="routeSkeleton" height={48} radius={8} />
                 </label>
 
                 <label className="skillField">
-                  <span>Timezone</span>
+                  <Skeleton className="routeSkeleton" height={20} radius={5} width={88} />
                   <Skeleton className="routeSkeleton" height={48} radius={8} />
                 </label>
               </div>
 
               <label className="skillField">
-                <span>Minimum due skills</span>
+                <Skeleton className="routeSkeleton" height={20} radius={5} width={158} />
                 <Skeleton className="routeSkeleton" height={48} radius={8} />
               </label>
             </div>
@@ -522,9 +545,20 @@ function SettingsRouteLoading({ config }: { config: PrimaryRouteLoadingConfig })
         </div>
       </section>
 
-      <section className="skillPanel settingsExportPanel" aria-label="Study data loading">
+      <section
+        className="skillPanel settingsExportPanel routeLoadingSettingsExportPanel"
+        aria-label="Study data loading"
+      >
         <div className="settingsSectionIntro">
-          <h2>Study data</h2>
+          <h2 aria-label="Study data">
+            <Skeleton
+              aria-hidden="true"
+              className="routeSkeleton routeLoadingSettingsSectionTitle"
+              height={30}
+              radius={6}
+              width={132}
+            />
+          </h2>
           <Skeleton
             className="routeSkeleton"
             height={16}
@@ -546,7 +580,9 @@ function SettingsRouteLoading({ config }: { config: PrimaryRouteLoadingConfig })
         <dl className="settingsExportFacts" aria-label="Data export details loading">
           {["Scope", "Format", "Access", "Originals"].map((label, index) => (
             <div data-priority={index === 0 ? "primary" : undefined} key={label}>
-              <dt>{label}</dt>
+              <dt>
+                <Skeleton className="routeSkeleton" height={16} radius={5} width={74} />
+              </dt>
               <dd>
                 <Skeleton
                   className="routeSkeleton"
@@ -568,6 +604,6 @@ function SettingsRouteLoading({ config }: { config: PrimaryRouteLoadingConfig })
           />
         </div>
       </section>
-    </div>
+    </>
   );
 }

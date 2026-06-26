@@ -17,6 +17,8 @@ export function PrimaryRouteLoading({
       ? "dashboardShell"
       : variant === "practice"
         ? "practiceShell"
+        : config.kind === "settings"
+          ? "skillShell settingsShell"
         : "skillShell";
 
   return (
