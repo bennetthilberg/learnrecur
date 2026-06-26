@@ -442,32 +442,132 @@ function CollectionsRouteLoading({ config }: { config: PrimaryRouteLoadingConfig
 
 function SettingsRouteLoading({ config }: { config: PrimaryRouteLoadingConfig }) {
   return (
-    <>
-      <RouteHeader config={config} />
-      <PanelSkeleton className="settingsPanel" title="Email reminders">
-        <div className="routeLoadingSettingsForm" aria-hidden="true">
-          <Skeleton className="routeSkeleton" height={22} radius={6} width="76%" />
-          <Skeleton className="routeSkeleton" height={58} radius={8} />
-          <div className="routeLoadingTwoColumn">
-            <Skeleton className="routeSkeleton" height={58} radius={8} />
-            <Skeleton className="routeSkeleton" height={58} radius={8} />
+    <div className="settingsShell routeLoadingSettingsShell">
+      <header className="skillHeader settingsHeader">
+        <h1>{config.title}</h1>
+      </header>
+
+      <section className="skillPanel settingsPanel" aria-label="Email reminders loading">
+        <div className="settingsSectionIntro">
+          <h2>Email reminders</h2>
+          <Skeleton
+            className="routeSkeleton"
+            height={16}
+            radius={5}
+            width="min(100%, 540px)"
+          />
+        </div>
+
+        <div className="settingsReminderForm routeLoadingSettingsForm" aria-hidden="true">
+          <fieldset className="skillFormFieldset settingsReminderFieldset">
+            <legend>General</legend>
+            <div className="skillFormFieldsetBody settingsReminderFields">
+              <div className="settingsSwitchRow">
+                <Skeleton className="routeSkeleton" height={24} radius={999} width={42} />
+                <Skeleton className="routeSkeleton" height={18} radius={5} width={224} />
+              </div>
+
+              <label className="skillField">
+                <span>Send email to</span>
+                <Skeleton className="routeSkeleton" height={48} radius={8} />
+              </label>
+            </div>
+          </fieldset>
+
+          <fieldset className="skillFormFieldset settingsReminderFieldset">
+            <legend>Schedule</legend>
+            <Skeleton
+              className="routeSkeleton"
+              height={16}
+              radius={5}
+              width="min(100%, 600px)"
+            />
+            <div className="skillFormFieldsetBody settingsReminderFields">
+              <div className="skillTwoColumnFields">
+                <label className="skillField">
+                  <span>Local hour</span>
+                  <Skeleton className="routeSkeleton" height={48} radius={8} />
+                </label>
+
+                <label className="skillField">
+                  <span>Timezone</span>
+                  <Skeleton className="routeSkeleton" height={48} radius={8} />
+                </label>
+              </div>
+
+              <label className="skillField">
+                <span>Minimum due skills</span>
+                <Skeleton className="routeSkeleton" height={48} radius={8} />
+              </label>
+            </div>
+          </fieldset>
+
+          <div className="skillFormActions">
+            <Skeleton
+              className="routeSkeleton routeLoadingActionButton"
+              height={42}
+              radius={8}
+              width={134}
+            />
           </div>
-          <Skeleton className="routeSkeleton" height={58} radius={8} />
-          <Skeleton className="routeSkeleton routeLoadingActionButton" height={44} radius={8} width={144} />
         </div>
+
         <div className="settingsPrivacyNote routeLoadingPrivacyNote" aria-hidden="true">
-          <Skeleton className="routeSkeleton" height={15} radius={5} width="82%" />
+          <Skeleton
+            className="routeSkeleton"
+            height={16}
+            radius={5}
+            width="min(100%, 610px)"
+          />
         </div>
-      </PanelSkeleton>
-      <PanelSkeleton className="settingsExportPanel" title="Study data">
-        <Skeleton className="routeSkeleton" height={44} radius={7} width="86%" />
-        <div className="routeLoadingFactsGrid" aria-hidden="true">
-          {Array.from({ length: 4 }, (_, index) => (
-            <Skeleton className="routeSkeleton" height={48} key={index} radius={6} />
+      </section>
+
+      <section className="skillPanel settingsExportPanel" aria-label="Study data loading">
+        <div className="settingsSectionIntro">
+          <h2>Study data</h2>
+          <Skeleton
+            className="routeSkeleton"
+            height={16}
+            radius={5}
+            width="min(100%, 470px)"
+          />
+        </div>
+
+        <div className="settingsExportBody" aria-hidden="true">
+          <Skeleton className="routeSkeleton" height={44} radius={7} width="100%" />
+          <Skeleton
+            className="routeSkeleton routeLoadingActionButton"
+            height={42}
+            radius={8}
+            width={168}
+          />
+        </div>
+
+        <dl className="settingsExportFacts" aria-label="Data export details loading">
+          {["Scope", "Format", "Access", "Originals"].map((label, index) => (
+            <div data-priority={index === 0 ? "primary" : undefined} key={label}>
+              <dt>{label}</dt>
+              <dd>
+                <Skeleton
+                  className="routeSkeleton"
+                  height={18}
+                  radius={5}
+                  width={index === 0 ? 116 : 86}
+                />
+              </dd>
+            </div>
           ))}
+        </dl>
+
+        <div className="settingsFinePrint" aria-hidden="true">
+          <Skeleton
+            className="routeSkeleton"
+            height={16}
+            radius={5}
+            width="min(100%, 640px)"
+          />
         </div>
-        <Skeleton className="routeSkeleton" height={16} radius={5} width="78%" />
-      </PanelSkeleton>
-    </>
+      </section>
+    </div>
   );
 }
