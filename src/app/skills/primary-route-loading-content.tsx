@@ -349,11 +349,39 @@ function NewSkillRouteLoading({ config }: { config: PrimaryRouteLoadingConfig })
 function HistoryRouteLoading({ config }: { config: PrimaryRouteLoadingConfig }) {
   return (
     <>
-      <RouteHeader config={config} />
-      <section className="skillPanel historyPanel routeLoadingPanel" aria-label="Review history loading">
+      <header className="skillHeader historyHeader">
+        <div>
+          <h1 aria-label={config.title}>
+            <Skeleton
+              aria-hidden="true"
+              className="routeSkeleton routeLoadingHistoryTitle"
+              height={38}
+              radius={7}
+              width={126}
+            />
+          </h1>
+          <div className="routeLoadingHistoryHeaderCopy" aria-hidden="true">
+            <Skeleton className="routeSkeleton" height={16} radius={5} width="min(100%, 540px)" />
+            <Skeleton className="routeSkeleton" height={16} radius={5} width="min(100%, 430px)" />
+          </div>
+        </div>
+      </header>
+
+      <section
+        className="skillPanel historyPanel routeLoadingHistoryPanel"
+        aria-label="Review history loading"
+      >
         <div className="historyPanelIntro">
-          <h2>Completed reviews</h2>
-          <Skeleton className="routeSkeleton" height={16} radius={5} width={140} />
+          <h2 aria-label="Completed reviews">
+            <Skeleton
+              aria-hidden="true"
+              className="routeSkeleton routeLoadingHistorySectionTitle"
+              height={28}
+              radius={6}
+              width={230}
+            />
+          </h2>
+          <Skeleton className="routeSkeleton" height={20} radius={5} width={190} />
         </div>
         <div className="historySimpleTableWrap">
           <table className="historySimpleTable routeLoadingHistoryTable">
@@ -364,11 +392,11 @@ function HistoryRouteLoading({ config }: { config: PrimaryRouteLoadingConfig }) 
                 <th scope="col">Result</th>
                 <th scope="col">Rating</th>
                 <th scope="col">Next due</th>
-                <th scope="col">Details</th>
+                <th scope="col" aria-label="Review details" />
               </tr>
             </thead>
             <tbody aria-hidden="true">
-              {Array.from({ length: 3 }, (_, index) => (
+              {Array.from({ length: 6 }, (_, index) => (
                 <HistoryRowSkeleton key={index} />
               ))}
             </tbody>
