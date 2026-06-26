@@ -1117,6 +1117,12 @@ body {
   background-image: none !important;
 }
 
+.settingsShell .routeSkeleton::after,
+.routePendingContent[data-route-kind="settings"] .routeSkeleton::after {
+  display: block !important;
+  background-image: none !important;
+}
+
 .routeLoadingPanel {
   display: grid;
   gap: 16px;
@@ -3139,7 +3145,7 @@ body {
 
 .settingsShell .settingsHeader {
   display: block;
-  margin-top: 52px;
+  margin-top: 40px;
   padding: 0;
 }
 
@@ -3147,7 +3153,7 @@ body {
   margin: 0;
   color: var(--lr-ink);
   font-family: var(--lr-font-display);
-  font-size: 42px;
+  font-size: 39px;
   font-weight: 800;
   line-height: 1.08;
   letter-spacing: 0;
@@ -3392,6 +3398,27 @@ body {
   margin-top: 22px;
   border-top: 1px solid var(--lr-divider);
   padding-top: 16px;
+}
+
+.settingsShell .routeSkeleton {
+  display: block;
+}
+
+.settingsShell .routeLoadingSettingsTitle {
+  width: 164px !important;
+  height: 42px !important;
+}
+
+.settingsShell .routeLoadingSettingsSectionTitle {
+  height: 30px !important;
+}
+
+.settingsShell .routeLoadingSettingsPanel {
+  min-height: 768px;
+}
+
+.settingsShell .routeLoadingSettingsExportPanel {
+  min-height: 469px;
 }
 
 .settingsShell .routeLoadingSettingsForm {
@@ -3740,16 +3767,33 @@ body {
 
 @media (max-width: 620px) {
   .settingsShell .settingsHeader {
-    margin-top: 28px;
+    margin-top: 20px;
   }
 
   .settingsShell .settingsHeader h1 {
-    font-size: 32px;
+    font-size: 30px;
+  }
+
+  .settingsShell .routeLoadingSettingsTitle {
+    width: 132px !important;
+    height: 32px !important;
+  }
+
+  .settingsShell .routeLoadingSettingsSectionTitle {
+    height: 27px !important;
   }
 
   .settingsShell .settingsPanel,
   .settingsShell .settingsExportPanel {
     padding: 26px 22px;
+  }
+
+  .settingsShell .routeLoadingSettingsPanel {
+    min-height: 943px;
+  }
+
+  .settingsShell .routeLoadingSettingsExportPanel {
+    min-height: 712px;
   }
 
   .settingsSectionIntro h2 {
