@@ -1117,6 +1117,8 @@ body {
   background-image: none !important;
 }
 
+.historyShell .routeSkeleton::after,
+.routePendingContent[data-route-kind="history"] .routeSkeleton::after,
 .settingsShell .routeSkeleton::after,
 .routePendingContent[data-route-kind="settings"] .routeSkeleton::after {
   display: block !important;
@@ -3445,14 +3447,14 @@ body {
 
 .historyShell .historyHeader {
   align-items: start;
-  margin-top: 52px;
+  margin-top: 40px;
 }
 
 .historyShell .historyHeader h1 {
   margin: 0;
   color: var(--lr-ink);
   font-family: var(--lr-font-display);
-  font-size: 39px;
+  font-size: 35px;
   font-weight: 800;
   line-height: 1.08;
   letter-spacing: 0;
@@ -3470,6 +3472,30 @@ body {
   margin-top: 24px;
   overflow: hidden;
   padding: 0;
+}
+
+.historyShell .routeSkeleton {
+  display: block;
+}
+
+.historyShell .routeLoadingHistoryTitle {
+  width: 126px !important;
+  height: 38px !important;
+}
+
+.routeLoadingHistoryHeaderCopy {
+  display: grid;
+  max-width: 560px;
+  gap: 7px;
+  margin-top: 12px;
+}
+
+.historyShell .routeLoadingHistorySectionTitle {
+  height: 28px !important;
+}
+
+.historyShell .routeLoadingHistoryPanel {
+  min-height: 608px;
 }
 
 .historyPanelIntro {
@@ -3761,7 +3787,7 @@ body {
 
 @media (min-width: 720px) and (max-width: 1119px) {
   .historyShell .historyHeader {
-    margin-top: 28px;
+    margin-top: 22px;
   }
 }
 
@@ -3816,11 +3842,21 @@ body {
 @media (max-width: 760px) {
   .historyShell .historyHeader {
     grid-template-columns: minmax(0, 1fr);
-    margin-top: 18px;
+    margin-top: 14px;
   }
 
   .historyShell .historyHeader h1 {
-    font-size: 30px;
+    font-size: 28px;
+  }
+
+  .historyShell .routeLoadingHistoryTitle {
+    width: 102px !important;
+    height: 31px !important;
+  }
+
+  .historyShell .routeLoadingHistorySectionTitle {
+    width: 210px !important;
+    height: 27px !important;
   }
 
   .historyPanelIntro {

@@ -509,9 +509,11 @@ export function SkillsTopbar({
       {pendingConfig ? (
         <div
           className={
-            pendingConfig.kind === "settings"
-              ? "routePendingContent settingsShell"
-              : "routePendingContent"
+            pendingConfig.kind === "history"
+              ? "routePendingContent historyShell"
+              : pendingConfig.kind === "settings"
+                ? "routePendingContent settingsShell"
+                : "routePendingContent"
           }
           data-route-kind={pendingConfig.kind}
           aria-live="polite"
