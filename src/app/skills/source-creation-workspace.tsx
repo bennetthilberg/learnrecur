@@ -19,7 +19,7 @@ import { getClipboardSourceFile, getSourceUploadFileError } from "./source-uploa
 
 export type SourceGenerationStatus = {
   title: string;
-  detail: string;
+  detail?: string;
 };
 
 export type SourceCreationNotice = {
@@ -40,20 +40,19 @@ const idleState: SkillFormActionState = {
 
 const defaultGenerationStatus: SourceGenerationStatus = {
   title: "Creating your skill",
-  detail: "Reading your material and turning it into a focused practice skill.",
 };
 
 const uploadStatusMessages = [
-  "Keeping the upload private.",
-  "Checking the file shape.",
-  "Getting the material ready.",
+  "Keeping the upload private...",
+  "Checking the file shape...",
+  "Getting the material ready...",
 ];
 
 const skillStatusMessages = [
-  "Finding the smallest useful skill.",
-  "Pulling out rules and examples.",
-  "Keeping it narrow enough to practice.",
-  "Shaping it into a review target.",
+  "Finding the smallest useful skill...",
+  "Pulling out rules and examples...",
+  "Keeping it narrow enough to practice...",
+  "Shaping it into a review target...",
 ];
 
 export function SourceCreationWorkspace() {
@@ -518,7 +517,7 @@ function SourceGenerationPanel({ status }: { status: SourceGenerationStatus }) {
   useEffect(() => {
     const intervalId = window.setInterval(() => {
       setMessageIndex((currentIndex) => (currentIndex + 1) % messages.length);
-    }, 2300);
+    }, 3600);
 
     return () => window.clearInterval(intervalId);
   }, [messages]);
@@ -532,7 +531,6 @@ function SourceGenerationPanel({ status }: { status: SourceGenerationStatus }) {
       </div>
       <div className="sourceGenerationCopy">
         <h2>{status.title || defaultGenerationStatus.title}</h2>
-        <p>{status.detail || defaultGenerationStatus.detail}</p>
         <p aria-hidden="true" className="sourceGenerationStatusLine">
           {messages[messageIndex % messages.length]}
         </p>
@@ -554,27 +552,23 @@ function getGenerationStatus({
     if (uploadStatus === "uploading") {
       return {
         title: "Uploading your file",
-        detail: "Keeping the file private while LearnRecur prepares the skill.",
       };
     }
 
     if (uploadStatus === "generating") {
       return {
         title: "Creating a skill",
-        detail: "Reading your material and preparing a focused skill for review.",
       };
     }
 
     return {
       title: "Creating a skill",
-      detail: "Preparing the upload and checking the file.",
     };
   }
 
   if (isGeneratingFromText) {
     return {
       title: "Creating a skill",
-      detail: "Reading your material and preparing a focused skill for review.",
     };
   }
 
