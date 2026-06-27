@@ -54,12 +54,6 @@ const defaultGenerationStatus: SourceGenerationStatus = {
   title: "Creating your skill",
 };
 
-const uploadStatusMessages = [
-  "Keeping the upload private...",
-  "Checking the file shape...",
-  "Getting the material ready...",
-];
-
 const skillStatusMessages = [
   "Finding the smallest useful skill...",
   "Pulling out rules and examples...",
@@ -118,7 +112,6 @@ export function SourceCreationWorkspace() {
   const generationStatus = getGenerationStatus({
     isGeneratingFromText,
     uploadBusy,
-    uploadStatus,
   });
   const textCreatedSkill = textState.status === "saved" ? textState.createdSkill ?? null : null;
   const reviewSkill =
@@ -725,8 +718,7 @@ function SkillAddedPanel({
 }
 
 function SourceGenerationPanel({ status }: { status: SourceGenerationStatus }) {
-  const messages =
-    status.title === "Uploading your file" ? uploadStatusMessages : skillStatusMessages;
+  const messages = skillStatusMessages;
   const [messageIndex, setMessageIndex] = useState(0);
 
   useEffect(() => {
@@ -757,25 +749,11 @@ function SourceGenerationPanel({ status }: { status: SourceGenerationStatus }) {
 function getGenerationStatus({
   isGeneratingFromText,
   uploadBusy,
-  uploadStatus,
 }: {
   isGeneratingFromText: boolean;
   uploadBusy: boolean;
-  uploadStatus: UploadStatus;
 }): SourceGenerationStatus | null {
   if (uploadBusy) {
-    if (uploadStatus === "uploading") {
-      return {
-        title: "Uploading your file",
-      };
-    }
-
-    if (uploadStatus === "generating") {
-      return {
-        title: "Creating a skill",
-      };
-    }
-
     return {
       title: "Creating a skill",
     };

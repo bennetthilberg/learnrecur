@@ -3230,12 +3230,18 @@ body {
 }
 
 .createSkillStepperSeparator {
+  display: block;
+  flex: 1 1 24px;
+  min-width: 24px;
+  height: 2px;
   margin-top: 14px;
-  background: var(--lr-divider);
+  border-radius: 999px;
+  background: var(--lr-btn-white-border) !important;
+  opacity: 1;
 }
 
-.createSkillStepperStep[data-completed="true"] + .createSkillStepperSeparator {
-  background: var(--lr-blue);
+.createSkillStepperStep[data-completed="true"] + .createSkillStepperSeparator:has(+ .createSkillStepperStep[data-completed="true"]) {
+  background: var(--lr-blue) !important;
 }
 
 .createSkillStepperLabel {
@@ -3445,6 +3451,11 @@ body {
 
 .createSkillDoneActions {
   justify-content: start;
+}
+
+.createSkillFlow .skillFormActions {
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .createSkillGenerationPanel {
@@ -4284,7 +4295,8 @@ body {
   }
 
   .createSkillStepperSeparator {
-    display: none;
+    display: block;
+    min-width: 16px;
   }
 
   .createSkillStepperStep {
