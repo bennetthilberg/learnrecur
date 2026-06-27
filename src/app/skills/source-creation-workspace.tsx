@@ -6,6 +6,7 @@ import { Stepper } from "@mantine/core";
 import { CheckCircle, UploadSimple, WarningCircle } from "@phosphor-icons/react";
 import { notifications } from "@mantine/notifications";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 import { SOURCE_UPLOAD_MIME_TYPES } from "@/lib/skills/source-upload-policy";
 
@@ -86,6 +87,7 @@ const createSkillStepperClassNames = {
 } as const;
 
 export function SourceCreationWorkspace() {
+  const router = useRouter();
   const fileInputId = useId();
   const sourceTextId = useId();
   const sourceTextErrorId = useId();
@@ -345,11 +347,17 @@ export function SourceCreationWorkspace() {
         setUploadStatus("idle");
         setActivatedSkillId(null);
         setDismissedSkillId(null);
-        setCreatedSkill(completed.skill);
         showNotice({
           tone: "success",
           message: completed.message,
         });
+
+        if (!completed.skill) {
+          router.push(completed.redirectTo);
+          return;
+        }
+
+        setCreatedSkill(completed.skill);
         return;
       }
 
@@ -359,7 +367,7 @@ export function SourceCreationWorkspace() {
         message: completed.message,
       });
     },
-    [handleActionError, selectedFile, showNotice],
+    [handleActionError, router, selectedFile, showNotice],
   );
 
   const submitUpload = useCallback(
