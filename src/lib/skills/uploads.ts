@@ -9,11 +9,11 @@ import {
   SourceFileStatus,
   type Skill,
 } from "@/generated/prisma/client";
-import { formatEnvError, getGeminiEnv } from "@/lib/env";
+import { formatEnvError, getGeminiEnv, getQwenEnv } from "@/lib/env";
 import {
   getGeminiErrorLogDetails,
   getPublicGeminiFailureMessage,
-  runWithGeminiModelFallback,
+  runWithGeminiProviderFallback,
 } from "@/lib/gemini";
 import { getInngestEnvStatus } from "@/lib/inngest/client";
 import {
@@ -21,6 +21,11 @@ import {
   type SourceUploadDraftEventSender,
 } from "@/lib/inngest/events";
 import { getPrisma } from "@/lib/prisma";
+import {
+  buildQwenImageDataUrl,
+  runQwenJsonChatCompletion,
+  type QwenFallbackConfig,
+} from "@/lib/qwen";
 import {
   SOURCE_SKILL_DRAFT_PROMPT_VERSION,
   buildSourceContextExcerpt,
@@ -998,7 +1003,7 @@ export async function runQueuedSourceUploadDraftJob(
     );
   } catch (error) {
     const message = getPublicGeminiFailureMessage(error);
-    console.error("[gemini] source extraction failed", getGeminiErrorLogDetails(error));
+    console.error("[ai] source extraction failed", getGeminiErrorLogDetails(error));
     await markUploadedSourceFailed(
       sourceFile,
       storageSetup.storage,
@@ -1039,7 +1044,7 @@ export async function runQueuedSourceUploadDraftJob(
     );
   } catch (error) {
     const message = getPublicGeminiFailureMessage(error);
-    console.error("[gemini] source draft generation failed", getGeminiErrorLogDetails(error));
+    console.error("[ai] source draft generation failed", getGeminiErrorLogDetails(error));
     await markUploadedSourceFailed(
       sourceFile,
       storageSetup.storage,
@@ -1135,6 +1140,7 @@ function resolveUploadGenerationSetup(
 
   try {
     const env = getGeminiEnv();
+    const qwenFallback = resolveQwenFallbackConfig();
 
     return {
       status: "ready",
@@ -1142,12 +1148,12 @@ function resolveUploadGenerationSetup(
       extractSourceText: input.extractSourceText ?? createGeminiSourceTextExtractor({
         apiKey: env.GEMINI_API_KEY,
         model: env.GEMINI_MODEL,
-        fallbackModels: env.GEMINI_FALLBACK_MODELS,
+        qwenFallback,
       }),
       generateSkillDraft: input.generateSkillDraft ?? createGeminiSkillDraftGenerator({
         apiKey: env.GEMINI_API_KEY,
         model: env.GEMINI_MODEL,
-        fallbackModels: env.GEMINI_FALLBACK_MODELS,
+        qwenFallback,
       }),
     };
   } catch (error) {
@@ -1161,22 +1167,28 @@ function resolveUploadGenerationSetup(
 
 function createGeminiSourceTextExtractor({
   apiKey,
-  fallbackModels,
   model,
+  qwenFallback,
 }: {
   apiKey: string;
-  fallbackModels?: readonly string[];
   model: string;
+  qwenFallback?: QwenFallbackConfig | null;
 }): SourceTextExtractor {
   return async (input) => {
     const ai = new GoogleGenAI({ apiKey });
-    const response = await runWithGeminiModelFallback({
-      fallbackModels,
+    return runWithGeminiProviderFallback({
+      fallback: qwenFallback && input.mimeType.startsWith("image/")
+        ? {
+            provider: "qwen",
+            model: qwenFallback.model,
+            run: () => createQwenSourceTextExtractor(qwenFallback)(input),
+          }
+        : null,
       operation: "source text extraction",
       primaryModel: model,
-      run: (activeModel) =>
-        ai.models.generateContent({
-          model: activeModel,
+      runPrimary: async () => {
+        const response = await ai.models.generateContent({
+          model,
           contents: [
             {
               inlineData: {
@@ -1192,15 +1204,65 @@ function createGeminiSourceTextExtractor({
             responseMimeType: "application/json",
             responseJsonSchema: geminiSourceExtractionJsonSchema,
           },
-        }),
+        });
+        const text = response.text;
+
+        if (!text) {
+          throw new Error("Gemini returned no text.");
+        }
+
+        return JSON.parse(text) as unknown;
+      },
     });
-    const text = response.text;
+  };
+}
 
-    if (!text) {
-      throw new Error("Gemini returned no text.");
-    }
+function createQwenSourceTextExtractor({
+  apiKey,
+  baseUrl,
+  model,
+}: QwenFallbackConfig): SourceTextExtractor {
+  return async (input) =>
+    runQwenJsonChatCompletion({
+      apiKey,
+      baseUrl,
+      model,
+      operation: "source text extraction",
+      messages: [
+        {
+          role: "system",
+          content: "You extract learning material for LearnRecur. Return only a valid JSON object.",
+        },
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: buildSourceExtractionPrompt(input),
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: buildQwenImageDataUrl(input.bytes, input.mimeType),
+              },
+            },
+          ],
+        },
+      ],
+    });
+}
 
-    return JSON.parse(text) as unknown;
+function resolveQwenFallbackConfig(): QwenFallbackConfig | null {
+  const env = getQwenEnv();
+
+  if (!env.QWEN_API_KEY) {
+    return null;
+  }
+
+  return {
+    apiKey: env.QWEN_API_KEY,
+    baseUrl: env.QWEN_BASE_URL,
+    model: env.QWEN_MODEL,
   };
 }
 

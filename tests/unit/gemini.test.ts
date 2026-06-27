@@ -1,67 +1,59 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
-  getGeminiModelFallbackChain,
   getPublicGeminiFailureMessage,
   isRetryableGeminiModelError,
   parseGeminiFallbackModels,
-  runWithGeminiModelFallback,
+  runWithGeminiProviderFallback,
 } from "@/lib/gemini";
 
 describe("Gemini fallback helpers", () => {
-  it("deduplicates the primary model and configured fallbacks", () => {
-    expect(
-      getGeminiModelFallbackChain(" gemini-3.5-flash ", [
-        "gemini-3.5-flash",
-        " gemini-3.1-flash-lite ",
-        "gemini-3.1-flash-lite",
-      ]),
-    ).toEqual(["gemini-3.5-flash", "gemini-3.1-flash-lite"]);
-  });
-
   it("parses fallback models from comma-separated env values", () => {
     expect(parseGeminiFallbackModels(" gemini-3.1-flash-lite, gemma-4-31b-it ")).toEqual([
       "gemini-3.1-flash-lite",
       "gemma-4-31b-it",
     ]);
-    expect(parseGeminiFallbackModels(" ")).toEqual(["gemini-3.1-flash-lite"]);
+    expect(parseGeminiFallbackModels(" ")).toEqual([]);
   });
 
-  it("retries retryable provider errors with the next fallback model", async () => {
+  it("retries retryable provider errors with Qwen fallback", async () => {
     const warningSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const calls: string[] = [];
 
     await expect(
-      runWithGeminiModelFallback({
+      runWithGeminiProviderFallback({
         primaryModel: "gemini-3.5-flash",
-        fallbackModels: ["gemini-3.1-flash-lite"],
         operation: "unit test generation",
-        async run(model) {
-          calls.push(model);
-
-          if (model === "gemini-3.5-flash") {
-            throw new Error(
-              JSON.stringify({
-                error: {
-                  code: 503,
-                  message: "This model is currently experiencing high demand.",
-                  status: "UNAVAILABLE",
-                },
-              }),
-            );
-          }
-
-          return `ok:${model}`;
+        async runPrimary() {
+          calls.push("gemini");
+          throw new Error(
+            JSON.stringify({
+              error: {
+                code: 503,
+                message: "This model is currently experiencing high demand.",
+                status: "UNAVAILABLE",
+              },
+            }),
+          );
+        },
+        fallback: {
+          provider: "qwen",
+          model: "qwen3.7-plus",
+          async run() {
+            calls.push("qwen");
+            return "ok:qwen";
+          },
         },
       }),
-    ).resolves.toBe("ok:gemini-3.1-flash-lite");
+    ).resolves.toBe("ok:qwen");
 
-    expect(calls).toEqual(["gemini-3.5-flash", "gemini-3.1-flash-lite"]);
+    expect(calls).toEqual(["gemini", "qwen"]);
     expect(warningSpy).toHaveBeenCalledWith(
-      "[gemini] retrying with fallback model",
+      "[ai] retrying with fallback provider",
       expect.objectContaining({
         failedModel: "gemini-3.5-flash",
-        fallbackModel: "gemini-3.1-flash-lite",
+        fallbackProvider: "qwen",
+        fallbackModel: "qwen3.7-plus",
       }),
     );
     warningSpy.mockRestore();
@@ -71,12 +63,11 @@ describe("Gemini fallback helpers", () => {
     const calls: string[] = [];
 
     await expect(
-      runWithGeminiModelFallback({
+      runWithGeminiProviderFallback({
         primaryModel: "gemini-3.5-flash",
-        fallbackModels: ["gemini-3.1-flash-lite"],
         operation: "unit test generation",
-        async run(model) {
-          calls.push(model);
+        async runPrimary() {
+          calls.push("gemini");
           throw new Error(
             JSON.stringify({
               error: {
@@ -87,10 +78,18 @@ describe("Gemini fallback helpers", () => {
             }),
           );
         },
+        fallback: {
+          provider: "qwen",
+          model: "qwen3.7-plus",
+          async run() {
+            calls.push("qwen");
+            return "ok:qwen";
+          },
+        },
       }),
     ).rejects.toThrow(/INVALID_ARGUMENT/);
 
-    expect(calls).toEqual(["gemini-3.5-flash"]);
+    expect(calls).toEqual(["gemini"]);
   });
 
   it("returns clean public messages for provider overload", () => {

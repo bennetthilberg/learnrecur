@@ -4,6 +4,10 @@ import {
   DEFAULT_GEMINI_FALLBACK_MODELS,
   parseGeminiFallbackModels,
 } from "@/lib/gemini";
+import {
+  DEFAULT_QWEN_BASE_URL,
+  DEFAULT_QWEN_MODEL,
+} from "@/lib/qwen";
 
 const optionalNonEmptyString = (schema: z.ZodString) =>
   z.preprocess((value) => {
@@ -86,6 +90,37 @@ const geminiEnvSchema = z.object({
     parseGeminiFallbackModels,
     z.array(z.string().trim().min(1)).default([...DEFAULT_GEMINI_FALLBACK_MODELS]),
   ),
+});
+
+const qwenModelSchema = z.preprocess((value) => {
+  if (typeof value === "string" && value.trim() === "") {
+    return undefined;
+  }
+
+  return value;
+}, z.string().trim().min(1).default(DEFAULT_QWEN_MODEL));
+
+const qwenBaseUrlSchema = z.preprocess((value) => {
+  if (typeof value === "string" && value.trim() === "") {
+    return undefined;
+  }
+
+  return value;
+}, z.string().trim().min(1).url().default(DEFAULT_QWEN_BASE_URL));
+
+const qwenEnvSchema = z.object({
+  QWEN_API_KEY: optionalNonEmptyString(
+    z.string({ error: "QWEN_API_KEY is required" }).trim().min(1, "QWEN_API_KEY is required"),
+  ),
+  QWEN_MODEL: qwenModelSchema,
+  QWEN_BASE_URL: qwenBaseUrlSchema,
+});
+
+const requiredQwenEnvSchema = qwenEnvSchema.extend({
+  QWEN_API_KEY: z
+    .string({ error: "QWEN_API_KEY is required" })
+    .trim()
+    .min(1, "QWEN_API_KEY is required"),
 });
 
 const appUrlSchema = z.preprocess((value) => {
@@ -187,6 +222,7 @@ const falseEnvValues = new Set(["0", "false", "no", "n", "off"]);
 const productionEnvSchema = requiredDatabaseEnvSchema
   .merge(productionClerkEnvSchema)
   .merge(geminiEnvSchema)
+  .merge(requiredQwenEnvSchema)
   .merge(
     resendEnvSchema.extend({
       NEXT_PUBLIC_APP_URL: productionAppUrlSchema,
@@ -217,6 +253,7 @@ const activeEnvSchema = databaseEnvSchema.merge(clerkEnvSchema);
 export type DatabaseEnv = z.infer<typeof databaseEnvSchema>;
 export type ClerkEnv = z.infer<typeof clerkEnvSchema>;
 export type GeminiEnv = z.infer<typeof geminiEnvSchema>;
+export type QwenEnv = z.infer<typeof qwenEnvSchema>;
 export type ResendEnv = z.infer<typeof resendEnvSchema>;
 export type S3Env = z.infer<typeof s3EnvSchema>;
 export type ProductionEnv = z.infer<typeof productionEnvSchema>;
@@ -236,6 +273,10 @@ export function getActiveEnv(): ActiveEnv {
 
 export function getGeminiEnv(): GeminiEnv {
   return geminiEnvSchema.parse(process.env);
+}
+
+export function getQwenEnv(): QwenEnv {
+  return qwenEnvSchema.parse(process.env);
 }
 
 export function getResendEnv(): ResendEnv {
@@ -264,6 +305,12 @@ export function hasActiveEnv(): boolean {
 
 export function hasGeminiEnv(): boolean {
   return geminiEnvSchema.safeParse(process.env).success;
+}
+
+export function hasQwenEnv(): boolean {
+  const result = qwenEnvSchema.safeParse(process.env);
+
+  return result.success && Boolean(result.data.QWEN_API_KEY);
 }
 
 export function hasResendEnv(): boolean {

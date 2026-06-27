@@ -1358,7 +1358,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
       expect(library.sourceProcessing[0].errorMessage).not.toContain("{");
       expect(deletedKeys).toEqual([]);
       expect(consoleError).toHaveBeenCalledWith(
-        "[gemini] source extraction failed",
+        "[ai] source extraction failed",
         expect.objectContaining({
           code: 503,
           status: "UNAVAILABLE",

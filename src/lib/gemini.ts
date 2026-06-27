@@ -1,4 +1,4 @@
-export const DEFAULT_GEMINI_FALLBACK_MODELS = ["gemini-3.1-flash-lite"] as const;
+export const DEFAULT_GEMINI_FALLBACK_MODELS = [] as const;
 
 type GeminiErrorDetails = {
   code: number | null;
@@ -6,11 +6,15 @@ type GeminiErrorDetails = {
   message: string | null;
 };
 
-type GeminiFallbackInput<T> = {
-  fallbackModels?: readonly string[];
+type GeminiProviderFallbackInput<T> = {
+  fallback?: {
+    model: string;
+    provider: string;
+    run: () => Promise<T>;
+  } | null;
   operation: string;
   primaryModel: string;
-  run: (model: string) => Promise<T>;
+  runPrimary: () => Promise<T>;
 };
 
 export function parseGeminiFallbackModels(value: unknown): string[] {
@@ -39,50 +43,30 @@ export function parseGeminiFallbackModels(value: unknown): string[] {
   return [...DEFAULT_GEMINI_FALLBACK_MODELS];
 }
 
-export function getGeminiModelFallbackChain(
-  primaryModel: string,
-  fallbackModels: readonly string[] = DEFAULT_GEMINI_FALLBACK_MODELS,
-) {
-  const models = [primaryModel, ...fallbackModels]
-    .map((model) => model.trim())
-    .filter(Boolean);
-
-  return Array.from(new Set(models));
-}
-
-export async function runWithGeminiModelFallback<T>({
-  fallbackModels,
+export async function runWithGeminiProviderFallback<T>({
+  fallback,
   operation,
   primaryModel,
-  run,
-}: GeminiFallbackInput<T>): Promise<T> {
-  const models = getGeminiModelFallbackChain(primaryModel, fallbackModels);
-  let finalError: unknown;
-
-  for (let index = 0; index < models.length; index += 1) {
-    const model = models[index];
-
-    try {
-      return await run(model);
-    } catch (error) {
-      finalError = error;
-
-      const nextModel = models[index + 1];
-
-      if (!nextModel || !isRetryableGeminiModelError(error)) {
-        throw error;
-      }
-
-      console.warn("[gemini] retrying with fallback model", {
-        operation,
-        failedModel: model,
-        fallbackModel: nextModel,
-        error: getGeminiErrorLogDetails(error),
-      });
+  runPrimary,
+}: GeminiProviderFallbackInput<T>): Promise<T> {
+  try {
+    return await runPrimary();
+  } catch (error) {
+    if (!fallback || !isRetryableGeminiModelError(error)) {
+      throw error;
     }
-  }
 
-  throw finalError;
+    console.warn("[ai] retrying with fallback provider", {
+      operation,
+      failedProvider: "gemini",
+      failedModel: primaryModel,
+      fallbackProvider: fallback.provider,
+      fallbackModel: fallback.model,
+      error: getGeminiErrorLogDetails(error),
+    });
+
+    return fallback.run();
+  }
 }
 
 export function isRetryableGeminiModelError(error: unknown): boolean {

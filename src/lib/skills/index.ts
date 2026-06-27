@@ -25,13 +25,17 @@ import {
   type NumericAnswerSpec,
   type TextAnswerSpec,
 } from "@/lib/answer-checking";
-import { formatEnvError, getGeminiEnv } from "@/lib/env";
+import { formatEnvError, getGeminiEnv, getQwenEnv } from "@/lib/env";
 import {
   getGeminiErrorLogDetails,
   getPublicGeminiFailureMessage,
-  runWithGeminiModelFallback,
+  runWithGeminiProviderFallback,
 } from "@/lib/gemini";
 import { getPrisma } from "@/lib/prisma";
+import {
+  runQwenJsonChatCompletion,
+  type QwenFallbackConfig,
+} from "@/lib/qwen";
 import { createInitialSkillSchedule } from "@/lib/scheduling";
 import {
   checkPastedSourceDraftUsageLimit,
@@ -1185,7 +1189,7 @@ export async function createSkillDraftFromSource(
       "generateSkillDraft timed out",
     );
   } catch (error) {
-    console.error("[gemini] skill draft generation failed", getGeminiErrorLogDetails(error));
+    console.error("[ai] skill draft generation failed", getGeminiErrorLogDetails(error));
     const message = getPublicGeminiFailureMessage(error);
 
     if (persistedSourceFileId && prisma) {
@@ -3458,6 +3462,7 @@ function resolveSourceDraftSetup(
 
   try {
     const env = getGeminiEnv();
+    const qwenFallback = resolveQwenFallbackConfig();
 
     return {
       status: "ready",
@@ -3465,7 +3470,7 @@ function resolveSourceDraftSetup(
       generateSkillDraft: createGeminiSkillDraftGenerator({
         apiKey: env.GEMINI_API_KEY,
         model: env.GEMINI_MODEL,
-        fallbackModels: env.GEMINI_FALLBACK_MODELS,
+        qwenFallback,
       }),
     };
   } catch (error) {
@@ -3479,36 +3484,81 @@ function resolveSourceDraftSetup(
 
 export function createGeminiSkillDraftGenerator({
   apiKey,
-  fallbackModels,
   model,
+  qwenFallback,
 }: {
   apiKey: string;
-  fallbackModels?: readonly string[];
   model: string;
+  qwenFallback?: QwenFallbackConfig | null;
 }): SkillDraftGenerator {
   return async (input) => {
     const ai = new GoogleGenAI({ apiKey });
-    const response = await runWithGeminiModelFallback({
-      fallbackModels,
+    return runWithGeminiProviderFallback({
+      fallback: qwenFallback
+        ? {
+            provider: "qwen",
+            model: qwenFallback.model,
+            run: () => createQwenSkillDraftGenerator(qwenFallback)(input),
+          }
+        : null,
       operation: "skill draft generation",
       primaryModel: model,
-      run: (activeModel) =>
-        ai.models.generateContent({
-          model: activeModel,
+      runPrimary: async () => {
+        const response = await ai.models.generateContent({
+          model,
           contents: buildSourceSkillDraftPrompt(input),
           config: {
             responseMimeType: "application/json",
             responseJsonSchema: geminiSkillDraftJsonSchema,
           },
-        }),
+        });
+        const text = response.text;
+
+        if (!text) {
+          throw new Error("Gemini returned no text.");
+        }
+
+        return JSON.parse(text) as unknown;
+      },
     });
-    const text = response.text;
+  };
+}
 
-    if (!text) {
-      throw new Error("Gemini returned no text.");
-    }
+export function createQwenSkillDraftGenerator({
+  apiKey,
+  baseUrl,
+  model,
+}: QwenFallbackConfig): SkillDraftGenerator {
+  return async (input) =>
+    runQwenJsonChatCompletion({
+      apiKey,
+      baseUrl,
+      model,
+      operation: "skill draft generation",
+      messages: [
+        {
+          role: "system",
+          content: "You create LearnRecur skill drafts. Return only a valid JSON object.",
+        },
+        {
+          role: "user",
+          content: buildSourceSkillDraftPrompt(input),
+        },
+      ],
+    });
+}
 
-    return JSON.parse(text) as unknown;
+function resolveQwenFallbackConfig(): QwenFallbackConfig | null {
+  const env = getQwenEnv();
+
+  if (!env.QWEN_API_KEY) {
+    return null;
+  }
+
+  return {
+    apiKey: env.QWEN_API_KEY,
+    baseUrl: env.QWEN_BASE_URL,
+    model: env.QWEN_MODEL,
   };
 }
 
