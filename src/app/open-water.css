@@ -3405,6 +3405,23 @@ body {
   outline-offset: 2px;
 }
 
+.createSkillImagePreview {
+  display: flex;
+  justify-content: flex-start;
+  border-top: 1px solid var(--lr-divider);
+  padding: 12px 14px 0;
+}
+
+.createSkillImagePreview img {
+  display: block;
+  max-width: min(240px, 100%);
+  max-height: 170px;
+  border: 1px solid var(--lr-card-border);
+  border-radius: 6px;
+  background: #FFFFFF;
+  object-fit: contain;
+}
+
 .createSkillOptions {
   margin: 0;
 }
@@ -3491,18 +3508,18 @@ body {
   background: #ffffff;
   box-shadow: 0 2px 0 #bbcaec;
   animation:
-    source-generation-hop 0.86s ease-in-out infinite,
-    source-generation-shift 2.6s ease-in-out infinite;
+    source-generation-hop 0.74s ease-in-out infinite,
+    source-generation-shift 1.9s ease-in-out infinite;
 }
 
 .createSkillGenerationPanel .sourceGenerationSpinner span:nth-child(2) {
-  animation-duration: 0.98s, 2.8s;
-  animation-delay: 0.1s, 0.22s;
+  animation-duration: 0.84s, 2.05s;
+  animation-delay: 0.08s, 0.18s;
 }
 
 .createSkillGenerationPanel .sourceGenerationSpinner span:nth-child(3) {
-  animation-duration: 0.78s, 2.4s;
-  animation-delay: 0.2s, 0.44s;
+  animation-duration: 0.68s, 1.75s;
+  animation-delay: 0.16s, 0.36s;
 }
 
 .createSkillGenerationPanel .sourceGenerationCopy {

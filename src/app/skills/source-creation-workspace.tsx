@@ -5,6 +5,7 @@ import type React from "react";
 import { Stepper } from "@mantine/core";
 import { CheckCircle, UploadSimple, WarningCircle } from "@phosphor-icons/react";
 import { notifications } from "@mantine/notifications";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -87,6 +88,7 @@ export function SourceCreationWorkspace() {
   const sourceTextErrorId = useId();
   const formRef = useRef<HTMLFormElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const selectedFilePreviewUrlRef = useRef<string | null>(null);
   const [textState, textAction, isGeneratingFromText] = useActionState(
     generateSkillDraftFromSourceAction,
     idleState,
@@ -94,6 +96,7 @@ export function SourceCreationWorkspace() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]> | undefined>();
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFilePreviewUrl, setSelectedFilePreviewUrl] = useState<string | null>(null);
   const [uploadStatus, setUploadStatus] = useState<UploadStatus>("idle");
   const [isSubmittingUpload, setIsSubmittingUpload] = useState(false);
   const [isPendingUpload, startUploadTransition] = useTransition();
@@ -132,6 +135,30 @@ export function SourceCreationWorkspace() {
     .filter(Boolean)
     .join(" ");
 
+  const clearSelectedFilePreview = useCallback(() => {
+    if (selectedFilePreviewUrlRef.current) {
+      URL.revokeObjectURL(selectedFilePreviewUrlRef.current);
+      selectedFilePreviewUrlRef.current = null;
+    }
+
+    setSelectedFilePreviewUrl(null);
+  }, []);
+
+  const setSelectedFilePreview = useCallback(
+    (file: File) => {
+      clearSelectedFilePreview();
+
+      if (!file.type.startsWith("image/")) {
+        return;
+      }
+
+      const previewUrl = URL.createObjectURL(file);
+      selectedFilePreviewUrlRef.current = previewUrl;
+      setSelectedFilePreviewUrl(previewUrl);
+    },
+    [clearSelectedFilePreview],
+  );
+
   const showNotice = useCallback((nextNotice: SourceCreationNotice | null) => {
     notifications.hide(sourceCreationNotificationId);
 
@@ -164,6 +191,7 @@ export function SourceCreationWorkspace() {
     if (fileError) {
       clearFileInput(fileInputRef.current);
       setSelectedFile(null);
+      clearSelectedFilePreview();
       setUploadStatus("error");
       setFieldErrors({
         [fileError.field]: [fileError.message],
@@ -183,6 +211,7 @@ export function SourceCreationWorkspace() {
     transfer.items.add(file);
     fileInputRef.current.files = transfer.files;
     setSelectedFile(file);
+    setSelectedFilePreview(file);
     setUploadStatus("idle");
     setFieldErrors(undefined);
 
@@ -194,7 +223,7 @@ export function SourceCreationWorkspace() {
     }
 
     return true;
-  }, [showNotice]);
+  }, [clearSelectedFilePreview, setSelectedFilePreview, showNotice]);
 
   useEffect(() => {
     if (activeStep !== 0) {
@@ -222,6 +251,15 @@ export function SourceCreationWorkspace() {
       document.removeEventListener("paste", handleDocumentPaste);
     };
   }, [activeStep, busy, selectUploadFile]);
+
+  useEffect(() => {
+    return () => {
+      if (selectedFilePreviewUrlRef.current) {
+        URL.revokeObjectURL(selectedFilePreviewUrlRef.current);
+        selectedFilePreviewUrlRef.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!textState.message || textState.status === "idle") {
@@ -391,6 +429,7 @@ export function SourceCreationWorkspace() {
         setCreatedSkill(null);
         setDismissedSkillId(textCreatedSkill?.skillId ?? null);
         setSelectedFile(null);
+        clearSelectedFilePreview();
         setFieldErrors(undefined);
         setUploadStatus("idle");
         setMaterialSnapshot(emptyMaterialSnapshot);
@@ -528,12 +567,24 @@ export function SourceCreationWorkspace() {
                 selectUploadFile(file);
               } else {
                 setSelectedFile(null);
+                clearSelectedFilePreview();
               }
             }}
             ref={fileInputRef}
             tabIndex={-1}
             type="file"
           />
+          {selectedFile && selectedFilePreviewUrl ? (
+            <div className="createSkillImagePreview">
+              <Image
+                alt={`Preview of ${selectedFile.name}`}
+                height={170}
+                src={selectedFilePreviewUrl}
+                unoptimized
+                width={240}
+              />
+            </div>
+          ) : null}
           <div className="createSkillInputFooter">
             <p id="create-skill-input-help">
               Text, screenshots, images, and PDFs work here.
@@ -547,6 +598,7 @@ export function SourceCreationWorkspace() {
                   onClick={() => {
                     clearFileInput(fileInputRef.current);
                     setSelectedFile(null);
+                    clearSelectedFilePreview();
                     setFieldErrors(undefined);
                   }}
                   type="button"
