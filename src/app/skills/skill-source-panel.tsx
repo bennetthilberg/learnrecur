@@ -6,19 +6,26 @@ import { SkillSourceRemoveForm } from "./skill-source-remove-form";
 
 export function SkillSourcePanel({
   canRemove = true,
+  className,
+  showEmpty = false,
   skillId,
   sources,
 }: {
   canRemove?: boolean;
+  className?: string;
+  showEmpty?: boolean;
   skillId: string;
   sources: SkillSourceSummary[];
 }) {
-  if (sources.length === 0) {
+  if (sources.length === 0 && !showEmpty) {
     return null;
   }
 
   return (
-    <section className="skillPanel skillSourcePanel" aria-labelledby="skill-source-title">
+    <section
+      className={["skillPanel skillSourcePanel", className].filter(Boolean).join(" ")}
+      aria-labelledby="skill-source-title"
+    >
       <div className="skillPanelHeader">
         <div>
           <h2 id="skill-source-title">Linked source material</h2>
@@ -29,51 +36,55 @@ export function SkillSourcePanel({
           value={formatCount(sources.length)}
         />
       </div>
-      <div className="skillSourceList">
-        {sources.map((source) => (
-          <article className="skillSourceRow" key={source.id}>
-            <div className="skillSourceRowHeader">
-              <div>
-                <h3>{source.label}</h3>
-                {source.note ? <p className="skillSourceNote">{source.note}</p> : null}
+      {sources.length > 0 ? (
+        <div className="skillSourceList">
+          {sources.map((source) => (
+            <article className="skillSourceRow" key={source.id}>
+              <div className="skillSourceRowHeader">
+                <div>
+                  <h3>{source.label}</h3>
+                  {source.note ? <p className="skillSourceNote">{source.note}</p> : null}
+                </div>
+                {canRemove ? (
+                  <SkillSourceRemoveForm
+                    skillId={skillId}
+                    sourceLabel={source.label}
+                    sourceRefId={source.id}
+                  />
+                ) : null}
               </div>
-              {canRemove ? (
-                <SkillSourceRemoveForm
-                  skillId={skillId}
-                  sourceLabel={source.label}
-                  sourceRefId={source.id}
-                />
-              ) : null}
-            </div>
-            <dl className="skillSourceFacts" aria-label={`${source.label} source details`}>
-              <div data-priority="primary">
-                <dt>Status</dt>
-                <dd>{formatSourceStatus(source.status)}</dd>
-              </div>
-              <div>
-                <dt>Type</dt>
-                <dd>{formatSourceKind(source.kind)}</dd>
-              </div>
-              <div>
-                <dt>Size</dt>
-                <dd>{formatBytes(source.byteSize)}</dd>
-              </div>
-              <div>
-                <dt>Added</dt>
-                <dd>{formatDate(source.createdAt)}</dd>
-              </div>
-            </dl>
-            {source.preview ? (
-              <details className="skillSourcePreviewDetails">
-                <summary>View extracted text preview</summary>
-                <blockquote className="skillSourcePreview">{source.preview}</blockquote>
-              </details>
-            ) : (
-              <p className="skillSourceEmpty">No extracted text preview is available.</p>
-            )}
-          </article>
-        ))}
-      </div>
+              <dl className="skillSourceFacts" aria-label={`${source.label} source details`}>
+                <div data-priority="primary">
+                  <dt>Status</dt>
+                  <dd>{formatSourceStatus(source.status)}</dd>
+                </div>
+                <div>
+                  <dt>Type</dt>
+                  <dd>{formatSourceKind(source.kind)}</dd>
+                </div>
+                <div>
+                  <dt>Size</dt>
+                  <dd>{formatBytes(source.byteSize)}</dd>
+                </div>
+                <div>
+                  <dt>Added</dt>
+                  <dd>{formatDate(source.createdAt)}</dd>
+                </div>
+              </dl>
+              {source.preview ? (
+                <details className="skillSourcePreviewDetails">
+                  <summary>View extracted text preview</summary>
+                  <blockquote className="skillSourcePreview">{source.preview}</blockquote>
+                </details>
+              ) : (
+                <p className="skillSourceEmpty">No extracted text preview is available.</p>
+              )}
+            </article>
+          ))}
+        </div>
+      ) : (
+        <p className="skillSourceEmpty">No linked source material for this skill yet.</p>
+      )}
     </section>
   );
 }
