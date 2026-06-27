@@ -3151,7 +3151,8 @@ body {
 
 .createSkillShell .skillCreateFlow[data-step="2"],
 .createSkillReviewShell .skillDraftGrid {
-  max-width: 960px;
+  width: min(calc(100% - clamp(32px, 4vw, 96px)), 1120px);
+  max-width: none;
 }
 
 .createSkillShell .createSkillHeader,
