@@ -3685,97 +3685,16 @@ body {
   }
 }
 
-/* ===== Skill detail design options ===== */
+/* ===== Skill detail overview ===== */
 .skillDetailShell {
   padding-bottom: 44px;
 }
 
-.skillDetailExperiment {
+.skillDetailOverview {
   display: grid;
   width: min(calc(100% - 48px), 1120px);
   gap: 18px;
   margin: 28px auto 0;
-}
-
-.skillDetailSwitchPanel {
-  display: grid;
-  grid-template-columns: minmax(210px, 0.42fr) minmax(0, 1fr);
-  gap: 16px;
-  border: 1px solid var(--lr-card-border);
-  border-radius: 8px;
-  background: #FFFFFF;
-  padding: 16px 18px;
-}
-
-.skillDetailSwitchPanel h2,
-.skillDetailSwitchPanel p {
-  margin: 0;
-}
-
-.skillDetailSwitchPanel h2 {
-  color: var(--lr-ink);
-  font-family: var(--lr-font-display);
-  font-size: 18px;
-  font-weight: 800;
-  line-height: 1.2;
-  letter-spacing: 0;
-}
-
-.skillDetailSwitchPanel p {
-  margin-top: 5px;
-  color: var(--lr-text-secondary);
-  font-size: 13px;
-  line-height: 1.42;
-}
-
-.skillDetailVariantControls {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.skillDetailVariantButton {
-  display: grid;
-  min-width: 0;
-  gap: 2px;
-  border: 1px solid var(--lr-btn-white-border);
-  border-radius: 8px;
-  background: #FFFFFF;
-  cursor: pointer;
-  color: var(--lr-text-secondary);
-  padding: 9px 10px;
-  text-align: left;
-}
-
-.skillDetailVariantButton[aria-selected="true"] {
-  border-color: var(--lr-blue);
-  background: var(--lr-blue-tint);
-  color: var(--lr-ink);
-}
-
-.skillDetailVariantButton:focus-visible {
-  outline: 2px solid var(--lr-focus-outline);
-  outline-offset: 3px;
-}
-
-.skillDetailVariantButton span,
-.skillDetailVariantButton small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.skillDetailVariantButton span {
-  color: inherit;
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1.2;
-}
-
-.skillDetailVariantButton small {
-  color: var(--lr-text-secondary);
-  font-size: 11.5px;
-  line-height: 1.25;
 }
 
 .skillDetailCanvas {
@@ -3784,8 +3703,8 @@ body {
   grid-template-areas:
     "hero"
     "schedule"
-    "inventory"
     "guidance"
+    "outcomes"
     "preparation"
     "recent"
     "sources"
@@ -3831,7 +3750,7 @@ body {
 }
 
 .skillDetailCard,
-.skillDetailExperiment .skillPanel {
+.skillDetailOverview .skillPanel {
   min-width: 0;
   border: 1px solid var(--lr-card-border);
   border-radius: 8px;
@@ -3840,10 +3759,10 @@ body {
   padding: 24px 26px;
 }
 
-.skillDetailExperiment .skillPanel,
-.skillDetailExperiment .skillLifecyclePanel,
-.skillDetailExperiment .skillSourcePanel,
-.skillDetailExperiment .skillRecentReviewsPanel {
+.skillDetailOverview .skillPanel,
+.skillDetailOverview .skillLifecyclePanel,
+.skillDetailOverview .skillSourcePanel,
+.skillDetailOverview .skillRecentReviewsPanel {
   width: 100%;
   max-width: none;
   margin: 0;
@@ -3853,12 +3772,12 @@ body {
   grid-area: schedule;
 }
 
-.skillDetailInventory {
-  grid-area: inventory;
-}
-
 .skillDetailGuidance {
   grid-area: guidance;
+}
+
+.skillDetailOutcomes {
+  grid-area: outcomes;
 }
 
 .skillDetailPreparation {
@@ -3905,7 +3824,7 @@ body {
 
 .skillDetailFactGrid {
   display: grid;
-  grid-template-columns: minmax(190px, 1.15fr) repeat(4, minmax(0, 1fr));
+  grid-template-columns: minmax(190px, 1.15fr) repeat(3, minmax(0, 1fr));
   margin: 0;
   border-bottom: 1px solid var(--lr-divider);
 }
@@ -3950,91 +3869,92 @@ body {
   font-size: 18px;
 }
 
-.skillDetailInventoryList {
+.skillDetailOutcomeList {
   display: grid;
 }
 
-.skillDetailInventoryRow {
+.skillDetailOutcomeRow {
   display: grid;
-  grid-template-columns: minmax(160px, 0.85fr) minmax(140px, 1fr) auto;
-  align-items: center;
+  grid-template-columns: minmax(175px, 0.65fr) minmax(0, 1fr);
+  align-items: start;
   gap: 18px;
   border-top: 1px solid var(--lr-divider);
   padding: 16px 0;
 }
 
-.skillDetailInventoryRow:first-child {
+.skillDetailOutcomeRow:first-child {
   border-top: 0;
 }
 
-.skillDetailInventoryRow h3,
-.skillDetailInventoryRow p,
-.skillDetailInventoryRow dl {
+.skillDetailOutcomeRow h3,
+.skillDetailOutcomeRow p,
+.skillDetailOutcomeRow dl {
   margin: 0;
 }
 
-.skillDetailInventoryRow h3 {
+.skillDetailOutcomeRow h3 {
   color: var(--lr-ink);
   font-size: 15px;
   font-weight: 800;
   line-height: 1.25;
 }
 
-.skillDetailInventoryRow p {
+.skillDetailOutcomeRow p {
   margin-top: 5px;
   color: var(--lr-text-secondary);
   font-size: 13px;
   line-height: 1.35;
 }
 
-.skillDetailInventoryRow p strong {
-  color: var(--lr-blue);
-  font-weight: 800;
+.skillDetailOutcomeRow dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
 }
 
-.skillDetailMeter {
-  overflow: hidden;
-  height: 7px;
-  border-radius: 999px;
-  background: var(--lr-blue-tint);
+.skillDetailOutcomeRow dl div {
+  display: grid;
+  gap: 4px;
 }
 
-.skillDetailMeter span {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: var(--lr-blue);
-}
-
-.skillDetailInventoryRow dl {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: end;
-  gap: 8px 14px;
-}
-
-.skillDetailInventoryRow dl div {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 5px;
-}
-
-.skillDetailInventoryRow dt,
-.skillDetailInventoryRow dd {
+.skillDetailOutcomeRow dt,
+.skillDetailOutcomeRow dd {
   margin: 0;
 }
 
-.skillDetailInventoryRow dt {
+.skillDetailOutcomeRow dt {
   color: var(--lr-text-secondary);
   font-size: 12px;
   font-weight: 600;
 }
 
-.skillDetailInventoryRow dd {
+.skillDetailOutcomeRow dd {
   color: var(--lr-ink);
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
+}
+
+.skillDetailOutcomeTrack {
+  display: flex;
+  grid-column: 1 / -1;
+  overflow: hidden;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--lr-divider);
+}
+
+.skillDetailOutcomeTrack span {
+  display: block;
+  height: 100%;
+}
+
+.skillDetailOutcomeTrack span[data-result="correct"] {
+  background: var(--lr-green);
+}
+
+.skillDetailOutcomeTrack span[data-result="incorrect"] {
+  background: var(--lr-amber);
 }
 
 .skillDetailGuidanceList {
@@ -4133,167 +4053,24 @@ body {
   padding-top: 0;
 }
 
-.skillDetailExperiment .skillLifecycleActions {
+.skillDetailOverview .skillLifecycleActions {
   grid-template-columns: minmax(0, 1fr);
   border-bottom: 0;
 }
 
-.skillDetailExperiment .skillLifecycleGroup + .skillLifecycleGroup {
+.skillDetailOverview .skillLifecycleGroup + .skillLifecycleGroup {
   border-top: 1px solid var(--lr-divider);
   border-left: 0;
 }
 
-.skillDetailExperiment .skillLifecycleGroup[data-tone="danger"] {
+.skillDetailOverview .skillLifecycleGroup[data-tone="danger"] {
   border-top-color: var(--lr-danger-line);
 }
 
-.skillDetailExperiment[data-design="split"] .skillDetailCanvas,
-.skillDetailExperiment[data-design="notebook"] .skillDetailCanvas,
-.skillDetailExperiment[data-design="operations"] .skillDetailCanvas,
-.skillDetailExperiment[data-design="timeline"] .skillDetailCanvas {
-  grid-template-columns: minmax(260px, 0.72fr) minmax(0, 1fr);
-}
-
-.skillDetailExperiment[data-design="split"] .skillDetailCanvas {
-  grid-template-areas:
-    "hero hero"
-    "schedule guidance"
-    "inventory guidance"
-    "preparation preparation"
-    "recent sources"
-    "controls controls";
-}
-
-.skillDetailExperiment[data-design="practice"] .skillDetailCanvas {
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.76fr);
-  grid-template-areas:
-    "hero hero"
-    "schedule schedule"
-    "inventory guidance"
-    "preparation controls"
-    "sources recent";
-}
-
-.skillDetailExperiment[data-design="notebook"] .skillDetailCanvas {
-  grid-template-columns: minmax(0, 1.12fr) minmax(260px, 0.68fr);
-  grid-template-areas:
-    "hero hero"
-    "guidance schedule"
-    "guidance inventory"
-    "recent sources"
-    "preparation controls";
-}
-
-.skillDetailExperiment[data-design="operations"] .skillDetailCanvas {
-  grid-template-areas:
-    "hero hero"
-    "preparation controls"
-    "schedule inventory"
-    "sources recent"
-    "guidance guidance";
-}
-
-.skillDetailExperiment[data-design="timeline"] .skillDetailCanvas {
-  grid-template-columns: minmax(280px, 0.7fr) minmax(0, 1fr);
-  grid-template-areas:
-    "hero hero"
-    "recent schedule"
-    "recent inventory"
-    "guidance preparation"
-    "sources controls";
-}
-
-.skillDetailExperiment[data-design="practice"] .skillDetailSchedule,
-.skillDetailExperiment[data-design="timeline"] .skillDetailRecent {
-  padding: 28px 30px;
-}
-
-.skillDetailExperiment[data-design="notebook"] .skillDetailGuidance {
-  padding: 30px 32px;
-}
-
-.skillDetailExperiment[data-design="notebook"] .skillDetailInventoryRow {
-  grid-template-columns: minmax(0, 1fr);
-  align-items: stretch;
-  gap: 10px;
-}
-
-.skillDetailExperiment[data-design="notebook"] .skillDetailInventoryRow dl {
-  justify-content: start;
-}
-
-.skillDetailExperiment[data-design="operations"] .skillDetailPreparation,
-.skillDetailExperiment[data-design="operations"] .skillDetailControls {
-  min-height: 100%;
-}
-
-@media (max-width: 980px) {
-  .skillDetailSwitchPanel {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .skillDetailExperiment[data-design] .skillDetailCanvas {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-areas:
-      "hero"
-      "schedule"
-      "inventory"
-      "guidance"
-      "preparation"
-      "recent"
-      "sources"
-      "controls";
-  }
-
-  .skillDetailExperiment[data-design="notebook"] .skillDetailCanvas {
-    grid-template-areas:
-      "hero"
-      "guidance"
-      "schedule"
-      "inventory"
-      "recent"
-      "preparation"
-      "sources"
-      "controls";
-  }
-
-  .skillDetailExperiment[data-design="operations"] .skillDetailCanvas {
-    grid-template-areas:
-      "hero"
-      "preparation"
-      "controls"
-      "schedule"
-      "inventory"
-      "guidance"
-      "sources"
-      "recent";
-  }
-
-  .skillDetailExperiment[data-design="timeline"] .skillDetailCanvas {
-    grid-template-areas:
-      "hero"
-      "recent"
-      "schedule"
-      "inventory"
-      "guidance"
-      "preparation"
-      "sources"
-      "controls";
-  }
-}
-
 @media (max-width: 700px) {
-  .skillDetailExperiment {
+  .skillDetailOverview {
     width: calc(100% - 28px);
     margin-top: 22px;
-  }
-
-  .skillDetailSwitchPanel {
-    padding: 14px;
-  }
-
-  .skillDetailVariantControls {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .skillDetailHero {
@@ -4310,12 +4087,13 @@ body {
   }
 
   .skillDetailCard,
-  .skillDetailExperiment .skillPanel {
+  .skillDetailOverview .skillPanel {
     padding: 22px 18px;
   }
 
   .skillDetailFactGrid,
-  .skillDetailInventoryRow {
+  .skillDetailOutcomeRow,
+  .skillDetailOutcomeRow dl {
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -4331,13 +4109,9 @@ body {
     border-top: 0;
   }
 
-  .skillDetailInventoryRow {
+  .skillDetailOutcomeRow {
     align-items: stretch;
-    gap: 10px;
-  }
-
-  .skillDetailInventoryRow dl {
-    justify-content: start;
+    gap: 12px;
   }
 }
 

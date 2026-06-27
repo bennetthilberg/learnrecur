@@ -3,6 +3,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import {
+  AnswerKind,
+  ExerciseAttemptResult,
   GenerationJobKind,
   GenerationJobStatus,
   SkillStatus,
@@ -44,7 +46,6 @@ import { SkillMathRefillForm } from "../skill-math-refill-form";
 import { SkillRefillForm } from "../skill-refill-form";
 import { SkillSourcePanel } from "../skill-source-panel";
 import { SkillsTopbar } from "../skills-topbar";
-import { SkillDetailDesignSwitcher } from "./skill-detail-design-switcher";
 
 export const dynamic = "force-dynamic";
 
@@ -112,9 +113,10 @@ export default async function SkillPage({
   }
 
   const now = new Date();
-  const [sourceSummariesResult, recentReviewsResult] = await Promise.all([
+  const [sourceSummariesResult, recentReviewsResult, reviewOutcomeGroups] = await Promise.all([
     getSkillSourceSummaries({ userId, skillId }),
     getSkillPracticeHistory({ userId, skillId, now, limit: 5 }),
+    getSkillReviewOutcomeGroups({ now, skillId, userId }),
   ]);
   const sourceSummaries =
     sourceSummariesResult.status === "ready" ? sourceSummariesResult.sources : [];
@@ -229,256 +231,230 @@ export default async function SkillPage({
     return (
       <main className="skillShell skillDetailShell">
         <SkillsTopbar current="skill" />
-        <SkillDetailDesignSwitcher>
-          <header className="skillDetailHero">
-            <div>
-              <h1>{skill.title}</h1>
-              <p>{skill.objective ?? "This skill is active in the practice schedule."}</p>
-              {skill.tags.length > 0 ? (
-                <div className="skillDetailTags" aria-label="Skill tags">
-                  {skill.tags.map((tag) => (
-                    <span className="dashboardTag" key={tag}>
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-            <Link
-              className={isReadyForPractice ? "primaryButton" : "secondaryButton"}
-              href="/practice"
-            >
-              {isReadyForPractice ? "Start practice" : "Open practice"}
-            </Link>
-          </header>
-
-          <SkillDetailScheduleCard
-            collectionName={skill.collection?.name ?? "Uncollected"}
-            dueLabel={skill.dueAt ? formatReviewDate(skill.dueAt) : "Not scheduled"}
-            exerciseCount={skill._count.exercises}
-            memoryStage={formatHistoryLabel(skill.fsrsState)}
-            reviewCount={skill.repetitions}
-          />
-
-          <SkillDetailInventoryCard
-            groups={[
-              {
-                label: "Choice",
-                readyCount: inventory.readyExerciseCount,
-                retiredCount: inventory.retiredExerciseCount,
-                targetCount: DEFAULT_READY_EXERCISE_TARGET,
-                verifiedCount: inventory.verifiedExerciseCount,
-              },
-              {
-                label: "Exact input",
-                readyCount: exactInputInventory.readyExerciseCount,
-                retiredCount: exactInputInventory.retiredExerciseCount,
-                targetCount: DEFAULT_READY_EXACT_INPUT_TARGET,
-                verifiedCount: exactInputInventory.verifiedExerciseCount,
-              },
-              {
-                label: "Math",
-                readyCount: mathInventory.readyExerciseCount,
-                retiredCount: mathInventory.retiredExerciseCount,
-                targetCount: DEFAULT_READY_MATH_TARGET,
-                verifiedCount: mathInventory.verifiedExerciseCount,
-              },
-            ]}
-          />
-
-          <SkillDetailGuidanceCard
-            constraints={draftValues.exerciseConstraints}
-            examples={draftValues.examples}
-            rules={draftValues.rules}
-          />
-
-          <details className="skillDetailCard skillDetailPreparation skillFormDetails">
-            <summary>
-              <span>Exercise preparation</span>
-              <small>Ready counts and generation status</small>
-            </summary>
-            <div className="skillDetailPreparationGrid">
-              <div className="skillQueueBlock">
-                <div>
-                  <h2>Choice exercises</h2>
-                  <SkillQueueStateStrip
-                    readyCount={inventory.readyExerciseCount}
-                    stateLabel={
-                      hasActiveChoiceRefillJob
-                        ? "Preparing"
-                        : canRefill
-                          ? "Below target"
-                          : "Target met"
-                    }
-                    stateTone={canRefill || hasActiveChoiceRefillJob ? "attention" : "ready"}
-                    targetCount={DEFAULT_READY_EXERCISE_TARGET}
-                  />
-                  <p className="skillQueueCopy">
-                    Keep verified choice exercises available for the next due review.
-                  </p>
-                  {latestChoiceGenerationJob ? (
-                    <SkillQueueJobStatus
-                      job={latestChoiceGenerationJob}
-                      label="Latest choice preparation"
-                    />
-                  ) : null}
-                  {choiceRefillStatus ? (
-                    <p className="skillQueueStatus">{choiceRefillStatus}</p>
-                  ) : null}
-                  {latestChoiceGenerationJob?.errorMessage ? (
-                    <p className="skillFormMessage" data-tone="error">
-                      Choice exercise preparation failed. Try again when you are ready.
-                    </p>
-                  ) : null}
-                </div>
-                {canRefill ? (
-                  <SkillRefillForm
-                    buttonLabel={choiceRefillButtonLabel}
-                    canRefill={canRefill}
-                    skillId={skill.id}
-                  />
-                ) : (
-                  <SkillQueueActionStatus
-                    label={choiceRefillButtonLabel}
-                    tone={hasActiveChoiceRefillJob ? "attention" : "ready"}
-                  />
-                )}
+        <div className="skillDetailOverview">
+          <div className="skillDetailCanvas">
+            <header className="skillDetailHero">
+              <div>
+                <h1>{skill.title}</h1>
+                <p>{skill.objective ?? "This skill is active in the practice schedule."}</p>
+                {skill.tags.length > 0 ? (
+                  <div className="skillDetailTags" aria-label="Skill tags">
+                    {skill.tags.map((tag) => (
+                      <span className="dashboardTag" key={tag}>
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
               </div>
-              <div className="skillQueueBlock">
-                <div>
-                  <h2>Exact-input exercises</h2>
-                  <SkillQueueStateStrip
-                    readyCount={exactInputInventory.readyExerciseCount}
-                    stateLabel={
-                      exactInputUnlocked
-                        ? hasActiveExactInputRefillJob
+              <Link
+                className={isReadyForPractice ? "primaryButton" : "secondaryButton"}
+                href="/practice"
+              >
+                {isReadyForPractice ? "Start practice" : "Open practice"}
+              </Link>
+            </header>
+
+            <SkillDetailScheduleCard
+              collectionName={skill.collection?.name ?? "Uncollected"}
+              dueLabel={skill.dueAt ? formatReviewDate(skill.dueAt) : "Not scheduled"}
+              memoryStage={formatHistoryLabel(skill.fsrsState)}
+              reviewCount={skill.repetitions}
+            />
+
+            <SkillDetailGuidanceCard
+              constraints={draftValues.exerciseConstraints}
+              examples={draftValues.examples}
+              rules={draftValues.rules}
+            />
+
+            <SkillDetailReviewOutcomesCard groups={reviewOutcomeGroups} />
+
+            <details className="skillDetailCard skillDetailPreparation skillFormDetails">
+              <summary>
+                <span>Exercise preparation</span>
+                <small>Ready counts and generation status</small>
+              </summary>
+              <div className="skillDetailPreparationGrid">
+                <div className="skillQueueBlock">
+                  <div>
+                    <h2>Choice exercises</h2>
+                    <SkillQueueStateStrip
+                      readyCount={inventory.readyExerciseCount}
+                      stateLabel={
+                        hasActiveChoiceRefillJob
                           ? "Preparing"
-                          : canRefillExactInput
+                          : canRefill
                             ? "Below target"
                             : "Target met"
-                        : reviewProgressLabel
-                    }
-                    stateTone={
-                      exactInputUnlocked
-                        ? canRefillExactInput || hasActiveExactInputRefillJob
-                          ? "attention"
-                          : "ready"
-                        : "locked"
-                    }
-                    targetCount={DEFAULT_READY_EXACT_INPUT_TARGET}
-                  />
-                  <p className="skillQueueCopy">
-                    Exact input begins after {EXACT_INPUT_UNLOCK_REPETITIONS} saved reviews, once
-                    the skill has a short multiple-choice history.
-                  </p>
-                  {latestExactInputGenerationJob ? (
-                    <SkillQueueJobStatus
-                      job={latestExactInputGenerationJob}
-                      label="Latest exact-input preparation"
+                      }
+                      stateTone={canRefill || hasActiveChoiceRefillJob ? "attention" : "ready"}
+                      targetCount={DEFAULT_READY_EXERCISE_TARGET}
                     />
-                  ) : null}
-                  {exactInputRefillStatus ? (
-                    <p className="skillQueueStatus">{exactInputRefillStatus}</p>
-                  ) : null}
-                  {latestExactInputGenerationJob?.errorMessage ? (
-                    <p className="skillFormMessage" data-tone="error">
-                      Exact-input exercise preparation failed. Try again when you are ready.
+                    <p className="skillQueueCopy">
+                      Keep verified choice exercises available for the next due review.
                     </p>
-                  ) : null}
-                </div>
-                {canRefillExactInput ? (
-                  <SkillExactInputRefillForm
-                    buttonLabel={exactInputRefillButtonLabel}
-                    canRefill={canRefillExactInput}
-                    skillId={skill.id}
-                  />
-                ) : (
-                  <SkillQueueActionStatus
-                    label={exactInputRefillButtonLabel}
-                    tone={
-                      !exactInputUnlocked
-                        ? "locked"
-                        : hasActiveExactInputRefillJob
-                          ? "attention"
-                          : "ready"
-                    }
-                  />
-                )}
-              </div>
-              <div className="skillQueueBlock">
-                <div>
-                  <h2>Math exercises</h2>
-                  <SkillQueueStateStrip
-                    readyCount={mathInventory.readyExerciseCount}
-                    stateLabel={
-                      exactInputUnlocked
-                        ? hasActiveMathRefillJob
-                          ? "Preparing"
-                          : canRefillMath
-                            ? "Below target"
-                            : "Target met"
-                        : reviewProgressLabel
-                    }
-                    stateTone={
-                      exactInputUnlocked
-                        ? canRefillMath || hasActiveMathRefillJob
-                          ? "attention"
-                          : "ready"
-                        : "locked"
-                    }
-                    targetCount={DEFAULT_READY_MATH_TARGET}
-                  />
-                  <p className="skillQueueCopy">
-                    Math practice begins after {EXACT_INPUT_UNLOCK_REPETITIONS} saved reviews,
-                    once the skill has a short multiple-choice history.
-                  </p>
-                  {latestMathGenerationJob ? (
-                    <SkillQueueJobStatus
-                      job={latestMathGenerationJob}
-                      label="Latest math preparation"
+                    {latestChoiceGenerationJob ? (
+                      <SkillQueueJobStatus
+                        job={latestChoiceGenerationJob}
+                        label="Latest choice preparation"
+                      />
+                    ) : null}
+                    {choiceRefillStatus ? (
+                      <p className="skillQueueStatus">{choiceRefillStatus}</p>
+                    ) : null}
+                    {latestChoiceGenerationJob?.errorMessage ? (
+                      <p className="skillFormMessage" data-tone="error">
+                        Choice exercise preparation failed. Try again when you are ready.
+                      </p>
+                    ) : null}
+                  </div>
+                  {canRefill ? (
+                    <SkillRefillForm
+                      buttonLabel={choiceRefillButtonLabel}
+                      canRefill={canRefill}
+                      skillId={skill.id}
                     />
-                  ) : null}
-                  {mathRefillStatus ? <p className="skillQueueStatus">{mathRefillStatus}</p> : null}
-                  {latestMathGenerationJob?.errorMessage ? (
-                    <p className="skillFormMessage" data-tone="error">
-                      Math exercise preparation failed. Try again when you are ready.
-                    </p>
-                  ) : null}
+                  ) : (
+                    <SkillQueueActionStatus
+                      label={choiceRefillButtonLabel}
+                      tone={hasActiveChoiceRefillJob ? "attention" : "ready"}
+                    />
+                  )}
                 </div>
-                {canRefillMath ? (
-                  <SkillMathRefillForm
-                    buttonLabel={mathRefillButtonLabel}
-                    canRefill={canRefillMath}
-                    skillId={skill.id}
-                  />
-                ) : (
-                  <SkillQueueActionStatus
-                    label={mathRefillButtonLabel}
-                    tone={
-                      !exactInputUnlocked ? "locked" : hasActiveMathRefillJob ? "attention" : "ready"
-                    }
-                  />
-                )}
+                <div className="skillQueueBlock">
+                  <div>
+                    <h2>Exact-input exercises</h2>
+                    <SkillQueueStateStrip
+                      readyCount={exactInputInventory.readyExerciseCount}
+                      stateLabel={
+                        exactInputUnlocked
+                          ? hasActiveExactInputRefillJob
+                            ? "Preparing"
+                            : canRefillExactInput
+                              ? "Below target"
+                              : "Target met"
+                          : reviewProgressLabel
+                      }
+                      stateTone={
+                        exactInputUnlocked
+                          ? canRefillExactInput || hasActiveExactInputRefillJob
+                            ? "attention"
+                            : "ready"
+                          : "locked"
+                      }
+                      targetCount={DEFAULT_READY_EXACT_INPUT_TARGET}
+                    />
+                    <p className="skillQueueCopy">
+                      Exact input begins after {EXACT_INPUT_UNLOCK_REPETITIONS} saved reviews, once
+                      the skill has a short multiple-choice history.
+                    </p>
+                    {latestExactInputGenerationJob ? (
+                      <SkillQueueJobStatus
+                        job={latestExactInputGenerationJob}
+                        label="Latest exact-input preparation"
+                      />
+                    ) : null}
+                    {exactInputRefillStatus ? (
+                      <p className="skillQueueStatus">{exactInputRefillStatus}</p>
+                    ) : null}
+                    {latestExactInputGenerationJob?.errorMessage ? (
+                      <p className="skillFormMessage" data-tone="error">
+                        Exact-input exercise preparation failed. Try again when you are ready.
+                      </p>
+                    ) : null}
+                  </div>
+                  {canRefillExactInput ? (
+                    <SkillExactInputRefillForm
+                      buttonLabel={exactInputRefillButtonLabel}
+                      canRefill={canRefillExactInput}
+                      skillId={skill.id}
+                    />
+                  ) : (
+                    <SkillQueueActionStatus
+                      label={exactInputRefillButtonLabel}
+                      tone={
+                        !exactInputUnlocked
+                          ? "locked"
+                          : hasActiveExactInputRefillJob
+                            ? "attention"
+                            : "ready"
+                      }
+                    />
+                  )}
+                </div>
+                <div className="skillQueueBlock">
+                  <div>
+                    <h2>Math exercises</h2>
+                    <SkillQueueStateStrip
+                      readyCount={mathInventory.readyExerciseCount}
+                      stateLabel={
+                        exactInputUnlocked
+                          ? hasActiveMathRefillJob
+                            ? "Preparing"
+                            : canRefillMath
+                              ? "Below target"
+                              : "Target met"
+                          : reviewProgressLabel
+                      }
+                      stateTone={
+                        exactInputUnlocked
+                          ? canRefillMath || hasActiveMathRefillJob
+                            ? "attention"
+                            : "ready"
+                          : "locked"
+                      }
+                      targetCount={DEFAULT_READY_MATH_TARGET}
+                    />
+                    <p className="skillQueueCopy">
+                      Math practice begins after {EXACT_INPUT_UNLOCK_REPETITIONS} saved reviews,
+                      once the skill has a short multiple-choice history.
+                    </p>
+                    {latestMathGenerationJob ? (
+                      <SkillQueueJobStatus job={latestMathGenerationJob} label="Latest math preparation" />
+                    ) : null}
+                    {mathRefillStatus ? <p className="skillQueueStatus">{mathRefillStatus}</p> : null}
+                    {latestMathGenerationJob?.errorMessage ? (
+                      <p className="skillFormMessage" data-tone="error">
+                        Math exercise preparation failed. Try again when you are ready.
+                      </p>
+                    ) : null}
+                  </div>
+                  {canRefillMath ? (
+                    <SkillMathRefillForm
+                      buttonLabel={mathRefillButtonLabel}
+                      canRefill={canRefillMath}
+                      skillId={skill.id}
+                    />
+                  ) : (
+                    <SkillQueueActionStatus
+                      label={mathRefillButtonLabel}
+                      tone={
+                        !exactInputUnlocked ? "locked" : hasActiveMathRefillJob ? "attention" : "ready"
+                      }
+                    />
+                  )}
+                </div>
               </div>
-            </div>
-          </details>
-          <SkillLifecyclePanel
-            className="skillDetailControls"
-            skillId={skill.id}
-            skillTitle={skill.title}
-            status={skill.status}
-          />
-          <SkillSourcePanel
-            className="skillDetailSources"
-            skillId={skill.id}
-            sources={sourceSummaries}
-          />
-          <SkillRecentReviewsPanel
-            className="skillDetailRecent"
-            reviews={recentReviews}
-            showEmpty
-          />
-        </SkillDetailDesignSwitcher>
+            </details>
+            <SkillLifecyclePanel
+              className="skillDetailControls"
+              skillId={skill.id}
+              skillTitle={skill.title}
+              status={skill.status}
+            />
+            <SkillSourcePanel
+              className="skillDetailSources"
+              skillId={skill.id}
+              sources={sourceSummaries}
+            />
+            <SkillRecentReviewsPanel
+              className="skillDetailRecent"
+              reviews={recentReviews}
+              showEmpty
+            />
+          </div>
+        </div>
       </main>
     );
   }
@@ -597,24 +573,24 @@ export default async function SkillPage({
   );
 }
 
-type SkillDetailInventoryGroupData = {
+type SkillReviewOutcomeGroupKey = "choice" | "exact-input" | "math";
+
+type SkillReviewOutcomeGroup = {
+  correctCount: number;
+  description: string;
+  incorrectCount: number;
+  key: SkillReviewOutcomeGroupKey;
   label: string;
-  readyCount: number;
-  retiredCount: number;
-  targetCount: number;
-  verifiedCount: number;
 };
 
 function SkillDetailScheduleCard({
   collectionName,
   dueLabel,
-  exerciseCount,
   memoryStage,
   reviewCount,
 }: {
   collectionName: string;
   dueLabel: string;
-  exerciseCount: number;
   memoryStage: string;
   reviewCount: number;
 }) {
@@ -631,7 +607,6 @@ function SkillDetailScheduleCard({
         <SkillDetailFact label="Collection" value={collectionName} />
         <SkillDetailFact label="Memory" value={memoryStage} />
         <SkillDetailFact label="Reviews" value={formatCount(reviewCount)} />
-        <SkillDetailFact label="Exercises" value={formatCount(exerciseCount)} />
       </dl>
     </section>
   );
@@ -654,51 +629,161 @@ function SkillDetailFact({
   );
 }
 
-function SkillDetailInventoryCard({ groups }: { groups: SkillDetailInventoryGroupData[] }) {
+function SkillDetailReviewOutcomesCard({ groups }: { groups: SkillReviewOutcomeGroup[] }) {
+  const totalReviews = groups.reduce(
+    (sum, group) => sum + group.correctCount + group.incorrectCount,
+    0,
+  );
+
   return (
-    <section className="skillDetailCard skillDetailInventory" aria-labelledby="skill-detail-inventory">
+    <section className="skillDetailCard skillDetailOutcomes" aria-labelledby="skill-detail-outcomes">
       <div className="skillDetailSectionHeader">
         <div>
-          <h2 id="skill-detail-inventory">Exercise inventory</h2>
-          <p>Ready exercises are available without waiting for generation.</p>
+          <h2 id="skill-detail-outcomes">Practice results</h2>
+          <p>How completed reviews have gone for each answer type.</p>
         </div>
       </div>
-      <div className="skillDetailInventoryList">
-        {groups.map((group) => (
-          <SkillDetailInventoryRow group={group} key={group.label} />
-        ))}
-      </div>
+      {totalReviews > 0 ? (
+        <div className="skillDetailOutcomeList">
+          {groups.map((group) => (
+            <SkillDetailReviewOutcomeRow group={group} key={group.key} />
+          ))}
+        </div>
+      ) : (
+        <p className="skillDetailEmptyText">No completed reviews for this skill yet.</p>
+      )}
     </section>
   );
 }
 
-function SkillDetailInventoryRow({ group }: { group: SkillDetailInventoryGroupData }) {
-  const readyPercent =
-    group.targetCount > 0 ? Math.min(100, Math.round((group.readyCount / group.targetCount) * 100)) : 0;
+function SkillDetailReviewOutcomeRow({ group }: { group: SkillReviewOutcomeGroup }) {
+  const totalCount = group.correctCount + group.incorrectCount;
+  const correctPercent = totalCount > 0 ? Math.round((group.correctCount / totalCount) * 100) : 0;
+  const incorrectPercent = totalCount > 0 ? 100 - correctPercent : 0;
 
   return (
-    <article className="skillDetailInventoryRow">
+    <article className="skillDetailOutcomeRow">
       <div>
         <h3>{group.label}</h3>
-        <p>
-          <strong>{formatCount(group.readyCount)}</strong> of {formatCount(group.targetCount)} ready
-        </p>
-      </div>
-      <div className="skillDetailMeter" aria-hidden="true">
-        <span style={{ width: `${readyPercent}%` }} />
+        <p>{group.description}</p>
       </div>
       <dl>
         <div>
-          <dt>Verified</dt>
-          <dd>{formatCount(group.verifiedCount)}</dd>
+          <dt>Right</dt>
+          <dd>{formatCount(group.correctCount)}</dd>
         </div>
         <div>
-          <dt>Retired</dt>
-          <dd>{formatCount(group.retiredCount)}</dd>
+          <dt>Missed</dt>
+          <dd>{formatCount(group.incorrectCount)}</dd>
+        </div>
+        <div>
+          <dt>Accuracy</dt>
+          <dd>{totalCount > 0 ? `${formatCount(correctPercent)}%` : "No reviews"}</dd>
         </div>
       </dl>
+      <div className="skillDetailOutcomeTrack" aria-hidden="true">
+        <span data-result="correct" style={{ width: `${correctPercent}%` }} />
+        <span data-result="incorrect" style={{ width: `${incorrectPercent}%` }} />
+      </div>
     </article>
   );
+}
+
+async function getSkillReviewOutcomeGroups({
+  now,
+  skillId,
+  userId,
+}: {
+  now: Date;
+  skillId: string;
+  userId: string;
+}): Promise<SkillReviewOutcomeGroup[]> {
+  const groups = createEmptyReviewOutcomeGroups();
+  const groupsByKey = new Map(groups.map((group) => [group.key, group]));
+  const prisma = getPrisma();
+  const rows = await prisma.reviewLog.findMany({
+    where: {
+      userId,
+      skillId,
+      reviewedAt: {
+        lte: now,
+      },
+      exerciseAttempt: {
+        finalRating: {
+          not: null,
+        },
+        result: {
+          in: [ExerciseAttemptResult.CORRECT, ExerciseAttemptResult.INCORRECT],
+        },
+      },
+    },
+    select: {
+      exerciseAttempt: {
+        select: {
+          result: true,
+          exercise: {
+            select: {
+              answerKind: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  for (const row of rows) {
+    const group = groupsByKey.get(resolveReviewOutcomeGroupKey(row.exerciseAttempt.exercise.answerKind));
+
+    if (!group) {
+      continue;
+    }
+
+    if (row.exerciseAttempt.result === ExerciseAttemptResult.CORRECT) {
+      group.correctCount += 1;
+    } else {
+      group.incorrectCount += 1;
+    }
+  }
+
+  return groups;
+}
+
+function createEmptyReviewOutcomeGroups(): SkillReviewOutcomeGroup[] {
+  return [
+    {
+      correctCount: 0,
+      description: "Multiple-choice reviews",
+      incorrectCount: 0,
+      key: "choice",
+      label: "Choice",
+    },
+    {
+      correctCount: 0,
+      description: "Typed text and numeric answers",
+      incorrectCount: 0,
+      key: "exact-input",
+      label: "Exact input",
+    },
+    {
+      correctCount: 0,
+      description: "Math equivalence answers",
+      incorrectCount: 0,
+      key: "math",
+      label: "Math",
+    },
+  ];
+}
+
+function resolveReviewOutcomeGroupKey(answerKind: AnswerKind): SkillReviewOutcomeGroupKey {
+  if (answerKind === AnswerKind.CHOICE) {
+    return "choice";
+  }
+
+  if (answerKind === AnswerKind.MATH) {
+    return "math";
+  }
+
+  return "exact-input";
 }
 
 function SkillDetailGuidanceCard({
