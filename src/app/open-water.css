@@ -4278,7 +4278,8 @@ body {
     gap: 18px;
   }
 
-  .createSkillStepperSteps {
+  .createSkillStepperSteps,
+  .routeLoadingCreateStepper {
     gap: 8px;
   }
 
@@ -4299,6 +4300,19 @@ body {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .routeLoadingCreateStepper {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .routeLoadingCreateStep {
+    width: 100%;
+  }
+
+  .routeLoadingCreateStep > div {
+    width: 100%;
+    max-width: 190px;
   }
 
   .createSkillPanelHeader {

@@ -6,10 +6,17 @@ import {
   buildQwenImageDataUrl,
   runQwenJsonChatCompletion,
 } from "@/lib/qwen";
+import {
+  resolveOptionalQwenFallbackConfig,
+  resolveQwenFallbackConfig,
+} from "@/lib/qwen-fallback";
+
+const originalEnv = process.env;
 
 describe("Qwen OpenAI-compatible client", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+    process.env = originalEnv;
   });
 
   it("requests JSON mode with non-thinking qwen3.7-plus defaults", async () => {
@@ -103,5 +110,33 @@ describe("Qwen OpenAI-compatible client", () => {
     expect(buildQwenImageDataUrl(Buffer.from("image"), "image/png")).toBe(
       "data:image/png;base64,aW1hZ2U=",
     );
+  });
+
+  it("disables fallback when the optional Qwen API key is absent", () => {
+    process.env = {
+      ...originalEnv,
+      QWEN_API_KEY: "",
+      QWEN_BASE_URL: "",
+      QWEN_MODEL: "",
+    };
+
+    expect(resolveQwenFallbackConfig()).toBeNull();
+    expect(resolveOptionalQwenFallbackConfig()).toEqual({
+      status: "ready",
+      config: null,
+    });
+  });
+
+  it("reports invalid optional Qwen fallback configuration without throwing", () => {
+    process.env = {
+      ...originalEnv,
+      QWEN_API_KEY: "qwen-secret",
+      QWEN_BASE_URL: "not-a-url",
+      QWEN_MODEL: "qwen3.7-plus",
+    };
+
+    expect(resolveOptionalQwenFallbackConfig()).toMatchObject({
+      status: "invalid",
+    });
   });
 });

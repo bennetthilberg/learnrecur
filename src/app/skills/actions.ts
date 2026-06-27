@@ -85,7 +85,7 @@ export type CompleteSourceUploadActionResult =
       status: "created";
       message: string;
       redirectTo: string;
-      skill: CreatedSkillDraftForReview;
+      skill: CreatedSkillDraftForReview | null;
     }
   | {
       status: "error";
@@ -226,6 +226,15 @@ export async function generateSkillDraftFromSourceAction(
           createdSkill: draft,
         };
       }
+
+      revalidatePath("/skills");
+      revalidatePath("/dashboard");
+      revalidatePath(`/skills/${skill.id}`);
+
+      return {
+        status: "saved",
+        message: "Skill was created, but LearnRecur could not load it for review. Open Skills and try again.",
+      };
     }
 
     return {
@@ -325,8 +334,10 @@ export async function completeSourceUploadAction(input: {
 
     if (!draft) {
       return {
-        status: "error",
+        status: "created",
         message: "Skill was created, but LearnRecur could not load it for review. Open Skills and try again.",
+        redirectTo: `/skills/${skill.id}`,
+        skill: null,
       };
     }
 

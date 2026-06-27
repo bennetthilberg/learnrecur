@@ -242,6 +242,36 @@ describe("environment validation", () => {
     });
   });
 
+  it("does not require Qwen for production Gemini-only deployments", () => {
+    resetManagedEnv({
+      NEXT_PUBLIC_APP_URL: " https://app.learnrecur.com ",
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: " pk_live_example ",
+      CLERK_SECRET_KEY: " sk_live_example ",
+      DATABASE_URL: "postgresql://runtime:secret@example-pooler.aws.neon.tech/neondb?sslmode=require",
+      DIRECT_URL: "postgresql://migrate:secret@example.aws.neon.tech/neondb?sslmode=require",
+      GEMINI_API_KEY: "gemini-secret",
+      GEMINI_MODEL: "gemini-3.5-flash",
+      AWS_REGION: "us-east-1",
+      S3_BUCKET_NAME: "learnrecur-prod-source-uploads",
+      AWS_ACCESS_KEY_ID: "prod-access-key",
+      AWS_SECRET_ACCESS_KEY: "prod-secret",
+      INNGEST_APP_ID: "learnrecur",
+      INNGEST_DEV: "0",
+      INNGEST_EVENT_KEY: "inngest-event-key",
+      INNGEST_SIGNING_KEY: "inngest-signing-key",
+      RESEND_API_KEY: "re_example",
+      RESEND_FROM_EMAIL: "LearnRecur <practice@app.learnrecur.com>",
+    });
+
+    expect(hasProductionEnv()).toBe(true);
+    const productionEnv = getProductionEnv();
+    expect(productionEnv).not.toHaveProperty("QWEN_API_KEY");
+    expect(productionEnv).toMatchObject({
+      QWEN_MODEL: "qwen3.7-plus",
+      QWEN_BASE_URL: "https://dashscope-us.aliyuncs.com/compatible-mode/v1",
+    });
+  });
+
   it("rejects unsafe production deployment configuration", () => {
     resetManagedEnv({
       NEXT_PUBLIC_APP_URL: "http://localhost:3000",

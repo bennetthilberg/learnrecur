@@ -25,7 +25,7 @@ import {
   type NumericAnswerSpec,
   type TextAnswerSpec,
 } from "@/lib/answer-checking";
-import { formatEnvError, getGeminiEnv, getQwenEnv } from "@/lib/env";
+import { formatEnvError, getGeminiEnv } from "@/lib/env";
 import {
   getGeminiErrorLogDetails,
   getPublicGeminiFailureMessage,
@@ -36,6 +36,7 @@ import {
   runQwenJsonChatCompletion,
   type QwenFallbackConfig,
 } from "@/lib/qwen";
+import { resolveOptionalQwenFallbackConfig } from "@/lib/qwen-fallback";
 import { createInitialSkillSchedule } from "@/lib/scheduling";
 import {
   checkPastedSourceDraftUsageLimit,
@@ -3469,19 +3470,10 @@ function resolveSourceDraftSetup(
     };
   }
 
-  try {
-    const env = getGeminiEnv();
-    const qwenFallback = resolveQwenFallbackConfig();
+  let env: ReturnType<typeof getGeminiEnv>;
 
-    return {
-      status: "ready",
-      model: env.GEMINI_MODEL,
-      generateSkillDraft: createGeminiSkillDraftGenerator({
-        apiKey: env.GEMINI_API_KEY,
-        model: env.GEMINI_MODEL,
-        qwenFallback,
-      }),
-    };
+  try {
+    env = getGeminiEnv();
   } catch (error) {
     return {
       status: "missing-env",
@@ -3489,6 +3481,26 @@ function resolveSourceDraftSetup(
       message: formatEnvError(error),
     };
   }
+
+  const qwenFallbackResult = resolveOptionalQwenFallbackConfig();
+  const qwenFallback =
+    qwenFallbackResult.status === "ready" ? qwenFallbackResult.config : null;
+
+  if (qwenFallbackResult.status === "invalid") {
+    console.warn("[ai] qwen fallback disabled for skill draft generation", {
+      message: qwenFallbackResult.message,
+    });
+  }
+
+  return {
+    status: "ready",
+    model: env.GEMINI_MODEL,
+    generateSkillDraft: createGeminiSkillDraftGenerator({
+      apiKey: env.GEMINI_API_KEY,
+      model: env.GEMINI_MODEL,
+      qwenFallback,
+    }),
+  };
 }
 
 export function createGeminiSkillDraftGenerator({
@@ -3555,20 +3567,6 @@ export function createQwenSkillDraftGenerator({
         },
       ],
     });
-}
-
-function resolveQwenFallbackConfig(): QwenFallbackConfig | null {
-  const env = getQwenEnv();
-
-  if (!env.QWEN_API_KEY) {
-    return null;
-  }
-
-  return {
-    apiKey: env.QWEN_API_KEY,
-    baseUrl: env.QWEN_BASE_URL,
-    model: env.QWEN_MODEL,
-  };
 }
 
 function createGeminiChoiceExerciseGenerator({

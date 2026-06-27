@@ -195,6 +195,10 @@ export function SourceCreationWorkspace() {
   }, [showNotice]);
 
   useEffect(() => {
+    if (activeStep !== 0) {
+      return undefined;
+    }
+
     function handleDocumentPaste(event: ClipboardEvent) {
       if (busy) {
         return;
@@ -215,7 +219,7 @@ export function SourceCreationWorkspace() {
     return () => {
       document.removeEventListener("paste", handleDocumentPaste);
     };
-  }, [busy, selectUploadFile]);
+  }, [activeStep, busy, selectUploadFile]);
 
   useEffect(() => {
     if (!textState.message || textState.status === "idle") {
@@ -240,6 +244,17 @@ export function SourceCreationWorkspace() {
       message: "Skill ready to review.",
     });
   }, [showNotice, textState.createdSkill, textState.status]);
+
+  useEffect(() => {
+    if (textState.status !== "saved" || textState.createdSkill || !textState.message) {
+      return;
+    }
+
+    showNotice({
+      tone: "success",
+      message: textState.message,
+    });
+  }, [showNotice, textState.createdSkill, textState.message, textState.status]);
 
   const handleActionError = useCallback(
     (result: Extract<PrepareSourceUploadActionResult, { status: "error" }>) => {
@@ -326,7 +341,7 @@ export function SourceCreationWorkspace() {
         setCreatedSkill(completed.skill);
         showNotice({
           tone: "success",
-          message: "Skill ready to review.",
+          message: completed.message,
         });
         return;
       }

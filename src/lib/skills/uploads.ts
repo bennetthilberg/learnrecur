@@ -9,7 +9,7 @@ import {
   SourceFileStatus,
   type Skill,
 } from "@/generated/prisma/client";
-import { formatEnvError, getGeminiEnv, getQwenEnv } from "@/lib/env";
+import { formatEnvError, getGeminiEnv } from "@/lib/env";
 import {
   getGeminiErrorLogDetails,
   getPublicGeminiFailureMessage,
@@ -21,6 +21,7 @@ import {
   type SourceUploadDraftEventSender,
 } from "@/lib/inngest/events";
 import { getPrisma } from "@/lib/prisma";
+import { resolveOptionalQwenFallbackConfig } from "@/lib/qwen-fallback";
 import {
   buildQwenImageDataUrl,
   runQwenJsonChatCompletion,
@@ -1142,24 +1143,10 @@ function resolveUploadGenerationSetup(
     };
   }
 
-  try {
-    const env = getGeminiEnv();
-    const qwenFallback = resolveQwenFallbackConfig();
+  let env: ReturnType<typeof getGeminiEnv>;
 
-    return {
-      status: "ready",
-      model: env.GEMINI_MODEL,
-      extractSourceText: input.extractSourceText ?? createGeminiSourceTextExtractor({
-        apiKey: env.GEMINI_API_KEY,
-        model: env.GEMINI_MODEL,
-        qwenFallback,
-      }),
-      generateSkillDraft: input.generateSkillDraft ?? createGeminiSkillDraftGenerator({
-        apiKey: env.GEMINI_API_KEY,
-        model: env.GEMINI_MODEL,
-        qwenFallback,
-      }),
-    };
+  try {
+    env = getGeminiEnv();
   } catch (error) {
     return {
       status: "missing-env",
@@ -1167,6 +1154,31 @@ function resolveUploadGenerationSetup(
       message: formatEnvError(error),
     };
   }
+
+  const qwenFallbackResult = resolveOptionalQwenFallbackConfig();
+  const qwenFallback =
+    qwenFallbackResult.status === "ready" ? qwenFallbackResult.config : null;
+
+  if (qwenFallbackResult.status === "invalid") {
+    console.warn("[ai] qwen fallback disabled for upload generation", {
+      message: qwenFallbackResult.message,
+    });
+  }
+
+  return {
+    status: "ready",
+    model: env.GEMINI_MODEL,
+    extractSourceText: input.extractSourceText ?? createGeminiSourceTextExtractor({
+      apiKey: env.GEMINI_API_KEY,
+      model: env.GEMINI_MODEL,
+      qwenFallback,
+    }),
+    generateSkillDraft: input.generateSkillDraft ?? createGeminiSkillDraftGenerator({
+      apiKey: env.GEMINI_API_KEY,
+      model: env.GEMINI_MODEL,
+      qwenFallback,
+    }),
+  };
 }
 
 function createGeminiSourceTextExtractor({
@@ -1295,20 +1307,6 @@ function readStringField(record: Record<string, unknown>, field: string): string
   const value = record[field];
 
   return typeof value === "string" && value.trim() ? value.trim() : null;
-}
-
-function resolveQwenFallbackConfig(): QwenFallbackConfig | null {
-  const env = getQwenEnv();
-
-  if (!env.QWEN_API_KEY) {
-    return null;
-  }
-
-  return {
-    apiKey: env.QWEN_API_KEY,
-    baseUrl: env.QWEN_BASE_URL,
-    model: env.QWEN_MODEL,
-  };
 }
 
 function buildSourceExtractionPrompt(input: SourceTextExtractorInput) {

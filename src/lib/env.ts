@@ -116,13 +116,6 @@ const qwenEnvSchema = z.object({
   QWEN_BASE_URL: qwenBaseUrlSchema,
 });
 
-const requiredQwenEnvSchema = qwenEnvSchema.extend({
-  QWEN_API_KEY: z
-    .string({ error: "QWEN_API_KEY is required" })
-    .trim()
-    .min(1, "QWEN_API_KEY is required"),
-});
-
 const appUrlSchema = z.preprocess((value) => {
   if (typeof value === "string" && value.trim() === "") {
     return undefined;
@@ -222,7 +215,7 @@ const falseEnvValues = new Set(["0", "false", "no", "n", "off"]);
 const productionEnvSchema = requiredDatabaseEnvSchema
   .merge(productionClerkEnvSchema)
   .merge(geminiEnvSchema)
-  .merge(requiredQwenEnvSchema)
+  .merge(qwenEnvSchema)
   .merge(
     resendEnvSchema.extend({
       NEXT_PUBLIC_APP_URL: productionAppUrlSchema,
