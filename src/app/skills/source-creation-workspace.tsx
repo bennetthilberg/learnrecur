@@ -2,9 +2,10 @@
 
 import { useActionState, useCallback, useEffect, useId, useRef, useState, useTransition } from "react";
 import type React from "react";
+import { Stepper } from "@mantine/core";
 import { CheckCircle, UploadSimple, WarningCircle } from "@phosphor-icons/react";
 import { notifications } from "@mantine/notifications";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 import { SOURCE_UPLOAD_MIME_TYPES } from "@/lib/skills/source-upload-policy";
 
@@ -12,10 +13,12 @@ import {
   completeSourceUploadAction,
   generateSkillDraftFromSourceAction,
   prepareSourceUploadAction,
+  type CreatedSkillDraftForReview,
   type PrepareSourceUploadActionResult,
   type SkillFormActionState,
 } from "./actions";
 import { getClipboardSourceFile, getSourceUploadFileError } from "./source-upload-clipboard";
+import { SkillDraftForm } from "./skill-draft-form";
 
 export type SourceGenerationStatus = {
   title: string;
@@ -28,6 +31,14 @@ export type SourceCreationNotice = {
 };
 
 type UploadStatus = "idle" | "preparing" | "uploading" | "generating" | "error";
+type SkillCreationStep = 0 | 1 | 2;
+type MaterialSnapshot = {
+  sourceText: string;
+  sourceLabel: string;
+  collectionName: string;
+  focusNote: string;
+  tags: string;
+};
 
 const sourceCreationNotificationId = "source-creation-notice";
 const emptySourceTextMessage =
@@ -55,8 +66,26 @@ const skillStatusMessages = [
   "Shaping it into a review target...",
 ];
 
+const emptyMaterialSnapshot: MaterialSnapshot = {
+  sourceText: "",
+  sourceLabel: "",
+  collectionName: "",
+  focusNote: "",
+  tags: "",
+};
+
+const createSkillStepperClassNames = {
+  content: "createSkillStepperContent",
+  separator: "createSkillStepperSeparator",
+  step: "createSkillStepperStep",
+  stepBody: "createSkillStepperBody",
+  stepDescription: "createSkillStepperDescription",
+  stepIcon: "createSkillStepperIcon",
+  stepLabel: "createSkillStepperLabel",
+  steps: "createSkillStepperSteps",
+} as const;
+
 export function SourceCreationWorkspace() {
-  const router = useRouter();
   const fileInputId = useId();
   const sourceTextId = useId();
   const sourceTextErrorId = useId();
@@ -72,6 +101,10 @@ export function SourceCreationWorkspace() {
   const [uploadStatus, setUploadStatus] = useState<UploadStatus>("idle");
   const [isSubmittingUpload, setIsSubmittingUpload] = useState(false);
   const [isPendingUpload, startUploadTransition] = useTransition();
+  const [materialSnapshot, setMaterialSnapshot] = useState<MaterialSnapshot>(emptyMaterialSnapshot);
+  const [createdSkill, setCreatedSkill] = useState<CreatedSkillDraftForReview | null>(null);
+  const [activatedSkillId, setActivatedSkillId] = useState<string | null>(null);
+  const [dismissedSkillId, setDismissedSkillId] = useState<string | null>(null);
 
   const uploadBusy =
     isSubmittingUpload ||
@@ -85,6 +118,10 @@ export function SourceCreationWorkspace() {
     uploadBusy,
     uploadStatus,
   });
+  const textCreatedSkill = textState.status === "saved" ? textState.createdSkill ?? null : null;
+  const reviewSkill =
+    createdSkill ?? (textCreatedSkill?.skillId === dismissedSkillId ? null : textCreatedSkill);
+  const activeStep: SkillCreationStep = activatedSkillId ? 2 : reviewSkill ? 1 : 0;
   const activeFieldErrors = selectedFile
     ? fieldErrors
     : fieldErrors ?? (textState.status === "error" ? textState.fieldErrors : undefined);
@@ -193,15 +230,177 @@ export function SourceCreationWorkspace() {
     }
   }, [showNotice, textState.message, textState.status]);
 
-  if (generationStatus) {
-    return <SourceGenerationPanel status={generationStatus} />;
-  }
+  useEffect(() => {
+    if (textState.status !== "saved" || !textState.createdSkill) {
+      return;
+    }
 
-  return (
+    showNotice({
+      tone: "success",
+      message: "Skill ready to review.",
+    });
+  }, [showNotice, textState.createdSkill, textState.status]);
+
+  const handleActionError = useCallback(
+    (result: Extract<PrepareSourceUploadActionResult, { status: "error" }>) => {
+      setUploadStatus("error");
+      setFieldErrors(result.fieldErrors);
+      showNotice({
+        tone: "error",
+        message: result.message,
+      });
+    },
+    [showNotice],
+  );
+
+  const handleUploadSubmit = useCallback(
+    async (form: HTMLFormElement) => {
+      if (!selectedFile) {
+        return;
+      }
+
+      showNotice(null);
+      setFieldErrors(undefined);
+
+      const fileError = getSourceUploadFileError(selectedFile);
+
+      if (fileError) {
+        setUploadStatus("error");
+        setFieldErrors({
+          [fileError.field]: [fileError.message],
+        });
+        showNotice({
+          tone: "error",
+          message: fileError.message,
+        });
+        return;
+      }
+
+      const formData = new FormData(form);
+      const sourceText = stringFormValue(formData.get("sourceText"));
+      const existingFocus = stringFormValue(formData.get("focusNote"));
+
+      formData.set("originalName", selectedFile.name);
+      formData.set("mimeType", selectedFile.type);
+      formData.set("byteSize", String(selectedFile.size));
+      formData.delete("sourceFile");
+      formData.delete("sourceText");
+
+      if (!existingFocus && sourceText) {
+        formData.set("focusNote", sourceText);
+      }
+
+      setUploadStatus("preparing");
+      const prepared = await prepareSourceUploadAction(formData);
+
+      if (prepared.status !== "prepared") {
+        handleActionError(prepared);
+        return;
+      }
+
+      setUploadStatus("uploading");
+      const uploadResponse = await fetch(prepared.uploadUrl, {
+        method: "PUT",
+        headers: prepared.headers,
+        body: selectedFile,
+      });
+
+      if (!uploadResponse.ok) {
+        setUploadStatus("error");
+        showNotice({
+          tone: "error",
+          message: "The private upload failed. Check file upload settings, then try again.",
+        });
+        return;
+      }
+
+      setUploadStatus("generating");
+      const completed = await completeSourceUploadAction({
+        sourceFileId: prepared.sourceFileId,
+      });
+
+      if (completed.status === "created") {
+        setUploadStatus("idle");
+        setActivatedSkillId(null);
+        setDismissedSkillId(null);
+        setCreatedSkill(completed.skill);
+        showNotice({
+          tone: "success",
+          message: "Skill ready to review.",
+        });
+        return;
+      }
+
+      setUploadStatus("error");
+      showNotice({
+        tone: "error",
+        message: completed.message,
+      });
+    },
+    [handleActionError, selectedFile, showNotice],
+  );
+
+  const submitUpload = useCallback(
+    async (form: HTMLFormElement) => {
+      try {
+        await handleUploadSubmit(form);
+      } catch (error) {
+        setUploadStatus("error");
+        showNotice({
+          tone: "error",
+          message: formatClientError(error),
+        });
+      } finally {
+        setIsSubmittingUpload(false);
+      }
+    },
+    [handleUploadSubmit, showNotice],
+  );
+
+  const canReturnToMaterial = !busy && Boolean(reviewSkill) && !activatedSkillId;
+  const creationContent = generationStatus ? (
+    <SourceGenerationPanel status={generationStatus} />
+  ) : activatedSkillId ? (
+    <SkillAddedPanel
+      onAddAnother={() => {
+        clearFileInput(fileInputRef.current);
+        setActivatedSkillId(null);
+        setCreatedSkill(null);
+        setDismissedSkillId(textCreatedSkill?.skillId ?? null);
+        setSelectedFile(null);
+        setFieldErrors(undefined);
+        setUploadStatus("idle");
+        setMaterialSnapshot(emptyMaterialSnapshot);
+        showNotice(null);
+      }}
+      skillId={activatedSkillId}
+    />
+  ) : reviewSkill ? (
+    <SkillDraftForm
+      activationMode="inline"
+      initialValues={reviewSkill.values}
+      mode="edit"
+      onAdded={(skillId) => {
+        setActivatedSkillId(skillId);
+        setCreatedSkill(null);
+        setDismissedSkillId(skillId);
+      }}
+      onBack={() => {
+        setCreatedSkill(null);
+        setDismissedSkillId(reviewSkill.skillId);
+        showNotice(null);
+      }}
+      skillId={reviewSkill.skillId}
+    />
+  ) : (
     <form
       action={textAction}
-      className="skillCreateStack"
+      className="skillCreateStack createSkillMaterialForm"
       onSubmit={(event) => {
+        const formData = new FormData(event.currentTarget);
+        setMaterialSnapshot(formDataToMaterialSnapshot(formData));
+        setDismissedSkillId(null);
+
         if (selectedFile) {
           event.preventDefault();
 
@@ -217,7 +416,6 @@ export function SourceCreationWorkspace() {
           return;
         }
 
-        const formData = new FormData(event.currentTarget);
         const sourceText = stringFormValue(formData.get("sourceText"));
 
         if (!sourceText) {
@@ -286,6 +484,7 @@ export function SourceCreationWorkspace() {
             aria-labelledby="create-skill-input-title"
             className="createSkillTextarea"
             disabled={busy}
+            defaultValue={materialSnapshot.sourceText}
             id={sourceTextId}
             name="sourceText"
             placeholder="Paste notes, describe the skill, or drop a worksheet here."
@@ -369,12 +568,14 @@ export function SourceCreationWorkspace() {
                 label="Source name"
                 name="sourceLabel"
                 placeholder="Chapter 4 notes"
+                defaultValue={materialSnapshot.sourceLabel}
               />
               <SkillTextField
                 error={activeFieldErrors?.collectionName?.[0]}
                 label="Collection"
                 name="collectionName"
                 placeholder="Spanish grammar"
+                defaultValue={materialSnapshot.collectionName}
               />
             </div>
 
@@ -383,6 +584,7 @@ export function SourceCreationWorkspace() {
               label="Focus"
               name="focusNote"
               placeholder="Focus on the rule, not vocabulary memorization."
+              defaultValue={materialSnapshot.focusNote}
               rows={3}
             />
 
@@ -391,6 +593,7 @@ export function SourceCreationWorkspace() {
               label="Tags"
               name="tags"
               placeholder="spanish, verbs, grammar"
+              defaultValue={materialSnapshot.tags}
             />
           </div>
         </details>
@@ -408,105 +611,87 @@ export function SourceCreationWorkspace() {
     </form>
   );
 
-  async function submitUpload(form: HTMLFormElement) {
-    try {
-      await handleUploadSubmit(form);
-    } catch (error) {
-      setUploadStatus("error");
-      showNotice({
-        tone: "error",
-        message: formatClientError(error),
-      });
-    } finally {
-      setIsSubmittingUpload(false);
-    }
-  }
+  return (
+    <div className="skillCreateFlow">
+      <SkillCreationStepper
+        activeStep={activeStep}
+        canReturnToMaterial={canReturnToMaterial}
+        onReturnToMaterial={() => {
+          setCreatedSkill(null);
+          setDismissedSkillId(reviewSkill?.skillId ?? null);
+          showNotice(null);
+        }}
+      />
+      {creationContent}
+    </div>
+  );
+}
 
-  async function handleUploadSubmit(form: HTMLFormElement) {
-    if (!selectedFile) {
-      return;
-    }
+function SkillCreationStepper({
+  activeStep,
+  canReturnToMaterial,
+  onReturnToMaterial,
+}: {
+  activeStep: SkillCreationStep;
+  canReturnToMaterial: boolean;
+  onReturnToMaterial: () => void;
+}) {
+  return (
+    <Stepper
+      active={activeStep}
+      allowNextStepsSelect={false}
+      className="createSkillStepper"
+      classNames={createSkillStepperClassNames}
+      color="blue"
+      iconSize={28}
+      onStepClick={(stepIndex) => {
+        if (stepIndex === 0 && canReturnToMaterial) {
+          onReturnToMaterial();
+        }
+      }}
+      size="sm"
+      wrap={false}
+    >
+      <Stepper.Step
+        allowStepClick={canReturnToMaterial}
+        description="Add source"
+        label="Material"
+      />
+      <Stepper.Step allowStepClick={false} description="Edit skill" label="Review" />
+      <Stepper.Step allowStepClick={false} description="Ready" label="Added" />
+    </Stepper>
+  );
+}
 
-    showNotice(null);
-    setFieldErrors(undefined);
-
-    const fileError = getSourceUploadFileError(selectedFile);
-
-    if (fileError) {
-      setUploadStatus("error");
-      setFieldErrors({
-        [fileError.field]: [fileError.message],
-      });
-      showNotice({
-        tone: "error",
-        message: fileError.message,
-      });
-      return;
-    }
-
-    const formData = new FormData(form);
-    const sourceText = stringFormValue(formData.get("sourceText"));
-    const existingFocus = stringFormValue(formData.get("focusNote"));
-
-    formData.set("originalName", selectedFile.name);
-    formData.set("mimeType", selectedFile.type);
-    formData.set("byteSize", String(selectedFile.size));
-    formData.delete("sourceFile");
-    formData.delete("sourceText");
-
-    if (!existingFocus && sourceText) {
-      formData.set("focusNote", sourceText);
-    }
-
-    setUploadStatus("preparing");
-    const prepared = await prepareSourceUploadAction(formData);
-
-    if (prepared.status !== "prepared") {
-      handleActionError(prepared);
-      return;
-    }
-
-    setUploadStatus("uploading");
-    const uploadResponse = await fetch(prepared.uploadUrl, {
-      method: "PUT",
-      headers: prepared.headers,
-      body: selectedFile,
-    });
-
-    if (!uploadResponse.ok) {
-      setUploadStatus("error");
-      showNotice({
-        tone: "error",
-        message: "The private upload failed. Check file upload settings, then try again.",
-      });
-      return;
-    }
-
-    setUploadStatus("generating");
-    const completed = await completeSourceUploadAction({
-      sourceFileId: prepared.sourceFileId,
-    });
-
-    if (completed.status === "created") {
-      router.push(completed.redirectTo);
-      return;
-    }
-
-    setUploadStatus("error");
-    showNotice({
-      tone: "error",
-      message: completed.message,
-    });
-  }
-
-  function handleActionError(result: Extract<PrepareSourceUploadActionResult, { status: "error" }>) {
-    setUploadStatus("error");
-    setFieldErrors(result.fieldErrors);
-    showNotice({
-      tone: "error",
-      message: result.message,
-    });
-  }
+function SkillAddedPanel({
+  onAddAnother,
+  skillId,
+}: {
+  onAddAnother: () => void;
+  skillId: string;
+}) {
+  return (
+    <section className="skillPanel createSkillDonePanel">
+      <div className="createSkillDoneCopy">
+        <CheckCircle size={34} weight="fill" aria-hidden="true" />
+        <div>
+          <h2>Skill added</h2>
+          <p>It is active now and included in your review schedule.</p>
+        </div>
+      </div>
+      <div className="skillFormActions createSkillDoneActions">
+        <Link className="primaryButton" href={`/skills/${skillId}`}>
+          View skill
+        </Link>
+        <Link className="secondaryButton" href="/practice">
+          Open practice
+        </Link>
+        <button className="secondaryButton" onClick={onAddAnother} type="button">
+          Add another
+        </button>
+      </div>
+    </section>
+  );
 }
 
 function SourceGenerationPanel({ status }: { status: SourceGenerationStatus }) {
@@ -674,6 +859,16 @@ function clearFileInput(input: HTMLInputElement | null) {
 
 function stringFormValue(value: FormDataEntryValue | null) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function formDataToMaterialSnapshot(formData: FormData): MaterialSnapshot {
+  return {
+    sourceText: stringFormValue(formData.get("sourceText")),
+    sourceLabel: stringFormValue(formData.get("sourceLabel")),
+    collectionName: stringFormValue(formData.get("collectionName")),
+    focusNote: stringFormValue(formData.get("focusNote")),
+    tags: stringFormValue(formData.get("tags")),
+  };
 }
 
 function focusSourceText(form: HTMLFormElement) {

@@ -6,6 +6,7 @@ import { CheckCircle, FloppyDisk, WarningCircle } from "@phosphor-icons/react";
 import { notifications } from "@mantine/notifications";
 
 import {
+  addSkillDraftToPracticeInlineAction,
   addSkillDraftToPracticeAction,
   saveSkillDraftAction,
   type SkillFormActionState,
@@ -31,6 +32,9 @@ type SkillDraftFormProps =
       mode: "edit";
       skillId: string;
       initialValues: SkillDraftFormValues;
+      activationMode?: "redirect" | "inline";
+      onAdded?: (skillId: string) => void;
+      onBack?: () => void;
     };
 
 const idleState: SkillFormActionState = {
@@ -44,9 +48,14 @@ const addSkillNotificationId = "skill-add-notice";
 export function SkillDraftForm(props: SkillDraftFormProps) {
   const { initialValues, mode } = props;
   const isEditMode = mode === "edit";
+  const activationMode = isEditMode ? props.activationMode ?? "redirect" : "redirect";
+  const onAdded = isEditMode ? props.onAdded : undefined;
+  const onBack = isEditMode ? props.onBack : undefined;
+  const addSkillServerAction =
+    activationMode === "inline" ? addSkillDraftToPracticeInlineAction : addSkillDraftToPracticeAction;
   const [draftState, saveAction, isSaving] = useActionState(saveSkillDraftAction, idleState);
   const [addSkillState, addSkillAction, isAddingSkill] = useActionState(
-    addSkillDraftToPracticeAction,
+    addSkillServerAction,
     idleState,
   );
   const formAction = isEditMode ? addSkillAction : saveAction;
@@ -82,6 +91,23 @@ export function SkillDraftForm(props: SkillDraftFormProps) {
       return;
     }
 
+    if (addSkillState.status === "activated" && addSkillState.activatedSkillId) {
+      notifications.show({
+        id: addSkillNotificationId,
+        autoClose: 3500,
+        className: "learnrecurNotification",
+        color: "leaf",
+        icon: <CheckCircle size={18} weight="bold" />,
+        message: "The skill is active and in your review schedule.",
+        position: "top-right",
+        title: "Skill added",
+        withBorder: true,
+        withCloseButton: true,
+      });
+      onAdded?.(addSkillState.activatedSkillId);
+      return;
+    }
+
     const savedButNotAdded = addSkillState.status === "saved";
     notifications.show({
       id: addSkillNotificationId,
@@ -95,7 +121,7 @@ export function SkillDraftForm(props: SkillDraftFormProps) {
       withBorder: true,
       withCloseButton: true,
     });
-  }, [addSkillState]);
+  }, [addSkillState, onAdded]);
 
   return (
     <div className="skillDraftGrid">
@@ -182,6 +208,16 @@ export function SkillDraftForm(props: SkillDraftFormProps) {
         </fieldset>
 
         <div className="skillFormActions">
+          {onBack ? (
+            <button
+              className="secondaryButton"
+              disabled={isSubmitting}
+              onClick={onBack}
+              type="button"
+            >
+              Back
+            </button>
+          ) : null}
           <button
             className="primaryButton"
             disabled={isSubmitting}

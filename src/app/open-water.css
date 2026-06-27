@@ -3138,7 +3138,7 @@ body {
 
 /* ===== Skill creation simplification ===== */
 .createSkillShell .createSkillHeader,
-.createSkillShell .skillCreateStack,
+.createSkillShell .skillCreateFlow,
 .createSkillReviewShell .createSkillHeader,
 .createSkillReviewShell .skillDraftGrid,
 .createSkillReviewShell .skillSourcePanel {
@@ -3176,9 +3176,84 @@ body {
   line-height: 1.48;
 }
 
-.createSkillShell .skillCreateStack,
+.createSkillShell .skillCreateFlow,
 .createSkillReviewShell .skillDraftGrid {
   margin-top: 24px;
+}
+
+.createSkillShell .skillCreateFlow {
+  display: grid;
+  gap: 22px;
+}
+
+.createSkillFlow .skillCreateStack,
+.createSkillFlow .skillDraftGrid {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+}
+
+.createSkillFlow .skillDraftGrid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.createSkillFlow .createSkillGenerationPanel {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+}
+
+.createSkillStepper {
+  width: 100%;
+}
+
+.createSkillStepperSteps {
+  align-items: flex-start;
+}
+
+.createSkillStepperStep {
+  min-width: 0;
+}
+
+.createSkillStepperIcon {
+  border-color: var(--lr-card-border);
+  color: var(--lr-text-secondary);
+  font-family: var(--lr-font-display);
+  font-weight: 800;
+}
+
+.createSkillStepperStep[data-progress="true"] .createSkillStepperIcon,
+.createSkillStepperStep[data-completed="true"] .createSkillStepperIcon {
+  border-color: var(--lr-blue);
+  background: var(--lr-blue);
+  color: #FFFFFF;
+}
+
+.createSkillStepperSeparator {
+  margin-top: 14px;
+  background: var(--lr-divider);
+}
+
+.createSkillStepperStep[data-completed="true"] + .createSkillStepperSeparator {
+  background: var(--lr-blue);
+}
+
+.createSkillStepperLabel {
+  color: var(--lr-ink);
+  font-family: var(--lr-font-display);
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.createSkillStepperDescription {
+  color: var(--lr-text-secondary);
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.createSkillStepperContent {
+  display: none;
 }
 
 .createSkillReviewShell .skillDraftGrid {
@@ -3333,6 +3408,45 @@ body {
   margin-top: 0;
 }
 
+.createSkillDonePanel {
+  display: grid;
+  gap: 28px;
+  padding: 36px 38px;
+}
+
+.createSkillDoneCopy {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.createSkillDoneCopy svg {
+  flex: 0 0 auto;
+  color: var(--lr-blue);
+  margin-top: 2px;
+}
+
+.createSkillDoneCopy h2 {
+  margin: 0;
+  color: var(--lr-ink);
+  font-family: var(--lr-font-display);
+  font-size: 25px;
+  font-weight: 800;
+  line-height: 1.16;
+}
+
+.createSkillDoneCopy p {
+  max-width: 440px;
+  margin: 8px 0 0;
+  color: var(--lr-text-secondary);
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.createSkillDoneActions {
+  justify-content: start;
+}
+
 .createSkillGenerationPanel {
   width: calc(100% - 28px);
   max-width: 760px;
@@ -3444,6 +3558,23 @@ body {
 
 .routeLoadingCreatePanel {
   min-height: 535px;
+}
+
+.routeLoadingCreateStepper {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.routeLoadingCreateStep {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.routeLoadingCreateStep > div {
+  min-width: 0;
 }
 
 .routeLoadingCreateInput {
@@ -4138,8 +4269,36 @@ body {
   }
 
   .createSkillPanel,
-  .createSkillReviewShell .skillDraftForm {
+  .createSkillReviewShell .skillDraftForm,
+  .createSkillDonePanel {
     padding: 26px 22px;
+  }
+
+  .createSkillShell .skillCreateFlow {
+    gap: 18px;
+  }
+
+  .createSkillStepperSteps {
+    gap: 8px;
+  }
+
+  .createSkillStepperSeparator {
+    display: none;
+  }
+
+  .createSkillStepperStep {
+    flex: 1 1 0;
+  }
+
+  .createSkillStepperBody {
+    min-width: 0;
+  }
+
+  .createSkillStepperLabel,
+  .createSkillStepperDescription {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .createSkillPanelHeader {
@@ -4169,6 +4328,14 @@ body {
     max-width: 100%;
     margin-left: 0;
     justify-self: start;
+  }
+
+  .createSkillDoneCopy {
+    display: grid;
+  }
+
+  .createSkillDoneActions {
+    align-items: stretch;
   }
 
   .routeLoadingCreatePanel {

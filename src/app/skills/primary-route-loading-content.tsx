@@ -305,7 +305,18 @@ function NewSkillRouteLoading({ config }: { config: PrimaryRouteLoadingConfig })
           <p>{config.detail}</p>
         </div>
       </header>
-      <div className="skillCreateStack routeLoadingCreateStack">
+      <div className="skillCreateFlow routeLoadingCreateStack">
+        <div className="routeLoadingCreateStepper" aria-hidden="true">
+          {Array.from({ length: 3 }, (_, index) => (
+            <div className="routeLoadingCreateStep" key={index}>
+              <Skeleton className="routeSkeleton" height={28} radius={999} width={28} />
+              <div>
+                <Skeleton className="routeSkeleton" height={14} radius={5} width={72} />
+                <Skeleton className="routeSkeleton" height={12} mt={7} radius={5} width={84} />
+              </div>
+            </div>
+          ))}
+        </div>
         <section
           className="skillPanel createSkillPanel routeLoadingCreatePanel"
           aria-label="Skill creation loading"
