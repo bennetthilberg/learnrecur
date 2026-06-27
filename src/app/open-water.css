@@ -4061,6 +4061,8 @@ body {
 .skillDetailOverview .skillLifecycleGroup + .skillLifecycleGroup {
   border-top: 1px solid var(--lr-divider);
   border-left: 0;
+  margin-top: 24px;
+  padding-top: 28px;
 }
 
 .skillDetailOverview .skillLifecycleGroup[data-tone="danger"] {

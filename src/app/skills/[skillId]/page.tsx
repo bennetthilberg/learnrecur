@@ -445,6 +445,7 @@ export default async function SkillPage({
             />
             <SkillSourcePanel
               className="skillDetailSources"
+              showEmpty
               skillId={skill.id}
               sources={sourceSummaries}
             />
