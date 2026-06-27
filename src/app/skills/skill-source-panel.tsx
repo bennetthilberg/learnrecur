@@ -6,10 +6,12 @@ import { SkillSourceRemoveForm } from "./skill-source-remove-form";
 
 export function SkillSourcePanel({
   canRemove = true,
+  className,
   skillId,
   sources,
 }: {
   canRemove?: boolean;
+  className?: string;
   skillId: string;
   sources: SkillSourceSummary[];
 }) {
@@ -18,7 +20,10 @@ export function SkillSourcePanel({
   }
 
   return (
-    <section className="skillPanel skillSourcePanel" aria-labelledby="skill-source-title">
+    <section
+      className={["skillPanel skillSourcePanel", className].filter(Boolean).join(" ")}
+      aria-labelledby="skill-source-title"
+    >
       <div className="skillPanelHeader">
         <div>
           <h2 id="skill-source-title">Linked source material</h2>
