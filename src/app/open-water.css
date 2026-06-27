@@ -3211,6 +3211,13 @@ body {
   margin: 0;
 }
 
+.skillCreateFlow .skillDraftForm,
+.createSkillReviewShell .skillDraftForm {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 720px;
+}
+
 .createSkillStepper {
   width: 100%;
 }
@@ -4395,38 +4402,93 @@ body {
   }
 
   .createSkillPanel,
+  .skillCreateFlow .skillDraftForm,
   .createSkillReviewShell .skillDraftForm,
   .createSkillDonePanel {
-    padding: 26px 22px;
+    padding: 26px 18px;
   }
 
   .createSkillShell .skillCreateFlow {
     gap: 18px;
   }
 
+  .createSkillShell:has(.skillCreateFlow[data-step="2"]) .createSkillHeader,
+  .createSkillShell .skillCreateFlow[data-step="2"],
+  .createSkillReviewShell .createSkillHeader,
+  .createSkillReviewShell .skillDraftGrid {
+    width: calc(100% - 28px);
+    max-width: none;
+  }
+
   .createSkillStepperSteps,
   .routeLoadingCreateStepper {
-    gap: 8px;
+    gap: 6px;
   }
 
   .createSkillStepperSeparator {
-    display: block;
-    min-width: 16px;
+    display: none;
   }
 
   .createSkillStepperStep {
+    display: grid;
     flex: 1 1 0;
+    min-width: 0;
+    justify-items: center;
+    gap: 7px;
   }
 
   .createSkillStepperBody {
     min-width: 0;
+    text-align: center;
   }
 
-  .createSkillStepperLabel,
-  .createSkillStepperDescription {
+  .createSkillStepperIcon {
+    width: 34px;
+    min-width: 34px;
+    height: 34px;
+  }
+
+  .createSkillStepperLabel {
+    max-width: 100%;
+    font-size: 12px;
+    line-height: 1.15;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .createSkillStepperDescription {
+    display: none;
+  }
+
+  .skillCreateFlow .skillDraftGrid,
+  .skillCreateFlow .skillDraftForm,
+  .skillCreateFlow .skillFormFieldset,
+  .skillCreateFlow .skillFormFieldsetBody,
+  .skillCreateFlow .skillTwoColumnFields,
+  .skillCreateFlow .skillField,
+  .createSkillReviewShell .skillDraftGrid,
+  .createSkillReviewShell .skillDraftForm,
+  .createSkillReviewShell .skillFormFieldset,
+  .createSkillReviewShell .skillFormFieldsetBody,
+  .createSkillReviewShell .skillTwoColumnFields,
+  .createSkillReviewShell .skillField {
+    min-width: 0;
+  }
+
+  .skillCreateFlow .skillTwoColumnFields,
+  .createSkillReviewShell .skillTwoColumnFields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .skillCreateFlow .skillField input,
+  .skillCreateFlow .skillField select,
+  .skillCreateFlow .skillField textarea,
+  .createSkillReviewShell .skillField input,
+  .createSkillReviewShell .skillField select,
+  .createSkillReviewShell .skillField textarea {
+    box-sizing: border-box;
+    max-width: 100%;
   }
 
   .routeLoadingCreateStepper {
