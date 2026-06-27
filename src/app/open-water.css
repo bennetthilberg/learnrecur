@@ -3149,9 +3149,11 @@ body {
   justify-self: center;
 }
 
+.createSkillShell:has(.skillCreateFlow[data-step="2"]) .createSkillHeader,
 .createSkillShell .skillCreateFlow[data-step="2"],
+.createSkillReviewShell .createSkillHeader,
 .createSkillReviewShell .skillDraftGrid {
-  width: min(1040px, calc(100% - clamp(48px, 14vw, 180px)));
+  width: min(980px, calc(100% - clamp(48px, 14vw, 180px)));
   max-width: none;
 }
 
