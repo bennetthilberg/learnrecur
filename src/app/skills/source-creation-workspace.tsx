@@ -3,7 +3,14 @@
 import { useActionState, useCallback, useEffect, useId, useRef, useState, useTransition } from "react";
 import type React from "react";
 import { Stepper } from "@mantine/core";
-import { CheckCircle, UploadSimple, WarningCircle } from "@phosphor-icons/react";
+import {
+  CheckCircle,
+  File as FileIcon,
+  FilePdf,
+  Trash,
+  UploadSimple,
+  WarningCircle,
+} from "@phosphor-icons/react";
 import { notifications } from "@mantine/notifications";
 import Image from "next/image";
 import Link from "next/link";
@@ -158,6 +165,13 @@ export function SourceCreationWorkspace() {
     },
     [clearSelectedFilePreview],
   );
+
+  const clearSelectedFile = useCallback(() => {
+    clearFileInput(fileInputRef.current);
+    setSelectedFile(null);
+    clearSelectedFilePreview();
+    setFieldErrors(undefined);
+  }, [clearSelectedFilePreview]);
 
   const showNotice = useCallback((nextNotice: SourceCreationNotice | null) => {
     notifications.hide(sourceCreationNotificationId);
@@ -428,9 +442,7 @@ export function SourceCreationWorkspace() {
         setActivatedSkillId(null);
         setCreatedSkill(null);
         setDismissedSkillId(textCreatedSkill?.skillId ?? null);
-        setSelectedFile(null);
-        clearSelectedFilePreview();
-        setFieldErrors(undefined);
+        clearSelectedFile();
         setUploadStatus("idle");
         setMaterialSnapshot(emptyMaterialSnapshot);
         showNotice(null);
@@ -566,47 +578,25 @@ export function SourceCreationWorkspace() {
               if (file) {
                 selectUploadFile(file);
               } else {
-                setSelectedFile(null);
-                clearSelectedFilePreview();
+                clearSelectedFile();
               }
             }}
             ref={fileInputRef}
             tabIndex={-1}
             type="file"
           />
-          {selectedFile && selectedFilePreviewUrl ? (
-            <div className="createSkillImagePreview">
-              <Image
-                alt={`Preview of ${selectedFile.name}`}
-                height={170}
-                src={selectedFilePreviewUrl}
-                unoptimized
-                width={240}
-              />
-            </div>
+          {selectedFile ? (
+            <CreateSkillAttachmentPreview
+              disabled={busy}
+              file={selectedFile}
+              onRemove={clearSelectedFile}
+              previewUrl={selectedFilePreviewUrl}
+            />
           ) : null}
           <div className="createSkillInputFooter">
             <p id="create-skill-input-help">
               Text, screenshots, images, and PDFs work here.
             </p>
-            {selectedFile ? (
-              <div className="createSkillFilePill">
-                <span title={selectedFile.name}>{selectedFile.name}</span>
-                <button
-                  aria-label={`Remove ${selectedFile.name}`}
-                  disabled={busy}
-                  onClick={() => {
-                    clearFileInput(fileInputRef.current);
-                    setSelectedFile(null);
-                    clearSelectedFilePreview();
-                    setFieldErrors(undefined);
-                  }}
-                  type="button"
-                >
-                  Remove
-                </button>
-              </div>
-            ) : null}
           </div>
         </div>
 
@@ -687,7 +677,7 @@ export function SourceCreationWorkspace() {
   );
 
   return (
-    <div className="skillCreateFlow">
+    <div className="skillCreateFlow" data-step={activeStep}>
       <SkillCreationStepper
         activeStep={activeStep}
         canReturnToMaterial={canReturnToMaterial}
@@ -766,6 +756,52 @@ function SkillAddedPanel({
         </button>
       </div>
     </section>
+  );
+}
+
+function CreateSkillAttachmentPreview({
+  disabled,
+  file,
+  onRemove,
+  previewUrl,
+}: {
+  disabled: boolean;
+  file: File;
+  onRemove: () => void;
+  previewUrl: string | null;
+}) {
+  const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+  const FilePreviewIcon = isPdf ? FilePdf : FileIcon;
+
+  return (
+    <div className="createSkillAttachmentPreview">
+      <div className="createSkillAttachmentTile" data-kind={previewUrl ? "image" : "file"}>
+        {previewUrl ? (
+          <Image
+            alt={`Preview of ${file.name}`}
+            className="createSkillAttachmentImage"
+            height={184}
+            src={previewUrl}
+            unoptimized
+            width={260}
+          />
+        ) : (
+          <div className="createSkillAttachmentFile">
+            <FilePreviewIcon size={38} weight="duotone" aria-hidden="true" />
+            <span title={file.name}>{file.name}</span>
+          </div>
+        )}
+        <button
+          aria-label={`Remove ${file.name}`}
+          className="createSkillAttachmentRemove"
+          disabled={disabled}
+          onClick={onRemove}
+          type="button"
+        >
+          <Trash size={16} weight="bold" aria-hidden="true" />
+        </button>
+      </div>
+    </div>
   );
 }
 

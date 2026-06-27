@@ -142,6 +142,7 @@ export function SkillDraftForm(props: SkillDraftFormProps) {
               label="Title"
               name="title"
               placeholder="Ser vs. estar in everyday sentences"
+              disabled={isSubmitting}
               required
               defaultValue={initialValues.title}
             />
@@ -151,6 +152,7 @@ export function SkillDraftForm(props: SkillDraftFormProps) {
               label="Objective"
               name="objective"
               placeholder="Choose whether ser or estar fits a short Spanish sentence, focusing on identity, location, and temporary state."
+              disabled={isSubmitting}
               required
               defaultValue={initialValues.objective}
               rows={4}
@@ -162,6 +164,7 @@ export function SkillDraftForm(props: SkillDraftFormProps) {
                 label="Collection"
                 name="collectionName"
                 placeholder="Spanish grammar"
+                disabled={isSubmitting}
                 defaultValue={initialValues.collectionName}
               />
               <SkillTextField
@@ -169,6 +172,7 @@ export function SkillDraftForm(props: SkillDraftFormProps) {
                 label="Tags"
                 name="tags"
                 placeholder="spanish, verbs, grammar"
+                disabled={isSubmitting}
                 defaultValue={initialValues.tags}
               />
             </div>
@@ -183,6 +187,7 @@ export function SkillDraftForm(props: SkillDraftFormProps) {
               label="Rules"
               name="rules"
               placeholder={"Use ser for identity.\nUse estar for location and temporary state."}
+              disabled={isSubmitting}
               defaultValue={initialValues.rules}
               rows={4}
             />
@@ -192,6 +197,7 @@ export function SkillDraftForm(props: SkillDraftFormProps) {
               label="Examples"
               name="examples"
               placeholder={"Soy estudiante.\nEstoy en casa."}
+              disabled={isSubmitting}
               defaultValue={initialValues.examples}
               rows={4}
             />
@@ -201,6 +207,7 @@ export function SkillDraftForm(props: SkillDraftFormProps) {
               label="Exercise constraints"
               name="exerciseConstraints"
               placeholder="Use short choices, avoid trick questions, and keep starter exercises beginner-friendly."
+              disabled={isSubmitting}
               defaultValue={initialValues.exerciseConstraints}
               rows={3}
             />
@@ -223,7 +230,9 @@ export function SkillDraftForm(props: SkillDraftFormProps) {
             disabled={isSubmitting}
             type="submit"
           >
-            {isEditMode ? (
+            {isEditMode && isSubmitting ? (
+              <ButtonLoadingDots />
+            ) : isEditMode ? (
               <CheckCircle size={18} weight="bold" aria-hidden="true" />
             ) : (
               <FloppyDisk size={18} weight="bold" aria-hidden="true" />
@@ -241,6 +250,16 @@ export function SkillDraftForm(props: SkillDraftFormProps) {
         </div>
       </form>
     </div>
+  );
+}
+
+function ButtonLoadingDots() {
+  return (
+    <span className="buttonLoadingDots" aria-hidden="true">
+      <span />
+      <span />
+      <span />
+    </span>
   );
 }
 

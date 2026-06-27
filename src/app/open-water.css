@@ -3149,6 +3149,11 @@ body {
   justify-self: center;
 }
 
+.createSkillShell .skillCreateFlow[data-step="2"],
+.createSkillReviewShell .skillDraftGrid {
+  max-width: 960px;
+}
+
 .createSkillShell .createSkillHeader,
 .createSkillReviewShell .createSkillHeader {
   display: block;
@@ -3362,64 +3367,101 @@ body {
   line-height: 1.35;
 }
 
-.createSkillFilePill {
-  display: inline-flex;
-  flex: 1 1 320px;
-  min-width: 0;
-  max-width: 100%;
-  align-items: center;
-  gap: 10px;
-  margin-left: auto;
-  border: 1px solid var(--lr-card-border);
-  border-radius: 999px;
-  background: #FFFFFF;
-  color: var(--lr-ink);
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1.2;
-  padding: 5px 8px 5px 11px;
-}
-
-.createSkillFilePill span {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.createSkillFilePill button {
-  flex: 0 0 auto;
-  border: 0;
-  background: transparent;
-  color: var(--lr-blue);
-  cursor: pointer;
-  font: inherit;
-  font-size: 12px;
-  font-weight: 700;
-  padding: 2px 4px;
-}
-
-.createSkillFilePill button:focus-visible {
-  outline: 2px solid var(--lr-focus-outline);
-  outline-offset: 2px;
-}
-
-.createSkillImagePreview {
+.createSkillAttachmentPreview {
   display: flex;
   justify-content: flex-start;
   border-top: 1px solid var(--lr-divider);
   padding: 12px 14px 0;
 }
 
-.createSkillImagePreview img {
-  display: block;
-  max-width: min(240px, 100%);
-  max-height: 170px;
+.createSkillAttachmentTile {
+  position: relative;
+  display: grid;
+  width: min(260px, 100%);
+  min-height: 184px;
+  overflow: hidden;
   border: 1px solid var(--lr-card-border);
-  border-radius: 6px;
+  border-radius: 8px;
+  background: #FFFFFF;
+}
+
+.createSkillAttachmentTile[data-kind="image"] {
+  place-items: center;
+}
+
+.createSkillAttachmentTile[data-kind="file"] {
+  place-items: stretch;
+}
+
+.createSkillAttachmentImage {
+  display: block;
+  width: 100%;
+  height: 100%;
   background: #FFFFFF;
   object-fit: contain;
+}
+
+.createSkillAttachmentFile {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 14px;
+  min-width: 0;
+  padding: 26px 18px;
+  background: var(--lr-blue-tint);
+  color: var(--lr-ink);
+  text-align: center;
+}
+
+.createSkillAttachmentFile svg {
+  color: var(--lr-blue);
+}
+
+.createSkillAttachmentFile span {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--lr-ink);
+  font-family: var(--lr-font-display);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.createSkillAttachmentRemove {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 1;
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--lr-card-border);
+  border-radius: 999px;
+  background: #FFFFFF;
+  color: var(--lr-ink);
+  cursor: pointer;
+  opacity: .86;
+  box-shadow: 0 2px 0 var(--lr-btn-white-edge);
+}
+
+.createSkillAttachmentTile:hover .createSkillAttachmentRemove,
+.createSkillAttachmentRemove:focus-visible {
+  color: var(--lr-amber);
+  opacity: 1;
+}
+
+.createSkillAttachmentRemove:focus-visible {
+  outline: 2px solid var(--lr-focus-outline);
+  outline-offset: 2px;
+}
+
+.createSkillAttachmentRemove:disabled {
+  cursor: not-allowed;
+  opacity: .58;
 }
 
 .createSkillOptions {
@@ -3471,8 +3513,44 @@ body {
 }
 
 .createSkillFlow .skillFormActions {
-  gap: 12px;
+  gap: 16px;
   flex-wrap: wrap;
+}
+
+.createSkillFlow .skillDraftForm .skillFormFieldset + .skillFormFieldset,
+.createSkillReviewShell .skillDraftForm .skillFormFieldset + .skillFormFieldset {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.createSkillFlow .skillDraftForm .skillFormFieldset + .skillFormFieldset::before,
+.createSkillReviewShell .skillDraftForm .skillFormFieldset + .skillFormFieldset::before {
+  display: block;
+  margin: 2px 0 16px;
+  border-top: 1px solid var(--lr-divider);
+  content: "";
+}
+
+.buttonLoadingDots {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.buttonLoadingDots span {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: currentColor;
+  animation: button-loading-dot 0.72s ease-in-out infinite;
+}
+
+.buttonLoadingDots span:nth-child(2) {
+  animation-delay: .1s;
+}
+
+.buttonLoadingDots span:nth-child(3) {
+  animation-delay: .2s;
 }
 
 .createSkillGenerationPanel {
@@ -3574,8 +3652,25 @@ body {
   }
 }
 
+@keyframes button-loading-dot {
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: .58;
+  }
+
+  42% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .createSkillGenerationPanel .sourceGenerationSpinner span {
+    animation: none;
+  }
+
+  .buttonLoadingDots span {
     animation: none;
   }
 }
@@ -4367,10 +4462,9 @@ body {
     align-items: start;
   }
 
-  .createSkillFilePill {
-    max-width: 100%;
-    margin-left: 0;
-    justify-self: start;
+  .createSkillAttachmentTile {
+    width: min(240px, 100%);
+    min-height: 170px;
   }
 
   .createSkillDoneCopy {
