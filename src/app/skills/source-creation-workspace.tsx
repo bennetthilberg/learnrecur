@@ -121,7 +121,14 @@ export function SourceCreationWorkspace() {
   const textCreatedSkill = textState.status === "saved" ? textState.createdSkill ?? null : null;
   const reviewSkill =
     createdSkill ?? (textCreatedSkill?.skillId === dismissedSkillId ? null : textCreatedSkill);
-  const activeStep: SkillCreationStep = activatedSkillId ? 2 : reviewSkill ? 1 : 0;
+  let activeStep: SkillCreationStep = 0;
+
+  if (generationStatus) {
+    activeStep = 1;
+  } else if (reviewSkill || activatedSkillId) {
+    activeStep = 2;
+  }
+
   const activeFieldErrors = selectedFile
     ? fieldErrors
     : fieldErrors ?? (textState.status === "error" ? textState.fieldErrors : undefined);
@@ -672,8 +679,8 @@ function SkillCreationStepper({
         description="Add source"
         label="Material"
       />
-      <Stepper.Step allowStepClick={false} description="Edit skill" label="Review" />
-      <Stepper.Step allowStepClick={false} description="Ready" label="Added" />
+      <Stepper.Step allowStepClick={false} description="Reading material" label="Processing" />
+      <Stepper.Step allowStepClick={false} description="Edit and create skill" label="Review" />
     </Stepper>
   );
 }
