@@ -29,9 +29,14 @@ import { formatEnvError, getGeminiEnv } from "@/lib/env";
 import {
   getGeminiErrorLogDetails,
   getPublicGeminiFailureMessage,
-  runWithGeminiModelFallback,
+  runWithGeminiProviderFallback,
 } from "@/lib/gemini";
 import { getPrisma } from "@/lib/prisma";
+import {
+  runQwenJsonChatCompletion,
+  type QwenFallbackConfig,
+} from "@/lib/qwen";
+import { resolveOptionalQwenFallbackConfig } from "@/lib/qwen-fallback";
 import { createInitialSkillSchedule } from "@/lib/scheduling";
 import {
   checkPastedSourceDraftUsageLimit,
@@ -50,6 +55,10 @@ export const EXISTING_EXERCISE_CONTEXT_CHAR_LIMIT = 3_000;
 export const MAX_GENERATED_SKILL_DRAFTS = 3;
 export const SOURCE_SKILL_DRAFT_PROMPT_VERSION = "source-skill-draft-v1";
 const GENERATION_TIMEOUT_MS = 45_000;
+const ACTIVE_GENERATION_JOB_STATUSES: GenerationJobStatus[] = [
+  GenerationJobStatus.PENDING,
+  GenerationJobStatus.RUNNING,
+];
 export const SKILL_MCQ_PROMPT_VERSION = "skill-mcq-v0";
 export const SKILL_EXACT_INPUT_PROMPT_VERSION = "skill-exact-input-v0";
 export const SKILL_MATH_PROMPT_VERSION = "skill-math-v0";
@@ -458,6 +467,7 @@ export type CreateSkillDraftFromSourceInput = {
   generateSkillDraft?: SkillDraftGenerator;
   model?: string;
   skipUsageLimitCheck?: boolean;
+  persistFailedSource?: boolean;
 };
 
 export type CreateGeneratedSkillDraftsForSourceFileInput = {
@@ -487,7 +497,8 @@ export type SourceSkillDraftWriteResult =
         | "generation-failed"
         | "invalid-generation"
         | "missing-gemini-env"
-        | "quota-exceeded";
+        | "quota-exceeded"
+        | "save-failed";
       message: string;
     };
 
@@ -505,6 +516,7 @@ export type SkillActivationResult =
         | "invalid-generation"
         | "verification-failed"
         | "invalid-verification"
+        | "activation-in-progress"
         | "missing-gemini-env"
         | "quota-exceeded"
         | "skill-not-draft";
@@ -680,7 +692,7 @@ const sourceSkillDraftInputSchema = z.strictObject({
   sourceText: z
     .string()
     .trim()
-    .min(40, "Paste at least 40 characters of source material.")
+    .min(12, "Enter at least 12 characters of learning material or a skill description.")
     .max(12_000, "Paste at most 12,000 characters for this first source flow."),
   sourceLabel: optionalTrimmedStringSchema.pipe(z.string().max(160).optional()),
   focusNote: optionalTrimmedStringSchema.pipe(z.string().max(800).optional()),
@@ -1145,6 +1157,32 @@ export async function createSkillDraftFromSource(
   }
 
   const sourceContext = buildSourceContextExcerpt([normalized.value.sourceText]) ?? normalized.value.sourceText;
+  let persistedSourceFileId: string | null = null;
+
+  if (input.persistFailedSource) {
+    prisma ??= getPrisma();
+    const sourceFile = await prisma.sourceFile.create({
+      data: {
+        userId: input.userId,
+        kind: SourceFileKind.TEXT,
+        status: SourceFileStatus.PROCESSING,
+        originalName: normalized.value.sourceLabel ?? "Pasted source",
+        mimeType: "text/plain",
+        byteSize: Buffer.byteLength(normalized.value.sourceText, "utf8"),
+        extractedText: normalized.value.sourceText,
+        metadata: buildPastedSourceMetadata({
+          normalized: normalized.value,
+          model: setup.model,
+          now: input.now,
+        }),
+      },
+      select: {
+        id: true,
+      },
+    });
+    persistedSourceFileId = sourceFile.id;
+  }
+
   let rawGeneration: unknown;
 
   try {
@@ -1157,18 +1195,45 @@ export async function createSkillDraftFromSource(
       "generateSkillDraft timed out",
     );
   } catch (error) {
-    console.error("[gemini] skill draft generation failed", getGeminiErrorLogDetails(error));
+    console.error("[ai] skill draft generation failed", getGeminiErrorLogDetails(error));
+    const message = getPublicGeminiFailureMessage(error);
+
+    if (persistedSourceFileId && prisma) {
+      await markPastedSourceFailed({
+        prisma,
+        userId: input.userId,
+        sourceFileId: persistedSourceFileId,
+        now: input.now,
+        reason: "generation-failed",
+        message,
+        normalized: normalized.value,
+        model: setup.model,
+      });
+    }
 
     return {
       status: "not-created",
       reason: "generation-failed",
-      message: getPublicGeminiFailureMessage(error),
+      message,
     };
   }
 
   const validation = validateGeneratedSkillDrafts(rawGeneration);
 
   if (validation.status === "invalid") {
+    if (persistedSourceFileId && prisma) {
+      await markPastedSourceFailed({
+        prisma,
+        userId: input.userId,
+        sourceFileId: persistedSourceFileId,
+        now: input.now,
+        reason: "invalid-generation",
+        message: validation.message,
+        normalized: normalized.value,
+        model: setup.model,
+      });
+    }
+
     return {
       status: "not-created",
       reason: "invalid-generation",
@@ -1178,40 +1243,82 @@ export async function createSkillDraftFromSource(
 
   prisma ??= getPrisma();
 
-  return prisma.$transaction(async (tx) => {
-    const sourceFile = await tx.sourceFile.create({
-      data: {
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const sourceFile = persistedSourceFileId
+        ? { id: persistedSourceFileId }
+        : await tx.sourceFile.create({
+            data: {
+              userId: input.userId,
+              kind: SourceFileKind.TEXT,
+              status: SourceFileStatus.READY,
+              originalName: normalized.value.sourceLabel ?? "Pasted source",
+              mimeType: "text/plain",
+              byteSize: Buffer.byteLength(normalized.value.sourceText, "utf8"),
+              extractedText: normalized.value.sourceText,
+              metadata: buildPastedSourceMetadata({
+                normalized: normalized.value,
+                model: setup.model,
+                now: input.now,
+                generated: true,
+              }),
+            },
+            select: {
+              id: true,
+            },
+          });
+      const createdDrafts = await createGeneratedSkillDraftsForSourceFileInTransaction(tx, {
         userId: input.userId,
-        kind: SourceFileKind.TEXT,
-        status: SourceFileStatus.READY,
-        originalName: normalized.value.sourceLabel ?? "Pasted source",
-        mimeType: "text/plain",
-        byteSize: Buffer.byteLength(normalized.value.sourceText, "utf8"),
-        extractedText: normalized.value.sourceText,
-        metadata: {
-          createdBy: SOURCE_SKILL_DRAFT_PROMPT_VERSION,
-          focusNote: normalized.value.focusNote,
-          model: setup.model,
-          generatedAt: input.now.toISOString(),
-        },
-      },
+        sourceFileId: sourceFile.id,
+        collectionName: normalized.value.collectionName,
+        focusNote: normalized.value.focusNote,
+        tags: normalized.value.tags,
+        drafts: validation.drafts,
+        sourceFileUpdate: persistedSourceFileId
+          ? {
+              status: SourceFileStatus.READY,
+              byteSize: Buffer.byteLength(normalized.value.sourceText, "utf8"),
+              extractedText: normalized.value.sourceText,
+              metadata: buildPastedSourceMetadata({
+                normalized: normalized.value,
+                model: setup.model,
+                now: input.now,
+                generated: true,
+              }),
+            }
+          : undefined,
+      });
+
+      return {
+        status: "created",
+        skills: createdDrafts.skills,
+        sourceFileId: sourceFile.id,
+        skillSourceRefIds: createdDrafts.skillSourceRefIds,
+      };
     });
-    const createdDrafts = await createGeneratedSkillDraftsForSourceFileInTransaction(tx, {
+  } catch (error) {
+    if (!persistedSourceFileId) {
+      throw error;
+    }
+
+    const message = "Skill preparation failed before LearnRecur could save the generated skill. Try again.";
+    await markPastedSourceFailed({
+      prisma,
       userId: input.userId,
-      sourceFileId: sourceFile.id,
-      collectionName: normalized.value.collectionName,
-      focusNote: normalized.value.focusNote,
-      tags: normalized.value.tags,
-      drafts: validation.drafts,
+      sourceFileId: persistedSourceFileId,
+      now: input.now,
+      reason: "save-failed",
+      message,
+      normalized: normalized.value,
+      model: setup.model,
     });
 
     return {
-      status: "created",
-      skills: createdDrafts.skills,
-      sourceFileId: sourceFile.id,
-      skillSourceRefIds: createdDrafts.skillSourceRefIds,
+      status: "not-created",
+      reason: "save-failed",
+      message,
     };
-  });
+  }
 }
 
 export async function createGeneratedSkillDraftsForSourceFile(
@@ -1258,6 +1365,67 @@ export async function createGeneratedSkillDraftsForSourceFile(
       skills: result.skills,
       skillSourceRefIds: result.skillSourceRefIds,
     };
+  });
+}
+
+function buildPastedSourceMetadata({
+  generated = false,
+  model,
+  normalized,
+  now,
+}: {
+  generated?: boolean;
+  model: string;
+  normalized: NormalizedSourceSkillDraftInput;
+  now: Date;
+}): Prisma.InputJsonObject {
+  return {
+    createdBy: SOURCE_SKILL_DRAFT_PROMPT_VERSION,
+    focusNote: normalized.focusNote,
+    model,
+    submittedAt: now.toISOString(),
+    ...(generated ? { generatedAt: now.toISOString() } : {}),
+  };
+}
+
+async function markPastedSourceFailed({
+  message,
+  model,
+  normalized,
+  now,
+  prisma,
+  reason,
+  sourceFileId,
+  userId,
+}: {
+  message: string;
+  model: string;
+  normalized: NormalizedSourceSkillDraftInput;
+  now: Date;
+  prisma: Pick<Prisma.TransactionClient, "sourceFile">;
+  reason: string;
+  sourceFileId: string;
+  userId: string;
+}) {
+  await prisma.sourceFile.updateMany({
+    where: {
+      id: sourceFileId,
+      userId,
+    },
+    data: {
+      status: SourceFileStatus.FAILED,
+      publicUrl: null,
+      metadata: {
+        ...buildPastedSourceMetadata({
+          normalized,
+          model,
+          now,
+        }),
+        failedAt: now.toISOString(),
+        failureReason: reason,
+        errorMessage: message.slice(0, 500),
+      },
+    },
   });
 }
 
@@ -1324,21 +1492,25 @@ export async function activateSkillDraft(
   }
 
   const setup = resolveActivationSetup(input);
-  const generationJob = await prisma.generationJob.create({
-    data: {
-      userId: input.userId,
-      skillId: skill.id,
-      kind: GenerationJobKind.SKILL_ACTIVATION,
-      status: setup.status === "ready" ? GenerationJobStatus.RUNNING : GenerationJobStatus.FAILED,
-      provider: GEMINI_PROVIDER,
-      model: setup.model,
-      promptVersion: SKILL_MCQ_PROMPT_VERSION,
-      requestedCount: REQUESTED_ACTIVATION_EXERCISES,
-      errorMessage: setup.status === "ready" ? null : setup.message,
-      startedAt: input.now,
-      completedAt: setup.status === "ready" ? null : input.now,
-    },
+
+  const generationJobResult = await createOrClaimActivationGenerationJob({
+    prisma,
+    userId: input.userId,
+    skillId: skill.id,
+    setup,
+    now: input.now,
   });
+
+  if (generationJobResult.status === "not-ready") {
+    return {
+      status: "not-activated",
+      reason: "activation-in-progress",
+      message: generationJobResult.message,
+      generationJobId: generationJobResult.generationJobId,
+    };
+  }
+
+  const { generationJob } = generationJobResult;
 
   if (setup.status === "missing-env") {
     return {
@@ -3298,18 +3470,10 @@ function resolveSourceDraftSetup(
     };
   }
 
-  try {
-    const env = getGeminiEnv();
+  let env: ReturnType<typeof getGeminiEnv>;
 
-    return {
-      status: "ready",
-      model: env.GEMINI_MODEL,
-      generateSkillDraft: createGeminiSkillDraftGenerator({
-        apiKey: env.GEMINI_API_KEY,
-        model: env.GEMINI_MODEL,
-        fallbackModels: env.GEMINI_FALLBACK_MODELS,
-      }),
-    };
+  try {
+    env = getGeminiEnv();
   } catch (error) {
     return {
       status: "missing-env",
@@ -3317,41 +3481,92 @@ function resolveSourceDraftSetup(
       message: formatEnvError(error),
     };
   }
+
+  const qwenFallbackResult = resolveOptionalQwenFallbackConfig();
+  const qwenFallback =
+    qwenFallbackResult.status === "ready" ? qwenFallbackResult.config : null;
+
+  if (qwenFallbackResult.status === "invalid") {
+    console.warn("[ai] qwen fallback disabled for skill draft generation", {
+      message: qwenFallbackResult.message,
+    });
+  }
+
+  return {
+    status: "ready",
+    model: env.GEMINI_MODEL,
+    generateSkillDraft: createGeminiSkillDraftGenerator({
+      apiKey: env.GEMINI_API_KEY,
+      model: env.GEMINI_MODEL,
+      qwenFallback,
+    }),
+  };
 }
 
 export function createGeminiSkillDraftGenerator({
   apiKey,
-  fallbackModels,
   model,
+  qwenFallback,
 }: {
   apiKey: string;
-  fallbackModels?: readonly string[];
   model: string;
+  qwenFallback?: QwenFallbackConfig | null;
 }): SkillDraftGenerator {
   return async (input) => {
     const ai = new GoogleGenAI({ apiKey });
-    const response = await runWithGeminiModelFallback({
-      fallbackModels,
+    return runWithGeminiProviderFallback({
+      fallback: qwenFallback
+        ? {
+            provider: "qwen",
+            model: qwenFallback.model,
+            run: () => createQwenSkillDraftGenerator(qwenFallback)(input),
+          }
+        : null,
       operation: "skill draft generation",
       primaryModel: model,
-      run: (activeModel) =>
-        ai.models.generateContent({
-          model: activeModel,
+      runPrimary: async () => {
+        const response = await ai.models.generateContent({
+          model,
           contents: buildSourceSkillDraftPrompt(input),
           config: {
             responseMimeType: "application/json",
             responseJsonSchema: geminiSkillDraftJsonSchema,
           },
-        }),
+        });
+        const text = response.text;
+
+        if (!text) {
+          throw new Error("Gemini returned no text.");
+        }
+
+        return JSON.parse(text) as unknown;
+      },
     });
-    const text = response.text;
-
-    if (!text) {
-      throw new Error("Gemini returned no text.");
-    }
-
-    return JSON.parse(text) as unknown;
   };
+}
+
+export function createQwenSkillDraftGenerator({
+  apiKey,
+  baseUrl,
+  model,
+}: QwenFallbackConfig): SkillDraftGenerator {
+  return async (input) =>
+    runQwenJsonChatCompletion({
+      apiKey,
+      baseUrl,
+      model,
+      operation: "skill draft generation",
+      messages: [
+        {
+          role: "system",
+          content: "You create LearnRecur skill drafts. Return only a valid JSON object.",
+        },
+        {
+          role: "user",
+          content: buildSourceSkillDraftPrompt(input),
+        },
+      ],
+    });
 }
 
 function createGeminiChoiceExerciseGenerator({
@@ -3853,27 +4068,27 @@ function buildMathExerciseVerificationPrompt(input: MathExerciseVerifierInput): 
 
 function buildSourceSkillDraftPrompt(input: SkillDraftGeneratorInput): string {
   return [
-    "Create one to three editable LearnRecur skill drafts from pasted learning material.",
+    "Create one editable LearnRecur skill draft from the user's learning input.",
     "Return only JSON matching the provided response schema.",
     "Do not include markdown, commentary, exercises, or answer keys.",
     "Each skill must be narrow enough to practice with short objective exercises.",
-    "If the source is narrow, return exactly one draft.",
-    `If the source is broad, split it into at most ${MAX_GENERATED_SKILL_DRAFTS} independently practiceable narrow skills.`,
+    "The input may be pasted source material or the user's plain-language description of a skill they want to practice.",
+    "Return exactly one draft. If the input is broad, choose the clearest narrow skill to practice first.",
     "Use the focus note to constrain which skills are worth drafting.",
     "",
-    `Source label: ${input.sourceLabel ?? "Pasted source"}`,
+    `Source label: ${input.sourceLabel ?? "Learning input"}`,
     `Focus note: ${input.focusNote ?? "No extra focus note."}`,
     `Collection hint: ${input.collectionName ?? "none"}`,
     `User tags: ${input.tags.join(", ") || "none"}`,
     "",
-    "Pasted source:",
+    "User input:",
     input.sourceContext,
     "",
     "Response requirements:",
-    "- drafts: one to three draft objects.",
+    "- drafts: exactly one draft object.",
     "- title: short and specific for each draft.",
     "- objective: one sentence describing exactly what the learner should practice.",
-    "- rules: concise source-backed rules or reminders.",
+    "- rules: concise rules or reminders grounded in the input.",
     "- examples: source-style examples, not exercise questions.",
     "- exerciseConstraints: guidance for future exercise generation.",
     "- tags: lowercase topic tags when possible.",
@@ -4285,6 +4500,172 @@ async function markGenerationJobFailed(
       completedAt: input.now,
     },
   });
+}
+
+type ActivationGenerationSetup =
+  | {
+      status: "ready";
+      model: string;
+    }
+  | {
+      status: "missing-env";
+      model: string;
+      message: string;
+    };
+
+type ActivationGenerationJobClient = Pick<Prisma.TransactionClient, "generationJob">;
+
+async function createOrClaimActivationGenerationJob({
+  prisma,
+  userId,
+  skillId,
+  setup,
+  now,
+}: {
+  prisma: ActivationGenerationJobClient;
+  userId: string;
+  skillId: string;
+  setup: ActivationGenerationSetup;
+  now: Date;
+}): Promise<
+  | {
+      status: "ready";
+      generationJob: {
+        id: string;
+      };
+    }
+  | {
+      status: "not-ready";
+      message: string;
+      generationJobId?: string;
+    }
+> {
+  const data = {
+    kind: GenerationJobKind.SKILL_ACTIVATION,
+    status: setup.status === "ready" ? GenerationJobStatus.RUNNING : GenerationJobStatus.FAILED,
+    provider: GEMINI_PROVIDER,
+    model: setup.model,
+    promptVersion: SKILL_MCQ_PROMPT_VERSION,
+    requestedCount: REQUESTED_ACTIVATION_EXERCISES,
+    acceptedCount: 0,
+    rejectedCount: 0,
+    errorMessage: setup.status === "ready" ? null : setup.message,
+    startedAt: now,
+    completedAt: setup.status === "ready" ? null : now,
+  };
+
+  const activeJob = await prisma.generationJob.findFirst({
+    where: {
+      userId,
+      skillId,
+      kind: GenerationJobKind.SKILL_ACTIVATION,
+      status: {
+        in: ACTIVE_GENERATION_JOB_STATUSES,
+      },
+    },
+    orderBy: {
+      updatedAt: "desc",
+    },
+    select: {
+      id: true,
+      status: true,
+      startedAt: true,
+      updatedAt: true,
+    },
+  });
+
+  if (activeJob) {
+    if (isFreshRunningGenerationJob(activeJob, now)) {
+      return {
+        status: "not-ready",
+        message: "Skill activation is already running. Try again in a minute.",
+        generationJobId: activeJob.id,
+      };
+    }
+
+    const claimed = await prisma.generationJob.updateMany({
+      where: {
+        id: activeJob.id,
+        userId,
+        skillId,
+        kind: GenerationJobKind.SKILL_ACTIVATION,
+        updatedAt: activeJob.updatedAt,
+        status: {
+          in: ACTIVE_GENERATION_JOB_STATUSES,
+        },
+      },
+      data,
+    });
+
+    if (claimed.count === 1) {
+      return {
+        status: "ready",
+        generationJob: {
+          id: activeJob.id,
+        },
+      };
+    }
+  }
+
+  try {
+    const generationJob = await prisma.generationJob.create({
+      data: {
+        userId,
+        skillId,
+        ...data,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    return {
+      status: "ready",
+      generationJob,
+    };
+  } catch (error) {
+    if (!isPrismaUniqueConstraintError(error)) {
+      throw error;
+    }
+
+    const existingJob = await prisma.generationJob.findFirst({
+      where: {
+        userId,
+        skillId,
+        kind: GenerationJobKind.SKILL_ACTIVATION,
+        status: {
+          in: ACTIVE_GENERATION_JOB_STATUSES,
+        },
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    return {
+      status: "not-ready",
+      message: "Skill activation is already running. Try again in a minute.",
+      generationJobId: existingJob?.id,
+    };
+  }
+}
+
+function isFreshRunningGenerationJob(
+  generationJob: {
+    status: GenerationJobStatus;
+    startedAt: Date | null;
+  },
+  now: Date,
+) {
+  return (
+    generationJob.status === GenerationJobStatus.RUNNING &&
+    generationJob.startedAt !== null &&
+    now.getTime() - generationJob.startedAt.getTime() < GENERATION_TIMEOUT_MS
+  );
+}
+
+function isPrismaUniqueConstraintError(error: unknown) {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
 }
 
 type RefillGenerationSetup =

@@ -884,6 +884,23 @@ describe("normalizeSourceSkillDraftInput", () => {
     });
   });
 
+  it("accepts a short manual skill description as learning input", () => {
+    const result = normalizeSourceSkillDraftInput({
+      sourceText: "  ser vs estar  ",
+    });
+
+    expect(result).toEqual({
+      status: "ready",
+      value: {
+        sourceText: "ser vs estar",
+        sourceLabel: null,
+        focusNote: null,
+        collectionName: null,
+        tags: [],
+      },
+    });
+  });
+
   it("rejects underspecified pasted source with stable field errors", () => {
     const result = normalizeSourceSkillDraftInput({
       sourceText: "too short",
@@ -893,7 +910,7 @@ describe("normalizeSourceSkillDraftInput", () => {
 
     if (result.status === "invalid") {
       expect(result.fieldErrors.sourceText).toEqual([
-        "Paste at least 40 characters of source material.",
+        "Enter at least 12 characters of learning material or a skill description.",
       ]);
     }
   });

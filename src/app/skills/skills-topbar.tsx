@@ -513,7 +513,9 @@ export function SkillsTopbar({
               ? "routePendingContent historyShell"
               : pendingConfig.kind === "settings"
                 ? "routePendingContent settingsShell"
-                : "routePendingContent"
+                : pendingConfig.kind === "new"
+                  ? "routePendingContent createSkillShell"
+                  : "routePendingContent"
           }
           data-route-kind={pendingConfig.kind}
           aria-live="polite"

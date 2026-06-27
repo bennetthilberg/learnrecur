@@ -13,7 +13,7 @@ import { formatEnvError, getGeminiEnv } from "@/lib/env";
 import {
   getGeminiErrorLogDetails,
   getPublicGeminiFailureMessage,
-  runWithGeminiModelFallback,
+  runWithGeminiProviderFallback,
 } from "@/lib/gemini";
 import { getInngestEnvStatus } from "@/lib/inngest/client";
 import {
@@ -21,6 +21,12 @@ import {
   type SourceUploadDraftEventSender,
 } from "@/lib/inngest/events";
 import { getPrisma } from "@/lib/prisma";
+import { resolveOptionalQwenFallbackConfig } from "@/lib/qwen-fallback";
+import {
+  buildQwenImageDataUrl,
+  runQwenJsonChatCompletion,
+  type QwenFallbackConfig,
+} from "@/lib/qwen";
 import {
   SOURCE_SKILL_DRAFT_PROMPT_VERSION,
   buildSourceContextExcerpt,
@@ -340,7 +346,7 @@ export function validateExtractedSourceText(input: unknown): ExtractedSourceText
     return {
       status: "invalid",
       reason: "invalid-response",
-      message: "Gemini could not extract enough study text from this file.",
+      message: "The AI could not extract enough study text from this file.",
     };
   }
 
@@ -567,7 +573,7 @@ export async function queueSourceUploadDrafts(
       return {
         status: "queued",
         sourceFileId: sourceFile.id,
-        message: "Draft preparation has already started.",
+        message: "Skill preparation has already started.",
       };
     }
 
@@ -653,14 +659,14 @@ export async function queueSourceUploadDrafts(
     await cleanupUploadedSource(sourceFile, storageSetup.storage);
     return notQueued(
       "event-send-failed",
-      `Could not start draft preparation: ${formatEnvError(error)}`,
+      `Could not start skill preparation: ${formatEnvError(error)}`,
     );
   }
 
   return {
     status: "queued",
     sourceFileId: sourceFile.id,
-    message: "Upload received. Drafts will appear in the skill library after preparation.",
+    message: "Upload received. Skills will appear in the library after preparation.",
   };
 }
 
@@ -673,6 +679,13 @@ export async function requeueSourceUploadDraft(
       id: input.sourceFileId,
       userId: input.userId,
     },
+    include: {
+      _count: {
+        select: {
+          skillRefs: true,
+        },
+      },
+    },
   });
 
   if (!sourceFile) {
@@ -683,13 +696,20 @@ export async function requeueSourceUploadDraft(
     if (!isSourceUploadProcessingStale(sourceFile.metadata, input.now)) {
       return requeueNotQueued(
         "not-stale",
-        "Source processing is still recent. Give the background worker a little more time.",
+        "Skill preparation is still running. Give the background worker a little more time.",
+      );
+    }
+  } else if (sourceFile.status === SourceFileStatus.FAILED) {
+    if (!isFailedSourceUploadRequeueable(sourceFile)) {
+      return requeueNotQueued(
+        "not-requeueable",
+        "Only saved uploads without linked skills can be restarted.",
       );
     }
   } else if (sourceFile.status !== SourceFileStatus.UPLOADED) {
     return requeueNotQueued(
       "not-requeueable",
-      "Only waiting or stale draft preparation can be restarted.",
+      "Only saved uploads with waiting, failed, or stuck preparation can be restarted.",
     );
   }
 
@@ -729,7 +749,7 @@ export async function requeueSourceUploadDraft(
   if (requeued.count !== 1) {
     return requeueNotQueued(
       "invalid-upload",
-      "This upload changed while preparation was restarting. Refresh and try again.",
+      "This upload changed while the retry was starting. Refresh and try again.",
     );
   }
 
@@ -757,15 +777,29 @@ export async function requeueSourceUploadDraft(
 
     return requeueNotQueued(
       "event-send-failed",
-      `Could not restart draft preparation: ${formatEnvError(error)}`,
+      `Could not restart skill preparation: ${formatEnvError(error)}`,
     );
   }
 
   return {
     status: "queued",
     sourceFileId: sourceFile.id,
-    message: "Draft preparation restarted.",
+    message: "Skill preparation restarted.",
   };
+}
+
+function isFailedSourceUploadRequeueable(sourceFile: {
+  kind: SourceFileKind;
+  storageKey: string | null;
+  _count: {
+    skillRefs: number;
+  };
+}) {
+  return (
+    sourceFile.kind !== SourceFileKind.TEXT &&
+    Boolean(sourceFile.storageKey) &&
+    sourceFile._count.skillRefs === 0
+  );
 }
 
 export async function dismissFailedSourceUpload(
@@ -970,7 +1004,7 @@ export async function runQueuedSourceUploadDraftJob(
     );
   } catch (error) {
     const message = getPublicGeminiFailureMessage(error);
-    console.error("[gemini] source extraction failed", getGeminiErrorLogDetails(error));
+    console.error("[ai] source extraction failed", getGeminiErrorLogDetails(error));
     await markUploadedSourceFailed(
       sourceFile,
       storageSetup.storage,
@@ -984,6 +1018,10 @@ export async function runQueuedSourceUploadDraftJob(
   const extraction = validateExtractedSourceText(rawExtraction);
 
   if (extraction.status === "invalid") {
+    console.warn(
+      "[ai] source extraction returned invalid output",
+      getSourceExtractionValidationLogDetails(rawExtraction),
+    );
     await markUploadedSourceFailed(
       sourceFile,
       storageSetup.storage,
@@ -1011,7 +1049,7 @@ export async function runQueuedSourceUploadDraftJob(
     );
   } catch (error) {
     const message = getPublicGeminiFailureMessage(error);
-    console.error("[gemini] source draft generation failed", getGeminiErrorLogDetails(error));
+    console.error("[ai] source draft generation failed", getGeminiErrorLogDetails(error));
     await markUploadedSourceFailed(
       sourceFile,
       storageSetup.storage,
@@ -1105,23 +1143,10 @@ function resolveUploadGenerationSetup(
     };
   }
 
-  try {
-    const env = getGeminiEnv();
+  let env: ReturnType<typeof getGeminiEnv>;
 
-    return {
-      status: "ready",
-      model: env.GEMINI_MODEL,
-      extractSourceText: input.extractSourceText ?? createGeminiSourceTextExtractor({
-        apiKey: env.GEMINI_API_KEY,
-        model: env.GEMINI_MODEL,
-        fallbackModels: env.GEMINI_FALLBACK_MODELS,
-      }),
-      generateSkillDraft: input.generateSkillDraft ?? createGeminiSkillDraftGenerator({
-        apiKey: env.GEMINI_API_KEY,
-        model: env.GEMINI_MODEL,
-        fallbackModels: env.GEMINI_FALLBACK_MODELS,
-      }),
-    };
+  try {
+    env = getGeminiEnv();
   } catch (error) {
     return {
       status: "missing-env",
@@ -1129,26 +1154,60 @@ function resolveUploadGenerationSetup(
       message: formatEnvError(error),
     };
   }
+
+  const qwenFallbackResult = resolveOptionalQwenFallbackConfig();
+  const qwenFallback =
+    qwenFallbackResult.status === "ready" ? qwenFallbackResult.config : null;
+
+  if (qwenFallbackResult.status === "invalid") {
+    console.warn("[ai] qwen fallback disabled for upload generation", {
+      message: qwenFallbackResult.message,
+    });
+  }
+
+  return {
+    status: "ready",
+    model: env.GEMINI_MODEL,
+    extractSourceText: input.extractSourceText ?? createGeminiSourceTextExtractor({
+      apiKey: env.GEMINI_API_KEY,
+      model: env.GEMINI_MODEL,
+      qwenFallback,
+    }),
+    generateSkillDraft: input.generateSkillDraft ?? createGeminiSkillDraftGenerator({
+      apiKey: env.GEMINI_API_KEY,
+      model: env.GEMINI_MODEL,
+      qwenFallback,
+    }),
+  };
 }
 
 function createGeminiSourceTextExtractor({
   apiKey,
-  fallbackModels,
   model,
+  qwenFallback,
 }: {
   apiKey: string;
-  fallbackModels?: readonly string[];
   model: string;
+  qwenFallback?: QwenFallbackConfig | null;
 }): SourceTextExtractor {
   return async (input) => {
     const ai = new GoogleGenAI({ apiKey });
-    const response = await runWithGeminiModelFallback({
-      fallbackModels,
+    const qwenSourceFallback =
+      qwenFallback && input.mimeType.startsWith("image/")
+        ? {
+            provider: "qwen",
+            model: qwenFallback.model,
+            run: () => createQwenSourceTextExtractor(qwenFallback)(input),
+          }
+        : null;
+
+    return runWithGeminiProviderFallback({
+      fallback: qwenSourceFallback,
       operation: "source text extraction",
       primaryModel: model,
-      run: (activeModel) =>
-        ai.models.generateContent({
-          model: activeModel,
+      runPrimary: async () => {
+        const response = await ai.models.generateContent({
+          model,
           contents: [
             {
               inlineData: {
@@ -1164,24 +1223,99 @@ function createGeminiSourceTextExtractor({
             responseMimeType: "application/json",
             responseJsonSchema: geminiSourceExtractionJsonSchema,
           },
-        }),
+        });
+        const text = response.text;
+
+        if (!text) {
+          throw new Error("Gemini returned no text.");
+        }
+
+        return JSON.parse(text) as unknown;
+      },
     });
-    const text = response.text;
-
-    if (!text) {
-      throw new Error("Gemini returned no text.");
-    }
-
-    return JSON.parse(text) as unknown;
   };
+}
+
+function createQwenSourceTextExtractor({
+  apiKey,
+  baseUrl,
+  model,
+}: QwenFallbackConfig): SourceTextExtractor {
+  return async (input) =>
+    normalizeQwenSourceTextExtraction(await runQwenJsonChatCompletion({
+      apiKey,
+      baseUrl,
+      model,
+      operation: "source text extraction",
+      messages: [
+        {
+          role: "system",
+          content: "You extract learning material for LearnRecur. Return only a valid JSON object.",
+        },
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: buildSourceExtractionPrompt(input),
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: buildQwenImageDataUrl(input.bytes, input.mimeType),
+              },
+            },
+          ],
+        },
+      ],
+    }));
+}
+
+function normalizeQwenSourceTextExtraction(input: unknown): unknown {
+  const record = getObjectRecord(input);
+
+  if (!record) {
+    return input;
+  }
+
+  const extractedText = readStringField(record, "extractedText")
+    ?? readStringField(record, "sourceText")
+    ?? readStringField(record, "text")
+    ?? readStringField(record, "content");
+
+  return extractedText ? { extractedText } : input;
+}
+
+function getSourceExtractionValidationLogDetails(input: unknown) {
+  const record = getObjectRecord(input);
+  const extractedText = record ? readStringField(record, "extractedText") : null;
+
+  return {
+    type: Array.isArray(input) ? "array" : typeof input,
+    keys: record ? Object.keys(record).slice(0, 8) : [],
+    extractedTextLength: extractedText?.length ?? null,
+  };
+}
+
+function getObjectRecord(input: unknown): Record<string, unknown> | null {
+  return input && typeof input === "object" && !Array.isArray(input)
+    ? (input as Record<string, unknown>)
+    : null;
+}
+
+function readStringField(record: Record<string, unknown>, field: string): string | null {
+  const value = record[field];
+
+  return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
 function buildSourceExtractionPrompt(input: SourceTextExtractorInput) {
   return [
     "Extract study text from this uploaded learning source for LearnRecur.",
-    "Return only JSON matching the provided response schema.",
+    "Return only JSON with exactly this shape: {\"extractedText\":\"...\"}.",
     "Do not summarize, solve, or generate exercises.",
     "Extract the educational text that should guide later skill draft generation.",
+    "The extractedText value must be the visible or embedded educational text, not commentary about the file.",
     "If the file is an image, read visible notes, worksheet text, diagrams labels, and captions.",
     "If the file is a PDF, extract the text most relevant to the study material.",
     "",
@@ -1263,17 +1397,7 @@ async function markUploadedSourceFailed(
   reason: string,
   message: string,
 ) {
-  if (storage && sourceFile.storageKey) {
-    try {
-      await storage.deleteObject({
-        key: sourceFile.storageKey,
-        bucket: sourceFile.storageBucket ?? undefined,
-      });
-    } catch {
-      // Deleting the private object is best effort. The failed source row keeps
-      // a redacted audit trail and can be reconciled by a future cleanup job.
-    }
-  }
+  void storage;
 
   await getPrisma().sourceFile.updateMany({
     where: {
@@ -1282,10 +1406,7 @@ async function markUploadedSourceFailed(
     },
     data: {
       status: SourceFileStatus.FAILED,
-      storageBucket: null,
-      storageKey: null,
       publicUrl: null,
-      extractedText: null,
       metadata: buildFailedUploadMetadata(sourceFile.metadata, now, reason, message),
     },
   });

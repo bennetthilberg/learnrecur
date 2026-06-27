@@ -4,6 +4,7 @@ import { auth, currentUser } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import { SkillStatus, type Prisma } from "@/generated/prisma/client";
 import {
   activateSkillDraft,
   createSkillDraft,
@@ -29,12 +30,28 @@ import {
   requeueSourceUploadDraft,
 } from "@/lib/skills/uploads";
 import { removeSkillSource } from "@/lib/skills/sources";
+import { getPrisma } from "@/lib/prisma";
 import { ensureDatabaseUser } from "@/lib/users";
 
+export type CreatedSkillDraftForReview = {
+  skillId: string;
+  values: {
+    title: string;
+    objective: string;
+    collectionName: string;
+    rules: string;
+    examples: string;
+    exerciseConstraints: string;
+    tags: string;
+  };
+};
+
 export type SkillFormActionState = {
-  status: "idle" | "error" | "saved";
+  status: "idle" | "error" | "saved" | "activated";
   message: string | null;
   fieldErrors?: Record<string, string[]>;
+  createdSkill?: CreatedSkillDraftForReview;
+  activatedSkillId?: string;
 };
 
 type SkillActionUserResult =
@@ -68,6 +85,7 @@ export type CompleteSourceUploadActionResult =
       status: "created";
       message: string;
       redirectTo: string;
+      skill: CreatedSkillDraftForReview | null;
     }
   | {
       status: "error";
@@ -111,7 +129,7 @@ export async function saveSkillDraftAction(
 
   return {
     status: "saved",
-    message: "Draft saved.",
+    message: "Skill saved.",
   };
 }
 
@@ -130,7 +148,7 @@ export async function activateSkillDraftAction(
   if (!skillId) {
     return {
       status: "error",
-      message: "No skill draft was selected.",
+      message: "No skill was selected.",
     };
   }
 
@@ -150,6 +168,30 @@ export async function activateSkillDraftAction(
   };
 }
 
+export async function addSkillDraftToPracticeAction(
+  _previousState: SkillFormActionState,
+  formData: FormData,
+): Promise<SkillFormActionState> {
+  const result = await saveAndActivateSkillDraft(formData);
+
+  if (result.status === "activated" && result.activatedSkillId) {
+    revalidatePath(`/skills/${result.activatedSkillId}`);
+    revalidatePath("/skills");
+    revalidatePath("/dashboard");
+    revalidatePath("/practice");
+    redirect(`/skills/${result.activatedSkillId}`);
+  }
+
+  return result;
+}
+
+export async function addSkillDraftToPracticeInlineAction(
+  _previousState: SkillFormActionState,
+  formData: FormData,
+): Promise<SkillFormActionState> {
+  return saveAndActivateSkillDraft(formData);
+}
+
 export async function generateSkillDraftFromSourceAction(
   _previousState: SkillFormActionState,
   formData: FormData,
@@ -164,13 +206,35 @@ export async function generateSkillDraftFromSourceAction(
     userId: user.userId,
     now: new Date(),
     input: formDataToSourceDraftInput(formData),
+    persistFailedSource: true,
   });
 
   if (result.status === "created") {
     const skill = result.skills[0];
 
     if (skill) {
-      redirect(`/skills/${skill.id}`);
+      const draft = await getSkillDraftForReview(user.userId, skill.id);
+
+      if (draft) {
+        revalidatePath("/skills");
+        revalidatePath("/dashboard");
+        revalidatePath(`/skills/${skill.id}`);
+
+        return {
+          status: "saved",
+          message: "Skill ready to review.",
+          createdSkill: draft,
+        };
+      }
+
+      revalidatePath("/skills");
+      revalidatePath("/dashboard");
+      revalidatePath(`/skills/${skill.id}`);
+
+      return {
+        status: "saved",
+        message: "Skill was created, but LearnRecur could not load it for review. Open Skills and try again.",
+      };
     }
 
     return {
@@ -189,7 +253,12 @@ export async function generateSkillDraftFromSourceAction(
 
   return {
     status: "error",
-    message: result.message,
+    message:
+      result.reason === "generation-failed" ||
+      result.reason === "invalid-generation" ||
+      result.reason === "save-failed"
+        ? `${result.message} Your material was saved, so you can try again without losing it.`
+        : result.message,
   };
 }
 
@@ -261,16 +330,31 @@ export async function completeSourceUploadAction(input: {
     revalidatePath("/dashboard");
     revalidatePath(`/skills/${skill.id}`);
 
+    const draft = await getSkillDraftForReview(user.userId, skill.id);
+
+    if (!draft) {
+      return {
+        status: "created",
+        message: "Skill was created, but LearnRecur could not load it for review. Open Skills and try again.",
+        redirectTo: `/skills/${skill.id}`,
+        skill: null,
+      };
+    }
+
     return {
       status: "created",
-      message: "Skill created.",
+      message: "Skill ready to review.",
       redirectTo: `/skills/${skill.id}`,
+      skill: draft,
     };
   }
 
   return {
     status: "error",
-    message: result.message,
+    message:
+      result.status === "not-created"
+        ? `${result.message} Your upload was saved, so you can try preparation again from Skills.`
+        : result.message,
   };
 }
 
@@ -668,6 +752,113 @@ function isLifecycleAction(value: string): value is LifecycleAction {
   return value === "pause" || value === "resume" || value === "archive" || value === "restore";
 }
 
+async function saveAndActivateSkillDraft(formData: FormData): Promise<SkillFormActionState> {
+  const user = await requireSkillActionUser();
+
+  if (user.status === "error") {
+    return user;
+  }
+
+  const skillId = getOptionalFormString(formData, "skillId");
+
+  if (!skillId) {
+    return {
+      status: "error",
+      message: "No skill was selected.",
+    };
+  }
+
+  const draftInput = formDataToDraftInput(formData);
+  const saveResult = await updateSkillDraft({
+    userId: user.userId,
+    skillId,
+    input: draftInput,
+  });
+
+  if (saveResult.status === "invalid") {
+    return {
+      status: "error",
+      message: saveResult.message,
+      fieldErrors: saveResult.fieldErrors,
+    };
+  }
+
+  if (saveResult.status === "not-found") {
+    return {
+      status: "error",
+      message: saveResult.message,
+    };
+  }
+
+  const addResult = await activateSkillDraft({
+    userId: user.userId,
+    skillId,
+    now: new Date(),
+  });
+
+  if (addResult.status === "activated") {
+    revalidatePath(`/skills/${addResult.skillId}`);
+    revalidatePath("/skills");
+    revalidatePath("/dashboard");
+    revalidatePath("/practice");
+
+    return {
+      status: "activated",
+      message: "Skill added.",
+      activatedSkillId: addResult.skillId,
+    };
+  }
+
+  return {
+    status: "saved",
+    message: `Your changes were saved, but the skill was not added. ${addResult.message}`,
+  };
+}
+
+async function getSkillDraftForReview(
+  userId: string,
+  skillId: string,
+): Promise<CreatedSkillDraftForReview | null> {
+  const skill = await getPrisma().skill.findFirst({
+    where: {
+      id: skillId,
+      userId,
+      status: SkillStatus.DRAFT,
+    },
+    select: {
+      id: true,
+      title: true,
+      objective: true,
+      rules: true,
+      examples: true,
+      exerciseConstraints: true,
+      tags: true,
+      collection: {
+        select: {
+          name: true,
+        },
+      },
+    },
+  });
+
+  if (!skill) {
+    return null;
+  }
+
+  return {
+    skillId: skill.id,
+    values: {
+      title: skill.title,
+      objective: skill.objective ?? "",
+      collectionName: skill.collection?.name ?? "",
+      rules: notesToText(skill.rules),
+      examples: notesToText(skill.examples),
+      exerciseConstraints: notesToText(skill.exerciseConstraints),
+      tags: skill.tags.join(", "),
+    },
+  };
+}
+
 async function requireSkillActionUser(): Promise<SkillActionUserResult> {
   const { userId } = await auth.protect();
   const clerkUser = await currentUser();
@@ -736,4 +927,20 @@ function getFormString(formData: FormData, key: string): string {
 function getOptionalFormString(formData: FormData, key: string): string | null {
   const value = getFormString(formData, key).trim();
   return value.length > 0 ? value : null;
+}
+
+function notesToText(value: Prisma.JsonValue | null): string {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return "";
+  }
+
+  if ("items" in value && Array.isArray(value.items)) {
+    return value.items.filter((item) => typeof item === "string").join("\n");
+  }
+
+  if ("notes" in value && typeof value.notes === "string") {
+    return value.notes;
+  }
+
+  return "";
 }

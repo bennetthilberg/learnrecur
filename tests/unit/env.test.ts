@@ -8,6 +8,7 @@ import {
   getDatabaseEnv,
   getGeminiEnv,
   getProductionEnv,
+  getQwenEnv,
   getResendEnv,
   getS3Env,
   hasActiveEnv,
@@ -15,6 +16,7 @@ import {
   hasDatabaseEnv,
   hasGeminiEnv,
   hasProductionEnv,
+  hasQwenEnv,
   hasResendEnv,
   hasS3Env,
   shouldCheckProductionEnv,
@@ -29,6 +31,9 @@ const managedEnvKeys = [
   "GEMINI_API_KEY",
   "GEMINI_MODEL",
   "GEMINI_FALLBACK_MODELS",
+  "QWEN_API_KEY",
+  "QWEN_MODEL",
+  "QWEN_BASE_URL",
   "RESEND_API_KEY",
   "RESEND_FROM_EMAIL",
   "NEXT_PUBLIC_APP_URL",
@@ -130,7 +135,13 @@ describe("environment validation", () => {
     expect(getGeminiEnv()).toEqual({
       GEMINI_API_KEY: "gemini-secret",
       GEMINI_MODEL: "gemini-3.5-flash",
-      GEMINI_FALLBACK_MODELS: ["gemini-3.1-flash-lite"],
+      GEMINI_FALLBACK_MODELS: [],
+    });
+    expect(hasQwenEnv()).toBe(false);
+    expect(getQwenEnv()).toEqual({
+      QWEN_API_KEY: undefined,
+      QWEN_BASE_URL: "https://dashscope-us.aliyuncs.com/compatible-mode/v1",
+      QWEN_MODEL: "qwen3.7-plus",
     });
 
     resetManagedEnv({
@@ -202,7 +213,8 @@ describe("environment validation", () => {
       DIRECT_URL: "postgresql://migrate:secret@example.aws.neon.tech/neondb?sslmode=require",
       GEMINI_API_KEY: "gemini-secret",
       GEMINI_MODEL: "gemini-3.5-flash",
-      GEMINI_FALLBACK_MODELS: "gemini-3.1-flash-lite, gemma-4-31b-it",
+      QWEN_API_KEY: "qwen-secret",
+      QWEN_MODEL: "qwen3.7-plus",
       AWS_REGION: "us-east-1",
       S3_BUCKET_NAME: "learnrecur-prod-source-uploads",
       AWS_ACCESS_KEY_ID: "prod-access-key",
@@ -222,9 +234,41 @@ describe("environment validation", () => {
       CLERK_SECRET_KEY: "sk_live_example",
       DATABASE_URL: "postgresql://runtime:secret@example-pooler.aws.neon.tech/neondb?sslmode=require",
       DIRECT_URL: "postgresql://migrate:secret@example.aws.neon.tech/neondb?sslmode=require",
-      GEMINI_FALLBACK_MODELS: ["gemini-3.1-flash-lite", "gemma-4-31b-it"],
+      QWEN_API_KEY: "qwen-secret",
+      QWEN_MODEL: "qwen3.7-plus",
+      QWEN_BASE_URL: "https://dashscope-us.aliyuncs.com/compatible-mode/v1",
       INNGEST_APP_ID: "learnrecur",
       INNGEST_DEV: "0",
+    });
+  });
+
+  it("does not require Qwen for production Gemini-only deployments", () => {
+    resetManagedEnv({
+      NEXT_PUBLIC_APP_URL: " https://app.learnrecur.com ",
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: " pk_live_example ",
+      CLERK_SECRET_KEY: " sk_live_example ",
+      DATABASE_URL: "postgresql://runtime:secret@example-pooler.aws.neon.tech/neondb?sslmode=require",
+      DIRECT_URL: "postgresql://migrate:secret@example.aws.neon.tech/neondb?sslmode=require",
+      GEMINI_API_KEY: "gemini-secret",
+      GEMINI_MODEL: "gemini-3.5-flash",
+      AWS_REGION: "us-east-1",
+      S3_BUCKET_NAME: "learnrecur-prod-source-uploads",
+      AWS_ACCESS_KEY_ID: "prod-access-key",
+      AWS_SECRET_ACCESS_KEY: "prod-secret",
+      INNGEST_APP_ID: "learnrecur",
+      INNGEST_DEV: "0",
+      INNGEST_EVENT_KEY: "inngest-event-key",
+      INNGEST_SIGNING_KEY: "inngest-signing-key",
+      RESEND_API_KEY: "re_example",
+      RESEND_FROM_EMAIL: "LearnRecur <practice@app.learnrecur.com>",
+    });
+
+    expect(hasProductionEnv()).toBe(true);
+    const productionEnv = getProductionEnv();
+    expect(productionEnv).not.toHaveProperty("QWEN_API_KEY");
+    expect(productionEnv).toMatchObject({
+      QWEN_MODEL: "qwen3.7-plus",
+      QWEN_BASE_URL: "https://dashscope-us.aliyuncs.com/compatible-mode/v1",
     });
   });
 
@@ -236,6 +280,7 @@ describe("environment validation", () => {
       DATABASE_URL: "postgresql://runtime:secret@example-pooler.aws.neon.tech/neondb?sslmode=require",
       DIRECT_URL: "",
       GEMINI_API_KEY: "gemini-secret",
+      QWEN_API_KEY: "qwen-secret",
       AWS_REGION: "us-east-1",
       S3_BUCKET_NAME: "learnrecur-prod-source-uploads",
       AWS_ACCESS_KEY_ID: "prod-access-key",
@@ -297,6 +342,7 @@ describe("environment validation", () => {
       DATABASE_URL: "postgresql://runtime:secret@example-pooler.aws.neon.tech/neondb?sslmode=require",
       DIRECT_URL: "postgresql://migrate:secret@example.aws.neon.tech/neondb?sslmode=require",
       GEMINI_API_KEY: "gemini-secret",
+      QWEN_API_KEY: "qwen-secret",
       AWS_REGION: "us-east-1",
       S3_BUCKET_NAME: "learnrecur-prod-source-uploads",
       AWS_ACCESS_KEY_ID: "prod-access-key",

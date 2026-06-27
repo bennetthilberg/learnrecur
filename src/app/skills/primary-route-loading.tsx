@@ -21,7 +21,9 @@ export function PrimaryRouteLoading({
           ? "skillShell historyShell"
           : config.kind === "settings"
             ? "skillShell settingsShell"
-        : "skillShell";
+            : config.kind === "new"
+              ? "skillShell createSkillShell"
+              : "skillShell";
 
   return (
     <main className={shellClassName} aria-busy="true">

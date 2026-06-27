@@ -2,16 +2,12 @@
 
 import { useActionState, useEffect, useId } from "react";
 import type React from "react";
-import {
-  CheckCircle,
-  FloppyDisk,
-  PlusCircle,
-  WarningCircle,
-} from "@phosphor-icons/react";
+import { CheckCircle, FloppyDisk, WarningCircle } from "@phosphor-icons/react";
 import { notifications } from "@mantine/notifications";
 
 import {
-  activateSkillDraftAction,
+  addSkillDraftToPracticeInlineAction,
+  addSkillDraftToPracticeAction,
   saveSkillDraftAction,
   type SkillFormActionState,
 } from "./actions";
@@ -26,11 +22,20 @@ export type SkillDraftFormValues = {
   tags: string;
 };
 
-type SkillDraftFormProps = {
-  mode: "create" | "edit";
-  skillId?: string;
-  initialValues: SkillDraftFormValues;
-};
+type SkillDraftFormProps =
+  | {
+      mode: "create";
+      skillId?: never;
+      initialValues: SkillDraftFormValues;
+    }
+  | {
+      mode: "edit";
+      skillId: string;
+      initialValues: SkillDraftFormValues;
+      activationMode?: "redirect" | "inline";
+      onAdded?: (skillId: string) => void;
+      onBack?: () => void;
+    };
 
 const idleState: SkillFormActionState = {
   status: "idle",
@@ -38,14 +43,24 @@ const idleState: SkillFormActionState = {
 };
 
 const draftNotificationId = "skill-draft-form-notice";
-const activationNotificationId = "skill-draft-activation-notice";
+const addSkillNotificationId = "skill-add-notice";
 
-export function SkillDraftForm({ mode, skillId, initialValues }: SkillDraftFormProps) {
+export function SkillDraftForm(props: SkillDraftFormProps) {
+  const { initialValues, mode } = props;
+  const isEditMode = mode === "edit";
+  const activationMode = isEditMode ? props.activationMode ?? "redirect" : "redirect";
+  const onAdded = isEditMode ? props.onAdded : undefined;
+  const onBack = isEditMode ? props.onBack : undefined;
+  const addSkillServerAction =
+    activationMode === "inline" ? addSkillDraftToPracticeInlineAction : addSkillDraftToPracticeAction;
   const [draftState, saveAction, isSaving] = useActionState(saveSkillDraftAction, idleState);
-  const [activationState, activateAction, isActivating] = useActionState(
-    activateSkillDraftAction,
+  const [addSkillState, addSkillAction, isAddingSkill] = useActionState(
+    addSkillServerAction,
     idleState,
   );
+  const formAction = isEditMode ? addSkillAction : saveAction;
+  const formState = isEditMode ? addSkillState : draftState;
+  const isSubmitting = isEditMode ? isAddingSkill : isSaving;
 
   useEffect(() => {
     if (!draftState.message || draftState.status === "idle") {
@@ -65,59 +80,79 @@ export function SkillDraftForm({ mode, skillId, initialValues }: SkillDraftFormP
       ),
       message: isSaved ? "Your changes are saved." : draftState.message,
       position: "top-right",
-      title: isSaved ? "Draft saved" : "Could not save draft",
+      title: isSaved ? "Changes saved" : "Could not save skill",
       withBorder: true,
       withCloseButton: true,
     });
   }, [draftState]);
 
   useEffect(() => {
-    if (!activationState.message || activationState.status === "idle") {
+    if (!addSkillState.message || addSkillState.status === "idle") {
       return;
     }
 
+    if (addSkillState.status === "activated" && addSkillState.activatedSkillId) {
+      notifications.show({
+        id: addSkillNotificationId,
+        autoClose: 3500,
+        className: "learnrecurNotification",
+        color: "leaf",
+        icon: <CheckCircle size={18} weight="bold" />,
+        message: "The skill is active and in your review schedule.",
+        position: "top-right",
+        title: "Skill added",
+        withBorder: true,
+        withCloseButton: true,
+      });
+      onAdded?.(addSkillState.activatedSkillId);
+      return;
+    }
+
+    const savedButNotAdded = addSkillState.status === "saved";
     notifications.show({
-      id: activationNotificationId,
+      id: addSkillNotificationId,
       autoClose: 8000,
       className: "learnrecurNotification",
       color: "amber",
       icon: <WarningCircle size={18} weight="bold" />,
-      message: activationState.message,
+      message: addSkillState.message,
       position: "top-right",
-      title: "Could not add skill",
+      title: savedButNotAdded ? "Changes saved, skill not added" : "Could not add skill",
       withBorder: true,
       withCloseButton: true,
     });
-  }, [activationState]);
+  }, [addSkillState, onAdded]);
 
   return (
     <div className="skillDraftGrid">
-      <form action={saveAction} className="skillPanel skillDraftForm">
+      <form action={formAction} className="skillPanel skillDraftForm">
         <div className="skillPanelHeader">
           <div>
-            <h2>{mode === "create" ? "Write the skill" : "Review generated skill"}</h2>
+            <h2>{isEditMode ? "Review the skill" : "Write the skill"}</h2>
           </div>
         </div>
 
-        {skillId ? <input name="skillId" type="hidden" value={skillId} /> : null}
+        {isEditMode ? <input name="skillId" type="hidden" value={props.skillId} /> : null}
 
         <fieldset className="skillFormFieldset">
           <legend>Core definition</legend>
           <div className="skillFormFieldsetBody">
             <SkillTextField
-              error={draftState.fieldErrors?.title?.[0]}
+              error={formState.fieldErrors?.title?.[0]}
               label="Title"
               name="title"
               placeholder="Ser vs. estar in everyday sentences"
+              disabled={isSubmitting}
               required
               defaultValue={initialValues.title}
             />
 
             <SkillTextArea
-              error={draftState.fieldErrors?.objective?.[0]}
+              error={formState.fieldErrors?.objective?.[0]}
               label="Objective"
               name="objective"
               placeholder="Choose whether ser or estar fits a short Spanish sentence, focusing on identity, location, and temporary state."
+              disabled={isSubmitting}
               required
               defaultValue={initialValues.objective}
               rows={4}
@@ -125,17 +160,19 @@ export function SkillDraftForm({ mode, skillId, initialValues }: SkillDraftFormP
 
             <div className="skillTwoColumnFields">
               <SkillTextField
-                error={draftState.fieldErrors?.collectionName?.[0]}
+                error={formState.fieldErrors?.collectionName?.[0]}
                 label="Collection"
                 name="collectionName"
                 placeholder="Spanish grammar"
+                disabled={isSubmitting}
                 defaultValue={initialValues.collectionName}
               />
               <SkillTextField
-                error={draftState.fieldErrors?.tags?.[0]}
+                error={formState.fieldErrors?.tags?.[0]}
                 label="Tags"
                 name="tags"
                 placeholder="spanish, verbs, grammar"
+                disabled={isSubmitting}
                 defaultValue={initialValues.tags}
               />
             </div>
@@ -146,28 +183,31 @@ export function SkillDraftForm({ mode, skillId, initialValues }: SkillDraftFormP
           <legend>Practice guidance</legend>
           <div className="skillFormFieldsetBody">
             <SkillTextArea
-              error={draftState.fieldErrors?.rules?.[0]}
+              error={formState.fieldErrors?.rules?.[0]}
               label="Rules"
               name="rules"
               placeholder={"Use ser for identity.\nUse estar for location and temporary state."}
+              disabled={isSubmitting}
               defaultValue={initialValues.rules}
               rows={4}
             />
 
             <SkillTextArea
-              error={draftState.fieldErrors?.examples?.[0]}
+              error={formState.fieldErrors?.examples?.[0]}
               label="Examples"
               name="examples"
               placeholder={"Soy estudiante.\nEstoy en casa."}
+              disabled={isSubmitting}
               defaultValue={initialValues.examples}
               rows={4}
             />
 
             <SkillTextArea
-              error={draftState.fieldErrors?.exerciseConstraints?.[0]}
+              error={formState.fieldErrors?.exerciseConstraints?.[0]}
               label="Exercise constraints"
               name="exerciseConstraints"
               placeholder="Use short choices, avoid trick questions, and keep starter exercises beginner-friendly."
+              disabled={isSubmitting}
               defaultValue={initialValues.exerciseConstraints}
               rows={3}
             />
@@ -175,41 +215,51 @@ export function SkillDraftForm({ mode, skillId, initialValues }: SkillDraftFormP
         </fieldset>
 
         <div className="skillFormActions">
+          {onBack ? (
+            <button
+              className="secondaryButton"
+              disabled={isSubmitting}
+              onClick={onBack}
+              type="button"
+            >
+              Back
+            </button>
+          ) : null}
           <button
-            className={mode === "create" ? "secondaryButton" : "primaryButton"}
-            disabled={isSaving}
+            className="primaryButton"
+            disabled={isSubmitting}
             type="submit"
           >
-            <FloppyDisk size={18} weight="bold" aria-hidden="true" />
+            {isEditMode && isSubmitting ? (
+              <ButtonLoadingDots />
+            ) : isEditMode ? (
+              <CheckCircle size={18} weight="bold" aria-hidden="true" />
+            ) : (
+              <FloppyDisk size={18} weight="bold" aria-hidden="true" />
+            )}
             <span>
-              {isSaving ? "Saving" : mode === "create" ? "Create skill" : "Save changes"}
+              {isSubmitting
+                ? isEditMode
+                  ? "Adding"
+                  : "Saving"
+                : isEditMode
+                  ? "Add skill"
+                  : "Create skill"}
             </span>
           </button>
         </div>
       </form>
-
-      {mode === "edit" && skillId ? (
-        <section className="skillPanel skillActivationPanel" aria-labelledby="activate-skill-title">
-          <div className="skillPanelHeader">
-            <div>
-              <h2 id="activate-skill-title">Add to practice</h2>
-            </div>
-          </div>
-          <p>
-            LearnRecur prepares and verifies starter exercises, then schedules this skill
-            for practice.
-          </p>
-
-          <form action={activateAction} className="skillActivationForm">
-            <input name="skillId" type="hidden" value={skillId} />
-            <button className="primaryButton" disabled={isActivating} type="submit">
-              <PlusCircle size={18} weight="bold" aria-hidden="true" />
-              <span>{isActivating ? "Adding" : "Add skill"}</span>
-            </button>
-          </form>
-        </section>
-      ) : null}
     </div>
+  );
+}
+
+function ButtonLoadingDots() {
+  return (
+    <span className="buttonLoadingDots" aria-hidden="true">
+      <span />
+      <span />
+      <span />
+    </span>
   );
 }
 
