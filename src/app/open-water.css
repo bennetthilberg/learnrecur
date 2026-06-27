@@ -3151,7 +3151,7 @@ body {
 
 .createSkillShell .skillCreateFlow[data-step="2"],
 .createSkillReviewShell .skillDraftGrid {
-  width: min(calc(100% - clamp(32px, 4vw, 96px)), 1120px);
+  width: min(1040px, calc(100% - clamp(48px, 14vw, 180px)));
   max-width: none;
 }
 
@@ -3192,18 +3192,18 @@ body {
   gap: 22px;
 }
 
-.createSkillFlow .skillCreateStack,
-.createSkillFlow .skillDraftGrid {
+.skillCreateFlow .skillCreateStack,
+.skillCreateFlow .skillDraftGrid {
   width: 100%;
   max-width: none;
   margin: 0;
 }
 
-.createSkillFlow .skillDraftGrid {
+.skillCreateFlow .skillDraftGrid {
   grid-template-columns: minmax(0, 1fr);
 }
 
-.createSkillFlow .createSkillGenerationPanel {
+.skillCreateFlow .createSkillGenerationPanel {
   width: 100%;
   max-width: none;
   margin: 0;
@@ -3513,18 +3513,18 @@ body {
   justify-content: start;
 }
 
-.createSkillFlow .skillFormActions {
+.skillCreateFlow .skillFormActions {
   gap: 16px;
   flex-wrap: wrap;
 }
 
-.createSkillFlow .skillDraftForm .skillFormFieldset + .skillFormFieldset,
+.skillCreateFlow .skillDraftForm .skillFormFieldset + .skillFormFieldset,
 .createSkillReviewShell .skillDraftForm .skillFormFieldset + .skillFormFieldset {
   border-top: 0;
   padding-top: 0;
 }
 
-.createSkillFlow .skillDraftForm .skillFormFieldset + .skillFormFieldset::before,
+.skillCreateFlow .skillDraftForm .skillFormFieldset + .skillFormFieldset::before,
 .createSkillReviewShell .skillDraftForm .skillFormFieldset + .skillFormFieldset::before {
   display: block;
   margin: 2px 0 16px;
