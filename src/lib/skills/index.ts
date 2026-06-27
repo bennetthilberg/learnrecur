@@ -54,6 +54,10 @@ export const EXISTING_EXERCISE_CONTEXT_CHAR_LIMIT = 3_000;
 export const MAX_GENERATED_SKILL_DRAFTS = 3;
 export const SOURCE_SKILL_DRAFT_PROMPT_VERSION = "source-skill-draft-v1";
 const GENERATION_TIMEOUT_MS = 45_000;
+const ACTIVE_GENERATION_JOB_STATUSES: GenerationJobStatus[] = [
+  GenerationJobStatus.PENDING,
+  GenerationJobStatus.RUNNING,
+];
 export const SKILL_MCQ_PROMPT_VERSION = "skill-mcq-v0";
 export const SKILL_EXACT_INPUT_PROMPT_VERSION = "skill-exact-input-v0";
 export const SKILL_MATH_PROMPT_VERSION = "skill-math-v0";
@@ -511,6 +515,7 @@ export type SkillActivationResult =
         | "invalid-generation"
         | "verification-failed"
         | "invalid-verification"
+        | "activation-in-progress"
         | "missing-gemini-env"
         | "quota-exceeded"
         | "skill-not-draft";
@@ -1486,21 +1491,25 @@ export async function activateSkillDraft(
   }
 
   const setup = resolveActivationSetup(input);
-  const generationJob = await prisma.generationJob.create({
-    data: {
-      userId: input.userId,
-      skillId: skill.id,
-      kind: GenerationJobKind.SKILL_ACTIVATION,
-      status: setup.status === "ready" ? GenerationJobStatus.RUNNING : GenerationJobStatus.FAILED,
-      provider: GEMINI_PROVIDER,
-      model: setup.model,
-      promptVersion: SKILL_MCQ_PROMPT_VERSION,
-      requestedCount: REQUESTED_ACTIVATION_EXERCISES,
-      errorMessage: setup.status === "ready" ? null : setup.message,
-      startedAt: input.now,
-      completedAt: setup.status === "ready" ? null : input.now,
-    },
+
+  const generationJobResult = await createOrClaimActivationGenerationJob({
+    prisma,
+    userId: input.userId,
+    skillId: skill.id,
+    setup,
+    now: input.now,
   });
+
+  if (generationJobResult.status === "not-ready") {
+    return {
+      status: "not-activated",
+      reason: "activation-in-progress",
+      message: generationJobResult.message,
+      generationJobId: generationJobResult.generationJobId,
+    };
+  }
+
+  const { generationJob } = generationJobResult;
 
   if (setup.status === "missing-env") {
     return {
@@ -4493,6 +4502,172 @@ async function markGenerationJobFailed(
       completedAt: input.now,
     },
   });
+}
+
+type ActivationGenerationSetup =
+  | {
+      status: "ready";
+      model: string;
+    }
+  | {
+      status: "missing-env";
+      model: string;
+      message: string;
+    };
+
+type ActivationGenerationJobClient = Pick<Prisma.TransactionClient, "generationJob">;
+
+async function createOrClaimActivationGenerationJob({
+  prisma,
+  userId,
+  skillId,
+  setup,
+  now,
+}: {
+  prisma: ActivationGenerationJobClient;
+  userId: string;
+  skillId: string;
+  setup: ActivationGenerationSetup;
+  now: Date;
+}): Promise<
+  | {
+      status: "ready";
+      generationJob: {
+        id: string;
+      };
+    }
+  | {
+      status: "not-ready";
+      message: string;
+      generationJobId?: string;
+    }
+> {
+  const data = {
+    kind: GenerationJobKind.SKILL_ACTIVATION,
+    status: setup.status === "ready" ? GenerationJobStatus.RUNNING : GenerationJobStatus.FAILED,
+    provider: GEMINI_PROVIDER,
+    model: setup.model,
+    promptVersion: SKILL_MCQ_PROMPT_VERSION,
+    requestedCount: REQUESTED_ACTIVATION_EXERCISES,
+    acceptedCount: 0,
+    rejectedCount: 0,
+    errorMessage: setup.status === "ready" ? null : setup.message,
+    startedAt: now,
+    completedAt: setup.status === "ready" ? null : now,
+  };
+
+  const activeJob = await prisma.generationJob.findFirst({
+    where: {
+      userId,
+      skillId,
+      kind: GenerationJobKind.SKILL_ACTIVATION,
+      status: {
+        in: ACTIVE_GENERATION_JOB_STATUSES,
+      },
+    },
+    orderBy: {
+      updatedAt: "desc",
+    },
+    select: {
+      id: true,
+      status: true,
+      startedAt: true,
+      updatedAt: true,
+    },
+  });
+
+  if (activeJob) {
+    if (isFreshRunningGenerationJob(activeJob, now)) {
+      return {
+        status: "not-ready",
+        message: "Skill activation is already running. Try again in a minute.",
+        generationJobId: activeJob.id,
+      };
+    }
+
+    const claimed = await prisma.generationJob.updateMany({
+      where: {
+        id: activeJob.id,
+        userId,
+        skillId,
+        kind: GenerationJobKind.SKILL_ACTIVATION,
+        updatedAt: activeJob.updatedAt,
+        status: {
+          in: ACTIVE_GENERATION_JOB_STATUSES,
+        },
+      },
+      data,
+    });
+
+    if (claimed.count === 1) {
+      return {
+        status: "ready",
+        generationJob: {
+          id: activeJob.id,
+        },
+      };
+    }
+  }
+
+  try {
+    const generationJob = await prisma.generationJob.create({
+      data: {
+        userId,
+        skillId,
+        ...data,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    return {
+      status: "ready",
+      generationJob,
+    };
+  } catch (error) {
+    if (!isPrismaUniqueConstraintError(error)) {
+      throw error;
+    }
+
+    const existingJob = await prisma.generationJob.findFirst({
+      where: {
+        userId,
+        skillId,
+        kind: GenerationJobKind.SKILL_ACTIVATION,
+        status: {
+          in: ACTIVE_GENERATION_JOB_STATUSES,
+        },
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    return {
+      status: "not-ready",
+      message: "Skill activation is already running. Try again in a minute.",
+      generationJobId: existingJob?.id,
+    };
+  }
+}
+
+function isFreshRunningGenerationJob(
+  generationJob: {
+    status: GenerationJobStatus;
+    startedAt: Date | null;
+  },
+  now: Date,
+) {
+  return (
+    generationJob.status === GenerationJobStatus.RUNNING &&
+    generationJob.startedAt !== null &&
+    now.getTime() - generationJob.startedAt.getTime() < GENERATION_TIMEOUT_MS
+  );
+}
+
+function isPrismaUniqueConstraintError(error: unknown) {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
 }
 
 type RefillGenerationSetup =

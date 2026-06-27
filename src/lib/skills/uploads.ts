@@ -345,7 +345,7 @@ export function validateExtractedSourceText(input: unknown): ExtractedSourceText
     return {
       status: "invalid",
       reason: "invalid-response",
-      message: "Gemini could not extract enough study text from this file.",
+      message: "The AI could not extract enough study text from this file.",
     };
   }
 
@@ -1017,6 +1017,10 @@ export async function runQueuedSourceUploadDraftJob(
   const extraction = validateExtractedSourceText(rawExtraction);
 
   if (extraction.status === "invalid") {
+    console.warn(
+      "[ai] source extraction returned invalid output",
+      getSourceExtractionValidationLogDetails(rawExtraction),
+    );
     await markUploadedSourceFailed(
       sourceFile,
       storageSetup.storage,
@@ -1176,14 +1180,17 @@ function createGeminiSourceTextExtractor({
 }): SourceTextExtractor {
   return async (input) => {
     const ai = new GoogleGenAI({ apiKey });
-    return runWithGeminiProviderFallback({
-      fallback: qwenFallback && input.mimeType.startsWith("image/")
+    const qwenSourceFallback =
+      qwenFallback && input.mimeType.startsWith("image/")
         ? {
             provider: "qwen",
             model: qwenFallback.model,
             run: () => createQwenSourceTextExtractor(qwenFallback)(input),
           }
-        : null,
+        : null;
+
+    return runWithGeminiProviderFallback({
+      fallback: qwenSourceFallback,
       operation: "source text extraction",
       primaryModel: model,
       runPrimary: async () => {
@@ -1223,7 +1230,7 @@ function createQwenSourceTextExtractor({
   model,
 }: QwenFallbackConfig): SourceTextExtractor {
   return async (input) =>
-    runQwenJsonChatCompletion({
+    normalizeQwenSourceTextExtraction(await runQwenJsonChatCompletion({
       apiKey,
       baseUrl,
       model,
@@ -1249,7 +1256,45 @@ function createQwenSourceTextExtractor({
           ],
         },
       ],
-    });
+    }));
+}
+
+function normalizeQwenSourceTextExtraction(input: unknown): unknown {
+  const record = getObjectRecord(input);
+
+  if (!record) {
+    return input;
+  }
+
+  const extractedText = readStringField(record, "extractedText")
+    ?? readStringField(record, "sourceText")
+    ?? readStringField(record, "text")
+    ?? readStringField(record, "content");
+
+  return extractedText ? { extractedText } : input;
+}
+
+function getSourceExtractionValidationLogDetails(input: unknown) {
+  const record = getObjectRecord(input);
+  const extractedText = record ? readStringField(record, "extractedText") : null;
+
+  return {
+    type: Array.isArray(input) ? "array" : typeof input,
+    keys: record ? Object.keys(record).slice(0, 8) : [],
+    extractedTextLength: extractedText?.length ?? null,
+  };
+}
+
+function getObjectRecord(input: unknown): Record<string, unknown> | null {
+  return input && typeof input === "object" && !Array.isArray(input)
+    ? (input as Record<string, unknown>)
+    : null;
+}
+
+function readStringField(record: Record<string, unknown>, field: string): string | null {
+  const value = record[field];
+
+  return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
 function resolveQwenFallbackConfig(): QwenFallbackConfig | null {
@@ -1269,9 +1314,10 @@ function resolveQwenFallbackConfig(): QwenFallbackConfig | null {
 function buildSourceExtractionPrompt(input: SourceTextExtractorInput) {
   return [
     "Extract study text from this uploaded learning source for LearnRecur.",
-    "Return only JSON matching the provided response schema.",
+    "Return only JSON with exactly this shape: {\"extractedText\":\"...\"}.",
     "Do not summarize, solve, or generate exercises.",
     "Extract the educational text that should guide later skill draft generation.",
+    "The extractedText value must be the visible or embedded educational text, not commentary about the file.",
     "If the file is an image, read visible notes, worksheet text, diagrams labels, and captions.",
     "If the file is a PDF, extract the text most relevant to the study material.",
     "",

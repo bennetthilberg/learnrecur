@@ -626,6 +626,124 @@ describeDatabase("skill drafts and Gemini activation", () => {
     }
   });
 
+  it("retries draft activation by reusing a stale running activation job", async () => {
+    const userId = await createUser("activate_stale_job");
+    const draft = await createSkillDraft({
+      userId,
+      input: {
+        title: "Spanish cardinal numbers",
+        objective: "Choose the correct Spanish cardinal number for simple quantities.",
+      },
+    });
+
+    if (draft.status !== "created") {
+      throw new Error("Expected draft creation to succeed.");
+    }
+
+    const staleJob = await prisma.generationJob.create({
+      data: {
+        userId,
+        skillId: draft.skill.id,
+        kind: GenerationJobKind.SKILL_ACTIVATION,
+        status: GenerationJobStatus.RUNNING,
+        provider: "google",
+        model: "stale-test-gemini",
+        promptVersion: "skill-mcq-v0",
+        requestedCount: 5,
+        startedAt: new Date(now.getTime() - 120_000),
+      },
+    });
+
+    const activated = await activateSkillDraft({
+      userId,
+      skillId: draft.skill.id,
+      now,
+      generateChoiceExercises: successfulGenerator,
+      verifyChoiceExercises: acceptAllVerifier,
+      model: "test-gemini",
+    });
+
+    expect(activated).toMatchObject({
+      status: "activated",
+      generationJobId: staleJob.id,
+      exerciseCount: 3,
+    });
+
+    const [skill, generationJobs] = await Promise.all([
+      prisma.skill.findUniqueOrThrow({ where: { id: draft.skill.id } }),
+      prisma.generationJob.findMany({ where: { userId, skillId: draft.skill.id } }),
+    ]);
+
+    expect(skill.status).toBe(SkillStatus.ACTIVE);
+    expect(generationJobs).toHaveLength(1);
+    expect(generationJobs[0]).toMatchObject({
+      id: staleJob.id,
+      status: GenerationJobStatus.SUCCEEDED,
+      model: "test-gemini",
+      acceptedCount: 3,
+      rejectedCount: 0,
+      errorMessage: null,
+      startedAt: now,
+      completedAt: now,
+    });
+  });
+
+  it("does not start a second activation while one is already running", async () => {
+    const userId = await createUser("activate_running_job");
+    const draft = await createSkillDraft({
+      userId,
+      input: {
+        title: "Spanish ordinal numbers",
+        objective: "Choose the correct Spanish ordinal number for simple rankings.",
+      },
+    });
+
+    if (draft.status !== "created") {
+      throw new Error("Expected draft creation to succeed.");
+    }
+
+    const runningJob = await prisma.generationJob.create({
+      data: {
+        userId,
+        skillId: draft.skill.id,
+        kind: GenerationJobKind.SKILL_ACTIVATION,
+        status: GenerationJobStatus.RUNNING,
+        provider: "google",
+        model: "test-gemini",
+        promptVersion: "skill-mcq-v0",
+        requestedCount: 5,
+        startedAt: now,
+      },
+    });
+    const generator = vi.fn(successfulGenerator);
+
+    const result = await activateSkillDraft({
+      userId,
+      skillId: draft.skill.id,
+      now,
+      generateChoiceExercises: generator,
+      verifyChoiceExercises: acceptAllVerifier,
+      model: "test-gemini",
+    });
+
+    expect(result).toMatchObject({
+      status: "not-activated",
+      reason: "activation-in-progress",
+      generationJobId: runningJob.id,
+    });
+    expect(generator).not.toHaveBeenCalled();
+
+    const [skill, exerciseCount, generationJob] = await Promise.all([
+      prisma.skill.findUniqueOrThrow({ where: { id: draft.skill.id } }),
+      prisma.exercise.count({ where: { userId, skillId: draft.skill.id } }),
+      prisma.generationJob.findUniqueOrThrow({ where: { id: runningJob.id } }),
+    ]);
+
+    expect(skill.status).toBe(SkillStatus.DRAFT);
+    expect(exerciseCount).toBe(0);
+    expect(generationJob.status).toBe(GenerationJobStatus.RUNNING);
+  });
+
   it("persists only verifier-approved exercises and counts rejected candidates", async () => {
     const userId = await createUser("verified_subset");
     const draft = await createSkillDraft({
@@ -1269,7 +1387,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
     expect(library.sourceProcessing).toHaveLength(1);
     expect(library.sourceProcessing[0]).toMatchObject({
       status: SourceFileStatus.FAILED,
-      errorMessage: "Gemini could not extract enough study text from this file.",
+      errorMessage: "The AI could not extract enough study text from this file.",
       canRequeue: true,
     });
     await expect(prisma.skillSourceRef.count({ where: { userId } })).resolves.toBe(0);
