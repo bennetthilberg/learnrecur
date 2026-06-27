@@ -252,7 +252,9 @@ export async function generateSkillDraftFromSourceAction(
   return {
     status: "error",
     message:
-      result.reason === "generation-failed" || result.reason === "invalid-generation"
+      result.reason === "generation-failed" ||
+      result.reason === "invalid-generation" ||
+      result.reason === "save-failed"
         ? `${result.message} Your material was saved, so you can try again without losing it.`
         : result.message,
   };

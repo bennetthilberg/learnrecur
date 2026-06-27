@@ -488,7 +488,8 @@ export type SourceSkillDraftWriteResult =
         | "generation-failed"
         | "invalid-generation"
         | "missing-gemini-env"
-        | "quota-exceeded";
+        | "quota-exceeded"
+        | "save-failed";
       message: string;
     };
 
@@ -1232,58 +1233,82 @@ export async function createSkillDraftFromSource(
 
   prisma ??= getPrisma();
 
-  return prisma.$transaction(async (tx) => {
-    const sourceFile = persistedSourceFileId
-      ? { id: persistedSourceFileId }
-      : await tx.sourceFile.create({
-          data: {
-            userId: input.userId,
-            kind: SourceFileKind.TEXT,
-            status: SourceFileStatus.READY,
-            originalName: normalized.value.sourceLabel ?? "Pasted source",
-            mimeType: "text/plain",
-            byteSize: Buffer.byteLength(normalized.value.sourceText, "utf8"),
-            extractedText: normalized.value.sourceText,
-            metadata: buildPastedSourceMetadata({
-              normalized: normalized.value,
-              model: setup.model,
-              now: input.now,
-              generated: true,
-            }),
-          },
-          select: {
-            id: true,
-          },
-        });
-    const createdDrafts = await createGeneratedSkillDraftsForSourceFileInTransaction(tx, {
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const sourceFile = persistedSourceFileId
+        ? { id: persistedSourceFileId }
+        : await tx.sourceFile.create({
+            data: {
+              userId: input.userId,
+              kind: SourceFileKind.TEXT,
+              status: SourceFileStatus.READY,
+              originalName: normalized.value.sourceLabel ?? "Pasted source",
+              mimeType: "text/plain",
+              byteSize: Buffer.byteLength(normalized.value.sourceText, "utf8"),
+              extractedText: normalized.value.sourceText,
+              metadata: buildPastedSourceMetadata({
+                normalized: normalized.value,
+                model: setup.model,
+                now: input.now,
+                generated: true,
+              }),
+            },
+            select: {
+              id: true,
+            },
+          });
+      const createdDrafts = await createGeneratedSkillDraftsForSourceFileInTransaction(tx, {
+        userId: input.userId,
+        sourceFileId: sourceFile.id,
+        collectionName: normalized.value.collectionName,
+        focusNote: normalized.value.focusNote,
+        tags: normalized.value.tags,
+        drafts: validation.drafts,
+        sourceFileUpdate: persistedSourceFileId
+          ? {
+              status: SourceFileStatus.READY,
+              byteSize: Buffer.byteLength(normalized.value.sourceText, "utf8"),
+              extractedText: normalized.value.sourceText,
+              metadata: buildPastedSourceMetadata({
+                normalized: normalized.value,
+                model: setup.model,
+                now: input.now,
+                generated: true,
+              }),
+            }
+          : undefined,
+      });
+
+      return {
+        status: "created",
+        skills: createdDrafts.skills,
+        sourceFileId: sourceFile.id,
+        skillSourceRefIds: createdDrafts.skillSourceRefIds,
+      };
+    });
+  } catch (error) {
+    if (!persistedSourceFileId) {
+      throw error;
+    }
+
+    const message = "Skill preparation failed before LearnRecur could save the generated skill. Try again.";
+    await markPastedSourceFailed({
+      prisma,
       userId: input.userId,
-      sourceFileId: sourceFile.id,
-      collectionName: normalized.value.collectionName,
-      focusNote: normalized.value.focusNote,
-      tags: normalized.value.tags,
-      drafts: validation.drafts,
-      sourceFileUpdate: persistedSourceFileId
-        ? {
-            status: SourceFileStatus.READY,
-            byteSize: Buffer.byteLength(normalized.value.sourceText, "utf8"),
-            extractedText: normalized.value.sourceText,
-            metadata: buildPastedSourceMetadata({
-              normalized: normalized.value,
-              model: setup.model,
-              now: input.now,
-              generated: true,
-            }),
-          }
-        : undefined,
+      sourceFileId: persistedSourceFileId,
+      now: input.now,
+      reason: "save-failed",
+      message,
+      normalized: normalized.value,
+      model: setup.model,
     });
 
     return {
-      status: "created",
-      skills: createdDrafts.skills,
-      sourceFileId: sourceFile.id,
-      skillSourceRefIds: createdDrafts.skillSourceRefIds,
+      status: "not-created",
+      reason: "save-failed",
+      message,
     };
-  });
+  }
 }
 
 export async function createGeneratedSkillDraftsForSourceFile(

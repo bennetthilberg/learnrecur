@@ -1858,6 +1858,49 @@ describeDatabase("skill drafts and Gemini activation", () => {
         storageKey: `source-uploads/${userId}/failed.png`,
       },
     });
+    const textFailedSource = await prisma.sourceFile.create({
+      data: {
+        userId,
+        kind: SourceFileKind.TEXT,
+        status: SourceFileStatus.FAILED,
+        originalName: "failed pasted source",
+        mimeType: "text/plain",
+        byteSize: 1024,
+        extractedText:
+          "Use ser for identity and long-term traits. Use estar for location and temporary states.",
+      },
+    });
+    const linkedSkill = await createSkillDraft({
+      userId,
+      input: {
+        title: "Linked failed upload",
+        objective: "Review an upload already attached to another skill.",
+      },
+    });
+
+    if (linkedSkill.status !== "created") {
+      throw new Error("Expected linked draft creation to succeed.");
+    }
+
+    const linkedFailedSource = await prisma.sourceFile.create({
+      data: {
+        userId,
+        kind: SourceFileKind.IMAGE,
+        status: SourceFileStatus.FAILED,
+        originalName: "linked failed upload",
+        mimeType: "image/png",
+        byteSize: 1024,
+        storageBucket: "learnrecur-dev",
+        storageKey: `source-uploads/${userId}/linked-failed.png`,
+      },
+    });
+    await prisma.skillSourceRef.create({
+      data: {
+        userId,
+        skillId: linkedSkill.skill.id,
+        sourceFileId: linkedFailedSource.id,
+      },
+    });
 
     await expect(
       requeueSourceUploadDraft({
@@ -1881,7 +1924,31 @@ describeDatabase("skill drafts and Gemini activation", () => {
       }),
     ).resolves.toMatchObject({
       status: "not-queued",
-      reason: "invalid-upload",
+      reason: "not-requeueable",
+    });
+    await expect(
+      requeueSourceUploadDraft({
+        userId,
+        sourceFileId: textFailedSource.id,
+        now,
+        storage,
+        eventSender: createFakeSourceUploadSender().sender,
+      }),
+    ).resolves.toMatchObject({
+      status: "not-queued",
+      reason: "not-requeueable",
+    });
+    await expect(
+      requeueSourceUploadDraft({
+        userId,
+        sourceFileId: linkedFailedSource.id,
+        now,
+        storage,
+        eventSender: createFakeSourceUploadSender().sender,
+      }),
+    ).resolves.toMatchObject({
+      status: "not-queued",
+      reason: "not-requeueable",
     });
 
     const retrySender = createFakeSourceUploadSender();

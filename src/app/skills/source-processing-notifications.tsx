@@ -21,11 +21,17 @@ export function SourceProcessingNotifications({
     for (const failure of failures) {
       const storageKey = `learnrecur:source-prep-failure:${failure.noticeKey}`;
 
-      if (window.sessionStorage.getItem(storageKey)) {
-        continue;
+      try {
+        if (window.sessionStorage.getItem(storageKey)) {
+          continue;
+        }
+
+        window.sessionStorage.setItem(storageKey, "1");
+      } catch {
+        // Some browsers or privacy modes block storage access. In that case,
+        // show the notification without session-level dedupe.
       }
 
-      window.sessionStorage.setItem(storageKey, "1");
       notifications.show({
         id: `source-prep-failure-${failure.id}`,
         autoClose: 9000,
