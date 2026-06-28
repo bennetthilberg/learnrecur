@@ -283,18 +283,6 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
   }, [pendingAction, resetAttemptState, startTransition]);
 
   useEffect(() => {
-    if (item.status !== "ready" || item.exercise.answerKind === AnswerKind.CHOICE) {
-      return;
-    }
-
-    const focusTarget = window.requestAnimationFrame(() => {
-      answerInputRef.current?.focus({ preventScroll: true });
-    });
-
-    return () => window.cancelAnimationFrame(focusTarget);
-  }, [attemptId, item]);
-
-  useEffect(() => {
     if (!checkedFeedback) {
       return;
     }
