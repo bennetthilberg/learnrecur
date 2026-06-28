@@ -92,7 +92,6 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
   const answerInputRef = useRef<HTMLInputElement>(null);
   const continueButtonRef = useRef<HTMLButtonElement>(null);
   const firstFlagReasonRef = useRef<HTMLInputElement>(null);
-  const practiceFrameRef = useRef<HTMLElement>(null);
   const reportToggleRef = useRef<HTMLButtonElement>(null);
 
   const timer = useVisibleElapsedMs(attemptId, item.status === "ready" && feedback === null);
@@ -284,16 +283,12 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
   }, [pendingAction, resetAttemptState, startTransition]);
 
   useEffect(() => {
-    if (item.status !== "ready") {
+    if (item.status !== "ready" || item.exercise.answerKind === AnswerKind.CHOICE) {
       return;
     }
 
     const focusTarget = window.requestAnimationFrame(() => {
-      if (item.exercise.answerKind === AnswerKind.CHOICE) {
-        practiceFrameRef.current?.focus({ preventScroll: true });
-      } else {
-        answerInputRef.current?.focus({ preventScroll: true });
-      }
+      answerInputRef.current?.focus({ preventScroll: true });
     });
 
     return () => window.cancelAnimationFrame(focusTarget);
@@ -432,12 +427,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
   return (
     <>
       <PracticeScopeBar scope={item.scope} />
-      <section
-        ref={practiceFrameRef}
-        className="practiceFrame"
-        aria-labelledby="practice-title"
-        tabIndex={-1}
-      >
+      <section className="practiceFrame" aria-labelledby="practice-title">
         <div className="practiceMetaRow">
           <div>
             <h1 id="practice-title">{item.skill.title}</h1>
