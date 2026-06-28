@@ -93,6 +93,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
   const continueButtonRef = useRef<HTMLButtonElement>(null);
   const firstFlagReasonRef = useRef<HTMLInputElement>(null);
   const reportToggleRef = useRef<HTMLButtonElement>(null);
+  const shouldFocusNextReadyAnswerRef = useRef(false);
 
   const timer = useVisibleElapsedMs(attemptId, item.status === "ready" && feedback === null);
   const checkedFeedback = feedback?.status === "checked" ? feedback : null;
@@ -195,6 +196,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
       setPendingAction(null);
 
       if (result.status === "committed") {
+        shouldFocusNextReadyAnswerRef.current = true;
         setItem(result.nextItem);
         resetAttemptState();
         setStatusNotice(
@@ -283,16 +285,25 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
   }, [pendingAction, resetAttemptState, startTransition]);
 
   useEffect(() => {
-    if (!checkedFeedback) {
-      return;
-    }
-
     const focusTarget = window.requestAnimationFrame(() => {
-      continueButtonRef.current?.focus();
+      if (checkedFeedback) {
+        continueButtonRef.current?.focus();
+        return;
+      }
+
+      if (!shouldFocusNextReadyAnswerRef.current) {
+        return;
+      }
+
+      shouldFocusNextReadyAnswerRef.current = false;
+
+      if (item.status === "ready" && item.exercise.answerKind !== AnswerKind.CHOICE) {
+        answerInputRef.current?.focus({ preventScroll: true });
+      }
     });
 
     return () => window.cancelAnimationFrame(focusTarget);
-  }, [checkedFeedback]);
+  }, [attemptId, checkedFeedback, item]);
 
   useEffect(() => {
     if (!flagFormOpen) {
