@@ -3797,6 +3797,10 @@ body {
 }
 
 .skillDetailSectionHeader {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
   border-bottom: 1px solid var(--lr-divider);
   padding-bottom: 14px;
 }
@@ -3820,6 +3824,12 @@ body {
   color: var(--lr-text-secondary);
   font-size: 14px;
   line-height: 1.45;
+}
+
+.skillGuidanceEditButton {
+  gap: 6px;
+  padding: 7px 11px;
+  font-size: 12.5px;
 }
 
 .skillDetailFactGrid {
@@ -3999,6 +4009,126 @@ body {
   line-height: 1.45;
 }
 
+.skillGuidanceModalRoot {
+  position: fixed;
+  inset: 0;
+  z-index: 2200 !important;
+  pointer-events: none;
+}
+
+.skillGuidanceModalContent {
+  position: relative;
+  z-index: 2;
+  border: 1px solid var(--lr-card-border);
+  background: #FFFFFF;
+  box-shadow: none;
+  pointer-events: auto;
+}
+
+.skillGuidanceModalInner {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.skillGuidanceModalOverlay {
+  background: rgba(21, 35, 63, 0.34);
+  pointer-events: auto;
+  z-index: 0;
+}
+
+.skillGuidanceModalHeader {
+  border-bottom: 1px solid var(--lr-divider);
+  background: #FFFFFF;
+  padding: 22px 24px 18px;
+}
+
+.skillGuidanceModalTitle {
+  color: var(--lr-ink);
+  font-family: var(--lr-font-display);
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.18;
+}
+
+.skillGuidanceModalBody {
+  padding: 24px;
+}
+
+.skillGuidanceDialogForm {
+  display: grid;
+  gap: 18px;
+}
+
+.skillGuidanceDialogIntro {
+  margin: 0;
+  color: var(--lr-text-secondary);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.skillGuidanceDialogField {
+  display: grid;
+  gap: 7px;
+}
+
+.skillGuidanceDialogField span:not(.skillGuidanceFieldError) {
+  color: var(--lr-ink);
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.skillGuidanceDialogField small {
+  color: var(--lr-text-secondary);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.skillGuidanceDialogField textarea {
+  width: 100%;
+  min-height: 112px;
+  resize: vertical;
+  border: 1px solid var(--lr-card-border);
+  border-radius: 8px;
+  background: #FFFFFF;
+  color: var(--lr-ink);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  padding: 12px 13px;
+}
+
+.skillGuidanceDialogField textarea:focus {
+  border-color: var(--lr-blue);
+  outline: 2px solid rgba(28, 68, 168, 0.16);
+  outline-offset: 1px;
+}
+
+.skillGuidanceDialogField textarea:disabled {
+  opacity: 0.65;
+}
+
+.skillGuidanceDialogField textarea[aria-invalid="true"] {
+  border-color: var(--lr-amber);
+}
+
+.skillGuidanceFieldError {
+  color: var(--lr-amber);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.skillGuidanceDialogActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  border-top: 1px solid var(--lr-divider);
+  padding-top: 18px;
+}
+
 .skillDetailPreparation.skillFormDetails {
   display: block;
 }
@@ -4073,6 +4203,23 @@ body {
   .skillDetailOverview {
     width: calc(100% - 28px);
     margin-top: 22px;
+  }
+
+  .skillDetailSectionHeader {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .skillGuidanceEditButton {
+    justify-self: start;
+  }
+
+  .skillGuidanceModalHeader,
+  .skillGuidanceModalBody {
+    padding-inline: 20px;
+  }
+
+  .skillGuidanceDialogActions {
+    flex-wrap: wrap;
   }
 
   .skillDetailHero {

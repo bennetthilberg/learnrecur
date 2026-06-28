@@ -21,6 +21,7 @@ import {
   filterDuplicateMathExercises,
   isExactInputUnlocked,
   normalizeSourceSkillDraftInput,
+  normalizeSkillPracticeGuidanceInput,
   normalizeSkillDraftInput,
   toGeneratedChoiceExerciseCandidates,
   toGeneratedExactInputExerciseCandidates,
@@ -145,6 +146,60 @@ describe("normalizeSkillDraftInput", () => {
       expect(result.fieldErrors.objective).toEqual([
         "Describe the skill objective in at least 12 characters.",
       ]);
+    }
+  });
+});
+
+describe("normalizeSkillPracticeGuidanceInput", () => {
+  it("trims guidance fields and stores multiline rules and examples as lists", () => {
+    const result = normalizeSkillPracticeGuidanceInput({
+      rules: "  Use ser for identity.\n\nUse estar for location. ",
+      examples: " Soy estudiante. \n Estoy en casa. ",
+      exerciseConstraints: " Keep each prompt short. ",
+    });
+
+    expect(result).toEqual({
+      status: "ready",
+      value: {
+        rules: ["Use ser for identity.", "Use estar for location."],
+        examples: ["Soy estudiante.", "Estoy en casa."],
+        exerciseConstraints: "Keep each prompt short.",
+      },
+    });
+  });
+
+  it("allows clearing optional guidance fields", () => {
+    const result = normalizeSkillPracticeGuidanceInput({
+      rules: " ",
+      examples: "",
+      exerciseConstraints: "\n",
+    });
+
+    expect(result).toEqual({
+      status: "ready",
+      value: {
+        rules: [],
+        examples: [],
+        exerciseConstraints: null,
+      },
+    });
+  });
+
+  it("rejects malformed guidance field shapes with field errors", () => {
+    const result = normalizeSkillPracticeGuidanceInput({
+      rules: { text: "Use ser for identity." },
+      examples: ["Soy estudiante."],
+      exerciseConstraints: 42,
+    });
+
+    expect(result.status).toBe("invalid");
+
+    if (result.status === "invalid") {
+      expect(result.fieldErrors).toMatchObject({
+        examples: [expect.any(String)],
+        exerciseConstraints: [expect.any(String)],
+        rules: [expect.any(String)],
+      });
     }
   });
 });
