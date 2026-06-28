@@ -4073,7 +4073,7 @@ body {
   gap: 7px;
 }
 
-.skillGuidanceDialogField span {
+.skillGuidanceDialogField span:not(.skillGuidanceFieldError) {
   color: var(--lr-ink);
   font-size: 14px;
   font-weight: 800;

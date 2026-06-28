@@ -1193,19 +1193,20 @@ export async function updateSkillPracticeGuidance(input: {
     return normalized;
   }
 
-  const prisma = getPrisma();
-  const existingSkill = await prisma.skill.findFirst({
+  const updateResult = await getPrisma().skill.updateMany({
     where: {
       id: input.skillId,
       userId: input.userId,
       status: SkillStatus.ACTIVE,
     },
-    select: {
-      id: true,
+    data: {
+      rules: toNotesJson(normalized.value.rules),
+      examples: toNotesJson(normalized.value.examples),
+      exerciseConstraints: toConstraintsJson(normalized.value.exerciseConstraints),
     },
   });
 
-  if (!existingSkill) {
+  if (updateResult.count === 0) {
     return {
       status: "not-found",
       reason: "skill-not-found",
@@ -1213,21 +1214,9 @@ export async function updateSkillPracticeGuidance(input: {
     };
   }
 
-  const skill = await prisma.skill.update({
-    where: { id: existingSkill.id },
-    data: {
-      rules: toNotesJson(normalized.value.rules),
-      examples: toNotesJson(normalized.value.examples),
-      exerciseConstraints: toConstraintsJson(normalized.value.exerciseConstraints),
-    },
-    select: {
-      id: true,
-    },
-  });
-
   return {
     status: "updated",
-    skillId: skill.id,
+    skillId: input.skillId,
   };
 }
 

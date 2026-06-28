@@ -184,6 +184,24 @@ describe("normalizeSkillPracticeGuidanceInput", () => {
       },
     });
   });
+
+  it("rejects malformed guidance field shapes with field errors", () => {
+    const result = normalizeSkillPracticeGuidanceInput({
+      rules: { text: "Use ser for identity." },
+      examples: ["Soy estudiante."],
+      exerciseConstraints: 42,
+    });
+
+    expect(result.status).toBe("invalid");
+
+    if (result.status === "invalid") {
+      expect(result.fieldErrors).toMatchObject({
+        examples: [expect.any(String)],
+        exerciseConstraints: [expect.any(String)],
+        rules: [expect.any(String)],
+      });
+    }
+  });
 });
 
 describe("validateGeneratedChoiceExercises", () => {
