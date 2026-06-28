@@ -43,6 +43,7 @@ import { SkillDeleteForm } from "../skill-delete-form";
 import { SkillExactInputRefillForm } from "../skill-exact-input-refill-form";
 import { SkillLifecycleForm } from "../skill-lifecycle-form";
 import { SkillMathRefillForm } from "../skill-math-refill-form";
+import { SkillPracticeGuidanceDialog } from "../skill-practice-guidance-dialog";
 import { SkillRefillForm } from "../skill-refill-form";
 import { SkillSourcePanel } from "../skill-source-panel";
 import { SkillsTopbar } from "../skills-topbar";
@@ -266,6 +267,7 @@ export default async function SkillPage({
               constraints={draftValues.exerciseConstraints}
               examples={draftValues.examples}
               rules={draftValues.rules}
+              skillId={skill.id}
             />
 
             <SkillDetailReviewOutcomesCard groups={reviewOutcomeGroups} />
@@ -791,10 +793,12 @@ function SkillDetailGuidanceCard({
   constraints,
   examples,
   rules,
+  skillId,
 }: {
   constraints: string;
   examples: string;
   rules: string;
+  skillId: string;
 }) {
   return (
     <section className="skillDetailCard skillDetailGuidance" aria-labelledby="skill-detail-guidance">
@@ -803,6 +807,12 @@ function SkillDetailGuidanceCard({
           <h2 id="skill-detail-guidance">Practice guidance</h2>
           <p>What LearnRecur uses when it prepares exercises for this skill.</p>
         </div>
+        <SkillPracticeGuidanceDialog
+          constraints={constraints}
+          examples={examples}
+          rules={rules}
+          skillId={skillId}
+        />
       </div>
       <div className="skillDetailGuidanceList">
         <SkillDetailTextBlock fallback="No rules are saved for this skill yet." title="Rules">

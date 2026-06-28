@@ -10,6 +10,7 @@ import {
   createSkillDraft,
   createSkillDraftFromSource,
   updateSkillDraft,
+  updateSkillPracticeGuidance,
 } from "@/lib/skills";
 import {
   queueExactInputExerciseRefillForSkill,
@@ -722,6 +723,61 @@ export async function removeSkillSourceAction(
     return {
       status: "saved",
       message: result.message,
+    };
+  }
+
+  return {
+    status: "error",
+    message: result.message,
+  };
+}
+
+export async function updateSkillPracticeGuidanceAction(
+  _previousState: SkillFormActionState,
+  formData: FormData,
+): Promise<SkillFormActionState> {
+  const user = await requireSkillActionUser();
+
+  if (user.status === "error") {
+    return user;
+  }
+
+  const skillId = getOptionalFormString(formData, "skillId");
+
+  if (!skillId) {
+    return {
+      status: "error",
+      message: "No skill was selected.",
+    };
+  }
+
+  const result = await updateSkillPracticeGuidance({
+    userId: user.userId,
+    skillId,
+    input: {
+      rules: getFormString(formData, "rules"),
+      examples: getFormString(formData, "examples"),
+      exerciseConstraints: getFormString(formData, "exerciseConstraints"),
+    },
+  });
+
+  if (result.status === "updated") {
+    revalidatePath(`/skills/${result.skillId}`);
+    revalidatePath("/skills");
+    revalidatePath("/dashboard");
+    revalidatePath("/practice");
+
+    return {
+      status: "saved",
+      message: "Practice guidance saved.",
+    };
+  }
+
+  if (result.status === "invalid") {
+    return {
+      status: "error",
+      message: result.message,
+      fieldErrors: result.fieldErrors,
     };
   }
 

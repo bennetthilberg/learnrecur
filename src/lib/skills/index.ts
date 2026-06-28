@@ -85,6 +85,23 @@ export type SkillDraftInputResult =
       fieldErrors: Record<string, string[]>;
     };
 
+export type NormalizedSkillPracticeGuidanceInput = {
+  rules: string[];
+  examples: string[];
+  exerciseConstraints: string | null;
+};
+
+export type SkillPracticeGuidanceInputResult =
+  | {
+      status: "ready";
+      value: NormalizedSkillPracticeGuidanceInput;
+    }
+  | {
+      status: "invalid";
+      message: string;
+      fieldErrors: Record<string, string[]>;
+    };
+
 export type GeneratedChoiceExercise = {
   prompt: string;
   choices: Array<{
@@ -688,6 +705,12 @@ const draftInputSchema = z.strictObject({
   tags: z.union([z.string(), z.array(z.string())]).optional(),
 });
 
+const skillPracticeGuidanceInputSchema = z.strictObject({
+  rules: optionalTrimmedStringSchema,
+  examples: optionalTrimmedStringSchema,
+  exerciseConstraints: optionalTrimmedStringSchema,
+});
+
 const sourceSkillDraftInputSchema = z.strictObject({
   sourceText: z
     .string()
@@ -1014,6 +1037,31 @@ export function normalizeSkillDraftInput(input: unknown): SkillDraftInputResult 
   };
 }
 
+export function normalizeSkillPracticeGuidanceInput(
+  input: unknown,
+): SkillPracticeGuidanceInputResult {
+  const result = skillPracticeGuidanceInputSchema.safeParse(input);
+
+  if (!result.success) {
+    return {
+      status: "invalid",
+      message: "Practice guidance could not be saved.",
+      fieldErrors: z.flattenError(result.error).fieldErrors,
+    };
+  }
+
+  const value = result.data;
+
+  return {
+    status: "ready",
+    value: {
+      rules: splitNotes(value.rules),
+      examples: splitNotes(value.examples),
+      exerciseConstraints: value.exerciseConstraints ?? null,
+    },
+  };
+}
+
 export function normalizeSourceSkillDraftInput(input: unknown): SourceSkillDraftInputResult {
   const result = sourceSkillDraftInputSchema.safeParse(input);
 
@@ -1117,6 +1165,70 @@ export async function updateSkillDraft(input: UpdateSkillDraftInput): Promise<Sk
       skill,
     };
   });
+}
+
+export async function updateSkillPracticeGuidance(input: {
+  userId: string;
+  skillId: string;
+  input: unknown;
+}): Promise<
+  | {
+      status: "updated";
+      skillId: string;
+    }
+  | {
+      status: "invalid";
+      message: string;
+      fieldErrors: Record<string, string[]>;
+    }
+  | {
+      status: "not-found";
+      reason: "skill-not-found";
+      message: string;
+    }
+> {
+  const normalized = normalizeSkillPracticeGuidanceInput(input.input);
+
+  if (normalized.status === "invalid") {
+    return normalized;
+  }
+
+  const prisma = getPrisma();
+  const existingSkill = await prisma.skill.findFirst({
+    where: {
+      id: input.skillId,
+      userId: input.userId,
+      status: SkillStatus.ACTIVE,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!existingSkill) {
+    return {
+      status: "not-found",
+      reason: "skill-not-found",
+      message: "No active skill was found for this user.",
+    };
+  }
+
+  const skill = await prisma.skill.update({
+    where: { id: existingSkill.id },
+    data: {
+      rules: toNotesJson(normalized.value.rules),
+      examples: toNotesJson(normalized.value.examples),
+      exerciseConstraints: toConstraintsJson(normalized.value.exerciseConstraints),
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  return {
+    status: "updated",
+    skillId: skill.id,
+  };
 }
 
 export async function createSkillDraftFromSource(

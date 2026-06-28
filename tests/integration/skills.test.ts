@@ -33,6 +33,7 @@ import {
   refillExactInputExercisesForSkill,
   refillChoiceExercisesForSkill,
   updateSkillDraft,
+  updateSkillPracticeGuidance,
   type ChoiceExerciseGenerator,
   type ChoiceExerciseVerifier,
   type ExactInputExerciseGenerator,
@@ -539,6 +540,72 @@ describeDatabase("skill drafts and Gemini activation", () => {
       title: "Ser and estar in context",
       status: SkillStatus.DRAFT,
       tags: ["spanish", "verbs", "grammar"],
+    });
+  });
+
+  it("updates practice guidance for active skills owned by the user", async () => {
+    const userId = await createUser("guidance");
+    const otherUserId = await createUser("guidance_other");
+    const skill = await prisma.skill.create({
+      data: {
+        userId,
+        title: "Spanish articles",
+        objective: "Choose the correct Spanish definite article for short noun phrases.",
+        status: SkillStatus.ACTIVE,
+        tags: ["spanish"],
+        rules: { items: ["Use el before masculine singular nouns."] },
+        examples: { items: ["el libro"] },
+        exerciseConstraints: {
+          notes: "Use short noun phrases.",
+          answerKind: "choice",
+          requestedCount: 5,
+        },
+        ...createInitialSkillSchedule(now),
+      },
+    });
+
+    const denied = await updateSkillPracticeGuidance({
+      userId: otherUserId,
+      skillId: skill.id,
+      input: {
+        rules: "Use la for every noun.",
+        examples: "la libro",
+        exerciseConstraints: "This should not save.",
+      },
+    });
+
+    expect(denied).toMatchObject({
+      status: "not-found",
+      reason: "skill-not-found",
+    });
+
+    const unchanged = await prisma.skill.findUniqueOrThrow({ where: { id: skill.id } });
+    expect(unchanged.rules).toEqual({ items: ["Use el before masculine singular nouns."] });
+
+    const updated = await updateSkillPracticeGuidance({
+      userId,
+      skillId: skill.id,
+      input: {
+        rules: "Prefer singular examples.\nKeep articles explicit.",
+        examples: "el mapa\nla clase",
+        exerciseConstraints: "Avoid ambiguous nouns with multiple accepted articles.",
+      },
+    });
+
+    expect(updated).toEqual({
+      status: "updated",
+      skillId: skill.id,
+    });
+
+    const afterUpdate = await prisma.skill.findUniqueOrThrow({ where: { id: skill.id } });
+    expect(afterUpdate.rules).toEqual({
+      items: ["Prefer singular examples.", "Keep articles explicit."],
+    });
+    expect(afterUpdate.examples).toEqual({ items: ["el mapa", "la clase"] });
+    expect(afterUpdate.exerciseConstraints).toEqual({
+      notes: "Avoid ambiguous nouns with multiple accepted articles.",
+      answerKind: "choice",
+      requestedCount: 5,
     });
   });
 
