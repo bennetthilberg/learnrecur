@@ -59,6 +59,7 @@ export type RecoverableSourceUpload = {
   errorMessage: string | null;
   isStaleProcessing: boolean;
   canRequeue: boolean;
+  canDismiss: boolean;
   hasSourceText: boolean;
 };
 
@@ -503,6 +504,10 @@ export function SourceCreationWorkspace({
         tone: "error",
         message: completed.message,
       });
+
+      if (completed.refreshRecovery) {
+        router.refresh();
+      }
     },
     [handleActionError, router, selectedFile, showNotice],
   );
@@ -830,9 +835,10 @@ function RecoverableSourceUploads({
               <strong>{upload.originalName}</strong>
               <p>{recoverableSourceCopy(upload)}</p>
             </div>
-            {upload.canRequeue ? (
+            {upload.canRequeue || upload.canDismiss ? (
               <SourceProcessingControls
-                canRequeue
+                canDismiss={upload.canDismiss}
+                canRequeue={upload.canRequeue}
                 sourceFileId={upload.id}
                 sourceFileName={upload.originalName}
               />

@@ -93,6 +93,7 @@ export type CompleteSourceUploadActionResult =
   | {
       status: "error";
       message: string;
+      refreshRecovery?: boolean;
     };
 
 export type RestoreSourceTextActionResult =
@@ -378,6 +379,7 @@ export async function completeSourceUploadAction(input: {
       result.status === "not-created"
         ? `${result.message} Try again here, or choose a clearer file.`
         : result.message,
+    refreshRecovery: result.status === "not-created" || result.status === "not-found",
   };
 }
 
@@ -486,6 +488,7 @@ export async function dismissFailedSourceUploadAction(
   });
 
   revalidatePath("/skills");
+  revalidatePath("/skills/new");
   revalidatePath("/dashboard");
 
   if (result.status === "dismissed") {
