@@ -61,10 +61,14 @@ function setNavIndicatorFromViewportRect(nav: HTMLElement, rect: NavIndicatorRec
   nav.style.setProperty("--practice-nav-indicator-opacity", "1");
 }
 
-function setFloatingIndicatorRect(element: HTMLElement, rect: NavIndicatorRect) {
+function setFloatingIndicatorRect(element: HTMLElement, nav: HTMLElement, rect: NavIndicatorRect) {
+  const navRect = nav.getBoundingClientRect();
+
   element.style.width = `${rect.width}px`;
   element.style.height = `${rect.height}px`;
-  element.style.transform = `translate3d(${rect.left}px, ${rect.top}px, 0)`;
+  element.style.transform = `translate3d(${
+    rect.left - navRect.left + nav.scrollLeft
+  }px, ${rect.top - navRect.top + nav.scrollTop}px, 0)`;
 }
 
 function toNavIndicatorRect(rect: DOMRect): NavIndicatorRect {
@@ -99,7 +103,7 @@ function finishFloatingIndicator() {
 }
 
 function getFloatingIndicatorStartRect(nav: HTMLElement, targetLink: HTMLElement) {
-  if (floatingIndicatorElement) {
+  if (floatingIndicatorElement?.isConnected) {
     return floatingIndicatorElement.getBoundingClientRect();
   }
 
@@ -129,18 +133,19 @@ function moveFloatingIndicatorToLink(targetLink: HTMLElement) {
   const targetRect = toNavIndicatorRect(targetLink.getBoundingClientRect());
   pendingIndicatorStartRect = toNavIndicatorRect(startRect);
 
-  if (!floatingIndicatorElement) {
+  if (!floatingIndicatorElement || !nav.contains(floatingIndicatorElement)) {
+    floatingIndicatorElement?.remove();
     floatingIndicatorElement = document.createElement("span");
     floatingIndicatorElement.className = floatingIndicatorClass;
     floatingIndicatorElement.setAttribute("aria-hidden", "true");
-    document.body.appendChild(floatingIndicatorElement);
+    nav.appendChild(floatingIndicatorElement);
   }
 
   clearFloatingIndicatorFrame();
   clearFloatingIndicatorTimer();
   document.body.classList.add(floatingIndicatorActiveClass);
   floatingIndicatorElement.style.transition = "none";
-  setFloatingIndicatorRect(floatingIndicatorElement, startRect);
+  setFloatingIndicatorRect(floatingIndicatorElement, nav, startRect);
   floatingIndicatorElement.getBoundingClientRect();
 
   floatingIndicatorFrame = window.requestAnimationFrame(() => {
@@ -151,7 +156,7 @@ function moveFloatingIndicatorToLink(targetLink: HTMLElement) {
     }
 
     floatingIndicatorElement.style.transition = "";
-    setFloatingIndicatorRect(floatingIndicatorElement, targetRect);
+    setFloatingIndicatorRect(floatingIndicatorElement, nav, targetRect);
   });
 
   floatingIndicatorTimeout = window.setTimeout(finishFloatingIndicator, 240);
@@ -304,6 +309,19 @@ export function SkillsTopbar({
     [cancelIndicatorFrame],
   );
 
+  const queueIndicatorPaintedFrame = useCallback(
+    (callback: () => void) => {
+      cancelIndicatorFrame();
+      indicatorFrameRef.current = window.requestAnimationFrame(() => {
+        indicatorFrameRef.current = window.requestAnimationFrame(() => {
+          indicatorFrameRef.current = null;
+          callback();
+        });
+      });
+    },
+    [cancelIndicatorFrame],
+  );
+
   const positionActiveIndicator = useCallback(
     () => {
       const nav = navRef.current;
@@ -326,7 +344,7 @@ export function SkillsTopbar({
         indicator.style.transition = "none";
         setNavIndicatorFromViewportRect(nav, startRect);
         indicator.getBoundingClientRect();
-        queueIndicatorFrame(() => {
+        queueIndicatorPaintedFrame(() => {
           indicator.style.transition = "";
           setNavIndicatorFromLink(nav, activeLink);
         });
@@ -339,7 +357,7 @@ export function SkillsTopbar({
         indicator.style.transition = "";
       });
     },
-    [cancelIndicatorFrame, queueIndicatorFrame],
+    [cancelIndicatorFrame, queueIndicatorFrame, queueIndicatorPaintedFrame],
   );
 
   const moveVisualIndicator = useCallback((targetKey: PrimaryNavKey, targetLink: HTMLElement) => {
@@ -377,6 +395,7 @@ export function SkillsTopbar({
       }
 
       cancelIndicatorFrame();
+      finishFloatingIndicator();
     };
   }, [cancelIndicatorFrame]);
 
