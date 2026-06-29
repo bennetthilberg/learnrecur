@@ -377,7 +377,6 @@ export function SkillsTopbar({
       }
 
       cancelIndicatorFrame();
-      finishFloatingIndicator();
     };
   }, [cancelIndicatorFrame]);
 
