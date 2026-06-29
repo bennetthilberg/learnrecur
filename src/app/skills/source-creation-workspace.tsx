@@ -49,6 +49,7 @@ type MaterialSnapshot = {
   collectionName: string;
   focusNote: string;
   tags: string;
+  recoveredSourceFileId: string;
 };
 export type RecoverableSourceUpload = {
   id: string;
@@ -86,6 +87,7 @@ const emptyMaterialSnapshot: MaterialSnapshot = {
   sourceLabel: "",
   collectionName: "",
   focusNote: "",
+  recoveredSourceFileId: "",
   tags: "",
 };
 
@@ -286,6 +288,7 @@ export function SourceCreationWorkspace({
         setIgnoreTextStateErrors(true);
         setMaterialSnapshot((currentSnapshot) => ({
           ...currentSnapshot,
+          recoveredSourceFileId: upload.id,
           sourceText: restored.sourceText,
           sourceLabel: currentSnapshot.sourceLabel || restored.sourceLabel,
         }));
@@ -747,6 +750,12 @@ export function SourceCreationWorkspace({
             </div>
           </details>
 
+          <input
+            name="recoveredSourceFileId"
+            type="hidden"
+            value={materialSnapshot.recoveredSourceFileId}
+          />
+
           <div className="skillFormActions createSkillActions">
             <button className="primaryButton" disabled={busy} type="submit">
               {submitButtonLabel({
@@ -1126,6 +1135,7 @@ function formDataToMaterialSnapshot(formData: FormData): MaterialSnapshot {
     sourceLabel: stringFormValue(formData.get("sourceLabel")),
     collectionName: stringFormValue(formData.get("collectionName")),
     focusNote: stringFormValue(formData.get("focusNote")),
+    recoveredSourceFileId: stringFormValue(formData.get("recoveredSourceFileId")),
     tags: stringFormValue(formData.get("tags")),
   };
 }

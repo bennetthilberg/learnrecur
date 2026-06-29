@@ -221,6 +221,7 @@ export async function generateSkillDraftFromSourceAction(
     now: new Date(),
     input: formDataToSourceDraftInput(formData),
     persistFailedSource: true,
+    recoveredSourceFileId: getOptionalFormString(formData, "recoveredSourceFileId"),
   });
 
   if (result.status === "created") {

@@ -68,6 +68,7 @@ import type {
   SourceUploadDraftEventSender,
 } from "@/lib/inngest/events";
 import { getSkillsLibrary } from "@/lib/skills/library";
+import { getSkillCreationSourceRecoveryItems } from "@/lib/skills/source-recovery";
 import { removeSkillSource } from "@/lib/skills/sources";
 import { createInitialSkillSchedule } from "@/lib/scheduling";
 
@@ -1165,6 +1166,87 @@ describeDatabase("skill drafts and Gemini activation", () => {
     expect(sourceFile.metadata).toMatchObject({
       failureReason: "invalid-generation",
     });
+  });
+
+  it("hides in-flight pasted sources from skill creation recovery", async () => {
+    const userId = await createUser("source_recovery_processing_text_hidden");
+    const failedSource = await prisma.sourceFile.create({
+      data: {
+        userId,
+        kind: SourceFileKind.TEXT,
+        status: SourceFileStatus.FAILED,
+        originalName: "failed pasted source",
+        mimeType: "text/plain",
+        byteSize: 120,
+        extractedText:
+          "Use ser for identity and long-term traits. Use estar for location and temporary states.",
+      },
+    });
+    const processingSource = await prisma.sourceFile.create({
+      data: {
+        userId,
+        kind: SourceFileKind.TEXT,
+        status: SourceFileStatus.PROCESSING,
+        originalName: "processing pasted source",
+        mimeType: "text/plain",
+        byteSize: 120,
+        extractedText:
+          "Use preterite for completed past actions and imperfect for background descriptions.",
+      },
+    });
+
+    const recoveryItems = await getSkillCreationSourceRecoveryItems({ userId, now });
+
+    expect(recoveryItems.map((item) => item.id)).toContain(failedSource.id);
+    expect(recoveryItems.map((item) => item.id)).not.toContain(processingSource.id);
+  });
+
+  it("reuses and consumes a recovered pasted source after skill creation succeeds", async () => {
+    const userId = await createUser("source_recovery_consumed");
+    const sourceText =
+      "Use ser for identity and long-term traits. Use estar for location and temporary states. Classroom practice should use short sentences with one obvious choice.";
+    const failedSource = await prisma.sourceFile.create({
+      data: {
+        userId,
+        kind: SourceFileKind.TEXT,
+        status: SourceFileStatus.FAILED,
+        originalName: "failed pasted source",
+        mimeType: "text/plain",
+        byteSize: Buffer.byteLength(sourceText, "utf8"),
+        extractedText: sourceText,
+      },
+    });
+
+    const result = await createSkillDraftFromSource({
+      userId,
+      now,
+      model: "test-gemini",
+      generateSkillDraft: successfulSkillDraftGenerator,
+      input: {
+        sourceText,
+        sourceLabel: "Recovered pasted source",
+      },
+      recoveredSourceFileId: failedSource.id,
+      skipUsageLimitCheck: true,
+    });
+
+    expect(result).toMatchObject({
+      status: "created",
+      sourceFileId: failedSource.id,
+    });
+
+    const sourceFile = await prisma.sourceFile.findUniqueOrThrow({
+      where: { id: failedSource.id },
+      include: {
+        skillRefs: true,
+      },
+    });
+    expect(sourceFile.status).toBe(SourceFileStatus.READY);
+    expect(sourceFile.originalName).toBe("Recovered pasted source");
+    expect(sourceFile.skillRefs).toHaveLength(1);
+
+    const recoveryItems = await getSkillCreationSourceRecoveryItems({ userId, now });
+    expect(recoveryItems.map((item) => item.id)).not.toContain(failedSource.id);
   });
 
   it("splits broad source material into multiple draft skills linked to one source", async () => {

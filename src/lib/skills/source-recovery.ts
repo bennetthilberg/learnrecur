@@ -48,7 +48,7 @@ export async function getSkillCreationSourceRecoveryItems(input: {
         },
         {
           status: {
-            in: [SourceFileStatus.UPLOADED, SourceFileStatus.PROCESSING, SourceFileStatus.FAILED],
+            in: [SourceFileStatus.FAILED],
           },
           kind: SourceFileKind.TEXT,
           extractedText: {
@@ -143,7 +143,10 @@ export async function getSkillCreationSourceRecoveryText(input: {
       userId: input.userId,
       kind: SourceFileKind.TEXT,
       status: {
-        in: [SourceFileStatus.UPLOADED, SourceFileStatus.PROCESSING, SourceFileStatus.FAILED],
+        in: [SourceFileStatus.FAILED],
+      },
+      skillRefs: {
+        none: {},
       },
     },
     select: {
