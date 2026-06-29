@@ -1,4 +1,5 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
+import { PlusCircle } from "@phosphor-icons/react/dist/ssr";
 import Link from "next/link";
 
 import { PanelHeaderCount } from "@/components/app/panel-header-count";
@@ -74,6 +75,7 @@ export default async function SkillsPage({ searchParams }: SkillsPageProps) {
           <p>Manage the skills in your practice schedule.</p>
         </div>
         <Link className="primaryButton" href="/skills/new">
+          <PlusCircle size={18} weight="bold" aria-hidden="true" />
           Add skill
         </Link>
       </header>

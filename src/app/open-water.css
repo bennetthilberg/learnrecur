@@ -1078,6 +1078,10 @@ body {
   margin-top: 18px;
 }
 
+.skillShell > .skillPanel + .skillLibraryGrid {
+  margin-top: 12px;
+}
+
 .skillLibraryGrid > .skillPanel,
 .skillDraftGrid > .skillPanel,
 .skillSourceEntryGrid > .skillPanel,
@@ -1362,6 +1366,11 @@ body {
 .historyTable .dashboardChip[data-tone="ready"] {
   border-color: var(--lr-green);
   color: var(--lr-green);
+}
+
+.skillLibraryActivePanel .dashboardChip[data-tone="ready"] {
+  border-color: #BBCAEC;
+  color: var(--lr-blue);
 }
 
 .dashboardChip[data-tone="saved"] {
