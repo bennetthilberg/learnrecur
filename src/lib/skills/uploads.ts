@@ -992,14 +992,17 @@ export async function runQueuedSourceUploadDraftJob(
       bucket: sourceFile.storageBucket,
     });
   } catch (error) {
-    const message = `Could not read S3 upload: ${formatEnvError(error)}`;
+    const isMissingObject = isMissingStoredSourceObjectError(error);
+    const message = isMissingObject
+      ? "Uploaded file is missing or larger than 10 MB."
+      : `Could not read S3 upload: ${formatEnvError(error)}`;
     await markUploadedSourceFailed(
       sourceFile,
       storageSetup.storage,
       input.now,
       "invalid-upload",
       message,
-      { retainStoredObject: false },
+      { retainStoredObject: !isMissingObject },
     );
     return notCreated("invalid-upload", message);
   }
@@ -1545,6 +1548,23 @@ function sourceFileKindFromMimeType(mimeType: SourceUploadMimeType) {
 
 function isAllowedSourceUploadMimeType(mimeType: string): mimeType is SourceUploadMimeType {
   return isSourceUploadMimeType(mimeType);
+}
+
+function isMissingStoredSourceObjectError(error: unknown): boolean {
+  const maybeStorageError = error as {
+    name?: unknown;
+    Code?: unknown;
+    code?: unknown;
+    $metadata?: {
+      httpStatusCode?: unknown;
+    };
+  };
+  const codes = [maybeStorageError.name, maybeStorageError.Code, maybeStorageError.code];
+
+  return (
+    codes.some((code) => code === "NoSuchKey" || code === "NotFound") ||
+    maybeStorageError.$metadata?.httpStatusCode === 404
+  );
 }
 
 async function validateStoredSourceUpload(

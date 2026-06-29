@@ -233,11 +233,13 @@ function createFakeUploadStorage({
   mimeType = "image/png",
   byteSize = bytes.byteLength,
   headError = null,
+  getError = null,
 }: {
   bytes?: Buffer;
   mimeType?: string;
   byteSize?: number;
   headError?: Error | null;
+  getError?: Error | null;
 } = {}) {
   const deletedKeys: string[] = [];
   const storage: SourceUploadStorage = {
@@ -256,6 +258,10 @@ function createFakeUploadStorage({
       };
     },
     async getObjectBytes() {
+      if (getError) {
+        throw getError;
+      }
+
       return bytes;
     },
     async deleteObject(input) {
@@ -1623,6 +1629,129 @@ describeDatabase("skill drafts and Gemini activation", () => {
       canRequeue: false,
     });
     expect(deletedKeys).toEqual([prepared.objectKey]);
+  });
+
+  it("keeps retryable upload state only for transient source read failures", async () => {
+    const userId = await createUser("upload_read_failure_split");
+    const missingObjectError = Object.assign(new Error("object missing"), {
+      name: "NoSuchKey",
+      $metadata: {
+        httpStatusCode: 404,
+      },
+    });
+    const missingStorageSetup = createFakeUploadStorage({
+      byteSize: 2048,
+      getError: missingObjectError,
+    });
+    const missingPrepared = await prepareSourceUpload({
+      userId,
+      now,
+      storage: missingStorageSetup.storage,
+      input: {
+        originalName: "missing-object.png",
+        mimeType: "image/png",
+        byteSize: "2048",
+      },
+    });
+
+    if (missingPrepared.status !== "prepared") {
+      throw new Error("Expected upload preparation to succeed.");
+    }
+
+    await queueSourceUploadDrafts({
+      userId,
+      sourceFileId: missingPrepared.sourceFileId,
+      now,
+      storage: missingStorageSetup.storage,
+      eventSender: createFakeSourceUploadSender().sender,
+    });
+    await expect(
+      runQueuedSourceUploadDraftJob({
+        userId,
+        sourceFileId: missingPrepared.sourceFileId,
+        now,
+        storage: missingStorageSetup.storage,
+        extractSourceText: successfulSourceExtractor,
+        generateSkillDraft: successfulSkillDraftGenerator,
+        model: "test-gemini",
+      }),
+    ).resolves.toMatchObject({
+      status: "not-created",
+      reason: "invalid-upload",
+      message: "Uploaded file is missing or larger than 10 MB.",
+    });
+
+    const missingSource = await prisma.sourceFile.findUniqueOrThrow({
+      where: { id: missingPrepared.sourceFileId },
+    });
+    expect(missingSource.status).toBe(SourceFileStatus.FAILED);
+    expect(missingSource.storageKey).toBeNull();
+    expect(missingSource.byteSize).toBeNull();
+    expect(missingStorageSetup.deletedKeys).toEqual([missingPrepared.objectKey]);
+
+    const transientStorageSetup = createFakeUploadStorage({
+      byteSize: 2048,
+      getError: new Error("temporary S3 timeout"),
+    });
+    const transientPrepared = await prepareSourceUpload({
+      userId,
+      now,
+      storage: transientStorageSetup.storage,
+      input: {
+        originalName: "transient-read-failure.png",
+        mimeType: "image/png",
+        byteSize: "2048",
+      },
+    });
+
+    if (transientPrepared.status !== "prepared") {
+      throw new Error("Expected upload preparation to succeed.");
+    }
+
+    await queueSourceUploadDrafts({
+      userId,
+      sourceFileId: transientPrepared.sourceFileId,
+      now,
+      storage: transientStorageSetup.storage,
+      eventSender: createFakeSourceUploadSender().sender,
+    });
+    await expect(
+      runQueuedSourceUploadDraftJob({
+        userId,
+        sourceFileId: transientPrepared.sourceFileId,
+        now,
+        storage: transientStorageSetup.storage,
+        extractSourceText: successfulSourceExtractor,
+        generateSkillDraft: successfulSkillDraftGenerator,
+        model: "test-gemini",
+      }),
+    ).resolves.toMatchObject({
+      status: "not-created",
+      reason: "invalid-upload",
+      message: "Could not read S3 upload: temporary S3 timeout",
+    });
+
+    const transientSource = await prisma.sourceFile.findUniqueOrThrow({
+      where: { id: transientPrepared.sourceFileId },
+    });
+    expect(transientSource.status).toBe(SourceFileStatus.FAILED);
+    expect(transientSource.storageKey).toBe(transientPrepared.objectKey);
+    expect(transientSource.byteSize).toBe(2048);
+    expect(transientStorageSetup.deletedKeys).toEqual([]);
+
+    const library = await getSkillsLibrary({ userId, now });
+    expect(library.sourceProcessing).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: missingPrepared.sourceFileId,
+          canRequeue: false,
+        }),
+        expect.objectContaining({
+          id: transientPrepared.sourceFileId,
+          canRequeue: true,
+        }),
+      ]),
+    );
   });
 
   it("does not process the same uploaded source twice", async () => {
