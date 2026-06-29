@@ -718,17 +718,17 @@ export async function requeueSourceUploadDraft(
         "Only saved uploads without linked skills can be restarted.",
       );
     }
-
-    if (!canRequeueSourceUploadMetadata(sourceFile.metadata)) {
-      return requeueNotQueued(
-        "not-requeueable",
-        "This upload has reached the retry limit. Upload a new copy to try again.",
-      );
-    }
   } else if (sourceFile.status !== SourceFileStatus.UPLOADED) {
     return requeueNotQueued(
       "not-requeueable",
       "Only saved uploads with waiting, failed, or stuck preparation can be restarted.",
+    );
+  }
+
+  if (!canRequeueSourceUploadMetadata(sourceFile.metadata)) {
+    return requeueNotQueued(
+      "not-requeueable",
+      "This upload has reached the retry limit. Upload a new copy to try again.",
     );
   }
 
@@ -923,6 +923,7 @@ export async function runQueuedSourceUploadDraftJob(
       input.now,
       "invalid-upload",
       "Uploaded source metadata is incomplete.",
+      { retainStoredObject: false },
     );
     return notCreated("invalid-upload", "Uploaded source metadata is incomplete.");
   }
@@ -934,6 +935,7 @@ export async function runQueuedSourceUploadDraftJob(
       input.now,
       "invalid-upload",
       "Uploaded source MIME type is not supported.",
+      { retainStoredObject: false },
     );
     return notCreated("invalid-upload", "Uploaded source MIME type is not supported.");
   }
@@ -942,7 +944,14 @@ export async function runQueuedSourceUploadDraftJob(
 
   if (!actualByteSize || actualByteSize > MAX_SOURCE_UPLOAD_BYTES) {
     const message = "Uploaded file is missing or larger than 10 MB.";
-    await markUploadedSourceFailed(sourceFile, storageSetup.storage, input.now, "invalid-upload", message);
+    await markUploadedSourceFailed(
+      sourceFile,
+      storageSetup.storage,
+      input.now,
+      "invalid-upload",
+      message,
+      { retainStoredObject: false },
+    );
     return notCreated("invalid-upload", message);
   }
 
@@ -990,6 +999,7 @@ export async function runQueuedSourceUploadDraftJob(
       input.now,
       "invalid-upload",
       message,
+      { retainStoredObject: false },
     );
     return notCreated("invalid-upload", message);
   }
@@ -1002,6 +1012,7 @@ export async function runQueuedSourceUploadDraftJob(
       input.now,
       "invalid-upload",
       message,
+      { retainStoredObject: false },
     );
     return notCreated("invalid-upload", message);
   }
@@ -1415,8 +1426,23 @@ async function markUploadedSourceFailed(
   now: Date,
   reason: string,
   message: string,
+  options: {
+    retainStoredObject?: boolean;
+  } = {},
 ) {
-  void storage;
+  const retainStoredObject = options.retainStoredObject ?? true;
+
+  if (!retainStoredObject && storage && sourceFile.storageKey) {
+    try {
+      await storage.deleteObject({
+        key: sourceFile.storageKey,
+        bucket: sourceFile.storageBucket ?? undefined,
+      });
+    } catch {
+      // The row is still detached from object storage below, so stale object
+      // metadata cannot keep blocking the user's upload quota.
+    }
+  }
 
   await getPrisma().sourceFile.updateMany({
     where: {
@@ -1427,6 +1453,13 @@ async function markUploadedSourceFailed(
       status: SourceFileStatus.FAILED,
       publicUrl: null,
       metadata: buildFailedUploadMetadata(sourceFile.metadata, now, reason, message),
+      ...(retainStoredObject
+        ? {}
+        : {
+            byteSize: null,
+            storageBucket: null,
+            storageKey: null,
+          }),
     },
   });
 }

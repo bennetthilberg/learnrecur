@@ -43,6 +43,7 @@ import {
 } from "@/lib/skills";
 import {
   MAX_SOURCE_UPLOAD_BYTES,
+  MAX_SOURCE_UPLOAD_REQUEUE_ATTEMPTS,
   SOURCE_PROCESSING_STALE_AFTER_MS,
   dismissFailedSourceUpload,
   prepareSourceUpload,
@@ -1605,7 +1606,9 @@ describeDatabase("skill drafts and Gemini activation", () => {
       where: { id: prepared.sourceFileId },
     });
     expect(failedSource.status).toBe(SourceFileStatus.FAILED);
-    expect(failedSource.storageKey).toBe(prepared.objectKey);
+    expect(failedSource.storageKey).toBeNull();
+    expect(failedSource.storageBucket).toBeNull();
+    expect(failedSource.byteSize).toBeNull();
     expect(failedSource.metadata).toMatchObject({
       failureReason: "invalid-upload",
       errorMessage: "Uploaded file is missing or larger than 10 MB.",
@@ -1617,9 +1620,9 @@ describeDatabase("skill drafts and Gemini activation", () => {
     expect(sourceProcessing).toMatchObject({
       status: SourceFileStatus.FAILED,
       errorMessage: "Uploaded file is missing or larger than 10 MB.",
-      canRequeue: true,
+      canRequeue: false,
     });
-    expect(deletedKeys).toEqual([]);
+    expect(deletedKeys).toEqual([prepared.objectKey]);
   });
 
   it("does not process the same uploaded source twice", async () => {
@@ -1823,6 +1826,91 @@ describeDatabase("skill drafts and Gemini activation", () => {
       requeuedAt: requeueAt.toISOString(),
       retryCount: 1,
     });
+  });
+
+  it("rejects requeue for uploaded and stale processing sources at the retry limit", async () => {
+    const userId = await createUser("upload_requeue_retry_limit");
+    const { storage } = createFakeUploadStorage({
+      byteSize: 4096,
+    });
+
+    const uploaded = await prisma.sourceFile.create({
+      data: {
+        userId,
+        kind: SourceFileKind.IMAGE,
+        status: SourceFileStatus.UPLOADED,
+        originalName: "waiting upload",
+        mimeType: "image/png",
+        byteSize: 4096,
+        storageBucket: "learnrecur-dev",
+        storageKey: `source-uploads/${userId}/waiting.png`,
+        metadata: {
+          retryCount: MAX_SOURCE_UPLOAD_REQUEUE_ATTEMPTS,
+        },
+      },
+    });
+    const processingStartedAt = new Date(
+      now.getTime() - SOURCE_PROCESSING_STALE_AFTER_MS,
+    ).toISOString();
+    const staleProcessing = await prisma.sourceFile.create({
+      data: {
+        userId,
+        kind: SourceFileKind.IMAGE,
+        status: SourceFileStatus.PROCESSING,
+        originalName: "stale upload",
+        mimeType: "image/png",
+        byteSize: 4096,
+        storageBucket: "learnrecur-dev",
+        storageKey: `source-uploads/${userId}/stale.png`,
+        metadata: {
+          processingStartedAt,
+          retryCount: MAX_SOURCE_UPLOAD_REQUEUE_ATTEMPTS,
+        },
+      },
+    });
+
+    const sender = createFakeSourceUploadSender();
+
+    await expect(
+      requeueSourceUploadDraft({
+        userId,
+        sourceFileId: uploaded.id,
+        now,
+        storage,
+        eventSender: sender.sender,
+      }),
+    ).resolves.toMatchObject({
+      status: "not-queued",
+      reason: "not-requeueable",
+    });
+    await expect(
+      requeueSourceUploadDraft({
+        userId,
+        sourceFileId: staleProcessing.id,
+        now,
+        storage,
+        eventSender: sender.sender,
+      }),
+    ).resolves.toMatchObject({
+      status: "not-queued",
+      reason: "not-requeueable",
+    });
+    expect(sender.events).toHaveLength(0);
+
+    const library = await getSkillsLibrary({ userId, now });
+    expect(library.sourceProcessing).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: uploaded.id,
+          canRequeue: false,
+        }),
+        expect.objectContaining({
+          id: staleProcessing.id,
+          isStaleProcessing: true,
+          canRequeue: false,
+        }),
+      ]),
+    );
   });
 
   it("rolls back requeue state when event sending fails", async () => {
