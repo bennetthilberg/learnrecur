@@ -2720,8 +2720,10 @@ describeDatabase("skill drafts and Gemini activation", () => {
     expect(sender.events).toHaveLength(0);
   });
 
-  it("keeps failed uploaded source rows visible without a dismiss path", async () => {
+  it("allows capped failed uploaded source rows to be dismissed", async () => {
     const userId = await createUser("upload_failed_saved_row");
+    const storageSetup = createFakeUploadStorage();
+    const storageKey = `source-uploads/${userId}/failed.pdf`;
     const failedSource = await prisma.sourceFile.create({
       data: {
         userId,
@@ -2731,9 +2733,10 @@ describeDatabase("skill drafts and Gemini activation", () => {
         mimeType: "application/pdf",
         byteSize: 1024,
         storageBucket: "learnrecur-dev",
-        storageKey: `source-uploads/${userId}/failed.pdf`,
+        storageKey,
         metadata: {
           errorMessage: "Gemini could not extract enough study text from this file.",
+          retryCount: MAX_SOURCE_UPLOAD_REQUEUE_ATTEMPTS,
         },
       },
     });
@@ -2743,13 +2746,32 @@ describeDatabase("skill drafts and Gemini activation", () => {
         {
           id: failedSource.id,
           status: SourceFileStatus.FAILED,
-          canDismiss: false,
-          canRequeue: true,
+          canDismiss: true,
+          canRequeue: false,
         },
       ],
     });
+    await expect(getSkillCreationSourceRecoveryItems({ userId, now })).resolves.toEqual([
+      expect.objectContaining({
+        id: failedSource.id,
+        canDismiss: true,
+        canRequeue: false,
+      }),
+    ]);
 
-    await expect(prisma.sourceFile.count({ where: { id: failedSource.id } })).resolves.toBe(1);
+    await expect(
+      dismissFailedSourceUpload({
+        userId,
+        sourceFileId: failedSource.id,
+        storage: storageSetup.storage,
+      }),
+    ).resolves.toMatchObject({
+      status: "dismissed",
+      sourceFileId: failedSource.id,
+    });
+
+    await expect(prisma.sourceFile.count({ where: { id: failedSource.id } })).resolves.toBe(0);
+    expect(storageSetup.deletedKeys).toEqual([storageKey]);
   });
 
   it("rejects dismissal for cross-user, linked, and non-failed uploaded sources", async () => {

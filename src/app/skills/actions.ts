@@ -486,6 +486,7 @@ export async function dismissFailedSourceUploadAction(
   });
 
   revalidatePath("/skills");
+  revalidatePath("/skills/new");
   revalidatePath("/dashboard");
 
   if (result.status === "dismissed") {

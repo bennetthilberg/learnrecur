@@ -209,6 +209,7 @@ export type RequeueSourceUploadDraftResult =
 export type DismissFailedSourceUploadInput = {
   userId: string;
   sourceFileId: string;
+  storage?: SourceUploadStorage;
 };
 
 export type DismissFailedSourceUploadResult =
@@ -224,7 +225,7 @@ export type DismissFailedSourceUploadResult =
     }
   | {
       status: "not-dismissed";
-      reason: "not-failed" | "linked-source";
+      reason: "not-failed" | "linked-source" | "storage-delete-failed";
       message: string;
     };
 
@@ -836,6 +837,8 @@ export async function dismissFailedSourceUpload(
       id: true,
       kind: true,
       status: true,
+      storageBucket: true,
+      storageKey: true,
       _count: {
         select: {
           skillRefs: true,
@@ -867,6 +870,16 @@ export async function dismissFailedSourceUpload(
     };
   }
 
+  const deletedObject = await deleteFailedSourceUploadObject(sourceFile, input.storage);
+
+  if (deletedObject.status === "failed") {
+    return {
+      status: "not-dismissed",
+      reason: "storage-delete-failed",
+      message: deletedObject.message,
+    };
+  }
+
   const deleted = await prisma.sourceFile.deleteMany({
     where: {
       id: sourceFile.id,
@@ -884,6 +897,60 @@ export async function dismissFailedSourceUpload(
     sourceFileId: sourceFile.id,
     message: "Failed source upload dismissed.",
   };
+}
+
+async function deleteFailedSourceUploadObject(
+  sourceFile: {
+    storageBucket: string | null;
+    storageKey: string | null;
+  },
+  storage?: SourceUploadStorage,
+): Promise<
+  | {
+      status: "deleted";
+    }
+  | {
+      status: "failed";
+      message: string;
+    }
+> {
+  if (!sourceFile.storageKey) {
+    return {
+      status: "deleted",
+    };
+  }
+
+  const storageSetup = resolveUploadStorage(storage);
+
+  if (storageSetup.status === "missing-env") {
+    return {
+      status: "failed",
+      message: storageSetup.message,
+    };
+  }
+
+  if (sourceFile.storageBucket && storageSetup.storage.bucketName !== sourceFile.storageBucket) {
+    return {
+      status: "failed",
+      message: "Stored source bucket does not match the configured S3 bucket.",
+    };
+  }
+
+  try {
+    await storageSetup.storage.deleteObject({
+      key: sourceFile.storageKey,
+      bucket: sourceFile.storageBucket ?? undefined,
+    });
+
+    return {
+      status: "deleted",
+    };
+  } catch (error) {
+    return {
+      status: "failed",
+      message: error instanceof Error ? error.message : "Could not delete stored source object.",
+    };
+  }
 }
 
 export async function runQueuedSourceUploadDraftJob(

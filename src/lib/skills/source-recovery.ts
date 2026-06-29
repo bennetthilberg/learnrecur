@@ -3,6 +3,7 @@ import "server-only";
 import { SourceFileKind, SourceFileStatus, type Prisma } from "@/generated/prisma/client";
 import { getPrisma } from "@/lib/prisma";
 import {
+  canRequeueSourceUploadMetadata,
   isSourceUploadProcessingStale,
   SOURCE_PROCESSING_STALE_AFTER_MS,
 } from "@/lib/skills/uploads";
@@ -15,6 +16,7 @@ export type SkillCreationSourceRecoveryItem = {
   errorMessage: string | null;
   isStaleProcessing: boolean;
   canRequeue: boolean;
+  canDismiss: boolean;
   hasSourceText: boolean;
 };
 
@@ -115,6 +117,8 @@ function toSkillCreationSourceRecoveryItem(
   const isStaleProcessing =
     sourceFile.status === SourceFileStatus.PROCESSING &&
     isSourceUploadProcessingStale(sourceFile.metadata, now, SOURCE_PROCESSING_STALE_AFTER_MS);
+  const canRequeueByRetryLimit = canRequeueSourceUploadMetadata(sourceFile.metadata);
+  const isSavedRetryableUpload = isSavedSourceRetryable(sourceFile);
 
   return {
     id: sourceFile.id,
@@ -124,15 +128,20 @@ function toSkillCreationSourceRecoveryItem(
     errorMessage: getMetadataString(sourceFile.metadata, "errorMessage"),
     isStaleProcessing,
     canRequeue:
-      sourceFile.status === SourceFileStatus.UPLOADED ||
-      isStaleProcessing ||
-      (sourceFile.status === SourceFileStatus.FAILED && isSavedSourceRetryable(sourceFile)),
+      canRequeueByRetryLimit &&
+      (sourceFile.status === SourceFileStatus.UPLOADED ||
+        isStaleProcessing ||
+        (sourceFile.status === SourceFileStatus.FAILED && isSavedRetryableUpload)),
+    canDismiss:
+      sourceFile.status === SourceFileStatus.FAILED &&
+      !canRequeueByRetryLimit &&
+      isSavedRetryableUpload,
     hasSourceText: sourceFile.kind === SourceFileKind.TEXT && sourceFile._count.skillRefs === 0,
   };
 }
 
 function isVisibleSkillCreationRecoveryItem(sourceFile: SkillCreationSourceRecoveryItem) {
-  return sourceFile.canRequeue || sourceFile.hasSourceText;
+  return sourceFile.canRequeue || sourceFile.canDismiss || sourceFile.hasSourceText;
 }
 
 export async function getSkillCreationSourceRecoveryText(input: {
