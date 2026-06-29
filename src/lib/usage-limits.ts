@@ -4,7 +4,6 @@ import {
   GenerationJobKind,
   SkillStatus,
   SourceFileKind,
-  SourceFileStatus,
   type PrismaClient,
 } from "@/generated/prisma/client";
 import { getPrisma } from "@/lib/prisma";
@@ -59,9 +58,6 @@ export async function checkSourceUploadUsageLimit(input: {
         userId: input.userId,
         storageKey: {
           not: null,
-        },
-        status: {
-          not: SourceFileStatus.FAILED,
         },
       },
       _sum: {

@@ -155,10 +155,10 @@ body {
 }
 
 .practiceNavFloatingIndicator {
-  position: fixed;
+  position: absolute;
   top: 0;
   left: 0;
-  z-index: 2;
+  z-index: 1;
   display: block;
   border: 1px solid var(--lr-card-border);
   border-radius: 8px;
@@ -1078,6 +1078,10 @@ body {
   margin-top: 18px;
 }
 
+.skillShell > .skillPanel + .skillLibraryGrid {
+  margin-top: 12px;
+}
+
 .skillLibraryGrid > .skillPanel,
 .skillDraftGrid > .skillPanel,
 .skillSourceEntryGrid > .skillPanel,
@@ -1362,6 +1366,11 @@ body {
 .historyTable .dashboardChip[data-tone="ready"] {
   border-color: var(--lr-green);
   color: var(--lr-green);
+}
+
+.skillLibraryActivePanel .dashboardChip[data-tone="ready"] {
+  border-color: #BBCAEC;
+  color: var(--lr-blue);
 }
 
 .dashboardChip[data-tone="saved"] {
@@ -3496,6 +3505,77 @@ body {
   margin: 0;
 }
 
+.createSkillMaterialStack,
+.createSkillMaterialForm {
+  display: grid;
+}
+
+.skillCreateStack > .createSkillMaterialForm > .skillPanel {
+  width: auto;
+  margin: 0;
+  justify-self: stretch;
+}
+
+.createSkillRecoveryUploads {
+  display: grid;
+  gap: 12px;
+}
+
+.createSkillRecoveryUploads h3 {
+  margin: 0;
+  color: var(--lr-ink);
+  font-family: var(--lr-font-display);
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.createSkillRecoveryUploads p {
+  margin: 5px 0 0;
+  color: var(--lr-text-secondary);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.createSkillRecoveryList {
+  display: grid;
+  border-top: 1px solid var(--lr-divider);
+}
+
+.createSkillRecoveryRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 16px;
+  border-bottom: 1px solid var(--lr-divider);
+  padding: 14px 0;
+}
+
+.createSkillRecoveryRow > div {
+  min-width: 0;
+}
+
+.createSkillRecoveryRow strong {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--lr-ink);
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.createSkillRecoveryRow .sourceProcessingControls {
+  margin-top: 0;
+}
+
+.createSkillRecoveryRow > .secondaryButton,
+.createSkillRecoveryRow .sourceProcessingControls .secondaryButton {
+  white-space: nowrap;
+}
+
 .createSkillActions {
   justify-content: start;
   margin-top: 0;
@@ -5111,6 +5191,11 @@ body {
 
   .createSkillFileButton {
     justify-self: start;
+  }
+
+  .createSkillRecoveryRow {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
   }
 
   .createSkillTextarea {

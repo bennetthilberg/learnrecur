@@ -30,6 +30,7 @@ import {
   prepareSourceUpload,
   requeueSourceUploadDraft,
 } from "@/lib/skills/uploads";
+import { getSkillCreationSourceRecoveryText } from "@/lib/skills/source-recovery";
 import { removeSkillSource } from "@/lib/skills/sources";
 import { getPrisma } from "@/lib/prisma";
 import { ensureDatabaseUser } from "@/lib/users";
@@ -53,6 +54,7 @@ export type SkillFormActionState = {
   fieldErrors?: Record<string, string[]>;
   createdSkill?: CreatedSkillDraftForReview;
   activatedSkillId?: string;
+  refreshRecovery?: boolean;
 };
 
 type SkillActionUserResult =
@@ -87,6 +89,19 @@ export type CompleteSourceUploadActionResult =
       message: string;
       redirectTo: string;
       skill: CreatedSkillDraftForReview | null;
+    }
+  | {
+      status: "error";
+      message: string;
+      refreshRecovery?: boolean;
+    };
+
+export type RestoreSourceTextActionResult =
+  | {
+      status: "ready";
+      message: string;
+      sourceLabel: string;
+      sourceText: string;
     }
   | {
       status: "error";
@@ -208,6 +223,7 @@ export async function generateSkillDraftFromSourceAction(
     now: new Date(),
     input: formDataToSourceDraftInput(formData),
     persistFailedSource: true,
+    recoveredSourceFileId: getOptionalFormString(formData, "recoveredSourceFileId"),
   });
 
   if (result.status === "created") {
@@ -218,6 +234,7 @@ export async function generateSkillDraftFromSourceAction(
 
       if (draft) {
         revalidatePath("/skills");
+        revalidatePath("/skills/new");
         revalidatePath("/dashboard");
         revalidatePath(`/skills/${skill.id}`);
 
@@ -229,6 +246,7 @@ export async function generateSkillDraftFromSourceAction(
       }
 
       revalidatePath("/skills");
+      revalidatePath("/skills/new");
       revalidatePath("/dashboard");
       revalidatePath(`/skills/${skill.id}`);
 
@@ -252,14 +270,18 @@ export async function generateSkillDraftFromSourceAction(
     };
   }
 
+  const savedRecoverableMaterial =
+    result.reason === "generation-failed" ||
+    result.reason === "invalid-generation" ||
+    result.reason === "save-failed";
+  const refreshRecovery = savedRecoverableMaterial || result.reason === "source-not-found";
+
   return {
     status: "error",
-    message:
-      result.reason === "generation-failed" ||
-      result.reason === "invalid-generation" ||
-      result.reason === "save-failed"
-        ? `${result.message} Your material was saved, so you can try again without losing it.`
-        : result.message,
+    message: savedRecoverableMaterial
+      ? `${result.message} Your material was saved, so you can try again without losing it.`
+      : result.message,
+    refreshRecovery,
   };
 }
 
@@ -328,6 +350,7 @@ export async function completeSourceUploadAction(input: {
     }
 
     revalidatePath("/skills");
+    revalidatePath("/skills/new");
     revalidatePath("/dashboard");
     revalidatePath(`/skills/${skill.id}`);
 
@@ -354,8 +377,9 @@ export async function completeSourceUploadAction(input: {
     status: "error",
     message:
       result.status === "not-created"
-        ? `${result.message} Your upload was saved, so you can try preparation again from Skills.`
+        ? `${result.message} Try again here, or choose a clearer file.`
         : result.message,
+    refreshRecovery: result.status === "not-created" || result.status === "not-found",
   };
 }
 
@@ -385,12 +409,51 @@ export async function requeueSourceUploadAction(
   });
 
   revalidatePath("/skills");
+  revalidatePath("/skills/new");
   revalidatePath("/dashboard");
 
   if (result.status === "queued") {
     return {
       status: "saved",
       message: result.message,
+    };
+  }
+
+  return {
+    status: "error",
+    message: result.message,
+  };
+}
+
+export async function restoreSourceTextAction(input: {
+  sourceFileId: string;
+}): Promise<RestoreSourceTextActionResult> {
+  const user = await requireSkillActionUser();
+
+  if (user.status === "error") {
+    return user;
+  }
+
+  const sourceFileId = input.sourceFileId.trim();
+
+  if (!sourceFileId) {
+    return {
+      status: "error",
+      message: "No saved text source was selected.",
+    };
+  }
+
+  const result = await getSkillCreationSourceRecoveryText({
+    userId: user.userId,
+    sourceFileId,
+  });
+
+  if (result.status === "ready") {
+    return {
+      status: "ready",
+      message: "Saved text restored. Review it, then create the skill again.",
+      sourceLabel: result.originalName,
+      sourceText: result.sourceText,
     };
   }
 
@@ -425,6 +488,7 @@ export async function dismissFailedSourceUploadAction(
   });
 
   revalidatePath("/skills");
+  revalidatePath("/skills/new");
   revalidatePath("/dashboard");
 
   if (result.status === "dismissed") {

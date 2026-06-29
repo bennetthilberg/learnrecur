@@ -13,6 +13,8 @@ import {
 import { isPracticeReadModelExerciseReady } from "@/lib/practice/read-model-eligibility";
 import { getPrisma } from "@/lib/prisma";
 import {
+  canRequeueSourceUploadMetadata,
+  isSourceUploadDismissible,
   isSourceUploadProcessingStale,
   SOURCE_PROCESSING_STALE_AFTER_MS,
 } from "@/lib/skills/uploads";
@@ -274,6 +276,8 @@ function toSourceProcessingSummary(
   const isStaleProcessing =
     sourceFile.status === SourceFileStatus.PROCESSING &&
     isSourceUploadProcessingStale(sourceFile.metadata, now, SOURCE_PROCESSING_STALE_AFTER_MS);
+  const canRequeueByRetryLimit = canRequeueSourceUploadMetadata(sourceFile.metadata);
+  const canDismiss = isSourceUploadDismissible(sourceFile, now);
 
   return {
     id: sourceFile.id,
@@ -285,10 +289,11 @@ function toSourceProcessingSummary(
     retryCount: getMetadataNumber(sourceFile.metadata, "retryCount"),
     isStaleProcessing,
     canRequeue:
-      sourceFile.status === SourceFileStatus.UPLOADED ||
-      isStaleProcessing ||
-      (sourceFile.status === SourceFileStatus.FAILED && isSavedSourceRetryable(sourceFile)),
-    canDismiss: false,
+      canRequeueByRetryLimit &&
+      (sourceFile.status === SourceFileStatus.UPLOADED ||
+        isStaleProcessing ||
+        (sourceFile.status === SourceFileStatus.FAILED && isSavedSourceRetryable(sourceFile))),
+    canDismiss,
     createdAt: sourceFile.createdAt,
     updatedAt: sourceFile.updatedAt,
   };

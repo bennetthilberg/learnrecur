@@ -22,12 +22,14 @@ import {
   completeSourceUploadAction,
   generateSkillDraftFromSourceAction,
   prepareSourceUploadAction,
+  restoreSourceTextAction,
   type CreatedSkillDraftForReview,
   type PrepareSourceUploadActionResult,
   type SkillFormActionState,
 } from "./actions";
 import { getClipboardSourceFile, getSourceUploadFileError } from "./source-upload-clipboard";
 import { SkillDraftForm } from "./skill-draft-form";
+import { SourceProcessingControls } from "./source-processing-controls";
 
 export type SourceGenerationStatus = {
   title: string;
@@ -47,6 +49,18 @@ type MaterialSnapshot = {
   collectionName: string;
   focusNote: string;
   tags: string;
+  recoveredSourceFileId: string;
+};
+export type RecoverableSourceUpload = {
+  id: string;
+  kind: "IMAGE" | "PDF" | "TEXT";
+  originalName: string;
+  status: "UPLOADED" | "PROCESSING" | "FAILED";
+  errorMessage: string | null;
+  isStaleProcessing: boolean;
+  canRequeue: boolean;
+  canDismiss: boolean;
+  hasSourceText: boolean;
 };
 
 const sourceCreationNotificationId = "source-creation-notice";
@@ -74,6 +88,7 @@ const emptyMaterialSnapshot: MaterialSnapshot = {
   sourceLabel: "",
   collectionName: "",
   focusNote: "",
+  recoveredSourceFileId: "",
   tags: "",
 };
 
@@ -88,7 +103,11 @@ const createSkillStepperClassNames = {
   steps: "createSkillStepperSteps",
 } as const;
 
-export function SourceCreationWorkspace() {
+export function SourceCreationWorkspace({
+  recoverableSourceUploads = [],
+}: {
+  recoverableSourceUploads?: RecoverableSourceUpload[];
+}) {
   const router = useRouter();
   const fileInputId = useId();
   const sourceTextId = useId();
@@ -111,6 +130,8 @@ export function SourceCreationWorkspace() {
   const [createdSkill, setCreatedSkill] = useState<CreatedSkillDraftForReview | null>(null);
   const [activatedSkillId, setActivatedSkillId] = useState<string | null>(null);
   const [dismissedSkillId, setDismissedSkillId] = useState<string | null>(null);
+  const [restoringSourceId, setRestoringSourceId] = useState<string | null>(null);
+  const [ignoreTextStateErrors, setIgnoreTextStateErrors] = useState(false);
 
   const uploadBusy =
     isSubmittingUpload ||
@@ -118,7 +139,8 @@ export function SourceCreationWorkspace() {
     uploadStatus === "preparing" ||
     uploadStatus === "uploading" ||
     uploadStatus === "generating";
-  const busy = isGeneratingFromText || uploadBusy;
+  const restoreBusy = restoringSourceId !== null;
+  const busy = isGeneratingFromText || uploadBusy || restoreBusy;
   const generationStatus = getGenerationStatus({
     isGeneratingFromText,
     uploadBusy,
@@ -134,9 +156,11 @@ export function SourceCreationWorkspace() {
     activeStep = 2;
   }
 
+  const textActionFieldErrors =
+    !ignoreTextStateErrors && textState.status === "error" ? textState.fieldErrors : undefined;
   const activeFieldErrors = selectedFile
     ? fieldErrors
-    : fieldErrors ?? (textState.status === "error" ? textState.fieldErrors : undefined);
+    : fieldErrors ?? textActionFieldErrors;
   const sourceTextError = activeFieldErrors?.sourceText?.[0];
   const sourceTextDescribedBy = ["create-skill-input-help", sourceTextError ? sourceTextErrorId : null]
     .filter(Boolean)
@@ -239,6 +263,69 @@ export function SourceCreationWorkspace() {
     return true;
   }, [clearSelectedFilePreview, setSelectedFilePreview, showNotice]);
 
+  const restoreSavedSourceText = useCallback(
+    async (upload: RecoverableSourceUpload) => {
+      if (!upload.hasSourceText || restoringSourceId) {
+        return;
+      }
+
+      setRestoringSourceId(upload.id);
+      showNotice(null);
+
+      try {
+        const restored = await restoreSourceTextAction({
+          sourceFileId: upload.id,
+        });
+
+        if (restored.status === "error") {
+          showNotice({
+            tone: "error",
+            message: restored.message,
+          });
+          return;
+        }
+
+        clearSelectedFile();
+        setFieldErrors(undefined);
+        setIgnoreTextStateErrors(true);
+        setMaterialSnapshot((currentSnapshot) => ({
+          ...currentSnapshot,
+          recoveredSourceFileId: upload.id,
+          sourceText: restored.sourceText,
+          sourceLabel: currentSnapshot.sourceLabel || restored.sourceLabel,
+        }));
+
+        const sourceTextControl = formRef.current?.elements.namedItem("sourceText");
+        const sourceLabelControl = formRef.current?.elements.namedItem("sourceLabel");
+
+        if (sourceTextControl instanceof HTMLTextAreaElement) {
+          sourceTextControl.value = restored.sourceText;
+          sourceTextControl.focus();
+        }
+
+        if (
+          sourceLabelControl instanceof HTMLInputElement &&
+          !sourceLabelControl.value.trim()
+        ) {
+          sourceLabelControl.value = restored.sourceLabel;
+        }
+
+        showNotice({
+          tone: "success",
+          message: restored.message,
+        });
+      } catch (error) {
+        showNotice({
+          tone: "error",
+          message: formatClientError(error),
+        });
+      } finally {
+        setRestoringSourceId(null);
+      }
+    },
+    [clearSelectedFile, restoringSourceId, showNotice],
+  );
+
   useEffect(() => {
     if (activeStep !== 0) {
       return undefined;
@@ -285,8 +372,12 @@ export function SourceCreationWorkspace() {
         tone: "error",
         message: textState.message,
       });
+
+      if (textState.refreshRecovery) {
+        router.refresh();
+      }
     }
-  }, [showNotice, textState.message, textState.status]);
+  }, [router, showNotice, textState.message, textState.refreshRecovery, textState.status]);
 
   useEffect(() => {
     if (textState.status !== "saved" || !textState.createdSkill) {
@@ -297,7 +388,8 @@ export function SourceCreationWorkspace() {
       tone: "success",
       message: "Skill ready to review.",
     });
-  }, [showNotice, textState.createdSkill, textState.status]);
+    router.refresh();
+  }, [router, showNotice, textState.createdSkill, textState.status]);
 
   useEffect(() => {
     if (textState.status !== "saved" || textState.createdSkill || !textState.message) {
@@ -403,6 +495,7 @@ export function SourceCreationWorkspace() {
         }
 
         setCreatedSkill(completed.skill);
+        router.refresh();
         return;
       }
 
@@ -411,6 +504,10 @@ export function SourceCreationWorkspace() {
         tone: "error",
         message: completed.message,
       });
+
+      if (completed.refreshRecovery) {
+        router.refresh();
+      }
     },
     [handleActionError, router, selectedFile, showNotice],
   );
@@ -446,6 +543,7 @@ export function SourceCreationWorkspace() {
         setUploadStatus("idle");
         setMaterialSnapshot(emptyMaterialSnapshot);
         showNotice(null);
+        router.refresh();
       }}
       skillId={activatedSkillId}
     />
@@ -462,218 +560,238 @@ export function SourceCreationWorkspace() {
       onBack={() => {
         setCreatedSkill(null);
         setDismissedSkillId(reviewSkill.skillId);
+        setMaterialSnapshot((currentSnapshot) => ({
+          ...currentSnapshot,
+          recoveredSourceFileId: "",
+        }));
         showNotice(null);
       }}
       skillId={reviewSkill.skillId}
     />
   ) : (
-    <form
-      action={textAction}
-      className="skillCreateStack createSkillMaterialForm"
-      onSubmit={(event) => {
-        const formData = new FormData(event.currentTarget);
-        setMaterialSnapshot(formDataToMaterialSnapshot(formData));
-        setDismissedSkillId(null);
+    <div className="skillCreateStack createSkillMaterialStack">
+      <form
+        action={textAction}
+        className="createSkillMaterialForm"
+        onSubmit={(event) => {
+          const formData = new FormData(event.currentTarget);
+          setMaterialSnapshot(formDataToMaterialSnapshot(formData));
+          setDismissedSkillId(null);
 
-        if (selectedFile) {
-          event.preventDefault();
+          if (selectedFile) {
+            event.preventDefault();
 
-          if (uploadBusy) {
+            if (uploadBusy) {
+              return;
+            }
+
+            const form = event.currentTarget;
+            setIsSubmittingUpload(true);
+            startUploadTransition(() => {
+              void submitUpload(form);
+            });
             return;
           }
 
-          const form = event.currentTarget;
-          setIsSubmittingUpload(true);
-          startUploadTransition(() => {
-            void submitUpload(form);
-          });
-          return;
-        }
+          const sourceText = stringFormValue(formData.get("sourceText"));
 
-        const sourceText = stringFormValue(formData.get("sourceText"));
-
-        if (!sourceText) {
-          event.preventDefault();
-          setFieldErrors({
-            sourceText: [emptySourceTextMessage],
-          });
-          showNotice({
-            tone: "error",
-            message: emptySourceTextMessage,
-          });
-          focusSourceText(event.currentTarget);
-          return;
-        }
-
-        setFieldErrors(undefined);
-        showNotice(null);
-      }}
-      ref={formRef}
-    >
-      <section className="skillPanel createSkillPanel" aria-labelledby="create-skill-input-title">
-        <div className="createSkillPanelHeader">
-          <h2 id="create-skill-input-title">Add learning material</h2>
-          <button
-            className="secondaryButton createSkillFileButton"
-            disabled={busy}
-            onClick={() => fileInputRef.current?.click()}
-            type="button"
-          >
-            <UploadSimple size={16} weight="bold" aria-hidden="true" />
-            <span>Choose file</span>
-          </button>
-        </div>
-
-        <div
-          className="createSkillInputBox"
-          data-dragging={isDraggingFile ? "true" : "false"}
-          onDragEnter={(event) => {
+          if (!sourceText) {
             event.preventDefault();
-            setIsDraggingFile(true);
-          }}
-          onDragLeave={(event) => {
-            event.preventDefault();
+            setFieldErrors({
+              sourceText: [emptySourceTextMessage],
+            });
+            showNotice({
+              tone: "error",
+              message: emptySourceTextMessage,
+            });
+            focusSourceText(event.currentTarget);
+            return;
+          }
 
-            if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+          setFieldErrors(undefined);
+          setIgnoreTextStateErrors(false);
+          showNotice(null);
+        }}
+        ref={formRef}
+      >
+        <section className="skillPanel createSkillPanel" aria-labelledby="create-skill-input-title">
+          <div className="createSkillPanelHeader">
+            <h2 id="create-skill-input-title">Add learning material</h2>
+            <button
+              className="secondaryButton createSkillFileButton"
+              disabled={busy}
+              onClick={() => fileInputRef.current?.click()}
+              type="button"
+            >
+              <UploadSimple size={16} weight="bold" aria-hidden="true" />
+              <span>Choose file</span>
+            </button>
+          </div>
+
+          <div
+            className="createSkillInputBox"
+            data-dragging={isDraggingFile ? "true" : "false"}
+            onDragEnter={(event) => {
+              event.preventDefault();
+              setIsDraggingFile(true);
+            }}
+            onDragLeave={(event) => {
+              event.preventDefault();
+
+              if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                setIsDraggingFile(false);
+              }
+            }}
+            onDragOver={(event) => {
+              event.preventDefault();
+            }}
+            onDrop={(event) => {
+              event.preventDefault();
               setIsDraggingFile(false);
-            }
-          }}
-          onDragOver={(event) => {
-            event.preventDefault();
-          }}
-          onDrop={(event) => {
-            event.preventDefault();
-            setIsDraggingFile(false);
 
-            const file = event.dataTransfer.files.item(0);
-
-            if (file) {
-              selectUploadFile(file);
-            }
-          }}
-        >
-          <textarea
-            aria-describedby={sourceTextDescribedBy}
-            aria-invalid={sourceTextError ? "true" : undefined}
-            aria-labelledby="create-skill-input-title"
-            className="createSkillTextarea"
-            disabled={busy}
-            defaultValue={materialSnapshot.sourceText}
-            id={sourceTextId}
-            name="sourceText"
-            placeholder="Paste notes, describe the skill, or drop a worksheet here."
-            rows={10}
-          />
-          <input
-            aria-hidden="true"
-            accept={SOURCE_UPLOAD_MIME_TYPES.join(",")}
-            className="skillFileInput"
-            id={fileInputId}
-            name="sourceFile"
-            onChange={(event) => {
-              const file = event.currentTarget.files?.[0] ?? null;
-              setFieldErrors(undefined);
-              showNotice(null);
+              const file = event.dataTransfer.files.item(0);
 
               if (file) {
                 selectUploadFile(file);
-              } else {
-                clearSelectedFile();
               }
             }}
-            ref={fileInputRef}
-            tabIndex={-1}
-            type="file"
-          />
-          {selectedFile ? (
-            <CreateSkillAttachmentPreview
+          >
+            <textarea
+              aria-describedby={sourceTextDescribedBy}
+              aria-invalid={sourceTextError ? "true" : undefined}
+              aria-labelledby="create-skill-input-title"
+              className="createSkillTextarea"
               disabled={busy}
-              file={selectedFile}
-              onRemove={clearSelectedFile}
-              previewUrl={selectedFilePreviewUrl}
+              defaultValue={materialSnapshot.sourceText}
+              id={sourceTextId}
+              name="sourceText"
+              placeholder="Paste notes, describe the skill, or drop a worksheet here."
+              rows={10}
             />
-          ) : null}
-          <div className="createSkillInputFooter">
-            <p id="create-skill-input-help">
-              Text, screenshots, images, and PDFs work here.
-            </p>
-          </div>
-        </div>
+            <input
+              aria-hidden="true"
+              accept={SOURCE_UPLOAD_MIME_TYPES.join(",")}
+              className="skillFileInput"
+              id={fileInputId}
+              name="sourceFile"
+              onChange={(event) => {
+                const file = event.currentTarget.files?.[0] ?? null;
+                setFieldErrors(undefined);
+                showNotice(null);
 
-        {sourceTextError ? (
-          <p className="skillFormMessage" data-tone="error" id={sourceTextErrorId}>
-            {sourceTextError}
-          </p>
-        ) : null}
-        {fileErrorMessage(activeFieldErrors) ? (
-          <p className="skillFormMessage" data-tone="error">
-            {fileErrorMessage(activeFieldErrors)}
-          </p>
-        ) : null}
-
-        <details
-          className="skillFormDetails createSkillOptions"
-          open={
-            activeFieldErrors?.sourceLabel?.length ||
-              activeFieldErrors?.collectionName?.length ||
-              activeFieldErrors?.focusNote?.length ||
-              activeFieldErrors?.tags?.length
-              ? true
-              : undefined
-          }
-        >
-          <summary>
-            <span>More options</span>
-            <small>Collection, focus, and tags</small>
-          </summary>
-          <div className="skillFormFieldsetBody">
-            <div className="skillTwoColumnFields">
-              <SkillTextField
-                error={activeFieldErrors?.sourceLabel?.[0]}
-                label="Source name"
-                name="sourceLabel"
-                placeholder="Chapter 4 notes"
-                defaultValue={materialSnapshot.sourceLabel}
+                if (file) {
+                  selectUploadFile(file);
+                } else {
+                  clearSelectedFile();
+                }
+              }}
+              ref={fileInputRef}
+              tabIndex={-1}
+              type="file"
+            />
+            {selectedFile ? (
+              <CreateSkillAttachmentPreview
+                disabled={busy}
+                file={selectedFile}
+                onRemove={clearSelectedFile}
+                previewUrl={selectedFilePreviewUrl}
               />
+            ) : null}
+            <div className="createSkillInputFooter">
+              <p id="create-skill-input-help">
+                Text, screenshots, images, and PDFs work here.
+              </p>
+            </div>
+          </div>
+
+          {sourceTextError ? (
+            <p className="skillFormMessage" data-tone="error" id={sourceTextErrorId}>
+              {sourceTextError}
+            </p>
+          ) : null}
+          {fileErrorMessage(activeFieldErrors) ? (
+            <p className="skillFormMessage" data-tone="error">
+              {fileErrorMessage(activeFieldErrors)}
+            </p>
+          ) : null}
+
+          <details
+            className="skillFormDetails createSkillOptions"
+            open={
+              activeFieldErrors?.sourceLabel?.length ||
+                activeFieldErrors?.collectionName?.length ||
+                activeFieldErrors?.focusNote?.length ||
+                activeFieldErrors?.tags?.length
+                ? true
+                : undefined
+            }
+          >
+            <summary>
+              <span>More options</span>
+              <small>Collection, focus, and tags</small>
+            </summary>
+            <div className="skillFormFieldsetBody">
+              <div className="skillTwoColumnFields">
+                <SkillTextField
+                  error={activeFieldErrors?.sourceLabel?.[0]}
+                  label="Source name"
+                  name="sourceLabel"
+                  placeholder="Chapter 4 notes"
+                  defaultValue={materialSnapshot.sourceLabel}
+                />
+                <SkillTextField
+                  error={activeFieldErrors?.collectionName?.[0]}
+                  label="Collection"
+                  name="collectionName"
+                  placeholder="Spanish grammar"
+                  defaultValue={materialSnapshot.collectionName}
+                />
+              </div>
+
+              <SkillTextArea
+                error={activeFieldErrors?.focusNote?.[0]}
+                label="Focus"
+                name="focusNote"
+                placeholder="Focus on the rule, not vocabulary memorization."
+                defaultValue={materialSnapshot.focusNote}
+                rows={3}
+              />
+
               <SkillTextField
-                error={activeFieldErrors?.collectionName?.[0]}
-                label="Collection"
-                name="collectionName"
-                placeholder="Spanish grammar"
-                defaultValue={materialSnapshot.collectionName}
+                error={activeFieldErrors?.tags?.[0]}
+                label="Tags"
+                name="tags"
+                placeholder="spanish, verbs, grammar"
+                defaultValue={materialSnapshot.tags}
               />
             </div>
+          </details>
 
-            <SkillTextArea
-              error={activeFieldErrors?.focusNote?.[0]}
-              label="Focus"
-              name="focusNote"
-              placeholder="Focus on the rule, not vocabulary memorization."
-              defaultValue={materialSnapshot.focusNote}
-              rows={3}
-            />
+          <input
+            name="recoveredSourceFileId"
+            type="hidden"
+            value={materialSnapshot.recoveredSourceFileId}
+          />
 
-            <SkillTextField
-              error={activeFieldErrors?.tags?.[0]}
-              label="Tags"
-              name="tags"
-              placeholder="spanish, verbs, grammar"
-              defaultValue={materialSnapshot.tags}
-            />
+          <div className="skillFormActions createSkillActions">
+            <button className="primaryButton" disabled={busy} type="submit">
+              {submitButtonLabel({
+                isGeneratingFromText,
+                selectedFile,
+                uploadStatus,
+              })}
+            </button>
           </div>
-        </details>
-
-        <div className="skillFormActions createSkillActions">
-          <button className="primaryButton" disabled={busy} type="submit">
-            {submitButtonLabel({
-              isGeneratingFromText,
-              selectedFile,
-              uploadStatus,
-            })}
-          </button>
-        </div>
-      </section>
-    </form>
+        </section>
+      </form>
+      {recoverableSourceUploads.length > 0 ? (
+        <RecoverableSourceUploads
+          onUseText={restoreSavedSourceText}
+          restoringSourceId={restoringSourceId}
+          uploads={recoverableSourceUploads}
+        />
+      ) : null}
+    </div>
   );
 
   return (
@@ -690,6 +808,78 @@ export function SourceCreationWorkspace() {
       {creationContent}
     </div>
   );
+}
+
+function RecoverableSourceUploads({
+  onUseText,
+  restoringSourceId,
+  uploads,
+}: {
+  onUseText: (upload: RecoverableSourceUpload) => Promise<void>;
+  restoringSourceId: string | null;
+  uploads: RecoverableSourceUpload[];
+}) {
+  return (
+    <section
+      className="skillPanel createSkillRecoveryUploads"
+      aria-labelledby="create-skill-recovery-title"
+    >
+      <div>
+        <h3 id="create-skill-recovery-title">Saved material</h3>
+        <p>Material that did not finish creating a skill can be picked up here.</p>
+      </div>
+      <div className="createSkillRecoveryList">
+        {uploads.map((upload) => (
+          <article className="createSkillRecoveryRow" key={upload.id}>
+            <div>
+              <strong>{upload.originalName}</strong>
+              <p>{recoverableSourceCopy(upload)}</p>
+            </div>
+            {upload.canRequeue || upload.canDismiss ? (
+              <SourceProcessingControls
+                canDismiss={upload.canDismiss}
+                canRequeue={upload.canRequeue}
+                sourceFileId={upload.id}
+                sourceFileName={upload.originalName}
+              />
+            ) : upload.hasSourceText ? (
+              <button
+                aria-label={`Use saved text from ${upload.originalName}`}
+                className="secondaryButton"
+                disabled={restoringSourceId !== null}
+                onClick={() => {
+                  void onUseText(upload);
+                }}
+                type="button"
+              >
+                {restoringSourceId === upload.id ? "Loading text" : "Use text"}
+              </button>
+            ) : null}
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function recoverableSourceCopy(upload: RecoverableSourceUpload) {
+  if (upload.errorMessage) {
+    return upload.errorMessage;
+  }
+
+  if (upload.hasSourceText) {
+    return "Pasted material was saved. Load it here, then create the skill again.";
+  }
+
+  if (upload.status === "FAILED") {
+    return "Preparation failed before a skill was created.";
+  }
+
+  if (upload.isStaleProcessing) {
+    return "Preparation has been running longer than expected.";
+  }
+
+  return "Preparation has not finished yet.";
 }
 
 function SkillCreationStepper({
@@ -963,6 +1153,7 @@ function formDataToMaterialSnapshot(formData: FormData): MaterialSnapshot {
     sourceLabel: stringFormValue(formData.get("sourceLabel")),
     collectionName: stringFormValue(formData.get("collectionName")),
     focusNote: stringFormValue(formData.get("focusNote")),
+    recoveredSourceFileId: stringFormValue(formData.get("recoveredSourceFileId")),
     tags: stringFormValue(formData.get("tags")),
   };
 }

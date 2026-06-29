@@ -37,6 +37,7 @@ import {
   type SkillDraftGenerator,
 } from "@/lib/skills";
 import {
+  isSourceObjectSizeLimitError,
   resolveS3SourceObjectStorage,
   type SourceObjectStorage,
 } from "@/lib/storage/s3";
@@ -52,8 +53,16 @@ import { checkSourceUploadUsageLimit } from "@/lib/usage-limits";
 export const SOURCE_UPLOAD_PREFIX = "source-uploads";
 export const SOURCE_UPLOAD_PROMPT_VERSION = "source-upload-drafts-v0";
 export const SOURCE_PROCESSING_STALE_AFTER_MS = 15 * 60 * 1000;
+export const MAX_SOURCE_UPLOAD_REQUEUE_ATTEMPTS = 3;
 const SOURCE_UPLOAD_GENERATION_TIMEOUT_MS = 45_000;
 export { MAX_SOURCE_UPLOAD_BYTES } from "@/lib/skills/source-upload-policy";
+
+class DismissedSourceUploadObjectDeleteError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "DismissedSourceUploadObjectDeleteError";
+  }
+}
 
 const sourceUploadInputSchema = z.strictObject({
   originalName: z.string().trim().min(1, "Choose a file to upload.").max(220),
@@ -207,6 +216,8 @@ export type RequeueSourceUploadDraftResult =
 export type DismissFailedSourceUploadInput = {
   userId: string;
   sourceFileId: string;
+  now?: Date;
+  storage?: SourceUploadStorage;
 };
 
 export type DismissFailedSourceUploadResult =
@@ -222,7 +233,7 @@ export type DismissFailedSourceUploadResult =
     }
   | {
       status: "not-dismissed";
-      reason: "not-failed" | "linked-source";
+      reason: "not-failed" | "linked-source" | "storage-delete-failed";
       message: string;
     };
 
@@ -323,19 +334,33 @@ export function isSourceUploadProcessingStale(
   return now.getTime() - startedAtTime >= staleAfterMs;
 }
 
+export function getSourceUploadRetryCount(metadata: Prisma.JsonValue | null): number {
+  const metadataObject = getMetadataObject(metadata);
+  const retryCount = metadataObject.retryCount;
+
+  return typeof retryCount === "number" && Number.isFinite(retryCount) ? retryCount : 0;
+}
+
+export function canRequeueSourceUploadMetadata(metadata: Prisma.JsonValue | null): boolean {
+  return getSourceUploadRetryCount(metadata) < MAX_SOURCE_UPLOAD_REQUEUE_ATTEMPTS;
+}
+
 export function buildSourceUploadRequeueMetadata(
   metadata: Prisma.JsonValue | null,
   now: Date,
+  options: {
+    consumeRetry?: boolean;
+  } = {},
 ): Prisma.InputJsonObject {
   const metadataObject = getMetadataObject(metadata);
-  const retryCount = typeof metadataObject.retryCount === "number" ? metadataObject.retryCount : 0;
+  const retryCount = getSourceUploadRetryCount(metadata);
   const timestamp = now.toISOString();
 
   return {
     ...metadataObject,
     queuedAt: timestamp,
     requeuedAt: timestamp,
-    retryCount: retryCount + 1,
+    ...((options.consumeRetry ?? true) ? { retryCount: retryCount + 1 } : {}),
   };
 }
 
@@ -398,6 +423,7 @@ export async function prepareSourceUpload(
     const uploadUrl = await storageSetup.storage.createPresignedUploadUrl({
       key: preparedRecord.objectKey,
       mimeType: normalized.value.mimeType,
+      byteSize: normalized.value.byteSize,
       maxBytes: MAX_SOURCE_UPLOAD_BYTES,
       expiresInSeconds,
     });
@@ -713,6 +739,13 @@ export async function requeueSourceUploadDraft(
     );
   }
 
+  if (!canRequeueSourceUploadMetadata(sourceFile.metadata)) {
+    return requeueNotQueued(
+      "not-requeueable",
+      "This upload has reached the retry limit. Upload a new copy to try again.",
+    );
+  }
+
   const storageSetup = resolveUploadStorage(input.storage);
 
   if (storageSetup.status === "missing-env") {
@@ -742,7 +775,9 @@ export async function requeueSourceUploadDraft(
     data: {
       status: SourceFileStatus.UPLOADED,
       byteSize: uploadValidation.byteSize,
-      metadata: buildSourceUploadRequeueMetadata(sourceFile.metadata, input.now),
+      metadata: buildSourceUploadRequeueMetadata(sourceFile.metadata, input.now, {
+        consumeRetry: sourceFile.status !== SourceFileStatus.UPLOADED,
+      }),
     },
   });
 
@@ -815,6 +850,10 @@ export async function dismissFailedSourceUpload(
       id: true,
       kind: true,
       status: true,
+      metadata: true,
+      storageBucket: true,
+      storageKey: true,
+      updatedAt: true,
       _count: {
         select: {
           skillRefs: true,
@@ -827,17 +866,6 @@ export async function dismissFailedSourceUpload(
     return sourceUploadSourceNotFound();
   }
 
-  if (
-    sourceFile.status !== SourceFileStatus.FAILED ||
-    (sourceFile.kind !== SourceFileKind.IMAGE && sourceFile.kind !== SourceFileKind.PDF)
-  ) {
-    return {
-      status: "not-dismissed",
-      reason: "not-failed",
-      message: "Only failed uploaded sources can be dismissed.",
-    };
-  }
-
   if (sourceFile._count.skillRefs > 0) {
     return {
       status: "not-dismissed",
@@ -846,23 +874,161 @@ export async function dismissFailedSourceUpload(
     };
   }
 
-  const deleted = await prisma.sourceFile.deleteMany({
-    where: {
-      id: sourceFile.id,
-      userId: input.userId,
-      status: SourceFileStatus.FAILED,
-    },
-  });
+  if (!isSourceUploadDismissible(sourceFile, input.now ?? new Date())) {
+    return {
+      status: "not-dismissed",
+      reason: "not-failed",
+      message: "Only failed or capped saved uploads can be dismissed.",
+    };
+  }
 
-  if (deleted.count !== 1) {
+  const dismissedObject = {
+    storageBucket: sourceFile.storageBucket,
+    storageKey: sourceFile.storageKey,
+  };
+
+  let dismissed = false;
+
+  try {
+    dismissed = await prisma.$transaction(async (tx) => {
+      const deleted = await tx.sourceFile.deleteMany({
+        where: {
+          id: sourceFile.id,
+          userId: input.userId,
+          kind: sourceFile.kind,
+          status: sourceFile.status,
+          storageBucket: sourceFile.storageBucket,
+          storageKey: sourceFile.storageKey,
+          updatedAt: sourceFile.updatedAt,
+          skillRefs: {
+            none: {},
+          },
+        },
+      });
+
+      if (deleted.count !== 1) {
+        return false;
+      }
+
+      const deletedObject = await deleteDismissedSourceUploadObject(dismissedObject, input.storage);
+
+      if (deletedObject.status === "failed") {
+        throw new DismissedSourceUploadObjectDeleteError(deletedObject.message);
+      }
+
+      return true;
+    });
+  } catch (error) {
+    if (error instanceof DismissedSourceUploadObjectDeleteError) {
+      return {
+        status: "not-dismissed",
+        reason: "storage-delete-failed",
+        message: error.message,
+      };
+    }
+
+    throw error;
+  }
+
+  if (!dismissed) {
     return sourceUploadSourceNotFound();
   }
 
   return {
     status: "dismissed",
     sourceFileId: sourceFile.id,
-    message: "Failed source upload dismissed.",
+    message: "Source upload dismissed.",
   };
+}
+
+export function isSourceUploadDismissible(
+  sourceFile: {
+    kind: SourceFileKind;
+    status: SourceFileStatus;
+    metadata: Prisma.JsonValue | null;
+    _count: {
+      skillRefs: number;
+    };
+  },
+  now: Date,
+) {
+  if (
+    sourceFile._count.skillRefs > 0 ||
+    (sourceFile.kind !== SourceFileKind.IMAGE && sourceFile.kind !== SourceFileKind.PDF)
+  ) {
+    return false;
+  }
+
+  if (sourceFile.status === SourceFileStatus.FAILED) {
+    return true;
+  }
+
+  if (canRequeueSourceUploadMetadata(sourceFile.metadata)) {
+    return false;
+  }
+
+  if (sourceFile.status === SourceFileStatus.UPLOADED) {
+    return true;
+  }
+
+  return (
+    sourceFile.status === SourceFileStatus.PROCESSING &&
+    isSourceUploadProcessingStale(sourceFile.metadata, now)
+  );
+}
+
+async function deleteDismissedSourceUploadObject(
+  sourceFile: {
+    storageBucket: string | null;
+    storageKey: string | null;
+  },
+  storage?: SourceUploadStorage,
+): Promise<
+  | {
+      status: "deleted";
+    }
+  | {
+      status: "failed";
+      message: string;
+    }
+> {
+  if (!sourceFile.storageKey) {
+    return {
+      status: "deleted",
+    };
+  }
+
+  const storageSetup = resolveUploadStorage(storage);
+
+  if (storageSetup.status === "missing-env") {
+    return {
+      status: "failed",
+      message: storageSetup.message,
+    };
+  }
+
+  if (sourceFile.storageBucket && storageSetup.storage.bucketName !== sourceFile.storageBucket) {
+    return {
+      status: "failed",
+      message: "Stored source bucket does not match the configured S3 bucket.",
+    };
+  }
+
+  try {
+    await storageSetup.storage.deleteObject({
+      key: sourceFile.storageKey,
+      bucket: sourceFile.storageBucket ?? undefined,
+    });
+
+    return {
+      status: "deleted",
+    };
+  } catch (error) {
+    return {
+      status: "failed",
+      message: error instanceof Error ? error.message : "Could not delete stored source object.",
+    };
+  }
 }
 
 export async function runQueuedSourceUploadDraftJob(
@@ -904,6 +1070,7 @@ export async function runQueuedSourceUploadDraftJob(
       input.now,
       "invalid-upload",
       "Uploaded source metadata is incomplete.",
+      { retainStoredObject: false },
     );
     return notCreated("invalid-upload", "Uploaded source metadata is incomplete.");
   }
@@ -915,15 +1082,39 @@ export async function runQueuedSourceUploadDraftJob(
       input.now,
       "invalid-upload",
       "Uploaded source MIME type is not supported.",
+      { retainStoredObject: false },
     );
     return notCreated("invalid-upload", "Uploaded source MIME type is not supported.");
   }
+
+  const processingMetadata = buildProcessingUploadMetadata(sourceFile.metadata, input.now);
+  const lockedForProcessing = await prisma.sourceFile.updateMany({
+    where: {
+      id: sourceFile.id,
+      userId: input.userId,
+      status: SourceFileStatus.UPLOADED,
+    },
+    data: {
+      status: SourceFileStatus.PROCESSING,
+      metadata: processingMetadata,
+    },
+  });
+
+  if (lockedForProcessing.count !== 1) {
+    return notCreated("invalid-upload", "This upload has already been processed or is processing.");
+  }
+
+  const processingSourceFile = {
+    ...sourceFile,
+    status: SourceFileStatus.PROCESSING,
+    metadata: processingMetadata as Prisma.JsonValue,
+  };
 
   const uploadValidation = await validateStoredSourceUpload(sourceFile, storageSetup.storage);
 
   if (uploadValidation.status === "invalid") {
     await markUploadedSourceFailed(
-      sourceFile,
+      processingSourceFile,
       storageSetup.storage,
       input.now,
       "invalid-upload",
@@ -934,28 +1125,11 @@ export async function runQueuedSourceUploadDraftJob(
 
   const actualByteSize = uploadValidation.byteSize;
 
-  const lockedForProcessing = await prisma.sourceFile.updateMany({
-    where: {
-      id: sourceFile.id,
-      userId: input.userId,
-      status: SourceFileStatus.UPLOADED,
-    },
-    data: {
-      status: SourceFileStatus.PROCESSING,
-      byteSize: actualByteSize,
-      metadata: buildProcessingUploadMetadata(sourceFile.metadata, input.now),
-    },
-  });
-
-  if (lockedForProcessing.count !== 1) {
-    return notCreated("invalid-upload", "This upload has already been processed or is processing.");
-  }
-
   const setup = resolveUploadGenerationSetup(input);
 
   if (setup.status === "missing-env") {
     await markUploadedSourceFailed(
-      sourceFile,
+      processingSourceFile,
       storageSetup.storage,
       input.now,
       "missing-gemini-env",
@@ -970,15 +1144,21 @@ export async function runQueuedSourceUploadDraftJob(
     bytes = await storageSetup.storage.getObjectBytes({
       key: sourceFile.storageKey,
       bucket: sourceFile.storageBucket,
+      maxBytes: MAX_SOURCE_UPLOAD_BYTES,
     });
   } catch (error) {
-    const message = `Could not read S3 upload: ${formatEnvError(error)}`;
+    const isMissingObject = isMissingStoredSourceObjectError(error);
+    const isSizeLimit = isSourceObjectSizeLimitError(error);
+    const message = isMissingObject || isSizeLimit
+      ? "Uploaded file is missing or larger than 10 MB."
+      : `Could not read S3 upload: ${formatEnvError(error)}`;
     await markUploadedSourceFailed(
-      sourceFile,
+      processingSourceFile,
       storageSetup.storage,
       input.now,
       "invalid-upload",
       message,
+      { retainStoredObject: !(isMissingObject || isSizeLimit) },
     );
     return notCreated("invalid-upload", message);
   }
@@ -986,11 +1166,12 @@ export async function runQueuedSourceUploadDraftJob(
   if (bytes.length === 0 || bytes.length > MAX_SOURCE_UPLOAD_BYTES) {
     const message = "Uploaded file is missing or larger than 10 MB.";
     await markUploadedSourceFailed(
-      sourceFile,
+      processingSourceFile,
       storageSetup.storage,
       input.now,
       "invalid-upload",
       message,
+      { retainStoredObject: false },
     );
     return notCreated("invalid-upload", message);
   }
@@ -1014,7 +1195,7 @@ export async function runQueuedSourceUploadDraftJob(
     const message = getPublicGeminiFailureMessage(error);
     console.error("[ai] source extraction failed", getGeminiErrorLogDetails(error));
     await markUploadedSourceFailed(
-      sourceFile,
+      processingSourceFile,
       storageSetup.storage,
       input.now,
       "extraction-failed",
@@ -1031,7 +1212,7 @@ export async function runQueuedSourceUploadDraftJob(
       getSourceExtractionValidationLogDetails(rawExtraction),
     );
     await markUploadedSourceFailed(
-      sourceFile,
+      processingSourceFile,
       storageSetup.storage,
       input.now,
       "invalid-extraction",
@@ -1059,7 +1240,7 @@ export async function runQueuedSourceUploadDraftJob(
     const message = getPublicGeminiFailureMessage(error);
     console.error("[ai] source draft generation failed", getGeminiErrorLogDetails(error));
     await markUploadedSourceFailed(
-      sourceFile,
+      processingSourceFile,
       storageSetup.storage,
       input.now,
       "generation-failed",
@@ -1072,7 +1253,7 @@ export async function runQueuedSourceUploadDraftJob(
 
   if (generatedDrafts.status === "invalid") {
     await markUploadedSourceFailed(
-      sourceFile,
+      processingSourceFile,
       storageSetup.storage,
       input.now,
       "invalid-generation",
@@ -1111,7 +1292,7 @@ export async function runQueuedSourceUploadDraftJob(
 
   if (created.status === "not-found") {
     await markUploadedSourceFailed(
-      sourceFile,
+      processingSourceFile,
       storageSetup.storage,
       input.now,
       "source-not-found",
@@ -1396,6 +1577,7 @@ async function markUploadedSourceFailed(
   sourceFile: {
     id: string;
     userId: string;
+    status: SourceFileStatus;
     metadata: Prisma.JsonValue | null;
     storageBucket: string | null;
     storageKey: string | null;
@@ -1404,19 +1586,68 @@ async function markUploadedSourceFailed(
   now: Date,
   reason: string,
   message: string,
+  options: {
+    retainStoredObject?: boolean;
+  } = {},
 ) {
-  void storage;
+  const retainStoredObject = options.retainStoredObject ?? true;
+  const prisma = getPrisma();
 
-  await getPrisma().sourceFile.updateMany({
-    where: {
-      id: sourceFile.id,
-      userId: sourceFile.userId,
-    },
-    data: {
-      status: SourceFileStatus.FAILED,
-      publicUrl: null,
-      metadata: buildFailedUploadMetadata(sourceFile.metadata, now, reason, message),
-    },
+  await prisma.$transaction(async (tx) => {
+    const markedFailed = await tx.sourceFile.updateMany({
+      where: {
+        id: sourceFile.id,
+        userId: sourceFile.userId,
+        status: sourceFile.status,
+        storageBucket: sourceFile.storageBucket,
+        storageKey: sourceFile.storageKey,
+      },
+      data: {
+        status: SourceFileStatus.FAILED,
+        publicUrl: null,
+        metadata: buildFailedUploadMetadata(sourceFile.metadata, now, reason, message),
+      },
+    });
+
+    if (markedFailed.count !== 1 || retainStoredObject) {
+      return;
+    }
+
+    let deletedStoredObject = false;
+
+    if (storage && sourceFile.storageKey) {
+      try {
+        await storage.deleteObject({
+          key: sourceFile.storageKey,
+          bucket: sourceFile.storageBucket ?? undefined,
+        });
+        deletedStoredObject = true;
+      } catch {
+        // Keep storage metadata when deletion fails so quota accounting and
+        // explicit cleanup still have a row pointing at the object.
+      }
+    } else if (!sourceFile.storageKey) {
+      deletedStoredObject = true;
+    }
+
+    if (!deletedStoredObject) {
+      return;
+    }
+
+    await tx.sourceFile.updateMany({
+      where: {
+        id: sourceFile.id,
+        userId: sourceFile.userId,
+        status: SourceFileStatus.FAILED,
+        storageBucket: sourceFile.storageBucket,
+        storageKey: sourceFile.storageKey,
+      },
+      data: {
+        byteSize: null,
+        storageBucket: null,
+        storageKey: null,
+      },
+    });
   });
 }
 
@@ -1501,6 +1732,23 @@ function sourceFileKindFromMimeType(mimeType: SourceUploadMimeType) {
 
 function isAllowedSourceUploadMimeType(mimeType: string): mimeType is SourceUploadMimeType {
   return isSourceUploadMimeType(mimeType);
+}
+
+function isMissingStoredSourceObjectError(error: unknown): boolean {
+  const maybeStorageError = error as {
+    name?: unknown;
+    Code?: unknown;
+    code?: unknown;
+    $metadata?: {
+      httpStatusCode?: unknown;
+    };
+  };
+  const codes = [maybeStorageError.name, maybeStorageError.Code, maybeStorageError.code];
+
+  return (
+    codes.some((code) => code === "NoSuchKey" || code === "NotFound") ||
+    maybeStorageError.$metadata?.httpStatusCode === 404
+  );
 }
 
 async function validateStoredSourceUpload(

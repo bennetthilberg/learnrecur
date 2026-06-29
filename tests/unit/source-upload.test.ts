@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import {
   MAX_SOURCE_UPLOAD_BYTES,
+  MAX_SOURCE_UPLOAD_REQUEUE_ATTEMPTS,
   SOURCE_PROCESSING_STALE_AFTER_MS,
   buildSourceUploadRequeueMetadata,
+  canRequeueSourceUploadMetadata,
   buildSourceUploadObjectKey,
+  getSourceUploadRetryCount,
   isSourceUploadProcessingStale,
   normalizeSourceUploadInput,
   validateExtractedSourceText,
@@ -191,6 +194,19 @@ describe("source upload recovery helpers", () => {
       });
     },
   );
+
+  it("caps retryable failed upload metadata", () => {
+    expect(getSourceUploadRetryCount({ retryCount: MAX_SOURCE_UPLOAD_REQUEUE_ATTEMPTS - 1 })).toBe(
+      MAX_SOURCE_UPLOAD_REQUEUE_ATTEMPTS - 1,
+    );
+    expect(canRequeueSourceUploadMetadata({ retryCount: MAX_SOURCE_UPLOAD_REQUEUE_ATTEMPTS - 1 })).toBe(
+      true,
+    );
+    expect(canRequeueSourceUploadMetadata({ retryCount: MAX_SOURCE_UPLOAD_REQUEUE_ATTEMPTS })).toBe(
+      false,
+    );
+  });
+
 });
 
 describe("getS3Env", () => {
