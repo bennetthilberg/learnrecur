@@ -52,6 +52,7 @@ import { checkSourceUploadUsageLimit } from "@/lib/usage-limits";
 export const SOURCE_UPLOAD_PREFIX = "source-uploads";
 export const SOURCE_UPLOAD_PROMPT_VERSION = "source-upload-drafts-v0";
 export const SOURCE_PROCESSING_STALE_AFTER_MS = 15 * 60 * 1000;
+export const MAX_SOURCE_UPLOAD_REQUEUE_ATTEMPTS = 3;
 const SOURCE_UPLOAD_GENERATION_TIMEOUT_MS = 45_000;
 export { MAX_SOURCE_UPLOAD_BYTES } from "@/lib/skills/source-upload-policy";
 
@@ -323,12 +324,23 @@ export function isSourceUploadProcessingStale(
   return now.getTime() - startedAtTime >= staleAfterMs;
 }
 
+export function getSourceUploadRetryCount(metadata: Prisma.JsonValue | null): number {
+  const metadataObject = getMetadataObject(metadata);
+  const retryCount = metadataObject.retryCount;
+
+  return typeof retryCount === "number" && Number.isFinite(retryCount) ? retryCount : 0;
+}
+
+export function canRequeueSourceUploadMetadata(metadata: Prisma.JsonValue | null): boolean {
+  return getSourceUploadRetryCount(metadata) < MAX_SOURCE_UPLOAD_REQUEUE_ATTEMPTS;
+}
+
 export function buildSourceUploadRequeueMetadata(
   metadata: Prisma.JsonValue | null,
   now: Date,
 ): Prisma.InputJsonObject {
   const metadataObject = getMetadataObject(metadata);
-  const retryCount = typeof metadataObject.retryCount === "number" ? metadataObject.retryCount : 0;
+  const retryCount = getSourceUploadRetryCount(metadata);
   const timestamp = now.toISOString();
 
   return {
@@ -704,6 +716,13 @@ export async function requeueSourceUploadDraft(
       return requeueNotQueued(
         "not-requeueable",
         "Only saved uploads without linked skills can be restarted.",
+      );
+    }
+
+    if (!canRequeueSourceUploadMetadata(sourceFile.metadata)) {
+      return requeueNotQueued(
+        "not-requeueable",
+        "This upload has reached the retry limit. Upload a new copy to try again.",
       );
     }
   } else if (sourceFile.status !== SourceFileStatus.UPLOADED) {

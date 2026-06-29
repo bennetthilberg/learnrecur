@@ -67,6 +67,18 @@ describe("usage limits", () => {
       status: "limited",
       code: "source-storage-limit",
     });
+
+    expect(storageLimitPrisma.sourceFile.aggregate).toHaveBeenCalledWith({
+      where: {
+        userId: "user_1",
+        storageKey: {
+          not: null,
+        },
+      },
+      _sum: {
+        byteSize: true,
+      },
+    });
   });
 
   it("blocks pasted-source draft generation after the daily limit", async () => {
