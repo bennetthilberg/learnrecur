@@ -19,6 +19,19 @@ export type SourceObjectHead = {
   mimeType: string | null;
 };
 
+export class SourceObjectSizeLimitError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "SourceObjectSizeLimitError";
+  }
+}
+
+export function isSourceObjectSizeLimitError(
+  error: unknown,
+): error is SourceObjectSizeLimitError {
+  return error instanceof SourceObjectSizeLimitError;
+}
+
 export type SourceObjectStorage = {
   bucketName: string;
   createPresignedUploadUrl(input: {
@@ -71,7 +84,9 @@ export function createS3SourceObjectStorage(env: S3Env): SourceObjectStorage {
     bucketName: env.S3_BUCKET_NAME,
     async createPresignedUploadUrl(input) {
       if (input.byteSize > input.maxBytes) {
-        throw new Error(`Upload exceeds maximum size of ${input.maxBytes} bytes.`);
+        throw new SourceObjectSizeLimitError(
+          `Upload exceeds maximum size of ${input.maxBytes} bytes.`,
+        );
       }
 
       return getSignedUrl(
@@ -164,7 +179,9 @@ async function streamToBuffer(
     totalBytes += chunk.byteLength;
 
     if (maxBytes !== undefined && totalBytes > maxBytes) {
-      throw new Error(`S3 object exceeded maximum read size of ${maxBytes} bytes.`);
+      throw new SourceObjectSizeLimitError(
+        `S3 object exceeded maximum read size of ${maxBytes} bytes.`,
+      );
     }
 
     chunks.push(Buffer.from(chunk));

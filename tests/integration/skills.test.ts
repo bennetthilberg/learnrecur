@@ -52,6 +52,7 @@ import {
   type SourceTextExtractor,
   type SourceUploadStorage,
 } from "@/lib/skills/uploads";
+import { SourceObjectSizeLimitError } from "@/lib/storage/s3";
 import {
   queueExactInputExerciseRefillForSkill,
   queueChoiceExerciseRefillForSkill,
@@ -245,6 +246,13 @@ function createFakeUploadStorage({
     bucketName: "learnrecur-dev",
     async createPresignedUploadUrl(input) {
       presignedUploadInputs.push(input);
+
+      if (input.byteSize > input.maxBytes) {
+        throw new SourceObjectSizeLimitError(
+          `Upload exceeds maximum size of ${input.maxBytes} bytes.`,
+        );
+      }
+
       return "https://s3.example.test/presigned-upload";
     },
     async headObject() {
@@ -261,7 +269,9 @@ function createFakeUploadStorage({
       getObjectByteInputs.push(input);
 
       if (input.maxBytes !== undefined && bytes.byteLength > input.maxBytes) {
-        throw new Error(`S3 object exceeded maximum read size of ${input.maxBytes} bytes.`);
+        throw new SourceObjectSizeLimitError(
+          `S3 object exceeded maximum read size of ${input.maxBytes} bytes.`,
+        );
       }
 
       return bytes;

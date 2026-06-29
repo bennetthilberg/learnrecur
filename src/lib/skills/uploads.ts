@@ -37,6 +37,7 @@ import {
   type SkillDraftGenerator,
 } from "@/lib/skills";
 import {
+  isSourceObjectSizeLimitError,
   resolveS3SourceObjectStorage,
   type SourceObjectStorage,
 } from "@/lib/storage/s3";
@@ -966,7 +967,9 @@ export async function runQueuedSourceUploadDraftJob(
       maxBytes: MAX_SOURCE_UPLOAD_BYTES,
     });
   } catch (error) {
-    const message = `Could not read S3 upload: ${formatEnvError(error)}`;
+    const message = isSourceObjectSizeLimitError(error)
+      ? "Uploaded file is missing or larger than 10 MB."
+      : `Could not read S3 upload: ${formatEnvError(error)}`;
     await markUploadedSourceFailed(
       sourceFile,
       storageSetup.storage,
