@@ -24,11 +24,12 @@ export type SourceObjectStorage = {
   createPresignedUploadUrl(input: {
     key: string;
     mimeType: string;
-    maxBytes?: number;
+    byteSize: number;
+    maxBytes: number;
     expiresInSeconds?: number;
   }): Promise<string>;
   headObject(input: { key: string; bucket?: string }): Promise<SourceObjectHead>;
-  getObjectBytes(input: { key: string; bucket?: string }): Promise<Buffer>;
+  getObjectBytes(input: { key: string; bucket?: string; maxBytes?: number }): Promise<Buffer>;
   listObjects(input?: { prefix?: string; bucket?: string }): Promise<string[]>;
   deleteObject(input: { key: string; bucket?: string }): Promise<void>;
 };
@@ -69,12 +70,16 @@ export function createS3SourceObjectStorage(env: S3Env): SourceObjectStorage {
   return {
     bucketName: env.S3_BUCKET_NAME,
     async createPresignedUploadUrl(input) {
-      void input.maxBytes;
+      if (input.byteSize > input.maxBytes) {
+        throw new Error(`Upload exceeds maximum size of ${input.maxBytes} bytes.`);
+      }
+
       return getSignedUrl(
         client,
         new PutObjectCommand({
           Bucket: env.S3_BUCKET_NAME,
           Key: input.key,
+          ContentLength: input.byteSize,
           ContentType: input.mimeType,
         }),
         {
@@ -109,7 +114,7 @@ export function createS3SourceObjectStorage(env: S3Env): SourceObjectStorage {
         throw new Error(`S3 object ${bucket}/${input.key} had no response body.`);
       }
 
-      return streamToBuffer(result.Body as AsyncIterable<Uint8Array>);
+      return streamToBuffer(result.Body as AsyncIterable<Uint8Array>, input.maxBytes);
     },
     async listObjects(input = {}) {
       const bucket = input.bucket ?? env.S3_BUCKET_NAME;
@@ -148,12 +153,22 @@ export function createS3SourceObjectStorage(env: S3Env): SourceObjectStorage {
   };
 }
 
-async function streamToBuffer(stream: AsyncIterable<Uint8Array>): Promise<Buffer> {
+async function streamToBuffer(
+  stream: AsyncIterable<Uint8Array>,
+  maxBytes?: number,
+): Promise<Buffer> {
   const chunks: Buffer[] = [];
+  let totalBytes = 0;
 
   for await (const chunk of stream) {
+    totalBytes += chunk.byteLength;
+
+    if (maxBytes !== undefined && totalBytes > maxBytes) {
+      throw new Error(`S3 object exceeded maximum read size of ${maxBytes} bytes.`);
+    }
+
     chunks.push(Buffer.from(chunk));
   }
 
-  return Buffer.concat(chunks);
+  return Buffer.concat(chunks, totalBytes);
 }

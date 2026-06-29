@@ -239,9 +239,12 @@ function createFakeUploadStorage({
   headError?: Error | null;
 } = {}) {
   const deletedKeys: string[] = [];
+  const presignedUploadInputs: Parameters<SourceUploadStorage["createPresignedUploadUrl"]>[0][] = [];
+  const getObjectByteInputs: Parameters<SourceUploadStorage["getObjectBytes"]>[0][] = [];
   const storage: SourceUploadStorage = {
     bucketName: "learnrecur-dev",
-    async createPresignedUploadUrl() {
+    async createPresignedUploadUrl(input) {
+      presignedUploadInputs.push(input);
       return "https://s3.example.test/presigned-upload";
     },
     async headObject() {
@@ -254,7 +257,13 @@ function createFakeUploadStorage({
         mimeType,
       };
     },
-    async getObjectBytes() {
+    async getObjectBytes(input) {
+      getObjectByteInputs.push(input);
+
+      if (input.maxBytes !== undefined && bytes.byteLength > input.maxBytes) {
+        throw new Error(`S3 object exceeded maximum read size of ${input.maxBytes} bytes.`);
+      }
+
       return bytes;
     },
     async deleteObject(input) {
@@ -265,6 +274,8 @@ function createFakeUploadStorage({
   return {
     storage,
     deletedKeys,
+    presignedUploadInputs,
+    getObjectByteInputs,
   };
 }
 
@@ -1269,7 +1280,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
 
   it("creates source-backed draft skills from an uploaded source object", async () => {
     const userId = await createUser("upload_success");
-    const { storage } = createFakeUploadStorage({
+    const { storage, presignedUploadInputs, getObjectByteInputs } = createFakeUploadStorage({
       byteSize: 4096,
     });
     const { sender, events } = createFakeSourceUploadSender();
@@ -1297,6 +1308,15 @@ describeDatabase("skill drafts and Gemini activation", () => {
     expect(prepared.uploadUrl).toBe("https://s3.example.test/presigned-upload");
     expect(prepared.headers).toEqual({ "Content-Type": "image/png" });
     expect(prepared.objectKey).toContain(`source-uploads/${userId}/`);
+    expect(presignedUploadInputs).toEqual([
+      {
+        key: prepared.objectKey,
+        mimeType: "image/png",
+        byteSize: 4096,
+        maxBytes: MAX_SOURCE_UPLOAD_BYTES,
+        expiresInSeconds: 600,
+      },
+    ]);
 
     const queued = await queueSourceUploadDrafts({
       userId,
@@ -1340,6 +1360,13 @@ describeDatabase("skill drafts and Gemini activation", () => {
     });
 
     expect(completed.status).toBe("created");
+    expect(getObjectByteInputs).toEqual([
+      {
+        key: prepared.objectKey,
+        bucket: "learnrecur-dev",
+        maxBytes: MAX_SOURCE_UPLOAD_BYTES,
+      },
+    ]);
 
     if (completed.status !== "created") {
       throw new Error("Expected uploaded source completion to succeed.");
