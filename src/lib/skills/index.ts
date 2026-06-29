@@ -1265,14 +1265,16 @@ export async function createSkillDraftFromSource(
 
   if (recoveredSourceFileId) {
     prisma ??= getPrisma();
-    const claimed = await claimRecoveredPastedSource({
-      prisma,
-      userId: input.userId,
-      sourceFileId: recoveredSourceFileId,
-      now: input.now,
-      normalized: normalized.value,
-      model: setup.model,
-    });
+    const claimed = await prisma.$transaction((tx) =>
+      claimRecoveredPastedSource({
+        prisma: tx,
+        userId: input.userId,
+        sourceFileId: recoveredSourceFileId,
+        now: input.now,
+        normalized: normalized.value,
+        model: setup.model,
+      }),
+    );
 
     if (!claimed) {
       return {
@@ -1282,7 +1284,7 @@ export async function createSkillDraftFromSource(
       };
     }
 
-    persistedSourceFileId = recoveredSourceFileId;
+    persistedSourceFileId = claimed;
   }
 
   if (input.persistFailedSource && !persistedSourceFileId) {
@@ -1334,6 +1336,7 @@ export async function createSkillDraftFromSource(
         message,
         normalized: normalized.value,
         model: setup.model,
+        recoveredFromSourceFileId: recoveredSourceFileId,
       });
     }
 
@@ -1357,6 +1360,7 @@ export async function createSkillDraftFromSource(
         message: validation.message,
         normalized: normalized.value,
         model: setup.model,
+        recoveredFromSourceFileId: recoveredSourceFileId,
       });
     }
 
@@ -1410,6 +1414,7 @@ export async function createSkillDraftFromSource(
                 model: setup.model,
                 now: input.now,
                 generated: true,
+                recoveredFromSourceFileId: recoveredSourceFileId,
               }),
             }
           : undefined,
@@ -1437,6 +1442,7 @@ export async function createSkillDraftFromSource(
       message,
       normalized: normalized.value,
       model: setup.model,
+      recoveredFromSourceFileId: recoveredSourceFileId,
     });
 
     return {
@@ -1499,11 +1505,13 @@ function buildPastedSourceMetadata({
   model,
   normalized,
   now,
+  recoveredFromSourceFileId,
 }: {
   generated?: boolean;
   model: string;
   normalized: NormalizedSourceSkillDraftInput;
   now: Date;
+  recoveredFromSourceFileId?: string | null;
 }): Prisma.InputJsonObject {
   return {
     createdBy: SOURCE_SKILL_DRAFT_PROMPT_VERSION,
@@ -1511,6 +1519,7 @@ function buildPastedSourceMetadata({
     model,
     submittedAt: now.toISOString(),
     ...(generated ? { generatedAt: now.toISOString() } : {}),
+    ...(recoveredFromSourceFileId ? { recoveredFromSourceFileId } : {}),
   };
 }
 
@@ -1540,20 +1549,57 @@ async function claimRecoveredPastedSource({
       },
     },
     data: {
-      status: SourceFileStatus.PROCESSING,
-      originalName: normalized.sourceLabel ?? undefined,
+      status: SourceFileStatus.READY,
       publicUrl: null,
-      byteSize: Buffer.byteLength(normalized.sourceText, "utf8"),
-      extractedText: normalized.sourceText,
-      metadata: buildPastedSourceMetadata({
-        normalized,
-        model,
-        now,
-      }),
+      metadata: {
+        recoveredAt: now.toISOString(),
+      },
     },
   });
 
-  return result.count > 0;
+  if (result.count === 0) {
+    return null;
+  }
+
+  const retrySource = await prisma.sourceFile.create({
+    data: {
+      userId,
+      kind: SourceFileKind.TEXT,
+      status: SourceFileStatus.PROCESSING,
+      originalName: normalized.sourceLabel ?? "Recovered pasted source",
+      mimeType: "text/plain",
+      byteSize: Buffer.byteLength(normalized.sourceText, "utf8"),
+      extractedText: normalized.sourceText,
+      metadata: {
+        ...buildPastedSourceMetadata({
+          normalized,
+          model,
+          now,
+          recoveredFromSourceFileId: sourceFileId,
+        }),
+      },
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  await prisma.sourceFile.update({
+    where: {
+      id_userId: {
+        id: sourceFileId,
+        userId,
+      },
+    },
+    data: {
+      metadata: {
+        recoveredAt: now.toISOString(),
+        recoveredIntoSourceFileId: retrySource.id,
+      },
+    },
+  });
+
+  return retrySource.id;
 }
 
 async function markPastedSourceFailed({
@@ -1563,6 +1609,7 @@ async function markPastedSourceFailed({
   now,
   prisma,
   reason,
+  recoveredFromSourceFileId,
   sourceFileId,
   userId,
 }: {
@@ -1571,6 +1618,7 @@ async function markPastedSourceFailed({
   normalized: NormalizedSourceSkillDraftInput;
   now: Date;
   prisma: Pick<Prisma.TransactionClient, "sourceFile">;
+  recoveredFromSourceFileId?: string | null;
   reason: string;
   sourceFileId: string;
   userId: string;
@@ -1588,6 +1636,7 @@ async function markPastedSourceFailed({
           normalized,
           model,
           now,
+          recoveredFromSourceFileId,
         }),
         failedAt: now.toISOString(),
         failureReason: reason,

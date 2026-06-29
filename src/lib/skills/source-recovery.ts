@@ -54,6 +54,9 @@ export async function getSkillCreationSourceRecoveryItems(input: {
           extractedText: {
             not: null,
           },
+          skillRefs: {
+            none: {},
+          },
         },
       ],
     },
@@ -124,7 +127,7 @@ function toSkillCreationSourceRecoveryItem(
       sourceFile.status === SourceFileStatus.UPLOADED ||
       isStaleProcessing ||
       (sourceFile.status === SourceFileStatus.FAILED && isSavedSourceRetryable(sourceFile)),
-    hasSourceText: sourceFile.kind === SourceFileKind.TEXT,
+    hasSourceText: sourceFile.kind === SourceFileKind.TEXT && sourceFile._count.skillRefs === 0,
   };
 }
 

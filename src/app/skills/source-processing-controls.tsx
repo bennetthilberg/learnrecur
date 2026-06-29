@@ -3,6 +3,7 @@
 import { useActionState, useEffect } from "react";
 import { CheckCircle, WarningCircle } from "@phosphor-icons/react";
 import { notifications } from "@mantine/notifications";
+import { useRouter } from "next/navigation";
 
 import {
   requeueSourceUploadAction,
@@ -25,10 +26,12 @@ export function SourceProcessingControls({
   sourceFileName: string;
   canRequeue: boolean;
 }) {
+  const router = useRouter();
   const [requeueState, requeueAction, requeuePending] = useActionState(
     requeueSourceUploadAction,
     idleState,
   );
+  const requeueSucceeded = requeueState.status === "saved";
 
   useEffect(() => {
     if (!requeueState.message || requeueState.status === "idle") {
@@ -53,7 +56,11 @@ export function SourceProcessingControls({
       withBorder: true,
       withCloseButton: true,
     });
-  }, [requeueState]);
+
+    if (saved) {
+      router.refresh();
+    }
+  }, [requeueState, router]);
 
   if (!canRequeue) {
     return null;
@@ -66,10 +73,10 @@ export function SourceProcessingControls({
         <button
           aria-label={`Try skill preparation again for ${sourceFileName}`}
           className="secondaryButton"
-          disabled={requeuePending}
+          disabled={requeuePending || requeueSucceeded}
           type="submit"
         >
-          {requeuePending ? "Trying again" : "Try again"}
+          {requeuePending ? "Trying again" : requeueSucceeded ? "Restarted" : "Try again"}
         </button>
       </form>
     </div>

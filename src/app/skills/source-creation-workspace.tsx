@@ -138,7 +138,8 @@ export function SourceCreationWorkspace({
     uploadStatus === "preparing" ||
     uploadStatus === "uploading" ||
     uploadStatus === "generating";
-  const busy = isGeneratingFromText || uploadBusy;
+  const restoreBusy = restoringSourceId !== null;
+  const busy = isGeneratingFromText || uploadBusy || restoreBusy;
   const generationStatus = getGenerationStatus({
     isGeneratingFromText,
     uploadBusy,
@@ -382,7 +383,8 @@ export function SourceCreationWorkspace({
       tone: "success",
       message: "Skill ready to review.",
     });
-  }, [showNotice, textState.createdSkill, textState.status]);
+    router.refresh();
+  }, [router, showNotice, textState.createdSkill, textState.status]);
 
   useEffect(() => {
     if (textState.status !== "saved" || textState.createdSkill || !textState.message) {
@@ -488,6 +490,7 @@ export function SourceCreationWorkspace({
         }
 
         setCreatedSkill(completed.skill);
+        router.refresh();
         return;
       }
 
@@ -531,6 +534,7 @@ export function SourceCreationWorkspace({
         setUploadStatus("idle");
         setMaterialSnapshot(emptyMaterialSnapshot);
         showNotice(null);
+        router.refresh();
       }}
       skillId={activatedSkillId}
     />

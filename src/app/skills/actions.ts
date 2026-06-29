@@ -232,6 +232,7 @@ export async function generateSkillDraftFromSourceAction(
 
       if (draft) {
         revalidatePath("/skills");
+        revalidatePath("/skills/new");
         revalidatePath("/dashboard");
         revalidatePath(`/skills/${skill.id}`);
 
@@ -243,6 +244,7 @@ export async function generateSkillDraftFromSourceAction(
       }
 
       revalidatePath("/skills");
+      revalidatePath("/skills/new");
       revalidatePath("/dashboard");
       revalidatePath(`/skills/${skill.id}`);
 
@@ -342,6 +344,7 @@ export async function completeSourceUploadAction(input: {
     }
 
     revalidatePath("/skills");
+    revalidatePath("/skills/new");
     revalidatePath("/dashboard");
     revalidatePath(`/skills/${skill.id}`);
 
