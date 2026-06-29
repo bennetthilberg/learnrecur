@@ -40,7 +40,7 @@ export function SourceProcessingNotifications({
         icon: <WarningCircle size={18} weight="bold" />,
         message: `${failure.name}: ${failure.message} ${
           failure.retryable
-            ? "The material is saved, so you can try preparation again from Skills."
+            ? "The material is saved, so you can try preparation again from Create a skill."
             : "The material was saved."
         }`,
         position: "top-right",

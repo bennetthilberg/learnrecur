@@ -28,6 +28,7 @@ import {
 } from "./actions";
 import { getClipboardSourceFile, getSourceUploadFileError } from "./source-upload-clipboard";
 import { SkillDraftForm } from "./skill-draft-form";
+import { SourceProcessingControls } from "./source-processing-controls";
 
 export type SourceGenerationStatus = {
   title: string;
@@ -47,6 +48,13 @@ type MaterialSnapshot = {
   collectionName: string;
   focusNote: string;
   tags: string;
+};
+export type RecoverableSourceUpload = {
+  id: string;
+  originalName: string;
+  status: "UPLOADED" | "PROCESSING" | "FAILED";
+  errorMessage: string | null;
+  isStaleProcessing: boolean;
 };
 
 const sourceCreationNotificationId = "source-creation-notice";
@@ -88,7 +96,11 @@ const createSkillStepperClassNames = {
   steps: "createSkillStepperSteps",
 } as const;
 
-export function SourceCreationWorkspace() {
+export function SourceCreationWorkspace({
+  recoverableSourceUploads = [],
+}: {
+  recoverableSourceUploads?: RecoverableSourceUpload[];
+}) {
   const router = useRouter();
   const fileInputId = useId();
   const sourceTextId = useId();
@@ -663,6 +675,10 @@ export function SourceCreationWorkspace() {
           </div>
         </details>
 
+        {recoverableSourceUploads.length > 0 ? (
+          <RecoverableSourceUploads uploads={recoverableSourceUploads} />
+        ) : null}
+
         <div className="skillFormActions createSkillActions">
           <button className="primaryButton" disabled={busy} type="submit">
             {submitButtonLabel({
@@ -690,6 +706,48 @@ export function SourceCreationWorkspace() {
       {creationContent}
     </div>
   );
+}
+
+function RecoverableSourceUploads({ uploads }: { uploads: RecoverableSourceUpload[] }) {
+  return (
+    <section className="createSkillRecoveryUploads" aria-labelledby="create-skill-recovery-title">
+      <div>
+        <h3 id="create-skill-recovery-title">Saved uploads</h3>
+        <p>These uploads did not finish creating a skill. Try them again here.</p>
+      </div>
+      <div className="createSkillRecoveryList">
+        {uploads.map((upload) => (
+          <article className="createSkillRecoveryRow" key={upload.id}>
+            <div>
+              <strong>{upload.originalName}</strong>
+              <p>{recoverableSourceCopy(upload)}</p>
+            </div>
+            <SourceProcessingControls
+              canRequeue
+              sourceFileId={upload.id}
+              sourceFileName={upload.originalName}
+            />
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function recoverableSourceCopy(upload: RecoverableSourceUpload) {
+  if (upload.errorMessage) {
+    return upload.errorMessage;
+  }
+
+  if (upload.status === "FAILED") {
+    return "Preparation failed before a skill was created.";
+  }
+
+  if (upload.isStaleProcessing) {
+    return "Preparation has been running longer than expected.";
+  }
+
+  return "Preparation has not finished yet.";
 }
 
 function SkillCreationStepper({

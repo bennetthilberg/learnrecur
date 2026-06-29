@@ -354,7 +354,7 @@ export async function completeSourceUploadAction(input: {
     status: "error",
     message:
       result.status === "not-created"
-        ? `${result.message} Your upload was saved, so you can try preparation again from Skills.`
+        ? `${result.message} Try again here, or choose a clearer file.`
         : result.message,
   };
 }
@@ -385,6 +385,7 @@ export async function requeueSourceUploadAction(
   });
 
   revalidatePath("/skills");
+  revalidatePath("/skills/new");
   revalidatePath("/dashboard");
 
   if (result.status === "queued") {
