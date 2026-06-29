@@ -53,6 +53,7 @@ import {
   type SourceTextExtractor,
   type SourceUploadStorage,
 } from "@/lib/skills/uploads";
+import { SourceObjectSizeLimitError } from "@/lib/storage/s3";
 import {
   queueExactInputExerciseRefillForSkill,
   queueChoiceExerciseRefillForSkill,
@@ -69,6 +70,7 @@ import type {
   SourceUploadDraftEventSender,
 } from "@/lib/inngest/events";
 import { getSkillsLibrary } from "@/lib/skills/library";
+import { getSkillCreationSourceRecoveryItems } from "@/lib/skills/source-recovery";
 import { removeSkillSource } from "@/lib/skills/sources";
 import { createInitialSkillSchedule } from "@/lib/scheduling";
 
@@ -242,9 +244,19 @@ function createFakeUploadStorage({
   getError?: Error | null;
 } = {}) {
   const deletedKeys: string[] = [];
+  const presignedUploadInputs: Parameters<SourceUploadStorage["createPresignedUploadUrl"]>[0][] = [];
+  const getObjectByteInputs: Parameters<SourceUploadStorage["getObjectBytes"]>[0][] = [];
   const storage: SourceUploadStorage = {
     bucketName: "learnrecur-dev",
-    async createPresignedUploadUrl() {
+    async createPresignedUploadUrl(input) {
+      presignedUploadInputs.push(input);
+
+      if (input.byteSize > input.maxBytes) {
+        throw new SourceObjectSizeLimitError(
+          `Upload exceeds maximum size of ${input.maxBytes} bytes.`,
+        );
+      }
+
       return "https://s3.example.test/presigned-upload";
     },
     async headObject() {
@@ -257,9 +269,17 @@ function createFakeUploadStorage({
         mimeType,
       };
     },
-    async getObjectBytes() {
+    async getObjectBytes(input) {
+      getObjectByteInputs.push(input);
+
       if (getError) {
         throw getError;
+      }
+
+      if (input.maxBytes !== undefined && bytes.byteLength > input.maxBytes) {
+        throw new SourceObjectSizeLimitError(
+          `S3 object exceeded maximum read size of ${input.maxBytes} bytes.`,
+        );
       }
 
       return bytes;
@@ -272,6 +292,8 @@ function createFakeUploadStorage({
   return {
     storage,
     deletedKeys,
+    presignedUploadInputs,
+    getObjectByteInputs,
   };
 }
 
@@ -1174,6 +1196,208 @@ describeDatabase("skill drafts and Gemini activation", () => {
     });
   });
 
+  it("hides in-flight and linked pasted sources from skill creation recovery", async () => {
+    const userId = await createUser("source_recovery_processing_text_hidden");
+    const failedSource = await prisma.sourceFile.create({
+      data: {
+        userId,
+        kind: SourceFileKind.TEXT,
+        status: SourceFileStatus.FAILED,
+        originalName: "failed pasted source",
+        mimeType: "text/plain",
+        byteSize: 120,
+        extractedText:
+          "Use ser for identity and long-term traits. Use estar for location and temporary states.",
+      },
+    });
+    const processingSource = await prisma.sourceFile.create({
+      data: {
+        userId,
+        kind: SourceFileKind.TEXT,
+        status: SourceFileStatus.PROCESSING,
+        originalName: "processing pasted source",
+        mimeType: "text/plain",
+        byteSize: 120,
+        extractedText:
+          "Use preterite for completed past actions and imperfect for background descriptions.",
+      },
+    });
+    const linkedSource = await prisma.sourceFile.create({
+      data: {
+        userId,
+        kind: SourceFileKind.TEXT,
+        status: SourceFileStatus.FAILED,
+        originalName: "linked pasted source",
+        mimeType: "text/plain",
+        byteSize: 120,
+        extractedText:
+          "Linked material should stay attached to its existing draft instead of appearing as reusable saved text.",
+      },
+    });
+    const linkedSkill = await prisma.skill.create({
+      data: {
+        userId,
+        title: "Linked saved text",
+        objective: "Keep linked failed text out of source recovery.",
+        rules: [],
+        examples: [],
+        exerciseConstraints: null,
+        tags: [],
+        status: SkillStatus.DRAFT,
+      },
+    });
+    await prisma.skillSourceRef.create({
+      data: {
+        userId,
+        skillId: linkedSkill.id,
+        sourceFileId: linkedSource.id,
+      },
+    });
+
+    const recoveryItems = await getSkillCreationSourceRecoveryItems({ userId, now });
+
+    expect(recoveryItems.map((item) => item.id)).toContain(failedSource.id);
+    expect(recoveryItems.map((item) => item.id)).not.toContain(processingSource.id);
+    expect(recoveryItems.map((item) => item.id)).not.toContain(linkedSource.id);
+  });
+
+  it("consumes a recovered pasted source and creates a fresh counted retry source", async () => {
+    const userId = await createUser("source_recovery_consumed");
+    const sourceText =
+      "Use ser for identity and long-term traits. Use estar for location and temporary states. Classroom practice should use short sentences with one obvious choice.";
+    const failedSource = await prisma.sourceFile.create({
+      data: {
+        userId,
+        kind: SourceFileKind.TEXT,
+        status: SourceFileStatus.FAILED,
+        originalName: "failed pasted source",
+        mimeType: "text/plain",
+        byteSize: Buffer.byteLength(sourceText, "utf8"),
+        extractedText: sourceText,
+      },
+    });
+
+    const result = await createSkillDraftFromSource({
+      userId,
+      now,
+      model: "test-gemini",
+      generateSkillDraft: successfulSkillDraftGenerator,
+      input: {
+        sourceText,
+        sourceLabel: "Recovered pasted source",
+      },
+      recoveredSourceFileId: failedSource.id,
+      skipUsageLimitCheck: true,
+    });
+
+    expect(result).toMatchObject({
+      status: "created",
+    });
+
+    if (result.status !== "created") {
+      throw new Error("Expected source recovery draft creation to succeed.");
+    }
+
+    expect(result.sourceFileId).not.toBe(failedSource.id);
+
+    const consumedSource = await prisma.sourceFile.findUniqueOrThrow({
+      where: { id: failedSource.id },
+    });
+    expect(consumedSource.status).toBe(SourceFileStatus.READY);
+    expect(consumedSource.metadata).toMatchObject({
+      recoveredIntoSourceFileId: result.sourceFileId,
+    });
+
+    const retrySource = await prisma.sourceFile.findUniqueOrThrow({
+      where: { id: result.sourceFileId },
+      include: {
+        skillRefs: true,
+      },
+    });
+    expect(retrySource.status).toBe(SourceFileStatus.READY);
+    expect(retrySource.originalName).toBe("Recovered pasted source");
+    expect(retrySource.metadata).toMatchObject({
+      recoveredFromSourceFileId: failedSource.id,
+    });
+    expect(retrySource.skillRefs).toHaveLength(1);
+
+    const pastedSourceCount = await prisma.sourceFile.count({
+      where: {
+        userId,
+        kind: SourceFileKind.TEXT,
+      },
+    });
+    expect(pastedSourceCount).toBe(2);
+
+    const recoveryItems = await getSkillCreationSourceRecoveryItems({ userId, now });
+    expect(recoveryItems.map((item) => item.id)).not.toContain(failedSource.id);
+    expect(recoveryItems.map((item) => item.id)).not.toContain(result.sourceFileId);
+  });
+
+  it("creates a fresh recoverable retry source when recovered pasted text fails again", async () => {
+    const userId = await createUser("source_recovery_failed_retry");
+    const sourceText =
+      "Use ser for identity and long-term traits. Use estar for location and temporary states. Classroom practice should use short sentences with one obvious choice.";
+    const failedSource = await prisma.sourceFile.create({
+      data: {
+        userId,
+        kind: SourceFileKind.TEXT,
+        status: SourceFileStatus.FAILED,
+        originalName: "failed pasted source",
+        mimeType: "text/plain",
+        byteSize: Buffer.byteLength(sourceText, "utf8"),
+        extractedText: sourceText,
+      },
+    });
+
+    const result = await createSkillDraftFromSource({
+      userId,
+      now,
+      model: "test-gemini",
+      generateSkillDraft: async () => {
+        throw new Error("Model unavailable.");
+      },
+      input: {
+        sourceText,
+        sourceLabel: "Recovered pasted source",
+      },
+      recoveredSourceFileId: failedSource.id,
+      skipUsageLimitCheck: true,
+    });
+
+    expect(result).toMatchObject({
+      status: "not-created",
+      reason: "generation-failed",
+    });
+
+    const sourceFiles = await prisma.sourceFile.findMany({
+      where: {
+        userId,
+        kind: SourceFileKind.TEXT,
+      },
+      orderBy: {
+        createdAt: "asc",
+      },
+    });
+    expect(sourceFiles).toHaveLength(2);
+    expect(sourceFiles[0]).toMatchObject({
+      id: failedSource.id,
+      status: SourceFileStatus.READY,
+    });
+    expect(sourceFiles[1]).toMatchObject({
+      status: SourceFileStatus.FAILED,
+      originalName: "Recovered pasted source",
+    });
+    expect(sourceFiles[1].metadata).toMatchObject({
+      recoveredFromSourceFileId: failedSource.id,
+      failureReason: "generation-failed",
+    });
+
+    const recoveryItems = await getSkillCreationSourceRecoveryItems({ userId, now });
+    expect(recoveryItems.map((item) => item.id)).not.toContain(failedSource.id);
+    expect(recoveryItems.map((item) => item.id)).toContain(sourceFiles[1].id);
+  });
+
   it("splits broad source material into multiple draft skills linked to one source", async () => {
     const userId = await createUser("source_split");
     const result = await createSkillDraftFromSource({
@@ -1276,7 +1500,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
 
   it("creates source-backed draft skills from an uploaded source object", async () => {
     const userId = await createUser("upload_success");
-    const { storage } = createFakeUploadStorage({
+    const { storage, presignedUploadInputs, getObjectByteInputs } = createFakeUploadStorage({
       byteSize: 4096,
     });
     const { sender, events } = createFakeSourceUploadSender();
@@ -1304,6 +1528,15 @@ describeDatabase("skill drafts and Gemini activation", () => {
     expect(prepared.uploadUrl).toBe("https://s3.example.test/presigned-upload");
     expect(prepared.headers).toEqual({ "Content-Type": "image/png" });
     expect(prepared.objectKey).toContain(`source-uploads/${userId}/`);
+    expect(presignedUploadInputs).toEqual([
+      {
+        key: prepared.objectKey,
+        mimeType: "image/png",
+        byteSize: 4096,
+        maxBytes: MAX_SOURCE_UPLOAD_BYTES,
+        expiresInSeconds: 600,
+      },
+    ]);
 
     const queued = await queueSourceUploadDrafts({
       userId,
@@ -1347,6 +1580,13 @@ describeDatabase("skill drafts and Gemini activation", () => {
     });
 
     expect(completed.status).toBe("created");
+    expect(getObjectByteInputs).toEqual([
+      {
+        key: prepared.objectKey,
+        bucket: "learnrecur-dev",
+        maxBytes: MAX_SOURCE_UPLOAD_BYTES,
+      },
+    ]);
 
     if (completed.status !== "created") {
       throw new Error("Expected uploaded source completion to succeed.");
@@ -1997,6 +2237,21 @@ describeDatabase("skill drafts and Gemini activation", () => {
         },
       },
     });
+    const failed = await prisma.sourceFile.create({
+      data: {
+        userId,
+        kind: SourceFileKind.IMAGE,
+        status: SourceFileStatus.FAILED,
+        originalName: "failed upload",
+        mimeType: "image/png",
+        byteSize: 4096,
+        storageBucket: "learnrecur-dev",
+        storageKey: `source-uploads/${userId}/failed.png`,
+        metadata: {
+          retryCount: MAX_SOURCE_UPLOAD_REQUEUE_ATTEMPTS,
+        },
+      },
+    });
 
     const sender = createFakeSourceUploadSender();
 
@@ -2024,6 +2279,18 @@ describeDatabase("skill drafts and Gemini activation", () => {
       status: "not-queued",
       reason: "not-requeueable",
     });
+    await expect(
+      requeueSourceUploadDraft({
+        userId,
+        sourceFileId: failed.id,
+        now,
+        storage,
+        eventSender: sender.sender,
+      }),
+    ).resolves.toMatchObject({
+      status: "not-queued",
+      reason: "not-requeueable",
+    });
     expect(sender.events).toHaveLength(0);
 
     const library = await getSkillsLibrary({ userId, now });
@@ -2036,6 +2303,10 @@ describeDatabase("skill drafts and Gemini activation", () => {
         expect.objectContaining({
           id: staleProcessing.id,
           isStaleProcessing: true,
+          canRequeue: false,
+        }),
+        expect.objectContaining({
+          id: failed.id,
           canRequeue: false,
         }),
       ]),

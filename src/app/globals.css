@@ -228,13 +228,22 @@ a {
   border: 1px solid transparent;
   border-radius: 8px;
   cursor: pointer;
+  position: relative;
   margin: 0;
   user-select: none;
   -webkit-user-select: none;
   transform: translateY(0);
   transition: transform .08s ease, box-shadow .08s ease, background-color .12s ease;
 }
-.bpbtn:focus-visible { outline: 2px solid #1C44A8; outline-offset: 2px; }
+.bpbtn:focus-visible { outline: none; }
+.bpbtn:focus-visible::before {
+  position: absolute;
+  inset: -5px -5px -8px;
+  border: 2px solid #1C44A8;
+  border-radius: 12px;
+  content: "";
+  pointer-events: none;
+}
 .bpbtn:disabled { opacity: .5; cursor: not-allowed; }
 
 /* Primary (blue) */
