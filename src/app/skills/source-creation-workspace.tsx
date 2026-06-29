@@ -51,10 +51,13 @@ type MaterialSnapshot = {
 };
 export type RecoverableSourceUpload = {
   id: string;
+  kind: "IMAGE" | "PDF" | "TEXT";
   originalName: string;
   status: "UPLOADED" | "PROCESSING" | "FAILED";
   errorMessage: string | null;
   isStaleProcessing: boolean;
+  canRequeue: boolean;
+  sourceText: string | null;
 };
 
 const sourceCreationNotificationId = "source-creation-notice";
@@ -250,6 +253,43 @@ export function SourceCreationWorkspace({
 
     return true;
   }, [clearSelectedFilePreview, setSelectedFilePreview, showNotice]);
+
+  const restoreSavedSourceText = useCallback(
+    (upload: RecoverableSourceUpload) => {
+      if (!upload.sourceText) {
+        return;
+      }
+
+      clearSelectedFile();
+      setFieldErrors(undefined);
+      setMaterialSnapshot((currentSnapshot) => ({
+        ...currentSnapshot,
+        sourceText: upload.sourceText ?? "",
+        sourceLabel: currentSnapshot.sourceLabel || upload.originalName,
+      }));
+
+      const sourceTextControl = formRef.current?.elements.namedItem("sourceText");
+      const sourceLabelControl = formRef.current?.elements.namedItem("sourceLabel");
+
+      if (sourceTextControl instanceof HTMLTextAreaElement) {
+        sourceTextControl.value = upload.sourceText;
+        sourceTextControl.focus();
+      }
+
+      if (
+        sourceLabelControl instanceof HTMLInputElement &&
+        !sourceLabelControl.value.trim()
+      ) {
+        sourceLabelControl.value = upload.originalName;
+      }
+
+      showNotice({
+        tone: "success",
+        message: "Saved text restored. Review it, then create the skill again.",
+      });
+    },
+    [clearSelectedFile, showNotice],
+  );
 
   useEffect(() => {
     if (activeStep !== 0) {
@@ -479,217 +519,221 @@ export function SourceCreationWorkspace({
       skillId={reviewSkill.skillId}
     />
   ) : (
-    <form
-      action={textAction}
-      className="skillCreateStack createSkillMaterialForm"
-      onSubmit={(event) => {
-        const formData = new FormData(event.currentTarget);
-        setMaterialSnapshot(formDataToMaterialSnapshot(formData));
-        setDismissedSkillId(null);
+    <div className="skillCreateStack createSkillMaterialStack">
+      <form
+        action={textAction}
+        className="createSkillMaterialForm"
+        onSubmit={(event) => {
+          const formData = new FormData(event.currentTarget);
+          setMaterialSnapshot(formDataToMaterialSnapshot(formData));
+          setDismissedSkillId(null);
 
-        if (selectedFile) {
-          event.preventDefault();
+          if (selectedFile) {
+            event.preventDefault();
 
-          if (uploadBusy) {
+            if (uploadBusy) {
+              return;
+            }
+
+            const form = event.currentTarget;
+            setIsSubmittingUpload(true);
+            startUploadTransition(() => {
+              void submitUpload(form);
+            });
             return;
           }
 
-          const form = event.currentTarget;
-          setIsSubmittingUpload(true);
-          startUploadTransition(() => {
-            void submitUpload(form);
-          });
-          return;
-        }
+          const sourceText = stringFormValue(formData.get("sourceText"));
 
-        const sourceText = stringFormValue(formData.get("sourceText"));
-
-        if (!sourceText) {
-          event.preventDefault();
-          setFieldErrors({
-            sourceText: [emptySourceTextMessage],
-          });
-          showNotice({
-            tone: "error",
-            message: emptySourceTextMessage,
-          });
-          focusSourceText(event.currentTarget);
-          return;
-        }
-
-        setFieldErrors(undefined);
-        showNotice(null);
-      }}
-      ref={formRef}
-    >
-      <section className="skillPanel createSkillPanel" aria-labelledby="create-skill-input-title">
-        <div className="createSkillPanelHeader">
-          <h2 id="create-skill-input-title">Add learning material</h2>
-          <button
-            className="secondaryButton createSkillFileButton"
-            disabled={busy}
-            onClick={() => fileInputRef.current?.click()}
-            type="button"
-          >
-            <UploadSimple size={16} weight="bold" aria-hidden="true" />
-            <span>Choose file</span>
-          </button>
-        </div>
-
-        <div
-          className="createSkillInputBox"
-          data-dragging={isDraggingFile ? "true" : "false"}
-          onDragEnter={(event) => {
+          if (!sourceText) {
             event.preventDefault();
-            setIsDraggingFile(true);
-          }}
-          onDragLeave={(event) => {
-            event.preventDefault();
+            setFieldErrors({
+              sourceText: [emptySourceTextMessage],
+            });
+            showNotice({
+              tone: "error",
+              message: emptySourceTextMessage,
+            });
+            focusSourceText(event.currentTarget);
+            return;
+          }
 
-            if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+          setFieldErrors(undefined);
+          showNotice(null);
+        }}
+        ref={formRef}
+      >
+        <section className="skillPanel createSkillPanel" aria-labelledby="create-skill-input-title">
+          <div className="createSkillPanelHeader">
+            <h2 id="create-skill-input-title">Add learning material</h2>
+            <button
+              className="secondaryButton createSkillFileButton"
+              disabled={busy}
+              onClick={() => fileInputRef.current?.click()}
+              type="button"
+            >
+              <UploadSimple size={16} weight="bold" aria-hidden="true" />
+              <span>Choose file</span>
+            </button>
+          </div>
+
+          <div
+            className="createSkillInputBox"
+            data-dragging={isDraggingFile ? "true" : "false"}
+            onDragEnter={(event) => {
+              event.preventDefault();
+              setIsDraggingFile(true);
+            }}
+            onDragLeave={(event) => {
+              event.preventDefault();
+
+              if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                setIsDraggingFile(false);
+              }
+            }}
+            onDragOver={(event) => {
+              event.preventDefault();
+            }}
+            onDrop={(event) => {
+              event.preventDefault();
               setIsDraggingFile(false);
-            }
-          }}
-          onDragOver={(event) => {
-            event.preventDefault();
-          }}
-          onDrop={(event) => {
-            event.preventDefault();
-            setIsDraggingFile(false);
 
-            const file = event.dataTransfer.files.item(0);
-
-            if (file) {
-              selectUploadFile(file);
-            }
-          }}
-        >
-          <textarea
-            aria-describedby={sourceTextDescribedBy}
-            aria-invalid={sourceTextError ? "true" : undefined}
-            aria-labelledby="create-skill-input-title"
-            className="createSkillTextarea"
-            disabled={busy}
-            defaultValue={materialSnapshot.sourceText}
-            id={sourceTextId}
-            name="sourceText"
-            placeholder="Paste notes, describe the skill, or drop a worksheet here."
-            rows={10}
-          />
-          <input
-            aria-hidden="true"
-            accept={SOURCE_UPLOAD_MIME_TYPES.join(",")}
-            className="skillFileInput"
-            id={fileInputId}
-            name="sourceFile"
-            onChange={(event) => {
-              const file = event.currentTarget.files?.[0] ?? null;
-              setFieldErrors(undefined);
-              showNotice(null);
+              const file = event.dataTransfer.files.item(0);
 
               if (file) {
                 selectUploadFile(file);
-              } else {
-                clearSelectedFile();
               }
             }}
-            ref={fileInputRef}
-            tabIndex={-1}
-            type="file"
-          />
-          {selectedFile ? (
-            <CreateSkillAttachmentPreview
+          >
+            <textarea
+              aria-describedby={sourceTextDescribedBy}
+              aria-invalid={sourceTextError ? "true" : undefined}
+              aria-labelledby="create-skill-input-title"
+              className="createSkillTextarea"
               disabled={busy}
-              file={selectedFile}
-              onRemove={clearSelectedFile}
-              previewUrl={selectedFilePreviewUrl}
+              defaultValue={materialSnapshot.sourceText}
+              id={sourceTextId}
+              name="sourceText"
+              placeholder="Paste notes, describe the skill, or drop a worksheet here."
+              rows={10}
             />
-          ) : null}
-          <div className="createSkillInputFooter">
-            <p id="create-skill-input-help">
-              Text, screenshots, images, and PDFs work here.
-            </p>
-          </div>
-        </div>
+            <input
+              aria-hidden="true"
+              accept={SOURCE_UPLOAD_MIME_TYPES.join(",")}
+              className="skillFileInput"
+              id={fileInputId}
+              name="sourceFile"
+              onChange={(event) => {
+                const file = event.currentTarget.files?.[0] ?? null;
+                setFieldErrors(undefined);
+                showNotice(null);
 
-        {sourceTextError ? (
-          <p className="skillFormMessage" data-tone="error" id={sourceTextErrorId}>
-            {sourceTextError}
-          </p>
-        ) : null}
-        {fileErrorMessage(activeFieldErrors) ? (
-          <p className="skillFormMessage" data-tone="error">
-            {fileErrorMessage(activeFieldErrors)}
-          </p>
-        ) : null}
-
-        <details
-          className="skillFormDetails createSkillOptions"
-          open={
-            activeFieldErrors?.sourceLabel?.length ||
-              activeFieldErrors?.collectionName?.length ||
-              activeFieldErrors?.focusNote?.length ||
-              activeFieldErrors?.tags?.length
-              ? true
-              : undefined
-          }
-        >
-          <summary>
-            <span>More options</span>
-            <small>Collection, focus, and tags</small>
-          </summary>
-          <div className="skillFormFieldsetBody">
-            <div className="skillTwoColumnFields">
-              <SkillTextField
-                error={activeFieldErrors?.sourceLabel?.[0]}
-                label="Source name"
-                name="sourceLabel"
-                placeholder="Chapter 4 notes"
-                defaultValue={materialSnapshot.sourceLabel}
+                if (file) {
+                  selectUploadFile(file);
+                } else {
+                  clearSelectedFile();
+                }
+              }}
+              ref={fileInputRef}
+              tabIndex={-1}
+              type="file"
+            />
+            {selectedFile ? (
+              <CreateSkillAttachmentPreview
+                disabled={busy}
+                file={selectedFile}
+                onRemove={clearSelectedFile}
+                previewUrl={selectedFilePreviewUrl}
               />
+            ) : null}
+            <div className="createSkillInputFooter">
+              <p id="create-skill-input-help">
+                Text, screenshots, images, and PDFs work here.
+              </p>
+            </div>
+          </div>
+
+          {sourceTextError ? (
+            <p className="skillFormMessage" data-tone="error" id={sourceTextErrorId}>
+              {sourceTextError}
+            </p>
+          ) : null}
+          {fileErrorMessage(activeFieldErrors) ? (
+            <p className="skillFormMessage" data-tone="error">
+              {fileErrorMessage(activeFieldErrors)}
+            </p>
+          ) : null}
+
+          <details
+            className="skillFormDetails createSkillOptions"
+            open={
+              activeFieldErrors?.sourceLabel?.length ||
+                activeFieldErrors?.collectionName?.length ||
+                activeFieldErrors?.focusNote?.length ||
+                activeFieldErrors?.tags?.length
+                ? true
+                : undefined
+            }
+          >
+            <summary>
+              <span>More options</span>
+              <small>Collection, focus, and tags</small>
+            </summary>
+            <div className="skillFormFieldsetBody">
+              <div className="skillTwoColumnFields">
+                <SkillTextField
+                  error={activeFieldErrors?.sourceLabel?.[0]}
+                  label="Source name"
+                  name="sourceLabel"
+                  placeholder="Chapter 4 notes"
+                  defaultValue={materialSnapshot.sourceLabel}
+                />
+                <SkillTextField
+                  error={activeFieldErrors?.collectionName?.[0]}
+                  label="Collection"
+                  name="collectionName"
+                  placeholder="Spanish grammar"
+                  defaultValue={materialSnapshot.collectionName}
+                />
+              </div>
+
+              <SkillTextArea
+                error={activeFieldErrors?.focusNote?.[0]}
+                label="Focus"
+                name="focusNote"
+                placeholder="Focus on the rule, not vocabulary memorization."
+                defaultValue={materialSnapshot.focusNote}
+                rows={3}
+              />
+
               <SkillTextField
-                error={activeFieldErrors?.collectionName?.[0]}
-                label="Collection"
-                name="collectionName"
-                placeholder="Spanish grammar"
-                defaultValue={materialSnapshot.collectionName}
+                error={activeFieldErrors?.tags?.[0]}
+                label="Tags"
+                name="tags"
+                placeholder="spanish, verbs, grammar"
+                defaultValue={materialSnapshot.tags}
               />
             </div>
+          </details>
 
-            <SkillTextArea
-              error={activeFieldErrors?.focusNote?.[0]}
-              label="Focus"
-              name="focusNote"
-              placeholder="Focus on the rule, not vocabulary memorization."
-              defaultValue={materialSnapshot.focusNote}
-              rows={3}
-            />
-
-            <SkillTextField
-              error={activeFieldErrors?.tags?.[0]}
-              label="Tags"
-              name="tags"
-              placeholder="spanish, verbs, grammar"
-              defaultValue={materialSnapshot.tags}
-            />
+          <div className="skillFormActions createSkillActions">
+            <button className="primaryButton" disabled={busy} type="submit">
+              {submitButtonLabel({
+                isGeneratingFromText,
+                selectedFile,
+                uploadStatus,
+              })}
+            </button>
           </div>
-        </details>
-
-        {recoverableSourceUploads.length > 0 ? (
-          <RecoverableSourceUploads uploads={recoverableSourceUploads} />
-        ) : null}
-
-        <div className="skillFormActions createSkillActions">
-          <button className="primaryButton" disabled={busy} type="submit">
-            {submitButtonLabel({
-              isGeneratingFromText,
-              selectedFile,
-              uploadStatus,
-            })}
-          </button>
-        </div>
-      </section>
-    </form>
+        </section>
+      </form>
+      {recoverableSourceUploads.length > 0 ? (
+        <RecoverableSourceUploads
+          onUseText={restoreSavedSourceText}
+          uploads={recoverableSourceUploads}
+        />
+      ) : null}
+    </div>
   );
 
   return (
@@ -708,12 +752,21 @@ export function SourceCreationWorkspace({
   );
 }
 
-function RecoverableSourceUploads({ uploads }: { uploads: RecoverableSourceUpload[] }) {
+function RecoverableSourceUploads({
+  onUseText,
+  uploads,
+}: {
+  onUseText: (upload: RecoverableSourceUpload) => void;
+  uploads: RecoverableSourceUpload[];
+}) {
   return (
-    <section className="createSkillRecoveryUploads" aria-labelledby="create-skill-recovery-title">
+    <section
+      className="skillPanel createSkillRecoveryUploads"
+      aria-labelledby="create-skill-recovery-title"
+    >
       <div>
-        <h3 id="create-skill-recovery-title">Saved uploads</h3>
-        <p>These uploads did not finish creating a skill. Try them again here.</p>
+        <h3 id="create-skill-recovery-title">Saved material</h3>
+        <p>Material that did not finish creating a skill can be picked up here.</p>
       </div>
       <div className="createSkillRecoveryList">
         {uploads.map((upload) => (
@@ -722,11 +775,21 @@ function RecoverableSourceUploads({ uploads }: { uploads: RecoverableSourceUploa
               <strong>{upload.originalName}</strong>
               <p>{recoverableSourceCopy(upload)}</p>
             </div>
-            <SourceProcessingControls
-              canRequeue
-              sourceFileId={upload.id}
-              sourceFileName={upload.originalName}
-            />
+            {upload.canRequeue ? (
+              <SourceProcessingControls
+                canRequeue
+                sourceFileId={upload.id}
+                sourceFileName={upload.originalName}
+              />
+            ) : upload.sourceText ? (
+              <button
+                className="secondaryButton"
+                onClick={() => onUseText(upload)}
+                type="button"
+              >
+                Use text
+              </button>
+            ) : null}
           </article>
         ))}
       </div>
@@ -737,6 +800,10 @@ function RecoverableSourceUploads({ uploads }: { uploads: RecoverableSourceUploa
 function recoverableSourceCopy(upload: RecoverableSourceUpload) {
   if (upload.errorMessage) {
     return upload.errorMessage;
+  }
+
+  if (upload.sourceText) {
+    return "Pasted material was saved. Load it here, then create the skill again.";
   }
 
   if (upload.status === "FAILED") {

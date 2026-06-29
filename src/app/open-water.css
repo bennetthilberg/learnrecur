@@ -3505,11 +3505,20 @@ body {
   margin: 0;
 }
 
+.createSkillMaterialStack,
+.createSkillMaterialForm {
+  display: grid;
+}
+
+.skillCreateStack > .createSkillMaterialForm > .skillPanel {
+  width: auto;
+  margin: 0;
+  justify-self: stretch;
+}
+
 .createSkillRecoveryUploads {
   display: grid;
   gap: 12px;
-  border-top: 1px solid var(--lr-divider);
-  padding-top: 18px;
 }
 
 .createSkillRecoveryUploads h3 {
@@ -3556,6 +3565,11 @@ body {
 
 .createSkillRecoveryRow .sourceProcessingControls {
   margin-top: 0;
+}
+
+.createSkillRecoveryRow > .secondaryButton,
+.createSkillRecoveryRow .sourceProcessingControls .secondaryButton {
+  white-space: nowrap;
 }
 
 .createSkillActions {

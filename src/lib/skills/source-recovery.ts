@@ -1,0 +1,145 @@
+import "server-only";
+
+import { SourceFileKind, SourceFileStatus, type Prisma } from "@/generated/prisma/client";
+import { getPrisma } from "@/lib/prisma";
+import {
+  isSourceUploadProcessingStale,
+  SOURCE_PROCESSING_STALE_AFTER_MS,
+} from "@/lib/skills/uploads";
+
+export type SkillCreationSourceRecoveryItem = {
+  id: string;
+  originalName: string;
+  kind: Extract<SourceFileKind, "IMAGE" | "PDF" | "TEXT">;
+  status: Extract<SourceFileStatus, "UPLOADED" | "PROCESSING" | "FAILED">;
+  errorMessage: string | null;
+  isStaleProcessing: boolean;
+  canRequeue: boolean;
+  sourceText: string | null;
+};
+
+export async function getSkillCreationSourceRecoveryItems(input: {
+  userId: string;
+  now: Date;
+}): Promise<SkillCreationSourceRecoveryItem[]> {
+  const prisma = getPrisma();
+  const sourceFiles = await prisma.sourceFile.findMany({
+    where: {
+      userId: input.userId,
+      status: {
+        in: [SourceFileStatus.UPLOADED, SourceFileStatus.PROCESSING, SourceFileStatus.FAILED],
+      },
+      kind: {
+        in: [SourceFileKind.IMAGE, SourceFileKind.PDF, SourceFileKind.TEXT],
+      },
+    },
+    orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
+    select: {
+      id: true,
+      originalName: true,
+      kind: true,
+      status: true,
+      storageKey: true,
+      extractedText: true,
+      metadata: true,
+      _count: {
+        select: {
+          skillRefs: true,
+        },
+      },
+    },
+  });
+
+  return sourceFiles
+    .filter(isSourceRecoveryRecord)
+    .map((sourceFile) => toSkillCreationSourceRecoveryItem(sourceFile, input.now))
+    .filter(isVisibleSkillCreationRecoveryItem);
+}
+
+function isSourceRecoveryRecord<T extends { kind: SourceFileKind; status: SourceFileStatus }>(
+  sourceFile: T,
+): sourceFile is T & {
+  kind: Extract<SourceFileKind, "IMAGE" | "PDF" | "TEXT">;
+  status: Extract<SourceFileStatus, "UPLOADED" | "PROCESSING" | "FAILED">;
+} {
+  return (
+    (sourceFile.kind === SourceFileKind.IMAGE ||
+      sourceFile.kind === SourceFileKind.PDF ||
+      sourceFile.kind === SourceFileKind.TEXT) &&
+    (sourceFile.status === SourceFileStatus.UPLOADED ||
+      sourceFile.status === SourceFileStatus.PROCESSING ||
+      sourceFile.status === SourceFileStatus.FAILED)
+  );
+}
+
+function toSkillCreationSourceRecoveryItem(
+  sourceFile: {
+    id: string;
+    originalName: string;
+    kind: Extract<SourceFileKind, "IMAGE" | "PDF" | "TEXT">;
+    status: Extract<SourceFileStatus, "UPLOADED" | "PROCESSING" | "FAILED">;
+    storageKey: string | null;
+    extractedText: string | null;
+    metadata: Prisma.JsonValue | null;
+    _count: {
+      skillRefs: number;
+    };
+  },
+  now: Date,
+): SkillCreationSourceRecoveryItem {
+  const isStaleProcessing =
+    sourceFile.status === SourceFileStatus.PROCESSING &&
+    isSourceUploadProcessingStale(sourceFile.metadata, now, SOURCE_PROCESSING_STALE_AFTER_MS);
+  const sourceText =
+    sourceFile.kind === SourceFileKind.TEXT ? normalizeSourceText(sourceFile.extractedText) : null;
+
+  return {
+    id: sourceFile.id,
+    originalName: sourceFile.originalName,
+    kind: sourceFile.kind,
+    status: sourceFile.status,
+    errorMessage: getMetadataString(sourceFile.metadata, "errorMessage"),
+    isStaleProcessing,
+    canRequeue:
+      sourceFile.status === SourceFileStatus.UPLOADED ||
+      isStaleProcessing ||
+      (sourceFile.status === SourceFileStatus.FAILED && isSavedSourceRetryable(sourceFile)),
+    sourceText,
+  };
+}
+
+function isVisibleSkillCreationRecoveryItem(sourceFile: SkillCreationSourceRecoveryItem) {
+  return sourceFile.canRequeue || Boolean(sourceFile.sourceText);
+}
+
+function isSavedSourceRetryable(sourceFile: {
+  kind: SourceFileKind;
+  storageKey: string | null;
+  _count: {
+    skillRefs: number;
+  };
+}) {
+  if (sourceFile._count.skillRefs > 0) {
+    return false;
+  }
+
+  if (sourceFile.kind === SourceFileKind.TEXT) {
+    return false;
+  }
+
+  return Boolean(sourceFile.storageKey);
+}
+
+function normalizeSourceText(sourceText: string | null) {
+  const normalized = sourceText?.trim() ?? "";
+  return normalized.length > 0 ? normalized : null;
+}
+
+function getMetadataString(metadata: Prisma.JsonValue | null, key: string): string | null {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+    return null;
+  }
+
+  const value = (metadata as Record<string, unknown>)[key];
+  return typeof value === "string" && value.length > 0 ? value : null;
+}

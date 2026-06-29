@@ -1,7 +1,7 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 
 import { UserStatusPanel } from "@/components/app/user-status-panel";
-import { getSkillsLibrary } from "@/lib/skills/library";
+import { getSkillCreationSourceRecoveryItems } from "@/lib/skills/source-recovery";
 import { ensureDatabaseUser } from "@/lib/users";
 
 import { SourceCreationWorkspace } from "../source-creation-workspace";
@@ -29,19 +29,10 @@ export default async function NewSkillPage() {
     );
   }
 
-  const library = await getSkillsLibrary({
+  const recoverableSourceUploads = await getSkillCreationSourceRecoveryItems({
     userId,
     now: new Date(),
   });
-  const recoverableSourceUploads = library.sourceProcessing
-    .filter((sourceFile) => sourceFile.canRequeue)
-    .map((sourceFile) => ({
-      id: sourceFile.id,
-      errorMessage: sourceFile.errorMessage,
-      isStaleProcessing: sourceFile.isStaleProcessing,
-      originalName: sourceFile.originalName,
-      status: sourceFile.status,
-    }));
 
   return (
     <main className="skillShell createSkillShell">
