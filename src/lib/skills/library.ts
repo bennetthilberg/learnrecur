@@ -14,6 +14,7 @@ import { isPracticeReadModelExerciseReady } from "@/lib/practice/read-model-elig
 import { getPrisma } from "@/lib/prisma";
 import {
   canRequeueSourceUploadMetadata,
+  isSourceUploadDismissible,
   isSourceUploadProcessingStale,
   SOURCE_PROCESSING_STALE_AFTER_MS,
 } from "@/lib/skills/uploads";
@@ -276,11 +277,7 @@ function toSourceProcessingSummary(
     sourceFile.status === SourceFileStatus.PROCESSING &&
     isSourceUploadProcessingStale(sourceFile.metadata, now, SOURCE_PROCESSING_STALE_AFTER_MS);
   const canRequeueByRetryLimit = canRequeueSourceUploadMetadata(sourceFile.metadata);
-  const canDismiss = isCappedSourceUploadDismissible(
-    sourceFile,
-    canRequeueByRetryLimit,
-    isStaleProcessing,
-  );
+  const canDismiss = isSourceUploadDismissible(sourceFile, now);
 
   return {
     id: sourceFile.id,
@@ -300,27 +297,6 @@ function toSourceProcessingSummary(
     createdAt: sourceFile.createdAt,
     updatedAt: sourceFile.updatedAt,
   };
-}
-
-function isCappedSourceUploadDismissible(
-  sourceFile: {
-    kind: SourceFileKind;
-    status: Extract<SourceFileStatus, "UPLOADED" | "PROCESSING" | "FAILED">;
-    storageKey: string | null;
-    _count: {
-      skillRefs: number;
-    };
-  },
-  canRequeueByRetryLimit: boolean,
-  isStaleProcessing: boolean,
-) {
-  return (
-    !canRequeueByRetryLimit &&
-    isSavedSourceRetryable(sourceFile) &&
-    (sourceFile.status === SourceFileStatus.UPLOADED ||
-      sourceFile.status === SourceFileStatus.FAILED ||
-      isStaleProcessing)
-  );
 }
 
 function isSavedSourceRetryable(sourceFile: {

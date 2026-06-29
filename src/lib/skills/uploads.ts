@@ -846,6 +846,7 @@ export async function dismissFailedSourceUpload(
       metadata: true,
       storageBucket: true,
       storageKey: true,
+      updatedAt: true,
       _count: {
         select: {
           skillRefs: true,
@@ -866,12 +867,7 @@ export async function dismissFailedSourceUpload(
     };
   }
 
-  if (
-    !isDismissibleSourceUpload({
-      sourceFile,
-      now: input.now ?? new Date(),
-    })
-  ) {
+  if (!isSourceUploadDismissible(sourceFile, input.now ?? new Date())) {
     return {
       status: "not-dismissed",
       reason: "not-failed",
@@ -879,27 +875,31 @@ export async function dismissFailedSourceUpload(
     };
   }
 
-  const deletedObject = await deleteFailedSourceUploadObject(sourceFile, input.storage);
-
-  if (deletedObject.status === "failed") {
-    return {
-      status: "not-dismissed",
-      reason: "storage-delete-failed",
-      message: deletedObject.message,
-    };
-  }
+  const dismissedObject = {
+    storageBucket: sourceFile.storageBucket,
+    storageKey: sourceFile.storageKey,
+  };
 
   const deleted = await prisma.sourceFile.deleteMany({
     where: {
       id: sourceFile.id,
       userId: input.userId,
+      kind: sourceFile.kind,
       status: sourceFile.status,
+      storageBucket: sourceFile.storageBucket,
+      storageKey: sourceFile.storageKey,
+      updatedAt: sourceFile.updatedAt,
+      skillRefs: {
+        none: {},
+      },
     },
   });
 
   if (deleted.count !== 1) {
     return sourceUploadSourceNotFound();
   }
+
+  await deleteDismissedSourceUploadObject(dismissedObject, input.storage);
 
   return {
     status: "dismissed",
@@ -908,10 +908,7 @@ export async function dismissFailedSourceUpload(
   };
 }
 
-function isDismissibleSourceUpload({
-  sourceFile,
-  now,
-}: {
+export function isSourceUploadDismissible(
   sourceFile: {
     kind: SourceFileKind;
     status: SourceFileStatus;
@@ -919,9 +916,9 @@ function isDismissibleSourceUpload({
     _count: {
       skillRefs: number;
     };
-  };
-  now: Date;
-}) {
+  },
+  now: Date,
+) {
   if (
     sourceFile._count.skillRefs > 0 ||
     (sourceFile.kind !== SourceFileKind.IMAGE && sourceFile.kind !== SourceFileKind.PDF)
@@ -947,41 +944,29 @@ function isDismissibleSourceUpload({
   );
 }
 
-async function deleteFailedSourceUploadObject(
+async function deleteDismissedSourceUploadObject(
   sourceFile: {
     storageBucket: string | null;
     storageKey: string | null;
   },
   storage?: SourceUploadStorage,
-): Promise<
-  | {
-      status: "deleted";
-    }
-  | {
-      status: "failed";
-      message: string;
-    }
-> {
+): Promise<void> {
   if (!sourceFile.storageKey) {
-    return {
-      status: "deleted",
-    };
+    return;
   }
 
   const storageSetup = resolveUploadStorage(storage);
 
   if (storageSetup.status === "missing-env") {
-    return {
-      status: "failed",
-      message: storageSetup.message,
-    };
+    console.warn("[skills] could not delete dismissed source upload object", storageSetup.message);
+    return;
   }
 
   if (sourceFile.storageBucket && storageSetup.storage.bucketName !== sourceFile.storageBucket) {
-    return {
-      status: "failed",
-      message: "Stored source bucket does not match the configured S3 bucket.",
-    };
+    console.warn(
+      "[skills] could not delete dismissed source upload object: stored bucket does not match the configured S3 bucket.",
+    );
+    return;
   }
 
   try {
@@ -989,15 +974,11 @@ async function deleteFailedSourceUploadObject(
       key: sourceFile.storageKey,
       bucket: sourceFile.storageBucket ?? undefined,
     });
-
-    return {
-      status: "deleted",
-    };
   } catch (error) {
-    return {
-      status: "failed",
-      message: error instanceof Error ? error.message : "Could not delete stored source object.",
-    };
+    console.warn(
+      "[skills] could not delete dismissed source upload object",
+      error instanceof Error ? error.message : error,
+    );
   }
 }
 

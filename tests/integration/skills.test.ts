@@ -236,12 +236,16 @@ function createFakeUploadStorage({
   byteSize = bytes.byteLength,
   headError = null,
   getError = null,
+  onDeleteObject,
 }: {
   bytes?: Buffer;
   mimeType?: string;
   byteSize?: number;
   headError?: Error | null;
   getError?: Error | null;
+  onDeleteObject?: (
+    input: Parameters<SourceUploadStorage["deleteObject"]>[0],
+  ) => Promise<void> | void;
 } = {}) {
   const deletedKeys: string[] = [];
   const presignedUploadInputs: Parameters<SourceUploadStorage["createPresignedUploadUrl"]>[0][] = [];
@@ -284,7 +288,14 @@ function createFakeUploadStorage({
 
       return bytes;
     },
+    async listObjects() {
+      return [];
+    },
     async deleteObject(input) {
+      if (onDeleteObject) {
+        await onDeleteObject(input);
+      }
+
       deletedKeys.push(input.key);
     },
   };
@@ -2760,12 +2771,12 @@ describeDatabase("skill drafts and Gemini activation", () => {
     expect(sender.events).toHaveLength(0);
   });
 
-  it("allows capped saved upload rows to be dismissed", async () => {
+  it("allows saved upload rows to be dismissed", async () => {
     const userId = await createUser("upload_failed_saved_row");
-    const storageSetup = createFakeUploadStorage();
     const uploadedStorageKey = `source-uploads/${userId}/waiting.pdf`;
     const staleStorageKey = `source-uploads/${userId}/stale.pdf`;
     const failedStorageKey = `source-uploads/${userId}/failed.pdf`;
+    const retryableFailedStorageKey = `source-uploads/${userId}/retryable-failed.pdf`;
     const processingStartedAt = new Date(
       now.getTime() - SOURCE_PROCESSING_STALE_AFTER_MS,
     ).toISOString();
@@ -2816,6 +2827,44 @@ describeDatabase("skill drafts and Gemini activation", () => {
         },
       },
     });
+    const retryableFailedSource = await prisma.sourceFile.create({
+      data: {
+        userId,
+        kind: SourceFileKind.PDF,
+        status: SourceFileStatus.FAILED,
+        originalName: "retryable failed worksheet",
+        mimeType: "application/pdf",
+        byteSize: 1024,
+        storageBucket: "learnrecur-dev",
+        storageKey: retryableFailedStorageKey,
+        metadata: {
+          errorMessage: "Gemini could not extract enough study text from this file.",
+          retryCount: 1,
+        },
+      },
+    });
+    const sourceIdsByStorageKey = new Map([
+      [uploadedStorageKey, uploadedSource.id],
+      [staleStorageKey, staleSource.id],
+      [failedStorageKey, failedSource.id],
+      [retryableFailedStorageKey, retryableFailedSource.id],
+    ]);
+    const sourceCountsDuringStorageDelete: number[] = [];
+    const storageSetup = createFakeUploadStorage({
+      onDeleteObject: async (input) => {
+        const sourceFileId = sourceIdsByStorageKey.get(input.key);
+
+        if (sourceFileId) {
+          sourceCountsDuringStorageDelete.push(
+            await prisma.sourceFile.count({
+              where: {
+                id: sourceFileId,
+              },
+            }),
+          );
+        }
+      },
+    });
 
     await expect(getSkillsLibrary({ userId, now })).resolves.toMatchObject({
       sourceProcessing: expect.arrayContaining([
@@ -2837,6 +2886,12 @@ describeDatabase("skill drafts and Gemini activation", () => {
           canDismiss: true,
           canRequeue: false,
         }),
+        expect.objectContaining({
+          id: retryableFailedSource.id,
+          status: SourceFileStatus.FAILED,
+          canDismiss: true,
+          canRequeue: true,
+        }),
       ]),
     });
     await expect(getSkillCreationSourceRecoveryItems({ userId, now })).resolves.toEqual(
@@ -2855,6 +2910,11 @@ describeDatabase("skill drafts and Gemini activation", () => {
           id: failedSource.id,
           canDismiss: true,
           canRequeue: false,
+        }),
+        expect.objectContaining({
+          id: retryableFailedSource.id,
+          canDismiss: true,
+          canRequeue: true,
         }),
       ]),
     );
@@ -2892,12 +2952,23 @@ describeDatabase("skill drafts and Gemini activation", () => {
       status: "dismissed",
       sourceFileId: failedSource.id,
     });
+    await expect(
+      dismissFailedSourceUpload({
+        userId,
+        sourceFileId: retryableFailedSource.id,
+        now,
+        storage: storageSetup.storage,
+      }),
+    ).resolves.toMatchObject({
+      status: "dismissed",
+      sourceFileId: retryableFailedSource.id,
+    });
 
     await expect(
       prisma.sourceFile.count({
         where: {
           id: {
-            in: [uploadedSource.id, staleSource.id, failedSource.id],
+            in: [uploadedSource.id, staleSource.id, failedSource.id, retryableFailedSource.id],
           },
         },
       }),
@@ -2906,7 +2977,9 @@ describeDatabase("skill drafts and Gemini activation", () => {
       uploadedStorageKey,
       staleStorageKey,
       failedStorageKey,
+      retryableFailedStorageKey,
     ]);
+    expect(sourceCountsDuringStorageDelete).toEqual([0, 0, 0, 0]);
   });
 
   it("rejects dismissal for cross-user, linked, and non-failed uploaded sources", async () => {

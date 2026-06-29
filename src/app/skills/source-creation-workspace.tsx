@@ -504,6 +504,10 @@ export function SourceCreationWorkspace({
         tone: "error",
         message: completed.message,
       });
+
+      if (completed.refreshRecovery) {
+        router.refresh();
+      }
     },
     [handleActionError, router, selectedFile, showNotice],
   );

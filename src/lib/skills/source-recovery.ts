@@ -4,6 +4,7 @@ import { SourceFileKind, SourceFileStatus, type Prisma } from "@/generated/prism
 import { getPrisma } from "@/lib/prisma";
 import {
   canRequeueSourceUploadMetadata,
+  isSourceUploadDismissible,
   isSourceUploadProcessingStale,
   SOURCE_PROCESSING_STALE_AFTER_MS,
 } from "@/lib/skills/uploads";
@@ -132,12 +133,7 @@ function toSkillCreationSourceRecoveryItem(
       (sourceFile.status === SourceFileStatus.UPLOADED ||
         isStaleProcessing ||
         (sourceFile.status === SourceFileStatus.FAILED && isSavedRetryableUpload)),
-    canDismiss:
-      !canRequeueByRetryLimit &&
-      isSavedRetryableUpload &&
-      (sourceFile.status === SourceFileStatus.UPLOADED ||
-        sourceFile.status === SourceFileStatus.FAILED ||
-        isStaleProcessing),
+    canDismiss: isSourceUploadDismissible(sourceFile, now),
     hasSourceText: sourceFile.kind === SourceFileKind.TEXT && sourceFile._count.skillRefs === 0,
   };
 }
