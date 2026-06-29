@@ -29,28 +29,51 @@ const floatingIndicatorClass = "practiceNavFloatingIndicator";
 let floatingIndicatorElement: HTMLSpanElement | null = null;
 let floatingIndicatorFrame: number | null = null;
 let floatingIndicatorTimeout: number | null = null;
+let pendingIndicatorStartRect: NavIndicatorRect | null = null;
+let previousIndicatorStartRect: NavIndicatorRect | null = null;
+
+type NavIndicatorRect = {
+  height: number;
+  left: number;
+  top: number;
+  width: number;
+};
 
 function setNavIndicatorFromLink(nav: HTMLElement, link: HTMLElement) {
-  const navRect = nav.getBoundingClientRect();
   const linkRect = link.getBoundingClientRect();
+
+  setNavIndicatorFromViewportRect(nav, toNavIndicatorRect(linkRect));
+}
+
+function setNavIndicatorFromViewportRect(nav: HTMLElement, rect: NavIndicatorRect) {
+  const navRect = nav.getBoundingClientRect();
 
   nav.style.setProperty(
     "--practice-nav-indicator-x",
-    `${linkRect.left - navRect.left + nav.scrollLeft}px`,
+    `${rect.left - navRect.left + nav.scrollLeft}px`,
   );
   nav.style.setProperty(
     "--practice-nav-indicator-y",
-    `${linkRect.top - navRect.top + nav.scrollTop}px`,
+    `${rect.top - navRect.top + nav.scrollTop}px`,
   );
-  nav.style.setProperty("--practice-nav-indicator-width", `${linkRect.width}px`);
-  nav.style.setProperty("--practice-nav-indicator-height", `${linkRect.height}px`);
+  nav.style.setProperty("--practice-nav-indicator-width", `${rect.width}px`);
+  nav.style.setProperty("--practice-nav-indicator-height", `${rect.height}px`);
   nav.style.setProperty("--practice-nav-indicator-opacity", "1");
 }
 
-function setFloatingIndicatorRect(element: HTMLElement, rect: DOMRect) {
+function setFloatingIndicatorRect(element: HTMLElement, rect: NavIndicatorRect) {
   element.style.width = `${rect.width}px`;
   element.style.height = `${rect.height}px`;
   element.style.transform = `translate3d(${rect.left}px, ${rect.top}px, 0)`;
+}
+
+function toNavIndicatorRect(rect: DOMRect): NavIndicatorRect {
+  return {
+    height: rect.height,
+    left: rect.left,
+    top: rect.top,
+    width: rect.width,
+  };
 }
 
 function clearFloatingIndicatorTimer() {
@@ -103,7 +126,8 @@ function moveFloatingIndicatorToLink(targetLink: HTMLElement) {
   }
 
   const startRect = getFloatingIndicatorStartRect(nav, targetLink);
-  const targetRect = targetLink.getBoundingClientRect();
+  const targetRect = toNavIndicatorRect(targetLink.getBoundingClientRect());
+  pendingIndicatorStartRect = toNavIndicatorRect(startRect);
 
   if (!floatingIndicatorElement) {
     floatingIndicatorElement = document.createElement("span");
@@ -294,6 +318,21 @@ export function SkillsTopbar({
 
       scrollNavLinkIntoView(nav, activeLink);
       cancelIndicatorFrame();
+
+      const startRect = previousIndicatorStartRect;
+      previousIndicatorStartRect = null;
+
+      if (startRect && getComputedStyle(indicator).display !== "none") {
+        indicator.style.transition = "none";
+        setNavIndicatorFromViewportRect(nav, startRect);
+        indicator.getBoundingClientRect();
+        queueIndicatorFrame(() => {
+          indicator.style.transition = "";
+          setNavIndicatorFromLink(nav, activeLink);
+        });
+        return;
+      }
+
       indicator.style.transition = "none";
       setNavIndicatorFromLink(nav, activeLink);
       queueIndicatorFrame(() => {
@@ -319,8 +358,26 @@ export function SkillsTopbar({
   }, [cancelIndicatorFrame]);
 
   useEffect(() => {
+    const indicator = activeIndicatorRef.current;
+
     return () => {
+      const indicatorRect = indicator?.getBoundingClientRect();
+
+      if (pendingIndicatorStartRect) {
+        previousIndicatorStartRect = pendingIndicatorStartRect;
+        pendingIndicatorStartRect = null;
+      } else if (
+        indicator &&
+        indicatorRect &&
+        indicatorRect.width > 0 &&
+        indicatorRect.height > 0 &&
+        getComputedStyle(indicator).display !== "none"
+      ) {
+        previousIndicatorStartRect = toNavIndicatorRect(indicatorRect);
+      }
+
       cancelIndicatorFrame();
+      finishFloatingIndicator();
     };
   }, [cancelIndicatorFrame]);
 
