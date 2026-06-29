@@ -919,13 +919,20 @@ export async function runQueuedSourceUploadDraftJob(
     return notCreated("invalid-upload", "Uploaded source MIME type is not supported.");
   }
 
-  const actualByteSize = sourceFile.byteSize;
+  const uploadValidation = await validateStoredSourceUpload(sourceFile, storageSetup.storage);
 
-  if (!actualByteSize || actualByteSize > MAX_SOURCE_UPLOAD_BYTES) {
-    const message = "Uploaded file is missing or larger than 10 MB.";
-    await markUploadedSourceFailed(sourceFile, storageSetup.storage, input.now, "invalid-upload", message);
-    return notCreated("invalid-upload", message);
+  if (uploadValidation.status === "invalid") {
+    await markUploadedSourceFailed(
+      sourceFile,
+      storageSetup.storage,
+      input.now,
+      "invalid-upload",
+      uploadValidation.message,
+    );
+    return notCreated("invalid-upload", uploadValidation.message);
   }
+
+  const actualByteSize = uploadValidation.byteSize;
 
   const lockedForProcessing = await prisma.sourceFile.updateMany({
     where: {
@@ -935,6 +942,7 @@ export async function runQueuedSourceUploadDraftJob(
     },
     data: {
       status: SourceFileStatus.PROCESSING,
+      byteSize: actualByteSize,
       metadata: buildProcessingUploadMetadata(sourceFile.metadata, input.now),
     },
   });

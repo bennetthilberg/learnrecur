@@ -257,6 +257,9 @@ function createFakeUploadStorage({
     async getObjectBytes() {
       return bytes;
     },
+    async listObjects() {
+      return [];
+    },
     async deleteObject(input) {
       deletedKeys.push(input.key);
     },
@@ -1552,6 +1555,83 @@ describeDatabase("skill drafts and Gemini activation", () => {
     } finally {
       consoleError.mockRestore();
     }
+  });
+
+  it("revalidates queued upload size before downloading source bytes", async () => {
+    const userId = await createUser("upload_oversized_revalidated");
+    let byteSize = 2048;
+    let getObjectBytesCalls = 0;
+    const { storage } = createFakeUploadStorage({
+      byteSize,
+      bytes: Buffer.from("valid queued upload"),
+    });
+    const guardedStorage: SourceUploadStorage = {
+      ...storage,
+      async headObject(input) {
+        const head = await storage.headObject(input);
+        return {
+          ...head,
+          byteSize,
+        };
+      },
+      async getObjectBytes(input) {
+        getObjectBytesCalls += 1;
+        return storage.getObjectBytes(input);
+      },
+    };
+    const prepared = await prepareSourceUpload({
+      userId,
+      now,
+      storage: guardedStorage,
+      input: {
+        originalName: "oversized-overwrite.png",
+        mimeType: "image/png",
+        byteSize: String(byteSize),
+      },
+    });
+
+    if (prepared.status !== "prepared") {
+      throw new Error("Expected upload preparation to succeed.");
+    }
+
+    const { sender } = createFakeSourceUploadSender();
+    const queued = await queueSourceUploadDrafts({
+      userId,
+      sourceFileId: prepared.sourceFileId,
+      now,
+      storage: guardedStorage,
+      eventSender: sender,
+    });
+
+    expect(queued.status).toBe("queued");
+
+    byteSize = MAX_SOURCE_UPLOAD_BYTES + 1;
+
+    const completed = await runQueuedSourceUploadDraftJob({
+      userId,
+      sourceFileId: prepared.sourceFileId,
+      now,
+      storage: guardedStorage,
+      extractSourceText: successfulSourceExtractor,
+      generateSkillDraft: successfulSkillDraftGenerator,
+      model: "test-gemini",
+    });
+
+    expect(completed).toMatchObject({
+      status: "not-created",
+      reason: "invalid-upload",
+      message: "Uploaded file is missing or larger than 10 MB.",
+    });
+    expect(getObjectBytesCalls).toBe(0);
+
+    const failedSource = await prisma.sourceFile.findUniqueOrThrow({
+      where: { id: prepared.sourceFileId },
+    });
+    expect(failedSource.status).toBe(SourceFileStatus.FAILED);
+    expect(failedSource.metadata).toMatchObject({
+      failureReason: "invalid-upload",
+      errorMessage: "Uploaded file is missing or larger than 10 MB.",
+    });
   });
 
   it("cleans up uploaded source state when downloaded bytes exceed the upload limit", async () => {
