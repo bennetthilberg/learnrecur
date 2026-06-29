@@ -1882,6 +1882,73 @@ describeDatabase("skill drafts and Gemini activation", () => {
     expect(deletedKeys).toEqual([prepared.objectKey]);
   });
 
+  it("preserves uploaded source storage metadata when invalid upload cleanup fails", async () => {
+    const userId = await createUser("upload_oversized_delete_failure");
+    const storageSetup = createFakeUploadStorage({
+      byteSize: 2048,
+      bytes: Buffer.alloc(MAX_SOURCE_UPLOAD_BYTES + 1, "a"),
+      onDeleteObject: () => {
+        throw new Error("temporary S3 delete failure");
+      },
+    });
+    const prepared = await prepareSourceUpload({
+      userId,
+      now,
+      storage: storageSetup.storage,
+      input: {
+        originalName: "oversized-delete-failure.png",
+        mimeType: "image/png",
+        byteSize: "2048",
+      },
+    });
+
+    if (prepared.status !== "prepared") {
+      throw new Error("Expected upload preparation to succeed.");
+    }
+
+    await queueSourceUploadDrafts({
+      userId,
+      sourceFileId: prepared.sourceFileId,
+      now,
+      storage: storageSetup.storage,
+      eventSender: createFakeSourceUploadSender().sender,
+    });
+
+    await expect(
+      runQueuedSourceUploadDraftJob({
+        userId,
+        sourceFileId: prepared.sourceFileId,
+        now,
+        storage: storageSetup.storage,
+        extractSourceText: successfulSourceExtractor,
+        generateSkillDraft: successfulSkillDraftGenerator,
+        model: "test-gemini",
+      }),
+    ).resolves.toMatchObject({
+      status: "not-created",
+      reason: "invalid-upload",
+      message: "Uploaded file is missing or larger than 10 MB.",
+    });
+
+    const failedSource = await prisma.sourceFile.findUniqueOrThrow({
+      where: { id: prepared.sourceFileId },
+    });
+    expect(failedSource.status).toBe(SourceFileStatus.FAILED);
+    expect(failedSource.storageKey).toBe(prepared.objectKey);
+    expect(failedSource.storageBucket).toBe("learnrecur-dev");
+    expect(failedSource.byteSize).toBe(2048);
+    expect(storageSetup.deletedKeys).toEqual([]);
+
+    await expect(getSkillsLibrary({ userId, now })).resolves.toMatchObject({
+      sourceProcessing: [
+        expect.objectContaining({
+          id: prepared.sourceFileId,
+          canDismiss: true,
+        }),
+      ],
+    });
+  });
+
   it("keeps retryable upload state only for transient source read failures", async () => {
     const userId = await createUser("upload_read_failure_split");
     const missingObjectError = Object.assign(new Error("object missing"), {
@@ -2843,28 +2910,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
         },
       },
     });
-    const sourceIdsByStorageKey = new Map([
-      [uploadedStorageKey, uploadedSource.id],
-      [staleStorageKey, staleSource.id],
-      [failedStorageKey, failedSource.id],
-      [retryableFailedStorageKey, retryableFailedSource.id],
-    ]);
-    const sourceCountsDuringStorageDelete: number[] = [];
-    const storageSetup = createFakeUploadStorage({
-      onDeleteObject: async (input) => {
-        const sourceFileId = sourceIdsByStorageKey.get(input.key);
-
-        if (sourceFileId) {
-          sourceCountsDuringStorageDelete.push(
-            await prisma.sourceFile.count({
-              where: {
-                id: sourceFileId,
-              },
-            }),
-          );
-        }
-      },
-    });
+    const storageSetup = createFakeUploadStorage();
 
     await expect(getSkillsLibrary({ userId, now })).resolves.toMatchObject({
       sourceProcessing: expect.arrayContaining([
@@ -2979,7 +3025,64 @@ describeDatabase("skill drafts and Gemini activation", () => {
       failedStorageKey,
       retryableFailedStorageKey,
     ]);
-    expect(sourceCountsDuringStorageDelete).toEqual([0, 0, 0, 0]);
+  });
+
+  it("preserves saved upload rows when dismissed storage cleanup fails", async () => {
+    const userId = await createUser("upload_dismiss_storage_failure");
+    const storageKey = `source-uploads/${userId}/failed.pdf`;
+    const source = await prisma.sourceFile.create({
+      data: {
+        userId,
+        kind: SourceFileKind.PDF,
+        status: SourceFileStatus.FAILED,
+        originalName: "failed worksheet",
+        mimeType: "application/pdf",
+        byteSize: 1024,
+        storageBucket: "learnrecur-dev",
+        storageKey,
+        metadata: {
+          errorMessage: "Gemini could not extract enough study text from this file.",
+        },
+      },
+    });
+    const storageSetup = createFakeUploadStorage({
+      onDeleteObject: () => {
+        throw new Error("temporary S3 delete failure");
+      },
+    });
+
+    await expect(
+      dismissFailedSourceUpload({
+        userId,
+        sourceFileId: source.id,
+        now,
+        storage: storageSetup.storage,
+      }),
+    ).resolves.toMatchObject({
+      status: "not-dismissed",
+      reason: "storage-delete-failed",
+      message: "temporary S3 delete failure",
+    });
+
+    await expect(
+      prisma.sourceFile.findUnique({
+        where: {
+          id: source.id,
+        },
+        select: {
+          status: true,
+          storageBucket: true,
+          storageKey: true,
+          byteSize: true,
+        },
+      }),
+    ).resolves.toMatchObject({
+      status: SourceFileStatus.FAILED,
+      storageBucket: "learnrecur-dev",
+      storageKey,
+      byteSize: 1024,
+    });
+    expect(storageSetup.deletedKeys).toEqual([]);
   });
 
   it("rejects dismissal for cross-user, linked, and non-failed uploaded sources", async () => {

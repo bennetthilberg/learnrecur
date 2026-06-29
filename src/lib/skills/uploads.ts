@@ -57,6 +57,13 @@ export const MAX_SOURCE_UPLOAD_REQUEUE_ATTEMPTS = 3;
 const SOURCE_UPLOAD_GENERATION_TIMEOUT_MS = 45_000;
 export { MAX_SOURCE_UPLOAD_BYTES } from "@/lib/skills/source-upload-policy";
 
+class DismissedSourceUploadObjectDeleteError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "DismissedSourceUploadObjectDeleteError";
+  }
+}
+
 const sourceUploadInputSchema = z.strictObject({
   originalName: z.string().trim().min(1, "Choose a file to upload.").max(220),
   mimeType: z
@@ -880,26 +887,52 @@ export async function dismissFailedSourceUpload(
     storageKey: sourceFile.storageKey,
   };
 
-  const deleted = await prisma.sourceFile.deleteMany({
-    where: {
-      id: sourceFile.id,
-      userId: input.userId,
-      kind: sourceFile.kind,
-      status: sourceFile.status,
-      storageBucket: sourceFile.storageBucket,
-      storageKey: sourceFile.storageKey,
-      updatedAt: sourceFile.updatedAt,
-      skillRefs: {
-        none: {},
-      },
-    },
-  });
+  let dismissed = false;
 
-  if (deleted.count !== 1) {
-    return sourceUploadSourceNotFound();
+  try {
+    dismissed = await prisma.$transaction(async (tx) => {
+      const deleted = await tx.sourceFile.deleteMany({
+        where: {
+          id: sourceFile.id,
+          userId: input.userId,
+          kind: sourceFile.kind,
+          status: sourceFile.status,
+          storageBucket: sourceFile.storageBucket,
+          storageKey: sourceFile.storageKey,
+          updatedAt: sourceFile.updatedAt,
+          skillRefs: {
+            none: {},
+          },
+        },
+      });
+
+      if (deleted.count !== 1) {
+        return false;
+      }
+
+      const deletedObject = await deleteDismissedSourceUploadObject(dismissedObject, input.storage);
+
+      if (deletedObject.status === "failed") {
+        throw new DismissedSourceUploadObjectDeleteError(deletedObject.message);
+      }
+
+      return true;
+    });
+  } catch (error) {
+    if (error instanceof DismissedSourceUploadObjectDeleteError) {
+      return {
+        status: "not-dismissed",
+        reason: "storage-delete-failed",
+        message: error.message,
+      };
+    }
+
+    throw error;
   }
 
-  await deleteDismissedSourceUploadObject(dismissedObject, input.storage);
+  if (!dismissed) {
+    return sourceUploadSourceNotFound();
+  }
 
   return {
     status: "dismissed",
@@ -950,23 +983,35 @@ async function deleteDismissedSourceUploadObject(
     storageKey: string | null;
   },
   storage?: SourceUploadStorage,
-): Promise<void> {
+): Promise<
+  | {
+      status: "deleted";
+    }
+  | {
+      status: "failed";
+      message: string;
+    }
+> {
   if (!sourceFile.storageKey) {
-    return;
+    return {
+      status: "deleted",
+    };
   }
 
   const storageSetup = resolveUploadStorage(storage);
 
   if (storageSetup.status === "missing-env") {
-    console.warn("[skills] could not delete dismissed source upload object", storageSetup.message);
-    return;
+    return {
+      status: "failed",
+      message: storageSetup.message,
+    };
   }
 
   if (sourceFile.storageBucket && storageSetup.storage.bucketName !== sourceFile.storageBucket) {
-    console.warn(
-      "[skills] could not delete dismissed source upload object: stored bucket does not match the configured S3 bucket.",
-    );
-    return;
+    return {
+      status: "failed",
+      message: "Stored source bucket does not match the configured S3 bucket.",
+    };
   }
 
   try {
@@ -974,11 +1019,15 @@ async function deleteDismissedSourceUploadObject(
       key: sourceFile.storageKey,
       bucket: sourceFile.storageBucket ?? undefined,
     });
+
+    return {
+      status: "deleted",
+    };
   } catch (error) {
-    console.warn(
-      "[skills] could not delete dismissed source upload object",
-      error instanceof Error ? error.message : error,
-    );
+    return {
+      status: "failed",
+      message: error instanceof Error ? error.message : "Could not delete stored source object.",
+    };
   }
 }
 
@@ -1534,6 +1583,7 @@ async function markUploadedSourceFailed(
   } = {},
 ) {
   const retainStoredObject = options.retainStoredObject ?? true;
+  let deletedStoredObject = false;
 
   if (!retainStoredObject && storage && sourceFile.storageKey) {
     try {
@@ -1541,10 +1591,13 @@ async function markUploadedSourceFailed(
         key: sourceFile.storageKey,
         bucket: sourceFile.storageBucket ?? undefined,
       });
+      deletedStoredObject = true;
     } catch {
-      // The row is still detached from object storage below, so stale object
-      // metadata cannot keep blocking the user's upload quota.
+      // Keep storage metadata when deletion fails so quota accounting and
+      // explicit cleanup still have a row pointing at the object.
     }
+  } else if (!retainStoredObject && !sourceFile.storageKey) {
+    deletedStoredObject = true;
   }
 
   await getPrisma().sourceFile.updateMany({
@@ -1556,7 +1609,7 @@ async function markUploadedSourceFailed(
       status: SourceFileStatus.FAILED,
       publicUrl: null,
       metadata: buildFailedUploadMetadata(sourceFile.metadata, now, reason, message),
-      ...(retainStoredObject
+      ...(!deletedStoredObject
         ? {}
         : {
             byteSize: null,
