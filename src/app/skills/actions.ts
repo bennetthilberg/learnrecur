@@ -273,13 +273,14 @@ export async function generateSkillDraftFromSourceAction(
     result.reason === "generation-failed" ||
     result.reason === "invalid-generation" ||
     result.reason === "save-failed";
+  const refreshRecovery = savedRecoverableMaterial || result.reason === "source-not-found";
 
   return {
     status: "error",
     message: savedRecoverableMaterial
       ? `${result.message} Your material was saved, so you can try again without losing it.`
       : result.message,
-    refreshRecovery: savedRecoverableMaterial,
+    refreshRecovery,
   };
 }
 
