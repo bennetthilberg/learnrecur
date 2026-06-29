@@ -89,7 +89,7 @@ export function SourceProcessingControls({
       ),
       message: dismissState.message,
       position: "top-right",
-      title: saved ? "Failed upload dismissed" : "Could not dismiss upload",
+      title: saved ? "Upload dismissed" : "Could not dismiss upload",
       withBorder: true,
       withCloseButton: true,
     });
@@ -122,7 +122,7 @@ export function SourceProcessingControls({
         <form action={dismissAction}>
           <input name="sourceFileId" type="hidden" value={sourceFileId} />
           <button
-            aria-label={`Dismiss failed upload for ${sourceFileName}`}
+            aria-label={`Dismiss upload for ${sourceFileName}`}
             className="secondaryButton"
             disabled={dismissPending || dismissSucceeded}
             type="submit"

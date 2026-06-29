@@ -2132,7 +2132,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
     expect(deletedKeys).toEqual([prepared.objectKey]);
   });
 
-  it("requeues an uploaded source without creating drafts synchronously", async () => {
+  it("resends an uploaded source without consuming retry attempts", async () => {
     const userId = await createUser("upload_requeue_uploaded");
     const { storage } = createFakeUploadStorage({
       byteSize: 4096,
@@ -2165,15 +2165,28 @@ describeDatabase("skill drafts and Gemini activation", () => {
 
     const { sender, events } = createFakeSourceUploadSender();
     const requeueAt = new Date(now.getTime() + 60_000);
-    const requeued = await requeueSourceUploadDraft({
-      userId,
+    await expect(
+      requeueSourceUploadDraft({
+        userId,
+        sourceFileId: prepared.sourceFileId,
+        now: requeueAt,
+        storage,
+        eventSender: sender,
+      }),
+    ).resolves.toMatchObject({
+      status: "queued",
       sourceFileId: prepared.sourceFileId,
-      now: requeueAt,
-      storage,
-      eventSender: sender,
     });
-
-    expect(requeued).toMatchObject({
+    const secondRequeueAt = new Date(now.getTime() + 120_000);
+    await expect(
+      requeueSourceUploadDraft({
+        userId,
+        sourceFileId: prepared.sourceFileId,
+        now: secondRequeueAt,
+        storage,
+        eventSender: sender,
+      }),
+    ).resolves.toMatchObject({
       status: "queued",
       sourceFileId: prepared.sourceFileId,
     });
@@ -2183,6 +2196,11 @@ describeDatabase("skill drafts and Gemini activation", () => {
         sourceFileId: prepared.sourceFileId,
         requestedAt: requeueAt.toISOString(),
       },
+      {
+        userId,
+        sourceFileId: prepared.sourceFileId,
+        requestedAt: secondRequeueAt.toISOString(),
+      },
     ]);
     await expect(prisma.skill.count({ where: { userId } })).resolves.toBe(0);
 
@@ -2191,10 +2209,10 @@ describeDatabase("skill drafts and Gemini activation", () => {
     });
     expect(sourceFile.status).toBe(SourceFileStatus.UPLOADED);
     expect(sourceFile.metadata).toMatchObject({
-      queuedAt: requeueAt.toISOString(),
-      requeuedAt: requeueAt.toISOString(),
-      retryCount: 1,
+      queuedAt: secondRequeueAt.toISOString(),
+      requeuedAt: secondRequeueAt.toISOString(),
     });
+    expect(sourceFile.metadata).not.toHaveProperty("retryCount");
   });
 
   it("rejects requeue for uploaded and stale processing sources at the retry limit", async () => {
@@ -2298,15 +2316,37 @@ describeDatabase("skill drafts and Gemini activation", () => {
       expect.arrayContaining([
         expect.objectContaining({
           id: uploaded.id,
+          canDismiss: true,
           canRequeue: false,
         }),
         expect.objectContaining({
           id: staleProcessing.id,
+          canDismiss: true,
           isStaleProcessing: true,
           canRequeue: false,
         }),
         expect.objectContaining({
           id: failed.id,
+          canDismiss: true,
+          canRequeue: false,
+        }),
+      ]),
+    );
+    await expect(getSkillCreationSourceRecoveryItems({ userId, now })).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: uploaded.id,
+          canDismiss: true,
+          canRequeue: false,
+        }),
+        expect.objectContaining({
+          id: staleProcessing.id,
+          canDismiss: true,
+          canRequeue: false,
+        }),
+        expect.objectContaining({
+          id: failed.id,
+          canDismiss: true,
           canRequeue: false,
         }),
       ]),
@@ -2720,10 +2760,46 @@ describeDatabase("skill drafts and Gemini activation", () => {
     expect(sender.events).toHaveLength(0);
   });
 
-  it("allows capped failed uploaded source rows to be dismissed", async () => {
+  it("allows capped saved upload rows to be dismissed", async () => {
     const userId = await createUser("upload_failed_saved_row");
     const storageSetup = createFakeUploadStorage();
-    const storageKey = `source-uploads/${userId}/failed.pdf`;
+    const uploadedStorageKey = `source-uploads/${userId}/waiting.pdf`;
+    const staleStorageKey = `source-uploads/${userId}/stale.pdf`;
+    const failedStorageKey = `source-uploads/${userId}/failed.pdf`;
+    const processingStartedAt = new Date(
+      now.getTime() - SOURCE_PROCESSING_STALE_AFTER_MS,
+    ).toISOString();
+    const uploadedSource = await prisma.sourceFile.create({
+      data: {
+        userId,
+        kind: SourceFileKind.PDF,
+        status: SourceFileStatus.UPLOADED,
+        originalName: "waiting worksheet",
+        mimeType: "application/pdf",
+        byteSize: 1024,
+        storageBucket: "learnrecur-dev",
+        storageKey: uploadedStorageKey,
+        metadata: {
+          retryCount: MAX_SOURCE_UPLOAD_REQUEUE_ATTEMPTS,
+        },
+      },
+    });
+    const staleSource = await prisma.sourceFile.create({
+      data: {
+        userId,
+        kind: SourceFileKind.PDF,
+        status: SourceFileStatus.PROCESSING,
+        originalName: "stale worksheet",
+        mimeType: "application/pdf",
+        byteSize: 1024,
+        storageBucket: "learnrecur-dev",
+        storageKey: staleStorageKey,
+        metadata: {
+          processingStartedAt,
+          retryCount: MAX_SOURCE_UPLOAD_REQUEUE_ATTEMPTS,
+        },
+      },
+    });
     const failedSource = await prisma.sourceFile.create({
       data: {
         userId,
@@ -2733,7 +2809,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
         mimeType: "application/pdf",
         byteSize: 1024,
         storageBucket: "learnrecur-dev",
-        storageKey,
+        storageKey: failedStorageKey,
         metadata: {
           errorMessage: "Gemini could not extract enough study text from this file.",
           retryCount: MAX_SOURCE_UPLOAD_REQUEUE_ATTEMPTS,
@@ -2742,27 +2818,74 @@ describeDatabase("skill drafts and Gemini activation", () => {
     });
 
     await expect(getSkillsLibrary({ userId, now })).resolves.toMatchObject({
-      sourceProcessing: [
-        {
+      sourceProcessing: expect.arrayContaining([
+        expect.objectContaining({
+          id: uploadedSource.id,
+          status: SourceFileStatus.UPLOADED,
+          canDismiss: true,
+          canRequeue: false,
+        }),
+        expect.objectContaining({
+          id: staleSource.id,
+          status: SourceFileStatus.PROCESSING,
+          canDismiss: true,
+          canRequeue: false,
+        }),
+        expect.objectContaining({
           id: failedSource.id,
           status: SourceFileStatus.FAILED,
           canDismiss: true,
           canRequeue: false,
-        },
-      ],
+        }),
+      ]),
     });
-    await expect(getSkillCreationSourceRecoveryItems({ userId, now })).resolves.toEqual([
-      expect.objectContaining({
-        id: failedSource.id,
-        canDismiss: true,
-        canRequeue: false,
-      }),
-    ]);
+    await expect(getSkillCreationSourceRecoveryItems({ userId, now })).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: uploadedSource.id,
+          canDismiss: true,
+          canRequeue: false,
+        }),
+        expect.objectContaining({
+          id: staleSource.id,
+          canDismiss: true,
+          canRequeue: false,
+        }),
+        expect.objectContaining({
+          id: failedSource.id,
+          canDismiss: true,
+          canRequeue: false,
+        }),
+      ]),
+    );
 
     await expect(
       dismissFailedSourceUpload({
         userId,
+        sourceFileId: uploadedSource.id,
+        now,
+        storage: storageSetup.storage,
+      }),
+    ).resolves.toMatchObject({
+      status: "dismissed",
+      sourceFileId: uploadedSource.id,
+    });
+    await expect(
+      dismissFailedSourceUpload({
+        userId,
+        sourceFileId: staleSource.id,
+        now,
+        storage: storageSetup.storage,
+      }),
+    ).resolves.toMatchObject({
+      status: "dismissed",
+      sourceFileId: staleSource.id,
+    });
+    await expect(
+      dismissFailedSourceUpload({
+        userId,
         sourceFileId: failedSource.id,
+        now,
         storage: storageSetup.storage,
       }),
     ).resolves.toMatchObject({
@@ -2770,8 +2893,20 @@ describeDatabase("skill drafts and Gemini activation", () => {
       sourceFileId: failedSource.id,
     });
 
-    await expect(prisma.sourceFile.count({ where: { id: failedSource.id } })).resolves.toBe(0);
-    expect(storageSetup.deletedKeys).toEqual([storageKey]);
+    await expect(
+      prisma.sourceFile.count({
+        where: {
+          id: {
+            in: [uploadedSource.id, staleSource.id, failedSource.id],
+          },
+        },
+      }),
+    ).resolves.toBe(0);
+    expect(storageSetup.deletedKeys).toEqual([
+      uploadedStorageKey,
+      staleStorageKey,
+      failedStorageKey,
+    ]);
   });
 
   it("rejects dismissal for cross-user, linked, and non-failed uploaded sources", async () => {

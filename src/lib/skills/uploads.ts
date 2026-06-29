@@ -209,6 +209,7 @@ export type RequeueSourceUploadDraftResult =
 export type DismissFailedSourceUploadInput = {
   userId: string;
   sourceFileId: string;
+  now?: Date;
   storage?: SourceUploadStorage;
 };
 
@@ -340,6 +341,9 @@ export function canRequeueSourceUploadMetadata(metadata: Prisma.JsonValue | null
 export function buildSourceUploadRequeueMetadata(
   metadata: Prisma.JsonValue | null,
   now: Date,
+  options: {
+    consumeRetry?: boolean;
+  } = {},
 ): Prisma.InputJsonObject {
   const metadataObject = getMetadataObject(metadata);
   const retryCount = getSourceUploadRetryCount(metadata);
@@ -349,7 +353,7 @@ export function buildSourceUploadRequeueMetadata(
     ...metadataObject,
     queuedAt: timestamp,
     requeuedAt: timestamp,
-    retryCount: retryCount + 1,
+    ...((options.consumeRetry ?? true) ? { retryCount: retryCount + 1 } : {}),
   };
 }
 
@@ -764,7 +768,9 @@ export async function requeueSourceUploadDraft(
     data: {
       status: SourceFileStatus.UPLOADED,
       byteSize: uploadValidation.byteSize,
-      metadata: buildSourceUploadRequeueMetadata(sourceFile.metadata, input.now),
+      metadata: buildSourceUploadRequeueMetadata(sourceFile.metadata, input.now, {
+        consumeRetry: sourceFile.status !== SourceFileStatus.UPLOADED,
+      }),
     },
   });
 
@@ -837,6 +843,7 @@ export async function dismissFailedSourceUpload(
       id: true,
       kind: true,
       status: true,
+      metadata: true,
       storageBucket: true,
       storageKey: true,
       _count: {
@@ -851,22 +858,24 @@ export async function dismissFailedSourceUpload(
     return sourceUploadSourceNotFound();
   }
 
-  if (
-    sourceFile.status !== SourceFileStatus.FAILED ||
-    (sourceFile.kind !== SourceFileKind.IMAGE && sourceFile.kind !== SourceFileKind.PDF)
-  ) {
-    return {
-      status: "not-dismissed",
-      reason: "not-failed",
-      message: "Only failed uploaded sources can be dismissed.",
-    };
-  }
-
   if (sourceFile._count.skillRefs > 0) {
     return {
       status: "not-dismissed",
       reason: "linked-source",
       message: "Linked source material cannot be dismissed from the processing list.",
+    };
+  }
+
+  if (
+    !isDismissibleSourceUpload({
+      sourceFile,
+      now: input.now ?? new Date(),
+    })
+  ) {
+    return {
+      status: "not-dismissed",
+      reason: "not-failed",
+      message: "Only failed or capped saved uploads can be dismissed.",
     };
   }
 
@@ -884,7 +893,7 @@ export async function dismissFailedSourceUpload(
     where: {
       id: sourceFile.id,
       userId: input.userId,
-      status: SourceFileStatus.FAILED,
+      status: sourceFile.status,
     },
   });
 
@@ -895,8 +904,47 @@ export async function dismissFailedSourceUpload(
   return {
     status: "dismissed",
     sourceFileId: sourceFile.id,
-    message: "Failed source upload dismissed.",
+    message: "Source upload dismissed.",
   };
+}
+
+function isDismissibleSourceUpload({
+  sourceFile,
+  now,
+}: {
+  sourceFile: {
+    kind: SourceFileKind;
+    status: SourceFileStatus;
+    metadata: Prisma.JsonValue | null;
+    _count: {
+      skillRefs: number;
+    };
+  };
+  now: Date;
+}) {
+  if (
+    sourceFile._count.skillRefs > 0 ||
+    (sourceFile.kind !== SourceFileKind.IMAGE && sourceFile.kind !== SourceFileKind.PDF)
+  ) {
+    return false;
+  }
+
+  if (sourceFile.status === SourceFileStatus.FAILED) {
+    return true;
+  }
+
+  if (canRequeueSourceUploadMetadata(sourceFile.metadata)) {
+    return false;
+  }
+
+  if (sourceFile.status === SourceFileStatus.UPLOADED) {
+    return true;
+  }
+
+  return (
+    sourceFile.status === SourceFileStatus.PROCESSING &&
+    isSourceUploadProcessingStale(sourceFile.metadata, now)
+  );
 }
 
 async function deleteFailedSourceUploadObject(

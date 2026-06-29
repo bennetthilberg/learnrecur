@@ -133,9 +133,11 @@ function toSkillCreationSourceRecoveryItem(
         isStaleProcessing ||
         (sourceFile.status === SourceFileStatus.FAILED && isSavedRetryableUpload)),
     canDismiss:
-      sourceFile.status === SourceFileStatus.FAILED &&
       !canRequeueByRetryLimit &&
-      isSavedRetryableUpload,
+      isSavedRetryableUpload &&
+      (sourceFile.status === SourceFileStatus.UPLOADED ||
+        sourceFile.status === SourceFileStatus.FAILED ||
+        isStaleProcessing),
     hasSourceText: sourceFile.kind === SourceFileKind.TEXT && sourceFile._count.skillRefs === 0,
   };
 }

@@ -276,7 +276,11 @@ function toSourceProcessingSummary(
     sourceFile.status === SourceFileStatus.PROCESSING &&
     isSourceUploadProcessingStale(sourceFile.metadata, now, SOURCE_PROCESSING_STALE_AFTER_MS);
   const canRequeueByRetryLimit = canRequeueSourceUploadMetadata(sourceFile.metadata);
-  const canDismiss = isCappedFailedSourceUpload(sourceFile, canRequeueByRetryLimit);
+  const canDismiss = isCappedSourceUploadDismissible(
+    sourceFile,
+    canRequeueByRetryLimit,
+    isStaleProcessing,
+  );
 
   return {
     id: sourceFile.id,
@@ -298,7 +302,7 @@ function toSourceProcessingSummary(
   };
 }
 
-function isCappedFailedSourceUpload(
+function isCappedSourceUploadDismissible(
   sourceFile: {
     kind: SourceFileKind;
     status: Extract<SourceFileStatus, "UPLOADED" | "PROCESSING" | "FAILED">;
@@ -308,11 +312,14 @@ function isCappedFailedSourceUpload(
     };
   },
   canRequeueByRetryLimit: boolean,
+  isStaleProcessing: boolean,
 ) {
   return (
-    sourceFile.status === SourceFileStatus.FAILED &&
     !canRequeueByRetryLimit &&
-    isSavedSourceRetryable(sourceFile)
+    isSavedSourceRetryable(sourceFile) &&
+    (sourceFile.status === SourceFileStatus.UPLOADED ||
+      sourceFile.status === SourceFileStatus.FAILED ||
+      isStaleProcessing)
   );
 }
 
