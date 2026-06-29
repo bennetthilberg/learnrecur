@@ -321,7 +321,6 @@ export function SkillsTopbar({
   useEffect(() => {
     return () => {
       cancelIndicatorFrame();
-      finishFloatingIndicator();
     };
   }, [cancelIndicatorFrame]);
 
