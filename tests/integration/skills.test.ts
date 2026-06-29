@@ -68,6 +68,7 @@ import type {
   SourceUploadDraftEventSender,
 } from "@/lib/inngest/events";
 import { getSkillsLibrary } from "@/lib/skills/library";
+import { getSkillCreationSourceRecoveryItems } from "@/lib/skills/source-recovery";
 import { removeSkillSource } from "@/lib/skills/sources";
 import { createInitialSkillSchedule } from "@/lib/scheduling";
 
@@ -1165,6 +1166,208 @@ describeDatabase("skill drafts and Gemini activation", () => {
     expect(sourceFile.metadata).toMatchObject({
       failureReason: "invalid-generation",
     });
+  });
+
+  it("hides in-flight and linked pasted sources from skill creation recovery", async () => {
+    const userId = await createUser("source_recovery_processing_text_hidden");
+    const failedSource = await prisma.sourceFile.create({
+      data: {
+        userId,
+        kind: SourceFileKind.TEXT,
+        status: SourceFileStatus.FAILED,
+        originalName: "failed pasted source",
+        mimeType: "text/plain",
+        byteSize: 120,
+        extractedText:
+          "Use ser for identity and long-term traits. Use estar for location and temporary states.",
+      },
+    });
+    const processingSource = await prisma.sourceFile.create({
+      data: {
+        userId,
+        kind: SourceFileKind.TEXT,
+        status: SourceFileStatus.PROCESSING,
+        originalName: "processing pasted source",
+        mimeType: "text/plain",
+        byteSize: 120,
+        extractedText:
+          "Use preterite for completed past actions and imperfect for background descriptions.",
+      },
+    });
+    const linkedSource = await prisma.sourceFile.create({
+      data: {
+        userId,
+        kind: SourceFileKind.TEXT,
+        status: SourceFileStatus.FAILED,
+        originalName: "linked pasted source",
+        mimeType: "text/plain",
+        byteSize: 120,
+        extractedText:
+          "Linked material should stay attached to its existing draft instead of appearing as reusable saved text.",
+      },
+    });
+    const linkedSkill = await prisma.skill.create({
+      data: {
+        userId,
+        title: "Linked saved text",
+        objective: "Keep linked failed text out of source recovery.",
+        rules: [],
+        examples: [],
+        exerciseConstraints: null,
+        tags: [],
+        status: SkillStatus.DRAFT,
+      },
+    });
+    await prisma.skillSourceRef.create({
+      data: {
+        userId,
+        skillId: linkedSkill.id,
+        sourceFileId: linkedSource.id,
+      },
+    });
+
+    const recoveryItems = await getSkillCreationSourceRecoveryItems({ userId, now });
+
+    expect(recoveryItems.map((item) => item.id)).toContain(failedSource.id);
+    expect(recoveryItems.map((item) => item.id)).not.toContain(processingSource.id);
+    expect(recoveryItems.map((item) => item.id)).not.toContain(linkedSource.id);
+  });
+
+  it("consumes a recovered pasted source and creates a fresh counted retry source", async () => {
+    const userId = await createUser("source_recovery_consumed");
+    const sourceText =
+      "Use ser for identity and long-term traits. Use estar for location and temporary states. Classroom practice should use short sentences with one obvious choice.";
+    const failedSource = await prisma.sourceFile.create({
+      data: {
+        userId,
+        kind: SourceFileKind.TEXT,
+        status: SourceFileStatus.FAILED,
+        originalName: "failed pasted source",
+        mimeType: "text/plain",
+        byteSize: Buffer.byteLength(sourceText, "utf8"),
+        extractedText: sourceText,
+      },
+    });
+
+    const result = await createSkillDraftFromSource({
+      userId,
+      now,
+      model: "test-gemini",
+      generateSkillDraft: successfulSkillDraftGenerator,
+      input: {
+        sourceText,
+        sourceLabel: "Recovered pasted source",
+      },
+      recoveredSourceFileId: failedSource.id,
+      skipUsageLimitCheck: true,
+    });
+
+    expect(result).toMatchObject({
+      status: "created",
+    });
+
+    if (result.status !== "created") {
+      throw new Error("Expected source recovery draft creation to succeed.");
+    }
+
+    expect(result.sourceFileId).not.toBe(failedSource.id);
+
+    const consumedSource = await prisma.sourceFile.findUniqueOrThrow({
+      where: { id: failedSource.id },
+    });
+    expect(consumedSource.status).toBe(SourceFileStatus.READY);
+    expect(consumedSource.metadata).toMatchObject({
+      recoveredIntoSourceFileId: result.sourceFileId,
+    });
+
+    const retrySource = await prisma.sourceFile.findUniqueOrThrow({
+      where: { id: result.sourceFileId },
+      include: {
+        skillRefs: true,
+      },
+    });
+    expect(retrySource.status).toBe(SourceFileStatus.READY);
+    expect(retrySource.originalName).toBe("Recovered pasted source");
+    expect(retrySource.metadata).toMatchObject({
+      recoveredFromSourceFileId: failedSource.id,
+    });
+    expect(retrySource.skillRefs).toHaveLength(1);
+
+    const pastedSourceCount = await prisma.sourceFile.count({
+      where: {
+        userId,
+        kind: SourceFileKind.TEXT,
+      },
+    });
+    expect(pastedSourceCount).toBe(2);
+
+    const recoveryItems = await getSkillCreationSourceRecoveryItems({ userId, now });
+    expect(recoveryItems.map((item) => item.id)).not.toContain(failedSource.id);
+    expect(recoveryItems.map((item) => item.id)).not.toContain(result.sourceFileId);
+  });
+
+  it("creates a fresh recoverable retry source when recovered pasted text fails again", async () => {
+    const userId = await createUser("source_recovery_failed_retry");
+    const sourceText =
+      "Use ser for identity and long-term traits. Use estar for location and temporary states. Classroom practice should use short sentences with one obvious choice.";
+    const failedSource = await prisma.sourceFile.create({
+      data: {
+        userId,
+        kind: SourceFileKind.TEXT,
+        status: SourceFileStatus.FAILED,
+        originalName: "failed pasted source",
+        mimeType: "text/plain",
+        byteSize: Buffer.byteLength(sourceText, "utf8"),
+        extractedText: sourceText,
+      },
+    });
+
+    const result = await createSkillDraftFromSource({
+      userId,
+      now,
+      model: "test-gemini",
+      generateSkillDraft: async () => {
+        throw new Error("Model unavailable.");
+      },
+      input: {
+        sourceText,
+        sourceLabel: "Recovered pasted source",
+      },
+      recoveredSourceFileId: failedSource.id,
+      skipUsageLimitCheck: true,
+    });
+
+    expect(result).toMatchObject({
+      status: "not-created",
+      reason: "generation-failed",
+    });
+
+    const sourceFiles = await prisma.sourceFile.findMany({
+      where: {
+        userId,
+        kind: SourceFileKind.TEXT,
+      },
+      orderBy: {
+        createdAt: "asc",
+      },
+    });
+    expect(sourceFiles).toHaveLength(2);
+    expect(sourceFiles[0]).toMatchObject({
+      id: failedSource.id,
+      status: SourceFileStatus.READY,
+    });
+    expect(sourceFiles[1]).toMatchObject({
+      status: SourceFileStatus.FAILED,
+      originalName: "Recovered pasted source",
+    });
+    expect(sourceFiles[1].metadata).toMatchObject({
+      recoveredFromSourceFileId: failedSource.id,
+      failureReason: "generation-failed",
+    });
+
+    const recoveryItems = await getSkillCreationSourceRecoveryItems({ userId, now });
+    expect(recoveryItems.map((item) => item.id)).not.toContain(failedSource.id);
+    expect(recoveryItems.map((item) => item.id)).toContain(sourceFiles[1].id);
   });
 
   it("splits broad source material into multiple draft skills linked to one source", async () => {
