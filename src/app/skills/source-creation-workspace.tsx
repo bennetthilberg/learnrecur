@@ -371,8 +371,12 @@ export function SourceCreationWorkspace({
         tone: "error",
         message: textState.message,
       });
+
+      if (textState.refreshRecovery) {
+        router.refresh();
+      }
     }
-  }, [showNotice, textState.message, textState.status]);
+  }, [router, showNotice, textState.message, textState.refreshRecovery, textState.status]);
 
   useEffect(() => {
     if (textState.status !== "saved" || !textState.createdSkill) {
@@ -551,6 +555,10 @@ export function SourceCreationWorkspace({
       onBack={() => {
         setCreatedSkill(null);
         setDismissedSkillId(reviewSkill.skillId);
+        setMaterialSnapshot((currentSnapshot) => ({
+          ...currentSnapshot,
+          recoveredSourceFileId: "",
+        }));
         showNotice(null);
       }}
       skillId={reviewSkill.skillId}

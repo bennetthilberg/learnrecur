@@ -54,6 +54,7 @@ export type SkillFormActionState = {
   fieldErrors?: Record<string, string[]>;
   createdSkill?: CreatedSkillDraftForReview;
   activatedSkillId?: string;
+  refreshRecovery?: boolean;
 };
 
 type SkillActionUserResult =
@@ -268,14 +269,17 @@ export async function generateSkillDraftFromSourceAction(
     };
   }
 
+  const savedRecoverableMaterial =
+    result.reason === "generation-failed" ||
+    result.reason === "invalid-generation" ||
+    result.reason === "save-failed";
+
   return {
     status: "error",
-    message:
-      result.reason === "generation-failed" ||
-      result.reason === "invalid-generation" ||
-      result.reason === "save-failed"
-        ? `${result.message} Your material was saved, so you can try again without losing it.`
-        : result.message,
+    message: savedRecoverableMaterial
+      ? `${result.message} Your material was saved, so you can try again without losing it.`
+      : result.message,
+    refreshRecovery: savedRecoverableMaterial,
   };
 }
 
