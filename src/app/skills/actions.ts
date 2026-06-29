@@ -30,6 +30,7 @@ import {
   prepareSourceUpload,
   requeueSourceUploadDraft,
 } from "@/lib/skills/uploads";
+import { getSkillCreationSourceRecoveryText } from "@/lib/skills/source-recovery";
 import { removeSkillSource } from "@/lib/skills/sources";
 import { getPrisma } from "@/lib/prisma";
 import { ensureDatabaseUser } from "@/lib/users";
@@ -87,6 +88,18 @@ export type CompleteSourceUploadActionResult =
       message: string;
       redirectTo: string;
       skill: CreatedSkillDraftForReview | null;
+    }
+  | {
+      status: "error";
+      message: string;
+    };
+
+export type RestoreSourceTextActionResult =
+  | {
+      status: "ready";
+      message: string;
+      sourceLabel: string;
+      sourceText: string;
     }
   | {
       status: "error";
@@ -392,6 +405,44 @@ export async function requeueSourceUploadAction(
     return {
       status: "saved",
       message: result.message,
+    };
+  }
+
+  return {
+    status: "error",
+    message: result.message,
+  };
+}
+
+export async function restoreSourceTextAction(input: {
+  sourceFileId: string;
+}): Promise<RestoreSourceTextActionResult> {
+  const user = await requireSkillActionUser();
+
+  if (user.status === "error") {
+    return user;
+  }
+
+  const sourceFileId = input.sourceFileId.trim();
+
+  if (!sourceFileId) {
+    return {
+      status: "error",
+      message: "No saved text source was selected.",
+    };
+  }
+
+  const result = await getSkillCreationSourceRecoveryText({
+    userId: user.userId,
+    sourceFileId,
+  });
+
+  if (result.status === "ready") {
+    return {
+      status: "ready",
+      message: "Saved text restored. Review it, then create the skill again.",
+      sourceLabel: result.originalName,
+      sourceText: result.sourceText,
     };
   }
 

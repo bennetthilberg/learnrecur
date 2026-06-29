@@ -22,6 +22,7 @@ import {
   completeSourceUploadAction,
   generateSkillDraftFromSourceAction,
   prepareSourceUploadAction,
+  restoreSourceTextAction,
   type CreatedSkillDraftForReview,
   type PrepareSourceUploadActionResult,
   type SkillFormActionState,
@@ -57,7 +58,7 @@ export type RecoverableSourceUpload = {
   errorMessage: string | null;
   isStaleProcessing: boolean;
   canRequeue: boolean;
-  sourceText: string | null;
+  hasSourceText: boolean;
 };
 
 const sourceCreationNotificationId = "source-creation-notice";
@@ -126,6 +127,8 @@ export function SourceCreationWorkspace({
   const [createdSkill, setCreatedSkill] = useState<CreatedSkillDraftForReview | null>(null);
   const [activatedSkillId, setActivatedSkillId] = useState<string | null>(null);
   const [dismissedSkillId, setDismissedSkillId] = useState<string | null>(null);
+  const [restoringSourceId, setRestoringSourceId] = useState<string | null>(null);
+  const [ignoreTextStateErrors, setIgnoreTextStateErrors] = useState(false);
 
   const uploadBusy =
     isSubmittingUpload ||
@@ -149,9 +152,11 @@ export function SourceCreationWorkspace({
     activeStep = 2;
   }
 
+  const textActionFieldErrors =
+    !ignoreTextStateErrors && textState.status === "error" ? textState.fieldErrors : undefined;
   const activeFieldErrors = selectedFile
     ? fieldErrors
-    : fieldErrors ?? (textState.status === "error" ? textState.fieldErrors : undefined);
+    : fieldErrors ?? textActionFieldErrors;
   const sourceTextError = activeFieldErrors?.sourceText?.[0];
   const sourceTextDescribedBy = ["create-skill-input-help", sourceTextError ? sourceTextErrorId : null]
     .filter(Boolean)
@@ -255,40 +260,65 @@ export function SourceCreationWorkspace({
   }, [clearSelectedFilePreview, setSelectedFilePreview, showNotice]);
 
   const restoreSavedSourceText = useCallback(
-    (upload: RecoverableSourceUpload) => {
-      if (!upload.sourceText) {
+    async (upload: RecoverableSourceUpload) => {
+      if (!upload.hasSourceText || restoringSourceId) {
         return;
       }
 
-      clearSelectedFile();
-      setFieldErrors(undefined);
-      setMaterialSnapshot((currentSnapshot) => ({
-        ...currentSnapshot,
-        sourceText: upload.sourceText ?? "",
-        sourceLabel: currentSnapshot.sourceLabel || upload.originalName,
-      }));
+      setRestoringSourceId(upload.id);
+      showNotice(null);
 
-      const sourceTextControl = formRef.current?.elements.namedItem("sourceText");
-      const sourceLabelControl = formRef.current?.elements.namedItem("sourceLabel");
+      try {
+        const restored = await restoreSourceTextAction({
+          sourceFileId: upload.id,
+        });
 
-      if (sourceTextControl instanceof HTMLTextAreaElement) {
-        sourceTextControl.value = upload.sourceText;
-        sourceTextControl.focus();
+        if (restored.status === "error") {
+          showNotice({
+            tone: "error",
+            message: restored.message,
+          });
+          return;
+        }
+
+        clearSelectedFile();
+        setFieldErrors(undefined);
+        setIgnoreTextStateErrors(true);
+        setMaterialSnapshot((currentSnapshot) => ({
+          ...currentSnapshot,
+          sourceText: restored.sourceText,
+          sourceLabel: currentSnapshot.sourceLabel || restored.sourceLabel,
+        }));
+
+        const sourceTextControl = formRef.current?.elements.namedItem("sourceText");
+        const sourceLabelControl = formRef.current?.elements.namedItem("sourceLabel");
+
+        if (sourceTextControl instanceof HTMLTextAreaElement) {
+          sourceTextControl.value = restored.sourceText;
+          sourceTextControl.focus();
+        }
+
+        if (
+          sourceLabelControl instanceof HTMLInputElement &&
+          !sourceLabelControl.value.trim()
+        ) {
+          sourceLabelControl.value = restored.sourceLabel;
+        }
+
+        showNotice({
+          tone: "success",
+          message: restored.message,
+        });
+      } catch (error) {
+        showNotice({
+          tone: "error",
+          message: formatClientError(error),
+        });
+      } finally {
+        setRestoringSourceId(null);
       }
-
-      if (
-        sourceLabelControl instanceof HTMLInputElement &&
-        !sourceLabelControl.value.trim()
-      ) {
-        sourceLabelControl.value = upload.originalName;
-      }
-
-      showNotice({
-        tone: "success",
-        message: "Saved text restored. Review it, then create the skill again.",
-      });
     },
-    [clearSelectedFile, showNotice],
+    [clearSelectedFile, restoringSourceId, showNotice],
   );
 
   useEffect(() => {
@@ -559,6 +589,7 @@ export function SourceCreationWorkspace({
           }
 
           setFieldErrors(undefined);
+          setIgnoreTextStateErrors(false);
           showNotice(null);
         }}
         ref={formRef}
@@ -730,6 +761,7 @@ export function SourceCreationWorkspace({
       {recoverableSourceUploads.length > 0 ? (
         <RecoverableSourceUploads
           onUseText={restoreSavedSourceText}
+          restoringSourceId={restoringSourceId}
           uploads={recoverableSourceUploads}
         />
       ) : null}
@@ -754,9 +786,11 @@ export function SourceCreationWorkspace({
 
 function RecoverableSourceUploads({
   onUseText,
+  restoringSourceId,
   uploads,
 }: {
-  onUseText: (upload: RecoverableSourceUpload) => void;
+  onUseText: (upload: RecoverableSourceUpload) => Promise<void>;
+  restoringSourceId: string | null;
   uploads: RecoverableSourceUpload[];
 }) {
   return (
@@ -781,13 +815,17 @@ function RecoverableSourceUploads({
                 sourceFileId={upload.id}
                 sourceFileName={upload.originalName}
               />
-            ) : upload.sourceText ? (
+            ) : upload.hasSourceText ? (
               <button
+                aria-label={`Use saved text from ${upload.originalName}`}
                 className="secondaryButton"
-                onClick={() => onUseText(upload)}
+                disabled={restoringSourceId !== null}
+                onClick={() => {
+                  void onUseText(upload);
+                }}
                 type="button"
               >
-                Use text
+                {restoringSourceId === upload.id ? "Loading text" : "Use text"}
               </button>
             ) : null}
           </article>
@@ -802,7 +840,7 @@ function recoverableSourceCopy(upload: RecoverableSourceUpload) {
     return upload.errorMessage;
   }
 
-  if (upload.sourceText) {
+  if (upload.hasSourceText) {
     return "Pasted material was saved. Load it here, then create the skill again.";
   }
 
