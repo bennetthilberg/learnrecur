@@ -1102,6 +1102,7 @@ export async function runQueuedSourceUploadDraftJob(
     return notCreated("invalid-upload", message);
   }
 
+  const processingMetadata = buildProcessingUploadMetadata(sourceFile.metadata, input.now);
   const lockedForProcessing = await prisma.sourceFile.updateMany({
     where: {
       id: sourceFile.id,
@@ -1110,7 +1111,7 @@ export async function runQueuedSourceUploadDraftJob(
     },
     data: {
       status: SourceFileStatus.PROCESSING,
-      metadata: buildProcessingUploadMetadata(sourceFile.metadata, input.now),
+      metadata: processingMetadata,
     },
   });
 
@@ -1118,11 +1119,17 @@ export async function runQueuedSourceUploadDraftJob(
     return notCreated("invalid-upload", "This upload has already been processed or is processing.");
   }
 
+  const processingSourceFile = {
+    ...sourceFile,
+    status: SourceFileStatus.PROCESSING,
+    metadata: processingMetadata as Prisma.JsonValue,
+  };
+
   const setup = resolveUploadGenerationSetup(input);
 
   if (setup.status === "missing-env") {
     await markUploadedSourceFailed(
-      sourceFile,
+      processingSourceFile,
       storageSetup.storage,
       input.now,
       "missing-gemini-env",
@@ -1146,7 +1153,7 @@ export async function runQueuedSourceUploadDraftJob(
       ? "Uploaded file is missing or larger than 10 MB."
       : `Could not read S3 upload: ${formatEnvError(error)}`;
     await markUploadedSourceFailed(
-      sourceFile,
+      processingSourceFile,
       storageSetup.storage,
       input.now,
       "invalid-upload",
@@ -1159,7 +1166,7 @@ export async function runQueuedSourceUploadDraftJob(
   if (bytes.length === 0 || bytes.length > MAX_SOURCE_UPLOAD_BYTES) {
     const message = "Uploaded file is missing or larger than 10 MB.";
     await markUploadedSourceFailed(
-      sourceFile,
+      processingSourceFile,
       storageSetup.storage,
       input.now,
       "invalid-upload",
@@ -1188,7 +1195,7 @@ export async function runQueuedSourceUploadDraftJob(
     const message = getPublicGeminiFailureMessage(error);
     console.error("[ai] source extraction failed", getGeminiErrorLogDetails(error));
     await markUploadedSourceFailed(
-      sourceFile,
+      processingSourceFile,
       storageSetup.storage,
       input.now,
       "extraction-failed",
@@ -1205,7 +1212,7 @@ export async function runQueuedSourceUploadDraftJob(
       getSourceExtractionValidationLogDetails(rawExtraction),
     );
     await markUploadedSourceFailed(
-      sourceFile,
+      processingSourceFile,
       storageSetup.storage,
       input.now,
       "invalid-extraction",
@@ -1233,7 +1240,7 @@ export async function runQueuedSourceUploadDraftJob(
     const message = getPublicGeminiFailureMessage(error);
     console.error("[ai] source draft generation failed", getGeminiErrorLogDetails(error));
     await markUploadedSourceFailed(
-      sourceFile,
+      processingSourceFile,
       storageSetup.storage,
       input.now,
       "generation-failed",
@@ -1246,7 +1253,7 @@ export async function runQueuedSourceUploadDraftJob(
 
   if (generatedDrafts.status === "invalid") {
     await markUploadedSourceFailed(
-      sourceFile,
+      processingSourceFile,
       storageSetup.storage,
       input.now,
       "invalid-generation",
@@ -1285,7 +1292,7 @@ export async function runQueuedSourceUploadDraftJob(
 
   if (created.status === "not-found") {
     await markUploadedSourceFailed(
-      sourceFile,
+      processingSourceFile,
       storageSetup.storage,
       input.now,
       "source-not-found",
@@ -1570,6 +1577,7 @@ async function markUploadedSourceFailed(
   sourceFile: {
     id: string;
     userId: string;
+    status: SourceFileStatus;
     metadata: Prisma.JsonValue | null;
     storageBucket: string | null;
     storageKey: string | null;
@@ -1583,40 +1591,63 @@ async function markUploadedSourceFailed(
   } = {},
 ) {
   const retainStoredObject = options.retainStoredObject ?? true;
-  let deletedStoredObject = false;
+  const prisma = getPrisma();
 
-  if (!retainStoredObject && storage && sourceFile.storageKey) {
-    try {
-      await storage.deleteObject({
-        key: sourceFile.storageKey,
-        bucket: sourceFile.storageBucket ?? undefined,
-      });
-      deletedStoredObject = true;
-    } catch {
-      // Keep storage metadata when deletion fails so quota accounting and
-      // explicit cleanup still have a row pointing at the object.
+  await prisma.$transaction(async (tx) => {
+    const markedFailed = await tx.sourceFile.updateMany({
+      where: {
+        id: sourceFile.id,
+        userId: sourceFile.userId,
+        status: sourceFile.status,
+        storageBucket: sourceFile.storageBucket,
+        storageKey: sourceFile.storageKey,
+      },
+      data: {
+        status: SourceFileStatus.FAILED,
+        publicUrl: null,
+        metadata: buildFailedUploadMetadata(sourceFile.metadata, now, reason, message),
+      },
+    });
+
+    if (markedFailed.count !== 1 || retainStoredObject) {
+      return;
     }
-  } else if (!retainStoredObject && !sourceFile.storageKey) {
-    deletedStoredObject = true;
-  }
 
-  await getPrisma().sourceFile.updateMany({
-    where: {
-      id: sourceFile.id,
-      userId: sourceFile.userId,
-    },
-    data: {
-      status: SourceFileStatus.FAILED,
-      publicUrl: null,
-      metadata: buildFailedUploadMetadata(sourceFile.metadata, now, reason, message),
-      ...(!deletedStoredObject
-        ? {}
-        : {
-            byteSize: null,
-            storageBucket: null,
-            storageKey: null,
-          }),
-    },
+    let deletedStoredObject = false;
+
+    if (storage && sourceFile.storageKey) {
+      try {
+        await storage.deleteObject({
+          key: sourceFile.storageKey,
+          bucket: sourceFile.storageBucket ?? undefined,
+        });
+        deletedStoredObject = true;
+      } catch {
+        // Keep storage metadata when deletion fails so quota accounting and
+        // explicit cleanup still have a row pointing at the object.
+      }
+    } else if (!sourceFile.storageKey) {
+      deletedStoredObject = true;
+    }
+
+    if (!deletedStoredObject) {
+      return;
+    }
+
+    await tx.sourceFile.updateMany({
+      where: {
+        id: sourceFile.id,
+        userId: sourceFile.userId,
+        status: SourceFileStatus.FAILED,
+        storageBucket: sourceFile.storageBucket,
+        storageKey: sourceFile.storageKey,
+      },
+      data: {
+        byteSize: null,
+        storageBucket: null,
+        storageKey: null,
+      },
+    });
   });
 }
 

@@ -1812,6 +1812,87 @@ describeDatabase("skill drafts and Gemini activation", () => {
     }
   });
 
+  it("does not overwrite an upload that changes while processing failure is recorded", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const userId = await createUser("upload_failure_state_changed");
+    const { storage, deletedKeys } = createFakeUploadStorage({
+      byteSize: 2048,
+      mimeType: "image/png",
+    });
+    const prepared = await prepareSourceUpload({
+      userId,
+      now,
+      storage,
+      input: {
+        originalName: "changed-while-processing.png",
+        mimeType: "image/png",
+        byteSize: "2048",
+      },
+    });
+
+    if (prepared.status !== "prepared") {
+      throw new Error("Expected upload preparation to succeed.");
+    }
+
+    const queued = await queueSourceUploadDrafts({
+      userId,
+      sourceFileId: prepared.sourceFileId,
+      now,
+      storage,
+      eventSender: createFakeSourceUploadSender().sender,
+    });
+
+    expect(queued.status).toBe("queued");
+
+    try {
+      await expect(
+        runQueuedSourceUploadDraftJob({
+          userId,
+          sourceFileId: prepared.sourceFileId,
+          now,
+          storage,
+          extractSourceText: async () => {
+            await prisma.sourceFile.updateMany({
+              where: {
+                id: prepared.sourceFileId,
+                userId,
+                status: SourceFileStatus.PROCESSING,
+              },
+              data: {
+                status: SourceFileStatus.UPLOADED,
+                metadata: {
+                  changedByConcurrentRetry: true,
+                },
+              },
+            });
+            throw new Error("temporary extractor failure");
+          },
+          generateSkillDraft: successfulSkillDraftGenerator,
+          model: "test-gemini",
+        }),
+      ).resolves.toMatchObject({
+        status: "not-created",
+        reason: "extraction-failed",
+      });
+
+      const changedSource = await prisma.sourceFile.findUniqueOrThrow({
+        where: {
+          id: prepared.sourceFileId,
+        },
+      });
+      expect(changedSource.status).toBe(SourceFileStatus.UPLOADED);
+      expect(changedSource.metadata).toMatchObject({
+        changedByConcurrentRetry: true,
+      });
+      expect(changedSource.metadata).not.toMatchObject({
+        failureReason: "extraction-failed",
+      });
+      expect(deletedKeys).toEqual([]);
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
   it("cleans up uploaded source state when downloaded bytes exceed the upload limit", async () => {
     const userId = await createUser("upload_oversized_download");
     const { storage, deletedKeys } = createFakeUploadStorage({
