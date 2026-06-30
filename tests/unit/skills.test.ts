@@ -1133,21 +1133,16 @@ describe("validateGeneratedSkillDrafts", () => {
     });
   });
 
-  it("accepts three generated skill drafts", () => {
+  it("rejects multiple generated skill drafts", () => {
     const result = validateGeneratedSkillDrafts({
-      drafts: [validGeneratedSkillDraft(1), validGeneratedSkillDraft(2), validGeneratedSkillDraft(3)],
+      drafts: [validGeneratedSkillDraft(1), validGeneratedSkillDraft(2)],
     });
 
-    expect(result.status).toBe("ready");
-
-    if (result.status === "ready") {
-      expect(result.drafts).toHaveLength(3);
-      expect(result.drafts.map((draft) => draft.title)).toEqual([
-        "Skill draft 1",
-        "Skill draft 2",
-        "Skill draft 3",
-      ]);
-    }
+    expect(result).toMatchObject({
+      status: "invalid",
+      reason: "invalid-response",
+      message: "Gemini returned invalid skill drafts.",
+    });
   });
 
   it.each([
@@ -1155,12 +1150,7 @@ describe("validateGeneratedSkillDrafts", () => {
     {
       label: "too many drafts",
       value: {
-        drafts: [
-          validGeneratedSkillDraft(1),
-          validGeneratedSkillDraft(2),
-          validGeneratedSkillDraft(3),
-          validGeneratedSkillDraft(4),
-        ],
+        drafts: [validGeneratedSkillDraft(1), validGeneratedSkillDraft(2)],
       },
     },
     {
