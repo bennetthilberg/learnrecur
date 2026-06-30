@@ -150,7 +150,7 @@ type DuePracticeSkillRecord = {
 
 const reminderPreferenceInputSchema = z.strictObject({
   enabled: z.preprocess(parseBooleanish, z.boolean()),
-  email: z.string().trim().email("Enter a valid email address.").max(254),
+  email: z.string().trim().max(254),
   localHour: z.coerce
     .number()
     .int("Choose a whole hour.")
@@ -170,6 +170,20 @@ const reminderPreferenceInputSchema = z.strictObject({
       MAX_REMINDER_MINIMUM_DUE_COUNT,
       `Minimum due count must be ${MAX_REMINDER_MINIMUM_DUE_COUNT} or less.`,
     ),
+}).superRefine((value, context) => {
+  if (!value.enabled && value.email === "") {
+    return;
+  }
+
+  const emailResult = z.string().email().safeParse(value.email);
+
+  if (!emailResult.success) {
+    context.addIssue({
+      code: "custom",
+      path: ["email"],
+      message: "Enter a valid email address.",
+    });
+  }
 });
 
 export function normalizeReminderPreferenceInput(
@@ -266,20 +280,6 @@ export async function saveReminderPreference(input: {
   }
 
   if (!user.email && normalized.input.enabled) {
-    return {
-      status: "invalid",
-      message: "Use the email address verified for your account.",
-      fieldErrors: {
-        email: ["Reminder emails can only be sent to your account email address."],
-      },
-    };
-  }
-
-  if (
-    user.email &&
-    normalized.input.email !== user.email &&
-    normalized.input.email !== user.reminderPreference?.email
-  ) {
     return {
       status: "invalid",
       message: "Use the email address verified for your account.",

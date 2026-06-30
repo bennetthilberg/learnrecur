@@ -150,7 +150,7 @@ describeDatabase("due email reminders", () => {
     });
   });
 
-  it("rejects reminder recipients that do not match the user's account email", async () => {
+  it("canonicalizes submitted reminder recipients to the user's account email", async () => {
     const userId = await createUser("recipient-owner", "owner@example.com");
 
     const result = await saveReminderPreference({
@@ -164,14 +164,18 @@ describeDatabase("due email reminders", () => {
       },
     });
 
-    expect(result).toEqual({
-      status: "invalid",
-      message: "Use the email address verified for your account.",
-      fieldErrors: {
-        email: ["Reminder emails can only be sent to your account email address."],
+    expect(result).toMatchObject({
+      status: "saved",
+      preference: {
+        enabled: true,
+        email: "owner@example.com",
       },
     });
-    expect(await prisma.reminderPreference.count({ where: { userId } })).toBe(0);
+    await expect(
+      prisma.reminderPreference.findUniqueOrThrow({ where: { userId } }),
+    ).resolves.toMatchObject({
+      email: "owner@example.com",
+    });
   });
 
   it("allows stale reminder recipients to be disabled", async () => {
@@ -271,6 +275,29 @@ describeDatabase("due email reminders", () => {
       preference: {
         enabled: false,
         email: "old@example.com",
+      },
+    });
+  });
+
+  it("allows a disabled reminder save with no account email or existing preference", async () => {
+    const userId = await createUser("disable-no-email-new", null);
+
+    const result = await saveReminderPreference({
+      userId,
+      input: {
+        enabled: false,
+        email: "",
+        localHour: 9,
+        timezone: "America/New_York",
+        minimumDueCount: 1,
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: "saved",
+      preference: {
+        enabled: false,
+        email: "",
       },
     });
   });

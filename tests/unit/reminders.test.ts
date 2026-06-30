@@ -52,6 +52,27 @@ describe("reminder preference input", () => {
     });
   });
 
+  it("allows disabled reminder settings without an email", () => {
+    expect(
+      normalizeReminderPreferenceInput({
+        enabled: false,
+        email: "",
+        localHour: 9,
+        timezone: "America/New_York",
+        minimumDueCount: 1,
+      }),
+    ).toEqual({
+      status: "valid",
+      input: {
+        enabled: false,
+        email: "",
+        localHour: 9,
+        timezone: "America/New_York",
+        minimumDueCount: 1,
+      },
+    });
+  });
+
   it("rejects invalid reminder settings with field errors", () => {
     const result = normalizeReminderPreferenceInput({
       enabled: "maybe",
@@ -65,12 +86,28 @@ describe("reminder preference input", () => {
     expect(result).toMatchObject({
       fieldErrors: {
         enabled: expect.arrayContaining([expect.any(String)]),
-        email: expect.arrayContaining(["Enter a valid email address."]),
         localHour: expect.arrayContaining(["Choose an hour from 0 to 23."]),
         timezone: expect.arrayContaining(["Choose a valid IANA timezone."]),
         minimumDueCount: expect.arrayContaining([
           "Minimum due count must be at least 1.",
         ]),
+      },
+    });
+  });
+
+  it("rejects enabled reminder settings without a valid email", () => {
+    const result = normalizeReminderPreferenceInput({
+      enabled: true,
+      email: "not email",
+      localHour: 9,
+      timezone: "America/New_York",
+      minimumDueCount: 1,
+    });
+
+    expect(result.status).toBe("invalid");
+    expect(result).toMatchObject({
+      fieldErrors: {
+        email: expect.arrayContaining(["Enter a valid email address."]),
       },
     });
   });
