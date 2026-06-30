@@ -1,5 +1,6 @@
 import "server-only";
 
+import { clerkClient } from "@clerk/nextjs/server";
 import { Resend } from "resend";
 import { z } from "zod";
 
@@ -82,6 +83,8 @@ export type ReminderEmailSendResult = {
 export type ReminderEmailSender = {
   sendDueReminder(payload: ReminderEmailPayload): Promise<ReminderEmailSendResult>;
 };
+
+export type ReminderAccountEmailResolver = (userId: string) => Promise<string | null>;
 
 export type ProcessDueReminderResult =
   | {
@@ -245,7 +248,14 @@ export async function saveReminderPreference(input: {
   const prisma = getPrisma();
   const user = await prisma.user.findUnique({
     where: { id: input.userId },
-    select: { email: true },
+    select: {
+      email: true,
+      reminderPreference: {
+        select: {
+          email: true,
+        },
+      },
+    },
   });
 
   if (!user) {
@@ -255,7 +265,21 @@ export async function saveReminderPreference(input: {
     };
   }
 
-  if (!user.email || (normalized.input.enabled && normalized.input.email !== user.email)) {
+  if (!user.email && normalized.input.enabled) {
+    return {
+      status: "invalid",
+      message: "Use the email address verified for your account.",
+      fieldErrors: {
+        email: ["Reminder emails can only be sent to your account email address."],
+      },
+    };
+  }
+
+  if (
+    user.email &&
+    normalized.input.email !== user.email &&
+    normalized.input.email !== user.reminderPreference?.email
+  ) {
     return {
       status: "invalid",
       message: "Use the email address verified for your account.",
@@ -267,7 +291,7 @@ export async function saveReminderPreference(input: {
 
   const preferenceInput = {
     ...normalized.input,
-    email: user.email,
+    email: user.email ?? normalized.input.email,
   };
 
   const preference = await prisma.reminderPreference.upsert({
@@ -331,6 +355,7 @@ export async function getDuePracticeSkillCount(input: {
 }
 
 export async function processDueReminderBatch(input: {
+  accountEmailResolver?: ReminderAccountEmailResolver;
   now: Date;
   appUrl?: string;
   sender?: ReminderEmailSender;
@@ -368,6 +393,7 @@ export async function processDueReminderBatch(input: {
 
   for (const preference of preferences) {
     const result = await processDueReminderPreference({
+      accountEmailResolver: input.accountEmailResolver,
       appUrl: input.appUrl,
       now: input.now,
       preference: {
@@ -395,6 +421,7 @@ export async function processDueReminderBatch(input: {
 }
 
 export async function processDueReminderPreference(input: {
+  accountEmailResolver?: ReminderAccountEmailResolver;
   appUrl?: string;
   now: Date;
   preference: ReminderPreferenceRecord;
@@ -402,20 +429,24 @@ export async function processDueReminderPreference(input: {
 }): Promise<ProcessDueReminderResult> {
   const localDate = getReminderLocalDate(input.now, input.preference.timezone);
 
-  if (input.preference.email !== input.preference.accountEmail) {
-    return {
-      status: "invalid-recipient",
-      userId: input.preference.userId,
-      localDate,
-      message: "Reminder emails can only be sent to the current account email address.",
-    };
-  }
-
   if (!isReminderLocalHourDue(input.now, input.preference)) {
     return {
       status: "not-due-hour",
       userId: input.preference.userId,
       localDate,
+    };
+  }
+
+  const accountEmail = input.accountEmailResolver
+    ? await input.accountEmailResolver(input.preference.userId)
+    : input.preference.accountEmail;
+
+  if (input.preference.email !== accountEmail) {
+    return {
+      status: "invalid-recipient",
+      userId: input.preference.userId,
+      localDate,
+      message: "Reminder emails can only be sent to the current account email address.",
     };
   }
 
@@ -606,6 +637,13 @@ export async function processDueReminderPreference(input: {
       message,
     };
   }
+}
+
+export async function resolveClerkReminderAccountEmail(userId: string): Promise<string | null> {
+  const client = await clerkClient();
+  const user = await client.users.getUser(userId);
+
+  return user.primaryEmailAddress?.emailAddress ?? null;
 }
 
 export function createResendReminderEmailSender(env: ResendEnv = getResendEnv()): ReminderEmailSender {
