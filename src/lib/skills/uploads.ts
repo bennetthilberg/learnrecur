@@ -30,6 +30,7 @@ import {
   type QwenFallbackConfig,
 } from "@/lib/qwen";
 import {
+  MAX_COLLECTION_NAME_LENGTH,
   SOURCE_SKILL_DRAFT_PROMPT_VERSION,
   buildSourceContextExcerpt,
   createGeminiSkillDraftGenerator,
@@ -75,7 +76,15 @@ const sourceUploadInputSchema = z.strictObject({
     .max(MAX_SOURCE_UPLOAD_BYTES, SOURCE_UPLOAD_MAX_BYTES_ERROR),
   sourceLabel: optionalTrimmedString().pipe(z.string().max(160).optional()),
   focusNote: optionalTrimmedString().pipe(z.string().max(800).optional()),
-  collectionName: optionalTrimmedString(),
+  collectionName: optionalTrimmedString().pipe(
+    z
+      .string()
+      .max(
+        MAX_COLLECTION_NAME_LENGTH,
+        `Collection name must be ${MAX_COLLECTION_NAME_LENGTH} characters or fewer.`,
+      )
+      .optional(),
+  ),
   tags: z.union([z.string(), z.array(z.string())]).optional(),
 });
 

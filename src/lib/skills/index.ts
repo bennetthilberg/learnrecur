@@ -53,15 +53,16 @@ export const EXACT_INPUT_UNLOCK_REPETITIONS = 3;
 export const SOURCE_CONTEXT_CHAR_LIMIT = 4_000;
 export const EXISTING_EXERCISE_CONTEXT_CHAR_LIMIT = 3_000;
 export const MAX_GENERATED_SKILL_DRAFTS = 3;
-const MAX_COLLECTION_NAME_LENGTH = 120;
+export const MAX_COLLECTION_NAME_LENGTH = 120;
 const MAX_DRAFT_NOTE_LINE_LENGTH = 500;
 const MAX_DRAFT_NOTE_ITEMS = 8;
 const MAX_DRAFT_NOTE_LENGTH =
   MAX_DRAFT_NOTE_ITEMS * MAX_DRAFT_NOTE_LINE_LENGTH + (MAX_DRAFT_NOTE_ITEMS - 1);
 const MAX_EXERCISE_CONSTRAINTS_LENGTH = 1_000;
-const MAX_TAG_LENGTH = 40;
+export const MAX_TAG_LENGTH = 40;
 const MAX_TAGS = 12;
-const MAX_TAG_INPUT_LENGTH = MAX_TAGS * MAX_TAG_LENGTH + (MAX_TAGS - 1) * 2;
+export const MAX_TAGS_FIELD_LENGTH = MAX_TAGS * MAX_TAG_LENGTH + (MAX_TAGS - 1) * 2;
+const MAX_TAG_INPUT_LENGTH = MAX_TAGS_FIELD_LENGTH;
 const PROMPT_NOTE_CHAR_LIMIT = 2_000;
 export const SOURCE_SKILL_DRAFT_PROMPT_VERSION = "source-skill-draft-v1";
 const GENERATION_TIMEOUT_MS = 45_000;
@@ -773,7 +774,6 @@ const tagStringSchema = z
 const tagsInputSchema = z
   .union([tagStringSchema, z.array(z.string().trim().min(1).max(MAX_TAG_LENGTH)).max(MAX_TAGS)])
   .optional();
-
 const draftInputSchema = z.strictObject({
   title: z.string().trim().min(1, "Skill title is required.").max(120),
   objective: z
