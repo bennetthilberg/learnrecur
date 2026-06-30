@@ -1,13 +1,10 @@
 "use client";
 
 import { DotsThreeVertical } from "@phosphor-icons/react";
-import { useActionState, useEffect, useId, useRef, useState, type FormEvent } from "react";
+import Link from "next/link";
+import { useActionState, useEffect, useId, useRef, useState } from "react";
 
-import {
-  deleteSkillPermanentlyAction,
-  updateSkillLifecycleAction,
-  type SkillFormActionState,
-} from "./actions";
+import { updateSkillLifecycleAction, type SkillFormActionState } from "./actions";
 
 type SkillRowStatus = "DRAFT" | "ACTIVE" | "PAUSED" | "ARCHIVED";
 
@@ -39,15 +36,11 @@ export function SkillRowActions({ skillId, skillTitle, status }: SkillRowActions
     updateSkillLifecycleAction,
     initialState,
   );
-  const [, deleteFormAction, deletePending] = useActionState(
-    deleteSkillPermanentlyAction,
-    initialState,
-  );
   const menuId = useId();
   const rootRef = useRef<HTMLDivElement | null>(null);
   const lifecycleItems = getLifecycleItems(status);
   const canDelete = status === "DRAFT" || status === "ARCHIVED";
-  const busy = lifecyclePending || deletePending;
+  const skillHref = `/skills/${skillId}`;
 
   useEffect(() => {
     if (!open) {
@@ -75,16 +68,6 @@ export function SkillRowActions({ skillId, skillTitle, status }: SkillRowActions
     };
   }, [open]);
 
-  function handleDeleteSubmit(event: FormEvent<HTMLFormElement>) {
-    const confirmed = window.confirm(
-      `Delete "${skillTitle}" permanently? This removes its exercises and practice history.`,
-    );
-
-    if (!confirmed) {
-      event.preventDefault();
-    }
-  }
-
   return (
     <div className="skillRowActions" ref={rootRef}>
       <button
@@ -100,40 +83,39 @@ export function SkillRowActions({ skillId, skillTitle, status }: SkillRowActions
 
       {open ? (
         <div className="skillRowActionsMenu" id={menuId}>
-          {lifecycleItems.map((item) => (
-            <form action={lifecycleFormAction} key={item.actionType}>
-              <input name="skillId" type="hidden" value={skillId} />
-              <input name="lifecycleAction" type="hidden" value={item.actionType} />
-              {item.actionType === "archive" ? (
-                <input name="confirmLifecycle" type="hidden" value="yes" />
-              ) : null}
-              <button
+          {lifecycleItems.map((item) =>
+            item.actionType === "archive" ? (
+              <Link
                 className="skillRowActionItem"
                 data-tone={item.tone}
-                disabled={busy}
-                onClick={() => setPendingLifecycleAction(item.actionType)}
-                type="submit"
+                href={skillHref}
+                key={item.actionType}
               >
-                {lifecyclePending && pendingLifecycleAction === item.actionType
-                  ? item.pendingLabel
-                  : item.label}
-              </button>
-            </form>
-          ))}
+                {item.label}
+              </Link>
+            ) : (
+              <form action={lifecycleFormAction} key={item.actionType}>
+                <input name="skillId" type="hidden" value={skillId} />
+                <input name="lifecycleAction" type="hidden" value={item.actionType} />
+                <button
+                  className="skillRowActionItem"
+                  data-tone={item.tone}
+                  disabled={lifecyclePending}
+                  onClick={() => setPendingLifecycleAction(item.actionType)}
+                  type="submit"
+                >
+                  {lifecyclePending && pendingLifecycleAction === item.actionType
+                    ? item.pendingLabel
+                    : item.label}
+                </button>
+              </form>
+            ),
+          )}
 
           {canDelete ? (
-            <form action={deleteFormAction} onSubmit={handleDeleteSubmit}>
-              <input name="skillId" type="hidden" value={skillId} />
-              <input name="confirmationTitle" type="hidden" value={skillTitle} />
-              <button
-                className="skillRowActionItem"
-                data-tone="danger"
-                disabled={busy}
-                type="submit"
-              >
-                {deletePending ? "Deleting" : "Delete"}
-              </button>
-            </form>
+            <Link className="skillRowActionItem" data-tone="danger" href={skillHref}>
+              Delete
+            </Link>
           ) : null}
         </div>
       ) : null}
