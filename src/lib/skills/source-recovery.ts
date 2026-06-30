@@ -1,9 +1,10 @@
 import "server-only";
 
-import { Prisma, SourceFileKind, SourceFileStatus } from "@/generated/prisma/client";
+import { SourceFileKind, SourceFileStatus, type Prisma } from "@/generated/prisma/client";
 import { getPrisma } from "@/lib/prisma";
 import {
   canRequeueSourceUploadMetadata,
+  isDismissedSourceUploadMetadata,
   isSourceUploadDismissible,
   isSourceUploadProcessingStale,
   SOURCE_PROCESSING_STALE_AFTER_MS,
@@ -62,10 +63,6 @@ export async function getSkillCreationSourceRecoveryItems(input: {
           },
         },
       ],
-      metadata: {
-        path: ["dismissedAt"],
-        equals: Prisma.AnyNull,
-      },
     },
     orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
     select: {
@@ -85,6 +82,7 @@ export async function getSkillCreationSourceRecoveryItems(input: {
 
   return sourceFiles
     .filter(isSourceRecoveryRecord)
+    .filter((sourceFile) => !isDismissedSourceUploadMetadata(sourceFile.metadata))
     .map((sourceFile) => toSkillCreationSourceRecoveryItem(sourceFile, input.now))
     .filter(isVisibleSkillCreationRecoveryItem);
 }

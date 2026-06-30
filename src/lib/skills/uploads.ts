@@ -785,6 +785,9 @@ export async function requeueSourceUploadDraft(
       id: sourceFile.id,
       userId: input.userId,
       status: sourceFile.status,
+      storageBucket: sourceFile.storageBucket,
+      storageKey: sourceFile.storageKey,
+      updatedAt: sourceFile.updatedAt,
     },
     data: {
       status: SourceFileStatus.UPLOADED,
@@ -816,6 +819,8 @@ export async function requeueSourceUploadDraft(
         id: sourceFile.id,
         userId: input.userId,
         status: SourceFileStatus.UPLOADED,
+        storageBucket: sourceFile.storageBucket,
+        storageKey: sourceFile.storageKey,
       },
       data: {
         status: sourceFile.status,
@@ -1115,6 +1120,9 @@ export async function runQueuedSourceUploadDraftJob(
       id: sourceFile.id,
       userId: input.userId,
       status: SourceFileStatus.UPLOADED,
+      storageBucket: sourceFile.storageBucket,
+      storageKey: sourceFile.storageKey,
+      updatedAt: sourceFile.updatedAt,
     },
     data: {
       status: SourceFileStatus.PROCESSING,
@@ -1299,10 +1307,8 @@ export async function runQueuedSourceUploadDraftJob(
     sourceFileId: sourceFile.id,
     sourceFileGuard: {
       status: SourceFileStatus.PROCESSING,
-      metadata: {
-        path: ["dismissedAt"],
-        equals: Prisma.AnyNull,
-      },
+      storageBucket: sourceFile.storageBucket,
+      storageKey: sourceFile.storageKey,
     },
     collectionName: getMetadataString(sourceFile.metadata, "collectionName"),
     focusNote: getMetadataString(sourceFile.metadata, "focusNote"),

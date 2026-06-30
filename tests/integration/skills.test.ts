@@ -2466,6 +2466,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
         originalName: "dismissed-during-completion.png",
         mimeType: "image/png",
         byteSize: "4096",
+        collectionName: "Canceled upload collection",
       },
     });
 
@@ -2480,10 +2481,24 @@ describeDatabase("skill drafts and Gemini activation", () => {
       storage,
       eventSender: createFakeSourceUploadSender().sender,
     });
+    const queuedSource = await prisma.sourceFile.findUniqueOrThrow({
+      where: { id: prepared.sourceFileId },
+      select: { metadata: true },
+    });
+
+    if (
+      !queuedSource.metadata ||
+      typeof queuedSource.metadata !== "object" ||
+      Array.isArray(queuedSource.metadata)
+    ) {
+      throw new Error("Expected queued upload metadata to be an object.");
+    }
+
     await prisma.sourceFile.update({
       where: { id: prepared.sourceFileId },
       data: {
         metadata: {
+          ...queuedSource.metadata,
           retryCount: MAX_SOURCE_UPLOAD_REQUEUE_ATTEMPTS,
         },
       },
@@ -2518,6 +2533,14 @@ describeDatabase("skill drafts and Gemini activation", () => {
       status: "not-found",
       reason: "source-not-found",
     });
+    await expect(
+      prisma.collection.count({
+        where: {
+          userId,
+          name: "Canceled upload collection",
+        },
+      }),
+    ).resolves.toBe(0);
     await expect(prisma.skill.count({ where: { userId } })).resolves.toBe(0);
     await expect(prisma.skillSourceRef.count({ where: { userId } })).resolves.toBe(0);
     await expect(getSkillsLibrary({ userId, now })).resolves.toMatchObject({
@@ -3243,6 +3266,80 @@ describeDatabase("skill drafts and Gemini activation", () => {
       reason: "invalid-upload",
     });
     expect(sender.events).toHaveLength(0);
+  });
+
+  it("does not revive a failed upload dismissed while requeue is validating storage", async () => {
+    const userId = await createUser("upload_requeue_dismissed_race");
+    const storageKey = `source-uploads/${userId}/dismissed-during-requeue.pdf`;
+    const failedSource = await prisma.sourceFile.create({
+      data: {
+        userId,
+        kind: SourceFileKind.PDF,
+        status: SourceFileStatus.FAILED,
+        originalName: "dismissed during requeue",
+        mimeType: "application/pdf",
+        byteSize: 2048,
+        storageBucket: "learnrecur-dev",
+        storageKey,
+        metadata: {
+          errorMessage: "Temporary processing failure.",
+          retryCount: 1,
+        },
+      },
+    });
+    const storageSetup = createFakeUploadStorage({
+      byteSize: 2048,
+    });
+    let dismissed = false;
+    const guardedStorage: SourceUploadStorage = {
+      ...storageSetup.storage,
+      async headObject(input) {
+        if (!dismissed) {
+          dismissed = true;
+          await expect(
+            dismissFailedSourceUpload({
+              userId,
+              sourceFileId: failedSource.id,
+              now,
+              storage: storageSetup.storage,
+            }),
+          ).resolves.toMatchObject({
+            status: "dismissed",
+            sourceFileId: failedSource.id,
+          });
+        }
+
+        return storageSetup.storage.headObject(input);
+      },
+    };
+    const sender = createFakeSourceUploadSender();
+
+    await expect(
+      requeueSourceUploadDraft({
+        userId,
+        sourceFileId: failedSource.id,
+        now,
+        storage: guardedStorage,
+        eventSender: sender.sender,
+      }),
+    ).resolves.toMatchObject({
+      status: "not-queued",
+      reason: "invalid-upload",
+    });
+
+    const dismissedSource = await prisma.sourceFile.findUniqueOrThrow({
+      where: { id: failedSource.id },
+    });
+    expect(dismissedSource).toMatchObject({
+      status: SourceFileStatus.FAILED,
+      storageBucket: null,
+      storageKey: null,
+      metadata: expect.objectContaining({
+        dismissedAt: now.toISOString(),
+      }),
+    });
+    expect(sender.events).toEqual([]);
+    expect(storageSetup.deletedKeys).toEqual([storageKey]);
   });
 
   it("allows saved upload rows to be dismissed", async () => {

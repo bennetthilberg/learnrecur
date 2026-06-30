@@ -4647,25 +4647,42 @@ async function createGeneratedSkillDraftsForSourceFileInTransaction(
       status: "not-found";
     }
 > {
-  const collectionId = await resolveCollectionId(tx, input.userId, input.collectionName);
+  const sourceFileWhere = {
+    ...input.sourceFileGuard,
+    id: input.sourceFileId,
+    userId: input.userId,
+  };
+  const updatedSourceFile = input.sourceFileUpdate
+    ? await tx.sourceFile.updateMany({
+        where: sourceFileWhere,
+        data: input.sourceFileUpdate,
+      })
+    : await tx.sourceFile.findFirst({
+        where: sourceFileWhere,
+        select: {
+          id: true,
+        },
+      });
 
-  const updatedSourceFile = await tx.sourceFile.updateMany({
-    where: {
-      ...input.sourceFileGuard,
-      id: input.sourceFileId,
-      userId: input.userId,
-    },
-    data: {
-      ...input.sourceFileUpdate,
-      collectionId,
-    },
-  });
-
-  if (updatedSourceFile.count !== 1) {
+  if (!updatedSourceFile || ("count" in updatedSourceFile && updatedSourceFile.count !== 1)) {
     return {
       status: "not-found",
     };
   }
+
+  const collectionId = await resolveCollectionId(tx, input.userId, input.collectionName);
+
+  await tx.sourceFile.update({
+    where: {
+      id_userId: {
+        id: input.sourceFileId,
+        userId: input.userId,
+      },
+    },
+    data: {
+      collectionId,
+    },
+  });
 
   const skills: Skill[] = [];
   const skillSourceRefIds: string[] = [];

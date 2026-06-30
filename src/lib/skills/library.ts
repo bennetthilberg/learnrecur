@@ -4,10 +4,10 @@ import {
   AnswerKind,
   ExerciseVerificationStatus,
   GenerationJobStatus,
-  Prisma,
   SkillStatus,
   SourceFileKind,
   SourceFileStatus,
+  type Prisma,
   type SkillFsrsState,
 } from "@/generated/prisma/client";
 import { isPracticeReadModelExerciseReady } from "@/lib/practice/read-model-eligibility";
@@ -198,10 +198,6 @@ export async function getSkillsLibrary(input: GetSkillsLibraryInput): Promise<Sk
         },
         kind: {
           in: [SourceFileKind.IMAGE, SourceFileKind.PDF, SourceFileKind.TEXT],
-        },
-        metadata: {
-          path: ["dismissedAt"],
-          equals: Prisma.AnyNull,
         },
       },
       orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
