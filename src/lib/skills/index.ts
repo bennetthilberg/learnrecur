@@ -54,11 +54,14 @@ export const SOURCE_CONTEXT_CHAR_LIMIT = 4_000;
 export const EXISTING_EXERCISE_CONTEXT_CHAR_LIMIT = 3_000;
 export const MAX_GENERATED_SKILL_DRAFTS = 3;
 const MAX_COLLECTION_NAME_LENGTH = 120;
-const MAX_DRAFT_NOTE_LENGTH = 1_000;
+const MAX_DRAFT_NOTE_LINE_LENGTH = 500;
 const MAX_DRAFT_NOTE_ITEMS = 8;
+const MAX_DRAFT_NOTE_LENGTH =
+  MAX_DRAFT_NOTE_ITEMS * MAX_DRAFT_NOTE_LINE_LENGTH + (MAX_DRAFT_NOTE_ITEMS - 1);
 const MAX_EXERCISE_CONSTRAINTS_LENGTH = 1_000;
 const MAX_TAG_LENGTH = 40;
 const MAX_TAGS = 12;
+const MAX_TAG_INPUT_LENGTH = MAX_TAGS * MAX_TAG_LENGTH + (MAX_TAGS - 1) * 2;
 const PROMPT_NOTE_CHAR_LIMIT = 2_000;
 export const SOURCE_SKILL_DRAFT_PROMPT_VERSION = "source-skill-draft-v1";
 const GENERATION_TIMEOUT_MS = 45_000;
@@ -704,9 +707,33 @@ const optionalTrimmedStringSchema = z.preprocess((value) => {
 const noteListStringSchema = optionalTrimmedStringSchema.pipe(
   z
     .string()
-    .max(MAX_DRAFT_NOTE_LENGTH)
-    .refine((value) => splitNoteLines(value).length <= MAX_DRAFT_NOTE_ITEMS, {
-      message: `Use at most ${MAX_DRAFT_NOTE_ITEMS} non-empty lines.`,
+    .superRefine((value, ctx) => {
+      if (value.length > MAX_DRAFT_NOTE_LENGTH) {
+        ctx.addIssue({
+          code: "too_big",
+          maximum: MAX_DRAFT_NOTE_LENGTH,
+          origin: "string",
+          inclusive: true,
+          message: `Use ${MAX_DRAFT_NOTE_LENGTH} characters or fewer.`,
+        });
+        return;
+      }
+
+      const budget = checkNoteLineBudget(value);
+
+      if (budget.reason === "too-many-lines") {
+        ctx.addIssue({
+          code: "custom",
+          message: `Use at most ${MAX_DRAFT_NOTE_ITEMS} non-empty lines.`,
+        });
+      }
+
+      if (budget.reason === "line-too-long") {
+        ctx.addIssue({
+          code: "custom",
+          message: `Each line must be ${MAX_DRAFT_NOTE_LINE_LENGTH} characters or fewer.`,
+        });
+      }
     })
     .optional(),
 );
@@ -715,8 +742,18 @@ const exerciseConstraintsStringSchema = optionalTrimmedStringSchema.pipe(
 );
 const tagStringSchema = z
   .string()
-  .max(MAX_TAGS * (MAX_TAG_LENGTH + 1))
   .superRefine((value, ctx) => {
+    if (value.length > MAX_TAG_INPUT_LENGTH) {
+      ctx.addIssue({
+        code: "too_big",
+        maximum: MAX_TAG_INPUT_LENGTH,
+        origin: "string",
+        inclusive: true,
+        message: `Use ${MAX_TAG_INPUT_LENGTH} characters or fewer.`,
+      });
+      return;
+    }
+
     const tags = splitTagParts(value);
 
     if (tags.length > MAX_TAGS) {
@@ -776,8 +813,8 @@ const sourceSkillDraftInputSchema = z.strictObject({
 const generatedSkillDraftSchema = z.strictObject({
   title: z.string().trim().min(1).max(120),
   objective: z.string().trim().min(12).max(1200),
-  rules: z.array(z.string().trim().min(1).max(500)).min(1).max(8),
-  examples: z.array(z.string().trim().min(1).max(500)).min(1).max(8),
+  rules: z.array(z.string().trim().min(1).max(MAX_DRAFT_NOTE_LINE_LENGTH)).min(1).max(8),
+  examples: z.array(z.string().trim().min(1).max(MAX_DRAFT_NOTE_LINE_LENGTH)).min(1).max(8),
   exerciseConstraints: z.string().trim().min(1).max(1000),
   tags: z.array(z.string().trim().min(1).max(40)).max(8),
 });
@@ -5612,6 +5649,38 @@ function splitNoteLines(value?: string): string[] {
     .split(/\n+/)
     .map((line) => line.trim())
     .filter(Boolean);
+}
+
+function checkNoteLineBudget(
+  value: string,
+): { reason: "line-too-long" | "too-many-lines" } | { reason: null } {
+  let lineStart = 0;
+  let nonEmptyLineCount = 0;
+
+  for (let index = 0; index <= value.length; index += 1) {
+    if (index < value.length && value[index] !== "\n") {
+      continue;
+    }
+
+    const line = value.slice(lineStart, index).trim();
+    lineStart = index + 1;
+
+    if (!line) {
+      continue;
+    }
+
+    if (line.length > MAX_DRAFT_NOTE_LINE_LENGTH) {
+      return { reason: "line-too-long" };
+    }
+
+    nonEmptyLineCount += 1;
+
+    if (nonEmptyLineCount > MAX_DRAFT_NOTE_ITEMS) {
+      return { reason: "too-many-lines" };
+    }
+  }
+
+  return { reason: null };
 }
 
 function splitNotes(value?: string): string[] {

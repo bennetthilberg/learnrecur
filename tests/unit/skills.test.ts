@@ -187,6 +187,42 @@ describe("normalizeSkillDraftInput", () => {
       expect(result.fieldErrors.examples).toBeDefined();
     }
   });
+
+  it("accepts unchanged generated guidance at the rendered draft maximum", () => {
+    const maxNotes = Array.from({ length: 8 }, () => "x".repeat(500)).join("\n");
+    const result = normalizeSkillDraftInput({
+      title: "Ser vs estar basics",
+      objective: "Choose between ser and estar in common identity/location cases.",
+      rules: maxNotes,
+      examples: maxNotes,
+    });
+
+    expect(result.status).toBe("ready");
+
+    if (result.status === "ready") {
+      expect(result.value.rules).toHaveLength(8);
+      expect(result.value.examples).toHaveLength(8);
+      expect(result.value.rules[0]).toHaveLength(500);
+    }
+  });
+
+  it("accepts the rendered maximum tag list", () => {
+    const tags = Array.from(
+      { length: 12 },
+      (_, index) => `tag-${String(index).padStart(2, "0")}-${"x".repeat(33)}`,
+    );
+    const result = normalizeSkillDraftInput({
+      title: "Ser vs estar basics",
+      objective: "Choose between ser and estar in common identity/location cases.",
+      tags: tags.join(", "),
+    });
+
+    expect(result.status).toBe("ready");
+
+    if (result.status === "ready") {
+      expect(result.value.tags).toEqual(tags);
+    }
+  });
 });
 
 describe("normalizeSkillPracticeGuidanceInput", () => {
