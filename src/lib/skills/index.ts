@@ -743,9 +743,17 @@ const draftInputSchema = z.strictObject({
     .min(12, "Describe the skill objective in at least 12 characters.")
     .max(1200),
   collectionName: optionalTrimmedStringSchema,
-  rules: optionalTrimmedStringSchema,
-  examples: optionalTrimmedStringSchema,
-  exerciseConstraints: optionalTrimmedStringSchema,
+  rules: optionalSkillGuidanceNotesSchema("Rules"),
+  examples: optionalSkillGuidanceNotesSchema("Examples"),
+  exerciseConstraints: optionalTrimmedStringSchema.pipe(
+    z
+      .string()
+      .max(
+        MAX_SKILL_GUIDANCE_CONSTRAINT_CHARS,
+        `Exercise constraints must be ${MAX_SKILL_GUIDANCE_CONSTRAINT_CHARS.toLocaleString("en-US")} characters or fewer.`,
+      )
+      .optional(),
+  ),
   tags: z.union([z.string(), z.array(z.string())]).optional(),
 });
 
