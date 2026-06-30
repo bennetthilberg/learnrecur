@@ -67,7 +67,16 @@ export async function previewChoicePracticeAnswerAction(
 export async function previewPracticeAnswerAction(
   input: PreviewPracticeAnswerInput,
 ): Promise<PracticePreviewResult> {
-  const userId = await requirePracticeUserId();
+  const practiceUser = await requirePracticeUserId();
+
+  if (practiceUser.status !== "ready") {
+    return {
+      status: "not-found",
+      message: practiceUser.message,
+    };
+  }
+
+  const userId = practiceUser.userId;
   const scope = await resolveActivePracticeScope(userId, input);
 
   if (scope.status === "unavailable") {
@@ -119,7 +128,16 @@ export async function commitChoicePracticeReviewAction(
 export async function commitPracticeReviewAction(
   input: CommitPracticeReviewInput,
 ): Promise<PracticeCommitResult> {
-  const userId = await requirePracticeUserId();
+  const practiceUser = await requirePracticeUserId();
+
+  if (practiceUser.status !== "ready") {
+    return {
+      status: "not-found",
+      message: practiceUser.message,
+    };
+  }
+
+  const userId = practiceUser.userId;
   const reviewedAt = new Date();
   const scope = await resolveActivePracticeScope(userId, input);
 
@@ -182,7 +200,16 @@ export async function flagChoicePracticeExerciseAction(
 export async function flagPracticeExerciseAction(
   input: FlagChoicePracticeExerciseInput,
 ): Promise<PracticeFlagResult> {
-  const userId = await requirePracticeUserId();
+  const practiceUser = await requirePracticeUserId();
+
+  if (practiceUser.status !== "ready") {
+    return {
+      status: "not-found",
+      message: practiceUser.message,
+    };
+  }
+
+  const userId = practiceUser.userId;
   const flaggedAt = new Date();
   const scope = await resolveActivePracticeScope(userId, input);
 
@@ -270,9 +297,39 @@ export async function ensureDevPracticeSampleDataAction(): Promise<ChoicePractic
   };
 }
 
-async function requirePracticeUserId(): Promise<string> {
+async function requirePracticeUserId(): Promise<
+  | {
+      status: "ready";
+      userId: string;
+    }
+  | {
+      status: "error";
+      message: string;
+    }
+> {
   const { userId } = await auth.protect();
-  return userId;
+  const clerkUser = await currentUser();
+
+  if (!clerkUser) {
+    return {
+      status: "error",
+      message: "Could not load the signed-in Clerk user.",
+    };
+  }
+
+  const databaseUser = await ensureDatabaseUser(clerkUser);
+
+  if (databaseUser.status !== "ready") {
+    return {
+      status: "error",
+      message: databaseUser.message,
+    };
+  }
+
+  return {
+    status: "ready",
+    userId,
+  };
 }
 
 async function resolveActivePracticeScope(

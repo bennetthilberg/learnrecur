@@ -1,6 +1,8 @@
+import { shouldCheckProductionEnv } from "./env";
+
 const splitList = (value: string | undefined): string[] =>
   (value ?? "")
-    .split(",")
+    .split(/[,\s]+/)
     .map((item) => item.trim().toLowerCase())
     .filter(Boolean);
 
@@ -29,11 +31,12 @@ export function hasAlphaAccessAllowlist(env: NodeJS.ProcessEnv = process.env): b
 export function checkAlphaAccessForEmail(
   email: string | null | undefined,
   config: AlphaAccessConfig = getAlphaAccessConfig(),
+  env: NodeJS.ProcessEnv = process.env,
 ): AlphaAccessResult {
   const hasAllowlist = config.allowedEmails.length > 0 || config.allowedDomains.length > 0;
 
   if (!hasAllowlist) {
-    return process.env.NODE_ENV === "production"
+    return shouldCheckProductionEnv(env)
       ? { allowed: false, reason: "missing-allowlist" }
       : { allowed: true };
   }

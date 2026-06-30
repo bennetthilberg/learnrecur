@@ -53,6 +53,7 @@ describe("ensureDatabaseUser", () => {
     delete process.env.DIRECT_URL;
     delete process.env.ALPHA_ALLOWED_EMAILS;
     delete process.env.ALPHA_ALLOWED_DOMAINS;
+    delete process.env.VERCEL_ENV;
   });
 
   afterEach(() => {
@@ -106,6 +107,52 @@ describe("ensureDatabaseUser", () => {
       }),
     ).resolves.toMatchObject({ status: "ready" });
     expect(second.upsert).toHaveBeenCalledOnce();
+  });
+
+  it("accepts comma or whitespace separated alpha allowlist entries", async () => {
+    process.env.ALPHA_ALLOWED_EMAILS = "invited@example.com ada@example.com";
+    process.env.ALPHA_ALLOWED_DOMAINS = "example.org\nexample.net";
+    const { client, upsert } = makeMirrorClient();
+
+    await expect(
+      ensureDatabaseUser(baseClerkUser, {
+        prisma: client,
+        skipEnvCheck: true,
+      }),
+    ).resolves.toMatchObject({ status: "ready" });
+    expect(upsert).toHaveBeenCalledOnce();
+  });
+
+  it("does not require an alpha allowlist for Vercel preview deployments", async () => {
+    process.env.NODE_ENV = "production";
+    process.env.VERCEL_ENV = "preview";
+    const { client, upsert } = makeMirrorClient();
+
+    await expect(
+      ensureDatabaseUser(baseClerkUser, {
+        prisma: client,
+        skipEnvCheck: true,
+      }),
+    ).resolves.toMatchObject({ status: "ready" });
+    expect(upsert).toHaveBeenCalledOnce();
+  });
+
+  it("requires an alpha allowlist for Vercel production deployments", async () => {
+    process.env.NODE_ENV = "production";
+    process.env.VERCEL_ENV = "production";
+    const { client, upsert } = makeMirrorClient();
+
+    await expect(
+      ensureDatabaseUser(baseClerkUser, {
+        prisma: client,
+        skipEnvCheck: true,
+      }),
+    ).resolves.toEqual({
+      status: "access-denied",
+      message:
+        "Alpha access is not configured. Add ALPHA_ALLOWED_EMAILS or ALPHA_ALLOWED_DOMAINS before accepting sign-ups.",
+    });
+    expect(upsert).not.toHaveBeenCalled();
   });
 
   it("creates or updates the mirrored user by Clerk ID", async () => {
