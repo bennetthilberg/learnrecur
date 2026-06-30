@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { checkAnswer } from "@/lib/answer-checking";
+import {
+  MAX_NUMERIC_ANSWER_LENGTH,
+  MAX_TEXT_ANSWER_LENGTH,
+  checkAnswer,
+} from "@/lib/answer-checking";
 
 const choices = [
   { id: "ser", label: "ser" },
@@ -140,6 +144,24 @@ describe("checkAnswer text answers", () => {
     });
   });
 
+  it("rejects over-limit text answers before normalization", () => {
+    expect(
+      checkAnswer({
+        answerSpec: {
+          kind: "text",
+          accepted: ["ser"],
+        },
+        submittedAnswer: "a".repeat(MAX_TEXT_ANSWER_LENGTH + 1),
+      }),
+    ).toEqual({
+      status: "invalid-input",
+      isCorrect: false,
+      normalizedAnswer: null,
+      reason: "input-too-large",
+      message: `Enter ${MAX_TEXT_ANSWER_LENGTH} characters or fewer.`,
+    });
+  });
+
   it("matches accepted variants only, not contains-style answers", () => {
     expect(
       checkAnswer({
@@ -226,6 +248,24 @@ describe("checkAnswer numeric answers", () => {
       status: "incorrect",
       isCorrect: false,
       normalizedAnswer: "0.7505",
+    });
+  });
+
+  it("rejects over-limit numeric answers before parsing", () => {
+    expect(
+      checkAnswer({
+        answerSpec: {
+          kind: "numeric",
+          accepted: [1],
+        },
+        submittedAnswer: "1".repeat(MAX_NUMERIC_ANSWER_LENGTH + 1),
+      }),
+    ).toEqual({
+      status: "invalid-input",
+      isCorrect: false,
+      normalizedAnswer: null,
+      reason: "input-too-large",
+      message: `Enter ${MAX_NUMERIC_ANSWER_LENGTH} characters or fewer.`,
     });
   });
 

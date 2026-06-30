@@ -1,10 +1,22 @@
 import { ComputeEngine, type Expression } from "@cortex-js/compute-engine";
 import { z } from "zod";
 
+import {
+  MAX_MATH_EXPRESSION_LENGTH,
+  MAX_MATH_EXPRESSION_NESTING,
+  MAX_NUMERIC_ANSWER_LENGTH,
+  MAX_TEXT_ANSWER_LENGTH,
+} from "@/lib/answer-limits";
+
+export {
+  MAX_MATH_EXPRESSION_LENGTH,
+  MAX_MATH_EXPRESSION_NESTING,
+  MAX_NUMERIC_ANSWER_LENGTH,
+  MAX_TEXT_ANSWER_LENGTH,
+} from "@/lib/answer-limits";
+
 const DEFAULT_NUMERIC_TOLERANCE = 0.001;
 const DEFAULT_MATH_EQUIVALENCE = "basic-symbolic";
-export const MAX_MATH_EXPRESSION_LENGTH = 500;
-export const MAX_MATH_EXPRESSION_NESTING = 32;
 
 const nonEmptyStringSchema = z.string().trim().min(1);
 const mathExpressionStringSchema = nonEmptyStringSchema.max(MAX_MATH_EXPRESSION_LENGTH);
@@ -94,6 +106,7 @@ export type AnswerCheckReason =
   | "duplicate-choice-id"
   | "empty-answer"
   | "invalid-accepted-number"
+  | "input-too-large"
   | "invalid-accepted-expression"
   | "invalid-answer-spec"
   | "invalid-choices"
@@ -115,7 +128,7 @@ export type AnswerCheckResult = {
 
 type NumericParseFailureReason = Extract<
   AnswerCheckReason,
-  "empty-answer" | "invalid-accepted-number" | "malformed-number" | "zero-denominator"
+  "empty-answer" | "input-too-large" | "invalid-accepted-number" | "malformed-number" | "zero-denominator"
 >;
 
 type ParsedNumber =
@@ -229,6 +242,10 @@ function checkChoiceAnswer(
 function checkTextAnswer(answerSpec: TextAnswerSpec, submittedAnswer: unknown): AnswerCheckResult {
   if (typeof submittedAnswer !== "string") {
     return invalidInput("wrong-answer-shape", "Enter a text answer.");
+  }
+
+  if (submittedAnswer.length > MAX_TEXT_ANSWER_LENGTH) {
+    return invalidInput("input-too-large", `Enter ${MAX_TEXT_ANSWER_LENGTH} characters or fewer.`);
   }
 
   const normalizedAnswer = normalizeTextAnswer(submittedAnswer, answerSpec);
@@ -533,6 +550,14 @@ function parseNumericInput(input: unknown, source: "input" | "spec"): ParsedNumb
 
   if (typeof input !== "string") {
     return invalidNumeric(source, "malformed-number", "Enter a number or fraction.");
+  }
+
+  if (source === "input" && input.length > MAX_NUMERIC_ANSWER_LENGTH) {
+    return invalidNumeric(
+      source,
+      "input-too-large",
+      `Enter ${MAX_NUMERIC_ANSWER_LENGTH} characters or fewer.`,
+    );
   }
 
   const trimmed = input.trim();
