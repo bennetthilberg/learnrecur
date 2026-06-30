@@ -211,6 +211,24 @@ describe("source upload recovery helpers", () => {
     );
   });
 
+  it("consumes a retry attempt for requeued uploaded source metadata", () => {
+    expect(
+      buildSourceUploadRequeueMetadata(
+        {
+          originalFileName: "worksheet.pdf",
+        },
+        now,
+        { requeueAttemptId: "attempt-1" },
+      ),
+    ).toMatchObject({
+      originalFileName: "worksheet.pdf",
+      queuedAt: "2026-06-05T12:00:00.000Z",
+      requeuedAt: "2026-06-05T12:00:00.000Z",
+      requeueAttemptId: "attempt-1",
+      retryCount: 1,
+    });
+  });
+
   it("dismisses failed uploads and capped waiting uploads that have not already been dismissed", () => {
     expect(
       isSourceUploadDismissible(

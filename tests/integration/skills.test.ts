@@ -2640,7 +2640,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
     expect(deletedKeys).toEqual([prepared.objectKey]);
   });
 
-  it("resends an uploaded source without consuming retry attempts", async () => {
+  it("resends an uploaded source while counting retry attempts", async () => {
     const userId = await createUser("upload_requeue_uploaded");
     const { storage } = createFakeUploadStorage({
       byteSize: 4096,
@@ -2719,8 +2719,8 @@ describeDatabase("skill drafts and Gemini activation", () => {
     expect(sourceFile.metadata).toMatchObject({
       queuedAt: secondRequeueAt.toISOString(),
       requeuedAt: secondRequeueAt.toISOString(),
+      retryCount: 2,
     });
-    expect(sourceFile.metadata).not.toHaveProperty("retryCount");
   });
 
   it("rejects requeue for uploaded and stale processing sources at the retry limit", async () => {

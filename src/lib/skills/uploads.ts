@@ -358,7 +358,6 @@ export function buildSourceUploadRequeueMetadata(
   metadata: Prisma.JsonValue | null,
   now: Date,
   options: {
-    consumeRetry?: boolean;
     requeueAttemptId?: string;
   } = {},
 ): Prisma.InputJsonObject {
@@ -371,7 +370,7 @@ export function buildSourceUploadRequeueMetadata(
     queuedAt: timestamp,
     requeuedAt: timestamp,
     ...(options.requeueAttemptId ? { requeueAttemptId: options.requeueAttemptId } : {}),
-    ...((options.consumeRetry ?? true) ? { retryCount: retryCount + 1 } : {}),
+    retryCount: retryCount + 1,
   };
 }
 
@@ -779,7 +778,6 @@ export async function requeueSourceUploadDraft(
 
   const requeueAttemptId = randomUUID();
   const requeueMetadata = buildSourceUploadRequeueMetadata(sourceFile.metadata, input.now, {
-    consumeRetry: sourceFile.status !== SourceFileStatus.UPLOADED,
     requeueAttemptId,
   });
   const requeued = await prisma.sourceFile.updateMany({
