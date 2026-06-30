@@ -1812,6 +1812,239 @@ describeDatabase("skill drafts and Gemini activation", () => {
     }
   });
 
+  it("revalidates queued upload size before downloading source bytes", async () => {
+    const userId = await createUser("upload_oversized_revalidated");
+    let byteSize = 2048;
+    let getObjectBytesCalls = 0;
+    const { storage, deletedKeys } = createFakeUploadStorage({
+      byteSize,
+      bytes: Buffer.from("valid queued upload"),
+    });
+    const guardedStorage: SourceUploadStorage = {
+      ...storage,
+      async headObject(input) {
+        const head = await storage.headObject(input);
+        return {
+          ...head,
+          byteSize,
+        };
+      },
+      async getObjectBytes(input) {
+        getObjectBytesCalls += 1;
+        return storage.getObjectBytes(input);
+      },
+    };
+    const prepared = await prepareSourceUpload({
+      userId,
+      now,
+      storage: guardedStorage,
+      input: {
+        originalName: "oversized-overwrite.png",
+        mimeType: "image/png",
+        byteSize: String(byteSize),
+      },
+    });
+
+    if (prepared.status !== "prepared") {
+      throw new Error("Expected upload preparation to succeed.");
+    }
+
+    const { sender } = createFakeSourceUploadSender();
+    const queued = await queueSourceUploadDrafts({
+      userId,
+      sourceFileId: prepared.sourceFileId,
+      now,
+      storage: guardedStorage,
+      eventSender: sender,
+    });
+
+    expect(queued.status).toBe("queued");
+
+    byteSize = MAX_SOURCE_UPLOAD_BYTES + 1;
+
+    const completed = await runQueuedSourceUploadDraftJob({
+      userId,
+      sourceFileId: prepared.sourceFileId,
+      now,
+      storage: guardedStorage,
+      extractSourceText: successfulSourceExtractor,
+      generateSkillDraft: successfulSkillDraftGenerator,
+      model: "test-gemini",
+    });
+
+    expect(completed).toMatchObject({
+      status: "not-created",
+      reason: "invalid-upload",
+      message: "Uploaded file is missing or larger than 10 MB.",
+    });
+    expect(getObjectBytesCalls).toBe(0);
+
+    const failedSource = await prisma.sourceFile.findUniqueOrThrow({
+      where: { id: prepared.sourceFileId },
+    });
+    expect(failedSource.status).toBe(SourceFileStatus.FAILED);
+    expect(failedSource.storageKey).toBeNull();
+    expect(failedSource.storageBucket).toBeNull();
+    expect(failedSource.byteSize).toBeNull();
+    expect(failedSource.metadata).toMatchObject({
+      failureReason: "invalid-upload",
+      errorMessage: "Uploaded file is missing or larger than 10 MB.",
+    });
+    expect(deletedKeys).toEqual([prepared.objectKey]);
+  });
+
+  it("cleans up queued upload state when head revalidation cannot find the object", async () => {
+    const userId = await createUser("upload_missing_head_object");
+    const missingObjectError = Object.assign(new Error("object missing"), {
+      name: "NoSuchKey",
+      $metadata: {
+        httpStatusCode: 404,
+      },
+    });
+    let headError: Error | null = null;
+    const { storage, deletedKeys } = createFakeUploadStorage({
+      byteSize: 2048,
+      bytes: Buffer.from("valid queued upload"),
+    });
+    const guardedStorage: SourceUploadStorage = {
+      ...storage,
+      async headObject(input) {
+        if (headError) {
+          throw headError;
+        }
+
+        return storage.headObject(input);
+      },
+    };
+    const prepared = await prepareSourceUpload({
+      userId,
+      now,
+      storage: guardedStorage,
+      input: {
+        originalName: "missing-after-queue.png",
+        mimeType: "image/png",
+        byteSize: "2048",
+      },
+    });
+
+    if (prepared.status !== "prepared") {
+      throw new Error("Expected upload preparation to succeed.");
+    }
+
+    const queued = await queueSourceUploadDrafts({
+      userId,
+      sourceFileId: prepared.sourceFileId,
+      now,
+      storage: guardedStorage,
+      eventSender: createFakeSourceUploadSender().sender,
+    });
+
+    expect(queued.status).toBe("queued");
+
+    headError = missingObjectError;
+
+    await expect(
+      runQueuedSourceUploadDraftJob({
+        userId,
+        sourceFileId: prepared.sourceFileId,
+        now,
+        storage: guardedStorage,
+        extractSourceText: successfulSourceExtractor,
+        generateSkillDraft: successfulSkillDraftGenerator,
+        model: "test-gemini",
+      }),
+    ).resolves.toMatchObject({
+      status: "not-created",
+      reason: "invalid-upload",
+      message: "Uploaded file is missing or larger than 10 MB.",
+    });
+
+    const failedSource = await prisma.sourceFile.findUniqueOrThrow({
+      where: { id: prepared.sourceFileId },
+    });
+    expect(failedSource.status).toBe(SourceFileStatus.FAILED);
+    expect(failedSource.storageKey).toBeNull();
+    expect(failedSource.storageBucket).toBeNull();
+    expect(failedSource.byteSize).toBeNull();
+    expect(deletedKeys).toEqual([prepared.objectKey]);
+  });
+
+  it("stores the revalidated upload size when later processing fails", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const userId = await createUser("upload_revalidated_size_failure");
+    const queuedByteSize = 2048;
+    const actualByteSize = 4096;
+    let byteSize = queuedByteSize;
+    const { storage, deletedKeys } = createFakeUploadStorage({
+      byteSize: queuedByteSize,
+      bytes: Buffer.from("valid queued upload"),
+    });
+    const guardedStorage: SourceUploadStorage = {
+      ...storage,
+      async headObject(input) {
+        const head = await storage.headObject(input);
+        return {
+          ...head,
+          byteSize,
+        };
+      },
+    };
+    const prepared = await prepareSourceUpload({
+      userId,
+      now,
+      storage: guardedStorage,
+      input: {
+        originalName: "changed-size-before-failure.png",
+        mimeType: "image/png",
+        byteSize: String(queuedByteSize),
+      },
+    });
+
+    if (prepared.status !== "prepared") {
+      throw new Error("Expected upload preparation to succeed.");
+    }
+
+    await queueSourceUploadDrafts({
+      userId,
+      sourceFileId: prepared.sourceFileId,
+      now,
+      storage: guardedStorage,
+      eventSender: createFakeSourceUploadSender().sender,
+    });
+
+    byteSize = actualByteSize;
+
+    try {
+      await expect(
+        runQueuedSourceUploadDraftJob({
+          userId,
+          sourceFileId: prepared.sourceFileId,
+          now,
+          storage: guardedStorage,
+          extractSourceText: async () => {
+            throw new Error("temporary extractor failure");
+          },
+          generateSkillDraft: successfulSkillDraftGenerator,
+          model: "test-gemini",
+        }),
+      ).resolves.toMatchObject({
+        status: "not-created",
+        reason: "extraction-failed",
+      });
+
+      const failedSource = await prisma.sourceFile.findUniqueOrThrow({
+        where: { id: prepared.sourceFileId },
+      });
+      expect(failedSource.status).toBe(SourceFileStatus.FAILED);
+      expect(failedSource.storageKey).toBe(prepared.objectKey);
+      expect(failedSource.storageBucket).toBe("learnrecur-dev");
+      expect(failedSource.byteSize).toBe(actualByteSize);
+      expect(deletedKeys).toEqual([]);
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
   it("does not overwrite an upload that changes while processing failure is recorded", async () => {
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
     const userId = await createUser("upload_failure_state_changed");
@@ -1895,7 +2128,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
 
   it("cleans up uploaded source state when downloaded bytes exceed the upload limit", async () => {
     const userId = await createUser("upload_oversized_download");
-    const { storage, deletedKeys } = createFakeUploadStorage({
+    const { storage, deletedKeys, getObjectByteInputs } = createFakeUploadStorage({
       byteSize: 2048,
       bytes: Buffer.alloc(MAX_SOURCE_UPLOAD_BYTES + 1, "a"),
     });
@@ -1960,6 +2193,11 @@ describeDatabase("skill drafts and Gemini activation", () => {
       errorMessage: "Uploaded file is missing or larger than 10 MB.",
       canRequeue: false,
     });
+    expect(getObjectByteInputs).toEqual([
+      expect.objectContaining({
+        maxBytes: MAX_SOURCE_UPLOAD_BYTES,
+      }),
+    ]);
     expect(deletedKeys).toEqual([prepared.objectKey]);
   });
 
