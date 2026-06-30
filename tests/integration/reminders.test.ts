@@ -92,7 +92,7 @@ describeDatabase("due email reminders", () => {
       userId,
       input: {
         enabled: true,
-        email: " reminders@example.com ",
+        email: " settings@example.com ",
         localHour: "8",
         timezone: "America/Chicago",
         minimumDueCount: "3",
@@ -103,7 +103,7 @@ describeDatabase("due email reminders", () => {
       status: "saved",
       preference: {
         enabled: true,
-        email: "reminders@example.com",
+        email: "settings@example.com",
         localHour: 8,
         timezone: "America/Chicago",
         minimumDueCount: 3,
@@ -114,7 +114,7 @@ describeDatabase("due email reminders", () => {
       userId,
       input: {
         enabled: false,
-        email: "later@example.com",
+        email: "settings@example.com",
         localHour: 10,
         timezone: "America/New_York",
         minimumDueCount: 1,
@@ -125,7 +125,7 @@ describeDatabase("due email reminders", () => {
       status: "saved",
       preference: {
         enabled: false,
-        email: "later@example.com",
+        email: "settings@example.com",
         localHour: 10,
       },
     });
@@ -148,6 +148,30 @@ describeDatabase("due email reminders", () => {
       status: "not-found",
       message: "Sign in again before changing reminders.",
     });
+  });
+
+  it("rejects reminder recipients that do not match the user's account email", async () => {
+    const userId = await createUser("recipient-owner", "owner@example.com");
+
+    const result = await saveReminderPreference({
+      userId,
+      input: {
+        enabled: true,
+        email: "victim@example.com",
+        localHour: 9,
+        timezone: "America/New_York",
+        minimumDueCount: 1,
+      },
+    });
+
+    expect(result).toEqual({
+      status: "invalid",
+      message: "Use the email address verified for your account.",
+      fieldErrors: {
+        email: ["Reminder emails can only be sent to your account email address."],
+      },
+    });
+    expect(await prisma.reminderPreference.count({ where: { userId } })).toBe(0);
   });
 
   it("does not send or log for disabled preferences", async () => {

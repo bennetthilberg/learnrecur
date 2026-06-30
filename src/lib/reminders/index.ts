@@ -238,13 +238,23 @@ export async function saveReminderPreference(input: {
   const prisma = getPrisma();
   const user = await prisma.user.findUnique({
     where: { id: input.userId },
-    select: { id: true },
+    select: { email: true },
   });
 
   if (!user) {
     return {
       status: "not-found",
       message: "Sign in again before changing reminders.",
+    };
+  }
+
+  if (!user.email || normalized.input.email !== user.email) {
+    return {
+      status: "invalid",
+      message: "Use the email address verified for your account.",
+      fieldErrors: {
+        email: ["Reminder emails can only be sent to your account email address."],
+      },
     };
   }
 

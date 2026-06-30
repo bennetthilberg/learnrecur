@@ -145,9 +145,11 @@ export function ReminderSettingsForm({
               disabled={pending}
               maxLength={254}
               name="email"
+              readOnly
               required
               type="email"
             />
+            <span className="settingsFieldHint">Reminders can only be sent to your account email.</span>
             <FieldError id={emailErrorId} state={state} name="email" />
           </label>
         </div>
