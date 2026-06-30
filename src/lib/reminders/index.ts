@@ -102,6 +102,12 @@ export type ProcessDueReminderResult =
       dueCount: number;
     }
   | {
+      status: "invalid-recipient";
+      userId: string;
+      localDate: string;
+      message: string;
+    }
+  | {
       status: "sent";
       userId: string;
       localDate: string;
@@ -123,6 +129,7 @@ export type ProcessDueReminderBatchResult = {
 };
 
 type ReminderPreferenceRecord = NormalizedReminderPreferenceInput & {
+  accountEmail: string | null;
   userId: string;
 };
 
@@ -248,7 +255,7 @@ export async function saveReminderPreference(input: {
     };
   }
 
-  if (!user.email || normalized.input.email !== user.email) {
+  if (!user.email || (normalized.input.enabled && normalized.input.email !== user.email)) {
     return {
       status: "invalid",
       message: "Use the email address verified for your account.",
@@ -258,13 +265,18 @@ export async function saveReminderPreference(input: {
     };
   }
 
+  const preferenceInput = {
+    ...normalized.input,
+    email: user.email,
+  };
+
   const preference = await prisma.reminderPreference.upsert({
     where: { userId: input.userId },
     create: {
       userId: input.userId,
-      ...normalized.input,
+      ...preferenceInput,
     },
-    update: normalized.input,
+    update: preferenceInput,
     select: {
       enabled: true,
       email: true,
@@ -343,6 +355,11 @@ export async function processDueReminderBatch(input: {
       localHour: true,
       timezone: true,
       minimumDueCount: true,
+      user: {
+        select: {
+          email: true,
+        },
+      },
     },
     orderBy: [{ userId: "asc" }],
   });
@@ -353,7 +370,15 @@ export async function processDueReminderBatch(input: {
     const result = await processDueReminderPreference({
       appUrl: input.appUrl,
       now: input.now,
-      preference,
+      preference: {
+        userId: preference.userId,
+        enabled: preference.enabled,
+        email: preference.email,
+        accountEmail: preference.user.email,
+        localHour: preference.localHour,
+        timezone: preference.timezone,
+        minimumDueCount: preference.minimumDueCount,
+      },
       sender: input.sender,
     });
 
@@ -376,6 +401,15 @@ export async function processDueReminderPreference(input: {
   sender?: ReminderEmailSender;
 }): Promise<ProcessDueReminderResult> {
   const localDate = getReminderLocalDate(input.now, input.preference.timezone);
+
+  if (input.preference.email !== input.preference.accountEmail) {
+    return {
+      status: "invalid-recipient",
+      userId: input.preference.userId,
+      localDate,
+      message: "Reminder emails can only be sent to the current account email address.",
+    };
+  }
 
   if (!isReminderLocalHourDue(input.now, input.preference)) {
     return {

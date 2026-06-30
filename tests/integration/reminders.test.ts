@@ -174,6 +174,39 @@ describeDatabase("due email reminders", () => {
     expect(await prisma.reminderPreference.count({ where: { userId } })).toBe(0);
   });
 
+  it("allows stale reminder recipients to be disabled", async () => {
+    const userId = await createUser("disable-stale-recipient", "current@example.com");
+    await prisma.reminderPreference.create({
+      data: {
+        userId,
+        enabled: true,
+        email: "old@example.com",
+        localHour: 9,
+        timezone: "America/New_York",
+        minimumDueCount: 1,
+      },
+    });
+
+    const result = await saveReminderPreference({
+      userId,
+      input: {
+        enabled: false,
+        email: "old@example.com",
+        localHour: 9,
+        timezone: "America/New_York",
+        minimumDueCount: 1,
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: "saved",
+      preference: {
+        enabled: false,
+        email: "current@example.com",
+      },
+    });
+  });
+
   it("does not send or log for disabled preferences", async () => {
     const userId = await createUser("disabled");
     await createDueChoiceSkill(userId, "disabled");
@@ -206,7 +239,7 @@ describeDatabase("due email reminders", () => {
   });
 
   it("logs a skip when due count is below the preference threshold", async () => {
-    const userId = await createUser("below_threshold");
+    const userId = await createUser("below_threshold", "below@example.com");
     await createDueChoiceSkill(userId, "below threshold");
     await prisma.reminderPreference.create({
       data: {
@@ -244,7 +277,7 @@ describeDatabase("due email reminders", () => {
   });
 
   it("sends once per local date when due count meets the threshold", async () => {
-    const userId = await createUser("send_once");
+    const userId = await createUser("send_once", "send@example.com");
     await createDueChoiceSkill(userId, "send once");
     await prisma.reminderPreference.create({
       data: {
@@ -303,8 +336,42 @@ describeDatabase("due email reminders", () => {
     });
   });
 
+  it("does not send to a stored reminder email that no longer matches the user", async () => {
+    const userId = await createUser("stale_recipient", "current-reminder@example.com");
+    await createDueChoiceSkill(userId, "stale recipient");
+    await prisma.reminderPreference.create({
+      data: {
+        userId,
+        enabled: true,
+        email: "old-reminder@example.com",
+        localHour: 9,
+        timezone: "America/New_York",
+        minimumDueCount: 1,
+      },
+    });
+    const sender = createRecordingSender("email_should_not_send");
+
+    const result = await processDueReminderBatch({
+      userIds: [userId],
+      now,
+      appUrl: "https://learnrecur.example",
+      sender,
+    });
+
+    expect(result.results).toEqual([
+      {
+        status: "invalid-recipient",
+        userId,
+        localDate,
+        message: "Reminder emails can only be sent to the current account email address.",
+      },
+    ]);
+    expect(sender.payloads).toHaveLength(0);
+    expect(await prisma.reminderSendLog.count({ where: { userId } })).toBe(0);
+  });
+
   it("retries stale pending reminder logs", async () => {
-    const userId = await createUser("stale_pending");
+    const userId = await createUser("stale_pending", "pending@example.com");
     await createDueChoiceSkill(userId, "stale pending");
     await prisma.reminderPreference.create({
       data: {
@@ -356,7 +423,7 @@ describeDatabase("due email reminders", () => {
   });
 
   it("does not retry fresh pending reminder logs", async () => {
-    const userId = await createUser("fresh_pending");
+    const userId = await createUser("fresh_pending", "fresh-pending@example.com");
     await createDueChoiceSkill(userId, "fresh pending");
     await prisma.reminderPreference.create({
       data: {
@@ -406,7 +473,7 @@ describeDatabase("due email reminders", () => {
   });
 
   it("records provider failures without losing the audit log", async () => {
-    const userId = await createUser("send_failure");
+    const userId = await createUser("send_failure", "failure@example.com");
     await createDueChoiceSkill(userId, "failure");
     await prisma.reminderPreference.create({
       data: {
