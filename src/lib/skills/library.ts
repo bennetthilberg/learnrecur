@@ -17,6 +17,7 @@ import {
   isDismissedSourceUploadMetadata,
   isSourceUploadDismissible,
   isSourceUploadProcessingStale,
+  isSourceUploadQueuedStale,
   SOURCE_PROCESSING_STALE_AFTER_MS,
 } from "@/lib/skills/uploads";
 
@@ -279,6 +280,9 @@ function toSourceProcessingSummary(
     sourceFile.status === SourceFileStatus.PROCESSING &&
     isSourceUploadProcessingStale(sourceFile.metadata, now, SOURCE_PROCESSING_STALE_AFTER_MS);
   const canRequeueByRetryLimit = canRequeueSourceUploadMetadata(sourceFile.metadata);
+  const isStaleQueued =
+    sourceFile.status === SourceFileStatus.UPLOADED &&
+    isSourceUploadQueuedStale(sourceFile.metadata, now);
   const canDismiss = isSourceUploadDismissible(sourceFile, now);
 
   return {
@@ -292,7 +296,7 @@ function toSourceProcessingSummary(
     isStaleProcessing,
     canRequeue:
       canRequeueByRetryLimit &&
-      (sourceFile.status === SourceFileStatus.UPLOADED ||
+      (isStaleQueued ||
         isStaleProcessing ||
         (sourceFile.status === SourceFileStatus.FAILED && isSavedSourceRetryable(sourceFile))),
     canDismiss,
