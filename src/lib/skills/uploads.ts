@@ -964,6 +964,8 @@ export async function dismissFailedSourceUpload(
       },
       data: {
         metadata: dismissedMetadata,
+        storageBucket: null,
+        storageKey: null,
       },
     });
 
@@ -977,8 +979,8 @@ export async function dismissFailedSourceUpload(
         userId: input.userId,
         kind: sourceFile.kind,
         status: sourceFile.status,
-        storageBucket: sourceFile.storageBucket,
-        storageKey: sourceFile.storageKey,
+        storageBucket: null,
+        storageKey: null,
       },
       select: {
         updatedAt: true,
@@ -999,12 +1001,14 @@ export async function dismissFailedSourceUpload(
         userId: input.userId,
         kind: sourceFile.kind,
         status: sourceFile.status,
-        storageBucket: sourceFile.storageBucket,
-        storageKey: sourceFile.storageKey,
+        storageBucket: null,
+        storageKey: null,
         updatedAt: dismissed.updatedAt,
       },
       data: {
         metadata: sourceFile.metadata ?? Prisma.DbNull,
+        storageBucket: sourceFile.storageBucket,
+        storageKey: sourceFile.storageKey,
       },
     });
 
@@ -1014,22 +1018,6 @@ export async function dismissFailedSourceUpload(
       message: deletedObject.message,
     };
   }
-
-  await prisma.sourceFile.updateMany({
-    where: {
-      id: sourceFile.id,
-      userId: input.userId,
-      kind: sourceFile.kind,
-      status: sourceFile.status,
-      storageBucket: sourceFile.storageBucket,
-      storageKey: sourceFile.storageKey,
-      updatedAt: dismissed.updatedAt,
-    },
-    data: {
-      storageBucket: null,
-      storageKey: null,
-    },
-  });
 
   return {
     status: "dismissed",

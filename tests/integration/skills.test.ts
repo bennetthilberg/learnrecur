@@ -3863,6 +3863,68 @@ describeDatabase("skill drafts and Gemini activation", () => {
     expect(storageSetup.deletedKeys).toEqual([]);
   });
 
+  it("clears dismissed upload storage pointers before deleting storage objects", async () => {
+    const userId = await createUser("upload_dismiss_clears_before_delete");
+    const storageKey = `source-uploads/${userId}/failed.pdf`;
+    const source = await prisma.sourceFile.create({
+      data: {
+        userId,
+        kind: SourceFileKind.PDF,
+        status: SourceFileStatus.FAILED,
+        originalName: "failed worksheet",
+        mimeType: "application/pdf",
+        byteSize: 1024,
+        storageBucket: "learnrecur-dev",
+        storageKey,
+        metadata: {
+          errorMessage: "Gemini could not extract enough study text from this file.",
+        },
+      },
+    });
+    let sourceDuringDelete:
+      | {
+          storageBucket: string | null;
+          storageKey: string | null;
+          metadata: Prisma.JsonValue | null;
+        }
+      | null = null;
+    const storageSetup = createFakeUploadStorage({
+      onDeleteObject: async () => {
+        sourceDuringDelete = await prisma.sourceFile.findUnique({
+          where: {
+            id: source.id,
+          },
+          select: {
+            storageBucket: true,
+            storageKey: true,
+            metadata: true,
+          },
+        });
+      },
+    });
+
+    await expect(
+      dismissFailedSourceUpload({
+        userId,
+        sourceFileId: source.id,
+        now,
+        storage: storageSetup.storage,
+      }),
+    ).resolves.toMatchObject({
+      status: "dismissed",
+      sourceFileId: source.id,
+    });
+
+    expect(sourceDuringDelete).toMatchObject({
+      storageBucket: null,
+      storageKey: null,
+      metadata: expect.objectContaining({
+        dismissedAt: now.toISOString(),
+      }),
+    });
+    expect(storageSetup.deletedKeys).toEqual([storageKey]);
+  });
+
   it("rejects dismissal for cross-user, linked, and non-failed uploaded sources", async () => {
     const userId = await createUser("upload_dismiss_reject");
     const otherUserId = await createUser("upload_dismiss_reject_other");
