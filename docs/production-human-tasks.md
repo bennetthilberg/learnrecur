@@ -6,7 +6,7 @@ Branch: `a/production-readiness`
 
 This checklist starts where the code-side production-readiness work stops. The app now has stricter production env validation, quota guards, security headers, CI, operations scripts, and public alpha policy drafts. The remaining work requires provider accounts, billing, DNS, emails, production credentials, dashboard setup, and live smoke tests.
 
-Do not invite external alpha users until every P0 item below is complete.
+Do not share production with external users until every P0 item below is complete.
 
 ## P0: Required Before Production Deploy
 
@@ -75,11 +75,9 @@ Steps:
 3. Copy production keys to Vercel:
    - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
    - `CLERK_SECRET_KEY`
-4. Enable restricted sign-up or invitation-only access in Clerk.
-5. Invite your first test account.
-6. Confirm a non-invited email cannot sign up.
-
-Configure ALPHA_ALLOWED_EMAILS or ALPHA_ALLOWED_DOMAINS in production as an app-level alpha allowlist, and keep Clerk's production sign-up restrictions and invitations enabled as the first alpha access control.
+4. Confirm public sign-up is configured as intended.
+5. Create your first test account.
+6. Confirm the test account can sign in.
 
 ### 5. Create the private S3 bucket
 
@@ -236,11 +234,11 @@ If it fails, fix env before deploying.
 
 ## P0: Production Smoke Test
 
-Use an invited production alpha account.
+Use a production test account.
 
 1. Visit `/dashboard` while signed out. Confirm redirect to `/sign-in`.
 2. Sign in. Confirm `/dashboard` loads.
-3. Try signing up with a non-invited email. Confirm Clerk blocks access.
+3. Try signing up with a new email. Confirm the app creates the account.
 4. Confirm `/ops` returns not found for a signed-in user.
 5. Create a manual draft skill.
 6. Paste source material and generate drafts.

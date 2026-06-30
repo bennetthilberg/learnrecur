@@ -4,7 +4,7 @@ import { OpenWaterBackground, OpenWaterLogoMark } from "@/components/app/open-wa
 
 export const metadata = {
   title: "Terms | LearnRecur",
-  description: "Alpha participation terms draft for LearnRecur.",
+  description: "Participation terms draft for LearnRecur.",
 };
 
 export default function TermsPage() {
@@ -20,15 +20,15 @@ export default function TermsPage() {
           <div className="skillPanelHeader">
             <div>
               <h1 id="terms-title">Terms</h1>
-              <p>Alpha participation draft. Review before inviting external testers.</p>
+              <p>Participation draft. Review before sharing with external testers.</p>
             </div>
           </div>
           <div className="policyGrid" role="list" aria-label="Terms summary">
             <section>
-              <h2>Alpha access</h2>
+              <h2>Account access</h2>
               <p>
-                LearnRecur is an invite-only alpha. Access can be changed, paused,
-                or removed while the product is being tested.
+                LearnRecur is an early product. Access can be changed, paused,
+                or removed while the app is being tested.
               </p>
             </section>
             <section>
@@ -65,7 +65,7 @@ export default function TermsPage() {
               <h2>Contact</h2>
               <p>
                 The production deployment must publish a support email before external
-                testers are invited.
+                testers use the app.
               </p>
             </section>
           </div>

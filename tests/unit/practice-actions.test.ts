@@ -51,12 +51,12 @@ describe("practice server actions", () => {
       },
     });
     mocks.ensureDatabaseUser.mockResolvedValue({
-      status: "access-denied",
-      message: "This email is not on the LearnRecur alpha invite list.",
+      status: "missing-env",
+      message: "Add DATABASE_URL to .env.local, then run Prisma migration and reload this page.",
     });
   });
 
-  it("enforces alpha access before practice mutations", async () => {
+  it("stops practice mutations when account setup is not ready", async () => {
     const {
       commitPracticeReviewAction,
       flagPracticeExerciseAction,
@@ -71,7 +71,7 @@ describe("practice server actions", () => {
       }),
     ).resolves.toEqual({
       status: "not-found",
-      message: "This email is not on the LearnRecur alpha invite list.",
+      message: "Add DATABASE_URL to .env.local, then run Prisma migration and reload this page.",
     });
 
     await expect(
@@ -83,7 +83,7 @@ describe("practice server actions", () => {
       }),
     ).resolves.toEqual({
       status: "not-found",
-      message: "This email is not on the LearnRecur alpha invite list.",
+      message: "Add DATABASE_URL to .env.local, then run Prisma migration and reload this page.",
     });
 
     await expect(
@@ -93,7 +93,7 @@ describe("practice server actions", () => {
       }),
     ).resolves.toEqual({
       status: "not-found",
-      message: "This email is not on the LearnRecur alpha invite list.",
+      message: "Add DATABASE_URL to .env.local, then run Prisma migration and reload this page.",
     });
 
     expect(mocks.previewPracticeAnswer).not.toHaveBeenCalled();

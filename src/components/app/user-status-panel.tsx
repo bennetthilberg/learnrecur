@@ -18,8 +18,6 @@ export function getUserStatusTitle(status: Exclude<DatabaseUserStatus, { status:
   switch (status.status) {
     case "missing-env":
       return "Database setup needs attention.";
-    case "access-denied":
-      return "Alpha access needs attention.";
     case "error":
       return "Account setup needs attention.";
   }

@@ -51,8 +51,6 @@ describe("ensureDatabaseUser", () => {
     process.env = { ...originalEnv };
     delete process.env.DATABASE_URL;
     delete process.env.DIRECT_URL;
-    delete process.env.ALPHA_ALLOWED_EMAILS;
-    delete process.env.ALPHA_ALLOWED_DOMAINS;
     delete process.env.VERCEL_ENV;
   });
 
@@ -68,62 +66,7 @@ describe("ensureDatabaseUser", () => {
     });
   });
 
-  it("denies non-allowlisted alpha users before touching Prisma", async () => {
-    process.env.ALPHA_ALLOWED_EMAILS = "invited@example.com";
-    const { client, upsert } = makeMirrorClient();
-
-    await expect(
-      ensureDatabaseUser(baseClerkUser, {
-        prisma: client,
-        skipEnvCheck: true,
-      }),
-    ).resolves.toEqual({
-      status: "access-denied",
-      message: "This email is not on the LearnRecur alpha invite list.",
-    });
-    expect(upsert).not.toHaveBeenCalled();
-  });
-
-  it("allows alpha users by invited email or domain", async () => {
-    process.env.ALPHA_ALLOWED_EMAILS = "ada@example.com";
-    const { client, upsert } = makeMirrorClient();
-
-    await expect(
-      ensureDatabaseUser(baseClerkUser, {
-        prisma: client,
-        skipEnvCheck: true,
-      }),
-    ).resolves.toMatchObject({ status: "ready" });
-    expect(upsert).toHaveBeenCalledOnce();
-
-    process.env.ALPHA_ALLOWED_EMAILS = "";
-    process.env.ALPHA_ALLOWED_DOMAINS = "example.com";
-    const second = makeMirrorClient();
-
-    await expect(
-      ensureDatabaseUser(baseClerkUser, {
-        prisma: second.client,
-        skipEnvCheck: true,
-      }),
-    ).resolves.toMatchObject({ status: "ready" });
-    expect(second.upsert).toHaveBeenCalledOnce();
-  });
-
-  it("accepts comma or whitespace separated alpha allowlist entries", async () => {
-    process.env.ALPHA_ALLOWED_EMAILS = "invited@example.com ada@example.com";
-    process.env.ALPHA_ALLOWED_DOMAINS = "example.org\nexample.net";
-    const { client, upsert } = makeMirrorClient();
-
-    await expect(
-      ensureDatabaseUser(baseClerkUser, {
-        prisma: client,
-        skipEnvCheck: true,
-      }),
-    ).resolves.toMatchObject({ status: "ready" });
-    expect(upsert).toHaveBeenCalledOnce();
-  });
-
-  it("does not require an alpha allowlist for Vercel preview deployments", async () => {
+  it("mirrors signed-in users in Vercel preview deployments", async () => {
     process.env.NODE_ENV = "production";
     process.env.VERCEL_ENV = "preview";
     const { client, upsert } = makeMirrorClient();
@@ -137,7 +80,7 @@ describe("ensureDatabaseUser", () => {
     expect(upsert).toHaveBeenCalledOnce();
   });
 
-  it("requires an alpha allowlist for Vercel production deployments", async () => {
+  it("mirrors signed-in users in Vercel production deployments", async () => {
     process.env.NODE_ENV = "production";
     process.env.VERCEL_ENV = "production";
     const { client, upsert } = makeMirrorClient();
@@ -147,15 +90,11 @@ describe("ensureDatabaseUser", () => {
         prisma: client,
         skipEnvCheck: true,
       }),
-    ).resolves.toEqual({
-      status: "access-denied",
-      message:
-        "Alpha access is not configured. Add ALPHA_ALLOWED_EMAILS or ALPHA_ALLOWED_DOMAINS before accepting sign-ups.",
-    });
-    expect(upsert).not.toHaveBeenCalled();
+    ).resolves.toMatchObject({ status: "ready" });
+    expect(upsert).toHaveBeenCalledOnce();
   });
 
-  it("requires an alpha allowlist for production Node deployments", async () => {
+  it("mirrors signed-in users in production Node deployments", async () => {
     process.env.NODE_ENV = "production";
     const { client, upsert } = makeMirrorClient();
 
@@ -164,12 +103,8 @@ describe("ensureDatabaseUser", () => {
         prisma: client,
         skipEnvCheck: true,
       }),
-    ).resolves.toEqual({
-      status: "access-denied",
-      message:
-        "Alpha access is not configured. Add ALPHA_ALLOWED_EMAILS or ALPHA_ALLOWED_DOMAINS before accepting sign-ups.",
-    });
-    expect(upsert).not.toHaveBeenCalled();
+    ).resolves.toMatchObject({ status: "ready" });
+    expect(upsert).toHaveBeenCalledOnce();
   });
 
   it("creates or updates the mirrored user by Clerk ID", async () => {
