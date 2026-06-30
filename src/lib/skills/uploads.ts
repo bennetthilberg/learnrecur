@@ -1106,21 +1106,6 @@ export async function runQueuedSourceUploadDraftJob(
     return notCreated("invalid-upload", "Uploaded source MIME type is not supported.");
   }
 
-  const actualByteSize = sourceFile.byteSize;
-
-  if (!actualByteSize || actualByteSize > MAX_SOURCE_UPLOAD_BYTES) {
-    const message = "Uploaded file is missing or larger than 10 MB.";
-    await markUploadedSourceFailed(
-      sourceFile,
-      storageSetup.storage,
-      input.now,
-      "invalid-upload",
-      message,
-      { retainStoredObject: false },
-    );
-    return notCreated("invalid-upload", message);
-  }
-
   const processingMetadata = buildProcessingUploadMetadata(sourceFile.metadata, input.now);
   const lockedForProcessing = await prisma.sourceFile.updateMany({
     where: {
@@ -1144,11 +1129,36 @@ export async function runQueuedSourceUploadDraftJob(
     metadata: processingMetadata as Prisma.JsonValue,
   };
 
+  const uploadValidation = await validateStoredSourceUpload(sourceFile, storageSetup.storage);
+
+  if (uploadValidation.status === "invalid") {
+    const failedSourceFile = {
+      ...processingSourceFile,
+      byteSize: uploadValidation.byteSize ?? processingSourceFile.byteSize,
+    };
+
+    await markUploadedSourceFailed(
+      failedSourceFile,
+      storageSetup.storage,
+      input.now,
+      "invalid-upload",
+      uploadValidation.message,
+      { retainStoredObject: uploadValidation.retainStoredObject },
+    );
+    return notCreated("invalid-upload", uploadValidation.message);
+  }
+
+  const actualByteSize = uploadValidation.byteSize;
+  const revalidatedProcessingSourceFile = {
+    ...processingSourceFile,
+    byteSize: actualByteSize,
+  };
+
   const setup = resolveUploadGenerationSetup(input);
 
   if (setup.status === "missing-env") {
     await markUploadedSourceFailed(
-      processingSourceFile,
+      revalidatedProcessingSourceFile,
       storageSetup.storage,
       input.now,
       "missing-gemini-env",
@@ -1172,7 +1182,7 @@ export async function runQueuedSourceUploadDraftJob(
       ? "Uploaded file is missing or larger than 10 MB."
       : `Could not read S3 upload: ${formatEnvError(error)}`;
     await markUploadedSourceFailed(
-      processingSourceFile,
+      revalidatedProcessingSourceFile,
       storageSetup.storage,
       input.now,
       "invalid-upload",
@@ -1185,7 +1195,7 @@ export async function runQueuedSourceUploadDraftJob(
   if (bytes.length === 0 || bytes.length > MAX_SOURCE_UPLOAD_BYTES) {
     const message = "Uploaded file is missing or larger than 10 MB.";
     await markUploadedSourceFailed(
-      processingSourceFile,
+      revalidatedProcessingSourceFile,
       storageSetup.storage,
       input.now,
       "invalid-upload",
@@ -1214,7 +1224,7 @@ export async function runQueuedSourceUploadDraftJob(
     const message = getPublicGeminiFailureMessage(error);
     console.error("[ai] source extraction failed", getGeminiErrorLogDetails(error));
     await markUploadedSourceFailed(
-      processingSourceFile,
+      revalidatedProcessingSourceFile,
       storageSetup.storage,
       input.now,
       "extraction-failed",
@@ -1231,7 +1241,7 @@ export async function runQueuedSourceUploadDraftJob(
       getSourceExtractionValidationLogDetails(rawExtraction),
     );
     await markUploadedSourceFailed(
-      processingSourceFile,
+      revalidatedProcessingSourceFile,
       storageSetup.storage,
       input.now,
       "invalid-extraction",
@@ -1259,7 +1269,7 @@ export async function runQueuedSourceUploadDraftJob(
     const message = getPublicGeminiFailureMessage(error);
     console.error("[ai] source draft generation failed", getGeminiErrorLogDetails(error));
     await markUploadedSourceFailed(
-      processingSourceFile,
+      revalidatedProcessingSourceFile,
       storageSetup.storage,
       input.now,
       "generation-failed",
@@ -1272,7 +1282,7 @@ export async function runQueuedSourceUploadDraftJob(
 
   if (generatedDrafts.status === "invalid") {
     await markUploadedSourceFailed(
-      processingSourceFile,
+      revalidatedProcessingSourceFile,
       storageSetup.storage,
       input.now,
       "invalid-generation",
@@ -1311,7 +1321,7 @@ export async function runQueuedSourceUploadDraftJob(
 
   if (created.status === "not-found") {
     await markUploadedSourceFailed(
-      processingSourceFile,
+      revalidatedProcessingSourceFile,
       storageSetup.storage,
       input.now,
       "source-not-found",
@@ -1597,6 +1607,7 @@ async function markUploadedSourceFailed(
     id: string;
     userId: string;
     status: SourceFileStatus;
+    byteSize: number | null;
     metadata: Prisma.JsonValue | null;
     storageBucket: string | null;
     storageKey: string | null;
@@ -1623,6 +1634,7 @@ async function markUploadedSourceFailed(
       },
       data: {
         status: SourceFileStatus.FAILED,
+        byteSize: sourceFile.byteSize,
         publicUrl: null,
         metadata: buildFailedUploadMetadata(sourceFile.metadata, now, reason, message),
       },
@@ -1786,12 +1798,15 @@ async function validateStoredSourceUpload(
   | {
       status: "invalid";
       message: string;
+      retainStoredObject: boolean;
+      byteSize?: number;
     }
 > {
   if (!sourceFile.storageKey || !sourceFile.storageBucket || !sourceFile.mimeType) {
     return {
       status: "invalid",
       message: "Uploaded source metadata is incomplete.",
+      retainStoredObject: false,
     };
   }
 
@@ -1799,6 +1814,7 @@ async function validateStoredSourceUpload(
     return {
       status: "invalid",
       message: "Uploaded source MIME type is not supported.",
+      retainStoredObject: false,
     };
   }
 
@@ -1810,9 +1826,18 @@ async function validateStoredSourceUpload(
       bucket: sourceFile.storageBucket,
     });
   } catch (error) {
+    if (isMissingStoredSourceObjectError(error)) {
+      return {
+        status: "invalid",
+        message: "Uploaded file is missing or larger than 10 MB.",
+        retainStoredObject: false,
+      };
+    }
+
     return {
       status: "invalid",
       message: `Could not verify S3 upload: ${formatEnvError(error)}`,
+      retainStoredObject: true,
     };
   }
 
@@ -1822,6 +1847,10 @@ async function validateStoredSourceUpload(
     return {
       status: "invalid",
       message: "Uploaded file is missing or larger than 10 MB.",
+      retainStoredObject: false,
+      ...(actualByteSize !== null && actualByteSize !== undefined
+        ? { byteSize: actualByteSize }
+        : {}),
     };
   }
 
@@ -1829,6 +1858,8 @@ async function validateStoredSourceUpload(
     return {
       status: "invalid",
       message: "Uploaded file type did not match the prepared upload.",
+      retainStoredObject: false,
+      byteSize: actualByteSize,
     };
   }
 
