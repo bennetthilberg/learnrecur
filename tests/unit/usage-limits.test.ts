@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   GenerationJobKind,
   SkillStatus,
+  SourceFileKind,
 } from "@/generated/prisma/client";
 import {
   ALPHA_ACTIVE_SKILLS,
@@ -46,6 +47,17 @@ describe("usage limits", () => {
       status: "limited",
       code: "daily-source-upload-limit",
     });
+    expect(dailyLimitPrisma.sourceFile.count).toHaveBeenCalledWith({
+      where: {
+        userId: "user_1",
+        createdAt: {
+          gte: startOfUtcDay(now),
+        },
+        kind: {
+          in: [SourceFileKind.IMAGE, SourceFileKind.PDF],
+        },
+      },
+    });
 
     const storageLimitPrisma = {
       sourceFile: {
@@ -68,6 +80,17 @@ describe("usage limits", () => {
       code: "source-storage-limit",
     });
 
+    expect(storageLimitPrisma.sourceFile.count).toHaveBeenCalledWith({
+      where: {
+        userId: "user_1",
+        createdAt: {
+          gte: startOfUtcDay(now),
+        },
+        kind: {
+          in: [SourceFileKind.IMAGE, SourceFileKind.PDF],
+        },
+      },
+    });
     expect(storageLimitPrisma.sourceFile.aggregate).toHaveBeenCalledWith({
       where: {
         userId: "user_1",

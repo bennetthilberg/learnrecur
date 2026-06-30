@@ -48,8 +48,8 @@ export async function checkSourceUploadUsageLimit(input: {
         createdAt: {
           gte: dayStart,
         },
-        storageKey: {
-          not: null,
+        kind: {
+          in: [SourceFileKind.IMAGE, SourceFileKind.PDF],
         },
       },
     }),

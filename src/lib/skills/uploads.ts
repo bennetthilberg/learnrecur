@@ -1,5 +1,7 @@
 import "server-only";
 
+import { randomUUID } from "node:crypto";
+
 import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
 
@@ -56,13 +58,6 @@ export const SOURCE_PROCESSING_STALE_AFTER_MS = 15 * 60 * 1000;
 export const MAX_SOURCE_UPLOAD_REQUEUE_ATTEMPTS = 3;
 const SOURCE_UPLOAD_GENERATION_TIMEOUT_MS = 45_000;
 export { MAX_SOURCE_UPLOAD_BYTES } from "@/lib/skills/source-upload-policy";
-
-class DismissedSourceUploadObjectDeleteError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "DismissedSourceUploadObjectDeleteError";
-  }
-}
 
 const sourceUploadInputSchema = z.strictObject({
   originalName: z.string().trim().min(1, "Choose a file to upload.").max(220),
@@ -345,11 +340,26 @@ export function canRequeueSourceUploadMetadata(metadata: Prisma.JsonValue | null
   return getSourceUploadRetryCount(metadata) < MAX_SOURCE_UPLOAD_REQUEUE_ATTEMPTS;
 }
 
+export function isDismissedSourceUploadMetadata(metadata: Prisma.JsonValue | null): boolean {
+  return Boolean(getMetadataString(metadata, "dismissedAt"));
+}
+
+function buildDismissedSourceUploadMetadata(
+  metadata: Prisma.JsonValue | null,
+  now: Date,
+): Prisma.InputJsonObject {
+  return {
+    ...getMetadataObject(metadata),
+    dismissedAt: now.toISOString(),
+  };
+}
+
 export function buildSourceUploadRequeueMetadata(
   metadata: Prisma.JsonValue | null,
   now: Date,
   options: {
     consumeRetry?: boolean;
+    requeueAttemptId?: string;
   } = {},
 ): Prisma.InputJsonObject {
   const metadataObject = getMetadataObject(metadata);
@@ -360,6 +370,7 @@ export function buildSourceUploadRequeueMetadata(
     ...metadataObject,
     queuedAt: timestamp,
     requeuedAt: timestamp,
+    ...(options.requeueAttemptId ? { requeueAttemptId: options.requeueAttemptId } : {}),
     ...((options.consumeRetry ?? true) ? { retryCount: retryCount + 1 } : {}),
   };
 }
@@ -766,18 +777,24 @@ export async function requeueSourceUploadDraft(
     }
   }
 
+  const requeueAttemptId = randomUUID();
+  const requeueMetadata = buildSourceUploadRequeueMetadata(sourceFile.metadata, input.now, {
+    consumeRetry: sourceFile.status !== SourceFileStatus.UPLOADED,
+    requeueAttemptId,
+  });
   const requeued = await prisma.sourceFile.updateMany({
     where: {
       id: sourceFile.id,
       userId: input.userId,
       status: sourceFile.status,
+      storageBucket: sourceFile.storageBucket,
+      storageKey: sourceFile.storageKey,
+      updatedAt: sourceFile.updatedAt,
     },
     data: {
       status: SourceFileStatus.UPLOADED,
       byteSize: uploadValidation.byteSize,
-      metadata: buildSourceUploadRequeueMetadata(sourceFile.metadata, input.now, {
-        consumeRetry: sourceFile.status !== SourceFileStatus.UPLOADED,
-      }),
+      metadata: requeueMetadata,
     },
   });
 
@@ -802,6 +819,11 @@ export async function requeueSourceUploadDraft(
         id: sourceFile.id,
         userId: input.userId,
         status: SourceFileStatus.UPLOADED,
+        storageBucket: sourceFile.storageBucket,
+        storageKey: sourceFile.storageKey,
+        metadata: {
+          equals: requeueMetadata,
+        },
       },
       data: {
         status: sourceFile.status,
@@ -874,7 +896,9 @@ export async function dismissFailedSourceUpload(
     };
   }
 
-  if (!isSourceUploadDismissible(sourceFile, input.now ?? new Date())) {
+  const now = input.now ?? new Date();
+
+  if (!isSourceUploadDismissible(sourceFile, now)) {
     return {
       status: "not-dismissed",
       reason: "not-failed",
@@ -886,53 +910,90 @@ export async function dismissFailedSourceUpload(
     storageBucket: sourceFile.storageBucket,
     storageKey: sourceFile.storageKey,
   };
+  const dismissedMetadata = buildDismissedSourceUploadMetadata(sourceFile.metadata, now);
 
-  let dismissed = false;
-
-  try {
-    dismissed = await prisma.$transaction(async (tx) => {
-      const deleted = await tx.sourceFile.deleteMany({
-        where: {
-          id: sourceFile.id,
-          userId: input.userId,
-          kind: sourceFile.kind,
-          status: sourceFile.status,
-          storageBucket: sourceFile.storageBucket,
-          storageKey: sourceFile.storageKey,
-          updatedAt: sourceFile.updatedAt,
-          skillRefs: {
-            none: {},
-          },
+  const dismissed = await prisma.$transaction(async (tx) => {
+    const dismissedSource = await tx.sourceFile.updateMany({
+      where: {
+        id: sourceFile.id,
+        userId: input.userId,
+        kind: sourceFile.kind,
+        status: sourceFile.status,
+        storageBucket: sourceFile.storageBucket,
+        storageKey: sourceFile.storageKey,
+        updatedAt: sourceFile.updatedAt,
+        skillRefs: {
+          none: {},
         },
-      });
-
-      if (deleted.count !== 1) {
-        return false;
-      }
-
-      const deletedObject = await deleteDismissedSourceUploadObject(dismissedObject, input.storage);
-
-      if (deletedObject.status === "failed") {
-        throw new DismissedSourceUploadObjectDeleteError(deletedObject.message);
-      }
-
-      return true;
+      },
+      data: {
+        metadata: dismissedMetadata,
+      },
     });
-  } catch (error) {
-    if (error instanceof DismissedSourceUploadObjectDeleteError) {
-      return {
-        status: "not-dismissed",
-        reason: "storage-delete-failed",
-        message: error.message,
-      };
+
+    if (dismissedSource.count !== 1) {
+      return null;
     }
 
-    throw error;
-  }
+    return tx.sourceFile.findFirst({
+      where: {
+        id: sourceFile.id,
+        userId: input.userId,
+        kind: sourceFile.kind,
+        status: sourceFile.status,
+        storageBucket: sourceFile.storageBucket,
+        storageKey: sourceFile.storageKey,
+      },
+      select: {
+        updatedAt: true,
+      },
+    });
+  });
 
   if (!dismissed) {
     return sourceUploadSourceNotFound();
   }
+
+  const deletedObject = await deleteDismissedSourceUploadObject(dismissedObject, input.storage);
+
+  if (deletedObject.status === "failed") {
+    await prisma.sourceFile.updateMany({
+      where: {
+        id: sourceFile.id,
+        userId: input.userId,
+        kind: sourceFile.kind,
+        status: sourceFile.status,
+        storageBucket: sourceFile.storageBucket,
+        storageKey: sourceFile.storageKey,
+        updatedAt: dismissed.updatedAt,
+      },
+      data: {
+        metadata: sourceFile.metadata ?? Prisma.DbNull,
+      },
+    });
+
+    return {
+      status: "not-dismissed",
+      reason: "storage-delete-failed",
+      message: deletedObject.message,
+    };
+  }
+
+  await prisma.sourceFile.updateMany({
+    where: {
+      id: sourceFile.id,
+      userId: input.userId,
+      kind: sourceFile.kind,
+      status: sourceFile.status,
+      storageBucket: sourceFile.storageBucket,
+      storageKey: sourceFile.storageKey,
+      updatedAt: dismissed.updatedAt,
+    },
+    data: {
+      storageBucket: null,
+      storageKey: null,
+    },
+  });
 
   return {
     status: "dismissed",
@@ -954,7 +1015,8 @@ export function isSourceUploadDismissible(
 ) {
   if (
     sourceFile._count.skillRefs > 0 ||
-    (sourceFile.kind !== SourceFileKind.IMAGE && sourceFile.kind !== SourceFileKind.PDF)
+    (sourceFile.kind !== SourceFileKind.IMAGE && sourceFile.kind !== SourceFileKind.PDF) ||
+    isDismissedSourceUploadMetadata(sourceFile.metadata)
   ) {
     return false;
   }
@@ -1093,6 +1155,9 @@ export async function runQueuedSourceUploadDraftJob(
       id: sourceFile.id,
       userId: input.userId,
       status: SourceFileStatus.UPLOADED,
+      storageBucket: sourceFile.storageBucket,
+      storageKey: sourceFile.storageKey,
+      updatedAt: sourceFile.updatedAt,
     },
     data: {
       status: SourceFileStatus.PROCESSING,
@@ -1275,6 +1340,11 @@ export async function runQueuedSourceUploadDraftJob(
   const created = await createGeneratedSkillDraftsForSourceFile({
     userId: input.userId,
     sourceFileId: sourceFile.id,
+    sourceFileGuard: {
+      status: SourceFileStatus.PROCESSING,
+      storageBucket: sourceFile.storageBucket,
+      storageKey: sourceFile.storageKey,
+    },
     collectionName: getMetadataString(sourceFile.metadata, "collectionName"),
     focusNote: getMetadataString(sourceFile.metadata, "focusNote"),
     tags: getMetadataStringArray(sourceFile.metadata, "tags"),
