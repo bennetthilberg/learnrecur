@@ -448,6 +448,22 @@ describe("checkAnswer math answers", () => {
     });
   });
 
+  it("rejects math specs with too many accepted expressions", () => {
+    expect(
+      checkAnswer({
+        answerSpec: {
+          kind: "math",
+          acceptedExpressions: ["x", "2x", "3x", "4x", "5x"],
+        },
+        submittedAnswer: "x",
+      }),
+    ).toMatchObject({
+      status: "invalid-spec",
+      isCorrect: false,
+      reason: "invalid-accepted-expression",
+    });
+  });
+
   it("rejects unsupported math equivalence modes", () => {
     expect(
       checkAnswer({

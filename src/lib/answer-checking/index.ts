@@ -3,6 +3,7 @@ import { z } from "zod";
 
 const DEFAULT_NUMERIC_TOLERANCE = 0.001;
 const DEFAULT_MATH_EQUIVALENCE = "basic-symbolic";
+export const MAX_MATH_ACCEPTED_EXPRESSIONS = 4;
 export const MAX_MATH_EXPRESSION_LENGTH = 500;
 export const MAX_MATH_EXPRESSION_NESTING = 32;
 
@@ -59,7 +60,7 @@ export const numericAnswerSpecSchema = z.strictObject({
 
 export const mathAnswerSpecSchema = z.strictObject({
   kind: z.literal("math"),
-  acceptedExpressions: z.array(mathExpressionStringSchema).min(1),
+  acceptedExpressions: z.array(mathExpressionStringSchema).min(1).max(MAX_MATH_ACCEPTED_EXPRESSIONS),
   equivalence: z.literal(DEFAULT_MATH_EQUIVALENCE).default(DEFAULT_MATH_EQUIVALENCE),
 });
 
