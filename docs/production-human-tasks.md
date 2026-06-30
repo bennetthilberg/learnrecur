@@ -79,7 +79,7 @@ Steps:
 5. Invite your first test account.
 6. Confirm a non-invited email cannot sign up.
 
-The app no longer has separate alpha or ops allowlist env vars. Use Clerk's production sign-up restrictions and invitations as the alpha access control.
+Configure ALPHA_ALLOWED_EMAILS or ALPHA_ALLOWED_DOMAINS in production as an app-level alpha allowlist, and keep Clerk's production sign-up restrictions and invitations enabled as the first alpha access control.
 
 ### 5. Create the private S3 bucket
 

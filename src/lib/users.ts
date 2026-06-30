@@ -1,3 +1,4 @@
+import { checkAlphaAccessForEmail } from "./alpha-access";
 import { formatEnvError, hasDatabaseEnv } from "./env";
 import { getPrisma } from "./prisma";
 
@@ -20,6 +21,10 @@ export type DatabaseUserStatus =
     }
   | {
       status: "missing-env";
+      message: string;
+    }
+  | {
+      status: "access-denied";
       message: string;
     }
   | {
@@ -81,6 +86,15 @@ export async function ensureDatabaseUser(
 
   try {
     const email = clerkUser.primaryEmailAddress?.emailAddress ?? null;
+    const access = checkAlphaAccessForEmail(email);
+
+    if (!access.allowed) {
+      return {
+        status: "access-denied",
+        message: formatAlphaAccessDeniedMessage(access.reason),
+      };
+    }
+
     const name = getDisplayName(clerkUser);
     const prisma = options.prisma ?? getPrisma();
 
@@ -115,6 +129,20 @@ export async function ensureDatabaseUser(
       message: formatDatabaseUserError(error),
     };
   }
+}
+
+function formatAlphaAccessDeniedMessage(
+  reason: "missing-email" | "not-allowed" | "missing-allowlist",
+): string {
+  if (reason === "missing-allowlist") {
+    return "Alpha access is not configured. Add ALPHA_ALLOWED_EMAILS or ALPHA_ALLOWED_DOMAINS before accepting sign-ups.";
+  }
+
+  if (reason === "missing-email") {
+    return "Your account needs a primary email address before it can join the LearnRecur alpha.";
+  }
+
+  return "This email is not on the LearnRecur alpha invite list.";
 }
 
 function formatDatabaseUserError(error: unknown): string {
