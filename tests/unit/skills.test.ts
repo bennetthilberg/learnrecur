@@ -157,7 +157,7 @@ describe("normalizeSkillDraftInput", () => {
       rules: "x".repeat(1_001),
       examples: "x".repeat(1_001),
       exerciseConstraints: "x".repeat(1_001),
-      tags: ["x".repeat(41)],
+      tags: "x".repeat(41),
     });
 
     expect(result.status).toBe("invalid");
@@ -168,6 +168,23 @@ describe("normalizeSkillDraftInput", () => {
       expect(result.fieldErrors.examples).toBeDefined();
       expect(result.fieldErrors.exerciseConstraints).toBeDefined();
       expect(result.fieldErrors.tags).toBeDefined();
+    }
+  });
+
+  it("rejects extra draft note lines instead of truncating them", () => {
+    const nineLines = Array.from({ length: 9 }, (_, index) => `Line ${index + 1}`).join("\n");
+    const result = normalizeSkillDraftInput({
+      title: "Ser vs estar basics",
+      objective: "Choose between ser and estar in common identity/location cases.",
+      rules: nineLines,
+      examples: nineLines,
+    });
+
+    expect(result.status).toBe("invalid");
+
+    if (result.status === "invalid") {
+      expect(result.fieldErrors.rules).toBeDefined();
+      expect(result.fieldErrors.examples).toBeDefined();
     }
   });
 });
@@ -222,6 +239,21 @@ describe("normalizeSkillPracticeGuidanceInput", () => {
         exerciseConstraints: [expect.any(String)],
         rules: [expect.any(String)],
       });
+    }
+  });
+
+  it("rejects extra guidance note lines instead of truncating them", () => {
+    const nineLines = Array.from({ length: 9 }, (_, index) => `Line ${index + 1}`).join("\n");
+    const result = normalizeSkillPracticeGuidanceInput({
+      rules: nineLines,
+      examples: nineLines,
+    });
+
+    expect(result.status).toBe("invalid");
+
+    if (result.status === "invalid") {
+      expect(result.fieldErrors.rules).toBeDefined();
+      expect(result.fieldErrors.examples).toBeDefined();
     }
   });
 });
@@ -989,6 +1021,20 @@ describe("normalizeSourceSkillDraftInput", () => {
       expect(result.fieldErrors.sourceText).toEqual([
         "Enter at least 12 characters of learning material or a skill description.",
       ]);
+    }
+  });
+
+  it("rejects oversized string tags before source-draft normalization", () => {
+    const result = normalizeSourceSkillDraftInput({
+      sourceText:
+        "Use ser for identity and long-term traits. Use estar for location and temporary states.",
+      tags: "x".repeat(41),
+    });
+
+    expect(result.status).toBe("invalid");
+
+    if (result.status === "invalid") {
+      expect(result.fieldErrors.tags).toBeDefined();
     }
   });
 });

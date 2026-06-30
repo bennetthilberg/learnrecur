@@ -701,6 +701,42 @@ const optionalTrimmedStringSchema = z.preprocess((value) => {
   return value;
 }, z.string().trim().optional());
 
+const noteListStringSchema = optionalTrimmedStringSchema.pipe(
+  z
+    .string()
+    .max(MAX_DRAFT_NOTE_LENGTH)
+    .refine((value) => splitNoteLines(value).length <= MAX_DRAFT_NOTE_ITEMS, {
+      message: `Use at most ${MAX_DRAFT_NOTE_ITEMS} non-empty lines.`,
+    })
+    .optional(),
+);
+const exerciseConstraintsStringSchema = optionalTrimmedStringSchema.pipe(
+  z.string().max(MAX_EXERCISE_CONSTRAINTS_LENGTH).optional(),
+);
+const tagStringSchema = z
+  .string()
+  .max(MAX_TAGS * (MAX_TAG_LENGTH + 1))
+  .superRefine((value, ctx) => {
+    const tags = splitTagParts(value);
+
+    if (tags.length > MAX_TAGS) {
+      ctx.addIssue({
+        code: "custom",
+        message: `Use at most ${MAX_TAGS} tags.`,
+      });
+    }
+
+    if (tags.some((tag) => tag.length > MAX_TAG_LENGTH)) {
+      ctx.addIssue({
+        code: "custom",
+        message: `Tags must be at most ${MAX_TAG_LENGTH} characters.`,
+      });
+    }
+  });
+const tagsInputSchema = z
+  .union([tagStringSchema, z.array(z.string().trim().min(1).max(MAX_TAG_LENGTH)).max(MAX_TAGS)])
+  .optional();
+
 const draftInputSchema = z.strictObject({
   title: z.string().trim().min(1, "Skill title is required.").max(120),
   objective: z
@@ -711,25 +747,16 @@ const draftInputSchema = z.strictObject({
   collectionName: optionalTrimmedStringSchema.pipe(
     z.string().max(MAX_COLLECTION_NAME_LENGTH).optional(),
   ),
-  rules: optionalTrimmedStringSchema.pipe(z.string().max(MAX_DRAFT_NOTE_LENGTH).optional()),
-  examples: optionalTrimmedStringSchema.pipe(z.string().max(MAX_DRAFT_NOTE_LENGTH).optional()),
-  exerciseConstraints: optionalTrimmedStringSchema.pipe(
-    z.string().max(MAX_EXERCISE_CONSTRAINTS_LENGTH).optional(),
-  ),
-  tags: z
-    .union([
-      z.string().max(MAX_TAGS * (MAX_TAG_LENGTH + 1)),
-      z.array(z.string().trim().min(1).max(MAX_TAG_LENGTH)).max(MAX_TAGS),
-    ])
-    .optional(),
+  rules: noteListStringSchema,
+  examples: noteListStringSchema,
+  exerciseConstraints: exerciseConstraintsStringSchema,
+  tags: tagsInputSchema,
 });
 
 const skillPracticeGuidanceInputSchema = z.strictObject({
-  rules: optionalTrimmedStringSchema.pipe(z.string().max(MAX_DRAFT_NOTE_LENGTH).optional()),
-  examples: optionalTrimmedStringSchema.pipe(z.string().max(MAX_DRAFT_NOTE_LENGTH).optional()),
-  exerciseConstraints: optionalTrimmedStringSchema.pipe(
-    z.string().max(MAX_EXERCISE_CONSTRAINTS_LENGTH).optional(),
-  ),
+  rules: noteListStringSchema,
+  examples: noteListStringSchema,
+  exerciseConstraints: exerciseConstraintsStringSchema,
 });
 
 const sourceSkillDraftInputSchema = z.strictObject({
@@ -743,12 +770,7 @@ const sourceSkillDraftInputSchema = z.strictObject({
   collectionName: optionalTrimmedStringSchema.pipe(
     z.string().max(MAX_COLLECTION_NAME_LENGTH).optional(),
   ),
-  tags: z
-    .union([
-      z.string().max(MAX_TAGS * (MAX_TAG_LENGTH + 1)),
-      z.array(z.string().trim().min(1).max(MAX_TAG_LENGTH)).max(MAX_TAGS),
-    ])
-    .optional(),
+  tags: tagsInputSchema,
 });
 
 const generatedSkillDraftSchema = z.strictObject({
@@ -5581,7 +5603,7 @@ function skillNotFound(): Extract<SkillDraftWriteResult, { status: "not-found" }
   };
 }
 
-function splitNotes(value?: string): string[] {
+function splitNoteLines(value?: string): string[] {
   if (!value) {
     return [];
   }
@@ -5589,12 +5611,22 @@ function splitNotes(value?: string): string[] {
   return value
     .split(/\n+/)
     .map((line) => line.trim())
-    .filter(Boolean)
-    .slice(0, MAX_DRAFT_NOTE_ITEMS);
+    .filter(Boolean);
+}
+
+function splitNotes(value?: string): string[] {
+  return splitNoteLines(value);
+}
+
+function splitTagParts(value: string): string[] {
+  return value
+    .split(/[,\n]+/)
+    .map((tag) => tag.trim())
+    .filter(Boolean);
 }
 
 export function normalizeTags(value?: string | string[]): string[] {
-  const rawTags = Array.isArray(value) ? value : value?.split(/[,\n]+/) ?? [];
+  const rawTags = Array.isArray(value) ? value : splitTagParts(value ?? "");
   const seen = new Set<string>();
   const tags: string[] = [];
 
