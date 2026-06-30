@@ -2,21 +2,19 @@ import { ComputeEngine, type Expression } from "@cortex-js/compute-engine";
 import { z } from "zod";
 
 import {
-  MAX_MATH_EXPRESSION_LENGTH,
-  MAX_MATH_EXPRESSION_NESTING,
   MAX_NUMERIC_ANSWER_LENGTH,
   MAX_TEXT_ANSWER_LENGTH,
 } from "@/lib/answer-limits";
 
 export {
-  MAX_MATH_EXPRESSION_LENGTH,
-  MAX_MATH_EXPRESSION_NESTING,
   MAX_NUMERIC_ANSWER_LENGTH,
   MAX_TEXT_ANSWER_LENGTH,
 } from "@/lib/answer-limits";
 
 const DEFAULT_NUMERIC_TOLERANCE = 0.001;
 const DEFAULT_MATH_EQUIVALENCE = "basic-symbolic";
+export const MAX_MATH_EXPRESSION_LENGTH = 500;
+export const MAX_MATH_EXPRESSION_NESTING = 32;
 
 const nonEmptyStringSchema = z.string().trim().min(1);
 const textAnswerStringSchema = nonEmptyStringSchema.max(MAX_TEXT_ANSWER_LENGTH);
