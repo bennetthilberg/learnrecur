@@ -921,7 +921,6 @@ export async function dismissFailedSourceUpload(
           },
         },
         data: {
-          byteSize: 0,
           metadata: buildDismissedSourceUploadMetadata(sourceFile.metadata, now),
           storageBucket: null,
         },
@@ -976,14 +975,17 @@ export function isSourceUploadDismissible(
   if (
     sourceFile._count.skillRefs > 0 ||
     (sourceFile.kind !== SourceFileKind.IMAGE && sourceFile.kind !== SourceFileKind.PDF) ||
-    isDismissedSourceUploadMetadata(sourceFile.metadata) ||
-    canRequeueSourceUploadMetadata(sourceFile.metadata)
+    isDismissedSourceUploadMetadata(sourceFile.metadata)
   ) {
     return false;
   }
 
   if (sourceFile.status === SourceFileStatus.FAILED) {
     return true;
+  }
+
+  if (canRequeueSourceUploadMetadata(sourceFile.metadata)) {
+    return false;
   }
 
   if (sourceFile.status === SourceFileStatus.UPLOADED) {
@@ -1294,6 +1296,13 @@ export async function runQueuedSourceUploadDraftJob(
   const created = await createGeneratedSkillDraftsForSourceFile({
     userId: input.userId,
     sourceFileId: sourceFile.id,
+    sourceFileGuard: {
+      status: SourceFileStatus.PROCESSING,
+      metadata: {
+        path: ["dismissedAt"],
+        equals: Prisma.AnyNull,
+      },
+    },
     collectionName: getMetadataString(sourceFile.metadata, "collectionName"),
     focusNote: getMetadataString(sourceFile.metadata, "focusNote"),
     tags: getMetadataStringArray(sourceFile.metadata, "tags"),

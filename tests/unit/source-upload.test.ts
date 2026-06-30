@@ -211,12 +211,24 @@ describe("source upload recovery helpers", () => {
     );
   });
 
-  it("only dismisses capped, saved upload rows that have not already been dismissed", () => {
+  it("dismisses failed uploads and capped waiting uploads that have not already been dismissed", () => {
     expect(
       isSourceUploadDismissible(
         {
           kind: SourceFileKind.PDF,
           status: SourceFileStatus.FAILED,
+          metadata: { retryCount: MAX_SOURCE_UPLOAD_REQUEUE_ATTEMPTS - 1 },
+          _count: { skillRefs: 0 },
+        },
+        now,
+      ),
+    ).toBe(true);
+
+    expect(
+      isSourceUploadDismissible(
+        {
+          kind: SourceFileKind.PDF,
+          status: SourceFileStatus.UPLOADED,
           metadata: { retryCount: MAX_SOURCE_UPLOAD_REQUEUE_ATTEMPTS - 1 },
           _count: { skillRefs: 0 },
         },

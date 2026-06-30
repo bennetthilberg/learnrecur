@@ -491,6 +491,7 @@ export type CreateSkillDraftFromSourceInput = {
 export type CreateGeneratedSkillDraftsForSourceFileInput = {
   userId: string;
   sourceFileId: string;
+  sourceFileGuard?: Prisma.SourceFileWhereInput;
   collectionName: string | null;
   focusNote: string | null;
   tags: string[];
@@ -1420,6 +1421,10 @@ export async function createSkillDraftFromSource(
           : undefined,
       });
 
+      if (createdDrafts.status === "not-found") {
+        throw new Error("Source file was not found.");
+      }
+
       return {
         status: "created",
         skills: createdDrafts.skills,
@@ -1471,25 +1476,15 @@ export async function createGeneratedSkillDraftsForSourceFile(
   const prisma = getPrisma();
 
   return prisma.$transaction(async (tx) => {
-    const sourceFile = await tx.sourceFile.findFirst({
-      where: {
-        id: input.sourceFileId,
-        userId: input.userId,
-      },
-      select: {
-        id: true,
-      },
-    });
+    const result = await createGeneratedSkillDraftsForSourceFileInTransaction(tx, input);
 
-    if (!sourceFile) {
+    if (result.status === "not-found") {
       return {
         status: "not-found",
         reason: "source-not-found",
         message: "Uploaded source material was not found.",
       };
     }
-
-    const result = await createGeneratedSkillDraftsForSourceFileInTransaction(tx, input);
 
     return {
       status: "created",
@@ -4642,24 +4637,35 @@ async function resolveCollectionId(
 async function createGeneratedSkillDraftsForSourceFileInTransaction(
   tx: SkillWriteClient,
   input: CreateGeneratedSkillDraftsForSourceFileInput,
-): Promise<{
-  skills: Skill[];
-  skillSourceRefIds: string[];
-}> {
+): Promise<
+  | {
+      status: "created";
+      skills: Skill[];
+      skillSourceRefIds: string[];
+    }
+  | {
+      status: "not-found";
+    }
+> {
   const collectionId = await resolveCollectionId(tx, input.userId, input.collectionName);
 
-  await tx.sourceFile.update({
+  const updatedSourceFile = await tx.sourceFile.updateMany({
     where: {
-      id_userId: {
-        id: input.sourceFileId,
-        userId: input.userId,
-      },
+      ...input.sourceFileGuard,
+      id: input.sourceFileId,
+      userId: input.userId,
     },
     data: {
       ...input.sourceFileUpdate,
       collectionId,
     },
   });
+
+  if (updatedSourceFile.count !== 1) {
+    return {
+      status: "not-found",
+    };
+  }
 
   const skills: Skill[] = [];
   const skillSourceRefIds: string[] = [];
@@ -4692,6 +4698,7 @@ async function createGeneratedSkillDraftsForSourceFileInTransaction(
   }
 
   return {
+    status: "created",
     skills,
     skillSourceRefIds,
   };
