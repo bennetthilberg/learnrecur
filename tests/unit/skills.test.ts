@@ -11,7 +11,6 @@ import {
   EXISTING_EXERCISE_CONTEXT_CHAR_LIMIT,
   SOURCE_CONTEXT_CHAR_LIMIT,
   MAX_COLLECTION_NAME_LENGTH,
-  MAX_TAG_LENGTH,
   MAX_TAGS_FIELD_LENGTH,
   MAX_GENERATED_EXERCISES,
   MIN_ACTIVATION_EXERCISES,
@@ -152,23 +151,78 @@ describe("normalizeSkillDraftInput", () => {
     }
   });
 
-  it("rejects oversized draft guidance before storage or activation", () => {
+  it("rejects oversized optional draft fields before storage or activation", () => {
     const result = normalizeSkillDraftInput({
       title: "Ser vs estar basics",
       objective: "Choose between ser and estar in common identity/location cases.",
-      rules: Array.from({ length: 9 }, (_, index) => `Rule ${index + 1}`).join("\n"),
-      examples: "x".repeat(501),
-      exerciseConstraints: "x".repeat(1001),
+      collectionName: "x".repeat(121),
+      rules: "x".repeat(1_001),
+      examples: "x".repeat(1_001),
+      exerciseConstraints: "x".repeat(1_001),
+      tags: "x".repeat(41),
     });
 
     expect(result.status).toBe("invalid");
 
     if (result.status === "invalid") {
-      expect(result.fieldErrors).toMatchObject({
-        examples: [expect.stringContaining("500 characters")],
-        exerciseConstraints: [expect.stringContaining("1,000 characters")],
-        rules: [expect.stringContaining("at most 8 lines")],
-      });
+      expect(result.fieldErrors.collectionName).toBeDefined();
+      expect(result.fieldErrors.rules).toBeDefined();
+      expect(result.fieldErrors.examples).toBeDefined();
+      expect(result.fieldErrors.exerciseConstraints).toBeDefined();
+      expect(result.fieldErrors.tags).toBeDefined();
+    }
+  });
+
+  it("rejects extra draft note lines instead of truncating them", () => {
+    const nineLines = Array.from({ length: 9 }, (_, index) => `Line ${index + 1}`).join("\n");
+    const result = normalizeSkillDraftInput({
+      title: "Ser vs estar basics",
+      objective: "Choose between ser and estar in common identity/location cases.",
+      rules: nineLines,
+      examples: nineLines,
+    });
+
+    expect(result.status).toBe("invalid");
+
+    if (result.status === "invalid") {
+      expect(result.fieldErrors.rules).toBeDefined();
+      expect(result.fieldErrors.examples).toBeDefined();
+    }
+  });
+
+  it("accepts unchanged generated guidance at the rendered draft maximum", () => {
+    const maxNotes = Array.from({ length: 8 }, () => "x".repeat(500)).join("\n");
+    const result = normalizeSkillDraftInput({
+      title: "Ser vs estar basics",
+      objective: "Choose between ser and estar in common identity/location cases.",
+      rules: maxNotes,
+      examples: maxNotes,
+    });
+
+    expect(result.status).toBe("ready");
+
+    if (result.status === "ready") {
+      expect(result.value.rules).toHaveLength(8);
+      expect(result.value.examples).toHaveLength(8);
+      expect(result.value.rules[0]).toHaveLength(500);
+    }
+  });
+
+  it("accepts the rendered maximum tag list", () => {
+    const tags = Array.from(
+      { length: 12 },
+      (_, index) => `tag-${String(index).padStart(2, "0")}-${"x".repeat(33)}`,
+    );
+    const result = normalizeSkillDraftInput({
+      title: "Ser vs estar basics",
+      objective: "Choose between ser and estar in common identity/location cases.",
+      tags: tags.join(", "),
+    });
+
+    expect(result.status).toBe("ready");
+
+    if (result.status === "ready") {
+      expect(result.value.tags).toEqual(tags);
     }
   });
 });
@@ -226,21 +280,18 @@ describe("normalizeSkillPracticeGuidanceInput", () => {
     }
   });
 
-  it("rejects oversized practice guidance before it can be saved", () => {
+  it("rejects extra guidance note lines instead of truncating them", () => {
+    const nineLines = Array.from({ length: 9 }, (_, index) => `Line ${index + 1}`).join("\n");
     const result = normalizeSkillPracticeGuidanceInput({
-      rules: Array.from({ length: 9 }, (_, index) => `Rule ${index + 1}`).join("\n"),
-      examples: "x".repeat(501),
-      exerciseConstraints: "x".repeat(1001),
+      rules: nineLines,
+      examples: nineLines,
     });
 
     expect(result.status).toBe("invalid");
 
     if (result.status === "invalid") {
-      expect(result.fieldErrors).toMatchObject({
-        examples: [expect.stringContaining("500 characters")],
-        exerciseConstraints: [expect.stringContaining("1,000 characters")],
-        rules: [expect.stringContaining("at most 8 lines")],
-      });
+      expect(result.fieldErrors.rules).toBeDefined();
+      expect(result.fieldErrors.examples).toBeDefined();
     }
   });
 });
@@ -1016,28 +1067,11 @@ describe("normalizeSourceSkillDraftInput", () => {
     expect(result.status).toBe("invalid");
 
     if (result.status === "invalid") {
-      expect(result.fieldErrors.collectionName).toEqual([
-        `Collection name must be ${MAX_COLLECTION_NAME_LENGTH} characters or fewer.`,
-      ]);
+      expect(result.fieldErrors.collectionName).toBeDefined();
       expect(result.fieldErrors.tags).toEqual([
-        `Tags must be ${MAX_TAGS_FIELD_LENGTH} characters or fewer.`,
+        `Use ${MAX_TAGS_FIELD_LENGTH} characters or fewer.`,
       ]);
     }
-  });
-
-  it("drops individual tags that exceed the prompt-safe tag limit", () => {
-    const result = normalizeSourceSkillDraftInput({
-      sourceText:
-        "Use ser for identity and long-term traits. Use estar for location and temporary states.",
-      tags: `Spanish, ${"x".repeat(MAX_TAG_LENGTH + 1)}, Grammar`,
-    });
-
-    expect(result).toMatchObject({
-      status: "ready",
-      value: {
-        tags: ["spanish", "grammar"],
-      },
-    });
   });
 
   it("rejects underspecified pasted source with stable field errors", () => {
@@ -1051,6 +1085,20 @@ describe("normalizeSourceSkillDraftInput", () => {
       expect(result.fieldErrors.sourceText).toEqual([
         "Enter at least 12 characters of learning material or a skill description.",
       ]);
+    }
+  });
+
+  it("rejects oversized string tags before source-draft normalization", () => {
+    const result = normalizeSourceSkillDraftInput({
+      sourceText:
+        "Use ser for identity and long-term traits. Use estar for location and temporary states.",
+      tags: "x".repeat(41),
+    });
+
+    expect(result.status).toBe("invalid");
+
+    if (result.status === "invalid") {
+      expect(result.fieldErrors.tags).toBeDefined();
     }
   });
 });

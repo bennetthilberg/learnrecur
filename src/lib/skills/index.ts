@@ -51,17 +51,20 @@ export const DEFAULT_READY_EXACT_INPUT_TARGET = 2;
 export const DEFAULT_READY_MATH_TARGET = 2;
 export const EXACT_INPUT_UNLOCK_REPETITIONS = 3;
 export const SOURCE_CONTEXT_CHAR_LIMIT = 4_000;
-export const MAX_COLLECTION_NAME_LENGTH = 120;
-export const MAX_TAG_LENGTH = 40;
-export const MAX_TAG_COUNT = 12;
-export const MAX_TAGS_FIELD_LENGTH = MAX_TAG_COUNT * (MAX_TAG_LENGTH + 2);
 export const EXISTING_EXERCISE_CONTEXT_CHAR_LIMIT = 3_000;
 export const MAX_GENERATED_SKILL_DRAFTS = 3;
+export const MAX_COLLECTION_NAME_LENGTH = 120;
+const MAX_DRAFT_NOTE_LINE_LENGTH = 500;
+const MAX_DRAFT_NOTE_ITEMS = 8;
+const MAX_DRAFT_NOTE_LENGTH =
+  MAX_DRAFT_NOTE_ITEMS * MAX_DRAFT_NOTE_LINE_LENGTH + (MAX_DRAFT_NOTE_ITEMS - 1);
+const MAX_EXERCISE_CONSTRAINTS_LENGTH = 1_000;
+export const MAX_TAG_LENGTH = 40;
+const MAX_TAGS = 12;
+export const MAX_TAGS_FIELD_LENGTH = MAX_TAGS * MAX_TAG_LENGTH + (MAX_TAGS - 1) * 2;
+const MAX_TAG_INPUT_LENGTH = MAX_TAGS_FIELD_LENGTH;
+const PROMPT_NOTE_CHAR_LIMIT = 2_000;
 export const SOURCE_SKILL_DRAFT_PROMPT_VERSION = "source-skill-draft-v1";
-const MAX_SKILL_GUIDANCE_NOTES = 8;
-const MAX_SKILL_GUIDANCE_NOTE_CHARS = 500;
-const MAX_SKILL_GUIDANCE_TEXT_CHARS = 4_000;
-const MAX_SKILL_GUIDANCE_CONSTRAINT_CHARS = 1_000;
 const GENERATION_TIMEOUT_MS = 45_000;
 const ACTIVATION_GENERATION_COMPLETION_SLACK_MS = 15_000;
 const ACTIVATION_GENERATION_TIMEOUT_MS =
@@ -705,64 +708,75 @@ const optionalTrimmedStringSchema = z.preprocess((value) => {
   return value;
 }, z.string().trim().optional());
 
-const tagInputSchema = z
-  .union([
-    z
-      .string()
-      .max(MAX_TAGS_FIELD_LENGTH, `Tags must be ${MAX_TAGS_FIELD_LENGTH} characters or fewer.`),
-    z
-      .array(z.string().max(MAX_TAG_LENGTH, `Each tag must be ${MAX_TAG_LENGTH} characters or fewer.`))
-      .max(MAX_TAG_COUNT),
-  ])
-  .optional();
-
-const collectionNameSchema = optionalTrimmedStringSchema.pipe(
+const noteListStringSchema = optionalTrimmedStringSchema.pipe(
   z
     .string()
-    .max(
-      MAX_COLLECTION_NAME_LENGTH,
-      `Collection name must be ${MAX_COLLECTION_NAME_LENGTH} characters or fewer.`,
-    )
-    .optional(),
-);
-
-function optionalSkillGuidanceNotesSchema(fieldLabel: string): z.ZodType<string | undefined> {
-  return z.preprocess(
-    (value) => {
-      if (typeof value === "string" && value.trim() === "") {
-        return undefined;
+    .superRefine((value, ctx) => {
+      if (value.length > MAX_DRAFT_NOTE_LENGTH) {
+        ctx.addIssue({
+          code: "too_big",
+          maximum: MAX_DRAFT_NOTE_LENGTH,
+          origin: "string",
+          inclusive: true,
+          message: `Use ${MAX_DRAFT_NOTE_LENGTH} characters or fewer.`,
+        });
+        return;
       }
 
-      return value;
-    },
-    z
-      .string()
-      .trim()
-      .max(
-        MAX_SKILL_GUIDANCE_TEXT_CHARS,
-        `${fieldLabel} must be ${MAX_SKILL_GUIDANCE_TEXT_CHARS.toLocaleString("en-US")} characters or fewer.`,
-      )
-      .superRefine((value, context) => {
-        const notes = splitNotes(value);
+      const budget = checkNoteLineBudget(value);
 
-        if (notes.length > MAX_SKILL_GUIDANCE_NOTES) {
-          context.addIssue({
-            code: "custom",
-            message: `${fieldLabel} can include at most ${MAX_SKILL_GUIDANCE_NOTES} lines.`,
-          });
-        }
+      if (budget.reason === "too-many-lines") {
+        ctx.addIssue({
+          code: "custom",
+          message: `Use at most ${MAX_DRAFT_NOTE_ITEMS} non-empty lines.`,
+        });
+      }
 
-        if (notes.some((note) => note.length > MAX_SKILL_GUIDANCE_NOTE_CHARS)) {
-          context.addIssue({
-            code: "custom",
-            message: `Each ${fieldLabel.toLocaleLowerCase("en-US")} line must be ${MAX_SKILL_GUIDANCE_NOTE_CHARS} characters or fewer.`,
-          });
-        }
-      })
-      .optional(),
-  );
-}
+      if (budget.reason === "line-too-long") {
+        ctx.addIssue({
+          code: "custom",
+          message: `Each line must be ${MAX_DRAFT_NOTE_LINE_LENGTH} characters or fewer.`,
+        });
+      }
+    })
+    .optional(),
+);
+const exerciseConstraintsStringSchema = optionalTrimmedStringSchema.pipe(
+  z.string().max(MAX_EXERCISE_CONSTRAINTS_LENGTH).optional(),
+);
+const tagStringSchema = z
+  .string()
+  .superRefine((value, ctx) => {
+    if (value.length > MAX_TAG_INPUT_LENGTH) {
+      ctx.addIssue({
+        code: "too_big",
+        maximum: MAX_TAG_INPUT_LENGTH,
+        origin: "string",
+        inclusive: true,
+        message: `Use ${MAX_TAG_INPUT_LENGTH} characters or fewer.`,
+      });
+      return;
+    }
 
+    const tags = splitTagParts(value);
+
+    if (tags.length > MAX_TAGS) {
+      ctx.addIssue({
+        code: "custom",
+        message: `Use at most ${MAX_TAGS} tags.`,
+      });
+    }
+
+    if (tags.some((tag) => tag.length > MAX_TAG_LENGTH)) {
+      ctx.addIssue({
+        code: "custom",
+        message: `Tags must be at most ${MAX_TAG_LENGTH} characters.`,
+      });
+    }
+  });
+const tagsInputSchema = z
+  .union([tagStringSchema, z.array(z.string().trim().min(1).max(MAX_TAG_LENGTH)).max(MAX_TAGS)])
+  .optional();
 const draftInputSchema = z.strictObject({
   title: z.string().trim().min(1, "Skill title is required.").max(120),
   objective: z
@@ -770,33 +784,19 @@ const draftInputSchema = z.strictObject({
     .trim()
     .min(12, "Describe the skill objective in at least 12 characters.")
     .max(1200),
-  collectionName: collectionNameSchema,
-  rules: optionalSkillGuidanceNotesSchema("Rules"),
-  examples: optionalSkillGuidanceNotesSchema("Examples"),
-  exerciseConstraints: optionalTrimmedStringSchema.pipe(
-    z
-      .string()
-      .max(
-        MAX_SKILL_GUIDANCE_CONSTRAINT_CHARS,
-        `Exercise constraints must be ${MAX_SKILL_GUIDANCE_CONSTRAINT_CHARS.toLocaleString("en-US")} characters or fewer.`,
-      )
-      .optional(),
+  collectionName: optionalTrimmedStringSchema.pipe(
+    z.string().max(MAX_COLLECTION_NAME_LENGTH).optional(),
   ),
-  tags: tagInputSchema,
+  rules: noteListStringSchema,
+  examples: noteListStringSchema,
+  exerciseConstraints: exerciseConstraintsStringSchema,
+  tags: tagsInputSchema,
 });
 
 const skillPracticeGuidanceInputSchema = z.strictObject({
-  rules: optionalSkillGuidanceNotesSchema("Rules"),
-  examples: optionalSkillGuidanceNotesSchema("Examples"),
-  exerciseConstraints: optionalTrimmedStringSchema.pipe(
-    z
-      .string()
-      .max(
-        MAX_SKILL_GUIDANCE_CONSTRAINT_CHARS,
-        `Exercise constraints must be ${MAX_SKILL_GUIDANCE_CONSTRAINT_CHARS.toLocaleString("en-US")} characters or fewer.`,
-      )
-      .optional(),
-  ),
+  rules: noteListStringSchema,
+  examples: noteListStringSchema,
+  exerciseConstraints: exerciseConstraintsStringSchema,
 });
 
 const sourceSkillDraftInputSchema = z.strictObject({
@@ -807,15 +807,17 @@ const sourceSkillDraftInputSchema = z.strictObject({
     .max(12_000, "Paste at most 12,000 characters for this first source flow."),
   sourceLabel: optionalTrimmedStringSchema.pipe(z.string().max(160).optional()),
   focusNote: optionalTrimmedStringSchema.pipe(z.string().max(800).optional()),
-  collectionName: collectionNameSchema,
-  tags: tagInputSchema,
+  collectionName: optionalTrimmedStringSchema.pipe(
+    z.string().max(MAX_COLLECTION_NAME_LENGTH).optional(),
+  ),
+  tags: tagsInputSchema,
 });
 
 const generatedSkillDraftSchema = z.strictObject({
   title: z.string().trim().min(1).max(120),
   objective: z.string().trim().min(12).max(1200),
-  rules: z.array(z.string().trim().min(1).max(500)).min(1).max(8),
-  examples: z.array(z.string().trim().min(1).max(500)).min(1).max(8),
+  rules: z.array(z.string().trim().min(1).max(MAX_DRAFT_NOTE_LINE_LENGTH)).min(1).max(8),
+  examples: z.array(z.string().trim().min(1).max(MAX_DRAFT_NOTE_LINE_LENGTH)).min(1).max(8),
   exerciseConstraints: z.string().trim().min(1).max(1000),
   tags: z.array(z.string().trim().min(1).max(40)).max(8),
 });
@@ -5616,25 +5618,19 @@ function normalizeDuplicateText(value: string): string {
 }
 
 function summarizeJsonNotes(value: Prisma.JsonValue | null): string {
+  let summary = "none";
+
   if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return "none";
+    return summary;
   }
 
   if ("items" in value && Array.isArray(value.items)) {
-    return (
-      value.items
-        .filter((item) => typeof item === "string")
-        .slice(0, MAX_SKILL_GUIDANCE_NOTES)
-        .map((item) => item.slice(0, MAX_SKILL_GUIDANCE_NOTE_CHARS))
-        .join("; ") || "none"
-    );
+    summary = value.items.filter((item) => typeof item === "string").join("; ") || "none";
+  } else if ("notes" in value && typeof value.notes === "string") {
+    summary = value.notes;
   }
 
-  if ("notes" in value && typeof value.notes === "string") {
-    return value.notes.slice(0, MAX_SKILL_GUIDANCE_CONSTRAINT_CHARS);
-  }
-
-  return "none";
+  return truncateForPrompt(summary, PROMPT_NOTE_CHAR_LIMIT);
 }
 
 function skillNotFound(): Extract<SkillDraftWriteResult, { status: "not-found" }> &
@@ -5648,7 +5644,7 @@ function skillNotFound(): Extract<SkillDraftWriteResult, { status: "not-found" }
   };
 }
 
-function splitNotes(value?: string): string[] {
+function splitNoteLines(value?: string): string[] {
   if (!value) {
     return [];
   }
@@ -5659,8 +5655,51 @@ function splitNotes(value?: string): string[] {
     .filter(Boolean);
 }
 
+function checkNoteLineBudget(
+  value: string,
+): { reason: "line-too-long" | "too-many-lines" } | { reason: null } {
+  let lineStart = 0;
+  let nonEmptyLineCount = 0;
+
+  for (let index = 0; index <= value.length; index += 1) {
+    if (index < value.length && value[index] !== "\n") {
+      continue;
+    }
+
+    const line = value.slice(lineStart, index).trim();
+    lineStart = index + 1;
+
+    if (!line) {
+      continue;
+    }
+
+    if (line.length > MAX_DRAFT_NOTE_LINE_LENGTH) {
+      return { reason: "line-too-long" };
+    }
+
+    nonEmptyLineCount += 1;
+
+    if (nonEmptyLineCount > MAX_DRAFT_NOTE_ITEMS) {
+      return { reason: "too-many-lines" };
+    }
+  }
+
+  return { reason: null };
+}
+
+function splitNotes(value?: string): string[] {
+  return splitNoteLines(value);
+}
+
+function splitTagParts(value: string): string[] {
+  return value
+    .split(/[,\n]+/)
+    .map((tag) => tag.trim())
+    .filter(Boolean);
+}
+
 export function normalizeTags(value?: string | string[]): string[] {
-  const rawTags = Array.isArray(value) ? value : value?.split(/[,\n]+/) ?? [];
+  const rawTags = Array.isArray(value) ? value : splitTagParts(value ?? "");
   const seen = new Set<string>();
   const tags: string[] = [];
 
@@ -5675,7 +5714,15 @@ export function normalizeTags(value?: string | string[]): string[] {
     tags.push(tag);
   }
 
-  return tags.slice(0, MAX_TAG_COUNT);
+  return tags.slice(0, MAX_TAGS);
+}
+
+function truncateForPrompt(value: string, maxLength: number): string {
+  if (value.length <= maxLength) {
+    return value;
+  }
+
+  return `${value.slice(0, maxLength)}…`;
 }
 
 type SkillWriteClient = Pick<
