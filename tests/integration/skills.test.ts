@@ -795,7 +795,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
     });
   });
 
-  it("does not reclaim an activation job during the verification timeout window", async () => {
+  it("does not reclaim an activation job during the completion slack window", async () => {
     const userId = await createUser("activate_verifying_job");
     const draft = await createSkillDraft({
       userId,
@@ -809,7 +809,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
       throw new Error("Expected draft creation to succeed.");
     }
 
-    const startedAt = new Date(now.getTime() - 45_001);
+    const startedAt = new Date(now.getTime() - 90_001);
     const runningJob = await prisma.generationJob.create({
       data: {
         userId,
