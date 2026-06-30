@@ -83,9 +83,22 @@ export function getInngestEnvStatus(env: NodeJS.ProcessEnv = process.env): Innge
   };
 }
 
+export function getInngestClientEnv(
+  env: NodeJS.ProcessEnv = process.env,
+): Record<string, string | undefined> {
+  if (isInngestDevMode(env)) {
+    return env;
+  }
+
+  return {
+    ...env,
+    INNGEST_DEV: undefined,
+  };
+}
+
 export const inngest = new Inngest({
   id: getInngestAppId(),
   eventKey: process.env.INNGEST_EVENT_KEY?.trim() || undefined,
   signingKey: process.env.INNGEST_SIGNING_KEY?.trim() || undefined,
   isDev: isInngestDevMode(),
-});
+}).setEnvVars(getInngestClientEnv());

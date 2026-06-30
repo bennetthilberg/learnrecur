@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { Inngest } from "inngest";
 
-import { getInngestEnvStatus, isInngestDevMode } from "@/lib/inngest/client";
+import {
+  getInngestClientEnv,
+  getInngestEnvStatus,
+  isInngestDevMode,
+} from "@/lib/inngest/client";
 import {
   parseExerciseRefillEventPayload,
   parseSourceUploadDraftEventPayload,
@@ -56,6 +61,30 @@ describe("Inngest configuration", () => {
       status: "missing-env",
       message: "Missing Inngest environment configuration: INNGEST_EVENT_KEY, INNGEST_SIGNING_KEY.",
     });
+  });
+
+  it("does not pass production INNGEST_DEV URLs through to the SDK", () => {
+    const env = {
+      NODE_ENV: "production",
+      INNGEST_DEV: "http://localhost:8290",
+      INNGEST_APP_ID: "learnrecur",
+      INNGEST_EVENT_KEY: "event-key",
+      INNGEST_SIGNING_KEY: "signkey-prod-test",
+    } as NodeJS.ProcessEnv;
+    const client = new Inngest({
+      id: "learnrecur",
+      eventKey: env.INNGEST_EVENT_KEY,
+      signingKey: env.INNGEST_SIGNING_KEY,
+      isDev: isInngestDevMode(env),
+    }).setEnvVars(getInngestClientEnv(env)) as unknown as {
+      apiBaseUrl: string;
+      eventBaseUrl: string;
+      mode: string;
+    };
+
+    expect(client.mode).toBe("cloud");
+    expect(client.apiBaseUrl).toBe("https://api.inngest.com/");
+    expect(client.eventBaseUrl).toBe("https://inn.gs/");
   });
 
   it("parses INNGEST_DEV as an explicit boolean outside production", () => {
