@@ -1971,50 +1971,50 @@ describeDatabase("skill drafts and Gemini activation", () => {
 
   it("stores the revalidated upload size when later processing fails", async () => {
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
-    const userId = await createUser("upload_revalidated_size_failure");
-    const queuedByteSize = 2048;
-    const actualByteSize = 4096;
-    let byteSize = queuedByteSize;
-    const { storage, deletedKeys } = createFakeUploadStorage({
-      byteSize: queuedByteSize,
-      bytes: Buffer.from("valid queued upload"),
-    });
-    const guardedStorage: SourceUploadStorage = {
-      ...storage,
-      async headObject(input) {
-        const head = await storage.headObject(input);
-        return {
-          ...head,
-          byteSize,
-        };
-      },
-    };
-    const prepared = await prepareSourceUpload({
-      userId,
-      now,
-      storage: guardedStorage,
-      input: {
-        originalName: "changed-size-before-failure.png",
-        mimeType: "image/png",
-        byteSize: String(queuedByteSize),
-      },
-    });
-
-    if (prepared.status !== "prepared") {
-      throw new Error("Expected upload preparation to succeed.");
-    }
-
-    await queueSourceUploadDrafts({
-      userId,
-      sourceFileId: prepared.sourceFileId,
-      now,
-      storage: guardedStorage,
-      eventSender: createFakeSourceUploadSender().sender,
-    });
-
-    byteSize = actualByteSize;
-
     try {
+      const userId = await createUser("upload_revalidated_size_failure");
+      const queuedByteSize = 2048;
+      const actualByteSize = 4096;
+      let byteSize = queuedByteSize;
+      const { storage, deletedKeys } = createFakeUploadStorage({
+        byteSize: queuedByteSize,
+        bytes: Buffer.from("valid queued upload"),
+      });
+      const guardedStorage: SourceUploadStorage = {
+        ...storage,
+        async headObject(input) {
+          const head = await storage.headObject(input);
+          return {
+            ...head,
+            byteSize,
+          };
+        },
+      };
+      const prepared = await prepareSourceUpload({
+        userId,
+        now,
+        storage: guardedStorage,
+        input: {
+          originalName: "changed-size-before-failure.png",
+          mimeType: "image/png",
+          byteSize: String(queuedByteSize),
+        },
+      });
+
+      if (prepared.status !== "prepared") {
+        throw new Error("Expected upload preparation to succeed.");
+      }
+
+      await queueSourceUploadDrafts({
+        userId,
+        sourceFileId: prepared.sourceFileId,
+        now,
+        storage: guardedStorage,
+        eventSender: createFakeSourceUploadSender().sender,
+      });
+
+      byteSize = actualByteSize;
+
       await expect(
         runQueuedSourceUploadDraftJob({
           userId,
@@ -2927,6 +2927,85 @@ describeDatabase("skill drafts and Gemini activation", () => {
     expect(sourceFile.metadata).toEqual(originalMetadata);
     expect(sourceFile.storageKey).toBe(prepared.objectKey);
     expect(deletedKeys).toEqual([]);
+  });
+
+  it("does not roll back a later requeue when event sending fails", async () => {
+    const userId = await createUser("upload_requeue_send_failure_race");
+    const { storage } = createFakeUploadStorage({
+      byteSize: 4096,
+    });
+    const prepared = await prepareSourceUpload({
+      userId,
+      now,
+      storage,
+      input: {
+        originalName: "requeue-send-failure-race.png",
+        mimeType: "image/png",
+        byteSize: "4096",
+      },
+    });
+
+    if (prepared.status !== "prepared") {
+      throw new Error("Expected upload preparation to succeed.");
+    }
+
+    await queueSourceUploadDrafts({
+      userId,
+      sourceFileId: prepared.sourceFileId,
+      now,
+      storage,
+      eventSender: createFakeSourceUploadSender().sender,
+    });
+    const originalMetadata = {
+      processingStartedAt: new Date(
+        now.getTime() - SOURCE_PROCESSING_STALE_AFTER_MS,
+      ).toISOString(),
+      retryCount: 2,
+    };
+    await prisma.sourceFile.update({
+      where: { id: prepared.sourceFileId },
+      data: {
+        status: SourceFileStatus.PROCESSING,
+        byteSize: 2048,
+        metadata: originalMetadata,
+      },
+    });
+
+    const requeued = await requeueSourceUploadDraft({
+      userId,
+      sourceFileId: prepared.sourceFileId,
+      now,
+      storage,
+      eventSender: {
+        async sendSourceUploadDraftRequested() {
+          await prisma.sourceFile.update({
+            where: { id: prepared.sourceFileId },
+            data: {
+              status: SourceFileStatus.UPLOADED,
+              byteSize: 4096,
+              metadata: {
+                laterRequeueAt: now.toISOString(),
+              },
+            },
+          });
+          throw new Error("event transport down");
+        },
+      },
+    });
+
+    expect(requeued).toMatchObject({
+      status: "not-queued",
+      reason: "event-send-failed",
+    });
+    const sourceFile = await prisma.sourceFile.findUniqueOrThrow({
+      where: { id: prepared.sourceFileId },
+    });
+    expect(sourceFile.status).toBe(SourceFileStatus.UPLOADED);
+    expect(sourceFile.byteSize).toBe(4096);
+    expect(sourceFile.metadata).toEqual({
+      laterRequeueAt: now.toISOString(),
+    });
+    expect(sourceFile.storageKey).toBe(prepared.objectKey);
   });
 
   it("requeues stale processing sources and rejects fresh processing sources", async () => {
