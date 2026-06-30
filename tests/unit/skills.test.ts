@@ -10,6 +10,9 @@ import {
   EXACT_INPUT_UNLOCK_REPETITIONS,
   EXISTING_EXERCISE_CONTEXT_CHAR_LIMIT,
   SOURCE_CONTEXT_CHAR_LIMIT,
+  MAX_COLLECTION_NAME_LENGTH,
+  MAX_TAG_LENGTH,
+  MAX_TAGS_FIELD_LENGTH,
   MAX_GENERATED_EXERCISES,
   MIN_ACTIVATION_EXERCISES,
   buildExistingChoiceExerciseContext,
@@ -952,6 +955,41 @@ describe("normalizeSourceSkillDraftInput", () => {
         focusNote: null,
         collectionName: null,
         tags: [],
+      },
+    });
+  });
+
+  it("rejects oversized collection and tag fields before prompt generation", () => {
+    const result = normalizeSourceSkillDraftInput({
+      sourceText:
+        "Use ser for identity and long-term traits. Use estar for location and temporary states.",
+      collectionName: "A".repeat(MAX_COLLECTION_NAME_LENGTH + 1),
+      tags: "b".repeat(MAX_TAGS_FIELD_LENGTH + 1),
+    });
+
+    expect(result.status).toBe("invalid");
+
+    if (result.status === "invalid") {
+      expect(result.fieldErrors.collectionName).toEqual([
+        `Collection name must be ${MAX_COLLECTION_NAME_LENGTH} characters or fewer.`,
+      ]);
+      expect(result.fieldErrors.tags).toEqual([
+        `Tags must be ${MAX_TAGS_FIELD_LENGTH} characters or fewer.`,
+      ]);
+    }
+  });
+
+  it("drops individual tags that exceed the prompt-safe tag limit", () => {
+    const result = normalizeSourceSkillDraftInput({
+      sourceText:
+        "Use ser for identity and long-term traits. Use estar for location and temporary states.",
+      tags: `Spanish, ${"x".repeat(MAX_TAG_LENGTH + 1)}, Grammar`,
+    });
+
+    expect(result).toMatchObject({
+      status: "ready",
+      value: {
+        tags: ["spanish", "grammar"],
       },
     });
   });
