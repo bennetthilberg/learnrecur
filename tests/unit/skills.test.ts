@@ -572,7 +572,7 @@ describe("validateGeneratedMathExercises", () => {
     }
   });
 
-  it("rejects non-math, malformed specs, unsupported equivalence, and oversized expressions", () => {
+  it("rejects non-math, malformed specs, unsupported equivalence, oversized expressions, and excessive accepted expressions", () => {
     const result = validateGeneratedMathExercises({
       exercises: [
         {
@@ -603,6 +603,14 @@ describe("validateGeneratedMathExercises", () => {
             equivalence: "basic-symbolic",
           },
         },
+        {
+          ...validMathExercise(5),
+          answerSpec: {
+            kind: "math",
+            acceptedExpressions: ["x", "2x", "3x", "4x", "5x"],
+            equivalence: "basic-symbolic",
+          },
+        },
       ],
     });
 
@@ -610,7 +618,7 @@ describe("validateGeneratedMathExercises", () => {
       status: "invalid",
       reason: "too-few-valid-exercises",
       validCount: 0,
-      rejectedCount: 4,
+      rejectedCount: 5,
     });
   });
 
