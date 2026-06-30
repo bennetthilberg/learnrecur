@@ -449,17 +449,6 @@ export async function processDueReminderPreference(input: {
     };
   }
 
-  const accountEmail = await resolveReminderAccountEmail(input);
-
-  if (input.preference.email !== accountEmail) {
-    return {
-      status: "invalid-recipient",
-      userId: input.preference.userId,
-      localDate,
-      message: "Reminder emails can only be sent to the current account email address.",
-    };
-  }
-
   const prisma = getPrisma();
   const existingLog = await prisma.reminderSendLog.findUnique({
     where: {
@@ -547,6 +536,17 @@ export async function processDueReminderPreference(input: {
       userId: input.preference.userId,
       localDate,
       dueCount,
+    };
+  }
+
+  const accountEmail = await resolveReminderAccountEmail(input);
+
+  if (input.preference.email !== accountEmail) {
+    return {
+      status: "invalid-recipient",
+      userId: input.preference.userId,
+      localDate,
+      message: "Reminder emails can only be sent to the current account email address.",
     };
   }
 

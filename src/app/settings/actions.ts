@@ -3,13 +3,17 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 
-import { saveReminderPreference } from "@/lib/reminders";
+import {
+  saveReminderPreference,
+  type NormalizedReminderPreferenceInput,
+} from "@/lib/reminders";
 import { ensureDatabaseUser } from "@/lib/users";
 
 export type ReminderSettingsActionState = {
   status: "idle" | "error" | "saved";
   message: string | null;
   fieldErrors?: Record<string, string[]>;
+  preference?: NormalizedReminderPreferenceInput;
 };
 
 type SettingsActionUserResult =
@@ -44,6 +48,7 @@ export async function saveReminderSettingsAction(
     return {
       status: "saved",
       message: result.message,
+      preference: result.preference,
     };
   }
 

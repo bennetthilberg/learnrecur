@@ -39,15 +39,16 @@ export function ReminderSettingsForm({
   preference: NormalizedReminderPreferenceInput;
 }) {
   const [state, setState] = useState<ReminderSettingsActionState>(idleState);
+  const [currentPreference, setCurrentPreference] = useState(preference);
   const [pending, setPending] = useState(false);
   const pendingRef = useRef(false);
   const emailErrorId = useId();
   const localHourErrorId = useId();
   const timezoneErrorId = useId();
   const minimumDueCountErrorId = useId();
-  const timezoneOptions = timezones.includes(preference.timezone)
+  const timezoneOptions = timezones.includes(currentPreference.timezone)
     ? timezones
-    : [preference.timezone, ...timezones];
+    : [currentPreference.timezone, ...timezones];
 
   const saveForm = useCallback(
     async (
@@ -66,6 +67,10 @@ export function ReminderSettingsForm({
 
       try {
         const result = await saveReminderSettingsAction(idleState, formData);
+
+        if (result.status === "saved" && result.preference) {
+          setCurrentPreference(result.preference);
+        }
 
         setState(result);
         showReminderSettingsNotification(result, source, enabled);
@@ -125,7 +130,7 @@ export function ReminderSettingsForm({
           <label className="settingsSwitchRow">
             <input
               className="settingsSwitchInput"
-              defaultChecked={preference.enabled}
+              defaultChecked={currentPreference.enabled}
               disabled={pending}
               name="enabled"
               onChange={handleEnabledChange}
@@ -141,13 +146,13 @@ export function ReminderSettingsForm({
               aria-describedby={hasFieldError(state, "email") ? emailErrorId : undefined}
               aria-invalid={hasFieldError(state, "email") ? "true" : undefined}
               autoComplete="email"
-              defaultValue={preference.email}
               disabled={pending}
               maxLength={254}
               name="email"
               readOnly
               required
               type="email"
+              value={currentPreference.email}
             />
             <span className="settingsFieldHint">Reminders can only be sent to your account email.</span>
             <FieldError id={emailErrorId} state={state} name="email" />
@@ -169,7 +174,7 @@ export function ReminderSettingsForm({
                   hasFieldError(state, "localHour") ? localHourErrorId : undefined
                 }
                 aria-invalid={hasFieldError(state, "localHour") ? "true" : undefined}
-                defaultValue={preference.localHour}
+                defaultValue={currentPreference.localHour}
                 disabled={pending}
                 name="localHour"
                 required
@@ -190,7 +195,7 @@ export function ReminderSettingsForm({
                   hasFieldError(state, "timezone") ? timezoneErrorId : undefined
                 }
                 aria-invalid={hasFieldError(state, "timezone") ? "true" : undefined}
-                defaultValue={preference.timezone}
+                defaultValue={currentPreference.timezone}
                 disabled={pending}
                 name="timezone"
                 required
@@ -212,7 +217,7 @@ export function ReminderSettingsForm({
                 hasFieldError(state, "minimumDueCount") ? minimumDueCountErrorId : undefined
               }
               aria-invalid={hasFieldError(state, "minimumDueCount") ? "true" : undefined}
-              defaultValue={preference.minimumDueCount}
+              defaultValue={currentPreference.minimumDueCount}
               disabled={pending}
               max={99}
               min={1}

@@ -319,9 +319,13 @@ describeDatabase("due email reminders", () => {
         minimumDueCount: 2,
       },
     });
+    const accountEmailResolver = vi.fn(async () => {
+      throw new Error("should not resolve below threshold");
+    });
     const sender = createRecordingSender();
 
     const result = await processDueReminderBatch({
+      accountEmailResolver,
       userIds: [userId],
       now,
       appUrl: "https://learnrecur.example",
@@ -336,6 +340,7 @@ describeDatabase("due email reminders", () => {
         dueCount: 1,
       },
     ]);
+    expect(accountEmailResolver).not.toHaveBeenCalled();
     expect(sender.payloads).toHaveLength(0);
     await expectReminderLog(userId, {
       status: ReminderSendStatus.SKIPPED,
@@ -365,7 +370,11 @@ describeDatabase("due email reminders", () => {
       appUrl: "https://learnrecur.example",
       sender,
     });
+    const accountEmailResolver = vi.fn(async () => {
+      throw new Error("should not resolve already processed reminders");
+    });
     const second = await processDueReminderBatch({
+      accountEmailResolver,
       userIds: [userId],
       now,
       appUrl: "https://learnrecur.example",
@@ -389,6 +398,7 @@ describeDatabase("due email reminders", () => {
         logStatus: ReminderSendStatus.SENT,
       },
     ]);
+    expect(accountEmailResolver).not.toHaveBeenCalled();
     expect(sender.payloads).toHaveLength(1);
     expect(sender.payloads[0]).toMatchObject({
       email: "send@example.com",
