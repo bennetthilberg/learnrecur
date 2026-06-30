@@ -148,6 +148,26 @@ describe("normalizeSkillDraftInput", () => {
       ]);
     }
   });
+
+  it("rejects oversized draft guidance before storage or activation", () => {
+    const result = normalizeSkillDraftInput({
+      title: "Ser vs estar basics",
+      objective: "Choose between ser and estar in common identity/location cases.",
+      rules: Array.from({ length: 9 }, (_, index) => `Rule ${index + 1}`).join("\n"),
+      examples: "x".repeat(501),
+      exerciseConstraints: "x".repeat(1001),
+    });
+
+    expect(result.status).toBe("invalid");
+
+    if (result.status === "invalid") {
+      expect(result.fieldErrors).toMatchObject({
+        examples: [expect.stringContaining("500 characters")],
+        exerciseConstraints: [expect.stringContaining("1,000 characters")],
+        rules: [expect.stringContaining("at most 8 lines")],
+      });
+    }
+  });
 });
 
 describe("normalizeSkillPracticeGuidanceInput", () => {
@@ -199,6 +219,24 @@ describe("normalizeSkillPracticeGuidanceInput", () => {
         examples: [expect.any(String)],
         exerciseConstraints: [expect.any(String)],
         rules: [expect.any(String)],
+      });
+    }
+  });
+
+  it("rejects oversized practice guidance before it can be saved", () => {
+    const result = normalizeSkillPracticeGuidanceInput({
+      rules: Array.from({ length: 9 }, (_, index) => `Rule ${index + 1}`).join("\n"),
+      examples: "x".repeat(501),
+      exerciseConstraints: "x".repeat(1001),
+    });
+
+    expect(result.status).toBe("invalid");
+
+    if (result.status === "invalid") {
+      expect(result.fieldErrors).toMatchObject({
+        examples: [expect.stringContaining("500 characters")],
+        exerciseConstraints: [expect.stringContaining("1,000 characters")],
+        rules: [expect.stringContaining("at most 8 lines")],
       });
     }
   });
