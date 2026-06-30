@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { SourceFileKind, SourceFileStatus } from "@/generated/prisma/client";
+
 import {
   MAX_SOURCE_UPLOAD_BYTES,
   MAX_SOURCE_UPLOAD_REQUEUE_ATTEMPTS,
@@ -7,6 +9,8 @@ import {
   buildSourceUploadRequeueMetadata,
   canRequeueSourceUploadMetadata,
   buildSourceUploadObjectKey,
+  isDismissedSourceUploadMetadata,
+  isSourceUploadDismissible,
   getSourceUploadRetryCount,
   isSourceUploadProcessingStale,
   normalizeSourceUploadInput,
@@ -205,6 +209,51 @@ describe("source upload recovery helpers", () => {
     expect(canRequeueSourceUploadMetadata({ retryCount: MAX_SOURCE_UPLOAD_REQUEUE_ATTEMPTS })).toBe(
       false,
     );
+  });
+
+  it("only dismisses capped, saved upload rows that have not already been dismissed", () => {
+    expect(
+      isSourceUploadDismissible(
+        {
+          kind: SourceFileKind.PDF,
+          status: SourceFileStatus.FAILED,
+          metadata: { retryCount: MAX_SOURCE_UPLOAD_REQUEUE_ATTEMPTS - 1 },
+          _count: { skillRefs: 0 },
+        },
+        now,
+      ),
+    ).toBe(false);
+
+    expect(
+      isSourceUploadDismissible(
+        {
+          kind: SourceFileKind.PDF,
+          status: SourceFileStatus.FAILED,
+          metadata: { retryCount: MAX_SOURCE_UPLOAD_REQUEUE_ATTEMPTS },
+          _count: { skillRefs: 0 },
+        },
+        now,
+      ),
+    ).toBe(true);
+
+    expect(
+      isSourceUploadDismissible(
+        {
+          kind: SourceFileKind.PDF,
+          status: SourceFileStatus.FAILED,
+          metadata: {
+            dismissedAt: "2026-06-05T11:00:00.000Z",
+            retryCount: MAX_SOURCE_UPLOAD_REQUEUE_ATTEMPTS,
+          },
+          _count: { skillRefs: 0 },
+        },
+        now,
+      ),
+    ).toBe(false);
+
+    expect(
+      isDismissedSourceUploadMetadata({ dismissedAt: "2026-06-05T11:00:00.000Z" }),
+    ).toBe(true);
   });
 
 });

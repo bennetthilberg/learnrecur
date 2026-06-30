@@ -14,6 +14,7 @@ import { isPracticeReadModelExerciseReady } from "@/lib/practice/read-model-elig
 import { getPrisma } from "@/lib/prisma";
 import {
   canRequeueSourceUploadMetadata,
+  isDismissedSourceUploadMetadata,
   isSourceUploadDismissible,
   isSourceUploadProcessingStale,
   SOURCE_PROCESSING_STALE_AFTER_MS,
@@ -221,6 +222,7 @@ export async function getSkillsLibrary(input: GetSkillsLibraryInput): Promise<Sk
 
   const sourceProcessing = sourceProcessingRows
     .filter(isSourceProcessingRecord)
+    .filter((sourceFile) => !isDismissedSourceUploadMetadata(sourceFile.metadata))
     .map((sourceFile) => toSourceProcessingSummary(sourceFile, input.now));
 
   const draftSkills = skills

@@ -345,6 +345,20 @@ export function canRequeueSourceUploadMetadata(metadata: Prisma.JsonValue | null
   return getSourceUploadRetryCount(metadata) < MAX_SOURCE_UPLOAD_REQUEUE_ATTEMPTS;
 }
 
+export function isDismissedSourceUploadMetadata(metadata: Prisma.JsonValue | null): boolean {
+  return Boolean(getMetadataString(metadata, "dismissedAt"));
+}
+
+function buildDismissedSourceUploadMetadata(
+  metadata: Prisma.JsonValue | null,
+  now: Date,
+): Prisma.InputJsonObject {
+  return {
+    ...getMetadataObject(metadata),
+    dismissedAt: now.toISOString(),
+  };
+}
+
 export function buildSourceUploadRequeueMetadata(
   metadata: Prisma.JsonValue | null,
   now: Date,
@@ -874,7 +888,9 @@ export async function dismissFailedSourceUpload(
     };
   }
 
-  if (!isSourceUploadDismissible(sourceFile, input.now ?? new Date())) {
+  const now = input.now ?? new Date();
+
+  if (!isSourceUploadDismissible(sourceFile, now)) {
     return {
       status: "not-dismissed",
       reason: "not-failed",
@@ -891,7 +907,7 @@ export async function dismissFailedSourceUpload(
 
   try {
     dismissed = await prisma.$transaction(async (tx) => {
-      const deleted = await tx.sourceFile.deleteMany({
+      const dismissedSource = await tx.sourceFile.updateMany({
         where: {
           id: sourceFile.id,
           userId: input.userId,
@@ -904,9 +920,14 @@ export async function dismissFailedSourceUpload(
             none: {},
           },
         },
+        data: {
+          byteSize: 0,
+          metadata: buildDismissedSourceUploadMetadata(sourceFile.metadata, now),
+          storageBucket: null,
+        },
       });
 
-      if (deleted.count !== 1) {
+      if (dismissedSource.count !== 1) {
         return false;
       }
 
@@ -954,17 +975,15 @@ export function isSourceUploadDismissible(
 ) {
   if (
     sourceFile._count.skillRefs > 0 ||
-    (sourceFile.kind !== SourceFileKind.IMAGE && sourceFile.kind !== SourceFileKind.PDF)
+    (sourceFile.kind !== SourceFileKind.IMAGE && sourceFile.kind !== SourceFileKind.PDF) ||
+    isDismissedSourceUploadMetadata(sourceFile.metadata) ||
+    canRequeueSourceUploadMetadata(sourceFile.metadata)
   ) {
     return false;
   }
 
   if (sourceFile.status === SourceFileStatus.FAILED) {
     return true;
-  }
-
-  if (canRequeueSourceUploadMetadata(sourceFile.metadata)) {
-    return false;
   }
 
   if (sourceFile.status === SourceFileStatus.UPLOADED) {
