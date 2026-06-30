@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { getAlphaAccessConfig } from "@/lib/alpha-access";
 import {
   DEFAULT_GEMINI_FALLBACK_MODELS,
   parseGeminiFallbackModels,
@@ -230,7 +231,12 @@ const productionEnvSchema = requiredDatabaseEnvSchema
   .merge(inngestProductionEnvSchema)
   .merge(alphaAccessEnvSchema)
   .superRefine((value, context) => {
-    if (!value.ALPHA_ALLOWED_EMAILS && !value.ALPHA_ALLOWED_DOMAINS) {
+    const alphaAccessConfig = getAlphaAccessConfig(value);
+
+    if (
+      alphaAccessConfig.allowedEmails.length === 0 &&
+      alphaAccessConfig.allowedDomains.length === 0
+    ) {
       context.addIssue({
         code: "custom",
         path: ["ALPHA_ALLOWED_EMAILS"],

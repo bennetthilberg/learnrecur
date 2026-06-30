@@ -155,6 +155,23 @@ describe("ensureDatabaseUser", () => {
     expect(upsert).not.toHaveBeenCalled();
   });
 
+  it("requires an alpha allowlist for production Node deployments", async () => {
+    process.env.NODE_ENV = "production";
+    const { client, upsert } = makeMirrorClient();
+
+    await expect(
+      ensureDatabaseUser(baseClerkUser, {
+        prisma: client,
+        skipEnvCheck: true,
+      }),
+    ).resolves.toEqual({
+      status: "access-denied",
+      message:
+        "Alpha access is not configured. Add ALPHA_ALLOWED_EMAILS or ALPHA_ALLOWED_DOMAINS before accepting sign-ups.",
+    });
+    expect(upsert).not.toHaveBeenCalled();
+  });
+
   it("creates or updates the mirrored user by Clerk ID", async () => {
     const { client, upsert } = makeMirrorClient();
 
