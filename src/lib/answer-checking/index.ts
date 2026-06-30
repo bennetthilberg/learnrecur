@@ -1,6 +1,16 @@
 import { ComputeEngine, type Expression } from "@cortex-js/compute-engine";
 import { z } from "zod";
 
+import {
+  MAX_NUMERIC_ANSWER_LENGTH,
+  MAX_TEXT_ANSWER_LENGTH,
+} from "@/lib/answer-limits";
+
+export {
+  MAX_NUMERIC_ANSWER_LENGTH,
+  MAX_TEXT_ANSWER_LENGTH,
+} from "@/lib/answer-limits";
+
 const DEFAULT_NUMERIC_TOLERANCE = 0.001;
 const DEFAULT_MATH_EQUIVALENCE = "basic-symbolic";
 export const MAX_MATH_ACCEPTED_EXPRESSIONS = 4;
@@ -8,7 +18,10 @@ export const MAX_MATH_EXPRESSION_LENGTH = 500;
 export const MAX_MATH_EXPRESSION_NESTING = 32;
 
 const nonEmptyStringSchema = z.string().trim().min(1);
+const textAnswerStringSchema = nonEmptyStringSchema.max(MAX_TEXT_ANSWER_LENGTH);
+const numericAnswerStringSchema = nonEmptyStringSchema.max(MAX_NUMERIC_ANSWER_LENGTH);
 const mathExpressionStringSchema = nonEmptyStringSchema.max(MAX_MATH_EXPRESSION_LENGTH);
+const NUMERIC_ACCEPTED_VALUE_LENGTH_ERROR = `Accepted numeric answers must be ${MAX_NUMERIC_ANSWER_LENGTH} characters or fewer without exponent notation.`;
 
 export const choiceSchema = z.strictObject({
   id: nonEmptyStringSchema,
@@ -24,31 +37,47 @@ export const choiceAnswerSpecSchema = z.strictObject({
 
 export const textAnswerSpecSchema = z.strictObject({
   kind: z.literal("text"),
-  accepted: z.array(nonEmptyStringSchema).min(1),
+  accepted: z.array(textAnswerStringSchema).min(1),
   normalizeCase: z.boolean().default(true),
   normalizeWhitespace: z.boolean().default(true),
   normalizeDiacritics: z.boolean().default(true),
 });
 
+const numericAcceptedNumberSchema = z
+  .number()
+  .finite()
+  .refine(isNumericAcceptedNumberWithinInputLimit, NUMERIC_ACCEPTED_VALUE_LENGTH_ERROR);
+const numericAcceptedIntegerSchema = z
+  .number()
+  .int()
+  .finite()
+  .refine(isNumericAcceptedNumberWithinInputLimit, NUMERIC_ACCEPTED_VALUE_LENGTH_ERROR);
+const numericAcceptedFractionObjectSchema = z
+  .strictObject({
+    type: z.literal("fraction"),
+    numerator: numericAcceptedIntegerSchema,
+    denominator: numericAcceptedIntegerSchema,
+  })
+  .refine(
+    (value) => isNumericAcceptedFractionWithinInputLimit(value.numerator, value.denominator),
+    NUMERIC_ACCEPTED_VALUE_LENGTH_ERROR,
+  );
+
 const numericAcceptedValueSchema = z.union([
-  z.number().finite(),
-  nonEmptyStringSchema,
+  numericAcceptedNumberSchema,
+  numericAnswerStringSchema,
   z.strictObject({
     type: z.literal("integer"),
-    value: z.number().int().finite(),
+    value: numericAcceptedIntegerSchema,
   }),
   z.strictObject({
     type: z.literal("decimal"),
-    value: z.number().finite(),
+    value: numericAcceptedNumberSchema,
   }),
+  numericAcceptedFractionObjectSchema,
   z.strictObject({
     type: z.literal("fraction"),
-    numerator: z.number().int().finite(),
-    denominator: z.number().int().finite(),
-  }),
-  z.strictObject({
-    type: z.literal("fraction"),
-    value: nonEmptyStringSchema,
+    value: numericAnswerStringSchema,
   }),
 ]);
 
@@ -95,6 +124,7 @@ export type AnswerCheckReason =
   | "duplicate-choice-id"
   | "empty-answer"
   | "invalid-accepted-number"
+  | "input-too-large"
   | "invalid-accepted-expression"
   | "invalid-answer-spec"
   | "invalid-choices"
@@ -116,7 +146,7 @@ export type AnswerCheckResult = {
 
 type NumericParseFailureReason = Extract<
   AnswerCheckReason,
-  "empty-answer" | "invalid-accepted-number" | "malformed-number" | "zero-denominator"
+  "empty-answer" | "input-too-large" | "invalid-accepted-number" | "malformed-number" | "zero-denominator"
 >;
 
 type ParsedNumber =
@@ -230,6 +260,10 @@ function checkChoiceAnswer(
 function checkTextAnswer(answerSpec: TextAnswerSpec, submittedAnswer: unknown): AnswerCheckResult {
   if (typeof submittedAnswer !== "string") {
     return invalidInput("wrong-answer-shape", "Enter a text answer.");
+  }
+
+  if (submittedAnswer.length > MAX_TEXT_ANSWER_LENGTH) {
+    return invalidInput("input-too-large", `Enter ${MAX_TEXT_ANSWER_LENGTH} characters or fewer.`);
   }
 
   const normalizedAnswer = normalizeTextAnswer(submittedAnswer, answerSpec);
@@ -536,6 +570,14 @@ function parseNumericInput(input: unknown, source: "input" | "spec"): ParsedNumb
     return invalidNumeric(source, "malformed-number", "Enter a number or fraction.");
   }
 
+  if (source === "input" && input.length > MAX_NUMERIC_ANSWER_LENGTH) {
+    return invalidNumeric(
+      source,
+      "input-too-large",
+      `Enter ${MAX_NUMERIC_ANSWER_LENGTH} characters or fewer.`,
+    );
+  }
+
   const trimmed = input.trim();
 
   if (trimmed === "") {
@@ -608,6 +650,42 @@ function formatCanonicalNumber(value: number): string {
   }
 
   return Number(normalizedValue.toPrecision(15)).toString();
+}
+
+function isNumericAcceptedNumberWithinInputLimit(value: number): boolean {
+  return formatPlainDecimalNumber(value).length <= MAX_NUMERIC_ANSWER_LENGTH;
+}
+
+function isNumericAcceptedFractionWithinInputLimit(numerator: number, denominator: number): boolean {
+  const fraction = `${formatPlainDecimalNumber(numerator)}/${formatPlainDecimalNumber(denominator)}`;
+
+  return fraction.length <= MAX_NUMERIC_ANSWER_LENGTH;
+}
+
+function formatPlainDecimalNumber(value: number): string {
+  const text = String(normalizeNegativeZero(value));
+
+  if (!/[eE]/.test(text)) {
+    return text;
+  }
+
+  const [mantissa = "", exponentText = "0"] = text.toLowerCase().split("e");
+  const exponent = Number(exponentText);
+  const sign = mantissa.startsWith("-") ? "-" : "";
+  const unsignedMantissa = mantissa.replace(/^[+-]/, "");
+  const [integerPart = "0", fractionalPart = ""] = unsignedMantissa.split(".");
+  const digits = `${integerPart}${fractionalPart}`.replace(/^0+(?=\d)/, "");
+  const decimalIndex = integerPart.length + exponent;
+
+  if (decimalIndex <= 0) {
+    return `${sign}0.${"0".repeat(Math.abs(decimalIndex))}${digits}`;
+  }
+
+  if (decimalIndex >= digits.length) {
+    return `${sign}${digits}${"0".repeat(decimalIndex - digits.length)}`;
+  }
+
+  return `${sign}${digits.slice(0, decimalIndex)}.${digits.slice(decimalIndex)}`;
 }
 
 function normalizeNegativeZero(value: number): number {

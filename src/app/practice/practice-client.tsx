@@ -5,6 +5,11 @@ import Link from "next/link";
 import { CheckCircle } from "@phosphor-icons/react";
 
 import { AnswerKind, ExerciseFlagReason, FsrsRating } from "@/generated/prisma/enums";
+import {
+  MAX_MATH_EXPRESSION_LENGTH,
+  MAX_NUMERIC_ANSWER_LENGTH,
+  MAX_TEXT_ANSWER_LENGTH,
+} from "@/lib/answer-limits";
 import { formatFsrsState } from "@/lib/formatters";
 import {
   getPracticeShortcutIntent,
@@ -486,6 +491,13 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
             value={answerValue}
             inputMode="text"
             autoComplete="off"
+            maxLength={
+              isMathExercise
+                ? MAX_MATH_EXPRESSION_LENGTH
+                : isNumericExercise
+                  ? MAX_NUMERIC_ANSWER_LENGTH
+                  : MAX_TEXT_ANSWER_LENGTH
+            }
             disabled={feedback !== null || pendingAction !== null}
             placeholder={
               isMathExercise

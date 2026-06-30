@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { checkAnswer } from "@/lib/answer-checking";
+import {
+  MAX_NUMERIC_ANSWER_LENGTH,
+  MAX_TEXT_ANSWER_LENGTH,
+  checkAnswer,
+} from "@/lib/answer-checking";
 
 const choices = [
   { id: "ser", label: "ser" },
@@ -140,6 +144,24 @@ describe("checkAnswer text answers", () => {
     });
   });
 
+  it("rejects over-limit text answers before normalization", () => {
+    expect(
+      checkAnswer({
+        answerSpec: {
+          kind: "text",
+          accepted: ["ser"],
+        },
+        submittedAnswer: "a".repeat(MAX_TEXT_ANSWER_LENGTH + 1),
+      }),
+    ).toEqual({
+      status: "invalid-input",
+      isCorrect: false,
+      normalizedAnswer: null,
+      reason: "input-too-large",
+      message: `Enter ${MAX_TEXT_ANSWER_LENGTH} characters or fewer.`,
+    });
+  });
+
   it("matches accepted variants only, not contains-style answers", () => {
     expect(
       checkAnswer({
@@ -226,6 +248,24 @@ describe("checkAnswer numeric answers", () => {
       status: "incorrect",
       isCorrect: false,
       normalizedAnswer: "0.7505",
+    });
+  });
+
+  it("rejects over-limit numeric answers before parsing", () => {
+    expect(
+      checkAnswer({
+        answerSpec: {
+          kind: "numeric",
+          accepted: [1],
+        },
+        submittedAnswer: "1".repeat(MAX_NUMERIC_ANSWER_LENGTH + 1),
+      }),
+    ).toEqual({
+      status: "invalid-input",
+      isCorrect: false,
+      normalizedAnswer: null,
+      reason: "input-too-large",
+      message: `Enter ${MAX_NUMERIC_ANSWER_LENGTH} characters or fewer.`,
     });
   });
 
@@ -515,6 +555,22 @@ describe("checkAnswer invalid specs", () => {
     });
   });
 
+  it("rejects accepted text answers that exceed the input cap", () => {
+    expect(
+      checkAnswer({
+        answerSpec: {
+          kind: "text",
+          accepted: ["a".repeat(MAX_TEXT_ANSWER_LENGTH + 1)],
+        },
+        submittedAnswer: "anything",
+      }),
+    ).toMatchObject({
+      status: "invalid-spec",
+      isCorrect: false,
+      reason: "invalid-answer-spec",
+    });
+  });
+
   it("rejects non-finite numbers and non-integer integer specs", () => {
     expect(
       checkAnswer({
@@ -558,6 +614,64 @@ describe("checkAnswer invalid specs", () => {
       isCorrect: false,
       reason: "invalid-answer-spec",
     });
+  });
+
+  it("rejects accepted numeric strings that exceed the input cap", () => {
+    expect(
+      checkAnswer({
+        answerSpec: {
+          kind: "numeric",
+          accepted: ["1".repeat(MAX_NUMERIC_ANSWER_LENGTH + 1)],
+        },
+        submittedAnswer: "1",
+      }),
+    ).toMatchObject({
+      status: "invalid-spec",
+      isCorrect: false,
+      reason: "invalid-answer-spec",
+    });
+
+    expect(
+      checkAnswer({
+        answerSpec: {
+          kind: "numeric",
+          accepted: [
+            {
+              type: "fraction",
+              value: `${"1".repeat(MAX_NUMERIC_ANSWER_LENGTH)}/2`,
+            },
+          ],
+        },
+        submittedAnswer: "1",
+      }),
+    ).toMatchObject({
+      status: "invalid-spec",
+      isCorrect: false,
+      reason: "invalid-answer-spec",
+    });
+  });
+
+  it("rejects accepted numeric number specs whose plain input exceeds the cap", () => {
+    for (const accepted of [
+      1e64,
+      { type: "integer", value: 1e64 },
+      { type: "decimal", value: 1e64 },
+      { type: "fraction", numerator: 1e64, denominator: 1 },
+    ]) {
+      expect(
+        checkAnswer({
+          answerSpec: {
+            kind: "numeric",
+            accepted: [accepted],
+          },
+          submittedAnswer: "1",
+        }),
+      ).toMatchObject({
+        status: "invalid-spec",
+        isCorrect: false,
+        reason: "invalid-answer-spec",
+      });
+    }
   });
 
   it("rejects unknown fields in text, numeric, math, and numeric accepted-value specs", () => {
