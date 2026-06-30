@@ -309,24 +309,46 @@ export function buildSourceUploadObjectKey({
   )}/${sanitizeFileName(originalName)}`;
 }
 
+function isMetadataTimestampStale(
+  metadata: Prisma.JsonValue | null,
+  key: string,
+  now: Date,
+  staleAfterMs = SOURCE_PROCESSING_STALE_AFTER_MS,
+): boolean {
+  const timestamp = getMetadataString(metadata, key);
+
+  if (!timestamp) {
+    return false;
+  }
+
+  const timestampTime = Date.parse(timestamp);
+
+  if (!Number.isFinite(timestampTime)) {
+    return false;
+  }
+
+  return now.getTime() - timestampTime >= staleAfterMs;
+}
+
 export function isSourceUploadProcessingStale(
   metadata: Prisma.JsonValue | null,
   now: Date,
   staleAfterMs = SOURCE_PROCESSING_STALE_AFTER_MS,
 ): boolean {
-  const startedAt = getMetadataString(metadata, "processingStartedAt");
+  return isMetadataTimestampStale(
+    metadata,
+    "processingStartedAt",
+    now,
+    staleAfterMs,
+  );
+}
 
-  if (!startedAt) {
-    return false;
-  }
-
-  const startedAtTime = Date.parse(startedAt);
-
-  if (!Number.isFinite(startedAtTime)) {
-    return false;
-  }
-
-  return now.getTime() - startedAtTime >= staleAfterMs;
+export function isSourceUploadQueuedStale(
+  metadata: Prisma.JsonValue | null,
+  now: Date,
+  staleAfterMs = SOURCE_PROCESSING_STALE_AFTER_MS,
+): boolean {
+  return isMetadataTimestampStale(metadata, "queuedAt", now, staleAfterMs);
 }
 
 export function getSourceUploadRetryCount(metadata: Prisma.JsonValue | null): number {
@@ -736,6 +758,13 @@ export async function requeueSourceUploadDraft(
         "Skill preparation is still running. Give the background worker a little more time.",
       );
     }
+  } else if (sourceFile.status === SourceFileStatus.UPLOADED) {
+    if (!isSourceUploadQueuedStale(sourceFile.metadata, input.now)) {
+      return requeueNotQueued(
+        "not-stale",
+        "Skill preparation is still queued. Give the background worker a little more time.",
+      );
+    }
   } else if (sourceFile.status === SourceFileStatus.FAILED) {
     if (!isFailedSourceUploadRequeueable(sourceFile)) {
       return requeueNotQueued(
@@ -779,7 +808,7 @@ export async function requeueSourceUploadDraft(
 
   const requeueAttemptId = randomUUID();
   const requeueMetadata = buildSourceUploadRequeueMetadata(sourceFile.metadata, input.now, {
-    consumeRetry: sourceFile.status !== SourceFileStatus.UPLOADED,
+    consumeRetry: true,
     requeueAttemptId,
   });
   const requeued = await prisma.sourceFile.updateMany({
@@ -1030,7 +1059,7 @@ export function isSourceUploadDismissible(
   }
 
   if (sourceFile.status === SourceFileStatus.UPLOADED) {
-    return true;
+    return isSourceUploadQueuedStale(sourceFile.metadata, now);
   }
 
   return (

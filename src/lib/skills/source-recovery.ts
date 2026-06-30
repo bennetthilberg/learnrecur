@@ -7,6 +7,7 @@ import {
   isDismissedSourceUploadMetadata,
   isSourceUploadDismissible,
   isSourceUploadProcessingStale,
+  isSourceUploadQueuedStale,
   SOURCE_PROCESSING_STALE_AFTER_MS,
 } from "@/lib/skills/uploads";
 
@@ -121,6 +122,9 @@ function toSkillCreationSourceRecoveryItem(
     sourceFile.status === SourceFileStatus.PROCESSING &&
     isSourceUploadProcessingStale(sourceFile.metadata, now, SOURCE_PROCESSING_STALE_AFTER_MS);
   const canRequeueByRetryLimit = canRequeueSourceUploadMetadata(sourceFile.metadata);
+  const isStaleQueued =
+    sourceFile.status === SourceFileStatus.UPLOADED &&
+    isSourceUploadQueuedStale(sourceFile.metadata, now);
   const isSavedRetryableUpload = isSavedSourceRetryable(sourceFile);
 
   return {
@@ -132,7 +136,7 @@ function toSkillCreationSourceRecoveryItem(
     isStaleProcessing,
     canRequeue:
       canRequeueByRetryLimit &&
-      (sourceFile.status === SourceFileStatus.UPLOADED ||
+      (isStaleQueued ||
         isStaleProcessing ||
         (sourceFile.status === SourceFileStatus.FAILED && isSavedRetryableUpload)),
     canDismiss: isSourceUploadDismissible(sourceFile, now),

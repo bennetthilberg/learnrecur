@@ -13,6 +13,7 @@ import {
   isSourceUploadDismissible,
   getSourceUploadRetryCount,
   isSourceUploadProcessingStale,
+  isSourceUploadQueuedStale,
   normalizeSourceUploadInput,
   validateExtractedSourceText,
 } from "@/lib/skills/uploads";
@@ -154,6 +155,32 @@ describe("source upload recovery helpers", () => {
     },
   ])("detects stale processing uploads for $name", ({ metadata, expected }) => {
     expect(isSourceUploadProcessingStale(metadata, now)).toBe(expected);
+  });
+
+  it("detects stale queued uploads from queuedAt metadata", () => {
+    expect(
+      isSourceUploadQueuedStale(
+        {
+          queuedAt: new Date(
+            now.getTime() - SOURCE_PROCESSING_STALE_AFTER_MS,
+          ).toISOString(),
+        },
+        now,
+      ),
+    ).toBe(true);
+    expect(
+      isSourceUploadQueuedStale(
+        {
+          queuedAt: new Date(
+            now.getTime() - SOURCE_PROCESSING_STALE_AFTER_MS + 1,
+          ).toISOString(),
+        },
+        now,
+      ),
+    ).toBe(false);
+    expect(
+      isSourceUploadQueuedStale({ processingStartedAt: now.toISOString() }, now),
+    ).toBe(false);
   });
 
   it.each([

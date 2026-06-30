@@ -2640,7 +2640,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
     expect(deletedKeys).toEqual([prepared.objectKey]);
   });
 
-  it("resends an uploaded source without consuming retry attempts", async () => {
+  it("resends only stale uploaded sources and consumes retry attempts", async () => {
     const userId = await createUser("upload_requeue_uploaded");
     const { storage } = createFakeUploadStorage({
       byteSize: 4096,
@@ -2672,7 +2672,23 @@ describeDatabase("skill drafts and Gemini activation", () => {
     ).resolves.toMatchObject({ status: "queued" });
 
     const { sender, events } = createFakeSourceUploadSender();
-    const requeueAt = new Date(now.getTime() + 60_000);
+    const tooSoonAt = new Date(
+      now.getTime() + SOURCE_PROCESSING_STALE_AFTER_MS - 1,
+    );
+    await expect(
+      requeueSourceUploadDraft({
+        userId,
+        sourceFileId: prepared.sourceFileId,
+        now: tooSoonAt,
+        storage,
+        eventSender: sender,
+      }),
+    ).resolves.toMatchObject({
+      status: "not-queued",
+      reason: "not-stale",
+    });
+
+    const requeueAt = new Date(now.getTime() + SOURCE_PROCESSING_STALE_AFTER_MS);
     await expect(
       requeueSourceUploadDraft({
         userId,
@@ -2685,7 +2701,9 @@ describeDatabase("skill drafts and Gemini activation", () => {
       status: "queued",
       sourceFileId: prepared.sourceFileId,
     });
-    const secondRequeueAt = new Date(now.getTime() + 120_000);
+    const secondRequeueAt = new Date(
+      requeueAt.getTime() + SOURCE_PROCESSING_STALE_AFTER_MS,
+    );
     await expect(
       requeueSourceUploadDraft({
         userId,
@@ -2719,8 +2737,8 @@ describeDatabase("skill drafts and Gemini activation", () => {
     expect(sourceFile.metadata).toMatchObject({
       queuedAt: secondRequeueAt.toISOString(),
       requeuedAt: secondRequeueAt.toISOString(),
+      retryCount: 2,
     });
-    expect(sourceFile.metadata).not.toHaveProperty("retryCount");
   });
 
   it("rejects requeue for uploaded and stale processing sources at the retry limit", async () => {
@@ -2740,6 +2758,9 @@ describeDatabase("skill drafts and Gemini activation", () => {
         storageBucket: "learnrecur-dev",
         storageKey: `source-uploads/${userId}/waiting.png`,
         metadata: {
+          queuedAt: new Date(
+            now.getTime() - SOURCE_PROCESSING_STALE_AFTER_MS,
+          ).toISOString(),
           retryCount: MAX_SOURCE_UPLOAD_REQUEUE_ATTEMPTS,
         },
       },
@@ -3302,6 +3323,11 @@ describeDatabase("skill drafts and Gemini activation", () => {
         mimeType: "image/png",
         byteSize: 2048,
         storageBucket: "learnrecur-dev",
+        metadata: {
+          queuedAt: new Date(
+            now.getTime() - SOURCE_PROCESSING_STALE_AFTER_MS,
+          ).toISOString(),
+        },
       },
     });
     const missingObjectSource = await prisma.sourceFile.create({
@@ -3314,6 +3340,11 @@ describeDatabase("skill drafts and Gemini activation", () => {
         byteSize: 2048,
         storageBucket: "learnrecur-dev",
         storageKey: `source-uploads/${userId}/missing-object.png`,
+        metadata: {
+          queuedAt: new Date(
+            now.getTime() - SOURCE_PROCESSING_STALE_AFTER_MS,
+          ).toISOString(),
+        },
       },
     });
     const sender = createFakeSourceUploadSender();
