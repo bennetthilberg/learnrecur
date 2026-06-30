@@ -1,4 +1,16 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+const clerkMocks = vi.hoisted(() => ({
+  getUser: vi.fn(),
+}));
+
+vi.mock("@clerk/nextjs/server", () => ({
+  clerkClient: vi.fn(async () => ({
+    users: {
+      getUser: clerkMocks.getUser,
+    },
+  })),
+}));
 
 import {
   buildPracticeUrl,
@@ -8,7 +20,12 @@ import {
   isReminderLocalHourDue,
   normalizeReminderPreferenceInput,
   renderDueReminderEmail,
+  resolveClerkReminderAccountEmail,
 } from "@/lib/reminders";
+
+afterEach(() => {
+  clerkMocks.getUser.mockReset();
+});
 
 describe("reminder preference input", () => {
   it("normalizes enabled reminder settings", () => {
@@ -52,6 +69,27 @@ describe("reminder preference input", () => {
     });
   });
 
+  it("allows disabled reminder settings without an email", () => {
+    expect(
+      normalizeReminderPreferenceInput({
+        enabled: false,
+        email: "",
+        localHour: 9,
+        timezone: "America/New_York",
+        minimumDueCount: 1,
+      }),
+    ).toEqual({
+      status: "valid",
+      input: {
+        enabled: false,
+        email: "",
+        localHour: 9,
+        timezone: "America/New_York",
+        minimumDueCount: 1,
+      },
+    });
+  });
+
   it("rejects invalid reminder settings with field errors", () => {
     const result = normalizeReminderPreferenceInput({
       enabled: "maybe",
@@ -65,12 +103,28 @@ describe("reminder preference input", () => {
     expect(result).toMatchObject({
       fieldErrors: {
         enabled: expect.arrayContaining([expect.any(String)]),
-        email: expect.arrayContaining(["Enter a valid email address."]),
         localHour: expect.arrayContaining(["Choose an hour from 0 to 23."]),
         timezone: expect.arrayContaining(["Choose a valid IANA timezone."]),
         minimumDueCount: expect.arrayContaining([
           "Minimum due count must be at least 1.",
         ]),
+      },
+    });
+  });
+
+  it("rejects enabled reminder settings without a valid email", () => {
+    const result = normalizeReminderPreferenceInput({
+      enabled: true,
+      email: "not email",
+      localHour: 9,
+      timezone: "America/New_York",
+      minimumDueCount: 1,
+    });
+
+    expect(result.status).toBe("invalid");
+    expect(result).toMatchObject({
+      fieldErrors: {
+        email: expect.arrayContaining(["Enter a valid email address."]),
       },
     });
   });
@@ -105,6 +159,43 @@ describe("reminder scheduling helpers", () => {
     expect(buildReminderIdempotencyKey("user_123", "2026-06-04")).toBe(
       "learnrecur:due-reminder:user_123:2026-06-04",
     );
+  });
+});
+
+describe("clerk reminder account email resolution", () => {
+  it("returns the primary Clerk email only when it is verified", async () => {
+    clerkMocks.getUser
+      .mockResolvedValueOnce({
+        primaryEmailAddress: {
+          emailAddress: "verified@example.com",
+          verification: {
+            status: "verified",
+          },
+        },
+      })
+      .mockResolvedValueOnce({
+        primaryEmailAddress: {
+          emailAddress: "unverified@example.com",
+          verification: {
+            status: "failed",
+          },
+        },
+      })
+      .mockResolvedValueOnce({
+        primaryEmailAddress: null,
+      });
+
+    await expect(resolveClerkReminderAccountEmail("user_verified")).resolves.toBe(
+      "verified@example.com",
+    );
+    await expect(resolveClerkReminderAccountEmail("user_unverified")).resolves.toBeNull();
+    await expect(resolveClerkReminderAccountEmail("user_missing_email")).resolves.toBeNull();
+  });
+
+  it("returns null when the Clerk user no longer exists", async () => {
+    clerkMocks.getUser.mockRejectedValueOnce({ status: 404 });
+
+    await expect(resolveClerkReminderAccountEmail("user_deleted")).resolves.toBeNull();
   });
 });
 

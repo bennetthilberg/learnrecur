@@ -1,5 +1,6 @@
 import "server-only";
 
+import { clerkClient } from "@clerk/nextjs/server";
 import { Resend } from "resend";
 import { z } from "zod";
 
@@ -83,6 +84,8 @@ export type ReminderEmailSender = {
   sendDueReminder(payload: ReminderEmailPayload): Promise<ReminderEmailSendResult>;
 };
 
+export type ReminderAccountEmailResolver = (userId: string) => Promise<string | null>;
+
 export type ProcessDueReminderResult =
   | {
       status: "not-due-hour";
@@ -100,6 +103,12 @@ export type ProcessDueReminderResult =
       userId: string;
       localDate: string;
       dueCount: number;
+    }
+  | {
+      status: "invalid-recipient";
+      userId: string;
+      localDate: string;
+      message: string;
     }
   | {
       status: "sent";
@@ -123,6 +132,7 @@ export type ProcessDueReminderBatchResult = {
 };
 
 type ReminderPreferenceRecord = NormalizedReminderPreferenceInput & {
+  accountEmail: string | null;
   userId: string;
 };
 
@@ -140,7 +150,7 @@ type DuePracticeSkillRecord = {
 
 const reminderPreferenceInputSchema = z.strictObject({
   enabled: z.preprocess(parseBooleanish, z.boolean()),
-  email: z.string().trim().email("Enter a valid email address.").max(254),
+  email: z.string().trim().max(254),
   localHour: z.coerce
     .number()
     .int("Choose a whole hour.")
@@ -160,6 +170,20 @@ const reminderPreferenceInputSchema = z.strictObject({
       MAX_REMINDER_MINIMUM_DUE_COUNT,
       `Minimum due count must be ${MAX_REMINDER_MINIMUM_DUE_COUNT} or less.`,
     ),
+}).superRefine((value, context) => {
+  if (!value.enabled && value.email === "") {
+    return;
+  }
+
+  const emailResult = z.string().email().safeParse(value.email);
+
+  if (!emailResult.success) {
+    context.addIssue({
+      code: "custom",
+      path: ["email"],
+      message: "Enter a valid email address.",
+    });
+  }
 });
 
 export function normalizeReminderPreferenceInput(
@@ -220,7 +244,12 @@ export async function getReminderSettings(input: {
 
   return {
     status: "ready",
-    preference: user.reminderPreference ?? getDefaultReminderPreference(user.email),
+    preference: user.reminderPreference
+      ? {
+          ...user.reminderPreference,
+          email: user.email ?? user.reminderPreference.email,
+        }
+      : getDefaultReminderPreference(user.email),
     persisted: Boolean(user.reminderPreference),
   };
 }
@@ -238,7 +267,14 @@ export async function saveReminderPreference(input: {
   const prisma = getPrisma();
   const user = await prisma.user.findUnique({
     where: { id: input.userId },
-    select: { id: true },
+    select: {
+      email: true,
+      reminderPreference: {
+        select: {
+          email: true,
+        },
+      },
+    },
   });
 
   if (!user) {
@@ -248,13 +284,28 @@ export async function saveReminderPreference(input: {
     };
   }
 
+  if (!user.email && normalized.input.enabled) {
+    return {
+      status: "invalid",
+      message: "Use the email address verified for your account.",
+      fieldErrors: {
+        email: ["Reminder emails can only be sent to your account email address."],
+      },
+    };
+  }
+
+  const preferenceInput = {
+    ...normalized.input,
+    email: user.email ?? normalized.input.email,
+  };
+
   const preference = await prisma.reminderPreference.upsert({
     where: { userId: input.userId },
     create: {
       userId: input.userId,
-      ...normalized.input,
+      ...preferenceInput,
     },
-    update: normalized.input,
+    update: preferenceInput,
     select: {
       enabled: true,
       email: true,
@@ -309,6 +360,7 @@ export async function getDuePracticeSkillCount(input: {
 }
 
 export async function processDueReminderBatch(input: {
+  accountEmailResolver?: ReminderAccountEmailResolver;
   now: Date;
   appUrl?: string;
   sender?: ReminderEmailSender;
@@ -333,23 +385,49 @@ export async function processDueReminderBatch(input: {
       localHour: true,
       timezone: true,
       minimumDueCount: true,
+      user: {
+        select: {
+          email: true,
+        },
+      },
     },
     orderBy: [{ userId: "asc" }],
   });
 
   const results: ProcessDueReminderResult[] = [];
+  const retryableErrors: unknown[] = [];
 
   for (const preference of preferences) {
-    const result = await processDueReminderPreference({
-      appUrl: input.appUrl,
-      now: input.now,
-      preference,
-      sender: input.sender,
-    });
+    let result: ProcessDueReminderResult;
+
+    try {
+      result = await processDueReminderPreference({
+        accountEmailResolver: input.accountEmailResolver,
+        appUrl: input.appUrl,
+        now: input.now,
+        preference: {
+          userId: preference.userId,
+          enabled: preference.enabled,
+          email: preference.email,
+          accountEmail: preference.user.email,
+          localHour: preference.localHour,
+          timezone: preference.timezone,
+          minimumDueCount: preference.minimumDueCount,
+        },
+        sender: input.sender,
+      });
+    } catch (error) {
+      retryableErrors.push(error);
+      continue;
+    }
 
     if (result.status !== "not-due-hour") {
       results.push(result);
     }
+  }
+
+  if (retryableErrors.length > 0) {
+    throw retryableErrors[0];
   }
 
   return {
@@ -360,6 +438,7 @@ export async function processDueReminderBatch(input: {
 }
 
 export async function processDueReminderPreference(input: {
+  accountEmailResolver?: ReminderAccountEmailResolver;
   appUrl?: string;
   now: Date;
   preference: ReminderPreferenceRecord;
@@ -393,18 +472,6 @@ export async function processDueReminderPreference(input: {
     existingLog?.status === ReminderSendStatus.PENDING &&
     isStalePendingReminderLog(existingLog.updatedAt, input.now);
 
-  if (shouldRetryPendingLog && existingLog) {
-    const claimedLog = await claimStalePendingReminderLog({
-      localDate,
-      updatedAt: existingLog.updatedAt,
-      userId: input.preference.userId,
-    });
-
-    if (!claimedLog) {
-      return existingLogResult(input.preference.userId, localDate);
-    }
-  }
-
   if (existingLog && !shouldRetryPendingLog) {
     return {
       status: "already-processed",
@@ -421,7 +488,17 @@ export async function processDueReminderPreference(input: {
 
   if (dueCount < input.preference.minimumDueCount) {
     try {
-      if (shouldRetryPendingLog) {
+      if (shouldRetryPendingLog && existingLog) {
+        const claimedLog = await claimStalePendingReminderLog({
+          localDate,
+          updatedAt: existingLog.updatedAt,
+          userId: input.preference.userId,
+        });
+
+        if (!claimedLog) {
+          return existingLogResult(input.preference.userId, localDate);
+        }
+
         await prisma.reminderSendLog.update({
           where: {
             userId_localDate: {
@@ -465,8 +542,29 @@ export async function processDueReminderPreference(input: {
     };
   }
 
+  const accountEmail = await resolveReminderAccountEmail(input);
+
+  if (input.preference.email !== accountEmail) {
+    return {
+      status: "invalid-recipient",
+      userId: input.preference.userId,
+      localDate,
+      message: "Reminder emails can only be sent to the current account email address.",
+    };
+  }
+
   try {
-    if (shouldRetryPendingLog) {
+    if (shouldRetryPendingLog && existingLog) {
+      const claimedLog = await claimStalePendingReminderLog({
+        localDate,
+        updatedAt: existingLog.updatedAt,
+        userId: input.preference.userId,
+      });
+
+      if (!claimedLog) {
+        return existingLogResult(input.preference.userId, localDate);
+      }
+
       await prisma.reminderSendLog.update({
         where: {
           userId_localDate: {
@@ -562,6 +660,29 @@ export async function processDueReminderPreference(input: {
       message,
     };
   }
+}
+
+export async function resolveClerkReminderAccountEmail(userId: string): Promise<string | null> {
+  const client = await clerkClient();
+  let user: Awaited<ReturnType<typeof client.users.getUser>>;
+
+  try {
+    user = await client.users.getUser(userId);
+  } catch (error) {
+    if (isClerkUserNotFoundError(error)) {
+      return null;
+    }
+
+    throw error;
+  }
+
+  const primaryEmail = user.primaryEmailAddress;
+
+  if (primaryEmail?.verification?.status !== "verified") {
+    return null;
+  }
+
+  return primaryEmail.emailAddress;
 }
 
 export function createResendReminderEmailSender(env: ResendEnv = getResendEnv()): ReminderEmailSender {
@@ -708,6 +829,42 @@ function parseBooleanish(value: unknown): unknown {
   }
 
   return value;
+}
+
+async function resolveReminderAccountEmail(input: {
+  accountEmailResolver?: ReminderAccountEmailResolver;
+  preference: ReminderPreferenceRecord;
+}): Promise<string | null> {
+  if (!input.accountEmailResolver) {
+    return input.preference.accountEmail;
+  }
+
+  return input.accountEmailResolver(input.preference.userId);
+}
+
+function isClerkUserNotFoundError(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const status = "status" in error ? error.status : undefined;
+
+  if (status === 404) {
+    return true;
+  }
+
+  const errors = "errors" in error ? error.errors : undefined;
+
+  return (
+    Array.isArray(errors) &&
+    errors.some(
+      (entry) =>
+        entry &&
+        typeof entry === "object" &&
+        "code" in entry &&
+        entry.code === "resource_not_found",
+    )
+  );
 }
 
 function isStalePendingReminderLog(lastTouchedAt: Date, now: Date): boolean {
