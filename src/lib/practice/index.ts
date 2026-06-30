@@ -306,6 +306,7 @@ type ResolveFinalPracticeRatingInput = {
 };
 
 const RETIREMENT_RESOLUTION_NOTE = "Retired from practice.";
+export const MAX_EXERCISE_FLAG_OTHER_NOTE_LENGTH = 500;
 
 export async function getNextPracticeItem(
   input: GetNextPracticeItemInput,
@@ -404,6 +405,14 @@ export async function flagPracticeExercise(
       status: "not-flagged",
       reason: "invalid-flag",
       message: "Add a short note for something else.",
+    };
+  }
+
+  if (otherNote.length > MAX_EXERCISE_FLAG_OTHER_NOTE_LENGTH) {
+    return {
+      status: "not-flagged",
+      reason: "invalid-flag",
+      message: "Keep the note under 500 characters.",
     };
   }
 

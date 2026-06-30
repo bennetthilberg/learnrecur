@@ -28,6 +28,7 @@ vi.mock("@/lib/practice", () => ({
   previewPracticeAnswer: mocks.previewPracticeAnswer,
   commitPracticeReview: mocks.commitPracticeReview,
   flagPracticeExerciseAndQueueRefill: mocks.flagPracticeExerciseAndQueueRefill,
+  MAX_EXERCISE_FLAG_OTHER_NOTE_LENGTH: 500,
 }));
 
 vi.mock("@/lib/practice/sample-data", () => ({
@@ -99,5 +100,72 @@ describe("practice server actions", () => {
     expect(mocks.previewPracticeAnswer).not.toHaveBeenCalled();
     expect(mocks.commitPracticeReview).not.toHaveBeenCalled();
     expect(mocks.flagPracticeExerciseAndQueueRefill).not.toHaveBeenCalled();
+  });
+
+  it("rejects malformed or oversized flag payloads before flagging", async () => {
+    const { flagPracticeExerciseAction } = await import("@/app/practice/actions");
+
+    mocks.ensureDatabaseUser.mockResolvedValue({
+      status: "ready",
+      userId: "user_alpha",
+    });
+
+    await expect(
+      flagPracticeExerciseAction({
+        exerciseId: "exercise_1",
+        reasons: ["OTHER"],
+        otherNote: "x".repeat(501),
+      }),
+    ).resolves.toEqual({
+      status: "not-flagged",
+      message: "Choose a valid report reason and keep notes under 500 characters.",
+    });
+
+    await expect(
+      flagPracticeExerciseAction({
+        exerciseId: "exercise_1",
+        reasons: "OTHER",
+      }),
+    ).resolves.toEqual({
+      status: "not-flagged",
+      message: "Choose a valid report reason and keep notes under 500 characters.",
+    });
+
+    expect(mocks.resolvePracticeScopeForUser).not.toHaveBeenCalled();
+    expect(mocks.flagPracticeExerciseAndQueueRefill).not.toHaveBeenCalled();
+  });
+
+  it("validates and trims flag payloads on the server", async () => {
+    const { flagPracticeExerciseAction } = await import("@/app/practice/actions");
+
+    mocks.ensureDatabaseUser.mockResolvedValue({
+      status: "ready",
+      userId: "user_alpha",
+    });
+    mocks.resolvePracticeScopeForUser.mockResolvedValue({
+      status: "ready",
+      collectionId: "collection_1",
+    });
+    mocks.flagPracticeExerciseAndQueueRefill.mockResolvedValue({
+      status: "not-flagged",
+      message: "Add a short note for something else.",
+    });
+
+    await flagPracticeExerciseAction({
+      exerciseId: "exercise_1",
+      reasons: ["OTHER"],
+      otherNote: "  short note  ",
+      collectionId: "collection_1",
+    });
+
+    expect(mocks.flagPracticeExerciseAndQueueRefill).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "user_alpha",
+        exerciseId: "exercise_1",
+        reasons: ["OTHER"],
+        otherNote: "short note",
+        collectionId: "collection_1",
+      }),
+    );
   });
 });
