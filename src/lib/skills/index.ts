@@ -59,6 +59,9 @@ const MAX_SKILL_GUIDANCE_NOTE_CHARS = 500;
 const MAX_SKILL_GUIDANCE_TEXT_CHARS = 4_000;
 const MAX_SKILL_GUIDANCE_CONSTRAINT_CHARS = 1_000;
 const GENERATION_TIMEOUT_MS = 45_000;
+const ACTIVATION_GENERATION_COMPLETION_SLACK_MS = 15_000;
+const ACTIVATION_GENERATION_TIMEOUT_MS =
+  GENERATION_TIMEOUT_MS * 2 + ACTIVATION_GENERATION_COMPLETION_SLACK_MS;
 const ACTIVE_GENERATION_JOB_STATUSES: GenerationJobStatus[] = [
   GenerationJobStatus.PENDING,
   GenerationJobStatus.RUNNING,
@@ -4958,7 +4961,8 @@ function isFreshRunningGenerationJob(
   return (
     generationJob.status === GenerationJobStatus.RUNNING &&
     generationJob.startedAt !== null &&
-    now.getTime() - generationJob.startedAt.getTime() < GENERATION_TIMEOUT_MS
+    now.getTime() - generationJob.startedAt.getTime() <
+      ACTIVATION_GENERATION_TIMEOUT_MS
   );
 }
 
