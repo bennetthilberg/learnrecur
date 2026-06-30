@@ -210,6 +210,11 @@ const inngestProductionEnvSchema = z.object({
     .min(1, "INNGEST_SIGNING_KEY is required"),
 });
 
+const alphaAccessEnvSchema = z.object({
+  ALPHA_ALLOWED_EMAILS: optionalNonEmptyString(z.string().trim()),
+  ALPHA_ALLOWED_DOMAINS: optionalNonEmptyString(z.string().trim()),
+});
+
 const falseEnvValues = new Set(["0", "false", "no", "n", "off"]);
 
 const productionEnvSchema = requiredDatabaseEnvSchema
@@ -223,7 +228,16 @@ const productionEnvSchema = requiredDatabaseEnvSchema
   )
   .merge(s3EnvSchema)
   .merge(inngestProductionEnvSchema)
+  .merge(alphaAccessEnvSchema)
   .superRefine((value, context) => {
+    if (!value.ALPHA_ALLOWED_EMAILS && !value.ALPHA_ALLOWED_DOMAINS) {
+      context.addIssue({
+        code: "custom",
+        path: ["ALPHA_ALLOWED_EMAILS"],
+        message: "Production alpha access requires ALPHA_ALLOWED_EMAILS or ALPHA_ALLOWED_DOMAINS",
+      });
+    }
+
     if (value.INNGEST_APP_ID === "learnrecur-dev") {
       context.addIssue({
         code: "custom",
@@ -249,6 +263,7 @@ export type GeminiEnv = z.infer<typeof geminiEnvSchema>;
 export type QwenEnv = z.infer<typeof qwenEnvSchema>;
 export type ResendEnv = z.infer<typeof resendEnvSchema>;
 export type S3Env = z.infer<typeof s3EnvSchema>;
+export type AlphaAccessEnv = z.infer<typeof alphaAccessEnvSchema>;
 export type ProductionEnv = z.infer<typeof productionEnvSchema>;
 export type ActiveEnv = z.infer<typeof activeEnvSchema>;
 
@@ -278,6 +293,10 @@ export function getResendEnv(): ResendEnv {
 
 export function getS3Env(): S3Env {
   return s3EnvSchema.parse(process.env);
+}
+
+export function getAlphaAccessEnv(): AlphaAccessEnv {
+  return alphaAccessEnvSchema.parse(process.env);
 }
 
 export function getProductionEnv(): ProductionEnv {

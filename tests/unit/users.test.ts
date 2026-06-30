@@ -51,6 +51,8 @@ describe("ensureDatabaseUser", () => {
     process.env = { ...originalEnv };
     delete process.env.DATABASE_URL;
     delete process.env.DIRECT_URL;
+    delete process.env.ALPHA_ALLOWED_EMAILS;
+    delete process.env.ALPHA_ALLOWED_DOMAINS;
   });
 
   afterEach(() => {
@@ -63,6 +65,47 @@ describe("ensureDatabaseUser", () => {
       status: "missing-env",
       message: "Add DATABASE_URL to .env.local, then run Prisma migration and reload this page.",
     });
+  });
+
+  it("denies non-allowlisted alpha users before touching Prisma", async () => {
+    process.env.ALPHA_ALLOWED_EMAILS = "invited@example.com";
+    const { client, upsert } = makeMirrorClient();
+
+    await expect(
+      ensureDatabaseUser(baseClerkUser, {
+        prisma: client,
+        skipEnvCheck: true,
+      }),
+    ).resolves.toEqual({
+      status: "access-denied",
+      message: "This email is not on the LearnRecur alpha invite list.",
+    });
+    expect(upsert).not.toHaveBeenCalled();
+  });
+
+  it("allows alpha users by invited email or domain", async () => {
+    process.env.ALPHA_ALLOWED_EMAILS = "ada@example.com";
+    const { client, upsert } = makeMirrorClient();
+
+    await expect(
+      ensureDatabaseUser(baseClerkUser, {
+        prisma: client,
+        skipEnvCheck: true,
+      }),
+    ).resolves.toMatchObject({ status: "ready" });
+    expect(upsert).toHaveBeenCalledOnce();
+
+    process.env.ALPHA_ALLOWED_EMAILS = "";
+    process.env.ALPHA_ALLOWED_DOMAINS = "example.com";
+    const second = makeMirrorClient();
+
+    await expect(
+      ensureDatabaseUser(baseClerkUser, {
+        prisma: second.client,
+        skipEnvCheck: true,
+      }),
+    ).resolves.toMatchObject({ status: "ready" });
+    expect(second.upsert).toHaveBeenCalledOnce();
   });
 
   it("creates or updates the mirrored user by Clerk ID", async () => {
