@@ -33,22 +33,47 @@ describe("Inngest configuration", () => {
     });
   });
 
-  it("parses INNGEST_DEV as an explicit boolean instead of any non-empty string", () => {
+  it("ignores INNGEST_DEV in production", () => {
     expect(
       isInngestDevMode({
         NODE_ENV: "production",
-        INNGEST_DEV: "false",
+        INNGEST_DEV: "1",
       } as NodeJS.ProcessEnv),
     ).toBe(false);
     expect(
       isInngestDevMode({
         NODE_ENV: "production",
+        INNGEST_DEV: "http://localhost:8290",
+      } as NodeJS.ProcessEnv),
+    ).toBe(false);
+    expect(
+      getInngestEnvStatus({
+        NODE_ENV: "production",
+        INNGEST_DEV: "1",
+        INNGEST_APP_ID: "learnrecur",
+      } as NodeJS.ProcessEnv),
+    ).toEqual({
+      status: "missing-env",
+      message: "Missing Inngest environment configuration: INNGEST_EVENT_KEY, INNGEST_SIGNING_KEY.",
+    });
+  });
+
+  it("parses INNGEST_DEV as an explicit boolean outside production", () => {
+    expect(
+      isInngestDevMode({
+        NODE_ENV: "development",
+        INNGEST_DEV: "false",
+      } as NodeJS.ProcessEnv),
+    ).toBe(false);
+    expect(
+      isInngestDevMode({
+        NODE_ENV: "development",
         INNGEST_DEV: " yes ",
       } as NodeJS.ProcessEnv),
     ).toBe(true);
     expect(
       isInngestDevMode({
-        NODE_ENV: "production",
+        NODE_ENV: "development",
         INNGEST_DEV: "http://localhost:8290",
       } as NodeJS.ProcessEnv),
     ).toBe(true);

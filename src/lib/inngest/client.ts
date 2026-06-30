@@ -20,6 +20,10 @@ export function getInngestAppId(env: NodeJS.ProcessEnv = process.env): string {
 }
 
 export function isInngestDevMode(env: NodeJS.ProcessEnv = process.env): boolean {
+  if (env.NODE_ENV === "production") {
+    return false;
+  }
+
   const rawDevMode = env.INNGEST_DEV?.trim().toLowerCase();
 
   if (rawDevMode) {
@@ -40,7 +44,7 @@ export function isInngestDevMode(env: NodeJS.ProcessEnv = process.env): boolean 
     }
   }
 
-  return env.NODE_ENV !== "production";
+  return true;
 }
 
 export function getInngestEnvStatus(env: NodeJS.ProcessEnv = process.env): InngestEnvStatus {
