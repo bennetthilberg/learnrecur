@@ -380,7 +380,6 @@ export function buildSourceUploadRequeueMetadata(
   metadata: Prisma.JsonValue | null,
   now: Date,
   options: {
-    consumeRetry?: boolean;
     requeueAttemptId?: string;
   } = {},
 ): Prisma.InputJsonObject {
@@ -393,7 +392,7 @@ export function buildSourceUploadRequeueMetadata(
     queuedAt: timestamp,
     requeuedAt: timestamp,
     ...(options.requeueAttemptId ? { requeueAttemptId: options.requeueAttemptId } : {}),
-    ...((options.consumeRetry ?? true) ? { retryCount: retryCount + 1 } : {}),
+    retryCount: retryCount + 1,
   };
 }
 
@@ -772,7 +771,7 @@ export async function requeueSourceUploadDraft(
         "Only saved uploads without linked skills can be restarted.",
       );
     }
-  } else if (sourceFile.status !== SourceFileStatus.UPLOADED) {
+  } else {
     return requeueNotQueued(
       "not-requeueable",
       "Only saved uploads with waiting, failed, or stuck preparation can be restarted.",
@@ -808,7 +807,6 @@ export async function requeueSourceUploadDraft(
 
   const requeueAttemptId = randomUUID();
   const requeueMetadata = buildSourceUploadRequeueMetadata(sourceFile.metadata, input.now, {
-    consumeRetry: true,
     requeueAttemptId,
   });
   const requeued = await prisma.sourceFile.updateMany({
@@ -1054,12 +1052,14 @@ export function isSourceUploadDismissible(
     return true;
   }
 
-  if (canRequeueSourceUploadMetadata(sourceFile.metadata)) {
+  const canRequeueByRetryLimit = canRequeueSourceUploadMetadata(sourceFile.metadata);
+
+  if (canRequeueByRetryLimit) {
     return false;
   }
 
   if (sourceFile.status === SourceFileStatus.UPLOADED) {
-    return isSourceUploadQueuedStale(sourceFile.metadata, now);
+    return true;
   }
 
   return (

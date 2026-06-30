@@ -2640,7 +2640,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
     expect(deletedKeys).toEqual([prepared.objectKey]);
   });
 
-  it("resends only stale uploaded sources and consumes retry attempts", async () => {
+  it("resends an uploaded source while counting retry attempts", async () => {
     const userId = await createUser("upload_requeue_uploaded");
     const { storage } = createFakeUploadStorage({
       byteSize: 4096,
