@@ -635,6 +635,29 @@ describe("checkAnswer invalid specs", () => {
     });
   });
 
+  it("rejects accepted numeric number specs whose plain input exceeds the cap", () => {
+    for (const accepted of [
+      1e64,
+      { type: "integer", value: 1e64 },
+      { type: "decimal", value: 1e64 },
+      { type: "fraction", numerator: 1e64, denominator: 1 },
+    ]) {
+      expect(
+        checkAnswer({
+          answerSpec: {
+            kind: "numeric",
+            accepted: [accepted],
+          },
+          submittedAnswer: "1",
+        }),
+      ).toMatchObject({
+        status: "invalid-spec",
+        isCorrect: false,
+        reason: "invalid-answer-spec",
+      });
+    }
+  });
+
   it("rejects unknown fields in text, numeric, math, and numeric accepted-value specs", () => {
     expect(
       checkAnswer({

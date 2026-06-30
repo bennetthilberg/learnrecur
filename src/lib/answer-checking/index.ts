@@ -20,6 +20,7 @@ const nonEmptyStringSchema = z.string().trim().min(1);
 const textAnswerStringSchema = nonEmptyStringSchema.max(MAX_TEXT_ANSWER_LENGTH);
 const numericAnswerStringSchema = nonEmptyStringSchema.max(MAX_NUMERIC_ANSWER_LENGTH);
 const mathExpressionStringSchema = nonEmptyStringSchema.max(MAX_MATH_EXPRESSION_LENGTH);
+const NUMERIC_ACCEPTED_VALUE_LENGTH_ERROR = `Accepted numeric answers must be ${MAX_NUMERIC_ANSWER_LENGTH} characters or fewer without exponent notation.`;
 
 export const choiceSchema = z.strictObject({
   id: nonEmptyStringSchema,
@@ -41,22 +42,38 @@ export const textAnswerSpecSchema = z.strictObject({
   normalizeDiacritics: z.boolean().default(true),
 });
 
+const numericAcceptedNumberSchema = z
+  .number()
+  .finite()
+  .refine(isNumericAcceptedNumberWithinInputLimit, NUMERIC_ACCEPTED_VALUE_LENGTH_ERROR);
+const numericAcceptedIntegerSchema = z
+  .number()
+  .int()
+  .finite()
+  .refine(isNumericAcceptedNumberWithinInputLimit, NUMERIC_ACCEPTED_VALUE_LENGTH_ERROR);
+const numericAcceptedFractionObjectSchema = z
+  .strictObject({
+    type: z.literal("fraction"),
+    numerator: numericAcceptedIntegerSchema,
+    denominator: numericAcceptedIntegerSchema,
+  })
+  .refine(
+    (value) => isNumericAcceptedFractionWithinInputLimit(value.numerator, value.denominator),
+    NUMERIC_ACCEPTED_VALUE_LENGTH_ERROR,
+  );
+
 const numericAcceptedValueSchema = z.union([
-  z.number().finite(),
+  numericAcceptedNumberSchema,
   numericAnswerStringSchema,
   z.strictObject({
     type: z.literal("integer"),
-    value: z.number().int().finite(),
+    value: numericAcceptedIntegerSchema,
   }),
   z.strictObject({
     type: z.literal("decimal"),
-    value: z.number().finite(),
+    value: numericAcceptedNumberSchema,
   }),
-  z.strictObject({
-    type: z.literal("fraction"),
-    numerator: z.number().int().finite(),
-    denominator: z.number().int().finite(),
-  }),
+  numericAcceptedFractionObjectSchema,
   z.strictObject({
     type: z.literal("fraction"),
     value: numericAnswerStringSchema,
@@ -632,6 +649,42 @@ function formatCanonicalNumber(value: number): string {
   }
 
   return Number(normalizedValue.toPrecision(15)).toString();
+}
+
+function isNumericAcceptedNumberWithinInputLimit(value: number): boolean {
+  return formatPlainDecimalNumber(value).length <= MAX_NUMERIC_ANSWER_LENGTH;
+}
+
+function isNumericAcceptedFractionWithinInputLimit(numerator: number, denominator: number): boolean {
+  const fraction = `${formatPlainDecimalNumber(numerator)}/${formatPlainDecimalNumber(denominator)}`;
+
+  return fraction.length <= MAX_NUMERIC_ANSWER_LENGTH;
+}
+
+function formatPlainDecimalNumber(value: number): string {
+  const text = String(normalizeNegativeZero(value));
+
+  if (!/[eE]/.test(text)) {
+    return text;
+  }
+
+  const [mantissa = "", exponentText = "0"] = text.toLowerCase().split("e");
+  const exponent = Number(exponentText);
+  const sign = mantissa.startsWith("-") ? "-" : "";
+  const unsignedMantissa = mantissa.replace(/^[+-]/, "");
+  const [integerPart = "0", fractionalPart = ""] = unsignedMantissa.split(".");
+  const digits = `${integerPart}${fractionalPart}`.replace(/^0+(?=\d)/, "");
+  const decimalIndex = integerPart.length + exponent;
+
+  if (decimalIndex <= 0) {
+    return `${sign}0.${"0".repeat(Math.abs(decimalIndex))}${digits}`;
+  }
+
+  if (decimalIndex >= digits.length) {
+    return `${sign}${digits}${"0".repeat(decimalIndex - digits.length)}`;
+  }
+
+  return `${sign}${digits.slice(0, decimalIndex)}.${digits.slice(decimalIndex)}`;
 }
 
 function normalizeNegativeZero(value: number): number {
