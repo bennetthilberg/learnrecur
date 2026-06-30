@@ -148,6 +148,28 @@ describe("normalizeSkillDraftInput", () => {
       ]);
     }
   });
+
+  it("rejects oversized optional draft fields before storage or activation", () => {
+    const result = normalizeSkillDraftInput({
+      title: "Ser vs estar basics",
+      objective: "Choose between ser and estar in common identity/location cases.",
+      collectionName: "x".repeat(121),
+      rules: "x".repeat(1_001),
+      examples: "x".repeat(1_001),
+      exerciseConstraints: "x".repeat(1_001),
+      tags: ["x".repeat(41)],
+    });
+
+    expect(result.status).toBe("invalid");
+
+    if (result.status === "invalid") {
+      expect(result.fieldErrors.collectionName).toBeDefined();
+      expect(result.fieldErrors.rules).toBeDefined();
+      expect(result.fieldErrors.examples).toBeDefined();
+      expect(result.fieldErrors.exerciseConstraints).toBeDefined();
+      expect(result.fieldErrors.tags).toBeDefined();
+    }
+  });
 });
 
 describe("normalizeSkillPracticeGuidanceInput", () => {

@@ -53,6 +53,13 @@ export const EXACT_INPUT_UNLOCK_REPETITIONS = 3;
 export const SOURCE_CONTEXT_CHAR_LIMIT = 4_000;
 export const EXISTING_EXERCISE_CONTEXT_CHAR_LIMIT = 3_000;
 export const MAX_GENERATED_SKILL_DRAFTS = 3;
+const MAX_COLLECTION_NAME_LENGTH = 120;
+const MAX_DRAFT_NOTE_LENGTH = 1_000;
+const MAX_DRAFT_NOTE_ITEMS = 8;
+const MAX_EXERCISE_CONSTRAINTS_LENGTH = 1_000;
+const MAX_TAG_LENGTH = 40;
+const MAX_TAGS = 12;
+const PROMPT_NOTE_CHAR_LIMIT = 2_000;
 export const SOURCE_SKILL_DRAFT_PROMPT_VERSION = "source-skill-draft-v1";
 const GENERATION_TIMEOUT_MS = 45_000;
 const ACTIVE_GENERATION_JOB_STATUSES: GenerationJobStatus[] = [
@@ -701,17 +708,28 @@ const draftInputSchema = z.strictObject({
     .trim()
     .min(12, "Describe the skill objective in at least 12 characters.")
     .max(1200),
-  collectionName: optionalTrimmedStringSchema,
-  rules: optionalTrimmedStringSchema,
-  examples: optionalTrimmedStringSchema,
-  exerciseConstraints: optionalTrimmedStringSchema,
-  tags: z.union([z.string(), z.array(z.string())]).optional(),
+  collectionName: optionalTrimmedStringSchema.pipe(
+    z.string().max(MAX_COLLECTION_NAME_LENGTH).optional(),
+  ),
+  rules: optionalTrimmedStringSchema.pipe(z.string().max(MAX_DRAFT_NOTE_LENGTH).optional()),
+  examples: optionalTrimmedStringSchema.pipe(z.string().max(MAX_DRAFT_NOTE_LENGTH).optional()),
+  exerciseConstraints: optionalTrimmedStringSchema.pipe(
+    z.string().max(MAX_EXERCISE_CONSTRAINTS_LENGTH).optional(),
+  ),
+  tags: z
+    .union([
+      z.string().max(MAX_TAGS * (MAX_TAG_LENGTH + 1)),
+      z.array(z.string().trim().min(1).max(MAX_TAG_LENGTH)).max(MAX_TAGS),
+    ])
+    .optional(),
 });
 
 const skillPracticeGuidanceInputSchema = z.strictObject({
-  rules: optionalTrimmedStringSchema,
-  examples: optionalTrimmedStringSchema,
-  exerciseConstraints: optionalTrimmedStringSchema,
+  rules: optionalTrimmedStringSchema.pipe(z.string().max(MAX_DRAFT_NOTE_LENGTH).optional()),
+  examples: optionalTrimmedStringSchema.pipe(z.string().max(MAX_DRAFT_NOTE_LENGTH).optional()),
+  exerciseConstraints: optionalTrimmedStringSchema.pipe(
+    z.string().max(MAX_EXERCISE_CONSTRAINTS_LENGTH).optional(),
+  ),
 });
 
 const sourceSkillDraftInputSchema = z.strictObject({
@@ -722,8 +740,15 @@ const sourceSkillDraftInputSchema = z.strictObject({
     .max(12_000, "Paste at most 12,000 characters for this first source flow."),
   sourceLabel: optionalTrimmedStringSchema.pipe(z.string().max(160).optional()),
   focusNote: optionalTrimmedStringSchema.pipe(z.string().max(800).optional()),
-  collectionName: optionalTrimmedStringSchema,
-  tags: z.union([z.string(), z.array(z.string())]).optional(),
+  collectionName: optionalTrimmedStringSchema.pipe(
+    z.string().max(MAX_COLLECTION_NAME_LENGTH).optional(),
+  ),
+  tags: z
+    .union([
+      z.string().max(MAX_TAGS * (MAX_TAG_LENGTH + 1)),
+      z.array(z.string().trim().min(1).max(MAX_TAG_LENGTH)).max(MAX_TAGS),
+    ])
+    .optional(),
 });
 
 const generatedSkillDraftSchema = z.strictObject({
@@ -5530,19 +5555,19 @@ function normalizeDuplicateText(value: string): string {
 }
 
 function summarizeJsonNotes(value: Prisma.JsonValue | null): string {
+  let summary = "none";
+
   if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return "none";
+    return summary;
   }
 
   if ("items" in value && Array.isArray(value.items)) {
-    return value.items.filter((item) => typeof item === "string").join("; ") || "none";
+    summary = value.items.filter((item) => typeof item === "string").join("; ") || "none";
+  } else if ("notes" in value && typeof value.notes === "string") {
+    summary = value.notes;
   }
 
-  if ("notes" in value && typeof value.notes === "string") {
-    return value.notes;
-  }
-
-  return "none";
+  return truncateForPrompt(summary, PROMPT_NOTE_CHAR_LIMIT);
 }
 
 function skillNotFound(): Extract<SkillDraftWriteResult, { status: "not-found" }> &
@@ -5564,7 +5589,8 @@ function splitNotes(value?: string): string[] {
   return value
     .split(/\n+/)
     .map((line) => line.trim())
-    .filter(Boolean);
+    .filter(Boolean)
+    .slice(0, MAX_DRAFT_NOTE_ITEMS);
 }
 
 export function normalizeTags(value?: string | string[]): string[] {
@@ -5575,7 +5601,7 @@ export function normalizeTags(value?: string | string[]): string[] {
   for (const rawTag of rawTags) {
     const tag = rawTag.trim().toLowerCase();
 
-    if (tag.length === 0 || seen.has(tag)) {
+    if (tag.length === 0 || tag.length > MAX_TAG_LENGTH || seen.has(tag)) {
       continue;
     }
 
@@ -5583,7 +5609,15 @@ export function normalizeTags(value?: string | string[]): string[] {
     tags.push(tag);
   }
 
-  return tags.slice(0, 12);
+  return tags.slice(0, MAX_TAGS);
+}
+
+function truncateForPrompt(value: string, maxLength: number): string {
+  if (value.length <= maxLength) {
+    return value;
+  }
+
+  return `${value.slice(0, maxLength)}…`;
 }
 
 type SkillWriteClient = Pick<
