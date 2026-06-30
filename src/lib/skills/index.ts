@@ -54,6 +54,10 @@ export const SOURCE_CONTEXT_CHAR_LIMIT = 4_000;
 export const EXISTING_EXERCISE_CONTEXT_CHAR_LIMIT = 3_000;
 export const MAX_GENERATED_SKILL_DRAFTS = 3;
 export const SOURCE_SKILL_DRAFT_PROMPT_VERSION = "source-skill-draft-v1";
+const MAX_SKILL_GUIDANCE_NOTES = 8;
+const MAX_SKILL_GUIDANCE_NOTE_CHARS = 500;
+const MAX_SKILL_GUIDANCE_TEXT_CHARS = 4_000;
+const MAX_SKILL_GUIDANCE_CONSTRAINT_CHARS = 1_000;
 const GENERATION_TIMEOUT_MS = 45_000;
 const ACTIVE_GENERATION_JOB_STATUSES: GenerationJobStatus[] = [
   GenerationJobStatus.PENDING,
@@ -694,6 +698,43 @@ const optionalTrimmedStringSchema = z.preprocess((value) => {
   return value;
 }, z.string().trim().optional());
 
+function optionalSkillGuidanceNotesSchema(fieldLabel: string): z.ZodType<string | undefined> {
+  return z.preprocess(
+    (value) => {
+      if (typeof value === "string" && value.trim() === "") {
+        return undefined;
+      }
+
+      return value;
+    },
+    z
+      .string()
+      .trim()
+      .max(
+        MAX_SKILL_GUIDANCE_TEXT_CHARS,
+        `${fieldLabel} must be ${MAX_SKILL_GUIDANCE_TEXT_CHARS.toLocaleString("en-US")} characters or fewer.`,
+      )
+      .superRefine((value, context) => {
+        const notes = splitNotes(value);
+
+        if (notes.length > MAX_SKILL_GUIDANCE_NOTES) {
+          context.addIssue({
+            code: "custom",
+            message: `${fieldLabel} can include at most ${MAX_SKILL_GUIDANCE_NOTES} lines.`,
+          });
+        }
+
+        if (notes.some((note) => note.length > MAX_SKILL_GUIDANCE_NOTE_CHARS)) {
+          context.addIssue({
+            code: "custom",
+            message: `Each ${fieldLabel.toLocaleLowerCase("en-US")} line must be ${MAX_SKILL_GUIDANCE_NOTE_CHARS} characters or fewer.`,
+          });
+        }
+      })
+      .optional(),
+  );
+}
+
 const draftInputSchema = z.strictObject({
   title: z.string().trim().min(1, "Skill title is required.").max(120),
   objective: z
@@ -709,9 +750,17 @@ const draftInputSchema = z.strictObject({
 });
 
 const skillPracticeGuidanceInputSchema = z.strictObject({
-  rules: optionalTrimmedStringSchema,
-  examples: optionalTrimmedStringSchema,
-  exerciseConstraints: optionalTrimmedStringSchema,
+  rules: optionalSkillGuidanceNotesSchema("Rules"),
+  examples: optionalSkillGuidanceNotesSchema("Examples"),
+  exerciseConstraints: optionalTrimmedStringSchema.pipe(
+    z
+      .string()
+      .max(
+        MAX_SKILL_GUIDANCE_CONSTRAINT_CHARS,
+        `Exercise constraints must be ${MAX_SKILL_GUIDANCE_CONSTRAINT_CHARS.toLocaleString("en-US")} characters or fewer.`,
+      )
+      .optional(),
+  ),
 });
 
 const sourceSkillDraftInputSchema = z.strictObject({
@@ -5535,11 +5584,17 @@ function summarizeJsonNotes(value: Prisma.JsonValue | null): string {
   }
 
   if ("items" in value && Array.isArray(value.items)) {
-    return value.items.filter((item) => typeof item === "string").join("; ") || "none";
+    return (
+      value.items
+        .filter((item) => typeof item === "string")
+        .slice(0, MAX_SKILL_GUIDANCE_NOTES)
+        .map((item) => item.slice(0, MAX_SKILL_GUIDANCE_NOTE_CHARS))
+        .join("; ") || "none"
+    );
   }
 
   if ("notes" in value && typeof value.notes === "string") {
-    return value.notes;
+    return value.notes.slice(0, MAX_SKILL_GUIDANCE_CONSTRAINT_CHARS);
   }
 
   return "none";

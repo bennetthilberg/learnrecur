@@ -202,6 +202,24 @@ describe("normalizeSkillPracticeGuidanceInput", () => {
       });
     }
   });
+
+  it("rejects oversized practice guidance before it can be saved", () => {
+    const result = normalizeSkillPracticeGuidanceInput({
+      rules: Array.from({ length: 9 }, (_, index) => `Rule ${index + 1}`).join("\n"),
+      examples: "x".repeat(501),
+      exerciseConstraints: "x".repeat(1001),
+    });
+
+    expect(result.status).toBe("invalid");
+
+    if (result.status === "invalid") {
+      expect(result.fieldErrors).toMatchObject({
+        examples: [expect.stringContaining("500 characters")],
+        exerciseConstraints: [expect.stringContaining("1,000 characters")],
+        rules: [expect.stringContaining("at most 8 lines")],
+      });
+    }
+  });
 });
 
 describe("validateGeneratedChoiceExercises", () => {
