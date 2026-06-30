@@ -19,6 +19,8 @@ const DEFAULT_NUMERIC_TOLERANCE = 0.001;
 const DEFAULT_MATH_EQUIVALENCE = "basic-symbolic";
 
 const nonEmptyStringSchema = z.string().trim().min(1);
+const textAnswerStringSchema = nonEmptyStringSchema.max(MAX_TEXT_ANSWER_LENGTH);
+const numericAnswerStringSchema = nonEmptyStringSchema.max(MAX_NUMERIC_ANSWER_LENGTH);
 const mathExpressionStringSchema = nonEmptyStringSchema.max(MAX_MATH_EXPRESSION_LENGTH);
 
 export const choiceSchema = z.strictObject({
@@ -35,7 +37,7 @@ export const choiceAnswerSpecSchema = z.strictObject({
 
 export const textAnswerSpecSchema = z.strictObject({
   kind: z.literal("text"),
-  accepted: z.array(nonEmptyStringSchema).min(1),
+  accepted: z.array(textAnswerStringSchema).min(1),
   normalizeCase: z.boolean().default(true),
   normalizeWhitespace: z.boolean().default(true),
   normalizeDiacritics: z.boolean().default(true),
@@ -43,7 +45,7 @@ export const textAnswerSpecSchema = z.strictObject({
 
 const numericAcceptedValueSchema = z.union([
   z.number().finite(),
-  nonEmptyStringSchema,
+  numericAnswerStringSchema,
   z.strictObject({
     type: z.literal("integer"),
     value: z.number().int().finite(),
@@ -59,7 +61,7 @@ const numericAcceptedValueSchema = z.union([
   }),
   z.strictObject({
     type: z.literal("fraction"),
-    value: nonEmptyStringSchema,
+    value: numericAnswerStringSchema,
   }),
 ]);
 
