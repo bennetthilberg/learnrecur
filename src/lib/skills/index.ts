@@ -55,6 +55,7 @@ export const EXISTING_EXERCISE_CONTEXT_CHAR_LIMIT = 3_000;
 export const MAX_GENERATED_SKILL_DRAFTS = 3;
 export const SOURCE_SKILL_DRAFT_PROMPT_VERSION = "source-skill-draft-v1";
 const GENERATION_TIMEOUT_MS = 45_000;
+const ACTIVATION_GENERATION_TIMEOUT_MS = GENERATION_TIMEOUT_MS * 2;
 const ACTIVE_GENERATION_JOB_STATUSES: GenerationJobStatus[] = [
   GenerationJobStatus.PENDING,
   GenerationJobStatus.RUNNING,
@@ -4901,7 +4902,8 @@ function isFreshRunningGenerationJob(
   return (
     generationJob.status === GenerationJobStatus.RUNNING &&
     generationJob.startedAt !== null &&
-    now.getTime() - generationJob.startedAt.getTime() < GENERATION_TIMEOUT_MS
+    now.getTime() - generationJob.startedAt.getTime() <
+      ACTIVATION_GENERATION_TIMEOUT_MS
   );
 }
 

@@ -795,6 +795,59 @@ describeDatabase("skill drafts and Gemini activation", () => {
     });
   });
 
+  it("does not reclaim an activation job during the verification timeout window", async () => {
+    const userId = await createUser("activate_verifying_job");
+    const draft = await createSkillDraft({
+      userId,
+      input: {
+        title: "Spanish fractions",
+        objective: "Choose the correct Spanish expression for simple fractions.",
+      },
+    });
+
+    if (draft.status !== "created") {
+      throw new Error("Expected draft creation to succeed.");
+    }
+
+    const startedAt = new Date(now.getTime() - 45_001);
+    const runningJob = await prisma.generationJob.create({
+      data: {
+        userId,
+        skillId: draft.skill.id,
+        kind: GenerationJobKind.SKILL_ACTIVATION,
+        status: GenerationJobStatus.RUNNING,
+        provider: "google",
+        model: "test-gemini",
+        promptVersion: "skill-mcq-v0",
+        requestedCount: 5,
+        startedAt,
+      },
+    });
+    const generator = vi.fn(successfulGenerator);
+
+    const result = await activateSkillDraft({
+      userId,
+      skillId: draft.skill.id,
+      now,
+      generateChoiceExercises: generator,
+      verifyChoiceExercises: acceptAllVerifier,
+      model: "test-gemini",
+    });
+
+    expect(result).toMatchObject({
+      status: "not-activated",
+      reason: "activation-in-progress",
+      generationJobId: runningJob.id,
+    });
+    expect(generator).not.toHaveBeenCalled();
+
+    const generationJob = await prisma.generationJob.findUniqueOrThrow({
+      where: { id: runningJob.id },
+    });
+    expect(generationJob.status).toBe(GenerationJobStatus.RUNNING);
+    expect(generationJob.startedAt).toEqual(startedAt);
+  });
+
   it("does not start a second activation while one is already running", async () => {
     const userId = await createUser("activate_running_job");
     const draft = await createSkillDraft({
