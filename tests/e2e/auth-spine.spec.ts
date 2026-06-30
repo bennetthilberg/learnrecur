@@ -29,6 +29,7 @@ test.describe("auth spine", () => {
     await page.goto("/terms");
 
     await expect(page.getByRole("heading", { name: /^terms$/i })).toBeVisible();
+    await expect(page.getByRole("list", { name: /terms summary/i })).toBeVisible();
     await expect(page.getByText(/account access/i)).toBeVisible();
     await expect(page.getByText(/legal review/i)).toBeVisible();
   });
