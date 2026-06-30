@@ -1853,7 +1853,9 @@ export async function activateSkillDraft(
     };
   }
 
-  const validation = validateGeneratedChoiceExercises(rawGeneration);
+  const validation = validateGeneratedChoiceExercises(rawGeneration, {
+    maxGeneratedExercises: REQUESTED_ACTIVATION_EXERCISES,
+  });
 
   if (validation.status === "invalid") {
     await markGenerationJobFailed(prisma, generationJob.id, {

@@ -14,6 +14,7 @@ import {
   MAX_TAGS_FIELD_LENGTH,
   MAX_GENERATED_EXERCISES,
   MIN_ACTIVATION_EXERCISES,
+  REQUESTED_ACTIVATION_EXERCISES,
   buildExistingChoiceExerciseContext,
   buildExistingExactInputExerciseContext,
   buildExistingMathExerciseContext,
@@ -419,6 +420,27 @@ describe("validateGeneratedChoiceExercises", () => {
         validExercise(index),
       ),
     });
+
+    expect(result).toMatchObject({
+      status: "invalid",
+      reason: "invalid-response",
+      validCount: 0,
+      rejectedCount: 0,
+    });
+  });
+
+  it("rejects activation envelopes that exceed the requested exercise count", () => {
+    const result = validateGeneratedChoiceExercises(
+      {
+        exercises: Array.from(
+          { length: REQUESTED_ACTIVATION_EXERCISES + 1 },
+          (_, index) => validExercise(index),
+        ),
+      },
+      {
+        maxGeneratedExercises: REQUESTED_ACTIVATION_EXERCISES,
+      },
+    );
 
     expect(result).toMatchObject({
       status: "invalid",
