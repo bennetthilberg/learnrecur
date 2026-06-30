@@ -506,7 +506,7 @@ describeDatabase("due email reminders", () => {
     expect(await prisma.reminderSendLog.count({ where: { userId } })).toBe(0);
   });
 
-  it("isolates live account lookup failures per reminder", async () => {
+  it("isolates and retries live account lookup failures per reminder", async () => {
     const failedUserId = await createUser("live_lookup_failure", "lookup-failure@example.com");
     const sentUserId = await createUser("live_lookup_success", "lookup-success@example.com");
     await createDueChoiceSkill(failedUserId, "live lookup failure");
@@ -540,33 +540,16 @@ describeDatabase("due email reminders", () => {
     });
     const sender = createRecordingSender("email_after_lookup_failure");
 
-    const result = await processDueReminderBatch({
-      accountEmailResolver,
-      userIds: [failedUserId, sentUserId],
-      now,
-      appUrl: "https://learnrecur.example",
-      sender,
-    });
+    await expect(
+      processDueReminderBatch({
+        accountEmailResolver,
+        userIds: [failedUserId, sentUserId],
+        now,
+        appUrl: "https://learnrecur.example",
+        sender,
+      }),
+    ).rejects.toThrow("clerk unavailable");
 
-    expect(result).toEqual({
-      checkedCount: 2,
-      processedCount: 2,
-      results: [
-        {
-          status: "invalid-recipient",
-          userId: failedUserId,
-          localDate,
-          message: "Reminder emails can only be sent to the current account email address.",
-        },
-        {
-          status: "sent",
-          userId: sentUserId,
-          localDate,
-          dueCount: 1,
-          providerMessageId: "email_after_lookup_failure",
-        },
-      ],
-    });
     expect(accountEmailResolver).toHaveBeenCalledTimes(2);
     expect(sender.payloads).toHaveLength(1);
     expect(sender.payloads[0]).toMatchObject({

@@ -390,27 +390,39 @@ export async function processDueReminderBatch(input: {
   });
 
   const results: ProcessDueReminderResult[] = [];
+  const retryableErrors: unknown[] = [];
 
   for (const preference of preferences) {
-    const result = await processDueReminderPreference({
-      accountEmailResolver: input.accountEmailResolver,
-      appUrl: input.appUrl,
-      now: input.now,
-      preference: {
-        userId: preference.userId,
-        enabled: preference.enabled,
-        email: preference.email,
-        accountEmail: preference.user.email,
-        localHour: preference.localHour,
-        timezone: preference.timezone,
-        minimumDueCount: preference.minimumDueCount,
-      },
-      sender: input.sender,
-    });
+    let result: ProcessDueReminderResult;
+
+    try {
+      result = await processDueReminderPreference({
+        accountEmailResolver: input.accountEmailResolver,
+        appUrl: input.appUrl,
+        now: input.now,
+        preference: {
+          userId: preference.userId,
+          enabled: preference.enabled,
+          email: preference.email,
+          accountEmail: preference.user.email,
+          localHour: preference.localHour,
+          timezone: preference.timezone,
+          minimumDueCount: preference.minimumDueCount,
+        },
+        sender: input.sender,
+      });
+    } catch (error) {
+      retryableErrors.push(error);
+      continue;
+    }
 
     if (result.status !== "not-due-hour") {
       results.push(result);
     }
+  }
+
+  if (retryableErrors.length > 0) {
+    throw retryableErrors[0];
   }
 
   return {
@@ -639,7 +651,17 @@ export async function processDueReminderPreference(input: {
 
 export async function resolveClerkReminderAccountEmail(userId: string): Promise<string | null> {
   const client = await clerkClient();
-  const user = await client.users.getUser(userId);
+  let user: Awaited<ReturnType<typeof client.users.getUser>>;
+
+  try {
+    user = await client.users.getUser(userId);
+  } catch (error) {
+    if (isClerkUserNotFoundError(error)) {
+      return null;
+    }
+
+    throw error;
+  }
 
   return user.primaryEmailAddress?.emailAddress ?? null;
 }
@@ -798,11 +820,32 @@ async function resolveReminderAccountEmail(input: {
     return input.preference.accountEmail;
   }
 
-  try {
-    return await input.accountEmailResolver(input.preference.userId);
-  } catch {
-    return null;
+  return input.accountEmailResolver(input.preference.userId);
+}
+
+function isClerkUserNotFoundError(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
   }
+
+  const status = "status" in error ? error.status : undefined;
+
+  if (status === 404) {
+    return true;
+  }
+
+  const errors = "errors" in error ? error.errors : undefined;
+
+  return (
+    Array.isArray(errors) &&
+    errors.some(
+      (entry) =>
+        entry &&
+        typeof entry === "object" &&
+        "code" in entry &&
+        entry.code === "resource_not_found",
+    )
+  );
 }
 
 function isStalePendingReminderLog(lastTouchedAt: Date, now: Date): boolean {
