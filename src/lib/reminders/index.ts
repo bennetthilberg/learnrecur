@@ -437,9 +437,7 @@ export async function processDueReminderPreference(input: {
     };
   }
 
-  const accountEmail = input.accountEmailResolver
-    ? await input.accountEmailResolver(input.preference.userId)
-    : input.preference.accountEmail;
+  const accountEmail = await resolveReminderAccountEmail(input);
 
   if (input.preference.email !== accountEmail) {
     return {
@@ -790,6 +788,21 @@ function parseBooleanish(value: unknown): unknown {
   }
 
   return value;
+}
+
+async function resolveReminderAccountEmail(input: {
+  accountEmailResolver?: ReminderAccountEmailResolver;
+  preference: ReminderPreferenceRecord;
+}): Promise<string | null> {
+  if (!input.accountEmailResolver) {
+    return input.preference.accountEmail;
+  }
+
+  try {
+    return await input.accountEmailResolver(input.preference.userId);
+  } catch {
+    return null;
+  }
 }
 
 function isStalePendingReminderLog(lastTouchedAt: Date, now: Date): boolean {

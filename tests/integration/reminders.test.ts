@@ -506,6 +506,81 @@ describeDatabase("due email reminders", () => {
     expect(await prisma.reminderSendLog.count({ where: { userId } })).toBe(0);
   });
 
+  it("isolates live account lookup failures per reminder", async () => {
+    const failedUserId = await createUser("live_lookup_failure", "lookup-failure@example.com");
+    const sentUserId = await createUser("live_lookup_success", "lookup-success@example.com");
+    await createDueChoiceSkill(failedUserId, "live lookup failure");
+    await createDueChoiceSkill(sentUserId, "live lookup success");
+    await prisma.reminderPreference.createMany({
+      data: [
+        {
+          userId: failedUserId,
+          enabled: true,
+          email: "lookup-failure@example.com",
+          localHour: 9,
+          timezone: "America/New_York",
+          minimumDueCount: 1,
+        },
+        {
+          userId: sentUserId,
+          enabled: true,
+          email: "lookup-success@example.com",
+          localHour: 9,
+          timezone: "America/New_York",
+          minimumDueCount: 1,
+        },
+      ],
+    });
+    const accountEmailResolver = vi.fn(async (userId: string) => {
+      if (userId === failedUserId) {
+        throw new Error("clerk unavailable");
+      }
+
+      return "lookup-success@example.com";
+    });
+    const sender = createRecordingSender("email_after_lookup_failure");
+
+    const result = await processDueReminderBatch({
+      accountEmailResolver,
+      userIds: [failedUserId, sentUserId],
+      now,
+      appUrl: "https://learnrecur.example",
+      sender,
+    });
+
+    expect(result).toEqual({
+      checkedCount: 2,
+      processedCount: 2,
+      results: [
+        {
+          status: "invalid-recipient",
+          userId: failedUserId,
+          localDate,
+          message: "Reminder emails can only be sent to the current account email address.",
+        },
+        {
+          status: "sent",
+          userId: sentUserId,
+          localDate,
+          dueCount: 1,
+          providerMessageId: "email_after_lookup_failure",
+        },
+      ],
+    });
+    expect(accountEmailResolver).toHaveBeenCalledTimes(2);
+    expect(sender.payloads).toHaveLength(1);
+    expect(sender.payloads[0]).toMatchObject({
+      email: "lookup-success@example.com",
+      dueCount: 1,
+    });
+    expect(await prisma.reminderSendLog.count({ where: { userId: failedUserId } })).toBe(0);
+    await expectReminderLog(sentUserId, {
+      status: ReminderSendStatus.SENT,
+      dueCount: 1,
+      providerMessageId: "email_after_lookup_failure",
+    });
+  });
+
   it("retries stale pending reminder logs", async () => {
     const userId = await createUser("stale_pending", "pending@example.com");
     await createDueChoiceSkill(userId, "stale pending");
