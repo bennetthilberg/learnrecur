@@ -2605,7 +2605,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
       where: { id: prepared.sourceFileId },
     });
     expect(dismissedSource).toMatchObject({
-      status: SourceFileStatus.PROCESSING,
+      status: SourceFileStatus.FAILED,
       byteSize: 4096,
       storageBucket: null,
       storageKey: null,
@@ -3747,7 +3747,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
       expect.arrayContaining([
         expect.objectContaining({
           id: uploadedSource.id,
-          status: SourceFileStatus.UPLOADED,
+          status: SourceFileStatus.FAILED,
           byteSize: 1024,
           storageBucket: null,
           storageKey: null,
@@ -3757,7 +3757,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
         }),
         expect.objectContaining({
           id: staleSource.id,
-          status: SourceFileStatus.PROCESSING,
+          status: SourceFileStatus.FAILED,
           byteSize: 1024,
           storageBucket: null,
           storageKey: null,
@@ -3852,6 +3852,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
           storageBucket: true,
           storageKey: true,
           byteSize: true,
+          metadata: true,
         },
       }),
     ).resolves.toMatchObject({
@@ -3859,12 +3860,15 @@ describeDatabase("skill drafts and Gemini activation", () => {
       storageBucket: "learnrecur-dev",
       storageKey,
       byteSize: 1024,
+      metadata: {
+        errorMessage: "Gemini could not extract enough study text from this file.",
+      },
     });
     expect(storageSetup.deletedKeys).toEqual([]);
   });
 
-  it("clears dismissed upload storage pointers before deleting storage objects", async () => {
-    const userId = await createUser("upload_dismiss_clears_before_delete");
+  it("keeps dismissed upload storage pointers until storage objects are deleted", async () => {
+    const userId = await createUser("upload_dismiss_keeps_until_delete");
     const storageKey = `source-uploads/${userId}/failed.pdf`;
     const source = await prisma.sourceFile.create({
       data: {
@@ -3895,6 +3899,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
             id: source.id,
           },
           select: {
+            status: true,
             storageBucket: true,
             storageKey: true,
             metadata: true,
@@ -3916,6 +3921,32 @@ describeDatabase("skill drafts and Gemini activation", () => {
     });
 
     expect(sourceDuringDelete).toMatchObject({
+      status: SourceFileStatus.FAILED,
+      storageBucket: "learnrecur-dev",
+      storageKey,
+      metadata: expect.objectContaining({
+        dismissalPendingAt: now.toISOString(),
+      }),
+    });
+    expect(sourceDuringDelete?.metadata).not.toEqual(
+      expect.objectContaining({
+        dismissedAt: expect.any(String),
+      }),
+    );
+    await expect(
+      prisma.sourceFile.findUnique({
+        where: {
+          id: source.id,
+        },
+        select: {
+          status: true,
+          storageBucket: true,
+          storageKey: true,
+          metadata: true,
+        },
+      }),
+    ).resolves.toMatchObject({
+      status: SourceFileStatus.FAILED,
       storageBucket: null,
       storageKey: null,
       metadata: expect.objectContaining({
@@ -3923,6 +3954,90 @@ describeDatabase("skill drafts and Gemini activation", () => {
       }),
     });
     expect(storageSetup.deletedKeys).toEqual([storageKey]);
+  });
+
+  it("logs dismissal rollback races while preserving the stored object pointer", async () => {
+    const userId = await createUser("upload_dismiss_rollback_race");
+    const storageKey = `source-uploads/${userId}/failed.pdf`;
+    const source = await prisma.sourceFile.create({
+      data: {
+        userId,
+        kind: SourceFileKind.PDF,
+        status: SourceFileStatus.FAILED,
+        originalName: "failed worksheet",
+        mimeType: "application/pdf",
+        byteSize: 1024,
+        storageBucket: "learnrecur-dev",
+        storageKey,
+        metadata: {
+          errorMessage: "Gemini could not extract enough study text from this file.",
+        },
+      },
+    });
+    const storageSetup = createFakeUploadStorage({
+      onDeleteObject: async () => {
+        await prisma.sourceFile.update({
+          where: {
+            id: source.id,
+          },
+          data: {
+            metadata: {
+              errorMessage: "Concurrent cleanup update.",
+            },
+          },
+        });
+        throw new Error("temporary S3 delete failure");
+      },
+    });
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    try {
+      await expect(
+        dismissFailedSourceUpload({
+          userId,
+          sourceFileId: source.id,
+          now,
+          storage: storageSetup.storage,
+        }),
+      ).resolves.toMatchObject({
+        status: "not-dismissed",
+        reason: "storage-delete-failed",
+        message: "temporary S3 delete failure",
+      });
+      expect(consoleError).toHaveBeenCalledWith(
+        "[skills] failed to restore source upload dismissal claim",
+        expect.objectContaining({
+          sourceFileId: source.id,
+          userId,
+        }),
+      );
+    } finally {
+      consoleError.mockRestore();
+    }
+
+    await expect(
+      prisma.sourceFile.findUnique({
+        where: {
+          id: source.id,
+        },
+        select: {
+          status: true,
+          storageBucket: true,
+          storageKey: true,
+          byteSize: true,
+          metadata: true,
+        },
+      }),
+    ).resolves.toMatchObject({
+      status: SourceFileStatus.FAILED,
+      storageBucket: "learnrecur-dev",
+      storageKey,
+      byteSize: 1024,
+      metadata: {
+        errorMessage: "Concurrent cleanup update.",
+      },
+    });
+    expect(storageSetup.deletedKeys).toEqual([]);
   });
 
   it("rejects dismissal for cross-user, linked, and non-failed uploaded sources", async () => {
