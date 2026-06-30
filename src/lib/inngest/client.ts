@@ -4,6 +4,8 @@ import { Inngest } from "inngest";
 
 export const DEFAULT_INNGEST_APP_ID = "learnrecur-dev";
 
+type InngestConfigEnv = Record<string, string | undefined>;
+
 export type InngestEnvStatus =
   | {
       status: "ready";
@@ -15,11 +17,15 @@ export type InngestEnvStatus =
       message: string;
     };
 
-export function getInngestAppId(env: NodeJS.ProcessEnv = process.env): string {
+export function getInngestAppId(env: InngestConfigEnv = process.env): string {
   return env.INNGEST_APP_ID?.trim() || DEFAULT_INNGEST_APP_ID;
 }
 
-export function isInngestDevMode(env: NodeJS.ProcessEnv = process.env): boolean {
+export function isInngestDevMode(env: InngestConfigEnv = process.env): boolean {
+  if (env.NODE_ENV === "production") {
+    return false;
+  }
+
   const rawDevMode = env.INNGEST_DEV?.trim().toLowerCase();
 
   if (rawDevMode) {
@@ -40,10 +46,10 @@ export function isInngestDevMode(env: NodeJS.ProcessEnv = process.env): boolean 
     }
   }
 
-  return env.NODE_ENV !== "production";
+  return true;
 }
 
-export function getInngestEnvStatus(env: NodeJS.ProcessEnv = process.env): InngestEnvStatus {
+export function getInngestEnvStatus(env: InngestConfigEnv = process.env): InngestEnvStatus {
   const appId = getInngestAppId(env);
   const isDev = isInngestDevMode(env);
 
@@ -79,9 +85,32 @@ export function getInngestEnvStatus(env: NodeJS.ProcessEnv = process.env): Innge
   };
 }
 
-export const inngest = new Inngest({
-  id: getInngestAppId(),
-  eventKey: process.env.INNGEST_EVENT_KEY?.trim() || undefined,
-  signingKey: process.env.INNGEST_SIGNING_KEY?.trim() || undefined,
-  isDev: isInngestDevMode(),
-});
+export function getInngestClientEnv(
+  env: InngestConfigEnv = process.env,
+): Record<string, string | undefined> {
+  if (isInngestDevMode(env)) {
+    return env;
+  }
+
+  return {
+    ...env,
+    INNGEST_DEV: undefined,
+  };
+}
+
+export function createLearnRecurInngestClient(env: InngestConfigEnv = process.env): Inngest {
+  const client = new Inngest({
+    id: getInngestAppId(env),
+    eventKey: env.INNGEST_EVENT_KEY?.trim() || undefined,
+    signingKey: env.INNGEST_SIGNING_KEY?.trim() || undefined,
+    isDev: isInngestDevMode(env),
+  });
+  const setEnvVars = client.setEnvVars.bind(client);
+
+  client.setEnvVars = (nextEnv: InngestConfigEnv = process.env) =>
+    setEnvVars(getInngestClientEnv(nextEnv));
+
+  return client.setEnvVars(env);
+}
+
+export const inngest = createLearnRecurInngestClient();
