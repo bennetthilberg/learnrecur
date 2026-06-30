@@ -16,7 +16,7 @@ import {
   normalizeSourceUploadInput,
   validateExtractedSourceText,
 } from "@/lib/skills/uploads";
-import { SOURCE_CONTEXT_CHAR_LIMIT } from "@/lib/skills";
+import { MAX_COLLECTION_NAME_LENGTH, SOURCE_CONTEXT_CHAR_LIMIT } from "@/lib/skills";
 import { getS3Env } from "@/lib/storage/s3";
 
 describe("normalizeSourceUploadInput", () => {
@@ -57,6 +57,23 @@ describe("normalizeSourceUploadInput", () => {
     if (result.status === "invalid") {
       expect(result.fieldErrors.mimeType).toEqual(["Upload a PNG, JPEG, WebP, or PDF file."]);
       expect(result.fieldErrors.byteSize).toEqual(["Upload a file smaller than 10 MB."]);
+    }
+  });
+
+  it("rejects oversized collection names before upload metadata is saved", () => {
+    const result = normalizeSourceUploadInput({
+      originalName: "worksheet.png",
+      mimeType: "image/png",
+      byteSize: 1024,
+      collectionName: "x".repeat(MAX_COLLECTION_NAME_LENGTH + 1),
+    });
+
+    expect(result.status).toBe("invalid");
+
+    if (result.status === "invalid") {
+      expect(result.fieldErrors.collectionName).toEqual([
+        `Collection name must be ${MAX_COLLECTION_NAME_LENGTH} characters or fewer.`,
+      ]);
     }
   });
 });
