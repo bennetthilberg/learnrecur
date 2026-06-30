@@ -53,6 +53,10 @@ export function getPracticeShortcutIntent(input: PracticeShortcutInput): Practic
     return NO_SHORTCUT;
   }
 
+  if (input.key === "Enter" && input.targetRole === "form-control") {
+    return NO_SHORTCUT;
+  }
+
   if (input.key === "Enter" && input.feedbackVisible) {
     return { type: "continue" };
   }
