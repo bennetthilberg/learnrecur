@@ -1,4 +1,16 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+const clerkMocks = vi.hoisted(() => ({
+  getUser: vi.fn(),
+}));
+
+vi.mock("@clerk/nextjs/server", () => ({
+  clerkClient: vi.fn(async () => ({
+    users: {
+      getUser: clerkMocks.getUser,
+    },
+  })),
+}));
 
 import {
   buildPracticeUrl,
@@ -8,7 +20,12 @@ import {
   isReminderLocalHourDue,
   normalizeReminderPreferenceInput,
   renderDueReminderEmail,
+  resolveClerkReminderAccountEmail,
 } from "@/lib/reminders";
+
+afterEach(() => {
+  clerkMocks.getUser.mockReset();
+});
 
 describe("reminder preference input", () => {
   it("normalizes enabled reminder settings", () => {
@@ -142,6 +159,43 @@ describe("reminder scheduling helpers", () => {
     expect(buildReminderIdempotencyKey("user_123", "2026-06-04")).toBe(
       "learnrecur:due-reminder:user_123:2026-06-04",
     );
+  });
+});
+
+describe("clerk reminder account email resolution", () => {
+  it("returns the primary Clerk email only when it is verified", async () => {
+    clerkMocks.getUser
+      .mockResolvedValueOnce({
+        primaryEmailAddress: {
+          emailAddress: "verified@example.com",
+          verification: {
+            status: "verified",
+          },
+        },
+      })
+      .mockResolvedValueOnce({
+        primaryEmailAddress: {
+          emailAddress: "unverified@example.com",
+          verification: {
+            status: "failed",
+          },
+        },
+      })
+      .mockResolvedValueOnce({
+        primaryEmailAddress: null,
+      });
+
+    await expect(resolveClerkReminderAccountEmail("user_verified")).resolves.toBe(
+      "verified@example.com",
+    );
+    await expect(resolveClerkReminderAccountEmail("user_unverified")).resolves.toBeNull();
+    await expect(resolveClerkReminderAccountEmail("user_missing_email")).resolves.toBeNull();
+  });
+
+  it("returns null when the Clerk user no longer exists", async () => {
+    clerkMocks.getUser.mockRejectedValueOnce({ status: 404 });
+
+    await expect(resolveClerkReminderAccountEmail("user_deleted")).resolves.toBeNull();
   });
 });
 

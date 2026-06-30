@@ -244,7 +244,12 @@ export async function getReminderSettings(input: {
 
   return {
     status: "ready",
-    preference: user.reminderPreference ?? getDefaultReminderPreference(user.email),
+    preference: user.reminderPreference
+      ? {
+          ...user.reminderPreference,
+          email: user.email ?? user.reminderPreference.email,
+        }
+      : getDefaultReminderPreference(user.email),
     persisted: Boolean(user.reminderPreference),
   };
 }
@@ -467,18 +472,6 @@ export async function processDueReminderPreference(input: {
     existingLog?.status === ReminderSendStatus.PENDING &&
     isStalePendingReminderLog(existingLog.updatedAt, input.now);
 
-  if (shouldRetryPendingLog && existingLog) {
-    const claimedLog = await claimStalePendingReminderLog({
-      localDate,
-      updatedAt: existingLog.updatedAt,
-      userId: input.preference.userId,
-    });
-
-    if (!claimedLog) {
-      return existingLogResult(input.preference.userId, localDate);
-    }
-  }
-
   if (existingLog && !shouldRetryPendingLog) {
     return {
       status: "already-processed",
@@ -495,7 +488,17 @@ export async function processDueReminderPreference(input: {
 
   if (dueCount < input.preference.minimumDueCount) {
     try {
-      if (shouldRetryPendingLog) {
+      if (shouldRetryPendingLog && existingLog) {
+        const claimedLog = await claimStalePendingReminderLog({
+          localDate,
+          updatedAt: existingLog.updatedAt,
+          userId: input.preference.userId,
+        });
+
+        if (!claimedLog) {
+          return existingLogResult(input.preference.userId, localDate);
+        }
+
         await prisma.reminderSendLog.update({
           where: {
             userId_localDate: {
@@ -551,7 +554,17 @@ export async function processDueReminderPreference(input: {
   }
 
   try {
-    if (shouldRetryPendingLog) {
+    if (shouldRetryPendingLog && existingLog) {
+      const claimedLog = await claimStalePendingReminderLog({
+        localDate,
+        updatedAt: existingLog.updatedAt,
+        userId: input.preference.userId,
+      });
+
+      if (!claimedLog) {
+        return existingLogResult(input.preference.userId, localDate);
+      }
+
       await prisma.reminderSendLog.update({
         where: {
           userId_localDate: {
@@ -663,7 +676,13 @@ export async function resolveClerkReminderAccountEmail(userId: string): Promise<
     throw error;
   }
 
-  return user.primaryEmailAddress?.emailAddress ?? null;
+  const primaryEmail = user.primaryEmailAddress;
+
+  if (primaryEmail?.verification?.status !== "verified") {
+    return null;
+  }
+
+  return primaryEmail.emailAddress;
 }
 
 export function createResendReminderEmailSender(env: ResendEnv = getResendEnv()): ReminderEmailSender {

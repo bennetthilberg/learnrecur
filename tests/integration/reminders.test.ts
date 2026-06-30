@@ -246,6 +246,34 @@ describeDatabase("due email reminders", () => {
     });
   });
 
+  it("renders the current account email for stale persisted reminder recipients", async () => {
+    const userId = await createUser("settings-stale-recipient", "current@example.com");
+    await prisma.reminderPreference.create({
+      data: {
+        userId,
+        enabled: true,
+        email: "old@example.com",
+        localHour: 8,
+        timezone: "America/Chicago",
+        minimumDueCount: 2,
+      },
+    });
+
+    const settings = await getReminderSettings({ userId });
+
+    expect(settings).toMatchObject({
+      status: "ready",
+      persisted: true,
+      preference: {
+        enabled: true,
+        email: "current@example.com",
+        localHour: 8,
+        timezone: "America/Chicago",
+        minimumDueCount: 2,
+      },
+    });
+  });
+
   it("allows reminders to be disabled when the account email is missing", async () => {
     const userId = await createUser("disable-missing-email", null);
     await prisma.reminderPreference.create({
@@ -651,6 +679,63 @@ describeDatabase("due email reminders", () => {
       dueCount: 1,
       providerMessageId: "email_retry",
     });
+  });
+
+  it("does not refresh stale pending reminder logs before recipient validation", async () => {
+    const userId = await createUser("stale_pending_invalid_recipient", "old-pending@example.com");
+    await createDueChoiceSkill(userId, "stale pending invalid recipient");
+    await prisma.reminderPreference.create({
+      data: {
+        userId,
+        enabled: true,
+        email: "old-pending@example.com",
+        localHour: 9,
+        timezone: "America/New_York",
+        minimumDueCount: 1,
+      },
+    });
+    const staleTimestamp = new Date(now.getTime() - 10 * 60 * 1000);
+    await prisma.reminderSendLog.create({
+      data: {
+        userId,
+        localDate,
+        status: ReminderSendStatus.PENDING,
+        dueCount: 1,
+        email: "old-pending@example.com",
+        provider: "resend",
+        createdAt: staleTimestamp,
+        updatedAt: staleTimestamp,
+      },
+    });
+    const sender = createRecordingSender("email_should_not_send");
+
+    const result = await processDueReminderBatch({
+      accountEmailResolver: async () => "current-pending@example.com",
+      userIds: [userId],
+      now,
+      appUrl: "https://learnrecur.example",
+      sender,
+    });
+
+    expect(result.results).toEqual([
+      {
+        status: "invalid-recipient",
+        userId,
+        localDate,
+        message: "Reminder emails can only be sent to the current account email address.",
+      },
+    ]);
+    expect(sender.payloads).toHaveLength(0);
+    const log = await prisma.reminderSendLog.findUniqueOrThrow({
+      where: {
+        userId_localDate: {
+          userId,
+          localDate,
+        },
+      },
+    });
+    expect(log.status).toBe(ReminderSendStatus.PENDING);
+    expect(log.updatedAt.getTime()).toBe(staleTimestamp.getTime());
   });
 
   it("does not retry fresh pending reminder logs", async () => {
