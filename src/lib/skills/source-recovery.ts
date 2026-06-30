@@ -1,6 +1,6 @@
 import "server-only";
 
-import { SourceFileKind, SourceFileStatus, type Prisma } from "@/generated/prisma/client";
+import { Prisma, SourceFileKind, SourceFileStatus } from "@/generated/prisma/client";
 import { getPrisma } from "@/lib/prisma";
 import {
   canRequeueSourceUploadMetadata,
@@ -62,6 +62,10 @@ export async function getSkillCreationSourceRecoveryItems(input: {
           },
         },
       ],
+      metadata: {
+        path: ["dismissedAt"],
+        equals: Prisma.AnyNull,
+      },
     },
     orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
     select: {

@@ -2523,6 +2523,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
     await expect(getSkillsLibrary({ userId, now })).resolves.toMatchObject({
       sourceProcessing: [],
     });
+    await expect(getSkillCreationSourceRecoveryItems({ userId, now })).resolves.toEqual([]);
 
     const dismissedSource = await prisma.sourceFile.findUniqueOrThrow({
       where: { id: prepared.sourceFileId },
@@ -2531,7 +2532,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
       status: SourceFileStatus.PROCESSING,
       byteSize: 4096,
       storageBucket: null,
-      storageKey: prepared.objectKey,
+      storageKey: null,
       metadata: expect.objectContaining({
         dismissedAt: dismissNow.toISOString(),
       }),
@@ -3461,6 +3462,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
     await expect(getSkillsLibrary({ userId, now })).resolves.toMatchObject({
       sourceProcessing: [],
     });
+    await expect(getSkillCreationSourceRecoveryItems({ userId, now })).resolves.toEqual([]);
 
     const dismissedSources = await prisma.sourceFile.findMany({
       where: {
@@ -3488,7 +3490,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
           status: SourceFileStatus.UPLOADED,
           byteSize: 1024,
           storageBucket: null,
-          storageKey: uploadedStorageKey,
+          storageKey: null,
           metadata: expect.objectContaining({
             dismissedAt: now.toISOString(),
           }),
@@ -3498,7 +3500,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
           status: SourceFileStatus.PROCESSING,
           byteSize: 1024,
           storageBucket: null,
-          storageKey: staleStorageKey,
+          storageKey: null,
           metadata: expect.objectContaining({
             dismissedAt: now.toISOString(),
           }),
@@ -3508,7 +3510,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
           status: SourceFileStatus.FAILED,
           byteSize: 1024,
           storageBucket: null,
-          storageKey: failedStorageKey,
+          storageKey: null,
           metadata: expect.objectContaining({
             dismissedAt: now.toISOString(),
           }),
@@ -3518,7 +3520,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
           status: SourceFileStatus.FAILED,
           byteSize: 1024,
           storageBucket: null,
-          storageKey: retryableFailedStorageKey,
+          storageKey: null,
           metadata: expect.objectContaining({
             dismissedAt: now.toISOString(),
           }),

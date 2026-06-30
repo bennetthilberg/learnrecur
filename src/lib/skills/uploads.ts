@@ -923,6 +923,7 @@ export async function dismissFailedSourceUpload(
         data: {
           metadata: buildDismissedSourceUploadMetadata(sourceFile.metadata, now),
           storageBucket: null,
+          storageKey: null,
         },
       });
 
