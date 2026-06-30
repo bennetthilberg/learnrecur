@@ -51,6 +51,10 @@ export const DEFAULT_READY_EXACT_INPUT_TARGET = 2;
 export const DEFAULT_READY_MATH_TARGET = 2;
 export const EXACT_INPUT_UNLOCK_REPETITIONS = 3;
 export const SOURCE_CONTEXT_CHAR_LIMIT = 4_000;
+export const MAX_COLLECTION_NAME_LENGTH = 120;
+export const MAX_TAG_LENGTH = 40;
+export const MAX_TAG_COUNT = 12;
+export const MAX_TAGS_FIELD_LENGTH = MAX_TAG_COUNT * (MAX_TAG_LENGTH + 2);
 export const EXISTING_EXERCISE_CONTEXT_CHAR_LIMIT = 3_000;
 export const MAX_GENERATED_SKILL_DRAFTS = 3;
 export const SOURCE_SKILL_DRAFT_PROMPT_VERSION = "source-skill-draft-v1";
@@ -701,6 +705,27 @@ const optionalTrimmedStringSchema = z.preprocess((value) => {
   return value;
 }, z.string().trim().optional());
 
+const tagInputSchema = z
+  .union([
+    z
+      .string()
+      .max(MAX_TAGS_FIELD_LENGTH, `Tags must be ${MAX_TAGS_FIELD_LENGTH} characters or fewer.`),
+    z
+      .array(z.string().max(MAX_TAG_LENGTH, `Each tag must be ${MAX_TAG_LENGTH} characters or fewer.`))
+      .max(MAX_TAG_COUNT),
+  ])
+  .optional();
+
+const collectionNameSchema = optionalTrimmedStringSchema.pipe(
+  z
+    .string()
+    .max(
+      MAX_COLLECTION_NAME_LENGTH,
+      `Collection name must be ${MAX_COLLECTION_NAME_LENGTH} characters or fewer.`,
+    )
+    .optional(),
+);
+
 function optionalSkillGuidanceNotesSchema(fieldLabel: string): z.ZodType<string | undefined> {
   return z.preprocess(
     (value) => {
@@ -745,7 +770,7 @@ const draftInputSchema = z.strictObject({
     .trim()
     .min(12, "Describe the skill objective in at least 12 characters.")
     .max(1200),
-  collectionName: optionalTrimmedStringSchema,
+  collectionName: collectionNameSchema,
   rules: optionalSkillGuidanceNotesSchema("Rules"),
   examples: optionalSkillGuidanceNotesSchema("Examples"),
   exerciseConstraints: optionalTrimmedStringSchema.pipe(
@@ -757,7 +782,7 @@ const draftInputSchema = z.strictObject({
       )
       .optional(),
   ),
-  tags: z.union([z.string(), z.array(z.string())]).optional(),
+  tags: tagInputSchema,
 });
 
 const skillPracticeGuidanceInputSchema = z.strictObject({
@@ -782,8 +807,8 @@ const sourceSkillDraftInputSchema = z.strictObject({
     .max(12_000, "Paste at most 12,000 characters for this first source flow."),
   sourceLabel: optionalTrimmedStringSchema.pipe(z.string().max(160).optional()),
   focusNote: optionalTrimmedStringSchema.pipe(z.string().max(800).optional()),
-  collectionName: optionalTrimmedStringSchema,
-  tags: z.union([z.string(), z.array(z.string())]).optional(),
+  collectionName: collectionNameSchema,
+  tags: tagInputSchema,
 });
 
 const generatedSkillDraftSchema = z.strictObject({
@@ -5642,7 +5667,7 @@ export function normalizeTags(value?: string | string[]): string[] {
   for (const rawTag of rawTags) {
     const tag = rawTag.trim().toLowerCase();
 
-    if (tag.length === 0 || seen.has(tag)) {
+    if (tag.length === 0 || tag.length > MAX_TAG_LENGTH || seen.has(tag)) {
       continue;
     }
 
@@ -5650,7 +5675,7 @@ export function normalizeTags(value?: string | string[]): string[] {
     tags.push(tag);
   }
 
-  return tags.slice(0, 12);
+  return tags.slice(0, MAX_TAG_COUNT);
 }
 
 type SkillWriteClient = Pick<
