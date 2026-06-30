@@ -19,7 +19,7 @@ test.describe("auth spine", () => {
     await expect(page.getByText(/canvas tint|heading weight|border radius/i)).toHaveCount(0);
   });
 
-  test("policy pages are public alpha drafts", async ({ page }) => {
+  test("policy pages are public drafts", async ({ page }) => {
     await page.goto("/privacy");
 
     await expect(page.getByRole("heading", { name: /^privacy$/i })).toBeVisible();
@@ -29,7 +29,8 @@ test.describe("auth spine", () => {
     await page.goto("/terms");
 
     await expect(page.getByRole("heading", { name: /^terms$/i })).toBeVisible();
-    await expect(page.getByText(/alpha access/i)).toBeVisible();
+    await expect(page.getByRole("list", { name: /terms summary/i })).toBeVisible();
+    await expect(page.getByText(/account access/i)).toBeVisible();
     await expect(page.getByText(/legal review/i)).toBeVisible();
   });
 
