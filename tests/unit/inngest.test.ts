@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { Inngest } from "inngest";
 
 import {
+  createLearnRecurInngestClient,
   getInngestClientEnv,
   getInngestEnvStatus,
   isInngestDevMode,
@@ -83,6 +84,26 @@ describe("Inngest configuration", () => {
     };
 
     expect(client.mode).toBe("cloud");
+    expect(client.apiBaseUrl).toBe("https://api.inngest.com/");
+    expect(client.eventBaseUrl).toBe("https://inn.gs/");
+  });
+
+  it("keeps production INNGEST_DEV URLs scrubbed after SDK env resets", () => {
+    const env = {
+      NODE_ENV: "production",
+      INNGEST_DEV: "http://localhost:8290",
+      INNGEST_APP_ID: "learnrecur",
+      INNGEST_EVENT_KEY: "event-key",
+      INNGEST_SIGNING_KEY: "signkey-prod-test",
+    } as NodeJS.ProcessEnv;
+    const client = createLearnRecurInngestClient(env) as unknown as {
+      apiBaseUrl: string;
+      eventBaseUrl: string;
+      setEnvVars: (env: NodeJS.ProcessEnv) => unknown;
+    };
+
+    client.setEnvVars(env);
+
     expect(client.apiBaseUrl).toBe("https://api.inngest.com/");
     expect(client.eventBaseUrl).toBe("https://inn.gs/");
   });
