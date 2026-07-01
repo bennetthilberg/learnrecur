@@ -1,10 +1,157 @@
+import { GoogleGenAI, type GenerateContentResponse } from "@google/genai";
+
+export const DEFAULT_GEMINI_MODEL = "gemini-3.5-flash";
 export const DEFAULT_GEMINI_FALLBACK_MODELS = [] as const;
+
+export type GeminiApiMode = "developer-api" | "enterprise-agent-platform";
+
+export type GeminiRuntimeConfig = {
+  apiMode: GeminiApiMode;
+  endpoint: string;
+  model: string;
+  clientOptions: ConstructorParameters<typeof GoogleGenAI>[0];
+};
+
+export type GeminiRuntimeEnv = {
+  GEMINI_API_KEY?: string;
+  GEMINI_ENTERPRISE_AGENT_KEY_PLATFORM_KEY?: string;
+  GEMINI_MODEL?: string;
+};
+
+type GeminiMediaLogInput = {
+  count: number;
+  totalBytes: number;
+  mimeTypes: string[];
+  sourceFileIds?: string[];
+};
+
+type GeminiOperationMetadata = {
+  candidateCount?: number;
+  media?: GeminiMediaLogInput;
+  promptChars?: number;
+  requestedCount?: number;
+  schemaName?: string;
+};
+
+type GeminiOperationInput<T> = {
+  config: GeminiRuntimeConfig;
+  metadata?: GeminiOperationMetadata;
+  operation: string;
+  run: (ai: GoogleGenAI) => Promise<{
+    response: GenerateContentResponse;
+    value: T;
+  }>;
+};
 
 type GeminiErrorDetails = {
   code: number | null;
   status: string | null;
   message: string | null;
 };
+
+export function resolveGeminiRuntimeConfig(env: GeminiRuntimeEnv): GeminiRuntimeConfig {
+  const model = env.GEMINI_MODEL?.trim() || DEFAULT_GEMINI_MODEL;
+  const enterpriseApiKey = env.GEMINI_ENTERPRISE_AGENT_KEY_PLATFORM_KEY?.trim();
+
+  if (enterpriseApiKey) {
+    return {
+      apiMode: "enterprise-agent-platform",
+      endpoint: "https://aiplatform.googleapis.com/",
+      model,
+      clientOptions: {
+        vertexai: true,
+        apiKey: enterpriseApiKey,
+        httpOptions: {
+          apiVersion: "v1",
+        },
+      },
+    };
+  }
+
+  const developerApiKey = env.GEMINI_API_KEY?.trim();
+
+  if (!developerApiKey) {
+    throw new Error("GEMINI_API_KEY or GEMINI_ENTERPRISE_AGENT_KEY_PLATFORM_KEY is required");
+  }
+
+  return {
+    apiMode: "developer-api",
+    endpoint: "https://generativelanguage.googleapis.com/",
+    model,
+    clientOptions: {
+      apiKey: developerApiKey,
+    },
+  };
+}
+
+export function getGeminiRuntimeLogContext(config: GeminiRuntimeConfig) {
+  return {
+    provider: "google",
+    apiMode: config.apiMode,
+    endpoint: config.endpoint,
+    model: config.model,
+  };
+}
+
+export async function runLoggedGeminiOperation<T>({
+  config,
+  metadata,
+  operation,
+  run,
+}: GeminiOperationInput<T>): Promise<T> {
+  const requestId = buildGeminiRequestId();
+  const startedAt = Date.now();
+  const context = {
+    requestId,
+    operation,
+    ...getGeminiRuntimeLogContext(config),
+    ...metadata,
+  };
+
+  console.info("[ai] gemini request started", context);
+
+  try {
+    const result = await run(new GoogleGenAI(config.clientOptions));
+    const text = result.response.text ?? "";
+
+    console.info("[ai] gemini request succeeded", {
+      ...context,
+      elapsedMs: Date.now() - startedAt,
+      finishReason: result.response.candidates?.[0]?.finishReason ?? null,
+      outputTextLength: text.length,
+      usageMetadata: summarizeGeminiUsageMetadata(result.response.usageMetadata),
+    });
+
+    return result.value;
+  } catch (error) {
+    console.error("[ai] gemini request failed", {
+      ...context,
+      elapsedMs: Date.now() - startedAt,
+      error: getGeminiErrorLogDetails(error),
+    });
+    throw error;
+  }
+}
+
+function buildGeminiRequestId(): string {
+  return `gemini_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function summarizeGeminiUsageMetadata(
+  usageMetadata: GenerateContentResponse["usageMetadata"] | undefined,
+) {
+  if (!usageMetadata) {
+    return null;
+  }
+
+  return {
+    promptTokenCount: usageMetadata.promptTokenCount ?? null,
+    candidatesTokenCount: usageMetadata.candidatesTokenCount ?? null,
+    thoughtsTokenCount: usageMetadata.thoughtsTokenCount ?? null,
+    totalTokenCount: usageMetadata.totalTokenCount ?? null,
+    trafficType: usageMetadata.trafficType ?? null,
+  };
+}
 
 type GeminiProviderFallbackInput<T> = {
   fallback?: {
@@ -13,6 +160,7 @@ type GeminiProviderFallbackInput<T> = {
     run: () => Promise<T>;
   } | null;
   operation: string;
+  primary?: ReturnType<typeof getGeminiRuntimeLogContext>;
   primaryModel: string;
   runPrimary: () => Promise<T>;
 };
@@ -46,6 +194,7 @@ export function parseGeminiFallbackModels(value: unknown): string[] {
 export async function runWithGeminiProviderFallback<T>({
   fallback,
   operation,
+  primary,
   primaryModel,
   runPrimary,
 }: GeminiProviderFallbackInput<T>): Promise<T> {
@@ -60,6 +209,7 @@ export async function runWithGeminiProviderFallback<T>({
       operation,
       failedProvider: "gemini",
       failedModel: primaryModel,
+      primary,
       fallbackProvider: fallback.provider,
       fallbackModel: fallback.model,
       error: getGeminiErrorLogDetails(error),

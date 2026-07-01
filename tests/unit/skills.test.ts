@@ -1376,10 +1376,12 @@ describe("buildExistingChoiceExerciseContext", () => {
 describe("createSkillDraftFromSource", () => {
   it("returns a typed setup error before any database work when Gemini env is missing", async () => {
     const originalGeminiApiKey = process.env.GEMINI_API_KEY;
+    const originalGeminiEnterpriseKey = process.env.GEMINI_ENTERPRISE_AGENT_KEY_PLATFORM_KEY;
     const originalGeminiModel = process.env.GEMINI_MODEL;
 
     try {
       delete process.env.GEMINI_API_KEY;
+      delete process.env.GEMINI_ENTERPRISE_AGENT_KEY_PLATFORM_KEY;
       delete process.env.GEMINI_MODEL;
 
       await expect(
@@ -1400,6 +1402,12 @@ describe("createSkillDraftFromSource", () => {
         delete process.env.GEMINI_API_KEY;
       } else {
         process.env.GEMINI_API_KEY = originalGeminiApiKey;
+      }
+
+      if (originalGeminiEnterpriseKey === undefined) {
+        delete process.env.GEMINI_ENTERPRISE_AGENT_KEY_PLATFORM_KEY;
+      } else {
+        process.env.GEMINI_ENTERPRISE_AGENT_KEY_PLATFORM_KEY = originalGeminiEnterpriseKey;
       }
 
       if (originalGeminiModel === undefined) {

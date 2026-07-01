@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  getGeminiRuntimeLogContext,
   getPublicGeminiFailureMessage,
   isRetryableGeminiModelError,
   parseGeminiFallbackModels,
+  resolveGeminiRuntimeConfig,
   runWithGeminiProviderFallback,
 } from "@/lib/gemini";
 
@@ -14,6 +16,45 @@ describe("Gemini fallback helpers", () => {
       "gemma-4-31b-it",
     ]);
     expect(parseGeminiFallbackModels(" ")).toEqual([]);
+  });
+
+  it("prefers Gemini Enterprise Agent Platform when its key is configured", () => {
+    const config = resolveGeminiRuntimeConfig({
+      GEMINI_API_KEY: "developer-key",
+      GEMINI_ENTERPRISE_AGENT_KEY_PLATFORM_KEY: "enterprise-key",
+      GEMINI_MODEL: "gemini-3.5-flash",
+    });
+
+    expect(getGeminiRuntimeLogContext(config)).toEqual({
+      provider: "google",
+      apiMode: "enterprise-agent-platform",
+      endpoint: "https://aiplatform.googleapis.com/",
+      model: "gemini-3.5-flash",
+    });
+    expect(config.clientOptions).toMatchObject({
+      vertexai: true,
+      apiKey: "enterprise-key",
+      httpOptions: {
+        apiVersion: "v1",
+      },
+    });
+  });
+
+  it("uses the Gemini Developer API when no Enterprise Agent Platform key is configured", () => {
+    const config = resolveGeminiRuntimeConfig({
+      GEMINI_API_KEY: "developer-key",
+      GEMINI_MODEL: "gemini-3.5-flash",
+    });
+
+    expect(getGeminiRuntimeLogContext(config)).toEqual({
+      provider: "google",
+      apiMode: "developer-api",
+      endpoint: "https://generativelanguage.googleapis.com/",
+      model: "gemini-3.5-flash",
+    });
+    expect(config.clientOptions).toEqual({
+      apiKey: "developer-key",
+    });
   });
 
   it("retries retryable provider errors with Qwen fallback", async () => {

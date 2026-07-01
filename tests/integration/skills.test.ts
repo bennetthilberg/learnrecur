@@ -5936,10 +5936,12 @@ describeDatabase("skill drafts and Gemini activation", () => {
 
   it("returns a typed exact-input setup error when Gemini env is missing", async () => {
     const originalGeminiApiKey = process.env.GEMINI_API_KEY;
+    const originalGeminiEnterpriseKey = process.env.GEMINI_ENTERPRISE_AGENT_KEY_PLATFORM_KEY;
     const originalGeminiModel = process.env.GEMINI_MODEL;
 
     try {
       delete process.env.GEMINI_API_KEY;
+      delete process.env.GEMINI_ENTERPRISE_AGENT_KEY_PLATFORM_KEY;
       delete process.env.GEMINI_MODEL;
 
       const userId = await createUser("exact_refill_missing_env");
@@ -5976,6 +5978,12 @@ describeDatabase("skill drafts and Gemini activation", () => {
         process.env.GEMINI_API_KEY = originalGeminiApiKey;
       }
 
+      if (originalGeminiEnterpriseKey === undefined) {
+        delete process.env.GEMINI_ENTERPRISE_AGENT_KEY_PLATFORM_KEY;
+      } else {
+        process.env.GEMINI_ENTERPRISE_AGENT_KEY_PLATFORM_KEY = originalGeminiEnterpriseKey;
+      }
+
       if (originalGeminiModel === undefined) {
         delete process.env.GEMINI_MODEL;
       } else {
@@ -5986,10 +5994,12 @@ describeDatabase("skill drafts and Gemini activation", () => {
 
   it("returns a typed setup error without creating practiceable exercises when Gemini env is missing", async () => {
     const originalGeminiApiKey = process.env.GEMINI_API_KEY;
+    const originalGeminiEnterpriseKey = process.env.GEMINI_ENTERPRISE_AGENT_KEY_PLATFORM_KEY;
     const originalGeminiModel = process.env.GEMINI_MODEL;
 
     try {
       delete process.env.GEMINI_API_KEY;
+      delete process.env.GEMINI_ENTERPRISE_AGENT_KEY_PLATFORM_KEY;
       delete process.env.GEMINI_MODEL;
 
       const userId = await createUser("missing_env");
@@ -6036,6 +6046,12 @@ describeDatabase("skill drafts and Gemini activation", () => {
         delete process.env.GEMINI_API_KEY;
       } else {
         process.env.GEMINI_API_KEY = originalGeminiApiKey;
+      }
+
+      if (originalGeminiEnterpriseKey === undefined) {
+        delete process.env.GEMINI_ENTERPRISE_AGENT_KEY_PLATFORM_KEY;
+      } else {
+        process.env.GEMINI_ENTERPRISE_AGENT_KEY_PLATFORM_KEY = originalGeminiEnterpriseKey;
       }
 
       if (originalGeminiModel === undefined) {

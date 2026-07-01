@@ -1,6 +1,5 @@
 import "server-only";
 
-import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
 
 import {
@@ -27,9 +26,13 @@ import {
 } from "@/lib/answer-checking";
 import { formatEnvError, getGeminiEnv } from "@/lib/env";
 import {
+  getGeminiRuntimeLogContext,
   getGeminiErrorLogDetails,
   getPublicGeminiFailureMessage,
+  resolveGeminiRuntimeConfig,
+  runLoggedGeminiOperation,
   runWithGeminiProviderFallback,
+  type GeminiRuntimeConfig,
 } from "@/lib/gemini";
 import { getPrisma } from "@/lib/prisma";
 import {
@@ -3898,19 +3901,18 @@ function resolveActivationSetup(
 
   try {
     const env = getGeminiEnv();
+    const gemini = resolveGeminiRuntimeConfig(env);
 
     return {
       status: "ready",
-      model: env.GEMINI_MODEL,
+      model: gemini.model,
       generateChoiceExercises: createGeminiChoiceExerciseGenerator({
-        apiKey: env.GEMINI_API_KEY,
-        model: env.GEMINI_MODEL,
+        gemini,
       }),
       verifyChoiceExercises:
         input.verifyChoiceExercises ??
         createGeminiChoiceExerciseVerifier({
-          apiKey: env.GEMINI_API_KEY,
-          model: env.GEMINI_MODEL,
+          gemini,
         }),
     };
   } catch (error) {
@@ -3948,19 +3950,18 @@ function resolveExactInputRefillSetup(
 
   try {
     const env = getGeminiEnv();
+    const gemini = resolveGeminiRuntimeConfig(env);
 
     return {
       status: "ready",
-      model: env.GEMINI_MODEL,
+      model: gemini.model,
       generateExactInputExercises: createGeminiExactInputExerciseGenerator({
-        apiKey: env.GEMINI_API_KEY,
-        model: env.GEMINI_MODEL,
+        gemini,
       }),
       verifyExactInputExercises:
         input.verifyExactInputExercises ??
         createGeminiExactInputExerciseVerifier({
-          apiKey: env.GEMINI_API_KEY,
-          model: env.GEMINI_MODEL,
+          gemini,
         }),
     };
   } catch (error) {
@@ -3997,19 +3998,18 @@ function resolveMathRefillSetup(
 
   try {
     const env = getGeminiEnv();
+    const gemini = resolveGeminiRuntimeConfig(env);
 
     return {
       status: "ready",
-      model: env.GEMINI_MODEL,
+      model: gemini.model,
       generateMathExercises: createGeminiMathExerciseGenerator({
-        apiKey: env.GEMINI_API_KEY,
-        model: env.GEMINI_MODEL,
+        gemini,
       }),
       verifyMathExercises:
         input.verifyMathExercises ??
         createGeminiMathExerciseVerifier({
-          apiKey: env.GEMINI_API_KEY,
-          model: env.GEMINI_MODEL,
+          gemini,
         }),
     };
   } catch (error) {
@@ -4042,10 +4042,10 @@ function resolveSourceDraftSetup(
     };
   }
 
-  let env: ReturnType<typeof getGeminiEnv>;
+  let gemini: GeminiRuntimeConfig;
 
   try {
-    env = getGeminiEnv();
+    gemini = resolveGeminiRuntimeConfig(getGeminiEnv());
   } catch (error) {
     return {
       status: "missing-env",
@@ -4066,26 +4066,22 @@ function resolveSourceDraftSetup(
 
   return {
     status: "ready",
-    model: env.GEMINI_MODEL,
+    model: gemini.model,
     generateSkillDraft: createGeminiSkillDraftGenerator({
-      apiKey: env.GEMINI_API_KEY,
-      model: env.GEMINI_MODEL,
+      gemini,
       qwenFallback,
     }),
   };
 }
 
 export function createGeminiSkillDraftGenerator({
-  apiKey,
-  model,
+  gemini,
   qwenFallback,
 }: {
-  apiKey: string;
-  model: string;
+  gemini: GeminiRuntimeConfig;
   qwenFallback?: QwenFallbackConfig | null;
 }): SkillDraftGenerator {
   return async (input) => {
-    const ai = new GoogleGenAI({ apiKey });
     const qwenFallbackForInput = qwenSkillDraftFallbackForInput(qwenFallback, input);
 
     return runWithGeminiProviderFallback({
@@ -4097,26 +4093,42 @@ export function createGeminiSkillDraftGenerator({
           }
         : null,
       operation: "skill draft generation",
-      primaryModel: model,
+      primary: getGeminiRuntimeLogContext(gemini),
+      primaryModel: gemini.model,
       runPrimary: async () => {
-        const response = await ai.models.generateContent({
-          model,
-          contents: buildGeminiContentsWithSourceMedia(
-            buildSourceSkillDraftPrompt(input),
-            input.sourceMedia,
-          ),
-          config: {
-            responseMimeType: "application/json",
-            responseJsonSchema: geminiSkillDraftJsonSchema,
+        return runLoggedGeminiOperation({
+          config: gemini,
+          operation: "skill draft generation",
+          metadata: {
+            promptChars: buildSourceSkillDraftPrompt(input).length,
+            schemaName: "geminiSkillDraftJsonSchema",
+            media: buildSourceMediaLogMetadata(input.sourceMedia),
+          },
+          run: async (ai) => {
+            const prompt = buildSourceSkillDraftPrompt(input);
+            const response = await ai.models.generateContent({
+              model: gemini.model,
+              contents: buildGeminiContentsWithSourceMedia(prompt, input.sourceMedia),
+              config: {
+                responseMimeType: "application/json",
+                responseJsonSchema: geminiSkillDraftJsonSchema,
+                thinkingConfig: {
+                  thinkingBudget: 128,
+                },
+              },
+            });
+            const text = response.text;
+
+            if (!text) {
+              throw new Error("Gemini returned no text.");
+            }
+
+            return {
+              response,
+              value: JSON.parse(text) as unknown,
+            };
           },
         });
-        const text = response.text;
-
-        if (!text) {
-          throw new Error("Gemini returned no text.");
-        }
-
-        return JSON.parse(text) as unknown;
       },
     });
   };
@@ -4196,182 +4208,266 @@ function buildQwenSkillDraftUserContent(
 }
 
 function createGeminiChoiceExerciseGenerator({
-  apiKey,
-  model,
+  gemini,
 }: {
-  apiKey: string;
-  model: string;
+  gemini: GeminiRuntimeConfig;
 }): ChoiceExerciseGenerator {
   return async (input) => {
-    const ai = new GoogleGenAI({ apiKey });
-    const response = await ai.models.generateContent({
-      model,
-      contents: buildGeminiContentsWithSourceMedia(
-        buildChoiceExercisePrompt(input),
-        input.sourceMedia,
-      ),
-      config: {
-        responseMimeType: "application/json",
-        responseJsonSchema: buildGeminiResponseJsonSchema(input.requestedCount),
+    const prompt = buildChoiceExercisePrompt(input);
+
+    return runLoggedGeminiOperation({
+      config: gemini,
+      operation: "choice exercise generation",
+      metadata: {
+        requestedCount: input.requestedCount,
+        promptChars: prompt.length,
+        schemaName: "choiceExerciseResponse",
+        media: buildSourceMediaLogMetadata(input.sourceMedia),
+      },
+      run: async (ai) => {
+        const response = await ai.models.generateContent({
+          model: gemini.model,
+          contents: buildGeminiContentsWithSourceMedia(prompt, input.sourceMedia),
+          config: {
+            responseMimeType: "application/json",
+            responseJsonSchema: buildGeminiResponseJsonSchema(input.requestedCount),
+            thinkingConfig: {
+              thinkingBudget: 128,
+            },
+          },
+        });
+        const text = response.text;
+
+        if (!text) {
+          throw new Error("Gemini returned no text.");
+        }
+
+        return {
+          response,
+          value: JSON.parse(text) as unknown,
+        };
       },
     });
-    const text = response.text;
-
-    if (!text) {
-      throw new Error("Gemini returned no text.");
-    }
-
-    return JSON.parse(text) as unknown;
   };
 }
 
 function createGeminiChoiceExerciseVerifier({
-  apiKey,
-  model,
+  gemini,
 }: {
-  apiKey: string;
-  model: string;
+  gemini: GeminiRuntimeConfig;
 }): ChoiceExerciseVerifier {
   return async (input) => {
-    const ai = new GoogleGenAI({ apiKey });
-    const response = await ai.models.generateContent({
-      model,
-      contents: buildGeminiContentsWithSourceMedia(
-        buildChoiceExerciseVerificationPrompt(input),
-        input.sourceMedia,
-      ),
-      config: {
-        responseMimeType: "application/json",
-        responseJsonSchema: buildGeminiChoiceVerificationJsonSchema(input.candidates.length),
+    const prompt = buildChoiceExerciseVerificationPrompt(input);
+
+    return runLoggedGeminiOperation({
+      config: gemini,
+      operation: "choice exercise verification",
+      metadata: {
+        candidateCount: input.candidates.length,
+        promptChars: prompt.length,
+        schemaName: "choiceExerciseVerification",
+        media: buildSourceMediaLogMetadata(input.sourceMedia),
+      },
+      run: async (ai) => {
+        const response = await ai.models.generateContent({
+          model: gemini.model,
+          contents: buildGeminiContentsWithSourceMedia(prompt, input.sourceMedia),
+          config: {
+            responseMimeType: "application/json",
+            responseJsonSchema: buildGeminiChoiceVerificationJsonSchema(input.candidates.length),
+            thinkingConfig: {
+              thinkingBudget: 128,
+            },
+          },
+        });
+        const text = response.text;
+
+        if (!text) {
+          throw new Error("Gemini returned no text.");
+        }
+
+        return {
+          response,
+          value: JSON.parse(text) as unknown,
+        };
       },
     });
-    const text = response.text;
-
-    if (!text) {
-      throw new Error("Gemini returned no text.");
-    }
-
-    return JSON.parse(text) as unknown;
   };
 }
 
 function createGeminiExactInputExerciseGenerator({
-  apiKey,
-  model,
+  gemini,
 }: {
-  apiKey: string;
-  model: string;
+  gemini: GeminiRuntimeConfig;
 }): ExactInputExerciseGenerator {
   return async (input) => {
-    const ai = new GoogleGenAI({ apiKey });
-    const response = await ai.models.generateContent({
-      model,
-      contents: buildGeminiContentsWithSourceMedia(
-        buildExactInputExercisePrompt(input),
-        input.sourceMedia,
-      ),
-      config: {
-        responseMimeType: "application/json",
-        responseJsonSchema: buildGeminiExactInputResponseJsonSchema(input.requestedCount),
+    const prompt = buildExactInputExercisePrompt(input);
+
+    return runLoggedGeminiOperation({
+      config: gemini,
+      operation: "exact-input exercise generation",
+      metadata: {
+        requestedCount: input.requestedCount,
+        promptChars: prompt.length,
+        schemaName: "exactInputExerciseResponse",
+        media: buildSourceMediaLogMetadata(input.sourceMedia),
+      },
+      run: async (ai) => {
+        const response = await ai.models.generateContent({
+          model: gemini.model,
+          contents: buildGeminiContentsWithSourceMedia(prompt, input.sourceMedia),
+          config: {
+            responseMimeType: "application/json",
+            responseJsonSchema: buildGeminiExactInputResponseJsonSchema(input.requestedCount),
+            thinkingConfig: {
+              thinkingBudget: 128,
+            },
+          },
+        });
+        const text = response.text;
+
+        if (!text) {
+          throw new Error("Gemini returned no text.");
+        }
+
+        return {
+          response,
+          value: JSON.parse(text) as unknown,
+        };
       },
     });
-    const text = response.text;
-
-    if (!text) {
-      throw new Error("Gemini returned no text.");
-    }
-
-    return JSON.parse(text) as unknown;
   };
 }
 
 function createGeminiExactInputExerciseVerifier({
-  apiKey,
-  model,
+  gemini,
 }: {
-  apiKey: string;
-  model: string;
+  gemini: GeminiRuntimeConfig;
 }): ExactInputExerciseVerifier {
   return async (input) => {
-    const ai = new GoogleGenAI({ apiKey });
-    const response = await ai.models.generateContent({
-      model,
-      contents: buildGeminiContentsWithSourceMedia(
-        buildExactInputExerciseVerificationPrompt(input),
-        input.sourceMedia,
-      ),
-      config: {
-        responseMimeType: "application/json",
-        responseJsonSchema: buildGeminiExactInputVerificationJsonSchema(input.candidates.length),
+    const prompt = buildExactInputExerciseVerificationPrompt(input);
+
+    return runLoggedGeminiOperation({
+      config: gemini,
+      operation: "exact-input exercise verification",
+      metadata: {
+        candidateCount: input.candidates.length,
+        promptChars: prompt.length,
+        schemaName: "exactInputExerciseVerification",
+        media: buildSourceMediaLogMetadata(input.sourceMedia),
+      },
+      run: async (ai) => {
+        const response = await ai.models.generateContent({
+          model: gemini.model,
+          contents: buildGeminiContentsWithSourceMedia(prompt, input.sourceMedia),
+          config: {
+            responseMimeType: "application/json",
+            responseJsonSchema: buildGeminiExactInputVerificationJsonSchema(input.candidates.length),
+            thinkingConfig: {
+              thinkingBudget: 128,
+            },
+          },
+        });
+        const text = response.text;
+
+        if (!text) {
+          throw new Error("Gemini returned no text.");
+        }
+
+        return {
+          response,
+          value: JSON.parse(text) as unknown,
+        };
       },
     });
-    const text = response.text;
-
-    if (!text) {
-      throw new Error("Gemini returned no text.");
-    }
-
-    return JSON.parse(text) as unknown;
   };
 }
 
 function createGeminiMathExerciseGenerator({
-  apiKey,
-  model,
+  gemini,
 }: {
-  apiKey: string;
-  model: string;
+  gemini: GeminiRuntimeConfig;
 }): MathExerciseGenerator {
   return async (input) => {
-    const ai = new GoogleGenAI({ apiKey });
-    const response = await ai.models.generateContent({
-      model,
-      contents: buildGeminiContentsWithSourceMedia(
-        buildMathExercisePrompt(input),
-        input.sourceMedia,
-      ),
-      config: {
-        responseMimeType: "application/json",
-        responseJsonSchema: buildGeminiMathResponseJsonSchema(input.requestedCount),
+    const prompt = buildMathExercisePrompt(input);
+
+    return runLoggedGeminiOperation({
+      config: gemini,
+      operation: "math exercise generation",
+      metadata: {
+        requestedCount: input.requestedCount,
+        promptChars: prompt.length,
+        schemaName: "mathExerciseResponse",
+        media: buildSourceMediaLogMetadata(input.sourceMedia),
+      },
+      run: async (ai) => {
+        const response = await ai.models.generateContent({
+          model: gemini.model,
+          contents: buildGeminiContentsWithSourceMedia(prompt, input.sourceMedia),
+          config: {
+            responseMimeType: "application/json",
+            responseJsonSchema: buildGeminiMathResponseJsonSchema(input.requestedCount),
+            thinkingConfig: {
+              thinkingBudget: 128,
+            },
+          },
+        });
+        const text = response.text;
+
+        if (!text) {
+          throw new Error("Gemini returned no text.");
+        }
+
+        return {
+          response,
+          value: JSON.parse(text) as unknown,
+        };
       },
     });
-    const text = response.text;
-
-    if (!text) {
-      throw new Error("Gemini returned no text.");
-    }
-
-    return JSON.parse(text) as unknown;
   };
 }
 
 function createGeminiMathExerciseVerifier({
-  apiKey,
-  model,
+  gemini,
 }: {
-  apiKey: string;
-  model: string;
+  gemini: GeminiRuntimeConfig;
 }): MathExerciseVerifier {
   return async (input) => {
-    const ai = new GoogleGenAI({ apiKey });
-    const response = await ai.models.generateContent({
-      model,
-      contents: buildGeminiContentsWithSourceMedia(
-        buildMathExerciseVerificationPrompt(input),
-        input.sourceMedia,
-      ),
-      config: {
-        responseMimeType: "application/json",
-        responseJsonSchema: buildGeminiMathVerificationJsonSchema(input.candidates.length),
+    const prompt = buildMathExerciseVerificationPrompt(input);
+
+    return runLoggedGeminiOperation({
+      config: gemini,
+      operation: "math exercise verification",
+      metadata: {
+        candidateCount: input.candidates.length,
+        promptChars: prompt.length,
+        schemaName: "mathExerciseVerification",
+        media: buildSourceMediaLogMetadata(input.sourceMedia),
+      },
+      run: async (ai) => {
+        const response = await ai.models.generateContent({
+          model: gemini.model,
+          contents: buildGeminiContentsWithSourceMedia(prompt, input.sourceMedia),
+          config: {
+            responseMimeType: "application/json",
+            responseJsonSchema: buildGeminiMathVerificationJsonSchema(input.candidates.length),
+            thinkingConfig: {
+              thinkingBudget: 128,
+            },
+          },
+        });
+        const text = response.text;
+
+        if (!text) {
+          throw new Error("Gemini returned no text.");
+        }
+
+        return {
+          response,
+          value: JSON.parse(text) as unknown,
+        };
       },
     });
-    const text = response.text;
-
-    if (!text) {
-      throw new Error("Gemini returned no text.");
-    }
-
-    return JSON.parse(text) as unknown;
   };
 }
 
@@ -4426,16 +4522,43 @@ function buildGeminiContentsWithSourceMedia(
   }
 
   return [
-    ...sourceMedia.map((media) => ({
-      inlineData: {
-        data: media.bytes.toString("base64"),
-        mimeType: media.mimeType,
-      },
-    })),
     {
-      text: prompt,
+      role: "user",
+      parts: [
+        ...sourceMedia.map((media) => ({
+          inlineData: {
+            data: media.bytes.toString("base64"),
+            mimeType: media.mimeType,
+          },
+        })),
+        {
+          text: prompt,
+        },
+      ],
     },
   ];
+}
+
+function buildSourceMediaLogMetadata(
+  sourceMedia: SourceMediaContext[] | undefined,
+) {
+  if (!sourceMedia?.length) {
+    return {
+      count: 0,
+      totalBytes: 0,
+      mimeTypes: [],
+      sourceFileIds: [],
+    };
+  }
+
+  return {
+    count: sourceMedia.length,
+    totalBytes: sourceMedia.reduce((total, media) => total + media.bytes.length, 0),
+    mimeTypes: sourceMedia.map((media) => media.mimeType),
+    sourceFileIds: sourceMedia
+      .map((media) => media.sourceFileId)
+      .filter((sourceFileId): sourceFileId is string => Boolean(sourceFileId)),
+  };
 }
 
 function buildSourceMediaPromptLines(sourceMedia: SourceMediaContext[] | undefined) {

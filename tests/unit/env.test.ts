@@ -29,6 +29,7 @@ const managedEnvKeys = [
   "CLERK_SECRET_KEY",
   "CLERK_WEBHOOK_SECRET",
   "GEMINI_API_KEY",
+  "GEMINI_ENTERPRISE_AGENT_KEY_PLATFORM_KEY",
   "GEMINI_MODEL",
   "GEMINI_FALLBACK_MODELS",
   "QWEN_API_KEY",
@@ -134,6 +135,7 @@ describe("environment validation", () => {
     expect(hasGeminiEnv()).toBe(true);
     expect(getGeminiEnv()).toEqual({
       GEMINI_API_KEY: "gemini-secret",
+      GEMINI_ENTERPRISE_AGENT_KEY_PLATFORM_KEY: undefined,
       GEMINI_MODEL: "gemini-3.5-flash",
       GEMINI_FALLBACK_MODELS: [],
     });
@@ -152,7 +154,24 @@ describe("environment validation", () => {
 
     expect(hasActiveEnv()).toBe(true);
     expect(hasGeminiEnv()).toBe(false);
-    expect(() => getGeminiEnv()).toThrow(/GEMINI_API_KEY is required/);
+    expect(() => getGeminiEnv()).toThrow(
+      /GEMINI_API_KEY or GEMINI_ENTERPRISE_AGENT_KEY_PLATFORM_KEY is required/,
+    );
+  });
+
+  it("accepts the Gemini Enterprise Agent Platform key without a developer API key", () => {
+    resetManagedEnv({
+      GEMINI_ENTERPRISE_AGENT_KEY_PLATFORM_KEY: " eap-secret ",
+      GEMINI_MODEL: " gemini-3.5-flash ",
+    });
+
+    expect(hasGeminiEnv()).toBe(true);
+    expect(getGeminiEnv()).toEqual({
+      GEMINI_API_KEY: undefined,
+      GEMINI_ENTERPRISE_AGENT_KEY_PLATFORM_KEY: "eap-secret",
+      GEMINI_MODEL: "gemini-3.5-flash",
+      GEMINI_FALLBACK_MODELS: [],
+    });
   });
 
   it("validates Resend only when reminder sending asks for email configuration", () => {

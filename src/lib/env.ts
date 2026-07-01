@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import {
   DEFAULT_GEMINI_FALLBACK_MODELS,
+  DEFAULT_GEMINI_MODEL,
   parseGeminiFallbackModels,
 } from "@/lib/gemini";
 import {
@@ -78,19 +79,26 @@ const geminiModelSchema = z.preprocess((value) => {
   }
 
   return value;
-}, z.string().trim().min(1).default("gemini-3.5-flash"));
+}, z.string().trim().min(1).default(DEFAULT_GEMINI_MODEL));
 
-const geminiEnvSchema = z.object({
-  GEMINI_API_KEY: z
-    .string({ error: "GEMINI_API_KEY is required" })
-    .trim()
-    .min(1, "GEMINI_API_KEY is required"),
+const geminiEnvBaseSchema = z.object({
+  GEMINI_API_KEY: optionalNonEmptyString(
+    z.string({ error: "GEMINI_API_KEY is required" }).trim().min(1, "GEMINI_API_KEY is required"),
+  ),
+  GEMINI_ENTERPRISE_AGENT_KEY_PLATFORM_KEY: optionalNonEmptyString(
+    z
+      .string({ error: "GEMINI_ENTERPRISE_AGENT_KEY_PLATFORM_KEY is required" })
+      .trim()
+      .min(1, "GEMINI_ENTERPRISE_AGENT_KEY_PLATFORM_KEY is required"),
+  ),
   GEMINI_MODEL: geminiModelSchema,
   GEMINI_FALLBACK_MODELS: z.preprocess(
     parseGeminiFallbackModels,
     z.array(z.string().trim().min(1)).default([...DEFAULT_GEMINI_FALLBACK_MODELS]),
   ),
 });
+
+const geminiEnvSchema = geminiEnvBaseSchema.superRefine(requireGeminiApiKey);
 
 const qwenModelSchema = z.preprocess((value) => {
   if (typeof value === "string" && value.trim() === "") {
@@ -214,7 +222,7 @@ const falseEnvValues = new Set(["0", "false", "no", "n", "off"]);
 
 const productionEnvSchema = requiredDatabaseEnvSchema
   .merge(productionClerkEnvSchema)
-  .merge(geminiEnvSchema)
+  .merge(geminiEnvBaseSchema)
   .merge(qwenEnvSchema)
   .merge(
     resendEnvSchema.extend({
@@ -224,6 +232,8 @@ const productionEnvSchema = requiredDatabaseEnvSchema
   .merge(s3EnvSchema)
   .merge(inngestProductionEnvSchema)
   .superRefine((value, context) => {
+    requireGeminiApiKey(value, context);
+
     if (value.INNGEST_APP_ID === "learnrecur-dev") {
       context.addIssue({
         code: "custom",
@@ -347,6 +357,21 @@ function formatZodIssue(issue: z.core.$ZodIssue): string {
   }
 
   return issue.message;
+}
+
+function requireGeminiApiKey(
+  value: z.infer<typeof geminiEnvBaseSchema>,
+  context: {
+    addIssue: (issue: { code: "custom"; path: string[]; message: string }) => void;
+  },
+) {
+  if (!value.GEMINI_API_KEY && !value.GEMINI_ENTERPRISE_AGENT_KEY_PLATFORM_KEY) {
+    context.addIssue({
+      code: "custom",
+      path: ["GEMINI_API_KEY"],
+      message: "GEMINI_API_KEY or GEMINI_ENTERPRISE_AGENT_KEY_PLATFORM_KEY is required",
+    });
+  }
 }
 
 function isValidSenderEmail(value: string): boolean {

@@ -2,7 +2,6 @@ import "server-only";
 
 import { randomUUID } from "node:crypto";
 
-import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
 
 import {
@@ -13,9 +12,13 @@ import {
 } from "@/generated/prisma/client";
 import { formatEnvError, getGeminiEnv } from "@/lib/env";
 import {
+  getGeminiRuntimeLogContext,
   getGeminiErrorLogDetails,
   getPublicGeminiFailureMessage,
+  resolveGeminiRuntimeConfig,
+  runLoggedGeminiOperation,
   runWithGeminiProviderFallback,
+  type GeminiRuntimeConfig,
 } from "@/lib/gemini";
 import { getInngestEnvStatus } from "@/lib/inngest/client";
 import {
@@ -1511,10 +1514,10 @@ function resolveUploadGenerationSetup(
     };
   }
 
-  let env: ReturnType<typeof getGeminiEnv>;
+  let gemini: GeminiRuntimeConfig;
 
   try {
-    env = getGeminiEnv();
+    gemini = resolveGeminiRuntimeConfig(getGeminiEnv());
   } catch (error) {
     return {
       status: "missing-env",
@@ -1535,31 +1538,26 @@ function resolveUploadGenerationSetup(
 
   return {
     status: "ready",
-    model: env.GEMINI_MODEL,
+    model: gemini.model,
     extractSourceText: input.extractSourceText ?? createGeminiSourceTextExtractor({
-      apiKey: env.GEMINI_API_KEY,
-      model: env.GEMINI_MODEL,
+      gemini,
       qwenFallback,
     }),
     generateSkillDraft: input.generateSkillDraft ?? createGeminiSkillDraftGenerator({
-      apiKey: env.GEMINI_API_KEY,
-      model: env.GEMINI_MODEL,
+      gemini,
       qwenFallback,
     }),
   };
 }
 
 function createGeminiSourceTextExtractor({
-  apiKey,
-  model,
+  gemini,
   qwenFallback,
 }: {
-  apiKey: string;
-  model: string;
+  gemini: GeminiRuntimeConfig;
   qwenFallback?: QwenFallbackConfig | null;
 }): SourceTextExtractor {
   return async (input) => {
-    const ai = new GoogleGenAI({ apiKey });
     const qwenSourceFallback =
       qwenFallback && input.mimeType.startsWith("image/")
         ? {
@@ -1572,33 +1570,62 @@ function createGeminiSourceTextExtractor({
     return runWithGeminiProviderFallback({
       fallback: qwenSourceFallback,
       operation: "source text extraction",
-      primaryModel: model,
+      primary: getGeminiRuntimeLogContext(gemini),
+      primaryModel: gemini.model,
       runPrimary: async () => {
-        const response = await ai.models.generateContent({
-          model,
-          contents: [
-            {
-              inlineData: {
-                data: input.bytes.toString("base64"),
-                mimeType: input.mimeType,
+        const prompt = buildSourceExtractionPrompt(input);
+
+        return runLoggedGeminiOperation({
+          config: gemini,
+          operation: "source text extraction",
+          metadata: {
+            promptChars: prompt.length,
+            schemaName: "geminiSourceExtractionJsonSchema",
+            media: {
+              count: 1,
+              totalBytes: input.bytes.length,
+              mimeTypes: [input.mimeType],
+            },
+          },
+          run: async (ai) => {
+            const response = await ai.models.generateContent({
+              model: gemini.model,
+              contents: [
+                {
+                  role: "user",
+                  parts: [
+                    {
+                      inlineData: {
+                        data: input.bytes.toString("base64"),
+                        mimeType: input.mimeType,
+                      },
+                    },
+                    {
+                      text: prompt,
+                    },
+                  ],
+                },
+              ],
+              config: {
+                responseMimeType: "application/json",
+                responseJsonSchema: geminiSourceExtractionJsonSchema,
+                thinkingConfig: {
+                  thinkingBudget: 128,
+                },
               },
-            },
-            {
-              text: buildSourceExtractionPrompt(input),
-            },
-          ],
-          config: {
-            responseMimeType: "application/json",
-            responseJsonSchema: geminiSourceExtractionJsonSchema,
+            });
+            const text = response.text;
+
+            if (!text) {
+              throw new Error("Gemini returned no text.");
+            }
+
+            return {
+              response,
+              value: JSON.parse(text) as unknown,
+            };
           },
         });
-        const text = response.text;
-
-        if (!text) {
-          throw new Error("Gemini returned no text.");
-        }
-
-        return JSON.parse(text) as unknown;
       },
     });
   };
