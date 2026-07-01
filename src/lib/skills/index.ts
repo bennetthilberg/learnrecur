@@ -63,6 +63,7 @@ export const DEFAULT_READY_MATH_TARGET = 2;
 export const EXACT_INPUT_UNLOCK_REPETITIONS = 3;
 export const SOURCE_CONTEXT_CHAR_LIMIT = 4_000;
 export const EXISTING_EXERCISE_CONTEXT_CHAR_LIMIT = 3_000;
+const MAX_TOTAL_SOURCE_MEDIA_BYTES = 12 * 1024 * 1024;
 export const MAX_GENERATED_SKILL_DRAFTS = 1;
 export const MAX_COLLECTION_NAME_LENGTH = 120;
 const MAX_DRAFT_NOTE_LINE_LENGTH = 500;
@@ -1791,6 +1792,7 @@ export async function loadSourceMediaContextForSourceFiles({
   }
 
   const media: SourceMediaContext[] = [];
+  let totalBytes = 0;
 
   for (const sourceFile of uploadBackedSources) {
     if (!sourceFile.mimeType || !isSourceUploadMimeType(sourceFile.mimeType)) {
@@ -1815,6 +1817,12 @@ export async function loadSourceMediaContextForSourceFiles({
       throw new Error("Uploaded source media is missing or larger than 10 MB.");
     }
 
+    totalBytes += bytes.length;
+
+    if (totalBytes > MAX_TOTAL_SOURCE_MEDIA_BYTES) {
+      throw new Error("Uploaded source media exceeds the total attachment limit.");
+    }
+
     media.push({
       sourceFileId: sourceFile.id,
       label: sourceFile.originalName,
@@ -1833,11 +1841,13 @@ async function resolveSourceMediaContext({
   sourceFiles: SourceMediaContextSourceFile[];
   sourceMediaLoader?: SourceMediaContextLoader;
 }): Promise<SourceMediaContext[]> {
+  const attachableSourceFiles = sourceFiles.filter(shouldAttachOriginalSourceMedia);
+
   if (sourceMediaLoader) {
-    return sourceMediaLoader({ sourceFiles });
+    return sourceMediaLoader({ sourceFiles: attachableSourceFiles });
   }
 
-  return loadSourceMediaContextForSourceFiles({ sourceFiles });
+  return loadSourceMediaContextForSourceFiles({ sourceFiles: attachableSourceFiles });
 }
 
 function shouldAttachOriginalSourceMedia(sourceFile: SourceMediaContextSourceFile) {

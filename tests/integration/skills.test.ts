@@ -531,6 +531,37 @@ describeDatabase("skill drafts and Gemini activation", () => {
     expect(media?.[0].bytes.equals(expected.bytes)).toBe(true);
   }
 
+  function createSingleSourceMediaLoader({
+    bytes,
+    sourceFile,
+  }: {
+    bytes: Buffer;
+    sourceFile: {
+      id: string;
+      originalName: string;
+    };
+  }): SourceMediaContextLoader {
+    return async ({ sourceFiles }) => {
+      expect(sourceFiles).toHaveLength(1);
+      expect(sourceFiles[0]).toMatchObject({
+        id: sourceFile.id,
+        status: SourceFileStatus.READY,
+        originalName: sourceFile.originalName,
+        mimeType: "image/png",
+        storageBucket: "learnrecur-dev",
+      });
+
+      return [
+        {
+          sourceFileId: sourceFile.id,
+          label: sourceFile.originalName,
+          mimeType: "image/png",
+          bytes,
+        },
+      ];
+    };
+  }
+
   beforeAll(async () => {
     await prisma.$queryRaw`SELECT 1`;
   });
@@ -4312,8 +4343,25 @@ describeDatabase("skill drafts and Gemini activation", () => {
       originalName: "Activation worksheet",
       extractedText: "The worksheet says to use ser for identity and estar for location.",
     });
+    const textSourceFile = await prisma.sourceFile.create({
+      data: {
+        userId,
+        kind: SourceFileKind.TEXT,
+        status: SourceFileStatus.READY,
+        originalName: "Activation pasted notes",
+        mimeType: "text/plain",
+        byteSize: 64,
+        extractedText: "Additional pasted notes should stay text-only.",
+      },
+    });
+    await prisma.skillSourceRef.create({
+      data: {
+        userId,
+        skillId: draft.skill.id,
+        sourceFileId: textSourceFile.id,
+      },
+    });
     const uploadedBytes = Buffer.from("activation worksheet image bytes");
-    let loaderSawSourceFile = false;
     let capturedGeneratorSourceMedia: SourceMediaContext[] | undefined;
     let capturedVerifierSourceMedia: SourceMediaContext[] | undefined;
 
@@ -4321,28 +4369,14 @@ describeDatabase("skill drafts and Gemini activation", () => {
       userId,
       skillId: draft.skill.id,
       now,
-      sourceMediaLoader: async ({ sourceFiles }) => {
-        expect(sourceFiles).toHaveLength(1);
-        expect(sourceFiles[0]).toMatchObject({
-          id: sourceFile.id,
-          status: SourceFileStatus.READY,
-          originalName: "Activation worksheet",
-          mimeType: "image/png",
-          storageBucket: "learnrecur-dev",
-        });
-        loaderSawSourceFile = true;
-        return [
-          {
-            sourceFileId: sourceFile.id,
-            label: sourceFile.originalName,
-            mimeType: "image/png",
-            bytes: uploadedBytes,
-          },
-        ];
-      },
+      sourceMediaLoader: createSingleSourceMediaLoader({
+        sourceFile,
+        bytes: uploadedBytes,
+      }),
       generateChoiceExercises: async (input) => {
         capturedGeneratorSourceMedia = input.sourceMedia;
         expect(input.sourceContext).toContain("worksheet says to use ser");
+        expect(input.sourceContext).toContain("Additional pasted notes");
         return {
           exercises: [generatedExercise(1), generatedExercise(2), generatedExercise(3)],
         };
@@ -4350,13 +4384,13 @@ describeDatabase("skill drafts and Gemini activation", () => {
       verifyChoiceExercises: async (input) => {
         capturedVerifierSourceMedia = input.sourceMedia;
         expect(input.sourceContext).toContain("worksheet says to use ser");
+        expect(input.sourceContext).toContain("Additional pasted notes");
         return acceptAllVerifier(input);
       },
       model: "test-gemini",
     });
 
     expect(activated.status).toBe("activated");
-    expect(loaderSawSourceFile).toBe(true);
     expectSingleSourceMedia(capturedGeneratorSourceMedia, {
       sourceFileId: sourceFile.id,
       label: "Activation worksheet",
@@ -4368,6 +4402,70 @@ describeDatabase("skill drafts and Gemini activation", () => {
       label: "Activation worksheet",
       mimeType: "image/png",
       bytes: uploadedBytes,
+    });
+  });
+
+  it("fails activation generation when linked uploaded media cannot be loaded", async () => {
+    const userId = await createUser("source_activation_media_failure");
+    const draft = await createSkillDraft({
+      userId,
+      input: {
+        title: "Uploaded worksheet activation failure",
+        objective: "Choose the correct answer from an uploaded worksheet source.",
+      },
+    });
+
+    if (draft.status !== "created") {
+      throw new Error("Expected draft creation to succeed.");
+    }
+
+    await createUploadedSourceRefFixture({
+      userId,
+      skillId: draft.skill.id,
+      originalName: "Activation unavailable worksheet",
+    });
+
+    const result = await activateSkillDraft({
+      userId,
+      skillId: draft.skill.id,
+      now,
+      sourceMediaLoader: async () => {
+        throw new Error("media store unavailable");
+      },
+      generateChoiceExercises: async () => {
+        throw new Error("Generator should not run when media loading fails.");
+      },
+      verifyChoiceExercises: acceptAllVerifier,
+      model: "test-gemini",
+    });
+
+    expect(result).toMatchObject({
+      status: "not-activated",
+      reason: "generation-failed",
+      message: expect.stringContaining("media store unavailable"),
+    });
+
+    if (result.status !== "not-activated") {
+      throw new Error("Expected activation to fail.");
+    }
+
+    expect(result.generationJobId).toBeDefined();
+
+    if (!result.generationJobId) {
+      throw new Error("Expected activation failure to include a generation job id.");
+    }
+
+    await expect(
+      prisma.generationJob.findUniqueOrThrow({
+        where: { id: result.generationJobId },
+      }),
+    ).resolves.toMatchObject({
+      userId,
+      skillId: draft.skill.id,
+      status: GenerationJobStatus.FAILED,
+      acceptedCount: 0,
+      rejectedCount: 0,
+      errorMessage: expect.stringContaining("media store unavailable"),
     });
   });
 
@@ -4760,175 +4858,232 @@ describeDatabase("skill drafts and Gemini activation", () => {
     expect(nextPracticeItem.status).toBe("ready");
   });
 
-  it("passes linked uploaded media into exercise refill generation and verification", async () => {
-    const userId = await createUser("refill_source_media");
-    const choiceSkill = await createActiveSkillFixture({
+  it("passes linked uploaded media into choice refill generation and verification", async () => {
+    const userId = await createUser("choice_refill_source_media");
+    const skill = await createActiveSkillFixture({
       userId,
       title: "Choice media refill skill",
     });
-    await createChoiceExerciseFixture({ userId, skillId: choiceSkill.id, id: 1 });
-    await createChoiceExerciseFixture({ userId, skillId: choiceSkill.id, id: 2 });
-    const choiceSource = await createUploadedSourceRefFixture({
+    await createChoiceExerciseFixture({ userId, skillId: skill.id, id: 1 });
+    await createChoiceExerciseFixture({ userId, skillId: skill.id, id: 2 });
+    const sourceFile = await createUploadedSourceRefFixture({
       userId,
-      skillId: choiceSkill.id,
+      skillId: skill.id,
       originalName: "Choice refill worksheet",
       extractedText: "Choice refill extracted text should stay available.",
     });
+    const bytes = Buffer.from("choice refill worksheet image bytes");
+    let generatorSourceMedia: SourceMediaContext[] | undefined;
+    let verifierSourceMedia: SourceMediaContext[] | undefined;
 
-    const exactSkill = await createActiveSkillFixture({
+    const result = await refillChoiceExercisesForSkill({
       userId,
-      title: "Exact media refill skill",
-      repetitions: EXACT_INPUT_UNLOCK_REPETITIONS,
-    });
-    const exactSource = await createUploadedSourceRefFixture({
-      userId,
-      skillId: exactSkill.id,
-      originalName: "Exact refill worksheet",
-      extractedText: "Exact refill extracted text should stay available.",
-    });
-
-    const mathSkill = await createActiveSkillFixture({
-      userId,
-      title: "Math media refill skill",
-      repetitions: EXACT_INPUT_UNLOCK_REPETITIONS,
-    });
-    const mathSource = await createUploadedSourceRefFixture({
-      userId,
-      skillId: mathSkill.id,
-      originalName: "Math refill worksheet",
-      extractedText: "Math refill extracted text should stay available.",
-    });
-
-    const sourceBytes = new Map<string, Buffer>([
-      [choiceSource.id, Buffer.from("choice refill worksheet image bytes")],
-      [exactSource.id, Buffer.from("exact refill worksheet image bytes")],
-      [mathSource.id, Buffer.from("math refill worksheet image bytes")],
-    ]);
-    const getExpectedSourceBytes = (sourceFileId: string) => {
-      const bytes = sourceBytes.get(sourceFileId);
-
-      if (!bytes) {
-        throw new Error(`Missing expected source bytes for ${sourceFileId}`);
-      }
-
-      return bytes;
-    };
-    const sourceMediaLoader: SourceMediaContextLoader = async ({ sourceFiles }) =>
-      sourceFiles.map((sourceFile) => {
-        return {
-          sourceFileId: sourceFile.id,
-          label: sourceFile.originalName,
-          mimeType: "image/png" as const,
-          bytes: getExpectedSourceBytes(sourceFile.id),
-        };
-      });
-
-    let choiceGeneratorSourceMedia: SourceMediaContext[] | undefined;
-    let choiceVerifierSourceMedia: SourceMediaContext[] | undefined;
-    const choiceResult = await refillChoiceExercisesForSkill({
-      userId,
-      skillId: choiceSkill.id,
+      skillId: skill.id,
       now,
-      sourceMediaLoader,
+      sourceMediaLoader: createSingleSourceMediaLoader({
+        sourceFile,
+        bytes,
+      }),
       generateChoiceExercises: async (input) => {
-        choiceGeneratorSourceMedia = input.sourceMedia;
+        generatorSourceMedia = input.sourceMedia;
         expect(input.sourceContext).toContain("Choice refill extracted text");
         return {
           exercises: [generatedExercise(501), generatedExercise(502), generatedExercise(503)],
         };
       },
       verifyChoiceExercises: async (input) => {
-        choiceVerifierSourceMedia = input.sourceMedia;
+        verifierSourceMedia = input.sourceMedia;
         expect(input.sourceContext).toContain("Choice refill extracted text");
         return acceptAllVerifier(input);
       },
       model: "test-gemini",
     });
 
-    expect(choiceResult.status).toBe("refilled");
-    expectSingleSourceMedia(choiceGeneratorSourceMedia, {
-      sourceFileId: choiceSource.id,
+    expect(result.status).toBe("refilled");
+    expectSingleSourceMedia(generatorSourceMedia, {
+      sourceFileId: sourceFile.id,
       label: "Choice refill worksheet",
       mimeType: "image/png",
-      bytes: getExpectedSourceBytes(choiceSource.id),
+      bytes,
     });
-    expectSingleSourceMedia(choiceVerifierSourceMedia, {
-      sourceFileId: choiceSource.id,
+    expectSingleSourceMedia(verifierSourceMedia, {
+      sourceFileId: sourceFile.id,
       label: "Choice refill worksheet",
       mimeType: "image/png",
-      bytes: getExpectedSourceBytes(choiceSource.id),
+      bytes,
+    });
+  });
+
+  it("fails choice refill generation when linked uploaded media cannot be loaded", async () => {
+    const userId = await createUser("choice_refill_source_media_failure");
+    const skill = await createActiveSkillFixture({
+      userId,
+      title: "Choice media failure refill skill",
+    });
+    await createChoiceExerciseFixture({ userId, skillId: skill.id, id: 1 });
+    await createChoiceExerciseFixture({ userId, skillId: skill.id, id: 2 });
+    await createUploadedSourceRefFixture({
+      userId,
+      skillId: skill.id,
+      originalName: "Choice unavailable worksheet",
     });
 
-    let exactGeneratorSourceMedia: SourceMediaContext[] | undefined;
-    let exactVerifierSourceMedia: SourceMediaContext[] | undefined;
-    const exactResult = await refillExactInputExercisesForSkill({
+    const result = await refillChoiceExercisesForSkill({
       userId,
-      skillId: exactSkill.id,
+      skillId: skill.id,
       now,
-      sourceMediaLoader,
+      sourceMediaLoader: async () => {
+        throw new Error("media store unavailable");
+      },
+      generateChoiceExercises: async () => {
+        throw new Error("Generator should not run when media loading fails.");
+      },
+      verifyChoiceExercises: acceptAllVerifier,
+      model: "test-gemini",
+    });
+
+    expect(result).toMatchObject({
+      status: "not-refilled",
+      reason: "generation-failed",
+      readyExerciseCount: 2,
+      targetReadyCount: DEFAULT_READY_EXERCISE_TARGET,
+      message: expect.stringContaining("media store unavailable"),
+    });
+
+    if (result.status !== "not-refilled") {
+      throw new Error("Expected refill to fail.");
+    }
+
+    expect(result.generationJobId).toBeDefined();
+
+    if (!result.generationJobId) {
+      throw new Error("Expected refill failure to include a generation job id.");
+    }
+
+    await expect(
+      prisma.generationJob.findUniqueOrThrow({
+        where: { id: result.generationJobId },
+      }),
+    ).resolves.toMatchObject({
+      userId,
+      skillId: skill.id,
+      status: GenerationJobStatus.FAILED,
+      acceptedCount: 0,
+      rejectedCount: 0,
+      errorMessage: expect.stringContaining("media store unavailable"),
+    });
+    await expect(
+      prisma.exercise.count({ where: { userId, skillId: skill.id } }),
+    ).resolves.toBe(2);
+  });
+
+  it("passes linked uploaded media into exact-input refill generation and verification", async () => {
+    const userId = await createUser("exact_refill_source_media");
+    const skill = await createActiveSkillFixture({
+      userId,
+      title: "Exact media refill skill",
+      repetitions: EXACT_INPUT_UNLOCK_REPETITIONS,
+    });
+    const sourceFile = await createUploadedSourceRefFixture({
+      userId,
+      skillId: skill.id,
+      originalName: "Exact refill worksheet",
+      extractedText: "Exact refill extracted text should stay available.",
+    });
+    const bytes = Buffer.from("exact refill worksheet image bytes");
+    let generatorSourceMedia: SourceMediaContext[] | undefined;
+    let verifierSourceMedia: SourceMediaContext[] | undefined;
+
+    const result = await refillExactInputExercisesForSkill({
+      userId,
+      skillId: skill.id,
+      now,
+      sourceMediaLoader: createSingleSourceMediaLoader({
+        sourceFile,
+        bytes,
+      }),
       generateExactInputExercises: async (input) => {
-        exactGeneratorSourceMedia = input.sourceMedia;
+        generatorSourceMedia = input.sourceMedia;
         expect(input.sourceContext).toContain("Exact refill extracted text");
         return {
           exercises: [generatedExactInputExercise(501), generatedExactInputExercise(502)],
         };
       },
       verifyExactInputExercises: async (input) => {
-        exactVerifierSourceMedia = input.sourceMedia;
+        verifierSourceMedia = input.sourceMedia;
         expect(input.sourceContext).toContain("Exact refill extracted text");
         return acceptAllExactInputVerifier(input);
       },
       model: "test-gemini",
     });
 
-    expect(exactResult.status).toBe("refilled");
-    expectSingleSourceMedia(exactGeneratorSourceMedia, {
-      sourceFileId: exactSource.id,
+    expect(result.status).toBe("refilled");
+    expectSingleSourceMedia(generatorSourceMedia, {
+      sourceFileId: sourceFile.id,
       label: "Exact refill worksheet",
       mimeType: "image/png",
-      bytes: getExpectedSourceBytes(exactSource.id),
+      bytes,
     });
-    expectSingleSourceMedia(exactVerifierSourceMedia, {
-      sourceFileId: exactSource.id,
+    expectSingleSourceMedia(verifierSourceMedia, {
+      sourceFileId: sourceFile.id,
       label: "Exact refill worksheet",
       mimeType: "image/png",
-      bytes: getExpectedSourceBytes(exactSource.id),
+      bytes,
     });
+  });
 
-    let mathGeneratorSourceMedia: SourceMediaContext[] | undefined;
-    let mathVerifierSourceMedia: SourceMediaContext[] | undefined;
-    const mathResult = await refillMathExercisesForSkill({
+  it("passes linked uploaded media into math refill generation and verification", async () => {
+    const userId = await createUser("math_refill_source_media");
+    const skill = await createActiveSkillFixture({
       userId,
-      skillId: mathSkill.id,
+      title: "Math media refill skill",
+      repetitions: EXACT_INPUT_UNLOCK_REPETITIONS,
+    });
+    const sourceFile = await createUploadedSourceRefFixture({
+      userId,
+      skillId: skill.id,
+      originalName: "Math refill worksheet",
+      extractedText: "Math refill extracted text should stay available.",
+    });
+    const bytes = Buffer.from("math refill worksheet image bytes");
+    let generatorSourceMedia: SourceMediaContext[] | undefined;
+    let verifierSourceMedia: SourceMediaContext[] | undefined;
+
+    const result = await refillMathExercisesForSkill({
+      userId,
+      skillId: skill.id,
       now,
-      sourceMediaLoader,
+      sourceMediaLoader: createSingleSourceMediaLoader({
+        sourceFile,
+        bytes,
+      }),
       generateMathExercises: async (input) => {
-        mathGeneratorSourceMedia = input.sourceMedia;
+        generatorSourceMedia = input.sourceMedia;
         expect(input.sourceContext).toContain("Math refill extracted text");
         return {
           exercises: [generatedMathExercise(501), generatedMathExercise(502)],
         };
       },
       verifyMathExercises: async (input) => {
-        mathVerifierSourceMedia = input.sourceMedia;
+        verifierSourceMedia = input.sourceMedia;
         expect(input.sourceContext).toContain("Math refill extracted text");
         return acceptAllMathVerifier(input);
       },
       model: "test-gemini",
     });
 
-    expect(mathResult.status).toBe("refilled");
-    expectSingleSourceMedia(mathGeneratorSourceMedia, {
-      sourceFileId: mathSource.id,
+    expect(result.status).toBe("refilled");
+    expectSingleSourceMedia(generatorSourceMedia, {
+      sourceFileId: sourceFile.id,
       label: "Math refill worksheet",
       mimeType: "image/png",
-      bytes: getExpectedSourceBytes(mathSource.id),
+      bytes,
     });
-    expectSingleSourceMedia(mathVerifierSourceMedia, {
-      sourceFileId: mathSource.id,
+    expectSingleSourceMedia(verifierSourceMedia, {
+      sourceFileId: sourceFile.id,
       label: "Math refill worksheet",
       mimeType: "image/png",
-      bytes: getExpectedSourceBytes(mathSource.id),
+      bytes,
     });
   });
 

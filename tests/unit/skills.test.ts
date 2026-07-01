@@ -1318,6 +1318,25 @@ describe("loadSourceMediaContextForSourceFiles", () => {
     expect(getObjectByteInputs).toEqual([]);
   });
 
+  it("fails closed when combined uploaded media exceeds the attachment limit", async () => {
+    const bytes = Buffer.alloc(7 * 1024 * 1024, "a");
+    const { storage } = createStorage(bytes);
+
+    await expect(
+      loadSourceMediaContextForSourceFiles({
+        sourceFiles: [
+          sourceFile,
+          {
+            ...sourceFile,
+            id: "source_2",
+            storageKey: "source-uploads/user/source_2/worksheet.png",
+          },
+        ],
+        storage,
+      }),
+    ).rejects.toThrow("Uploaded source media exceeds the total attachment limit.");
+  });
+
   it("fails closed when stored media points at a different bucket", async () => {
     const { storage } = createStorage(Buffer.from("original image bytes"));
 
