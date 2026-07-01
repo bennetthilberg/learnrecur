@@ -2023,6 +2023,19 @@ describeDatabase("practice review service", () => {
     });
 
     await expect(
+      flagPracticeExercise({
+        userId,
+        exerciseId: exercise.id,
+        reasons: [ExerciseFlagReason.OTHER],
+        otherNote: "x".repeat(501),
+        flaggedAt: now,
+      }),
+    ).resolves.toMatchObject({
+      status: "not-flagged",
+      reason: "invalid-flag",
+    });
+
+    await expect(
       Promise.all([
         prisma.exerciseFlag.count({ where: { userId, exerciseId: exercise.id } }),
         prisma.exercise.findUniqueOrThrow({

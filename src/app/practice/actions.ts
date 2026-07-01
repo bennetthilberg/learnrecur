@@ -1,11 +1,13 @@
 "use server";
 
 import { auth, currentUser } from "@clerk/nextjs/server";
+import { z } from "zod";
 
 import { ExerciseFlagReason, FsrsRating } from "@/generated/prisma/client";
 import {
   commitPracticeReview,
   flagPracticeExerciseAndQueueRefill,
+  MAX_EXERCISE_FLAG_OTHER_NOTE_LENGTH,
   previewPracticeAnswer,
   type PracticeSubmittedAnswer,
   type PracticeFlagRefillResult,
@@ -47,6 +49,13 @@ type FlagChoicePracticeExerciseInput = {
   otherNote?: string | null;
   collectionId?: string | null;
 };
+
+const flagChoicePracticeExerciseInputSchema = z.object({
+  exerciseId: z.string().min(1),
+  reasons: z.array(z.enum(ExerciseFlagReason)).min(1),
+  otherNote: z.string().trim().max(MAX_EXERCISE_FLAG_OTHER_NOTE_LENGTH).nullable().optional(),
+  collectionId: z.string().min(1).nullable().optional(),
+});
 
 export async function previewChoicePracticeAnswerAction(
   input: {
@@ -198,7 +207,7 @@ export async function flagChoicePracticeExerciseAction(
 }
 
 export async function flagPracticeExerciseAction(
-  input: FlagChoicePracticeExerciseInput,
+  input: unknown,
 ): Promise<PracticeFlagResult> {
   const practiceUser = await requirePracticeUserId();
 
@@ -209,9 +218,19 @@ export async function flagPracticeExerciseAction(
     };
   }
 
+  const parsedInput = flagChoicePracticeExerciseInputSchema.safeParse(input);
+
+  if (!parsedInput.success) {
+    return {
+      status: "not-flagged",
+      message: "Choose a valid report reason and keep notes under 500 characters.",
+    };
+  }
+
+  const flagInput = parsedInput.data;
   const userId = practiceUser.userId;
   const flaggedAt = new Date();
-  const scope = await resolveActivePracticeScope(userId, input);
+  const scope = await resolveActivePracticeScope(userId, flagInput);
 
   if (scope.status === "unavailable") {
     return {
@@ -220,20 +239,11 @@ export async function flagPracticeExerciseAction(
     };
   }
 
-  const reasons = input.reasons.filter(isExerciseFlagReason);
-
-  if (reasons.length !== input.reasons.length) {
-    return {
-      status: "not-flagged",
-      message: "Choose a valid report reason.",
-    };
-  }
-
   const result = await flagPracticeExerciseAndQueueRefill({
     userId,
-    exerciseId: input.exerciseId,
-    reasons,
-    otherNote: input.otherNote,
+    exerciseId: flagInput.exerciseId,
+    reasons: flagInput.reasons,
+    otherNote: flagInput.otherNote,
     flaggedAt,
     collectionId: scope.collectionId,
   });
@@ -355,10 +365,6 @@ function normalizeManualRating(rating?: FsrsRating | null): FsrsRating | null {
   }
 
   return null;
-}
-
-function isExerciseFlagReason(reason: string): reason is ExerciseFlagReason {
-  return Object.values(ExerciseFlagReason).includes(reason as ExerciseFlagReason);
 }
 
 function formatFlagMessage(flagMessage: string, refill: PracticeFlagRefillResult): string {
