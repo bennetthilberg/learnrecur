@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   AnswerKind,
+  SourceFileKind,
+  SourceFileStatus,
 } from "@/generated/prisma/client";
 import {
   DEFAULT_READY_EXACT_INPUT_TARGET,
@@ -23,6 +25,7 @@ import {
   filterDuplicateExactInputExercises,
   filterDuplicateMathExercises,
   isExactInputUnlocked,
+  loadSourceMediaContextForSourceFiles,
   normalizeSourceSkillDraftInput,
   normalizeSkillPracticeGuidanceInput,
   normalizeSkillDraftInput,
@@ -40,6 +43,7 @@ import {
   type GeneratedExactInputExercise,
   type GeneratedMathExercise,
 } from "@/lib/skills";
+import type { SourceObjectStorage } from "@/lib/storage/s3";
 
 const validExercise = (id: number) => ({
   prompt: `What does sample ${id} mean?`,
@@ -1220,6 +1224,114 @@ describe("buildSourceContextExcerpt", () => {
 
   it("returns null when there is no usable source text", () => {
     expect(buildSourceContextExcerpt([null, "   "])).toBeNull();
+  });
+});
+
+describe("loadSourceMediaContextForSourceFiles", () => {
+  const sourceFile = {
+    id: "source_1",
+    kind: SourceFileKind.IMAGE,
+    status: SourceFileStatus.READY,
+    originalName: "worksheet.png",
+    mimeType: "image/png",
+    storageBucket: "learnrecur-dev",
+    storageKey: "source-uploads/user/source_1/worksheet.png",
+  };
+
+  function createStorage(bytes: Buffer) {
+    const getObjectByteInputs: Parameters<SourceObjectStorage["getObjectBytes"]>[0][] = [];
+    const storage: SourceObjectStorage = {
+      bucketName: "learnrecur-dev",
+      async createPresignedUploadUrl() {
+        return "https://s3.example.test/upload";
+      },
+      async headObject() {
+        return {
+          byteSize: bytes.byteLength,
+          mimeType: "image/png",
+        };
+      },
+      async getObjectBytes(input) {
+        getObjectByteInputs.push(input);
+        return bytes;
+      },
+      async listObjects() {
+        return [];
+      },
+      async deleteObject() {
+        return;
+      },
+    };
+
+    return {
+      storage,
+      getObjectByteInputs,
+    };
+  }
+
+  it("loads ready uploaded image sources as media context", async () => {
+    const bytes = Buffer.from("original image bytes");
+    const { storage, getObjectByteInputs } = createStorage(bytes);
+
+    const result = await loadSourceMediaContextForSourceFiles({
+      sourceFiles: [sourceFile],
+      storage,
+    });
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      sourceFileId: "source_1",
+      label: "worksheet.png",
+      mimeType: "image/png",
+    });
+    expect(result[0].bytes.equals(bytes)).toBe(true);
+    expect(getObjectByteInputs).toEqual([
+      {
+        key: "source-uploads/user/source_1/worksheet.png",
+        bucket: "learnrecur-dev",
+        maxBytes: expect.any(Number),
+      },
+    ]);
+  });
+
+  it("does not attach text-only or failed upload rows", async () => {
+    const { storage, getObjectByteInputs } = createStorage(Buffer.from("unused"));
+
+    const result = await loadSourceMediaContextForSourceFiles({
+      sourceFiles: [
+        {
+          ...sourceFile,
+          id: "text_source",
+          kind: SourceFileKind.TEXT,
+          mimeType: "text/plain",
+        },
+        {
+          ...sourceFile,
+          id: "failed_source",
+          status: SourceFileStatus.FAILED,
+        },
+      ],
+      storage,
+    });
+
+    expect(result).toEqual([]);
+    expect(getObjectByteInputs).toEqual([]);
+  });
+
+  it("fails closed when stored media points at a different bucket", async () => {
+    const { storage } = createStorage(Buffer.from("original image bytes"));
+
+    await expect(
+      loadSourceMediaContextForSourceFiles({
+        sourceFiles: [
+          {
+            ...sourceFile,
+            storageBucket: "unexpected-bucket",
+          },
+        ],
+        storage,
+      }),
+    ).rejects.toThrow("Uploaded source media bucket does not match configured storage.");
   });
 });
 

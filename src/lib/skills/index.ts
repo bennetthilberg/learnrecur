@@ -33,11 +33,22 @@ import {
 } from "@/lib/gemini";
 import { getPrisma } from "@/lib/prisma";
 import {
+  buildQwenImageDataUrl,
   runQwenJsonChatCompletion,
+  type QwenChatMessage,
   type QwenFallbackConfig,
 } from "@/lib/qwen";
 import { resolveOptionalQwenFallbackConfig } from "@/lib/qwen-fallback";
 import { createInitialSkillSchedule } from "@/lib/scheduling";
+import {
+  MAX_SOURCE_UPLOAD_BYTES,
+  isSourceUploadMimeType,
+  type SourceUploadMimeType,
+} from "@/lib/skills/source-upload-policy";
+import {
+  resolveS3SourceObjectStorage,
+  type SourceObjectStorage,
+} from "@/lib/storage/s3";
 import {
   checkPastedSourceDraftUsageLimit,
   checkSkillActivationUsageLimit,
@@ -334,6 +345,27 @@ export type MathExerciseVerificationOptions = {
   minVerifiedExercises?: number;
 };
 
+export type SourceMediaContext = {
+  sourceFileId: string | null;
+  label: string;
+  mimeType: SourceUploadMimeType;
+  bytes: Buffer;
+};
+
+export type SourceMediaContextSourceFile = {
+  id: string;
+  kind: SourceFileKind;
+  status: SourceFileStatus;
+  originalName: string;
+  mimeType: string | null;
+  storageBucket: string | null;
+  storageKey: string | null;
+};
+
+export type SourceMediaContextLoader = (input: {
+  sourceFiles: SourceMediaContextSourceFile[];
+}) => Promise<SourceMediaContext[]>;
+
 export type ChoiceExerciseGeneratorInput = {
   skill: {
     id: string;
@@ -345,6 +377,7 @@ export type ChoiceExerciseGeneratorInput = {
     tags: string[];
   };
   sourceContext: string | null;
+  sourceMedia?: SourceMediaContext[];
   existingExerciseContext?: string | null;
   requestedCount: number;
 };
@@ -356,6 +389,7 @@ export type ChoiceExerciseGenerator = (
 export type ChoiceExerciseVerifierInput = {
   skill: ChoiceExerciseGeneratorInput["skill"];
   sourceContext: string | null;
+  sourceMedia?: SourceMediaContext[];
   existingExerciseContext?: string | null;
   candidates: GeneratedChoiceExerciseCandidate[];
 };
@@ -373,6 +407,7 @@ export type ExactInputExerciseGenerator = (
 export type ExactInputExerciseVerifierInput = {
   skill: ExactInputExerciseGeneratorInput["skill"];
   sourceContext: string | null;
+  sourceMedia?: SourceMediaContext[];
   existingExerciseContext?: string | null;
   candidates: GeneratedExactInputExerciseCandidate[];
 };
@@ -390,6 +425,7 @@ export type MathExerciseGenerator = (
 export type MathExerciseVerifierInput = {
   skill: MathExerciseGeneratorInput["skill"];
   sourceContext: string | null;
+  sourceMedia?: SourceMediaContext[];
   existingExerciseContext?: string | null;
   candidates: GeneratedMathExerciseCandidate[];
 };
@@ -419,6 +455,7 @@ export type SourceSkillDraftInputResult =
 
 export type SkillDraftGeneratorInput = NormalizedSourceSkillDraftInput & {
   sourceContext: string;
+  sourceMedia?: SourceMediaContext[];
 };
 
 export type SkillDraftGenerator = (input: SkillDraftGeneratorInput) => Promise<unknown>;
@@ -454,6 +491,7 @@ export type ActivateSkillDraftInput = {
   now: Date;
   generateChoiceExercises?: ChoiceExerciseGenerator;
   verifyChoiceExercises?: ChoiceExerciseVerifier;
+  sourceMediaLoader?: SourceMediaContextLoader;
   model?: string;
   skipUsageLimitCheck?: boolean;
 };
@@ -466,6 +504,7 @@ export type RefillChoiceExercisesInput = {
   targetReadyCount?: number;
   generateChoiceExercises?: ChoiceExerciseGenerator;
   verifyChoiceExercises?: ChoiceExerciseVerifier;
+  sourceMediaLoader?: SourceMediaContextLoader;
   model?: string;
 };
 
@@ -477,6 +516,7 @@ export type RefillExactInputExercisesInput = {
   targetReadyCount?: number;
   generateExactInputExercises?: ExactInputExerciseGenerator;
   verifyExactInputExercises?: ExactInputExerciseVerifier;
+  sourceMediaLoader?: SourceMediaContextLoader;
   model?: string;
 };
 
@@ -488,6 +528,7 @@ export type RefillMathExercisesInput = {
   targetReadyCount?: number;
   generateMathExercises?: MathExerciseGenerator;
   verifyMathExercises?: MathExerciseVerifier;
+  sourceMediaLoader?: SourceMediaContextLoader;
   model?: string;
 };
 
@@ -1728,6 +1769,88 @@ async function markPastedSourceFailed({
   });
 }
 
+export async function loadSourceMediaContextForSourceFiles({
+  sourceFiles,
+  storage,
+}: {
+  sourceFiles: SourceMediaContextSourceFile[];
+  storage?: SourceObjectStorage;
+}): Promise<SourceMediaContext[]> {
+  const uploadBackedSources = sourceFiles.filter(shouldAttachOriginalSourceMedia);
+
+  if (uploadBackedSources.length === 0) {
+    return [];
+  }
+
+  const storageSetup = storage
+    ? { status: "ready" as const, storage }
+    : resolveS3SourceObjectStorage();
+
+  if (storageSetup.status === "missing-env") {
+    throw new Error(storageSetup.message);
+  }
+
+  const media: SourceMediaContext[] = [];
+
+  for (const sourceFile of uploadBackedSources) {
+    if (!sourceFile.mimeType || !isSourceUploadMimeType(sourceFile.mimeType)) {
+      throw new Error("Uploaded source media MIME type is not supported.");
+    }
+
+    if (!sourceFile.storageBucket || !sourceFile.storageKey) {
+      throw new Error("Uploaded source media metadata is incomplete.");
+    }
+
+    if (sourceFile.storageBucket !== storageSetup.storage.bucketName) {
+      throw new Error("Uploaded source media bucket does not match configured storage.");
+    }
+
+    const bytes = await storageSetup.storage.getObjectBytes({
+      key: sourceFile.storageKey,
+      bucket: sourceFile.storageBucket,
+      maxBytes: MAX_SOURCE_UPLOAD_BYTES,
+    });
+
+    if (bytes.length === 0 || bytes.length > MAX_SOURCE_UPLOAD_BYTES) {
+      throw new Error("Uploaded source media is missing or larger than 10 MB.");
+    }
+
+    media.push({
+      sourceFileId: sourceFile.id,
+      label: sourceFile.originalName,
+      mimeType: sourceFile.mimeType,
+      bytes,
+    });
+  }
+
+  return media;
+}
+
+async function resolveSourceMediaContext({
+  sourceFiles,
+  sourceMediaLoader,
+}: {
+  sourceFiles: SourceMediaContextSourceFile[];
+  sourceMediaLoader?: SourceMediaContextLoader;
+}): Promise<SourceMediaContext[]> {
+  if (sourceMediaLoader) {
+    return sourceMediaLoader({ sourceFiles });
+  }
+
+  return loadSourceMediaContextForSourceFiles({ sourceFiles });
+}
+
+function shouldAttachOriginalSourceMedia(sourceFile: SourceMediaContextSourceFile) {
+  return (
+    sourceFile.status === SourceFileStatus.READY &&
+    (sourceFile.kind === SourceFileKind.IMAGE || sourceFile.kind === SourceFileKind.PDF)
+  );
+}
+
+function buildSourceMediaLoadFailureMessage(error: unknown) {
+  return `Uploaded source media could not be loaded: ${formatEnvError(error)}`;
+}
+
 export async function activateSkillDraft(
   input: ActivateSkillDraftInput,
 ): Promise<SkillActivationResult> {
@@ -1754,6 +1877,13 @@ export async function activateSkillDraft(
         select: {
           sourceFile: {
             select: {
+              id: true,
+              kind: true,
+              status: true,
+              originalName: true,
+              mimeType: true,
+              storageBucket: true,
+              storageKey: true,
               extractedText: true,
             },
           },
@@ -1823,6 +1953,30 @@ export async function activateSkillDraft(
   const sourceContext = buildSourceContextExcerpt(
     skill.sourceRefs.map((sourceRef) => sourceRef.sourceFile.extractedText),
   );
+  let sourceMedia: SourceMediaContext[];
+
+  try {
+    sourceMedia = await resolveSourceMediaContext({
+      sourceFiles: skill.sourceRefs.map((sourceRef) => sourceRef.sourceFile),
+      sourceMediaLoader: input.sourceMediaLoader,
+    });
+  } catch (error) {
+    const message = buildSourceMediaLoadFailureMessage(error);
+    await markGenerationJobFailed(prisma, generationJob.id, {
+      message,
+      acceptedCount: 0,
+      rejectedCount: 0,
+      now: input.now,
+    });
+
+    return {
+      status: "not-activated",
+      reason: "generation-failed",
+      message,
+      generationJobId: generationJob.id,
+    };
+  }
+
   let rawGeneration: unknown;
 
   try {
@@ -1830,6 +1984,7 @@ export async function activateSkillDraft(
       setup.generateChoiceExercises({
         skill,
         sourceContext,
+        sourceMedia,
         existingExerciseContext: null,
         requestedCount: REQUESTED_ACTIVATION_EXERCISES,
       }),
@@ -1881,6 +2036,7 @@ export async function activateSkillDraft(
       setup.verifyChoiceExercises({
         skill,
         sourceContext,
+        sourceMedia,
         existingExerciseContext: null,
         candidates,
       }),
@@ -2020,6 +2176,13 @@ export async function refillChoiceExercisesForSkill(
         select: {
           sourceFile: {
             select: {
+              id: true,
+              kind: true,
+              status: true,
+              originalName: true,
+              mimeType: true,
+              storageBucket: true,
+              storageKey: true,
               extractedText: true,
             },
           },
@@ -2131,6 +2294,32 @@ export async function refillChoiceExercisesForSkill(
     skill.sourceRefs.map((sourceRef) => sourceRef.sourceFile.extractedText),
   );
   const existingExerciseContext = buildExistingChoiceExerciseContext(skill.exercises);
+  let sourceMedia: SourceMediaContext[];
+
+  try {
+    sourceMedia = await resolveSourceMediaContext({
+      sourceFiles: skill.sourceRefs.map((sourceRef) => sourceRef.sourceFile),
+      sourceMediaLoader: input.sourceMediaLoader,
+    });
+  } catch (error) {
+    const message = buildSourceMediaLoadFailureMessage(error);
+    await markGenerationJobFailed(prisma, generationJob.id, {
+      message,
+      acceptedCount: 0,
+      rejectedCount: 0,
+      now: input.now,
+    });
+
+    return {
+      status: "not-refilled",
+      reason: "generation-failed",
+      message,
+      generationJobId: generationJob.id,
+      readyExerciseCount: inventory.readyExerciseCount,
+      targetReadyCount,
+    };
+  }
+
   let rawGeneration: unknown;
 
   try {
@@ -2138,6 +2327,7 @@ export async function refillChoiceExercisesForSkill(
       setup.generateChoiceExercises({
         skill,
         sourceContext,
+        sourceMedia,
         existingExerciseContext,
         requestedCount,
       }),
@@ -2215,6 +2405,7 @@ export async function refillChoiceExercisesForSkill(
       setup.verifyChoiceExercises({
         skill,
         sourceContext,
+        sourceMedia,
         existingExerciseContext,
         candidates,
       }),
@@ -2400,6 +2591,13 @@ export async function refillExactInputExercisesForSkill(
         select: {
           sourceFile: {
             select: {
+              id: true,
+              kind: true,
+              status: true,
+              originalName: true,
+              mimeType: true,
+              storageBucket: true,
+              storageKey: true,
               extractedText: true,
             },
           },
@@ -2519,6 +2717,32 @@ export async function refillExactInputExercisesForSkill(
     skill.sourceRefs.map((sourceRef) => sourceRef.sourceFile.extractedText),
   );
   const existingExerciseContext = buildExistingExactInputExerciseContext(skill.exercises);
+  let sourceMedia: SourceMediaContext[];
+
+  try {
+    sourceMedia = await resolveSourceMediaContext({
+      sourceFiles: skill.sourceRefs.map((sourceRef) => sourceRef.sourceFile),
+      sourceMediaLoader: input.sourceMediaLoader,
+    });
+  } catch (error) {
+    const message = buildSourceMediaLoadFailureMessage(error);
+    await markGenerationJobFailed(prisma, generationJob.id, {
+      message,
+      acceptedCount: 0,
+      rejectedCount: 0,
+      now: input.now,
+    });
+
+    return {
+      status: "not-refilled",
+      reason: "generation-failed",
+      message,
+      generationJobId: generationJob.id,
+      readyExerciseCount: inventory.readyExerciseCount,
+      targetReadyCount,
+    };
+  }
+
   let rawGeneration: unknown;
 
   try {
@@ -2526,6 +2750,7 @@ export async function refillExactInputExercisesForSkill(
       setup.generateExactInputExercises({
         skill,
         sourceContext,
+        sourceMedia,
         existingExerciseContext,
         requestedCount,
       }),
@@ -2603,6 +2828,7 @@ export async function refillExactInputExercisesForSkill(
       setup.verifyExactInputExercises({
         skill,
         sourceContext,
+        sourceMedia,
         existingExerciseContext,
         candidates,
       }),
@@ -2789,6 +3015,13 @@ export async function refillMathExercisesForSkill(
         select: {
           sourceFile: {
             select: {
+              id: true,
+              kind: true,
+              status: true,
+              originalName: true,
+              mimeType: true,
+              storageBucket: true,
+              storageKey: true,
               extractedText: true,
             },
           },
@@ -2908,6 +3141,32 @@ export async function refillMathExercisesForSkill(
     skill.sourceRefs.map((sourceRef) => sourceRef.sourceFile.extractedText),
   );
   const existingExerciseContext = buildExistingMathExerciseContext(skill.exercises);
+  let sourceMedia: SourceMediaContext[];
+
+  try {
+    sourceMedia = await resolveSourceMediaContext({
+      sourceFiles: skill.sourceRefs.map((sourceRef) => sourceRef.sourceFile),
+      sourceMediaLoader: input.sourceMediaLoader,
+    });
+  } catch (error) {
+    const message = buildSourceMediaLoadFailureMessage(error);
+    await markGenerationJobFailed(prisma, generationJob.id, {
+      message,
+      acceptedCount: 0,
+      rejectedCount: 0,
+      now: input.now,
+    });
+
+    return {
+      status: "not-refilled",
+      reason: "generation-failed",
+      message,
+      generationJobId: generationJob.id,
+      readyExerciseCount: inventory.readyExerciseCount,
+      targetReadyCount,
+    };
+  }
+
   let rawGeneration: unknown;
 
   try {
@@ -2915,6 +3174,7 @@ export async function refillMathExercisesForSkill(
       setup.generateMathExercises({
         skill,
         sourceContext,
+        sourceMedia,
         existingExerciseContext,
         requestedCount,
       }),
@@ -2992,6 +3252,7 @@ export async function refillMathExercisesForSkill(
       setup.verifyMathExercises({
         skill,
         sourceContext,
+        sourceMedia,
         existingExerciseContext,
         candidates,
       }),
@@ -3815,12 +4076,14 @@ export function createGeminiSkillDraftGenerator({
 }): SkillDraftGenerator {
   return async (input) => {
     const ai = new GoogleGenAI({ apiKey });
+    const qwenFallbackForInput = qwenSkillDraftFallbackForInput(qwenFallback, input);
+
     return runWithGeminiProviderFallback({
-      fallback: qwenFallback
+      fallback: qwenFallbackForInput
         ? {
             provider: "qwen",
-            model: qwenFallback.model,
-            run: () => createQwenSkillDraftGenerator(qwenFallback)(input),
+            model: qwenFallbackForInput.model,
+            run: () => createQwenSkillDraftGenerator(qwenFallbackForInput)(input),
           }
         : null,
       operation: "skill draft generation",
@@ -3828,7 +4091,10 @@ export function createGeminiSkillDraftGenerator({
       runPrimary: async () => {
         const response = await ai.models.generateContent({
           model,
-          contents: buildSourceSkillDraftPrompt(input),
+          contents: buildGeminiContentsWithSourceMedia(
+            buildSourceSkillDraftPrompt(input),
+            input.sourceMedia,
+          ),
           config: {
             responseMimeType: "application/json",
             responseJsonSchema: geminiSkillDraftJsonSchema,
@@ -3864,10 +4130,59 @@ export function createQwenSkillDraftGenerator({
         },
         {
           role: "user",
-          content: buildSourceSkillDraftPrompt(input),
+          content: buildQwenSkillDraftUserContent(input),
         },
       ],
     });
+}
+
+function qwenSkillDraftFallbackForInput(
+  qwenFallback: QwenFallbackConfig | null | undefined,
+  input: SkillDraftGeneratorInput,
+) {
+  if (!qwenFallback) {
+    return null;
+  }
+
+  if (!input.sourceMedia?.length) {
+    return qwenFallback;
+  }
+
+  if (input.sourceMedia.every((media) => media.mimeType.startsWith("image/"))) {
+    return qwenFallback;
+  }
+
+  console.warn("[ai] qwen fallback disabled for non-image source media", {
+    mediaMimeTypes: input.sourceMedia.map((media) => media.mimeType),
+  });
+  return null;
+}
+
+function buildQwenSkillDraftUserContent(
+  input: SkillDraftGeneratorInput,
+): QwenChatMessage["content"] {
+  const prompt = buildSourceSkillDraftPrompt(input);
+
+  if (!input.sourceMedia?.length) {
+    return prompt;
+  }
+
+  if (input.sourceMedia.some((media) => !media.mimeType.startsWith("image/"))) {
+    throw new Error("Qwen skill draft generation only supports image source media.");
+  }
+
+  return [
+    {
+      type: "text",
+      text: prompt,
+    },
+    ...input.sourceMedia.map((media) => ({
+      type: "image_url" as const,
+      image_url: {
+        url: buildQwenImageDataUrl(media.bytes, media.mimeType),
+      },
+    })),
+  ];
 }
 
 function createGeminiChoiceExerciseGenerator({
@@ -3881,7 +4196,10 @@ function createGeminiChoiceExerciseGenerator({
     const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
       model,
-      contents: buildChoiceExercisePrompt(input),
+      contents: buildGeminiContentsWithSourceMedia(
+        buildChoiceExercisePrompt(input),
+        input.sourceMedia,
+      ),
       config: {
         responseMimeType: "application/json",
         responseJsonSchema: buildGeminiResponseJsonSchema(input.requestedCount),
@@ -3908,7 +4226,10 @@ function createGeminiChoiceExerciseVerifier({
     const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
       model,
-      contents: buildChoiceExerciseVerificationPrompt(input),
+      contents: buildGeminiContentsWithSourceMedia(
+        buildChoiceExerciseVerificationPrompt(input),
+        input.sourceMedia,
+      ),
       config: {
         responseMimeType: "application/json",
         responseJsonSchema: buildGeminiChoiceVerificationJsonSchema(input.candidates.length),
@@ -3935,7 +4256,10 @@ function createGeminiExactInputExerciseGenerator({
     const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
       model,
-      contents: buildExactInputExercisePrompt(input),
+      contents: buildGeminiContentsWithSourceMedia(
+        buildExactInputExercisePrompt(input),
+        input.sourceMedia,
+      ),
       config: {
         responseMimeType: "application/json",
         responseJsonSchema: buildGeminiExactInputResponseJsonSchema(input.requestedCount),
@@ -3962,7 +4286,10 @@ function createGeminiExactInputExerciseVerifier({
     const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
       model,
-      contents: buildExactInputExerciseVerificationPrompt(input),
+      contents: buildGeminiContentsWithSourceMedia(
+        buildExactInputExerciseVerificationPrompt(input),
+        input.sourceMedia,
+      ),
       config: {
         responseMimeType: "application/json",
         responseJsonSchema: buildGeminiExactInputVerificationJsonSchema(input.candidates.length),
@@ -3989,7 +4316,10 @@ function createGeminiMathExerciseGenerator({
     const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
       model,
-      contents: buildMathExercisePrompt(input),
+      contents: buildGeminiContentsWithSourceMedia(
+        buildMathExercisePrompt(input),
+        input.sourceMedia,
+      ),
       config: {
         responseMimeType: "application/json",
         responseJsonSchema: buildGeminiMathResponseJsonSchema(input.requestedCount),
@@ -4016,7 +4346,10 @@ function createGeminiMathExerciseVerifier({
     const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
       model,
-      contents: buildMathExerciseVerificationPrompt(input),
+      contents: buildGeminiContentsWithSourceMedia(
+        buildMathExerciseVerificationPrompt(input),
+        input.sourceMedia,
+      ),
       config: {
         responseMimeType: "application/json",
         responseJsonSchema: buildGeminiMathVerificationJsonSchema(input.candidates.length),
@@ -4074,6 +4407,42 @@ async function withTimeout<T>(promise: Promise<T>, ms: number, message: string):
   }
 }
 
+function buildGeminiContentsWithSourceMedia(
+  prompt: string,
+  sourceMedia: SourceMediaContext[] | undefined,
+) {
+  if (!sourceMedia?.length) {
+    return prompt;
+  }
+
+  return [
+    ...sourceMedia.map((media) => ({
+      inlineData: {
+        data: media.bytes.toString("base64"),
+        mimeType: media.mimeType,
+      },
+    })),
+    {
+      text: prompt,
+    },
+  ];
+}
+
+function buildSourceMediaPromptLines(sourceMedia: SourceMediaContext[] | undefined) {
+  if (!sourceMedia?.length) {
+    return [];
+  }
+
+  return [
+    "",
+    "Original uploaded source media is attached to this request.",
+    "Use the attached media as the primary source of truth. Use the extracted text excerpt as a helpful cross-check, not as a replacement for the media.",
+    `Attached source media: ${sourceMedia
+      .map((media, index) => `${index + 1}. ${media.label} (${media.mimeType})`)
+      .join("; ")}`,
+  ];
+}
+
 function buildChoiceExercisePrompt(input: ChoiceExerciseGeneratorInput): string {
   const prompt = [
     "Generate starter multiple-choice practice exercises for LearnRecur.",
@@ -4089,6 +4458,8 @@ function buildChoiceExercisePrompt(input: ChoiceExerciseGeneratorInput): string 
     `Examples: ${summarizeJsonNotes(input.skill.examples)}`,
     `Exercise constraints: ${summarizeJsonNotes(input.skill.exerciseConstraints)}`,
   ];
+
+  prompt.push(...buildSourceMediaPromptLines(input.sourceMedia));
 
   if (input.sourceContext) {
     prompt.push(
@@ -4142,6 +4513,8 @@ function buildChoiceExerciseVerificationPrompt(input: ChoiceExerciseVerifierInpu
     `Exercise constraints: ${summarizeJsonNotes(input.skill.exerciseConstraints)}`,
   ];
 
+  prompt.push(...buildSourceMediaPromptLines(input.sourceMedia));
+
   if (input.sourceContext) {
     prompt.push(
       "",
@@ -4184,6 +4557,8 @@ function buildExactInputExercisePrompt(input: ExactInputExerciseGeneratorInput):
     `Examples: ${summarizeJsonNotes(input.skill.examples)}`,
     `Exercise constraints: ${summarizeJsonNotes(input.skill.exerciseConstraints)}`,
   ];
+
+  prompt.push(...buildSourceMediaPromptLines(input.sourceMedia));
 
   if (input.sourceContext) {
     prompt.push(
@@ -4241,6 +4616,8 @@ function buildExactInputExerciseVerificationPrompt(input: ExactInputExerciseVeri
     `Exercise constraints: ${summarizeJsonNotes(input.skill.exerciseConstraints)}`,
   ];
 
+  prompt.push(...buildSourceMediaPromptLines(input.sourceMedia));
+
   if (input.sourceContext) {
     prompt.push(
       "",
@@ -4284,6 +4661,8 @@ function buildMathExercisePrompt(input: MathExerciseGeneratorInput): string {
     `Examples: ${summarizeJsonNotes(input.skill.examples)}`,
     `Exercise constraints: ${summarizeJsonNotes(input.skill.exerciseConstraints)}`,
   ];
+
+  prompt.push(...buildSourceMediaPromptLines(input.sourceMedia));
 
   if (input.sourceContext) {
     prompt.push(
@@ -4341,6 +4720,8 @@ function buildMathExerciseVerificationPrompt(input: MathExerciseVerifierInput): 
     `Exercise constraints: ${summarizeJsonNotes(input.skill.exerciseConstraints)}`,
   ];
 
+  prompt.push(...buildSourceMediaPromptLines(input.sourceMedia));
+
   if (input.sourceContext) {
     prompt.push(
       "",
@@ -4368,7 +4749,7 @@ function buildMathExerciseVerificationPrompt(input: MathExerciseVerifierInput): 
 }
 
 function buildSourceSkillDraftPrompt(input: SkillDraftGeneratorInput): string {
-  return [
+  const prompt = [
     "Create one editable LearnRecur skill draft from the user's learning input.",
     "Return only JSON matching the provided response schema.",
     "Do not include markdown, commentary, exercises, or answer keys.",
@@ -4381,8 +4762,13 @@ function buildSourceSkillDraftPrompt(input: SkillDraftGeneratorInput): string {
     `Focus note: ${input.focusNote ?? "No extra focus note."}`,
     `Collection hint: ${input.collectionName ?? "none"}`,
     `User tags: ${input.tags.join(", ") || "none"}`,
+  ];
+
+  prompt.push(...buildSourceMediaPromptLines(input.sourceMedia));
+
+  prompt.push(
     "",
-    "User input:",
+    input.sourceMedia?.length ? "Extracted text excerpt:" : "User input:",
     input.sourceContext,
     "",
     "Response requirements:",
@@ -4393,7 +4779,9 @@ function buildSourceSkillDraftPrompt(input: SkillDraftGeneratorInput): string {
     "- examples: source-style examples, not exercise questions.",
     "- exerciseConstraints: guidance for future exercise generation.",
     "- tags: lowercase topic tags when possible.",
-  ].join("\n");
+  );
+
+  return prompt.join("\n");
 }
 
 export function buildSourceContextExcerpt(sourceTexts: Array<string | null | undefined>): string | null {

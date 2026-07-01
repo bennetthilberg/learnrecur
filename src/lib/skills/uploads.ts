@@ -1398,6 +1398,14 @@ export async function runQueuedSourceUploadDraftJob(
         collectionName: getMetadataString(sourceFile.metadata, "collectionName"),
         tags: getMetadataStringArray(sourceFile.metadata, "tags"),
         sourceContext: extraction.extractedText,
+        sourceMedia: [
+          {
+            sourceFileId: sourceFile.id,
+            label: sourceFile.originalName,
+            mimeType: sourceFile.mimeType,
+            bytes,
+          },
+        ],
       }),
       SOURCE_UPLOAD_GENERATION_TIMEOUT_MS,
       "generateSkillDraft timed out",
