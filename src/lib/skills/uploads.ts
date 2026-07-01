@@ -368,19 +368,41 @@ export function getSourceUploadRetryCount(metadata: Prisma.JsonValue | null): nu
 }
 
 export function canRequeueSourceUploadMetadata(metadata: Prisma.JsonValue | null): boolean {
-  return getSourceUploadRetryCount(metadata) < MAX_SOURCE_UPLOAD_REQUEUE_ATTEMPTS;
+  return (
+    !isSourceUploadDismissalPendingMetadata(metadata) &&
+    getSourceUploadRetryCount(metadata) < MAX_SOURCE_UPLOAD_REQUEUE_ATTEMPTS
+  );
 }
 
 export function isDismissedSourceUploadMetadata(metadata: Prisma.JsonValue | null): boolean {
   return Boolean(getMetadataString(metadata, "dismissedAt"));
 }
 
-function buildDismissedSourceUploadMetadata(
+function isSourceUploadDismissalPendingMetadata(metadata: Prisma.JsonValue | null): boolean {
+  return Boolean(getMetadataString(metadata, "dismissalPendingAt"));
+}
+
+function buildPendingSourceUploadDismissalMetadata(
   metadata: Prisma.JsonValue | null,
   now: Date,
 ): Prisma.InputJsonObject {
   return {
     ...getMetadataObject(metadata),
+    dismissalPendingAt: now.toISOString(),
+  };
+}
+
+function buildDismissedSourceUploadMetadata(
+  metadata: Prisma.JsonValue | null,
+  now: Date,
+): Prisma.InputJsonObject {
+  const metadataObject = {
+    ...getMetadataObject(metadata),
+  };
+  delete metadataObject.dismissalPendingAt;
+
+  return {
+    ...metadataObject,
     dismissedAt: now.toISOString(),
   };
 }
@@ -946,10 +968,14 @@ export async function dismissFailedSourceUpload(
     storageBucket: sourceFile.storageBucket,
     storageKey: sourceFile.storageKey,
   };
+  const pendingDismissalMetadata = buildPendingSourceUploadDismissalMetadata(
+    sourceFile.metadata,
+    now,
+  );
   const dismissedMetadata = buildDismissedSourceUploadMetadata(sourceFile.metadata, now);
 
-  const dismissed = await prisma.$transaction(async (tx) => {
-    const dismissedSource = await tx.sourceFile.updateMany({
+  const pendingDismissal = await prisma.$transaction(async (tx) => {
+    const claimedSource = await tx.sourceFile.updateMany({
       where: {
         id: sourceFile.id,
         userId: input.userId,
@@ -963,11 +989,12 @@ export async function dismissFailedSourceUpload(
         },
       },
       data: {
-        metadata: dismissedMetadata,
+        status: SourceFileStatus.FAILED,
+        metadata: pendingDismissalMetadata,
       },
     });
 
-    if (dismissedSource.count !== 1) {
+    if (claimedSource.count !== 1) {
       return null;
     }
 
@@ -976,9 +1003,12 @@ export async function dismissFailedSourceUpload(
         id: sourceFile.id,
         userId: input.userId,
         kind: sourceFile.kind,
-        status: sourceFile.status,
+        status: SourceFileStatus.FAILED,
         storageBucket: sourceFile.storageBucket,
         storageKey: sourceFile.storageKey,
+        metadata: {
+          equals: pendingDismissalMetadata,
+        },
       },
       select: {
         updatedAt: true,
@@ -986,27 +1016,38 @@ export async function dismissFailedSourceUpload(
     });
   });
 
-  if (!dismissed) {
+  if (!pendingDismissal) {
     return sourceUploadSourceNotFound();
   }
 
   const deletedObject = await deleteDismissedSourceUploadObject(dismissedObject, input.storage);
 
   if (deletedObject.status === "failed") {
-    await prisma.sourceFile.updateMany({
+    const restoredSource = await prisma.sourceFile.updateMany({
       where: {
         id: sourceFile.id,
         userId: input.userId,
         kind: sourceFile.kind,
-        status: sourceFile.status,
+        status: SourceFileStatus.FAILED,
         storageBucket: sourceFile.storageBucket,
         storageKey: sourceFile.storageKey,
-        updatedAt: dismissed.updatedAt,
+        updatedAt: pendingDismissal.updatedAt,
+        metadata: {
+          equals: pendingDismissalMetadata,
+        },
       },
       data: {
+        status: sourceFile.status,
         metadata: sourceFile.metadata ?? Prisma.DbNull,
       },
     });
+
+    if (restoredSource.count !== 1) {
+      console.error("[skills] failed to restore source upload dismissal claim", {
+        sourceFileId: sourceFile.id,
+        userId: input.userId,
+      });
+    }
 
     return {
       status: "not-dismissed",
@@ -1015,21 +1056,33 @@ export async function dismissFailedSourceUpload(
     };
   }
 
-  await prisma.sourceFile.updateMany({
+  const dismissedSource = await prisma.sourceFile.updateMany({
     where: {
       id: sourceFile.id,
       userId: input.userId,
       kind: sourceFile.kind,
-      status: sourceFile.status,
+      status: SourceFileStatus.FAILED,
       storageBucket: sourceFile.storageBucket,
       storageKey: sourceFile.storageKey,
-      updatedAt: dismissed.updatedAt,
+      updatedAt: pendingDismissal.updatedAt,
+      metadata: {
+        equals: pendingDismissalMetadata,
+      },
     },
     data: {
+      metadata: dismissedMetadata,
       storageBucket: null,
       storageKey: null,
     },
   });
+
+  if (dismissedSource.count !== 1) {
+    console.error("[skills] failed to finalize source upload dismissal", {
+      sourceFileId: sourceFile.id,
+      userId: input.userId,
+    });
+    return sourceUploadSourceNotFound();
+  }
 
   return {
     status: "dismissed",
