@@ -204,26 +204,6 @@ const generatedSkillDraft = {
   tags: ["Spanish", "grammar"],
 };
 
-const splitGeneratedSkillDrafts = [
-  generatedSkillDraft,
-  {
-    title: "Spanish preterite regular endings",
-    objective: "Choose the correct regular preterite verb ending for short Spanish sentences.",
-    rules: ["Use -e, -aste, -o, -amos, -aron for regular -ar verbs."],
-    examples: ["Ayer hable con mi profesor.", "Nosotros estudiamos anoche."],
-    exerciseConstraints: "Use one regular verb and one clear subject in each prompt.",
-    tags: ["Spanish", "preterite"],
-  },
-  {
-    title: "Spanish imperfect background actions",
-    objective: "Identify when a Spanish sentence should use imperfect for background action.",
-    rules: ["Use imperfect for ongoing background actions and repeated past habits."],
-    examples: ["Cuando era nino, caminaba a la escuela."],
-    exerciseConstraints: "Avoid mixing preterite and imperfect in the same prompt for this draft.",
-    tags: ["Spanish", "imperfect"],
-  },
-];
-
 const successfulSkillDraftGenerator: SkillDraftGenerator = async () => ({
   drafts: [generatedSkillDraft],
 });
@@ -1462,20 +1442,20 @@ describeDatabase("skill drafts and Gemini activation", () => {
     expect(recoveryItems.map((item) => item.id)).toContain(sourceFiles[1].id);
   });
 
-  it("splits broad source material into multiple draft skills linked to one source", async () => {
+  it("links generated draft skills to one source", async () => {
     const userId = await createUser("source_split");
     const result = await createSkillDraftFromSource({
       userId,
       now,
       model: "test-gemini",
       generateSkillDraft: async () => ({
-        drafts: splitGeneratedSkillDrafts,
+        drafts: [generatedSkillDraft],
       }),
       input: {
         sourceText:
           "This broad Spanish review page covers ser and estar, regular preterite endings, and imperfect background actions with classroom examples for each topic.",
         sourceLabel: "Spanish unit review",
-        focusNote: "Split into small grammar skills when the page covers multiple topics.",
+        focusNote: "Create one focused grammar skill.",
         collectionName: "Spanish grammar",
         tags: "Spanish, review",
       },
@@ -1487,8 +1467,8 @@ describeDatabase("skill drafts and Gemini activation", () => {
       throw new Error("Expected source draft creation to succeed.");
     }
 
-    expect(result.skills).toHaveLength(3);
-    expect(result.skillSourceRefIds).toHaveLength(3);
+    expect(result.skills).toHaveLength(1);
+    expect(result.skillSourceRefIds).toHaveLength(1);
 
     const sourceFile = await prisma.sourceFile.findUniqueOrThrow({
       where: { id: result.sourceFileId },
@@ -1514,19 +1494,17 @@ describeDatabase("skill drafts and Gemini activation", () => {
       mimeType: "text/plain",
     });
     expect(sourceFile.metadata).toMatchObject({
-      focusNote: "Split into small grammar skills when the page covers multiple topics.",
+      focusNote: "Create one focused grammar skill.",
       model: "test-gemini",
     });
-    expect(sourceFile.skillRefs).toHaveLength(3);
-    expect(sourceFile.skillRefs.map((ref) => ref.skill.title).toSorted()).toEqual(
-      splitGeneratedSkillDrafts.map((draft) => draft.title).toSorted(),
-    );
+    expect(sourceFile.skillRefs).toHaveLength(1);
+    expect(sourceFile.skillRefs[0].skill.title).toBe(generatedSkillDraft.title);
     expect(
       sourceFile.skillRefs.every(
         (ref) =>
           ref.userId === userId &&
           ref.sourceFileId === result.sourceFileId &&
-          ref.note === "Split into small grammar skills when the page covers multiple topics." &&
+          ref.note === "Create one focused grammar skill." &&
           ref.skill.collection?.name === "Spanish grammar",
       ),
     ).toBe(true);
@@ -1539,7 +1517,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
 
     const library = await getSkillsLibrary({ userId, now });
     expect(library.draftSkills.map((skill) => skill.title).toSorted()).toEqual(
-      splitGeneratedSkillDrafts.map((draft) => draft.title).toSorted(),
+      [generatedSkillDraft.title],
     );
     expect(library.draftSkills.every((skill) => skill.sourceRefCount === 1)).toBe(true);
 
@@ -1552,14 +1530,14 @@ describeDatabase("skill drafts and Gemini activation", () => {
 
     expect(removed).toMatchObject({
       status: "removed",
-      sourceFileDeleted: false,
+      sourceFileDeleted: true,
     });
     await expect(
       prisma.sourceFile.count({ where: { id: result.sourceFileId, userId } }),
-    ).resolves.toBe(1);
+    ).resolves.toBe(0);
     await expect(
       prisma.skillSourceRef.count({ where: { sourceFileId: result.sourceFileId, userId } }),
-    ).resolves.toBe(2);
+    ).resolves.toBe(0);
   });
 
   it("creates source-backed draft skills from an uploaded source object", async () => {
@@ -1638,7 +1616,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
       storage,
       extractSourceText: successfulSourceExtractor,
       generateSkillDraft: async () => ({
-        drafts: splitGeneratedSkillDrafts,
+        drafts: [generatedSkillDraft],
       }),
       model: "test-gemini",
     });
@@ -1656,8 +1634,8 @@ describeDatabase("skill drafts and Gemini activation", () => {
       throw new Error("Expected uploaded source completion to succeed.");
     }
 
-    expect(completed.skills).toHaveLength(3);
-    expect(completed.skillSourceRefIds).toHaveLength(3);
+    expect(completed.skills).toHaveLength(1);
+    expect(completed.skillSourceRefIds).toHaveLength(1);
 
     const sourceFile = await prisma.sourceFile.findUniqueOrThrow({
       where: { id: completed.sourceFileId },
@@ -1691,14 +1669,14 @@ describeDatabase("skill drafts and Gemini activation", () => {
       focusNote: "Split this into small grammar skills.",
       model: "test-gemini",
     });
-    expect(sourceFile.skillRefs).toHaveLength(3);
+    expect(sourceFile.skillRefs).toHaveLength(1);
     expect(sourceFile.skillRefs.every((ref) => ref.skill.collection?.name === "Spanish uploads")).toBe(
       true,
     );
 
     const library = await getSkillsLibrary({ userId, now });
     expect(library.draftSkills.map((skill) => skill.title).toSorted()).toEqual(
-      splitGeneratedSkillDrafts.map((draft) => draft.title).toSorted(),
+      [generatedSkillDraft.title],
     );
     expect(library.draftSkills.every((skill) => skill.sourceRefCount === 1)).toBe(true);
     expect(library.sourceProcessing).toHaveLength(0);

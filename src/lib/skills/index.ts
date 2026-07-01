@@ -52,7 +52,7 @@ export const DEFAULT_READY_MATH_TARGET = 2;
 export const EXACT_INPUT_UNLOCK_REPETITIONS = 3;
 export const SOURCE_CONTEXT_CHAR_LIMIT = 4_000;
 export const EXISTING_EXERCISE_CONTEXT_CHAR_LIMIT = 3_000;
-export const MAX_GENERATED_SKILL_DRAFTS = 3;
+export const MAX_GENERATED_SKILL_DRAFTS = 1;
 export const MAX_COLLECTION_NAME_LENGTH = 120;
 const MAX_DRAFT_NOTE_LINE_LENGTH = 500;
 const MAX_DRAFT_NOTE_ITEMS = 8;
@@ -823,7 +823,7 @@ const generatedSkillDraftSchema = z.strictObject({
 });
 
 const generatedSkillDraftEnvelopeSchema = z.strictObject({
-  drafts: z.array(generatedSkillDraftSchema).min(1).max(MAX_GENERATED_SKILL_DRAFTS),
+  drafts: z.array(generatedSkillDraftSchema).length(MAX_GENERATED_SKILL_DRAFTS),
 });
 
 const generatedChoiceExerciseSchema = z.strictObject({
@@ -1067,7 +1067,7 @@ const geminiSkillDraftJsonSchema = {
   properties: {
     drafts: {
       type: "array",
-      minItems: 1,
+      minItems: MAX_GENERATED_SKILL_DRAFTS,
       maxItems: MAX_GENERATED_SKILL_DRAFTS,
       items: {
         type: "object",
