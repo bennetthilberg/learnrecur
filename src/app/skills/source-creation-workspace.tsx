@@ -22,6 +22,7 @@ import {
   SOURCE_UPLOAD_MAX_FILES_ERROR,
   SOURCE_UPLOAD_TOTAL_MAX_BYTES_ERROR,
   SOURCE_UPLOAD_MIME_TYPES,
+  buildSourceUploadFileLabel,
 } from "@/lib/skills/source-upload-policy";
 
 import {
@@ -481,8 +482,14 @@ export function SourceCreationWorkspace({
         formData.delete("sourceFile");
         formData.delete("sourceText");
 
-        if (sourceLabel && filesForUpload.length > 1) {
-          formData.set("sourceLabel", `${sourceLabel} ${fileIndex + 1}`);
+        const uploadSourceLabel = buildSourceUploadFileLabel(
+          sourceLabel,
+          fileIndex,
+          filesForUpload.length,
+        );
+
+        if (uploadSourceLabel) {
+          formData.set("sourceLabel", uploadSourceLabel);
         }
 
         if (!existingFocus && sourceText) {

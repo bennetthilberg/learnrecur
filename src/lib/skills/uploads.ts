@@ -51,6 +51,7 @@ import {
 import {
   MAX_SOURCE_UPLOAD_BYTES,
   MAX_SOURCE_UPLOAD_FILES,
+  MAX_SOURCE_UPLOAD_LABEL_LENGTH,
   MAX_TOTAL_SOURCE_UPLOAD_BYTES,
   SOURCE_UPLOAD_MAX_FILES_ERROR,
   SOURCE_UPLOAD_TOTAL_MAX_BYTES_ERROR,
@@ -86,7 +87,7 @@ const sourceUploadInputSchema = z.strictObject({
     .int()
     .positive("Upload a non-empty file.")
     .max(MAX_SOURCE_UPLOAD_BYTES, SOURCE_UPLOAD_MAX_BYTES_ERROR),
-  sourceLabel: optionalTrimmedString().pipe(z.string().max(160).optional()),
+  sourceLabel: optionalTrimmedString().pipe(z.string().max(MAX_SOURCE_UPLOAD_LABEL_LENGTH).optional()),
   focusNote: optionalTrimmedString().pipe(z.string().max(800).optional()),
   collectionName: optionalTrimmedString().pipe(
     z

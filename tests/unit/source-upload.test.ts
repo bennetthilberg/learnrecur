@@ -20,6 +20,10 @@ import {
   validateExtractedSourceText,
 } from "@/lib/skills/uploads";
 import { MAX_COLLECTION_NAME_LENGTH, SOURCE_CONTEXT_CHAR_LIMIT } from "@/lib/skills";
+import {
+  MAX_SOURCE_UPLOAD_LABEL_LENGTH,
+  buildSourceUploadFileLabel,
+} from "@/lib/skills/source-upload-policy";
 import { getS3Env } from "@/lib/storage/s3";
 
 describe("normalizeSourceUploadInput", () => {
@@ -46,6 +50,37 @@ describe("normalizeSourceUploadInput", () => {
         tags: ["spanish", "grammar"],
       },
     });
+  });
+
+  it("accepts source labels at the upload label limit", () => {
+    const sourceLabel = "x".repeat(MAX_SOURCE_UPLOAD_LABEL_LENGTH);
+    const result = normalizeSourceUploadInput({
+      originalName: "worksheet.png",
+      mimeType: "image/png",
+      byteSize: 1024,
+      sourceLabel,
+    });
+
+    expect(result).toEqual({
+      status: "ready",
+      value: {
+        originalName: "worksheet.png",
+        mimeType: "image/png",
+        byteSize: 1024,
+        sourceLabel,
+        focusNote: null,
+        collectionName: null,
+        tags: [],
+      },
+    });
+  });
+
+  it("keeps multi-file upload labels within the server label limit", () => {
+    const sourceLabel = "x".repeat(MAX_SOURCE_UPLOAD_LABEL_LENGTH);
+    const uploadLabel = buildSourceUploadFileLabel(sourceLabel, 0, 2);
+
+    expect(uploadLabel).toHaveLength(MAX_SOURCE_UPLOAD_LABEL_LENGTH);
+    expect(uploadLabel).toBe(`${"x".repeat(MAX_SOURCE_UPLOAD_LABEL_LENGTH - 2)} 1`);
   });
 
   it("rejects unsupported mime types and oversized files", () => {
