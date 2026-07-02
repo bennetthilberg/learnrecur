@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
-import { CheckCircle } from "@phosphor-icons/react";
+import { CheckCircle, Flag } from "@phosphor-icons/react";
 
 import { AnswerKind, ExerciseFlagReason, FsrsRating } from "@/generated/prisma/enums";
 import {
@@ -103,7 +103,6 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
   const timer = useVisibleElapsedMs(attemptId, item.status === "ready" && feedback === null);
   const checkedFeedback = feedback?.status === "checked" ? feedback : null;
   const isCorrect = checkedFeedback?.answerCheck.isCorrect === true;
-  const isIncorrect = checkedFeedback?.answerCheck.isCorrect === false;
   const selectedOtherFlag = selectedFlagReasons.includes(ExerciseFlagReason.OTHER);
   const canSubmitFlag =
     selectedFlagReasons.length > 0 && (!selectedOtherFlag || otherFlagNote.trim().length > 0);
@@ -569,6 +568,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
                 aria-label={`${formatRating(rating)} rating, shortcut ${shortcut}`}
                 className="ratingButton"
                 data-selected={manualRating === rating ? "true" : "false"}
+                disabled={pendingAction !== null}
                 type="button"
                 onClick={() => setManualRating(rating)}
               >
@@ -599,12 +599,6 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
         </div>
       ) : null}
 
-      {isIncorrect ? (
-        <p className="practiceStatusLine" data-tone="attention">
-          Review rating: Again.
-        </p>
-      ) : null}
-
       {checkedFeedback && !flagFormOpen ? (
         <div className="flagExerciseInline">
           <button
@@ -615,6 +609,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
             aria-expanded={false}
             onClick={() => setFlagFormOpen(true)}
           >
+            <Flag size={14} weight="bold" aria-hidden="true" />
             Report issue
           </button>
         </div>
