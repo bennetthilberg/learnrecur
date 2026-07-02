@@ -2,12 +2,13 @@ import { z } from "zod";
 
 import {
   DEFAULT_GEMINI_FALLBACK_MODELS,
+  DEFAULT_GEMINI_MODEL,
   parseGeminiFallbackModels,
 } from "@/lib/gemini";
 import {
-  DEFAULT_QWEN_BASE_URL,
-  DEFAULT_QWEN_MODEL,
-} from "@/lib/qwen";
+  DEFAULT_OPENROUTER_BASE_URL,
+  DEFAULT_OPENROUTER_MODEL,
+} from "@/lib/openrouter";
 
 const optionalNonEmptyString = (schema: z.ZodString) =>
   z.preprocess((value) => {
@@ -78,13 +79,18 @@ const geminiModelSchema = z.preprocess((value) => {
   }
 
   return value;
-}, z.string().trim().min(1).default("gemini-3.5-flash"));
+}, z.string().trim().min(1).default(DEFAULT_GEMINI_MODEL));
 
-const geminiEnvSchema = z.object({
-  GEMINI_API_KEY: z
-    .string({ error: "GEMINI_API_KEY is required" })
-    .trim()
-    .min(1, "GEMINI_API_KEY is required"),
+const geminiEnvBaseSchema = z.object({
+  GEMINI_API_KEY: optionalNonEmptyString(
+    z.string({ error: "GEMINI_API_KEY is required" }).trim().min(1, "GEMINI_API_KEY is required"),
+  ),
+  GEMINI_ENTERPRISE_AGENT_KEY_PLATFORM_KEY: optionalNonEmptyString(
+    z
+      .string({ error: "GEMINI_ENTERPRISE_AGENT_KEY_PLATFORM_KEY is required" })
+      .trim()
+      .min(1, "GEMINI_ENTERPRISE_AGENT_KEY_PLATFORM_KEY is required"),
+  ),
   GEMINI_MODEL: geminiModelSchema,
   GEMINI_FALLBACK_MODELS: z.preprocess(
     parseGeminiFallbackModels,
@@ -92,28 +98,36 @@ const geminiEnvSchema = z.object({
   ),
 });
 
-const qwenModelSchema = z.preprocess((value) => {
+const geminiEnvSchema = geminiEnvBaseSchema.superRefine(requireGeminiApiKey);
+
+const openRouterModelSchema = z.preprocess((value) => {
   if (typeof value === "string" && value.trim() === "") {
     return undefined;
   }
 
   return value;
-}, z.string().trim().min(1).default(DEFAULT_QWEN_MODEL));
+}, z.string().trim().min(1).default(DEFAULT_OPENROUTER_MODEL));
 
-const qwenBaseUrlSchema = z.preprocess((value) => {
+const openRouterBaseUrlSchema = z.preprocess((value) => {
   if (typeof value === "string" && value.trim() === "") {
     return undefined;
   }
 
   return value;
-}, z.string().trim().min(1).url().default(DEFAULT_QWEN_BASE_URL));
+}, z.string().trim().min(1).url().default(DEFAULT_OPENROUTER_BASE_URL));
 
-const qwenEnvSchema = z.object({
-  QWEN_API_KEY: optionalNonEmptyString(
-    z.string({ error: "QWEN_API_KEY is required" }).trim().min(1, "QWEN_API_KEY is required"),
+const openRouterEnvSchema = z.object({
+  OPENROUTER_API_KEY: optionalNonEmptyString(
+    z
+      .string({ error: "OPENROUTER_API_KEY is required" })
+      .trim()
+      .min(1, "OPENROUTER_API_KEY is required")
+      .refine((value) => value.startsWith("sk-or-"), {
+        message: "OPENROUTER_API_KEY must start with sk-or-",
+      }),
   ),
-  QWEN_MODEL: qwenModelSchema,
-  QWEN_BASE_URL: qwenBaseUrlSchema,
+  OPENROUTER_MODEL: openRouterModelSchema,
+  OPENROUTER_BASE_URL: openRouterBaseUrlSchema,
 });
 
 const appUrlSchema = z.preprocess((value) => {
@@ -214,8 +228,8 @@ const falseEnvValues = new Set(["0", "false", "no", "n", "off"]);
 
 const productionEnvSchema = requiredDatabaseEnvSchema
   .merge(productionClerkEnvSchema)
-  .merge(geminiEnvSchema)
-  .merge(qwenEnvSchema)
+  .merge(geminiEnvBaseSchema)
+  .merge(openRouterEnvSchema)
   .merge(
     resendEnvSchema.extend({
       NEXT_PUBLIC_APP_URL: productionAppUrlSchema,
@@ -224,6 +238,8 @@ const productionEnvSchema = requiredDatabaseEnvSchema
   .merge(s3EnvSchema)
   .merge(inngestProductionEnvSchema)
   .superRefine((value, context) => {
+    requireGeminiApiKey(value, context);
+
     if (value.INNGEST_APP_ID === "learnrecur-dev") {
       context.addIssue({
         code: "custom",
@@ -246,7 +262,7 @@ const activeEnvSchema = databaseEnvSchema.merge(clerkEnvSchema);
 export type DatabaseEnv = z.infer<typeof databaseEnvSchema>;
 export type ClerkEnv = z.infer<typeof clerkEnvSchema>;
 export type GeminiEnv = z.infer<typeof geminiEnvSchema>;
-export type QwenEnv = z.infer<typeof qwenEnvSchema>;
+export type OpenRouterEnv = z.infer<typeof openRouterEnvSchema>;
 export type ResendEnv = z.infer<typeof resendEnvSchema>;
 export type S3Env = z.infer<typeof s3EnvSchema>;
 export type ProductionEnv = z.infer<typeof productionEnvSchema>;
@@ -268,8 +284,8 @@ export function getGeminiEnv(): GeminiEnv {
   return geminiEnvSchema.parse(process.env);
 }
 
-export function getQwenEnv(): QwenEnv {
-  return qwenEnvSchema.parse(process.env);
+export function getOpenRouterEnv(): OpenRouterEnv {
+  return openRouterEnvSchema.parse(process.env);
 }
 
 export function getResendEnv(): ResendEnv {
@@ -300,10 +316,10 @@ export function hasGeminiEnv(): boolean {
   return geminiEnvSchema.safeParse(process.env).success;
 }
 
-export function hasQwenEnv(): boolean {
-  const result = qwenEnvSchema.safeParse(process.env);
+export function hasOpenRouterEnv(): boolean {
+  const result = openRouterEnvSchema.safeParse(process.env);
 
-  return result.success && Boolean(result.data.QWEN_API_KEY);
+  return result.success && Boolean(result.data.OPENROUTER_API_KEY);
 }
 
 export function hasResendEnv(): boolean {
@@ -347,6 +363,21 @@ function formatZodIssue(issue: z.core.$ZodIssue): string {
   }
 
   return issue.message;
+}
+
+function requireGeminiApiKey(
+  value: z.infer<typeof geminiEnvBaseSchema>,
+  context: {
+    addIssue: (issue: { code: "custom"; path: string[]; message: string }) => void;
+  },
+) {
+  if (!value.GEMINI_API_KEY && !value.GEMINI_ENTERPRISE_AGENT_KEY_PLATFORM_KEY) {
+    context.addIssue({
+      code: "custom",
+      path: ["GEMINI_API_KEY"],
+      message: "GEMINI_API_KEY or GEMINI_ENTERPRISE_AGENT_KEY_PLATFORM_KEY is required",
+    });
+  }
 }
 
 function isValidSenderEmail(value: string): boolean {

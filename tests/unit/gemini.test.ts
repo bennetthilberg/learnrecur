@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  getGeminiRuntimeLogContext,
   getPublicGeminiFailureMessage,
   isRetryableGeminiModelError,
   parseGeminiFallbackModels,
+  resolveGeminiRuntimeConfig,
   runWithGeminiProviderFallback,
 } from "@/lib/gemini";
 
@@ -16,7 +18,46 @@ describe("Gemini fallback helpers", () => {
     expect(parseGeminiFallbackModels(" ")).toEqual([]);
   });
 
-  it("retries retryable provider errors with Qwen fallback", async () => {
+  it("prefers Gemini Enterprise Agent Platform when its key is configured", () => {
+    const config = resolveGeminiRuntimeConfig({
+      GEMINI_API_KEY: "developer-key",
+      GEMINI_ENTERPRISE_AGENT_KEY_PLATFORM_KEY: "enterprise-key",
+      GEMINI_MODEL: "gemini-3.5-flash",
+    });
+
+    expect(getGeminiRuntimeLogContext(config)).toEqual({
+      provider: "google",
+      apiMode: "enterprise-agent-platform",
+      endpoint: "https://aiplatform.googleapis.com/",
+      model: "gemini-3.5-flash",
+    });
+    expect(config.clientOptions).toMatchObject({
+      vertexai: true,
+      apiKey: "enterprise-key",
+      httpOptions: {
+        apiVersion: "v1",
+      },
+    });
+  });
+
+  it("uses the Gemini Developer API when no Enterprise Agent Platform key is configured", () => {
+    const config = resolveGeminiRuntimeConfig({
+      GEMINI_API_KEY: "developer-key",
+      GEMINI_MODEL: "gemini-3.5-flash",
+    });
+
+    expect(getGeminiRuntimeLogContext(config)).toEqual({
+      provider: "google",
+      apiMode: "developer-api",
+      endpoint: "https://generativelanguage.googleapis.com/",
+      model: "gemini-3.5-flash",
+    });
+    expect(config.clientOptions).toEqual({
+      apiKey: "developer-key",
+    });
+  });
+
+  it("retries retryable provider errors with OpenRouter fallback", async () => {
     const warningSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const calls: string[] = [];
 
@@ -37,23 +78,23 @@ describe("Gemini fallback helpers", () => {
           );
         },
         fallback: {
-          provider: "qwen",
-          model: "qwen3.7-plus",
+          provider: "openrouter",
+          model: "google/gemma-4-31b-it",
           async run() {
-            calls.push("qwen");
-            return "ok:qwen";
+            calls.push("openrouter");
+            return "ok:openrouter";
           },
         },
       }),
-    ).resolves.toBe("ok:qwen");
+    ).resolves.toBe("ok:openrouter");
 
-    expect(calls).toEqual(["gemini", "qwen"]);
+    expect(calls).toEqual(["gemini", "openrouter"]);
     expect(warningSpy).toHaveBeenCalledWith(
       "[ai] retrying with fallback provider",
       expect.objectContaining({
         failedModel: "gemini-3.5-flash",
-        fallbackProvider: "qwen",
-        fallbackModel: "qwen3.7-plus",
+        fallbackProvider: "openrouter",
+        fallbackModel: "google/gemma-4-31b-it",
       }),
     );
     warningSpy.mockRestore();
@@ -79,11 +120,11 @@ describe("Gemini fallback helpers", () => {
           );
         },
         fallback: {
-          provider: "qwen",
-          model: "qwen3.7-plus",
+          provider: "openrouter",
+          model: "google/gemma-4-31b-it",
           async run() {
-            calls.push("qwen");
-            return "ok:qwen";
+            calls.push("openrouter");
+            return "ok:openrouter";
           },
         },
       }),

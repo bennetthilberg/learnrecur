@@ -2,7 +2,6 @@ import "server-only";
 
 import { randomUUID } from "node:crypto";
 
-import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
 
 import {
@@ -13,25 +12,29 @@ import {
 } from "@/generated/prisma/client";
 import { formatEnvError, getGeminiEnv } from "@/lib/env";
 import {
+  getGeminiRuntimeLogContext,
   getGeminiErrorLogDetails,
   getPublicGeminiFailureMessage,
+  resolveGeminiRuntimeConfig,
+  runLoggedGeminiOperation,
   runWithGeminiProviderFallback,
+  type GeminiRuntimeConfig,
 } from "@/lib/gemini";
 import { getInngestEnvStatus } from "@/lib/inngest/client";
 import {
   inngestSourceUploadDraftEventSender,
   type SourceUploadDraftEventSender,
 } from "@/lib/inngest/events";
-import { getPrisma } from "@/lib/prisma";
-import { resolveOptionalQwenFallbackConfig } from "@/lib/qwen-fallback";
 import {
-  buildQwenImageDataUrl,
-  runQwenJsonChatCompletion,
-  type QwenFallbackConfig,
-} from "@/lib/qwen";
+  runOpenRouterJsonChatCompletion,
+  type OpenRouterFallbackConfig,
+} from "@/lib/openrouter";
+import { resolveOptionalOpenRouterFallbackConfig } from "@/lib/openrouter-fallback";
+import { getPrisma } from "@/lib/prisma";
 import {
   MAX_COLLECTION_NAME_LENGTH,
   SOURCE_SKILL_DRAFT_PROMPT_VERSION,
+  buildOpenRouterSourceMediaPart,
   buildSourceContextExcerpt,
   createGeminiSkillDraftGenerator,
   createGeneratedSkillDraftsForSourceFile,
@@ -1398,6 +1401,14 @@ export async function runQueuedSourceUploadDraftJob(
         collectionName: getMetadataString(sourceFile.metadata, "collectionName"),
         tags: getMetadataStringArray(sourceFile.metadata, "tags"),
         sourceContext: extraction.extractedText,
+        sourceMedia: [
+          {
+            sourceFileId: sourceFile.id,
+            label: sourceFile.originalName,
+            mimeType: sourceFile.mimeType,
+            bytes,
+          },
+        ],
       }),
       SOURCE_UPLOAD_GENERATION_TIMEOUT_MS,
       "generateSkillDraft timed out",
@@ -1503,10 +1514,20 @@ function resolveUploadGenerationSetup(
     };
   }
 
-  let env: ReturnType<typeof getGeminiEnv>;
+  const openRouterFallbackResult = resolveOptionalOpenRouterFallbackConfig();
+  const openRouterFallback =
+    openRouterFallbackResult.status === "ready" ? openRouterFallbackResult.config : null;
+
+  if (openRouterFallbackResult.status === "invalid") {
+    console.warn("[ai] openrouter fallback disabled for upload generation", {
+      message: openRouterFallbackResult.message,
+    });
+  }
+
+  let gemini: GeminiRuntimeConfig;
 
   try {
-    env = getGeminiEnv();
+    gemini = resolveGeminiRuntimeConfig(getGeminiEnv());
   } catch (error) {
     return {
       status: "missing-env",
@@ -1515,98 +1536,123 @@ function resolveUploadGenerationSetup(
     };
   }
 
-  const qwenFallbackResult = resolveOptionalQwenFallbackConfig();
-  const qwenFallback =
-    qwenFallbackResult.status === "ready" ? qwenFallbackResult.config : null;
-
-  if (qwenFallbackResult.status === "invalid") {
-    console.warn("[ai] qwen fallback disabled for upload generation", {
-      message: qwenFallbackResult.message,
-    });
-  }
-
   return {
     status: "ready",
-    model: env.GEMINI_MODEL,
+    model: gemini.model,
     extractSourceText: input.extractSourceText ?? createGeminiSourceTextExtractor({
-      apiKey: env.GEMINI_API_KEY,
-      model: env.GEMINI_MODEL,
-      qwenFallback,
+      gemini,
+      openRouterFallback,
     }),
     generateSkillDraft: input.generateSkillDraft ?? createGeminiSkillDraftGenerator({
-      apiKey: env.GEMINI_API_KEY,
-      model: env.GEMINI_MODEL,
-      qwenFallback,
+      gemini,
+      openRouterFallback,
     }),
   };
 }
 
 function createGeminiSourceTextExtractor({
-  apiKey,
-  model,
-  qwenFallback,
+  gemini,
+  openRouterFallback,
 }: {
-  apiKey: string;
-  model: string;
-  qwenFallback?: QwenFallbackConfig | null;
+  gemini: GeminiRuntimeConfig;
+  openRouterFallback?: OpenRouterFallbackConfig | null;
 }): SourceTextExtractor {
   return async (input) => {
-    const ai = new GoogleGenAI({ apiKey });
-    const qwenSourceFallback =
-      qwenFallback && input.mimeType.startsWith("image/")
+    const openRouterSourceFallback =
+      openRouterFallback
         ? {
-            provider: "qwen",
-            model: qwenFallback.model,
-            run: () => createQwenSourceTextExtractor(qwenFallback)(input),
+            provider: "openrouter",
+            model: openRouterFallback.model,
+            run: () => createOpenRouterSourceTextExtractor(openRouterFallback)(input),
           }
         : null;
 
     return runWithGeminiProviderFallback({
-      fallback: qwenSourceFallback,
+      fallback: openRouterSourceFallback,
       operation: "source text extraction",
-      primaryModel: model,
+      primary: getGeminiRuntimeLogContext(gemini),
+      primaryModel: gemini.model,
       runPrimary: async () => {
-        const response = await ai.models.generateContent({
-          model,
-          contents: [
-            {
-              inlineData: {
-                data: input.bytes.toString("base64"),
-                mimeType: input.mimeType,
+        const prompt = buildSourceExtractionPrompt(input);
+
+        return runLoggedGeminiOperation({
+          config: gemini,
+          operation: "source text extraction",
+          metadata: {
+            promptChars: prompt.length,
+            schemaName: "geminiSourceExtractionJsonSchema",
+            media: {
+              count: 1,
+              totalBytes: input.bytes.length,
+              mimeTypes: [input.mimeType],
+            },
+          },
+          run: async (ai) => {
+            const response = await ai.models.generateContent({
+              model: gemini.model,
+              contents: [
+                {
+                  role: "user",
+                  parts: [
+                    {
+                      inlineData: {
+                        data: input.bytes.toString("base64"),
+                        mimeType: input.mimeType,
+                      },
+                    },
+                    {
+                      text: prompt,
+                    },
+                  ],
+                },
+              ],
+              config: {
+                responseMimeType: "application/json",
+                responseJsonSchema: geminiSourceExtractionJsonSchema,
+                thinkingConfig: {
+                  thinkingBudget: 128,
+                },
               },
-            },
-            {
-              text: buildSourceExtractionPrompt(input),
-            },
-          ],
-          config: {
-            responseMimeType: "application/json",
-            responseJsonSchema: geminiSourceExtractionJsonSchema,
+            });
+            const text = response.text;
+
+            if (!text) {
+              throw new Error("Gemini returned no text.");
+            }
+
+            return {
+              response,
+              value: JSON.parse(text) as unknown,
+            };
           },
         });
-        const text = response.text;
-
-        if (!text) {
-          throw new Error("Gemini returned no text.");
-        }
-
-        return JSON.parse(text) as unknown;
       },
     });
   };
 }
 
-function createQwenSourceTextExtractor({
+function createOpenRouterSourceTextExtractor({
   apiKey,
   baseUrl,
   model,
-}: QwenFallbackConfig): SourceTextExtractor {
+}: OpenRouterFallbackConfig): SourceTextExtractor {
   return async (input) =>
-    normalizeQwenSourceTextExtraction(await runQwenJsonChatCompletion({
+    normalizeOpenRouterSourceTextExtraction(await runOpenRouterJsonChatCompletion({
       apiKey,
       baseUrl,
       model,
+      metadata: {
+        promptChars: buildSourceExtractionPrompt(input).length,
+        schemaName: "openRouterSourceExtractionJsonSchema",
+        media: {
+          count: 1,
+          totalBytes: input.bytes.length,
+          mimeTypes: [input.mimeType],
+        },
+      },
       operation: "source text extraction",
+      responseJsonSchema: openRouterSourceExtractionJsonSchema,
+      responseJsonSchemaName: "sourceTextExtraction",
       messages: [
         {
           role: "system",
@@ -1619,19 +1665,18 @@ function createQwenSourceTextExtractor({
               type: "text",
               text: buildSourceExtractionPrompt(input),
             },
-            {
-              type: "image_url",
-              image_url: {
-                url: buildQwenImageDataUrl(input.bytes, input.mimeType),
-              },
-            },
+            buildOpenRouterSourceMediaPart({
+              bytes: input.bytes,
+              filename: input.originalName,
+              mimeType: input.mimeType,
+            }),
           ],
         },
       ],
     }));
 }
 
-function normalizeQwenSourceTextExtraction(input: unknown): unknown {
+function normalizeOpenRouterSourceTextExtraction(input: unknown): unknown {
   const record = getObjectRecord(input);
 
   if (!record) {
@@ -1695,6 +1740,8 @@ const geminiSourceExtractionJsonSchema = {
     },
   },
 };
+
+const openRouterSourceExtractionJsonSchema = geminiSourceExtractionJsonSchema;
 
 function resolveUploadStorage(storage?: SourceUploadStorage):
   | {
