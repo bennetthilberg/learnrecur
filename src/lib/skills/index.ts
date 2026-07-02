@@ -35,7 +35,6 @@ import {
   type GeminiRuntimeConfig,
 } from "@/lib/gemini";
 import {
-  DEFAULT_OPENROUTER_MODEL,
   buildOpenRouterDataUrl,
   runOpenRouterJsonChatCompletion,
   type OpenRouterChatMessage,
@@ -544,7 +543,6 @@ export type CreateSkillDraftFromSourceInput = {
   userId: string;
   input: unknown;
   now: Date;
-  forceGemmaFallback?: boolean;
   generateSkillDraft?: SkillDraftGenerator;
   model?: string;
   recoveredSourceFileId?: string | null;
@@ -4052,38 +4050,9 @@ function resolveSourceDraftSetup(
     openRouterFallbackResult.status === "ready" ? openRouterFallbackResult.config : null;
 
   if (openRouterFallbackResult.status === "invalid") {
-    if (input.forceGemmaFallback) {
-      return {
-        status: "missing-env",
-        model: input.model ?? (process.env.OPENROUTER_MODEL?.trim() || DEFAULT_OPENROUTER_MODEL),
-        message: openRouterFallbackResult.message,
-      };
-    }
-
     console.warn("[ai] openrouter fallback disabled for skill draft generation", {
       message: openRouterFallbackResult.message,
     });
-  }
-
-  if (input.forceGemmaFallback) {
-    if (!openRouterFallback) {
-      return {
-        status: "missing-env",
-        model: input.model ?? (process.env.OPENROUTER_MODEL?.trim() || DEFAULT_OPENROUTER_MODEL),
-        message: "OPENROUTER_API_KEY is required to force Gemma fallback.",
-      };
-    }
-
-    console.warn("[ai] forcing fallback provider for skill draft generation", {
-      provider: "openrouter",
-      model: openRouterFallback.model,
-    });
-
-    return {
-      status: "ready",
-      model: openRouterFallback.model,
-      generateSkillDraft: createOpenRouterSkillDraftGenerator(openRouterFallback),
-    };
   }
 
   let gemini: GeminiRuntimeConfig;

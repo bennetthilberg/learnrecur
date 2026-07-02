@@ -26,7 +26,6 @@ import {
   type SourceUploadDraftEventSender,
 } from "@/lib/inngest/events";
 import {
-  DEFAULT_OPENROUTER_MODEL,
   runOpenRouterJsonChatCompletion,
   type OpenRouterFallbackConfig,
 } from "@/lib/openrouter";
@@ -38,7 +37,6 @@ import {
   buildOpenRouterSourceMediaPart,
   buildSourceContextExcerpt,
   createGeminiSkillDraftGenerator,
-  createOpenRouterSkillDraftGenerator,
   createGeneratedSkillDraftsForSourceFile,
   normalizeTags,
   validateGeneratedSkillDrafts,
@@ -156,7 +154,6 @@ export type CompleteSourceUploadDraftsInput = {
   userId: string;
   sourceFileId: string;
   now: Date;
-  forceGemmaFallback?: boolean;
   storage?: SourceUploadStorage;
   extractSourceText?: SourceTextExtractor;
   generateSkillDraft?: SkillDraftGenerator;
@@ -1522,39 +1519,9 @@ function resolveUploadGenerationSetup(
     openRouterFallbackResult.status === "ready" ? openRouterFallbackResult.config : null;
 
   if (openRouterFallbackResult.status === "invalid") {
-    if (input.forceGemmaFallback) {
-      return {
-        status: "missing-env",
-        model: input.model ?? (process.env.OPENROUTER_MODEL?.trim() || DEFAULT_OPENROUTER_MODEL),
-        message: openRouterFallbackResult.message,
-      };
-    }
-
     console.warn("[ai] openrouter fallback disabled for upload generation", {
       message: openRouterFallbackResult.message,
     });
-  }
-
-  if (input.forceGemmaFallback) {
-    if (!openRouterFallback) {
-      return {
-        status: "missing-env",
-        model: input.model ?? (process.env.OPENROUTER_MODEL?.trim() || DEFAULT_OPENROUTER_MODEL),
-        message: "OPENROUTER_API_KEY is required to force Gemma fallback.",
-      };
-    }
-
-    console.warn("[ai] forcing fallback provider for upload generation", {
-      provider: "openrouter",
-      model: openRouterFallback.model,
-    });
-
-    return {
-      status: "ready",
-      model: openRouterFallback.model,
-      extractSourceText: input.extractSourceText ?? createOpenRouterSourceTextExtractor(openRouterFallback),
-      generateSkillDraft: input.generateSkillDraft ?? createOpenRouterSkillDraftGenerator(openRouterFallback),
-    };
   }
 
   let gemini: GeminiRuntimeConfig;
