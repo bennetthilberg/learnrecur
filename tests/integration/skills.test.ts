@@ -1995,6 +1995,90 @@ describeDatabase("skill drafts and Gemini activation", () => {
     expect(library.sourceProcessing).toHaveLength(0);
   });
 
+  it("starts multi-source extraction calls concurrently", async () => {
+    const userId = await createUser("upload_multi_parallel_extraction");
+    const { storage } = createFakeUploadStorage({
+      bytes: Buffer.from("uploaded worksheet original image bytes for parallel extraction"),
+      byteSize: 4096,
+    });
+    const preparedSourceFileIds: string[] = [];
+
+    for (const [index, originalName] of ["worksheet-page-1.png", "worksheet-page-2.png"].entries()) {
+      const prepared = await prepareSourceUpload({
+        userId,
+        now,
+        storage,
+        input: {
+          originalName,
+          mimeType: "image/png",
+          byteSize: "4096",
+          sourceLabel: `Parallel worksheet ${index + 1}`,
+        },
+      });
+
+      if (prepared.status !== "prepared") {
+        throw new Error("Expected upload preparation to succeed.");
+      }
+
+      preparedSourceFileIds.push(prepared.sourceFileId);
+    }
+
+    const extractionInputs: string[] = [];
+    let resolveSecondExtractionStarted: (() => void) | undefined;
+    const secondExtractionStarted = new Promise<void>((resolve) => {
+      resolveSecondExtractionStarted = resolve;
+    });
+    const waitForSecondExtractionStarted = () => {
+      return new Promise<void>((resolve, reject) => {
+        const timeoutId = setTimeout(() => {
+          reject(new Error("Second extraction did not start before the first extraction resolved."));
+        }, 250);
+
+        secondExtractionStarted.then(
+          () => {
+            clearTimeout(timeoutId);
+            resolve();
+          },
+          reject,
+        );
+      });
+    };
+
+    const completed = await completeSourceUploadDrafts({
+      userId,
+      sourceFileId: preparedSourceFileIds[0],
+      sourceFileIds: preparedSourceFileIds,
+      now,
+      storage,
+      extractSourceText: async (input) => {
+        extractionInputs.push(input.sourceLabel);
+
+        if (extractionInputs.length === 2) {
+          resolveSecondExtractionStarted?.();
+        }
+
+        if (extractionInputs.length === 1) {
+          await waitForSecondExtractionStarted();
+        }
+
+        return {
+          extractedText: `Extracted parallel details for ${input.sourceLabel}. Use ser for identity and estar for location. Keep examples short and classroom-focused.`,
+        };
+      },
+      generateSkillDraft: async (input) => {
+        expect(input.sourceContext).toContain("Source 1: Parallel worksheet 1");
+        expect(input.sourceContext).toContain("Source 2: Parallel worksheet 2");
+        return {
+          drafts: [generatedSkillDraft],
+        };
+      },
+      model: "test-gemini",
+    });
+
+    expect(completed.status).toBe("created");
+    expect(extractionInputs).toEqual(["Parallel worksheet 1", "Parallel worksheet 2"]);
+  });
+
   it("uses a single normalized sourceFileIds value when completing an upload", async () => {
     const userId = await createUser("upload_single_normalized_id");
     const { storage } = createFakeUploadStorage({

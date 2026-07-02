@@ -1794,11 +1794,14 @@ type ProcessingSourceUploadBatchItem = StoredSourceUploadBatchItem & {
   sourceFile: SourceFile;
 };
 
-type ProcessedSourceUploadBatchItem = ProcessingSourceUploadBatchItem & {
+type SourceUploadBatchItemWithBytes = ProcessingSourceUploadBatchItem & {
   bytes: Buffer;
-  extractedText: string;
   originalName: string;
   label: string;
+};
+
+type ProcessedSourceUploadBatchItem = SourceUploadBatchItemWithBytes & {
+  extractedText: string;
 };
 
 async function runQueuedSourceUploadDraftBatchJob(
@@ -1995,7 +1998,7 @@ async function runQueuedSourceUploadDraftBatchJob(
     return notCreated("missing-gemini-env", setup.message);
   }
 
-  const processedSources: ProcessedSourceUploadBatchItem[] = [];
+  const sourcesWithBytes: SourceUploadBatchItemWithBytes[] = [];
   let actualTotalByteSize = 0;
 
   for (const source of processingSources) {
@@ -2059,43 +2062,76 @@ async function runQueuedSourceUploadDraftBatchJob(
       getMetadataString(source.sourceFile.metadata, "originalFileName") ??
       source.sourceFile.originalName;
     const label = source.sourceFile.originalName;
-    let rawExtraction: unknown;
+    sourcesWithBytes.push({
+      ...source,
+      bytes,
+      originalName,
+      label,
+    });
+  }
 
-    try {
-      rawExtraction = await withTimeout(
-        setup.extractSourceText({
-          bytes,
-          mimeType: source.mimeType,
-          originalName,
-          sourceLabel: label,
-          focusNote: getMetadataString(source.sourceFile.metadata, "focusNote"),
-        }),
-        SOURCE_UPLOAD_GENERATION_TIMEOUT_MS,
-        "extractSourceText timed out",
-      );
-    } catch (error) {
-      const message = getPublicGeminiFailureMessage(error);
-      console.error("[ai] source extraction failed", {
-        ...getGeminiErrorLogDetails(error),
-        sourceFileId: source.sourceFile.id,
-      });
-      await markUploadedSourcesFailed(
-        processingSources.map((processingSource) => processingSource.sourceFile),
-        storageSetup.storage,
-        input.now,
-        "extraction-failed",
-        message,
-        { batchSourceFileIds: sourceFileIds },
-      );
-      return notCreated("extraction-failed", message);
+  const extractionResults = await Promise.all(
+    sourcesWithBytes.map(async (source) => {
+      try {
+        const rawExtraction = await withTimeout(
+          setup.extractSourceText({
+            bytes: source.bytes,
+            mimeType: source.mimeType,
+            originalName: source.originalName,
+            sourceLabel: source.label,
+            focusNote: getMetadataString(source.sourceFile.metadata, "focusNote"),
+          }),
+          SOURCE_UPLOAD_GENERATION_TIMEOUT_MS,
+          "extractSourceText timed out",
+        );
+
+        return {
+          status: "extracted" as const,
+          source,
+          rawExtraction,
+        };
+      } catch (error) {
+        return {
+          status: "failed" as const,
+          source,
+          error,
+        };
+      }
+    }),
+  );
+
+  const failedExtraction = extractionResults.find((result) => result.status === "failed");
+
+  if (failedExtraction) {
+    const message = getPublicGeminiFailureMessage(failedExtraction.error);
+    console.error("[ai] source extraction failed", {
+      ...getGeminiErrorLogDetails(failedExtraction.error),
+      sourceFileId: failedExtraction.source.sourceFile.id,
+    });
+    await markUploadedSourcesFailed(
+      processingSources.map((processingSource) => processingSource.sourceFile),
+      storageSetup.storage,
+      input.now,
+      "extraction-failed",
+      message,
+      { batchSourceFileIds: sourceFileIds },
+    );
+    return notCreated("extraction-failed", message);
+  }
+
+  const processedSources: ProcessedSourceUploadBatchItem[] = [];
+
+  for (const result of extractionResults) {
+    if (result.status !== "extracted") {
+      continue;
     }
 
-    const extraction = validateExtractedSourceText(rawExtraction);
+    const extraction = validateExtractedSourceText(result.rawExtraction);
 
     if (extraction.status === "invalid") {
       console.warn("[ai] source extraction returned invalid output", {
-        ...getSourceExtractionValidationLogDetails(rawExtraction),
-        sourceFileId: source.sourceFile.id,
+        ...getSourceExtractionValidationLogDetails(result.rawExtraction),
+        sourceFileId: result.source.sourceFile.id,
       });
       await markUploadedSourcesFailed(
         processingSources.map((processingSource) => processingSource.sourceFile),
@@ -2109,11 +2145,8 @@ async function runQueuedSourceUploadDraftBatchJob(
     }
 
     processedSources.push({
-      ...source,
-      bytes,
+      ...result.source,
       extractedText: extraction.extractedText,
-      originalName,
-      label,
     });
   }
 
