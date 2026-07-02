@@ -1730,6 +1730,16 @@ body {
   margin-top: 12px;
 }
 
+.flagExerciseInline .quietButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.flagExerciseInline .quietButton svg {
+  flex: 0 0 auto;
+}
+
 .quietButton {
   appearance: none;
   border: 0;
