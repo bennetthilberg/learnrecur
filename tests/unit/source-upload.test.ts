@@ -4,11 +4,13 @@ import { SourceFileKind, SourceFileStatus } from "@/generated/prisma/client";
 
 import {
   MAX_SOURCE_UPLOAD_BYTES,
+  MAX_SOURCE_UPLOAD_FILES,
   MAX_SOURCE_UPLOAD_REQUEUE_ATTEMPTS,
   SOURCE_PROCESSING_STALE_AFTER_MS,
   buildSourceUploadRequeueMetadata,
   canRequeueSourceUploadMetadata,
   buildSourceUploadObjectKey,
+  completeSourceUploadDrafts,
   isDismissedSourceUploadMetadata,
   isSourceUploadDismissible,
   getSourceUploadRetryCount,
@@ -113,6 +115,25 @@ describe("validateExtractedSourceText", () => {
     expect(validateExtractedSourceText({ text: "wrong key" })).toMatchObject({
       status: "invalid",
       reason: "invalid-response",
+    });
+  });
+});
+
+describe("completeSourceUploadDrafts", () => {
+  it("rejects upload batches above the maximum source file count", async () => {
+    const result = await completeSourceUploadDrafts({
+      userId: "user_batch_limit",
+      sourceFileId: "source-1",
+      sourceFileIds: Array.from({ length: MAX_SOURCE_UPLOAD_FILES + 1 }, (_, index) => {
+        return `source-${index + 1}`;
+      }),
+      now: new Date("2026-06-05T12:00:00.000Z"),
+    });
+
+    expect(result).toMatchObject({
+      status: "not-created",
+      reason: "invalid-upload",
+      message: "Upload up to 5 files.",
     });
   });
 });

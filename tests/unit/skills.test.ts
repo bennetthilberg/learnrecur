@@ -1340,19 +1340,16 @@ describe("loadSourceMediaContextForSourceFiles", () => {
   });
 
   it("fails closed when combined uploaded media exceeds the attachment limit", async () => {
-    const bytes = Buffer.alloc(7 * 1024 * 1024, "a");
+    const bytes = Buffer.alloc(5 * 1024 * 1024, "a");
     const { storage } = createStorage(bytes);
 
     await expect(
       loadSourceMediaContextForSourceFiles({
-        sourceFiles: [
-          sourceFile,
-          {
-            ...sourceFile,
-            id: "source_2",
-            storageKey: "source-uploads/user/source_2/worksheet.png",
-          },
-        ],
+        sourceFiles: Array.from({ length: 5 }, (_, index) => ({
+          ...sourceFile,
+          id: `source_${index + 1}`,
+          storageKey: `source-uploads/user/source_${index + 1}/worksheet.png`,
+        })),
         storage,
       }),
     ).rejects.toThrow("Uploaded source media exceeds the total attachment limit.");

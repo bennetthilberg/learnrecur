@@ -3348,6 +3348,7 @@ body {
 }
 
 .createSkillInputBox {
+  position: relative;
   display: grid;
   overflow: hidden;
   border: 1px solid var(--lr-card-border);
@@ -3371,6 +3372,8 @@ body {
 }
 
 .createSkillTextarea {
+  box-sizing: border-box;
+  width: 100%;
   min-height: 260px;
   border: 0;
   background: transparent;
@@ -3378,7 +3381,7 @@ body {
   font: inherit;
   font-size: 16px;
   line-height: 1.5;
-  padding: 18px;
+  padding: 18px 18px 108px;
   resize: vertical;
 }
 
@@ -3391,10 +3394,13 @@ body {
 }
 
 .createSkillInputFooter {
+  position: relative;
+  z-index: 2;
   display: flex;
   align-items: center;
   gap: 14px;
   border-top: 1px solid var(--lr-divider);
+  background: #FFFFFF;
   padding: 12px 14px;
 }
 
@@ -3408,20 +3414,30 @@ body {
 }
 
 .createSkillAttachmentPreview {
+  position: absolute;
+  right: 12px;
+  bottom: 47px;
+  left: 12px;
+  z-index: 3;
   display: flex;
+  gap: 8px;
   justify-content: flex-start;
-  border-top: 1px solid var(--lr-divider);
-  padding: 12px 14px 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-width: calc(100% - 24px);
+  padding: 0 2px 10px;
 }
 
 .createSkillAttachmentTile {
   position: relative;
   display: grid;
-  width: min(260px, 100%);
-  min-height: 184px;
+  flex: 0 0 88px;
+  width: 88px;
+  height: 64px;
+  min-height: 0;
   overflow: hidden;
   border: 1px solid var(--lr-card-border);
-  border-radius: 8px;
+  border-radius: 7px;
   background: #FFFFFF;
 }
 
@@ -3445,9 +3461,9 @@ body {
   display: grid;
   align-content: center;
   justify-items: center;
-  gap: 14px;
+  gap: 3px;
   min-width: 0;
-  padding: 26px 18px;
+  padding: 8px 6px;
   background: var(--lr-blue-tint);
   color: var(--lr-ink);
   text-align: center;
@@ -3462,25 +3478,25 @@ body {
   overflow: hidden;
   color: var(--lr-ink);
   font-family: var(--lr-font-display);
-  font-size: 13px;
+  font-size: 10.5px;
   font-weight: 800;
-  line-height: 1.25;
+  line-height: 1.15;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .createSkillAttachmentRemove {
   position: absolute;
-  top: 8px;
-  right: 8px;
+  top: 4px;
+  right: 4px;
   z-index: 1;
   display: inline-flex;
-  width: 32px;
-  height: 32px;
+  width: 22px;
+  height: 22px;
   align-items: center;
   justify-content: center;
   border: 1px solid var(--lr-card-border);
-  border-radius: 999px;
+  border-radius: 6px;
   background: #FFFFFF;
   color: var(--lr-ink);
   cursor: pointer;
@@ -5204,7 +5220,7 @@ body {
   .createSkillTextarea {
     min-height: 220px;
     font-size: 15px;
-    padding: 16px;
+    padding: 16px 16px 98px;
   }
 
   .createSkillInputFooter {
@@ -5212,9 +5228,15 @@ body {
     align-items: start;
   }
 
+  .createSkillAttachmentPreview {
+    bottom: 54px;
+  }
+
   .createSkillAttachmentTile {
-    width: min(240px, 100%);
-    min-height: 170px;
+    flex-basis: 74px;
+    width: 74px;
+    height: 56px;
+    min-height: 0;
   }
 
   .createSkillDoneCopy {

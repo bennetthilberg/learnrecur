@@ -47,6 +47,7 @@ import {
   MAX_SOURCE_UPLOAD_BYTES,
   MAX_SOURCE_UPLOAD_REQUEUE_ATTEMPTS,
   SOURCE_PROCESSING_STALE_AFTER_MS,
+  completeSourceUploadDrafts,
   dismissFailedSourceUpload,
   prepareSourceUpload,
   queueSourceUploadDrafts,
@@ -1850,6 +1851,137 @@ describeDatabase("skill drafts and Gemini activation", () => {
       [generatedSkillDraft.title],
     );
     expect(library.draftSkills.every((skill) => skill.sourceRefCount === 1)).toBe(true);
+    expect(library.sourceProcessing).toHaveLength(0);
+  });
+
+  it("creates source-backed draft skills from multiple uploaded source objects", async () => {
+    const userId = await createUser("upload_multi_success");
+    const uploadedBytes = Buffer.from("uploaded worksheet original image bytes for a multi-source skill");
+    const { storage, getObjectByteInputs } = createFakeUploadStorage({
+      bytes: uploadedBytes,
+      byteSize: 4096,
+    });
+    const preparedSourceFileIds: string[] = [];
+
+    for (const [index, originalName] of ["worksheet-page-1.png", "worksheet-page-2.png"].entries()) {
+      const prepared = await prepareSourceUpload({
+        userId,
+        now,
+        storage,
+        input: {
+          originalName,
+          mimeType: "image/png",
+          byteSize: "4096",
+          sourceLabel: `Uploaded worksheet ${index + 1}`,
+          focusNote: "Create one focused grammar skill from the full worksheet.",
+          collectionName: "Spanish uploads",
+          tags: "Spanish, upload",
+        },
+      });
+
+      expect(prepared.status).toBe("prepared");
+
+      if (prepared.status !== "prepared") {
+        throw new Error("Expected upload preparation to succeed.");
+      }
+
+      preparedSourceFileIds.push(prepared.sourceFileId);
+    }
+
+    const extractionInputs: Parameters<SourceTextExtractor>[0][] = [];
+    let capturedSkillDraftSourceMedia: SourceMediaContext[] | undefined;
+    const completed = await completeSourceUploadDrafts({
+      userId,
+      sourceFileId: preparedSourceFileIds[0],
+      sourceFileIds: preparedSourceFileIds,
+      now,
+      storage,
+      extractSourceText: async (input) => {
+        extractionInputs.push(input);
+        return {
+          extractedText: `Extracted details for ${input.sourceLabel}. Use ser for identity and estar for location. Keep examples short and classroom-focused.`,
+        };
+      },
+      generateSkillDraft: async (input) => {
+        capturedSkillDraftSourceMedia = input.sourceMedia;
+        expect(input.sourceContext).toContain("Source 1: Uploaded worksheet 1");
+        expect(input.sourceContext).toContain("Source 2: Uploaded worksheet 2");
+        return {
+          drafts: [generatedSkillDraft],
+        };
+      },
+      model: "test-gemini",
+    });
+
+    expect(completed.status).toBe("created");
+
+    if (completed.status !== "created") {
+      throw new Error("Expected uploaded source completion to succeed.");
+    }
+
+    expect(completed.sourceFileIds).toEqual(preparedSourceFileIds);
+    expect(completed.skillSourceRefIds).toHaveLength(2);
+    expect(extractionInputs.map((input) => input.sourceLabel)).toEqual([
+      "Uploaded worksheet 1",
+      "Uploaded worksheet 2",
+    ]);
+    expect(capturedSkillDraftSourceMedia).toHaveLength(2);
+    expect(capturedSkillDraftSourceMedia?.map((source) => source.sourceFileId)).toEqual(
+      preparedSourceFileIds,
+    );
+    expect(capturedSkillDraftSourceMedia?.map((source) => source.label)).toEqual([
+      "Uploaded worksheet 1",
+      "Uploaded worksheet 2",
+    ]);
+    expect(capturedSkillDraftSourceMedia?.every((source) => source.bytes.equals(uploadedBytes))).toBe(
+      true,
+    );
+    expect(getObjectByteInputs).toHaveLength(2);
+
+    const skill = completed.skills[0];
+
+    if (!skill) {
+      throw new Error("Expected a generated draft skill.");
+    }
+
+    const sourceRefs = await prisma.skillSourceRef.findMany({
+      where: {
+        skillId: skill.id,
+        userId,
+      },
+      orderBy: {
+        createdAt: "asc",
+      },
+    });
+
+    expect(sourceRefs.map((ref) => ref.sourceFileId).toSorted()).toEqual(
+      preparedSourceFileIds.toSorted(),
+    );
+
+    const sourceFiles = await prisma.sourceFile.findMany({
+      where: {
+        id: {
+          in: preparedSourceFileIds,
+        },
+        userId,
+      },
+      orderBy: {
+        originalName: "asc",
+      },
+    });
+
+    expect(sourceFiles).toHaveLength(2);
+    expect(sourceFiles.every((sourceFile) => sourceFile.status === SourceFileStatus.READY)).toBe(
+      true,
+    );
+    expect(sourceFiles.map((sourceFile) => sourceFile.extractedText)).toEqual([
+      expect.stringContaining("Uploaded worksheet 1"),
+      expect.stringContaining("Uploaded worksheet 2"),
+    ]);
+
+    const library = await getSkillsLibrary({ userId, now });
+    expect(library.draftSkills).toHaveLength(1);
+    expect(library.draftSkills[0]?.sourceRefCount).toBe(2);
     expect(library.sourceProcessing).toHaveLength(0);
   });
 

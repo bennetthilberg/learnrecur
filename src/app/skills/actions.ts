@@ -325,7 +325,8 @@ export async function prepareSourceUploadAction(
 }
 
 export async function completeSourceUploadAction(input: {
-  sourceFileId: string;
+  sourceFileId?: string;
+  sourceFileIds?: string[];
 }): Promise<CompleteSourceUploadActionResult> {
   const user = await requireSkillActionUser();
 
@@ -333,9 +334,19 @@ export async function completeSourceUploadAction(input: {
     return user;
   }
 
+  const sourceFileIds = normalizeActionSourceFileIds(input);
+
+  if (sourceFileIds.length === 0) {
+    return {
+      status: "error",
+      message: "Choose at least one uploaded source file.",
+    };
+  }
+
   const result = await completeSourceUploadDrafts({
     userId: user.userId,
-    sourceFileId: input.sourceFileId,
+    sourceFileId: sourceFileIds[0],
+    sourceFileIds,
     now: new Date(),
   });
 
@@ -1047,6 +1058,26 @@ function getFormString(formData: FormData, key: string): string {
 function getOptionalFormString(formData: FormData, key: string): string | null {
   const value = getFormString(formData, key).trim();
   return value.length > 0 ? value : null;
+}
+
+function normalizeActionSourceFileIds(input: {
+  sourceFileId?: string;
+  sourceFileIds?: string[];
+}) {
+  const rawSourceFileIds =
+    input.sourceFileIds && input.sourceFileIds.length > 0
+      ? input.sourceFileIds
+      : input.sourceFileId
+        ? [input.sourceFileId]
+        : [];
+
+  return rawSourceFileIds
+    .filter((sourceFileId): sourceFileId is string => typeof sourceFileId === "string")
+    .map((sourceFileId) => sourceFileId.trim())
+    .filter(Boolean)
+    .filter((sourceFileId, index, sourceFileIds) => {
+      return sourceFileIds.indexOf(sourceFileId) === index;
+    });
 }
 
 function notesToText(value: Prisma.JsonValue | null): string {

@@ -48,6 +48,7 @@ import { getPrisma } from "@/lib/prisma";
 import { createInitialSkillSchedule } from "@/lib/scheduling";
 import {
   MAX_SOURCE_UPLOAD_BYTES,
+  MAX_TOTAL_SOURCE_UPLOAD_BYTES,
   isSourceUploadMimeType,
   type SourceUploadMimeType,
 } from "@/lib/skills/source-upload-policy";
@@ -69,7 +70,6 @@ export const DEFAULT_READY_MATH_TARGET = 2;
 export const EXACT_INPUT_UNLOCK_REPETITIONS = 3;
 export const SOURCE_CONTEXT_CHAR_LIMIT = 4_000;
 export const EXISTING_EXERCISE_CONTEXT_CHAR_LIMIT = 3_000;
-const MAX_TOTAL_SOURCE_MEDIA_BYTES = 12 * 1024 * 1024;
 export const MAX_GENERATED_SKILL_DRAFTS = 1;
 export const MAX_COLLECTION_NAME_LENGTH = 120;
 const MAX_DRAFT_NOTE_LINE_LENGTH = 500;
@@ -558,18 +558,22 @@ export type CreateSkillDraftFromSourceInput = {
   persistFailedSource?: boolean;
 };
 
-export type CreateGeneratedSkillDraftsForSourceFileInput = {
-  userId: string;
+export type GeneratedSkillDraftSourceFileInput = {
   sourceFileId: string;
   sourceFileGuard?: Prisma.SourceFileWhereInput;
-  collectionName: string | null;
-  focusNote: string | null;
-  tags: string[];
-  drafts: GeneratedSkillDraft[];
   sourceFileUpdate?: Pick<
     Prisma.SourceFileUncheckedUpdateInput,
     "status" | "byteSize" | "extractedText" | "metadata"
   >;
+};
+
+export type CreateGeneratedSkillDraftsForSourceFileInput = GeneratedSkillDraftSourceFileInput & {
+  userId: string;
+  additionalSourceFiles?: GeneratedSkillDraftSourceFileInput[];
+  collectionName: string | null;
+  focusNote: string | null;
+  tags: string[];
+  drafts: GeneratedSkillDraft[];
 };
 
 export type SourceSkillDraftWriteResult =
@@ -2065,7 +2069,7 @@ export async function loadSourceMediaContextForSourceFiles({
 
     totalBytes += bytes.length;
 
-    if (totalBytes > MAX_TOTAL_SOURCE_MEDIA_BYTES) {
+    if (totalBytes > MAX_TOTAL_SOURCE_UPLOAD_BYTES) {
       throw new Error("Uploaded source media exceeds the total attachment limit.");
     }
 
@@ -5965,42 +5969,66 @@ async function createGeneratedSkillDraftsForSourceFileInTransaction(
       status: "not-found";
     }
 > {
-  const sourceFileWhere = {
-    ...input.sourceFileGuard,
-    id: input.sourceFileId,
-    userId: input.userId,
-  };
-  const updatedSourceFile = input.sourceFileUpdate
-    ? await tx.sourceFile.updateMany({
-        where: sourceFileWhere,
-        data: input.sourceFileUpdate,
-      })
-    : await tx.sourceFile.findFirst({
-        where: sourceFileWhere,
-        select: {
-          id: true,
-        },
-      });
+  const sourceFileInputs = [
+    {
+      sourceFileId: input.sourceFileId,
+      sourceFileGuard: input.sourceFileGuard,
+      sourceFileUpdate: input.sourceFileUpdate,
+    },
+    ...(input.additionalSourceFiles ?? []),
+  ].filter((sourceFileInput, index, sourceFiles) => {
+    return (
+      sourceFiles.findIndex(
+        (candidate) => candidate.sourceFileId === sourceFileInput.sourceFileId,
+      ) === index
+    );
+  });
 
-  if (!updatedSourceFile || ("count" in updatedSourceFile && updatedSourceFile.count !== 1)) {
-    return {
-      status: "not-found",
+  for (const sourceFileInput of sourceFileInputs) {
+    const sourceFileWhere = {
+      ...sourceFileInput.sourceFileGuard,
+      id: sourceFileInput.sourceFileId,
+      userId: input.userId,
     };
+    const updatedSourceFile = sourceFileInput.sourceFileUpdate
+      ? await tx.sourceFile.updateMany({
+          where: sourceFileWhere,
+          data: sourceFileInput.sourceFileUpdate,
+        })
+      : await tx.sourceFile.findFirst({
+          where: sourceFileWhere,
+          select: {
+            id: true,
+          },
+        });
+
+    if (!updatedSourceFile || ("count" in updatedSourceFile && updatedSourceFile.count !== 1)) {
+      return {
+        status: "not-found",
+      };
+    }
   }
 
   const collectionId = await resolveCollectionId(tx, input.userId, input.collectionName);
+  const sourceFileIds = sourceFileInputs.map((sourceFileInput) => sourceFileInput.sourceFileId);
 
-  await tx.sourceFile.update({
+  const updatedSourceCollections = await tx.sourceFile.updateMany({
     where: {
-      id_userId: {
-        id: input.sourceFileId,
-        userId: input.userId,
+      id: {
+        in: sourceFileIds,
       },
+      userId: input.userId,
     },
     data: {
       collectionId,
     },
   });
+
+  if (updatedSourceCollections.count !== sourceFileIds.length) {
+    return {
+      status: "not-found",
+    };
+  }
 
   const skills: Skill[] = [];
   const skillSourceRefIds: string[] = [];
@@ -6019,17 +6047,19 @@ async function createGeneratedSkillDraftsForSourceFileInTransaction(
         status: SkillStatus.DRAFT,
       },
     });
-    const sourceRef = await tx.skillSourceRef.create({
-      data: {
-        userId: input.userId,
-        skillId: skill.id,
-        sourceFileId: input.sourceFileId,
-        note: input.focusNote,
-      },
-    });
+    for (const sourceFileId of sourceFileIds) {
+      const sourceRef = await tx.skillSourceRef.create({
+        data: {
+          userId: input.userId,
+          skillId: skill.id,
+          sourceFileId,
+          note: input.focusNote,
+        },
+      });
+      skillSourceRefIds.push(sourceRef.id);
+    }
 
     skills.push(skill);
-    skillSourceRefIds.push(sourceRef.id);
   }
 
   return {
