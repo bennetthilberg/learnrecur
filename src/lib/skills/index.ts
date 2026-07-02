@@ -4305,7 +4305,7 @@ function sanitizeOpenRouterFilename(filename: string): string {
     .slice(0, 160);
 }
 
-function createGeminiChoiceExerciseGenerator({
+export function createGeminiChoiceExerciseGenerator({
   gemini,
   openRouterFallback,
 }: {

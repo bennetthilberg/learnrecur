@@ -1,5 +1,15 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+const geminiGenerateContentMock = vi.hoisted(() => vi.fn());
+
+vi.mock("@google/genai", () => ({
+  GoogleGenAI: class {
+    models = {
+      generateContent: geminiGenerateContentMock,
+    };
+  },
+}));
+
 import {
   AnswerKind,
   SourceFileKind,
@@ -22,6 +32,7 @@ import {
   buildExistingMathExerciseContext,
   buildOpenRouterSourceMediaPart,
   buildSourceContextExcerpt,
+  createGeminiChoiceExerciseGenerator,
   createOpenRouterChoiceExerciseGenerator,
   createOpenRouterExactInputExerciseGenerator,
   createOpenRouterMathExerciseVerifier,
@@ -50,6 +61,7 @@ import {
 import type { SourceObjectStorage } from "@/lib/storage/s3";
 
 afterEach(() => {
+  geminiGenerateContentMock.mockReset();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
@@ -1395,6 +1407,106 @@ describe("buildOpenRouterSourceMediaPart", () => {
 });
 
 describe("OpenRouter exercise fallbacks", () => {
+  it("routes choice exercise generation to OpenRouter when Gemini fails retryably", async () => {
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    const warningSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    geminiGenerateContentMock.mockRejectedValueOnce(
+      new Error(
+        JSON.stringify({
+          error: {
+            code: 503,
+            status: "UNAVAILABLE",
+            message: "This model is currently experiencing high demand.",
+          },
+        }),
+      ),
+    );
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          choices: [
+            {
+              finish_reason: "stop",
+              message: {
+                content: JSON.stringify({
+                  exercises: [validExercise(1)],
+                }),
+              },
+            },
+          ],
+          model: "google/gemma-4-31b-it",
+        }),
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await createGeminiChoiceExerciseGenerator({
+      gemini: {
+        apiMode: "enterprise-agent-platform",
+        endpoint: "https://aiplatform.googleapis.com/",
+        model: "gemini-3.5-flash",
+        clientOptions: {
+          vertexai: true,
+          apiKey: "enterprise-key",
+          httpOptions: {
+            apiVersion: "v1",
+          },
+        },
+      },
+      openRouterFallback: {
+        apiKey: "sk-or-test",
+        baseUrl: "https://openrouter.ai/api/v1",
+        model: "google/gemma-4-31b-it",
+      },
+    })({
+      skill: {
+        id: "skill_1",
+        title: "Spanish source skill",
+        objective: "Practice the source-backed Spanish grammar pattern.",
+        rules: null,
+        examples: null,
+        exerciseConstraints: null,
+        tags: ["spanish"],
+      },
+      sourceContext: "Use the worksheet scope.",
+      sourceMedia: [
+        {
+          sourceFileId: "source_image",
+          label: "worksheet.png",
+          mimeType: "image/png",
+          bytes: Buffer.from("image bytes"),
+        },
+      ],
+      requestedCount: 1,
+    });
+
+    expect(result).toEqual({ exercises: [validExercise(1)] });
+    expect(geminiGenerateContentMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(warningSpy).toHaveBeenCalledWith(
+      "[ai] retrying with fallback provider",
+      expect.objectContaining({
+        operation: "choice exercise generation",
+        failedModel: "gemini-3.5-flash",
+        fallbackProvider: "openrouter",
+        fallbackModel: "google/gemma-4-31b-it",
+      }),
+    );
+    const requestBody = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    expect(requestBody.messages[1].content[1]).toEqual({
+      type: "image_url",
+      image_url: {
+        url: "data:image/png;base64,aW1hZ2UgYnl0ZXM=",
+      },
+    });
+  });
+
   it("attaches original uploaded media to exercise generation and verification requests", async () => {
     vi.spyOn(console, "info").mockImplementation(() => {});
     const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
