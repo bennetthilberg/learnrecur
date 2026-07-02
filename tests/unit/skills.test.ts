@@ -1,4 +1,14 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+const geminiGenerateContentMock = vi.hoisted(() => vi.fn());
+
+vi.mock("@google/genai", () => ({
+  GoogleGenAI: class {
+    models = {
+      generateContent: geminiGenerateContentMock,
+    };
+  },
+}));
 
 import {
   AnswerKind,
@@ -22,6 +32,10 @@ import {
   buildExistingMathExerciseContext,
   buildOpenRouterSourceMediaPart,
   buildSourceContextExcerpt,
+  createGeminiChoiceExerciseGenerator,
+  createOpenRouterChoiceExerciseGenerator,
+  createOpenRouterExactInputExerciseGenerator,
+  createOpenRouterMathExerciseVerifier,
   filterDuplicateChoiceExercises,
   filterDuplicateExactInputExercises,
   filterDuplicateMathExercises,
@@ -45,6 +59,12 @@ import {
   type GeneratedMathExercise,
 } from "@/lib/skills";
 import type { SourceObjectStorage } from "@/lib/storage/s3";
+
+afterEach(() => {
+  geminiGenerateContentMock.mockReset();
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
 
 const validExercise = (id: number) => ({
   prompt: `What does sample ${id} mean?`,
@@ -1381,6 +1401,290 @@ describe("buildOpenRouterSourceMediaPart", () => {
       file: {
         filename: "..-worksheet page.pdf",
         file_data: "data:application/pdf;base64,JVBERg==",
+      },
+    });
+  });
+});
+
+describe("OpenRouter exercise fallbacks", () => {
+  it("routes choice exercise generation to OpenRouter when Gemini fails retryably", async () => {
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    const warningSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    geminiGenerateContentMock.mockRejectedValueOnce(
+      new Error(
+        JSON.stringify({
+          error: {
+            code: 503,
+            status: "UNAVAILABLE",
+            message: "This model is currently experiencing high demand.",
+          },
+        }),
+      ),
+    );
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          choices: [
+            {
+              finish_reason: "stop",
+              message: {
+                content: JSON.stringify({
+                  exercises: [validExercise(1)],
+                }),
+              },
+            },
+          ],
+          model: "google/gemma-4-31b-it",
+        }),
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const recordProviderUsage = vi.fn();
+
+    const result = await createGeminiChoiceExerciseGenerator({
+      gemini: {
+        apiMode: "enterprise-agent-platform",
+        endpoint: "https://aiplatform.googleapis.com/",
+        model: "gemini-3.5-flash",
+        clientOptions: {
+          vertexai: true,
+          apiKey: "enterprise-key",
+          httpOptions: {
+            apiVersion: "v1",
+          },
+        },
+      },
+      openRouterFallback: {
+        apiKey: "sk-or-test",
+        baseUrl: "https://openrouter.ai/api/v1",
+        model: "google/gemma-4-31b-it",
+      },
+      recordProviderUsage,
+    })({
+      skill: {
+        id: "skill_1",
+        title: "Spanish source skill",
+        objective: "Practice the source-backed Spanish grammar pattern.",
+        rules: null,
+        examples: null,
+        exerciseConstraints: null,
+        tags: ["spanish"],
+      },
+      sourceContext: "Use the worksheet scope.",
+      sourceMedia: [
+        {
+          sourceFileId: "source_image",
+          label: "worksheet.png",
+          mimeType: "image/png",
+          bytes: Buffer.from("image bytes"),
+        },
+      ],
+      requestedCount: 1,
+    });
+
+    expect(result).toEqual({ exercises: [validExercise(1)] });
+    expect(geminiGenerateContentMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(recordProviderUsage).toHaveBeenCalledWith({
+      provider: "openrouter",
+      model: "google/gemma-4-31b-it",
+    });
+    expect(warningSpy).toHaveBeenCalledWith(
+      "[ai] retrying with fallback provider",
+      expect.objectContaining({
+        operation: "choice exercise generation",
+        failedModel: "gemini-3.5-flash",
+        fallbackProvider: "openrouter",
+        fallbackModel: "google/gemma-4-31b-it",
+      }),
+    );
+    const requestBody = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    expect(requestBody.messages[1].content[1]).toEqual({
+      type: "image_url",
+      image_url: {
+        url: "data:image/png;base64,aW1hZ2UgYnl0ZXM=",
+      },
+    });
+  });
+
+  it("attaches original uploaded media to exercise generation and verification requests", async () => {
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      const request = JSON.parse(String(init?.body));
+      const schemaName = request.response_format.json_schema.name;
+      const content = schemaName.endsWith("Verification")
+        ? {
+            verifications: [
+              {
+                candidateId: "candidate_1",
+                verdict: "verified",
+              },
+            ],
+          }
+        : {
+            exercises: [validExercise(1)],
+          };
+
+      return new Response(
+        JSON.stringify({
+          choices: [
+            {
+              finish_reason: "stop",
+              message: {
+                content: JSON.stringify(content),
+              },
+            },
+          ],
+          model: "google/gemma-4-31b-it",
+        }),
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const openRouter = {
+      apiKey: "sk-or-test",
+      baseUrl: "https://openrouter.ai/api/v1",
+      model: "google/gemma-4-31b-it",
+    };
+    const skill = {
+      id: "skill_1",
+      title: "Spanish source skill",
+      objective: "Practice the source-backed Spanish grammar pattern.",
+      rules: null,
+      examples: null,
+      exerciseConstraints: null,
+      tags: ["spanish"],
+    };
+    const imageMedia = [
+      {
+        sourceFileId: "source_image",
+        label: "worksheet.png",
+        mimeType: "image/png" as const,
+        bytes: Buffer.from("image bytes"),
+      },
+    ];
+    const pdfMedia = [
+      {
+        sourceFileId: "source_pdf",
+        label: "worksheet.pdf",
+        mimeType: "application/pdf" as const,
+        bytes: Buffer.from("%PDF bytes"),
+      },
+    ];
+
+    await createOpenRouterChoiceExerciseGenerator(openRouter)({
+      skill,
+      sourceContext: "Use the worksheet scope.",
+      sourceMedia: imageMedia,
+      requestedCount: 1,
+    });
+    await createOpenRouterExactInputExerciseGenerator(openRouter)({
+      skill,
+      sourceContext: "Use the PDF scope.",
+      sourceMedia: pdfMedia,
+      requestedCount: 1,
+    });
+    await createOpenRouterMathExerciseVerifier(openRouter)({
+      skill,
+      sourceContext: "Use the worksheet scope.",
+      sourceMedia: imageMedia,
+      candidates: [
+        {
+          candidateId: "candidate_1",
+          ...validMathExercise(1),
+        },
+      ],
+    });
+
+    const requestBodies = fetchMock.mock.calls.map(([, init]) =>
+      JSON.parse(String(init?.body)),
+    );
+    expect(requestBodies.map((body) => body.model)).toEqual([
+      "google/gemma-4-31b-it",
+      "google/gemma-4-31b-it",
+      "google/gemma-4-31b-it",
+    ]);
+    expect(
+      requestBodies.map((body) => body.response_format.json_schema.name),
+    ).toEqual([
+      "choiceExerciseResponse",
+      "exactInputExerciseResponse",
+      "mathExerciseVerification",
+    ]);
+    expect(
+      requestBodies.every((body) => body.response_format.json_schema.strict === true),
+    ).toBe(true);
+    expect(
+      requestBodies[0].response_format.json_schema.schema.properties.exercises.items.required,
+    ).toEqual([
+      "prompt",
+      "choices",
+      "correctChoiceId",
+      "explanation",
+      "difficulty",
+      "expectedSeconds",
+    ]);
+    expect(
+      requestBodies[1].response_format.json_schema.schema.properties.exercises.items.required,
+    ).toEqual([
+      "prompt",
+      "answerKind",
+      "answerSpec",
+      "correctAnswerDisplay",
+      "explanation",
+      "difficulty",
+      "expectedSeconds",
+    ]);
+    expect(
+      requestBodies[1].response_format.json_schema.schema.properties.exercises.items.properties
+        .answerSpec.anyOf[0].required,
+    ).toEqual([
+      "kind",
+      "accepted",
+      "normalizeCase",
+      "normalizeWhitespace",
+      "normalizeDiacritics",
+    ]);
+    expect(
+      requestBodies[1].response_format.json_schema.schema.properties.exercises.items.properties
+        .answerSpec.anyOf[1].required,
+    ).toEqual(["kind", "accepted", "tolerance"]);
+    expect(
+      requestBodies[2].response_format.json_schema.schema.properties.verifications.items.required,
+    ).toEqual(["candidateId", "verdict", "reason", "note"]);
+    expect(
+      requestBodies[2].response_format.json_schema.schema.properties.verifications.items.properties
+        .reason.enum,
+    ).toContain(null);
+    expect(requestBodies[0].messages[1].content[1]).toEqual({
+      type: "image_url",
+      image_url: {
+        url: "data:image/png;base64,aW1hZ2UgYnl0ZXM=",
+      },
+    });
+    expect(requestBodies[1].messages[1].content[1]).toEqual({
+      type: "file",
+      file: {
+        filename: "worksheet.pdf",
+        file_data: "data:application/pdf;base64,JVBERiBieXRlcw==",
+      },
+    });
+    expect(requestBodies[2].messages[1].content[1]).toEqual({
+      type: "image_url",
+      image_url: {
+        url: "data:image/png;base64,aW1hZ2UgYnl0ZXM=",
       },
     });
   });
