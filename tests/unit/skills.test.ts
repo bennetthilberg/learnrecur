@@ -20,6 +20,7 @@ import {
   buildExistingChoiceExerciseContext,
   buildExistingExactInputExerciseContext,
   buildExistingMathExerciseContext,
+  buildOpenRouterSourceMediaPart,
   buildSourceContextExcerpt,
   filterDuplicateChoiceExercises,
   filterDuplicateExactInputExercises,
@@ -1351,6 +1352,37 @@ describe("loadSourceMediaContextForSourceFiles", () => {
         storage,
       }),
     ).rejects.toThrow("Uploaded source media bucket does not match configured storage.");
+  });
+});
+
+describe("buildOpenRouterSourceMediaPart", () => {
+  it("formats uploaded images and PDFs for OpenRouter multimodal chat content", () => {
+    expect(
+      buildOpenRouterSourceMediaPart({
+        bytes: Buffer.from("image"),
+        filename: "worksheet.png",
+        mimeType: "image/png",
+      }),
+    ).toEqual({
+      type: "image_url",
+      image_url: {
+        url: "data:image/png;base64,aW1hZ2U=",
+      },
+    });
+
+    expect(
+      buildOpenRouterSourceMediaPart({
+        bytes: Buffer.from("%PDF"),
+        filename: "../worksheet page.pdf",
+        mimeType: "application/pdf",
+      }),
+    ).toEqual({
+      type: "file",
+      file: {
+        filename: "..-worksheet page.pdf",
+        file_data: "data:application/pdf;base64,JVBERg==",
+      },
+    });
   });
 });
 

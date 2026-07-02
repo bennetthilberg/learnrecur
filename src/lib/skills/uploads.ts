@@ -25,18 +25,20 @@ import {
   inngestSourceUploadDraftEventSender,
   type SourceUploadDraftEventSender,
 } from "@/lib/inngest/events";
-import { getPrisma } from "@/lib/prisma";
-import { resolveOptionalQwenFallbackConfig } from "@/lib/qwen-fallback";
 import {
-  buildQwenImageDataUrl,
-  runQwenJsonChatCompletion,
-  type QwenFallbackConfig,
-} from "@/lib/qwen";
+  DEFAULT_OPENROUTER_MODEL,
+  runOpenRouterJsonChatCompletion,
+  type OpenRouterFallbackConfig,
+} from "@/lib/openrouter";
+import { resolveOptionalOpenRouterFallbackConfig } from "@/lib/openrouter-fallback";
+import { getPrisma } from "@/lib/prisma";
 import {
   MAX_COLLECTION_NAME_LENGTH,
   SOURCE_SKILL_DRAFT_PROMPT_VERSION,
+  buildOpenRouterSourceMediaPart,
   buildSourceContextExcerpt,
   createGeminiSkillDraftGenerator,
+  createOpenRouterSkillDraftGenerator,
   createGeneratedSkillDraftsForSourceFile,
   normalizeTags,
   validateGeneratedSkillDrafts,
@@ -154,6 +156,7 @@ export type CompleteSourceUploadDraftsInput = {
   userId: string;
   sourceFileId: string;
   now: Date;
+  forceGemmaFallback?: boolean;
   storage?: SourceUploadStorage;
   extractSourceText?: SourceTextExtractor;
   generateSkillDraft?: SkillDraftGenerator;
@@ -1514,6 +1517,46 @@ function resolveUploadGenerationSetup(
     };
   }
 
+  const openRouterFallbackResult = resolveOptionalOpenRouterFallbackConfig();
+  const openRouterFallback =
+    openRouterFallbackResult.status === "ready" ? openRouterFallbackResult.config : null;
+
+  if (openRouterFallbackResult.status === "invalid") {
+    if (input.forceGemmaFallback) {
+      return {
+        status: "missing-env",
+        model: input.model ?? (process.env.OPENROUTER_MODEL?.trim() || DEFAULT_OPENROUTER_MODEL),
+        message: openRouterFallbackResult.message,
+      };
+    }
+
+    console.warn("[ai] openrouter fallback disabled for upload generation", {
+      message: openRouterFallbackResult.message,
+    });
+  }
+
+  if (input.forceGemmaFallback) {
+    if (!openRouterFallback) {
+      return {
+        status: "missing-env",
+        model: input.model ?? (process.env.OPENROUTER_MODEL?.trim() || DEFAULT_OPENROUTER_MODEL),
+        message: "OPENROUTER_API_KEY is required to force Gemma fallback.",
+      };
+    }
+
+    console.warn("[ai] forcing fallback provider for upload generation", {
+      provider: "openrouter",
+      model: openRouterFallback.model,
+    });
+
+    return {
+      status: "ready",
+      model: openRouterFallback.model,
+      extractSourceText: input.extractSourceText ?? createOpenRouterSourceTextExtractor(openRouterFallback),
+      generateSkillDraft: input.generateSkillDraft ?? createOpenRouterSkillDraftGenerator(openRouterFallback),
+    };
+  }
+
   let gemini: GeminiRuntimeConfig;
 
   try {
@@ -1526,49 +1569,39 @@ function resolveUploadGenerationSetup(
     };
   }
 
-  const qwenFallbackResult = resolveOptionalQwenFallbackConfig();
-  const qwenFallback =
-    qwenFallbackResult.status === "ready" ? qwenFallbackResult.config : null;
-
-  if (qwenFallbackResult.status === "invalid") {
-    console.warn("[ai] qwen fallback disabled for upload generation", {
-      message: qwenFallbackResult.message,
-    });
-  }
-
   return {
     status: "ready",
     model: gemini.model,
     extractSourceText: input.extractSourceText ?? createGeminiSourceTextExtractor({
       gemini,
-      qwenFallback,
+      openRouterFallback,
     }),
     generateSkillDraft: input.generateSkillDraft ?? createGeminiSkillDraftGenerator({
       gemini,
-      qwenFallback,
+      openRouterFallback,
     }),
   };
 }
 
 function createGeminiSourceTextExtractor({
   gemini,
-  qwenFallback,
+  openRouterFallback,
 }: {
   gemini: GeminiRuntimeConfig;
-  qwenFallback?: QwenFallbackConfig | null;
+  openRouterFallback?: OpenRouterFallbackConfig | null;
 }): SourceTextExtractor {
   return async (input) => {
-    const qwenSourceFallback =
-      qwenFallback && input.mimeType.startsWith("image/")
+    const openRouterSourceFallback =
+      openRouterFallback
         ? {
-            provider: "qwen",
-            model: qwenFallback.model,
-            run: () => createQwenSourceTextExtractor(qwenFallback)(input),
+            provider: "openrouter",
+            model: openRouterFallback.model,
+            run: () => createOpenRouterSourceTextExtractor(openRouterFallback)(input),
           }
         : null;
 
     return runWithGeminiProviderFallback({
-      fallback: qwenSourceFallback,
+      fallback: openRouterSourceFallback,
       operation: "source text extraction",
       primary: getGeminiRuntimeLogContext(gemini),
       primaryModel: gemini.model,
@@ -1631,17 +1664,28 @@ function createGeminiSourceTextExtractor({
   };
 }
 
-function createQwenSourceTextExtractor({
+function createOpenRouterSourceTextExtractor({
   apiKey,
   baseUrl,
   model,
-}: QwenFallbackConfig): SourceTextExtractor {
+}: OpenRouterFallbackConfig): SourceTextExtractor {
   return async (input) =>
-    normalizeQwenSourceTextExtraction(await runQwenJsonChatCompletion({
+    normalizeOpenRouterSourceTextExtraction(await runOpenRouterJsonChatCompletion({
       apiKey,
       baseUrl,
       model,
+      metadata: {
+        promptChars: buildSourceExtractionPrompt(input).length,
+        schemaName: "openRouterSourceExtractionJsonSchema",
+        media: {
+          count: 1,
+          totalBytes: input.bytes.length,
+          mimeTypes: [input.mimeType],
+        },
+      },
       operation: "source text extraction",
+      responseJsonSchema: openRouterSourceExtractionJsonSchema,
+      responseJsonSchemaName: "sourceTextExtraction",
       messages: [
         {
           role: "system",
@@ -1654,19 +1698,18 @@ function createQwenSourceTextExtractor({
               type: "text",
               text: buildSourceExtractionPrompt(input),
             },
-            {
-              type: "image_url",
-              image_url: {
-                url: buildQwenImageDataUrl(input.bytes, input.mimeType),
-              },
-            },
+            buildOpenRouterSourceMediaPart({
+              bytes: input.bytes,
+              filename: input.originalName,
+              mimeType: input.mimeType,
+            }),
           ],
         },
       ],
     }));
 }
 
-function normalizeQwenSourceTextExtraction(input: unknown): unknown {
+function normalizeOpenRouterSourceTextExtraction(input: unknown): unknown {
   const record = getObjectRecord(input);
 
   if (!record) {
@@ -1730,6 +1773,8 @@ const geminiSourceExtractionJsonSchema = {
     },
   },
 };
+
+const openRouterSourceExtractionJsonSchema = geminiSourceExtractionJsonSchema;
 
 function resolveUploadStorage(storage?: SourceUploadStorage):
   | {

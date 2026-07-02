@@ -57,7 +57,7 @@ describe("Gemini fallback helpers", () => {
     });
   });
 
-  it("retries retryable provider errors with Qwen fallback", async () => {
+  it("retries retryable provider errors with OpenRouter fallback", async () => {
     const warningSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const calls: string[] = [];
 
@@ -78,23 +78,23 @@ describe("Gemini fallback helpers", () => {
           );
         },
         fallback: {
-          provider: "qwen",
-          model: "qwen3.7-plus",
+          provider: "openrouter",
+          model: "google/gemma-4-31b-it",
           async run() {
-            calls.push("qwen");
-            return "ok:qwen";
+            calls.push("openrouter");
+            return "ok:openrouter";
           },
         },
       }),
-    ).resolves.toBe("ok:qwen");
+    ).resolves.toBe("ok:openrouter");
 
-    expect(calls).toEqual(["gemini", "qwen"]);
+    expect(calls).toEqual(["gemini", "openrouter"]);
     expect(warningSpy).toHaveBeenCalledWith(
       "[ai] retrying with fallback provider",
       expect.objectContaining({
         failedModel: "gemini-3.5-flash",
-        fallbackProvider: "qwen",
-        fallbackModel: "qwen3.7-plus",
+        fallbackProvider: "openrouter",
+        fallbackModel: "google/gemma-4-31b-it",
       }),
     );
     warningSpy.mockRestore();
@@ -120,11 +120,11 @@ describe("Gemini fallback helpers", () => {
           );
         },
         fallback: {
-          provider: "qwen",
-          model: "qwen3.7-plus",
+          provider: "openrouter",
+          model: "google/gemma-4-31b-it",
           async run() {
-            calls.push("qwen");
-            return "ok:qwen";
+            calls.push("openrouter");
+            return "ok:openrouter";
           },
         },
       }),

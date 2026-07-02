@@ -3508,6 +3508,28 @@ body {
   margin: 0;
 }
 
+.createSkillTestToggle {
+  display: flex;
+  width: fit-content;
+  align-items: center;
+  gap: 9px;
+  color: var(--lr-text-secondary);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.createSkillTestToggle input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--lr-blue);
+}
+
+.createSkillTestToggle:has(input:checked) {
+  color: var(--lr-ink);
+  font-weight: 700;
+}
+
 .createSkillMaterialStack,
 .createSkillMaterialForm {
   display: grid;

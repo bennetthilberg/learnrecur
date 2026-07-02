@@ -34,14 +34,18 @@ import {
   runWithGeminiProviderFallback,
   type GeminiRuntimeConfig,
 } from "@/lib/gemini";
-import { getPrisma } from "@/lib/prisma";
 import {
-  buildQwenImageDataUrl,
-  runQwenJsonChatCompletion,
-  type QwenChatMessage,
-  type QwenFallbackConfig,
-} from "@/lib/qwen";
-import { resolveOptionalQwenFallbackConfig } from "@/lib/qwen-fallback";
+  DEFAULT_OPENROUTER_MODEL,
+  buildOpenRouterDataUrl,
+  runOpenRouterJsonChatCompletion,
+  type OpenRouterChatMessage,
+  type OpenRouterContentPart,
+  type OpenRouterFallbackConfig,
+} from "@/lib/openrouter";
+import {
+  resolveOptionalOpenRouterFallbackConfig,
+} from "@/lib/openrouter-fallback";
+import { getPrisma } from "@/lib/prisma";
 import { createInitialSkillSchedule } from "@/lib/scheduling";
 import {
   MAX_SOURCE_UPLOAD_BYTES,
@@ -540,6 +544,7 @@ export type CreateSkillDraftFromSourceInput = {
   userId: string;
   input: unknown;
   now: Date;
+  forceGemmaFallback?: boolean;
   generateSkillDraft?: SkillDraftGenerator;
   model?: string;
   recoveredSourceFileId?: string | null;
@@ -4042,6 +4047,45 @@ function resolveSourceDraftSetup(
     };
   }
 
+  const openRouterFallbackResult = resolveOptionalOpenRouterFallbackConfig();
+  const openRouterFallback =
+    openRouterFallbackResult.status === "ready" ? openRouterFallbackResult.config : null;
+
+  if (openRouterFallbackResult.status === "invalid") {
+    if (input.forceGemmaFallback) {
+      return {
+        status: "missing-env",
+        model: input.model ?? (process.env.OPENROUTER_MODEL?.trim() || DEFAULT_OPENROUTER_MODEL),
+        message: openRouterFallbackResult.message,
+      };
+    }
+
+    console.warn("[ai] openrouter fallback disabled for skill draft generation", {
+      message: openRouterFallbackResult.message,
+    });
+  }
+
+  if (input.forceGemmaFallback) {
+    if (!openRouterFallback) {
+      return {
+        status: "missing-env",
+        model: input.model ?? (process.env.OPENROUTER_MODEL?.trim() || DEFAULT_OPENROUTER_MODEL),
+        message: "OPENROUTER_API_KEY is required to force Gemma fallback.",
+      };
+    }
+
+    console.warn("[ai] forcing fallback provider for skill draft generation", {
+      provider: "openrouter",
+      model: openRouterFallback.model,
+    });
+
+    return {
+      status: "ready",
+      model: openRouterFallback.model,
+      generateSkillDraft: createOpenRouterSkillDraftGenerator(openRouterFallback),
+    };
+  }
+
   let gemini: GeminiRuntimeConfig;
 
   try {
@@ -4054,42 +4098,32 @@ function resolveSourceDraftSetup(
     };
   }
 
-  const qwenFallbackResult = resolveOptionalQwenFallbackConfig();
-  const qwenFallback =
-    qwenFallbackResult.status === "ready" ? qwenFallbackResult.config : null;
-
-  if (qwenFallbackResult.status === "invalid") {
-    console.warn("[ai] qwen fallback disabled for skill draft generation", {
-      message: qwenFallbackResult.message,
-    });
-  }
-
   return {
     status: "ready",
     model: gemini.model,
     generateSkillDraft: createGeminiSkillDraftGenerator({
       gemini,
-      qwenFallback,
+      openRouterFallback,
     }),
   };
 }
 
 export function createGeminiSkillDraftGenerator({
   gemini,
-  qwenFallback,
+  openRouterFallback,
 }: {
   gemini: GeminiRuntimeConfig;
-  qwenFallback?: QwenFallbackConfig | null;
+  openRouterFallback?: OpenRouterFallbackConfig | null;
 }): SkillDraftGenerator {
   return async (input) => {
-    const qwenFallbackForInput = qwenSkillDraftFallbackForInput(qwenFallback, input);
+    const openRouterFallbackForInput = openRouterSkillDraftFallbackForInput(openRouterFallback, input);
 
     return runWithGeminiProviderFallback({
-      fallback: qwenFallbackForInput
+      fallback: openRouterFallbackForInput
         ? {
-            provider: "qwen",
-            model: qwenFallbackForInput.model,
-            run: () => createQwenSkillDraftGenerator(qwenFallbackForInput)(input),
+            provider: "openrouter",
+            model: openRouterFallbackForInput.model,
+            run: () => createOpenRouterSkillDraftGenerator(openRouterFallbackForInput)(input),
           }
         : null,
       operation: "skill draft generation",
@@ -4134,17 +4168,24 @@ export function createGeminiSkillDraftGenerator({
   };
 }
 
-export function createQwenSkillDraftGenerator({
+export function createOpenRouterSkillDraftGenerator({
   apiKey,
   baseUrl,
   model,
-}: QwenFallbackConfig): SkillDraftGenerator {
+}: OpenRouterFallbackConfig): SkillDraftGenerator {
   return async (input) =>
-    runQwenJsonChatCompletion({
+    runOpenRouterJsonChatCompletion({
       apiKey,
       baseUrl,
       model,
+      metadata: {
+        promptChars: buildSourceSkillDraftPrompt(input).length,
+        schemaName: "openRouterSkillDraftJsonSchema",
+        media: buildSourceMediaLogMetadata(input.sourceMedia),
+      },
       operation: "skill draft generation",
+      responseJsonSchema: geminiSkillDraftJsonSchema,
+      responseJsonSchemaName: "skillDraft",
       messages: [
         {
           role: "system",
@@ -4152,45 +4193,45 @@ export function createQwenSkillDraftGenerator({
         },
         {
           role: "user",
-          content: buildQwenSkillDraftUserContent(input),
+          content: buildOpenRouterSkillDraftUserContent(input),
         },
       ],
     });
 }
 
-function qwenSkillDraftFallbackForInput(
-  qwenFallback: QwenFallbackConfig | null | undefined,
+function openRouterSkillDraftFallbackForInput(
+  openRouterFallback: OpenRouterFallbackConfig | null | undefined,
   input: SkillDraftGeneratorInput,
 ) {
-  if (!qwenFallback) {
+  if (!openRouterFallback) {
     return null;
   }
 
   if (!input.sourceMedia?.length) {
-    return qwenFallback;
+    return openRouterFallback;
   }
 
-  if (input.sourceMedia.every((media) => media.mimeType.startsWith("image/"))) {
-    return qwenFallback;
+  if (
+    input.sourceMedia.every((media) =>
+      media.mimeType.startsWith("image/") || media.mimeType === "application/pdf",
+    )
+  ) {
+    return openRouterFallback;
   }
 
-  console.warn("[ai] qwen fallback disabled for non-image source media", {
+  console.warn("[ai] openrouter fallback disabled for unsupported source media", {
     mediaMimeTypes: input.sourceMedia.map((media) => media.mimeType),
   });
   return null;
 }
 
-function buildQwenSkillDraftUserContent(
+function buildOpenRouterSkillDraftUserContent(
   input: SkillDraftGeneratorInput,
-): QwenChatMessage["content"] {
+): OpenRouterChatMessage["content"] {
   const prompt = buildSourceSkillDraftPrompt(input);
 
   if (!input.sourceMedia?.length) {
     return prompt;
-  }
-
-  if (input.sourceMedia.some((media) => !media.mimeType.startsWith("image/"))) {
-    throw new Error("Qwen skill draft generation only supports image source media.");
   }
 
   return [
@@ -4198,13 +4239,55 @@ function buildQwenSkillDraftUserContent(
       type: "text",
       text: prompt,
     },
-    ...input.sourceMedia.map((media) => ({
-      type: "image_url" as const,
-      image_url: {
-        url: buildQwenImageDataUrl(media.bytes, media.mimeType),
-      },
-    })),
+    ...input.sourceMedia.map((media) =>
+      buildOpenRouterSourceMediaPart({
+        bytes: media.bytes,
+        filename: media.label,
+        mimeType: media.mimeType,
+      }),
+    ),
   ];
+}
+
+export function buildOpenRouterSourceMediaPart({
+  bytes,
+  filename,
+  mimeType,
+}: {
+  bytes: Buffer;
+  filename: string;
+  mimeType: SourceUploadMimeType;
+}): OpenRouterContentPart {
+  const dataUrl = buildOpenRouterDataUrl(bytes, mimeType);
+
+  if (mimeType.startsWith("image/")) {
+    return {
+      type: "image_url",
+      image_url: {
+        url: dataUrl,
+      },
+    };
+  }
+
+  if (mimeType === "application/pdf") {
+    return {
+      type: "file",
+      file: {
+        filename: sanitizeOpenRouterFilename(filename) || "source.pdf",
+        file_data: dataUrl,
+      },
+    };
+  }
+
+  throw new Error(`OpenRouter source media does not support ${mimeType}.`);
+}
+
+function sanitizeOpenRouterFilename(filename: string): string {
+  return filename
+    .replace(/[/\\]/g, "-")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 160);
 }
 
 function createGeminiChoiceExerciseGenerator({

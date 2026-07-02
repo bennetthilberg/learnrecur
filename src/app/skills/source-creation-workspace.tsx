@@ -47,6 +47,7 @@ type MaterialSnapshot = {
   sourceText: string;
   sourceLabel: string;
   collectionName: string;
+  forceGemmaFallback: boolean;
   focusNote: string;
   tags: string;
   recoveredSourceFileId: string;
@@ -87,6 +88,7 @@ const emptyMaterialSnapshot: MaterialSnapshot = {
   sourceText: "",
   sourceLabel: "",
   collectionName: "",
+  forceGemmaFallback: false,
   focusNote: "",
   recoveredSourceFileId: "",
   tags: "",
@@ -477,6 +479,7 @@ export function SourceCreationWorkspace({
 
       setUploadStatus("generating");
       const completed = await completeSourceUploadAction({
+        forceGemmaFallback: formData.get("forceGemmaFallback") === "yes",
         sourceFileId: prepared.sourceFileId,
       });
 
@@ -721,7 +724,8 @@ export function SourceCreationWorkspace({
               activeFieldErrors?.sourceLabel?.length ||
                 activeFieldErrors?.collectionName?.length ||
                 activeFieldErrors?.focusNote?.length ||
-                activeFieldErrors?.tags?.length
+                activeFieldErrors?.tags?.length ||
+                materialSnapshot.forceGemmaFallback
                 ? true
                 : undefined
             }
@@ -764,6 +768,17 @@ export function SourceCreationWorkspace({
                 placeholder="spanish, verbs, grammar"
                 defaultValue={materialSnapshot.tags}
               />
+
+              <label className="createSkillTestToggle">
+                <input
+                  defaultChecked={materialSnapshot.forceGemmaFallback}
+                  disabled={busy}
+                  name="forceGemmaFallback"
+                  type="checkbox"
+                  value="yes"
+                />
+                <span>Force Gemma fallback</span>
+              </label>
             </div>
           </details>
 
@@ -1152,6 +1167,7 @@ function formDataToMaterialSnapshot(formData: FormData): MaterialSnapshot {
     sourceText: stringFormValue(formData.get("sourceText")),
     sourceLabel: stringFormValue(formData.get("sourceLabel")),
     collectionName: stringFormValue(formData.get("collectionName")),
+    forceGemmaFallback: formData.get("forceGemmaFallback") === "yes",
     focusNote: stringFormValue(formData.get("focusNote")),
     recoveredSourceFileId: stringFormValue(formData.get("recoveredSourceFileId")),
     tags: stringFormValue(formData.get("tags")),

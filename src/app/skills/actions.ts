@@ -221,6 +221,7 @@ export async function generateSkillDraftFromSourceAction(
   const result = await createSkillDraftFromSource({
     userId: user.userId,
     now: new Date(),
+    forceGemmaFallback: getFormBoolean(formData, "forceGemmaFallback"),
     input: formDataToSourceDraftInput(formData),
     persistFailedSource: true,
     recoveredSourceFileId: getOptionalFormString(formData, "recoveredSourceFileId"),
@@ -325,6 +326,7 @@ export async function prepareSourceUploadAction(
 }
 
 export async function completeSourceUploadAction(input: {
+  forceGemmaFallback?: boolean;
   sourceFileId: string;
 }): Promise<CompleteSourceUploadActionResult> {
   const user = await requireSkillActionUser();
@@ -336,6 +338,7 @@ export async function completeSourceUploadAction(input: {
   const result = await completeSourceUploadDrafts({
     userId: user.userId,
     sourceFileId: input.sourceFileId,
+    forceGemmaFallback: input.forceGemmaFallback === true,
     now: new Date(),
   });
 
@@ -1047,6 +1050,10 @@ function getFormString(formData: FormData, key: string): string {
 function getOptionalFormString(formData: FormData, key: string): string | null {
   const value = getFormString(formData, key).trim();
   return value.length > 0 ? value : null;
+}
+
+function getFormBoolean(formData: FormData, key: string): boolean {
+  return formData.get(key) === "yes";
 }
 
 function notesToText(value: Prisma.JsonValue | null): string {
