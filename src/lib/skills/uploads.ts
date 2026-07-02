@@ -1996,6 +1996,7 @@ async function runQueuedSourceUploadDraftBatchJob(
   }
 
   const processedSources: ProcessedSourceUploadBatchItem[] = [];
+  let actualTotalByteSize = 0;
 
   for (const source of processingSources) {
     let bytes: Buffer;
@@ -2038,6 +2039,20 @@ async function runQueuedSourceUploadDraftBatchJob(
         { retainStoredObject: false, batchSourceFileIds: sourceFileIds },
       );
       return notCreated("invalid-upload", message);
+    }
+
+    actualTotalByteSize += bytes.length;
+
+    if (actualTotalByteSize > MAX_TOTAL_SOURCE_UPLOAD_BYTES) {
+      await markUploadedSourcesFailed(
+        processingSources.map((processingSource) => processingSource.sourceFile),
+        storageSetup.storage,
+        input.now,
+        "invalid-upload",
+        SOURCE_UPLOAD_TOTAL_MAX_BYTES_ERROR,
+        { retainStoredObject: false, batchSourceFileIds: sourceFileIds },
+      );
+      return notCreated("invalid-upload", SOURCE_UPLOAD_TOTAL_MAX_BYTES_ERROR);
     }
 
     const originalName =

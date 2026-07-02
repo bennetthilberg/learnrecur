@@ -506,11 +506,18 @@ export function SourceCreationWorkspace({
 
         preparedSourceFileIds.push(prepared.sourceFileId);
         setUploadStatus("uploading");
-        const uploadResponse = await fetch(prepared.uploadUrl, {
-          method: "PUT",
-          headers: prepared.headers,
-          body: file,
-        });
+        let uploadResponse: Response;
+
+        try {
+          uploadResponse = await fetch(prepared.uploadUrl, {
+            method: "PUT",
+            headers: prepared.headers,
+            body: file,
+          });
+        } catch (error) {
+          await cleanupPreparedUploadBatch(preparedSourceFileIds);
+          throw error;
+        }
 
         if (!uploadResponse.ok) {
           await cleanupPreparedUploadBatch(preparedSourceFileIds);

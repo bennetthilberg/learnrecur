@@ -2532,6 +2532,89 @@ describeDatabase("skill drafts and Gemini activation", () => {
     expect(deletedKeys).toEqual([prepared.objectKey]);
   });
 
+  it("rejects a batch when actual object bytes exceed the total source upload limit", async () => {
+    const userId = await createUser("upload_actual_total_limit");
+    const metadataByteSize = 4096;
+    const actualBytes = Buffer.alloc(Math.floor(MAX_SOURCE_UPLOAD_BYTES / 2), 1);
+    let actualReadCount = 0;
+    const { storage, deletedKeys } = createFakeUploadStorage({
+      byteSize: metadataByteSize,
+      bytes: Buffer.from("valid queued upload"),
+    });
+    const guardedStorage: SourceUploadStorage = {
+      ...storage,
+      async getObjectBytes() {
+        actualReadCount += 1;
+        return actualBytes;
+      },
+    };
+    const preparedSourceFileIds: string[] = [];
+    const preparedObjectKeys: string[] = [];
+
+    for (const originalName of [
+      "worksheet-page-1.png",
+      "worksheet-page-2.png",
+      "worksheet-page-3.png",
+      "worksheet-page-4.png",
+      "worksheet-page-5.png",
+    ]) {
+      const prepared = await prepareSourceUpload({
+        userId,
+        now,
+        storage: guardedStorage,
+        input: {
+          originalName,
+          mimeType: "image/png",
+          byteSize: String(metadataByteSize),
+        },
+      });
+
+      if (prepared.status !== "prepared") {
+        throw new Error("Expected upload preparation to succeed.");
+      }
+
+      preparedSourceFileIds.push(prepared.sourceFileId);
+      preparedObjectKeys.push(prepared.objectKey);
+    }
+
+    const completed = await completeSourceUploadDrafts({
+      userId,
+      sourceFileId: preparedSourceFileIds[0],
+      sourceFileIds: preparedSourceFileIds,
+      now,
+      storage: guardedStorage,
+      extractSourceText: successfulSourceExtractor,
+      generateSkillDraft: successfulSkillDraftGenerator,
+      model: "test-gemini",
+    });
+
+    expect(completed).toMatchObject({
+      status: "not-created",
+      reason: "invalid-upload",
+      message: "Upload files totaling 20 MB or less.",
+    });
+    expect(actualReadCount).toBe(5);
+
+    const failedSources = await prisma.sourceFile.findMany({
+      where: {
+        id: {
+          in: preparedSourceFileIds,
+        },
+        userId,
+      },
+      orderBy: {
+        originalName: "asc",
+      },
+    });
+
+    expect(failedSources).toHaveLength(5);
+    expect(failedSources.every((sourceFile) => sourceFile.status === SourceFileStatus.FAILED)).toBe(
+      true,
+    );
+    expect(failedSources.every((sourceFile) => sourceFile.storageKey === null)).toBe(true);
+    expect(deletedKeys.toSorted()).toEqual(preparedObjectKeys.toSorted());
+  });
+
   it("cleans up queued upload state when head revalidation cannot find the object", async () => {
     const userId = await createUser("upload_missing_head_object");
     const missingObjectError = Object.assign(new Error("object missing"), {
