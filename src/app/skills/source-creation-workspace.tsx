@@ -25,6 +25,7 @@ import {
 } from "@/lib/skills/source-upload-policy";
 
 import {
+  cleanupPreparedSourceUploadsAction,
   completeSourceUploadAction,
   generateSkillDraftFromSourceAction,
   prepareSourceUploadAction,
@@ -417,6 +418,28 @@ export function SourceCreationWorkspace({
     [showNotice],
   );
 
+  const cleanupPreparedUploadBatch = useCallback(async (sourceFileIds: string[]) => {
+    if (sourceFileIds.length === 0) {
+      return;
+    }
+
+    try {
+      const cleaned = await cleanupPreparedSourceUploadsAction({
+        sourceFileIds,
+      });
+
+      if (cleaned.status === "error") {
+        console.warn("[source-upload] partial upload cleanup failed", {
+          message: cleaned.message,
+        });
+      }
+    } catch (error) {
+      console.warn("[source-upload] partial upload cleanup failed", {
+        message: formatClientError(error),
+      });
+    }
+  }, []);
+
   const handleUploadSubmit = useCallback(
     async (form: HTMLFormElement) => {
       const filesForUpload = selectedFiles.map((selectedFile) => selectedFile.file);
@@ -469,10 +492,12 @@ export function SourceCreationWorkspace({
         const prepared = await prepareSourceUploadAction(formData);
 
         if (prepared.status !== "prepared") {
+          await cleanupPreparedUploadBatch(preparedSourceFileIds);
           handleActionError(prepared);
           return;
         }
 
+        preparedSourceFileIds.push(prepared.sourceFileId);
         setUploadStatus("uploading");
         const uploadResponse = await fetch(prepared.uploadUrl, {
           method: "PUT",
@@ -481,6 +506,7 @@ export function SourceCreationWorkspace({
         });
 
         if (!uploadResponse.ok) {
+          await cleanupPreparedUploadBatch(preparedSourceFileIds);
           setUploadStatus("error");
           showNotice({
             tone: "error",
@@ -488,8 +514,6 @@ export function SourceCreationWorkspace({
           });
           return;
         }
-
-        preparedSourceFileIds.push(prepared.sourceFileId);
       }
 
       setUploadStatus("generating");
@@ -526,7 +550,7 @@ export function SourceCreationWorkspace({
         router.refresh();
       }
     },
-    [handleActionError, router, selectedFiles, showNotice],
+    [cleanupPreparedUploadBatch, handleActionError, router, selectedFiles, showNotice],
   );
 
   const submitUpload = useCallback(

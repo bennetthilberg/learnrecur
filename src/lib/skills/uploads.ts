@@ -178,6 +178,13 @@ export type QueueSourceUploadDraftsInput = {
   eventSender?: SourceUploadDraftEventSender;
 };
 
+type QueueSourceUploadDraftBatchInput = {
+  userId: string;
+  sourceFileIds: string[];
+  now: Date;
+  storage?: SourceUploadStorage;
+};
+
 export type QueueSourceUploadDraftsResult =
   | {
       status: "queued";
@@ -198,6 +205,14 @@ export type QueueSourceUploadDraftsResult =
         | "event-send-failed";
       message: string;
     };
+
+type QueueSourceUploadDraftBatchResult =
+  | {
+      status: "queued";
+      sourceFileIds: string[];
+      message: string;
+    }
+  | Extract<QueueSourceUploadDraftsResult, { status: "not-found" | "not-queued" }>;
 
 export type RequeueSourceUploadDraftInput = {
   userId: string;
@@ -384,6 +399,7 @@ export function getSourceUploadRetryCount(metadata: Prisma.JsonValue | null): nu
 export function canRequeueSourceUploadMetadata(metadata: Prisma.JsonValue | null): boolean {
   return (
     !isSourceUploadDismissalPendingMetadata(metadata) &&
+    !isMultiFileSourceUploadBatchMetadata(metadata) &&
     getSourceUploadRetryCount(metadata) < MAX_SOURCE_UPLOAD_REQUEUE_ATTEMPTS
   );
 }
@@ -394,6 +410,10 @@ export function isDismissedSourceUploadMetadata(metadata: Prisma.JsonValue | nul
 
 function isSourceUploadDismissalPendingMetadata(metadata: Prisma.JsonValue | null): boolean {
   return Boolean(getMetadataString(metadata, "dismissalPendingAt"));
+}
+
+function isMultiFileSourceUploadBatchMetadata(metadata: Prisma.JsonValue | null): boolean {
+  return getMetadataStringArray(metadata, "batchSourceFileIds").length > 1;
 }
 
 function buildPendingSourceUploadDismissalMetadata(
@@ -636,9 +656,10 @@ function normalizeCompletionSourceFileIds(input: CompleteSourceUploadDraftsInput
       status: "invalid";
       message: string;
     } {
+  const sourceFileIdsInput = Array.isArray(input.sourceFileIds) ? input.sourceFileIds : [];
   const rawSourceFileIds =
-    input.sourceFileIds && input.sourceFileIds.length > 0
-      ? input.sourceFileIds
+    sourceFileIdsInput.length > 0
+      ? sourceFileIdsInput
       : [input.sourceFileId];
   const sourceFileIds = rawSourceFileIds
     .filter((sourceFileId): sourceFileId is string => typeof sourceFileId === "string")
@@ -677,7 +698,8 @@ export async function completeSourceUploadDrafts(
     return notCreated("invalid-upload", normalizedSourceFileIds.message);
   }
 
-  for (const sourceFileId of normalizedSourceFileIds.sourceFileIds) {
+  if (normalizedSourceFileIds.sourceFileIds.length === 1) {
+    const sourceFileId = normalizedSourceFileIds.sourceFileIds[0];
     const queued = await queueSourceUploadDrafts({
       userId: input.userId,
       sourceFileId,
@@ -697,6 +719,21 @@ export async function completeSourceUploadDrafts(
 
       return notCreated(queueFailureToCompletionReason(queued.reason), queued.message);
     }
+  } else {
+    const queued = await queueSourceUploadDraftBatch({
+      userId: input.userId,
+      sourceFileIds: normalizedSourceFileIds.sourceFileIds,
+      now: input.now,
+      storage: input.storage,
+    });
+
+    if (queued.status !== "queued") {
+      if (queued.status === "not-found") {
+        return sourceUploadSourceNotFound();
+      }
+
+      return notCreated(queueFailureToCompletionReason(queued.reason), queued.message);
+    }
   }
 
   return runQueuedSourceUploadDraftJob({
@@ -704,6 +741,168 @@ export async function completeSourceUploadDrafts(
     sourceFileId: normalizedSourceFileIds.sourceFileIds[0],
     sourceFileIds: normalizedSourceFileIds.sourceFileIds,
   });
+}
+
+export async function cleanupPreparedSourceUploads({
+  userId,
+  sourceFileIds,
+  storage,
+}: {
+  userId: string;
+  sourceFileIds: string[];
+  storage?: SourceUploadStorage;
+}): Promise<void> {
+  const uniqueSourceFileIds = sourceFileIds
+    .map((sourceFileId) => sourceFileId.trim())
+    .filter(Boolean)
+    .filter((sourceFileId, index, allSourceFileIds) => {
+      return allSourceFileIds.indexOf(sourceFileId) === index;
+    });
+
+  if (uniqueSourceFileIds.length === 0) {
+    return;
+  }
+
+  const prisma = getPrisma();
+  const sourceFiles = await prisma.sourceFile.findMany({
+    where: {
+      id: {
+        in: uniqueSourceFileIds,
+      },
+      userId,
+      status: SourceFileStatus.DRAFT,
+    },
+  });
+  const storageSetup = resolveUploadStorage(storage);
+  const cleanupStorage = storageSetup.status === "ready" ? storageSetup.storage : null;
+
+  await cleanupUploadedSources(sourceFiles, cleanupStorage);
+}
+
+async function queueSourceUploadDraftBatch(
+  input: QueueSourceUploadDraftBatchInput,
+): Promise<QueueSourceUploadDraftBatchResult> {
+  const prisma = getPrisma();
+  const sourceFiles = await prisma.sourceFile.findMany({
+    where: {
+      id: {
+        in: input.sourceFileIds,
+      },
+      userId: input.userId,
+    },
+  });
+  const orderedSourceFiles = input.sourceFileIds
+    .map((sourceFileId) => sourceFiles.find((sourceFile) => sourceFile.id === sourceFileId))
+    .filter((sourceFile): sourceFile is SourceFile => Boolean(sourceFile));
+
+  if (orderedSourceFiles.length !== input.sourceFileIds.length) {
+    const storageSetup = resolveUploadStorage(input.storage);
+    await cleanupUploadedSources(
+      orderedSourceFiles.filter((sourceFile) => sourceFile.status === SourceFileStatus.DRAFT),
+      storageSetup.status === "ready" ? storageSetup.storage : null,
+    );
+    return sourceUploadSourceNotFound();
+  }
+
+  const invalidStatusSource = orderedSourceFiles.find((sourceFile) => {
+    return (
+      sourceFile.status !== SourceFileStatus.DRAFT &&
+      sourceFile.status !== SourceFileStatus.UPLOADED
+    );
+  });
+
+  if (invalidStatusSource) {
+    const storageSetup = resolveUploadStorage(input.storage);
+    await cleanupUploadedSources(
+      orderedSourceFiles.filter((sourceFile) => sourceFile.status === SourceFileStatus.DRAFT),
+      storageSetup.status === "ready" ? storageSetup.storage : null,
+    );
+    return notQueued("invalid-upload", "This upload has already been processed or is processing.");
+  }
+
+  const storageSetup = resolveUploadStorage(input.storage);
+
+  if (storageSetup.status === "missing-env") {
+    await cleanupUploadedSources(
+      orderedSourceFiles.filter((sourceFile) => sourceFile.status === SourceFileStatus.DRAFT),
+      null,
+    );
+    return notQueued("missing-s3-env", storageSetup.message);
+  }
+
+  const validatedSources: Array<{
+    sourceFile: SourceFile;
+    byteSize: number;
+  }> = [];
+
+  for (const sourceFile of orderedSourceFiles) {
+    const uploadValidation = await validateStoredSourceUpload(sourceFile, storageSetup.storage);
+
+    if (uploadValidation.status === "invalid") {
+      await cleanupUploadedSources(
+        orderedSourceFiles.filter((candidate) => candidate.status === SourceFileStatus.DRAFT),
+        storageSetup.storage,
+      );
+      return notQueued("invalid-upload", uploadValidation.message);
+    }
+
+    validatedSources.push({
+      sourceFile,
+      byteSize: uploadValidation.byteSize,
+    });
+  }
+
+  const totalByteSize = validatedSources.reduce((sum, source) => sum + source.byteSize, 0);
+
+  if (totalByteSize > MAX_TOTAL_SOURCE_UPLOAD_BYTES) {
+    await cleanupUploadedSources(
+      orderedSourceFiles.filter((sourceFile) => sourceFile.status === SourceFileStatus.DRAFT),
+      storageSetup.storage,
+    );
+    return notQueued("invalid-upload", SOURCE_UPLOAD_TOTAL_MAX_BYTES_ERROR);
+  }
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      for (const source of validatedSources) {
+        if (source.sourceFile.status === SourceFileStatus.UPLOADED) {
+          continue;
+        }
+
+        const queuedSource = await tx.sourceFile.updateMany({
+          where: {
+            id: source.sourceFile.id,
+            userId: input.userId,
+            status: SourceFileStatus.DRAFT,
+            updatedAt: source.sourceFile.updatedAt,
+          },
+          data: {
+            status: SourceFileStatus.UPLOADED,
+            byteSize: source.byteSize,
+            metadata: buildQueuedUploadMetadata(source.sourceFile.metadata, input.now, {
+              batchSourceFileIds: input.sourceFileIds,
+            }),
+          },
+        });
+
+        if (queuedSource.count !== 1) {
+          throw new SourceUploadBatchQueueError();
+        }
+      }
+    });
+  } catch (error) {
+    if (error instanceof SourceUploadBatchQueueError) {
+      return notQueued("invalid-upload", "This upload has already been processed or is processing.");
+    }
+
+    throw error;
+  }
+
+  return {
+    status: "queued",
+    sourceFileIds: input.sourceFileIds,
+    message: "Upload received. Skills will appear in the library after preparation.",
+  };
 }
 
 export async function queueSourceUploadDrafts(
@@ -973,6 +1172,7 @@ export async function requeueSourceUploadDraft(
 function isFailedSourceUploadRequeueable(sourceFile: {
   kind: SourceFileKind;
   storageKey: string | null;
+  metadata: Prisma.JsonValue | null;
   _count: {
     skillRefs: number;
   };
@@ -980,6 +1180,7 @@ function isFailedSourceUploadRequeueable(sourceFile: {
   return (
     sourceFile.kind !== SourceFileKind.TEXT &&
     Boolean(sourceFile.storageKey) &&
+    !isMultiFileSourceUploadBatchMetadata(sourceFile.metadata) &&
     sourceFile._count.skillRefs === 0
   );
 }
@@ -1258,6 +1459,13 @@ class SourceUploadBatchLockError extends Error {
   }
 }
 
+class SourceUploadBatchQueueError extends Error {
+  constructor() {
+    super("Source upload batch changed while queueing started.");
+    this.name = "SourceUploadBatchQueueError";
+  }
+}
+
 export async function runQueuedSourceUploadDraftJob(
   input: CompleteSourceUploadDraftsInput,
 ): Promise<CompleteSourceUploadDraftsResult> {
@@ -1271,10 +1479,11 @@ export async function runQueuedSourceUploadDraftJob(
     return runQueuedSourceUploadDraftBatchJob(input, normalizedSourceFileIds.sourceFileIds);
   }
 
+  const sourceFileId = normalizedSourceFileIds.sourceFileIds[0];
   const prisma = getPrisma();
   const sourceFile = await prisma.sourceFile.findFirst({
     where: {
-      id: input.sourceFileId,
+      id: sourceFileId,
       userId: input.userId,
     },
   });
@@ -1632,6 +1841,7 @@ async function runQueuedSourceUploadDraftBatchJob(
       input.now,
       "missing-s3-env",
       storageSetup.message,
+      { batchSourceFileIds: sourceFileIds },
     );
     return notCreated("missing-s3-env", storageSetup.message);
   }
@@ -1649,6 +1859,7 @@ async function runQueuedSourceUploadDraftBatchJob(
         input.now,
         "invalid-upload",
         message,
+        { retainStoredObject: false, batchSourceFileIds: sourceFileIds },
       );
       return notCreated("invalid-upload", message);
     }
@@ -1661,6 +1872,7 @@ async function runQueuedSourceUploadDraftBatchJob(
         input.now,
         "invalid-upload",
         message,
+        { retainStoredObject: false, batchSourceFileIds: sourceFileIds },
       );
       return notCreated("invalid-upload", message);
     }
@@ -1686,6 +1898,10 @@ async function runQueuedSourceUploadDraftBatchJob(
         input.now,
         "invalid-upload",
         uploadValidation.message,
+        {
+          retainStoredObject: uploadValidation.retainStoredObject,
+          batchSourceFileIds: sourceFileIds,
+        },
       );
       return notCreated("invalid-upload", uploadValidation.message);
     }
@@ -1705,6 +1921,7 @@ async function runQueuedSourceUploadDraftBatchJob(
       input.now,
       "invalid-upload",
       SOURCE_UPLOAD_TOTAL_MAX_BYTES_ERROR,
+      { batchSourceFileIds: sourceFileIds },
     );
     return notCreated("invalid-upload", SOURCE_UPLOAD_TOTAL_MAX_BYTES_ERROR);
   }
@@ -1716,7 +1933,9 @@ async function runQueuedSourceUploadDraftBatchJob(
       const lockedSources: ProcessingSourceUploadBatchItem[] = [];
 
       for (const source of validatedSources) {
-        const processingMetadata = buildProcessingUploadMetadata(source.sourceFile.metadata, input.now);
+        const processingMetadata = buildProcessingUploadMetadata(source.sourceFile.metadata, input.now, {
+          batchSourceFileIds: sourceFileIds,
+        });
         const lockedForProcessing = await tx.sourceFile.updateMany({
           where: {
             id: source.sourceFile.id,
@@ -1770,6 +1989,7 @@ async function runQueuedSourceUploadDraftBatchJob(
       input.now,
       "missing-gemini-env",
       setup.message,
+      { batchSourceFileIds: sourceFileIds },
     );
     return notCreated("missing-gemini-env", setup.message);
   }
@@ -1798,6 +2018,10 @@ async function runQueuedSourceUploadDraftBatchJob(
         input.now,
         "invalid-upload",
         message,
+        {
+          retainStoredObject: !(isMissingObject || isSizeLimit),
+          batchSourceFileIds: sourceFileIds,
+        },
       );
       return notCreated("invalid-upload", message);
     }
@@ -1810,6 +2034,7 @@ async function runQueuedSourceUploadDraftBatchJob(
         input.now,
         "invalid-upload",
         message,
+        { retainStoredObject: false, batchSourceFileIds: sourceFileIds },
       );
       return notCreated("invalid-upload", message);
     }
@@ -1844,6 +2069,7 @@ async function runQueuedSourceUploadDraftBatchJob(
         input.now,
         "extraction-failed",
         message,
+        { batchSourceFileIds: sourceFileIds },
       );
       return notCreated("extraction-failed", message);
     }
@@ -1861,6 +2087,7 @@ async function runQueuedSourceUploadDraftBatchJob(
         input.now,
         "invalid-extraction",
         extraction.message,
+        { batchSourceFileIds: sourceFileIds },
       );
       return notCreated("invalid-extraction", extraction.message);
     }
@@ -1913,6 +2140,7 @@ async function runQueuedSourceUploadDraftBatchJob(
       input.now,
       "generation-failed",
       message,
+      { batchSourceFileIds: sourceFileIds },
     );
     return notCreated("generation-failed", message);
   }
@@ -1926,6 +2154,7 @@ async function runQueuedSourceUploadDraftBatchJob(
       input.now,
       "invalid-generation",
       generatedDrafts.message,
+      { batchSourceFileIds: sourceFileIds },
     );
     return notCreated("invalid-generation", generatedDrafts.message);
   }
@@ -1953,6 +2182,7 @@ async function runQueuedSourceUploadDraftBatchJob(
       input.now,
       "source-not-found",
       "Uploaded source material was not found.",
+      { batchSourceFileIds: sourceFileIds },
     );
     return sourceUploadSourceNotFound();
   }
@@ -2299,6 +2529,20 @@ async function cleanupUploadedSource(
   });
 }
 
+async function cleanupUploadedSources(
+  sourceFiles: Array<{
+    id: string;
+    userId: string;
+    storageBucket: string | null;
+    storageKey: string | null;
+  }>,
+  storage: SourceUploadStorage | null,
+) {
+  for (const sourceFile of sourceFiles) {
+    await cleanupUploadedSource(sourceFile, storage);
+  }
+}
+
 async function markUploadedSourceFailed(
   sourceFile: {
     id: string;
@@ -2395,10 +2639,28 @@ async function markUploadedSourcesFailed(
   message: string,
   options: {
     retainStoredObject?: boolean;
+    batchSourceFileIds?: string[];
   } = {},
 ) {
   for (const sourceFile of sourceFiles) {
-    await markUploadedSourceFailed(sourceFile, storage, now, reason, message, options);
+    const metadata = options.batchSourceFileIds
+      ? ({
+          ...getMetadataObject(sourceFile.metadata),
+          ...buildSourceUploadBatchMetadata(options.batchSourceFileIds),
+        } as Prisma.JsonValue)
+      : sourceFile.metadata;
+
+    await markUploadedSourceFailed(
+      {
+        ...sourceFile,
+        metadata,
+      },
+      storage,
+      now,
+      reason,
+      message,
+      options,
+    );
   }
 }
 
@@ -2442,9 +2704,13 @@ function buildUploadMetadata({
 function buildQueuedUploadMetadata(
   metadata: Prisma.JsonValue | null,
   now: Date,
+  options: {
+    batchSourceFileIds?: string[];
+  } = {},
 ): Prisma.InputJsonObject {
   return {
     ...getMetadataObject(metadata),
+    ...buildSourceUploadBatchMetadata(options.batchSourceFileIds),
     queuedAt: now.toISOString(),
   };
 }
@@ -2452,9 +2718,13 @@ function buildQueuedUploadMetadata(
 function buildProcessingUploadMetadata(
   metadata: Prisma.JsonValue | null,
   now: Date,
+  options: {
+    batchSourceFileIds?: string[];
+  } = {},
 ): Prisma.InputJsonObject {
   return {
     ...getMetadataObject(metadata),
+    ...buildSourceUploadBatchMetadata(options.batchSourceFileIds),
     processingStartedAt: now.toISOString(),
   };
 }
@@ -2470,6 +2740,20 @@ function buildFailedUploadMetadata(
     failedAt: now.toISOString(),
     failureReason: reason,
     errorMessage: message.slice(0, 500),
+  };
+}
+
+function buildSourceUploadBatchMetadata(sourceFileIds?: string[]): Prisma.InputJsonObject {
+  const batchSourceFileIds = (sourceFileIds ?? [])
+    .map((sourceFileId) => sourceFileId.trim())
+    .filter(Boolean);
+
+  if (batchSourceFileIds.length <= 1) {
+    return {};
+  }
+
+  return {
+    batchSourceFileIds,
   };
 }
 

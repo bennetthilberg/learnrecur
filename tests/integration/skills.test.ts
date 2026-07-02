@@ -23,6 +23,7 @@ import { getDashboardHome } from "@/lib/dashboard";
 import { getPrisma } from "@/lib/prisma";
 import {
   activateSkillDraft,
+  createGeneratedSkillDraftsForSourceFile,
   createSkillDraft,
   createSkillDraftFromSource,
   DEFAULT_READY_EXACT_INPUT_TARGET,
@@ -47,6 +48,7 @@ import {
   MAX_SOURCE_UPLOAD_BYTES,
   MAX_SOURCE_UPLOAD_REQUEUE_ATTEMPTS,
   SOURCE_PROCESSING_STALE_AFTER_MS,
+  cleanupPreparedSourceUploads,
   completeSourceUploadDrafts,
   dismissFailedSourceUpload,
   prepareSourceUpload,
@@ -218,6 +220,7 @@ function createFakeUploadStorage({
   mimeType = "image/png",
   byteSize = bytes.byteLength,
   headError = null,
+  headErrorForKey,
   getError = null,
   onDeleteObject,
 }: {
@@ -225,6 +228,7 @@ function createFakeUploadStorage({
   mimeType?: string;
   byteSize?: number;
   headError?: Error | null;
+  headErrorForKey?: (input: Parameters<SourceUploadStorage["headObject"]>[0]) => Error | null;
   getError?: Error | null;
   onDeleteObject?: (
     input: Parameters<SourceUploadStorage["deleteObject"]>[0],
@@ -246,7 +250,13 @@ function createFakeUploadStorage({
 
       return "https://s3.example.test/presigned-upload";
     },
-    async headObject() {
+    async headObject(input) {
+      const keyError = headErrorForKey?.(input);
+
+      if (keyError) {
+        throw keyError;
+      }
+
       if (headError) {
         throw headError;
       }
@@ -1983,6 +1993,301 @@ describeDatabase("skill drafts and Gemini activation", () => {
     expect(library.draftSkills).toHaveLength(1);
     expect(library.draftSkills[0]?.sourceRefCount).toBe(2);
     expect(library.sourceProcessing).toHaveLength(0);
+  });
+
+  it("uses a single normalized sourceFileIds value when completing an upload", async () => {
+    const userId = await createUser("upload_single_normalized_id");
+    const { storage } = createFakeUploadStorage({
+      byteSize: 4096,
+    });
+    const prepared = await prepareSourceUpload({
+      userId,
+      now,
+      storage,
+      input: {
+        originalName: "worksheet.png",
+        mimeType: "image/png",
+        byteSize: "4096",
+      },
+    });
+
+    if (prepared.status !== "prepared") {
+      throw new Error("Expected upload preparation to succeed.");
+    }
+
+    const completed = await completeSourceUploadDrafts({
+      userId,
+      sourceFileId: "wrong-source-id",
+      sourceFileIds: [prepared.sourceFileId],
+      now,
+      storage,
+      extractSourceText: successfulSourceExtractor,
+      generateSkillDraft: successfulSkillDraftGenerator,
+      model: "test-gemini",
+    });
+
+    expect(completed.status).toBe("created");
+    expect(completed).toMatchObject({
+      status: "created",
+      sourceFileId: prepared.sourceFileId,
+    });
+  });
+
+  it("cleans up prepared upload rows before a batch is completed", async () => {
+    const userId = await createUser("upload_cleanup_prepared_batch");
+    const { storage, deletedKeys } = createFakeUploadStorage();
+    const preparedSourceFileIds: string[] = [];
+    const preparedObjectKeys: string[] = [];
+
+    for (const originalName of ["worksheet-page-1.png", "worksheet-page-2.png"]) {
+      const prepared = await prepareSourceUpload({
+        userId,
+        now,
+        storage,
+        input: {
+          originalName,
+          mimeType: "image/png",
+          byteSize: "4096",
+        },
+      });
+
+      if (prepared.status !== "prepared") {
+        throw new Error("Expected upload preparation to succeed.");
+      }
+
+      preparedSourceFileIds.push(prepared.sourceFileId);
+      preparedObjectKeys.push(prepared.objectKey);
+    }
+
+    await cleanupPreparedSourceUploads({
+      userId,
+      sourceFileIds: preparedSourceFileIds,
+      storage,
+    });
+
+    await expect(
+      prisma.sourceFile.count({
+        where: {
+          id: {
+            in: preparedSourceFileIds,
+          },
+          userId,
+        },
+      }),
+    ).resolves.toBe(0);
+    expect(deletedKeys.toSorted()).toEqual(preparedObjectKeys.toSorted());
+  });
+
+  it("does not queue a partial batch when later uploaded source validation fails", async () => {
+    const userId = await createUser("upload_batch_queue_atomic");
+    let missingObjectKey = "";
+    const { storage, deletedKeys } = createFakeUploadStorage({
+      headErrorForKey: (input) => {
+        return input.key === missingObjectKey ? Object.assign(new Error("missing"), { name: "NoSuchKey" }) : null;
+      },
+    });
+    const preparedSourceFileIds: string[] = [];
+    const preparedObjectKeys: string[] = [];
+
+    for (const originalName of ["worksheet-page-1.png", "worksheet-page-2.png"]) {
+      const prepared = await prepareSourceUpload({
+        userId,
+        now,
+        storage,
+        input: {
+          originalName,
+          mimeType: "image/png",
+          byteSize: "4096",
+        },
+      });
+
+      if (prepared.status !== "prepared") {
+        throw new Error("Expected upload preparation to succeed.");
+      }
+
+      preparedSourceFileIds.push(prepared.sourceFileId);
+      preparedObjectKeys.push(prepared.objectKey);
+    }
+
+    missingObjectKey = preparedObjectKeys[1];
+
+    const completed = await completeSourceUploadDrafts({
+      userId,
+      sourceFileId: preparedSourceFileIds[0],
+      sourceFileIds: preparedSourceFileIds,
+      now,
+      storage,
+      extractSourceText: successfulSourceExtractor,
+      generateSkillDraft: successfulSkillDraftGenerator,
+      model: "test-gemini",
+    });
+
+    expect(completed).toMatchObject({
+      status: "not-created",
+      reason: "invalid-upload",
+    });
+    await expect(
+      prisma.sourceFile.count({
+        where: {
+          id: {
+            in: preparedSourceFileIds,
+          },
+          userId,
+        },
+      }),
+    ).resolves.toBe(0);
+    expect(deletedKeys.toSorted()).toEqual(preparedObjectKeys.toSorted());
+  });
+
+  it("does not offer per-file retry for failed multi-source upload batches", async () => {
+    const userId = await createUser("upload_multi_failed_no_single_retry");
+    const { storage } = createFakeUploadStorage({
+      byteSize: 4096,
+    });
+    const preparedSourceFileIds: string[] = [];
+
+    for (const originalName of ["worksheet-page-1.png", "worksheet-page-2.png"]) {
+      const prepared = await prepareSourceUpload({
+        userId,
+        now,
+        storage,
+        input: {
+          originalName,
+          mimeType: "image/png",
+          byteSize: "4096",
+        },
+      });
+
+      if (prepared.status !== "prepared") {
+        throw new Error("Expected upload preparation to succeed.");
+      }
+
+      preparedSourceFileIds.push(prepared.sourceFileId);
+    }
+
+    const completed = await completeSourceUploadDrafts({
+      userId,
+      sourceFileId: preparedSourceFileIds[0],
+      sourceFileIds: preparedSourceFileIds,
+      now,
+      storage,
+      extractSourceText: async () => {
+        throw new Error("transient extraction failure");
+      },
+      generateSkillDraft: successfulSkillDraftGenerator,
+      model: "test-gemini",
+    });
+
+    expect(completed).toMatchObject({
+      status: "not-created",
+      reason: "extraction-failed",
+    });
+
+    const library = await getSkillsLibrary({ userId, now });
+    expect(library.sourceProcessing).toHaveLength(2);
+    expect(library.sourceProcessing.every((source) => source.status === SourceFileStatus.FAILED)).toBe(
+      true,
+    );
+    expect(library.sourceProcessing.every((source) => source.canRequeue === false)).toBe(true);
+
+    const failedSources = await prisma.sourceFile.findMany({
+      where: {
+        id: {
+          in: preparedSourceFileIds,
+        },
+        userId,
+      },
+      orderBy: {
+        originalName: "asc",
+      },
+    });
+
+    expect(failedSources).toHaveLength(2);
+    expect(
+      failedSources.every((sourceFile) => {
+        const metadata = sourceFile.metadata as { batchSourceFileIds?: unknown };
+        return (
+          Array.isArray(metadata.batchSourceFileIds) &&
+          metadata.batchSourceFileIds.length === preparedSourceFileIds.length
+        );
+      }),
+    ).toBe(true);
+  });
+
+  it("rolls back generated skill draft source updates when a later source guard fails", async () => {
+    const userId = await createUser("upload_multi_guard_rollback");
+    const firstSource = await prisma.sourceFile.create({
+      data: {
+        userId,
+        kind: SourceFileKind.IMAGE,
+        status: SourceFileStatus.PROCESSING,
+        originalName: "worksheet-page-1.png",
+        mimeType: "image/png",
+        byteSize: 4096,
+        storageBucket: "learnrecur-dev",
+        storageKey: "source-uploads/user/source_1/worksheet.png",
+      },
+    });
+    const secondSource = await prisma.sourceFile.create({
+      data: {
+        userId,
+        kind: SourceFileKind.IMAGE,
+        status: SourceFileStatus.FAILED,
+        originalName: "worksheet-page-2.png",
+        mimeType: "image/png",
+        byteSize: 4096,
+        storageBucket: "learnrecur-dev",
+        storageKey: "source-uploads/user/source_2/worksheet.png",
+      },
+    });
+
+    const created = await createGeneratedSkillDraftsForSourceFile({
+      userId,
+      sourceFileId: firstSource.id,
+      sourceFileGuard: {
+        status: SourceFileStatus.PROCESSING,
+      },
+      sourceFileUpdate: {
+        status: SourceFileStatus.READY,
+        extractedText: "First page extraction.",
+      },
+      additionalSourceFiles: [
+        {
+          sourceFileId: secondSource.id,
+          sourceFileGuard: {
+            status: SourceFileStatus.PROCESSING,
+          },
+          sourceFileUpdate: {
+            status: SourceFileStatus.READY,
+            extractedText: "Second page extraction.",
+          },
+        },
+      ],
+      collectionName: null,
+      focusNote: null,
+      tags: [],
+      drafts: [generatedSkillDraft],
+    });
+
+    expect(created).toMatchObject({
+      status: "not-found",
+      reason: "source-not-found",
+    });
+    await expect(prisma.skill.count({ where: { userId } })).resolves.toBe(0);
+    await expect(
+      prisma.sourceFile.findUniqueOrThrow({
+        where: {
+          id: firstSource.id,
+        },
+        select: {
+          status: true,
+          extractedText: true,
+        },
+      }),
+    ).resolves.toEqual({
+      status: SourceFileStatus.PROCESSING,
+      extractedText: null,
+    });
   });
 
   it("cleans up uploaded source state when extraction validation fails", async () => {

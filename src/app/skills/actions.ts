@@ -25,6 +25,7 @@ import {
 } from "@/lib/skills/lifecycle";
 import { deleteSkillPermanently } from "@/lib/skills/delete";
 import {
+  cleanupPreparedSourceUploads,
   completeSourceUploadDrafts,
   dismissFailedSourceUpload,
   prepareSourceUpload,
@@ -94,6 +95,15 @@ export type CompleteSourceUploadActionResult =
       status: "error";
       message: string;
       refreshRecovery?: boolean;
+    };
+
+export type CleanupPreparedSourceUploadsActionResult =
+  | {
+      status: "cleaned";
+    }
+  | {
+      status: "error";
+      message: string;
     };
 
 export type RestoreSourceTextActionResult =
@@ -326,7 +336,7 @@ export async function prepareSourceUploadAction(
 
 export async function completeSourceUploadAction(input: {
   sourceFileId?: string;
-  sourceFileIds?: string[];
+  sourceFileIds?: unknown;
 }): Promise<CompleteSourceUploadActionResult> {
   const user = await requireSkillActionUser();
 
@@ -391,6 +401,43 @@ export async function completeSourceUploadAction(input: {
         ? `${result.message} Try again here, or choose a clearer file.`
         : result.message,
     refreshRecovery: result.status === "not-created" || result.status === "not-found",
+  };
+}
+
+export async function cleanupPreparedSourceUploadsAction(input: {
+  sourceFileId?: string;
+  sourceFileIds?: unknown;
+}): Promise<CleanupPreparedSourceUploadsActionResult> {
+  const user = await requireSkillActionUser();
+
+  if (user.status === "error") {
+    return user;
+  }
+
+  const sourceFileIds = normalizeActionSourceFileIds(input);
+
+  if (sourceFileIds.length === 0) {
+    return {
+      status: "cleaned",
+    };
+  }
+
+  try {
+    await cleanupPreparedSourceUploads({
+      userId: user.userId,
+      sourceFileIds,
+    });
+  } catch (error) {
+    return {
+      status: "error",
+      message: `Could not clean up partial uploads: ${
+        error instanceof Error ? error.message : "Unknown cleanup error."
+      }`,
+    };
+  }
+
+  return {
+    status: "cleaned",
   };
 }
 
@@ -1061,13 +1108,14 @@ function getOptionalFormString(formData: FormData, key: string): string | null {
 }
 
 function normalizeActionSourceFileIds(input: {
-  sourceFileId?: string;
-  sourceFileIds?: string[];
+  sourceFileId?: unknown;
+  sourceFileIds?: unknown;
 }) {
+  const sourceFileIds = Array.isArray(input.sourceFileIds) ? input.sourceFileIds : [];
   const rawSourceFileIds =
-    input.sourceFileIds && input.sourceFileIds.length > 0
-      ? input.sourceFileIds
-      : input.sourceFileId
+    sourceFileIds.length > 0
+      ? sourceFileIds
+      : typeof input.sourceFileId === "string" && input.sourceFileId
         ? [input.sourceFileId]
         : [];
 

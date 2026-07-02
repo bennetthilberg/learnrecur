@@ -276,6 +276,14 @@ describe("source upload recovery helpers", () => {
     );
   });
 
+  it("does not allow single-file requeue for multi-file upload batch metadata", () => {
+    expect(
+      canRequeueSourceUploadMetadata({
+        batchSourceFileIds: ["source-1", "source-2"],
+      }),
+    ).toBe(false);
+  });
+
   it("consumes a retry attempt for requeued uploaded source metadata", () => {
     expect(
       buildSourceUploadRequeueMetadata(

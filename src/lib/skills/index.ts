@@ -1800,10 +1800,6 @@ export async function createSkillDraftFromSource(
           : undefined,
       });
 
-      if (createdDrafts.status === "not-found") {
-        throw new Error("Source file was not found.");
-      }
-
       return {
         status: "created",
         skills: createdDrafts.skills,
@@ -1854,10 +1850,19 @@ export async function createGeneratedSkillDraftsForSourceFile(
 > {
   const prisma = getPrisma();
 
-  return prisma.$transaction(async (tx) => {
-    const result = await createGeneratedSkillDraftsForSourceFileInTransaction(tx, input);
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const result = await createGeneratedSkillDraftsForSourceFileInTransaction(tx, input);
 
-    if (result.status === "not-found") {
+      return {
+        status: "created",
+        sourceFileId: input.sourceFileId,
+        skills: result.skills,
+        skillSourceRefIds: result.skillSourceRefIds,
+      };
+    });
+  } catch (error) {
+    if (error instanceof SourceFileDraftWriteNotFoundError) {
       return {
         status: "not-found",
         reason: "source-not-found",
@@ -1865,13 +1870,8 @@ export async function createGeneratedSkillDraftsForSourceFile(
       };
     }
 
-    return {
-      status: "created",
-      sourceFileId: input.sourceFileId,
-      skills: result.skills,
-      skillSourceRefIds: result.skillSourceRefIds,
-    };
-  });
+    throw error;
+  }
 }
 
 function buildPastedSourceMetadata({
@@ -5956,6 +5956,13 @@ async function resolveCollectionId(
   return collection.id;
 }
 
+class SourceFileDraftWriteNotFoundError extends Error {
+  constructor() {
+    super("Source file changed while creating generated skill drafts.");
+    this.name = "SourceFileDraftWriteNotFoundError";
+  }
+}
+
 async function createGeneratedSkillDraftsForSourceFileInTransaction(
   tx: SkillWriteClient,
   input: CreateGeneratedSkillDraftsForSourceFileInput,
@@ -5964,9 +5971,6 @@ async function createGeneratedSkillDraftsForSourceFileInTransaction(
       status: "created";
       skills: Skill[];
       skillSourceRefIds: string[];
-    }
-  | {
-      status: "not-found";
     }
 > {
   const sourceFileInputs = [
@@ -6003,9 +6007,7 @@ async function createGeneratedSkillDraftsForSourceFileInTransaction(
         });
 
     if (!updatedSourceFile || ("count" in updatedSourceFile && updatedSourceFile.count !== 1)) {
-      return {
-        status: "not-found",
-      };
+      throw new SourceFileDraftWriteNotFoundError();
     }
   }
 
@@ -6025,9 +6027,7 @@ async function createGeneratedSkillDraftsForSourceFileInTransaction(
   });
 
   if (updatedSourceCollections.count !== sourceFileIds.length) {
-    return {
-      status: "not-found",
-    };
+    throw new SourceFileDraftWriteNotFoundError();
   }
 
   const skills: Skill[] = [];
