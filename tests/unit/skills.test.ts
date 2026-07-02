@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   AnswerKind,
@@ -22,6 +22,9 @@ import {
   buildExistingMathExerciseContext,
   buildOpenRouterSourceMediaPart,
   buildSourceContextExcerpt,
+  createOpenRouterChoiceExerciseGenerator,
+  createOpenRouterExactInputExerciseGenerator,
+  createOpenRouterMathExerciseVerifier,
   filterDuplicateChoiceExercises,
   filterDuplicateExactInputExercises,
   filterDuplicateMathExercises,
@@ -45,6 +48,11 @@ import {
   type GeneratedMathExercise,
 } from "@/lib/skills";
 import type { SourceObjectStorage } from "@/lib/storage/s3";
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
 
 const validExercise = (id: number) => ({
   prompt: `What does sample ${id} mean?`,
@@ -1381,6 +1389,139 @@ describe("buildOpenRouterSourceMediaPart", () => {
       file: {
         filename: "..-worksheet page.pdf",
         file_data: "data:application/pdf;base64,JVBERg==",
+      },
+    });
+  });
+});
+
+describe("OpenRouter exercise fallbacks", () => {
+  it("attaches original uploaded media to exercise generation and verification requests", async () => {
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      const request = JSON.parse(String(init?.body));
+      const schemaName = request.response_format.json_schema.name;
+      const content = schemaName.endsWith("Verification")
+        ? {
+            verifications: [
+              {
+                candidateId: "candidate_1",
+                verdict: "verified",
+              },
+            ],
+          }
+        : {
+            exercises: [validExercise(1)],
+          };
+
+      return new Response(
+        JSON.stringify({
+          choices: [
+            {
+              finish_reason: "stop",
+              message: {
+                content: JSON.stringify(content),
+              },
+            },
+          ],
+          model: "google/gemma-4-31b-it",
+        }),
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const openRouter = {
+      apiKey: "sk-or-test",
+      baseUrl: "https://openrouter.ai/api/v1",
+      model: "google/gemma-4-31b-it",
+    };
+    const skill = {
+      id: "skill_1",
+      title: "Spanish source skill",
+      objective: "Practice the source-backed Spanish grammar pattern.",
+      rules: null,
+      examples: null,
+      exerciseConstraints: null,
+      tags: ["spanish"],
+    };
+    const imageMedia = [
+      {
+        sourceFileId: "source_image",
+        label: "worksheet.png",
+        mimeType: "image/png" as const,
+        bytes: Buffer.from("image bytes"),
+      },
+    ];
+    const pdfMedia = [
+      {
+        sourceFileId: "source_pdf",
+        label: "worksheet.pdf",
+        mimeType: "application/pdf" as const,
+        bytes: Buffer.from("%PDF bytes"),
+      },
+    ];
+
+    await createOpenRouterChoiceExerciseGenerator(openRouter)({
+      skill,
+      sourceContext: "Use the worksheet scope.",
+      sourceMedia: imageMedia,
+      requestedCount: 1,
+    });
+    await createOpenRouterExactInputExerciseGenerator(openRouter)({
+      skill,
+      sourceContext: "Use the PDF scope.",
+      sourceMedia: pdfMedia,
+      requestedCount: 1,
+    });
+    await createOpenRouterMathExerciseVerifier(openRouter)({
+      skill,
+      sourceContext: "Use the worksheet scope.",
+      sourceMedia: imageMedia,
+      candidates: [
+        {
+          candidateId: "candidate_1",
+          ...validMathExercise(1),
+        },
+      ],
+    });
+
+    const requestBodies = fetchMock.mock.calls.map(([, init]) =>
+      JSON.parse(String(init?.body)),
+    );
+    expect(requestBodies.map((body) => body.model)).toEqual([
+      "google/gemma-4-31b-it",
+      "google/gemma-4-31b-it",
+      "google/gemma-4-31b-it",
+    ]);
+    expect(
+      requestBodies.map((body) => body.response_format.json_schema.name),
+    ).toEqual([
+      "choiceExerciseResponse",
+      "exactInputExerciseResponse",
+      "mathExerciseVerification",
+    ]);
+    expect(requestBodies[0].messages[1].content[1]).toEqual({
+      type: "image_url",
+      image_url: {
+        url: "data:image/png;base64,aW1hZ2UgYnl0ZXM=",
+      },
+    });
+    expect(requestBodies[1].messages[1].content[1]).toEqual({
+      type: "file",
+      file: {
+        filename: "worksheet.pdf",
+        file_data: "data:application/pdf;base64,JVBERiBieXRlcw==",
+      },
+    });
+    expect(requestBodies[2].messages[1].content[1]).toEqual({
+      type: "image_url",
+      image_url: {
+        url: "data:image/png;base64,aW1hZ2UgYnl0ZXM=",
       },
     });
   });

@@ -3883,6 +3883,21 @@ export function validateGeneratedSkillDrafts(
   };
 }
 
+function resolveOptionalOpenRouterFallbackForOperation(
+  operation: string,
+): OpenRouterFallbackConfig | null {
+  const openRouterFallbackResult = resolveOptionalOpenRouterFallbackConfig();
+
+  if (openRouterFallbackResult.status === "invalid") {
+    console.warn(`[ai] openrouter fallback disabled for ${operation}`, {
+      message: openRouterFallbackResult.message,
+    });
+    return null;
+  }
+
+  return openRouterFallbackResult.config;
+}
+
 function resolveActivationSetup(
   input: ActivateSkillDraftInput,
 ):
@@ -3906,6 +3921,8 @@ function resolveActivationSetup(
     };
   }
 
+  const openRouterFallback =
+    resolveOptionalOpenRouterFallbackForOperation("choice exercise generation");
   try {
     const env = getGeminiEnv();
     const gemini = resolveGeminiRuntimeConfig(env);
@@ -3915,11 +3932,13 @@ function resolveActivationSetup(
       model: gemini.model,
       generateChoiceExercises: createGeminiChoiceExerciseGenerator({
         gemini,
+        openRouterFallback,
       }),
       verifyChoiceExercises:
         input.verifyChoiceExercises ??
         createGeminiChoiceExerciseVerifier({
           gemini,
+          openRouterFallback,
         }),
     };
   } catch (error) {
@@ -3955,6 +3974,8 @@ function resolveExactInputRefillSetup(
     };
   }
 
+  const openRouterFallback =
+    resolveOptionalOpenRouterFallbackForOperation("exact-input exercise generation");
   try {
     const env = getGeminiEnv();
     const gemini = resolveGeminiRuntimeConfig(env);
@@ -3964,11 +3985,13 @@ function resolveExactInputRefillSetup(
       model: gemini.model,
       generateExactInputExercises: createGeminiExactInputExerciseGenerator({
         gemini,
+        openRouterFallback,
       }),
       verifyExactInputExercises:
         input.verifyExactInputExercises ??
         createGeminiExactInputExerciseVerifier({
           gemini,
+          openRouterFallback,
         }),
     };
   } catch (error) {
@@ -4003,6 +4026,8 @@ function resolveMathRefillSetup(
     };
   }
 
+  const openRouterFallback =
+    resolveOptionalOpenRouterFallbackForOperation("math exercise generation");
   try {
     const env = getGeminiEnv();
     const gemini = resolveGeminiRuntimeConfig(env);
@@ -4012,11 +4037,13 @@ function resolveMathRefillSetup(
       model: gemini.model,
       generateMathExercises: createGeminiMathExerciseGenerator({
         gemini,
+        openRouterFallback,
       }),
       verifyMathExercises:
         input.verifyMathExercises ??
         createGeminiMathExerciseVerifier({
           gemini,
+          openRouterFallback,
         }),
     };
   } catch (error) {
@@ -4176,16 +4203,23 @@ function openRouterSkillDraftFallbackForInput(
   openRouterFallback: OpenRouterFallbackConfig | null | undefined,
   input: SkillDraftGeneratorInput,
 ) {
+  return openRouterFallbackForSourceMedia(openRouterFallback, input.sourceMedia);
+}
+
+function openRouterFallbackForSourceMedia(
+  openRouterFallback: OpenRouterFallbackConfig | null | undefined,
+  sourceMedia: SourceMediaContext[] | undefined,
+) {
   if (!openRouterFallback) {
     return null;
   }
 
-  if (!input.sourceMedia?.length) {
+  if (!sourceMedia?.length) {
     return openRouterFallback;
   }
 
   if (
-    input.sourceMedia.every((media) =>
+    sourceMedia.every((media) =>
       media.mimeType.startsWith("image/") || media.mimeType === "application/pdf",
     )
   ) {
@@ -4193,7 +4227,7 @@ function openRouterSkillDraftFallbackForInput(
   }
 
   console.warn("[ai] openrouter fallback disabled for unsupported source media", {
-    mediaMimeTypes: input.sourceMedia.map((media) => media.mimeType),
+    mediaMimeTypes: sourceMedia.map((media) => media.mimeType),
   });
   return null;
 }
@@ -4201,9 +4235,17 @@ function openRouterSkillDraftFallbackForInput(
 function buildOpenRouterSkillDraftUserContent(
   input: SkillDraftGeneratorInput,
 ): OpenRouterChatMessage["content"] {
-  const prompt = buildSourceSkillDraftPrompt(input);
+  return buildOpenRouterUserContentWithSourceMedia(
+    buildSourceSkillDraftPrompt(input),
+    input.sourceMedia,
+  );
+}
 
-  if (!input.sourceMedia?.length) {
+function buildOpenRouterUserContentWithSourceMedia(
+  prompt: string,
+  sourceMedia: SourceMediaContext[] | undefined,
+): OpenRouterChatMessage["content"] {
+  if (!sourceMedia?.length) {
     return prompt;
   }
 
@@ -4212,7 +4254,7 @@ function buildOpenRouterSkillDraftUserContent(
       type: "text",
       text: prompt,
     },
-    ...input.sourceMedia.map((media) =>
+    ...sourceMedia.map((media) =>
       buildOpenRouterSourceMediaPart({
         bytes: media.bytes,
         filename: media.label,
@@ -4265,264 +4307,559 @@ function sanitizeOpenRouterFilename(filename: string): string {
 
 function createGeminiChoiceExerciseGenerator({
   gemini,
+  openRouterFallback,
 }: {
   gemini: GeminiRuntimeConfig;
+  openRouterFallback?: OpenRouterFallbackConfig | null;
 }): ChoiceExerciseGenerator {
   return async (input) => {
     const prompt = buildChoiceExercisePrompt(input);
 
-    return runLoggedGeminiOperation({
-      config: gemini,
+    return runWithGeminiProviderFallback({
+      fallback: buildOpenRouterProviderFallback(openRouterFallback, input.sourceMedia, (fallback) =>
+        createOpenRouterChoiceExerciseGenerator(fallback)(input),
+      ),
       operation: "choice exercise generation",
-      metadata: {
-        requestedCount: input.requestedCount,
-        promptChars: prompt.length,
-        schemaName: "choiceExerciseResponse",
-        media: buildSourceMediaLogMetadata(input.sourceMedia),
-      },
-      run: async (ai) => {
-        const response = await ai.models.generateContent({
-          model: gemini.model,
-          contents: buildGeminiContentsWithSourceMedia(prompt, input.sourceMedia),
-          config: {
-            responseMimeType: "application/json",
-            responseJsonSchema: buildGeminiResponseJsonSchema(input.requestedCount),
-            thinkingConfig: {
-              thinkingBudget: 128,
-            },
+      primary: getGeminiRuntimeLogContext(gemini),
+      primaryModel: gemini.model,
+      runPrimary: async () =>
+        runLoggedGeminiOperation({
+          config: gemini,
+          operation: "choice exercise generation",
+          metadata: {
+            requestedCount: input.requestedCount,
+            promptChars: prompt.length,
+            schemaName: "choiceExerciseResponse",
+            media: buildSourceMediaLogMetadata(input.sourceMedia),
           },
-        });
-        const text = response.text;
+          run: async (ai) => {
+            const response = await ai.models.generateContent({
+              model: gemini.model,
+              contents: buildGeminiContentsWithSourceMedia(prompt, input.sourceMedia),
+              config: {
+                responseMimeType: "application/json",
+                responseJsonSchema: buildGeminiResponseJsonSchema(input.requestedCount),
+                thinkingConfig: {
+                  thinkingBudget: 128,
+                },
+              },
+            });
+            const text = response.text;
 
-        if (!text) {
-          throw new Error("Gemini returned no text.");
-        }
+            if (!text) {
+              throw new Error("Gemini returned no text.");
+            }
 
-        return {
-          response,
-          value: JSON.parse(text) as unknown,
-        };
-      },
+            return {
+              response,
+              value: JSON.parse(text) as unknown,
+            };
+          },
+        }),
     });
   };
 }
 
 function createGeminiChoiceExerciseVerifier({
   gemini,
+  openRouterFallback,
 }: {
   gemini: GeminiRuntimeConfig;
+  openRouterFallback?: OpenRouterFallbackConfig | null;
 }): ChoiceExerciseVerifier {
   return async (input) => {
     const prompt = buildChoiceExerciseVerificationPrompt(input);
 
-    return runLoggedGeminiOperation({
-      config: gemini,
+    return runWithGeminiProviderFallback({
+      fallback: buildOpenRouterProviderFallback(openRouterFallback, input.sourceMedia, (fallback) =>
+        createOpenRouterChoiceExerciseVerifier(fallback)(input),
+      ),
       operation: "choice exercise verification",
-      metadata: {
-        candidateCount: input.candidates.length,
-        promptChars: prompt.length,
-        schemaName: "choiceExerciseVerification",
-        media: buildSourceMediaLogMetadata(input.sourceMedia),
-      },
-      run: async (ai) => {
-        const response = await ai.models.generateContent({
-          model: gemini.model,
-          contents: buildGeminiContentsWithSourceMedia(prompt, input.sourceMedia),
-          config: {
-            responseMimeType: "application/json",
-            responseJsonSchema: buildGeminiChoiceVerificationJsonSchema(input.candidates.length),
-            thinkingConfig: {
-              thinkingBudget: 128,
-            },
+      primary: getGeminiRuntimeLogContext(gemini),
+      primaryModel: gemini.model,
+      runPrimary: async () =>
+        runLoggedGeminiOperation({
+          config: gemini,
+          operation: "choice exercise verification",
+          metadata: {
+            candidateCount: input.candidates.length,
+            promptChars: prompt.length,
+            schemaName: "choiceExerciseVerification",
+            media: buildSourceMediaLogMetadata(input.sourceMedia),
           },
-        });
-        const text = response.text;
+          run: async (ai) => {
+            const response = await ai.models.generateContent({
+              model: gemini.model,
+              contents: buildGeminiContentsWithSourceMedia(prompt, input.sourceMedia),
+              config: {
+                responseMimeType: "application/json",
+                responseJsonSchema: buildGeminiChoiceVerificationJsonSchema(input.candidates.length),
+                thinkingConfig: {
+                  thinkingBudget: 128,
+                },
+              },
+            });
+            const text = response.text;
 
-        if (!text) {
-          throw new Error("Gemini returned no text.");
-        }
+            if (!text) {
+              throw new Error("Gemini returned no text.");
+            }
 
-        return {
-          response,
-          value: JSON.parse(text) as unknown,
-        };
-      },
+            return {
+              response,
+              value: JSON.parse(text) as unknown,
+            };
+          },
+        }),
     });
   };
 }
 
 function createGeminiExactInputExerciseGenerator({
   gemini,
+  openRouterFallback,
 }: {
   gemini: GeminiRuntimeConfig;
+  openRouterFallback?: OpenRouterFallbackConfig | null;
 }): ExactInputExerciseGenerator {
   return async (input) => {
     const prompt = buildExactInputExercisePrompt(input);
 
-    return runLoggedGeminiOperation({
-      config: gemini,
+    return runWithGeminiProviderFallback({
+      fallback: buildOpenRouterProviderFallback(openRouterFallback, input.sourceMedia, (fallback) =>
+        createOpenRouterExactInputExerciseGenerator(fallback)(input),
+      ),
       operation: "exact-input exercise generation",
-      metadata: {
-        requestedCount: input.requestedCount,
-        promptChars: prompt.length,
-        schemaName: "exactInputExerciseResponse",
-        media: buildSourceMediaLogMetadata(input.sourceMedia),
-      },
-      run: async (ai) => {
-        const response = await ai.models.generateContent({
-          model: gemini.model,
-          contents: buildGeminiContentsWithSourceMedia(prompt, input.sourceMedia),
-          config: {
-            responseMimeType: "application/json",
-            responseJsonSchema: buildGeminiExactInputResponseJsonSchema(input.requestedCount),
-            thinkingConfig: {
-              thinkingBudget: 128,
-            },
+      primary: getGeminiRuntimeLogContext(gemini),
+      primaryModel: gemini.model,
+      runPrimary: async () =>
+        runLoggedGeminiOperation({
+          config: gemini,
+          operation: "exact-input exercise generation",
+          metadata: {
+            requestedCount: input.requestedCount,
+            promptChars: prompt.length,
+            schemaName: "exactInputExerciseResponse",
+            media: buildSourceMediaLogMetadata(input.sourceMedia),
           },
-        });
-        const text = response.text;
+          run: async (ai) => {
+            const response = await ai.models.generateContent({
+              model: gemini.model,
+              contents: buildGeminiContentsWithSourceMedia(prompt, input.sourceMedia),
+              config: {
+                responseMimeType: "application/json",
+                responseJsonSchema: buildGeminiExactInputResponseJsonSchema(input.requestedCount),
+                thinkingConfig: {
+                  thinkingBudget: 128,
+                },
+              },
+            });
+            const text = response.text;
 
-        if (!text) {
-          throw new Error("Gemini returned no text.");
-        }
+            if (!text) {
+              throw new Error("Gemini returned no text.");
+            }
 
-        return {
-          response,
-          value: JSON.parse(text) as unknown,
-        };
-      },
+            return {
+              response,
+              value: JSON.parse(text) as unknown,
+            };
+          },
+        }),
     });
   };
 }
 
 function createGeminiExactInputExerciseVerifier({
   gemini,
+  openRouterFallback,
 }: {
   gemini: GeminiRuntimeConfig;
+  openRouterFallback?: OpenRouterFallbackConfig | null;
 }): ExactInputExerciseVerifier {
   return async (input) => {
     const prompt = buildExactInputExerciseVerificationPrompt(input);
 
-    return runLoggedGeminiOperation({
-      config: gemini,
+    return runWithGeminiProviderFallback({
+      fallback: buildOpenRouterProviderFallback(openRouterFallback, input.sourceMedia, (fallback) =>
+        createOpenRouterExactInputExerciseVerifier(fallback)(input),
+      ),
       operation: "exact-input exercise verification",
-      metadata: {
-        candidateCount: input.candidates.length,
-        promptChars: prompt.length,
-        schemaName: "exactInputExerciseVerification",
-        media: buildSourceMediaLogMetadata(input.sourceMedia),
-      },
-      run: async (ai) => {
-        const response = await ai.models.generateContent({
-          model: gemini.model,
-          contents: buildGeminiContentsWithSourceMedia(prompt, input.sourceMedia),
-          config: {
-            responseMimeType: "application/json",
-            responseJsonSchema: buildGeminiExactInputVerificationJsonSchema(input.candidates.length),
-            thinkingConfig: {
-              thinkingBudget: 128,
-            },
+      primary: getGeminiRuntimeLogContext(gemini),
+      primaryModel: gemini.model,
+      runPrimary: async () =>
+        runLoggedGeminiOperation({
+          config: gemini,
+          operation: "exact-input exercise verification",
+          metadata: {
+            candidateCount: input.candidates.length,
+            promptChars: prompt.length,
+            schemaName: "exactInputExerciseVerification",
+            media: buildSourceMediaLogMetadata(input.sourceMedia),
           },
-        });
-        const text = response.text;
+          run: async (ai) => {
+            const response = await ai.models.generateContent({
+              model: gemini.model,
+              contents: buildGeminiContentsWithSourceMedia(prompt, input.sourceMedia),
+              config: {
+                responseMimeType: "application/json",
+                responseJsonSchema: buildGeminiExactInputVerificationJsonSchema(input.candidates.length),
+                thinkingConfig: {
+                  thinkingBudget: 128,
+                },
+              },
+            });
+            const text = response.text;
 
-        if (!text) {
-          throw new Error("Gemini returned no text.");
-        }
+            if (!text) {
+              throw new Error("Gemini returned no text.");
+            }
 
-        return {
-          response,
-          value: JSON.parse(text) as unknown,
-        };
-      },
+            return {
+              response,
+              value: JSON.parse(text) as unknown,
+            };
+          },
+        }),
     });
   };
 }
 
 function createGeminiMathExerciseGenerator({
   gemini,
+  openRouterFallback,
 }: {
   gemini: GeminiRuntimeConfig;
+  openRouterFallback?: OpenRouterFallbackConfig | null;
 }): MathExerciseGenerator {
   return async (input) => {
     const prompt = buildMathExercisePrompt(input);
 
-    return runLoggedGeminiOperation({
-      config: gemini,
+    return runWithGeminiProviderFallback({
+      fallback: buildOpenRouterProviderFallback(openRouterFallback, input.sourceMedia, (fallback) =>
+        createOpenRouterMathExerciseGenerator(fallback)(input),
+      ),
       operation: "math exercise generation",
-      metadata: {
-        requestedCount: input.requestedCount,
-        promptChars: prompt.length,
-        schemaName: "mathExerciseResponse",
-        media: buildSourceMediaLogMetadata(input.sourceMedia),
-      },
-      run: async (ai) => {
-        const response = await ai.models.generateContent({
-          model: gemini.model,
-          contents: buildGeminiContentsWithSourceMedia(prompt, input.sourceMedia),
-          config: {
-            responseMimeType: "application/json",
-            responseJsonSchema: buildGeminiMathResponseJsonSchema(input.requestedCount),
-            thinkingConfig: {
-              thinkingBudget: 128,
-            },
+      primary: getGeminiRuntimeLogContext(gemini),
+      primaryModel: gemini.model,
+      runPrimary: async () =>
+        runLoggedGeminiOperation({
+          config: gemini,
+          operation: "math exercise generation",
+          metadata: {
+            requestedCount: input.requestedCount,
+            promptChars: prompt.length,
+            schemaName: "mathExerciseResponse",
+            media: buildSourceMediaLogMetadata(input.sourceMedia),
           },
-        });
-        const text = response.text;
+          run: async (ai) => {
+            const response = await ai.models.generateContent({
+              model: gemini.model,
+              contents: buildGeminiContentsWithSourceMedia(prompt, input.sourceMedia),
+              config: {
+                responseMimeType: "application/json",
+                responseJsonSchema: buildGeminiMathResponseJsonSchema(input.requestedCount),
+                thinkingConfig: {
+                  thinkingBudget: 128,
+                },
+              },
+            });
+            const text = response.text;
 
-        if (!text) {
-          throw new Error("Gemini returned no text.");
-        }
+            if (!text) {
+              throw new Error("Gemini returned no text.");
+            }
 
-        return {
-          response,
-          value: JSON.parse(text) as unknown,
-        };
-      },
+            return {
+              response,
+              value: JSON.parse(text) as unknown,
+            };
+          },
+        }),
     });
   };
 }
 
 function createGeminiMathExerciseVerifier({
   gemini,
+  openRouterFallback,
 }: {
   gemini: GeminiRuntimeConfig;
+  openRouterFallback?: OpenRouterFallbackConfig | null;
 }): MathExerciseVerifier {
   return async (input) => {
     const prompt = buildMathExerciseVerificationPrompt(input);
 
-    return runLoggedGeminiOperation({
-      config: gemini,
+    return runWithGeminiProviderFallback({
+      fallback: buildOpenRouterProviderFallback(openRouterFallback, input.sourceMedia, (fallback) =>
+        createOpenRouterMathExerciseVerifier(fallback)(input),
+      ),
       operation: "math exercise verification",
+      primary: getGeminiRuntimeLogContext(gemini),
+      primaryModel: gemini.model,
+      runPrimary: async () =>
+        runLoggedGeminiOperation({
+          config: gemini,
+          operation: "math exercise verification",
+          metadata: {
+            candidateCount: input.candidates.length,
+            promptChars: prompt.length,
+            schemaName: "mathExerciseVerification",
+            media: buildSourceMediaLogMetadata(input.sourceMedia),
+          },
+          run: async (ai) => {
+            const response = await ai.models.generateContent({
+              model: gemini.model,
+              contents: buildGeminiContentsWithSourceMedia(prompt, input.sourceMedia),
+              config: {
+                responseMimeType: "application/json",
+                responseJsonSchema: buildGeminiMathVerificationJsonSchema(input.candidates.length),
+                thinkingConfig: {
+                  thinkingBudget: 128,
+                },
+              },
+            });
+            const text = response.text;
+
+            if (!text) {
+              throw new Error("Gemini returned no text.");
+            }
+
+            return {
+              response,
+              value: JSON.parse(text) as unknown,
+            };
+          },
+        }),
+    });
+  };
+}
+
+function buildOpenRouterProviderFallback<T>(
+  openRouterFallback: OpenRouterFallbackConfig | null | undefined,
+  sourceMedia: SourceMediaContext[] | undefined,
+  run: (fallback: OpenRouterFallbackConfig) => Promise<T>,
+) {
+  const openRouterFallbackForInput = openRouterFallbackForSourceMedia(
+    openRouterFallback,
+    sourceMedia,
+  );
+
+  return openRouterFallbackForInput
+    ? {
+        provider: "openrouter",
+        model: openRouterFallbackForInput.model,
+        run: () => run(openRouterFallbackForInput),
+      }
+    : null;
+}
+
+export function createOpenRouterChoiceExerciseGenerator({
+  apiKey,
+  baseUrl,
+  model,
+}: OpenRouterFallbackConfig): ChoiceExerciseGenerator {
+  return async (input) => {
+    const prompt = buildChoiceExercisePrompt(input);
+
+    return runOpenRouterJsonChatCompletion({
+      apiKey,
+      baseUrl,
+      model,
+      metadata: {
+        requestedCount: input.requestedCount,
+        promptChars: prompt.length,
+        schemaName: "openRouterChoiceExerciseResponse",
+        media: buildSourceMediaLogMetadata(input.sourceMedia),
+      },
+      operation: "choice exercise generation",
+      responseJsonSchema: buildGeminiResponseJsonSchema(input.requestedCount),
+      responseJsonSchemaName: "choiceExerciseResponse",
+      messages: [
+        {
+          role: "system",
+          content: "You generate LearnRecur practice exercises. Return only a valid JSON object.",
+        },
+        {
+          role: "user",
+          content: buildOpenRouterUserContentWithSourceMedia(prompt, input.sourceMedia),
+        },
+      ],
+    });
+  };
+}
+
+export function createOpenRouterChoiceExerciseVerifier({
+  apiKey,
+  baseUrl,
+  model,
+}: OpenRouterFallbackConfig): ChoiceExerciseVerifier {
+  return async (input) => {
+    const prompt = buildChoiceExerciseVerificationPrompt(input);
+
+    return runOpenRouterJsonChatCompletion({
+      apiKey,
+      baseUrl,
+      model,
       metadata: {
         candidateCount: input.candidates.length,
         promptChars: prompt.length,
-        schemaName: "mathExerciseVerification",
+        schemaName: "openRouterChoiceExerciseVerification",
         media: buildSourceMediaLogMetadata(input.sourceMedia),
       },
-      run: async (ai) => {
-        const response = await ai.models.generateContent({
-          model: gemini.model,
-          contents: buildGeminiContentsWithSourceMedia(prompt, input.sourceMedia),
-          config: {
-            responseMimeType: "application/json",
-            responseJsonSchema: buildGeminiMathVerificationJsonSchema(input.candidates.length),
-            thinkingConfig: {
-              thinkingBudget: 128,
-            },
-          },
-        });
-        const text = response.text;
+      operation: "choice exercise verification",
+      responseJsonSchema: buildGeminiChoiceVerificationJsonSchema(input.candidates.length),
+      responseJsonSchemaName: "choiceExerciseVerification",
+      messages: [
+        {
+          role: "system",
+          content: "You verify LearnRecur practice exercises. Return only a valid JSON object.",
+        },
+        {
+          role: "user",
+          content: buildOpenRouterUserContentWithSourceMedia(prompt, input.sourceMedia),
+        },
+      ],
+    });
+  };
+}
 
-        if (!text) {
-          throw new Error("Gemini returned no text.");
-        }
+export function createOpenRouterExactInputExerciseGenerator({
+  apiKey,
+  baseUrl,
+  model,
+}: OpenRouterFallbackConfig): ExactInputExerciseGenerator {
+  return async (input) => {
+    const prompt = buildExactInputExercisePrompt(input);
 
-        return {
-          response,
-          value: JSON.parse(text) as unknown,
-        };
+    return runOpenRouterJsonChatCompletion({
+      apiKey,
+      baseUrl,
+      model,
+      metadata: {
+        requestedCount: input.requestedCount,
+        promptChars: prompt.length,
+        schemaName: "openRouterExactInputExerciseResponse",
+        media: buildSourceMediaLogMetadata(input.sourceMedia),
       },
+      operation: "exact-input exercise generation",
+      responseJsonSchema: buildGeminiExactInputResponseJsonSchema(input.requestedCount),
+      responseJsonSchemaName: "exactInputExerciseResponse",
+      messages: [
+        {
+          role: "system",
+          content: "You generate LearnRecur exact-input exercises. Return only a valid JSON object.",
+        },
+        {
+          role: "user",
+          content: buildOpenRouterUserContentWithSourceMedia(prompt, input.sourceMedia),
+        },
+      ],
+    });
+  };
+}
+
+export function createOpenRouterExactInputExerciseVerifier({
+  apiKey,
+  baseUrl,
+  model,
+}: OpenRouterFallbackConfig): ExactInputExerciseVerifier {
+  return async (input) => {
+    const prompt = buildExactInputExerciseVerificationPrompt(input);
+
+    return runOpenRouterJsonChatCompletion({
+      apiKey,
+      baseUrl,
+      model,
+      metadata: {
+        candidateCount: input.candidates.length,
+        promptChars: prompt.length,
+        schemaName: "openRouterExactInputExerciseVerification",
+        media: buildSourceMediaLogMetadata(input.sourceMedia),
+      },
+      operation: "exact-input exercise verification",
+      responseJsonSchema: buildGeminiExactInputVerificationJsonSchema(input.candidates.length),
+      responseJsonSchemaName: "exactInputExerciseVerification",
+      messages: [
+        {
+          role: "system",
+          content: "You verify LearnRecur exact-input exercises. Return only a valid JSON object.",
+        },
+        {
+          role: "user",
+          content: buildOpenRouterUserContentWithSourceMedia(prompt, input.sourceMedia),
+        },
+      ],
+    });
+  };
+}
+
+export function createOpenRouterMathExerciseGenerator({
+  apiKey,
+  baseUrl,
+  model,
+}: OpenRouterFallbackConfig): MathExerciseGenerator {
+  return async (input) => {
+    const prompt = buildMathExercisePrompt(input);
+
+    return runOpenRouterJsonChatCompletion({
+      apiKey,
+      baseUrl,
+      model,
+      metadata: {
+        requestedCount: input.requestedCount,
+        promptChars: prompt.length,
+        schemaName: "openRouterMathExerciseResponse",
+        media: buildSourceMediaLogMetadata(input.sourceMedia),
+      },
+      operation: "math exercise generation",
+      responseJsonSchema: buildGeminiMathResponseJsonSchema(input.requestedCount),
+      responseJsonSchemaName: "mathExerciseResponse",
+      messages: [
+        {
+          role: "system",
+          content: "You generate LearnRecur math exercises. Return only a valid JSON object.",
+        },
+        {
+          role: "user",
+          content: buildOpenRouterUserContentWithSourceMedia(prompt, input.sourceMedia),
+        },
+      ],
+    });
+  };
+}
+
+export function createOpenRouterMathExerciseVerifier({
+  apiKey,
+  baseUrl,
+  model,
+}: OpenRouterFallbackConfig): MathExerciseVerifier {
+  return async (input) => {
+    const prompt = buildMathExerciseVerificationPrompt(input);
+
+    return runOpenRouterJsonChatCompletion({
+      apiKey,
+      baseUrl,
+      model,
+      metadata: {
+        candidateCount: input.candidates.length,
+        promptChars: prompt.length,
+        schemaName: "openRouterMathExerciseVerification",
+        media: buildSourceMediaLogMetadata(input.sourceMedia),
+      },
+      operation: "math exercise verification",
+      responseJsonSchema: buildGeminiMathVerificationJsonSchema(input.candidates.length),
+      responseJsonSchemaName: "mathExerciseVerification",
+      messages: [
+        {
+          role: "system",
+          content: "You verify LearnRecur math exercises. Return only a valid JSON object.",
+        },
+        {
+          role: "user",
+          content: buildOpenRouterUserContentWithSourceMedia(prompt, input.sourceMedia),
+        },
+      ],
     });
   };
 }
