@@ -2223,6 +2223,74 @@ describeDatabase("skill drafts and Gemini activation", () => {
     expect(deletedKeys.toSorted()).toEqual(preparedObjectKeys.toSorted());
   });
 
+  it("keeps draft batch uploads when queue validation fails transiently", async () => {
+    const userId = await createUser("upload_batch_queue_transient_head");
+    const transientHeadError = new Error("temporary head failure");
+    const { storage, deletedKeys } = createFakeUploadStorage({
+      headError: transientHeadError,
+    });
+    const preparedSourceFileIds: string[] = [];
+    const preparedObjectKeys: string[] = [];
+
+    for (const originalName of ["worksheet-page-1.png", "worksheet-page-2.png"]) {
+      const prepared = await prepareSourceUpload({
+        userId,
+        now,
+        storage,
+        input: {
+          originalName,
+          mimeType: "image/png",
+          byteSize: "4096",
+        },
+      });
+
+      if (prepared.status !== "prepared") {
+        throw new Error("Expected upload preparation to succeed.");
+      }
+
+      preparedSourceFileIds.push(prepared.sourceFileId);
+      preparedObjectKeys.push(prepared.objectKey);
+    }
+
+    const completed = await completeSourceUploadDrafts({
+      userId,
+      sourceFileId: preparedSourceFileIds[0],
+      sourceFileIds: preparedSourceFileIds,
+      now,
+      storage,
+      extractSourceText: successfulSourceExtractor,
+      generateSkillDraft: successfulSkillDraftGenerator,
+      model: "test-gemini",
+    });
+
+    expect(completed).toMatchObject({
+      status: "not-created",
+      reason: "invalid-upload",
+    });
+    expect(completed.message).toContain("Could not verify S3 upload:");
+
+    const draftSources = await prisma.sourceFile.findMany({
+      where: {
+        id: {
+          in: preparedSourceFileIds,
+        },
+        userId,
+      },
+      orderBy: {
+        originalName: "asc",
+      },
+    });
+
+    expect(draftSources).toHaveLength(2);
+    expect(draftSources.every((sourceFile) => sourceFile.status === SourceFileStatus.DRAFT)).toBe(
+      true,
+    );
+    expect(draftSources.map((sourceFile) => sourceFile.storageKey).toSorted()).toEqual(
+      preparedObjectKeys.toSorted(),
+    );
+    expect(deletedKeys).toEqual([]);
+  });
+
   it("does not offer per-file retry for failed multi-source upload batches", async () => {
     const userId = await createUser("upload_multi_failed_no_single_retry");
     const { storage } = createFakeUploadStorage({

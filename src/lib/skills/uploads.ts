@@ -840,10 +840,13 @@ async function queueSourceUploadDraftBatch(
     const uploadValidation = await validateStoredSourceUpload(sourceFile, storageSetup.storage);
 
     if (uploadValidation.status === "invalid") {
-      await cleanupUploadedSources(
-        orderedSourceFiles.filter((candidate) => candidate.status === SourceFileStatus.DRAFT),
-        storageSetup.storage,
-      );
+      if (!uploadValidation.retainStoredObject) {
+        await cleanupUploadedSources(
+          orderedSourceFiles.filter((candidate) => candidate.status === SourceFileStatus.DRAFT),
+          storageSetup.storage,
+        );
+      }
+
       return notQueued("invalid-upload", uploadValidation.message);
     }
 
