@@ -1,5 +1,6 @@
 export const DEFAULT_OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 export const DEFAULT_OPENROUTER_MODEL = "google/gemma-4-31b-it";
+export const DEFAULT_OPENROUTER_REQUEST_TIMEOUT_MS = 45_000;
 
 export type OpenRouterFallbackConfig = {
   apiKey: string;
@@ -46,6 +47,7 @@ type OpenRouterJsonChatCompletionInput = {
   operation: string;
   responseJsonSchema?: Record<string, unknown>;
   responseJsonSchemaName?: string;
+  timeoutMs?: number;
 };
 
 export async function runOpenRouterJsonChatCompletion({
@@ -57,10 +59,16 @@ export async function runOpenRouterJsonChatCompletion({
   operation,
   responseJsonSchema,
   responseJsonSchemaName,
+  timeoutMs,
 }: OpenRouterJsonChatCompletionInput): Promise<unknown> {
   const endpoint = `${baseUrl.replace(/\/+$/, "")}/chat/completions`;
   const requestId = buildOpenRouterRequestId();
   const startedAt = Date.now();
+  const requestTimeoutMs = normalizeOpenRouterRequestTimeoutMs(timeoutMs);
+  const abortController = new AbortController();
+  const timeoutId = setTimeout(() => {
+    abortController.abort(buildOpenRouterTimeoutError(operation, requestTimeoutMs));
+  }, requestTimeoutMs);
   const context = {
     requestId,
     operation,
@@ -98,6 +106,7 @@ export async function runOpenRouterJsonChatCompletion({
               type: "json_object",
             },
       }),
+      signal: abortController.signal,
     });
 
     const rawBody = await response.text();
@@ -132,12 +141,20 @@ export async function runOpenRouterJsonChatCompletion({
 
     return value;
   } catch (error) {
+    const loggedError =
+      abortController.signal.aborted && abortController.signal.reason instanceof Error
+        ? abortController.signal.reason
+        : error;
+
     console.error("[ai] openrouter request failed", {
       ...context,
       elapsedMs: Date.now() - startedAt,
-      error: getOpenRouterErrorLogDetails(error),
+      error: getOpenRouterErrorLogDetails(loggedError),
     });
-    throw error;
+
+    throw loggedError;
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
@@ -147,6 +164,16 @@ export function buildOpenRouterDataUrl(bytes: Buffer, mimeType: string): string 
 
 function buildOpenRouterRequestId(): string {
   return `openrouter_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function normalizeOpenRouterRequestTimeoutMs(timeoutMs: number | undefined): number {
+  return typeof timeoutMs === "number" && Number.isFinite(timeoutMs) && timeoutMs > 0
+    ? timeoutMs
+    : DEFAULT_OPENROUTER_REQUEST_TIMEOUT_MS;
+}
+
+function buildOpenRouterTimeoutError(operation: string, timeoutMs: number): Error {
+  return new Error(`${operation} timed out after ${timeoutMs}ms with OpenRouter.`);
 }
 
 function buildOpenRouterError(response: Response, body: unknown, operation: string): Error {

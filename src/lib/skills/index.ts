@@ -1849,6 +1849,10 @@ async function resolveSourceMediaContext({
 }): Promise<SourceMediaContext[]> {
   const attachableSourceFiles = sourceFiles.filter(shouldAttachOriginalSourceMedia);
 
+  if (attachableSourceFiles.length === 0) {
+    return [];
+  }
+
   if (sourceMediaLoader) {
     return sourceMediaLoader({ sourceFiles: attachableSourceFiles });
   }

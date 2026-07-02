@@ -20,6 +20,7 @@ describe("OpenRouter OpenAI-compatible client", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
     process.env = originalEnv;
@@ -120,6 +121,7 @@ describe("OpenRouter OpenAI-compatible client", () => {
         },
       },
     });
+    expect(fetchMock.mock.calls[0][1]?.signal).toBeInstanceOf(AbortSignal);
   });
 
   it("normalizes OpenRouter errors for the shared AI error handler", async () => {
@@ -150,6 +152,49 @@ describe("OpenRouter OpenAI-compatible client", () => {
         messages: [],
       }),
     ).rejects.toThrow(/Requests are temporarily limited/);
+  });
+
+  it("aborts stalled OpenRouter requests after the configured timeout", async () => {
+    vi.useFakeTimers();
+
+    const fetchMock = vi.fn(
+      (_endpoint: string, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          const signal = init?.signal;
+
+          if (!(signal instanceof AbortSignal)) {
+            reject(new Error("Expected OpenRouter fetch to receive an AbortSignal."));
+            return;
+          }
+
+          signal.addEventListener("abort", () => {
+            reject(signal.reason);
+          });
+        }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = runOpenRouterJsonChatCompletion({
+      apiKey: "sk-or-test",
+      baseUrl: DEFAULT_OPENROUTER_BASE_URL,
+      model: DEFAULT_OPENROUTER_MODEL,
+      operation: "skill draft generation",
+      messages: [],
+      timeoutMs: 25,
+    });
+    const expectation = expect(result).rejects.toThrow(
+      "skill draft generation timed out after 25ms with OpenRouter.",
+    );
+
+    await vi.advanceTimersByTimeAsync(25);
+
+    await expectation;
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${DEFAULT_OPENROUTER_BASE_URL}/chat/completions`,
+      expect.objectContaining({
+        signal: expect.any(AbortSignal),
+      }),
+    );
   });
 
   it("builds data URLs for multimodal image and PDF fallbacks", () => {
