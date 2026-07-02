@@ -95,6 +95,7 @@ export const SKILL_MCQ_PROMPT_VERSION = "skill-mcq-v0";
 export const SKILL_EXACT_INPUT_PROMPT_VERSION = "skill-exact-input-v0";
 export const SKILL_MATH_PROMPT_VERSION = "skill-math-v0";
 export const GEMINI_PROVIDER = "google";
+export const OPENROUTER_PROVIDER = "openrouter";
 
 export type NormalizedSkillDraftInput = {
   title: string;
@@ -358,6 +359,13 @@ export type SourceMediaContext = {
   mimeType: SourceUploadMimeType;
   bytes: Buffer;
 };
+
+type AiProviderUsage = {
+  provider: string;
+  model: string;
+};
+
+type AiProviderUsageRecorder = (usage: AiProviderUsage) => void;
 
 export type SourceMediaContextSourceFile = {
   id: string;
@@ -925,8 +933,8 @@ const choiceVerificationDecisionSchema = z
   .strictObject({
     candidateId: z.string().trim().min(1).max(80),
     verdict: z.enum(["verified", "rejected"]),
-    reason: z.enum(choiceVerificationReasonValues).optional(),
-    note: z.string().trim().max(300).optional(),
+    reason: z.enum(choiceVerificationReasonValues).nullable().optional(),
+    note: z.string().trim().max(300).nullable().optional(),
   })
   .superRefine((decision, context) => {
     if (decision.verdict === "rejected" && !decision.reason) {
@@ -1106,6 +1114,238 @@ function buildGeminiMathResponseJsonSchema(requestedCount: number) {
 
 function buildGeminiMathVerificationJsonSchema(candidateCount: number) {
   return buildGeminiChoiceVerificationJsonSchema(candidateCount);
+}
+
+function buildOpenRouterChoiceExerciseResponseJsonSchema(requestedCount: number) {
+  return {
+    type: "object",
+    additionalProperties: false,
+    required: ["exercises"],
+    properties: {
+      exercises: {
+        type: "array",
+        minItems: Math.max(1, Math.min(requestedCount, REQUESTED_ACTIVATION_EXERCISES)),
+        maxItems: Math.max(1, Math.min(requestedCount, MAX_GENERATED_EXERCISES)),
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: [
+            "prompt",
+            "choices",
+            "correctChoiceId",
+            "explanation",
+            "difficulty",
+            "expectedSeconds",
+          ],
+          properties: {
+            prompt: { type: "string" },
+            choices: {
+              type: "array",
+              minItems: 3,
+              maxItems: 5,
+              items: {
+                type: "object",
+                additionalProperties: false,
+                required: ["id", "label"],
+                properties: {
+                  id: { type: "string" },
+                  label: { type: "string" },
+                },
+              },
+            },
+            correctChoiceId: { type: "string" },
+            explanation: { type: "string" },
+            difficulty: { type: "integer", minimum: 1, maximum: 5 },
+            expectedSeconds: { type: "integer", minimum: 5, maximum: 180 },
+          },
+        },
+      },
+    },
+  };
+}
+
+function buildOpenRouterChoiceVerificationJsonSchema(candidateCount: number) {
+  return {
+    type: "object",
+    additionalProperties: false,
+    required: ["verifications"],
+    properties: {
+      verifications: {
+        type: "array",
+        minItems: candidateCount,
+        maxItems: candidateCount,
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: ["candidateId", "verdict", "reason", "note"],
+          properties: {
+            candidateId: { type: "string" },
+            verdict: {
+              type: "string",
+              enum: ["verified", "rejected"],
+            },
+            reason: {
+              type: ["string", "null"],
+              enum: [...choiceVerificationReasonValues, null],
+            },
+            note: {
+              type: ["string", "null"],
+              maxLength: 300,
+            },
+          },
+        },
+      },
+    },
+  };
+}
+
+function buildOpenRouterTextAnswerSpecJsonSchema() {
+  return {
+    type: "object",
+    additionalProperties: false,
+    required: [
+      "kind",
+      "accepted",
+      "normalizeCase",
+      "normalizeWhitespace",
+      "normalizeDiacritics",
+    ],
+    properties: {
+      kind: { type: "string", enum: ["text"] },
+      accepted: {
+        type: "array",
+        minItems: 1,
+        items: { type: "string" },
+      },
+      normalizeCase: { type: "boolean" },
+      normalizeWhitespace: { type: "boolean" },
+      normalizeDiacritics: { type: "boolean" },
+    },
+  };
+}
+
+function buildOpenRouterNumericAnswerSpecJsonSchema() {
+  return {
+    type: "object",
+    additionalProperties: false,
+    required: ["kind", "accepted", "tolerance"],
+    properties: {
+      kind: { type: "string", enum: ["numeric"] },
+      accepted: {
+        type: "array",
+        minItems: 1,
+        items: { type: "string" },
+      },
+      tolerance: { type: "number", minimum: 0 },
+    },
+  };
+}
+
+function buildOpenRouterExactInputResponseJsonSchema(requestedCount: number) {
+  return {
+    type: "object",
+    additionalProperties: false,
+    required: ["exercises"],
+    properties: {
+      exercises: {
+        type: "array",
+        minItems: Math.max(1, Math.min(requestedCount, DEFAULT_READY_EXACT_INPUT_TARGET)),
+        maxItems: Math.max(1, Math.min(requestedCount, MAX_GENERATED_EXERCISES)),
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: [
+            "prompt",
+            "answerKind",
+            "answerSpec",
+            "correctAnswerDisplay",
+            "explanation",
+            "difficulty",
+            "expectedSeconds",
+          ],
+          properties: {
+            prompt: { type: "string" },
+            answerKind: {
+              type: "string",
+              enum: [AnswerKind.TEXT, AnswerKind.NUMERIC],
+            },
+            answerSpec: {
+              anyOf: [
+                buildOpenRouterTextAnswerSpecJsonSchema(),
+                buildOpenRouterNumericAnswerSpecJsonSchema(),
+              ],
+            },
+            correctAnswerDisplay: { type: "string" },
+            explanation: { type: "string" },
+            difficulty: { type: "integer", minimum: 1, maximum: 5 },
+            expectedSeconds: { type: "integer", minimum: 5, maximum: 180 },
+          },
+        },
+      },
+    },
+  };
+}
+
+function buildOpenRouterMathResponseJsonSchema(requestedCount: number) {
+  return {
+    type: "object",
+    additionalProperties: false,
+    required: ["exercises"],
+    properties: {
+      exercises: {
+        type: "array",
+        minItems: Math.max(1, Math.min(requestedCount, DEFAULT_READY_MATH_TARGET)),
+        maxItems: Math.max(1, Math.min(requestedCount, MAX_GENERATED_EXERCISES)),
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: [
+            "prompt",
+            "answerKind",
+            "answerSpec",
+            "correctAnswerDisplay",
+            "explanation",
+            "difficulty",
+            "expectedSeconds",
+          ],
+          properties: {
+            prompt: { type: "string" },
+            answerKind: {
+              type: "string",
+              enum: [AnswerKind.MATH],
+            },
+            answerSpec: {
+              type: "object",
+              additionalProperties: false,
+              required: ["kind", "acceptedExpressions", "equivalence"],
+              properties: {
+                kind: { type: "string", enum: ["math"] },
+                acceptedExpressions: {
+                  type: "array",
+                  minItems: 1,
+                  maxItems: 4,
+                  items: { type: "string" },
+                },
+                equivalence: { type: "string", enum: ["basic-symbolic"] },
+              },
+            },
+            correctAnswerDisplay: { type: "string" },
+            explanation: { type: "string" },
+            difficulty: { type: "integer", minimum: 1, maximum: 5 },
+            expectedSeconds: { type: "integer", minimum: 5, maximum: 180 },
+          },
+        },
+      },
+    },
+  };
+}
+
+function buildOpenRouterExactInputVerificationJsonSchema(candidateCount: number) {
+  return buildOpenRouterChoiceVerificationJsonSchema(candidateCount);
+}
+
+function buildOpenRouterMathVerificationJsonSchema(candidateCount: number) {
+  return buildOpenRouterChoiceVerificationJsonSchema(candidateCount);
 }
 
 const geminiSkillDraftJsonSchema = {
@@ -1940,7 +2180,8 @@ export async function activateSkillDraft(
     }
   }
 
-  const setup = resolveActivationSetup(input);
+  const providerUsage = createAiProviderUsageTracker();
+  const setup = resolveActivationSetup(input, providerUsage.record);
 
   const generationJobResult = await createOrClaimActivationGenerationJob({
     prisma,
@@ -2153,6 +2394,7 @@ export async function activateSkillDraft(
     await tx.generationJob.update({
       where: { id: generationJob.id },
       data: {
+        ...buildGenerationJobProviderUpdate(providerUsage.latest()),
         status: GenerationJobStatus.SUCCEEDED,
         acceptedCount: verification.exercises.length,
         rejectedCount: validation.rejectedCount + verification.rejectedCount,
@@ -2273,7 +2515,8 @@ export async function refillChoiceExercisesForSkill(
   }
 
   const requestedCount = targetReadyCount - inventory.readyExerciseCount;
-  const setup = resolveActivationSetup(input);
+  const providerUsage = createAiProviderUsageTracker();
+  const setup = resolveActivationSetup(input, providerUsage.record);
   const generationJobResult = await createOrClaimRefillGenerationJob({
     prisma,
     generationJobId: input.generationJobId,
@@ -2561,6 +2804,7 @@ export async function refillChoiceExercisesForSkill(
     await tx.generationJob.update({
       where: { id: generationJob.id },
       data: {
+        ...buildGenerationJobProviderUpdate(providerUsage.latest()),
         status: GenerationJobStatus.SUCCEEDED,
         acceptedCount: verification.exercises.length,
         rejectedCount:
@@ -2696,7 +2940,8 @@ export async function refillExactInputExercisesForSkill(
   }
 
   const requestedCount = targetReadyCount - inventory.readyExerciseCount;
-  const setup = resolveExactInputRefillSetup(input);
+  const providerUsage = createAiProviderUsageTracker();
+  const setup = resolveExactInputRefillSetup(input, providerUsage.record);
   const generationJobResult = await createOrClaimRefillGenerationJob({
     prisma,
     generationJobId: input.generationJobId,
@@ -2985,6 +3230,7 @@ export async function refillExactInputExercisesForSkill(
     await tx.generationJob.update({
       where: { id: generationJob.id },
       data: {
+        ...buildGenerationJobProviderUpdate(providerUsage.latest()),
         status: GenerationJobStatus.SUCCEEDED,
         acceptedCount: verification.exercises.length,
         rejectedCount:
@@ -3120,7 +3366,8 @@ export async function refillMathExercisesForSkill(
   }
 
   const requestedCount = targetReadyCount - inventory.readyExerciseCount;
-  const setup = resolveMathRefillSetup(input);
+  const providerUsage = createAiProviderUsageTracker();
+  const setup = resolveMathRefillSetup(input, providerUsage.record);
   const generationJobResult = await createOrClaimRefillGenerationJob({
     prisma,
     generationJobId: input.generationJobId,
@@ -3409,6 +3656,7 @@ export async function refillMathExercisesForSkill(
     await tx.generationJob.update({
       where: { id: generationJob.id },
       data: {
+        ...buildGenerationJobProviderUpdate(providerUsage.latest()),
         status: GenerationJobStatus.SUCCEEDED,
         acceptedCount: verification.exercises.length,
         rejectedCount:
@@ -3898,8 +4146,29 @@ function resolveOptionalOpenRouterFallbackForOperation(
   return openRouterFallbackResult.config;
 }
 
+function createAiProviderUsageTracker() {
+  let latestUsage: AiProviderUsage | null = null;
+
+  return {
+    record: (usage: AiProviderUsage) => {
+      latestUsage = usage;
+    },
+    latest: () => latestUsage,
+  };
+}
+
+function buildGenerationJobProviderUpdate(providerUsage: AiProviderUsage | null) {
+  return providerUsage
+    ? {
+        provider: providerUsage.provider,
+        model: providerUsage.model,
+      }
+    : {};
+}
+
 function resolveActivationSetup(
   input: ActivateSkillDraftInput,
+  recordProviderUsage?: AiProviderUsageRecorder,
 ):
   | {
       status: "ready";
@@ -3933,12 +4202,14 @@ function resolveActivationSetup(
       generateChoiceExercises: createGeminiChoiceExerciseGenerator({
         gemini,
         openRouterFallback,
+        recordProviderUsage,
       }),
       verifyChoiceExercises:
         input.verifyChoiceExercises ??
         createGeminiChoiceExerciseVerifier({
           gemini,
           openRouterFallback,
+          recordProviderUsage,
         }),
     };
   } catch (error) {
@@ -3952,6 +4223,7 @@ function resolveActivationSetup(
 
 function resolveExactInputRefillSetup(
   input: RefillExactInputExercisesInput,
+  recordProviderUsage?: AiProviderUsageRecorder,
 ):
   | {
       status: "ready";
@@ -3986,12 +4258,14 @@ function resolveExactInputRefillSetup(
       generateExactInputExercises: createGeminiExactInputExerciseGenerator({
         gemini,
         openRouterFallback,
+        recordProviderUsage,
       }),
       verifyExactInputExercises:
         input.verifyExactInputExercises ??
         createGeminiExactInputExerciseVerifier({
           gemini,
           openRouterFallback,
+          recordProviderUsage,
         }),
     };
   } catch (error) {
@@ -4005,6 +4279,7 @@ function resolveExactInputRefillSetup(
 
 function resolveMathRefillSetup(
   input: RefillMathExercisesInput,
+  recordProviderUsage?: AiProviderUsageRecorder,
 ):
   | {
       status: "ready";
@@ -4038,12 +4313,14 @@ function resolveMathRefillSetup(
       generateMathExercises: createGeminiMathExerciseGenerator({
         gemini,
         openRouterFallback,
+        recordProviderUsage,
       }),
       verifyMathExercises:
         input.verifyMathExercises ??
         createGeminiMathExerciseVerifier({
           gemini,
           openRouterFallback,
+          recordProviderUsage,
         }),
     };
   } catch (error) {
@@ -4121,7 +4398,7 @@ export function createGeminiSkillDraftGenerator({
     return runWithGeminiProviderFallback({
       fallback: openRouterFallbackForInput
         ? {
-            provider: "openrouter",
+            provider: OPENROUTER_PROVIDER,
             model: openRouterFallbackForInput.model,
             run: () => createOpenRouterSkillDraftGenerator(openRouterFallbackForInput)(input),
           }
@@ -4308,16 +4585,21 @@ function sanitizeOpenRouterFilename(filename: string): string {
 export function createGeminiChoiceExerciseGenerator({
   gemini,
   openRouterFallback,
+  recordProviderUsage,
 }: {
   gemini: GeminiRuntimeConfig;
   openRouterFallback?: OpenRouterFallbackConfig | null;
+  recordProviderUsage?: AiProviderUsageRecorder;
 }): ChoiceExerciseGenerator {
   return async (input) => {
     const prompt = buildChoiceExercisePrompt(input);
 
     return runWithGeminiProviderFallback({
-      fallback: buildOpenRouterProviderFallback(openRouterFallback, input.sourceMedia, (fallback) =>
-        createOpenRouterChoiceExerciseGenerator(fallback)(input),
+      fallback: buildOpenRouterProviderFallback(
+        openRouterFallback,
+        input.sourceMedia,
+        (fallback) => createOpenRouterChoiceExerciseGenerator(fallback)(input),
+        recordProviderUsage,
       ),
       operation: "choice exercise generation",
       primary: getGeminiRuntimeLogContext(gemini),
@@ -4363,16 +4645,21 @@ export function createGeminiChoiceExerciseGenerator({
 function createGeminiChoiceExerciseVerifier({
   gemini,
   openRouterFallback,
+  recordProviderUsage,
 }: {
   gemini: GeminiRuntimeConfig;
   openRouterFallback?: OpenRouterFallbackConfig | null;
+  recordProviderUsage?: AiProviderUsageRecorder;
 }): ChoiceExerciseVerifier {
   return async (input) => {
     const prompt = buildChoiceExerciseVerificationPrompt(input);
 
     return runWithGeminiProviderFallback({
-      fallback: buildOpenRouterProviderFallback(openRouterFallback, input.sourceMedia, (fallback) =>
-        createOpenRouterChoiceExerciseVerifier(fallback)(input),
+      fallback: buildOpenRouterProviderFallback(
+        openRouterFallback,
+        input.sourceMedia,
+        (fallback) => createOpenRouterChoiceExerciseVerifier(fallback)(input),
+        recordProviderUsage,
       ),
       operation: "choice exercise verification",
       primary: getGeminiRuntimeLogContext(gemini),
@@ -4418,16 +4705,21 @@ function createGeminiChoiceExerciseVerifier({
 function createGeminiExactInputExerciseGenerator({
   gemini,
   openRouterFallback,
+  recordProviderUsage,
 }: {
   gemini: GeminiRuntimeConfig;
   openRouterFallback?: OpenRouterFallbackConfig | null;
+  recordProviderUsage?: AiProviderUsageRecorder;
 }): ExactInputExerciseGenerator {
   return async (input) => {
     const prompt = buildExactInputExercisePrompt(input);
 
     return runWithGeminiProviderFallback({
-      fallback: buildOpenRouterProviderFallback(openRouterFallback, input.sourceMedia, (fallback) =>
-        createOpenRouterExactInputExerciseGenerator(fallback)(input),
+      fallback: buildOpenRouterProviderFallback(
+        openRouterFallback,
+        input.sourceMedia,
+        (fallback) => createOpenRouterExactInputExerciseGenerator(fallback)(input),
+        recordProviderUsage,
       ),
       operation: "exact-input exercise generation",
       primary: getGeminiRuntimeLogContext(gemini),
@@ -4473,16 +4765,21 @@ function createGeminiExactInputExerciseGenerator({
 function createGeminiExactInputExerciseVerifier({
   gemini,
   openRouterFallback,
+  recordProviderUsage,
 }: {
   gemini: GeminiRuntimeConfig;
   openRouterFallback?: OpenRouterFallbackConfig | null;
+  recordProviderUsage?: AiProviderUsageRecorder;
 }): ExactInputExerciseVerifier {
   return async (input) => {
     const prompt = buildExactInputExerciseVerificationPrompt(input);
 
     return runWithGeminiProviderFallback({
-      fallback: buildOpenRouterProviderFallback(openRouterFallback, input.sourceMedia, (fallback) =>
-        createOpenRouterExactInputExerciseVerifier(fallback)(input),
+      fallback: buildOpenRouterProviderFallback(
+        openRouterFallback,
+        input.sourceMedia,
+        (fallback) => createOpenRouterExactInputExerciseVerifier(fallback)(input),
+        recordProviderUsage,
       ),
       operation: "exact-input exercise verification",
       primary: getGeminiRuntimeLogContext(gemini),
@@ -4528,16 +4825,21 @@ function createGeminiExactInputExerciseVerifier({
 function createGeminiMathExerciseGenerator({
   gemini,
   openRouterFallback,
+  recordProviderUsage,
 }: {
   gemini: GeminiRuntimeConfig;
   openRouterFallback?: OpenRouterFallbackConfig | null;
+  recordProviderUsage?: AiProviderUsageRecorder;
 }): MathExerciseGenerator {
   return async (input) => {
     const prompt = buildMathExercisePrompt(input);
 
     return runWithGeminiProviderFallback({
-      fallback: buildOpenRouterProviderFallback(openRouterFallback, input.sourceMedia, (fallback) =>
-        createOpenRouterMathExerciseGenerator(fallback)(input),
+      fallback: buildOpenRouterProviderFallback(
+        openRouterFallback,
+        input.sourceMedia,
+        (fallback) => createOpenRouterMathExerciseGenerator(fallback)(input),
+        recordProviderUsage,
       ),
       operation: "math exercise generation",
       primary: getGeminiRuntimeLogContext(gemini),
@@ -4583,16 +4885,21 @@ function createGeminiMathExerciseGenerator({
 function createGeminiMathExerciseVerifier({
   gemini,
   openRouterFallback,
+  recordProviderUsage,
 }: {
   gemini: GeminiRuntimeConfig;
   openRouterFallback?: OpenRouterFallbackConfig | null;
+  recordProviderUsage?: AiProviderUsageRecorder;
 }): MathExerciseVerifier {
   return async (input) => {
     const prompt = buildMathExerciseVerificationPrompt(input);
 
     return runWithGeminiProviderFallback({
-      fallback: buildOpenRouterProviderFallback(openRouterFallback, input.sourceMedia, (fallback) =>
-        createOpenRouterMathExerciseVerifier(fallback)(input),
+      fallback: buildOpenRouterProviderFallback(
+        openRouterFallback,
+        input.sourceMedia,
+        (fallback) => createOpenRouterMathExerciseVerifier(fallback)(input),
+        recordProviderUsage,
       ),
       operation: "math exercise verification",
       primary: getGeminiRuntimeLogContext(gemini),
@@ -4639,6 +4946,7 @@ function buildOpenRouterProviderFallback<T>(
   openRouterFallback: OpenRouterFallbackConfig | null | undefined,
   sourceMedia: SourceMediaContext[] | undefined,
   run: (fallback: OpenRouterFallbackConfig) => Promise<T>,
+  recordProviderUsage?: AiProviderUsageRecorder,
 ) {
   const openRouterFallbackForInput = openRouterFallbackForSourceMedia(
     openRouterFallback,
@@ -4647,9 +4955,16 @@ function buildOpenRouterProviderFallback<T>(
 
   return openRouterFallbackForInput
     ? {
-        provider: "openrouter",
+        provider: OPENROUTER_PROVIDER,
         model: openRouterFallbackForInput.model,
-        run: () => run(openRouterFallbackForInput),
+        run: async () => {
+          const value = await run(openRouterFallbackForInput);
+          recordProviderUsage?.({
+            provider: OPENROUTER_PROVIDER,
+            model: openRouterFallbackForInput.model,
+          });
+          return value;
+        },
       }
     : null;
 }
@@ -4673,7 +4988,7 @@ export function createOpenRouterChoiceExerciseGenerator({
         media: buildSourceMediaLogMetadata(input.sourceMedia),
       },
       operation: "choice exercise generation",
-      responseJsonSchema: buildGeminiResponseJsonSchema(input.requestedCount),
+      responseJsonSchema: buildOpenRouterChoiceExerciseResponseJsonSchema(input.requestedCount),
       responseJsonSchemaName: "choiceExerciseResponse",
       messages: [
         {
@@ -4708,7 +5023,7 @@ export function createOpenRouterChoiceExerciseVerifier({
         media: buildSourceMediaLogMetadata(input.sourceMedia),
       },
       operation: "choice exercise verification",
-      responseJsonSchema: buildGeminiChoiceVerificationJsonSchema(input.candidates.length),
+      responseJsonSchema: buildOpenRouterChoiceVerificationJsonSchema(input.candidates.length),
       responseJsonSchemaName: "choiceExerciseVerification",
       messages: [
         {
@@ -4743,7 +5058,7 @@ export function createOpenRouterExactInputExerciseGenerator({
         media: buildSourceMediaLogMetadata(input.sourceMedia),
       },
       operation: "exact-input exercise generation",
-      responseJsonSchema: buildGeminiExactInputResponseJsonSchema(input.requestedCount),
+      responseJsonSchema: buildOpenRouterExactInputResponseJsonSchema(input.requestedCount),
       responseJsonSchemaName: "exactInputExerciseResponse",
       messages: [
         {
@@ -4778,7 +5093,7 @@ export function createOpenRouterExactInputExerciseVerifier({
         media: buildSourceMediaLogMetadata(input.sourceMedia),
       },
       operation: "exact-input exercise verification",
-      responseJsonSchema: buildGeminiExactInputVerificationJsonSchema(input.candidates.length),
+      responseJsonSchema: buildOpenRouterExactInputVerificationJsonSchema(input.candidates.length),
       responseJsonSchemaName: "exactInputExerciseVerification",
       messages: [
         {
@@ -4813,7 +5128,7 @@ export function createOpenRouterMathExerciseGenerator({
         media: buildSourceMediaLogMetadata(input.sourceMedia),
       },
       operation: "math exercise generation",
-      responseJsonSchema: buildGeminiMathResponseJsonSchema(input.requestedCount),
+      responseJsonSchema: buildOpenRouterMathResponseJsonSchema(input.requestedCount),
       responseJsonSchemaName: "mathExerciseResponse",
       messages: [
         {
@@ -4848,7 +5163,7 @@ export function createOpenRouterMathExerciseVerifier({
         media: buildSourceMediaLogMetadata(input.sourceMedia),
       },
       operation: "math exercise verification",
-      responseJsonSchema: buildGeminiMathVerificationJsonSchema(input.candidates.length),
+      responseJsonSchema: buildOpenRouterMathVerificationJsonSchema(input.candidates.length),
       responseJsonSchemaName: "mathExerciseVerification",
       messages: [
         {

@@ -1445,6 +1445,7 @@ describe("OpenRouter exercise fallbacks", () => {
       ),
     );
     vi.stubGlobal("fetch", fetchMock);
+    const recordProviderUsage = vi.fn();
 
     const result = await createGeminiChoiceExerciseGenerator({
       gemini: {
@@ -1464,6 +1465,7 @@ describe("OpenRouter exercise fallbacks", () => {
         baseUrl: "https://openrouter.ai/api/v1",
         model: "google/gemma-4-31b-it",
       },
+      recordProviderUsage,
     })({
       skill: {
         id: "skill_1",
@@ -1489,6 +1491,10 @@ describe("OpenRouter exercise fallbacks", () => {
     expect(result).toEqual({ exercises: [validExercise(1)] });
     expect(geminiGenerateContentMock).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(recordProviderUsage).toHaveBeenCalledWith({
+      provider: "openrouter",
+      model: "google/gemma-4-31b-it",
+    });
     expect(warningSpy).toHaveBeenCalledWith(
       "[ai] retrying with fallback provider",
       expect.objectContaining({
@@ -1617,6 +1623,51 @@ describe("OpenRouter exercise fallbacks", () => {
       "exactInputExerciseResponse",
       "mathExerciseVerification",
     ]);
+    expect(
+      requestBodies.every((body) => body.response_format.json_schema.strict === true),
+    ).toBe(true);
+    expect(
+      requestBodies[0].response_format.json_schema.schema.properties.exercises.items.required,
+    ).toEqual([
+      "prompt",
+      "choices",
+      "correctChoiceId",
+      "explanation",
+      "difficulty",
+      "expectedSeconds",
+    ]);
+    expect(
+      requestBodies[1].response_format.json_schema.schema.properties.exercises.items.required,
+    ).toEqual([
+      "prompt",
+      "answerKind",
+      "answerSpec",
+      "correctAnswerDisplay",
+      "explanation",
+      "difficulty",
+      "expectedSeconds",
+    ]);
+    expect(
+      requestBodies[1].response_format.json_schema.schema.properties.exercises.items.properties
+        .answerSpec.anyOf[0].required,
+    ).toEqual([
+      "kind",
+      "accepted",
+      "normalizeCase",
+      "normalizeWhitespace",
+      "normalizeDiacritics",
+    ]);
+    expect(
+      requestBodies[1].response_format.json_schema.schema.properties.exercises.items.properties
+        .answerSpec.anyOf[1].required,
+    ).toEqual(["kind", "accepted", "tolerance"]);
+    expect(
+      requestBodies[2].response_format.json_schema.schema.properties.verifications.items.required,
+    ).toEqual(["candidateId", "verdict", "reason", "note"]);
+    expect(
+      requestBodies[2].response_format.json_schema.schema.properties.verifications.items.properties
+        .reason.enum,
+    ).toContain(null);
     expect(requestBodies[0].messages[1].content[1]).toEqual({
       type: "image_url",
       image_url: {
