@@ -16,9 +16,17 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import { SOURCE_UPLOAD_MIME_TYPES } from "@/lib/skills/source-upload-policy";
+import {
+  MAX_SOURCE_UPLOAD_FILES,
+  MAX_TOTAL_SOURCE_UPLOAD_BYTES,
+  SOURCE_UPLOAD_MAX_FILES_ERROR,
+  SOURCE_UPLOAD_TOTAL_MAX_BYTES_ERROR,
+  SOURCE_UPLOAD_MIME_TYPES,
+  buildSourceUploadFileLabel,
+} from "@/lib/skills/source-upload-policy";
 
 import {
+  cleanupPreparedSourceUploadsAction,
   completeSourceUploadAction,
   generateSkillDraftFromSourceAction,
   prepareSourceUploadAction,
@@ -50,6 +58,11 @@ type MaterialSnapshot = {
   focusNote: string;
   tags: string;
   recoveredSourceFileId: string;
+};
+type SelectedSourceUploadFile = {
+  id: string;
+  file: File;
+  previewUrl: string | null;
 };
 export type RecoverableSourceUpload = {
   id: string;
@@ -114,15 +127,14 @@ export function SourceCreationWorkspace({
   const sourceTextErrorId = useId();
   const formRef = useRef<HTMLFormElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const selectedFilePreviewUrlRef = useRef<string | null>(null);
+  const selectedFilesRef = useRef<SelectedSourceUploadFile[]>([]);
   const [textState, textAction, isGeneratingFromText] = useActionState(
     generateSkillDraftFromSourceAction,
     idleState,
   );
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]> | undefined>();
   const [isDraggingFile, setIsDraggingFile] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [selectedFilePreviewUrl, setSelectedFilePreviewUrl] = useState<string | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<SelectedSourceUploadFile[]>([]);
   const [uploadStatus, setUploadStatus] = useState<UploadStatus>("idle");
   const [isSubmittingUpload, setIsSubmittingUpload] = useState(false);
   const [isPendingUpload, startUploadTransition] = useTransition();
@@ -158,7 +170,7 @@ export function SourceCreationWorkspace({
 
   const textActionFieldErrors =
     !ignoreTextStateErrors && textState.status === "error" ? textState.fieldErrors : undefined;
-  const activeFieldErrors = selectedFile
+  const activeFieldErrors = selectedFiles.length > 0
     ? fieldErrors
     : fieldErrors ?? textActionFieldErrors;
   const sourceTextError = activeFieldErrors?.sourceText?.[0];
@@ -166,36 +178,28 @@ export function SourceCreationWorkspace({
     .filter(Boolean)
     .join(" ");
 
-  const clearSelectedFilePreview = useCallback(() => {
-    if (selectedFilePreviewUrlRef.current) {
-      URL.revokeObjectURL(selectedFilePreviewUrlRef.current);
-      selectedFilePreviewUrlRef.current = null;
-    }
-
-    setSelectedFilePreviewUrl(null);
+  const clearSelectedFiles = useCallback(() => {
+    clearFileInput(fileInputRef.current);
+    setSelectedFiles((currentFiles) => {
+      revokeSelectedSourceUploadFiles(currentFiles);
+      return [];
+    });
+    setFieldErrors(undefined);
   }, []);
 
-  const setSelectedFilePreview = useCallback(
-    (file: File) => {
-      clearSelectedFilePreview();
+  const removeSelectedFile = useCallback((fileId: string) => {
+    clearFileInput(fileInputRef.current);
+    setSelectedFiles((currentFiles) => {
+      const removedFile = currentFiles.find((selectedFile) => selectedFile.id === fileId);
 
-      if (!file.type.startsWith("image/")) {
-        return;
+      if (removedFile) {
+        revokeSelectedSourceUploadFiles([removedFile]);
       }
 
-      const previewUrl = URL.createObjectURL(file);
-      selectedFilePreviewUrlRef.current = previewUrl;
-      setSelectedFilePreviewUrl(previewUrl);
-    },
-    [clearSelectedFilePreview],
-  );
-
-  const clearSelectedFile = useCallback(() => {
-    clearFileInput(fileInputRef.current);
-    setSelectedFile(null);
-    clearSelectedFilePreview();
+      return currentFiles.filter((selectedFile) => selectedFile.id !== fileId);
+    });
     setFieldErrors(undefined);
-  }, [clearSelectedFilePreview]);
+  }, []);
 
   const showNotice = useCallback((nextNotice: SourceCreationNotice | null) => {
     notifications.hide(sourceCreationNotificationId);
@@ -223,13 +227,14 @@ export function SourceCreationWorkspace({
     });
   }, []);
 
-  const selectUploadFile = useCallback((file: File, successMessage: string | null = null) => {
-    const fileError = getSourceUploadFileError(file);
+  const selectUploadFiles = useCallback((files: File[], successMessage: string | null = null) => {
+    const fileError = getSelectedSourceUploadFilesError(
+      selectedFiles.map((selectedFile) => selectedFile.file),
+      files,
+    );
 
     if (fileError) {
       clearFileInput(fileInputRef.current);
-      setSelectedFile(null);
-      clearSelectedFilePreview();
       setUploadStatus("error");
       setFieldErrors({
         [fileError.field]: [fileError.message],
@@ -241,15 +246,13 @@ export function SourceCreationWorkspace({
       return false;
     }
 
-    if (!fileInputRef.current) {
+    if (files.length === 0) {
       return false;
     }
 
-    const transfer = new DataTransfer();
-    transfer.items.add(file);
-    fileInputRef.current.files = transfer.files;
-    setSelectedFile(file);
-    setSelectedFilePreview(file);
+    const nextFiles = files.map(createSelectedSourceUploadFile);
+    clearFileInput(fileInputRef.current);
+    setSelectedFiles((currentFiles) => [...currentFiles, ...nextFiles]);
     setUploadStatus("idle");
     setFieldErrors(undefined);
 
@@ -261,7 +264,7 @@ export function SourceCreationWorkspace({
     }
 
     return true;
-  }, [clearSelectedFilePreview, setSelectedFilePreview, showNotice]);
+  }, [selectedFiles, showNotice]);
 
   const restoreSavedSourceText = useCallback(
     async (upload: RecoverableSourceUpload) => {
@@ -285,7 +288,7 @@ export function SourceCreationWorkspace({
           return;
         }
 
-        clearSelectedFile();
+        clearSelectedFiles();
         setFieldErrors(undefined);
         setIgnoreTextStateErrors(true);
         setMaterialSnapshot((currentSnapshot) => ({
@@ -323,7 +326,7 @@ export function SourceCreationWorkspace({
         setRestoringSourceId(null);
       }
     },
-    [clearSelectedFile, restoringSourceId, showNotice],
+    [clearSelectedFiles, restoringSourceId, showNotice],
   );
 
   useEffect(() => {
@@ -343,7 +346,7 @@ export function SourceCreationWorkspace({
       }
 
       event.preventDefault();
-      selectUploadFile(pastedFile, "Pasted file added.");
+      selectUploadFiles([pastedFile], "Pasted file added.");
     }
 
     document.addEventListener("paste", handleDocumentPaste);
@@ -351,14 +354,16 @@ export function SourceCreationWorkspace({
     return () => {
       document.removeEventListener("paste", handleDocumentPaste);
     };
-  }, [activeStep, busy, selectUploadFile]);
+  }, [activeStep, busy, selectUploadFiles]);
+
+  useEffect(() => {
+    selectedFilesRef.current = selectedFiles;
+  }, [selectedFiles]);
 
   useEffect(() => {
     return () => {
-      if (selectedFilePreviewUrlRef.current) {
-        URL.revokeObjectURL(selectedFilePreviewUrlRef.current);
-        selectedFilePreviewUrlRef.current = null;
-      }
+      revokeSelectedSourceUploadFiles(selectedFilesRef.current);
+      selectedFilesRef.current = [];
     };
   }, []);
 
@@ -414,16 +419,40 @@ export function SourceCreationWorkspace({
     [showNotice],
   );
 
+  const cleanupPreparedUploadBatch = useCallback(async (sourceFileIds: string[]) => {
+    if (sourceFileIds.length === 0) {
+      return;
+    }
+
+    try {
+      const cleaned = await cleanupPreparedSourceUploadsAction({
+        sourceFileIds,
+      });
+
+      if (cleaned.status === "error") {
+        console.warn("[source-upload] partial upload cleanup failed", {
+          message: cleaned.message,
+        });
+      }
+    } catch (error) {
+      console.warn("[source-upload] partial upload cleanup failed", {
+        message: formatClientError(error),
+      });
+    }
+  }, []);
+
   const handleUploadSubmit = useCallback(
     async (form: HTMLFormElement) => {
-      if (!selectedFile) {
+      const filesForUpload = selectedFiles.map((selectedFile) => selectedFile.file);
+
+      if (filesForUpload.length === 0) {
         return;
       }
 
       showNotice(null);
       setFieldErrors(undefined);
 
-      const fileError = getSourceUploadFileError(selectedFile);
+      const fileError = getSelectedSourceUploadFilesError([], filesForUpload);
 
       if (fileError) {
         setUploadStatus("error");
@@ -437,47 +466,73 @@ export function SourceCreationWorkspace({
         return;
       }
 
-      const formData = new FormData(form);
-      const sourceText = stringFormValue(formData.get("sourceText"));
-      const existingFocus = stringFormValue(formData.get("focusNote"));
-
-      formData.set("originalName", selectedFile.name);
-      formData.set("mimeType", selectedFile.type);
-      formData.set("byteSize", String(selectedFile.size));
-      formData.delete("sourceFile");
-      formData.delete("sourceText");
-
-      if (!existingFocus && sourceText) {
-        formData.set("focusNote", sourceText);
-      }
-
       setUploadStatus("preparing");
-      const prepared = await prepareSourceUploadAction(formData);
+      const preparedSourceFileIds: string[] = [];
+      const baseFormData = new FormData(form);
+      const sourceText = stringFormValue(baseFormData.get("sourceText"));
+      const existingFocus = stringFormValue(baseFormData.get("focusNote"));
+      const sourceLabel = stringFormValue(baseFormData.get("sourceLabel"));
 
-      if (prepared.status !== "prepared") {
-        handleActionError(prepared);
-        return;
-      }
+      for (const [fileIndex, file] of filesForUpload.entries()) {
+        const formData = new FormData(form);
 
-      setUploadStatus("uploading");
-      const uploadResponse = await fetch(prepared.uploadUrl, {
-        method: "PUT",
-        headers: prepared.headers,
-        body: selectedFile,
-      });
+        formData.set("originalName", file.name);
+        formData.set("mimeType", file.type);
+        formData.set("byteSize", String(file.size));
+        formData.delete("sourceFile");
+        formData.delete("sourceText");
 
-      if (!uploadResponse.ok) {
-        setUploadStatus("error");
-        showNotice({
-          tone: "error",
-          message: "The private upload failed. Check file upload settings, then try again.",
-        });
-        return;
+        const uploadSourceLabel = buildSourceUploadFileLabel(
+          sourceLabel,
+          fileIndex,
+          filesForUpload.length,
+        );
+
+        if (uploadSourceLabel) {
+          formData.set("sourceLabel", uploadSourceLabel);
+        }
+
+        if (!existingFocus && sourceText) {
+          formData.set("focusNote", sourceText);
+        }
+
+        const prepared = await prepareSourceUploadAction(formData);
+
+        if (prepared.status !== "prepared") {
+          await cleanupPreparedUploadBatch(preparedSourceFileIds);
+          handleActionError(prepared);
+          return;
+        }
+
+        preparedSourceFileIds.push(prepared.sourceFileId);
+        setUploadStatus("uploading");
+        let uploadResponse: Response;
+
+        try {
+          uploadResponse = await fetch(prepared.uploadUrl, {
+            method: "PUT",
+            headers: prepared.headers,
+            body: file,
+          });
+        } catch (error) {
+          await cleanupPreparedUploadBatch(preparedSourceFileIds);
+          throw error;
+        }
+
+        if (!uploadResponse.ok) {
+          await cleanupPreparedUploadBatch(preparedSourceFileIds);
+          setUploadStatus("error");
+          showNotice({
+            tone: "error",
+            message: "The private upload failed. Check file upload settings, then try again.",
+          });
+          return;
+        }
       }
 
       setUploadStatus("generating");
       const completed = await completeSourceUploadAction({
-        sourceFileId: prepared.sourceFileId,
+        sourceFileIds: preparedSourceFileIds,
       });
 
       if (completed.status === "created") {
@@ -509,7 +564,7 @@ export function SourceCreationWorkspace({
         router.refresh();
       }
     },
-    [handleActionError, router, selectedFile, showNotice],
+    [cleanupPreparedUploadBatch, handleActionError, router, selectedFiles, showNotice],
   );
 
   const submitUpload = useCallback(
@@ -539,7 +594,7 @@ export function SourceCreationWorkspace({
         setActivatedSkillId(null);
         setCreatedSkill(null);
         setDismissedSkillId(textCreatedSkill?.skillId ?? null);
-        clearSelectedFile();
+        clearSelectedFiles();
         setUploadStatus("idle");
         setMaterialSnapshot(emptyMaterialSnapshot);
         showNotice(null);
@@ -578,7 +633,7 @@ export function SourceCreationWorkspace({
           setMaterialSnapshot(formDataToMaterialSnapshot(formData));
           setDismissedSkillId(null);
 
-          if (selectedFile) {
+          if (selectedFiles.length > 0) {
             event.preventDefault();
 
             if (uploadBusy) {
@@ -624,7 +679,7 @@ export function SourceCreationWorkspace({
               type="button"
             >
               <UploadSimple size={16} weight="bold" aria-hidden="true" />
-              <span>Choose file</span>
+              <span>Choose files</span>
             </button>
           </div>
 
@@ -649,10 +704,10 @@ export function SourceCreationWorkspace({
               event.preventDefault();
               setIsDraggingFile(false);
 
-              const file = event.dataTransfer.files.item(0);
+              const files = Array.from(event.dataTransfer.files);
 
-              if (file) {
-                selectUploadFile(file);
+              if (files.length > 0) {
+                selectUploadFiles(files);
               }
             }}
           >
@@ -673,33 +728,33 @@ export function SourceCreationWorkspace({
               accept={SOURCE_UPLOAD_MIME_TYPES.join(",")}
               className="skillFileInput"
               id={fileInputId}
+              multiple
               name="sourceFile"
               onChange={(event) => {
-                const file = event.currentTarget.files?.[0] ?? null;
+                const files = Array.from(event.currentTarget.files ?? []);
                 setFieldErrors(undefined);
                 showNotice(null);
 
-                if (file) {
-                  selectUploadFile(file);
+                if (files.length > 0) {
+                  selectUploadFiles(files);
                 } else {
-                  clearSelectedFile();
+                  clearSelectedFiles();
                 }
               }}
               ref={fileInputRef}
               tabIndex={-1}
               type="file"
             />
-            {selectedFile ? (
-              <CreateSkillAttachmentPreview
+            {selectedFiles.length > 0 ? (
+              <CreateSkillAttachmentPreviews
                 disabled={busy}
-                file={selectedFile}
-                onRemove={clearSelectedFile}
-                previewUrl={selectedFilePreviewUrl}
+                files={selectedFiles}
+                onRemove={removeSelectedFile}
               />
             ) : null}
             <div className="createSkillInputFooter">
               <p id="create-skill-input-help">
-                Text, screenshots, images, and PDFs work here.
+                Text, screenshots, images, and PDFs work here. Up to 5 files, 20 MB total.
               </p>
             </div>
           </div>
@@ -777,7 +832,7 @@ export function SourceCreationWorkspace({
             <button className="primaryButton" disabled={busy} type="submit">
               {submitButtonLabel({
                 isGeneratingFromText,
-                selectedFile,
+                selectedFileCount: selectedFiles.length,
                 uploadStatus,
               })}
             </button>
@@ -949,48 +1004,55 @@ function SkillAddedPanel({
   );
 }
 
-function CreateSkillAttachmentPreview({
+function CreateSkillAttachmentPreviews({
   disabled,
-  file,
+  files,
   onRemove,
-  previewUrl,
 }: {
   disabled: boolean;
-  file: File;
-  onRemove: () => void;
-  previewUrl: string | null;
+  files: SelectedSourceUploadFile[];
+  onRemove: (fileId: string) => void;
 }) {
-  const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
-  const FilePreviewIcon = isPdf ? FilePdf : FileIcon;
-
   return (
-    <div className="createSkillAttachmentPreview">
-      <div className="createSkillAttachmentTile" data-kind={previewUrl ? "image" : "file"}>
-        {previewUrl ? (
-          <Image
-            alt={`Preview of ${file.name}`}
-            className="createSkillAttachmentImage"
-            height={184}
-            src={previewUrl}
-            unoptimized
-            width={260}
-          />
-        ) : (
-          <div className="createSkillAttachmentFile">
-            <FilePreviewIcon size={38} weight="duotone" aria-hidden="true" />
-            <span title={file.name}>{file.name}</span>
+    <div className="createSkillAttachmentPreview" aria-label="Selected source files">
+      {files.map((selectedFile) => {
+        const { file, previewUrl } = selectedFile;
+        const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+        const FilePreviewIcon = isPdf ? FilePdf : FileIcon;
+
+        return (
+          <div
+            className="createSkillAttachmentTile"
+            data-kind={previewUrl ? "image" : "file"}
+            key={selectedFile.id}
+          >
+            {previewUrl ? (
+              <Image
+                alt={`Preview of ${file.name}`}
+                className="createSkillAttachmentImage"
+                height={64}
+                src={previewUrl}
+                unoptimized
+                width={88}
+              />
+            ) : (
+              <div className="createSkillAttachmentFile">
+                <FilePreviewIcon size={24} weight="duotone" aria-hidden="true" />
+                <span title={file.name}>{file.name}</span>
+              </div>
+            )}
+            <button
+              aria-label={`Remove ${file.name}`}
+              className="createSkillAttachmentRemove"
+              disabled={disabled}
+              onClick={() => onRemove(selectedFile.id)}
+              type="button"
+            >
+              <Trash size={14} weight="bold" aria-hidden="true" />
+            </button>
           </div>
-        )}
-        <button
-          aria-label={`Remove ${file.name}`}
-          className="createSkillAttachmentRemove"
-          disabled={disabled}
-          onClick={onRemove}
-          type="button"
-        >
-          <Trash size={16} weight="bold" aria-hidden="true" />
-        </button>
-      </div>
+        );
+      })}
     </div>
   );
 }
@@ -1102,25 +1164,80 @@ function SkillTextArea({
   );
 }
 
+function getSelectedSourceUploadFilesError(existingFiles: File[], incomingFiles: File[]) {
+  if (existingFiles.length + incomingFiles.length > MAX_SOURCE_UPLOAD_FILES) {
+    return {
+      field: "byteSize",
+      message: SOURCE_UPLOAD_MAX_FILES_ERROR,
+    };
+  }
+
+  for (const file of incomingFiles) {
+    const fileError = getSourceUploadFileError(file);
+
+    if (fileError) {
+      return fileError;
+    }
+  }
+
+  const totalBytes = [...existingFiles, ...incomingFiles].reduce(
+    (sum, file) => sum + file.size,
+    0,
+  );
+
+  if (totalBytes > MAX_TOTAL_SOURCE_UPLOAD_BYTES) {
+    return {
+      field: "byteSize",
+      message: SOURCE_UPLOAD_TOTAL_MAX_BYTES_ERROR,
+    };
+  }
+
+  return null;
+}
+
+function createSelectedSourceUploadFile(file: File): SelectedSourceUploadFile {
+  return {
+    id: createSelectedSourceUploadFileId(),
+    file,
+    previewUrl: file.type.startsWith("image/") ? URL.createObjectURL(file) : null,
+  };
+}
+
+function createSelectedSourceUploadFileId() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function revokeSelectedSourceUploadFiles(files: SelectedSourceUploadFile[]) {
+  for (const selectedFile of files) {
+    if (selectedFile.previewUrl) {
+      URL.revokeObjectURL(selectedFile.previewUrl);
+    }
+  }
+}
+
 function submitButtonLabel({
   isGeneratingFromText,
-  selectedFile,
+  selectedFileCount,
   uploadStatus,
 }: {
   isGeneratingFromText: boolean;
-  selectedFile: File | null;
+  selectedFileCount: number;
   uploadStatus: UploadStatus;
 }) {
   if (isGeneratingFromText) {
     return "Creating";
   }
 
-  if (selectedFile) {
+  if (selectedFileCount > 0) {
     switch (uploadStatus) {
       case "preparing":
         return "Preparing";
       case "uploading":
-        return "Uploading";
+        return selectedFileCount > 1 ? "Uploading files" : "Uploading";
       case "generating":
         return "Creating";
       default:

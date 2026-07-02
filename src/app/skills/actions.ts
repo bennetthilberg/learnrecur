@@ -25,6 +25,7 @@ import {
 } from "@/lib/skills/lifecycle";
 import { deleteSkillPermanently } from "@/lib/skills/delete";
 import {
+  cleanupPreparedSourceUploads,
   completeSourceUploadDrafts,
   dismissFailedSourceUpload,
   prepareSourceUpload,
@@ -94,6 +95,15 @@ export type CompleteSourceUploadActionResult =
       status: "error";
       message: string;
       refreshRecovery?: boolean;
+    };
+
+export type CleanupPreparedSourceUploadsActionResult =
+  | {
+      status: "cleaned";
+    }
+  | {
+      status: "error";
+      message: string;
     };
 
 export type RestoreSourceTextActionResult =
@@ -325,7 +335,8 @@ export async function prepareSourceUploadAction(
 }
 
 export async function completeSourceUploadAction(input: {
-  sourceFileId: string;
+  sourceFileId?: string;
+  sourceFileIds?: unknown;
 }): Promise<CompleteSourceUploadActionResult> {
   const user = await requireSkillActionUser();
 
@@ -333,9 +344,19 @@ export async function completeSourceUploadAction(input: {
     return user;
   }
 
+  const sourceFileIds = normalizeActionSourceFileIds(input);
+
+  if (sourceFileIds.length === 0) {
+    return {
+      status: "error",
+      message: "Choose at least one uploaded source file.",
+    };
+  }
+
   const result = await completeSourceUploadDrafts({
     userId: user.userId,
-    sourceFileId: input.sourceFileId,
+    sourceFileId: sourceFileIds[0],
+    sourceFileIds,
     now: new Date(),
   });
 
@@ -380,6 +401,43 @@ export async function completeSourceUploadAction(input: {
         ? `${result.message} Try again here, or choose a clearer file.`
         : result.message,
     refreshRecovery: result.status === "not-created" || result.status === "not-found",
+  };
+}
+
+export async function cleanupPreparedSourceUploadsAction(input: {
+  sourceFileId?: string;
+  sourceFileIds?: unknown;
+}): Promise<CleanupPreparedSourceUploadsActionResult> {
+  const user = await requireSkillActionUser();
+
+  if (user.status === "error") {
+    return user;
+  }
+
+  const sourceFileIds = normalizeActionSourceFileIds(input);
+
+  if (sourceFileIds.length === 0) {
+    return {
+      status: "cleaned",
+    };
+  }
+
+  try {
+    await cleanupPreparedSourceUploads({
+      userId: user.userId,
+      sourceFileIds,
+    });
+  } catch (error) {
+    return {
+      status: "error",
+      message: `Could not clean up partial uploads: ${
+        error instanceof Error ? error.message : "Unknown cleanup error."
+      }`,
+    };
+  }
+
+  return {
+    status: "cleaned",
   };
 }
 
@@ -1047,6 +1105,27 @@ function getFormString(formData: FormData, key: string): string {
 function getOptionalFormString(formData: FormData, key: string): string | null {
   const value = getFormString(formData, key).trim();
   return value.length > 0 ? value : null;
+}
+
+function normalizeActionSourceFileIds(input: {
+  sourceFileId?: unknown;
+  sourceFileIds?: unknown;
+}) {
+  const sourceFileIds = Array.isArray(input.sourceFileIds) ? input.sourceFileIds : [];
+  const rawSourceFileIds =
+    sourceFileIds.length > 0
+      ? sourceFileIds
+      : typeof input.sourceFileId === "string" && input.sourceFileId
+        ? [input.sourceFileId]
+        : [];
+
+  return rawSourceFileIds
+    .filter((sourceFileId): sourceFileId is string => typeof sourceFileId === "string")
+    .map((sourceFileId) => sourceFileId.trim())
+    .filter(Boolean)
+    .filter((sourceFileId, index, sourceFileIds) => {
+      return sourceFileIds.indexOf(sourceFileId) === index;
+    });
 }
 
 function notesToText(value: Prisma.JsonValue | null): string {

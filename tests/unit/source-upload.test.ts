@@ -4,11 +4,13 @@ import { SourceFileKind, SourceFileStatus } from "@/generated/prisma/client";
 
 import {
   MAX_SOURCE_UPLOAD_BYTES,
+  MAX_SOURCE_UPLOAD_FILES,
   MAX_SOURCE_UPLOAD_REQUEUE_ATTEMPTS,
   SOURCE_PROCESSING_STALE_AFTER_MS,
   buildSourceUploadRequeueMetadata,
   canRequeueSourceUploadMetadata,
   buildSourceUploadObjectKey,
+  completeSourceUploadDrafts,
   isDismissedSourceUploadMetadata,
   isSourceUploadDismissible,
   getSourceUploadRetryCount,
@@ -18,6 +20,10 @@ import {
   validateExtractedSourceText,
 } from "@/lib/skills/uploads";
 import { MAX_COLLECTION_NAME_LENGTH, SOURCE_CONTEXT_CHAR_LIMIT } from "@/lib/skills";
+import {
+  MAX_SOURCE_UPLOAD_LABEL_LENGTH,
+  buildSourceUploadFileLabel,
+} from "@/lib/skills/source-upload-policy";
 import { getS3Env } from "@/lib/storage/s3";
 
 describe("normalizeSourceUploadInput", () => {
@@ -44,6 +50,37 @@ describe("normalizeSourceUploadInput", () => {
         tags: ["spanish", "grammar"],
       },
     });
+  });
+
+  it("accepts source labels at the upload label limit", () => {
+    const sourceLabel = "x".repeat(MAX_SOURCE_UPLOAD_LABEL_LENGTH);
+    const result = normalizeSourceUploadInput({
+      originalName: "worksheet.png",
+      mimeType: "image/png",
+      byteSize: 1024,
+      sourceLabel,
+    });
+
+    expect(result).toEqual({
+      status: "ready",
+      value: {
+        originalName: "worksheet.png",
+        mimeType: "image/png",
+        byteSize: 1024,
+        sourceLabel,
+        focusNote: null,
+        collectionName: null,
+        tags: [],
+      },
+    });
+  });
+
+  it("keeps multi-file upload labels within the server label limit", () => {
+    const sourceLabel = "x".repeat(MAX_SOURCE_UPLOAD_LABEL_LENGTH);
+    const uploadLabel = buildSourceUploadFileLabel(sourceLabel, 0, 2);
+
+    expect(uploadLabel).toHaveLength(MAX_SOURCE_UPLOAD_LABEL_LENGTH);
+    expect(uploadLabel).toBe(`${"x".repeat(MAX_SOURCE_UPLOAD_LABEL_LENGTH - 2)} 1`);
   });
 
   it("rejects unsupported mime types and oversized files", () => {
@@ -113,6 +150,25 @@ describe("validateExtractedSourceText", () => {
     expect(validateExtractedSourceText({ text: "wrong key" })).toMatchObject({
       status: "invalid",
       reason: "invalid-response",
+    });
+  });
+});
+
+describe("completeSourceUploadDrafts", () => {
+  it("rejects upload batches above the maximum source file count", async () => {
+    const result = await completeSourceUploadDrafts({
+      userId: "user_batch_limit",
+      sourceFileId: "source-1",
+      sourceFileIds: Array.from({ length: MAX_SOURCE_UPLOAD_FILES + 1 }, (_, index) => {
+        return `source-${index + 1}`;
+      }),
+      now: new Date("2026-06-05T12:00:00.000Z"),
+    });
+
+    expect(result).toMatchObject({
+      status: "not-created",
+      reason: "invalid-upload",
+      message: "Upload up to 5 files.",
     });
   });
 });
@@ -253,6 +309,14 @@ describe("source upload recovery helpers", () => {
     expect(canRequeueSourceUploadMetadata({ retryCount: MAX_SOURCE_UPLOAD_REQUEUE_ATTEMPTS })).toBe(
       false,
     );
+  });
+
+  it("does not allow single-file requeue for multi-file upload batch metadata", () => {
+    expect(
+      canRequeueSourceUploadMetadata({
+        batchSourceFileIds: ["source-1", "source-2"],
+      }),
+    ).toBe(false);
   });
 
   it("consumes a retry attempt for requeued uploaded source metadata", () => {

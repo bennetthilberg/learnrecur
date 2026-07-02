@@ -23,6 +23,7 @@ import { getDashboardHome } from "@/lib/dashboard";
 import { getPrisma } from "@/lib/prisma";
 import {
   activateSkillDraft,
+  createGeneratedSkillDraftsForSourceFile,
   createSkillDraft,
   createSkillDraftFromSource,
   DEFAULT_READY_EXACT_INPUT_TARGET,
@@ -47,6 +48,8 @@ import {
   MAX_SOURCE_UPLOAD_BYTES,
   MAX_SOURCE_UPLOAD_REQUEUE_ATTEMPTS,
   SOURCE_PROCESSING_STALE_AFTER_MS,
+  cleanupPreparedSourceUploads,
+  completeSourceUploadDrafts,
   dismissFailedSourceUpload,
   prepareSourceUpload,
   queueSourceUploadDrafts,
@@ -217,6 +220,7 @@ function createFakeUploadStorage({
   mimeType = "image/png",
   byteSize = bytes.byteLength,
   headError = null,
+  headErrorForKey,
   getError = null,
   onDeleteObject,
 }: {
@@ -224,6 +228,7 @@ function createFakeUploadStorage({
   mimeType?: string;
   byteSize?: number;
   headError?: Error | null;
+  headErrorForKey?: (input: Parameters<SourceUploadStorage["headObject"]>[0]) => Error | null;
   getError?: Error | null;
   onDeleteObject?: (
     input: Parameters<SourceUploadStorage["deleteObject"]>[0],
@@ -245,7 +250,13 @@ function createFakeUploadStorage({
 
       return "https://s3.example.test/presigned-upload";
     },
-    async headObject() {
+    async headObject(input) {
+      const keyError = headErrorForKey?.(input);
+
+      if (keyError) {
+        throw keyError;
+      }
+
       if (headError) {
         throw headError;
       }
@@ -1853,6 +1864,584 @@ describeDatabase("skill drafts and Gemini activation", () => {
     expect(library.sourceProcessing).toHaveLength(0);
   });
 
+  it("creates source-backed draft skills from multiple uploaded source objects", async () => {
+    const userId = await createUser("upload_multi_success");
+    const uploadedBytes = Buffer.from("uploaded worksheet original image bytes for a multi-source skill");
+    const { storage, getObjectByteInputs } = createFakeUploadStorage({
+      bytes: uploadedBytes,
+      byteSize: 4096,
+    });
+    const preparedSourceFileIds: string[] = [];
+
+    for (const [index, originalName] of ["worksheet-page-1.png", "worksheet-page-2.png"].entries()) {
+      const prepared = await prepareSourceUpload({
+        userId,
+        now,
+        storage,
+        input: {
+          originalName,
+          mimeType: "image/png",
+          byteSize: "4096",
+          sourceLabel: `Uploaded worksheet ${index + 1}`,
+          focusNote: "Create one focused grammar skill from the full worksheet.",
+          collectionName: "Spanish uploads",
+          tags: "Spanish, upload",
+        },
+      });
+
+      expect(prepared.status).toBe("prepared");
+
+      if (prepared.status !== "prepared") {
+        throw new Error("Expected upload preparation to succeed.");
+      }
+
+      preparedSourceFileIds.push(prepared.sourceFileId);
+    }
+
+    const extractionInputs: Parameters<SourceTextExtractor>[0][] = [];
+    let capturedSkillDraftSourceMedia: SourceMediaContext[] | undefined;
+    const completed = await completeSourceUploadDrafts({
+      userId,
+      sourceFileId: preparedSourceFileIds[0],
+      sourceFileIds: preparedSourceFileIds,
+      now,
+      storage,
+      extractSourceText: async (input) => {
+        extractionInputs.push(input);
+        return {
+          extractedText: `Extracted details for ${input.sourceLabel}. Use ser for identity and estar for location. Keep examples short and classroom-focused.`,
+        };
+      },
+      generateSkillDraft: async (input) => {
+        capturedSkillDraftSourceMedia = input.sourceMedia;
+        expect(input.sourceContext).toContain("Source 1: Uploaded worksheet 1");
+        expect(input.sourceContext).toContain("Source 2: Uploaded worksheet 2");
+        return {
+          drafts: [generatedSkillDraft],
+        };
+      },
+      model: "test-gemini",
+    });
+
+    expect(completed.status).toBe("created");
+
+    if (completed.status !== "created") {
+      throw new Error("Expected uploaded source completion to succeed.");
+    }
+
+    expect(completed.sourceFileIds).toEqual(preparedSourceFileIds);
+    expect(completed.skillSourceRefIds).toHaveLength(2);
+    expect(extractionInputs.map((input) => input.sourceLabel)).toEqual([
+      "Uploaded worksheet 1",
+      "Uploaded worksheet 2",
+    ]);
+    expect(capturedSkillDraftSourceMedia).toHaveLength(2);
+    expect(capturedSkillDraftSourceMedia?.map((source) => source.sourceFileId)).toEqual(
+      preparedSourceFileIds,
+    );
+    expect(capturedSkillDraftSourceMedia?.map((source) => source.label)).toEqual([
+      "Uploaded worksheet 1",
+      "Uploaded worksheet 2",
+    ]);
+    expect(capturedSkillDraftSourceMedia?.every((source) => source.bytes.equals(uploadedBytes))).toBe(
+      true,
+    );
+    expect(getObjectByteInputs).toHaveLength(2);
+
+    const skill = completed.skills[0];
+
+    if (!skill) {
+      throw new Error("Expected a generated draft skill.");
+    }
+
+    const sourceRefs = await prisma.skillSourceRef.findMany({
+      where: {
+        skillId: skill.id,
+        userId,
+      },
+      orderBy: {
+        createdAt: "asc",
+      },
+    });
+
+    expect(sourceRefs.map((ref) => ref.sourceFileId).toSorted()).toEqual(
+      preparedSourceFileIds.toSorted(),
+    );
+
+    const sourceFiles = await prisma.sourceFile.findMany({
+      where: {
+        id: {
+          in: preparedSourceFileIds,
+        },
+        userId,
+      },
+      orderBy: {
+        originalName: "asc",
+      },
+    });
+
+    expect(sourceFiles).toHaveLength(2);
+    expect(sourceFiles.every((sourceFile) => sourceFile.status === SourceFileStatus.READY)).toBe(
+      true,
+    );
+    expect(sourceFiles.map((sourceFile) => sourceFile.extractedText)).toEqual([
+      expect.stringContaining("Uploaded worksheet 1"),
+      expect.stringContaining("Uploaded worksheet 2"),
+    ]);
+
+    const library = await getSkillsLibrary({ userId, now });
+    expect(library.draftSkills).toHaveLength(1);
+    expect(library.draftSkills[0]?.sourceRefCount).toBe(2);
+    expect(library.sourceProcessing).toHaveLength(0);
+  });
+
+  it("starts multi-source extraction calls concurrently", async () => {
+    const userId = await createUser("upload_multi_parallel_extraction");
+    const { storage } = createFakeUploadStorage({
+      bytes: Buffer.from("uploaded worksheet original image bytes for parallel extraction"),
+      byteSize: 4096,
+    });
+    const preparedSourceFileIds: string[] = [];
+
+    for (const [index, originalName] of ["worksheet-page-1.png", "worksheet-page-2.png"].entries()) {
+      const prepared = await prepareSourceUpload({
+        userId,
+        now,
+        storage,
+        input: {
+          originalName,
+          mimeType: "image/png",
+          byteSize: "4096",
+          sourceLabel: `Parallel worksheet ${index + 1}`,
+        },
+      });
+
+      if (prepared.status !== "prepared") {
+        throw new Error("Expected upload preparation to succeed.");
+      }
+
+      preparedSourceFileIds.push(prepared.sourceFileId);
+    }
+
+    const extractionInputs: string[] = [];
+    let resolveSecondExtractionStarted: (() => void) | undefined;
+    const secondExtractionStarted = new Promise<void>((resolve) => {
+      resolveSecondExtractionStarted = resolve;
+    });
+    const waitForSecondExtractionStarted = () => {
+      return new Promise<void>((resolve, reject) => {
+        const timeoutId = setTimeout(() => {
+          reject(new Error("Second extraction did not start before the first extraction resolved."));
+        }, 250);
+
+        secondExtractionStarted.then(
+          () => {
+            clearTimeout(timeoutId);
+            resolve();
+          },
+          reject,
+        );
+      });
+    };
+
+    const completed = await completeSourceUploadDrafts({
+      userId,
+      sourceFileId: preparedSourceFileIds[0],
+      sourceFileIds: preparedSourceFileIds,
+      now,
+      storage,
+      extractSourceText: async (input) => {
+        extractionInputs.push(input.sourceLabel);
+
+        if (extractionInputs.length === 2) {
+          resolveSecondExtractionStarted?.();
+        }
+
+        if (extractionInputs.length === 1) {
+          await waitForSecondExtractionStarted();
+        }
+
+        return {
+          extractedText: `Extracted parallel details for ${input.sourceLabel}. Use ser for identity and estar for location. Keep examples short and classroom-focused.`,
+        };
+      },
+      generateSkillDraft: async (input) => {
+        expect(input.sourceContext).toContain("Source 1: Parallel worksheet 1");
+        expect(input.sourceContext).toContain("Source 2: Parallel worksheet 2");
+        return {
+          drafts: [generatedSkillDraft],
+        };
+      },
+      model: "test-gemini",
+    });
+
+    expect(completed.status).toBe("created");
+    expect(extractionInputs).toEqual(["Parallel worksheet 1", "Parallel worksheet 2"]);
+  });
+
+  it("uses a single normalized sourceFileIds value when completing an upload", async () => {
+    const userId = await createUser("upload_single_normalized_id");
+    const { storage } = createFakeUploadStorage({
+      byteSize: 4096,
+    });
+    const prepared = await prepareSourceUpload({
+      userId,
+      now,
+      storage,
+      input: {
+        originalName: "worksheet.png",
+        mimeType: "image/png",
+        byteSize: "4096",
+      },
+    });
+
+    if (prepared.status !== "prepared") {
+      throw new Error("Expected upload preparation to succeed.");
+    }
+
+    const completed = await completeSourceUploadDrafts({
+      userId,
+      sourceFileId: "wrong-source-id",
+      sourceFileIds: [prepared.sourceFileId],
+      now,
+      storage,
+      extractSourceText: successfulSourceExtractor,
+      generateSkillDraft: successfulSkillDraftGenerator,
+      model: "test-gemini",
+    });
+
+    expect(completed.status).toBe("created");
+    expect(completed).toMatchObject({
+      status: "created",
+      sourceFileId: prepared.sourceFileId,
+    });
+  });
+
+  it("cleans up prepared upload rows before a batch is completed", async () => {
+    const userId = await createUser("upload_cleanup_prepared_batch");
+    const { storage, deletedKeys } = createFakeUploadStorage();
+    const preparedSourceFileIds: string[] = [];
+    const preparedObjectKeys: string[] = [];
+
+    for (const originalName of ["worksheet-page-1.png", "worksheet-page-2.png"]) {
+      const prepared = await prepareSourceUpload({
+        userId,
+        now,
+        storage,
+        input: {
+          originalName,
+          mimeType: "image/png",
+          byteSize: "4096",
+        },
+      });
+
+      if (prepared.status !== "prepared") {
+        throw new Error("Expected upload preparation to succeed.");
+      }
+
+      preparedSourceFileIds.push(prepared.sourceFileId);
+      preparedObjectKeys.push(prepared.objectKey);
+    }
+
+    await cleanupPreparedSourceUploads({
+      userId,
+      sourceFileIds: preparedSourceFileIds,
+      storage,
+    });
+
+    await expect(
+      prisma.sourceFile.count({
+        where: {
+          id: {
+            in: preparedSourceFileIds,
+          },
+          userId,
+        },
+      }),
+    ).resolves.toBe(0);
+    expect(deletedKeys.toSorted()).toEqual(preparedObjectKeys.toSorted());
+  });
+
+  it("does not queue a partial batch when later uploaded source validation fails", async () => {
+    const userId = await createUser("upload_batch_queue_atomic");
+    let missingObjectKey = "";
+    const { storage, deletedKeys } = createFakeUploadStorage({
+      headErrorForKey: (input) => {
+        return input.key === missingObjectKey ? Object.assign(new Error("missing"), { name: "NoSuchKey" }) : null;
+      },
+    });
+    const preparedSourceFileIds: string[] = [];
+    const preparedObjectKeys: string[] = [];
+
+    for (const originalName of ["worksheet-page-1.png", "worksheet-page-2.png"]) {
+      const prepared = await prepareSourceUpload({
+        userId,
+        now,
+        storage,
+        input: {
+          originalName,
+          mimeType: "image/png",
+          byteSize: "4096",
+        },
+      });
+
+      if (prepared.status !== "prepared") {
+        throw new Error("Expected upload preparation to succeed.");
+      }
+
+      preparedSourceFileIds.push(prepared.sourceFileId);
+      preparedObjectKeys.push(prepared.objectKey);
+    }
+
+    missingObjectKey = preparedObjectKeys[1];
+
+    const completed = await completeSourceUploadDrafts({
+      userId,
+      sourceFileId: preparedSourceFileIds[0],
+      sourceFileIds: preparedSourceFileIds,
+      now,
+      storage,
+      extractSourceText: successfulSourceExtractor,
+      generateSkillDraft: successfulSkillDraftGenerator,
+      model: "test-gemini",
+    });
+
+    expect(completed).toMatchObject({
+      status: "not-created",
+      reason: "invalid-upload",
+    });
+    await expect(
+      prisma.sourceFile.count({
+        where: {
+          id: {
+            in: preparedSourceFileIds,
+          },
+          userId,
+        },
+      }),
+    ).resolves.toBe(0);
+    expect(deletedKeys.toSorted()).toEqual(preparedObjectKeys.toSorted());
+  });
+
+  it("keeps draft batch uploads when queue validation fails transiently", async () => {
+    const userId = await createUser("upload_batch_queue_transient_head");
+    const transientHeadError = new Error("temporary head failure");
+    const { storage, deletedKeys } = createFakeUploadStorage({
+      headError: transientHeadError,
+    });
+    const preparedSourceFileIds: string[] = [];
+    const preparedObjectKeys: string[] = [];
+
+    for (const originalName of ["worksheet-page-1.png", "worksheet-page-2.png"]) {
+      const prepared = await prepareSourceUpload({
+        userId,
+        now,
+        storage,
+        input: {
+          originalName,
+          mimeType: "image/png",
+          byteSize: "4096",
+        },
+      });
+
+      if (prepared.status !== "prepared") {
+        throw new Error("Expected upload preparation to succeed.");
+      }
+
+      preparedSourceFileIds.push(prepared.sourceFileId);
+      preparedObjectKeys.push(prepared.objectKey);
+    }
+
+    const completed = await completeSourceUploadDrafts({
+      userId,
+      sourceFileId: preparedSourceFileIds[0],
+      sourceFileIds: preparedSourceFileIds,
+      now,
+      storage,
+      extractSourceText: successfulSourceExtractor,
+      generateSkillDraft: successfulSkillDraftGenerator,
+      model: "test-gemini",
+    });
+
+    expect(completed).toMatchObject({
+      status: "not-created",
+      reason: "invalid-upload",
+    });
+    expect(completed.message).toContain("Could not verify S3 upload:");
+
+    const draftSources = await prisma.sourceFile.findMany({
+      where: {
+        id: {
+          in: preparedSourceFileIds,
+        },
+        userId,
+      },
+      orderBy: {
+        originalName: "asc",
+      },
+    });
+
+    expect(draftSources).toHaveLength(2);
+    expect(draftSources.every((sourceFile) => sourceFile.status === SourceFileStatus.DRAFT)).toBe(
+      true,
+    );
+    expect(draftSources.map((sourceFile) => sourceFile.storageKey).toSorted()).toEqual(
+      preparedObjectKeys.toSorted(),
+    );
+    expect(deletedKeys).toEqual([]);
+  });
+
+  it("does not offer per-file retry for failed multi-source upload batches", async () => {
+    const userId = await createUser("upload_multi_failed_no_single_retry");
+    const { storage } = createFakeUploadStorage({
+      byteSize: 4096,
+    });
+    const preparedSourceFileIds: string[] = [];
+
+    for (const originalName of ["worksheet-page-1.png", "worksheet-page-2.png"]) {
+      const prepared = await prepareSourceUpload({
+        userId,
+        now,
+        storage,
+        input: {
+          originalName,
+          mimeType: "image/png",
+          byteSize: "4096",
+        },
+      });
+
+      if (prepared.status !== "prepared") {
+        throw new Error("Expected upload preparation to succeed.");
+      }
+
+      preparedSourceFileIds.push(prepared.sourceFileId);
+    }
+
+    const completed = await completeSourceUploadDrafts({
+      userId,
+      sourceFileId: preparedSourceFileIds[0],
+      sourceFileIds: preparedSourceFileIds,
+      now,
+      storage,
+      extractSourceText: async () => {
+        throw new Error("transient extraction failure");
+      },
+      generateSkillDraft: successfulSkillDraftGenerator,
+      model: "test-gemini",
+    });
+
+    expect(completed).toMatchObject({
+      status: "not-created",
+      reason: "extraction-failed",
+    });
+
+    const library = await getSkillsLibrary({ userId, now });
+    expect(library.sourceProcessing).toHaveLength(2);
+    expect(library.sourceProcessing.every((source) => source.status === SourceFileStatus.FAILED)).toBe(
+      true,
+    );
+    expect(library.sourceProcessing.every((source) => source.canRequeue === false)).toBe(true);
+
+    const failedSources = await prisma.sourceFile.findMany({
+      where: {
+        id: {
+          in: preparedSourceFileIds,
+        },
+        userId,
+      },
+      orderBy: {
+        originalName: "asc",
+      },
+    });
+
+    expect(failedSources).toHaveLength(2);
+    expect(
+      failedSources.every((sourceFile) => {
+        const metadata = sourceFile.metadata as { batchSourceFileIds?: unknown };
+        return (
+          Array.isArray(metadata.batchSourceFileIds) &&
+          metadata.batchSourceFileIds.length === preparedSourceFileIds.length
+        );
+      }),
+    ).toBe(true);
+  });
+
+  it("rolls back generated skill draft source updates when a later source guard fails", async () => {
+    const userId = await createUser("upload_multi_guard_rollback");
+    const firstSource = await prisma.sourceFile.create({
+      data: {
+        userId,
+        kind: SourceFileKind.IMAGE,
+        status: SourceFileStatus.PROCESSING,
+        originalName: "worksheet-page-1.png",
+        mimeType: "image/png",
+        byteSize: 4096,
+        storageBucket: "learnrecur-dev",
+        storageKey: "source-uploads/user/source_1/worksheet.png",
+      },
+    });
+    const secondSource = await prisma.sourceFile.create({
+      data: {
+        userId,
+        kind: SourceFileKind.IMAGE,
+        status: SourceFileStatus.FAILED,
+        originalName: "worksheet-page-2.png",
+        mimeType: "image/png",
+        byteSize: 4096,
+        storageBucket: "learnrecur-dev",
+        storageKey: "source-uploads/user/source_2/worksheet.png",
+      },
+    });
+
+    const created = await createGeneratedSkillDraftsForSourceFile({
+      userId,
+      sourceFileId: firstSource.id,
+      sourceFileGuard: {
+        status: SourceFileStatus.PROCESSING,
+      },
+      sourceFileUpdate: {
+        status: SourceFileStatus.READY,
+        extractedText: "First page extraction.",
+      },
+      additionalSourceFiles: [
+        {
+          sourceFileId: secondSource.id,
+          sourceFileGuard: {
+            status: SourceFileStatus.PROCESSING,
+          },
+          sourceFileUpdate: {
+            status: SourceFileStatus.READY,
+            extractedText: "Second page extraction.",
+          },
+        },
+      ],
+      collectionName: null,
+      focusNote: null,
+      tags: [],
+      drafts: [generatedSkillDraft],
+    });
+
+    expect(created).toMatchObject({
+      status: "not-found",
+      reason: "source-not-found",
+    });
+    await expect(prisma.skill.count({ where: { userId } })).resolves.toBe(0);
+    await expect(
+      prisma.sourceFile.findUniqueOrThrow({
+        where: {
+          id: firstSource.id,
+        },
+        select: {
+          status: true,
+          extractedText: true,
+        },
+      }),
+    ).resolves.toEqual({
+      status: SourceFileStatus.PROCESSING,
+      extractedText: null,
+    });
+  });
+
   it("cleans up uploaded source state when extraction validation fails", async () => {
     const userId = await createUser("upload_invalid_extraction");
     const { storage, deletedKeys } = createFakeUploadStorage({
@@ -2093,6 +2682,89 @@ describeDatabase("skill drafts and Gemini activation", () => {
       errorMessage: "Uploaded file is missing or larger than 10 MB.",
     });
     expect(deletedKeys).toEqual([prepared.objectKey]);
+  });
+
+  it("rejects a batch when actual object bytes exceed the total source upload limit", async () => {
+    const userId = await createUser("upload_actual_total_limit");
+    const metadataByteSize = 4096;
+    const actualBytes = Buffer.alloc(Math.floor(MAX_SOURCE_UPLOAD_BYTES / 2), 1);
+    let actualReadCount = 0;
+    const { storage, deletedKeys } = createFakeUploadStorage({
+      byteSize: metadataByteSize,
+      bytes: Buffer.from("valid queued upload"),
+    });
+    const guardedStorage: SourceUploadStorage = {
+      ...storage,
+      async getObjectBytes() {
+        actualReadCount += 1;
+        return actualBytes;
+      },
+    };
+    const preparedSourceFileIds: string[] = [];
+    const preparedObjectKeys: string[] = [];
+
+    for (const originalName of [
+      "worksheet-page-1.png",
+      "worksheet-page-2.png",
+      "worksheet-page-3.png",
+      "worksheet-page-4.png",
+      "worksheet-page-5.png",
+    ]) {
+      const prepared = await prepareSourceUpload({
+        userId,
+        now,
+        storage: guardedStorage,
+        input: {
+          originalName,
+          mimeType: "image/png",
+          byteSize: String(metadataByteSize),
+        },
+      });
+
+      if (prepared.status !== "prepared") {
+        throw new Error("Expected upload preparation to succeed.");
+      }
+
+      preparedSourceFileIds.push(prepared.sourceFileId);
+      preparedObjectKeys.push(prepared.objectKey);
+    }
+
+    const completed = await completeSourceUploadDrafts({
+      userId,
+      sourceFileId: preparedSourceFileIds[0],
+      sourceFileIds: preparedSourceFileIds,
+      now,
+      storage: guardedStorage,
+      extractSourceText: successfulSourceExtractor,
+      generateSkillDraft: successfulSkillDraftGenerator,
+      model: "test-gemini",
+    });
+
+    expect(completed).toMatchObject({
+      status: "not-created",
+      reason: "invalid-upload",
+      message: "Upload files totaling 20 MB or less.",
+    });
+    expect(actualReadCount).toBe(5);
+
+    const failedSources = await prisma.sourceFile.findMany({
+      where: {
+        id: {
+          in: preparedSourceFileIds,
+        },
+        userId,
+      },
+      orderBy: {
+        originalName: "asc",
+      },
+    });
+
+    expect(failedSources).toHaveLength(5);
+    expect(failedSources.every((sourceFile) => sourceFile.status === SourceFileStatus.FAILED)).toBe(
+      true,
+    );
+    expect(failedSources.every((sourceFile) => sourceFile.storageKey === null)).toBe(true);
+    expect(deletedKeys.toSorted()).toEqual(preparedObjectKeys.toSorted());
   });
 
   it("cleans up queued upload state when head revalidation cannot find the object", async () => {
