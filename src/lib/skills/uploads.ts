@@ -67,6 +67,9 @@ export const SOURCE_UPLOAD_PROMPT_VERSION = "source-upload-drafts-v0";
 export const SOURCE_PROCESSING_STALE_AFTER_MS = 15 * 60 * 1000;
 export const MAX_SOURCE_UPLOAD_REQUEUE_ATTEMPTS = 3;
 const SOURCE_UPLOAD_GENERATION_TIMEOUT_MS = 45_000;
+const SOURCE_FILE_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
+export const SOURCE_UPLOAD_INVALID_SOURCE_FILE_ID_ERROR = "Invalid uploaded source file.";
+
 export {
   MAX_SOURCE_UPLOAD_BYTES,
   MAX_SOURCE_UPLOAD_FILES,
@@ -744,6 +747,58 @@ export async function completeSourceUploadDrafts(
   });
 }
 
+export function normalizePreparedSourceUploadIds(sourceFileIds: readonly unknown[]):
+  | {
+      status: "ready";
+      sourceFileIds: string[];
+    }
+  | {
+      status: "invalid";
+      message: string;
+    } {
+  if (sourceFileIds.length > MAX_SOURCE_UPLOAD_FILES) {
+    return {
+      status: "invalid",
+      message: SOURCE_UPLOAD_MAX_FILES_ERROR,
+    };
+  }
+
+  const uniqueSourceFileIds = new Set<string>();
+
+  for (const sourceFileId of sourceFileIds) {
+    if (typeof sourceFileId !== "string") {
+      continue;
+    }
+
+    const normalizedSourceFileId = sourceFileId.trim();
+
+    if (!normalizedSourceFileId) {
+      continue;
+    }
+
+    if (!SOURCE_FILE_ID_PATTERN.test(normalizedSourceFileId)) {
+      return {
+        status: "invalid",
+        message: SOURCE_UPLOAD_INVALID_SOURCE_FILE_ID_ERROR,
+      };
+    }
+
+    uniqueSourceFileIds.add(normalizedSourceFileId);
+
+    if (uniqueSourceFileIds.size > MAX_SOURCE_UPLOAD_FILES) {
+      return {
+        status: "invalid",
+        message: SOURCE_UPLOAD_MAX_FILES_ERROR,
+      };
+    }
+  }
+
+  return {
+    status: "ready",
+    sourceFileIds: [...uniqueSourceFileIds],
+  };
+}
+
 export async function cleanupPreparedSourceUploads({
   userId,
   sourceFileIds,
@@ -753,12 +808,13 @@ export async function cleanupPreparedSourceUploads({
   sourceFileIds: string[];
   storage?: SourceUploadStorage;
 }): Promise<void> {
-  const uniqueSourceFileIds = sourceFileIds
-    .map((sourceFileId) => sourceFileId.trim())
-    .filter(Boolean)
-    .filter((sourceFileId, index, allSourceFileIds) => {
-      return allSourceFileIds.indexOf(sourceFileId) === index;
-    });
+  const normalizedSourceFileIds = normalizePreparedSourceUploadIds(sourceFileIds);
+
+  if (normalizedSourceFileIds.status === "invalid") {
+    throw new Error(normalizedSourceFileIds.message);
+  }
+
+  const uniqueSourceFileIds = normalizedSourceFileIds.sourceFileIds;
 
   if (uniqueSourceFileIds.length === 0) {
     return;

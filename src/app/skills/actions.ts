@@ -27,6 +27,7 @@ import { deleteSkillPermanently } from "@/lib/skills/delete";
 import {
   cleanupPreparedSourceUploads,
   completeSourceUploadDrafts,
+  normalizePreparedSourceUploadIds,
   dismissFailedSourceUpload,
   prepareSourceUpload,
   requeueSourceUploadDraft,
@@ -344,7 +345,16 @@ export async function completeSourceUploadAction(input: {
     return user;
   }
 
-  const sourceFileIds = normalizeActionSourceFileIds(input);
+  const normalizedSourceFileIds = normalizeActionSourceFileIds(input);
+
+  if (normalizedSourceFileIds.status === "invalid") {
+    return {
+      status: "error",
+      message: normalizedSourceFileIds.message,
+    };
+  }
+
+  const { sourceFileIds } = normalizedSourceFileIds;
 
   if (sourceFileIds.length === 0) {
     return {
@@ -414,7 +424,16 @@ export async function cleanupPreparedSourceUploadsAction(input: {
     return user;
   }
 
-  const sourceFileIds = normalizeActionSourceFileIds(input);
+  const normalizedSourceFileIds = normalizeActionSourceFileIds(input);
+
+  if (normalizedSourceFileIds.status === "invalid") {
+    return {
+      status: "error",
+      message: normalizedSourceFileIds.message,
+    };
+  }
+
+  const { sourceFileIds } = normalizedSourceFileIds;
 
   if (sourceFileIds.length === 0) {
     return {
@@ -427,12 +446,10 @@ export async function cleanupPreparedSourceUploadsAction(input: {
       userId: user.userId,
       sourceFileIds,
     });
-  } catch (error) {
+  } catch {
     return {
       status: "error",
-      message: `Could not clean up partial uploads: ${
-        error instanceof Error ? error.message : "Unknown cleanup error."
-      }`,
+      message: "Could not clean up partial uploads. Try again.",
     };
   }
 
@@ -1119,13 +1136,7 @@ function normalizeActionSourceFileIds(input: {
         ? [input.sourceFileId]
         : [];
 
-  return rawSourceFileIds
-    .filter((sourceFileId): sourceFileId is string => typeof sourceFileId === "string")
-    .map((sourceFileId) => sourceFileId.trim())
-    .filter(Boolean)
-    .filter((sourceFileId, index, sourceFileIds) => {
-      return sourceFileIds.indexOf(sourceFileId) === index;
-    });
+  return normalizePreparedSourceUploadIds(rawSourceFileIds);
 }
 
 function notesToText(value: Prisma.JsonValue | null): string {
