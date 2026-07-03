@@ -609,7 +609,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
             aria-expanded={false}
             onClick={() => setFlagFormOpen(true)}
           >
-            <Flag size={15} weight="fill" aria-hidden="true" />
+            <Flag size={15} weight="regular" aria-hidden="true" />
             Report issue
           </button>
         </div>
