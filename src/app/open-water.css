@@ -1103,6 +1103,10 @@ body {
   padding-bottom: 12px;
 }
 
+.practiceMetaRow {
+  margin-bottom: 0;
+}
+
 .skillPanelHeader h2,
 .dashboardPanelHeader h2,
 .flagExerciseHeader h2,
@@ -1600,7 +1604,7 @@ body {
 .practicePromptPanel {
   border-top: 0;
   border-bottom: 1px solid var(--lr-divider);
-  padding: 12px 0 18px;
+  padding: 24px 0;
 }
 
 .practicePromptPanel p {
@@ -1727,7 +1731,7 @@ body {
 .flagExerciseInline {
   display: flex;
   justify-content: flex-end;
-  margin-top: 12px;
+  margin-top: 18px;
 }
 
 .flagExerciseInline .quietButton {
@@ -1737,7 +1741,10 @@ body {
 }
 
 .flagExerciseInline .quietButton svg {
+  display: block;
   flex: 0 0 auto;
+  width: 15px;
+  height: 15px;
 }
 
 .quietButton {
