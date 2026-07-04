@@ -10,7 +10,9 @@ import {
   buildSourceUploadRequeueMetadata,
   canRequeueSourceUploadMetadata,
   buildSourceUploadObjectKey,
+  cleanupPreparedSourceUploads,
   completeSourceUploadDrafts,
+  normalizePreparedSourceUploadIds,
   isDismissedSourceUploadMetadata,
   isSourceUploadDismissible,
   getSourceUploadRetryCount,
@@ -151,6 +153,38 @@ describe("validateExtractedSourceText", () => {
       status: "invalid",
       reason: "invalid-response",
     });
+  });
+});
+
+describe("normalizePreparedSourceUploadIds", () => {
+  it("deduplicates prepared source file IDs with a Set-based normalizer", () => {
+    expect(normalizePreparedSourceUploadIds([" source_1 ", "source_1", "source-2", "", 42])).toEqual({
+      status: "ready",
+      sourceFileIds: ["source_1", "source-2"],
+    });
+  });
+
+  it("rejects cleanup batches above the maximum source file count before database cleanup", async () => {
+    const sourceFileIds = Array.from({ length: MAX_SOURCE_UPLOAD_FILES + 1 }, (_, index) => {
+      return `source_${index + 1}`;
+    });
+
+    expect(normalizePreparedSourceUploadIds(sourceFileIds)).toMatchObject({
+      status: "invalid",
+      message: "Upload up to 5 files.",
+    });
+
+    await expect(
+      cleanupPreparedSourceUploads({
+        userId: "user_cleanup_limit",
+        sourceFileIds,
+      }),
+    ).rejects.toThrow("Upload up to 5 files.");
+  });
+
+  it("rejects malformed prepared source file IDs", () => {
+    expect(normalizePreparedSourceUploadIds(["../source"]).status).toBe("invalid");
+    expect(normalizePreparedSourceUploadIds(["a".repeat(65)]).status).toBe("invalid");
   });
 });
 
