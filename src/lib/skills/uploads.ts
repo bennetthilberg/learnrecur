@@ -784,13 +784,6 @@ export function normalizePreparedSourceUploadIds(sourceFileIds: readonly unknown
     }
 
     uniqueSourceFileIds.add(normalizedSourceFileId);
-
-    if (uniqueSourceFileIds.size > MAX_SOURCE_UPLOAD_FILES) {
-      return {
-        status: "invalid",
-        message: SOURCE_UPLOAD_MAX_FILES_ERROR,
-      };
-    }
   }
 
   return {

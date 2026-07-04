@@ -446,7 +446,13 @@ export async function cleanupPreparedSourceUploadsAction(input: {
       userId: user.userId,
       sourceFileIds,
     });
-  } catch {
+  } catch (error) {
+    console.error("[skills] failed to clean up prepared source uploads", {
+      userId: user.userId,
+      sourceFileIds,
+      error,
+    });
+
     return {
       status: "error",
       message: "Could not clean up partial uploads. Try again.",
