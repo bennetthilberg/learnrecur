@@ -86,6 +86,8 @@ test.describe("auth spine", () => {
       "/skills/new/multiple",
       "/skills/materials",
       "/skills/materials/example-material-id",
+      "/skills/materials/example-material-id/create",
+      "/skills/batches/example-batch-id",
     ]) {
       await page.goto(protectedPath);
       await expect(page).toHaveURL(/\/sign-in|accounts\.dev\/sign-in/);

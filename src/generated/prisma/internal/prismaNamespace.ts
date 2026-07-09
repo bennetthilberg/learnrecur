@@ -2137,7 +2137,9 @@ export const SkillDraftBatchScalarFieldEnum = {
   userId: 'userId',
   materialRevisionId: 'materialRevisionId',
   instruction: 'instruction',
+  proposedPlan: 'proposedPlan',
   confirmedPlan: 'confirmedPlan',
+  planningMetadata: 'planningMetadata',
   status: 'status',
   idempotencyKey: 'idempotencyKey',
   requestedCount: 'requestedCount',
@@ -2171,6 +2173,7 @@ export const SkillDraftBatchItemScalarFieldEnum = {
   errorCode: 'errorCode',
   errorMessage: 'errorMessage',
   generationAttempts: 'generationAttempts',
+  generationMetadata: 'generationMetadata',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const

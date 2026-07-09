@@ -5,6 +5,7 @@ import { NonRetriableError } from "inngest";
 import {
   parseExerciseRefillEventPayload,
   parseMaterialCleanupEventPayload,
+  parseMaterialDraftItemEventPayload,
   parseMaterialIngestionEventPayload,
   parseSourceUploadDraftEventPayload,
 } from "@/lib/inngest/events";
@@ -13,6 +14,10 @@ import {
   runMaterialIngestionJob,
 } from "@/lib/materials/ingestion";
 import { runMaterialCleanupJob } from "@/lib/materials/cleanup";
+import {
+  MaterialDraftGenerationError,
+  runMaterialDraftItemJob,
+} from "@/lib/materials/batches";
 import {
   processDueReminderBatch,
   resolveClerkReminderAccountEmail,
@@ -29,6 +34,7 @@ import {
   EXACT_INPUT_REFILL_REQUESTED_EVENT,
   MATH_REFILL_REQUESTED_EVENT,
   MATERIAL_CLEANUP_REQUESTED_EVENT,
+  MATERIAL_DRAFT_ITEM_REQUESTED_EVENT,
   MATERIAL_INGESTION_REQUESTED_EVENT,
   SOURCE_UPLOAD_DRAFT_REQUESTED_EVENT,
 } from "./events";
@@ -143,6 +149,28 @@ export const materialCleanupFunction = inngest.createFunction(
   },
 );
 
+export const materialDraftItemFunction = inngest.createFunction(
+  {
+    id: "material-draft-item",
+    retries: 3,
+    concurrency: { limit: 2, key: "event.data.userId" },
+    triggers: [{ event: MATERIAL_DRAFT_ITEM_REQUESTED_EVENT }],
+  },
+  async ({ event, step }) => {
+    const payload = parseMaterialDraftItemEventPayload(event.data);
+    try {
+      return await step.run("generate and verify material skill draft", () =>
+        runMaterialDraftItemJob(payload),
+      );
+    } catch (error) {
+      if (error instanceof MaterialDraftGenerationError && !error.retryable) {
+        throw new NonRetriableError(error.message, { cause: error });
+      }
+      throw error;
+    }
+  },
+);
+
 export const duePracticeReminderFunction = inngest.createFunction(
   {
     id: "due-practice-reminders",
@@ -164,5 +192,6 @@ export const learnRecurInngestFunctions = [
   sourceUploadDraftFunction,
   materialIngestionFunction,
   materialCleanupFunction,
+  materialDraftItemFunction,
   duePracticeReminderFunction,
 ];

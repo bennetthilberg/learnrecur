@@ -58,7 +58,7 @@ export default async function MaterialDetailPage({ params }: { params: Promise<{
             <ArrowLeft size={17} weight="bold" aria-hidden="true" /> Library
           </Link>
           {material.activeRevision?.status === "READY" ? (
-            <Link className="primaryButton" href={`/skills/new/multiple?materialId=${material.id}`}>
+            <Link className="primaryButton" href={`/skills/materials/${material.id}/create`}>
               <Sparkle size={17} weight="bold" aria-hidden="true" /> Create skills
             </Link>
           ) : null}

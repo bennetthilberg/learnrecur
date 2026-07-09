@@ -87,7 +87,9 @@ export type SkillDraftBatchCountAggregateOutputType = {
   userId: number
   materialRevisionId: number
   instruction: number
+  proposedPlan: number
   confirmedPlan: number
+  planningMetadata: number
   status: number
   idempotencyKey: number
   requestedCount: number
@@ -166,7 +168,9 @@ export type SkillDraftBatchCountAggregateInputType = {
   userId?: true
   materialRevisionId?: true
   instruction?: true
+  proposedPlan?: true
   confirmedPlan?: true
+  planningMetadata?: true
   status?: true
   idempotencyKey?: true
   requestedCount?: true
@@ -274,7 +278,9 @@ export type SkillDraftBatchGroupByOutputType = {
   userId: string
   materialRevisionId: string
   instruction: string
+  proposedPlan: runtime.JsonValue | null
   confirmedPlan: runtime.JsonValue | null
+  planningMetadata: runtime.JsonValue | null
   status: $Enums.SkillDraftBatchStatus
   idempotencyKey: string
   requestedCount: number
@@ -318,7 +324,9 @@ export type SkillDraftBatchWhereInput = {
   userId?: Prisma.StringFilter<"SkillDraftBatch"> | string
   materialRevisionId?: Prisma.StringFilter<"SkillDraftBatch"> | string
   instruction?: Prisma.StringFilter<"SkillDraftBatch"> | string
+  proposedPlan?: Prisma.JsonNullableFilter<"SkillDraftBatch">
   confirmedPlan?: Prisma.JsonNullableFilter<"SkillDraftBatch">
+  planningMetadata?: Prisma.JsonNullableFilter<"SkillDraftBatch">
   status?: Prisma.EnumSkillDraftBatchStatusFilter<"SkillDraftBatch"> | $Enums.SkillDraftBatchStatus
   idempotencyKey?: Prisma.StringFilter<"SkillDraftBatch"> | string
   requestedCount?: Prisma.IntFilter<"SkillDraftBatch"> | number
@@ -342,7 +350,9 @@ export type SkillDraftBatchOrderByWithRelationInput = {
   userId?: Prisma.SortOrder
   materialRevisionId?: Prisma.SortOrder
   instruction?: Prisma.SortOrder
+  proposedPlan?: Prisma.SortOrderInput | Prisma.SortOrder
   confirmedPlan?: Prisma.SortOrderInput | Prisma.SortOrder
+  planningMetadata?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
   idempotencyKey?: Prisma.SortOrder
   requestedCount?: Prisma.SortOrder
@@ -371,7 +381,9 @@ export type SkillDraftBatchWhereUniqueInput = Prisma.AtLeast<{
   userId?: Prisma.StringFilter<"SkillDraftBatch"> | string
   materialRevisionId?: Prisma.StringFilter<"SkillDraftBatch"> | string
   instruction?: Prisma.StringFilter<"SkillDraftBatch"> | string
+  proposedPlan?: Prisma.JsonNullableFilter<"SkillDraftBatch">
   confirmedPlan?: Prisma.JsonNullableFilter<"SkillDraftBatch">
+  planningMetadata?: Prisma.JsonNullableFilter<"SkillDraftBatch">
   status?: Prisma.EnumSkillDraftBatchStatusFilter<"SkillDraftBatch"> | $Enums.SkillDraftBatchStatus
   idempotencyKey?: Prisma.StringFilter<"SkillDraftBatch"> | string
   requestedCount?: Prisma.IntFilter<"SkillDraftBatch"> | number
@@ -395,7 +407,9 @@ export type SkillDraftBatchOrderByWithAggregationInput = {
   userId?: Prisma.SortOrder
   materialRevisionId?: Prisma.SortOrder
   instruction?: Prisma.SortOrder
+  proposedPlan?: Prisma.SortOrderInput | Prisma.SortOrder
   confirmedPlan?: Prisma.SortOrderInput | Prisma.SortOrder
+  planningMetadata?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
   idempotencyKey?: Prisma.SortOrder
   requestedCount?: Prisma.SortOrder
@@ -424,7 +438,9 @@ export type SkillDraftBatchScalarWhereWithAggregatesInput = {
   userId?: Prisma.StringWithAggregatesFilter<"SkillDraftBatch"> | string
   materialRevisionId?: Prisma.StringWithAggregatesFilter<"SkillDraftBatch"> | string
   instruction?: Prisma.StringWithAggregatesFilter<"SkillDraftBatch"> | string
+  proposedPlan?: Prisma.JsonNullableWithAggregatesFilter<"SkillDraftBatch">
   confirmedPlan?: Prisma.JsonNullableWithAggregatesFilter<"SkillDraftBatch">
+  planningMetadata?: Prisma.JsonNullableWithAggregatesFilter<"SkillDraftBatch">
   status?: Prisma.EnumSkillDraftBatchStatusWithAggregatesFilter<"SkillDraftBatch"> | $Enums.SkillDraftBatchStatus
   idempotencyKey?: Prisma.StringWithAggregatesFilter<"SkillDraftBatch"> | string
   requestedCount?: Prisma.IntWithAggregatesFilter<"SkillDraftBatch"> | number
@@ -443,7 +459,9 @@ export type SkillDraftBatchScalarWhereWithAggregatesInput = {
 export type SkillDraftBatchCreateInput = {
   id?: string
   instruction: string
+  proposedPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   confirmedPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  planningMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: $Enums.SkillDraftBatchStatus
   idempotencyKey: string
   requestedCount?: number
@@ -467,7 +485,9 @@ export type SkillDraftBatchUncheckedCreateInput = {
   userId: string
   materialRevisionId: string
   instruction: string
+  proposedPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   confirmedPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  planningMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: $Enums.SkillDraftBatchStatus
   idempotencyKey: string
   requestedCount?: number
@@ -487,7 +507,9 @@ export type SkillDraftBatchUncheckedCreateInput = {
 export type SkillDraftBatchUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   instruction?: Prisma.StringFieldUpdateOperationsInput | string
+  proposedPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   confirmedPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  planningMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.EnumSkillDraftBatchStatusFieldUpdateOperationsInput | $Enums.SkillDraftBatchStatus
   idempotencyKey?: Prisma.StringFieldUpdateOperationsInput | string
   requestedCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -511,7 +533,9 @@ export type SkillDraftBatchUncheckedUpdateInput = {
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   materialRevisionId?: Prisma.StringFieldUpdateOperationsInput | string
   instruction?: Prisma.StringFieldUpdateOperationsInput | string
+  proposedPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   confirmedPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  planningMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.EnumSkillDraftBatchStatusFieldUpdateOperationsInput | $Enums.SkillDraftBatchStatus
   idempotencyKey?: Prisma.StringFieldUpdateOperationsInput | string
   requestedCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -533,7 +557,9 @@ export type SkillDraftBatchCreateManyInput = {
   userId: string
   materialRevisionId: string
   instruction: string
+  proposedPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   confirmedPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  planningMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: $Enums.SkillDraftBatchStatus
   idempotencyKey: string
   requestedCount?: number
@@ -552,7 +578,9 @@ export type SkillDraftBatchCreateManyInput = {
 export type SkillDraftBatchUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   instruction?: Prisma.StringFieldUpdateOperationsInput | string
+  proposedPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   confirmedPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  planningMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.EnumSkillDraftBatchStatusFieldUpdateOperationsInput | $Enums.SkillDraftBatchStatus
   idempotencyKey?: Prisma.StringFieldUpdateOperationsInput | string
   requestedCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -573,7 +601,9 @@ export type SkillDraftBatchUncheckedUpdateManyInput = {
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   materialRevisionId?: Prisma.StringFieldUpdateOperationsInput | string
   instruction?: Prisma.StringFieldUpdateOperationsInput | string
+  proposedPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   confirmedPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  planningMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.EnumSkillDraftBatchStatusFieldUpdateOperationsInput | $Enums.SkillDraftBatchStatus
   idempotencyKey?: Prisma.StringFieldUpdateOperationsInput | string
   requestedCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -614,7 +644,9 @@ export type SkillDraftBatchCountOrderByAggregateInput = {
   userId?: Prisma.SortOrder
   materialRevisionId?: Prisma.SortOrder
   instruction?: Prisma.SortOrder
+  proposedPlan?: Prisma.SortOrder
   confirmedPlan?: Prisma.SortOrder
+  planningMetadata?: Prisma.SortOrder
   status?: Prisma.SortOrder
   idempotencyKey?: Prisma.SortOrder
   requestedCount?: Prisma.SortOrder
@@ -796,7 +828,9 @@ export type SkillDraftBatchUpdateOneRequiredWithoutItemsNestedInput = {
 export type SkillDraftBatchCreateWithoutUserInput = {
   id?: string
   instruction: string
+  proposedPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   confirmedPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  planningMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: $Enums.SkillDraftBatchStatus
   idempotencyKey: string
   requestedCount?: number
@@ -818,7 +852,9 @@ export type SkillDraftBatchUncheckedCreateWithoutUserInput = {
   id?: string
   materialRevisionId: string
   instruction: string
+  proposedPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   confirmedPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  planningMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: $Enums.SkillDraftBatchStatus
   idempotencyKey: string
   requestedCount?: number
@@ -869,7 +905,9 @@ export type SkillDraftBatchScalarWhereInput = {
   userId?: Prisma.StringFilter<"SkillDraftBatch"> | string
   materialRevisionId?: Prisma.StringFilter<"SkillDraftBatch"> | string
   instruction?: Prisma.StringFilter<"SkillDraftBatch"> | string
+  proposedPlan?: Prisma.JsonNullableFilter<"SkillDraftBatch">
   confirmedPlan?: Prisma.JsonNullableFilter<"SkillDraftBatch">
+  planningMetadata?: Prisma.JsonNullableFilter<"SkillDraftBatch">
   status?: Prisma.EnumSkillDraftBatchStatusFilter<"SkillDraftBatch"> | $Enums.SkillDraftBatchStatus
   idempotencyKey?: Prisma.StringFilter<"SkillDraftBatch"> | string
   requestedCount?: Prisma.IntFilter<"SkillDraftBatch"> | number
@@ -888,7 +926,9 @@ export type SkillDraftBatchScalarWhereInput = {
 export type SkillDraftBatchCreateWithoutMaterialRevisionInput = {
   id?: string
   instruction: string
+  proposedPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   confirmedPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  planningMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: $Enums.SkillDraftBatchStatus
   idempotencyKey: string
   requestedCount?: number
@@ -909,7 +949,9 @@ export type SkillDraftBatchCreateWithoutMaterialRevisionInput = {
 export type SkillDraftBatchUncheckedCreateWithoutMaterialRevisionInput = {
   id?: string
   instruction: string
+  proposedPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   confirmedPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  planningMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: $Enums.SkillDraftBatchStatus
   idempotencyKey: string
   requestedCount?: number
@@ -955,7 +997,9 @@ export type SkillDraftBatchUpdateManyWithWhereWithoutMaterialRevisionInput = {
 export type SkillDraftBatchCreateWithoutItemsInput = {
   id?: string
   instruction: string
+  proposedPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   confirmedPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  planningMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: $Enums.SkillDraftBatchStatus
   idempotencyKey: string
   requestedCount?: number
@@ -978,7 +1022,9 @@ export type SkillDraftBatchUncheckedCreateWithoutItemsInput = {
   userId: string
   materialRevisionId: string
   instruction: string
+  proposedPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   confirmedPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  planningMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: $Enums.SkillDraftBatchStatus
   idempotencyKey: string
   requestedCount?: number
@@ -1013,7 +1059,9 @@ export type SkillDraftBatchUpdateToOneWithWhereWithoutItemsInput = {
 export type SkillDraftBatchUpdateWithoutItemsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   instruction?: Prisma.StringFieldUpdateOperationsInput | string
+  proposedPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   confirmedPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  planningMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.EnumSkillDraftBatchStatusFieldUpdateOperationsInput | $Enums.SkillDraftBatchStatus
   idempotencyKey?: Prisma.StringFieldUpdateOperationsInput | string
   requestedCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -1036,7 +1084,9 @@ export type SkillDraftBatchUncheckedUpdateWithoutItemsInput = {
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   materialRevisionId?: Prisma.StringFieldUpdateOperationsInput | string
   instruction?: Prisma.StringFieldUpdateOperationsInput | string
+  proposedPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   confirmedPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  planningMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.EnumSkillDraftBatchStatusFieldUpdateOperationsInput | $Enums.SkillDraftBatchStatus
   idempotencyKey?: Prisma.StringFieldUpdateOperationsInput | string
   requestedCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -1056,7 +1106,9 @@ export type SkillDraftBatchCreateManyUserInput = {
   id?: string
   materialRevisionId: string
   instruction: string
+  proposedPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   confirmedPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  planningMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: $Enums.SkillDraftBatchStatus
   idempotencyKey: string
   requestedCount?: number
@@ -1075,7 +1127,9 @@ export type SkillDraftBatchCreateManyUserInput = {
 export type SkillDraftBatchUpdateWithoutUserInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   instruction?: Prisma.StringFieldUpdateOperationsInput | string
+  proposedPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   confirmedPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  planningMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.EnumSkillDraftBatchStatusFieldUpdateOperationsInput | $Enums.SkillDraftBatchStatus
   idempotencyKey?: Prisma.StringFieldUpdateOperationsInput | string
   requestedCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -1097,7 +1151,9 @@ export type SkillDraftBatchUncheckedUpdateWithoutUserInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   materialRevisionId?: Prisma.StringFieldUpdateOperationsInput | string
   instruction?: Prisma.StringFieldUpdateOperationsInput | string
+  proposedPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   confirmedPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  planningMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.EnumSkillDraftBatchStatusFieldUpdateOperationsInput | $Enums.SkillDraftBatchStatus
   idempotencyKey?: Prisma.StringFieldUpdateOperationsInput | string
   requestedCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -1118,7 +1174,9 @@ export type SkillDraftBatchUncheckedUpdateManyWithoutUserInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   materialRevisionId?: Prisma.StringFieldUpdateOperationsInput | string
   instruction?: Prisma.StringFieldUpdateOperationsInput | string
+  proposedPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   confirmedPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  planningMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.EnumSkillDraftBatchStatusFieldUpdateOperationsInput | $Enums.SkillDraftBatchStatus
   idempotencyKey?: Prisma.StringFieldUpdateOperationsInput | string
   requestedCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -1137,7 +1195,9 @@ export type SkillDraftBatchUncheckedUpdateManyWithoutUserInput = {
 export type SkillDraftBatchCreateManyMaterialRevisionInput = {
   id?: string
   instruction: string
+  proposedPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   confirmedPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  planningMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: $Enums.SkillDraftBatchStatus
   idempotencyKey: string
   requestedCount?: number
@@ -1156,7 +1216,9 @@ export type SkillDraftBatchCreateManyMaterialRevisionInput = {
 export type SkillDraftBatchUpdateWithoutMaterialRevisionInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   instruction?: Prisma.StringFieldUpdateOperationsInput | string
+  proposedPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   confirmedPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  planningMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.EnumSkillDraftBatchStatusFieldUpdateOperationsInput | $Enums.SkillDraftBatchStatus
   idempotencyKey?: Prisma.StringFieldUpdateOperationsInput | string
   requestedCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -1177,7 +1239,9 @@ export type SkillDraftBatchUpdateWithoutMaterialRevisionInput = {
 export type SkillDraftBatchUncheckedUpdateWithoutMaterialRevisionInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   instruction?: Prisma.StringFieldUpdateOperationsInput | string
+  proposedPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   confirmedPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  planningMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.EnumSkillDraftBatchStatusFieldUpdateOperationsInput | $Enums.SkillDraftBatchStatus
   idempotencyKey?: Prisma.StringFieldUpdateOperationsInput | string
   requestedCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -1197,7 +1261,9 @@ export type SkillDraftBatchUncheckedUpdateWithoutMaterialRevisionInput = {
 export type SkillDraftBatchUncheckedUpdateManyWithoutMaterialRevisionInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   instruction?: Prisma.StringFieldUpdateOperationsInput | string
+  proposedPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   confirmedPlan?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  planningMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.EnumSkillDraftBatchStatusFieldUpdateOperationsInput | $Enums.SkillDraftBatchStatus
   idempotencyKey?: Prisma.StringFieldUpdateOperationsInput | string
   requestedCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -1249,7 +1315,9 @@ export type SkillDraftBatchSelect<ExtArgs extends runtime.Types.Extensions.Inter
   userId?: boolean
   materialRevisionId?: boolean
   instruction?: boolean
+  proposedPlan?: boolean
   confirmedPlan?: boolean
+  planningMetadata?: boolean
   status?: boolean
   idempotencyKey?: boolean
   requestedCount?: boolean
@@ -1274,7 +1342,9 @@ export type SkillDraftBatchSelectCreateManyAndReturn<ExtArgs extends runtime.Typ
   userId?: boolean
   materialRevisionId?: boolean
   instruction?: boolean
+  proposedPlan?: boolean
   confirmedPlan?: boolean
+  planningMetadata?: boolean
   status?: boolean
   idempotencyKey?: boolean
   requestedCount?: boolean
@@ -1297,7 +1367,9 @@ export type SkillDraftBatchSelectUpdateManyAndReturn<ExtArgs extends runtime.Typ
   userId?: boolean
   materialRevisionId?: boolean
   instruction?: boolean
+  proposedPlan?: boolean
   confirmedPlan?: boolean
+  planningMetadata?: boolean
   status?: boolean
   idempotencyKey?: boolean
   requestedCount?: boolean
@@ -1320,7 +1392,9 @@ export type SkillDraftBatchSelectScalar = {
   userId?: boolean
   materialRevisionId?: boolean
   instruction?: boolean
+  proposedPlan?: boolean
   confirmedPlan?: boolean
+  planningMetadata?: boolean
   status?: boolean
   idempotencyKey?: boolean
   requestedCount?: boolean
@@ -1336,7 +1410,7 @@ export type SkillDraftBatchSelectScalar = {
   completedAt?: boolean
 }
 
-export type SkillDraftBatchOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "materialRevisionId" | "instruction" | "confirmedPlan" | "status" | "idempotencyKey" | "requestedCount" | "readyCount" | "failedCount" | "excludedCount" | "activatedCount" | "errorCode" | "errorMessage" | "createdAt" | "updatedAt" | "confirmedAt" | "completedAt", ExtArgs["result"]["skillDraftBatch"]>
+export type SkillDraftBatchOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "materialRevisionId" | "instruction" | "proposedPlan" | "confirmedPlan" | "planningMetadata" | "status" | "idempotencyKey" | "requestedCount" | "readyCount" | "failedCount" | "excludedCount" | "activatedCount" | "errorCode" | "errorMessage" | "createdAt" | "updatedAt" | "confirmedAt" | "completedAt", ExtArgs["result"]["skillDraftBatch"]>
 export type SkillDraftBatchInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   materialRevision?: boolean | Prisma.MaterialRevisionDefaultArgs<ExtArgs>
@@ -1364,7 +1438,9 @@ export type $SkillDraftBatchPayload<ExtArgs extends runtime.Types.Extensions.Int
     userId: string
     materialRevisionId: string
     instruction: string
+    proposedPlan: runtime.JsonValue | null
     confirmedPlan: runtime.JsonValue | null
+    planningMetadata: runtime.JsonValue | null
     status: $Enums.SkillDraftBatchStatus
     idempotencyKey: string
     requestedCount: number
@@ -1808,7 +1884,9 @@ export interface SkillDraftBatchFieldRefs {
   readonly userId: Prisma.FieldRef<"SkillDraftBatch", 'String'>
   readonly materialRevisionId: Prisma.FieldRef<"SkillDraftBatch", 'String'>
   readonly instruction: Prisma.FieldRef<"SkillDraftBatch", 'String'>
+  readonly proposedPlan: Prisma.FieldRef<"SkillDraftBatch", 'Json'>
   readonly confirmedPlan: Prisma.FieldRef<"SkillDraftBatch", 'Json'>
+  readonly planningMetadata: Prisma.FieldRef<"SkillDraftBatch", 'Json'>
   readonly status: Prisma.FieldRef<"SkillDraftBatch", 'SkillDraftBatchStatus'>
   readonly idempotencyKey: Prisma.FieldRef<"SkillDraftBatch", 'String'>
   readonly requestedCount: Prisma.FieldRef<"SkillDraftBatch", 'Int'>

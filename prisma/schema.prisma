@@ -464,7 +464,9 @@ model SkillDraftBatch {
   userId             String
   materialRevisionId String
   instruction        String
+  proposedPlan       Json?
   confirmedPlan      Json?
+  planningMetadata   Json?
   status             SkillDraftBatchStatus @default(PLANNING)
   idempotencyKey     String
   requestedCount     Int                   @default(0)
@@ -505,6 +507,7 @@ model SkillDraftBatchItem {
   errorCode          String?
   errorMessage       String?
   generationAttempts Int                       @default(0)
+  generationMetadata Json?
   createdAt          DateTime                  @default(now())
   updatedAt          DateTime                  @updatedAt
 

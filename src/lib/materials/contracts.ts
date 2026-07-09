@@ -236,6 +236,11 @@ export const confirmMaterialPlanInputSchema = z.object({
   plan: materialScopePlanSchema,
 });
 
+export const replanMaterialSkillsInputSchema = z.object({
+  batchId: identifierSchema,
+  instruction: z.string().trim().min(3).max(4_000),
+});
+
 export const materialProgressInputSchema = z.object({
   materialId: identifierSchema,
 });
