@@ -1,5 +1,5 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
-import { ArrowLeft, ArrowSquareOut, FileText, Sparkle } from "@phosphor-icons/react/dist/ssr";
+import { ArrowLeft, ArrowSquareOut, FileText } from "@phosphor-icons/react/dist/ssr";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { CSSProperties } from "react";
@@ -57,11 +57,6 @@ export default async function MaterialDetailPage({ params }: { params: Promise<{
           <Link className="secondaryButton" href="/skills/materials">
             <ArrowLeft size={17} weight="bold" aria-hidden="true" /> Library
           </Link>
-          {material.activeRevision?.status === "READY" ? (
-            <Link className="primaryButton" href={`/skills/new/multiple?materialId=${material.id}`}>
-              <Sparkle size={17} weight="bold" aria-hidden="true" /> Create skills
-            </Link>
-          ) : null}
           {material.kind === "WEB" && material.activeRevision?.status === "READY" && !processing ? (
             <form action={refreshWebsiteMaterialAction}>
               <input name="materialId" type="hidden" value={material.id} />

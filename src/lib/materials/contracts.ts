@@ -210,7 +210,7 @@ export const prepareMaterialPdfInputSchema = z.object({
   collectionId: identifierSchema.nullable().optional(),
   originalName: z.string().trim().min(1).max(255),
   mimeType: z.literal("application/pdf"),
-  byteSize: z.number().int().min(1).max(MAX_MATERIAL_PDF_BYTES),
+  byteSize: z.coerce.number().int().min(1).max(MAX_MATERIAL_PDF_BYTES),
 });
 
 export const discoverWebsiteMaterialInputSchema = z.object({

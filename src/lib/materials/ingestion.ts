@@ -57,6 +57,8 @@ import {
 const MATERIAL_STORAGE_PREFIX = "materials";
 const MATERIAL_EMBEDDING_BATCH_SIZE = 32;
 const MATERIAL_SOURCE_EXCERPT_LIMIT = 4_000;
+const MATERIAL_WEBSITE_FETCH_CONCURRENCY = 16;
+const MATERIAL_WEBSITE_PAGE_FETCH_BYTES = 5 * 1024 * 1024;
 
 export class MaterialIngestionError extends Error {
   readonly retryable: boolean;
@@ -221,6 +223,118 @@ export async function prepareMaterialPdf(input: {
   }
 }
 
+export async function discardPreparedMaterialPdf(input: {
+  userId: string;
+  materialId: string;
+  materialRevisionId: string;
+  storage?: SourceObjectStorage;
+}) {
+  const prisma = getPrisma();
+  const claimed = await prisma.$transaction(async (tx) => {
+    const revision = await tx.materialRevision.findFirst({
+      where: {
+        id: input.materialRevisionId,
+        materialId: input.materialId,
+        userId: input.userId,
+        status: MaterialRevisionStatus.PENDING_UPLOAD,
+        material: { kind: StudyMaterialKind.PDF },
+      },
+      select: {
+        id: true,
+        sourceFiles: {
+          where: { kind: SourceFileKind.PDF },
+          take: 1,
+          select: { id: true, storageBucket: true, storageKey: true },
+        },
+      },
+    });
+    const sourceFile = revision?.sourceFiles[0];
+    if (!revision || !sourceFile) {
+      return null;
+    }
+
+    const claimedRevision = await tx.materialRevision.updateMany({
+      where: {
+        id: revision.id,
+        materialId: input.materialId,
+        userId: input.userId,
+        status: MaterialRevisionStatus.PENDING_UPLOAD,
+      },
+      data: {
+        status: MaterialRevisionStatus.FAILED,
+        errorCode: "UPLOAD_ABANDONED",
+        errorMessage: "The private PDF upload did not finish.",
+      },
+    });
+    if (claimedRevision.count !== 1) {
+      return null;
+    }
+
+    await tx.sourceFile.updateMany({
+      where: {
+        id: sourceFile.id,
+        userId: input.userId,
+        materialRevisionId: revision.id,
+        status: SourceFileStatus.DRAFT,
+      },
+      data: { status: SourceFileStatus.FAILED },
+    });
+
+    return sourceFile;
+  });
+
+  if (!claimed) {
+    return { status: "already-handled" as const };
+  }
+
+  const storageSetup = resolveMaterialStorage(input.storage);
+  if (storageSetup.status === "missing-env") {
+    return {
+      status: "retained" as const,
+      message:
+        "The upload failed and the material was marked for attention, but storage cleanup is unavailable.",
+    };
+  }
+
+  try {
+    if (claimed.storageKey && claimed.storageBucket) {
+      await storageSetup.storage.deleteObject({
+        key: claimed.storageKey,
+        bucket: claimed.storageBucket,
+      });
+    }
+  } catch {
+    return {
+      status: "retained" as const,
+      message:
+        "The upload failed and the material was marked for attention because storage cleanup did not finish.",
+    };
+  }
+
+  const deletedMaterial = await prisma.studyMaterial.deleteMany({
+    where: {
+      id: input.materialId,
+      userId: input.userId,
+      activeRevisionId: null,
+      revisions: {
+        every: {
+          id: input.materialRevisionId,
+          status: MaterialRevisionStatus.FAILED,
+          errorCode: "UPLOAD_ABANDONED",
+        },
+      },
+    },
+  });
+
+  return deletedMaterial.count === 1
+    ? { status: "discarded" as const }
+    : {
+        status: "retained" as const,
+        message:
+          "The upload failed and was marked for attention because the material changed during cleanup.",
+      };
+}
+
 export async function queueMaterialPdfIngestion(input: {
   userId: string;
   materialRevisionId: string;
@@ -242,6 +356,14 @@ export async function queueMaterialPdfIngestion(input: {
     where: {
       id: input.materialRevisionId,
       userId: input.userId,
+      status: {
+        in: [
+          MaterialRevisionStatus.PENDING_UPLOAD,
+          MaterialRevisionStatus.QUEUED,
+          MaterialRevisionStatus.PROCESSING,
+          MaterialRevisionStatus.READY,
+        ],
+      },
       material: { kind: StudyMaterialKind.PDF },
     },
     select: {
@@ -265,12 +387,15 @@ export async function queueMaterialPdfIngestion(input: {
   if (!revision || !sourceFile?.storageKey || !sourceFile.storageBucket) {
     return { status: "not-found", message: "Material PDF upload was not found." };
   }
-  if (revision.status === MaterialRevisionStatus.READY) {
+  if (revision.status !== MaterialRevisionStatus.PENDING_UPLOAD) {
     return {
       status: "queued",
       materialId: revision.materialId,
       materialRevisionId: revision.id,
-      message: "Material is already ready.",
+      message:
+        revision.status === MaterialRevisionStatus.READY
+          ? "Material is already ready."
+          : "Material processing has already started.",
     };
   }
 
@@ -729,12 +854,7 @@ async function ingestPdfRevision(input: {
     bucket: input.sourceFile.storageBucket,
     maxBytes: MAX_MATERIAL_PDF_BYTES,
   });
-  const extracted = await extractPdfPages(bytes);
-  if (extracted.pageCount > MAX_MATERIAL_PDF_PAGES) {
-    throw new MaterialIngestionError(`PDFs can contain at most ${MAX_MATERIAL_PDF_PAGES} pages.`, {
-      retryable: false,
-    });
-  }
+  const extracted = await extractPdfPages(bytes, { maximumPages: MAX_MATERIAL_PDF_PAGES });
   if (extracted.pages.every((page) => page.needsOcr)) {
     // Keep the revision usable: selected pages can be OCRed lazily and cached.
     // A placeholder section gives scope planning a stable page range meanwhile.
@@ -825,40 +945,63 @@ async function ingestWebsiteRevision(input: {
   const snapshots: Array<{ url: string; title: string; html: string }> = [];
   let fetchedBytes = 0;
 
-  for (const selectedUrl of selectedUrls) {
+  for (
+    let start = 0;
+    start < selectedUrls.length;
+    start += MATERIAL_WEBSITE_FETCH_CONCURRENCY
+  ) {
     const remaining = MAX_WEBSITE_REVISION_BYTES - fetchedBytes;
     if (remaining <= 0) {
       throw new MaterialIngestionError("Website revision exceeded the 50 MB fetched-content limit.", {
         retryable: false,
       });
     }
-    const requested = await validatePublicHttpsUrl(selectedUrl, input.resolveHostname);
-    if (requested.origin !== base.origin) {
-      throw new MaterialIngestionError(
-        "Website imports can only follow pages from the same origin.",
-        { retryable: false },
-      );
-    }
-    const resource = await fetchResource(requested.toString(), {
-      maximumBytes: remaining,
-      requiredOrigin: base.origin,
-    });
-    const finalUrl = await validatePublicHttpsUrl(resource.url, input.resolveHostname);
-    if (finalUrl.origin !== base.origin) {
-      throw new MaterialIngestionError(
-        "Website imports can only follow pages from the same origin.",
-        { retryable: false },
-      );
-    }
-    if (!resource.contentType.toLowerCase().includes("text/html")) {
-      throw new MaterialIngestionError("A selected website page was not readable HTML.", {
+    const batch = selectedUrls.slice(start, start + MATERIAL_WEBSITE_FETCH_CONCURRENCY);
+    const maximumBytesPerPage = Math.max(
+      1,
+      Math.min(MATERIAL_WEBSITE_PAGE_FETCH_BYTES, Math.floor(remaining / batch.length)),
+    );
+    const fetchedBatch = await Promise.all(
+      batch.map(async (selectedUrl) => {
+        const requested = await validatePublicHttpsUrl(selectedUrl, input.resolveHostname);
+        if (requested.origin !== base.origin) {
+          throw new MaterialIngestionError(
+            "Website imports can only follow pages from the same origin.",
+            { retryable: false },
+          );
+        }
+        const resource = await fetchResource(requested.toString(), {
+          maximumBytes: maximumBytesPerPage,
+          requiredOrigin: base.origin,
+        });
+        const finalUrl = await validatePublicHttpsUrl(resource.url, input.resolveHostname);
+        if (finalUrl.origin !== base.origin) {
+          throw new MaterialIngestionError(
+            "Website imports can only follow pages from the same origin.",
+            { retryable: false },
+          );
+        }
+        if (!resource.contentType.toLowerCase().includes("text/html")) {
+          throw new MaterialIngestionError("A selected website page was not readable HTML.", {
+            retryable: false,
+          });
+        }
+        const html = resource.bytes.toString("utf8");
+        const readable = extractReadableWebPage(html, new URL(resource.url).pathname);
+        return {
+          byteSize: resource.bytes.byteLength,
+          snapshot: { url: finalUrl.toString(), title: readable.title, html },
+        };
+      }),
+    );
+    const batchBytes = fetchedBatch.reduce((sum, page) => sum + page.byteSize, 0);
+    if (batchBytes > remaining) {
+      throw new MaterialIngestionError("Website revision exceeded the 50 MB fetched-content limit.", {
         retryable: false,
       });
     }
-    fetchedBytes += resource.bytes.byteLength;
-    const html = resource.bytes.toString("utf8");
-    const readable = extractReadableWebPage(html, new URL(resource.url).pathname);
-    snapshots.push({ url: finalUrl.toString(), title: readable.title, html });
+    fetchedBytes += batchBytes;
+    snapshots.push(...fetchedBatch.map((page) => page.snapshot));
   }
 
   const snapshotBytes = Buffer.from(JSON.stringify({ version: 1, pages: snapshots }));

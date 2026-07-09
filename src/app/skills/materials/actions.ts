@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 
 import { queueMaterialDeletion } from "@/lib/materials/cleanup";
 import {
+  discardPreparedMaterialPdf,
   prepareMaterialPdf,
   queueMaterialPdfIngestion,
   queueWebsiteMaterialImport,
@@ -87,6 +88,26 @@ export async function completeMaterialPdfAction(input: {
     redirectTo: `/skills/materials/${result.materialId}`,
     message: result.message,
   };
+}
+
+export async function discardPreparedMaterialPdfAction(input: {
+  materialId: string;
+  materialRevisionId: string;
+}): Promise<{ status: "discarded" | "already-handled" } | MaterialActionError> {
+  const user = await requireMaterialUser();
+  if (user.status === "error") {
+    return user;
+  }
+  const result = await discardPreparedMaterialPdf({
+    userId: user.userId,
+    materialId: input.materialId,
+    materialRevisionId: input.materialRevisionId,
+  });
+  if (result.status === "retained") {
+    return { status: "error", message: result.message };
+  }
+  revalidateMaterialPaths(input.materialId);
+  return result;
 }
 
 export async function discoverWebsiteMaterialAction(input: {
