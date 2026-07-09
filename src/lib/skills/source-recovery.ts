@@ -42,6 +42,7 @@ export async function getSkillCreationSourceRecoveryItems(input: {
   const sourceFiles = await prisma.sourceFile.findMany({
     where: {
       userId: input.userId,
+      materialRevisionId: null,
       OR: [
         {
           status: {
@@ -157,6 +158,7 @@ export async function getSkillCreationSourceRecoveryText(input: {
     where: {
       id: input.sourceFileId,
       userId: input.userId,
+      materialRevisionId: null,
       kind: SourceFileKind.TEXT,
       status: {
         in: [SourceFileStatus.FAILED],

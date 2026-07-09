@@ -24,7 +24,10 @@ import {
 import { getPrisma } from "@/lib/prisma";
 import { getUserDataExport } from "@/lib/settings/data-export";
 import { deleteSkillPermanently } from "@/lib/skills/delete";
+import { getSkillsLibrary } from "@/lib/skills/library";
+import { getSkillCreationSourceRecoveryItems } from "@/lib/skills/source-recovery";
 import { removeSkillSource } from "@/lib/skills/sources";
+import { dismissFailedSourceUpload, requeueSourceUploadDraft } from "@/lib/skills/uploads";
 
 const runDatabaseTests = process.env.RUN_DATABASE_TESTS === "1";
 const describeDatabase = runDatabaseTests ? describe : describe.skip;
@@ -58,18 +61,18 @@ describeDatabase("persistent material foundation", () => {
       sourceUrl: "https://books.example/spanish.pdf",
     });
 
-    await finalizeMaterialRevision({
-      userId,
-      materialId: material.id,
-      materialRevisionId: revision.id,
-      contentHash: "sha256:spanish-revision-one",
-      byteSize: 4_096,
-      pageCount: 120,
-      storageBucket: "private-materials",
-      storageKey: `${userId}/${revision.id}/original.pdf`,
-      processingMetadata: { parser: "fixture", storageKey: "must-not-export" },
+    const sourceFile = await prisma.sourceFile.create({
+      data: {
+        userId,
+        materialRevisionId: revision.id,
+        kind: SourceFileKind.PDF,
+        status: SourceFileStatus.READY,
+        originalName: "spanish.pdf",
+        mimeType: "application/pdf",
+        storageBucket: "private-materials",
+        storageKey: `${userId}/${revision.id}/original.pdf`,
+      },
     });
-
     const section = await prisma.materialSection.create({
       data: {
         userId,
@@ -96,6 +99,7 @@ describeDatabase("persistent material foundation", () => {
           userId,
           materialRevisionId: revision.id,
           materialSectionId: section.id,
+          sourceFileId: sourceFile.id,
           ordinal: 0,
           text: "Direct object pronouns replace nouns that receive an action.",
           tokenEstimate: 11,
@@ -109,6 +113,7 @@ describeDatabase("persistent material foundation", () => {
           userId,
           materialRevisionId: revision.id,
           materialSectionId: section.id,
+          sourceFileId: sourceFile.id,
           ordinal: 1,
           text: "The preterite describes completed past actions.",
           tokenEstimate: 8,
@@ -138,6 +143,18 @@ describeDatabase("persistent material foundation", () => {
       materialRevisionId: revision.id,
       chunkId: chunks[1].id,
       embedding: preteriteVector,
+    });
+
+    await finalizeMaterialRevision({
+      userId,
+      materialId: material.id,
+      materialRevisionId: revision.id,
+      contentHash: "sha256:spanish-revision-one",
+      byteSize: 4_096,
+      pageCount: 120,
+      storageBucket: "private-materials",
+      storageKey: `${userId}/${revision.id}/original.pdf`,
+      processingMetadata: { parser: "fixture", storageKey: "must-not-export" },
     });
 
     const results = await searchMaterialChunks({
@@ -176,6 +193,24 @@ describeDatabase("persistent material foundation", () => {
         data: { sourceUrl: "https://books.example/replaced.pdf" },
       }),
     ).rejects.toThrow(/immutable/i);
+    await expect(
+      prisma.materialSection.update({
+        where: { id: section.id },
+        data: { title: "Rewritten chapter" },
+      }),
+    ).rejects.toThrow(/immutable/i);
+    await expect(
+      prisma.materialChunk.update({
+        where: { id: chunks[0].id },
+        data: { text: "Rewritten evidence" },
+      }),
+    ).rejects.toThrow(/immutable/i);
+    await expect(
+      prisma.sourceFile.update({
+        where: { id: sourceFile.id },
+        data: { extractedText: "Rewritten source" },
+      }),
+    ).rejects.toThrow(/immutable/i);
 
     const exported = await getUserDataExport({
       userId,
@@ -192,8 +227,195 @@ describeDatabase("persistent material foundation", () => {
     expect(JSON.stringify(exported.export)).not.toContain("private-materials");
   });
 
+  it("enforces revision-local hierarchy, evidence ownership, and batch limits in Postgres", async () => {
+    const first = await createMaterialWithInitialRevision({
+      userId,
+      title: "First constraint fixture",
+      kind: StudyMaterialKind.PDF,
+    });
+    const second = await createMaterialWithInitialRevision({
+      userId,
+      title: "Second constraint fixture",
+      kind: StudyMaterialKind.PDF,
+    });
+    const firstSection = await prisma.materialSection.create({
+      data: {
+        userId,
+        materialRevisionId: first.revision.id,
+        ordinal: 0,
+        title: "First section",
+        normalizedTitle: "first section",
+        headingPath: ["First section"],
+      },
+    });
+    const firstSource = await prisma.sourceFile.create({
+      data: {
+        userId,
+        materialRevisionId: first.revision.id,
+        kind: SourceFileKind.PDF,
+        status: SourceFileStatus.READY,
+        originalName: "first.pdf",
+      },
+    });
+
+    await expect(
+      prisma.materialSection.create({
+        data: {
+          userId,
+          materialRevisionId: second.revision.id,
+          parentId: firstSection.id,
+          ordinal: 0,
+          title: "Cross-revision child",
+          normalizedTitle: "cross revision child",
+          headingPath: ["Cross-revision child"],
+        },
+      }),
+    ).rejects.toThrow();
+    await expect(
+      prisma.materialSection.create({
+        data: {
+          userId,
+          materialRevisionId: second.revision.id,
+          ordinal: 1,
+          title: "Partial page range",
+          normalizedTitle: "partial page range",
+          pageStart: 2,
+          pageEnd: null,
+          headingPath: ["Partial page range"],
+        },
+      }),
+    ).rejects.toThrow();
+    await expect(
+      prisma.materialChunk.create({
+        data: {
+          userId,
+          materialRevisionId: second.revision.id,
+          materialSectionId: firstSection.id,
+          ordinal: 0,
+          text: "Cross-revision section evidence",
+          tokenEstimate: 4,
+          contentHash: "sha256:cross-section",
+          locator: {},
+        },
+      }),
+    ).rejects.toThrow();
+    await expect(
+      prisma.materialChunk.create({
+        data: {
+          userId,
+          materialRevisionId: second.revision.id,
+          sourceFileId: firstSource.id,
+          ordinal: 1,
+          text: "Cross-revision source evidence",
+          tokenEstimate: 4,
+          contentHash: "sha256:cross-source",
+          locator: {},
+        },
+      }),
+    ).rejects.toThrow();
+
+    const batch = await prisma.skillDraftBatch.create({
+      data: {
+        userId,
+        materialRevisionId: second.revision.id,
+        instruction: "Create ten skills",
+        idempotencyKey: `${runId}_constraint_batch`,
+        requestedCount: 10,
+      },
+    });
+    const otherSkill = await prisma.skill.create({
+      data: { userId: otherUserId, title: "Foreign skill", tags: [] },
+    });
+    await expect(
+      prisma.skillDraftBatchItem.create({
+        data: {
+          userId,
+          batchId: batch.id,
+          skillId: otherSkill.id,
+          ordinal: 0,
+          targetKey: "foreign-skill",
+          proposedTitle: "Foreign skill",
+          proposedObjective: "Must be rejected",
+          locator: {},
+        },
+      }),
+    ).rejects.toThrow();
+    await expect(
+      prisma.skillDraftBatchItem.create({
+        data: {
+          userId,
+          batchId: batch.id,
+          ordinal: 10,
+          targetKey: "eleventh-skill",
+          proposedTitle: "Eleventh skill",
+          proposedObjective: "Must be rejected",
+          locator: {},
+        },
+      }),
+    ).rejects.toThrow();
+
+    const ownedSkill = await prisma.skill.create({
+      data: { userId, title: "Owned skill", tags: [] },
+    });
+    const ownedItem = await prisma.skillDraftBatchItem.create({
+      data: {
+        userId,
+        batchId: batch.id,
+        skillId: ownedSkill.id,
+        ordinal: 9,
+        targetKey: "owned-skill",
+        proposedTitle: "Owned skill",
+        proposedObjective: "Remains after skill deletion",
+        locator: {},
+      },
+    });
+    await prisma.skill.delete({ where: { id: ownedSkill.id } });
+    expect(
+      await prisma.skillDraftBatchItem.findUnique({
+        where: { id: ownedItem.id },
+        select: { skillId: true },
+      }),
+    ).toEqual({ skillId: null });
+  });
+
+  it("keeps material-owned files out of quick-upload recovery and controls", async () => {
+    const { revision } = await createMaterialWithInitialRevision({
+      userId,
+      title: "Recovery isolation fixture",
+      kind: StudyMaterialKind.PDF,
+    });
+    const now = new Date("2026-07-09T12:00:00.000Z");
+    const sourceFile = await prisma.sourceFile.create({
+      data: {
+        userId,
+        materialRevisionId: revision.id,
+        kind: SourceFileKind.PDF,
+        status: SourceFileStatus.FAILED,
+        originalName: "material-owned.pdf",
+        storageBucket: "private-materials",
+        storageKey: `${userId}/${revision.id}/original.pdf`,
+        metadata: { errorMessage: "Fixture failure" },
+      },
+    });
+
+    expect(await getSkillCreationSourceRecoveryItems({ userId, now })).not.toContainEqual(
+      expect.objectContaining({ id: sourceFile.id }),
+    );
+    expect((await getSkillsLibrary({ userId, now })).sourceProcessing).not.toContainEqual(
+      expect.objectContaining({ id: sourceFile.id }),
+    );
+    await expect(
+      requeueSourceUploadDraft({ userId, sourceFileId: sourceFile.id, now }),
+    ).resolves.toMatchObject({ status: "not-found" });
+    await expect(
+      dismissFailedSourceUpload({ userId, sourceFileId: sourceFile.id, now }),
+    ).resolves.toMatchObject({ status: "not-found" });
+  });
+
   it("makes draft batches idempotent and rejects key reuse for a different request", async () => {
-    const material = await prisma.studyMaterial.findFirstOrThrow({ where: { userId } });
+    const material = await prisma.studyMaterial.findFirstOrThrow({
+      where: { userId, title: "Practical Spanish Grammar" },
+    });
     const revision = await prisma.materialRevision.findFirstOrThrow({
       where: { materialId: material.id, userId },
     });
@@ -217,20 +439,16 @@ describeDatabase("persistent material foundation", () => {
   });
 
   it("does not delete a reusable material source when a skill is unlinked or deleted", async () => {
-    const material = await prisma.studyMaterial.findFirstOrThrow({ where: { userId } });
+    const material = await prisma.studyMaterial.findFirstOrThrow({
+      where: { userId, title: "Practical Spanish Grammar" },
+    });
     const revision = await prisma.materialRevision.findFirstOrThrow({
       where: { materialId: material.id, userId },
     });
-    const sourceFile = await prisma.sourceFile.create({
-      data: {
+    const sourceFile = await prisma.sourceFile.findFirstOrThrow({
+      where: {
         userId,
         materialRevisionId: revision.id,
-        kind: SourceFileKind.PDF,
-        status: SourceFileStatus.READY,
-        originalName: "spanish.pdf",
-        mimeType: "application/pdf",
-        storageBucket: "private-materials",
-        storageKey: `${userId}/${revision.id}/original.pdf`,
       },
     });
     const firstSkill = await prisma.skill.create({
@@ -273,7 +491,9 @@ describeDatabase("persistent material foundation", () => {
   });
 
   it("creates one deletion tombstone per owned material and preserves linked skills", async () => {
-    const material = await prisma.studyMaterial.findFirstOrThrow({ where: { userId } });
+    const material = await prisma.studyMaterial.findFirstOrThrow({
+      where: { userId, title: "Practical Spanish Grammar" },
+    });
     const revision = await prisma.materialRevision.findFirstOrThrow({
       where: { materialId: material.id, userId },
     });

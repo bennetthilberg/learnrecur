@@ -334,6 +334,7 @@ export type SourceFileOrderByWithRelationInput = {
 export type SourceFileWhereUniqueInput = Prisma.AtLeast<{
   id?: string
   id_userId?: Prisma.SourceFileIdUserIdCompoundUniqueInput
+  id_materialRevisionId_userId?: Prisma.SourceFileIdMaterialRevisionIdUserIdCompoundUniqueInput
   AND?: Prisma.SourceFileWhereInput | Prisma.SourceFileWhereInput[]
   OR?: Prisma.SourceFileWhereInput[]
   NOT?: Prisma.SourceFileWhereInput | Prisma.SourceFileWhereInput[]
@@ -357,7 +358,7 @@ export type SourceFileWhereUniqueInput = Prisma.AtLeast<{
   materialRevision?: Prisma.XOR<Prisma.MaterialRevisionNullableScalarRelationFilter, Prisma.MaterialRevisionWhereInput> | null
   skillRefs?: Prisma.SkillSourceRefListRelationFilter
   materialChunks?: Prisma.MaterialChunkListRelationFilter
-}, "id" | "id_userId">
+}, "id" | "id_userId" | "id_materialRevisionId_userId">
 
 export type SourceFileOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
@@ -555,6 +556,12 @@ export type SourceFileOrderByRelationAggregateInput = {
 
 export type SourceFileIdUserIdCompoundUniqueInput = {
   id: string
+  userId: string
+}
+
+export type SourceFileIdMaterialRevisionIdUserIdCompoundUniqueInput = {
+  id: string
+  materialRevisionId: string
   userId: string
 }
 

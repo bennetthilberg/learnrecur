@@ -246,6 +246,7 @@ model SourceFile {
   materialChunks   MaterialChunk[]
 
   @@unique([id, userId])
+  @@unique([id, materialRevisionId, userId])
   @@index([userId, status])
   @@index([collectionId])
   @@index([materialRevisionId])
@@ -330,9 +331,12 @@ model MaterialSection {
 
   user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   materialRevision MaterialRevision @relation(fields: [materialRevisionId, userId], references: [id, userId], onDelete: Cascade)
+  parent           MaterialSection? @relation("MaterialSectionHierarchy", fields: [parentId, materialRevisionId, userId], references: [id, materialRevisionId, userId], onDelete: NoAction)
+  children         MaterialSection[] @relation("MaterialSectionHierarchy")
   chunks           MaterialChunk[]
 
   @@unique([id, userId])
+  @@unique([id, materialRevisionId, userId])
   @@unique([materialRevisionId, ordinal])
   @@index([materialRevisionId, parentId, ordinal])
   @@index([userId])
@@ -357,8 +361,8 @@ model MaterialChunk {
 
   user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   materialRevision MaterialRevision @relation(fields: [materialRevisionId, userId], references: [id, userId], onDelete: Cascade)
-  materialSection  MaterialSection? @relation(fields: [materialSectionId, userId], references: [id, userId], onDelete: NoAction)
-  sourceFile       SourceFile?      @relation(fields: [sourceFileId, userId], references: [id, userId], onDelete: NoAction)
+  materialSection  MaterialSection? @relation(fields: [materialSectionId, materialRevisionId, userId], references: [id, materialRevisionId, userId], onDelete: NoAction)
+  sourceFile       SourceFile?      @relation(fields: [sourceFileId, materialRevisionId, userId], references: [id, materialRevisionId, userId], onDelete: NoAction)
 
   @@unique([id, userId])
   @@unique([materialRevisionId, ordinal])

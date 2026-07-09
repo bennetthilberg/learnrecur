@@ -302,6 +302,8 @@ export type MaterialSectionWhereInput = {
   createdAt?: Prisma.DateTimeFilter<"MaterialSection"> | Date | string
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   materialRevision?: Prisma.XOR<Prisma.MaterialRevisionScalarRelationFilter, Prisma.MaterialRevisionWhereInput>
+  parent?: Prisma.XOR<Prisma.MaterialSectionNullableScalarRelationFilter, Prisma.MaterialSectionWhereInput> | null
+  children?: Prisma.MaterialSectionListRelationFilter
   chunks?: Prisma.MaterialChunkListRelationFilter
 }
 
@@ -323,12 +325,15 @@ export type MaterialSectionOrderByWithRelationInput = {
   createdAt?: Prisma.SortOrder
   user?: Prisma.UserOrderByWithRelationInput
   materialRevision?: Prisma.MaterialRevisionOrderByWithRelationInput
+  parent?: Prisma.MaterialSectionOrderByWithRelationInput
+  children?: Prisma.MaterialSectionOrderByRelationAggregateInput
   chunks?: Prisma.MaterialChunkOrderByRelationAggregateInput
 }
 
 export type MaterialSectionWhereUniqueInput = Prisma.AtLeast<{
   id?: string
   id_userId?: Prisma.MaterialSectionIdUserIdCompoundUniqueInput
+  id_materialRevisionId_userId?: Prisma.MaterialSectionIdMaterialRevisionIdUserIdCompoundUniqueInput
   materialRevisionId_ordinal?: Prisma.MaterialSectionMaterialRevisionIdOrdinalCompoundUniqueInput
   AND?: Prisma.MaterialSectionWhereInput | Prisma.MaterialSectionWhereInput[]
   OR?: Prisma.MaterialSectionWhereInput[]
@@ -349,8 +354,10 @@ export type MaterialSectionWhereUniqueInput = Prisma.AtLeast<{
   createdAt?: Prisma.DateTimeFilter<"MaterialSection"> | Date | string
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   materialRevision?: Prisma.XOR<Prisma.MaterialRevisionScalarRelationFilter, Prisma.MaterialRevisionWhereInput>
+  parent?: Prisma.XOR<Prisma.MaterialSectionNullableScalarRelationFilter, Prisma.MaterialSectionWhereInput> | null
+  children?: Prisma.MaterialSectionListRelationFilter
   chunks?: Prisma.MaterialChunkListRelationFilter
-}, "id" | "id_userId" | "materialRevisionId_ordinal">
+}, "id" | "id_userId" | "id_materialRevisionId_userId" | "materialRevisionId_ordinal">
 
 export type MaterialSectionOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
@@ -398,7 +405,6 @@ export type MaterialSectionScalarWhereWithAggregatesInput = {
 
 export type MaterialSectionCreateInput = {
   id?: string
-  parentId?: string | null
   ordinal: number
   level?: number
   title: string
@@ -412,6 +418,8 @@ export type MaterialSectionCreateInput = {
   createdAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutMaterialSectionsInput
   materialRevision: Prisma.MaterialRevisionCreateNestedOneWithoutSectionsInput
+  parent?: Prisma.MaterialSectionCreateNestedOneWithoutChildrenInput
+  children?: Prisma.MaterialSectionCreateNestedManyWithoutParentInput
   chunks?: Prisma.MaterialChunkCreateNestedManyWithoutMaterialSectionInput
 }
 
@@ -431,12 +439,12 @@ export type MaterialSectionUncheckedCreateInput = {
   headingPath?: Prisma.MaterialSectionCreateheadingPathInput | string[]
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
+  children?: Prisma.MaterialSectionUncheckedCreateNestedManyWithoutParentInput
   chunks?: Prisma.MaterialChunkUncheckedCreateNestedManyWithoutMaterialSectionInput
 }
 
 export type MaterialSectionUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  parentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ordinal?: Prisma.IntFieldUpdateOperationsInput | number
   level?: Prisma.IntFieldUpdateOperationsInput | number
   title?: Prisma.StringFieldUpdateOperationsInput | string
@@ -450,6 +458,8 @@ export type MaterialSectionUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutMaterialSectionsNestedInput
   materialRevision?: Prisma.MaterialRevisionUpdateOneRequiredWithoutSectionsNestedInput
+  parent?: Prisma.MaterialSectionUpdateOneWithoutChildrenNestedInput
+  children?: Prisma.MaterialSectionUpdateManyWithoutParentNestedInput
   chunks?: Prisma.MaterialChunkUpdateManyWithoutMaterialSectionNestedInput
 }
 
@@ -469,6 +479,7 @@ export type MaterialSectionUncheckedUpdateInput = {
   headingPath?: Prisma.MaterialSectionUpdateheadingPathInput | string[]
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  children?: Prisma.MaterialSectionUncheckedUpdateManyWithoutParentNestedInput
   chunks?: Prisma.MaterialChunkUncheckedUpdateManyWithoutMaterialSectionNestedInput
 }
 
@@ -492,7 +503,6 @@ export type MaterialSectionCreateManyInput = {
 
 export type MaterialSectionUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  parentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ordinal?: Prisma.IntFieldUpdateOperationsInput | number
   level?: Prisma.IntFieldUpdateOperationsInput | number
   title?: Prisma.StringFieldUpdateOperationsInput | string
@@ -542,8 +552,19 @@ export type StringNullableListFilter<$PrismaModel = never> = {
   isEmpty?: boolean
 }
 
+export type MaterialSectionNullableScalarRelationFilter = {
+  is?: Prisma.MaterialSectionWhereInput | null
+  isNot?: Prisma.MaterialSectionWhereInput | null
+}
+
 export type MaterialSectionIdUserIdCompoundUniqueInput = {
   id: string
+  userId: string
+}
+
+export type MaterialSectionIdMaterialRevisionIdUserIdCompoundUniqueInput = {
+  id: string
+  materialRevisionId: string
   userId: string
 }
 
@@ -614,11 +635,6 @@ export type MaterialSectionSumOrderByAggregateInput = {
   level?: Prisma.SortOrder
   pageStart?: Prisma.SortOrder
   pageEnd?: Prisma.SortOrder
-}
-
-export type MaterialSectionNullableScalarRelationFilter = {
-  is?: Prisma.MaterialSectionWhereInput | null
-  isNot?: Prisma.MaterialSectionWhereInput | null
 }
 
 export type MaterialSectionCreateNestedManyWithoutUserInput = {
@@ -709,9 +725,67 @@ export type MaterialSectionCreateheadingPathInput = {
   set: string[]
 }
 
+export type MaterialSectionCreateNestedOneWithoutChildrenInput = {
+  create?: Prisma.XOR<Prisma.MaterialSectionCreateWithoutChildrenInput, Prisma.MaterialSectionUncheckedCreateWithoutChildrenInput>
+  connectOrCreate?: Prisma.MaterialSectionCreateOrConnectWithoutChildrenInput
+  connect?: Prisma.MaterialSectionWhereUniqueInput
+}
+
+export type MaterialSectionCreateNestedManyWithoutParentInput = {
+  create?: Prisma.XOR<Prisma.MaterialSectionCreateWithoutParentInput, Prisma.MaterialSectionUncheckedCreateWithoutParentInput> | Prisma.MaterialSectionCreateWithoutParentInput[] | Prisma.MaterialSectionUncheckedCreateWithoutParentInput[]
+  connectOrCreate?: Prisma.MaterialSectionCreateOrConnectWithoutParentInput | Prisma.MaterialSectionCreateOrConnectWithoutParentInput[]
+  createMany?: Prisma.MaterialSectionCreateManyParentInputEnvelope
+  connect?: Prisma.MaterialSectionWhereUniqueInput | Prisma.MaterialSectionWhereUniqueInput[]
+}
+
+export type MaterialSectionUncheckedCreateNestedManyWithoutParentInput = {
+  create?: Prisma.XOR<Prisma.MaterialSectionCreateWithoutParentInput, Prisma.MaterialSectionUncheckedCreateWithoutParentInput> | Prisma.MaterialSectionCreateWithoutParentInput[] | Prisma.MaterialSectionUncheckedCreateWithoutParentInput[]
+  connectOrCreate?: Prisma.MaterialSectionCreateOrConnectWithoutParentInput | Prisma.MaterialSectionCreateOrConnectWithoutParentInput[]
+  createMany?: Prisma.MaterialSectionCreateManyParentInputEnvelope
+  connect?: Prisma.MaterialSectionWhereUniqueInput | Prisma.MaterialSectionWhereUniqueInput[]
+}
+
 export type MaterialSectionUpdateheadingPathInput = {
   set?: string[]
   push?: string | string[]
+}
+
+export type MaterialSectionUpdateOneWithoutChildrenNestedInput = {
+  create?: Prisma.XOR<Prisma.MaterialSectionCreateWithoutChildrenInput, Prisma.MaterialSectionUncheckedCreateWithoutChildrenInput>
+  connectOrCreate?: Prisma.MaterialSectionCreateOrConnectWithoutChildrenInput
+  upsert?: Prisma.MaterialSectionUpsertWithoutChildrenInput
+  disconnect?: Prisma.MaterialSectionWhereInput | boolean
+  delete?: Prisma.MaterialSectionWhereInput | boolean
+  connect?: Prisma.MaterialSectionWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.MaterialSectionUpdateToOneWithWhereWithoutChildrenInput, Prisma.MaterialSectionUpdateWithoutChildrenInput>, Prisma.MaterialSectionUncheckedUpdateWithoutChildrenInput>
+}
+
+export type MaterialSectionUpdateManyWithoutParentNestedInput = {
+  create?: Prisma.XOR<Prisma.MaterialSectionCreateWithoutParentInput, Prisma.MaterialSectionUncheckedCreateWithoutParentInput> | Prisma.MaterialSectionCreateWithoutParentInput[] | Prisma.MaterialSectionUncheckedCreateWithoutParentInput[]
+  connectOrCreate?: Prisma.MaterialSectionCreateOrConnectWithoutParentInput | Prisma.MaterialSectionCreateOrConnectWithoutParentInput[]
+  upsert?: Prisma.MaterialSectionUpsertWithWhereUniqueWithoutParentInput | Prisma.MaterialSectionUpsertWithWhereUniqueWithoutParentInput[]
+  createMany?: Prisma.MaterialSectionCreateManyParentInputEnvelope
+  set?: Prisma.MaterialSectionWhereUniqueInput | Prisma.MaterialSectionWhereUniqueInput[]
+  disconnect?: Prisma.MaterialSectionWhereUniqueInput | Prisma.MaterialSectionWhereUniqueInput[]
+  delete?: Prisma.MaterialSectionWhereUniqueInput | Prisma.MaterialSectionWhereUniqueInput[]
+  connect?: Prisma.MaterialSectionWhereUniqueInput | Prisma.MaterialSectionWhereUniqueInput[]
+  update?: Prisma.MaterialSectionUpdateWithWhereUniqueWithoutParentInput | Prisma.MaterialSectionUpdateWithWhereUniqueWithoutParentInput[]
+  updateMany?: Prisma.MaterialSectionUpdateManyWithWhereWithoutParentInput | Prisma.MaterialSectionUpdateManyWithWhereWithoutParentInput[]
+  deleteMany?: Prisma.MaterialSectionScalarWhereInput | Prisma.MaterialSectionScalarWhereInput[]
+}
+
+export type MaterialSectionUncheckedUpdateManyWithoutParentNestedInput = {
+  create?: Prisma.XOR<Prisma.MaterialSectionCreateWithoutParentInput, Prisma.MaterialSectionUncheckedCreateWithoutParentInput> | Prisma.MaterialSectionCreateWithoutParentInput[] | Prisma.MaterialSectionUncheckedCreateWithoutParentInput[]
+  connectOrCreate?: Prisma.MaterialSectionCreateOrConnectWithoutParentInput | Prisma.MaterialSectionCreateOrConnectWithoutParentInput[]
+  upsert?: Prisma.MaterialSectionUpsertWithWhereUniqueWithoutParentInput | Prisma.MaterialSectionUpsertWithWhereUniqueWithoutParentInput[]
+  createMany?: Prisma.MaterialSectionCreateManyParentInputEnvelope
+  set?: Prisma.MaterialSectionWhereUniqueInput | Prisma.MaterialSectionWhereUniqueInput[]
+  disconnect?: Prisma.MaterialSectionWhereUniqueInput | Prisma.MaterialSectionWhereUniqueInput[]
+  delete?: Prisma.MaterialSectionWhereUniqueInput | Prisma.MaterialSectionWhereUniqueInput[]
+  connect?: Prisma.MaterialSectionWhereUniqueInput | Prisma.MaterialSectionWhereUniqueInput[]
+  update?: Prisma.MaterialSectionUpdateWithWhereUniqueWithoutParentInput | Prisma.MaterialSectionUpdateWithWhereUniqueWithoutParentInput[]
+  updateMany?: Prisma.MaterialSectionUpdateManyWithWhereWithoutParentInput | Prisma.MaterialSectionUpdateManyWithWhereWithoutParentInput[]
+  deleteMany?: Prisma.MaterialSectionScalarWhereInput | Prisma.MaterialSectionScalarWhereInput[]
 }
 
 export type MaterialSectionCreateNestedOneWithoutChunksInput = {
@@ -732,7 +806,6 @@ export type MaterialSectionUpdateOneWithoutChunksNestedInput = {
 
 export type MaterialSectionCreateWithoutUserInput = {
   id?: string
-  parentId?: string | null
   ordinal: number
   level?: number
   title: string
@@ -745,6 +818,8 @@ export type MaterialSectionCreateWithoutUserInput = {
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   materialRevision: Prisma.MaterialRevisionCreateNestedOneWithoutSectionsInput
+  parent?: Prisma.MaterialSectionCreateNestedOneWithoutChildrenInput
+  children?: Prisma.MaterialSectionCreateNestedManyWithoutParentInput
   chunks?: Prisma.MaterialChunkCreateNestedManyWithoutMaterialSectionInput
 }
 
@@ -763,6 +838,7 @@ export type MaterialSectionUncheckedCreateWithoutUserInput = {
   headingPath?: Prisma.MaterialSectionCreateheadingPathInput | string[]
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
+  children?: Prisma.MaterialSectionUncheckedCreateNestedManyWithoutParentInput
   chunks?: Prisma.MaterialChunkUncheckedCreateNestedManyWithoutMaterialSectionInput
 }
 
@@ -815,7 +891,6 @@ export type MaterialSectionScalarWhereInput = {
 
 export type MaterialSectionCreateWithoutMaterialRevisionInput = {
   id?: string
-  parentId?: string | null
   ordinal: number
   level?: number
   title: string
@@ -828,6 +903,8 @@ export type MaterialSectionCreateWithoutMaterialRevisionInput = {
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutMaterialSectionsInput
+  parent?: Prisma.MaterialSectionCreateNestedOneWithoutChildrenInput
+  children?: Prisma.MaterialSectionCreateNestedManyWithoutParentInput
   chunks?: Prisma.MaterialChunkCreateNestedManyWithoutMaterialSectionInput
 }
 
@@ -845,6 +922,7 @@ export type MaterialSectionUncheckedCreateWithoutMaterialRevisionInput = {
   headingPath?: Prisma.MaterialSectionCreateheadingPathInput | string[]
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
+  children?: Prisma.MaterialSectionUncheckedCreateNestedManyWithoutParentInput
   chunks?: Prisma.MaterialChunkUncheckedCreateNestedManyWithoutMaterialSectionInput
 }
 
@@ -874,9 +952,8 @@ export type MaterialSectionUpdateManyWithWhereWithoutMaterialRevisionInput = {
   data: Prisma.XOR<Prisma.MaterialSectionUpdateManyMutationInput, Prisma.MaterialSectionUncheckedUpdateManyWithoutMaterialRevisionInput>
 }
 
-export type MaterialSectionCreateWithoutChunksInput = {
+export type MaterialSectionCreateWithoutChildrenInput = {
   id?: string
-  parentId?: string | null
   ordinal: number
   level?: number
   title: string
@@ -890,6 +967,162 @@ export type MaterialSectionCreateWithoutChunksInput = {
   createdAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutMaterialSectionsInput
   materialRevision: Prisma.MaterialRevisionCreateNestedOneWithoutSectionsInput
+  parent?: Prisma.MaterialSectionCreateNestedOneWithoutChildrenInput
+  chunks?: Prisma.MaterialChunkCreateNestedManyWithoutMaterialSectionInput
+}
+
+export type MaterialSectionUncheckedCreateWithoutChildrenInput = {
+  id?: string
+  userId: string
+  materialRevisionId: string
+  parentId?: string | null
+  ordinal: number
+  level?: number
+  title: string
+  normalizedTitle: string
+  pageStart?: number | null
+  pageEnd?: number | null
+  url?: string | null
+  anchor?: string | null
+  headingPath?: Prisma.MaterialSectionCreateheadingPathInput | string[]
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Date | string
+  chunks?: Prisma.MaterialChunkUncheckedCreateNestedManyWithoutMaterialSectionInput
+}
+
+export type MaterialSectionCreateOrConnectWithoutChildrenInput = {
+  where: Prisma.MaterialSectionWhereUniqueInput
+  create: Prisma.XOR<Prisma.MaterialSectionCreateWithoutChildrenInput, Prisma.MaterialSectionUncheckedCreateWithoutChildrenInput>
+}
+
+export type MaterialSectionCreateWithoutParentInput = {
+  id?: string
+  ordinal: number
+  level?: number
+  title: string
+  normalizedTitle: string
+  pageStart?: number | null
+  pageEnd?: number | null
+  url?: string | null
+  anchor?: string | null
+  headingPath?: Prisma.MaterialSectionCreateheadingPathInput | string[]
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Date | string
+  user: Prisma.UserCreateNestedOneWithoutMaterialSectionsInput
+  materialRevision: Prisma.MaterialRevisionCreateNestedOneWithoutSectionsInput
+  children?: Prisma.MaterialSectionCreateNestedManyWithoutParentInput
+  chunks?: Prisma.MaterialChunkCreateNestedManyWithoutMaterialSectionInput
+}
+
+export type MaterialSectionUncheckedCreateWithoutParentInput = {
+  id?: string
+  ordinal: number
+  level?: number
+  title: string
+  normalizedTitle: string
+  pageStart?: number | null
+  pageEnd?: number | null
+  url?: string | null
+  anchor?: string | null
+  headingPath?: Prisma.MaterialSectionCreateheadingPathInput | string[]
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Date | string
+  children?: Prisma.MaterialSectionUncheckedCreateNestedManyWithoutParentInput
+  chunks?: Prisma.MaterialChunkUncheckedCreateNestedManyWithoutMaterialSectionInput
+}
+
+export type MaterialSectionCreateOrConnectWithoutParentInput = {
+  where: Prisma.MaterialSectionWhereUniqueInput
+  create: Prisma.XOR<Prisma.MaterialSectionCreateWithoutParentInput, Prisma.MaterialSectionUncheckedCreateWithoutParentInput>
+}
+
+export type MaterialSectionCreateManyParentInputEnvelope = {
+  data: Prisma.MaterialSectionCreateManyParentInput | Prisma.MaterialSectionCreateManyParentInput[]
+  skipDuplicates?: boolean
+}
+
+export type MaterialSectionUpsertWithoutChildrenInput = {
+  update: Prisma.XOR<Prisma.MaterialSectionUpdateWithoutChildrenInput, Prisma.MaterialSectionUncheckedUpdateWithoutChildrenInput>
+  create: Prisma.XOR<Prisma.MaterialSectionCreateWithoutChildrenInput, Prisma.MaterialSectionUncheckedCreateWithoutChildrenInput>
+  where?: Prisma.MaterialSectionWhereInput
+}
+
+export type MaterialSectionUpdateToOneWithWhereWithoutChildrenInput = {
+  where?: Prisma.MaterialSectionWhereInput
+  data: Prisma.XOR<Prisma.MaterialSectionUpdateWithoutChildrenInput, Prisma.MaterialSectionUncheckedUpdateWithoutChildrenInput>
+}
+
+export type MaterialSectionUpdateWithoutChildrenInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  ordinal?: Prisma.IntFieldUpdateOperationsInput | number
+  level?: Prisma.IntFieldUpdateOperationsInput | number
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  normalizedTitle?: Prisma.StringFieldUpdateOperationsInput | string
+  pageStart?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  pageEnd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  url?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  anchor?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  headingPath?: Prisma.MaterialSectionUpdateheadingPathInput | string[]
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  user?: Prisma.UserUpdateOneRequiredWithoutMaterialSectionsNestedInput
+  materialRevision?: Prisma.MaterialRevisionUpdateOneRequiredWithoutSectionsNestedInput
+  parent?: Prisma.MaterialSectionUpdateOneWithoutChildrenNestedInput
+  chunks?: Prisma.MaterialChunkUpdateManyWithoutMaterialSectionNestedInput
+}
+
+export type MaterialSectionUncheckedUpdateWithoutChildrenInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
+  materialRevisionId?: Prisma.StringFieldUpdateOperationsInput | string
+  parentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  ordinal?: Prisma.IntFieldUpdateOperationsInput | number
+  level?: Prisma.IntFieldUpdateOperationsInput | number
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  normalizedTitle?: Prisma.StringFieldUpdateOperationsInput | string
+  pageStart?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  pageEnd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  url?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  anchor?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  headingPath?: Prisma.MaterialSectionUpdateheadingPathInput | string[]
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  chunks?: Prisma.MaterialChunkUncheckedUpdateManyWithoutMaterialSectionNestedInput
+}
+
+export type MaterialSectionUpsertWithWhereUniqueWithoutParentInput = {
+  where: Prisma.MaterialSectionWhereUniqueInput
+  update: Prisma.XOR<Prisma.MaterialSectionUpdateWithoutParentInput, Prisma.MaterialSectionUncheckedUpdateWithoutParentInput>
+  create: Prisma.XOR<Prisma.MaterialSectionCreateWithoutParentInput, Prisma.MaterialSectionUncheckedCreateWithoutParentInput>
+}
+
+export type MaterialSectionUpdateWithWhereUniqueWithoutParentInput = {
+  where: Prisma.MaterialSectionWhereUniqueInput
+  data: Prisma.XOR<Prisma.MaterialSectionUpdateWithoutParentInput, Prisma.MaterialSectionUncheckedUpdateWithoutParentInput>
+}
+
+export type MaterialSectionUpdateManyWithWhereWithoutParentInput = {
+  where: Prisma.MaterialSectionScalarWhereInput
+  data: Prisma.XOR<Prisma.MaterialSectionUpdateManyMutationInput, Prisma.MaterialSectionUncheckedUpdateManyWithoutParentInput>
+}
+
+export type MaterialSectionCreateWithoutChunksInput = {
+  id?: string
+  ordinal: number
+  level?: number
+  title: string
+  normalizedTitle: string
+  pageStart?: number | null
+  pageEnd?: number | null
+  url?: string | null
+  anchor?: string | null
+  headingPath?: Prisma.MaterialSectionCreateheadingPathInput | string[]
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Date | string
+  user: Prisma.UserCreateNestedOneWithoutMaterialSectionsInput
+  materialRevision: Prisma.MaterialRevisionCreateNestedOneWithoutSectionsInput
+  parent?: Prisma.MaterialSectionCreateNestedOneWithoutChildrenInput
+  children?: Prisma.MaterialSectionCreateNestedManyWithoutParentInput
 }
 
 export type MaterialSectionUncheckedCreateWithoutChunksInput = {
@@ -908,6 +1141,7 @@ export type MaterialSectionUncheckedCreateWithoutChunksInput = {
   headingPath?: Prisma.MaterialSectionCreateheadingPathInput | string[]
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
+  children?: Prisma.MaterialSectionUncheckedCreateNestedManyWithoutParentInput
 }
 
 export type MaterialSectionCreateOrConnectWithoutChunksInput = {
@@ -928,7 +1162,6 @@ export type MaterialSectionUpdateToOneWithWhereWithoutChunksInput = {
 
 export type MaterialSectionUpdateWithoutChunksInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  parentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ordinal?: Prisma.IntFieldUpdateOperationsInput | number
   level?: Prisma.IntFieldUpdateOperationsInput | number
   title?: Prisma.StringFieldUpdateOperationsInput | string
@@ -942,6 +1175,8 @@ export type MaterialSectionUpdateWithoutChunksInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutMaterialSectionsNestedInput
   materialRevision?: Prisma.MaterialRevisionUpdateOneRequiredWithoutSectionsNestedInput
+  parent?: Prisma.MaterialSectionUpdateOneWithoutChildrenNestedInput
+  children?: Prisma.MaterialSectionUpdateManyWithoutParentNestedInput
 }
 
 export type MaterialSectionUncheckedUpdateWithoutChunksInput = {
@@ -960,6 +1195,7 @@ export type MaterialSectionUncheckedUpdateWithoutChunksInput = {
   headingPath?: Prisma.MaterialSectionUpdateheadingPathInput | string[]
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  children?: Prisma.MaterialSectionUncheckedUpdateManyWithoutParentNestedInput
 }
 
 export type MaterialSectionCreateManyUserInput = {
@@ -981,7 +1217,6 @@ export type MaterialSectionCreateManyUserInput = {
 
 export type MaterialSectionUpdateWithoutUserInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  parentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ordinal?: Prisma.IntFieldUpdateOperationsInput | number
   level?: Prisma.IntFieldUpdateOperationsInput | number
   title?: Prisma.StringFieldUpdateOperationsInput | string
@@ -994,6 +1229,8 @@ export type MaterialSectionUpdateWithoutUserInput = {
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   materialRevision?: Prisma.MaterialRevisionUpdateOneRequiredWithoutSectionsNestedInput
+  parent?: Prisma.MaterialSectionUpdateOneWithoutChildrenNestedInput
+  children?: Prisma.MaterialSectionUpdateManyWithoutParentNestedInput
   chunks?: Prisma.MaterialChunkUpdateManyWithoutMaterialSectionNestedInput
 }
 
@@ -1012,6 +1249,7 @@ export type MaterialSectionUncheckedUpdateWithoutUserInput = {
   headingPath?: Prisma.MaterialSectionUpdateheadingPathInput | string[]
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  children?: Prisma.MaterialSectionUncheckedUpdateManyWithoutParentNestedInput
   chunks?: Prisma.MaterialChunkUncheckedUpdateManyWithoutMaterialSectionNestedInput
 }
 
@@ -1050,7 +1288,6 @@ export type MaterialSectionCreateManyMaterialRevisionInput = {
 
 export type MaterialSectionUpdateWithoutMaterialRevisionInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  parentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ordinal?: Prisma.IntFieldUpdateOperationsInput | number
   level?: Prisma.IntFieldUpdateOperationsInput | number
   title?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1063,6 +1300,8 @@ export type MaterialSectionUpdateWithoutMaterialRevisionInput = {
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutMaterialSectionsNestedInput
+  parent?: Prisma.MaterialSectionUpdateOneWithoutChildrenNestedInput
+  children?: Prisma.MaterialSectionUpdateManyWithoutParentNestedInput
   chunks?: Prisma.MaterialChunkUpdateManyWithoutMaterialSectionNestedInput
 }
 
@@ -1080,6 +1319,7 @@ export type MaterialSectionUncheckedUpdateWithoutMaterialRevisionInput = {
   headingPath?: Prisma.MaterialSectionUpdateheadingPathInput | string[]
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  children?: Prisma.MaterialSectionUncheckedUpdateManyWithoutParentNestedInput
   chunks?: Prisma.MaterialChunkUncheckedUpdateManyWithoutMaterialSectionNestedInput
 }
 
@@ -1099,16 +1339,84 @@ export type MaterialSectionUncheckedUpdateManyWithoutMaterialRevisionInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
+export type MaterialSectionCreateManyParentInput = {
+  id?: string
+  ordinal: number
+  level?: number
+  title: string
+  normalizedTitle: string
+  pageStart?: number | null
+  pageEnd?: number | null
+  url?: string | null
+  anchor?: string | null
+  headingPath?: Prisma.MaterialSectionCreateheadingPathInput | string[]
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Date | string
+}
+
+export type MaterialSectionUpdateWithoutParentInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  ordinal?: Prisma.IntFieldUpdateOperationsInput | number
+  level?: Prisma.IntFieldUpdateOperationsInput | number
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  normalizedTitle?: Prisma.StringFieldUpdateOperationsInput | string
+  pageStart?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  pageEnd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  url?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  anchor?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  headingPath?: Prisma.MaterialSectionUpdateheadingPathInput | string[]
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  user?: Prisma.UserUpdateOneRequiredWithoutMaterialSectionsNestedInput
+  materialRevision?: Prisma.MaterialRevisionUpdateOneRequiredWithoutSectionsNestedInput
+  children?: Prisma.MaterialSectionUpdateManyWithoutParentNestedInput
+  chunks?: Prisma.MaterialChunkUpdateManyWithoutMaterialSectionNestedInput
+}
+
+export type MaterialSectionUncheckedUpdateWithoutParentInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  ordinal?: Prisma.IntFieldUpdateOperationsInput | number
+  level?: Prisma.IntFieldUpdateOperationsInput | number
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  normalizedTitle?: Prisma.StringFieldUpdateOperationsInput | string
+  pageStart?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  pageEnd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  url?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  anchor?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  headingPath?: Prisma.MaterialSectionUpdateheadingPathInput | string[]
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  children?: Prisma.MaterialSectionUncheckedUpdateManyWithoutParentNestedInput
+  chunks?: Prisma.MaterialChunkUncheckedUpdateManyWithoutMaterialSectionNestedInput
+}
+
+export type MaterialSectionUncheckedUpdateManyWithoutParentInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  ordinal?: Prisma.IntFieldUpdateOperationsInput | number
+  level?: Prisma.IntFieldUpdateOperationsInput | number
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  normalizedTitle?: Prisma.StringFieldUpdateOperationsInput | string
+  pageStart?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  pageEnd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  url?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  anchor?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  headingPath?: Prisma.MaterialSectionUpdateheadingPathInput | string[]
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
 
 /**
  * Count Type MaterialSectionCountOutputType
  */
 
 export type MaterialSectionCountOutputType = {
+  children: number
   chunks: number
 }
 
 export type MaterialSectionCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  children?: boolean | MaterialSectionCountOutputTypeCountChildrenArgs
   chunks?: boolean | MaterialSectionCountOutputTypeCountChunksArgs
 }
 
@@ -1120,6 +1428,13 @@ export type MaterialSectionCountOutputTypeDefaultArgs<ExtArgs extends runtime.Ty
    * Select specific fields to fetch from the MaterialSectionCountOutputType
    */
   select?: Prisma.MaterialSectionCountOutputTypeSelect<ExtArgs> | null
+}
+
+/**
+ * MaterialSectionCountOutputType without action
+ */
+export type MaterialSectionCountOutputTypeCountChildrenArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.MaterialSectionWhereInput
 }
 
 /**
@@ -1148,6 +1463,8 @@ export type MaterialSectionSelect<ExtArgs extends runtime.Types.Extensions.Inter
   createdAt?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   materialRevision?: boolean | Prisma.MaterialRevisionDefaultArgs<ExtArgs>
+  parent?: boolean | Prisma.MaterialSection$parentArgs<ExtArgs>
+  children?: boolean | Prisma.MaterialSection$childrenArgs<ExtArgs>
   chunks?: boolean | Prisma.MaterialSection$chunksArgs<ExtArgs>
   _count?: boolean | Prisma.MaterialSectionCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["materialSection"]>
@@ -1170,6 +1487,7 @@ export type MaterialSectionSelectCreateManyAndReturn<ExtArgs extends runtime.Typ
   createdAt?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   materialRevision?: boolean | Prisma.MaterialRevisionDefaultArgs<ExtArgs>
+  parent?: boolean | Prisma.MaterialSection$parentArgs<ExtArgs>
 }, ExtArgs["result"]["materialSection"]>
 
 export type MaterialSectionSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -1190,6 +1508,7 @@ export type MaterialSectionSelectUpdateManyAndReturn<ExtArgs extends runtime.Typ
   createdAt?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   materialRevision?: boolean | Prisma.MaterialRevisionDefaultArgs<ExtArgs>
+  parent?: boolean | Prisma.MaterialSection$parentArgs<ExtArgs>
 }, ExtArgs["result"]["materialSection"]>
 
 export type MaterialSectionSelectScalar = {
@@ -1214,16 +1533,20 @@ export type MaterialSectionOmit<ExtArgs extends runtime.Types.Extensions.Interna
 export type MaterialSectionInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   materialRevision?: boolean | Prisma.MaterialRevisionDefaultArgs<ExtArgs>
+  parent?: boolean | Prisma.MaterialSection$parentArgs<ExtArgs>
+  children?: boolean | Prisma.MaterialSection$childrenArgs<ExtArgs>
   chunks?: boolean | Prisma.MaterialSection$chunksArgs<ExtArgs>
   _count?: boolean | Prisma.MaterialSectionCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type MaterialSectionIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   materialRevision?: boolean | Prisma.MaterialRevisionDefaultArgs<ExtArgs>
+  parent?: boolean | Prisma.MaterialSection$parentArgs<ExtArgs>
 }
 export type MaterialSectionIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   materialRevision?: boolean | Prisma.MaterialRevisionDefaultArgs<ExtArgs>
+  parent?: boolean | Prisma.MaterialSection$parentArgs<ExtArgs>
 }
 
 export type $MaterialSectionPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1231,6 +1554,8 @@ export type $MaterialSectionPayload<ExtArgs extends runtime.Types.Extensions.Int
   objects: {
     user: Prisma.$UserPayload<ExtArgs>
     materialRevision: Prisma.$MaterialRevisionPayload<ExtArgs>
+    parent: Prisma.$MaterialSectionPayload<ExtArgs> | null
+    children: Prisma.$MaterialSectionPayload<ExtArgs>[]
     chunks: Prisma.$MaterialChunkPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
@@ -1645,6 +1970,8 @@ export interface Prisma__MaterialSectionClient<T, Null = never, ExtArgs extends 
   readonly [Symbol.toStringTag]: "PrismaPromise"
   user<T extends Prisma.UserDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.UserDefaultArgs<ExtArgs>>): Prisma.Prisma__UserClient<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   materialRevision<T extends Prisma.MaterialRevisionDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.MaterialRevisionDefaultArgs<ExtArgs>>): Prisma.Prisma__MaterialRevisionClient<runtime.Types.Result.GetResult<Prisma.$MaterialRevisionPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+  parent<T extends Prisma.MaterialSection$parentArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.MaterialSection$parentArgs<ExtArgs>>): Prisma.Prisma__MaterialSectionClient<runtime.Types.Result.GetResult<Prisma.$MaterialSectionPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+  children<T extends Prisma.MaterialSection$childrenArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.MaterialSection$childrenArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$MaterialSectionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   chunks<T extends Prisma.MaterialSection$chunksArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.MaterialSection$chunksArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$MaterialChunkPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
@@ -2088,6 +2415,49 @@ export type MaterialSectionDeleteManyArgs<ExtArgs extends runtime.Types.Extensio
    * Limit how many MaterialSections to delete.
    */
   limit?: number
+}
+
+/**
+ * MaterialSection.parent
+ */
+export type MaterialSection$parentArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the MaterialSection
+   */
+  select?: Prisma.MaterialSectionSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the MaterialSection
+   */
+  omit?: Prisma.MaterialSectionOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.MaterialSectionInclude<ExtArgs> | null
+  where?: Prisma.MaterialSectionWhereInput
+}
+
+/**
+ * MaterialSection.children
+ */
+export type MaterialSection$childrenArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the MaterialSection
+   */
+  select?: Prisma.MaterialSectionSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the MaterialSection
+   */
+  omit?: Prisma.MaterialSectionOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.MaterialSectionInclude<ExtArgs> | null
+  where?: Prisma.MaterialSectionWhereInput
+  orderBy?: Prisma.MaterialSectionOrderByWithRelationInput | Prisma.MaterialSectionOrderByWithRelationInput[]
+  cursor?: Prisma.MaterialSectionWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.MaterialSectionScalarFieldEnum | Prisma.MaterialSectionScalarFieldEnum[]
 }
 
 /**

@@ -966,6 +966,7 @@ export async function queueSourceUploadDrafts(
     where: {
       id: input.sourceFileId,
       userId: input.userId,
+      materialRevisionId: null,
     },
   });
 
@@ -1042,6 +1043,7 @@ export async function queueSourceUploadDrafts(
     where: {
       id: sourceFile.id,
       userId: input.userId,
+      materialRevisionId: null,
       status: SourceFileStatus.DRAFT,
     },
     data: {
@@ -1086,6 +1088,7 @@ export async function requeueSourceUploadDraft(
     where: {
       id: input.sourceFileId,
       userId: input.userId,
+      materialRevisionId: null,
     },
     include: {
       _count: {
@@ -1163,6 +1166,7 @@ export async function requeueSourceUploadDraft(
     where: {
       id: sourceFile.id,
       userId: input.userId,
+      materialRevisionId: null,
       status: sourceFile.status,
       storageBucket: sourceFile.storageBucket,
       storageKey: sourceFile.storageKey,
@@ -1195,6 +1199,7 @@ export async function requeueSourceUploadDraft(
       where: {
         id: sourceFile.id,
         userId: input.userId,
+        materialRevisionId: null,
         status: SourceFileStatus.UPLOADED,
         storageBucket: sourceFile.storageBucket,
         storageKey: sourceFile.storageKey,
@@ -1246,6 +1251,7 @@ export async function dismissFailedSourceUpload(
     where: {
       id: input.sourceFileId,
       userId: input.userId,
+      materialRevisionId: null,
     },
     select: {
       id: true,
@@ -1300,6 +1306,7 @@ export async function dismissFailedSourceUpload(
       where: {
         id: sourceFile.id,
         userId: input.userId,
+        materialRevisionId: null,
         kind: sourceFile.kind,
         status: sourceFile.status,
         storageBucket: sourceFile.storageBucket,
@@ -1323,6 +1330,7 @@ export async function dismissFailedSourceUpload(
       where: {
         id: sourceFile.id,
         userId: input.userId,
+        materialRevisionId: null,
         kind: sourceFile.kind,
         status: SourceFileStatus.FAILED,
         storageBucket: sourceFile.storageBucket,
@@ -1348,6 +1356,7 @@ export async function dismissFailedSourceUpload(
       where: {
         id: sourceFile.id,
         userId: input.userId,
+        materialRevisionId: null,
         kind: sourceFile.kind,
         status: SourceFileStatus.FAILED,
         storageBucket: sourceFile.storageBucket,
@@ -1381,6 +1390,7 @@ export async function dismissFailedSourceUpload(
     where: {
       id: sourceFile.id,
       userId: input.userId,
+      materialRevisionId: null,
       kind: sourceFile.kind,
       status: SourceFileStatus.FAILED,
       storageBucket: sourceFile.storageBucket,
