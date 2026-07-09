@@ -2539,14 +2539,14 @@ export type ListEnumMaterialRevisionStatusFieldRefInput<$PrismaModel> = FieldRef
  * Reference to a field of type 'MaterialPageTextStatus'
  */
 export type EnumMaterialPageTextStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'MaterialPageTextStatus'>
-
+    
 
 
 /**
  * Reference to a field of type 'MaterialPageTextStatus[]'
  */
 export type ListEnumMaterialPageTextStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'MaterialPageTextStatus[]'>
-
+    
 
 
 /**
@@ -2985,3 +2985,4 @@ export type PrismaAction =
  * `PrismaClient` proxy available in interactive transactions.
  */
 export type TransactionClient = Omit<DefaultPrismaClient, runtime.ITXClientDenyList>
+

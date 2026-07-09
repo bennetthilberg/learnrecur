@@ -117,12 +117,31 @@ export async function finalizeMaterialRevision(input: {
   const prisma = getPrisma();
 
   return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`
+      SELECT "id"
+      FROM "study_materials"
+      WHERE "id" = ${input.materialId} AND "userId" = ${input.userId}
+      FOR UPDATE
+    `;
+
+    const material = await tx.studyMaterial.findFirst({
+      where: {
+        id: input.materialId,
+        userId: input.userId,
+        status: { not: StudyMaterialStatus.DELETING },
+      },
+      select: { id: true },
+    });
+
+    if (!material) {
+      return null;
+    }
+
     const revision = await tx.materialRevision.findFirst({
       where: {
         id: input.materialRevisionId,
         materialId: input.materialId,
         userId: input.userId,
-        material: { status: { not: StudyMaterialStatus.DELETING } },
       },
       select: { id: true },
     });
