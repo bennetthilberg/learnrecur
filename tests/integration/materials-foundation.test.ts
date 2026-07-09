@@ -536,4 +536,61 @@ describeDatabase("persistent material foundation", () => {
     ).toEqual({ status: StudyMaterialStatus.DELETING });
     expect(await prisma.skill.count({ where: { id: linkedSkill.id } })).toBe(1);
   });
+
+  it("allows account deletion to cascade through finalized material snapshots", async () => {
+    const cascadeUserId = `${runId}_cascade_owner`;
+    await prisma.user.create({
+      data: { id: cascadeUserId, email: `${cascadeUserId}@example.com` },
+    });
+    const { material, revision } = await createMaterialWithInitialRevision({
+      userId: cascadeUserId,
+      title: "Cascade cleanup fixture",
+      kind: StudyMaterialKind.PDF,
+    });
+    const source = await prisma.sourceFile.create({
+      data: {
+        userId: cascadeUserId,
+        materialRevisionId: revision.id,
+        kind: SourceFileKind.PDF,
+        status: SourceFileStatus.READY,
+        originalName: "cascade.pdf",
+      },
+    });
+    const section = await prisma.materialSection.create({
+      data: {
+        userId: cascadeUserId,
+        materialRevisionId: revision.id,
+        ordinal: 0,
+        title: "Cascade section",
+        normalizedTitle: "cascade section",
+        headingPath: ["Cascade section"],
+      },
+    });
+    await prisma.materialChunk.create({
+      data: {
+        userId: cascadeUserId,
+        materialRevisionId: revision.id,
+        materialSectionId: section.id,
+        sourceFileId: source.id,
+        ordinal: 0,
+        text: "Cascade evidence remains immutable until its owner is deleted.",
+        tokenEstimate: 9,
+        contentHash: "sha256:cascade-evidence",
+        locator: {},
+      },
+    });
+    await finalizeMaterialRevision({
+      userId: cascadeUserId,
+      materialId: material.id,
+      materialRevisionId: revision.id,
+      contentHash: "sha256:cascade-revision",
+      byteSize: 1_024,
+      pageCount: 1,
+      storageBucket: "private-materials",
+      storageKey: `${cascadeUserId}/${revision.id}/cascade.pdf`,
+    });
+
+    await expect(prisma.user.delete({ where: { id: cascadeUserId } })).resolves.toBeDefined();
+    expect(await prisma.studyMaterial.count({ where: { id: material.id } })).toBe(0);
+  });
 });
