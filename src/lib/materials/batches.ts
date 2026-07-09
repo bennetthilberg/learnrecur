@@ -3,6 +3,8 @@ import "server-only";
 import { isDeepStrictEqual } from "node:util";
 
 import {
+  GenerationJobKind,
+  GenerationJobStatus,
   MaterialRevisionStatus,
   Prisma,
   SkillDraftBatchItemStatus,
@@ -12,7 +14,9 @@ import {
 } from "@/generated/prisma/client";
 import { getInngestEnvStatus } from "@/lib/inngest/client";
 import {
+  inngestMaterialBatchActivationEventSender,
   inngestMaterialDraftItemEventSender,
+  type MaterialBatchActivationEventSender,
   type MaterialDraftItemEventSender,
 } from "@/lib/inngest/events";
 import {
@@ -20,6 +24,8 @@ import {
   type MaterialDraftAiSetup,
 } from "@/lib/materials/ai";
 import {
+  activateBatchInputSchema,
+  batchItemMutationInputSchema,
   confirmMaterialPlanInputSchema,
   materialScopePlanSchema,
   materialScopeResolutionSchema,
@@ -40,6 +46,11 @@ import {
   createGeminiMaterialEmbeddingGenerator,
   type MaterialEmbeddingGenerator,
 } from "@/lib/materials/embeddings";
+import {
+  ensureMaterialPageOcr,
+  loadLocalizedMaterialEvidence,
+  type MaterialOcrGenerator,
+} from "@/lib/materials/evidence";
 import { createIdempotentDraftBatch } from "@/lib/materials/lifecycle";
 import {
   searchMaterialChunks,
@@ -47,7 +58,23 @@ import {
   type MaterialChunkSearchResult,
 } from "@/lib/materials/retrieval";
 import { getPrisma } from "@/lib/prisma";
-import { REQUESTED_ACTIVATION_EXERCISES } from "@/lib/skills";
+import type { SourceObjectStorage } from "@/lib/storage/s3";
+import {
+  activateSkillDraft,
+  GEMINI_PROVIDER,
+  REQUESTED_ACTIVATION_EXERCISES,
+  SKILL_MCQ_PROMPT_VERSION,
+  type ChoiceExerciseGenerator,
+  type ChoiceExerciseVerifier,
+  type SkillSourceEvidenceLoader,
+  type SourceMediaContextLoader,
+} from "@/lib/skills";
+import { DEFAULT_GEMINI_MODEL } from "@/lib/gemini";
+import {
+  ALPHA_ACTIVE_SKILLS,
+  ALPHA_SKILL_ACTIVATIONS_PER_DAY,
+  startOfUtcDay,
+} from "@/lib/usage-limits";
 
 const PLANNING_CHUNK_LIMIT = 60;
 const GENERATION_EVIDENCE_CHARACTER_LIMIT = 24_000;
@@ -62,12 +89,24 @@ export class MaterialDraftGenerationError extends Error {
   }
 }
 
+export class MaterialBatchActivationError extends Error {
+  readonly retryable: boolean;
+
+  constructor(message: string, options: { retryable: boolean; cause?: unknown }) {
+    super(message, { cause: options.cause });
+    this.name = "MaterialBatchActivationError";
+    this.retryable = options.retryable;
+  }
+}
+
 export async function planMaterialSkills(input: {
   userId: string;
   input: unknown;
   now: Date;
   aiSetup?: MaterialDraftAiSetup;
   embeddingGenerator?: MaterialEmbeddingGenerator | null;
+  ocrGenerator?: MaterialOcrGenerator | null;
+  ocrStorage?: SourceObjectStorage;
 }) {
   const parsed = planMaterialSkillsInputSchema.safeParse(input.input);
   if (!parsed.success) {
@@ -118,6 +157,8 @@ export async function planMaterialSkills(input: {
     now: input.now,
     aiSetup: input.aiSetup,
     embeddingGenerator: input.embeddingGenerator,
+    ocrGenerator: input.ocrGenerator,
+    ocrStorage: input.ocrStorage,
   });
 }
 
@@ -127,6 +168,8 @@ export async function replanMaterialSkills(input: {
   now: Date;
   aiSetup?: MaterialDraftAiSetup;
   embeddingGenerator?: MaterialEmbeddingGenerator | null;
+  ocrGenerator?: MaterialOcrGenerator | null;
+  ocrStorage?: SourceObjectStorage;
 }) {
   const parsed = replanMaterialSkillsInputSchema.safeParse(input.input);
   if (!parsed.success) {
@@ -165,6 +208,8 @@ export async function replanMaterialSkills(input: {
     now: input.now,
     aiSetup: input.aiSetup,
     embeddingGenerator: input.embeddingGenerator,
+    ocrGenerator: input.ocrGenerator,
+    ocrStorage: input.ocrStorage,
   });
 }
 
@@ -340,7 +385,16 @@ export async function runMaterialDraftItemJob(input: {
                 where: { status: SourceFileStatus.READY },
                 orderBy: { createdAt: "asc" },
                 take: 1,
-                select: { id: true },
+                select: {
+                  id: true,
+                  materialRevisionId: true,
+                  kind: true,
+                  status: true,
+                  originalName: true,
+                  mimeType: true,
+                  storageBucket: true,
+                  storageKey: true,
+                },
               },
             },
           },
@@ -388,6 +442,10 @@ export async function runMaterialDraftItemJob(input: {
   }
 
   try {
+    const localizedEvidence = await loadLocalizedMaterialEvidence({
+      userId: input.userId,
+      sourceRefs: [{ locator: locator.data, sourceFile }],
+    });
     const chunks = await prisma.materialChunk.findMany({
       where: {
         id: { in: locator.data.evidenceChunkIds },
@@ -413,6 +471,12 @@ export async function runMaterialDraftItemJob(input: {
       target: { title: item.proposedTitle, objective: item.proposedObjective },
       materialTitle: item.batch.materialRevision.material.title,
       evidenceText,
+      sourceMedia: localizedEvidence.sourceMedia.map((media) => ({
+        sourceFileId: media.sourceFileId,
+        label: media.originalName,
+        mimeType: "application/pdf" as const,
+        bytes: media.bytes,
+      })),
       generateDraft: async (draftInput) => {
         await prisma.skillDraftBatchItem.update({
           where: { id: item.id },
@@ -556,6 +620,7 @@ export async function retryMaterialDraftItem(input: {
       batchId: input.batchId,
       userId: input.userId,
       status: SkillDraftBatchItemStatus.FAILED,
+      NOT: { errorCode: { startsWith: "ACTIVATION_" } },
     },
     data: { status: SkillDraftBatchItemStatus.PLANNED, errorCode: null, errorMessage: null },
   });
@@ -580,6 +645,474 @@ export async function retryMaterialDraftItem(input: {
   }
   await reconcileMaterialDraftBatch({ userId: input.userId, batchId: input.batchId, now: input.now });
   return { status: "queued" as const };
+}
+
+export async function queueMaterialBatchActivation(input: {
+  userId: string;
+  input: unknown;
+  now: Date;
+  eventSender?: MaterialBatchActivationEventSender;
+}) {
+  const parsed = activateBatchInputSchema.safeParse(input.input);
+  if (!parsed.success) {
+    return {
+      status: "invalid" as const,
+      message: "Choose between one and ten ready skills to add.",
+      fieldErrors: parsed.error.flatten().fieldErrors,
+    };
+  }
+  const env = getInngestEnvStatus();
+  if (env.status === "missing-env" && !input.eventSender) {
+    return { status: "not-queued" as const, message: env.message };
+  }
+  const prisma = getPrisma();
+  const reservation = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`
+      SELECT "id" FROM "users"
+      WHERE "id" = ${input.userId}
+      FOR UPDATE
+    `;
+    const batch = await tx.skillDraftBatch.findFirst({
+      where: { id: parsed.data.batchId, userId: input.userId, confirmedAt: { not: null } },
+      select: { id: true },
+    });
+    if (!batch) {
+      return { status: "not-found" as const, message: "Ready material batch was not found." };
+    }
+    const items = await tx.skillDraftBatchItem.findMany({
+      where: {
+        id: { in: parsed.data.itemIds },
+        batchId: batch.id,
+        userId: input.userId,
+      },
+      select: {
+        id: true,
+        status: true,
+        skill: { select: { id: true, status: true } },
+      },
+    });
+    if (
+      items.length === parsed.data.itemIds.length &&
+      items.every(
+        (item) =>
+          item.skill &&
+          ((item.status === SkillDraftBatchItemStatus.ACTIVATING &&
+            item.skill.status === SkillStatus.DRAFT) ||
+            (item.status === SkillDraftBatchItemStatus.ACTIVE &&
+              item.skill.status === SkillStatus.ACTIVE)),
+      )
+    ) {
+      return {
+        status: "already-queued" as const,
+        batchId: batch.id,
+        message: "These skills are already being added or are active.",
+      };
+    }
+    if (
+      items.length !== parsed.data.itemIds.length ||
+      items.some(
+        (item) =>
+          item.status !== SkillDraftBatchItemStatus.READY ||
+          !item.skill ||
+          item.skill.status !== SkillStatus.DRAFT,
+      )
+    ) {
+      return {
+        status: "invalid" as const,
+        message: "Every selected item must still be a ready draft in this batch.",
+      };
+    }
+    const [activeSkillCount, activationsToday] = await Promise.all([
+      tx.skill.count({
+        where: {
+          userId: input.userId,
+          status: { in: [SkillStatus.ACTIVE, SkillStatus.PAUSED] },
+        },
+      }),
+      tx.generationJob.count({
+        where: {
+          userId: input.userId,
+          kind: GenerationJobKind.SKILL_ACTIVATION,
+          createdAt: { gte: startOfUtcDay(input.now) },
+        },
+      }),
+    ]);
+    if (activeSkillCount + items.length > ALPHA_ACTIVE_SKILLS) {
+      return {
+        status: "limited" as const,
+        code: "active-skill-limit" as const,
+        message: `Adding ${items.length} skills would exceed the ${ALPHA_ACTIVE_SKILLS}-skill alpha limit. Exclude some drafts or archive existing skills.`,
+      };
+    }
+    if (activationsToday + items.length > ALPHA_SKILL_ACTIVATIONS_PER_DAY) {
+      const remaining = Math.max(0, ALPHA_SKILL_ACTIVATIONS_PER_DAY - activationsToday);
+      return {
+        status: "limited" as const,
+        code: "daily-activation-limit" as const,
+        message: `Only ${remaining} activation${remaining === 1 ? "" : "s"} remain today. Select fewer skills or try again after 00:00 UTC.`,
+      };
+    }
+
+    const model = process.env.GEMINI_MODEL?.trim() || DEFAULT_GEMINI_MODEL;
+    const byId = new Map(items.map((item) => [item.id, item]));
+    const reservations = [];
+    for (const itemId of parsed.data.itemIds) {
+      const item = byId.get(itemId);
+      if (!item?.skill) {
+        throw new Error("Selected activation item disappeared while reserving quota.");
+      }
+      const generationJob = await tx.generationJob.create({
+        data: {
+          userId: input.userId,
+          skillId: item.skill.id,
+          kind: GenerationJobKind.SKILL_ACTIVATION,
+          status: GenerationJobStatus.PENDING,
+          provider: GEMINI_PROVIDER,
+          model,
+          promptVersion: SKILL_MCQ_PROMPT_VERSION,
+          requestedCount: REQUESTED_ACTIVATION_EXERCISES,
+          createdAt: input.now,
+        },
+        select: { id: true },
+      });
+      await tx.skillDraftBatchItem.update({
+        where: { id: item.id },
+        data: {
+          status: SkillDraftBatchItemStatus.ACTIVATING,
+          errorCode: null,
+          errorMessage: null,
+        },
+      });
+      reservations.push({ itemId: item.id, generationJobId: generationJob.id });
+    }
+    await tx.skillDraftBatch.update({
+      where: { id: batch.id },
+      data: {
+        status: SkillDraftBatchStatus.ACTIVATING,
+        completedAt: null,
+        errorCode: null,
+        errorMessage: null,
+      },
+    });
+    return { status: "reserved" as const, batchId: batch.id, reservations };
+  });
+
+  if (reservation.status !== "reserved") {
+    return reservation;
+  }
+  const sender = input.eventSender ?? inngestMaterialBatchActivationEventSender;
+  const payloads = reservation.reservations.map((item) => ({
+    userId: input.userId,
+    batchId: reservation.batchId,
+    itemId: item.itemId,
+    generationJobId: item.generationJobId,
+    requestedAt: input.now.toISOString(),
+  }));
+  const sendResults = await Promise.allSettled(
+    payloads.map((payload) => sender.sendMaterialBatchActivationRequested(payload)),
+  );
+  const failed = sendResults.flatMap((result, index) =>
+    result.status === "rejected" ? [payloads[index]] : [],
+  );
+  if (failed.length > 0) {
+    await prisma.$transaction(async (tx) => {
+      await tx.generationJob.updateMany({
+        where: {
+          id: { in: failed.map((item) => item.generationJobId) },
+          userId: input.userId,
+          status: GenerationJobStatus.PENDING,
+        },
+        data: {
+          status: GenerationJobStatus.FAILED,
+          errorMessage: "Activation could not be queued.",
+          completedAt: input.now,
+        },
+      });
+      await tx.skillDraftBatchItem.updateMany({
+        where: {
+          id: { in: failed.map((item) => item.itemId) },
+          userId: input.userId,
+          status: SkillDraftBatchItemStatus.ACTIVATING,
+        },
+        data: {
+          status: SkillDraftBatchItemStatus.FAILED,
+          errorCode: "ACTIVATION_EVENT_SEND_FAILED",
+          errorMessage: "Activation could not be queued. Retry this item.",
+        },
+      });
+    });
+    await reconcileMaterialDraftBatch({
+      userId: input.userId,
+      batchId: reservation.batchId,
+      now: input.now,
+    });
+  }
+  const failedItemIds = failed.map((item) => item.itemId);
+  return {
+    status: failed.length > 0 ? ("partial" as const) : ("queued" as const),
+    batchId: reservation.batchId,
+    queuedItemIds: payloads
+      .map((payload) => payload.itemId)
+      .filter((itemId) => !failedItemIds.includes(itemId)),
+    failedItemIds,
+  };
+}
+
+export async function runMaterialBatchActivationJob(input: {
+  userId: string;
+  batchId: string;
+  itemId: string;
+  generationJobId: string;
+  requestedAt?: string;
+  now?: Date;
+  generateChoiceExercises?: ChoiceExerciseGenerator;
+  verifyChoiceExercises?: ChoiceExerciseVerifier;
+  sourceMediaLoader?: SourceMediaContextLoader;
+  sourceEvidenceLoader?: SkillSourceEvidenceLoader;
+  model?: string;
+}) {
+  const prisma = getPrisma();
+  const now = input.now ?? new Date();
+  const item = await prisma.skillDraftBatchItem.findFirst({
+    where: { id: input.itemId, batchId: input.batchId, userId: input.userId },
+    select: {
+      id: true,
+      status: true,
+      errorCode: true,
+      skill: { select: { id: true, status: true } },
+    },
+  });
+  if (!item?.skill) {
+    return { status: "not-found" as const };
+  }
+  if (item.status === SkillDraftBatchItemStatus.ACTIVE && item.skill.status === SkillStatus.ACTIVE) {
+    return { status: "active" as const, alreadyActivated: true, skillId: item.skill.id };
+  }
+  if (item.skill.status === SkillStatus.ACTIVE) {
+    await markMaterialBatchItemActive({
+      userId: input.userId,
+      batchId: input.batchId,
+      itemId: item.id,
+      now,
+    });
+    return { status: "active" as const, alreadyActivated: true, skillId: item.skill.id };
+  }
+  const retryingTransientFailure =
+    item.status === SkillDraftBatchItemStatus.FAILED &&
+    item.errorCode?.startsWith("ACTIVATION_RETRYABLE_");
+  if (item.status !== SkillDraftBatchItemStatus.ACTIVATING && !retryingTransientFailure) {
+    return { status: "not-claimed" as const };
+  }
+  if (retryingTransientFailure) {
+    await prisma.skillDraftBatchItem.updateMany({
+      where: { id: item.id, userId: input.userId, status: SkillDraftBatchItemStatus.FAILED },
+      data: {
+        status: SkillDraftBatchItemStatus.ACTIVATING,
+        errorCode: null,
+        errorMessage: null,
+      },
+    });
+  }
+
+  let result: Awaited<ReturnType<typeof activateSkillDraft>>;
+  try {
+    result = await activateSkillDraft({
+      userId: input.userId,
+      skillId: item.skill.id,
+      generationJobId: input.generationJobId,
+      now,
+      generateChoiceExercises: input.generateChoiceExercises,
+      verifyChoiceExercises: input.verifyChoiceExercises,
+      sourceMediaLoader: input.sourceMediaLoader,
+      sourceEvidenceLoader: input.sourceEvidenceLoader,
+      model: input.model,
+      skipUsageLimitCheck: true,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Skill activation failed.";
+    await prisma.generationJob.updateMany({
+      where: {
+        id: input.generationJobId,
+        userId: input.userId,
+        status: { in: [GenerationJobStatus.PENDING, GenerationJobStatus.RUNNING] },
+      },
+      data: {
+        status: GenerationJobStatus.FAILED,
+        errorMessage: message.slice(0, 1_000),
+        completedAt: now,
+      },
+    });
+    await markMaterialBatchActivationFailed({
+      userId: input.userId,
+      batchId: input.batchId,
+      itemId: item.id,
+      code: "ACTIVATION_RETRYABLE_UNEXPECTED_FAILURE",
+      message,
+      now,
+    });
+    throw new MaterialBatchActivationError(message, { retryable: true, cause: error });
+  }
+  if (result.status === "activated") {
+    await markMaterialBatchItemActive({
+      userId: input.userId,
+      batchId: input.batchId,
+      itemId: item.id,
+      now,
+    });
+    return {
+      status: "active" as const,
+      alreadyActivated: false,
+      skillId: result.skillId,
+      exerciseCount: result.exerciseCount,
+    };
+  }
+  const reason = result.reason.toUpperCase().replaceAll("-", "_");
+  const retryable = [
+    "generation-failed",
+    "verification-failed",
+    "activation-in-progress",
+  ].includes(result.reason);
+  await markMaterialBatchActivationFailed({
+    userId: input.userId,
+    batchId: input.batchId,
+    itemId: item.id,
+    code: `ACTIVATION_${retryable ? "RETRYABLE_" : ""}${reason}`,
+    message: result.message,
+    now,
+  });
+  if (retryable) {
+    throw new MaterialBatchActivationError(result.message, { retryable: true });
+  }
+  return { status: "failed" as const, reason: result.reason, message: result.message };
+}
+
+export async function retryMaterialBatchActivationItem(input: {
+  userId: string;
+  batchId: string;
+  itemId: string;
+  now: Date;
+  eventSender?: MaterialBatchActivationEventSender;
+}) {
+  const parsed = batchItemMutationInputSchema.safeParse({
+    batchId: input.batchId,
+    itemId: input.itemId,
+  });
+  if (!parsed.success) {
+    return { status: "invalid" as const, message: "Activation item was invalid." };
+  }
+  const env = getInngestEnvStatus();
+  if (env.status === "missing-env" && !input.eventSender) {
+    return { status: "not-queued" as const, message: env.message };
+  }
+  const prisma = getPrisma();
+  const retry = await prisma.$transaction(async (tx) => {
+    const item = await tx.skillDraftBatchItem.findFirst({
+      where: {
+        id: parsed.data.itemId,
+        batchId: parsed.data.batchId,
+        userId: input.userId,
+        status: SkillDraftBatchItemStatus.FAILED,
+        errorCode: { startsWith: "ACTIVATION_" },
+      },
+      select: { id: true, skill: { select: { id: true, status: true } } },
+    });
+    if (!item?.skill || item.skill.status !== SkillStatus.DRAFT) {
+      return null;
+    }
+    const job = await tx.generationJob.findFirst({
+      where: {
+        userId: input.userId,
+        skillId: item.skill.id,
+        kind: GenerationJobKind.SKILL_ACTIVATION,
+        status: {
+          in: [
+            GenerationJobStatus.FAILED,
+            GenerationJobStatus.PENDING,
+            GenerationJobStatus.RUNNING,
+          ],
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      select: { id: true },
+    });
+    if (!job) {
+      return null;
+    }
+    await tx.skillDraftBatchItem.update({
+      where: { id: item.id },
+      data: {
+        status: SkillDraftBatchItemStatus.ACTIVATING,
+        errorCode: null,
+        errorMessage: null,
+      },
+    });
+    await tx.skillDraftBatch.update({
+      where: { id: parsed.data.batchId },
+      data: { status: SkillDraftBatchStatus.ACTIVATING, completedAt: null },
+    });
+    return { itemId: item.id, generationJobId: job.id };
+  });
+  if (!retry) {
+    return { status: "not-found" as const, message: "Retryable activation was not found." };
+  }
+  const payload = {
+    userId: input.userId,
+    batchId: parsed.data.batchId,
+    itemId: retry.itemId,
+    generationJobId: retry.generationJobId,
+    requestedAt: input.now.toISOString(),
+  };
+  try {
+    await (input.eventSender ?? inngestMaterialBatchActivationEventSender)
+      .sendMaterialBatchActivationRequested(payload);
+  } catch {
+    await markMaterialBatchActivationFailed({
+      userId: input.userId,
+      batchId: parsed.data.batchId,
+      itemId: retry.itemId,
+      code: "ACTIVATION_EVENT_SEND_FAILED",
+      message: "Activation could not be queued. Try again.",
+      now: input.now,
+    });
+    return { status: "not-queued" as const, message: "Activation could not be queued." };
+  }
+  return { status: "queued" as const, ...retry };
+}
+
+async function markMaterialBatchItemActive(input: {
+  userId: string;
+  batchId: string;
+  itemId: string;
+  now: Date;
+}) {
+  await getPrisma().skillDraftBatchItem.updateMany({
+    where: { id: input.itemId, batchId: input.batchId, userId: input.userId },
+    data: {
+      status: SkillDraftBatchItemStatus.ACTIVE,
+      errorCode: null,
+      errorMessage: null,
+    },
+  });
+  await reconcileMaterialDraftBatch(input);
+}
+
+async function markMaterialBatchActivationFailed(input: {
+  userId: string;
+  batchId: string;
+  itemId: string;
+  code: string;
+  message: string;
+  now: Date;
+}) {
+  await getPrisma().skillDraftBatchItem.updateMany({
+    where: { id: input.itemId, batchId: input.batchId, userId: input.userId },
+    data: {
+      status: SkillDraftBatchItemStatus.FAILED,
+      errorCode: input.code,
+      errorMessage: input.message.slice(0, 1_000),
+    },
+  });
+  await reconcileMaterialDraftBatch(input);
 }
 
 export async function excludeMaterialDraftItem(input: {
@@ -718,6 +1251,8 @@ async function planExistingMaterialBatch(input: {
   now: Date;
   aiSetup?: MaterialDraftAiSetup;
   embeddingGenerator?: MaterialEmbeddingGenerator | null;
+  ocrGenerator?: MaterialOcrGenerator | null;
+  ocrStorage?: SourceObjectStorage;
 }) {
   const prisma = getPrisma();
   const batch = await prisma.skillDraftBatch.findFirst({
@@ -730,6 +1265,21 @@ async function planExistingMaterialBatch(input: {
         select: {
           status: true,
           material: { select: { id: true, title: true, kind: true } },
+          sourceFiles: {
+            where: { status: SourceFileStatus.READY },
+            orderBy: { createdAt: "asc" },
+            take: 1,
+            select: {
+              id: true,
+              materialRevisionId: true,
+              kind: true,
+              status: true,
+              originalName: true,
+              mimeType: true,
+              storageBucket: true,
+              storageKey: true,
+            },
+          },
           sections: {
             orderBy: { ordinal: "asc" },
             select: {
@@ -802,6 +1352,27 @@ async function planExistingMaterialBatch(input: {
   }
 
   try {
+    const sourceFile = batch.materialRevision.sourceFiles[0];
+    if (batch.materialRevision.material.kind === "PDF" && sourceFile) {
+      const pageRanges = sections
+        .filter((section) => structural.candidateSectionIds.includes(section.id))
+        .flatMap((section) =>
+          section.pageStart !== null && section.pageEnd !== null
+            ? [{ start: section.pageStart, end: section.pageEnd }]
+            : [],
+        );
+      if (pageRanges.length > 0) {
+        await ensureMaterialPageOcr({
+          userId: input.userId,
+          materialRevisionId: batch.materialRevisionId,
+          sourceFile,
+          pageRanges,
+          now: input.now,
+          storage: input.ocrStorage,
+          ocrGenerator: input.ocrGenerator,
+        });
+      }
+    }
     const chunks = await retrievePlanningChunks({
       userId: input.userId,
       materialRevisionId: batch.materialRevisionId,

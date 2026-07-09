@@ -246,6 +246,14 @@ describe("material draft generation", () => {
       .fn()
       .mockResolvedValueOnce({ verdict: "rejected", reasons: ["too_broad"], note: "Narrow the target." })
       .mockResolvedValueOnce({ verdict: "verified", reasons: [], note: null });
+    const sourceMedia = [
+      {
+        sourceFileId: "source-1",
+        label: "chapter-4-pages-94-95.pdf",
+        mimeType: "application/pdf" as const,
+        bytes: Buffer.from("localized visual pages"),
+      },
+    ];
 
     const result = await generateVerifiedMaterialDraft({
       target: {
@@ -254,6 +262,7 @@ describe("material draft generation", () => {
       },
       materialTitle: "Spanish Grammar Atlas",
       evidenceText: "Direct object pronouns replace nouns that receive the action of a verb.",
+      sourceMedia,
       generateDraft,
       verifyDraft,
     });
@@ -261,6 +270,8 @@ describe("material draft generation", () => {
     expect(result).toMatchObject({ status: "ready", attempts: 2, draft: generatedDraft });
     expect(generateDraft).toHaveBeenCalledTimes(2);
     expect(verifyDraft).toHaveBeenCalledTimes(2);
+    expect(generateDraft).toHaveBeenLastCalledWith(expect.objectContaining({ sourceMedia }));
+    expect(verifyDraft).toHaveBeenLastCalledWith(expect.objectContaining({ sourceMedia }));
   });
 
   it("fails after the bounded regeneration is also rejected", async () => {

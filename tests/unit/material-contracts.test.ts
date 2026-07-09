@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  activateBatchInputSchema,
   MATERIAL_LOCATOR_VERSION,
   materialScopePlanSchema,
   skillSourceLocatorSchema,
@@ -96,6 +97,24 @@ describe("material contracts", () => {
         ...plan,
         resolutionStatus: "ambiguous",
         items: [item],
+      }),
+    ).toThrow();
+  });
+
+  it("requires a nonempty, unique activation selection capped at ten items", () => {
+    expect(
+      activateBatchInputSchema.parse({ batchId: "batch_1", itemIds: ["item_1", "item_2"] }),
+    ).toEqual({ batchId: "batch_1", itemIds: ["item_1", "item_2"] });
+    expect(() =>
+      activateBatchInputSchema.parse({ batchId: "batch_1", itemIds: [] }),
+    ).toThrow();
+    expect(() =>
+      activateBatchInputSchema.parse({ batchId: "batch_1", itemIds: ["item_1", "item_1"] }),
+    ).toThrow();
+    expect(() =>
+      activateBatchInputSchema.parse({
+        batchId: "batch_1",
+        itemIds: Array.from({ length: 11 }, (_, index) => `item_${index}`),
       }),
     ).toThrow();
   });

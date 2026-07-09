@@ -8,7 +8,9 @@ import {
   confirmMaterialPlan,
   excludeMaterialDraftItem,
   planMaterialSkills,
+  queueMaterialBatchActivation,
   replanMaterialSkills,
+  retryMaterialBatchActivationItem,
   retryMaterialDraftItem,
 } from "@/lib/materials/batches";
 import { materialScopePlanSchema } from "@/lib/materials/contracts";
@@ -92,6 +94,52 @@ export async function retryMaterialDraftItemAction(formData: FormData) {
     now: new Date(),
   });
   revalidatePath(`/skills/batches/${batchId}`);
+}
+
+export async function activateMaterialBatchAction(formData: FormData) {
+  const userId = await requireBatchUser();
+  const batchId = formString(formData, "batchId");
+  const itemIds = formData
+    .getAll("itemId")
+    .filter((value): value is string => typeof value === "string")
+    .map((value) => value.trim())
+    .filter(Boolean);
+  const result = await queueMaterialBatchActivation({
+    userId,
+    input: { batchId, itemIds },
+    now: new Date(),
+  });
+  if (
+    result.status === "queued" ||
+    result.status === "partial" ||
+    result.status === "already-queued"
+  ) {
+    revalidatePath(`/skills/batches/${batchId}`);
+    revalidatePath("/skills");
+    return redirect(`/skills/batches/${batchId}`);
+  }
+  const message =
+    "message" in result && typeof result.message === "string"
+      ? result.message
+      : "The selected skills could not be added.";
+  redirect(`/skills/batches/${batchId}?error=${encodeURIComponent(message)}`);
+}
+
+export async function retryMaterialBatchActivationItemAction(formData: FormData) {
+  const userId = await requireBatchUser();
+  const batchId = formString(formData, "batchId");
+  const result = await retryMaterialBatchActivationItem({
+    userId,
+    batchId,
+    itemId: formString(formData, "itemId"),
+    now: new Date(),
+  });
+  revalidatePath(`/skills/batches/${batchId}`);
+  revalidatePath("/skills");
+  if (result.status !== "queued") {
+    const message = "message" in result ? result.message : "Activation could not be retried.";
+    redirect(`/skills/batches/${batchId}?error=${encodeURIComponent(message)}`);
+  }
 }
 
 export async function excludeMaterialDraftItemAction(formData: FormData) {

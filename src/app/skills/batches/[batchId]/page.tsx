@@ -22,9 +22,11 @@ import { ensureDatabaseUser } from "@/lib/users";
 import { MaterialStatusPoller } from "../../materials/material-status-poller";
 import { SkillsTopbar } from "../../skills-topbar";
 import {
+  activateMaterialBatchAction,
   confirmMaterialPlanAction,
   excludeMaterialDraftItemAction,
   replanMaterialSkillsAction,
+  retryMaterialBatchActivationItemAction,
   retryMaterialDraftItemAction,
 } from "../actions";
 import { BatchStageRail } from "../batch-stage-rail";
@@ -64,11 +66,14 @@ export default async function MaterialBatchPage({
   const scope = confirmed.success ? confirmed.data : proposed.success ? proposed.data : null;
   const planning = !batch.confirmedAt && (batch.status === "PLANNED" || batch.status === "NEEDS_SCOPE");
   const generating = batch.status === "GENERATING" || batch.items.some((item) => item.status === "GENERATING" || item.status === "PLANNED");
+  const activating = batch.status === "ACTIVATING" || batch.items.some((item) => item.status === "ACTIVATING");
   const stage = planning ? "scope" : generating ? "generate" : "review";
   const pageTitle = planning
     ? "Confirm the exact scope"
     : generating
       ? "Generating skills"
+      : activating
+        ? "Adding skills"
       : "Review generated skills";
   const rawError = (await searchParams)?.error;
   const error = Array.isArray(rawError) ? rawError[0] : rawError;
@@ -76,7 +81,7 @@ export default async function MaterialBatchPage({
   return (
     <main className="skillShell materialShell batchShell">
       <SkillsTopbar current="new" />
-      <MaterialStatusPoller active={generating} />
+      <MaterialStatusPoller active={generating || activating} />
       <header className="skillHeader materialHeader batchHeader">
         <div>
           <p className="materialBreadcrumb">
@@ -96,7 +101,7 @@ export default async function MaterialBatchPage({
       {planning && scope ? (
         <ScopeReview batchId={batch.id} instruction={batch.instruction} plan={scope} />
       ) : (
-        <DraftBatchReview batch={batch} generating={generating} scope={scope} />
+        <DraftBatchReview batch={batch} generating={generating} activating={activating} scope={scope} />
       )}
     </main>
   );
@@ -196,12 +201,18 @@ function ScopeReview({
 function DraftBatchReview({
   batch,
   generating,
+  activating,
   scope,
 }: {
   batch: NonNullable<Awaited<ReturnType<typeof getMaterialDraftBatch>>>;
   generating: boolean;
+  activating: boolean;
   scope: MaterialScopeResolution | null;
 }) {
+  const readyItems = batch.items.filter((item) => item.status === "READY" && item.skill);
+  const activationFailureCount = batch.items.filter(
+    (item) => item.status === "FAILED" && item.errorCode?.startsWith("ACTIVATION_"),
+  ).length;
   return (
     <>
       <section className="batchProgressSummary" aria-label="Batch progress">
@@ -209,10 +220,18 @@ function DraftBatchReview({
         <div><span>Ready</span><strong>{batch.readyCount}</strong></div>
         <div><span>Failed</span><strong>{batch.failedCount}</strong></div>
         <div><span>Excluded</span><strong>{batch.excludedCount}</strong></div>
-        <div><span>Requested</span><strong>{batch.requestedCount}</strong></div>
+        <div><span>Added</span><strong>{batch.activatedCount}</strong></div>
       </section>
 
-      {generating ? (
+      {activating ? (
+        <section className="skillPanel batchGeneratingNotice batchActivatingNotice" aria-live="polite">
+          <span className="materialProcessingPulse" aria-hidden="true" />
+          <div>
+            <h2>Adding each skill independently</h2>
+            <p>Practice activates as each skill finishes. A failure will not roll back skills that are already ready.</p>
+          </div>
+        </section>
+      ) : generating ? (
         <section className="skillPanel batchGeneratingNotice" aria-live="polite">
           <span className="materialProcessingPulse" aria-hidden="true" />
           <div>
@@ -220,11 +239,43 @@ function DraftBatchReview({
             <p>Ready skills stay available even if another item needs a retry. This page refreshes automatically.</p>
           </div>
         </section>
-      ) : batch.status === "PARTIAL" ? (
+      ) : batch.status === "PARTIAL" || batch.status === "FAILED" ? (
         <section className="skillPanel batchPartialNotice">
           <WarningCircle size={20} weight="bold" aria-hidden="true" />
-          <div><h2>Some drafts need attention</h2><p>Ready drafts were kept. Retry or exclude each failed item below.</p></div>
+          <div>
+            <h2>
+              {activationFailureCount > 0
+                ? batch.status === "FAILED"
+                  ? "Skills were not added"
+                  : "Some skills were not added"
+                : batch.status === "FAILED"
+                  ? "Draft generation needs attention"
+                  : "Some drafts need attention"}
+            </h2>
+            <p>
+              {activationFailureCount > 0
+                ? "Skills already added remain active. Retry or exclude each failed item below."
+                : "Ready drafts were kept. Retry or exclude each failed item below."}
+            </p>
+          </div>
         </section>
+      ) : null}
+
+      {readyItems.length > 0 && !generating ? (
+        <form action={activateMaterialBatchAction} className="batchActivationBar">
+          <div>
+            <span>{readyItems.length} ready to add</span>
+            <strong>Start practice without opening every draft</strong>
+            <p>Excluded drafts stay out. Each ready skill activates on its own in the background.</p>
+          </div>
+          <input name="batchId" type="hidden" value={batch.id} />
+          {readyItems.map((item) => (
+            <input key={item.id} name="itemId" type="hidden" value={item.id} />
+          ))}
+          <BatchSubmitButton pendingLabel="Adding skills…">
+            Add all {readyItems.length}
+          </BatchSubmitButton>
+        </form>
       ) : null}
 
       <section className="batchDraftList" aria-labelledby="batch-drafts-title">
@@ -240,7 +291,8 @@ function DraftBatchReview({
                 <h3>{item.skill?.title ?? item.proposedTitle}</h3>
                 <p>{item.skill?.objective ?? item.proposedObjective}</p>
               </div>
-              {item.status === "READY" ? <CheckCircle size={22} weight="fill" aria-label="Ready" /> : null}
+              {item.status === "READY" || item.status === "ACTIVE" ? <CheckCircle size={22} weight="fill" aria-label={item.status === "ACTIVE" ? "Added" : "Ready"} /> : null}
+              {item.status === "ACTIVATING" ? <span className="materialProcessingPulse batchCardPulse" aria-label="Adding" /> : null}
               {item.status === "FAILED" ? <WarningCircle size={22} weight="bold" aria-label="Failed" /> : null}
             </div>
             {item.errorMessage ? (
@@ -262,13 +314,13 @@ function DraftBatchReview({
             <div className="batchDraftActions">
               <small>{formatLocatorValue(item.locator)}</small>
               <div>
-                {item.skill ? (
+                {item.skill && item.status !== "ACTIVATING" ? (
                   <Link className="secondaryButton" href={`/skills/${item.skill.id}`}>
-                    Edit draft
+                    {item.status === "ACTIVE" ? "Open skill" : "Edit draft"}
                   </Link>
                 ) : null}
                 {item.status === "FAILED" ? (
-                  <form action={retryMaterialDraftItemAction}>
+                  <form action={item.errorCode?.startsWith("ACTIVATION_") ? retryMaterialBatchActivationItemAction : retryMaterialDraftItemAction}>
                     <input name="batchId" type="hidden" value={batch.id} />
                     <input name="itemId" type="hidden" value={item.id} />
                     <button className="secondaryButton" type="submit">Retry</button>

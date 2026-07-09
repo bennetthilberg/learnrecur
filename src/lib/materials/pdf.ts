@@ -6,6 +6,7 @@ export type ExtractedPdfPage = {
   pageNumber: number;
   text: string;
   needsOcr: boolean;
+  hasVisualContent?: boolean;
 };
 
 export type PdfIndexSection = {
@@ -67,11 +68,22 @@ export async function extractPdfPages(bytes: Buffer): Promise<{
         .join(" ")
         .replace(/\s+/g, " ")
         .trim();
+      const operatorList = await page.getOperatorList();
+      const visualOperators = new Set(
+        [
+          pdfjs.OPS.paintImageXObject,
+          pdfjs.OPS.paintInlineImageXObject,
+          pdfjs.OPS.paintImageMaskXObject,
+          pdfjs.OPS.paintSolidColorImageMask,
+          pdfjs.OPS.constructPath,
+        ].filter((operator): operator is number => typeof operator === "number"),
+      );
 
       pages.push({
         pageNumber,
         text,
         needsOcr: usableCharacterCount(text) < MIN_USABLE_PDF_PAGE_CHARACTERS,
+        hasVisualContent: operatorList.fnArray.some((operator) => visualOperators.has(operator)),
       });
       page.cleanup();
     }

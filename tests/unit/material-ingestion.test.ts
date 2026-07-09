@@ -1,4 +1,4 @@
-import { PDFDocument, StandardFonts } from "pdf-lib";
+import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -21,12 +21,24 @@ describe("PDF material ingestion", () => {
       "Chapter 4 Direct object pronouns replace nouns that receive the action in a sentence.",
       { x: 48, y: 720, size: 12, font },
     );
+    textPage.drawRectangle({
+      x: 48,
+      y: 640,
+      width: 180,
+      height: 40,
+      borderColor: rgb(0.1, 0.2, 0.4),
+      borderWidth: 1,
+    });
     document.addPage([612, 792]);
 
     const extracted = await extractPdfPages(Buffer.from(await document.save()));
 
     expect(extracted.pageCount).toBe(2);
-    expect(extracted.pages[0]).toMatchObject({ pageNumber: 1, needsOcr: false });
+    expect(extracted.pages[0]).toMatchObject({
+      pageNumber: 1,
+      needsOcr: false,
+      hasVisualContent: true,
+    });
     expect(extracted.pages[0].text).toContain("Direct object pronouns");
     expect(extracted.pages[1]).toMatchObject({ pageNumber: 2, needsOcr: true });
   });

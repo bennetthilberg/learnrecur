@@ -9,6 +9,7 @@ import {
 } from "@/lib/inngest/client";
 import {
   parseExerciseRefillEventPayload,
+  parseMaterialBatchActivationEventPayload,
   parseSourceUploadDraftEventPayload,
 } from "@/lib/inngest/events";
 
@@ -186,6 +187,26 @@ describe("Inngest source upload event payloads", () => {
         requestedAt: "2026-06-05T12:00:00.000Z",
         extra: true,
       }),
+    ).toThrow();
+  });
+});
+
+describe("Inngest material batch activation payloads", () => {
+  it("requires the batch item and its reserved generation job", () => {
+    const payload = {
+      userId: "user_123",
+      batchId: "batch_123",
+      itemId: "item_123",
+      generationJobId: "job_123",
+      requestedAt: "2026-07-09T12:00:00.000Z",
+    };
+
+    expect(parseMaterialBatchActivationEventPayload(payload)).toEqual(payload);
+    expect(() =>
+      parseMaterialBatchActivationEventPayload({ ...payload, generationJobId: "" }),
+    ).toThrow();
+    expect(() =>
+      parseMaterialBatchActivationEventPayload({ ...payload, extra: true }),
     ).toThrow();
   });
 });

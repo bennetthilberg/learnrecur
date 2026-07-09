@@ -35,6 +35,11 @@ import {
   type GeminiRuntimeConfig,
 } from "@/lib/gemini";
 import {
+  loadLocalizedMaterialEvidence,
+  type LocalizedMaterialEvidenceLoader,
+  type LocalizedMaterialSourceRef,
+} from "@/lib/materials/evidence";
+import {
   buildOpenRouterDataUrl,
   runOpenRouterJsonChatCompletion,
   type OpenRouterChatMessage,
@@ -369,6 +374,7 @@ type AiProviderUsageRecorder = (usage: AiProviderUsage) => void;
 
 export type SourceMediaContextSourceFile = {
   id: string;
+  materialRevisionId?: string | null;
   kind: SourceFileKind;
   status: SourceFileStatus;
   originalName: string;
@@ -380,6 +386,14 @@ export type SourceMediaContextSourceFile = {
 export type SourceMediaContextLoader = (input: {
   sourceFiles: SourceMediaContextSourceFile[];
 }) => Promise<SourceMediaContext[]>;
+
+export type SkillSourceEvidenceLoader = LocalizedMaterialEvidenceLoader;
+
+type SkillGenerationSourceRef = LocalizedMaterialSourceRef & {
+  sourceFile: LocalizedMaterialSourceRef["sourceFile"] & {
+    extractedText: string | null;
+  };
+};
 
 export type ChoiceExerciseGeneratorInput = {
   skill: {
@@ -504,9 +518,11 @@ export type ActivateSkillDraftInput = {
   userId: string;
   skillId: string;
   now: Date;
+  generationJobId?: string;
   generateChoiceExercises?: ChoiceExerciseGenerator;
   verifyChoiceExercises?: ChoiceExerciseVerifier;
   sourceMediaLoader?: SourceMediaContextLoader;
+  sourceEvidenceLoader?: SkillSourceEvidenceLoader;
   model?: string;
   skipUsageLimitCheck?: boolean;
 };
@@ -520,6 +536,7 @@ export type RefillChoiceExercisesInput = {
   generateChoiceExercises?: ChoiceExerciseGenerator;
   verifyChoiceExercises?: ChoiceExerciseVerifier;
   sourceMediaLoader?: SourceMediaContextLoader;
+  sourceEvidenceLoader?: SkillSourceEvidenceLoader;
   model?: string;
 };
 
@@ -532,6 +549,7 @@ export type RefillExactInputExercisesInput = {
   generateExactInputExercises?: ExactInputExerciseGenerator;
   verifyExactInputExercises?: ExactInputExerciseVerifier;
   sourceMediaLoader?: SourceMediaContextLoader;
+  sourceEvidenceLoader?: SkillSourceEvidenceLoader;
   model?: string;
 };
 
@@ -544,6 +562,7 @@ export type RefillMathExercisesInput = {
   generateMathExercises?: MathExerciseGenerator;
   verifyMathExercises?: MathExerciseVerifier;
   sourceMediaLoader?: SourceMediaContextLoader;
+  sourceEvidenceLoader?: SkillSourceEvidenceLoader;
   model?: string;
 };
 
@@ -2104,6 +2123,47 @@ async function resolveSourceMediaContext({
   return loadSourceMediaContextForSourceFiles({ sourceFiles: attachableSourceFiles });
 }
 
+async function resolveGroundedSkillSourceEvidence(input: {
+  userId: string;
+  sourceRefs: SkillGenerationSourceRef[];
+  sourceMediaLoader?: SourceMediaContextLoader;
+  sourceEvidenceLoader?: SkillSourceEvidenceLoader;
+}): Promise<{ sourceContext: string | null; sourceMedia: SourceMediaContext[] }> {
+  const materialRefs = input.sourceRefs.filter(
+    (sourceRef) => Boolean(sourceRef.sourceFile.materialRevisionId),
+  );
+  const materialEvidence =
+    materialRefs.length > 0
+      ? await (input.sourceEvidenceLoader ?? loadLocalizedMaterialEvidence)({
+          userId: input.userId,
+          sourceRefs: materialRefs,
+        })
+      : { materialSourceFileIds: [], sourceContext: null, sourceMedia: [] };
+  const quickRefs = input.sourceRefs.filter(
+    (sourceRef) => !sourceRef.sourceFile.materialRevisionId,
+  );
+  const quickMedia = await resolveSourceMediaContext({
+    sourceFiles: quickRefs.map((sourceRef) => sourceRef.sourceFile),
+    sourceMediaLoader: input.sourceMediaLoader,
+  });
+
+  return {
+    sourceContext: buildSourceContextExcerpt([
+      materialEvidence.sourceContext,
+      ...quickRefs.map((sourceRef) => sourceRef.sourceFile.extractedText),
+    ]),
+    sourceMedia: [
+      ...materialEvidence.sourceMedia.map((media) => ({
+        sourceFileId: media.sourceFileId,
+        label: media.originalName,
+        mimeType: "application/pdf" as const,
+        bytes: media.bytes,
+      })),
+      ...quickMedia,
+    ],
+  };
+}
+
 function shouldAttachOriginalSourceMedia(sourceFile: SourceMediaContextSourceFile) {
   return (
     sourceFile.status === SourceFileStatus.READY &&
@@ -2112,7 +2172,7 @@ function shouldAttachOriginalSourceMedia(sourceFile: SourceMediaContextSourceFil
 }
 
 function buildSourceMediaLoadFailureMessage(error: unknown) {
-  return `Uploaded source media could not be loaded: ${formatEnvError(error)}`;
+  return `Source evidence could not be loaded: ${formatEnvError(error)}`;
 }
 
 export async function activateSkillDraft(
@@ -2139,9 +2199,11 @@ export async function activateSkillDraft(
           createdAt: "asc",
         },
         select: {
+          locator: true,
           sourceFile: {
             select: {
               id: true,
+              materialRevisionId: true,
               kind: true,
               status: true,
               originalName: true,
@@ -2189,6 +2251,7 @@ export async function activateSkillDraft(
 
   const generationJobResult = await createOrClaimActivationGenerationJob({
     prisma,
+    generationJobId: input.generationJobId,
     userId: input.userId,
     skillId: skill.id,
     setup,
@@ -2215,16 +2278,18 @@ export async function activateSkillDraft(
     };
   }
 
-  const sourceContext = buildSourceContextExcerpt(
-    skill.sourceRefs.map((sourceRef) => sourceRef.sourceFile.extractedText),
-  );
+  let sourceContext: string | null;
   let sourceMedia: SourceMediaContext[];
 
   try {
-    sourceMedia = await resolveSourceMediaContext({
-      sourceFiles: skill.sourceRefs.map((sourceRef) => sourceRef.sourceFile),
+    const sourceEvidence = await resolveGroundedSkillSourceEvidence({
+      userId: input.userId,
+      sourceRefs: skill.sourceRefs,
       sourceMediaLoader: input.sourceMediaLoader,
+      sourceEvidenceLoader: input.sourceEvidenceLoader,
     });
+    sourceContext = sourceEvidence.sourceContext;
+    sourceMedia = sourceEvidence.sourceMedia;
   } catch (error) {
     const message = buildSourceMediaLoadFailureMessage(error);
     await markGenerationJobFailed(prisma, generationJob.id, {
@@ -2440,9 +2505,11 @@ export async function refillChoiceExercisesForSkill(
           createdAt: "asc",
         },
         select: {
+          locator: true,
           sourceFile: {
             select: {
               id: true,
+              materialRevisionId: true,
               kind: true,
               status: true,
               originalName: true,
@@ -2557,17 +2624,19 @@ export async function refillChoiceExercisesForSkill(
     };
   }
 
-  const sourceContext = buildSourceContextExcerpt(
-    skill.sourceRefs.map((sourceRef) => sourceRef.sourceFile.extractedText),
-  );
   const existingExerciseContext = buildExistingChoiceExerciseContext(skill.exercises);
+  let sourceContext: string | null;
   let sourceMedia: SourceMediaContext[];
 
   try {
-    sourceMedia = await resolveSourceMediaContext({
-      sourceFiles: skill.sourceRefs.map((sourceRef) => sourceRef.sourceFile),
+    const sourceEvidence = await resolveGroundedSkillSourceEvidence({
+      userId: input.userId,
+      sourceRefs: skill.sourceRefs,
       sourceMediaLoader: input.sourceMediaLoader,
+      sourceEvidenceLoader: input.sourceEvidenceLoader,
     });
+    sourceContext = sourceEvidence.sourceContext;
+    sourceMedia = sourceEvidence.sourceMedia;
   } catch (error) {
     const message = buildSourceMediaLoadFailureMessage(error);
     await markGenerationJobFailed(prisma, generationJob.id, {
@@ -2857,9 +2926,11 @@ export async function refillExactInputExercisesForSkill(
           createdAt: "asc",
         },
         select: {
+          locator: true,
           sourceFile: {
             select: {
               id: true,
+              materialRevisionId: true,
               kind: true,
               status: true,
               originalName: true,
@@ -2982,17 +3053,19 @@ export async function refillExactInputExercisesForSkill(
     };
   }
 
-  const sourceContext = buildSourceContextExcerpt(
-    skill.sourceRefs.map((sourceRef) => sourceRef.sourceFile.extractedText),
-  );
   const existingExerciseContext = buildExistingExactInputExerciseContext(skill.exercises);
+  let sourceContext: string | null;
   let sourceMedia: SourceMediaContext[];
 
   try {
-    sourceMedia = await resolveSourceMediaContext({
-      sourceFiles: skill.sourceRefs.map((sourceRef) => sourceRef.sourceFile),
+    const sourceEvidence = await resolveGroundedSkillSourceEvidence({
+      userId: input.userId,
+      sourceRefs: skill.sourceRefs,
       sourceMediaLoader: input.sourceMediaLoader,
+      sourceEvidenceLoader: input.sourceEvidenceLoader,
     });
+    sourceContext = sourceEvidence.sourceContext;
+    sourceMedia = sourceEvidence.sourceMedia;
   } catch (error) {
     const message = buildSourceMediaLoadFailureMessage(error);
     await markGenerationJobFailed(prisma, generationJob.id, {
@@ -3283,9 +3356,11 @@ export async function refillMathExercisesForSkill(
           createdAt: "asc",
         },
         select: {
+          locator: true,
           sourceFile: {
             select: {
               id: true,
+              materialRevisionId: true,
               kind: true,
               status: true,
               originalName: true,
@@ -3408,17 +3483,19 @@ export async function refillMathExercisesForSkill(
     };
   }
 
-  const sourceContext = buildSourceContextExcerpt(
-    skill.sourceRefs.map((sourceRef) => sourceRef.sourceFile.extractedText),
-  );
   const existingExerciseContext = buildExistingMathExerciseContext(skill.exercises);
+  let sourceContext: string | null;
   let sourceMedia: SourceMediaContext[];
 
   try {
-    sourceMedia = await resolveSourceMediaContext({
-      sourceFiles: skill.sourceRefs.map((sourceRef) => sourceRef.sourceFile),
+    const sourceEvidence = await resolveGroundedSkillSourceEvidence({
+      userId: input.userId,
+      sourceRefs: skill.sourceRefs,
       sourceMediaLoader: input.sourceMediaLoader,
+      sourceEvidenceLoader: input.sourceEvidenceLoader,
     });
+    sourceContext = sourceEvidence.sourceContext;
+    sourceMedia = sourceEvidence.sourceMedia;
   } catch (error) {
     const message = buildSourceMediaLoadFailureMessage(error);
     await markGenerationJobFailed(prisma, generationJob.id, {
@@ -6106,12 +6183,14 @@ type ActivationGenerationJobClient = Pick<Prisma.TransactionClient, "generationJ
 
 async function createOrClaimActivationGenerationJob({
   prisma,
+  generationJobId,
   userId,
   skillId,
   setup,
   now,
 }: {
   prisma: ActivationGenerationJobClient;
+  generationJobId?: string;
   userId: string;
   skillId: string;
   setup: ActivationGenerationSetup;
@@ -6145,11 +6224,14 @@ async function createOrClaimActivationGenerationJob({
 
   const activeJob = await prisma.generationJob.findFirst({
     where: {
+      ...(generationJobId ? { id: generationJobId } : {}),
       userId,
       skillId,
       kind: GenerationJobKind.SKILL_ACTIVATION,
       status: {
-        in: ACTIVE_GENERATION_JOB_STATUSES,
+        in: generationJobId
+          ? [...ACTIVE_GENERATION_JOB_STATUSES, GenerationJobStatus.FAILED]
+          : ACTIVE_GENERATION_JOB_STATUSES,
       },
     },
     orderBy: {
@@ -6180,7 +6262,9 @@ async function createOrClaimActivationGenerationJob({
         kind: GenerationJobKind.SKILL_ACTIVATION,
         updatedAt: activeJob.updatedAt,
         status: {
-          in: ACTIVE_GENERATION_JOB_STATUSES,
+          in: generationJobId
+            ? [...ACTIVE_GENERATION_JOB_STATUSES, GenerationJobStatus.FAILED]
+            : ACTIVE_GENERATION_JOB_STATUSES,
         },
       },
       data,
@@ -6194,6 +6278,14 @@ async function createOrClaimActivationGenerationJob({
         },
       };
     }
+  }
+
+  if (generationJobId) {
+    return {
+      status: "not-ready",
+      message: "The reserved activation job is no longer available.",
+      generationJobId,
+    };
   }
 
   try {

@@ -3,6 +3,7 @@ import "server-only";
 import { createHash, randomUUID } from "node:crypto";
 
 import {
+  MaterialPageTextStatus,
   MaterialRevisionStatus,
   Prisma,
   SourceFileKind,
@@ -971,17 +972,22 @@ async function persistPdfIndex(input: {
         headingPath: section.headingPath,
       })),
     });
-    const ocrPages = input.pages.filter((page) => page.needsOcr);
-    if (ocrPages.length > 0) {
+    const visualPages = input.pages.filter((page) => page.needsOcr || page.hasVisualContent);
+    if (visualPages.length > 0) {
       await tx.materialPage.createMany({
-        data: ocrPages.map((page) => ({
+        data: visualPages.map((page) => ({
           userId: input.userId,
           materialRevisionId: input.materialRevisionId,
           pageNumber: page.pageNumber,
           embeddedText: page.text || null,
+          textStatus: page.needsOcr
+            ? MaterialPageTextStatus.NEEDS_OCR
+            : MaterialPageTextStatus.OCR_READY,
           contentHash: sha256(Buffer.from(page.text || `visual-page-${page.pageNumber}`)),
           tokenEstimate: page.text ? estimateTokens(page.text) : 0,
-          metadata: { reason: "insufficient-embedded-text" },
+          metadata: {
+            reason: page.needsOcr ? "insufficient-embedded-text" : "visual-content",
+          },
         })),
       });
     }

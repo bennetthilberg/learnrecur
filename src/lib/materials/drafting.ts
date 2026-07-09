@@ -44,6 +44,7 @@ export type MaterialDraftVerifier = (input: {
   draft: GeneratedSkillDraft;
   materialTitle: string;
   evidenceText: string;
+  sourceMedia?: Parameters<SkillDraftGenerator>[0]["sourceMedia"];
 }) => Promise<unknown>;
 
 const plannerItemSchema = z.strictObject({
@@ -300,6 +301,7 @@ export async function generateVerifiedMaterialDraft(input: {
         draft,
         materialTitle: input.materialTitle,
         evidenceText: input.evidenceText,
+        sourceMedia: input.sourceMedia,
       }),
     );
     if (!verification.success) {

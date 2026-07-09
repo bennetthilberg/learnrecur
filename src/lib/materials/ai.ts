@@ -159,16 +159,32 @@ function createGeminiMaterialDraftVerifier(input: {
 }): MaterialDraftVerifier {
   return async (verificationInput) => {
     const prompt = buildMaterialDraftVerificationPrompt(verificationInput);
+    const sourceMedia = verificationInput.sourceMedia ?? [];
     const startedAt = Date.now();
     console.info("[ai] material draft verification started", {
       provider: "google",
       model: input.model,
       promptChars: prompt.length,
+      mediaCount: sourceMedia.length,
+      mediaBytes: sourceMedia.reduce((total, media) => total + media.bytes.byteLength, 0),
     });
     try {
       const response = await input.ai.models.generateContent({
         model: input.model,
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        contents: [
+          {
+            role: "user",
+            parts: [
+              { text: prompt },
+              ...sourceMedia.map((media) => ({
+                inlineData: {
+                  mimeType: media.mimeType,
+                  data: media.bytes.toString("base64"),
+                },
+              })),
+            ],
+          },
+        ],
         config: {
           responseMimeType: "application/json",
           responseJsonSchema: draftVerificationJsonSchema,
