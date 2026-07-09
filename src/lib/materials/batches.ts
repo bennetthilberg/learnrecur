@@ -78,6 +78,9 @@ import {
 
 const PLANNING_CHUNK_LIMIT = 60;
 const GENERATION_EVIDENCE_CHARACTER_LIMIT = 24_000;
+// Keep this above the five-minute function ceiling so a slow but healthy model call
+// is not surfaced as failed while its worker can still complete.
+const MATERIAL_DRAFT_CLAIM_STALE_MS = 10 * 60 * 1_000;
 
 export class MaterialDraftGenerationError extends Error {
   readonly retryable: boolean;
@@ -231,24 +234,19 @@ export async function confirmMaterialPlan(input: {
   if (!batch) {
     return { status: "not-found" as const, message: "Material skill batch was not found." };
   }
-  if (batch.confirmedAt && batch.items.length > 0) {
-    return {
-      status: "queued" as const,
-      batchId: batch.id,
-      queuedItemIds: batch.items
-        .filter((item) => item.status === SkillDraftBatchItemStatus.PLANNED)
-        .map((item) => item.id),
-      alreadyConfirmed: true,
-    };
-  }
-  const proposed = materialScopePlanSchema.safeParse(batch.proposedPlan);
+  const alreadyConfirmed = Boolean(batch.confirmedAt && batch.items.length > 0);
+  const proposed = materialScopePlanSchema.safeParse(
+    alreadyConfirmed ? batch.confirmedPlan ?? batch.proposedPlan : batch.proposedPlan,
+  );
   if (!proposed.success || !isDeepStrictEqual(proposed.data, parsed.data.plan)) {
     return {
       status: "invalid" as const,
       message: "The submitted scope no longer matches the reviewed plan. Review it again.",
     };
   }
-  const itemsToQueue = proposed.data.items.filter((item) => !item.overlapSkillId);
+  const itemsToQueue = alreadyConfirmed
+    ? batch.items.filter((item) => item.status === SkillDraftBatchItemStatus.PLANNED)
+    : proposed.data.items.filter((item) => !item.overlapSkillId);
   if (itemsToQueue.length > 0) {
     const env = getInngestEnvStatus();
     if (env.status === "missing-env" && !input.eventSender) {
@@ -353,7 +351,7 @@ export async function confirmMaterialPlan(input: {
       .map((item) => item.id)
       .filter((itemId) => !failedItemIds.includes(itemId)),
     failedItemIds,
-    alreadyConfirmed: false,
+    alreadyConfirmed,
   };
 }
 
@@ -365,11 +363,14 @@ export async function runMaterialDraftItemJob(input: {
   aiSetup?: MaterialDraftAiSetup;
 }) {
   const prisma = getPrisma();
+  const now = input.now ?? new Date();
+  const staleBefore = new Date(now.getTime() - MATERIAL_DRAFT_CLAIM_STALE_MS);
   const item = await prisma.skillDraftBatchItem.findFirst({
     where: { id: input.itemId, batchId: input.batchId, userId: input.userId },
     select: {
       id: true,
       status: true,
+      updatedAt: true,
       proposedTitle: true,
       proposedObjective: true,
       locator: true,
@@ -416,7 +417,10 @@ export async function runMaterialDraftItemJob(input: {
     where: {
       id: item.id,
       userId: input.userId,
-      status: { in: [SkillDraftBatchItemStatus.PLANNED, SkillDraftBatchItemStatus.FAILED] },
+      OR: [
+        { status: { in: [SkillDraftBatchItemStatus.PLANNED, SkillDraftBatchItemStatus.FAILED] } },
+        { status: SkillDraftBatchItemStatus.GENERATING, updatedAt: { lt: staleBefore } },
+      ],
     },
     data: {
       status: SkillDraftBatchItemStatus.GENERATING,
@@ -425,6 +429,14 @@ export async function runMaterialDraftItemJob(input: {
     },
   });
   if (claimed.count !== 1) {
+    if (
+      item.status === SkillDraftBatchItemStatus.GENERATING &&
+      item.updatedAt >= staleBefore
+    ) {
+      throw new MaterialDraftGenerationError("Draft generation is still running.", {
+        retryable: true,
+      });
+    }
     return { status: "not-claimed" as const };
   }
 
@@ -437,7 +449,7 @@ export async function runMaterialDraftItemJob(input: {
       code: "INVALID_CONFIRMED_SCOPE",
       message: "The confirmed material evidence is no longer available.",
     });
-    await reconcileMaterialDraftBatch({ userId: input.userId, batchId: input.batchId, now: input.now });
+    await reconcileMaterialDraftBatch({ userId: input.userId, batchId: input.batchId, now });
     return { status: "failed" as const, reason: "invalid-scope" as const };
   }
 
@@ -498,7 +510,7 @@ export async function runMaterialDraftItemJob(input: {
           attemptsThisRun: generated.attempts,
         },
       });
-      await reconcileMaterialDraftBatch({ userId: input.userId, batchId: input.batchId, now: input.now });
+      await reconcileMaterialDraftBatch({ userId: input.userId, batchId: input.batchId, now });
       return { status: "failed" as const, reason: generated.reason };
     }
 
@@ -581,11 +593,11 @@ export async function runMaterialDraftItemJob(input: {
       });
       await tx.studyMaterial.update({
         where: { id: item.batch.materialRevision.materialId },
-        data: { lastUsedAt: input.now ?? new Date() },
+        data: { lastUsedAt: now },
       });
       return { status: "created" as const, skillId: skill.id };
     });
-    await reconcileMaterialDraftBatch({ userId: input.userId, batchId: input.batchId, now: input.now });
+    await reconcileMaterialDraftBatch({ userId: input.userId, batchId: input.batchId, now });
     return saved.status === "duplicate"
       ? { status: "excluded" as const, duplicateSkillId: saved.skillId }
       : { status: "ready" as const, skillId: saved.skillId, alreadyGenerated: false };
@@ -597,7 +609,7 @@ export async function runMaterialDraftItemJob(input: {
       code: normalized.retryable ? "TRANSIENT_GENERATION_FAILURE" : "GENERATION_REJECTED",
       message: normalized.message,
     });
-    await reconcileMaterialDraftBatch({ userId: input.userId, batchId: input.batchId, now: input.now });
+    await reconcileMaterialDraftBatch({ userId: input.userId, batchId: input.batchId, now });
     throw normalized;
   }
 }
@@ -691,42 +703,53 @@ export async function queueMaterialBatchActivation(input: {
         skill: { select: { id: true, status: true } },
       },
     });
-    if (
-      items.length === parsed.data.itemIds.length &&
-      items.every(
-        (item) =>
-          item.skill &&
-          ((item.status === SkillDraftBatchItemStatus.ACTIVATING &&
-            item.skill.status === SkillStatus.DRAFT) ||
-            (item.status === SkillDraftBatchItemStatus.ACTIVE &&
-              item.skill.status === SkillStatus.ACTIVE)),
-      )
-    ) {
+    if (items.length !== parsed.data.itemIds.length) {
+      return {
+        status: "invalid" as const,
+        message: "Every selected item must still belong to this batch.",
+      };
+    }
+    const readyItems = items.filter(
+      (item) =>
+        item.status === SkillDraftBatchItemStatus.READY &&
+        item.skill?.status === SkillStatus.DRAFT,
+    );
+    const handledItems = items.filter(
+      (item) =>
+        (item.skill?.status === SkillStatus.ACTIVE &&
+          [
+            SkillDraftBatchItemStatus.READY,
+            SkillDraftBatchItemStatus.ACTIVATING,
+            SkillDraftBatchItemStatus.ACTIVE,
+          ].includes(item.status)) ||
+        (item.status === SkillDraftBatchItemStatus.ACTIVATING &&
+          item.skill?.status === SkillStatus.DRAFT),
+    );
+    if (readyItems.length + handledItems.length !== items.length) {
+      return {
+        status: "invalid" as const,
+        message: "Every selected item must still be a ready draft in this batch.",
+      };
+    }
+    if (readyItems.length === 0) {
       return {
         status: "already-queued" as const,
         batchId: batch.id,
         message: "These skills are already being added or are active.",
       };
     }
-    if (
-      items.length !== parsed.data.itemIds.length ||
-      items.some(
-        (item) =>
-          item.status !== SkillDraftBatchItemStatus.READY ||
-          !item.skill ||
-          item.skill.status !== SkillStatus.DRAFT,
-      )
-    ) {
-      return {
-        status: "invalid" as const,
-        message: "Every selected item must still be a ready draft in this batch.",
-      };
-    }
-    const [activeSkillCount, activationsToday] = await Promise.all([
+    const [activeSkillCount, pendingActivationCount, activationsToday] = await Promise.all([
       tx.skill.count({
         where: {
           userId: input.userId,
           status: { in: [SkillStatus.ACTIVE, SkillStatus.PAUSED] },
+        },
+      }),
+      tx.skillDraftBatchItem.count({
+        where: {
+          userId: input.userId,
+          status: SkillDraftBatchItemStatus.ACTIVATING,
+          skill: { status: SkillStatus.DRAFT },
         },
       }),
       tx.generationJob.count({
@@ -737,14 +760,14 @@ export async function queueMaterialBatchActivation(input: {
         },
       }),
     ]);
-    if (activeSkillCount + items.length > ALPHA_ACTIVE_SKILLS) {
+    if (activeSkillCount + pendingActivationCount + readyItems.length > ALPHA_ACTIVE_SKILLS) {
       return {
         status: "limited" as const,
         code: "active-skill-limit" as const,
-        message: `Adding ${items.length} skills would exceed the ${ALPHA_ACTIVE_SKILLS}-skill alpha limit. Exclude some drafts or archive existing skills.`,
+        message: `Adding ${readyItems.length} skill${readyItems.length === 1 ? "" : "s"} would exceed the ${ALPHA_ACTIVE_SKILLS}-skill alpha limit, including skills already being added. Exclude some drafts or archive existing skills.`,
       };
     }
-    if (activationsToday + items.length > ALPHA_SKILL_ACTIVATIONS_PER_DAY) {
+    if (activationsToday + readyItems.length > ALPHA_SKILL_ACTIVATIONS_PER_DAY) {
       const remaining = Math.max(0, ALPHA_SKILL_ACTIVATIONS_PER_DAY - activationsToday);
       return {
         status: "limited" as const,
@@ -754,12 +777,15 @@ export async function queueMaterialBatchActivation(input: {
     }
 
     const model = process.env.GEMINI_MODEL?.trim() || DEFAULT_GEMINI_MODEL;
-    const byId = new Map(items.map((item) => [item.id, item]));
+    const byId = new Map(readyItems.map((item) => [item.id, item]));
     const reservations = [];
     for (const itemId of parsed.data.itemIds) {
       const item = byId.get(itemId);
-      if (!item?.skill) {
-        throw new Error("Selected activation item disappeared while reserving quota.");
+      if (!item) {
+        continue;
+      }
+      if (!item.skill) {
+        throw new Error("Selected activation skill disappeared while reserving quota.");
       }
       const generationJob = await tx.generationJob.create({
         data: {
@@ -1006,6 +1032,11 @@ export async function retryMaterialBatchActivationItem(input: {
   }
   const prisma = getPrisma();
   const retry = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`
+      SELECT "id" FROM "users"
+      WHERE "id" = ${input.userId}
+      FOR UPDATE
+    `;
     const item = await tx.skillDraftBatchItem.findFirst({
       where: {
         id: parsed.data.itemId,
@@ -1017,7 +1048,7 @@ export async function retryMaterialBatchActivationItem(input: {
       select: { id: true, skill: { select: { id: true, status: true } } },
     });
     if (!item?.skill || item.skill.status !== SkillStatus.DRAFT) {
-      return null;
+      return { status: "not-found" as const };
     }
     const job = await tx.generationJob.findFirst({
       where: {
@@ -1036,7 +1067,28 @@ export async function retryMaterialBatchActivationItem(input: {
       select: { id: true },
     });
     if (!job) {
-      return null;
+      return { status: "not-found" as const };
+    }
+    const [activeSkillCount, pendingActivationCount] = await Promise.all([
+      tx.skill.count({
+        where: {
+          userId: input.userId,
+          status: { in: [SkillStatus.ACTIVE, SkillStatus.PAUSED] },
+        },
+      }),
+      tx.skillDraftBatchItem.count({
+        where: {
+          userId: input.userId,
+          status: SkillDraftBatchItemStatus.ACTIVATING,
+          skill: { status: SkillStatus.DRAFT },
+        },
+      }),
+    ]);
+    if (activeSkillCount + pendingActivationCount >= ALPHA_ACTIVE_SKILLS) {
+      return {
+        status: "limited" as const,
+        message: `This retry would exceed the ${ALPHA_ACTIVE_SKILLS}-skill alpha limit, including skills already being added. Archive a skill or wait for an in-progress activation to finish.`,
+      };
     }
     await tx.skillDraftBatchItem.update({
       where: { id: item.id },
@@ -1050,10 +1102,13 @@ export async function retryMaterialBatchActivationItem(input: {
       where: { id: parsed.data.batchId },
       data: { status: SkillDraftBatchStatus.ACTIVATING, completedAt: null },
     });
-    return { itemId: item.id, generationJobId: job.id };
+    return { status: "reserved" as const, itemId: item.id, generationJobId: job.id };
   });
-  if (!retry) {
+  if (retry.status === "not-found") {
     return { status: "not-found" as const, message: "Retryable activation was not found." };
+  }
+  if (retry.status === "limited") {
+    return retry;
   }
   const payload = {
     userId: input.userId,
@@ -1076,7 +1131,11 @@ export async function retryMaterialBatchActivationItem(input: {
     });
     return { status: "not-queued" as const, message: "Activation could not be queued." };
   }
-  return { status: "queued" as const, ...retry };
+  return {
+    status: "queued" as const,
+    itemId: retry.itemId,
+    generationJobId: retry.generationJobId,
+  };
 }
 
 async function markMaterialBatchItemActive(input: {
@@ -1130,15 +1189,25 @@ export async function excludeMaterialDraftItem(input: {
         userId: input.userId,
         status: { in: [SkillDraftBatchItemStatus.READY, SkillDraftBatchItemStatus.FAILED] },
       },
-      select: { id: true, skillId: true },
+      select: {
+        id: true,
+        skillId: true,
+        skill: { select: { id: true, status: true } },
+      },
     });
     if (!item) {
-      return false;
+      return { status: "not-found" as const };
     }
     if (item.skillId) {
-      await tx.skill.deleteMany({
+      if (!item.skill || item.skill.status !== SkillStatus.DRAFT) {
+        return { status: "skill-not-draft" as const };
+      }
+      const deletedSkill = await tx.skill.deleteMany({
         where: { id: item.skillId, userId: input.userId, status: SkillStatus.DRAFT },
       });
+      if (deletedSkill.count !== 1) {
+        return { status: "skill-not-draft" as const };
+      }
     }
     await tx.skillDraftBatchItem.update({
       where: { id: item.id },
@@ -1149,17 +1218,62 @@ export async function excludeMaterialDraftItem(input: {
         errorMessage: null,
       },
     });
-    return true;
+    return { status: "excluded" as const };
   });
-  if (!result) {
+  if (result.status === "not-found") {
     return { status: "not-found" as const };
+  }
+  if (result.status === "skill-not-draft") {
+    return {
+      status: "not-excluded" as const,
+      reason: "skill-not-draft" as const,
+      message: "This skill is already active or changed outside the batch and cannot be excluded.",
+    };
   }
   await reconcileMaterialDraftBatch({ userId: input.userId, batchId: input.batchId, now: input.now });
   return { status: "excluded" as const };
 }
 
 export async function getMaterialDraftBatch(input: { userId: string; batchId: string }) {
-  return getPrisma().skillDraftBatch.findFirst({
+  const prisma = getPrisma();
+  const staleBefore = new Date(Date.now() - MATERIAL_DRAFT_CLAIM_STALE_MS);
+  const recovered = await prisma.skillDraftBatchItem.updateMany({
+    where: {
+      batchId: input.batchId,
+      userId: input.userId,
+      status: SkillDraftBatchItemStatus.GENERATING,
+      updatedAt: { lt: staleBefore },
+    },
+    data: {
+      status: SkillDraftBatchItemStatus.FAILED,
+      errorCode: "STALE_GENERATION_CLAIM",
+      errorMessage: "Draft generation stopped before it finished. Retry this item.",
+    },
+  });
+  const synchronizedActive = await prisma.skillDraftBatchItem.updateMany({
+    where: {
+      batchId: input.batchId,
+      userId: input.userId,
+      status: {
+        in: [SkillDraftBatchItemStatus.READY, SkillDraftBatchItemStatus.ACTIVATING],
+      },
+      skill: { status: SkillStatus.ACTIVE },
+    },
+    data: {
+      status: SkillDraftBatchItemStatus.ACTIVE,
+      errorCode: null,
+      errorMessage: null,
+    },
+  });
+  if (recovered.count > 0 || synchronizedActive.count > 0) {
+    await reconcileMaterialDraftBatch({
+      userId: input.userId,
+      batchId: input.batchId,
+      now: new Date(),
+    });
+  }
+
+  return prisma.skillDraftBatch.findFirst({
     where: { id: input.batchId, userId: input.userId },
     select: {
       id: true,
@@ -1508,27 +1622,49 @@ async function retrievePlanningChunks(input: {
       limit: 48,
     });
   }
-  const firstBySection = await prisma.materialChunk.findMany({
-    where: {
-      userId: input.userId,
-      materialRevisionId: input.materialRevisionId,
-      materialSectionId: { in: input.sectionIds },
-    },
-    orderBy: [{ materialSectionId: "asc" }, { ordinal: "asc" }],
-    select: {
-      id: true,
-      materialRevisionId: true,
-      materialSectionId: true,
-      sourceFileId: true,
-      ordinal: true,
-      text: true,
-      tokenEstimate: true,
-      locator: true,
-      headingText: true,
-    },
-    take: 80,
-  });
-  return uniqueById([...ranked, ...firstBySection]).slice(0, PLANNING_CHUNK_LIMIT);
+  const firstBySection = await prisma.$queryRaw<MaterialChunkSearchResult[]>`
+    WITH section_chunks AS (
+      SELECT
+        "id",
+        "materialRevisionId",
+        "materialSectionId",
+        "sourceFileId",
+        "ordinal",
+        "text",
+        "tokenEstimate",
+        "locator",
+        "headingText",
+        ROW_NUMBER() OVER (
+          PARTITION BY "materialSectionId"
+          ORDER BY "ordinal" ASC
+        ) AS "sectionRank"
+      FROM "material_chunks"
+      WHERE "userId" = ${input.userId}
+        AND "materialRevisionId" = ${input.materialRevisionId}
+        AND "materialSectionId" IN (${Prisma.join(input.sectionIds)})
+    )
+    SELECT
+      "id",
+      "materialRevisionId",
+      "materialSectionId",
+      "sourceFileId",
+      "ordinal",
+      "text",
+      "tokenEstimate",
+      "locator",
+      "headingText",
+      0::double precision AS "vectorScore",
+      0::double precision AS "lexicalScore",
+      0::double precision AS "score"
+    FROM section_chunks
+    WHERE "sectionRank" = 1
+    ORDER BY array_position(
+      ARRAY[${Prisma.join(input.sectionIds)}]::text[],
+      "materialSectionId"
+    )
+    LIMIT ${PLANNING_CHUNK_LIMIT}
+  `;
+  return uniqueById([...firstBySection, ...ranked]).slice(0, PLANNING_CHUNK_LIMIT);
 }
 
 async function saveProposedMaterialPlan(input: {

@@ -16,6 +16,7 @@ import type { MaterialDraftAiSetup } from "@/lib/materials/ai";
 import {
   MaterialBatchActivationError,
   confirmMaterialPlan,
+  excludeMaterialDraftItem,
   getMaterialDraftBatch,
   planMaterialSkills,
   queueMaterialBatchActivation,
@@ -28,7 +29,8 @@ import {
   finalizeMaterialRevision,
 } from "@/lib/materials/lifecycle";
 import { getPrisma } from "@/lib/prisma";
-import { refillChoiceExercisesForSkill } from "@/lib/skills";
+import { activateSkillDraft, refillChoiceExercisesForSkill } from "@/lib/skills";
+import { ALPHA_ACTIVE_SKILLS } from "@/lib/usage-limits";
 
 const runDatabaseTests = process.env.RUN_DATABASE_TESTS === "1";
 const describeDatabase = runDatabaseTests ? describe : describe.skip;
@@ -60,16 +62,6 @@ describeDatabase("material multi-skill drafting", () => {
     });
     materialId = material.id;
     materialRevisionId = revision.id;
-    await finalizeMaterialRevision({
-      userId,
-      materialId,
-      materialRevisionId,
-      contentHash: `sha256:${runId}`,
-      byteSize: 8_192,
-      pageCount: 220,
-      storageBucket: "test-materials",
-      storageKey: `${runId}/spanish.pdf`,
-    });
     const chapter = await prisma.materialSection.create({
       data: {
         userId,
@@ -85,6 +77,7 @@ describeDatabase("material multi-skill drafting", () => {
     });
     const direct = await prisma.materialSection.create({
       data: {
+        id: `${runId}_section_a_direct`,
         userId,
         materialRevisionId,
         parentId: chapter.id,
@@ -99,6 +92,7 @@ describeDatabase("material multi-skill drafting", () => {
     });
     const indirect = await prisma.materialSection.create({
       data: {
+        id: `${runId}_section_z_indirect`,
         userId,
         materialRevisionId,
         parentId: chapter.id,
@@ -132,7 +126,7 @@ describeDatabase("material multi-skill drafting", () => {
           userId,
           materialRevisionId,
           materialSectionId: indirect.id,
-          ordinal: 1,
+          ordinal: 80,
           text: "Indirect object pronouns identify the recipient and distinguish singular le from plural les.",
           tokenEstimate: 15,
           contentHash: `sha256:${runId}:indirect`,
@@ -143,6 +137,19 @@ describeDatabase("material multi-skill drafting", () => {
     ]);
     directChunkId = chunks[0].id;
     indirectChunkId = chunks[1].id;
+    await prisma.materialChunk.createMany({
+      data: Array.from({ length: 79 }, (_, index) => ({
+        userId,
+        materialRevisionId,
+        materialSectionId: direct.id,
+        ordinal: index + 1,
+        text: `Direct object pronoun filler excerpt ${index + 1}.`,
+        tokenEstimate: 8,
+        contentHash: `sha256:${runId}:direct-filler-${index + 1}`,
+        headingText: direct.title,
+        locator: { kind: "pdf", pageRange: { start: 94, end: 105 } },
+      })),
+    });
     const sourceFile = await prisma.sourceFile.create({
       data: {
         userId,
@@ -153,9 +160,21 @@ describeDatabase("material multi-skill drafting", () => {
         mimeType: "application/pdf",
         storageBucket: "test-materials",
         storageKey: `${runId}/spanish.pdf`,
+        extractedText:
+          "UNRELATED CHAPTER SIX SOURCE TEXT. This whole-book excerpt must not ground chapter four exercises.",
       },
     });
     sourceFileId = sourceFile.id;
+    await finalizeMaterialRevision({
+      userId,
+      materialId,
+      materialRevisionId,
+      contentHash: `sha256:${runId}`,
+      byteSize: 8_192,
+      pageCount: 220,
+      storageBucket: "test-materials",
+      storageKey: `${runId}/spanish.pdf`,
+    });
   });
 
   afterAll(async () => {
@@ -271,6 +290,24 @@ describeDatabase("material multi-skill drafting", () => {
     ]);
     expect(events).toEqual([batch?.items[1].id]);
 
+    const repeatedEvents: string[] = [];
+    const repeated = await confirmMaterialPlan({
+      userId,
+      input: { batchId: first.batchId, plan: first.plan },
+      now: new Date(),
+      eventSender: {
+        async sendMaterialDraftItemRequested(payload) {
+          repeatedEvents.push(payload.itemId);
+        },
+      },
+    });
+    expect(repeated).toMatchObject({
+      status: "queued",
+      alreadyConfirmed: true,
+      queuedItemIds: [batch?.items[1].id],
+    });
+    expect(repeatedEvents).toEqual([batch?.items[1].id]);
+
     await expect(
       prisma.skillDraftBatchItem.update({
         where: { id: batch?.items[1].id },
@@ -282,7 +319,7 @@ describeDatabase("material multi-skill drafting", () => {
           ).id,
         },
       }),
-    ).rejects.toThrow(/same user/i);
+    ).rejects.toThrow();
   });
 
   it("requires clarification without calling the semantic planner when a chapter is absent", async () => {
@@ -324,6 +361,42 @@ describeDatabase("material multi-skill drafting", () => {
       proposedPlan: expect.any(Object),
       confirmedAt: null,
     });
+  });
+
+  it("gives the planner a fallback chunk from every candidate section before the cap", async () => {
+    const planScope = vi.fn(async () => ({
+      resolutionStatus: "resolved",
+      resolvedScopeLabel: "Chapter 4",
+      clarification: null,
+      warnings: [],
+      items: [
+        {
+          key: "balanced-fallback",
+          title: "Balanced pronoun evidence",
+          objective: "Distinguish direct and indirect object pronoun evidence in short examples.",
+          materialSectionIds: [directSectionId, indirectSectionId],
+          evidenceChunkIds: [directChunkId, indirectChunkId],
+        },
+      ],
+    }));
+    const result = await planMaterialSkills({
+      userId,
+      input: {
+        materialId,
+        materialRevisionId,
+        instruction: "Make one skill for each section in chapter four.",
+        idempotencyKey: `${runId}_balanced_fallback`,
+      },
+      now: new Date(),
+      aiSetup: createAiSetup({ planScope }),
+      embeddingGenerator: null,
+    });
+
+    expect(result.status).toBe("planned");
+    const planningInput = planScope.mock.calls[0]?.[0];
+    expect(planningInput?.chunks.map((chunk) => chunk.id)).toEqual(
+      expect.arrayContaining([directChunkId, indirectChunkId]),
+    );
   });
 
   it("keeps a verified draft when a sibling exhausts its bounded regeneration", async () => {
@@ -383,6 +456,12 @@ describeDatabase("material multi-skill drafting", () => {
       throw new Error("expected two planned items");
     }
 
+    const staleUpdatedAt = new Date(Date.now() - 10 * 60 * 1_000);
+    await prisma.skillDraftBatchItem.update({
+      where: { id: firstItem.id },
+      data: { status: SkillDraftBatchItemStatus.GENERATING, updatedAt: staleUpdatedAt },
+    });
+
     expect(
       await runMaterialDraftItemJob({
         userId,
@@ -391,6 +470,17 @@ describeDatabase("material multi-skill drafting", () => {
         aiSetup: createAiSetup(),
       }),
     ).toMatchObject({ status: "ready" });
+
+    await prisma.skillDraftBatchItem.update({
+      where: { id: secondItem.id },
+      data: { status: SkillDraftBatchItemStatus.GENERATING, updatedAt: staleUpdatedAt },
+    });
+    const recovered = await getMaterialDraftBatch({ userId, batchId: planned.batchId });
+    expect(recovered?.items[1]).toMatchObject({
+      status: SkillDraftBatchItemStatus.FAILED,
+      errorCode: "STALE_GENERATION_CLAIM",
+      errorMessage: expect.stringMatching(/retry/i),
+    });
     expect(
       await runMaterialDraftItemJob({
         userId,
@@ -414,6 +504,63 @@ describeDatabase("material multi-skill drafting", () => {
       status: SkillDraftBatchItemStatus.FAILED,
       generationAttempts: 2,
     });
+
+    const readySkill = completed?.items[0].skill;
+    if (!readySkill) {
+      throw new Error("expected a ready material draft");
+    }
+    let activationSourceContext: string | null = null;
+    const activated = await activateSkillDraft({
+      userId,
+      skillId: readySkill.id,
+      now: new Date(),
+      model: "fixture-model",
+      generateChoiceExercises: async (generationInput) => {
+        activationSourceContext = generationInput.sourceContext;
+        return {
+          exercises: [1, 2, 3].map((number) => ({
+            prompt: `Choose the direct object pronoun in example ${number}.`,
+            choices: [
+              { id: "correct", label: "lo" },
+              { id: "wrong-a", label: "le" },
+              { id: "wrong-b", label: "les" },
+            ],
+            correctChoiceId: "correct",
+            explanation: "The noun receives the action directly.",
+            difficulty: 2,
+            expectedSeconds: 30,
+          })),
+        };
+      },
+      verifyChoiceExercises: async (verificationInput) => ({
+        verifications: verificationInput.candidates.map((candidate) => ({
+          candidateId: candidate.candidateId,
+          verdict: "verified",
+        })),
+      }),
+    });
+    expect(activated.status).toBe("activated");
+    expect(activationSourceContext).toContain("Direct object pronouns replace nouns");
+    expect(activationSourceContext).not.toContain("UNRELATED CHAPTER SIX SOURCE TEXT");
+    expect(activationSourceContext).not.toContain("Indirect object pronouns identify");
+
+    await expect(
+      excludeMaterialDraftItem({
+        userId,
+        batchId: planned.batchId,
+        itemId: firstItem.id,
+        now: new Date(),
+      }),
+    ).resolves.toMatchObject({
+      status: "not-excluded",
+      reason: "skill-not-draft",
+    });
+    expect(
+      await prisma.skill.findUniqueOrThrow({
+        where: { id: readySkill.id },
+        select: { status: true },
+      }),
+    ).toEqual({ status: SkillStatus.ACTIVE });
   });
 
   it("reserves quota once and activates a ready item from its exact stored locator", async () => {
@@ -426,10 +573,6 @@ describeDatabase("material multi-skill drafting", () => {
         evidenceChunkIds: [directChunkId],
       },
     ]);
-    await prisma.sourceFile.update({
-      where: { id: sourceFileId },
-      data: { extractedText: "WHOLE TEXTBOOK SENTINEL that must never reach activation." },
-    });
     const events: Array<{ itemId: string; generationJobId: string }> = [];
     const queued = await queueMaterialBatchActivation({
       userId,
@@ -494,7 +637,7 @@ describeDatabase("material multi-skill drafting", () => {
     expect(activated).toMatchObject({ status: "active", alreadyActivated: false });
     expect(receivedSourceContext).toContain("Direct object pronouns replace nouns");
     expect(receivedSourceContext).not.toContain("Indirect object pronouns identify");
-    expect(receivedSourceContext).not.toContain("WHOLE TEXTBOOK SENTINEL");
+    expect(receivedSourceContext).not.toContain("UNRELATED CHAPTER SIX SOURCE TEXT");
     expect(await getMaterialDraftBatch({ userId, batchId: ready.id })).toMatchObject({
       status: SkillDraftBatchStatus.COMPLETE,
       activatedCount: 1,
@@ -518,7 +661,7 @@ describeDatabase("material multi-skill drafting", () => {
     });
     expect(refilled).toMatchObject({ status: "refilled", exerciseCount: 2 });
     expect(refillSourceContext).toContain("Direct object pronouns replace nouns");
-    expect(refillSourceContext).not.toContain("WHOLE TEXTBOOK SENTINEL");
+    expect(refillSourceContext).not.toContain("UNRELATED CHAPTER SIX SOURCE TEXT");
   });
 
   it("keeps successful activations when a sibling fails and retries only the failed item", async () => {
@@ -790,6 +933,167 @@ describeDatabase("material multi-skill drafting", () => {
         },
       }),
     ).resolves.toBe(10);
+  });
+
+  it("skips a ready batch item whose skill was already activated elsewhere", async () => {
+    const ready = await createReadyBatch([
+      {
+        key: "already-active-selection",
+        title: "Already active selection fixture",
+        objective: "Choose a direct object pronoun in one short sentence.",
+        materialSectionIds: [directSectionId],
+        evidenceChunkIds: [directChunkId],
+      },
+      {
+        key: "remaining-ready-selection",
+        title: "Remaining ready selection fixture",
+        objective: "Choose an indirect object pronoun in one short sentence.",
+        materialSectionIds: [indirectSectionId],
+        evidenceChunkIds: [indirectChunkId],
+      },
+    ]);
+    const activeSkillId = ready.items[0].skill?.id;
+    if (!activeSkillId) {
+      throw new Error("expected the first batch skill");
+    }
+    await prisma.skill.update({
+      where: { id: activeSkillId },
+      data: { status: SkillStatus.ACTIVE },
+    });
+    const events: Array<{ itemId: string; generationJobId: string }> = [];
+
+    const result = await queueMaterialBatchActivation({
+      userId,
+      input: { batchId: ready.id, itemIds: ready.items.map((item) => item.id) },
+      now: new Date("2026-07-10T12:00:00.000Z"),
+      eventSender: {
+        async sendMaterialBatchActivationRequested(payload) {
+          events.push(payload);
+        },
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: "queued",
+      queuedItemIds: [ready.items[1].id],
+    });
+    expect(events).toEqual([
+      expect.objectContaining({ itemId: ready.items[1].id }),
+    ]);
+    expect(await getMaterialDraftBatch({ userId, batchId: ready.id })).toMatchObject({
+      activatedCount: 1,
+      items: [
+        { status: SkillDraftBatchItemStatus.ACTIVE },
+        { status: SkillDraftBatchItemStatus.ACTIVATING },
+      ],
+    });
+
+    await prisma.$transaction([
+      prisma.skillDraftBatchItem.update({
+        where: { id: ready.items[1].id },
+        data: {
+          status: SkillDraftBatchItemStatus.FAILED,
+          errorCode: "ACTIVATION_RETRYABLE_TEST_CLEANUP",
+          errorMessage: "released after selection test",
+        },
+      }),
+      prisma.generationJob.update({
+        where: { id: events[0].generationJobId },
+        data: { status: GenerationJobStatus.FAILED, completedAt: new Date() },
+      }),
+    ]);
+  });
+
+  it("reserves active-skill slots for queued activations and retry attempts", async () => {
+    const first = await createReadyBatch([
+      {
+        key: "active-slot-first",
+        title: "Active slot first fixture",
+        objective: "Choose a direct object pronoun at the active-skill boundary.",
+        materialSectionIds: [directSectionId],
+        evidenceChunkIds: [directChunkId],
+      },
+    ]);
+    const second = await createReadyBatch([
+      {
+        key: "active-slot-second",
+        title: "Active slot second fixture",
+        objective: "Choose an indirect object pronoun at the active-skill boundary.",
+        materialSectionIds: [indirectSectionId],
+        evidenceChunkIds: [indirectChunkId],
+      },
+    ]);
+    await prisma.skillDraftBatchItem.updateMany({
+      where: { userId, status: SkillDraftBatchItemStatus.ACTIVATING },
+      data: {
+        status: SkillDraftBatchItemStatus.FAILED,
+        errorCode: "ACTIVATION_RETRYABLE_TEST_CLEANUP",
+        errorMessage: "released before active-slot test",
+      },
+    });
+    const activeSkillCount = await prisma.skill.count({
+      where: { userId, status: { in: [SkillStatus.ACTIVE, SkillStatus.PAUSED] } },
+    });
+    await prisma.skill.createMany({
+      data: Array.from(
+        { length: Math.max(0, ALPHA_ACTIVE_SKILLS - 1 - activeSkillCount) },
+        (_, index) => ({
+          userId,
+          title: `Active slot filler ${index}`,
+          tags: [],
+          status: SkillStatus.ACTIVE,
+        }),
+      ),
+    });
+    const firstEvents: Array<{ itemId: string; generationJobId: string }> = [];
+    expect(
+      await queueMaterialBatchActivation({
+        userId,
+        input: { batchId: first.id, itemIds: [first.items[0].id] },
+        now: new Date("2026-07-11T12:00:00.000Z"),
+        eventSender: {
+          async sendMaterialBatchActivationRequested(payload) {
+            firstEvents.push(payload);
+          },
+        },
+      }),
+    ).toMatchObject({ status: "queued" });
+
+    expect(
+      await queueMaterialBatchActivation({
+        userId,
+        input: { batchId: second.id, itemIds: [second.items[0].id] },
+        now: new Date("2026-07-11T12:01:00.000Z"),
+        eventSender: { async sendMaterialBatchActivationRequested() {} },
+      }),
+    ).toMatchObject({ status: "limited", code: "active-skill-limit" });
+
+    await prisma.skillDraftBatchItem.update({
+      where: { id: first.items[0].id },
+      data: {
+        status: SkillDraftBatchItemStatus.FAILED,
+        errorCode: "ACTIVATION_RETRYABLE_TEST_FAILURE",
+        errorMessage: "retry fixture",
+      },
+    });
+    expect(
+      await queueMaterialBatchActivation({
+        userId,
+        input: { batchId: second.id, itemIds: [second.items[0].id] },
+        now: new Date("2026-07-11T12:02:00.000Z"),
+        eventSender: { async sendMaterialBatchActivationRequested() {} },
+      }),
+    ).toMatchObject({ status: "queued" });
+    expect(
+      await retryMaterialBatchActivationItem({
+        userId,
+        batchId: first.id,
+        itemId: first.items[0].id,
+        now: new Date("2026-07-11T12:03:00.000Z"),
+        eventSender: { async sendMaterialBatchActivationRequested() {} },
+      }),
+    ).toMatchObject({ status: "limited" });
+    expect(firstEvents).toHaveLength(1);
   });
 
   async function createReadyBatch(

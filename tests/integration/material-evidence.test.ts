@@ -30,6 +30,7 @@ describeDatabase("localized material OCR evidence", () => {
   const userId = `${runId}_owner`;
   let materialRevisionId = "";
   let materialSectionId = "";
+  let seedChunkId = "";
   let sourceFile: SourceFile;
   let pdfBytes = Buffer.alloc(0);
 
@@ -46,16 +47,6 @@ describeDatabase("localized material OCR evidence", () => {
       kind: StudyMaterialKind.PDF,
     });
     materialRevisionId = revision.id;
-    await finalizeMaterialRevision({
-      userId,
-      materialId: material.id,
-      materialRevisionId,
-      contentHash: `sha256:${runId}`,
-      byteSize: pdfBytes.byteLength,
-      pageCount: 10,
-      storageBucket: "test-materials",
-      storageKey: `${runId}/scanned.pdf`,
-    });
     const section = await prisma.materialSection.create({
       data: {
         userId,
@@ -91,6 +82,31 @@ describeDatabase("localized material OCR evidence", () => {
         contentHash: `visual:${index + 1}`,
       })),
     });
+    const seedChunk = await prisma.materialChunk.create({
+      data: {
+        userId,
+        materialRevisionId,
+        materialSectionId,
+        sourceFileId: sourceFile.id,
+        ordinal: 0,
+        text: "The selected scanned pages contain the visual grammar evidence.",
+        tokenEstimate: 12,
+        contentHash: `seed:${runId}`,
+        headingText: "Document",
+        locator: { version: 1, kind: "pdf", pageRange: { start: 1, end: 10 } },
+      },
+    });
+    seedChunkId = seedChunk.id;
+    await finalizeMaterialRevision({
+      userId,
+      materialId: material.id,
+      materialRevisionId,
+      contentHash: `sha256:${runId}`,
+      byteSize: pdfBytes.byteLength,
+      pageCount: 10,
+      storageBucket: "test-materials",
+      storageKey: `${runId}/scanned.pdf`,
+    });
   });
 
   afterAll(async () => {
@@ -98,7 +114,7 @@ describeDatabase("localized material OCR evidence", () => {
     await prisma.$disconnect();
   });
 
-  it("OCRs selected scanned pages in bounded cached groups and creates retrievable chunks", async () => {
+  it("OCRs selected scanned pages in bounded cached groups without mutating snapshot chunks", async () => {
     const generator = vi.fn(async ({ pageNumbers }: { pageNumbers: number[] }) => ({
       pages: pageNumbers.map((pageNumber) => ({
         pageNumber,
@@ -125,7 +141,7 @@ describeDatabase("localized material OCR evidence", () => {
     ).resolves.toBe(8);
     await expect(
       prisma.materialChunk.count({ where: { userId, materialRevisionId } }),
-    ).resolves.toBe(8);
+    ).resolves.toBe(1);
 
     const second = await ensureMaterialPageOcr({
       userId,
@@ -139,10 +155,6 @@ describeDatabase("localized material OCR evidence", () => {
     expect(second).toMatchObject({ status: "processed", processedPageCount: 2 });
     expect(generator.mock.calls[1][0].pageNumbers).toEqual([9, 10]);
 
-    const chunk = await prisma.materialChunk.findFirstOrThrow({
-      where: { userId, materialRevisionId },
-      orderBy: { ordinal: "asc" },
-    });
     const evidence = await loadLocalizedMaterialEvidence({
       userId,
       storage,
@@ -152,7 +164,7 @@ describeDatabase("localized material OCR evidence", () => {
             version: 1,
             materialRevisionId,
             materialSectionIds: [materialSectionId],
-            evidenceChunkIds: [chunk.id],
+            evidenceChunkIds: [seedChunkId],
             source: { kind: "pdf", pageRanges: [{ start: 1, end: 2 }] },
           },
           sourceFile,
@@ -166,6 +178,58 @@ describeDatabase("localized material OCR evidence", () => {
       "getPageCount",
     );
     expect((await PDFDocument.load(evidence.sourceMedia[0].bytes)).getPageCount()).toBe(2);
+  });
+
+  it("lets only one concurrent worker claim each OCR page", async () => {
+    await prisma.materialPage.updateMany({
+      where: { userId, materialRevisionId, pageNumber: { in: [1, 2] } },
+      data: {
+        textStatus: MaterialPageTextStatus.NEEDS_OCR,
+        ocrText: null,
+        metadata: {},
+      },
+    });
+    const requestedPages: number[] = [];
+    const generator = vi.fn(async ({ pageNumbers }: { pageNumbers: number[] }) => {
+      requestedPages.push(...pageNumbers);
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      return {
+        pages: pageNumbers.map((pageNumber) => ({
+          pageNumber,
+          text: `Concurrent OCR page ${pageNumber}.`,
+        })),
+      };
+    });
+    const input = {
+      userId,
+      materialRevisionId,
+      sourceFile,
+      pageRanges: [{ start: 1, end: 2 }],
+      storage: createStorage(pdfBytes),
+      ocrGenerator: generator,
+      now: new Date("2026-07-09T16:00:00.000Z"),
+    };
+
+    const results = await Promise.all([
+      ensureMaterialPageOcr(input),
+      ensureMaterialPageOcr(input),
+    ]);
+
+    expect(results.some((result) => result.status === "processed")).toBe(true);
+    expect(requestedPages.sort((left, right) => left - right)).toEqual([1, 2]);
+    await expect(
+      prisma.materialPage.count({
+        where: {
+          userId,
+          materialRevisionId,
+          pageNumber: { in: [1, 2] },
+          textStatus: MaterialPageTextStatus.OCR_READY,
+        },
+      }),
+    ).resolves.toBe(2);
+    await expect(
+      prisma.materialChunk.count({ where: { userId, materialRevisionId } }),
+    ).resolves.toBe(1);
   });
 });
 

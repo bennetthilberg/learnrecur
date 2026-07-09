@@ -18,7 +18,7 @@ import {
   skillSourceLocatorSchema,
   type SkillSourceLocator,
 } from "@/lib/materials/contracts";
-import { chunkSectionText, estimateTokens } from "@/lib/materials/pdf";
+import { estimateTokens } from "@/lib/materials/pdf";
 import { getPrisma } from "@/lib/prisma";
 import {
   resolveS3SourceObjectStorage,
@@ -222,11 +222,32 @@ export async function ensureMaterialPageOcr(input: {
   ) {
     return { status: "unavailable" as const, processedPageCount: 0 };
   }
-  const candidateIds = candidates.map((page) => page.id);
-  await prisma.materialPage.updateMany({
-    where: { id: { in: candidateIds }, userId: input.userId },
-    data: { textStatus: MaterialPageTextStatus.OCR_PROCESSING },
-  });
+  const claimedCandidates: typeof candidates = [];
+  for (const candidate of candidates) {
+    const claimed = await prisma.materialPage.updateMany({
+      where: {
+        id: candidate.id,
+        userId: input.userId,
+        materialRevisionId: input.materialRevisionId,
+        OR: [
+          {
+            textStatus: {
+              in: [MaterialPageTextStatus.NEEDS_OCR, MaterialPageTextStatus.OCR_FAILED],
+            },
+          },
+          { textStatus: MaterialPageTextStatus.OCR_PROCESSING, updatedAt: { lt: staleBefore } },
+        ],
+      },
+      data: { textStatus: MaterialPageTextStatus.OCR_PROCESSING, updatedAt: now },
+    });
+    if (claimed.count === 1) {
+      claimedCandidates.push(candidate);
+    }
+  }
+  if (claimedCandidates.length === 0) {
+    return { status: "not-needed" as const, processedPageCount: 0 };
+  }
+  const candidateIds = claimedCandidates.map((page) => page.id);
 
   try {
     const sourceBytes = await storage.getObjectBytes({
@@ -234,7 +255,7 @@ export async function ensureMaterialPageOcr(input: {
       bucket: input.sourceFile.storageBucket,
       maxBytes: MAX_MATERIAL_SOURCE_BYTES,
     });
-    const requestedPageNumbers = candidates.map((page) => page.pageNumber);
+    const requestedPageNumbers = claimedCandidates.map((page) => page.pageNumber);
     const slice = await createPdfPageSlice({
       bytes: sourceBytes,
       pageRanges: compressPageNumbers(requestedPageNumbers),
@@ -254,39 +275,24 @@ export async function ensureMaterialPageOcr(input: {
       }
       textByPage.set(page.pageNumber, page.text.trim());
     }
-    const sections = await prisma.materialSection.findMany({
-      where: { userId: input.userId, materialRevisionId: input.materialRevisionId },
-      orderBy: [{ level: "desc" }, { ordinal: "asc" }],
-      select: { id: true, level: true, pageStart: true, pageEnd: true },
-    });
-    const readyPages = candidates.flatMap((page) => {
+    const readyPages = claimedCandidates.flatMap((page) => {
       const text = textByPage.get(page.pageNumber);
-      const section = sections.find(
-        (candidate) =>
-          candidate.pageStart !== null &&
-          candidate.pageEnd !== null &&
-          page.pageNumber >= candidate.pageStart &&
-          page.pageNumber <= candidate.pageEnd,
-      );
-      return text && section ? [{ ...page, text, sectionId: section.id }] : [];
+      return text ? [{ ...page, text }] : [];
     });
     const readyIds = new Set(readyPages.map((page) => page.id));
     const failedIds = candidateIds.filter((id) => !readyIds.has(id));
-    await prisma.$transaction(async (tx) => {
-      await tx.$queryRaw`
-        SELECT "id" FROM "material_revisions"
-        WHERE "id" = ${input.materialRevisionId} AND "userId" = ${input.userId}
-        FOR UPDATE
-      `;
-      const aggregate = await tx.materialChunk.aggregate({
-        where: { userId: input.userId, materialRevisionId: input.materialRevisionId },
-        _max: { ordinal: true },
-      });
-      let ordinal = (aggregate._max.ordinal ?? -1) + 1;
+    const outcome = await prisma.$transaction(async (tx) => {
+      let processedPageCount = 0;
       for (const page of readyPages) {
         const contentHash = sha256(page.text);
-        await tx.materialPage.update({
-          where: { id: page.id },
+        const updated = await tx.materialPage.updateMany({
+          where: {
+            id: page.id,
+            userId: input.userId,
+            materialRevisionId: input.materialRevisionId,
+            textStatus: MaterialPageTextStatus.OCR_PROCESSING,
+            updatedAt: now,
+          },
           data: {
             ocrText: page.text,
             textStatus: MaterialPageTextStatus.OCR_READY,
@@ -298,47 +304,45 @@ export async function ensureMaterialPageOcr(input: {
             },
           },
         });
-        for (const chunk of chunkSectionText(page.text)) {
-          await tx.materialChunk.create({
-            data: {
-              userId: input.userId,
-              materialRevisionId: input.materialRevisionId,
-              materialSectionId: page.sectionId,
-              sourceFileId: input.sourceFile.id,
-              ordinal,
-              text: chunk.text,
-              tokenEstimate: chunk.tokenEstimate,
-              contentHash: chunk.contentHash,
-              headingText: `Visual page ${page.pageNumber}`,
-              locator: {
-                version: 1,
-                kind: "pdf-ocr",
-                sectionId: page.sectionId,
-                pageRange: { start: page.pageNumber, end: page.pageNumber },
-              },
-            },
-          });
-          ordinal += 1;
-        }
+        processedPageCount += updated.count;
       }
+      let failedPageCount = 0;
       if (failedIds.length > 0) {
-        await tx.materialPage.updateMany({
-          where: { id: { in: failedIds }, userId: input.userId },
+        const failed = await tx.materialPage.updateMany({
+          where: {
+            id: { in: failedIds },
+            userId: input.userId,
+            materialRevisionId: input.materialRevisionId,
+            textStatus: MaterialPageTextStatus.OCR_PROCESSING,
+            updatedAt: now,
+          },
           data: {
             textStatus: MaterialPageTextStatus.OCR_FAILED,
-            metadata: { reason: "missing-or-unmapped-page", failedAt: now.toISOString() },
+            metadata: { reason: "missing-page-text", failedAt: now.toISOString() },
           },
         });
+        failedPageCount = failed.count;
       }
+      return { processedPageCount, failedPageCount };
     });
     return {
-      status: readyPages.length > 0 ? ("processed" as const) : ("failed" as const),
-      processedPageCount: readyPages.length,
-      failedPageCount: failedIds.length,
+      status:
+        outcome.processedPageCount > 0
+          ? ("processed" as const)
+          : outcome.failedPageCount > 0
+            ? ("failed" as const)
+            : ("not-needed" as const),
+      ...outcome,
     };
   } catch (error) {
-    await prisma.materialPage.updateMany({
-      where: { id: { in: candidateIds }, userId: input.userId },
+    const failed = await prisma.materialPage.updateMany({
+      where: {
+        id: { in: candidateIds },
+        userId: input.userId,
+        materialRevisionId: input.materialRevisionId,
+        textStatus: MaterialPageTextStatus.OCR_PROCESSING,
+        updatedAt: now,
+      },
       data: {
         textStatus: MaterialPageTextStatus.OCR_FAILED,
         metadata: {
@@ -348,9 +352,9 @@ export async function ensureMaterialPageOcr(input: {
       },
     });
     return {
-      status: "failed" as const,
+      status: failed.count > 0 ? ("failed" as const) : ("not-needed" as const),
       processedPageCount: 0,
-      failedPageCount: candidates.length,
+      failedPageCount: failed.count,
     };
   }
 }

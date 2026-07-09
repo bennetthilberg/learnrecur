@@ -101,11 +101,78 @@ export function resolveStructuralMaterialScope(input: {
   const orderedSections = [...input.sections].sort(
     (left, right) => left.ordinal - right.ordinal || left.id.localeCompare(right.id),
   );
+  const numberToken =
+    "[0-9]{1,3}|[ivxlcdm]{1,8}|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty";
   const referencePattern =
     /\b(chapter|unit|part|lesson|module)\s+([0-9]{1,3}|[ivxlcdm]{1,8}|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty)\b/giu;
+  const sharedReferencePattern = new RegExp(
+    `\\b(chapter|unit|part|lesson|module)s?\\s+((?:${numberToken})(?:(?:\\s*,\\s*(?:and\\s+)?|\\s+and\\s+|\\s*&\\s*|\\s+(?:to|through)\\s+|\\s*[-–—]\\s*)(?:${numberToken}))+)\\b`,
+    "giu",
+  );
   const references: StructuralMaterialReference[] = [];
   const missingReferences: string[] = [];
   const seen = new Set<string>();
+
+  const addReference = (
+    kind: StructuralMaterialReference["kind"],
+    number: number,
+    label: string,
+  ) => {
+    const key = `${kind}:${number}`;
+    if (seen.has(key)) {
+      return;
+    }
+    seen.add(key);
+    const root = orderedSections.find(
+      (section) => extractStructuralSectionNumber(section.title, kind) === number,
+    );
+    if (!root) {
+      missingReferences.push(label);
+      return;
+    }
+    const sectionIds = collectSectionScope(root, orderedSections);
+    references.push({ kind, number, label, sectionIds });
+  };
+
+  for (const match of input.instruction.matchAll(sharedReferencePattern)) {
+    const kind = match[1].toLocaleLowerCase() as StructuralMaterialReference["kind"];
+    const list = match[2];
+    const tokens = [...list.matchAll(new RegExp(numberToken, "giu"))];
+    let previous: { number: number; end: number } | null = null;
+
+    for (const token of tokens) {
+      const number = parseReferenceNumber(token[0]);
+      if (!number || token.index === undefined) {
+        continue;
+      }
+      const label = `${kind} ${token[0].toLocaleLowerCase()}`;
+      if (!previous) {
+        addReference(kind, number, label);
+        previous = { number, end: token.index + token[0].length };
+        continue;
+      }
+
+      const separator = list.slice(previous.end, token.index);
+      if (/[-–—]|\b(?:to|through)\b/iu.test(separator)) {
+        const distance = Math.abs(number - previous.number);
+        if (distance > 100) {
+          missingReferences.push(`${kind} ${list.toLocaleLowerCase()}`);
+        } else {
+          const step = number >= previous.number ? 1 : -1;
+          for (
+            let expanded = previous.number + step;
+            expanded !== number + step;
+            expanded += step
+          ) {
+            addReference(kind, expanded, `${kind} ${expanded}`);
+          }
+        }
+      } else {
+        addReference(kind, number, label);
+      }
+      previous = { number, end: token.index + token[0].length };
+    }
+  }
 
   for (const match of input.instruction.matchAll(referencePattern)) {
     const kind = match[1].toLocaleLowerCase() as StructuralMaterialReference["kind"];
@@ -113,21 +180,8 @@ export function resolveStructuralMaterialScope(input: {
     if (!number) {
       continue;
     }
-    const key = `${kind}:${number}`;
-    if (seen.has(key)) {
-      continue;
-    }
-    seen.add(key);
     const label = match[0].toLocaleLowerCase();
-    const root = orderedSections.find(
-      (section) => extractStructuralSectionNumber(section.title, kind) === number,
-    );
-    if (!root) {
-      missingReferences.push(label);
-      continue;
-    }
-    const sectionIds = collectSectionScope(root, orderedSections);
-    references.push({ kind, number, label, sectionIds });
+    addReference(kind, number, label);
   }
 
   return {
@@ -199,14 +253,25 @@ export function validateMaterialScopePlannerResponse(input: {
     });
   }
 
+  const resolvedWithoutItems =
+    parsed.data.resolutionStatus === "resolved" && items.length === 0;
   const planResult = materialScopeResolutionSchema.safeParse({
     version: MATERIAL_SCOPE_PLAN_VERSION,
     materialRevisionId: input.materialRevisionId,
     instruction: input.instruction,
-    resolutionStatus: parsed.data.resolutionStatus,
+    resolutionStatus: resolvedWithoutItems ? "ambiguous" : parsed.data.resolutionStatus,
     resolvedScopeLabel: parsed.data.resolvedScopeLabel,
-    warnings: parsed.data.warnings,
-    ...(parsed.data.clarification ? { clarification: parsed.data.clarification } : {}),
+    warnings: resolvedWithoutItems
+      ? [
+          ...parsed.data.warnings.slice(0, 19),
+          "No skill-sized concepts were proposed for this scope.",
+        ]
+      : parsed.data.warnings,
+    ...(resolvedWithoutItems
+      ? { clarification: "Describe at least one specific concept or choose a narrower section." }
+      : parsed.data.clarification
+        ? { clarification: parsed.data.clarification }
+        : {}),
     items,
   });
   if (!planResult.success) {

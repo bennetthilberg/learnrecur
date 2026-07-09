@@ -4,6 +4,7 @@ import {
   activateBatchInputSchema,
   MATERIAL_LOCATOR_VERSION,
   materialScopePlanSchema,
+  materialScopeResolutionSchema,
   skillSourceLocatorSchema,
 } from "@/lib/materials/contracts";
 
@@ -117,5 +118,19 @@ describe("material contracts", () => {
         itemIds: Array.from({ length: 11 }, (_, index) => `item_${index}`),
       }),
     ).toThrow();
+  });
+
+  it("rejects a resolved scope preview with no proposed skills", () => {
+    expect(
+      materialScopeResolutionSchema.safeParse({
+        version: 1,
+        materialRevisionId: "revision_1",
+        instruction: "Make a skill from chapter four.",
+        resolutionStatus: "resolved",
+        resolvedScopeLabel: "Chapter 4",
+        warnings: [],
+        items: [],
+      }).success,
+    ).toBe(false);
   });
 });

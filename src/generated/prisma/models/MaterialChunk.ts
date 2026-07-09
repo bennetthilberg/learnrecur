@@ -789,7 +789,6 @@ export type MaterialChunkCreateWithoutSourceFileInput = {
 
 export type MaterialChunkUncheckedCreateWithoutSourceFileInput = {
   id?: string
-  materialRevisionId: string
   materialSectionId?: string | null
   ordinal: number
   text: string
@@ -895,7 +894,6 @@ export type MaterialChunkCreateWithoutMaterialSectionInput = {
 
 export type MaterialChunkUncheckedCreateWithoutMaterialSectionInput = {
   id?: string
-  materialRevisionId: string
   sourceFileId?: string | null
   ordinal: number
   text: string
@@ -990,7 +988,6 @@ export type MaterialChunkUncheckedUpdateManyWithoutUserInput = {
 
 export type MaterialChunkCreateManySourceFileInput = {
   id?: string
-  materialRevisionId: string
   materialSectionId?: string | null
   ordinal: number
   text: string
@@ -1017,7 +1014,6 @@ export type MaterialChunkUpdateWithoutSourceFileInput = {
 
 export type MaterialChunkUncheckedUpdateWithoutSourceFileInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  materialRevisionId?: Prisma.StringFieldUpdateOperationsInput | string
   materialSectionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ordinal?: Prisma.IntFieldUpdateOperationsInput | number
   text?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1030,7 +1026,6 @@ export type MaterialChunkUncheckedUpdateWithoutSourceFileInput = {
 
 export type MaterialChunkUncheckedUpdateManyWithoutSourceFileInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  materialRevisionId?: Prisma.StringFieldUpdateOperationsInput | string
   materialSectionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ordinal?: Prisma.IntFieldUpdateOperationsInput | number
   text?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1096,7 +1091,6 @@ export type MaterialChunkUncheckedUpdateManyWithoutMaterialRevisionInput = {
 
 export type MaterialChunkCreateManyMaterialSectionInput = {
   id?: string
-  materialRevisionId: string
   sourceFileId?: string | null
   ordinal: number
   text: string
@@ -1123,7 +1117,6 @@ export type MaterialChunkUpdateWithoutMaterialSectionInput = {
 
 export type MaterialChunkUncheckedUpdateWithoutMaterialSectionInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  materialRevisionId?: Prisma.StringFieldUpdateOperationsInput | string
   sourceFileId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ordinal?: Prisma.IntFieldUpdateOperationsInput | number
   text?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1136,7 +1129,6 @@ export type MaterialChunkUncheckedUpdateWithoutMaterialSectionInput = {
 
 export type MaterialChunkUncheckedUpdateManyWithoutMaterialSectionInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  materialRevisionId?: Prisma.StringFieldUpdateOperationsInput | string
   sourceFileId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ordinal?: Prisma.IntFieldUpdateOperationsInput | number
   text?: Prisma.StringFieldUpdateOperationsInput | string

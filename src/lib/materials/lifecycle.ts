@@ -1,6 +1,7 @@
 import "server-only";
 
 import {
+  MaterialCleanupStatus,
   MaterialRevisionStatus,
   SkillDraftBatchStatus,
   StudyMaterialKind,
@@ -23,6 +24,7 @@ export type RequestMaterialDeletionResult =
       materialId: string;
       cleanupJobId: string;
       alreadyQueued: boolean;
+      previousState: MaterialDeletionPreviousState | null;
       message: string;
     }
   | {
@@ -34,6 +36,13 @@ export type RequestMaterialDeletionResult =
       reason: "title-mismatch";
       message: string;
     };
+
+export type MaterialDeletionPreviousState = {
+  status: StudyMaterialStatus;
+  activeRevisionId: string | null;
+  deletionRequestedAt: Date | null;
+  revisions: Array<{ id: string; status: MaterialRevisionStatus }>;
+};
 
 export async function createMaterialWithInitialRevision(input: CreateMaterialInput) {
   const prisma = getPrisma();
@@ -117,12 +126,31 @@ export async function finalizeMaterialRevision(input: {
   const prisma = getPrisma();
 
   return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`
+      SELECT "id"
+      FROM "study_materials"
+      WHERE "id" = ${input.materialId} AND "userId" = ${input.userId}
+      FOR UPDATE
+    `;
+
+    const material = await tx.studyMaterial.findFirst({
+      where: {
+        id: input.materialId,
+        userId: input.userId,
+        status: { not: StudyMaterialStatus.DELETING },
+      },
+      select: { id: true },
+    });
+
+    if (!material) {
+      return null;
+    }
+
     const revision = await tx.materialRevision.findFirst({
       where: {
         id: input.materialRevisionId,
         materialId: input.materialId,
         userId: input.userId,
-        material: { status: { not: StudyMaterialStatus.DELETING } },
       },
       select: { id: true },
     });
@@ -218,6 +246,9 @@ export async function requestMaterialDeletion(input: {
         id: true,
         title: true,
         status: true,
+        activeRevisionId: true,
+        deletionRequestedAt: true,
+        revisions: { select: { id: true, status: true } },
         cleanupJob: { select: { id: true } },
       },
     });
@@ -238,6 +269,14 @@ export async function requestMaterialDeletion(input: {
     }
 
     const alreadyQueued = material.status === StudyMaterialStatus.DELETING;
+    const previousState: MaterialDeletionPreviousState | null = alreadyQueued
+      ? null
+      : {
+          status: material.status,
+          activeRevisionId: material.activeRevisionId,
+          deletionRequestedAt: material.deletionRequestedAt,
+          revisions: material.revisions,
+        };
     const requestedAt = new Date();
 
     if (!alreadyQueued) {
@@ -270,7 +309,79 @@ export async function requestMaterialDeletion(input: {
       materialId: material.id,
       cleanupJobId: cleanupJob.id,
       alreadyQueued,
+      previousState,
       message: alreadyQueued ? "Material deletion is already queued." : "Material deletion queued.",
     };
+  });
+}
+
+export async function rollbackMaterialDeletionRequest(input: {
+  userId: string;
+  materialId: string;
+  cleanupJobId: string;
+  previousState: MaterialDeletionPreviousState;
+}) {
+  const prisma = getPrisma();
+
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`
+      SELECT "id"
+      FROM "study_materials"
+      WHERE "id" = ${input.materialId} AND "userId" = ${input.userId}
+      FOR UPDATE
+    `;
+
+    const material = await tx.studyMaterial.findFirst({
+      where: {
+        id: input.materialId,
+        userId: input.userId,
+        status: StudyMaterialStatus.DELETING,
+        cleanupJob: {
+          id: input.cleanupJobId,
+          status: MaterialCleanupStatus.PENDING,
+          attemptCount: 0,
+        },
+      },
+      select: { id: true },
+    });
+    if (!material) {
+      return false;
+    }
+
+    const deletedCleanupJob = await tx.materialCleanupJob.deleteMany({
+      where: {
+        id: input.cleanupJobId,
+        materialId: input.materialId,
+        userId: input.userId,
+        status: MaterialCleanupStatus.PENDING,
+        attemptCount: 0,
+      },
+    });
+    if (deletedCleanupJob.count !== 1) {
+      return false;
+    }
+
+    for (const revision of input.previousState.revisions) {
+      await tx.materialRevision.updateMany({
+        where: {
+          id: revision.id,
+          materialId: input.materialId,
+          userId: input.userId,
+          status: MaterialRevisionStatus.DELETING,
+        },
+        data: { status: revision.status },
+      });
+    }
+
+    await tx.studyMaterial.update({
+      where: { id: input.materialId },
+      data: {
+        status: input.previousState.status,
+        activeRevisionId: input.previousState.activeRevisionId,
+        deletionRequestedAt: input.previousState.deletionRequestedAt,
+      },
+    });
+
+    return true;
   });
 }

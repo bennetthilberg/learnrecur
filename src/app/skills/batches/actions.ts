@@ -145,12 +145,15 @@ export async function retryMaterialBatchActivationItemAction(formData: FormData)
 export async function excludeMaterialDraftItemAction(formData: FormData) {
   const userId = await requireBatchUser();
   const batchId = formString(formData, "batchId");
-  await excludeMaterialDraftItem({
+  const result = await excludeMaterialDraftItem({
     userId,
     batchId,
     itemId: formString(formData, "itemId"),
     now: new Date(),
   });
+  if (result.status === "not-excluded") {
+    redirect(`/skills/batches/${batchId}?error=${encodeURIComponent(result.message)}`);
+  }
   revalidatePath(`/skills/batches/${batchId}`);
   revalidatePath("/skills");
 }

@@ -4,8 +4,10 @@ import { describe, expect, it } from "vitest";
 import {
   buildPdfIndex,
   extractPdfPages,
+  inspectPdfPageCount,
   type ExtractedPdfPage,
 } from "@/lib/materials/pdf";
+import { prepareMaterialPdfInputSchema } from "@/lib/materials/contracts";
 import {
   discoverBookWebsite,
   validatePublicHttpsUrl,
@@ -41,6 +43,29 @@ describe("PDF material ingestion", () => {
     });
     expect(extracted.pages[0].text).toContain("Direct object pronouns");
     expect(extracted.pages[1]).toMatchObject({ pageNumber: 2, needsOcr: true });
+    await expect(inspectPdfPageCount(Buffer.from(await document.save()))).resolves.toBe(2);
+  });
+
+  it("rejects an over-page PDF before extracting page text", async () => {
+    const document = await PDFDocument.create();
+    document.addPage();
+    document.addPage();
+    const bytes = Buffer.from(await document.save());
+
+    await expect(extractPdfPages(bytes, { maximumPages: 1 })).rejects.toThrow(
+      /page limit is 1; received 2 pages/i,
+    );
+  });
+
+  it("coerces a FormData PDF byte size before validating limits", () => {
+    expect(
+      prepareMaterialPdfInputSchema.parse({
+        title: "Practical Spanish Grammar",
+        originalName: "spanish.pdf",
+        mimeType: "application/pdf",
+        byteSize: "4096",
+      }),
+    ).toMatchObject({ byteSize: 4096 });
   });
 
   it("creates heading-aware, section-bounded chunks near the token target with overlap", () => {

@@ -209,7 +209,9 @@ function DraftBatchReview({
   activating: boolean;
   scope: MaterialScopeResolution | null;
 }) {
-  const readyItems = batch.items.filter((item) => item.status === "READY" && item.skill);
+  const readyItems = batch.items.filter(
+    (item) => item.status === "READY" && item.skill?.status === "DRAFT",
+  );
   const activationFailureCount = batch.items.filter(
     (item) => item.status === "FAILED" && item.errorCode?.startsWith("ACTIVATION_"),
   ).length;

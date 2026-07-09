@@ -46,7 +46,38 @@ export const DEFAULT_MATERIAL_CHUNK_TOKENS = 800;
 export const DEFAULT_MATERIAL_CHUNK_OVERLAP_TOKENS = 120;
 const MIN_USABLE_PDF_PAGE_CHARACTERS = 24;
 
-export async function extractPdfPages(bytes: Buffer): Promise<{
+export class PdfPageLimitError extends Error {
+  readonly pageCount: number;
+  readonly maximumPages: number;
+
+  constructor(pageCount: number, maximumPages: number) {
+    super(`PDF page limit is ${maximumPages}; received ${pageCount} pages.`);
+    this.name = "PdfPageLimitError";
+    this.pageCount = pageCount;
+    this.maximumPages = maximumPages;
+  }
+}
+
+export async function inspectPdfPageCount(bytes: Buffer): Promise<number> {
+  const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  const loadingTask = pdfjs.getDocument({
+    data: new Uint8Array(bytes),
+    useSystemFonts: true,
+  });
+  const document = await loadingTask.promise;
+
+  try {
+    return document.numPages;
+  } finally {
+    await document.cleanup();
+    await loadingTask.destroy();
+  }
+}
+
+export async function extractPdfPages(
+  bytes: Buffer,
+  options: { maximumPages?: number } = {},
+): Promise<{
   pageCount: number;
   pages: ExtractedPdfPage[];
 }> {
@@ -59,6 +90,10 @@ export async function extractPdfPages(bytes: Buffer): Promise<{
   const pages: ExtractedPdfPage[] = [];
 
   try {
+    if (options.maximumPages && document.numPages > options.maximumPages) {
+      throw new PdfPageLimitError(document.numPages, options.maximumPages);
+    }
+
     for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber += 1) {
       const page = await document.getPage(pageNumber);
       const textContent = await page.getTextContent();
