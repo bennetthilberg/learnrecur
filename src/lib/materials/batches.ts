@@ -717,11 +717,9 @@ export async function queueMaterialBatchActivation(input: {
     const handledItems = items.filter(
       (item) =>
         (item.skill?.status === SkillStatus.ACTIVE &&
-          [
-            SkillDraftBatchItemStatus.READY,
-            SkillDraftBatchItemStatus.ACTIVATING,
-            SkillDraftBatchItemStatus.ACTIVE,
-          ].includes(item.status)) ||
+          (item.status === SkillDraftBatchItemStatus.READY ||
+            item.status === SkillDraftBatchItemStatus.ACTIVATING ||
+            item.status === SkillDraftBatchItemStatus.ACTIVE)) ||
         (item.status === SkillDraftBatchItemStatus.ACTIVATING &&
           item.skill?.status === SkillStatus.DRAFT),
     );
