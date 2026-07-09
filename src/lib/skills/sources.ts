@@ -148,6 +148,7 @@ export async function removeSkillSource(
       sourceFileId: true,
       sourceFile: {
         select: {
+          materialRevisionId: true,
           storageBucket: true,
           storageKey: true,
         },
@@ -166,12 +167,17 @@ export async function removeSkillSource(
     },
   });
 
-  // V0 keeps S3 network I/O outside the Prisma transaction. If another source
+  // Quick-create sources retain their existing final-reference cleanup. A
+  // material revision owns its source independently, so unlinking a skill must
+  // never delete the reusable object or SourceFile row.
+  //
+  // S3 network I/O remains outside the Prisma transaction. If another source
   // ref is created after this count but before the transaction below, the object
   // can be deleted while a new ref remains. TODO: add a background storage audit
   // that scans SourceFile storage keys, detects missing S3 objects, and logs or
   // repairs orphaned source refs.
-  const shouldDeleteStoredObject = initialRefCount === 1;
+  const shouldDeleteStoredObject =
+    initialRefCount === 1 && sourceRef.sourceFile.materialRevisionId === null;
 
   if (shouldDeleteStoredObject) {
     const storedObjectDeleted = await deleteStoredSourceObject({
@@ -234,6 +240,7 @@ async function deleteStoredSourceObject({
   deleteStoredObject,
 }: {
   sourceFile: {
+    materialRevisionId: string | null;
     storageBucket: string | null;
     storageKey: string | null;
   };

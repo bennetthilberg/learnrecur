@@ -297,7 +297,7 @@ describeDatabase("study data export", () => {
     if (result.status !== "ready") {
       throw new Error("expected ready data export");
     }
-    expect(result.export.exportVersion).toBe(1);
+    expect(result.export.exportVersion).toBe(2);
     expect(result.export.generatedAt).toBe("2026-06-07T14:00:00.000Z");
     expect(result.export.user).toMatchObject({
       id: userId,

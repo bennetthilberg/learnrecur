@@ -28,6 +28,55 @@ enum SourceFileStatus {
   FAILED
 }
 
+enum StudyMaterialKind {
+  PDF
+  WEB
+}
+
+enum StudyMaterialStatus {
+  ACTIVE
+  ARCHIVED
+  DELETING
+}
+
+enum MaterialRevisionStatus {
+  PENDING_UPLOAD
+  QUEUED
+  PROCESSING
+  READY
+  FAILED
+  DELETING
+}
+
+enum MaterialCleanupStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+enum SkillDraftBatchStatus {
+  PLANNING
+  NEEDS_SCOPE
+  PLANNED
+  GENERATING
+  READY
+  PARTIAL
+  FAILED
+  ACTIVATING
+  COMPLETE
+}
+
+enum SkillDraftBatchItemStatus {
+  PLANNED
+  GENERATING
+  READY
+  FAILED
+  EXCLUDED
+  ACTIVATING
+  ACTIVE
+}
+
 enum SkillStatus {
   DRAFT
   ACTIVE
@@ -131,17 +180,24 @@ model User {
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
-  collections      Collection[]
-  sourceFiles      SourceFile[]
-  skills           Skill[]
-  skillSourceRefs  SkillSourceRef[]
-  exercises        Exercise[]
-  exerciseAttempts ExerciseAttempt[]
-  reviewLogs       ReviewLog[]
-  exerciseFlags    ExerciseFlag[]
-  generationJobs   GenerationJob[]
-  reminderPreference ReminderPreference?
-  reminderSendLogs   ReminderSendLog[]
+  collections          Collection[]
+  sourceFiles          SourceFile[]
+  studyMaterials       StudyMaterial[]
+  materialRevisions    MaterialRevision[]
+  materialSections     MaterialSection[]
+  materialChunks       MaterialChunk[]
+  materialCleanupJobs  MaterialCleanupJob[]
+  skillDraftBatches    SkillDraftBatch[]
+  skillDraftBatchItems SkillDraftBatchItem[]
+  skills               Skill[]
+  skillSourceRefs      SkillSourceRef[]
+  exercises            Exercise[]
+  exerciseAttempts     ExerciseAttempt[]
+  reviewLogs           ReviewLog[]
+  exerciseFlags        ExerciseFlag[]
+  generationJobs       GenerationJob[]
+  reminderPreference   ReminderPreference?
+  reminderSendLogs     ReminderSendLog[]
 
   @@map("users")
 }
@@ -155,9 +211,10 @@ model Collection {
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
 
-  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  skills      Skill[]
-  sourceFiles SourceFile[]
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skills         Skill[]
+  sourceFiles    SourceFile[]
+  studyMaterials StudyMaterial[]
 
   @@unique([id, userId])
   @@index([userId, status])
@@ -165,30 +222,170 @@ model Collection {
 }
 
 model SourceFile {
-  id            String           @id @default(cuid())
-  userId        String
-  collectionId  String?
-  kind          SourceFileKind   @default(OTHER)
-  status        SourceFileStatus @default(DRAFT)
-  originalName  String
-  mimeType      String?
-  byteSize      Int?
-  storageBucket String?
-  storageKey    String?
-  publicUrl     String?
-  extractedText String?
-  metadata      Json?
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
+  id                 String           @id @default(cuid())
+  userId             String
+  collectionId       String?
+  materialRevisionId String?
+  kind               SourceFileKind   @default(OTHER)
+  status             SourceFileStatus @default(DRAFT)
+  originalName       String
+  mimeType           String?
+  byteSize           Int?
+  storageBucket      String?
+  storageKey         String?
+  publicUrl          String?
+  extractedText      String?
+  metadata           Json?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
 
-  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  collection Collection?      @relation(fields: [collectionId, userId], references: [id, userId], onDelete: NoAction)
-  skillRefs  SkillSourceRef[]
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  collection       Collection?       @relation(fields: [collectionId, userId], references: [id, userId], onDelete: NoAction)
+  materialRevision MaterialRevision? @relation(fields: [materialRevisionId, userId], references: [id, userId], onDelete: Cascade)
+  skillRefs        SkillSourceRef[]
+  materialChunks   MaterialChunk[]
 
   @@unique([id, userId])
   @@index([userId, status])
   @@index([collectionId])
+  @@index([materialRevisionId])
   @@map("source_files")
+}
+
+model StudyMaterial {
+  id                  String              @id @default(cuid())
+  userId              String
+  collectionId        String?
+  title               String
+  kind                StudyMaterialKind
+  status              StudyMaterialStatus @default(ACTIVE)
+  activeRevisionId    String?             @unique
+  deletionRequestedAt DateTime?
+  lastUsedAt          DateTime?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  user           User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  collection     Collection?         @relation(fields: [collectionId, userId], references: [id, userId], onDelete: NoAction)
+  activeRevision MaterialRevision?   @relation("ActiveMaterialRevision", fields: [activeRevisionId], references: [id], onDelete: SetNull)
+  revisions      MaterialRevision[]  @relation("MaterialRevisions")
+  cleanupJob     MaterialCleanupJob?
+
+  @@unique([id, userId])
+  @@index([userId, status, updatedAt])
+  @@index([collectionId])
+  @@map("study_materials")
+}
+
+model MaterialRevision {
+  id                 String                 @id @default(cuid())
+  userId             String
+  materialId         String
+  revisionNumber     Int
+  status             MaterialRevisionStatus @default(PENDING_UPLOAD)
+  sourceUrl          String?
+  contentHash        String?
+  byteSize           Int?
+  pageCount          Int?
+  fetchedPageCount   Int?
+  storageBucket      String?
+  storageKey         String?
+  processingMetadata Json?
+  errorCode          String?
+  errorMessage       String?
+  finalizedAt        DateTime?
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  material          StudyMaterial     @relation("MaterialRevisions", fields: [materialId, userId], references: [id, userId], onDelete: Cascade)
+  activeForMaterial StudyMaterial?    @relation("ActiveMaterialRevision")
+  sourceFiles       SourceFile[]
+  sections          MaterialSection[]
+  chunks            MaterialChunk[]
+  draftBatches      SkillDraftBatch[]
+
+  @@unique([id, userId])
+  @@unique([materialId, revisionNumber])
+  @@index([userId, status])
+  @@map("material_revisions")
+}
+
+model MaterialSection {
+  id                 String   @id @default(cuid())
+  userId             String
+  materialRevisionId String
+  parentId           String?
+  ordinal            Int
+  level              Int      @default(1)
+  title              String
+  normalizedTitle    String
+  pageStart          Int?
+  pageEnd            Int?
+  url                String?
+  anchor             String?
+  headingPath        String[]
+  metadata           Json?
+  createdAt          DateTime @default(now())
+
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  materialRevision MaterialRevision @relation(fields: [materialRevisionId, userId], references: [id, userId], onDelete: Cascade)
+  chunks           MaterialChunk[]
+
+  @@unique([id, userId])
+  @@unique([materialRevisionId, ordinal])
+  @@index([materialRevisionId, parentId, ordinal])
+  @@index([userId])
+  @@map("material_sections")
+}
+
+model MaterialChunk {
+  id                 String                   @id @default(cuid())
+  userId             String
+  materialRevisionId String
+  materialSectionId  String?
+  sourceFileId       String?
+  ordinal            Int
+  text               String
+  tokenEstimate      Int
+  contentHash        String
+  locator            Json
+  headingText        String?
+  searchText         Unsupported("tsvector")? @default(dbgenerated("to_tsvector('simple'::regconfig, ((COALESCE(\"headingText\", ''::text) || ' '::text) || text))"))
+  embedding          Unsupported("vector")?
+  createdAt          DateTime                 @default(now())
+
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  materialRevision MaterialRevision @relation(fields: [materialRevisionId, userId], references: [id, userId], onDelete: Cascade)
+  materialSection  MaterialSection? @relation(fields: [materialSectionId, userId], references: [id, userId], onDelete: NoAction)
+  sourceFile       SourceFile?      @relation(fields: [sourceFileId, userId], references: [id, userId], onDelete: NoAction)
+
+  @@unique([id, userId])
+  @@unique([materialRevisionId, ordinal])
+  @@index([materialRevisionId, materialSectionId, ordinal])
+  @@index([userId])
+  @@index([searchText], type: Gin)
+  @@map("material_chunks")
+}
+
+model MaterialCleanupJob {
+  id           String                @id @default(cuid())
+  userId       String
+  materialId   String                @unique
+  status       MaterialCleanupStatus @default(PENDING)
+  attemptCount Int                   @default(0)
+  errorMessage String?
+  startedAt    DateTime?
+  completedAt  DateTime?
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  material StudyMaterial @relation(fields: [materialId, userId], references: [id, userId], onDelete: Cascade)
+
+  @@unique([materialId, userId])
+  @@index([userId, status])
+  @@map("material_cleanup_jobs")
 }
 
 model Skill {
@@ -215,18 +412,80 @@ model Skill {
   createdAt           DateTime       @default(now())
   updatedAt           DateTime       @updatedAt
 
-  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  collection  Collection?      @relation(fields: [collectionId, userId], references: [id, userId], onDelete: NoAction)
-  sourceRefs  SkillSourceRef[]
-  exercises   Exercise[]
-  attempts    ExerciseAttempt[]
-  reviewLogs  ReviewLog[]
-  generationJobs GenerationJob[]
+  user            User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  collection      Collection?           @relation(fields: [collectionId, userId], references: [id, userId], onDelete: NoAction)
+  sourceRefs      SkillSourceRef[]
+  exercises       Exercise[]
+  attempts        ExerciseAttempt[]
+  reviewLogs      ReviewLog[]
+  generationJobs  GenerationJob[]
+  draftBatchItems SkillDraftBatchItem[]
 
   @@unique([id, userId])
   @@index([userId, status, dueAt])
   @@index([collectionId])
   @@map("skills")
+}
+
+model SkillDraftBatch {
+  id                 String                @id @default(cuid())
+  userId             String
+  materialRevisionId String
+  instruction        String
+  confirmedPlan      Json?
+  status             SkillDraftBatchStatus @default(PLANNING)
+  idempotencyKey     String
+  requestedCount     Int                   @default(0)
+  readyCount         Int                   @default(0)
+  failedCount        Int                   @default(0)
+  excludedCount      Int                   @default(0)
+  activatedCount     Int                   @default(0)
+  errorCode          String?
+  errorMessage       String?
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+  confirmedAt        DateTime?
+  completedAt        DateTime?
+
+  user             User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  materialRevision MaterialRevision      @relation(fields: [materialRevisionId, userId], references: [id, userId], onDelete: Cascade)
+  items            SkillDraftBatchItem[]
+
+  @@unique([id, userId])
+  @@unique([userId, idempotencyKey])
+  @@index([userId, status, createdAt])
+  @@index([materialRevisionId])
+  @@map("skill_draft_batches")
+}
+
+model SkillDraftBatchItem {
+  id                 String                    @id @default(cuid())
+  userId             String
+  batchId            String
+  skillId            String?
+  ordinal            Int
+  targetKey          String
+  proposedTitle      String
+  proposedObjective  String
+  locator            Json
+  status             SkillDraftBatchItemStatus @default(PLANNED)
+  overlapSkillId     String?
+  errorCode          String?
+  errorMessage       String?
+  generationAttempts Int                       @default(0)
+  createdAt          DateTime                  @default(now())
+  updatedAt          DateTime                  @updatedAt
+
+  user  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  batch SkillDraftBatch @relation(fields: [batchId, userId], references: [id, userId], onDelete: Cascade)
+  skill Skill?          @relation(fields: [skillId], references: [id], onDelete: SetNull)
+
+  @@unique([id, userId])
+  @@unique([batchId, ordinal])
+  @@unique([batchId, targetKey])
+  @@index([userId, status])
+  @@index([skillId])
+  @@map("skill_draft_batch_items")
 }
 
 model SkillSourceRef {
@@ -242,32 +501,32 @@ model SkillSourceRef {
   skill      Skill      @relation(fields: [skillId, userId], references: [id, userId], onDelete: Cascade)
   sourceFile SourceFile @relation(fields: [sourceFileId, userId], references: [id, userId], onDelete: Cascade)
 
+  @@unique([skillId, sourceFileId])
   @@index([userId])
   @@index([sourceFileId])
-  @@unique([skillId, sourceFileId])
   @@map("skill_source_refs")
 }
 
 model Exercise {
-  id                    String                     @id @default(cuid())
-  userId                String
-  skillId               String
-  type                  ExerciseType
-  answerKind            AnswerKind
-  prompt                String
-  choices               Json?
-  answerSpec            Json
-  correctAnswerDisplay  String
-  explanation           String?
-  difficulty            Int?
-  expectedSeconds       Int?
-  verificationStatus    ExerciseVerificationStatus @default(UNVERIFIED)
-  retiredAt             DateTime?
-  retirementReason      ExerciseRetirementReason?
-  freshnessKey          String?
-  sourceRefs            Json?
-  createdAt             DateTime                   @default(now())
-  updatedAt             DateTime                   @updatedAt
+  id                   String                     @id @default(cuid())
+  userId               String
+  skillId              String
+  type                 ExerciseType
+  answerKind           AnswerKind
+  prompt               String
+  choices              Json?
+  answerSpec           Json
+  correctAnswerDisplay String
+  explanation          String?
+  difficulty           Int?
+  expectedSeconds      Int?
+  verificationStatus   ExerciseVerificationStatus @default(UNVERIFIED)
+  retiredAt            DateTime?
+  retirementReason     ExerciseRetirementReason?
+  freshnessKey         String?
+  sourceRefs           Json?
+  createdAt            DateTime                   @default(now())
+  updatedAt            DateTime                   @updatedAt
 
   user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   skill    Skill             @relation(fields: [skillId, userId], references: [id, userId], onDelete: Cascade)
@@ -311,12 +570,12 @@ model ExerciseAttempt {
 }
 
 model ReviewLog {
-  id                    String         @id @default(cuid())
+  id                    String          @id @default(cuid())
   userId                String
   skillId               String
-  exerciseAttemptId     String         @unique
+  exerciseAttemptId     String          @unique
   finalRating           FsrsRating
-  reviewedAt            DateTime       @default(now())
+  reviewedAt            DateTime        @default(now())
   previousDueAt         DateTime?
   nextDueAt             DateTime?
   previousStability     Float?
@@ -339,7 +598,7 @@ model ReviewLog {
   schedulerVersion      String
   desiredRetention      Float
   schedulerParameters   Json
-  createdAt             DateTime       @default(now())
+  createdAt             DateTime        @default(now())
 
   user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   skill           Skill           @relation(fields: [skillId, userId], references: [id, userId], onDelete: Cascade)
@@ -352,17 +611,17 @@ model ReviewLog {
 }
 
 model ExerciseFlag {
-  id                   String                    @id @default(cuid())
-  userId               String
-  exerciseId           String
-  reason               ExerciseFlagReason
-  note                 String?
-  status               ExerciseFlagStatus        @default(OPEN)
-  resolvedAt           DateTime?
-  resolutionNote       String?
-  retiredExerciseAt    DateTime?
-  retirementReason     ExerciseRetirementReason?
-  createdAt            DateTime                  @default(now())
+  id                String                    @id @default(cuid())
+  userId            String
+  exerciseId        String
+  reason            ExerciseFlagReason
+  note              String?
+  status            ExerciseFlagStatus        @default(OPEN)
+  resolvedAt        DateTime?
+  resolutionNote    String?
+  retiredExerciseAt DateTime?
+  retirementReason  ExerciseRetirementReason?
+  createdAt         DateTime                  @default(now())
 
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   exercise Exercise @relation(fields: [exerciseId, userId], references: [id, userId], onDelete: Cascade)

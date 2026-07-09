@@ -54,7 +54,14 @@ export const ModelName = {
   User: 'User',
   Collection: 'Collection',
   SourceFile: 'SourceFile',
+  StudyMaterial: 'StudyMaterial',
+  MaterialRevision: 'MaterialRevision',
+  MaterialSection: 'MaterialSection',
+  MaterialChunk: 'MaterialChunk',
+  MaterialCleanupJob: 'MaterialCleanupJob',
   Skill: 'Skill',
+  SkillDraftBatch: 'SkillDraftBatch',
+  SkillDraftBatchItem: 'SkillDraftBatchItem',
   SkillSourceRef: 'SkillSourceRef',
   Exercise: 'Exercise',
   ExerciseAttempt: 'ExerciseAttempt',
@@ -111,6 +118,7 @@ export const SourceFileScalarFieldEnum = {
   id: 'id',
   userId: 'userId',
   collectionId: 'collectionId',
+  materialRevisionId: 'materialRevisionId',
   kind: 'kind',
   status: 'status',
   originalName: 'originalName',
@@ -126,6 +134,102 @@ export const SourceFileScalarFieldEnum = {
 } as const
 
 export type SourceFileScalarFieldEnum = (typeof SourceFileScalarFieldEnum)[keyof typeof SourceFileScalarFieldEnum]
+
+
+export const StudyMaterialScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  collectionId: 'collectionId',
+  title: 'title',
+  kind: 'kind',
+  status: 'status',
+  activeRevisionId: 'activeRevisionId',
+  deletionRequestedAt: 'deletionRequestedAt',
+  lastUsedAt: 'lastUsedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type StudyMaterialScalarFieldEnum = (typeof StudyMaterialScalarFieldEnum)[keyof typeof StudyMaterialScalarFieldEnum]
+
+
+export const MaterialRevisionScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  materialId: 'materialId',
+  revisionNumber: 'revisionNumber',
+  status: 'status',
+  sourceUrl: 'sourceUrl',
+  contentHash: 'contentHash',
+  byteSize: 'byteSize',
+  pageCount: 'pageCount',
+  fetchedPageCount: 'fetchedPageCount',
+  storageBucket: 'storageBucket',
+  storageKey: 'storageKey',
+  processingMetadata: 'processingMetadata',
+  errorCode: 'errorCode',
+  errorMessage: 'errorMessage',
+  finalizedAt: 'finalizedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type MaterialRevisionScalarFieldEnum = (typeof MaterialRevisionScalarFieldEnum)[keyof typeof MaterialRevisionScalarFieldEnum]
+
+
+export const MaterialSectionScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  materialRevisionId: 'materialRevisionId',
+  parentId: 'parentId',
+  ordinal: 'ordinal',
+  level: 'level',
+  title: 'title',
+  normalizedTitle: 'normalizedTitle',
+  pageStart: 'pageStart',
+  pageEnd: 'pageEnd',
+  url: 'url',
+  anchor: 'anchor',
+  headingPath: 'headingPath',
+  metadata: 'metadata',
+  createdAt: 'createdAt'
+} as const
+
+export type MaterialSectionScalarFieldEnum = (typeof MaterialSectionScalarFieldEnum)[keyof typeof MaterialSectionScalarFieldEnum]
+
+
+export const MaterialChunkScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  materialRevisionId: 'materialRevisionId',
+  materialSectionId: 'materialSectionId',
+  sourceFileId: 'sourceFileId',
+  ordinal: 'ordinal',
+  text: 'text',
+  tokenEstimate: 'tokenEstimate',
+  contentHash: 'contentHash',
+  locator: 'locator',
+  headingText: 'headingText',
+  createdAt: 'createdAt'
+} as const
+
+export type MaterialChunkScalarFieldEnum = (typeof MaterialChunkScalarFieldEnum)[keyof typeof MaterialChunkScalarFieldEnum]
+
+
+export const MaterialCleanupJobScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  materialId: 'materialId',
+  status: 'status',
+  attemptCount: 'attemptCount',
+  errorMessage: 'errorMessage',
+  startedAt: 'startedAt',
+  completedAt: 'completedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type MaterialCleanupJobScalarFieldEnum = (typeof MaterialCleanupJobScalarFieldEnum)[keyof typeof MaterialCleanupJobScalarFieldEnum]
 
 
 export const SkillScalarFieldEnum = {
@@ -154,6 +258,52 @@ export const SkillScalarFieldEnum = {
 } as const
 
 export type SkillScalarFieldEnum = (typeof SkillScalarFieldEnum)[keyof typeof SkillScalarFieldEnum]
+
+
+export const SkillDraftBatchScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  materialRevisionId: 'materialRevisionId',
+  instruction: 'instruction',
+  confirmedPlan: 'confirmedPlan',
+  status: 'status',
+  idempotencyKey: 'idempotencyKey',
+  requestedCount: 'requestedCount',
+  readyCount: 'readyCount',
+  failedCount: 'failedCount',
+  excludedCount: 'excludedCount',
+  activatedCount: 'activatedCount',
+  errorCode: 'errorCode',
+  errorMessage: 'errorMessage',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  confirmedAt: 'confirmedAt',
+  completedAt: 'completedAt'
+} as const
+
+export type SkillDraftBatchScalarFieldEnum = (typeof SkillDraftBatchScalarFieldEnum)[keyof typeof SkillDraftBatchScalarFieldEnum]
+
+
+export const SkillDraftBatchItemScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  batchId: 'batchId',
+  skillId: 'skillId',
+  ordinal: 'ordinal',
+  targetKey: 'targetKey',
+  proposedTitle: 'proposedTitle',
+  proposedObjective: 'proposedObjective',
+  locator: 'locator',
+  status: 'status',
+  overlapSkillId: 'overlapSkillId',
+  errorCode: 'errorCode',
+  errorMessage: 'errorMessage',
+  generationAttempts: 'generationAttempts',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type SkillDraftBatchItemScalarFieldEnum = (typeof SkillDraftBatchItemScalarFieldEnum)[keyof typeof SkillDraftBatchItemScalarFieldEnum]
 
 
 export const SkillSourceRefScalarFieldEnum = {
