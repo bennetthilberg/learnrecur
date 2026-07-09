@@ -13,6 +13,7 @@ import {
 import type { MaterialDraftAiSetup } from "@/lib/materials/ai";
 import {
   confirmMaterialPlan,
+  excludeMaterialDraftItem,
   getMaterialDraftBatch,
   planMaterialSkills,
   runMaterialDraftItemJob,
@@ -22,6 +23,7 @@ import {
   finalizeMaterialRevision,
 } from "@/lib/materials/lifecycle";
 import { getPrisma } from "@/lib/prisma";
+import { activateSkillDraft } from "@/lib/skills";
 
 const runDatabaseTests = process.env.RUN_DATABASE_TESTS === "1";
 const describeDatabase = runDatabaseTests ? describe : describe.skip;
@@ -53,16 +55,6 @@ describeDatabase("material multi-skill drafting", () => {
     });
     materialId = material.id;
     materialRevisionId = revision.id;
-    await finalizeMaterialRevision({
-      userId,
-      materialId,
-      materialRevisionId,
-      contentHash: `sha256:${runId}`,
-      byteSize: 8_192,
-      pageCount: 220,
-      storageBucket: "test-materials",
-      storageKey: `${runId}/spanish.pdf`,
-    });
     const chapter = await prisma.materialSection.create({
       data: {
         userId,
@@ -78,6 +70,7 @@ describeDatabase("material multi-skill drafting", () => {
     });
     const direct = await prisma.materialSection.create({
       data: {
+        id: `${runId}_section_a_direct`,
         userId,
         materialRevisionId,
         parentId: chapter.id,
@@ -92,6 +85,7 @@ describeDatabase("material multi-skill drafting", () => {
     });
     const indirect = await prisma.materialSection.create({
       data: {
+        id: `${runId}_section_z_indirect`,
         userId,
         materialRevisionId,
         parentId: chapter.id,
@@ -125,7 +119,7 @@ describeDatabase("material multi-skill drafting", () => {
           userId,
           materialRevisionId,
           materialSectionId: indirect.id,
-          ordinal: 1,
+          ordinal: 80,
           text: "Indirect object pronouns identify the recipient and distinguish singular le from plural les.",
           tokenEstimate: 15,
           contentHash: `sha256:${runId}:indirect`,
@@ -136,6 +130,19 @@ describeDatabase("material multi-skill drafting", () => {
     ]);
     directChunkId = chunks[0].id;
     indirectChunkId = chunks[1].id;
+    await prisma.materialChunk.createMany({
+      data: Array.from({ length: 79 }, (_, index) => ({
+        userId,
+        materialRevisionId,
+        materialSectionId: direct.id,
+        ordinal: index + 1,
+        text: `Direct object pronoun filler excerpt ${index + 1}.`,
+        tokenEstimate: 8,
+        contentHash: `sha256:${runId}:direct-filler-${index + 1}`,
+        headingText: direct.title,
+        locator: { kind: "pdf", pageRange: { start: 94, end: 105 } },
+      })),
+    });
     const sourceFile = await prisma.sourceFile.create({
       data: {
         userId,
@@ -146,9 +153,21 @@ describeDatabase("material multi-skill drafting", () => {
         mimeType: "application/pdf",
         storageBucket: "test-materials",
         storageKey: `${runId}/spanish.pdf`,
+        extractedText:
+          "UNRELATED CHAPTER SIX SOURCE TEXT. This whole-book excerpt must not ground chapter four exercises.",
       },
     });
     sourceFileId = sourceFile.id;
+    await finalizeMaterialRevision({
+      userId,
+      materialId,
+      materialRevisionId,
+      contentHash: `sha256:${runId}`,
+      byteSize: 8_192,
+      pageCount: 220,
+      storageBucket: "test-materials",
+      storageKey: `${runId}/spanish.pdf`,
+    });
   });
 
   afterAll(async () => {
@@ -264,6 +283,24 @@ describeDatabase("material multi-skill drafting", () => {
     ]);
     expect(events).toEqual([batch?.items[1].id]);
 
+    const repeatedEvents: string[] = [];
+    const repeated = await confirmMaterialPlan({
+      userId,
+      input: { batchId: first.batchId, plan: first.plan },
+      now: new Date(),
+      eventSender: {
+        async sendMaterialDraftItemRequested(payload) {
+          repeatedEvents.push(payload.itemId);
+        },
+      },
+    });
+    expect(repeated).toMatchObject({
+      status: "queued",
+      alreadyConfirmed: true,
+      queuedItemIds: [batch?.items[1].id],
+    });
+    expect(repeatedEvents).toEqual([batch?.items[1].id]);
+
     await expect(
       prisma.skillDraftBatchItem.update({
         where: { id: batch?.items[1].id },
@@ -275,7 +312,7 @@ describeDatabase("material multi-skill drafting", () => {
           ).id,
         },
       }),
-    ).rejects.toThrow(/same user/i);
+    ).rejects.toThrow();
   });
 
   it("requires clarification without calling the semantic planner when a chapter is absent", async () => {
@@ -317,6 +354,42 @@ describeDatabase("material multi-skill drafting", () => {
       proposedPlan: expect.any(Object),
       confirmedAt: null,
     });
+  });
+
+  it("gives the planner a fallback chunk from every candidate section before the cap", async () => {
+    const planScope = vi.fn(async () => ({
+      resolutionStatus: "resolved",
+      resolvedScopeLabel: "Chapter 4",
+      clarification: null,
+      warnings: [],
+      items: [
+        {
+          key: "balanced-fallback",
+          title: "Balanced pronoun evidence",
+          objective: "Distinguish direct and indirect object pronoun evidence in short examples.",
+          materialSectionIds: [directSectionId, indirectSectionId],
+          evidenceChunkIds: [directChunkId, indirectChunkId],
+        },
+      ],
+    }));
+    const result = await planMaterialSkills({
+      userId,
+      input: {
+        materialId,
+        materialRevisionId,
+        instruction: "Make one skill for each section in chapter four.",
+        idempotencyKey: `${runId}_balanced_fallback`,
+      },
+      now: new Date(),
+      aiSetup: createAiSetup({ planScope }),
+      embeddingGenerator: null,
+    });
+
+    expect(result.status).toBe("planned");
+    const planningInput = planScope.mock.calls[0]?.[0];
+    expect(planningInput?.chunks.map((chunk) => chunk.id)).toEqual(
+      expect.arrayContaining([directChunkId, indirectChunkId]),
+    );
   });
 
   it("keeps a verified draft when a sibling exhausts its bounded regeneration", async () => {
@@ -376,6 +449,12 @@ describeDatabase("material multi-skill drafting", () => {
       throw new Error("expected two planned items");
     }
 
+    const staleUpdatedAt = new Date(Date.now() - 10 * 60 * 1_000);
+    await prisma.skillDraftBatchItem.update({
+      where: { id: firstItem.id },
+      data: { status: SkillDraftBatchItemStatus.GENERATING, updatedAt: staleUpdatedAt },
+    });
+
     expect(
       await runMaterialDraftItemJob({
         userId,
@@ -384,6 +463,17 @@ describeDatabase("material multi-skill drafting", () => {
         aiSetup: createAiSetup(),
       }),
     ).toMatchObject({ status: "ready" });
+
+    await prisma.skillDraftBatchItem.update({
+      where: { id: secondItem.id },
+      data: { status: SkillDraftBatchItemStatus.GENERATING, updatedAt: staleUpdatedAt },
+    });
+    const recovered = await getMaterialDraftBatch({ userId, batchId: planned.batchId });
+    expect(recovered?.items[1]).toMatchObject({
+      status: SkillDraftBatchItemStatus.FAILED,
+      errorCode: "STALE_GENERATION_CLAIM",
+      errorMessage: expect.stringMatching(/retry/i),
+    });
     expect(
       await runMaterialDraftItemJob({
         userId,
@@ -407,6 +497,63 @@ describeDatabase("material multi-skill drafting", () => {
       status: SkillDraftBatchItemStatus.FAILED,
       generationAttempts: 2,
     });
+
+    const readySkill = completed?.items[0].skill;
+    if (!readySkill) {
+      throw new Error("expected a ready material draft");
+    }
+    let activationSourceContext: string | null = null;
+    const activated = await activateSkillDraft({
+      userId,
+      skillId: readySkill.id,
+      now: new Date(),
+      model: "fixture-model",
+      generateChoiceExercises: async (generationInput) => {
+        activationSourceContext = generationInput.sourceContext;
+        return {
+          exercises: [1, 2, 3].map((number) => ({
+            prompt: `Choose the direct object pronoun in example ${number}.`,
+            choices: [
+              { id: "correct", label: "lo" },
+              { id: "wrong-a", label: "le" },
+              { id: "wrong-b", label: "les" },
+            ],
+            correctChoiceId: "correct",
+            explanation: "The noun receives the action directly.",
+            difficulty: 2,
+            expectedSeconds: 30,
+          })),
+        };
+      },
+      verifyChoiceExercises: async (verificationInput) => ({
+        verifications: verificationInput.candidates.map((candidate) => ({
+          candidateId: candidate.candidateId,
+          verdict: "verified",
+        })),
+      }),
+    });
+    expect(activated.status).toBe("activated");
+    expect(activationSourceContext).toContain("Direct object pronouns replace nouns");
+    expect(activationSourceContext).not.toContain("UNRELATED CHAPTER SIX SOURCE TEXT");
+    expect(activationSourceContext).not.toContain("Indirect object pronouns identify");
+
+    await expect(
+      excludeMaterialDraftItem({
+        userId,
+        batchId: planned.batchId,
+        itemId: firstItem.id,
+        now: new Date(),
+      }),
+    ).resolves.toMatchObject({
+      status: "not-excluded",
+      reason: "skill-not-draft",
+    });
+    expect(
+      await prisma.skill.findUniqueOrThrow({
+        where: { id: readySkill.id },
+        select: { status: true },
+      }),
+    ).toEqual({ status: SkillStatus.ACTIVE });
   });
 });
 

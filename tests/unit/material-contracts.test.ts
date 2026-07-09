@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   MATERIAL_LOCATOR_VERSION,
   materialScopePlanSchema,
+  materialScopeResolutionSchema,
   skillSourceLocatorSchema,
 } from "@/lib/materials/contracts";
 
@@ -98,5 +99,19 @@ describe("material contracts", () => {
         items: [item],
       }),
     ).toThrow();
+  });
+
+  it("rejects a resolved scope preview with no proposed skills", () => {
+    expect(
+      materialScopeResolutionSchema.safeParse({
+        version: 1,
+        materialRevisionId: "revision_1",
+        instruction: "Make a skill from chapter four.",
+        resolutionStatus: "resolved",
+        resolvedScopeLabel: "Chapter 4",
+        warnings: [],
+        items: [],
+      }).success,
+    ).toBe(false);
   });
 });

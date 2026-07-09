@@ -45,9 +45,20 @@ const sections = [
     anchor: null,
   },
   {
-    id: "chapter-6",
+    id: "chapter-5",
     parentId: null,
     ordinal: 3,
+    level: 1,
+    title: "Chapter 5 · The preterite",
+    pageStart: 129,
+    pageEnd: 166,
+    url: null,
+    anchor: null,
+  },
+  {
+    id: "chapter-6",
+    parentId: null,
+    ordinal: 4,
     level: 1,
     title: "Chapter 6 · The subjunctive",
     pageStart: 167,
@@ -58,7 +69,7 @@ const sections = [
   {
     id: "section-6-1",
     parentId: null,
-    ordinal: 4,
+    ordinal: 5,
     level: 2,
     title: "6.1 Present subjunctive forms",
     pageStart: 169,
@@ -100,6 +111,27 @@ describe("material scope planning", () => {
 
     expect(result.candidateSectionIds).toEqual([]);
     expect(result.missingReferences).toEqual(["chapter nine"]);
+  });
+
+  it("resolves shared chapter lists and ranges without dropping later chapters", () => {
+    const listed = resolveStructuralMaterialScope({
+      instruction: "Make one skill from chapter 4 and 5.",
+      sections,
+    });
+    expect(listed.references.map((reference) => reference.number)).toEqual([4, 5]);
+    expect(listed.candidateSectionIds).toEqual([
+      "chapter-4",
+      "section-4-1",
+      "section-4-2",
+      "chapter-5",
+    ]);
+
+    const ranged = resolveStructuralMaterialScope({
+      instruction: "Make skills from chapters 4-6.",
+      sections,
+    });
+    expect(ranged.references.map((reference) => reference.number)).toEqual([4, 5, 6]);
+    expect(ranged.candidateSectionIds).toContain("chapter-6");
   });
 
   it("fails closed when the planner cites evidence outside the structural scope", () => {
@@ -156,6 +188,32 @@ describe("material scope planning", () => {
     });
 
     expect(result).toMatchObject({ status: "invalid", reason: "invalid-response" });
+  });
+
+  it("turns a resolved empty planner response into an actionable ambiguity", () => {
+    const result = validateMaterialScopePlannerResponse({
+      materialRevisionId: "revision-1",
+      instruction: "Make a skill from chapter four",
+      kind: "PDF",
+      allowedSections: sections.slice(0, 3),
+      allowedChunks: chunks.slice(0, 2),
+      rawResponse: {
+        resolutionStatus: "resolved",
+        resolvedScopeLabel: "Chapter 4",
+        clarification: null,
+        warnings: [],
+        items: [],
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: "ready",
+      plan: {
+        resolutionStatus: "ambiguous",
+        items: [],
+        clarification: expect.stringMatching(/specific concept|narrower section/i),
+      },
+    });
   });
 
   it("marks exact existing skills so confirmation can exclude duplicates", () => {

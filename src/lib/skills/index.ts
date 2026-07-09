@@ -34,6 +34,7 @@ import {
   runWithGeminiProviderFallback,
   type GeminiRuntimeConfig,
 } from "@/lib/gemini";
+import { skillSourceLocatorSchema } from "@/lib/materials/contracts";
 import {
   buildOpenRouterDataUrl,
   runOpenRouterJsonChatCompletion,
@@ -369,6 +370,7 @@ type AiProviderUsageRecorder = (usage: AiProviderUsage) => void;
 
 export type SourceMediaContextSourceFile = {
   id: string;
+  materialRevisionId?: string | null;
   kind: SourceFileKind;
   status: SourceFileStatus;
   originalName: string;
@@ -380,6 +382,14 @@ export type SourceMediaContextSourceFile = {
 export type SourceMediaContextLoader = (input: {
   sourceFiles: SourceMediaContextSourceFile[];
 }) => Promise<SourceMediaContext[]>;
+
+type ActivationSourceRef = {
+  locator: Prisma.JsonValue | null;
+  sourceFile: SourceMediaContextSourceFile & {
+    materialRevisionId: string | null;
+    extractedText: string | null;
+  };
+};
 
 export type ChoiceExerciseGeneratorInput = {
   skill: {
@@ -2104,6 +2114,75 @@ async function resolveSourceMediaContext({
   return loadSourceMediaContextForSourceFiles({ sourceFiles: attachableSourceFiles });
 }
 
+async function resolveActivationSourceEvidence(input: {
+  userId: string;
+  sourceRefs: ActivationSourceRef[];
+  sourceMediaLoader?: SourceMediaContextLoader;
+}) {
+  const materialRefs = input.sourceRefs.flatMap((sourceRef) => {
+    if (!sourceRef.sourceFile.materialRevisionId) {
+      return [];
+    }
+    const locator = skillSourceLocatorSchema.safeParse(sourceRef.locator);
+    if (
+      !locator.success ||
+      locator.data.materialRevisionId !== sourceRef.sourceFile.materialRevisionId
+    ) {
+      throw new Error("Stored material evidence has an invalid revision locator.");
+    }
+    return [{ sourceRef, locator: locator.data }];
+  });
+  const materialChunks = materialRefs.length
+    ? await getPrisma().materialChunk.findMany({
+        where: {
+          userId: input.userId,
+          OR: materialRefs.map(({ locator }) => ({
+            materialRevisionId: locator.materialRevisionId,
+            id: { in: locator.evidenceChunkIds },
+          })),
+        },
+        select: {
+          id: true,
+          materialRevisionId: true,
+          ordinal: true,
+          headingText: true,
+          text: true,
+        },
+      })
+    : [];
+  const materialChunkByKey = new Map(
+    materialChunks.map((chunk) => [
+      `${chunk.materialRevisionId}\u0000${chunk.id}`,
+      chunk,
+    ]),
+  );
+  const materialContext = materialRefs.map(({ locator }) =>
+    locator.evidenceChunkIds
+      .map((chunkId) => {
+        const chunk = materialChunkByKey.get(`${locator.materialRevisionId}\u0000${chunkId}`);
+        if (!chunk) {
+          throw new Error("Stored material evidence chunk is no longer available.");
+        }
+        return `${chunk.headingText ?? `Excerpt ${chunk.ordinal + 1}`}\n${chunk.text}`;
+      })
+      .join("\n\n---\n\n"),
+  );
+  const quickRefs = input.sourceRefs.filter(
+    (sourceRef) => !sourceRef.sourceFile.materialRevisionId,
+  );
+
+  return {
+    sourceContext: buildSourceContextExcerpt([
+      ...materialContext,
+      ...quickRefs.map((sourceRef) => sourceRef.sourceFile.extractedText),
+    ]),
+    sourceMedia: await resolveSourceMediaContext({
+      sourceFiles: quickRefs.map((sourceRef) => sourceRef.sourceFile),
+      sourceMediaLoader: input.sourceMediaLoader,
+    }),
+  };
+}
+
 function shouldAttachOriginalSourceMedia(sourceFile: SourceMediaContextSourceFile) {
   return (
     sourceFile.status === SourceFileStatus.READY &&
@@ -2139,9 +2218,11 @@ export async function activateSkillDraft(
           createdAt: "asc",
         },
         select: {
+          locator: true,
           sourceFile: {
             select: {
               id: true,
+              materialRevisionId: true,
               kind: true,
               status: true,
               originalName: true,
@@ -2215,16 +2296,17 @@ export async function activateSkillDraft(
     };
   }
 
-  const sourceContext = buildSourceContextExcerpt(
-    skill.sourceRefs.map((sourceRef) => sourceRef.sourceFile.extractedText),
-  );
+  let sourceContext: string | null;
   let sourceMedia: SourceMediaContext[];
 
   try {
-    sourceMedia = await resolveSourceMediaContext({
-      sourceFiles: skill.sourceRefs.map((sourceRef) => sourceRef.sourceFile),
+    const evidence = await resolveActivationSourceEvidence({
+      userId: input.userId,
+      sourceRefs: skill.sourceRefs,
       sourceMediaLoader: input.sourceMediaLoader,
     });
+    sourceContext = evidence.sourceContext;
+    sourceMedia = evidence.sourceMedia;
   } catch (error) {
     const message = buildSourceMediaLoadFailureMessage(error);
     await markGenerationJobFailed(prisma, generationJob.id, {

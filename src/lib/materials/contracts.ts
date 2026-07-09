@@ -134,6 +134,14 @@ const materialScopeResolutionBaseSchema = z.object({
 
 export const materialScopeResolutionSchema = materialScopeResolutionBaseSchema.superRefine(
   (plan, context) => {
+    if (plan.resolutionStatus === "resolved" && plan.items.length === 0) {
+      context.addIssue({
+        code: "custom",
+        message: "Resolved scope must contain at least one proposed skill.",
+        path: ["items"],
+      });
+    }
+
     if (plan.resolutionStatus === "ambiguous" && !plan.clarification) {
       context.addIssue({
         code: "custom",
