@@ -26,6 +26,8 @@ import {
   inngestSourceUploadDraftEventSender,
   type SourceUploadDraftEventSender,
 } from "@/lib/inngest/events";
+import { inspectPdfPageCount } from "@/lib/materials/pdf";
+import { MAX_QUICK_PDF_PAGES } from "@/lib/materials/quick-flow";
 import {
   runOpenRouterJsonChatCompletion,
   type OpenRouterFallbackConfig,
@@ -966,6 +968,7 @@ export async function queueSourceUploadDrafts(
     where: {
       id: input.sourceFileId,
       userId: input.userId,
+      materialRevisionId: null,
     },
   });
 
@@ -995,39 +998,16 @@ export async function queueSourceUploadDrafts(
     return notQueued("missing-s3-env", storageSetup.message);
   }
 
-  if (!sourceFile.storageKey || !sourceFile.storageBucket || !sourceFile.mimeType) {
-    await cleanupUploadedSource(sourceFile, storageSetup.storage);
-    return notQueued("invalid-upload", "Uploaded source metadata is incomplete.");
+  const uploadValidation = await validateStoredSourceUpload(sourceFile, storageSetup.storage);
+
+  if (uploadValidation.status === "invalid") {
+    if (!uploadValidation.retainStoredObject) {
+      await cleanupUploadedSource(sourceFile, storageSetup.storage);
+    }
+    return notQueued("invalid-upload", uploadValidation.message);
   }
 
-  if (!isAllowedSourceUploadMimeType(sourceFile.mimeType)) {
-    await cleanupUploadedSource(sourceFile, storageSetup.storage);
-    return notQueued("invalid-upload", "Uploaded source MIME type is not supported.");
-  }
-
-  let head;
-
-  try {
-    head = await storageSetup.storage.headObject({
-      key: sourceFile.storageKey,
-      bucket: sourceFile.storageBucket,
-    });
-  } catch (error) {
-    await cleanupUploadedSource(sourceFile, storageSetup.storage);
-    return notQueued("invalid-upload", `Could not verify S3 upload: ${formatEnvError(error)}`);
-  }
-
-  const actualByteSize = head.byteSize ?? sourceFile.byteSize;
-
-  if (!actualByteSize || actualByteSize > MAX_SOURCE_UPLOAD_BYTES) {
-    await cleanupUploadedSource(sourceFile, storageSetup.storage);
-    return notQueued("invalid-upload", "Uploaded file is missing or larger than 10 MB.");
-  }
-
-  if (head.mimeType && head.mimeType !== sourceFile.mimeType) {
-    await cleanupUploadedSource(sourceFile, storageSetup.storage);
-    return notQueued("invalid-upload", "Uploaded file type did not match the prepared upload.");
-  }
+  const actualByteSize = uploadValidation.byteSize;
 
   if (!input.eventSender) {
     const inngestEnv = getInngestEnvStatus();
@@ -1042,6 +1022,7 @@ export async function queueSourceUploadDrafts(
     where: {
       id: sourceFile.id,
       userId: input.userId,
+      materialRevisionId: null,
       status: SourceFileStatus.DRAFT,
     },
     data: {
@@ -1086,6 +1067,7 @@ export async function requeueSourceUploadDraft(
     where: {
       id: input.sourceFileId,
       userId: input.userId,
+      materialRevisionId: null,
     },
     include: {
       _count: {
@@ -1163,6 +1145,7 @@ export async function requeueSourceUploadDraft(
     where: {
       id: sourceFile.id,
       userId: input.userId,
+      materialRevisionId: null,
       status: sourceFile.status,
       storageBucket: sourceFile.storageBucket,
       storageKey: sourceFile.storageKey,
@@ -1195,6 +1178,7 @@ export async function requeueSourceUploadDraft(
       where: {
         id: sourceFile.id,
         userId: input.userId,
+        materialRevisionId: null,
         status: SourceFileStatus.UPLOADED,
         storageBucket: sourceFile.storageBucket,
         storageKey: sourceFile.storageKey,
@@ -1246,6 +1230,7 @@ export async function dismissFailedSourceUpload(
     where: {
       id: input.sourceFileId,
       userId: input.userId,
+      materialRevisionId: null,
     },
     select: {
       id: true,
@@ -1300,6 +1285,7 @@ export async function dismissFailedSourceUpload(
       where: {
         id: sourceFile.id,
         userId: input.userId,
+        materialRevisionId: null,
         kind: sourceFile.kind,
         status: sourceFile.status,
         storageBucket: sourceFile.storageBucket,
@@ -1323,6 +1309,7 @@ export async function dismissFailedSourceUpload(
       where: {
         id: sourceFile.id,
         userId: input.userId,
+        materialRevisionId: null,
         kind: sourceFile.kind,
         status: SourceFileStatus.FAILED,
         storageBucket: sourceFile.storageBucket,
@@ -1348,6 +1335,7 @@ export async function dismissFailedSourceUpload(
       where: {
         id: sourceFile.id,
         userId: input.userId,
+        materialRevisionId: null,
         kind: sourceFile.kind,
         status: SourceFileStatus.FAILED,
         storageBucket: sourceFile.storageBucket,
@@ -1381,6 +1369,7 @@ export async function dismissFailedSourceUpload(
     where: {
       id: sourceFile.id,
       userId: input.userId,
+      materialRevisionId: null,
       kind: sourceFile.kind,
       status: SourceFileStatus.FAILED,
       storageBucket: sourceFile.storageBucket,
@@ -2966,6 +2955,52 @@ async function validateStoredSourceUpload(
       retainStoredObject: false,
       byteSize: actualByteSize,
     };
+  }
+
+  if (sourceFile.mimeType === "application/pdf") {
+    let bytes: Buffer;
+
+    try {
+      bytes = await storage.getObjectBytes({
+        key: sourceFile.storageKey,
+        bucket: sourceFile.storageBucket,
+        maxBytes: MAX_SOURCE_UPLOAD_BYTES,
+      });
+    } catch (error) {
+      const discardObject =
+        isMissingStoredSourceObjectError(error) || isSourceObjectSizeLimitError(error);
+      return {
+        status: "invalid",
+        message: discardObject
+          ? "Uploaded file is missing or larger than 10 MB."
+          : `Could not inspect uploaded PDF: ${formatEnvError(error)}`,
+        retainStoredObject: !discardObject,
+        byteSize: actualByteSize,
+      };
+    }
+
+    // Standard PDFs place the header near the start of the file. Malformed
+    // content remains covered by the existing extraction validator.
+    if (bytes.subarray(0, 1_024).includes(Buffer.from("%PDF-"))) {
+      try {
+        const pageCount = await inspectPdfPageCount(bytes);
+        if (pageCount > MAX_QUICK_PDF_PAGES) {
+          return {
+            status: "invalid",
+            message: `PDFs over ${MAX_QUICK_PDF_PAGES} pages must be saved as reusable Materials.`,
+            retainStoredObject: false,
+            byteSize: actualByteSize,
+          };
+        }
+      } catch {
+        return {
+          status: "invalid",
+          message: "The uploaded PDF could not be inspected. Choose a readable PDF and try again.",
+          retainStoredObject: false,
+          byteSize: actualByteSize,
+        };
+      }
+    }
   }
 
   return {

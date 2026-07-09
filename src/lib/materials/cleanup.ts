@@ -6,7 +6,10 @@ import {
   inngestMaterialCleanupEventSender,
   type MaterialCleanupEventSender,
 } from "@/lib/inngest/events";
-import { requestMaterialDeletion } from "@/lib/materials/lifecycle";
+import {
+  requestMaterialDeletion,
+  rollbackMaterialDeletionRequest,
+} from "@/lib/materials/lifecycle";
 import { getPrisma } from "@/lib/prisma";
 import { resolveS3SourceObjectStorage, type SourceObjectStorage } from "@/lib/storage/s3";
 
@@ -17,10 +20,6 @@ export async function queueMaterialDeletion(input: {
   now: Date;
   eventSender?: MaterialCleanupEventSender;
 }) {
-  const deletion = await requestMaterialDeletion(input);
-  if (deletion.status !== "queued") {
-    return deletion;
-  }
   const envStatus = getInngestEnvStatus();
   if (envStatus.status === "missing-env" && !input.eventSender) {
     return {
@@ -28,6 +27,10 @@ export async function queueMaterialDeletion(input: {
       reason: "queue-unavailable" as const,
       message: envStatus.message,
     };
+  }
+  const deletion = await requestMaterialDeletion(input);
+  if (deletion.status !== "queued") {
+    return deletion;
   }
 
   try {
@@ -38,14 +41,28 @@ export async function queueMaterialDeletion(input: {
       requestedAt: input.now.toISOString(),
     });
   } catch {
+    if (!deletion.alreadyQueued && deletion.previousState) {
+      await rollbackMaterialDeletionRequest({
+        userId: input.userId,
+        materialId: deletion.materialId,
+        cleanupJobId: deletion.cleanupJobId,
+        previousState: deletion.previousState,
+      });
+    }
     return {
       status: "not-deleted" as const,
       reason: "queue-unavailable" as const,
-      message: "Material deletion was saved but cleanup could not be queued. Try again.",
+      message: "Material deletion could not be queued. Try again.",
     };
   }
 
-  return deletion;
+  return {
+    status: deletion.status,
+    materialId: deletion.materialId,
+    cleanupJobId: deletion.cleanupJobId,
+    alreadyQueued: deletion.alreadyQueued,
+    message: deletion.message,
+  };
 }
 
 export async function runMaterialCleanupJob(input: {

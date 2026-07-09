@@ -194,6 +194,7 @@ export async function getSkillsLibrary(input: GetSkillsLibraryInput): Promise<Sk
     prisma.sourceFile.findMany({
       where: {
         userId: input.userId,
+        materialRevisionId: null,
         status: {
           in: [SourceFileStatus.UPLOADED, SourceFileStatus.PROCESSING, SourceFileStatus.FAILED],
         },

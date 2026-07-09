@@ -10,6 +10,7 @@ import {
 } from "@/generated/prisma/client";
 import { queueMaterialDeletion, runMaterialCleanupJob } from "@/lib/materials/cleanup";
 import {
+  discardPreparedMaterialPdf,
   prepareMaterialPdf,
   queueMaterialPdfIngestion,
   queueWebsiteMaterialImport,
@@ -19,6 +20,7 @@ import {
 import { getMaterialDetail, getMaterialLibrary } from "@/lib/materials/library";
 import { MATERIAL_EMBEDDING_DIMENSIONS } from "@/lib/materials/retrieval";
 import { getPrisma } from "@/lib/prisma";
+import { prepareSourceUpload, queueSourceUploadDrafts } from "@/lib/skills/uploads";
 import type { SourceObjectStorage } from "@/lib/storage/s3";
 
 const runDatabaseTests = process.env.RUN_DATABASE_TESTS === "1";
@@ -57,7 +59,7 @@ describeDatabase("material ingestion", () => {
         title: "Practical Spanish Grammar",
         originalName: "spanish-grammar.pdf",
         mimeType: "application/pdf",
-        byteSize: bytes.byteLength,
+        byteSize: String(bytes.byteLength),
       },
     });
     expect(prepared.status).toBe("prepared");
@@ -105,6 +107,76 @@ describeDatabase("material ingestion", () => {
       expect.objectContaining({ pageNumber: 2, textStatus: "NEEDS_OCR" }),
     ]);
     expect(revision.sourceFiles[0].status).toBe(SourceFileStatus.READY);
+  });
+
+  it("discards a prepared PDF when the direct upload does not finish", async () => {
+    const storage = createMemoryStorage();
+    const prepared = await prepareMaterialPdf({
+      userId,
+      now: new Date(),
+      storage,
+      input: {
+        title: "Interrupted PDF upload",
+        originalName: "interrupted.pdf",
+        mimeType: "application/pdf",
+        byteSize: "2048",
+      },
+    });
+    expect(prepared.status).toBe("prepared");
+    if (prepared.status !== "prepared") {
+      throw new Error("expected prepared upload");
+    }
+
+    await expect(
+      discardPreparedMaterialPdf({
+        userId,
+        materialId: prepared.materialId,
+        materialRevisionId: prepared.materialRevisionId,
+        storage,
+      }),
+    ).resolves.toEqual({ status: "discarded" });
+    expect(storage.deleted).toContain(storage.lastPreparedKey);
+    expect(await prisma.studyMaterial.count({ where: { id: prepared.materialId } })).toBe(0);
+  });
+
+  it("rejects a long PDF in quick create on the server", async () => {
+    const document = await PDFDocument.create();
+    for (let page = 0; page < 21; page += 1) {
+      document.addPage();
+    }
+    const bytes = Buffer.from(await document.save());
+    const storage = createMemoryStorage();
+    const prepared = await prepareSourceUpload({
+      userId,
+      now: new Date(),
+      storage,
+      input: {
+        originalName: "long-quick-create.pdf",
+        mimeType: "application/pdf",
+        byteSize: String(bytes.byteLength),
+      },
+    });
+    expect(prepared.status).toBe("prepared");
+    if (prepared.status !== "prepared") {
+      throw new Error("expected prepared quick upload");
+    }
+    storage.objects.set(storage.lastPreparedKey, bytes);
+
+    await expect(
+      queueSourceUploadDrafts({
+        userId,
+        sourceFileId: prepared.sourceFileId,
+        now: new Date(),
+        storage,
+        eventSender: { async sendSourceUploadDraftRequested() {} },
+      }),
+    ).resolves.toMatchObject({
+      status: "not-queued",
+      reason: "invalid-upload",
+      message: expect.stringMatching(/over 20 pages.*Materials/i),
+    });
+    expect(await prisma.sourceFile.count({ where: { id: prepared.sourceFileId } })).toBe(0);
+    expect(storage.deleted).toContain(prepared.objectKey);
   });
 
   it("snapshots selected same-origin website pages and builds URL locators", async () => {
@@ -167,6 +239,65 @@ describeDatabase("material ingestion", () => {
       kind: "web",
       url: "https://books.example/chapter-1",
     });
+  });
+
+  it("fetches large website selections in bounded concurrent groups", async () => {
+    const storage = createMemoryStorage();
+    const selectedUrls = Array.from(
+      { length: 20 },
+      (_, index) => `https://books.example/concurrent-chapter-${index + 1}`,
+    );
+    const queued = await queueWebsiteMaterialImport({
+      userId,
+      now: new Date(),
+      storage,
+      eventSender: { async sendMaterialIngestionRequested() {} },
+      input: {
+        title: "Concurrent website import",
+        sourceUrl: "https://books.example/concurrent-book",
+        selectedUrls,
+      },
+    });
+    expect(queued.status).toBe("queued");
+    if (queued.status !== "queued") {
+      throw new Error("expected queued website import");
+    }
+
+    let inFlight = 0;
+    let maximumInFlight = 0;
+    const result = await runMaterialIngestionJob({
+      userId,
+      materialRevisionId: queued.materialRevisionId,
+      storage,
+      resolveHostname: async () => ["93.184.216.34"],
+      fetchResource: async (url, options) => {
+        expect(options?.maximumBytes).toBeGreaterThan(0);
+        inFlight += 1;
+        maximumInFlight = Math.max(maximumInFlight, inFlight);
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        inFlight -= 1;
+        return {
+          url,
+          contentType: "text/html",
+          bytes: Buffer.from(
+            `<html><body><main><h1>${url.split("-").at(-1)}</h1><p>This chapter contains enough readable textbook content for a stable, bounded website import fixture.</p></main></body></html>`,
+          ),
+        };
+      },
+      embeddingGenerator: null,
+    });
+
+    expect(result).toMatchObject({ status: "ready", pageCount: 20 });
+    expect(maximumInFlight).toBe(16);
+    expect(
+      (
+        await prisma.materialSection.findMany({
+          where: { materialRevisionId: queued.materialRevisionId },
+          orderBy: { ordinal: "asc" },
+          select: { url: true },
+        })
+      ).map((section) => section.url),
+    ).toEqual(selectedUrls);
   });
 
   it("refreshes a website into a new immutable revision without moving existing links", async () => {
@@ -273,6 +404,47 @@ describeDatabase("material ingestion", () => {
         storage,
       }),
     ).toEqual({ status: "already-clean" });
+  });
+
+  it("restores a material when cleanup event delivery fails", async () => {
+    const material = await prisma.studyMaterial.findFirstOrThrow({
+      where: { userId, title: "Practical Spanish Grammar" },
+      include: { activeRevision: true },
+    });
+    const activeRevision = material.activeRevision;
+    if (!activeRevision) {
+      throw new Error("expected active PDF revision");
+    }
+
+    await expect(
+      queueMaterialDeletion({
+        userId,
+        materialId: material.id,
+        confirmationTitle: material.title,
+        now: new Date(),
+        eventSender: {
+          async sendMaterialCleanupRequested() {
+            throw new Error("Inngest unavailable");
+          },
+        },
+      }),
+    ).resolves.toMatchObject({ status: "not-deleted", reason: "queue-unavailable" });
+    await expect(
+      prisma.studyMaterial.findUniqueOrThrow({
+        where: { id: material.id },
+        select: { status: true, activeRevisionId: true, cleanupJob: true },
+      }),
+    ).resolves.toMatchObject({
+      status: material.status,
+      activeRevisionId: activeRevision.id,
+      cleanupJob: null,
+    });
+    await expect(
+      prisma.materialRevision.findUniqueOrThrow({
+        where: { id: activeRevision.id },
+        select: { status: true },
+      }),
+    ).resolves.toEqual({ status: activeRevision.status });
   });
 
 });

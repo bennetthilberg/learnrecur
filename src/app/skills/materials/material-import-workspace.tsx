@@ -11,7 +11,7 @@ import {
 } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import {
   MAX_MATERIAL_PDF_BYTES,
@@ -23,6 +23,7 @@ import type { WebsiteDiscovery } from "@/lib/materials/web";
 import {
   completeMaterialPdfAction,
   confirmWebsiteMaterialAction,
+  discardPreparedMaterialPdfAction,
   discoverWebsiteMaterialAction,
   prepareMaterialPdfAction,
 } from "./actions";
@@ -124,13 +125,16 @@ function MaterialPdfForm({ collections }: { collections: CollectionOption[] }) {
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [isBusy, setIsBusy] = useState(false);
 
   return (
     <form
       className="materialImportForm"
       onSubmit={(event) => {
         event.preventDefault();
+        if (isBusy) {
+          return;
+        }
         if (!file) {
           setError("Choose a PDF to import.");
           return;
@@ -146,9 +150,8 @@ function MaterialPdfForm({ collections }: { collections: CollectionOption[] }) {
         const form = event.currentTarget;
         setError(null);
         setMessage("Preparing a private upload…");
-        startTransition(() => {
-          void submitPdf(form, file);
-        });
+        setIsBusy(true);
+        void submitPdf(form, file).finally(() => setIsBusy(false));
       }}
     >
       <p className="materialImportIntro">
@@ -159,7 +162,7 @@ function MaterialPdfForm({ collections }: { collections: CollectionOption[] }) {
         <label className="skillField">
           <span>Material title</span>
           <input
-            disabled={isPending}
+            disabled={isBusy}
             maxLength={200}
             name="title"
             onChange={(event) => setTitle(event.currentTarget.value)}
@@ -168,12 +171,12 @@ function MaterialPdfForm({ collections }: { collections: CollectionOption[] }) {
             value={title}
           />
         </label>
-        <CollectionSelect collections={collections} disabled={isPending} />
+        <CollectionSelect collections={collections} disabled={isBusy} />
       </div>
       <label className="materialPdfDropzone">
         <input
           accept="application/pdf,.pdf"
-          disabled={isPending}
+          disabled={isBusy}
           onChange={(event) => {
             const selected = event.currentTarget.files?.[0] ?? null;
             setFile(selected);
@@ -191,14 +194,16 @@ function MaterialPdfForm({ collections }: { collections: CollectionOption[] }) {
       </label>
       <ActionMessage error={error} message={message} />
       <div className="skillFormActions materialImportActions">
-        <button className="primaryButton" disabled={isPending} type="submit">
-          {isPending ? "Importing PDF" : "Import PDF"}
+        <button className="primaryButton" disabled={isBusy} type="submit">
+          {isBusy ? "Importing PDF" : "Import PDF"}
         </button>
       </div>
     </form>
   );
 
   async function submitPdf(form: HTMLFormElement, selectedFile: File) {
+    let preparedMaterial: { materialId: string; materialRevisionId: string } | null = null;
+
     try {
       const formData = new FormData(form);
       formData.set("originalName", selectedFile.name);
@@ -210,6 +215,10 @@ function MaterialPdfForm({ collections }: { collections: CollectionOption[] }) {
         setMessage(null);
         return;
       }
+      preparedMaterial = {
+        materialId: prepared.materialId,
+        materialRevisionId: prepared.materialRevisionId,
+      };
       setMessage("Uploading the original PDF…");
       const response = await fetch(prepared.uploadUrl, {
         method: "PUT",
@@ -217,7 +226,8 @@ function MaterialPdfForm({ collections }: { collections: CollectionOption[] }) {
         body: selectedFile,
       });
       if (!response.ok) {
-        setError("The private upload failed. Try the PDF again.");
+        const cleanupError = await discardPreparedUpload(preparedMaterial);
+        setError(cleanupError ?? "The private upload failed. Try the PDF again.");
         setMessage(null);
         return;
       }
@@ -226,15 +236,34 @@ function MaterialPdfForm({ collections }: { collections: CollectionOption[] }) {
         materialRevisionId: prepared.materialRevisionId,
       });
       if (queued.status === "error") {
-        setError(queued.message);
+        const cleanupError = await discardPreparedUpload(preparedMaterial);
+        setError(cleanupError ?? queued.message);
         setMessage(null);
         return;
       }
+      preparedMaterial = null;
       router.push(queued.redirectTo);
       router.refresh();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not import the PDF.");
+      const cleanupError = preparedMaterial
+        ? await discardPreparedUpload(preparedMaterial)
+        : null;
+      setError(
+        cleanupError ?? (caught instanceof Error ? caught.message : "Could not import the PDF."),
+      );
       setMessage(null);
+    }
+  }
+
+  async function discardPreparedUpload(input: {
+    materialId: string;
+    materialRevisionId: string;
+  }) {
+    try {
+      const result = await discardPreparedMaterialPdfAction(input);
+      return result.status === "error" ? result.message : null;
+    } catch {
+      return "The upload failed and its prepared material could not be cleaned up. Open Materials to remove it.";
     }
   }
 }
@@ -248,7 +277,7 @@ function WebsiteMaterialForm({ collections }: { collections: CollectionOption[] 
   const [selectedUrls, setSelectedUrls] = useState<Set<string>>(new Set());
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [isBusy, setIsBusy] = useState(false);
   const selectedCount = selectedUrls.size;
   const allSelected = Boolean(
     discovery && discovery.pages.length > 0 && selectedCount === discovery.pages.length,
@@ -269,8 +298,12 @@ function WebsiteMaterialForm({ collections }: { collections: CollectionOption[] 
         <label className="skillField">
           <span>Textbook or reference URL</span>
           <input
-            disabled={isPending}
-            onChange={(event) => setUrl(event.currentTarget.value)}
+            disabled={isBusy}
+            onChange={(event) => {
+              setUrl(event.currentTarget.value);
+              setDiscovery(null);
+              setSelectedUrls(new Set());
+            }}
             placeholder="https://openstax.org/details/books/..."
             type="url"
             value={url}
@@ -278,13 +311,14 @@ function WebsiteMaterialForm({ collections }: { collections: CollectionOption[] 
         </label>
         <button
           className="secondaryButton"
-          disabled={isPending || !url.trim()}
+          disabled={isBusy || !url.trim()}
           onClick={() => {
+            setDiscovery(null);
+            setSelectedUrls(new Set());
             setError(null);
             setMessage("Reading the table of contents…");
-            startTransition(() => {
-              void discover();
-            });
+            setIsBusy(true);
+            void discover().finally(() => setIsBusy(false));
           }}
           type="button"
         >
@@ -358,7 +392,7 @@ function WebsiteMaterialForm({ collections }: { collections: CollectionOption[] 
                 <label className="skillField">
                   <span>Material title</span>
                   <input
-                    disabled={isPending}
+                    disabled={isBusy}
                     maxLength={200}
                     onChange={(event) => setTitle(event.currentTarget.value)}
                     required
@@ -368,7 +402,7 @@ function WebsiteMaterialForm({ collections }: { collections: CollectionOption[] 
                 <label className="skillField">
                   <span>Collection</span>
                   <select
-                    disabled={isPending}
+                    disabled={isBusy}
                     onChange={(event) => setCollectionId(event.currentTarget.value)}
                     value={collectionId}
                   >
@@ -385,17 +419,16 @@ function WebsiteMaterialForm({ collections }: { collections: CollectionOption[] 
                 <span>{selectedCount} pages selected</span>
                 <button
                   className="primaryButton"
-                  disabled={isPending || selectedCount === 0 || !title.trim()}
+                  disabled={isBusy || selectedCount === 0 || !title.trim()}
                   onClick={() => {
                     setError(null);
                     setMessage("Saving the selected pages…");
-                    startTransition(() => {
-                      void confirmImport();
-                    });
+                    setIsBusy(true);
+                    void confirmImport().finally(() => setIsBusy(false));
                   }}
                   type="button"
                 >
-                  {isPending ? "Importing website" : "Import selected pages"}
+                  {isBusy ? "Importing website" : "Import selected pages"}
                 </button>
               </div>
             </>
@@ -409,6 +442,8 @@ function WebsiteMaterialForm({ collections }: { collections: CollectionOption[] 
   async function discover() {
     const result = await discoverWebsiteMaterialAction({ url });
     if (result.status === "error") {
+      setDiscovery(null);
+      setSelectedUrls(new Set());
       setError(result.message);
       setMessage(null);
       return;
