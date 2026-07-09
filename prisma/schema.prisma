@@ -55,6 +55,13 @@ enum MaterialCleanupStatus {
   FAILED
 }
 
+enum MaterialPageTextStatus {
+  NEEDS_OCR
+  OCR_PROCESSING
+  OCR_READY
+  OCR_FAILED
+}
+
 enum SkillDraftBatchStatus {
   PLANNING
   NEEDS_SCOPE
@@ -186,6 +193,7 @@ model User {
   materialRevisions    MaterialRevision[]
   materialSections     MaterialSection[]
   materialChunks       MaterialChunk[]
+  materialPages        MaterialPage[]
   materialCleanupJobs  MaterialCleanupJob[]
   skillDraftBatches    SkillDraftBatch[]
   skillDraftBatchItems SkillDraftBatchItem[]
@@ -303,6 +311,7 @@ model MaterialRevision {
   sourceFiles       SourceFile[]
   sections          MaterialSection[]
   chunks            MaterialChunk[]
+  pages             MaterialPage[]
   draftBatches      SkillDraftBatch[]
 
   @@unique([id, userId])
@@ -366,6 +375,29 @@ model MaterialChunk {
   @@index([userId])
   @@index([searchText], type: Gin)
   @@map("material_chunks")
+}
+
+model MaterialPage {
+  id                 String                 @id @default(cuid())
+  userId             String
+  materialRevisionId String
+  pageNumber         Int
+  embeddedText       String?
+  ocrText            String?
+  textStatus         MaterialPageTextStatus @default(NEEDS_OCR)
+  contentHash        String
+  tokenEstimate      Int                    @default(0)
+  metadata           Json?
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  materialRevision MaterialRevision @relation(fields: [materialRevisionId, userId], references: [id, userId], onDelete: Cascade)
+
+  @@unique([id, userId])
+  @@unique([materialRevisionId, pageNumber])
+  @@index([userId, textStatus])
+  @@map("material_pages")
 }
 
 model MaterialCleanupJob {

@@ -1,9 +1,18 @@
 import "server-only";
 
+import { NonRetriableError } from "inngest";
+
 import {
   parseExerciseRefillEventPayload,
+  parseMaterialCleanupEventPayload,
+  parseMaterialIngestionEventPayload,
   parseSourceUploadDraftEventPayload,
 } from "@/lib/inngest/events";
+import {
+  MaterialIngestionError,
+  runMaterialIngestionJob,
+} from "@/lib/materials/ingestion";
+import { runMaterialCleanupJob } from "@/lib/materials/cleanup";
 import {
   processDueReminderBatch,
   resolveClerkReminderAccountEmail,
@@ -19,6 +28,8 @@ import {
   CHOICE_REFILL_REQUESTED_EVENT,
   EXACT_INPUT_REFILL_REQUESTED_EVENT,
   MATH_REFILL_REQUESTED_EVENT,
+  MATERIAL_CLEANUP_REQUESTED_EVENT,
+  MATERIAL_INGESTION_REQUESTED_EVENT,
   SOURCE_UPLOAD_DRAFT_REQUESTED_EVENT,
 } from "./events";
 import { inngest } from "./client";
@@ -91,6 +102,47 @@ export const sourceUploadDraftFunction = inngest.createFunction(
   },
 );
 
+export const materialIngestionFunction = inngest.createFunction(
+  {
+    id: "material-ingestion",
+    retries: 3,
+    concurrency: { limit: 1, key: "event.data.userId" },
+    triggers: [{ event: MATERIAL_INGESTION_REQUESTED_EVENT }],
+  },
+  async ({ event, step }) => {
+    const payload = parseMaterialIngestionEventPayload(event.data);
+
+    try {
+      return await step.run("ingest material revision", () =>
+        runMaterialIngestionJob({
+          userId: payload.userId,
+          materialRevisionId: payload.materialRevisionId,
+        }),
+      );
+    } catch (error) {
+      if (error instanceof MaterialIngestionError && !error.retryable) {
+        throw new NonRetriableError(error.message, { cause: error });
+      }
+      throw error;
+    }
+  },
+);
+
+export const materialCleanupFunction = inngest.createFunction(
+  {
+    id: "material-cleanup",
+    retries: 3,
+    concurrency: { limit: 1, key: "event.data.userId" },
+    triggers: [{ event: MATERIAL_CLEANUP_REQUESTED_EVENT }],
+  },
+  async ({ event, step }) => {
+    const payload = parseMaterialCleanupEventPayload(event.data);
+    return step.run("delete material objects and derived data", () =>
+      runMaterialCleanupJob(payload),
+    );
+  },
+);
+
 export const duePracticeReminderFunction = inngest.createFunction(
   {
     id: "due-practice-reminders",
@@ -110,5 +162,7 @@ export const learnRecurInngestFunctions = [
   exactInputExerciseRefillFunction,
   mathExerciseRefillFunction,
   sourceUploadDraftFunction,
+  materialIngestionFunction,
+  materialCleanupFunction,
   duePracticeReminderFunction,
 ];

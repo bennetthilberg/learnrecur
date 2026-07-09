@@ -58,6 +58,7 @@ export const ModelName = {
   MaterialRevision: 'MaterialRevision',
   MaterialSection: 'MaterialSection',
   MaterialChunk: 'MaterialChunk',
+  MaterialPage: 'MaterialPage',
   MaterialCleanupJob: 'MaterialCleanupJob',
   Skill: 'Skill',
   SkillDraftBatch: 'SkillDraftBatch',
@@ -214,6 +215,24 @@ export const MaterialChunkScalarFieldEnum = {
 } as const
 
 export type MaterialChunkScalarFieldEnum = (typeof MaterialChunkScalarFieldEnum)[keyof typeof MaterialChunkScalarFieldEnum]
+
+
+export const MaterialPageScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  materialRevisionId: 'materialRevisionId',
+  pageNumber: 'pageNumber',
+  embeddedText: 'embeddedText',
+  ocrText: 'ocrText',
+  textStatus: 'textStatus',
+  contentHash: 'contentHash',
+  tokenEstimate: 'tokenEstimate',
+  metadata: 'metadata',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type MaterialPageScalarFieldEnum = (typeof MaterialPageScalarFieldEnum)[keyof typeof MaterialPageScalarFieldEnum]
 
 
 export const MaterialCleanupJobScalarFieldEnum = {

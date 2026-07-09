@@ -78,6 +78,16 @@ export const MaterialCleanupStatus = {
 export type MaterialCleanupStatus = (typeof MaterialCleanupStatus)[keyof typeof MaterialCleanupStatus]
 
 
+export const MaterialPageTextStatus = {
+  NEEDS_OCR: 'NEEDS_OCR',
+  OCR_PROCESSING: 'OCR_PROCESSING',
+  OCR_READY: 'OCR_READY',
+  OCR_FAILED: 'OCR_FAILED'
+} as const
+
+export type MaterialPageTextStatus = (typeof MaterialPageTextStatus)[keyof typeof MaterialPageTextStatus]
+
+
 export const SkillDraftBatchStatus = {
   PLANNING: 'PLANNING',
   NEEDS_SCOPE: 'NEEDS_SCOPE',

@@ -204,6 +204,7 @@ export type UserWhereInput = {
   materialRevisions?: Prisma.MaterialRevisionListRelationFilter
   materialSections?: Prisma.MaterialSectionListRelationFilter
   materialChunks?: Prisma.MaterialChunkListRelationFilter
+  materialPages?: Prisma.MaterialPageListRelationFilter
   materialCleanupJobs?: Prisma.MaterialCleanupJobListRelationFilter
   skillDraftBatches?: Prisma.SkillDraftBatchListRelationFilter
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemListRelationFilter
@@ -232,6 +233,7 @@ export type UserOrderByWithRelationInput = {
   materialRevisions?: Prisma.MaterialRevisionOrderByRelationAggregateInput
   materialSections?: Prisma.MaterialSectionOrderByRelationAggregateInput
   materialChunks?: Prisma.MaterialChunkOrderByRelationAggregateInput
+  materialPages?: Prisma.MaterialPageOrderByRelationAggregateInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobOrderByRelationAggregateInput
   skillDraftBatches?: Prisma.SkillDraftBatchOrderByRelationAggregateInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemOrderByRelationAggregateInput
@@ -263,6 +265,7 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   materialRevisions?: Prisma.MaterialRevisionListRelationFilter
   materialSections?: Prisma.MaterialSectionListRelationFilter
   materialChunks?: Prisma.MaterialChunkListRelationFilter
+  materialPages?: Prisma.MaterialPageListRelationFilter
   materialCleanupJobs?: Prisma.MaterialCleanupJobListRelationFilter
   skillDraftBatches?: Prisma.SkillDraftBatchListRelationFilter
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemListRelationFilter
@@ -317,6 +320,7 @@ export type UserCreateInput = {
   materialRevisions?: Prisma.MaterialRevisionCreateNestedManyWithoutUserInput
   materialSections?: Prisma.MaterialSectionCreateNestedManyWithoutUserInput
   materialChunks?: Prisma.MaterialChunkCreateNestedManyWithoutUserInput
+  materialPages?: Prisma.MaterialPageCreateNestedManyWithoutUserInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobCreateNestedManyWithoutUserInput
   skillDraftBatches?: Prisma.SkillDraftBatchCreateNestedManyWithoutUserInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemCreateNestedManyWithoutUserInput
@@ -345,6 +349,7 @@ export type UserUncheckedCreateInput = {
   materialRevisions?: Prisma.MaterialRevisionUncheckedCreateNestedManyWithoutUserInput
   materialSections?: Prisma.MaterialSectionUncheckedCreateNestedManyWithoutUserInput
   materialChunks?: Prisma.MaterialChunkUncheckedCreateNestedManyWithoutUserInput
+  materialPages?: Prisma.MaterialPageUncheckedCreateNestedManyWithoutUserInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobUncheckedCreateNestedManyWithoutUserInput
   skillDraftBatches?: Prisma.SkillDraftBatchUncheckedCreateNestedManyWithoutUserInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemUncheckedCreateNestedManyWithoutUserInput
@@ -373,6 +378,7 @@ export type UserUpdateInput = {
   materialRevisions?: Prisma.MaterialRevisionUpdateManyWithoutUserNestedInput
   materialSections?: Prisma.MaterialSectionUpdateManyWithoutUserNestedInput
   materialChunks?: Prisma.MaterialChunkUpdateManyWithoutUserNestedInput
+  materialPages?: Prisma.MaterialPageUpdateManyWithoutUserNestedInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobUpdateManyWithoutUserNestedInput
   skillDraftBatches?: Prisma.SkillDraftBatchUpdateManyWithoutUserNestedInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemUpdateManyWithoutUserNestedInput
@@ -401,6 +407,7 @@ export type UserUncheckedUpdateInput = {
   materialRevisions?: Prisma.MaterialRevisionUncheckedUpdateManyWithoutUserNestedInput
   materialSections?: Prisma.MaterialSectionUncheckedUpdateManyWithoutUserNestedInput
   materialChunks?: Prisma.MaterialChunkUncheckedUpdateManyWithoutUserNestedInput
+  materialPages?: Prisma.MaterialPageUncheckedUpdateManyWithoutUserNestedInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobUncheckedUpdateManyWithoutUserNestedInput
   skillDraftBatches?: Prisma.SkillDraftBatchUncheckedUpdateManyWithoutUserNestedInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemUncheckedUpdateManyWithoutUserNestedInput
@@ -578,6 +585,20 @@ export type UserUpdateOneRequiredWithoutMaterialChunksNestedInput = {
   upsert?: Prisma.UserUpsertWithoutMaterialChunksInput
   connect?: Prisma.UserWhereUniqueInput
   update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutMaterialChunksInput, Prisma.UserUpdateWithoutMaterialChunksInput>, Prisma.UserUncheckedUpdateWithoutMaterialChunksInput>
+}
+
+export type UserCreateNestedOneWithoutMaterialPagesInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutMaterialPagesInput, Prisma.UserUncheckedCreateWithoutMaterialPagesInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutMaterialPagesInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneRequiredWithoutMaterialPagesNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutMaterialPagesInput, Prisma.UserUncheckedCreateWithoutMaterialPagesInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutMaterialPagesInput
+  upsert?: Prisma.UserUpsertWithoutMaterialPagesInput
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutMaterialPagesInput, Prisma.UserUpdateWithoutMaterialPagesInput>, Prisma.UserUncheckedUpdateWithoutMaterialPagesInput>
 }
 
 export type UserCreateNestedOneWithoutMaterialCleanupJobsInput = {
@@ -761,6 +782,7 @@ export type UserCreateWithoutCollectionsInput = {
   materialRevisions?: Prisma.MaterialRevisionCreateNestedManyWithoutUserInput
   materialSections?: Prisma.MaterialSectionCreateNestedManyWithoutUserInput
   materialChunks?: Prisma.MaterialChunkCreateNestedManyWithoutUserInput
+  materialPages?: Prisma.MaterialPageCreateNestedManyWithoutUserInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobCreateNestedManyWithoutUserInput
   skillDraftBatches?: Prisma.SkillDraftBatchCreateNestedManyWithoutUserInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemCreateNestedManyWithoutUserInput
@@ -788,6 +810,7 @@ export type UserUncheckedCreateWithoutCollectionsInput = {
   materialRevisions?: Prisma.MaterialRevisionUncheckedCreateNestedManyWithoutUserInput
   materialSections?: Prisma.MaterialSectionUncheckedCreateNestedManyWithoutUserInput
   materialChunks?: Prisma.MaterialChunkUncheckedCreateNestedManyWithoutUserInput
+  materialPages?: Prisma.MaterialPageUncheckedCreateNestedManyWithoutUserInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobUncheckedCreateNestedManyWithoutUserInput
   skillDraftBatches?: Prisma.SkillDraftBatchUncheckedCreateNestedManyWithoutUserInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemUncheckedCreateNestedManyWithoutUserInput
@@ -831,6 +854,7 @@ export type UserUpdateWithoutCollectionsInput = {
   materialRevisions?: Prisma.MaterialRevisionUpdateManyWithoutUserNestedInput
   materialSections?: Prisma.MaterialSectionUpdateManyWithoutUserNestedInput
   materialChunks?: Prisma.MaterialChunkUpdateManyWithoutUserNestedInput
+  materialPages?: Prisma.MaterialPageUpdateManyWithoutUserNestedInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobUpdateManyWithoutUserNestedInput
   skillDraftBatches?: Prisma.SkillDraftBatchUpdateManyWithoutUserNestedInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemUpdateManyWithoutUserNestedInput
@@ -858,6 +882,7 @@ export type UserUncheckedUpdateWithoutCollectionsInput = {
   materialRevisions?: Prisma.MaterialRevisionUncheckedUpdateManyWithoutUserNestedInput
   materialSections?: Prisma.MaterialSectionUncheckedUpdateManyWithoutUserNestedInput
   materialChunks?: Prisma.MaterialChunkUncheckedUpdateManyWithoutUserNestedInput
+  materialPages?: Prisma.MaterialPageUncheckedUpdateManyWithoutUserNestedInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobUncheckedUpdateManyWithoutUserNestedInput
   skillDraftBatches?: Prisma.SkillDraftBatchUncheckedUpdateManyWithoutUserNestedInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemUncheckedUpdateManyWithoutUserNestedInput
@@ -885,6 +910,7 @@ export type UserCreateWithoutSourceFilesInput = {
   materialRevisions?: Prisma.MaterialRevisionCreateNestedManyWithoutUserInput
   materialSections?: Prisma.MaterialSectionCreateNestedManyWithoutUserInput
   materialChunks?: Prisma.MaterialChunkCreateNestedManyWithoutUserInput
+  materialPages?: Prisma.MaterialPageCreateNestedManyWithoutUserInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobCreateNestedManyWithoutUserInput
   skillDraftBatches?: Prisma.SkillDraftBatchCreateNestedManyWithoutUserInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemCreateNestedManyWithoutUserInput
@@ -912,6 +938,7 @@ export type UserUncheckedCreateWithoutSourceFilesInput = {
   materialRevisions?: Prisma.MaterialRevisionUncheckedCreateNestedManyWithoutUserInput
   materialSections?: Prisma.MaterialSectionUncheckedCreateNestedManyWithoutUserInput
   materialChunks?: Prisma.MaterialChunkUncheckedCreateNestedManyWithoutUserInput
+  materialPages?: Prisma.MaterialPageUncheckedCreateNestedManyWithoutUserInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobUncheckedCreateNestedManyWithoutUserInput
   skillDraftBatches?: Prisma.SkillDraftBatchUncheckedCreateNestedManyWithoutUserInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemUncheckedCreateNestedManyWithoutUserInput
@@ -955,6 +982,7 @@ export type UserUpdateWithoutSourceFilesInput = {
   materialRevisions?: Prisma.MaterialRevisionUpdateManyWithoutUserNestedInput
   materialSections?: Prisma.MaterialSectionUpdateManyWithoutUserNestedInput
   materialChunks?: Prisma.MaterialChunkUpdateManyWithoutUserNestedInput
+  materialPages?: Prisma.MaterialPageUpdateManyWithoutUserNestedInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobUpdateManyWithoutUserNestedInput
   skillDraftBatches?: Prisma.SkillDraftBatchUpdateManyWithoutUserNestedInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemUpdateManyWithoutUserNestedInput
@@ -982,6 +1010,7 @@ export type UserUncheckedUpdateWithoutSourceFilesInput = {
   materialRevisions?: Prisma.MaterialRevisionUncheckedUpdateManyWithoutUserNestedInput
   materialSections?: Prisma.MaterialSectionUncheckedUpdateManyWithoutUserNestedInput
   materialChunks?: Prisma.MaterialChunkUncheckedUpdateManyWithoutUserNestedInput
+  materialPages?: Prisma.MaterialPageUncheckedUpdateManyWithoutUserNestedInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobUncheckedUpdateManyWithoutUserNestedInput
   skillDraftBatches?: Prisma.SkillDraftBatchUncheckedUpdateManyWithoutUserNestedInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemUncheckedUpdateManyWithoutUserNestedInput
@@ -1009,6 +1038,7 @@ export type UserCreateWithoutStudyMaterialsInput = {
   materialRevisions?: Prisma.MaterialRevisionCreateNestedManyWithoutUserInput
   materialSections?: Prisma.MaterialSectionCreateNestedManyWithoutUserInput
   materialChunks?: Prisma.MaterialChunkCreateNestedManyWithoutUserInput
+  materialPages?: Prisma.MaterialPageCreateNestedManyWithoutUserInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobCreateNestedManyWithoutUserInput
   skillDraftBatches?: Prisma.SkillDraftBatchCreateNestedManyWithoutUserInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemCreateNestedManyWithoutUserInput
@@ -1036,6 +1066,7 @@ export type UserUncheckedCreateWithoutStudyMaterialsInput = {
   materialRevisions?: Prisma.MaterialRevisionUncheckedCreateNestedManyWithoutUserInput
   materialSections?: Prisma.MaterialSectionUncheckedCreateNestedManyWithoutUserInput
   materialChunks?: Prisma.MaterialChunkUncheckedCreateNestedManyWithoutUserInput
+  materialPages?: Prisma.MaterialPageUncheckedCreateNestedManyWithoutUserInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobUncheckedCreateNestedManyWithoutUserInput
   skillDraftBatches?: Prisma.SkillDraftBatchUncheckedCreateNestedManyWithoutUserInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemUncheckedCreateNestedManyWithoutUserInput
@@ -1079,6 +1110,7 @@ export type UserUpdateWithoutStudyMaterialsInput = {
   materialRevisions?: Prisma.MaterialRevisionUpdateManyWithoutUserNestedInput
   materialSections?: Prisma.MaterialSectionUpdateManyWithoutUserNestedInput
   materialChunks?: Prisma.MaterialChunkUpdateManyWithoutUserNestedInput
+  materialPages?: Prisma.MaterialPageUpdateManyWithoutUserNestedInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobUpdateManyWithoutUserNestedInput
   skillDraftBatches?: Prisma.SkillDraftBatchUpdateManyWithoutUserNestedInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemUpdateManyWithoutUserNestedInput
@@ -1106,6 +1138,7 @@ export type UserUncheckedUpdateWithoutStudyMaterialsInput = {
   materialRevisions?: Prisma.MaterialRevisionUncheckedUpdateManyWithoutUserNestedInput
   materialSections?: Prisma.MaterialSectionUncheckedUpdateManyWithoutUserNestedInput
   materialChunks?: Prisma.MaterialChunkUncheckedUpdateManyWithoutUserNestedInput
+  materialPages?: Prisma.MaterialPageUncheckedUpdateManyWithoutUserNestedInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobUncheckedUpdateManyWithoutUserNestedInput
   skillDraftBatches?: Prisma.SkillDraftBatchUncheckedUpdateManyWithoutUserNestedInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemUncheckedUpdateManyWithoutUserNestedInput
@@ -1133,6 +1166,7 @@ export type UserCreateWithoutMaterialRevisionsInput = {
   studyMaterials?: Prisma.StudyMaterialCreateNestedManyWithoutUserInput
   materialSections?: Prisma.MaterialSectionCreateNestedManyWithoutUserInput
   materialChunks?: Prisma.MaterialChunkCreateNestedManyWithoutUserInput
+  materialPages?: Prisma.MaterialPageCreateNestedManyWithoutUserInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobCreateNestedManyWithoutUserInput
   skillDraftBatches?: Prisma.SkillDraftBatchCreateNestedManyWithoutUserInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemCreateNestedManyWithoutUserInput
@@ -1160,6 +1194,7 @@ export type UserUncheckedCreateWithoutMaterialRevisionsInput = {
   studyMaterials?: Prisma.StudyMaterialUncheckedCreateNestedManyWithoutUserInput
   materialSections?: Prisma.MaterialSectionUncheckedCreateNestedManyWithoutUserInput
   materialChunks?: Prisma.MaterialChunkUncheckedCreateNestedManyWithoutUserInput
+  materialPages?: Prisma.MaterialPageUncheckedCreateNestedManyWithoutUserInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobUncheckedCreateNestedManyWithoutUserInput
   skillDraftBatches?: Prisma.SkillDraftBatchUncheckedCreateNestedManyWithoutUserInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemUncheckedCreateNestedManyWithoutUserInput
@@ -1203,6 +1238,7 @@ export type UserUpdateWithoutMaterialRevisionsInput = {
   studyMaterials?: Prisma.StudyMaterialUpdateManyWithoutUserNestedInput
   materialSections?: Prisma.MaterialSectionUpdateManyWithoutUserNestedInput
   materialChunks?: Prisma.MaterialChunkUpdateManyWithoutUserNestedInput
+  materialPages?: Prisma.MaterialPageUpdateManyWithoutUserNestedInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobUpdateManyWithoutUserNestedInput
   skillDraftBatches?: Prisma.SkillDraftBatchUpdateManyWithoutUserNestedInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemUpdateManyWithoutUserNestedInput
@@ -1230,6 +1266,7 @@ export type UserUncheckedUpdateWithoutMaterialRevisionsInput = {
   studyMaterials?: Prisma.StudyMaterialUncheckedUpdateManyWithoutUserNestedInput
   materialSections?: Prisma.MaterialSectionUncheckedUpdateManyWithoutUserNestedInput
   materialChunks?: Prisma.MaterialChunkUncheckedUpdateManyWithoutUserNestedInput
+  materialPages?: Prisma.MaterialPageUncheckedUpdateManyWithoutUserNestedInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobUncheckedUpdateManyWithoutUserNestedInput
   skillDraftBatches?: Prisma.SkillDraftBatchUncheckedUpdateManyWithoutUserNestedInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemUncheckedUpdateManyWithoutUserNestedInput
@@ -1257,6 +1294,7 @@ export type UserCreateWithoutMaterialSectionsInput = {
   studyMaterials?: Prisma.StudyMaterialCreateNestedManyWithoutUserInput
   materialRevisions?: Prisma.MaterialRevisionCreateNestedManyWithoutUserInput
   materialChunks?: Prisma.MaterialChunkCreateNestedManyWithoutUserInput
+  materialPages?: Prisma.MaterialPageCreateNestedManyWithoutUserInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobCreateNestedManyWithoutUserInput
   skillDraftBatches?: Prisma.SkillDraftBatchCreateNestedManyWithoutUserInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemCreateNestedManyWithoutUserInput
@@ -1284,6 +1322,7 @@ export type UserUncheckedCreateWithoutMaterialSectionsInput = {
   studyMaterials?: Prisma.StudyMaterialUncheckedCreateNestedManyWithoutUserInput
   materialRevisions?: Prisma.MaterialRevisionUncheckedCreateNestedManyWithoutUserInput
   materialChunks?: Prisma.MaterialChunkUncheckedCreateNestedManyWithoutUserInput
+  materialPages?: Prisma.MaterialPageUncheckedCreateNestedManyWithoutUserInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobUncheckedCreateNestedManyWithoutUserInput
   skillDraftBatches?: Prisma.SkillDraftBatchUncheckedCreateNestedManyWithoutUserInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemUncheckedCreateNestedManyWithoutUserInput
@@ -1327,6 +1366,7 @@ export type UserUpdateWithoutMaterialSectionsInput = {
   studyMaterials?: Prisma.StudyMaterialUpdateManyWithoutUserNestedInput
   materialRevisions?: Prisma.MaterialRevisionUpdateManyWithoutUserNestedInput
   materialChunks?: Prisma.MaterialChunkUpdateManyWithoutUserNestedInput
+  materialPages?: Prisma.MaterialPageUpdateManyWithoutUserNestedInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobUpdateManyWithoutUserNestedInput
   skillDraftBatches?: Prisma.SkillDraftBatchUpdateManyWithoutUserNestedInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemUpdateManyWithoutUserNestedInput
@@ -1354,6 +1394,7 @@ export type UserUncheckedUpdateWithoutMaterialSectionsInput = {
   studyMaterials?: Prisma.StudyMaterialUncheckedUpdateManyWithoutUserNestedInput
   materialRevisions?: Prisma.MaterialRevisionUncheckedUpdateManyWithoutUserNestedInput
   materialChunks?: Prisma.MaterialChunkUncheckedUpdateManyWithoutUserNestedInput
+  materialPages?: Prisma.MaterialPageUncheckedUpdateManyWithoutUserNestedInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobUncheckedUpdateManyWithoutUserNestedInput
   skillDraftBatches?: Prisma.SkillDraftBatchUncheckedUpdateManyWithoutUserNestedInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemUncheckedUpdateManyWithoutUserNestedInput
@@ -1381,6 +1422,7 @@ export type UserCreateWithoutMaterialChunksInput = {
   studyMaterials?: Prisma.StudyMaterialCreateNestedManyWithoutUserInput
   materialRevisions?: Prisma.MaterialRevisionCreateNestedManyWithoutUserInput
   materialSections?: Prisma.MaterialSectionCreateNestedManyWithoutUserInput
+  materialPages?: Prisma.MaterialPageCreateNestedManyWithoutUserInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobCreateNestedManyWithoutUserInput
   skillDraftBatches?: Prisma.SkillDraftBatchCreateNestedManyWithoutUserInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemCreateNestedManyWithoutUserInput
@@ -1408,6 +1450,7 @@ export type UserUncheckedCreateWithoutMaterialChunksInput = {
   studyMaterials?: Prisma.StudyMaterialUncheckedCreateNestedManyWithoutUserInput
   materialRevisions?: Prisma.MaterialRevisionUncheckedCreateNestedManyWithoutUserInput
   materialSections?: Prisma.MaterialSectionUncheckedCreateNestedManyWithoutUserInput
+  materialPages?: Prisma.MaterialPageUncheckedCreateNestedManyWithoutUserInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobUncheckedCreateNestedManyWithoutUserInput
   skillDraftBatches?: Prisma.SkillDraftBatchUncheckedCreateNestedManyWithoutUserInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemUncheckedCreateNestedManyWithoutUserInput
@@ -1451,6 +1494,7 @@ export type UserUpdateWithoutMaterialChunksInput = {
   studyMaterials?: Prisma.StudyMaterialUpdateManyWithoutUserNestedInput
   materialRevisions?: Prisma.MaterialRevisionUpdateManyWithoutUserNestedInput
   materialSections?: Prisma.MaterialSectionUpdateManyWithoutUserNestedInput
+  materialPages?: Prisma.MaterialPageUpdateManyWithoutUserNestedInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobUpdateManyWithoutUserNestedInput
   skillDraftBatches?: Prisma.SkillDraftBatchUpdateManyWithoutUserNestedInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemUpdateManyWithoutUserNestedInput
@@ -1478,6 +1522,135 @@ export type UserUncheckedUpdateWithoutMaterialChunksInput = {
   studyMaterials?: Prisma.StudyMaterialUncheckedUpdateManyWithoutUserNestedInput
   materialRevisions?: Prisma.MaterialRevisionUncheckedUpdateManyWithoutUserNestedInput
   materialSections?: Prisma.MaterialSectionUncheckedUpdateManyWithoutUserNestedInput
+  materialPages?: Prisma.MaterialPageUncheckedUpdateManyWithoutUserNestedInput
+  materialCleanupJobs?: Prisma.MaterialCleanupJobUncheckedUpdateManyWithoutUserNestedInput
+  skillDraftBatches?: Prisma.SkillDraftBatchUncheckedUpdateManyWithoutUserNestedInput
+  skillDraftBatchItems?: Prisma.SkillDraftBatchItemUncheckedUpdateManyWithoutUserNestedInput
+  skills?: Prisma.SkillUncheckedUpdateManyWithoutUserNestedInput
+  skillSourceRefs?: Prisma.SkillSourceRefUncheckedUpdateManyWithoutUserNestedInput
+  exercises?: Prisma.ExerciseUncheckedUpdateManyWithoutUserNestedInput
+  exerciseAttempts?: Prisma.ExerciseAttemptUncheckedUpdateManyWithoutUserNestedInput
+  reviewLogs?: Prisma.ReviewLogUncheckedUpdateManyWithoutUserNestedInput
+  exerciseFlags?: Prisma.ExerciseFlagUncheckedUpdateManyWithoutUserNestedInput
+  generationJobs?: Prisma.GenerationJobUncheckedUpdateManyWithoutUserNestedInput
+  reminderPreference?: Prisma.ReminderPreferenceUncheckedUpdateOneWithoutUserNestedInput
+  reminderSendLogs?: Prisma.ReminderSendLogUncheckedUpdateManyWithoutUserNestedInput
+}
+
+export type UserCreateWithoutMaterialPagesInput = {
+  id: string
+  email?: string | null
+  name?: string | null
+  imageUrl?: string | null
+  lastSeenAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  collections?: Prisma.CollectionCreateNestedManyWithoutUserInput
+  sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutUserInput
+  studyMaterials?: Prisma.StudyMaterialCreateNestedManyWithoutUserInput
+  materialRevisions?: Prisma.MaterialRevisionCreateNestedManyWithoutUserInput
+  materialSections?: Prisma.MaterialSectionCreateNestedManyWithoutUserInput
+  materialChunks?: Prisma.MaterialChunkCreateNestedManyWithoutUserInput
+  materialCleanupJobs?: Prisma.MaterialCleanupJobCreateNestedManyWithoutUserInput
+  skillDraftBatches?: Prisma.SkillDraftBatchCreateNestedManyWithoutUserInput
+  skillDraftBatchItems?: Prisma.SkillDraftBatchItemCreateNestedManyWithoutUserInput
+  skills?: Prisma.SkillCreateNestedManyWithoutUserInput
+  skillSourceRefs?: Prisma.SkillSourceRefCreateNestedManyWithoutUserInput
+  exercises?: Prisma.ExerciseCreateNestedManyWithoutUserInput
+  exerciseAttempts?: Prisma.ExerciseAttemptCreateNestedManyWithoutUserInput
+  reviewLogs?: Prisma.ReviewLogCreateNestedManyWithoutUserInput
+  exerciseFlags?: Prisma.ExerciseFlagCreateNestedManyWithoutUserInput
+  generationJobs?: Prisma.GenerationJobCreateNestedManyWithoutUserInput
+  reminderPreference?: Prisma.ReminderPreferenceCreateNestedOneWithoutUserInput
+  reminderSendLogs?: Prisma.ReminderSendLogCreateNestedManyWithoutUserInput
+}
+
+export type UserUncheckedCreateWithoutMaterialPagesInput = {
+  id: string
+  email?: string | null
+  name?: string | null
+  imageUrl?: string | null
+  lastSeenAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  collections?: Prisma.CollectionUncheckedCreateNestedManyWithoutUserInput
+  sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutUserInput
+  studyMaterials?: Prisma.StudyMaterialUncheckedCreateNestedManyWithoutUserInput
+  materialRevisions?: Prisma.MaterialRevisionUncheckedCreateNestedManyWithoutUserInput
+  materialSections?: Prisma.MaterialSectionUncheckedCreateNestedManyWithoutUserInput
+  materialChunks?: Prisma.MaterialChunkUncheckedCreateNestedManyWithoutUserInput
+  materialCleanupJobs?: Prisma.MaterialCleanupJobUncheckedCreateNestedManyWithoutUserInput
+  skillDraftBatches?: Prisma.SkillDraftBatchUncheckedCreateNestedManyWithoutUserInput
+  skillDraftBatchItems?: Prisma.SkillDraftBatchItemUncheckedCreateNestedManyWithoutUserInput
+  skills?: Prisma.SkillUncheckedCreateNestedManyWithoutUserInput
+  skillSourceRefs?: Prisma.SkillSourceRefUncheckedCreateNestedManyWithoutUserInput
+  exercises?: Prisma.ExerciseUncheckedCreateNestedManyWithoutUserInput
+  exerciseAttempts?: Prisma.ExerciseAttemptUncheckedCreateNestedManyWithoutUserInput
+  reviewLogs?: Prisma.ReviewLogUncheckedCreateNestedManyWithoutUserInput
+  exerciseFlags?: Prisma.ExerciseFlagUncheckedCreateNestedManyWithoutUserInput
+  generationJobs?: Prisma.GenerationJobUncheckedCreateNestedManyWithoutUserInput
+  reminderPreference?: Prisma.ReminderPreferenceUncheckedCreateNestedOneWithoutUserInput
+  reminderSendLogs?: Prisma.ReminderSendLogUncheckedCreateNestedManyWithoutUserInput
+}
+
+export type UserCreateOrConnectWithoutMaterialPagesInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutMaterialPagesInput, Prisma.UserUncheckedCreateWithoutMaterialPagesInput>
+}
+
+export type UserUpsertWithoutMaterialPagesInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutMaterialPagesInput, Prisma.UserUncheckedUpdateWithoutMaterialPagesInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutMaterialPagesInput, Prisma.UserUncheckedCreateWithoutMaterialPagesInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutMaterialPagesInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutMaterialPagesInput, Prisma.UserUncheckedUpdateWithoutMaterialPagesInput>
+}
+
+export type UserUpdateWithoutMaterialPagesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  imageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  collections?: Prisma.CollectionUpdateManyWithoutUserNestedInput
+  sourceFiles?: Prisma.SourceFileUpdateManyWithoutUserNestedInput
+  studyMaterials?: Prisma.StudyMaterialUpdateManyWithoutUserNestedInput
+  materialRevisions?: Prisma.MaterialRevisionUpdateManyWithoutUserNestedInput
+  materialSections?: Prisma.MaterialSectionUpdateManyWithoutUserNestedInput
+  materialChunks?: Prisma.MaterialChunkUpdateManyWithoutUserNestedInput
+  materialCleanupJobs?: Prisma.MaterialCleanupJobUpdateManyWithoutUserNestedInput
+  skillDraftBatches?: Prisma.SkillDraftBatchUpdateManyWithoutUserNestedInput
+  skillDraftBatchItems?: Prisma.SkillDraftBatchItemUpdateManyWithoutUserNestedInput
+  skills?: Prisma.SkillUpdateManyWithoutUserNestedInput
+  skillSourceRefs?: Prisma.SkillSourceRefUpdateManyWithoutUserNestedInput
+  exercises?: Prisma.ExerciseUpdateManyWithoutUserNestedInput
+  exerciseAttempts?: Prisma.ExerciseAttemptUpdateManyWithoutUserNestedInput
+  reviewLogs?: Prisma.ReviewLogUpdateManyWithoutUserNestedInput
+  exerciseFlags?: Prisma.ExerciseFlagUpdateManyWithoutUserNestedInput
+  generationJobs?: Prisma.GenerationJobUpdateManyWithoutUserNestedInput
+  reminderPreference?: Prisma.ReminderPreferenceUpdateOneWithoutUserNestedInput
+  reminderSendLogs?: Prisma.ReminderSendLogUpdateManyWithoutUserNestedInput
+}
+
+export type UserUncheckedUpdateWithoutMaterialPagesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  imageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  collections?: Prisma.CollectionUncheckedUpdateManyWithoutUserNestedInput
+  sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutUserNestedInput
+  studyMaterials?: Prisma.StudyMaterialUncheckedUpdateManyWithoutUserNestedInput
+  materialRevisions?: Prisma.MaterialRevisionUncheckedUpdateManyWithoutUserNestedInput
+  materialSections?: Prisma.MaterialSectionUncheckedUpdateManyWithoutUserNestedInput
+  materialChunks?: Prisma.MaterialChunkUncheckedUpdateManyWithoutUserNestedInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobUncheckedUpdateManyWithoutUserNestedInput
   skillDraftBatches?: Prisma.SkillDraftBatchUncheckedUpdateManyWithoutUserNestedInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemUncheckedUpdateManyWithoutUserNestedInput
@@ -1506,6 +1679,7 @@ export type UserCreateWithoutMaterialCleanupJobsInput = {
   materialRevisions?: Prisma.MaterialRevisionCreateNestedManyWithoutUserInput
   materialSections?: Prisma.MaterialSectionCreateNestedManyWithoutUserInput
   materialChunks?: Prisma.MaterialChunkCreateNestedManyWithoutUserInput
+  materialPages?: Prisma.MaterialPageCreateNestedManyWithoutUserInput
   skillDraftBatches?: Prisma.SkillDraftBatchCreateNestedManyWithoutUserInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemCreateNestedManyWithoutUserInput
   skills?: Prisma.SkillCreateNestedManyWithoutUserInput
@@ -1533,6 +1707,7 @@ export type UserUncheckedCreateWithoutMaterialCleanupJobsInput = {
   materialRevisions?: Prisma.MaterialRevisionUncheckedCreateNestedManyWithoutUserInput
   materialSections?: Prisma.MaterialSectionUncheckedCreateNestedManyWithoutUserInput
   materialChunks?: Prisma.MaterialChunkUncheckedCreateNestedManyWithoutUserInput
+  materialPages?: Prisma.MaterialPageUncheckedCreateNestedManyWithoutUserInput
   skillDraftBatches?: Prisma.SkillDraftBatchUncheckedCreateNestedManyWithoutUserInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemUncheckedCreateNestedManyWithoutUserInput
   skills?: Prisma.SkillUncheckedCreateNestedManyWithoutUserInput
@@ -1576,6 +1751,7 @@ export type UserUpdateWithoutMaterialCleanupJobsInput = {
   materialRevisions?: Prisma.MaterialRevisionUpdateManyWithoutUserNestedInput
   materialSections?: Prisma.MaterialSectionUpdateManyWithoutUserNestedInput
   materialChunks?: Prisma.MaterialChunkUpdateManyWithoutUserNestedInput
+  materialPages?: Prisma.MaterialPageUpdateManyWithoutUserNestedInput
   skillDraftBatches?: Prisma.SkillDraftBatchUpdateManyWithoutUserNestedInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemUpdateManyWithoutUserNestedInput
   skills?: Prisma.SkillUpdateManyWithoutUserNestedInput
@@ -1603,6 +1779,7 @@ export type UserUncheckedUpdateWithoutMaterialCleanupJobsInput = {
   materialRevisions?: Prisma.MaterialRevisionUncheckedUpdateManyWithoutUserNestedInput
   materialSections?: Prisma.MaterialSectionUncheckedUpdateManyWithoutUserNestedInput
   materialChunks?: Prisma.MaterialChunkUncheckedUpdateManyWithoutUserNestedInput
+  materialPages?: Prisma.MaterialPageUncheckedUpdateManyWithoutUserNestedInput
   skillDraftBatches?: Prisma.SkillDraftBatchUncheckedUpdateManyWithoutUserNestedInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemUncheckedUpdateManyWithoutUserNestedInput
   skills?: Prisma.SkillUncheckedUpdateManyWithoutUserNestedInput
@@ -1630,6 +1807,7 @@ export type UserCreateWithoutSkillsInput = {
   materialRevisions?: Prisma.MaterialRevisionCreateNestedManyWithoutUserInput
   materialSections?: Prisma.MaterialSectionCreateNestedManyWithoutUserInput
   materialChunks?: Prisma.MaterialChunkCreateNestedManyWithoutUserInput
+  materialPages?: Prisma.MaterialPageCreateNestedManyWithoutUserInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobCreateNestedManyWithoutUserInput
   skillDraftBatches?: Prisma.SkillDraftBatchCreateNestedManyWithoutUserInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemCreateNestedManyWithoutUserInput
@@ -1657,6 +1835,7 @@ export type UserUncheckedCreateWithoutSkillsInput = {
   materialRevisions?: Prisma.MaterialRevisionUncheckedCreateNestedManyWithoutUserInput
   materialSections?: Prisma.MaterialSectionUncheckedCreateNestedManyWithoutUserInput
   materialChunks?: Prisma.MaterialChunkUncheckedCreateNestedManyWithoutUserInput
+  materialPages?: Prisma.MaterialPageUncheckedCreateNestedManyWithoutUserInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobUncheckedCreateNestedManyWithoutUserInput
   skillDraftBatches?: Prisma.SkillDraftBatchUncheckedCreateNestedManyWithoutUserInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemUncheckedCreateNestedManyWithoutUserInput
@@ -1700,6 +1879,7 @@ export type UserUpdateWithoutSkillsInput = {
   materialRevisions?: Prisma.MaterialRevisionUpdateManyWithoutUserNestedInput
   materialSections?: Prisma.MaterialSectionUpdateManyWithoutUserNestedInput
   materialChunks?: Prisma.MaterialChunkUpdateManyWithoutUserNestedInput
+  materialPages?: Prisma.MaterialPageUpdateManyWithoutUserNestedInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobUpdateManyWithoutUserNestedInput
   skillDraftBatches?: Prisma.SkillDraftBatchUpdateManyWithoutUserNestedInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemUpdateManyWithoutUserNestedInput
@@ -1727,6 +1907,7 @@ export type UserUncheckedUpdateWithoutSkillsInput = {
   materialRevisions?: Prisma.MaterialRevisionUncheckedUpdateManyWithoutUserNestedInput
   materialSections?: Prisma.MaterialSectionUncheckedUpdateManyWithoutUserNestedInput
   materialChunks?: Prisma.MaterialChunkUncheckedUpdateManyWithoutUserNestedInput
+  materialPages?: Prisma.MaterialPageUncheckedUpdateManyWithoutUserNestedInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobUncheckedUpdateManyWithoutUserNestedInput
   skillDraftBatches?: Prisma.SkillDraftBatchUncheckedUpdateManyWithoutUserNestedInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemUncheckedUpdateManyWithoutUserNestedInput
@@ -1754,6 +1935,7 @@ export type UserCreateWithoutSkillDraftBatchesInput = {
   materialRevisions?: Prisma.MaterialRevisionCreateNestedManyWithoutUserInput
   materialSections?: Prisma.MaterialSectionCreateNestedManyWithoutUserInput
   materialChunks?: Prisma.MaterialChunkCreateNestedManyWithoutUserInput
+  materialPages?: Prisma.MaterialPageCreateNestedManyWithoutUserInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobCreateNestedManyWithoutUserInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemCreateNestedManyWithoutUserInput
   skills?: Prisma.SkillCreateNestedManyWithoutUserInput
@@ -1781,6 +1963,7 @@ export type UserUncheckedCreateWithoutSkillDraftBatchesInput = {
   materialRevisions?: Prisma.MaterialRevisionUncheckedCreateNestedManyWithoutUserInput
   materialSections?: Prisma.MaterialSectionUncheckedCreateNestedManyWithoutUserInput
   materialChunks?: Prisma.MaterialChunkUncheckedCreateNestedManyWithoutUserInput
+  materialPages?: Prisma.MaterialPageUncheckedCreateNestedManyWithoutUserInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobUncheckedCreateNestedManyWithoutUserInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemUncheckedCreateNestedManyWithoutUserInput
   skills?: Prisma.SkillUncheckedCreateNestedManyWithoutUserInput
@@ -1824,6 +2007,7 @@ export type UserUpdateWithoutSkillDraftBatchesInput = {
   materialRevisions?: Prisma.MaterialRevisionUpdateManyWithoutUserNestedInput
   materialSections?: Prisma.MaterialSectionUpdateManyWithoutUserNestedInput
   materialChunks?: Prisma.MaterialChunkUpdateManyWithoutUserNestedInput
+  materialPages?: Prisma.MaterialPageUpdateManyWithoutUserNestedInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobUpdateManyWithoutUserNestedInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemUpdateManyWithoutUserNestedInput
   skills?: Prisma.SkillUpdateManyWithoutUserNestedInput
@@ -1851,6 +2035,7 @@ export type UserUncheckedUpdateWithoutSkillDraftBatchesInput = {
   materialRevisions?: Prisma.MaterialRevisionUncheckedUpdateManyWithoutUserNestedInput
   materialSections?: Prisma.MaterialSectionUncheckedUpdateManyWithoutUserNestedInput
   materialChunks?: Prisma.MaterialChunkUncheckedUpdateManyWithoutUserNestedInput
+  materialPages?: Prisma.MaterialPageUncheckedUpdateManyWithoutUserNestedInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobUncheckedUpdateManyWithoutUserNestedInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemUncheckedUpdateManyWithoutUserNestedInput
   skills?: Prisma.SkillUncheckedUpdateManyWithoutUserNestedInput
@@ -1878,6 +2063,7 @@ export type UserCreateWithoutSkillDraftBatchItemsInput = {
   materialRevisions?: Prisma.MaterialRevisionCreateNestedManyWithoutUserInput
   materialSections?: Prisma.MaterialSectionCreateNestedManyWithoutUserInput
   materialChunks?: Prisma.MaterialChunkCreateNestedManyWithoutUserInput
+  materialPages?: Prisma.MaterialPageCreateNestedManyWithoutUserInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobCreateNestedManyWithoutUserInput
   skillDraftBatches?: Prisma.SkillDraftBatchCreateNestedManyWithoutUserInput
   skills?: Prisma.SkillCreateNestedManyWithoutUserInput
@@ -1905,6 +2091,7 @@ export type UserUncheckedCreateWithoutSkillDraftBatchItemsInput = {
   materialRevisions?: Prisma.MaterialRevisionUncheckedCreateNestedManyWithoutUserInput
   materialSections?: Prisma.MaterialSectionUncheckedCreateNestedManyWithoutUserInput
   materialChunks?: Prisma.MaterialChunkUncheckedCreateNestedManyWithoutUserInput
+  materialPages?: Prisma.MaterialPageUncheckedCreateNestedManyWithoutUserInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobUncheckedCreateNestedManyWithoutUserInput
   skillDraftBatches?: Prisma.SkillDraftBatchUncheckedCreateNestedManyWithoutUserInput
   skills?: Prisma.SkillUncheckedCreateNestedManyWithoutUserInput
@@ -1948,6 +2135,7 @@ export type UserUpdateWithoutSkillDraftBatchItemsInput = {
   materialRevisions?: Prisma.MaterialRevisionUpdateManyWithoutUserNestedInput
   materialSections?: Prisma.MaterialSectionUpdateManyWithoutUserNestedInput
   materialChunks?: Prisma.MaterialChunkUpdateManyWithoutUserNestedInput
+  materialPages?: Prisma.MaterialPageUpdateManyWithoutUserNestedInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobUpdateManyWithoutUserNestedInput
   skillDraftBatches?: Prisma.SkillDraftBatchUpdateManyWithoutUserNestedInput
   skills?: Prisma.SkillUpdateManyWithoutUserNestedInput
@@ -1975,6 +2163,7 @@ export type UserUncheckedUpdateWithoutSkillDraftBatchItemsInput = {
   materialRevisions?: Prisma.MaterialRevisionUncheckedUpdateManyWithoutUserNestedInput
   materialSections?: Prisma.MaterialSectionUncheckedUpdateManyWithoutUserNestedInput
   materialChunks?: Prisma.MaterialChunkUncheckedUpdateManyWithoutUserNestedInput
+  materialPages?: Prisma.MaterialPageUncheckedUpdateManyWithoutUserNestedInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobUncheckedUpdateManyWithoutUserNestedInput
   skillDraftBatches?: Prisma.SkillDraftBatchUncheckedUpdateManyWithoutUserNestedInput
   skills?: Prisma.SkillUncheckedUpdateManyWithoutUserNestedInput
@@ -2002,6 +2191,7 @@ export type UserCreateWithoutSkillSourceRefsInput = {
   materialRevisions?: Prisma.MaterialRevisionCreateNestedManyWithoutUserInput
   materialSections?: Prisma.MaterialSectionCreateNestedManyWithoutUserInput
   materialChunks?: Prisma.MaterialChunkCreateNestedManyWithoutUserInput
+  materialPages?: Prisma.MaterialPageCreateNestedManyWithoutUserInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobCreateNestedManyWithoutUserInput
   skillDraftBatches?: Prisma.SkillDraftBatchCreateNestedManyWithoutUserInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemCreateNestedManyWithoutUserInput
@@ -2029,6 +2219,7 @@ export type UserUncheckedCreateWithoutSkillSourceRefsInput = {
   materialRevisions?: Prisma.MaterialRevisionUncheckedCreateNestedManyWithoutUserInput
   materialSections?: Prisma.MaterialSectionUncheckedCreateNestedManyWithoutUserInput
   materialChunks?: Prisma.MaterialChunkUncheckedCreateNestedManyWithoutUserInput
+  materialPages?: Prisma.MaterialPageUncheckedCreateNestedManyWithoutUserInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobUncheckedCreateNestedManyWithoutUserInput
   skillDraftBatches?: Prisma.SkillDraftBatchUncheckedCreateNestedManyWithoutUserInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemUncheckedCreateNestedManyWithoutUserInput
@@ -2072,6 +2263,7 @@ export type UserUpdateWithoutSkillSourceRefsInput = {
   materialRevisions?: Prisma.MaterialRevisionUpdateManyWithoutUserNestedInput
   materialSections?: Prisma.MaterialSectionUpdateManyWithoutUserNestedInput
   materialChunks?: Prisma.MaterialChunkUpdateManyWithoutUserNestedInput
+  materialPages?: Prisma.MaterialPageUpdateManyWithoutUserNestedInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobUpdateManyWithoutUserNestedInput
   skillDraftBatches?: Prisma.SkillDraftBatchUpdateManyWithoutUserNestedInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemUpdateManyWithoutUserNestedInput
@@ -2099,6 +2291,7 @@ export type UserUncheckedUpdateWithoutSkillSourceRefsInput = {
   materialRevisions?: Prisma.MaterialRevisionUncheckedUpdateManyWithoutUserNestedInput
   materialSections?: Prisma.MaterialSectionUncheckedUpdateManyWithoutUserNestedInput
   materialChunks?: Prisma.MaterialChunkUncheckedUpdateManyWithoutUserNestedInput
+  materialPages?: Prisma.MaterialPageUncheckedUpdateManyWithoutUserNestedInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobUncheckedUpdateManyWithoutUserNestedInput
   skillDraftBatches?: Prisma.SkillDraftBatchUncheckedUpdateManyWithoutUserNestedInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemUncheckedUpdateManyWithoutUserNestedInput
@@ -2126,6 +2319,7 @@ export type UserCreateWithoutExercisesInput = {
   materialRevisions?: Prisma.MaterialRevisionCreateNestedManyWithoutUserInput
   materialSections?: Prisma.MaterialSectionCreateNestedManyWithoutUserInput
   materialChunks?: Prisma.MaterialChunkCreateNestedManyWithoutUserInput
+  materialPages?: Prisma.MaterialPageCreateNestedManyWithoutUserInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobCreateNestedManyWithoutUserInput
   skillDraftBatches?: Prisma.SkillDraftBatchCreateNestedManyWithoutUserInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemCreateNestedManyWithoutUserInput
@@ -2153,6 +2347,7 @@ export type UserUncheckedCreateWithoutExercisesInput = {
   materialRevisions?: Prisma.MaterialRevisionUncheckedCreateNestedManyWithoutUserInput
   materialSections?: Prisma.MaterialSectionUncheckedCreateNestedManyWithoutUserInput
   materialChunks?: Prisma.MaterialChunkUncheckedCreateNestedManyWithoutUserInput
+  materialPages?: Prisma.MaterialPageUncheckedCreateNestedManyWithoutUserInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobUncheckedCreateNestedManyWithoutUserInput
   skillDraftBatches?: Prisma.SkillDraftBatchUncheckedCreateNestedManyWithoutUserInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemUncheckedCreateNestedManyWithoutUserInput
@@ -2196,6 +2391,7 @@ export type UserUpdateWithoutExercisesInput = {
   materialRevisions?: Prisma.MaterialRevisionUpdateManyWithoutUserNestedInput
   materialSections?: Prisma.MaterialSectionUpdateManyWithoutUserNestedInput
   materialChunks?: Prisma.MaterialChunkUpdateManyWithoutUserNestedInput
+  materialPages?: Prisma.MaterialPageUpdateManyWithoutUserNestedInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobUpdateManyWithoutUserNestedInput
   skillDraftBatches?: Prisma.SkillDraftBatchUpdateManyWithoutUserNestedInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemUpdateManyWithoutUserNestedInput
@@ -2223,6 +2419,7 @@ export type UserUncheckedUpdateWithoutExercisesInput = {
   materialRevisions?: Prisma.MaterialRevisionUncheckedUpdateManyWithoutUserNestedInput
   materialSections?: Prisma.MaterialSectionUncheckedUpdateManyWithoutUserNestedInput
   materialChunks?: Prisma.MaterialChunkUncheckedUpdateManyWithoutUserNestedInput
+  materialPages?: Prisma.MaterialPageUncheckedUpdateManyWithoutUserNestedInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobUncheckedUpdateManyWithoutUserNestedInput
   skillDraftBatches?: Prisma.SkillDraftBatchUncheckedUpdateManyWithoutUserNestedInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemUncheckedUpdateManyWithoutUserNestedInput
@@ -2250,6 +2447,7 @@ export type UserCreateWithoutExerciseAttemptsInput = {
   materialRevisions?: Prisma.MaterialRevisionCreateNestedManyWithoutUserInput
   materialSections?: Prisma.MaterialSectionCreateNestedManyWithoutUserInput
   materialChunks?: Prisma.MaterialChunkCreateNestedManyWithoutUserInput
+  materialPages?: Prisma.MaterialPageCreateNestedManyWithoutUserInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobCreateNestedManyWithoutUserInput
   skillDraftBatches?: Prisma.SkillDraftBatchCreateNestedManyWithoutUserInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemCreateNestedManyWithoutUserInput
@@ -2277,6 +2475,7 @@ export type UserUncheckedCreateWithoutExerciseAttemptsInput = {
   materialRevisions?: Prisma.MaterialRevisionUncheckedCreateNestedManyWithoutUserInput
   materialSections?: Prisma.MaterialSectionUncheckedCreateNestedManyWithoutUserInput
   materialChunks?: Prisma.MaterialChunkUncheckedCreateNestedManyWithoutUserInput
+  materialPages?: Prisma.MaterialPageUncheckedCreateNestedManyWithoutUserInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobUncheckedCreateNestedManyWithoutUserInput
   skillDraftBatches?: Prisma.SkillDraftBatchUncheckedCreateNestedManyWithoutUserInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemUncheckedCreateNestedManyWithoutUserInput
@@ -2320,6 +2519,7 @@ export type UserUpdateWithoutExerciseAttemptsInput = {
   materialRevisions?: Prisma.MaterialRevisionUpdateManyWithoutUserNestedInput
   materialSections?: Prisma.MaterialSectionUpdateManyWithoutUserNestedInput
   materialChunks?: Prisma.MaterialChunkUpdateManyWithoutUserNestedInput
+  materialPages?: Prisma.MaterialPageUpdateManyWithoutUserNestedInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobUpdateManyWithoutUserNestedInput
   skillDraftBatches?: Prisma.SkillDraftBatchUpdateManyWithoutUserNestedInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemUpdateManyWithoutUserNestedInput
@@ -2347,6 +2547,7 @@ export type UserUncheckedUpdateWithoutExerciseAttemptsInput = {
   materialRevisions?: Prisma.MaterialRevisionUncheckedUpdateManyWithoutUserNestedInput
   materialSections?: Prisma.MaterialSectionUncheckedUpdateManyWithoutUserNestedInput
   materialChunks?: Prisma.MaterialChunkUncheckedUpdateManyWithoutUserNestedInput
+  materialPages?: Prisma.MaterialPageUncheckedUpdateManyWithoutUserNestedInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobUncheckedUpdateManyWithoutUserNestedInput
   skillDraftBatches?: Prisma.SkillDraftBatchUncheckedUpdateManyWithoutUserNestedInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemUncheckedUpdateManyWithoutUserNestedInput
@@ -2374,6 +2575,7 @@ export type UserCreateWithoutReviewLogsInput = {
   materialRevisions?: Prisma.MaterialRevisionCreateNestedManyWithoutUserInput
   materialSections?: Prisma.MaterialSectionCreateNestedManyWithoutUserInput
   materialChunks?: Prisma.MaterialChunkCreateNestedManyWithoutUserInput
+  materialPages?: Prisma.MaterialPageCreateNestedManyWithoutUserInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobCreateNestedManyWithoutUserInput
   skillDraftBatches?: Prisma.SkillDraftBatchCreateNestedManyWithoutUserInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemCreateNestedManyWithoutUserInput
@@ -2401,6 +2603,7 @@ export type UserUncheckedCreateWithoutReviewLogsInput = {
   materialRevisions?: Prisma.MaterialRevisionUncheckedCreateNestedManyWithoutUserInput
   materialSections?: Prisma.MaterialSectionUncheckedCreateNestedManyWithoutUserInput
   materialChunks?: Prisma.MaterialChunkUncheckedCreateNestedManyWithoutUserInput
+  materialPages?: Prisma.MaterialPageUncheckedCreateNestedManyWithoutUserInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobUncheckedCreateNestedManyWithoutUserInput
   skillDraftBatches?: Prisma.SkillDraftBatchUncheckedCreateNestedManyWithoutUserInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemUncheckedCreateNestedManyWithoutUserInput
@@ -2444,6 +2647,7 @@ export type UserUpdateWithoutReviewLogsInput = {
   materialRevisions?: Prisma.MaterialRevisionUpdateManyWithoutUserNestedInput
   materialSections?: Prisma.MaterialSectionUpdateManyWithoutUserNestedInput
   materialChunks?: Prisma.MaterialChunkUpdateManyWithoutUserNestedInput
+  materialPages?: Prisma.MaterialPageUpdateManyWithoutUserNestedInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobUpdateManyWithoutUserNestedInput
   skillDraftBatches?: Prisma.SkillDraftBatchUpdateManyWithoutUserNestedInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemUpdateManyWithoutUserNestedInput
@@ -2471,6 +2675,7 @@ export type UserUncheckedUpdateWithoutReviewLogsInput = {
   materialRevisions?: Prisma.MaterialRevisionUncheckedUpdateManyWithoutUserNestedInput
   materialSections?: Prisma.MaterialSectionUncheckedUpdateManyWithoutUserNestedInput
   materialChunks?: Prisma.MaterialChunkUncheckedUpdateManyWithoutUserNestedInput
+  materialPages?: Prisma.MaterialPageUncheckedUpdateManyWithoutUserNestedInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobUncheckedUpdateManyWithoutUserNestedInput
   skillDraftBatches?: Prisma.SkillDraftBatchUncheckedUpdateManyWithoutUserNestedInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemUncheckedUpdateManyWithoutUserNestedInput
@@ -2498,6 +2703,7 @@ export type UserCreateWithoutExerciseFlagsInput = {
   materialRevisions?: Prisma.MaterialRevisionCreateNestedManyWithoutUserInput
   materialSections?: Prisma.MaterialSectionCreateNestedManyWithoutUserInput
   materialChunks?: Prisma.MaterialChunkCreateNestedManyWithoutUserInput
+  materialPages?: Prisma.MaterialPageCreateNestedManyWithoutUserInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobCreateNestedManyWithoutUserInput
   skillDraftBatches?: Prisma.SkillDraftBatchCreateNestedManyWithoutUserInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemCreateNestedManyWithoutUserInput
@@ -2525,6 +2731,7 @@ export type UserUncheckedCreateWithoutExerciseFlagsInput = {
   materialRevisions?: Prisma.MaterialRevisionUncheckedCreateNestedManyWithoutUserInput
   materialSections?: Prisma.MaterialSectionUncheckedCreateNestedManyWithoutUserInput
   materialChunks?: Prisma.MaterialChunkUncheckedCreateNestedManyWithoutUserInput
+  materialPages?: Prisma.MaterialPageUncheckedCreateNestedManyWithoutUserInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobUncheckedCreateNestedManyWithoutUserInput
   skillDraftBatches?: Prisma.SkillDraftBatchUncheckedCreateNestedManyWithoutUserInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemUncheckedCreateNestedManyWithoutUserInput
@@ -2568,6 +2775,7 @@ export type UserUpdateWithoutExerciseFlagsInput = {
   materialRevisions?: Prisma.MaterialRevisionUpdateManyWithoutUserNestedInput
   materialSections?: Prisma.MaterialSectionUpdateManyWithoutUserNestedInput
   materialChunks?: Prisma.MaterialChunkUpdateManyWithoutUserNestedInput
+  materialPages?: Prisma.MaterialPageUpdateManyWithoutUserNestedInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobUpdateManyWithoutUserNestedInput
   skillDraftBatches?: Prisma.SkillDraftBatchUpdateManyWithoutUserNestedInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemUpdateManyWithoutUserNestedInput
@@ -2595,6 +2803,7 @@ export type UserUncheckedUpdateWithoutExerciseFlagsInput = {
   materialRevisions?: Prisma.MaterialRevisionUncheckedUpdateManyWithoutUserNestedInput
   materialSections?: Prisma.MaterialSectionUncheckedUpdateManyWithoutUserNestedInput
   materialChunks?: Prisma.MaterialChunkUncheckedUpdateManyWithoutUserNestedInput
+  materialPages?: Prisma.MaterialPageUncheckedUpdateManyWithoutUserNestedInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobUncheckedUpdateManyWithoutUserNestedInput
   skillDraftBatches?: Prisma.SkillDraftBatchUncheckedUpdateManyWithoutUserNestedInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemUncheckedUpdateManyWithoutUserNestedInput
@@ -2622,6 +2831,7 @@ export type UserCreateWithoutGenerationJobsInput = {
   materialRevisions?: Prisma.MaterialRevisionCreateNestedManyWithoutUserInput
   materialSections?: Prisma.MaterialSectionCreateNestedManyWithoutUserInput
   materialChunks?: Prisma.MaterialChunkCreateNestedManyWithoutUserInput
+  materialPages?: Prisma.MaterialPageCreateNestedManyWithoutUserInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobCreateNestedManyWithoutUserInput
   skillDraftBatches?: Prisma.SkillDraftBatchCreateNestedManyWithoutUserInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemCreateNestedManyWithoutUserInput
@@ -2649,6 +2859,7 @@ export type UserUncheckedCreateWithoutGenerationJobsInput = {
   materialRevisions?: Prisma.MaterialRevisionUncheckedCreateNestedManyWithoutUserInput
   materialSections?: Prisma.MaterialSectionUncheckedCreateNestedManyWithoutUserInput
   materialChunks?: Prisma.MaterialChunkUncheckedCreateNestedManyWithoutUserInput
+  materialPages?: Prisma.MaterialPageUncheckedCreateNestedManyWithoutUserInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobUncheckedCreateNestedManyWithoutUserInput
   skillDraftBatches?: Prisma.SkillDraftBatchUncheckedCreateNestedManyWithoutUserInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemUncheckedCreateNestedManyWithoutUserInput
@@ -2692,6 +2903,7 @@ export type UserUpdateWithoutGenerationJobsInput = {
   materialRevisions?: Prisma.MaterialRevisionUpdateManyWithoutUserNestedInput
   materialSections?: Prisma.MaterialSectionUpdateManyWithoutUserNestedInput
   materialChunks?: Prisma.MaterialChunkUpdateManyWithoutUserNestedInput
+  materialPages?: Prisma.MaterialPageUpdateManyWithoutUserNestedInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobUpdateManyWithoutUserNestedInput
   skillDraftBatches?: Prisma.SkillDraftBatchUpdateManyWithoutUserNestedInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemUpdateManyWithoutUserNestedInput
@@ -2719,6 +2931,7 @@ export type UserUncheckedUpdateWithoutGenerationJobsInput = {
   materialRevisions?: Prisma.MaterialRevisionUncheckedUpdateManyWithoutUserNestedInput
   materialSections?: Prisma.MaterialSectionUncheckedUpdateManyWithoutUserNestedInput
   materialChunks?: Prisma.MaterialChunkUncheckedUpdateManyWithoutUserNestedInput
+  materialPages?: Prisma.MaterialPageUncheckedUpdateManyWithoutUserNestedInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobUncheckedUpdateManyWithoutUserNestedInput
   skillDraftBatches?: Prisma.SkillDraftBatchUncheckedUpdateManyWithoutUserNestedInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemUncheckedUpdateManyWithoutUserNestedInput
@@ -2746,6 +2959,7 @@ export type UserCreateWithoutReminderPreferenceInput = {
   materialRevisions?: Prisma.MaterialRevisionCreateNestedManyWithoutUserInput
   materialSections?: Prisma.MaterialSectionCreateNestedManyWithoutUserInput
   materialChunks?: Prisma.MaterialChunkCreateNestedManyWithoutUserInput
+  materialPages?: Prisma.MaterialPageCreateNestedManyWithoutUserInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobCreateNestedManyWithoutUserInput
   skillDraftBatches?: Prisma.SkillDraftBatchCreateNestedManyWithoutUserInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemCreateNestedManyWithoutUserInput
@@ -2773,6 +2987,7 @@ export type UserUncheckedCreateWithoutReminderPreferenceInput = {
   materialRevisions?: Prisma.MaterialRevisionUncheckedCreateNestedManyWithoutUserInput
   materialSections?: Prisma.MaterialSectionUncheckedCreateNestedManyWithoutUserInput
   materialChunks?: Prisma.MaterialChunkUncheckedCreateNestedManyWithoutUserInput
+  materialPages?: Prisma.MaterialPageUncheckedCreateNestedManyWithoutUserInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobUncheckedCreateNestedManyWithoutUserInput
   skillDraftBatches?: Prisma.SkillDraftBatchUncheckedCreateNestedManyWithoutUserInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemUncheckedCreateNestedManyWithoutUserInput
@@ -2816,6 +3031,7 @@ export type UserUpdateWithoutReminderPreferenceInput = {
   materialRevisions?: Prisma.MaterialRevisionUpdateManyWithoutUserNestedInput
   materialSections?: Prisma.MaterialSectionUpdateManyWithoutUserNestedInput
   materialChunks?: Prisma.MaterialChunkUpdateManyWithoutUserNestedInput
+  materialPages?: Prisma.MaterialPageUpdateManyWithoutUserNestedInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobUpdateManyWithoutUserNestedInput
   skillDraftBatches?: Prisma.SkillDraftBatchUpdateManyWithoutUserNestedInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemUpdateManyWithoutUserNestedInput
@@ -2843,6 +3059,7 @@ export type UserUncheckedUpdateWithoutReminderPreferenceInput = {
   materialRevisions?: Prisma.MaterialRevisionUncheckedUpdateManyWithoutUserNestedInput
   materialSections?: Prisma.MaterialSectionUncheckedUpdateManyWithoutUserNestedInput
   materialChunks?: Prisma.MaterialChunkUncheckedUpdateManyWithoutUserNestedInput
+  materialPages?: Prisma.MaterialPageUncheckedUpdateManyWithoutUserNestedInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobUncheckedUpdateManyWithoutUserNestedInput
   skillDraftBatches?: Prisma.SkillDraftBatchUncheckedUpdateManyWithoutUserNestedInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemUncheckedUpdateManyWithoutUserNestedInput
@@ -2870,6 +3087,7 @@ export type UserCreateWithoutReminderSendLogsInput = {
   materialRevisions?: Prisma.MaterialRevisionCreateNestedManyWithoutUserInput
   materialSections?: Prisma.MaterialSectionCreateNestedManyWithoutUserInput
   materialChunks?: Prisma.MaterialChunkCreateNestedManyWithoutUserInput
+  materialPages?: Prisma.MaterialPageCreateNestedManyWithoutUserInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobCreateNestedManyWithoutUserInput
   skillDraftBatches?: Prisma.SkillDraftBatchCreateNestedManyWithoutUserInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemCreateNestedManyWithoutUserInput
@@ -2897,6 +3115,7 @@ export type UserUncheckedCreateWithoutReminderSendLogsInput = {
   materialRevisions?: Prisma.MaterialRevisionUncheckedCreateNestedManyWithoutUserInput
   materialSections?: Prisma.MaterialSectionUncheckedCreateNestedManyWithoutUserInput
   materialChunks?: Prisma.MaterialChunkUncheckedCreateNestedManyWithoutUserInput
+  materialPages?: Prisma.MaterialPageUncheckedCreateNestedManyWithoutUserInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobUncheckedCreateNestedManyWithoutUserInput
   skillDraftBatches?: Prisma.SkillDraftBatchUncheckedCreateNestedManyWithoutUserInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemUncheckedCreateNestedManyWithoutUserInput
@@ -2940,6 +3159,7 @@ export type UserUpdateWithoutReminderSendLogsInput = {
   materialRevisions?: Prisma.MaterialRevisionUpdateManyWithoutUserNestedInput
   materialSections?: Prisma.MaterialSectionUpdateManyWithoutUserNestedInput
   materialChunks?: Prisma.MaterialChunkUpdateManyWithoutUserNestedInput
+  materialPages?: Prisma.MaterialPageUpdateManyWithoutUserNestedInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobUpdateManyWithoutUserNestedInput
   skillDraftBatches?: Prisma.SkillDraftBatchUpdateManyWithoutUserNestedInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemUpdateManyWithoutUserNestedInput
@@ -2967,6 +3187,7 @@ export type UserUncheckedUpdateWithoutReminderSendLogsInput = {
   materialRevisions?: Prisma.MaterialRevisionUncheckedUpdateManyWithoutUserNestedInput
   materialSections?: Prisma.MaterialSectionUncheckedUpdateManyWithoutUserNestedInput
   materialChunks?: Prisma.MaterialChunkUncheckedUpdateManyWithoutUserNestedInput
+  materialPages?: Prisma.MaterialPageUncheckedUpdateManyWithoutUserNestedInput
   materialCleanupJobs?: Prisma.MaterialCleanupJobUncheckedUpdateManyWithoutUserNestedInput
   skillDraftBatches?: Prisma.SkillDraftBatchUncheckedUpdateManyWithoutUserNestedInput
   skillDraftBatchItems?: Prisma.SkillDraftBatchItemUncheckedUpdateManyWithoutUserNestedInput
@@ -2992,6 +3213,7 @@ export type UserCountOutputType = {
   materialRevisions: number
   materialSections: number
   materialChunks: number
+  materialPages: number
   materialCleanupJobs: number
   skillDraftBatches: number
   skillDraftBatchItems: number
@@ -3012,6 +3234,7 @@ export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.I
   materialRevisions?: boolean | UserCountOutputTypeCountMaterialRevisionsArgs
   materialSections?: boolean | UserCountOutputTypeCountMaterialSectionsArgs
   materialChunks?: boolean | UserCountOutputTypeCountMaterialChunksArgs
+  materialPages?: boolean | UserCountOutputTypeCountMaterialPagesArgs
   materialCleanupJobs?: boolean | UserCountOutputTypeCountMaterialCleanupJobsArgs
   skillDraftBatches?: boolean | UserCountOutputTypeCountSkillDraftBatchesArgs
   skillDraftBatchItems?: boolean | UserCountOutputTypeCountSkillDraftBatchItemsArgs
@@ -3075,6 +3298,13 @@ export type UserCountOutputTypeCountMaterialSectionsArgs<ExtArgs extends runtime
  */
 export type UserCountOutputTypeCountMaterialChunksArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   where?: Prisma.MaterialChunkWhereInput
+}
+
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountMaterialPagesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.MaterialPageWhereInput
 }
 
 /**
@@ -3169,6 +3399,7 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   materialRevisions?: boolean | Prisma.User$materialRevisionsArgs<ExtArgs>
   materialSections?: boolean | Prisma.User$materialSectionsArgs<ExtArgs>
   materialChunks?: boolean | Prisma.User$materialChunksArgs<ExtArgs>
+  materialPages?: boolean | Prisma.User$materialPagesArgs<ExtArgs>
   materialCleanupJobs?: boolean | Prisma.User$materialCleanupJobsArgs<ExtArgs>
   skillDraftBatches?: boolean | Prisma.User$skillDraftBatchesArgs<ExtArgs>
   skillDraftBatchItems?: boolean | Prisma.User$skillDraftBatchItemsArgs<ExtArgs>
@@ -3222,6 +3453,7 @@ export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   materialRevisions?: boolean | Prisma.User$materialRevisionsArgs<ExtArgs>
   materialSections?: boolean | Prisma.User$materialSectionsArgs<ExtArgs>
   materialChunks?: boolean | Prisma.User$materialChunksArgs<ExtArgs>
+  materialPages?: boolean | Prisma.User$materialPagesArgs<ExtArgs>
   materialCleanupJobs?: boolean | Prisma.User$materialCleanupJobsArgs<ExtArgs>
   skillDraftBatches?: boolean | Prisma.User$skillDraftBatchesArgs<ExtArgs>
   skillDraftBatchItems?: boolean | Prisma.User$skillDraftBatchItemsArgs<ExtArgs>
@@ -3248,6 +3480,7 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     materialRevisions: Prisma.$MaterialRevisionPayload<ExtArgs>[]
     materialSections: Prisma.$MaterialSectionPayload<ExtArgs>[]
     materialChunks: Prisma.$MaterialChunkPayload<ExtArgs>[]
+    materialPages: Prisma.$MaterialPagePayload<ExtArgs>[]
     materialCleanupJobs: Prisma.$MaterialCleanupJobPayload<ExtArgs>[]
     skillDraftBatches: Prisma.$SkillDraftBatchPayload<ExtArgs>[]
     skillDraftBatchItems: Prisma.$SkillDraftBatchItemPayload<ExtArgs>[]
@@ -3669,6 +3902,7 @@ export interface Prisma__UserClient<T, Null = never, ExtArgs extends runtime.Typ
   materialRevisions<T extends Prisma.User$materialRevisionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$materialRevisionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$MaterialRevisionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   materialSections<T extends Prisma.User$materialSectionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$materialSectionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$MaterialSectionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   materialChunks<T extends Prisma.User$materialChunksArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$materialChunksArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$MaterialChunkPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  materialPages<T extends Prisma.User$materialPagesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$materialPagesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$MaterialPagePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   materialCleanupJobs<T extends Prisma.User$materialCleanupJobsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$materialCleanupJobsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$MaterialCleanupJobPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   skillDraftBatches<T extends Prisma.User$skillDraftBatchesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$skillDraftBatchesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$SkillDraftBatchPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   skillDraftBatchItems<T extends Prisma.User$skillDraftBatchItemsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$skillDraftBatchItemsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$SkillDraftBatchItemPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
@@ -4251,6 +4485,30 @@ export type User$materialChunksArgs<ExtArgs extends runtime.Types.Extensions.Int
   take?: number
   skip?: number
   distinct?: Prisma.MaterialChunkScalarFieldEnum | Prisma.MaterialChunkScalarFieldEnum[]
+}
+
+/**
+ * User.materialPages
+ */
+export type User$materialPagesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the MaterialPage
+   */
+  select?: Prisma.MaterialPageSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the MaterialPage
+   */
+  omit?: Prisma.MaterialPageOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.MaterialPageInclude<ExtArgs> | null
+  where?: Prisma.MaterialPageWhereInput
+  orderBy?: Prisma.MaterialPageOrderByWithRelationInput | Prisma.MaterialPageOrderByWithRelationInput[]
+  cursor?: Prisma.MaterialPageWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.MaterialPageScalarFieldEnum | Prisma.MaterialPageScalarFieldEnum[]
 }
 
 /**

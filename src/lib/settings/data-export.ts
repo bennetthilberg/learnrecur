@@ -13,6 +13,7 @@ import type {
   GenerationJobKind,
   GenerationJobStatus,
   MaterialCleanupStatus,
+  MaterialPageTextStatus,
   MaterialRevisionStatus,
   Prisma,
   ReminderSendStatus,
@@ -56,6 +57,7 @@ export type StudyDataExportV2 = {
   materialRevisions: ExportMaterialRevision[];
   materialSections: ExportMaterialSection[];
   materialChunks: ExportMaterialChunk[];
+  materialPages: ExportMaterialPage[];
   materialCleanupJobs: ExportMaterialCleanupJob[];
   sourceFiles: ExportSourceFile[];
   skills: ExportSkill[];
@@ -165,6 +167,20 @@ export type ExportMaterialChunk = {
   locator: Prisma.JsonValue;
   headingText: string | null;
   createdAt: string;
+};
+
+export type ExportMaterialPage = {
+  id: string;
+  materialRevisionId: string;
+  pageNumber: number;
+  embeddedText: string | null;
+  ocrText: string | null;
+  textStatus: MaterialPageTextStatus;
+  contentHash: string;
+  tokenEstimate: number;
+  metadata: Prisma.JsonValue | null;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type ExportMaterialCleanupJob = {
@@ -488,6 +504,22 @@ export async function getUserDataExport(input: {
           createdAt: true,
         },
       },
+      materialPages: {
+        orderBy: { id: "asc" },
+        select: {
+          id: true,
+          materialRevisionId: true,
+          pageNumber: true,
+          embeddedText: true,
+          ocrText: true,
+          textStatus: true,
+          contentHash: true,
+          tokenEstimate: true,
+          metadata: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      },
       materialCleanupJobs: {
         orderBy: { id: "asc" },
         select: {
@@ -782,6 +814,12 @@ export async function getUserDataExport(input: {
     materialChunks: user.materialChunks.map((chunk) => ({
       ...chunk,
       createdAt: serializeExportDate(chunk.createdAt),
+    })),
+    materialPages: user.materialPages.map((page) => ({
+      ...page,
+      metadata: sanitizeSourceFileMetadata(page.metadata),
+      createdAt: serializeExportDate(page.createdAt),
+      updatedAt: serializeExportDate(page.updatedAt),
     })),
     materialCleanupJobs: user.materialCleanupJobs.map((job) => ({
       ...job,

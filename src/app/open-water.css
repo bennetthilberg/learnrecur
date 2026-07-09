@@ -3809,6 +3809,858 @@ body {
   }
 }
 
+/* ===== Persistent materials and multi-skill entry ===== */
+.createModeShell,
+.materialShell {
+  padding-bottom: 48px;
+}
+
+.createModeHeader,
+.materialHeader,
+.createModeChoices,
+.materialImportLayout,
+.materialLibraryPanel,
+.materialDetailSummary,
+.materialProcessingPanel,
+.materialFailurePanel,
+.materialDetailGrid {
+  width: calc(100% - 28px);
+  max-width: 980px;
+  margin-right: auto;
+  margin-left: auto;
+}
+
+.createModeHeader,
+.materialHeader {
+  margin-top: 38px;
+}
+
+.createModeHeader h1,
+.materialHeader h1 {
+  margin: 0;
+  color: var(--lr-ink);
+  font-family: var(--lr-font-display);
+  font-size: 38px;
+  font-weight: 800;
+  line-height: 1.08;
+  letter-spacing: -.02em;
+}
+
+.createModeHeader p,
+.materialHeader > div > p:not(.materialBreadcrumb) {
+  max-width: 680px;
+  margin: 10px 0 0;
+  color: var(--lr-text-secondary);
+  font-size: 15px;
+  line-height: 1.48;
+}
+
+.createModeChoices {
+  display: grid;
+  grid-template-columns: minmax(0, .92fr) minmax(0, 1.08fr);
+  gap: 14px;
+  margin-top: 26px;
+}
+
+.createModeChoice {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 15px;
+  min-height: 178px;
+  border: 1px solid var(--lr-card-border);
+  border-radius: var(--lr-r-card);
+  background: var(--lr-card);
+  color: var(--lr-ink);
+  padding: 26px 28px;
+  text-decoration: none;
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+.createModeChoice:last-child {
+  min-height: 202px;
+  background: var(--lr-blue-tint);
+}
+
+.createModeChoice:hover {
+  border-color: var(--lr-blue);
+  background: #F8FAFD;
+}
+
+.createModeChoice:focus-visible {
+  outline: 2px solid var(--lr-blue);
+  outline-offset: 3px;
+}
+
+.createModeChoiceIcon,
+.materialLibraryIcon {
+  display: inline-flex;
+  width: 40px;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--lr-icon-tile-border);
+  border-radius: var(--lr-r-icon-tile);
+  background: #FFFFFF;
+  color: var(--lr-icon);
+}
+
+.createModeChoice strong {
+  display: block;
+  font-family: var(--lr-font-display);
+  font-size: 23px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.createModeChoice small {
+  display: block;
+  margin-top: 9px;
+  color: var(--lr-text-secondary);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.createModeChoiceCue {
+  grid-column: 2;
+  align-self: end;
+  margin-top: 18px;
+  color: var(--lr-blue);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.materialBreadcrumb {
+  margin: 0 0 9px !important;
+  color: var(--lr-text-secondary) !important;
+  font-size: 13px !important;
+  line-height: 1.3 !important;
+}
+
+.materialBreadcrumb a,
+.materialTextLink,
+.createSkillMaterialLink,
+.createSkillMaterialNotice a {
+  color: var(--lr-blue);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.materialBreadcrumb a:hover,
+.materialTextLink:hover,
+.createSkillMaterialLink:hover,
+.createSkillMaterialNotice a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.materialHeaderActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.materialImportLayout {
+  display: grid;
+  grid-template-columns: minmax(260px, .78fr) minmax(0, 1.22fr);
+  align-items: start;
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.materialReusePanel,
+.materialImportPanel,
+.materialLibraryPanel,
+.materialOutlinePanel,
+.materialLinkedSkills,
+.materialRevisionPanel,
+.materialDangerPanel {
+  padding: 0;
+  overflow: hidden;
+}
+
+.materialReusePanel > .skillPanelHeader,
+.materialImportPanel > .skillPanelHeader,
+.materialOutlinePanel > .skillPanelHeader,
+.materialLinkedSkills > .skillPanelHeader,
+.materialRevisionPanel > .skillPanelHeader {
+  align-items: flex-start;
+  margin: 0;
+  border-bottom: 1px solid var(--lr-divider);
+  padding: 22px 24px 18px;
+}
+
+.materialReusePanel .skillPanelHeader p,
+.materialImportPanel .skillPanelHeader p,
+.materialOutlinePanel .skillPanelHeader p,
+.materialLibraryHeader p {
+  margin: 5px 0 0;
+  color: var(--lr-text-secondary);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.materialCompactList,
+.materialLibraryList,
+.materialLinkedSkillList,
+.materialRevisionList {
+  display: grid;
+}
+
+.materialCompactRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  border-bottom: 1px solid var(--lr-divider);
+  padding: 15px 20px;
+}
+
+.materialCompactRow a:first-child,
+.materialLibraryMain > a {
+  color: var(--lr-ink);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.3;
+  text-decoration: none;
+}
+
+.materialCompactRow a:first-child:hover,
+.materialLibraryMain > a:hover {
+  color: var(--lr-blue);
+}
+
+.materialCompactRow p,
+.materialLibraryMain p,
+.materialInlineEmpty p {
+  margin: 4px 0 0;
+  color: var(--lr-text-secondary);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.materialReusePanel > .materialTextLink {
+  display: inline-block;
+  margin: 16px 20px 19px;
+  font-size: 13px;
+}
+
+.materialInlineEmpty {
+  padding: 22px 24px;
+}
+
+.materialImportTabs {
+  padding: 0 24px 26px;
+}
+
+.materialImportTabList {
+  gap: 4px;
+  margin: 0 -24px;
+  border-bottom: 1px solid var(--lr-divider);
+  padding: 0 24px;
+}
+
+.materialImportTab {
+  min-height: 46px;
+  border-width: 0 0 3px;
+  border-color: transparent;
+  border-radius: 0;
+  color: var(--lr-nav-inactive);
+  font-family: var(--lr-font-body);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 11px 15px 8px;
+}
+
+.materialImportTab[data-active="true"] {
+  border-color: var(--lr-yellow);
+  color: var(--lr-ink);
+}
+
+.materialImportTab:focus-visible {
+  outline: 2px solid var(--lr-blue);
+  outline-offset: 2px;
+}
+
+.materialImportTabPanel {
+  padding-top: 22px;
+}
+
+.materialImportForm {
+  display: grid;
+  gap: 19px;
+}
+
+.materialImportIntro {
+  margin: 0;
+  color: var(--lr-text-secondary);
+  font-size: 13px;
+  line-height: 1.48;
+}
+
+.materialPdfDropzone {
+  display: grid;
+  min-height: 122px;
+  place-items: center;
+  align-content: center;
+  gap: 7px;
+  border: 1px dashed var(--lr-chip-border);
+  border-radius: var(--lr-r-card);
+  background: #F8FAFD;
+  color: var(--lr-icon);
+  cursor: pointer;
+  padding: 20px;
+  text-align: center;
+}
+
+.materialPdfDropzone:hover {
+  border-color: var(--lr-blue);
+}
+
+.materialPdfDropzone:focus-within {
+  outline: 2px solid var(--lr-blue);
+  outline-offset: 2px;
+}
+
+.materialPdfDropzone input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+.materialPdfDropzone span {
+  color: var(--lr-ink);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.materialPdfDropzone small {
+  color: var(--lr-text-secondary);
+  font-size: 12px;
+}
+
+.materialActionMessage {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.materialActionMessage svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+.materialImportActions {
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.materialImportActions > span {
+  color: var(--lr-text-secondary);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.materialWebsiteDiscoveryRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+}
+
+.materialWebsiteDiscoveryRow .secondaryButton {
+  min-height: 45px;
+}
+
+.materialDiscoveryPreview {
+  display: grid;
+  gap: 18px;
+  border-top: 1px solid var(--lr-divider);
+  padding-top: 20px;
+}
+
+.materialDiscoveryHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.materialDiscoveryHeader strong {
+  color: var(--lr-ink);
+  font-family: var(--lr-font-display);
+  font-size: 16px;
+}
+
+.materialDiscoveryHeader p,
+.materialPdfPreference p {
+  margin: 4px 0 0;
+  color: var(--lr-text-secondary);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.materialDiscoveryNotice {
+  max-width: 62ch;
+  margin: -8px 0 0;
+  color: var(--lr-text-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.materialPdfPreference {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  border-top: 1px solid var(--lr-divider);
+  border-bottom: 1px solid var(--lr-divider);
+  padding: 14px 0;
+}
+
+.materialPdfPreference svg {
+  flex: 0 0 auto;
+  color: var(--lr-icon);
+}
+
+.materialPdfPreference a {
+  color: var(--lr-blue);
+  font-weight: 600;
+}
+
+.materialDiscoveryList {
+  display: grid;
+  max-height: 310px;
+  overflow-y: auto;
+  gap: 5px;
+  border: 1px solid var(--lr-card-border);
+  border-radius: var(--lr-r-card);
+  padding: 8px;
+}
+
+.materialDiscoveryCheckbox {
+  min-height: 38px;
+  border-radius: 5px;
+  padding: 7px 9px;
+}
+
+.materialDiscoveryCheckbox:hover {
+  background: var(--lr-blue-tint);
+}
+
+.materialDiscoveryFields {
+  padding-top: 2px;
+}
+
+.materialLibraryPanel {
+  margin-top: 24px;
+}
+
+.materialLibraryHeader {
+  margin: 0;
+  border-bottom: 1px solid var(--lr-divider);
+  padding: 22px 26px 18px;
+}
+
+.materialLibraryRow {
+  display: grid;
+  grid-template-columns: auto minmax(190px, 1fr) minmax(280px, .8fr) auto;
+  align-items: center;
+  gap: 16px;
+  border-bottom: 1px solid var(--lr-divider);
+  padding: 16px 24px;
+}
+
+.materialLibraryRow:last-child {
+  border-bottom: 0;
+}
+
+.materialLibraryIcon {
+  width: 36px;
+  height: 36px;
+}
+
+.materialLibraryFacts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  color: var(--lr-text-secondary);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.materialLibraryStatus {
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+}
+
+.materialLibraryStatus small {
+  color: var(--lr-text-secondary);
+  font-size: 11.5px;
+}
+
+.materialEmptyState {
+  margin: 0;
+  padding: 38px 26px;
+}
+
+.materialDetailSummary {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin-top: 22px;
+  overflow: hidden;
+  border: 1px solid var(--lr-card-border);
+  border-radius: var(--lr-r-card);
+  background: var(--lr-card);
+}
+
+.materialDetailSummary > div {
+  display: grid;
+  gap: 5px;
+  border-left: 1px solid var(--lr-divider);
+  padding: 15px 17px;
+}
+
+.materialDetailSummary > div:first-child {
+  border-left: 0;
+}
+
+.materialDetailSummary span {
+  color: var(--lr-text-secondary);
+  font-size: 11.5px;
+}
+
+.materialDetailSummary strong {
+  color: var(--lr-ink);
+  font-family: var(--lr-font-display);
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+.materialProcessingPanel,
+.materialFailurePanel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 16px;
+  padding: 18px 22px;
+}
+
+.materialProcessingPanel {
+  justify-content: flex-start;
+}
+
+.materialProcessingPanel h2,
+.materialFailurePanel h2 {
+  margin: 0;
+  color: var(--lr-ink);
+  font-family: var(--lr-font-display);
+  font-size: 16px;
+}
+
+.materialProcessingPanel p,
+.materialFailurePanel p {
+  margin: 4px 0 0;
+  color: var(--lr-text-secondary);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.materialProcessingPulse {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
+  border: 2px solid var(--lr-blue-bar-2);
+  border-top-color: var(--lr-blue);
+  border-radius: var(--lr-r-pill);
+  animation: material-spin .8s linear infinite;
+}
+
+@keyframes material-spin {
+  to { transform: rotate(360deg); }
+}
+
+.materialDetailGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 310px;
+  align-items: start;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.materialDetailSidebar {
+  display: grid;
+  gap: 16px;
+}
+
+.materialOutlineList {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.materialOutlineList li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  border-bottom: 1px solid var(--lr-divider);
+  padding: 13px 22px 13px calc(22px + (var(--material-section-level, 1) - 1) * 16px);
+}
+
+.materialOutlineList li:last-child {
+  border-bottom: 0;
+}
+
+.materialOutlineList span {
+  color: var(--lr-ink);
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.materialOutlineList small,
+.materialOutlineList a {
+  color: var(--lr-text-secondary);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  text-decoration: none;
+}
+
+.materialOutlineList a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--lr-blue);
+  font-weight: 600;
+}
+
+.materialLinkedSkillList a {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid var(--lr-divider);
+  color: var(--lr-ink);
+  padding: 13px 18px;
+  text-decoration: none;
+}
+
+.materialLinkedSkillList a:hover {
+  background: #F8FAFD;
+}
+
+.materialLinkedSkillList strong {
+  font-size: 13px;
+}
+
+.materialLinkedSkillList small,
+.materialRevisionList span,
+.materialRevisionList small {
+  color: var(--lr-text-secondary);
+  font-size: 11.5px;
+}
+
+.materialRevisionList > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 10px;
+  border-bottom: 1px solid var(--lr-divider);
+  padding: 13px 18px;
+}
+
+.materialRevisionList strong {
+  color: var(--lr-ink);
+  font-size: 13px;
+}
+
+.materialRevisionList small {
+  grid-column: 1 / -1;
+}
+
+.materialDangerPanel {
+  padding: 0;
+}
+
+.materialDangerPanel summary {
+  color: var(--lr-ink);
+  cursor: pointer;
+  font-family: var(--lr-font-display);
+  font-size: 14px;
+  font-weight: 700;
+  padding: 17px 18px;
+}
+
+.materialDangerPanel > p,
+.materialDangerPanel form {
+  margin: 0;
+  border-top: 1px solid var(--lr-divider);
+  padding: 15px 18px;
+}
+
+.materialDangerPanel > p {
+  color: var(--lr-text-secondary);
+  font-size: 12.5px;
+  line-height: 1.42;
+}
+
+.materialDangerPanel form {
+  display: grid;
+  gap: 13px;
+}
+
+.createSkillInputFooter {
+  gap: 12px;
+}
+
+.createSkillMaterialLink {
+  flex: 0 0 auto;
+  font-size: 12px;
+}
+
+.createSkillMaterialNotice a {
+  white-space: nowrap;
+}
+
+@media (max-width: 820px) {
+  .materialImportLayout,
+  .materialDetailGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .materialLibraryRow {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .materialLibraryFacts {
+    grid-column: 2 / -1;
+  }
+
+  .materialDetailSummary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .materialDetailSummary > div:nth-child(4) {
+    border-left: 0;
+  }
+
+  .materialDetailSummary > div:nth-child(n + 4) {
+    border-top: 1px solid var(--lr-divider);
+  }
+}
+
+@media (max-width: 620px) {
+  .createModeHeader,
+  .materialHeader {
+    display: grid;
+    gap: 16px;
+    margin-top: 20px;
+  }
+
+  .createModeHeader h1,
+  .materialHeader h1 {
+    font-size: 30px;
+  }
+
+  .createModeChoices {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .createModeChoice,
+  .createModeChoice:last-child {
+    min-height: 0;
+    padding: 22px 20px;
+  }
+
+  .materialImportLayout,
+  .materialLibraryPanel,
+  .materialDetailSummary,
+  .materialProcessingPanel,
+  .materialFailurePanel,
+  .materialDetailGrid {
+    width: calc(100% - 28px);
+  }
+
+  .materialWebsiteDiscoveryRow,
+  .materialDiscoveryFields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .materialWebsiteDiscoveryRow .secondaryButton {
+    justify-self: stretch;
+  }
+
+  .materialDiscoveryHeader,
+  .materialImportActions,
+  .materialProcessingPanel,
+  .materialFailurePanel {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .materialLibraryRow {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+    padding: 16px 18px;
+  }
+
+  .materialLibraryFacts,
+  .materialLibraryStatus {
+    grid-column: 2;
+  }
+
+  .materialLibraryFacts {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .materialLibraryStatus {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-top: 1px solid var(--lr-divider);
+    padding-top: 12px;
+  }
+
+  .materialDetailSummary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .materialDetailSummary > div:nth-child(n) {
+    border-top: 1px solid var(--lr-divider);
+    border-left: 1px solid var(--lr-divider);
+  }
+
+  .materialDetailSummary > div:nth-child(-n + 2) {
+    border-top: 0;
+  }
+
+  .materialDetailSummary > div:nth-child(odd) {
+    border-left: 0;
+  }
+
+  .materialDetailSummary > div:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+
+  .materialOutlineList li {
+    align-items: start;
+    padding-right: 16px;
+    padding-left: calc(16px + (var(--material-section-level, 1) - 1) * 12px);
+  }
+
+  .createSkillInputFooter {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .createSkillGenerationPanel .sourceGenerationSpinner span {
     animation: none;

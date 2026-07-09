@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import {
   DEFAULT_GEMINI_FALLBACK_MODELS,
+  DEFAULT_GEMINI_EMBEDDING_MODEL,
   DEFAULT_GEMINI_MODEL,
   parseGeminiFallbackModels,
 } from "@/lib/gemini";
@@ -92,6 +93,13 @@ const geminiEnvBaseSchema = z.object({
       .min(1, "GEMINI_ENTERPRISE_AGENT_KEY_PLATFORM_KEY is required"),
   ),
   GEMINI_MODEL: geminiModelSchema,
+  GEMINI_EMBEDDING_MODEL: z.preprocess((value) => {
+    if (typeof value === "string" && value.trim() === "") {
+      return undefined;
+    }
+
+    return value;
+  }, z.string().trim().min(1).default(DEFAULT_GEMINI_EMBEDDING_MODEL)),
   GEMINI_FALLBACK_MODELS: z.preprocess(
     parseGeminiFallbackModels,
     z.array(z.string().trim().min(1)).default([...DEFAULT_GEMINI_FALLBACK_MODELS]),

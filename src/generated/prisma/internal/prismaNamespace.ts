@@ -391,6 +391,7 @@ export const ModelName = {
   MaterialRevision: 'MaterialRevision',
   MaterialSection: 'MaterialSection',
   MaterialChunk: 'MaterialChunk',
+  MaterialPage: 'MaterialPage',
   MaterialCleanupJob: 'MaterialCleanupJob',
   Skill: 'Skill',
   SkillDraftBatch: 'SkillDraftBatch',
@@ -418,7 +419,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "collection" | "sourceFile" | "studyMaterial" | "materialRevision" | "materialSection" | "materialChunk" | "materialCleanupJob" | "skill" | "skillDraftBatch" | "skillDraftBatchItem" | "skillSourceRef" | "exercise" | "exerciseAttempt" | "reviewLog" | "exerciseFlag" | "generationJob" | "reminderPreference" | "reminderSendLog"
+    modelProps: "user" | "collection" | "sourceFile" | "studyMaterial" | "materialRevision" | "materialSection" | "materialChunk" | "materialPage" | "materialCleanupJob" | "skill" | "skillDraftBatch" | "skillDraftBatchItem" | "skillSourceRef" | "exercise" | "exerciseAttempt" | "reviewLog" | "exerciseFlag" | "generationJob" | "reminderPreference" | "reminderSendLog"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -937,6 +938,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.MaterialChunkCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.MaterialChunkCountAggregateOutputType> | number
+        }
+      }
+    }
+    MaterialPage: {
+      payload: Prisma.$MaterialPagePayload<ExtArgs>
+      fields: Prisma.MaterialPageFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.MaterialPageFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MaterialPagePayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.MaterialPageFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MaterialPagePayload>
+        }
+        findFirst: {
+          args: Prisma.MaterialPageFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MaterialPagePayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.MaterialPageFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MaterialPagePayload>
+        }
+        findMany: {
+          args: Prisma.MaterialPageFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MaterialPagePayload>[]
+        }
+        create: {
+          args: Prisma.MaterialPageCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MaterialPagePayload>
+        }
+        createMany: {
+          args: Prisma.MaterialPageCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.MaterialPageCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MaterialPagePayload>[]
+        }
+        delete: {
+          args: Prisma.MaterialPageDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MaterialPagePayload>
+        }
+        update: {
+          args: Prisma.MaterialPageUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MaterialPagePayload>
+        }
+        deleteMany: {
+          args: Prisma.MaterialPageDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.MaterialPageUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.MaterialPageUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MaterialPagePayload>[]
+        }
+        upsert: {
+          args: Prisma.MaterialPageUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MaterialPagePayload>
+        }
+        aggregate: {
+          args: Prisma.MaterialPageAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateMaterialPage>
+        }
+        groupBy: {
+          args: Prisma.MaterialPageGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.MaterialPageGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.MaterialPageCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.MaterialPageCountAggregateOutputType> | number
         }
       }
     }
@@ -1995,6 +2070,24 @@ export const MaterialChunkScalarFieldEnum = {
 export type MaterialChunkScalarFieldEnum = (typeof MaterialChunkScalarFieldEnum)[keyof typeof MaterialChunkScalarFieldEnum]
 
 
+export const MaterialPageScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  materialRevisionId: 'materialRevisionId',
+  pageNumber: 'pageNumber',
+  embeddedText: 'embeddedText',
+  ocrText: 'ocrText',
+  textStatus: 'textStatus',
+  contentHash: 'contentHash',
+  tokenEstimate: 'tokenEstimate',
+  metadata: 'metadata',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type MaterialPageScalarFieldEnum = (typeof MaterialPageScalarFieldEnum)[keyof typeof MaterialPageScalarFieldEnum]
+
+
 export const MaterialCleanupJobScalarFieldEnum = {
   id: 'id',
   userId: 'userId',
@@ -2443,6 +2536,20 @@ export type ListEnumMaterialRevisionStatusFieldRefInput<$PrismaModel> = FieldRef
 
 
 /**
+ * Reference to a field of type 'MaterialPageTextStatus'
+ */
+export type EnumMaterialPageTextStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'MaterialPageTextStatus'>
+
+
+
+/**
+ * Reference to a field of type 'MaterialPageTextStatus[]'
+ */
+export type ListEnumMaterialPageTextStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'MaterialPageTextStatus[]'>
+
+
+
+/**
  * Reference to a field of type 'MaterialCleanupStatus'
  */
 export type EnumMaterialCleanupStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'MaterialCleanupStatus'>
@@ -2803,6 +2910,7 @@ export type GlobalOmitConfig = {
   materialRevision?: Prisma.MaterialRevisionOmit
   materialSection?: Prisma.MaterialSectionOmit
   materialChunk?: Prisma.MaterialChunkOmit
+  materialPage?: Prisma.MaterialPageOmit
   materialCleanupJob?: Prisma.MaterialCleanupJobOmit
   skill?: Prisma.SkillOmit
   skillDraftBatch?: Prisma.SkillDraftBatchOmit
@@ -2877,4 +2985,3 @@ export type PrismaAction =
  * `PrismaClient` proxy available in interactive transactions.
  */
 export type TransactionClient = Omit<DefaultPrismaClient, runtime.ITXClientDenyList>
-
