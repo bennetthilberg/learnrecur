@@ -18,6 +18,14 @@ const uniqueIdentifiersSchema = (maximum: number) =>
       message: "Identifiers must be unique.",
     });
 
+function isHttpsUrl(value: string) {
+  try {
+    return new URL(value).protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 export const pdfPageRangeSchema = z
   .object({
     start: z.number().int().min(1).max(MAX_MATERIAL_PDF_PAGES),
@@ -53,7 +61,7 @@ export const httpsUrlSchema = z
   .trim()
   .url()
   .max(2_048)
-  .refine((value) => new URL(value).protocol === "https:", {
+  .refine(isHttpsUrl, {
     message: "Only HTTPS URLs are supported.",
   });
 
