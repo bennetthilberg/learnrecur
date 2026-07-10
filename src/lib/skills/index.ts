@@ -2521,6 +2521,7 @@ async function synchronizeActivatedMaterialDraftBatches(input: {
     },
     data: {
       status: SkillDraftBatchItemStatus.ACTIVE,
+      generationClaimId: null,
       errorCode: null,
       errorMessage: null,
     },
