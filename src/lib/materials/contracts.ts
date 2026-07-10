@@ -140,6 +140,30 @@ const materialScopeResolutionBaseSchema = z.object({
   items: z.array(materialScopePlanItemSchema).max(MAX_SKILLS_PER_BATCH),
 });
 
+function validateScopePlanItems(
+  plan: z.infer<typeof materialScopeResolutionBaseSchema>,
+  context: z.RefinementCtx,
+) {
+  const keys = plan.items.map((item) => item.key);
+  if (new Set(keys).size !== keys.length) {
+    context.addIssue({
+      code: "custom",
+      message: "Each proposed skill must have a unique key.",
+      path: ["items"],
+    });
+  }
+
+  for (const [index, item] of plan.items.entries()) {
+    if (item.locator.materialRevisionId !== plan.materialRevisionId) {
+      context.addIssue({
+        code: "custom",
+        message: "Every skill must cite the planned material revision.",
+        path: ["items", index, "locator", "materialRevisionId"],
+      });
+    }
+  }
+}
+
 export const materialScopeResolutionSchema = materialScopeResolutionBaseSchema.superRefine(
   (plan, context) => {
     if (plan.resolutionStatus === "ambiguous" && !plan.clarification) {
@@ -150,24 +174,7 @@ export const materialScopeResolutionSchema = materialScopeResolutionBaseSchema.s
       });
     }
 
-    const keys = plan.items.map((item) => item.key);
-    if (new Set(keys).size !== keys.length) {
-      context.addIssue({
-        code: "custom",
-        message: "Each proposed skill must have a unique key.",
-        path: ["items"],
-      });
-    }
-
-    for (const [index, item] of plan.items.entries()) {
-      if (item.locator.materialRevisionId !== plan.materialRevisionId) {
-        context.addIssue({
-          code: "custom",
-          message: "Every skill must cite the planned material revision.",
-          path: ["items", index, "locator", "materialRevisionId"],
-        });
-      }
-    }
+    validateScopePlanItems(plan, context);
   },
 );
 
@@ -189,24 +196,7 @@ export const materialScopePlanSchema = materialScopeResolutionBaseSchema.superRe
       });
     }
 
-    const keys = plan.items.map((item) => item.key);
-    if (new Set(keys).size !== keys.length) {
-      context.addIssue({
-        code: "custom",
-        message: "Each proposed skill must have a unique key.",
-        path: ["items"],
-      });
-    }
-
-    for (const [index, item] of plan.items.entries()) {
-      if (item.locator.materialRevisionId !== plan.materialRevisionId) {
-        context.addIssue({
-          code: "custom",
-          message: "Every skill must cite the planned material revision.",
-          path: ["items", index, "locator", "materialRevisionId"],
-        });
-      }
-    }
+    validateScopePlanItems(plan, context);
   },
 );
 

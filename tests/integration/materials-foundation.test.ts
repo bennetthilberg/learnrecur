@@ -13,6 +13,7 @@ import { MATERIAL_LOCATOR_VERSION } from "@/lib/materials/contracts";
 import {
   createIdempotentDraftBatch,
   createMaterialWithInitialRevision,
+  createNextMaterialRevision,
   finalizeMaterialRevision,
   requestMaterialDeletion,
 } from "@/lib/materials/lifecycle";
@@ -97,6 +98,7 @@ describeDatabase("persistent material foundation", () => {
       materialRevisionId: revision.id,
       materialSectionIds: [section.id],
       evidenceChunkIds: ["placeholder"],
+      storageKey: "chunk-private-key",
       source: { kind: "pdf", pageRanges: [{ start: 48, end: 51 }] },
     } as const;
     const chunks = await Promise.all([
@@ -200,6 +202,12 @@ describeDatabase("persistent material foundation", () => {
       }),
     ).rejects.toThrow(/immutable/i);
     await expect(
+      prisma.materialRevision.update({
+        where: { id: revision.id },
+        data: { finalizedAt: null },
+      }),
+    ).rejects.toThrow(/immutable/i);
+    await expect(
       prisma.materialSection.update({
         where: { id: section.id },
         data: { title: "Rewritten chapter" },
@@ -218,6 +226,30 @@ describeDatabase("persistent material foundation", () => {
       }),
     ).rejects.toThrow(/immutable/i);
 
+    const exportBatch = await prisma.skillDraftBatch.create({
+      data: {
+        userId,
+        materialRevisionId: revision.id,
+        instruction: "Export fixture",
+        idempotencyKey: `${runId}_export_fixture`,
+        confirmedPlan: {
+          storageBucket: "confirmed-plan-private-bucket",
+          nested: { publicUrl: "https://storage.example/private-plan" },
+        },
+      },
+    });
+    await prisma.skillDraftBatchItem.create({
+      data: {
+        userId,
+        batchId: exportBatch.id,
+        ordinal: 0,
+        targetKey: "export-item",
+        proposedTitle: "Export item",
+        proposedObjective: "Verify private locator fields are removed.",
+        locator: { storageKey: "item-private-key", safe: "retained" },
+      },
+    });
+
     const exported = await getUserDataExport({
       userId,
       generatedAt: new Date("2026-07-09T12:00:00.000Z"),
@@ -231,6 +263,53 @@ describeDatabase("persistent material foundation", () => {
     expect(exported.export.materialChunks).toHaveLength(2);
     expect(JSON.stringify(exported.export)).not.toContain("must-not-export");
     expect(JSON.stringify(exported.export)).not.toContain("private-materials");
+    expect(JSON.stringify(exported.export)).not.toContain("chunk-private-key");
+    expect(JSON.stringify(exported.export)).not.toContain("confirmed-plan-private-bucket");
+    expect(JSON.stringify(exported.export)).not.toContain("item-private-key");
+    expect(JSON.stringify(exported.export)).toContain("retained");
+  });
+
+  it("keeps the newest finalized revision active when ingestion completes out of order", async () => {
+    const { material, revision: firstRevision } = await createMaterialWithInitialRevision({
+      userId,
+      title: "Out-of-order finalization fixture",
+      kind: StudyMaterialKind.PDF,
+    });
+    const secondRevision = await createNextMaterialRevision({
+      userId,
+      materialId: material.id,
+    });
+    if (!secondRevision) {
+      throw new Error("expected a second material revision");
+    }
+
+    await finalizeMaterialRevision({
+      userId,
+      materialId: material.id,
+      materialRevisionId: secondRevision.id,
+      contentHash: "sha256:newer",
+      byteSize: 2,
+      pageCount: 2,
+      storageBucket: "private-materials",
+      storageKey: `${userId}/${secondRevision.id}/newer.pdf`,
+    });
+    await finalizeMaterialRevision({
+      userId,
+      materialId: material.id,
+      materialRevisionId: firstRevision.id,
+      contentHash: "sha256:older",
+      byteSize: 1,
+      pageCount: 1,
+      storageBucket: "private-materials",
+      storageKey: `${userId}/${firstRevision.id}/older.pdf`,
+    });
+
+    expect(
+      await prisma.studyMaterial.findUnique({
+        where: { id: material.id },
+        select: { activeRevisionId: true },
+      }),
+    ).toEqual({ activeRevisionId: secondRevision.id });
   });
 
   it("enforces revision-local hierarchy, evidence ownership, and batch limits in Postgres", async () => {
@@ -263,6 +342,23 @@ describeDatabase("persistent material foundation", () => {
         originalName: "first.pdf",
       },
     });
+    await prisma.studyMaterial.update({
+      where: { id: first.material.id },
+      data: { activeRevisionId: first.revision.id },
+    });
+    const emptyTargetMaterial = await prisma.studyMaterial.create({
+      data: {
+        userId,
+        title: "Empty ownership target",
+        kind: StudyMaterialKind.PDF,
+      },
+    });
+    await expect(
+      prisma.materialRevision.update({
+        where: { id: first.revision.id },
+        data: { materialId: emptyTargetMaterial.id },
+      }),
+    ).rejects.toThrow(/ownership/i);
 
     await expect(
       prisma.materialSection.create({
@@ -375,6 +471,12 @@ describeDatabase("persistent material foundation", () => {
         locator: {},
       },
     });
+    await expect(
+      prisma.skill.update({
+        where: { id: ownedSkill.id },
+        data: { userId: otherUserId },
+      }),
+    ).rejects.toThrow();
     await prisma.skill.delete({ where: { id: ownedSkill.id } });
     expect(
       await prisma.skillDraftBatchItem.findUnique({
@@ -537,6 +639,23 @@ describeDatabase("persistent material foundation", () => {
         instruction: "Make the second concept in chapter four.",
       }),
     ).rejects.toThrow(/different material request/i);
+  });
+
+  it("rejects draft batches for revisions that are not ready", async () => {
+    const pending = await createMaterialWithInitialRevision({
+      userId,
+      title: "Pending batch fixture",
+      kind: StudyMaterialKind.PDF,
+    });
+
+    await expect(
+      createIdempotentDraftBatch({
+        userId,
+        materialRevisionId: pending.revision.id,
+        instruction: "Create a skill from this unfinished revision.",
+        idempotencyKey: `${runId}_pending_batch`,
+      }),
+    ).rejects.toThrow(/ready/i);
   });
 
   it("does not delete a reusable material source when a skill is unlinked or deleted", async () => {

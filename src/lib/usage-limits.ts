@@ -45,6 +45,7 @@ export async function checkSourceUploadUsageLimit(input: {
     prisma.sourceFile.count({
       where: {
         userId: input.userId,
+        materialRevisionId: null,
         createdAt: {
           gte: dayStart,
         },
@@ -53,7 +54,7 @@ export async function checkSourceUploadUsageLimit(input: {
         },
       },
     }),
-    checkSourceStorageUsageLimit(input),
+    checkSourceStorageUsageLimit({ ...input, quickUploadsOnly: true }),
   ]);
 
   if (uploadsToday >= ALPHA_SOURCE_UPLOADS_PER_DAY) {
@@ -73,12 +74,14 @@ export async function checkSourceUploadUsageLimit(input: {
 export async function checkSourceStorageUsageLimit(input: {
   userId: string;
   byteSize: number;
+  quickUploadsOnly?: boolean;
   prisma?: UsageLimitClient;
 }): Promise<UsageLimitResult> {
   const prisma = input.prisma ?? getPrisma();
   const storage = await prisma.sourceFile.aggregate({
     where: {
       userId: input.userId,
+      ...(input.quickUploadsOnly ? { materialRevisionId: null } : {}),
       storageKey: { not: null },
     },
     _sum: { byteSize: true },

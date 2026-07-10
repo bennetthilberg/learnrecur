@@ -345,7 +345,8 @@ CREATE OR REPLACE FUNCTION prevent_finalized_material_revision_identity_update()
 RETURNS trigger AS $$
 BEGIN
   IF OLD."finalizedAt" IS NOT NULL AND (
-    NEW."materialId" IS DISTINCT FROM OLD."materialId"
+    NEW."finalizedAt" IS DISTINCT FROM OLD."finalizedAt"
+    OR NEW."materialId" IS DISTINCT FROM OLD."materialId"
     OR NEW."revisionNumber" IS DISTINCT FROM OLD."revisionNumber"
     OR NEW."sourceUrl" IS DISTINCT FROM OLD."sourceUrl"
     OR NEW."contentHash" IS DISTINCT FROM OLD."contentHash"

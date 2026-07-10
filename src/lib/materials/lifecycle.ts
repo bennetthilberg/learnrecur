@@ -139,7 +139,10 @@ export async function finalizeMaterialRevision(input: {
         userId: input.userId,
         status: { not: StudyMaterialStatus.DELETING },
       },
-      select: { id: true },
+      select: {
+        id: true,
+        activeRevision: { select: { revisionNumber: true } },
+      },
     });
 
     if (!material) {
@@ -152,7 +155,7 @@ export async function finalizeMaterialRevision(input: {
         materialId: input.materialId,
         userId: input.userId,
       },
-      select: { id: true },
+      select: { id: true, revisionNumber: true },
     });
 
     if (!revision) {
@@ -177,13 +180,18 @@ export async function finalizeMaterialRevision(input: {
       },
     });
 
-    await tx.studyMaterial.update({
-      where: { id: input.materialId },
-      data: {
-        activeRevisionId: revision.id,
-        lastUsedAt: finalizedAt,
-      },
-    });
+    if (
+      !material.activeRevision ||
+      revision.revisionNumber > material.activeRevision.revisionNumber
+    ) {
+      await tx.studyMaterial.update({
+        where: { id: input.materialId },
+        data: {
+          activeRevisionId: revision.id,
+          lastUsedAt: finalizedAt,
+        },
+      });
+    }
 
     return updatedRevision;
   });
@@ -198,31 +206,62 @@ export async function createIdempotentDraftBatch(input: {
   const prisma = getPrisma();
   const normalizedInstruction = input.instruction.trim();
 
-  const batch = await prisma.skillDraftBatch.upsert({
-    where: {
-      userId_idempotencyKey: {
+  return prisma.$transaction(async (tx) => {
+    const lockedMaterials = await tx.$queryRaw<Array<{ materialId: string }>>`
+      SELECT material."id" AS "materialId"
+      FROM "material_revisions" revision
+      INNER JOIN "study_materials" material
+        ON material."id" = revision."materialId"
+       AND material."userId" = revision."userId"
+      WHERE revision."id" = ${input.materialRevisionId}
+        AND revision."userId" = ${input.userId}
+      FOR UPDATE OF material
+    `;
+
+    if (lockedMaterials.length !== 1) {
+      throw new Error("The requested material revision is unavailable.");
+    }
+
+    const revision = await tx.materialRevision.findFirst({
+      where: {
+        id: input.materialRevisionId,
         userId: input.userId,
-        idempotencyKey: input.idempotencyKey,
+        status: MaterialRevisionStatus.READY,
+        material: { status: StudyMaterialStatus.ACTIVE },
       },
-    },
-    update: {},
-    create: {
-      userId: input.userId,
-      materialRevisionId: input.materialRevisionId,
-      instruction: normalizedInstruction,
-      idempotencyKey: input.idempotencyKey,
-      status: SkillDraftBatchStatus.PLANNING,
-    },
+      select: { id: true },
+    });
+
+    if (!revision) {
+      throw new Error("Skill batches require a ready material revision.");
+    }
+
+    const batch = await tx.skillDraftBatch.upsert({
+      where: {
+        userId_idempotencyKey: {
+          userId: input.userId,
+          idempotencyKey: input.idempotencyKey,
+        },
+      },
+      update: {},
+      create: {
+        userId: input.userId,
+        materialRevisionId: input.materialRevisionId,
+        instruction: normalizedInstruction,
+        idempotencyKey: input.idempotencyKey,
+        status: SkillDraftBatchStatus.PLANNING,
+      },
+    });
+
+    if (
+      batch.materialRevisionId !== input.materialRevisionId ||
+      batch.instruction !== normalizedInstruction
+    ) {
+      throw new Error("This idempotency key was already used for a different material request.");
+    }
+
+    return batch;
   });
-
-  if (
-    batch.materialRevisionId !== input.materialRevisionId ||
-    batch.instruction !== normalizedInstruction
-  ) {
-    throw new Error("This idempotency key was already used for a different material request.");
-  }
-
-  return batch;
 }
 
 export async function requestMaterialDeletion(input: {

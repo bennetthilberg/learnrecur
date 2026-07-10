@@ -50,6 +50,7 @@ describe("usage limits", () => {
     expect(dailyLimitPrisma.sourceFile.count).toHaveBeenCalledWith({
       where: {
         userId: "user_1",
+        materialRevisionId: null,
         createdAt: {
           gte: startOfUtcDay(now),
         },
@@ -83,6 +84,7 @@ describe("usage limits", () => {
     expect(storageLimitPrisma.sourceFile.count).toHaveBeenCalledWith({
       where: {
         userId: "user_1",
+        materialRevisionId: null,
         createdAt: {
           gte: startOfUtcDay(now),
         },
@@ -94,6 +96,7 @@ describe("usage limits", () => {
     expect(storageLimitPrisma.sourceFile.aggregate).toHaveBeenCalledWith({
       where: {
         userId: "user_1",
+        materialRevisionId: null,
         storageKey: {
           not: null,
         },
