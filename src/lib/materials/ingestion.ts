@@ -38,6 +38,7 @@ import {
   extractPdfPages,
   type ExtractedPdfPage,
 } from "@/lib/materials/pdf";
+import { materialPdfErrorMessage } from "@/lib/materials/pdf-upload";
 import { storeMaterialChunkEmbedding } from "@/lib/materials/retrieval";
 import {
   extractReadableWebPage,
@@ -107,10 +108,14 @@ export async function prepareMaterialPdf(input: {
 }): Promise<PrepareMaterialPdfResult> {
   const parsed = prepareMaterialPdfInputSchema.safeParse(input.input);
   if (!parsed.success) {
+    const fieldErrors = parsed.error.flatten().fieldErrors;
     return {
       status: "invalid",
-      message: "PDF details need a little attention.",
-      fieldErrors: parsed.error.flatten().fieldErrors,
+      message: materialPdfErrorMessage(
+        fieldErrors,
+        "Check the PDF details shown below and try again.",
+      ),
+      fieldErrors,
     };
   }
 

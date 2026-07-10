@@ -1,8 +1,20 @@
 import { z } from "zod";
 
+import {
+  MAX_MATERIAL_PDF_BYTES,
+  MAX_MATERIAL_PDF_FILENAME_LENGTH,
+  MAX_MATERIAL_TITLE_LENGTH,
+  materialPdfEmptyMessage,
+  materialPdfFileNameTooLongMessage,
+  materialPdfMimeTypeMessage,
+  materialPdfTooLargeMessage,
+  materialTitleTooLongMessage,
+} from "@/lib/materials/pdf-upload";
+
+export { MAX_MATERIAL_PDF_BYTES } from "@/lib/materials/pdf-upload";
+
 export const MATERIAL_LOCATOR_VERSION = 1 as const;
 export const MATERIAL_SCOPE_PLAN_VERSION = 1 as const;
-export const MAX_MATERIAL_PDF_BYTES = 100 * 1024 * 1024;
 export const MAX_MATERIAL_PDF_PAGES = 1_000;
 export const MAX_WEBSITE_REVISION_BYTES = 50 * 1024 * 1024;
 export const MAX_WEBSITE_REVISION_PAGES = 250;
@@ -211,12 +223,71 @@ export const materialScopePlanSchema = materialScopeResolutionBaseSchema.superRe
 export type MaterialScopeResolution = z.infer<typeof materialScopeResolutionSchema>;
 export type MaterialScopePlan = z.infer<typeof materialScopePlanSchema>;
 
+const materialTitleSchema = z
+  .string({ error: "Enter a material title." })
+  .trim()
+  .superRefine((title, context) => {
+    if (!title) {
+      context.addIssue({ code: "custom", message: "Enter a material title." });
+    } else if (title.length > MAX_MATERIAL_TITLE_LENGTH) {
+      context.addIssue({
+        code: "custom",
+        message: materialTitleTooLongMessage(title.length),
+      });
+    }
+  });
+
+const materialPdfFileNameSchema = z
+  .string({ error: "Choose a PDF file." })
+  .trim()
+  .superRefine((fileName, context) => {
+    if (!fileName) {
+      context.addIssue({ code: "custom", message: "Choose a PDF file." });
+    } else if (fileName.length > MAX_MATERIAL_PDF_FILENAME_LENGTH) {
+      context.addIssue({
+        code: "custom",
+        message: materialPdfFileNameTooLongMessage(fileName.length),
+      });
+    }
+  });
+
+const materialPdfMimeTypeSchema = z
+  .string({ error: "Choose a PDF file." })
+  .trim()
+  .superRefine((mimeType, context) => {
+    if (mimeType !== "application/pdf") {
+      context.addIssue({
+        code: "custom",
+        message: materialPdfMimeTypeMessage(mimeType),
+      });
+    }
+  });
+
+const materialPdfByteSizeSchema = z
+  .coerce.number({ error: "The PDF size could not be read. Choose the file again." })
+  .int("The PDF size could not be read. Choose the file again.")
+  .superRefine((byteSize, context) => {
+    if (byteSize < 1) {
+      context.addIssue({ code: "custom", message: materialPdfEmptyMessage });
+    } else if (byteSize > MAX_MATERIAL_PDF_BYTES) {
+      context.addIssue({ code: "custom", message: materialPdfTooLargeMessage });
+    }
+  });
+
+const materialCollectionIdSchema = z
+  .string({ error: "Choose a valid collection or leave the collection blank." })
+  .trim()
+  .min(1, "Choose a valid collection or leave the collection blank.")
+  .max(200, "The selected collection is invalid. Choose another collection or leave it blank.")
+  .nullable()
+  .optional();
+
 export const prepareMaterialPdfInputSchema = z.object({
-  title: z.string().trim().min(1).max(200),
-  collectionId: identifierSchema.nullable().optional(),
-  originalName: z.string().trim().min(1).max(255),
-  mimeType: z.literal("application/pdf"),
-  byteSize: z.coerce.number().int().min(1).max(MAX_MATERIAL_PDF_BYTES),
+  title: materialTitleSchema,
+  collectionId: materialCollectionIdSchema,
+  originalName: materialPdfFileNameSchema,
+  mimeType: materialPdfMimeTypeSchema,
+  byteSize: materialPdfByteSizeSchema,
 });
 
 export const discoverWebsiteMaterialInputSchema = z.object({

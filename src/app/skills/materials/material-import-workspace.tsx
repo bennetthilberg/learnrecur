@@ -13,11 +13,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
 
-import {
-  MAX_MATERIAL_PDF_BYTES,
-  MAX_MATERIAL_PDF_PAGES,
-} from "@/lib/materials/contracts";
+import { MAX_MATERIAL_PDF_PAGES } from "@/lib/materials/contracts";
 import type { MaterialLibraryItem } from "@/lib/materials/library";
+import {
+  MAX_MATERIAL_TITLE_LENGTH,
+  materialPdfErrorMessage,
+  materialPdfFileErrorMessage,
+  materialTitleFromPdfFileName,
+  validateMaterialPdfFile,
+} from "@/lib/materials/pdf-upload";
 import type { WebsiteDiscovery } from "@/lib/materials/web";
 
 import {
@@ -125,7 +129,11 @@ function MaterialPdfForm({ collections }: { collections: CollectionOption[] }) {
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string[]> | undefined>();
   const [isBusy, setIsBusy] = useState(false);
+  const titleError = fieldErrors?.title?.[0];
+  const fileError =
+    materialPdfFileErrorMessage(fieldErrors) ?? (file ? validateMaterialPdfFile(file) : null);
 
   return (
     <form
@@ -136,19 +144,17 @@ function MaterialPdfForm({ collections }: { collections: CollectionOption[] }) {
           return;
         }
         if (!file) {
-          setError("Choose a PDF to import.");
+          setError("Choose a PDF file, then select Import PDF.");
           return;
         }
-        if (file.type !== "application/pdf") {
-          setError("Materials currently support PDF files only.");
-          return;
-        }
-        if (file.size > MAX_MATERIAL_PDF_BYTES) {
-          setError("Reusable PDFs can be up to 100 MB.");
+        const fileValidationError = validateMaterialPdfFile(file);
+        if (fileValidationError) {
+          setError(fileValidationError);
           return;
         }
         const form = event.currentTarget;
         setError(null);
+        setFieldErrors(undefined);
         setMessage("Preparing a private upload…");
         setIsBusy(true);
         void submitPdf(form, file).finally(() => setIsBusy(false));
@@ -162,27 +168,37 @@ function MaterialPdfForm({ collections }: { collections: CollectionOption[] }) {
         <label className="skillField">
           <span>Material title</span>
           <input
+            aria-describedby={titleError ? "material-pdf-title-error" : undefined}
+            aria-invalid={titleError ? "true" : undefined}
             disabled={isBusy}
-            maxLength={200}
+            maxLength={MAX_MATERIAL_TITLE_LENGTH}
             name="title"
-            onChange={(event) => setTitle(event.currentTarget.value)}
+            onChange={(event) => {
+              setTitle(event.currentTarget.value);
+              setFieldErrors(undefined);
+              setError(null);
+            }}
             placeholder="Practical Spanish Grammar"
             required
             value={title}
           />
+          {titleError ? <em id="material-pdf-title-error">{titleError}</em> : null}
         </label>
         <CollectionSelect collections={collections} disabled={isBusy} />
       </div>
-      <label className="materialPdfDropzone">
+      <label className="materialPdfDropzone" data-invalid={fileError ? "true" : undefined}>
         <input
           accept="application/pdf,.pdf"
+          aria-describedby="material-pdf-file-detail"
+          aria-invalid={fileError ? "true" : undefined}
           disabled={isBusy}
           onChange={(event) => {
             const selected = event.currentTarget.files?.[0] ?? null;
             setFile(selected);
             setError(null);
+            setFieldErrors(undefined);
             if (selected && !title.trim()) {
-              setTitle(fileNameToTitle(selected.name));
+              setTitle(materialTitleFromPdfFileName(selected.name));
             }
           }}
           ref={fileInputRef}
@@ -190,7 +206,13 @@ function MaterialPdfForm({ collections }: { collections: CollectionOption[] }) {
         />
         <UploadSimple size={22} weight="bold" aria-hidden="true" />
         <span>{file ? file.name : "Choose a PDF"}</span>
-        <small>{file ? formatBytes(file.size) : "The original stays private in your storage."}</small>
+        <small data-tone={fileError ? "error" : undefined} id="material-pdf-file-detail">
+          {fileError
+            ? fileError
+            : file
+              ? formatBytes(file.size)
+              : "The original stays private in your storage."}
+        </small>
       </label>
       <ActionMessage error={error} message={message} />
       <div className="skillFormActions materialImportActions">
@@ -211,7 +233,8 @@ function MaterialPdfForm({ collections }: { collections: CollectionOption[] }) {
       formData.set("byteSize", String(selectedFile.size));
       const prepared = await prepareMaterialPdfAction(formData);
       if (prepared.status === "error") {
-        setError(prepared.message);
+        setFieldErrors(prepared.fieldErrors);
+        setError(materialPdfErrorMessage(prepared.fieldErrors, prepared.message));
         setMessage(null);
         return;
       }
@@ -515,10 +538,6 @@ function ActionMessage({ error, message }: { error: string | null; message: stri
 function materialSummary(material: MaterialLibraryItem) {
   const parts = [material.collectionName, material.pageCount ? `${material.pageCount} pages` : null];
   return parts.filter(Boolean).join(" · ") || "Ready to organize";
-}
-
-function fileNameToTitle(fileName: string) {
-  return fileName.replace(/\.pdf$/i, "").replace(/[-_]+/g, " ").trim();
 }
 
 function formatBytes(bytes: number) {

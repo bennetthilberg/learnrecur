@@ -7,7 +7,16 @@ import {
   inspectPdfPageCount,
   type ExtractedPdfPage,
 } from "@/lib/materials/pdf";
-import { prepareMaterialPdfInputSchema } from "@/lib/materials/contracts";
+import {
+  MAX_MATERIAL_PDF_BYTES,
+  prepareMaterialPdfInputSchema,
+} from "@/lib/materials/contracts";
+import {
+  MAX_MATERIAL_TITLE_LENGTH,
+  materialPdfErrorMessage,
+  materialTitleFromPdfFileName,
+  validateMaterialPdfFile,
+} from "@/lib/materials/pdf-upload";
 import {
   discoverBookWebsite,
   validatePublicHttpsUrl,
@@ -66,6 +75,100 @@ describe("PDF material ingestion", () => {
         byteSize: "4096",
       }),
     ).toMatchObject({ byteSize: 4096 });
+  });
+
+  it("shortens filename-derived material titles to the accepted limit", () => {
+    const originalName = [
+      "Complete Spanish Step-by-Step, Premium Second Edition -- Barbara Bregstein --",
+      "McGraw Hill LLC Professional Division, New York, 2020 -- McGraw Hill LLC --",
+      "isbn13 9781260463132 -- bf89cde288e1d23e0acecb7a7b60d0fb -- Anna’s Archive.pdf",
+    ].join(" ");
+    const title = materialTitleFromPdfFileName(originalName);
+
+    expect(title.length).toBeLessThanOrEqual(MAX_MATERIAL_TITLE_LENGTH);
+    expect(title.endsWith("…")).toBe(true);
+    expect(
+      prepareMaterialPdfInputSchema.safeParse({
+        title,
+        originalName,
+        mimeType: "application/pdf",
+        byteSize: 4096,
+      }).success,
+    ).toBe(true);
+  });
+
+  it.each([
+    {
+      field: "title",
+      input: { title: "x".repeat(205) },
+      message:
+        "The material title is 205 characters. Shorten it to 200 characters or fewer.",
+    },
+    {
+      field: "originalName",
+      input: { originalName: `${"x".repeat(256)}.pdf` },
+      message:
+        "The PDF filename is 260 characters. Rename it to 255 characters or fewer, then choose it again.",
+    },
+    {
+      field: "mimeType",
+      input: { mimeType: "application/octet-stream" },
+      message:
+        "This file was reported as application/octet-stream, not a PDF. Choose a PDF file.",
+    },
+    {
+      field: "byteSize",
+      input: { byteSize: MAX_MATERIAL_PDF_BYTES + 1 },
+      message: "This PDF is over the 100 MB limit. Choose a smaller PDF and try again.",
+    },
+    {
+      field: "byteSize",
+      input: { byteSize: 0 },
+      message: "This PDF is empty. Choose a PDF that contains pages and try again.",
+    },
+    {
+      field: "collectionId",
+      input: { collectionId: "x".repeat(201) },
+      message:
+        "The selected collection is invalid. Choose another collection or leave it blank.",
+    },
+  ])("explains how to fix an invalid PDF $field", ({ field, input, message }) => {
+    const result = prepareMaterialPdfInputSchema.safeParse({
+      title: "Practical Spanish Grammar",
+      originalName: "spanish.pdf",
+      mimeType: "application/pdf",
+      byteSize: 4096,
+      ...input,
+    });
+
+    expect(result.success).toBe(false);
+    if (result.success) {
+      return;
+    }
+    expect(result.error.flatten().fieldErrors[field]).toEqual([message]);
+  });
+
+  it("surfaces the specific PDF field error instead of the generic action message", () => {
+    expect(
+      materialPdfErrorMessage(
+        {
+          title: [
+            "The material title is 205 characters. Shorten it to 200 characters or fewer.",
+          ],
+        },
+        "PDF details need a little attention.",
+      ),
+    ).toBe("The material title is 205 characters. Shorten it to 200 characters or fewer.");
+  });
+
+  it("uses the same actionable file validation before calling the server action", () => {
+    expect(
+      validateMaterialPdfFile({
+        name: "spanish.pdf",
+        type: "application/pdf",
+        size: MAX_MATERIAL_PDF_BYTES + 1,
+      }),
+    ).toBe("This PDF is over the 100 MB limit. Choose a smaller PDF and try again.");
   });
 
   it("creates heading-aware, section-bounded chunks near the token target with overlap", () => {

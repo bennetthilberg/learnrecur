@@ -4118,6 +4118,10 @@ body {
   border-color: var(--lr-blue);
 }
 
+.materialPdfDropzone[data-invalid="true"] {
+  border-color: var(--lr-amber);
+}
+
 .materialPdfDropzone:focus-within {
   outline: 2px solid var(--lr-blue);
   outline-offset: 2px;
@@ -4140,6 +4144,11 @@ body {
 .materialPdfDropzone small {
   color: var(--lr-text-secondary);
   font-size: 12px;
+}
+
+.materialPdfDropzone small[data-tone="error"] {
+  color: var(--lr-amber);
+  font-weight: 600;
 }
 
 .materialActionMessage {
