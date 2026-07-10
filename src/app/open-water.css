@@ -4370,6 +4370,20 @@ body {
   justify-content: flex-start;
 }
 
+.materialRetryButton {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.materialRetryButton .buttonPendingContent {
+  white-space: nowrap;
+}
+
+.materialRetryButton .buttonSpinner {
+  border-color: var(--lr-blue-bar-2);
+  border-top-color: var(--lr-blue);
+}
+
 .materialProcessingPanel h2,
 .materialFailurePanel h2 {
   margin: 0;
