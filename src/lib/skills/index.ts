@@ -9,6 +9,8 @@ import {
   GenerationJobKind,
   GenerationJobStatus,
   Prisma,
+  SkillDraftBatchItemStatus,
+  SkillDraftBatchStatus,
   SkillStatus,
   SourceFileKind,
   SourceFileStatus,
@@ -25,6 +27,7 @@ import {
   type TextAnswerSpec,
 } from "@/lib/answer-checking";
 import { formatEnvError, getGeminiEnv } from "@/lib/env";
+import { summarizeMaterialDraftBatch } from "@/lib/materials/batch-summary";
 import {
   getGeminiRuntimeLogContext,
   getGeminiErrorLogDetails,
@@ -2471,6 +2474,13 @@ export async function activateSkillDraft(
       },
     });
 
+    await synchronizeActivatedMaterialDraftBatches({
+      tx,
+      userId: input.userId,
+      skillId: skill.id,
+      now: input.now,
+    });
+
     return {
       status: "activated",
       skillId: skill.id,
@@ -2478,6 +2488,62 @@ export async function activateSkillDraft(
       exerciseCount: verification.exercises.length,
     };
   });
+}
+
+async function synchronizeActivatedMaterialDraftBatches(input: {
+  tx: Prisma.TransactionClient;
+  userId: string;
+  skillId: string;
+  now: Date;
+}) {
+  const linkedItems = await input.tx.skillDraftBatchItem.findMany({
+    where: {
+      userId: input.userId,
+      skillId: input.skillId,
+      status: {
+        in: [SkillDraftBatchItemStatus.READY, SkillDraftBatchItemStatus.ACTIVATING],
+      },
+    },
+    select: { id: true, batchId: true },
+  });
+  if (linkedItems.length === 0) {
+    return;
+  }
+
+  await input.tx.skillDraftBatchItem.updateMany({
+    where: {
+      id: { in: linkedItems.map((item) => item.id) },
+      userId: input.userId,
+      skillId: input.skillId,
+      status: {
+        in: [SkillDraftBatchItemStatus.READY, SkillDraftBatchItemStatus.ACTIVATING],
+      },
+    },
+    data: {
+      status: SkillDraftBatchItemStatus.ACTIVE,
+      errorCode: null,
+      errorMessage: null,
+    },
+  });
+
+  for (const batchId of new Set(linkedItems.map((item) => item.batchId))) {
+    const items = await input.tx.skillDraftBatchItem.findMany({
+      where: { batchId, userId: input.userId },
+      select: { status: true },
+    });
+    const summary = summarizeMaterialDraftBatch(items.map((item) => item.status));
+    await input.tx.skillDraftBatch.updateMany({
+      where: { id: batchId, userId: input.userId },
+      data: {
+        status: SkillDraftBatchStatus[summary.status],
+        readyCount: summary.readyCount,
+        failedCount: summary.failedCount,
+        excludedCount: summary.excludedCount,
+        activatedCount: summary.activatedCount,
+        completedAt: summary.terminal ? input.now : null,
+      },
+    });
+  }
 }
 
 export async function refillChoiceExercisesForSkill(
