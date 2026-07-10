@@ -3,6 +3,7 @@ import "server-only";
 import { Inngest } from "inngest";
 
 export const DEFAULT_INNGEST_APP_ID = "learnrecur-dev";
+export const DEFAULT_LOCAL_INNGEST_SERVE_ORIGIN = "http://localhost:3000";
 
 type InngestConfigEnv = Record<string, string | undefined>;
 
@@ -96,6 +97,29 @@ export function getInngestClientEnv(
     ...env,
     INNGEST_DEV: undefined,
   };
+}
+
+export function getInngestServeOrigin(env: InngestConfigEnv = process.env): string | undefined {
+  if (!isInngestDevMode(env)) {
+    return undefined;
+  }
+
+  const appUrl = env.NEXT_PUBLIC_APP_URL?.trim();
+
+  if (appUrl) {
+    try {
+      const url = new URL(appUrl);
+      const isLoopback = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
+
+      if (isLoopback && ["http:", "https:"].includes(url.protocol)) {
+        return url.origin;
+      }
+    } catch {
+      // Fall back to the standard local origin when the app URL is malformed.
+    }
+  }
+
+  return DEFAULT_LOCAL_INNGEST_SERVE_ORIGIN;
 }
 
 export function createLearnRecurInngestClient(env: InngestConfigEnv = process.env): Inngest {

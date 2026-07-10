@@ -5,6 +5,7 @@ import {
   createLearnRecurInngestClient,
   getInngestClientEnv,
   getInngestEnvStatus,
+  getInngestServeOrigin,
   isInngestDevMode,
 } from "@/lib/inngest/client";
 import {
@@ -107,6 +108,39 @@ describe("Inngest configuration", () => {
 
     expect(client.apiBaseUrl).toBe("https://api.inngest.com/");
     expect(client.eventBaseUrl).toBe("https://inn.gs/");
+  });
+
+  it("uses the local app origin for dev function registration", () => {
+    expect(
+      getInngestServeOrigin({
+        NODE_ENV: "development",
+        INNGEST_DEV: "1",
+        INNGEST_SERVE_ORIGIN: "https://alpha.learnrecur.com",
+        NEXT_PUBLIC_APP_URL: "http://localhost:3100/skills",
+      } as NodeJS.ProcessEnv),
+    ).toBe("http://localhost:3100");
+  });
+
+  it("falls back to localhost when dev inherits a deployed app URL", () => {
+    expect(
+      getInngestServeOrigin({
+        NODE_ENV: "development",
+        INNGEST_DEV: "1",
+        INNGEST_SERVE_ORIGIN: "https://alpha.learnrecur.com",
+        NEXT_PUBLIC_APP_URL: "https://alpha.learnrecur.com",
+      } as NodeJS.ProcessEnv),
+    ).toBe("http://localhost:3000");
+  });
+
+  it("does not override the serve origin outside dev mode", () => {
+    expect(
+      getInngestServeOrigin({
+        NODE_ENV: "production",
+        INNGEST_DEV: "1",
+        INNGEST_SERVE_ORIGIN: "https://alpha.learnrecur.com",
+        NEXT_PUBLIC_APP_URL: "http://localhost:3000",
+      } as NodeJS.ProcessEnv),
+    ).toBeUndefined();
   });
 
   it("parses INNGEST_DEV as an explicit boolean outside production", () => {
