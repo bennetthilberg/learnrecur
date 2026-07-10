@@ -32,10 +32,10 @@ import {
   annotateMaterialPlanOverlaps,
   generateVerifiedMaterialDraft,
   resolveStructuralMaterialScope,
-  summarizeMaterialDraftBatch,
   validateMaterialScopePlannerResponse,
   type MaterialPlanningSection,
 } from "@/lib/materials/drafting";
+import { summarizeMaterialDraftBatch } from "@/lib/materials/batch-summary";
 import {
   createGeminiMaterialEmbeddingGenerator,
   type MaterialEmbeddingGenerator,
@@ -777,6 +777,7 @@ async function planExistingMaterialBatch(input: {
     select: {
       id: true,
       instruction: true,
+      updatedAt: true,
       materialRevisionId: true,
       materialRevision: {
         select: {
@@ -821,15 +822,16 @@ async function planExistingMaterialBatch(input: {
       )}.`,
       items: [],
     });
-    await saveProposedMaterialPlan({
+    return saveProposedMaterialPlan({
       batchId: batch.id,
       userId: input.userId,
       plan,
       model: null,
       structural,
       now: input.now,
+      expectedInstruction: batch.instruction,
+      expectedUpdatedAt: batch.updatedAt,
     });
-    return planResult(batch.id, plan);
   }
   if (structural.candidateSectionIds.length === 0) {
     const plan = materialScopeResolutionSchema.parse({
@@ -842,15 +844,16 @@ async function planExistingMaterialBatch(input: {
       clarification: "Wait for indexing to finish or choose a material with resolved sections.",
       items: [],
     });
-    await saveProposedMaterialPlan({
+    return saveProposedMaterialPlan({
       batchId: batch.id,
       userId: input.userId,
       plan,
       model: null,
       structural,
       now: input.now,
+      expectedInstruction: batch.instruction,
+      expectedUpdatedAt: batch.updatedAt,
     });
-    return planResult(batch.id, plan);
   }
 
   try {
@@ -872,15 +875,16 @@ async function planExistingMaterialBatch(input: {
         clarification: "Choose another section or retry after scanned pages finish OCR.",
         items: [],
       });
-      await saveProposedMaterialPlan({
+      return saveProposedMaterialPlan({
         batchId: batch.id,
         userId: input.userId,
         plan,
         model: null,
         structural,
         now: input.now,
+        expectedInstruction: batch.instruction,
+        expectedUpdatedAt: batch.updatedAt,
       });
-      return planResult(batch.id, plan);
     }
     const ai = input.aiSetup ?? resolveMaterialDraftAiSetup();
     const allowedSections = sections.filter((section) =>
@@ -903,12 +907,20 @@ async function planExistingMaterialBatch(input: {
       rawResponse: rawPlan,
     });
     if (validation.status !== "ready") {
-      await markMaterialBatchPlanningFailed({
+      const markedFailed = await markMaterialBatchPlanningFailed({
         userId: input.userId,
         batchId: batch.id,
         code: validation.reason.toUpperCase().replaceAll("-", "_"),
         message: validation.message,
+        expectedInstruction: batch.instruction,
+        expectedUpdatedAt: batch.updatedAt,
       });
+      if (!markedFailed) {
+        return readCurrentMaterialPlanningResult({
+          userId: input.userId,
+          batchId: batch.id,
+        });
+      }
       return { status: "failed" as const, batchId: batch.id, message: validation.message };
     }
     const existingSkills = await prisma.skill.findMany({
@@ -925,23 +937,32 @@ async function planExistingMaterialBatch(input: {
       select: { id: true, title: true, objective: true },
     });
     const plan = annotateMaterialPlanOverlaps(validation.plan, existingSkills);
-    await saveProposedMaterialPlan({
+    return saveProposedMaterialPlan({
       batchId: batch.id,
       userId: input.userId,
       plan,
       model: ai.model,
       structural,
       now: input.now,
+      expectedInstruction: batch.instruction,
+      expectedUpdatedAt: batch.updatedAt,
     });
-    return planResult(batch.id, plan);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Material scope planning failed.";
-    await markMaterialBatchPlanningFailed({
+    const markedFailed = await markMaterialBatchPlanningFailed({
       userId: input.userId,
       batchId: batch.id,
       code: "PLANNING_FAILED",
       message,
+      expectedInstruction: batch.instruction,
+      expectedUpdatedAt: batch.updatedAt,
     });
+    if (!markedFailed) {
+      return readCurrentMaterialPlanningResult({
+        userId: input.userId,
+        batchId: batch.id,
+      });
+    }
     return { status: "failed" as const, batchId: batch.id, message };
   }
 }
@@ -1031,7 +1052,7 @@ async function retrievePlanningChunks(input: {
     )
     LIMIT ${PLANNING_CHUNK_LIMIT}
   `;
-  return uniqueById([...firstBySection, ...ranked]).slice(0, PLANNING_CHUNK_LIMIT);
+  return uniqueById([...ranked, ...firstBySection]).slice(0, PLANNING_CHUNK_LIMIT);
 }
 
 async function saveProposedMaterialPlan(input: {
@@ -1041,9 +1062,18 @@ async function saveProposedMaterialPlan(input: {
   model: string | null;
   structural: ReturnType<typeof resolveStructuralMaterialScope>;
   now: Date;
+  expectedInstruction: string;
+  expectedUpdatedAt: Date;
 }) {
-  await getPrisma().skillDraftBatch.updateMany({
-    where: { id: input.batchId, userId: input.userId, confirmedAt: null },
+  const updated = await getPrisma().skillDraftBatch.updateMany({
+    where: {
+      id: input.batchId,
+      userId: input.userId,
+      confirmedAt: null,
+      status: SkillDraftBatchStatus.PLANNING,
+      instruction: input.expectedInstruction,
+      updatedAt: input.expectedUpdatedAt,
+    },
     data: {
       proposedPlan: toInputJson(input.plan),
       planningMetadata: {
@@ -1061,6 +1091,13 @@ async function saveProposedMaterialPlan(input: {
       errorMessage: null,
     },
   });
+  if (updated.count === 1) {
+    return planResult(input.batchId, input.plan);
+  }
+  return readCurrentMaterialPlanningResult({
+    userId: input.userId,
+    batchId: input.batchId,
+  });
 }
 
 async function markMaterialBatchPlanningFailed(input: {
@@ -1068,9 +1105,18 @@ async function markMaterialBatchPlanningFailed(input: {
   batchId: string;
   code: string;
   message: string;
+  expectedInstruction: string;
+  expectedUpdatedAt: Date;
 }) {
-  await getPrisma().skillDraftBatch.updateMany({
-    where: { id: input.batchId, userId: input.userId },
+  const updated = await getPrisma().skillDraftBatch.updateMany({
+    where: {
+      id: input.batchId,
+      userId: input.userId,
+      confirmedAt: null,
+      status: SkillDraftBatchStatus.PLANNING,
+      instruction: input.expectedInstruction,
+      updatedAt: input.expectedUpdatedAt,
+    },
     data: {
       status: SkillDraftBatchStatus.FAILED,
       errorCode: input.code,
@@ -1078,6 +1124,36 @@ async function markMaterialBatchPlanningFailed(input: {
       completedAt: new Date(),
     },
   });
+  return updated.count === 1;
+}
+
+async function readCurrentMaterialPlanningResult(input: {
+  userId: string;
+  batchId: string;
+}) {
+  const current = await getPrisma().skillDraftBatch.findFirst({
+    where: { id: input.batchId, userId: input.userId },
+    select: { proposedPlan: true, status: true, errorMessage: true },
+  });
+  if (!current) {
+    return { status: "not-found" as const, message: "Material skill batch was not found." };
+  }
+  const plan = materialScopeResolutionSchema.safeParse(current.proposedPlan);
+  if (plan.success) {
+    return planResult(input.batchId, plan.data);
+  }
+  if (current.status === SkillDraftBatchStatus.FAILED) {
+    return {
+      status: "failed" as const,
+      batchId: input.batchId,
+      message: current.errorMessage ?? "Material scope planning failed.",
+    };
+  }
+  return {
+    status: "superseded" as const,
+    batchId: input.batchId,
+    message: "A newer scope request is still being planned. Refresh this batch shortly.",
+  };
 }
 
 async function markMaterialDraftItemFailed(input: {

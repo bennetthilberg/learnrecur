@@ -23,7 +23,7 @@ import {
   finalizeMaterialRevision,
 } from "@/lib/materials/lifecycle";
 import { getPrisma } from "@/lib/prisma";
-import { activateSkillDraft } from "@/lib/skills";
+import { activateSkillDraft, refillChoiceExercisesForSkill } from "@/lib/skills";
 
 const runDatabaseTests = process.env.RUN_DATABASE_TESTS === "1";
 const describeDatabase = runDatabaseTests ? describe : describe.skip;
@@ -356,6 +356,71 @@ describeDatabase("material multi-skill drafting", () => {
     });
   });
 
+  it("does not let a slower duplicate planner overwrite the plan that finished first", async () => {
+    let releaseFirstPlanner = () => {};
+    const firstPlannerMayFinish = new Promise<void>((resolve) => {
+      releaseFirstPlanner = resolve;
+    });
+    let markFirstPlannerStarted = () => {};
+    const firstPlannerStarted = new Promise<void>((resolve) => {
+      markFirstPlannerStarted = resolve;
+    });
+    let callCount = 0;
+    const planScope = vi.fn(async () => {
+      callCount += 1;
+      const call = callCount;
+      if (call === 1) {
+        markFirstPlannerStarted();
+        await firstPlannerMayFinish;
+      }
+      return {
+        resolutionStatus: "resolved" as const,
+        resolvedScopeLabel: "Chapter 4",
+        clarification: null,
+        warnings: [],
+        items: [
+          {
+            key: "duplicate-planner-fence",
+            title: call === 1 ? "Stale slower plan" : "Winning faster plan",
+            objective: "Choose a direct object pronoun in one focused sentence.",
+            materialSectionIds: [directSectionId],
+            evidenceChunkIds: [directChunkId],
+          },
+        ],
+      };
+    });
+    const request = {
+      materialId,
+      materialRevisionId,
+      instruction: "Make one skill from chapter four.",
+      idempotencyKey: `${runId}_concurrent_plan_fence`,
+    };
+    const firstRequest = planMaterialSkills({
+      userId,
+      input: request,
+      now: new Date("2026-07-09T11:00:00.000Z"),
+      aiSetup: createAiSetup({ planScope }),
+      embeddingGenerator: null,
+    });
+    await firstPlannerStarted;
+    const secondResult = await planMaterialSkills({
+      userId,
+      input: request,
+      now: new Date("2026-07-09T11:00:01.000Z"),
+      aiSetup: createAiSetup({ planScope }),
+      embeddingGenerator: null,
+    });
+    releaseFirstPlanner();
+    const firstResult = await firstRequest;
+
+    expect(planScope).toHaveBeenCalledTimes(2);
+    expect(secondResult).toMatchObject({
+      status: "planned",
+      plan: { items: [{ title: "Winning faster plan" }] },
+    });
+    expect(firstResult).toEqual(secondResult);
+  });
+
   it("gives the planner a fallback chunk from every candidate section before the cap", async () => {
     const planScope = vi.fn(async () => ({
       resolutionStatus: "resolved",
@@ -390,6 +455,94 @@ describeDatabase("material multi-skill drafting", () => {
     expect(planningInput?.chunks.map((chunk) => chunk.id)).toEqual(
       expect.arrayContaining([directChunkId, indirectChunkId]),
     );
+  });
+
+  it("keeps a later semantic hit when broad-scope fallbacks fill the planning cap", async () => {
+    const { material, revision } = await createMaterialWithInitialRevision({
+      userId,
+      title: "Large retrieval fixture",
+      kind: StudyMaterialKind.PDF,
+    });
+    const sectionIds = Array.from(
+      { length: 61 },
+      (_, index) => `${runId}_retrieval_section_${String(index).padStart(2, "0")}`,
+    );
+    const chunkIds = Array.from(
+      { length: 61 },
+      (_, index) => `${runId}_retrieval_chunk_${String(index).padStart(2, "0")}`,
+    );
+    await prisma.materialSection.createMany({
+      data: sectionIds.map((id, index) => ({
+        id,
+        userId,
+        materialRevisionId: revision.id,
+        ordinal: index,
+        level: 1,
+        title: `Topic ${index + 1}`,
+        normalizedTitle: `topic ${index + 1}`,
+        pageStart: index + 1,
+        pageEnd: index + 1,
+        headingPath: [`Topic ${index + 1}`],
+      })),
+    });
+    await prisma.materialChunk.createMany({
+      data: chunkIds.map((id, index) => ({
+        id,
+        userId,
+        materialRevisionId: revision.id,
+        materialSectionId: sectionIds[index],
+        ordinal: index,
+        text:
+          index === 60
+            ? "The zygomatic conjugation sentinel is the uniquely requested concept."
+            : `General grammar overview for topic ${index + 1}.`,
+        tokenEstimate: 10,
+        contentHash: `sha256:${runId}:retrieval-${index}`,
+        headingText: `Topic ${index + 1}`,
+        locator: { kind: "pdf", pageRange: { start: index + 1, end: index + 1 } },
+      })),
+    });
+    await finalizeMaterialRevision({
+      userId,
+      materialId: material.id,
+      materialRevisionId: revision.id,
+      contentHash: `sha256:${runId}:large-retrieval`,
+      byteSize: 16_384,
+      pageCount: 61,
+      storageBucket: "test-materials",
+      storageKey: `${runId}/large-retrieval.pdf`,
+    });
+    const planScope = vi.fn(async () => ({
+      resolutionStatus: "resolved" as const,
+      resolvedScopeLabel: "Topic 61",
+      clarification: null,
+      warnings: [],
+      items: [
+        {
+          key: "later-semantic-hit",
+          title: "Zygomatic conjugation sentinel",
+          objective: "Recognize the uniquely requested conjugation sentinel concept.",
+          materialSectionIds: [sectionIds[60]],
+          evidenceChunkIds: [chunkIds[60]],
+        },
+      ],
+    }));
+
+    const result = await planMaterialSkills({
+      userId,
+      input: {
+        materialId: material.id,
+        materialRevisionId: revision.id,
+        instruction: "zygomatic conjugation sentinel",
+        idempotencyKey: `${runId}_later_semantic_hit`,
+      },
+      now: new Date(),
+      aiSetup: createAiSetup({ planScope }),
+      embeddingGenerator: null,
+    });
+
+    expect(result.status).toBe("planned");
+    expect(planScope.mock.calls[0]?.[0].chunks.map((chunk) => chunk.id)).toContain(chunkIds[60]);
   });
 
   it("keeps a verified draft when a sibling exhausts its bounded regeneration", async () => {
@@ -536,6 +689,51 @@ describeDatabase("material multi-skill drafting", () => {
     expect(activationSourceContext).toContain("Direct object pronouns replace nouns");
     expect(activationSourceContext).not.toContain("UNRELATED CHAPTER SIX SOURCE TEXT");
     expect(activationSourceContext).not.toContain("Indirect object pronouns identify");
+    expect(await getMaterialDraftBatch({ userId, batchId: planned.batchId })).toMatchObject({
+      status: SkillDraftBatchStatus.PARTIAL,
+      readyCount: 0,
+      activatedCount: 1,
+      items: [
+        { status: SkillDraftBatchItemStatus.ACTIVE },
+        { status: SkillDraftBatchItemStatus.FAILED },
+      ],
+    });
+
+    let refillSourceContext: string | null = null;
+    const refilled = await refillChoiceExercisesForSkill({
+      userId,
+      skillId: readySkill.id,
+      now: new Date(),
+      model: "fixture-model",
+      targetReadyCount: 5,
+      generateChoiceExercises: async (generationInput) => {
+        refillSourceContext = generationInput.sourceContext;
+        return {
+          exercises: [4, 5].map((number) => ({
+            prompt: `Choose the direct object pronoun in refill example ${number}.`,
+            choices: [
+              { id: "correct", label: "lo" },
+              { id: "wrong-a", label: "le" },
+              { id: "wrong-b", label: "les" },
+            ],
+            correctChoiceId: "correct",
+            explanation: "The noun receives the action directly.",
+            difficulty: 2,
+            expectedSeconds: 30,
+          })),
+        };
+      },
+      verifyChoiceExercises: async (verificationInput) => ({
+        verifications: verificationInput.candidates.map((candidate) => ({
+          candidateId: candidate.candidateId,
+          verdict: "verified",
+        })),
+      }),
+    });
+    expect(refilled.status).toBe("refilled");
+    expect(refillSourceContext).toContain("Direct object pronouns replace nouns");
+    expect(refillSourceContext).not.toContain("UNRELATED CHAPTER SIX SOURCE TEXT");
+    expect(refillSourceContext).not.toContain("Indirect object pronouns identify");
 
     await expect(
       excludeMaterialDraftItem({
@@ -544,10 +742,7 @@ describeDatabase("material multi-skill drafting", () => {
         itemId: firstItem.id,
         now: new Date(),
       }),
-    ).resolves.toMatchObject({
-      status: "not-excluded",
-      reason: "skill-not-draft",
-    });
+    ).resolves.toMatchObject({ status: "not-found" });
     expect(
       await prisma.skill.findUniqueOrThrow({
         where: { id: readySkill.id },

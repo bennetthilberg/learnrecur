@@ -9,6 +9,8 @@ import {
   GenerationJobKind,
   GenerationJobStatus,
   Prisma,
+  SkillDraftBatchItemStatus,
+  SkillDraftBatchStatus,
   SkillStatus,
   SourceFileKind,
   SourceFileStatus,
@@ -25,6 +27,7 @@ import {
   type TextAnswerSpec,
 } from "@/lib/answer-checking";
 import { formatEnvError, getGeminiEnv } from "@/lib/env";
+import { summarizeMaterialDraftBatch } from "@/lib/materials/batch-summary";
 import {
   getGeminiRuntimeLogContext,
   getGeminiErrorLogDetails,
@@ -2114,7 +2117,7 @@ async function resolveSourceMediaContext({
   return loadSourceMediaContextForSourceFiles({ sourceFiles: attachableSourceFiles });
 }
 
-async function resolveActivationSourceEvidence(input: {
+async function resolveGroundedSkillSourceEvidence(input: {
   userId: string;
   sourceRefs: ActivationSourceRef[];
   sourceMediaLoader?: SourceMediaContextLoader;
@@ -2300,7 +2303,7 @@ export async function activateSkillDraft(
   let sourceMedia: SourceMediaContext[];
 
   try {
-    const evidence = await resolveActivationSourceEvidence({
+    const evidence = await resolveGroundedSkillSourceEvidence({
       userId: input.userId,
       sourceRefs: skill.sourceRefs,
       sourceMediaLoader: input.sourceMediaLoader,
@@ -2488,6 +2491,13 @@ export async function activateSkillDraft(
       },
     });
 
+    await synchronizeActivatedMaterialDraftBatches({
+      tx,
+      userId: input.userId,
+      skillId: skill.id,
+      now: input.now,
+    });
+
     return {
       status: "activated",
       skillId: skill.id,
@@ -2495,6 +2505,62 @@ export async function activateSkillDraft(
       exerciseCount: verification.exercises.length,
     };
   });
+}
+
+async function synchronizeActivatedMaterialDraftBatches(input: {
+  tx: Prisma.TransactionClient;
+  userId: string;
+  skillId: string;
+  now: Date;
+}) {
+  const linkedItems = await input.tx.skillDraftBatchItem.findMany({
+    where: {
+      userId: input.userId,
+      skillId: input.skillId,
+      status: {
+        in: [SkillDraftBatchItemStatus.READY, SkillDraftBatchItemStatus.ACTIVATING],
+      },
+    },
+    select: { id: true, batchId: true },
+  });
+  if (linkedItems.length === 0) {
+    return;
+  }
+
+  await input.tx.skillDraftBatchItem.updateMany({
+    where: {
+      id: { in: linkedItems.map((item) => item.id) },
+      userId: input.userId,
+      skillId: input.skillId,
+      status: {
+        in: [SkillDraftBatchItemStatus.READY, SkillDraftBatchItemStatus.ACTIVATING],
+      },
+    },
+    data: {
+      status: SkillDraftBatchItemStatus.ACTIVE,
+      errorCode: null,
+      errorMessage: null,
+    },
+  });
+
+  for (const batchId of new Set(linkedItems.map((item) => item.batchId))) {
+    const items = await input.tx.skillDraftBatchItem.findMany({
+      where: { batchId, userId: input.userId },
+      select: { status: true },
+    });
+    const summary = summarizeMaterialDraftBatch(items.map((item) => item.status));
+    await input.tx.skillDraftBatch.updateMany({
+      where: { id: batchId, userId: input.userId },
+      data: {
+        status: SkillDraftBatchStatus[summary.status],
+        readyCount: summary.readyCount,
+        failedCount: summary.failedCount,
+        excludedCount: summary.excludedCount,
+        activatedCount: summary.activatedCount,
+        completedAt: summary.terminal ? input.now : null,
+      },
+    });
+  }
 }
 
 export async function refillChoiceExercisesForSkill(
@@ -2522,9 +2588,11 @@ export async function refillChoiceExercisesForSkill(
           createdAt: "asc",
         },
         select: {
+          locator: true,
           sourceFile: {
             select: {
               id: true,
+              materialRevisionId: true,
               kind: true,
               status: true,
               originalName: true,
@@ -2639,17 +2707,18 @@ export async function refillChoiceExercisesForSkill(
     };
   }
 
-  const sourceContext = buildSourceContextExcerpt(
-    skill.sourceRefs.map((sourceRef) => sourceRef.sourceFile.extractedText),
-  );
   const existingExerciseContext = buildExistingChoiceExerciseContext(skill.exercises);
+  let sourceContext: string | null;
   let sourceMedia: SourceMediaContext[];
 
   try {
-    sourceMedia = await resolveSourceMediaContext({
-      sourceFiles: skill.sourceRefs.map((sourceRef) => sourceRef.sourceFile),
+    const evidence = await resolveGroundedSkillSourceEvidence({
+      userId: input.userId,
+      sourceRefs: skill.sourceRefs,
       sourceMediaLoader: input.sourceMediaLoader,
     });
+    sourceContext = evidence.sourceContext;
+    sourceMedia = evidence.sourceMedia;
   } catch (error) {
     const message = buildSourceMediaLoadFailureMessage(error);
     await markGenerationJobFailed(prisma, generationJob.id, {
@@ -2939,9 +3008,11 @@ export async function refillExactInputExercisesForSkill(
           createdAt: "asc",
         },
         select: {
+          locator: true,
           sourceFile: {
             select: {
               id: true,
+              materialRevisionId: true,
               kind: true,
               status: true,
               originalName: true,
@@ -3064,17 +3135,18 @@ export async function refillExactInputExercisesForSkill(
     };
   }
 
-  const sourceContext = buildSourceContextExcerpt(
-    skill.sourceRefs.map((sourceRef) => sourceRef.sourceFile.extractedText),
-  );
   const existingExerciseContext = buildExistingExactInputExerciseContext(skill.exercises);
+  let sourceContext: string | null;
   let sourceMedia: SourceMediaContext[];
 
   try {
-    sourceMedia = await resolveSourceMediaContext({
-      sourceFiles: skill.sourceRefs.map((sourceRef) => sourceRef.sourceFile),
+    const evidence = await resolveGroundedSkillSourceEvidence({
+      userId: input.userId,
+      sourceRefs: skill.sourceRefs,
       sourceMediaLoader: input.sourceMediaLoader,
     });
+    sourceContext = evidence.sourceContext;
+    sourceMedia = evidence.sourceMedia;
   } catch (error) {
     const message = buildSourceMediaLoadFailureMessage(error);
     await markGenerationJobFailed(prisma, generationJob.id, {
@@ -3365,9 +3437,11 @@ export async function refillMathExercisesForSkill(
           createdAt: "asc",
         },
         select: {
+          locator: true,
           sourceFile: {
             select: {
               id: true,
+              materialRevisionId: true,
               kind: true,
               status: true,
               originalName: true,
@@ -3490,17 +3564,18 @@ export async function refillMathExercisesForSkill(
     };
   }
 
-  const sourceContext = buildSourceContextExcerpt(
-    skill.sourceRefs.map((sourceRef) => sourceRef.sourceFile.extractedText),
-  );
   const existingExerciseContext = buildExistingMathExerciseContext(skill.exercises);
+  let sourceContext: string | null;
   let sourceMedia: SourceMediaContext[];
 
   try {
-    sourceMedia = await resolveSourceMediaContext({
-      sourceFiles: skill.sourceRefs.map((sourceRef) => sourceRef.sourceFile),
+    const evidence = await resolveGroundedSkillSourceEvidence({
+      userId: input.userId,
+      sourceRefs: skill.sourceRefs,
       sourceMediaLoader: input.sourceMediaLoader,
     });
+    sourceContext = evidence.sourceContext;
+    sourceMedia = evidence.sourceMedia;
   } catch (error) {
     const message = buildSourceMediaLoadFailureMessage(error);
     await markGenerationJobFailed(prisma, generationJob.id, {
