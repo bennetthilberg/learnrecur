@@ -18,6 +18,7 @@ import {
   skillSourceLocatorSchema,
   type SkillSourceLocator,
 } from "@/lib/materials/contracts";
+import { materialPageEvidenceId, parseMaterialPageEvidenceId } from "@/lib/materials/evidence-ids";
 import { estimateTokens } from "@/lib/materials/pdf";
 import { getPrisma } from "@/lib/prisma";
 import {
@@ -455,30 +456,29 @@ export async function loadLocalizedMaterialEvidence(input: {
   }
 
   const prisma = getPrisma();
-  const chunkConditions = materialRefs.map((sourceRef) => ({
-    materialRevisionId: sourceRef.locator.materialRevisionId,
-    id: { in: sourceRef.locator.evidenceChunkIds },
-  }));
-  const chunks = await prisma.materialChunk.findMany({
-    where: { userId: input.userId, OR: chunkConditions },
-    select: {
-      id: true,
-      materialRevisionId: true,
-      ordinal: true,
-      headingText: true,
-      text: true,
-    },
+  const chunkConditions = materialRefs.flatMap((sourceRef) => {
+    const chunkIds = sourceRef.locator.evidenceChunkIds.filter(
+      (evidenceId) => !parseMaterialPageEvidenceId(evidenceId),
+    );
+    return chunkIds.length > 0
+      ? [{ materialRevisionId: sourceRef.locator.materialRevisionId, id: { in: chunkIds } }]
+      : [];
   });
+  const chunks = chunkConditions.length
+    ? await prisma.materialChunk.findMany({
+        where: { userId: input.userId, OR: chunkConditions },
+        select: {
+          id: true,
+          materialRevisionId: true,
+          ordinal: true,
+          headingText: true,
+          text: true,
+        },
+      })
+    : [];
   const chunkKeys = new Set(
     chunks.map((chunk) => `${chunk.materialRevisionId}\u0000${chunk.id}`),
   );
-  for (const sourceRef of materialRefs) {
-    for (const chunkId of sourceRef.locator.evidenceChunkIds) {
-      if (!chunkKeys.has(`${sourceRef.locator.materialRevisionId}\u0000${chunkId}`)) {
-        throw new Error("Stored material evidence chunk is no longer available.");
-      }
-    }
-  }
 
   const pageConditions = materialRefs.flatMap((sourceRef) =>
     sourceRef.locator.source.kind === "pdf"
@@ -492,6 +492,7 @@ export async function loadLocalizedMaterialEvidence(input: {
     ? await prisma.materialPage.findMany({
         where: { userId: input.userId, OR: pageConditions },
         select: {
+          id: true,
           materialRevisionId: true,
           pageNumber: true,
           ocrText: true,
@@ -499,7 +500,26 @@ export async function loadLocalizedMaterialEvidence(input: {
         },
       })
     : [];
-  const evidenceChunkIds = materialRefs.flatMap((sourceRef) => sourceRef.locator.evidenceChunkIds);
+  const pageKeys = new Set(
+    pages.flatMap((page) =>
+      page.textStatus === MaterialPageTextStatus.OCR_READY && page.ocrText
+        ? [`${page.materialRevisionId}\u0000${materialPageEvidenceId(page.id)}`]
+        : [],
+    ),
+  );
+  for (const sourceRef of materialRefs) {
+    for (const evidenceId of sourceRef.locator.evidenceChunkIds) {
+      const key = `${sourceRef.locator.materialRevisionId}\u0000${evidenceId}`;
+      if (parseMaterialPageEvidenceId(evidenceId) ? !pageKeys.has(key) : !chunkKeys.has(key)) {
+        throw new Error("Stored material evidence chunk is no longer available.");
+      }
+    }
+  }
+  const evidenceChunkIds = materialRefs.flatMap((sourceRef) =>
+    sourceRef.locator.evidenceChunkIds.filter(
+      (evidenceId) => !parseMaterialPageEvidenceId(evidenceId),
+    ),
+  );
   const ocrPages = pages.flatMap((page) =>
     page.textStatus === MaterialPageTextStatus.OCR_READY && page.ocrText
       ? [{ pageNumber: page.pageNumber, ocrText: page.ocrText }]

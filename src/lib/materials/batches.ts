@@ -6,6 +6,7 @@ import { isDeepStrictEqual } from "node:util";
 import {
   GenerationJobKind,
   GenerationJobStatus,
+  MaterialPageTextStatus,
   MaterialRevisionStatus,
   Prisma,
   SkillDraftBatchItemStatus,
@@ -52,6 +53,7 @@ import {
   loadLocalizedMaterialEvidence,
   type MaterialOcrGenerator,
 } from "@/lib/materials/evidence";
+import { materialPageEvidenceId } from "@/lib/materials/evidence-ids";
 import { createIdempotentDraftBatch } from "@/lib/materials/lifecycle";
 import {
   searchMaterialChunks,
@@ -82,6 +84,7 @@ const GENERATION_EVIDENCE_CHARACTER_LIMIT = 24_000;
 // Keep this above the five-minute function ceiling so a slow but healthy model call
 // is not surfaced as failed while its worker can still complete.
 const MATERIAL_DRAFT_CLAIM_STALE_MS = 10 * 60 * 1_000;
+const MATERIAL_BATCH_ACTIVATION_CLAIM_STALE_MS = 2 * 60 * 1_000;
 
 export class MaterialDraftGenerationError extends Error {
   readonly retryable: boolean;
@@ -494,26 +497,14 @@ export async function runMaterialDraftItemJob(input: {
       userId: input.userId,
       sourceRefs: [{ locator: locator.data, sourceFile }],
     });
-    const chunks = await prisma.materialChunk.findMany({
-      where: {
-        id: { in: locator.data.evidenceChunkIds },
-        userId: input.userId,
-        materialRevisionId: item.batch.materialRevisionId,
-      },
-      select: { id: true, ordinal: true, headingText: true, text: true },
-    });
-    if (chunks.length !== locator.data.evidenceChunkIds.length) {
+    const evidenceText = localizedEvidence.sourceContext
+      ?.slice(0, GENERATION_EVIDENCE_CHARACTER_LIMIT)
+      .trim();
+    if (!evidenceText) {
       throw new MaterialDraftGenerationError("Confirmed evidence chunks were not found.", {
         retryable: false,
       });
     }
-    const chunksById = new Map(chunks.map((chunk) => [chunk.id, chunk]));
-    const evidenceText = locator.data.evidenceChunkIds
-      .map((chunkId) => chunksById.get(chunkId))
-      .filter(isDefined)
-      .map((chunk) => `${chunk.headingText ?? `Excerpt ${chunk.ordinal + 1}`}\n${chunk.text}`)
-      .join("\n\n---\n\n")
-      .slice(0, GENERATION_EVIDENCE_CHARACTER_LIMIT);
     const ai = input.aiSetup ?? resolveMaterialDraftAiSetup();
     const generated = await generateVerifiedMaterialDraft({
       target: { title: item.proposedTitle, objective: item.proposedObjective },
@@ -1003,28 +994,30 @@ export async function runMaterialBatchActivationJob(input: {
     });
     return { status: "active" as const, alreadyActivated: true, skillId: item.skill.id };
   }
-  const retryingTransientFailure =
-    item.status === SkillDraftBatchItemStatus.FAILED &&
-    item.errorCode?.startsWith("ACTIVATION_RETRYABLE_");
-  if (item.status !== SkillDraftBatchItemStatus.ACTIVATING && !retryingTransientFailure) {
-    return { status: "not-claimed" as const };
-  }
-  if (retryingTransientFailure) {
-    await prisma.skillDraftBatchItem.updateMany({
-      where: { id: item.id, userId: input.userId, status: SkillDraftBatchItemStatus.FAILED },
-      data: {
-        status: SkillDraftBatchItemStatus.ACTIVATING,
-        errorCode: null,
-        errorMessage: null,
-      },
+  const slot = await claimMaterialBatchActivationSlot({
+    userId: input.userId,
+    batchId: input.batchId,
+    itemId: item.id,
+    generationJobId: input.generationJobId,
+    now,
+  });
+  if (slot.status === "limited") {
+    await reconcileMaterialDraftBatch({
+      userId: input.userId,
+      batchId: input.batchId,
+      now,
     });
+    throw new MaterialBatchActivationError(slot.message, { retryable: true });
+  }
+  if (slot.status !== "ready") {
+    return { status: "not-claimed" as const };
   }
 
   let result: Awaited<ReturnType<typeof activateSkillDraft>>;
   try {
     result = await activateSkillDraft({
       userId: input.userId,
-      skillId: item.skill.id,
+      skillId: slot.skillId,
       generationJobId: input.generationJobId,
       now,
       generateChoiceExercises: input.generateChoiceExercises,
@@ -1090,6 +1083,126 @@ export async function runMaterialBatchActivationJob(input: {
     throw new MaterialBatchActivationError(result.message, { retryable: true });
   }
   return { status: "failed" as const, reason: result.reason, message: result.message };
+}
+
+async function claimMaterialBatchActivationSlot(input: {
+  userId: string;
+  batchId: string;
+  itemId: string;
+  generationJobId: string;
+  now: Date;
+}) {
+  return getPrisma().$transaction(async (tx) => {
+    await tx.$queryRaw`
+      SELECT "id" FROM "users"
+      WHERE "id" = ${input.userId}
+      FOR UPDATE
+    `;
+    const item = await tx.skillDraftBatchItem.findFirst({
+      where: { id: input.itemId, batchId: input.batchId, userId: input.userId },
+      select: {
+        id: true,
+        status: true,
+        errorCode: true,
+        generationClaimId: true,
+        updatedAt: true,
+        skill: { select: { id: true, status: true } },
+      },
+    });
+    if (!item?.skill || item.skill.status !== SkillStatus.DRAFT) {
+      return { status: "not-claimed" as const };
+    }
+    const retryingTransientFailure =
+      item.status === SkillDraftBatchItemStatus.FAILED &&
+      item.errorCode?.startsWith("ACTIVATION_RETRYABLE_");
+    if (item.status !== SkillDraftBatchItemStatus.ACTIVATING && !retryingTransientFailure) {
+      return { status: "not-claimed" as const };
+    }
+    if (
+      item.status === SkillDraftBatchItemStatus.ACTIVATING &&
+      item.generationClaimId &&
+      input.now.getTime() - item.updatedAt.getTime() < MATERIAL_BATCH_ACTIVATION_CLAIM_STALE_MS
+    ) {
+      return { status: "not-claimed" as const };
+    }
+    const job = await tx.generationJob.findFirst({
+      where: {
+        id: input.generationJobId,
+        userId: input.userId,
+        skillId: item.skill.id,
+        kind: GenerationJobKind.SKILL_ACTIVATION,
+        status: {
+          in: [
+            GenerationJobStatus.PENDING,
+            GenerationJobStatus.RUNNING,
+            GenerationJobStatus.FAILED,
+          ],
+        },
+      },
+      select: { id: true, status: true, startedAt: true },
+    });
+    if (
+      !job ||
+      (job.status === GenerationJobStatus.RUNNING &&
+        job.startedAt &&
+        input.now.getTime() - job.startedAt.getTime() <
+          MATERIAL_BATCH_ACTIVATION_CLAIM_STALE_MS)
+    ) {
+      return { status: "not-claimed" as const };
+    }
+    const [activeSkillCount, pendingActivationCount] = await Promise.all([
+      tx.skill.count({
+        where: {
+          userId: input.userId,
+          status: { in: [SkillStatus.ACTIVE, SkillStatus.PAUSED] },
+        },
+      }),
+      tx.skillDraftBatchItem.count({
+        where: {
+          userId: input.userId,
+          status: SkillDraftBatchItemStatus.ACTIVATING,
+          skill: { status: SkillStatus.DRAFT },
+        },
+      }),
+    ]);
+    const projectedSkillCount =
+      activeSkillCount + pendingActivationCount + (retryingTransientFailure ? 1 : 0);
+    if (projectedSkillCount > ALPHA_ACTIVE_SKILLS) {
+      if (item.status === SkillDraftBatchItemStatus.ACTIVATING) {
+        await tx.skillDraftBatchItem.update({
+          where: { id: item.id },
+          data: {
+            status: SkillDraftBatchItemStatus.FAILED,
+            errorCode: "ACTIVATION_RETRYABLE_ACTIVE_SKILL_LIMIT",
+            errorMessage: `Activation would exceed the ${ALPHA_ACTIVE_SKILLS}-skill alpha limit. Archive a skill and retry.`,
+          },
+        });
+      }
+      await tx.generationJob.update({
+        where: { id: job.id },
+        data: {
+          status: GenerationJobStatus.FAILED,
+          errorMessage: `Activation would exceed the ${ALPHA_ACTIVE_SKILLS}-skill alpha limit.`,
+          completedAt: input.now,
+        },
+      });
+      return {
+        status: "limited" as const,
+        message: `Activation would exceed the ${ALPHA_ACTIVE_SKILLS}-skill alpha limit. Archive a skill and retry.`,
+      };
+    }
+    const claimId = randomUUID();
+    await tx.skillDraftBatchItem.update({
+      where: { id: item.id },
+      data: {
+        status: SkillDraftBatchItemStatus.ACTIVATING,
+        generationClaimId: claimId,
+        errorCode: null,
+        errorMessage: null,
+      },
+    });
+    return { status: "ready" as const, skillId: item.skill.id, claimId };
+  });
 }
 
 export async function retryMaterialBatchActivationItem(input: {
@@ -1174,6 +1287,7 @@ export async function retryMaterialBatchActivationItem(input: {
       where: { id: item.id },
       data: {
         status: SkillDraftBatchItemStatus.ACTIVATING,
+        generationClaimId: null,
         errorCode: null,
         errorMessage: null,
       },
@@ -1228,6 +1342,7 @@ async function markMaterialBatchItemActive(input: {
     where: { id: input.itemId, batchId: input.batchId, userId: input.userId },
     data: {
       status: SkillDraftBatchItemStatus.ACTIVE,
+      generationClaimId: null,
       errorCode: null,
       errorMessage: null,
     },
@@ -1247,6 +1362,7 @@ async function markMaterialBatchActivationFailed(input: {
     where: { id: input.itemId, batchId: input.batchId, userId: input.userId },
     data: {
       status: SkillDraftBatchItemStatus.FAILED,
+      generationClaimId: null,
       errorCode: input.code,
       errorMessage: input.message.slice(0, 1_000),
     },
@@ -1363,7 +1479,11 @@ export async function getMaterialDraftBatch(input: { userId: string; batchId: st
       batchId: input.batchId,
       userId: input.userId,
       status: {
-        in: [SkillDraftBatchItemStatus.READY, SkillDraftBatchItemStatus.ACTIVATING],
+        in: [
+          SkillDraftBatchItemStatus.READY,
+          SkillDraftBatchItemStatus.ACTIVATING,
+          SkillDraftBatchItemStatus.FAILED,
+        ],
       },
       skill: { status: SkillStatus.ACTIVE },
     },
@@ -1603,6 +1723,9 @@ async function planExistingMaterialBatch(input: {
       materialRevisionId: batch.materialRevisionId,
       instruction: batch.instruction,
       sectionIds: structural.candidateSectionIds,
+      sections: sections.filter((section) =>
+        structural.candidateSectionIds.includes(section.id),
+      ),
       embeddingGenerator: input.embeddingGenerator,
     });
     if (chunks.length === 0) {
@@ -1713,6 +1836,7 @@ async function retrievePlanningChunks(input: {
   materialRevisionId: string;
   instruction: string;
   sectionIds: string[];
+  sections: MaterialPlanningSection[];
   embeddingGenerator?: MaterialEmbeddingGenerator | null;
 }) {
   const prisma = getPrisma();
@@ -1751,6 +1875,19 @@ async function retrievePlanningChunks(input: {
       limit: 48,
     });
   }
+  const ocrChunks = await retrieveOcrPlanningChunks({
+    userId: input.userId,
+    materialRevisionId: input.materialRevisionId,
+    instruction: input.instruction,
+    sections: input.sections,
+  });
+  const matchedOcrChunks = ocrChunks.filter((chunk) => chunk.lexicalScore > 0);
+  const reservedOcrChunks = uniqueById([...matchedOcrChunks, ...ocrChunks]).slice(0, 8);
+  ranked = uniqueById([
+    ...matchedOcrChunks,
+    ...ranked.slice(0, Math.max(0, 48 - reservedOcrChunks.length)),
+    ...reservedOcrChunks,
+  ]).slice(0, 48);
   const firstBySection = await prisma.$queryRaw<MaterialChunkSearchResult[]>`
     WITH section_chunks AS (
       SELECT
@@ -1793,13 +1930,17 @@ async function retrievePlanningChunks(input: {
     )
     LIMIT ${PLANNING_CHUNK_LIMIT}
   `;
+  const firstOcrBySection = uniqueBy(
+    ocrChunks.filter((chunk) => chunk.materialSectionId !== null),
+    (chunk) => chunk.materialSectionId,
+  );
   const rankedChunks = uniqueById(ranked);
   const rankedSectionIds = new Set(
     rankedChunks.flatMap((chunk) =>
       chunk.materialSectionId ? [chunk.materialSectionId] : [],
     ),
   );
-  const uncoveredSectionFallbacks = firstBySection.filter(
+  const uncoveredSectionFallbacks = uniqueById([...firstBySection, ...firstOcrBySection]).filter(
     (chunk) =>
       chunk.materialSectionId !== null && !rankedSectionIds.has(chunk.materialSectionId),
   );
@@ -1813,6 +1954,86 @@ async function retrievePlanningChunks(input: {
     ...rankedChunks.slice(0, rankedSlots),
     ...uncoveredSectionFallbacks.slice(0, fallbackSlots),
   ]);
+}
+
+async function retrieveOcrPlanningChunks(input: {
+  userId: string;
+  materialRevisionId: string;
+  instruction: string;
+  sections: MaterialPlanningSection[];
+}): Promise<MaterialChunkSearchResult[]> {
+  const boundedSections = input.sections.filter(
+    (section) => section.pageStart !== null && section.pageEnd !== null,
+  );
+  if (boundedSections.length === 0) {
+    return [];
+  }
+  const pages = await getPrisma().materialPage.findMany({
+    where: {
+      userId: input.userId,
+      materialRevisionId: input.materialRevisionId,
+      textStatus: MaterialPageTextStatus.OCR_READY,
+      ocrText: { not: null },
+      OR: boundedSections.map((section) => ({
+        pageNumber: { gte: section.pageStart!, lte: section.pageEnd! },
+      })),
+    },
+    orderBy: { pageNumber: "asc" },
+    select: {
+      id: true,
+      pageNumber: true,
+      ocrText: true,
+      tokenEstimate: true,
+    },
+  });
+  return pages.flatMap((page) => {
+    if (!page.ocrText) {
+      return [];
+    }
+    const section = boundedSections
+      .filter(
+        (candidate) =>
+          candidate.pageStart! <= page.pageNumber && candidate.pageEnd! >= page.pageNumber,
+      )
+      .sort(
+        (left, right) =>
+          right.level - left.level ||
+          left.pageEnd! - left.pageStart! - (right.pageEnd! - right.pageStart!) ||
+          left.ordinal - right.ordinal,
+      )[0];
+    if (!section) {
+      return [];
+    }
+    const lexicalScore = planningLexicalScore(input.instruction, page.ocrText);
+    return [
+      {
+        id: materialPageEvidenceId(page.id),
+        materialRevisionId: input.materialRevisionId,
+        materialSectionId: section.id,
+        sourceFileId: null,
+        ordinal: page.pageNumber,
+        text: page.ocrText,
+        tokenEstimate: page.tokenEstimate,
+        locator: {
+          kind: "pdf",
+          pageRange: { start: page.pageNumber, end: page.pageNumber },
+        },
+        headingText: `${section.title} · page ${page.pageNumber}`,
+        vectorScore: 0,
+        lexicalScore,
+        score: lexicalScore,
+      },
+    ];
+  });
+}
+
+function planningLexicalScore(query: string, text: string) {
+  const terms = new Set(normalizeComparableText(query).split(" ").filter((term) => term.length > 1));
+  if (terms.size === 0) {
+    return 0;
+  }
+  const textTerms = new Set(normalizeComparableText(text).split(" "));
+  return [...terms].filter((term) => textTerms.has(term)).length / terms.size;
 }
 
 async function saveProposedMaterialPlan(input: {
@@ -1988,6 +2209,6 @@ function uniqueById<T extends { id: string }>(values: T[]) {
   return [...new Map(values.map((value) => [value.id, value])).values()];
 }
 
-function isDefined<T>(value: T | undefined): value is T {
-  return value !== undefined;
+function uniqueBy<T, K>(values: T[], key: (value: T) => K) {
+  return [...new Map(values.map((value) => [key(value), value])).values()];
 }

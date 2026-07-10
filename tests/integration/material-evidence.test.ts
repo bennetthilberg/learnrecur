@@ -14,6 +14,7 @@ import {
   ensureMaterialPageOcr,
   loadLocalizedMaterialEvidence,
 } from "@/lib/materials/evidence";
+import { planMaterialSkills } from "@/lib/materials/batches";
 import {
   createMaterialWithInitialRevision,
   finalizeMaterialRevision,
@@ -28,6 +29,7 @@ const runId = `material_evidence_${randomUUID()}`;
 describeDatabase("localized material OCR evidence", () => {
   const prisma = getPrisma();
   const userId = `${runId}_owner`;
+  let materialId = "";
   let materialRevisionId = "";
   let materialSectionId = "";
   let seedChunkId = "";
@@ -46,6 +48,7 @@ describeDatabase("localized material OCR evidence", () => {
       title: "Scanned grammar workbook",
       kind: StudyMaterialKind.PDF,
     });
+    materialId = material.id;
     materialRevisionId = revision.id;
     const section = await prisma.materialSection.create({
       data: {
@@ -178,6 +181,82 @@ describeDatabase("localized material OCR evidence", () => {
       "getPageCount",
     );
     expect((await PDFDocument.load(evidence.sourceMedia[0].bytes)).getPageCount()).toBe(2);
+
+    const pageTwo = await prisma.materialPage.findFirstOrThrow({
+      where: { userId, materialRevisionId, pageNumber: 2 },
+      select: { id: true },
+    });
+    const pageEvidenceId = `material-page:${pageTwo.id}`;
+    const planScope = vi.fn(async (planningInput: { chunks: Array<{ id: string; text: string }> }) => {
+      const ocrChunk = planningInput.chunks.find((chunk) => chunk.id === pageEvidenceId);
+      expect(ocrChunk?.text).toContain("Scanned page 2 explains");
+      return {
+        resolutionStatus: "resolved" as const,
+        resolvedScopeLabel: "Scanned page 2",
+        clarification: null,
+        warnings: [],
+        items: [
+          {
+            key: "scanned-page-two",
+            title: "Scanned page two grammar",
+            objective: "Apply the grammar concept explained on scanned page two.",
+            materialSectionIds: [materialSectionId],
+            evidenceChunkIds: [pageEvidenceId],
+          },
+        ],
+      };
+    });
+    const planned = await planMaterialSkills({
+      userId,
+      input: {
+        materialId,
+        materialRevisionId,
+        instruction: "Make a skill from the grammar concept on scanned page 2.",
+        idempotencyKey: `${runId}_ocr_planning`,
+      },
+      now: new Date("2026-07-09T15:02:00.000Z"),
+      aiSetup: {
+        model: "fixture-model",
+        planScope,
+        async generateDraft() {
+          throw new Error("not used");
+        },
+        async verifyDraft() {
+          throw new Error("not used");
+        },
+      },
+      embeddingGenerator: null,
+      ocrGenerator: null,
+    });
+    expect(planned).toMatchObject({
+      status: "planned",
+      plan: {
+        items: [
+          {
+            evidenceChunkIds: [pageEvidenceId],
+            locator: { source: { kind: "pdf", pageRanges: [{ start: 2, end: 2 }] } },
+          },
+        ],
+      },
+    });
+
+    const pageEvidence = await loadLocalizedMaterialEvidence({
+      userId,
+      storage,
+      sourceRefs: [
+        {
+          locator: {
+            version: 1,
+            materialRevisionId,
+            materialSectionIds: [materialSectionId],
+            evidenceChunkIds: [pageEvidenceId],
+            source: { kind: "pdf", pageRanges: [{ start: 2, end: 2 }] },
+          },
+          sourceFile,
+        },
+      ],
+    });
+    expect(pageEvidence.sourceContext).toContain("Scanned page 2 explains");
   });
 
   it("lets only one concurrent worker claim each OCR page", async () => {

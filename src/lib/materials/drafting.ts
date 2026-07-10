@@ -415,12 +415,15 @@ function buildSkillSourceLocator(input: {
     evidenceChunkIds: input.evidenceChunkIds,
   };
   if (input.kind === "PDF") {
+    const chunkRanges = input.chunks.flatMap((chunk) => readPdfChunkPageRange(chunk.locator));
     const ranges = mergePageRanges(
-      input.sections.flatMap((section) =>
-        section.pageStart
-          ? [{ start: section.pageStart, end: section.pageEnd ?? section.pageStart }]
-          : [],
-      ),
+      chunkRanges.length > 0
+        ? chunkRanges
+        : input.sections.flatMap((section) =>
+            section.pageStart
+              ? [{ start: section.pageStart, end: section.pageEnd ?? section.pageStart }]
+              : [],
+          ),
     );
     return ranges.length > 0 ? { ...common, source: { kind: "pdf", pageRanges: ranges } } : null;
   }
@@ -440,6 +443,21 @@ function buildSkillSourceLocator(input: {
     (anchor) => `${anchor.url}\u0000${anchor.heading}\u0000${anchor.anchor ?? ""}`,
   );
   return anchors.length > 0 ? { ...common, source: { kind: "web", anchors } } : null;
+}
+
+function readPdfChunkPageRange(locator: unknown) {
+  if (!locator || typeof locator !== "object" || Array.isArray(locator)) {
+    return [];
+  }
+  const pageRange = "pageRange" in locator ? locator.pageRange : null;
+  if (!pageRange || typeof pageRange !== "object" || Array.isArray(pageRange)) {
+    return [];
+  }
+  const start = "start" in pageRange ? pageRange.start : null;
+  const end = "end" in pageRange ? pageRange.end : null;
+  return typeof start === "number" && typeof end === "number" && start >= 1 && end >= start
+    ? [{ start, end }]
+    : [];
 }
 
 function collectSectionScope(

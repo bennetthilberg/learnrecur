@@ -1526,6 +1526,65 @@ describeDatabase("material multi-skill drafting", () => {
     ]);
   });
 
+  it("rechecks active-skill capacity before consuming a queued reservation", async () => {
+    const ready = await createReadyBatch([
+      {
+        key: "queued-slot-recheck",
+        title: "Queued slot recheck fixture",
+        objective: "Choose a direct object pronoun after a queued slot is rechecked.",
+        materialSectionIds: [directSectionId],
+        evidenceChunkIds: [directChunkId],
+      },
+    ]);
+    const events: Array<{ itemId: string; generationJobId: string }> = [];
+    expect(
+      await queueMaterialBatchActivation({
+        userId,
+        input: { batchId: ready.id, itemIds: [ready.items[0].id] },
+        now: new Date("2026-07-12T12:00:00.000Z"),
+        eventSender: {
+          async sendMaterialBatchActivationRequested(payload) {
+            events.push(payload);
+          },
+        },
+      }),
+    ).toMatchObject({ status: "queued" });
+    const activeSkillCount = await prisma.skill.count({
+      where: { userId, status: { in: [SkillStatus.ACTIVE, SkillStatus.PAUSED] } },
+    });
+    const fillerPrefix = `Queued slot recheck filler ${randomUUID()}`;
+    await prisma.skill.createMany({
+      data: Array.from({ length: Math.max(0, ALPHA_ACTIVE_SKILLS - activeSkillCount) }, (_, index) => ({
+        userId,
+        title: `${fillerPrefix} ${index}`,
+        tags: [],
+        status: SkillStatus.ACTIVE,
+      })),
+    });
+    const generateChoiceExercises = vi.fn(async () => ({
+      exercises: [generatedChoiceExercise(31), generatedChoiceExercise(32), generatedChoiceExercise(33)],
+    }));
+
+    await expect(
+      runMaterialBatchActivationJob({
+        userId,
+        batchId: ready.id,
+        itemId: ready.items[0].id,
+        generationJobId: events[0].generationJobId,
+        now: new Date("2026-07-12T12:01:00.000Z"),
+        generateChoiceExercises,
+        verifyChoiceExercises: acceptAllChoiceExercises,
+        model: "fixture-model",
+      }),
+    ).rejects.toBeInstanceOf(MaterialBatchActivationError);
+    expect(generateChoiceExercises).not.toHaveBeenCalled();
+    expect(await getMaterialDraftBatch({ userId, batchId: ready.id })).toMatchObject({
+      failedCount: 1,
+      items: [{ status: SkillDraftBatchItemStatus.FAILED }],
+    });
+    await prisma.skill.deleteMany({ where: { userId, title: { startsWith: fillerPrefix } } });
+  });
+
   it("reserves active-skill slots for queued activations and retry attempts", async () => {
     const first = await createReadyBatch([
       {
@@ -1616,6 +1675,68 @@ describeDatabase("material multi-skill drafting", () => {
       }),
     ).toMatchObject({ status: "limited" });
     expect(firstEvents).toHaveLength(1);
+
+    const generateChoiceExercises = vi.fn(async () => ({
+      exercises: [generatedChoiceExercise(21), generatedChoiceExercise(22), generatedChoiceExercise(23)],
+    }));
+    await expect(
+      runMaterialBatchActivationJob({
+        userId,
+        batchId: first.id,
+        itemId: first.items[0].id,
+        generationJobId: firstEvents[0].generationJobId,
+        now: new Date("2026-07-11T12:04:00.000Z"),
+        generateChoiceExercises,
+        verifyChoiceExercises: acceptAllChoiceExercises,
+        model: "fixture-model",
+      }),
+    ).rejects.toBeInstanceOf(MaterialBatchActivationError);
+    expect(generateChoiceExercises).not.toHaveBeenCalled();
+    expect(
+      await prisma.skillDraftBatchItem.findUnique({
+        where: { id: first.items[0].id },
+        select: { status: true, skill: { select: { status: true } } },
+      }),
+    ).toEqual({
+      status: SkillDraftBatchItemStatus.FAILED,
+      skill: { status: SkillStatus.DRAFT },
+    });
+  });
+
+  it("resynchronizes a failed batch item whose skill became active elsewhere", async () => {
+    const ready = await createReadyBatch([
+      {
+        key: "failed-active-resync",
+        title: "Failed active resync fixture",
+        objective: "Choose a direct object pronoun after external activation.",
+        materialSectionIds: [directSectionId],
+        evidenceChunkIds: [directChunkId],
+      },
+    ]);
+    const skillId = ready.items[0].skill?.id;
+    if (!skillId) {
+      throw new Error("expected failed active resync skill");
+    }
+    await prisma.$transaction([
+      prisma.skillDraftBatchItem.update({
+        where: { id: ready.items[0].id },
+        data: {
+          status: SkillDraftBatchItemStatus.FAILED,
+          errorCode: "ACTIVATION_RETRYABLE_FIXTURE",
+          errorMessage: "fixture failure before external activation",
+        },
+      }),
+      prisma.skill.update({
+        where: { id: skillId },
+        data: { status: SkillStatus.ACTIVE },
+      }),
+    ]);
+
+    expect(await getMaterialDraftBatch({ userId, batchId: ready.id })).toMatchObject({
+      activatedCount: 1,
+      failedCount: 0,
+      items: [{ status: SkillDraftBatchItemStatus.ACTIVE }],
+    });
   });
 
   async function createReadyBatch(
