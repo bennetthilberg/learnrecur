@@ -312,6 +312,41 @@ describeDatabase("persistent material foundation", () => {
     ).toEqual({ activeRevisionId: secondRevision.id });
   });
 
+  it("does not transfer a finalized revision when its material owner changes", async () => {
+    const { material, revision } = await createMaterialWithInitialRevision({
+      userId,
+      title: "Finalized owner immutability fixture",
+      kind: StudyMaterialKind.PDF,
+    });
+    await finalizeMaterialRevision({
+      userId,
+      materialId: material.id,
+      materialRevisionId: revision.id,
+      contentHash: "sha256:finalized-owner",
+      byteSize: 1,
+      pageCount: 1,
+      storageBucket: "private-materials",
+      storageKey: `${userId}/${revision.id}/owner.pdf`,
+    });
+    await prisma.studyMaterial.update({
+      where: { id: material.id },
+      data: { activeRevisionId: null },
+    });
+
+    await expect(
+      prisma.studyMaterial.update({
+        where: { id: material.id },
+        data: { userId: otherUserId },
+      }),
+    ).rejects.toThrow(/immutable/i);
+    expect(
+      await prisma.materialRevision.findUnique({
+        where: { id: revision.id },
+        select: { userId: true },
+      }),
+    ).toEqual({ userId });
+  });
+
   it("enforces revision-local hierarchy, evidence ownership, and batch limits in Postgres", async () => {
     const first = await createMaterialWithInitialRevision({
       userId,
