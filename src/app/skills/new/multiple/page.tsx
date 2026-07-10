@@ -11,7 +11,11 @@ import { SkillsTopbar } from "../../skills-topbar";
 
 export const dynamic = "force-dynamic";
 
-export default async function NewMultipleSkillsPage() {
+type NewMultipleSkillsPageProps = {
+  searchParams?: Promise<{ deleted?: string | string[] }>;
+};
+
+export default async function NewMultipleSkillsPage({ searchParams }: NewMultipleSkillsPageProps) {
   const { userId } = await auth.protect();
   const clerkUser = await currentUser();
   if (!clerkUser) {
@@ -35,6 +39,8 @@ export default async function NewMultipleSkillsPage() {
       select: { id: true, name: true },
     }),
   ]);
+  const params = searchParams ? await searchParams : {};
+  const deletedParam = Array.isArray(params.deleted) ? params.deleted[0] : params.deleted;
 
   return (
     <main className="skillShell materialShell">
@@ -49,6 +55,11 @@ export default async function NewMultipleSkillsPage() {
           Materials library
         </Link>
       </header>
+      {deletedParam === "1" || deletedParam === "true" ? (
+        <p className="skillFormMessage" data-tone="saved" role="status">
+          Material deletion queued. Linked skills will remain.
+        </p>
+      ) : null}
       <MaterialImportWorkspace collections={collections} materials={materials} />
     </main>
   );

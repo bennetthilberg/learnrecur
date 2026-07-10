@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import {
+  MaterialRevisionStatus,
   SkillStatus,
   SourceFileKind,
   SourceFileStatus,
@@ -790,6 +791,43 @@ describeDatabase("persistent material foundation", () => {
       await prisma.studyMaterial.findUnique({ where: { id: material.id }, select: { status: true } }),
     ).toEqual({ status: StudyMaterialStatus.DELETING });
     expect(await prisma.skill.count({ where: { id: linkedSkill.id } })).toBe(1);
+  });
+
+  it.each([
+    MaterialRevisionStatus.PENDING_UPLOAD,
+    MaterialRevisionStatus.QUEUED,
+    MaterialRevisionStatus.PROCESSING,
+    MaterialRevisionStatus.READY,
+    MaterialRevisionStatus.FAILED,
+  ])("allows deletion while a material revision is %s", async (revisionStatus) => {
+    const material = await prisma.studyMaterial.create({
+      data: {
+        userId,
+        title: `Delete ${revisionStatus.toLowerCase()} material`,
+        kind: StudyMaterialKind.PDF,
+        revisions: {
+          create: {
+            revisionNumber: 1,
+            status: revisionStatus,
+          },
+        },
+      },
+      include: { revisions: true },
+    });
+
+    await expect(
+      requestMaterialDeletion({
+        userId,
+        materialId: material.id,
+        confirmationTitle: material.title,
+      }),
+    ).resolves.toMatchObject({ status: "queued", alreadyQueued: false });
+    await expect(
+      prisma.materialRevision.findUniqueOrThrow({
+        where: { id: material.revisions[0].id },
+        select: { status: true },
+      }),
+    ).resolves.toEqual({ status: MaterialRevisionStatus.DELETING });
   });
 
   it("blocks direct deletion of active finalized revisions and their materials", async () => {

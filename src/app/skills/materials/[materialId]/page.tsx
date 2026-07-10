@@ -13,10 +13,10 @@ import { ensureDatabaseUser } from "@/lib/users";
 
 import { SkillsTopbar } from "../../skills-topbar";
 import {
-  deleteMaterialAction,
   refreshWebsiteMaterialAction,
   retryMaterialIngestionAction,
 } from "../actions";
+import { MaterialDeleteControl } from "../material-delete-control";
 import { MaterialStatusPoller } from "../material-status-poller";
 import { MaterialRetryButton } from "../material-retry-button";
 
@@ -213,14 +213,13 @@ export default async function MaterialDetailPage({ params }: { params: Promise<{
           <details className="skillPanel materialDangerPanel">
             <summary>Delete material</summary>
             <p>Originals and derived data will be removed. Existing skills stay, but source-backed regeneration stops.</p>
-            <form action={deleteMaterialAction}>
-              <input name="materialId" type="hidden" value={material.id} />
-              <label className="skillField">
-                <span>Type “{material.title}” to confirm</span>
-                <input name="confirmationTitle" required />
-              </label>
-              <button className="secondaryButton" type="submit">Queue deletion</button>
-            </form>
+            <div className="materialDangerActions">
+              <MaterialDeleteControl
+                materialId={material.id}
+                returnTo="/skills/materials"
+                title={material.title}
+              />
+            </div>
           </details>
         </aside>
       </div>

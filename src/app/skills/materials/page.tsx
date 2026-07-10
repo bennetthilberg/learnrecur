@@ -10,6 +10,7 @@ import { ensureDatabaseUser } from "@/lib/users";
 
 import { SkillsTopbar } from "../skills-topbar";
 import { MaterialStatusPoller } from "./material-status-poller";
+import { MaterialDeleteControl } from "./material-delete-control";
 
 export const dynamic = "force-dynamic";
 
@@ -105,6 +106,12 @@ export default async function MaterialsPage({ searchParams }: MaterialsPageProps
                       {stalled ? "Needs attention" : formatDisplayLabel(material.revisionStatus ?? "PENDING")}
                     </span>
                     <small>Used {formatRelativeDate(material.lastUsedAt ?? material.updatedAt)}</small>
+                    <MaterialDeleteControl
+                      compact
+                      materialId={material.id}
+                      returnTo="/skills/materials"
+                      title={material.title}
+                    />
                   </div>
                 </article>
               );

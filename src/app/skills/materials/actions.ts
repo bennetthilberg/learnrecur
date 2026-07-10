@@ -13,6 +13,7 @@ import {
   queueWebsiteMaterialRefresh,
   retryMaterialIngestion,
 } from "@/lib/materials/ingestion";
+import { getMaterialDeletionReturnPath } from "@/lib/materials/material-delete";
 import { discoverBookWebsite, type WebsiteDiscovery } from "@/lib/materials/web";
 import { ensureDatabaseUser } from "@/lib/users";
 
@@ -190,12 +191,13 @@ export async function refreshWebsiteMaterialAction(formData: FormData) {
   revalidateMaterialPaths(materialId);
 }
 
-export async function deleteMaterialAction(formData: FormData) {
+export async function deleteMaterialAction(formData: FormData): Promise<MaterialActionError> {
   const user = await requireMaterialUser();
   if (user.status === "error") {
-    return;
+    return user;
   }
   const materialId = formString(formData, "materialId");
+  const returnTo = getMaterialDeletionReturnPath(formString(formData, "returnTo"));
   const result = await queueMaterialDeletion({
     userId: user.userId,
     materialId,
@@ -204,9 +206,11 @@ export async function deleteMaterialAction(formData: FormData) {
   });
   if (result.status === "queued") {
     revalidatePath("/skills/materials");
-    redirect("/skills/materials?deleted=1");
+    revalidatePath("/skills/new/multiple");
+    redirect(`${returnTo}?deleted=1`);
   }
   revalidateMaterialPaths(materialId);
+  return { status: "error", message: result.message };
 }
 
 async function requireMaterialUser(): Promise<

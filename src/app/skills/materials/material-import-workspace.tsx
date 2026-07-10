@@ -32,6 +32,7 @@ import {
   discoverWebsiteMaterialAction,
   prepareMaterialPdfAction,
 } from "./actions";
+import { MaterialDeleteControl } from "./material-delete-control";
 
 type CollectionOption = { id: string; name: string };
 type MaterialImportWorkspaceProps = {
@@ -64,16 +65,24 @@ export function MaterialImportWorkspace({
                   <Link href={`/skills/materials/${material.id}`}>{material.title}</Link>
                   <p>{materialSummary(material)}</p>
                 </div>
-                <Link
-                  className="secondaryButton"
-                  href={
-                    material.revisionStatus === "READY"
-                      ? `/skills/materials/${material.id}/create`
-                      : `/skills/materials/${material.id}`
-                  }
-                >
-                  {material.revisionStatus === "READY" ? "Create" : "Open"}
-                </Link>
+                <div className="materialCompactActions">
+                  <Link
+                    className="secondaryButton"
+                    href={
+                      material.revisionStatus === "READY"
+                        ? `/skills/materials/${material.id}/create`
+                        : `/skills/materials/${material.id}`
+                    }
+                  >
+                    {material.revisionStatus === "READY" ? "Create" : "Open"}
+                  </Link>
+                  <MaterialDeleteControl
+                    compact
+                    materialId={material.id}
+                    returnTo="/skills/new/multiple"
+                    title={material.title}
+                  />
+                </div>
               </article>
             ))}
           </div>
