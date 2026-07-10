@@ -103,6 +103,26 @@ describe("material scope planning", () => {
     ]);
   });
 
+  it("resolves bare numbered top-level chapter headings", () => {
+    const bareNumberedSections = sections.map((section) =>
+      section.id === "chapter-4"
+        ? { ...section, title: "4. Object pronouns" }
+        : section.id === "chapter-6"
+          ? { ...section, title: "6 The subjunctive" }
+          : section,
+    );
+    const result = resolveStructuralMaterialScope({
+      instruction: "Make one skill from chapter four and chapter six.",
+      sections: bareNumberedSections,
+    });
+
+    expect(result.missingReferences).toEqual([]);
+    expect(result.references.map((reference) => reference.number)).toEqual([4, 6]);
+    expect(result.candidateSectionIds).toEqual(
+      expect.arrayContaining(["chapter-4", "section-4-1", "chapter-6", "section-6-1"]),
+    );
+  });
+
   it("stops with an actionable ambiguity when a named chapter is absent", () => {
     const result = resolveStructuralMaterialScope({
       instruction: "Create two skills from chapter nine.",

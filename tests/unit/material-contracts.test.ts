@@ -54,11 +54,57 @@ describe("material contracts", () => {
         materialSectionIds: ["section_4_1"],
         evidenceChunkIds: ["chunk_1"],
         source: {
+          kind: "pdf",
+          pageRanges: [
+            { start: 1, end: 5 },
+            { start: 3, end: 8 },
+          ],
+        },
+      }),
+    ).toThrow(/overlap/i);
+
+    expect(() =>
+      skillSourceLocatorSchema.parse({
+        version: MATERIAL_LOCATOR_VERSION,
+        materialRevisionId: "revision_1",
+        materialSectionIds: ["section_4_1"],
+        evidenceChunkIds: ["chunk_1"],
+        source: {
           kind: "web",
           anchors: [{ url: "http://example.com/chapter-4", heading: "Concept one" }],
         },
       }),
     ).toThrow();
+  });
+
+  it("accepts unique HTTPS web anchors and rejects duplicate anchor tuples", () => {
+    const webLocator = {
+      version: MATERIAL_LOCATOR_VERSION,
+      materialRevisionId: "revision_1",
+      materialSectionIds: ["section_4_1"],
+      evidenceChunkIds: ["chunk_1"],
+      source: {
+        kind: "web" as const,
+        anchors: [
+          {
+            url: "https://example.com/chapter-4",
+            heading: "Concept one",
+            anchor: "concept-one",
+          },
+        ],
+      },
+    };
+
+    expect(skillSourceLocatorSchema.parse(webLocator).source.kind).toBe("web");
+    expect(() =>
+      skillSourceLocatorSchema.parse({
+        ...webLocator,
+        source: {
+          ...webLocator.source,
+          anchors: [webLocator.source.anchors[0], webLocator.source.anchors[0]],
+        },
+      }),
+    ).toThrow(/unique/i);
   });
 
   it("requires a confirmed, unambiguous plan and caps a batch at ten skills", () => {
@@ -104,6 +150,61 @@ describe("material contracts", () => {
         ...plan,
         resolutionStatus: "ambiguous",
         items: [item],
+      }),
+    ).toThrow();
+
+    for (const mismatch of [
+      { materialSectionIds: ["section_4_2"] },
+      { evidenceChunkIds: ["chunk_2"] },
+    ]) {
+      expect(() =>
+        materialScopePlanSchema.parse({
+          ...plan,
+          items: [{ ...item, ...mismatch }],
+        }),
+      ).toThrow(/evidence must match/i);
+    }
+  });
+
+  it("requires clarification for ambiguous scope resolutions", () => {
+    const baseResolution = {
+      version: 1 as const,
+      materialRevisionId: "revision_1",
+      instruction: "Use chapter four.",
+      resolutionStatus: "ambiguous" as const,
+      resolvedScopeLabel: "Chapter four",
+      warnings: [],
+      items: [],
+    };
+
+    expect(() => materialScopeResolutionSchema.parse(baseResolution)).toThrow(/clarification/i);
+    expect(
+      materialScopeResolutionSchema.parse({
+        ...baseResolution,
+        clarification: "Which chapter titled Chapter four did you mean?",
+      }).clarification,
+    ).toMatch(/which chapter/i);
+
+    const resolvedItem = {
+      key: "concept-one",
+      title: "Concept one",
+      objective: "Practice concept one.",
+      materialSectionIds: ["section_1"],
+      evidenceChunkIds: ["chunk_1"],
+      locator: {
+        version: MATERIAL_LOCATOR_VERSION,
+        materialRevisionId: "revision_2",
+        materialSectionIds: ["section_1"],
+        evidenceChunkIds: ["chunk_1"],
+        source: { kind: "pdf" as const, pageRanges: [{ start: 1, end: 1 }] },
+      },
+    };
+
+    expect(() =>
+      materialScopeResolutionSchema.parse({
+        ...baseResolution,
+        clarification: "Please clarify.",
+        items: [resolvedItem, resolvedItem],
       }),
     ).toThrow();
   });

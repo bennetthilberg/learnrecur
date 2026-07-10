@@ -9,6 +9,7 @@ import {
   SourceFileKind,
   SourceFileStatus,
   StudyMaterialKind,
+  StudyMaterialStatus,
 } from "@/generated/prisma/client";
 import { getInngestEnvStatus } from "@/lib/inngest/client";
 import {
@@ -958,10 +959,6 @@ async function ingestWebsiteRevision(input: {
       });
     }
     const batch = selectedUrls.slice(start, start + MATERIAL_WEBSITE_FETCH_CONCURRENCY);
-    const maximumBytesPerPage = Math.max(
-      1,
-      Math.min(MATERIAL_WEBSITE_PAGE_FETCH_BYTES, Math.floor(remaining / batch.length)),
-    );
     const fetchedBatch = await Promise.all(
       batch.map(async (selectedUrl) => {
         const requested = await validatePublicHttpsUrl(selectedUrl, input.resolveHostname);
@@ -972,7 +969,7 @@ async function ingestWebsiteRevision(input: {
           );
         }
         const resource = await fetchResource(requested.toString(), {
-          maximumBytes: maximumBytesPerPage,
+          maximumBytes: MATERIAL_WEBSITE_PAGE_FETCH_BYTES,
           requiredOrigin: base.origin,
         });
         const finalUrl = await validatePublicHttpsUrl(resource.url, input.resolveHostname);
@@ -1018,12 +1015,22 @@ async function ingestWebsiteRevision(input: {
   if (quota.status === "limited") {
     throw new MaterialIngestionError(quota.message, { retryable: false });
   }
+  if (!(await canWriteWebsiteSnapshot(input))) {
+    throw websiteSnapshotDeletionError();
+  }
   await input.storage.putObject({
     key: input.sourceFile.storageKey,
     bucket: input.sourceFile.storageBucket,
     bytes: snapshotBytes,
     mimeType: "application/json",
   });
+  if (!(await canWriteWebsiteSnapshot(input))) {
+    await input.storage.deleteObject({
+      key: input.sourceFile.storageKey,
+      bucket: input.sourceFile.storageBucket,
+    });
+    throw websiteSnapshotDeletionError();
+  }
 
   const persisted = await persistWebsiteIndex({
     userId: input.userId,
@@ -1065,6 +1072,34 @@ async function ingestWebsiteRevision(input: {
   });
 
   return { pageCount: snapshots.length, chunkCount: persisted.chunks.length };
+}
+
+async function canWriteWebsiteSnapshot(input: {
+  userId: string;
+  materialId: string;
+  materialRevisionId: string;
+  sourceFile: MaterialSourceFile;
+}) {
+  const prisma = getPrisma();
+  return (
+    (await prisma.materialRevision.count({
+      where: {
+        id: input.materialRevisionId,
+        materialId: input.materialId,
+        userId: input.userId,
+        status: MaterialRevisionStatus.PROCESSING,
+        material: { status: StudyMaterialStatus.ACTIVE },
+        sourceFiles: { some: { id: input.sourceFile.id, userId: input.userId } },
+      },
+    })) === 1
+  );
+}
+
+function websiteSnapshotDeletionError() {
+  return new MaterialIngestionError(
+    "The material was deleted before its website snapshot could be finalized.",
+    { retryable: false },
+  );
 }
 
 type MaterialSourceFile = {

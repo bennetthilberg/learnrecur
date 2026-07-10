@@ -67,14 +67,21 @@ ALTER TABLE "material_chunks"
 CREATE OR REPLACE FUNCTION enforce_skill_draft_item_skill_ownership()
 RETURNS trigger AS $$
 BEGIN
-  IF NEW."skillId" IS NOT NULL AND NOT EXISTS (
-    SELECT 1
+  IF NEW."skillId" IS NOT NULL THEN
+    PERFORM 1
     FROM "skills" skill
     WHERE skill."id" = NEW."skillId"
-      AND skill."userId" = NEW."userId"
-  ) THEN
-    RAISE EXCEPTION 'Draft batch item skill must belong to the same user'
-      USING ERRCODE = '23503';
+    FOR NO KEY UPDATE;
+
+    IF NOT EXISTS (
+      SELECT 1
+      FROM "skills" skill
+      WHERE skill."id" = NEW."skillId"
+        AND skill."userId" = NEW."userId"
+    ) THEN
+      RAISE EXCEPTION 'Draft batch item skill must belong to the same user'
+        USING ERRCODE = '23503';
+    END IF;
   END IF;
 
   RETURN NEW;

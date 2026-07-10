@@ -4,15 +4,22 @@
 CREATE OR REPLACE FUNCTION enforce_active_material_revision_ownership()
 RETURNS trigger AS $$
 BEGIN
-  IF NEW."activeRevisionId" IS NOT NULL AND NOT EXISTS (
-    SELECT 1
+  IF NEW."activeRevisionId" IS NOT NULL THEN
+    PERFORM 1
     FROM "material_revisions" revision
     WHERE revision."id" = NEW."activeRevisionId"
-      AND revision."materialId" = NEW."id"
-      AND revision."userId" = NEW."userId"
-  ) THEN
-    RAISE EXCEPTION 'Active material revision must belong to the same material and user'
-      USING ERRCODE = '23514';
+    FOR UPDATE;
+
+    IF NOT EXISTS (
+      SELECT 1
+      FROM "material_revisions" revision
+      WHERE revision."id" = NEW."activeRevisionId"
+        AND revision."materialId" = NEW."id"
+        AND revision."userId" = NEW."userId"
+    ) THEN
+      RAISE EXCEPTION 'Active material revision must belong to the same material and user'
+        USING ERRCODE = '23514';
+    END IF;
   END IF;
 
   RETURN NEW;
