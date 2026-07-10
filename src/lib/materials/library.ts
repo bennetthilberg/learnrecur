@@ -15,6 +15,7 @@ export type MaterialLibraryItem = {
   collectionName: string | null;
   revisionNumber: number | null;
   revisionStatus: MaterialRevisionStatus | null;
+  revisionUpdatedAt: Date | null;
   pageCount: number | null;
   byteSize: number | null;
   linkedSkillCount: number;
@@ -44,6 +45,7 @@ export async function getMaterialLibrary(input: { userId: string }): Promise<Mat
           fetchedPageCount: true,
           byteSize: true,
           errorMessage: true,
+          updatedAt: true,
           sourceFiles: {
             select: { skillRefs: { select: { skillId: true } } },
           },
@@ -58,6 +60,7 @@ export async function getMaterialLibrary(input: { userId: string }): Promise<Mat
           fetchedPageCount: true,
           byteSize: true,
           errorMessage: true,
+          updatedAt: true,
           sourceFiles: {
             select: { skillRefs: { select: { skillId: true } } },
           },
@@ -81,6 +84,7 @@ export async function getMaterialLibrary(input: { userId: string }): Promise<Mat
       collectionName: material.collection?.name ?? null,
       revisionNumber: revision?.revisionNumber ?? null,
       revisionStatus: revision?.status ?? null,
+      revisionUpdatedAt: revision?.updatedAt ?? null,
       pageCount: revision?.pageCount ?? revision?.fetchedPageCount ?? null,
       byteSize: revision?.byteSize ?? null,
       linkedSkillCount: skillIds.size,
@@ -119,6 +123,7 @@ export async function getMaterialDetail(input: { userId: string; materialId: str
           errorMessage: true,
           finalizedAt: true,
           createdAt: true,
+          updatedAt: true,
           _count: { select: { chunks: true, pages: true } },
           sections: {
             orderBy: { ordinal: "asc" },
@@ -172,14 +177,6 @@ export async function getMaterialDetail(input: { userId: string; materialId: str
     activeRevision,
     currentRevision,
   };
-}
-
-export function isMaterialProcessing(status: MaterialRevisionStatus | null) {
-  return (
-    status === MaterialRevisionStatus.PENDING_UPLOAD ||
-    status === MaterialRevisionStatus.QUEUED ||
-    status === MaterialRevisionStatus.PROCESSING
-  );
 }
 
 function uniqueById<T extends { id: string }>(values: T[]) {

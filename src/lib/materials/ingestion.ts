@@ -23,6 +23,7 @@ import {
   confirmWebsiteImportInputSchema,
   prepareMaterialPdfInputSchema,
 } from "@/lib/materials/contracts";
+import { MATERIAL_QUEUE_STALE_AFTER_MS } from "@/lib/materials/ingestion-status";
 import {
   createGeminiMaterialEmbeddingGenerator,
   type MaterialEmbeddingGenerator,
@@ -587,22 +588,50 @@ export async function retryMaterialIngestion(input: {
   eventSender?: MaterialIngestionEventSender;
 }): Promise<QueueMaterialIngestionResult> {
   const prisma = getPrisma();
+  const staleBefore = new Date(input.now.getTime() - MATERIAL_QUEUE_STALE_AFTER_MS);
+  const retryableStatus = {
+    OR: [
+      { status: MaterialRevisionStatus.FAILED },
+      {
+        status: MaterialRevisionStatus.QUEUED,
+        updatedAt: { lte: staleBefore },
+      },
+    ],
+  };
   const revision = await prisma.materialRevision.findFirst({
     where: {
       id: input.materialRevisionId,
       userId: input.userId,
-      status: MaterialRevisionStatus.FAILED,
+      ...retryableStatus,
     },
     select: { id: true, materialId: true },
   });
   if (!revision) {
-    return { status: "not-found", message: "Failed material revision was not found." };
+    return {
+      status: "not-found",
+      message: "Material processing is already running or is not ready to retry.",
+    };
   }
 
-  await prisma.materialRevision.update({
-    where: { id: revision.id },
-    data: { status: MaterialRevisionStatus.QUEUED, errorCode: null, errorMessage: null },
+  const claimed = await prisma.materialRevision.updateMany({
+    where: {
+      id: revision.id,
+      userId: input.userId,
+      ...retryableStatus,
+    },
+    data: {
+      status: MaterialRevisionStatus.QUEUED,
+      errorCode: null,
+      errorMessage: null,
+      updatedAt: input.now,
+    },
   });
+  if (claimed.count !== 1) {
+    return {
+      status: "not-found",
+      message: "Material processing already resumed before this retry.",
+    };
+  }
   try {
     await (input.eventSender ?? inngestMaterialIngestionEventSender).sendMaterialIngestionRequested({
       userId: input.userId,
@@ -610,9 +639,18 @@ export async function retryMaterialIngestion(input: {
       requestedAt: input.now.toISOString(),
     });
   } catch {
-    await prisma.materialRevision.update({
-      where: { id: revision.id },
-      data: { status: MaterialRevisionStatus.FAILED, errorCode: "EVENT_SEND_FAILED" },
+    await prisma.materialRevision.updateMany({
+      where: {
+        id: revision.id,
+        userId: input.userId,
+        status: MaterialRevisionStatus.QUEUED,
+        updatedAt: input.now,
+      },
+      data: {
+        status: MaterialRevisionStatus.FAILED,
+        errorCode: "EVENT_SEND_FAILED",
+        errorMessage: "Background processing could not be queued.",
+      },
     });
     return { status: "not-queued", message: "Background processing could not be queued. Try again." };
   }

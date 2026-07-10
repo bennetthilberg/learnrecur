@@ -6,7 +6,8 @@ import type { CSSProperties } from "react";
 
 import { UserStatusPanel } from "@/components/app/user-status-panel";
 import { formatDisplayLabel } from "@/lib/formatters";
-import { getMaterialDetail, isMaterialProcessing } from "@/lib/materials/library";
+import { getMaterialIngestionDisplayState } from "@/lib/materials/ingestion-status";
+import { getMaterialDetail } from "@/lib/materials/library";
 import { truncateMaterialTitle } from "@/lib/materials/pdf-upload";
 import { ensureDatabaseUser } from "@/lib/users";
 
@@ -17,6 +18,7 @@ import {
   retryMaterialIngestionAction,
 } from "../actions";
 import { MaterialStatusPoller } from "../material-status-poller";
+import { MaterialRetryButton } from "../material-retry-button";
 
 export const dynamic = "force-dynamic";
 
@@ -42,7 +44,14 @@ export default async function MaterialDetailPage({ params }: { params: Promise<{
   }
   const revision = material.currentRevision;
   const contentRevision = revision?.status === "READY" ? revision : material.activeRevision;
-  const processing = isMaterialProcessing(revision?.status ?? null);
+  const now = new Date();
+  const ingestionState = getMaterialIngestionDisplayState({
+    status: revision?.status ?? null,
+    updatedAt: revision?.updatedAt ?? null,
+    now,
+  });
+  const processing = ingestionState === "processing";
+  const stalled = ingestionState === "stalled";
   const displayTitle = truncateMaterialTitle(material.title);
 
   return (
@@ -79,7 +88,7 @@ export default async function MaterialDetailPage({ params }: { params: Promise<{
         <section className="materialDetailSummary" aria-label="Material status">
           <div>
             <span>Status</span>
-            <strong>{formatDisplayLabel(revision.status)}</strong>
+            <strong>{stalled ? "Needs attention" : formatDisplayLabel(revision.status)}</strong>
           </div>
           <div>
             <span>Revision</span>
@@ -100,7 +109,19 @@ export default async function MaterialDetailPage({ params }: { params: Promise<{
         </section>
       ) : null}
 
-      {processing ? (
+      {stalled ? (
+        <section className="skillPanel materialFailurePanel" aria-live="polite">
+          <div>
+            <h2>Processing hasn’t started</h2>
+            <p>Your source is saved, but the background processor did not pick it up. Retry processing without uploading it again.</p>
+          </div>
+          <form action={retryMaterialIngestionAction}>
+            <input name="materialId" type="hidden" value={material.id} />
+            <input name="materialRevisionId" type="hidden" value={revision?.id} />
+            <MaterialRetryButton>Retry processing</MaterialRetryButton>
+          </form>
+        </section>
+      ) : processing ? (
         <section className="skillPanel materialProcessingPanel" aria-live="polite">
           <span className="materialProcessingPulse" aria-hidden="true" />
           <div>
@@ -117,7 +138,7 @@ export default async function MaterialDetailPage({ params }: { params: Promise<{
           <form action={retryMaterialIngestionAction}>
             <input name="materialId" type="hidden" value={material.id} />
             <input name="materialRevisionId" type="hidden" value={revision.id} />
-            <button className="secondaryButton" type="submit">Retry import</button>
+            <MaterialRetryButton>Retry import</MaterialRetryButton>
           </form>
         </section>
       ) : null}
@@ -174,7 +195,15 @@ export default async function MaterialDetailPage({ params }: { params: Promise<{
               {material.revisions.map((item) => (
                 <div key={item.id}>
                   <strong>Revision {item.revisionNumber}</strong>
-                  <span>{formatDisplayLabel(item.status)}</span>
+                  <span>
+                    {getMaterialIngestionDisplayState({
+                      status: item.status,
+                      updatedAt: item.updatedAt,
+                      now,
+                    }) === "stalled"
+                      ? "Needs attention"
+                      : formatDisplayLabel(item.status)}
+                  </span>
                   <small>{new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(item.createdAt)}</small>
                 </div>
               ))}

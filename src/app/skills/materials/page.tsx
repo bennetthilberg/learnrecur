@@ -4,7 +4,8 @@ import Link from "next/link";
 
 import { UserStatusPanel } from "@/components/app/user-status-panel";
 import { formatDisplayLabel } from "@/lib/formatters";
-import { getMaterialLibrary, isMaterialProcessing } from "@/lib/materials/library";
+import { getMaterialIngestionDisplayState } from "@/lib/materials/ingestion-status";
+import { getMaterialLibrary } from "@/lib/materials/library";
 import { ensureDatabaseUser } from "@/lib/users";
 
 import { SkillsTopbar } from "../skills-topbar";
@@ -32,7 +33,15 @@ export default async function MaterialsPage({ searchParams }: MaterialsPageProps
     );
   }
   const materials = await getMaterialLibrary({ userId });
-  const hasProcessing = materials.some((material) => isMaterialProcessing(material.revisionStatus));
+  const now = new Date();
+  const hasProcessing = materials.some(
+    (material) =>
+      getMaterialIngestionDisplayState({
+        status: material.revisionStatus,
+        updatedAt: material.revisionUpdatedAt,
+        now,
+      }) === "processing",
+  );
   const params = searchParams ? await searchParams : {};
 
   return (
@@ -68,6 +77,12 @@ export default async function MaterialsPage({ searchParams }: MaterialsPageProps
           <div className="materialLibraryList">
             {materials.map((material) => {
               const Icon = material.kind === "PDF" ? FilePdf : GlobeHemisphereWest;
+              const ingestionState = getMaterialIngestionDisplayState({
+                status: material.revisionStatus,
+                updatedAt: material.revisionUpdatedAt,
+                now,
+              });
+              const stalled = ingestionState === "stalled";
               return (
                 <article className="materialLibraryRow" key={material.id}>
                   <span className="materialLibraryIcon" aria-hidden="true">
@@ -83,8 +98,11 @@ export default async function MaterialsPage({ searchParams }: MaterialsPageProps
                     <span>{material.byteSize ? formatBytes(material.byteSize) : "—"}</span>
                   </div>
                   <div className="materialLibraryStatus">
-                    <span className="dashboardChip" data-tone={material.revisionStatus === "READY" ? "ready" : "neutral"}>
-                      {formatDisplayLabel(material.revisionStatus ?? "PENDING")}
+                    <span
+                      className="dashboardChip"
+                      data-tone={stalled ? "attention" : material.revisionStatus === "READY" ? "ready" : "neutral"}
+                    >
+                      {stalled ? "Needs attention" : formatDisplayLabel(material.revisionStatus ?? "PENDING")}
                     </span>
                     <small>Used {formatRelativeDate(material.lastUsedAt ?? material.updatedAt)}</small>
                   </div>
