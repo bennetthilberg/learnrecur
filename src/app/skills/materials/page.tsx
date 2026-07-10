@@ -8,6 +8,7 @@ import { ensureDatabaseUser } from "@/lib/users";
 
 import { SkillsTopbar } from "../skills-topbar";
 import { MaterialDeleteControl } from "./material-delete-control";
+import { MaterialDeletionNotification } from "./material-deletion-notification";
 
 export const dynamic = "force-dynamic";
 
@@ -48,11 +49,7 @@ export default async function MaterialsPage({ searchParams }: MaterialsPageProps
         </Link>
       </header>
 
-      {parseBoolean(params.deleted) ? (
-        <p className="skillFormMessage" data-tone="saved" role="status">
-          Material deletion queued. Linked skills will remain.
-        </p>
-      ) : null}
+      <MaterialDeletionNotification active={parseBoolean(params.deleted)} />
 
       <section className="skillPanel materialLibraryPanel" aria-labelledby="material-library-title">
         <div className="skillPanelHeader materialLibraryHeader">

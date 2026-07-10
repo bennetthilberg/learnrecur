@@ -3980,6 +3980,14 @@ body {
   overflow: hidden;
 }
 
+.materialOutlinePanel,
+.materialLinkedSkills,
+.materialRevisionPanel,
+.materialDangerPanel {
+  width: 100%;
+  margin: 0;
+}
+
 .materialReusePanel > .skillPanelHeader,
 .materialImportPanel > .skillPanelHeader,
 .materialOutlinePanel > .skillPanelHeader,
@@ -4372,32 +4380,69 @@ body {
 }
 
 .materialDetailSummary {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
   margin-top: 22px;
-  overflow: hidden;
   border: 1px solid var(--lr-card-border);
   border-radius: var(--lr-r-card);
   background: var(--lr-card);
+  padding: 16px 20px;
 }
 
-.materialDetailSummary > div {
+.materialAvailabilityCopy {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.materialAvailabilityDot {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 auto;
+  margin-top: 5px;
+  border-radius: var(--lr-r-pill);
+  background: var(--lr-blue);
+}
+
+.materialDetailSummary[data-tone="ready"] .materialAvailabilityDot {
+  background: var(--lr-green);
+}
+
+.materialDetailSummary[data-tone="attention"] .materialAvailabilityDot {
+  background: var(--lr-amber);
+}
+
+.materialAvailabilityCopy strong {
+  color: var(--lr-ink);
+  font-family: var(--lr-font-display);
+  font-size: 16px;
+}
+
+.materialAvailabilityCopy p {
+  margin: 3px 0 0;
+  color: var(--lr-text-secondary);
+  font-size: 13px;
+  line-height: 1.42;
+}
+
+.materialPageCount {
   display: grid;
-  gap: 5px;
+  min-width: 82px;
+  flex: 0 0 auto;
+  gap: 2px;
   border-left: 1px solid var(--lr-divider);
-  padding: 15px 17px;
+  padding-left: 20px;
 }
 
-.materialDetailSummary > div:first-child {
-  border-left: 0;
-}
-
-.materialDetailSummary span {
+.materialPageCount span {
   color: var(--lr-text-secondary);
   font-size: 11.5px;
 }
 
-.materialDetailSummary strong {
+.materialPageCount strong {
   color: var(--lr-ink);
   font-family: var(--lr-font-display);
   font-size: 16px;
@@ -4464,33 +4509,15 @@ body {
 
 .materialDetailGrid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 310px;
+  grid-template-columns: minmax(0, 1.65fr) minmax(300px, .95fr);
   align-items: start;
-  gap: 16px;
+  gap: 12px;
   margin-top: 16px;
-}
-
-@media (min-width: 821px) {
-  .materialDetailShell > .materialDetailHeader,
-  .materialDetailShell > .materialDetailSummary,
-  .materialDetailShell > .materialProcessingPanel,
-  .materialDetailShell > .materialFailurePanel {
-    width: calc(100% - 96px);
-  }
-}
-
-@media (max-width: 820px) {
-  .materialDetailShell > .materialDetailHeader,
-  .materialDetailShell > .materialDetailSummary,
-  .materialDetailShell > .materialProcessingPanel,
-  .materialDetailShell > .materialFailurePanel {
-    width: calc(100% - 56px);
-  }
 }
 
 .materialDetailSidebar {
   display: grid;
-  gap: 16px;
+  gap: 12px;
 }
 
 .materialOutlineList {
@@ -5266,18 +5293,6 @@ body {
     grid-column: 2 / -1;
   }
 
-  .materialDetailSummary {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .materialDetailSummary > div:nth-child(4) {
-    border-left: 0;
-  }
-
-  .materialDetailSummary > div:nth-child(n + 4) {
-    border-top: 1px solid var(--lr-divider);
-  }
-
   .batchDescribePanel,
   .batchScopeLayout {
     grid-template-columns: minmax(0, 1fr);
@@ -5398,24 +5413,21 @@ body {
   }
 
   .materialDetailSummary {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 14px;
   }
 
-  .materialDetailSummary > div:nth-child(n) {
+  .materialPageCount {
+    width: 100%;
+    min-width: 0;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
     border-top: 1px solid var(--lr-divider);
-    border-left: 1px solid var(--lr-divider);
-  }
-
-  .materialDetailSummary > div:nth-child(-n + 2) {
-    border-top: 0;
-  }
-
-  .materialDetailSummary > div:nth-child(odd) {
     border-left: 0;
-  }
-
-  .materialDetailSummary > div:last-child:nth-child(odd) {
-    grid-column: 1 / -1;
+    padding-top: 12px;
+    padding-left: 0;
   }
 
   .batchStageRail,

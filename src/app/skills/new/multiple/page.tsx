@@ -7,6 +7,7 @@ import { getPrisma } from "@/lib/prisma";
 import { ensureDatabaseUser } from "@/lib/users";
 
 import { MaterialImportWorkspace } from "../../materials/material-import-workspace";
+import { MaterialDeletionNotification } from "../../materials/material-deletion-notification";
 import { SkillsTopbar } from "../../skills-topbar";
 
 export const dynamic = "force-dynamic";
@@ -55,11 +56,7 @@ export default async function NewMultipleSkillsPage({ searchParams }: NewMultipl
           Materials library
         </Link>
       </header>
-      {deletedParam === "1" || deletedParam === "true" ? (
-        <p className="skillFormMessage" data-tone="saved" role="status">
-          Material deletion queued. Linked skills will remain.
-        </p>
-      ) : null}
+      <MaterialDeletionNotification active={deletedParam === "1" || deletedParam === "true"} />
       <MaterialImportWorkspace collections={collections} materials={materials} />
     </main>
   );

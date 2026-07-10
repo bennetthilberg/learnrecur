@@ -9,6 +9,7 @@ import { formatDisplayLabel } from "@/lib/formatters";
 import { getMaterialIngestionDisplayState } from "@/lib/materials/ingestion-status";
 import { getMaterialDetail } from "@/lib/materials/library";
 import { truncateMaterialTitle } from "@/lib/materials/pdf-upload";
+import { getMaterialAvailabilityMessage } from "@/lib/materials/presentation";
 import { ensureDatabaseUser } from "@/lib/users";
 
 import { SkillsTopbar } from "../../skills-topbar";
@@ -53,6 +54,14 @@ export default async function MaterialDetailPage({ params }: { params: Promise<{
   const processing = ingestionState === "processing";
   const stalled = ingestionState === "stalled";
   const displayTitle = truncateMaterialTitle(material.title);
+  const availabilityMessage = revision
+    ? getMaterialAvailabilityMessage({
+        status: revision.status,
+        stalled,
+        hasReadyRevision: material.activeRevision?.status === "READY",
+      })
+    : null;
+  const pageCount = contentRevision?.pageCount ?? contentRevision?.fetchedPageCount;
 
   return (
     <main className="skillShell materialShell materialDetailShell">
@@ -84,28 +93,25 @@ export default async function MaterialDetailPage({ params }: { params: Promise<{
         </div>
       </header>
 
-      {revision ? (
-        <section className="materialDetailSummary" aria-label="Material status">
-          <div>
-            <span>Status</span>
-            <strong>{stalled ? "Needs attention" : formatDisplayLabel(revision.status)}</strong>
+      {availabilityMessage ? (
+        <section
+          className="materialDetailSummary"
+          data-tone={availabilityMessage.tone}
+          aria-label="Material availability"
+        >
+          <div className="materialAvailabilityCopy">
+            <span className="materialAvailabilityDot" aria-hidden="true" />
+            <div>
+              <strong>{availabilityMessage.title}</strong>
+              <p>{availabilityMessage.description}</p>
+            </div>
           </div>
-          <div>
-            <span>Revision</span>
-            <strong>{revision.revisionNumber}</strong>
-          </div>
-          <div>
-            <span>Pages</span>
-            <strong>{revision.pageCount ?? revision.fetchedPageCount ?? "—"}</strong>
-          </div>
-          <div>
-            <span>Indexed chunks</span>
-            <strong>{revision._count.chunks}</strong>
-          </div>
-          <div>
-            <span>OCR pending</span>
-            <strong>{revision._count.pages}</strong>
-          </div>
+          {pageCount ? (
+            <div className="materialPageCount">
+              <span>Pages</span>
+              <strong>{pageCount}</strong>
+            </div>
+          ) : null}
         </section>
       ) : null}
 
