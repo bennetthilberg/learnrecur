@@ -346,6 +346,7 @@ RETURNS trigger AS $$
 BEGIN
   IF OLD."finalizedAt" IS NOT NULL AND (
     NEW."finalizedAt" IS DISTINCT FROM OLD."finalizedAt"
+    OR NEW."userId" IS DISTINCT FROM OLD."userId"
     OR NEW."materialId" IS DISTINCT FROM OLD."materialId"
     OR NEW."revisionNumber" IS DISTINCT FROM OLD."revisionNumber"
     OR NEW."sourceUrl" IS DISTINCT FROM OLD."sourceUrl"

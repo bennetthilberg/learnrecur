@@ -192,7 +192,7 @@ describe("material contracts", () => {
       evidenceChunkIds: ["chunk_1"],
       locator: {
         version: MATERIAL_LOCATOR_VERSION,
-        materialRevisionId: "revision_2",
+        materialRevisionId: baseResolution.materialRevisionId,
         materialSectionIds: ["section_1"],
         evidenceChunkIds: ["chunk_1"],
         source: { kind: "pdf" as const, pageRanges: [{ start: 1, end: 1 }] },
