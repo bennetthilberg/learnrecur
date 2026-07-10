@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   activateBatchInputSchema,
+  discoverWebsiteMaterialInputSchema,
   MATERIAL_LOCATOR_VERSION,
   materialScopePlanSchema,
   materialScopeResolutionSchema,
@@ -9,6 +10,11 @@ import {
 } from "@/lib/materials/contracts";
 
 describe("material contracts", () => {
+  it("reports malformed website URLs without throwing from refinement", () => {
+    expect(() => discoverWebsiteMaterialInputSchema.safeParse({ url: "not a url" })).not.toThrow();
+    expect(discoverWebsiteMaterialInputSchema.safeParse({ url: "not a url" }).success).toBe(false);
+  });
+
   it("accepts a versioned PDF locator with bounded, ordered evidence", () => {
     const locator = skillSourceLocatorSchema.parse({
       version: MATERIAL_LOCATOR_VERSION,
