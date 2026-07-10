@@ -52,7 +52,6 @@ import {
 } from "@/lib/storage/s3";
 import {
   checkSourceStorageUsageLimit,
-  checkSourceUploadUsageLimit,
 } from "@/lib/usage-limits";
 
 const MATERIAL_STORAGE_PREFIX = "materials";
@@ -122,10 +121,9 @@ export async function prepareMaterialPdf(input: {
   const prisma = getPrisma();
   const created = await prisma.$transaction(
     async (tx) => {
-      const quota = await checkSourceUploadUsageLimit({
+      const quota = await checkSourceStorageUsageLimit({
         userId: input.userId,
         byteSize: parsed.data.byteSize,
-        now: input.now,
         prisma: tx,
       });
       if (quota.status === "limited") {
@@ -633,6 +631,10 @@ export async function queueWebsiteMaterialRefresh(input: {
   if (storageSetup.status === "missing-env") {
     return { status: "not-queued", message: storageSetup.message };
   }
+  const envStatus = getInngestEnvStatus();
+  if (envStatus.status === "missing-env" && !input.eventSender) {
+    return { status: "not-queued", message: envStatus.message };
+  }
   const prisma = getPrisma();
   const material = await prisma.studyMaterial.findFirst({
     where: { id: input.materialId, userId: input.userId, kind: StudyMaterialKind.WEB },
@@ -946,18 +948,25 @@ async function ingestWebsiteRevision(input: {
   const snapshots: Array<{ url: string; title: string; html: string }> = [];
   let fetchedBytes = 0;
 
-  for (
-    let start = 0;
-    start < selectedUrls.length;
-    start += MATERIAL_WEBSITE_FETCH_CONCURRENCY
-  ) {
+  for (let start = 0; start < selectedUrls.length; ) {
     const remaining = MAX_WEBSITE_REVISION_BYTES - fetchedBytes;
     if (remaining <= 0) {
       throw new MaterialIngestionError("Website revision exceeded the 50 MB fetched-content limit.", {
         retryable: false,
       });
     }
-    const batch = selectedUrls.slice(start, start + MATERIAL_WEBSITE_FETCH_CONCURRENCY);
+    const quotaBoundConcurrency = Math.max(
+      1,
+      Math.min(
+        MATERIAL_WEBSITE_FETCH_CONCURRENCY,
+        Math.floor(remaining / MATERIAL_WEBSITE_PAGE_FETCH_BYTES),
+      ),
+    );
+    const batch = selectedUrls.slice(start, start + quotaBoundConcurrency);
+    const maximumBytesPerPage = Math.min(
+      MATERIAL_WEBSITE_PAGE_FETCH_BYTES,
+      Math.floor(remaining / batch.length),
+    );
     const fetchedBatch = await Promise.all(
       batch.map(async (selectedUrl) => {
         const requested = await validatePublicHttpsUrl(selectedUrl, input.resolveHostname);
@@ -968,7 +977,7 @@ async function ingestWebsiteRevision(input: {
           );
         }
         const resource = await fetchResource(requested.toString(), {
-          maximumBytes: MATERIAL_WEBSITE_PAGE_FETCH_BYTES,
+          maximumBytes: maximumBytesPerPage,
           requiredOrigin: base.origin,
         });
         const finalUrl = await validatePublicHttpsUrl(resource.url, input.resolveHostname);
@@ -999,6 +1008,7 @@ async function ingestWebsiteRevision(input: {
     }
     fetchedBytes += batchBytes;
     snapshots.push(...fetchedBatch.map((page) => page.snapshot));
+    start += batch.length;
   }
 
   const snapshotBytes = Buffer.from(JSON.stringify({ version: 1, pages: snapshots }));
