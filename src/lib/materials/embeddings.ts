@@ -38,11 +38,7 @@ export function createGeminiMaterialEmbeddingGenerator(): MaterialEmbeddingGener
           role: "user",
           parts: [{ text: titles[index] ? `${titles[index]}\n\n${text}` : text }],
         })),
-        config: {
-          taskType: "RETRIEVAL_DOCUMENT",
-          outputDimensionality: MATERIAL_EMBEDDING_DIMENSIONS,
-          autoTruncate: true,
-        },
+        config: buildMaterialEmbeddingConfig(env.GEMINI_EMBEDDING_MODEL),
       });
       const embeddings = response.embeddings ?? [];
       if (embeddings.length !== texts.length) {
@@ -71,6 +67,16 @@ export function createGeminiMaterialEmbeddingGenerator(): MaterialEmbeddingGener
       });
       throw error;
     }
+  };
+}
+
+export function buildMaterialEmbeddingConfig(model: string) {
+  return {
+    ...(model === "gemini-embedding-001"
+      ? { taskType: "RETRIEVAL_DOCUMENT" as const }
+      : {}),
+    outputDimensionality: MATERIAL_EMBEDDING_DIMENSIONS,
+    autoTruncate: true,
   };
 }
 

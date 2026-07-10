@@ -365,7 +365,7 @@ model MaterialChunk {
   locator            Json
   headingText        String?
   searchText         Unsupported("tsvector")? @default(dbgenerated("to_tsvector('simple'::regconfig, ((COALESCE(\"headingText\", ''::text) || ' '::text) || text))"))
-  embedding          Unsupported("vector")?
+  embedding          Unsupported("vector(768)")?
   createdAt          DateTime                 @default(now())
 
   user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)

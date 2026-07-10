@@ -819,6 +819,7 @@ export async function getUserDataExport(input: {
     })),
     materialChunks: user.materialChunks.map((chunk) => ({
       ...chunk,
+      locator: sanitizeSourceFileMetadata(chunk.locator),
       createdAt: serializeExportDate(chunk.createdAt),
     })),
     materialPages: user.materialPages.map((page) => ({
@@ -879,6 +880,7 @@ export async function getUserDataExport(input: {
     })),
     skillDraftBatches: user.skillDraftBatches.map((batch) => ({
       ...batch,
+      confirmedPlan: sanitizeSourceFileMetadata(batch.confirmedPlan),
       confirmedAt: serializeExportDate(batch.confirmedAt),
       completedAt: serializeExportDate(batch.completedAt),
       createdAt: serializeExportDate(batch.createdAt),
@@ -886,6 +888,7 @@ export async function getUserDataExport(input: {
     })),
     skillDraftBatchItems: user.skillDraftBatchItems.map((item) => ({
       ...item,
+      locator: sanitizeSourceFileMetadata(item.locator),
       createdAt: serializeExportDate(item.createdAt),
       updatedAt: serializeExportDate(item.updatedAt),
     })),
