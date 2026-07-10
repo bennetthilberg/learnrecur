@@ -86,7 +86,16 @@ describe("PDF material ingestion", () => {
     const title = materialTitleFromPdfFileName(originalName);
 
     expect(title.length).toBeLessThanOrEqual(MAX_MATERIAL_TITLE_LENGTH);
-    expect(title.endsWith("…")).toBe(true);
+    expect(title.endsWith("…")).toBe(false);
+    expect(title).toBe(
+      originalName
+        .replace(/\.pdf$/i, "")
+        .replace(/[-_]+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, MAX_MATERIAL_TITLE_LENGTH)
+        .trimEnd(),
+    );
     expect(
       prepareMaterialPdfInputSchema.safeParse({
         title,

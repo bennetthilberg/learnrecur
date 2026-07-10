@@ -69,6 +69,10 @@ describeDatabase("material ingestion", () => {
     if (prepared.status !== "prepared") {
       throw new Error("expected prepared upload");
     }
+    expect(storage.lastPreparedKey).toMatch(
+      new RegExp(`^source-uploads/materials/${userId}/`),
+    );
+    expect(prepared.headers).toEqual({ "Content-Type": "application/pdf" });
     storage.objects.set(storage.lastPreparedKey, bytes);
 
     const sentEvents: string[] = [];

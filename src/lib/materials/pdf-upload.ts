@@ -23,14 +23,7 @@ export function materialTitleFromPdfFileName(fileName: string) {
     return normalized;
   }
 
-  const candidate = normalized.slice(0, MAX_MATERIAL_TITLE_LENGTH - 1).trimEnd();
-  const lastWordBreak = candidate.lastIndexOf(" ");
-  const cutoff =
-    lastWordBreak >= Math.floor(MAX_MATERIAL_TITLE_LENGTH * 0.75)
-      ? candidate.slice(0, lastWordBreak)
-      : candidate;
-
-  return `${cutoff.trimEnd()}…`;
+  return normalized.slice(0, MAX_MATERIAL_TITLE_LENGTH).trimEnd();
 }
 
 export function materialPdfErrorMessage(

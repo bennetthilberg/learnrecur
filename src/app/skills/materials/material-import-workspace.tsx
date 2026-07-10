@@ -127,7 +127,6 @@ function MaterialPdfForm({ collections }: { collections: CollectionOption[] }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState("");
-  const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]> | undefined>();
   const [isBusy, setIsBusy] = useState(false);
@@ -155,7 +154,6 @@ function MaterialPdfForm({ collections }: { collections: CollectionOption[] }) {
         const form = event.currentTarget;
         setError(null);
         setFieldErrors(undefined);
-        setMessage("Preparing a private upload…");
         setIsBusy(true);
         void submitPdf(form, file).finally(() => setIsBusy(false));
       }}
@@ -214,10 +212,18 @@ function MaterialPdfForm({ collections }: { collections: CollectionOption[] }) {
               : "The original stays private in your storage."}
         </small>
       </label>
-      <ActionMessage error={error} message={message} />
+      <ActionMessage error={error} message={null} />
       <div className="skillFormActions materialImportActions">
-        <button className="primaryButton" disabled={isBusy} type="submit">
-          {isBusy ? "Importing PDF" : "Import PDF"}
+        <button
+          aria-busy={isBusy}
+          className="primaryButton"
+          disabled={isBusy}
+          type="submit"
+        >
+          <span className="buttonPendingContent">
+            {isBusy ? <span className="buttonSpinner" aria-hidden="true" /> : null}
+            <span aria-live="polite">{isBusy ? "Importing PDF" : "Import PDF"}</span>
+          </span>
         </button>
       </div>
     </form>
@@ -235,33 +241,29 @@ function MaterialPdfForm({ collections }: { collections: CollectionOption[] }) {
       if (prepared.status === "error") {
         setFieldErrors(prepared.fieldErrors);
         setError(materialPdfErrorMessage(prepared.fieldErrors, prepared.message));
-        setMessage(null);
         return;
       }
       preparedMaterial = {
         materialId: prepared.materialId,
         materialRevisionId: prepared.materialRevisionId,
       };
-      setMessage("Uploading the original PDF…");
       const response = await fetch(prepared.uploadUrl, {
         method: "PUT",
         headers: prepared.headers,
         body: selectedFile,
       });
       if (!response.ok) {
+        const uploadError = pdfUploadResponseError(response.status);
         const cleanupError = await discardPreparedUpload(preparedMaterial);
-        setError(cleanupError ?? "The private upload failed. Try the PDF again.");
-        setMessage(null);
+        setError(withPdfCleanupWarning(uploadError, cleanupError));
         return;
       }
-      setMessage("Building the book outline…");
       const queued = await completeMaterialPdfAction({
         materialRevisionId: prepared.materialRevisionId,
       });
       if (queued.status === "error") {
         const cleanupError = await discardPreparedUpload(preparedMaterial);
-        setError(cleanupError ?? queued.message);
-        setMessage(null);
+        setError(withPdfCleanupWarning(queued.message, cleanupError));
         return;
       }
       preparedMaterial = null;
@@ -271,10 +273,13 @@ function MaterialPdfForm({ collections }: { collections: CollectionOption[] }) {
       const cleanupError = preparedMaterial
         ? await discardPreparedUpload(preparedMaterial)
         : null;
-      setError(
-        cleanupError ?? (caught instanceof Error ? caught.message : "Could not import the PDF."),
-      );
-      setMessage(null);
+      const uploadError =
+        preparedMaterial && caught instanceof TypeError
+          ? "The browser could not reach private storage. Check your connection and try again."
+          : caught instanceof Error
+            ? caught.message
+            : "Could not import the PDF.";
+      setError(withPdfCleanupWarning(uploadError, cleanupError));
     }
   }
 
@@ -289,6 +294,23 @@ function MaterialPdfForm({ collections }: { collections: CollectionOption[] }) {
       return "The upload failed and its prepared material could not be cleaned up. Open Materials to remove it.";
     }
   }
+}
+
+function pdfUploadResponseError(status: number) {
+  if (status === 403) {
+    return "Private storage rejected the upload (HTTP 403). Try again; if this continues, contact support.";
+  }
+  if (status === 413) {
+    return "Private storage rejected the PDF because it was too large (HTTP 413). Choose a smaller PDF and try again.";
+  }
+
+  return `The private upload failed (HTTP ${status}). Try again.`;
+}
+
+function withPdfCleanupWarning(uploadError: string, cleanupError: string | null) {
+  return cleanupError
+    ? `${uploadError} The incomplete material could not be removed automatically, so it remains in Materials for retry or deletion.`
+    : uploadError;
 }
 
 function WebsiteMaterialForm({ collections }: { collections: CollectionOption[] }) {

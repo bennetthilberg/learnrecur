@@ -56,7 +56,7 @@ import {
   checkSourceStorageUsageLimit,
 } from "@/lib/usage-limits";
 
-const MATERIAL_STORAGE_PREFIX = "materials";
+const MATERIAL_STORAGE_PREFIX = "source-uploads/materials";
 const MATERIAL_EMBEDDING_BATCH_SIZE = 32;
 const MATERIAL_SOURCE_EXCERPT_LIMIT = 4_000;
 const MATERIAL_WEBSITE_FETCH_CONCURRENCY = 16;
@@ -213,7 +213,6 @@ export async function prepareMaterialPdf(input: {
       uploadUrl,
       headers: {
         "Content-Type": parsed.data.mimeType,
-        "Content-Length": String(parsed.data.byteSize),
       },
       expiresInSeconds,
     };
