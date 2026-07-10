@@ -3,6 +3,8 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import {
+  GenerationJobKind,
+  GenerationJobStatus,
   SkillDraftBatchItemStatus,
   SkillDraftBatchStatus,
   SkillStatus,
@@ -16,6 +18,7 @@ import {
   excludeMaterialDraftItem,
   getMaterialDraftBatch,
   planMaterialSkills,
+  retryMaterialDraftItem,
   runMaterialDraftItemJob,
 } from "@/lib/materials/batches";
 import {
@@ -421,6 +424,68 @@ describeDatabase("material multi-skill drafting", () => {
     expect(firstResult).toEqual(secondResult);
   });
 
+  it("rechecks the reviewed plan after acquiring the confirmation lock", async () => {
+    const planScope = vi.fn(async () => ({
+      resolutionStatus: "resolved" as const,
+      resolvedScopeLabel: "Chapter 4",
+      clarification: null,
+      warnings: [],
+      items: [
+        {
+          key: "confirmation-fence",
+          title: "Original reviewed plan",
+          objective: "Choose a direct object pronoun in one focused sentence.",
+          materialSectionIds: [directSectionId],
+          evidenceChunkIds: [directChunkId],
+        },
+      ],
+    }));
+    const planned = await planMaterialSkills({
+      userId,
+      input: {
+        materialId,
+        materialRevisionId,
+        instruction: "Make one skill from chapter four.",
+        idempotencyKey: `${runId}_confirmation_fence`,
+      },
+      now: new Date(),
+      aiSetup: createAiSetup({ planScope }),
+      embeddingGenerator: null,
+    });
+    if (planned.status !== "planned") {
+      throw new Error("expected planned confirmation fence batch");
+    }
+    const replacementPlan = {
+      ...planned.plan,
+      items: planned.plan.items.map((item) => ({ ...item, title: "Newer replacement plan" })),
+    };
+    let confirmation: ReturnType<typeof confirmMaterialPlan> | null = null;
+
+    await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`
+        SELECT "id" FROM "skill_draft_batches"
+        WHERE "id" = ${planned.batchId} AND "userId" = ${userId}
+        FOR UPDATE
+      `;
+      confirmation = confirmMaterialPlan({
+        userId,
+        input: { batchId: planned.batchId, plan: planned.plan },
+        now: new Date(),
+        eventSender: { async sendMaterialDraftItemRequested() {} },
+      });
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      await tx.skillDraftBatch.update({
+        where: { id: planned.batchId },
+        data: { proposedPlan: JSON.parse(JSON.stringify(replacementPlan)) },
+      });
+    });
+
+    expect(await confirmation).toMatchObject({ status: "invalid" });
+    expect(
+      await prisma.skillDraftBatchItem.count({ where: { batchId: planned.batchId } }),
+    ).toBe(0);
+  });
+
   it("gives the planner a fallback chunk from every candidate section before the cap", async () => {
     const planScope = vi.fn(async () => ({
       resolutionStatus: "resolved",
@@ -455,6 +520,112 @@ describeDatabase("material multi-skill drafting", () => {
     expect(planningInput?.chunks.map((chunk) => chunk.id)).toEqual(
       expect.arrayContaining([directChunkId, indirectChunkId]),
     );
+  });
+
+  it("reserves fallback evidence for later sections before truncating ranked chunks", async () => {
+    const { material, revision } = await createMaterialWithInitialRevision({
+      userId,
+      title: "Balanced retrieval fixture",
+      kind: StudyMaterialKind.PDF,
+    });
+    const sectionIds = Array.from(
+      { length: 20 },
+      (_, index) => `${runId}_balanced_section_${String(index).padStart(2, "0")}`,
+    );
+    await prisma.materialSection.createMany({
+      data: sectionIds.map((id, index) => ({
+        id,
+        userId,
+        materialRevisionId: revision.id,
+        ordinal: index,
+        level: 1,
+        title: `Balanced topic ${index + 1}`,
+        normalizedTitle: `balanced topic ${index + 1}`,
+        pageStart: index + 1,
+        pageEnd: index + 1,
+        headingPath: [`Balanced topic ${index + 1}`],
+      })),
+    });
+    const firstSectionChunkIds = Array.from(
+      { length: 48 },
+      (_, index) => `${runId}_ranked_chunk_${String(index).padStart(2, "0")}`,
+    );
+    const fallbackChunkIds = sectionIds.slice(1).map(
+      (_, index) => `${runId}_fallback_chunk_${String(index).padStart(2, "0")}`,
+    );
+    await prisma.materialChunk.createMany({
+      data: [
+        ...firstSectionChunkIds.map((id, index) => ({
+          id,
+          userId,
+          materialRevisionId: revision.id,
+          materialSectionId: sectionIds[0],
+          ordinal: index,
+          text: `Ranked grammar request evidence ${index + 1}.`,
+          tokenEstimate: 8,
+          contentHash: `sha256:${id}`,
+          headingText: "Ranked grammar request",
+          locator: { kind: "pdf", pageRange: { start: 1, end: 1 } },
+        })),
+        ...fallbackChunkIds.map((id, index) => ({
+          id,
+          userId,
+          materialRevisionId: revision.id,
+          materialSectionId: sectionIds[index + 1],
+          ordinal: firstSectionChunkIds.length + index,
+          text: `Fallback evidence for balanced topic ${index + 2}.`,
+          tokenEstimate: 8,
+          contentHash: `sha256:${id}`,
+          headingText: `Balanced topic ${index + 2}`,
+          locator: { kind: "pdf", pageRange: { start: index + 2, end: index + 2 } },
+        })),
+      ],
+    });
+    await finalizeMaterialRevision({
+      userId,
+      materialId: material.id,
+      materialRevisionId: revision.id,
+      contentHash: `sha256:${runId}:balanced-retrieval`,
+      byteSize: 16_384,
+      pageCount: 20,
+      storageBucket: "test-materials",
+      storageKey: `${runId}/balanced-retrieval.pdf`,
+    });
+    const lastChunkId = fallbackChunkIds.at(-1);
+    if (!lastChunkId) {
+      throw new Error("expected a later fallback chunk");
+    }
+    const planScope = vi.fn(async () => ({
+      resolutionStatus: "resolved" as const,
+      resolvedScopeLabel: "Balanced topic 20",
+      clarification: null,
+      warnings: [],
+      items: [
+        {
+          key: "later-balanced-topic",
+          title: "Later balanced topic",
+          objective: "Recognize the evidence from the final balanced topic.",
+          materialSectionIds: [sectionIds.at(-1)!],
+          evidenceChunkIds: [lastChunkId],
+        },
+      ],
+    }));
+
+    const result = await planMaterialSkills({
+      userId,
+      input: {
+        materialId: material.id,
+        materialRevisionId: revision.id,
+        instruction: "ranked grammar request",
+        idempotencyKey: `${runId}_reserved_fallbacks`,
+      },
+      now: new Date(),
+      aiSetup: createAiSetup({ planScope }),
+      embeddingGenerator: null,
+    });
+
+    expect(result.status).toBe("planned");
+    expect(planScope.mock.calls[0]?.[0].chunks.map((chunk) => chunk.id)).toContain(lastChunkId);
   });
 
   it("keeps a later semantic hit when broad-scope fallbacks fill the planning cap", async () => {
@@ -632,6 +803,21 @@ describeDatabase("material multi-skill drafting", () => {
         userId,
         batchId: planned.batchId,
         itemId: secondItem.id,
+        aiSetup: createAiSetup(),
+      }),
+    ).toMatchObject({ status: "not-claimed" });
+    await retryMaterialDraftItem({
+      userId,
+      batchId: planned.batchId,
+      itemId: secondItem.id,
+      now: new Date(),
+      eventSender: { async sendMaterialDraftItemRequested() {} },
+    });
+    expect(
+      await runMaterialDraftItemJob({
+        userId,
+        batchId: planned.batchId,
+        itemId: secondItem.id,
         aiSetup: createAiSetup({ rejectTitle: "Choosing le versus les" }),
       }),
     ).toMatchObject({ status: "failed", reason: "verification-rejected" });
@@ -749,6 +935,149 @@ describeDatabase("material multi-skill drafting", () => {
         select: { status: true },
       }),
     ).toEqual({ status: SkillStatus.ACTIVE });
+  });
+
+  it("does not let a stale worker overwrite a newer successful claim", async () => {
+    const planScope = vi.fn(async () => ({
+      resolutionStatus: "resolved" as const,
+      resolvedScopeLabel: "Chapter 4",
+      clarification: null,
+      warnings: [],
+      items: [
+        {
+          key: "generation-claim-fence",
+          title: "Generation claim fence",
+          objective: "Place a direct object pronoun in one claim-fence example.",
+          materialSectionIds: [directSectionId],
+          evidenceChunkIds: [directChunkId],
+        },
+      ],
+    }));
+    const planned = await planMaterialSkills({
+      userId,
+      input: {
+        materialId,
+        materialRevisionId,
+        instruction: "Make a claim-fence skill from chapter four.",
+        idempotencyKey: `${runId}_generation_claim_fence`,
+      },
+      now: new Date(),
+      aiSetup: createAiSetup({ planScope }),
+      embeddingGenerator: null,
+    });
+    if (planned.status !== "planned") {
+      throw new Error("expected planned generation claim fence batch");
+    }
+    await confirmMaterialPlan({
+      userId,
+      input: { batchId: planned.batchId, plan: planned.plan },
+      now: new Date(),
+      eventSender: { async sendMaterialDraftItemRequested() {} },
+    });
+    const item = await prisma.skillDraftBatchItem.findFirstOrThrow({
+      where: { batchId: planned.batchId },
+    });
+    let markSlowWorkerStarted = () => {};
+    const slowWorkerStarted = new Promise<void>((resolve) => {
+      markSlowWorkerStarted = resolve;
+    });
+    let releaseSlowWorker = () => {};
+    const slowWorkerMayFinish = new Promise<void>((resolve) => {
+      releaseSlowWorker = resolve;
+    });
+    const slowAi = createAiSetup();
+    slowAi.generateDraft = async () => {
+      markSlowWorkerStarted();
+      await slowWorkerMayFinish;
+      throw new Error("stale worker failed after its claim was replaced");
+    };
+
+    const staleWorker = runMaterialDraftItemJob({
+      userId,
+      batchId: planned.batchId,
+      itemId: item.id,
+      now: new Date(),
+      aiSetup: slowAi,
+    });
+    await slowWorkerStarted;
+    await prisma.skillDraftBatchItem.update({
+      where: { id: item.id },
+      data: { updatedAt: new Date(Date.now() - 11 * 60 * 1_000) },
+    });
+    expect(
+      await runMaterialDraftItemJob({
+        userId,
+        batchId: planned.batchId,
+        itemId: item.id,
+        now: new Date(),
+        aiSetup: createAiSetup(),
+      }),
+    ).toMatchObject({ status: "ready" });
+    releaseSlowWorker();
+    expect(await staleWorker).toMatchObject({ status: "not-claimed" });
+    expect(
+      await prisma.skillDraftBatchItem.findUnique({
+        where: { id: item.id },
+        select: { status: true, skill: { select: { status: true } } },
+      }),
+    ).toEqual({ status: SkillDraftBatchItemStatus.READY, skill: { status: SkillStatus.DRAFT } });
+  });
+
+  it("blocks exclusion while a linked skill activation job is running", async () => {
+    const skill = await prisma.skill.create({
+      data: { userId, title: "Activation exclusion fence", tags: [], status: SkillStatus.DRAFT },
+    });
+    const batch = await prisma.skillDraftBatch.create({
+      data: {
+        userId,
+        materialRevisionId,
+        instruction: "Activation exclusion fixture",
+        idempotencyKey: `${runId}_activation_exclusion`,
+        status: SkillDraftBatchStatus.READY,
+        requestedCount: 1,
+        readyCount: 1,
+      },
+    });
+    const item = await prisma.skillDraftBatchItem.create({
+      data: {
+        userId,
+        batchId: batch.id,
+        skillId: skill.id,
+        ordinal: 0,
+        targetKey: "activation-exclusion",
+        proposedTitle: skill.title,
+        proposedObjective: "Block exclusion while activation generates exercises.",
+        locator: {},
+        status: SkillDraftBatchItemStatus.READY,
+      },
+    });
+    await prisma.generationJob.create({
+      data: {
+        userId,
+        skillId: skill.id,
+        kind: GenerationJobKind.SKILL_ACTIVATION,
+        status: GenerationJobStatus.RUNNING,
+        provider: "gemini",
+        model: "fixture-model",
+        promptVersion: "fixture-v1",
+        requestedCount: 3,
+        startedAt: new Date(),
+      },
+    });
+
+    expect(
+      await excludeMaterialDraftItem({
+        userId,
+        batchId: batch.id,
+        itemId: item.id,
+        now: new Date(),
+      }),
+    ).toMatchObject({ status: "not-excluded", reason: "activation-in-progress" });
+    expect(await prisma.skill.count({ where: { id: skill.id } })).toBe(1);
+    expect(await prisma.skillDraftBatchItem.findUnique({ where: { id: item.id } })).toMatchObject({
+      status: SkillDraftBatchItemStatus.READY,
+      skillId: skill.id,
+    });
   });
 });
 

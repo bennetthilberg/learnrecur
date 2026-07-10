@@ -125,7 +125,7 @@ export function resolveStructuralMaterialScope(input: {
     }
     seen.add(key);
     const root = orderedSections.find(
-      (section) => extractStructuralSectionNumber(section.title, kind) === number,
+      (section) => extractStructuralSectionNumber(section, kind) === number,
     );
     if (!root) {
       missingReferences.push(label);
@@ -468,16 +468,22 @@ function collectSectionScope(
 }
 
 function extractStructuralSectionNumber(
-  title: string,
+  section: MaterialPlanningSection,
   expectedKind: StructuralMaterialReference["kind"],
 ) {
-  const match = title
+  const match = section.title
     .toLocaleLowerCase()
     .match(/^\s*(chapter|unit|part|lesson|module)\s+([0-9]{1,3}|[ivxlcdm]{1,8}|[a-z]+)/u);
-  if (!match || match[1] !== expectedKind) {
+  if (match && match[1] === expectedKind) {
+    return parseReferenceNumber(match[2]);
+  }
+  if (expectedKind !== "chapter" || section.level !== 1) {
     return null;
   }
-  return parseReferenceNumber(match[2]);
+  const bareNumber = section.title
+    .toLocaleLowerCase()
+    .match(/^\s*([0-9]{1,3}|[ivxlcdm]{1,8})(?:\.\s+|\s+|[:·–—-]\s*)/u);
+  return bareNumber ? parseReferenceNumber(bareNumber[1]) : null;
 }
 
 function parseReferenceNumber(value: string) {
