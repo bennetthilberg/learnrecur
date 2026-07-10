@@ -6,7 +6,9 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   MaterialRevisionStatus,
   SkillStatus,
+  SourceFileKind,
   SourceFileStatus,
+  StudyMaterialKind,
 } from "@/generated/prisma/client";
 import { queueMaterialDeletion, runMaterialCleanupJob } from "@/lib/materials/cleanup";
 import {
@@ -22,6 +24,7 @@ import { MATERIAL_EMBEDDING_DIMENSIONS } from "@/lib/materials/retrieval";
 import { getPrisma } from "@/lib/prisma";
 import { prepareSourceUpload, queueSourceUploadDrafts } from "@/lib/skills/uploads";
 import type { SourceObjectStorage } from "@/lib/storage/s3";
+import { ALPHA_SOURCE_UPLOADS_PER_DAY, ALPHA_STORED_SOURCE_BYTES } from "@/lib/usage-limits";
 
 const runDatabaseTests = process.env.RUN_DATABASE_TESTS === "1";
 const describeDatabase = runDatabaseTests ? describe : describe.skip;
@@ -137,6 +140,96 @@ describeDatabase("material ingestion", () => {
     ).resolves.toEqual({ status: "discarded" });
     expect(storage.deleted).toContain(storage.lastPreparedKey);
     expect(await prisma.studyMaterial.count({ where: { id: prepared.materialId } })).toBe(0);
+  });
+
+  it("applies reusable PDF storage limits without consuming the quick-upload daily quota", async () => {
+    const now = new Date();
+    const quickUploadPrefix = `${runId}_quick_upload_`;
+    await prisma.sourceFile.createMany({
+      data: Array.from({ length: ALPHA_SOURCE_UPLOADS_PER_DAY }, (_, index) => ({
+        userId,
+        kind: SourceFileKind.PDF,
+        status: SourceFileStatus.DRAFT,
+        originalName: `${quickUploadPrefix}${index + 1}.pdf`,
+        mimeType: "application/pdf",
+        byteSize: 1,
+        createdAt: now,
+      })),
+    });
+
+    const storage = createMemoryStorage();
+    try {
+      const prepared = await prepareMaterialPdf({
+        userId,
+        now,
+        storage,
+        input: {
+          title: "Reusable PDF after quick uploads",
+          originalName: "reusable.pdf",
+          mimeType: "application/pdf",
+          byteSize: "2048",
+        },
+      });
+      expect(prepared.status).toBe("prepared");
+      if (prepared.status !== "prepared") {
+        throw new Error("expected reusable PDF preparation");
+      }
+      await discardPreparedMaterialPdf({
+        userId,
+        materialId: prepared.materialId,
+        materialRevisionId: prepared.materialRevisionId,
+        storage,
+      });
+    } finally {
+      await prisma.sourceFile.deleteMany({
+        where: { userId, originalName: { startsWith: quickUploadPrefix } },
+      });
+    }
+
+    const quotaMaterial = await prisma.studyMaterial.create({
+      data: {
+        userId,
+        title: "Stored reusable PDF quota fixture",
+        kind: StudyMaterialKind.PDF,
+        revisions: {
+          create: {
+            revisionNumber: 1,
+            sourceFiles: {
+              create: {
+                kind: SourceFileKind.PDF,
+                status: SourceFileStatus.UPLOADED,
+                originalName: "stored-material.pdf",
+                mimeType: "application/pdf",
+                byteSize: ALPHA_STORED_SOURCE_BYTES,
+                storageBucket: "test-materials",
+                storageKey: `materials/${userId}/stored-material.pdf`,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    try {
+      await expect(
+        prepareMaterialPdf({
+          userId,
+          now,
+          storage,
+          input: {
+            title: "Over reusable storage quota",
+            originalName: "over-quota.pdf",
+            mimeType: "application/pdf",
+            byteSize: "1",
+          },
+        }),
+      ).resolves.toMatchObject({
+        status: "not-prepared",
+        message: expect.stringMatching(/250 MB/),
+      });
+    } finally {
+      await prisma.studyMaterial.delete({ where: { id: quotaMaterial.id } });
+    }
   });
 
   it("rejects a long PDF in quick create on the server", async () => {
@@ -288,7 +381,7 @@ describeDatabase("material ingestion", () => {
     });
 
     expect(result).toMatchObject({ status: "ready", pageCount: 20 });
-    expect(maximumInFlight).toBe(16);
+    expect(maximumInFlight).toBe(10);
     expect(
       (
         await prisma.materialSection.findMany({
@@ -355,6 +448,44 @@ describeDatabase("material ingestion", () => {
     expect(writtenKey).not.toBe("");
     expect(storage.objects.has(writtenKey)).toBe(false);
     expect(storage.deleted).toContain(writtenKey);
+  });
+
+  it("does not create a website refresh revision when Inngest is unavailable", async () => {
+    const material = await prisma.studyMaterial.findFirstOrThrow({
+      where: { userId, title: "Open Grammar" },
+    });
+    const revisionCount = await prisma.materialRevision.count({
+      where: { materialId: material.id },
+    });
+    const previousEnv = {
+      NODE_ENV: process.env.NODE_ENV,
+      INNGEST_DEV: process.env.INNGEST_DEV,
+      INNGEST_EVENT_KEY: process.env.INNGEST_EVENT_KEY,
+      INNGEST_SIGNING_KEY: process.env.INNGEST_SIGNING_KEY,
+    };
+    process.env.NODE_ENV = "production";
+    delete process.env.INNGEST_DEV;
+    delete process.env.INNGEST_EVENT_KEY;
+    delete process.env.INNGEST_SIGNING_KEY;
+
+    try {
+      await expect(
+        queueWebsiteMaterialRefresh({
+          userId,
+          materialId: material.id,
+          now: new Date(),
+          storage: createMemoryStorage(),
+        }),
+      ).resolves.toMatchObject({ status: "not-queued", message: expect.stringMatching(/Inngest/) });
+      await expect(
+        prisma.materialRevision.count({ where: { materialId: material.id } }),
+      ).resolves.toBe(revisionCount);
+    } finally {
+      restoreEnv("NODE_ENV", previousEnv.NODE_ENV);
+      restoreEnv("INNGEST_DEV", previousEnv.INNGEST_DEV);
+      restoreEnv("INNGEST_EVENT_KEY", previousEnv.INNGEST_EVENT_KEY);
+      restoreEnv("INNGEST_SIGNING_KEY", previousEnv.INNGEST_SIGNING_KEY);
+    }
   });
 
   it("refreshes a website into a new immutable revision without moving existing links", async () => {
@@ -551,4 +682,12 @@ function createMemoryStorage(): MemoryStorage {
     },
   };
   return storage;
+}
+
+function restoreEnv(name: string, value: string | undefined) {
+  if (value === undefined) {
+    delete process.env[name];
+    return;
+  }
+  process.env[name] = value;
 }
