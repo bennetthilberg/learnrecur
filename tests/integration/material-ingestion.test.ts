@@ -271,7 +271,7 @@ describeDatabase("material ingestion", () => {
       storage,
       resolveHostname: async () => ["93.184.216.34"],
       fetchResource: async (url, options) => {
-        expect(options?.maximumBytes).toBeGreaterThan(0);
+        expect(options?.maximumBytes).toBe(5 * 1024 * 1024);
         inFlight += 1;
         maximumInFlight = Math.max(maximumInFlight, inFlight);
         await new Promise((resolve) => setTimeout(resolve, 10));
@@ -298,6 +298,63 @@ describeDatabase("material ingestion", () => {
         })
       ).map((section) => section.url),
     ).toEqual(selectedUrls);
+  });
+
+  it("removes a website snapshot written after deletion begins", async () => {
+    const storage = createMemoryStorage();
+    const title = "Deleted during website snapshot";
+    const queued = await queueWebsiteMaterialImport({
+      userId,
+      now: new Date(),
+      storage,
+      eventSender: { async sendMaterialIngestionRequested() {} },
+      input: {
+        title,
+        sourceUrl: "https://books.example/deleted-book",
+        selectedUrls: ["https://books.example/deleted-chapter"],
+      },
+    });
+    expect(queued.status).toBe("queued");
+    if (queued.status !== "queued") {
+      throw new Error("expected queued website import");
+    }
+
+    const putObject = storage.putObject?.bind(storage);
+    if (!putObject) {
+      throw new Error("expected snapshot storage");
+    }
+    let writtenKey = "";
+    storage.putObject = async (putInput) => {
+      writtenKey = putInput.key;
+      await queueMaterialDeletion({
+        userId,
+        materialId: queued.materialId,
+        confirmationTitle: title,
+        now: new Date(),
+        eventSender: { async sendMaterialCleanupRequested() {} },
+      });
+      await putObject(putInput);
+    };
+
+    await expect(
+      runMaterialIngestionJob({
+        userId,
+        materialRevisionId: queued.materialRevisionId,
+        storage,
+        resolveHostname: async () => ["93.184.216.34"],
+        fetchResource: async (url) => ({
+          url,
+          contentType: "text/html",
+          bytes: Buffer.from(
+            "<html><body><main><h1>Deleted chapter</h1><p>This readable page is deleted while its private snapshot is being stored.</p></main></body></html>",
+          ),
+        }),
+        embeddingGenerator: null,
+      }),
+    ).rejects.toThrow(/deleted/i);
+    expect(writtenKey).not.toBe("");
+    expect(storage.objects.has(writtenKey)).toBe(false);
+    expect(storage.deleted).toContain(writtenKey);
   });
 
   it("refreshes a website into a new immutable revision without moving existing links", async () => {
