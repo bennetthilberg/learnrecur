@@ -18,6 +18,7 @@ import {
   confirmMaterialPlan,
   excludeMaterialDraftItem,
   getMaterialDraftBatch,
+  MaterialDraftGenerationError,
   planMaterialSkills,
   queueMaterialBatchActivation,
   retryMaterialBatchActivationItem,
@@ -28,9 +29,11 @@ import {
 import {
   createMaterialWithInitialRevision,
   finalizeMaterialRevision,
+  requestMaterialDeletion,
 } from "@/lib/materials/lifecycle";
 import { getPrisma } from "@/lib/prisma";
 import { activateSkillDraft, refillChoiceExercisesForSkill } from "@/lib/skills";
+import { deleteSkillPermanently } from "@/lib/skills/delete";
 import { ALPHA_ACTIVE_SKILLS } from "@/lib/usage-limits";
 
 const runDatabaseTests = process.env.RUN_DATABASE_TESTS === "1";
@@ -1028,7 +1031,242 @@ describeDatabase("material multi-skill drafting", () => {
     ).toEqual({ status: SkillDraftBatchItemStatus.READY, skill: { status: SkillStatus.DRAFT } });
   });
 
+  it("recovers a ready batch item after its linked draft skill is deleted", async () => {
+    const skill = await prisma.skill.create({
+      data: { userId, title: "Deleted batch draft", tags: [], status: SkillStatus.DRAFT },
+    });
+    const batch = await prisma.skillDraftBatch.create({
+      data: {
+        userId,
+        materialRevisionId,
+        instruction: "Deleted ready draft fixture",
+        idempotencyKey: `${runId}_deleted_ready_draft`,
+        status: SkillDraftBatchStatus.READY,
+        requestedCount: 1,
+        readyCount: 1,
+      },
+    });
+    const item = await prisma.skillDraftBatchItem.create({
+      data: {
+        userId,
+        batchId: batch.id,
+        skillId: skill.id,
+        ordinal: 0,
+        targetKey: "deleted-ready-draft",
+        proposedTitle: "Deleted batch draft replacement",
+        proposedObjective: "Place a direct object pronoun in one short sentence.",
+        locator: pdfLocator({ materialRevisionId, directSectionId, directChunkId }),
+        status: SkillDraftBatchItemStatus.READY,
+      },
+    });
+    await expect(
+      deleteSkillPermanently({
+        userId,
+        skillId: skill.id,
+        confirmationTitle: skill.title,
+      }),
+    ).resolves.toMatchObject({ status: "deleted" });
+
+    await expect(
+      runMaterialDraftItemJob({
+        userId,
+        batchId: batch.id,
+        itemId: item.id,
+        aiSetup: createAiSetup(),
+      }),
+    ).resolves.toMatchObject({ status: "failed", reason: "draft-skill-deleted" });
+    await expect(
+      prisma.skillDraftBatchItem.findUnique({ where: { id: item.id } }),
+    ).resolves.toMatchObject({
+      status: SkillDraftBatchItemStatus.FAILED,
+      skillId: null,
+      errorCode: "DRAFT_SKILL_DELETED",
+    });
+
+    await retryMaterialDraftItem({
+      userId,
+      batchId: batch.id,
+      itemId: item.id,
+      now: new Date(),
+      eventSender: { async sendMaterialDraftItemRequested() {} },
+    });
+    await expect(
+      runMaterialDraftItemJob({
+        userId,
+        batchId: batch.id,
+        itemId: item.id,
+        aiSetup: createAiSetup(),
+      }),
+    ).resolves.toMatchObject({ status: "ready", alreadyGenerated: false });
+  });
+
+  it("keeps retryable generation failures claimable for the same Inngest event", async () => {
+    const batch = await prisma.skillDraftBatch.create({
+      data: {
+        userId,
+        materialRevisionId,
+        instruction: "Transient retry fixture",
+        idempotencyKey: `${runId}_transient_retry`,
+        status: SkillDraftBatchStatus.GENERATING,
+        requestedCount: 1,
+      },
+    });
+    const item = await prisma.skillDraftBatchItem.create({
+      data: {
+        userId,
+        batchId: batch.id,
+        ordinal: 0,
+        targetKey: "transient-retry",
+        proposedTitle: "Transient retry draft",
+        proposedObjective: "Place a direct object pronoun in one short sentence.",
+        locator: pdfLocator({ materialRevisionId, directSectionId, directChunkId }),
+        status: SkillDraftBatchItemStatus.PLANNED,
+      },
+    });
+    const requestedAt = new Date().toISOString();
+    const failingAi = createAiSetup();
+    failingAi.generateDraft = async () => {
+      throw new MaterialDraftGenerationError("Temporary provider timeout.", { retryable: true });
+    };
+
+    await expect(
+      runMaterialDraftItemJob({
+        userId,
+        batchId: batch.id,
+        itemId: item.id,
+        requestedAt,
+        attempt: 0,
+        maxAttempts: 4,
+        aiSetup: failingAi,
+      }),
+    ).rejects.toThrow(/temporary provider timeout/i);
+    await expect(
+      prisma.skillDraftBatchItem.findUnique({ where: { id: item.id } }),
+    ).resolves.toMatchObject({
+      status: SkillDraftBatchItemStatus.PLANNED,
+      generationClaimId: expect.any(String),
+      errorCode: "TRANSIENT_GENERATION_FAILURE",
+    });
+
+    await expect(
+      runMaterialDraftItemJob({
+        userId,
+        batchId: batch.id,
+        itemId: item.id,
+        requestedAt,
+        attempt: 1,
+        maxAttempts: 4,
+        aiSetup: createAiSetup(),
+      }),
+    ).resolves.toMatchObject({ status: "ready", alreadyGenerated: false });
+  });
+
+  it("does not save a draft after material deletion wins the generation race", async () => {
+    const fixtureTitle = "Deleting generation fixture";
+    const { material, revision } = await createMaterialWithInitialRevision({
+      userId,
+      title: fixtureTitle,
+      kind: StudyMaterialKind.PDF,
+    });
+    const section = await prisma.materialSection.create({
+      data: {
+        userId,
+        materialRevisionId: revision.id,
+        ordinal: 0,
+        title: "Deletion race section",
+        normalizedTitle: "deletion race section",
+        pageStart: 1,
+        pageEnd: 1,
+        headingPath: ["Deletion race section"],
+      },
+    });
+    const chunk = await prisma.materialChunk.create({
+      data: {
+        userId,
+        materialRevisionId: revision.id,
+        materialSectionId: section.id,
+        ordinal: 0,
+        text: "A deletion race must not leave a newly generated draft without its material evidence.",
+        tokenEstimate: 14,
+        contentHash: `sha256:${runId}:deletion-race`,
+        headingText: section.title,
+        locator: { kind: "pdf", pageRange: { start: 1, end: 1 } },
+      },
+    });
+    await prisma.sourceFile.create({
+      data: {
+        userId,
+        materialRevisionId: revision.id,
+        kind: SourceFileKind.PDF,
+        status: SourceFileStatus.READY,
+        originalName: "deletion-race.pdf",
+        mimeType: "application/pdf",
+        storageBucket: "test-materials",
+        storageKey: `${runId}/deletion-race.pdf`,
+      },
+    });
+    await finalizeMaterialRevision({
+      userId,
+      materialId: material.id,
+      materialRevisionId: revision.id,
+      contentHash: `sha256:${runId}:deletion-race`,
+      byteSize: 1_024,
+      pageCount: 1,
+      storageBucket: "test-materials",
+      storageKey: `${runId}/deletion-race.pdf`,
+    });
+    const batch = await prisma.skillDraftBatch.create({
+      data: {
+        userId,
+        materialRevisionId: revision.id,
+        instruction: "Deletion race fixture",
+        idempotencyKey: `${runId}_deletion_race`,
+        status: SkillDraftBatchStatus.GENERATING,
+        requestedCount: 1,
+      },
+    });
+    const item = await prisma.skillDraftBatchItem.create({
+      data: {
+        userId,
+        batchId: batch.id,
+        ordinal: 0,
+        targetKey: "deletion-race",
+        proposedTitle: "Deletion race draft",
+        proposedObjective: "Recognize the deletion race evidence boundary.",
+        locator: pdfLocator({
+          materialRevisionId: revision.id,
+          directSectionId: section.id,
+          directChunkId: chunk.id,
+        }),
+        status: SkillDraftBatchItemStatus.PLANNED,
+      },
+    });
+    const deletingAi = createAiSetup();
+    const generateDraft = deletingAi.generateDraft;
+    deletingAi.generateDraft = async (generationInput) => {
+      await requestMaterialDeletion({
+        userId,
+        materialId: material.id,
+        confirmationTitle: fixtureTitle,
+      });
+      return generateDraft(generationInput);
+    };
+
+    await expect(
+      runMaterialDraftItemJob({
+        userId,
+        batchId: batch.id,
+        itemId: item.id,
+        aiSetup: deletingAi,
+      }),
+    ).resolves.toMatchObject({ status: "not-claimed" });
+    await expect(
+      prisma.skill.count({ where: { userId, title: "Deletion race draft" } }),
+    ).resolves.toBe(0);
+  });
+
   it("blocks exclusion while a linked skill activation job is running", async () => {
+    const now = new Date();
     const skill = await prisma.skill.create({
       data: { userId, title: "Activation exclusion fence", tags: [], status: SkillStatus.DRAFT },
     });
@@ -1066,7 +1304,7 @@ describeDatabase("material multi-skill drafting", () => {
         model: "fixture-model",
         promptVersion: "fixture-v1",
         requestedCount: 3,
-        startedAt: new Date(),
+        startedAt: now,
       },
     });
 
@@ -1075,7 +1313,7 @@ describeDatabase("material multi-skill drafting", () => {
         userId,
         batchId: batch.id,
         itemId: item.id,
-        now: new Date(),
+        now,
       }),
     ).toMatchObject({ status: "not-excluded", reason: "activation-in-progress" });
     expect(await prisma.skill.count({ where: { id: skill.id } })).toBe(1);
@@ -1083,6 +1321,20 @@ describeDatabase("material multi-skill drafting", () => {
       status: SkillDraftBatchItemStatus.READY,
       skillId: skill.id,
     });
+
+    await prisma.generationJob.updateMany({
+      where: { userId, skillId: skill.id, kind: GenerationJobKind.SKILL_ACTIVATION },
+      data: { startedAt: new Date(now.getTime() - 10 * 60 * 1_000) },
+    });
+    await expect(
+      excludeMaterialDraftItem({
+        userId,
+        batchId: batch.id,
+        itemId: item.id,
+        now,
+      }),
+    ).resolves.toMatchObject({ status: "excluded" });
+    expect(await prisma.skill.count({ where: { id: skill.id } })).toBe(0);
   });
 
   it("reserves quota once and activates a ready item from its exact stored locator", async () => {
@@ -1821,6 +2073,20 @@ const acceptAllChoiceExercises = async (input: {
     verdict: "verified",
   })),
 });
+
+function pdfLocator(input: {
+  materialRevisionId: string;
+  directSectionId: string;
+  directChunkId: string;
+}) {
+  return {
+    version: 1,
+    materialRevisionId: input.materialRevisionId,
+    materialSectionIds: [input.directSectionId],
+    evidenceChunkIds: [input.directChunkId],
+    source: { kind: "pdf", pageRanges: [{ start: 1, end: 1 }] },
+  };
+}
 
 function createAiSetup(input: {
   planScope?: MaterialDraftAiSetup["planScope"];

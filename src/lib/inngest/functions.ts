@@ -160,11 +160,15 @@ export const materialDraftItemFunction = inngest.createFunction(
     concurrency: { limit: 2, key: "event.data.userId" },
     triggers: [{ event: MATERIAL_DRAFT_ITEM_REQUESTED_EVENT }],
   },
-  async ({ event, step }) => {
+  async ({ event, step, attempt, maxAttempts }) => {
     const payload = parseMaterialDraftItemEventPayload(event.data);
     try {
       return await step.run("generate and verify material skill draft", () =>
-        runMaterialDraftItemJob(payload),
+        runMaterialDraftItemJob({
+          ...payload,
+          attempt,
+          maxAttempts: maxAttempts ?? 4,
+        }),
       );
     } catch (error) {
       if (error instanceof MaterialDraftGenerationError && !error.retryable) {
