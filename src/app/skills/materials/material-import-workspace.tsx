@@ -20,6 +20,7 @@ import {
   materialPdfErrorMessage,
   materialPdfFileErrorMessage,
   materialTitleFromPdfFileName,
+  truncateMaterialTitle,
   validateMaterialPdfFile,
 } from "@/lib/materials/pdf-upload";
 import type { WebsiteDiscovery } from "@/lib/materials/web";
@@ -42,6 +43,9 @@ export function MaterialImportWorkspace({
   collections,
   materials,
 }: MaterialImportWorkspaceProps) {
+  const [activeSource, setActiveSource] = useState<string | null>("pdf");
+  const [isImportBusy, setIsImportBusy] = useState(false);
+
   return (
     <div className="materialImportLayout">
       <section className="skillPanel materialReusePanel" aria-labelledby="reuse-material-title">
@@ -99,22 +103,35 @@ export function MaterialImportWorkspace({
             tab: "materialImportTab",
             panel: "materialImportTabPanel",
           }}
-          defaultValue="pdf"
           keepMounted={false}
+          onChange={(value) => {
+            if (!isImportBusy) {
+              setActiveSource(value);
+            }
+          }}
+          value={activeSource}
         >
           <Tabs.List aria-label="Material source type">
-            <Tabs.Tab leftSection={<FilePdf size={17} weight="bold" />} value="pdf">
+            <Tabs.Tab
+              disabled={isImportBusy}
+              leftSection={<FilePdf size={17} weight="bold" />}
+              value="pdf"
+            >
               PDF
             </Tabs.Tab>
-            <Tabs.Tab leftSection={<GlobeHemisphereWest size={17} weight="bold" />} value="website">
+            <Tabs.Tab
+              disabled={isImportBusy}
+              leftSection={<GlobeHemisphereWest size={17} weight="bold" />}
+              value="website"
+            >
               Website
             </Tabs.Tab>
           </Tabs.List>
           <Tabs.Panel value="pdf">
-            <MaterialPdfForm collections={collections} />
+            <MaterialPdfForm collections={collections} onBusyChange={setIsImportBusy} />
           </Tabs.Panel>
           <Tabs.Panel value="website">
-            <WebsiteMaterialForm collections={collections} />
+            <WebsiteMaterialForm collections={collections} onBusyChange={setIsImportBusy} />
           </Tabs.Panel>
         </Tabs>
       </section>
@@ -122,14 +139,20 @@ export function MaterialImportWorkspace({
   );
 }
 
-function MaterialPdfForm({ collections }: { collections: CollectionOption[] }) {
+function MaterialPdfForm({
+  collections,
+  onBusyChange,
+}: {
+  collections: CollectionOption[];
+  onBusyChange: (busy: boolean) => void;
+}) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]> | undefined>();
-  const [isBusy, setIsBusy] = useState(false);
+  const [isBusy, runBusy] = useMaterialImportBusy(onBusyChange);
   const titleError = fieldErrors?.title?.[0];
   const fileError =
     materialPdfFileErrorMessage(fieldErrors) ?? (file ? validateMaterialPdfFile(file) : null);
@@ -154,8 +177,7 @@ function MaterialPdfForm({ collections }: { collections: CollectionOption[] }) {
         const form = event.currentTarget;
         setError(null);
         setFieldErrors(undefined);
-        setIsBusy(true);
-        void submitPdf(form, file).finally(() => setIsBusy(false));
+        runBusy(() => submitPdf(form, file));
       }}
     >
       <p className="materialImportIntro">
@@ -184,7 +206,11 @@ function MaterialPdfForm({ collections }: { collections: CollectionOption[] }) {
         </label>
         <CollectionSelect collections={collections} disabled={isBusy} />
       </div>
-      <label className="materialPdfDropzone" data-invalid={fileError ? "true" : undefined}>
+      <label
+        className="materialPdfDropzone"
+        data-disabled={isBusy ? "true" : undefined}
+        data-invalid={fileError ? "true" : undefined}
+      >
         <input
           accept="application/pdf,.pdf"
           aria-describedby="material-pdf-file-detail"
@@ -313,7 +339,13 @@ function withPdfCleanupWarning(uploadError: string, cleanupError: string | null)
     : uploadError;
 }
 
-function WebsiteMaterialForm({ collections }: { collections: CollectionOption[] }) {
+function WebsiteMaterialForm({
+  collections,
+  onBusyChange,
+}: {
+  collections: CollectionOption[];
+  onBusyChange: (busy: boolean) => void;
+}) {
   const router = useRouter();
   const [url, setUrl] = useState("");
   const [title, setTitle] = useState("");
@@ -322,7 +354,7 @@ function WebsiteMaterialForm({ collections }: { collections: CollectionOption[] 
   const [selectedUrls, setSelectedUrls] = useState<Set<string>>(new Set());
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isBusy, setIsBusy] = useState(false);
+  const [isBusy, runBusy] = useMaterialImportBusy(onBusyChange);
   const selectedCount = selectedUrls.size;
   const allSelected = Boolean(
     discovery && discovery.pages.length > 0 && selectedCount === discovery.pages.length,
@@ -362,8 +394,7 @@ function WebsiteMaterialForm({ collections }: { collections: CollectionOption[] 
             setSelectedUrls(new Set());
             setError(null);
             setMessage("Reading the table of contents…");
-            setIsBusy(true);
-            void discover().finally(() => setIsBusy(false));
+            runBusy(discover);
           }}
           type="button"
         >
@@ -385,6 +416,7 @@ function WebsiteMaterialForm({ collections }: { collections: CollectionOption[] 
             {discovery.pages.length > 0 ? (
               <Checkbox
                 checked={allSelected}
+                disabled={isBusy}
                 label="Select all"
                 onChange={(event) => {
                   setSelectedUrls(
@@ -416,6 +448,7 @@ function WebsiteMaterialForm({ collections }: { collections: CollectionOption[] 
                   <Checkbox
                     checked={selectedUrls.has(page.url)}
                     className="materialDiscoveryCheckbox"
+                    disabled={isBusy}
                     key={page.url}
                     label={page.title}
                     ml={(page.level - 1) * 14}
@@ -438,7 +471,7 @@ function WebsiteMaterialForm({ collections }: { collections: CollectionOption[] 
                   <span>Material title</span>
                   <input
                     disabled={isBusy}
-                    maxLength={200}
+                    maxLength={MAX_MATERIAL_TITLE_LENGTH}
                     onChange={(event) => setTitle(event.currentTarget.value)}
                     required
                     value={title}
@@ -468,8 +501,7 @@ function WebsiteMaterialForm({ collections }: { collections: CollectionOption[] 
                   onClick={() => {
                     setError(null);
                     setMessage("Saving the selected pages…");
-                    setIsBusy(true);
-                    void confirmImport().finally(() => setIsBusy(false));
+                    runBusy(confirmImport);
                   }}
                   type="button"
                 >
@@ -494,7 +526,7 @@ function WebsiteMaterialForm({ collections }: { collections: CollectionOption[] 
       return;
     }
     setDiscovery(result.discovery);
-    setTitle(result.discovery.title);
+    setTitle(truncateMaterialTitle(result.discovery.title));
     setSelectedUrls(new Set(result.discovery.pages.map((page) => page.url)));
     setMessage(
       result.discovery.pages.length > 0
@@ -521,6 +553,21 @@ function WebsiteMaterialForm({ collections }: { collections: CollectionOption[] 
     router.push(result.redirectTo);
     router.refresh();
   }
+}
+
+function useMaterialImportBusy(onBusyChange: (busy: boolean) => void) {
+  const [isBusy, setIsBusy] = useState(false);
+
+  function runBusy(task: () => Promise<void>) {
+    setIsBusy(true);
+    onBusyChange(true);
+    void task().finally(() => {
+      setIsBusy(false);
+      onBusyChange(false);
+    });
+  }
+
+  return [isBusy, runBusy] as const;
 }
 
 function CollectionSelect({

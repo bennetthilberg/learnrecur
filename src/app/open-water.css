@@ -4122,6 +4122,12 @@ body {
   border-color: var(--lr-amber);
 }
 
+.materialPdfDropzone[data-disabled="true"] {
+  border-color: var(--lr-card-border);
+  cursor: wait;
+  opacity: .68;
+}
+
 .materialPdfDropzone:focus-within {
   outline: 2px solid var(--lr-blue);
   outline-offset: 2px;
@@ -4400,6 +4406,24 @@ body {
   align-items: start;
   gap: 16px;
   margin-top: 16px;
+}
+
+@media (min-width: 821px) {
+  .materialDetailShell > .materialDetailHeader,
+  .materialDetailShell > .materialDetailSummary,
+  .materialDetailShell > .materialProcessingPanel,
+  .materialDetailShell > .materialFailurePanel {
+    width: calc(100% - 96px);
+  }
+}
+
+@media (max-width: 820px) {
+  .materialDetailShell > .materialDetailHeader,
+  .materialDetailShell > .materialDetailSummary,
+  .materialDetailShell > .materialProcessingPanel,
+  .materialDetailShell > .materialFailurePanel {
+    width: calc(100% - 56px);
+  }
 }
 
 .materialDetailSidebar {

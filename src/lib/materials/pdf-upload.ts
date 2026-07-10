@@ -1,4 +1,4 @@
-export const MAX_MATERIAL_TITLE_LENGTH = 200;
+export const MAX_MATERIAL_TITLE_LENGTH = 72;
 export const MAX_MATERIAL_PDF_FILENAME_LENGTH = 255;
 export const MAX_MATERIAL_PDF_BYTES = 100 * 1024 * 1024;
 
@@ -19,11 +19,29 @@ export function materialTitleFromPdfFileName(fileName: string) {
     .replace(/\s+/g, " ")
     .trim();
 
+  return truncateMaterialTitle(normalized);
+}
+
+export function truncateMaterialTitle(title: string) {
+  const normalized = title.replace(/\s+/g, " ").trim();
+
   if (normalized.length <= MAX_MATERIAL_TITLE_LENGTH) {
     return normalized;
   }
 
-  return normalized.slice(0, MAX_MATERIAL_TITLE_LENGTH).trimEnd();
+  const rawCandidate = normalized.slice(0, MAX_MATERIAL_TITLE_LENGTH);
+  const candidate = rawCandidate.trimEnd();
+  if (
+    candidate.length < rawCandidate.length ||
+    /\s/.test(normalized[MAX_MATERIAL_TITLE_LENGTH] ?? "")
+  ) {
+    return candidate;
+  }
+  const wordBreak = candidate.lastIndexOf(" ");
+
+  return wordBreak >= Math.floor(MAX_MATERIAL_TITLE_LENGTH * 0.75)
+    ? candidate.slice(0, wordBreak)
+    : candidate;
 }
 
 export function materialPdfErrorMessage(

@@ -7,6 +7,7 @@ import type { CSSProperties } from "react";
 import { UserStatusPanel } from "@/components/app/user-status-panel";
 import { formatDisplayLabel } from "@/lib/formatters";
 import { getMaterialDetail, isMaterialProcessing } from "@/lib/materials/library";
+import { truncateMaterialTitle } from "@/lib/materials/pdf-upload";
 import { ensureDatabaseUser } from "@/lib/users";
 
 import { SkillsTopbar } from "../../skills-topbar";
@@ -42,6 +43,7 @@ export default async function MaterialDetailPage({ params }: { params: Promise<{
   const revision = material.currentRevision;
   const contentRevision = revision?.status === "READY" ? revision : material.activeRevision;
   const processing = isMaterialProcessing(revision?.status ?? null);
+  const displayTitle = truncateMaterialTitle(material.title);
 
   return (
     <main className="skillShell materialShell materialDetailShell">
@@ -49,8 +51,10 @@ export default async function MaterialDetailPage({ params }: { params: Promise<{
       <MaterialStatusPoller active={processing} />
       <header className="skillHeader materialHeader materialDetailHeader">
         <div>
-          <p className="materialBreadcrumb"><Link href="/skills/materials">Materials</Link> / {material.title}</p>
-          <h1>{material.title}</h1>
+          <p className="materialBreadcrumb" title={material.title}>
+            <Link href="/skills/materials">Materials</Link> / {displayTitle}
+          </p>
+          <h1 title={material.title}>{displayTitle}</h1>
           <p>{material.collection?.name ?? "No collection"} · {formatMaterialKind(material.kind)}</p>
         </div>
         <div className="materialHeaderActions">

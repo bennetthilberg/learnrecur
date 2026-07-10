@@ -295,7 +295,7 @@ export const discoverWebsiteMaterialInputSchema = z.object({
 });
 
 export const confirmWebsiteImportInputSchema = z.object({
-  title: z.string().trim().min(1).max(200),
+  title: materialTitleSchema,
   collectionId: identifierSchema.nullable().optional(),
   sourceUrl: httpsUrlSchema,
   selectedUrls: z.array(httpsUrlSchema).min(1).max(MAX_WEBSITE_REVISION_PAGES),

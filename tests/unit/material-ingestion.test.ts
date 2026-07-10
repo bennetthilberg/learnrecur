@@ -8,6 +8,7 @@ import {
   type ExtractedPdfPage,
 } from "@/lib/materials/pdf";
 import {
+  confirmWebsiteImportInputSchema,
   MAX_MATERIAL_PDF_BYTES,
   prepareMaterialPdfInputSchema,
 } from "@/lib/materials/contracts";
@@ -15,6 +16,7 @@ import {
   MAX_MATERIAL_TITLE_LENGTH,
   materialPdfErrorMessage,
   materialTitleFromPdfFileName,
+  truncateMaterialTitle,
   validateMaterialPdfFile,
 } from "@/lib/materials/pdf-upload";
 import {
@@ -85,16 +87,11 @@ describe("PDF material ingestion", () => {
     ].join(" ");
     const title = materialTitleFromPdfFileName(originalName);
 
+    expect(MAX_MATERIAL_TITLE_LENGTH).toBe(72);
     expect(title.length).toBeLessThanOrEqual(MAX_MATERIAL_TITLE_LENGTH);
     expect(title.endsWith("…")).toBe(false);
     expect(title).toBe(
-      originalName
-        .replace(/\.pdf$/i, "")
-        .replace(/[-_]+/g, " ")
-        .replace(/\s+/g, " ")
-        .trim()
-        .slice(0, MAX_MATERIAL_TITLE_LENGTH)
-        .trimEnd(),
+      "Complete Spanish Step by Step, Premium Second Edition Barbara Bregstein",
     );
     expect(
       prepareMaterialPdfInputSchema.safeParse({
@@ -111,7 +108,7 @@ describe("PDF material ingestion", () => {
       field: "title",
       input: { title: "x".repeat(205) },
       message:
-        "The material title is 205 characters. Shorten it to 200 characters or fewer.",
+        "The material title is 205 characters. Shorten it to 72 characters or fewer.",
     },
     {
       field: "originalName",
@@ -162,12 +159,12 @@ describe("PDF material ingestion", () => {
       materialPdfErrorMessage(
         {
           title: [
-            "The material title is 205 characters. Shorten it to 200 characters or fewer.",
+            "The material title is 205 characters. Shorten it to 72 characters or fewer.",
           ],
         },
         "PDF details need a little attention.",
       ),
-    ).toBe("The material title is 205 characters. Shorten it to 200 characters or fewer.");
+    ).toBe("The material title is 205 characters. Shorten it to 72 characters or fewer.");
   });
 
   it("uses the same actionable file validation before calling the server action", () => {
@@ -178,6 +175,29 @@ describe("PDF material ingestion", () => {
         size: MAX_MATERIAL_PDF_BYTES + 1,
       }),
     ).toBe("This PDF is over the 100 MB limit. Choose a smaller PDF and try again.");
+  });
+
+  it("applies the shared material-title limit to website imports", () => {
+    const discoveredTitle = "A very long public textbook title ".repeat(5).trim();
+    const title = truncateMaterialTitle(discoveredTitle);
+
+    expect(title.length).toBeLessThanOrEqual(MAX_MATERIAL_TITLE_LENGTH);
+    expect(
+      confirmWebsiteImportInputSchema.safeParse({
+        title,
+        collectionId: null,
+        sourceUrl: "https://books.example/textbook",
+        selectedUrls: ["https://books.example/textbook/chapter-1"],
+      }).success,
+    ).toBe(true);
+    expect(
+      confirmWebsiteImportInputSchema.safeParse({
+        title: discoveredTitle,
+        collectionId: null,
+        sourceUrl: "https://books.example/textbook",
+        selectedUrls: ["https://books.example/textbook/chapter-1"],
+      }).success,
+    ).toBe(false);
   });
 
   it("creates heading-aware, section-bounded chunks near the token target with overlap", () => {
