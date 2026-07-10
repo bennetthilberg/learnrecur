@@ -27,7 +27,13 @@ import { deleteSkillPermanently } from "@/lib/skills/delete";
 import { getSkillsLibrary } from "@/lib/skills/library";
 import { getSkillCreationSourceRecoveryItems } from "@/lib/skills/source-recovery";
 import { removeSkillSource } from "@/lib/skills/sources";
-import { dismissFailedSourceUpload, requeueSourceUploadDraft } from "@/lib/skills/uploads";
+import {
+  completeSourceUploadDrafts,
+  dismissFailedSourceUpload,
+  requeueSourceUploadDraft,
+  runQueuedSourceUploadDraftJob,
+  type SourceUploadStorage,
+} from "@/lib/skills/uploads";
 
 const runDatabaseTests = process.env.RUN_DATABASE_TESTS === "1";
 const describeDatabase = runDatabaseTests ? describe : describe.skip;
@@ -412,6 +418,101 @@ describeDatabase("persistent material foundation", () => {
     ).resolves.toMatchObject({ status: "not-found" });
   });
 
+  it("keeps material-owned files out of quick-upload batch queue and worker paths", async () => {
+    const { revision } = await createMaterialWithInitialRevision({
+      userId,
+      title: "Batch upload isolation fixture",
+      kind: StudyMaterialKind.PDF,
+    });
+    const deletedKeys: string[] = [];
+    const storage: SourceUploadStorage = {
+      bucketName: "private-materials",
+      async createPresignedUploadUrl() {
+        throw new Error("not used");
+      },
+      async headObject() {
+        throw new Error("fixture object is unavailable");
+      },
+      async getObjectBytes() {
+        throw new Error("fixture object is unavailable");
+      },
+      async listObjects() {
+        return [];
+      },
+      async deleteObject({ key }) {
+        deletedKeys.push(key);
+      },
+    };
+    const materialSource = await prisma.sourceFile.create({
+      data: {
+        userId,
+        materialRevisionId: revision.id,
+        kind: SourceFileKind.PDF,
+        status: SourceFileStatus.DRAFT,
+        originalName: "reusable-material.pdf",
+        mimeType: "application/pdf",
+        storageBucket: storage.bucketName,
+        storageKey: `${userId}/${revision.id}/material.pdf`,
+      },
+    });
+    const quickSource = await prisma.sourceFile.create({
+      data: {
+        userId,
+        kind: SourceFileKind.PDF,
+        status: SourceFileStatus.DRAFT,
+        originalName: "quick-source.pdf",
+        mimeType: "application/pdf",
+        storageBucket: storage.bucketName,
+        storageKey: `${userId}/quick-source.pdf`,
+      },
+    });
+
+    await expect(
+      completeSourceUploadDrafts({
+        userId,
+        sourceFileId: quickSource.id,
+        sourceFileIds: [quickSource.id, materialSource.id],
+        now: new Date("2026-07-09T13:00:00.000Z"),
+        storage,
+      }),
+    ).resolves.toMatchObject({ status: "not-found" });
+    expect(await prisma.sourceFile.findUnique({ where: { id: materialSource.id } })).toMatchObject({
+      status: SourceFileStatus.DRAFT,
+      storageKey: materialSource.storageKey,
+    });
+    expect(deletedKeys).not.toContain(materialSource.storageKey);
+
+    const workerQuickSource = await prisma.sourceFile.create({
+      data: {
+        userId,
+        kind: SourceFileKind.PDF,
+        status: SourceFileStatus.UPLOADED,
+        originalName: "queued-quick-source.pdf",
+        mimeType: "application/pdf",
+        storageBucket: storage.bucketName,
+        storageKey: `${userId}/queued-quick-source.pdf`,
+      },
+    });
+    await prisma.sourceFile.update({
+      where: { id: materialSource.id },
+      data: { status: SourceFileStatus.UPLOADED },
+    });
+    await expect(
+      runQueuedSourceUploadDraftJob({
+        userId,
+        sourceFileId: workerQuickSource.id,
+        sourceFileIds: [workerQuickSource.id, materialSource.id],
+        now: new Date("2026-07-09T13:01:00.000Z"),
+        storage,
+      }),
+    ).resolves.toMatchObject({ status: "not-found" });
+    expect(await prisma.sourceFile.findUnique({ where: { id: materialSource.id } })).toMatchObject({
+      status: SourceFileStatus.UPLOADED,
+      storageKey: materialSource.storageKey,
+    });
+    expect(deletedKeys).not.toContain(materialSource.storageKey);
+  });
+
   it("makes draft batches idempotent and rejects key reuse for a different request", async () => {
     const material = await prisma.studyMaterial.findFirstOrThrow({
       where: { userId, title: "Practical Spanish Grammar" },
@@ -535,6 +636,33 @@ describeDatabase("persistent material foundation", () => {
       await prisma.studyMaterial.findUnique({ where: { id: material.id }, select: { status: true } }),
     ).toEqual({ status: StudyMaterialStatus.DELETING });
     expect(await prisma.skill.count({ where: { id: linkedSkill.id } })).toBe(1);
+  });
+
+  it("blocks direct deletion of active finalized revisions and their materials", async () => {
+    const { material, revision } = await createMaterialWithInitialRevision({
+      userId,
+      title: "Protected finalized snapshot fixture",
+      kind: StudyMaterialKind.PDF,
+    });
+    await finalizeMaterialRevision({
+      userId,
+      materialId: material.id,
+      materialRevisionId: revision.id,
+      contentHash: "sha256:protected-finalized-snapshot",
+      byteSize: 1_024,
+      pageCount: 1,
+      storageBucket: "private-materials",
+      storageKey: `${userId}/${revision.id}/protected.pdf`,
+    });
+
+    await expect(
+      prisma.materialRevision.delete({ where: { id: revision.id } }),
+    ).rejects.toThrow(/deletion workflow/i);
+    await expect(
+      prisma.studyMaterial.delete({ where: { id: material.id } }),
+    ).rejects.toThrow(/deletion workflow/i);
+    expect(await prisma.materialRevision.count({ where: { id: revision.id } })).toBe(1);
+    expect(await prisma.studyMaterial.count({ where: { id: material.id } })).toBe(1);
   });
 
   it("allows account deletion to cascade through finalized material snapshots", async () => {
