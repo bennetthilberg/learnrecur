@@ -13,21 +13,23 @@ export type MaterialLibraryItem = {
   kind: StudyMaterialKind;
   status: StudyMaterialStatus;
   collectionName: string | null;
-  revisionNumber: number | null;
-  revisionStatus: MaterialRevisionStatus | null;
-  revisionUpdatedAt: Date | null;
+  revisionNumber: number;
+  revisionStatus: MaterialRevisionStatus;
   pageCount: number | null;
   byteSize: number | null;
   linkedSkillCount: number;
   lastUsedAt: Date | null;
   updatedAt: Date;
-  errorMessage: string | null;
 };
 
 export async function getMaterialLibrary(input: { userId: string }): Promise<MaterialLibraryItem[]> {
   const prisma = getPrisma();
   const materials = await prisma.studyMaterial.findMany({
-    where: { userId: input.userId, status: { not: StudyMaterialStatus.DELETING } },
+    where: {
+      userId: input.userId,
+      status: { not: StudyMaterialStatus.DELETING },
+      activeRevision: { is: { status: MaterialRevisionStatus.READY } },
+    },
     orderBy: [{ lastUsedAt: "desc" }, { updatedAt: "desc" }, { id: "asc" }],
     select: {
       id: true,
@@ -44,23 +46,13 @@ export async function getMaterialLibrary(input: { userId: string }): Promise<Mat
           pageCount: true,
           fetchedPageCount: true,
           byteSize: true,
-          errorMessage: true,
-          updatedAt: true,
           sourceFiles: {
             select: { skillRefs: { select: { skillId: true } } },
           },
         },
       },
       revisions: {
-        orderBy: { revisionNumber: "desc" },
         select: {
-          revisionNumber: true,
-          status: true,
-          pageCount: true,
-          fetchedPageCount: true,
-          byteSize: true,
-          errorMessage: true,
-          updatedAt: true,
           sourceFiles: {
             select: { skillRefs: { select: { skillId: true } } },
           },
@@ -69,29 +61,30 @@ export async function getMaterialLibrary(input: { userId: string }): Promise<Mat
     },
   });
 
-  return materials.map((material) => {
-    const revision = material.revisions[0] ?? material.activeRevision ?? null;
+  return materials.flatMap((material) => {
+    const revision = material.activeRevision;
+    if (!revision) {
+      return [];
+    }
     const skillIds = new Set(
       material.revisions.flatMap((item) =>
         item.sourceFiles.flatMap((sourceFile) => sourceFile.skillRefs.map((ref) => ref.skillId)),
       ),
     );
-    return {
+    return [{
       id: material.id,
       title: material.title,
       kind: material.kind,
       status: material.status,
       collectionName: material.collection?.name ?? null,
-      revisionNumber: revision?.revisionNumber ?? null,
-      revisionStatus: revision?.status ?? null,
-      revisionUpdatedAt: revision?.updatedAt ?? null,
-      pageCount: revision?.pageCount ?? revision?.fetchedPageCount ?? null,
-      byteSize: revision?.byteSize ?? null,
+      revisionNumber: revision.revisionNumber,
+      revisionStatus: revision.status,
+      pageCount: revision.pageCount ?? revision.fetchedPageCount ?? null,
+      byteSize: revision.byteSize ?? null,
       linkedSkillCount: skillIds.size,
       lastUsedAt: material.lastUsedAt,
       updatedAt: material.updatedAt,
-      errorMessage: revision?.errorMessage ?? null,
-    };
+    }];
   });
 }
 

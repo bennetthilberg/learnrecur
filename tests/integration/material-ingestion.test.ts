@@ -617,8 +617,8 @@ describeDatabase("material ingestion", () => {
     expect(
       (await getMaterialLibrary({ userId })).find((item) => item.id === material.id),
     ).toMatchObject({
-      revisionNumber: 2,
-      revisionStatus: MaterialRevisionStatus.QUEUED,
+      revisionNumber: 1,
+      revisionStatus: MaterialRevisionStatus.READY,
       linkedSkillCount: 1,
     });
     expect(
@@ -627,6 +627,29 @@ describeDatabase("material ingestion", () => {
         select: { sourceFile: { select: { materialRevisionId: true } } },
       }),
     ).toEqual({ sourceFile: { materialRevisionId: activeRevisionId } });
+  });
+
+  it("omits materials that do not have a ready active revision", async () => {
+    const material = await prisma.studyMaterial.create({
+      data: {
+        userId,
+        title: "Unfinished hidden material",
+        kind: StudyMaterialKind.PDF,
+        revisions: {
+          create: {
+            revisionNumber: 1,
+            status: MaterialRevisionStatus.FAILED,
+            errorCode: "EXTRACTION_FAILED",
+            errorMessage: "The test import did not finish.",
+          },
+        },
+      },
+      select: { id: true },
+    });
+
+    expect(
+      (await getMaterialLibrary({ userId })).some((item) => item.id === material.id),
+    ).toBe(false);
   });
 
   it("deletes material objects and source links idempotently without deleting linked skills", async () => {
