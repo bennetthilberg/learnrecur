@@ -130,6 +130,7 @@ export type ExportMaterialRevision = {
   byteSize: number | null;
   pageCount: number | null;
   fetchedPageCount: number | null;
+  summary: string | null;
   processingMetadata: Prisma.JsonValue | null;
   errorCode: string | null;
   errorMessage: string | null;
@@ -464,6 +465,7 @@ export async function getUserDataExport(input: {
           byteSize: true,
           pageCount: true,
           fetchedPageCount: true,
+          summary: true,
           processingMetadata: true,
           errorCode: true,
           errorMessage: true,

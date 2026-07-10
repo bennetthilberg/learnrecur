@@ -41,6 +41,12 @@ import {
 } from "@/lib/materials/pdf";
 import { materialPdfErrorMessage } from "@/lib/materials/pdf-upload";
 import { storeMaterialChunkEmbedding } from "@/lib/materials/retrieval";
+import { createGeminiMaterialSummaryGenerator } from "@/lib/materials/summary-ai";
+import {
+  buildStoredMaterialSummary,
+  materialSummaryResponseSchema,
+  type MaterialSummaryGenerator,
+} from "@/lib/materials/summary";
 import {
   extractReadableWebPage,
   fetchPublicWebResource,
@@ -768,6 +774,7 @@ export async function runMaterialIngestionJob(input: {
   materialRevisionId: string;
   storage?: SourceObjectStorage;
   embeddingGenerator?: MaterialEmbeddingGenerator | null;
+  summaryGenerator?: MaterialSummaryGenerator | null;
   fetchResource?: FetchWebResource;
   resolveHostname?: ResolveHostname;
 }) {
@@ -814,7 +821,7 @@ export async function runMaterialIngestionJob(input: {
         sourceUrl: true,
         storageBucket: true,
         storageKey: true,
-        material: { select: { kind: true } },
+        material: { select: { kind: true, title: true } },
         sourceFiles: {
           orderBy: { createdAt: "asc" },
           take: 1,
@@ -841,6 +848,10 @@ export async function runMaterialIngestionJob(input: {
       input.embeddingGenerator === undefined
         ? safelyResolveEmbeddingGenerator()
         : input.embeddingGenerator;
+    const summaryGenerator =
+      input.summaryGenerator === undefined
+        ? safelyResolveSummaryGenerator()
+        : input.summaryGenerator;
 
     const result = revision.material.kind === StudyMaterialKind.PDF
       ? await ingestPdfRevision({
@@ -850,6 +861,8 @@ export async function runMaterialIngestionJob(input: {
           sourceFile,
           storage: storageSetup.storage,
           embeddingGenerator,
+          summaryGenerator,
+          materialTitle: revision.material.title,
         })
       : await ingestWebsiteRevision({
           userId: input.userId,
@@ -859,6 +872,8 @@ export async function runMaterialIngestionJob(input: {
           sourceFile,
           storage: storageSetup.storage,
           embeddingGenerator,
+          summaryGenerator,
+          materialTitle: revision.material.title,
           fetchResource: input.fetchResource,
           resolveHostname: input.resolveHostname,
         });
@@ -891,6 +906,8 @@ async function ingestPdfRevision(input: {
   sourceFile: MaterialSourceFile;
   storage: SourceObjectStorage;
   embeddingGenerator: MaterialEmbeddingGenerator | null;
+  summaryGenerator: MaterialSummaryGenerator | null;
+  materialTitle: string;
 }) {
   if (!input.sourceFile.storageKey || !input.sourceFile.storageBucket) {
     throw new MaterialIngestionError("Material PDF storage location is missing.", { retryable: false });
@@ -937,6 +954,13 @@ async function ingestPdfRevision(input: {
     .map((page) => page.text)
     .join("\n\n")
     .slice(0, MATERIAL_SOURCE_EXCERPT_LIMIT);
+  const summary = await generateStoredMaterialSummary({
+    generator: input.summaryGenerator,
+    materialTitle: input.materialTitle,
+    materialKind: "PDF",
+    outlineTitles: index.sections.map((section) => section.title),
+    excerpt,
+  });
   const prisma = getPrisma();
   await prisma.sourceFile.update({
     where: { id: input.sourceFile.id },
@@ -949,6 +973,7 @@ async function ingestPdfRevision(input: {
     contentHash: sha256(bytes),
     byteSize: bytes.byteLength,
     pageCount: extracted.pageCount,
+    summary,
     storageBucket: input.sourceFile.storageBucket,
     storageKey: input.sourceFile.storageKey,
     processingMetadata: {
@@ -971,6 +996,8 @@ async function ingestWebsiteRevision(input: {
   sourceFile: MaterialSourceFile;
   storage: SourceObjectStorage;
   embeddingGenerator: MaterialEmbeddingGenerator | null;
+  summaryGenerator: MaterialSummaryGenerator | null;
+  materialTitle: string;
   fetchResource?: FetchWebResource;
   resolveHostname?: ResolveHostname;
 }) {
@@ -1096,13 +1123,24 @@ async function ingestWebsiteRevision(input: {
     chunks: persisted.chunks,
     embeddingGenerator: input.embeddingGenerator,
   });
+  const excerpt = persisted.chunks
+    .map((chunk) => chunk.text)
+    .join("\n\n")
+    .slice(0, MATERIAL_SOURCE_EXCERPT_LIMIT);
+  const summary = await generateStoredMaterialSummary({
+    generator: input.summaryGenerator,
+    materialTitle: input.materialTitle,
+    materialKind: "WEB",
+    outlineTitles: persisted.sections.map((section) => section.title),
+    excerpt,
+  });
   const prisma = getPrisma();
   await prisma.sourceFile.update({
     where: { id: input.sourceFile.id },
     data: {
       status: SourceFileStatus.READY,
       byteSize: snapshotBytes.byteLength,
-      extractedText: persisted.chunks.map((chunk) => chunk.text).join("\n\n").slice(0, MATERIAL_SOURCE_EXCERPT_LIMIT),
+      extractedText: excerpt,
     },
   });
   await finalizeMaterialRevision({
@@ -1112,6 +1150,7 @@ async function ingestWebsiteRevision(input: {
     contentHash: sha256(snapshotBytes),
     byteSize: snapshotBytes.byteLength,
     fetchedPageCount: snapshots.length,
+    summary,
     storageBucket: input.sourceFile.storageBucket,
     storageKey: input.sourceFile.storageKey,
     processingMetadata: {
@@ -1388,6 +1427,43 @@ function safelyResolveEmbeddingGenerator() {
   try {
     return createGeminiMaterialEmbeddingGenerator();
   } catch {
+    return null;
+  }
+}
+
+function safelyResolveSummaryGenerator() {
+  try {
+    return createGeminiMaterialSummaryGenerator();
+  } catch {
+    return null;
+  }
+}
+
+async function generateStoredMaterialSummary(input: {
+  generator: MaterialSummaryGenerator | null;
+  materialTitle: string;
+  materialKind: "PDF" | "WEB";
+  outlineTitles: string[];
+  excerpt: string;
+}) {
+  if (!input.generator) {
+    return null;
+  }
+
+  try {
+    const response = materialSummaryResponseSchema.parse(await input.generator({
+      materialTitle: input.materialTitle,
+      materialKind: input.materialKind,
+      outlineTitles: input.outlineTitles,
+      excerpt: input.excerpt,
+    }));
+    return buildStoredMaterialSummary(response);
+  } catch (error) {
+    console.warn("[ai] material summary unavailable", {
+      materialKind: input.materialKind,
+      outlineCount: input.outlineTitles.length,
+      error: error instanceof Error ? error.message : "Unknown summary error",
+    });
     return null;
   }
 }

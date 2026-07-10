@@ -297,6 +297,7 @@ model MaterialRevision {
   byteSize           Int?
   pageCount          Int?
   fetchedPageCount   Int?
+  summary            String?                @db.Text
   storageBucket      String?
   storageKey         String?
   processingMetadata Json?

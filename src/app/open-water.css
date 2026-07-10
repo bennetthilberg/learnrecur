@@ -3954,6 +3954,10 @@ body {
   text-underline-offset: 3px;
 }
 
+.materialInlineEmpty .materialTextLink {
+  white-space: nowrap;
+}
+
 .materialHeaderActions {
   display: flex;
   align-items: center;
@@ -3973,6 +3977,7 @@ body {
 .materialImportPanel,
 .materialLibraryPanel,
 .materialOutlinePanel,
+.materialSummaryPanel,
 .materialLinkedSkills,
 .materialRevisionPanel,
 .materialDangerPanel {
@@ -3981,6 +3986,7 @@ body {
 }
 
 .materialOutlinePanel,
+.materialSummaryPanel,
 .materialLinkedSkills,
 .materialRevisionPanel,
 .materialDangerPanel {
@@ -4520,11 +4526,59 @@ body {
   gap: 12px;
 }
 
+.materialDetailMain {
+  display: grid;
+  min-width: 0;
+  gap: 12px;
+}
+
+.materialSummaryPanel {
+  padding: 20px 22px 21px;
+}
+
+.materialSummaryHeading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.materialSummaryHeading h2 {
+  margin: 0;
+  color: var(--lr-ink);
+  font-family: var(--lr-font-display);
+  font-size: 16px;
+}
+
+.materialSummaryHeading span {
+  flex: 0 0 auto;
+  color: var(--lr-text-secondary);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.materialSummaryPanel > p {
+  max-width: 680px;
+  margin: 9px 0 0;
+  color: var(--lr-text-secondary);
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+
 .materialOutlineList {
   display: grid;
+  max-height: 520px;
   margin: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 0;
+  scrollbar-gutter: stable;
   list-style: none;
+}
+
+.materialOutlineList:focus-visible {
+  outline: 2px solid var(--lr-blue);
+  outline-offset: -2px;
 }
 
 .materialOutlineList li {
@@ -4611,12 +4665,17 @@ body {
 }
 
 .materialDangerPanel summary {
-  color: var(--lr-ink);
+  color: var(--lr-danger-ink);
   cursor: pointer;
   font-family: var(--lr-font-display);
   font-size: 14px;
   font-weight: 700;
   padding: 17px 18px;
+}
+
+.materialDangerPanel summary:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .materialDangerPanel > p,
@@ -5522,6 +5581,10 @@ body {
     align-items: start;
     padding-right: 16px;
     padding-left: calc(16px + (var(--material-section-level, 1) - 1) * 12px);
+  }
+
+  .materialOutlineList {
+    max-height: 420px;
   }
 
   .createSkillInputFooter {

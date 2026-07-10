@@ -112,6 +112,7 @@ export async function getMaterialDetail(input: { userId: string; materialId: str
           byteSize: true,
           pageCount: true,
           fetchedPageCount: true,
+          summary: true,
           errorCode: true,
           errorMessage: true,
           finalizedAt: true,

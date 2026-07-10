@@ -96,6 +96,10 @@ describeDatabase("material ingestion", () => {
       userId,
       materialRevisionId: prepared.materialRevisionId,
       storage,
+      summaryGenerator: async () => ({
+        overview: "A practical Spanish grammar textbook for independent learners",
+        coverage: "It introduces direct object pronouns through explanations and examples",
+      }),
       embeddingGenerator: async ({ texts }) =>
         texts.map((_, textIndex) =>
           Array.from({ length: MATERIAL_EMBEDDING_DIMENSIONS }, (_, index) =>
@@ -110,6 +114,9 @@ describeDatabase("material ingestion", () => {
       include: { chunks: true, sections: true, pages: true, sourceFiles: true },
     });
     expect(revision.status).toBe(MaterialRevisionStatus.READY);
+    expect(revision.summary).toBe(
+      "A practical Spanish grammar textbook for independent learners. It introduces direct object pronouns through explanations and examples.",
+    );
     expect(revision.sections.length).toBeGreaterThan(0);
     expect(revision.chunks.length).toBeGreaterThan(0);
     expect(revision.pages).toEqual([
@@ -390,6 +397,7 @@ describeDatabase("material ingestion", () => {
       userId,
       materialRevisionId: queued.materialRevisionId,
       storage,
+      summaryGenerator: null,
       resolveHostname: async () => ["93.184.216.34"],
       fetchResource: async (url) => ({
         url,
@@ -450,6 +458,7 @@ describeDatabase("material ingestion", () => {
       userId,
       materialRevisionId: queued.materialRevisionId,
       storage,
+      summaryGenerator: null,
       resolveHostname: async () => ["93.184.216.34"],
       fetchResource: async (url, options) => {
         expect(options?.maximumBytes).toBe(5 * 1024 * 1024);
@@ -522,6 +531,7 @@ describeDatabase("material ingestion", () => {
         userId,
         materialRevisionId: queued.materialRevisionId,
         storage,
+        summaryGenerator: null,
         resolveHostname: async () => ["93.184.216.34"],
         fetchResource: async (url) => ({
           url,

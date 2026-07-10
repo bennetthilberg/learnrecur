@@ -10,6 +10,7 @@ import { getMaterialIngestionDisplayState } from "@/lib/materials/ingestion-stat
 import { getMaterialDetail } from "@/lib/materials/library";
 import { truncateMaterialTitle } from "@/lib/materials/pdf-upload";
 import { getMaterialAvailabilityMessage } from "@/lib/materials/presentation";
+import { buildMaterialSummaryFallback } from "@/lib/materials/summary";
 import { ensureDatabaseUser } from "@/lib/users";
 
 import { SkillsTopbar } from "../../skills-topbar";
@@ -62,6 +63,13 @@ export default async function MaterialDetailPage({ params }: { params: Promise<{
       })
     : null;
   const pageCount = contentRevision?.pageCount ?? contentRevision?.fetchedPageCount;
+  const materialSummary = contentRevision
+    ? contentRevision.summary ?? buildMaterialSummaryFallback({
+        materialTitle: displayTitle,
+        materialKind: material.kind,
+        outlineTitles: contentRevision.sections.map((section) => section.title),
+      })
+    : null;
 
   return (
     <main className="skillShell materialShell materialDetailShell">
@@ -150,33 +158,45 @@ export default async function MaterialDetailPage({ params }: { params: Promise<{
       ) : null}
 
       <div className="materialDetailGrid">
-        <section className="skillPanel materialOutlinePanel" aria-labelledby="material-outline-title">
-          <div className="skillPanelHeader">
-            <div>
-              <h2 id="material-outline-title">Outline</h2>
-              <p>{contentRevision?.sections.length ?? 0} resolved sections</p>
+        <div className="materialDetailMain">
+          {materialSummary ? (
+            <section className="skillPanel materialSummaryPanel" aria-labelledby="material-summary-title">
+              <div className="materialSummaryHeading">
+                <h2 id="material-summary-title">About this material</h2>
+                <span>{contentRevision?.summary ? "AI summary" : "Material overview"}</span>
+              </div>
+              <p>{materialSummary}</p>
+            </section>
+          ) : null}
+
+          <section className="skillPanel materialOutlinePanel" aria-labelledby="material-outline-title">
+            <div className="skillPanelHeader">
+              <div>
+                <h2 id="material-outline-title">Outline</h2>
+                <p>{contentRevision?.sections.length ?? 0} resolved sections</p>
+              </div>
+              <FileText size={20} weight="bold" aria-hidden="true" />
             </div>
-            <FileText size={20} weight="bold" aria-hidden="true" />
-          </div>
-          {contentRevision?.sections.length ? (
-            <ol className="materialOutlineList">
-              {contentRevision.sections.map((section) => (
-                <li key={section.id} style={{ "--material-section-level": section.level } as CSSProperties}>
-                  <span>{section.title}</span>
-                  {section.pageStart ? (
-                    <small>{formatPageRange(section.pageStart, section.pageEnd)}</small>
-                  ) : section.url ? (
-                    <a aria-label={`Open source page for ${section.title}`} href={section.url} rel="noreferrer" target="_blank">
-                      Source <ArrowSquareOut size={13} weight="bold" aria-hidden="true" />
-                    </a>
-                  ) : null}
-                </li>
-              ))}
-            </ol>
-          ) : (
-            <div className="materialInlineEmpty"><p>The outline will appear when processing finishes.</p></div>
-          )}
-        </section>
+            {contentRevision?.sections.length ? (
+              <ol className="materialOutlineList" aria-label="Material outline" tabIndex={0}>
+                {contentRevision.sections.map((section) => (
+                  <li key={section.id} style={{ "--material-section-level": section.level } as CSSProperties}>
+                    <span>{section.title}</span>
+                    {section.pageStart ? (
+                      <small>{formatPageRange(section.pageStart, section.pageEnd)}</small>
+                    ) : section.url ? (
+                      <a aria-label={`Open source page for ${section.title}`} href={section.url} rel="noreferrer" target="_blank">
+                        Source <ArrowSquareOut size={13} weight="bold" aria-hidden="true" />
+                      </a>
+                    ) : null}
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <div className="materialInlineEmpty"><p>The outline will appear when processing finishes.</p></div>
+            )}
+          </section>
+        </div>
 
         <aside className="materialDetailSidebar">
           <section className="skillPanel materialLinkedSkills" aria-labelledby="material-skills-title">
@@ -191,7 +211,16 @@ export default async function MaterialDetailPage({ params }: { params: Promise<{
                 ))}
               </div>
             ) : (
-              <div className="materialInlineEmpty"><p>No skills use this revision yet.</p></div>
+              <div className="materialInlineEmpty">
+                <p>
+                  No skills yet.{" "}
+                  {contentRevision?.status === "READY" ? (
+                    <Link className="materialTextLink" href={`/skills/materials/${material.id}/create`}>
+                      Create one with this material
+                    </Link>
+                  ) : null}
+                </p>
+              </div>
             )}
           </section>
 

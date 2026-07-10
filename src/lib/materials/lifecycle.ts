@@ -119,6 +119,7 @@ export async function finalizeMaterialRevision(input: {
   byteSize: number;
   pageCount?: number | null;
   fetchedPageCount?: number | null;
+  summary?: string | null;
   storageBucket: string;
   storageKey: string;
   processingMetadata?: Prisma.InputJsonValue;
@@ -171,6 +172,7 @@ export async function finalizeMaterialRevision(input: {
         byteSize: input.byteSize,
         pageCount: input.pageCount ?? null,
         fetchedPageCount: input.fetchedPageCount ?? null,
+        summary: input.summary ?? null,
         storageBucket: input.storageBucket,
         storageKey: input.storageKey,
         processingMetadata: input.processingMetadata,
