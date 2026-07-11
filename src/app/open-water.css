@@ -3967,7 +3967,7 @@ body {
 
 .materialImportLayout {
   display: grid;
-  grid-template-columns: minmax(260px, .78fr) minmax(0, 1.22fr);
+  grid-template-columns: minmax(0, .92fr) minmax(0, 1.08fr);
   align-items: start;
   gap: 16px;
   margin-top: 24px;
@@ -3985,6 +3985,8 @@ body {
   overflow: hidden;
 }
 
+.materialReusePanel,
+.materialImportPanel,
 .materialOutlinePanel,
 .materialSummaryPanel,
 .materialLinkedSkills,
@@ -4024,26 +4026,31 @@ body {
 
 .materialCompactRow {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 14px;
+  grid-template-columns: minmax(0, 1fr) 156px;
+  align-items: start;
+  gap: 18px;
   border-bottom: 1px solid var(--lr-divider);
-  padding: 15px 20px;
+  padding: 18px 20px;
 }
 
 .materialCompactActions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
+  display: grid;
+  align-items: stretch;
   gap: 8px;
 }
 
-.materialDeleteTriggerCompact {
-  padding: 7px 10px;
-  font-size: 12px;
+.materialCompactActions .primaryButton,
+.materialCompactActions .secondaryButton {
+  width: 100%;
 }
 
-.materialCompactRow a:first-child,
+.materialDeleteTriggerCompact {
+  min-height: 38px;
+  padding: 9px 12px;
+  font-size: 13px;
+}
+
+.materialCompactTitle,
 .materialLibraryMain > a {
   color: var(--lr-ink);
   font-size: 14px;
@@ -4052,7 +4059,7 @@ body {
   text-decoration: none;
 }
 
-.materialCompactRow a:first-child:hover,
+.materialCompactTitle:hover,
 .materialLibraryMain > a:hover {
   color: var(--lr-blue);
 }
@@ -4138,10 +4145,12 @@ body {
   cursor: pointer;
   padding: 20px;
   text-align: center;
+  transition: border-color .12s ease, background-color .12s ease;
 }
 
 .materialPdfDropzone:hover {
-  border-color: var(--lr-blue);
+  border-color: var(--lr-blue-bar-2);
+  background: #F5F8FD;
 }
 
 .materialPdfDropzone[data-invalid="true"] {
@@ -5464,10 +5473,11 @@ body {
 
   .materialCompactRow {
     align-items: start;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
   }
 
   .materialCompactActions {
-    flex-direction: column;
     align-items: stretch;
   }
 

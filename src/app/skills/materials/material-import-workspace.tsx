@@ -6,6 +6,7 @@ import {
   CheckCircle,
   FilePdf,
   GlobeHemisphereWest,
+  Sparkle,
   UploadSimple,
   WarningCircle,
 } from "@phosphor-icons/react";
@@ -62,19 +63,32 @@ export function MaterialImportWorkspace({
             {materials.slice(0, 6).map((material) => (
               <article className="materialCompactRow" key={material.id}>
                 <div>
-                  <Link href={`/skills/materials/${material.id}`}>{material.title}</Link>
+                  <Link className="materialCompactTitle" href={`/skills/materials/${material.id}`}>
+                    {material.title}
+                  </Link>
                   <p>{materialSummary(material)}</p>
                 </div>
                 <div className="materialCompactActions">
                   <Link
-                    className="secondaryButton"
+                    aria-label={
+                      material.revisionStatus === "READY"
+                        ? `Create skills from ${material.title}`
+                        : `Open ${material.title}`
+                    }
+                    className={
+                      material.revisionStatus === "READY" ? "primaryButton" : "secondaryButton"
+                    }
                     href={
                       material.revisionStatus === "READY"
                         ? `/skills/materials/${material.id}/create`
                         : `/skills/materials/${material.id}`
                     }
                   >
-                    {material.revisionStatus === "READY" ? "Create" : "Open"}
+                    {material.revisionStatus === "READY" ? (
+                      <>
+                        <Sparkle size={15} weight="bold" aria-hidden="true" /> Create skills
+                      </>
+                    ) : "Open material"}
                   </Link>
                   <MaterialDeleteControl
                     compact
@@ -222,7 +236,7 @@ function MaterialPdfForm({
       >
         <input
           accept="application/pdf,.pdf"
-          aria-describedby="material-pdf-file-detail"
+          aria-describedby={fileError || file ? "material-pdf-file-detail" : undefined}
           aria-invalid={fileError ? "true" : undefined}
           disabled={isBusy}
           onChange={(event) => {
@@ -239,13 +253,11 @@ function MaterialPdfForm({
         />
         <UploadSimple size={22} weight="bold" aria-hidden="true" />
         <span>{file ? file.name : "Choose a PDF"}</span>
-        <small data-tone={fileError ? "error" : undefined} id="material-pdf-file-detail">
-          {fileError
-            ? fileError
-            : file
-              ? formatBytes(file.size)
-              : "The original stays private in your storage."}
-        </small>
+        {fileError || file ? (
+          <small data-tone={fileError ? "error" : undefined} id="material-pdf-file-detail">
+            {fileError ?? formatBytes(file?.size ?? 0)}
+          </small>
+        ) : null}
       </label>
       <ActionMessage error={error} message={null} />
       <div className="skillFormActions materialImportActions">

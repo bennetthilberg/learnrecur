@@ -1,4 +1,5 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
+import { Books } from "@phosphor-icons/react/dist/ssr";
 import Link from "next/link";
 
 import { UserStatusPanel } from "@/components/app/user-status-panel";
@@ -53,7 +54,7 @@ export default async function NewMultipleSkillsPage({ searchParams }: NewMultipl
           <p>Choose a reusable material now. You will describe and confirm the exact scope next.</p>
         </div>
         <Link className="secondaryButton" href="/skills/materials">
-          Materials library
+          <Books size={17} weight="bold" aria-hidden="true" /> Materials library
         </Link>
       </header>
       <MaterialDeletionNotification active={deletedParam === "1" || deletedParam === "true"} />
