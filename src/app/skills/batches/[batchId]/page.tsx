@@ -18,7 +18,10 @@ import {
   skillSourceLocatorSchema,
   type MaterialScopeResolution,
 } from "@/lib/materials/contracts";
-import { getPublicMaterialActionErrorMessage } from "@/lib/materials/presentation";
+import {
+  getMaterialDraftItemErrorMessage,
+  getPublicMaterialActionErrorMessage,
+} from "@/lib/materials/presentation";
 import { ensureDatabaseUser } from "@/lib/users";
 
 import { MaterialStatusPoller } from "../../materials/material-status-poller";
@@ -32,6 +35,7 @@ import {
   retryMaterialDraftItemAction,
 } from "../actions";
 import { BatchStageRail } from "../batch-stage-rail";
+import { BatchRequestTextarea } from "../batch-request-textarea";
 import { BatchSubmitButton } from "../batch-submit-button";
 
 export const dynamic = "force-dynamic";
@@ -197,10 +201,16 @@ function ScopeReview({
           <input name="batchId" type="hidden" value={batchId} />
           <label className="skillField">
             <span>Skill request</span>
-            <textarea defaultValue={instruction} maxLength={4_000} name="instruction" required rows={7} />
+            <BatchRequestTextarea
+              defaultValue={instruction}
+              maxLength={4_000}
+              name="instruction"
+              required
+              rows={7}
+            />
           </label>
           <BatchSubmitButton className="secondaryButton">
-            Resolve again
+            Try again
           </BatchSubmitButton>
         </form>
       </aside>
@@ -307,9 +317,9 @@ function DraftBatchReview({
               {item.status === "ACTIVATING" ? <span className="materialProcessingPulse batchCardPulse" aria-label="Adding" /> : null}
               {item.status === "FAILED" ? <WarningCircle size={22} weight="bold" aria-label="Failed" /> : null}
             </div>
-            {item.errorMessage ? (
+            {getMaterialDraftItemErrorMessage(item.errorCode, item.errorMessage) ? (
               <p className="batchDraftError" data-tone={item.status === "EXCLUDED" ? "neutral" : "warning"}>
-                {item.errorMessage}
+                {getMaterialDraftItemErrorMessage(item.errorCode, item.errorMessage)}
               </p>
             ) : null}
             {item.skill ? (

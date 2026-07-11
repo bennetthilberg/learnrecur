@@ -367,6 +367,64 @@ describeDatabase("material multi-skill drafting", () => {
     });
   });
 
+  it("records structured diagnostics when draft events cannot be queued", async () => {
+    const planScope = vi.fn(async () => ({
+      resolutionStatus: "resolved" as const,
+      resolvedScopeLabel: "Chapter 4",
+      clarification: null,
+      warnings: [],
+      items: [
+        {
+          key: "queue-diagnostic",
+          title: "Queue diagnostic skill",
+          objective: "Choose a direct object pronoun in one focused sentence.",
+          materialSectionIds: [directSectionId],
+          evidenceChunkIds: [directChunkId],
+        },
+      ],
+    }));
+    const planned = await planMaterialSkills({
+      userId,
+      input: {
+        materialId,
+        materialRevisionId,
+        instruction: "Make one diagnostic skill from chapter four.",
+        idempotencyKey: `${runId}_queue_diagnostic`,
+      },
+      now: new Date(),
+      aiSetup: createAiSetup({ planScope }),
+      embeddingGenerator: null,
+    });
+    if (planned.status !== "planned") {
+      throw new Error("expected planned batch");
+    }
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const result = await confirmMaterialPlan({
+      userId,
+      input: { batchId: planned.batchId, plan: planned.plan },
+      now: new Date(),
+      eventSender: {
+        async sendMaterialDraftItemRequested() {
+          throw new Error("connect ECONNREFUSED 127.0.0.1:8288");
+        },
+      },
+    });
+
+    expect(result).toMatchObject({ status: "partial", failedItemIds: [expect.any(String)] });
+    expect(errorSpy).toHaveBeenCalledWith(
+      "[inngest] material draft event send failed",
+      expect.objectContaining({
+        batchId: planned.batchId,
+        itemId: result.failedItemIds[0],
+        error: expect.objectContaining({
+          message: "connect ECONNREFUSED 127.0.0.1:8288",
+        }),
+      }),
+    );
+    errorSpy.mockRestore();
+  });
+
   it("stores and returns a public message when Gemini scope planning fails", async () => {
     const providerError = JSON.stringify({
       error: {

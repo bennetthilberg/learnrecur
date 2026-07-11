@@ -363,9 +363,18 @@ export async function confirmMaterialPlan(input: {
       }),
     ),
   );
-  const failedItemIds = sendResults.flatMap((result, index) =>
-    result.status === "rejected" ? [queuedItems[index].id] : [],
-  );
+  const failedItemIds = sendResults.flatMap((result, index) => {
+    if (result.status !== "rejected") {
+      return [];
+    }
+    const itemId = queuedItems[index].id;
+    console.error("[inngest] material draft event send failed", {
+      batchId: batch.id,
+      itemId,
+      error: getEventSendErrorLogDetails(result.reason),
+    });
+    return [itemId];
+  });
   if (failedItemIds.length > 0) {
     await prisma.skillDraftBatchItem.updateMany({
       where: {
@@ -376,7 +385,7 @@ export async function confirmMaterialPlan(input: {
       data: {
         status: SkillDraftBatchItemStatus.FAILED,
         errorCode: "EVENT_SEND_FAILED",
-        errorMessage: "Draft generation could not be queued. Retry this item.",
+        errorMessage: "Background processing was unavailable. Retry this item.",
       },
     });
     await reconcileMaterialDraftBatch({ userId: input.userId, batchId: batch.id, now: input.now });
@@ -794,14 +803,22 @@ export async function retryMaterialDraftItem(input: {
       itemId: input.itemId,
       requestedAt: input.now.toISOString(),
     });
-  } catch {
+  } catch (error) {
+    console.error("[inngest] material draft event send failed", {
+      batchId: input.batchId,
+      itemId: input.itemId,
+      error: getEventSendErrorLogDetails(error),
+    });
     await markMaterialDraftItemFailed({
       userId: input.userId,
       itemId: input.itemId,
       code: "EVENT_SEND_FAILED",
-      message: "Draft generation could not be queued. Try again.",
+      message: "Background processing was unavailable. Retry this item.",
     });
-    return { status: "not-queued" as const, message: "Draft generation could not be queued." };
+    return {
+      status: "not-queued" as const,
+      message: "Background processing was unavailable. Try again in a moment.",
+    };
   }
   await reconcileMaterialDraftBatch({ userId: input.userId, batchId: input.batchId, now: input.now });
   return { status: "queued" as const };
@@ -2469,6 +2486,16 @@ function normalizeMaterialDraftError(error: unknown) {
     message,
   );
   return new MaterialDraftGenerationError(message, { retryable, cause: error });
+}
+
+function getEventSendErrorLogDetails(error: unknown) {
+  if (error instanceof Error) {
+    return { name: error.name, message: error.message };
+  }
+  if (typeof error === "string" && error.trim()) {
+    return { name: "Error", message: error };
+  }
+  return { name: "UnknownError", message: "Unknown event send failure." };
 }
 
 function isPrismaUniqueConstraintError(error: unknown) {

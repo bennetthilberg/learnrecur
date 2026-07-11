@@ -11,6 +11,7 @@ import { getMaterialDetail } from "@/lib/materials/library";
 import { getPublicMaterialActionErrorMessage } from "@/lib/materials/presentation";
 import { ensureDatabaseUser } from "@/lib/users";
 
+import { BatchRequestTextarea } from "../../../batches/batch-request-textarea";
 import { BatchSubmitButton } from "../../../batches/batch-submit-button";
 import { BatchStageRail } from "../../../batches/batch-stage-rail";
 import { planMaterialSkillsAction } from "../../../batches/actions";
@@ -103,7 +104,7 @@ export default async function CreateMaterialSkillsPage({
           <input name="idempotencyKey" type="hidden" value={randomUUID()} />
           <label className="skillField">
             <span>Skill request</span>
-            <textarea
+            <BatchRequestTextarea
               autoFocus
               maxLength={4_000}
               name="instruction"

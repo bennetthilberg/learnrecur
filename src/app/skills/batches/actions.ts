@@ -73,9 +73,15 @@ export async function confirmMaterialPlanAction(formData: FormData) {
     now: new Date(),
     input: { batchId, plan: plan.data },
   });
-  if (result.status === "queued" || result.status === "partial") {
+  if (result.status === "queued") {
     revalidatePath(`/skills/batches/${batchId}`);
     return redirect(`/skills/batches/${batchId}`);
+  }
+  if (result.status === "partial") {
+    revalidatePath(`/skills/batches/${batchId}`);
+    return redirect(
+      `/skills/batches/${batchId}?error=${encodeURIComponent("Background processing was unavailable, so some drafts did not start. Retry the failed drafts below.")}`,
+    );
   }
   const message =
     "message" in result && typeof result.message === "string"
@@ -87,13 +93,20 @@ export async function confirmMaterialPlanAction(formData: FormData) {
 export async function retryMaterialDraftItemAction(formData: FormData) {
   const userId = await requireBatchUser();
   const batchId = formString(formData, "batchId");
-  await retryMaterialDraftItem({
+  const result = await retryMaterialDraftItem({
     userId,
     batchId,
     itemId: formString(formData, "itemId"),
     now: new Date(),
   });
   revalidatePath(`/skills/batches/${batchId}`);
+  if (result.status !== "queued") {
+    const message =
+      "message" in result
+        ? result.message
+        : "Background processing was unavailable. Try again in a moment.";
+    redirect(`/skills/batches/${batchId}?error=${encodeURIComponent(message)}`);
+  }
 }
 
 export async function activateMaterialBatchAction(formData: FormData) {

@@ -2,6 +2,7 @@ import { MaterialRevisionStatus } from "@/generated/prisma/client";
 import { describe, expect, it } from "vitest";
 
 import {
+  getMaterialDraftItemErrorMessage,
   getMaterialAvailabilityMessage,
   getPublicMaterialActionErrorMessage,
 } from "@/lib/materials/presentation";
@@ -90,5 +91,25 @@ describe("material action error messages", () => {
         "LearnRecur could not update this batch. Try again.",
       ),
     ).toBe("The selected skill could not be added.");
+  });
+});
+
+describe("material draft item error messages", () => {
+  it("replaces legacy queue failure copy with an actionable explanation", () => {
+    expect(
+      getMaterialDraftItemErrorMessage(
+        "EVENT_SEND_FAILED",
+        "Draft generation could not be queued. Retry this item.",
+      ),
+    ).toBe("Background processing was unavailable. Retry this item.");
+  });
+
+  it("preserves other item errors", () => {
+    expect(
+      getMaterialDraftItemErrorMessage(
+        "DRAFT_GENERATION_FAILED",
+        "The draft could not be verified.",
+      ),
+    ).toBe("The draft could not be verified.");
   });
 });

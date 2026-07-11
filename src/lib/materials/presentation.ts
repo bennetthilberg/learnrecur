@@ -33,6 +33,17 @@ export function getPublicMaterialActionErrorMessage(
   return normalized.slice(0, 500);
 }
 
+export function getMaterialDraftItemErrorMessage(
+  errorCode: string | null,
+  errorMessage: string | null,
+) {
+  if (errorCode === "EVENT_SEND_FAILED") {
+    return "Background processing was unavailable. Retry this item.";
+  }
+
+  return errorMessage;
+}
+
 export function getMaterialAvailabilityMessage(input: {
   status: MaterialRevisionStatus;
   stalled: boolean;
