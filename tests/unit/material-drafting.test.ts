@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { MAX_SKILLS_PER_BATCH } from "@/lib/materials/contracts";
-import { buildMaterialScopePlannerPrompt } from "@/lib/materials/ai";
+import {
+  buildMaterialScopePlannerPrompt,
+  materialScopePlannerJsonSchema,
+} from "@/lib/materials/ai";
 import {
   annotateMaterialPlanOverlaps,
   generateVerifiedMaterialDraft,
@@ -86,6 +89,19 @@ const chunks = [
 ];
 
 describe("material scope planning", () => {
+  it("keeps nested evidence limits out of the Gemini response schema", () => {
+    const plannerItemProperties =
+      materialScopePlannerJsonSchema.properties.items.items.properties;
+
+    expect(materialScopePlannerJsonSchema.properties.items.maxItems).toBe(
+      MAX_SKILLS_PER_BATCH,
+    );
+    expect(plannerItemProperties.materialSectionIds.minItems).toBe(1);
+    expect(plannerItemProperties.materialSectionIds).not.toHaveProperty("maxItems");
+    expect(plannerItemProperties.evidenceChunkIds.minItems).toBe(1);
+    expect(plannerItemProperties.evidenceChunkIds).not.toHaveProperty("maxItems");
+  });
+
   it("resolves written chapter numbers and inferred descendants before semantic planning", () => {
     const result = resolveStructuralMaterialScope({
       instruction: "Make skills for the three concepts in chapter four and the first concept in chapter six.",

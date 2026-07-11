@@ -1,7 +1,10 @@
 import { MaterialRevisionStatus } from "@/generated/prisma/client";
 import { describe, expect, it } from "vitest";
 
-import { getMaterialAvailabilityMessage } from "@/lib/materials/presentation";
+import {
+  getMaterialAvailabilityMessage,
+  getPublicMaterialActionErrorMessage,
+} from "@/lib/materials/presentation";
 
 describe("material availability messages", () => {
   it("tells the user when a material can create skills", () => {
@@ -59,5 +62,33 @@ describe("material availability messages", () => {
       description: "Retry processing before you can create skills from this material.",
       tone: "attention",
     });
+  });
+});
+
+describe("material action error messages", () => {
+  it("replaces serialized provider errors from stale query strings", () => {
+    const legacyProviderError = JSON.stringify({
+      error: {
+        code: 400,
+        message: "Request contains an invalid argument.",
+        status: "INVALID_ARGUMENT",
+      },
+    });
+
+    expect(
+      getPublicMaterialActionErrorMessage(
+        legacyProviderError,
+        "LearnRecur could not review that scope. Check the request and try again.",
+      ),
+    ).toBe("LearnRecur could not review that scope. Check the request and try again.");
+  });
+
+  it("preserves concise user-facing action errors", () => {
+    expect(
+      getPublicMaterialActionErrorMessage(
+        "The selected skill could not be added.",
+        "LearnRecur could not update this batch. Try again.",
+      ),
+    ).toBe("The selected skill could not be added.");
   });
 });

@@ -3,17 +3,16 @@
 import { Checkbox, Tabs } from "@mantine/core";
 import {
   BookOpenText,
-  CheckCircle,
   FilePdf,
   GlobeHemisphereWest,
   Sparkle,
   UploadSimple,
-  WarningCircle,
 } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
 
+import { ActionNotification } from "@/components/app/action-notification";
 import { MAX_MATERIAL_PDF_PAGES } from "@/lib/materials/contracts";
 import type { MaterialLibraryItem } from "@/lib/materials/library";
 import {
@@ -204,8 +203,7 @@ function MaterialPdfForm({
       }}
     >
       <p className="materialImportIntro">
-        Up to 100 MB or {MAX_MATERIAL_PDF_PAGES.toLocaleString()} pages. Scanned pages are kept for
-        on-demand OCR.
+        Up to 100 MB or {MAX_MATERIAL_PDF_PAGES.toLocaleString()} pages.
       </p>
       <div className="skillTwoColumnFields">
         <label className="skillField">
@@ -614,14 +612,20 @@ function CollectionSelect({
 }
 
 function ActionMessage({ error, message }: { error: string | null; message: string | null }) {
-  if (!error && !message) {
-    return null;
-  }
   return (
-    <p className="skillFormMessage materialActionMessage" data-tone={error ? "error" : "saved"} role="status">
-      {error ? <WarningCircle size={17} weight="bold" aria-hidden="true" /> : <CheckCircle size={17} weight="bold" aria-hidden="true" />}
-      {error ?? message}
-    </p>
+    <>
+      <ActionNotification
+        id="material-import-error"
+        message={error}
+        title="Could not add material"
+        tone="error"
+      />
+      {message ? (
+        <p className="materialActionStatus" role="status">
+          {message}
+        </p>
+      ) : null}
+    </>
   );
 }
 

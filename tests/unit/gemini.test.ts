@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   getGeminiRuntimeLogContext,
   getPublicGeminiFailureMessage,
+  getPublicGeminiScopePlanningFailureMessage,
   isRetryableGeminiModelError,
   parseGeminiFallbackModels,
   resolveGeminiRuntimeConfig,
@@ -165,6 +166,42 @@ describe("Gemini fallback helpers", () => {
     expect(isRetryableGeminiModelError(error)).toBe(true);
     expect(getPublicGeminiFailureMessage(error)).toBe(
       "The AI service is busy right now, so LearnRecur could not finish creating this skill. Try again in a minute.",
+    );
+  });
+
+  it("returns a scope-specific public message without exposing provider JSON", () => {
+    const error = new Error(
+      JSON.stringify({
+        error: {
+          code: 400,
+          message: "Request contains an invalid argument.",
+          status: "INVALID_ARGUMENT",
+        },
+      }),
+    );
+
+    expect(getPublicGeminiScopePlanningFailureMessage(error)).toBe(
+      "LearnRecur could not review that scope. Check the request and try again.",
+    );
+    expect(getPublicGeminiScopePlanningFailureMessage(error)).not.toContain("{");
+    expect(getPublicGeminiScopePlanningFailureMessage(error)).not.toContain(
+      "INVALID_ARGUMENT",
+    );
+  });
+
+  it("uses scope-specific recovery guidance for model timeouts", () => {
+    const error = new Error(
+      JSON.stringify({
+        error: {
+          code: 504,
+          message: "The request timed out.",
+          status: "DEADLINE_EXCEEDED",
+        },
+      }),
+    );
+
+    expect(getPublicGeminiScopePlanningFailureMessage(error)).toBe(
+      "Reviewing the scope took too long. Try a narrower request.",
     );
   });
 });

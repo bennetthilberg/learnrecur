@@ -4192,15 +4192,10 @@ body {
   font-weight: 600;
 }
 
-.materialActionMessage {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-}
-
-.materialActionMessage svg {
-  flex: 0 0 auto;
-  margin-top: 1px;
+.materialActionStatus {
+  margin: 0;
+  color: var(--lr-text-secondary);
+  font-size: 13px;
 }
 
 .materialImportActions {

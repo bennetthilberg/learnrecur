@@ -6,6 +6,33 @@ export type MaterialAvailabilityMessage = {
   tone: "ready" | "working" | "attention";
 };
 
+const PROVIDER_ERROR_MARKERS = [
+  "DEADLINE_EXCEEDED",
+  "INVALID_ARGUMENT",
+  "RESOURCE_EXHAUSTED",
+  "UNAVAILABLE",
+];
+
+export function getPublicMaterialActionErrorMessage(
+  message: string | undefined,
+  fallback: string,
+) {
+  const normalized = message?.trim();
+  if (!normalized) {
+    return undefined;
+  }
+
+  if (
+    normalized.startsWith("{") ||
+    normalized.startsWith("[") ||
+    PROVIDER_ERROR_MARKERS.some((marker) => normalized.includes(marker))
+  ) {
+    return fallback;
+  }
+
+  return normalized.slice(0, 500);
+}
+
 export function getMaterialAvailabilityMessage(input: {
   status: MaterialRevisionStatus;
   stalled: boolean;

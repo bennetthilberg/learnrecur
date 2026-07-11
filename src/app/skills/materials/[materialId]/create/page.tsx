@@ -5,8 +5,10 @@ import { ArrowLeft, BookOpenText } from "@phosphor-icons/react/dist/ssr";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { ActionNotification } from "@/components/app/action-notification";
 import { UserStatusPanel } from "@/components/app/user-status-panel";
 import { getMaterialDetail } from "@/lib/materials/library";
+import { getPublicMaterialActionErrorMessage } from "@/lib/materials/presentation";
 import { ensureDatabaseUser } from "@/lib/users";
 
 import { BatchSubmitButton } from "../../../batches/batch-submit-button";
@@ -59,7 +61,10 @@ export default async function CreateMaterialSkillsPage({
     );
   }
   const rawError = (await searchParams)?.error;
-  const error = Array.isArray(rawError) ? rawError[0] : rawError;
+  const error = getPublicMaterialActionErrorMessage(
+    Array.isArray(rawError) ? rawError[0] : rawError,
+    "LearnRecur could not review that scope. Check the request and try again.",
+  );
 
   return (
     <main className="skillShell materialShell batchShell">
@@ -76,6 +81,12 @@ export default async function CreateMaterialSkillsPage({
       </header>
 
       <BatchStageRail current="describe" />
+      <ActionNotification
+        id="scope-planning-error"
+        message={error}
+        title="Could not review scope"
+        tone="error"
+      />
 
       <section className="skillPanel batchDescribePanel" aria-labelledby="batch-describe-title">
         <div className="batchMaterialIdentity">
@@ -106,10 +117,9 @@ export default async function CreateMaterialSkillsPage({
             <p>“The first two concepts in chapter 4”</p>
             <p>“One skill for each section under 6.2”</p>
           </div>
-          {error ? <p className="skillFormMessage" data-tone="error">{error}</p> : null}
           <div className="skillFormActions batchPrimaryAction">
-            <small>Maximum 10 skills in one batch</small>
-            <BatchSubmitButton pendingLabel="Resolving the scope…">Review scope</BatchSubmitButton>
+            <small>You can make up to 10 skills in one batch.</small>
+            <BatchSubmitButton>Review scope</BatchSubmitButton>
           </div>
         </form>
       </section>

@@ -33,7 +33,7 @@ export type MaterialDraftAiSetup = {
   verifyDraft: MaterialDraftVerifier;
 };
 
-const scopePlannerJsonSchema = {
+export const materialScopePlannerJsonSchema = {
   type: "object",
   additionalProperties: false,
   required: ["resolutionStatus", "resolvedScopeLabel", "clarification", "warnings", "items"],
@@ -62,13 +62,11 @@ const scopePlannerJsonSchema = {
           materialSectionIds: {
             type: "array",
             minItems: 1,
-            maxItems: 24,
             items: { type: "string" },
           },
           evidenceChunkIds: {
             type: "array",
             minItems: 1,
-            maxItems: 80,
             items: { type: "string" },
           },
         },
@@ -128,7 +126,7 @@ function createGeminiMaterialScopePlanner(input: {
         contents: [{ role: "user", parts: [{ text: prompt }] }],
         config: {
           responseMimeType: "application/json",
-          responseJsonSchema: scopePlannerJsonSchema,
+          responseJsonSchema: materialScopePlannerJsonSchema,
           thinkingConfig: { thinkingBudget: 256 },
         },
       });

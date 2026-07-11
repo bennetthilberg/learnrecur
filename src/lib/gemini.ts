@@ -250,6 +250,30 @@ export function getPublicGeminiFailureMessage(error: unknown): string {
   return "LearnRecur could not create a skill from that source. Try again, or use a clearer excerpt.";
 }
 
+export function getPublicGeminiScopePlanningFailureMessage(error: unknown): string {
+  const details = getGeminiErrorDetails(error);
+  const message = details.message?.toLowerCase() ?? "";
+
+  if (
+    isRetryableGeminiErrorDetails(details) ||
+    message.includes("high demand") ||
+    message.includes("temporarily overloaded") ||
+    message.includes("temporarily running out of capacity")
+  ) {
+    return "The AI service is busy right now, so LearnRecur could not review the scope. Try again in a minute.";
+  }
+
+  if (
+    details.code === 504 ||
+    details.status === "DEADLINE_EXCEEDED" ||
+    message.includes("timed out")
+  ) {
+    return "Reviewing the scope took too long. Try a narrower request.";
+  }
+
+  return "LearnRecur could not review that scope. Check the request and try again.";
+}
+
 export function getGeminiErrorLogDetails(error: unknown) {
   return getGeminiErrorDetails(error);
 }

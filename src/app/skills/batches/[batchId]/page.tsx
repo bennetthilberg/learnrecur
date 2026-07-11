@@ -8,6 +8,7 @@ import {
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { ActionNotification } from "@/components/app/action-notification";
 import { UserStatusPanel } from "@/components/app/user-status-panel";
 import { formatDisplayLabel } from "@/lib/formatters";
 import { getMaterialDraftBatch } from "@/lib/materials/batches";
@@ -17,6 +18,7 @@ import {
   skillSourceLocatorSchema,
   type MaterialScopeResolution,
 } from "@/lib/materials/contracts";
+import { getPublicMaterialActionErrorMessage } from "@/lib/materials/presentation";
 import { ensureDatabaseUser } from "@/lib/users";
 
 import { MaterialStatusPoller } from "../../materials/material-status-poller";
@@ -76,7 +78,10 @@ export default async function MaterialBatchPage({
         ? "Adding skills"
       : "Review generated skills";
   const rawError = (await searchParams)?.error;
-  const error = Array.isArray(rawError) ? rawError[0] : rawError;
+  const error = getPublicMaterialActionErrorMessage(
+    Array.isArray(rawError) ? rawError[0] : rawError,
+    "LearnRecur could not update this batch. Try again.",
+  );
 
   return (
     <main className="skillShell materialShell batchShell">
@@ -96,7 +101,12 @@ export default async function MaterialBatchPage({
       </header>
 
       <BatchStageRail current={stage} />
-      {error ? <p className="skillFormMessage batchTopMessage" data-tone="error">{error}</p> : null}
+      <ActionNotification
+        id="batch-action-error"
+        message={error}
+        title="Could not update this batch"
+        tone="error"
+      />
 
       {planning && scope ? (
         <ScopeReview batchId={batch.id} instruction={batch.instruction} plan={scope} />
@@ -171,7 +181,7 @@ function ScopeReview({
                 ? `; ${duplicateCount} exact duplicate${duplicateCount === 1 ? "" : "s"} will be excluded`
                 : ""}.
             </span>
-            <BatchSubmitButton pendingLabel="Starting the batch…">
+            <BatchSubmitButton>
               {generationCount > 0 ? `Generate ${generationCount} new skills` : "Confirm exclusions"}
             </BatchSubmitButton>
           </form>
@@ -189,7 +199,7 @@ function ScopeReview({
             <span>Skill request</span>
             <textarea defaultValue={instruction} maxLength={4_000} name="instruction" required rows={7} />
           </label>
-          <BatchSubmitButton className="secondaryButton" pendingLabel="Resolving again…">
+          <BatchSubmitButton className="secondaryButton">
             Resolve again
           </BatchSubmitButton>
         </form>
@@ -274,7 +284,7 @@ function DraftBatchReview({
           {readyItems.map((item) => (
             <input key={item.id} name="itemId" type="hidden" value={item.id} />
           ))}
-          <BatchSubmitButton pendingLabel="Adding skills…">
+          <BatchSubmitButton>
             Add all {readyItems.length}
           </BatchSubmitButton>
         </form>

@@ -293,6 +293,11 @@ a {
   animation: lr-spin .72s linear infinite;
 }
 
+.secondaryButton .buttonSpinner {
+  border-color: var(--lr-blue-bar-2);
+  border-top-color: var(--lr-blue);
+}
+
 @keyframes lr-spin {
   to {
     transform: rotate(360deg);

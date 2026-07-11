@@ -74,7 +74,10 @@ import {
   type SkillSourceEvidenceLoader,
   type SourceMediaContextLoader,
 } from "@/lib/skills";
-import { DEFAULT_GEMINI_MODEL } from "@/lib/gemini";
+import {
+  DEFAULT_GEMINI_MODEL,
+  getPublicGeminiScopePlanningFailureMessage,
+} from "@/lib/gemini";
 import {
   ALPHA_ACTIVE_SKILLS,
   ALPHA_SKILL_ACTIVATIONS_PER_DAY,
@@ -2070,7 +2073,7 @@ async function planExistingMaterialBatch(input: {
       expectedUpdatedAt: batch.updatedAt,
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Material scope planning failed.";
+    const message = getPublicGeminiScopePlanningFailureMessage(error);
     const markedFailed = await markMaterialBatchPlanningFailed({
       userId: input.userId,
       batchId: batch.id,

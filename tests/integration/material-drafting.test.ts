@@ -367,6 +367,50 @@ describeDatabase("material multi-skill drafting", () => {
     });
   });
 
+  it("stores and returns a public message when Gemini scope planning fails", async () => {
+    const providerError = JSON.stringify({
+      error: {
+        code: 400,
+        message: "Request contains an invalid argument.",
+        status: "INVALID_ARGUMENT",
+      },
+    });
+    const result = await planMaterialSkills({
+      userId,
+      input: {
+        materialId,
+        materialRevisionId,
+        instruction: "Make one skill from chapter four.",
+        idempotencyKey: `${runId}_provider_failure`,
+      },
+      now: new Date(),
+      aiSetup: createAiSetup({
+        planScope: vi.fn(async () => {
+          throw new Error(providerError);
+        }),
+      }),
+      embeddingGenerator: null,
+    });
+
+    expect(result).toMatchObject({
+      status: "failed",
+      message: "LearnRecur could not review that scope. Check the request and try again.",
+    });
+    expect(JSON.stringify(result)).not.toContain("INVALID_ARGUMENT");
+    if (!("batchId" in result)) {
+      throw new Error("expected failed batch id");
+    }
+    expect(
+      await prisma.skillDraftBatch.findUnique({
+        where: { id: result.batchId },
+        select: { errorCode: true, errorMessage: true },
+      }),
+    ).toEqual({
+      errorCode: "PLANNING_FAILED",
+      errorMessage: "LearnRecur could not review that scope. Check the request and try again.",
+    });
+  });
+
   it("does not let a slower duplicate planner overwrite the plan that finished first", async () => {
     let releaseFirstPlanner = () => {};
     const firstPlannerMayFinish = new Promise<void>((resolve) => {
