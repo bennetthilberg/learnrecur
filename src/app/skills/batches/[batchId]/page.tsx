@@ -29,11 +29,12 @@ import { SkillsTopbar } from "../../skills-topbar";
 import {
   activateMaterialBatchAction,
   confirmMaterialPlanAction,
-  excludeMaterialDraftItemAction,
   replanMaterialSkillsAction,
   retryMaterialBatchActivationItemAction,
   retryMaterialDraftItemAction,
 } from "../actions";
+import { BatchDraftEditDialog } from "../batch-draft-edit-dialog";
+import { BatchExcludeControl } from "../batch-exclude-control";
 import { BatchStageRail } from "../batch-stage-rail";
 import { BatchRequestTextarea } from "../batch-request-textarea";
 import { BatchSubmitButton } from "../batch-submit-button";
@@ -302,7 +303,7 @@ function DraftBatchReview({
 
       <section className="batchDraftList" aria-labelledby="batch-drafts-title">
         <div className="batchDraftListHeader">
-          <div><h2 id="batch-drafts-title">Draft skills</h2><p>Expand any draft to inspect it, or edit it in the full skill form.</p></div>
+          <div><h2 id="batch-drafts-title">Draft skills</h2><p>Expand any draft to inspect it, or edit it here without leaving the batch.</p></div>
           {scope ? <small>{scope.resolvedScopeLabel}</small> : null}
         </div>
         {batch.items.map((item) => (
@@ -336,10 +337,24 @@ function DraftBatchReview({
             <div className="batchDraftActions">
               <small>{formatLocatorValue(item.locator)}</small>
               <div>
-                {item.skill && item.status !== "ACTIVATING" ? (
+                {item.skill && item.status === "ACTIVE" ? (
                   <Link className="secondaryButton" href={`/skills/${item.skill.id}`}>
-                    {item.status === "ACTIVE" ? "Open skill" : "Edit draft"}
+                    Open skill
                   </Link>
+                ) : null}
+                {item.skill && item.status !== "ACTIVE" && item.status !== "ACTIVATING" ? (
+                  <BatchDraftEditDialog
+                    initialValues={{
+                      title: item.skill.title,
+                      objective: item.skill.objective ?? "",
+                      collectionName: item.skill.collection?.name ?? "",
+                      rules: readNotesText(item.skill.rules),
+                      examples: readNotesText(item.skill.examples),
+                      exerciseConstraints: readNotesText(item.skill.exerciseConstraints),
+                      tags: item.skill.tags.join(", "),
+                    }}
+                    skillId={item.skill.id}
+                  />
                 ) : null}
                 {item.status === "FAILED" ? (
                   <form action={item.errorCode?.startsWith("ACTIVATION_") ? retryMaterialBatchActivationItemAction : retryMaterialDraftItemAction}>
@@ -349,11 +364,11 @@ function DraftBatchReview({
                   </form>
                 ) : null}
                 {item.status === "READY" || item.status === "FAILED" ? (
-                  <form action={excludeMaterialDraftItemAction}>
-                    <input name="batchId" type="hidden" value={batch.id} />
-                    <input name="itemId" type="hidden" value={item.id} />
-                    <button className="batchTextButton" type="submit">Exclude</button>
-                  </form>
+                  <BatchExcludeControl
+                    batchId={batch.id}
+                    itemId={item.id}
+                    title={item.skill?.title ?? item.proposedTitle}
+                  />
                 ) : null}
               </div>
             </div>
@@ -402,6 +417,17 @@ function readConstraintNotes(value: unknown) {
   }
   const notes = (value as { notes?: unknown }).notes;
   return typeof notes === "string" && notes.trim() ? [notes.trim()] : [];
+}
+
+function readNotesText(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return "";
+  }
+  const notes = value as { items?: unknown; notes?: unknown };
+  if (Array.isArray(notes.items)) {
+    return notes.items.filter((item): item is string => typeof item === "string").join("\n");
+  }
+  return typeof notes.notes === "string" ? notes.notes : "";
 }
 
 function formatLocator(locator: MaterialScopeResolution["items"][number]["locator"]) {

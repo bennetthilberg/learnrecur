@@ -164,11 +164,18 @@ export async function excludeMaterialDraftItemAction(formData: FormData) {
     itemId: formString(formData, "itemId"),
     now: new Date(),
   });
-  if (result.status === "not-excluded") {
-    redirect(`/skills/batches/${batchId}?error=${encodeURIComponent(result.message)}`);
+  if (result.status !== "excluded") {
+    return {
+      status: "error" as const,
+      message:
+        result.status === "not-excluded"
+          ? result.message
+          : "This draft could not be excluded. Refresh the batch and try again.",
+    };
   }
   revalidatePath(`/skills/batches/${batchId}`);
   revalidatePath("/skills");
+  return { status: "excluded" as const };
 }
 
 async function requireBatchUser() {

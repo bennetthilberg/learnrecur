@@ -1798,6 +1798,7 @@ export async function getMaterialDraftBatch(input: { userId: string; batchId: st
               id: true,
               title: true,
               objective: true,
+              collection: { select: { name: true } },
               rules: true,
               examples: true,
               exerciseConstraints: true,

@@ -33,8 +33,11 @@ type SkillDraftFormProps =
       skillId: string;
       initialValues: SkillDraftFormValues;
       activationMode?: "redirect" | "inline";
+      cancelLabel?: string;
       onAdded?: (skillId: string) => void;
       onBack?: () => void;
+      onSaved?: () => void;
+      submitIntent?: "add" | "save";
     };
 
 const idleState: SkillFormActionState = {
@@ -49,8 +52,11 @@ export function SkillDraftForm(props: SkillDraftFormProps) {
   const { initialValues, mode } = props;
   const isEditMode = mode === "edit";
   const activationMode = isEditMode ? props.activationMode ?? "redirect" : "redirect";
+  const isSaveOnlyEdit = isEditMode && props.submitIntent === "save";
+  const cancelLabel = isEditMode ? props.cancelLabel ?? "Back" : undefined;
   const onAdded = isEditMode ? props.onAdded : undefined;
   const onBack = isEditMode ? props.onBack : undefined;
+  const onSaved = isEditMode ? props.onSaved : undefined;
   const addSkillServerAction =
     activationMode === "inline" ? addSkillDraftToPracticeInlineAction : addSkillDraftToPracticeAction;
   const [draftState, saveAction, isSaving] = useActionState(saveSkillDraftAction, idleState);
@@ -58,9 +64,20 @@ export function SkillDraftForm(props: SkillDraftFormProps) {
     addSkillServerAction,
     idleState,
   );
-  const formAction = isEditMode ? addSkillAction : saveAction;
-  const formState = isEditMode ? addSkillState : draftState;
-  const isSubmitting = isEditMode ? isAddingSkill : isSaving;
+  const formAction = isSaveOnlyEdit ? saveAction : isEditMode ? addSkillAction : saveAction;
+  const formState = isSaveOnlyEdit ? draftState : isEditMode ? addSkillState : draftState;
+  const isSubmitting = isSaveOnlyEdit ? isSaving : isEditMode ? isAddingSkill : isSaving;
+  const submitLabel = isSubmitting
+    ? isSaveOnlyEdit
+      ? "Saving"
+      : isEditMode
+        ? "Adding"
+        : "Saving"
+    : isSaveOnlyEdit
+      ? "Save changes"
+      : isEditMode
+        ? "Add skill"
+        : "Create skill";
 
   useEffect(() => {
     if (!draftState.message || draftState.status === "idle") {
@@ -84,7 +101,11 @@ export function SkillDraftForm(props: SkillDraftFormProps) {
       withBorder: true,
       withCloseButton: true,
     });
-  }, [draftState]);
+
+    if (isSaved) {
+      onSaved?.();
+    }
+  }, [draftState, onSaved]);
 
   useEffect(() => {
     if (!addSkillState.message || addSkillState.status === "idle") {
@@ -222,7 +243,7 @@ export function SkillDraftForm(props: SkillDraftFormProps) {
               onClick={onBack}
               type="button"
             >
-              Back
+              {cancelLabel}
             </button>
           ) : null}
           <button
@@ -232,20 +253,14 @@ export function SkillDraftForm(props: SkillDraftFormProps) {
           >
             {isEditMode && isSubmitting ? (
               <ButtonLoadingDots />
+            ) : isSaveOnlyEdit ? (
+              <FloppyDisk size={18} weight="bold" aria-hidden="true" />
             ) : isEditMode ? (
               <CheckCircle size={18} weight="bold" aria-hidden="true" />
             ) : (
               <FloppyDisk size={18} weight="bold" aria-hidden="true" />
             )}
-            <span>
-              {isSubmitting
-                ? isEditMode
-                  ? "Adding"
-                  : "Saving"
-                : isEditMode
-                  ? "Add skill"
-                  : "Create skill"}
-            </span>
+            <span>{submitLabel}</span>
           </button>
         </div>
       </form>
