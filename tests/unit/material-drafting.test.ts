@@ -3,10 +3,12 @@ import { describe, expect, it, vi } from "vitest";
 import { MAX_SKILLS_PER_BATCH } from "@/lib/materials/contracts";
 import {
   buildMaterialScopePlannerPrompt,
+  buildMaterialScopeReviewerPrompt,
   materialScopePlannerJsonSchema,
 } from "@/lib/materials/ai";
 import {
   annotateMaterialPlanOverlaps,
+  expandPlanningChunkNeighbors,
   generateVerifiedMaterialDraft,
   recoverBackMatterMaterialScope,
   resolveStructuralMaterialScope,
@@ -101,6 +103,26 @@ describe("material scope planning", () => {
     expect(plannerItemProperties.materialSectionIds).not.toHaveProperty("maxItems");
     expect(plannerItemProperties.evidenceChunkIds.minItems).toBe(1);
     expect(plannerItemProperties.evidenceChunkIds).not.toHaveProperty("maxItems");
+    expect(plannerItemProperties.includeConcepts).toBeDefined();
+    expect(plannerItemProperties.excludeConcepts).toBeDefined();
+  });
+
+  it("keeps adjacent source chunks beside ranked evidence", () => {
+    const ranked = [
+      { id: "chunk-24", materialSectionId: "numbers", ordinal: 24 },
+    ];
+    const neighbors = [
+      { id: "chunk-23", materialSectionId: "numbers", ordinal: 23 },
+      ranked[0],
+      { id: "chunk-25", materialSectionId: "numbers", ordinal: 25 },
+      { id: "other", materialSectionId: "ordinals", ordinal: 24 },
+    ];
+
+    expect(expandPlanningChunkNeighbors(ranked, neighbors, 3).map((chunk) => chunk.id)).toEqual([
+      "chunk-23",
+      "chunk-24",
+      "chunk-25",
+    ]);
   });
 
   it("resolves written chapter numbers and inferred descendants before semantic planning", () => {
@@ -566,6 +588,46 @@ describe("material scope planning", () => {
       prompt.indexOf("</material_data>"),
     );
   });
+
+  it("reviews a proposed scope against the request before generation", () => {
+    const input = {
+      materialTitle: "Spanish Grammar Atlas",
+      materialKind: "PDF" as const,
+      instruction: "Make skills for numbers above 20 plus ordinals.",
+      structuralReferences: [],
+      sections: sections.slice(0, 1),
+      chunks: [
+        {
+          id: "numbers-23",
+          materialSectionId: "chapter-4",
+          text: "Numbers 21 through millions, plus ordinal numbers.",
+          headingText: "Numbers",
+        },
+      ],
+      candidatePlan: {
+        resolutionStatus: "resolved" as const,
+        resolvedScopeLabel: "Numbers",
+        warnings: [],
+        items: [
+          {
+            key: "numbers-21-99",
+            title: "Writing numbers 21 through 99",
+            objective: "Write Spanish cardinal numbers from 21 through 99.",
+            materialSectionIds: ["chapter-4"],
+            evidenceChunkIds: ["numbers-23"],
+          },
+        ],
+      },
+    };
+
+    const prompt = buildMaterialScopeReviewerPrompt(input);
+
+    expect(prompt).toContain("preserves the user's requested breadth");
+    expect(prompt).toContain("numbers above 20 plus ordinals");
+    expect(prompt).toContain("Writing numbers 21 through 99");
+    expect(prompt).toContain("includeConcepts");
+    expect(prompt).toContain("excludeConcepts");
+  });
 });
 
 describe("material draft generation", () => {
@@ -613,6 +675,51 @@ describe("material draft generation", () => {
     expect(verifyDraft).toHaveBeenCalledTimes(2);
     expect(generateDraft).toHaveBeenLastCalledWith(expect.objectContaining({ sourceMedia }));
     expect(verifyDraft).toHaveBeenLastCalledWith(expect.objectContaining({ sourceMedia }));
+  });
+
+  it("holds regeneration to explicit included and excluded concepts", async () => {
+    const generateDraft = vi
+      .fn()
+      .mockResolvedValueOnce({ drafts: [generatedDraft] })
+      .mockResolvedValueOnce({ drafts: [generatedDraft] });
+    const verifyDraft = vi
+      .fn()
+      .mockResolvedValueOnce({
+        verdict: "rejected",
+        reasons: ["too_broad"],
+        note: "Do not include cardinal numbers in the thousands.",
+      })
+      .mockResolvedValueOnce({ verdict: "verified", reasons: [], note: null });
+
+    await generateVerifiedMaterialDraft({
+      target: {
+        title: "Writing Spanish cardinal numbers above 20",
+        objective: "Write the Spanish cardinal numbers taught in this section.",
+        includeConcepts: ["cardinal numbers above 20", "hundreds and thousands"],
+        excludeConcepts: ["ordinal numbers"],
+      },
+      materialTitle: "Spanish Grammar Atlas",
+      evidenceText: "The section teaches cardinal numbers through millions and then ordinals.",
+      generateDraft,
+      verifyDraft,
+    });
+
+    expect(generateDraft).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        focusNote: expect.stringContaining("Do not include: ordinal numbers"),
+      }),
+    );
+    expect(generateDraft.mock.calls[1]?.[0].focusNote).toContain(
+      "Remove anything outside the confirmed target",
+    );
+    expect(verifyDraft).toHaveBeenCalledWith(
+      expect.objectContaining({
+        target: expect.objectContaining({
+          includeConcepts: ["cardinal numbers above 20", "hundreds and thousands"],
+          excludeConcepts: ["ordinal numbers"],
+        }),
+      }),
+    );
   });
 
   it("fails after the bounded regeneration is also rejected", async () => {

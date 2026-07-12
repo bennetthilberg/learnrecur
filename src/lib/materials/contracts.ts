@@ -117,11 +117,24 @@ export const skillSourceLocatorSchema = z
 
 export type SkillSourceLocator = z.infer<typeof skillSourceLocatorSchema>;
 
+const scopeConceptsSchema = z
+  .array(z.string().trim().min(1).max(240))
+  .max(20)
+  .optional();
+
+const materialClarificationOptionSchema = z.object({
+  label: z.string().trim().min(1).max(80),
+  instruction: z.string().trim().min(3).max(1_000),
+  description: z.string().trim().min(1).max(240).optional(),
+});
+
 export const materialScopePlanItemSchema = z
   .object({
     key: z.string().trim().min(1).max(120),
     title: z.string().trim().min(1).max(160),
     objective: z.string().trim().min(1).max(1_000),
+    includeConcepts: scopeConceptsSchema,
+    excludeConcepts: scopeConceptsSchema,
     materialSectionIds: uniqueIdentifiersSchema(24),
     evidenceChunkIds: uniqueIdentifiersSchema(80),
     locator: skillSourceLocatorSchema,
@@ -149,6 +162,7 @@ const materialScopeResolutionBaseSchema = z.object({
   resolvedScopeLabel: z.string().trim().min(1).max(1_000),
   warnings: z.array(z.string().trim().min(1).max(500)).max(20),
   clarification: z.string().trim().min(1).max(1_000).optional(),
+  clarificationOptions: z.array(materialClarificationOptionSchema).min(1).max(3).optional(),
   items: z.array(materialScopePlanItemSchema).max(MAX_SKILLS_PER_BATCH),
 });
 

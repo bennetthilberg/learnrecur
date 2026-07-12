@@ -146,13 +146,29 @@ function ScopeReview({
           <strong>{plan.items.length} proposed</strong>
         </div>
         {ambiguous ? (
-          <div className="batchAmbiguity">
-            <WarningCircle size={21} weight="bold" aria-hidden="true" />
-            <div>
-              <h3>The request is not safe to generate yet</h3>
-              <p>{plan.clarification}</p>
-            </div>
-          </div>
+          <>
+            <ActionNotification
+              id={`batch-scope-clarification-${batchId}`}
+              message={plan.clarification}
+              title="Clarify this skill request"
+              tone="warning"
+            />
+            <p className="batchClarificationReason">{plan.clarification}</p>
+            {plan.clarificationOptions?.length ? (
+              <div className="batchClarificationOptions" aria-label="Suggested clarifications">
+                {plan.clarificationOptions.map((option) => (
+                  <form action={replanMaterialSkillsAction} key={option.instruction}>
+                    <input name="batchId" type="hidden" value={batchId} />
+                    <input name="instruction" type="hidden" value={option.instruction} />
+                    <BatchSubmitButton className="secondaryButton">
+                      {option.label}
+                    </BatchSubmitButton>
+                    {option.description ? <small>{option.description}</small> : null}
+                  </form>
+                ))}
+              </div>
+            ) : null}
+          </>
         ) : (
           <ol className="batchScopeItems">
             {plan.items.map((item, index) => (
@@ -161,6 +177,11 @@ function ScopeReview({
                 <div>
                   <h3>{item.title}</h3>
                   <p>{item.objective}</p>
+                  {item.excludeConcepts?.length ? (
+                    <p className="batchScopeBoundary">
+                      <strong>Kept separate:</strong> {item.excludeConcepts.join(", ")}
+                    </p>
+                  ) : null}
                   <small>{formatLocator(item.locator)}</small>
                   {item.overlapWarning ? (
                     <p className="batchOverlapWarning">
@@ -362,7 +383,9 @@ function DraftBatchReview({
                   <form action={item.errorCode?.startsWith("ACTIVATION_") ? retryMaterialBatchActivationItemAction : retryMaterialDraftItemAction}>
                     <input name="batchId" type="hidden" value={batch.id} />
                     <input name="itemId" type="hidden" value={item.id} />
-                    <button className="secondaryButton" type="submit">Retry</button>
+                    <button className="secondaryButton" type="submit">
+                      {item.errorCode === "VERIFICATION_REJECTED" ? "Repair draft" : "Retry"}
+                    </button>
                   </form>
                 ) : null}
                 {item.status === "READY" || item.status === "FAILED" ? (

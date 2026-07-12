@@ -66,8 +66,15 @@ export type StructuralMaterialReference = {
   sectionIds: string[];
 };
 
+export type MaterialDraftTarget = {
+  title: string;
+  objective: string;
+  includeConcepts?: string[];
+  excludeConcepts?: string[];
+};
+
 export type MaterialDraftVerifier = (input: {
-  target: { title: string; objective: string };
+  target: MaterialDraftTarget;
   draft: GeneratedSkillDraft;
   materialTitle: string;
   evidenceText: string;
@@ -78,6 +85,8 @@ const plannerItemSchema = z.strictObject({
   key: z.string().trim().min(1).max(120),
   title: z.string().trim().min(1).max(120),
   objective: z.string().trim().min(12).max(1_000),
+  includeConcepts: z.array(z.string().trim().min(1).max(240)).max(20).optional(),
+  excludeConcepts: z.array(z.string().trim().min(1).max(240)).max(20).optional(),
   materialSectionIds: z.array(z.string().trim().min(1)).min(1).max(24),
   evidenceChunkIds: z.array(z.string().trim().min(1)).min(1).max(80),
 });
@@ -87,6 +96,17 @@ const scopePlannerResponseSchema = z.strictObject({
   resolvedScopeLabel: z.string().trim().min(1).max(1_000),
   clarification: z.string().trim().min(1).max(1_000).nullable(),
   warnings: z.array(z.string().trim().min(1).max(500)).max(20),
+  clarificationOptions: z
+    .array(
+      z.strictObject({
+        label: z.string().trim().min(1).max(80),
+        instruction: z.string().trim().min(3).max(1_000),
+        description: z.string().trim().min(1).max(240).nullable().optional(),
+      }),
+    )
+    .min(1)
+    .max(3)
+    .optional(),
   items: z.array(plannerItemSchema).max(MAX_SKILLS_PER_BATCH),
 });
 
@@ -96,7 +116,38 @@ const draftVerificationSchema = z.strictObject({
     .array(z.enum(["not_grounded", "too_broad", "duplicate", "unsupported_detail", "other"]))
     .max(5),
   note: z.string().trim().max(1_000).nullable(),
+  recovery: z
+    .enum(["regenerate_with_boundaries", "expand_evidence", "clarify_scope", "none"])
+    .optional(),
 });
+
+export function expandPlanningChunkNeighbors<
+  T extends { id: string; materialSectionId: string | null; ordinal: number },
+>(ranked: readonly T[], candidates: readonly T[], limit: number): T[] {
+  if (limit <= 0) {
+    return [];
+  }
+  const candidatesByPosition = new Map(
+    candidates.map((chunk) => [`${chunk.materialSectionId ?? ""}:${chunk.ordinal}`, chunk]),
+  );
+  const expanded: T[] = [];
+  const seen = new Set<string>();
+  for (const chunk of ranked) {
+    for (const ordinal of [chunk.ordinal - 1, chunk.ordinal, chunk.ordinal + 1]) {
+      const candidate = candidatesByPosition.get(
+        `${chunk.materialSectionId ?? ""}:${ordinal}`,
+      );
+      if (candidate && !seen.has(candidate.id)) {
+        seen.add(candidate.id);
+        expanded.push(candidate);
+        if (expanded.length === limit) {
+          return expanded;
+        }
+      }
+    }
+  }
+  return expanded;
+}
 
 const numberWords = new Map<string, number>([
   ["one", 1],
@@ -485,6 +536,15 @@ export function validateMaterialScopePlannerResponse(input: {
       : parsed.data.clarification
         ? { clarification: parsed.data.clarification }
         : {}),
+    ...(parsed.data.clarificationOptions
+      ? {
+          clarificationOptions: parsed.data.clarificationOptions.map((option) => ({
+            label: option.label,
+            instruction: option.instruction,
+            ...(option.description ? { description: option.description } : {}),
+          })),
+        }
+      : {}),
     items,
   });
   if (!planResult.success) {
@@ -533,7 +593,7 @@ export function annotateMaterialPlanOverlaps(
 }
 
 export async function generateVerifiedMaterialDraft(input: {
-  target: { title: string; objective: string };
+  target: MaterialDraftTarget;
   materialTitle: string;
   evidenceText: string;
   generateDraft: SkillDraftGenerator;
@@ -550,7 +610,15 @@ export async function generateVerifiedMaterialDraft(input: {
       focusNote: [
         `Create exactly this target: ${input.target.title}.`,
         input.target.objective,
-        verifierNote ? `Previous verification feedback: ${verifierNote}` : null,
+        input.target.includeConcepts?.length
+          ? `Include: ${input.target.includeConcepts.join("; ")}.`
+          : null,
+        input.target.excludeConcepts?.length
+          ? `Do not include: ${input.target.excludeConcepts.join("; ")}.`
+          : null,
+        verifierNote
+          ? `Previous verification feedback: ${verifierNote} Remove anything outside the confirmed target; do not broaden the skill to use nearby source material.`
+          : null,
       ]
         .filter(Boolean)
         .join(" "),
@@ -605,6 +673,15 @@ export async function generateVerifiedMaterialDraft(input: {
         reason: "verification-rejected" as const,
         message: verifierNote || "The generated draft was not grounded narrowly enough.",
         attempts: attempt,
+        reasons: verification.data.reasons,
+        recovery:
+          verification.data.recovery ??
+          (verification.data.reasons.includes("too_broad") ||
+          verification.data.reasons.includes("unsupported_detail")
+            ? "regenerate_with_boundaries"
+            : verification.data.reasons.includes("not_grounded")
+              ? "expand_evidence"
+              : "clarify_scope"),
       };
     }
   }

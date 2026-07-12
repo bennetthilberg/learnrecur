@@ -4942,7 +4942,6 @@ body {
   padding: 6px 10px;
 }
 
-.batchAmbiguity,
 .batchGeneratingNotice,
 .batchPartialNotice {
   display: flex;
@@ -4950,21 +4949,11 @@ body {
   gap: 12px;
 }
 
-.batchAmbiguity {
-  margin: 22px 24px;
-  border: 1px solid var(--lr-accent-line);
-  border-radius: var(--lr-r-card);
-  background: var(--lr-accent-soft);
-  padding: 17px 18px;
-}
-
-.batchAmbiguity svg,
 .batchPartialNotice > svg {
   flex: 0 0 auto;
   color: var(--lr-accent-ink);
 }
 
-.batchAmbiguity h3,
 .batchPartialNotice h2,
 .batchGeneratingNotice h2 {
   margin: 0;
@@ -4973,13 +4962,40 @@ body {
   font-size: 15px;
 }
 
-.batchAmbiguity p,
 .batchPartialNotice p,
 .batchGeneratingNotice p {
   margin: 4px 0 0;
   color: var(--lr-text-secondary);
   font-size: 13px;
   line-height: 1.45;
+}
+
+.batchClarificationReason {
+  margin: 22px 24px;
+  color: var(--lr-text-secondary);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.batchClarificationOptions {
+  display: grid;
+  gap: 10px;
+  margin: -8px 24px 24px;
+}
+
+.batchClarificationOptions form {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.batchClarificationOptions button {
+  white-space: nowrap;
+}
+
+.batchClarificationOptions small {
+  color: var(--lr-text-secondary);
+  line-height: 1.4;
 }
 
 .batchScopeItems {
@@ -5025,6 +5041,11 @@ body {
   color: var(--lr-text-secondary);
   font-size: 13px;
   line-height: 1.42;
+}
+
+.batchScopeItems .batchScopeBoundary {
+  color: var(--lr-ink);
+  font-size: 12px;
 }
 
 .batchScopeItems small,

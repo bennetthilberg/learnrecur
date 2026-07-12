@@ -39,6 +39,7 @@ import {
 } from "@/lib/materials/contracts";
 import {
   annotateMaterialPlanOverlaps,
+  expandPlanningChunkNeighbors,
   generateVerifiedMaterialDraft,
   recoverBackMatterMaterialScope,
   resolveStructuralMaterialScope,
@@ -55,7 +56,10 @@ import {
   loadLocalizedMaterialEvidence,
   type MaterialOcrGenerator,
 } from "@/lib/materials/evidence";
-import { materialPageEvidenceId } from "@/lib/materials/evidence-ids";
+import {
+  materialPageEvidenceId,
+  parseMaterialPageEvidenceId,
+} from "@/lib/materials/evidence-ids";
 import { createIdempotentDraftBatch } from "@/lib/materials/lifecycle";
 import {
   searchMaterialChunks,
@@ -315,6 +319,12 @@ export async function confirmMaterialPlan(input: {
             overlapSkillId: item.overlapSkillId ?? null,
             errorCode: item.overlapSkillId ? "EXACT_DUPLICATE" : null,
             errorMessage: item.overlapWarning ?? null,
+            generationMetadata: {
+              scopeBoundaries: {
+                includeConcepts: item.includeConcepts ?? [],
+                excludeConcepts: item.excludeConcepts ?? [],
+              },
+            },
           },
         }),
       );
@@ -425,6 +435,7 @@ export async function runMaterialDraftItemJob(input: {
       proposedTitle: true,
       proposedObjective: true,
       locator: true,
+      generationMetadata: true,
       skillId: true,
       skill: { select: { id: true } },
       batch: {
@@ -560,8 +571,13 @@ export async function runMaterialDraftItemJob(input: {
       });
     }
     const ai = input.aiSetup ?? resolveMaterialDraftAiSetup();
+    const scopeBoundaries = readScopeBoundaries(item.generationMetadata);
     const generated = await generateVerifiedMaterialDraft({
-      target: { title: item.proposedTitle, objective: item.proposedObjective },
+      target: {
+        title: item.proposedTitle,
+        objective: item.proposedObjective,
+        ...scopeBoundaries,
+      },
       materialTitle: item.batch.materialRevision.material.title,
       evidenceText,
       sourceMedia: localizedEvidence.sourceMedia.map((media) => ({
@@ -598,6 +614,9 @@ export async function runMaterialDraftItemJob(input: {
           model: ai.model,
           verification: "rejected",
           attemptsThisRun: generated.attempts,
+          scopeBoundaries,
+          recovery: generated.recovery ?? "clarify_scope",
+          reasons: generated.reasons ?? [],
         },
       });
       if (!marked) {
@@ -678,6 +697,7 @@ export async function runMaterialDraftItemJob(input: {
               model: ai.model,
               verification: "verified",
               duplicatePrevented: true,
+              scopeBoundaries,
             },
           },
         });
@@ -718,6 +738,7 @@ export async function runMaterialDraftItemJob(input: {
             model: ai.model,
             verification: "verified",
             attemptsThisRun: generated.attempts,
+            scopeBoundaries,
           },
         },
       });
@@ -2096,7 +2117,7 @@ async function planExistingMaterialBatch(input: {
       sections: allowedSections,
       chunks,
     });
-    const validation = validateMaterialScopePlannerResponse({
+    let validation = validateMaterialScopePlannerResponse({
       materialRevisionId: batch.materialRevisionId,
       instruction: batch.instruction,
       kind: batch.materialRevision.material.kind,
@@ -2104,6 +2125,29 @@ async function planExistingMaterialBatch(input: {
       allowedChunks: chunks,
       rawResponse: rawPlan,
     });
+    if (
+      validation.status === "ready" &&
+      validation.plan.resolutionStatus === "resolved" &&
+      ai.reviewScope
+    ) {
+      const reviewedPlan = await ai.reviewScope({
+        materialTitle: batch.materialRevision.material.title,
+        materialKind: batch.materialRevision.material.kind,
+        instruction: batch.instruction,
+        structuralReferences: planningStructural.references,
+        sections: allowedSections,
+        chunks,
+        candidatePlan: validation.plan,
+      });
+      validation = validateMaterialScopePlannerResponse({
+        materialRevisionId: batch.materialRevisionId,
+        instruction: batch.instruction,
+        kind: batch.materialRevision.material.kind,
+        allowedSections,
+        allowedChunks: chunks,
+        rawResponse: reviewedPlan,
+      });
+    }
     if (validation.status !== "ready") {
       const markedFailed = await markMaterialBatchPlanningFailed({
         userId: input.userId,
@@ -2222,6 +2266,43 @@ async function retrievePlanningChunks(input: {
     ...ranked.slice(0, Math.max(0, 48 - reservedOcrChunks.length)),
     ...reservedOcrChunks,
   ]).slice(0, 48);
+  const persistedRanked = ranked.filter(
+    (chunk) => chunk.materialSectionId !== null && !parseMaterialPageEvidenceId(chunk.id),
+  );
+  if (persistedRanked.length > 0) {
+    const neighboringRows = await prisma.materialChunk.findMany({
+      where: {
+        userId: input.userId,
+        materialRevisionId: input.materialRevisionId,
+        OR: persistedRanked.map((chunk) => ({
+          materialSectionId: chunk.materialSectionId,
+          ordinal: { gte: Math.max(0, chunk.ordinal - 1), lte: chunk.ordinal + 1 },
+        })),
+      },
+      orderBy: [{ materialSectionId: "asc" }, { ordinal: "asc" }],
+      select: {
+        id: true,
+        materialRevisionId: true,
+        materialSectionId: true,
+        sourceFileId: true,
+        ordinal: true,
+        text: true,
+        tokenEstimate: true,
+        locator: true,
+        headingText: true,
+      },
+    });
+    const neighboringChunks = neighboringRows.map((chunk) => ({
+      ...chunk,
+      vectorScore: 0,
+      lexicalScore: 0,
+      score: 0,
+    }));
+    ranked = uniqueById([
+      ...expandPlanningChunkNeighbors(persistedRanked, neighboringChunks, 48),
+      ...ranked,
+    ]).slice(0, 48);
+  }
   const firstBySection = await prisma.$queryRaw<MaterialChunkSearchResult[]>`
     WITH section_chunks AS (
       SELECT
@@ -2450,6 +2531,28 @@ function planningLexicalScore(query: string, text: string) {
   }
   const textTerms = new Set(normalizeComparableText(text).split(" "));
   return [...terms].filter((term) => textTerms.has(term)).length / terms.size;
+}
+
+function readScopeBoundaries(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return { includeConcepts: [] as string[], excludeConcepts: [] as string[] };
+  }
+  const boundaries = (value as { scopeBoundaries?: unknown }).scopeBoundaries;
+  if (!boundaries || typeof boundaries !== "object" || Array.isArray(boundaries)) {
+    return { includeConcepts: [] as string[], excludeConcepts: [] as string[] };
+  }
+  const record = boundaries as {
+    includeConcepts?: unknown;
+    excludeConcepts?: unknown;
+  };
+  const readConcepts = (concepts: unknown) =>
+    Array.isArray(concepts)
+      ? concepts.filter((concept): concept is string => typeof concept === "string")
+      : [];
+  return {
+    includeConcepts: readConcepts(record.includeConcepts),
+    excludeConcepts: readConcepts(record.excludeConcepts),
+  };
 }
 
 async function saveProposedMaterialPlan(input: {

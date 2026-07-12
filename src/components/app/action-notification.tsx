@@ -8,7 +8,7 @@ type ActionNotificationProps = {
   id: string;
   message?: string | null;
   title: string;
-  tone?: "error" | "success";
+  tone?: "error" | "success" | "warning";
 };
 
 export function ActionNotification({
@@ -22,16 +22,16 @@ export function ActionNotification({
       return;
     }
 
-    const isError = tone === "error";
+    const isSuccess = tone === "success";
     notifications.show({
       id,
-      autoClose: isError ? 8000 : 5000,
+      autoClose: isSuccess ? 5000 : 8000,
       className: "learnrecurNotification",
-      color: isError ? "red" : "leaf",
-      icon: isError ? (
-        <WarningCircle size={18} weight="bold" />
-      ) : (
+      color: isSuccess ? "leaf" : tone === "warning" ? "orange" : "red",
+      icon: isSuccess ? (
         <CheckCircle size={18} weight="bold" />
+      ) : (
+        <WarningCircle size={18} weight="bold" />
       ),
       message,
       position: "top-right",

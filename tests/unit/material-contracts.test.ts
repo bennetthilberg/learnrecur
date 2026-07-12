@@ -112,6 +112,8 @@ describe("material contracts", () => {
       key: "chapter-4-concept-1",
       title: "Spanish direct object pronouns",
       objective: "Choose and place direct object pronouns in short sentences.",
+      includeConcepts: ["direct object pronoun selection", "pronoun placement"],
+      excludeConcepts: ["indirect object pronouns"],
       materialSectionIds: ["section_4_1"],
       evidenceChunkIds: ["chunk_1"],
       locator: {
@@ -134,6 +136,10 @@ describe("material contracts", () => {
     });
 
     expect(plan.items).toHaveLength(1);
+    expect(plan.items[0]).toMatchObject({
+      includeConcepts: ["direct object pronoun selection", "pronoun placement"],
+      excludeConcepts: ["indirect object pronouns"],
+    });
 
     expect(() =>
       materialScopePlanSchema.parse({
@@ -182,6 +188,12 @@ describe("material contracts", () => {
       materialScopeResolutionSchema.parse({
         ...baseResolution,
         clarification: "Which chapter titled Chapter four did you mean?",
+        clarificationOptions: [
+          {
+            label: "Use the first chapter",
+            instruction: "Create skills from the first chapter titled Chapter four.",
+          },
+        ],
       }).clarification,
     ).toMatch(/which chapter/i);
 

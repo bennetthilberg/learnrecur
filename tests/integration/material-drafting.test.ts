@@ -326,6 +326,79 @@ describeDatabase("material multi-skill drafting", () => {
     ).rejects.toThrow();
   });
 
+  it("preflights a narrow proposal against the original request before confirmation", async () => {
+    const planScope = vi.fn(async () => ({
+      resolutionStatus: "resolved",
+      resolvedScopeLabel: "Chapter 4 object pronouns",
+      clarification: null,
+      warnings: [],
+      items: [
+        {
+          key: "direct-pronouns",
+          title: "Direct object pronouns",
+          objective: "Choose a direct object pronoun for one noun in a Spanish sentence.",
+          materialSectionIds: [directSectionId],
+          evidenceChunkIds: [directChunkId],
+        },
+      ],
+    }));
+    const reviewScope = vi.fn(async () => ({
+      resolutionStatus: "resolved",
+      resolvedScopeLabel: "Chapter 4 direct and indirect object pronouns",
+      clarification: null,
+      warnings: [],
+      items: [
+        {
+          key: "direct-pronouns",
+          title: "Direct object pronouns",
+          objective: "Choose a direct object pronoun for one noun in a Spanish sentence.",
+          includeConcepts: ["direct object pronoun selection"],
+          excludeConcepts: ["indirect object pronouns"],
+          materialSectionIds: [directSectionId],
+          evidenceChunkIds: [directChunkId],
+        },
+        {
+          key: "indirect-pronouns",
+          title: "Indirect object pronouns",
+          objective: "Choose an indirect object pronoun for a recipient in a Spanish sentence.",
+          includeConcepts: ["indirect object pronoun selection"],
+          excludeConcepts: ["direct object pronouns"],
+          materialSectionIds: [indirectSectionId],
+          evidenceChunkIds: [indirectChunkId],
+        },
+      ],
+    }));
+
+    const result = await planMaterialSkills({
+      userId,
+      input: {
+        materialId,
+        materialRevisionId,
+        instruction: "Make skills for the object pronouns in chapter four.",
+        idempotencyKey: `${runId}_scope_preflight`,
+      },
+      now: new Date(),
+      aiSetup: createAiSetup({ planScope, reviewScope }),
+      embeddingGenerator: null,
+    });
+
+    expect(result).toMatchObject({
+      status: "planned",
+      plan: {
+        items: [
+          { key: "direct-pronouns", excludeConcepts: ["indirect object pronouns"] },
+          { key: "indirect-pronouns", excludeConcepts: ["direct object pronouns"] },
+        ],
+      },
+    });
+    expect(reviewScope).toHaveBeenCalledWith(
+      expect.objectContaining({
+        instruction: "Make skills for the object pronouns in chapter four.",
+        candidatePlan: expect.objectContaining({ items: [expect.any(Object)] }),
+      }),
+    );
+  });
+
   it("requires clarification without calling the semantic planner when a chapter is absent", async () => {
     const planScope = vi.fn(async () => {
       throw new Error("semantic planner should not run");
@@ -2432,6 +2505,7 @@ function pdfLocator(input: {
 
 function createAiSetup(input: {
   planScope?: MaterialDraftAiSetup["planScope"];
+  reviewScope?: MaterialDraftAiSetup["reviewScope"];
   rejectTitle?: string;
 } = {}): MaterialDraftAiSetup {
   return {
@@ -2445,6 +2519,7 @@ function createAiSetup(input: {
         warnings: [],
         items: [],
       })),
+    ...(input.reviewScope ? { reviewScope: input.reviewScope } : {}),
     async generateDraft(draftInput) {
       const title = draftInput.focusNote?.match(/Create exactly this target: ([^.]+(?:\.)?)/)?.[1]
         ?.replace(/\.$/, "")
