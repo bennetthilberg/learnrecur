@@ -44,6 +44,18 @@ export function getMaterialDraftItemErrorMessage(
   return errorMessage;
 }
 
+export function getMaterialBatchActivationCopy(readyCount: number) {
+  return readyCount === 1
+    ? {
+        countLabel: "1 skill ready to add",
+        actionLabel: "Add one skill",
+      }
+    : {
+        countLabel: `${readyCount} skills ready to add`,
+        actionLabel: `Add all ${readyCount}`,
+      };
+}
+
 export function getMaterialAvailabilityMessage(input: {
   status: MaterialRevisionStatus;
   stalled: boolean;

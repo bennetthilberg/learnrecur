@@ -2,6 +2,7 @@ import { MaterialRevisionStatus } from "@/generated/prisma/client";
 import { describe, expect, it } from "vitest";
 
 import {
+  getMaterialBatchActivationCopy,
   getMaterialDraftItemErrorMessage,
   getMaterialAvailabilityMessage,
   getPublicMaterialActionErrorMessage,
@@ -111,5 +112,15 @@ describe("material draft item error messages", () => {
         "The draft could not be verified.",
       ),
     ).toBe("The draft could not be verified.");
+  });
+});
+
+describe("material batch activation copy", () => {
+  it.each([
+    [1, { actionLabel: "Add one skill", countLabel: "1 skill ready to add" }],
+    [2, { actionLabel: "Add all 2", countLabel: "2 skills ready to add" }],
+    [10, { actionLabel: "Add all 10", countLabel: "10 skills ready to add" }],
+  ])("uses grammatical copy for %i ready skills", (readyCount, expected) => {
+    expect(getMaterialBatchActivationCopy(readyCount)).toEqual(expected);
   });
 });

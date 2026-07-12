@@ -19,7 +19,16 @@ describe("material batch presentation", () => {
       /\.batchShell \.materialHeader\s*\{[^}]*max-width:\s*1120px;/s,
     );
     expect(styles).toMatch(
-      /\.batchScopeLayout\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+400px;/s,
+      /\.batchScopeLayout\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+420px;/s,
+    );
+    expect(styles).toMatch(
+      /@media\s*\(min-width:\s*1120px\)\s*\{[\s\S]*?\.batchShell \.materialHeader,[\s\S]*?\.batchTopMessage\s*\{[^}]*width:\s*calc\(100%\s*-\s*68px\);/,
+    );
+  });
+
+  it("removes inherited card margins inside batch-owned layouts", () => {
+    expect(styles).toMatch(
+      /\.batchScopeLayout\s*>\s*\.skillPanel,\s*\.batchDraftList\s*>\s*\.skillPanel\s*\{[^}]*width:\s*auto;[^}]*max-width:\s*none;[^}]*margin:\s*0;/s,
     );
   });
 

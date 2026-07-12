@@ -19,6 +19,7 @@ import {
   type MaterialScopeResolution,
 } from "@/lib/materials/contracts";
 import {
+  getMaterialBatchActivationCopy,
   getMaterialDraftItemErrorMessage,
   getPublicMaterialActionErrorMessage,
 } from "@/lib/materials/presentation";
@@ -233,6 +234,7 @@ function DraftBatchReview({
   const readyItems = batch.items.filter(
     (item) => item.status === "READY" && item.skill?.status === "DRAFT",
   );
+  const activationCopy = getMaterialBatchActivationCopy(readyItems.length);
   const activationFailureCount = batch.items.filter(
     (item) => item.status === "FAILED" && item.errorCode?.startsWith("ACTIVATION_"),
   ).length;
@@ -287,7 +289,7 @@ function DraftBatchReview({
       {readyItems.length > 0 && !generating ? (
         <form action={activateMaterialBatchAction} className="batchActivationBar">
           <div>
-            <span>{readyItems.length} ready to add</span>
+            <span>{activationCopy.countLabel}</span>
             <strong>Start practice without opening every draft</strong>
             <p>Excluded drafts stay out. Each ready skill activates on its own in the background.</p>
           </div>
@@ -296,7 +298,7 @@ function DraftBatchReview({
             <input key={item.id} name="itemId" type="hidden" value={item.id} />
           ))}
           <BatchSubmitButton>
-            Add all {readyItems.length}
+            {activationCopy.actionLabel}
           </BatchSubmitButton>
         </form>
       ) : null}

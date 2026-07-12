@@ -8,6 +8,7 @@ import {
 import {
   annotateMaterialPlanOverlaps,
   generateVerifiedMaterialDraft,
+  recoverBackMatterMaterialScope,
   resolveStructuralMaterialScope,
   summarizeMaterialDraftBatch,
   validateMaterialScopePlannerResponse,
@@ -147,6 +148,252 @@ describe("material scope planning", () => {
 
     expect(result.candidateSectionIds).toEqual([]);
     expect(result.missingReferences).toEqual(["chapter nine"]);
+  });
+
+  it("recovers instructional chapter evidence when the literal chapter match is an answer key", async () => {
+    const chapterSections = [
+      {
+        id: "lesson-i",
+        parentId: null,
+        ordinal: 0,
+        level: 1,
+        title: "lesson i",
+        pageStart: 136,
+        pageEnd: 175,
+        url: null,
+        anchor: null,
+      },
+      {
+        id: "answer-key-chapter-9",
+        parentId: null,
+        ordinal: 1,
+        level: 1,
+        title: "Chapter 9 Negatives and Prepositions 9",
+        pageStart: 595,
+        pageEnd: 596,
+        url: null,
+        anchor: null,
+      },
+      {
+        id: "front-matter",
+        parentId: null,
+        ordinal: 2,
+        level: 1,
+        title: "Front matter",
+        pageStart: 1,
+        pageEnd: 16,
+        url: null,
+        anchor: null,
+      },
+    ];
+    const answerKeyChunks = [
+      {
+        id: "answer-key-595",
+        materialSectionId: "answer-key-chapter-9",
+        headingText: "Chapter 9 Negatives and Prepositions 9",
+        text: "Answer Key 569 Chapter 9 Negatives and Prepositions 9.1 no aprendemos nada.",
+        locator: { kind: "pdf", pageRange: { start: 595, end: 595 } },
+      },
+      {
+        id: "answer-key-596",
+        materialSectionId: "answer-key-chapter-9",
+        headingText: "Chapter 9 Negatives and Prepositions 9",
+        text: "9.3 Answers will vary. 570 Answer Key 9.4 conmigo 9.5 Antes del almuerzo.",
+        locator: { kind: "pdf", pageRange: { start: 596, end: 596 } },
+      },
+      {
+        id: "answer-key-continuation",
+        materialSectionId: "answer-key-chapter-9",
+        headingText: "Chapter 9 Negatives and Prepositions 9",
+        text: "9.10 Antes de cantar. Después de descansar. Para llegar. Sin escuchar.",
+        locator: { kind: "pdf", pageRange: { start: 596, end: 596 } },
+      },
+    ];
+    const revisionChunks = [
+      {
+        id: "toc",
+        materialSectionId: "front-matter",
+        headingText: "Front matter",
+        text: "Contents 9 Negatives and Prepositions 125",
+        locator: { kind: "pdf", pageRange: { start: 10, end: 10 } },
+      },
+      {
+        id: "chapter-9-negatives",
+        materialSectionId: "lesson-i",
+        headingText: "lesson i",
+        text: "Negatives and Prepositions. You make a sentence negative by placing no before the first verb.",
+        locator: { kind: "pdf", pageRange: { start: 151, end: 153 } },
+      },
+      {
+        id: "chapter-9-prepositions",
+        materialSectionId: "lesson-i",
+        headingText: "lesson i",
+        text: "Negatives and Prepositions. Pronouns that follow prepositions include mí, ti, and él.",
+        locator: { kind: "pdf", pageRange: { start: 158, end: 161 } },
+      },
+      ...answerKeyChunks,
+    ];
+    const retrieveRevisionChunks = vi.fn().mockResolvedValue(revisionChunks);
+    const recoveredSectionChunks = [
+      revisionChunks[1],
+      revisionChunks[2],
+      {
+        id: "chapter-9-por-para",
+        materialSectionId: "lesson-i",
+        headingText: "lesson i",
+        text: "Use por for exchange, duration, and movement through a place; use para for purpose.",
+        locator: { kind: "pdf", pageRange: { start: 162, end: 166 } },
+      },
+    ];
+    const retrieveSectionChunks = vi.fn().mockResolvedValue(recoveredSectionChunks);
+
+    const recovered = await recoverBackMatterMaterialScope({
+      sections: chapterSections,
+      sectionIds: ["answer-key-chapter-9"],
+      chunks: answerKeyChunks,
+      retrieveRevisionChunks,
+      retrieveSectionChunks,
+    });
+
+    expect(retrieveRevisionChunks).toHaveBeenCalledWith({
+      query: "negatives prepositions",
+      titleTerms: ["negatives", "prepositions"],
+    });
+    expect(retrieveSectionChunks).toHaveBeenCalledWith({
+      sectionIds: ["lesson-i"],
+      anchorChunkIds: ["chapter-9-negatives", "chapter-9-prepositions"],
+    });
+    expect(recovered).toMatchObject({
+      status: "recovered",
+      sectionIds: ["lesson-i"],
+      chunks: [
+        { id: "chapter-9-negatives" },
+        { id: "chapter-9-prepositions" },
+        { id: "chapter-9-por-para" },
+      ],
+    });
+    if (recovered.status !== "recovered") {
+      throw new Error("expected instructional chapter recovery");
+    }
+
+    const validated = validateMaterialScopePlannerResponse({
+      materialRevisionId: "revision-1",
+      instruction: "Create skills for the concepts in chapter 9",
+      kind: "PDF",
+      allowedSections: chapterSections.filter((section) =>
+        recovered.sectionIds.includes(section.id),
+      ),
+      allowedChunks: recovered.chunks,
+      rawResponse: {
+        resolutionStatus: "resolved",
+        resolvedScopeLabel: "Chapter 9 concepts",
+        clarification: null,
+        warnings: [],
+        items: [
+          {
+            key: "negative-sentences",
+            title: "Formulating Spanish negative sentences",
+            objective: "Place Spanish negative words correctly in short declarative sentences.",
+            materialSectionIds: ["lesson-i"],
+            evidenceChunkIds: ["chapter-9-negatives"],
+          },
+        ],
+      },
+    });
+    expect(validated).toMatchObject({
+      status: "ready",
+      plan: {
+        items: [
+          {
+            locator: {
+              materialSectionIds: ["lesson-i"],
+              evidenceChunkIds: ["chapter-9-negatives"],
+              source: { kind: "pdf", pageRanges: [{ start: 151, end: 153 }] },
+            },
+          },
+        ],
+      },
+    });
+  });
+
+  it("fails closed when answer-key evidence has no confident instructional recovery", async () => {
+    const answerSection = {
+      id: "answer-key-chapter-9",
+      parentId: null,
+      ordinal: 0,
+      level: 1,
+      title: "Chapter 9 Negatives and Prepositions 9",
+      pageStart: 595,
+      pageEnd: 596,
+      url: null,
+      anchor: null,
+    };
+    const answerChunk = {
+      id: "answer-key-595",
+      materialSectionId: answerSection.id,
+      headingText: answerSection.title,
+      text: "Answer Key 569 Chapter 9 Negatives and Prepositions.",
+      locator: { kind: "pdf", pageRange: { start: 595, end: 596 } },
+    };
+
+    const recovered = await recoverBackMatterMaterialScope({
+      sections: [answerSection],
+      sectionIds: [answerSection.id],
+      chunks: [answerChunk],
+      retrieveRevisionChunks: async () => [answerChunk],
+      retrieveSectionChunks: async () => [],
+    });
+
+    expect(recovered).toMatchObject({
+      status: "ambiguous",
+      reason: "no-confident-instructional-match",
+    });
+  });
+
+  it("does not classify a teaching section from one trailing answer-key chunk", async () => {
+    const section = {
+      id: "chapter-9",
+      parentId: null,
+      ordinal: 0,
+      level: 1,
+      title: "Chapter 9 Negatives and Prepositions",
+      pageStart: 151,
+      pageEnd: 175,
+      url: null,
+      anchor: null,
+    };
+    const chunks = [
+      {
+        id: "teaching-1",
+        materialSectionId: section.id,
+        headingText: section.title,
+        text: "Negatives use no before the first conjugated verb.",
+      },
+      {
+        id: "teaching-2",
+        materialSectionId: section.id,
+        headingText: section.title,
+        text: "Pronouns that follow prepositions include mí, ti, and él.",
+      },
+      {
+        id: "trailing-answers",
+        materialSectionId: section.id,
+        headingText: section.title,
+        text: "Answer Key 9.1 no aprendemos nada.",
+      },
+    ];
+    const retrieveRevisionChunks = vi.fn();
+
+    const recovered = await recoverBackMatterMaterialScope({
+      sections: [section],
+      sectionIds: [section.id],
+      chunks,
+      retrieveRevisionChunks,
+      retrieveSectionChunks: vi.fn(),
+    });
+
+    expect(recovered).toMatchObject({ status: "not-needed" });
+    expect(retrieveRevisionChunks).not.toHaveBeenCalled();
   });
 
   it("resolves shared chapter lists and ranges without dropping later chapters", () => {

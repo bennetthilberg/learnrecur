@@ -40,6 +40,7 @@ import {
 import {
   annotateMaterialPlanOverlaps,
   generateVerifiedMaterialDraft,
+  recoverBackMatterMaterialScope,
   resolveStructuralMaterialScope,
   validateMaterialScopePlannerResponse,
   type MaterialPlanningSection,
@@ -1997,7 +1998,7 @@ async function planExistingMaterialBatch(input: {
         });
       }
     }
-    const chunks = await retrievePlanningChunks({
+    let chunks = await retrievePlanningChunks({
       userId: input.userId,
       materialRevisionId: batch.materialRevisionId,
       instruction: batch.instruction,
@@ -2029,15 +2030,69 @@ async function planExistingMaterialBatch(input: {
         expectedUpdatedAt: batch.updatedAt,
       });
     }
+    const recoveredScope = await recoverBackMatterMaterialScope({
+      sections,
+      sectionIds: structural.candidateSectionIds,
+      chunks,
+      retrieveRevisionChunks: ({ query }) =>
+        retrieveBackMatterRecoveryCandidates({
+          userId: input.userId,
+          materialRevisionId: batch.materialRevisionId,
+          query,
+        }),
+      retrieveSectionChunks: ({ sectionIds, anchorChunkIds }) =>
+        retrieveMaterialSectionChunks({
+          userId: input.userId,
+          materialRevisionId: batch.materialRevisionId,
+          sectionIds,
+          anchorChunkIds,
+        }),
+    });
+    if (recoveredScope.status === "ambiguous") {
+      const plan = materialScopeResolutionSchema.parse({
+        version: 1,
+        materialRevisionId: batch.materialRevisionId,
+        instruction: batch.instruction,
+        resolutionStatus: "ambiguous",
+        resolvedScopeLabel:
+          "The requested chapter was found only in answer-key or back-matter pages.",
+        warnings: ["LearnRecur could not confidently locate the instructional chapter."],
+        clarification:
+          "Choose the instructional page range or name a more specific section from the material.",
+        items: [],
+      });
+      return saveProposedMaterialPlan({
+        batchId: batch.id,
+        userId: input.userId,
+        plan,
+        model: null,
+        structural,
+        now: input.now,
+        expectedInstruction: batch.instruction,
+        expectedUpdatedAt: batch.updatedAt,
+      });
+    }
+    const planningSectionIds = recoveredScope.sectionIds;
+    chunks = recoveredScope.chunks;
+    const planningStructural = recoveredScope.status === "recovered"
+      ? {
+          ...structural,
+          references: structural.references.map((reference) => ({
+            ...reference,
+            sectionIds: planningSectionIds,
+          })),
+          candidateSectionIds: planningSectionIds,
+        }
+      : structural;
     const ai = input.aiSetup ?? resolveMaterialDraftAiSetup();
     const allowedSections = sections.filter((section) =>
-      structural.candidateSectionIds.includes(section.id),
+      planningSectionIds.includes(section.id),
     );
     const rawPlan = await ai.planScope({
       materialTitle: batch.materialRevision.material.title,
       materialKind: batch.materialRevision.material.kind,
       instruction: batch.instruction,
-      structuralReferences: structural.references,
+      structuralReferences: planningStructural.references,
       sections: allowedSections,
       chunks,
     });
@@ -2085,7 +2140,7 @@ async function planExistingMaterialBatch(input: {
       userId: input.userId,
       plan,
       model: ai.model,
-      structural,
+      structural: planningStructural,
       now: input.now,
       expectedInstruction: batch.instruction,
       expectedUpdatedAt: batch.updatedAt,
@@ -2233,6 +2288,88 @@ async function retrievePlanningChunks(input: {
     ...rankedChunks.slice(0, rankedSlots),
     ...uncoveredSectionFallbacks.slice(0, fallbackSlots),
   ]);
+}
+
+async function retrieveBackMatterRecoveryCandidates(input: {
+  userId: string;
+  materialRevisionId: string;
+  query: string;
+}) {
+  return (
+    await searchMaterialChunksLexical({
+      userId: input.userId,
+      materialRevisionId: input.materialRevisionId,
+      query: input.query,
+      limit: 48,
+    })
+  ).filter((chunk) => chunk.lexicalScore > 0);
+}
+
+async function retrieveMaterialSectionChunks(input: {
+  userId: string;
+  materialRevisionId: string;
+  sectionIds: string[];
+  anchorChunkIds: string[];
+}): Promise<MaterialChunkSearchResult[]> {
+  if (input.sectionIds.length === 0 || input.anchorChunkIds.length === 0) {
+    return [];
+  }
+  const prisma = getPrisma();
+  const anchors = await prisma.materialChunk.findMany({
+    where: {
+      userId: input.userId,
+      materialRevisionId: input.materialRevisionId,
+      materialSectionId: { in: input.sectionIds },
+      id: { in: input.anchorChunkIds },
+    },
+    select: { materialSectionId: true, ordinal: true },
+  });
+  const minimumOrdinalBySection = new Map<string, number>();
+  for (const anchor of anchors) {
+    if (!anchor.materialSectionId) {
+      continue;
+    }
+    const current = minimumOrdinalBySection.get(anchor.materialSectionId);
+    minimumOrdinalBySection.set(
+      anchor.materialSectionId,
+      current === undefined ? anchor.ordinal : Math.min(current, anchor.ordinal),
+    );
+  }
+  const sectionWindows = input.sectionIds.flatMap((sectionId) => {
+    const minimumOrdinal = minimumOrdinalBySection.get(sectionId);
+    return minimumOrdinal === undefined
+      ? []
+      : [{ materialSectionId: sectionId, ordinal: { gte: minimumOrdinal } }];
+  });
+  if (sectionWindows.length === 0) {
+    return [];
+  }
+  const chunks = await prisma.materialChunk.findMany({
+    where: {
+      userId: input.userId,
+      materialRevisionId: input.materialRevisionId,
+      OR: sectionWindows,
+    },
+    orderBy: { ordinal: "asc" },
+    take: PLANNING_CHUNK_LIMIT,
+    select: {
+      id: true,
+      materialRevisionId: true,
+      materialSectionId: true,
+      sourceFileId: true,
+      ordinal: true,
+      text: true,
+      tokenEstimate: true,
+      locator: true,
+      headingText: true,
+    },
+  });
+  return chunks.map((chunk) => ({
+    ...chunk,
+    vectorScore: 0,
+    lexicalScore: 0,
+    score: 0,
+  }));
 }
 
 async function retrieveOcrPlanningChunks(input: {

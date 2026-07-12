@@ -34,6 +34,31 @@ export type MaterialPlanningChunk = {
   locator?: unknown;
 };
 
+export type MaterialPlanningEvidenceChunk = MaterialPlanningChunk & {
+  text: string;
+  headingText: string | null;
+};
+
+export type BackMatterMaterialScopeRecovery<T extends MaterialPlanningEvidenceChunk> =
+  | {
+      status: "not-needed";
+      sectionIds: string[];
+      chunks: T[];
+    }
+  | {
+      status: "recovered";
+      query: string;
+      titleTerms: string[];
+      sectionIds: string[];
+      chunks: T[];
+    }
+  | {
+      status: "ambiguous";
+      reason: "no-canonical-title" | "no-confident-instructional-match";
+      query: string | null;
+      titleTerms: string[];
+    };
+
 export type StructuralMaterialReference = {
   kind: "chapter" | "unit" | "part" | "lesson" | "module";
   number: number;
@@ -95,6 +120,192 @@ const numberWords = new Map<string, number>([
   ["nineteen", 19],
   ["twenty", 20],
 ]);
+
+const structuralTitleStopWords = new Set([
+  "a",
+  "an",
+  "and",
+  "answer",
+  "answers",
+  "chapter",
+  "for",
+  "in",
+  "key",
+  "lesson",
+  "module",
+  "of",
+  "part",
+  "solution",
+  "solutions",
+  "the",
+  "to",
+  "unit",
+  ...numberWords.keys(),
+]);
+
+const backMatterHeadingPattern =
+  /\b(?:answer\s+key|answers?\s+will\s+vary|solutions?|front\s+matter|table\s+of\s+contents|contents|index|glossary|bibliography|references)\b/iu;
+
+export async function recoverBackMatterMaterialScope<
+  T extends MaterialPlanningEvidenceChunk,
+>(input: {
+  sections: readonly MaterialPlanningSection[];
+  sectionIds: readonly string[];
+  chunks: readonly T[];
+  retrieveRevisionChunks: (input: {
+    query: string;
+    titleTerms: string[];
+  }) => Promise<readonly T[]>;
+  retrieveSectionChunks: (input: {
+    sectionIds: string[];
+    anchorChunkIds: string[];
+  }) => Promise<readonly T[]>;
+}): Promise<BackMatterMaterialScopeRecovery<T>> {
+  const evidenceSectionIds = new Set(
+    input.chunks.flatMap((chunk) =>
+      chunk.materialSectionId ? [chunk.materialSectionId] : [],
+    ),
+  );
+  const backMatterSectionIds = new Set(
+    input.sections.flatMap((section) =>
+      input.sectionIds.includes(section.id) && isLikelyBackMatterHeading(section.title)
+        ? [section.id]
+        : [],
+    ),
+  );
+  const evidenceCountBySection = new Map<string, { total: number; marked: number }>();
+  for (const chunk of input.chunks) {
+    if (!chunk.materialSectionId) {
+      continue;
+    }
+    const counts = evidenceCountBySection.get(chunk.materialSectionId) ?? {
+      total: 0,
+      marked: 0,
+    };
+    counts.total += 1;
+    if (isLikelyBackMatterEvidence(chunk)) {
+      counts.marked += 1;
+    }
+    evidenceCountBySection.set(chunk.materialSectionId, counts);
+  }
+  for (const [sectionId, counts] of evidenceCountBySection) {
+    if (counts.marked > counts.total / 2) {
+      backMatterSectionIds.add(sectionId);
+    }
+  }
+  const selectedEvidenceIsBackMatter =
+    evidenceSectionIds.size > 0 &&
+    [...evidenceSectionIds].every((sectionId) => backMatterSectionIds.has(sectionId));
+  if (input.chunks.length === 0 || !selectedEvidenceIsBackMatter) {
+    return {
+      status: "not-needed",
+      sectionIds: [...input.sectionIds],
+      chunks: [...input.chunks],
+    };
+  }
+
+  const originalSectionIds = new Set(input.sectionIds);
+  const titleCandidates = input.sections
+    .filter((section) => originalSectionIds.has(section.id))
+    .map((section) => ({
+      ordinal: section.ordinal,
+      terms: canonicalStructuralTitleTerms(section.title),
+    }))
+    .filter((candidate) => candidate.terms.length > 0)
+    .sort(
+      (left, right) =>
+        right.terms.length - left.terms.length || left.ordinal - right.ordinal,
+    );
+  const titleTerms = titleCandidates[0]?.terms ?? [];
+  if (!isConfidentCanonicalTitle(titleTerms)) {
+    return {
+      status: "ambiguous",
+      reason: "no-canonical-title",
+      query: null,
+      titleTerms,
+    };
+  }
+
+  const query = titleTerms.join(" ");
+  const knownSectionIds = new Set(input.sections.map((section) => section.id));
+  const retrieved = uniqueById(
+    await input.retrieveRevisionChunks({ query, titleTerms }),
+  ).filter(
+    (chunk) =>
+      chunk.materialSectionId !== null &&
+      knownSectionIds.has(chunk.materialSectionId) &&
+      !originalSectionIds.has(chunk.materialSectionId) &&
+      !isLikelyBackMatterEvidence(chunk) &&
+      evidenceContainsTitleTerms(chunk, titleTerms),
+  );
+  const chunksBySection = new Map<string, T[]>();
+  for (const chunk of retrieved) {
+    const sectionId = chunk.materialSectionId;
+    if (!sectionId) {
+      continue;
+    }
+    const sectionChunks = chunksBySection.get(sectionId) ?? [];
+    sectionChunks.push(chunk);
+    chunksBySection.set(sectionId, sectionChunks);
+  }
+  const confidentSectionIds = new Set(
+    [...chunksBySection.entries()].flatMap(([sectionId, chunks]) =>
+      chunks.length >= 2 || chunks.some((chunk) => titleAppearsNearEvidenceStart(chunk, titleTerms))
+        ? [sectionId]
+        : [],
+    ),
+  );
+  if (confidentSectionIds.size === 0) {
+    return {
+      status: "ambiguous",
+      reason: "no-confident-instructional-match",
+      query,
+      titleTerms,
+    };
+  }
+
+  const sectionIds = input.sections
+    .filter((section) => confidentSectionIds.has(section.id))
+    .sort((left, right) => left.ordinal - right.ordinal || left.id.localeCompare(right.id))
+    .map((section) => section.id);
+  const anchorChunkIds = sectionIds.flatMap((sectionId) => {
+    const sectionMatches = retrieved.filter(
+      (chunk) => chunk.materialSectionId === sectionId,
+    );
+    const openingMatches = sectionMatches.filter((chunk) =>
+      titleAppearsNearEvidenceStart(chunk, titleTerms),
+    );
+    return (openingMatches.length > 0 ? openingMatches : sectionMatches).map(
+      (chunk) => chunk.id,
+    );
+  });
+  const recoveredSectionChunks = uniqueById(
+    await input.retrieveSectionChunks({
+      sectionIds,
+      anchorChunkIds,
+    }),
+  ).filter(
+    (chunk) =>
+      chunk.materialSectionId !== null &&
+      confidentSectionIds.has(chunk.materialSectionId) &&
+      !isLikelyBackMatterEvidence(chunk),
+  );
+  if (recoveredSectionChunks.length === 0) {
+    return {
+      status: "ambiguous",
+      reason: "no-confident-instructional-match",
+      query,
+      titleTerms,
+    };
+  }
+  return {
+    status: "recovered",
+    query,
+    titleTerms,
+    sectionIds,
+    chunks: recoveredSectionChunks,
+  };
+}
 
 export function resolveStructuralMaterialScope(input: {
   instruction: string;
@@ -562,6 +773,59 @@ function outOfScopePlannerResult() {
     reason: "out-of-scope-evidence" as const,
     message: "Gemini cited material outside the structurally resolved scope.",
   };
+}
+
+function canonicalStructuralTitleTerms(value: string) {
+  return unique(
+    normalizeComparableText(value)
+      .split(" ")
+      .filter(
+        (token) =>
+          token.length >= 3 &&
+          !structuralTitleStopWords.has(token) &&
+          !/^\d+$/u.test(token) &&
+          parseRomanNumeral(token) === null,
+      ),
+  );
+}
+
+function isConfidentCanonicalTitle(terms: readonly string[]) {
+  return terms.length >= 2;
+}
+
+function isLikelyBackMatterHeading(value: string) {
+  return backMatterHeadingPattern.test(value.slice(0, 500));
+}
+
+function isLikelyBackMatterEvidence(chunk: MaterialPlanningEvidenceChunk) {
+  return (
+    isLikelyBackMatterHeading(chunk.headingText ?? "") ||
+    backMatterHeadingPattern.test(chunk.text.slice(0, 800))
+  );
+}
+
+function evidenceContainsTitleTerms(
+  chunk: MaterialPlanningEvidenceChunk,
+  titleTerms: readonly string[],
+) {
+  const terms = new Set(
+    normalizeComparableText(`${chunk.headingText ?? ""} ${chunk.text}`).split(" "),
+  );
+  return titleTerms.every((term) => terms.has(term));
+}
+
+function titleAppearsNearEvidenceStart(
+  chunk: MaterialPlanningEvidenceChunk,
+  titleTerms: readonly string[],
+) {
+  const openingTerms = new Set(
+    normalizeComparableText(chunk.text).split(" ").slice(0, 48),
+  );
+  return titleTerms.every((term) => openingTerms.has(term));
+}
+
+function uniqueById<T extends { id: string }>(values: readonly T[]) {
+  return uniqueBy([...values], (value) => value.id);
 }
 
 function normalizeComparableText(value: string) {
