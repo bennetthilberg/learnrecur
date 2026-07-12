@@ -327,21 +327,24 @@ describeDatabase("material multi-skill drafting", () => {
   });
 
   it("preflights a narrow proposal against the original request before confirmation", async () => {
-    const planScope = vi.fn(async () => ({
-      resolutionStatus: "resolved",
-      resolvedScopeLabel: "Chapter 4 object pronouns",
-      clarification: null,
-      warnings: [],
-      items: [
-        {
-          key: "direct-pronouns",
-          title: "Direct object pronouns",
-          objective: "Choose a direct object pronoun for one noun in a Spanish sentence.",
-          materialSectionIds: [directSectionId],
-          evidenceChunkIds: [directChunkId],
-        },
-      ],
-    }));
+    const planScope = vi
+      .fn()
+      .mockResolvedValueOnce({ resolutionStatus: "resolved" })
+      .mockResolvedValueOnce({
+        resolutionStatus: "resolved",
+        resolvedScopeLabel: "Chapter 4 object pronouns",
+        clarification: null,
+        warnings: [],
+        items: [
+          {
+            key: "direct-pronouns",
+            title: "Direct object pronouns",
+            objective: "Choose a direct object pronoun for one noun in a Spanish sentence.",
+            materialSectionIds: [directSectionId],
+            evidenceChunkIds: [directChunkId],
+          },
+        ],
+      });
     const reviewScope = vi.fn(async () => ({
       resolutionStatus: "resolved",
       resolvedScopeLabel: "Chapter 4 direct and indirect object pronouns",
@@ -397,6 +400,7 @@ describeDatabase("material multi-skill drafting", () => {
         candidatePlan: expect.objectContaining({ items: [expect.any(Object)] }),
       }),
     );
+    expect(planScope).toHaveBeenCalledTimes(2);
   });
 
   it("requires clarification without calling the semantic planner when a chapter is absent", async () => {

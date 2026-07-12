@@ -9,6 +9,7 @@ import {
 import {
   annotateMaterialPlanOverlaps,
   expandPlanningChunkNeighbors,
+  generateValidatedMaterialScopePlan,
   generateVerifiedMaterialDraft,
   recoverBackMatterMaterialScope,
   resolveStructuralMaterialScope,
@@ -519,6 +520,88 @@ describe("material scope planning", () => {
         clarification: expect.stringMatching(/specific concept|narrower section/i),
       },
     });
+  });
+
+  it("accepts an empty clarification option list for a resolved scope", () => {
+    const result = validateMaterialScopePlannerResponse({
+      materialRevisionId: "revision-1",
+      instruction: "Make skills for numbers above 20 plus ordinals.",
+      kind: "PDF",
+      allowedSections: sections.slice(0, 1),
+      allowedChunks: [
+        {
+          id: "numbers",
+          materialSectionId: "chapter-4",
+          locator: { kind: "pdf", pageRange: { start: 69, end: 70 } },
+        },
+      ],
+      rawResponse: {
+        resolutionStatus: "resolved",
+        resolvedScopeLabel: "Cardinal and ordinal numbers",
+        clarification: null,
+        clarificationOptions: [],
+        warnings: [],
+        items: [
+          {
+            key: "cardinal-numbers",
+            title: "Writing Spanish cardinal numbers above 20",
+            objective: "Write the Spanish cardinal number forms taught in this section.",
+            includeConcepts: ["cardinal numbers above 20"],
+            excludeConcepts: ["ordinal numbers"],
+            materialSectionIds: ["chapter-4"],
+            evidenceChunkIds: ["numbers"],
+          },
+        ],
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: "ready",
+      plan: {
+        resolutionStatus: "resolved",
+        items: [{ key: "cardinal-numbers" }],
+      },
+    });
+    if (result.status !== "ready") {
+      throw new Error("expected a resolved scope");
+    }
+    expect(result.plan.clarificationOptions).toBeUndefined();
+  });
+
+  it("retries one invalid structured scope response before accepting its replacement", async () => {
+    const generate = vi
+      .fn()
+      .mockResolvedValueOnce({ resolutionStatus: "resolved" })
+      .mockResolvedValueOnce({
+        resolutionStatus: "resolved",
+        resolvedScopeLabel: "Chapter 4 direct object pronouns",
+        clarification: null,
+        clarificationOptions: [],
+        warnings: [],
+        items: [
+          {
+            key: "direct-objects",
+            title: "Direct object pronouns",
+            objective: "Replace a direct object with the correct Spanish pronoun in a sentence.",
+            includeConcepts: ["direct object pronouns"],
+            excludeConcepts: ["indirect object pronouns"],
+            materialSectionIds: ["section-4-1"],
+            evidenceChunkIds: ["chunk-4-1"],
+          },
+        ],
+      });
+
+    const result = await generateValidatedMaterialScopePlan({
+      generate,
+      materialRevisionId: "revision-1",
+      instruction: "Make a skill from chapter four.",
+      kind: "PDF",
+      allowedSections: sections.slice(0, 3),
+      allowedChunks: chunks.slice(0, 2),
+    });
+
+    expect(result).toMatchObject({ status: "ready", attempts: 2 });
+    expect(generate).toHaveBeenCalledTimes(2);
   });
 
   it("marks exact existing skills so confirmation can exclude duplicates", () => {

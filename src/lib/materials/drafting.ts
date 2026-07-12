@@ -104,7 +104,6 @@ const scopePlannerResponseSchema = z.strictObject({
         description: z.string().trim().min(1).max(240).nullable().optional(),
       }),
     )
-    .min(1)
     .max(3)
     .optional(),
   items: z.array(plannerItemSchema).max(MAX_SKILLS_PER_BATCH),
@@ -474,7 +473,8 @@ export function validateMaterialScopePlannerResponse(input: {
     return {
       status: "invalid",
       reason: "invalid-response",
-      message: "Gemini returned an invalid material scope plan.",
+      message:
+        "LearnRecur could not validate the scope response. Your request is saved, so try reviewing the scope again.",
     };
   }
 
@@ -536,7 +536,7 @@ export function validateMaterialScopePlannerResponse(input: {
       : parsed.data.clarification
         ? { clarification: parsed.data.clarification }
         : {}),
-    ...(parsed.data.clarificationOptions
+    ...(parsed.data.clarificationOptions?.length
       ? {
           clarificationOptions: parsed.data.clarificationOptions.map((option) => ({
             label: option.label,
@@ -551,11 +551,37 @@ export function validateMaterialScopePlannerResponse(input: {
     return {
       status: "invalid",
       reason: "invalid-response",
-      message: "Gemini returned an invalid material scope plan.",
+      message:
+        "LearnRecur could not validate the scope response. Your request is saved, so try reviewing the scope again.",
     };
   }
 
   return { status: "ready", plan: planResult.data };
+}
+
+export async function generateValidatedMaterialScopePlan(input: {
+  generate: () => Promise<unknown>;
+  materialRevisionId: string;
+  instruction: string;
+  kind: "PDF" | "WEB";
+  allowedSections: readonly MaterialPlanningSection[];
+  allowedChunks: readonly MaterialPlanningChunk[];
+}) {
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    const validation = validateMaterialScopePlannerResponse({
+      materialRevisionId: input.materialRevisionId,
+      instruction: input.instruction,
+      kind: input.kind,
+      allowedSections: input.allowedSections,
+      allowedChunks: input.allowedChunks,
+      rawResponse: await input.generate(),
+    });
+    if (validation.status === "ready" || attempt === 2) {
+      return { ...validation, attempts: attempt };
+    }
+  }
+
+  throw new Error("Material scope validation ended unexpectedly.");
 }
 
 export function annotateMaterialPlanOverlaps(

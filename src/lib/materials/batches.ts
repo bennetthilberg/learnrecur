@@ -40,10 +40,10 @@ import {
 import {
   annotateMaterialPlanOverlaps,
   expandPlanningChunkNeighbors,
+  generateValidatedMaterialScopePlan,
   generateVerifiedMaterialDraft,
   recoverBackMatterMaterialScope,
   resolveStructuralMaterialScope,
-  validateMaterialScopePlannerResponse,
   type MaterialPlanningSection,
 } from "@/lib/materials/drafting";
 import { summarizeMaterialDraftBatch } from "@/lib/materials/batch-summary";
@@ -2109,43 +2109,40 @@ async function planExistingMaterialBatch(input: {
     const allowedSections = sections.filter((section) =>
       planningSectionIds.includes(section.id),
     );
-    const rawPlan = await ai.planScope({
+    const scopePlanningInput = {
       materialTitle: batch.materialRevision.material.title,
       materialKind: batch.materialRevision.material.kind,
       instruction: batch.instruction,
       structuralReferences: planningStructural.references,
       sections: allowedSections,
       chunks,
-    });
-    let validation = validateMaterialScopePlannerResponse({
+    };
+    let validation = await generateValidatedMaterialScopePlan({
+      generate: () => ai.planScope(scopePlanningInput),
       materialRevisionId: batch.materialRevisionId,
       instruction: batch.instruction,
       kind: batch.materialRevision.material.kind,
       allowedSections,
       allowedChunks: chunks,
-      rawResponse: rawPlan,
     });
+    const reviewScope = ai.reviewScope;
     if (
       validation.status === "ready" &&
       validation.plan.resolutionStatus === "resolved" &&
-      ai.reviewScope
+      reviewScope
     ) {
-      const reviewedPlan = await ai.reviewScope({
-        materialTitle: batch.materialRevision.material.title,
-        materialKind: batch.materialRevision.material.kind,
-        instruction: batch.instruction,
-        structuralReferences: planningStructural.references,
-        sections: allowedSections,
-        chunks,
-        candidatePlan: validation.plan,
-      });
-      validation = validateMaterialScopePlannerResponse({
+      const candidatePlan = validation.plan;
+      validation = await generateValidatedMaterialScopePlan({
+        generate: () =>
+          reviewScope({
+            ...scopePlanningInput,
+            candidatePlan,
+          }),
         materialRevisionId: batch.materialRevisionId,
         instruction: batch.instruction,
         kind: batch.materialRevision.material.kind,
         allowedSections,
         allowedChunks: chunks,
-        rawResponse: reviewedPlan,
       });
     }
     if (validation.status !== "ready") {
