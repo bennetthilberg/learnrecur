@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   getMaterialBatchActivationCopy,
   getMaterialDraftItemErrorMessage,
+  getMaterialDraftRepairGuidance,
   getMaterialAvailabilityMessage,
   getPublicMaterialActionErrorMessage,
 } from "@/lib/materials/presentation";
@@ -112,6 +113,13 @@ describe("material draft item error messages", () => {
         "The draft could not be verified.",
       ),
     ).toBe("The draft could not be verified.");
+  });
+
+  it("explains that repair will revise a mismatched target before regenerating", () => {
+    expect(getMaterialDraftRepairGuidance("VERIFICATION_REJECTED")).toBe(
+      "Repair will revise this skill target to match the cited pages before generating it again.",
+    );
+    expect(getMaterialDraftRepairGuidance("EVENT_SEND_FAILED")).toBeNull();
   });
 });
 

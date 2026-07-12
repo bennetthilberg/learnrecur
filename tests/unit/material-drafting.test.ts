@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { MAX_SKILLS_PER_BATCH } from "@/lib/materials/contracts";
 import {
+  buildMaterialDraftTargetRepairPrompt,
   buildMaterialScopePlannerPrompt,
   buildMaterialScopeReviewerPrompt,
   materialScopePlannerJsonSchema,
@@ -11,6 +12,7 @@ import {
   expandPlanningChunkNeighbors,
   generateValidatedMaterialScopePlan,
   generateVerifiedMaterialDraft,
+  repairMaterialDraftTarget,
   recoverBackMatterMaterialScope,
   resolveStructuralMaterialScope,
   summarizeMaterialDraftBatch,
@@ -568,6 +570,50 @@ describe("material scope planning", () => {
     expect(result.plan.clarificationOptions).toBeUndefined();
   });
 
+  it("rejects objective requirements missing from the declared included concepts", () => {
+    const result = validateMaterialScopePlannerResponse({
+      materialRevisionId: "revision-1",
+      instruction: "Make a skill for ordinal numbers.",
+      kind: "PDF",
+      allowedSections: sections.slice(0, 1),
+      allowedChunks: [
+        {
+          id: "ordinals",
+          materialSectionId: "chapter-4",
+          locator: { kind: "pdf", pageRange: { start: 69, end: 70 } },
+        },
+      ],
+      rawResponse: {
+        resolutionStatus: "resolved",
+        resolvedScopeLabel: "Ordinal numbers",
+        clarification: null,
+        clarificationOptions: [],
+        warnings: [],
+        items: [
+          {
+            key: "ordinals",
+            title: "Spanish ordinal numbers",
+            objective:
+              "Practice ordinal numbers, including gender agreement, pluralization, and apocopa of primero and tercero.",
+            includeConcepts: [
+              "primero through décimo",
+              "dropping -o from primero and tercero before masculine singular nouns",
+            ],
+            excludeConcepts: ["cardinal numbers"],
+            materialSectionIds: ["chapter-4"],
+            evidenceChunkIds: ["ordinals"],
+          },
+        ],
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: "invalid",
+      reason: "inconsistent-target",
+      feedback: expect.stringMatching(/gender agreement.*pluralization/i),
+    });
+  });
+
   it("retries one invalid structured scope response before accepting its replacement", async () => {
     const generate = vi
       .fn()
@@ -602,6 +648,7 @@ describe("material scope planning", () => {
 
     expect(result).toMatchObject({ status: "ready", attempts: 2 });
     expect(generate).toHaveBeenCalledTimes(2);
+    expect(generate.mock.calls[1]?.[0]).toMatch(/validate|missing|required/i);
   });
 
   it("marks exact existing skills so confirmation can exclude duplicates", () => {
@@ -823,6 +870,71 @@ describe("material draft generation", () => {
       attempts: 2,
       reason: "verification-rejected",
     });
+  });
+
+  it("repairs an unsupported target against the cited evidence before regeneration", async () => {
+    const repairTarget = vi.fn().mockResolvedValue({
+      status: "repaired",
+      title: "Spanish ordinal numbers 1st to 10th",
+      objective:
+        "Practice ordinal numbers from primero through décimo, gender agreement, and primer/tercer before masculine singular nouns.",
+      includeConcepts: [
+        "primero through décimo",
+        "gender agreement",
+        "primer and tercer before masculine singular nouns",
+      ],
+      excludeConcepts: ["pluralization", "cardinal numbers"],
+      note: "Removed unsupported pluralization.",
+    });
+
+    const result = await repairMaterialDraftTarget({
+      target: {
+        title: "Spanish ordinal numbers 1st to 10th",
+        objective:
+          "Practice ordinal numbers, including gender agreement, pluralization, and apocopa.",
+        includeConcepts: ["primero through décimo", "apocopa"],
+        excludeConcepts: ["cardinal numbers"],
+      },
+      materialTitle: "Spanish Grammar Atlas",
+      evidenceText:
+        "Ordinal numbers precede nouns and agree in gender. Primero and tercero drop -o before a masculine noun.",
+      verificationNote:
+        "The source does not contain information about pluralization of ordinal numbers.",
+      repairTarget,
+    });
+
+    expect(result).toMatchObject({
+      status: "ready",
+      target: {
+        objective: expect.not.stringMatching(/pluralization/i),
+        includeConcepts: expect.arrayContaining(["gender agreement"]),
+        excludeConcepts: expect.arrayContaining(["pluralization"]),
+      },
+    });
+    expect(repairTarget).toHaveBeenCalledWith(
+      expect.objectContaining({
+        evidenceText: expect.stringContaining("agree in gender"),
+        verificationNote: expect.stringContaining("does not contain"),
+      }),
+    );
+  });
+
+  it("tells target repair to remove unsupported requirements instead of inventing evidence", () => {
+    const prompt = buildMaterialDraftTargetRepairPrompt({
+      target: {
+        title: "Spanish ordinal numbers",
+        objective: "Practice gender agreement and pluralization of ordinal numbers.",
+        includeConcepts: ["gender agreement"],
+        excludeConcepts: [],
+      },
+      materialTitle: "Spanish Grammar Atlas",
+      evidenceText: "Ordinal numbers agree in gender with the noun.",
+      verificationNote: "Pluralization is not supported by the cited pages.",
+    });
+
+    expect(prompt).toContain("Remove unsupported requirements");
+    expect(prompt).toContain("Do not invent missing evidence");
+    expect(prompt).toContain("Pluralization is not supported");
   });
 
   it("summarizes partial results without rolling back ready drafts", () => {

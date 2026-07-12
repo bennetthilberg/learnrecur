@@ -50,6 +50,13 @@ describe("material batch presentation", () => {
     expect(batchPage).not.toContain("Resolve again");
   });
 
+  it("uses the pending submit control for draft repair", () => {
+    expect(batchPage).toMatch(
+      /<BatchSubmitButton className="secondaryButton">\s*\{item\.errorCode === "VERIFICATION_REJECTED" \? "Repair draft" : "Retry"\}\s*<\/BatchSubmitButton>/s,
+    );
+    expect(batchPage).toContain("getMaterialDraftRepairGuidance");
+  });
+
   it("keeps draft editing and exclusion in confirmed modal flows", () => {
     expect(batchPage).toContain("<BatchDraftEditDialog");
     expect(batchPage).toContain("<BatchExcludeControl");

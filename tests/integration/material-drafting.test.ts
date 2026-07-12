@@ -1124,6 +1124,103 @@ describeDatabase("material multi-skill drafting", () => {
     ).toEqual({ status: SkillStatus.ACTIVE });
   });
 
+  it("repairs a rejected target against its evidence before retrying the draft", async () => {
+    const planned = await planMaterialSkills({
+      userId,
+      input: {
+        materialId,
+        materialRevisionId,
+        instruction: "Make one skill for choosing le versus les.",
+        idempotencyKey: `${runId}_target_repair`,
+      },
+      now: new Date(),
+      aiSetup: createAiSetup({
+        planScope: async () => ({
+          resolutionStatus: "resolved",
+          resolvedScopeLabel: "Indirect object pronouns",
+          clarification: null,
+          warnings: [],
+          items: [
+            {
+              key: "le-versus-les-repair",
+              title: "Choosing le versus les",
+              objective: "Choose le or les and apply an unsupported pluralization rule.",
+              includeConcepts: ["choose le or les from the number of recipients"],
+              excludeConcepts: ["direct object pronouns"],
+              materialSectionIds: [indirectSectionId],
+              evidenceChunkIds: [indirectChunkId],
+            },
+          ],
+        }),
+      }),
+      embeddingGenerator: null,
+    });
+    if (planned.status !== "planned") {
+      throw new Error("expected target repair plan");
+    }
+    await confirmMaterialPlan({
+      userId,
+      input: { batchId: planned.batchId, plan: planned.plan },
+      now: new Date(),
+      eventSender: { async sendMaterialDraftItemRequested() {} },
+    });
+    const pending = await getMaterialDraftBatch({ userId, batchId: planned.batchId });
+    const itemId = pending?.items[0]?.id;
+    if (!itemId) {
+      throw new Error("expected target repair item");
+    }
+    expect(
+      await runMaterialDraftItemJob({
+        userId,
+        batchId: planned.batchId,
+        itemId,
+        aiSetup: createAiSetup({ rejectTitle: "Choosing le versus les" }),
+      }),
+    ).toMatchObject({ status: "failed", reason: "verification-rejected" });
+
+    await retryMaterialDraftItem({
+      userId,
+      batchId: planned.batchId,
+      itemId,
+      now: new Date(),
+      eventSender: { async sendMaterialDraftItemRequested() {} },
+    });
+    const repairTarget = vi.fn().mockResolvedValue({
+      status: "repaired",
+      title: "Choosing le or les by recipient count",
+      objective: "Choose le for one recipient and les for multiple recipients.",
+      includeConcepts: ["le for one recipient", "les for multiple recipients"],
+      excludeConcepts: ["unsupported pluralization rule"],
+      note: "Removed the unsupported rule.",
+    });
+    expect(
+      await runMaterialDraftItemJob({
+        userId,
+        batchId: planned.batchId,
+        itemId,
+        aiSetup: createAiSetup({ repairTarget }),
+      }),
+    ).toMatchObject({ status: "ready" });
+    expect(repairTarget).toHaveBeenCalledWith(
+      expect.objectContaining({
+        verificationNote: expect.stringMatching(/fixture rejects/i),
+      }),
+    );
+    expect(await getMaterialDraftBatch({ userId, batchId: planned.batchId })).toMatchObject({
+      status: SkillDraftBatchStatus.READY,
+      items: [
+        {
+          status: SkillDraftBatchItemStatus.READY,
+          proposedTitle: "Choosing le or les by recipient count",
+          proposedObjective: "Choose le for one recipient and les for multiple recipients.",
+          generationMetadata: {
+            targetRepair: { status: "completed" },
+          },
+        },
+      ],
+    });
+  });
+
   it("does not let a stale worker overwrite a newer successful claim", async () => {
     const planScope = vi.fn(async () => ({
       resolutionStatus: "resolved" as const,
@@ -2510,6 +2607,7 @@ function pdfLocator(input: {
 function createAiSetup(input: {
   planScope?: MaterialDraftAiSetup["planScope"];
   reviewScope?: MaterialDraftAiSetup["reviewScope"];
+  repairTarget?: MaterialDraftAiSetup["repairTarget"];
   rejectTitle?: string;
 } = {}): MaterialDraftAiSetup {
   return {
@@ -2524,6 +2622,7 @@ function createAiSetup(input: {
         items: [],
       })),
     ...(input.reviewScope ? { reviewScope: input.reviewScope } : {}),
+    ...(input.repairTarget ? { repairTarget: input.repairTarget } : {}),
     async generateDraft(draftInput) {
       const title = draftInput.focusNote?.match(/Create exactly this target: ([^.]+(?:\.)?)/)?.[1]
         ?.replace(/\.$/, "")

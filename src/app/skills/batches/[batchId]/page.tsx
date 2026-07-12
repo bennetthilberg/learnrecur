@@ -21,6 +21,7 @@ import {
 import {
   getMaterialBatchActivationCopy,
   getMaterialDraftItemErrorMessage,
+  getMaterialDraftRepairGuidance,
   getPublicMaterialActionErrorMessage,
 } from "@/lib/materials/presentation";
 import { ensureDatabaseUser } from "@/lib/users";
@@ -344,6 +345,9 @@ function DraftBatchReview({
             {getMaterialDraftItemErrorMessage(item.errorCode, item.errorMessage) ? (
               <p className="batchDraftError" data-tone={item.status === "EXCLUDED" ? "neutral" : "warning"}>
                 {getMaterialDraftItemErrorMessage(item.errorCode, item.errorMessage)}
+                {getMaterialDraftRepairGuidance(item.errorCode) ? (
+                  <span>{getMaterialDraftRepairGuidance(item.errorCode)}</span>
+                ) : null}
               </p>
             ) : null}
             {item.skill ? (
@@ -383,9 +387,9 @@ function DraftBatchReview({
                   <form action={item.errorCode?.startsWith("ACTIVATION_") ? retryMaterialBatchActivationItemAction : retryMaterialDraftItemAction}>
                     <input name="batchId" type="hidden" value={batch.id} />
                     <input name="itemId" type="hidden" value={item.id} />
-                    <button className="secondaryButton" type="submit">
+                    <BatchSubmitButton className="secondaryButton">
                       {item.errorCode === "VERIFICATION_REJECTED" ? "Repair draft" : "Retry"}
-                    </button>
+                    </BatchSubmitButton>
                   </form>
                 ) : null}
                 {item.status === "READY" || item.status === "FAILED" ? (

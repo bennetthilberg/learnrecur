@@ -42,6 +42,7 @@ import {
   expandPlanningChunkNeighbors,
   generateValidatedMaterialScopePlan,
   generateVerifiedMaterialDraft,
+  repairMaterialDraftTarget,
   recoverBackMatterMaterialScope,
   resolveStructuralMaterialScope,
   type MaterialPlanningSection,
@@ -571,13 +572,74 @@ export async function runMaterialDraftItemJob(input: {
       });
     }
     const ai = input.aiSetup ?? resolveMaterialDraftAiSetup();
-    const scopeBoundaries = readScopeBoundaries(item.generationMetadata);
+    const baseGenerationMetadata = readJsonObject(item.generationMetadata);
+    let scopeBoundaries = readScopeBoundaries(item.generationMetadata);
+    let target = {
+      title: item.proposedTitle,
+      objective: item.proposedObjective,
+      ...scopeBoundaries,
+    };
+    let targetRepairState = readJsonObject(baseGenerationMetadata.targetRepair);
+    const targetRepairContext = readTargetRepairContext(item.generationMetadata);
+    if (targetRepairContext && ai.repairTarget) {
+      const repaired = await repairMaterialDraftTarget({
+        target,
+        materialTitle: item.batch.materialRevision.material.title,
+        evidenceText,
+        verificationNote: targetRepairContext.verificationNote,
+        repairTarget: ai.repairTarget,
+      });
+      if (repaired.status === "failed") {
+        const marked = await markMaterialDraftItemFailed({
+          userId: input.userId,
+          itemId: item.id,
+          claimId,
+          code: "TARGET_REPAIR_FAILED",
+          message: repaired.message,
+          generationMetadata: toInputJson({
+            ...baseGenerationMetadata,
+            targetRepair: { status: "failed", note: repaired.message },
+          }),
+        });
+        if (!marked) {
+          return { status: "not-claimed" as const };
+        }
+        await reconcileMaterialDraftBatch({ userId: input.userId, batchId: input.batchId, now });
+        return { status: "failed" as const, reason: "target-repair-failed" as const };
+      }
+      target = repaired.target;
+      scopeBoundaries = {
+        includeConcepts: repaired.target.includeConcepts ?? [],
+        excludeConcepts: repaired.target.excludeConcepts ?? [],
+      };
+      targetRepairState = {
+        status: "completed",
+        note: repaired.note,
+        previousVerificationNote: targetRepairContext.verificationNote,
+      };
+      const targetUpdated = await prisma.skillDraftBatchItem.updateMany({
+        where: {
+          id: item.id,
+          userId: input.userId,
+          status: SkillDraftBatchItemStatus.GENERATING,
+          generationClaimId: claimId,
+        },
+        data: {
+          proposedTitle: repaired.target.title,
+          proposedObjective: repaired.target.objective,
+          generationMetadata: toInputJson({
+            ...baseGenerationMetadata,
+            scopeBoundaries,
+            targetRepair: targetRepairState,
+          }),
+        },
+      });
+      if (targetUpdated.count !== 1) {
+        return { status: "not-claimed" as const };
+      }
+    }
     const generated = await generateVerifiedMaterialDraft({
-      target: {
-        title: item.proposedTitle,
-        objective: item.proposedObjective,
-        ...scopeBoundaries,
-      },
+      target,
       materialTitle: item.batch.materialRevision.material.title,
       evidenceText,
       sourceMedia: localizedEvidence.sourceMedia.map((media) => ({
@@ -617,6 +679,11 @@ export async function runMaterialDraftItemJob(input: {
           scopeBoundaries,
           recovery: generated.recovery ?? "clarify_scope",
           reasons: generated.reasons ?? [],
+          verificationNote: generated.message,
+          targetRepair: {
+            required: true,
+            verificationNote: generated.message,
+          },
         },
       });
       if (!marked) {
@@ -693,12 +760,13 @@ export async function runMaterialDraftItemJob(input: {
             overlapSkillId: duplicate.id,
             errorCode: "EXACT_DUPLICATE",
             errorMessage: `An exact skill already exists: ${duplicate.title}.`,
-            generationMetadata: {
+            generationMetadata: toInputJson({
               model: ai.model,
               verification: "verified",
               duplicatePrevented: true,
               scopeBoundaries,
-            },
+              targetRepair: targetRepairState,
+            }),
           },
         });
         return { status: "duplicate" as const, skillId: duplicate.id };
@@ -734,12 +802,13 @@ export async function runMaterialDraftItemJob(input: {
           skillId: skill.id,
           status: SkillDraftBatchItemStatus.READY,
           generationClaimId: null,
-          generationMetadata: {
+          generationMetadata: toInputJson({
             model: ai.model,
             verification: "verified",
             attemptsThisRun: generated.attempts,
             scopeBoundaries,
-          },
+            targetRepair: targetRepairState,
+          }),
         },
       });
       await tx.studyMaterial.update({
@@ -800,6 +869,30 @@ export async function retryMaterialDraftItem(input: {
     return { status: "not-queued" as const, message: env.message };
   }
   const prisma = getPrisma();
+  const failedItem = await prisma.skillDraftBatchItem.findFirst({
+    where: {
+      id: input.itemId,
+      batchId: input.batchId,
+      userId: input.userId,
+      status: SkillDraftBatchItemStatus.FAILED,
+      NOT: { errorCode: { startsWith: "ACTIVATION_" } },
+    },
+    select: { errorCode: true, errorMessage: true, generationMetadata: true },
+  });
+  if (!failedItem) {
+    return { status: "not-found" as const, message: "Failed draft item was not found." };
+  }
+  const generationMetadata = readJsonObject(failedItem.generationMetadata);
+  const repairMetadata =
+    failedItem.errorCode === "VERIFICATION_REJECTED" && failedItem.errorMessage
+      ? toInputJson({
+          ...generationMetadata,
+          targetRepair: {
+            required: true,
+            verificationNote: failedItem.errorMessage,
+          },
+        })
+      : null;
   const updated = await prisma.skillDraftBatchItem.updateMany({
     where: {
       id: input.itemId,
@@ -813,6 +906,7 @@ export async function retryMaterialDraftItem(input: {
       generationClaimId: null,
       errorCode: null,
       errorMessage: null,
+      ...(repairMetadata ? { generationMetadata: repairMetadata } : {}),
     },
   });
   if (updated.count !== 1) {
@@ -2118,7 +2212,8 @@ async function planExistingMaterialBatch(input: {
       chunks,
     };
     let validation = await generateValidatedMaterialScopePlan({
-      generate: () => ai.planScope(scopePlanningInput),
+      generate: (validationFeedback) =>
+        ai.planScope({ ...scopePlanningInput, validationFeedback }),
       materialRevisionId: batch.materialRevisionId,
       instruction: batch.instruction,
       kind: batch.materialRevision.material.kind,
@@ -2133,10 +2228,11 @@ async function planExistingMaterialBatch(input: {
     ) {
       const candidatePlan = validation.plan;
       validation = await generateValidatedMaterialScopePlan({
-        generate: () =>
+        generate: (validationFeedback) =>
           reviewScope({
             ...scopePlanningInput,
             candidatePlan,
+            validationFeedback,
           }),
         materialRevisionId: batch.materialRevisionId,
         instruction: batch.instruction,
@@ -2528,6 +2624,19 @@ function planningLexicalScore(query: string, text: string) {
   }
   const textTerms = new Set(normalizeComparableText(text).split(" "));
   return [...terms].filter((term) => textTerms.has(term)).length / terms.size;
+}
+
+function readJsonObject(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? { ...(value as Record<string, unknown>) }
+    : {};
+}
+
+function readTargetRepairContext(value: unknown) {
+  const repair = readJsonObject(readJsonObject(value).targetRepair);
+  return repair.required === true && typeof repair.verificationNote === "string"
+    ? { verificationNote: repair.verificationNote }
+    : null;
 }
 
 function readScopeBoundaries(value: unknown) {

@@ -81,6 +81,13 @@ export type MaterialDraftVerifier = (input: {
   sourceMedia?: Parameters<SkillDraftGenerator>[0]["sourceMedia"];
 }) => Promise<unknown>;
 
+export type MaterialDraftTargetRepairer = (input: {
+  target: MaterialDraftTarget;
+  materialTitle: string;
+  evidenceText: string;
+  verificationNote: string;
+}) => Promise<unknown>;
+
 const plannerItemSchema = z.strictObject({
   key: z.string().trim().min(1).max(120),
   title: z.string().trim().min(1).max(120),
@@ -119,6 +126,33 @@ const draftVerificationSchema = z.strictObject({
     .enum(["regenerate_with_boundaries", "expand_evidence", "clarify_scope", "none"])
     .optional(),
 });
+
+const draftTargetRepairSchema = z.strictObject({
+  status: z.enum(["repaired", "unrepairable"]),
+  title: z.string().trim().min(1).max(160).nullable(),
+  objective: z.string().trim().min(12).max(1_000).nullable(),
+  includeConcepts: z.array(z.string().trim().min(1).max(240)).max(20),
+  excludeConcepts: z.array(z.string().trim().min(1).max(240)).max(20),
+  note: z.string().trim().min(1).max(1_000).nullable(),
+});
+
+const objectiveBoundaryStopWords = new Set([
+  "and",
+  "before",
+  "forming",
+  "including",
+  "numbers",
+  "number",
+  "of",
+  "placing",
+  "practice",
+  "rules",
+  "spanish",
+  "the",
+  "through",
+  "use",
+  "with",
+]);
 
 export function expandPlanningChunkNeighbors<
   T extends { id: string; materialSectionId: string | null; ordinal: number },
@@ -467,7 +501,12 @@ export function validateMaterialScopePlannerResponse(input: {
   rawResponse: unknown;
 }):
   | { status: "ready"; plan: MaterialScopeResolution }
-  | { status: "invalid"; reason: "invalid-response" | "out-of-scope-evidence"; message: string } {
+  | {
+      status: "invalid";
+      reason: "invalid-response" | "out-of-scope-evidence" | "inconsistent-target";
+      message: string;
+      feedback?: string;
+    } {
   const parsed = scopePlannerResponseSchema.safeParse(input.rawResponse);
   if (!parsed.success) {
     return {
@@ -483,6 +522,18 @@ export function validateMaterialScopePlannerResponse(input: {
   const items = [];
 
   for (const rawItem of parsed.data.items) {
+    const missingRequirements = findObjectiveRequirementsMissingFromConcepts(rawItem);
+    if (missingRequirements.length > 0) {
+      return {
+        status: "invalid",
+        reason: "inconsistent-target",
+        message:
+          "LearnRecur found a mismatch inside the proposed skill scope and is correcting it.",
+        feedback: `The objective for "${rawItem.title}" names requirements missing from includeConcepts: ${missingRequirements.join(
+          "; ",
+        )}. Add each requirement only if the cited text explicitly supports it; otherwise remove it from the objective.`,
+      };
+    }
     const selectedSections = rawItem.materialSectionIds.map((id) => sectionsById.get(id));
     const selectedChunks = rawItem.evidenceChunkIds.map((id) => chunksById.get(id));
     if (selectedSections.some((section) => !section) || selectedChunks.some((chunk) => !chunk)) {
@@ -560,13 +611,14 @@ export function validateMaterialScopePlannerResponse(input: {
 }
 
 export async function generateValidatedMaterialScopePlan(input: {
-  generate: () => Promise<unknown>;
+  generate: (validationFeedback?: string) => Promise<unknown>;
   materialRevisionId: string;
   instruction: string;
   kind: "PDF" | "WEB";
   allowedSections: readonly MaterialPlanningSection[];
   allowedChunks: readonly MaterialPlanningChunk[];
 }) {
+  let validationFeedback: string | undefined;
   for (let attempt = 1; attempt <= 2; attempt += 1) {
     const validation = validateMaterialScopePlannerResponse({
       materialRevisionId: input.materialRevisionId,
@@ -574,14 +626,59 @@ export async function generateValidatedMaterialScopePlan(input: {
       kind: input.kind,
       allowedSections: input.allowedSections,
       allowedChunks: input.allowedChunks,
-      rawResponse: await input.generate(),
+      rawResponse: await input.generate(validationFeedback),
     });
     if (validation.status === "ready" || attempt === 2) {
       return { ...validation, attempts: attempt };
     }
+    validationFeedback = validation.feedback ?? validation.message;
   }
 
   throw new Error("Material scope validation ended unexpectedly.");
+}
+
+export async function repairMaterialDraftTarget(input: {
+  target: MaterialDraftTarget;
+  materialTitle: string;
+  evidenceText: string;
+  verificationNote: string;
+  repairTarget: MaterialDraftTargetRepairer;
+}) {
+  const parsed = draftTargetRepairSchema.safeParse(
+    await input.repairTarget({
+      target: input.target,
+      materialTitle: input.materialTitle,
+      evidenceText: input.evidenceText,
+      verificationNote: input.verificationNote,
+    }),
+  );
+  if (!parsed.success) {
+    return {
+      status: "failed" as const,
+      message: "LearnRecur could not safely revise this skill target.",
+    };
+  }
+  if (
+    parsed.data.status === "unrepairable" ||
+    !parsed.data.title ||
+    !parsed.data.objective
+  ) {
+    return {
+      status: "failed" as const,
+      message:
+        parsed.data.note ?? "The cited pages do not support a useful version of this skill.",
+    };
+  }
+  return {
+    status: "ready" as const,
+    target: {
+      title: parsed.data.title,
+      objective: parsed.data.objective,
+      includeConcepts: parsed.data.includeConcepts,
+      excludeConcepts: parsed.data.excludeConcepts,
+    },
+    note: parsed.data.note,
+  };
 }
 
 export function annotateMaterialPlanOverlaps(
@@ -938,6 +1035,39 @@ function normalizeComparableText(value: string) {
     .toLocaleLowerCase()
     .replace(/[^\p{L}\p{N}]+/gu, " ")
     .trim();
+}
+
+function findObjectiveRequirementsMissingFromConcepts(input: {
+  objective: string;
+  includeConcepts?: string[];
+}) {
+  if (!input.includeConcepts?.length) {
+    return [];
+  }
+  const includingClause = input.objective.match(/\bincluding\b(.+?)(?:[.!?]|$)/iu)?.[1];
+  if (!includingClause) {
+    return [];
+  }
+  const declaredTokens = new Set(
+    normalizeComparableText(input.includeConcepts.join(" ")).split(" ").filter(Boolean),
+  );
+  return includingClause
+    .split(/,\s*(?:and\s+)?|\s+and\s+/iu)
+    .map((requirement) => requirement.trim())
+    .filter(Boolean)
+    .filter((requirement) => {
+      const requirementTokens = normalizeComparableText(requirement)
+        .split(" ")
+        .filter(
+          (token) =>
+            token.length >= 4 &&
+            !objectiveBoundaryStopWords.has(token),
+        );
+      return (
+        requirementTokens.length > 0 &&
+        !requirementTokens.some((token) => declaredTokens.has(token))
+      );
+    });
 }
 
 function tokenSimilarity(left: string, right: string) {

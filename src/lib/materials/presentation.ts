@@ -44,6 +44,12 @@ export function getMaterialDraftItemErrorMessage(
   return errorMessage;
 }
 
+export function getMaterialDraftRepairGuidance(errorCode: string | null) {
+  return errorCode === "VERIFICATION_REJECTED"
+    ? "Repair will revise this skill target to match the cited pages before generating it again."
+    : null;
+}
+
 export function getMaterialBatchActivationCopy(readyCount: number) {
   return readyCount === 1
     ? {
