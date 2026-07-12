@@ -1023,6 +1023,16 @@ describeDatabase("material multi-skill drafting", () => {
       status: SkillDraftBatchItemStatus.FAILED,
       generationAttempts: 2,
     });
+    expect(
+      await retryMaterialDraftItem({
+        userId,
+        batchId: planned.batchId,
+        itemId: secondItem.id,
+        now: new Date(),
+        automatic: true,
+        eventSender: { async sendMaterialDraftItemRequested() {} },
+      }),
+    ).toMatchObject({ status: "not-found" });
 
     const readySkill = completed?.items[0].skill;
     if (!readySkill) {
@@ -1124,7 +1134,7 @@ describeDatabase("material multi-skill drafting", () => {
     ).toEqual({ status: SkillStatus.ACTIVE });
   });
 
-  it("repairs a rejected target against its evidence before retrying the draft", async () => {
+  it("repairs a rejected target against its evidence automatically", async () => {
     const planned = await planMaterialSkills({
       userId,
       input: {
@@ -1169,22 +1179,6 @@ describeDatabase("material multi-skill drafting", () => {
     if (!itemId) {
       throw new Error("expected target repair item");
     }
-    expect(
-      await runMaterialDraftItemJob({
-        userId,
-        batchId: planned.batchId,
-        itemId,
-        aiSetup: createAiSetup({ rejectTitle: "Choosing le versus les" }),
-      }),
-    ).toMatchObject({ status: "failed", reason: "verification-rejected" });
-
-    await retryMaterialDraftItem({
-      userId,
-      batchId: planned.batchId,
-      itemId,
-      now: new Date(),
-      eventSender: { async sendMaterialDraftItemRequested() {} },
-    });
     const repairTarget = vi.fn().mockResolvedValue({
       status: "repaired",
       title: "Choosing le or les by recipient count",
@@ -1198,7 +1192,10 @@ describeDatabase("material multi-skill drafting", () => {
         userId,
         batchId: planned.batchId,
         itemId,
-        aiSetup: createAiSetup({ repairTarget }),
+        aiSetup: createAiSetup({
+          rejectTitle: "Choosing le versus les",
+          repairTarget,
+        }),
       }),
     ).toMatchObject({ status: "ready" });
     expect(repairTarget).toHaveBeenCalledWith(
@@ -1215,6 +1212,115 @@ describeDatabase("material multi-skill drafting", () => {
           proposedObjective: "Choose le for one recipient and les for multiple recipients.",
           generationMetadata: {
             targetRepair: { status: "completed" },
+          },
+        },
+      ],
+    });
+  });
+
+  it("repairs a contradictory repaired target again before showing a failure", async () => {
+    const planned = await planMaterialSkills({
+      userId,
+      input: {
+        materialId,
+        materialRevisionId,
+        instruction: "Make a skill for cardinal numbers above 29.",
+        idempotencyKey: `${runId}_second_target_repair`,
+      },
+      now: new Date(),
+      aiSetup: createAiSetup({
+        planScope: async () => ({
+          resolutionStatus: "resolved",
+          resolvedScopeLabel: "Cardinal numbers above 29",
+          clarification: null,
+          warnings: [],
+          items: [
+            {
+              key: "cardinals-above-29",
+              title: "Spanish cardinal numbers above 29",
+              objective: "Form Spanish cardinal numbers from 30 up to millions.",
+              includeConcepts: ["cardinal numbers from 30 upward"],
+              excludeConcepts: ["ordinal numbers"],
+              materialSectionIds: [indirectSectionId],
+              evidenceChunkIds: [indirectChunkId],
+            },
+          ],
+        }),
+      }),
+      embeddingGenerator: null,
+    });
+    if (planned.status !== "planned") {
+      throw new Error("expected second target repair plan");
+    }
+    await confirmMaterialPlan({
+      userId,
+      input: { batchId: planned.batchId, plan: planned.plan },
+      now: new Date(),
+      eventSender: { async sendMaterialDraftItemRequested() {} },
+    });
+    const pending = await getMaterialDraftBatch({ userId, batchId: planned.batchId });
+    const itemId = pending?.items[0]?.id;
+    if (!itemId) {
+      throw new Error("expected second target repair item");
+    }
+    const repairTarget = vi
+      .fn()
+      .mockResolvedValueOnce({
+        status: "repaired",
+        title: "Spanish cardinal numbers from 30 to 100",
+        objective: "Form Spanish cardinal numbers from 30 to 100.",
+        includeConcepts: ["cardinal numbers from 30 to 100"],
+        excludeConcepts: ["cien and ciento patterns"],
+        note: "Narrowed the range to the cited pages.",
+      })
+      .mockResolvedValueOnce({
+        status: "repaired",
+        title: "Spanish cardinal numbers from 30 to 99",
+        objective: "Form Spanish cardinal numbers from 30 to 99.",
+        includeConcepts: ["cardinal numbers from 30 to 99"],
+        excludeConcepts: ["100 and higher cardinal numbers"],
+        note: "Removed the contradictory endpoint.",
+      });
+    const verifyDraft = vi.fn(async (verificationInput) => {
+      if (verificationInput.target.objective.includes("millions")) {
+        return {
+          verdict: "rejected",
+          reasons: ["unsupported_detail"],
+          note: "The cited pages do not support millions.",
+        };
+      }
+      if (verificationInput.target.objective.includes("30 to 100")) {
+        return {
+          verdict: "rejected",
+          reasons: ["too_broad"],
+          note: "The draft includes 100 even though the target excludes cien and ciento.",
+        };
+      }
+      return { verdict: "verified", reasons: [], note: null };
+    });
+
+    expect(
+      await runMaterialDraftItemJob({
+        userId,
+        batchId: planned.batchId,
+        itemId,
+        aiSetup: createAiSetup({ repairTarget, verifyDraft }),
+      }),
+    ).toMatchObject({ status: "ready" });
+    expect(repairTarget).toHaveBeenCalledTimes(2);
+    expect(repairTarget.mock.calls[1]?.[0]).toMatchObject({
+      target: { objective: "Form Spanish cardinal numbers from 30 to 100." },
+      verificationNote: expect.stringMatching(/includes 100/i),
+    });
+    expect(await getMaterialDraftBatch({ userId, batchId: planned.batchId })).toMatchObject({
+      status: SkillDraftBatchStatus.READY,
+      items: [
+        {
+          status: SkillDraftBatchItemStatus.READY,
+          proposedTitle: "Spanish cardinal numbers from 30 to 99",
+          proposedObjective: "Form Spanish cardinal numbers from 30 to 99.",
+          generationMetadata: {
+            targetRepair: { status: "completed", attempts: 2 },
           },
         },
       ],
@@ -2608,6 +2714,7 @@ function createAiSetup(input: {
   planScope?: MaterialDraftAiSetup["planScope"];
   reviewScope?: MaterialDraftAiSetup["reviewScope"];
   repairTarget?: MaterialDraftAiSetup["repairTarget"];
+  verifyDraft?: MaterialDraftAiSetup["verifyDraft"];
   rejectTitle?: string;
 } = {}): MaterialDraftAiSetup {
   return {
@@ -2643,7 +2750,7 @@ function createAiSetup(input: {
         ],
       };
     },
-    async verifyDraft(verificationInput) {
+    verifyDraft: input.verifyDraft ?? (async (verificationInput) => {
       return verificationInput.target.title === input.rejectTitle
         ? {
             verdict: "rejected",
@@ -2651,6 +2758,6 @@ function createAiSetup(input: {
             note: "The fixture rejects this target.",
           }
         : { verdict: "verified", reasons: [], note: null };
-    },
+    }),
   };
 }

@@ -96,6 +96,7 @@ const GENERATION_EVIDENCE_CHARACTER_LIMIT = 24_000;
 // is not surfaced as failed while its worker can still complete.
 const MATERIAL_DRAFT_CLAIM_STALE_MS = 10 * 60 * 1_000;
 const MATERIAL_BATCH_ACTIVATION_CLAIM_STALE_MS = 2 * 60 * 1_000;
+const MAX_AUTOMATIC_TARGET_REPAIRS = 2;
 
 export class MaterialDraftGenerationError extends Error {
   readonly retryable: boolean;
@@ -580,32 +581,52 @@ export async function runMaterialDraftItemJob(input: {
       ...scopeBoundaries,
     };
     let targetRepairState = readJsonObject(baseGenerationMetadata.targetRepair);
+    let targetRepairAttempts = 0;
+    let totalDraftAttempts = 0;
     const targetRepairContext = readTargetRepairContext(item.generationMetadata);
-    if (targetRepairContext && ai.repairTarget) {
+    const sourceMedia = localizedEvidence.sourceMedia.map((media) => ({
+      sourceFileId: media.sourceFileId,
+      label: media.originalName,
+      mimeType: "application/pdf" as const,
+      bytes: media.bytes,
+    }));
+    const applyAutomaticTargetRepair = async (verificationNote: string) => {
+      if (!ai.repairTarget || targetRepairAttempts >= MAX_AUTOMATIC_TARGET_REPAIRS) {
+        return { status: "unavailable" as const };
+      }
+      targetRepairAttempts += 1;
+      targetRepairState = {
+        status: "adjusting",
+        attempts: targetRepairAttempts,
+        verificationNote,
+      };
+      const staged = await prisma.skillDraftBatchItem.updateMany({
+        where: {
+          id: item.id,
+          userId: input.userId,
+          status: SkillDraftBatchItemStatus.GENERATING,
+          generationClaimId: claimId,
+        },
+        data: {
+          generationMetadata: toInputJson({
+            ...baseGenerationMetadata,
+            scopeBoundaries,
+            targetRepair: targetRepairState,
+          }),
+        },
+      });
+      if (staged.count !== 1) {
+        return { status: "not-claimed" as const };
+      }
       const repaired = await repairMaterialDraftTarget({
         target,
         materialTitle: item.batch.materialRevision.material.title,
         evidenceText,
-        verificationNote: targetRepairContext.verificationNote,
+        verificationNote,
         repairTarget: ai.repairTarget,
       });
       if (repaired.status === "failed") {
-        const marked = await markMaterialDraftItemFailed({
-          userId: input.userId,
-          itemId: item.id,
-          claimId,
-          code: "TARGET_REPAIR_FAILED",
-          message: repaired.message,
-          generationMetadata: toInputJson({
-            ...baseGenerationMetadata,
-            targetRepair: { status: "failed", note: repaired.message },
-          }),
-        });
-        if (!marked) {
-          return { status: "not-claimed" as const };
-        }
-        await reconcileMaterialDraftBatch({ userId: input.userId, batchId: input.batchId, now });
-        return { status: "failed" as const, reason: "target-repair-failed" as const };
+        return { status: "failed" as const, message: repaired.message };
       }
       target = repaired.target;
       scopeBoundaries = {
@@ -613,9 +634,10 @@ export async function runMaterialDraftItemJob(input: {
         excludeConcepts: repaired.target.excludeConcepts ?? [],
       };
       targetRepairState = {
-        status: "completed",
+        status: "regenerating",
+        attempts: targetRepairAttempts,
         note: repaired.note,
-        previousVerificationNote: targetRepairContext.verificationNote,
+        previousVerificationNote: verificationNote,
       };
       const targetUpdated = await prisma.skillDraftBatchItem.updateMany({
         where: {
@@ -637,60 +659,129 @@ export async function runMaterialDraftItemJob(input: {
       if (targetUpdated.count !== 1) {
         return { status: "not-claimed" as const };
       }
-    }
-    const generated = await generateVerifiedMaterialDraft({
-      target,
-      materialTitle: item.batch.materialRevision.material.title,
-      evidenceText,
-      sourceMedia: localizedEvidence.sourceMedia.map((media) => ({
-        sourceFileId: media.sourceFileId,
-        label: media.originalName,
-        mimeType: "application/pdf" as const,
-        bytes: media.bytes,
-      })),
-      generateDraft: async (draftInput) => {
-        const attempt = await prisma.skillDraftBatchItem.updateMany({
-          where: {
-            id: item.id,
-            userId: input.userId,
-            status: SkillDraftBatchItemStatus.GENERATING,
-            generationClaimId: claimId,
+      return { status: "repaired" as const };
+    };
+    const finishTargetRepairFailure = async (message: string) => {
+      const marked = await markMaterialDraftItemFailed({
+        userId: input.userId,
+        itemId: item.id,
+        claimId,
+        code: "TARGET_REPAIR_FAILED",
+        message,
+        generationMetadata: toInputJson({
+          ...baseGenerationMetadata,
+          scopeBoundaries,
+          targetRepair: {
+            status: "exhausted",
+            attempts: targetRepairAttempts,
+            note: message,
           },
-          data: { generationAttempts: { increment: 1 } },
-        });
-        if (attempt.count !== 1) {
-          throw new MaterialDraftClaimSupersededError();
+        }),
+      });
+      if (!marked) {
+        return { status: "not-claimed" as const };
+      }
+      await reconcileMaterialDraftBatch({ userId: input.userId, batchId: input.batchId, now });
+      return { status: "failed" as const, reason: "target-repair-failed" as const };
+    };
+
+    if (targetRepairContext && ai.repairTarget) {
+      const initialRepair = await applyAutomaticTargetRepair(
+        targetRepairContext.verificationNote,
+      );
+      if (initialRepair.status === "not-claimed") {
+        return { status: "not-claimed" as const };
+      }
+      if (initialRepair.status === "failed") {
+        return finishTargetRepairFailure(initialRepair.message);
+      }
+    }
+
+    let generated: Awaited<ReturnType<typeof generateVerifiedMaterialDraft>> | null = null;
+    while (true) {
+      generated = await generateVerifiedMaterialDraft({
+        target,
+        materialTitle: item.batch.materialRevision.material.title,
+        evidenceText,
+        sourceMedia,
+        generateDraft: async (draftInput) => {
+          const attempt = await prisma.skillDraftBatchItem.updateMany({
+            where: {
+              id: item.id,
+              userId: input.userId,
+              status: SkillDraftBatchItemStatus.GENERATING,
+              generationClaimId: claimId,
+            },
+            data: { generationAttempts: { increment: 1 } },
+          });
+          if (attempt.count !== 1) {
+            throw new MaterialDraftClaimSupersededError();
+          }
+          return ai.generateDraft(draftInput);
+        },
+        verifyDraft: ai.verifyDraft,
+      });
+      totalDraftAttempts += generated.attempts;
+      if (generated.status === "ready") {
+        break;
+      }
+      if (
+        generated.reason === "verification-rejected" &&
+        ai.repairTarget &&
+        targetRepairAttempts < MAX_AUTOMATIC_TARGET_REPAIRS
+      ) {
+        const repair = await applyAutomaticTargetRepair(generated.message);
+        if (repair.status === "not-claimed") {
+          return { status: "not-claimed" as const };
         }
-        return ai.generateDraft(draftInput);
-      },
-      verifyDraft: ai.verifyDraft,
-    });
-    if (generated.status === "failed") {
+        if (repair.status === "failed") {
+          return finishTargetRepairFailure(repair.message);
+        }
+        if (repair.status === "repaired") {
+          continue;
+        }
+      }
+
       const marked = await markMaterialDraftItemFailed({
         userId: input.userId,
         itemId: item.id,
         claimId,
         code: generated.reason.toUpperCase().replaceAll("-", "_"),
         message: generated.message,
-        generationMetadata: {
+        generationMetadata: toInputJson({
           model: ai.model,
           verification: "rejected",
-          attemptsThisRun: generated.attempts,
+          attemptsThisRun: totalDraftAttempts,
           scopeBoundaries,
           recovery: generated.recovery ?? "clarify_scope",
           reasons: generated.reasons ?? [],
           verificationNote: generated.message,
           targetRepair: {
-            required: true,
+            status:
+              generated.reason === "verification-rejected"
+                ? "exhausted"
+                : targetRepairState.status,
+            attempts: targetRepairAttempts,
             verificationNote: generated.message,
           },
-        },
+        }),
       });
       if (!marked) {
         return { status: "not-claimed" as const };
       }
       await reconcileMaterialDraftBatch({ userId: input.userId, batchId: input.batchId, now });
       return { status: "failed" as const, reason: generated.reason };
+    }
+
+    if (!generated || generated.status !== "ready") {
+      throw new Error("Material draft generation ended without a verified draft.");
+    }
+    if (targetRepairAttempts > 0) {
+      targetRepairState = {
+        ...targetRepairState,
+        status: "completed",
+        attempts: targetRepairAttempts,
+      };
     }
 
     const saved = await prisma.$transaction(async (tx) => {
@@ -805,7 +896,7 @@ export async function runMaterialDraftItemJob(input: {
           generationMetadata: toInputJson({
             model: ai.model,
             verification: "verified",
-            attemptsThisRun: generated.attempts,
+            attemptsThisRun: totalDraftAttempts,
             scopeBoundaries,
             targetRepair: targetRepairState,
           }),
@@ -862,6 +953,7 @@ export async function retryMaterialDraftItem(input: {
   batchId: string;
   itemId: string;
   now: Date;
+  automatic?: boolean;
   eventSender?: MaterialDraftItemEventSender;
 }) {
   const env = getInngestEnvStatus();
@@ -883,6 +975,14 @@ export async function retryMaterialDraftItem(input: {
     return { status: "not-found" as const, message: "Failed draft item was not found." };
   }
   const generationMetadata = readJsonObject(failedItem.generationMetadata);
+  const targetRepairMetadata = readJsonObject(generationMetadata.targetRepair);
+  if (
+    input.automatic &&
+    (failedItem.errorCode !== "VERIFICATION_REJECTED" ||
+      targetRepairMetadata.status === "exhausted")
+  ) {
+    return { status: "not-found" as const, message: "Automatic repair is no longer pending." };
+  }
   const repairMetadata =
     failedItem.errorCode === "VERIFICATION_REJECTED" && failedItem.errorMessage
       ? toInputJson({

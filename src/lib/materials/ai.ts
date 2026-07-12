@@ -396,6 +396,8 @@ export function buildMaterialDraftTargetRepairPrompt(input: {
     "Do not invent missing evidence or add rules from general subject knowledge.",
     "Preserve as much of the user's intended skill as the cited evidence actually supports.",
     "The repaired objective must summarize only includeConcepts, and excludeConcepts should name the removed nearby or unsupported concepts.",
+    "Before returning, check that the title, objective, includeConcepts, and excludeConcepts do not contradict one another.",
+    "A range includes both endpoints. Never keep an endpoint in the target while excluding the rule for that endpoint; for example, change 30 to 100 into 30 to 99 when 100 is excluded.",
     "If no useful skill remains, return unrepairable with null title and objective and a concise note.",
     `Material: ${input.materialTitle}`,
     `Current target: ${JSON.stringify(input.target)}`,

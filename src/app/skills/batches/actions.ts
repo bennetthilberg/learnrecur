@@ -3,6 +3,7 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { z } from "zod";
 
 import {
   confirmMaterialPlan,
@@ -15,6 +16,11 @@ import {
 } from "@/lib/materials/batches";
 import { materialScopePlanSchema } from "@/lib/materials/contracts";
 import { ensureDatabaseUser } from "@/lib/users";
+
+const automaticRepairInputSchema = z.strictObject({
+  batchId: z.string().trim().min(1).max(64),
+  itemIds: z.array(z.string().trim().min(1).max(64)).min(1).max(10),
+});
 
 export async function planMaterialSkillsAction(formData: FormData) {
   const userId = await requireBatchUser();
@@ -107,6 +113,29 @@ export async function retryMaterialDraftItemAction(formData: FormData) {
         : "Background processing was unavailable. Try again in a moment.";
     redirect(`/skills/batches/${batchId}?error=${encodeURIComponent(message)}`);
   }
+}
+
+export async function autoRepairMaterialDraftItemsAction(input: unknown) {
+  const parsed = automaticRepairInputSchema.safeParse(input);
+  if (!parsed.success) {
+    return { status: "invalid" as const };
+  }
+  const userId = await requireBatchUser();
+  let queuedCount = 0;
+  for (const itemId of parsed.data.itemIds) {
+    const result = await retryMaterialDraftItem({
+      userId,
+      batchId: parsed.data.batchId,
+      itemId,
+      now: new Date(),
+      automatic: true,
+    });
+    if (result.status === "queued") {
+      queuedCount += 1;
+    }
+  }
+  revalidatePath(`/skills/batches/${parsed.data.batchId}`);
+  return { status: queuedCount > 0 ? ("queued" as const) : ("unchanged" as const) };
 }
 
 export async function activateMaterialBatchAction(formData: FormData) {

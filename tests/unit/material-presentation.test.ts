@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   getMaterialBatchActivationCopy,
+  getMaterialDraftAdjustmentCopy,
   getMaterialDraftItemErrorMessage,
-  getMaterialDraftRepairGuidance,
   getMaterialAvailabilityMessage,
   getPublicMaterialActionErrorMessage,
 } from "@/lib/materials/presentation";
@@ -115,11 +115,44 @@ describe("material draft item error messages", () => {
     ).toBe("The draft could not be verified.");
   });
 
-  it("explains that repair will revise a mismatched target before regenerating", () => {
-    expect(getMaterialDraftRepairGuidance("VERIFICATION_REJECTED")).toBe(
-      "Repair will revise this skill target to match the cited pages before generating it again.",
-    );
-    expect(getMaterialDraftRepairGuidance("EVENT_SEND_FAILED")).toBeNull();
+  it("uses calm copy while a mismatched target is being repaired automatically", () => {
+    expect(
+      getMaterialDraftAdjustmentCopy({
+        status: "GENERATING",
+        errorCode: null,
+        generationMetadata: { targetRepair: { status: "adjusting" } },
+      }),
+    ).toEqual({
+      title: "Just a minute longer",
+      description: "LearnRecur is adjusting this skill to match the source.",
+    });
+    expect(
+      getMaterialDraftAdjustmentCopy({
+        status: "FAILED",
+        errorCode: "VERIFICATION_REJECTED",
+        generationMetadata: { targetRepair: { required: true } },
+      }),
+    ).toEqual({
+      title: "Just a minute longer",
+      description: "LearnRecur is adjusting this skill to match the source.",
+    });
+  });
+
+  it("stops presenting terminal repair exhaustion as work in progress", () => {
+    expect(
+      getMaterialDraftAdjustmentCopy({
+        status: "FAILED",
+        errorCode: "VERIFICATION_REJECTED",
+        generationMetadata: { targetRepair: { status: "exhausted" } },
+      }),
+    ).toBeNull();
+    expect(
+      getMaterialDraftAdjustmentCopy({
+        status: "FAILED",
+        errorCode: "EVENT_SEND_FAILED",
+        generationMetadata: null,
+      }),
+    ).toBeNull();
   });
 });
 

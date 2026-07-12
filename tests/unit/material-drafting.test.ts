@@ -934,6 +934,8 @@ describe("material draft generation", () => {
 
     expect(prompt).toContain("Remove unsupported requirements");
     expect(prompt).toContain("Do not invent missing evidence");
+    expect(prompt).toContain("A range includes both endpoints");
+    expect(prompt).toContain("30 to 100");
     expect(prompt).toContain("Pluralization is not supported");
   });
 

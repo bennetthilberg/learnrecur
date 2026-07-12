@@ -20,8 +20,8 @@ import {
 } from "@/lib/materials/contracts";
 import {
   getMaterialBatchActivationCopy,
+  getMaterialDraftAdjustmentCopy,
   getMaterialDraftItemErrorMessage,
-  getMaterialDraftRepairGuidance,
   getPublicMaterialActionErrorMessage,
 } from "@/lib/materials/presentation";
 import { ensureDatabaseUser } from "@/lib/users";
@@ -35,6 +35,7 @@ import {
   retryMaterialBatchActivationItemAction,
   retryMaterialDraftItemAction,
 } from "../actions";
+import { BatchAutomaticRecovery } from "../batch-automatic-recovery";
 import { BatchDraftEditDialog } from "../batch-draft-edit-dialog";
 import { BatchExcludeControl } from "../batch-exclude-control";
 import { BatchStageRail } from "../batch-stage-rail";
@@ -74,7 +75,21 @@ export default async function MaterialBatchPage({
   const confirmed = materialScopePlanSchema.safeParse(batch.confirmedPlan);
   const scope = confirmed.success ? confirmed.data : proposed.success ? proposed.data : null;
   const planning = !batch.confirmedAt && (batch.status === "PLANNED" || batch.status === "NEEDS_SCOPE");
-  const generating = batch.status === "GENERATING" || batch.items.some((item) => item.status === "GENERATING" || item.status === "PLANNED");
+  const automaticRepairItemIds = batch.items
+    .filter(
+      (item) =>
+        item.status === "FAILED" &&
+        getMaterialDraftAdjustmentCopy({
+          status: item.status,
+          errorCode: item.errorCode,
+          generationMetadata: item.generationMetadata,
+        }),
+    )
+    .map((item) => item.id);
+  const generating =
+    batch.status === "GENERATING" ||
+    automaticRepairItemIds.length > 0 ||
+    batch.items.some((item) => item.status === "GENERATING" || item.status === "PLANNED");
   const activating = batch.status === "ACTIVATING" || batch.items.some((item) => item.status === "ACTIVATING");
   const stage = planning ? "scope" : generating ? "generate" : "review";
   const pageTitle = planning
@@ -94,6 +109,9 @@ export default async function MaterialBatchPage({
     <main className="skillShell materialShell batchShell">
       <SkillsTopbar current="new" />
       <MaterialStatusPoller active={generating || activating} />
+      {automaticRepairItemIds.length > 0 ? (
+        <BatchAutomaticRecovery batchId={batch.id} itemIds={automaticRepairItemIds} />
+      ) : null}
       <header className="skillHeader materialHeader batchHeader">
         <div>
           <p className="materialBreadcrumb">
@@ -283,7 +301,7 @@ function DraftBatchReview({
           <span className="materialProcessingPulse" aria-hidden="true" />
           <div>
             <h2>Drafts are arriving independently</h2>
-            <p>Ready skills stay available even if another item needs a retry. This page refreshes automatically.</p>
+            <p>Ready skills stay available while LearnRecur checks and adjusts the others. This page refreshes automatically.</p>
           </div>
         </section>
       ) : batch.status === "PARTIAL" || batch.status === "FAILED" ? (
@@ -330,24 +348,32 @@ function DraftBatchReview({
           <div><h2 id="batch-drafts-title">Draft skills</h2><p>Expand any draft to inspect it, or edit it here without leaving the batch.</p></div>
           {scope ? <small>{scope.resolvedScopeLabel}</small> : null}
         </div>
-        {batch.items.map((item) => (
-          <article className="skillPanel batchDraftCard" data-status={item.status.toLowerCase()} key={item.id}>
+        {batch.items.map((item) => {
+          const adjustment = getMaterialDraftAdjustmentCopy({
+            status: item.status,
+            errorCode: item.errorCode,
+            generationMetadata: item.generationMetadata,
+          });
+          return (
+            <article className="skillPanel batchDraftCard" data-status={adjustment ? "generating" : item.status.toLowerCase()} key={item.id}>
             <div className="batchDraftCardHeader">
               <div>
-                <span>{formatDisplayLabel(item.status)}</span>
+                <span>{adjustment ? "Adjusting" : formatDisplayLabel(item.status)}</span>
                 <h3>{item.skill?.title ?? item.proposedTitle}</h3>
                 <p>{item.skill?.objective ?? item.proposedObjective}</p>
               </div>
               {item.status === "READY" || item.status === "ACTIVE" ? <CheckCircle size={22} weight="fill" aria-label={item.status === "ACTIVE" ? "Added" : "Ready"} /> : null}
-              {item.status === "ACTIVATING" ? <span className="materialProcessingPulse batchCardPulse" aria-label="Adding" /> : null}
-              {item.status === "FAILED" ? <WarningCircle size={22} weight="bold" aria-label="Failed" /> : null}
+              {item.status === "ACTIVATING" || adjustment ? <span className="materialProcessingPulse batchCardPulse" aria-label={item.status === "ACTIVATING" ? "Adding" : "Adjusting"} /> : null}
+              {item.status === "FAILED" && !adjustment ? <WarningCircle size={22} weight="bold" aria-label="Failed" /> : null}
             </div>
-            {getMaterialDraftItemErrorMessage(item.errorCode, item.errorMessage) ? (
+            {adjustment ? (
+              <p className="batchDraftAdjustment" aria-live="polite">
+                <strong>{adjustment.title}</strong>
+                <span>{adjustment.description}</span>
+              </p>
+            ) : getMaterialDraftItemErrorMessage(item.errorCode, item.errorMessage) ? (
               <p className="batchDraftError" data-tone={item.status === "EXCLUDED" ? "neutral" : "warning"}>
                 {getMaterialDraftItemErrorMessage(item.errorCode, item.errorMessage)}
-                {getMaterialDraftRepairGuidance(item.errorCode) ? (
-                  <span>{getMaterialDraftRepairGuidance(item.errorCode)}</span>
-                ) : null}
               </p>
             ) : null}
             {item.skill ? (
@@ -383,16 +409,16 @@ function DraftBatchReview({
                     skillId={item.skill.id}
                   />
                 ) : null}
-                {item.status === "FAILED" ? (
+                {item.status === "FAILED" && !adjustment ? (
                   <form action={item.errorCode?.startsWith("ACTIVATION_") ? retryMaterialBatchActivationItemAction : retryMaterialDraftItemAction}>
                     <input name="batchId" type="hidden" value={batch.id} />
                     <input name="itemId" type="hidden" value={item.id} />
                     <BatchSubmitButton className="secondaryButton">
-                      {item.errorCode === "VERIFICATION_REJECTED" ? "Repair draft" : "Retry"}
+                      Retry
                     </BatchSubmitButton>
                   </form>
                 ) : null}
-                {item.status === "READY" || item.status === "FAILED" ? (
+                {item.status === "READY" || (item.status === "FAILED" && !adjustment) ? (
                   <BatchExcludeControl
                     batchId={batch.id}
                     itemId={item.id}
@@ -401,8 +427,9 @@ function DraftBatchReview({
                 ) : null}
               </div>
             </div>
-          </article>
-        ))}
+            </article>
+          );
+        })}
       </section>
     </>
   );

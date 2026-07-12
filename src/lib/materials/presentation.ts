@@ -44,9 +44,24 @@ export function getMaterialDraftItemErrorMessage(
   return errorMessage;
 }
 
-export function getMaterialDraftRepairGuidance(errorCode: string | null) {
-  return errorCode === "VERIFICATION_REJECTED"
-    ? "Repair will revise this skill target to match the cited pages before generating it again."
+export function getMaterialDraftAdjustmentCopy(input: {
+  status: string;
+  errorCode: string | null;
+  generationMetadata: unknown;
+}) {
+  const repair = readTargetRepairMetadata(input.generationMetadata);
+  const adjusting =
+    (input.status === "GENERATING" &&
+      (repair.status === "adjusting" || repair.status === "regenerating")) ||
+    (input.status === "FAILED" &&
+      input.errorCode === "VERIFICATION_REJECTED" &&
+      repair.status !== "exhausted");
+
+  return adjusting
+    ? {
+        title: "Just a minute longer",
+        description: "LearnRecur is adjusting this skill to match the source.",
+      }
     : null;
 }
 
@@ -128,4 +143,14 @@ export function getMaterialAvailabilityMessage(input: {
         description: "Retry processing before you can create skills from this material.",
         tone: "attention",
       };
+}
+
+function readTargetRepairMetadata(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+  const repair = (value as Record<string, unknown>).targetRepair;
+  return repair && typeof repair === "object" && !Array.isArray(repair)
+    ? (repair as Record<string, unknown>)
+    : {};
 }

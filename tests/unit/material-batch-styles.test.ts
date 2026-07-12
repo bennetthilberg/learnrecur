@@ -50,11 +50,11 @@ describe("material batch presentation", () => {
     expect(batchPage).not.toContain("Resolve again");
   });
 
-  it("uses the pending submit control for draft repair", () => {
-    expect(batchPage).toMatch(
-      /<BatchSubmitButton className="secondaryButton">\s*\{item\.errorCode === "VERIFICATION_REJECTED" \? "Repair draft" : "Retry"\}\s*<\/BatchSubmitButton>/s,
-    );
-    expect(batchPage).toContain("getMaterialDraftRepairGuidance");
+  it("automatically repairs rejected drafts and explains the extra wait inline", () => {
+    expect(batchPage).toContain("<BatchAutomaticRecovery");
+    expect(batchPage).toContain("getMaterialDraftAdjustmentCopy");
+    expect(batchPage).toContain("batchDraftAdjustment");
+    expect(batchPage).not.toContain('"Repair draft"');
   });
 
   it("keeps draft editing and exclusion in confirmed modal flows", () => {

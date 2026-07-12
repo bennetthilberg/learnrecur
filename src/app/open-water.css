@@ -5295,11 +5295,20 @@ body {
   color: var(--lr-text-secondary);
 }
 
-.batchDraftError > span {
-  display: block;
-  margin-top: 6px;
+.batchDraftAdjustment {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  border-top: 1px solid var(--lr-divider);
+  color: var(--lr-text-secondary);
+  font-size: 12.5px;
+  line-height: 1.42;
+  padding: 12px 22px;
+}
+
+.batchDraftAdjustment strong {
   color: var(--lr-ink);
-  font-weight: 600;
+  font-size: 13px;
 }
 
 .batchDraftDetails {
