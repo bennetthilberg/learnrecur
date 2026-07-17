@@ -44,7 +44,9 @@ import {
   generateVerifiedMaterialDraft,
   repairMaterialDraftTarget,
   recoverBackMatterMaterialScope,
+  resolveMaterialTopicSearchQuery,
   resolveStructuralMaterialScope,
+  selectMaterialTopicRetrievalChunks,
   type MaterialPlanningSection,
 } from "@/lib/materials/drafting";
 import { summarizeMaterialDraftBatch } from "@/lib/materials/batch-summary";
@@ -2192,6 +2194,10 @@ async function planExistingMaterialBatch(input: {
   }
 
   try {
+    const topicSearchQuery =
+      structural.references.length === 0
+        ? resolveMaterialTopicSearchQuery(batch.instruction)
+        : null;
     const sourceFile = batch.materialRevision.sourceFiles[0];
     if (batch.materialRevision.material.kind === "PDF" && sourceFile) {
       const pageRanges = sections
@@ -2213,16 +2219,18 @@ async function planExistingMaterialBatch(input: {
         });
       }
     }
-    let chunks = await retrievePlanningChunks({
+    const retrieval = await retrievePlanningChunks({
       userId: input.userId,
       materialRevisionId: batch.materialRevisionId,
       instruction: batch.instruction,
+      topicSearchQuery,
       sectionIds: structural.candidateSectionIds,
       sections: sections.filter((section) =>
         structural.candidateSectionIds.includes(section.id),
       ),
       embeddingGenerator: input.embeddingGenerator,
     });
+    let chunks = retrieval.chunks;
     if (chunks.length === 0) {
       const plan = materialScopeResolutionSchema.parse({
         version: 1,
@@ -2287,9 +2295,19 @@ async function planExistingMaterialBatch(input: {
         expectedUpdatedAt: batch.updatedAt,
       });
     }
-    const planningSectionIds = recoveredScope.sectionIds;
+    const planningSectionIds =
+      retrieval.focusedTopic && recoveredScope.status === "not-needed"
+        ? [
+            ...new Set(
+              recoveredScope.chunks.flatMap((chunk) =>
+                chunk.materialSectionId ? [chunk.materialSectionId] : [],
+              ),
+            ),
+          ]
+        : recoveredScope.sectionIds;
     chunks = recoveredScope.chunks;
-    const planningStructural = recoveredScope.status === "recovered"
+    const planningStructural =
+      recoveredScope.status === "recovered" || retrieval.focusedTopic
       ? {
           ...structural,
           references: structural.references.map((reference) => ({
@@ -2383,6 +2401,10 @@ async function planExistingMaterialBatch(input: {
       expectedUpdatedAt: batch.updatedAt,
     });
   } catch (error) {
+    console.error("[materials] scope planning failed", {
+      materialRevisionId: batch.materialRevisionId,
+      error: error instanceof Error ? error.message : "Unknown scope planning error",
+    });
     const message = getPublicGeminiScopePlanningFailureMessage(error);
     const markedFailed = await markMaterialBatchPlanningFailed({
       userId: input.userId,
@@ -2406,12 +2428,15 @@ async function retrievePlanningChunks(input: {
   userId: string;
   materialRevisionId: string;
   instruction: string;
+  topicSearchQuery?: string | null;
   sectionIds: string[];
   sections: MaterialPlanningSection[];
   embeddingGenerator?: MaterialEmbeddingGenerator | null;
 }) {
   const prisma = getPrisma();
   let ranked: MaterialChunkSearchResult[] = [];
+  let focusedTopic = false;
+  const retrievalQuery = input.topicSearchQuery ?? input.instruction;
   const embeddingGenerator =
     input.embeddingGenerator === undefined
       ? safelyResolveEmbeddingGenerator()
@@ -2419,17 +2444,19 @@ async function retrievePlanningChunks(input: {
   if (embeddingGenerator) {
     try {
       const [embedding] = await embeddingGenerator({
-        texts: [input.instruction],
+        texts: [retrievalQuery],
         titles: ["Material skill request"],
       });
-      ranked = await searchMaterialChunks({
-        userId: input.userId,
-        materialRevisionId: input.materialRevisionId,
-        embedding,
-        query: input.instruction,
-        materialSectionIds: input.sectionIds,
-        limit: 48,
-      });
+      ranked = (
+        await searchMaterialChunks({
+          userId: input.userId,
+          materialRevisionId: input.materialRevisionId,
+          embedding,
+          query: retrievalQuery,
+          materialSectionIds: input.sectionIds,
+          limit: 48,
+        })
+      ).filter((chunk) => chunk.vectorScore > 0 || chunk.lexicalScore > 0);
     } catch (error) {
       console.warn("[materials] semantic scope retrieval unavailable", {
         materialRevisionId: input.materialRevisionId,
@@ -2437,20 +2464,44 @@ async function retrievePlanningChunks(input: {
       });
     }
   }
-  if (ranked.length === 0) {
-    ranked = await searchMaterialChunksLexical({
+  if (input.topicSearchQuery) {
+    const lexicalMatches = await searchMaterialChunksLexical({
       userId: input.userId,
       materialRevisionId: input.materialRevisionId,
-      query: input.instruction,
+      query: input.topicSearchQuery,
       materialSectionIds: input.sectionIds,
       limit: 48,
+      prefixMatching: true,
     });
+    const selected = selectMaterialTopicRetrievalChunks({
+      semantic: ranked,
+      lexical: lexicalMatches,
+    });
+    if (selected.focused) {
+      ranked = [...selected.chunks];
+      focusedTopic = true;
+    }
+  }
+  if (ranked.length === 0) {
+    ranked = (
+      await searchMaterialChunksLexical({
+        userId: input.userId,
+        materialRevisionId: input.materialRevisionId,
+        query: retrievalQuery,
+        materialSectionIds: input.sectionIds,
+        limit: 48,
+      })
+    ).filter((chunk) => chunk.lexicalScore > 0);
   }
   const ocrChunks = await retrieveOcrPlanningChunks({
     userId: input.userId,
     materialRevisionId: input.materialRevisionId,
-    instruction: input.instruction,
-    sections: input.sections,
+    instruction: retrievalQuery,
+    sections: focusedTopic
+      ? input.sections.filter((section) =>
+          ranked.some((chunk) => chunk.materialSectionId === section.id),
+        )
+      : input.sections,
   });
   const matchedOcrChunks = ocrChunks.filter((chunk) => chunk.lexicalScore > 0);
   const reservedOcrChunks = uniqueById([...matchedOcrChunks, ...ocrChunks]).slice(0, 8);
@@ -2548,20 +2599,25 @@ async function retrievePlanningChunks(input: {
       chunk.materialSectionId ? [chunk.materialSectionId] : [],
     ),
   );
-  const uncoveredSectionFallbacks = uniqueById([...firstBySection, ...firstOcrBySection]).filter(
-    (chunk) =>
-      chunk.materialSectionId !== null && !rankedSectionIds.has(chunk.materialSectionId),
-  );
+  const uncoveredSectionFallbacks = focusedTopic
+    ? []
+    : uniqueById([...firstBySection, ...firstOcrBySection]).filter(
+        (chunk) =>
+          chunk.materialSectionId !== null && !rankedSectionIds.has(chunk.materialSectionId),
+      );
   const rankedMinimum = rankedChunks.length > 0 ? 1 : 0;
   const fallbackSlots = Math.min(
     uncoveredSectionFallbacks.length,
     PLANNING_CHUNK_LIMIT - rankedMinimum,
   );
   const rankedSlots = PLANNING_CHUNK_LIMIT - fallbackSlots;
-  return uniqueById([
-    ...rankedChunks.slice(0, rankedSlots),
-    ...uncoveredSectionFallbacks.slice(0, fallbackSlots),
-  ]);
+  return {
+    chunks: uniqueById([
+      ...rankedChunks.slice(0, rankedSlots),
+      ...uncoveredSectionFallbacks.slice(0, fallbackSlots),
+    ]),
+    focusedTopic,
+  };
 }
 
 async function retrieveBackMatterRecoveryCandidates(input: {

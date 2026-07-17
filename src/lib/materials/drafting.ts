@@ -230,6 +230,75 @@ const structuralTitleStopWords = new Set([
 const backMatterHeadingPattern =
   /\b(?:answer\s+key|answers?\s+will\s+vary|solutions?|front\s+matter|table\s+of\s+contents|contents|index|glossary|bibliography|references)\b/iu;
 
+const materialSkillRequestPattern =
+  /^\s*(?:please\s+)?(?:make|create|generate|add)\s+(?:me\s+)?(?:(?:up\s+to\s+)?(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+)?(?:new\s+)?skills?\s+(?:for|about|on|covering|from)\s+(.+?)\s*$/iu;
+
+const genericTrailingTopicTerms = new Set(["concepts", "rules", "topics"]);
+
+export function resolveMaterialTopicSearchQuery(instruction: string): string | null {
+  const topic = extractMaterialRequestTopic(instruction);
+  if (!topic) {
+    return null;
+  }
+  const tokens = normalizeComparableText(topic).split(" ").filter(Boolean);
+  if (tokens[0] === "the" || tokens[0] === "some") {
+    tokens.shift();
+  }
+  if (tokens.length >= 3 && genericTrailingTopicTerms.has(tokens.at(-1) ?? "")) {
+    tokens.pop();
+  }
+  return tokens.length > 0 ? tokens.join(" ") : null;
+}
+
+export function selectFocusedMaterialTopicChunks<
+  T extends MaterialPlanningEvidenceChunk & { lexicalScore: number },
+>(chunks: readonly T[]): T[] {
+  const instructional = chunks.filter(
+    (chunk) =>
+      chunk.lexicalScore > 0 &&
+      chunk.materialSectionId !== null &&
+      !isLikelyBackMatterEvidence(chunk),
+  );
+  const bySection = new Map<string, T[]>();
+  for (const chunk of instructional) {
+    const sectionId = chunk.materialSectionId;
+    if (!sectionId) {
+      continue;
+    }
+    const sectionChunks = bySection.get(sectionId) ?? [];
+    sectionChunks.push(chunk);
+    bySection.set(sectionId, sectionChunks);
+  }
+  const rankedSections = [...bySection.entries()].sort(
+    ([leftId, left], [rightId, right]) =>
+      right.length - left.length ||
+      right.reduce((sum, chunk) => sum + chunk.lexicalScore, 0) -
+        left.reduce((sum, chunk) => sum + chunk.lexicalScore, 0) ||
+      leftId.localeCompare(rightId),
+  );
+  const dominant = rankedSections[0]?.[1] ?? [];
+  const runnerUp = rankedSections[1]?.[1] ?? [];
+  if (dominant.length < 2 || dominant.length <= runnerUp.length) {
+    return [];
+  }
+  const dominantIds = new Set(dominant.map((chunk) => chunk.id));
+  return chunks.filter((chunk) => dominantIds.has(chunk.id));
+}
+
+export function selectMaterialTopicRetrievalChunks<
+  T extends MaterialPlanningEvidenceChunk & {
+    lexicalScore: number;
+    vectorScore: number;
+  },
+>(input: { semantic: readonly T[]; lexical: readonly T[] }) {
+  const semantic = input.semantic.filter((chunk) => chunk.vectorScore > 0);
+  if (semantic.length > 0) {
+    return { chunks: semantic, focused: true };
+  }
+  const lexical = selectFocusedMaterialTopicChunks(input.lexical);
+  return { chunks: lexical, focused: lexical.length > 0 };
+}
+
 export async function recoverBackMatterMaterialScope<
   T extends MaterialPlanningEvidenceChunk,
 >(input: {
@@ -507,13 +576,16 @@ export function validateMaterialScopePlannerResponse(input: {
       message: string;
       feedback?: string;
     } {
-  const parsed = scopePlannerResponseSchema.safeParse(input.rawResponse);
+  const parsed = scopePlannerResponseSchema.safeParse(
+    normalizeScopePlannerResponse(input.rawResponse, input.instruction),
+  );
   if (!parsed.success) {
     return {
       status: "invalid",
       reason: "invalid-response",
       message:
         "LearnRecur could not validate the scope response. Your request is saved, so try reviewing the scope again.",
+      feedback: formatPlannerValidationFeedback(parsed.error),
     };
   }
 
@@ -540,12 +612,13 @@ export function validateMaterialScopePlannerResponse(input: {
       return outOfScopePlannerResult();
     }
     const sectionIds = new Set(rawItem.materialSectionIds);
-    if (
-      selectedChunks.some(
-        (chunk) => chunk?.materialSectionId && !sectionIds.has(chunk.materialSectionId),
-      )
-    ) {
-      return outOfScopePlannerResult();
+    const mismatchedChunk = selectedChunks.find(
+      (chunk) => chunk?.materialSectionId && !sectionIds.has(chunk.materialSectionId),
+    );
+    if (mismatchedChunk?.materialSectionId) {
+      return outOfScopePlannerResult(
+        `Evidence chunk "${mismatchedChunk.id}" belongs to stored section "${mismatchedChunk.materialSectionId}". Set materialSectionIds to the exact stored section IDs for every cited evidence chunk.`,
+      );
     }
 
     const locator = buildSkillSourceLocator({
@@ -604,6 +677,7 @@ export function validateMaterialScopePlannerResponse(input: {
       reason: "invalid-response",
       message:
         "LearnRecur could not validate the scope response. Your request is saved, so try reviewing the scope again.",
+      feedback: formatPlannerValidationFeedback(planResult.error),
     };
   }
 
@@ -967,11 +1041,12 @@ function wrapUntrustedEvidence(value: string) {
   ].join("\n");
 }
 
-function outOfScopePlannerResult() {
+function outOfScopePlannerResult(feedback?: string) {
   return {
     status: "invalid" as const,
     reason: "out-of-scope-evidence" as const,
     message: "Gemini cited material outside the structurally resolved scope.",
+    ...(feedback ? { feedback } : {}),
   };
 }
 
@@ -997,11 +1072,45 @@ function isLikelyBackMatterHeading(value: string) {
   return backMatterHeadingPattern.test(value.slice(0, 500));
 }
 
-function isLikelyBackMatterEvidence(chunk: MaterialPlanningEvidenceChunk) {
+export function isLikelyBackMatterEvidence(chunk: MaterialPlanningEvidenceChunk) {
   return (
     isLikelyBackMatterHeading(chunk.headingText ?? "") ||
     backMatterHeadingPattern.test(chunk.text.slice(0, 800))
   );
+}
+
+function extractMaterialRequestTopic(instruction: string) {
+  const matched = instruction.match(materialSkillRequestPattern)?.[1]?.trim();
+  return matched?.replace(/[.!?]+$/u, "").trim() || null;
+}
+
+function defaultMaterialScopeLabel(instruction: string) {
+  const topic = extractMaterialRequestTopic(instruction) ?? instruction.trim();
+  const withoutArticle = topic.replace(/^(?:the|some)\s+/iu, "").trim();
+  const label = withoutArticle || "Requested material scope";
+  return `${label.charAt(0).toLocaleUpperCase()}${label.slice(1)}`.slice(0, 1_000);
+}
+
+function normalizeScopePlannerResponse(rawResponse: unknown, instruction: string) {
+  if (!rawResponse || typeof rawResponse !== "object" || Array.isArray(rawResponse)) {
+    return rawResponse;
+  }
+  const response = { ...(rawResponse as Record<string, unknown>) };
+  if (
+    typeof response.resolvedScopeLabel === "string" &&
+    response.resolvedScopeLabel.trim().length === 0
+  ) {
+    response.resolvedScopeLabel = defaultMaterialScopeLabel(instruction);
+  }
+  return response;
+}
+
+function formatPlannerValidationFeedback(error: z.ZodError) {
+  const issues = error.issues.slice(0, 5).map((issue) => {
+    const path = issue.path.length > 0 ? issue.path.join(".") : "response";
+    return `${path}: ${issue.message}`;
+  });
+  return `Could not validate the response. Correct these response-schema issues: ${issues.join("; ")}`;
 }
 
 function evidenceContainsTitleTerms(

@@ -135,6 +135,7 @@ describe("environment validation", () => {
     expect(hasGeminiEnv()).toBe(true);
     expect(getGeminiEnv()).toEqual({
       GEMINI_API_KEY: "gemini-secret",
+      GEMINI_EMBEDDING_API_MODE: "auto",
       GEMINI_EMBEDDING_MODEL: "gemini-embedding-2",
       GEMINI_MODEL: "gemini-3.5-flash",
       GEMINI_FALLBACK_MODELS: [],
@@ -168,6 +169,7 @@ describe("environment validation", () => {
     expect(hasGeminiEnv()).toBe(true);
     expect(getGeminiEnv()).toEqual({
       GEMINI_ENTERPRISE_AGENT_KEY_PLATFORM_KEY: "eap-secret",
+      GEMINI_EMBEDDING_API_MODE: "auto",
       GEMINI_EMBEDDING_MODEL: "gemini-embedding-2",
       GEMINI_MODEL: "gemini-3.5-flash",
       GEMINI_FALLBACK_MODELS: [],

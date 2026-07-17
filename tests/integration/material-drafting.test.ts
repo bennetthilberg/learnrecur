@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import {
   GenerationJobKind,
   GenerationJobStatus,
+  MaterialPageTextStatus,
   SkillDraftBatchItemStatus,
   SkillDraftBatchStatus,
   SkillStatus,
@@ -31,6 +32,7 @@ import {
   finalizeMaterialRevision,
   requestMaterialDeletion,
 } from "@/lib/materials/lifecycle";
+import { searchMaterialChunksLexical } from "@/lib/materials/retrieval";
 import { getPrisma } from "@/lib/prisma";
 import { activateSkillDraft, refillChoiceExercisesForSkill } from "@/lib/skills";
 import { deleteSkillPermanently } from "@/lib/skills/delete";
@@ -371,7 +373,6 @@ describeDatabase("material multi-skill drafting", () => {
         },
       ],
     }));
-
     const result = await planMaterialSkills({
       userId,
       input: {
@@ -706,6 +707,225 @@ describeDatabase("material multi-skill drafting", () => {
     const planningInput = planScope.mock.calls[0]?.[0];
     expect(planningInput?.chunks.map((chunk) => chunk.id)).toEqual(
       expect.arrayContaining([directChunkId, indirectChunkId]),
+    );
+  });
+
+  it("retrieves the reflexive-verb lesson when semantic search is unavailable", async () => {
+    const { material, revision } = await createMaterialWithInitialRevision({
+      userId,
+      title: "Reflexive verb retrieval fixture",
+      kind: StudyMaterialKind.PDF,
+    });
+    const frontMatter = await prisma.materialSection.create({
+      data: {
+        userId,
+        materialRevisionId: revision.id,
+        ordinal: 0,
+        level: 1,
+        title: "Front matter",
+        normalizedTitle: "front matter",
+        pageStart: 1,
+        pageEnd: 12,
+        headingPath: ["Front matter"],
+      },
+    });
+    const lesson = await prisma.materialSection.create({
+      data: {
+        userId,
+        materialRevisionId: revision.id,
+        ordinal: 1,
+        level: 1,
+        title: "Lesson 12",
+        normalizedTitle: "lesson 12",
+        pageStart: 193,
+        pageEnd: 205,
+        headingPath: ["Lesson 12"],
+      },
+    });
+    const unrelatedSectionIds = Array.from(
+      { length: 12 },
+      (_, index) => `${runId}_reflexive_unrelated_${index}`,
+    );
+    await prisma.materialSection.createMany({
+      data: unrelatedSectionIds.map((id, index) => ({
+        id,
+        userId,
+        materialRevisionId: revision.id,
+        ordinal: index + 2,
+        level: 1,
+        title: `Unrelated lesson ${index + 1}`,
+        normalizedTitle: `unrelated lesson ${index + 1}`,
+        pageStart: index + 20,
+        pageEnd: index + 20,
+        headingPath: [`Unrelated lesson ${index + 1}`],
+      })),
+    });
+    const teachingChunkIds = [
+      `${runId}_reflexive_teaching_1`,
+      `${runId}_reflexive_teaching_2`,
+      `${runId}_reflexive_teaching_3`,
+    ];
+    const accentChunkId = `${runId}_accented_topic`;
+    await prisma.materialChunk.createMany({
+      data: [
+        {
+          id: `${runId}_reflexive_toc`,
+          userId,
+          materialRevisionId: revision.id,
+          materialSectionId: frontMatter.id,
+          ordinal: 0,
+          text: "Contents: Reflexive Verbs 193. Reflexive pronouns 193.",
+          tokenEstimate: 8,
+          contentHash: `sha256:${runId}:reflexive-toc`,
+          headingText: "Front matter",
+          locator: { kind: "pdf", pageRange: { start: 8, end: 8 } },
+        },
+        ...teachingChunkIds.map((id, index) => ({
+          id,
+          userId,
+          materialRevisionId: revision.id,
+          materialSectionId: lesson.id,
+          ordinal: index + 1,
+          text:
+            index === 0
+              ? "Reflexive verbs use reflexive pronouns that agree with the subject."
+              : index === 1
+                ? "With a conjugated reflexive verb, the reflexive pronoun normally comes before the verb."
+                : "Reflexive verbs can express routines, movement, emotion, and reciprocal actions.",
+          tokenEstimate: 12,
+          contentHash: `sha256:${id}`,
+          headingText: "Lesson 12",
+          locator: {
+            kind: "pdf",
+            pageRange: { start: 193 + index, end: 193 + index },
+          },
+        })),
+        ...unrelatedSectionIds.map((sectionId, index) => ({
+          id: `${runId}_reflexive_unrelated_chunk_${index}`,
+          userId,
+          materialRevisionId: revision.id,
+          materialSectionId: sectionId,
+          ordinal: index + 20,
+          text: `General unrelated grammar material ${index + 1}.`,
+          tokenEstimate: 8,
+          contentHash: `sha256:${runId}:reflexive-unrelated-${index}`,
+          headingText: `Unrelated lesson ${index + 1}`,
+          locator: {
+            kind: "pdf",
+            pageRange: { start: index + 20, end: index + 20 },
+          },
+        })),
+        {
+          id: accentChunkId,
+          userId,
+          materialRevisionId: revision.id,
+          materialSectionId: unrelatedSectionIds[0],
+          ordinal: 50,
+          text: "Números cardinales del 21 al 99.",
+          tokenEstimate: 7,
+          contentHash: `sha256:${runId}:accented-topic`,
+          headingText: "Números",
+          locator: { kind: "pdf", pageRange: { start: 20, end: 20 } },
+        },
+      ],
+    });
+    await prisma.materialPage.createMany({
+      data: [
+        {
+          userId,
+          materialRevisionId: revision.id,
+          pageNumber: 194,
+          ocrText: "Reflexive verbs place reflexive pronouns according to the verb form.",
+          textStatus: MaterialPageTextStatus.OCR_READY,
+          contentHash: `sha256:${runId}:reflexive-ocr`,
+          tokenEstimate: 10,
+        },
+        {
+          userId,
+          materialRevisionId: revision.id,
+          pageNumber: 20,
+          ocrText: "An unrelated scanned worksheet with no relevant topic.",
+          textStatus: MaterialPageTextStatus.OCR_READY,
+          contentHash: `sha256:${runId}:unrelated-ocr`,
+          tokenEstimate: 9,
+        },
+      ],
+    });
+    await finalizeMaterialRevision({
+      userId,
+      materialId: material.id,
+      materialRevisionId: revision.id,
+      contentHash: `sha256:${runId}:reflexive-retrieval`,
+      byteSize: 16_384,
+      pageCount: 205,
+      storageBucket: "test-materials",
+      storageKey: `${runId}/reflexive-retrieval.pdf`,
+    });
+    const planScope = vi.fn(async () => ({
+      resolutionStatus: "resolved" as const,
+      resolvedScopeLabel: "Reflexive verb rules",
+      clarification: null,
+      clarificationOptions: [],
+      warnings: [],
+      items: [
+        {
+          key: "reflexive-pronoun-placement",
+          title: "Reflexive pronoun placement",
+          objective: "Place reflexive pronouns correctly with conjugated Spanish verbs.",
+          includeConcepts: ["reflexive pronoun placement"],
+          excludeConcepts: ["commands"],
+          materialSectionIds: [lesson.id],
+          evidenceChunkIds: [teachingChunkIds[1]],
+        },
+      ],
+    }));
+    const lexicalMatches = await searchMaterialChunksLexical({
+      userId,
+      materialRevisionId: revision.id,
+      query: "reflexive verb",
+      prefixMatching: true,
+      limit: 48,
+    });
+    expect(
+      lexicalMatches.filter((chunk) => chunk.lexicalScore > 0).map((chunk) => chunk.id),
+    ).toEqual(expect.arrayContaining(teachingChunkIds));
+    const accentedMatches = await searchMaterialChunksLexical({
+      userId,
+      materialRevisionId: revision.id,
+      query: "números",
+      prefixMatching: true,
+      limit: 10,
+    });
+    expect(
+      accentedMatches.filter((chunk) => chunk.lexicalScore > 0).map((chunk) => chunk.id),
+    ).toContain(accentChunkId);
+
+    const result = await planMaterialSkills({
+      userId,
+      input: {
+        materialId: material.id,
+        materialRevisionId: revision.id,
+        instruction: "make skills for the reflexive verb rules",
+        idempotencyKey: `${runId}_reflexive_retrieval`,
+      },
+      now: new Date(),
+      aiSetup: createAiSetup({ planScope }),
+      embeddingGenerator: async () => {
+        throw Object.assign(new Error("Not Found"), { status: 404 });
+      },
+    });
+
+    expect(
+      result.status,
+      `planning result: ${JSON.stringify(result)}; planner calls: ${planScope.mock.calls.length}`,
+    ).toBe("planned");
+    const planningInput = planScope.mock.calls[0]?.[0];
+    expect(planningInput?.sections.map((section) => section.id)).toEqual([lesson.id]);
+    expect(planningInput?.chunks.map((chunk) => chunk.id)).toEqual(
+      expect.arrayContaining(teachingChunkIds),
+    );
+    expect(planningInput?.chunks.every((chunk) => chunk.materialSectionId === lesson.id)).toBe(
+      true,
     );
   });
 
