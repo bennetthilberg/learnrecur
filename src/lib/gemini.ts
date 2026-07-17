@@ -231,20 +231,20 @@ export function getPublicGeminiFailureMessage(error: unknown): string {
   const message = details.message?.toLowerCase() ?? "";
 
   if (
+    details.code === 504 ||
+    details.status === "DEADLINE_EXCEEDED" ||
+    message.includes("timed out")
+  ) {
+    return "Creating the skill took too long. Try again with a smaller file or a shorter excerpt.";
+  }
+
+  if (
     isRetryableGeminiErrorDetails(details) ||
     message.includes("high demand") ||
     message.includes("temporarily overloaded") ||
     message.includes("temporarily running out of capacity")
   ) {
     return "The AI service is busy right now, so LearnRecur could not finish creating this skill. Try again in a minute.";
-  }
-
-  if (
-    details.code === 504 ||
-    details.status === "DEADLINE_EXCEEDED" ||
-    message.includes("timed out")
-  ) {
-    return "Creating the skill took too long. Try again with a smaller file or a shorter excerpt.";
   }
 
   return "LearnRecur could not create a skill from that source. Try again, or use a clearer excerpt.";
@@ -255,20 +255,20 @@ export function getPublicGeminiScopePlanningFailureMessage(error: unknown): stri
   const message = details.message?.toLowerCase() ?? "";
 
   if (
+    details.code === 504 ||
+    details.status === "DEADLINE_EXCEEDED" ||
+    message.includes("timed out")
+  ) {
+    return "Reviewing the scope took too long. Try a narrower request.";
+  }
+
+  if (
     isRetryableGeminiErrorDetails(details) ||
     message.includes("high demand") ||
     message.includes("temporarily overloaded") ||
     message.includes("temporarily running out of capacity")
   ) {
     return "The AI service is busy right now, so LearnRecur could not review the scope. Try again in a minute.";
-  }
-
-  if (
-    details.code === 504 ||
-    details.status === "DEADLINE_EXCEEDED" ||
-    message.includes("timed out")
-  ) {
-    return "Reviewing the scope took too long. Try a narrower request.";
   }
 
   return "LearnRecur could not review that scope. Check the request and try again.";
@@ -326,7 +326,10 @@ function isRetryableGeminiErrorDetails(details: GeminiErrorDetails): boolean {
   return (
     details.code === 429 ||
     details.code === 500 ||
+    details.code === 502 ||
     details.code === 503 ||
+    details.code === 504 ||
+    status === "DEADLINE_EXCEEDED" ||
     status === "INTERNAL" ||
     status === "RESOURCE_EXHAUSTED" ||
     status === "UNAVAILABLE"

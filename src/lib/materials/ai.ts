@@ -1,9 +1,13 @@
 import "server-only";
 
-import { GoogleGenAI } from "@google/genai";
-
 import { getGeminiEnv } from "@/lib/env";
-import { resolveGeminiRuntimeConfig } from "@/lib/gemini";
+import {
+  getGeminiRuntimeLogContext,
+  resolveGeminiRuntimeConfig,
+  runLoggedGeminiOperation,
+  runWithGeminiProviderFallback,
+  type GeminiRuntimeConfig,
+} from "@/lib/gemini";
 import type { MaterialScopeResolution } from "@/lib/materials/contracts";
 import type {
   MaterialDraftVerifier,
@@ -13,6 +17,13 @@ import type {
   StructuralMaterialReference,
 } from "@/lib/materials/drafting";
 import {
+  runOpenRouterJsonChatCompletion,
+  type OpenRouterChatMessage,
+  type OpenRouterFallbackConfig,
+} from "@/lib/openrouter";
+import { resolveOptionalOpenRouterFallbackConfig } from "@/lib/openrouter-fallback";
+import {
+  buildOpenRouterSourceMediaPart,
   createGeminiSkillDraftGenerator,
   type SkillDraftGenerator,
 } from "@/lib/skills";
@@ -42,6 +53,11 @@ export type MaterialDraftAiSetup = {
   repairTarget?: MaterialDraftTargetRepairer;
   generateDraft: SkillDraftGenerator;
   verifyDraft: MaterialDraftVerifier;
+};
+
+type MaterialAiProviderInput = {
+  gemini: GeminiRuntimeConfig;
+  openRouterFallback?: OpenRouterFallbackConfig | null;
 };
 
 export const materialScopePlannerJsonSchema = {
@@ -156,164 +172,388 @@ const draftTargetRepairJsonSchema = {
 export function resolveMaterialDraftAiSetup(): MaterialDraftAiSetup {
   const env = getGeminiEnv();
   const gemini = resolveGeminiRuntimeConfig(env);
-  const ai = new GoogleGenAI(gemini.clientOptions);
+  const openRouterFallbackResult = resolveOptionalOpenRouterFallbackConfig();
+  const openRouterFallback =
+    openRouterFallbackResult.status === "ready" ? openRouterFallbackResult.config : null;
+
+  if (openRouterFallbackResult.status === "invalid") {
+    console.warn("[ai] openrouter fallback disabled for material skill creation", {
+      message: openRouterFallbackResult.message,
+    });
+  }
+
+  return createMaterialDraftAiSetup({ gemini, openRouterFallback });
+}
+
+export function createMaterialDraftAiSetup({
+  gemini,
+  openRouterFallback,
+}: MaterialAiProviderInput): MaterialDraftAiSetup {
+  const providerInput = { gemini, openRouterFallback };
 
   return {
     model: gemini.model,
-    planScope: createGeminiMaterialScopePlanner({ ai, model: gemini.model }),
-    reviewScope: createGeminiMaterialScopeReviewer({ ai, model: gemini.model }),
-    repairTarget: createGeminiMaterialDraftTargetRepairer({ ai, model: gemini.model }),
-    generateDraft: createGeminiSkillDraftGenerator({ gemini, openRouterFallback: null }),
-    verifyDraft: createGeminiMaterialDraftVerifier({ ai, model: gemini.model }),
+    planScope: createGeminiMaterialScopePlanner(providerInput),
+    reviewScope: createGeminiMaterialScopeReviewer(providerInput),
+    repairTarget: createGeminiMaterialDraftTargetRepairer(providerInput),
+    generateDraft: createGeminiSkillDraftGenerator({ gemini, openRouterFallback }),
+    verifyDraft: createGeminiMaterialDraftVerifier(providerInput),
   };
 }
 
-function createGeminiMaterialDraftTargetRepairer(input: {
-  ai: GoogleGenAI;
-  model: string;
-}): MaterialDraftTargetRepairer {
+function createGeminiMaterialDraftTargetRepairer(
+  input: MaterialAiProviderInput,
+): MaterialDraftTargetRepairer {
   return async (repairInput) => {
     const prompt = buildMaterialDraftTargetRepairPrompt(repairInput);
-    const response = await input.ai.models.generateContent({
-      model: input.model,
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      config: {
-        responseMimeType: "application/json",
-        responseJsonSchema: draftTargetRepairJsonSchema,
-        thinkingConfig: { thinkingBudget: 192 },
-      },
+
+    return runWithGeminiProviderFallback({
+      fallback: buildMaterialOpenRouterFallback(input.openRouterFallback, (config) =>
+        createOpenRouterMaterialDraftTargetRepairer(config)(repairInput),
+      ),
+      operation: "material draft target repair",
+      primary: getGeminiRuntimeLogContext(input.gemini),
+      primaryModel: input.gemini.model,
+      runPrimary: () =>
+        runLoggedGeminiOperation({
+          config: input.gemini,
+          operation: "material draft target repair",
+          metadata: {
+            promptChars: prompt.length,
+            schemaName: "draftTargetRepairJsonSchema",
+          },
+          run: async (ai) => {
+            const response = await ai.models.generateContent({
+              model: input.gemini.model,
+              contents: [{ role: "user", parts: [{ text: prompt }] }],
+              config: {
+                responseMimeType: "application/json",
+                responseJsonSchema: draftTargetRepairJsonSchema,
+                thinkingConfig: { thinkingBudget: 192 },
+              },
+            });
+            if (!response.text) {
+              throw new Error("Gemini returned no material target repair.");
+            }
+            return {
+              response,
+              value: JSON.parse(response.text) as unknown,
+            };
+          },
+        }),
     });
-    if (!response.text) {
-      throw new Error("Gemini returned no material target repair.");
-    }
-    return JSON.parse(response.text) as unknown;
   };
 }
 
-function createGeminiMaterialScopeReviewer(input: {
-  ai: GoogleGenAI;
-  model: string;
-}): MaterialScopeReviewer {
+function createGeminiMaterialScopeReviewer(
+  input: MaterialAiProviderInput,
+): MaterialScopeReviewer {
   return async (reviewInput) => {
     const prompt = buildMaterialScopeReviewerPrompt(reviewInput);
-    const response = await input.ai.models.generateContent({
-      model: input.model,
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      config: {
-        responseMimeType: "application/json",
-        responseJsonSchema: materialScopePlannerJsonSchema,
-        thinkingConfig: { thinkingBudget: 256 },
-      },
+
+    return runWithGeminiProviderFallback({
+      fallback: buildMaterialOpenRouterFallback(input.openRouterFallback, (config) =>
+        createOpenRouterMaterialScopeReviewer(config)(reviewInput),
+      ),
+      operation: "material scope review",
+      primary: getGeminiRuntimeLogContext(input.gemini),
+      primaryModel: input.gemini.model,
+      runPrimary: () =>
+        runLoggedGeminiOperation({
+          config: input.gemini,
+          operation: "material scope review",
+          metadata: {
+            promptChars: prompt.length,
+            schemaName: "materialScopePlannerJsonSchema",
+          },
+          run: async (ai) => {
+            const response = await ai.models.generateContent({
+              model: input.gemini.model,
+              contents: [{ role: "user", parts: [{ text: prompt }] }],
+              config: {
+                responseMimeType: "application/json",
+                responseJsonSchema: materialScopePlannerJsonSchema,
+                thinkingConfig: { thinkingBudget: 256 },
+              },
+            });
+            if (!response.text) {
+              throw new Error("Gemini returned no material scope review.");
+            }
+            return {
+              response,
+              value: JSON.parse(response.text) as unknown,
+            };
+          },
+        }),
     });
-    if (!response.text) {
-      throw new Error("Gemini returned no material scope review.");
-    }
-    return JSON.parse(response.text) as unknown;
   };
 }
 
-function createGeminiMaterialScopePlanner(input: {
-  ai: GoogleGenAI;
-  model: string;
-}): MaterialScopePlanner {
+function createGeminiMaterialScopePlanner(
+  input: MaterialAiProviderInput,
+): MaterialScopePlanner {
   return async (plannerInput) => {
     const prompt = buildMaterialScopePlannerPrompt(plannerInput);
-    const startedAt = Date.now();
-    console.info("[ai] material scope planning started", {
-      provider: "google",
-      model: input.model,
-      promptChars: prompt.length,
-      sectionCount: plannerInput.sections.length,
-      chunkCount: plannerInput.chunks.length,
+
+    return runWithGeminiProviderFallback({
+      fallback: buildMaterialOpenRouterFallback(input.openRouterFallback, (config) =>
+        createOpenRouterMaterialScopePlanner(config)(plannerInput),
+      ),
+      operation: "material scope planning",
+      primary: getGeminiRuntimeLogContext(input.gemini),
+      primaryModel: input.gemini.model,
+      runPrimary: () =>
+        runLoggedGeminiOperation({
+          config: input.gemini,
+          operation: "material scope planning",
+          metadata: {
+            promptChars: prompt.length,
+            schemaName: "materialScopePlannerJsonSchema",
+          },
+          run: async (ai) => {
+            const response = await ai.models.generateContent({
+              model: input.gemini.model,
+              contents: [{ role: "user", parts: [{ text: prompt }] }],
+              config: {
+                responseMimeType: "application/json",
+                responseJsonSchema: materialScopePlannerJsonSchema,
+                thinkingConfig: { thinkingBudget: 256 },
+              },
+            });
+            if (!response.text) {
+              throw new Error("Gemini returned no material scope plan.");
+            }
+            return {
+              response,
+              value: JSON.parse(response.text) as unknown,
+            };
+          },
+        }),
     });
-    try {
-      const response = await input.ai.models.generateContent({
-        model: input.model,
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        config: {
-          responseMimeType: "application/json",
-          responseJsonSchema: materialScopePlannerJsonSchema,
-          thinkingConfig: { thinkingBudget: 256 },
-        },
-      });
-      if (!response.text) {
-        throw new Error("Gemini returned no material scope plan.");
-      }
-      console.info("[ai] material scope planning succeeded", {
-        provider: "google",
-        model: input.model,
-        elapsedMs: Date.now() - startedAt,
-      });
-      return JSON.parse(response.text) as unknown;
-    } catch (error) {
-      console.error("[ai] material scope planning failed", {
-        provider: "google",
-        model: input.model,
-        elapsedMs: Date.now() - startedAt,
-        error: error instanceof Error ? error.message : "Unknown planning error",
-      });
-      throw error;
-    }
   };
 }
 
-function createGeminiMaterialDraftVerifier(input: {
-  ai: GoogleGenAI;
-  model: string;
-}): MaterialDraftVerifier {
+function createGeminiMaterialDraftVerifier(
+  input: MaterialAiProviderInput,
+): MaterialDraftVerifier {
   return async (verificationInput) => {
     const prompt = buildMaterialDraftVerificationPrompt(verificationInput);
     const sourceMedia = verificationInput.sourceMedia ?? [];
-    const startedAt = Date.now();
-    console.info("[ai] material draft verification started", {
-      provider: "google",
-      model: input.model,
-      promptChars: prompt.length,
-      mediaCount: sourceMedia.length,
-      mediaBytes: sourceMedia.reduce((total, media) => total + media.bytes.byteLength, 0),
-    });
-    try {
-      const response = await input.ai.models.generateContent({
-        model: input.model,
-        contents: [
-          {
-            role: "user",
-            parts: [
-              { text: prompt },
-              ...sourceMedia.map((media) => ({
-                inlineData: {
-                  mimeType: media.mimeType,
-                  data: media.bytes.toString("base64"),
-                },
-              })),
-            ],
+
+    return runWithGeminiProviderFallback({
+      fallback: buildMaterialOpenRouterFallback(input.openRouterFallback, (config) =>
+        createOpenRouterMaterialDraftVerifier(config)(verificationInput),
+      ),
+      operation: "material draft verification",
+      primary: getGeminiRuntimeLogContext(input.gemini),
+      primaryModel: input.gemini.model,
+      runPrimary: () =>
+        runLoggedGeminiOperation({
+          config: input.gemini,
+          operation: "material draft verification",
+          metadata: {
+            promptChars: prompt.length,
+            schemaName: "draftVerificationJsonSchema",
+            media: {
+              count: sourceMedia.length,
+              totalBytes: sourceMedia.reduce(
+                (total, media) => total + media.bytes.byteLength,
+                0,
+              ),
+              mimeTypes: sourceMedia.map((media) => media.mimeType),
+            },
           },
-        ],
-        config: {
-          responseMimeType: "application/json",
-          responseJsonSchema: draftVerificationJsonSchema,
-          thinkingConfig: { thinkingBudget: 128 },
-        },
-      });
-      if (!response.text) {
-        throw new Error("Gemini returned no material draft verification.");
-      }
-      console.info("[ai] material draft verification succeeded", {
-        provider: "google",
-        model: input.model,
-        elapsedMs: Date.now() - startedAt,
-      });
-      return JSON.parse(response.text) as unknown;
-    } catch (error) {
-      console.error("[ai] material draft verification failed", {
-        provider: "google",
-        model: input.model,
-        elapsedMs: Date.now() - startedAt,
-        error: error instanceof Error ? error.message : "Unknown verification error",
-      });
-      throw error;
-    }
+          run: async (ai) => {
+            const response = await ai.models.generateContent({
+              model: input.gemini.model,
+              contents: [
+                {
+                  role: "user",
+                  parts: [
+                    { text: prompt },
+                    ...sourceMedia.map((media) => ({
+                      inlineData: {
+                        mimeType: media.mimeType,
+                        data: media.bytes.toString("base64"),
+                      },
+                    })),
+                  ],
+                },
+              ],
+              config: {
+                responseMimeType: "application/json",
+                responseJsonSchema: draftVerificationJsonSchema,
+                thinkingConfig: { thinkingBudget: 128 },
+              },
+            });
+            if (!response.text) {
+              throw new Error("Gemini returned no material draft verification.");
+            }
+            return {
+              response,
+              value: JSON.parse(response.text) as unknown,
+            };
+          },
+        }),
+    });
   };
+}
+
+function buildMaterialOpenRouterFallback<T>(
+  config: OpenRouterFallbackConfig | null | undefined,
+  run: (config: OpenRouterFallbackConfig) => Promise<T>,
+) {
+  if (!config) {
+    return null;
+  }
+
+  return {
+    provider: "openrouter",
+    model: config.model,
+    run: () => run(config),
+  };
+}
+
+function createOpenRouterMaterialScopePlanner(
+  config: OpenRouterFallbackConfig,
+): MaterialScopePlanner {
+  return async (plannerInput) => {
+    const prompt = buildMaterialScopePlannerPrompt(plannerInput);
+
+    return runOpenRouterJsonChatCompletion({
+      ...config,
+      operation: "material scope planning",
+      metadata: {
+        promptChars: prompt.length,
+        schemaName: "materialScopePlannerJsonSchema",
+        sectionCount: plannerInput.sections.length,
+        chunkCount: plannerInput.chunks.length,
+      },
+      responseJsonSchema: materialScopePlannerJsonSchema,
+      responseJsonSchemaName: "materialScopePlan",
+      messages: buildOpenRouterMaterialMessages(
+        "You plan narrow, source-grounded LearnRecur skills. Return only a valid JSON object.",
+        prompt,
+      ),
+    });
+  };
+}
+
+function createOpenRouterMaterialScopeReviewer(
+  config: OpenRouterFallbackConfig,
+): MaterialScopeReviewer {
+  return async (reviewInput) => {
+    const prompt = buildMaterialScopeReviewerPrompt(reviewInput);
+
+    return runOpenRouterJsonChatCompletion({
+      ...config,
+      operation: "material scope review",
+      metadata: {
+        promptChars: prompt.length,
+        schemaName: "materialScopePlannerJsonSchema",
+        sectionCount: reviewInput.sections.length,
+        chunkCount: reviewInput.chunks.length,
+      },
+      responseJsonSchema: materialScopePlannerJsonSchema,
+      responseJsonSchemaName: "materialScopeReview",
+      messages: buildOpenRouterMaterialMessages(
+        "You review and correct source-grounded LearnRecur skill plans. Return only a valid JSON object.",
+        prompt,
+      ),
+    });
+  };
+}
+
+function createOpenRouterMaterialDraftTargetRepairer(
+  config: OpenRouterFallbackConfig,
+): MaterialDraftTargetRepairer {
+  return async (repairInput) => {
+    const prompt = buildMaterialDraftTargetRepairPrompt(repairInput);
+
+    return runOpenRouterJsonChatCompletion({
+      ...config,
+      operation: "material draft target repair",
+      metadata: {
+        promptChars: prompt.length,
+        schemaName: "draftTargetRepairJsonSchema",
+      },
+      responseJsonSchema: draftTargetRepairJsonSchema,
+      responseJsonSchemaName: "materialDraftTargetRepair",
+      messages: buildOpenRouterMaterialMessages(
+        "You repair source-grounded LearnRecur skill targets. Return only a valid JSON object.",
+        prompt,
+      ),
+    });
+  };
+}
+
+function createOpenRouterMaterialDraftVerifier(
+  config: OpenRouterFallbackConfig,
+): MaterialDraftVerifier {
+  return async (verificationInput) => {
+    const prompt = buildMaterialDraftVerificationPrompt(verificationInput);
+    const sourceMedia = verificationInput.sourceMedia ?? [];
+
+    return runOpenRouterJsonChatCompletion({
+      ...config,
+      operation: "material draft verification",
+      metadata: {
+        promptChars: prompt.length,
+        schemaName: "draftVerificationJsonSchema",
+        media: {
+          count: sourceMedia.length,
+          totalBytes: sourceMedia.reduce(
+            (total, media) => total + media.bytes.byteLength,
+            0,
+          ),
+          mimeTypes: sourceMedia.map((media) => media.mimeType),
+        },
+      },
+      responseJsonSchema: draftVerificationJsonSchema,
+      responseJsonSchemaName: "materialDraftVerification",
+      messages: [
+        {
+          role: "system",
+          content:
+            "You verify LearnRecur skill drafts against untrusted source evidence. Return only a valid JSON object.",
+        },
+        {
+          role: "user",
+          content: buildOpenRouterMaterialVerificationContent(prompt, sourceMedia),
+        },
+      ],
+    });
+  };
+}
+
+function buildOpenRouterMaterialMessages(
+  system: string,
+  prompt: string,
+): OpenRouterChatMessage[] {
+  return [
+    { role: "system", content: system },
+    { role: "user", content: prompt },
+  ];
+}
+
+function buildOpenRouterMaterialVerificationContent(
+  prompt: string,
+  sourceMedia: NonNullable<Parameters<MaterialDraftVerifier>[0]["sourceMedia"]>,
+): OpenRouterChatMessage["content"] {
+  if (!sourceMedia.length) {
+    return prompt;
+  }
+
+  return [
+    { type: "text", text: prompt },
+    ...sourceMedia.map((media) =>
+      buildOpenRouterSourceMediaPart({
+        bytes: media.bytes,
+        filename: media.label,
+        mimeType: media.mimeType,
+      }),
+    ),
+  ];
 }
 
 export function buildMaterialScopePlannerPrompt(input: MaterialScopePlannerInput) {

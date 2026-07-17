@@ -101,6 +101,61 @@ describe("Gemini fallback helpers", () => {
     warningSpy.mockRestore();
   });
 
+  it.each([
+    { code: 502, status: "BAD_GATEWAY" },
+    { code: 504, status: "GATEWAY_TIMEOUT" },
+    { code: 504, status: "DEADLINE_EXCEEDED" },
+  ])(
+    "retries transient Gemini gateway failures ($code $status) with OpenRouter fallback",
+    async ({ code, status }) => {
+      const warningSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const calls: string[] = [];
+
+      await expect(
+        runWithGeminiProviderFallback({
+          primaryModel: "gemini-3.5-flash",
+          operation: "unit test generation",
+          async runPrimary() {
+            calls.push("gemini");
+            throw new Error(
+              JSON.stringify({
+                error: {
+                  code,
+                  message: "The upstream Gemini request could not complete.",
+                  status,
+                },
+              }),
+            );
+          },
+          fallback: {
+            provider: "openrouter",
+            model: "google/gemma-4-31b-it",
+            async run() {
+              calls.push("openrouter");
+              return "ok:openrouter";
+            },
+          },
+        }),
+      ).resolves.toBe("ok:openrouter");
+
+      expect(calls).toEqual(["gemini", "openrouter"]);
+      warningSpy.mockRestore();
+    },
+  );
+
+  it("treats Gemini deadline status as retryable even without an HTTP code", () => {
+    const error = new Error(
+      JSON.stringify({
+        error: {
+          message: "The request exceeded its deadline.",
+          status: "DEADLINE_EXCEEDED",
+        },
+      }),
+    );
+
+    expect(isRetryableGeminiModelError(error)).toBe(true);
+  });
+
   it("does not retry malformed request errors", async () => {
     const calls: string[] = [];
 
