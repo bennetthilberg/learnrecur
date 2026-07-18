@@ -982,11 +982,6 @@ body {
   white-space: nowrap;
 }
 
-.batchSubmitShortcut > svg {
-  flex: 0 0 auto;
-  color: rgba(255, 255, 255, .82);
-}
-
 .ratingButton kbd {
   display: inline-flex;
   min-width: 24px;
@@ -1167,15 +1162,22 @@ body {
   background-image: linear-gradient(
     90deg,
     transparent 0%,
-    rgba(255, 255, 255, .62) 48%,
+    rgba(255, 255, 255, 0) 28%,
+    rgba(255, 255, 255, .88) 50%,
+    rgba(255, 255, 255, 0) 72%,
     transparent 100%
   ) !important;
   content: "";
   transform: translateX(-105%);
-  animation: route-skeleton-shimmer 1.35s ease-in-out infinite !important;
+  animation: route-skeleton-shimmer 1.2s cubic-bezier(.4, 0, .2, 1) infinite !important;
+  will-change: transform;
 }
 
 .routeSkeleton.routeSkeletonShimmer {
+  background-color: #DEE7F3 !important;
+}
+
+.routeSkeleton.routeSkeletonShimmer::before {
   background-color: #DEE7F3 !important;
 }
 

@@ -1,7 +1,6 @@
 "use client";
 
 import { Kbd } from "@mantine/core";
-import { Keyboard } from "@phosphor-icons/react";
 import type { PropsWithChildren } from "react";
 import { useFormStatus } from "react-dom";
 
@@ -35,7 +34,6 @@ export function BatchSubmitButton({
         <span>{children}</span>
         {shortcut ? (
           <span className="batchSubmitShortcut" aria-hidden="true">
-            <Keyboard size={15} weight="bold" />
             <Kbd>{shortcut.keyLabel}</Kbd>
           </span>
         ) : null}

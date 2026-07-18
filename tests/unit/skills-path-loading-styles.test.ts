@@ -9,6 +9,8 @@ const styles = readFileSync(
 
 describe("skills path loading styles", () => {
   it("uses an opt-in shimmer instead of animating every skeleton in the app", () => {
+    expect(styles).toContain(".routeSkeleton.routeSkeletonShimmer::before");
+    expect(styles).toContain("background-color: #DEE7F3 !important");
     expect(styles).toContain(".routeSkeleton.routeSkeletonShimmer::after");
     expect(styles).toContain("animation: route-skeleton-shimmer");
     expect(styles).toContain("@keyframes route-skeleton-shimmer");

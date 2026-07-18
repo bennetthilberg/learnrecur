@@ -53,7 +53,7 @@ describe("BatchSubmitButton", () => {
     expect(optedInMarkup).toContain("⌘ Enter");
     expect(optedInMarkup).toContain("batchSubmitShortcut");
     expect(optedInMarkup).toContain("<kbd");
-    expect(optedInMarkup).toContain("<svg");
+    expect(optedInMarkup).not.toContain("<svg");
     expect(defaultMarkup).not.toContain("aria-keyshortcuts");
     expect(defaultMarkup).not.toContain("batchSubmitShortcut");
   });
