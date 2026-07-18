@@ -1,5 +1,5 @@
 import { SkillsPathLoading } from "../skills-path-loading";
 
 export default function Loading() {
-  return <SkillsPathLoading kind="new-choice" />;
+  return <SkillsPathLoading kind="materials-library" />;
 }

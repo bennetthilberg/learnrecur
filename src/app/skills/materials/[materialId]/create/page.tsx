@@ -11,6 +11,7 @@ import { getMaterialDetail } from "@/lib/materials/library";
 import { getPublicMaterialActionErrorMessage } from "@/lib/materials/presentation";
 import { ensureDatabaseUser } from "@/lib/users";
 
+import { BatchDescribeForm } from "../../../batches/batch-describe-form";
 import { BatchRequestTextarea } from "../../../batches/batch-request-textarea";
 import { BatchSubmitButton } from "../../../batches/batch-submit-button";
 import { BatchStageRail } from "../../../batches/batch-stage-rail";
@@ -98,7 +99,7 @@ export default async function CreateMaterialSkillsPage({
             <small>{revision.sections.length} outline sections · {revision.pageCount ?? revision.fetchedPageCount ?? "—"} pages</small>
           </div>
         </div>
-        <form action={planMaterialSkillsAction} className="batchDescribeForm">
+        <BatchDescribeForm action={planMaterialSkillsAction} className="batchDescribeForm">
           <input name="materialId" type="hidden" value={material.id} />
           <input name="materialRevisionId" type="hidden" value={revision.id} />
           <input name="idempotencyKey" type="hidden" value={randomUUID()} />
@@ -120,9 +121,9 @@ export default async function CreateMaterialSkillsPage({
           </div>
           <div className="skillFormActions batchPrimaryAction">
             <small>You can make up to 10 skills in one batch.</small>
-            <BatchSubmitButton>Review scope</BatchSubmitButton>
+            <BatchSubmitButton showReviewShortcut>Review scope</BatchSubmitButton>
           </div>
-        </form>
+        </BatchDescribeForm>
       </section>
     </main>
   );

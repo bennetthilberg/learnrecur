@@ -37,9 +37,9 @@ export const primaryRouteLoadingByKey: Record<PrimaryRouteKey, PrimaryRouteLoadi
     title: "History",
   },
   new: {
-    detail: "Paste notes, describe what you want to practice, or drop in a PDF or image.",
+    detail: "Use the fast path for one target, or a reusable material for a chapter-sized batch.",
     kind: "new",
-    title: "Create a skill",
+    title: "What are you adding?",
   },
   practice: {
     detail: "Preparing the next due exercise.",
@@ -86,9 +86,11 @@ export function PrimaryRouteLoadingContent({
 function RouteHeader({
   actionCount = 0,
   config,
+  shimmer = false,
 }: {
   actionCount?: number;
   config: PrimaryRouteLoadingConfig;
+  shimmer?: boolean;
 }) {
   return (
     <header className="skillHeader routeLoadingHeader">
@@ -100,7 +102,7 @@ function RouteHeader({
         <div className="routeLoadingHeaderActions" aria-hidden="true">
           {Array.from({ length: actionCount }, (_, index) => (
             <Skeleton
-              className="routeSkeleton"
+              className={`routeSkeleton${shimmer ? " routeSkeletonShimmer" : ""}`}
               height={42}
               key={index}
               radius={8}
@@ -251,12 +253,12 @@ function PracticeRouteLoading({ config }: { config: PrimaryRouteLoadingConfig })
 function SkillsRouteLoading({ config }: { config: PrimaryRouteLoadingConfig }) {
   return (
     <>
-      <RouteHeader actionCount={1} config={config} />
+      <RouteHeader actionCount={2} config={config} shimmer />
       <div className="skillLibraryGrid" data-layout="single">
         <PanelSkeleton title="Skills">
           <div className="skillLibraryList">
-            <SkillLibraryRowSkeleton withFacts />
-            <SkillLibraryRowSkeleton compact withFacts />
+            <SkillLibraryRowSkeleton />
+            <SkillLibraryRowSkeleton compact />
           </div>
         </PanelSkeleton>
       </div>
@@ -266,32 +268,25 @@ function SkillsRouteLoading({ config }: { config: PrimaryRouteLoadingConfig }) {
 
 function SkillLibraryRowSkeleton({
   compact = false,
-  withFacts = false,
 }: {
   compact?: boolean;
-  withFacts?: boolean;
 }) {
   return (
     <article className="skillLibraryRow routeLoadingLibraryRow" aria-hidden="true">
       <div className="skillLibraryRowMain">
         <div className="routeLoadingLibraryCopy">
-          <Skeleton className="routeSkeleton" height={18} radius={5} width={compact ? "54%" : "72%"} />
-          <Skeleton className="routeSkeleton" height={13} radius={5} width={compact ? "64%" : "86%"} />
+          <Skeleton className="routeSkeleton routeSkeletonShimmer" height={18} radius={5} width={compact ? "54%" : "72%"} />
+          <Skeleton className="routeSkeleton routeSkeletonShimmer" height={13} radius={5} width={compact ? "64%" : "86%"} />
         </div>
-        <Skeleton className="routeSkeleton" height={25} radius={6} width={62} />
+        <div className="skillLibraryRowControls">
+          <Skeleton className="routeSkeleton routeSkeletonShimmer" height={25} radius={6} width={62} />
+          <Skeleton className="routeSkeleton routeSkeletonShimmer" height={34} radius={8} width={34} />
+        </div>
       </div>
       <div className="routeLoadingMetaLine">
-        <Skeleton className="routeSkeleton" height={12} radius={5} width={88} />
-        <Skeleton className="routeSkeleton" height={12} radius={5} width={72} />
-        <Skeleton className="routeSkeleton" height={12} radius={5} width={98} />
+        <Skeleton className="routeSkeleton routeSkeletonShimmer" height={12} radius={5} width={88} />
+        <Skeleton className="routeSkeleton routeSkeletonShimmer" height={12} radius={5} width={72} />
       </div>
-      {withFacts ? (
-        <div className="routeLoadingFactsGrid">
-          {Array.from({ length: 4 }, (_, index) => (
-            <Skeleton className="routeSkeleton" height={43} key={index} radius={6} />
-          ))}
-        </div>
-      ) : null}
     </article>
   );
 }
@@ -299,55 +294,24 @@ function SkillLibraryRowSkeleton({
 function NewSkillRouteLoading({ config }: { config: PrimaryRouteLoadingConfig }) {
   return (
     <>
-      <header className="skillHeader createSkillHeader routeLoadingHeader">
+      <header className="skillHeader createModeHeader routeLoadingHeader">
         <div>
           <h1>{config.title}</h1>
           <p>{config.detail}</p>
         </div>
       </header>
-      <div className="skillCreateFlow routeLoadingCreateStack">
-        <div className="routeLoadingCreateStepper" aria-hidden="true">
-          {Array.from({ length: 3 }, (_, index) => (
-            <div className="routeLoadingCreateStep" key={index}>
-              <Skeleton className="routeSkeleton" height={28} radius={999} width={28} />
-              <div>
-                <Skeleton className="routeSkeleton" height={14} radius={5} width={72} />
-                <Skeleton className="routeSkeleton" height={12} mt={7} radius={5} width={84} />
-              </div>
-            </div>
-          ))}
-        </div>
-        <section
-          className="skillPanel createSkillPanel routeLoadingCreatePanel"
-          aria-label="Skill creation loading"
-        >
-          <div className="createSkillPanelHeader" aria-hidden="true">
-            <Skeleton className="routeSkeleton" height={28} radius={6} width={196} />
-            <Skeleton
-              className="routeSkeleton routeLoadingActionButton"
-              height={42}
-              radius={8}
-              width={126}
-            />
-          </div>
-          <div className="createSkillInputBox routeLoadingCreateInput" aria-hidden="true">
-            <Skeleton className="routeSkeleton routeLoadingCreateText" height={260} radius={0} />
-            <div className="createSkillInputFooter">
-              <Skeleton className="routeSkeleton" height={16} radius={5} width="min(100%, 286px)" />
-              <Skeleton className="routeSkeleton" height={28} radius={999} width={132} />
-            </div>
-          </div>
-          <div className="routeLoadingCreateOptions" aria-hidden="true">
-            <Skeleton className="routeSkeleton" height={24} radius={6} width={148} />
-            <Skeleton className="routeSkeleton" height={14} radius={5} width={220} />
-          </div>
-          <Skeleton
-            className="routeSkeleton routeLoadingActionButton"
-            height={44}
-            radius={8}
-            width={132}
-          />
-        </section>
+      <div className="createModeChoices skillsPathChoiceLoading" aria-hidden="true">
+        {["One skill", "Multiple skills"].map((label, index) => (
+          <article className="createModeChoice" key={label}>
+            <Skeleton className="routeSkeleton routeSkeletonShimmer" circle height={40} width={40} />
+            <span>
+              <strong>{label}</strong>
+              <Skeleton className="routeSkeleton routeSkeletonShimmer" height={13} mt={10} radius={5} width={index === 0 ? "84%" : "92%"} />
+              <Skeleton className="routeSkeleton routeSkeletonShimmer" height={13} mt={8} radius={5} width={index === 0 ? "66%" : "74%"} />
+            </span>
+            <Skeleton className="routeSkeleton routeSkeletonShimmer createModeChoiceCue" height={12} radius={5} width={72} />
+          </article>
+        ))}
       </div>
     </>
   );

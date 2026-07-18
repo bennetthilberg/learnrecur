@@ -974,6 +974,19 @@ body {
   text-align: center;
 }
 
+.batchSubmitShortcut {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: 2px;
+  white-space: nowrap;
+}
+
+.batchSubmitShortcut > svg {
+  flex: 0 0 auto;
+  color: rgba(255, 255, 255, .82);
+}
+
 .ratingButton kbd {
   display: inline-flex;
   min-width: 24px;
@@ -1144,6 +1157,118 @@ body {
 .routePendingContent[data-route-kind="settings"] .routeSkeleton::after {
   display: block !important;
   background-image: none !important;
+}
+
+.routeSkeleton.routeSkeletonShimmer::after {
+  position: absolute;
+  inset: 0;
+  display: block !important;
+  background-color: transparent !important;
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, .62) 48%,
+    transparent 100%
+  ) !important;
+  content: "";
+  transform: translateX(-105%);
+  animation: route-skeleton-shimmer 1.35s ease-in-out infinite !important;
+}
+
+.routeSkeleton.routeSkeletonShimmer {
+  background-color: #DEE7F3 !important;
+}
+
+@keyframes route-skeleton-shimmer {
+  to {
+    transform: translateX(105%);
+  }
+}
+
+[data-loading-route] .routeSkeleton {
+  pointer-events: none;
+}
+
+.skillsPathChoiceLoading .createModeChoice {
+  pointer-events: none;
+}
+
+.skillsPathChoiceLoading .createModeChoice:hover {
+  border-color: var(--lr-card-border);
+  background: var(--lr-card);
+}
+
+.skillsPathChoiceLoading .createModeChoice:last-child:hover {
+  background: var(--lr-blue-tint);
+}
+
+.skillsPathDynamicHeader {
+  min-width: 0;
+  flex: 1;
+}
+
+.skillsPathAvailabilityLoading {
+  flex: 1;
+}
+
+.skillsPathAvailabilityLoading > div:last-child,
+.skillsPathMaterialIdentityLoading > div:last-child {
+  min-width: 0;
+  flex: 1;
+}
+
+.skillsPathOutlineRow,
+.skillsPathScopeRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  border-bottom: 1px solid var(--lr-divider);
+  padding: 13px 22px;
+}
+
+.skillsPathOutlineRow:last-child,
+.skillsPathSideRow:last-child {
+  border-bottom: 0;
+}
+
+.skillsPathSideRow {
+  border-bottom: 1px solid var(--lr-divider);
+  padding: 13px 18px;
+}
+
+.skillsPathDangerLoading {
+  padding: 18px;
+}
+
+.skillsPathScopeRow {
+  grid-template-columns: auto minmax(0, 1fr);
+  padding: 18px 24px;
+}
+
+.batchScopeCorrection > .skillsPathCorrectionLoading {
+  display: grid;
+  align-items: stretch;
+  gap: 15px;
+  border-bottom: 0;
+  padding: 19px 20px 21px;
+}
+
+.skillsPathGuidanceLoading {
+  display: grid;
+}
+
+.skillsPathGuidanceLoading > div {
+  border-top: 1px solid var(--lr-divider);
+  padding: 16px 0;
+}
+
+.skillsPathGuidanceLoading > div:first-child {
+  border-top: 0;
+}
+
+.skillsPathOutcomeLoading {
+  padding-top: 16px;
 }
 
 .routeLoadingPanel {
@@ -7380,6 +7505,12 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .routeSkeleton.routeSkeletonShimmer::after {
+    animation: none !important;
+    opacity: .28;
+    transform: none;
+  }
+
   .entryShell *,
   .authShell *,
   .dashboardShell *,
