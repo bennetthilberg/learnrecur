@@ -393,6 +393,23 @@ export type JsonWithAggregatesFilterBase<$PrismaModel = never> = {
   _max?: Prisma.NestedJsonFilter<$PrismaModel>
 }
 
+export type EnumMaterialPageTextStatusFilter<$PrismaModel = never> = {
+  equals?: $Enums.MaterialPageTextStatus | Prisma.EnumMaterialPageTextStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.MaterialPageTextStatus[] | Prisma.ListEnumMaterialPageTextStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.MaterialPageTextStatus[] | Prisma.ListEnumMaterialPageTextStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumMaterialPageTextStatusFilter<$PrismaModel> | $Enums.MaterialPageTextStatus
+}
+
+export type EnumMaterialPageTextStatusWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.MaterialPageTextStatus | Prisma.EnumMaterialPageTextStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.MaterialPageTextStatus[] | Prisma.ListEnumMaterialPageTextStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.MaterialPageTextStatus[] | Prisma.ListEnumMaterialPageTextStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumMaterialPageTextStatusWithAggregatesFilter<$PrismaModel> | $Enums.MaterialPageTextStatus
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumMaterialPageTextStatusFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumMaterialPageTextStatusFilter<$PrismaModel>
+}
+
 export type EnumMaterialCleanupStatusFilter<$PrismaModel = never> = {
   equals?: $Enums.MaterialCleanupStatus | Prisma.EnumMaterialCleanupStatusFieldRefInput<$PrismaModel>
   in?: $Enums.MaterialCleanupStatus[] | Prisma.ListEnumMaterialCleanupStatusFieldRefInput<$PrismaModel>
@@ -1102,6 +1119,23 @@ export type NestedJsonFilterBase<$PrismaModel = never> = {
   gt?: runtime.InputJsonValue | Prisma.JsonFieldRefInput<$PrismaModel>
   gte?: runtime.InputJsonValue | Prisma.JsonFieldRefInput<$PrismaModel>
   not?: runtime.InputJsonValue | Prisma.JsonFieldRefInput<$PrismaModel> | Prisma.JsonNullValueFilter
+}
+
+export type NestedEnumMaterialPageTextStatusFilter<$PrismaModel = never> = {
+  equals?: $Enums.MaterialPageTextStatus | Prisma.EnumMaterialPageTextStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.MaterialPageTextStatus[] | Prisma.ListEnumMaterialPageTextStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.MaterialPageTextStatus[] | Prisma.ListEnumMaterialPageTextStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumMaterialPageTextStatusFilter<$PrismaModel> | $Enums.MaterialPageTextStatus
+}
+
+export type NestedEnumMaterialPageTextStatusWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.MaterialPageTextStatus | Prisma.EnumMaterialPageTextStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.MaterialPageTextStatus[] | Prisma.ListEnumMaterialPageTextStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.MaterialPageTextStatus[] | Prisma.ListEnumMaterialPageTextStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumMaterialPageTextStatusWithAggregatesFilter<$PrismaModel> | $Enums.MaterialPageTextStatus
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumMaterialPageTextStatusFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumMaterialPageTextStatusFilter<$PrismaModel>
 }
 
 export type NestedEnumMaterialCleanupStatusFilter<$PrismaModel = never> = {

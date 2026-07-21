@@ -17,6 +17,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import {
+  MAX_SOURCE_UPLOAD_BYTES,
   MAX_SOURCE_UPLOAD_FILES,
   MAX_TOTAL_SOURCE_UPLOAD_BYTES,
   SOURCE_UPLOAD_MAX_FILES_ERROR,
@@ -24,6 +25,7 @@ import {
   SOURCE_UPLOAD_MIME_TYPES,
   buildSourceUploadFileLabel,
 } from "@/lib/skills/source-upload-policy";
+import { getQuickPdfDisposition } from "@/lib/materials/quick-flow";
 
 import {
   cleanupPreparedSourceUploadsAction,
@@ -137,6 +139,8 @@ export function SourceCreationWorkspace({
   const [selectedFiles, setSelectedFiles] = useState<SelectedSourceUploadFile[]>([]);
   const [uploadStatus, setUploadStatus] = useState<UploadStatus>("idle");
   const [isSubmittingUpload, setIsSubmittingUpload] = useState(false);
+  const [isInspectingPdf, setIsInspectingPdf] = useState(false);
+  const [materialPdfNotice, setMaterialPdfNotice] = useState<string | null>(null);
   const [isPendingUpload, startUploadTransition] = useTransition();
   const [materialSnapshot, setMaterialSnapshot] = useState<MaterialSnapshot>(emptyMaterialSnapshot);
   const [createdSkill, setCreatedSkill] = useState<CreatedSkillDraftForReview | null>(null);
@@ -147,6 +151,7 @@ export function SourceCreationWorkspace({
 
   const uploadBusy =
     isSubmittingUpload ||
+    isInspectingPdf ||
     isPendingUpload ||
     uploadStatus === "preparing" ||
     uploadStatus === "uploading" ||
@@ -185,6 +190,7 @@ export function SourceCreationWorkspace({
       return [];
     });
     setFieldErrors(undefined);
+    setMaterialPdfNotice(null);
   }, []);
 
   const removeSelectedFile = useCallback((fileId: string) => {
@@ -228,6 +234,18 @@ export function SourceCreationWorkspace({
   }, []);
 
   const selectUploadFiles = useCallback((files: File[], successMessage: string | null = null) => {
+    const oversizedPdf = files.find(
+      (file) => file.type === "application/pdf" && file.size > MAX_SOURCE_UPLOAD_BYTES,
+    );
+    if (oversizedPdf) {
+      clearFileInput(fileInputRef.current);
+      setMaterialPdfNotice(
+        `${oversizedPdf.name} is over the 10 MB quick-create limit. Save it as a reusable Material instead.`,
+      );
+      setUploadStatus("error");
+      return false;
+    }
+
     const fileError = getSelectedSourceUploadFilesError(
       selectedFiles.map((selectedFile) => selectedFile.file),
       files,
@@ -255,6 +273,46 @@ export function SourceCreationWorkspace({
     setSelectedFiles((currentFiles) => [...currentFiles, ...nextFiles]);
     setUploadStatus("idle");
     setFieldErrors(undefined);
+    setMaterialPdfNotice(null);
+
+    const pdfFiles = nextFiles.filter((selectedFile) => selectedFile.file.type === "application/pdf");
+    if (pdfFiles.length > 0) {
+      setIsInspectingPdf(true);
+      void Promise.all(
+        pdfFiles.map(async (selectedFile) => ({
+          selectedFile,
+          pageCount: await inspectPdfPageCount(selectedFile.file),
+        })),
+      )
+        .then((inspections) => {
+          const longPdfs = inspections.filter(({ pageCount }) =>
+            getQuickPdfDisposition({
+              byteSize: 0,
+              pageCount,
+              focusNote: "focused quick create",
+            }).route === "materials-required",
+          );
+          if (longPdfs.length === 0) {
+            return;
+          }
+          const longPdfIds = new Set(longPdfs.map(({ selectedFile }) => selectedFile.id));
+          setSelectedFiles((currentFiles) => {
+            const removed = currentFiles.filter((item) => longPdfIds.has(item.id));
+            revokeSelectedSourceUploadFiles(removed);
+            return currentFiles.filter((item) => !longPdfIds.has(item.id));
+          });
+          const firstLongPdf = longPdfs[0];
+          const additionalCount = longPdfs.length - 1;
+          setMaterialPdfNotice(
+            `${firstLongPdf.selectedFile.file.name} has ${firstLongPdf.pageCount} pages${additionalCount > 0 ? `, along with ${additionalCount} other long PDF${additionalCount === 1 ? "" : "s"}` : ""}. Save ${longPdfs.length === 1 ? "it" : "them"} as reusable Materials instead of quick create.`,
+          );
+        })
+        .catch(() => {
+          // The server will still validate the PDF. A failed client inspection
+          // must not discard a file that may be valid.
+        })
+        .finally(() => setIsInspectingPdf(false));
+    }
 
     if (successMessage) {
       showNotice({
@@ -756,6 +814,9 @@ export function SourceCreationWorkspace({
               <p id="create-skill-input-help">
                 Text, screenshots, images, and PDFs work here. Up to 5 files, 20 MB total.
               </p>
+              <Link className="createSkillMaterialLink" href="/skills/new/multiple">
+                Long PDF? Save it as a Material
+              </Link>
             </div>
           </div>
 
@@ -767,6 +828,12 @@ export function SourceCreationWorkspace({
           {fileErrorMessage(activeFieldErrors) ? (
             <p className="skillFormMessage" data-tone="error">
               {fileErrorMessage(activeFieldErrors)}
+            </p>
+          ) : null}
+          {materialPdfNotice ? (
+            <p className="skillFormMessage createSkillMaterialNotice" data-tone="error">
+              {materialPdfNotice}{" "}
+              <Link href="/skills/new/multiple">Switch to Materials</Link>
             </p>
           ) : null}
 
@@ -1281,6 +1348,15 @@ function focusSourceText(form: HTMLFormElement) {
   if (sourceText instanceof HTMLTextAreaElement) {
     sourceText.focus();
   }
+}
+
+async function inspectPdfPageCount(file: File) {
+  const { PDFDocument } = await import("pdf-lib");
+  const document = await PDFDocument.load(await file.arrayBuffer(), {
+    ignoreEncryption: true,
+    updateMetadata: false,
+  });
+  return document.getPageCount();
 }
 
 function formatClientError(error: unknown) {

@@ -77,6 +77,11 @@ export type MaterialSection = Prisma.MaterialSectionModel
  */
 export type MaterialChunk = Prisma.MaterialChunkModel
 /**
+ * Model MaterialPage
+ * 
+ */
+export type MaterialPage = Prisma.MaterialPageModel
+/**
  * Model MaterialCleanupJob
  * 
  */

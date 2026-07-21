@@ -334,6 +334,7 @@ export type MaterialRevisionWhereInput = {
   sourceFiles?: Prisma.SourceFileListRelationFilter
   sections?: Prisma.MaterialSectionListRelationFilter
   chunks?: Prisma.MaterialChunkListRelationFilter
+  pages?: Prisma.MaterialPageListRelationFilter
   draftBatches?: Prisma.SkillDraftBatchListRelationFilter
 }
 
@@ -362,6 +363,7 @@ export type MaterialRevisionOrderByWithRelationInput = {
   sourceFiles?: Prisma.SourceFileOrderByRelationAggregateInput
   sections?: Prisma.MaterialSectionOrderByRelationAggregateInput
   chunks?: Prisma.MaterialChunkOrderByRelationAggregateInput
+  pages?: Prisma.MaterialPageOrderByRelationAggregateInput
   draftBatches?: Prisma.SkillDraftBatchOrderByRelationAggregateInput
 }
 
@@ -395,6 +397,7 @@ export type MaterialRevisionWhereUniqueInput = Prisma.AtLeast<{
   sourceFiles?: Prisma.SourceFileListRelationFilter
   sections?: Prisma.MaterialSectionListRelationFilter
   chunks?: Prisma.MaterialChunkListRelationFilter
+  pages?: Prisma.MaterialPageListRelationFilter
   draftBatches?: Prisma.SkillDraftBatchListRelationFilter
 }, "id" | "id_userId" | "materialId_revisionNumber">
 
@@ -471,6 +474,7 @@ export type MaterialRevisionCreateInput = {
   sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutMaterialRevisionInput
   sections?: Prisma.MaterialSectionCreateNestedManyWithoutMaterialRevisionInput
   chunks?: Prisma.MaterialChunkCreateNestedManyWithoutMaterialRevisionInput
+  pages?: Prisma.MaterialPageCreateNestedManyWithoutMaterialRevisionInput
   draftBatches?: Prisma.SkillDraftBatchCreateNestedManyWithoutMaterialRevisionInput
 }
 
@@ -497,6 +501,7 @@ export type MaterialRevisionUncheckedCreateInput = {
   sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutMaterialRevisionInput
   sections?: Prisma.MaterialSectionUncheckedCreateNestedManyWithoutMaterialRevisionInput
   chunks?: Prisma.MaterialChunkUncheckedCreateNestedManyWithoutMaterialRevisionInput
+  pages?: Prisma.MaterialPageUncheckedCreateNestedManyWithoutMaterialRevisionInput
   draftBatches?: Prisma.SkillDraftBatchUncheckedCreateNestedManyWithoutMaterialRevisionInput
 }
 
@@ -523,6 +528,7 @@ export type MaterialRevisionUpdateInput = {
   sourceFiles?: Prisma.SourceFileUpdateManyWithoutMaterialRevisionNestedInput
   sections?: Prisma.MaterialSectionUpdateManyWithoutMaterialRevisionNestedInput
   chunks?: Prisma.MaterialChunkUpdateManyWithoutMaterialRevisionNestedInput
+  pages?: Prisma.MaterialPageUpdateManyWithoutMaterialRevisionNestedInput
   draftBatches?: Prisma.SkillDraftBatchUpdateManyWithoutMaterialRevisionNestedInput
 }
 
@@ -549,6 +555,7 @@ export type MaterialRevisionUncheckedUpdateInput = {
   sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutMaterialRevisionNestedInput
   sections?: Prisma.MaterialSectionUncheckedUpdateManyWithoutMaterialRevisionNestedInput
   chunks?: Prisma.MaterialChunkUncheckedUpdateManyWithoutMaterialRevisionNestedInput
+  pages?: Prisma.MaterialPageUncheckedUpdateManyWithoutMaterialRevisionNestedInput
   draftBatches?: Prisma.SkillDraftBatchUncheckedUpdateManyWithoutMaterialRevisionNestedInput
 }
 
@@ -874,6 +881,20 @@ export type MaterialRevisionUpdateOneRequiredWithoutChunksNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.MaterialRevisionUpdateToOneWithWhereWithoutChunksInput, Prisma.MaterialRevisionUpdateWithoutChunksInput>, Prisma.MaterialRevisionUncheckedUpdateWithoutChunksInput>
 }
 
+export type MaterialRevisionCreateNestedOneWithoutPagesInput = {
+  create?: Prisma.XOR<Prisma.MaterialRevisionCreateWithoutPagesInput, Prisma.MaterialRevisionUncheckedCreateWithoutPagesInput>
+  connectOrCreate?: Prisma.MaterialRevisionCreateOrConnectWithoutPagesInput
+  connect?: Prisma.MaterialRevisionWhereUniqueInput
+}
+
+export type MaterialRevisionUpdateOneRequiredWithoutPagesNestedInput = {
+  create?: Prisma.XOR<Prisma.MaterialRevisionCreateWithoutPagesInput, Prisma.MaterialRevisionUncheckedCreateWithoutPagesInput>
+  connectOrCreate?: Prisma.MaterialRevisionCreateOrConnectWithoutPagesInput
+  upsert?: Prisma.MaterialRevisionUpsertWithoutPagesInput
+  connect?: Prisma.MaterialRevisionWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.MaterialRevisionUpdateToOneWithWhereWithoutPagesInput, Prisma.MaterialRevisionUpdateWithoutPagesInput>, Prisma.MaterialRevisionUncheckedUpdateWithoutPagesInput>
+}
+
 export type MaterialRevisionCreateNestedOneWithoutDraftBatchesInput = {
   create?: Prisma.XOR<Prisma.MaterialRevisionCreateWithoutDraftBatchesInput, Prisma.MaterialRevisionUncheckedCreateWithoutDraftBatchesInput>
   connectOrCreate?: Prisma.MaterialRevisionCreateOrConnectWithoutDraftBatchesInput
@@ -910,6 +931,7 @@ export type MaterialRevisionCreateWithoutUserInput = {
   sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutMaterialRevisionInput
   sections?: Prisma.MaterialSectionCreateNestedManyWithoutMaterialRevisionInput
   chunks?: Prisma.MaterialChunkCreateNestedManyWithoutMaterialRevisionInput
+  pages?: Prisma.MaterialPageCreateNestedManyWithoutMaterialRevisionInput
   draftBatches?: Prisma.SkillDraftBatchCreateNestedManyWithoutMaterialRevisionInput
 }
 
@@ -935,6 +957,7 @@ export type MaterialRevisionUncheckedCreateWithoutUserInput = {
   sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutMaterialRevisionInput
   sections?: Prisma.MaterialSectionUncheckedCreateNestedManyWithoutMaterialRevisionInput
   chunks?: Prisma.MaterialChunkUncheckedCreateNestedManyWithoutMaterialRevisionInput
+  pages?: Prisma.MaterialPageUncheckedCreateNestedManyWithoutMaterialRevisionInput
   draftBatches?: Prisma.SkillDraftBatchUncheckedCreateNestedManyWithoutMaterialRevisionInput
 }
 
@@ -1010,6 +1033,7 @@ export type MaterialRevisionCreateWithoutSourceFilesInput = {
   activeForMaterial?: Prisma.StudyMaterialCreateNestedOneWithoutActiveRevisionInput
   sections?: Prisma.MaterialSectionCreateNestedManyWithoutMaterialRevisionInput
   chunks?: Prisma.MaterialChunkCreateNestedManyWithoutMaterialRevisionInput
+  pages?: Prisma.MaterialPageCreateNestedManyWithoutMaterialRevisionInput
   draftBatches?: Prisma.SkillDraftBatchCreateNestedManyWithoutMaterialRevisionInput
 }
 
@@ -1035,6 +1059,7 @@ export type MaterialRevisionUncheckedCreateWithoutSourceFilesInput = {
   activeForMaterial?: Prisma.StudyMaterialUncheckedCreateNestedOneWithoutActiveRevisionInput
   sections?: Prisma.MaterialSectionUncheckedCreateNestedManyWithoutMaterialRevisionInput
   chunks?: Prisma.MaterialChunkUncheckedCreateNestedManyWithoutMaterialRevisionInput
+  pages?: Prisma.MaterialPageUncheckedCreateNestedManyWithoutMaterialRevisionInput
   draftBatches?: Prisma.SkillDraftBatchUncheckedCreateNestedManyWithoutMaterialRevisionInput
 }
 
@@ -1076,6 +1101,7 @@ export type MaterialRevisionUpdateWithoutSourceFilesInput = {
   activeForMaterial?: Prisma.StudyMaterialUpdateOneWithoutActiveRevisionNestedInput
   sections?: Prisma.MaterialSectionUpdateManyWithoutMaterialRevisionNestedInput
   chunks?: Prisma.MaterialChunkUpdateManyWithoutMaterialRevisionNestedInput
+  pages?: Prisma.MaterialPageUpdateManyWithoutMaterialRevisionNestedInput
   draftBatches?: Prisma.SkillDraftBatchUpdateManyWithoutMaterialRevisionNestedInput
 }
 
@@ -1101,6 +1127,7 @@ export type MaterialRevisionUncheckedUpdateWithoutSourceFilesInput = {
   activeForMaterial?: Prisma.StudyMaterialUncheckedUpdateOneWithoutActiveRevisionNestedInput
   sections?: Prisma.MaterialSectionUncheckedUpdateManyWithoutMaterialRevisionNestedInput
   chunks?: Prisma.MaterialChunkUncheckedUpdateManyWithoutMaterialRevisionNestedInput
+  pages?: Prisma.MaterialPageUncheckedUpdateManyWithoutMaterialRevisionNestedInput
   draftBatches?: Prisma.SkillDraftBatchUncheckedUpdateManyWithoutMaterialRevisionNestedInput
 }
 
@@ -1126,6 +1153,7 @@ export type MaterialRevisionCreateWithoutActiveForMaterialInput = {
   sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutMaterialRevisionInput
   sections?: Prisma.MaterialSectionCreateNestedManyWithoutMaterialRevisionInput
   chunks?: Prisma.MaterialChunkCreateNestedManyWithoutMaterialRevisionInput
+  pages?: Prisma.MaterialPageCreateNestedManyWithoutMaterialRevisionInput
   draftBatches?: Prisma.SkillDraftBatchCreateNestedManyWithoutMaterialRevisionInput
 }
 
@@ -1151,6 +1179,7 @@ export type MaterialRevisionUncheckedCreateWithoutActiveForMaterialInput = {
   sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutMaterialRevisionInput
   sections?: Prisma.MaterialSectionUncheckedCreateNestedManyWithoutMaterialRevisionInput
   chunks?: Prisma.MaterialChunkUncheckedCreateNestedManyWithoutMaterialRevisionInput
+  pages?: Prisma.MaterialPageUncheckedCreateNestedManyWithoutMaterialRevisionInput
   draftBatches?: Prisma.SkillDraftBatchUncheckedCreateNestedManyWithoutMaterialRevisionInput
 }
 
@@ -1181,6 +1210,7 @@ export type MaterialRevisionCreateWithoutMaterialInput = {
   sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutMaterialRevisionInput
   sections?: Prisma.MaterialSectionCreateNestedManyWithoutMaterialRevisionInput
   chunks?: Prisma.MaterialChunkCreateNestedManyWithoutMaterialRevisionInput
+  pages?: Prisma.MaterialPageCreateNestedManyWithoutMaterialRevisionInput
   draftBatches?: Prisma.SkillDraftBatchCreateNestedManyWithoutMaterialRevisionInput
 }
 
@@ -1205,6 +1235,7 @@ export type MaterialRevisionUncheckedCreateWithoutMaterialInput = {
   sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutMaterialRevisionInput
   sections?: Prisma.MaterialSectionUncheckedCreateNestedManyWithoutMaterialRevisionInput
   chunks?: Prisma.MaterialChunkUncheckedCreateNestedManyWithoutMaterialRevisionInput
+  pages?: Prisma.MaterialPageUncheckedCreateNestedManyWithoutMaterialRevisionInput
   draftBatches?: Prisma.SkillDraftBatchUncheckedCreateNestedManyWithoutMaterialRevisionInput
 }
 
@@ -1251,6 +1282,7 @@ export type MaterialRevisionUpdateWithoutActiveForMaterialInput = {
   sourceFiles?: Prisma.SourceFileUpdateManyWithoutMaterialRevisionNestedInput
   sections?: Prisma.MaterialSectionUpdateManyWithoutMaterialRevisionNestedInput
   chunks?: Prisma.MaterialChunkUpdateManyWithoutMaterialRevisionNestedInput
+  pages?: Prisma.MaterialPageUpdateManyWithoutMaterialRevisionNestedInput
   draftBatches?: Prisma.SkillDraftBatchUpdateManyWithoutMaterialRevisionNestedInput
 }
 
@@ -1276,6 +1308,7 @@ export type MaterialRevisionUncheckedUpdateWithoutActiveForMaterialInput = {
   sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutMaterialRevisionNestedInput
   sections?: Prisma.MaterialSectionUncheckedUpdateManyWithoutMaterialRevisionNestedInput
   chunks?: Prisma.MaterialChunkUncheckedUpdateManyWithoutMaterialRevisionNestedInput
+  pages?: Prisma.MaterialPageUncheckedUpdateManyWithoutMaterialRevisionNestedInput
   draftBatches?: Prisma.SkillDraftBatchUncheckedUpdateManyWithoutMaterialRevisionNestedInput
 }
 
@@ -1317,6 +1350,7 @@ export type MaterialRevisionCreateWithoutSectionsInput = {
   activeForMaterial?: Prisma.StudyMaterialCreateNestedOneWithoutActiveRevisionInput
   sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutMaterialRevisionInput
   chunks?: Prisma.MaterialChunkCreateNestedManyWithoutMaterialRevisionInput
+  pages?: Prisma.MaterialPageCreateNestedManyWithoutMaterialRevisionInput
   draftBatches?: Prisma.SkillDraftBatchCreateNestedManyWithoutMaterialRevisionInput
 }
 
@@ -1342,6 +1376,7 @@ export type MaterialRevisionUncheckedCreateWithoutSectionsInput = {
   activeForMaterial?: Prisma.StudyMaterialUncheckedCreateNestedOneWithoutActiveRevisionInput
   sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutMaterialRevisionInput
   chunks?: Prisma.MaterialChunkUncheckedCreateNestedManyWithoutMaterialRevisionInput
+  pages?: Prisma.MaterialPageUncheckedCreateNestedManyWithoutMaterialRevisionInput
   draftBatches?: Prisma.SkillDraftBatchUncheckedCreateNestedManyWithoutMaterialRevisionInput
 }
 
@@ -1383,6 +1418,7 @@ export type MaterialRevisionUpdateWithoutSectionsInput = {
   activeForMaterial?: Prisma.StudyMaterialUpdateOneWithoutActiveRevisionNestedInput
   sourceFiles?: Prisma.SourceFileUpdateManyWithoutMaterialRevisionNestedInput
   chunks?: Prisma.MaterialChunkUpdateManyWithoutMaterialRevisionNestedInput
+  pages?: Prisma.MaterialPageUpdateManyWithoutMaterialRevisionNestedInput
   draftBatches?: Prisma.SkillDraftBatchUpdateManyWithoutMaterialRevisionNestedInput
 }
 
@@ -1408,6 +1444,7 @@ export type MaterialRevisionUncheckedUpdateWithoutSectionsInput = {
   activeForMaterial?: Prisma.StudyMaterialUncheckedUpdateOneWithoutActiveRevisionNestedInput
   sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutMaterialRevisionNestedInput
   chunks?: Prisma.MaterialChunkUncheckedUpdateManyWithoutMaterialRevisionNestedInput
+  pages?: Prisma.MaterialPageUncheckedUpdateManyWithoutMaterialRevisionNestedInput
   draftBatches?: Prisma.SkillDraftBatchUncheckedUpdateManyWithoutMaterialRevisionNestedInput
 }
 
@@ -1433,6 +1470,7 @@ export type MaterialRevisionCreateWithoutChunksInput = {
   activeForMaterial?: Prisma.StudyMaterialCreateNestedOneWithoutActiveRevisionInput
   sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutMaterialRevisionInput
   sections?: Prisma.MaterialSectionCreateNestedManyWithoutMaterialRevisionInput
+  pages?: Prisma.MaterialPageCreateNestedManyWithoutMaterialRevisionInput
   draftBatches?: Prisma.SkillDraftBatchCreateNestedManyWithoutMaterialRevisionInput
 }
 
@@ -1458,6 +1496,7 @@ export type MaterialRevisionUncheckedCreateWithoutChunksInput = {
   activeForMaterial?: Prisma.StudyMaterialUncheckedCreateNestedOneWithoutActiveRevisionInput
   sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutMaterialRevisionInput
   sections?: Prisma.MaterialSectionUncheckedCreateNestedManyWithoutMaterialRevisionInput
+  pages?: Prisma.MaterialPageUncheckedCreateNestedManyWithoutMaterialRevisionInput
   draftBatches?: Prisma.SkillDraftBatchUncheckedCreateNestedManyWithoutMaterialRevisionInput
 }
 
@@ -1499,6 +1538,7 @@ export type MaterialRevisionUpdateWithoutChunksInput = {
   activeForMaterial?: Prisma.StudyMaterialUpdateOneWithoutActiveRevisionNestedInput
   sourceFiles?: Prisma.SourceFileUpdateManyWithoutMaterialRevisionNestedInput
   sections?: Prisma.MaterialSectionUpdateManyWithoutMaterialRevisionNestedInput
+  pages?: Prisma.MaterialPageUpdateManyWithoutMaterialRevisionNestedInput
   draftBatches?: Prisma.SkillDraftBatchUpdateManyWithoutMaterialRevisionNestedInput
 }
 
@@ -1524,6 +1564,127 @@ export type MaterialRevisionUncheckedUpdateWithoutChunksInput = {
   activeForMaterial?: Prisma.StudyMaterialUncheckedUpdateOneWithoutActiveRevisionNestedInput
   sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutMaterialRevisionNestedInput
   sections?: Prisma.MaterialSectionUncheckedUpdateManyWithoutMaterialRevisionNestedInput
+  pages?: Prisma.MaterialPageUncheckedUpdateManyWithoutMaterialRevisionNestedInput
+  draftBatches?: Prisma.SkillDraftBatchUncheckedUpdateManyWithoutMaterialRevisionNestedInput
+}
+
+export type MaterialRevisionCreateWithoutPagesInput = {
+  id?: string
+  revisionNumber: number
+  status?: $Enums.MaterialRevisionStatus
+  sourceUrl?: string | null
+  contentHash?: string | null
+  byteSize?: number | null
+  pageCount?: number | null
+  fetchedPageCount?: number | null
+  storageBucket?: string | null
+  storageKey?: string | null
+  processingMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  errorCode?: string | null
+  errorMessage?: string | null
+  finalizedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  user: Prisma.UserCreateNestedOneWithoutMaterialRevisionsInput
+  material: Prisma.StudyMaterialCreateNestedOneWithoutRevisionsInput
+  activeForMaterial?: Prisma.StudyMaterialCreateNestedOneWithoutActiveRevisionInput
+  sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutMaterialRevisionInput
+  sections?: Prisma.MaterialSectionCreateNestedManyWithoutMaterialRevisionInput
+  chunks?: Prisma.MaterialChunkCreateNestedManyWithoutMaterialRevisionInput
+  draftBatches?: Prisma.SkillDraftBatchCreateNestedManyWithoutMaterialRevisionInput
+}
+
+export type MaterialRevisionUncheckedCreateWithoutPagesInput = {
+  id?: string
+  userId: string
+  materialId: string
+  revisionNumber: number
+  status?: $Enums.MaterialRevisionStatus
+  sourceUrl?: string | null
+  contentHash?: string | null
+  byteSize?: number | null
+  pageCount?: number | null
+  fetchedPageCount?: number | null
+  storageBucket?: string | null
+  storageKey?: string | null
+  processingMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  errorCode?: string | null
+  errorMessage?: string | null
+  finalizedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  activeForMaterial?: Prisma.StudyMaterialUncheckedCreateNestedOneWithoutActiveRevisionInput
+  sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutMaterialRevisionInput
+  sections?: Prisma.MaterialSectionUncheckedCreateNestedManyWithoutMaterialRevisionInput
+  chunks?: Prisma.MaterialChunkUncheckedCreateNestedManyWithoutMaterialRevisionInput
+  draftBatches?: Prisma.SkillDraftBatchUncheckedCreateNestedManyWithoutMaterialRevisionInput
+}
+
+export type MaterialRevisionCreateOrConnectWithoutPagesInput = {
+  where: Prisma.MaterialRevisionWhereUniqueInput
+  create: Prisma.XOR<Prisma.MaterialRevisionCreateWithoutPagesInput, Prisma.MaterialRevisionUncheckedCreateWithoutPagesInput>
+}
+
+export type MaterialRevisionUpsertWithoutPagesInput = {
+  update: Prisma.XOR<Prisma.MaterialRevisionUpdateWithoutPagesInput, Prisma.MaterialRevisionUncheckedUpdateWithoutPagesInput>
+  create: Prisma.XOR<Prisma.MaterialRevisionCreateWithoutPagesInput, Prisma.MaterialRevisionUncheckedCreateWithoutPagesInput>
+  where?: Prisma.MaterialRevisionWhereInput
+}
+
+export type MaterialRevisionUpdateToOneWithWhereWithoutPagesInput = {
+  where?: Prisma.MaterialRevisionWhereInput
+  data: Prisma.XOR<Prisma.MaterialRevisionUpdateWithoutPagesInput, Prisma.MaterialRevisionUncheckedUpdateWithoutPagesInput>
+}
+
+export type MaterialRevisionUpdateWithoutPagesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  revisionNumber?: Prisma.IntFieldUpdateOperationsInput | number
+  status?: Prisma.EnumMaterialRevisionStatusFieldUpdateOperationsInput | $Enums.MaterialRevisionStatus
+  sourceUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contentHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  byteSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  pageCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  fetchedPageCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  storageBucket?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  processingMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  finalizedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  user?: Prisma.UserUpdateOneRequiredWithoutMaterialRevisionsNestedInput
+  material?: Prisma.StudyMaterialUpdateOneRequiredWithoutRevisionsNestedInput
+  activeForMaterial?: Prisma.StudyMaterialUpdateOneWithoutActiveRevisionNestedInput
+  sourceFiles?: Prisma.SourceFileUpdateManyWithoutMaterialRevisionNestedInput
+  sections?: Prisma.MaterialSectionUpdateManyWithoutMaterialRevisionNestedInput
+  chunks?: Prisma.MaterialChunkUpdateManyWithoutMaterialRevisionNestedInput
+  draftBatches?: Prisma.SkillDraftBatchUpdateManyWithoutMaterialRevisionNestedInput
+}
+
+export type MaterialRevisionUncheckedUpdateWithoutPagesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
+  materialId?: Prisma.StringFieldUpdateOperationsInput | string
+  revisionNumber?: Prisma.IntFieldUpdateOperationsInput | number
+  status?: Prisma.EnumMaterialRevisionStatusFieldUpdateOperationsInput | $Enums.MaterialRevisionStatus
+  sourceUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contentHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  byteSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  pageCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  fetchedPageCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  storageBucket?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  processingMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  finalizedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  activeForMaterial?: Prisma.StudyMaterialUncheckedUpdateOneWithoutActiveRevisionNestedInput
+  sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutMaterialRevisionNestedInput
+  sections?: Prisma.MaterialSectionUncheckedUpdateManyWithoutMaterialRevisionNestedInput
+  chunks?: Prisma.MaterialChunkUncheckedUpdateManyWithoutMaterialRevisionNestedInput
   draftBatches?: Prisma.SkillDraftBatchUncheckedUpdateManyWithoutMaterialRevisionNestedInput
 }
 
@@ -1550,6 +1711,7 @@ export type MaterialRevisionCreateWithoutDraftBatchesInput = {
   sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutMaterialRevisionInput
   sections?: Prisma.MaterialSectionCreateNestedManyWithoutMaterialRevisionInput
   chunks?: Prisma.MaterialChunkCreateNestedManyWithoutMaterialRevisionInput
+  pages?: Prisma.MaterialPageCreateNestedManyWithoutMaterialRevisionInput
 }
 
 export type MaterialRevisionUncheckedCreateWithoutDraftBatchesInput = {
@@ -1575,6 +1737,7 @@ export type MaterialRevisionUncheckedCreateWithoutDraftBatchesInput = {
   sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutMaterialRevisionInput
   sections?: Prisma.MaterialSectionUncheckedCreateNestedManyWithoutMaterialRevisionInput
   chunks?: Prisma.MaterialChunkUncheckedCreateNestedManyWithoutMaterialRevisionInput
+  pages?: Prisma.MaterialPageUncheckedCreateNestedManyWithoutMaterialRevisionInput
 }
 
 export type MaterialRevisionCreateOrConnectWithoutDraftBatchesInput = {
@@ -1616,6 +1779,7 @@ export type MaterialRevisionUpdateWithoutDraftBatchesInput = {
   sourceFiles?: Prisma.SourceFileUpdateManyWithoutMaterialRevisionNestedInput
   sections?: Prisma.MaterialSectionUpdateManyWithoutMaterialRevisionNestedInput
   chunks?: Prisma.MaterialChunkUpdateManyWithoutMaterialRevisionNestedInput
+  pages?: Prisma.MaterialPageUpdateManyWithoutMaterialRevisionNestedInput
 }
 
 export type MaterialRevisionUncheckedUpdateWithoutDraftBatchesInput = {
@@ -1641,6 +1805,7 @@ export type MaterialRevisionUncheckedUpdateWithoutDraftBatchesInput = {
   sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutMaterialRevisionNestedInput
   sections?: Prisma.MaterialSectionUncheckedUpdateManyWithoutMaterialRevisionNestedInput
   chunks?: Prisma.MaterialChunkUncheckedUpdateManyWithoutMaterialRevisionNestedInput
+  pages?: Prisma.MaterialPageUncheckedUpdateManyWithoutMaterialRevisionNestedInput
 }
 
 export type MaterialRevisionCreateManyUserInput = {
@@ -1685,6 +1850,7 @@ export type MaterialRevisionUpdateWithoutUserInput = {
   sourceFiles?: Prisma.SourceFileUpdateManyWithoutMaterialRevisionNestedInput
   sections?: Prisma.MaterialSectionUpdateManyWithoutMaterialRevisionNestedInput
   chunks?: Prisma.MaterialChunkUpdateManyWithoutMaterialRevisionNestedInput
+  pages?: Prisma.MaterialPageUpdateManyWithoutMaterialRevisionNestedInput
   draftBatches?: Prisma.SkillDraftBatchUpdateManyWithoutMaterialRevisionNestedInput
 }
 
@@ -1710,6 +1876,7 @@ export type MaterialRevisionUncheckedUpdateWithoutUserInput = {
   sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutMaterialRevisionNestedInput
   sections?: Prisma.MaterialSectionUncheckedUpdateManyWithoutMaterialRevisionNestedInput
   chunks?: Prisma.MaterialChunkUncheckedUpdateManyWithoutMaterialRevisionNestedInput
+  pages?: Prisma.MaterialPageUncheckedUpdateManyWithoutMaterialRevisionNestedInput
   draftBatches?: Prisma.SkillDraftBatchUncheckedUpdateManyWithoutMaterialRevisionNestedInput
 }
 
@@ -1774,6 +1941,7 @@ export type MaterialRevisionUpdateWithoutMaterialInput = {
   sourceFiles?: Prisma.SourceFileUpdateManyWithoutMaterialRevisionNestedInput
   sections?: Prisma.MaterialSectionUpdateManyWithoutMaterialRevisionNestedInput
   chunks?: Prisma.MaterialChunkUpdateManyWithoutMaterialRevisionNestedInput
+  pages?: Prisma.MaterialPageUpdateManyWithoutMaterialRevisionNestedInput
   draftBatches?: Prisma.SkillDraftBatchUpdateManyWithoutMaterialRevisionNestedInput
 }
 
@@ -1798,6 +1966,7 @@ export type MaterialRevisionUncheckedUpdateWithoutMaterialInput = {
   sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutMaterialRevisionNestedInput
   sections?: Prisma.MaterialSectionUncheckedUpdateManyWithoutMaterialRevisionNestedInput
   chunks?: Prisma.MaterialChunkUncheckedUpdateManyWithoutMaterialRevisionNestedInput
+  pages?: Prisma.MaterialPageUncheckedUpdateManyWithoutMaterialRevisionNestedInput
   draftBatches?: Prisma.SkillDraftBatchUncheckedUpdateManyWithoutMaterialRevisionNestedInput
 }
 
@@ -1829,6 +1998,7 @@ export type MaterialRevisionCountOutputType = {
   sourceFiles: number
   sections: number
   chunks: number
+  pages: number
   draftBatches: number
 }
 
@@ -1836,6 +2006,7 @@ export type MaterialRevisionCountOutputTypeSelect<ExtArgs extends runtime.Types.
   sourceFiles?: boolean | MaterialRevisionCountOutputTypeCountSourceFilesArgs
   sections?: boolean | MaterialRevisionCountOutputTypeCountSectionsArgs
   chunks?: boolean | MaterialRevisionCountOutputTypeCountChunksArgs
+  pages?: boolean | MaterialRevisionCountOutputTypeCountPagesArgs
   draftBatches?: boolean | MaterialRevisionCountOutputTypeCountDraftBatchesArgs
 }
 
@@ -1873,6 +2044,13 @@ export type MaterialRevisionCountOutputTypeCountChunksArgs<ExtArgs extends runti
 /**
  * MaterialRevisionCountOutputType without action
  */
+export type MaterialRevisionCountOutputTypeCountPagesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.MaterialPageWhereInput
+}
+
+/**
+ * MaterialRevisionCountOutputType without action
+ */
 export type MaterialRevisionCountOutputTypeCountDraftBatchesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   where?: Prisma.SkillDraftBatchWhereInput
 }
@@ -1903,6 +2081,7 @@ export type MaterialRevisionSelect<ExtArgs extends runtime.Types.Extensions.Inte
   sourceFiles?: boolean | Prisma.MaterialRevision$sourceFilesArgs<ExtArgs>
   sections?: boolean | Prisma.MaterialRevision$sectionsArgs<ExtArgs>
   chunks?: boolean | Prisma.MaterialRevision$chunksArgs<ExtArgs>
+  pages?: boolean | Prisma.MaterialRevision$pagesArgs<ExtArgs>
   draftBatches?: boolean | Prisma.MaterialRevision$draftBatchesArgs<ExtArgs>
   _count?: boolean | Prisma.MaterialRevisionCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["materialRevision"]>
@@ -1982,6 +2161,7 @@ export type MaterialRevisionInclude<ExtArgs extends runtime.Types.Extensions.Int
   sourceFiles?: boolean | Prisma.MaterialRevision$sourceFilesArgs<ExtArgs>
   sections?: boolean | Prisma.MaterialRevision$sectionsArgs<ExtArgs>
   chunks?: boolean | Prisma.MaterialRevision$chunksArgs<ExtArgs>
+  pages?: boolean | Prisma.MaterialRevision$pagesArgs<ExtArgs>
   draftBatches?: boolean | Prisma.MaterialRevision$draftBatchesArgs<ExtArgs>
   _count?: boolean | Prisma.MaterialRevisionCountOutputTypeDefaultArgs<ExtArgs>
 }
@@ -2003,6 +2183,7 @@ export type $MaterialRevisionPayload<ExtArgs extends runtime.Types.Extensions.In
     sourceFiles: Prisma.$SourceFilePayload<ExtArgs>[]
     sections: Prisma.$MaterialSectionPayload<ExtArgs>[]
     chunks: Prisma.$MaterialChunkPayload<ExtArgs>[]
+    pages: Prisma.$MaterialPagePayload<ExtArgs>[]
     draftBatches: Prisma.$SkillDraftBatchPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
@@ -2424,6 +2605,7 @@ export interface Prisma__MaterialRevisionClient<T, Null = never, ExtArgs extends
   sourceFiles<T extends Prisma.MaterialRevision$sourceFilesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.MaterialRevision$sourceFilesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$SourceFilePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   sections<T extends Prisma.MaterialRevision$sectionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.MaterialRevision$sectionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$MaterialSectionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   chunks<T extends Prisma.MaterialRevision$chunksArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.MaterialRevision$chunksArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$MaterialChunkPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  pages<T extends Prisma.MaterialRevision$pagesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.MaterialRevision$pagesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$MaterialPagePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   draftBatches<T extends Prisma.MaterialRevision$draftBatchesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.MaterialRevision$draftBatchesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$SkillDraftBatchPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
@@ -2961,6 +3143,30 @@ export type MaterialRevision$chunksArgs<ExtArgs extends runtime.Types.Extensions
   take?: number
   skip?: number
   distinct?: Prisma.MaterialChunkScalarFieldEnum | Prisma.MaterialChunkScalarFieldEnum[]
+}
+
+/**
+ * MaterialRevision.pages
+ */
+export type MaterialRevision$pagesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the MaterialPage
+   */
+  select?: Prisma.MaterialPageSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the MaterialPage
+   */
+  omit?: Prisma.MaterialPageOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.MaterialPageInclude<ExtArgs> | null
+  where?: Prisma.MaterialPageWhereInput
+  orderBy?: Prisma.MaterialPageOrderByWithRelationInput | Prisma.MaterialPageOrderByWithRelationInput[]
+  cursor?: Prisma.MaterialPageWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.MaterialPageScalarFieldEnum | Prisma.MaterialPageScalarFieldEnum[]
 }
 
 /**

@@ -43,6 +43,12 @@ export type SourceObjectStorage = {
   }): Promise<string>;
   headObject(input: { key: string; bucket?: string }): Promise<SourceObjectHead>;
   getObjectBytes(input: { key: string; bucket?: string; maxBytes?: number }): Promise<Buffer>;
+  putObject?(input: {
+    key: string;
+    bytes: Buffer;
+    mimeType: string;
+    bucket?: string;
+  }): Promise<void>;
   listObjects(input?: { prefix?: string; bucket?: string }): Promise<string[]>;
   deleteObject(input: { key: string; bucket?: string }): Promise<void>;
 };
@@ -130,6 +136,17 @@ export function createS3SourceObjectStorage(env: S3Env): SourceObjectStorage {
       }
 
       return streamToBuffer(result.Body as AsyncIterable<Uint8Array>, input.maxBytes);
+    },
+    async putObject(input) {
+      await client.send(
+        new PutObjectCommand({
+          Bucket: input.bucket ?? env.S3_BUCKET_NAME,
+          Key: input.key,
+          Body: input.bytes,
+          ContentLength: input.bytes.byteLength,
+          ContentType: input.mimeType,
+        }),
+      );
     },
     async listObjects(input = {}) {
       const bucket = input.bucket ?? env.S3_BUCKET_NAME;

@@ -58,10 +58,15 @@ export default async function SkillsPage({ searchParams }: SkillsPageProps) {
           <h1>Skills</h1>
           <p>Manage the skills in your practice schedule.</p>
         </div>
-        <Link className="primaryButton" href="/skills/new">
-          <PlusCircle size={18} weight="bold" aria-hidden="true" />
-          Add skill
-        </Link>
+        <div className="materialHeaderActions">
+          <Link className="secondaryButton" href="/skills/materials">
+            Materials
+          </Link>
+          <Link className="primaryButton" href="/skills/new">
+            <PlusCircle size={18} weight="bold" aria-hidden="true" />
+            Add skill
+          </Link>
+        </div>
       </header>
 
       {deletedSkill ? (

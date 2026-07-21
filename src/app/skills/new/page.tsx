@@ -1,51 +1,36 @@
-import { auth, currentUser } from "@clerk/nextjs/server";
+import { BookOpenText, Cards } from "@phosphor-icons/react/dist/ssr";
+import Link from "next/link";
 
-import { UserStatusPanel } from "@/components/app/user-status-panel";
-import { getSkillCreationSourceRecoveryItems } from "@/lib/skills/source-recovery";
-import { ensureDatabaseUser } from "@/lib/users";
-
-import { SourceCreationWorkspace } from "../source-creation-workspace";
 import { SkillsTopbar } from "../skills-topbar";
 
-export const dynamic = "force-dynamic";
-export const maxDuration = 120;
-
 export default async function NewSkillPage() {
-  const { userId } = await auth.protect();
-  const clerkUser = await currentUser();
-
-  if (!clerkUser) {
-    throw new Error(`Clerk returned no user for authenticated user ${userId}.`);
-  }
-
-  const databaseUser = await ensureDatabaseUser(clerkUser);
-
-  if (databaseUser.status !== "ready") {
-    return (
-      <main className="skillShell">
-        <SkillsTopbar current="new" />
-        <UserStatusPanel id="skills-setup-title" status={databaseUser} />
-      </main>
-    );
-  }
-
-  const recoverableSourceUploads = await getSkillCreationSourceRecoveryItems({
-    userId,
-    now: new Date(),
-  });
-
   return (
-    <main className="skillShell createSkillShell">
+    <main className="skillShell createModeShell">
       <SkillsTopbar current="new" />
-      <header className="skillHeader createSkillHeader">
+      <header className="skillHeader createModeHeader">
         <div>
-          <h1>Create a skill</h1>
-          <p>
-            Paste notes, describe what you want to practice, or drop in a PDF or image.
-          </p>
+          <h1>What are you adding?</h1>
+          <p>Use the fast path for one target, or a reusable material for a chapter-sized batch.</p>
         </div>
       </header>
-      <SourceCreationWorkspace recoverableSourceUploads={recoverableSourceUploads} />
+      <div className="createModeChoices">
+        <Link className="createModeChoice" href="/skills/new/one">
+          <span className="createModeChoiceIcon"><Cards size={24} weight="bold" aria-hidden="true" /></span>
+          <span>
+            <strong>One skill</strong>
+            <small>Paste notes, use images, or upload a short focused PDF.</small>
+          </span>
+          <span className="createModeChoiceCue" aria-hidden="true">Fast create</span>
+        </Link>
+        <Link className="createModeChoice" href="/skills/new/multiple">
+          <span className="createModeChoiceIcon"><BookOpenText size={24} weight="bold" aria-hidden="true" /></span>
+          <span>
+            <strong>Multiple skills</strong>
+            <small>Reuse a textbook, long PDF, or public book-like website.</small>
+          </span>
+          <span className="createModeChoiceCue" aria-hidden="true">Materials</span>
+        </Link>
+      </div>
     </main>
   );
 }
