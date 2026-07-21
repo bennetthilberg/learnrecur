@@ -4528,6 +4528,591 @@ body {
   white-space: nowrap;
 }
 
+/* ===== Material skill batches ===== */
+.batchStageRail,
+.batchDescribePanel,
+.batchScopeLayout,
+.batchProgressSummary,
+.batchGeneratingNotice,
+.batchPartialNotice,
+.batchDraftList,
+.batchTopMessage {
+  width: calc(100% - 28px);
+  max-width: 980px;
+  margin-right: auto;
+  margin-left: auto;
+}
+
+.batchStageRail {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 20px;
+  margin-bottom: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.batchStageRail li {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 2px solid var(--lr-divider);
+  color: var(--lr-text-secondary);
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 0 8px 11px;
+}
+
+.batchStageRail li:first-child {
+  padding-left: 0;
+}
+
+.batchStageRail li span {
+  display: inline-grid;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--lr-chip-border);
+  border-radius: var(--lr-r-pill);
+  background: var(--lr-card);
+  color: var(--lr-text-secondary);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.batchStageRail li[data-state="complete"] {
+  border-color: var(--lr-blue-bar-2);
+  color: var(--lr-nav-inactive);
+}
+
+.batchStageRail li[data-state="complete"] span {
+  border-color: var(--lr-blue-bar-2);
+  color: var(--lr-blue);
+}
+
+.batchStageRail li[data-state="current"] {
+  border-color: var(--lr-yellow);
+  color: var(--lr-ink);
+}
+
+.batchStageRail li[data-state="current"] span {
+  border-color: var(--lr-blue);
+  background: var(--lr-blue);
+  color: #FFFFFF;
+}
+
+.batchDescribePanel {
+  display: grid;
+  grid-template-columns: minmax(220px, .68fr) minmax(0, 1.32fr);
+  margin-top: 22px;
+  overflow: hidden;
+  padding: 0;
+}
+
+.batchMaterialIdentity {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  border-right: 1px solid var(--lr-divider);
+  background: #F8FAFD;
+  padding: 27px 24px;
+}
+
+.batchMaterialIdentity > svg {
+  flex: 0 0 auto;
+  color: var(--lr-icon);
+}
+
+.batchMaterialIdentity div {
+  display: grid;
+  gap: 4px;
+}
+
+.batchMaterialIdentity span,
+.batchMaterialIdentity small {
+  color: var(--lr-text-secondary);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.batchMaterialIdentity strong {
+  color: var(--lr-ink);
+  font-family: var(--lr-font-display);
+  font-size: 17px;
+  line-height: 1.3;
+}
+
+.batchDescribeForm {
+  display: grid;
+  gap: 18px;
+  padding: 27px 28px;
+}
+
+.batchDescribeForm textarea,
+.batchScopeCorrection textarea {
+  min-height: 132px;
+  resize: vertical;
+}
+
+.batchRequestExamples {
+  display: flex;
+  align-items: baseline;
+  gap: 8px 14px;
+  flex-wrap: wrap;
+  color: var(--lr-text-secondary);
+  font-size: 12px;
+}
+
+.batchRequestExamples span {
+  color: var(--lr-ink);
+  font-weight: 700;
+}
+
+.batchRequestExamples p {
+  margin: 0;
+}
+
+.batchPrimaryAction {
+  align-items: center;
+  justify-content: space-between;
+}
+
+.batchPrimaryAction small,
+.batchConfirmBar span {
+  color: var(--lr-text-secondary);
+  font-size: 12px;
+}
+
+.batchTopMessage {
+  margin-top: 16px;
+}
+
+.batchScopeLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  align-items: start;
+  gap: 16px;
+  margin-top: 22px;
+}
+
+.batchScopePanel,
+.batchScopeCorrection {
+  overflow: hidden;
+  padding: 0;
+}
+
+.batchScopeHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  border-bottom: 1px solid var(--lr-divider);
+  padding: 23px 24px 19px;
+}
+
+.batchScopeHeader span {
+  color: var(--lr-blue);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.batchScopeHeader h2,
+.batchScopeCorrection h2,
+.batchGeneratingNotice h2,
+.batchPartialNotice h2,
+.batchDraftListHeader h2 {
+  margin: 0;
+  color: var(--lr-ink);
+  font-family: var(--lr-font-display);
+}
+
+.batchScopeHeader h2 {
+  max-width: 620px;
+  margin-top: 5px;
+  font-size: 19px;
+  line-height: 1.35;
+}
+
+.batchScopeHeader > strong {
+  flex: 0 0 auto;
+  border: 1px solid var(--lr-chip-border);
+  border-radius: var(--lr-r-pill);
+  color: var(--lr-ink);
+  font-size: 12px;
+  padding: 6px 10px;
+}
+
+.batchAmbiguity,
+.batchGeneratingNotice,
+.batchPartialNotice {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.batchAmbiguity {
+  margin: 22px 24px;
+  border: 1px solid var(--lr-accent-line);
+  border-radius: var(--lr-r-card);
+  background: var(--lr-accent-soft);
+  padding: 17px 18px;
+}
+
+.batchAmbiguity svg,
+.batchPartialNotice > svg {
+  flex: 0 0 auto;
+  color: var(--lr-accent-ink);
+}
+
+.batchAmbiguity h3,
+.batchPartialNotice h2,
+.batchGeneratingNotice h2 {
+  margin: 0;
+  color: var(--lr-ink);
+  font-family: var(--lr-font-display);
+  font-size: 15px;
+}
+
+.batchAmbiguity p,
+.batchPartialNotice p,
+.batchGeneratingNotice p {
+  margin: 4px 0 0;
+  color: var(--lr-text-secondary);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.batchScopeItems {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.batchScopeItems > li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 14px;
+  border-bottom: 1px solid var(--lr-divider);
+  padding: 18px 24px;
+}
+
+.batchScopeOrdinal {
+  display: inline-grid;
+  width: 25px;
+  height: 25px;
+  place-items: center;
+  border: 1px solid var(--lr-chip-border);
+  border-radius: var(--lr-r-pill);
+  color: var(--lr-text-secondary);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.batchScopeItems h3,
+.batchDraftCardHeader h3 {
+  margin: 0;
+  color: var(--lr-ink);
+  font-family: var(--lr-font-display);
+}
+
+.batchScopeItems h3 {
+  font-size: 15px;
+}
+
+.batchScopeItems p {
+  margin: 5px 0 0;
+  color: var(--lr-text-secondary);
+  font-size: 13px;
+  line-height: 1.42;
+}
+
+.batchScopeItems small,
+.batchDraftActions > small {
+  display: block;
+  margin-top: 7px;
+  color: var(--lr-blue);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.batchOverlapWarning {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  color: var(--lr-accent-ink) !important;
+  font-size: 12px !important;
+}
+
+.batchOverlapWarning svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+.batchPlanWarnings {
+  display: grid;
+  gap: 4px;
+  border-bottom: 1px solid var(--lr-divider);
+  padding: 13px 24px;
+}
+
+.batchPlanWarnings p {
+  margin: 0;
+  color: var(--lr-accent-ink);
+  font-size: 12px;
+}
+
+.batchConfirmBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 24px;
+}
+
+.batchScopeCorrection > div {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border-bottom: 1px solid var(--lr-divider);
+  padding: 19px 20px 16px;
+}
+
+.batchScopeCorrection > div svg {
+  color: var(--lr-icon);
+}
+
+.batchScopeCorrection h2 {
+  font-size: 16px;
+}
+
+.batchScopeCorrection form {
+  display: grid;
+  gap: 15px;
+  padding: 19px 20px 21px;
+}
+
+.batchProgressSummary {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin-top: 22px;
+  overflow: hidden;
+  border: 1px solid var(--lr-card-border);
+  border-radius: var(--lr-r-card);
+  background: var(--lr-card);
+}
+
+.batchProgressSummary > div {
+  display: grid;
+  gap: 5px;
+  border-left: 1px solid var(--lr-divider);
+  padding: 15px 17px;
+}
+
+.batchProgressSummary > div:first-child {
+  border-left: 0;
+}
+
+.batchProgressSummary span {
+  color: var(--lr-text-secondary);
+  font-size: 11.5px;
+}
+
+.batchProgressSummary strong {
+  color: var(--lr-ink);
+  font-family: var(--lr-font-display);
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+.batchGeneratingNotice,
+.batchPartialNotice {
+  margin-top: 16px;
+  padding: 17px 20px;
+}
+
+.batchDraftList {
+  display: grid;
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.batchDraftListHeader {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 0 2px 3px;
+}
+
+.batchDraftListHeader h2 {
+  font-size: 20px;
+}
+
+.batchDraftListHeader p,
+.batchDraftListHeader small {
+  margin: 4px 0 0;
+  color: var(--lr-text-secondary);
+  font-size: 12.5px;
+}
+
+.batchDraftListHeader small {
+  max-width: 360px;
+  text-align: right;
+}
+
+.batchDraftCard {
+  overflow: hidden;
+  padding: 0;
+}
+
+.batchDraftCardHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 19px 22px 16px;
+}
+
+.batchDraftCardHeader > div {
+  min-width: 0;
+}
+
+.batchDraftCardHeader > div > span {
+  color: var(--lr-text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.batchDraftCardHeader h3 {
+  margin-top: 4px;
+  font-size: 17px;
+}
+
+.batchDraftCardHeader p {
+  max-width: 720px;
+  margin: 5px 0 0;
+  color: var(--lr-text-secondary);
+  font-size: 13px;
+  line-height: 1.42;
+}
+
+.batchDraftCard[data-status="ready"] .batchDraftCardHeader > svg {
+  color: var(--lr-success-ink);
+}
+
+.batchDraftCard[data-status="failed"] .batchDraftCardHeader > svg {
+  color: var(--lr-accent-ink);
+}
+
+.batchDraftError {
+  margin: 0;
+  border-top: 1px solid var(--lr-accent-line);
+  border-bottom: 1px solid var(--lr-accent-line);
+  background: var(--lr-accent-soft);
+  color: var(--lr-accent-ink);
+  font-size: 12.5px;
+  line-height: 1.42;
+  padding: 12px 22px;
+}
+
+.batchDraftError[data-tone="neutral"] {
+  border-color: var(--lr-divider);
+  background: #F8FAFD;
+  color: var(--lr-text-secondary);
+}
+
+.batchDraftDetails {
+  border-top: 1px solid var(--lr-divider);
+}
+
+.batchDraftDetails summary {
+  cursor: pointer;
+  color: var(--lr-blue);
+  font-size: 12.5px;
+  font-weight: 700;
+  padding: 12px 22px;
+}
+
+.batchDraftContent {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  border-top: 1px solid var(--lr-divider);
+  background: #F8FAFD;
+  padding: 16px 22px;
+}
+
+.batchDraftContent strong {
+  color: var(--lr-ink);
+  font-size: 12px;
+}
+
+.batchDraftContent ul {
+  margin: 7px 0 0;
+  color: var(--lr-text-secondary);
+  font-size: 12px;
+  line-height: 1.4;
+  padding-left: 17px;
+}
+
+.batchDraftTags p {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 8px 0 0;
+}
+
+.batchDraftTags span {
+  border: 1px solid var(--lr-chip-border);
+  border-radius: var(--lr-r-pill);
+  color: var(--lr-text-secondary);
+  font-size: 11px;
+  padding: 4px 7px;
+}
+
+.batchDraftActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-top: 1px solid var(--lr-divider);
+  padding: 12px 22px;
+}
+
+.batchDraftActions > small {
+  margin: 0;
+}
+
+.batchDraftActions > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.batchDraftActions form {
+  display: inline-flex;
+}
+
+.batchTextButton {
+  border: 0;
+  background: transparent;
+  color: var(--lr-text-secondary);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 8px;
+}
+
+.batchTextButton:hover {
+  color: var(--lr-ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 @media (max-width: 820px) {
   .materialImportLayout,
   .materialDetailGrid {
@@ -4551,6 +5136,32 @@ body {
   }
 
   .materialDetailSummary > div:nth-child(n + 4) {
+    border-top: 1px solid var(--lr-divider);
+  }
+
+  .batchDescribePanel,
+  .batchScopeLayout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .batchMaterialIdentity {
+    border-right: 0;
+    border-bottom: 1px solid var(--lr-divider);
+  }
+
+  .batchScopeLayout.isAmbiguous .batchScopeCorrection {
+    grid-row: 1;
+  }
+
+  .batchProgressSummary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .batchProgressSummary > div:nth-child(4) {
+    border-left: 0;
+  }
+
+  .batchProgressSummary > div:nth-child(n + 4) {
     border-top: 1px solid var(--lr-divider);
   }
 }
@@ -4647,6 +5258,89 @@ body {
 
   .materialDetailSummary > div:last-child:nth-child(odd) {
     grid-column: 1 / -1;
+  }
+
+  .batchStageRail,
+  .batchDescribePanel,
+  .batchScopeLayout,
+  .batchProgressSummary,
+  .batchGeneratingNotice,
+  .batchPartialNotice,
+  .batchDraftList,
+  .batchTopMessage {
+    width: calc(100% - 28px);
+  }
+
+  .batchStageRail li {
+    display: grid;
+    justify-items: center;
+    gap: 5px;
+    font-size: 10px;
+    padding: 0 3px 9px;
+    text-align: center;
+  }
+
+  .batchDescribeForm {
+    padding: 22px 20px;
+  }
+
+  .batchPrimaryAction,
+  .batchConfirmBar,
+  .batchDraftListHeader,
+  .batchDraftActions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .batchScopeHeader {
+    align-items: flex-start;
+    flex-direction: column;
+    padding-right: 20px;
+    padding-left: 20px;
+  }
+
+  .batchScopeItems > li {
+    padding-right: 18px;
+    padding-left: 18px;
+  }
+
+  .batchConfirmBar {
+    padding-right: 20px;
+    padding-left: 20px;
+  }
+
+  .batchProgressSummary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .batchProgressSummary > div:nth-child(n) {
+    border-top: 1px solid var(--lr-divider);
+    border-left: 1px solid var(--lr-divider);
+  }
+
+  .batchProgressSummary > div:nth-child(-n + 2) {
+    border-top: 0;
+  }
+
+  .batchProgressSummary > div:nth-child(odd) {
+    border-left: 0;
+  }
+
+  .batchProgressSummary > div:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+
+  .batchDraftListHeader small {
+    text-align: left;
+  }
+
+  .batchDraftContent {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .batchDraftActions > div {
+    align-items: stretch;
+    flex-wrap: wrap;
   }
 
   .materialOutlineList li {

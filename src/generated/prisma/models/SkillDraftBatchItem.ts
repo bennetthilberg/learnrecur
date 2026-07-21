@@ -50,6 +50,7 @@ export type SkillDraftBatchItemMinAggregateOutputType = {
   errorCode: string | null
   errorMessage: string | null
   generationAttempts: number | null
+  generationClaimId: string | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -68,6 +69,7 @@ export type SkillDraftBatchItemMaxAggregateOutputType = {
   errorCode: string | null
   errorMessage: string | null
   generationAttempts: number | null
+  generationClaimId: string | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -87,6 +89,8 @@ export type SkillDraftBatchItemCountAggregateOutputType = {
   errorCode: number
   errorMessage: number
   generationAttempts: number
+  generationMetadata: number
+  generationClaimId: number
   createdAt: number
   updatedAt: number
   _all: number
@@ -117,6 +121,7 @@ export type SkillDraftBatchItemMinAggregateInputType = {
   errorCode?: true
   errorMessage?: true
   generationAttempts?: true
+  generationClaimId?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -135,6 +140,7 @@ export type SkillDraftBatchItemMaxAggregateInputType = {
   errorCode?: true
   errorMessage?: true
   generationAttempts?: true
+  generationClaimId?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -154,6 +160,8 @@ export type SkillDraftBatchItemCountAggregateInputType = {
   errorCode?: true
   errorMessage?: true
   generationAttempts?: true
+  generationMetadata?: true
+  generationClaimId?: true
   createdAt?: true
   updatedAt?: true
   _all?: true
@@ -260,6 +268,8 @@ export type SkillDraftBatchItemGroupByOutputType = {
   errorCode: string | null
   errorMessage: string | null
   generationAttempts: number
+  generationMetadata: runtime.JsonValue | null
+  generationClaimId: string | null
   createdAt: Date
   updatedAt: Date
   _count: SkillDraftBatchItemCountAggregateOutputType | null
@@ -302,6 +312,8 @@ export type SkillDraftBatchItemWhereInput = {
   errorCode?: Prisma.StringNullableFilter<"SkillDraftBatchItem"> | string | null
   errorMessage?: Prisma.StringNullableFilter<"SkillDraftBatchItem"> | string | null
   generationAttempts?: Prisma.IntFilter<"SkillDraftBatchItem"> | number
+  generationMetadata?: Prisma.JsonNullableFilter<"SkillDraftBatchItem">
+  generationClaimId?: Prisma.StringNullableFilter<"SkillDraftBatchItem"> | string | null
   createdAt?: Prisma.DateTimeFilter<"SkillDraftBatchItem"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"SkillDraftBatchItem"> | Date | string
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
@@ -324,6 +336,8 @@ export type SkillDraftBatchItemOrderByWithRelationInput = {
   errorCode?: Prisma.SortOrderInput | Prisma.SortOrder
   errorMessage?: Prisma.SortOrderInput | Prisma.SortOrder
   generationAttempts?: Prisma.SortOrder
+  generationMetadata?: Prisma.SortOrderInput | Prisma.SortOrder
+  generationClaimId?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   user?: Prisma.UserOrderByWithRelationInput
@@ -352,6 +366,8 @@ export type SkillDraftBatchItemWhereUniqueInput = Prisma.AtLeast<{
   errorCode?: Prisma.StringNullableFilter<"SkillDraftBatchItem"> | string | null
   errorMessage?: Prisma.StringNullableFilter<"SkillDraftBatchItem"> | string | null
   generationAttempts?: Prisma.IntFilter<"SkillDraftBatchItem"> | number
+  generationMetadata?: Prisma.JsonNullableFilter<"SkillDraftBatchItem">
+  generationClaimId?: Prisma.StringNullableFilter<"SkillDraftBatchItem"> | string | null
   createdAt?: Prisma.DateTimeFilter<"SkillDraftBatchItem"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"SkillDraftBatchItem"> | Date | string
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
@@ -374,6 +390,8 @@ export type SkillDraftBatchItemOrderByWithAggregationInput = {
   errorCode?: Prisma.SortOrderInput | Prisma.SortOrder
   errorMessage?: Prisma.SortOrderInput | Prisma.SortOrder
   generationAttempts?: Prisma.SortOrder
+  generationMetadata?: Prisma.SortOrderInput | Prisma.SortOrder
+  generationClaimId?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   _count?: Prisma.SkillDraftBatchItemCountOrderByAggregateInput
@@ -401,6 +419,8 @@ export type SkillDraftBatchItemScalarWhereWithAggregatesInput = {
   errorCode?: Prisma.StringNullableWithAggregatesFilter<"SkillDraftBatchItem"> | string | null
   errorMessage?: Prisma.StringNullableWithAggregatesFilter<"SkillDraftBatchItem"> | string | null
   generationAttempts?: Prisma.IntWithAggregatesFilter<"SkillDraftBatchItem"> | number
+  generationMetadata?: Prisma.JsonNullableWithAggregatesFilter<"SkillDraftBatchItem">
+  generationClaimId?: Prisma.StringNullableWithAggregatesFilter<"SkillDraftBatchItem"> | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"SkillDraftBatchItem"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"SkillDraftBatchItem"> | Date | string
 }
@@ -417,6 +437,8 @@ export type SkillDraftBatchItemCreateInput = {
   errorCode?: string | null
   errorMessage?: string | null
   generationAttempts?: number
+  generationMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  generationClaimId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutSkillDraftBatchItemsInput
@@ -439,6 +461,8 @@ export type SkillDraftBatchItemUncheckedCreateInput = {
   errorCode?: string | null
   errorMessage?: string | null
   generationAttempts?: number
+  generationMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  generationClaimId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -455,6 +479,8 @@ export type SkillDraftBatchItemUpdateInput = {
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   generationAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  generationMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  generationClaimId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutSkillDraftBatchItemsNestedInput
@@ -477,6 +503,8 @@ export type SkillDraftBatchItemUncheckedUpdateInput = {
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   generationAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  generationMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  generationClaimId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -496,6 +524,8 @@ export type SkillDraftBatchItemCreateManyInput = {
   errorCode?: string | null
   errorMessage?: string | null
   generationAttempts?: number
+  generationMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  generationClaimId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -512,6 +542,8 @@ export type SkillDraftBatchItemUpdateManyMutationInput = {
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   generationAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  generationMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  generationClaimId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -531,6 +563,8 @@ export type SkillDraftBatchItemUncheckedUpdateManyInput = {
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   generationAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  generationMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  generationClaimId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -575,6 +609,8 @@ export type SkillDraftBatchItemCountOrderByAggregateInput = {
   errorCode?: Prisma.SortOrder
   errorMessage?: Prisma.SortOrder
   generationAttempts?: Prisma.SortOrder
+  generationMetadata?: Prisma.SortOrder
+  generationClaimId?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -598,6 +634,7 @@ export type SkillDraftBatchItemMaxOrderByAggregateInput = {
   errorCode?: Prisma.SortOrder
   errorMessage?: Prisma.SortOrder
   generationAttempts?: Prisma.SortOrder
+  generationClaimId?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -616,6 +653,7 @@ export type SkillDraftBatchItemMinOrderByAggregateInput = {
   errorCode?: Prisma.SortOrder
   errorMessage?: Prisma.SortOrder
   generationAttempts?: Prisma.SortOrder
+  generationClaimId?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -767,6 +805,8 @@ export type SkillDraftBatchItemCreateWithoutUserInput = {
   errorCode?: string | null
   errorMessage?: string | null
   generationAttempts?: number
+  generationMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  generationClaimId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   batch: Prisma.SkillDraftBatchCreateNestedOneWithoutItemsInput
@@ -787,6 +827,8 @@ export type SkillDraftBatchItemUncheckedCreateWithoutUserInput = {
   errorCode?: string | null
   errorMessage?: string | null
   generationAttempts?: number
+  generationMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  generationClaimId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -835,6 +877,8 @@ export type SkillDraftBatchItemScalarWhereInput = {
   errorCode?: Prisma.StringNullableFilter<"SkillDraftBatchItem"> | string | null
   errorMessage?: Prisma.StringNullableFilter<"SkillDraftBatchItem"> | string | null
   generationAttempts?: Prisma.IntFilter<"SkillDraftBatchItem"> | number
+  generationMetadata?: Prisma.JsonNullableFilter<"SkillDraftBatchItem">
+  generationClaimId?: Prisma.StringNullableFilter<"SkillDraftBatchItem"> | string | null
   createdAt?: Prisma.DateTimeFilter<"SkillDraftBatchItem"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"SkillDraftBatchItem"> | Date | string
 }
@@ -851,6 +895,8 @@ export type SkillDraftBatchItemCreateWithoutSkillInput = {
   errorCode?: string | null
   errorMessage?: string | null
   generationAttempts?: number
+  generationMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  generationClaimId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutSkillDraftBatchItemsInput
@@ -871,6 +917,8 @@ export type SkillDraftBatchItemUncheckedCreateWithoutSkillInput = {
   errorCode?: string | null
   errorMessage?: string | null
   generationAttempts?: number
+  generationMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  generationClaimId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -913,6 +961,8 @@ export type SkillDraftBatchItemCreateWithoutBatchInput = {
   errorCode?: string | null
   errorMessage?: string | null
   generationAttempts?: number
+  generationMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  generationClaimId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutSkillDraftBatchItemsInput
@@ -932,6 +982,8 @@ export type SkillDraftBatchItemUncheckedCreateWithoutBatchInput = {
   errorCode?: string | null
   errorMessage?: string | null
   generationAttempts?: number
+  generationMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  generationClaimId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -976,6 +1028,8 @@ export type SkillDraftBatchItemCreateManyUserInput = {
   errorCode?: string | null
   errorMessage?: string | null
   generationAttempts?: number
+  generationMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  generationClaimId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -992,6 +1046,8 @@ export type SkillDraftBatchItemUpdateWithoutUserInput = {
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   generationAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  generationMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  generationClaimId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   batch?: Prisma.SkillDraftBatchUpdateOneRequiredWithoutItemsNestedInput
@@ -1012,6 +1068,8 @@ export type SkillDraftBatchItemUncheckedUpdateWithoutUserInput = {
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   generationAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  generationMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  generationClaimId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -1030,6 +1088,8 @@ export type SkillDraftBatchItemUncheckedUpdateManyWithoutUserInput = {
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   generationAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  generationMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  generationClaimId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -1048,6 +1108,8 @@ export type SkillDraftBatchItemCreateManySkillInput = {
   errorCode?: string | null
   errorMessage?: string | null
   generationAttempts?: number
+  generationMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  generationClaimId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -1064,6 +1126,8 @@ export type SkillDraftBatchItemUpdateWithoutSkillInput = {
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   generationAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  generationMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  generationClaimId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutSkillDraftBatchItemsNestedInput
@@ -1084,6 +1148,8 @@ export type SkillDraftBatchItemUncheckedUpdateWithoutSkillInput = {
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   generationAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  generationMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  generationClaimId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -1102,6 +1168,8 @@ export type SkillDraftBatchItemUncheckedUpdateManyWithoutSkillInput = {
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   generationAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  generationMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  generationClaimId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -1119,6 +1187,8 @@ export type SkillDraftBatchItemCreateManyBatchInput = {
   errorCode?: string | null
   errorMessage?: string | null
   generationAttempts?: number
+  generationMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  generationClaimId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -1135,6 +1205,8 @@ export type SkillDraftBatchItemUpdateWithoutBatchInput = {
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   generationAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  generationMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  generationClaimId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutSkillDraftBatchItemsNestedInput
@@ -1154,6 +1226,8 @@ export type SkillDraftBatchItemUncheckedUpdateWithoutBatchInput = {
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   generationAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  generationMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  generationClaimId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -1171,6 +1245,8 @@ export type SkillDraftBatchItemUncheckedUpdateManyWithoutBatchInput = {
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   generationAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  generationMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  generationClaimId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -1192,6 +1268,8 @@ export type SkillDraftBatchItemSelect<ExtArgs extends runtime.Types.Extensions.I
   errorCode?: boolean
   errorMessage?: boolean
   generationAttempts?: boolean
+  generationMetadata?: boolean
+  generationClaimId?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
@@ -1214,6 +1292,8 @@ export type SkillDraftBatchItemSelectCreateManyAndReturn<ExtArgs extends runtime
   errorCode?: boolean
   errorMessage?: boolean
   generationAttempts?: boolean
+  generationMetadata?: boolean
+  generationClaimId?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
@@ -1236,6 +1316,8 @@ export type SkillDraftBatchItemSelectUpdateManyAndReturn<ExtArgs extends runtime
   errorCode?: boolean
   errorMessage?: boolean
   generationAttempts?: boolean
+  generationMetadata?: boolean
+  generationClaimId?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
@@ -1258,11 +1340,13 @@ export type SkillDraftBatchItemSelectScalar = {
   errorCode?: boolean
   errorMessage?: boolean
   generationAttempts?: boolean
+  generationMetadata?: boolean
+  generationClaimId?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type SkillDraftBatchItemOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "batchId" | "skillId" | "ordinal" | "targetKey" | "proposedTitle" | "proposedObjective" | "locator" | "status" | "overlapSkillId" | "errorCode" | "errorMessage" | "generationAttempts" | "createdAt" | "updatedAt", ExtArgs["result"]["skillDraftBatchItem"]>
+export type SkillDraftBatchItemOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "batchId" | "skillId" | "ordinal" | "targetKey" | "proposedTitle" | "proposedObjective" | "locator" | "status" | "overlapSkillId" | "errorCode" | "errorMessage" | "generationAttempts" | "generationMetadata" | "generationClaimId" | "createdAt" | "updatedAt", ExtArgs["result"]["skillDraftBatchItem"]>
 export type SkillDraftBatchItemInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   batch?: boolean | Prisma.SkillDraftBatchDefaultArgs<ExtArgs>
@@ -1301,6 +1385,8 @@ export type $SkillDraftBatchItemPayload<ExtArgs extends runtime.Types.Extensions
     errorCode: string | null
     errorMessage: string | null
     generationAttempts: number
+    generationMetadata: runtime.JsonValue | null
+    generationClaimId: string | null
     createdAt: Date
     updatedAt: Date
   }, ExtArgs["result"]["skillDraftBatchItem"]>
@@ -1743,6 +1829,8 @@ export interface SkillDraftBatchItemFieldRefs {
   readonly errorCode: Prisma.FieldRef<"SkillDraftBatchItem", 'String'>
   readonly errorMessage: Prisma.FieldRef<"SkillDraftBatchItem", 'String'>
   readonly generationAttempts: Prisma.FieldRef<"SkillDraftBatchItem", 'Int'>
+  readonly generationMetadata: Prisma.FieldRef<"SkillDraftBatchItem", 'Json'>
+  readonly generationClaimId: Prisma.FieldRef<"SkillDraftBatchItem", 'String'>
   readonly createdAt: Prisma.FieldRef<"SkillDraftBatchItem", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"SkillDraftBatchItem", 'DateTime'>
 }

@@ -166,6 +166,14 @@ function validateScopePlanItems(
 
 export const materialScopeResolutionSchema = materialScopeResolutionBaseSchema.superRefine(
   (plan, context) => {
+    if (plan.resolutionStatus === "resolved" && plan.items.length === 0) {
+      context.addIssue({
+        code: "custom",
+        message: "Resolved scope must contain at least one proposed skill.",
+        path: ["items"],
+      });
+    }
+
     if (plan.resolutionStatus === "ambiguous" && !plan.clarification) {
       context.addIssue({
         code: "custom",
@@ -232,6 +240,11 @@ export const planMaterialSkillsInputSchema = z.object({
 export const confirmMaterialPlanInputSchema = z.object({
   batchId: identifierSchema,
   plan: materialScopePlanSchema,
+});
+
+export const replanMaterialSkillsInputSchema = z.object({
+  batchId: identifierSchema,
+  instruction: z.string().trim().min(3).max(4_000),
 });
 
 export const materialProgressInputSchema = z.object({

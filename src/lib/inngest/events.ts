@@ -11,6 +11,7 @@ export const SOURCE_UPLOAD_DRAFT_REQUESTED_EVENT =
   "learnrecur/source-upload-draft.requested";
 export const MATERIAL_INGESTION_REQUESTED_EVENT = "learnrecur/material-ingestion.requested";
 export const MATERIAL_CLEANUP_REQUESTED_EVENT = "learnrecur/material-cleanup.requested";
+export const MATERIAL_DRAFT_ITEM_REQUESTED_EVENT = "learnrecur/material-draft-item.requested";
 
 const refillEventPayloadSchema = z.strictObject({
   userId: z.string().trim().min(1),
@@ -39,6 +40,13 @@ const materialCleanupEventPayloadSchema = z.strictObject({
   requestedAt: z.string().trim().min(1),
 });
 
+const materialDraftItemEventPayloadSchema = z.strictObject({
+  userId: z.string().trim().min(1),
+  batchId: z.string().trim().min(1),
+  itemId: z.string().trim().min(1),
+  requestedAt: z.string().trim().min(1),
+});
+
 export type ExerciseRefillEventPayload = z.infer<typeof refillEventPayloadSchema>;
 export type SourceUploadDraftEventPayload = z.infer<
   typeof sourceUploadDraftEventPayloadSchema
@@ -47,6 +55,7 @@ export type MaterialIngestionEventPayload = z.infer<
   typeof materialIngestionEventPayloadSchema
 >;
 export type MaterialCleanupEventPayload = z.infer<typeof materialCleanupEventPayloadSchema>;
+export type MaterialDraftItemEventPayload = z.infer<typeof materialDraftItemEventPayloadSchema>;
 
 export type ExerciseRefillEventSender = {
   sendChoiceRefillRequested(payload: ExerciseRefillEventPayload): Promise<void>;
@@ -64,6 +73,10 @@ export type MaterialIngestionEventSender = {
 
 export type MaterialCleanupEventSender = {
   sendMaterialCleanupRequested(payload: MaterialCleanupEventPayload): Promise<void>;
+};
+
+export type MaterialDraftItemEventSender = {
+  sendMaterialDraftItemRequested(payload: MaterialDraftItemEventPayload): Promise<void>;
 };
 
 export function parseExerciseRefillEventPayload(input: unknown): ExerciseRefillEventPayload {
@@ -84,6 +97,10 @@ export function parseMaterialIngestionEventPayload(
 
 export function parseMaterialCleanupEventPayload(input: unknown): MaterialCleanupEventPayload {
   return materialCleanupEventPayloadSchema.parse(input);
+}
+
+export function parseMaterialDraftItemEventPayload(input: unknown): MaterialDraftItemEventPayload {
+  return materialDraftItemEventPayloadSchema.parse(input);
 }
 
 export const inngestExerciseRefillEventSender: ExerciseRefillEventSender = {
@@ -129,6 +146,15 @@ export const inngestMaterialCleanupEventSender: MaterialCleanupEventSender = {
   async sendMaterialCleanupRequested(payload) {
     await inngest.send({
       name: MATERIAL_CLEANUP_REQUESTED_EVENT,
+      data: payload,
+    });
+  },
+};
+
+export const inngestMaterialDraftItemEventSender: MaterialDraftItemEventSender = {
+  async sendMaterialDraftItemRequested(payload) {
+    await inngest.send({
+      name: MATERIAL_DRAFT_ITEM_REQUESTED_EVENT,
       data: payload,
     });
   },

@@ -97,3 +97,47 @@ export async function searchMaterialChunks(input: {
     LIMIT ${limit}
   `;
 }
+
+export async function searchMaterialChunksLexical(input: {
+  userId: string;
+  materialRevisionId: string;
+  query: string;
+  materialSectionIds?: readonly string[];
+  limit?: number;
+}): Promise<MaterialChunkSearchResult[]> {
+  const prisma = getPrisma();
+  const limit = Math.max(1, Math.min(input.limit ?? 24, 80));
+  const sectionFilter = input.materialSectionIds?.length
+    ? Prisma.sql`AND "materialSectionId" IN (${Prisma.join(input.materialSectionIds)})`
+    : Prisma.empty;
+
+  return prisma.$queryRaw<MaterialChunkSearchResult[]>`
+    SELECT
+      "id",
+      "materialRevisionId",
+      "materialSectionId",
+      "sourceFileId",
+      "ordinal",
+      "text",
+      "tokenEstimate",
+      "locator",
+      "headingText",
+      0::double precision AS "vectorScore",
+      CASE
+        WHEN websearch_to_tsquery('simple', ${input.query}) @@ "searchText"
+        THEN ts_rank_cd("searchText", websearch_to_tsquery('simple', ${input.query}))::double precision
+        ELSE 0::double precision
+      END AS "lexicalScore",
+      CASE
+        WHEN websearch_to_tsquery('simple', ${input.query}) @@ "searchText"
+        THEN LEAST(ts_rank_cd("searchText", websearch_to_tsquery('simple', ${input.query})), 1)::double precision
+        ELSE 0::double precision
+      END AS "score"
+    FROM "material_chunks"
+    WHERE "userId" = ${input.userId}
+      AND "materialRevisionId" = ${input.materialRevisionId}
+      ${sectionFilter}
+    ORDER BY "score" DESC, "ordinal" ASC
+    LIMIT ${limit}
+  `;
+}

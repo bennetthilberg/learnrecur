@@ -56,8 +56,15 @@ export function MaterialImportWorkspace({
                   <Link href={`/skills/materials/${material.id}`}>{material.title}</Link>
                   <p>{materialSummary(material)}</p>
                 </div>
-                <Link className="secondaryButton" href={`/skills/materials/${material.id}`}>
-                  Open
+                <Link
+                  className="secondaryButton"
+                  href={
+                    material.revisionStatus === "READY"
+                      ? `/skills/materials/${material.id}/create`
+                      : `/skills/materials/${material.id}`
+                  }
+                >
+                  {material.revisionStatus === "READY" ? "Create" : "Open"}
                 </Link>
               </article>
             ))}

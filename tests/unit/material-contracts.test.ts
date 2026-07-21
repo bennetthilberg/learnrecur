@@ -207,4 +207,18 @@ describe("material contracts", () => {
       }),
     ).toThrow();
   });
+
+  it("rejects a resolved scope preview with no proposed skills", () => {
+    expect(
+      materialScopeResolutionSchema.safeParse({
+        version: 1,
+        materialRevisionId: "revision_1",
+        instruction: "Make a skill from chapter four.",
+        resolutionStatus: "resolved",
+        resolvedScopeLabel: "Chapter 4",
+        warnings: [],
+        items: [],
+      }).success,
+    ).toBe(false);
+  });
 });

@@ -199,7 +199,9 @@ export type ExportSkillDraftBatch = {
   id: string;
   materialRevisionId: string;
   instruction: string;
+  proposedPlan: Prisma.JsonValue | null;
   confirmedPlan: Prisma.JsonValue | null;
+  planningMetadata: Prisma.JsonValue | null;
   status: SkillDraftBatchStatus;
   idempotencyKey: string;
   requestedCount: number;
@@ -229,6 +231,7 @@ export type ExportSkillDraftBatchItem = {
   errorCode: string | null;
   errorMessage: string | null;
   generationAttempts: number;
+  generationMetadata: Prisma.JsonValue | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -702,7 +705,9 @@ export async function getUserDataExport(input: {
           id: true,
           materialRevisionId: true,
           instruction: true,
+          proposedPlan: true,
           confirmedPlan: true,
+          planningMetadata: true,
           status: true,
           idempotencyKey: true,
           requestedCount: true,
@@ -734,6 +739,7 @@ export async function getUserDataExport(input: {
           errorCode: true,
           errorMessage: true,
           generationAttempts: true,
+          generationMetadata: true,
           createdAt: true,
           updatedAt: true,
         },
