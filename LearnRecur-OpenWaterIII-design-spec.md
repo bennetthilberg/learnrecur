@@ -1,6 +1,6 @@
 # LearnRecur — "Open Water III" Design System Specification
 
-**Version:** 1.0 · **Status:** Authoritative · **Target stack:** React + Mantine v7 (existing app)
+**Version:** 1.1 · **Status:** Authoritative · **Target stack:** React + Mantine v7 (existing app)
 
 This document specifies the exact look and feel of the approved LearnRecur dashboard demo. It is written to be fed to a coding agent (Codex) to retrofit an existing Mantine UI. **Every value here is literal.** When a hex, pixel, or CSS declaration is given, reproduce it character-for-character. Do not "round," "normalize," "improve," or substitute Mantine defaults for the values below.
 
@@ -531,6 +531,16 @@ Usage:
 ### 6.9 Progress bars (generic)
 Track `var(--lr-blue-tint)`, fill `var(--lr-blue)` (or `var(--lr-green)` for completed/stable), `height:4–5px`, `border-radius:3px`, `overflow:hidden`.
 
+### 6.10 Transient feedback uses Mantine notifications
+
+Success, failure, and queued-action feedback that only reports the result of a user action must almost always use Mantine's `Notification` component through `@mantine/notifications`. Examples include saved settings, deletion queued, source removed, retry started, and action failures.
+
+- Do **not** render transient feedback as a full-width inline card, bordered strip, or paragraph inside the page layout. These pseudo-cards interrupt the page hierarchy, create inconsistent horizontal margins, and leave stale status in the content flow.
+- Show notifications at `top-right`, with `withBorder`, `withCloseButton`, the shared `learnrecurNotification` class, and a concise title plus one short action-oriented sentence.
+- Use `leaf` for successful/queued outcomes and `amber` for failures or warnings. Include the corresponding Phosphor status icon.
+- Keep notification copy user-facing. Do not expose internal counters, job IDs, revision IDs, chunk counts, or OCR implementation details.
+- Inline status panels are reserved for persistent page state that blocks or changes what the user can do, such as an import still processing or a failed import with a retry action. Those panels must state the consequence and next action; they are not substitutes for transient notifications.
+
 ---
 
 ## 7. Page composition (order & spacing)
@@ -582,6 +592,14 @@ export const learnRecurTheme = createTheme({
     Card:  { defaultProps: { radius: rem(8), withBorder: true }, styles: { root: { borderColor: '#E4E8F1' } } },
     Paper: { defaultProps: { radius: rem(8) } },
     Badge: { defaultProps: { radius: rem(6) } },
+    Notification: {
+      defaultProps: { radius: rem(8), withBorder: true },
+      styles: {
+        root: { borderColor: '#E4E8F1', boxShadow: 'none' },
+        title: { color: '#15233F', fontWeight: 700 },
+        description: { color: '#5A6480', fontSize: rem(13.5), lineHeight: 1.45 },
+      },
+    },
     // Use the PressButton component / .bpbtn classes for primary CTAs instead of Mantine Button.
   },
 });
@@ -663,4 +681,5 @@ Most pairs clear WCAG AA comfortably (ink ~14:1; secondary `#5A6480` ~5.7:1; blu
 - [ ] Numbers use tabular-nums.
 - [ ] `text-muted` hardened to `#6E7689` for informational text (§11.1).
 - [ ] No blur / backdrop-filter / soft glow anywhere.
+- [ ] Transient action feedback uses Mantine notifications, never full-width inline pseudo-cards (§6.10).
 ```

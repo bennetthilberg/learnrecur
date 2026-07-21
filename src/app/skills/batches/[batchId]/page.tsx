@@ -8,6 +8,7 @@ import {
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { ActionNotification } from "@/components/app/action-notification";
 import { UserStatusPanel } from "@/components/app/user-status-panel";
 import { formatDisplayLabel } from "@/lib/formatters";
 import { getMaterialDraftBatch } from "@/lib/materials/batches";
@@ -17,17 +18,29 @@ import {
   skillSourceLocatorSchema,
   type MaterialScopeResolution,
 } from "@/lib/materials/contracts";
+import {
+  getMaterialActivationRetryCopy,
+  getMaterialBatchActivationCopy,
+  getMaterialDraftAdjustmentCopy,
+  getMaterialDraftItemErrorMessage,
+  getPublicMaterialActionErrorMessage,
+} from "@/lib/materials/presentation";
 import { ensureDatabaseUser } from "@/lib/users";
 
 import { MaterialStatusPoller } from "../../materials/material-status-poller";
 import { SkillsTopbar } from "../../skills-topbar";
 import {
+  activateMaterialBatchAction,
   confirmMaterialPlanAction,
-  excludeMaterialDraftItemAction,
   replanMaterialSkillsAction,
+  retryMaterialBatchActivationItemAction,
   retryMaterialDraftItemAction,
 } from "../actions";
+import { BatchAutomaticRecovery } from "../batch-automatic-recovery";
+import { BatchDraftEditDialog } from "../batch-draft-edit-dialog";
+import { BatchExcludeControl } from "../batch-exclude-control";
 import { BatchStageRail } from "../batch-stage-rail";
+import { BatchRequestTextarea } from "../batch-request-textarea";
 import { BatchSubmitButton } from "../batch-submit-button";
 
 export const dynamic = "force-dynamic";
@@ -63,20 +76,43 @@ export default async function MaterialBatchPage({
   const confirmed = materialScopePlanSchema.safeParse(batch.confirmedPlan);
   const scope = confirmed.success ? confirmed.data : proposed.success ? proposed.data : null;
   const planning = !batch.confirmedAt && (batch.status === "PLANNED" || batch.status === "NEEDS_SCOPE");
-  const generating = batch.status === "GENERATING" || batch.items.some((item) => item.status === "GENERATING" || item.status === "PLANNED");
+  const automaticRepairItemIds = batch.items
+    .filter(
+      (item) =>
+        item.status === "FAILED" &&
+        getMaterialDraftAdjustmentCopy({
+          status: item.status,
+          errorCode: item.errorCode,
+          generationMetadata: item.generationMetadata,
+        }),
+    )
+    .map((item) => item.id);
+  const generating =
+    batch.status === "GENERATING" ||
+    automaticRepairItemIds.length > 0 ||
+    batch.items.some((item) => item.status === "GENERATING" || item.status === "PLANNED");
+  const activating = batch.status === "ACTIVATING" || batch.items.some((item) => item.status === "ACTIVATING");
   const stage = planning ? "scope" : generating ? "generate" : "review";
   const pageTitle = planning
     ? "Confirm the exact scope"
     : generating
       ? "Generating skills"
+      : activating
+        ? "Adding skills"
       : "Review generated skills";
   const rawError = (await searchParams)?.error;
-  const error = Array.isArray(rawError) ? rawError[0] : rawError;
+  const error = getPublicMaterialActionErrorMessage(
+    Array.isArray(rawError) ? rawError[0] : rawError,
+    "LearnRecur could not update this batch. Try again.",
+  );
 
   return (
     <main className="skillShell materialShell batchShell">
       <SkillsTopbar current="new" />
-      <MaterialStatusPoller active={generating} />
+      <MaterialStatusPoller active={generating || activating} />
+      {automaticRepairItemIds.length > 0 ? (
+        <BatchAutomaticRecovery batchId={batch.id} itemIds={automaticRepairItemIds} />
+      ) : null}
       <header className="skillHeader materialHeader batchHeader">
         <div>
           <p className="materialBreadcrumb">
@@ -91,12 +127,17 @@ export default async function MaterialBatchPage({
       </header>
 
       <BatchStageRail current={stage} />
-      {error ? <p className="skillFormMessage batchTopMessage" data-tone="error">{error}</p> : null}
+      <ActionNotification
+        id="batch-action-error"
+        message={error}
+        title="Could not update this batch"
+        tone="error"
+      />
 
       {planning && scope ? (
         <ScopeReview batchId={batch.id} instruction={batch.instruction} plan={scope} />
       ) : (
-        <DraftBatchReview batch={batch} generating={generating} scope={scope} />
+        <DraftBatchReview batch={batch} generating={generating} activating={activating} scope={scope} />
       )}
     </main>
   );
@@ -125,13 +166,29 @@ function ScopeReview({
           <strong>{plan.items.length} proposed</strong>
         </div>
         {ambiguous ? (
-          <div className="batchAmbiguity">
-            <WarningCircle size={21} weight="bold" aria-hidden="true" />
-            <div>
-              <h3>The request is not safe to generate yet</h3>
-              <p>{plan.clarification}</p>
-            </div>
-          </div>
+          <>
+            <ActionNotification
+              id={`batch-scope-clarification-${batchId}`}
+              message={plan.clarification}
+              title="Clarify this skill request"
+              tone="warning"
+            />
+            <p className="batchClarificationReason">{plan.clarification}</p>
+            {plan.clarificationOptions?.length ? (
+              <div className="batchClarificationOptions" aria-label="Suggested clarifications">
+                {plan.clarificationOptions.map((option) => (
+                  <form action={replanMaterialSkillsAction} key={option.instruction}>
+                    <input name="batchId" type="hidden" value={batchId} />
+                    <input name="instruction" type="hidden" value={option.instruction} />
+                    <BatchSubmitButton className="secondaryButton">
+                      {option.label}
+                    </BatchSubmitButton>
+                    {option.description ? <small>{option.description}</small> : null}
+                  </form>
+                ))}
+              </div>
+            ) : null}
+          </>
         ) : (
           <ol className="batchScopeItems">
             {plan.items.map((item, index) => (
@@ -140,6 +197,11 @@ function ScopeReview({
                 <div>
                   <h3>{item.title}</h3>
                   <p>{item.objective}</p>
+                  {item.excludeConcepts?.length ? (
+                    <p className="batchScopeBoundary">
+                      <strong>Kept separate:</strong> {item.excludeConcepts.join(", ")}
+                    </p>
+                  ) : null}
                   <small>{formatLocator(item.locator)}</small>
                   {item.overlapWarning ? (
                     <p className="batchOverlapWarning">
@@ -166,7 +228,7 @@ function ScopeReview({
                 ? `; ${duplicateCount} exact duplicate${duplicateCount === 1 ? "" : "s"} will be excluded`
                 : ""}.
             </span>
-            <BatchSubmitButton pendingLabel="Starting the batch…">
+            <BatchSubmitButton>
               {generationCount > 0 ? `Generate ${generationCount} new skills` : "Confirm exclusions"}
             </BatchSubmitButton>
           </form>
@@ -182,10 +244,16 @@ function ScopeReview({
           <input name="batchId" type="hidden" value={batchId} />
           <label className="skillField">
             <span>Skill request</span>
-            <textarea defaultValue={instruction} maxLength={4_000} name="instruction" required rows={7} />
+            <BatchRequestTextarea
+              defaultValue={instruction}
+              maxLength={4_000}
+              name="instruction"
+              required
+              rows={7}
+            />
           </label>
-          <BatchSubmitButton className="secondaryButton" pendingLabel="Resolving again…">
-            Resolve again
+          <BatchSubmitButton className="secondaryButton">
+            Try again
           </BatchSubmitButton>
         </form>
       </aside>
@@ -196,12 +264,21 @@ function ScopeReview({
 function DraftBatchReview({
   batch,
   generating,
+  activating,
   scope,
 }: {
   batch: NonNullable<Awaited<ReturnType<typeof getMaterialDraftBatch>>>;
   generating: boolean;
+  activating: boolean;
   scope: MaterialScopeResolution | null;
 }) {
+  const readyItems = batch.items.filter(
+    (item) => item.status === "READY" && item.skill?.status === "DRAFT",
+  );
+  const activationCopy = getMaterialBatchActivationCopy(readyItems.length);
+  const activationFailureCount = batch.items.filter(
+    (item) => item.status === "FAILED" && item.errorCode?.startsWith("ACTIVATION_"),
+  ).length;
   return (
     <>
       <section className="batchProgressSummary" aria-label="Batch progress">
@@ -209,43 +286,104 @@ function DraftBatchReview({
         <div><span>Ready</span><strong>{batch.readyCount}</strong></div>
         <div><span>Failed</span><strong>{batch.failedCount}</strong></div>
         <div><span>Excluded</span><strong>{batch.excludedCount}</strong></div>
-        <div><span>Requested</span><strong>{batch.requestedCount}</strong></div>
+        <div><span>Added</span><strong>{batch.activatedCount}</strong></div>
       </section>
 
-      {generating ? (
+      {activating ? (
+        <section className="skillPanel batchGeneratingNotice batchActivatingNotice" aria-live="polite">
+          <span className="materialProcessingPulse" aria-hidden="true" />
+          <div>
+            <h2>Adding each skill independently</h2>
+            <p>Practice activates as each skill finishes. A failure will not roll back skills that are already ready.</p>
+          </div>
+        </section>
+      ) : generating ? (
         <section className="skillPanel batchGeneratingNotice" aria-live="polite">
           <span className="materialProcessingPulse" aria-hidden="true" />
           <div>
             <h2>Drafts are arriving independently</h2>
-            <p>Ready skills stay available even if another item needs a retry. This page refreshes automatically.</p>
+            <p>Ready skills stay available while LearnRecur checks and adjusts the others. This page refreshes automatically.</p>
           </div>
         </section>
-      ) : batch.status === "PARTIAL" ? (
+      ) : batch.status === "PARTIAL" || batch.status === "FAILED" ? (
         <section className="skillPanel batchPartialNotice">
           <WarningCircle size={20} weight="bold" aria-hidden="true" />
-          <div><h2>Some drafts need attention</h2><p>Ready drafts were kept. Retry or exclude each failed item below.</p></div>
+          <div>
+            <h2>
+              {activationFailureCount > 0
+                ? batch.status === "FAILED"
+                  ? "Skills were not added"
+                  : "Some skills were not added"
+                : batch.status === "FAILED"
+                  ? "Draft generation needs attention"
+                  : "Some drafts need attention"}
+            </h2>
+            <p>
+              {activationFailureCount > 0
+                ? "Skills already added remain active. Retry or exclude each failed item below."
+                : "Ready drafts were kept. Retry or exclude each failed item below."}
+            </p>
+          </div>
         </section>
+      ) : null}
+
+      {readyItems.length > 0 && !generating ? (
+        <form action={activateMaterialBatchAction} className="batchActivationBar">
+          <div>
+            <span>{activationCopy.countLabel}</span>
+            <strong>Start practice without opening every draft</strong>
+            <p>Excluded drafts stay out. Each ready skill activates on its own in the background.</p>
+          </div>
+          <input name="batchId" type="hidden" value={batch.id} />
+          {readyItems.map((item) => (
+            <input key={item.id} name="itemId" type="hidden" value={item.id} />
+          ))}
+          <BatchSubmitButton>
+            {activationCopy.actionLabel}
+          </BatchSubmitButton>
+        </form>
       ) : null}
 
       <section className="batchDraftList" aria-labelledby="batch-drafts-title">
         <div className="batchDraftListHeader">
-          <div><h2 id="batch-drafts-title">Draft skills</h2><p>Expand any draft to inspect it, or edit it in the full skill form.</p></div>
+          <div><h2 id="batch-drafts-title">Draft skills</h2><p>Expand any draft to inspect it, or edit it here without leaving the batch.</p></div>
           {scope ? <small>{scope.resolvedScopeLabel}</small> : null}
         </div>
-        {batch.items.map((item) => (
-          <article className="skillPanel batchDraftCard" data-status={item.status.toLowerCase()} key={item.id}>
+        {batch.items.map((item) => {
+          const adjustment = getMaterialDraftAdjustmentCopy({
+            status: item.status,
+            errorCode: item.errorCode,
+            generationMetadata: item.generationMetadata,
+          });
+          const activationRetry = getMaterialActivationRetryCopy({
+            status: item.status,
+            errorCode: item.errorCode,
+          });
+          return (
+            <article className="skillPanel batchDraftCard" data-status={adjustment || activationRetry ? "generating" : item.status.toLowerCase()} key={item.id}>
             <div className="batchDraftCardHeader">
               <div>
-                <span>{formatDisplayLabel(item.status)}</span>
+                <span>{activationRetry ? "Still working" : adjustment ? "Adjusting" : formatDisplayLabel(item.status)}</span>
                 <h3>{item.skill?.title ?? item.proposedTitle}</h3>
                 <p>{item.skill?.objective ?? item.proposedObjective}</p>
               </div>
-              {item.status === "READY" ? <CheckCircle size={22} weight="fill" aria-label="Ready" /> : null}
-              {item.status === "FAILED" ? <WarningCircle size={22} weight="bold" aria-label="Failed" /> : null}
+              {item.status === "READY" || item.status === "ACTIVE" ? <CheckCircle size={22} weight="fill" aria-label={item.status === "ACTIVE" ? "Added" : "Ready"} /> : null}
+              {item.status === "ACTIVATING" || adjustment ? <span className="materialProcessingPulse batchCardPulse" aria-label={activationRetry ? "Still working" : item.status === "ACTIVATING" ? "Adding" : "Adjusting"} /> : null}
+              {item.status === "FAILED" && !adjustment ? <WarningCircle size={22} weight="bold" aria-label="Failed" /> : null}
             </div>
-            {item.errorMessage ? (
+            {adjustment ? (
+              <p className="batchDraftAdjustment" aria-live="polite">
+                <strong>{adjustment.title}</strong>
+                <span>{adjustment.description}</span>
+              </p>
+            ) : activationRetry ? (
+              <p className="batchDraftAdjustment" aria-live="polite">
+                <strong>{activationRetry.title}</strong>
+                <span>{activationRetry.description}</span>
+              </p>
+            ) : getMaterialDraftItemErrorMessage(item.errorCode, item.errorMessage) ? (
               <p className="batchDraftError" data-tone={item.status === "EXCLUDED" ? "neutral" : "warning"}>
-                {item.errorMessage}
+                {getMaterialDraftItemErrorMessage(item.errorCode, item.errorMessage)}
               </p>
             ) : null}
             {item.skill ? (
@@ -262,29 +400,46 @@ function DraftBatchReview({
             <div className="batchDraftActions">
               <small>{formatLocatorValue(item.locator)}</small>
               <div>
-                {item.skill ? (
+                {item.skill && item.status === "ACTIVE" ? (
                   <Link className="secondaryButton" href={`/skills/${item.skill.id}`}>
-                    Edit draft
+                    Open skill
                   </Link>
                 ) : null}
-                {item.status === "FAILED" ? (
-                  <form action={retryMaterialDraftItemAction}>
+                {item.skill && item.status !== "ACTIVE" && item.status !== "ACTIVATING" ? (
+                  <BatchDraftEditDialog
+                    initialValues={{
+                      title: item.skill.title,
+                      objective: item.skill.objective ?? "",
+                      collectionName: item.skill.collection?.name ?? "",
+                      rules: readNotesText(item.skill.rules),
+                      examples: readNotesText(item.skill.examples),
+                      exerciseConstraints: readNotesText(item.skill.exerciseConstraints),
+                      tags: item.skill.tags.join(", "),
+                    }}
+                    skillId={item.skill.id}
+                  />
+                ) : null}
+                {item.status === "FAILED" && !adjustment ? (
+                  <form action={item.errorCode?.startsWith("ACTIVATION_") ? retryMaterialBatchActivationItemAction : retryMaterialDraftItemAction}>
                     <input name="batchId" type="hidden" value={batch.id} />
                     <input name="itemId" type="hidden" value={item.id} />
-                    <button className="secondaryButton" type="submit">Retry</button>
+                    <BatchSubmitButton className="secondaryButton">
+                      Retry
+                    </BatchSubmitButton>
                   </form>
                 ) : null}
-                {item.status === "READY" || item.status === "FAILED" ? (
-                  <form action={excludeMaterialDraftItemAction}>
-                    <input name="batchId" type="hidden" value={batch.id} />
-                    <input name="itemId" type="hidden" value={item.id} />
-                    <button className="batchTextButton" type="submit">Exclude</button>
-                  </form>
+                {item.status === "READY" || (item.status === "FAILED" && !adjustment) ? (
+                  <BatchExcludeControl
+                    batchId={batch.id}
+                    itemId={item.id}
+                    title={item.skill?.title ?? item.proposedTitle}
+                  />
                 ) : null}
               </div>
             </div>
-          </article>
-        ))}
+            </article>
+          );
+        })}
       </section>
     </>
   );
@@ -328,6 +483,17 @@ function readConstraintNotes(value: unknown) {
   }
   const notes = (value as { notes?: unknown }).notes;
   return typeof notes === "string" && notes.trim() ? [notes.trim()] : [];
+}
+
+function readNotesText(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return "";
+  }
+  const notes = value as { items?: unknown; notes?: unknown };
+  if (Array.isArray(notes.items)) {
+    return notes.items.filter((item): item is string => typeof item === "string").join("\n");
+  }
+  return typeof notes.notes === "string" ? notes.notes : "";
 }
 
 function formatLocator(locator: MaterialScopeResolution["items"][number]["locator"]) {

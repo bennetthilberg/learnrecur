@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import {
+  MaterialRevisionStatus,
   SkillStatus,
   SourceFileKind,
   SourceFileStatus,
@@ -160,6 +161,7 @@ describeDatabase("persistent material foundation", () => {
       contentHash: "sha256:spanish-revision-one",
       byteSize: 4_096,
       pageCount: 120,
+      summary: "A practical Spanish grammar guide. It covers pronouns and verb tenses.",
       storageBucket: "private-materials",
       storageKey: `${userId}/${revision.id}/original.pdf`,
       processingMetadata: { parser: "fixture", storageKey: "must-not-export" },
@@ -205,6 +207,12 @@ describeDatabase("persistent material foundation", () => {
       prisma.materialRevision.update({
         where: { id: revision.id },
         data: { finalizedAt: null },
+      }),
+    ).rejects.toThrow(/immutable/i);
+    await expect(
+      prisma.materialRevision.update({
+        where: { id: revision.id },
+        data: { summary: "A rewritten material summary." },
       }),
     ).rejects.toThrow(/immutable/i);
     await expect(
@@ -260,6 +268,14 @@ describeDatabase("persistent material foundation", () => {
     }
     expect(exported.export.exportVersion).toBe(2);
     expect(exported.export.studyMaterials.map((entry) => entry.id)).toContain(material.id);
+    expect(exported.export.materialRevisions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: revision.id,
+          summary: "A practical Spanish grammar guide. It covers pronouns and verb tenses.",
+        }),
+      ]),
+    );
     expect(exported.export.materialChunks).toHaveLength(2);
     expect(JSON.stringify(exported.export)).not.toContain("must-not-export");
     expect(JSON.stringify(exported.export)).not.toContain("private-materials");
@@ -790,6 +806,43 @@ describeDatabase("persistent material foundation", () => {
       await prisma.studyMaterial.findUnique({ where: { id: material.id }, select: { status: true } }),
     ).toEqual({ status: StudyMaterialStatus.DELETING });
     expect(await prisma.skill.count({ where: { id: linkedSkill.id } })).toBe(1);
+  });
+
+  it.each([
+    MaterialRevisionStatus.PENDING_UPLOAD,
+    MaterialRevisionStatus.QUEUED,
+    MaterialRevisionStatus.PROCESSING,
+    MaterialRevisionStatus.READY,
+    MaterialRevisionStatus.FAILED,
+  ])("allows deletion while a material revision is %s", async (revisionStatus) => {
+    const material = await prisma.studyMaterial.create({
+      data: {
+        userId,
+        title: `Delete ${revisionStatus.toLowerCase()} material`,
+        kind: StudyMaterialKind.PDF,
+        revisions: {
+          create: {
+            revisionNumber: 1,
+            status: revisionStatus,
+          },
+        },
+      },
+      include: { revisions: true },
+    });
+
+    await expect(
+      requestMaterialDeletion({
+        userId,
+        materialId: material.id,
+        confirmationTitle: material.title,
+      }),
+    ).resolves.toMatchObject({ status: "queued", alreadyQueued: false });
+    await expect(
+      prisma.materialRevision.findUniqueOrThrow({
+        where: { id: material.revisions[0].id },
+        select: { status: true },
+      }),
+    ).resolves.toEqual({ status: MaterialRevisionStatus.DELETING });
   });
 
   it("blocks direct deletion of active finalized revisions and their materials", async () => {

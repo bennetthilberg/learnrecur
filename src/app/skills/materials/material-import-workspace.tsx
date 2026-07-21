@@ -3,21 +3,26 @@
 import { Checkbox, Tabs } from "@mantine/core";
 import {
   BookOpenText,
-  CheckCircle,
   FilePdf,
   GlobeHemisphereWest,
+  Sparkle,
   UploadSimple,
-  WarningCircle,
 } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
 
-import {
-  MAX_MATERIAL_PDF_BYTES,
-  MAX_MATERIAL_PDF_PAGES,
-} from "@/lib/materials/contracts";
+import { ActionNotification } from "@/components/app/action-notification";
+import { MAX_MATERIAL_PDF_PAGES } from "@/lib/materials/contracts";
 import type { MaterialLibraryItem } from "@/lib/materials/library";
+import {
+  MAX_MATERIAL_TITLE_LENGTH,
+  materialPdfErrorMessage,
+  materialPdfFileErrorMessage,
+  materialTitleFromPdfFileName,
+  truncateMaterialTitle,
+  validateMaterialPdfFile,
+} from "@/lib/materials/pdf-upload";
 import type { WebsiteDiscovery } from "@/lib/materials/web";
 
 import {
@@ -27,6 +32,7 @@ import {
   discoverWebsiteMaterialAction,
   prepareMaterialPdfAction,
 } from "./actions";
+import { MaterialDeleteControl } from "./material-delete-control";
 
 type CollectionOption = { id: string; name: string };
 type MaterialImportWorkspaceProps = {
@@ -38,6 +44,9 @@ export function MaterialImportWorkspace({
   collections,
   materials,
 }: MaterialImportWorkspaceProps) {
+  const [activeSource, setActiveSource] = useState<string | null>("pdf");
+  const [isImportBusy, setIsImportBusy] = useState(false);
+
   return (
     <div className="materialImportLayout">
       <section className="skillPanel materialReusePanel" aria-labelledby="reuse-material-title">
@@ -53,19 +62,40 @@ export function MaterialImportWorkspace({
             {materials.slice(0, 6).map((material) => (
               <article className="materialCompactRow" key={material.id}>
                 <div>
-                  <Link href={`/skills/materials/${material.id}`}>{material.title}</Link>
+                  <Link className="materialCompactTitle" href={`/skills/materials/${material.id}`}>
+                    {material.title}
+                  </Link>
                   <p>{materialSummary(material)}</p>
                 </div>
-                <Link
-                  className="secondaryButton"
-                  href={
-                    material.revisionStatus === "READY"
-                      ? `/skills/materials/${material.id}/create`
-                      : `/skills/materials/${material.id}`
-                  }
-                >
-                  {material.revisionStatus === "READY" ? "Create" : "Open"}
-                </Link>
+                <div className="materialCompactActions">
+                  <Link
+                    aria-label={
+                      material.revisionStatus === "READY"
+                        ? `Create skills from ${material.title}`
+                        : `Open ${material.title}`
+                    }
+                    className={
+                      material.revisionStatus === "READY" ? "primaryButton" : "secondaryButton"
+                    }
+                    href={
+                      material.revisionStatus === "READY"
+                        ? `/skills/materials/${material.id}/create`
+                        : `/skills/materials/${material.id}`
+                    }
+                  >
+                    {material.revisionStatus === "READY" ? (
+                      <>
+                        <Sparkle size={15} weight="bold" aria-hidden="true" /> Create skills
+                      </>
+                    ) : "Open material"}
+                  </Link>
+                  <MaterialDeleteControl
+                    compact
+                    materialId={material.id}
+                    returnTo="/skills/new/multiple"
+                    title={material.title}
+                  />
+                </div>
               </article>
             ))}
           </div>
@@ -95,22 +125,35 @@ export function MaterialImportWorkspace({
             tab: "materialImportTab",
             panel: "materialImportTabPanel",
           }}
-          defaultValue="pdf"
           keepMounted={false}
+          onChange={(value) => {
+            if (!isImportBusy) {
+              setActiveSource(value);
+            }
+          }}
+          value={activeSource}
         >
           <Tabs.List aria-label="Material source type">
-            <Tabs.Tab leftSection={<FilePdf size={17} weight="bold" />} value="pdf">
+            <Tabs.Tab
+              disabled={isImportBusy}
+              leftSection={<FilePdf size={17} weight="bold" />}
+              value="pdf"
+            >
               PDF
             </Tabs.Tab>
-            <Tabs.Tab leftSection={<GlobeHemisphereWest size={17} weight="bold" />} value="website">
+            <Tabs.Tab
+              disabled={isImportBusy}
+              leftSection={<GlobeHemisphereWest size={17} weight="bold" />}
+              value="website"
+            >
               Website
             </Tabs.Tab>
           </Tabs.List>
           <Tabs.Panel value="pdf">
-            <MaterialPdfForm collections={collections} />
+            <MaterialPdfForm collections={collections} onBusyChange={setIsImportBusy} />
           </Tabs.Panel>
           <Tabs.Panel value="website">
-            <WebsiteMaterialForm collections={collections} />
+            <WebsiteMaterialForm collections={collections} onBusyChange={setIsImportBusy} />
           </Tabs.Panel>
         </Tabs>
       </section>
@@ -118,14 +161,23 @@ export function MaterialImportWorkspace({
   );
 }
 
-function MaterialPdfForm({ collections }: { collections: CollectionOption[] }) {
+function MaterialPdfForm({
+  collections,
+  onBusyChange,
+}: {
+  collections: CollectionOption[];
+  onBusyChange: (busy: boolean) => void;
+}) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState("");
-  const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isBusy, setIsBusy] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string[]> | undefined>();
+  const [isBusy, runBusy] = useMaterialImportBusy(onBusyChange);
+  const titleError = fieldErrors?.title?.[0];
+  const fileError =
+    materialPdfFileErrorMessage(fieldErrors) ?? (file ? validateMaterialPdfFile(file) : null);
 
   return (
     <form
@@ -136,53 +188,62 @@ function MaterialPdfForm({ collections }: { collections: CollectionOption[] }) {
           return;
         }
         if (!file) {
-          setError("Choose a PDF to import.");
+          setError("Choose a PDF file, then select Import PDF.");
           return;
         }
-        if (file.type !== "application/pdf") {
-          setError("Materials currently support PDF files only.");
-          return;
-        }
-        if (file.size > MAX_MATERIAL_PDF_BYTES) {
-          setError("Reusable PDFs can be up to 100 MB.");
+        const fileValidationError = validateMaterialPdfFile(file);
+        if (fileValidationError) {
+          setError(fileValidationError);
           return;
         }
         const form = event.currentTarget;
         setError(null);
-        setMessage("Preparing a private upload…");
-        setIsBusy(true);
-        void submitPdf(form, file).finally(() => setIsBusy(false));
+        setFieldErrors(undefined);
+        runBusy(() => submitPdf(form, file));
       }}
     >
       <p className="materialImportIntro">
-        Up to 100 MB or {MAX_MATERIAL_PDF_PAGES.toLocaleString()} pages. Scanned pages are kept for
-        on-demand OCR.
+        Up to 100 MB or {MAX_MATERIAL_PDF_PAGES.toLocaleString()} pages.
       </p>
       <div className="skillTwoColumnFields">
         <label className="skillField">
           <span>Material title</span>
           <input
+            aria-describedby={titleError ? "material-pdf-title-error" : undefined}
+            aria-invalid={titleError ? "true" : undefined}
             disabled={isBusy}
-            maxLength={200}
+            maxLength={MAX_MATERIAL_TITLE_LENGTH}
             name="title"
-            onChange={(event) => setTitle(event.currentTarget.value)}
+            onChange={(event) => {
+              setTitle(event.currentTarget.value);
+              setFieldErrors(undefined);
+              setError(null);
+            }}
             placeholder="Practical Spanish Grammar"
             required
             value={title}
           />
+          {titleError ? <em id="material-pdf-title-error">{titleError}</em> : null}
         </label>
         <CollectionSelect collections={collections} disabled={isBusy} />
       </div>
-      <label className="materialPdfDropzone">
+      <label
+        className="materialPdfDropzone"
+        data-disabled={isBusy ? "true" : undefined}
+        data-invalid={fileError ? "true" : undefined}
+      >
         <input
           accept="application/pdf,.pdf"
+          aria-describedby={fileError || file ? "material-pdf-file-detail" : undefined}
+          aria-invalid={fileError ? "true" : undefined}
           disabled={isBusy}
           onChange={(event) => {
             const selected = event.currentTarget.files?.[0] ?? null;
             setFile(selected);
             setError(null);
+            setFieldErrors(undefined);
             if (selected && !title.trim()) {
-              setTitle(fileNameToTitle(selected.name));
+              setTitle(materialTitleFromPdfFileName(selected.name));
             }
           }}
           ref={fileInputRef}
@@ -190,12 +251,24 @@ function MaterialPdfForm({ collections }: { collections: CollectionOption[] }) {
         />
         <UploadSimple size={22} weight="bold" aria-hidden="true" />
         <span>{file ? file.name : "Choose a PDF"}</span>
-        <small>{file ? formatBytes(file.size) : "The original stays private in your storage."}</small>
+        {fileError || file ? (
+          <small data-tone={fileError ? "error" : undefined} id="material-pdf-file-detail">
+            {fileError ?? formatBytes(file?.size ?? 0)}
+          </small>
+        ) : null}
       </label>
-      <ActionMessage error={error} message={message} />
+      <ActionMessage error={error} message={null} />
       <div className="skillFormActions materialImportActions">
-        <button className="primaryButton" disabled={isBusy} type="submit">
-          {isBusy ? "Importing PDF" : "Import PDF"}
+        <button
+          aria-busy={isBusy}
+          className="primaryButton"
+          disabled={isBusy}
+          type="submit"
+        >
+          <span className="buttonPendingContent">
+            {isBusy ? <span className="buttonSpinner" aria-hidden="true" /> : null}
+            <span aria-live="polite">{isBusy ? "Importing PDF" : "Import PDF"}</span>
+          </span>
         </button>
       </div>
     </form>
@@ -211,34 +284,31 @@ function MaterialPdfForm({ collections }: { collections: CollectionOption[] }) {
       formData.set("byteSize", String(selectedFile.size));
       const prepared = await prepareMaterialPdfAction(formData);
       if (prepared.status === "error") {
-        setError(prepared.message);
-        setMessage(null);
+        setFieldErrors(prepared.fieldErrors);
+        setError(materialPdfErrorMessage(prepared.fieldErrors, prepared.message));
         return;
       }
       preparedMaterial = {
         materialId: prepared.materialId,
         materialRevisionId: prepared.materialRevisionId,
       };
-      setMessage("Uploading the original PDF…");
       const response = await fetch(prepared.uploadUrl, {
         method: "PUT",
         headers: prepared.headers,
         body: selectedFile,
       });
       if (!response.ok) {
+        const uploadError = pdfUploadResponseError(response.status);
         const cleanupError = await discardPreparedUpload(preparedMaterial);
-        setError(cleanupError ?? "The private upload failed. Try the PDF again.");
-        setMessage(null);
+        setError(withPdfCleanupWarning(uploadError, cleanupError));
         return;
       }
-      setMessage("Building the book outline…");
       const queued = await completeMaterialPdfAction({
         materialRevisionId: prepared.materialRevisionId,
       });
       if (queued.status === "error") {
         const cleanupError = await discardPreparedUpload(preparedMaterial);
-        setError(cleanupError ?? queued.message);
-        setMessage(null);
+        setError(withPdfCleanupWarning(queued.message, cleanupError));
         return;
       }
       preparedMaterial = null;
@@ -248,10 +318,13 @@ function MaterialPdfForm({ collections }: { collections: CollectionOption[] }) {
       const cleanupError = preparedMaterial
         ? await discardPreparedUpload(preparedMaterial)
         : null;
-      setError(
-        cleanupError ?? (caught instanceof Error ? caught.message : "Could not import the PDF."),
-      );
-      setMessage(null);
+      const uploadError =
+        preparedMaterial && caught instanceof TypeError
+          ? "The browser could not reach private storage. Check your connection and try again."
+          : caught instanceof Error
+            ? caught.message
+            : "Could not import the PDF.";
+      setError(withPdfCleanupWarning(uploadError, cleanupError));
     }
   }
 
@@ -268,7 +341,30 @@ function MaterialPdfForm({ collections }: { collections: CollectionOption[] }) {
   }
 }
 
-function WebsiteMaterialForm({ collections }: { collections: CollectionOption[] }) {
+function pdfUploadResponseError(status: number) {
+  if (status === 403) {
+    return "Private storage rejected the upload (HTTP 403). Try again; if this continues, contact support.";
+  }
+  if (status === 413) {
+    return "Private storage rejected the PDF because it was too large (HTTP 413). Choose a smaller PDF and try again.";
+  }
+
+  return `The private upload failed (HTTP ${status}). Try again.`;
+}
+
+function withPdfCleanupWarning(uploadError: string, cleanupError: string | null) {
+  return cleanupError
+    ? `${uploadError} The incomplete material could not be removed automatically, so it remains in Materials for retry or deletion.`
+    : uploadError;
+}
+
+function WebsiteMaterialForm({
+  collections,
+  onBusyChange,
+}: {
+  collections: CollectionOption[];
+  onBusyChange: (busy: boolean) => void;
+}) {
   const router = useRouter();
   const [url, setUrl] = useState("");
   const [title, setTitle] = useState("");
@@ -277,7 +373,7 @@ function WebsiteMaterialForm({ collections }: { collections: CollectionOption[] 
   const [selectedUrls, setSelectedUrls] = useState<Set<string>>(new Set());
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isBusy, setIsBusy] = useState(false);
+  const [isBusy, runBusy] = useMaterialImportBusy(onBusyChange);
   const selectedCount = selectedUrls.size;
   const allSelected = Boolean(
     discovery && discovery.pages.length > 0 && selectedCount === discovery.pages.length,
@@ -317,8 +413,7 @@ function WebsiteMaterialForm({ collections }: { collections: CollectionOption[] 
             setSelectedUrls(new Set());
             setError(null);
             setMessage("Reading the table of contents…");
-            setIsBusy(true);
-            void discover().finally(() => setIsBusy(false));
+            runBusy(discover);
           }}
           type="button"
         >
@@ -340,6 +435,7 @@ function WebsiteMaterialForm({ collections }: { collections: CollectionOption[] 
             {discovery.pages.length > 0 ? (
               <Checkbox
                 checked={allSelected}
+                disabled={isBusy}
                 label="Select all"
                 onChange={(event) => {
                   setSelectedUrls(
@@ -371,6 +467,7 @@ function WebsiteMaterialForm({ collections }: { collections: CollectionOption[] 
                   <Checkbox
                     checked={selectedUrls.has(page.url)}
                     className="materialDiscoveryCheckbox"
+                    disabled={isBusy}
                     key={page.url}
                     label={page.title}
                     ml={(page.level - 1) * 14}
@@ -393,7 +490,7 @@ function WebsiteMaterialForm({ collections }: { collections: CollectionOption[] 
                   <span>Material title</span>
                   <input
                     disabled={isBusy}
-                    maxLength={200}
+                    maxLength={MAX_MATERIAL_TITLE_LENGTH}
                     onChange={(event) => setTitle(event.currentTarget.value)}
                     required
                     value={title}
@@ -423,8 +520,7 @@ function WebsiteMaterialForm({ collections }: { collections: CollectionOption[] 
                   onClick={() => {
                     setError(null);
                     setMessage("Saving the selected pages…");
-                    setIsBusy(true);
-                    void confirmImport().finally(() => setIsBusy(false));
+                    runBusy(confirmImport);
                   }}
                   type="button"
                 >
@@ -449,7 +545,7 @@ function WebsiteMaterialForm({ collections }: { collections: CollectionOption[] 
       return;
     }
     setDiscovery(result.discovery);
-    setTitle(result.discovery.title);
+    setTitle(truncateMaterialTitle(result.discovery.title));
     setSelectedUrls(new Set(result.discovery.pages.map((page) => page.url)));
     setMessage(
       result.discovery.pages.length > 0
@@ -478,6 +574,21 @@ function WebsiteMaterialForm({ collections }: { collections: CollectionOption[] 
   }
 }
 
+function useMaterialImportBusy(onBusyChange: (busy: boolean) => void) {
+  const [isBusy, setIsBusy] = useState(false);
+
+  function runBusy(task: () => Promise<void>) {
+    setIsBusy(true);
+    onBusyChange(true);
+    void task().finally(() => {
+      setIsBusy(false);
+      onBusyChange(false);
+    });
+  }
+
+  return [isBusy, runBusy] as const;
+}
+
 function CollectionSelect({
   collections,
   disabled,
@@ -501,24 +612,26 @@ function CollectionSelect({
 }
 
 function ActionMessage({ error, message }: { error: string | null; message: string | null }) {
-  if (!error && !message) {
-    return null;
-  }
   return (
-    <p className="skillFormMessage materialActionMessage" data-tone={error ? "error" : "saved"} role="status">
-      {error ? <WarningCircle size={17} weight="bold" aria-hidden="true" /> : <CheckCircle size={17} weight="bold" aria-hidden="true" />}
-      {error ?? message}
-    </p>
+    <>
+      <ActionNotification
+        id="material-import-error"
+        message={error}
+        title="Could not add material"
+        tone="error"
+      />
+      {message ? (
+        <p className="materialActionStatus" role="status">
+          {message}
+        </p>
+      ) : null}
+    </>
   );
 }
 
 function materialSummary(material: MaterialLibraryItem) {
   const parts = [material.collectionName, material.pageCount ? `${material.pageCount} pages` : null];
   return parts.filter(Boolean).join(" · ") || "Ready to organize";
-}
-
-function fileNameToTitle(fileName: string) {
-  return fileName.replace(/\.pdf$/i, "").replace(/[-_]+/g, " ").trim();
 }
 
 function formatBytes(bytes: number) {

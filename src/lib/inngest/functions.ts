@@ -4,6 +4,7 @@ import { NonRetriableError } from "inngest";
 
 import {
   parseExerciseRefillEventPayload,
+  parseMaterialBatchActivationEventPayload,
   parseMaterialCleanupEventPayload,
   parseMaterialDraftItemEventPayload,
   parseMaterialIngestionEventPayload,
@@ -15,7 +16,9 @@ import {
 } from "@/lib/materials/ingestion";
 import { runMaterialCleanupJob } from "@/lib/materials/cleanup";
 import {
+  MaterialBatchActivationError,
   MaterialDraftGenerationError,
+  runMaterialBatchActivationJob,
   runMaterialDraftItemJob,
 } from "@/lib/materials/batches";
 import {
@@ -33,6 +36,7 @@ import {
   CHOICE_REFILL_REQUESTED_EVENT,
   EXACT_INPUT_REFILL_REQUESTED_EVENT,
   MATH_REFILL_REQUESTED_EVENT,
+  MATERIAL_BATCH_ACTIVATION_REQUESTED_EVENT,
   MATERIAL_CLEANUP_REQUESTED_EVENT,
   MATERIAL_DRAFT_ITEM_REQUESTED_EVENT,
   MATERIAL_INGESTION_REQUESTED_EVENT,
@@ -175,6 +179,32 @@ export const materialDraftItemFunction = inngest.createFunction(
   },
 );
 
+export const materialBatchActivationFunction = inngest.createFunction(
+  {
+    id: "material-batch-activation",
+    retries: 3,
+    concurrency: { limit: 2, key: "event.data.userId" },
+    triggers: [{ event: MATERIAL_BATCH_ACTIVATION_REQUESTED_EVENT }],
+  },
+  async ({ event, step, attempt, maxAttempts }) => {
+    const payload = parseMaterialBatchActivationEventPayload(event.data);
+    try {
+      return await step.run("activate one material skill", () =>
+        runMaterialBatchActivationJob({
+          ...payload,
+          attempt,
+          maxAttempts: maxAttempts ?? 4,
+        }),
+      );
+    } catch (error) {
+      if (error instanceof MaterialBatchActivationError && !error.retryable) {
+        throw new NonRetriableError(error.message, { cause: error });
+      }
+      throw error;
+    }
+  },
+);
+
 export const duePracticeReminderFunction = inngest.createFunction(
   {
     id: "due-practice-reminders",
@@ -197,5 +227,6 @@ export const learnRecurInngestFunctions = [
   materialIngestionFunction,
   materialCleanupFunction,
   materialDraftItemFunction,
+  materialBatchActivationFunction,
   duePracticeReminderFunction,
 ];

@@ -37,7 +37,11 @@ import {
   runWithGeminiProviderFallback,
   type GeminiRuntimeConfig,
 } from "@/lib/gemini";
-import { skillSourceLocatorSchema } from "@/lib/materials/contracts";
+import {
+  loadLocalizedMaterialEvidence,
+  type LocalizedMaterialEvidenceLoader,
+  type LocalizedMaterialSourceRef,
+} from "@/lib/materials/evidence";
 import {
   buildOpenRouterDataUrl,
   runOpenRouterJsonChatCompletion,
@@ -89,8 +93,10 @@ const PROMPT_NOTE_CHAR_LIMIT = 2_000;
 export const SOURCE_SKILL_DRAFT_PROMPT_VERSION = "source-skill-draft-v1";
 const GENERATION_TIMEOUT_MS = 45_000;
 const ACTIVATION_GENERATION_COMPLETION_SLACK_MS = 15_000;
-export const ACTIVATION_GENERATION_TIMEOUT_MS =
+const ACTIVATION_PROVIDER_CHAIN_TIMEOUT_MS =
   GENERATION_TIMEOUT_MS * 2 + ACTIVATION_GENERATION_COMPLETION_SLACK_MS;
+export const ACTIVATION_GENERATION_TIMEOUT_MS =
+  ACTIVATION_PROVIDER_CHAIN_TIMEOUT_MS * 2 + ACTIVATION_GENERATION_COMPLETION_SLACK_MS;
 const ACTIVE_GENERATION_JOB_STATUSES: GenerationJobStatus[] = [
   GenerationJobStatus.PENDING,
   GenerationJobStatus.RUNNING,
@@ -386,10 +392,10 @@ export type SourceMediaContextLoader = (input: {
   sourceFiles: SourceMediaContextSourceFile[];
 }) => Promise<SourceMediaContext[]>;
 
-type ActivationSourceRef = {
-  locator: Prisma.JsonValue | null;
-  sourceFile: SourceMediaContextSourceFile & {
-    materialRevisionId: string | null;
+export type SkillSourceEvidenceLoader = LocalizedMaterialEvidenceLoader;
+
+type SkillGenerationSourceRef = LocalizedMaterialSourceRef & {
+  sourceFile: LocalizedMaterialSourceRef["sourceFile"] & {
     extractedText: string | null;
   };
 };
@@ -517,9 +523,11 @@ export type ActivateSkillDraftInput = {
   userId: string;
   skillId: string;
   now: Date;
+  generationJobId?: string;
   generateChoiceExercises?: ChoiceExerciseGenerator;
   verifyChoiceExercises?: ChoiceExerciseVerifier;
   sourceMediaLoader?: SourceMediaContextLoader;
+  sourceEvidenceLoader?: SkillSourceEvidenceLoader;
   model?: string;
   skipUsageLimitCheck?: boolean;
 };
@@ -533,6 +541,7 @@ export type RefillChoiceExercisesInput = {
   generateChoiceExercises?: ChoiceExerciseGenerator;
   verifyChoiceExercises?: ChoiceExerciseVerifier;
   sourceMediaLoader?: SourceMediaContextLoader;
+  sourceEvidenceLoader?: SkillSourceEvidenceLoader;
   model?: string;
 };
 
@@ -545,6 +554,7 @@ export type RefillExactInputExercisesInput = {
   generateExactInputExercises?: ExactInputExerciseGenerator;
   verifyExactInputExercises?: ExactInputExerciseVerifier;
   sourceMediaLoader?: SourceMediaContextLoader;
+  sourceEvidenceLoader?: SkillSourceEvidenceLoader;
   model?: string;
 };
 
@@ -557,6 +567,7 @@ export type RefillMathExercisesInput = {
   generateMathExercises?: MathExerciseGenerator;
   verifyMathExercises?: MathExerciseVerifier;
   sourceMediaLoader?: SourceMediaContextLoader;
+  sourceEvidenceLoader?: SkillSourceEvidenceLoader;
   model?: string;
 };
 
@@ -2119,70 +2130,42 @@ async function resolveSourceMediaContext({
 
 async function resolveGroundedSkillSourceEvidence(input: {
   userId: string;
-  sourceRefs: ActivationSourceRef[];
+  sourceRefs: SkillGenerationSourceRef[];
   sourceMediaLoader?: SourceMediaContextLoader;
-}) {
-  const materialRefs = input.sourceRefs.flatMap((sourceRef) => {
-    if (!sourceRef.sourceFile.materialRevisionId) {
-      return [];
-    }
-    const locator = skillSourceLocatorSchema.safeParse(sourceRef.locator);
-    if (
-      !locator.success ||
-      locator.data.materialRevisionId !== sourceRef.sourceFile.materialRevisionId
-    ) {
-      throw new Error("Stored material evidence has an invalid revision locator.");
-    }
-    return [{ sourceRef, locator: locator.data }];
-  });
-  const materialChunks = materialRefs.length
-    ? await getPrisma().materialChunk.findMany({
-        where: {
+  sourceEvidenceLoader?: SkillSourceEvidenceLoader;
+}): Promise<{ sourceContext: string | null; sourceMedia: SourceMediaContext[] }> {
+  const materialRefs = input.sourceRefs.filter(
+    (sourceRef) => Boolean(sourceRef.sourceFile.materialRevisionId),
+  );
+  const materialEvidence =
+    materialRefs.length > 0
+      ? await (input.sourceEvidenceLoader ?? loadLocalizedMaterialEvidence)({
           userId: input.userId,
-          OR: materialRefs.map(({ locator }) => ({
-            materialRevisionId: locator.materialRevisionId,
-            id: { in: locator.evidenceChunkIds },
-          })),
-        },
-        select: {
-          id: true,
-          materialRevisionId: true,
-          ordinal: true,
-          headingText: true,
-          text: true,
-        },
-      })
-    : [];
-  const materialChunkByKey = new Map(
-    materialChunks.map((chunk) => [
-      `${chunk.materialRevisionId}\u0000${chunk.id}`,
-      chunk,
-    ]),
-  );
-  const materialContext = materialRefs.map(({ locator }) =>
-    locator.evidenceChunkIds
-      .map((chunkId) => {
-        const chunk = materialChunkByKey.get(`${locator.materialRevisionId}\u0000${chunkId}`);
-        if (!chunk) {
-          throw new Error("Stored material evidence chunk is no longer available.");
-        }
-        return `${chunk.headingText ?? `Excerpt ${chunk.ordinal + 1}`}\n${chunk.text}`;
-      })
-      .join("\n\n---\n\n"),
-  );
+          sourceRefs: materialRefs,
+        })
+      : { materialSourceFileIds: [], sourceContext: null, sourceMedia: [] };
   const quickRefs = input.sourceRefs.filter(
     (sourceRef) => !sourceRef.sourceFile.materialRevisionId,
   );
+  const quickMedia = await resolveSourceMediaContext({
+    sourceFiles: quickRefs.map((sourceRef) => sourceRef.sourceFile),
+    sourceMediaLoader: input.sourceMediaLoader,
+  });
 
   return {
     sourceContext: buildSourceContextExcerpt([
-      ...materialContext,
+      materialEvidence.sourceContext,
       ...quickRefs.map((sourceRef) => sourceRef.sourceFile.extractedText),
     ]),
-    sourceMedia: await resolveSourceMediaContext({
-      sourceFiles: quickRefs.map((sourceRef) => sourceRef.sourceFile),
-      sourceMediaLoader: input.sourceMediaLoader,
-    }),
+    sourceMedia: [
+      ...materialEvidence.sourceMedia.map((media) => ({
+        sourceFileId: media.sourceFileId,
+        label: media.originalName,
+        mimeType: "application/pdf" as const,
+        bytes: media.bytes,
+      })),
+      ...quickMedia,
+    ],
   };
 }
 
@@ -2194,7 +2177,7 @@ function shouldAttachOriginalSourceMedia(sourceFile: SourceMediaContextSourceFil
 }
 
 function buildSourceMediaLoadFailureMessage(error: unknown) {
-  return `Uploaded source media could not be loaded: ${formatEnvError(error)}`;
+  return `Source evidence could not be loaded: ${formatEnvError(error)}`;
 }
 
 export async function activateSkillDraft(
@@ -2273,6 +2256,7 @@ export async function activateSkillDraft(
 
   const generationJobResult = await createOrClaimActivationGenerationJob({
     prisma,
+    generationJobId: input.generationJobId,
     userId: input.userId,
     skillId: skill.id,
     setup,
@@ -2303,13 +2287,14 @@ export async function activateSkillDraft(
   let sourceMedia: SourceMediaContext[];
 
   try {
-    const evidence = await resolveGroundedSkillSourceEvidence({
+    const sourceEvidence = await resolveGroundedSkillSourceEvidence({
       userId: input.userId,
       sourceRefs: skill.sourceRefs,
       sourceMediaLoader: input.sourceMediaLoader,
+      sourceEvidenceLoader: input.sourceEvidenceLoader,
     });
-    sourceContext = evidence.sourceContext;
-    sourceMedia = evidence.sourceMedia;
+    sourceContext = sourceEvidence.sourceContext;
+    sourceMedia = sourceEvidence.sourceMedia;
   } catch (error) {
     const message = buildSourceMediaLoadFailureMessage(error);
     await markGenerationJobFailed(prisma, generationJob.id, {
@@ -2338,11 +2323,11 @@ export async function activateSkillDraft(
         existingExerciseContext: null,
         requestedCount: REQUESTED_ACTIVATION_EXERCISES,
       }),
-      GENERATION_TIMEOUT_MS,
+      ACTIVATION_PROVIDER_CHAIN_TIMEOUT_MS,
       "generateChoiceExercises timed out",
     );
   } catch (error) {
-    const message = `Gemini exercise generation failed: ${formatEnvError(error)}`;
+    const message = `Exercise generation failed: ${formatEnvError(error)}`;
     await markGenerationJobFailed(prisma, generationJob.id, {
       message,
       acceptedCount: 0,
@@ -2390,11 +2375,11 @@ export async function activateSkillDraft(
         existingExerciseContext: null,
         candidates,
       }),
-      GENERATION_TIMEOUT_MS,
+      ACTIVATION_PROVIDER_CHAIN_TIMEOUT_MS,
       "verifyChoiceExercises timed out",
     );
   } catch (error) {
-    const message = `Gemini exercise verification failed: ${formatEnvError(error)}`;
+    const message = `Exercise verification failed: ${formatEnvError(error)}`;
     await markGenerationJobFailed(prisma, generationJob.id, {
       message,
       acceptedCount: 0,
@@ -2538,6 +2523,7 @@ async function synchronizeActivatedMaterialDraftBatches(input: {
     },
     data: {
       status: SkillDraftBatchItemStatus.ACTIVE,
+      generationClaimId: null,
       errorCode: null,
       errorMessage: null,
     },
@@ -2712,13 +2698,14 @@ export async function refillChoiceExercisesForSkill(
   let sourceMedia: SourceMediaContext[];
 
   try {
-    const evidence = await resolveGroundedSkillSourceEvidence({
+    const sourceEvidence = await resolveGroundedSkillSourceEvidence({
       userId: input.userId,
       sourceRefs: skill.sourceRefs,
       sourceMediaLoader: input.sourceMediaLoader,
+      sourceEvidenceLoader: input.sourceEvidenceLoader,
     });
-    sourceContext = evidence.sourceContext;
-    sourceMedia = evidence.sourceMedia;
+    sourceContext = sourceEvidence.sourceContext;
+    sourceMedia = sourceEvidence.sourceMedia;
   } catch (error) {
     const message = buildSourceMediaLoadFailureMessage(error);
     await markGenerationJobFailed(prisma, generationJob.id, {
@@ -3140,13 +3127,14 @@ export async function refillExactInputExercisesForSkill(
   let sourceMedia: SourceMediaContext[];
 
   try {
-    const evidence = await resolveGroundedSkillSourceEvidence({
+    const sourceEvidence = await resolveGroundedSkillSourceEvidence({
       userId: input.userId,
       sourceRefs: skill.sourceRefs,
       sourceMediaLoader: input.sourceMediaLoader,
+      sourceEvidenceLoader: input.sourceEvidenceLoader,
     });
-    sourceContext = evidence.sourceContext;
-    sourceMedia = evidence.sourceMedia;
+    sourceContext = sourceEvidence.sourceContext;
+    sourceMedia = sourceEvidence.sourceMedia;
   } catch (error) {
     const message = buildSourceMediaLoadFailureMessage(error);
     await markGenerationJobFailed(prisma, generationJob.id, {
@@ -3569,13 +3557,14 @@ export async function refillMathExercisesForSkill(
   let sourceMedia: SourceMediaContext[];
 
   try {
-    const evidence = await resolveGroundedSkillSourceEvidence({
+    const sourceEvidence = await resolveGroundedSkillSourceEvidence({
       userId: input.userId,
       sourceRefs: skill.sourceRefs,
       sourceMediaLoader: input.sourceMediaLoader,
+      sourceEvidenceLoader: input.sourceEvidenceLoader,
     });
-    sourceContext = evidence.sourceContext;
-    sourceMedia = evidence.sourceMedia;
+    sourceContext = sourceEvidence.sourceContext;
+    sourceMedia = sourceEvidence.sourceMedia;
   } catch (error) {
     const message = buildSourceMediaLoadFailureMessage(error);
     await markGenerationJobFailed(prisma, generationJob.id, {
@@ -4766,39 +4755,43 @@ export function createGeminiChoiceExerciseGenerator({
       primary: getGeminiRuntimeLogContext(gemini),
       primaryModel: gemini.model,
       runPrimary: async () =>
-        runLoggedGeminiOperation({
-          config: gemini,
-          operation: "choice exercise generation",
-          metadata: {
-            requestedCount: input.requestedCount,
-            promptChars: prompt.length,
-            schemaName: "choiceExerciseResponse",
-            media: buildSourceMediaLogMetadata(input.sourceMedia),
-          },
-          run: async (ai) => {
-            const response = await ai.models.generateContent({
-              model: gemini.model,
-              contents: buildGeminiContentsWithSourceMedia(prompt, input.sourceMedia),
-              config: {
-                responseMimeType: "application/json",
-                responseJsonSchema: buildGeminiResponseJsonSchema(input.requestedCount),
-                thinkingConfig: {
-                  thinkingBudget: 128,
+        withTimeout(
+          runLoggedGeminiOperation({
+            config: gemini,
+            operation: "choice exercise generation",
+            metadata: {
+              requestedCount: input.requestedCount,
+              promptChars: prompt.length,
+              schemaName: "choiceExerciseResponse",
+              media: buildSourceMediaLogMetadata(input.sourceMedia),
+            },
+            run: async (ai) => {
+              const response = await ai.models.generateContent({
+                model: gemini.model,
+                contents: buildGeminiContentsWithSourceMedia(prompt, input.sourceMedia),
+                config: {
+                  responseMimeType: "application/json",
+                  responseJsonSchema: buildGeminiResponseJsonSchema(input.requestedCount),
+                  thinkingConfig: {
+                    thinkingBudget: 128,
+                  },
                 },
-              },
-            });
-            const text = response.text;
+              });
+              const text = response.text;
 
-            if (!text) {
-              throw new Error("Gemini returned no text.");
-            }
+              if (!text) {
+                throw new Error("Gemini returned no text.");
+              }
 
-            return {
-              response,
-              value: JSON.parse(text) as unknown,
-            };
-          },
-        }),
+              return {
+                response,
+                value: JSON.parse(text) as unknown,
+              };
+            },
+          }),
+          GENERATION_TIMEOUT_MS,
+          "choice exercise generation timed out with Gemini",
+        ),
     });
   };
 }
@@ -4826,39 +4819,43 @@ function createGeminiChoiceExerciseVerifier({
       primary: getGeminiRuntimeLogContext(gemini),
       primaryModel: gemini.model,
       runPrimary: async () =>
-        runLoggedGeminiOperation({
-          config: gemini,
-          operation: "choice exercise verification",
-          metadata: {
-            candidateCount: input.candidates.length,
-            promptChars: prompt.length,
-            schemaName: "choiceExerciseVerification",
-            media: buildSourceMediaLogMetadata(input.sourceMedia),
-          },
-          run: async (ai) => {
-            const response = await ai.models.generateContent({
-              model: gemini.model,
-              contents: buildGeminiContentsWithSourceMedia(prompt, input.sourceMedia),
-              config: {
-                responseMimeType: "application/json",
-                responseJsonSchema: buildGeminiChoiceVerificationJsonSchema(input.candidates.length),
-                thinkingConfig: {
-                  thinkingBudget: 128,
+        withTimeout(
+          runLoggedGeminiOperation({
+            config: gemini,
+            operation: "choice exercise verification",
+            metadata: {
+              candidateCount: input.candidates.length,
+              promptChars: prompt.length,
+              schemaName: "choiceExerciseVerification",
+              media: buildSourceMediaLogMetadata(input.sourceMedia),
+            },
+            run: async (ai) => {
+              const response = await ai.models.generateContent({
+                model: gemini.model,
+                contents: buildGeminiContentsWithSourceMedia(prompt, input.sourceMedia),
+                config: {
+                  responseMimeType: "application/json",
+                  responseJsonSchema: buildGeminiChoiceVerificationJsonSchema(input.candidates.length),
+                  thinkingConfig: {
+                    thinkingBudget: 128,
+                  },
                 },
-              },
-            });
-            const text = response.text;
+              });
+              const text = response.text;
 
-            if (!text) {
-              throw new Error("Gemini returned no text.");
-            }
+              if (!text) {
+                throw new Error("Gemini returned no text.");
+              }
 
-            return {
-              response,
-              value: JSON.parse(text) as unknown,
-            };
-          },
-        }),
+              return {
+                response,
+                value: JSON.parse(text) as unknown,
+              };
+            },
+          }),
+          GENERATION_TIMEOUT_MS,
+          "choice exercise verification timed out with Gemini",
+        ),
     });
   };
 }
@@ -6263,12 +6260,14 @@ type ActivationGenerationJobClient = Pick<Prisma.TransactionClient, "generationJ
 
 async function createOrClaimActivationGenerationJob({
   prisma,
+  generationJobId,
   userId,
   skillId,
   setup,
   now,
 }: {
   prisma: ActivationGenerationJobClient;
+  generationJobId?: string;
   userId: string;
   skillId: string;
   setup: ActivationGenerationSetup;
@@ -6302,11 +6301,14 @@ async function createOrClaimActivationGenerationJob({
 
   const activeJob = await prisma.generationJob.findFirst({
     where: {
+      ...(generationJobId ? { id: generationJobId } : {}),
       userId,
       skillId,
       kind: GenerationJobKind.SKILL_ACTIVATION,
       status: {
-        in: ACTIVE_GENERATION_JOB_STATUSES,
+        in: generationJobId
+          ? [...ACTIVE_GENERATION_JOB_STATUSES, GenerationJobStatus.FAILED]
+          : ACTIVE_GENERATION_JOB_STATUSES,
       },
     },
     orderBy: {
@@ -6337,7 +6339,9 @@ async function createOrClaimActivationGenerationJob({
         kind: GenerationJobKind.SKILL_ACTIVATION,
         updatedAt: activeJob.updatedAt,
         status: {
-          in: ACTIVE_GENERATION_JOB_STATUSES,
+          in: generationJobId
+            ? [...ACTIVE_GENERATION_JOB_STATUSES, GenerationJobStatus.FAILED]
+            : ACTIVE_GENERATION_JOB_STATUSES,
         },
       },
       data,
@@ -6351,6 +6355,14 @@ async function createOrClaimActivationGenerationJob({
         },
       };
     }
+  }
+
+  if (generationJobId) {
+    return {
+      status: "not-ready",
+      message: "The reserved activation job is no longer available.",
+      generationJobId,
+    };
   }
 
   try {

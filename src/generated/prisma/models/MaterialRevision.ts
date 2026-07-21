@@ -51,6 +51,7 @@ export type MaterialRevisionMinAggregateOutputType = {
   byteSize: number | null
   pageCount: number | null
   fetchedPageCount: number | null
+  summary: string | null
   storageBucket: string | null
   storageKey: string | null
   errorCode: string | null
@@ -71,6 +72,7 @@ export type MaterialRevisionMaxAggregateOutputType = {
   byteSize: number | null
   pageCount: number | null
   fetchedPageCount: number | null
+  summary: string | null
   storageBucket: string | null
   storageKey: string | null
   errorCode: string | null
@@ -91,6 +93,7 @@ export type MaterialRevisionCountAggregateOutputType = {
   byteSize: number
   pageCount: number
   fetchedPageCount: number
+  summary: number
   storageBucket: number
   storageKey: number
   processingMetadata: number
@@ -128,6 +131,7 @@ export type MaterialRevisionMinAggregateInputType = {
   byteSize?: true
   pageCount?: true
   fetchedPageCount?: true
+  summary?: true
   storageBucket?: true
   storageKey?: true
   errorCode?: true
@@ -148,6 +152,7 @@ export type MaterialRevisionMaxAggregateInputType = {
   byteSize?: true
   pageCount?: true
   fetchedPageCount?: true
+  summary?: true
   storageBucket?: true
   storageKey?: true
   errorCode?: true
@@ -168,6 +173,7 @@ export type MaterialRevisionCountAggregateInputType = {
   byteSize?: true
   pageCount?: true
   fetchedPageCount?: true
+  summary?: true
   storageBucket?: true
   storageKey?: true
   processingMetadata?: true
@@ -276,6 +282,7 @@ export type MaterialRevisionGroupByOutputType = {
   byteSize: number | null
   pageCount: number | null
   fetchedPageCount: number | null
+  summary: string | null
   storageBucket: string | null
   storageKey: string | null
   processingMetadata: runtime.JsonValue | null
@@ -320,6 +327,7 @@ export type MaterialRevisionWhereInput = {
   byteSize?: Prisma.IntNullableFilter<"MaterialRevision"> | number | null
   pageCount?: Prisma.IntNullableFilter<"MaterialRevision"> | number | null
   fetchedPageCount?: Prisma.IntNullableFilter<"MaterialRevision"> | number | null
+  summary?: Prisma.StringNullableFilter<"MaterialRevision"> | string | null
   storageBucket?: Prisma.StringNullableFilter<"MaterialRevision"> | string | null
   storageKey?: Prisma.StringNullableFilter<"MaterialRevision"> | string | null
   processingMetadata?: Prisma.JsonNullableFilter<"MaterialRevision">
@@ -349,6 +357,7 @@ export type MaterialRevisionOrderByWithRelationInput = {
   byteSize?: Prisma.SortOrderInput | Prisma.SortOrder
   pageCount?: Prisma.SortOrderInput | Prisma.SortOrder
   fetchedPageCount?: Prisma.SortOrderInput | Prisma.SortOrder
+  summary?: Prisma.SortOrderInput | Prisma.SortOrder
   storageBucket?: Prisma.SortOrderInput | Prisma.SortOrder
   storageKey?: Prisma.SortOrderInput | Prisma.SortOrder
   processingMetadata?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -383,6 +392,7 @@ export type MaterialRevisionWhereUniqueInput = Prisma.AtLeast<{
   byteSize?: Prisma.IntNullableFilter<"MaterialRevision"> | number | null
   pageCount?: Prisma.IntNullableFilter<"MaterialRevision"> | number | null
   fetchedPageCount?: Prisma.IntNullableFilter<"MaterialRevision"> | number | null
+  summary?: Prisma.StringNullableFilter<"MaterialRevision"> | string | null
   storageBucket?: Prisma.StringNullableFilter<"MaterialRevision"> | string | null
   storageKey?: Prisma.StringNullableFilter<"MaterialRevision"> | string | null
   processingMetadata?: Prisma.JsonNullableFilter<"MaterialRevision">
@@ -412,6 +422,7 @@ export type MaterialRevisionOrderByWithAggregationInput = {
   byteSize?: Prisma.SortOrderInput | Prisma.SortOrder
   pageCount?: Prisma.SortOrderInput | Prisma.SortOrder
   fetchedPageCount?: Prisma.SortOrderInput | Prisma.SortOrder
+  summary?: Prisma.SortOrderInput | Prisma.SortOrder
   storageBucket?: Prisma.SortOrderInput | Prisma.SortOrder
   storageKey?: Prisma.SortOrderInput | Prisma.SortOrder
   processingMetadata?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -441,6 +452,7 @@ export type MaterialRevisionScalarWhereWithAggregatesInput = {
   byteSize?: Prisma.IntNullableWithAggregatesFilter<"MaterialRevision"> | number | null
   pageCount?: Prisma.IntNullableWithAggregatesFilter<"MaterialRevision"> | number | null
   fetchedPageCount?: Prisma.IntNullableWithAggregatesFilter<"MaterialRevision"> | number | null
+  summary?: Prisma.StringNullableWithAggregatesFilter<"MaterialRevision"> | string | null
   storageBucket?: Prisma.StringNullableWithAggregatesFilter<"MaterialRevision"> | string | null
   storageKey?: Prisma.StringNullableWithAggregatesFilter<"MaterialRevision"> | string | null
   processingMetadata?: Prisma.JsonNullableWithAggregatesFilter<"MaterialRevision">
@@ -460,6 +472,7 @@ export type MaterialRevisionCreateInput = {
   byteSize?: number | null
   pageCount?: number | null
   fetchedPageCount?: number | null
+  summary?: string | null
   storageBucket?: string | null
   storageKey?: string | null
   processingMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -489,6 +502,7 @@ export type MaterialRevisionUncheckedCreateInput = {
   byteSize?: number | null
   pageCount?: number | null
   fetchedPageCount?: number | null
+  summary?: string | null
   storageBucket?: string | null
   storageKey?: string | null
   processingMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -514,6 +528,7 @@ export type MaterialRevisionUpdateInput = {
   byteSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   pageCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   fetchedPageCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageBucket?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   processingMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -543,6 +558,7 @@ export type MaterialRevisionUncheckedUpdateInput = {
   byteSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   pageCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   fetchedPageCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageBucket?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   processingMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -570,6 +586,7 @@ export type MaterialRevisionCreateManyInput = {
   byteSize?: number | null
   pageCount?: number | null
   fetchedPageCount?: number | null
+  summary?: string | null
   storageBucket?: string | null
   storageKey?: string | null
   processingMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -589,6 +606,7 @@ export type MaterialRevisionUpdateManyMutationInput = {
   byteSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   pageCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   fetchedPageCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageBucket?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   processingMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -610,6 +628,7 @@ export type MaterialRevisionUncheckedUpdateManyInput = {
   byteSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   pageCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   fetchedPageCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageBucket?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   processingMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -656,6 +675,7 @@ export type MaterialRevisionCountOrderByAggregateInput = {
   byteSize?: Prisma.SortOrder
   pageCount?: Prisma.SortOrder
   fetchedPageCount?: Prisma.SortOrder
+  summary?: Prisma.SortOrder
   storageBucket?: Prisma.SortOrder
   storageKey?: Prisma.SortOrder
   processingMetadata?: Prisma.SortOrder
@@ -684,6 +704,7 @@ export type MaterialRevisionMaxOrderByAggregateInput = {
   byteSize?: Prisma.SortOrder
   pageCount?: Prisma.SortOrder
   fetchedPageCount?: Prisma.SortOrder
+  summary?: Prisma.SortOrder
   storageBucket?: Prisma.SortOrder
   storageKey?: Prisma.SortOrder
   errorCode?: Prisma.SortOrder
@@ -704,6 +725,7 @@ export type MaterialRevisionMinOrderByAggregateInput = {
   byteSize?: Prisma.SortOrder
   pageCount?: Prisma.SortOrder
   fetchedPageCount?: Prisma.SortOrder
+  summary?: Prisma.SortOrder
   storageBucket?: Prisma.SortOrder
   storageKey?: Prisma.SortOrder
   errorCode?: Prisma.SortOrder
@@ -918,6 +940,7 @@ export type MaterialRevisionCreateWithoutUserInput = {
   byteSize?: number | null
   pageCount?: number | null
   fetchedPageCount?: number | null
+  summary?: string | null
   storageBucket?: string | null
   storageKey?: string | null
   processingMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -945,6 +968,7 @@ export type MaterialRevisionUncheckedCreateWithoutUserInput = {
   byteSize?: number | null
   pageCount?: number | null
   fetchedPageCount?: number | null
+  summary?: string | null
   storageBucket?: string | null
   storageKey?: string | null
   processingMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1001,6 +1025,7 @@ export type MaterialRevisionScalarWhereInput = {
   byteSize?: Prisma.IntNullableFilter<"MaterialRevision"> | number | null
   pageCount?: Prisma.IntNullableFilter<"MaterialRevision"> | number | null
   fetchedPageCount?: Prisma.IntNullableFilter<"MaterialRevision"> | number | null
+  summary?: Prisma.StringNullableFilter<"MaterialRevision"> | string | null
   storageBucket?: Prisma.StringNullableFilter<"MaterialRevision"> | string | null
   storageKey?: Prisma.StringNullableFilter<"MaterialRevision"> | string | null
   processingMetadata?: Prisma.JsonNullableFilter<"MaterialRevision">
@@ -1020,6 +1045,7 @@ export type MaterialRevisionCreateWithoutSourceFilesInput = {
   byteSize?: number | null
   pageCount?: number | null
   fetchedPageCount?: number | null
+  summary?: string | null
   storageBucket?: string | null
   storageKey?: string | null
   processingMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1048,6 +1074,7 @@ export type MaterialRevisionUncheckedCreateWithoutSourceFilesInput = {
   byteSize?: number | null
   pageCount?: number | null
   fetchedPageCount?: number | null
+  summary?: string | null
   storageBucket?: string | null
   storageKey?: string | null
   processingMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1088,6 +1115,7 @@ export type MaterialRevisionUpdateWithoutSourceFilesInput = {
   byteSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   pageCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   fetchedPageCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageBucket?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   processingMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1116,6 +1144,7 @@ export type MaterialRevisionUncheckedUpdateWithoutSourceFilesInput = {
   byteSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   pageCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   fetchedPageCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageBucket?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   processingMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1140,6 +1169,7 @@ export type MaterialRevisionCreateWithoutActiveForMaterialInput = {
   byteSize?: number | null
   pageCount?: number | null
   fetchedPageCount?: number | null
+  summary?: string | null
   storageBucket?: string | null
   storageKey?: string | null
   processingMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1168,6 +1198,7 @@ export type MaterialRevisionUncheckedCreateWithoutActiveForMaterialInput = {
   byteSize?: number | null
   pageCount?: number | null
   fetchedPageCount?: number | null
+  summary?: string | null
   storageBucket?: string | null
   storageKey?: string | null
   processingMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1197,6 +1228,7 @@ export type MaterialRevisionCreateWithoutMaterialInput = {
   byteSize?: number | null
   pageCount?: number | null
   fetchedPageCount?: number | null
+  summary?: string | null
   storageBucket?: string | null
   storageKey?: string | null
   processingMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1223,6 +1255,7 @@ export type MaterialRevisionUncheckedCreateWithoutMaterialInput = {
   byteSize?: number | null
   pageCount?: number | null
   fetchedPageCount?: number | null
+  summary?: string | null
   storageBucket?: string | null
   storageKey?: string | null
   processingMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1269,6 +1302,7 @@ export type MaterialRevisionUpdateWithoutActiveForMaterialInput = {
   byteSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   pageCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   fetchedPageCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageBucket?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   processingMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1297,6 +1331,7 @@ export type MaterialRevisionUncheckedUpdateWithoutActiveForMaterialInput = {
   byteSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   pageCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   fetchedPageCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageBucket?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   processingMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1337,6 +1372,7 @@ export type MaterialRevisionCreateWithoutSectionsInput = {
   byteSize?: number | null
   pageCount?: number | null
   fetchedPageCount?: number | null
+  summary?: string | null
   storageBucket?: string | null
   storageKey?: string | null
   processingMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1365,6 +1401,7 @@ export type MaterialRevisionUncheckedCreateWithoutSectionsInput = {
   byteSize?: number | null
   pageCount?: number | null
   fetchedPageCount?: number | null
+  summary?: string | null
   storageBucket?: string | null
   storageKey?: string | null
   processingMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1405,6 +1442,7 @@ export type MaterialRevisionUpdateWithoutSectionsInput = {
   byteSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   pageCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   fetchedPageCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageBucket?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   processingMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1433,6 +1471,7 @@ export type MaterialRevisionUncheckedUpdateWithoutSectionsInput = {
   byteSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   pageCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   fetchedPageCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageBucket?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   processingMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1457,6 +1496,7 @@ export type MaterialRevisionCreateWithoutChunksInput = {
   byteSize?: number | null
   pageCount?: number | null
   fetchedPageCount?: number | null
+  summary?: string | null
   storageBucket?: string | null
   storageKey?: string | null
   processingMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1485,6 +1525,7 @@ export type MaterialRevisionUncheckedCreateWithoutChunksInput = {
   byteSize?: number | null
   pageCount?: number | null
   fetchedPageCount?: number | null
+  summary?: string | null
   storageBucket?: string | null
   storageKey?: string | null
   processingMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1525,6 +1566,7 @@ export type MaterialRevisionUpdateWithoutChunksInput = {
   byteSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   pageCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   fetchedPageCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageBucket?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   processingMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1553,6 +1595,7 @@ export type MaterialRevisionUncheckedUpdateWithoutChunksInput = {
   byteSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   pageCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   fetchedPageCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageBucket?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   processingMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1577,6 +1620,7 @@ export type MaterialRevisionCreateWithoutPagesInput = {
   byteSize?: number | null
   pageCount?: number | null
   fetchedPageCount?: number | null
+  summary?: string | null
   storageBucket?: string | null
   storageKey?: string | null
   processingMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1605,6 +1649,7 @@ export type MaterialRevisionUncheckedCreateWithoutPagesInput = {
   byteSize?: number | null
   pageCount?: number | null
   fetchedPageCount?: number | null
+  summary?: string | null
   storageBucket?: string | null
   storageKey?: string | null
   processingMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1645,6 +1690,7 @@ export type MaterialRevisionUpdateWithoutPagesInput = {
   byteSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   pageCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   fetchedPageCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageBucket?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   processingMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1673,6 +1719,7 @@ export type MaterialRevisionUncheckedUpdateWithoutPagesInput = {
   byteSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   pageCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   fetchedPageCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageBucket?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   processingMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1697,6 +1744,7 @@ export type MaterialRevisionCreateWithoutDraftBatchesInput = {
   byteSize?: number | null
   pageCount?: number | null
   fetchedPageCount?: number | null
+  summary?: string | null
   storageBucket?: string | null
   storageKey?: string | null
   processingMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1725,6 +1773,7 @@ export type MaterialRevisionUncheckedCreateWithoutDraftBatchesInput = {
   byteSize?: number | null
   pageCount?: number | null
   fetchedPageCount?: number | null
+  summary?: string | null
   storageBucket?: string | null
   storageKey?: string | null
   processingMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1765,6 +1814,7 @@ export type MaterialRevisionUpdateWithoutDraftBatchesInput = {
   byteSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   pageCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   fetchedPageCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageBucket?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   processingMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1793,6 +1843,7 @@ export type MaterialRevisionUncheckedUpdateWithoutDraftBatchesInput = {
   byteSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   pageCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   fetchedPageCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageBucket?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   processingMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1818,6 +1869,7 @@ export type MaterialRevisionCreateManyUserInput = {
   byteSize?: number | null
   pageCount?: number | null
   fetchedPageCount?: number | null
+  summary?: string | null
   storageBucket?: string | null
   storageKey?: string | null
   processingMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1837,6 +1889,7 @@ export type MaterialRevisionUpdateWithoutUserInput = {
   byteSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   pageCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   fetchedPageCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageBucket?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   processingMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1864,6 +1917,7 @@ export type MaterialRevisionUncheckedUpdateWithoutUserInput = {
   byteSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   pageCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   fetchedPageCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageBucket?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   processingMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1890,6 +1944,7 @@ export type MaterialRevisionUncheckedUpdateManyWithoutUserInput = {
   byteSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   pageCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   fetchedPageCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageBucket?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   processingMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1909,6 +1964,7 @@ export type MaterialRevisionCreateManyMaterialInput = {
   byteSize?: number | null
   pageCount?: number | null
   fetchedPageCount?: number | null
+  summary?: string | null
   storageBucket?: string | null
   storageKey?: string | null
   processingMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1928,6 +1984,7 @@ export type MaterialRevisionUpdateWithoutMaterialInput = {
   byteSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   pageCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   fetchedPageCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageBucket?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   processingMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1954,6 +2011,7 @@ export type MaterialRevisionUncheckedUpdateWithoutMaterialInput = {
   byteSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   pageCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   fetchedPageCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageBucket?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   processingMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1979,6 +2037,7 @@ export type MaterialRevisionUncheckedUpdateManyWithoutMaterialInput = {
   byteSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   pageCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   fetchedPageCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageBucket?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   processingMetadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -2067,6 +2126,7 @@ export type MaterialRevisionSelect<ExtArgs extends runtime.Types.Extensions.Inte
   byteSize?: boolean
   pageCount?: boolean
   fetchedPageCount?: boolean
+  summary?: boolean
   storageBucket?: boolean
   storageKey?: boolean
   processingMetadata?: boolean
@@ -2097,6 +2157,7 @@ export type MaterialRevisionSelectCreateManyAndReturn<ExtArgs extends runtime.Ty
   byteSize?: boolean
   pageCount?: boolean
   fetchedPageCount?: boolean
+  summary?: boolean
   storageBucket?: boolean
   storageKey?: boolean
   processingMetadata?: boolean
@@ -2120,6 +2181,7 @@ export type MaterialRevisionSelectUpdateManyAndReturn<ExtArgs extends runtime.Ty
   byteSize?: boolean
   pageCount?: boolean
   fetchedPageCount?: boolean
+  summary?: boolean
   storageBucket?: boolean
   storageKey?: boolean
   processingMetadata?: boolean
@@ -2143,6 +2205,7 @@ export type MaterialRevisionSelectScalar = {
   byteSize?: boolean
   pageCount?: boolean
   fetchedPageCount?: boolean
+  summary?: boolean
   storageBucket?: boolean
   storageKey?: boolean
   processingMetadata?: boolean
@@ -2153,7 +2216,7 @@ export type MaterialRevisionSelectScalar = {
   updatedAt?: boolean
 }
 
-export type MaterialRevisionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "materialId" | "revisionNumber" | "status" | "sourceUrl" | "contentHash" | "byteSize" | "pageCount" | "fetchedPageCount" | "storageBucket" | "storageKey" | "processingMetadata" | "errorCode" | "errorMessage" | "finalizedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["materialRevision"]>
+export type MaterialRevisionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "materialId" | "revisionNumber" | "status" | "sourceUrl" | "contentHash" | "byteSize" | "pageCount" | "fetchedPageCount" | "summary" | "storageBucket" | "storageKey" | "processingMetadata" | "errorCode" | "errorMessage" | "finalizedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["materialRevision"]>
 export type MaterialRevisionInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   material?: boolean | Prisma.StudyMaterialDefaultArgs<ExtArgs>
@@ -2197,6 +2260,7 @@ export type $MaterialRevisionPayload<ExtArgs extends runtime.Types.Extensions.In
     byteSize: number | null
     pageCount: number | null
     fetchedPageCount: number | null
+    summary: string | null
     storageBucket: string | null
     storageKey: string | null
     processingMetadata: runtime.JsonValue | null
@@ -2646,6 +2710,7 @@ export interface MaterialRevisionFieldRefs {
   readonly byteSize: Prisma.FieldRef<"MaterialRevision", 'Int'>
   readonly pageCount: Prisma.FieldRef<"MaterialRevision", 'Int'>
   readonly fetchedPageCount: Prisma.FieldRef<"MaterialRevision", 'Int'>
+  readonly summary: Prisma.FieldRef<"MaterialRevision", 'String'>
   readonly storageBucket: Prisma.FieldRef<"MaterialRevision", 'String'>
   readonly storageKey: Prisma.FieldRef<"MaterialRevision", 'String'>
   readonly processingMetadata: Prisma.FieldRef<"MaterialRevision", 'Json'>

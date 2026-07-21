@@ -100,6 +100,12 @@ const geminiEnvBaseSchema = z.object({
 
     return value;
   }, z.string().trim().min(1).default(DEFAULT_GEMINI_EMBEDDING_MODEL)),
+  GEMINI_EMBEDDING_API_MODE: z.preprocess(
+    (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+    z
+      .enum(["auto", "developer-api", "enterprise-agent-platform"])
+      .default("auto"),
+  ),
   GEMINI_FALLBACK_MODELS: z.preprocess(
     parseGeminiFallbackModels,
     z.array(z.string().trim().min(1)).default([...DEFAULT_GEMINI_FALLBACK_MODELS]),

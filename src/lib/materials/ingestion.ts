@@ -3,6 +3,7 @@ import "server-only";
 import { createHash, randomUUID } from "node:crypto";
 
 import {
+  MaterialPageTextStatus,
   MaterialRevisionStatus,
   Prisma,
   SourceFileKind,
@@ -22,6 +23,7 @@ import {
   confirmWebsiteImportInputSchema,
   prepareMaterialPdfInputSchema,
 } from "@/lib/materials/contracts";
+import { MATERIAL_QUEUE_STALE_AFTER_MS } from "@/lib/materials/ingestion-status";
 import {
   createGeminiMaterialEmbeddingGenerator,
   type MaterialEmbeddingGenerator,
@@ -37,7 +39,14 @@ import {
   extractPdfPages,
   type ExtractedPdfPage,
 } from "@/lib/materials/pdf";
+import { materialPdfErrorMessage } from "@/lib/materials/pdf-upload";
 import { storeMaterialChunkEmbedding } from "@/lib/materials/retrieval";
+import { createGeminiMaterialSummaryGenerator } from "@/lib/materials/summary-ai";
+import {
+  buildStoredMaterialSummary,
+  materialSummaryResponseSchema,
+  type MaterialSummaryGenerator,
+} from "@/lib/materials/summary";
 import {
   extractReadableWebPage,
   fetchPublicWebResource,
@@ -54,7 +63,7 @@ import {
   checkSourceStorageUsageLimit,
 } from "@/lib/usage-limits";
 
-const MATERIAL_STORAGE_PREFIX = "materials";
+const MATERIAL_STORAGE_PREFIX = "source-uploads/materials";
 const MATERIAL_EMBEDDING_BATCH_SIZE = 32;
 const MATERIAL_SOURCE_EXCERPT_LIMIT = 4_000;
 const MATERIAL_WEBSITE_FETCH_CONCURRENCY = 16;
@@ -106,10 +115,14 @@ export async function prepareMaterialPdf(input: {
 }): Promise<PrepareMaterialPdfResult> {
   const parsed = prepareMaterialPdfInputSchema.safeParse(input.input);
   if (!parsed.success) {
+    const fieldErrors = parsed.error.flatten().fieldErrors;
     return {
       status: "invalid",
-      message: "PDF details need a little attention.",
-      fieldErrors: parsed.error.flatten().fieldErrors,
+      message: materialPdfErrorMessage(
+        fieldErrors,
+        "Check the PDF details shown below and try again.",
+      ),
+      fieldErrors,
     };
   }
 
@@ -207,7 +220,6 @@ export async function prepareMaterialPdf(input: {
       uploadUrl,
       headers: {
         "Content-Type": parsed.data.mimeType,
-        "Content-Length": String(parsed.data.byteSize),
       },
       expiresInSeconds,
     };
@@ -582,22 +594,50 @@ export async function retryMaterialIngestion(input: {
   eventSender?: MaterialIngestionEventSender;
 }): Promise<QueueMaterialIngestionResult> {
   const prisma = getPrisma();
+  const staleBefore = new Date(input.now.getTime() - MATERIAL_QUEUE_STALE_AFTER_MS);
+  const retryableStatus = {
+    OR: [
+      { status: MaterialRevisionStatus.FAILED },
+      {
+        status: MaterialRevisionStatus.QUEUED,
+        updatedAt: { lte: staleBefore },
+      },
+    ],
+  };
   const revision = await prisma.materialRevision.findFirst({
     where: {
       id: input.materialRevisionId,
       userId: input.userId,
-      status: MaterialRevisionStatus.FAILED,
+      ...retryableStatus,
     },
     select: { id: true, materialId: true },
   });
   if (!revision) {
-    return { status: "not-found", message: "Failed material revision was not found." };
+    return {
+      status: "not-found",
+      message: "Material processing is already running or is not ready to retry.",
+    };
   }
 
-  await prisma.materialRevision.update({
-    where: { id: revision.id },
-    data: { status: MaterialRevisionStatus.QUEUED, errorCode: null, errorMessage: null },
+  const claimed = await prisma.materialRevision.updateMany({
+    where: {
+      id: revision.id,
+      userId: input.userId,
+      ...retryableStatus,
+    },
+    data: {
+      status: MaterialRevisionStatus.QUEUED,
+      errorCode: null,
+      errorMessage: null,
+      updatedAt: input.now,
+    },
   });
+  if (claimed.count !== 1) {
+    return {
+      status: "not-found",
+      message: "Material processing already resumed before this retry.",
+    };
+  }
   try {
     await (input.eventSender ?? inngestMaterialIngestionEventSender).sendMaterialIngestionRequested({
       userId: input.userId,
@@ -605,9 +645,18 @@ export async function retryMaterialIngestion(input: {
       requestedAt: input.now.toISOString(),
     });
   } catch {
-    await prisma.materialRevision.update({
-      where: { id: revision.id },
-      data: { status: MaterialRevisionStatus.FAILED, errorCode: "EVENT_SEND_FAILED" },
+    await prisma.materialRevision.updateMany({
+      where: {
+        id: revision.id,
+        userId: input.userId,
+        status: MaterialRevisionStatus.QUEUED,
+        updatedAt: input.now,
+      },
+      data: {
+        status: MaterialRevisionStatus.FAILED,
+        errorCode: "EVENT_SEND_FAILED",
+        errorMessage: "Background processing could not be queued.",
+      },
     });
     return { status: "not-queued", message: "Background processing could not be queued. Try again." };
   }
@@ -725,6 +774,7 @@ export async function runMaterialIngestionJob(input: {
   materialRevisionId: string;
   storage?: SourceObjectStorage;
   embeddingGenerator?: MaterialEmbeddingGenerator | null;
+  summaryGenerator?: MaterialSummaryGenerator | null;
   fetchResource?: FetchWebResource;
   resolveHostname?: ResolveHostname;
 }) {
@@ -771,7 +821,7 @@ export async function runMaterialIngestionJob(input: {
         sourceUrl: true,
         storageBucket: true,
         storageKey: true,
-        material: { select: { kind: true } },
+        material: { select: { kind: true, title: true } },
         sourceFiles: {
           orderBy: { createdAt: "asc" },
           take: 1,
@@ -798,6 +848,10 @@ export async function runMaterialIngestionJob(input: {
       input.embeddingGenerator === undefined
         ? safelyResolveEmbeddingGenerator()
         : input.embeddingGenerator;
+    const summaryGenerator =
+      input.summaryGenerator === undefined
+        ? safelyResolveSummaryGenerator()
+        : input.summaryGenerator;
 
     const result = revision.material.kind === StudyMaterialKind.PDF
       ? await ingestPdfRevision({
@@ -807,6 +861,8 @@ export async function runMaterialIngestionJob(input: {
           sourceFile,
           storage: storageSetup.storage,
           embeddingGenerator,
+          summaryGenerator,
+          materialTitle: revision.material.title,
         })
       : await ingestWebsiteRevision({
           userId: input.userId,
@@ -816,6 +872,8 @@ export async function runMaterialIngestionJob(input: {
           sourceFile,
           storage: storageSetup.storage,
           embeddingGenerator,
+          summaryGenerator,
+          materialTitle: revision.material.title,
           fetchResource: input.fetchResource,
           resolveHostname: input.resolveHostname,
         });
@@ -848,6 +906,8 @@ async function ingestPdfRevision(input: {
   sourceFile: MaterialSourceFile;
   storage: SourceObjectStorage;
   embeddingGenerator: MaterialEmbeddingGenerator | null;
+  summaryGenerator: MaterialSummaryGenerator | null;
+  materialTitle: string;
 }) {
   if (!input.sourceFile.storageKey || !input.sourceFile.storageBucket) {
     throw new MaterialIngestionError("Material PDF storage location is missing.", { retryable: false });
@@ -894,6 +954,13 @@ async function ingestPdfRevision(input: {
     .map((page) => page.text)
     .join("\n\n")
     .slice(0, MATERIAL_SOURCE_EXCERPT_LIMIT);
+  const summary = await generateStoredMaterialSummary({
+    generator: input.summaryGenerator,
+    materialTitle: input.materialTitle,
+    materialKind: "PDF",
+    outlineTitles: index.sections.map((section) => section.title),
+    excerpt,
+  });
   const prisma = getPrisma();
   await prisma.sourceFile.update({
     where: { id: input.sourceFile.id },
@@ -906,6 +973,7 @@ async function ingestPdfRevision(input: {
     contentHash: sha256(bytes),
     byteSize: bytes.byteLength,
     pageCount: extracted.pageCount,
+    summary,
     storageBucket: input.sourceFile.storageBucket,
     storageKey: input.sourceFile.storageKey,
     processingMetadata: {
@@ -928,6 +996,8 @@ async function ingestWebsiteRevision(input: {
   sourceFile: MaterialSourceFile;
   storage: SourceObjectStorage;
   embeddingGenerator: MaterialEmbeddingGenerator | null;
+  summaryGenerator: MaterialSummaryGenerator | null;
+  materialTitle: string;
   fetchResource?: FetchWebResource;
   resolveHostname?: ResolveHostname;
 }) {
@@ -1053,13 +1123,24 @@ async function ingestWebsiteRevision(input: {
     chunks: persisted.chunks,
     embeddingGenerator: input.embeddingGenerator,
   });
+  const excerpt = persisted.chunks
+    .map((chunk) => chunk.text)
+    .join("\n\n")
+    .slice(0, MATERIAL_SOURCE_EXCERPT_LIMIT);
+  const summary = await generateStoredMaterialSummary({
+    generator: input.summaryGenerator,
+    materialTitle: input.materialTitle,
+    materialKind: "WEB",
+    outlineTitles: persisted.sections.map((section) => section.title),
+    excerpt,
+  });
   const prisma = getPrisma();
   await prisma.sourceFile.update({
     where: { id: input.sourceFile.id },
     data: {
       status: SourceFileStatus.READY,
       byteSize: snapshotBytes.byteLength,
-      extractedText: persisted.chunks.map((chunk) => chunk.text).join("\n\n").slice(0, MATERIAL_SOURCE_EXCERPT_LIMIT),
+      extractedText: excerpt,
     },
   });
   await finalizeMaterialRevision({
@@ -1069,6 +1150,7 @@ async function ingestWebsiteRevision(input: {
     contentHash: sha256(snapshotBytes),
     byteSize: snapshotBytes.byteLength,
     fetchedPageCount: snapshots.length,
+    summary,
     storageBucket: input.sourceFile.storageBucket,
     storageKey: input.sourceFile.storageKey,
     processingMetadata: {
@@ -1159,17 +1241,22 @@ async function persistPdfIndex(input: {
         headingPath: section.headingPath,
       })),
     });
-    const ocrPages = input.pages.filter((page) => page.needsOcr);
-    if (ocrPages.length > 0) {
+    const visualPages = input.pages.filter((page) => page.needsOcr || page.hasVisualContent);
+    if (visualPages.length > 0) {
       await tx.materialPage.createMany({
-        data: ocrPages.map((page) => ({
+        data: visualPages.map((page) => ({
           userId: input.userId,
           materialRevisionId: input.materialRevisionId,
           pageNumber: page.pageNumber,
           embeddedText: page.text || null,
+          textStatus: page.needsOcr
+            ? MaterialPageTextStatus.NEEDS_OCR
+            : MaterialPageTextStatus.OCR_READY,
           contentHash: sha256(Buffer.from(page.text || `visual-page-${page.pageNumber}`)),
           tokenEstimate: page.text ? estimateTokens(page.text) : 0,
-          metadata: { reason: "insufficient-embedded-text" },
+          metadata: {
+            reason: page.needsOcr ? "insufficient-embedded-text" : "visual-content",
+          },
         })),
       });
     }
@@ -1340,6 +1427,43 @@ function safelyResolveEmbeddingGenerator() {
   try {
     return createGeminiMaterialEmbeddingGenerator();
   } catch {
+    return null;
+  }
+}
+
+function safelyResolveSummaryGenerator() {
+  try {
+    return createGeminiMaterialSummaryGenerator();
+  } catch {
+    return null;
+  }
+}
+
+async function generateStoredMaterialSummary(input: {
+  generator: MaterialSummaryGenerator | null;
+  materialTitle: string;
+  materialKind: "PDF" | "WEB";
+  outlineTitles: string[];
+  excerpt: string;
+}) {
+  if (!input.generator) {
+    return null;
+  }
+
+  try {
+    const response = materialSummaryResponseSchema.parse(await input.generator({
+      materialTitle: input.materialTitle,
+      materialKind: input.materialKind,
+      outlineTitles: input.outlineTitles,
+      excerpt: input.excerpt,
+    }));
+    return buildStoredMaterialSummary(response);
+  } catch (error) {
+    console.warn("[ai] material summary unavailable", {
+      materialKind: input.materialKind,
+      outlineCount: input.outlineTitles.length,
+      error: error instanceof Error ? error.message : "Unknown summary error",
+    });
     return null;
   }
 }

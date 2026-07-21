@@ -6,16 +6,21 @@ import type { CSSProperties } from "react";
 
 import { UserStatusPanel } from "@/components/app/user-status-panel";
 import { formatDisplayLabel } from "@/lib/formatters";
-import { getMaterialDetail, isMaterialProcessing } from "@/lib/materials/library";
+import { getMaterialIngestionDisplayState } from "@/lib/materials/ingestion-status";
+import { getMaterialDetail } from "@/lib/materials/library";
+import { truncateMaterialTitle } from "@/lib/materials/pdf-upload";
+import { getMaterialAvailabilityMessage } from "@/lib/materials/presentation";
+import { buildMaterialSummaryFallback } from "@/lib/materials/summary";
 import { ensureDatabaseUser } from "@/lib/users";
 
 import { SkillsTopbar } from "../../skills-topbar";
 import {
-  deleteMaterialAction,
   refreshWebsiteMaterialAction,
   retryMaterialIngestionAction,
 } from "../actions";
+import { MaterialDeleteControl } from "../material-delete-control";
 import { MaterialStatusPoller } from "../material-status-poller";
+import { MaterialRetryButton } from "../material-retry-button";
 
 export const dynamic = "force-dynamic";
 
@@ -41,7 +46,30 @@ export default async function MaterialDetailPage({ params }: { params: Promise<{
   }
   const revision = material.currentRevision;
   const contentRevision = revision?.status === "READY" ? revision : material.activeRevision;
-  const processing = isMaterialProcessing(revision?.status ?? null);
+  const now = new Date();
+  const ingestionState = getMaterialIngestionDisplayState({
+    status: revision?.status ?? null,
+    updatedAt: revision?.updatedAt ?? null,
+    now,
+  });
+  const processing = ingestionState === "processing";
+  const stalled = ingestionState === "stalled";
+  const displayTitle = truncateMaterialTitle(material.title);
+  const availabilityMessage = revision
+    ? getMaterialAvailabilityMessage({
+        status: revision.status,
+        stalled,
+        hasReadyRevision: material.activeRevision?.status === "READY",
+      })
+    : null;
+  const pageCount = contentRevision?.pageCount ?? contentRevision?.fetchedPageCount;
+  const materialSummary = contentRevision
+    ? contentRevision.summary ?? buildMaterialSummaryFallback({
+        materialTitle: displayTitle,
+        materialKind: material.kind,
+        outlineTitles: contentRevision.sections.map((section) => section.title),
+      })
+    : null;
 
   return (
     <main className="skillShell materialShell materialDetailShell">
@@ -49,8 +77,10 @@ export default async function MaterialDetailPage({ params }: { params: Promise<{
       <MaterialStatusPoller active={processing} />
       <header className="skillHeader materialHeader materialDetailHeader">
         <div>
-          <p className="materialBreadcrumb"><Link href="/skills/materials">Materials</Link> / {material.title}</p>
-          <h1>{material.title}</h1>
+          <p className="materialBreadcrumb" title={material.title}>
+            <Link href="/skills/materials">Materials</Link> / {displayTitle}
+          </p>
+          <h1 title={material.title}>{displayTitle}</h1>
           <p>{material.collection?.name ?? "No collection"} · {formatMaterialKind(material.kind)}</p>
         </div>
         <div className="materialHeaderActions">
@@ -71,32 +101,41 @@ export default async function MaterialDetailPage({ params }: { params: Promise<{
         </div>
       </header>
 
-      {revision ? (
-        <section className="materialDetailSummary" aria-label="Material status">
-          <div>
-            <span>Status</span>
-            <strong>{formatDisplayLabel(revision.status)}</strong>
+      {availabilityMessage ? (
+        <section
+          className="materialDetailSummary"
+          data-tone={availabilityMessage.tone}
+          aria-label="Material availability"
+        >
+          <div className="materialAvailabilityCopy">
+            <span className="materialAvailabilityDot" aria-hidden="true" />
+            <div>
+              <strong>{availabilityMessage.title}</strong>
+              <p>{availabilityMessage.description}</p>
+            </div>
           </div>
-          <div>
-            <span>Revision</span>
-            <strong>{revision.revisionNumber}</strong>
-          </div>
-          <div>
-            <span>Pages</span>
-            <strong>{revision.pageCount ?? revision.fetchedPageCount ?? "—"}</strong>
-          </div>
-          <div>
-            <span>Indexed chunks</span>
-            <strong>{revision._count.chunks}</strong>
-          </div>
-          <div>
-            <span>OCR pending</span>
-            <strong>{revision._count.pages}</strong>
-          </div>
+          {pageCount ? (
+            <div className="materialPageCount">
+              <span>Pages</span>
+              <strong>{pageCount}</strong>
+            </div>
+          ) : null}
         </section>
       ) : null}
 
-      {processing ? (
+      {stalled ? (
+        <section className="skillPanel materialFailurePanel" aria-live="polite">
+          <div>
+            <h2>Processing hasn’t started</h2>
+            <p>Your source is saved, but the background processor did not pick it up. Retry processing without uploading it again.</p>
+          </div>
+          <form action={retryMaterialIngestionAction}>
+            <input name="materialId" type="hidden" value={material.id} />
+            <input name="materialRevisionId" type="hidden" value={revision?.id} />
+            <MaterialRetryButton>Retry processing</MaterialRetryButton>
+          </form>
+        </section>
+      ) : processing ? (
         <section className="skillPanel materialProcessingPanel" aria-live="polite">
           <span className="materialProcessingPulse" aria-hidden="true" />
           <div>
@@ -113,39 +152,51 @@ export default async function MaterialDetailPage({ params }: { params: Promise<{
           <form action={retryMaterialIngestionAction}>
             <input name="materialId" type="hidden" value={material.id} />
             <input name="materialRevisionId" type="hidden" value={revision.id} />
-            <button className="secondaryButton" type="submit">Retry import</button>
+            <MaterialRetryButton>Retry import</MaterialRetryButton>
           </form>
         </section>
       ) : null}
 
       <div className="materialDetailGrid">
-        <section className="skillPanel materialOutlinePanel" aria-labelledby="material-outline-title">
-          <div className="skillPanelHeader">
-            <div>
-              <h2 id="material-outline-title">Outline</h2>
-              <p>{contentRevision?.sections.length ?? 0} resolved sections</p>
+        <div className="materialDetailMain">
+          {materialSummary ? (
+            <section className="skillPanel materialSummaryPanel" aria-labelledby="material-summary-title">
+              <div className="materialSummaryHeading">
+                <h2 id="material-summary-title">About this material</h2>
+                <span>{contentRevision?.summary ? "AI summary" : "Material overview"}</span>
+              </div>
+              <p>{materialSummary}</p>
+            </section>
+          ) : null}
+
+          <section className="skillPanel materialOutlinePanel" aria-labelledby="material-outline-title">
+            <div className="skillPanelHeader">
+              <div>
+                <h2 id="material-outline-title">Outline</h2>
+                <p>{contentRevision?.sections.length ?? 0} resolved sections</p>
+              </div>
+              <FileText size={20} weight="bold" aria-hidden="true" />
             </div>
-            <FileText size={20} weight="bold" aria-hidden="true" />
-          </div>
-          {contentRevision?.sections.length ? (
-            <ol className="materialOutlineList">
-              {contentRevision.sections.map((section) => (
-                <li key={section.id} style={{ "--material-section-level": section.level } as CSSProperties}>
-                  <span>{section.title}</span>
-                  {section.pageStart ? (
-                    <small>{formatPageRange(section.pageStart, section.pageEnd)}</small>
-                  ) : section.url ? (
-                    <a aria-label={`Open source page for ${section.title}`} href={section.url} rel="noreferrer" target="_blank">
-                      Source <ArrowSquareOut size={13} weight="bold" aria-hidden="true" />
-                    </a>
-                  ) : null}
-                </li>
-              ))}
-            </ol>
-          ) : (
-            <div className="materialInlineEmpty"><p>The outline will appear when processing finishes.</p></div>
-          )}
-        </section>
+            {contentRevision?.sections.length ? (
+              <ol className="materialOutlineList" aria-label="Material outline" tabIndex={0}>
+                {contentRevision.sections.map((section) => (
+                  <li key={section.id} style={{ "--material-section-level": section.level } as CSSProperties}>
+                    <span>{section.title}</span>
+                    {section.pageStart ? (
+                      <small>{formatPageRange(section.pageStart, section.pageEnd)}</small>
+                    ) : section.url ? (
+                      <a aria-label={`Open source page for ${section.title}`} href={section.url} rel="noreferrer" target="_blank">
+                        Source <ArrowSquareOut size={13} weight="bold" aria-hidden="true" />
+                      </a>
+                    ) : null}
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <div className="materialInlineEmpty"><p>The outline will appear when processing finishes.</p></div>
+            )}
+          </section>
+        </div>
 
         <aside className="materialDetailSidebar">
           <section className="skillPanel materialLinkedSkills" aria-labelledby="material-skills-title">
@@ -160,7 +211,16 @@ export default async function MaterialDetailPage({ params }: { params: Promise<{
                 ))}
               </div>
             ) : (
-              <div className="materialInlineEmpty"><p>No skills use this revision yet.</p></div>
+              <div className="materialInlineEmpty">
+                <p>
+                  No skills yet.{" "}
+                  {contentRevision?.status === "READY" ? (
+                    <Link className="materialTextLink" href={`/skills/materials/${material.id}/create`}>
+                      Create one with this material
+                    </Link>
+                  ) : null}
+                </p>
+              </div>
             )}
           </section>
 
@@ -170,7 +230,15 @@ export default async function MaterialDetailPage({ params }: { params: Promise<{
               {material.revisions.map((item) => (
                 <div key={item.id}>
                   <strong>Revision {item.revisionNumber}</strong>
-                  <span>{formatDisplayLabel(item.status)}</span>
+                  <span>
+                    {getMaterialIngestionDisplayState({
+                      status: item.status,
+                      updatedAt: item.updatedAt,
+                      now,
+                    }) === "stalled"
+                      ? "Needs attention"
+                      : formatDisplayLabel(item.status)}
+                  </span>
                   <small>{new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(item.createdAt)}</small>
                 </div>
               ))}
@@ -180,14 +248,13 @@ export default async function MaterialDetailPage({ params }: { params: Promise<{
           <details className="skillPanel materialDangerPanel">
             <summary>Delete material</summary>
             <p>Originals and derived data will be removed. Existing skills stay, but source-backed regeneration stops.</p>
-            <form action={deleteMaterialAction}>
-              <input name="materialId" type="hidden" value={material.id} />
-              <label className="skillField">
-                <span>Type “{material.title}” to confirm</span>
-                <input name="confirmationTitle" required />
-              </label>
-              <button className="secondaryButton" type="submit">Queue deletion</button>
-            </form>
+            <div className="materialDangerActions">
+              <MaterialDeleteControl
+                materialId={material.id}
+                returnTo="/skills/materials"
+                title={material.title}
+              />
+            </div>
           </details>
         </aside>
       </div>

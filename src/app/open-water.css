@@ -974,6 +974,14 @@ body {
   text-align: center;
 }
 
+.batchSubmitShortcut {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: 2px;
+  white-space: nowrap;
+}
+
 .ratingButton kbd {
   display: inline-flex;
   min-width: 24px;
@@ -1144,6 +1152,125 @@ body {
 .routePendingContent[data-route-kind="settings"] .routeSkeleton::after {
   display: block !important;
   background-image: none !important;
+}
+
+.routeSkeleton.routeSkeletonShimmer::after {
+  position: absolute;
+  inset: 0;
+  display: block !important;
+  background-color: transparent !important;
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0) 28%,
+    rgba(255, 255, 255, .88) 50%,
+    rgba(255, 255, 255, 0) 72%,
+    transparent 100%
+  ) !important;
+  content: "";
+  transform: translateX(-105%);
+  animation: route-skeleton-shimmer 1.2s cubic-bezier(.4, 0, .2, 1) infinite !important;
+  will-change: transform;
+}
+
+.routeSkeleton.routeSkeletonShimmer {
+  background-color: #DEE7F3 !important;
+}
+
+.routeSkeleton.routeSkeletonShimmer::before {
+  background-color: #DEE7F3 !important;
+}
+
+@keyframes route-skeleton-shimmer {
+  to {
+    transform: translateX(105%);
+  }
+}
+
+[data-loading-route] .routeSkeleton {
+  pointer-events: none;
+}
+
+.skillsPathChoiceLoading .createModeChoice {
+  pointer-events: none;
+}
+
+.skillsPathChoiceLoading .createModeChoice:hover {
+  border-color: var(--lr-card-border);
+  background: var(--lr-card);
+}
+
+.skillsPathChoiceLoading .createModeChoice:last-child:hover {
+  background: var(--lr-blue-tint);
+}
+
+.skillsPathDynamicHeader {
+  min-width: 0;
+  flex: 1;
+}
+
+.skillsPathAvailabilityLoading {
+  flex: 1;
+}
+
+.skillsPathAvailabilityLoading > div:last-child,
+.skillsPathMaterialIdentityLoading > div:last-child {
+  min-width: 0;
+  flex: 1;
+}
+
+.skillsPathOutlineRow,
+.skillsPathScopeRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  border-bottom: 1px solid var(--lr-divider);
+  padding: 13px 22px;
+}
+
+.skillsPathOutlineRow:last-child,
+.skillsPathSideRow:last-child {
+  border-bottom: 0;
+}
+
+.skillsPathSideRow {
+  border-bottom: 1px solid var(--lr-divider);
+  padding: 13px 18px;
+}
+
+.skillsPathDangerLoading {
+  padding: 18px;
+}
+
+.skillsPathScopeRow {
+  grid-template-columns: auto minmax(0, 1fr);
+  padding: 18px 24px;
+}
+
+.batchScopeCorrection > .skillsPathCorrectionLoading {
+  display: grid;
+  align-items: stretch;
+  gap: 15px;
+  border-bottom: 0;
+  padding: 19px 20px 21px;
+}
+
+.skillsPathGuidanceLoading {
+  display: grid;
+}
+
+.skillsPathGuidanceLoading > div {
+  border-top: 1px solid var(--lr-divider);
+  padding: 16px 0;
+}
+
+.skillsPathGuidanceLoading > div:first-child {
+  border-top: 0;
+}
+
+.skillsPathOutcomeLoading {
+  padding-top: 16px;
 }
 
 .routeLoadingPanel {
@@ -3954,6 +4081,10 @@ body {
   text-underline-offset: 3px;
 }
 
+.materialInlineEmpty .materialTextLink {
+  white-space: nowrap;
+}
+
 .materialHeaderActions {
   display: flex;
   align-items: center;
@@ -3963,7 +4094,7 @@ body {
 
 .materialImportLayout {
   display: grid;
-  grid-template-columns: minmax(260px, .78fr) minmax(0, 1.22fr);
+  grid-template-columns: minmax(0, .92fr) minmax(0, 1.08fr);
   align-items: start;
   gap: 16px;
   margin-top: 24px;
@@ -3973,11 +4104,23 @@ body {
 .materialImportPanel,
 .materialLibraryPanel,
 .materialOutlinePanel,
+.materialSummaryPanel,
 .materialLinkedSkills,
 .materialRevisionPanel,
 .materialDangerPanel {
   padding: 0;
   overflow: hidden;
+}
+
+.materialReusePanel,
+.materialImportPanel,
+.materialOutlinePanel,
+.materialSummaryPanel,
+.materialLinkedSkills,
+.materialRevisionPanel,
+.materialDangerPanel {
+  width: 100%;
+  margin: 0;
 }
 
 .materialReusePanel > .skillPanelHeader,
@@ -4010,14 +4153,31 @@ body {
 
 .materialCompactRow {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 14px;
+  grid-template-columns: minmax(0, 1fr) 156px;
+  align-items: start;
+  gap: 18px;
   border-bottom: 1px solid var(--lr-divider);
-  padding: 15px 20px;
+  padding: 18px 20px;
 }
 
-.materialCompactRow a:first-child,
+.materialCompactActions {
+  display: grid;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.materialCompactActions .primaryButton,
+.materialCompactActions .secondaryButton {
+  width: 100%;
+}
+
+.materialDeleteTriggerCompact {
+  min-height: 38px;
+  padding: 9px 12px;
+  font-size: 13px;
+}
+
+.materialCompactTitle,
 .materialLibraryMain > a {
   color: var(--lr-ink);
   font-size: 14px;
@@ -4026,7 +4186,7 @@ body {
   text-decoration: none;
 }
 
-.materialCompactRow a:first-child:hover,
+.materialCompactTitle:hover,
 .materialLibraryMain > a:hover {
   color: var(--lr-blue);
 }
@@ -4112,10 +4272,22 @@ body {
   cursor: pointer;
   padding: 20px;
   text-align: center;
+  transition: border-color .12s ease, background-color .12s ease;
 }
 
 .materialPdfDropzone:hover {
-  border-color: var(--lr-blue);
+  border-color: var(--lr-blue-bar-2);
+  background: #F5F8FD;
+}
+
+.materialPdfDropzone[data-invalid="true"] {
+  border-color: var(--lr-amber);
+}
+
+.materialPdfDropzone[data-disabled="true"] {
+  border-color: var(--lr-card-border);
+  cursor: wait;
+  opacity: .68;
 }
 
 .materialPdfDropzone:focus-within {
@@ -4142,15 +4314,15 @@ body {
   font-size: 12px;
 }
 
-.materialActionMessage {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
+.materialPdfDropzone small[data-tone="error"] {
+  color: var(--lr-amber);
+  font-weight: 600;
 }
 
-.materialActionMessage svg {
-  flex: 0 0 auto;
-  margin-top: 1px;
+.materialActionStatus {
+  margin: 0;
+  color: var(--lr-text-secondary);
+  font-size: 13px;
 }
 
 .materialImportActions {
@@ -4303,38 +4475,111 @@ body {
   font-size: 11.5px;
 }
 
+.materialDeleteModalBody {
+  display: grid;
+  gap: 18px;
+  padding: 4px 24px 24px;
+}
+
+.materialDeleteModalIntro {
+  margin: 0;
+  color: var(--lr-text-secondary);
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+
+.materialDeleteModalIntro strong {
+  color: var(--lr-ink);
+}
+
+.materialDeleteModalError {
+  margin: 0;
+}
+
+.materialDeleteModalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.materialDeleteConfirm {
+  white-space: nowrap;
+}
+
+.materialDeleteConfirm .buttonSpinner {
+  border-color: #E7B8A4;
+  border-top-color: var(--lr-danger-ink);
+}
+
 .materialEmptyState {
   margin: 0;
   padding: 38px 26px;
 }
 
 .materialDetailSummary {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
   margin-top: 22px;
-  overflow: hidden;
   border: 1px solid var(--lr-card-border);
   border-radius: var(--lr-r-card);
   background: var(--lr-card);
+  padding: 16px 20px;
 }
 
-.materialDetailSummary > div {
+.materialAvailabilityCopy {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.materialAvailabilityDot {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 auto;
+  margin-top: 5px;
+  border-radius: var(--lr-r-pill);
+  background: var(--lr-blue);
+}
+
+.materialDetailSummary[data-tone="ready"] .materialAvailabilityDot {
+  background: var(--lr-green);
+}
+
+.materialDetailSummary[data-tone="attention"] .materialAvailabilityDot {
+  background: var(--lr-amber);
+}
+
+.materialAvailabilityCopy strong {
+  color: var(--lr-ink);
+  font-family: var(--lr-font-display);
+  font-size: 16px;
+}
+
+.materialAvailabilityCopy p {
+  margin: 3px 0 0;
+  color: var(--lr-text-secondary);
+  font-size: 13px;
+  line-height: 1.42;
+}
+
+.materialPageCount {
   display: grid;
-  gap: 5px;
+  min-width: 82px;
+  flex: 0 0 auto;
+  gap: 2px;
   border-left: 1px solid var(--lr-divider);
-  padding: 15px 17px;
+  padding-left: 20px;
 }
 
-.materialDetailSummary > div:first-child {
-  border-left: 0;
-}
-
-.materialDetailSummary span {
+.materialPageCount span {
   color: var(--lr-text-secondary);
   font-size: 11.5px;
 }
 
-.materialDetailSummary strong {
+.materialPageCount strong {
   color: var(--lr-ink);
   font-family: var(--lr-font-display);
   font-size: 16px;
@@ -4353,6 +4598,20 @@ body {
 
 .materialProcessingPanel {
   justify-content: flex-start;
+}
+
+.materialRetryButton {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.materialRetryButton .buttonPendingContent {
+  white-space: nowrap;
+}
+
+.materialRetryButton .buttonSpinner {
+  border-color: var(--lr-blue-bar-2);
+  border-top-color: var(--lr-blue);
 }
 
 .materialProcessingPanel h2,
@@ -4387,22 +4646,70 @@ body {
 
 .materialDetailGrid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 310px;
+  grid-template-columns: minmax(0, 1.65fr) minmax(300px, .95fr);
   align-items: start;
-  gap: 16px;
+  gap: 12px;
   margin-top: 16px;
 }
 
 .materialDetailSidebar {
   display: grid;
+  gap: 12px;
+}
+
+.materialDetailMain {
+  display: grid;
+  min-width: 0;
+  gap: 12px;
+}
+
+.materialSummaryPanel {
+  padding: 20px 22px 21px;
+}
+
+.materialSummaryHeading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
   gap: 16px;
+}
+
+.materialSummaryHeading h2 {
+  margin: 0;
+  color: var(--lr-ink);
+  font-family: var(--lr-font-display);
+  font-size: 16px;
+}
+
+.materialSummaryHeading span {
+  flex: 0 0 auto;
+  color: var(--lr-text-secondary);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.materialSummaryPanel > p {
+  max-width: 680px;
+  margin: 9px 0 0;
+  color: var(--lr-text-secondary);
+  font-size: 13.5px;
+  line-height: 1.55;
 }
 
 .materialOutlineList {
   display: grid;
+  max-height: 520px;
   margin: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 0;
+  scrollbar-gutter: stable;
   list-style: none;
+}
+
+.materialOutlineList:focus-visible {
+  outline: 2px solid var(--lr-blue);
+  outline-offset: -2px;
 }
 
 .materialOutlineList li {
@@ -4489,7 +4796,7 @@ body {
 }
 
 .materialDangerPanel summary {
-  color: var(--lr-ink);
+  color: var(--lr-danger-ink);
   cursor: pointer;
   font-family: var(--lr-font-display);
   font-size: 14px;
@@ -4497,8 +4804,13 @@ body {
   padding: 17px 18px;
 }
 
+.materialDangerPanel summary:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 .materialDangerPanel > p,
-.materialDangerPanel form {
+.materialDangerActions {
   margin: 0;
   border-top: 1px solid var(--lr-divider);
   padding: 15px 18px;
@@ -4510,7 +4822,7 @@ body {
   line-height: 1.42;
 }
 
-.materialDangerPanel form {
+.materialDangerActions {
   display: grid;
   gap: 13px;
 }
@@ -4535,12 +4847,17 @@ body {
 .batchProgressSummary,
 .batchGeneratingNotice,
 .batchPartialNotice,
+.batchActivationBar,
 .batchDraftList,
 .batchTopMessage {
   width: calc(100% - 28px);
-  max-width: 980px;
+  max-width: 1120px;
   margin-right: auto;
   margin-left: auto;
+}
+
+.batchShell .materialHeader {
+  max-width: 1120px;
 }
 
 .batchStageRail {
@@ -4680,7 +4997,7 @@ body {
 }
 
 .batchPrimaryAction small,
-.batchConfirmBar span {
+.batchConfirmBar > span {
   color: var(--lr-text-secondary);
   font-size: 12px;
 }
@@ -4691,10 +5008,18 @@ body {
 
 .batchScopeLayout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 300px;
+  grid-template-columns: minmax(0, 1fr) 420px;
   align-items: start;
   gap: 16px;
   margin-top: 22px;
+}
+
+.batchScopeLayout > .skillPanel,
+.batchDraftList > .skillPanel {
+  width: auto;
+  max-width: none;
+  margin: 0;
+  justify-self: stretch;
 }
 
 .batchScopePanel,
@@ -4744,7 +5069,6 @@ body {
   padding: 6px 10px;
 }
 
-.batchAmbiguity,
 .batchGeneratingNotice,
 .batchPartialNotice {
   display: flex;
@@ -4752,21 +5076,11 @@ body {
   gap: 12px;
 }
 
-.batchAmbiguity {
-  margin: 22px 24px;
-  border: 1px solid var(--lr-accent-line);
-  border-radius: var(--lr-r-card);
-  background: var(--lr-accent-soft);
-  padding: 17px 18px;
-}
-
-.batchAmbiguity svg,
 .batchPartialNotice > svg {
   flex: 0 0 auto;
   color: var(--lr-accent-ink);
 }
 
-.batchAmbiguity h3,
 .batchPartialNotice h2,
 .batchGeneratingNotice h2 {
   margin: 0;
@@ -4775,13 +5089,40 @@ body {
   font-size: 15px;
 }
 
-.batchAmbiguity p,
 .batchPartialNotice p,
 .batchGeneratingNotice p {
   margin: 4px 0 0;
   color: var(--lr-text-secondary);
   font-size: 13px;
   line-height: 1.45;
+}
+
+.batchClarificationReason {
+  margin: 22px 24px;
+  color: var(--lr-text-secondary);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.batchClarificationOptions {
+  display: grid;
+  gap: 10px;
+  margin: -8px 24px 24px;
+}
+
+.batchClarificationOptions form {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.batchClarificationOptions button {
+  white-space: nowrap;
+}
+
+.batchClarificationOptions small {
+  color: var(--lr-text-secondary);
+  line-height: 1.4;
 }
 
 .batchScopeItems {
@@ -4827,6 +5168,11 @@ body {
   color: var(--lr-text-secondary);
   font-size: 13px;
   line-height: 1.42;
+}
+
+.batchScopeItems .batchScopeBoundary {
+  color: var(--lr-ink);
+  font-size: 12px;
 }
 
 .batchScopeItems small,
@@ -4933,6 +5279,52 @@ body {
   padding: 17px 20px;
 }
 
+.batchGeneratingNotice > .materialProcessingPulse {
+  margin-top: 4px;
+}
+
+.batchActivationBar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 24px;
+  margin-top: 16px;
+  border: 1px solid var(--lr-blue-bar-2);
+  border-radius: var(--lr-r-card);
+  background: var(--lr-blue-tint);
+  padding: 17px 20px;
+}
+
+.batchActivationBar > div {
+  min-width: 0;
+}
+
+.batchActivationBar > div > span {
+  display: block;
+  color: var(--lr-blue);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.batchActivationBar .primaryButton {
+  color: #FFFFFF;
+}
+
+.batchActivationBar strong {
+  display: block;
+  margin-top: 3px;
+  color: var(--lr-ink);
+  font-family: var(--lr-font-display);
+  font-size: 15px;
+}
+
+.batchActivationBar p {
+  margin: 4px 0 0;
+  color: var(--lr-text-secondary);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
 .batchDraftList {
   display: grid;
   gap: 12px;
@@ -4999,8 +5391,14 @@ body {
   line-height: 1.42;
 }
 
-.batchDraftCard[data-status="ready"] .batchDraftCardHeader > svg {
+.batchDraftCard[data-status="ready"] .batchDraftCardHeader > svg,
+.batchDraftCard[data-status="active"] .batchDraftCardHeader > svg {
   color: var(--lr-success-ink);
+}
+
+.batchCardPulse {
+  flex: 0 0 auto;
+  margin-top: 3px;
 }
 
 .batchDraftCard[data-status="failed"] .batchDraftCardHeader > svg {
@@ -5022,6 +5420,22 @@ body {
   border-color: var(--lr-divider);
   background: #F8FAFD;
   color: var(--lr-text-secondary);
+}
+
+.batchDraftAdjustment {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  border-top: 1px solid var(--lr-divider);
+  color: var(--lr-text-secondary);
+  font-size: 12.5px;
+  line-height: 1.42;
+  padding: 12px 22px;
+}
+
+.batchDraftAdjustment strong {
+  color: var(--lr-ink);
+  font-size: 13px;
 }
 
 .batchDraftDetails {
@@ -5107,10 +5521,94 @@ body {
   padding: 8px;
 }
 
+.batchExcludeTrigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.batchDraftEditModalContent {
+  width: min(960px, calc(100vw - 32px));
+  max-height: calc(100dvh - 48px);
+}
+
+.batchDraftEditModalBody {
+  max-height: calc(100dvh - 126px);
+  overflow-y: auto;
+  padding: 0;
+}
+
+.batchDraftEditModalBody .skillDraftGrid {
+  display: block;
+  width: 100%;
+  margin: 0;
+}
+
+.batchDraftEditModalBody .skillDraftForm {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  padding: 24px;
+  box-shadow: none;
+}
+
+.batchDraftEditModalBody .skillPanelHeader {
+  display: none;
+}
+
+.batchExcludeModalBody {
+  display: grid;
+  gap: 18px;
+  padding: 4px 24px 24px;
+}
+
+.batchExcludeModalCopy {
+  margin: 0;
+  color: var(--lr-text-secondary);
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+
+.batchExcludeModalCopy strong {
+  color: var(--lr-ink);
+}
+
+.batchExcludeModalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.batchExcludeConfirm {
+  white-space: nowrap;
+}
+
+.batchExcludeConfirm .buttonSpinner {
+  border-color: #E7B8A4;
+  border-top-color: var(--lr-danger-ink);
+}
+
 .batchTextButton:hover {
   color: var(--lr-ink);
   text-decoration: underline;
   text-underline-offset: 3px;
+}
+
+@media (min-width: 1120px) {
+  .batchShell .materialHeader,
+  .batchStageRail,
+  .batchDescribePanel,
+  .batchScopeLayout,
+  .batchProgressSummary,
+  .batchGeneratingNotice,
+  .batchPartialNotice,
+  .batchActivationBar,
+  .batchDraftList,
+  .batchTopMessage {
+    width: calc(100% - 68px);
+  }
 }
 
 @media (max-width: 820px) {
@@ -5125,18 +5623,6 @@ body {
 
   .materialLibraryFacts {
     grid-column: 2 / -1;
-  }
-
-  .materialDetailSummary {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .materialDetailSummary > div:nth-child(4) {
-    border-left: 0;
-  }
-
-  .materialDetailSummary > div:nth-child(n + 4) {
-    border-top: 1px solid var(--lr-divider);
   }
 
   .batchDescribePanel,
@@ -5155,6 +5641,15 @@ body {
 
   .batchProgressSummary {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .batchActivationBar {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .batchActivationBar button {
+    justify-self: start;
   }
 
   .batchProgressSummary > div:nth-child(4) {
@@ -5237,27 +5732,35 @@ body {
     justify-content: space-between;
     border-top: 1px solid var(--lr-divider);
     padding-top: 12px;
+    flex-wrap: wrap;
+  }
+
+  .materialCompactRow {
+    align-items: start;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .materialCompactActions {
+    align-items: stretch;
   }
 
   .materialDetailSummary {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 14px;
   }
 
-  .materialDetailSummary > div:nth-child(n) {
+  .materialPageCount {
+    width: 100%;
+    min-width: 0;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
     border-top: 1px solid var(--lr-divider);
-    border-left: 1px solid var(--lr-divider);
-  }
-
-  .materialDetailSummary > div:nth-child(-n + 2) {
-    border-top: 0;
-  }
-
-  .materialDetailSummary > div:nth-child(odd) {
     border-left: 0;
-  }
-
-  .materialDetailSummary > div:last-child:nth-child(odd) {
-    grid-column: 1 / -1;
+    padding-top: 12px;
+    padding-left: 0;
   }
 
   .batchStageRail,
@@ -5266,6 +5769,7 @@ body {
   .batchProgressSummary,
   .batchGeneratingNotice,
   .batchPartialNotice,
+  .batchActivationBar,
   .batchDraftList,
   .batchTopMessage {
     width: calc(100% - 28px);
@@ -5286,6 +5790,7 @@ body {
 
   .batchPrimaryAction,
   .batchConfirmBar,
+  .batchActivationBar,
   .batchDraftListHeader,
   .batchDraftActions {
     align-items: stretch;
@@ -5307,6 +5812,10 @@ body {
   .batchConfirmBar {
     padding-right: 20px;
     padding-left: 20px;
+  }
+
+  .batchActivationBar button {
+    width: 100%;
   }
 
   .batchProgressSummary {
@@ -5338,6 +5847,23 @@ body {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .batchDraftEditModalBody .skillTwoColumnFields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .batchDraftEditModalBody .skillDraftForm {
+    padding: 20px 18px;
+  }
+
+  .batchExcludeModalActions {
+    align-items: stretch;
+    flex-direction: column-reverse;
+  }
+
+  .batchExcludeModalActions button {
+    width: 100%;
+  }
+
   .batchDraftActions > div {
     align-items: stretch;
     flex-wrap: wrap;
@@ -5347,6 +5873,10 @@ body {
     align-items: start;
     padding-right: 16px;
     padding-left: calc(16px + (var(--material-section-level, 1) - 1) * 12px);
+  }
+
+  .materialOutlineList {
+    max-height: 420px;
   }
 
   .createSkillInputFooter {
@@ -6977,6 +7507,12 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .routeSkeleton.routeSkeletonShimmer::after {
+    animation: none !important;
+    opacity: .28;
+    transform: none;
+  }
+
   .entryShell *,
   .authShell *,
   .dashboardShell *,

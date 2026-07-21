@@ -6,6 +6,7 @@ import { isDeepStrictEqual } from "node:util";
 import {
   GenerationJobKind,
   GenerationJobStatus,
+  MaterialPageTextStatus,
   MaterialRevisionStatus,
   Prisma,
   SkillDraftBatchItemStatus,
@@ -16,7 +17,9 @@ import {
 } from "@/generated/prisma/client";
 import { getInngestEnvStatus } from "@/lib/inngest/client";
 import {
+  inngestMaterialBatchActivationEventSender,
   inngestMaterialDraftItemEventSender,
+  type MaterialBatchActivationEventSender,
   type MaterialDraftItemEventSender,
 } from "@/lib/inngest/events";
 import {
@@ -24,6 +27,8 @@ import {
   type MaterialDraftAiSetup,
 } from "@/lib/materials/ai";
 import {
+  activateBatchInputSchema,
+  batchItemMutationInputSchema,
   confirmMaterialPlanInputSchema,
   materialScopePlanSchema,
   materialScopeResolutionSchema,
@@ -34,9 +39,14 @@ import {
 } from "@/lib/materials/contracts";
 import {
   annotateMaterialPlanOverlaps,
+  expandPlanningChunkNeighbors,
+  generateValidatedMaterialScopePlan,
   generateVerifiedMaterialDraft,
+  repairMaterialDraftTarget,
+  recoverBackMatterMaterialScope,
+  resolveMaterialTopicSearchQuery,
   resolveStructuralMaterialScope,
-  validateMaterialScopePlannerResponse,
+  selectMaterialTopicRetrievalChunks,
   type MaterialPlanningSection,
 } from "@/lib/materials/drafting";
 import { summarizeMaterialDraftBatch } from "@/lib/materials/batch-summary";
@@ -44,6 +54,15 @@ import {
   createGeminiMaterialEmbeddingGenerator,
   type MaterialEmbeddingGenerator,
 } from "@/lib/materials/embeddings";
+import {
+  ensureMaterialPageOcr,
+  loadLocalizedMaterialEvidence,
+  type MaterialOcrGenerator,
+} from "@/lib/materials/evidence";
+import {
+  materialPageEvidenceId,
+  parseMaterialPageEvidenceId,
+} from "@/lib/materials/evidence-ids";
 import { createIdempotentDraftBatch } from "@/lib/materials/lifecycle";
 import {
   searchMaterialChunks,
@@ -51,16 +70,37 @@ import {
   type MaterialChunkSearchResult,
 } from "@/lib/materials/retrieval";
 import { getPrisma } from "@/lib/prisma";
+import type { SourceObjectStorage } from "@/lib/storage/s3";
 import {
   ACTIVATION_GENERATION_TIMEOUT_MS,
+  activateSkillDraft,
+  GEMINI_PROVIDER,
   REQUESTED_ACTIVATION_EXERCISES,
+  SKILL_MCQ_PROMPT_VERSION,
+  type ChoiceExerciseGenerator,
+  type ChoiceExerciseVerifier,
+  type SkillSourceEvidenceLoader,
+  type SourceMediaContextLoader,
 } from "@/lib/skills";
+import {
+  DEFAULT_GEMINI_MODEL,
+  getPublicGeminiScopePlanningFailureMessage,
+} from "@/lib/gemini";
+import {
+  ALPHA_ACTIVE_SKILLS,
+  ALPHA_SKILL_ACTIVATIONS_PER_DAY,
+  startOfUtcDay,
+} from "@/lib/usage-limits";
 
 const PLANNING_CHUNK_LIMIT = 60;
 const GENERATION_EVIDENCE_CHARACTER_LIMIT = 24_000;
 // Keep this above the five-minute function ceiling so a slow but healthy model call
 // is not surfaced as failed while its worker can still complete.
 const MATERIAL_DRAFT_CLAIM_STALE_MS = 10 * 60 * 1_000;
+// The worker can spend two provider budgets on generation and two more on verification.
+// Only recover a claim after the five-minute function window has elapsed.
+const MATERIAL_BATCH_ACTIVATION_CLAIM_STALE_MS = 5 * 60 * 1_000;
+const MAX_AUTOMATIC_TARGET_REPAIRS = 2;
 
 export class MaterialDraftGenerationError extends Error {
   readonly retryable: boolean;
@@ -68,6 +108,16 @@ export class MaterialDraftGenerationError extends Error {
   constructor(message: string, options: { retryable: boolean; cause?: unknown }) {
     super(message, { cause: options.cause });
     this.name = "MaterialDraftGenerationError";
+    this.retryable = options.retryable;
+  }
+}
+
+export class MaterialBatchActivationError extends Error {
+  readonly retryable: boolean;
+
+  constructor(message: string, options: { retryable: boolean; cause?: unknown }) {
+    super(message, { cause: options.cause });
+    this.name = "MaterialBatchActivationError";
     this.retryable = options.retryable;
   }
 }
@@ -80,6 +130,8 @@ export async function planMaterialSkills(input: {
   now: Date;
   aiSetup?: MaterialDraftAiSetup;
   embeddingGenerator?: MaterialEmbeddingGenerator | null;
+  ocrGenerator?: MaterialOcrGenerator | null;
+  ocrStorage?: SourceObjectStorage;
 }) {
   const parsed = planMaterialSkillsInputSchema.safeParse(input.input);
   if (!parsed.success) {
@@ -130,6 +182,8 @@ export async function planMaterialSkills(input: {
     now: input.now,
     aiSetup: input.aiSetup,
     embeddingGenerator: input.embeddingGenerator,
+    ocrGenerator: input.ocrGenerator,
+    ocrStorage: input.ocrStorage,
   });
 }
 
@@ -139,6 +193,8 @@ export async function replanMaterialSkills(input: {
   now: Date;
   aiSetup?: MaterialDraftAiSetup;
   embeddingGenerator?: MaterialEmbeddingGenerator | null;
+  ocrGenerator?: MaterialOcrGenerator | null;
+  ocrStorage?: SourceObjectStorage;
 }) {
   const parsed = replanMaterialSkillsInputSchema.safeParse(input.input);
   if (!parsed.success) {
@@ -177,6 +233,8 @@ export async function replanMaterialSkills(input: {
     now: input.now,
     aiSetup: input.aiSetup,
     embeddingGenerator: input.embeddingGenerator,
+    ocrGenerator: input.ocrGenerator,
+    ocrStorage: input.ocrStorage,
   });
 }
 
@@ -267,6 +325,12 @@ export async function confirmMaterialPlan(input: {
             overlapSkillId: item.overlapSkillId ?? null,
             errorCode: item.overlapSkillId ? "EXACT_DUPLICATE" : null,
             errorMessage: item.overlapWarning ?? null,
+            generationMetadata: {
+              scopeBoundaries: {
+                includeConcepts: item.includeConcepts ?? [],
+                excludeConcepts: item.excludeConcepts ?? [],
+              },
+            },
           },
         }),
       );
@@ -316,9 +380,18 @@ export async function confirmMaterialPlan(input: {
       }),
     ),
   );
-  const failedItemIds = sendResults.flatMap((result, index) =>
-    result.status === "rejected" ? [queuedItems[index].id] : [],
-  );
+  const failedItemIds = sendResults.flatMap((result, index) => {
+    if (result.status !== "rejected") {
+      return [];
+    }
+    const itemId = queuedItems[index].id;
+    console.error("[inngest] material draft event send failed", {
+      batchId: batch.id,
+      itemId,
+      error: getEventSendErrorLogDetails(result.reason),
+    });
+    return [itemId];
+  });
   if (failedItemIds.length > 0) {
     await prisma.skillDraftBatchItem.updateMany({
       where: {
@@ -329,7 +402,7 @@ export async function confirmMaterialPlan(input: {
       data: {
         status: SkillDraftBatchItemStatus.FAILED,
         errorCode: "EVENT_SEND_FAILED",
-        errorMessage: "Draft generation could not be queued. Retry this item.",
+        errorMessage: "Background processing was unavailable. Retry this item.",
       },
     });
     await reconcileMaterialDraftBatch({ userId: input.userId, batchId: batch.id, now: input.now });
@@ -368,6 +441,7 @@ export async function runMaterialDraftItemJob(input: {
       proposedTitle: true,
       proposedObjective: true,
       locator: true,
+      generationMetadata: true,
       skillId: true,
       skill: { select: { id: true } },
       batch: {
@@ -383,7 +457,16 @@ export async function runMaterialDraftItemJob(input: {
                 where: { status: SourceFileStatus.READY },
                 orderBy: { createdAt: "asc" },
                 take: 1,
-                select: { id: true },
+                select: {
+                  id: true,
+                  materialRevisionId: true,
+                  kind: true,
+                  status: true,
+                  originalName: true,
+                  mimeType: true,
+                  storageBucket: true,
+                  storageKey: true,
+                },
               },
             },
           },
@@ -481,66 +564,228 @@ export async function runMaterialDraftItemJob(input: {
   }
 
   try {
-    const chunks = await prisma.materialChunk.findMany({
-      where: {
-        id: { in: locator.data.evidenceChunkIds },
-        userId: input.userId,
-        materialRevisionId: item.batch.materialRevisionId,
-      },
-      select: { id: true, ordinal: true, headingText: true, text: true },
+    const localizedEvidence = await loadLocalizedMaterialEvidence({
+      userId: input.userId,
+      sourceRefs: [{ locator: locator.data, sourceFile }],
     });
-    if (chunks.length !== locator.data.evidenceChunkIds.length) {
+    const evidenceText = localizedEvidence.sourceContext
+      ?.slice(0, GENERATION_EVIDENCE_CHARACTER_LIMIT)
+      .trim();
+    if (!evidenceText) {
       throw new MaterialDraftGenerationError("Confirmed evidence chunks were not found.", {
         retryable: false,
       });
     }
-    const chunksById = new Map(chunks.map((chunk) => [chunk.id, chunk]));
-    const evidenceText = locator.data.evidenceChunkIds
-      .map((chunkId) => chunksById.get(chunkId))
-      .filter(isDefined)
-      .map((chunk) => `${chunk.headingText ?? `Excerpt ${chunk.ordinal + 1}`}\n${chunk.text}`)
-      .join("\n\n---\n\n")
-      .slice(0, GENERATION_EVIDENCE_CHARACTER_LIMIT);
     const ai = input.aiSetup ?? resolveMaterialDraftAiSetup();
-    const generated = await generateVerifiedMaterialDraft({
-      target: { title: item.proposedTitle, objective: item.proposedObjective },
-      materialTitle: item.batch.materialRevision.material.title,
-      evidenceText,
-      generateDraft: async (draftInput) => {
-        const attempt = await prisma.skillDraftBatchItem.updateMany({
-          where: {
-            id: item.id,
-            userId: input.userId,
-            status: SkillDraftBatchItemStatus.GENERATING,
-            generationClaimId: claimId,
+    const baseGenerationMetadata = readJsonObject(item.generationMetadata);
+    let scopeBoundaries = readScopeBoundaries(item.generationMetadata);
+    let target = {
+      title: item.proposedTitle,
+      objective: item.proposedObjective,
+      ...scopeBoundaries,
+    };
+    let targetRepairState = readJsonObject(baseGenerationMetadata.targetRepair);
+    let targetRepairAttempts = 0;
+    let totalDraftAttempts = 0;
+    const targetRepairContext = readTargetRepairContext(item.generationMetadata);
+    const sourceMedia = localizedEvidence.sourceMedia.map((media) => ({
+      sourceFileId: media.sourceFileId,
+      label: media.originalName,
+      mimeType: "application/pdf" as const,
+      bytes: media.bytes,
+    }));
+    const applyAutomaticTargetRepair = async (verificationNote: string) => {
+      if (!ai.repairTarget || targetRepairAttempts >= MAX_AUTOMATIC_TARGET_REPAIRS) {
+        return { status: "unavailable" as const };
+      }
+      targetRepairAttempts += 1;
+      targetRepairState = {
+        status: "adjusting",
+        attempts: targetRepairAttempts,
+        verificationNote,
+      };
+      const staged = await prisma.skillDraftBatchItem.updateMany({
+        where: {
+          id: item.id,
+          userId: input.userId,
+          status: SkillDraftBatchItemStatus.GENERATING,
+          generationClaimId: claimId,
+        },
+        data: {
+          generationMetadata: toInputJson({
+            ...baseGenerationMetadata,
+            scopeBoundaries,
+            targetRepair: targetRepairState,
+          }),
+        },
+      });
+      if (staged.count !== 1) {
+        return { status: "not-claimed" as const };
+      }
+      const repaired = await repairMaterialDraftTarget({
+        target,
+        materialTitle: item.batch.materialRevision.material.title,
+        evidenceText,
+        verificationNote,
+        repairTarget: ai.repairTarget,
+      });
+      if (repaired.status === "failed") {
+        return { status: "failed" as const, message: repaired.message };
+      }
+      target = repaired.target;
+      scopeBoundaries = {
+        includeConcepts: repaired.target.includeConcepts ?? [],
+        excludeConcepts: repaired.target.excludeConcepts ?? [],
+      };
+      targetRepairState = {
+        status: "regenerating",
+        attempts: targetRepairAttempts,
+        note: repaired.note,
+        previousVerificationNote: verificationNote,
+      };
+      const targetUpdated = await prisma.skillDraftBatchItem.updateMany({
+        where: {
+          id: item.id,
+          userId: input.userId,
+          status: SkillDraftBatchItemStatus.GENERATING,
+          generationClaimId: claimId,
+        },
+        data: {
+          proposedTitle: repaired.target.title,
+          proposedObjective: repaired.target.objective,
+          generationMetadata: toInputJson({
+            ...baseGenerationMetadata,
+            scopeBoundaries,
+            targetRepair: targetRepairState,
+          }),
+        },
+      });
+      if (targetUpdated.count !== 1) {
+        return { status: "not-claimed" as const };
+      }
+      return { status: "repaired" as const };
+    };
+    const finishTargetRepairFailure = async (message: string) => {
+      const marked = await markMaterialDraftItemFailed({
+        userId: input.userId,
+        itemId: item.id,
+        claimId,
+        code: "TARGET_REPAIR_FAILED",
+        message,
+        generationMetadata: toInputJson({
+          ...baseGenerationMetadata,
+          scopeBoundaries,
+          targetRepair: {
+            status: "exhausted",
+            attempts: targetRepairAttempts,
+            note: message,
           },
-          data: { generationAttempts: { increment: 1 } },
-        });
-        if (attempt.count !== 1) {
-          throw new MaterialDraftClaimSupersededError();
+        }),
+      });
+      if (!marked) {
+        return { status: "not-claimed" as const };
+      }
+      await reconcileMaterialDraftBatch({ userId: input.userId, batchId: input.batchId, now });
+      return { status: "failed" as const, reason: "target-repair-failed" as const };
+    };
+
+    if (targetRepairContext && ai.repairTarget) {
+      const initialRepair = await applyAutomaticTargetRepair(
+        targetRepairContext.verificationNote,
+      );
+      if (initialRepair.status === "not-claimed") {
+        return { status: "not-claimed" as const };
+      }
+      if (initialRepair.status === "failed") {
+        return finishTargetRepairFailure(initialRepair.message);
+      }
+    }
+
+    let generated: Awaited<ReturnType<typeof generateVerifiedMaterialDraft>> | null = null;
+    while (true) {
+      generated = await generateVerifiedMaterialDraft({
+        target,
+        materialTitle: item.batch.materialRevision.material.title,
+        evidenceText,
+        sourceMedia,
+        generateDraft: async (draftInput) => {
+          const attempt = await prisma.skillDraftBatchItem.updateMany({
+            where: {
+              id: item.id,
+              userId: input.userId,
+              status: SkillDraftBatchItemStatus.GENERATING,
+              generationClaimId: claimId,
+            },
+            data: { generationAttempts: { increment: 1 } },
+          });
+          if (attempt.count !== 1) {
+            throw new MaterialDraftClaimSupersededError();
+          }
+          return ai.generateDraft(draftInput);
+        },
+        verifyDraft: ai.verifyDraft,
+      });
+      totalDraftAttempts += generated.attempts;
+      if (generated.status === "ready") {
+        break;
+      }
+      if (
+        generated.reason === "verification-rejected" &&
+        ai.repairTarget &&
+        targetRepairAttempts < MAX_AUTOMATIC_TARGET_REPAIRS
+      ) {
+        const repair = await applyAutomaticTargetRepair(generated.message);
+        if (repair.status === "not-claimed") {
+          return { status: "not-claimed" as const };
         }
-        return ai.generateDraft(draftInput);
-      },
-      verifyDraft: ai.verifyDraft,
-    });
-    if (generated.status === "failed") {
+        if (repair.status === "failed") {
+          return finishTargetRepairFailure(repair.message);
+        }
+        if (repair.status === "repaired") {
+          continue;
+        }
+      }
+
       const marked = await markMaterialDraftItemFailed({
         userId: input.userId,
         itemId: item.id,
         claimId,
         code: generated.reason.toUpperCase().replaceAll("-", "_"),
         message: generated.message,
-        generationMetadata: {
+        generationMetadata: toInputJson({
           model: ai.model,
           verification: "rejected",
-          attemptsThisRun: generated.attempts,
-        },
+          attemptsThisRun: totalDraftAttempts,
+          scopeBoundaries,
+          recovery: generated.recovery ?? "clarify_scope",
+          reasons: generated.reasons ?? [],
+          verificationNote: generated.message,
+          targetRepair: {
+            status:
+              generated.reason === "verification-rejected"
+                ? "exhausted"
+                : targetRepairState.status,
+            attempts: targetRepairAttempts,
+            verificationNote: generated.message,
+          },
+        }),
       });
       if (!marked) {
         return { status: "not-claimed" as const };
       }
       await reconcileMaterialDraftBatch({ userId: input.userId, batchId: input.batchId, now });
       return { status: "failed" as const, reason: generated.reason };
+    }
+
+    if (!generated || generated.status !== "ready") {
+      throw new Error("Material draft generation ended without a verified draft.");
+    }
+    if (targetRepairAttempts > 0) {
+      targetRepairState = {
+        ...targetRepairState,
+        status: "completed",
+        attempts: targetRepairAttempts,
+      };
     }
 
     const saved = await prisma.$transaction(async (tx) => {
@@ -610,11 +855,13 @@ export async function runMaterialDraftItemJob(input: {
             overlapSkillId: duplicate.id,
             errorCode: "EXACT_DUPLICATE",
             errorMessage: `An exact skill already exists: ${duplicate.title}.`,
-            generationMetadata: {
+            generationMetadata: toInputJson({
               model: ai.model,
               verification: "verified",
               duplicatePrevented: true,
-            },
+              scopeBoundaries,
+              targetRepair: targetRepairState,
+            }),
           },
         });
         return { status: "duplicate" as const, skillId: duplicate.id };
@@ -650,11 +897,13 @@ export async function runMaterialDraftItemJob(input: {
           skillId: skill.id,
           status: SkillDraftBatchItemStatus.READY,
           generationClaimId: null,
-          generationMetadata: {
+          generationMetadata: toInputJson({
             model: ai.model,
             verification: "verified",
-            attemptsThisRun: generated.attempts,
-          },
+            attemptsThisRun: totalDraftAttempts,
+            scopeBoundaries,
+            targetRepair: targetRepairState,
+          }),
         },
       });
       await tx.studyMaterial.update({
@@ -708,6 +957,7 @@ export async function retryMaterialDraftItem(input: {
   batchId: string;
   itemId: string;
   now: Date;
+  automatic?: boolean;
   eventSender?: MaterialDraftItemEventSender;
 }) {
   const env = getInngestEnvStatus();
@@ -715,18 +965,52 @@ export async function retryMaterialDraftItem(input: {
     return { status: "not-queued" as const, message: env.message };
   }
   const prisma = getPrisma();
+  const failedItem = await prisma.skillDraftBatchItem.findFirst({
+    where: {
+      id: input.itemId,
+      batchId: input.batchId,
+      userId: input.userId,
+      status: SkillDraftBatchItemStatus.FAILED,
+      NOT: { errorCode: { startsWith: "ACTIVATION_" } },
+    },
+    select: { errorCode: true, errorMessage: true, generationMetadata: true },
+  });
+  if (!failedItem) {
+    return { status: "not-found" as const, message: "Failed draft item was not found." };
+  }
+  const generationMetadata = readJsonObject(failedItem.generationMetadata);
+  const targetRepairMetadata = readJsonObject(generationMetadata.targetRepair);
+  if (
+    input.automatic &&
+    (failedItem.errorCode !== "VERIFICATION_REJECTED" ||
+      targetRepairMetadata.status === "exhausted")
+  ) {
+    return { status: "not-found" as const, message: "Automatic repair is no longer pending." };
+  }
+  const repairMetadata =
+    failedItem.errorCode === "VERIFICATION_REJECTED" && failedItem.errorMessage
+      ? toInputJson({
+          ...generationMetadata,
+          targetRepair: {
+            required: true,
+            verificationNote: failedItem.errorMessage,
+          },
+        })
+      : null;
   const updated = await prisma.skillDraftBatchItem.updateMany({
     where: {
       id: input.itemId,
       batchId: input.batchId,
       userId: input.userId,
       status: SkillDraftBatchItemStatus.FAILED,
+      NOT: { errorCode: { startsWith: "ACTIVATION_" } },
     },
     data: {
       status: SkillDraftBatchItemStatus.PLANNED,
       generationClaimId: null,
       errorCode: null,
       errorMessage: null,
+      ...(repairMetadata ? { generationMetadata: repairMetadata } : {}),
     },
   });
   if (updated.count !== 1) {
@@ -739,17 +1023,814 @@ export async function retryMaterialDraftItem(input: {
       itemId: input.itemId,
       requestedAt: input.now.toISOString(),
     });
-  } catch {
+  } catch (error) {
+    console.error("[inngest] material draft event send failed", {
+      batchId: input.batchId,
+      itemId: input.itemId,
+      error: getEventSendErrorLogDetails(error),
+    });
     await markMaterialDraftItemFailed({
       userId: input.userId,
       itemId: input.itemId,
       code: "EVENT_SEND_FAILED",
-      message: "Draft generation could not be queued. Try again.",
+      message: "Background processing was unavailable. Retry this item.",
     });
-    return { status: "not-queued" as const, message: "Draft generation could not be queued." };
+    return {
+      status: "not-queued" as const,
+      message: "Background processing was unavailable. Try again in a moment.",
+    };
   }
   await reconcileMaterialDraftBatch({ userId: input.userId, batchId: input.batchId, now: input.now });
   return { status: "queued" as const };
+}
+
+export async function queueMaterialBatchActivation(input: {
+  userId: string;
+  input: unknown;
+  now: Date;
+  eventSender?: MaterialBatchActivationEventSender;
+}) {
+  const parsed = activateBatchInputSchema.safeParse(input.input);
+  if (!parsed.success) {
+    return {
+      status: "invalid" as const,
+      message: "Choose between one and ten ready skills to add.",
+      fieldErrors: parsed.error.flatten().fieldErrors,
+    };
+  }
+  const env = getInngestEnvStatus();
+  if (env.status === "missing-env" && !input.eventSender) {
+    return { status: "not-queued" as const, message: env.message };
+  }
+  const prisma = getPrisma();
+  const reserve = () => prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`
+      SELECT "id" FROM "users"
+      WHERE "id" = ${input.userId}
+      FOR UPDATE
+    `;
+    const batch = await tx.skillDraftBatch.findFirst({
+      where: { id: parsed.data.batchId, userId: input.userId, confirmedAt: { not: null } },
+      select: { id: true },
+    });
+    if (!batch) {
+      return { status: "not-found" as const, message: "Ready material batch was not found." };
+    }
+    const items = await tx.skillDraftBatchItem.findMany({
+      where: {
+        id: { in: parsed.data.itemIds },
+        batchId: batch.id,
+        userId: input.userId,
+      },
+      select: {
+        id: true,
+        status: true,
+        skill: { select: { id: true, status: true } },
+      },
+    });
+    if (items.length !== parsed.data.itemIds.length) {
+      return {
+        status: "invalid" as const,
+        message: "Every selected item must still belong to this batch.",
+      };
+    }
+    const readyItems = items.filter(
+      (item) =>
+        item.status === SkillDraftBatchItemStatus.READY &&
+        item.skill?.status === SkillStatus.DRAFT,
+    );
+    const handledItems = items.filter(
+      (item) =>
+        (item.skill?.status === SkillStatus.ACTIVE &&
+          (item.status === SkillDraftBatchItemStatus.READY ||
+            item.status === SkillDraftBatchItemStatus.ACTIVATING ||
+            item.status === SkillDraftBatchItemStatus.ACTIVE)) ||
+        (item.status === SkillDraftBatchItemStatus.ACTIVATING &&
+          item.skill?.status === SkillStatus.DRAFT),
+    );
+    if (readyItems.length + handledItems.length !== items.length) {
+      return {
+        status: "invalid" as const,
+        message: "Every selected item must still be a ready draft in this batch.",
+      };
+    }
+    if (readyItems.length === 0) {
+      return {
+        status: "already-queued" as const,
+        batchId: batch.id,
+        message: "These skills are already being added or are active.",
+      };
+    }
+    const activeJobs = await tx.generationJob.findMany({
+      where: {
+        userId: input.userId,
+        skillId: { in: readyItems.flatMap((item) => (item.skill ? [item.skill.id] : [])) },
+        kind: GenerationJobKind.SKILL_ACTIVATION,
+        status: { in: [GenerationJobStatus.PENDING, GenerationJobStatus.RUNNING] },
+      },
+      select: { id: true, skillId: true },
+    });
+    const activeJobBySkillId = new Map(
+      activeJobs.flatMap((job) => (job.skillId ? [[job.skillId, job] as const] : [])),
+    );
+    const alreadyActivatingItems = readyItems.filter(
+      (item) => item.skill && activeJobBySkillId.has(item.skill.id),
+    );
+    const reservableItems = readyItems.filter(
+      (item) => !item.skill || !activeJobBySkillId.has(item.skill.id),
+    );
+    for (const item of alreadyActivatingItems) {
+      const activeJob = item.skill ? activeJobBySkillId.get(item.skill.id) : null;
+      if (!activeJob) {
+        continue;
+      }
+      await tx.skillDraftBatchItem.updateMany({
+        where: {
+          id: item.id,
+          userId: input.userId,
+          status: SkillDraftBatchItemStatus.READY,
+        },
+        data: {
+          status: SkillDraftBatchItemStatus.ACTIVATING,
+          generationClaimId: `existing-job:${activeJob.id}`,
+          errorCode: null,
+          errorMessage: null,
+        },
+      });
+    }
+    if (reservableItems.length === 0) {
+      await reconcileMaterialDraftBatchWithClient(tx, {
+        userId: input.userId,
+        batchId: batch.id,
+        now: input.now,
+      });
+      return {
+        status: "already-queued" as const,
+        batchId: batch.id,
+        message: "These skills are already being added or are active.",
+      };
+    }
+    const [activeSkillCount, pendingActivationCount, activationsToday] = await Promise.all([
+      tx.skill.count({
+        where: {
+          userId: input.userId,
+          status: { in: [SkillStatus.ACTIVE, SkillStatus.PAUSED] },
+        },
+      }),
+      tx.skillDraftBatchItem.count({
+        where: {
+          userId: input.userId,
+          status: SkillDraftBatchItemStatus.ACTIVATING,
+          skill: { status: SkillStatus.DRAFT },
+        },
+      }),
+      tx.generationJob.count({
+        where: {
+          userId: input.userId,
+          kind: GenerationJobKind.SKILL_ACTIVATION,
+          createdAt: { gte: startOfUtcDay(input.now) },
+        },
+      }),
+    ]);
+    if (activeSkillCount + pendingActivationCount + reservableItems.length > ALPHA_ACTIVE_SKILLS) {
+      await reconcileMaterialDraftBatchWithClient(tx, {
+        userId: input.userId,
+        batchId: batch.id,
+        now: input.now,
+      });
+      return {
+        status: "limited" as const,
+        code: "active-skill-limit" as const,
+        message: `Adding ${reservableItems.length} skill${reservableItems.length === 1 ? "" : "s"} would exceed the ${ALPHA_ACTIVE_SKILLS}-skill alpha limit, including skills already being added. Exclude some drafts or archive existing skills.`,
+      };
+    }
+    if (activationsToday + reservableItems.length > ALPHA_SKILL_ACTIVATIONS_PER_DAY) {
+      const remaining = Math.max(0, ALPHA_SKILL_ACTIVATIONS_PER_DAY - activationsToday);
+      await reconcileMaterialDraftBatchWithClient(tx, {
+        userId: input.userId,
+        batchId: batch.id,
+        now: input.now,
+      });
+      return {
+        status: "limited" as const,
+        code: "daily-activation-limit" as const,
+        message: `Only ${remaining} activation${remaining === 1 ? "" : "s"} remain today. Select fewer skills or try again after 00:00 UTC.`,
+      };
+    }
+
+    const model = process.env.GEMINI_MODEL?.trim() || DEFAULT_GEMINI_MODEL;
+    const byId = new Map(reservableItems.map((item) => [item.id, item]));
+    const reservations = [];
+    for (const itemId of parsed.data.itemIds) {
+      const item = byId.get(itemId);
+      if (!item) {
+        continue;
+      }
+      if (!item.skill) {
+        throw new Error("Selected activation skill disappeared while reserving quota.");
+      }
+      const generationJob = await tx.generationJob.create({
+        data: {
+          userId: input.userId,
+          skillId: item.skill.id,
+          kind: GenerationJobKind.SKILL_ACTIVATION,
+          status: GenerationJobStatus.PENDING,
+          provider: GEMINI_PROVIDER,
+          model,
+          promptVersion: SKILL_MCQ_PROMPT_VERSION,
+          requestedCount: REQUESTED_ACTIVATION_EXERCISES,
+          createdAt: input.now,
+        },
+        select: { id: true },
+      });
+      await tx.skillDraftBatchItem.update({
+        where: { id: item.id },
+        data: {
+          status: SkillDraftBatchItemStatus.ACTIVATING,
+          errorCode: null,
+          errorMessage: null,
+        },
+      });
+      reservations.push({ itemId: item.id, generationJobId: generationJob.id });
+    }
+    await tx.skillDraftBatch.update({
+      where: { id: batch.id },
+      data: {
+        status: SkillDraftBatchStatus.ACTIVATING,
+        completedAt: null,
+        errorCode: null,
+        errorMessage: null,
+      },
+    });
+    await reconcileMaterialDraftBatchWithClient(tx, {
+      userId: input.userId,
+      batchId: batch.id,
+      now: input.now,
+    });
+    return { status: "reserved" as const, batchId: batch.id, reservations };
+  });
+  let reservation: Awaited<ReturnType<typeof reserve>>;
+  try {
+    reservation = await reserve();
+  } catch (error) {
+    if (!isPrismaUniqueConstraintError(error)) {
+      throw error;
+    }
+    reservation = await reserve();
+  }
+
+  if (reservation.status !== "reserved") {
+    return reservation;
+  }
+  const sender = input.eventSender ?? inngestMaterialBatchActivationEventSender;
+  const payloads = reservation.reservations.map((item) => ({
+    userId: input.userId,
+    batchId: reservation.batchId,
+    itemId: item.itemId,
+    generationJobId: item.generationJobId,
+    requestedAt: input.now.toISOString(),
+  }));
+  const sendResults = await Promise.allSettled(
+    payloads.map((payload) => sender.sendMaterialBatchActivationRequested(payload)),
+  );
+  const failed = sendResults.flatMap((result, index) =>
+    result.status === "rejected" ? [payloads[index]] : [],
+  );
+  if (failed.length > 0) {
+    await prisma.$transaction(async (tx) => {
+      await tx.generationJob.updateMany({
+        where: {
+          id: { in: failed.map((item) => item.generationJobId) },
+          userId: input.userId,
+          status: GenerationJobStatus.PENDING,
+        },
+        data: {
+          status: GenerationJobStatus.FAILED,
+          errorMessage: "Activation could not be queued.",
+          completedAt: input.now,
+        },
+      });
+      await tx.skillDraftBatchItem.updateMany({
+        where: {
+          id: { in: failed.map((item) => item.itemId) },
+          userId: input.userId,
+          status: SkillDraftBatchItemStatus.ACTIVATING,
+        },
+        data: {
+          status: SkillDraftBatchItemStatus.FAILED,
+          errorCode: "ACTIVATION_EVENT_SEND_FAILED",
+          errorMessage: "Activation could not be queued. Retry this item.",
+        },
+      });
+    });
+    await reconcileMaterialDraftBatch({
+      userId: input.userId,
+      batchId: reservation.batchId,
+      now: input.now,
+    });
+  }
+  const failedItemIds = failed.map((item) => item.itemId);
+  return {
+    status: failed.length > 0 ? ("partial" as const) : ("queued" as const),
+    batchId: reservation.batchId,
+    queuedItemIds: payloads
+      .map((payload) => payload.itemId)
+      .filter((itemId) => !failedItemIds.includes(itemId)),
+    failedItemIds,
+  };
+}
+
+export async function runMaterialBatchActivationJob(input: {
+  userId: string;
+  batchId: string;
+  itemId: string;
+  generationJobId: string;
+  requestedAt?: string;
+  attempt?: number;
+  maxAttempts?: number;
+  now?: Date;
+  generateChoiceExercises?: ChoiceExerciseGenerator;
+  verifyChoiceExercises?: ChoiceExerciseVerifier;
+  sourceMediaLoader?: SourceMediaContextLoader;
+  sourceEvidenceLoader?: SkillSourceEvidenceLoader;
+  model?: string;
+}) {
+  const prisma = getPrisma();
+  const now = input.now ?? new Date();
+  const item = await prisma.skillDraftBatchItem.findFirst({
+    where: { id: input.itemId, batchId: input.batchId, userId: input.userId },
+    select: {
+      id: true,
+      status: true,
+      errorCode: true,
+      skill: { select: { id: true, status: true } },
+    },
+  });
+  if (!item?.skill) {
+    return { status: "not-found" as const };
+  }
+  if (item.status === SkillDraftBatchItemStatus.ACTIVE && item.skill.status === SkillStatus.ACTIVE) {
+    return { status: "active" as const, alreadyActivated: true, skillId: item.skill.id };
+  }
+  if (item.skill.status === SkillStatus.ACTIVE) {
+    await markMaterialBatchItemActive({
+      userId: input.userId,
+      batchId: input.batchId,
+      itemId: item.id,
+      now,
+    });
+    return { status: "active" as const, alreadyActivated: true, skillId: item.skill.id };
+  }
+  const slot = await claimMaterialBatchActivationSlot({
+    userId: input.userId,
+    batchId: input.batchId,
+    itemId: item.id,
+    generationJobId: input.generationJobId,
+    now,
+  });
+  if (slot.status === "limited") {
+    await reconcileMaterialDraftBatch({
+      userId: input.userId,
+      batchId: input.batchId,
+      now,
+    });
+    throw new MaterialBatchActivationError(slot.message, { retryable: true });
+  }
+  if (slot.status !== "ready") {
+    return { status: "not-claimed" as const };
+  }
+
+  let result: Awaited<ReturnType<typeof activateSkillDraft>>;
+  try {
+    result = await activateSkillDraft({
+      userId: input.userId,
+      skillId: slot.skillId,
+      generationJobId: input.generationJobId,
+      now,
+      generateChoiceExercises: input.generateChoiceExercises,
+      verifyChoiceExercises: input.verifyChoiceExercises,
+      sourceMediaLoader: input.sourceMediaLoader,
+      sourceEvidenceLoader: input.sourceEvidenceLoader,
+      model: input.model,
+      skipUsageLimitCheck: true,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Skill activation failed.";
+    await prisma.generationJob.updateMany({
+      where: {
+        id: input.generationJobId,
+        userId: input.userId,
+        status: { in: [GenerationJobStatus.PENDING, GenerationJobStatus.RUNNING] },
+      },
+      data: {
+        status: GenerationJobStatus.FAILED,
+        errorMessage: message.slice(0, 1_000),
+        completedAt: now,
+      },
+    });
+    const marked = hasAutomaticActivationRetryRemaining(input)
+      ? await releaseMaterialBatchActivationForRetry({
+          userId: input.userId,
+          batchId: input.batchId,
+          itemId: item.id,
+          claimId: slot.claimId,
+          message,
+          now,
+        })
+      : await markMaterialBatchActivationFailed({
+          userId: input.userId,
+          batchId: input.batchId,
+          itemId: item.id,
+          claimId: slot.claimId,
+          code: "ACTIVATION_RETRYABLE_UNEXPECTED_FAILURE",
+          message,
+          now,
+        });
+    if (!marked) {
+      return { status: "not-claimed" as const };
+    }
+    throw new MaterialBatchActivationError(message, { retryable: true, cause: error });
+  }
+  if (result.status === "activated") {
+    return {
+      status: "active" as const,
+      alreadyActivated: false,
+      skillId: result.skillId,
+      exerciseCount: result.exerciseCount,
+    };
+  }
+  const reason = result.reason.toUpperCase().replaceAll("-", "_");
+  const retryable = [
+    "generation-failed",
+    "verification-failed",
+    "activation-in-progress",
+  ].includes(result.reason);
+  const marked =
+    retryable && hasAutomaticActivationRetryRemaining(input)
+      ? await releaseMaterialBatchActivationForRetry({
+          userId: input.userId,
+          batchId: input.batchId,
+          itemId: item.id,
+          claimId: slot.claimId,
+          message: result.message,
+          now,
+        })
+      : await markMaterialBatchActivationFailed({
+          userId: input.userId,
+          batchId: input.batchId,
+          itemId: item.id,
+          claimId: slot.claimId,
+          code: `ACTIVATION_${retryable ? "RETRYABLE_" : ""}${reason}`,
+          message: result.message,
+          now,
+        });
+  if (!marked) {
+    return { status: "not-claimed" as const };
+  }
+  if (retryable) {
+    throw new MaterialBatchActivationError(result.message, { retryable: true });
+  }
+  return { status: "failed" as const, reason: result.reason, message: result.message };
+}
+
+async function claimMaterialBatchActivationSlot(input: {
+  userId: string;
+  batchId: string;
+  itemId: string;
+  generationJobId: string;
+  now: Date;
+}) {
+  return getPrisma().$transaction(async (tx) => {
+    await tx.$queryRaw`
+      SELECT "id" FROM "users"
+      WHERE "id" = ${input.userId}
+      FOR UPDATE
+    `;
+    const item = await tx.skillDraftBatchItem.findFirst({
+      where: { id: input.itemId, batchId: input.batchId, userId: input.userId },
+      select: {
+        id: true,
+        status: true,
+        errorCode: true,
+        generationClaimId: true,
+        updatedAt: true,
+        skill: { select: { id: true, status: true } },
+      },
+    });
+    if (!item?.skill || item.skill.status !== SkillStatus.DRAFT) {
+      return { status: "not-claimed" as const };
+    }
+    const retryingTransientFailure =
+      item.status === SkillDraftBatchItemStatus.FAILED &&
+      item.errorCode?.startsWith("ACTIVATION_RETRYABLE_");
+    if (item.status !== SkillDraftBatchItemStatus.ACTIVATING && !retryingTransientFailure) {
+      return { status: "not-claimed" as const };
+    }
+    if (
+      item.status === SkillDraftBatchItemStatus.ACTIVATING &&
+      item.generationClaimId &&
+      input.now.getTime() - item.updatedAt.getTime() < MATERIAL_BATCH_ACTIVATION_CLAIM_STALE_MS
+    ) {
+      return { status: "not-claimed" as const };
+    }
+    const job = await tx.generationJob.findFirst({
+      where: {
+        id: input.generationJobId,
+        userId: input.userId,
+        skillId: item.skill.id,
+        kind: GenerationJobKind.SKILL_ACTIVATION,
+        status: {
+          in: [
+            GenerationJobStatus.PENDING,
+            GenerationJobStatus.RUNNING,
+            GenerationJobStatus.FAILED,
+          ],
+        },
+      },
+      select: { id: true, status: true, startedAt: true },
+    });
+    if (
+      !job ||
+      (job.status === GenerationJobStatus.RUNNING &&
+        job.startedAt &&
+        input.now.getTime() - job.startedAt.getTime() <
+          MATERIAL_BATCH_ACTIVATION_CLAIM_STALE_MS)
+    ) {
+      return { status: "not-claimed" as const };
+    }
+    const [activeSkillCount, pendingActivationCount] = await Promise.all([
+      tx.skill.count({
+        where: {
+          userId: input.userId,
+          status: { in: [SkillStatus.ACTIVE, SkillStatus.PAUSED] },
+        },
+      }),
+      tx.skillDraftBatchItem.count({
+        where: {
+          userId: input.userId,
+          status: SkillDraftBatchItemStatus.ACTIVATING,
+          skill: { status: SkillStatus.DRAFT },
+        },
+      }),
+    ]);
+    const projectedSkillCount =
+      activeSkillCount + pendingActivationCount + (retryingTransientFailure ? 1 : 0);
+    if (projectedSkillCount > ALPHA_ACTIVE_SKILLS) {
+      if (item.status === SkillDraftBatchItemStatus.ACTIVATING) {
+        await tx.skillDraftBatchItem.update({
+          where: { id: item.id },
+          data: {
+            status: SkillDraftBatchItemStatus.FAILED,
+            errorCode: "ACTIVATION_RETRYABLE_ACTIVE_SKILL_LIMIT",
+            errorMessage: `Activation would exceed the ${ALPHA_ACTIVE_SKILLS}-skill alpha limit. Archive a skill and retry.`,
+          },
+        });
+      }
+      await tx.generationJob.update({
+        where: { id: job.id },
+        data: {
+          status: GenerationJobStatus.FAILED,
+          errorMessage: `Activation would exceed the ${ALPHA_ACTIVE_SKILLS}-skill alpha limit.`,
+          completedAt: input.now,
+        },
+      });
+      return {
+        status: "limited" as const,
+        message: `Activation would exceed the ${ALPHA_ACTIVE_SKILLS}-skill alpha limit. Archive a skill and retry.`,
+      };
+    }
+    const claimId = randomUUID();
+    const keepAutomaticRetryState =
+      item.errorCode === "ACTIVATION_RETRYING_TRANSIENT_FAILURE";
+    await tx.skillDraftBatchItem.update({
+      where: { id: item.id },
+      data: {
+        status: SkillDraftBatchItemStatus.ACTIVATING,
+        generationClaimId: claimId,
+        ...(keepAutomaticRetryState ? {} : { errorCode: null, errorMessage: null }),
+      },
+    });
+    return { status: "ready" as const, skillId: item.skill.id, claimId };
+  });
+}
+
+export async function retryMaterialBatchActivationItem(input: {
+  userId: string;
+  batchId: string;
+  itemId: string;
+  now: Date;
+  eventSender?: MaterialBatchActivationEventSender;
+}) {
+  const parsed = batchItemMutationInputSchema.safeParse({
+    batchId: input.batchId,
+    itemId: input.itemId,
+  });
+  if (!parsed.success) {
+    return { status: "invalid" as const, message: "Activation item was invalid." };
+  }
+  const env = getInngestEnvStatus();
+  if (env.status === "missing-env" && !input.eventSender) {
+    return { status: "not-queued" as const, message: env.message };
+  }
+  const prisma = getPrisma();
+  const retry = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`
+      SELECT "id" FROM "users"
+      WHERE "id" = ${input.userId}
+      FOR UPDATE
+    `;
+    const item = await tx.skillDraftBatchItem.findFirst({
+      where: {
+        id: parsed.data.itemId,
+        batchId: parsed.data.batchId,
+        userId: input.userId,
+        status: SkillDraftBatchItemStatus.FAILED,
+        errorCode: { startsWith: "ACTIVATION_" },
+      },
+      select: { id: true, skill: { select: { id: true, status: true } } },
+    });
+    if (!item?.skill || item.skill.status !== SkillStatus.DRAFT) {
+      return { status: "not-found" as const };
+    }
+    const job = await tx.generationJob.findFirst({
+      where: {
+        userId: input.userId,
+        skillId: item.skill.id,
+        kind: GenerationJobKind.SKILL_ACTIVATION,
+        status: {
+          in: [
+            GenerationJobStatus.FAILED,
+            GenerationJobStatus.PENDING,
+            GenerationJobStatus.RUNNING,
+          ],
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      select: { id: true },
+    });
+    if (!job) {
+      return { status: "not-found" as const };
+    }
+    const [activeSkillCount, pendingActivationCount] = await Promise.all([
+      tx.skill.count({
+        where: {
+          userId: input.userId,
+          status: { in: [SkillStatus.ACTIVE, SkillStatus.PAUSED] },
+        },
+      }),
+      tx.skillDraftBatchItem.count({
+        where: {
+          userId: input.userId,
+          status: SkillDraftBatchItemStatus.ACTIVATING,
+          skill: { status: SkillStatus.DRAFT },
+        },
+      }),
+    ]);
+    if (activeSkillCount + pendingActivationCount >= ALPHA_ACTIVE_SKILLS) {
+      return {
+        status: "limited" as const,
+        message: `This retry would exceed the ${ALPHA_ACTIVE_SKILLS}-skill alpha limit, including skills already being added. Archive a skill or wait for an in-progress activation to finish.`,
+      };
+    }
+    await tx.skillDraftBatchItem.update({
+      where: { id: item.id },
+      data: {
+        status: SkillDraftBatchItemStatus.ACTIVATING,
+        generationClaimId: null,
+        errorCode: null,
+        errorMessage: null,
+      },
+    });
+    await tx.skillDraftBatch.update({
+      where: { id: parsed.data.batchId },
+      data: { status: SkillDraftBatchStatus.ACTIVATING, completedAt: null },
+    });
+    return { status: "reserved" as const, itemId: item.id, generationJobId: job.id };
+  });
+  if (retry.status === "not-found") {
+    return { status: "not-found" as const, message: "Retryable activation was not found." };
+  }
+  if (retry.status === "limited") {
+    return retry;
+  }
+  const payload = {
+    userId: input.userId,
+    batchId: parsed.data.batchId,
+    itemId: retry.itemId,
+    generationJobId: retry.generationJobId,
+    requestedAt: input.now.toISOString(),
+  };
+  try {
+    await (input.eventSender ?? inngestMaterialBatchActivationEventSender)
+      .sendMaterialBatchActivationRequested(payload);
+  } catch {
+    await markMaterialBatchActivationFailed({
+      userId: input.userId,
+      batchId: parsed.data.batchId,
+      itemId: retry.itemId,
+      code: "ACTIVATION_EVENT_SEND_FAILED",
+      message: "Activation could not be queued. Try again.",
+      now: input.now,
+    });
+    return { status: "not-queued" as const, message: "Activation could not be queued." };
+  }
+  return {
+    status: "queued" as const,
+    itemId: retry.itemId,
+    generationJobId: retry.generationJobId,
+  };
+}
+
+async function markMaterialBatchItemActive(input: {
+  userId: string;
+  batchId: string;
+  itemId: string;
+  now: Date;
+}) {
+  await getPrisma().skillDraftBatchItem.updateMany({
+    where: { id: input.itemId, batchId: input.batchId, userId: input.userId },
+    data: {
+      status: SkillDraftBatchItemStatus.ACTIVE,
+      generationClaimId: null,
+      errorCode: null,
+      errorMessage: null,
+    },
+  });
+  await reconcileMaterialDraftBatch(input);
+}
+
+async function markMaterialBatchActivationFailed(input: {
+  userId: string;
+  batchId: string;
+  itemId: string;
+  claimId?: string;
+  code: string;
+  message: string;
+  now: Date;
+}) {
+  const updated = await getPrisma().skillDraftBatchItem.updateMany({
+    where: {
+      id: input.itemId,
+      batchId: input.batchId,
+      userId: input.userId,
+      ...(input.claimId
+        ? {
+            status: SkillDraftBatchItemStatus.ACTIVATING,
+            generationClaimId: input.claimId,
+          }
+        : {}),
+    },
+    data: {
+      status: SkillDraftBatchItemStatus.FAILED,
+      generationClaimId: null,
+      errorCode: input.code,
+      errorMessage: input.message.slice(0, 1_000),
+    },
+  });
+  if (updated.count === 1) {
+    await reconcileMaterialDraftBatch(input);
+  }
+  return updated.count === 1;
+}
+
+async function releaseMaterialBatchActivationForRetry(input: {
+  userId: string;
+  batchId: string;
+  itemId: string;
+  claimId: string;
+  message: string;
+  now: Date;
+}) {
+  const updated = await getPrisma().skillDraftBatchItem.updateMany({
+    where: {
+      id: input.itemId,
+      batchId: input.batchId,
+      userId: input.userId,
+      status: SkillDraftBatchItemStatus.ACTIVATING,
+      generationClaimId: input.claimId,
+    },
+    data: {
+      status: SkillDraftBatchItemStatus.ACTIVATING,
+      generationClaimId: null,
+      errorCode: "ACTIVATION_RETRYING_TRANSIENT_FAILURE",
+      errorMessage: input.message.slice(0, 1_000),
+    },
+  });
+  if (updated.count === 1) {
+    await reconcileMaterialDraftBatch(input);
+  }
+  return updated.count === 1;
+}
+
+function hasAutomaticActivationRetryRemaining(input: {
+  attempt?: number;
+  maxAttempts?: number;
+}) {
+  return (
+    input.attempt !== undefined &&
+    input.maxAttempts !== undefined &&
+    input.attempt + 1 < input.maxAttempts
+  );
 }
 
 export async function excludeMaterialDraftItem(input: {
@@ -853,7 +1934,11 @@ export async function excludeMaterialDraftItem(input: {
 
 export async function getMaterialDraftBatch(input: { userId: string; batchId: string }) {
   const prisma = getPrisma();
-  const staleBefore = new Date(Date.now() - MATERIAL_DRAFT_CLAIM_STALE_MS);
+  const now = new Date();
+  const staleBefore = new Date(now.getTime() - MATERIAL_DRAFT_CLAIM_STALE_MS);
+  const activationStaleBefore = new Date(
+    now.getTime() - MATERIAL_BATCH_ACTIVATION_CLAIM_STALE_MS,
+  );
   const recovered = await prisma.skillDraftBatchItem.updateMany({
     where: {
       batchId: input.batchId,
@@ -868,11 +1953,85 @@ export async function getMaterialDraftBatch(input: { userId: string; batchId: st
       errorMessage: "Draft generation stopped before it finished. Retry this item.",
     },
   });
-  if (recovered.count > 0) {
+  const staleActivationItems = await prisma.skillDraftBatchItem.findMany({
+    where: {
+      batchId: input.batchId,
+      userId: input.userId,
+      status: SkillDraftBatchItemStatus.ACTIVATING,
+      generationClaimId: { not: null },
+      updatedAt: { lt: activationStaleBefore },
+      skill: { status: SkillStatus.DRAFT },
+    },
+    select: { id: true, skillId: true },
+  });
+  const recoveredActivations = staleActivationItems.length
+    ? await prisma.skillDraftBatchItem.updateMany({
+        where: {
+          id: { in: staleActivationItems.map((item) => item.id) },
+          userId: input.userId,
+          status: SkillDraftBatchItemStatus.ACTIVATING,
+          generationClaimId: { not: null },
+          updatedAt: { lt: activationStaleBefore },
+          skill: { status: SkillStatus.DRAFT },
+        },
+        data: {
+          status: SkillDraftBatchItemStatus.FAILED,
+          generationClaimId: null,
+          errorCode: "ACTIVATION_RETRYABLE_STALE_CLAIM",
+          errorMessage: "Activation stopped before it finished. Retry or exclude this item.",
+        },
+      })
+    : { count: 0 };
+  if (recoveredActivations.count > 0) {
+    await prisma.generationJob.updateMany({
+      where: {
+        userId: input.userId,
+        skillId: {
+          in: staleActivationItems.flatMap((item) => (item.skillId ? [item.skillId] : [])),
+        },
+        kind: GenerationJobKind.SKILL_ACTIVATION,
+        OR: [
+          {
+            status: GenerationJobStatus.PENDING,
+            createdAt: { lt: activationStaleBefore },
+          },
+          {
+            status: GenerationJobStatus.RUNNING,
+            startedAt: { lt: activationStaleBefore },
+          },
+        ],
+      },
+      data: {
+        status: GenerationJobStatus.FAILED,
+        errorMessage: "Activation stopped before it finished.",
+        completedAt: now,
+      },
+    });
+  }
+  const synchronizedActive = await prisma.skillDraftBatchItem.updateMany({
+    where: {
+      batchId: input.batchId,
+      userId: input.userId,
+      status: {
+        in: [
+          SkillDraftBatchItemStatus.READY,
+          SkillDraftBatchItemStatus.ACTIVATING,
+          SkillDraftBatchItemStatus.FAILED,
+        ],
+      },
+      skill: { status: SkillStatus.ACTIVE },
+    },
+    data: {
+      status: SkillDraftBatchItemStatus.ACTIVE,
+      errorCode: null,
+      errorMessage: null,
+    },
+  });
+  if (recovered.count > 0 || recoveredActivations.count > 0 || synchronizedActive.count > 0) {
     await reconcileMaterialDraftBatch({
       userId: input.userId,
       batchId: input.batchId,
-      now: new Date(),
+      now,
     });
   }
 
@@ -921,6 +2080,7 @@ export async function getMaterialDraftBatch(input: { userId: string; batchId: st
               id: true,
               title: true,
               objective: true,
+              collection: { select: { name: true } },
               rules: true,
               examples: true,
               exerciseConstraints: true,
@@ -962,12 +2122,40 @@ export async function reconcileMaterialDraftBatch(input: {
   return summary;
 }
 
+async function reconcileMaterialDraftBatchWithClient(
+  prisma: Prisma.TransactionClient,
+  input: { userId: string; batchId: string; now: Date },
+) {
+  const items = await prisma.skillDraftBatchItem.findMany({
+    where: { batchId: input.batchId, userId: input.userId },
+    select: { status: true },
+  });
+  if (items.length === 0) {
+    return null;
+  }
+  const summary = summarizeMaterialDraftBatch(items.map((item) => item.status));
+  await prisma.skillDraftBatch.updateMany({
+    where: { id: input.batchId, userId: input.userId },
+    data: {
+      status: SkillDraftBatchStatus[summary.status],
+      readyCount: summary.readyCount,
+      failedCount: summary.failedCount,
+      excludedCount: summary.excludedCount,
+      activatedCount: summary.activatedCount,
+      completedAt: summary.terminal ? input.now : null,
+    },
+  });
+  return summary;
+}
+
 async function planExistingMaterialBatch(input: {
   userId: string;
   batchId: string;
   now: Date;
   aiSetup?: MaterialDraftAiSetup;
   embeddingGenerator?: MaterialEmbeddingGenerator | null;
+  ocrGenerator?: MaterialOcrGenerator | null;
+  ocrStorage?: SourceObjectStorage;
 }) {
   const prisma = getPrisma();
   const batch = await prisma.skillDraftBatch.findFirst({
@@ -981,6 +2169,21 @@ async function planExistingMaterialBatch(input: {
         select: {
           status: true,
           material: { select: { id: true, title: true, kind: true } },
+          sourceFiles: {
+            where: { status: SourceFileStatus.READY },
+            orderBy: { createdAt: "asc" },
+            take: 1,
+            select: {
+              id: true,
+              materialRevisionId: true,
+              kind: true,
+              status: true,
+              originalName: true,
+              mimeType: true,
+              storageBucket: true,
+              storageKey: true,
+            },
+          },
           sections: {
             orderBy: { ordinal: "asc" },
             select: {
@@ -1055,13 +2258,43 @@ async function planExistingMaterialBatch(input: {
   }
 
   try {
-    const chunks = await retrievePlanningChunks({
+    const topicSearchQuery =
+      structural.references.length === 0
+        ? resolveMaterialTopicSearchQuery(batch.instruction)
+        : null;
+    const sourceFile = batch.materialRevision.sourceFiles[0];
+    if (batch.materialRevision.material.kind === "PDF" && sourceFile) {
+      const pageRanges = sections
+        .filter((section) => structural.candidateSectionIds.includes(section.id))
+        .flatMap((section) =>
+          section.pageStart !== null && section.pageEnd !== null
+            ? [{ start: section.pageStart, end: section.pageEnd }]
+            : [],
+        );
+      if (pageRanges.length > 0) {
+        await ensureMaterialPageOcr({
+          userId: input.userId,
+          materialRevisionId: batch.materialRevisionId,
+          sourceFile,
+          pageRanges,
+          now: input.now,
+          storage: input.ocrStorage,
+          ocrGenerator: input.ocrGenerator,
+        });
+      }
+    }
+    const retrieval = await retrievePlanningChunks({
       userId: input.userId,
       materialRevisionId: batch.materialRevisionId,
       instruction: batch.instruction,
+      topicSearchQuery,
       sectionIds: structural.candidateSectionIds,
+      sections: sections.filter((section) =>
+        structural.candidateSectionIds.includes(section.id),
+      ),
       embeddingGenerator: input.embeddingGenerator,
     });
+    let chunks = retrieval.chunks;
     if (chunks.length === 0) {
       const plan = materialScopeResolutionSchema.parse({
         version: 1,
@@ -1084,26 +2317,112 @@ async function planExistingMaterialBatch(input: {
         expectedUpdatedAt: batch.updatedAt,
       });
     }
+    const recoveredScope = await recoverBackMatterMaterialScope({
+      sections,
+      sectionIds: structural.candidateSectionIds,
+      chunks,
+      retrieveRevisionChunks: ({ query }) =>
+        retrieveBackMatterRecoveryCandidates({
+          userId: input.userId,
+          materialRevisionId: batch.materialRevisionId,
+          query,
+        }),
+      retrieveSectionChunks: ({ sectionIds, anchorChunkIds }) =>
+        retrieveMaterialSectionChunks({
+          userId: input.userId,
+          materialRevisionId: batch.materialRevisionId,
+          sectionIds,
+          anchorChunkIds,
+        }),
+    });
+    if (recoveredScope.status === "ambiguous") {
+      const plan = materialScopeResolutionSchema.parse({
+        version: 1,
+        materialRevisionId: batch.materialRevisionId,
+        instruction: batch.instruction,
+        resolutionStatus: "ambiguous",
+        resolvedScopeLabel:
+          "The requested chapter was found only in answer-key or back-matter pages.",
+        warnings: ["LearnRecur could not confidently locate the instructional chapter."],
+        clarification:
+          "Choose the instructional page range or name a more specific section from the material.",
+        items: [],
+      });
+      return saveProposedMaterialPlan({
+        batchId: batch.id,
+        userId: input.userId,
+        plan,
+        model: null,
+        structural,
+        now: input.now,
+        expectedInstruction: batch.instruction,
+        expectedUpdatedAt: batch.updatedAt,
+      });
+    }
+    const planningSectionIds =
+      retrieval.focusedTopic && recoveredScope.status === "not-needed"
+        ? [
+            ...new Set(
+              recoveredScope.chunks.flatMap((chunk) =>
+                chunk.materialSectionId ? [chunk.materialSectionId] : [],
+              ),
+            ),
+          ]
+        : recoveredScope.sectionIds;
+    chunks = recoveredScope.chunks;
+    const planningStructural =
+      recoveredScope.status === "recovered" || retrieval.focusedTopic
+      ? {
+          ...structural,
+          references: structural.references.map((reference) => ({
+            ...reference,
+            sectionIds: planningSectionIds,
+          })),
+          candidateSectionIds: planningSectionIds,
+        }
+      : structural;
     const ai = input.aiSetup ?? resolveMaterialDraftAiSetup();
     const allowedSections = sections.filter((section) =>
-      structural.candidateSectionIds.includes(section.id),
+      planningSectionIds.includes(section.id),
     );
-    const rawPlan = await ai.planScope({
+    const scopePlanningInput = {
       materialTitle: batch.materialRevision.material.title,
       materialKind: batch.materialRevision.material.kind,
       instruction: batch.instruction,
-      structuralReferences: structural.references,
+      structuralReferences: planningStructural.references,
       sections: allowedSections,
       chunks,
-    });
-    const validation = validateMaterialScopePlannerResponse({
+    };
+    let validation = await generateValidatedMaterialScopePlan({
+      generate: (validationFeedback) =>
+        ai.planScope({ ...scopePlanningInput, validationFeedback }),
       materialRevisionId: batch.materialRevisionId,
       instruction: batch.instruction,
       kind: batch.materialRevision.material.kind,
       allowedSections,
       allowedChunks: chunks,
-      rawResponse: rawPlan,
     });
+    const reviewScope = ai.reviewScope;
+    if (
+      validation.status === "ready" &&
+      validation.plan.resolutionStatus === "resolved" &&
+      reviewScope
+    ) {
+      const candidatePlan = validation.plan;
+      validation = await generateValidatedMaterialScopePlan({
+        generate: (validationFeedback) =>
+          reviewScope({
+            ...scopePlanningInput,
+            candidatePlan,
+            validationFeedback,
+          }),
+        materialRevisionId: batch.materialRevisionId,
+        instruction: batch.instruction,
+        kind: batch.materialRevision.material.kind,
+        allowedSections,
+        allowedChunks: chunks,
+      });
+    }
     if (validation.status !== "ready") {
       const markedFailed = await markMaterialBatchPlanningFailed({
         userId: input.userId,
@@ -1140,13 +2459,17 @@ async function planExistingMaterialBatch(input: {
       userId: input.userId,
       plan,
       model: ai.model,
-      structural,
+      structural: planningStructural,
       now: input.now,
       expectedInstruction: batch.instruction,
       expectedUpdatedAt: batch.updatedAt,
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Material scope planning failed.";
+    console.error("[materials] scope planning failed", {
+      materialRevisionId: batch.materialRevisionId,
+      error: error instanceof Error ? error.message : "Unknown scope planning error",
+    });
+    const message = getPublicGeminiScopePlanningFailureMessage(error);
     const markedFailed = await markMaterialBatchPlanningFailed({
       userId: input.userId,
       batchId: batch.id,
@@ -1169,11 +2492,15 @@ async function retrievePlanningChunks(input: {
   userId: string;
   materialRevisionId: string;
   instruction: string;
+  topicSearchQuery?: string | null;
   sectionIds: string[];
+  sections: MaterialPlanningSection[];
   embeddingGenerator?: MaterialEmbeddingGenerator | null;
 }) {
   const prisma = getPrisma();
   let ranked: MaterialChunkSearchResult[] = [];
+  let focusedTopic = false;
+  const retrievalQuery = input.topicSearchQuery ?? input.instruction;
   const embeddingGenerator =
     input.embeddingGenerator === undefined
       ? safelyResolveEmbeddingGenerator()
@@ -1181,17 +2508,19 @@ async function retrievePlanningChunks(input: {
   if (embeddingGenerator) {
     try {
       const [embedding] = await embeddingGenerator({
-        texts: [input.instruction],
+        texts: [retrievalQuery],
         titles: ["Material skill request"],
       });
-      ranked = await searchMaterialChunks({
-        userId: input.userId,
-        materialRevisionId: input.materialRevisionId,
-        embedding,
-        query: input.instruction,
-        materialSectionIds: input.sectionIds,
-        limit: 48,
-      });
+      ranked = (
+        await searchMaterialChunks({
+          userId: input.userId,
+          materialRevisionId: input.materialRevisionId,
+          embedding,
+          query: retrievalQuery,
+          materialSectionIds: input.sectionIds,
+          limit: 48,
+        })
+      ).filter((chunk) => chunk.vectorScore > 0 || chunk.lexicalScore > 0);
     } catch (error) {
       console.warn("[materials] semantic scope retrieval unavailable", {
         materialRevisionId: input.materialRevisionId,
@@ -1199,14 +2528,88 @@ async function retrievePlanningChunks(input: {
       });
     }
   }
-  if (ranked.length === 0) {
-    ranked = await searchMaterialChunksLexical({
+  if (input.topicSearchQuery) {
+    const lexicalMatches = await searchMaterialChunksLexical({
       userId: input.userId,
       materialRevisionId: input.materialRevisionId,
-      query: input.instruction,
+      query: input.topicSearchQuery,
       materialSectionIds: input.sectionIds,
       limit: 48,
+      prefixMatching: true,
     });
+    const selected = selectMaterialTopicRetrievalChunks({
+      semantic: ranked,
+      lexical: lexicalMatches,
+    });
+    if (selected.focused) {
+      ranked = [...selected.chunks];
+      focusedTopic = true;
+    }
+  }
+  if (ranked.length === 0) {
+    ranked = (
+      await searchMaterialChunksLexical({
+        userId: input.userId,
+        materialRevisionId: input.materialRevisionId,
+        query: retrievalQuery,
+        materialSectionIds: input.sectionIds,
+        limit: 48,
+      })
+    ).filter((chunk) => chunk.lexicalScore > 0);
+  }
+  const ocrChunks = await retrieveOcrPlanningChunks({
+    userId: input.userId,
+    materialRevisionId: input.materialRevisionId,
+    instruction: retrievalQuery,
+    sections: focusedTopic
+      ? input.sections.filter((section) =>
+          ranked.some((chunk) => chunk.materialSectionId === section.id),
+        )
+      : input.sections,
+  });
+  const matchedOcrChunks = ocrChunks.filter((chunk) => chunk.lexicalScore > 0);
+  const reservedOcrChunks = uniqueById([...matchedOcrChunks, ...ocrChunks]).slice(0, 8);
+  ranked = uniqueById([
+    ...matchedOcrChunks,
+    ...ranked.slice(0, Math.max(0, 48 - reservedOcrChunks.length)),
+    ...reservedOcrChunks,
+  ]).slice(0, 48);
+  const persistedRanked = ranked.filter(
+    (chunk) => chunk.materialSectionId !== null && !parseMaterialPageEvidenceId(chunk.id),
+  );
+  if (persistedRanked.length > 0) {
+    const neighboringRows = await prisma.materialChunk.findMany({
+      where: {
+        userId: input.userId,
+        materialRevisionId: input.materialRevisionId,
+        OR: persistedRanked.map((chunk) => ({
+          materialSectionId: chunk.materialSectionId,
+          ordinal: { gte: Math.max(0, chunk.ordinal - 1), lte: chunk.ordinal + 1 },
+        })),
+      },
+      orderBy: [{ materialSectionId: "asc" }, { ordinal: "asc" }],
+      select: {
+        id: true,
+        materialRevisionId: true,
+        materialSectionId: true,
+        sourceFileId: true,
+        ordinal: true,
+        text: true,
+        tokenEstimate: true,
+        locator: true,
+        headingText: true,
+      },
+    });
+    const neighboringChunks = neighboringRows.map((chunk) => ({
+      ...chunk,
+      vectorScore: 0,
+      lexicalScore: 0,
+      score: 0,
+    }));
+    ranked = uniqueById([
+      ...expandPlanningChunkNeighbors(persistedRanked, neighboringChunks, 48),
+      ...ranked,
+    ]).slice(0, 48);
   }
   const firstBySection = await prisma.$queryRaw<MaterialChunkSearchResult[]>`
     WITH section_chunks AS (
@@ -1250,26 +2653,232 @@ async function retrievePlanningChunks(input: {
     )
     LIMIT ${PLANNING_CHUNK_LIMIT}
   `;
+  const firstOcrBySection = uniqueBy(
+    ocrChunks.filter((chunk) => chunk.materialSectionId !== null),
+    (chunk) => chunk.materialSectionId,
+  );
   const rankedChunks = uniqueById(ranked);
   const rankedSectionIds = new Set(
     rankedChunks.flatMap((chunk) =>
       chunk.materialSectionId ? [chunk.materialSectionId] : [],
     ),
   );
-  const uncoveredSectionFallbacks = firstBySection.filter(
-    (chunk) =>
-      chunk.materialSectionId !== null && !rankedSectionIds.has(chunk.materialSectionId),
-  );
+  const uncoveredSectionFallbacks = focusedTopic
+    ? []
+    : uniqueById([...firstBySection, ...firstOcrBySection]).filter(
+        (chunk) =>
+          chunk.materialSectionId !== null && !rankedSectionIds.has(chunk.materialSectionId),
+      );
   const rankedMinimum = rankedChunks.length > 0 ? 1 : 0;
   const fallbackSlots = Math.min(
     uncoveredSectionFallbacks.length,
     PLANNING_CHUNK_LIMIT - rankedMinimum,
   );
   const rankedSlots = PLANNING_CHUNK_LIMIT - fallbackSlots;
-  return uniqueById([
-    ...rankedChunks.slice(0, rankedSlots),
-    ...uncoveredSectionFallbacks.slice(0, fallbackSlots),
-  ]);
+  return {
+    chunks: uniqueById([
+      ...rankedChunks.slice(0, rankedSlots),
+      ...uncoveredSectionFallbacks.slice(0, fallbackSlots),
+    ]),
+    focusedTopic,
+  };
+}
+
+async function retrieveBackMatterRecoveryCandidates(input: {
+  userId: string;
+  materialRevisionId: string;
+  query: string;
+}) {
+  return (
+    await searchMaterialChunksLexical({
+      userId: input.userId,
+      materialRevisionId: input.materialRevisionId,
+      query: input.query,
+      limit: 48,
+    })
+  ).filter((chunk) => chunk.lexicalScore > 0);
+}
+
+async function retrieveMaterialSectionChunks(input: {
+  userId: string;
+  materialRevisionId: string;
+  sectionIds: string[];
+  anchorChunkIds: string[];
+}): Promise<MaterialChunkSearchResult[]> {
+  if (input.sectionIds.length === 0 || input.anchorChunkIds.length === 0) {
+    return [];
+  }
+  const prisma = getPrisma();
+  const anchors = await prisma.materialChunk.findMany({
+    where: {
+      userId: input.userId,
+      materialRevisionId: input.materialRevisionId,
+      materialSectionId: { in: input.sectionIds },
+      id: { in: input.anchorChunkIds },
+    },
+    select: { materialSectionId: true, ordinal: true },
+  });
+  const minimumOrdinalBySection = new Map<string, number>();
+  for (const anchor of anchors) {
+    if (!anchor.materialSectionId) {
+      continue;
+    }
+    const current = minimumOrdinalBySection.get(anchor.materialSectionId);
+    minimumOrdinalBySection.set(
+      anchor.materialSectionId,
+      current === undefined ? anchor.ordinal : Math.min(current, anchor.ordinal),
+    );
+  }
+  const sectionWindows = input.sectionIds.flatMap((sectionId) => {
+    const minimumOrdinal = minimumOrdinalBySection.get(sectionId);
+    return minimumOrdinal === undefined
+      ? []
+      : [{ materialSectionId: sectionId, ordinal: { gte: minimumOrdinal } }];
+  });
+  if (sectionWindows.length === 0) {
+    return [];
+  }
+  const chunks = await prisma.materialChunk.findMany({
+    where: {
+      userId: input.userId,
+      materialRevisionId: input.materialRevisionId,
+      OR: sectionWindows,
+    },
+    orderBy: { ordinal: "asc" },
+    take: PLANNING_CHUNK_LIMIT,
+    select: {
+      id: true,
+      materialRevisionId: true,
+      materialSectionId: true,
+      sourceFileId: true,
+      ordinal: true,
+      text: true,
+      tokenEstimate: true,
+      locator: true,
+      headingText: true,
+    },
+  });
+  return chunks.map((chunk) => ({
+    ...chunk,
+    vectorScore: 0,
+    lexicalScore: 0,
+    score: 0,
+  }));
+}
+
+async function retrieveOcrPlanningChunks(input: {
+  userId: string;
+  materialRevisionId: string;
+  instruction: string;
+  sections: MaterialPlanningSection[];
+}): Promise<MaterialChunkSearchResult[]> {
+  const boundedSections = input.sections.filter(
+    (section) => section.pageStart !== null && section.pageEnd !== null,
+  );
+  if (boundedSections.length === 0) {
+    return [];
+  }
+  const pages = await getPrisma().materialPage.findMany({
+    where: {
+      userId: input.userId,
+      materialRevisionId: input.materialRevisionId,
+      textStatus: MaterialPageTextStatus.OCR_READY,
+      ocrText: { not: null },
+      OR: boundedSections.map((section) => ({
+        pageNumber: { gte: section.pageStart!, lte: section.pageEnd! },
+      })),
+    },
+    orderBy: { pageNumber: "asc" },
+    select: {
+      id: true,
+      pageNumber: true,
+      ocrText: true,
+      tokenEstimate: true,
+    },
+  });
+  return pages.flatMap((page) => {
+    if (!page.ocrText) {
+      return [];
+    }
+    const section = boundedSections
+      .filter(
+        (candidate) =>
+          candidate.pageStart! <= page.pageNumber && candidate.pageEnd! >= page.pageNumber,
+      )
+      .sort(
+        (left, right) =>
+          right.level - left.level ||
+          left.pageEnd! - left.pageStart! - (right.pageEnd! - right.pageStart!) ||
+          left.ordinal - right.ordinal,
+      )[0];
+    if (!section) {
+      return [];
+    }
+    const lexicalScore = planningLexicalScore(input.instruction, page.ocrText);
+    return [
+      {
+        id: materialPageEvidenceId(page.id),
+        materialRevisionId: input.materialRevisionId,
+        materialSectionId: section.id,
+        sourceFileId: null,
+        ordinal: page.pageNumber,
+        text: page.ocrText,
+        tokenEstimate: page.tokenEstimate,
+        locator: {
+          kind: "pdf",
+          pageRange: { start: page.pageNumber, end: page.pageNumber },
+        },
+        headingText: `${section.title} · page ${page.pageNumber}`,
+        vectorScore: 0,
+        lexicalScore,
+        score: lexicalScore,
+      },
+    ];
+  });
+}
+
+function planningLexicalScore(query: string, text: string) {
+  const terms = new Set(normalizeComparableText(query).split(" ").filter((term) => term.length > 1));
+  if (terms.size === 0) {
+    return 0;
+  }
+  const textTerms = new Set(normalizeComparableText(text).split(" "));
+  return [...terms].filter((term) => textTerms.has(term)).length / terms.size;
+}
+
+function readJsonObject(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? { ...(value as Record<string, unknown>) }
+    : {};
+}
+
+function readTargetRepairContext(value: unknown) {
+  const repair = readJsonObject(readJsonObject(value).targetRepair);
+  return repair.required === true && typeof repair.verificationNote === "string"
+    ? { verificationNote: repair.verificationNote }
+    : null;
+}
+
+function readScopeBoundaries(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return { includeConcepts: [] as string[], excludeConcepts: [] as string[] };
+  }
+  const boundaries = (value as { scopeBoundaries?: unknown }).scopeBoundaries;
+  if (!boundaries || typeof boundaries !== "object" || Array.isArray(boundaries)) {
+    return { includeConcepts: [] as string[], excludeConcepts: [] as string[] };
+  }
+  const record = boundaries as {
+    includeConcepts?: unknown;
+    excludeConcepts?: unknown;
+  };
+  const readConcepts = (concepts: unknown) =>
+    Array.isArray(concepts)
+      ? concepts.filter((concept): concept is string => typeof concept === "string")
+      : [];
+  return {
+    includeConcepts: readConcepts(record.includeConcepts),
+    excludeConcepts: readConcepts(record.excludeConcepts),
+  };
 }
 
 async function saveProposedMaterialPlan(input: {
@@ -1440,8 +3049,24 @@ function normalizeMaterialDraftError(error: unknown) {
     return error;
   }
   const message = error instanceof Error ? error.message : "Material draft generation failed.";
-  const retryable = !/invalid|not found|unsupported|confirmed evidence/i.test(message);
+  const retryable = !/invalid|not found|no longer available|unsupported|confirmed evidence/i.test(
+    message,
+  );
   return new MaterialDraftGenerationError(message, { retryable, cause: error });
+}
+
+function getEventSendErrorLogDetails(error: unknown) {
+  if (error instanceof Error) {
+    return { name: error.name, message: error.message };
+  }
+  if (typeof error === "string" && error.trim()) {
+    return { name: "Error", message: error };
+  }
+  return { name: "UnknownError", message: "Unknown event send failure." };
+}
+
+function isPrismaUniqueConstraintError(error: unknown) {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
 }
 
 function safelyResolveEmbeddingGenerator() {
@@ -1469,6 +3094,6 @@ function uniqueById<T extends { id: string }>(values: T[]) {
   return [...new Map(values.map((value) => [value.id, value])).values()];
 }
 
-function isDefined<T>(value: T | undefined): value is T {
-  return value !== undefined;
+function uniqueBy<T, K>(values: T[], key: (value: T) => K) {
+  return [...new Map(values.map((value) => [key(value), value])).values()];
 }

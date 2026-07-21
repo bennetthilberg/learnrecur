@@ -3,12 +3,12 @@ import { FilePdf, GlobeHemisphereWest, PlusCircle } from "@phosphor-icons/react/
 import Link from "next/link";
 
 import { UserStatusPanel } from "@/components/app/user-status-panel";
-import { formatDisplayLabel } from "@/lib/formatters";
-import { getMaterialLibrary, isMaterialProcessing } from "@/lib/materials/library";
+import { getMaterialLibrary } from "@/lib/materials/library";
 import { ensureDatabaseUser } from "@/lib/users";
 
 import { SkillsTopbar } from "../skills-topbar";
-import { MaterialStatusPoller } from "./material-status-poller";
+import { MaterialDeleteControl } from "./material-delete-control";
+import { MaterialDeletionNotification } from "./material-deletion-notification";
 
 export const dynamic = "force-dynamic";
 
@@ -32,13 +32,11 @@ export default async function MaterialsPage({ searchParams }: MaterialsPageProps
     );
   }
   const materials = await getMaterialLibrary({ userId });
-  const hasProcessing = materials.some((material) => isMaterialProcessing(material.revisionStatus));
   const params = searchParams ? await searchParams : {};
 
   return (
     <main className="skillShell materialShell">
       <SkillsTopbar current="skills" />
-      <MaterialStatusPoller active={hasProcessing} />
       <header className="skillHeader materialHeader">
         <div>
           <p className="materialBreadcrumb"><Link href="/skills">Skills</Link> / Materials</p>
@@ -51,11 +49,7 @@ export default async function MaterialsPage({ searchParams }: MaterialsPageProps
         </Link>
       </header>
 
-      {parseBoolean(params.deleted) ? (
-        <p className="skillFormMessage" data-tone="saved" role="status">
-          Material deletion queued. Linked skills will remain.
-        </p>
-      ) : null}
+      <MaterialDeletionNotification active={parseBoolean(params.deleted)} />
 
       <section className="skillPanel materialLibraryPanel" aria-labelledby="material-library-title">
         <div className="skillPanelHeader materialLibraryHeader">
@@ -83,10 +77,16 @@ export default async function MaterialsPage({ searchParams }: MaterialsPageProps
                     <span>{material.byteSize ? formatBytes(material.byteSize) : "—"}</span>
                   </div>
                   <div className="materialLibraryStatus">
-                    <span className="dashboardChip" data-tone={material.revisionStatus === "READY" ? "ready" : "neutral"}>
-                      {formatDisplayLabel(material.revisionStatus ?? "PENDING")}
+                    <span className="dashboardChip" data-tone="ready">
+                      Ready
                     </span>
                     <small>Used {formatRelativeDate(material.lastUsedAt ?? material.updatedAt)}</small>
+                    <MaterialDeleteControl
+                      compact
+                      materialId={material.id}
+                      returnTo="/skills/materials"
+                      title={material.title}
+                    />
                   </div>
                 </article>
               );
@@ -94,7 +94,7 @@ export default async function MaterialsPage({ searchParams }: MaterialsPageProps
           </div>
         ) : (
           <div className="dashboardEmptyState materialEmptyState">
-            <h3>No materials yet</h3>
+            <h3>No ready materials yet</h3>
             <p>Add a long PDF or public textbook site once, then reuse it for future skill batches.</p>
             <Link className="secondaryButton" href="/skills/new/multiple">Add your first material</Link>
           </div>

@@ -17,8 +17,10 @@ import {
   queueMaterialPdfIngestion,
   queueWebsiteMaterialImport,
   queueWebsiteMaterialRefresh,
+  retryMaterialIngestion,
   runMaterialIngestionJob,
 } from "@/lib/materials/ingestion";
+import { MATERIAL_QUEUE_STALE_AFTER_MS } from "@/lib/materials/ingestion-status";
 import { getMaterialDetail, getMaterialLibrary } from "@/lib/materials/library";
 import { MATERIAL_EMBEDDING_DIMENSIONS } from "@/lib/materials/retrieval";
 import { getPrisma } from "@/lib/prisma";
@@ -69,6 +71,10 @@ describeDatabase("material ingestion", () => {
     if (prepared.status !== "prepared") {
       throw new Error("expected prepared upload");
     }
+    expect(storage.lastPreparedKey).toMatch(
+      new RegExp(`^source-uploads/materials/${userId}/`),
+    );
+    expect(prepared.headers).toEqual({ "Content-Type": "application/pdf" });
     storage.objects.set(storage.lastPreparedKey, bytes);
 
     const sentEvents: string[] = [];
@@ -90,6 +96,10 @@ describeDatabase("material ingestion", () => {
       userId,
       materialRevisionId: prepared.materialRevisionId,
       storage,
+      summaryGenerator: async () => ({
+        overview: "A practical Spanish grammar textbook for independent learners",
+        coverage: "It introduces direct object pronouns through explanations and examples",
+      }),
       embeddingGenerator: async ({ texts }) =>
         texts.map((_, textIndex) =>
           Array.from({ length: MATERIAL_EMBEDDING_DIMENSIONS }, (_, index) =>
@@ -104,6 +114,9 @@ describeDatabase("material ingestion", () => {
       include: { chunks: true, sections: true, pages: true, sourceFiles: true },
     });
     expect(revision.status).toBe(MaterialRevisionStatus.READY);
+    expect(revision.summary).toBe(
+      "A practical Spanish grammar textbook for independent learners. It introduces direct object pronouns through explanations and examples.",
+    );
     expect(revision.sections.length).toBeGreaterThan(0);
     expect(revision.chunks.length).toBeGreaterThan(0);
     expect(revision.pages).toEqual([
@@ -140,6 +153,88 @@ describeDatabase("material ingestion", () => {
     ).resolves.toEqual({ status: "discarded" });
     expect(storage.deleted).toContain(storage.lastPreparedKey);
     expect(await prisma.studyMaterial.count({ where: { id: prepared.materialId } })).toBe(0);
+  });
+
+  it("requeues a stalled revision without requiring another upload", async () => {
+    const now = new Date("2026-07-10T18:00:00.000Z");
+    const material = await prisma.studyMaterial.create({
+      data: {
+        userId,
+        title: "Stalled reusable PDF",
+        kind: StudyMaterialKind.PDF,
+        revisions: {
+          create: {
+            revisionNumber: 1,
+            status: MaterialRevisionStatus.QUEUED,
+            updatedAt: new Date(now.getTime() - MATERIAL_QUEUE_STALE_AFTER_MS),
+          },
+        },
+      },
+      include: { revisions: true },
+    });
+    const revision = material.revisions[0];
+    const sentRevisionIds: string[] = [];
+
+    const result = await retryMaterialIngestion({
+      userId,
+      materialRevisionId: revision.id,
+      now,
+      eventSender: {
+        async sendMaterialIngestionRequested(payload) {
+          sentRevisionIds.push(payload.materialRevisionId);
+        },
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: "queued",
+      materialId: material.id,
+      materialRevisionId: revision.id,
+    });
+    expect(sentRevisionIds).toEqual([revision.id]);
+    await expect(
+      prisma.materialRevision.findUniqueOrThrow({
+        where: { id: revision.id },
+        select: { status: true, updatedAt: true },
+      }),
+    ).resolves.toMatchObject({
+      status: MaterialRevisionStatus.QUEUED,
+      updatedAt: now,
+    });
+  });
+
+  it("does not requeue a revision that is still within the worker pickup window", async () => {
+    const now = new Date("2026-07-10T18:00:00.000Z");
+    const material = await prisma.studyMaterial.create({
+      data: {
+        userId,
+        title: "Fresh queued reusable PDF",
+        kind: StudyMaterialKind.PDF,
+        revisions: {
+          create: {
+            revisionNumber: 1,
+            status: MaterialRevisionStatus.QUEUED,
+            updatedAt: new Date(now.getTime() - MATERIAL_QUEUE_STALE_AFTER_MS + 1),
+          },
+        },
+      },
+      include: { revisions: true },
+    });
+    let eventCount = 0;
+
+    await expect(
+      retryMaterialIngestion({
+        userId,
+        materialRevisionId: material.revisions[0].id,
+        now,
+        eventSender: {
+          async sendMaterialIngestionRequested() {
+            eventCount += 1;
+          },
+        },
+      }),
+    ).resolves.toMatchObject({ status: "not-found" });
+    expect(eventCount).toBe(0);
   });
 
   it("applies reusable PDF storage limits without consuming the quick-upload daily quota", async () => {
@@ -302,6 +397,7 @@ describeDatabase("material ingestion", () => {
       userId,
       materialRevisionId: queued.materialRevisionId,
       storage,
+      summaryGenerator: null,
       resolveHostname: async () => ["93.184.216.34"],
       fetchResource: async (url) => ({
         url,
@@ -362,6 +458,7 @@ describeDatabase("material ingestion", () => {
       userId,
       materialRevisionId: queued.materialRevisionId,
       storage,
+      summaryGenerator: null,
       resolveHostname: async () => ["93.184.216.34"],
       fetchResource: async (url, options) => {
         expect(options?.maximumBytes).toBe(5 * 1024 * 1024);
@@ -434,6 +531,7 @@ describeDatabase("material ingestion", () => {
         userId,
         materialRevisionId: queued.materialRevisionId,
         storage,
+        summaryGenerator: null,
         resolveHostname: async () => ["93.184.216.34"],
         fetchResource: async (url) => ({
           url,
@@ -529,8 +627,8 @@ describeDatabase("material ingestion", () => {
     expect(
       (await getMaterialLibrary({ userId })).find((item) => item.id === material.id),
     ).toMatchObject({
-      revisionNumber: 2,
-      revisionStatus: MaterialRevisionStatus.QUEUED,
+      revisionNumber: 1,
+      revisionStatus: MaterialRevisionStatus.READY,
       linkedSkillCount: 1,
     });
     expect(
@@ -539,6 +637,29 @@ describeDatabase("material ingestion", () => {
         select: { sourceFile: { select: { materialRevisionId: true } } },
       }),
     ).toEqual({ sourceFile: { materialRevisionId: activeRevisionId } });
+  });
+
+  it("omits materials that do not have a ready active revision", async () => {
+    const material = await prisma.studyMaterial.create({
+      data: {
+        userId,
+        title: "Unfinished hidden material",
+        kind: StudyMaterialKind.PDF,
+        revisions: {
+          create: {
+            revisionNumber: 1,
+            status: MaterialRevisionStatus.FAILED,
+            errorCode: "EXTRACTION_FAILED",
+            errorMessage: "The test import did not finish.",
+          },
+        },
+      },
+      select: { id: true },
+    });
+
+    expect(
+      (await getMaterialLibrary({ userId })).some((item) => item.id === material.id),
+    ).toBe(false);
   });
 
   it("deletes material objects and source links idempotently without deleting linked skills", async () => {

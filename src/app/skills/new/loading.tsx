@@ -1,11 +1,5 @@
-import { PrimaryRouteLoading } from "../primary-route-loading";
-import { primaryRouteLoadingByKey } from "../primary-route-loading-content";
+import { SkillsPathLoading } from "../skills-path-loading";
 
 export default function Loading() {
-  return (
-    <PrimaryRouteLoading
-      config={primaryRouteLoadingByKey.new}
-      current="new"
-    />
-  );
+  return <SkillsPathLoading kind="new-choice" />;
 }

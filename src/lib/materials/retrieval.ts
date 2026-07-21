@@ -104,12 +104,19 @@ export async function searchMaterialChunksLexical(input: {
   query: string;
   materialSectionIds?: readonly string[];
   limit?: number;
+  prefixMatching?: boolean;
 }): Promise<MaterialChunkSearchResult[]> {
   const prisma = getPrisma();
   const limit = Math.max(1, Math.min(input.limit ?? 24, 80));
   const sectionFilter = input.materialSectionIds?.length
     ? Prisma.sql`AND "materialSectionId" IN (${Prisma.join(input.materialSectionIds)})`
     : Prisma.empty;
+  const prefixQuery = input.prefixMatching
+    ? toSimplePrefixTsQuery(input.query)
+    : null;
+  const textQuery = prefixQuery
+    ? Prisma.sql`to_tsquery('simple', ${prefixQuery})`
+    : Prisma.sql`websearch_to_tsquery('simple', ${input.query})`;
 
   return prisma.$queryRaw<MaterialChunkSearchResult[]>`
     SELECT
@@ -124,13 +131,13 @@ export async function searchMaterialChunksLexical(input: {
       "headingText",
       0::double precision AS "vectorScore",
       CASE
-        WHEN websearch_to_tsquery('simple', ${input.query}) @@ "searchText"
-        THEN ts_rank_cd("searchText", websearch_to_tsquery('simple', ${input.query}))::double precision
+        WHEN ${textQuery} @@ "searchText"
+        THEN ts_rank_cd("searchText", ${textQuery})::double precision
         ELSE 0::double precision
       END AS "lexicalScore",
       CASE
-        WHEN websearch_to_tsquery('simple', ${input.query}) @@ "searchText"
-        THEN LEAST(ts_rank_cd("searchText", websearch_to_tsquery('simple', ${input.query})), 1)::double precision
+        WHEN ${textQuery} @@ "searchText"
+        THEN LEAST(ts_rank_cd("searchText", ${textQuery}), 1)::double precision
         ELSE 0::double precision
       END AS "score"
     FROM "material_chunks"
@@ -140,4 +147,13 @@ export async function searchMaterialChunksLexical(input: {
     ORDER BY "score" DESC, "ordinal" ASC
     LIMIT ${limit}
   `;
+}
+
+export function toSimplePrefixTsQuery(query: string) {
+  return query
+    .normalize("NFC")
+    .toLocaleLowerCase()
+    .match(/[\p{L}\p{N}]+/gu)
+    ?.map((token) => `${token}:*`)
+    .join(" & ") ?? "";
 }

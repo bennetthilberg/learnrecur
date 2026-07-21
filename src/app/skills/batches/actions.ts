@@ -3,16 +3,24 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { z } from "zod";
 
 import {
   confirmMaterialPlan,
   excludeMaterialDraftItem,
   planMaterialSkills,
+  queueMaterialBatchActivation,
   replanMaterialSkills,
+  retryMaterialBatchActivationItem,
   retryMaterialDraftItem,
 } from "@/lib/materials/batches";
 import { materialScopePlanSchema } from "@/lib/materials/contracts";
 import { ensureDatabaseUser } from "@/lib/users";
+
+const automaticRepairInputSchema = z.strictObject({
+  batchId: z.string().trim().min(1).max(64),
+  itemIds: z.array(z.string().trim().min(1).max(64)).min(1).max(10),
+});
 
 export async function planMaterialSkillsAction(formData: FormData) {
   const userId = await requireBatchUser();
@@ -71,9 +79,15 @@ export async function confirmMaterialPlanAction(formData: FormData) {
     now: new Date(),
     input: { batchId, plan: plan.data },
   });
-  if (result.status === "queued" || result.status === "partial") {
+  if (result.status === "queued") {
     revalidatePath(`/skills/batches/${batchId}`);
     return redirect(`/skills/batches/${batchId}`);
+  }
+  if (result.status === "partial") {
+    revalidatePath(`/skills/batches/${batchId}`);
+    return redirect(
+      `/skills/batches/${batchId}?error=${encodeURIComponent("Background processing was unavailable, so some drafts did not start. Retry the failed drafts below.")}`,
+    );
   }
   const message =
     "message" in result && typeof result.message === "string"
@@ -85,13 +99,89 @@ export async function confirmMaterialPlanAction(formData: FormData) {
 export async function retryMaterialDraftItemAction(formData: FormData) {
   const userId = await requireBatchUser();
   const batchId = formString(formData, "batchId");
-  await retryMaterialDraftItem({
+  const result = await retryMaterialDraftItem({
     userId,
     batchId,
     itemId: formString(formData, "itemId"),
     now: new Date(),
   });
   revalidatePath(`/skills/batches/${batchId}`);
+  if (result.status !== "queued") {
+    const message =
+      "message" in result
+        ? result.message
+        : "Background processing was unavailable. Try again in a moment.";
+    redirect(`/skills/batches/${batchId}?error=${encodeURIComponent(message)}`);
+  }
+}
+
+export async function autoRepairMaterialDraftItemsAction(input: unknown) {
+  const parsed = automaticRepairInputSchema.safeParse(input);
+  if (!parsed.success) {
+    return { status: "invalid" as const };
+  }
+  const userId = await requireBatchUser();
+  let queuedCount = 0;
+  for (const itemId of parsed.data.itemIds) {
+    const result = await retryMaterialDraftItem({
+      userId,
+      batchId: parsed.data.batchId,
+      itemId,
+      now: new Date(),
+      automatic: true,
+    });
+    if (result.status === "queued") {
+      queuedCount += 1;
+    }
+  }
+  revalidatePath(`/skills/batches/${parsed.data.batchId}`);
+  return { status: queuedCount > 0 ? ("queued" as const) : ("unchanged" as const) };
+}
+
+export async function activateMaterialBatchAction(formData: FormData) {
+  const userId = await requireBatchUser();
+  const batchId = formString(formData, "batchId");
+  const itemIds = formData
+    .getAll("itemId")
+    .filter((value): value is string => typeof value === "string")
+    .map((value) => value.trim())
+    .filter(Boolean);
+  const result = await queueMaterialBatchActivation({
+    userId,
+    input: { batchId, itemIds },
+    now: new Date(),
+  });
+  if (
+    result.status === "queued" ||
+    result.status === "partial" ||
+    result.status === "already-queued"
+  ) {
+    revalidatePath(`/skills/batches/${batchId}`);
+    revalidatePath("/skills");
+    return redirect(`/skills/batches/${batchId}`);
+  }
+  const message =
+    "message" in result && typeof result.message === "string"
+      ? result.message
+      : "The selected skills could not be added.";
+  redirect(`/skills/batches/${batchId}?error=${encodeURIComponent(message)}`);
+}
+
+export async function retryMaterialBatchActivationItemAction(formData: FormData) {
+  const userId = await requireBatchUser();
+  const batchId = formString(formData, "batchId");
+  const result = await retryMaterialBatchActivationItem({
+    userId,
+    batchId,
+    itemId: formString(formData, "itemId"),
+    now: new Date(),
+  });
+  revalidatePath(`/skills/batches/${batchId}`);
+  revalidatePath("/skills");
+  if (result.status !== "queued") {
+    const message = "message" in result ? result.message : "Activation could not be retried.";
+    redirect(`/skills/batches/${batchId}?error=${encodeURIComponent(message)}`);
+  }
 }
 
 export async function excludeMaterialDraftItemAction(formData: FormData) {
@@ -103,11 +193,18 @@ export async function excludeMaterialDraftItemAction(formData: FormData) {
     itemId: formString(formData, "itemId"),
     now: new Date(),
   });
-  if (result.status === "not-excluded") {
-    redirect(`/skills/batches/${batchId}?error=${encodeURIComponent(result.message)}`);
+  if (result.status !== "excluded") {
+    return {
+      status: "error" as const,
+      message:
+        result.status === "not-excluded"
+          ? result.message
+          : "This draft could not be excluded. Refresh the batch and try again.",
+    };
   }
   revalidatePath(`/skills/batches/${batchId}`);
   revalidatePath("/skills");
+  return { status: "excluded" as const };
 }
 
 async function requireBatchUser() {

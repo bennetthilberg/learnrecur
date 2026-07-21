@@ -2018,6 +2018,7 @@ export const MaterialRevisionScalarFieldEnum = {
   byteSize: 'byteSize',
   pageCount: 'pageCount',
   fetchedPageCount: 'fetchedPageCount',
+  summary: 'summary',
   storageBucket: 'storageBucket',
   storageKey: 'storageKey',
   processingMetadata: 'processingMetadata',
