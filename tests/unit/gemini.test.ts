@@ -58,7 +58,7 @@ describe("Gemini fallback helpers", () => {
     });
   });
 
-  it("retries retryable provider errors with OpenRouter fallback", async () => {
+  it("retries retryable provider errors with MetaMuse fallback", async () => {
     const warningSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const calls: string[] = [];
 
@@ -79,23 +79,23 @@ describe("Gemini fallback helpers", () => {
           );
         },
         fallback: {
-          provider: "openrouter",
-          model: "google/gemma-4-31b-it",
+          provider: "meta",
+          model: "muse-spark-1.1",
           async run() {
-            calls.push("openrouter");
-            return "ok:openrouter";
+            calls.push("meta");
+            return "ok:meta";
           },
         },
       }),
-    ).resolves.toBe("ok:openrouter");
+    ).resolves.toBe("ok:meta");
 
-    expect(calls).toEqual(["gemini", "openrouter"]);
+    expect(calls).toEqual(["gemini", "meta"]);
     expect(warningSpy).toHaveBeenCalledWith(
       "[ai] retrying with fallback provider",
       expect.objectContaining({
         failedModel: "gemini-3.5-flash",
-        fallbackProvider: "openrouter",
-        fallbackModel: "google/gemma-4-31b-it",
+        fallbackProvider: "meta",
+        fallbackModel: "muse-spark-1.1",
       }),
     );
     warningSpy.mockRestore();
@@ -106,7 +106,7 @@ describe("Gemini fallback helpers", () => {
     { code: 504, status: "GATEWAY_TIMEOUT" },
     { code: 504, status: "DEADLINE_EXCEEDED" },
   ])(
-    "retries transient Gemini gateway failures ($code $status) with OpenRouter fallback",
+    "retries transient Gemini gateway failures ($code $status) with MetaMuse fallback",
     async ({ code, status }) => {
       const warningSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
       const calls: string[] = [];
@@ -128,17 +128,17 @@ describe("Gemini fallback helpers", () => {
             );
           },
           fallback: {
-            provider: "openrouter",
-            model: "google/gemma-4-31b-it",
+            provider: "meta",
+            model: "muse-spark-1.1",
             async run() {
-              calls.push("openrouter");
-              return "ok:openrouter";
+              calls.push("meta");
+              return "ok:meta";
             },
           },
         }),
-      ).resolves.toBe("ok:openrouter");
+      ).resolves.toBe("ok:meta");
 
-      expect(calls).toEqual(["gemini", "openrouter"]);
+      expect(calls).toEqual(["gemini", "meta"]);
       warningSpy.mockRestore();
     },
   );
@@ -176,11 +176,11 @@ describe("Gemini fallback helpers", () => {
           );
         },
         fallback: {
-          provider: "openrouter",
-          model: "google/gemma-4-31b-it",
+          provider: "meta",
+          model: "muse-spark-1.1",
           async run() {
-            calls.push("openrouter");
-            return "ok:openrouter";
+            calls.push("meta");
+            return "ok:meta";
           },
         },
       }),

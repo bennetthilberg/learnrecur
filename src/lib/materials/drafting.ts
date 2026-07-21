@@ -86,6 +86,7 @@ export type MaterialDraftTargetRepairer = (input: {
   materialTitle: string;
   evidenceText: string;
   verificationNote: string;
+  sourceMedia?: Parameters<SkillDraftGenerator>[0]["sourceMedia"];
 }) => Promise<unknown>;
 
 const plannerItemSchema = z.strictObject({
@@ -717,6 +718,7 @@ export async function repairMaterialDraftTarget(input: {
   evidenceText: string;
   verificationNote: string;
   repairTarget: MaterialDraftTargetRepairer;
+  sourceMedia?: Parameters<SkillDraftGenerator>[0]["sourceMedia"];
 }) {
   const parsed = draftTargetRepairSchema.safeParse(
     await input.repairTarget({
@@ -724,6 +726,7 @@ export async function repairMaterialDraftTarget(input: {
       materialTitle: input.materialTitle,
       evidenceText: input.evidenceText,
       verificationNote: input.verificationNote,
+      sourceMedia: input.sourceMedia,
     }),
   );
   if (!parsed.success) {

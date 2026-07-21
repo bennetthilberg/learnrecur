@@ -17,13 +17,13 @@ import type {
   StructuralMaterialReference,
 } from "@/lib/materials/drafting";
 import {
-  runOpenRouterJsonChatCompletion,
-  type OpenRouterChatMessage,
-  type OpenRouterFallbackConfig,
-} from "@/lib/openrouter";
-import { resolveOptionalOpenRouterFallbackConfig } from "@/lib/openrouter-fallback";
+  runMetaMuseJsonResponse,
+  type MetaMuseChatMessage,
+  type MetaMuseFallbackConfig,
+} from "@/lib/meta-muse";
+import { resolveOptionalMetaMuseFallbackConfig } from "@/lib/meta-muse-fallback";
 import {
-  buildOpenRouterSourceMediaPart,
+  buildMetaMuseSourceMediaPart,
   createGeminiSkillDraftGenerator,
   type SkillDraftGenerator,
 } from "@/lib/skills";
@@ -57,7 +57,7 @@ export type MaterialDraftAiSetup = {
 
 type MaterialAiProviderInput = {
   gemini: GeminiRuntimeConfig;
-  openRouterFallback?: OpenRouterFallbackConfig | null;
+  metaMuseFallback?: MetaMuseFallbackConfig | null;
 };
 
 export const materialScopePlannerJsonSchema = {
@@ -172,31 +172,31 @@ const draftTargetRepairJsonSchema = {
 export function resolveMaterialDraftAiSetup(): MaterialDraftAiSetup {
   const env = getGeminiEnv();
   const gemini = resolveGeminiRuntimeConfig(env);
-  const openRouterFallbackResult = resolveOptionalOpenRouterFallbackConfig();
-  const openRouterFallback =
-    openRouterFallbackResult.status === "ready" ? openRouterFallbackResult.config : null;
+  const metaMuseFallbackResult = resolveOptionalMetaMuseFallbackConfig();
+  const metaMuseFallback =
+    metaMuseFallbackResult.status === "ready" ? metaMuseFallbackResult.config : null;
 
-  if (openRouterFallbackResult.status === "invalid") {
-    console.warn("[ai] openrouter fallback disabled for material skill creation", {
-      message: openRouterFallbackResult.message,
+  if (metaMuseFallbackResult.status === "invalid") {
+    console.warn("[ai] meta muse fallback disabled for material skill creation", {
+      message: metaMuseFallbackResult.message,
     });
   }
 
-  return createMaterialDraftAiSetup({ gemini, openRouterFallback });
+  return createMaterialDraftAiSetup({ gemini, metaMuseFallback });
 }
 
 export function createMaterialDraftAiSetup({
   gemini,
-  openRouterFallback,
+  metaMuseFallback,
 }: MaterialAiProviderInput): MaterialDraftAiSetup {
-  const providerInput = { gemini, openRouterFallback };
+  const providerInput = { gemini, metaMuseFallback };
 
   return {
     model: gemini.model,
     planScope: createGeminiMaterialScopePlanner(providerInput),
     reviewScope: createGeminiMaterialScopeReviewer(providerInput),
     repairTarget: createGeminiMaterialDraftTargetRepairer(providerInput),
-    generateDraft: createGeminiSkillDraftGenerator({ gemini, openRouterFallback }),
+    generateDraft: createGeminiSkillDraftGenerator({ gemini, metaMuseFallback }),
     verifyDraft: createGeminiMaterialDraftVerifier(providerInput),
   };
 }
@@ -206,10 +206,11 @@ function createGeminiMaterialDraftTargetRepairer(
 ): MaterialDraftTargetRepairer {
   return async (repairInput) => {
     const prompt = buildMaterialDraftTargetRepairPrompt(repairInput);
+    const sourceMedia = repairInput.sourceMedia ?? [];
 
     return runWithGeminiProviderFallback({
-      fallback: buildMaterialOpenRouterFallback(input.openRouterFallback, (config) =>
-        createOpenRouterMaterialDraftTargetRepairer(config)(repairInput),
+      fallback: buildMaterialMetaMuseFallback(input.metaMuseFallback, (config) =>
+        createMetaMuseMaterialDraftTargetRepairer(config)(repairInput),
       ),
       operation: "material draft target repair",
       primary: getGeminiRuntimeLogContext(input.gemini),
@@ -221,11 +222,32 @@ function createGeminiMaterialDraftTargetRepairer(
           metadata: {
             promptChars: prompt.length,
             schemaName: "draftTargetRepairJsonSchema",
+            media: {
+              count: sourceMedia.length,
+              totalBytes: sourceMedia.reduce(
+                (total, media) => total + media.bytes.byteLength,
+                0,
+              ),
+              mimeTypes: sourceMedia.map((media) => media.mimeType),
+            },
           },
           run: async (ai) => {
             const response = await ai.models.generateContent({
               model: input.gemini.model,
-              contents: [{ role: "user", parts: [{ text: prompt }] }],
+              contents: [
+                {
+                  role: "user",
+                  parts: [
+                    { text: prompt },
+                    ...sourceMedia.map((media) => ({
+                      inlineData: {
+                        mimeType: media.mimeType,
+                        data: media.bytes.toString("base64"),
+                      },
+                    })),
+                  ],
+                },
+              ],
               config: {
                 responseMimeType: "application/json",
                 responseJsonSchema: draftTargetRepairJsonSchema,
@@ -252,8 +274,8 @@ function createGeminiMaterialScopeReviewer(
     const prompt = buildMaterialScopeReviewerPrompt(reviewInput);
 
     return runWithGeminiProviderFallback({
-      fallback: buildMaterialOpenRouterFallback(input.openRouterFallback, (config) =>
-        createOpenRouterMaterialScopeReviewer(config)(reviewInput),
+      fallback: buildMaterialMetaMuseFallback(input.metaMuseFallback, (config) =>
+        createMetaMuseMaterialScopeReviewer(config)(reviewInput),
       ),
       operation: "material scope review",
       primary: getGeminiRuntimeLogContext(input.gemini),
@@ -296,8 +318,8 @@ function createGeminiMaterialScopePlanner(
     const prompt = buildMaterialScopePlannerPrompt(plannerInput);
 
     return runWithGeminiProviderFallback({
-      fallback: buildMaterialOpenRouterFallback(input.openRouterFallback, (config) =>
-        createOpenRouterMaterialScopePlanner(config)(plannerInput),
+      fallback: buildMaterialMetaMuseFallback(input.metaMuseFallback, (config) =>
+        createMetaMuseMaterialScopePlanner(config)(plannerInput),
       ),
       operation: "material scope planning",
       primary: getGeminiRuntimeLogContext(input.gemini),
@@ -341,8 +363,8 @@ function createGeminiMaterialDraftVerifier(
     const sourceMedia = verificationInput.sourceMedia ?? [];
 
     return runWithGeminiProviderFallback({
-      fallback: buildMaterialOpenRouterFallback(input.openRouterFallback, (config) =>
-        createOpenRouterMaterialDraftVerifier(config)(verificationInput),
+      fallback: buildMaterialMetaMuseFallback(input.metaMuseFallback, (config) =>
+        createMetaMuseMaterialDraftVerifier(config)(verificationInput),
       ),
       operation: "material draft verification",
       primary: getGeminiRuntimeLogContext(input.gemini),
@@ -399,28 +421,28 @@ function createGeminiMaterialDraftVerifier(
   };
 }
 
-function buildMaterialOpenRouterFallback<T>(
-  config: OpenRouterFallbackConfig | null | undefined,
-  run: (config: OpenRouterFallbackConfig) => Promise<T>,
+function buildMaterialMetaMuseFallback<T>(
+  config: MetaMuseFallbackConfig | null | undefined,
+  run: (config: MetaMuseFallbackConfig) => Promise<T>,
 ) {
   if (!config) {
     return null;
   }
 
   return {
-    provider: "openrouter",
+    provider: "meta",
     model: config.model,
     run: () => run(config),
   };
 }
 
-function createOpenRouterMaterialScopePlanner(
-  config: OpenRouterFallbackConfig,
+function createMetaMuseMaterialScopePlanner(
+  config: MetaMuseFallbackConfig,
 ): MaterialScopePlanner {
   return async (plannerInput) => {
     const prompt = buildMaterialScopePlannerPrompt(plannerInput);
 
-    return runOpenRouterJsonChatCompletion({
+    return runMetaMuseJsonResponse({
       ...config,
       operation: "material scope planning",
       metadata: {
@@ -431,7 +453,7 @@ function createOpenRouterMaterialScopePlanner(
       },
       responseJsonSchema: materialScopePlannerJsonSchema,
       responseJsonSchemaName: "materialScopePlan",
-      messages: buildOpenRouterMaterialMessages(
+      messages: buildMetaMuseMaterialMessages(
         "You plan narrow, source-grounded LearnRecur skills. Return only a valid JSON object.",
         prompt,
       ),
@@ -439,13 +461,13 @@ function createOpenRouterMaterialScopePlanner(
   };
 }
 
-function createOpenRouterMaterialScopeReviewer(
-  config: OpenRouterFallbackConfig,
+function createMetaMuseMaterialScopeReviewer(
+  config: MetaMuseFallbackConfig,
 ): MaterialScopeReviewer {
   return async (reviewInput) => {
     const prompt = buildMaterialScopeReviewerPrompt(reviewInput);
 
-    return runOpenRouterJsonChatCompletion({
+    return runMetaMuseJsonResponse({
       ...config,
       operation: "material scope review",
       metadata: {
@@ -456,7 +478,7 @@ function createOpenRouterMaterialScopeReviewer(
       },
       responseJsonSchema: materialScopePlannerJsonSchema,
       responseJsonSchemaName: "materialScopeReview",
-      messages: buildOpenRouterMaterialMessages(
+      messages: buildMetaMuseMaterialMessages(
         "You review and correct source-grounded LearnRecur skill plans. Return only a valid JSON object.",
         prompt,
       ),
@@ -464,37 +486,53 @@ function createOpenRouterMaterialScopeReviewer(
   };
 }
 
-function createOpenRouterMaterialDraftTargetRepairer(
-  config: OpenRouterFallbackConfig,
+function createMetaMuseMaterialDraftTargetRepairer(
+  config: MetaMuseFallbackConfig,
 ): MaterialDraftTargetRepairer {
   return async (repairInput) => {
     const prompt = buildMaterialDraftTargetRepairPrompt(repairInput);
+    const sourceMedia = repairInput.sourceMedia ?? [];
 
-    return runOpenRouterJsonChatCompletion({
+    return runMetaMuseJsonResponse({
       ...config,
       operation: "material draft target repair",
       metadata: {
         promptChars: prompt.length,
         schemaName: "draftTargetRepairJsonSchema",
+        media: {
+          count: sourceMedia.length,
+          totalBytes: sourceMedia.reduce(
+            (total, media) => total + media.bytes.byteLength,
+            0,
+          ),
+          mimeTypes: sourceMedia.map((media) => media.mimeType),
+        },
       },
       responseJsonSchema: draftTargetRepairJsonSchema,
       responseJsonSchemaName: "materialDraftTargetRepair",
-      messages: buildOpenRouterMaterialMessages(
-        "You repair source-grounded LearnRecur skill targets. Return only a valid JSON object.",
-        prompt,
-      ),
+      messages: [
+        {
+          role: "system",
+          content:
+            "You repair source-grounded LearnRecur skill targets. Return only a valid JSON object.",
+        },
+        {
+          role: "user",
+          content: buildMetaMuseMaterialSourceContent(prompt, sourceMedia),
+        },
+      ],
     });
   };
 }
 
-function createOpenRouterMaterialDraftVerifier(
-  config: OpenRouterFallbackConfig,
+function createMetaMuseMaterialDraftVerifier(
+  config: MetaMuseFallbackConfig,
 ): MaterialDraftVerifier {
   return async (verificationInput) => {
     const prompt = buildMaterialDraftVerificationPrompt(verificationInput);
     const sourceMedia = verificationInput.sourceMedia ?? [];
 
-    return runOpenRouterJsonChatCompletion({
+    return runMetaMuseJsonResponse({
       ...config,
       operation: "material draft verification",
       metadata: {
@@ -519,35 +557,35 @@ function createOpenRouterMaterialDraftVerifier(
         },
         {
           role: "user",
-          content: buildOpenRouterMaterialVerificationContent(prompt, sourceMedia),
+          content: buildMetaMuseMaterialSourceContent(prompt, sourceMedia),
         },
       ],
     });
   };
 }
 
-function buildOpenRouterMaterialMessages(
+function buildMetaMuseMaterialMessages(
   system: string,
   prompt: string,
-): OpenRouterChatMessage[] {
+): MetaMuseChatMessage[] {
   return [
     { role: "system", content: system },
     { role: "user", content: prompt },
   ];
 }
 
-function buildOpenRouterMaterialVerificationContent(
+function buildMetaMuseMaterialSourceContent(
   prompt: string,
   sourceMedia: NonNullable<Parameters<MaterialDraftVerifier>[0]["sourceMedia"]>,
-): OpenRouterChatMessage["content"] {
+): MetaMuseChatMessage["content"] {
   if (!sourceMedia.length) {
     return prompt;
   }
 
   return [
-    { type: "text", text: prompt },
+    { type: "input_text", text: prompt },
     ...sourceMedia.map((media) =>
-      buildOpenRouterSourceMediaPart({
+      buildMetaMuseSourceMediaPart({
         bytes: media.bytes,
         filename: media.label,
         mimeType: media.mimeType,

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 
+import { PDFDocument } from "pdf-lib";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import {
@@ -33,9 +34,15 @@ import {
   requestMaterialDeletion,
 } from "@/lib/materials/lifecycle";
 import { searchMaterialChunksLexical } from "@/lib/materials/retrieval";
+import { loadLocalizedMaterialEvidence } from "@/lib/materials/evidence";
 import { getPrisma } from "@/lib/prisma";
-import { activateSkillDraft, refillChoiceExercisesForSkill } from "@/lib/skills";
+import {
+  activateSkillDraft,
+  refillChoiceExercisesForSkill,
+  type SkillSourceEvidenceLoader,
+} from "@/lib/skills";
 import { deleteSkillPermanently } from "@/lib/skills/delete";
+import type { SourceObjectStorage } from "@/lib/storage/s3";
 import { ALPHA_ACTIVE_SKILLS } from "@/lib/usage-limits";
 
 const runDatabaseTests = process.env.RUN_DATABASE_TESTS === "1";
@@ -53,8 +60,18 @@ describeDatabase("material multi-skill drafting", () => {
   let indirectSectionId = "";
   let directChunkId = "";
   let indirectChunkId = "";
+  let sourcePdfBytes = Buffer.alloc(0);
+  let sourceStorage: SourceObjectStorage;
+  let sourceEvidenceLoader: SkillSourceEvidenceLoader;
 
   beforeAll(async () => {
+    const document = await PDFDocument.create();
+    for (let page = 0; page < 220; page += 1) {
+      document.addPage([500, 700]);
+    }
+    sourcePdfBytes = Buffer.from(await document.save());
+    sourceStorage = createSourceStorage(() => sourcePdfBytes);
+    sourceEvidenceLoader = createCachedSourceEvidenceLoader(sourceStorage);
     await prisma.user.createMany({
       data: [
         { id: userId, email: `${userId}@example.com` },
@@ -1192,6 +1209,7 @@ describeDatabase("material multi-skill drafting", () => {
         batchId: planned.batchId,
         itemId: firstItem.id,
         aiSetup: createAiSetup(),
+        sourceEvidenceLoader,
       }),
     ).toMatchObject({ status: "ready" });
 
@@ -1211,6 +1229,7 @@ describeDatabase("material multi-skill drafting", () => {
         batchId: planned.batchId,
         itemId: secondItem.id,
         aiSetup: createAiSetup(),
+        sourceEvidenceLoader,
       }),
     ).toMatchObject({ status: "not-claimed" });
     await retryMaterialDraftItem({
@@ -1226,6 +1245,7 @@ describeDatabase("material multi-skill drafting", () => {
         batchId: planned.batchId,
         itemId: secondItem.id,
         aiSetup: createAiSetup({ rejectTitle: "Choosing le versus les" }),
+        sourceEvidenceLoader,
       }),
     ).toMatchObject({ status: "failed", reason: "verification-rejected" });
 
@@ -1287,6 +1307,7 @@ describeDatabase("material multi-skill drafting", () => {
           verdict: "verified",
         })),
       }),
+      sourceEvidenceLoader,
     });
     expect(activated.status).toBe("activated");
     expect(activationSourceContext).toContain("Direct object pronouns replace nouns");
@@ -1332,6 +1353,7 @@ describeDatabase("material multi-skill drafting", () => {
           verdict: "verified",
         })),
       }),
+      sourceEvidenceLoader,
     });
     expect(refilled.status).toBe("refilled");
     expect(refillSourceContext).toContain("Direct object pronouns replace nouns");
@@ -1416,6 +1438,7 @@ describeDatabase("material multi-skill drafting", () => {
           rejectTitle: "Choosing le versus les",
           repairTarget,
         }),
+        sourceEvidenceLoader,
       }),
     ).toMatchObject({ status: "ready" });
     expect(repairTarget).toHaveBeenCalledWith(
@@ -1525,6 +1548,7 @@ describeDatabase("material multi-skill drafting", () => {
         batchId: planned.batchId,
         itemId,
         aiSetup: createAiSetup({ repairTarget, verifyDraft }),
+        sourceEvidenceLoader,
       }),
     ).toMatchObject({ status: "ready" });
     expect(repairTarget).toHaveBeenCalledTimes(2);
@@ -1608,6 +1632,7 @@ describeDatabase("material multi-skill drafting", () => {
       itemId: item.id,
       now: new Date(),
       aiSetup: slowAi,
+      sourceEvidenceLoader,
     });
     await slowWorkerStarted;
     await prisma.skillDraftBatchItem.update({
@@ -1621,6 +1646,7 @@ describeDatabase("material multi-skill drafting", () => {
         itemId: item.id,
         now: new Date(),
         aiSetup: createAiSetup(),
+        sourceEvidenceLoader,
       }),
     ).toMatchObject({ status: "ready" });
     releaseSlowWorker();
@@ -1675,6 +1701,7 @@ describeDatabase("material multi-skill drafting", () => {
         batchId: batch.id,
         itemId: item.id,
         aiSetup: createAiSetup(),
+        sourceEvidenceLoader,
       }),
     ).resolves.toMatchObject({ status: "failed", reason: "draft-skill-deleted" });
     await expect(
@@ -1698,6 +1725,7 @@ describeDatabase("material multi-skill drafting", () => {
         batchId: batch.id,
         itemId: item.id,
         aiSetup: createAiSetup(),
+        sourceEvidenceLoader,
       }),
     ).resolves.toMatchObject({ status: "ready", alreadyGenerated: false });
   });
@@ -1740,6 +1768,7 @@ describeDatabase("material multi-skill drafting", () => {
         attempt: 0,
         maxAttempts: 4,
         aiSetup: failingAi,
+        sourceEvidenceLoader,
       }),
     ).rejects.toThrow(/temporary provider timeout/i);
     await expect(
@@ -1759,6 +1788,7 @@ describeDatabase("material multi-skill drafting", () => {
         attempt: 1,
         maxAttempts: 4,
         aiSetup: createAiSetup(),
+        sourceEvidenceLoader,
       }),
     ).resolves.toMatchObject({ status: "ready", alreadyGenerated: false });
   });
@@ -1801,6 +1831,7 @@ describeDatabase("material multi-skill drafting", () => {
         attempt: 0,
         maxAttempts: 4,
         aiSetup: createAiSetup(),
+        sourceEvidenceLoader,
       }),
     ).rejects.toMatchObject({ retryable: false });
     await expect(
@@ -1910,6 +1941,7 @@ describeDatabase("material multi-skill drafting", () => {
         batchId: batch.id,
         itemId: item.id,
         aiSetup: deletingAi,
+        sourceEvidenceLoader,
       }),
     ).resolves.toMatchObject({ status: "not-claimed" });
     await expect(
@@ -2063,6 +2095,7 @@ describeDatabase("material multi-skill drafting", () => {
         })),
       }),
       model: "fixture-model",
+      sourceEvidenceLoader,
     });
 
     expect(activated).toMatchObject({ status: "active", alreadyActivated: false });
@@ -2089,6 +2122,7 @@ describeDatabase("material multi-skill drafting", () => {
       },
       verifyChoiceExercises: acceptAllChoiceExercises,
       model: "fixture-model",
+      sourceEvidenceLoader,
     });
     expect(refilled).toMatchObject({ status: "refilled", exerciseCount: 2 });
     expect(refillSourceContext).toContain("Direct object pronouns replace nouns");
@@ -2196,6 +2230,7 @@ describeDatabase("material multi-skill drafting", () => {
       },
       verifyChoiceExercises: acceptAllChoiceExercises,
       model: "fixture-model",
+      sourceEvidenceLoader,
     });
     await workerStarted;
     await prisma.skillDraftBatchItem.update({
@@ -2329,6 +2364,7 @@ describeDatabase("material multi-skill drafting", () => {
       }),
       verifyChoiceExercises: acceptAllChoiceExercises,
       model: "fixture-model",
+      sourceEvidenceLoader,
     });
     await expect(
       runMaterialBatchActivationJob({
@@ -2342,6 +2378,7 @@ describeDatabase("material multi-skill drafting", () => {
         },
         verifyChoiceExercises: acceptAllChoiceExercises,
         model: "fixture-model",
+        sourceEvidenceLoader,
       }),
     ).rejects.toBeInstanceOf(MaterialBatchActivationError);
 
@@ -2383,6 +2420,7 @@ describeDatabase("material multi-skill drafting", () => {
       }),
       verifyChoiceExercises: acceptAllChoiceExercises,
       model: "fixture-model",
+      sourceEvidenceLoader,
     });
     expect(await getMaterialDraftBatch({ userId, batchId: ready.id })).toMatchObject({
       status: SkillDraftBatchStatus.COMPLETE,
@@ -2433,6 +2471,7 @@ describeDatabase("material multi-skill drafting", () => {
         },
         verifyChoiceExercises: acceptAllChoiceExercises,
         model: "fixture-model",
+        sourceEvidenceLoader,
       }),
     ).rejects.toBeInstanceOf(MaterialBatchActivationError);
 
@@ -2462,6 +2501,7 @@ describeDatabase("material multi-skill drafting", () => {
         }),
         verifyChoiceExercises: acceptAllChoiceExercises,
         model: "fixture-model",
+        sourceEvidenceLoader,
       }),
     ).resolves.toMatchObject({ status: "active" });
 
@@ -2559,12 +2599,12 @@ describeDatabase("material multi-skill drafting", () => {
       await queueMaterialBatchActivation({
         userId: otherUserId,
         input: { batchId: first.id, itemIds: [first.items[0].id] },
-        now: new Date("2026-07-09T14:00:00.000Z"),
+        now: new Date("2030-01-15T14:00:00.000Z"),
         eventSender: { async sendMaterialBatchActivationRequested() {} },
       }),
     ).toMatchObject({ status: "not-found" });
 
-    const dayStart = new Date("2026-07-09T00:00:00.000Z");
+    const dayStart = new Date("2030-01-15T00:00:00.000Z");
     const existingCount = await prisma.generationJob.count({
       where: {
         userId,
@@ -2592,7 +2632,7 @@ describeDatabase("material multi-skill drafting", () => {
           promptVersion: "skill-mcq-v0",
           requestedCount: 5,
           errorMessage: "quota fixture",
-          createdAt: new Date(`2026-07-09T10:${String(index).padStart(2, "0")}:00.000Z`),
+          createdAt: new Date(`2030-01-15T10:${String(index).padStart(2, "0")}:00.000Z`),
         },
       });
     }
@@ -2601,13 +2641,13 @@ describeDatabase("material multi-skill drafting", () => {
       queueMaterialBatchActivation({
         userId,
         input: { batchId: first.id, itemIds: [first.items[0].id] },
-        now: new Date("2026-07-09T14:00:00.000Z"),
+        now: new Date("2030-01-15T14:00:00.000Z"),
         eventSender: { async sendMaterialBatchActivationRequested() {} },
       }),
       queueMaterialBatchActivation({
         userId,
         input: { batchId: second.id, itemIds: [second.items[0].id] },
-        now: new Date("2026-07-09T14:00:00.000Z"),
+        now: new Date("2030-01-15T14:00:00.000Z"),
         eventSender: { async sendMaterialBatchActivationRequested() {} },
       }),
     ]);
@@ -2954,6 +2994,7 @@ describeDatabase("material multi-skill drafting", () => {
         batchId: planned.batchId,
         itemId: item.id,
         aiSetup: createAiSetup(),
+        sourceEvidenceLoader,
       });
       if (result.status !== "ready") {
         throw new Error("expected activation fixture draft");
@@ -3052,5 +3093,51 @@ function createAiSetup(input: {
           }
         : { verdict: "verified", reasons: [], note: null };
     }),
+  };
+}
+
+function createSourceStorage(readBytes: () => Buffer): SourceObjectStorage {
+  return {
+    bucketName: "test-materials",
+    async createPresignedUploadUrl() {
+      return "https://uploads.example.test/material.pdf";
+    },
+    async headObject() {
+      const bytes = readBytes();
+      return { byteSize: bytes.byteLength, mimeType: "application/pdf" };
+    },
+    async getObjectBytes() {
+      return readBytes();
+    },
+    async listObjects() {
+      return [];
+    },
+    async deleteObject() {},
+  };
+}
+
+function createCachedSourceEvidenceLoader(
+  storage: SourceObjectStorage,
+): SkillSourceEvidenceLoader {
+  const cache = new Map<string, ReturnType<SkillSourceEvidenceLoader>>();
+  return async (input) => {
+    const key = JSON.stringify(
+      input.sourceRefs.map((sourceRef) => ({
+        sourceFileId: sourceRef.sourceFile.id,
+        locator: sourceRef.locator,
+      })),
+    );
+    const existing = cache.get(key);
+    if (existing) {
+      return existing;
+    }
+    const pending = loadLocalizedMaterialEvidence({ ...input, storage });
+    cache.set(key, pending);
+    try {
+      return await pending;
+    } catch (error) {
+      cache.delete(key);
+      throw error;
+    }
   };
 }

@@ -498,7 +498,7 @@ The selected stack is:
 - Neon Postgres.
 - Prisma.
 - Amazon S3 for private object storage.
-- Google Gemini for AI extraction, generation, and verification.
+- Google Gemini as the primary AI provider, with Meta Muse Spark as the direct multimodal fallback for extraction, generation, and verification.
 - Inngest for background jobs.
 - Resend for email.
 - Vercel for hosting.
@@ -526,15 +526,15 @@ Since much of the project will be built with AI agents, strong type contracts sh
 
 ### 14.4 AI Provider Decision
 
-Use one strong provider for V1 rather than building provider abstraction immediately.
-
-The selected provider is Google Gemini, with the intended default model:
+Use a narrow two-provider chain for source-backed work. Google Gemini is primary, with the intended default model:
 
 - `gemini-3.5-flash`
 
 The model should remain environment-configurable through `GEMINI_MODEL` so it can be changed without code edits.
 
-Gemini is responsible for:
+Meta Muse Spark 1.1 is the fallback through Meta's Model API. It remains configurable through `META_MUSE_MODEL`, and its server-only credential is `META_API_KEY`. Treat the issued key as an opaque Bearer token; do not parse it or reconstruct it from team or project identifiers. Do not route this fallback through an intermediary provider.
+
+The provider chain is responsible for:
 
 - Parsing user descriptions and uploaded source material.
 - Drafting narrow skills.
@@ -542,6 +542,8 @@ Gemini is responsible for:
 - Verifying candidate exercises.
 
 Gemini should not be required after every user answer.
+
+When uploaded source material exists, every skill draft, target repair, exercise generation, and verification call must receive either the original quick-upload file or an exact PDF slice containing all cited pages. Extracted text is supplemental context, not a substitute for the source file. Never silently truncate a relevant PDF slice to fit a provider limit; require a narrower scope instead. Responses sent to fallback providers must not be stored remotely.
 
 ### 14.5 Database Decision
 

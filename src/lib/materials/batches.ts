@@ -428,6 +428,8 @@ export async function runMaterialDraftItemJob(input: {
   maxAttempts?: number;
   now?: Date;
   aiSetup?: MaterialDraftAiSetup;
+  sourceStorage?: SourceObjectStorage;
+  sourceEvidenceLoader?: SkillSourceEvidenceLoader;
 }) {
   const prisma = getPrisma();
   const now = input.now ?? new Date();
@@ -564,10 +566,16 @@ export async function runMaterialDraftItemJob(input: {
   }
 
   try {
-    const localizedEvidence = await loadLocalizedMaterialEvidence({
-      userId: input.userId,
-      sourceRefs: [{ locator: locator.data, sourceFile }],
-    });
+    const localizedEvidence = input.sourceEvidenceLoader
+      ? await input.sourceEvidenceLoader({
+          userId: input.userId,
+          sourceRefs: [{ locator: locator.data, sourceFile }],
+        })
+      : await loadLocalizedMaterialEvidence({
+          userId: input.userId,
+          sourceRefs: [{ locator: locator.data, sourceFile }],
+          storage: input.sourceStorage,
+        });
     const evidenceText = localizedEvidence.sourceContext
       ?.slice(0, GENERATION_EVIDENCE_CHARACTER_LIMIT)
       .trim();
@@ -628,6 +636,7 @@ export async function runMaterialDraftItemJob(input: {
         evidenceText,
         verificationNote,
         repairTarget: ai.repairTarget,
+        sourceMedia,
       });
       if (repaired.status === "failed") {
         return { status: "failed" as const, message: repaired.message };
@@ -1170,6 +1179,8 @@ export async function queueMaterialBatchActivation(input: {
         message: "These skills are already being added or are active.",
       };
     }
+    const activationDayStart = startOfUtcDay(input.now);
+    const activationDayEnd = new Date(activationDayStart.getTime() + 24 * 60 * 60 * 1_000);
     const [activeSkillCount, pendingActivationCount, activationsToday] = await Promise.all([
       tx.skill.count({
         where: {
@@ -1188,7 +1199,7 @@ export async function queueMaterialBatchActivation(input: {
         where: {
           userId: input.userId,
           kind: GenerationJobKind.SKILL_ACTIVATION,
-          createdAt: { gte: startOfUtcDay(input.now) },
+          createdAt: { gte: activationDayStart, lt: activationDayEnd },
         },
       }),
     ]);
@@ -1353,6 +1364,7 @@ export async function runMaterialBatchActivationJob(input: {
   verifyChoiceExercises?: ChoiceExerciseVerifier;
   sourceMediaLoader?: SourceMediaContextLoader;
   sourceEvidenceLoader?: SkillSourceEvidenceLoader;
+  sourceStorage?: SourceObjectStorage;
   model?: string;
 }) {
   const prisma = getPrisma();
@@ -1410,7 +1422,13 @@ export async function runMaterialBatchActivationJob(input: {
       generateChoiceExercises: input.generateChoiceExercises,
       verifyChoiceExercises: input.verifyChoiceExercises,
       sourceMediaLoader: input.sourceMediaLoader,
-      sourceEvidenceLoader: input.sourceEvidenceLoader,
+      sourceEvidenceLoader:
+        input.sourceEvidenceLoader ??
+        ((evidenceInput) =>
+          loadLocalizedMaterialEvidence({
+            ...evidenceInput,
+            storage: input.sourceStorage,
+          })),
       model: input.model,
       skipUsageLimitCheck: true,
     });

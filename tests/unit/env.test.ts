@@ -7,7 +7,7 @@ import {
   getClerkEnv,
   getDatabaseEnv,
   getGeminiEnv,
-  getOpenRouterEnv,
+  getMetaMuseEnv,
   getProductionEnv,
   getResendEnv,
   getS3Env,
@@ -15,7 +15,7 @@ import {
   hasClerkEnv,
   hasDatabaseEnv,
   hasGeminiEnv,
-  hasOpenRouterEnv,
+  hasMetaMuseEnv,
   hasProductionEnv,
   hasResendEnv,
   hasS3Env,
@@ -32,9 +32,9 @@ const managedEnvKeys = [
   "GEMINI_ENTERPRISE_AGENT_KEY_PLATFORM_KEY",
   "GEMINI_MODEL",
   "GEMINI_FALLBACK_MODELS",
-  "OPENROUTER_API_KEY",
-  "OPENROUTER_MODEL",
-  "OPENROUTER_BASE_URL",
+  "META_API_KEY",
+  "META_MUSE_MODEL",
+  "META_MUSE_BASE_URL",
   "RESEND_API_KEY",
   "RESEND_FROM_EMAIL",
   "NEXT_PUBLIC_APP_URL",
@@ -140,11 +140,11 @@ describe("environment validation", () => {
       GEMINI_MODEL: "gemini-3.5-flash",
       GEMINI_FALLBACK_MODELS: [],
     });
-    expect(hasOpenRouterEnv()).toBe(false);
-    expect(getOpenRouterEnv()).toEqual({
-      OPENROUTER_API_KEY: undefined,
-      OPENROUTER_BASE_URL: "https://openrouter.ai/api/v1",
-      OPENROUTER_MODEL: "google/gemma-4-31b-it",
+    expect(hasMetaMuseEnv()).toBe(false);
+    expect(getMetaMuseEnv()).toEqual({
+      META_API_KEY: undefined,
+      META_MUSE_BASE_URL: "https://api.meta.ai/v1",
+      META_MUSE_MODEL: "muse-spark-1.1",
     });
 
     resetManagedEnv({
@@ -234,8 +234,8 @@ describe("environment validation", () => {
       DIRECT_URL: "postgresql://migrate:secret@example.aws.neon.tech/neondb?sslmode=require",
       GEMINI_API_KEY: "gemini-secret",
       GEMINI_MODEL: "gemini-3.5-flash",
-      OPENROUTER_API_KEY: "sk-or-v1-secret",
-      OPENROUTER_MODEL: "google/gemma-4-31b-it",
+      META_API_KEY: "LLM_opaque_meta_key",
+      META_MUSE_MODEL: "muse-spark-1.1",
       AWS_REGION: "us-east-1",
       S3_BUCKET_NAME: "learnrecur-prod-source-uploads",
       AWS_ACCESS_KEY_ID: "prod-access-key",
@@ -255,15 +255,15 @@ describe("environment validation", () => {
       CLERK_SECRET_KEY: "sk_live_example",
       DATABASE_URL: "postgresql://runtime:secret@example-pooler.aws.neon.tech/neondb?sslmode=require",
       DIRECT_URL: "postgresql://migrate:secret@example.aws.neon.tech/neondb?sslmode=require",
-      OPENROUTER_API_KEY: "sk-or-v1-secret",
-      OPENROUTER_MODEL: "google/gemma-4-31b-it",
-      OPENROUTER_BASE_URL: "https://openrouter.ai/api/v1",
+      META_API_KEY: "LLM_opaque_meta_key",
+      META_MUSE_MODEL: "muse-spark-1.1",
+      META_MUSE_BASE_URL: "https://api.meta.ai/v1",
       INNGEST_APP_ID: "learnrecur",
       INNGEST_DEV: "0",
     });
   });
 
-  it("does not require OpenRouter for production Gemini-only deployments", () => {
+  it("does not require MetaMuse for production Gemini-only deployments", () => {
     resetManagedEnv({
       NEXT_PUBLIC_APP_URL: " https://app.learnrecur.com ",
       NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: " pk_live_example ",
@@ -286,10 +286,10 @@ describe("environment validation", () => {
 
     expect(hasProductionEnv()).toBe(true);
     const productionEnv = getProductionEnv();
-    expect(productionEnv).not.toHaveProperty("OPENROUTER_API_KEY");
+    expect(productionEnv).not.toHaveProperty("META_API_KEY");
     expect(productionEnv).toMatchObject({
-      OPENROUTER_MODEL: "google/gemma-4-31b-it",
-      OPENROUTER_BASE_URL: "https://openrouter.ai/api/v1",
+      META_MUSE_MODEL: "muse-spark-1.1",
+      META_MUSE_BASE_URL: "https://api.meta.ai/v1",
     });
   });
 
@@ -301,7 +301,7 @@ describe("environment validation", () => {
       DATABASE_URL: "postgresql://runtime:secret@example-pooler.aws.neon.tech/neondb?sslmode=require",
       DIRECT_URL: "",
       GEMINI_API_KEY: "gemini-secret",
-      OPENROUTER_API_KEY: "sk-or-v1-secret",
+      META_API_KEY: "LLM_opaque_meta_key",
       AWS_REGION: "us-east-1",
       S3_BUCKET_NAME: "learnrecur-prod-source-uploads",
       AWS_ACCESS_KEY_ID: "prod-access-key",
@@ -363,7 +363,7 @@ describe("environment validation", () => {
       DATABASE_URL: "postgresql://runtime:secret@example-pooler.aws.neon.tech/neondb?sslmode=require",
       DIRECT_URL: "postgresql://migrate:secret@example.aws.neon.tech/neondb?sslmode=require",
       GEMINI_API_KEY: "gemini-secret",
-      OPENROUTER_API_KEY: "sk-or-v1-secret",
+      META_API_KEY: "LLM_opaque_meta_key",
       AWS_REGION: "us-east-1",
       S3_BUCKET_NAME: "learnrecur-prod-source-uploads",
       AWS_ACCESS_KEY_ID: "prod-access-key",

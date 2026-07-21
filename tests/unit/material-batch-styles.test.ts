@@ -68,4 +68,10 @@ describe("material batch presentation", () => {
     expect(batchPage).toContain("<BatchExcludeControl");
     expect(batchPage).not.toContain('href={`/skills/${item.skill.id}`}>\n                    Edit draft');
   });
+
+  it("offers a guarded route back to the skill creation start from review", () => {
+    expect(batchPage).toContain("<BatchCreateMoreControl");
+    expect(batchPage).toContain("unfinishedCount={unfinishedItemCount}");
+    expect(batchPage).toContain('className="materialHeaderActions batchHeaderActions"');
+  });
 });

@@ -29,15 +29,15 @@ import {
 import { inspectPdfPageCount } from "@/lib/materials/pdf";
 import { MAX_QUICK_PDF_PAGES } from "@/lib/materials/quick-flow";
 import {
-  runOpenRouterJsonChatCompletion,
-  type OpenRouterFallbackConfig,
-} from "@/lib/openrouter";
-import { resolveOptionalOpenRouterFallbackConfig } from "@/lib/openrouter-fallback";
+  runMetaMuseJsonResponse,
+  type MetaMuseFallbackConfig,
+} from "@/lib/meta-muse";
+import { resolveOptionalMetaMuseFallbackConfig } from "@/lib/meta-muse-fallback";
 import { getPrisma } from "@/lib/prisma";
 import {
   MAX_COLLECTION_NAME_LENGTH,
   SOURCE_SKILL_DRAFT_PROMPT_VERSION,
-  buildOpenRouterSourceMediaPart,
+  buildMetaMuseSourceMediaPart,
   buildSourceContextExcerpt,
   createGeminiSkillDraftGenerator,
   createGeneratedSkillDraftsForSourceFile,
@@ -2351,13 +2351,13 @@ function resolveUploadGenerationSetup(
     };
   }
 
-  const openRouterFallbackResult = resolveOptionalOpenRouterFallbackConfig();
-  const openRouterFallback =
-    openRouterFallbackResult.status === "ready" ? openRouterFallbackResult.config : null;
+  const metaMuseFallbackResult = resolveOptionalMetaMuseFallbackConfig();
+  const metaMuseFallback =
+    metaMuseFallbackResult.status === "ready" ? metaMuseFallbackResult.config : null;
 
-  if (openRouterFallbackResult.status === "invalid") {
-    console.warn("[ai] openrouter fallback disabled for upload generation", {
-      message: openRouterFallbackResult.message,
+  if (metaMuseFallbackResult.status === "invalid") {
+    console.warn("[ai] meta muse fallback disabled for upload generation", {
+      message: metaMuseFallbackResult.message,
     });
   }
 
@@ -2378,34 +2378,34 @@ function resolveUploadGenerationSetup(
     model: gemini.model,
     extractSourceText: input.extractSourceText ?? createGeminiSourceTextExtractor({
       gemini,
-      openRouterFallback,
+      metaMuseFallback,
     }),
     generateSkillDraft: input.generateSkillDraft ?? createGeminiSkillDraftGenerator({
       gemini,
-      openRouterFallback,
+      metaMuseFallback,
     }),
   };
 }
 
 function createGeminiSourceTextExtractor({
   gemini,
-  openRouterFallback,
+  metaMuseFallback,
 }: {
   gemini: GeminiRuntimeConfig;
-  openRouterFallback?: OpenRouterFallbackConfig | null;
+  metaMuseFallback?: MetaMuseFallbackConfig | null;
 }): SourceTextExtractor {
   return async (input) => {
-    const openRouterSourceFallback =
-      openRouterFallback
+    const metaMuseSourceFallback =
+      metaMuseFallback
         ? {
-            provider: "openrouter",
-            model: openRouterFallback.model,
-            run: () => createOpenRouterSourceTextExtractor(openRouterFallback)(input),
+            provider: "meta",
+            model: metaMuseFallback.model,
+            run: () => createMetaMuseSourceTextExtractor(metaMuseFallback)(input),
           }
         : null;
 
     return runWithGeminiProviderFallback({
-      fallback: openRouterSourceFallback,
+      fallback: metaMuseSourceFallback,
       operation: "source text extraction",
       primary: getGeminiRuntimeLogContext(gemini),
       primaryModel: gemini.model,
@@ -2468,19 +2468,19 @@ function createGeminiSourceTextExtractor({
   };
 }
 
-function createOpenRouterSourceTextExtractor({
+function createMetaMuseSourceTextExtractor({
   apiKey,
   baseUrl,
   model,
-}: OpenRouterFallbackConfig): SourceTextExtractor {
+}: MetaMuseFallbackConfig): SourceTextExtractor {
   return async (input) =>
-    normalizeOpenRouterSourceTextExtraction(await runOpenRouterJsonChatCompletion({
+    normalizeMetaMuseSourceTextExtraction(await runMetaMuseJsonResponse({
       apiKey,
       baseUrl,
       model,
       metadata: {
         promptChars: buildSourceExtractionPrompt(input).length,
-        schemaName: "openRouterSourceExtractionJsonSchema",
+        schemaName: "metaMuseSourceExtractionJsonSchema",
         media: {
           count: 1,
           totalBytes: input.bytes.length,
@@ -2488,7 +2488,7 @@ function createOpenRouterSourceTextExtractor({
         },
       },
       operation: "source text extraction",
-      responseJsonSchema: openRouterSourceExtractionJsonSchema,
+      responseJsonSchema: metaMuseSourceExtractionJsonSchema,
       responseJsonSchemaName: "sourceTextExtraction",
       messages: [
         {
@@ -2499,10 +2499,10 @@ function createOpenRouterSourceTextExtractor({
           role: "user",
           content: [
             {
-              type: "text",
+              type: "input_text",
               text: buildSourceExtractionPrompt(input),
             },
-            buildOpenRouterSourceMediaPart({
+            buildMetaMuseSourceMediaPart({
               bytes: input.bytes,
               filename: input.originalName,
               mimeType: input.mimeType,
@@ -2513,7 +2513,7 @@ function createOpenRouterSourceTextExtractor({
     }));
 }
 
-function normalizeOpenRouterSourceTextExtraction(input: unknown): unknown {
+function normalizeMetaMuseSourceTextExtraction(input: unknown): unknown {
   const record = getObjectRecord(input);
 
   if (!record) {
@@ -2578,7 +2578,7 @@ const geminiSourceExtractionJsonSchema = {
   },
 };
 
-const openRouterSourceExtractionJsonSchema = geminiSourceExtractionJsonSchema;
+const metaMuseSourceExtractionJsonSchema = geminiSourceExtractionJsonSchema;
 
 function resolveUploadStorage(storage?: SourceUploadStorage):
   | {
