@@ -57,6 +57,12 @@ describe("material batch presentation", () => {
     expect(batchPage).not.toContain('"Repair draft"');
   });
 
+  it("keeps automatic activation retries in a still-working state", () => {
+    expect(batchPage).toContain("getMaterialActivationRetryCopy");
+    expect(batchPage).toContain('activationRetry ? "Still working"');
+    expect(batchPage).toContain("activationRetry.description");
+  });
+
   it("keeps draft editing and exclusion in confirmed modal flows", () => {
     expect(batchPage).toContain("<BatchDraftEditDialog");
     expect(batchPage).toContain("<BatchExcludeControl");

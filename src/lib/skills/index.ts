@@ -93,8 +93,10 @@ const PROMPT_NOTE_CHAR_LIMIT = 2_000;
 export const SOURCE_SKILL_DRAFT_PROMPT_VERSION = "source-skill-draft-v1";
 const GENERATION_TIMEOUT_MS = 45_000;
 const ACTIVATION_GENERATION_COMPLETION_SLACK_MS = 15_000;
-export const ACTIVATION_GENERATION_TIMEOUT_MS =
+const ACTIVATION_PROVIDER_CHAIN_TIMEOUT_MS =
   GENERATION_TIMEOUT_MS * 2 + ACTIVATION_GENERATION_COMPLETION_SLACK_MS;
+export const ACTIVATION_GENERATION_TIMEOUT_MS =
+  ACTIVATION_PROVIDER_CHAIN_TIMEOUT_MS * 2 + ACTIVATION_GENERATION_COMPLETION_SLACK_MS;
 const ACTIVE_GENERATION_JOB_STATUSES: GenerationJobStatus[] = [
   GenerationJobStatus.PENDING,
   GenerationJobStatus.RUNNING,
@@ -2321,11 +2323,11 @@ export async function activateSkillDraft(
         existingExerciseContext: null,
         requestedCount: REQUESTED_ACTIVATION_EXERCISES,
       }),
-      GENERATION_TIMEOUT_MS,
+      ACTIVATION_PROVIDER_CHAIN_TIMEOUT_MS,
       "generateChoiceExercises timed out",
     );
   } catch (error) {
-    const message = `Gemini exercise generation failed: ${formatEnvError(error)}`;
+    const message = `Exercise generation failed: ${formatEnvError(error)}`;
     await markGenerationJobFailed(prisma, generationJob.id, {
       message,
       acceptedCount: 0,
@@ -2373,11 +2375,11 @@ export async function activateSkillDraft(
         existingExerciseContext: null,
         candidates,
       }),
-      GENERATION_TIMEOUT_MS,
+      ACTIVATION_PROVIDER_CHAIN_TIMEOUT_MS,
       "verifyChoiceExercises timed out",
     );
   } catch (error) {
-    const message = `Gemini exercise verification failed: ${formatEnvError(error)}`;
+    const message = `Exercise verification failed: ${formatEnvError(error)}`;
     await markGenerationJobFailed(prisma, generationJob.id, {
       message,
       acceptedCount: 0,
@@ -4753,39 +4755,43 @@ export function createGeminiChoiceExerciseGenerator({
       primary: getGeminiRuntimeLogContext(gemini),
       primaryModel: gemini.model,
       runPrimary: async () =>
-        runLoggedGeminiOperation({
-          config: gemini,
-          operation: "choice exercise generation",
-          metadata: {
-            requestedCount: input.requestedCount,
-            promptChars: prompt.length,
-            schemaName: "choiceExerciseResponse",
-            media: buildSourceMediaLogMetadata(input.sourceMedia),
-          },
-          run: async (ai) => {
-            const response = await ai.models.generateContent({
-              model: gemini.model,
-              contents: buildGeminiContentsWithSourceMedia(prompt, input.sourceMedia),
-              config: {
-                responseMimeType: "application/json",
-                responseJsonSchema: buildGeminiResponseJsonSchema(input.requestedCount),
-                thinkingConfig: {
-                  thinkingBudget: 128,
+        withTimeout(
+          runLoggedGeminiOperation({
+            config: gemini,
+            operation: "choice exercise generation",
+            metadata: {
+              requestedCount: input.requestedCount,
+              promptChars: prompt.length,
+              schemaName: "choiceExerciseResponse",
+              media: buildSourceMediaLogMetadata(input.sourceMedia),
+            },
+            run: async (ai) => {
+              const response = await ai.models.generateContent({
+                model: gemini.model,
+                contents: buildGeminiContentsWithSourceMedia(prompt, input.sourceMedia),
+                config: {
+                  responseMimeType: "application/json",
+                  responseJsonSchema: buildGeminiResponseJsonSchema(input.requestedCount),
+                  thinkingConfig: {
+                    thinkingBudget: 128,
+                  },
                 },
-              },
-            });
-            const text = response.text;
+              });
+              const text = response.text;
 
-            if (!text) {
-              throw new Error("Gemini returned no text.");
-            }
+              if (!text) {
+                throw new Error("Gemini returned no text.");
+              }
 
-            return {
-              response,
-              value: JSON.parse(text) as unknown,
-            };
-          },
-        }),
+              return {
+                response,
+                value: JSON.parse(text) as unknown,
+              };
+            },
+          }),
+          GENERATION_TIMEOUT_MS,
+          "choice exercise generation timed out with Gemini",
+        ),
     });
   };
 }
@@ -4813,39 +4819,43 @@ function createGeminiChoiceExerciseVerifier({
       primary: getGeminiRuntimeLogContext(gemini),
       primaryModel: gemini.model,
       runPrimary: async () =>
-        runLoggedGeminiOperation({
-          config: gemini,
-          operation: "choice exercise verification",
-          metadata: {
-            candidateCount: input.candidates.length,
-            promptChars: prompt.length,
-            schemaName: "choiceExerciseVerification",
-            media: buildSourceMediaLogMetadata(input.sourceMedia),
-          },
-          run: async (ai) => {
-            const response = await ai.models.generateContent({
-              model: gemini.model,
-              contents: buildGeminiContentsWithSourceMedia(prompt, input.sourceMedia),
-              config: {
-                responseMimeType: "application/json",
-                responseJsonSchema: buildGeminiChoiceVerificationJsonSchema(input.candidates.length),
-                thinkingConfig: {
-                  thinkingBudget: 128,
+        withTimeout(
+          runLoggedGeminiOperation({
+            config: gemini,
+            operation: "choice exercise verification",
+            metadata: {
+              candidateCount: input.candidates.length,
+              promptChars: prompt.length,
+              schemaName: "choiceExerciseVerification",
+              media: buildSourceMediaLogMetadata(input.sourceMedia),
+            },
+            run: async (ai) => {
+              const response = await ai.models.generateContent({
+                model: gemini.model,
+                contents: buildGeminiContentsWithSourceMedia(prompt, input.sourceMedia),
+                config: {
+                  responseMimeType: "application/json",
+                  responseJsonSchema: buildGeminiChoiceVerificationJsonSchema(input.candidates.length),
+                  thinkingConfig: {
+                    thinkingBudget: 128,
+                  },
                 },
-              },
-            });
-            const text = response.text;
+              });
+              const text = response.text;
 
-            if (!text) {
-              throw new Error("Gemini returned no text.");
-            }
+              if (!text) {
+                throw new Error("Gemini returned no text.");
+              }
 
-            return {
-              response,
-              value: JSON.parse(text) as unknown,
-            };
-          },
-        }),
+              return {
+                response,
+                value: JSON.parse(text) as unknown,
+              };
+            },
+          }),
+          GENERATION_TIMEOUT_MS,
+          "choice exercise verification timed out with Gemini",
+        ),
     });
   };
 }

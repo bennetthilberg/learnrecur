@@ -2,6 +2,7 @@ import { MaterialRevisionStatus } from "@/generated/prisma/client";
 import { describe, expect, it } from "vitest";
 
 import {
+  getMaterialActivationRetryCopy,
   getMaterialBatchActivationCopy,
   getMaterialDraftAdjustmentCopy,
   getMaterialDraftItemErrorMessage,
@@ -157,6 +158,24 @@ describe("material draft item error messages", () => {
 });
 
 describe("material batch activation copy", () => {
+  it("explains automatic activation retries without presenting a failure", () => {
+    expect(
+      getMaterialActivationRetryCopy({
+        status: "ACTIVATING",
+        errorCode: "ACTIVATION_RETRYING_TRANSIENT_FAILURE",
+      }),
+    ).toEqual({
+      title: "Just a little longer",
+      description: "LearnRecur is finishing this skill automatically.",
+    });
+    expect(
+      getMaterialActivationRetryCopy({
+        status: "FAILED",
+        errorCode: "ACTIVATION_RETRYABLE_GENERATION_FAILED",
+      }),
+    ).toBeNull();
+  });
+
   it.each([
     [1, { actionLabel: "Add one skill", countLabel: "1 skill ready to add" }],
     [2, { actionLabel: "Add all 2", countLabel: "2 skills ready to add" }],

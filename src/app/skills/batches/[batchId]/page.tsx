@@ -19,6 +19,7 @@ import {
   type MaterialScopeResolution,
 } from "@/lib/materials/contracts";
 import {
+  getMaterialActivationRetryCopy,
   getMaterialBatchActivationCopy,
   getMaterialDraftAdjustmentCopy,
   getMaterialDraftItemErrorMessage,
@@ -354,22 +355,31 @@ function DraftBatchReview({
             errorCode: item.errorCode,
             generationMetadata: item.generationMetadata,
           });
+          const activationRetry = getMaterialActivationRetryCopy({
+            status: item.status,
+            errorCode: item.errorCode,
+          });
           return (
-            <article className="skillPanel batchDraftCard" data-status={adjustment ? "generating" : item.status.toLowerCase()} key={item.id}>
+            <article className="skillPanel batchDraftCard" data-status={adjustment || activationRetry ? "generating" : item.status.toLowerCase()} key={item.id}>
             <div className="batchDraftCardHeader">
               <div>
-                <span>{adjustment ? "Adjusting" : formatDisplayLabel(item.status)}</span>
+                <span>{activationRetry ? "Still working" : adjustment ? "Adjusting" : formatDisplayLabel(item.status)}</span>
                 <h3>{item.skill?.title ?? item.proposedTitle}</h3>
                 <p>{item.skill?.objective ?? item.proposedObjective}</p>
               </div>
               {item.status === "READY" || item.status === "ACTIVE" ? <CheckCircle size={22} weight="fill" aria-label={item.status === "ACTIVE" ? "Added" : "Ready"} /> : null}
-              {item.status === "ACTIVATING" || adjustment ? <span className="materialProcessingPulse batchCardPulse" aria-label={item.status === "ACTIVATING" ? "Adding" : "Adjusting"} /> : null}
+              {item.status === "ACTIVATING" || adjustment ? <span className="materialProcessingPulse batchCardPulse" aria-label={activationRetry ? "Still working" : item.status === "ACTIVATING" ? "Adding" : "Adjusting"} /> : null}
               {item.status === "FAILED" && !adjustment ? <WarningCircle size={22} weight="bold" aria-label="Failed" /> : null}
             </div>
             {adjustment ? (
               <p className="batchDraftAdjustment" aria-live="polite">
                 <strong>{adjustment.title}</strong>
                 <span>{adjustment.description}</span>
+              </p>
+            ) : activationRetry ? (
+              <p className="batchDraftAdjustment" aria-live="polite">
+                <strong>{activationRetry.title}</strong>
+                <span>{activationRetry.description}</span>
               </p>
             ) : getMaterialDraftItemErrorMessage(item.errorCode, item.errorMessage) ? (
               <p className="batchDraftError" data-tone={item.status === "EXCLUDED" ? "neutral" : "warning"}>

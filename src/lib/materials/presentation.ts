@@ -65,6 +65,19 @@ export function getMaterialDraftAdjustmentCopy(input: {
     : null;
 }
 
+export function getMaterialActivationRetryCopy(input: {
+  status: string;
+  errorCode: string | null;
+}) {
+  return input.status === "ACTIVATING" &&
+    input.errorCode === "ACTIVATION_RETRYING_TRANSIENT_FAILURE"
+    ? {
+        title: "Just a little longer",
+        description: "LearnRecur is finishing this skill automatically.",
+      }
+    : null;
+}
+
 export function getMaterialBatchActivationCopy(readyCount: number) {
   return readyCount === 1
     ? {

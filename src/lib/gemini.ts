@@ -322,6 +322,7 @@ function getGeminiErrorDetails(error: unknown): GeminiErrorDetails {
 
 function isRetryableGeminiErrorDetails(details: GeminiErrorDetails): boolean {
   const status = details.status?.toUpperCase() ?? null;
+  const message = details.message?.toLowerCase() ?? "";
 
   return (
     details.code === 429 ||
@@ -332,7 +333,8 @@ function isRetryableGeminiErrorDetails(details: GeminiErrorDetails): boolean {
     status === "DEADLINE_EXCEEDED" ||
     status === "INTERNAL" ||
     status === "RESOURCE_EXHAUSTED" ||
-    status === "UNAVAILABLE"
+    status === "UNAVAILABLE" ||
+    message.includes("timed out")
   );
 }
 

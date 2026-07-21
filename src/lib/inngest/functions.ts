@@ -186,11 +186,15 @@ export const materialBatchActivationFunction = inngest.createFunction(
     concurrency: { limit: 2, key: "event.data.userId" },
     triggers: [{ event: MATERIAL_BATCH_ACTIVATION_REQUESTED_EVENT }],
   },
-  async ({ event, step }) => {
+  async ({ event, step, attempt, maxAttempts }) => {
     const payload = parseMaterialBatchActivationEventPayload(event.data);
     try {
       return await step.run("activate one material skill", () =>
-        runMaterialBatchActivationJob(payload),
+        runMaterialBatchActivationJob({
+          ...payload,
+          attempt,
+          maxAttempts: maxAttempts ?? 4,
+        }),
       );
     } catch (error) {
       if (error instanceof MaterialBatchActivationError && !error.retryable) {

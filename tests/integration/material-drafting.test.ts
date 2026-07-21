@@ -2239,7 +2239,7 @@ describeDatabase("material multi-skill drafting", () => {
     if (!skillId) {
       throw new Error("expected a stale activation fixture skill");
     }
-    const staleAt = new Date(Date.now() - 3 * 60 * 1_000);
+    const staleAt = new Date(Date.now() - 6 * 60 * 1_000);
     const job = await prisma.generationJob.create({
       data: {
         userId,
@@ -2398,6 +2398,79 @@ describeDatabase("material multi-skill drafting", () => {
         },
       }),
     ).resolves.toBe(1);
+  });
+
+  it("keeps a transient activation failure in progress while Inngest retries remain", async () => {
+    const ready = await createReadyBatch([
+      {
+        key: "automatic-activation-retry",
+        title: "Automatic activation retry fixture",
+        objective: "Choose a direct object pronoun after a transient provider failure.",
+        materialSectionIds: [directSectionId],
+        evidenceChunkIds: [directChunkId],
+      },
+    ]);
+    const events: Array<{ itemId: string; generationJobId: string }> = [];
+    await queueMaterialBatchActivation({
+      userId,
+      input: { batchId: ready.id, itemIds: [ready.items[0].id] },
+      now: new Date("2026-07-21T12:00:00.000Z"),
+      eventSender: {
+        async sendMaterialBatchActivationRequested(payload) {
+          events.push(payload);
+        },
+      },
+    });
+
+    await expect(
+      runMaterialBatchActivationJob({
+        ...events[0],
+        attempt: 0,
+        maxAttempts: 4,
+        now: new Date("2026-07-21T12:01:00.000Z"),
+        generateChoiceExercises: async () => {
+          throw new Error("temporary provider timeout");
+        },
+        verifyChoiceExercises: acceptAllChoiceExercises,
+        model: "fixture-model",
+      }),
+    ).rejects.toBeInstanceOf(MaterialBatchActivationError);
+
+    expect(await getMaterialDraftBatch({ userId, batchId: ready.id })).toMatchObject({
+      status: SkillDraftBatchStatus.ACTIVATING,
+      failedCount: 0,
+      items: [
+        {
+          status: SkillDraftBatchItemStatus.ACTIVATING,
+          errorCode: "ACTIVATION_RETRYING_TRANSIENT_FAILURE",
+        },
+      ],
+    });
+
+    await expect(
+      runMaterialBatchActivationJob({
+        ...events[0],
+        attempt: 1,
+        maxAttempts: 4,
+        now: new Date("2026-07-21T12:02:00.000Z"),
+        generateChoiceExercises: async () => ({
+          exercises: [
+            generatedChoiceExercise(41),
+            generatedChoiceExercise(42),
+            generatedChoiceExercise(43),
+          ],
+        }),
+        verifyChoiceExercises: acceptAllChoiceExercises,
+        model: "fixture-model",
+      }),
+    ).resolves.toMatchObject({ status: "active" });
+
+    expect(await getMaterialDraftBatch({ userId, batchId: ready.id })).toMatchObject({
+      status: SkillDraftBatchStatus.COMPLETE,
+      failedCount: 0,
+      activatedCount: 1,
+      items: [{ status: SkillDraftBatchItemStatus.ACTIVE, errorCode: null }],
+    });
   });
 
   it("keeps queued siblings when one activation event cannot be sent", async () => {

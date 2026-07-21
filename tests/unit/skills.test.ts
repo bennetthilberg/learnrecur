@@ -61,6 +61,7 @@ import {
 import type { SourceObjectStorage } from "@/lib/storage/s3";
 
 afterEach(() => {
+  vi.useRealTimers();
   geminiGenerateContentMock.mockReset();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
@@ -1404,6 +1405,70 @@ describe("buildOpenRouterSourceMediaPart", () => {
 });
 
 describe("OpenRouter exercise fallbacks", () => {
+  it("gives OpenRouter a fresh timeout budget after Gemini times out", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    geminiGenerateContentMock.mockImplementationOnce(
+      () => new Promise(() => {}),
+    );
+    const fetchMock = vi.fn(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 30_000));
+      return new Response(
+        JSON.stringify({
+          choices: [
+            {
+              finish_reason: "stop",
+              message: {
+                content: JSON.stringify({ exercises: [validExercise(1)] }),
+              },
+            },
+          ],
+          model: "google/gemma-4-31b-it",
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = createGeminiChoiceExerciseGenerator({
+      gemini: {
+        apiMode: "enterprise-agent-platform",
+        endpoint: "https://aiplatform.googleapis.com/",
+        model: "gemini-3.5-flash",
+        clientOptions: {
+          vertexai: true,
+          apiKey: "enterprise-key",
+          httpOptions: { apiVersion: "v1" },
+        },
+      },
+      openRouterFallback: {
+        apiKey: "sk-or-test",
+        baseUrl: "https://openrouter.ai/api/v1",
+        model: "google/gemma-4-31b-it",
+      },
+    })({
+      skill: {
+        id: "skill_1",
+        title: "Spanish source skill",
+        objective: "Practice the source-backed Spanish grammar pattern.",
+        rules: null,
+        examples: null,
+        exerciseConstraints: null,
+        tags: ["spanish"],
+      },
+      sourceContext: "Use the worksheet scope.",
+      sourceMedia: [],
+      requestedCount: 1,
+    });
+
+    await vi.advanceTimersByTimeAsync(45_000);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(30_000);
+    await expect(result).resolves.toEqual({ exercises: [validExercise(1)] });
+  });
+
   it("routes choice exercise generation to OpenRouter when Gemini fails retryably", async () => {
     vi.spyOn(console, "info").mockImplementation(() => {});
     const warningSpy = vi.spyOn(console, "warn").mockImplementation(() => {});

@@ -97,7 +97,9 @@ const GENERATION_EVIDENCE_CHARACTER_LIMIT = 24_000;
 // Keep this above the five-minute function ceiling so a slow but healthy model call
 // is not surfaced as failed while its worker can still complete.
 const MATERIAL_DRAFT_CLAIM_STALE_MS = 10 * 60 * 1_000;
-const MATERIAL_BATCH_ACTIVATION_CLAIM_STALE_MS = 2 * 60 * 1_000;
+// The worker can spend two provider budgets on generation and two more on verification.
+// Only recover a claim after the five-minute function window has elapsed.
+const MATERIAL_BATCH_ACTIVATION_CLAIM_STALE_MS = 5 * 60 * 1_000;
 const MAX_AUTOMATIC_TARGET_REPAIRS = 2;
 
 export class MaterialDraftGenerationError extends Error {
@@ -1344,6 +1346,8 @@ export async function runMaterialBatchActivationJob(input: {
   itemId: string;
   generationJobId: string;
   requestedAt?: string;
+  attempt?: number;
+  maxAttempts?: number;
   now?: Date;
   generateChoiceExercises?: ChoiceExerciseGenerator;
   verifyChoiceExercises?: ChoiceExerciseVerifier;
@@ -1424,15 +1428,24 @@ export async function runMaterialBatchActivationJob(input: {
         completedAt: now,
       },
     });
-    const marked = await markMaterialBatchActivationFailed({
-      userId: input.userId,
-      batchId: input.batchId,
-      itemId: item.id,
-      claimId: slot.claimId,
-      code: "ACTIVATION_RETRYABLE_UNEXPECTED_FAILURE",
-      message,
-      now,
-    });
+    const marked = hasAutomaticActivationRetryRemaining(input)
+      ? await releaseMaterialBatchActivationForRetry({
+          userId: input.userId,
+          batchId: input.batchId,
+          itemId: item.id,
+          claimId: slot.claimId,
+          message,
+          now,
+        })
+      : await markMaterialBatchActivationFailed({
+          userId: input.userId,
+          batchId: input.batchId,
+          itemId: item.id,
+          claimId: slot.claimId,
+          code: "ACTIVATION_RETRYABLE_UNEXPECTED_FAILURE",
+          message,
+          now,
+        });
     if (!marked) {
       return { status: "not-claimed" as const };
     }
@@ -1452,15 +1465,25 @@ export async function runMaterialBatchActivationJob(input: {
     "verification-failed",
     "activation-in-progress",
   ].includes(result.reason);
-  const marked = await markMaterialBatchActivationFailed({
-    userId: input.userId,
-    batchId: input.batchId,
-    itemId: item.id,
-    claimId: slot.claimId,
-    code: `ACTIVATION_${retryable ? "RETRYABLE_" : ""}${reason}`,
-    message: result.message,
-    now,
-  });
+  const marked =
+    retryable && hasAutomaticActivationRetryRemaining(input)
+      ? await releaseMaterialBatchActivationForRetry({
+          userId: input.userId,
+          batchId: input.batchId,
+          itemId: item.id,
+          claimId: slot.claimId,
+          message: result.message,
+          now,
+        })
+      : await markMaterialBatchActivationFailed({
+          userId: input.userId,
+          batchId: input.batchId,
+          itemId: item.id,
+          claimId: slot.claimId,
+          code: `ACTIVATION_${retryable ? "RETRYABLE_" : ""}${reason}`,
+          message: result.message,
+          now,
+        });
   if (!marked) {
     return { status: "not-claimed" as const };
   }
@@ -1577,13 +1600,14 @@ async function claimMaterialBatchActivationSlot(input: {
       };
     }
     const claimId = randomUUID();
+    const keepAutomaticRetryState =
+      item.errorCode === "ACTIVATION_RETRYING_TRANSIENT_FAILURE";
     await tx.skillDraftBatchItem.update({
       where: { id: item.id },
       data: {
         status: SkillDraftBatchItemStatus.ACTIVATING,
         generationClaimId: claimId,
-        errorCode: null,
-        errorMessage: null,
+        ...(keepAutomaticRetryState ? {} : { errorCode: null, errorMessage: null }),
       },
     });
     return { status: "ready" as const, skillId: item.skill.id, claimId };
@@ -1767,6 +1791,46 @@ async function markMaterialBatchActivationFailed(input: {
     await reconcileMaterialDraftBatch(input);
   }
   return updated.count === 1;
+}
+
+async function releaseMaterialBatchActivationForRetry(input: {
+  userId: string;
+  batchId: string;
+  itemId: string;
+  claimId: string;
+  message: string;
+  now: Date;
+}) {
+  const updated = await getPrisma().skillDraftBatchItem.updateMany({
+    where: {
+      id: input.itemId,
+      batchId: input.batchId,
+      userId: input.userId,
+      status: SkillDraftBatchItemStatus.ACTIVATING,
+      generationClaimId: input.claimId,
+    },
+    data: {
+      status: SkillDraftBatchItemStatus.ACTIVATING,
+      generationClaimId: null,
+      errorCode: "ACTIVATION_RETRYING_TRANSIENT_FAILURE",
+      errorMessage: input.message.slice(0, 1_000),
+    },
+  });
+  if (updated.count === 1) {
+    await reconcileMaterialDraftBatch(input);
+  }
+  return updated.count === 1;
+}
+
+function hasAutomaticActivationRetryRemaining(input: {
+  attempt?: number;
+  maxAttempts?: number;
+}) {
+  return (
+    input.attempt !== undefined &&
+    input.maxAttempts !== undefined &&
+    input.attempt + 1 < input.maxAttempts
+  );
 }
 
 export async function excludeMaterialDraftItem(input: {

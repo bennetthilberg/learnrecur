@@ -22,6 +22,7 @@ import {
 import { getDashboardHome } from "@/lib/dashboard";
 import { getPrisma } from "@/lib/prisma";
 import {
+  ACTIVATION_GENERATION_TIMEOUT_MS,
   activateSkillDraft,
   createGeneratedSkillDraftsForSourceFile,
   createSkillDraft,
@@ -906,7 +907,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
         model: "stale-test-gemini",
         promptVersion: "skill-mcq-v0",
         requestedCount: 5,
-        startedAt: new Date(now.getTime() - 120_000),
+        startedAt: new Date(now.getTime() - ACTIVATION_GENERATION_TIMEOUT_MS - 1_000),
       },
     });
 
