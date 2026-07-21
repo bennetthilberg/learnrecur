@@ -23,7 +23,7 @@ vi.mock("@mantine/core", async () => {
 });
 
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ refresh: vi.fn() }),
+  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
 }));
 
 vi.mock("@/app/skills/skill-draft-form", async () => {
@@ -52,6 +52,7 @@ vi.mock("@/app/skills/batches/actions", () => ({
 }));
 
 import { BatchDraftEditDialog } from "@/app/skills/batches/batch-draft-edit-dialog";
+import { BatchCreateMoreControl } from "@/app/skills/batches/batch-create-more-control";
 import { BatchExcludeControl } from "@/app/skills/batches/batch-exclude-control";
 
 const initialValues = {
@@ -95,5 +96,33 @@ describe("material batch draft controls", () => {
     expect(markup).toContain('data-title="Exclude this draft?"');
     expect(markup).toContain("This removes the draft from this batch");
     expect(markup).toContain("Confirm exclusion");
+  });
+
+  it("links completed batches directly to the skill creation start", () => {
+    const markup = renderToStaticMarkup(
+      createElement(BatchCreateMoreControl, {
+        readyCount: 0,
+        unfinishedCount: 0,
+      }),
+    );
+
+    expect(markup).toContain('href="/skills/new"');
+    expect(markup).toContain("Create more skills");
+    expect(markup).not.toContain('aria-haspopup="dialog"');
+  });
+
+  it("warns before leaving a batch with drafts that have not been added", () => {
+    const markup = renderToStaticMarkup(
+      createElement(BatchCreateMoreControl, {
+        readyCount: 1,
+        unfinishedCount: 2,
+      }),
+    );
+
+    expect(markup).toContain('aria-haspopup="dialog"');
+    expect(markup).toContain('data-title="Leave this batch?"');
+    expect(markup).toContain("1 draft is ready to add");
+    expect(markup).toContain("stays saved in this batch");
+    expect(markup).toContain("Create more anyway");
   });
 });

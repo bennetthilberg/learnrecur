@@ -4860,6 +4860,15 @@ body {
   max-width: 1120px;
 }
 
+.batchHeaderActions {
+  flex: 0 0 auto;
+  justify-content: flex-end;
+}
+
+.batchCreateMoreAction {
+  white-space: nowrap;
+}
+
 .batchStageRail {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -5581,6 +5590,35 @@ body {
   gap: 10px;
 }
 
+.batchLeaveModalBody {
+  padding: 4px 24px 24px;
+}
+
+.batchLeaveModalCopy {
+  color: var(--lr-text-secondary);
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+
+.batchLeaveModalCopy p {
+  margin: 0;
+}
+
+.batchLeaveModalCopy p + p {
+  margin-top: 8px;
+}
+
+.batchLeaveModalCopy strong {
+  color: var(--lr-ink);
+}
+
+.batchLeaveModalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 22px;
+}
+
 .batchExcludeConfirm {
   white-space: nowrap;
 }
@@ -5855,12 +5893,14 @@ body {
     padding: 20px 18px;
   }
 
-  .batchExcludeModalActions {
+  .batchExcludeModalActions,
+  .batchLeaveModalActions {
     align-items: stretch;
     flex-direction: column-reverse;
   }
 
-  .batchExcludeModalActions button {
+  .batchExcludeModalActions button,
+  .batchLeaveModalActions button {
     width: 100%;
   }
 

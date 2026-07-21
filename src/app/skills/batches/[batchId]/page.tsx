@@ -37,6 +37,7 @@ import {
   retryMaterialDraftItemAction,
 } from "../actions";
 import { BatchAutomaticRecovery } from "../batch-automatic-recovery";
+import { BatchCreateMoreControl } from "../batch-create-more-control";
 import { BatchDraftEditDialog } from "../batch-draft-edit-dialog";
 import { BatchExcludeControl } from "../batch-exclude-control";
 import { BatchStageRail } from "../batch-stage-rail";
@@ -92,6 +93,9 @@ export default async function MaterialBatchPage({
     automaticRepairItemIds.length > 0 ||
     batch.items.some((item) => item.status === "GENERATING" || item.status === "PLANNED");
   const activating = batch.status === "ACTIVATING" || batch.items.some((item) => item.status === "ACTIVATING");
+  const unfinishedItemCount = batch.items.filter(
+    (item) => item.status !== "ACTIVE" && item.status !== "EXCLUDED",
+  ).length;
   const stage = planning ? "scope" : generating ? "generate" : "review";
   const pageTitle = planning
     ? "Confirm the exact scope"
@@ -121,9 +125,17 @@ export default async function MaterialBatchPage({
           <h1>{pageTitle}</h1>
           <p>{batch.materialRevision.material.title} · Revision {batch.materialRevision.revisionNumber}</p>
         </div>
-        <Link className="secondaryButton" href={`/skills/materials/${batch.materialRevision.material.id}`}>
-          <ArrowLeft size={17} weight="bold" aria-hidden="true" /> Material
-        </Link>
+        <div className="materialHeaderActions batchHeaderActions">
+          <Link className="secondaryButton" href={`/skills/materials/${batch.materialRevision.material.id}`}>
+            <ArrowLeft size={17} weight="bold" aria-hidden="true" /> Material
+          </Link>
+          {!planning ? (
+            <BatchCreateMoreControl
+              readyCount={batch.readyCount}
+              unfinishedCount={unfinishedItemCount}
+            />
+          ) : null}
+        </div>
       </header>
 
       <BatchStageRail current={stage} />
