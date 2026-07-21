@@ -45,6 +45,7 @@ export async function checkSourceUploadUsageLimit(input: {
     prisma.sourceFile.count({
       where: {
         userId: input.userId,
+        materialRevisionId: null,
         createdAt: {
           gte: dayStart,
         },
@@ -56,6 +57,7 @@ export async function checkSourceUploadUsageLimit(input: {
     prisma.sourceFile.aggregate({
       where: {
         userId: input.userId,
+        materialRevisionId: null,
         storageKey: {
           not: null,
         },

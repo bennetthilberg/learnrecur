@@ -24,6 +24,7 @@ describe("study data export helpers", () => {
     const exported = toExportSourceFile({
       id: "source_1",
       collectionId: "collection_1",
+      materialRevisionId: "revision_1",
       kind: "PDF",
       status: "READY",
       originalName: "worksheet.pdf",
@@ -48,6 +49,7 @@ describe("study data export helpers", () => {
     expect(exported).toEqual({
       id: "source_1",
       collectionId: "collection_1",
+      materialRevisionId: "revision_1",
       kind: "PDF",
       status: "READY",
       originalName: "worksheet.pdf",

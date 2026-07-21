@@ -38,6 +38,7 @@ export type SourceFileMinAggregateOutputType = {
   id: string | null
   userId: string | null
   collectionId: string | null
+  materialRevisionId: string | null
   kind: $Enums.SourceFileKind | null
   status: $Enums.SourceFileStatus | null
   originalName: string | null
@@ -55,6 +56,7 @@ export type SourceFileMaxAggregateOutputType = {
   id: string | null
   userId: string | null
   collectionId: string | null
+  materialRevisionId: string | null
   kind: $Enums.SourceFileKind | null
   status: $Enums.SourceFileStatus | null
   originalName: string | null
@@ -72,6 +74,7 @@ export type SourceFileCountAggregateOutputType = {
   id: number
   userId: number
   collectionId: number
+  materialRevisionId: number
   kind: number
   status: number
   originalName: number
@@ -100,6 +103,7 @@ export type SourceFileMinAggregateInputType = {
   id?: true
   userId?: true
   collectionId?: true
+  materialRevisionId?: true
   kind?: true
   status?: true
   originalName?: true
@@ -117,6 +121,7 @@ export type SourceFileMaxAggregateInputType = {
   id?: true
   userId?: true
   collectionId?: true
+  materialRevisionId?: true
   kind?: true
   status?: true
   originalName?: true
@@ -134,6 +139,7 @@ export type SourceFileCountAggregateInputType = {
   id?: true
   userId?: true
   collectionId?: true
+  materialRevisionId?: true
   kind?: true
   status?: true
   originalName?: true
@@ -239,6 +245,7 @@ export type SourceFileGroupByOutputType = {
   id: string
   userId: string
   collectionId: string | null
+  materialRevisionId: string | null
   kind: $Enums.SourceFileKind
   status: $Enums.SourceFileStatus
   originalName: string
@@ -280,6 +287,7 @@ export type SourceFileWhereInput = {
   id?: Prisma.StringFilter<"SourceFile"> | string
   userId?: Prisma.StringFilter<"SourceFile"> | string
   collectionId?: Prisma.StringNullableFilter<"SourceFile"> | string | null
+  materialRevisionId?: Prisma.StringNullableFilter<"SourceFile"> | string | null
   kind?: Prisma.EnumSourceFileKindFilter<"SourceFile"> | $Enums.SourceFileKind
   status?: Prisma.EnumSourceFileStatusFilter<"SourceFile"> | $Enums.SourceFileStatus
   originalName?: Prisma.StringFilter<"SourceFile"> | string
@@ -294,13 +302,16 @@ export type SourceFileWhereInput = {
   updatedAt?: Prisma.DateTimeFilter<"SourceFile"> | Date | string
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   collection?: Prisma.XOR<Prisma.CollectionNullableScalarRelationFilter, Prisma.CollectionWhereInput> | null
+  materialRevision?: Prisma.XOR<Prisma.MaterialRevisionNullableScalarRelationFilter, Prisma.MaterialRevisionWhereInput> | null
   skillRefs?: Prisma.SkillSourceRefListRelationFilter
+  materialChunks?: Prisma.MaterialChunkListRelationFilter
 }
 
 export type SourceFileOrderByWithRelationInput = {
   id?: Prisma.SortOrder
   userId?: Prisma.SortOrder
   collectionId?: Prisma.SortOrderInput | Prisma.SortOrder
+  materialRevisionId?: Prisma.SortOrderInput | Prisma.SortOrder
   kind?: Prisma.SortOrder
   status?: Prisma.SortOrder
   originalName?: Prisma.SortOrder
@@ -315,17 +326,21 @@ export type SourceFileOrderByWithRelationInput = {
   updatedAt?: Prisma.SortOrder
   user?: Prisma.UserOrderByWithRelationInput
   collection?: Prisma.CollectionOrderByWithRelationInput
+  materialRevision?: Prisma.MaterialRevisionOrderByWithRelationInput
   skillRefs?: Prisma.SkillSourceRefOrderByRelationAggregateInput
+  materialChunks?: Prisma.MaterialChunkOrderByRelationAggregateInput
 }
 
 export type SourceFileWhereUniqueInput = Prisma.AtLeast<{
   id?: string
   id_userId?: Prisma.SourceFileIdUserIdCompoundUniqueInput
+  id_materialRevisionId_userId?: Prisma.SourceFileIdMaterialRevisionIdUserIdCompoundUniqueInput
   AND?: Prisma.SourceFileWhereInput | Prisma.SourceFileWhereInput[]
   OR?: Prisma.SourceFileWhereInput[]
   NOT?: Prisma.SourceFileWhereInput | Prisma.SourceFileWhereInput[]
   userId?: Prisma.StringFilter<"SourceFile"> | string
   collectionId?: Prisma.StringNullableFilter<"SourceFile"> | string | null
+  materialRevisionId?: Prisma.StringNullableFilter<"SourceFile"> | string | null
   kind?: Prisma.EnumSourceFileKindFilter<"SourceFile"> | $Enums.SourceFileKind
   status?: Prisma.EnumSourceFileStatusFilter<"SourceFile"> | $Enums.SourceFileStatus
   originalName?: Prisma.StringFilter<"SourceFile"> | string
@@ -340,13 +355,16 @@ export type SourceFileWhereUniqueInput = Prisma.AtLeast<{
   updatedAt?: Prisma.DateTimeFilter<"SourceFile"> | Date | string
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   collection?: Prisma.XOR<Prisma.CollectionNullableScalarRelationFilter, Prisma.CollectionWhereInput> | null
+  materialRevision?: Prisma.XOR<Prisma.MaterialRevisionNullableScalarRelationFilter, Prisma.MaterialRevisionWhereInput> | null
   skillRefs?: Prisma.SkillSourceRefListRelationFilter
-}, "id" | "id_userId">
+  materialChunks?: Prisma.MaterialChunkListRelationFilter
+}, "id" | "id_userId" | "id_materialRevisionId_userId">
 
 export type SourceFileOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
   userId?: Prisma.SortOrder
   collectionId?: Prisma.SortOrderInput | Prisma.SortOrder
+  materialRevisionId?: Prisma.SortOrderInput | Prisma.SortOrder
   kind?: Prisma.SortOrder
   status?: Prisma.SortOrder
   originalName?: Prisma.SortOrder
@@ -373,6 +391,7 @@ export type SourceFileScalarWhereWithAggregatesInput = {
   id?: Prisma.StringWithAggregatesFilter<"SourceFile"> | string
   userId?: Prisma.StringWithAggregatesFilter<"SourceFile"> | string
   collectionId?: Prisma.StringNullableWithAggregatesFilter<"SourceFile"> | string | null
+  materialRevisionId?: Prisma.StringNullableWithAggregatesFilter<"SourceFile"> | string | null
   kind?: Prisma.EnumSourceFileKindWithAggregatesFilter<"SourceFile"> | $Enums.SourceFileKind
   status?: Prisma.EnumSourceFileStatusWithAggregatesFilter<"SourceFile"> | $Enums.SourceFileStatus
   originalName?: Prisma.StringWithAggregatesFilter<"SourceFile"> | string
@@ -403,13 +422,16 @@ export type SourceFileCreateInput = {
   updatedAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutSourceFilesInput
   collection?: Prisma.CollectionCreateNestedOneWithoutSourceFilesInput
+  materialRevision?: Prisma.MaterialRevisionCreateNestedOneWithoutSourceFilesInput
   skillRefs?: Prisma.SkillSourceRefCreateNestedManyWithoutSourceFileInput
+  materialChunks?: Prisma.MaterialChunkCreateNestedManyWithoutSourceFileInput
 }
 
 export type SourceFileUncheckedCreateInput = {
   id?: string
   userId: string
   collectionId?: string | null
+  materialRevisionId?: string | null
   kind?: $Enums.SourceFileKind
   status?: $Enums.SourceFileStatus
   originalName: string
@@ -423,6 +445,7 @@ export type SourceFileUncheckedCreateInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   skillRefs?: Prisma.SkillSourceRefUncheckedCreateNestedManyWithoutSourceFileInput
+  materialChunks?: Prisma.MaterialChunkUncheckedCreateNestedManyWithoutSourceFileInput
 }
 
 export type SourceFileUpdateInput = {
@@ -441,13 +464,16 @@ export type SourceFileUpdateInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutSourceFilesNestedInput
   collection?: Prisma.CollectionUpdateOneWithoutSourceFilesNestedInput
+  materialRevision?: Prisma.MaterialRevisionUpdateOneWithoutSourceFilesNestedInput
   skillRefs?: Prisma.SkillSourceRefUpdateManyWithoutSourceFileNestedInput
+  materialChunks?: Prisma.MaterialChunkUpdateManyWithoutSourceFileNestedInput
 }
 
 export type SourceFileUncheckedUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   collectionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  materialRevisionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   kind?: Prisma.EnumSourceFileKindFieldUpdateOperationsInput | $Enums.SourceFileKind
   status?: Prisma.EnumSourceFileStatusFieldUpdateOperationsInput | $Enums.SourceFileStatus
   originalName?: Prisma.StringFieldUpdateOperationsInput | string
@@ -461,12 +487,14 @@ export type SourceFileUncheckedUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   skillRefs?: Prisma.SkillSourceRefUncheckedUpdateManyWithoutSourceFileNestedInput
+  materialChunks?: Prisma.MaterialChunkUncheckedUpdateManyWithoutSourceFileNestedInput
 }
 
 export type SourceFileCreateManyInput = {
   id?: string
   userId: string
   collectionId?: string | null
+  materialRevisionId?: string | null
   kind?: $Enums.SourceFileKind
   status?: $Enums.SourceFileStatus
   originalName: string
@@ -501,6 +529,7 @@ export type SourceFileUncheckedUpdateManyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   collectionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  materialRevisionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   kind?: Prisma.EnumSourceFileKindFieldUpdateOperationsInput | $Enums.SourceFileKind
   status?: Prisma.EnumSourceFileStatusFieldUpdateOperationsInput | $Enums.SourceFileStatus
   originalName?: Prisma.StringFieldUpdateOperationsInput | string
@@ -530,10 +559,17 @@ export type SourceFileIdUserIdCompoundUniqueInput = {
   userId: string
 }
 
+export type SourceFileIdMaterialRevisionIdUserIdCompoundUniqueInput = {
+  id: string
+  materialRevisionId: string
+  userId: string
+}
+
 export type SourceFileCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   userId?: Prisma.SortOrder
   collectionId?: Prisma.SortOrder
+  materialRevisionId?: Prisma.SortOrder
   kind?: Prisma.SortOrder
   status?: Prisma.SortOrder
   originalName?: Prisma.SortOrder
@@ -556,6 +592,7 @@ export type SourceFileMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
   userId?: Prisma.SortOrder
   collectionId?: Prisma.SortOrder
+  materialRevisionId?: Prisma.SortOrder
   kind?: Prisma.SortOrder
   status?: Prisma.SortOrder
   originalName?: Prisma.SortOrder
@@ -573,6 +610,7 @@ export type SourceFileMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
   userId?: Prisma.SortOrder
   collectionId?: Prisma.SortOrder
+  materialRevisionId?: Prisma.SortOrder
   kind?: Prisma.SortOrder
   status?: Prisma.SortOrder
   originalName?: Prisma.SortOrder
@@ -588,6 +626,11 @@ export type SourceFileMinOrderByAggregateInput = {
 
 export type SourceFileSumOrderByAggregateInput = {
   byteSize?: Prisma.SortOrder
+}
+
+export type SourceFileNullableScalarRelationFilter = {
+  is?: Prisma.SourceFileWhereInput | null
+  isNot?: Prisma.SourceFileWhereInput | null
 }
 
 export type SourceFileScalarRelationFilter = {
@@ -695,6 +738,64 @@ export type NullableIntFieldUpdateOperationsInput = {
   divide?: number
 }
 
+export type SourceFileCreateNestedManyWithoutMaterialRevisionInput = {
+  create?: Prisma.XOR<Prisma.SourceFileCreateWithoutMaterialRevisionInput, Prisma.SourceFileUncheckedCreateWithoutMaterialRevisionInput> | Prisma.SourceFileCreateWithoutMaterialRevisionInput[] | Prisma.SourceFileUncheckedCreateWithoutMaterialRevisionInput[]
+  connectOrCreate?: Prisma.SourceFileCreateOrConnectWithoutMaterialRevisionInput | Prisma.SourceFileCreateOrConnectWithoutMaterialRevisionInput[]
+  createMany?: Prisma.SourceFileCreateManyMaterialRevisionInputEnvelope
+  connect?: Prisma.SourceFileWhereUniqueInput | Prisma.SourceFileWhereUniqueInput[]
+}
+
+export type SourceFileUncheckedCreateNestedManyWithoutMaterialRevisionInput = {
+  create?: Prisma.XOR<Prisma.SourceFileCreateWithoutMaterialRevisionInput, Prisma.SourceFileUncheckedCreateWithoutMaterialRevisionInput> | Prisma.SourceFileCreateWithoutMaterialRevisionInput[] | Prisma.SourceFileUncheckedCreateWithoutMaterialRevisionInput[]
+  connectOrCreate?: Prisma.SourceFileCreateOrConnectWithoutMaterialRevisionInput | Prisma.SourceFileCreateOrConnectWithoutMaterialRevisionInput[]
+  createMany?: Prisma.SourceFileCreateManyMaterialRevisionInputEnvelope
+  connect?: Prisma.SourceFileWhereUniqueInput | Prisma.SourceFileWhereUniqueInput[]
+}
+
+export type SourceFileUpdateManyWithoutMaterialRevisionNestedInput = {
+  create?: Prisma.XOR<Prisma.SourceFileCreateWithoutMaterialRevisionInput, Prisma.SourceFileUncheckedCreateWithoutMaterialRevisionInput> | Prisma.SourceFileCreateWithoutMaterialRevisionInput[] | Prisma.SourceFileUncheckedCreateWithoutMaterialRevisionInput[]
+  connectOrCreate?: Prisma.SourceFileCreateOrConnectWithoutMaterialRevisionInput | Prisma.SourceFileCreateOrConnectWithoutMaterialRevisionInput[]
+  upsert?: Prisma.SourceFileUpsertWithWhereUniqueWithoutMaterialRevisionInput | Prisma.SourceFileUpsertWithWhereUniqueWithoutMaterialRevisionInput[]
+  createMany?: Prisma.SourceFileCreateManyMaterialRevisionInputEnvelope
+  set?: Prisma.SourceFileWhereUniqueInput | Prisma.SourceFileWhereUniqueInput[]
+  disconnect?: Prisma.SourceFileWhereUniqueInput | Prisma.SourceFileWhereUniqueInput[]
+  delete?: Prisma.SourceFileWhereUniqueInput | Prisma.SourceFileWhereUniqueInput[]
+  connect?: Prisma.SourceFileWhereUniqueInput | Prisma.SourceFileWhereUniqueInput[]
+  update?: Prisma.SourceFileUpdateWithWhereUniqueWithoutMaterialRevisionInput | Prisma.SourceFileUpdateWithWhereUniqueWithoutMaterialRevisionInput[]
+  updateMany?: Prisma.SourceFileUpdateManyWithWhereWithoutMaterialRevisionInput | Prisma.SourceFileUpdateManyWithWhereWithoutMaterialRevisionInput[]
+  deleteMany?: Prisma.SourceFileScalarWhereInput | Prisma.SourceFileScalarWhereInput[]
+}
+
+export type SourceFileUncheckedUpdateManyWithoutMaterialRevisionNestedInput = {
+  create?: Prisma.XOR<Prisma.SourceFileCreateWithoutMaterialRevisionInput, Prisma.SourceFileUncheckedCreateWithoutMaterialRevisionInput> | Prisma.SourceFileCreateWithoutMaterialRevisionInput[] | Prisma.SourceFileUncheckedCreateWithoutMaterialRevisionInput[]
+  connectOrCreate?: Prisma.SourceFileCreateOrConnectWithoutMaterialRevisionInput | Prisma.SourceFileCreateOrConnectWithoutMaterialRevisionInput[]
+  upsert?: Prisma.SourceFileUpsertWithWhereUniqueWithoutMaterialRevisionInput | Prisma.SourceFileUpsertWithWhereUniqueWithoutMaterialRevisionInput[]
+  createMany?: Prisma.SourceFileCreateManyMaterialRevisionInputEnvelope
+  set?: Prisma.SourceFileWhereUniqueInput | Prisma.SourceFileWhereUniqueInput[]
+  disconnect?: Prisma.SourceFileWhereUniqueInput | Prisma.SourceFileWhereUniqueInput[]
+  delete?: Prisma.SourceFileWhereUniqueInput | Prisma.SourceFileWhereUniqueInput[]
+  connect?: Prisma.SourceFileWhereUniqueInput | Prisma.SourceFileWhereUniqueInput[]
+  update?: Prisma.SourceFileUpdateWithWhereUniqueWithoutMaterialRevisionInput | Prisma.SourceFileUpdateWithWhereUniqueWithoutMaterialRevisionInput[]
+  updateMany?: Prisma.SourceFileUpdateManyWithWhereWithoutMaterialRevisionInput | Prisma.SourceFileUpdateManyWithWhereWithoutMaterialRevisionInput[]
+  deleteMany?: Prisma.SourceFileScalarWhereInput | Prisma.SourceFileScalarWhereInput[]
+}
+
+export type SourceFileCreateNestedOneWithoutMaterialChunksInput = {
+  create?: Prisma.XOR<Prisma.SourceFileCreateWithoutMaterialChunksInput, Prisma.SourceFileUncheckedCreateWithoutMaterialChunksInput>
+  connectOrCreate?: Prisma.SourceFileCreateOrConnectWithoutMaterialChunksInput
+  connect?: Prisma.SourceFileWhereUniqueInput
+}
+
+export type SourceFileUpdateOneWithoutMaterialChunksNestedInput = {
+  create?: Prisma.XOR<Prisma.SourceFileCreateWithoutMaterialChunksInput, Prisma.SourceFileUncheckedCreateWithoutMaterialChunksInput>
+  connectOrCreate?: Prisma.SourceFileCreateOrConnectWithoutMaterialChunksInput
+  upsert?: Prisma.SourceFileUpsertWithoutMaterialChunksInput
+  disconnect?: Prisma.SourceFileWhereInput | boolean
+  delete?: Prisma.SourceFileWhereInput | boolean
+  connect?: Prisma.SourceFileWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.SourceFileUpdateToOneWithWhereWithoutMaterialChunksInput, Prisma.SourceFileUpdateWithoutMaterialChunksInput>, Prisma.SourceFileUncheckedUpdateWithoutMaterialChunksInput>
+}
+
 export type SourceFileCreateNestedOneWithoutSkillRefsInput = {
   create?: Prisma.XOR<Prisma.SourceFileCreateWithoutSkillRefsInput, Prisma.SourceFileUncheckedCreateWithoutSkillRefsInput>
   connectOrCreate?: Prisma.SourceFileCreateOrConnectWithoutSkillRefsInput
@@ -724,12 +825,15 @@ export type SourceFileCreateWithoutUserInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   collection?: Prisma.CollectionCreateNestedOneWithoutSourceFilesInput
+  materialRevision?: Prisma.MaterialRevisionCreateNestedOneWithoutSourceFilesInput
   skillRefs?: Prisma.SkillSourceRefCreateNestedManyWithoutSourceFileInput
+  materialChunks?: Prisma.MaterialChunkCreateNestedManyWithoutSourceFileInput
 }
 
 export type SourceFileUncheckedCreateWithoutUserInput = {
   id?: string
   collectionId?: string | null
+  materialRevisionId?: string | null
   kind?: $Enums.SourceFileKind
   status?: $Enums.SourceFileStatus
   originalName: string
@@ -743,6 +847,7 @@ export type SourceFileUncheckedCreateWithoutUserInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   skillRefs?: Prisma.SkillSourceRefUncheckedCreateNestedManyWithoutSourceFileInput
+  materialChunks?: Prisma.MaterialChunkUncheckedCreateNestedManyWithoutSourceFileInput
 }
 
 export type SourceFileCreateOrConnectWithoutUserInput = {
@@ -778,6 +883,7 @@ export type SourceFileScalarWhereInput = {
   id?: Prisma.StringFilter<"SourceFile"> | string
   userId?: Prisma.StringFilter<"SourceFile"> | string
   collectionId?: Prisma.StringNullableFilter<"SourceFile"> | string | null
+  materialRevisionId?: Prisma.StringNullableFilter<"SourceFile"> | string | null
   kind?: Prisma.EnumSourceFileKindFilter<"SourceFile"> | $Enums.SourceFileKind
   status?: Prisma.EnumSourceFileStatusFilter<"SourceFile"> | $Enums.SourceFileStatus
   originalName?: Prisma.StringFilter<"SourceFile"> | string
@@ -807,11 +913,14 @@ export type SourceFileCreateWithoutCollectionInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutSourceFilesInput
+  materialRevision?: Prisma.MaterialRevisionCreateNestedOneWithoutSourceFilesInput
   skillRefs?: Prisma.SkillSourceRefCreateNestedManyWithoutSourceFileInput
+  materialChunks?: Prisma.MaterialChunkCreateNestedManyWithoutSourceFileInput
 }
 
 export type SourceFileUncheckedCreateWithoutCollectionInput = {
   id?: string
+  materialRevisionId?: string | null
   kind?: $Enums.SourceFileKind
   status?: $Enums.SourceFileStatus
   originalName: string
@@ -825,6 +934,7 @@ export type SourceFileUncheckedCreateWithoutCollectionInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   skillRefs?: Prisma.SkillSourceRefUncheckedCreateNestedManyWithoutSourceFileInput
+  materialChunks?: Prisma.MaterialChunkUncheckedCreateNestedManyWithoutSourceFileInput
 }
 
 export type SourceFileCreateOrConnectWithoutCollectionInput = {
@@ -853,6 +963,167 @@ export type SourceFileUpdateManyWithWhereWithoutCollectionInput = {
   data: Prisma.XOR<Prisma.SourceFileUpdateManyMutationInput, Prisma.SourceFileUncheckedUpdateManyWithoutCollectionInput>
 }
 
+export type SourceFileCreateWithoutMaterialRevisionInput = {
+  id?: string
+  kind?: $Enums.SourceFileKind
+  status?: $Enums.SourceFileStatus
+  originalName: string
+  mimeType?: string | null
+  byteSize?: number | null
+  storageBucket?: string | null
+  storageKey?: string | null
+  publicUrl?: string | null
+  extractedText?: string | null
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  user: Prisma.UserCreateNestedOneWithoutSourceFilesInput
+  collection?: Prisma.CollectionCreateNestedOneWithoutSourceFilesInput
+  skillRefs?: Prisma.SkillSourceRefCreateNestedManyWithoutSourceFileInput
+  materialChunks?: Prisma.MaterialChunkCreateNestedManyWithoutSourceFileInput
+}
+
+export type SourceFileUncheckedCreateWithoutMaterialRevisionInput = {
+  id?: string
+  collectionId?: string | null
+  kind?: $Enums.SourceFileKind
+  status?: $Enums.SourceFileStatus
+  originalName: string
+  mimeType?: string | null
+  byteSize?: number | null
+  storageBucket?: string | null
+  storageKey?: string | null
+  publicUrl?: string | null
+  extractedText?: string | null
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  skillRefs?: Prisma.SkillSourceRefUncheckedCreateNestedManyWithoutSourceFileInput
+  materialChunks?: Prisma.MaterialChunkUncheckedCreateNestedManyWithoutSourceFileInput
+}
+
+export type SourceFileCreateOrConnectWithoutMaterialRevisionInput = {
+  where: Prisma.SourceFileWhereUniqueInput
+  create: Prisma.XOR<Prisma.SourceFileCreateWithoutMaterialRevisionInput, Prisma.SourceFileUncheckedCreateWithoutMaterialRevisionInput>
+}
+
+export type SourceFileCreateManyMaterialRevisionInputEnvelope = {
+  data: Prisma.SourceFileCreateManyMaterialRevisionInput | Prisma.SourceFileCreateManyMaterialRevisionInput[]
+  skipDuplicates?: boolean
+}
+
+export type SourceFileUpsertWithWhereUniqueWithoutMaterialRevisionInput = {
+  where: Prisma.SourceFileWhereUniqueInput
+  update: Prisma.XOR<Prisma.SourceFileUpdateWithoutMaterialRevisionInput, Prisma.SourceFileUncheckedUpdateWithoutMaterialRevisionInput>
+  create: Prisma.XOR<Prisma.SourceFileCreateWithoutMaterialRevisionInput, Prisma.SourceFileUncheckedCreateWithoutMaterialRevisionInput>
+}
+
+export type SourceFileUpdateWithWhereUniqueWithoutMaterialRevisionInput = {
+  where: Prisma.SourceFileWhereUniqueInput
+  data: Prisma.XOR<Prisma.SourceFileUpdateWithoutMaterialRevisionInput, Prisma.SourceFileUncheckedUpdateWithoutMaterialRevisionInput>
+}
+
+export type SourceFileUpdateManyWithWhereWithoutMaterialRevisionInput = {
+  where: Prisma.SourceFileScalarWhereInput
+  data: Prisma.XOR<Prisma.SourceFileUpdateManyMutationInput, Prisma.SourceFileUncheckedUpdateManyWithoutMaterialRevisionInput>
+}
+
+export type SourceFileCreateWithoutMaterialChunksInput = {
+  id?: string
+  kind?: $Enums.SourceFileKind
+  status?: $Enums.SourceFileStatus
+  originalName: string
+  mimeType?: string | null
+  byteSize?: number | null
+  storageBucket?: string | null
+  storageKey?: string | null
+  publicUrl?: string | null
+  extractedText?: string | null
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  user: Prisma.UserCreateNestedOneWithoutSourceFilesInput
+  collection?: Prisma.CollectionCreateNestedOneWithoutSourceFilesInput
+  materialRevision?: Prisma.MaterialRevisionCreateNestedOneWithoutSourceFilesInput
+  skillRefs?: Prisma.SkillSourceRefCreateNestedManyWithoutSourceFileInput
+}
+
+export type SourceFileUncheckedCreateWithoutMaterialChunksInput = {
+  id?: string
+  userId: string
+  collectionId?: string | null
+  materialRevisionId?: string | null
+  kind?: $Enums.SourceFileKind
+  status?: $Enums.SourceFileStatus
+  originalName: string
+  mimeType?: string | null
+  byteSize?: number | null
+  storageBucket?: string | null
+  storageKey?: string | null
+  publicUrl?: string | null
+  extractedText?: string | null
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  skillRefs?: Prisma.SkillSourceRefUncheckedCreateNestedManyWithoutSourceFileInput
+}
+
+export type SourceFileCreateOrConnectWithoutMaterialChunksInput = {
+  where: Prisma.SourceFileWhereUniqueInput
+  create: Prisma.XOR<Prisma.SourceFileCreateWithoutMaterialChunksInput, Prisma.SourceFileUncheckedCreateWithoutMaterialChunksInput>
+}
+
+export type SourceFileUpsertWithoutMaterialChunksInput = {
+  update: Prisma.XOR<Prisma.SourceFileUpdateWithoutMaterialChunksInput, Prisma.SourceFileUncheckedUpdateWithoutMaterialChunksInput>
+  create: Prisma.XOR<Prisma.SourceFileCreateWithoutMaterialChunksInput, Prisma.SourceFileUncheckedCreateWithoutMaterialChunksInput>
+  where?: Prisma.SourceFileWhereInput
+}
+
+export type SourceFileUpdateToOneWithWhereWithoutMaterialChunksInput = {
+  where?: Prisma.SourceFileWhereInput
+  data: Prisma.XOR<Prisma.SourceFileUpdateWithoutMaterialChunksInput, Prisma.SourceFileUncheckedUpdateWithoutMaterialChunksInput>
+}
+
+export type SourceFileUpdateWithoutMaterialChunksInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  kind?: Prisma.EnumSourceFileKindFieldUpdateOperationsInput | $Enums.SourceFileKind
+  status?: Prisma.EnumSourceFileStatusFieldUpdateOperationsInput | $Enums.SourceFileStatus
+  originalName?: Prisma.StringFieldUpdateOperationsInput | string
+  mimeType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  byteSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  storageBucket?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  publicUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  extractedText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  user?: Prisma.UserUpdateOneRequiredWithoutSourceFilesNestedInput
+  collection?: Prisma.CollectionUpdateOneWithoutSourceFilesNestedInput
+  materialRevision?: Prisma.MaterialRevisionUpdateOneWithoutSourceFilesNestedInput
+  skillRefs?: Prisma.SkillSourceRefUpdateManyWithoutSourceFileNestedInput
+}
+
+export type SourceFileUncheckedUpdateWithoutMaterialChunksInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
+  collectionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  materialRevisionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kind?: Prisma.EnumSourceFileKindFieldUpdateOperationsInput | $Enums.SourceFileKind
+  status?: Prisma.EnumSourceFileStatusFieldUpdateOperationsInput | $Enums.SourceFileStatus
+  originalName?: Prisma.StringFieldUpdateOperationsInput | string
+  mimeType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  byteSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  storageBucket?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  publicUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  extractedText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  skillRefs?: Prisma.SkillSourceRefUncheckedUpdateManyWithoutSourceFileNestedInput
+}
+
 export type SourceFileCreateWithoutSkillRefsInput = {
   id?: string
   kind?: $Enums.SourceFileKind
@@ -869,12 +1140,15 @@ export type SourceFileCreateWithoutSkillRefsInput = {
   updatedAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutSourceFilesInput
   collection?: Prisma.CollectionCreateNestedOneWithoutSourceFilesInput
+  materialRevision?: Prisma.MaterialRevisionCreateNestedOneWithoutSourceFilesInput
+  materialChunks?: Prisma.MaterialChunkCreateNestedManyWithoutSourceFileInput
 }
 
 export type SourceFileUncheckedCreateWithoutSkillRefsInput = {
   id?: string
   userId: string
   collectionId?: string | null
+  materialRevisionId?: string | null
   kind?: $Enums.SourceFileKind
   status?: $Enums.SourceFileStatus
   originalName: string
@@ -887,6 +1161,7 @@ export type SourceFileUncheckedCreateWithoutSkillRefsInput = {
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
+  materialChunks?: Prisma.MaterialChunkUncheckedCreateNestedManyWithoutSourceFileInput
 }
 
 export type SourceFileCreateOrConnectWithoutSkillRefsInput = {
@@ -921,12 +1196,15 @@ export type SourceFileUpdateWithoutSkillRefsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutSourceFilesNestedInput
   collection?: Prisma.CollectionUpdateOneWithoutSourceFilesNestedInput
+  materialRevision?: Prisma.MaterialRevisionUpdateOneWithoutSourceFilesNestedInput
+  materialChunks?: Prisma.MaterialChunkUpdateManyWithoutSourceFileNestedInput
 }
 
 export type SourceFileUncheckedUpdateWithoutSkillRefsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   collectionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  materialRevisionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   kind?: Prisma.EnumSourceFileKindFieldUpdateOperationsInput | $Enums.SourceFileKind
   status?: Prisma.EnumSourceFileStatusFieldUpdateOperationsInput | $Enums.SourceFileStatus
   originalName?: Prisma.StringFieldUpdateOperationsInput | string
@@ -939,11 +1217,13 @@ export type SourceFileUncheckedUpdateWithoutSkillRefsInput = {
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  materialChunks?: Prisma.MaterialChunkUncheckedUpdateManyWithoutSourceFileNestedInput
 }
 
 export type SourceFileCreateManyUserInput = {
   id?: string
   collectionId?: string | null
+  materialRevisionId?: string | null
   kind?: $Enums.SourceFileKind
   status?: $Enums.SourceFileStatus
   originalName: string
@@ -973,12 +1253,15 @@ export type SourceFileUpdateWithoutUserInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   collection?: Prisma.CollectionUpdateOneWithoutSourceFilesNestedInput
+  materialRevision?: Prisma.MaterialRevisionUpdateOneWithoutSourceFilesNestedInput
   skillRefs?: Prisma.SkillSourceRefUpdateManyWithoutSourceFileNestedInput
+  materialChunks?: Prisma.MaterialChunkUpdateManyWithoutSourceFileNestedInput
 }
 
 export type SourceFileUncheckedUpdateWithoutUserInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   collectionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  materialRevisionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   kind?: Prisma.EnumSourceFileKindFieldUpdateOperationsInput | $Enums.SourceFileKind
   status?: Prisma.EnumSourceFileStatusFieldUpdateOperationsInput | $Enums.SourceFileStatus
   originalName?: Prisma.StringFieldUpdateOperationsInput | string
@@ -992,11 +1275,13 @@ export type SourceFileUncheckedUpdateWithoutUserInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   skillRefs?: Prisma.SkillSourceRefUncheckedUpdateManyWithoutSourceFileNestedInput
+  materialChunks?: Prisma.MaterialChunkUncheckedUpdateManyWithoutSourceFileNestedInput
 }
 
 export type SourceFileUncheckedUpdateManyWithoutUserInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   collectionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  materialRevisionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   kind?: Prisma.EnumSourceFileKindFieldUpdateOperationsInput | $Enums.SourceFileKind
   status?: Prisma.EnumSourceFileStatusFieldUpdateOperationsInput | $Enums.SourceFileStatus
   originalName?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1013,6 +1298,7 @@ export type SourceFileUncheckedUpdateManyWithoutUserInput = {
 
 export type SourceFileCreateManyCollectionInput = {
   id?: string
+  materialRevisionId?: string | null
   kind?: $Enums.SourceFileKind
   status?: $Enums.SourceFileStatus
   originalName: string
@@ -1042,11 +1328,14 @@ export type SourceFileUpdateWithoutCollectionInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutSourceFilesNestedInput
+  materialRevision?: Prisma.MaterialRevisionUpdateOneWithoutSourceFilesNestedInput
   skillRefs?: Prisma.SkillSourceRefUpdateManyWithoutSourceFileNestedInput
+  materialChunks?: Prisma.MaterialChunkUpdateManyWithoutSourceFileNestedInput
 }
 
 export type SourceFileUncheckedUpdateWithoutCollectionInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  materialRevisionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   kind?: Prisma.EnumSourceFileKindFieldUpdateOperationsInput | $Enums.SourceFileKind
   status?: Prisma.EnumSourceFileStatusFieldUpdateOperationsInput | $Enums.SourceFileStatus
   originalName?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1060,10 +1349,85 @@ export type SourceFileUncheckedUpdateWithoutCollectionInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   skillRefs?: Prisma.SkillSourceRefUncheckedUpdateManyWithoutSourceFileNestedInput
+  materialChunks?: Prisma.MaterialChunkUncheckedUpdateManyWithoutSourceFileNestedInput
 }
 
 export type SourceFileUncheckedUpdateManyWithoutCollectionInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  materialRevisionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kind?: Prisma.EnumSourceFileKindFieldUpdateOperationsInput | $Enums.SourceFileKind
+  status?: Prisma.EnumSourceFileStatusFieldUpdateOperationsInput | $Enums.SourceFileStatus
+  originalName?: Prisma.StringFieldUpdateOperationsInput | string
+  mimeType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  byteSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  storageBucket?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  publicUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  extractedText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
+export type SourceFileCreateManyMaterialRevisionInput = {
+  id?: string
+  collectionId?: string | null
+  kind?: $Enums.SourceFileKind
+  status?: $Enums.SourceFileStatus
+  originalName: string
+  mimeType?: string | null
+  byteSize?: number | null
+  storageBucket?: string | null
+  storageKey?: string | null
+  publicUrl?: string | null
+  extractedText?: string | null
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Date | string
+  updatedAt?: Date | string
+}
+
+export type SourceFileUpdateWithoutMaterialRevisionInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  kind?: Prisma.EnumSourceFileKindFieldUpdateOperationsInput | $Enums.SourceFileKind
+  status?: Prisma.EnumSourceFileStatusFieldUpdateOperationsInput | $Enums.SourceFileStatus
+  originalName?: Prisma.StringFieldUpdateOperationsInput | string
+  mimeType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  byteSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  storageBucket?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  publicUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  extractedText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  user?: Prisma.UserUpdateOneRequiredWithoutSourceFilesNestedInput
+  collection?: Prisma.CollectionUpdateOneWithoutSourceFilesNestedInput
+  skillRefs?: Prisma.SkillSourceRefUpdateManyWithoutSourceFileNestedInput
+  materialChunks?: Prisma.MaterialChunkUpdateManyWithoutSourceFileNestedInput
+}
+
+export type SourceFileUncheckedUpdateWithoutMaterialRevisionInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  collectionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kind?: Prisma.EnumSourceFileKindFieldUpdateOperationsInput | $Enums.SourceFileKind
+  status?: Prisma.EnumSourceFileStatusFieldUpdateOperationsInput | $Enums.SourceFileStatus
+  originalName?: Prisma.StringFieldUpdateOperationsInput | string
+  mimeType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  byteSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  storageBucket?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  publicUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  extractedText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  skillRefs?: Prisma.SkillSourceRefUncheckedUpdateManyWithoutSourceFileNestedInput
+  materialChunks?: Prisma.MaterialChunkUncheckedUpdateManyWithoutSourceFileNestedInput
+}
+
+export type SourceFileUncheckedUpdateManyWithoutMaterialRevisionInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  collectionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   kind?: Prisma.EnumSourceFileKindFieldUpdateOperationsInput | $Enums.SourceFileKind
   status?: Prisma.EnumSourceFileStatusFieldUpdateOperationsInput | $Enums.SourceFileStatus
   originalName?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1085,10 +1449,12 @@ export type SourceFileUncheckedUpdateManyWithoutCollectionInput = {
 
 export type SourceFileCountOutputType = {
   skillRefs: number
+  materialChunks: number
 }
 
 export type SourceFileCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   skillRefs?: boolean | SourceFileCountOutputTypeCountSkillRefsArgs
+  materialChunks?: boolean | SourceFileCountOutputTypeCountMaterialChunksArgs
 }
 
 /**
@@ -1108,11 +1474,19 @@ export type SourceFileCountOutputTypeCountSkillRefsArgs<ExtArgs extends runtime.
   where?: Prisma.SkillSourceRefWhereInput
 }
 
+/**
+ * SourceFileCountOutputType without action
+ */
+export type SourceFileCountOutputTypeCountMaterialChunksArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.MaterialChunkWhereInput
+}
+
 
 export type SourceFileSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   userId?: boolean
   collectionId?: boolean
+  materialRevisionId?: boolean
   kind?: boolean
   status?: boolean
   originalName?: boolean
@@ -1127,7 +1501,9 @@ export type SourceFileSelect<ExtArgs extends runtime.Types.Extensions.InternalAr
   updatedAt?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   collection?: boolean | Prisma.SourceFile$collectionArgs<ExtArgs>
+  materialRevision?: boolean | Prisma.SourceFile$materialRevisionArgs<ExtArgs>
   skillRefs?: boolean | Prisma.SourceFile$skillRefsArgs<ExtArgs>
+  materialChunks?: boolean | Prisma.SourceFile$materialChunksArgs<ExtArgs>
   _count?: boolean | Prisma.SourceFileCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["sourceFile"]>
 
@@ -1135,6 +1511,7 @@ export type SourceFileSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Ex
   id?: boolean
   userId?: boolean
   collectionId?: boolean
+  materialRevisionId?: boolean
   kind?: boolean
   status?: boolean
   originalName?: boolean
@@ -1149,12 +1526,14 @@ export type SourceFileSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Ex
   updatedAt?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   collection?: boolean | Prisma.SourceFile$collectionArgs<ExtArgs>
+  materialRevision?: boolean | Prisma.SourceFile$materialRevisionArgs<ExtArgs>
 }, ExtArgs["result"]["sourceFile"]>
 
 export type SourceFileSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   userId?: boolean
   collectionId?: boolean
+  materialRevisionId?: boolean
   kind?: boolean
   status?: boolean
   originalName?: boolean
@@ -1169,12 +1548,14 @@ export type SourceFileSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Ex
   updatedAt?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   collection?: boolean | Prisma.SourceFile$collectionArgs<ExtArgs>
+  materialRevision?: boolean | Prisma.SourceFile$materialRevisionArgs<ExtArgs>
 }, ExtArgs["result"]["sourceFile"]>
 
 export type SourceFileSelectScalar = {
   id?: boolean
   userId?: boolean
   collectionId?: boolean
+  materialRevisionId?: boolean
   kind?: boolean
   status?: boolean
   originalName?: boolean
@@ -1189,20 +1570,24 @@ export type SourceFileSelectScalar = {
   updatedAt?: boolean
 }
 
-export type SourceFileOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "collectionId" | "kind" | "status" | "originalName" | "mimeType" | "byteSize" | "storageBucket" | "storageKey" | "publicUrl" | "extractedText" | "metadata" | "createdAt" | "updatedAt", ExtArgs["result"]["sourceFile"]>
+export type SourceFileOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "collectionId" | "materialRevisionId" | "kind" | "status" | "originalName" | "mimeType" | "byteSize" | "storageBucket" | "storageKey" | "publicUrl" | "extractedText" | "metadata" | "createdAt" | "updatedAt", ExtArgs["result"]["sourceFile"]>
 export type SourceFileInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   collection?: boolean | Prisma.SourceFile$collectionArgs<ExtArgs>
+  materialRevision?: boolean | Prisma.SourceFile$materialRevisionArgs<ExtArgs>
   skillRefs?: boolean | Prisma.SourceFile$skillRefsArgs<ExtArgs>
+  materialChunks?: boolean | Prisma.SourceFile$materialChunksArgs<ExtArgs>
   _count?: boolean | Prisma.SourceFileCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type SourceFileIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   collection?: boolean | Prisma.SourceFile$collectionArgs<ExtArgs>
+  materialRevision?: boolean | Prisma.SourceFile$materialRevisionArgs<ExtArgs>
 }
 export type SourceFileIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   collection?: boolean | Prisma.SourceFile$collectionArgs<ExtArgs>
+  materialRevision?: boolean | Prisma.SourceFile$materialRevisionArgs<ExtArgs>
 }
 
 export type $SourceFilePayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1210,12 +1595,15 @@ export type $SourceFilePayload<ExtArgs extends runtime.Types.Extensions.Internal
   objects: {
     user: Prisma.$UserPayload<ExtArgs>
     collection: Prisma.$CollectionPayload<ExtArgs> | null
+    materialRevision: Prisma.$MaterialRevisionPayload<ExtArgs> | null
     skillRefs: Prisma.$SkillSourceRefPayload<ExtArgs>[]
+    materialChunks: Prisma.$MaterialChunkPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
     userId: string
     collectionId: string | null
+    materialRevisionId: string | null
     kind: $Enums.SourceFileKind
     status: $Enums.SourceFileStatus
     originalName: string
@@ -1624,7 +2012,9 @@ export interface Prisma__SourceFileClient<T, Null = never, ExtArgs extends runti
   readonly [Symbol.toStringTag]: "PrismaPromise"
   user<T extends Prisma.UserDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.UserDefaultArgs<ExtArgs>>): Prisma.Prisma__UserClient<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   collection<T extends Prisma.SourceFile$collectionArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.SourceFile$collectionArgs<ExtArgs>>): Prisma.Prisma__CollectionClient<runtime.Types.Result.GetResult<Prisma.$CollectionPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+  materialRevision<T extends Prisma.SourceFile$materialRevisionArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.SourceFile$materialRevisionArgs<ExtArgs>>): Prisma.Prisma__MaterialRevisionClient<runtime.Types.Result.GetResult<Prisma.$MaterialRevisionPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   skillRefs<T extends Prisma.SourceFile$skillRefsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.SourceFile$skillRefsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$SkillSourceRefPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  materialChunks<T extends Prisma.SourceFile$materialChunksArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.SourceFile$materialChunksArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$MaterialChunkPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1657,6 +2047,7 @@ export interface SourceFileFieldRefs {
   readonly id: Prisma.FieldRef<"SourceFile", 'String'>
   readonly userId: Prisma.FieldRef<"SourceFile", 'String'>
   readonly collectionId: Prisma.FieldRef<"SourceFile", 'String'>
+  readonly materialRevisionId: Prisma.FieldRef<"SourceFile", 'String'>
   readonly kind: Prisma.FieldRef<"SourceFile", 'SourceFileKind'>
   readonly status: Prisma.FieldRef<"SourceFile", 'SourceFileStatus'>
   readonly originalName: Prisma.FieldRef<"SourceFile", 'String'>
@@ -2089,6 +2480,25 @@ export type SourceFile$collectionArgs<ExtArgs extends runtime.Types.Extensions.I
 }
 
 /**
+ * SourceFile.materialRevision
+ */
+export type SourceFile$materialRevisionArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the MaterialRevision
+   */
+  select?: Prisma.MaterialRevisionSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the MaterialRevision
+   */
+  omit?: Prisma.MaterialRevisionOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.MaterialRevisionInclude<ExtArgs> | null
+  where?: Prisma.MaterialRevisionWhereInput
+}
+
+/**
  * SourceFile.skillRefs
  */
 export type SourceFile$skillRefsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -2110,6 +2520,30 @@ export type SourceFile$skillRefsArgs<ExtArgs extends runtime.Types.Extensions.In
   take?: number
   skip?: number
   distinct?: Prisma.SkillSourceRefScalarFieldEnum | Prisma.SkillSourceRefScalarFieldEnum[]
+}
+
+/**
+ * SourceFile.materialChunks
+ */
+export type SourceFile$materialChunksArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the MaterialChunk
+   */
+  select?: Prisma.MaterialChunkSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the MaterialChunk
+   */
+  omit?: Prisma.MaterialChunkOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.MaterialChunkInclude<ExtArgs> | null
+  where?: Prisma.MaterialChunkWhereInput
+  orderBy?: Prisma.MaterialChunkOrderByWithRelationInput | Prisma.MaterialChunkOrderByWithRelationInput[]
+  cursor?: Prisma.MaterialChunkWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.MaterialChunkScalarFieldEnum | Prisma.MaterialChunkScalarFieldEnum[]
 }
 
 /**

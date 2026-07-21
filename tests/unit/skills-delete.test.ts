@@ -30,9 +30,14 @@ describe("skill permanent delete helpers", () => {
   it("selects only final-ref source files as orphan delete candidates", () => {
     expect(
       getOrphanSourceFileIdsForSkillDelete([
-        { sourceFileId: "source-final", referenceCount: 1 },
-        { sourceFileId: "source-shared", referenceCount: 2 },
-        { sourceFileId: "source-final-2", referenceCount: 1 },
+        { sourceFileId: "source-final", referenceCount: 1, materialRevisionId: null },
+        { sourceFileId: "source-shared", referenceCount: 2, materialRevisionId: null },
+        { sourceFileId: "source-final-2", referenceCount: 1, materialRevisionId: null },
+        {
+          sourceFileId: "source-material",
+          referenceCount: 1,
+          materialRevisionId: "revision-1",
+        },
       ]),
     ).toEqual(["source-final", "source-final-2"]);
   });

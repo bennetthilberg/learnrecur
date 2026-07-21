@@ -39,6 +39,73 @@ export const SourceFileStatus = {
 export type SourceFileStatus = (typeof SourceFileStatus)[keyof typeof SourceFileStatus]
 
 
+export const StudyMaterialKind = {
+  PDF: 'PDF',
+  WEB: 'WEB'
+} as const
+
+export type StudyMaterialKind = (typeof StudyMaterialKind)[keyof typeof StudyMaterialKind]
+
+
+export const StudyMaterialStatus = {
+  ACTIVE: 'ACTIVE',
+  ARCHIVED: 'ARCHIVED',
+  DELETING: 'DELETING'
+} as const
+
+export type StudyMaterialStatus = (typeof StudyMaterialStatus)[keyof typeof StudyMaterialStatus]
+
+
+export const MaterialRevisionStatus = {
+  PENDING_UPLOAD: 'PENDING_UPLOAD',
+  QUEUED: 'QUEUED',
+  PROCESSING: 'PROCESSING',
+  READY: 'READY',
+  FAILED: 'FAILED',
+  DELETING: 'DELETING'
+} as const
+
+export type MaterialRevisionStatus = (typeof MaterialRevisionStatus)[keyof typeof MaterialRevisionStatus]
+
+
+export const MaterialCleanupStatus = {
+  PENDING: 'PENDING',
+  RUNNING: 'RUNNING',
+  SUCCEEDED: 'SUCCEEDED',
+  FAILED: 'FAILED'
+} as const
+
+export type MaterialCleanupStatus = (typeof MaterialCleanupStatus)[keyof typeof MaterialCleanupStatus]
+
+
+export const SkillDraftBatchStatus = {
+  PLANNING: 'PLANNING',
+  NEEDS_SCOPE: 'NEEDS_SCOPE',
+  PLANNED: 'PLANNED',
+  GENERATING: 'GENERATING',
+  READY: 'READY',
+  PARTIAL: 'PARTIAL',
+  FAILED: 'FAILED',
+  ACTIVATING: 'ACTIVATING',
+  COMPLETE: 'COMPLETE'
+} as const
+
+export type SkillDraftBatchStatus = (typeof SkillDraftBatchStatus)[keyof typeof SkillDraftBatchStatus]
+
+
+export const SkillDraftBatchItemStatus = {
+  PLANNED: 'PLANNED',
+  GENERATING: 'GENERATING',
+  READY: 'READY',
+  FAILED: 'FAILED',
+  EXCLUDED: 'EXCLUDED',
+  ACTIVATING: 'ACTIVATING',
+  ACTIVE: 'ACTIVE'
+} as const
+
+export type SkillDraftBatchItemStatus = (typeof SkillDraftBatchItemStatus)[keyof typeof SkillDraftBatchItemStatus]
+
+
 export const SkillStatus = {
   DRAFT: 'DRAFT',
   ACTIVE: 'ACTIVE',

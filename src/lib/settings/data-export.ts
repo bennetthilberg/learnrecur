@@ -12,16 +12,22 @@ import type {
   FsrsRating,
   GenerationJobKind,
   GenerationJobStatus,
+  MaterialCleanupStatus,
+  MaterialRevisionStatus,
   Prisma,
   ReminderSendStatus,
+  SkillDraftBatchItemStatus,
+  SkillDraftBatchStatus,
   SkillFsrsState,
   SkillStatus,
   SourceFileKind,
   SourceFileStatus,
+  StudyMaterialKind,
+  StudyMaterialStatus,
 } from "@/generated/prisma/client";
 import { getPrisma } from "@/lib/prisma";
 
-export const STUDY_DATA_EXPORT_VERSION = 1;
+export const STUDY_DATA_EXPORT_VERSION = 2;
 const PRIVATE_SOURCE_METADATA_KEYS = new Set([
   "bucketName",
   "objectKey",
@@ -33,7 +39,7 @@ const PRIVATE_SOURCE_METADATA_KEYS = new Set([
 export type StudyDataExportResult =
   | {
       status: "ready";
-      export: StudyDataExportV1;
+      export: StudyDataExportV2;
       filename: string;
     }
   | {
@@ -41,11 +47,16 @@ export type StudyDataExportResult =
       message: string;
     };
 
-export type StudyDataExportV1 = {
+export type StudyDataExportV2 = {
   exportVersion: typeof STUDY_DATA_EXPORT_VERSION;
   generatedAt: string;
   user: ExportUser;
   collections: ExportCollection[];
+  studyMaterials: ExportStudyMaterial[];
+  materialRevisions: ExportMaterialRevision[];
+  materialSections: ExportMaterialSection[];
+  materialChunks: ExportMaterialChunk[];
+  materialCleanupJobs: ExportMaterialCleanupJob[];
   sourceFiles: ExportSourceFile[];
   skills: ExportSkill[];
   skillSourceRefs: ExportSkillSourceRef[];
@@ -54,6 +65,8 @@ export type StudyDataExportV1 = {
   reviewLogs: ExportReviewLog[];
   exerciseFlags: ExportExerciseFlag[];
   generationJobs: ExportGenerationJob[];
+  skillDraftBatches: ExportSkillDraftBatch[];
+  skillDraftBatchItems: ExportSkillDraftBatchItem[];
   reminderPreference: ExportReminderPreference | null;
   reminderSendLogs: ExportReminderSendLog[];
 };
@@ -80,6 +93,7 @@ export type ExportCollection = {
 export type ExportSourceFile = {
   id: string;
   collectionId: string | null;
+  materialRevisionId: string | null;
   kind: SourceFileKind | string;
   status: SourceFileStatus | string;
   originalName: string;
@@ -87,6 +101,118 @@ export type ExportSourceFile = {
   byteSize: number | null;
   extractedText: string | null;
   metadata: Prisma.JsonValue | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ExportStudyMaterial = {
+  id: string;
+  collectionId: string | null;
+  title: string;
+  kind: StudyMaterialKind;
+  status: StudyMaterialStatus;
+  activeRevisionId: string | null;
+  deletionRequestedAt: string | null;
+  lastUsedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ExportMaterialRevision = {
+  id: string;
+  materialId: string;
+  revisionNumber: number;
+  status: MaterialRevisionStatus;
+  sourceUrl: string | null;
+  contentHash: string | null;
+  byteSize: number | null;
+  pageCount: number | null;
+  fetchedPageCount: number | null;
+  processingMetadata: Prisma.JsonValue | null;
+  errorCode: string | null;
+  errorMessage: string | null;
+  finalizedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ExportMaterialSection = {
+  id: string;
+  materialRevisionId: string;
+  parentId: string | null;
+  ordinal: number;
+  level: number;
+  title: string;
+  normalizedTitle: string;
+  pageStart: number | null;
+  pageEnd: number | null;
+  url: string | null;
+  anchor: string | null;
+  headingPath: string[];
+  metadata: Prisma.JsonValue | null;
+  createdAt: string;
+};
+
+export type ExportMaterialChunk = {
+  id: string;
+  materialRevisionId: string;
+  materialSectionId: string | null;
+  sourceFileId: string | null;
+  ordinal: number;
+  text: string;
+  tokenEstimate: number;
+  contentHash: string;
+  locator: Prisma.JsonValue;
+  headingText: string | null;
+  createdAt: string;
+};
+
+export type ExportMaterialCleanupJob = {
+  id: string;
+  materialId: string;
+  status: MaterialCleanupStatus;
+  attemptCount: number;
+  errorMessage: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ExportSkillDraftBatch = {
+  id: string;
+  materialRevisionId: string;
+  instruction: string;
+  confirmedPlan: Prisma.JsonValue | null;
+  status: SkillDraftBatchStatus;
+  idempotencyKey: string;
+  requestedCount: number;
+  readyCount: number;
+  failedCount: number;
+  excludedCount: number;
+  activatedCount: number;
+  errorCode: string | null;
+  errorMessage: string | null;
+  createdAt: string;
+  updatedAt: string;
+  confirmedAt: string | null;
+  completedAt: string | null;
+};
+
+export type ExportSkillDraftBatchItem = {
+  id: string;
+  batchId: string;
+  skillId: string | null;
+  ordinal: number;
+  targetKey: string;
+  proposedTitle: string;
+  proposedObjective: string;
+  locator: Prisma.JsonValue;
+  status: SkillDraftBatchItemStatus;
+  overlapSkillId: string | null;
+  errorCode: string | null;
+  errorMessage: string | null;
+  generationAttempts: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -249,6 +375,7 @@ export type ExportReminderSendLog = {
 type SourceFileForExport = {
   id: string;
   collectionId: string | null;
+  materialRevisionId: string | null;
   kind: SourceFileKind | string;
   status: SourceFileStatus | string;
   originalName: string;
@@ -291,11 +418,96 @@ export async function getUserDataExport(input: {
           updatedAt: true,
         },
       },
+      studyMaterials: {
+        orderBy: { id: "asc" },
+        select: {
+          id: true,
+          collectionId: true,
+          title: true,
+          kind: true,
+          status: true,
+          activeRevisionId: true,
+          deletionRequestedAt: true,
+          lastUsedAt: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      },
+      materialRevisions: {
+        orderBy: { id: "asc" },
+        select: {
+          id: true,
+          materialId: true,
+          revisionNumber: true,
+          status: true,
+          sourceUrl: true,
+          contentHash: true,
+          byteSize: true,
+          pageCount: true,
+          fetchedPageCount: true,
+          processingMetadata: true,
+          errorCode: true,
+          errorMessage: true,
+          finalizedAt: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      },
+      materialSections: {
+        orderBy: { id: "asc" },
+        select: {
+          id: true,
+          materialRevisionId: true,
+          parentId: true,
+          ordinal: true,
+          level: true,
+          title: true,
+          normalizedTitle: true,
+          pageStart: true,
+          pageEnd: true,
+          url: true,
+          anchor: true,
+          headingPath: true,
+          metadata: true,
+          createdAt: true,
+        },
+      },
+      materialChunks: {
+        orderBy: { id: "asc" },
+        select: {
+          id: true,
+          materialRevisionId: true,
+          materialSectionId: true,
+          sourceFileId: true,
+          ordinal: true,
+          text: true,
+          tokenEstimate: true,
+          contentHash: true,
+          locator: true,
+          headingText: true,
+          createdAt: true,
+        },
+      },
+      materialCleanupJobs: {
+        orderBy: { id: "asc" },
+        select: {
+          id: true,
+          materialId: true,
+          status: true,
+          attemptCount: true,
+          errorMessage: true,
+          startedAt: true,
+          completedAt: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      },
       sourceFiles: {
         orderBy: { id: "asc" },
         select: {
           id: true,
           collectionId: true,
+          materialRevisionId: true,
           kind: true,
           status: true,
           originalName: true,
@@ -452,6 +664,48 @@ export async function getUserDataExport(input: {
           updatedAt: true,
         },
       },
+      skillDraftBatches: {
+        orderBy: { id: "asc" },
+        select: {
+          id: true,
+          materialRevisionId: true,
+          instruction: true,
+          confirmedPlan: true,
+          status: true,
+          idempotencyKey: true,
+          requestedCount: true,
+          readyCount: true,
+          failedCount: true,
+          excludedCount: true,
+          activatedCount: true,
+          errorCode: true,
+          errorMessage: true,
+          createdAt: true,
+          updatedAt: true,
+          confirmedAt: true,
+          completedAt: true,
+        },
+      },
+      skillDraftBatchItems: {
+        orderBy: { id: "asc" },
+        select: {
+          id: true,
+          batchId: true,
+          skillId: true,
+          ordinal: true,
+          targetKey: true,
+          proposedTitle: true,
+          proposedObjective: true,
+          locator: true,
+          status: true,
+          overlapSkillId: true,
+          errorCode: true,
+          errorMessage: true,
+          generationAttempts: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      },
       reminderPreference: {
         select: {
           id: true,
@@ -489,7 +743,7 @@ export async function getUserDataExport(input: {
     };
   }
 
-  const exportData: StudyDataExportV1 = {
+  const exportData: StudyDataExportV2 = {
     exportVersion: STUDY_DATA_EXPORT_VERSION,
     generatedAt: serializeExportDate(input.generatedAt),
     user: {
@@ -505,6 +759,37 @@ export async function getUserDataExport(input: {
       ...collection,
       createdAt: serializeExportDate(collection.createdAt),
       updatedAt: serializeExportDate(collection.updatedAt),
+    })),
+    studyMaterials: user.studyMaterials.map((material) => ({
+      ...material,
+      deletionRequestedAt: serializeExportDate(material.deletionRequestedAt),
+      lastUsedAt: serializeExportDate(material.lastUsedAt),
+      createdAt: serializeExportDate(material.createdAt),
+      updatedAt: serializeExportDate(material.updatedAt),
+    })),
+    materialRevisions: user.materialRevisions.map((revision) => ({
+      ...revision,
+      processingMetadata: sanitizeSourceFileMetadata(revision.processingMetadata),
+      finalizedAt: serializeExportDate(revision.finalizedAt),
+      createdAt: serializeExportDate(revision.createdAt),
+      updatedAt: serializeExportDate(revision.updatedAt),
+    })),
+    materialSections: user.materialSections.map((section) => ({
+      ...section,
+      metadata: sanitizeSourceFileMetadata(section.metadata),
+      createdAt: serializeExportDate(section.createdAt),
+    })),
+    materialChunks: user.materialChunks.map((chunk) => ({
+      ...chunk,
+      locator: sanitizeSourceFileMetadata(chunk.locator),
+      createdAt: serializeExportDate(chunk.createdAt),
+    })),
+    materialCleanupJobs: user.materialCleanupJobs.map((job) => ({
+      ...job,
+      startedAt: serializeExportDate(job.startedAt),
+      completedAt: serializeExportDate(job.completedAt),
+      createdAt: serializeExportDate(job.createdAt),
+      updatedAt: serializeExportDate(job.updatedAt),
     })),
     sourceFiles: user.sourceFiles.map(toExportSourceFile),
     skills: user.skills.map((skill) => ({
@@ -549,6 +834,20 @@ export async function getUserDataExport(input: {
       createdAt: serializeExportDate(job.createdAt),
       updatedAt: serializeExportDate(job.updatedAt),
     })),
+    skillDraftBatches: user.skillDraftBatches.map((batch) => ({
+      ...batch,
+      confirmedPlan: sanitizeSourceFileMetadata(batch.confirmedPlan),
+      confirmedAt: serializeExportDate(batch.confirmedAt),
+      completedAt: serializeExportDate(batch.completedAt),
+      createdAt: serializeExportDate(batch.createdAt),
+      updatedAt: serializeExportDate(batch.updatedAt),
+    })),
+    skillDraftBatchItems: user.skillDraftBatchItems.map((item) => ({
+      ...item,
+      locator: sanitizeSourceFileMetadata(item.locator),
+      createdAt: serializeExportDate(item.createdAt),
+      updatedAt: serializeExportDate(item.updatedAt),
+    })),
     reminderPreference: user.reminderPreference
       ? {
           ...user.reminderPreference,
@@ -588,6 +887,7 @@ export function toExportSourceFile(sourceFile: SourceFileForExport): ExportSourc
   return {
     id: sourceFile.id,
     collectionId: sourceFile.collectionId,
+    materialRevisionId: sourceFile.materialRevisionId,
     kind: sourceFile.kind,
     status: sourceFile.status,
     originalName: sourceFile.originalName,

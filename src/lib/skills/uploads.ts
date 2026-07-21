@@ -820,6 +820,7 @@ export async function cleanupPreparedSourceUploads({
         in: uniqueSourceFileIds,
       },
       userId,
+      materialRevisionId: null,
       status: SourceFileStatus.DRAFT,
     },
   });
@@ -839,6 +840,7 @@ async function queueSourceUploadDraftBatch(
         in: input.sourceFileIds,
       },
       userId: input.userId,
+      materialRevisionId: null,
     },
   });
   const orderedSourceFiles = input.sourceFileIds
@@ -926,6 +928,7 @@ async function queueSourceUploadDraftBatch(
           where: {
             id: source.sourceFile.id,
             userId: input.userId,
+            materialRevisionId: null,
             status: SourceFileStatus.DRAFT,
             updatedAt: source.sourceFile.updatedAt,
           },
@@ -966,6 +969,7 @@ export async function queueSourceUploadDrafts(
     where: {
       id: input.sourceFileId,
       userId: input.userId,
+      materialRevisionId: null,
     },
   });
 
@@ -1042,6 +1046,7 @@ export async function queueSourceUploadDrafts(
     where: {
       id: sourceFile.id,
       userId: input.userId,
+      materialRevisionId: null,
       status: SourceFileStatus.DRAFT,
     },
     data: {
@@ -1086,6 +1091,7 @@ export async function requeueSourceUploadDraft(
     where: {
       id: input.sourceFileId,
       userId: input.userId,
+      materialRevisionId: null,
     },
     include: {
       _count: {
@@ -1163,6 +1169,7 @@ export async function requeueSourceUploadDraft(
     where: {
       id: sourceFile.id,
       userId: input.userId,
+      materialRevisionId: null,
       status: sourceFile.status,
       storageBucket: sourceFile.storageBucket,
       storageKey: sourceFile.storageKey,
@@ -1195,6 +1202,7 @@ export async function requeueSourceUploadDraft(
       where: {
         id: sourceFile.id,
         userId: input.userId,
+        materialRevisionId: null,
         status: SourceFileStatus.UPLOADED,
         storageBucket: sourceFile.storageBucket,
         storageKey: sourceFile.storageKey,
@@ -1246,6 +1254,7 @@ export async function dismissFailedSourceUpload(
     where: {
       id: input.sourceFileId,
       userId: input.userId,
+      materialRevisionId: null,
     },
     select: {
       id: true,
@@ -1300,6 +1309,7 @@ export async function dismissFailedSourceUpload(
       where: {
         id: sourceFile.id,
         userId: input.userId,
+        materialRevisionId: null,
         kind: sourceFile.kind,
         status: sourceFile.status,
         storageBucket: sourceFile.storageBucket,
@@ -1323,6 +1333,7 @@ export async function dismissFailedSourceUpload(
       where: {
         id: sourceFile.id,
         userId: input.userId,
+        materialRevisionId: null,
         kind: sourceFile.kind,
         status: SourceFileStatus.FAILED,
         storageBucket: sourceFile.storageBucket,
@@ -1348,6 +1359,7 @@ export async function dismissFailedSourceUpload(
       where: {
         id: sourceFile.id,
         userId: input.userId,
+        materialRevisionId: null,
         kind: sourceFile.kind,
         status: SourceFileStatus.FAILED,
         storageBucket: sourceFile.storageBucket,
@@ -1381,6 +1393,7 @@ export async function dismissFailedSourceUpload(
     where: {
       id: sourceFile.id,
       userId: input.userId,
+      materialRevisionId: null,
       kind: sourceFile.kind,
       status: SourceFileStatus.FAILED,
       storageBucket: sourceFile.storageBucket,
@@ -1538,6 +1551,7 @@ export async function runQueuedSourceUploadDraftJob(
     where: {
       id: sourceFileId,
       userId: input.userId,
+      materialRevisionId: null,
     },
   });
 
@@ -1591,6 +1605,7 @@ export async function runQueuedSourceUploadDraftJob(
     where: {
       id: sourceFile.id,
       userId: input.userId,
+      materialRevisionId: null,
       status: SourceFileStatus.UPLOADED,
       storageBucket: sourceFile.storageBucket,
       storageKey: sourceFile.storageKey,
@@ -1786,6 +1801,7 @@ export async function runQueuedSourceUploadDraftJob(
     userId: input.userId,
     sourceFileId: sourceFile.id,
     sourceFileGuard: {
+      materialRevisionId: null,
       status: SourceFileStatus.PROCESSING,
       storageBucket: sourceFile.storageBucket,
       storageKey: sourceFile.storageKey,
@@ -1867,6 +1883,7 @@ async function runQueuedSourceUploadDraftBatchJob(
         in: sourceFileIds,
       },
       userId: input.userId,
+      materialRevisionId: null,
     },
   });
 
@@ -1996,6 +2013,7 @@ async function runQueuedSourceUploadDraftBatchJob(
           where: {
             id: source.sourceFile.id,
             userId: input.userId,
+            materialRevisionId: null,
             status: SourceFileStatus.UPLOADED,
             storageBucket: source.storageBucket,
             storageKey: source.storageKey,
@@ -2299,6 +2317,7 @@ async function runQueuedSourceUploadDraftBatchJob(
 
 function buildReadySourceFileGuard(source: ProcessedSourceUploadBatchItem): Prisma.SourceFileWhereInput {
   return {
+    materialRevisionId: null,
     status: SourceFileStatus.PROCESSING,
     storageBucket: source.storageBucket,
     storageKey: source.storageKey,
@@ -2605,11 +2624,28 @@ async function cleanupUploadedSource(
   sourceFile: {
     id: string;
     userId: string;
+    materialRevisionId: string | null;
     storageBucket: string | null;
     storageKey: string | null;
   },
   storage: SourceUploadStorage | null,
 ) {
+  if (sourceFile.materialRevisionId !== null) {
+    return;
+  }
+
+  const deleted = await getPrisma().sourceFile.deleteMany({
+    where: {
+      id: sourceFile.id,
+      userId: sourceFile.userId,
+      materialRevisionId: null,
+    },
+  });
+
+  if (deleted.count !== 1) {
+    return;
+  }
+
   if (storage && sourceFile.storageKey) {
     try {
       await storage.deleteObject({
@@ -2621,19 +2657,13 @@ async function cleanupUploadedSource(
       // cannot keep referencing failed private study material.
     }
   }
-
-  await getPrisma().sourceFile.deleteMany({
-    where: {
-      id: sourceFile.id,
-      userId: sourceFile.userId,
-    },
-  });
 }
 
 async function cleanupUploadedSources(
   sourceFiles: Array<{
     id: string;
     userId: string;
+    materialRevisionId: string | null;
     storageBucket: string | null;
     storageKey: string | null;
   }>,
@@ -2648,6 +2678,7 @@ async function markUploadedSourceFailed(
   sourceFile: {
     id: string;
     userId: string;
+    materialRevisionId: string | null;
     status: SourceFileStatus;
     byteSize: number | null;
     metadata: Prisma.JsonValue | null;
@@ -2662,6 +2693,10 @@ async function markUploadedSourceFailed(
     retainStoredObject?: boolean;
   } = {},
 ) {
+  if (sourceFile.materialRevisionId !== null) {
+    return;
+  }
+
   const retainStoredObject = options.retainStoredObject ?? true;
   const prisma = getPrisma();
 
@@ -2670,6 +2705,7 @@ async function markUploadedSourceFailed(
       where: {
         id: sourceFile.id,
         userId: sourceFile.userId,
+        materialRevisionId: null,
         status: sourceFile.status,
         storageBucket: sourceFile.storageBucket,
         storageKey: sourceFile.storageKey,
@@ -2711,6 +2747,7 @@ async function markUploadedSourceFailed(
       where: {
         id: sourceFile.id,
         userId: sourceFile.userId,
+        materialRevisionId: null,
         status: SourceFileStatus.FAILED,
         storageBucket: sourceFile.storageBucket,
         storageKey: sourceFile.storageKey,
@@ -2728,6 +2765,7 @@ async function markUploadedSourcesFailed(
   sourceFiles: Array<{
     id: string;
     userId: string;
+    materialRevisionId: string | null;
     status: SourceFileStatus;
     byteSize: number | null;
     metadata: Prisma.JsonValue | null;

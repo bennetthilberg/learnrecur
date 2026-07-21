@@ -52,9 +52,13 @@ export type DeleteSkillPermanentlyResult =
 type DeleteSourceRefCount = {
   sourceFileId: string;
   referenceCount: number;
+  materialRevisionId: string | null;
 };
 
-type DeletableSourceFile = Pick<SourceFile, "id" | "storageBucket" | "storageKey"> & {
+type DeletableSourceFile = Pick<
+  SourceFile,
+  "id" | "materialRevisionId" | "storageBucket" | "storageKey"
+> & {
   _count: {
     skillRefs: number;
   };
@@ -73,7 +77,7 @@ export function getOrphanSourceFileIdsForSkillDelete(
   const sourceFileIds = new Set<string>();
 
   for (const sourceRef of sourceRefs) {
-    if (sourceRef.referenceCount === 1) {
+    if (sourceRef.referenceCount === 1 && sourceRef.materialRevisionId === null) {
       sourceFileIds.add(sourceRef.sourceFileId);
     }
   }
@@ -165,6 +169,7 @@ export async function deleteSkillPermanently(
       sourceFiles.map((sourceFile) => ({
         sourceFileId: sourceFile.id,
         referenceCount: sourceFile._count.skillRefs,
+        materialRevisionId: sourceFile.materialRevisionId,
       })),
     );
     const orphanSourceFiles = sourceFiles.filter((sourceFile) =>
@@ -258,6 +263,7 @@ async function getLockedSourceFiles({
     },
     select: {
       id: true,
+      materialRevisionId: true,
       storageBucket: true,
       storageKey: true,
       _count: {
