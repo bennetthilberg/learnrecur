@@ -76,7 +76,7 @@ Define these environment variables:
 - `DATABASE_URL`.
 - `GEMINI_API_KEY`.
 - `GEMINI_MODEL`.
-- `MODEL_API_KEY`.
+- `META_API_KEY`.
 - `META_MUSE_MODEL`.
 - `META_MUSE_BASE_URL`.
 - `AWS_REGION`.
@@ -535,7 +535,7 @@ Turn source material into narrow, reviewable skill drafts.
 
 ### 12.2 AI Provider Integration
 
-Use Gemini server-side as the primary provider. Keep `GEMINI_MODEL` configurable, defaulting to `gemini-3.5-flash`. Use Meta Muse Spark 1.1 through Meta's direct Model API as the multimodal fallback, configured with `MODEL_API_KEY`, `META_MUSE_MODEL`, and `META_MUSE_BASE_URL`.
+Use Gemini server-side as the primary provider. Keep `GEMINI_MODEL` configurable, defaulting to `gemini-3.5-flash`. Use Meta Muse Spark 1.1 through Meta's direct Model API as the multimodal fallback, configured with `META_API_KEY`, `META_MUSE_MODEL`, and `META_MUSE_BASE_URL`. Send the issued Meta key unchanged as the Bearer token; never derive or concatenate it from team or project identifiers.
 
 ### 12.3 Extraction Inputs
 

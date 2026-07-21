@@ -223,10 +223,10 @@ describe("Meta Muse Responses client", () => {
     );
   });
 
-  it("disables optional fallback when MODEL_API_KEY is absent", () => {
+  it("disables optional fallback when META_API_KEY is absent", () => {
     process.env = {
       ...originalEnv,
-      MODEL_API_KEY: "",
+      META_API_KEY: "",
       META_MUSE_BASE_URL: "",
       META_MUSE_MODEL: "",
     };
@@ -241,7 +241,7 @@ describe("Meta Muse Responses client", () => {
   it("reports invalid optional fallback configuration without throwing", () => {
     process.env = {
       ...originalEnv,
-      MODEL_API_KEY: "LLM|123|secret",
+      META_API_KEY: "LLM_opaque_meta_key",
       META_MUSE_BASE_URL: "not-a-url",
       META_MUSE_MODEL: DEFAULT_META_MUSE_MODEL,
     };

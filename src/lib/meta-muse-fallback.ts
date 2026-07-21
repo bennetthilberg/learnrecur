@@ -9,11 +9,11 @@ export type OptionalMetaMuseFallbackResult =
 
 export function resolveMetaMuseFallbackConfig(): MetaMuseFallbackConfig | null {
   const env = getMetaMuseEnv();
-  if (!env.MODEL_API_KEY) {
+  if (!env.META_API_KEY) {
     return null;
   }
   return {
-    apiKey: env.MODEL_API_KEY,
+    apiKey: env.META_API_KEY,
     baseUrl: env.META_MUSE_BASE_URL,
     model: env.META_MUSE_MODEL,
   };

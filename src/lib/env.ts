@@ -128,14 +128,11 @@ const metaMuseBaseUrlSchema = z.preprocess((value) => {
 }, z.string().trim().min(1).url().default(DEFAULT_META_MUSE_BASE_URL));
 
 const metaMuseEnvSchema = z.object({
-  MODEL_API_KEY: optionalNonEmptyString(
+  META_API_KEY: optionalNonEmptyString(
     z
-      .string({ error: "MODEL_API_KEY is required" })
+      .string({ error: "META_API_KEY is required" })
       .trim()
-      .min(1, "MODEL_API_KEY is required")
-      .refine((value) => value.startsWith("LLM|"), {
-        message: "MODEL_API_KEY must start with LLM|",
-      }),
+      .min(1, "META_API_KEY is required"),
   ),
   META_MUSE_MODEL: metaMuseModelSchema,
   META_MUSE_BASE_URL: metaMuseBaseUrlSchema,
@@ -330,7 +327,7 @@ export function hasGeminiEnv(): boolean {
 export function hasMetaMuseEnv(): boolean {
   const result = metaMuseEnvSchema.safeParse(process.env);
 
-  return result.success && Boolean(result.data.MODEL_API_KEY);
+  return result.success && Boolean(result.data.META_API_KEY);
 }
 
 export function hasResendEnv(): boolean {

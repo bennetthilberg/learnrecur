@@ -532,7 +532,7 @@ Use a narrow two-provider chain for source-backed work. Google Gemini is primary
 
 The model should remain environment-configurable through `GEMINI_MODEL` so it can be changed without code edits.
 
-Meta Muse Spark 1.1 is the fallback through Meta's Model API. It remains configurable through `META_MUSE_MODEL`, and its server-only credential is `MODEL_API_KEY`. Do not route this fallback through an intermediary provider.
+Meta Muse Spark 1.1 is the fallback through Meta's Model API. It remains configurable through `META_MUSE_MODEL`, and its server-only credential is `META_API_KEY`. Treat the issued key as an opaque Bearer token; do not parse it or reconstruct it from team or project identifiers. Do not route this fallback through an intermediary provider.
 
 The provider chain is responsible for:
 

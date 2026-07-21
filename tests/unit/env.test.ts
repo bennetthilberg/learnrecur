@@ -32,7 +32,7 @@ const managedEnvKeys = [
   "GEMINI_ENTERPRISE_AGENT_KEY_PLATFORM_KEY",
   "GEMINI_MODEL",
   "GEMINI_FALLBACK_MODELS",
-  "MODEL_API_KEY",
+  "META_API_KEY",
   "META_MUSE_MODEL",
   "META_MUSE_BASE_URL",
   "RESEND_API_KEY",
@@ -142,7 +142,7 @@ describe("environment validation", () => {
     });
     expect(hasMetaMuseEnv()).toBe(false);
     expect(getMetaMuseEnv()).toEqual({
-      MODEL_API_KEY: undefined,
+      META_API_KEY: undefined,
       META_MUSE_BASE_URL: "https://api.meta.ai/v1",
       META_MUSE_MODEL: "muse-spark-1.1",
     });
@@ -234,7 +234,7 @@ describe("environment validation", () => {
       DIRECT_URL: "postgresql://migrate:secret@example.aws.neon.tech/neondb?sslmode=require",
       GEMINI_API_KEY: "gemini-secret",
       GEMINI_MODEL: "gemini-3.5-flash",
-      MODEL_API_KEY: "LLM|123|secret",
+      META_API_KEY: "LLM_opaque_meta_key",
       META_MUSE_MODEL: "muse-spark-1.1",
       AWS_REGION: "us-east-1",
       S3_BUCKET_NAME: "learnrecur-prod-source-uploads",
@@ -255,7 +255,7 @@ describe("environment validation", () => {
       CLERK_SECRET_KEY: "sk_live_example",
       DATABASE_URL: "postgresql://runtime:secret@example-pooler.aws.neon.tech/neondb?sslmode=require",
       DIRECT_URL: "postgresql://migrate:secret@example.aws.neon.tech/neondb?sslmode=require",
-      MODEL_API_KEY: "LLM|123|secret",
+      META_API_KEY: "LLM_opaque_meta_key",
       META_MUSE_MODEL: "muse-spark-1.1",
       META_MUSE_BASE_URL: "https://api.meta.ai/v1",
       INNGEST_APP_ID: "learnrecur",
@@ -286,7 +286,7 @@ describe("environment validation", () => {
 
     expect(hasProductionEnv()).toBe(true);
     const productionEnv = getProductionEnv();
-    expect(productionEnv).not.toHaveProperty("MODEL_API_KEY");
+    expect(productionEnv).not.toHaveProperty("META_API_KEY");
     expect(productionEnv).toMatchObject({
       META_MUSE_MODEL: "muse-spark-1.1",
       META_MUSE_BASE_URL: "https://api.meta.ai/v1",
@@ -301,7 +301,7 @@ describe("environment validation", () => {
       DATABASE_URL: "postgresql://runtime:secret@example-pooler.aws.neon.tech/neondb?sslmode=require",
       DIRECT_URL: "",
       GEMINI_API_KEY: "gemini-secret",
-      MODEL_API_KEY: "LLM|123|secret",
+      META_API_KEY: "LLM_opaque_meta_key",
       AWS_REGION: "us-east-1",
       S3_BUCKET_NAME: "learnrecur-prod-source-uploads",
       AWS_ACCESS_KEY_ID: "prod-access-key",
@@ -363,7 +363,7 @@ describe("environment validation", () => {
       DATABASE_URL: "postgresql://runtime:secret@example-pooler.aws.neon.tech/neondb?sslmode=require",
       DIRECT_URL: "postgresql://migrate:secret@example.aws.neon.tech/neondb?sslmode=require",
       GEMINI_API_KEY: "gemini-secret",
-      MODEL_API_KEY: "LLM|123|secret",
+      META_API_KEY: "LLM_opaque_meta_key",
       AWS_REGION: "us-east-1",
       S3_BUCKET_NAME: "learnrecur-prod-source-uploads",
       AWS_ACCESS_KEY_ID: "prod-access-key",
