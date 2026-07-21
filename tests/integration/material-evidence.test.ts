@@ -310,6 +310,87 @@ describeDatabase("localized material OCR evidence", () => {
       prisma.materialChunk.count({ where: { userId, materialRevisionId } }),
     ).resolves.toBe(1);
   });
+
+  it("attaches cited pages from an ordinary text PDF without material-page OCR rows", async () => {
+    const { material, revision } = await createMaterialWithInitialRevision({
+      userId,
+      title: "Text grammar handbook",
+      kind: StudyMaterialKind.PDF,
+    });
+    const section = await prisma.materialSection.create({
+      data: {
+        userId,
+        materialRevisionId: revision.id,
+        ordinal: 0,
+        level: 1,
+        title: "Direct objects",
+        normalizedTitle: "direct objects",
+        pageStart: 4,
+        pageEnd: 5,
+        headingPath: ["Direct objects"],
+      },
+    });
+    const ordinarySource = await prisma.sourceFile.create({
+      data: {
+        userId,
+        materialRevisionId: revision.id,
+        kind: SourceFileKind.PDF,
+        status: SourceFileStatus.READY,
+        originalName: "text-handbook.pdf",
+        mimeType: "application/pdf",
+        storageBucket: "test-materials",
+        storageKey: `${runId}/text-handbook.pdf`,
+      },
+    });
+    const chunk = await prisma.materialChunk.create({
+      data: {
+        userId,
+        materialRevisionId: revision.id,
+        materialSectionId: section.id,
+        sourceFileId: ordinarySource.id,
+        ordinal: 0,
+        text: "Direct object pronouns replace nouns that receive the action.",
+        tokenEstimate: 12,
+        contentHash: `ordinary:${runId}`,
+        headingText: "Direct objects",
+        locator: { version: 1, kind: "pdf", pageRange: { start: 4, end: 5 } },
+      },
+    });
+    await finalizeMaterialRevision({
+      userId,
+      materialId: material.id,
+      materialRevisionId: revision.id,
+      contentHash: `sha256:ordinary:${runId}`,
+      byteSize: pdfBytes.byteLength,
+      pageCount: 10,
+      storageBucket: "test-materials",
+      storageKey: `${runId}/text-handbook.pdf`,
+    });
+
+    await expect(
+      prisma.materialPage.count({ where: { userId, materialRevisionId: revision.id } }),
+    ).resolves.toBe(0);
+    const evidence = await loadLocalizedMaterialEvidence({
+      userId,
+      storage: createStorage(pdfBytes),
+      sourceRefs: [
+        {
+          sourceFile: ordinarySource,
+          locator: {
+            version: 1,
+            materialRevisionId: revision.id,
+            materialSectionIds: [section.id],
+            evidenceChunkIds: [chunk.id],
+            source: { kind: "pdf", pageRanges: [{ start: 4, end: 5 }] },
+          },
+        },
+      ],
+    });
+
+    expect(evidence.sourceMedia).toHaveLength(1);
+    expect((await PDFDocument.load(evidence.sourceMedia[0].bytes)).getPageCount()).toBe(2);
+    expect(evidence.sourceMedia[0].originalName).toContain("pages-4-5");
+  });
 });
 
 function createStorage(bytes: Buffer): SourceObjectStorage {

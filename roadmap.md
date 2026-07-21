@@ -76,6 +76,9 @@ Define these environment variables:
 - `DATABASE_URL`.
 - `GEMINI_API_KEY`.
 - `GEMINI_MODEL`.
+- `MODEL_API_KEY`.
+- `META_MUSE_MODEL`.
+- `META_MUSE_BASE_URL`.
 - `AWS_REGION`.
 - `S3_BUCKET_NAME`.
 - `AWS_ACCESS_KEY_ID`.
@@ -530,9 +533,9 @@ Do not overbuild exact region citations in V1.
 
 Turn source material into narrow, reviewable skill drafts.
 
-### 12.2 Gemini Integration
+### 12.2 AI Provider Integration
 
-Use Gemini server-side only. Keep `GEMINI_MODEL` configurable, defaulting to `gemini-3.5-flash`.
+Use Gemini server-side as the primary provider. Keep `GEMINI_MODEL` configurable, defaulting to `gemini-3.5-flash`. Use Meta Muse Spark 1.1 through Meta's direct Model API as the multimodal fallback, configured with `MODEL_API_KEY`, `META_MUSE_MODEL`, and `META_MUSE_BASE_URL`.
 
 ### 12.3 Extraction Inputs
 
@@ -542,10 +545,11 @@ The extraction job receives:
 - Extracted text from source material.
 - File metadata.
 - Optional page snippets.
+- The original quick-upload file or an exact PDF slice containing every cited page.
 
 ### 12.4 Extraction Output
 
-Gemini should return structured JSON matching a Zod schema:
+The selected provider should return structured JSON matching a Zod schema:
 
 - Title.
 - Objective.

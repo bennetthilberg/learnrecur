@@ -30,12 +30,12 @@ import {
   buildExistingChoiceExerciseContext,
   buildExistingExactInputExerciseContext,
   buildExistingMathExerciseContext,
-  buildOpenRouterSourceMediaPart,
+  buildMetaMuseSourceMediaPart,
   buildSourceContextExcerpt,
   createGeminiChoiceExerciseGenerator,
-  createOpenRouterChoiceExerciseGenerator,
-  createOpenRouterExactInputExerciseGenerator,
-  createOpenRouterMathExerciseVerifier,
+  createMetaMuseChoiceExerciseGenerator,
+  createMetaMuseExactInputExerciseGenerator,
+  createMetaMuseMathExerciseVerifier,
   filterDuplicateChoiceExercises,
   filterDuplicateExactInputExercises,
   filterDuplicateMathExercises,
@@ -1373,39 +1373,54 @@ describe("loadSourceMediaContextForSourceFiles", () => {
   });
 });
 
-describe("buildOpenRouterSourceMediaPart", () => {
-  it("formats uploaded images and PDFs for OpenRouter multimodal chat content", () => {
+describe("buildMetaMuseSourceMediaPart", () => {
+  it("formats uploaded images and PDFs for MetaMuse multimodal chat content", () => {
     expect(
-      buildOpenRouterSourceMediaPart({
+      buildMetaMuseSourceMediaPart({
         bytes: Buffer.from("image"),
         filename: "worksheet.png",
         mimeType: "image/png",
       }),
     ).toEqual({
-      type: "image_url",
-      image_url: {
-        url: "data:image/png;base64,aW1hZ2U=",
-      },
+      type: "input_image",
+      image_url: "data:image/png;base64,aW1hZ2U=",
+      detail: "high",
     });
 
     expect(
-      buildOpenRouterSourceMediaPart({
+      buildMetaMuseSourceMediaPart({
         bytes: Buffer.from("%PDF"),
         filename: "../worksheet page.pdf",
         mimeType: "application/pdf",
       }),
     ).toEqual({
-      type: "file",
-      file: {
-        filename: "..-worksheet page.pdf",
-        file_data: "data:application/pdf;base64,JVBERg==",
-      },
+      type: "input_file",
+      filename: "..-worksheet page.pdf",
+      file_data: "data:application/pdf;base64,JVBERg==",
+      detail: "high",
     });
   });
 });
 
-describe("OpenRouter exercise fallbacks", () => {
-  it("gives OpenRouter a fresh timeout budget after Gemini times out", async () => {
+function metaMuseResponse(value: unknown) {
+  return new Response(
+    JSON.stringify({
+      status: "completed",
+      model: "muse-spark-1.1",
+      output: [
+        {
+          type: "message",
+          role: "assistant",
+          content: [{ type: "output_text", text: JSON.stringify(value) }],
+        },
+      ],
+    }),
+    { status: 200, headers: { "Content-Type": "application/json" } },
+  );
+}
+
+describe("MetaMuse exercise fallbacks", () => {
+  it("gives MetaMuse a fresh timeout budget after Gemini times out", async () => {
     vi.useFakeTimers();
     vi.spyOn(console, "info").mockImplementation(() => {});
     vi.spyOn(console, "warn").mockImplementation(() => {});
@@ -1415,20 +1430,7 @@ describe("OpenRouter exercise fallbacks", () => {
     );
     const fetchMock = vi.fn(async () => {
       await new Promise((resolve) => setTimeout(resolve, 30_000));
-      return new Response(
-        JSON.stringify({
-          choices: [
-            {
-              finish_reason: "stop",
-              message: {
-                content: JSON.stringify({ exercises: [validExercise(1)] }),
-              },
-            },
-          ],
-          model: "google/gemma-4-31b-it",
-        }),
-        { status: 200, headers: { "Content-Type": "application/json" } },
-      );
+      return metaMuseResponse({ exercises: [validExercise(1)] });
     });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -1443,10 +1445,10 @@ describe("OpenRouter exercise fallbacks", () => {
           httpOptions: { apiVersion: "v1" },
         },
       },
-      openRouterFallback: {
-        apiKey: "sk-or-test",
-        baseUrl: "https://openrouter.ai/api/v1",
-        model: "google/gemma-4-31b-it",
+      metaMuseFallback: {
+        apiKey: "LLM|123|secret",
+        baseUrl: "https://api.meta.ai/v1",
+        model: "muse-spark-1.1",
       },
     })({
       skill: {
@@ -1469,7 +1471,7 @@ describe("OpenRouter exercise fallbacks", () => {
     await expect(result).resolves.toEqual({ exercises: [validExercise(1)] });
   });
 
-  it("routes choice exercise generation to OpenRouter when Gemini fails retryably", async () => {
+  it("routes choice exercise generation to MetaMuse when Gemini fails retryably", async () => {
     vi.spyOn(console, "info").mockImplementation(() => {});
     const warningSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     geminiGenerateContentMock.mockRejectedValueOnce(
@@ -1484,27 +1486,7 @@ describe("OpenRouter exercise fallbacks", () => {
       ),
     );
     const fetchMock = vi.fn(async () =>
-      new Response(
-        JSON.stringify({
-          choices: [
-            {
-              finish_reason: "stop",
-              message: {
-                content: JSON.stringify({
-                  exercises: [validExercise(1)],
-                }),
-              },
-            },
-          ],
-          model: "google/gemma-4-31b-it",
-        }),
-        {
-          status: 200,
-          headers: {
-            "Content-Type": "application/json",
-          },
-        },
-      ),
+      metaMuseResponse({ exercises: [validExercise(1)] }),
     );
     vi.stubGlobal("fetch", fetchMock);
     const recordProviderUsage = vi.fn();
@@ -1522,10 +1504,10 @@ describe("OpenRouter exercise fallbacks", () => {
           },
         },
       },
-      openRouterFallback: {
-        apiKey: "sk-or-test",
-        baseUrl: "https://openrouter.ai/api/v1",
-        model: "google/gemma-4-31b-it",
+      metaMuseFallback: {
+        apiKey: "LLM|123|secret",
+        baseUrl: "https://api.meta.ai/v1",
+        model: "muse-spark-1.1",
       },
       recordProviderUsage,
     })({
@@ -1554,24 +1536,23 @@ describe("OpenRouter exercise fallbacks", () => {
     expect(geminiGenerateContentMock).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(recordProviderUsage).toHaveBeenCalledWith({
-      provider: "openrouter",
-      model: "google/gemma-4-31b-it",
+      provider: "meta",
+      model: "muse-spark-1.1",
     });
     expect(warningSpy).toHaveBeenCalledWith(
       "[ai] retrying with fallback provider",
       expect.objectContaining({
         operation: "choice exercise generation",
         failedModel: "gemini-3.5-flash",
-        fallbackProvider: "openrouter",
-        fallbackModel: "google/gemma-4-31b-it",
+        fallbackProvider: "meta",
+        fallbackModel: "muse-spark-1.1",
       }),
     );
     const requestBody = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
-    expect(requestBody.messages[1].content[1]).toEqual({
-      type: "image_url",
-      image_url: {
-        url: "data:image/png;base64,aW1hZ2UgYnl0ZXM=",
-      },
+    expect(requestBody.input[0].content[1]).toEqual({
+      type: "input_image",
+      image_url: "data:image/png;base64,aW1hZ2UgYnl0ZXM=",
+      detail: "high",
     });
   });
 
@@ -1579,7 +1560,7 @@ describe("OpenRouter exercise fallbacks", () => {
     vi.spyOn(console, "info").mockImplementation(() => {});
     const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
       const request = JSON.parse(String(init?.body));
-      const schemaName = request.response_format.json_schema.name;
+      const schemaName = request.text.format.name;
       const content = schemaName.endsWith("Verification")
         ? {
             verifications: [
@@ -1593,32 +1574,14 @@ describe("OpenRouter exercise fallbacks", () => {
             exercises: [validExercise(1)],
           };
 
-      return new Response(
-        JSON.stringify({
-          choices: [
-            {
-              finish_reason: "stop",
-              message: {
-                content: JSON.stringify(content),
-              },
-            },
-          ],
-          model: "google/gemma-4-31b-it",
-        }),
-        {
-          status: 200,
-          headers: {
-            "Content-Type": "application/json",
-          },
-        },
-      );
+      return metaMuseResponse(content);
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    const openRouter = {
-      apiKey: "sk-or-test",
-      baseUrl: "https://openrouter.ai/api/v1",
-      model: "google/gemma-4-31b-it",
+    const metaMuse = {
+      apiKey: "LLM|123|secret",
+      baseUrl: "https://api.meta.ai/v1",
+      model: "muse-spark-1.1",
     };
     const skill = {
       id: "skill_1",
@@ -1646,19 +1609,19 @@ describe("OpenRouter exercise fallbacks", () => {
       },
     ];
 
-    await createOpenRouterChoiceExerciseGenerator(openRouter)({
+    await createMetaMuseChoiceExerciseGenerator(metaMuse)({
       skill,
       sourceContext: "Use the worksheet scope.",
       sourceMedia: imageMedia,
       requestedCount: 1,
     });
-    await createOpenRouterExactInputExerciseGenerator(openRouter)({
+    await createMetaMuseExactInputExerciseGenerator(metaMuse)({
       skill,
       sourceContext: "Use the PDF scope.",
       sourceMedia: pdfMedia,
       requestedCount: 1,
     });
-    await createOpenRouterMathExerciseVerifier(openRouter)({
+    await createMetaMuseMathExerciseVerifier(metaMuse)({
       skill,
       sourceContext: "Use the worksheet scope.",
       sourceMedia: imageMedia,
@@ -1674,22 +1637,22 @@ describe("OpenRouter exercise fallbacks", () => {
       JSON.parse(String(init?.body)),
     );
     expect(requestBodies.map((body) => body.model)).toEqual([
-      "google/gemma-4-31b-it",
-      "google/gemma-4-31b-it",
-      "google/gemma-4-31b-it",
+      "muse-spark-1.1",
+      "muse-spark-1.1",
+      "muse-spark-1.1",
     ]);
     expect(
-      requestBodies.map((body) => body.response_format.json_schema.name),
+      requestBodies.map((body) => body.text.format.name),
     ).toEqual([
       "choiceExerciseResponse",
       "exactInputExerciseResponse",
       "mathExerciseVerification",
     ]);
     expect(
-      requestBodies.every((body) => body.response_format.json_schema.strict === true),
+      requestBodies.every((body) => body.text.format.strict === true),
     ).toBe(true);
     expect(
-      requestBodies[0].response_format.json_schema.schema.properties.exercises.items.required,
+      requestBodies[0].text.format.schema.properties.exercises.items.required,
     ).toEqual([
       "prompt",
       "choices",
@@ -1699,7 +1662,7 @@ describe("OpenRouter exercise fallbacks", () => {
       "expectedSeconds",
     ]);
     expect(
-      requestBodies[1].response_format.json_schema.schema.properties.exercises.items.required,
+      requestBodies[1].text.format.schema.properties.exercises.items.required,
     ).toEqual([
       "prompt",
       "answerKind",
@@ -1710,7 +1673,7 @@ describe("OpenRouter exercise fallbacks", () => {
       "expectedSeconds",
     ]);
     expect(
-      requestBodies[1].response_format.json_schema.schema.properties.exercises.items.properties
+      requestBodies[1].text.format.schema.properties.exercises.items.properties
         .answerSpec.anyOf[0].required,
     ).toEqual([
       "kind",
@@ -1720,34 +1683,31 @@ describe("OpenRouter exercise fallbacks", () => {
       "normalizeDiacritics",
     ]);
     expect(
-      requestBodies[1].response_format.json_schema.schema.properties.exercises.items.properties
+      requestBodies[1].text.format.schema.properties.exercises.items.properties
         .answerSpec.anyOf[1].required,
     ).toEqual(["kind", "accepted", "tolerance"]);
     expect(
-      requestBodies[2].response_format.json_schema.schema.properties.verifications.items.required,
+      requestBodies[2].text.format.schema.properties.verifications.items.required,
     ).toEqual(["candidateId", "verdict", "reason", "note"]);
     expect(
-      requestBodies[2].response_format.json_schema.schema.properties.verifications.items.properties
+      requestBodies[2].text.format.schema.properties.verifications.items.properties
         .reason.enum,
     ).toContain(null);
-    expect(requestBodies[0].messages[1].content[1]).toEqual({
-      type: "image_url",
-      image_url: {
-        url: "data:image/png;base64,aW1hZ2UgYnl0ZXM=",
-      },
+    expect(requestBodies[0].input[0].content[1]).toEqual({
+      type: "input_image",
+      image_url: "data:image/png;base64,aW1hZ2UgYnl0ZXM=",
+      detail: "high",
     });
-    expect(requestBodies[1].messages[1].content[1]).toEqual({
-      type: "file",
-      file: {
-        filename: "worksheet.pdf",
-        file_data: "data:application/pdf;base64,JVBERiBieXRlcw==",
-      },
+    expect(requestBodies[1].input[0].content[1]).toEqual({
+      type: "input_file",
+      filename: "worksheet.pdf",
+      file_data: "data:application/pdf;base64,JVBERiBieXRlcw==",
+      detail: "high",
     });
-    expect(requestBodies[2].messages[1].content[1]).toEqual({
-      type: "image_url",
-      image_url: {
-        url: "data:image/png;base64,aW1hZ2UgYnl0ZXM=",
-      },
+    expect(requestBodies[2].input[0].content[1]).toEqual({
+      type: "input_image",
+      image_url: "data:image/png;base64,aW1hZ2UgYnl0ZXM=",
+      detail: "high",
     });
   });
 });

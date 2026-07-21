@@ -43,15 +43,16 @@ import {
   type LocalizedMaterialSourceRef,
 } from "@/lib/materials/evidence";
 import {
-  buildOpenRouterDataUrl,
-  runOpenRouterJsonChatCompletion,
-  type OpenRouterChatMessage,
-  type OpenRouterContentPart,
-  type OpenRouterFallbackConfig,
-} from "@/lib/openrouter";
+  buildMetaMuseDataUrl,
+  MAX_META_MUSE_INLINE_FILE_BYTES,
+  runMetaMuseJsonResponse,
+  type MetaMuseChatMessage,
+  type MetaMuseContentPart,
+  type MetaMuseFallbackConfig,
+} from "@/lib/meta-muse";
 import {
-  resolveOptionalOpenRouterFallbackConfig,
-} from "@/lib/openrouter-fallback";
+  resolveOptionalMetaMuseFallbackConfig,
+} from "@/lib/meta-muse-fallback";
 import { getPrisma } from "@/lib/prisma";
 import { createInitialSkillSchedule } from "@/lib/scheduling";
 import {
@@ -105,7 +106,7 @@ export const SKILL_MCQ_PROMPT_VERSION = "skill-mcq-v0";
 export const SKILL_EXACT_INPUT_PROMPT_VERSION = "skill-exact-input-v0";
 export const SKILL_MATH_PROMPT_VERSION = "skill-math-v0";
 export const GEMINI_PROVIDER = "google";
-export const OPENROUTER_PROVIDER = "openrouter";
+export const META_MUSE_PROVIDER = "meta";
 
 export type NormalizedSkillDraftInput = {
   title: string;
@@ -1144,7 +1145,7 @@ function buildGeminiMathVerificationJsonSchema(candidateCount: number) {
   return buildGeminiChoiceVerificationJsonSchema(candidateCount);
 }
 
-function buildOpenRouterChoiceExerciseResponseJsonSchema(requestedCount: number) {
+function buildMetaMuseChoiceExerciseResponseJsonSchema(requestedCount: number) {
   return {
     type: "object",
     additionalProperties: false,
@@ -1192,7 +1193,7 @@ function buildOpenRouterChoiceExerciseResponseJsonSchema(requestedCount: number)
   };
 }
 
-function buildOpenRouterChoiceVerificationJsonSchema(candidateCount: number) {
+function buildMetaMuseChoiceVerificationJsonSchema(candidateCount: number) {
   return {
     type: "object",
     additionalProperties: false,
@@ -1227,7 +1228,7 @@ function buildOpenRouterChoiceVerificationJsonSchema(candidateCount: number) {
   };
 }
 
-function buildOpenRouterTextAnswerSpecJsonSchema() {
+function buildMetaMuseTextAnswerSpecJsonSchema() {
   return {
     type: "object",
     additionalProperties: false,
@@ -1252,7 +1253,7 @@ function buildOpenRouterTextAnswerSpecJsonSchema() {
   };
 }
 
-function buildOpenRouterNumericAnswerSpecJsonSchema() {
+function buildMetaMuseNumericAnswerSpecJsonSchema() {
   return {
     type: "object",
     additionalProperties: false,
@@ -1269,7 +1270,7 @@ function buildOpenRouterNumericAnswerSpecJsonSchema() {
   };
 }
 
-function buildOpenRouterExactInputResponseJsonSchema(requestedCount: number) {
+function buildMetaMuseExactInputResponseJsonSchema(requestedCount: number) {
   return {
     type: "object",
     additionalProperties: false,
@@ -1299,8 +1300,8 @@ function buildOpenRouterExactInputResponseJsonSchema(requestedCount: number) {
             },
             answerSpec: {
               anyOf: [
-                buildOpenRouterTextAnswerSpecJsonSchema(),
-                buildOpenRouterNumericAnswerSpecJsonSchema(),
+                buildMetaMuseTextAnswerSpecJsonSchema(),
+                buildMetaMuseNumericAnswerSpecJsonSchema(),
               ],
             },
             correctAnswerDisplay: { type: "string" },
@@ -1314,7 +1315,7 @@ function buildOpenRouterExactInputResponseJsonSchema(requestedCount: number) {
   };
 }
 
-function buildOpenRouterMathResponseJsonSchema(requestedCount: number) {
+function buildMetaMuseMathResponseJsonSchema(requestedCount: number) {
   return {
     type: "object",
     additionalProperties: false,
@@ -1368,12 +1369,12 @@ function buildOpenRouterMathResponseJsonSchema(requestedCount: number) {
   };
 }
 
-function buildOpenRouterExactInputVerificationJsonSchema(candidateCount: number) {
-  return buildOpenRouterChoiceVerificationJsonSchema(candidateCount);
+function buildMetaMuseExactInputVerificationJsonSchema(candidateCount: number) {
+  return buildMetaMuseChoiceVerificationJsonSchema(candidateCount);
 }
 
-function buildOpenRouterMathVerificationJsonSchema(candidateCount: number) {
-  return buildOpenRouterChoiceVerificationJsonSchema(candidateCount);
+function buildMetaMuseMathVerificationJsonSchema(candidateCount: number) {
+  return buildMetaMuseChoiceVerificationJsonSchema(candidateCount);
 }
 
 const geminiSkillDraftJsonSchema = {
@@ -4281,19 +4282,19 @@ export function validateGeneratedSkillDrafts(
   };
 }
 
-function resolveOptionalOpenRouterFallbackForOperation(
+function resolveOptionalMetaMuseFallbackForOperation(
   operation: string,
-): OpenRouterFallbackConfig | null {
-  const openRouterFallbackResult = resolveOptionalOpenRouterFallbackConfig();
+): MetaMuseFallbackConfig | null {
+  const metaMuseFallbackResult = resolveOptionalMetaMuseFallbackConfig();
 
-  if (openRouterFallbackResult.status === "invalid") {
-    console.warn(`[ai] openrouter fallback disabled for ${operation}`, {
-      message: openRouterFallbackResult.message,
+  if (metaMuseFallbackResult.status === "invalid") {
+    console.warn(`[ai] meta muse fallback disabled for ${operation}`, {
+      message: metaMuseFallbackResult.message,
     });
     return null;
   }
 
-  return openRouterFallbackResult.config;
+  return metaMuseFallbackResult.config;
 }
 
 function createAiProviderUsageTracker() {
@@ -4340,8 +4341,8 @@ function resolveActivationSetup(
     };
   }
 
-  const openRouterFallback =
-    resolveOptionalOpenRouterFallbackForOperation("choice exercise generation");
+  const metaMuseFallback =
+    resolveOptionalMetaMuseFallbackForOperation("choice exercise generation");
   try {
     const env = getGeminiEnv();
     const gemini = resolveGeminiRuntimeConfig(env);
@@ -4351,14 +4352,14 @@ function resolveActivationSetup(
       model: gemini.model,
       generateChoiceExercises: createGeminiChoiceExerciseGenerator({
         gemini,
-        openRouterFallback,
+        metaMuseFallback,
         recordProviderUsage,
       }),
       verifyChoiceExercises:
         input.verifyChoiceExercises ??
         createGeminiChoiceExerciseVerifier({
           gemini,
-          openRouterFallback,
+          metaMuseFallback,
           recordProviderUsage,
         }),
     };
@@ -4396,8 +4397,8 @@ function resolveExactInputRefillSetup(
     };
   }
 
-  const openRouterFallback =
-    resolveOptionalOpenRouterFallbackForOperation("exact-input exercise generation");
+  const metaMuseFallback =
+    resolveOptionalMetaMuseFallbackForOperation("exact-input exercise generation");
   try {
     const env = getGeminiEnv();
     const gemini = resolveGeminiRuntimeConfig(env);
@@ -4407,14 +4408,14 @@ function resolveExactInputRefillSetup(
       model: gemini.model,
       generateExactInputExercises: createGeminiExactInputExerciseGenerator({
         gemini,
-        openRouterFallback,
+        metaMuseFallback,
         recordProviderUsage,
       }),
       verifyExactInputExercises:
         input.verifyExactInputExercises ??
         createGeminiExactInputExerciseVerifier({
           gemini,
-          openRouterFallback,
+          metaMuseFallback,
           recordProviderUsage,
         }),
     };
@@ -4451,8 +4452,8 @@ function resolveMathRefillSetup(
     };
   }
 
-  const openRouterFallback =
-    resolveOptionalOpenRouterFallbackForOperation("math exercise generation");
+  const metaMuseFallback =
+    resolveOptionalMetaMuseFallbackForOperation("math exercise generation");
   try {
     const env = getGeminiEnv();
     const gemini = resolveGeminiRuntimeConfig(env);
@@ -4462,14 +4463,14 @@ function resolveMathRefillSetup(
       model: gemini.model,
       generateMathExercises: createGeminiMathExerciseGenerator({
         gemini,
-        openRouterFallback,
+        metaMuseFallback,
         recordProviderUsage,
       }),
       verifyMathExercises:
         input.verifyMathExercises ??
         createGeminiMathExerciseVerifier({
           gemini,
-          openRouterFallback,
+          metaMuseFallback,
           recordProviderUsage,
         }),
     };
@@ -4503,13 +4504,13 @@ function resolveSourceDraftSetup(
     };
   }
 
-  const openRouterFallbackResult = resolveOptionalOpenRouterFallbackConfig();
-  const openRouterFallback =
-    openRouterFallbackResult.status === "ready" ? openRouterFallbackResult.config : null;
+  const metaMuseFallbackResult = resolveOptionalMetaMuseFallbackConfig();
+  const metaMuseFallback =
+    metaMuseFallbackResult.status === "ready" ? metaMuseFallbackResult.config : null;
 
-  if (openRouterFallbackResult.status === "invalid") {
-    console.warn("[ai] openrouter fallback disabled for skill draft generation", {
-      message: openRouterFallbackResult.message,
+  if (metaMuseFallbackResult.status === "invalid") {
+    console.warn("[ai] meta muse fallback disabled for skill draft generation", {
+      message: metaMuseFallbackResult.message,
     });
   }
 
@@ -4530,27 +4531,27 @@ function resolveSourceDraftSetup(
     model: gemini.model,
     generateSkillDraft: createGeminiSkillDraftGenerator({
       gemini,
-      openRouterFallback,
+      metaMuseFallback,
     }),
   };
 }
 
 export function createGeminiSkillDraftGenerator({
   gemini,
-  openRouterFallback,
+  metaMuseFallback,
 }: {
   gemini: GeminiRuntimeConfig;
-  openRouterFallback?: OpenRouterFallbackConfig | null;
+  metaMuseFallback?: MetaMuseFallbackConfig | null;
 }): SkillDraftGenerator {
   return async (input) => {
-    const openRouterFallbackForInput = openRouterSkillDraftFallbackForInput(openRouterFallback, input);
+    const metaMuseFallbackForInput = metaMuseSkillDraftFallbackForInput(metaMuseFallback, input);
 
     return runWithGeminiProviderFallback({
-      fallback: openRouterFallbackForInput
+      fallback: metaMuseFallbackForInput
         ? {
-            provider: OPENROUTER_PROVIDER,
-            model: openRouterFallbackForInput.model,
-            run: () => createOpenRouterSkillDraftGenerator(openRouterFallbackForInput)(input),
+            provider: META_MUSE_PROVIDER,
+            model: metaMuseFallbackForInput.model,
+            run: () => createMetaMuseSkillDraftGenerator(metaMuseFallbackForInput)(input),
           }
         : null,
       operation: "skill draft generation",
@@ -4595,19 +4596,19 @@ export function createGeminiSkillDraftGenerator({
   };
 }
 
-export function createOpenRouterSkillDraftGenerator({
+export function createMetaMuseSkillDraftGenerator({
   apiKey,
   baseUrl,
   model,
-}: OpenRouterFallbackConfig): SkillDraftGenerator {
+}: MetaMuseFallbackConfig): SkillDraftGenerator {
   return async (input) =>
-    runOpenRouterJsonChatCompletion({
+    runMetaMuseJsonResponse({
       apiKey,
       baseUrl,
       model,
       metadata: {
         promptChars: buildSourceSkillDraftPrompt(input).length,
-        schemaName: "openRouterSkillDraftJsonSchema",
+        schemaName: "metaMuseSkillDraftJsonSchema",
         media: buildSourceMediaLogMetadata(input.sourceMedia),
       },
       operation: "skill draft generation",
@@ -4620,29 +4621,29 @@ export function createOpenRouterSkillDraftGenerator({
         },
         {
           role: "user",
-          content: buildOpenRouterSkillDraftUserContent(input),
+          content: buildMetaMuseSkillDraftUserContent(input),
         },
       ],
     });
 }
 
-function openRouterSkillDraftFallbackForInput(
-  openRouterFallback: OpenRouterFallbackConfig | null | undefined,
+function metaMuseSkillDraftFallbackForInput(
+  metaMuseFallback: MetaMuseFallbackConfig | null | undefined,
   input: SkillDraftGeneratorInput,
 ) {
-  return openRouterFallbackForSourceMedia(openRouterFallback, input.sourceMedia);
+  return metaMuseFallbackForSourceMedia(metaMuseFallback, input.sourceMedia);
 }
 
-function openRouterFallbackForSourceMedia(
-  openRouterFallback: OpenRouterFallbackConfig | null | undefined,
+function metaMuseFallbackForSourceMedia(
+  metaMuseFallback: MetaMuseFallbackConfig | null | undefined,
   sourceMedia: SourceMediaContext[] | undefined,
 ) {
-  if (!openRouterFallback) {
+  if (!metaMuseFallback) {
     return null;
   }
 
   if (!sourceMedia?.length) {
-    return openRouterFallback;
+    return metaMuseFallback;
   }
 
   if (
@@ -4650,39 +4651,39 @@ function openRouterFallbackForSourceMedia(
       media.mimeType.startsWith("image/") || media.mimeType === "application/pdf",
     )
   ) {
-    return openRouterFallback;
+    return metaMuseFallback;
   }
 
-  console.warn("[ai] openrouter fallback disabled for unsupported source media", {
+  console.warn("[ai] meta muse fallback disabled for unsupported source media", {
     mediaMimeTypes: sourceMedia.map((media) => media.mimeType),
   });
   return null;
 }
 
-function buildOpenRouterSkillDraftUserContent(
+function buildMetaMuseSkillDraftUserContent(
   input: SkillDraftGeneratorInput,
-): OpenRouterChatMessage["content"] {
-  return buildOpenRouterUserContentWithSourceMedia(
+): MetaMuseChatMessage["content"] {
+  return buildMetaMuseUserContentWithSourceMedia(
     buildSourceSkillDraftPrompt(input),
     input.sourceMedia,
   );
 }
 
-function buildOpenRouterUserContentWithSourceMedia(
+function buildMetaMuseUserContentWithSourceMedia(
   prompt: string,
   sourceMedia: SourceMediaContext[] | undefined,
-): OpenRouterChatMessage["content"] {
+): MetaMuseChatMessage["content"] {
   if (!sourceMedia?.length) {
     return prompt;
   }
 
   return [
     {
-      type: "text",
+      type: "input_text",
       text: prompt,
     },
     ...sourceMedia.map((media) =>
-      buildOpenRouterSourceMediaPart({
+      buildMetaMuseSourceMediaPart({
         bytes: media.bytes,
         filename: media.label,
         mimeType: media.mimeType,
@@ -4691,7 +4692,7 @@ function buildOpenRouterUserContentWithSourceMedia(
   ];
 }
 
-export function buildOpenRouterSourceMediaPart({
+export function buildMetaMuseSourceMediaPart({
   bytes,
   filename,
   mimeType,
@@ -4699,32 +4700,35 @@ export function buildOpenRouterSourceMediaPart({
   bytes: Buffer;
   filename: string;
   mimeType: SourceUploadMimeType;
-}): OpenRouterContentPart {
-  const dataUrl = buildOpenRouterDataUrl(bytes, mimeType);
+}): MetaMuseContentPart {
+  if (bytes.byteLength > MAX_META_MUSE_INLINE_FILE_BYTES) {
+    throw new Error(
+      `Meta Muse source media exceeds the ${MAX_META_MUSE_INLINE_FILE_BYTES}-byte inline limit.`,
+    );
+  }
+  const dataUrl = buildMetaMuseDataUrl(bytes, mimeType);
 
   if (mimeType.startsWith("image/")) {
     return {
-      type: "image_url",
-      image_url: {
-        url: dataUrl,
-      },
+      type: "input_image",
+      image_url: dataUrl,
+      detail: "high",
     };
   }
 
   if (mimeType === "application/pdf") {
     return {
-      type: "file",
-      file: {
-        filename: sanitizeOpenRouterFilename(filename) || "source.pdf",
-        file_data: dataUrl,
-      },
+      type: "input_file",
+      filename: sanitizeMetaMuseFilename(filename) || "source.pdf",
+      file_data: dataUrl,
+      detail: "high",
     };
   }
 
-  throw new Error(`OpenRouter source media does not support ${mimeType}.`);
+  throw new Error(`Meta Muse source media does not support ${mimeType}.`);
 }
 
-function sanitizeOpenRouterFilename(filename: string): string {
+function sanitizeMetaMuseFilename(filename: string): string {
   return filename
     .replace(/[/\\]/g, "-")
     .replace(/\s+/g, " ")
@@ -4734,21 +4738,21 @@ function sanitizeOpenRouterFilename(filename: string): string {
 
 export function createGeminiChoiceExerciseGenerator({
   gemini,
-  openRouterFallback,
+  metaMuseFallback,
   recordProviderUsage,
 }: {
   gemini: GeminiRuntimeConfig;
-  openRouterFallback?: OpenRouterFallbackConfig | null;
+  metaMuseFallback?: MetaMuseFallbackConfig | null;
   recordProviderUsage?: AiProviderUsageRecorder;
 }): ChoiceExerciseGenerator {
   return async (input) => {
     const prompt = buildChoiceExercisePrompt(input);
 
     return runWithGeminiProviderFallback({
-      fallback: buildOpenRouterProviderFallback(
-        openRouterFallback,
+      fallback: buildMetaMuseProviderFallback(
+        metaMuseFallback,
         input.sourceMedia,
-        (fallback) => createOpenRouterChoiceExerciseGenerator(fallback)(input),
+        (fallback) => createMetaMuseChoiceExerciseGenerator(fallback)(input),
         recordProviderUsage,
       ),
       operation: "choice exercise generation",
@@ -4798,21 +4802,21 @@ export function createGeminiChoiceExerciseGenerator({
 
 function createGeminiChoiceExerciseVerifier({
   gemini,
-  openRouterFallback,
+  metaMuseFallback,
   recordProviderUsage,
 }: {
   gemini: GeminiRuntimeConfig;
-  openRouterFallback?: OpenRouterFallbackConfig | null;
+  metaMuseFallback?: MetaMuseFallbackConfig | null;
   recordProviderUsage?: AiProviderUsageRecorder;
 }): ChoiceExerciseVerifier {
   return async (input) => {
     const prompt = buildChoiceExerciseVerificationPrompt(input);
 
     return runWithGeminiProviderFallback({
-      fallback: buildOpenRouterProviderFallback(
-        openRouterFallback,
+      fallback: buildMetaMuseProviderFallback(
+        metaMuseFallback,
         input.sourceMedia,
-        (fallback) => createOpenRouterChoiceExerciseVerifier(fallback)(input),
+        (fallback) => createMetaMuseChoiceExerciseVerifier(fallback)(input),
         recordProviderUsage,
       ),
       operation: "choice exercise verification",
@@ -4862,21 +4866,21 @@ function createGeminiChoiceExerciseVerifier({
 
 function createGeminiExactInputExerciseGenerator({
   gemini,
-  openRouterFallback,
+  metaMuseFallback,
   recordProviderUsage,
 }: {
   gemini: GeminiRuntimeConfig;
-  openRouterFallback?: OpenRouterFallbackConfig | null;
+  metaMuseFallback?: MetaMuseFallbackConfig | null;
   recordProviderUsage?: AiProviderUsageRecorder;
 }): ExactInputExerciseGenerator {
   return async (input) => {
     const prompt = buildExactInputExercisePrompt(input);
 
     return runWithGeminiProviderFallback({
-      fallback: buildOpenRouterProviderFallback(
-        openRouterFallback,
+      fallback: buildMetaMuseProviderFallback(
+        metaMuseFallback,
         input.sourceMedia,
-        (fallback) => createOpenRouterExactInputExerciseGenerator(fallback)(input),
+        (fallback) => createMetaMuseExactInputExerciseGenerator(fallback)(input),
         recordProviderUsage,
       ),
       operation: "exact-input exercise generation",
@@ -4922,21 +4926,21 @@ function createGeminiExactInputExerciseGenerator({
 
 function createGeminiExactInputExerciseVerifier({
   gemini,
-  openRouterFallback,
+  metaMuseFallback,
   recordProviderUsage,
 }: {
   gemini: GeminiRuntimeConfig;
-  openRouterFallback?: OpenRouterFallbackConfig | null;
+  metaMuseFallback?: MetaMuseFallbackConfig | null;
   recordProviderUsage?: AiProviderUsageRecorder;
 }): ExactInputExerciseVerifier {
   return async (input) => {
     const prompt = buildExactInputExerciseVerificationPrompt(input);
 
     return runWithGeminiProviderFallback({
-      fallback: buildOpenRouterProviderFallback(
-        openRouterFallback,
+      fallback: buildMetaMuseProviderFallback(
+        metaMuseFallback,
         input.sourceMedia,
-        (fallback) => createOpenRouterExactInputExerciseVerifier(fallback)(input),
+        (fallback) => createMetaMuseExactInputExerciseVerifier(fallback)(input),
         recordProviderUsage,
       ),
       operation: "exact-input exercise verification",
@@ -4982,21 +4986,21 @@ function createGeminiExactInputExerciseVerifier({
 
 function createGeminiMathExerciseGenerator({
   gemini,
-  openRouterFallback,
+  metaMuseFallback,
   recordProviderUsage,
 }: {
   gemini: GeminiRuntimeConfig;
-  openRouterFallback?: OpenRouterFallbackConfig | null;
+  metaMuseFallback?: MetaMuseFallbackConfig | null;
   recordProviderUsage?: AiProviderUsageRecorder;
 }): MathExerciseGenerator {
   return async (input) => {
     const prompt = buildMathExercisePrompt(input);
 
     return runWithGeminiProviderFallback({
-      fallback: buildOpenRouterProviderFallback(
-        openRouterFallback,
+      fallback: buildMetaMuseProviderFallback(
+        metaMuseFallback,
         input.sourceMedia,
-        (fallback) => createOpenRouterMathExerciseGenerator(fallback)(input),
+        (fallback) => createMetaMuseMathExerciseGenerator(fallback)(input),
         recordProviderUsage,
       ),
       operation: "math exercise generation",
@@ -5042,21 +5046,21 @@ function createGeminiMathExerciseGenerator({
 
 function createGeminiMathExerciseVerifier({
   gemini,
-  openRouterFallback,
+  metaMuseFallback,
   recordProviderUsage,
 }: {
   gemini: GeminiRuntimeConfig;
-  openRouterFallback?: OpenRouterFallbackConfig | null;
+  metaMuseFallback?: MetaMuseFallbackConfig | null;
   recordProviderUsage?: AiProviderUsageRecorder;
 }): MathExerciseVerifier {
   return async (input) => {
     const prompt = buildMathExerciseVerificationPrompt(input);
 
     return runWithGeminiProviderFallback({
-      fallback: buildOpenRouterProviderFallback(
-        openRouterFallback,
+      fallback: buildMetaMuseProviderFallback(
+        metaMuseFallback,
         input.sourceMedia,
-        (fallback) => createOpenRouterMathExerciseVerifier(fallback)(input),
+        (fallback) => createMetaMuseMathExerciseVerifier(fallback)(input),
         recordProviderUsage,
       ),
       operation: "math exercise verification",
@@ -5100,26 +5104,26 @@ function createGeminiMathExerciseVerifier({
   };
 }
 
-function buildOpenRouterProviderFallback<T>(
-  openRouterFallback: OpenRouterFallbackConfig | null | undefined,
+function buildMetaMuseProviderFallback<T>(
+  metaMuseFallback: MetaMuseFallbackConfig | null | undefined,
   sourceMedia: SourceMediaContext[] | undefined,
-  run: (fallback: OpenRouterFallbackConfig) => Promise<T>,
+  run: (fallback: MetaMuseFallbackConfig) => Promise<T>,
   recordProviderUsage?: AiProviderUsageRecorder,
 ) {
-  const openRouterFallbackForInput = openRouterFallbackForSourceMedia(
-    openRouterFallback,
+  const metaMuseFallbackForInput = metaMuseFallbackForSourceMedia(
+    metaMuseFallback,
     sourceMedia,
   );
 
-  return openRouterFallbackForInput
+  return metaMuseFallbackForInput
     ? {
-        provider: OPENROUTER_PROVIDER,
-        model: openRouterFallbackForInput.model,
+        provider: META_MUSE_PROVIDER,
+        model: metaMuseFallbackForInput.model,
         run: async () => {
-          const value = await run(openRouterFallbackForInput);
+          const value = await run(metaMuseFallbackForInput);
           recordProviderUsage?.({
-            provider: OPENROUTER_PROVIDER,
-            model: openRouterFallbackForInput.model,
+            provider: META_MUSE_PROVIDER,
+            model: metaMuseFallbackForInput.model,
           });
           return value;
         },
@@ -5127,26 +5131,26 @@ function buildOpenRouterProviderFallback<T>(
     : null;
 }
 
-export function createOpenRouterChoiceExerciseGenerator({
+export function createMetaMuseChoiceExerciseGenerator({
   apiKey,
   baseUrl,
   model,
-}: OpenRouterFallbackConfig): ChoiceExerciseGenerator {
+}: MetaMuseFallbackConfig): ChoiceExerciseGenerator {
   return async (input) => {
     const prompt = buildChoiceExercisePrompt(input);
 
-    return runOpenRouterJsonChatCompletion({
+    return runMetaMuseJsonResponse({
       apiKey,
       baseUrl,
       model,
       metadata: {
         requestedCount: input.requestedCount,
         promptChars: prompt.length,
-        schemaName: "openRouterChoiceExerciseResponse",
+        schemaName: "metaMuseChoiceExerciseResponse",
         media: buildSourceMediaLogMetadata(input.sourceMedia),
       },
       operation: "choice exercise generation",
-      responseJsonSchema: buildOpenRouterChoiceExerciseResponseJsonSchema(input.requestedCount),
+      responseJsonSchema: buildMetaMuseChoiceExerciseResponseJsonSchema(input.requestedCount),
       responseJsonSchemaName: "choiceExerciseResponse",
       messages: [
         {
@@ -5155,33 +5159,33 @@ export function createOpenRouterChoiceExerciseGenerator({
         },
         {
           role: "user",
-          content: buildOpenRouterUserContentWithSourceMedia(prompt, input.sourceMedia),
+          content: buildMetaMuseUserContentWithSourceMedia(prompt, input.sourceMedia),
         },
       ],
     });
   };
 }
 
-export function createOpenRouterChoiceExerciseVerifier({
+export function createMetaMuseChoiceExerciseVerifier({
   apiKey,
   baseUrl,
   model,
-}: OpenRouterFallbackConfig): ChoiceExerciseVerifier {
+}: MetaMuseFallbackConfig): ChoiceExerciseVerifier {
   return async (input) => {
     const prompt = buildChoiceExerciseVerificationPrompt(input);
 
-    return runOpenRouterJsonChatCompletion({
+    return runMetaMuseJsonResponse({
       apiKey,
       baseUrl,
       model,
       metadata: {
         candidateCount: input.candidates.length,
         promptChars: prompt.length,
-        schemaName: "openRouterChoiceExerciseVerification",
+        schemaName: "metaMuseChoiceExerciseVerification",
         media: buildSourceMediaLogMetadata(input.sourceMedia),
       },
       operation: "choice exercise verification",
-      responseJsonSchema: buildOpenRouterChoiceVerificationJsonSchema(input.candidates.length),
+      responseJsonSchema: buildMetaMuseChoiceVerificationJsonSchema(input.candidates.length),
       responseJsonSchemaName: "choiceExerciseVerification",
       messages: [
         {
@@ -5190,33 +5194,33 @@ export function createOpenRouterChoiceExerciseVerifier({
         },
         {
           role: "user",
-          content: buildOpenRouterUserContentWithSourceMedia(prompt, input.sourceMedia),
+          content: buildMetaMuseUserContentWithSourceMedia(prompt, input.sourceMedia),
         },
       ],
     });
   };
 }
 
-export function createOpenRouterExactInputExerciseGenerator({
+export function createMetaMuseExactInputExerciseGenerator({
   apiKey,
   baseUrl,
   model,
-}: OpenRouterFallbackConfig): ExactInputExerciseGenerator {
+}: MetaMuseFallbackConfig): ExactInputExerciseGenerator {
   return async (input) => {
     const prompt = buildExactInputExercisePrompt(input);
 
-    return runOpenRouterJsonChatCompletion({
+    return runMetaMuseJsonResponse({
       apiKey,
       baseUrl,
       model,
       metadata: {
         requestedCount: input.requestedCount,
         promptChars: prompt.length,
-        schemaName: "openRouterExactInputExerciseResponse",
+        schemaName: "metaMuseExactInputExerciseResponse",
         media: buildSourceMediaLogMetadata(input.sourceMedia),
       },
       operation: "exact-input exercise generation",
-      responseJsonSchema: buildOpenRouterExactInputResponseJsonSchema(input.requestedCount),
+      responseJsonSchema: buildMetaMuseExactInputResponseJsonSchema(input.requestedCount),
       responseJsonSchemaName: "exactInputExerciseResponse",
       messages: [
         {
@@ -5225,33 +5229,33 @@ export function createOpenRouterExactInputExerciseGenerator({
         },
         {
           role: "user",
-          content: buildOpenRouterUserContentWithSourceMedia(prompt, input.sourceMedia),
+          content: buildMetaMuseUserContentWithSourceMedia(prompt, input.sourceMedia),
         },
       ],
     });
   };
 }
 
-export function createOpenRouterExactInputExerciseVerifier({
+export function createMetaMuseExactInputExerciseVerifier({
   apiKey,
   baseUrl,
   model,
-}: OpenRouterFallbackConfig): ExactInputExerciseVerifier {
+}: MetaMuseFallbackConfig): ExactInputExerciseVerifier {
   return async (input) => {
     const prompt = buildExactInputExerciseVerificationPrompt(input);
 
-    return runOpenRouterJsonChatCompletion({
+    return runMetaMuseJsonResponse({
       apiKey,
       baseUrl,
       model,
       metadata: {
         candidateCount: input.candidates.length,
         promptChars: prompt.length,
-        schemaName: "openRouterExactInputExerciseVerification",
+        schemaName: "metaMuseExactInputExerciseVerification",
         media: buildSourceMediaLogMetadata(input.sourceMedia),
       },
       operation: "exact-input exercise verification",
-      responseJsonSchema: buildOpenRouterExactInputVerificationJsonSchema(input.candidates.length),
+      responseJsonSchema: buildMetaMuseExactInputVerificationJsonSchema(input.candidates.length),
       responseJsonSchemaName: "exactInputExerciseVerification",
       messages: [
         {
@@ -5260,33 +5264,33 @@ export function createOpenRouterExactInputExerciseVerifier({
         },
         {
           role: "user",
-          content: buildOpenRouterUserContentWithSourceMedia(prompt, input.sourceMedia),
+          content: buildMetaMuseUserContentWithSourceMedia(prompt, input.sourceMedia),
         },
       ],
     });
   };
 }
 
-export function createOpenRouterMathExerciseGenerator({
+export function createMetaMuseMathExerciseGenerator({
   apiKey,
   baseUrl,
   model,
-}: OpenRouterFallbackConfig): MathExerciseGenerator {
+}: MetaMuseFallbackConfig): MathExerciseGenerator {
   return async (input) => {
     const prompt = buildMathExercisePrompt(input);
 
-    return runOpenRouterJsonChatCompletion({
+    return runMetaMuseJsonResponse({
       apiKey,
       baseUrl,
       model,
       metadata: {
         requestedCount: input.requestedCount,
         promptChars: prompt.length,
-        schemaName: "openRouterMathExerciseResponse",
+        schemaName: "metaMuseMathExerciseResponse",
         media: buildSourceMediaLogMetadata(input.sourceMedia),
       },
       operation: "math exercise generation",
-      responseJsonSchema: buildOpenRouterMathResponseJsonSchema(input.requestedCount),
+      responseJsonSchema: buildMetaMuseMathResponseJsonSchema(input.requestedCount),
       responseJsonSchemaName: "mathExerciseResponse",
       messages: [
         {
@@ -5295,33 +5299,33 @@ export function createOpenRouterMathExerciseGenerator({
         },
         {
           role: "user",
-          content: buildOpenRouterUserContentWithSourceMedia(prompt, input.sourceMedia),
+          content: buildMetaMuseUserContentWithSourceMedia(prompt, input.sourceMedia),
         },
       ],
     });
   };
 }
 
-export function createOpenRouterMathExerciseVerifier({
+export function createMetaMuseMathExerciseVerifier({
   apiKey,
   baseUrl,
   model,
-}: OpenRouterFallbackConfig): MathExerciseVerifier {
+}: MetaMuseFallbackConfig): MathExerciseVerifier {
   return async (input) => {
     const prompt = buildMathExerciseVerificationPrompt(input);
 
-    return runOpenRouterJsonChatCompletion({
+    return runMetaMuseJsonResponse({
       apiKey,
       baseUrl,
       model,
       metadata: {
         candidateCount: input.candidates.length,
         promptChars: prompt.length,
-        schemaName: "openRouterMathExerciseVerification",
+        schemaName: "metaMuseMathExerciseVerification",
         media: buildSourceMediaLogMetadata(input.sourceMedia),
       },
       operation: "math exercise verification",
-      responseJsonSchema: buildOpenRouterMathVerificationJsonSchema(input.candidates.length),
+      responseJsonSchema: buildMetaMuseMathVerificationJsonSchema(input.candidates.length),
       responseJsonSchemaName: "mathExerciseVerification",
       messages: [
         {
@@ -5330,7 +5334,7 @@ export function createOpenRouterMathExerciseVerifier({
         },
         {
           role: "user",
-          content: buildOpenRouterUserContentWithSourceMedia(prompt, input.sourceMedia),
+          content: buildMetaMuseUserContentWithSourceMedia(prompt, input.sourceMedia),
         },
       ],
     });

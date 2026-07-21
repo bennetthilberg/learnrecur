@@ -6,10 +6,7 @@ import {
   DEFAULT_GEMINI_MODEL,
   parseGeminiFallbackModels,
 } from "@/lib/gemini";
-import {
-  DEFAULT_OPENROUTER_BASE_URL,
-  DEFAULT_OPENROUTER_MODEL,
-} from "@/lib/openrouter";
+import { DEFAULT_META_MUSE_BASE_URL, DEFAULT_META_MUSE_MODEL } from "@/lib/meta-muse";
 
 const optionalNonEmptyString = (schema: z.ZodString) =>
   z.preprocess((value) => {
@@ -114,34 +111,34 @@ const geminiEnvBaseSchema = z.object({
 
 const geminiEnvSchema = geminiEnvBaseSchema.superRefine(requireGeminiApiKey);
 
-const openRouterModelSchema = z.preprocess((value) => {
+const metaMuseModelSchema = z.preprocess((value) => {
   if (typeof value === "string" && value.trim() === "") {
     return undefined;
   }
 
   return value;
-}, z.string().trim().min(1).default(DEFAULT_OPENROUTER_MODEL));
+}, z.string().trim().min(1).default(DEFAULT_META_MUSE_MODEL));
 
-const openRouterBaseUrlSchema = z.preprocess((value) => {
+const metaMuseBaseUrlSchema = z.preprocess((value) => {
   if (typeof value === "string" && value.trim() === "") {
     return undefined;
   }
 
   return value;
-}, z.string().trim().min(1).url().default(DEFAULT_OPENROUTER_BASE_URL));
+}, z.string().trim().min(1).url().default(DEFAULT_META_MUSE_BASE_URL));
 
-const openRouterEnvSchema = z.object({
-  OPENROUTER_API_KEY: optionalNonEmptyString(
+const metaMuseEnvSchema = z.object({
+  MODEL_API_KEY: optionalNonEmptyString(
     z
-      .string({ error: "OPENROUTER_API_KEY is required" })
+      .string({ error: "MODEL_API_KEY is required" })
       .trim()
-      .min(1, "OPENROUTER_API_KEY is required")
-      .refine((value) => value.startsWith("sk-or-"), {
-        message: "OPENROUTER_API_KEY must start with sk-or-",
+      .min(1, "MODEL_API_KEY is required")
+      .refine((value) => value.startsWith("LLM|"), {
+        message: "MODEL_API_KEY must start with LLM|",
       }),
   ),
-  OPENROUTER_MODEL: openRouterModelSchema,
-  OPENROUTER_BASE_URL: openRouterBaseUrlSchema,
+  META_MUSE_MODEL: metaMuseModelSchema,
+  META_MUSE_BASE_URL: metaMuseBaseUrlSchema,
 });
 
 const appUrlSchema = z.preprocess((value) => {
@@ -243,7 +240,7 @@ const falseEnvValues = new Set(["0", "false", "no", "n", "off"]);
 const productionEnvSchema = requiredDatabaseEnvSchema
   .merge(productionClerkEnvSchema)
   .merge(geminiEnvBaseSchema)
-  .merge(openRouterEnvSchema)
+  .merge(metaMuseEnvSchema)
   .merge(
     resendEnvSchema.extend({
       NEXT_PUBLIC_APP_URL: productionAppUrlSchema,
@@ -276,7 +273,7 @@ const activeEnvSchema = databaseEnvSchema.merge(clerkEnvSchema);
 export type DatabaseEnv = z.infer<typeof databaseEnvSchema>;
 export type ClerkEnv = z.infer<typeof clerkEnvSchema>;
 export type GeminiEnv = z.infer<typeof geminiEnvSchema>;
-export type OpenRouterEnv = z.infer<typeof openRouterEnvSchema>;
+export type MetaMuseEnv = z.infer<typeof metaMuseEnvSchema>;
 export type ResendEnv = z.infer<typeof resendEnvSchema>;
 export type S3Env = z.infer<typeof s3EnvSchema>;
 export type ProductionEnv = z.infer<typeof productionEnvSchema>;
@@ -298,8 +295,8 @@ export function getGeminiEnv(): GeminiEnv {
   return geminiEnvSchema.parse(process.env);
 }
 
-export function getOpenRouterEnv(): OpenRouterEnv {
-  return openRouterEnvSchema.parse(process.env);
+export function getMetaMuseEnv(): MetaMuseEnv {
+  return metaMuseEnvSchema.parse(process.env);
 }
 
 export function getResendEnv(): ResendEnv {
@@ -330,10 +327,10 @@ export function hasGeminiEnv(): boolean {
   return geminiEnvSchema.safeParse(process.env).success;
 }
 
-export function hasOpenRouterEnv(): boolean {
-  const result = openRouterEnvSchema.safeParse(process.env);
+export function hasMetaMuseEnv(): boolean {
+  const result = metaMuseEnvSchema.safeParse(process.env);
 
-  return result.success && Boolean(result.data.OPENROUTER_API_KEY);
+  return result.success && Boolean(result.data.MODEL_API_KEY);
 }
 
 export function hasResendEnv(): boolean {

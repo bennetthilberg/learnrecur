@@ -1058,6 +1058,14 @@ describe("material draft generation", () => {
       excludeConcepts: ["pluralization", "cardinal numbers"],
       note: "Removed unsupported pluralization.",
     });
+    const sourceMedia = [
+      {
+        sourceFileId: "source-pdf",
+        label: "ordinals-pages-69-70.pdf",
+        mimeType: "application/pdf" as const,
+        bytes: Buffer.from("%PDF"),
+      },
+    ];
 
     const result = await repairMaterialDraftTarget({
       target: {
@@ -1073,6 +1081,7 @@ describe("material draft generation", () => {
       verificationNote:
         "The source does not contain information about pluralization of ordinal numbers.",
       repairTarget,
+      sourceMedia,
     });
 
     expect(result).toMatchObject({
@@ -1087,6 +1096,7 @@ describe("material draft generation", () => {
       expect.objectContaining({
         evidenceText: expect.stringContaining("agree in gender"),
         verificationNote: expect.stringContaining("does not contain"),
+        sourceMedia,
       }),
     );
   });
