@@ -2171,7 +2171,7 @@ body {
 }
 
 .authCard .cl-footerAction__usePasskey {
-  margin-top: 10px !important;
+  margin-top: 0 !important;
   padding: 0 0 34px !important;
 }
 

@@ -151,8 +151,8 @@ test.describe("auth spine", () => {
       expect(layout.buttonBackground).toBe("rgb(255, 255, 255)");
       expect(layout.buttonBorder).toContain("rgb(221, 227, 238)");
       expect(layout.buttonShadow).toContain("rgb(205, 212, 225)");
-      expect(layout.primaryGap).toBeGreaterThanOrEqual(36);
-      expect(layout.primaryGap).toBeLessThanOrEqual(44);
+      expect(layout.primaryGap).toBeGreaterThanOrEqual(28);
+      expect(layout.primaryGap).toBeLessThanOrEqual(36);
       expect(layout.footerGap).toBeGreaterThanOrEqual(24);
       expect(layout.footerActionWidthDifference).toBeLessThan(1);
       expect(layout.footerActionAlignment).toBe("center");
