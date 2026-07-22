@@ -86,8 +86,18 @@ test.describe("auth spine", () => {
         const primary = document.querySelector<HTMLElement>(".cl-formButtonPrimary");
         const footer = document.querySelector<HTMLElement>(".cl-footer");
         const accountAction = footer?.querySelector<HTMLElement>(".cl-footerAction");
+        const accountText = accountAction?.querySelector<HTMLElement>(".cl-footerActionText");
+        const signupLink = accountAction?.querySelector<HTMLElement>(".cl-footerActionLink");
 
-        if (!passkey || !passkeyAction || !primary || !footer || !accountAction) {
+        if (
+          !passkey ||
+          !passkeyAction ||
+          !primary ||
+          !footer ||
+          !accountAction ||
+          !accountText ||
+          !signupLink
+        ) {
           throw new Error("Expected Clerk auth controls were not rendered.");
         }
 
@@ -95,11 +105,15 @@ test.describe("auth spine", () => {
         const primaryRect = primary.getBoundingClientRect();
         const footerRect = footer.getBoundingClientRect();
         const accountActionRect = accountAction.getBoundingClientRect();
+        const accountTextRect = accountText.getBoundingClientRect();
         const passkeyStyle = getComputedStyle(passkey);
         const passkeyIconStyle = getComputedStyle(passkey, "::before");
         const accountActionStyle = getComputedStyle(accountAction);
+        const accountTextStyle = getComputedStyle(accountText);
+        const signupLinkStyle = getComputedStyle(signupLink);
 
         return {
+          accountFontSize: accountTextStyle.fontSize,
           buttonHeight: passkeyRect.height,
           buttonWidthDifference: Math.abs(passkeyRect.width - primaryRect.width),
           buttonBackground: passkeyStyle.backgroundColor,
@@ -109,10 +123,17 @@ test.describe("auth spine", () => {
           footerActionJustification: accountActionStyle.justifyContent,
           footerActionWidthDifference: Math.abs(accountActionRect.width - footerRect.width),
           footerGap: footerRect.top - passkeyRect.bottom,
+          primaryGap: passkeyRect.top - primaryRect.bottom,
+          productionFooterCenterOffset: Math.abs(
+            accountTextRect.top +
+              accountTextRect.height / 2 -
+              (footerRect.top + accountActionRect.bottom) / 2,
+          ),
           iconContent: passkeyIconStyle.content,
           iconHeight: passkeyIconStyle.height,
           iconMask: passkeyIconStyle.maskImage || passkeyIconStyle.webkitMaskImage,
           iconWidth: passkeyIconStyle.width,
+          signupFontSize: signupLinkStyle.fontSize,
         };
       });
 
@@ -130,10 +151,15 @@ test.describe("auth spine", () => {
       expect(layout.buttonBackground).toBe("rgb(255, 255, 255)");
       expect(layout.buttonBorder).toContain("rgb(221, 227, 238)");
       expect(layout.buttonShadow).toContain("rgb(205, 212, 225)");
+      expect(layout.primaryGap).toBeGreaterThanOrEqual(36);
+      expect(layout.primaryGap).toBeLessThanOrEqual(44);
       expect(layout.footerGap).toBeGreaterThanOrEqual(24);
       expect(layout.footerActionWidthDifference).toBeLessThan(1);
       expect(layout.footerActionAlignment).toBe("center");
       expect(layout.footerActionJustification).toBe("center");
+      expect(layout.accountFontSize).toBe("16px");
+      expect(layout.signupFontSize).toBe("16px");
+      expect(layout.productionFooterCenterOffset).toBeLessThanOrEqual(3);
       expect(layout.iconContent).not.toBe("none");
       expect(layout.iconWidth).toBe("18px");
       expect(layout.iconHeight).toBe("18px");
