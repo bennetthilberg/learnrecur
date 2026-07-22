@@ -42,6 +42,177 @@ test.describe("auth spine", () => {
     await expect(page.getByLabel(/email address/i)).toBeVisible();
   });
 
+  test("sign-in presents the conditional passkey method as a full-width secondary action", async ({
+    page,
+  }) => {
+    await page.goto("/sign-in");
+    await expect(page.getByLabel(/email address/i)).toBeVisible();
+
+    const passkeySelector =
+      '[data-localization-key="signIn.start.actionLink__use_passkey"]';
+
+    if ((await page.locator(passkeySelector).count()) === 0) {
+      test.info().annotations.push({
+        type: "passkey-fixture",
+        description:
+          "Clerk did not expose the conditional passkey action; verified its production DOM shape with a synthetic fixture.",
+      });
+
+      await page.evaluate(() => {
+        const card = document.querySelector(".cl-card");
+        const passkeyAction = document.createElement("div");
+        const passkeyLink = document.createElement("a");
+
+        passkeyAction.className = "cl-footerAction cl-footerAction__usePasskey";
+        passkeyLink.className = "cl-footerActionLink";
+        passkeyLink.dataset.localizationKey = "signIn.start.actionLink__use_passkey";
+        passkeyLink.href = "/sign-in";
+        passkeyLink.textContent = "Use passkey instead";
+        passkeyAction.append(passkeyLink);
+        card?.append(passkeyAction);
+      });
+    }
+
+    const passkeyButton = page.locator(passkeySelector);
+    const primaryButton = page.getByRole("button", { name: /^continue$/i });
+    await expect(passkeyButton).toBeVisible();
+
+    const measureAuthLayout = () =>
+      page.evaluate(() => {
+        const passkey = document.querySelector<HTMLElement>(
+          '[data-localization-key="signIn.start.actionLink__use_passkey"]',
+        );
+        const passkeyAction = passkey?.closest<HTMLElement>(".cl-footerAction__usePasskey");
+        const primary = document.querySelector<HTMLElement>(".cl-formButtonPrimary");
+        const footer = document.querySelector<HTMLElement>(".cl-footer");
+        const accountAction = footer?.querySelector<HTMLElement>(".cl-footerAction");
+        const accountText = accountAction?.querySelector<HTMLElement>(".cl-footerActionText");
+        const signupLink = accountAction?.querySelector<HTMLElement>(".cl-footerActionLink");
+
+        if (
+          !passkey ||
+          !passkeyAction ||
+          !primary ||
+          !footer ||
+          !accountAction ||
+          !accountText ||
+          !signupLink
+        ) {
+          throw new Error("Expected Clerk auth controls were not rendered.");
+        }
+
+        const passkeyRect = passkey.getBoundingClientRect();
+        const primaryRect = primary.getBoundingClientRect();
+        const footerRect = footer.getBoundingClientRect();
+        const accountActionRect = accountAction.getBoundingClientRect();
+        const accountTextRect = accountText.getBoundingClientRect();
+        const passkeyStyle = getComputedStyle(passkey);
+        const passkeyIconStyle = getComputedStyle(passkey, "::before");
+        const accountActionStyle = getComputedStyle(accountAction);
+        const accountTextStyle = getComputedStyle(accountText);
+        const signupLinkStyle = getComputedStyle(signupLink);
+
+        return {
+          accountFontSize: accountTextStyle.fontSize,
+          buttonHeight: passkeyRect.height,
+          buttonWidthDifference: Math.abs(passkeyRect.width - primaryRect.width),
+          buttonBackground: passkeyStyle.backgroundColor,
+          buttonBorder: passkeyStyle.border,
+          buttonShadow: passkeyStyle.boxShadow,
+          footerActionAlignment: accountActionStyle.alignItems,
+          footerActionJustification: accountActionStyle.justifyContent,
+          footerActionWidthDifference: Math.abs(accountActionRect.width - footerRect.width),
+          footerGap: footerRect.top - passkeyRect.bottom,
+          primaryGap: passkeyRect.top - primaryRect.bottom,
+          productionFooterCenterOffset: Math.abs(
+            accountTextRect.top +
+              accountTextRect.height / 2 -
+              (footerRect.top + accountActionRect.bottom) / 2,
+          ),
+          iconContent: passkeyIconStyle.content,
+          iconHeight: passkeyIconStyle.height,
+          iconMask: passkeyIconStyle.maskImage || passkeyIconStyle.webkitMaskImage,
+          iconWidth: passkeyIconStyle.width,
+          signupFontSize: signupLinkStyle.fontSize,
+        };
+      });
+
+    for (const viewport of [
+      { width: 1280, height: 720 },
+      { width: 390, height: 844 },
+    ]) {
+      await page.setViewportSize(viewport);
+      await expect(primaryButton).toBeVisible();
+
+      const layout = await measureAuthLayout();
+
+      expect(layout.buttonHeight).toBeGreaterThanOrEqual(44);
+      expect(layout.buttonWidthDifference).toBeLessThan(1);
+      expect(layout.buttonBackground).toBe("rgb(255, 255, 255)");
+      expect(layout.buttonBorder).toContain("rgb(221, 227, 238)");
+      expect(layout.buttonShadow).toContain("rgb(205, 212, 225)");
+      expect(layout.primaryGap).toBeGreaterThanOrEqual(28);
+      expect(layout.primaryGap).toBeLessThanOrEqual(36);
+      expect(layout.footerGap).toBeGreaterThanOrEqual(24);
+      expect(layout.footerActionWidthDifference).toBeLessThan(1);
+      expect(layout.footerActionAlignment).toBe("center");
+      expect(layout.footerActionJustification).toBe("center");
+      expect(layout.accountFontSize).toBe("16px");
+      expect(layout.signupFontSize).toBe("16px");
+      expect(layout.productionFooterCenterOffset).toBeLessThanOrEqual(3);
+      expect(layout.iconContent).not.toBe("none");
+      expect(layout.iconWidth).toBe("18px");
+      expect(layout.iconHeight).toBe("18px");
+      expect(layout.iconMask).toContain("data:image/svg+xml");
+    }
+
+    const readInteractionStyle = () =>
+      passkeyButton.evaluate((passkey) => {
+        const style = getComputedStyle(passkey);
+
+        return {
+          background: style.backgroundColor,
+          cursor: style.cursor,
+          opacity: style.opacity,
+          shadow: style.boxShadow,
+          transform: style.transform,
+        };
+      });
+
+    await passkeyButton.hover();
+    let interactionStyle = await readInteractionStyle();
+    expect(interactionStyle.background).toBe("rgb(245, 247, 251)");
+    expect(interactionStyle.shadow).toContain("rgb(205, 212, 225) 0px 2px 0px");
+    expect(interactionStyle.transform).toBe("matrix(1, 0, 0, 1, 0, 1)");
+
+    await page.mouse.down();
+    interactionStyle = await readInteractionStyle();
+    expect(interactionStyle.background).toBe("rgb(237, 240, 246)");
+    expect(interactionStyle.shadow).toContain("rgb(205, 212, 225) 0px 1px 0px");
+    expect(interactionStyle.transform).toBe("matrix(1, 0, 0, 1, 0, 2)");
+    await page.mouse.move(0, 0);
+    await page.mouse.up();
+
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    for (let tabIndex = 0; tabIndex < 10; tabIndex += 1) {
+      await page.keyboard.press("Tab");
+      if (await passkeyButton.evaluate((passkey) => document.activeElement === passkey)) {
+        break;
+      }
+    }
+    await expect(passkeyButton).toBeFocused();
+    expect(await passkeyButton.evaluate((passkey) => passkey.matches(":focus-visible"))).toBe(
+      true,
+    );
+    interactionStyle = await readInteractionStyle();
+    expect(interactionStyle.shadow).toContain("rgb(28, 68, 168) 0px 0px 0px 4px");
+
+    await passkeyButton.evaluate((passkey) => passkey.setAttribute("aria-disabled", "true"));
+    interactionStyle = await readInteractionStyle();
+    expect(interactionStyle.cursor).toBe("not-allowed");
+    expect(interactionStyle.opacity).toBe("0.5");
+  });
+
   test("sign-up renders the LearnRecur auth shell and Clerk form", async ({ page }) => {
     await page.goto("/sign-up");
 

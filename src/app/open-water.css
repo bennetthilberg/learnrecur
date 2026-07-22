@@ -2136,12 +2136,15 @@ body {
 }
 
 .authCard .cl-footerAction {
+  align-items: center !important;
+  box-sizing: border-box !important;
   display: flex !important;
+  width: 100% !important;
   flex-wrap: wrap !important;
   justify-content: center !important;
   gap: 4px !important;
-  margin-top: 22px !important;
-  padding-top: 22px !important;
+  margin-top: 0 !important;
+  padding: 12px 0 16px !important;
   text-align: center !important;
 }
 
@@ -2150,6 +2153,7 @@ body {
   flex: 0 0 auto !important;
   width: auto !important;
   margin: 0 !important;
+  font-size: 16px !important;
 }
 
 .authCard .cl-footerPages {
@@ -2164,6 +2168,79 @@ body {
   min-height: 38px !important;
   margin-top: 8px !important;
   margin-bottom: 18px !important;
+}
+
+.authCard .cl-footerAction__usePasskey {
+  margin-top: 0 !important;
+  padding: 0 0 34px !important;
+}
+
+.authCard [data-localization-key="signIn.start.actionLink__use_passkey"] {
+  appearance: none !important;
+  align-items: center !important;
+  box-sizing: border-box !important;
+  display: flex !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  width: 100% !important;
+  min-height: 44px !important;
+  margin: 0 !important;
+  border: 1px solid #DDE3EE !important;
+  border-radius: 8px !important;
+  background-color: #FFFFFF !important;
+  color: #15233F !important;
+  padding: 10px 16px !important;
+  box-shadow: 0 3px 0 #CDD4E1 !important;
+  font-family: var(--lr-font-body) !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  line-height: 1.2 !important;
+  text-align: center !important;
+  text-decoration: none !important;
+  cursor: pointer !important;
+  transform: translateY(0);
+}
+
+.authCard [data-localization-key="signIn.start.actionLink__use_passkey"]::before {
+  content: "";
+  display: block;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  background-color: currentcolor;
+  -webkit-mask-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNTYgMjU2Ij48cGF0aCBkPSJNMjE2LjU3IDM5LjQzQTgwIDgwIDAgMCAwIDgzLjkxIDEyMC43OEwyOC42OSAxNzZBMTUuODYgMTUuODYgMCAwIDAgMjQgMTg3LjMxVjIxNmExNiAxNiAwIDAgMCAxNiAxNmgzMmE4IDggMCAwIDAgOC04di0xNmgxNmE4IDggMCAwIDAgOC04di0xNmgxNmE4IDggMCAwIDAgNS42Ni0yLjM0bDkuNTYtOS41N0E3OS43MyA3OS43MyAwIDAgMCAxNjAgMTc2aC4xYTgwIDgwIDAgMCAwIDU2LjQ3LTEzNi41N1pNMjI0IDk4LjFjLTEuMDkgMzQuMDktMjkuNzUgNjEuODYtNjMuODkgNjEuOUgxNjBhNjMuNyA2My43IDAgMCAxLTIzLjY1LTQuNTEgOCA4IDAgMCAwLTguODQgMS42OEwxMTYuNjkgMTY4SDk2YTggOCAwIDAgMC04IDh2MTZINzJhOCA4IDAgMCAwLTggOHYxNkg0MHYtMjguNjlsNTguODMtNTguODJhOCA4IDAgMCAwIDEuNjgtOC44NEE2My43MiA2My43MiAwIDAgMSA5NiA5NS45MmMwLTM0LjE0IDI3LjgxLTYyLjggNjEuOS02My44OUE2NCA2NCAwIDAgMSAyMjQgOTguMVpNMTkyIDc2YTEyIDEyIDAgMSAxLTEyLTEyIDEyIDEyIDAgMCAxIDEyIDEyWiIvPjwvc3ZnPg==");
+  mask-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNTYgMjU2Ij48cGF0aCBkPSJNMjE2LjU3IDM5LjQzQTgwIDgwIDAgMCAwIDgzLjkxIDEyMC43OEwyOC42OSAxNzZBMTUuODYgMTUuODYgMCAwIDAgMjQgMTg3LjMxVjIxNmExNiAxNiAwIDAgMCAxNiAxNmgzMmE4IDggMCAwIDAgOC04di0xNmgxNmE4IDggMCAwIDAgOC04di0xNmgxNmE4IDggMCAwIDAgNS42Ni0yLjM0bDkuNTYtOS41N0E3OS43MyA3OS43MyAwIDAgMCAxNjAgMTc2aC4xYTgwIDgwIDAgMCAwIDU2LjQ3LTEzNi41N1pNMjI0IDk4LjFjLTEuMDkgMzQuMDktMjkuNzUgNjEuODYtNjMuODkgNjEuOUgxNjBhNjMuNyA2My43IDAgMCAxLTIzLjY1LTQuNTEgOCA4IDAgMCAwLTguODQgMS42OEwxMTYuNjkgMTY4SDk2YTggOCAwIDAgMC04IDh2MTZINzJhOCA4IDAgMCAwLTggOHYxNkg0MHYtMjguNjlsNTguODMtNTguODJhOCA4IDAgMCAwIDEuNjgtOC44NEE2My43MiA2My43MiAwIDAgMSA5NiA5NS45MmMwLTM0LjE0IDI3LjgxLTYyLjggNjEuOS02My44OUE2NCA2NCAwIDAgMSAyMjQgOTguMVpNMTkyIDc2YTEyIDEyIDAgMSAxLTEyLTEyIDEyIDEyIDAgMCAxIDEyIDEyWiIvPjwvc3ZnPg==");
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+}
+
+.authCard [data-localization-key="signIn.start.actionLink__use_passkey"]:hover {
+  background-color: #F5F7FB !important;
+  box-shadow: 0 2px 0 #CDD4E1 !important;
+  transform: translateY(1px);
+}
+
+.authCard [data-localization-key="signIn.start.actionLink__use_passkey"]:active {
+  background-color: #EDF0F6 !important;
+  box-shadow: 0 1px 0 #CDD4E1 !important;
+  transform: translateY(2px);
+}
+
+.authCard [data-localization-key="signIn.start.actionLink__use_passkey"]:focus-visible {
+  outline: none !important;
+  box-shadow:
+    0 0 0 2px #FFFFFF,
+    0 0 0 4px #1C44A8,
+    0 3px 0 #CDD4E1 !important;
+}
+
+.authCard [data-localization-key="signIn.start.actionLink__use_passkey"][aria-disabled="true"] {
+  cursor: not-allowed !important;
+  opacity: .5 !important;
 }
 
 @media (min-width: 560px) and (max-width: 719px) {
@@ -3009,7 +3086,7 @@ body {
 }
 
 .authCard .cl-formButtonPrimary,
-.authCard .cl-alternativeMethodsBlockButton,
+.authCard [data-localization-key="signIn.start.actionLink__use_passkey"],
 .authCard .cl-socialButtonsIconButton,
 .authCard .cl-socialButtonsBlockButton {
   overflow: visible !important;
