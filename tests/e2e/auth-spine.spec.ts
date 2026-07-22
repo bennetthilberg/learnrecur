@@ -52,6 +52,12 @@ test.describe("auth spine", () => {
       '[data-localization-key="signIn.start.actionLink__use_passkey"]';
 
     if ((await page.locator(passkeySelector).count()) === 0) {
+      test.info().annotations.push({
+        type: "passkey-fixture",
+        description:
+          "Clerk did not expose the conditional passkey action; verified its production DOM shape with a synthetic fixture.",
+      });
+
       await page.evaluate(() => {
         const card = document.querySelector(".cl-card");
         const passkeyAction = document.createElement("div");
@@ -133,6 +139,52 @@ test.describe("auth spine", () => {
       expect(layout.iconHeight).toBe("18px");
       expect(layout.iconMask).toContain("data:image/svg+xml");
     }
+
+    const readInteractionStyle = () =>
+      passkeyButton.evaluate((passkey) => {
+        const style = getComputedStyle(passkey);
+
+        return {
+          background: style.backgroundColor,
+          cursor: style.cursor,
+          opacity: style.opacity,
+          shadow: style.boxShadow,
+          transform: style.transform,
+        };
+      });
+
+    await passkeyButton.hover();
+    let interactionStyle = await readInteractionStyle();
+    expect(interactionStyle.background).toBe("rgb(245, 247, 251)");
+    expect(interactionStyle.shadow).toContain("rgb(205, 212, 225) 0px 2px 0px");
+    expect(interactionStyle.transform).toBe("matrix(1, 0, 0, 1, 0, 1)");
+
+    await page.mouse.down();
+    interactionStyle = await readInteractionStyle();
+    expect(interactionStyle.background).toBe("rgb(237, 240, 246)");
+    expect(interactionStyle.shadow).toContain("rgb(205, 212, 225) 0px 1px 0px");
+    expect(interactionStyle.transform).toBe("matrix(1, 0, 0, 1, 0, 2)");
+    await page.mouse.move(0, 0);
+    await page.mouse.up();
+
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    for (let tabIndex = 0; tabIndex < 10; tabIndex += 1) {
+      await page.keyboard.press("Tab");
+      if (await passkeyButton.evaluate((passkey) => document.activeElement === passkey)) {
+        break;
+      }
+    }
+    await expect(passkeyButton).toBeFocused();
+    expect(await passkeyButton.evaluate((passkey) => passkey.matches(":focus-visible"))).toBe(
+      true,
+    );
+    interactionStyle = await readInteractionStyle();
+    expect(interactionStyle.shadow).toContain("rgb(28, 68, 168) 0px 0px 0px 4px");
+
+    await passkeyButton.evaluate((passkey) => passkey.setAttribute("aria-disabled", "true"));
+    interactionStyle = await readInteractionStyle();
+    expect(interactionStyle.cursor).toBe("not-allowed");
+    expect(interactionStyle.opacity).toBe("0.5");
   });
 
   test("sign-up renders the LearnRecur auth shell and Clerk form", async ({ page }) => {
