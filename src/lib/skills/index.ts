@@ -29,6 +29,7 @@ import {
 import { formatEnvError, getGeminiEnv } from "@/lib/env";
 import { summarizeMaterialDraftBatch } from "@/lib/materials/batch-summary";
 import {
+  DEFAULT_GEMINI_MODEL,
   getGeminiRuntimeLogContext,
   getGeminiErrorLogDetails,
   getPublicGeminiFailureMessage,
@@ -4366,7 +4367,7 @@ function resolveActivationSetup(
   } catch (error) {
     return {
       status: "missing-env",
-      model: input.model ?? (process.env.GEMINI_MODEL?.trim() || "gemini-3.5-flash"),
+      model: input.model ?? (process.env.GEMINI_MODEL?.trim() || DEFAULT_GEMINI_MODEL),
       message: formatEnvError(error),
     };
   }
@@ -4422,7 +4423,7 @@ function resolveExactInputRefillSetup(
   } catch (error) {
     return {
       status: "missing-env",
-      model: input.model ?? (process.env.GEMINI_MODEL?.trim() || "gemini-3.5-flash"),
+      model: input.model ?? (process.env.GEMINI_MODEL?.trim() || DEFAULT_GEMINI_MODEL),
       message: formatEnvError(error),
     };
   }
@@ -4477,7 +4478,7 @@ function resolveMathRefillSetup(
   } catch (error) {
     return {
       status: "missing-env",
-      model: input.model ?? (process.env.GEMINI_MODEL?.trim() || "gemini-3.5-flash"),
+      model: input.model ?? (process.env.GEMINI_MODEL?.trim() || DEFAULT_GEMINI_MODEL),
       message: formatEnvError(error),
     };
   }
@@ -4521,7 +4522,7 @@ function resolveSourceDraftSetup(
   } catch (error) {
     return {
       status: "missing-env",
-      model: input.model ?? (process.env.GEMINI_MODEL?.trim() || "gemini-3.5-flash"),
+      model: input.model ?? (process.env.GEMINI_MODEL?.trim() || DEFAULT_GEMINI_MODEL),
       message: formatEnvError(error),
     };
   }

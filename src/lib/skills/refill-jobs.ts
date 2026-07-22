@@ -7,6 +7,7 @@ import {
   SkillStatus,
 } from "@/generated/prisma/client";
 import { formatEnvError } from "@/lib/env";
+import { DEFAULT_GEMINI_MODEL } from "@/lib/gemini";
 import { getInngestEnvStatus } from "@/lib/inngest/client";
 import {
   inngestExerciseRefillEventSender,
@@ -514,7 +515,7 @@ async function createNewGenerationJob({
       kind,
       status: GenerationJobStatus.PENDING,
       provider: GEMINI_PROVIDER,
-      model: model?.trim() || process.env.GEMINI_MODEL?.trim() || "gemini-3.5-flash",
+      model: model?.trim() || process.env.GEMINI_MODEL?.trim() || DEFAULT_GEMINI_MODEL,
       promptVersion,
       requestedCount,
     },
