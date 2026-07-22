@@ -1,6 +1,6 @@
 import { GoogleGenAI, type GenerateContentResponse } from "@google/genai";
 
-export const DEFAULT_GEMINI_MODEL = "gemini-3.5-flash";
+export const DEFAULT_GEMINI_MODEL = "gemini-3.6-flash";
 export const DEFAULT_GEMINI_EMBEDDING_MODEL = "gemini-embedding-2";
 export const DEFAULT_GEMINI_FALLBACK_MODELS = [] as const;
 

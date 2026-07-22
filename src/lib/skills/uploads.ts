@@ -13,6 +13,7 @@ import {
 } from "@/generated/prisma/client";
 import { formatEnvError, getGeminiEnv } from "@/lib/env";
 import {
+  DEFAULT_GEMINI_MODEL,
   getGeminiRuntimeLogContext,
   getGeminiErrorLogDetails,
   getPublicGeminiFailureMessage,
@@ -2368,7 +2369,7 @@ function resolveUploadGenerationSetup(
   } catch (error) {
     return {
       status: "missing-env",
-      model: input.model ?? (process.env.GEMINI_MODEL?.trim() || "gemini-3.5-flash"),
+      model: input.model ?? (process.env.GEMINI_MODEL?.trim() || DEFAULT_GEMINI_MODEL),
       message: formatEnvError(error),
     };
   }

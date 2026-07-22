@@ -11,6 +11,14 @@ import {
 } from "@/lib/gemini";
 
 describe("Gemini fallback helpers", () => {
+  it("defaults the primary model to Gemini 3.6 Flash", () => {
+    const config = resolveGeminiRuntimeConfig({
+      GEMINI_API_KEY: "developer-key",
+    });
+
+    expect(config.model).toBe("gemini-3.6-flash");
+  });
+
   it("parses fallback models from comma-separated env values", () => {
     expect(parseGeminiFallbackModels(" gemini-3.1-flash-lite, gemma-4-31b-it ")).toEqual([
       "gemini-3.1-flash-lite",

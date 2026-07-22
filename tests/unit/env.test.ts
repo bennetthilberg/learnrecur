@@ -137,7 +137,7 @@ describe("environment validation", () => {
       GEMINI_API_KEY: "gemini-secret",
       GEMINI_EMBEDDING_API_MODE: "auto",
       GEMINI_EMBEDDING_MODEL: "gemini-embedding-2",
-      GEMINI_MODEL: "gemini-3.5-flash",
+      GEMINI_MODEL: "gemini-3.6-flash",
       GEMINI_FALLBACK_MODELS: [],
     });
     expect(hasMetaMuseEnv()).toBe(false);

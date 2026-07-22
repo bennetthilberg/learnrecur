@@ -528,7 +528,7 @@ Since much of the project will be built with AI agents, strong type contracts sh
 
 Use a narrow two-provider chain for source-backed work. Google Gemini is primary, with the intended default model:
 
-- `gemini-3.5-flash`
+- `gemini-3.6-flash`
 
 The model should remain environment-configurable through `GEMINI_MODEL` so it can be changed without code edits.
 
