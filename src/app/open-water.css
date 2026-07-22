@@ -2160,18 +2160,29 @@ body {
 }
 
 .authCard .cl-alternativeMethods {
-  margin-top: 0 !important;
-  padding-bottom: 34px !important;
+  margin-top: 10px !important;
 }
 
 .authCard .cl-alternativeMethodsBlockButton {
+  min-height: 38px !important;
+  margin-top: 8px !important;
+  margin-bottom: 18px !important;
+}
+
+.authCard .cl-footerAction__usePasskey {
+  margin-top: 22px !important;
+  padding: 0 0 34px !important;
+}
+
+.authCard [data-localization-key="signIn.start.actionLink__use_passkey"] {
   appearance: none !important;
-  display: flex !important;
-  width: 100% !important;
-  min-height: 44px !important;
   align-items: center !important;
+  box-sizing: border-box !important;
+  display: flex !important;
   justify-content: center !important;
   gap: 8px !important;
+  width: 100% !important;
+  min-height: 44px !important;
   margin: 0 !important;
   border: 1px solid #DDE3EE !important;
   border-radius: 8px !important;
@@ -2184,12 +2195,12 @@ body {
   font-weight: 600 !important;
   line-height: 1.2 !important;
   text-align: center !important;
+  text-decoration: none !important;
   cursor: pointer !important;
   transform: translateY(0);
-  transition: transform .08s ease, box-shadow .08s ease, background-color .12s ease;
 }
 
-.authCard .cl-alternativeMethodsBlockButton::before {
+.authCard [data-localization-key="signIn.start.actionLink__use_passkey"]::before {
   content: "";
   display: block;
   width: 18px;
@@ -2206,24 +2217,27 @@ body {
   mask-size: contain;
 }
 
-.authCard .cl-alternativeMethodsBlockButton:hover {
+.authCard [data-localization-key="signIn.start.actionLink__use_passkey"]:hover {
   background-color: #F5F7FB !important;
   box-shadow: 0 2px 0 #CDD4E1 !important;
   transform: translateY(1px);
 }
 
-.authCard .cl-alternativeMethodsBlockButton:active {
+.authCard [data-localization-key="signIn.start.actionLink__use_passkey"]:active {
   background-color: #EDF0F6 !important;
   box-shadow: 0 1px 0 #CDD4E1 !important;
   transform: translateY(2px);
 }
 
-.authCard .cl-alternativeMethodsBlockButton:focus-visible {
-  outline: 2px solid #1C44A8 !important;
-  outline-offset: 2px !important;
+.authCard [data-localization-key="signIn.start.actionLink__use_passkey"]:focus-visible {
+  outline: none !important;
+  box-shadow:
+    0 0 0 2px #FFFFFF,
+    0 0 0 4px #1C44A8,
+    0 3px 0 #CDD4E1 !important;
 }
 
-.authCard .cl-alternativeMethodsBlockButton:disabled {
+.authCard [data-localization-key="signIn.start.actionLink__use_passkey"][aria-disabled="true"] {
   cursor: not-allowed !important;
   opacity: .5;
 }
@@ -3071,7 +3085,7 @@ body {
 }
 
 .authCard .cl-formButtonPrimary,
-.authCard .cl-alternativeMethodsBlockButton,
+.authCard [data-localization-key="signIn.start.actionLink__use_passkey"],
 .authCard .cl-socialButtonsIconButton,
 .authCard .cl-socialButtonsBlockButton {
   overflow: visible !important;
