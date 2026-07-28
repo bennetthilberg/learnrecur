@@ -22,7 +22,7 @@ import {
   getMaterialDraftBatch,
   MaterialDraftGenerationError,
   planMaterialSkills,
-  queueMaterialBatchActivation,
+  queueMaterialBatchActivation as queueMaterialBatchActivationService,
   retryMaterialBatchActivationItem,
   retryMaterialDraftItem,
   runMaterialBatchActivationJob,
@@ -42,12 +42,23 @@ import {
   type SkillSourceEvidenceLoader,
 } from "@/lib/skills";
 import { deleteSkillPermanently } from "@/lib/skills/delete";
+import {
+  buildSkillDuplicateCandidateFingerprint,
+  buildSkillSimilarityFingerprint,
+} from "@/lib/skills/similarity";
 import type { SourceObjectStorage } from "@/lib/storage/s3";
 import { ALPHA_ACTIVE_SKILLS } from "@/lib/usage-limits";
 
 const runDatabaseTests = process.env.RUN_DATABASE_TESTS === "1";
 const describeDatabase = runDatabaseTests ? describe : describe.skip;
 const runId = `material_drafting_${randomUUID()}`;
+const queueMaterialBatchActivation = (
+  input: Parameters<typeof queueMaterialBatchActivationService>[0],
+) =>
+  queueMaterialBatchActivationService({
+    embeddingGenerator: null,
+    ...input,
+  });
 
 describeDatabase("material multi-skill drafting", () => {
   const prisma = getPrisma();
@@ -55,7 +66,6 @@ describeDatabase("material multi-skill drafting", () => {
   const otherUserId = `${runId}_other`;
   let materialId = "";
   let materialRevisionId = "";
-  let sourceFileId = "";
   let directSectionId = "";
   let indirectSectionId = "";
   let directChunkId = "";
@@ -173,7 +183,7 @@ describeDatabase("material multi-skill drafting", () => {
         locator: { kind: "pdf", pageRange: { start: 94, end: 105 } },
       })),
     });
-    const sourceFile = await prisma.sourceFile.create({
+    await prisma.sourceFile.create({
       data: {
         userId,
         materialRevisionId,
@@ -187,7 +197,6 @@ describeDatabase("material multi-skill drafting", () => {
           "UNRELATED CHAPTER SIX SOURCE TEXT. This whole-book excerpt must not ground chapter four exercises.",
       },
     });
-    sourceFileId = sourceFile.id;
     await finalizeMaterialRevision({
       userId,
       materialId,
@@ -205,7 +214,7 @@ describeDatabase("material multi-skill drafting", () => {
     await prisma.$disconnect();
   });
 
-  it("plans idempotently, warns on an exact linked duplicate, and confirms only new items", async () => {
+  it("plans idempotently, warns on an exact saved duplicate, and confirms only new items", async () => {
     const existing = await prisma.skill.create({
       data: {
         userId,
@@ -214,9 +223,6 @@ describeDatabase("material multi-skill drafting", () => {
         tags: ["spanish"],
         status: SkillStatus.DRAFT,
       },
-    });
-    await prisma.skillSourceRef.create({
-      data: { userId, skillId: existing.id, sourceFileId },
     });
     const planScope = vi.fn(async () => ({
       resolutionStatus: "resolved",
@@ -345,6 +351,254 @@ describeDatabase("material multi-skill drafting", () => {
     ).rejects.toThrow();
   });
 
+  it("creates the planned skill when its reviewed duplicate disappears before confirmation", async () => {
+    const fixtureId = randomUUID();
+    const title = `Stale plan duplicate ${fixtureId}`;
+    const objective =
+      `Choose a direct object pronoun for a noun in fixture ${fixtureId}.`;
+    const existing = await prisma.skill.create({
+      data: {
+        userId,
+        title,
+        objective,
+        tags: ["stale-plan-match"],
+        status: SkillStatus.DRAFT,
+      },
+    });
+    const planned = await planMaterialSkills({
+      userId,
+      input: {
+        materialId,
+        materialRevisionId,
+        instruction: "Make the stale plan duplicate fixture.",
+        idempotencyKey: `${runId}_stale_plan_match`,
+      },
+      now: new Date(),
+      aiSetup: createAiSetup({
+        planScope: async () => ({
+          resolutionStatus: "resolved",
+          resolvedScopeLabel: "Chapter 4",
+          clarification: null,
+          warnings: [],
+          items: [
+            {
+              key: "stale-plan-match",
+              title,
+              objective,
+              materialSectionIds: [directSectionId],
+              evidenceChunkIds: [directChunkId],
+            },
+          ],
+        }),
+      }),
+      embeddingGenerator: null,
+    });
+    if (planned.status !== "planned") {
+      throw new Error("expected a stale duplicate plan");
+    }
+    expect(planned.plan.items[0]).toMatchObject({
+      overlapSkillId: existing.id,
+      overlapConfidence: "exact",
+    });
+
+    await prisma.skill.delete({ where: { id: existing.id } });
+    const events: string[] = [];
+    const confirmed = await confirmMaterialPlan({
+      userId,
+      input: { batchId: planned.batchId, plan: planned.plan },
+      now: new Date(),
+      eventSender: {
+        async sendMaterialDraftItemRequested(payload) {
+          events.push(payload.itemId);
+        },
+      },
+    });
+
+    expect(confirmed).toMatchObject({
+      status: "queued",
+      queuedItemIds: [expect.any(String)],
+    });
+    expect(events).toHaveLength(1);
+    const item = await prisma.skillDraftBatchItem.findUniqueOrThrow({
+      where: { id: events[0] },
+      select: {
+        status: true,
+        overlapSkillId: true,
+        errorCode: true,
+        generationMetadata: true,
+      },
+    });
+    expect(item).toMatchObject({
+      status: SkillDraftBatchItemStatus.PLANNED,
+      overlapSkillId: null,
+      errorCode: null,
+    });
+    expect(item.generationMetadata).not.toHaveProperty("duplicateMatch");
+  });
+
+  it("creates the planned skill when the reviewed duplicate changes before confirmation", async () => {
+    const fixtureId = randomUUID();
+    const title = `Edited plan duplicate ${fixtureId}`;
+    const objective =
+      `Choose a direct object pronoun for a noun in fixture ${fixtureId}.`;
+    const existing = await prisma.skill.create({
+      data: {
+        userId,
+        title,
+        objective,
+        tags: ["edited-plan-match"],
+        status: SkillStatus.DRAFT,
+      },
+    });
+    const planned = await planMaterialSkills({
+      userId,
+      input: {
+        materialId,
+        materialRevisionId,
+        instruction: "Make the edited plan duplicate fixture.",
+        idempotencyKey: `${runId}_edited_plan_match`,
+      },
+      now: new Date(),
+      aiSetup: createAiSetup({
+        planScope: async () => ({
+          resolutionStatus: "resolved",
+          resolvedScopeLabel: "Chapter 4",
+          clarification: null,
+          warnings: [],
+          items: [
+            {
+              key: "edited-plan-match",
+              title,
+              objective,
+              materialSectionIds: [directSectionId],
+              evidenceChunkIds: [directChunkId],
+            },
+          ],
+        }),
+      }),
+      embeddingGenerator: null,
+    });
+    if (planned.status !== "planned") {
+      throw new Error("expected an edited duplicate plan");
+    }
+    expect(planned.plan.items[0]).toMatchObject({
+      overlapSkillId: existing.id,
+      overlapSkillFingerprint: buildSkillSimilarityFingerprint(existing),
+    });
+    await prisma.skill.update({
+      where: { id: existing.id },
+      data: {
+        title: `Unrelated algebra skill ${runId}`,
+        objective: "Factor a quadratic polynomial over the integers.",
+      },
+    });
+    const events: string[] = [];
+
+    await expect(
+      confirmMaterialPlan({
+        userId,
+        input: { batchId: planned.batchId, plan: planned.plan },
+        now: new Date(),
+        eventSender: {
+          async sendMaterialDraftItemRequested(payload) {
+            events.push(payload.itemId);
+          },
+        },
+      }),
+    ).resolves.toMatchObject({ status: "queued" });
+    expect(events).toHaveLength(1);
+    expect(
+      await prisma.skillDraftBatchItem.findUnique({
+        where: { id: events[0] },
+        select: {
+          status: true,
+          overlapSkillId: true,
+          generationMetadata: true,
+        },
+      }),
+    ).toMatchObject({
+      status: SkillDraftBatchItemStatus.PLANNED,
+      overlapSkillId: null,
+      generationMetadata: {
+        scopeBoundaries: expect.any(Object),
+      },
+    });
+  });
+
+  it("uses the current existing-skill status when confirming an unchanged match", async () => {
+    const fixtureId = randomUUID();
+    const title = `Status-updated plan duplicate ${fixtureId}`;
+    const objective =
+      `Choose the matching direct object pronoun in fixture ${fixtureId}.`;
+    const existing = await prisma.skill.create({
+      data: {
+        userId,
+        title,
+        objective,
+        tags: ["status-updated-plan-match"],
+        status: SkillStatus.DRAFT,
+      },
+    });
+    const planned = await planMaterialSkills({
+      userId,
+      input: {
+        materialId,
+        materialRevisionId,
+        instruction: "Make the status-updated duplicate fixture.",
+        idempotencyKey: `${runId}_status_updated_plan_match`,
+      },
+      now: new Date(),
+      aiSetup: createAiSetup({
+        planScope: async () => ({
+          resolutionStatus: "resolved",
+          resolvedScopeLabel: "Chapter 4",
+          clarification: null,
+          warnings: [],
+          items: [
+            {
+              key: "status-updated-plan-match",
+              title,
+              objective,
+              materialSectionIds: [directSectionId],
+              evidenceChunkIds: [directChunkId],
+            },
+          ],
+        }),
+      }),
+      embeddingGenerator: null,
+    });
+    if (planned.status !== "planned") {
+      throw new Error("expected a status-updated duplicate plan");
+    }
+    await prisma.skill.update({
+      where: { id: existing.id },
+      data: { status: SkillStatus.PAUSED },
+    });
+
+    await expect(
+      confirmMaterialPlan({
+        userId,
+        input: { batchId: planned.batchId, plan: planned.plan },
+        now: new Date(),
+        eventSender: { async sendMaterialDraftItemRequested() {} },
+      }),
+    ).resolves.toMatchObject({
+      status: "queued",
+      queuedItemIds: [],
+    });
+    expect(
+      await prisma.skillDraftBatchItem.findFirstOrThrow({
+        where: { batchId: planned.batchId, userId },
+        select: { status: true, overlapSkillId: true, errorCode: true, errorMessage: true },
+      }),
+    ).toMatchObject({
+      status: SkillDraftBatchItemStatus.EXCLUDED,
+      overlapSkillId: existing.id,
+      errorCode: "DUPLICATE_USE_EXISTING",
+      errorMessage: expect.stringMatching(/paused/i),
+    });
+  });
+
   it("preflights a narrow proposal against the original request before confirmation", async () => {
     const planScope = vi
       .fn()
@@ -419,6 +673,129 @@ describeDatabase("material multi-skill drafting", () => {
       }),
     );
     expect(planScope).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps an explicit plan-stage duplicate override through the final draft save guard", async () => {
+    const title = "Explicit duplicate override fixture";
+    const objective =
+      "Place an object pronoun correctly before a conjugated Spanish verb.";
+    await prisma.skill.create({
+      data: {
+        id: `zz_${runId}`,
+        userId,
+        title,
+        objective,
+        tags: ["duplicate-override-shadow"],
+        status: SkillStatus.PAUSED,
+      },
+    });
+    const existing = await prisma.skill.create({
+      data: {
+        id: `aa_${runId}`,
+        userId,
+        title,
+        objective,
+        tags: ["duplicate-override"],
+        status: SkillStatus.ACTIVE,
+      },
+    });
+    const planned = await planMaterialSkills({
+      userId,
+      input: {
+        materialId,
+        materialRevisionId,
+        instruction: "Make the explicit duplicate override fixture.",
+        idempotencyKey: `${runId}_duplicate_override`,
+      },
+      now: new Date(),
+      aiSetup: createAiSetup({
+        planScope: async () => ({
+          resolutionStatus: "resolved",
+          resolvedScopeLabel: "Chapter 4",
+          clarification: null,
+          warnings: [],
+          items: [
+            {
+              key: "explicit-duplicate-override",
+              title,
+              objective,
+              materialSectionIds: [directSectionId],
+              evidenceChunkIds: [directChunkId],
+            },
+          ],
+        }),
+      }),
+      embeddingGenerator: null,
+    });
+    if (planned.status !== "planned") {
+      throw new Error("expected a duplicate override plan");
+    }
+    expect(planned.plan.items[0]).toMatchObject({
+      overlapSkillId: existing.id,
+      overlapConfidence: "exact",
+    });
+    const events: string[] = [];
+    const confirmed = await confirmMaterialPlan({
+      userId,
+      input: {
+        batchId: planned.batchId,
+        plan: planned.plan,
+        createSeparatelyTargetKeys: ["explicit-duplicate-override"],
+      },
+      now: new Date(),
+      eventSender: {
+        async sendMaterialDraftItemRequested(payload) {
+          events.push(payload.itemId);
+        },
+      },
+    });
+    expect(confirmed).toMatchObject({ status: "queued" });
+    expect(events).toHaveLength(1);
+
+    await expect(
+      runMaterialDraftItemJob({
+        userId,
+        batchId: planned.batchId,
+        itemId: events[0],
+        aiSetup: createAiSetup({ rejectTitle: title }),
+        sourceEvidenceLoader,
+      }),
+    ).resolves.toMatchObject({ status: "failed" });
+    const failedItem = await prisma.skillDraftBatchItem.findFirstOrThrow({
+      where: { id: events[0], userId },
+      select: { generationMetadata: true },
+    });
+    expect(failedItem.generationMetadata).toMatchObject({
+      duplicateMatch: {
+        skillId: existing.id,
+        userOverride: true,
+      },
+    });
+    await expect(
+      retryMaterialDraftItem({
+        userId,
+        batchId: planned.batchId,
+        itemId: events[0],
+        now: new Date(),
+        eventSender: {
+          async sendMaterialDraftItemRequested(payload) {
+            events.push(payload.itemId);
+          },
+        },
+      }),
+    ).resolves.toMatchObject({ status: "queued" });
+    await expect(
+      runMaterialDraftItemJob({
+        userId,
+        batchId: planned.batchId,
+        itemId: events[1],
+        aiSetup: createAiSetup(),
+        sourceEvidenceLoader,
+      }),
+    ).resolves.toMatchObject({ status: "ready" });
+    await expect(
+      prisma.skill.count({ where: { userId, title, objective } }),
+    ).resolves.toBe(3);
   });
 
   it("requires clarification without calling the semantic planner when a chapter is absent", async () => {
@@ -2129,6 +2506,538 @@ describeDatabase("material multi-skill drafting", () => {
     expect(refillSourceContext).not.toContain("UNRELATED CHAPTER SIX SOURCE TEXT");
   });
 
+  it("rechecks edited drafts for duplicates before activation and honors an explicit override", async () => {
+    const ready = await createReadyBatch([
+      {
+        key: "activation-duplicate-gate",
+        title: "Contrastive pronoun placement fixture",
+        objective: "Place one contrastive pronoun before a conjugated verb.",
+        materialSectionIds: [directSectionId],
+        evidenceChunkIds: [directChunkId],
+      },
+    ]);
+    const duplicate = await prisma.skill.create({
+      data: {
+        userId,
+        title: "Contrastive pronoun placement fixture",
+        objective: "Place one contrastive pronoun before a conjugated verb.",
+        tags: ["duplicate-gate"],
+        status: SkillStatus.PAUSED,
+      },
+    });
+    const events: string[] = [];
+    const reviewed = await queueMaterialBatchActivation({
+      userId,
+      input: { batchId: ready.id, itemIds: [ready.items[0].id] },
+      now: new Date("2026-07-22T12:00:00.000Z"),
+      embeddingGenerator: null,
+      eventSender: {
+        async sendMaterialBatchActivationRequested(payload) {
+          events.push(payload.itemId);
+        },
+      },
+    });
+
+    expect(reviewed).toMatchObject({
+      status: "review-required",
+      reviewItemIds: [ready.items[0].id],
+    });
+    expect(events).toEqual([]);
+    expect(await getMaterialDraftBatch({ userId, batchId: ready.id })).toMatchObject({
+      items: [
+        {
+          status: SkillDraftBatchItemStatus.READY,
+          overlapSkillId: duplicate.id,
+          errorCode: "DUPLICATE_REVIEW_REQUIRED",
+        },
+      ],
+    });
+
+    const staleOverride = await queueMaterialBatchActivation({
+      userId,
+      input: {
+        batchId: ready.id,
+        itemIds: [ready.items[0].id],
+        createSeparatelyMatches: [
+          { itemId: ready.items[0].id, skillId: "stale-match-id" },
+        ],
+      },
+      now: new Date("2026-07-22T12:00:30.000Z"),
+      embeddingGenerator: null,
+      eventSender: {
+        async sendMaterialBatchActivationRequested(payload) {
+          events.push(payload.itemId);
+        },
+      },
+    });
+    expect(staleOverride).toMatchObject({
+      status: "review-required",
+      reviewItemIds: [ready.items[0].id],
+    });
+    expect(events).toEqual([]);
+
+    const overridden = await queueMaterialBatchActivation({
+      userId,
+      input: {
+        batchId: ready.id,
+        itemIds: [ready.items[0].id],
+        createSeparatelyMatches: [
+          { itemId: ready.items[0].id, skillId: duplicate.id },
+        ],
+      },
+      now: new Date("2026-07-22T12:01:00.000Z"),
+      embeddingGenerator: null,
+      eventSender: {
+        async sendMaterialBatchActivationRequested(payload) {
+          events.push(payload.itemId);
+        },
+      },
+    });
+    expect(overridden).toMatchObject({
+      status: "queued",
+      queuedItemIds: [ready.items[0].id],
+    });
+    expect(events).toEqual([ready.items[0].id]);
+  });
+
+  it("persists the keep-existing choice after removing a duplicate generated draft", async () => {
+    const fixtureId = randomUUID();
+    const title = `Keep existing outcome ${fixtureId}`;
+    const objective =
+      `Place a direct object pronoun before the verb in fixture ${fixtureId}.`;
+    const ready = await createReadyBatch([
+      {
+        key: "keep-existing-outcome",
+        title,
+        objective,
+        materialSectionIds: [directSectionId],
+        evidenceChunkIds: [directChunkId],
+      },
+    ]);
+    const generatedSkillId = ready.items[0].skill?.id;
+    if (!generatedSkillId) {
+      throw new Error("expected a generated duplicate draft");
+    }
+    const existing = await prisma.skill.create({
+      data: {
+        userId,
+        title,
+        objective,
+        tags: ["keep-existing"],
+        status: SkillStatus.PAUSED,
+      },
+    });
+    await expect(
+      queueMaterialBatchActivation({
+        userId,
+        input: { batchId: ready.id, itemIds: [ready.items[0].id] },
+        now: new Date(),
+        embeddingGenerator: null,
+        eventSender: { async sendMaterialBatchActivationRequested() {} },
+      }),
+    ).resolves.toMatchObject({ status: "review-required" });
+
+    await expect(
+      excludeMaterialDraftItem({
+        userId,
+        batchId: ready.id,
+        itemId: ready.items[0].id,
+        intent: "use-existing",
+        expectedCandidateId: generatedSkillId,
+        expectedCandidateFingerprint:
+          buildSkillDuplicateCandidateFingerprint(ready.items[0].skill!),
+        expectedMatchId: existing.id,
+        expectedMatchFingerprint: buildSkillSimilarityFingerprint(existing),
+        now: new Date(),
+      }),
+    ).resolves.toMatchObject({ status: "excluded" });
+
+    expect(await prisma.skill.count({ where: { id: generatedSkillId } })).toBe(0);
+    expect(await prisma.skill.findUnique({ where: { id: existing.id } })).toMatchObject({
+      status: SkillStatus.PAUSED,
+    });
+    expect(
+      await prisma.skillDraftBatchItem.findUnique({
+        where: { id: ready.items[0].id },
+        select: { skillId: true },
+      }),
+    ).toEqual({ skillId: null });
+    expect(await getMaterialDraftBatch({ userId, batchId: ready.id })).toMatchObject({
+      items: [
+        {
+          status: SkillDraftBatchItemStatus.EXCLUDED,
+          overlapSkillId: existing.id,
+          errorCode: "DUPLICATE_USE_EXISTING",
+          errorMessage: expect.stringMatching(/paused/i),
+        },
+      ],
+    });
+  });
+
+  it("keeps the generated draft when the reviewed match content or identity changes", async () => {
+    const fixtureId = randomUUID();
+    const title = `Changed reviewed match ${fixtureId}`;
+    const objective =
+      `Place a direct object pronoun before the verb in fixture ${fixtureId}.`;
+    const ready = await createReadyBatch([
+      {
+        key: "changed-reviewed-match",
+        title,
+        objective,
+        materialSectionIds: [directSectionId],
+        evidenceChunkIds: [directChunkId],
+      },
+    ]);
+    const generatedSkillId = ready.items[0].skill?.id;
+    if (!generatedSkillId) {
+      throw new Error("expected a generated draft");
+    }
+    const existing = await prisma.skill.create({
+      data: {
+        userId,
+        title,
+        objective,
+        tags: ["changed-reviewed-match"],
+        status: SkillStatus.ACTIVE,
+      },
+    });
+    const replacement = await prisma.skill.create({
+      data: {
+        userId,
+        title: `Replacement match ${runId}`,
+        objective:
+          "Distinguish a direct object from an indirect object in a sentence.",
+        tags: ["replacement-reviewed-match"],
+        status: SkillStatus.ACTIVE,
+      },
+    });
+    await expect(
+      queueMaterialBatchActivation({
+        userId,
+        input: { batchId: ready.id, itemIds: [ready.items[0].id] },
+        now: new Date(),
+        embeddingGenerator: null,
+        eventSender: { async sendMaterialBatchActivationRequested() {} },
+      }),
+    ).resolves.toMatchObject({ status: "review-required" });
+    const reviewedFingerprint = buildSkillSimilarityFingerprint(existing);
+    await prisma.skill.update({
+      where: { id: existing.id },
+      data: {
+        title: `Unrelated geometry skill ${runId}`,
+        objective: "Find the area of a triangle from its base and height.",
+      },
+    });
+
+    await expect(
+      excludeMaterialDraftItem({
+        userId,
+        batchId: ready.id,
+        itemId: ready.items[0].id,
+        intent: "use-existing",
+        expectedCandidateId: generatedSkillId,
+        expectedCandidateFingerprint:
+          buildSkillDuplicateCandidateFingerprint(ready.items[0].skill!),
+        expectedMatchId: existing.id,
+        expectedMatchFingerprint: reviewedFingerprint,
+        now: new Date(),
+      }),
+    ).resolves.toMatchObject({
+      status: "not-excluded",
+      reason: "match-changed",
+    });
+    expect(await prisma.skill.count({ where: { id: generatedSkillId } })).toBe(1);
+
+    await prisma.skillDraftBatchItem.update({
+      where: { id: ready.items[0].id },
+      data: { overlapSkillId: replacement.id },
+    });
+    await expect(
+      excludeMaterialDraftItem({
+        userId,
+        batchId: ready.id,
+        itemId: ready.items[0].id,
+        intent: "use-existing",
+        expectedCandidateId: generatedSkillId,
+        expectedCandidateFingerprint:
+          buildSkillDuplicateCandidateFingerprint(ready.items[0].skill!),
+        expectedMatchId: existing.id,
+        expectedMatchFingerprint: reviewedFingerprint,
+        now: new Date(),
+      }),
+    ).resolves.toMatchObject({
+      status: "not-excluded",
+      reason: "match-changed",
+    });
+    expect(await prisma.skill.count({ where: { id: generatedSkillId } })).toBe(1);
+  });
+
+  it("keeps an edited generated draft when use-existing was submitted from a stale preview", async () => {
+    const fixtureId = randomUUID();
+    const title = `Edited candidate duplicate ${fixtureId}`;
+    const objective =
+      `Replace one direct object with a pronoun in fixture ${fixtureId}.`;
+    const ready = await createReadyBatch([
+      {
+        key: "edited-candidate-duplicate",
+        title,
+        objective,
+        materialSectionIds: [directSectionId],
+        evidenceChunkIds: [directChunkId],
+      },
+    ]);
+    const generatedSkillId = ready.items[0].skill?.id;
+    if (!generatedSkillId) {
+      throw new Error("expected an editable generated draft");
+    }
+    const existing = await prisma.skill.create({
+      data: {
+        userId,
+        title,
+        objective,
+        tags: ["edited-candidate-duplicate"],
+        status: SkillStatus.ACTIVE,
+      },
+    });
+    await expect(
+      queueMaterialBatchActivation({
+        userId,
+        input: { batchId: ready.id, itemIds: [ready.items[0].id] },
+        now: new Date(),
+        embeddingGenerator: null,
+        eventSender: { async sendMaterialBatchActivationRequested() {} },
+      }),
+    ).resolves.toMatchObject({ status: "review-required" });
+    const reviewedCandidateFingerprint =
+      buildSkillDuplicateCandidateFingerprint(ready.items[0].skill!);
+    const editedTitle = `Distinct edited candidate ${fixtureId}`;
+    const editedObjective =
+      "Find the area of a triangle from its base and perpendicular height.";
+    await prisma.skill.update({
+      where: { id: generatedSkillId },
+      data: { title: editedTitle, objective: editedObjective },
+    });
+
+    await expect(
+      excludeMaterialDraftItem({
+        userId,
+        batchId: ready.id,
+        itemId: ready.items[0].id,
+        intent: "use-existing",
+        expectedCandidateId: generatedSkillId,
+        expectedCandidateFingerprint: reviewedCandidateFingerprint,
+        expectedMatchId: existing.id,
+        expectedMatchFingerprint: buildSkillSimilarityFingerprint(existing),
+        now: new Date(),
+      }),
+    ).resolves.toMatchObject({
+      status: "not-excluded",
+      reason: "draft-changed",
+    });
+    expect(
+      await prisma.skill.findUnique({
+        where: { id: generatedSkillId },
+        select: { title: true, objective: true, status: true },
+      }),
+    ).toEqual({
+      title: editedTitle,
+      objective: editedObjective,
+      status: SkillStatus.DRAFT,
+    });
+    expect(
+      await prisma.skillDraftBatchItem.findUnique({
+        where: { id: ready.items[0].id },
+        select: { status: true, skillId: true, errorCode: true },
+      }),
+    ).toEqual({
+      status: SkillDraftBatchItemStatus.READY,
+      skillId: generatedSkillId,
+      errorCode: "DUPLICATE_REVIEW_REQUIRED",
+    });
+  });
+
+  it("serializes simultaneous keep-existing and create-separately choices", async () => {
+    const fixtureId = randomUUID();
+    const title = `Concurrent duplicate choice ${fixtureId}`;
+    const objective =
+      `Replace one direct object with a pronoun in fixture ${fixtureId}.`;
+    const ready = await createReadyBatch([
+      {
+        key: "concurrent-duplicate-choice",
+        title,
+        objective,
+        materialSectionIds: [directSectionId],
+        evidenceChunkIds: [directChunkId],
+      },
+    ]);
+    const generatedSkillId = ready.items[0].skill?.id;
+    if (!generatedSkillId) {
+      throw new Error("expected a concurrent-choice generated draft");
+    }
+    const existing = await prisma.skill.create({
+      data: {
+        userId,
+        title,
+        objective,
+        tags: ["concurrent-duplicate-choice"],
+        status: SkillStatus.ACTIVE,
+      },
+    });
+    await expect(
+      queueMaterialBatchActivation({
+        userId,
+        input: { batchId: ready.id, itemIds: [ready.items[0].id] },
+        now: new Date(),
+        embeddingGenerator: null,
+        eventSender: { async sendMaterialBatchActivationRequested() {} },
+      }),
+    ).resolves.toMatchObject({ status: "review-required" });
+    const reviewedFingerprint = buildSkillSimilarityFingerprint(existing);
+
+    await Promise.all([
+      excludeMaterialDraftItem({
+        userId,
+        batchId: ready.id,
+        itemId: ready.items[0].id,
+        intent: "use-existing",
+        expectedCandidateId: generatedSkillId,
+        expectedCandidateFingerprint:
+          buildSkillDuplicateCandidateFingerprint(ready.items[0].skill!),
+        expectedMatchId: existing.id,
+        expectedMatchFingerprint: reviewedFingerprint,
+        now: new Date(),
+      }),
+      queueMaterialBatchActivation({
+        userId,
+        input: {
+          batchId: ready.id,
+          itemIds: [ready.items[0].id],
+          createSeparatelyMatches: [
+            { itemId: ready.items[0].id, skillId: existing.id },
+          ],
+        },
+        now: new Date(),
+        embeddingGenerator: null,
+        eventSender: { async sendMaterialBatchActivationRequested() {} },
+      }),
+    ]);
+
+    const settledItem = await prisma.skillDraftBatchItem.findUniqueOrThrow({
+      where: { id: ready.items[0].id },
+      select: {
+        status: true,
+        skillId: true,
+        overlapSkillId: true,
+        errorCode: true,
+      },
+    });
+    if (settledItem.status === SkillDraftBatchItemStatus.EXCLUDED) {
+      expect(settledItem).toMatchObject({
+        skillId: null,
+        overlapSkillId: existing.id,
+        errorCode: "DUPLICATE_USE_EXISTING",
+      });
+      expect(await prisma.skill.count({ where: { id: generatedSkillId } })).toBe(0);
+    } else {
+      expect(settledItem).toMatchObject({
+        status: SkillDraftBatchItemStatus.ACTIVATING,
+        skillId: generatedSkillId,
+        errorCode: null,
+      });
+      expect(await prisma.skill.count({ where: { id: generatedSkillId } })).toBe(1);
+      expect(
+        await prisma.generationJob.count({
+          where: {
+            userId,
+            skillId: generatedSkillId,
+            kind: GenerationJobKind.SKILL_ACTIVATION,
+            status: GenerationJobStatus.PENDING,
+          },
+        }),
+      ).toBe(1);
+    }
+
+    await prisma.skillDraftBatch.delete({ where: { id: ready.id } });
+    await prisma.skill.deleteMany({
+      where: { id: { in: [generatedSkillId, existing.id] }, userId },
+    });
+  });
+
+  it("keeps the generated draft when a reviewed existing skill disappears", async () => {
+    const fixtureId = randomUUID();
+    const title = `Deleted activation match ${fixtureId}`;
+    const objective =
+      `Choose the correct direct object pronoun in fixture ${fixtureId}.`;
+    const ready = await createReadyBatch([
+      {
+        key: "deleted-activation-match",
+        title,
+        objective,
+        materialSectionIds: [directSectionId],
+        evidenceChunkIds: [directChunkId],
+      },
+    ]);
+    const generatedSkillId = ready.items[0].skill?.id;
+    if (!generatedSkillId) {
+      throw new Error("expected a generated draft");
+    }
+    const existing = await prisma.skill.create({
+      data: {
+        userId,
+        title,
+        objective,
+        tags: ["deleted-activation-match"],
+        status: SkillStatus.ACTIVE,
+      },
+    });
+    await expect(
+      queueMaterialBatchActivation({
+        userId,
+        input: { batchId: ready.id, itemIds: [ready.items[0].id] },
+        now: new Date(),
+        embeddingGenerator: null,
+        eventSender: { async sendMaterialBatchActivationRequested() {} },
+      }),
+    ).resolves.toMatchObject({ status: "review-required" });
+    const expectedMatchFingerprint =
+      buildSkillSimilarityFingerprint(existing);
+    await prisma.skill.delete({ where: { id: existing.id } });
+
+    await expect(
+      excludeMaterialDraftItem({
+        userId,
+        batchId: ready.id,
+        itemId: ready.items[0].id,
+        intent: "use-existing",
+        expectedCandidateId: generatedSkillId,
+        expectedCandidateFingerprint:
+          buildSkillDuplicateCandidateFingerprint(ready.items[0].skill!),
+        expectedMatchId: existing.id,
+        expectedMatchFingerprint,
+        now: new Date(),
+      }),
+    ).resolves.toMatchObject({
+      status: "not-excluded",
+      reason: "match-not-found",
+    });
+    expect(await prisma.skill.count({ where: { id: generatedSkillId } })).toBe(1);
+    expect(
+      await prisma.skillDraftBatchItem.findUnique({
+        where: { id: ready.items[0].id },
+        select: { skillId: true },
+      }),
+    ).toEqual({ skillId: generatedSkillId });
+    expect(await getMaterialDraftBatch({ userId, batchId: ready.id })).toMatchObject({
+      items: [
+        {
+          status: SkillDraftBatchItemStatus.READY,
+          overlapSkillId: existing.id,
+          errorCode: "DUPLICATE_REVIEW_REQUIRED",
+        },
+      ],
+    });
+  });
+
   it("reuses an existing activation job instead of inserting a conflicting reservation", async () => {
     const ready = await createReadyBatch([
       {
@@ -2993,7 +3902,11 @@ describeDatabase("material multi-skill drafting", () => {
         userId,
         batchId: planned.batchId,
         itemId: item.id,
-        aiSetup: createAiSetup(),
+        aiSetup: createAiSetup({
+          draftObjectiveByTitle: new Map(
+            targets.map((target) => [target.title, target.objective]),
+          ),
+        }),
         sourceEvidenceLoader,
       });
       if (result.status !== "ready") {
@@ -3049,6 +3962,7 @@ function createAiSetup(input: {
   reviewScope?: MaterialDraftAiSetup["reviewScope"];
   repairTarget?: MaterialDraftAiSetup["repairTarget"];
   verifyDraft?: MaterialDraftAiSetup["verifyDraft"];
+  draftObjectiveByTitle?: ReadonlyMap<string, string>;
   rejectTitle?: string;
 } = {}): MaterialDraftAiSetup {
   return {
@@ -3073,9 +3987,10 @@ function createAiSetup(input: {
           {
             title,
             objective:
-              title === "Choosing le versus les"
+              input.draftObjectiveByTitle?.get(title) ??
+              (title === "Choosing le versus les"
                 ? "Choose le or les from the number of recipients in a Spanish sentence."
-                : "Place an object pronoun correctly before a conjugated Spanish verb.",
+                : "Place an object pronoun correctly before a conjugated Spanish verb."),
             rules: ["Place the pronoun before a conjugated verb."],
             examples: ["Veo el libro. → Lo veo."],
             exerciseConstraints: "Use short sentences with one unambiguous recipient or object.",

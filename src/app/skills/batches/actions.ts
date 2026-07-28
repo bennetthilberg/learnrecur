@@ -22,6 +22,13 @@ const automaticRepairInputSchema = z.strictObject({
   itemIds: z.array(z.string().trim().min(1).max(64)).min(1).max(10),
 });
 
+const useExistingDecisionInputSchema = z.strictObject({
+  expectedCandidateId: z.string().trim().min(1).max(64),
+  expectedCandidateFingerprint: z.string().regex(/^[a-f0-9]{64}$/),
+  expectedMatchId: z.string().trim().min(1).max(64),
+  expectedMatchFingerprint: z.string().regex(/^[a-f0-9]{64}$/),
+});
+
 export async function planMaterialSkillsAction(formData: FormData) {
   const userId = await requireBatchUser();
   const materialId = formString(formData, "materialId");
@@ -77,7 +84,14 @@ export async function confirmMaterialPlanAction(formData: FormData) {
   const result = await confirmMaterialPlan({
     userId,
     now: new Date(),
-    input: { batchId, plan: plan.data },
+    input: {
+      batchId,
+      plan: plan.data,
+      createSeparatelyTargetKeys: formStrings(
+        formData,
+        "createSeparatelyTargetKey",
+      ),
+    },
   });
   if (result.status === "queued") {
     revalidatePath(`/skills/batches/${batchId}`);
@@ -141,20 +155,34 @@ export async function autoRepairMaterialDraftItemsAction(input: unknown) {
 export async function activateMaterialBatchAction(formData: FormData) {
   const userId = await requireBatchUser();
   const batchId = formString(formData, "batchId");
-  const itemIds = formData
-    .getAll("itemId")
-    .filter((value): value is string => typeof value === "string")
-    .map((value) => value.trim())
-    .filter(Boolean);
+  const itemIds = formStrings(formData, "itemId");
+  const createSeparatelyItemIds = formStrings(
+    formData,
+    "createSeparatelyItemId",
+  );
+  const createSeparatelySkillIds = formStrings(
+    formData,
+    "createSeparatelySkillId",
+  );
   const result = await queueMaterialBatchActivation({
     userId,
-    input: { batchId, itemIds },
+    input: {
+      batchId,
+      itemIds,
+      createSeparatelyMatches: createSeparatelyItemIds.map(
+        (itemId, index) => ({
+          itemId,
+          skillId: createSeparatelySkillIds[index] ?? "",
+        }),
+      ),
+    },
     now: new Date(),
   });
   if (
     result.status === "queued" ||
     result.status === "partial" ||
-    result.status === "already-queued"
+    result.status === "already-queued" ||
+    result.status === "review-required"
   ) {
     revalidatePath(`/skills/batches/${batchId}`);
     revalidatePath("/skills");
@@ -187,12 +215,52 @@ export async function retryMaterialBatchActivationItemAction(formData: FormData)
 export async function excludeMaterialDraftItemAction(formData: FormData) {
   const userId = await requireBatchUser();
   const batchId = formString(formData, "batchId");
-  const result = await excludeMaterialDraftItem({
-    userId,
-    batchId,
-    itemId: formString(formData, "itemId"),
-    now: new Date(),
-  });
+  const rawIntent = formData.get("intent");
+  if (rawIntent !== "exclude" && rawIntent !== "use-existing") {
+    return {
+      status: "error" as const,
+      message: "This choice was incomplete. Refresh the batch and try again.",
+    };
+  }
+  const itemId = formString(formData, "itemId");
+  let result: Awaited<ReturnType<typeof excludeMaterialDraftItem>>;
+  if (rawIntent === "use-existing") {
+    const decision = useExistingDecisionInputSchema.safeParse({
+      expectedCandidateId: formData.get("expectedCandidateId"),
+      expectedCandidateFingerprint: formData.get(
+        "expectedCandidateFingerprint",
+      ),
+      expectedMatchId: formData.get("expectedMatchId"),
+      expectedMatchFingerprint: formData.get("expectedMatchFingerprint"),
+    });
+    if (!decision.success) {
+      return {
+        status: "error" as const,
+        message:
+          "The existing skill preview changed. Refresh the batch and compare it again.",
+      };
+    }
+    result = await excludeMaterialDraftItem({
+      userId,
+      batchId,
+      itemId,
+      intent: "use-existing",
+      expectedCandidateId: decision.data.expectedCandidateId,
+      expectedCandidateFingerprint:
+        decision.data.expectedCandidateFingerprint,
+      expectedMatchId: decision.data.expectedMatchId,
+      expectedMatchFingerprint: decision.data.expectedMatchFingerprint,
+      now: new Date(),
+    });
+  } else {
+    result = await excludeMaterialDraftItem({
+      userId,
+      batchId,
+      itemId,
+      intent: "exclude",
+      now: new Date(),
+    });
+  }
   if (result.status !== "excluded") {
     return {
       status: "error" as const,
@@ -229,4 +297,12 @@ function revalidateBatchPaths(batchId: string, materialId: string) {
 function formString(formData: FormData, key: string) {
   const value = formData.get(key);
   return typeof value === "string" ? value.trim() : "";
+}
+
+function formStrings(formData: FormData, key: string) {
+  return formData
+    .getAll(key)
+    .filter((value): value is string => typeof value === "string")
+    .map((value) => value.trim())
+    .filter(Boolean);
 }

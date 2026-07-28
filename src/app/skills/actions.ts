@@ -23,6 +23,10 @@ import {
   restoreArchivedSkill,
   resumeSkill,
 } from "@/lib/skills/lifecycle";
+import {
+  findSimilarSkillsForUser,
+  type SkillSimilarityMatch,
+} from "@/lib/skills/similarity";
 import { deleteSkillPermanently } from "@/lib/skills/delete";
 import {
   cleanupPreparedSourceUploads,
@@ -51,11 +55,13 @@ export type CreatedSkillDraftForReview = {
 };
 
 export type SkillFormActionState = {
-  status: "idle" | "error" | "saved" | "activated";
+  status: "idle" | "error" | "saved" | "activated" | "duplicate-warning";
   message: string | null;
   fieldErrors?: Record<string, string[]>;
   createdSkill?: CreatedSkillDraftForReview;
   activatedSkillId?: string;
+  duplicateMatch?: SkillSimilarityMatch;
+  draftValues?: CreatedSkillDraftForReview["values"];
   refreshRecovery?: boolean;
 };
 
@@ -981,6 +987,7 @@ async function saveAndActivateSkillDraft(formData: FormData): Promise<SkillFormA
       status: "error",
       message: saveResult.message,
       fieldErrors: saveResult.fieldErrors,
+      draftValues: draftInput,
     };
   }
 
@@ -988,6 +995,37 @@ async function saveAndActivateSkillDraft(formData: FormData): Promise<SkillFormA
     return {
       status: "error",
       message: saveResult.message,
+      draftValues: draftInput,
+    };
+  }
+
+  const similarityResult = await findSimilarSkillsForUser({
+    userId: user.userId,
+    candidates: [
+      {
+        key: "skill-draft",
+        skillId,
+        title: draftInput.title,
+        objective: draftInput.objective,
+      },
+    ],
+    limitPerCandidate: 1,
+  });
+  const duplicateMatch = similarityResult.candidates[0]?.bestMatch ?? null;
+  const duplicateOverrideSkillId = getOptionalFormString(
+    formData,
+    "duplicateOverrideSkillId",
+  );
+
+  if (
+    duplicateMatch &&
+    duplicateOverrideSkillId !== duplicateMatch.skill.id
+  ) {
+    return {
+      status: "duplicate-warning",
+      message: null,
+      duplicateMatch,
+      draftValues: draftInput,
     };
   }
 
@@ -1007,12 +1045,14 @@ async function saveAndActivateSkillDraft(formData: FormData): Promise<SkillFormA
       status: "activated",
       message: "Skill added.",
       activatedSkillId: addResult.skillId,
+      draftValues: draftInput,
     };
   }
 
   return {
     status: "saved",
     message: `Your changes were saved, but the skill was not added. ${addResult.message}`,
+    draftValues: draftInput,
   };
 }
 

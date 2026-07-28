@@ -52,6 +52,8 @@ export type SkillMinAggregateOutputType = {
   collectionId: string | null
   title: string | null
   objective: string | null
+  similarityEmbeddingModel: string | null
+  similarityEmbeddingFingerprint: string | null
   status: $Enums.SkillStatus | null
   dueAt: Date | null
   stability: number | null
@@ -73,6 +75,8 @@ export type SkillMaxAggregateOutputType = {
   collectionId: string | null
   title: string | null
   objective: string | null
+  similarityEmbeddingModel: string | null
+  similarityEmbeddingFingerprint: string | null
   status: $Enums.SkillStatus | null
   dueAt: Date | null
   stability: number | null
@@ -98,6 +102,8 @@ export type SkillCountAggregateOutputType = {
   examples: number
   exerciseConstraints: number
   tags: number
+  similarityEmbeddingModel: number
+  similarityEmbeddingFingerprint: number
   status: number
   dueAt: number
   stability: number
@@ -141,6 +147,8 @@ export type SkillMinAggregateInputType = {
   collectionId?: true
   title?: true
   objective?: true
+  similarityEmbeddingModel?: true
+  similarityEmbeddingFingerprint?: true
   status?: true
   dueAt?: true
   stability?: true
@@ -162,6 +170,8 @@ export type SkillMaxAggregateInputType = {
   collectionId?: true
   title?: true
   objective?: true
+  similarityEmbeddingModel?: true
+  similarityEmbeddingFingerprint?: true
   status?: true
   dueAt?: true
   stability?: true
@@ -187,6 +197,8 @@ export type SkillCountAggregateInputType = {
   examples?: true
   exerciseConstraints?: true
   tags?: true
+  similarityEmbeddingModel?: true
+  similarityEmbeddingFingerprint?: true
   status?: true
   dueAt?: true
   stability?: true
@@ -299,6 +311,8 @@ export type SkillGroupByOutputType = {
   examples: runtime.JsonValue | null
   exerciseConstraints: runtime.JsonValue | null
   tags: string[]
+  similarityEmbeddingModel: string | null
+  similarityEmbeddingFingerprint: string | null
   status: $Enums.SkillStatus
   dueAt: Date | null
   stability: number | null
@@ -347,6 +361,8 @@ export type SkillWhereInput = {
   examples?: Prisma.JsonNullableFilter<"Skill">
   exerciseConstraints?: Prisma.JsonNullableFilter<"Skill">
   tags?: Prisma.StringNullableListFilter<"Skill">
+  similarityEmbeddingModel?: Prisma.StringNullableFilter<"Skill"> | string | null
+  similarityEmbeddingFingerprint?: Prisma.StringNullableFilter<"Skill"> | string | null
   status?: Prisma.EnumSkillStatusFilter<"Skill"> | $Enums.SkillStatus
   dueAt?: Prisma.DateTimeNullableFilter<"Skill"> | Date | string | null
   stability?: Prisma.FloatNullableFilter<"Skill"> | number | null
@@ -380,6 +396,8 @@ export type SkillOrderByWithRelationInput = {
   examples?: Prisma.SortOrderInput | Prisma.SortOrder
   exerciseConstraints?: Prisma.SortOrderInput | Prisma.SortOrder
   tags?: Prisma.SortOrder
+  similarityEmbeddingModel?: Prisma.SortOrderInput | Prisma.SortOrder
+  similarityEmbeddingFingerprint?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
   dueAt?: Prisma.SortOrderInput | Prisma.SortOrder
   stability?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -417,6 +435,8 @@ export type SkillWhereUniqueInput = Prisma.AtLeast<{
   examples?: Prisma.JsonNullableFilter<"Skill">
   exerciseConstraints?: Prisma.JsonNullableFilter<"Skill">
   tags?: Prisma.StringNullableListFilter<"Skill">
+  similarityEmbeddingModel?: Prisma.StringNullableFilter<"Skill"> | string | null
+  similarityEmbeddingFingerprint?: Prisma.StringNullableFilter<"Skill"> | string | null
   status?: Prisma.EnumSkillStatusFilter<"Skill"> | $Enums.SkillStatus
   dueAt?: Prisma.DateTimeNullableFilter<"Skill"> | Date | string | null
   stability?: Prisma.FloatNullableFilter<"Skill"> | number | null
@@ -450,6 +470,8 @@ export type SkillOrderByWithAggregationInput = {
   examples?: Prisma.SortOrderInput | Prisma.SortOrder
   exerciseConstraints?: Prisma.SortOrderInput | Prisma.SortOrder
   tags?: Prisma.SortOrder
+  similarityEmbeddingModel?: Prisma.SortOrderInput | Prisma.SortOrder
+  similarityEmbeddingFingerprint?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
   dueAt?: Prisma.SortOrderInput | Prisma.SortOrder
   stability?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -483,6 +505,8 @@ export type SkillScalarWhereWithAggregatesInput = {
   examples?: Prisma.JsonNullableWithAggregatesFilter<"Skill">
   exerciseConstraints?: Prisma.JsonNullableWithAggregatesFilter<"Skill">
   tags?: Prisma.StringNullableListFilter<"Skill">
+  similarityEmbeddingModel?: Prisma.StringNullableWithAggregatesFilter<"Skill"> | string | null
+  similarityEmbeddingFingerprint?: Prisma.StringNullableWithAggregatesFilter<"Skill"> | string | null
   status?: Prisma.EnumSkillStatusWithAggregatesFilter<"Skill"> | $Enums.SkillStatus
   dueAt?: Prisma.DateTimeNullableWithAggregatesFilter<"Skill"> | Date | string | null
   stability?: Prisma.FloatNullableWithAggregatesFilter<"Skill"> | number | null
@@ -506,6 +530,8 @@ export type SkillCreateInput = {
   examples?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   exerciseConstraints?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   tags?: Prisma.SkillCreatetagsInput | string[]
+  similarityEmbeddingModel?: string | null
+  similarityEmbeddingFingerprint?: string | null
   status?: $Enums.SkillStatus
   dueAt?: Date | string | null
   stability?: number | null
@@ -539,6 +565,8 @@ export type SkillUncheckedCreateInput = {
   examples?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   exerciseConstraints?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   tags?: Prisma.SkillCreatetagsInput | string[]
+  similarityEmbeddingModel?: string | null
+  similarityEmbeddingFingerprint?: string | null
   status?: $Enums.SkillStatus
   dueAt?: Date | string | null
   stability?: number | null
@@ -568,6 +596,8 @@ export type SkillUpdateInput = {
   examples?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   exerciseConstraints?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   tags?: Prisma.SkillUpdatetagsInput | string[]
+  similarityEmbeddingModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  similarityEmbeddingFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumSkillStatusFieldUpdateOperationsInput | $Enums.SkillStatus
   dueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   stability?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
@@ -601,6 +631,8 @@ export type SkillUncheckedUpdateInput = {
   examples?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   exerciseConstraints?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   tags?: Prisma.SkillUpdatetagsInput | string[]
+  similarityEmbeddingModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  similarityEmbeddingFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumSkillStatusFieldUpdateOperationsInput | $Enums.SkillStatus
   dueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   stability?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
@@ -632,6 +664,8 @@ export type SkillCreateManyInput = {
   examples?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   exerciseConstraints?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   tags?: Prisma.SkillCreatetagsInput | string[]
+  similarityEmbeddingModel?: string | null
+  similarityEmbeddingFingerprint?: string | null
   status?: $Enums.SkillStatus
   dueAt?: Date | string | null
   stability?: number | null
@@ -655,6 +689,8 @@ export type SkillUpdateManyMutationInput = {
   examples?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   exerciseConstraints?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   tags?: Prisma.SkillUpdatetagsInput | string[]
+  similarityEmbeddingModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  similarityEmbeddingFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumSkillStatusFieldUpdateOperationsInput | $Enums.SkillStatus
   dueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   stability?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
@@ -680,6 +716,8 @@ export type SkillUncheckedUpdateManyInput = {
   examples?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   exerciseConstraints?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   tags?: Prisma.SkillUpdatetagsInput | string[]
+  similarityEmbeddingModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  similarityEmbeddingFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumSkillStatusFieldUpdateOperationsInput | $Enums.SkillStatus
   dueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   stability?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
@@ -720,6 +758,8 @@ export type SkillCountOrderByAggregateInput = {
   examples?: Prisma.SortOrder
   exerciseConstraints?: Prisma.SortOrder
   tags?: Prisma.SortOrder
+  similarityEmbeddingModel?: Prisma.SortOrder
+  similarityEmbeddingFingerprint?: Prisma.SortOrder
   status?: Prisma.SortOrder
   dueAt?: Prisma.SortOrder
   stability?: Prisma.SortOrder
@@ -751,6 +791,8 @@ export type SkillMaxOrderByAggregateInput = {
   collectionId?: Prisma.SortOrder
   title?: Prisma.SortOrder
   objective?: Prisma.SortOrder
+  similarityEmbeddingModel?: Prisma.SortOrder
+  similarityEmbeddingFingerprint?: Prisma.SortOrder
   status?: Prisma.SortOrder
   dueAt?: Prisma.SortOrder
   stability?: Prisma.SortOrder
@@ -772,6 +814,8 @@ export type SkillMinOrderByAggregateInput = {
   collectionId?: Prisma.SortOrder
   title?: Prisma.SortOrder
   objective?: Prisma.SortOrder
+  similarityEmbeddingModel?: Prisma.SortOrder
+  similarityEmbeddingFingerprint?: Prisma.SortOrder
   status?: Prisma.SortOrder
   dueAt?: Prisma.SortOrder
   stability?: Prisma.SortOrder
@@ -1010,6 +1054,8 @@ export type SkillCreateWithoutUserInput = {
   examples?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   exerciseConstraints?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   tags?: Prisma.SkillCreatetagsInput | string[]
+  similarityEmbeddingModel?: string | null
+  similarityEmbeddingFingerprint?: string | null
   status?: $Enums.SkillStatus
   dueAt?: Date | string | null
   stability?: number | null
@@ -1041,6 +1087,8 @@ export type SkillUncheckedCreateWithoutUserInput = {
   examples?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   exerciseConstraints?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   tags?: Prisma.SkillCreatetagsInput | string[]
+  similarityEmbeddingModel?: string | null
+  similarityEmbeddingFingerprint?: string | null
   status?: $Enums.SkillStatus
   dueAt?: Date | string | null
   stability?: number | null
@@ -1101,6 +1149,8 @@ export type SkillScalarWhereInput = {
   examples?: Prisma.JsonNullableFilter<"Skill">
   exerciseConstraints?: Prisma.JsonNullableFilter<"Skill">
   tags?: Prisma.StringNullableListFilter<"Skill">
+  similarityEmbeddingModel?: Prisma.StringNullableFilter<"Skill"> | string | null
+  similarityEmbeddingFingerprint?: Prisma.StringNullableFilter<"Skill"> | string | null
   status?: Prisma.EnumSkillStatusFilter<"Skill"> | $Enums.SkillStatus
   dueAt?: Prisma.DateTimeNullableFilter<"Skill"> | Date | string | null
   stability?: Prisma.FloatNullableFilter<"Skill"> | number | null
@@ -1124,6 +1174,8 @@ export type SkillCreateWithoutCollectionInput = {
   examples?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   exerciseConstraints?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   tags?: Prisma.SkillCreatetagsInput | string[]
+  similarityEmbeddingModel?: string | null
+  similarityEmbeddingFingerprint?: string | null
   status?: $Enums.SkillStatus
   dueAt?: Date | string | null
   stability?: number | null
@@ -1154,6 +1206,8 @@ export type SkillUncheckedCreateWithoutCollectionInput = {
   examples?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   exerciseConstraints?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   tags?: Prisma.SkillCreatetagsInput | string[]
+  similarityEmbeddingModel?: string | null
+  similarityEmbeddingFingerprint?: string | null
   status?: $Enums.SkillStatus
   dueAt?: Date | string | null
   stability?: number | null
@@ -1209,6 +1263,8 @@ export type SkillCreateWithoutDraftBatchItemsInput = {
   examples?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   exerciseConstraints?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   tags?: Prisma.SkillCreatetagsInput | string[]
+  similarityEmbeddingModel?: string | null
+  similarityEmbeddingFingerprint?: string | null
   status?: $Enums.SkillStatus
   dueAt?: Date | string | null
   stability?: number | null
@@ -1241,6 +1297,8 @@ export type SkillUncheckedCreateWithoutDraftBatchItemsInput = {
   examples?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   exerciseConstraints?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   tags?: Prisma.SkillCreatetagsInput | string[]
+  similarityEmbeddingModel?: string | null
+  similarityEmbeddingFingerprint?: string | null
   status?: $Enums.SkillStatus
   dueAt?: Date | string | null
   stability?: number | null
@@ -1285,6 +1343,8 @@ export type SkillUpdateWithoutDraftBatchItemsInput = {
   examples?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   exerciseConstraints?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   tags?: Prisma.SkillUpdatetagsInput | string[]
+  similarityEmbeddingModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  similarityEmbeddingFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumSkillStatusFieldUpdateOperationsInput | $Enums.SkillStatus
   dueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   stability?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
@@ -1317,6 +1377,8 @@ export type SkillUncheckedUpdateWithoutDraftBatchItemsInput = {
   examples?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   exerciseConstraints?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   tags?: Prisma.SkillUpdatetagsInput | string[]
+  similarityEmbeddingModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  similarityEmbeddingFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumSkillStatusFieldUpdateOperationsInput | $Enums.SkillStatus
   dueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   stability?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
@@ -1345,6 +1407,8 @@ export type SkillCreateWithoutSourceRefsInput = {
   examples?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   exerciseConstraints?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   tags?: Prisma.SkillCreatetagsInput | string[]
+  similarityEmbeddingModel?: string | null
+  similarityEmbeddingFingerprint?: string | null
   status?: $Enums.SkillStatus
   dueAt?: Date | string | null
   stability?: number | null
@@ -1377,6 +1441,8 @@ export type SkillUncheckedCreateWithoutSourceRefsInput = {
   examples?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   exerciseConstraints?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   tags?: Prisma.SkillCreatetagsInput | string[]
+  similarityEmbeddingModel?: string | null
+  similarityEmbeddingFingerprint?: string | null
   status?: $Enums.SkillStatus
   dueAt?: Date | string | null
   stability?: number | null
@@ -1421,6 +1487,8 @@ export type SkillUpdateWithoutSourceRefsInput = {
   examples?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   exerciseConstraints?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   tags?: Prisma.SkillUpdatetagsInput | string[]
+  similarityEmbeddingModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  similarityEmbeddingFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumSkillStatusFieldUpdateOperationsInput | $Enums.SkillStatus
   dueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   stability?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
@@ -1453,6 +1521,8 @@ export type SkillUncheckedUpdateWithoutSourceRefsInput = {
   examples?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   exerciseConstraints?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   tags?: Prisma.SkillUpdatetagsInput | string[]
+  similarityEmbeddingModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  similarityEmbeddingFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumSkillStatusFieldUpdateOperationsInput | $Enums.SkillStatus
   dueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   stability?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
@@ -1481,6 +1551,8 @@ export type SkillCreateWithoutExercisesInput = {
   examples?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   exerciseConstraints?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   tags?: Prisma.SkillCreatetagsInput | string[]
+  similarityEmbeddingModel?: string | null
+  similarityEmbeddingFingerprint?: string | null
   status?: $Enums.SkillStatus
   dueAt?: Date | string | null
   stability?: number | null
@@ -1513,6 +1585,8 @@ export type SkillUncheckedCreateWithoutExercisesInput = {
   examples?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   exerciseConstraints?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   tags?: Prisma.SkillCreatetagsInput | string[]
+  similarityEmbeddingModel?: string | null
+  similarityEmbeddingFingerprint?: string | null
   status?: $Enums.SkillStatus
   dueAt?: Date | string | null
   stability?: number | null
@@ -1557,6 +1631,8 @@ export type SkillUpdateWithoutExercisesInput = {
   examples?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   exerciseConstraints?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   tags?: Prisma.SkillUpdatetagsInput | string[]
+  similarityEmbeddingModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  similarityEmbeddingFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumSkillStatusFieldUpdateOperationsInput | $Enums.SkillStatus
   dueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   stability?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
@@ -1589,6 +1665,8 @@ export type SkillUncheckedUpdateWithoutExercisesInput = {
   examples?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   exerciseConstraints?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   tags?: Prisma.SkillUpdatetagsInput | string[]
+  similarityEmbeddingModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  similarityEmbeddingFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumSkillStatusFieldUpdateOperationsInput | $Enums.SkillStatus
   dueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   stability?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
@@ -1617,6 +1695,8 @@ export type SkillCreateWithoutAttemptsInput = {
   examples?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   exerciseConstraints?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   tags?: Prisma.SkillCreatetagsInput | string[]
+  similarityEmbeddingModel?: string | null
+  similarityEmbeddingFingerprint?: string | null
   status?: $Enums.SkillStatus
   dueAt?: Date | string | null
   stability?: number | null
@@ -1649,6 +1729,8 @@ export type SkillUncheckedCreateWithoutAttemptsInput = {
   examples?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   exerciseConstraints?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   tags?: Prisma.SkillCreatetagsInput | string[]
+  similarityEmbeddingModel?: string | null
+  similarityEmbeddingFingerprint?: string | null
   status?: $Enums.SkillStatus
   dueAt?: Date | string | null
   stability?: number | null
@@ -1693,6 +1775,8 @@ export type SkillUpdateWithoutAttemptsInput = {
   examples?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   exerciseConstraints?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   tags?: Prisma.SkillUpdatetagsInput | string[]
+  similarityEmbeddingModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  similarityEmbeddingFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumSkillStatusFieldUpdateOperationsInput | $Enums.SkillStatus
   dueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   stability?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
@@ -1725,6 +1809,8 @@ export type SkillUncheckedUpdateWithoutAttemptsInput = {
   examples?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   exerciseConstraints?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   tags?: Prisma.SkillUpdatetagsInput | string[]
+  similarityEmbeddingModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  similarityEmbeddingFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumSkillStatusFieldUpdateOperationsInput | $Enums.SkillStatus
   dueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   stability?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
@@ -1753,6 +1839,8 @@ export type SkillCreateWithoutReviewLogsInput = {
   examples?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   exerciseConstraints?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   tags?: Prisma.SkillCreatetagsInput | string[]
+  similarityEmbeddingModel?: string | null
+  similarityEmbeddingFingerprint?: string | null
   status?: $Enums.SkillStatus
   dueAt?: Date | string | null
   stability?: number | null
@@ -1785,6 +1873,8 @@ export type SkillUncheckedCreateWithoutReviewLogsInput = {
   examples?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   exerciseConstraints?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   tags?: Prisma.SkillCreatetagsInput | string[]
+  similarityEmbeddingModel?: string | null
+  similarityEmbeddingFingerprint?: string | null
   status?: $Enums.SkillStatus
   dueAt?: Date | string | null
   stability?: number | null
@@ -1829,6 +1919,8 @@ export type SkillUpdateWithoutReviewLogsInput = {
   examples?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   exerciseConstraints?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   tags?: Prisma.SkillUpdatetagsInput | string[]
+  similarityEmbeddingModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  similarityEmbeddingFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumSkillStatusFieldUpdateOperationsInput | $Enums.SkillStatus
   dueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   stability?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
@@ -1861,6 +1953,8 @@ export type SkillUncheckedUpdateWithoutReviewLogsInput = {
   examples?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   exerciseConstraints?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   tags?: Prisma.SkillUpdatetagsInput | string[]
+  similarityEmbeddingModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  similarityEmbeddingFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumSkillStatusFieldUpdateOperationsInput | $Enums.SkillStatus
   dueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   stability?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
@@ -1889,6 +1983,8 @@ export type SkillCreateWithoutGenerationJobsInput = {
   examples?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   exerciseConstraints?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   tags?: Prisma.SkillCreatetagsInput | string[]
+  similarityEmbeddingModel?: string | null
+  similarityEmbeddingFingerprint?: string | null
   status?: $Enums.SkillStatus
   dueAt?: Date | string | null
   stability?: number | null
@@ -1921,6 +2017,8 @@ export type SkillUncheckedCreateWithoutGenerationJobsInput = {
   examples?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   exerciseConstraints?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   tags?: Prisma.SkillCreatetagsInput | string[]
+  similarityEmbeddingModel?: string | null
+  similarityEmbeddingFingerprint?: string | null
   status?: $Enums.SkillStatus
   dueAt?: Date | string | null
   stability?: number | null
@@ -1965,6 +2063,8 @@ export type SkillUpdateWithoutGenerationJobsInput = {
   examples?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   exerciseConstraints?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   tags?: Prisma.SkillUpdatetagsInput | string[]
+  similarityEmbeddingModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  similarityEmbeddingFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumSkillStatusFieldUpdateOperationsInput | $Enums.SkillStatus
   dueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   stability?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
@@ -1997,6 +2097,8 @@ export type SkillUncheckedUpdateWithoutGenerationJobsInput = {
   examples?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   exerciseConstraints?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   tags?: Prisma.SkillUpdatetagsInput | string[]
+  similarityEmbeddingModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  similarityEmbeddingFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumSkillStatusFieldUpdateOperationsInput | $Enums.SkillStatus
   dueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   stability?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
@@ -2026,6 +2128,8 @@ export type SkillCreateManyUserInput = {
   examples?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   exerciseConstraints?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   tags?: Prisma.SkillCreatetagsInput | string[]
+  similarityEmbeddingModel?: string | null
+  similarityEmbeddingFingerprint?: string | null
   status?: $Enums.SkillStatus
   dueAt?: Date | string | null
   stability?: number | null
@@ -2049,6 +2153,8 @@ export type SkillUpdateWithoutUserInput = {
   examples?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   exerciseConstraints?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   tags?: Prisma.SkillUpdatetagsInput | string[]
+  similarityEmbeddingModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  similarityEmbeddingFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumSkillStatusFieldUpdateOperationsInput | $Enums.SkillStatus
   dueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   stability?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
@@ -2080,6 +2186,8 @@ export type SkillUncheckedUpdateWithoutUserInput = {
   examples?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   exerciseConstraints?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   tags?: Prisma.SkillUpdatetagsInput | string[]
+  similarityEmbeddingModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  similarityEmbeddingFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumSkillStatusFieldUpdateOperationsInput | $Enums.SkillStatus
   dueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   stability?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
@@ -2110,6 +2218,8 @@ export type SkillUncheckedUpdateManyWithoutUserInput = {
   examples?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   exerciseConstraints?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   tags?: Prisma.SkillUpdatetagsInput | string[]
+  similarityEmbeddingModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  similarityEmbeddingFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumSkillStatusFieldUpdateOperationsInput | $Enums.SkillStatus
   dueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   stability?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
@@ -2133,6 +2243,8 @@ export type SkillCreateManyCollectionInput = {
   examples?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   exerciseConstraints?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   tags?: Prisma.SkillCreatetagsInput | string[]
+  similarityEmbeddingModel?: string | null
+  similarityEmbeddingFingerprint?: string | null
   status?: $Enums.SkillStatus
   dueAt?: Date | string | null
   stability?: number | null
@@ -2156,6 +2268,8 @@ export type SkillUpdateWithoutCollectionInput = {
   examples?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   exerciseConstraints?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   tags?: Prisma.SkillUpdatetagsInput | string[]
+  similarityEmbeddingModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  similarityEmbeddingFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumSkillStatusFieldUpdateOperationsInput | $Enums.SkillStatus
   dueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   stability?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
@@ -2186,6 +2300,8 @@ export type SkillUncheckedUpdateWithoutCollectionInput = {
   examples?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   exerciseConstraints?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   tags?: Prisma.SkillUpdatetagsInput | string[]
+  similarityEmbeddingModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  similarityEmbeddingFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumSkillStatusFieldUpdateOperationsInput | $Enums.SkillStatus
   dueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   stability?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
@@ -2215,6 +2331,8 @@ export type SkillUncheckedUpdateManyWithoutCollectionInput = {
   examples?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   exerciseConstraints?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   tags?: Prisma.SkillUpdatetagsInput | string[]
+  similarityEmbeddingModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  similarityEmbeddingFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumSkillStatusFieldUpdateOperationsInput | $Enums.SkillStatus
   dueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   stability?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
@@ -2316,6 +2434,8 @@ export type SkillSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   examples?: boolean
   exerciseConstraints?: boolean
   tags?: boolean
+  similarityEmbeddingModel?: boolean
+  similarityEmbeddingFingerprint?: boolean
   status?: boolean
   dueAt?: boolean
   stability?: boolean
@@ -2350,6 +2470,8 @@ export type SkillSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensi
   examples?: boolean
   exerciseConstraints?: boolean
   tags?: boolean
+  similarityEmbeddingModel?: boolean
+  similarityEmbeddingFingerprint?: boolean
   status?: boolean
   dueAt?: boolean
   stability?: boolean
@@ -2377,6 +2499,8 @@ export type SkillSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensi
   examples?: boolean
   exerciseConstraints?: boolean
   tags?: boolean
+  similarityEmbeddingModel?: boolean
+  similarityEmbeddingFingerprint?: boolean
   status?: boolean
   dueAt?: boolean
   stability?: boolean
@@ -2404,6 +2528,8 @@ export type SkillSelectScalar = {
   examples?: boolean
   exerciseConstraints?: boolean
   tags?: boolean
+  similarityEmbeddingModel?: boolean
+  similarityEmbeddingFingerprint?: boolean
   status?: boolean
   dueAt?: boolean
   stability?: boolean
@@ -2419,7 +2545,7 @@ export type SkillSelectScalar = {
   updatedAt?: boolean
 }
 
-export type SkillOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "collectionId" | "title" | "objective" | "rules" | "examples" | "exerciseConstraints" | "tags" | "status" | "dueAt" | "stability" | "difficulty" | "elapsedDays" | "scheduledDays" | "learningSteps" | "repetitions" | "lapses" | "fsrsState" | "lastReviewedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["skill"]>
+export type SkillOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "collectionId" | "title" | "objective" | "rules" | "examples" | "exerciseConstraints" | "tags" | "similarityEmbeddingModel" | "similarityEmbeddingFingerprint" | "status" | "dueAt" | "stability" | "difficulty" | "elapsedDays" | "scheduledDays" | "learningSteps" | "repetitions" | "lapses" | "fsrsState" | "lastReviewedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["skill"]>
 export type SkillInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   collection?: boolean | Prisma.Skill$collectionArgs<ExtArgs>
@@ -2462,6 +2588,8 @@ export type $SkillPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs 
     examples: runtime.JsonValue | null
     exerciseConstraints: runtime.JsonValue | null
     tags: string[]
+    similarityEmbeddingModel: string | null
+    similarityEmbeddingFingerprint: string | null
     status: $Enums.SkillStatus
     dueAt: Date | null
     stability: number | null
@@ -2915,6 +3043,8 @@ export interface SkillFieldRefs {
   readonly examples: Prisma.FieldRef<"Skill", 'Json'>
   readonly exerciseConstraints: Prisma.FieldRef<"Skill", 'Json'>
   readonly tags: Prisma.FieldRef<"Skill", 'String[]'>
+  readonly similarityEmbeddingModel: Prisma.FieldRef<"Skill", 'String'>
+  readonly similarityEmbeddingFingerprint: Prisma.FieldRef<"Skill", 'String'>
   readonly status: Prisma.FieldRef<"Skill", 'SkillStatus'>
   readonly dueAt: Prisma.FieldRef<"Skill", 'DateTime'>
   readonly stability: Prisma.FieldRef<"Skill", 'Float'>

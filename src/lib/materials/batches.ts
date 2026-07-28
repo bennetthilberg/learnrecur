@@ -83,6 +83,16 @@ import {
   type SourceMediaContextLoader,
 } from "@/lib/skills";
 import {
+  buildSkillDuplicateCandidateFingerprint,
+  buildSkillSimilarityFingerprint,
+  findSimilarSkillsForUser,
+  normalizeSkillSimilarityText,
+  rankSkillSimilarityMatches,
+  type SkillSimilarityEmbeddingGenerator,
+  type SkillSimilarityMatch,
+  type SkillSimilarityPreview,
+} from "@/lib/skills/similarity";
+import {
   DEFAULT_GEMINI_MODEL,
   getPublicGeminiScopePlanningFailureMessage,
 } from "@/lib/gemini";
@@ -266,15 +276,10 @@ export async function confirmMaterialPlan(input: {
       message: "The submitted scope no longer matches the reviewed plan. Review it again.",
     };
   }
-  const itemsToQueue = alreadyConfirmed
-    ? batch.items.filter((item) => item.status === SkillDraftBatchItemStatus.PLANNED)
-    : proposed.data.items.filter((item) => !item.overlapSkillId);
-  if (itemsToQueue.length > 0) {
-    const env = getInngestEnvStatus();
-    if (env.status === "missing-env" && !input.eventSender) {
-      return { status: "not-queued" as const, message: env.message };
-    }
-  }
+  const createSeparatelyTargetKeys = new Set(
+    parsed.data.createSeparatelyTargetKeys ?? [],
+  );
+  const env = getInngestEnvStatus();
 
   const confirmation = await prisma.$transaction(async (tx) => {
     await tx.$queryRaw`
@@ -301,14 +306,86 @@ export async function confirmMaterialPlan(input: {
       return { status: "invalid" as const };
     }
     if (lockedBatch.items.length > 0) {
+      if (
+        lockedBatch.items.some(
+          (item) => item.status === SkillDraftBatchItemStatus.PLANNED,
+        ) &&
+        env.status === "missing-env" &&
+        !input.eventSender
+      ) {
+        return { status: "not-queued" as const };
+      }
       return {
         status: "ready" as const,
         items: lockedBatch.items,
         alreadyConfirmed: lockedAlreadyConfirmed,
       };
     }
+    const overlapSkillIds = [
+      ...new Set(
+        lockedPlan.data.items.flatMap((item) =>
+          item.overlapSkillId ? [item.overlapSkillId] : [],
+        ),
+      ),
+    ];
+    const lockedOverlapSkills =
+      overlapSkillIds.length > 0
+        ? await tx.$queryRaw<
+            Array<{
+              id: string;
+              title: string;
+              objective: string | null;
+              status: SkillStatus;
+            }>
+          >(
+            Prisma.sql`
+              SELECT "id", "title", "objective", "status" FROM "skills"
+              WHERE "userId" = ${input.userId}
+                AND "id" IN (${Prisma.join(overlapSkillIds)})
+              ORDER BY "id"
+              FOR UPDATE
+            `,
+          )
+        : [];
+    const currentOverlapSkillById = new Map(
+      lockedOverlapSkills.map((skill) => [skill.id, skill]),
+    );
+    const willQueueItem = lockedPlan.data.items.some((item) => {
+      if (!item.overlapSkillId || !item.overlapSkillFingerprint) {
+        return true;
+      }
+      const currentSkill = currentOverlapSkillById.get(item.overlapSkillId);
+      return (
+        !currentSkill ||
+        buildSkillSimilarityFingerprint(currentSkill) !==
+          item.overlapSkillFingerprint ||
+        createSeparatelyTargetKeys.has(item.key)
+      );
+    });
+    if (
+      willQueueItem &&
+      env.status === "missing-env" &&
+      !input.eventSender
+    ) {
+      return { status: "not-queued" as const };
+    }
     const rows = [];
     for (const [ordinal, item] of lockedPlan.data.items.entries()) {
+      const currentOverlapSkill = item.overlapSkillId
+        ? currentOverlapSkillById.get(item.overlapSkillId)
+        : undefined;
+      const overlapSkill =
+        currentOverlapSkill &&
+        item.overlapSkillFingerprint &&
+        buildSkillSimilarityFingerprint(currentOverlapSkill) ===
+          item.overlapSkillFingerprint
+          ? currentOverlapSkill
+          : null;
+      const overlapSkillId = overlapSkill?.id ?? null;
+      const createSeparately =
+        createSeparatelyTargetKeys.has(item.key) ||
+        Boolean(item.overlapSkillId && !overlapSkillId);
+      const useExisting = Boolean(overlapSkillId && !createSeparately);
       rows.push(
         await tx.skillDraftBatchItem.create({
           data: {
@@ -319,17 +396,31 @@ export async function confirmMaterialPlan(input: {
             proposedTitle: item.title,
             proposedObjective: item.objective,
             locator: toInputJson(item.locator),
-            status: item.overlapSkillId
+            status: useExisting
               ? SkillDraftBatchItemStatus.EXCLUDED
               : SkillDraftBatchItemStatus.PLANNED,
-            overlapSkillId: item.overlapSkillId ?? null,
-            errorCode: item.overlapSkillId ? "EXACT_DUPLICATE" : null,
-            errorMessage: item.overlapWarning ?? null,
+            overlapSkillId,
+            errorCode: useExisting ? "DUPLICATE_USE_EXISTING" : null,
+            errorMessage:
+              useExisting && overlapSkill
+                ? duplicateUseExistingMessage(overlapSkill)
+                : null,
             generationMetadata: {
               scopeBoundaries: {
                 includeConcepts: item.includeConcepts ?? [],
                 excludeConcepts: item.excludeConcepts ?? [],
               },
+              ...(overlapSkillId
+                ? {
+                    duplicateMatch: {
+                      skillId: overlapSkillId,
+                      skillFingerprint: item.overlapSkillFingerprint,
+                      confidence: item.overlapConfidence ?? "exact",
+                      score: item.overlapScore ?? 1,
+                      userOverride: createSeparately,
+                    },
+                  }
+                : {}),
             },
           },
         }),
@@ -362,6 +453,15 @@ export async function confirmMaterialPlan(input: {
     return {
       status: "invalid" as const,
       message: "The submitted scope no longer matches the reviewed plan. Review it again.",
+    };
+  }
+  if (confirmation.status === "not-queued") {
+    return {
+      status: "not-queued" as const,
+      message:
+        env.status === "missing-env"
+          ? env.message
+          : "Background processing is not available. Try again shortly.",
     };
   }
   const createdItems = confirmation.items;
@@ -444,6 +544,7 @@ export async function runMaterialDraftItemJob(input: {
       proposedObjective: true,
       locator: true,
       generationMetadata: true,
+      overlapSkillId: true,
       skillId: true,
       skill: { select: { id: true } },
       batch: {
@@ -762,6 +863,7 @@ export async function runMaterialDraftItemJob(input: {
         code: generated.reason.toUpperCase().replaceAll("-", "_"),
         message: generated.message,
         generationMetadata: toInputJson({
+          ...baseGenerationMetadata,
           model: ai.model,
           verification: "rejected",
           attemptsThisRun: totalDraftAttempts,
@@ -798,6 +900,11 @@ export async function runMaterialDraftItemJob(input: {
     }
 
     const saved = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`
+        SELECT "id" FROM "users"
+        WHERE "id" = ${input.userId}
+        FOR UPDATE
+      `;
       await tx.$queryRaw`
         SELECT "id" FROM "skill_draft_batch_items"
         WHERE "id" = ${item.id} AND "userId" = ${input.userId}
@@ -836,38 +943,62 @@ export async function runMaterialDraftItemJob(input: {
       await tx.$queryRaw`
         SELECT pg_advisory_xact_lock(hashtext(${item.batch.materialRevision.materialId}))::text AS "lock"
       `;
-      const existingSkills = await tx.skill.findMany({
-        where: {
-          userId: input.userId,
-          sourceRefs: {
-            some: {
-              sourceFile: {
-                materialRevision: { materialId: item.batch.materialRevision.materialId },
-              },
-            },
-          },
-        },
-        select: { id: true, title: true, objective: true },
-      });
-      const duplicate = existingSkills.find(
-        (skill) =>
-          normalizeComparableText(skill.title) === normalizeComparableText(generated.draft.title) &&
-          normalizeComparableText(skill.objective ?? "") ===
-            normalizeComparableText(generated.draft.objective),
+      const existingSkills = await tx.$queryRaw<
+        Array<{
+          id: string;
+          title: string;
+          objective: string | null;
+          status: SkillStatus;
+        }>
+      >`
+        SELECT "id", "title", "objective", "status" FROM "skills"
+        WHERE "userId" = ${input.userId}
+        ORDER BY "id"
+        FOR UPDATE
+      `;
+      const exactDuplicates = existingSkills
+        .filter(
+          (skill) =>
+            normalizeSkillSimilarityText(skill.title) ===
+              normalizeSkillSimilarityText(generated.draft.title) &&
+            normalizeSkillSimilarityText(skill.objective ?? "") ===
+              normalizeSkillSimilarityText(generated.draft.objective),
+        )
+        .toSorted((left, right) => left.id.localeCompare(right.id));
+      const duplicate = exactDuplicates[0];
+      const storedDuplicateMatch = readJsonObject(
+        baseGenerationMetadata.duplicateMatch,
       );
-      if (duplicate) {
+      const explicitlyCreateSeparately =
+        storedDuplicateMatch.userOverride === true &&
+        typeof storedDuplicateMatch.skillId === "string" &&
+        exactDuplicates.some(
+          (skill) =>
+            skill.id === storedDuplicateMatch.skillId &&
+            storedDuplicateMatch.skillFingerprint ===
+              buildSkillSimilarityFingerprint(skill),
+        );
+      if (duplicate && !explicitlyCreateSeparately) {
         await tx.skillDraftBatchItem.update({
           where: { id: item.id },
           data: {
             status: SkillDraftBatchItemStatus.EXCLUDED,
             generationClaimId: null,
             overlapSkillId: duplicate.id,
-            errorCode: "EXACT_DUPLICATE",
-            errorMessage: `An exact skill already exists: ${duplicate.title}.`,
+            errorCode: "DUPLICATE_USE_EXISTING",
+            errorMessage: duplicateUseExistingMessage(duplicate),
             generationMetadata: toInputJson({
+              ...baseGenerationMetadata,
               model: ai.model,
               verification: "verified",
               duplicatePrevented: true,
+              duplicateMatch: {
+                skillId: duplicate.id,
+                skillFingerprint: buildSkillSimilarityFingerprint(duplicate),
+                confidence: "exact",
+                score: 1,
+                userOverride: false,
+              },
               scopeBoundaries,
               targetRepair: targetRepairState,
             }),
@@ -907,6 +1038,7 @@ export async function runMaterialDraftItemJob(input: {
           status: SkillDraftBatchItemStatus.READY,
           generationClaimId: null,
           generationMetadata: toInputJson({
+            ...baseGenerationMetadata,
             model: ai.model,
             verification: "verified",
             attemptsThisRun: totalDraftAttempts,
@@ -1058,6 +1190,7 @@ export async function queueMaterialBatchActivation(input: {
   input: unknown;
   now: Date;
   eventSender?: MaterialBatchActivationEventSender;
+  embeddingGenerator?: SkillSimilarityEmbeddingGenerator | null;
 }) {
   const parsed = activateBatchInputSchema.safeParse(input.input);
   if (!parsed.success) {
@@ -1072,6 +1205,64 @@ export async function queueMaterialBatchActivation(input: {
     return { status: "not-queued" as const, message: env.message };
   }
   const prisma = getPrisma();
+  const candidateItems = await prisma.skillDraftBatchItem.findMany({
+    where: {
+      id: { in: parsed.data.itemIds },
+      batchId: parsed.data.batchId,
+      userId: input.userId,
+      status: SkillDraftBatchItemStatus.READY,
+      skill: { status: SkillStatus.DRAFT },
+    },
+    select: {
+      id: true,
+      skill: {
+        select: { id: true, title: true, objective: true },
+      },
+    },
+  });
+  const similarity = await findSimilarSkillsForUser({
+    userId: input.userId,
+    candidates: candidateItems.flatMap((item) =>
+      item.skill
+        ? [
+            {
+              key: item.id,
+              skillId: item.skill.id,
+              title: item.skill.title,
+              objective: item.skill.objective,
+            },
+          ]
+        : [],
+    ),
+    embeddingGenerator: input.embeddingGenerator,
+  });
+  const preflightMatchByItemId = new Map(
+    similarity.candidates.map((candidate) => [
+      candidate.key,
+      candidate.bestMatch,
+    ]),
+  );
+  const candidateSnapshotByItemId = new Map(
+    candidateItems.flatMap((item) =>
+      item.skill
+        ? [
+            [
+              item.id,
+              {
+                title: item.skill.title,
+                objective: item.skill.objective,
+              },
+            ] as const,
+          ]
+        : [],
+    ),
+  );
+  const createSeparatelySkillIdByItemId = new Map(
+    (parsed.data.createSeparatelyMatches ?? []).map((match) => [
+      match.itemId,
+      match.skillId,
+    ]),
+  );
   const reserve = () => prisma.$transaction(async (tx) => {
     await tx.$queryRaw`
       SELECT "id" FROM "users"
@@ -1094,7 +1285,22 @@ export async function queueMaterialBatchActivation(input: {
       select: {
         id: true,
         status: true,
-        skill: { select: { id: true, status: true } },
+        overlapSkillId: true,
+        errorCode: true,
+        generationMetadata: true,
+        skill: {
+          select: {
+            id: true,
+            title: true,
+            objective: true,
+            collectionId: true,
+            rules: true,
+            examples: true,
+            exerciseConstraints: true,
+            tags: true,
+            status: true,
+          },
+        },
       },
     });
     if (items.length !== parsed.data.itemIds.length) {
@@ -1130,10 +1336,159 @@ export async function queueMaterialBatchActivation(input: {
         message: "These skills are already being added or are active.",
       };
     }
+    const storedSkills = await tx.skill.findMany({
+      where: { userId: input.userId },
+      select: {
+        id: true,
+        title: true,
+        objective: true,
+        status: true,
+        tags: true,
+        collection: { select: { name: true } },
+      },
+    });
+    const similarityPreviews: SkillSimilarityPreview[] = storedSkills.map(
+      (skill) => ({
+        id: skill.id,
+        title: skill.title,
+        objective: skill.objective,
+        status: skill.status,
+        tags: skill.tags,
+        collectionName: skill.collection?.name ?? null,
+      }),
+    );
+    const previewById = new Map(
+      similarityPreviews.map((skill) => [skill.id, skill]),
+    );
+    const reviewItems: Array<{
+      item: (typeof readyItems)[number];
+      match: SkillSimilarityMatch;
+    }> = [];
+    const eligibleReadyItems: (typeof readyItems)[number][] = [];
+    for (const item of readyItems) {
+      if (!item.skill) {
+        continue;
+      }
+      const lexicalMatch =
+        rankSkillSimilarityMatches({
+          candidate: {
+            title: item.skill.title,
+            objective: item.skill.objective,
+          },
+          skills: similarityPreviews.filter(
+            (skill) => skill.id !== item.skill?.id,
+          ),
+          limit: 1,
+        })[0] ?? null;
+      const snapshot = candidateSnapshotByItemId.get(item.id);
+      const preflightMatch = preflightMatchByItemId.get(item.id) ?? null;
+      const preflightStillCurrent =
+        snapshot?.title === item.skill.title &&
+        snapshot.objective === item.skill.objective &&
+        preflightMatch &&
+        previewById.get(preflightMatch.skill.id)?.title ===
+          preflightMatch.skill.title &&
+        previewById.get(preflightMatch.skill.id)?.objective ===
+          preflightMatch.skill.objective;
+      const match = chooseStrongerSkillSimilarityMatch(
+        lexicalMatch,
+        preflightStillCurrent ? preflightMatch : null,
+      );
+      if (!match) {
+        if (
+          item.errorCode === "DUPLICATE_REVIEW_REQUIRED" ||
+          item.overlapSkillId
+        ) {
+          await tx.skillDraftBatchItem.update({
+            where: { id: item.id },
+            data: {
+              overlapSkillId: null,
+              errorCode: null,
+              errorMessage: null,
+              generationMetadata: toInputJson(
+                withoutDuplicateMatchMetadata(item.generationMetadata),
+              ),
+            },
+          });
+        }
+        eligibleReadyItems.push(item);
+        continue;
+      }
+      const storedDuplicateMatch = readJsonObject(
+        readJsonObject(item.generationMetadata).duplicateMatch,
+      );
+      const previouslyOverridden =
+        storedDuplicateMatch.userOverride === true &&
+        storedDuplicateMatch.skillId === match.skill.id &&
+        storedDuplicateMatch.skillFingerprint ===
+          buildSkillSimilarityFingerprint(match.skill) &&
+        (storedDuplicateMatch.candidateFingerprint === undefined ||
+          (storedDuplicateMatch.candidateSkillId === item.skill.id &&
+            storedDuplicateMatch.candidateFingerprint ===
+              buildSkillDuplicateCandidateFingerprint(item.skill)));
+      if (
+        createSeparatelySkillIdByItemId.get(item.id) === match.skill.id ||
+        previouslyOverridden
+      ) {
+        eligibleReadyItems.push(item);
+        await tx.skillDraftBatchItem.update({
+          where: { id: item.id },
+          data: {
+            overlapSkillId: match.skill.id,
+            generationMetadata: toInputJson(
+              withDuplicateMatchMetadata(
+                item.generationMetadata,
+                match,
+                item.skill,
+                true,
+              ),
+            ),
+          },
+        });
+        continue;
+      }
+      reviewItems.push({ item, match });
+      await tx.skillDraftBatchItem.update({
+        where: { id: item.id },
+        data: {
+          overlapSkillId: match.skill.id,
+          errorCode: "DUPLICATE_REVIEW_REQUIRED",
+          errorMessage: duplicateReviewMessage(match),
+          generationMetadata: toInputJson(
+            withDuplicateMatchMetadata(
+              item.generationMetadata,
+              match,
+              item.skill,
+              false,
+            ),
+          ),
+        },
+      });
+    }
+    if (eligibleReadyItems.length === 0) {
+      await reconcileMaterialDraftBatchWithClient(tx, {
+        userId: input.userId,
+        batchId: batch.id,
+        now: input.now,
+      });
+      return {
+        status: "review-required" as const,
+        batchId: batch.id,
+        reviewItemIds: reviewItems.map(({ item }) => item.id),
+        message:
+          reviewItems.length === 1
+            ? "Review the similar skill before adding this draft."
+            : "Review the similar skills before adding these drafts.",
+      };
+    }
     const activeJobs = await tx.generationJob.findMany({
       where: {
         userId: input.userId,
-        skillId: { in: readyItems.flatMap((item) => (item.skill ? [item.skill.id] : [])) },
+        skillId: {
+          in: eligibleReadyItems.flatMap((item) =>
+            item.skill ? [item.skill.id] : [],
+          ),
+        },
         kind: GenerationJobKind.SKILL_ACTIVATION,
         status: { in: [GenerationJobStatus.PENDING, GenerationJobStatus.RUNNING] },
       },
@@ -1142,10 +1497,10 @@ export async function queueMaterialBatchActivation(input: {
     const activeJobBySkillId = new Map(
       activeJobs.flatMap((job) => (job.skillId ? [[job.skillId, job] as const] : [])),
     );
-    const alreadyActivatingItems = readyItems.filter(
+    const alreadyActivatingItems = eligibleReadyItems.filter(
       (item) => item.skill && activeJobBySkillId.has(item.skill.id),
     );
-    const reservableItems = readyItems.filter(
+    const reservableItems = eligibleReadyItems.filter(
       (item) => !item.skill || !activeJobBySkillId.has(item.skill.id),
     );
     for (const item of alreadyActivatingItems) {
@@ -1278,7 +1633,12 @@ export async function queueMaterialBatchActivation(input: {
       batchId: batch.id,
       now: input.now,
     });
-    return { status: "reserved" as const, batchId: batch.id, reservations };
+    return {
+      status: "reserved" as const,
+      batchId: batch.id,
+      reservations,
+      reviewItemIds: reviewItems.map(({ item }) => item.id),
+    };
   });
   let reservation: Awaited<ReturnType<typeof reserve>>;
   try {
@@ -1342,12 +1702,16 @@ export async function queueMaterialBatchActivation(input: {
   }
   const failedItemIds = failed.map((item) => item.itemId);
   return {
-    status: failed.length > 0 ? ("partial" as const) : ("queued" as const),
+    status:
+      failed.length > 0 || reservation.reviewItemIds.length > 0
+        ? ("partial" as const)
+        : ("queued" as const),
     batchId: reservation.batchId,
     queuedItemIds: payloads
       .map((payload) => payload.itemId)
       .filter((itemId) => !failedItemIds.includes(itemId)),
     failedItemIds,
+    reviewItemIds: reservation.reviewItemIds,
   };
 }
 
@@ -1856,9 +2220,47 @@ export async function excludeMaterialDraftItem(input: {
   batchId: string;
   itemId: string;
   now: Date;
-}) {
+} & (
+  | {
+      intent?: "exclude";
+      expectedCandidateId?: never;
+      expectedCandidateFingerprint?: never;
+      expectedMatchId?: never;
+      expectedMatchFingerprint?: never;
+    }
+  | {
+      intent: "use-existing";
+      expectedCandidateId: string;
+      expectedCandidateFingerprint: string;
+      expectedMatchId: string;
+      expectedMatchFingerprint: string;
+    }
+)) {
   const prisma = getPrisma();
+  const useExisting = input.intent === "use-existing";
+  const expectedMatchId = useExisting ? input.expectedMatchId : null;
+  const expectedMatchFingerprint = useExisting
+    ? input.expectedMatchFingerprint
+    : null;
+  const expectedCandidateId = useExisting
+    ? input.expectedCandidateId
+    : null;
+  const expectedCandidateFingerprint = useExisting
+    ? input.expectedCandidateFingerprint
+    : null;
   const result = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`
+      SELECT "id" FROM "users"
+      WHERE "id" = ${input.userId}
+      FOR UPDATE
+    `;
+    await tx.$queryRaw`
+      SELECT "id" FROM "skill_draft_batch_items"
+      WHERE "id" = ${input.itemId}
+        AND "batchId" = ${input.batchId}
+        AND "userId" = ${input.userId}
+      FOR UPDATE
+    `;
     const item = await tx.skillDraftBatchItem.findFirst({
       where: {
         id: input.itemId,
@@ -1869,22 +2271,123 @@ export async function excludeMaterialDraftItem(input: {
       select: {
         id: true,
         skillId: true,
+        overlapSkillId: true,
+        errorCode: true,
+        generationMetadata: true,
         skill: { select: { id: true, status: true } },
       },
     });
     if (!item) {
       return { status: "not-found" as const };
     }
+    let existingMatch:
+      | {
+          id: string;
+          title: string;
+          objective: string | null;
+          status: SkillStatus;
+        }
+      | undefined;
+    let lockedDraftSkillStatus: SkillStatus | undefined;
+    if (useExisting) {
+      const storedMatch = readJsonObject(
+        readJsonObject(item.generationMetadata).duplicateMatch,
+      );
+      if (
+        item.errorCode !== "DUPLICATE_REVIEW_REQUIRED" ||
+        !item.overlapSkillId ||
+        item.overlapSkillId !== expectedMatchId ||
+        storedMatch.skillId !== expectedMatchId ||
+        storedMatch.skillFingerprint !== expectedMatchFingerprint
+      ) {
+        return { status: "match-changed" as const };
+      }
+      if (
+        !item.skillId ||
+        item.skillId !== expectedCandidateId ||
+        storedMatch.candidateSkillId !== expectedCandidateId ||
+        storedMatch.candidateFingerprint !== expectedCandidateFingerprint
+      ) {
+        return { status: "draft-changed" as const };
+      }
+      const skillIdsToLock = [
+        ...new Set(
+          [expectedMatchId, item.skillId].filter(
+            (skillId): skillId is string => Boolean(skillId),
+          ),
+        ),
+      ].sort();
+      const lockedSkills = await tx.$queryRaw<
+        Array<{
+          id: string;
+          title: string;
+          objective: string | null;
+          collectionId: string | null;
+          rules: unknown;
+          examples: unknown;
+          exerciseConstraints: unknown;
+          tags: string[];
+          status: SkillStatus;
+        }>
+      >(
+        Prisma.sql`
+          SELECT
+            "id",
+            "title",
+            "objective",
+            "collectionId",
+            "rules",
+            "examples",
+            "exerciseConstraints",
+            "tags",
+            "status"
+          FROM "skills"
+          WHERE "userId" = ${input.userId}
+            AND "id" IN (${Prisma.join(skillIdsToLock)})
+          ORDER BY "id"
+          FOR UPDATE
+        `,
+      );
+      existingMatch = lockedSkills.find(
+        (skill) => skill.id === expectedMatchId,
+      );
+      lockedDraftSkillStatus = lockedSkills.find(
+        (skill) => skill.id === item.skillId,
+      )?.status;
+      if (!existingMatch) {
+        return { status: "match-not-found" as const };
+      }
+      if (
+        buildSkillSimilarityFingerprint(existingMatch) !==
+        expectedMatchFingerprint
+      ) {
+        return { status: "match-changed" as const };
+      }
+      const lockedDraftSkill = lockedSkills.find(
+        (skill) => skill.id === expectedCandidateId,
+      );
+      if (
+        !lockedDraftSkill ||
+        buildSkillDuplicateCandidateFingerprint(lockedDraftSkill) !==
+          expectedCandidateFingerprint
+      ) {
+        return { status: "draft-changed" as const };
+      }
+    }
     if (item.skillId) {
-      const lockedSkills = await tx.$queryRaw<Array<{ status: SkillStatus }>>`
-        SELECT "status" FROM "skills"
-        WHERE "id" = ${item.skillId} AND "userId" = ${input.userId}
-        FOR UPDATE
-      `;
+      const lockedSkillStatus =
+        lockedDraftSkillStatus ??
+        (
+          await tx.$queryRaw<Array<{ status: SkillStatus }>>`
+            SELECT "status" FROM "skills"
+            WHERE "id" = ${item.skillId} AND "userId" = ${input.userId}
+            FOR UPDATE
+          `
+        )[0]?.status;
       if (
         !item.skill ||
         item.skill.status !== SkillStatus.DRAFT ||
-        lockedSkills[0]?.status !== SkillStatus.DRAFT
+        lockedSkillStatus !== SkillStatus.DRAFT
       ) {
         return { status: "skill-not-draft" as const };
       }
@@ -1923,8 +2426,19 @@ export async function excludeMaterialDraftItem(input: {
       data: {
         skillId: null,
         status: SkillDraftBatchItemStatus.EXCLUDED,
-        errorCode: null,
-        errorMessage: null,
+        overlapSkillId: useExisting ? expectedMatchId : null,
+        errorCode: useExisting ? "DUPLICATE_USE_EXISTING" : null,
+        errorMessage:
+          useExisting && existingMatch
+            ? duplicateUseExistingMessage(existingMatch)
+            : null,
+        ...(!useExisting
+          ? {
+              generationMetadata: toInputJson(
+                withoutDuplicateMatchMetadata(item.generationMetadata),
+              ),
+            }
+          : {}),
       },
     });
     return { status: "excluded" as const };
@@ -1937,6 +2451,30 @@ export async function excludeMaterialDraftItem(input: {
       status: "not-excluded" as const,
       reason: "skill-not-draft" as const,
       message: "This skill is already active or changed outside the batch and cannot be excluded.",
+    };
+  }
+  if (result.status === "match-not-found") {
+    return {
+      status: "not-excluded" as const,
+      reason: "match-not-found" as const,
+      message:
+        "The existing skill is no longer available. Your generated draft was kept; check and add it if it is distinct.",
+    };
+  }
+  if (result.status === "match-changed") {
+    return {
+      status: "not-excluded" as const,
+      reason: "match-changed" as const,
+      message:
+        "The existing skill changed after you reviewed it. Your draft was kept; refresh the batch and compare them again.",
+    };
+  }
+  if (result.status === "draft-changed") {
+    return {
+      status: "not-excluded" as const,
+      reason: "draft-changed" as const,
+      message:
+        "This draft changed after the duplicate check. It was kept; refresh the batch and check it again.",
     };
   }
   if (result.status === "activation-in-progress") {
@@ -2098,6 +2636,7 @@ export async function getMaterialDraftBatch(input: { userId: string; batchId: st
               id: true,
               title: true,
               objective: true,
+              collectionId: true,
               collection: { select: { name: true } },
               rules: true,
               examples: true,
@@ -2108,6 +2647,30 @@ export async function getMaterialDraftBatch(input: { userId: string; batchId: st
           },
         },
       },
+    },
+  });
+}
+
+export async function getMaterialDuplicateSkillPreviews(input: {
+  userId: string;
+  skillIds: readonly string[];
+}) {
+  const skillIds = [...new Set(input.skillIds.filter(Boolean))];
+  if (skillIds.length === 0) {
+    return [];
+  }
+  return getPrisma().skill.findMany({
+    where: {
+      userId: input.userId,
+      id: { in: skillIds },
+    },
+    select: {
+      id: true,
+      title: true,
+      objective: true,
+      status: true,
+      tags: true,
+      collection: { select: { name: true } },
     },
   });
 }
@@ -2458,20 +3021,17 @@ async function planExistingMaterialBatch(input: {
       }
       return { status: "failed" as const, batchId: batch.id, message: validation.message };
     }
-    const existingSkills = await prisma.skill.findMany({
-      where: {
-        userId: input.userId,
-        sourceRefs: {
-          some: {
-            sourceFile: {
-              materialRevision: { materialId: batch.materialRevision.material.id },
-            },
-          },
-        },
-      },
-      select: { id: true, title: true, objective: true },
+    const similarity = await findSimilarSkillsForUser({
+      userId: input.userId,
+      candidates: validation.plan.items.map((item) => ({
+        key: item.key,
+        title: item.title,
+        objective: item.objective,
+      })),
+      embeddingGenerator:
+        input.embeddingGenerator as SkillSimilarityEmbeddingGenerator | null | undefined,
     });
-    const plan = annotateMaterialPlanOverlaps(validation.plan, existingSkills);
+    const plan = annotateMaterialPlanOverlaps(validation.plan, similarity.candidates);
     return saveProposedMaterialPlan({
       batchId: batch.id,
       userId: input.userId,
@@ -2868,6 +3428,85 @@ function readJsonObject(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
     ? { ...(value as Record<string, unknown>) }
     : {};
+}
+
+function chooseStrongerSkillSimilarityMatch(
+  first: SkillSimilarityMatch | null,
+  second: SkillSimilarityMatch | null,
+) {
+  if (!first) {
+    return second;
+  }
+  if (!second) {
+    return first;
+  }
+  const confidenceRank = { exact: 3, likely: 2, possible: 1 } as const;
+  const confidenceDifference =
+    confidenceRank[first.confidence] - confidenceRank[second.confidence];
+  if (confidenceDifference !== 0) {
+    return confidenceDifference > 0 ? first : second;
+  }
+  return first.score >= second.score ? first : second;
+}
+
+function withDuplicateMatchMetadata(
+  value: unknown,
+  match: SkillSimilarityMatch,
+  candidate: {
+    id: string;
+    title: string;
+    objective: string | null;
+    collectionId: string | null;
+    rules: unknown;
+    examples: unknown;
+    exerciseConstraints: unknown;
+    tags: readonly string[];
+  },
+  userOverride: boolean,
+) {
+  return {
+    ...readJsonObject(value),
+    duplicateMatch: {
+      skillId: match.skill.id,
+      skillFingerprint: buildSkillSimilarityFingerprint(match.skill),
+      candidateSkillId: candidate.id,
+      candidateFingerprint:
+        buildSkillDuplicateCandidateFingerprint(candidate),
+      confidence: match.confidence,
+      score: match.score,
+      userOverride,
+    },
+  };
+}
+
+function withoutDuplicateMatchMetadata(value: unknown) {
+  const metadata = readJsonObject(value);
+  delete metadata.duplicateMatch;
+  return metadata;
+}
+
+function duplicateReviewMessage(match: SkillSimilarityMatch) {
+  return match.confidence === "exact"
+    ? `This draft matches ${match.skill.title}. Review the existing skill before adding a separate copy.`
+    : match.confidence === "likely"
+      ? `This draft appears to cover the same skill as ${match.skill.title}. Review it before adding a separate copy.`
+      : `This draft may overlap with ${match.skill.title}. Review it before adding a separate copy.`;
+}
+
+function duplicateUseExistingMessage(skill: {
+  title: string;
+  status: SkillStatus;
+}) {
+  switch (skill.status) {
+    case SkillStatus.ACTIVE:
+      return `Kept ${skill.title}, which is already active. The duplicate draft was removed.`;
+    case SkillStatus.DRAFT:
+      return `Kept the existing draft ${skill.title}. Open it when you are ready to add it to practice.`;
+    case SkillStatus.PAUSED:
+      return `Kept ${skill.title} paused. Open it when you are ready to resume practice.`;
+    case SkillStatus.ARCHIVED:
+      return `Kept ${skill.title} archived. Open it if you want to restore it.`;
+  }
 }
 
 function readTargetRepairContext(value: unknown) {

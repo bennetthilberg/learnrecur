@@ -98,6 +98,57 @@ describe("material batch draft controls", () => {
     expect(markup).toContain("Confirm exclusion");
   });
 
+  it("can label exclusion as the duplicate-safe use-existing choice", () => {
+    const markup = renderToStaticMarkup(
+      createElement(BatchExcludeControl, {
+        batchId: "batch_1",
+        existingSkillStatus: "ACTIVE",
+        existingSkillTitle: "Existing object pronouns",
+        expectedCandidateFingerprint: "c".repeat(64),
+        expectedCandidateId: "skill_candidate",
+        expectedMatchFingerprint: "a".repeat(64),
+        expectedMatchId: "skill_existing",
+        itemId: "item_1",
+        intent: "use-existing",
+        title: "Double object pronouns",
+      }),
+    );
+
+    expect(markup).toContain("Use existing skill");
+    expect(markup).toContain('data-title="Use the existing skill?"');
+    expect(markup).toContain("keeps");
+    expect(markup).toContain("Existing object pronouns");
+    expect(markup).toContain("active");
+    expect(markup).toContain("review schedule");
+    expect(markup).toContain('data-intent="use-existing"');
+    expect(markup).not.toContain("Confirm exclusion");
+  });
+
+  it("explains that a kept paused skill will not be resumed automatically", () => {
+    const markup = renderToStaticMarkup(
+      createElement(BatchExcludeControl, {
+        batchId: "batch_1",
+        existingSkillStatus: "PAUSED",
+        existingSkillTitle: "Spanish object pronouns",
+        expectedCandidateFingerprint: "d".repeat(64),
+        expectedCandidateId: "skill_candidate",
+        expectedMatchFingerprint: "b".repeat(64),
+        expectedMatchId: "skill_existing",
+        itemId: "item_1",
+        intent: "use-existing",
+        label: "Keep paused skill",
+        title: "Generated object-pronoun draft",
+      }),
+    );
+
+    expect(markup).toContain("Keep paused skill");
+    expect(markup).toContain('data-title="Keep the paused skill?"');
+    expect(markup).toContain("keeps");
+    expect(markup).toContain("Spanish object pronouns");
+    expect(markup).toContain("paused");
+    expect(markup).toContain("resume practice");
+  });
+
   it("links completed batches directly to the skill creation start", () => {
     const markup = renderToStaticMarkup(
       createElement(BatchCreateMoreControl, {

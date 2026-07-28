@@ -849,16 +849,96 @@ describe("material scope planning", () => {
 
     const annotated = annotateMaterialPlanOverlaps(plan.plan, [
       {
-        id: "existing-skill",
-        title: " direct OBJECT pronouns ",
-        objective: "Replace a direct object with the correct Spanish pronoun in a sentence.",
+        key: "direct-objects",
+        matches: [],
+        bestMatch: {
+          confidence: "exact",
+          score: 1,
+          lexicalScore: 1,
+          semanticScore: null,
+          reasons: ["normalized-title-objective", "normalized-title"],
+          skill: {
+            id: "existing-skill",
+            title: "Direct object pronouns",
+            objective:
+              "Replace a direct object with the correct Spanish pronoun in a sentence.",
+            status: "DRAFT",
+            collectionName: "Spanish",
+            tags: ["grammar"],
+          },
+        },
       },
     ]);
 
     expect(annotated.items[0]).toMatchObject({
       overlapSkillId: "existing-skill",
-      overlapWarning: expect.stringMatching(/already exists/i),
+      overlapSkillFingerprint: expect.stringMatching(/^[a-f0-9]{64}$/),
+      overlapConfidence: "exact",
+      overlapScore: 1,
+      overlapWarning: expect.stringMatching(/matches an existing skill.*compare/i),
     });
+  });
+
+  it("keeps likely and possible overlap confidence in the reviewed plan", () => {
+    const plan = validateMaterialScopePlannerResponse({
+      materialRevisionId: "revision-1",
+      instruction: "One skill from chapter four",
+      kind: "PDF",
+      allowedSections: sections.slice(0, 3),
+      allowedChunks: chunks.slice(0, 2),
+      rawResponse: {
+        resolutionStatus: "resolved",
+        resolvedScopeLabel: "Chapter 4, pages 90–128",
+        clarification: null,
+        warnings: [],
+        items: [
+          {
+            key: "direct-objects",
+            title: "Choose Spanish direct-object pronouns",
+            objective: "Replace nouns with lo, la, los, or las.",
+            materialSectionIds: ["section-4-1"],
+            evidenceChunkIds: ["chunk-4-1"],
+          },
+        ],
+      },
+    });
+    if (plan.status !== "ready") {
+      throw new Error("expected a ready plan fixture");
+    }
+
+    for (const confidence of ["likely", "possible"] as const) {
+      const annotated = annotateMaterialPlanOverlaps(plan.plan, [
+        {
+          key: "direct-objects",
+          matches: [],
+          bestMatch: {
+            confidence,
+            score: confidence === "likely" ? 0.92 : 0.74,
+            lexicalScore: confidence === "likely" ? 0.92 : 0.74,
+            semanticScore: null,
+            reasons: ["lexical-overlap"],
+            skill: {
+              id: `existing-${confidence}`,
+              title: "Spanish direct object pronouns",
+              objective: "Choose and place Spanish direct-object pronouns.",
+              status: "ACTIVE",
+              collectionName: null,
+              tags: [],
+            },
+          },
+        },
+      ]);
+
+      expect(annotated.items[0]).toMatchObject({
+        overlapSkillId: `existing-${confidence}`,
+        overlapConfidence: confidence,
+        overlapWarning: expect.stringMatching(
+          confidence === "likely"
+            ? /appears to cover the same skill.*compare/i
+            : /may overlap.*compare/i,
+        ),
+      });
+    }
   });
 
   it("delimits imported text as untrusted data in the planning prompt", () => {

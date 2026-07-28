@@ -69,6 +69,37 @@ describe("material batch presentation", () => {
     expect(batchPage).not.toContain('href={`/skills/${item.skill.id}`}>\n                    Edit draft');
   });
 
+  it("makes duplicate decisions explicit without inflating bulk activation", () => {
+    expect(batchPage).toContain("<BatchDuplicateDecision");
+    expect(batchPage).toContain("<BatchDraftDuplicateDecision");
+    expect(batchPage).toContain('item.errorCode !== "DUPLICATE_REVIEW_REQUIRED"');
+    expect(batchPage).toContain('name="createSeparatelyTargetKey"');
+    expect(batchPage).toContain('name="createSeparatelyItemId"');
+    expect(batchPage).toContain('name="createSeparatelySkillId"');
+    expect(batchPage).toContain("Add as a separate skill anyway");
+    expect(batchPage).toContain('"Use existing skill"');
+    expect(batchPage).toContain('"Keep existing draft"');
+    expect(batchPage).toContain('"Keep paused skill"');
+    expect(batchPage).toContain('"Keep archived skill"');
+    expect(batchPage).toContain("Check and add if distinct");
+    expect(batchPage).toContain("Open existing skill");
+    expect(batchPage).toContain("<span>Needs a choice</span>");
+    expect(batchPage).toContain("<strong>{readyItems.length}</strong>");
+    expect(batchPage).toContain("existingSkillStatus={skill.status}");
+    expect(batchPage).toContain("expectedCandidateFingerprint");
+    expect(batchPage).toContain("This draft changed after the duplicate check");
+    expect(batchPage).toContain("aria-labelledby={headingId}");
+    expect(styles).toMatch(
+      /\.batchDuplicateOverride\s*\{[^}]*min-height:\s*44px;/s,
+    );
+    expect(styles).toMatch(
+      /\.batchDuplicateOverride input:focus-visible\s*\{[^}]*outline:/s,
+    );
+    expect(styles).toMatch(
+      /\.batchExcludeModalActions,[\s\S]*?\.batchLeaveModalActions\s*\{[^}]*flex-direction:\s*column;/s,
+    );
+  });
+
   it("offers a guarded route back to the skill creation start from review", () => {
     expect(batchPage).toContain("<BatchCreateMoreControl");
     expect(batchPage).toContain("unfinishedCount={unfinishedItemCount}");

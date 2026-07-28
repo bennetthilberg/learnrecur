@@ -20,6 +20,7 @@ import {
   getNextPracticeItemForUser,
 } from "@/app/practice/queries";
 import { getDashboardHome } from "@/lib/dashboard";
+import { DEFAULT_GEMINI_MODEL } from "@/lib/gemini";
 import { getPrisma } from "@/lib/prisma";
 import {
   ACTIVATION_GENERATION_TIMEOUT_MS,
@@ -6766,7 +6767,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
       expect(job).toMatchObject({
         status: GenerationJobStatus.FAILED,
         provider: "google",
-        model: "gemini-3.5-flash",
+        model: process.env.GEMINI_MODEL?.trim() || DEFAULT_GEMINI_MODEL,
         acceptedCount: 0,
         rejectedCount: 0,
       });
