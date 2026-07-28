@@ -73,6 +73,7 @@ import { getPrisma } from "@/lib/prisma";
 import type { SourceObjectStorage } from "@/lib/storage/s3";
 import {
   ACTIVATION_GENERATION_TIMEOUT_MS,
+  ACTIVATION_SUPERSEDED_JOB_MESSAGE,
   activateSkillDraft,
   GEMINI_PROVIDER,
   REQUESTED_ACTIVATION_EXERCISES,
@@ -84,7 +85,7 @@ import {
 } from "@/lib/skills";
 import {
   buildSkillDuplicateCandidateFingerprint,
-  buildSkillSimilarityFingerprint,
+  buildSkillDuplicateReviewFingerprint,
   findSimilarSkillsForUser,
   normalizeSkillSimilarityText,
   rankSkillSimilarityMatches,
@@ -335,15 +336,30 @@ export async function confirmMaterialPlan(input: {
               id: string;
               title: string;
               objective: string | null;
+              collectionId: string | null;
+              rules: unknown;
+              examples: unknown;
+              exerciseConstraints: unknown;
+              tags: string[];
               status: SkillStatus;
             }>
           >(
             Prisma.sql`
-              SELECT "id", "title", "objective", "status" FROM "skills"
-              WHERE "userId" = ${input.userId}
-                AND "id" IN (${Prisma.join(overlapSkillIds)})
-              ORDER BY "id"
-              FOR UPDATE
+              SELECT
+                skill."id",
+                skill."title",
+                skill."objective",
+                skill."collectionId",
+                skill."rules",
+                skill."examples",
+                skill."exerciseConstraints",
+                skill."tags",
+                skill."status"
+              FROM "skills" AS skill
+              WHERE skill."userId" = ${input.userId}
+                AND skill."id" IN (${Prisma.join(overlapSkillIds)})
+              ORDER BY skill."id"
+              FOR UPDATE OF skill
             `,
           )
         : [];
@@ -357,7 +373,7 @@ export async function confirmMaterialPlan(input: {
       const currentSkill = currentOverlapSkillById.get(item.overlapSkillId);
       return (
         !currentSkill ||
-        buildSkillSimilarityFingerprint(currentSkill) !==
+        buildSkillDuplicateReviewFingerprint(currentSkill) !==
           item.overlapSkillFingerprint ||
         createSeparatelyTargetKeys.has(item.key)
       );
@@ -377,7 +393,7 @@ export async function confirmMaterialPlan(input: {
       const overlapSkill =
         currentOverlapSkill &&
         item.overlapSkillFingerprint &&
-        buildSkillSimilarityFingerprint(currentOverlapSkill) ===
+        buildSkillDuplicateReviewFingerprint(currentOverlapSkill) ===
           item.overlapSkillFingerprint
           ? currentOverlapSkill
           : null;
@@ -948,13 +964,28 @@ export async function runMaterialDraftItemJob(input: {
           id: string;
           title: string;
           objective: string | null;
+          collectionId: string | null;
+          rules: unknown;
+          examples: unknown;
+          exerciseConstraints: unknown;
+          tags: string[];
           status: SkillStatus;
         }>
       >`
-        SELECT "id", "title", "objective", "status" FROM "skills"
-        WHERE "userId" = ${input.userId}
-        ORDER BY "id"
-        FOR UPDATE
+        SELECT
+          skill."id",
+          skill."title",
+          skill."objective",
+          skill."collectionId",
+          skill."rules",
+          skill."examples",
+          skill."exerciseConstraints",
+          skill."tags",
+          skill."status"
+        FROM "skills" AS skill
+        WHERE skill."userId" = ${input.userId}
+        ORDER BY skill."id"
+        FOR UPDATE OF skill
       `;
       const exactDuplicates = existingSkills
         .filter(
@@ -976,7 +1007,7 @@ export async function runMaterialDraftItemJob(input: {
           (skill) =>
             skill.id === storedDuplicateMatch.skillId &&
             storedDuplicateMatch.skillFingerprint ===
-              buildSkillSimilarityFingerprint(skill),
+              buildSkillDuplicateReviewFingerprint(skill),
         );
       if (duplicate && !explicitlyCreateSeparately) {
         await tx.skillDraftBatchItem.update({
@@ -994,7 +1025,8 @@ export async function runMaterialDraftItemJob(input: {
               duplicatePrevented: true,
               duplicateMatch: {
                 skillId: duplicate.id,
-                skillFingerprint: buildSkillSimilarityFingerprint(duplicate),
+                skillFingerprint:
+                  buildSkillDuplicateReviewFingerprint(duplicate),
                 confidence: "exact",
                 score: 1,
                 userOverride: false,
@@ -1257,10 +1289,10 @@ export async function queueMaterialBatchActivation(input: {
         : [],
     ),
   );
-  const createSeparatelySkillIdByItemId = new Map(
+  const createSeparatelyMatchByItemId = new Map(
     (parsed.data.createSeparatelyMatches ?? []).map((match) => [
       match.itemId,
-      match.skillId,
+      match,
     ]),
   );
   const reserve = () => prisma.$transaction(async (tx) => {
@@ -1276,6 +1308,19 @@ export async function queueMaterialBatchActivation(input: {
     if (!batch) {
       return { status: "not-found" as const, message: "Ready material batch was not found." };
     }
+    await tx.$queryRaw(
+      Prisma.sql`
+        SELECT skill."id"
+        FROM "skills" AS skill
+        INNER JOIN "skill_draft_batch_items" AS item
+          ON item."skillId" = skill."id"
+        WHERE item."id" IN (${Prisma.join(parsed.data.itemIds)})
+          AND item."batchId" = ${batch.id}
+          AND item."userId" = ${input.userId}
+        ORDER BY skill."id"
+        FOR UPDATE OF skill
+      `,
+    );
     const items = await tx.skillDraftBatchItem.findMany({
       where: {
         id: { in: parsed.data.itemIds },
@@ -1342,6 +1387,10 @@ export async function queueMaterialBatchActivation(input: {
         id: true,
         title: true,
         objective: true,
+        collectionId: true,
+        rules: true,
+        examples: true,
+        exerciseConstraints: true,
         status: true,
         tags: true,
         collection: { select: { name: true } },
@@ -1355,6 +1404,8 @@ export async function queueMaterialBatchActivation(input: {
         status: skill.status,
         tags: skill.tags,
         collectionName: skill.collection?.name ?? null,
+        contentFingerprint:
+          buildSkillDuplicateReviewFingerprint(skill),
       }),
     );
     const previewById = new Map(
@@ -1368,6 +1419,20 @@ export async function queueMaterialBatchActivation(input: {
     for (const item of readyItems) {
       if (!item.skill) {
         continue;
+      }
+      const createSeparatelyMatch =
+        createSeparatelyMatchByItemId.get(item.id);
+      const candidateFingerprint =
+        buildSkillDuplicateCandidateFingerprint(item.skill);
+      if (
+        createSeparatelyMatch &&
+        createSeparatelyMatch.candidateFingerprint !== candidateFingerprint
+      ) {
+        return {
+          status: "invalid" as const,
+          message:
+            "This draft changed after duplicate review. Review the latest draft, then choose again.",
+        };
       }
       const lexicalMatch =
         rankSkillSimilarityMatches({
@@ -1389,7 +1454,9 @@ export async function queueMaterialBatchActivation(input: {
         previewById.get(preflightMatch.skill.id)?.title ===
           preflightMatch.skill.title &&
         previewById.get(preflightMatch.skill.id)?.objective ===
-          preflightMatch.skill.objective;
+          preflightMatch.skill.objective &&
+        previewById.get(preflightMatch.skill.id)?.contentFingerprint ===
+          preflightMatch.skill.contentFingerprint;
       const match = chooseStrongerSkillSimilarityMatch(
         lexicalMatch,
         preflightStillCurrent ? preflightMatch : null,
@@ -1417,17 +1484,22 @@ export async function queueMaterialBatchActivation(input: {
       const storedDuplicateMatch = readJsonObject(
         readJsonObject(item.generationMetadata).duplicateMatch,
       );
+      const submittedOverrideStillCurrent =
+        createSeparatelyMatch?.skillId === match.skill.id &&
+        createSeparatelyMatch.skillFingerprint ===
+          match.skill.contentFingerprint &&
+        createSeparatelyMatch.candidateFingerprint === candidateFingerprint;
       const previouslyOverridden =
         storedDuplicateMatch.userOverride === true &&
         storedDuplicateMatch.skillId === match.skill.id &&
         storedDuplicateMatch.skillFingerprint ===
-          buildSkillSimilarityFingerprint(match.skill) &&
+          match.skill.contentFingerprint &&
         (storedDuplicateMatch.candidateFingerprint === undefined ||
           (storedDuplicateMatch.candidateSkillId === item.skill.id &&
             storedDuplicateMatch.candidateFingerprint ===
               buildSkillDuplicateCandidateFingerprint(item.skill)));
       if (
-        createSeparatelySkillIdByItemId.get(item.id) === match.skill.id ||
+        submittedOverrideStillCurrent ||
         previouslyOverridden
       ) {
         eligibleReadyItems.push(item);
@@ -1585,6 +1657,18 @@ export async function queueMaterialBatchActivation(input: {
     }
 
     const model = process.env.GEMINI_MODEL?.trim() || DEFAULT_GEMINI_MODEL;
+    const currentReservationMetadata = new Map(
+      (
+        await tx.skillDraftBatchItem.findMany({
+          where: {
+            id: { in: reservableItems.map((item) => item.id) },
+            batchId: batch.id,
+            userId: input.userId,
+          },
+          select: { id: true, generationMetadata: true },
+        })
+      ).map((item) => [item.id, item.generationMetadata]),
+    );
     const byId = new Map(reservableItems.map((item) => [item.id, item]));
     const reservations = [];
     for (const itemId of parsed.data.itemIds) {
@@ -1615,6 +1699,11 @@ export async function queueMaterialBatchActivation(input: {
           status: SkillDraftBatchItemStatus.ACTIVATING,
           errorCode: null,
           errorMessage: null,
+          generationMetadata: toInputJson({
+            ...readJsonObject(currentReservationMetadata.get(item.id)),
+            activationDraftFingerprint:
+              buildSkillDuplicateCandidateFingerprint(item.skill),
+          }),
         },
       });
       reservations.push({ itemId: item.id, generationJobId: generationJob.id });
@@ -1667,43 +1756,19 @@ export async function queueMaterialBatchActivation(input: {
   const failed = sendResults.flatMap((result, index) =>
     result.status === "rejected" ? [payloads[index]] : [],
   );
+  let failedItemIds: string[] = [];
   if (failed.length > 0) {
-    await prisma.$transaction(async (tx) => {
-      await tx.generationJob.updateMany({
-        where: {
-          id: { in: failed.map((item) => item.generationJobId) },
-          userId: input.userId,
-          status: GenerationJobStatus.PENDING,
-        },
-        data: {
-          status: GenerationJobStatus.FAILED,
-          errorMessage: "Activation could not be queued.",
-          completedAt: input.now,
-        },
-      });
-      await tx.skillDraftBatchItem.updateMany({
-        where: {
-          id: { in: failed.map((item) => item.itemId) },
-          userId: input.userId,
-          status: SkillDraftBatchItemStatus.ACTIVATING,
-        },
-        data: {
-          status: SkillDraftBatchItemStatus.FAILED,
-          errorCode: "ACTIVATION_EVENT_SEND_FAILED",
-          errorMessage: "Activation could not be queued. Retry this item.",
-        },
-      });
-    });
-    await reconcileMaterialDraftBatch({
+    failedItemIds = await failUnclaimedMaterialBatchActivationReservations({
       userId: input.userId,
       batchId: reservation.batchId,
+      reservations: failed,
+      message: "Activation could not be queued. Retry this item.",
       now: input.now,
     });
   }
-  const failedItemIds = failed.map((item) => item.itemId);
   return {
     status:
-      failed.length > 0 || reservation.reviewItemIds.length > 0
+      failedItemIds.length > 0 || reservation.reviewItemIds.length > 0
         ? ("partial" as const)
         : ("queued" as const),
     batchId: reservation.batchId,
@@ -1781,7 +1846,7 @@ export async function runMaterialBatchActivationJob(input: {
     result = await activateSkillDraft({
       userId: input.userId,
       skillId: slot.skillId,
-      generationJobId: input.generationJobId,
+      generationJobId: slot.generationJobId,
       now,
       generateChoiceExercises: input.generateChoiceExercises,
       verifyChoiceExercises: input.verifyChoiceExercises,
@@ -1794,13 +1859,15 @@ export async function runMaterialBatchActivationJob(input: {
             storage: input.sourceStorage,
           })),
       model: input.model,
+      expectedDraftFingerprint: slot.expectedDraftFingerprint,
+      expectedDuplicateMatch: slot.expectedDuplicateMatch,
       skipUsageLimitCheck: true,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Skill activation failed.";
     await prisma.generationJob.updateMany({
       where: {
-        id: input.generationJobId,
+        id: slot.generationJobId,
         userId: input.userId,
         status: { in: [GenerationJobStatus.PENDING, GenerationJobStatus.RUNNING] },
       },
@@ -1840,6 +1907,65 @@ export async function runMaterialBatchActivationJob(input: {
       skillId: result.skillId,
       exerciseCount: result.exerciseCount,
     };
+  }
+  if (result.reason === "draft-changed") {
+    const message =
+      "This draft changed after it was queued. Review the latest version, then add it again. LearnRecur will check for duplicates first.";
+    const released = await releaseMaterialBatchActivationForDraftReview({
+      userId: input.userId,
+      batchId: input.batchId,
+      itemId: item.id,
+      skillId: slot.skillId,
+      generationJobId:
+        result.generationJobId ?? slot.generationJobId,
+      claimId: slot.claimId,
+      message,
+      now,
+    });
+    if (!released) {
+      return { status: "not-claimed" as const };
+    }
+    return {
+      status: "failed" as const,
+      reason: result.reason,
+      message,
+    };
+  }
+  if (result.reason === "duplicate-review-changed") {
+    const message =
+      "The existing skill changed after you chose to add this draft separately. Compare the latest match, then choose again.";
+    const released = await releaseMaterialBatchActivationForDraftReview({
+      userId: input.userId,
+      batchId: input.batchId,
+      itemId: item.id,
+      skillId: slot.skillId,
+      generationJobId:
+        result.generationJobId ?? slot.generationJobId,
+      claimId: slot.claimId,
+      errorCode: "DUPLICATE_REVIEW_REQUIRED",
+      message,
+      now,
+    });
+    if (!released) {
+      return { status: "not-claimed" as const };
+    }
+    return {
+      status: "failed" as const,
+      reason: result.reason,
+      message,
+    };
+  }
+  if (result.reason === "activation-superseded") {
+    await releaseMaterialBatchActivationAfterSuperseded({
+      userId: input.userId,
+      batchId: input.batchId,
+      itemId: item.id,
+      claimId: slot.claimId,
+      message:
+        "Another activation attempt took over. You can wait for it to finish or add this draft again.",
+      now,
+    });
+    return { status: "not-claimed" as const };
   }
   const reason = result.reason.toUpperCase().replaceAll("-", "_");
   const retryable = [
@@ -1895,6 +2021,7 @@ async function claimMaterialBatchActivationSlot(input: {
         status: true,
         errorCode: true,
         generationClaimId: true,
+        generationMetadata: true,
         updatedAt: true,
         skill: { select: { id: true, status: true } },
       },
@@ -1915,7 +2042,7 @@ async function claimMaterialBatchActivationSlot(input: {
     ) {
       return { status: "not-claimed" as const };
     }
-    const job = await tx.generationJob.findFirst({
+    let job = await tx.generationJob.findFirst({
       where: {
         id: input.generationJobId,
         userId: input.userId,
@@ -1929,11 +2056,60 @@ async function claimMaterialBatchActivationSlot(input: {
           ],
         },
       },
-      select: { id: true, status: true, startedAt: true },
+      select: {
+        id: true,
+        status: true,
+        startedAt: true,
+        errorMessage: true,
+        provider: true,
+        model: true,
+        promptVersion: true,
+        requestedCount: true,
+      },
     });
+    let supersededJobSource: typeof job = null;
     if (
-      !job ||
-      (job.status === GenerationJobStatus.RUNNING &&
+      job?.status === GenerationJobStatus.FAILED &&
+      job.errorMessage === ACTIVATION_SUPERSEDED_JOB_MESSAGE
+    ) {
+      supersededJobSource = job;
+      job = await tx.generationJob.findFirst({
+        where: {
+          userId: input.userId,
+          skillId: item.skill.id,
+          kind: GenerationJobKind.SKILL_ACTIVATION,
+          id: { not: job.id },
+          status: {
+            in: [
+              GenerationJobStatus.PENDING,
+              GenerationJobStatus.RUNNING,
+              GenerationJobStatus.FAILED,
+            ],
+          },
+        },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        select: {
+          id: true,
+          status: true,
+          startedAt: true,
+          errorMessage: true,
+          provider: true,
+          model: true,
+          promptVersion: true,
+          requestedCount: true,
+        },
+      });
+      if (
+        job?.status === GenerationJobStatus.FAILED &&
+        job.errorMessage === ACTIVATION_SUPERSEDED_JOB_MESSAGE
+      ) {
+        supersededJobSource = job;
+        job = null;
+      }
+    }
+    if (
+      (!job && !supersededJobSource) ||
+      (job?.status === GenerationJobStatus.RUNNING &&
         job.startedAt &&
         input.now.getTime() - job.startedAt.getTime() <
           MATERIAL_BATCH_ACTIVATION_CLAIM_STALE_MS)
@@ -1968,18 +2144,79 @@ async function claimMaterialBatchActivationSlot(input: {
           },
         });
       }
-      await tx.generationJob.update({
-        where: { id: job.id },
-        data: {
-          status: GenerationJobStatus.FAILED,
-          errorMessage: `Activation would exceed the ${ALPHA_ACTIVE_SKILLS}-skill alpha limit.`,
-          completedAt: input.now,
-        },
-      });
+      if (job) {
+        await tx.generationJob.update({
+          where: { id: job.id },
+          data: {
+            status: GenerationJobStatus.FAILED,
+            errorMessage:
+              job.status === GenerationJobStatus.RUNNING
+                ? ACTIVATION_SUPERSEDED_JOB_MESSAGE
+                : `Activation would exceed the ${ALPHA_ACTIVE_SKILLS}-skill alpha limit.`,
+            completedAt: input.now,
+          },
+        });
+      }
       return {
         status: "limited" as const,
         message: `Activation would exceed the ${ALPHA_ACTIVE_SKILLS}-skill alpha limit. Archive a skill and retry.`,
       };
+    }
+    let claimedGenerationJobId: string;
+    if (!job) {
+      if (!supersededJobSource) {
+        return { status: "not-claimed" as const };
+      }
+      const replacement = await tx.generationJob.create({
+        data: {
+          userId: input.userId,
+          skillId: item.skill.id,
+          kind: GenerationJobKind.SKILL_ACTIVATION,
+          status: GenerationJobStatus.PENDING,
+          provider: supersededJobSource.provider,
+          model: supersededJobSource.model,
+          promptVersion: supersededJobSource.promptVersion,
+          requestedCount: supersededJobSource.requestedCount,
+          createdAt: input.now,
+        },
+        select: { id: true },
+      });
+      claimedGenerationJobId = replacement.id;
+    } else if (job.status === GenerationJobStatus.RUNNING) {
+      const superseded = await tx.generationJob.updateMany({
+        where: {
+          id: job.id,
+          userId: input.userId,
+          skillId: item.skill.id,
+          kind: GenerationJobKind.SKILL_ACTIVATION,
+          status: GenerationJobStatus.RUNNING,
+        },
+        data: {
+          status: GenerationJobStatus.FAILED,
+          errorMessage: ACTIVATION_SUPERSEDED_JOB_MESSAGE,
+          completedAt: input.now,
+        },
+      });
+      if (superseded.count !== 1) {
+        return { status: "not-claimed" as const };
+      }
+      const replacement = await tx.generationJob.create({
+        data: {
+          userId: input.userId,
+          skillId: item.skill.id,
+          kind: GenerationJobKind.SKILL_ACTIVATION,
+          status: GenerationJobStatus.PENDING,
+          provider: job.provider,
+          model: job.model,
+          promptVersion: job.promptVersion,
+          requestedCount: job.requestedCount,
+          createdAt: input.now,
+        },
+        select: { id: true },
+      });
+      claimedGenerationJobId = replacement.id;
+    } else {
+      claimedGenerationJobId = job.id;
     }
     const claimId = randomUUID();
     const keepAutomaticRetryState =
@@ -1992,7 +2229,32 @@ async function claimMaterialBatchActivationSlot(input: {
         ...(keepAutomaticRetryState ? {} : { errorCode: null, errorMessage: null }),
       },
     });
-    return { status: "ready" as const, skillId: item.skill.id, claimId };
+    const generationMetadata = readJsonObject(item.generationMetadata);
+    const activationDraftFingerprint =
+      generationMetadata.activationDraftFingerprint;
+    const storedDuplicateMatch = readJsonObject(
+      generationMetadata.duplicateMatch,
+    );
+    const expectedDuplicateMatch =
+      storedDuplicateMatch.userOverride === true &&
+      typeof storedDuplicateMatch.skillId === "string" &&
+      typeof storedDuplicateMatch.skillFingerprint === "string"
+        ? {
+            skillId: storedDuplicateMatch.skillId,
+            fingerprint: storedDuplicateMatch.skillFingerprint,
+          }
+        : undefined;
+    return {
+      status: "ready" as const,
+      skillId: item.skill.id,
+      claimId,
+      generationJobId: claimedGenerationJobId,
+      expectedDraftFingerprint:
+        typeof activationDraftFingerprint === "string"
+          ? activationDraftFingerprint
+          : undefined,
+      expectedDuplicateMatch,
+    };
   });
 }
 
@@ -2048,32 +2310,134 @@ export async function retryMaterialBatchActivationItem(input: {
         },
       },
       orderBy: { createdAt: "desc" },
-      select: { id: true },
+      select: {
+        id: true,
+        status: true,
+        startedAt: true,
+        updatedAt: true,
+        errorMessage: true,
+        provider: true,
+        model: true,
+        promptVersion: true,
+        requestedCount: true,
+      },
     });
     if (!job) {
       return { status: "not-found" as const };
     }
-    const [activeSkillCount, pendingActivationCount] = await Promise.all([
-      tx.skill.count({
-        where: {
-          userId: input.userId,
-          status: { in: [SkillStatus.ACTIVE, SkillStatus.PAUSED] },
+    const freshRunningJob =
+      job.status === GenerationJobStatus.RUNNING &&
+      job.startedAt !== null &&
+      input.now.getTime() - job.startedAt.getTime() <
+        MATERIAL_BATCH_ACTIVATION_CLAIM_STALE_MS;
+    if (freshRunningJob) {
+      const message =
+        "Another activation attempt is already running. You can wait for it to finish or add this draft again.";
+      await tx.skillDraftBatchItem.update({
+        where: { id: item.id },
+        data: {
+          status: SkillDraftBatchItemStatus.READY,
+          generationClaimId: null,
+          errorCode: "ACTIVATION_SUPERSEDED",
+          errorMessage: message,
         },
-      }),
-      tx.skillDraftBatchItem.count({
-        where: {
-          userId: input.userId,
-          status: SkillDraftBatchItemStatus.ACTIVATING,
-          skill: { status: SkillStatus.DRAFT },
-        },
-      }),
-    ]);
+      });
+      await reconcileMaterialDraftBatchWithClient(tx, {
+        userId: input.userId,
+        batchId: parsed.data.batchId,
+        now: input.now,
+      });
+      return {
+        status: "already-running" as const,
+        itemId: item.id,
+        generationJobId: job.id,
+        message,
+      };
+    }
+    const activationDayStart = startOfUtcDay(input.now);
+    const activationDayEnd = new Date(
+      activationDayStart.getTime() + 24 * 60 * 60 * 1_000,
+    );
+    const [activeSkillCount, pendingActivationCount, activationsToday] =
+      await Promise.all([
+        tx.skill.count({
+          where: {
+            userId: input.userId,
+            status: { in: [SkillStatus.ACTIVE, SkillStatus.PAUSED] },
+          },
+        }),
+        tx.skillDraftBatchItem.count({
+          where: {
+            userId: input.userId,
+            status: SkillDraftBatchItemStatus.ACTIVATING,
+            skill: { status: SkillStatus.DRAFT },
+          },
+        }),
+        tx.generationJob.count({
+          where: {
+            userId: input.userId,
+            kind: GenerationJobKind.SKILL_ACTIVATION,
+            createdAt: { gte: activationDayStart, lt: activationDayEnd },
+          },
+        }),
+      ]);
     if (activeSkillCount + pendingActivationCount >= ALPHA_ACTIVE_SKILLS) {
       return {
         status: "limited" as const,
         message: `This retry would exceed the ${ALPHA_ACTIVE_SKILLS}-skill alpha limit, including skills already being added. Archive a skill or wait for an in-progress activation to finish.`,
       };
     }
+    if (activationsToday >= ALPHA_SKILL_ACTIVATIONS_PER_DAY) {
+      return {
+        status: "limited" as const,
+        code: "daily-activation-limit" as const,
+        message:
+          "No activation attempts remain today. Try this draft again after 00:00 UTC.",
+      };
+    }
+    if (
+      job.status === GenerationJobStatus.PENDING ||
+      job.status === GenerationJobStatus.RUNNING
+    ) {
+      const superseded = await tx.generationJob.updateMany({
+        where: {
+          id: job.id,
+          userId: input.userId,
+          skillId: item.skill.id,
+          kind: GenerationJobKind.SKILL_ACTIVATION,
+          status: job.status,
+          updatedAt: job.updatedAt,
+        },
+        data: {
+          status: GenerationJobStatus.FAILED,
+          errorMessage: ACTIVATION_SUPERSEDED_JOB_MESSAGE,
+          completedAt: input.now,
+        },
+      });
+      if (superseded.count !== 1) {
+        return {
+          status: "already-running" as const,
+          itemId: item.id,
+          generationJobId: job.id,
+          message:
+            "Another activation attempt took over. Wait for it to finish, then refresh this batch.",
+        };
+      }
+    }
+    const replacement = await tx.generationJob.create({
+      data: {
+        userId: input.userId,
+        skillId: item.skill.id,
+        kind: GenerationJobKind.SKILL_ACTIVATION,
+        status: GenerationJobStatus.PENDING,
+        provider: job.provider,
+        model: job.model,
+        promptVersion: job.promptVersion,
+        requestedCount: job.requestedCount,
+        createdAt: input.now,
+      },
+      select: { id: true },
+    });
     await tx.skillDraftBatchItem.update({
       where: { id: item.id },
       data: {
@@ -2087,12 +2451,19 @@ export async function retryMaterialBatchActivationItem(input: {
       where: { id: parsed.data.batchId },
       data: { status: SkillDraftBatchStatus.ACTIVATING, completedAt: null },
     });
-    return { status: "reserved" as const, itemId: item.id, generationJobId: job.id };
+    return {
+      status: "reserved" as const,
+      itemId: item.id,
+      generationJobId: replacement.id,
+    };
   });
   if (retry.status === "not-found") {
     return { status: "not-found" as const, message: "Retryable activation was not found." };
   }
   if (retry.status === "limited") {
+    return retry;
+  }
+  if (retry.status === "already-running") {
     return retry;
   }
   const payload = {
@@ -2106,14 +2477,28 @@ export async function retryMaterialBatchActivationItem(input: {
     await (input.eventSender ?? inngestMaterialBatchActivationEventSender)
       .sendMaterialBatchActivationRequested(payload);
   } catch {
-    await markMaterialBatchActivationFailed({
-      userId: input.userId,
-      batchId: parsed.data.batchId,
-      itemId: retry.itemId,
-      code: "ACTIVATION_EVENT_SEND_FAILED",
-      message: "Activation could not be queued. Try again.",
-      now: input.now,
-    });
+    const [failedItemId] =
+      await failUnclaimedMaterialBatchActivationReservations({
+        userId: input.userId,
+        batchId: parsed.data.batchId,
+        reservations: [
+          {
+            itemId: retry.itemId,
+            generationJobId: retry.generationJobId,
+          },
+        ],
+        message: "Activation could not be queued. Try again.",
+        now: input.now,
+      });
+    if (!failedItemId) {
+      return {
+        status: "already-running" as const,
+        itemId: retry.itemId,
+        generationJobId: retry.generationJobId,
+        message:
+          "Activation is already being processed. Wait for it to finish, then refresh this batch.",
+      };
+    }
     return { status: "not-queued" as const, message: "Activation could not be queued." };
   }
   return {
@@ -2139,6 +2524,105 @@ async function markMaterialBatchItemActive(input: {
     },
   });
   await reconcileMaterialDraftBatch(input);
+}
+
+async function failUnclaimedMaterialBatchActivationReservations(input: {
+  userId: string;
+  batchId: string;
+  reservations: Array<{ itemId: string; generationJobId: string }>;
+  message: string;
+  now: Date;
+}) {
+  if (input.reservations.length === 0) {
+    return [];
+  }
+  return getPrisma().$transaction(async (tx) => {
+    await tx.$queryRaw`
+      SELECT "id"
+      FROM "users"
+      WHERE "id" = ${input.userId}
+      FOR UPDATE
+    `;
+    await tx.$queryRaw(
+      Prisma.sql`
+        SELECT item."id"
+        FROM "skill_draft_batch_items" AS item
+        WHERE item."id" IN (${Prisma.join(
+          input.reservations.map((reservation) => reservation.itemId),
+        )})
+          AND item."batchId" = ${input.batchId}
+          AND item."userId" = ${input.userId}
+        ORDER BY item."id"
+        FOR UPDATE OF item
+      `,
+    );
+    const items = await tx.skillDraftBatchItem.findMany({
+      where: {
+        id: {
+          in: input.reservations.map((reservation) => reservation.itemId),
+        },
+        batchId: input.batchId,
+        userId: input.userId,
+        status: SkillDraftBatchItemStatus.ACTIVATING,
+        generationClaimId: null,
+      },
+      select: { id: true, skillId: true },
+    });
+    const itemById = new Map(items.map((item) => [item.id, item]));
+    const failedItemIds: string[] = [];
+    for (const reservation of input.reservations) {
+      const item = itemById.get(reservation.itemId);
+      if (!item?.skillId) {
+        continue;
+      }
+      const failedJob = await tx.generationJob.updateMany({
+        where: {
+          id: reservation.generationJobId,
+          userId: input.userId,
+          skillId: item.skillId,
+          kind: GenerationJobKind.SKILL_ACTIVATION,
+          status: GenerationJobStatus.PENDING,
+        },
+        data: {
+          status: GenerationJobStatus.FAILED,
+          errorMessage: "Activation could not be queued.",
+          completedAt: input.now,
+        },
+      });
+      if (failedJob.count !== 1) {
+        continue;
+      }
+      const failedItem = await tx.skillDraftBatchItem.updateMany({
+        where: {
+          id: reservation.itemId,
+          batchId: input.batchId,
+          userId: input.userId,
+          skillId: item.skillId,
+          status: SkillDraftBatchItemStatus.ACTIVATING,
+          generationClaimId: null,
+        },
+        data: {
+          status: SkillDraftBatchItemStatus.FAILED,
+          errorCode: "ACTIVATION_EVENT_SEND_FAILED",
+          errorMessage: input.message.slice(0, 1_000),
+        },
+      });
+      if (failedItem.count !== 1) {
+        throw new Error(
+          "Activation reservation changed while its send failure was recorded.",
+        );
+      }
+      failedItemIds.push(reservation.itemId);
+    }
+    if (failedItemIds.length > 0) {
+      await reconcileMaterialDraftBatchWithClient(tx, {
+        userId: input.userId,
+        batchId: input.batchId,
+        now: input.now,
+      });
+    }
+    return failedItemIds;
+  });
 }
 
 async function markMaterialBatchActivationFailed(input: {
@@ -2173,6 +2657,117 @@ async function markMaterialBatchActivationFailed(input: {
     await reconcileMaterialDraftBatch(input);
   }
   return updated.count === 1;
+}
+
+async function releaseMaterialBatchActivationForDraftReview(input: {
+  userId: string;
+  batchId: string;
+  itemId: string;
+  skillId: string;
+  generationJobId: string;
+  claimId: string;
+  errorCode?: "ACTIVATION_DRAFT_CHANGED" | "DUPLICATE_REVIEW_REQUIRED";
+  message: string;
+  now: Date;
+}) {
+  const released = await getPrisma().$transaction(async (tx) => {
+    await tx.$queryRaw`
+      SELECT "id"
+      FROM "users"
+      WHERE "id" = ${input.userId}
+      FOR UPDATE
+    `;
+    const updated = await tx.skillDraftBatchItem.updateMany({
+      where: {
+        id: input.itemId,
+        batchId: input.batchId,
+        userId: input.userId,
+        skillId: input.skillId,
+        status: SkillDraftBatchItemStatus.ACTIVATING,
+        generationClaimId: input.claimId,
+      },
+      data: {
+        status: SkillDraftBatchItemStatus.READY,
+        generationClaimId: null,
+        errorCode: input.errorCode ?? "ACTIVATION_DRAFT_CHANGED",
+        errorMessage: input.message,
+      },
+    });
+    if (updated.count !== 1) {
+      return false;
+    }
+    await tx.generationJob.updateMany({
+      where: {
+        id: input.generationJobId,
+        userId: input.userId,
+        skillId: input.skillId,
+        kind: GenerationJobKind.SKILL_ACTIVATION,
+        status: {
+          in: [
+            GenerationJobStatus.PENDING,
+            GenerationJobStatus.RUNNING,
+            GenerationJobStatus.FAILED,
+          ],
+        },
+      },
+      data: {
+        status: GenerationJobStatus.FAILED,
+        errorMessage: input.message,
+        completedAt: input.now,
+      },
+    });
+    return true;
+  });
+  if (released) {
+    await reconcileMaterialDraftBatch({
+      userId: input.userId,
+      batchId: input.batchId,
+      now: input.now,
+    });
+  }
+  return released;
+}
+
+async function releaseMaterialBatchActivationAfterSuperseded(input: {
+  userId: string;
+  batchId: string;
+  itemId: string;
+  claimId: string;
+  message: string;
+  now: Date;
+}) {
+  const released = await getPrisma().$transaction(async (tx) => {
+    await tx.$queryRaw`
+      SELECT "id"
+      FROM "users"
+      WHERE "id" = ${input.userId}
+      FOR UPDATE
+    `;
+    const updated = await tx.skillDraftBatchItem.updateMany({
+      where: {
+        id: input.itemId,
+        batchId: input.batchId,
+        userId: input.userId,
+        status: SkillDraftBatchItemStatus.ACTIVATING,
+        generationClaimId: input.claimId,
+      },
+      data: {
+        status: SkillDraftBatchItemStatus.READY,
+        generationClaimId: null,
+        errorCode: "ACTIVATION_SUPERSEDED",
+        errorMessage: input.message,
+      },
+    });
+    return updated.count === 1;
+  });
+  if (released) {
+    await reconcileMaterialDraftBatch({
+      userId: input.userId,
+      batchId: input.batchId,
+      now: input.now,
+    });
+  }
+  return released;
 }
 
 async function releaseMaterialBatchActivationForRetry(input: {
@@ -2332,20 +2927,20 @@ export async function excludeMaterialDraftItem(input: {
       >(
         Prisma.sql`
           SELECT
-            "id",
-            "title",
-            "objective",
-            "collectionId",
-            "rules",
-            "examples",
-            "exerciseConstraints",
-            "tags",
-            "status"
-          FROM "skills"
-          WHERE "userId" = ${input.userId}
-            AND "id" IN (${Prisma.join(skillIdsToLock)})
-          ORDER BY "id"
-          FOR UPDATE
+            skill."id",
+            skill."title",
+            skill."objective",
+            skill."collectionId",
+            skill."rules",
+            skill."examples",
+            skill."exerciseConstraints",
+            skill."tags",
+            skill."status"
+          FROM "skills" AS skill
+          WHERE skill."userId" = ${input.userId}
+            AND skill."id" IN (${Prisma.join(skillIdsToLock)})
+          ORDER BY skill."id"
+          FOR UPDATE OF skill
         `,
       );
       existingMatch = lockedSkills.find(
@@ -2358,7 +2953,7 @@ export async function excludeMaterialDraftItem(input: {
         return { status: "match-not-found" as const };
       }
       if (
-        buildSkillSimilarityFingerprint(existingMatch) !==
+        buildSkillDuplicateReviewFingerprint(existingMatch) !==
         expectedMatchFingerprint
       ) {
         return { status: "match-changed" as const };
@@ -2509,61 +3104,104 @@ export async function getMaterialDraftBatch(input: { userId: string; batchId: st
       errorMessage: "Draft generation stopped before it finished. Retry this item.",
     },
   });
-  const staleActivationItems = await prisma.skillDraftBatchItem.findMany({
-    where: {
-      batchId: input.batchId,
-      userId: input.userId,
-      status: SkillDraftBatchItemStatus.ACTIVATING,
-      generationClaimId: { not: null },
-      updatedAt: { lt: activationStaleBefore },
-      skill: { status: SkillStatus.DRAFT },
-    },
-    select: { id: true, skillId: true },
-  });
-  const recoveredActivations = staleActivationItems.length
-    ? await prisma.skillDraftBatchItem.updateMany({
+  const { recoveredActivations, retiredActivationJobs } = await prisma.$transaction(
+    async (tx) => {
+      await tx.$queryRaw`
+        SELECT "id"
+        FROM "users"
+        WHERE "id" = ${input.userId}
+        FOR UPDATE
+      `;
+      const [staleItems, takeoverItems] = await Promise.all([
+        tx.skillDraftBatchItem.findMany({
+          where: {
+            batchId: input.batchId,
+            userId: input.userId,
+            status: SkillDraftBatchItemStatus.ACTIVATING,
+            generationClaimId: { not: null },
+            updatedAt: { lt: activationStaleBefore },
+            skill: { status: SkillStatus.DRAFT },
+          },
+          select: { id: true, skillId: true },
+        }),
+        tx.skillDraftBatchItem.findMany({
+          where: {
+            batchId: input.batchId,
+            userId: input.userId,
+            status: SkillDraftBatchItemStatus.READY,
+            errorCode: "ACTIVATION_SUPERSEDED",
+            skill: { status: SkillStatus.DRAFT },
+          },
+          select: { skillId: true },
+        }),
+      ]);
+      if (staleItems.length === 0 && takeoverItems.length === 0) {
+        return {
+          recoveredActivations: { count: 0 },
+          retiredActivationJobs: { count: 0 },
+        };
+      }
+      const candidateSkillIds = [
+        ...new Set(
+          [...staleItems, ...takeoverItems].flatMap((item) =>
+            item.skillId ? [item.skillId] : [],
+          ),
+        ),
+      ];
+      const retiredJobs = await tx.generationJob.updateMany({
         where: {
-          id: { in: staleActivationItems.map((item) => item.id) },
           userId: input.userId,
-          status: SkillDraftBatchItemStatus.ACTIVATING,
-          generationClaimId: { not: null },
-          updatedAt: { lt: activationStaleBefore },
-          skill: { status: SkillStatus.DRAFT },
+          skillId: { in: candidateSkillIds },
+          kind: GenerationJobKind.SKILL_ACTIVATION,
+          OR: [
+            {
+              status: GenerationJobStatus.PENDING,
+              createdAt: { lt: activationStaleBefore },
+            },
+            {
+              status: GenerationJobStatus.RUNNING,
+              OR: [
+                { startedAt: { lt: activationStaleBefore } },
+                {
+                  startedAt: null,
+                  updatedAt: { lt: activationStaleBefore },
+                },
+              ],
+            },
+          ],
         },
         data: {
-          status: SkillDraftBatchItemStatus.FAILED,
-          generationClaimId: null,
-          errorCode: "ACTIVATION_RETRYABLE_STALE_CLAIM",
-          errorMessage: "Activation stopped before it finished. Retry or exclude this item.",
+          status: GenerationJobStatus.FAILED,
+          errorMessage: ACTIVATION_SUPERSEDED_JOB_MESSAGE,
+          completedAt: now,
         },
-      })
-    : { count: 0 };
-  if (recoveredActivations.count > 0) {
-    await prisma.generationJob.updateMany({
-      where: {
-        userId: input.userId,
-        skillId: {
-          in: staleActivationItems.flatMap((item) => (item.skillId ? [item.skillId] : [])),
-        },
-        kind: GenerationJobKind.SKILL_ACTIVATION,
-        OR: [
-          {
-            status: GenerationJobStatus.PENDING,
-            createdAt: { lt: activationStaleBefore },
-          },
-          {
-            status: GenerationJobStatus.RUNNING,
-            startedAt: { lt: activationStaleBefore },
-          },
-        ],
-      },
-      data: {
-        status: GenerationJobStatus.FAILED,
-        errorMessage: "Activation stopped before it finished.",
-        completedAt: now,
-      },
-    });
-  }
+      });
+      const recoveredItems =
+        staleItems.length > 0
+          ? await tx.skillDraftBatchItem.updateMany({
+              where: {
+                id: { in: staleItems.map((item) => item.id) },
+                userId: input.userId,
+                status: SkillDraftBatchItemStatus.ACTIVATING,
+                generationClaimId: { not: null },
+                updatedAt: { lt: activationStaleBefore },
+                skill: { status: SkillStatus.DRAFT },
+              },
+              data: {
+                status: SkillDraftBatchItemStatus.FAILED,
+                generationClaimId: null,
+                errorCode: "ACTIVATION_RETRYABLE_STALE_CLAIM",
+                errorMessage:
+                  "Activation stopped before it finished. Retry or exclude this item.",
+              },
+            })
+          : { count: 0 };
+      return {
+        recoveredActivations: recoveredItems,
+        retiredActivationJobs: retiredJobs,
+      };
+    },
+  );
   const synchronizedActive = await prisma.skillDraftBatchItem.updateMany({
     where: {
       batchId: input.batchId,
@@ -2579,11 +3217,17 @@ export async function getMaterialDraftBatch(input: { userId: string; batchId: st
     },
     data: {
       status: SkillDraftBatchItemStatus.ACTIVE,
+      generationClaimId: null,
       errorCode: null,
       errorMessage: null,
     },
   });
-  if (recovered.count > 0 || recoveredActivations.count > 0 || synchronizedActive.count > 0) {
+  if (
+    recovered.count > 0 ||
+    recoveredActivations.count > 0 ||
+    retiredActivationJobs.count > 0 ||
+    synchronizedActive.count > 0
+  ) {
     await reconcileMaterialDraftBatch({
       userId: input.userId,
       batchId: input.batchId,
@@ -2643,6 +3287,19 @@ export async function getMaterialDraftBatch(input: { userId: string; batchId: st
               exerciseConstraints: true,
               tags: true,
               status: true,
+              generationJobs: {
+                where: {
+                  kind: GenerationJobKind.SKILL_ACTIVATION,
+                  status: {
+                    in: [
+                      GenerationJobStatus.PENDING,
+                      GenerationJobStatus.RUNNING,
+                    ],
+                  },
+                },
+                select: { id: true },
+                take: 1,
+              },
             },
           },
         },
@@ -2668,6 +3325,10 @@ export async function getMaterialDuplicateSkillPreviews(input: {
       id: true,
       title: true,
       objective: true,
+      collectionId: true,
+      rules: true,
+      examples: true,
+      exerciseConstraints: true,
       status: true,
       tags: true,
       collection: { select: { name: true } },
@@ -3468,7 +4129,7 @@ function withDuplicateMatchMetadata(
     ...readJsonObject(value),
     duplicateMatch: {
       skillId: match.skill.id,
-      skillFingerprint: buildSkillSimilarityFingerprint(match.skill),
+      skillFingerprint: match.skill.contentFingerprint,
       candidateSkillId: candidate.id,
       candidateFingerprint:
         buildSkillDuplicateCandidateFingerprint(candidate),

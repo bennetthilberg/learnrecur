@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { SkillStatus } from "@/generated/prisma/client";
 import {
@@ -7,6 +7,7 @@ import {
   SKILL_SIMILARITY_EMBEDDING_DIMENSIONS,
   SKILL_SIMILARITY_THRESHOLDS,
   buildSkillDuplicateCandidateFingerprint,
+  buildSkillDuplicateReviewFingerprint,
   buildSkillSimilarityEmbeddingConfig,
   buildSkillSimilarityEmbeddingText,
   buildSkillSimilarityFingerprint,
@@ -44,6 +45,15 @@ function storedSkill(
     status: input.status ?? SkillStatus.DRAFT,
     collectionName: input.collectionName ?? null,
     tags: input.tags ?? [],
+    contentFingerprint:
+      input.contentFingerprint ??
+      buildSkillDuplicateReviewFingerprint({
+        id: input.id,
+        title: input.title ?? `Skill ${input.id}`,
+        objective: input.objective ?? null,
+        status: input.status ?? SkillStatus.DRAFT,
+        tags: input.tags ?? [],
+      }),
     similarityEmbeddingModel: null,
     similarityEmbeddingFingerprint: null,
     hasSimilarityEmbedding: false,
@@ -133,6 +143,34 @@ describe("skill similarity text and embedding contracts", () => {
     }
   });
 
+  it("binds reviewed skill content without treating lifecycle status as content", () => {
+    const reviewed = {
+      id: "saved-1",
+      title: "Linear equations",
+      objective: "Solve and check one-variable equations.",
+      collectionId: "collection-1",
+      rules: { items: ["Undo the same operation on both sides."] },
+      examples: { items: ["2x + 3 = 9"] },
+      exerciseConstraints: { notes: "Use integers." },
+      tags: ["algebra", "equations"],
+      status: SkillStatus.PAUSED,
+    };
+    const fingerprint = buildSkillDuplicateReviewFingerprint(reviewed);
+
+    expect(
+      buildSkillDuplicateReviewFingerprint({
+        ...reviewed,
+        status: SkillStatus.ACTIVE,
+      }),
+    ).toBe(fingerprint);
+    expect(
+      buildSkillDuplicateReviewFingerprint({
+        ...reviewed,
+        rules: { items: ["Use inverse operations."] },
+      }),
+    ).not.toBe(fingerprint);
+  });
+
   it("uses the documented sentence-similarity prefix for Embedding 2", () => {
     const text = buildSkillSimilarityEmbeddingText(
       {
@@ -162,6 +200,10 @@ describe("skill similarity text and embedding contracts", () => {
       ),
     ).toEqual({
       outputDimensionality: SKILL_SIMILARITY_EMBEDDING_DIMENSIONS,
+      httpOptions: {
+        timeout: 10_000,
+        retryOptions: { attempts: 1 },
+      },
     });
     expect(
       buildSkillSimilarityEmbeddingConfig(
@@ -172,6 +214,10 @@ describe("skill similarity text and embedding contracts", () => {
       taskType: "SEMANTIC_SIMILARITY",
       outputDimensionality: SKILL_SIMILARITY_EMBEDDING_DIMENSIONS,
       autoTruncate: true,
+      httpOptions: {
+        timeout: 10_000,
+        retryOptions: { attempts: 1 },
+      },
     });
   });
 
@@ -354,6 +400,7 @@ describe("deterministic skill similarity ranking", () => {
         status: SkillStatus.ARCHIVED,
         collectionName: null,
         tags: [],
+        contentFingerprint: "possible-fingerprint",
       },
       {
         id: "semantic",
@@ -362,6 +409,7 @@ describe("deterministic skill similarity ranking", () => {
         status: SkillStatus.ACTIVE,
         collectionName: "Biology",
         tags: ["plants"],
+        contentFingerprint: "semantic-fingerprint",
       },
       {
         id: "exact",
@@ -370,6 +418,7 @@ describe("deterministic skill similarity ranking", () => {
         status: SkillStatus.PAUSED,
         collectionName: null,
         tags: [],
+        contentFingerprint: "exact-fingerprint",
       },
     ];
 
@@ -538,7 +587,7 @@ describe("user-scoped bulk skill similarity", () => {
         (candidate) => candidate.key === "deterministic",
       )?.bestMatch?.confidence,
     ).toBe("likely");
-    expect(generatedTexts).not.toContain(
+    expect(generatedTexts).not.toContainEqual(
       expect.stringContaining(
         "Practice solving one step linear equations",
       ),
@@ -646,6 +695,9 @@ describe("user-scoped bulk skill similarity", () => {
   });
 
   it("returns deterministic matches when semantic generation is unavailable", async () => {
+    const privateErrorDetail =
+      "private worksheet text that must never be written to logs";
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
     const rows = [
       storedSkill({
         id: "possible",
@@ -667,7 +719,7 @@ describe("user-scoped bulk skill similarity", () => {
         },
       ],
       embeddingGenerator: async () => {
-        throw new Error("embedding service unavailable");
+        throw new Error(privateErrorDetail);
       },
       embeddingModel: "gemini-embedding-2",
       prisma: fake.client,
@@ -678,6 +730,21 @@ describe("user-scoped bulk skill similarity", () => {
       confidence: "possible",
       skill: { id: "possible" },
     });
+    expect(warning).toHaveBeenCalledWith(
+      "[ai] skill semantic similarity unavailable",
+      expect.objectContaining({
+        candidateCount: 1,
+        storedSkillCount: 1,
+        embeddingModel: "gemini-embedding-2",
+        errorName: "Error",
+        code: null,
+        status: null,
+      }),
+    );
+    expect(JSON.stringify(warning.mock.calls)).not.toContain(
+      privateErrorDetail,
+    );
+    warning.mockRestore();
   });
 
   it("invalidates a cache only through the scoped update helper", async () => {

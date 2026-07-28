@@ -24,7 +24,7 @@ import {
 } from "@/lib/materials/contracts";
 import {
   buildSkillDuplicateCandidateFingerprint,
-  buildSkillSimilarityFingerprint,
+  buildSkillDuplicateReviewFingerprint,
 } from "@/lib/skills/similarity";
 import {
   getMaterialActivationRetryCopy,
@@ -64,7 +64,10 @@ export default async function MaterialBatchPage({
   searchParams,
 }: {
   params: Promise<{ batchId: string }>;
-  searchParams?: Promise<{ error?: string | string[] }>;
+  searchParams?: Promise<{
+    error?: string | string[];
+    notice?: string | string[];
+  }>;
 }) {
   const { batchId } = await params;
   const { userId } = await auth.protect();
@@ -116,6 +119,12 @@ export default async function MaterialBatchPage({
     automaticRepairItemIds.length > 0 ||
     batch.items.some((item) => item.status === "GENERATING" || item.status === "PLANNED");
   const activating = batch.status === "ACTIVATING" || batch.items.some((item) => item.status === "ACTIVATING");
+  const activationTakeoverPending = batch.items.some(
+    (item) =>
+      item.status === "READY" &&
+      item.errorCode === "ACTIVATION_SUPERSEDED" &&
+      Boolean(item.skill?.generationJobs.length),
+  );
   const unfinishedItemCount = batch.items.filter(
     (item) => item.status !== "ACTIVE" && item.status !== "EXCLUDED",
   ).length;
@@ -127,16 +136,33 @@ export default async function MaterialBatchPage({
       : activating
         ? "Adding skills"
       : "Review generated skills";
-  const rawError = (await searchParams)?.error;
+  const query = await searchParams;
+  const rawError = query?.error;
+  const rawNotice = query?.notice;
+  const noticeCode = Array.isArray(rawNotice) ? rawNotice[0] : rawNotice;
   const error = getPublicMaterialActionErrorMessage(
     Array.isArray(rawError) ? rawError[0] : rawError,
     "LearnRecur could not update this batch. Try again.",
   );
+  const duplicateReviewNotice =
+    noticeCode === "duplicate-review"
+      ? {
+          title: "Similar skill found",
+          message:
+            "This draft wasn’t added because it looks similar to an existing skill. Compare them below, then choose what to do.",
+        }
+      : noticeCode === "duplicate-reviews"
+        ? {
+            title: "Similar skills found",
+            message:
+              "These drafts weren’t added because they look similar to existing skills. Compare each match below, then choose what to do.",
+          }
+        : null;
 
   return (
     <main className="skillShell materialShell batchShell">
       <SkillsTopbar current="new" />
-      <MaterialStatusPoller active={generating || activating} />
+      <MaterialStatusPoller active={generating || activating || activationTakeoverPending} />
       {automaticRepairItemIds.length > 0 ? (
         <BatchAutomaticRecovery batchId={batch.id} itemIds={automaticRepairItemIds} />
       ) : null}
@@ -167,6 +193,12 @@ export default async function MaterialBatchPage({
         message={error}
         title="Could not update this batch"
         tone="error"
+      />
+      <ActionNotification
+        id="batch-duplicate-review"
+        message={duplicateReviewNotice?.message}
+        title={duplicateReviewNotice?.title ?? "Similar skill found"}
+        tone="warning"
       />
 
       {planning && scope ? (
@@ -250,7 +282,9 @@ function ScopeReview({
               const duplicateSkill =
                 duplicateCandidate &&
                 item.overlapSkillFingerprint &&
-                buildSkillSimilarityFingerprint(duplicateCandidate) ===
+                buildMaterialDuplicateSkillReviewFingerprint(
+                  duplicateCandidate,
+                ) ===
                   item.overlapSkillFingerprint
                   ? duplicateCandidate
                   : undefined;
@@ -474,6 +508,8 @@ function BatchDraftDuplicateDecision({
       aria-labelledby={headingId}
       className="batchDraftDuplicateDecision"
       data-mode={usedExisting ? "existing" : "review"}
+      id={usedExisting ? undefined : `batch-draft-review-${itemId}`}
+      tabIndex={usedExisting ? undefined : -1}
     >
       <div className="batchDuplicateLead">
         <CopySimple aria-hidden="true" size={19} weight="fill" />
@@ -517,7 +553,9 @@ function BatchDraftDuplicateDecision({
                 buildSkillDuplicateCandidateFingerprint(candidateSkill)
               }
               expectedCandidateId={candidateSkill.id}
-              expectedMatchFingerprint={buildSkillSimilarityFingerprint(skill)}
+              expectedMatchFingerprint={
+                buildMaterialDuplicateSkillReviewFingerprint(skill)
+              }
               expectedMatchId={skill.id}
               intent="use-existing"
               itemId={itemId}
@@ -534,7 +572,7 @@ function BatchDraftDuplicateDecision({
               Check and add if distinct
             </BatchSubmitButton>
           </form>
-          {skill ? (
+          {skill && candidateSkill ? (
             <form action={activateMaterialBatchAction}>
               <input name="batchId" type="hidden" value={batchId} />
               <input name="itemId" type="hidden" value={itemId} />
@@ -547,6 +585,16 @@ function BatchDraftDuplicateDecision({
                 name="createSeparatelySkillId"
                 type="hidden"
                 value={skill.id}
+              />
+              <input
+                name="createSeparatelyCandidateFingerprint"
+                type="hidden"
+                value={buildSkillDuplicateCandidateFingerprint(candidateSkill)}
+              />
+              <input
+                name="createSeparatelySkillFingerprint"
+                type="hidden"
+                value={buildMaterialDuplicateSkillReviewFingerprint(skill)}
               />
               <BatchSubmitButton className="secondaryButton batchDuplicateOverrideAction">
                 Add as a separate skill anyway
@@ -689,7 +737,9 @@ function DraftBatchReview({
               (candidateReviewIsCurrent &&
                 storedDuplicateMatch?.skillId === duplicateCandidate.id &&
                 storedDuplicateMatch.skillFingerprint ===
-                  buildSkillSimilarityFingerprint(duplicateCandidate)))
+                  buildMaterialDuplicateSkillReviewFingerprint(
+                    duplicateCandidate,
+                  )))
               ? duplicateCandidate
               : undefined;
           const adjustment = getMaterialDraftAdjustmentCopy({
@@ -701,6 +751,14 @@ function DraftBatchReview({
             status: item.status,
             errorCode: item.errorCode,
           });
+          const itemErrorMessage =
+            item.errorCode === "ACTIVATION_SUPERSEDED" &&
+            !item.skill?.generationJobs.length
+              ? "The other activation attempt did not finish. Add this draft again when you’re ready."
+              : getMaterialDraftItemErrorMessage(
+                  item.errorCode,
+                  item.errorMessage,
+                );
           return (
             <article
               className="skillPanel batchDraftCard"
@@ -715,7 +773,7 @@ function DraftBatchReview({
             >
             <div className="batchDraftCardHeader">
               <div>
-                <span>
+                <span aria-live="polite">
                   {duplicateNeedsReview
                     ? "Needs a choice"
                     : usedExisting
@@ -724,7 +782,9 @@ function DraftBatchReview({
                       ? "Still working"
                       : adjustment
                         ? "Adjusting"
-                        : formatDisplayLabel(item.status)}
+                        : item.status === "ACTIVE"
+                          ? "Added"
+                          : formatDisplayLabel(item.status)}
                 </span>
                 <h3>{item.skill?.title ?? item.proposedTitle}</h3>
                 <p>{item.skill?.objective ?? item.proposedObjective}</p>
@@ -759,9 +819,13 @@ function DraftBatchReview({
               </p>
             ) : !duplicateNeedsReview &&
               !usedExisting &&
-              getMaterialDraftItemErrorMessage(item.errorCode, item.errorMessage) ? (
-              <p className="batchDraftError" data-tone={item.status === "EXCLUDED" ? "neutral" : "warning"}>
-                {getMaterialDraftItemErrorMessage(item.errorCode, item.errorMessage)}
+              itemErrorMessage ? (
+              <p
+                aria-live="polite"
+                className="batchDraftError"
+                data-tone={item.status === "EXCLUDED" ? "neutral" : "warning"}
+              >
+                {itemErrorMessage}
               </p>
             ) : null}
             {duplicateNeedsReview || usedExisting ? (
@@ -841,6 +905,12 @@ function DraftBatchReview({
       </section>
     </>
   );
+}
+
+function buildMaterialDuplicateSkillReviewFingerprint(
+  skill: MaterialDuplicateSkillPreview,
+) {
+  return buildSkillDuplicateReviewFingerprint(skill);
 }
 
 function getExistingSkillChoiceCopy(

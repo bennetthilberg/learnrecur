@@ -2,14 +2,19 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { SkillSimilarityMatch } from "@/lib/skills/similarity";
+import type {
+  SkillSimilarityBulkResult,
+  SkillSimilarityMatch,
+} from "@/lib/skills/similarity";
 
 const mocks = vi.hoisted(() => ({
   activateSkillDraft: vi.fn(),
   authProtect: vi.fn(),
+  buildSkillDuplicateCandidateFingerprint: vi.fn(),
   currentUser: vi.fn(),
   ensureDatabaseUser: vi.fn(),
   findSimilarSkillsForUser: vi.fn(),
+  findSkillDraftForReview: vi.fn(),
   revalidatePath: vi.fn(),
   updateSkillDraft: vi.fn(),
 }));
@@ -33,6 +38,14 @@ vi.mock("@/lib/users", () => ({
   ensureDatabaseUser: mocks.ensureDatabaseUser,
 }));
 
+vi.mock("@/lib/prisma", () => ({
+  getPrisma: () => ({
+    skill: {
+      findFirst: mocks.findSkillDraftForReview,
+    },
+  }),
+}));
+
 vi.mock("@/lib/skills", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/skills")>()),
   activateSkillDraft: mocks.activateSkillDraft,
@@ -43,6 +56,8 @@ vi.mock("@/lib/skills", async (importOriginal) => ({
 }));
 
 vi.mock("@/lib/skills/similarity", () => ({
+  buildSkillDuplicateCandidateFingerprint:
+    mocks.buildSkillDuplicateCandidateFingerprint,
   findSimilarSkillsForUser: mocks.findSimilarSkillsForUser,
 }));
 
@@ -54,6 +69,7 @@ const existingMatch: SkillSimilarityMatch = {
     status: "PAUSED",
     collectionName: "Spanish grammar",
     tags: ["spanish", "verbs"],
+    contentFingerprint: "existing-content-fingerprint",
   },
   confidence: "likely",
   score: 0.92,
@@ -62,7 +78,9 @@ const existingMatch: SkillSimilarityMatch = {
   reasons: [],
 };
 
-function similarityResult(match: SkillSimilarityMatch | null) {
+function similarityResult(
+  match: SkillSimilarityMatch | null,
+): SkillSimilarityBulkResult {
   return {
     candidates: [
       {
@@ -110,10 +128,27 @@ describe("single-skill duplicate activation gate", () => {
       status: "ready",
       userId: "user-alpha",
     });
+    mocks.buildSkillDuplicateCandidateFingerprint.mockReturnValue(
+      "reviewed-draft-fingerprint",
+    );
     mocks.updateSkillDraft.mockResolvedValue({
       status: "updated",
       skill: {
         id: "skill-draft",
+        title: "Ser vs. estar",
+        objective:
+          "Choose between ser and estar for identity, location, and temporary state.",
+        collectionId: "collection-spanish",
+        rules: {
+          items: ["Use ser for identity.", "Use estar for location."],
+        },
+        examples: {
+          items: ["Soy estudiante.", "Estoy en casa."],
+        },
+        exerciseConstraints: {
+          notes: "Use short classroom sentences.",
+        },
+        tags: ["spanish", "verbs"],
       },
     });
     mocks.activateSkillDraft.mockResolvedValue({
@@ -162,7 +197,11 @@ describe("single-skill duplicate activation gate", () => {
     const { addSkillDraftToPracticeInlineAction } = await import("@/app/skills/actions");
 
     const result = await addSkillDraftToPracticeInlineAction(
-      { status: "idle", message: null },
+      {
+        status: "duplicate-warning",
+        message: null,
+        duplicateMatch: existingMatch,
+      },
       draftFormData(existingMatch.skill.id),
     );
 
@@ -170,12 +209,33 @@ describe("single-skill duplicate activation gate", () => {
     expect(mocks.activateSkillDraft).toHaveBeenCalledWith({
       userId: "user-alpha",
       skillId: "skill-draft",
+      expectedDraftFingerprint: "reviewed-draft-fingerprint",
+      expectedDuplicateMatch: {
+        skillId: existingMatch.skill.id,
+        fingerprint: existingMatch.skill.contentFingerprint,
+      },
       now: expect.any(Date),
     });
     expect(result).toMatchObject({
       status: "activated",
       activatedSkillId: "skill-draft",
     });
+  });
+
+  it("does not honor an override that was not submitted from the warning shown", async () => {
+    mocks.findSimilarSkillsForUser.mockResolvedValue(similarityResult(existingMatch));
+    const { addSkillDraftToPracticeInlineAction } = await import("@/app/skills/actions");
+
+    const result = await addSkillDraftToPracticeInlineAction(
+      { status: "idle", message: null },
+      draftFormData(existingMatch.skill.id),
+    );
+
+    expect(result).toMatchObject({
+      status: "duplicate-warning",
+      duplicateMatch: existingMatch,
+    });
+    expect(mocks.activateSkillDraft).not.toHaveBeenCalled();
   });
 
   it("activates normally when the recheck finds no similar skill", async () => {
@@ -188,6 +248,11 @@ describe("single-skill duplicate activation gate", () => {
     );
 
     expect(mocks.activateSkillDraft).toHaveBeenCalledTimes(1);
+    expect(mocks.activateSkillDraft).toHaveBeenCalledWith(
+      expect.objectContaining({
+        expectedDraftFingerprint: "reviewed-draft-fingerprint",
+      }),
+    );
     expect(result).toMatchObject({
       status: "activated",
       activatedSkillId: "skill-draft",
@@ -201,18 +266,25 @@ describe("single-skill duplicate activation gate", () => {
         ...existingMatch.skill,
         id: "skill-new-match",
         title: "Choosing Spanish copulas",
+        contentFingerprint: "new-match-content-fingerprint",
       },
     };
     mocks.findSimilarSkillsForUser.mockResolvedValue(similarityResult(changedMatch));
     const { addSkillDraftToPracticeInlineAction } = await import("@/app/skills/actions");
 
     const result = await addSkillDraftToPracticeInlineAction(
-      { status: "idle", message: null },
+      {
+        status: "duplicate-warning",
+        message: null,
+        duplicateMatch: existingMatch,
+      },
       draftFormData(existingMatch.skill.id),
     );
 
     expect(result).toMatchObject({
       status: "duplicate-warning",
+      message:
+        "LearnRecur found a different similar skill. Compare it before deciding.",
       duplicateMatch: {
         skill: {
           id: "skill-new-match",
@@ -220,6 +292,112 @@ describe("single-skill duplicate activation gate", () => {
       },
     });
     expect(mocks.activateSkillDraft).not.toHaveBeenCalled();
+  });
+
+  it("shows a refreshed warning when the same existing skill changed after review", async () => {
+    const changedMatch = {
+      ...existingMatch,
+      skill: {
+        ...existingMatch.skill,
+        title: "Ser and estar across contexts",
+        objective:
+          "Choose the copula that fits identity, condition, place, and event prompts.",
+        contentFingerprint: "changed-existing-content-fingerprint",
+      },
+    };
+    mocks.findSimilarSkillsForUser.mockResolvedValue(similarityResult(changedMatch));
+    const { addSkillDraftToPracticeInlineAction } = await import("@/app/skills/actions");
+
+    const result = await addSkillDraftToPracticeInlineAction(
+      {
+        status: "duplicate-warning",
+        message: null,
+        duplicateMatch: existingMatch,
+      },
+      draftFormData(existingMatch.skill.id),
+    );
+
+    expect(result).toMatchObject({
+      status: "duplicate-warning",
+      message:
+        "The saved skill changed after your first comparison. We refreshed it; review and confirm again.",
+      duplicateMatch: changedMatch,
+    });
+    expect(mocks.activateSkillDraft).not.toHaveBeenCalled();
+  });
+
+  it("continues activation when the advisory duplicate lookup fails", async () => {
+    const privateErrorDetail =
+      "private skill text that must never be written to logs";
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
+    mocks.findSimilarSkillsForUser.mockRejectedValue(
+      new Error(privateErrorDetail),
+    );
+    const { addSkillDraftToPracticeInlineAction } = await import("@/app/skills/actions");
+
+    const result = await addSkillDraftToPracticeInlineAction(
+      { status: "idle", message: null },
+      draftFormData(),
+    );
+
+    expect(result).toMatchObject({
+      status: "activated",
+      activatedSkillId: "skill-draft",
+    });
+    expect(mocks.activateSkillDraft).toHaveBeenCalledWith(
+      expect.objectContaining({
+        expectedDuplicateMatch: undefined,
+      }),
+    );
+    expect(warning).toHaveBeenCalledWith(
+      "[skills] duplicate check unavailable",
+      {
+        userId: "user-alpha",
+        skillId: "skill-draft",
+        errorName: "Error",
+      },
+    );
+    expect(JSON.stringify(warning.mock.calls)).not.toContain(
+      privateErrorDetail,
+    );
+    warning.mockRestore();
+  });
+
+  it("refreshes the preview when the reviewed existing skill changes before reservation", async () => {
+    const refreshedMatch = {
+      ...existingMatch,
+      skill: {
+        ...existingMatch.skill,
+        title: "Updated ser and estar contexts",
+        contentFingerprint: "refreshed-existing-content-fingerprint",
+      },
+    };
+    mocks.findSimilarSkillsForUser
+      .mockResolvedValueOnce(similarityResult(existingMatch))
+      .mockResolvedValueOnce(similarityResult(refreshedMatch));
+    mocks.activateSkillDraft.mockResolvedValue({
+      status: "not-activated",
+      reason: "duplicate-review-changed",
+      message: "The existing skill changed after duplicate review.",
+    });
+    const { addSkillDraftToPracticeInlineAction } = await import("@/app/skills/actions");
+
+    const result = await addSkillDraftToPracticeInlineAction(
+      {
+        status: "duplicate-warning",
+        message: null,
+        duplicateMatch: existingMatch,
+      },
+      draftFormData(existingMatch.skill.id),
+    );
+
+    expect(result).toMatchObject({
+      status: "duplicate-warning",
+      message:
+        "The existing skill changed after you reviewed it. Compare the updated preview before deciding.",
+      duplicateMatch: refreshedMatch,
+    });
+    expect(mocks.findSimilarSkillsForUser).toHaveBeenCalledTimes(2);
   });
 
   it("returns the learner's latest values when edited input fails validation", async () => {
@@ -283,6 +461,46 @@ describe("single-skill duplicate activation gate", () => {
       },
     });
   });
+
+  it("reloads the latest draft when another edit supersedes the reviewed snapshot", async () => {
+    mocks.findSimilarSkillsForUser.mockResolvedValue(similarityResult(null));
+    mocks.activateSkillDraft.mockResolvedValue({
+      status: "not-activated",
+      reason: "draft-changed",
+      message: "This draft changed after the duplicate check.",
+    });
+    mocks.findSkillDraftForReview.mockResolvedValue({
+      id: "skill-draft",
+      title: "Latest title from another tab",
+      objective: "Review the newest objective before adding this skill.",
+      rules: { items: ["Use the latest rule."] },
+      examples: { items: ["Latest example."] },
+      exerciseConstraints: { notes: "Use the latest constraints." },
+      tags: ["latest"],
+      collection: { name: "Latest collection" },
+    });
+    const { addSkillDraftToPracticeInlineAction } = await import("@/app/skills/actions");
+
+    const result = await addSkillDraftToPracticeInlineAction(
+      { status: "idle", message: null },
+      draftFormData(),
+    );
+
+    expect(result).toMatchObject({
+      status: "error",
+      message:
+        "This draft changed in another tab. Review the latest version, then add it again.",
+      draftValues: {
+        title: "Latest title from another tab",
+        objective: "Review the newest objective before adding this skill.",
+        collectionName: "Latest collection",
+        rules: "Use the latest rule.",
+        examples: "Latest example.",
+        exerciseConstraints: "Use the latest constraints.",
+        tags: "latest",
+      },
+    });
+  });
 });
 
 describe("single-skill duplicate comparison UI", () => {
@@ -293,12 +511,17 @@ describe("single-skill duplicate comparison UI", () => {
         isSubmitting: false,
         match: existingMatch,
         onKeepEditing: vi.fn(),
+        reviewMessage:
+          "The existing skill changed. Compare the updated preview before deciding.",
       }),
     );
 
     expect(markup).toContain('aria-labelledby="');
     expect(markup).not.toContain('role="alert"');
     expect(markup).toContain("You may already have this skill");
+    expect(markup).toContain(
+      "The existing skill changed. Compare the updated preview before deciding.",
+    );
     expect(markup).toContain("Ser and estar in context");
     expect(markup).toContain(
       "Choose ser or estar for identity, location, and temporary state.",

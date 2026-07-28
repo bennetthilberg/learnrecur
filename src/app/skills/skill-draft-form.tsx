@@ -213,6 +213,7 @@ export function SkillDraftForm(props: SkillDraftFormProps) {
             match={duplicateMatch}
             onKeepEditing={focusDraftEditor}
             ref={duplicateDecisionRef}
+            reviewMessage={formState.message}
           />
         ) : null}
 
@@ -335,9 +336,10 @@ export const SkillDuplicateDecision = forwardRef<
     isSubmitting: boolean;
     match: SkillDuplicateMatch;
     onKeepEditing: () => void;
+    reviewMessage?: string | null;
   }
 >(function SkillDuplicateDecision(
-  { isSubmitting, match, onKeepEditing },
+  { isSubmitting, match, onKeepEditing, reviewMessage },
   ref,
 ) {
   const headingId = useId();
@@ -367,8 +369,8 @@ export const SkillDuplicateDecision = forwardRef<
         <div className="skillDuplicateDecisionCopy">
           <h3 id={headingId}>You may already have this skill</h3>
           <p>
-            This draft looks similar to a skill already in your library.
-            Compare the two before adding another review schedule.
+            {reviewMessage ??
+              "This draft looks similar to a skill already in your library. Compare the two before adding another review schedule."}
           </p>
         </div>
 

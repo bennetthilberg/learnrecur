@@ -244,12 +244,22 @@ describe("material contracts", () => {
         batchId: "batch_1",
         itemIds: ["item_1", "item_2"],
         createSeparatelyMatches: [
-          { itemId: "item_2", skillId: "skill_2" },
+          {
+            itemId: "item_2",
+            skillId: "skill_2",
+            candidateFingerprint: "a".repeat(64),
+            skillFingerprint: "b".repeat(64),
+          },
         ],
       }),
     ).toMatchObject({
       createSeparatelyMatches: [
-        { itemId: "item_2", skillId: "skill_2" },
+        {
+          itemId: "item_2",
+          skillId: "skill_2",
+          candidateFingerprint: "a".repeat(64),
+          skillFingerprint: "b".repeat(64),
+        },
       ],
     });
     expect(() =>
@@ -257,7 +267,12 @@ describe("material contracts", () => {
         batchId: "batch_1",
         itemIds: ["item_1"],
         createSeparatelyMatches: [
-          { itemId: "item_2", skillId: "skill_2" },
+          {
+            itemId: "item_2",
+            skillId: "skill_2",
+            candidateFingerprint: "a".repeat(64),
+            skillFingerprint: "b".repeat(64),
+          },
         ],
       }),
     ).toThrow(/selected/i);
@@ -310,6 +325,7 @@ describe("material contracts", () => {
               ...duplicateItem,
               key: "new-skill",
               overlapSkillId: undefined,
+              overlapSkillFingerprint: undefined,
               overlapConfidence: undefined,
               overlapScore: undefined,
               overlapWarning: undefined,

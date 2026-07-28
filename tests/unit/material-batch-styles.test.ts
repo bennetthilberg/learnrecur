@@ -9,6 +9,17 @@ const batchPage = readFileSync(
   new URL("../../src/app/skills/batches/[batchId]/page.tsx", import.meta.url),
   "utf8",
 );
+const batchActions = readFileSync(
+  new URL("../../src/app/skills/batches/actions.ts", import.meta.url),
+  "utf8",
+);
+const batchExcludeControl = readFileSync(
+  new URL(
+    "../../src/app/skills/batches/batch-exclude-control.tsx",
+    import.meta.url,
+  ),
+  "utf8",
+);
 
 describe("material batch presentation", () => {
   it("uses more of the wide-screen canvas for both scope cards", () => {
@@ -63,6 +74,21 @@ describe("material batch presentation", () => {
     expect(batchPage).toContain("activationRetry.description");
   });
 
+  it("keeps polling while a superseded activation can still finish", () => {
+    expect(batchPage).toContain('item.errorCode === "ACTIVATION_SUPERSEDED"');
+    expect(batchPage).toContain("Boolean(item.skill?.generationJobs.length)");
+    expect(batchPage).toContain(
+      "The other activation attempt did not finish. Add this draft again when you’re ready.",
+    );
+    expect(batchPage).toContain('<span aria-live="polite">');
+    expect(batchPage).toMatch(
+      /<p\s+aria-live="polite"\s+className="batchDraftError"/,
+    );
+    expect(batchPage).toContain(
+      "generating || activating || activationTakeoverPending",
+    );
+  });
+
   it("keeps draft editing and exclusion in confirmed modal flows", () => {
     expect(batchPage).toContain("<BatchDraftEditDialog");
     expect(batchPage).toContain("<BatchExcludeControl");
@@ -76,6 +102,12 @@ describe("material batch presentation", () => {
     expect(batchPage).toContain('name="createSeparatelyTargetKey"');
     expect(batchPage).toContain('name="createSeparatelyItemId"');
     expect(batchPage).toContain('name="createSeparatelySkillId"');
+    expect(batchPage).toContain(
+      'name="createSeparatelyCandidateFingerprint"',
+    );
+    expect(batchPage).toContain(
+      'name="createSeparatelySkillFingerprint"',
+    );
     expect(batchPage).toContain("Add as a separate skill anyway");
     expect(batchPage).toContain('"Use existing skill"');
     expect(batchPage).toContain('"Keep existing draft"');
@@ -98,6 +130,47 @@ describe("material batch presentation", () => {
     expect(styles).toMatch(
       /\.batchExcludeModalActions,[\s\S]*?\.batchLeaveModalActions\s*\{[^}]*flex-direction:\s*column;/s,
     );
+  });
+
+  it("explains a stopped add and anchors the learner at the duplicate decision", () => {
+    expect(batchActions).toContain(
+      'result.status === "review-required"',
+    );
+    expect(batchActions).toContain('"duplicate-review"');
+    expect(batchActions).toContain('"duplicate-reviews"');
+    expect(batchActions).toContain("?notice=${notice}");
+    expect(batchActions).toContain("#batch-draft-review-");
+    expect(batchPage).toContain('"Similar skill found"');
+    expect(batchPage).toContain(
+      "This draft wasn’t added because it looks similar to an existing skill.",
+    );
+    expect(batchPage).toContain('"Similar skills found"');
+    expect(batchPage).toContain(
+      "These drafts weren’t added because they look similar to existing skills.",
+    );
+    expect(batchPage).toContain('tone="warning"');
+    expect(batchPage).toContain(
+      'id={usedExisting ? undefined : `batch-draft-review-${itemId}`}',
+    );
+    expect(batchPage).toContain(
+      "tabIndex={usedExisting ? undefined : -1}",
+    );
+    expect(styles).toMatch(
+      /\.batchDraftDuplicateDecision\[data-mode="review"\]:focus,\s*\.batchDraftDuplicateDecision\[data-mode="review"\]:target\s*\{[^}]*box-shadow:\s*inset/s,
+    );
+    expect(styles).toMatch(
+      /\.batchDraftDuplicateDecision\s*\{[^}]*scroll-margin-top:/s,
+    );
+    expect(batchActions).toContain(
+      'result.status === "partial" && result.reviewItemIds.length > 0',
+    );
+    expect(batchExcludeControl).toContain('"refreshRequired" in result');
+    expect(batchExcludeControl).toContain("setOpened(false)");
+    expect(batchExcludeControl).toContain("router.refresh()");
+    expect(batchExcludeControl).toContain(
+      ".getElementById(`batch-draft-review-${itemId}`)",
+    );
+    expect(batchExcludeControl).toContain("?.focus()");
   });
 
   it("offers a guarded route back to the skill creation start from review", () => {

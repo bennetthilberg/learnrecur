@@ -14,7 +14,6 @@ import {
   type SkillDraftGenerator,
 } from "@/lib/skills";
 import {
-  buildSkillSimilarityFingerprint,
   type SkillSimilarityCandidateResult,
 } from "@/lib/skills/similarity";
 
@@ -789,7 +788,7 @@ export function annotateMaterialPlanOverlaps(
       return {
         ...item,
         overlapSkillId: match.skill.id,
-        overlapSkillFingerprint: buildSkillSimilarityFingerprint(match.skill),
+        overlapSkillFingerprint: match.skill.contentFingerprint,
         overlapConfidence: match.confidence,
         overlapScore: match.score,
         overlapWarning: warning,

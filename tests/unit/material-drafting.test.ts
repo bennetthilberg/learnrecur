@@ -865,6 +865,7 @@ describe("material scope planning", () => {
             status: "DRAFT",
             collectionName: "Spanish",
             tags: ["grammar"],
+            contentFingerprint: "a".repeat(64),
           },
         },
       },
@@ -924,6 +925,8 @@ describe("material scope planning", () => {
               status: "ACTIVE",
               collectionName: null,
               tags: [],
+              contentFingerprint:
+                (confidence === "likely" ? "b" : "c").repeat(64),
             },
           },
         },

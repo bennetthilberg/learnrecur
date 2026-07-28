@@ -180,6 +180,31 @@ export function BatchExcludeControl(props: BatchExcludeControlProps) {
                     router.refresh();
                     return;
                   }
+                  if (
+                    "refreshRequired" in result &&
+                    result.refreshRequired
+                  ) {
+                    notifications.show({
+                      id: `batch-exclude-${itemId}`,
+                      autoClose: 8000,
+                      className: "learnrecurNotification",
+                      color: "amber",
+                      icon: <WarningCircle size={18} weight="bold" />,
+                      message: result.message,
+                      position: "top-right",
+                      title: "Review the updated comparison",
+                      withBorder: true,
+                      withCloseButton: true,
+                    });
+                    setOpened(false);
+                    router.refresh();
+                    window.requestAnimationFrame(() => {
+                      document
+                        .getElementById(`batch-draft-review-${itemId}`)
+                        ?.focus();
+                    });
+                    return;
+                  }
                   notifications.show({
                     id: `batch-exclude-${itemId}`,
                     autoClose: 8000,

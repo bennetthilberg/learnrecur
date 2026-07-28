@@ -37,17 +37,23 @@ import { searchMaterialChunksLexical } from "@/lib/materials/retrieval";
 import { loadLocalizedMaterialEvidence } from "@/lib/materials/evidence";
 import { getPrisma } from "@/lib/prisma";
 import {
+  ACTIVATION_GENERATION_TIMEOUT_MS,
+  ACTIVATION_SUPERSEDED_JOB_MESSAGE,
   activateSkillDraft,
   refillChoiceExercisesForSkill,
+  updateSkillDraft,
   type SkillSourceEvidenceLoader,
 } from "@/lib/skills";
 import { deleteSkillPermanently } from "@/lib/skills/delete";
 import {
   buildSkillDuplicateCandidateFingerprint,
-  buildSkillSimilarityFingerprint,
+  buildSkillDuplicateReviewFingerprint,
 } from "@/lib/skills/similarity";
 import type { SourceObjectStorage } from "@/lib/storage/s3";
-import { ALPHA_ACTIVE_SKILLS } from "@/lib/usage-limits";
+import {
+  ALPHA_ACTIVE_SKILLS,
+  ALPHA_SKILL_ACTIVATIONS_PER_DAY,
+} from "@/lib/usage-limits";
 
 const runDatabaseTests = process.env.RUN_DATABASE_TESTS === "1";
 const describeDatabase = runDatabaseTests ? describe : describe.skip;
@@ -483,13 +489,13 @@ describeDatabase("material multi-skill drafting", () => {
     }
     expect(planned.plan.items[0]).toMatchObject({
       overlapSkillId: existing.id,
-      overlapSkillFingerprint: buildSkillSimilarityFingerprint(existing),
+      overlapSkillFingerprint:
+        buildSkillDuplicateReviewFingerprint(existing),
     });
     await prisma.skill.update({
       where: { id: existing.id },
       data: {
-        title: `Unrelated algebra skill ${runId}`,
-        objective: "Factor a quadratic polynomial over the integers.",
+        tags: ["edited-plan-match", "changed-after-review"],
       },
     });
     const events: string[] = [];
@@ -2506,6 +2512,105 @@ describeDatabase("material multi-skill drafting", () => {
     expect(refillSourceContext).not.toContain("UNRELATED CHAPTER SIX SOURCE TEXT");
   });
 
+  it("returns an edited batch draft to review before its reserved activation starts", async () => {
+    const ready = await createReadyBatch([
+      {
+        key: "activation-reservation-snapshot",
+        title: "Reserved pronoun placement fixture",
+        objective: "Place a direct object pronoun before a conjugated verb.",
+        materialSectionIds: [directSectionId],
+        evidenceChunkIds: [directChunkId],
+      },
+    ]);
+    const events: Array<{ itemId: string; generationJobId: string }> = [];
+    const queued = await queueMaterialBatchActivation({
+      userId,
+      input: { batchId: ready.id, itemIds: [ready.items[0].id] },
+      now: new Date("2026-07-09T13:00:00.000Z"),
+      eventSender: {
+        async sendMaterialBatchActivationRequested(payload) {
+          events.push(payload);
+        },
+      },
+    });
+    expect(queued).toMatchObject({
+      status: "queued",
+      queuedItemIds: [ready.items[0].id],
+    });
+    expect(events).toHaveLength(1);
+
+    const updated = await updateSkillDraft({
+      userId,
+      skillId: ready.items[0].skill?.id ?? "missing-skill",
+      input: {
+        title: "Edited reserved pronoun placement fixture",
+        objective:
+          "Distinguish direct and indirect pronoun placement after reviewing the broader scope.",
+        collectionName: "",
+        tags: "pronouns, edited",
+      },
+    });
+    expect(updated.status).toBe("updated");
+    const generator = vi.fn(async () => ({
+      exercises: [
+        generatedChoiceExercise(1),
+        generatedChoiceExercise(2),
+        generatedChoiceExercise(3),
+      ],
+    }));
+
+    const result = await runMaterialBatchActivationJob({
+      userId,
+      batchId: ready.id,
+      itemId: events[0].itemId,
+      generationJobId: events[0].generationJobId,
+      now: new Date("2026-07-09T13:01:00.000Z"),
+      generateChoiceExercises: generator,
+      verifyChoiceExercises: acceptAllChoiceExercises,
+      model: "fixture-model",
+      sourceEvidenceLoader,
+    });
+
+    expect(result).toMatchObject({
+      status: "failed",
+      reason: "draft-changed",
+    });
+    expect(generator).not.toHaveBeenCalled();
+    const [batch, generationJob, exerciseCount] = await Promise.all([
+      getMaterialDraftBatch({ userId, batchId: ready.id }),
+      prisma.generationJob.findUniqueOrThrow({
+        where: { id: events[0].generationJobId },
+      }),
+      prisma.exercise.count({
+        where: {
+          userId,
+          skillId: ready.items[0].skill?.id,
+        },
+      }),
+    ]);
+    expect(batch).toMatchObject({
+      status: SkillDraftBatchStatus.READY,
+      readyCount: 1,
+      failedCount: 0,
+      items: [
+        {
+          status: SkillDraftBatchItemStatus.READY,
+          errorCode: "ACTIVATION_DRAFT_CHANGED",
+          skill: {
+            title: "Edited reserved pronoun placement fixture",
+            status: SkillStatus.DRAFT,
+          },
+        },
+      ],
+    });
+    expect(generationJob).toMatchObject({
+      status: GenerationJobStatus.FAILED,
+      errorMessage:
+        "This draft changed after it was queued. Review the latest version, then add it again. LearnRecur will check for duplicates first.",
+    });
+    expect(exerciseCount).toBe(0);
+  });
+
   it("rechecks edited drafts for duplicates before activation and honors an explicit override", async () => {
     const ready = await createReadyBatch([
       {
@@ -2553,13 +2658,57 @@ describeDatabase("material multi-skill drafting", () => {
       ],
     });
 
+    const reviewedCandidateFingerprint =
+      buildSkillDuplicateCandidateFingerprint(ready.items[0].skill!);
+    const editedCandidate = await prisma.skill.update({
+      where: { id: ready.items[0].skill!.id },
+      data: { tags: ["edited-after-duplicate-review"] },
+    });
+    await expect(
+      queueMaterialBatchActivation({
+        userId,
+        input: {
+          batchId: ready.id,
+          itemIds: [ready.items[0].id],
+          createSeparatelyMatches: [
+            {
+              itemId: ready.items[0].id,
+              skillId: duplicate.id,
+              candidateFingerprint: reviewedCandidateFingerprint,
+              skillFingerprint:
+                buildSkillDuplicateReviewFingerprint(duplicate),
+            },
+          ],
+        },
+        now: new Date("2026-07-22T12:00:15.000Z"),
+        embeddingGenerator: null,
+        eventSender: {
+          async sendMaterialBatchActivationRequested(payload) {
+            events.push(payload.itemId);
+          },
+        },
+      }),
+    ).resolves.toMatchObject({
+      status: "invalid",
+      message:
+        "This draft changed after duplicate review. Review the latest draft, then choose again.",
+    });
+    expect(events).toEqual([]);
+
     const staleOverride = await queueMaterialBatchActivation({
       userId,
       input: {
         batchId: ready.id,
         itemIds: [ready.items[0].id],
         createSeparatelyMatches: [
-          { itemId: ready.items[0].id, skillId: "stale-match-id" },
+          {
+            itemId: ready.items[0].id,
+            skillId: "stale-match-id",
+            candidateFingerprint:
+              buildSkillDuplicateCandidateFingerprint(editedCandidate),
+            skillFingerprint:
+              buildSkillDuplicateReviewFingerprint(duplicate),
+          },
         ],
       },
       now: new Date("2026-07-22T12:00:30.000Z"),
@@ -2582,7 +2731,14 @@ describeDatabase("material multi-skill drafting", () => {
         batchId: ready.id,
         itemIds: [ready.items[0].id],
         createSeparatelyMatches: [
-          { itemId: ready.items[0].id, skillId: duplicate.id },
+          {
+            itemId: ready.items[0].id,
+            skillId: duplicate.id,
+            candidateFingerprint:
+              buildSkillDuplicateCandidateFingerprint(editedCandidate),
+            skillFingerprint:
+              buildSkillDuplicateReviewFingerprint(duplicate),
+          },
         ],
       },
       now: new Date("2026-07-22T12:01:00.000Z"),
@@ -2598,6 +2754,69 @@ describeDatabase("material multi-skill drafting", () => {
       queuedItemIds: [ready.items[0].id],
     });
     expect(events).toEqual([ready.items[0].id]);
+    const activationJob = await prisma.generationJob.findFirstOrThrow({
+      where: {
+        userId,
+        skillId: ready.items[0].skill?.id,
+        kind: GenerationJobKind.SKILL_ACTIVATION,
+        status: GenerationJobStatus.PENDING,
+      },
+    });
+
+    const activationResult = await runMaterialBatchActivationJob({
+      userId,
+      batchId: ready.id,
+      itemId: ready.items[0].id,
+      generationJobId: activationJob.id,
+      now: new Date("2026-07-22T12:02:00.000Z"),
+      generateChoiceExercises: async () => {
+        await prisma.skill.update({
+          where: { id: duplicate.id },
+          data: {
+            tags: ["duplicate-gate", "changed-during-generation"],
+          },
+        });
+        return {
+          exercises: [
+            generatedChoiceExercise(1),
+            generatedChoiceExercise(2),
+            generatedChoiceExercise(3),
+          ],
+        };
+      },
+      verifyChoiceExercises: acceptAllChoiceExercises,
+      model: "fixture-model",
+      sourceEvidenceLoader,
+    });
+
+    expect(activationResult).toMatchObject({
+      status: "failed",
+      reason: "duplicate-review-changed",
+    });
+    const [batchAfterChange, candidateAfterChange, exerciseCount] =
+      await Promise.all([
+        getMaterialDraftBatch({ userId, batchId: ready.id }),
+        prisma.skill.findUniqueOrThrow({
+          where: { id: ready.items[0].skill?.id },
+        }),
+        prisma.exercise.count({
+          where: {
+            userId,
+            skillId: ready.items[0].skill?.id,
+          },
+        }),
+      ]);
+    expect(batchAfterChange).toMatchObject({
+      status: SkillDraftBatchStatus.READY,
+      items: [
+        {
+          status: SkillDraftBatchItemStatus.READY,
+          errorCode: "DUPLICATE_REVIEW_REQUIRED",
+        },
+      ],
+    });
+    expect(candidateAfterChange.status).toBe(SkillStatus.DRAFT);
+    expect(exerciseCount).toBe(0);
   });
 
   it("persists the keep-existing choice after removing a duplicate generated draft", async () => {
@@ -2647,7 +2866,8 @@ describeDatabase("material multi-skill drafting", () => {
         expectedCandidateFingerprint:
           buildSkillDuplicateCandidateFingerprint(ready.items[0].skill!),
         expectedMatchId: existing.id,
-        expectedMatchFingerprint: buildSkillSimilarityFingerprint(existing),
+        expectedMatchFingerprint:
+          buildSkillDuplicateReviewFingerprint(existing),
         now: new Date(),
       }),
     ).resolves.toMatchObject({ status: "excluded" });
@@ -2674,7 +2894,7 @@ describeDatabase("material multi-skill drafting", () => {
     });
   });
 
-  it("keeps the generated draft when the reviewed match content or identity changes", async () => {
+  it("keeps the generated draft when the reviewed match metadata or identity changes", async () => {
     const fixtureId = randomUUID();
     const title = `Changed reviewed match ${fixtureId}`;
     const objective =
@@ -2720,12 +2940,12 @@ describeDatabase("material multi-skill drafting", () => {
         eventSender: { async sendMaterialBatchActivationRequested() {} },
       }),
     ).resolves.toMatchObject({ status: "review-required" });
-    const reviewedFingerprint = buildSkillSimilarityFingerprint(existing);
+    const reviewedFingerprint =
+      buildSkillDuplicateReviewFingerprint(existing);
     await prisma.skill.update({
       where: { id: existing.id },
       data: {
-        title: `Unrelated geometry skill ${runId}`,
-        objective: "Find the area of a triangle from its base and height.",
+        tags: ["changed-reviewed-match", "changed-after-review"],
       },
     });
 
@@ -2827,7 +3047,8 @@ describeDatabase("material multi-skill drafting", () => {
         expectedCandidateId: generatedSkillId,
         expectedCandidateFingerprint: reviewedCandidateFingerprint,
         expectedMatchId: existing.id,
-        expectedMatchFingerprint: buildSkillSimilarityFingerprint(existing),
+        expectedMatchFingerprint:
+          buildSkillDuplicateReviewFingerprint(existing),
         now: new Date(),
       }),
     ).resolves.toMatchObject({
@@ -2892,7 +3113,8 @@ describeDatabase("material multi-skill drafting", () => {
         eventSender: { async sendMaterialBatchActivationRequested() {} },
       }),
     ).resolves.toMatchObject({ status: "review-required" });
-    const reviewedFingerprint = buildSkillSimilarityFingerprint(existing);
+    const reviewedFingerprint =
+      buildSkillDuplicateReviewFingerprint(existing);
 
     await Promise.all([
       excludeMaterialDraftItem({
@@ -2913,7 +3135,15 @@ describeDatabase("material multi-skill drafting", () => {
           batchId: ready.id,
           itemIds: [ready.items[0].id],
           createSeparatelyMatches: [
-            { itemId: ready.items[0].id, skillId: existing.id },
+            {
+              itemId: ready.items[0].id,
+              skillId: existing.id,
+              candidateFingerprint:
+                buildSkillDuplicateCandidateFingerprint(
+                  ready.items[0].skill!,
+                ),
+              skillFingerprint: reviewedFingerprint,
+            },
           ],
         },
         now: new Date(),
@@ -3000,7 +3230,7 @@ describeDatabase("material multi-skill drafting", () => {
       }),
     ).resolves.toMatchObject({ status: "review-required" });
     const expectedMatchFingerprint =
-      buildSkillSimilarityFingerprint(existing);
+      buildSkillDuplicateReviewFingerprint(existing);
     await prisma.skill.delete({ where: { id: existing.id } });
 
     await expect(
@@ -3169,6 +3399,384 @@ describeDatabase("material multi-skill drafting", () => {
     });
   });
 
+  it("keeps a batch draft recoverable when a standalone activation supersedes its worker", async () => {
+    const ready = await createReadyBatch([
+      {
+        key: "cross-flow-activation-fence",
+        title: "Cross-flow activation fence fixture",
+        objective: "Choose a direct object pronoun while two activation flows overlap.",
+        materialSectionIds: [directSectionId],
+        evidenceChunkIds: [directChunkId],
+      },
+    ]);
+    const events: Array<{ itemId: string; generationJobId: string }> = [];
+    await queueMaterialBatchActivation({
+      userId,
+      input: { batchId: ready.id, itemIds: [ready.items[0].id] },
+      now: new Date("2026-07-18T12:00:00.000Z"),
+      eventSender: {
+        async sendMaterialBatchActivationRequested(payload) {
+          events.push(payload);
+        },
+      },
+    });
+    if (!ready.items[0].skill || !events[0]) {
+      throw new Error("Expected a queued cross-flow activation fixture.");
+    }
+
+    let signalBatchWorkerStarted: (() => void) | undefined;
+    const batchWorkerStarted = new Promise<void>((resolve) => {
+      signalBatchWorkerStarted = resolve;
+    });
+    let releaseBatchWorker: (() => void) | undefined;
+    const batchWorkerCanFail = new Promise<void>((resolve) => {
+      releaseBatchWorker = resolve;
+    });
+    const batchWorker = runMaterialBatchActivationJob({
+      userId,
+      batchId: ready.id,
+      itemId: events[0].itemId,
+      generationJobId: events[0].generationJobId,
+      now: new Date("2026-07-18T12:01:00.000Z"),
+      generateChoiceExercises: async () => {
+        signalBatchWorkerStarted?.();
+        await batchWorkerCanFail;
+        throw new Error("superseded batch worker fixture");
+      },
+      verifyChoiceExercises: acceptAllChoiceExercises,
+      model: "batch-fixture-model",
+      sourceEvidenceLoader,
+    });
+    await batchWorkerStarted;
+
+    let signalStandaloneStarted: (() => void) | undefined;
+    const standaloneStarted = new Promise<void>((resolve) => {
+      signalStandaloneStarted = resolve;
+    });
+    let releaseStandalone: (() => void) | undefined;
+    const standaloneCanFinish = new Promise<void>((resolve) => {
+      releaseStandalone = resolve;
+    });
+    const standalone = activateSkillDraft({
+      userId,
+      skillId: ready.items[0].skill.id,
+      now: new Date(
+        new Date("2026-07-18T12:01:00.000Z").getTime() +
+          ACTIVATION_GENERATION_TIMEOUT_MS +
+          1_000,
+      ),
+      generateChoiceExercises: async () => {
+        signalStandaloneStarted?.();
+        await standaloneCanFinish;
+        return {
+          exercises: [
+            generatedChoiceExercise(51),
+            generatedChoiceExercise(52),
+            generatedChoiceExercise(53),
+          ],
+        };
+      },
+      verifyChoiceExercises: acceptAllChoiceExercises,
+      model: "standalone-fixture-model",
+      sourceEvidenceLoader,
+      skipUsageLimitCheck: true,
+    });
+    await standaloneStarted;
+
+    releaseBatchWorker?.();
+    await expect(batchWorker).resolves.toMatchObject({
+      status: "not-claimed",
+    });
+    await expect(
+      prisma.skillDraftBatchItem.findUniqueOrThrow({
+        where: { id: ready.items[0].id },
+      }),
+    ).resolves.toMatchObject({
+      status: SkillDraftBatchItemStatus.READY,
+      generationClaimId: null,
+      errorCode: "ACTIVATION_SUPERSEDED",
+    });
+
+    releaseStandalone?.();
+    const standaloneResult = await standalone;
+    expect(standaloneResult).toMatchObject({
+      status: "activated",
+      skillId: ready.items[0].skill.id,
+    });
+    if (standaloneResult.status !== "activated") {
+      throw new Error("Expected the standalone replacement to activate the skill.");
+    }
+    await expect(
+      getMaterialDraftBatch({ userId, batchId: ready.id }),
+    ).resolves.toMatchObject({
+      status: SkillDraftBatchStatus.COMPLETE,
+      activatedCount: 1,
+      items: [
+        {
+          status: SkillDraftBatchItemStatus.ACTIVE,
+          errorCode: null,
+          skill: { status: SkillStatus.ACTIVE },
+        },
+      ],
+    });
+    const jobs = await prisma.generationJob.findMany({
+      where: {
+        userId,
+        skillId: ready.items[0].skill.id,
+        kind: GenerationJobKind.SKILL_ACTIVATION,
+      },
+      orderBy: { createdAt: "asc" },
+    });
+    expect(jobs).toHaveLength(2);
+    expect(
+      jobs.find((job) => job.id === events[0].generationJobId),
+    ).toMatchObject({
+      status: GenerationJobStatus.FAILED,
+    });
+    expect(
+      jobs.find((job) => job.id === standaloneResult.generationJobId),
+    ).toMatchObject({
+      status: GenerationJobStatus.SUCCEEDED,
+    });
+  });
+
+  it("does not strand a retry when another activation is already running", async () => {
+    const ready = await createReadyBatch([
+      {
+        key: "cross-flow-retry-release",
+        title: "Cross-flow retry release fixture",
+        objective: "Choose a direct object pronoun after another activation attempt.",
+        materialSectionIds: [directSectionId],
+        evidenceChunkIds: [directChunkId],
+      },
+    ]);
+    const skillId = ready.items[0].skill?.id;
+    if (!skillId) {
+      throw new Error("expected a cross-flow retry fixture skill");
+    }
+    await prisma.skillDraftBatchItem.update({
+      where: { id: ready.items[0].id },
+      data: {
+        status: SkillDraftBatchItemStatus.FAILED,
+        errorCode: "ACTIVATION_RETRYABLE_STALE_CLAIM",
+        errorMessage: "Activation stopped before it finished. Retry or exclude this item.",
+      },
+    });
+
+    let signalStandaloneStarted: (() => void) | undefined;
+    const standaloneStarted = new Promise<void>((resolve) => {
+      signalStandaloneStarted = resolve;
+    });
+    let releaseStandalone: (() => void) | undefined;
+    const standaloneCanFail = new Promise<void>((resolve) => {
+      releaseStandalone = resolve;
+    });
+    const standalone = activateSkillDraft({
+      userId,
+      skillId,
+      now: new Date(),
+      generateChoiceExercises: async () => {
+        signalStandaloneStarted?.();
+        await standaloneCanFail;
+        throw new Error("standalone activation fixture failed");
+      },
+      verifyChoiceExercises: acceptAllChoiceExercises,
+      model: "standalone-failure-model",
+      sourceEvidenceLoader,
+      skipUsageLimitCheck: true,
+    });
+    await standaloneStarted;
+
+    const retrySender = vi.fn(async () => {});
+    await expect(
+      retryMaterialBatchActivationItem({
+        userId,
+        batchId: ready.id,
+        itemId: ready.items[0].id,
+        now: new Date(),
+        eventSender: {
+          sendMaterialBatchActivationRequested: retrySender,
+        },
+      }),
+    ).resolves.toMatchObject({
+      status: "already-running",
+      message:
+        "Another activation attempt is already running. You can wait for it to finish or add this draft again.",
+    });
+    expect(retrySender).not.toHaveBeenCalled();
+    await expect(
+      getMaterialDraftBatch({ userId, batchId: ready.id }),
+    ).resolves.toMatchObject({
+      status: SkillDraftBatchStatus.READY,
+      items: [
+        {
+          status: SkillDraftBatchItemStatus.READY,
+          errorCode: "ACTIVATION_SUPERSEDED",
+          skill: {
+            generationJobs: [expect.objectContaining({ id: expect.any(String) })],
+          },
+        },
+      ],
+    });
+    await expect(
+      prisma.skillDraftBatchItem.findUniqueOrThrow({
+        where: { id: ready.items[0].id },
+      }),
+    ).resolves.toMatchObject({
+      status: SkillDraftBatchItemStatus.READY,
+      generationClaimId: null,
+    });
+
+    releaseStandalone?.();
+    await expect(standalone).resolves.toMatchObject({
+      status: "not-activated",
+      reason: "generation-failed",
+    });
+    await expect(
+      getMaterialDraftBatch({ userId, batchId: ready.id }),
+    ).resolves.toMatchObject({
+      status: SkillDraftBatchStatus.READY,
+      items: [
+        {
+          status: SkillDraftBatchItemStatus.READY,
+          errorCode: "ACTIVATION_SUPERSEDED",
+          skill: {
+            status: SkillStatus.DRAFT,
+            generationJobs: [],
+          },
+        },
+      ],
+    });
+    await expect(
+      prisma.skillDraftBatchItem.findUniqueOrThrow({
+        where: { id: ready.items[0].id },
+      }),
+    ).resolves.toMatchObject({
+      status: SkillDraftBatchItemStatus.READY,
+      generationClaimId: null,
+    });
+  });
+
+  it("retires an abandoned activation while keeping its batch draft ready", async () => {
+    const ready = await createReadyBatch([
+      {
+        key: "cross-flow-abandoned-owner",
+        title: "Abandoned activation owner fixture",
+        objective: "Choose a direct object pronoun after an abandoned activation.",
+        materialSectionIds: [directSectionId],
+        evidenceChunkIds: [directChunkId],
+      },
+    ]);
+    const skillId = ready.items[0].skill?.id;
+    if (!skillId) {
+      throw new Error("expected an abandoned activation fixture skill");
+    }
+    await prisma.skillDraftBatchItem.update({
+      where: { id: ready.items[0].id },
+      data: {
+        status: SkillDraftBatchItemStatus.FAILED,
+        errorCode: "ACTIVATION_RETRYABLE_STALE_CLAIM",
+        errorMessage: "Activation stopped before it finished. Retry or exclude this item.",
+      },
+    });
+
+    let signalStandaloneStarted: (() => void) | undefined;
+    const standaloneStarted = new Promise<void>((resolve) => {
+      signalStandaloneStarted = resolve;
+    });
+    let releaseStandalone: (() => void) | undefined;
+    const standaloneCanFinish = new Promise<void>((resolve) => {
+      releaseStandalone = resolve;
+    });
+    const standalone = activateSkillDraft({
+      userId,
+      skillId,
+      now: new Date(),
+      generateChoiceExercises: async () => {
+        signalStandaloneStarted?.();
+        await standaloneCanFinish;
+        return {
+          exercises: [
+            generatedChoiceExercise(71),
+            generatedChoiceExercise(72),
+            generatedChoiceExercise(73),
+          ],
+        };
+      },
+      verifyChoiceExercises: acceptAllChoiceExercises,
+      model: "abandoned-owner-model",
+      sourceEvidenceLoader,
+      skipUsageLimitCheck: true,
+    });
+    await standaloneStarted;
+
+    const retrySender = vi.fn(async () => {});
+    await expect(
+      retryMaterialBatchActivationItem({
+        userId,
+        batchId: ready.id,
+        itemId: ready.items[0].id,
+        now: new Date(),
+        eventSender: {
+          sendMaterialBatchActivationRequested: retrySender,
+        },
+      }),
+    ).resolves.toMatchObject({ status: "already-running" });
+    expect(retrySender).not.toHaveBeenCalled();
+    const abandonedJob = await prisma.generationJob.findFirstOrThrow({
+      where: {
+        userId,
+        skillId,
+        kind: GenerationJobKind.SKILL_ACTIVATION,
+        status: GenerationJobStatus.RUNNING,
+      },
+    });
+    await prisma.generationJob.update({
+      where: { id: abandonedJob.id },
+      data: { startedAt: new Date(Date.now() - 6 * 60 * 1_000) },
+    });
+
+    await expect(
+      getMaterialDraftBatch({ userId, batchId: ready.id }),
+    ).resolves.toMatchObject({
+      status: SkillDraftBatchStatus.READY,
+      items: [
+        {
+          status: SkillDraftBatchItemStatus.READY,
+          errorCode: "ACTIVATION_SUPERSEDED",
+          skill: {
+            status: SkillStatus.DRAFT,
+            generationJobs: [],
+          },
+        },
+      ],
+    });
+    await expect(
+      prisma.generationJob.findUniqueOrThrow({ where: { id: abandonedJob.id } }),
+    ).resolves.toMatchObject({
+      status: GenerationJobStatus.FAILED,
+      errorMessage: ACTIVATION_SUPERSEDED_JOB_MESSAGE,
+    });
+
+    releaseStandalone?.();
+    await expect(standalone).resolves.toMatchObject({
+      status: "not-activated",
+      reason: "activation-superseded",
+    });
+    await expect(
+      prisma.skillDraftBatchItem.findUniqueOrThrow({
+        where: { id: ready.items[0].id },
+      }),
+    ).resolves.toMatchObject({
+      status: SkillDraftBatchItemStatus.READY,
+      generationClaimId: null,
+      errorCode: "ACTIVATION_SUPERSEDED",
+    });
+    await expect(
+      prisma.exercise.count({ where: { userId, skillId } }),
+    ).resolves.toBe(0);
+  });
+
   it("recovers stale activation claims when the batch is opened", async () => {
     const ready = await createReadyBatch([
       {
@@ -3221,7 +3829,200 @@ describeDatabase("material multi-skill drafting", () => {
     ).resolves.toMatchObject({ generationClaimId: null });
     await expect(
       prisma.generationJob.findUnique({ where: { id: job.id } }),
-    ).resolves.toMatchObject({ status: GenerationJobStatus.FAILED });
+    ).resolves.toMatchObject({
+      status: GenerationJobStatus.FAILED,
+      errorMessage: ACTIVATION_SUPERSEDED_JOB_MESSAGE,
+    });
+  });
+
+  it("permanently fences a stale worker before retrying its activation", async () => {
+    const ready = await createReadyBatch([
+      {
+        key: "stale-activation-retry-fence",
+        title: "Stale activation retry fence fixture",
+        objective: "Choose a direct object pronoun while a stale activation is retried.",
+        materialSectionIds: [directSectionId],
+        evidenceChunkIds: [directChunkId],
+      },
+    ]);
+    const skillId = ready.items[0].skill?.id;
+    if (!skillId) {
+      throw new Error("expected a stale activation retry fixture skill");
+    }
+    const queuedEvents: Array<{ itemId: string; generationJobId: string }> = [];
+    await queueMaterialBatchActivation({
+      userId,
+      input: { batchId: ready.id, itemIds: [ready.items[0].id] },
+      now: new Date(),
+      eventSender: {
+        async sendMaterialBatchActivationRequested(payload) {
+          queuedEvents.push(payload);
+        },
+      },
+    });
+    if (!queuedEvents[0]) {
+      throw new Error("expected an initial stale activation event");
+    }
+
+    let signalStaleWorkerStarted: (() => void) | undefined;
+    const staleWorkerStarted = new Promise<void>((resolve) => {
+      signalStaleWorkerStarted = resolve;
+    });
+    let releaseStaleWorker: (() => void) | undefined;
+    const staleWorkerCanFail = new Promise<void>((resolve) => {
+      releaseStaleWorker = resolve;
+    });
+    const staleWorker = runMaterialBatchActivationJob({
+      userId,
+      batchId: ready.id,
+      ...queuedEvents[0],
+      now: new Date(),
+      generateChoiceExercises: async () => {
+        signalStaleWorkerStarted?.();
+        await staleWorkerCanFail;
+        throw new Error("late stale activation failure");
+      },
+      verifyChoiceExercises: acceptAllChoiceExercises,
+      model: "stale-worker-model",
+      sourceEvidenceLoader,
+    });
+    await staleWorkerStarted;
+
+    const staleAt = new Date(Date.now() - 6 * 60 * 1_000);
+    await prisma.$transaction([
+      prisma.generationJob.update({
+        where: { id: queuedEvents[0].generationJobId },
+        data: { startedAt: staleAt },
+      }),
+      prisma.skillDraftBatchItem.update({
+        where: { id: ready.items[0].id },
+        data: { updatedAt: staleAt },
+      }),
+    ]);
+    await expect(
+      getMaterialDraftBatch({ userId, batchId: ready.id }),
+    ).resolves.toMatchObject({
+      items: [
+        {
+          status: SkillDraftBatchItemStatus.FAILED,
+          errorCode: "ACTIVATION_RETRYABLE_STALE_CLAIM",
+        },
+      ],
+    });
+    await expect(
+      prisma.generationJob.findUniqueOrThrow({
+        where: { id: queuedEvents[0].generationJobId },
+      }),
+    ).resolves.toMatchObject({
+      status: GenerationJobStatus.FAILED,
+      errorMessage: ACTIVATION_SUPERSEDED_JOB_MESSAGE,
+    });
+
+    const retryEvents: Array<{ itemId: string; generationJobId: string }> = [];
+    await expect(
+      retryMaterialBatchActivationItem({
+        userId,
+        batchId: ready.id,
+        itemId: ready.items[0].id,
+        now: new Date(),
+        eventSender: {
+          async sendMaterialBatchActivationRequested(payload) {
+            retryEvents.push(payload);
+          },
+        },
+      }),
+    ).resolves.toMatchObject({ status: "queued" });
+    expect(retryEvents).toEqual([
+      expect.objectContaining({
+        itemId: ready.items[0].id,
+      }),
+    ]);
+    expect(retryEvents[0].generationJobId).not.toBe(
+      queuedEvents[0].generationJobId,
+    );
+
+    let signalReplacementStarted: (() => void) | undefined;
+    const replacementStarted = new Promise<void>((resolve) => {
+      signalReplacementStarted = resolve;
+    });
+    let releaseReplacement: (() => void) | undefined;
+    const replacementCanFinish = new Promise<void>((resolve) => {
+      releaseReplacement = resolve;
+    });
+    const replacementWorker = runMaterialBatchActivationJob({
+      userId,
+      batchId: ready.id,
+      ...retryEvents[0],
+      now: new Date(),
+      generateChoiceExercises: async () => {
+        signalReplacementStarted?.();
+        await replacementCanFinish;
+        return {
+          exercises: [
+            generatedChoiceExercise(61),
+            generatedChoiceExercise(62),
+            generatedChoiceExercise(63),
+          ],
+        };
+      },
+      verifyChoiceExercises: acceptAllChoiceExercises,
+      model: "replacement-worker-model",
+      sourceEvidenceLoader,
+    });
+    await replacementStarted;
+    const replacementJob = await prisma.generationJob.findFirstOrThrow({
+      where: {
+        userId,
+        skillId,
+        kind: GenerationJobKind.SKILL_ACTIVATION,
+        status: GenerationJobStatus.RUNNING,
+        id: { not: queuedEvents[0].generationJobId },
+      },
+    });
+    const replacementItem = await prisma.skillDraftBatchItem.findUniqueOrThrow({
+      where: { id: ready.items[0].id },
+    });
+
+    releaseStaleWorker?.();
+    await expect(staleWorker).resolves.toMatchObject({ status: "not-claimed" });
+    await expect(
+      prisma.generationJob.findUniqueOrThrow({ where: { id: replacementJob.id } }),
+    ).resolves.toMatchObject({ status: GenerationJobStatus.RUNNING });
+    await expect(
+      prisma.skillDraftBatchItem.findUniqueOrThrow({
+        where: { id: ready.items[0].id },
+      }),
+    ).resolves.toMatchObject({
+      status: SkillDraftBatchItemStatus.ACTIVATING,
+      generationClaimId: replacementItem.generationClaimId,
+    });
+
+    releaseReplacement?.();
+    await expect(replacementWorker).resolves.toMatchObject({
+      status: "active",
+      skillId,
+      exerciseCount: 3,
+    });
+    await expect(
+      prisma.exercise.count({ where: { userId, skillId } }),
+    ).resolves.toBe(3);
+    await expect(
+      prisma.skillDraftBatchItem.findUniqueOrThrow({
+        where: { id: ready.items[0].id },
+      }),
+    ).resolves.toMatchObject({ status: SkillDraftBatchItemStatus.ACTIVE });
+    const jobs = await prisma.generationJob.findMany({
+      where: { userId, skillId, kind: GenerationJobKind.SKILL_ACTIVATION },
+      orderBy: { createdAt: "asc" },
+    });
+    expect(jobs).toHaveLength(2);
+    expect(jobs.find((job) => job.id === queuedEvents[0].generationJobId)).toMatchObject({
+      status: GenerationJobStatus.FAILED,
+      errorMessage: ACTIVATION_SUPERSEDED_JOB_MESSAGE,
+    });
+    expect(jobs.find((job) => job.id === replacementJob.id)).toMatchObject({
+      status: GenerationJobStatus.SUCCEEDED,
+    });
   });
 
   it("keeps successful activations when a sibling fails and retries only the failed item", async () => {
@@ -3313,9 +4114,11 @@ describeDatabase("material multi-skill drafting", () => {
     expect(retryEvents).toEqual([
       expect.objectContaining({
         itemId: secondEvent.itemId,
-        generationJobId: secondEvent.generationJobId,
       }),
     ]);
+    expect(retryEvents[0].generationJobId).not.toBe(
+      secondEvent.generationJobId,
+    );
 
     await runMaterialBatchActivationJob({
       ...retryEvents[0],
@@ -3344,7 +4147,7 @@ describeDatabase("material multi-skill drafting", () => {
           kind: GenerationJobKind.SKILL_ACTIVATION,
         },
       }),
-    ).resolves.toBe(1);
+    ).resolves.toBe(2);
   });
 
   it("keeps a transient activation failure in progress while Inngest retries remain", async () => {
@@ -3483,6 +4286,579 @@ describeDatabase("material multi-skill drafting", () => {
     expect(statusBySkillId.get(ready.items[1].skill?.id ?? "missing")).toBe(
       GenerationJobStatus.FAILED,
     );
+  });
+
+  it("preserves a claimed activation when the event sender reports a late failure", async () => {
+    const ready = await createReadyBatch([
+      {
+        key: "late-event-failure",
+        title: "Late activation acknowledgement fixture",
+        objective: "Choose a direct object pronoun after a delayed event acknowledgement.",
+        materialSectionIds: [directSectionId],
+        evidenceChunkIds: [directChunkId],
+      },
+    ]);
+    let signalWorkerStarted: (() => void) | undefined;
+    const workerStarted = new Promise<void>((resolve) => {
+      signalWorkerStarted = resolve;
+    });
+    let releaseWorker: (() => void) | undefined;
+    const workerCanFinish = new Promise<void>((resolve) => {
+      releaseWorker = resolve;
+    });
+    let worker:
+      | ReturnType<typeof runMaterialBatchActivationJob>
+      | undefined;
+
+    const result = await queueMaterialBatchActivation({
+      userId,
+      input: { batchId: ready.id, itemIds: [ready.items[0].id] },
+      now: new Date("2032-02-01T13:40:00.000Z"),
+      eventSender: {
+        async sendMaterialBatchActivationRequested(payload) {
+          worker = runMaterialBatchActivationJob({
+            ...payload,
+            now: new Date("2032-02-01T13:40:01.000Z"),
+            generateChoiceExercises: async () => {
+              signalWorkerStarted?.();
+              await workerCanFinish;
+              return {
+                exercises: [
+                  generatedChoiceExercise(81),
+                  generatedChoiceExercise(82),
+                  generatedChoiceExercise(83),
+                ],
+              };
+            },
+            verifyChoiceExercises: acceptAllChoiceExercises,
+            model: "fixture-model",
+            sourceEvidenceLoader,
+          });
+          await workerStarted;
+          throw new Error("fixture acknowledgement failed after delivery");
+        },
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: "queued",
+      queuedItemIds: [ready.items[0].id],
+      failedItemIds: [],
+    });
+    await expect(
+      prisma.skillDraftBatchItem.findUniqueOrThrow({
+        where: { id: ready.items[0].id },
+      }),
+    ).resolves.toMatchObject({
+      status: SkillDraftBatchItemStatus.ACTIVATING,
+      generationClaimId: expect.any(String),
+    });
+    if (!worker) {
+      throw new Error("expected the activation worker to start");
+    }
+    releaseWorker?.();
+    await expect(worker).resolves.toMatchObject({ status: "active" });
+    await expect(
+      prisma.skillDraftBatchItem.findUniqueOrThrow({
+        where: { id: ready.items[0].id },
+      }),
+    ).resolves.toMatchObject({
+      status: SkillDraftBatchItemStatus.ACTIVE,
+      generationClaimId: null,
+    });
+    await prisma.skill.delete({
+      where: { id: ready.items[0].skill!.id },
+    });
+  });
+
+  it("preserves a claimed retry when the event sender reports a late failure", async () => {
+    const ready = await createReadyBatch([
+      {
+        key: "late-retry-event-failure",
+        title: "Late retry acknowledgement fixture",
+        objective: "Choose an indirect object pronoun after a delayed retry acknowledgement.",
+        materialSectionIds: [indirectSectionId],
+        evidenceChunkIds: [indirectChunkId],
+      },
+    ]);
+    const events: Array<{ itemId: string; generationJobId: string }> = [];
+    await queueMaterialBatchActivation({
+      userId,
+      input: { batchId: ready.id, itemIds: [ready.items[0].id] },
+      now: new Date("2032-02-02T13:45:00.000Z"),
+      eventSender: {
+        async sendMaterialBatchActivationRequested(payload) {
+          events.push(payload);
+        },
+      },
+    });
+    await prisma.$transaction([
+      prisma.skillDraftBatchItem.update({
+        where: { id: ready.items[0].id },
+        data: {
+          status: SkillDraftBatchItemStatus.FAILED,
+          generationClaimId: null,
+          errorCode: "ACTIVATION_RETRYABLE_FIXTURE",
+          errorMessage: "Retry fixture.",
+        },
+      }),
+      prisma.generationJob.update({
+        where: { id: events[0].generationJobId },
+        data: {
+          status: GenerationJobStatus.FAILED,
+          errorMessage: "Retry fixture.",
+          completedAt: new Date("2032-02-02T13:45:30.000Z"),
+        },
+      }),
+    ]);
+    let signalWorkerStarted: (() => void) | undefined;
+    const workerStarted = new Promise<void>((resolve) => {
+      signalWorkerStarted = resolve;
+    });
+    let releaseWorker: (() => void) | undefined;
+    const workerCanFinish = new Promise<void>((resolve) => {
+      releaseWorker = resolve;
+    });
+    let worker:
+      | ReturnType<typeof runMaterialBatchActivationJob>
+      | undefined;
+    let retryGenerationJobId: string | undefined;
+
+    const result = await retryMaterialBatchActivationItem({
+      userId,
+      batchId: ready.id,
+      itemId: ready.items[0].id,
+      now: new Date("2032-02-02T13:46:00.000Z"),
+      eventSender: {
+        async sendMaterialBatchActivationRequested(payload) {
+          retryGenerationJobId = payload.generationJobId;
+          worker = runMaterialBatchActivationJob({
+            ...payload,
+            now: new Date("2032-02-02T13:46:01.000Z"),
+            generateChoiceExercises: async () => {
+              signalWorkerStarted?.();
+              await workerCanFinish;
+              return {
+                exercises: [
+                  generatedChoiceExercise(84),
+                  generatedChoiceExercise(85),
+                  generatedChoiceExercise(86),
+                ],
+              };
+            },
+            verifyChoiceExercises: acceptAllChoiceExercises,
+            model: "fixture-model",
+            sourceEvidenceLoader,
+          });
+          await workerStarted;
+          throw new Error("fixture retry acknowledgement failed after delivery");
+        },
+      },
+    });
+
+    if (!worker || !retryGenerationJobId) {
+      throw new Error("expected the retry worker to start");
+    }
+    const claimedRetryGenerationJobId = retryGenerationJobId;
+    expect(result).toMatchObject({
+      status: "already-running",
+      itemId: ready.items[0].id,
+      generationJobId: claimedRetryGenerationJobId,
+    });
+    expect(claimedRetryGenerationJobId).not.toBe(
+      events[0].generationJobId,
+    );
+    await expect(
+      prisma.skillDraftBatchItem.findUniqueOrThrow({
+        where: { id: ready.items[0].id },
+      }),
+    ).resolves.toMatchObject({
+      status: SkillDraftBatchItemStatus.ACTIVATING,
+      generationClaimId: expect.any(String),
+    });
+    releaseWorker?.();
+    await expect(worker).resolves.toMatchObject({ status: "active" });
+    await expect(
+      prisma.generationJob.findUniqueOrThrow({
+        where: { id: claimedRetryGenerationJobId },
+      }),
+    ).resolves.toMatchObject({ status: GenerationJobStatus.SUCCEEDED });
+    await prisma.skill.delete({
+      where: { id: ready.items[0].skill!.id },
+    });
+  });
+
+  it("does not let an old sender failure cancel a newer retry reservation", async () => {
+    const ready = await createReadyBatch([
+      {
+        key: "old-sender-new-retry",
+        title: "Delayed sender retry identity fixture",
+        objective: "Choose a direct object pronoun after a delayed sender failure.",
+        materialSectionIds: [directSectionId],
+        evidenceChunkIds: [directChunkId],
+      },
+    ]);
+    let originalEvent:
+      | { itemId: string; generationJobId: string }
+      | undefined;
+    let signalOriginalWorkerFailed: (() => void) | undefined;
+    const originalWorkerFailed = new Promise<void>((resolve) => {
+      signalOriginalWorkerFailed = resolve;
+    });
+    let releaseOriginalSender: (() => void) | undefined;
+    const originalSenderCanReject = new Promise<void>((resolve) => {
+      releaseOriginalSender = resolve;
+    });
+    const originalQueue = queueMaterialBatchActivation({
+      userId,
+      input: { batchId: ready.id, itemIds: [ready.items[0].id] },
+      now: new Date("2032-02-03T13:50:00.000Z"),
+      eventSender: {
+        async sendMaterialBatchActivationRequested(payload) {
+          originalEvent = payload;
+          await expect(
+            runMaterialBatchActivationJob({
+              ...payload,
+              now: new Date("2032-02-03T13:50:01.000Z"),
+              generateChoiceExercises: async () => {
+                throw new Error("fixture worker failure before acknowledgement");
+              },
+              verifyChoiceExercises: acceptAllChoiceExercises,
+              model: "fixture-model",
+              sourceEvidenceLoader,
+            }),
+          ).rejects.toBeInstanceOf(MaterialBatchActivationError);
+          signalOriginalWorkerFailed?.();
+          await originalSenderCanReject;
+          throw new Error("fixture original sender rejected late");
+        },
+      },
+    });
+    const originalStart = await Promise.race([
+      originalWorkerFailed.then(() => ({ status: "worker-started" as const })),
+      originalQueue.then((result) => ({
+        status: "queue-finished" as const,
+        result,
+      })),
+    ]);
+    if (originalStart.status === "queue-finished") {
+      throw new Error(
+        `expected the original worker to start, but queue finished with ${originalStart.result.status}`,
+      );
+    }
+    if (!originalEvent) {
+      throw new Error("expected the original activation event");
+    }
+
+    const retryEvents: Array<{ itemId: string; generationJobId: string }> = [];
+    await expect(
+      retryMaterialBatchActivationItem({
+        userId,
+        batchId: ready.id,
+        itemId: ready.items[0].id,
+        now: new Date("2032-02-03T13:51:00.000Z"),
+        eventSender: {
+          async sendMaterialBatchActivationRequested(payload) {
+            retryEvents.push(payload);
+          },
+        },
+      }),
+    ).resolves.toMatchObject({ status: "queued" });
+    expect(retryEvents).toHaveLength(1);
+    expect(retryEvents[0].generationJobId).not.toBe(
+      originalEvent.generationJobId,
+    );
+
+    releaseOriginalSender?.();
+    await expect(originalQueue).resolves.toMatchObject({
+      status: "queued",
+      failedItemIds: [],
+    });
+    await expect(
+      prisma.skillDraftBatchItem.findUniqueOrThrow({
+        where: { id: ready.items[0].id },
+      }),
+    ).resolves.toMatchObject({
+      status: SkillDraftBatchItemStatus.ACTIVATING,
+      generationClaimId: null,
+    });
+    await expect(
+      prisma.generationJob.findUniqueOrThrow({
+        where: { id: retryEvents[0].generationJobId },
+      }),
+    ).resolves.toMatchObject({ status: GenerationJobStatus.PENDING });
+
+    await expect(
+      runMaterialBatchActivationJob({
+        ...retryEvents[0],
+        now: new Date("2032-02-03T13:52:00.000Z"),
+        generateChoiceExercises: async () => ({
+          exercises: [
+            generatedChoiceExercise(87),
+            generatedChoiceExercise(88),
+            generatedChoiceExercise(89),
+          ],
+        }),
+        verifyChoiceExercises: acceptAllChoiceExercises,
+        model: "fixture-model",
+        sourceEvidenceLoader,
+      }),
+    ).resolves.toMatchObject({ status: "active" });
+    await prisma.skill.delete({
+      where: { id: ready.items[0].skill!.id },
+    });
+  });
+
+  it("fails only the fresh retry reservation when retry event delivery fails", async () => {
+    const ready = await createReadyBatch([
+      {
+        key: "retry-send-failure",
+        title: "Retry send failure fixture",
+        objective: "Choose an indirect object pronoun after an event delivery retry.",
+        materialSectionIds: [indirectSectionId],
+        evidenceChunkIds: [indirectChunkId],
+      },
+    ]);
+    const originalEvents: Array<{ itemId: string; generationJobId: string }> = [];
+    await expect(queueMaterialBatchActivation({
+      userId,
+      input: { batchId: ready.id, itemIds: [ready.items[0].id] },
+      now: new Date("2032-02-04T13:55:00.000Z"),
+      eventSender: {
+        async sendMaterialBatchActivationRequested(payload) {
+          originalEvents.push(payload);
+        },
+      },
+    })).resolves.toMatchObject({ status: "queued" });
+    expect(originalEvents).toHaveLength(1);
+    await prisma.$transaction([
+      prisma.skillDraftBatchItem.update({
+        where: { id: ready.items[0].id },
+        data: {
+          status: SkillDraftBatchItemStatus.FAILED,
+          generationClaimId: null,
+          errorCode: "ACTIVATION_RETRYABLE_FIXTURE",
+          errorMessage: "Retry fixture.",
+        },
+      }),
+      prisma.generationJob.update({
+        where: { id: originalEvents[0].generationJobId },
+        data: {
+          status: GenerationJobStatus.FAILED,
+          errorMessage: "Retry fixture.",
+          completedAt: new Date("2032-02-04T13:55:30.000Z"),
+        },
+      }),
+    ]);
+    let rejectedRetryJobId: string | undefined;
+
+    await expect(
+      retryMaterialBatchActivationItem({
+        userId,
+        batchId: ready.id,
+        itemId: ready.items[0].id,
+        now: new Date("2032-02-04T13:56:00.000Z"),
+        eventSender: {
+          async sendMaterialBatchActivationRequested(payload) {
+            rejectedRetryJobId = payload.generationJobId;
+            throw new Error("fixture retry event delivery failure");
+          },
+        },
+      }),
+    ).resolves.toMatchObject({
+      status: "not-queued",
+      message: "Activation could not be queued.",
+    });
+    if (!rejectedRetryJobId) {
+      throw new Error("expected a rejected retry reservation");
+    }
+    expect(rejectedRetryJobId).not.toBe(originalEvents[0].generationJobId);
+    await expect(
+      prisma.skillDraftBatchItem.findUniqueOrThrow({
+        where: { id: ready.items[0].id },
+      }),
+    ).resolves.toMatchObject({
+      status: SkillDraftBatchItemStatus.FAILED,
+      generationClaimId: null,
+      errorCode: "ACTIVATION_EVENT_SEND_FAILED",
+    });
+    await expect(
+      prisma.generationJob.findUniqueOrThrow({
+        where: { id: rejectedRetryJobId },
+      }),
+    ).resolves.toMatchObject({ status: GenerationJobStatus.FAILED });
+
+    const nextRetryEvents: Array<{ itemId: string; generationJobId: string }> = [];
+    await expect(
+      retryMaterialBatchActivationItem({
+        userId,
+        batchId: ready.id,
+        itemId: ready.items[0].id,
+        now: new Date("2032-02-04T13:57:00.000Z"),
+        eventSender: {
+          async sendMaterialBatchActivationRequested(payload) {
+            nextRetryEvents.push(payload);
+          },
+        },
+      }),
+    ).resolves.toMatchObject({ status: "queued" });
+    expect(nextRetryEvents).toHaveLength(1);
+    expect(nextRetryEvents[0].generationJobId).not.toBe(rejectedRetryJobId);
+    await expect(
+      runMaterialBatchActivationJob({
+        ...nextRetryEvents[0],
+        now: new Date("2032-02-04T13:58:00.000Z"),
+        generateChoiceExercises: async () => ({
+          exercises: [
+            generatedChoiceExercise(90),
+            generatedChoiceExercise(91),
+            generatedChoiceExercise(92),
+          ],
+        }),
+        verifyChoiceExercises: acceptAllChoiceExercises,
+        model: "fixture-model",
+        sourceEvidenceLoader,
+      }),
+    ).resolves.toMatchObject({ status: "active" });
+    await prisma.skill.delete({
+      where: { id: ready.items[0].skill!.id },
+    });
+  });
+
+  it("enforces the daily activation-attempt limit before reserving a retry", async () => {
+    const ready = await createReadyBatch([
+      {
+        key: "retry-daily-limit",
+        title: "Retry daily activation limit fixture",
+        objective: "Choose a direct object pronoun at the retry-attempt limit.",
+        materialSectionIds: [directSectionId],
+        evidenceChunkIds: [directChunkId],
+      },
+    ]);
+    const originalEvents: Array<{ itemId: string; generationJobId: string }> = [];
+    const retryDayStart = new Date("2032-02-05T00:00:00.000Z");
+    const retryDayEnd = new Date("2032-02-06T00:00:00.000Z");
+    await expect(
+      queueMaterialBatchActivation({
+        userId,
+        input: { batchId: ready.id, itemIds: [ready.items[0].id] },
+        now: new Date("2032-02-05T10:00:00.000Z"),
+        eventSender: {
+          async sendMaterialBatchActivationRequested(payload) {
+            originalEvents.push(payload);
+          },
+        },
+      }),
+    ).resolves.toMatchObject({ status: "queued" });
+    expect(originalEvents).toHaveLength(1);
+    await prisma.$transaction([
+      prisma.skillDraftBatchItem.update({
+        where: { id: ready.items[0].id },
+        data: {
+          status: SkillDraftBatchItemStatus.FAILED,
+          generationClaimId: null,
+          errorCode: "ACTIVATION_RETRYABLE_FIXTURE",
+          errorMessage: "Retry fixture.",
+        },
+      }),
+      prisma.generationJob.update({
+        where: { id: originalEvents[0].generationJobId },
+        data: {
+          status: GenerationJobStatus.FAILED,
+          errorMessage: "Retry fixture.",
+          completedAt: new Date("2032-02-05T10:00:30.000Z"),
+        },
+      }),
+    ]);
+    const retryQuotaPrefix = `Retry daily quota ${randomUUID()}`;
+    const existingAttempts = await prisma.generationJob.count({
+      where: {
+        userId,
+        kind: GenerationJobKind.SKILL_ACTIVATION,
+        createdAt: { gte: retryDayStart, lt: retryDayEnd },
+      },
+    });
+    for (
+      let index = existingAttempts;
+      index < ALPHA_SKILL_ACTIVATIONS_PER_DAY;
+      index += 1
+    ) {
+      const fillerSkill = await prisma.skill.create({
+        data: {
+          userId,
+          title: `${retryQuotaPrefix} ${index}`,
+          tags: [],
+          status: SkillStatus.DRAFT,
+        },
+      });
+      await prisma.generationJob.create({
+        data: {
+          userId,
+          skillId: fillerSkill.id,
+          kind: GenerationJobKind.SKILL_ACTIVATION,
+          status: GenerationJobStatus.FAILED,
+          provider: "google",
+          model: "fixture-model",
+          promptVersion: "skill-mcq-v0",
+          requestedCount: 5,
+          errorMessage: "retry quota fixture",
+          createdAt: new Date(
+            `2032-02-05T11:${String(index).padStart(2, "0")}:00.000Z`,
+          ),
+        },
+      });
+    }
+    const retrySender = vi.fn(async () => {});
+
+    await expect(
+      retryMaterialBatchActivationItem({
+        userId,
+        batchId: ready.id,
+        itemId: ready.items[0].id,
+        now: new Date("2032-02-05T12:00:00.000Z"),
+        eventSender: {
+          sendMaterialBatchActivationRequested: retrySender,
+        },
+      }),
+    ).resolves.toMatchObject({
+      status: "limited",
+      code: "daily-activation-limit",
+      message:
+        "No activation attempts remain today. Try this draft again after 00:00 UTC.",
+    });
+    expect(retrySender).not.toHaveBeenCalled();
+    await expect(
+      prisma.generationJob.count({
+        where: {
+          userId,
+          kind: GenerationJobKind.SKILL_ACTIVATION,
+          createdAt: { gte: retryDayStart, lt: retryDayEnd },
+        },
+      }),
+    ).resolves.toBe(ALPHA_SKILL_ACTIVATIONS_PER_DAY);
+    await expect(
+      prisma.generationJob.findUniqueOrThrow({
+        where: { id: originalEvents[0].generationJobId },
+      }),
+    ).resolves.toMatchObject({ status: GenerationJobStatus.FAILED });
+    await expect(
+      prisma.skillDraftBatchItem.findUniqueOrThrow({
+        where: { id: ready.items[0].id },
+      }),
+    ).resolves.toMatchObject({
+      status: SkillDraftBatchItemStatus.FAILED,
+      generationClaimId: null,
+    });
+
+    await prisma.skill.deleteMany({
+      where: {
+        userId,
+        OR: [
+          { id: ready.items[0].skill!.id },
+          { title: { startsWith: retryQuotaPrefix } },
+        ],
+      },
+    });
   });
 
   it("serializes concurrent batch reservations so the daily quota cannot be oversubscribed", async () => {
@@ -3838,6 +5214,7 @@ describeDatabase("material multi-skill drafting", () => {
         where: { id: ready.items[0].id },
         data: {
           status: SkillDraftBatchItemStatus.FAILED,
+          generationClaimId: "stale-active-resync-claim",
           errorCode: "ACTIVATION_RETRYABLE_FIXTURE",
           errorMessage: "fixture failure before external activation",
         },
@@ -3853,6 +5230,11 @@ describeDatabase("material multi-skill drafting", () => {
       failedCount: 0,
       items: [{ status: SkillDraftBatchItemStatus.ACTIVE }],
     });
+    await expect(
+      prisma.skillDraftBatchItem.findUniqueOrThrow({
+        where: { id: ready.items[0].id },
+      }),
+    ).resolves.toMatchObject({ generationClaimId: null });
   });
 
   async function createReadyBatch(

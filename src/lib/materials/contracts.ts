@@ -391,6 +391,8 @@ export const activateBatchInputSchema = z
         z.object({
           itemId: identifierSchema,
           skillId: identifierSchema,
+          candidateFingerprint: z.string().regex(/^[a-f0-9]{64}$/),
+          skillFingerprint: z.string().regex(/^[a-f0-9]{64}$/),
         }),
       )
       .max(MAX_SKILLS_PER_BATCH)

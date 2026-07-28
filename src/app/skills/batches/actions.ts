@@ -164,6 +164,14 @@ export async function activateMaterialBatchAction(formData: FormData) {
     formData,
     "createSeparatelySkillId",
   );
+  const createSeparatelyCandidateFingerprints = formStrings(
+    formData,
+    "createSeparatelyCandidateFingerprint",
+  );
+  const createSeparatelySkillFingerprints = formStrings(
+    formData,
+    "createSeparatelySkillFingerprint",
+  );
   const result = await queueMaterialBatchActivation({
     userId,
     input: {
@@ -173,16 +181,47 @@ export async function activateMaterialBatchAction(formData: FormData) {
         (itemId, index) => ({
           itemId,
           skillId: createSeparatelySkillIds[index] ?? "",
+          candidateFingerprint:
+            createSeparatelyCandidateFingerprints[index] ?? "",
+          skillFingerprint:
+            createSeparatelySkillFingerprints[index] ?? "",
         }),
       ),
     },
     now: new Date(),
   });
   if (
+    result.status === "review-required" ||
+    (result.status === "partial" && result.reviewItemIds.length > 0)
+  ) {
+    revalidatePath(`/skills/batches/${batchId}`);
+    revalidatePath("/skills");
+    const notice =
+      result.reviewItemIds.length === 1
+        ? "duplicate-review"
+        : "duplicate-reviews";
+    const firstReviewItemId = result.reviewItemIds[0];
+    const reviewTarget = firstReviewItemId
+      ? `#batch-draft-review-${encodeURIComponent(firstReviewItemId)}`
+      : "";
+    const partialFailure =
+      result.status === "partial" && result.failedItemIds.length > 0
+        ? `&error=${encodeURIComponent("Some other skills could not start. Retry the failed drafts below.")}`
+        : "";
+    return redirect(
+      `/skills/batches/${batchId}?notice=${notice}${partialFailure}${reviewTarget}`,
+    );
+  }
+  if (result.status === "partial") {
+    revalidatePath(`/skills/batches/${batchId}`);
+    revalidatePath("/skills");
+    return redirect(
+      `/skills/batches/${batchId}?error=${encodeURIComponent("Some skills could not start. Retry the failed drafts below.")}`,
+    );
+  }
+  if (
     result.status === "queued" ||
-    result.status === "partial" ||
-    result.status === "already-queued" ||
-    result.status === "review-required"
+    result.status === "already-queued"
   ) {
     revalidatePath(`/skills/batches/${batchId}`);
     revalidatePath("/skills");
@@ -206,7 +245,7 @@ export async function retryMaterialBatchActivationItemAction(formData: FormData)
   });
   revalidatePath(`/skills/batches/${batchId}`);
   revalidatePath("/skills");
-  if (result.status !== "queued") {
+  if (result.status !== "queued" && result.status !== "already-running") {
     const message = "message" in result ? result.message : "Activation could not be retried.";
     redirect(`/skills/batches/${batchId}?error=${encodeURIComponent(message)}`);
   }
@@ -262,12 +301,21 @@ export async function excludeMaterialDraftItemAction(formData: FormData) {
     });
   }
   if (result.status !== "excluded") {
+    const refreshRequired =
+      result.status === "not-excluded" &&
+      [
+        "draft-changed",
+        "match-changed",
+        "match-not-found",
+        "skill-not-draft",
+      ].includes(result.reason);
     return {
       status: "error" as const,
       message:
         result.status === "not-excluded"
           ? result.message
           : "This draft could not be excluded. Refresh the batch and try again.",
+      refreshRequired,
     };
   }
   revalidatePath(`/skills/batches/${batchId}`);

@@ -23,8 +23,11 @@ export const SKILL_SIMILARITY_EMBEDDING_DIMENSIONS = 768;
 export const SKILL_SIMILARITY_FINGERPRINT_VERSION = "skill-similarity-v1";
 export const SKILL_DUPLICATE_CANDIDATE_FINGERPRINT_VERSION =
   "skill-duplicate-candidate-v1";
+export const SKILL_DUPLICATE_REVIEW_FINGERPRINT_VERSION =
+  "skill-duplicate-review-v1";
 export const SKILL_SIMILARITY_EMBEDDING_BATCH_SIZE = 32;
 export const SKILL_SIMILARITY_CACHE_WRITE_BATCH_SIZE = 8;
+const SKILL_SIMILARITY_EMBEDDING_TIMEOUT_MS = 10_000;
 
 export const SKILL_SIMILARITY_THRESHOLDS = Object.freeze({
   likelyLexical: 0.9,
@@ -56,6 +59,11 @@ export type SkillDuplicateCandidateSnapshot = SkillSimilarityComparable & {
   tags?: readonly string[];
 };
 
+export type SkillDuplicateReviewSnapshot =
+  SkillDuplicateCandidateSnapshot & {
+    status?: SkillStatus | string | null;
+  };
+
 export type SkillSimilarityCandidate = SkillSimilarityComparable & {
   key: string;
   skillId?: string | null;
@@ -68,6 +76,7 @@ export type SkillSimilarityPreview = {
   status: SkillStatus;
   collectionName: string | null;
   tags: string[];
+  contentFingerprint: string;
 };
 
 export type SkillSimilarityComparison = {
@@ -102,7 +111,14 @@ export type SkillSimilarityClient = Pick<
   "$executeRaw" | "$queryRaw"
 >;
 
-type StoredSkillSimilarityRow = SkillSimilarityPreview & {
+type StoredSkillSimilarityRow = Omit<
+  SkillSimilarityPreview,
+  "contentFingerprint"
+> & {
+  collectionId: string | null;
+  rules: Prisma.JsonValue | null;
+  examples: Prisma.JsonValue | null;
+  exerciseConstraints: Prisma.JsonValue | null;
   similarityEmbeddingModel: string | null;
   similarityEmbeddingFingerprint: string | null;
   hasSimilarityEmbedding: boolean;
@@ -172,6 +188,16 @@ export function buildSkillDuplicateCandidateFingerprint(
     .digest("hex");
 }
 
+export function buildSkillDuplicateReviewFingerprint(
+  input: SkillDuplicateReviewSnapshot,
+): string {
+  return createHash("sha256")
+    .update(SKILL_DUPLICATE_REVIEW_FINGERPRINT_VERSION)
+    .update("\u0000")
+    .update(buildSkillDuplicateCandidateFingerprint(input))
+    .digest("hex");
+}
+
 export function buildSkillSimilarityEmbeddingText(
   input: SkillSimilarityComparable,
   model: string,
@@ -198,6 +224,12 @@ export function buildSkillSimilarityEmbeddingConfig(
     ...(apiMode === "enterprise-agent-platform"
       ? { autoTruncate: true }
       : {}),
+    httpOptions: {
+      timeout: SKILL_SIMILARITY_EMBEDDING_TIMEOUT_MS,
+      retryOptions: {
+        attempts: 1,
+      },
+    },
   };
 }
 
@@ -506,7 +538,16 @@ export async function findSimilarSkillsForUser(input: {
       candidates: semanticResults,
       semanticStatus: "used",
     };
-  } catch {
+  } catch (error) {
+    const { code, status } = getGeminiErrorLogDetails(error);
+    console.warn("[ai] skill semantic similarity unavailable", {
+      candidateCount: semanticCandidates.length,
+      storedSkillCount: storedSkills.length,
+      embeddingModel,
+      errorName: error instanceof Error ? error.name : "UnknownError",
+      code,
+      status,
+    });
     return {
       candidates: lexicalResults,
       semanticStatus: "unavailable",
@@ -725,7 +766,11 @@ async function readStoredSkills(
       skill."title",
       skill."objective",
       skill."status",
+      skill."collectionId",
       collection."name" AS "collectionName",
+      skill."rules",
+      skill."examples",
+      skill."exerciseConstraints",
       skill."tags",
       skill."similarityEmbeddingModel",
       skill."similarityEmbeddingFingerprint",
@@ -854,6 +899,7 @@ function toPreview(
     status: skill.status,
     collectionName: skill.collectionName,
     tags: skill.tags,
+    contentFingerprint: buildSkillDuplicateReviewFingerprint(skill),
   };
 }
 

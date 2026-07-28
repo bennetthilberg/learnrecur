@@ -57,6 +57,10 @@ import {
 import { getPrisma } from "@/lib/prisma";
 import { createInitialSkillSchedule } from "@/lib/scheduling";
 import {
+  buildSkillDuplicateCandidateFingerprint,
+  buildSkillDuplicateReviewFingerprint,
+} from "@/lib/skills/similarity";
+import {
   MAX_SOURCE_UPLOAD_BYTES,
   MAX_TOTAL_SOURCE_UPLOAD_BYTES,
   isSourceUploadMimeType,
@@ -67,6 +71,7 @@ import {
   type SourceObjectStorage,
 } from "@/lib/storage/s3";
 import {
+  ALPHA_ACTIVE_SKILLS,
   checkPastedSourceDraftUsageLimit,
   checkSkillActivationUsageLimit,
 } from "@/lib/usage-limits";
@@ -99,6 +104,8 @@ const ACTIVATION_PROVIDER_CHAIN_TIMEOUT_MS =
   GENERATION_TIMEOUT_MS * 2 + ACTIVATION_GENERATION_COMPLETION_SLACK_MS;
 export const ACTIVATION_GENERATION_TIMEOUT_MS =
   ACTIVATION_PROVIDER_CHAIN_TIMEOUT_MS * 2 + ACTIVATION_GENERATION_COMPLETION_SLACK_MS;
+export const ACTIVATION_SUPERSEDED_JOB_MESSAGE =
+  "A newer activation attempt replaced this one.";
 const ACTIVE_GENERATION_JOB_STATUSES: GenerationJobStatus[] = [
   GenerationJobStatus.PENDING,
   GenerationJobStatus.RUNNING,
@@ -524,6 +531,11 @@ export type UpdateSkillDraftInput = CreateSkillDraftInput & {
 export type ActivateSkillDraftInput = {
   userId: string;
   skillId: string;
+  expectedDraftFingerprint?: string;
+  expectedDuplicateMatch?: {
+    skillId: string;
+    fingerprint: string;
+  };
   now: Date;
   generationJobId?: string;
   generateChoiceExercises?: ChoiceExerciseGenerator;
@@ -637,6 +649,9 @@ export type SkillActivationResult =
         | "verification-failed"
         | "invalid-verification"
         | "activation-in-progress"
+        | "activation-superseded"
+        | "draft-changed"
+        | "duplicate-review-changed"
         | "missing-gemini-env"
         | "quota-exceeded"
         | "skill-not-draft";
@@ -1538,18 +1553,22 @@ export async function updateSkillDraft(input: UpdateSkillDraftInput): Promise<Sk
   const prisma = getPrisma();
 
   return prisma.$transaction(async (tx) => {
-    const existingSkill = await tx.skill.findFirst({
-      where: {
-        id: input.skillId,
-        userId: input.userId,
-        status: SkillStatus.DRAFT,
-      },
-      select: {
-        id: true,
-      },
-    });
+    await tx.$queryRaw`
+      SELECT "id"
+      FROM "users"
+      WHERE "id" = ${input.userId}
+      FOR UPDATE
+    `;
+    const [existingSkill] = await tx.$queryRaw<
+      Array<{ id: string; status: SkillStatus }>
+    >`
+      SELECT "id", "status"
+      FROM "skills"
+      WHERE "id" = ${input.skillId} AND "userId" = ${input.userId}
+      FOR UPDATE
+    `;
 
-    if (!existingSkill) {
+    if (!existingSkill || existingSkill.status !== SkillStatus.DRAFT) {
       return skillNotFound();
     }
 
@@ -2186,95 +2205,151 @@ export async function activateSkillDraft(
   input: ActivateSkillDraftInput,
 ): Promise<SkillActivationResult> {
   const prisma = getPrisma();
-  const skill = await prisma.skill.findFirst({
-    where: {
-      id: input.skillId,
-      userId: input.userId,
-    },
-    select: {
-      id: true,
-      userId: true,
-      title: true,
-      objective: true,
-      rules: true,
-      examples: true,
-      exerciseConstraints: true,
-      tags: true,
-      status: true,
-      sourceRefs: {
-        orderBy: {
-          createdAt: "asc",
-        },
-        select: {
-          locator: true,
-          sourceFile: {
-            select: {
-              id: true,
-              materialRevisionId: true,
-              kind: true,
-              status: true,
-              originalName: true,
-              mimeType: true,
-              storageBucket: true,
-              storageKey: true,
-              extractedText: true,
+  const providerUsage = createAiProviderUsageTracker();
+  const setup = resolveActivationSetup(input, providerUsage.record);
+  const reservation = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`
+      SELECT "id"
+      FROM "users"
+      WHERE "id" = ${input.userId}
+      FOR UPDATE
+    `;
+    await tx.$queryRaw`
+      SELECT "id"
+      FROM "skills"
+      WHERE "id" = ${input.skillId} AND "userId" = ${input.userId}
+      FOR UPDATE
+    `;
+    const skill = await tx.skill.findFirst({
+      where: {
+        id: input.skillId,
+        userId: input.userId,
+      },
+      select: {
+        id: true,
+        userId: true,
+        title: true,
+        objective: true,
+        collectionId: true,
+        rules: true,
+        examples: true,
+        exerciseConstraints: true,
+        tags: true,
+        status: true,
+        sourceRefs: {
+          orderBy: {
+            createdAt: "asc",
+          },
+          select: {
+            locator: true,
+            sourceFile: {
+              select: {
+                id: true,
+                materialRevisionId: true,
+                kind: true,
+                status: true,
+                originalName: true,
+                mimeType: true,
+                storageBucket: true,
+                storageKey: true,
+                extractedText: true,
+              },
             },
           },
         },
       },
-    },
-  });
-
-  if (!skill) {
-    return skillNotFound();
-  }
-
-  if (skill.status !== SkillStatus.DRAFT) {
-    return {
-      status: "not-activated",
-      reason: "skill-not-draft",
-      message: "Only draft skills can be activated.",
-    };
-  }
-
-  if (!input.skipUsageLimitCheck) {
-    const quota = await checkSkillActivationUsageLimit({
-      userId: input.userId,
-      now: input.now,
-      prisma,
     });
 
-    if (quota.status === "limited") {
+    if (!skill) {
+      return skillNotFound();
+    }
+
+    if (skill.status !== SkillStatus.DRAFT) {
       return {
-        status: "not-activated",
-        reason: "quota-exceeded",
-        message: quota.message,
+        status: "not-activated" as const,
+        reason: "skill-not-draft" as const,
+        message: "Only draft skills can be activated.",
       };
     }
-  }
 
-  const providerUsage = createAiProviderUsageTracker();
-  const setup = resolveActivationSetup(input, providerUsage.record);
+    const draftFingerprint =
+      buildSkillDuplicateCandidateFingerprint(skill);
+    if (
+      input.expectedDraftFingerprint &&
+      draftFingerprint !== input.expectedDraftFingerprint
+    ) {
+      return {
+        status: "not-activated" as const,
+        reason: "draft-changed" as const,
+        message:
+          "This draft changed after the duplicate check. Review it again before adding it.",
+      };
+    }
 
-  const generationJobResult = await createOrClaimActivationGenerationJob({
-    prisma,
-    generationJobId: input.generationJobId,
-    userId: input.userId,
-    skillId: skill.id,
-    setup,
-    now: input.now,
+    if (
+      input.expectedDuplicateMatch &&
+      await hasReviewedDuplicateChanged({
+        prisma: tx,
+        userId: input.userId,
+        expectedMatch: input.expectedDuplicateMatch,
+      })
+    ) {
+      return {
+        status: "not-activated" as const,
+        reason: "duplicate-review-changed" as const,
+        message:
+          "The existing skill changed after duplicate review. Compare it again before adding this draft separately.",
+      };
+    }
+
+    if (!input.skipUsageLimitCheck) {
+      const quota = await checkSkillActivationUsageLimit({
+        userId: input.userId,
+        now: input.now,
+        prisma: tx,
+      });
+
+      if (quota.status === "limited") {
+        return {
+          status: "not-activated" as const,
+          reason: "quota-exceeded" as const,
+          message: quota.message,
+        };
+      }
+    }
+
+    const generationJobResult =
+      await createOrClaimActivationGenerationJob({
+        prisma: tx,
+        generationJobId: input.generationJobId,
+        userId: input.userId,
+        skillId: skill.id,
+        setup,
+        now: input.now,
+      });
+
+    if (generationJobResult.status === "not-ready") {
+      return {
+        status: "not-activated" as const,
+        reason: "activation-in-progress" as const,
+        message: generationJobResult.message,
+        generationJobId: generationJobResult.generationJobId,
+      };
+    }
+
+    return {
+      status: "ready" as const,
+      skill,
+      draftFingerprint,
+      generationJob: generationJobResult.generationJob,
+    };
   });
 
-  if (generationJobResult.status === "not-ready") {
-    return {
-      status: "not-activated",
-      reason: "activation-in-progress",
-      message: generationJobResult.message,
-      generationJobId: generationJobResult.generationJobId,
-    };
+  if (reservation.status !== "ready") {
+    return reservation;
   }
 
-  const { generationJob } = generationJobResult;
+  const { draftFingerprint, generationJob, skill } = reservation;
 
   if (setup.status === "missing-env") {
     return {
@@ -2299,12 +2374,15 @@ export async function activateSkillDraft(
     sourceMedia = sourceEvidence.sourceMedia;
   } catch (error) {
     const message = buildSourceMediaLoadFailureMessage(error);
-    await markGenerationJobFailed(prisma, generationJob.id, {
+    const jobFailed = await markGenerationJobFailed(prisma, generationJob.id, {
       message,
       acceptedCount: 0,
       rejectedCount: 0,
       now: input.now,
     });
+    if (!jobFailed) {
+      return activationSuperseded(generationJob.id);
+    }
 
     return {
       status: "not-activated",
@@ -2330,12 +2408,15 @@ export async function activateSkillDraft(
     );
   } catch (error) {
     const message = `Exercise generation failed: ${formatEnvError(error)}`;
-    await markGenerationJobFailed(prisma, generationJob.id, {
+    const jobFailed = await markGenerationJobFailed(prisma, generationJob.id, {
       message,
       acceptedCount: 0,
       rejectedCount: 0,
       now: input.now,
     });
+    if (!jobFailed) {
+      return activationSuperseded(generationJob.id);
+    }
 
     return {
       status: "not-activated",
@@ -2350,12 +2431,15 @@ export async function activateSkillDraft(
   });
 
   if (validation.status === "invalid") {
-    await markGenerationJobFailed(prisma, generationJob.id, {
+    const jobFailed = await markGenerationJobFailed(prisma, generationJob.id, {
       message: validation.message,
       acceptedCount: validation.validCount,
       rejectedCount: validation.rejectedCount,
       now: input.now,
     });
+    if (!jobFailed) {
+      return activationSuperseded(generationJob.id);
+    }
 
     return {
       status: "not-activated",
@@ -2382,12 +2466,15 @@ export async function activateSkillDraft(
     );
   } catch (error) {
     const message = `Exercise verification failed: ${formatEnvError(error)}`;
-    await markGenerationJobFailed(prisma, generationJob.id, {
+    const jobFailed = await markGenerationJobFailed(prisma, generationJob.id, {
       message,
       acceptedCount: 0,
       rejectedCount: validation.rejectedCount + validation.exercises.length,
       now: input.now,
     });
+    if (!jobFailed) {
+      return activationSuperseded(generationJob.id);
+    }
 
     return {
       status: "not-activated",
@@ -2403,12 +2490,15 @@ export async function activateSkillDraft(
   });
 
   if (verification.status === "invalid") {
-    await markGenerationJobFailed(prisma, generationJob.id, {
+    const jobFailed = await markGenerationJobFailed(prisma, generationJob.id, {
       message: verification.message,
       acceptedCount: verification.verifiedCount,
       rejectedCount: validation.rejectedCount + verification.rejectedCount,
       now: input.now,
     });
+    if (!jobFailed) {
+      return activationSuperseded(generationJob.id);
+    }
 
     return {
       status: "not-activated",
@@ -2419,6 +2509,149 @@ export async function activateSkillDraft(
   }
 
   return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`
+      SELECT "id"
+      FROM "users"
+      WHERE "id" = ${input.userId}
+      FOR UPDATE
+    `;
+    const [currentSkill] = await tx.$queryRaw<
+      Array<{
+        id: string;
+        title: string;
+        objective: string | null;
+        collectionId: string | null;
+        rules: Prisma.JsonValue | null;
+        examples: Prisma.JsonValue | null;
+        exerciseConstraints: Prisma.JsonValue | null;
+        tags: string[];
+        status: SkillStatus;
+      }>
+    >`
+      SELECT
+        "id",
+        "title",
+        "objective",
+        "collectionId",
+        "rules",
+        "examples",
+        "exerciseConstraints",
+        "tags",
+        "status"
+      FROM "skills"
+      WHERE "id" = ${skill.id} AND "userId" = ${input.userId}
+      FOR UPDATE
+    `;
+    const [currentGenerationJob] = await tx.$queryRaw<
+      Array<{ id: string; status: GenerationJobStatus }>
+    >`
+      SELECT "id", "status"
+      FROM "generation_jobs"
+      WHERE "id" = ${generationJob.id}
+        AND "userId" = ${input.userId}
+        AND "skillId" = ${skill.id}
+        AND "kind" = ${GenerationJobKind.SKILL_ACTIVATION}::"GenerationJobKind"
+      FOR UPDATE
+    `;
+    if (
+      !currentGenerationJob ||
+      currentGenerationJob.status !== GenerationJobStatus.RUNNING
+    ) {
+      return activationSuperseded(generationJob.id);
+    }
+    if (!currentSkill || currentSkill.status !== SkillStatus.DRAFT) {
+      await tx.generationJob.update({
+        where: { id: generationJob.id },
+        data: {
+          status: GenerationJobStatus.FAILED,
+          errorMessage: "Skill is no longer a draft.",
+          completedAt: input.now,
+        },
+      });
+
+      return {
+        status: "not-activated" as const,
+        reason: "skill-not-draft" as const,
+        message: "Skill is no longer a draft.",
+        generationJobId: generationJob.id,
+      };
+    }
+    if (
+      buildSkillDuplicateCandidateFingerprint(currentSkill) !==
+      draftFingerprint
+    ) {
+      const message =
+        "This draft changed while exercises were being prepared. Review it again before adding it.";
+      await tx.generationJob.update({
+        where: { id: generationJob.id },
+        data: {
+          status: GenerationJobStatus.FAILED,
+          errorMessage: message,
+          completedAt: input.now,
+        },
+      });
+
+      return {
+        status: "not-activated" as const,
+        reason: "draft-changed" as const,
+        message,
+        generationJobId: generationJob.id,
+      };
+    }
+    if (
+      input.expectedDuplicateMatch &&
+      await hasReviewedDuplicateChanged({
+        prisma: tx,
+        userId: input.userId,
+        expectedMatch: input.expectedDuplicateMatch,
+      })
+    ) {
+      const message =
+        "The existing skill changed while exercises were being prepared. Compare it again before adding this draft separately.";
+      await tx.generationJob.update({
+        where: { id: generationJob.id },
+        data: {
+          status: GenerationJobStatus.FAILED,
+          errorMessage: message,
+          completedAt: input.now,
+        },
+      });
+
+      return {
+        status: "not-activated" as const,
+        reason: "duplicate-review-changed" as const,
+        message,
+        generationJobId: generationJob.id,
+      };
+    }
+    const activeSkillCount = await tx.skill.count({
+      where: {
+        userId: input.userId,
+        status: {
+          in: [SkillStatus.ACTIVE, SkillStatus.PAUSED],
+        },
+      },
+    });
+    if (activeSkillCount >= ALPHA_ACTIVE_SKILLS) {
+      const message =
+        `Alpha accounts can keep ${ALPHA_ACTIVE_SKILLS} active or paused skills.`;
+      await tx.generationJob.update({
+        where: { id: generationJob.id },
+        data: {
+          status: GenerationJobStatus.FAILED,
+          errorMessage: message,
+          completedAt: input.now,
+        },
+      });
+
+      return {
+        status: "not-activated" as const,
+        reason: "quota-exceeded" as const,
+        message,
+        generationJobId: generationJob.id,
+      };
+    }
+
     const schedule = createInitialSkillSchedule(input.now);
     const skillUpdate = await tx.skill.updateMany({
       where: {
@@ -6238,8 +6471,11 @@ async function markGenerationJobFailed(
     now: Date;
   },
 ) {
-  await prisma.generationJob.update({
-    where: { id: generationJobId },
+  const updated = await prisma.generationJob.updateMany({
+    where: {
+      id: generationJobId,
+      status: GenerationJobStatus.RUNNING,
+    },
     data: {
       status: GenerationJobStatus.FAILED,
       acceptedCount: input.acceptedCount,
@@ -6248,6 +6484,7 @@ async function markGenerationJobFailed(
       completedAt: input.now,
     },
   });
+  return updated.count === 1;
 }
 
 type ActivationGenerationSetup =
@@ -6303,6 +6540,49 @@ async function createOrClaimActivationGenerationJob({
     startedAt: now,
     completedAt: setup.status === "ready" ? null : now,
   };
+  const createGenerationJob = async () => {
+    try {
+      const generationJob = await prisma.generationJob.create({
+        data: {
+          userId,
+          skillId,
+          ...data,
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      return {
+        status: "ready" as const,
+        generationJob,
+      };
+    } catch (error) {
+      if (!isPrismaUniqueConstraintError(error)) {
+        throw error;
+      }
+
+      const existingJob = await prisma.generationJob.findFirst({
+        where: {
+          userId,
+          skillId,
+          kind: GenerationJobKind.SKILL_ACTIVATION,
+          status: {
+            in: ACTIVE_GENERATION_JOB_STATUSES,
+          },
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      return {
+        status: "not-ready" as const,
+        message: "Skill activation is already running. Try again in a minute.",
+        generationJobId: existingJob?.id,
+      };
+    }
+  };
 
   const activeJob = await prisma.generationJob.findFirst({
     where: {
@@ -6324,6 +6604,7 @@ async function createOrClaimActivationGenerationJob({
       status: true,
       startedAt: true,
       updatedAt: true,
+      errorMessage: true,
     },
   });
 
@@ -6336,30 +6617,94 @@ async function createOrClaimActivationGenerationJob({
       };
     }
 
-    const claimed = await prisma.generationJob.updateMany({
-      where: {
-        id: activeJob.id,
-        userId,
-        skillId,
-        kind: GenerationJobKind.SKILL_ACTIVATION,
-        updatedAt: activeJob.updatedAt,
-        status: {
-          in: generationJobId
-            ? [...ACTIVE_GENERATION_JOB_STATUSES, GenerationJobStatus.FAILED]
-            : ACTIVE_GENERATION_JOB_STATUSES,
-        },
-      },
-      data,
-    });
-
-    if (claimed.count === 1) {
-      return {
-        status: "ready",
-        generationJob: {
+    if (activeJob.status === GenerationJobStatus.PENDING) {
+      const claimed = await prisma.generationJob.updateMany({
+        where: {
           id: activeJob.id,
+          userId,
+          skillId,
+          kind: GenerationJobKind.SKILL_ACTIVATION,
+          updatedAt: activeJob.updatedAt,
+          status: GenerationJobStatus.PENDING,
         },
+        data,
+      });
+
+      if (claimed.count === 1) {
+        return {
+          status: "ready",
+          generationJob: {
+            id: activeJob.id,
+          },
+        };
+      }
+
+      return {
+        status: "not-ready",
+        message: "The reserved activation job is no longer available.",
+        generationJobId: activeJob.id,
       };
     }
+
+    if (activeJob.status === GenerationJobStatus.RUNNING) {
+      const superseded = await prisma.generationJob.updateMany({
+        where: {
+          id: activeJob.id,
+          userId,
+          skillId,
+          kind: GenerationJobKind.SKILL_ACTIVATION,
+          updatedAt: activeJob.updatedAt,
+          status: GenerationJobStatus.RUNNING,
+        },
+        data: {
+          status: GenerationJobStatus.FAILED,
+          errorMessage: ACTIVATION_SUPERSEDED_JOB_MESSAGE,
+          completedAt: now,
+        },
+      });
+
+      if (superseded.count !== 1) {
+        return {
+          status: "not-ready",
+          message: "Skill activation changed while it was being reclaimed.",
+          generationJobId: activeJob.id,
+        };
+      }
+    }
+
+    if (
+      activeJob.status === GenerationJobStatus.FAILED &&
+      activeJob.errorMessage !== ACTIVATION_SUPERSEDED_JOB_MESSAGE
+    ) {
+      const reclaimed = await prisma.generationJob.updateMany({
+        where: {
+          id: activeJob.id,
+          userId,
+          skillId,
+          kind: GenerationJobKind.SKILL_ACTIVATION,
+          updatedAt: activeJob.updatedAt,
+          status: GenerationJobStatus.FAILED,
+        },
+        data,
+      });
+
+      if (reclaimed.count === 1) {
+        return {
+          status: "ready",
+          generationJob: {
+            id: activeJob.id,
+          },
+        };
+      }
+
+      return {
+        status: "not-ready",
+        message: "The reserved activation job is no longer available.",
+        generationJobId: activeJob.id,
+      };
+    }
+
+    return createGenerationJob();
   }
 
   if (generationJobId) {
@@ -6370,47 +6715,7 @@ async function createOrClaimActivationGenerationJob({
     };
   }
 
-  try {
-    const generationJob = await prisma.generationJob.create({
-      data: {
-        userId,
-        skillId,
-        ...data,
-      },
-      select: {
-        id: true,
-      },
-    });
-
-    return {
-      status: "ready",
-      generationJob,
-    };
-  } catch (error) {
-    if (!isPrismaUniqueConstraintError(error)) {
-      throw error;
-    }
-
-    const existingJob = await prisma.generationJob.findFirst({
-      where: {
-        userId,
-        skillId,
-        kind: GenerationJobKind.SKILL_ACTIVATION,
-        status: {
-          in: ACTIVE_GENERATION_JOB_STATUSES,
-        },
-      },
-      select: {
-        id: true,
-      },
-    });
-
-    return {
-      status: "not-ready",
-      message: "Skill activation is already running. Try again in a minute.",
-      generationJobId: existingJob?.id,
-    };
-  }
+  return createGenerationJob();
 }
 
 function isFreshRunningGenerationJob(
@@ -7068,6 +7373,49 @@ function summarizeJsonNotes(value: Prisma.JsonValue | null): string {
   return truncateForPrompt(summary, PROMPT_NOTE_CHAR_LIMIT);
 }
 
+async function hasReviewedDuplicateChanged(input: {
+  prisma: Pick<Prisma.TransactionClient, "$queryRaw">;
+  userId: string;
+  expectedMatch: NonNullable<
+    ActivateSkillDraftInput["expectedDuplicateMatch"]
+  >;
+}) {
+  const [duplicateMatch] = await input.prisma.$queryRaw<
+    Array<{
+      id: string;
+      title: string;
+      objective: string | null;
+      collectionId: string | null;
+      rules: Prisma.JsonValue | null;
+      examples: Prisma.JsonValue | null;
+      exerciseConstraints: Prisma.JsonValue | null;
+      tags: string[];
+      status: SkillStatus;
+    }>
+  >`
+    SELECT
+      skill."id",
+      skill."title",
+      skill."objective",
+      skill."collectionId",
+      skill."rules",
+      skill."examples",
+      skill."exerciseConstraints",
+      skill."tags",
+      skill."status"
+    FROM "skills" AS skill
+    WHERE skill."id" = ${input.expectedMatch.skillId}
+      AND skill."userId" = ${input.userId}
+    FOR UPDATE OF skill
+  `;
+
+  return (
+    !duplicateMatch ||
+    buildSkillDuplicateReviewFingerprint(duplicateMatch) !==
+      input.expectedMatch.fingerprint
+  );
+}
+
 function skillNotFound(): Extract<SkillDraftWriteResult, { status: "not-found" }> &
   Extract<SkillActivationResult, { status: "not-found" }> &
   Extract<SkillExerciseRefillResult, { status: "not-found" }> &
@@ -7076,6 +7424,18 @@ function skillNotFound(): Extract<SkillDraftWriteResult, { status: "not-found" }
     status: "not-found",
     reason: "skill-not-found",
     message: "No draft skill was found for this user.",
+  };
+}
+
+function activationSuperseded(
+  generationJobId: string,
+): Extract<SkillActivationResult, { status: "not-activated" }> {
+  return {
+    status: "not-activated",
+    reason: "activation-superseded",
+    message:
+      "A newer activation attempt replaced this one. This attempt did not change the skill.",
+    generationJobId,
   };
 }
 

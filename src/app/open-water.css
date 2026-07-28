@@ -5431,6 +5431,16 @@ body {
   padding: 16px 22px 18px;
 }
 
+.batchDraftDuplicateDecision {
+  scroll-margin-top: 24px;
+}
+
+.batchDraftDuplicateDecision[data-mode="review"]:focus,
+.batchDraftDuplicateDecision[data-mode="review"]:target {
+  outline: none;
+  box-shadow: inset 0 0 0 3px var(--lr-focus-outline);
+}
+
 .batchDraftDuplicateDecision[data-mode="existing"] {
   border-color: var(--lr-divider);
   background: #F8FAFD;
