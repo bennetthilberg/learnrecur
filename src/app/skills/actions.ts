@@ -1003,12 +1003,13 @@ async function saveAndActivateSkillDraft(
     };
   }
 
-  const duplicateMatch = await findSingleSkillDuplicateMatch({
+  const duplicateCheck = await findSingleSkillDuplicateCheck({
     userId: user.userId,
     skillId,
     title: draftInput.title,
     objective: draftInput.objective,
   });
+  const duplicateMatch = duplicateCheck.match;
   const duplicateOverrideSkillId = getOptionalFormString(
     formData,
     "duplicateOverrideSkillId",
@@ -1044,6 +1045,8 @@ async function saveAndActivateSkillDraft(
     skillId,
     expectedDraftFingerprint:
       buildSkillDuplicateCandidateFingerprint(saveResult.skill),
+    expectedDuplicateLibraryFingerprint:
+      duplicateCheck.libraryFingerprint ?? undefined,
     expectedDuplicateMatch: duplicateOverrideAccepted && duplicateMatch
       ? {
           skillId: duplicateMatch.skill.id,
@@ -1084,17 +1087,20 @@ async function saveAndActivateSkillDraft(
     addResult.status === "not-activated" &&
     addResult.reason === "duplicate-review-changed"
   ) {
-    const refreshedMatch = await findSingleSkillDuplicateMatch({
+    const refreshedCheck = await findSingleSkillDuplicateCheck({
       userId: user.userId,
       skillId,
       title: draftInput.title,
       objective: draftInput.objective,
     });
+    const refreshedMatch = refreshedCheck.match;
     if (refreshedMatch) {
       return {
         status: "duplicate-warning",
         message:
-          "The existing skill changed after you reviewed it. Compare the updated preview before deciding.",
+          duplicateMatch
+            ? "The existing skill changed after you reviewed it. Compare the updated preview before deciding."
+            : "LearnRecur found a similar skill while this draft was being checked. Compare it before deciding.",
         duplicateMatch: refreshedMatch,
         draftValues: draftInput,
       };
@@ -1114,12 +1120,15 @@ async function saveAndActivateSkillDraft(
   };
 }
 
-async function findSingleSkillDuplicateMatch(input: {
+async function findSingleSkillDuplicateCheck(input: {
   userId: string;
   skillId: string;
   title: string;
   objective: string;
-}): Promise<SkillSimilarityMatch | null> {
+}): Promise<{
+  match: SkillSimilarityMatch | null;
+  libraryFingerprint: string | null;
+}> {
   try {
     const similarityResult = await findSimilarSkillsForUser({
       userId: input.userId,
@@ -1133,14 +1142,21 @@ async function findSingleSkillDuplicateMatch(input: {
       ],
       limitPerCandidate: 1,
     });
-    return similarityResult.candidates[0]?.bestMatch ?? null;
+    return {
+      match: similarityResult.candidates[0]?.bestMatch ?? null,
+      libraryFingerprint:
+        similarityResult.duplicateLibraryFingerprint,
+    };
   } catch (error) {
     console.warn("[skills] duplicate check unavailable", {
       userId: input.userId,
       skillId: input.skillId,
       errorName: error instanceof Error ? error.name : "UnknownError",
     });
-    return null;
+    return {
+      match: null,
+      libraryFingerprint: null,
+    };
   }
 }
 

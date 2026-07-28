@@ -58,6 +58,7 @@ import { getPrisma } from "@/lib/prisma";
 import { createInitialSkillSchedule } from "@/lib/scheduling";
 import {
   buildSkillDuplicateCandidateFingerprint,
+  buildSkillDuplicateLibraryFingerprint,
   buildSkillDuplicateReviewFingerprint,
 } from "@/lib/skills/similarity";
 import {
@@ -532,6 +533,7 @@ export type ActivateSkillDraftInput = {
   userId: string;
   skillId: string;
   expectedDraftFingerprint?: string;
+  expectedDuplicateLibraryFingerprint?: string;
   expectedDuplicateMatch?: {
     skillId: string;
     fingerprint: string;
@@ -1520,6 +1522,7 @@ export async function createSkillDraft(input: CreateSkillDraftInput): Promise<Sk
   const prisma = getPrisma();
 
   return prisma.$transaction(async (tx) => {
+    await lockSkillLibraryForUser(tx, input.userId);
     const collectionId = await resolveCollectionId(tx, input.userId, normalized.value.collectionName);
 
     const skill = await tx.skill.create({
@@ -2301,6 +2304,22 @@ export async function activateSkillDraft(
           "The existing skill changed after duplicate review. Compare it again before adding this draft separately.",
       };
     }
+    if (
+      input.expectedDuplicateLibraryFingerprint &&
+      await hasDuplicateLibraryChanged({
+        prisma: tx,
+        userId: input.userId,
+        expectedFingerprint:
+          input.expectedDuplicateLibraryFingerprint,
+      })
+    ) {
+      return {
+        status: "not-activated" as const,
+        reason: "duplicate-review-changed" as const,
+        message:
+          "Your skill library changed after the duplicate check. Check again before adding this draft.",
+      };
+    }
 
     if (!input.skipUsageLimitCheck) {
       const quota = await checkSkillActivationUsageLimit({
@@ -2608,6 +2627,33 @@ export async function activateSkillDraft(
     ) {
       const message =
         "The existing skill changed while exercises were being prepared. Compare it again before adding this draft separately.";
+      await tx.generationJob.update({
+        where: { id: generationJob.id },
+        data: {
+          status: GenerationJobStatus.FAILED,
+          errorMessage: message,
+          completedAt: input.now,
+        },
+      });
+
+      return {
+        status: "not-activated" as const,
+        reason: "duplicate-review-changed" as const,
+        message,
+        generationJobId: generationJob.id,
+      };
+    }
+    if (
+      input.expectedDuplicateLibraryFingerprint &&
+      await hasDuplicateLibraryChanged({
+        prisma: tx,
+        userId: input.userId,
+        expectedFingerprint:
+          input.expectedDuplicateLibraryFingerprint,
+      })
+    ) {
+      const message =
+        "Your skill library changed while exercises were being prepared. Check again before adding this draft.";
       await tx.generationJob.update({
         where: { id: generationJob.id },
         data: {
@@ -6316,6 +6362,18 @@ export function isExactInputUnlocked(repetitions: number): boolean {
   return repetitions >= EXACT_INPUT_UNLOCK_REPETITIONS;
 }
 
+async function lockSkillLibraryForUser(
+  tx: Pick<Prisma.TransactionClient, "$queryRaw">,
+  userId: string,
+) {
+  await tx.$queryRaw`
+    SELECT "id"
+    FROM "users"
+    WHERE "id" = ${userId}
+    FOR UPDATE
+  `;
+}
+
 async function resolveCollectionId(
   tx: SkillWriteClient,
   userId: string,
@@ -6364,7 +6422,8 @@ async function createGeneratedSkillDraftsForSourceFileInTransaction(
       skills: Skill[];
       skillSourceRefIds: string[];
     }
-> {
+  > {
+  await lockSkillLibraryForUser(tx, input.userId);
   const sourceFileInputs = [
     {
       sourceFileId: input.sourceFileId,
@@ -7416,6 +7475,34 @@ async function hasReviewedDuplicateChanged(input: {
   );
 }
 
+async function hasDuplicateLibraryChanged(input: {
+  prisma: Pick<Prisma.TransactionClient, "$queryRaw">;
+  userId: string;
+  expectedFingerprint: string;
+}) {
+  const skills = await input.prisma.$queryRaw<
+    Array<{
+      id: string;
+      title: string;
+      objective: string | null;
+    }>
+  >`
+    SELECT
+      skill."id",
+      skill."title",
+      skill."objective"
+    FROM "skills" AS skill
+    WHERE skill."userId" = ${input.userId}
+    ORDER BY skill."id"
+    FOR UPDATE OF skill
+  `;
+
+  return (
+    buildSkillDuplicateLibraryFingerprint(skills) !==
+    input.expectedFingerprint
+  );
+}
+
 function skillNotFound(): Extract<SkillDraftWriteResult, { status: "not-found" }> &
   Extract<SkillActivationResult, { status: "not-found" }> &
   Extract<SkillExerciseRefillResult, { status: "not-found" }> &
@@ -7522,5 +7609,5 @@ function truncateForPrompt(value: string, maxLength: number): string {
 
 type SkillWriteClient = Pick<
   Prisma.TransactionClient,
-  "collection" | "skill" | "sourceFile" | "skillSourceRef"
+  "$queryRaw" | "collection" | "skill" | "sourceFile" | "skillSourceRef"
 >;

@@ -7,6 +7,7 @@ import {
   SKILL_SIMILARITY_EMBEDDING_DIMENSIONS,
   SKILL_SIMILARITY_THRESHOLDS,
   buildSkillDuplicateCandidateFingerprint,
+  buildSkillDuplicateLibraryFingerprint,
   buildSkillDuplicateReviewFingerprint,
   buildSkillSimilarityEmbeddingConfig,
   buildSkillSimilarityEmbeddingText,
@@ -168,6 +169,63 @@ describe("skill similarity text and embedding contracts", () => {
         ...reviewed,
         rules: { items: ["Use inverse operations."] },
       }),
+    ).not.toBe(fingerprint);
+  });
+
+  it("fingerprints the similarity catalog independent of row order, lifecycle, and guidance", () => {
+    const first = {
+      id: "saved-1",
+      title: "Linear equations",
+      objective: "Solve and check one-variable equations.",
+      collectionId: "collection-1",
+      rules: { items: ["Undo the same operation on both sides."] },
+      examples: { items: ["2x + 3 = 9"] },
+      exerciseConstraints: { notes: "Use integers." },
+      tags: ["algebra", "equations"],
+      status: SkillStatus.ACTIVE,
+    };
+    const second = {
+      id: "saved-2",
+      title: "Graphing lines",
+      objective: "Graph a line from slope-intercept form.",
+      collectionId: "collection-1",
+      rules: { items: ["Plot the intercept first."] },
+      examples: { items: ["y = 2x + 1"] },
+      exerciseConstraints: { notes: "Use integer coordinates." },
+      tags: ["algebra", "graphs"],
+      status: SkillStatus.DRAFT,
+    };
+    const fingerprint = buildSkillDuplicateLibraryFingerprint([
+      first,
+      second,
+    ]);
+
+    expect(
+      buildSkillDuplicateLibraryFingerprint([
+        {
+          ...second,
+          rules: { items: ["Use a table of values."] },
+          status: SkillStatus.ARCHIVED,
+          tags: ["edited"],
+        },
+        {
+          ...first,
+          collectionId: "collection-2",
+          status: SkillStatus.PAUSED,
+        },
+      ]),
+    ).toBe(fingerprint);
+    expect(
+      buildSkillDuplicateLibraryFingerprint([
+        first,
+        {
+          ...second,
+          objective: "Graph a line from two points.",
+        },
+      ]),
+    ).not.toBe(fingerprint);
+    expect(
+      buildSkillDuplicateLibraryFingerprint([first]),
     ).not.toBe(fingerprint);
   });
 
@@ -471,6 +529,8 @@ describe("user-scoped bulk skill similarity", () => {
     });
 
     expect(result).toMatchObject({
+      duplicateLibraryFingerprint:
+        buildSkillDuplicateLibraryFingerprint([self]),
       semanticStatus: "skipped",
       candidates: [{ key: "candidate", bestMatch: null, matches: [] }],
     });

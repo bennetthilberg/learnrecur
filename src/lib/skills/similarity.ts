@@ -25,6 +25,8 @@ export const SKILL_DUPLICATE_CANDIDATE_FINGERPRINT_VERSION =
   "skill-duplicate-candidate-v1";
 export const SKILL_DUPLICATE_REVIEW_FINGERPRINT_VERSION =
   "skill-duplicate-review-v1";
+export const SKILL_DUPLICATE_LIBRARY_FINGERPRINT_VERSION =
+  "skill-duplicate-library-v1";
 export const SKILL_SIMILARITY_EMBEDDING_BATCH_SIZE = 32;
 export const SKILL_SIMILARITY_CACHE_WRITE_BATCH_SIZE = 8;
 const SKILL_SIMILARITY_EMBEDDING_TIMEOUT_MS = 10_000;
@@ -64,6 +66,10 @@ export type SkillDuplicateReviewSnapshot =
     status?: SkillStatus | string | null;
   };
 
+export type SkillDuplicateLibrarySnapshot = SkillSimilarityComparable & {
+  id: string;
+};
+
 export type SkillSimilarityCandidate = SkillSimilarityComparable & {
   key: string;
   skillId?: string | null;
@@ -99,6 +105,7 @@ export type SkillSimilarityCandidateResult = {
 
 export type SkillSimilarityBulkResult = {
   candidates: SkillSimilarityCandidateResult[];
+  duplicateLibraryFingerprint: string | null;
   semanticStatus: "used" | "unavailable" | "skipped";
 };
 
@@ -195,6 +202,23 @@ export function buildSkillDuplicateReviewFingerprint(
     .update(SKILL_DUPLICATE_REVIEW_FINGERPRINT_VERSION)
     .update("\u0000")
     .update(buildSkillDuplicateCandidateFingerprint(input))
+    .digest("hex");
+}
+
+export function buildSkillDuplicateLibraryFingerprint(
+  skills: readonly SkillDuplicateLibrarySnapshot[],
+): string {
+  const content = skills
+    .map((skill) => ({
+      id: skill.id,
+      fingerprint: buildSkillSimilarityFingerprint(skill),
+    }))
+    .toSorted((left, right) => left.id.localeCompare(right.id));
+
+  return createHash("sha256")
+    .update(SKILL_DUPLICATE_LIBRARY_FINGERPRINT_VERSION)
+    .update("\u0000")
+    .update(JSON.stringify(content))
     .digest("hex");
 }
 
@@ -462,12 +486,15 @@ export async function findSimilarSkillsForUser(input: {
   if (candidates.length === 0) {
     return {
       candidates: [],
+      duplicateLibraryFingerprint: null,
       semanticStatus: "skipped",
     };
   }
 
   const prisma = input.prisma ?? getPrisma();
   const storedSkills = await readStoredSkills(prisma, input.userId);
+  const duplicateLibraryFingerprint =
+    buildSkillDuplicateLibraryFingerprint(storedSkills);
   const previewById = new Map(
     storedSkills.map((skill) => [skill.id, toPreview(skill)]),
   );
@@ -498,6 +525,7 @@ export async function findSimilarSkillsForUser(input: {
   ) {
     return {
       candidates: lexicalResults,
+      duplicateLibraryFingerprint,
       semanticStatus: "skipped",
     };
   }
@@ -513,6 +541,7 @@ export async function findSimilarSkillsForUser(input: {
     } catch {
       return {
         candidates: lexicalResults,
+        duplicateLibraryFingerprint,
         semanticStatus: "unavailable",
       };
     }
@@ -536,6 +565,7 @@ export async function findSimilarSkillsForUser(input: {
     });
     return {
       candidates: semanticResults,
+      duplicateLibraryFingerprint,
       semanticStatus: "used",
     };
   } catch (error) {
@@ -550,6 +580,7 @@ export async function findSimilarSkillsForUser(input: {
     });
     return {
       candidates: lexicalResults,
+      duplicateLibraryFingerprint,
       semanticStatus: "unavailable",
     };
   }

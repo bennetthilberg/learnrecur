@@ -81,6 +81,7 @@ import { getSkillCreationSourceRecoveryItems } from "@/lib/skills/source-recover
 import { removeSkillSource } from "@/lib/skills/sources";
 import {
   buildSkillDuplicateCandidateFingerprint,
+  buildSkillDuplicateLibraryFingerprint,
   buildSkillDuplicateReviewFingerprint,
 } from "@/lib/skills/similarity";
 import { createInitialSkillSchedule } from "@/lib/scheduling";
@@ -951,6 +952,198 @@ describeDatabase("skill drafts and Gemini activation", () => {
     });
   });
 
+  it("does not start activation when a matching skill appears after an initial no-match snapshot", async () => {
+    const userId = await createUser("activate_new_duplicate_before_reservation");
+    const draft = await createSkillDraft({
+      userId,
+      input: {
+        title: "Spanish direct object pronouns",
+        objective:
+          "Choose the correct direct object pronoun in short Spanish sentences.",
+      },
+    });
+    if (draft.status !== "created") {
+      throw new Error("Expected draft creation to succeed.");
+    }
+    const expectedDuplicateLibraryFingerprint =
+      buildSkillDuplicateLibraryFingerprint([draft.skill]);
+
+    const matchingSkill = await createSkillDraft({
+      userId,
+      input: {
+        title: draft.skill.title,
+        objective: draft.skill.objective,
+      },
+    });
+    if (matchingSkill.status !== "created") {
+      throw new Error("Expected matching draft creation to succeed.");
+    }
+    const generator = vi.fn(successfulGenerator);
+
+    const result = await activateSkillDraft({
+      userId,
+      skillId: draft.skill.id,
+      expectedDraftFingerprint:
+        buildSkillDuplicateCandidateFingerprint(draft.skill),
+      expectedDuplicateLibraryFingerprint,
+      now,
+      generateChoiceExercises: generator,
+      verifyChoiceExercises: acceptAllVerifier,
+      model: "test-gemini",
+    });
+
+    expect(result).toMatchObject({
+      status: "not-activated",
+      reason: "duplicate-review-changed",
+      message:
+        "Your skill library changed after the duplicate check. Check again before adding this draft.",
+    });
+    expect(generator).not.toHaveBeenCalled();
+    await expect(
+      prisma.generationJob.count({
+        where: {
+          userId,
+          skillId: draft.skill.id,
+          kind: GenerationJobKind.SKILL_ACTIVATION,
+        },
+      }),
+    ).resolves.toBe(0);
+    await expect(
+      prisma.skill.findUniqueOrThrow({ where: { id: draft.skill.id } }),
+    ).resolves.toMatchObject({ status: SkillStatus.DRAFT });
+  });
+
+  it("does not finish activation when an existing skill becomes a match after the no-match snapshot", async () => {
+    const userId = await createUser("activate_edited_duplicate_during_generation");
+    const [draft, existing] = await Promise.all([
+      createSkillDraft({
+        userId,
+        input: {
+          title: "Spanish indirect object pronouns",
+          objective:
+            "Choose the correct indirect object pronoun in short Spanish sentences.",
+        },
+      }),
+      createSkillDraft({
+        userId,
+        input: {
+          title: "Spanish classroom greetings",
+          objective: "Choose an appropriate greeting for a classroom exchange.",
+        },
+      }),
+    ]);
+    if (draft.status !== "created" || existing.status !== "created") {
+      throw new Error("Expected both draft creations to succeed.");
+    }
+    const expectedDuplicateLibraryFingerprint =
+      buildSkillDuplicateLibraryFingerprint([
+        draft.skill,
+        existing.skill,
+      ]);
+    const generator: ChoiceExerciseGenerator = async (generatorInput) => {
+      const updated = await updateSkillDraft({
+        userId,
+        skillId: existing.skill.id,
+        input: {
+          title: draft.skill.title,
+          objective: draft.skill.objective,
+        },
+      });
+      expect(updated.status).toBe("updated");
+      return successfulGenerator(generatorInput);
+    };
+
+    const result = await activateSkillDraft({
+      userId,
+      skillId: draft.skill.id,
+      expectedDraftFingerprint:
+        buildSkillDuplicateCandidateFingerprint(draft.skill),
+      expectedDuplicateLibraryFingerprint,
+      now,
+      generateChoiceExercises: generator,
+      verifyChoiceExercises: acceptAllVerifier,
+      model: "test-gemini",
+    });
+
+    expect(result).toMatchObject({
+      status: "not-activated",
+      reason: "duplicate-review-changed",
+      message:
+        "Your skill library changed while exercises were being prepared. Check again before adding this draft.",
+    });
+    const [candidate, exerciseCount, generationJob] = await Promise.all([
+      prisma.skill.findUniqueOrThrow({ where: { id: draft.skill.id } }),
+      prisma.exercise.count({ where: { userId, skillId: draft.skill.id } }),
+      prisma.generationJob.findFirstOrThrow({
+        where: {
+          userId,
+          skillId: draft.skill.id,
+          kind: GenerationJobKind.SKILL_ACTIVATION,
+        },
+      }),
+    ]);
+    expect(candidate.status).toBe(SkillStatus.DRAFT);
+    expect(exerciseCount).toBe(0);
+    expect(generationJob).toMatchObject({
+      status: GenerationJobStatus.FAILED,
+      errorMessage:
+        "Your skill library changed while exercises were being prepared. Check again before adding this draft.",
+    });
+  });
+
+  it("does not invalidate a no-match library snapshot for lifecycle-only changes", async () => {
+    const userId = await createUser("activate_library_lifecycle_change");
+    const [draft, existing] = await Promise.all([
+      createSkillDraft({
+        userId,
+        input: {
+          title: "Spanish present-tense endings",
+          objective: "Choose the correct present-tense ending for a regular verb.",
+        },
+      }),
+      createSkillDraft({
+        userId,
+        input: {
+          title: "Spanish classroom greetings",
+          objective: "Choose an appropriate greeting for a classroom exchange.",
+        },
+      }),
+    ]);
+    if (draft.status !== "created" || existing.status !== "created") {
+      throw new Error("Expected both draft creations to succeed.");
+    }
+    const expectedDuplicateLibraryFingerprint =
+      buildSkillDuplicateLibraryFingerprint([
+        draft.skill,
+        existing.skill,
+      ]);
+    const generator: ChoiceExerciseGenerator = async (generatorInput) => {
+      await prisma.skill.update({
+        where: { id: existing.skill.id },
+        data: { status: SkillStatus.ARCHIVED },
+      });
+      return successfulGenerator(generatorInput);
+    };
+
+    const result = await activateSkillDraft({
+      userId,
+      skillId: draft.skill.id,
+      expectedDraftFingerprint:
+        buildSkillDuplicateCandidateFingerprint(draft.skill),
+      expectedDuplicateLibraryFingerprint,
+      now,
+      generateChoiceExercises: generator,
+      verifyChoiceExercises: acceptAllVerifier,
+      model: "test-gemini",
+    });
+
+    expect(result).toMatchObject({
+      status: "activated",
+      skillId: draft.skill.id,
+      exerciseCount: 3,
+    });
+  });
+
   it("does not start activation when the reviewed duplicate changes before reservation", async () => {
     const userId = await createUser("activate_changed_duplicate");
     const [draft, existing] = await Promise.all([
@@ -978,6 +1171,11 @@ describeDatabase("skill drafts and Gemini activation", () => {
     const reviewedDuplicateFingerprint = buildSkillDuplicateReviewFingerprint(
       existing.skill,
     );
+    const reviewedLibraryFingerprint =
+      buildSkillDuplicateLibraryFingerprint([
+        draft.skill,
+        existing.skill,
+      ]);
     const updated = await updateSkillDraft({
       userId,
       skillId: existing.skill.id,
@@ -995,6 +1193,8 @@ describeDatabase("skill drafts and Gemini activation", () => {
       skillId: draft.skill.id,
       expectedDraftFingerprint:
         buildSkillDuplicateCandidateFingerprint(draft.skill),
+      expectedDuplicateLibraryFingerprint:
+        reviewedLibraryFingerprint,
       expectedDuplicateMatch: {
         skillId: existing.skill.id,
         fingerprint: reviewedDuplicateFingerprint,
@@ -1054,6 +1254,11 @@ describeDatabase("skill drafts and Gemini activation", () => {
 
     const reviewedDuplicateFingerprint =
       buildSkillDuplicateReviewFingerprint(existing.skill);
+    const reviewedLibraryFingerprint =
+      buildSkillDuplicateLibraryFingerprint([
+        draft.skill,
+        existing.skill,
+      ]);
     const generator: ChoiceExerciseGenerator = async (generatorInput) => {
       const updated = await updateSkillDraft({
         userId,
@@ -1073,6 +1278,8 @@ describeDatabase("skill drafts and Gemini activation", () => {
       skillId: draft.skill.id,
       expectedDraftFingerprint:
         buildSkillDuplicateCandidateFingerprint(draft.skill),
+      expectedDuplicateLibraryFingerprint:
+        reviewedLibraryFingerprint,
       expectedDuplicateMatch: {
         skillId: existing.skill.id,
         fingerprint: reviewedDuplicateFingerprint,

@@ -85,6 +85,7 @@ import {
 } from "@/lib/skills";
 import {
   buildSkillDuplicateCandidateFingerprint,
+  buildSkillDuplicateLibraryFingerprint,
   buildSkillDuplicateReviewFingerprint,
   findSimilarSkillsForUser,
   normalizeSkillSimilarityText,
@@ -398,10 +399,19 @@ export async function confirmMaterialPlan(input: {
           ? currentOverlapSkill
           : null;
       const overlapSkillId = overlapSkill?.id ?? null;
-      const createSeparately =
-        createSeparatelyTargetKeys.has(item.key) ||
+      const createSeparatelyRequested =
+        createSeparatelyTargetKeys.has(item.key);
+      const userChoseCurrentMatchSeparately =
+        createSeparatelyRequested && Boolean(overlapSkill);
+      const preserveGeneratedDraft =
+        createSeparatelyRequested ||
         Boolean(item.overlapSkillId && !overlapSkillId);
-      const useExisting = Boolean(overlapSkillId && !createSeparately);
+      const useExisting = Boolean(
+        overlapSkillId && !preserveGeneratedDraft,
+      );
+      const duplicateMatchSkill =
+        overlapSkill ??
+        (preserveGeneratedDraft ? currentOverlapSkill : null);
       rows.push(
         await tx.skillDraftBatchItem.create({
           data: {
@@ -426,14 +436,21 @@ export async function confirmMaterialPlan(input: {
                 includeConcepts: item.includeConcepts ?? [],
                 excludeConcepts: item.excludeConcepts ?? [],
               },
-              ...(overlapSkillId
+              ...(duplicateMatchSkill
                 ? {
                     duplicateMatch: {
-                      skillId: overlapSkillId,
-                      skillFingerprint: item.overlapSkillFingerprint,
+                      skillId: duplicateMatchSkill.id,
+                      skillFingerprint:
+                        buildSkillDuplicateReviewFingerprint(
+                          duplicateMatchSkill,
+                        ),
                       confidence: item.overlapConfidence ?? "exact",
                       score: item.overlapScore ?? 1,
-                      userOverride: createSeparately,
+                      userOverride: userChoseCurrentMatchSeparately,
+                      ...(preserveGeneratedDraft &&
+                        !userChoseCurrentMatchSeparately
+                        ? { preserveGeneratedDraft: true }
+                        : {}),
                     },
                   }
                 : {}),
@@ -1000,8 +1017,9 @@ export async function runMaterialDraftItemJob(input: {
       const storedDuplicateMatch = readJsonObject(
         baseGenerationMetadata.duplicateMatch,
       );
-      const explicitlyCreateSeparately =
-        storedDuplicateMatch.userOverride === true &&
+      const preserveReviewedSeparateDraft =
+        (storedDuplicateMatch.userOverride === true ||
+          storedDuplicateMatch.preserveGeneratedDraft === true) &&
         typeof storedDuplicateMatch.skillId === "string" &&
         exactDuplicates.some(
           (skill) =>
@@ -1009,7 +1027,7 @@ export async function runMaterialDraftItemJob(input: {
             storedDuplicateMatch.skillFingerprint ===
               buildSkillDuplicateReviewFingerprint(skill),
         );
-      if (duplicate && !explicitlyCreateSeparately) {
+      if (duplicate && !preserveReviewedSeparateDraft) {
         await tx.skillDraftBatchItem.update({
           where: { id: item.id },
           data: {
@@ -1381,6 +1399,22 @@ export async function queueMaterialBatchActivation(input: {
         message: "These skills are already being added or are active.",
       };
     }
+    const candidateInputsStillCurrent = readyItems.every((item) => {
+      const snapshot = candidateSnapshotByItemId.get(item.id);
+      return (
+        snapshot &&
+        item.skill &&
+        snapshot.title === item.skill.title &&
+        snapshot.objective === item.skill.objective
+      );
+    });
+    if (!candidateInputsStillCurrent) {
+      return {
+        status: "invalid" as const,
+        message:
+          "A selected draft changed while LearnRecur checked for similar skills. Review the latest draft, then add it again.",
+      };
+    }
     const storedSkills = await tx.skill.findMany({
       where: { userId: input.userId },
       select: {
@@ -1396,6 +1430,19 @@ export async function queueMaterialBatchActivation(input: {
         collection: { select: { name: true } },
       },
     });
+    const duplicateLibraryFingerprint =
+      buildSkillDuplicateLibraryFingerprint(storedSkills);
+    if (
+      similarity.duplicateLibraryFingerprint &&
+      duplicateLibraryFingerprint !==
+        similarity.duplicateLibraryFingerprint
+    ) {
+      return {
+        status: "invalid" as const,
+        message:
+          "Your skill library changed while LearnRecur checked for similar skills. Try adding these drafts again to review the latest matches.",
+      };
+    }
     const similarityPreviews: SkillSimilarityPreview[] = storedSkills.map(
       (skill) => ({
         id: skill.id,
@@ -1703,6 +1750,8 @@ export async function queueMaterialBatchActivation(input: {
             ...readJsonObject(currentReservationMetadata.get(item.id)),
             activationDraftFingerprint:
               buildSkillDuplicateCandidateFingerprint(item.skill),
+            activationDuplicateLibraryFingerprint:
+              duplicateLibraryFingerprint,
           }),
         },
       });
@@ -1860,6 +1909,8 @@ export async function runMaterialBatchActivationJob(input: {
           })),
       model: input.model,
       expectedDraftFingerprint: slot.expectedDraftFingerprint,
+      expectedDuplicateLibraryFingerprint:
+        slot.expectedDuplicateLibraryFingerprint,
       expectedDuplicateMatch: slot.expectedDuplicateMatch,
       skipUsageLimitCheck: true,
     });
@@ -1933,7 +1984,7 @@ export async function runMaterialBatchActivationJob(input: {
   }
   if (result.reason === "duplicate-review-changed") {
     const message =
-      "The existing skill changed after you chose to add this draft separately. Compare the latest match, then choose again.";
+      "Your skill library changed after the duplicate review. Compare the latest matches, then choose again.";
     const released = await releaseMaterialBatchActivationForDraftReview({
       userId: input.userId,
       batchId: input.batchId,
@@ -2232,6 +2283,8 @@ async function claimMaterialBatchActivationSlot(input: {
     const generationMetadata = readJsonObject(item.generationMetadata);
     const activationDraftFingerprint =
       generationMetadata.activationDraftFingerprint;
+    const activationDuplicateLibraryFingerprint =
+      generationMetadata.activationDuplicateLibraryFingerprint;
     const storedDuplicateMatch = readJsonObject(
       generationMetadata.duplicateMatch,
     );
@@ -2252,6 +2305,10 @@ async function claimMaterialBatchActivationSlot(input: {
       expectedDraftFingerprint:
         typeof activationDraftFingerprint === "string"
           ? activationDraftFingerprint
+          : undefined,
+      expectedDuplicateLibraryFingerprint:
+        typeof activationDuplicateLibraryFingerprint === "string"
+          ? activationDuplicateLibraryFingerprint
           : undefined,
       expectedDuplicateMatch,
     };

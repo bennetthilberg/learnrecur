@@ -80,6 +80,7 @@ const existingMatch: SkillSimilarityMatch = {
 
 function similarityResult(
   match: SkillSimilarityMatch | null,
+  duplicateLibraryFingerprint = "reviewed-library-fingerprint",
 ): SkillSimilarityBulkResult {
   return {
     candidates: [
@@ -89,6 +90,7 @@ function similarityResult(
         matches: match ? [match] : [],
       },
     ],
+    duplicateLibraryFingerprint,
     semanticStatus: "used",
   };
 }
@@ -210,6 +212,8 @@ describe("single-skill duplicate activation gate", () => {
       userId: "user-alpha",
       skillId: "skill-draft",
       expectedDraftFingerprint: "reviewed-draft-fingerprint",
+      expectedDuplicateLibraryFingerprint:
+        "reviewed-library-fingerprint",
       expectedDuplicateMatch: {
         skillId: existingMatch.skill.id,
         fingerprint: existingMatch.skill.contentFingerprint,
@@ -251,6 +255,8 @@ describe("single-skill duplicate activation gate", () => {
     expect(mocks.activateSkillDraft).toHaveBeenCalledWith(
       expect.objectContaining({
         expectedDraftFingerprint: "reviewed-draft-fingerprint",
+        expectedDuplicateLibraryFingerprint:
+          "reviewed-library-fingerprint",
       }),
     );
     expect(result).toMatchObject({
@@ -346,6 +352,7 @@ describe("single-skill duplicate activation gate", () => {
     });
     expect(mocks.activateSkillDraft).toHaveBeenCalledWith(
       expect.objectContaining({
+        expectedDuplicateLibraryFingerprint: undefined,
         expectedDuplicateMatch: undefined,
       }),
     );
@@ -396,6 +403,54 @@ describe("single-skill duplicate activation gate", () => {
       message:
         "The existing skill changed after you reviewed it. Compare the updated preview before deciding.",
       duplicateMatch: refreshedMatch,
+    });
+    expect(mocks.findSimilarSkillsForUser).toHaveBeenCalledTimes(2);
+  });
+
+  it("shows a new match found after an initial no-match library snapshot", async () => {
+    const newlyCreatedMatch = {
+      ...existingMatch,
+      skill: {
+        ...existingMatch.skill,
+        id: "skill-created-during-activation",
+        title: "Ser or estar practice",
+        contentFingerprint: "newly-created-match-fingerprint",
+      },
+    };
+    mocks.findSimilarSkillsForUser
+      .mockResolvedValueOnce(
+        similarityResult(null, "library-before-new-skill"),
+      )
+      .mockResolvedValueOnce(
+        similarityResult(
+          newlyCreatedMatch,
+          "library-after-new-skill",
+        ),
+      );
+    mocks.activateSkillDraft.mockResolvedValue({
+      status: "not-activated",
+      reason: "duplicate-review-changed",
+      message: "Your skill library changed after the duplicate check.",
+    });
+    const { addSkillDraftToPracticeInlineAction } = await import("@/app/skills/actions");
+
+    const result = await addSkillDraftToPracticeInlineAction(
+      { status: "idle", message: null },
+      draftFormData(),
+    );
+
+    expect(mocks.activateSkillDraft).toHaveBeenCalledWith(
+      expect.objectContaining({
+        expectedDuplicateLibraryFingerprint:
+          "library-before-new-skill",
+        expectedDuplicateMatch: undefined,
+      }),
+    );
+    expect(result).toMatchObject({
+      status: "duplicate-warning",
+      message:
+        "LearnRecur found a similar skill while this draft was being checked. Compare it before deciding.",
+      duplicateMatch: newlyCreatedMatch,
     });
     expect(mocks.findSimilarSkillsForUser).toHaveBeenCalledTimes(2);
   });
