@@ -5,6 +5,9 @@ import { getPrisma } from "@/lib/prisma";
 
 export const MATERIAL_EMBEDDING_DIMENSIONS = 768;
 
+const LIKELY_BACK_MATTER_SQL_PATTERN =
+  "(^|[^[:alnum:]_])(answer[[:space:]]+key|answers?[[:space:]]+will[[:space:]]+vary|solutions?[[:space:]]+(key|manual)|front[[:space:]]+matter|table[[:space:]]+of[[:space:]]+contents|contents|index|glossary|bibliography|references)([^[:alnum:]_]|$)";
+
 export type MaterialChunkSearchResult = {
   id: string;
   materialRevisionId: string;
@@ -108,6 +111,7 @@ export async function searchMaterialChunksLexical(input: {
   prefixOperator?: "and" | "or";
   minimumPrefixMatches?: 1 | 2;
   minimumSectionPrefixMatches?: 1 | 2;
+  excludeLikelyBackMatter?: boolean;
 }): Promise<MaterialChunkSearchResult[]> {
   const prisma = getPrisma();
   const limit = Math.max(1, Math.min(input.limit ?? 24, 80));
@@ -150,6 +154,12 @@ export async function searchMaterialChunksLexical(input: {
         ) >= ${input.minimumSectionPrefixMatches}`
       : Prisma.sql`AND FALSE`
     : Prisma.empty;
+  const backMatterFilter = input.excludeLikelyBackMatter
+    ? Prisma.sql`AND NOT (
+        COALESCE("headingText", '') ~* ${LIKELY_BACK_MATTER_SQL_PATTERN}
+        OR LEFT("text", 800) ~* ${LIKELY_BACK_MATTER_SQL_PATTERN}
+      )`
+    : Prisma.empty;
   const textQuery = prefixQuery
     ? Prisma.sql`to_tsquery('simple', ${prefixQuery})`
     : Prisma.sql`websearch_to_tsquery('simple', ${input.query})`;
@@ -182,6 +192,7 @@ export async function searchMaterialChunksLexical(input: {
       ${sectionFilter}
       ${minimumPrefixFilter}
       ${minimumSectionPrefixFilter}
+      ${backMatterFilter}
     ORDER BY "score" DESC, "ordinal" ASC
     LIMIT ${limit}
   `;

@@ -999,7 +999,11 @@ describeDatabase("material multi-skill drafting", () => {
       `${runId}_preterit_teaching_ar`,
       `${runId}_preterit_teaching_er_ir`,
     ];
-    const answerKeyChunkId = `${runId}_preterit_answer_key`;
+    const answerKeyChunkIds = Array.from(
+      { length: 85 },
+      (_, index) => `${runId}_preterit_answer_key_${index}`,
+    );
+    const answerKeyChunkId = answerKeyChunkIds[0];
     await prisma.materialChunk.createMany({
       data: [
         {
@@ -1038,24 +1042,24 @@ describeDatabase("material multi-skill drafting", () => {
           headingText: broadPart.title,
           locator: { kind: "pdf", pageRange: { start: 264, end: 267 } },
         },
-        {
-          id: answerKeyChunkId,
+        ...answerKeyChunkIds.map((id, index) => ({
+          id,
           userId,
           materialRevisionId: revision.id,
           materialSectionId: answerKey.id,
-          ordinal: 3,
-          text: "Answer Key Chapter 14. Irregular preterit exercise answers: hice, dije, fui.",
-          tokenEstimate: 12,
-          contentHash: `sha256:${runId}:preterit-answer-key`,
+          ordinal: index + 3,
+          text: `${"Answer Key regular preterit conjugate ar er ir verb. ".repeat(8)}Entry ${index + 1}.`,
+          tokenEstimate: 80,
+          contentHash: `sha256:${runId}:preterit-answer-key:${index}`,
           headingText: answerKey.title,
           locator: { kind: "pdf", pageRange: { start: 601, end: 601 } },
-        },
+        })),
         ...Array.from({ length: 85 }, (_, index) => ({
           id: `${runId}_preterit_incidental_${index}`,
           userId,
           materialRevisionId: revision.id,
           materialSectionId: incidentalSection.id,
-          ordinal: index + 4,
+          ordinal: index + 88,
           text: `${"preterit ".repeat(40)}reference note ${index}`,
           tokenEstimate: 42,
           contentHash: `sha256:${runId}:preterit-incidental:${index}`,
@@ -1121,6 +1125,9 @@ describeDatabase("material multi-skill drafting", () => {
       expect.arrayContaining(teachingChunkIds),
     );
     expect(planningInput?.chunks.map((chunk) => chunk.id)).not.toContain(answerKeyChunkId);
+    expect(planningInput?.chunks.map((chunk) => chunk.id)).not.toEqual(
+      expect.arrayContaining(answerKeyChunkIds),
+    );
   });
 
   it("recovers comparison terms split across a section despite a semantic decoy", async () => {

@@ -2558,6 +2558,7 @@ async function retrievePlanningChunks(input: {
       materialSectionIds: input.sectionIds,
       limit: 48,
       prefixMatching: true,
+      excludeLikelyBackMatter: true,
     });
     strictLexicalFocused =
       selectFocusedMaterialTopicChunks(lexicalMatches).length > 0;
@@ -2584,6 +2585,7 @@ async function retrievePlanningChunks(input: {
           prefixMatching: true,
           prefixOperator: "or",
           minimumSectionPrefixMatches: minimumPrefixMatches,
+          excludeLikelyBackMatter: true,
         })
       );
       const recovered = selectFocusedMaterialTopicRecoveryChunks(recoveryMatches);
