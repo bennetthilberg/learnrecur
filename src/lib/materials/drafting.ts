@@ -303,15 +303,19 @@ function normalizeMaterialTopicRecoveryToken(token: string) {
     return token.slice(0, -2);
   }
   if (token.length > 6 && token.endsWith("ing")) {
-    return token.slice(0, -3);
+    return normalizeDoubledConsonantStem(token.slice(0, -3));
   }
   if (token.length > 5 && token.endsWith("ed")) {
-    return token.slice(0, -2);
+    return normalizeDoubledConsonantStem(token.slice(0, -2));
   }
   if (token.length > 3 && token.endsWith("s") && !token.endsWith("ss")) {
     return token.slice(0, -1);
   }
   return token;
+}
+
+function normalizeDoubledConsonantStem(stem: string) {
+  return /([bcdfghjklmnpqrstvwxyz])\1$/u.test(stem) ? stem.slice(0, -1) : stem;
 }
 
 export function selectFocusedMaterialTopicChunks<

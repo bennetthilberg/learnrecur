@@ -800,6 +800,7 @@ export async function queueMaterialPdfReindex(input: {
         status: MaterialRevisionStatus.QUEUED,
         storageBucket: sourceFile.storageBucket,
         storageKey: sourceFile.storageKey,
+        processingMetadata: { rebuildOfRevisionId: activeRevision.id },
       },
       select: { id: true },
     });
@@ -1051,6 +1052,7 @@ export async function runMaterialIngestionJob(input: {
         sourceUrl: true,
         storageBucket: true,
         storageKey: true,
+        processingMetadata: true,
         material: { select: { kind: true, title: true } },
         sourceFiles: {
           orderBy: { createdAt: "asc" },
@@ -1093,6 +1095,7 @@ export async function runMaterialIngestionJob(input: {
           embeddingGenerator,
           summaryGenerator,
           materialTitle: revision.material.title,
+          rebuildOfRevisionId: readRebuildOfRevisionId(revision.processingMetadata),
         })
       : await ingestWebsiteRevision({
           userId: input.userId,
@@ -1138,6 +1141,7 @@ async function ingestPdfRevision(input: {
   embeddingGenerator: MaterialEmbeddingGenerator | null;
   summaryGenerator: MaterialSummaryGenerator | null;
   materialTitle: string;
+  rebuildOfRevisionId: string | null;
 }) {
   if (!input.sourceFile.storageKey || !input.sourceFile.storageBucket) {
     throw new MaterialIngestionError("Material PDF storage location is missing.", { retryable: false });
@@ -1212,10 +1216,22 @@ async function ingestPdfRevision(input: {
       chunkOverlapTokens: 120,
       pagesRequiringOcr: index.pagesRequiringOcr,
       embeddingStatus: embedded ? "ready" : "unavailable",
+      ...(input.rebuildOfRevisionId
+        ? { rebuildOfRevisionId: input.rebuildOfRevisionId }
+        : {}),
     },
+    copyReadyOcrFromRevisionId: input.rebuildOfRevisionId,
   });
 
   return { pageCount: extracted.pageCount, chunkCount: persisted.chunks.length };
+}
+
+function readRebuildOfRevisionId(metadata: Prisma.JsonValue | null) {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+    return null;
+  }
+  const revisionId = metadata.rebuildOfRevisionId;
+  return typeof revisionId === "string" && revisionId.length > 0 ? revisionId : null;
 }
 
 async function ingestWebsiteRevision(input: {

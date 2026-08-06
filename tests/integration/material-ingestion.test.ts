@@ -209,6 +209,7 @@ describeDatabase("material ingestion", () => {
   it("reindexes a ready PDF from the preserved original into a new immutable revision", async () => {
     const document = await PDFDocument.create();
     document.addPage([612, 792]);
+    document.addPage([612, 792]);
     const bytes = Buffer.from(await document.save());
     const storage = createMemoryStorage();
     const objectKey = `${runId}/reindex/original.pdf`;
@@ -246,7 +247,7 @@ describeDatabase("material ingestion", () => {
       materialRevisionId: activeRevision.id,
       contentHash: `sha256:${runId}:reindexable`,
       byteSize: bytes.byteLength,
-      pageCount: 1,
+      pageCount: 2,
       storageBucket: storage.bucketName,
       storageKey: objectKey,
       processingMetadata: { embeddingStatus: "unavailable" },
@@ -261,6 +262,19 @@ describeDatabase("material ingestion", () => {
         textStatus: MaterialPageTextStatus.OCR_READY,
         contentHash: `sha256:${runId}:cached-reindex-ocr`,
         tokenEstimate: 9,
+        metadata: { reason: "lazy-ocr" },
+      },
+    });
+    await prisma.materialPage.create({
+      data: {
+        userId,
+        materialRevisionId: activeRevision.id,
+        pageNumber: 2,
+        embeddedText: null,
+        ocrText: null,
+        textStatus: MaterialPageTextStatus.OCR_PROCESSING,
+        contentHash: `sha256:${runId}:in-flight-reindex-ocr`,
+        tokenEstimate: 0,
         metadata: { reason: "lazy-ocr" },
       },
     });
@@ -307,6 +321,7 @@ describeDatabase("material ingestion", () => {
       status: MaterialRevisionStatus.QUEUED,
       storageBucket: storage.bucketName,
       storageKey: objectKey,
+      processingMetadata: { rebuildOfRevisionId: activeRevision.id },
       sourceFiles: [
         expect.objectContaining({
           status: SourceFileStatus.UPLOADED,
@@ -337,6 +352,32 @@ describeDatabase("material ingestion", () => {
       textStatus: MaterialPageTextStatus.OCR_READY,
       tokenEstimate: 9,
     });
+    await expect(
+      prisma.materialPage.findUnique({
+        where: {
+          materialRevisionId_pageNumber: {
+            materialRevisionId: result.materialRevisionId,
+            pageNumber: 2,
+          },
+        },
+      }),
+    ).resolves.toBeNull();
+
+    await prisma.materialPage.update({
+      where: {
+        materialRevisionId_pageNumber: {
+          materialRevisionId: activeRevision.id,
+          pageNumber: 2,
+        },
+      },
+      data: {
+        ocrText: "OCR text that finished while the replacement was rebuilding.",
+        textStatus: MaterialPageTextStatus.OCR_READY,
+        contentHash: `sha256:${runId}:finished-reindex-ocr`,
+        tokenEstimate: 10,
+        metadata: { reason: "lazy-ocr", completedDuringRebuild: true },
+      },
+    });
 
     await expect(
       queueMaterialPdfReindex({
@@ -359,7 +400,7 @@ describeDatabase("material ingestion", () => {
         embeddingGenerator: null,
         summaryGenerator: null,
       }),
-    ).resolves.toMatchObject({ status: "ready", pageCount: 1 });
+    ).resolves.toMatchObject({ status: "ready", pageCount: 2 });
     expect(
       await prisma.studyMaterial.findUniqueOrThrow({
         where: { id: material.id },
@@ -380,6 +421,21 @@ describeDatabase("material ingestion", () => {
       ocrText: "Cached OCR text from the preserved PDF page.",
       textStatus: MaterialPageTextStatus.OCR_READY,
       tokenEstimate: 9,
+    });
+    await expect(
+      prisma.materialPage.findUniqueOrThrow({
+        where: {
+          materialRevisionId_pageNumber: {
+            materialRevisionId: result.materialRevisionId,
+            pageNumber: 2,
+          },
+        },
+        select: { ocrText: true, textStatus: true, tokenEstimate: true },
+      }),
+    ).resolves.toEqual({
+      ocrText: "OCR text that finished while the replacement was rebuilding.",
+      textStatus: MaterialPageTextStatus.OCR_READY,
+      tokenEstimate: 10,
     });
     expect(
       (await getMaterialDetail({ userId, materialId: material.id }))?.linkedSkills.map(

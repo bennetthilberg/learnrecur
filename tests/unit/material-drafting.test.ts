@@ -140,6 +140,9 @@ describe("material scope planning", () => {
     expect(buildMaterialTopicRecoveryQuery("make skills for İspanyol classes")).toBe(
       "ispanyol class",
     );
+    expect(
+      buildMaterialTopicRecoveryQuery("make skills for running planned and stopped actions"),
+    ).toBe("run plan stop action");
   });
 
   it("does not mistake instructional solution language for answer-key material", () => {

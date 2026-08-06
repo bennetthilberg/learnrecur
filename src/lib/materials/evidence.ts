@@ -298,9 +298,48 @@ export async function ensureMaterialPageOcr(input: {
     const readyIds = new Set(readyPages.map((page) => page.id));
     const failedIds = candidateIds.filter((id) => !readyIds.has(id));
     const outcome = await prisma.$transaction(async (tx) => {
+      const lockedMaterials = await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT material."id"
+        FROM "material_revisions" revision
+        INNER JOIN "study_materials" material
+          ON material."id" = revision."materialId"
+         AND material."userId" = revision."userId"
+        WHERE revision."id" = ${input.materialRevisionId}
+          AND revision."userId" = ${input.userId}
+        FOR UPDATE OF material
+      `;
+      const material = lockedMaterials.length === 1
+        ? await tx.studyMaterial.findFirst({
+            where: {
+              id: lockedMaterials[0].id,
+              userId: input.userId,
+              revisions: { some: { id: input.materialRevisionId } },
+            },
+            select: {
+              activeRevision: {
+                select: { id: true, processingMetadata: true },
+              },
+            },
+          })
+        : null;
+      const activeRevision = material?.activeRevision;
+      const activeMetadata = activeRevision?.processingMetadata;
+      const mirrorRevisionId =
+        activeRevision?.id !== input.materialRevisionId &&
+        activeMetadata &&
+        typeof activeMetadata === "object" &&
+        !Array.isArray(activeMetadata) &&
+        activeMetadata.rebuildOfRevisionId === input.materialRevisionId
+          ? activeRevision.id
+          : null;
       let processedPageCount = 0;
       for (const page of readyPages) {
         const contentHash = sha256(page.text);
+        const tokenEstimate = estimateTokens(page.text);
+        const metadata = {
+          source: "gemini-ocr",
+          processedAt: now.toISOString(),
+        };
         const updated = await tx.materialPage.updateMany({
           where: {
             id: page.id,
@@ -313,14 +352,38 @@ export async function ensureMaterialPageOcr(input: {
             ocrText: page.text,
             textStatus: MaterialPageTextStatus.OCR_READY,
             contentHash,
-            tokenEstimate: estimateTokens(page.text),
-            metadata: {
-              source: "gemini-ocr",
-              processedAt: now.toISOString(),
-            },
+            tokenEstimate,
+            metadata,
           },
         });
         processedPageCount += updated.count;
+        if (updated.count === 1 && mirrorRevisionId) {
+          await tx.materialPage.upsert({
+            where: {
+              materialRevisionId_pageNumber: {
+                materialRevisionId: mirrorRevisionId,
+                pageNumber: page.pageNumber,
+              },
+            },
+            create: {
+              userId: input.userId,
+              materialRevisionId: mirrorRevisionId,
+              pageNumber: page.pageNumber,
+              ocrText: page.text,
+              textStatus: MaterialPageTextStatus.OCR_READY,
+              contentHash,
+              tokenEstimate,
+              metadata,
+            },
+            update: {
+              ocrText: page.text,
+              textStatus: MaterialPageTextStatus.OCR_READY,
+              contentHash,
+              tokenEstimate,
+              metadata,
+            },
+          });
+        }
       }
       let failedPageCount = 0;
       if (failedIds.length > 0) {

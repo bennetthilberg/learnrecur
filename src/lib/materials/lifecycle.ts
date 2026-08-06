@@ -2,11 +2,12 @@ import "server-only";
 
 import {
   MaterialCleanupStatus,
+  MaterialPageTextStatus,
   MaterialRevisionStatus,
   SkillDraftBatchStatus,
   StudyMaterialKind,
   StudyMaterialStatus,
-  type Prisma,
+  Prisma,
 } from "@/generated/prisma/client";
 import { getPrisma } from "@/lib/prisma";
 
@@ -123,6 +124,7 @@ export async function finalizeMaterialRevision(input: {
   storageBucket: string;
   storageKey: string;
   processingMetadata?: Prisma.InputJsonValue;
+  copyReadyOcrFromRevisionId?: string | null;
 }) {
   const prisma = getPrisma();
 
@@ -161,6 +163,59 @@ export async function finalizeMaterialRevision(input: {
 
     if (!revision) {
       return null;
+    }
+
+    if (
+      input.copyReadyOcrFromRevisionId &&
+      input.copyReadyOcrFromRevisionId !== revision.id
+    ) {
+      const readyOcrPages = await tx.materialPage.findMany({
+        where: {
+          userId: input.userId,
+          materialRevisionId: input.copyReadyOcrFromRevisionId,
+          textStatus: MaterialPageTextStatus.OCR_READY,
+          ocrText: { not: null },
+          materialRevision: { materialId: input.materialId },
+        },
+        orderBy: { pageNumber: "asc" },
+        select: {
+          pageNumber: true,
+          embeddedText: true,
+          ocrText: true,
+          textStatus: true,
+          contentHash: true,
+          tokenEstimate: true,
+          metadata: true,
+        },
+      });
+      for (const page of readyOcrPages) {
+        await tx.materialPage.upsert({
+          where: {
+            materialRevisionId_pageNumber: {
+              materialRevisionId: revision.id,
+              pageNumber: page.pageNumber,
+            },
+          },
+          create: {
+            userId: input.userId,
+            materialRevisionId: revision.id,
+            pageNumber: page.pageNumber,
+            embeddedText: page.embeddedText,
+            ocrText: page.ocrText,
+            textStatus: page.textStatus,
+            contentHash: page.contentHash,
+            tokenEstimate: page.tokenEstimate,
+            metadata: page.metadata ?? Prisma.JsonNull,
+          },
+          update: {
+            ocrText: page.ocrText,
+            textStatus: page.textStatus,
+            contentHash: page.contentHash,
+            tokenEstimate: page.tokenEstimate,
+            metadata: page.metadata ?? Prisma.JsonNull,
+          },
+        });
+      }
     }
 
     const finalizedAt = new Date();

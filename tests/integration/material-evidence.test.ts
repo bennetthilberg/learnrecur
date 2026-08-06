@@ -17,6 +17,7 @@ import {
 import { planMaterialSkills } from "@/lib/materials/batches";
 import {
   createMaterialWithInitialRevision,
+  createNextMaterialRevision,
   finalizeMaterialRevision,
 } from "@/lib/materials/lifecycle";
 import { getPrisma } from "@/lib/prisma";
@@ -309,6 +310,118 @@ describeDatabase("localized material OCR evidence", () => {
     await expect(
       prisma.materialChunk.count({ where: { userId, materialRevisionId } }),
     ).resolves.toBe(1);
+  });
+
+  it("mirrors OCR that finishes after a replacement revision becomes active", async () => {
+    const { material, revision } = await createMaterialWithInitialRevision({
+      userId,
+      title: "Rebuilding scanned handbook",
+      kind: StudyMaterialKind.PDF,
+    });
+    const objectKey = `${runId}/rebuilding-scanned.pdf`;
+    const rebuildingSource = await prisma.sourceFile.create({
+      data: {
+        userId,
+        materialRevisionId: revision.id,
+        kind: SourceFileKind.PDF,
+        status: SourceFileStatus.READY,
+        originalName: "rebuilding-scanned.pdf",
+        mimeType: "application/pdf",
+        storageBucket: "test-materials",
+        storageKey: objectKey,
+      },
+    });
+    await prisma.materialPage.create({
+      data: {
+        userId,
+        materialRevisionId: revision.id,
+        pageNumber: 1,
+        textStatus: MaterialPageTextStatus.NEEDS_OCR,
+        contentHash: `visual:${runId}:rebuild-race`,
+      },
+    });
+    await finalizeMaterialRevision({
+      userId,
+      materialId: material.id,
+      materialRevisionId: revision.id,
+      contentHash: `sha256:${runId}:rebuild-race`,
+      byteSize: pdfBytes.byteLength,
+      pageCount: 10,
+      storageBucket: "test-materials",
+      storageKey: objectKey,
+    });
+
+    let releaseOcr!: () => void;
+    let markOcrStarted!: () => void;
+    const ocrStarted = new Promise<void>((resolve) => {
+      markOcrStarted = resolve;
+    });
+    const ocrRelease = new Promise<void>((resolve) => {
+      releaseOcr = resolve;
+    });
+    const ocrPromise = ensureMaterialPageOcr({
+      userId,
+      materialRevisionId: revision.id,
+      sourceFile: rebuildingSource,
+      pageRanges: [{ start: 1, end: 1 }],
+      storage: createStorage(pdfBytes),
+      ocrGenerator: async ({ pageNumbers }) => {
+        markOcrStarted();
+        await ocrRelease;
+        return {
+          pages: pageNumbers.map((pageNumber) => ({
+            pageNumber,
+            text: "OCR completed after the replacement revision was activated.",
+          })),
+        };
+      },
+      now: new Date("2026-07-09T16:30:00.000Z"),
+    });
+    await ocrStarted;
+
+    const replacement = await createNextMaterialRevision({
+      userId,
+      materialId: material.id,
+    });
+    if (!replacement) {
+      throw new Error("expected replacement revision");
+    }
+    await prisma.materialRevision.update({
+      where: { id: replacement.id },
+      data: { processingMetadata: { rebuildOfRevisionId: revision.id } },
+    });
+    await finalizeMaterialRevision({
+      userId,
+      materialId: material.id,
+      materialRevisionId: replacement.id,
+      contentHash: `sha256:${runId}:replacement`,
+      byteSize: pdfBytes.byteLength,
+      pageCount: 10,
+      storageBucket: "test-materials",
+      storageKey: objectKey,
+      processingMetadata: { rebuildOfRevisionId: revision.id },
+      copyReadyOcrFromRevisionId: revision.id,
+    });
+
+    releaseOcr();
+    await expect(ocrPromise).resolves.toMatchObject({
+      status: "processed",
+      processedPageCount: 1,
+    });
+    await expect(
+      prisma.materialPage.findUniqueOrThrow({
+        where: {
+          materialRevisionId_pageNumber: {
+            materialRevisionId: replacement.id,
+            pageNumber: 1,
+          },
+        },
+        select: { ocrText: true, textStatus: true },
+      }),
+    ).resolves.toEqual({
+      ocrText: "OCR completed after the replacement revision was activated.",
+      textStatus: MaterialPageTextStatus.OCR_READY,
+    });
   });
 
   it("attaches cited pages from an ordinary text PDF without material-page OCR rows", async () => {
