@@ -106,6 +106,7 @@ export async function searchMaterialChunksLexical(input: {
   limit?: number;
   prefixMatching?: boolean;
   prefixOperator?: "and" | "or";
+  minimumPrefixMatches?: 1 | 2;
 }): Promise<MaterialChunkSearchResult[]> {
   const prisma = getPrisma();
   const limit = Math.max(1, Math.min(input.limit ?? 24, 80));
@@ -115,6 +116,14 @@ export async function searchMaterialChunksLexical(input: {
   const prefixQuery = input.prefixMatching
     ? toSimplePrefixTsQuery(input.query, input.prefixOperator)
     : null;
+  const minimumPrefixQuery = input.prefixMatching && input.minimumPrefixMatches
+    ? toSimpleMinimumPrefixTsQuery(input.query, input.minimumPrefixMatches)
+    : null;
+  const minimumPrefixFilter = input.minimumPrefixMatches
+    ? minimumPrefixQuery
+      ? Prisma.sql`AND "searchText" @@ to_tsquery('simple', ${minimumPrefixQuery})`
+      : Prisma.sql`AND FALSE`
+    : Prisma.empty;
   const textQuery = prefixQuery
     ? Prisma.sql`to_tsquery('simple', ${prefixQuery})`
     : Prisma.sql`websearch_to_tsquery('simple', ${input.query})`;
@@ -145,16 +154,38 @@ export async function searchMaterialChunksLexical(input: {
     WHERE "userId" = ${input.userId}
       AND "materialRevisionId" = ${input.materialRevisionId}
       ${sectionFilter}
+      ${minimumPrefixFilter}
     ORDER BY "score" DESC, "ordinal" ASC
     LIMIT ${limit}
   `;
 }
 
 export function toSimplePrefixTsQuery(query: string, operator: "and" | "or" = "and") {
+  return simplePrefixTerms(query)
+    .map((token) => `${token}:*`)
+    .join(operator === "or" ? " | " : " & ");
+}
+
+export function toSimpleMinimumPrefixTsQuery(
+  query: string,
+  minimumMatches: 1 | 2,
+) {
+  const terms = simplePrefixTerms(query);
+  if (minimumMatches === 1) {
+    return terms.map((term) => `${term}:*`).join(" | ");
+  }
+  const pairs: string[] = [];
+  for (let left = 0; left < terms.length; left += 1) {
+    for (let right = left + 1; right < terms.length; right += 1) {
+      pairs.push(`(${terms[left]}:* & ${terms[right]}:*)`);
+    }
+  }
+  return pairs.join(" | ");
+}
+
+function simplePrefixTerms(query: string) {
   return query
     .normalize("NFC")
     .toLocaleLowerCase()
-    .match(/[\p{L}\p{N}]+/gu)
-    ?.map((token) => `${token}:*`)
-    .join(operator === "or" ? " | " : " & ") ?? "";
+    .match(/[\p{L}\p{N}]+/gu) ?? [];
 }

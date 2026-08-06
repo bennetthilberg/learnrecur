@@ -2569,6 +2569,7 @@ async function retrievePlanningChunks(input: {
   if (input.topicSearchQuery && !focusedTopic && ranked.length === 0) {
     const recoveryQuery = buildMaterialTopicRecoveryQuery(input.topicSearchQuery);
     if (recoveryQuery) {
+      const minimumPrefixMatches = recoveryQuery.split(" ").length >= 2 ? 2 : 1;
       const recoveryMatches = (
         await searchMaterialChunksLexical({
           userId: input.userId,
@@ -2578,6 +2579,7 @@ async function retrievePlanningChunks(input: {
           limit: 80,
           prefixMatching: true,
           prefixOperator: "or",
+          minimumPrefixMatches,
         })
       ).filter((chunk) =>
         materialChunkMatchesRecoveryTerms(chunk, recoveryQuery),

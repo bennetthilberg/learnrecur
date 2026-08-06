@@ -978,6 +978,19 @@ describeDatabase("material multi-skill drafting", () => {
         headingPath: ["Chapter 14 The Preterit Tense"],
       },
     });
+    const incidentalSection = await prisma.materialSection.create({
+      data: {
+        userId,
+        materialRevisionId: revision.id,
+        ordinal: 2,
+        level: 1,
+        title: "Earlier lessons",
+        normalizedTitle: "earlier lessons",
+        pageStart: 50,
+        pageEnd: 140,
+        headingPath: ["Earlier lessons"],
+      },
+    });
     const teachingChunkIds = [
       `${runId}_preterit_teaching_ar`,
       `${runId}_preterit_teaching_er_ir`,
@@ -1033,6 +1046,18 @@ describeDatabase("material multi-skill drafting", () => {
           headingText: answerKey.title,
           locator: { kind: "pdf", pageRange: { start: 601, end: 601 } },
         },
+        ...Array.from({ length: 85 }, (_, index) => ({
+          id: `${runId}_preterit_incidental_${index}`,
+          userId,
+          materialRevisionId: revision.id,
+          materialSectionId: incidentalSection.id,
+          ordinal: index + 4,
+          text: `${"preterit ".repeat(40)}reference note ${index}`,
+          tokenEstimate: 42,
+          contentHash: `sha256:${runId}:preterit-incidental:${index}`,
+          headingText: incidentalSection.title,
+          locator: { kind: "pdf", pageRange: { start: 50 + index, end: 50 + index } },
+        })),
       ],
     });
     await finalizeMaterialRevision({
