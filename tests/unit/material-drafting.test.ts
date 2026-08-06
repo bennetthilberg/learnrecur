@@ -143,6 +143,8 @@ describe("material scope planning", () => {
     expect(
       buildMaterialTopicRecoveryQuery("make skills for running planned and stopped actions"),
     ).toBe("run plan stop action");
+    expect(buildMaterialTopicRecoveryQuery("making predictions while hiking"))
+      .toBe("mak prediction while hik");
   });
 
   it("does not mistake instructional solution language for answer-key material", () => {
