@@ -274,7 +274,7 @@ export function resolveMaterialTopicSearchQuery(instruction: string): string | n
 }
 
 export function buildMaterialTopicRecoveryQuery(topic: string): string | null {
-  const tokens = normalizeComparableText(topic)
+  const tokens = normalizeMaterialTopicRecoveryText(topic)
     .split(" ")
     .filter(Boolean)
     .filter((token) => !materialTopicRecoveryStopTerms.has(token))
@@ -283,6 +283,14 @@ export function buildMaterialTopicRecoveryQuery(topic: string): string | null {
 
   const uniqueTokens = [...new Set(tokens)];
   return uniqueTokens.length > 0 ? uniqueTokens.join(" ") : null;
+}
+
+function normalizeMaterialTopicRecoveryText(value: string) {
+  return value
+    .normalize("NFC")
+    .toLocaleLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
 }
 
 function normalizeMaterialTopicRecoveryToken(token: string) {

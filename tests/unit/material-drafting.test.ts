@@ -116,6 +116,9 @@ describe("material scope planning", () => {
         "conjugating ar er and ir verbs in the preterit",
       ),
     ).toBe("conjugat verb preterit");
+    expect(buildMaterialTopicRecoveryQuery("números ordinales")).toBe(
+      "número ordinale",
+    );
   });
 
   it("focuses open-topic retrieval on the dominant instructional section", () => {

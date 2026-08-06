@@ -165,12 +165,14 @@ export async function getMaterialDetail(input: { userId: string; materialId: str
   const activeRevision =
     revisions.find((revision) => revision.id === material.activeRevisionId) ?? revisions[0] ?? null;
   const currentRevision = revisions[0] ?? activeRevision;
+  const linkedSkills = uniqueById(revisions.flatMap((revision) => revision.linkedSkills));
 
   return {
     ...material,
     revisions,
     activeRevision,
     currentRevision,
+    linkedSkills,
   };
 }
 

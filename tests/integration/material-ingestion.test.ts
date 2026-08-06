@@ -250,6 +250,20 @@ describeDatabase("material ingestion", () => {
       storageKey: objectKey,
       processingMetadata: { embeddingStatus: "unavailable" },
     });
+    const linkedSkill = await prisma.skill.create({
+      data: {
+        userId,
+        title: "Regular preterit endings",
+        tags: [],
+      },
+    });
+    await prisma.skillSourceRef.create({
+      data: {
+        userId,
+        skillId: linkedSkill.id,
+        sourceFileId: activeRevision.sourceFiles[0].id,
+      },
+    });
     const sentRevisionIds: string[] = [];
 
     const result = await queueMaterialPdfReindex({
@@ -323,6 +337,11 @@ describeDatabase("material ingestion", () => {
         select: { activeRevisionId: true },
       }),
     ).toEqual({ activeRevisionId: result.materialRevisionId });
+    expect(
+      (await getMaterialDetail({ userId, materialId: material.id }))?.linkedSkills.map(
+        (skill) => skill.id,
+      ),
+    ).toContain(linkedSkill.id);
   });
 
   it("does not requeue a revision that is still within the worker pickup window", async () => {

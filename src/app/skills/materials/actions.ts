@@ -198,12 +198,16 @@ export async function reindexMaterialPdfAction(formData: FormData) {
     return;
   }
   const materialId = formString(formData, "materialId");
-  await queueMaterialPdfReindex({
+  const result = await queueMaterialPdfReindex({
     userId: user.userId,
     materialId,
     now: new Date(),
   });
+  if (result.status !== "queued") {
+    redirect(`/skills/materials/${materialId}?reindex=failed`);
+  }
   revalidateMaterialPaths(materialId);
+  redirect(`/skills/materials/${materialId}`);
 }
 
 export async function deleteMaterialAction(formData: FormData): Promise<MaterialActionError> {

@@ -4707,6 +4707,12 @@ body {
   line-height: 1.4;
 }
 
+.materialFailurePanel .materialReindexError {
+  margin-top: 8px;
+  color: var(--lr-danger-ink);
+  font-weight: 600;
+}
+
 .materialProcessingPulse {
   width: 13px;
   height: 13px;

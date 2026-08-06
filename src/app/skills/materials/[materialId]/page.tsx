@@ -28,8 +28,15 @@ import { MaterialRetryButton } from "../material-retry-button";
 
 export const dynamic = "force-dynamic";
 
-export default async function MaterialDetailPage({ params }: { params: Promise<{ materialId: string }> }) {
-  const { materialId } = await params;
+export default async function MaterialDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ materialId: string }>;
+  searchParams: Promise<{ reindex?: string | string[] }>;
+}) {
+  const [{ materialId }, query] = await Promise.all([params, searchParams]);
+  const reindexFailed = query.reindex === "failed";
   const { userId } = await auth.protect();
   const clerkUser = await currentUser();
   if (!clerkUser) {
@@ -167,6 +174,11 @@ export default async function MaterialDetailPage({ params }: { params: Promise<{
           <div>
             <h2>{indexHealth.title}</h2>
             <p>{indexHealth.description}</p>
+            {reindexFailed ? (
+              <p className="materialReindexError" role="alert">
+                Search rebuild could not start. Your existing material is still available. Try again.
+              </p>
+            ) : null}
           </div>
           {material.kind === "PDF" ? (
             <form action={reindexMaterialPdfAction}>
@@ -221,9 +233,9 @@ export default async function MaterialDetailPage({ params }: { params: Promise<{
         <aside className="materialDetailSidebar">
           <section className="skillPanel materialLinkedSkills" aria-labelledby="material-skills-title">
             <div className="skillPanelHeader"><div><h2 id="material-skills-title">Created skills</h2></div></div>
-            {contentRevision?.linkedSkills.length ? (
+            {material.linkedSkills.length ? (
               <div className="materialLinkedSkillList">
-                {contentRevision.linkedSkills.map((skill) => (
+                {material.linkedSkills.map((skill) => (
                   <Link href={`/skills/${skill.id}`} key={skill.id}>
                     <strong>{skill.title}</strong>
                     <small>{formatDisplayLabel(skill.status)}</small>
