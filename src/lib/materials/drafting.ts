@@ -371,25 +371,40 @@ export function selectFocusedMaterialTopicRecoveryChunks<
     sectionChunks.push(chunk);
     bySection.set(chunk.materialSectionId, sectionChunks);
   }
-  const rankedSections = [...bySection.entries()].sort(([, left], [, right]) => {
-    const leftScores = left.map((chunk) => chunk.lexicalScore).sort((a, b) => b - a);
-    const rightScores = right.map((chunk) => chunk.lexicalScore).sort((a, b) => b - a);
-    return (
-      (rightScores[0] ?? 0) - (leftScores[0] ?? 0) ||
-      rightScores.slice(0, 3).reduce((sum, score) => sum + score, 0) -
-        leftScores.slice(0, 3).reduce((sum, score) => sum + score, 0) ||
-      right.length - left.length
-    );
-  });
+  const rankedSections = [...bySection.entries()].sort(
+    ([leftId, left], [rightId, right]) =>
+      compareRecoverySectionRelevance(right, left) || leftId.localeCompare(rightId),
+  );
   const dominant = rankedSections[0]?.[1] ?? [];
   const runnerUp = rankedSections[1]?.[1] ?? [];
-  const dominantMaximum = Math.max(0, ...dominant.map((chunk) => chunk.lexicalScore));
-  const runnerUpMaximum = Math.max(0, ...runnerUp.map((chunk) => chunk.lexicalScore));
-  if (dominant.length === 0 || dominantMaximum <= runnerUpMaximum) {
+  if (
+    dominant.length === 0 ||
+    (runnerUp.length > 0 && compareRecoverySectionRelevance(dominant, runnerUp) <= 0)
+  ) {
     return [];
   }
   const dominantIds = new Set(dominant.map((chunk) => chunk.id));
   return chunks.filter((chunk) => dominantIds.has(chunk.id));
+}
+
+function compareRecoverySectionRelevance<
+  T extends MaterialPlanningEvidenceChunk & { lexicalScore: number },
+>(left: readonly T[], right: readonly T[]) {
+  const metrics = (chunks: readonly T[]) => {
+    const scores = chunks.map((chunk) => chunk.lexicalScore).sort((a, b) => b - a);
+    return {
+      peak: scores[0] ?? 0,
+      topThreeTotal: scores.slice(0, 3).reduce((sum, score) => sum + score, 0),
+      chunkCount: chunks.length,
+    };
+  };
+  const leftMetrics = metrics(left);
+  const rightMetrics = metrics(right);
+  return (
+    leftMetrics.peak - rightMetrics.peak ||
+    leftMetrics.topThreeTotal - rightMetrics.topThreeTotal ||
+    leftMetrics.chunkCount - rightMetrics.chunkCount
+  );
 }
 
 export function selectMaterialTopicRetrievalChunks<

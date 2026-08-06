@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 
 import {
   MaterialCleanupStatus,
+  MaterialPageTextStatus,
   MaterialRevisionStatus,
   SkillDraftBatchStatus,
   StudyMaterialKind,
@@ -127,6 +128,7 @@ export async function finalizeMaterialRevision(input: {
   storageKey: string;
   processingMetadata?: Prisma.InputJsonValue;
   copyReadyOcrFromRevisionId?: string | null;
+  indexedOcrPageNumbers?: number[];
 }) {
   const prisma = getPrisma();
 
@@ -171,6 +173,19 @@ export async function finalizeMaterialRevision(input: {
       input.copyReadyOcrFromRevisionId &&
       input.copyReadyOcrFromRevisionId !== revision.id
     ) {
+      const processingOcrPageCount = await tx.materialPage.count({
+        where: {
+          userId: input.userId,
+          materialRevisionId: input.copyReadyOcrFromRevisionId,
+          textStatus: MaterialPageTextStatus.OCR_PROCESSING,
+          ...(input.pageCount ? { pageNumber: { lte: input.pageCount } } : {}),
+        },
+      });
+      if (processingOcrPageCount > 0) {
+        throw new Error(
+          "Material OCR is still processing; retry the rebuild after it finishes.",
+        );
+      }
       const readyOcrQuery = readyMaterialOcrPageQuery({
         userId: input.userId,
         materialRevisionId: input.copyReadyOcrFromRevisionId,
@@ -184,6 +199,12 @@ export async function finalizeMaterialRevision(input: {
         orderBy: { pageNumber: "asc" },
         select: readyOcrQuery.select,
       });
+      const indexedOcrPageNumbers = new Set(input.indexedOcrPageNumbers ?? []);
+      if (readyOcrPages.some((page) => !indexedOcrPageNumbers.has(page.pageNumber))) {
+        throw new Error(
+          "Material OCR became ready during the rebuild; retry to include it in the search index.",
+        );
+      }
       if (readyOcrPages.length > 0) {
         const copiedAt = new Date();
         const values = readyOcrPages.map((page) => {

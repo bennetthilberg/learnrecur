@@ -1222,6 +1222,9 @@ async function ingestPdfRevision(input: {
         : {}),
     },
     copyReadyOcrFromRevisionId: input.rebuildOfRevisionId,
+    indexedOcrPageNumbers: indexedPages
+      .filter((page) => page.extractedText !== undefined)
+      .map((page) => page.pageNumber),
   });
 
   return { pageCount: extracted.pageCount, chunkCount: persisted.chunks.length };

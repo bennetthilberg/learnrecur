@@ -312,7 +312,7 @@ describeDatabase("localized material OCR evidence", () => {
     ).resolves.toBe(1);
   });
 
-  it("mirrors OCR that finishes after a replacement revision becomes active", async () => {
+  it("defers replacement activation until in-flight OCR is indexed", async () => {
     const { material, revision } = await createMaterialWithInitialRevision({
       userId,
       title: "Rebuilding scanned handbook",
@@ -371,7 +371,7 @@ describeDatabase("localized material OCR evidence", () => {
         return {
           pages: pageNumbers.map((pageNumber) => ({
             pageNumber,
-            text: "OCR completed after the replacement revision was activated.",
+            text: "OCR completed while the replacement rebuild waited for activation.",
           })),
         };
       },
@@ -386,28 +386,90 @@ describeDatabase("localized material OCR evidence", () => {
     if (!replacement) {
       throw new Error("expected replacement revision");
     }
+    await prisma.materialSection.create({
+      data: {
+        userId,
+        materialRevisionId: replacement.id,
+        ordinal: 0,
+        title: "Document",
+        normalizedTitle: "document",
+        pageStart: 1,
+        pageEnd: 10,
+        headingPath: ["Document"],
+      },
+    });
+    await prisma.sourceFile.create({
+      data: {
+        userId,
+        materialRevisionId: replacement.id,
+        kind: SourceFileKind.PDF,
+        status: SourceFileStatus.READY,
+        originalName: "rebuilt-scanned.pdf",
+        mimeType: "application/pdf",
+        storageBucket: "test-materials",
+        storageKey: objectKey,
+      },
+    });
     await prisma.materialRevision.update({
       where: { id: replacement.id },
       data: { processingMetadata: { rebuildOfRevisionId: revision.id } },
     });
-    await finalizeMaterialRevision({
-      userId,
-      materialId: material.id,
-      materialRevisionId: replacement.id,
-      contentHash: `sha256:${runId}:replacement`,
-      byteSize: pdfBytes.byteLength,
-      pageCount: 10,
-      storageBucket: "test-materials",
-      storageKey: objectKey,
-      processingMetadata: { rebuildOfRevisionId: revision.id },
-      copyReadyOcrFromRevisionId: revision.id,
-    });
+    const finalizeReplacement = (indexedOcrPageNumbers: number[]) =>
+      finalizeMaterialRevision({
+        userId,
+        materialId: material.id,
+        materialRevisionId: replacement.id,
+        contentHash: `sha256:${runId}:replacement`,
+        byteSize: pdfBytes.byteLength,
+        pageCount: 10,
+        storageBucket: "test-materials",
+        storageKey: objectKey,
+        processingMetadata: { rebuildOfRevisionId: revision.id },
+        copyReadyOcrFromRevisionId: revision.id,
+        indexedOcrPageNumbers,
+      });
+    await expect(finalizeReplacement([])).rejects.toThrow(/OCR is still processing/i);
+    await expect(
+      prisma.studyMaterial.findUniqueOrThrow({
+        where: { id: material.id },
+        select: { activeRevisionId: true },
+      }),
+    ).resolves.toEqual({ activeRevisionId: revision.id });
 
     releaseOcr();
     await expect(ocrPromise).resolves.toMatchObject({
       status: "processed",
       processedPageCount: 1,
     });
+    await expect(finalizeReplacement([])).rejects.toThrow(/OCR became ready/i);
+    const replacementSection = await prisma.materialSection.findFirstOrThrow({
+      where: { userId, materialRevisionId: replacement.id },
+      select: { id: true, title: true },
+    });
+    const replacementSource = await prisma.sourceFile.findFirstOrThrow({
+      where: { userId, materialRevisionId: replacement.id },
+      select: { id: true },
+    });
+    await prisma.materialChunk.create({
+      data: {
+        userId,
+        materialRevisionId: replacement.id,
+        materialSectionId: replacementSection.id,
+        sourceFileId: replacementSource.id,
+        ordinal: 0,
+        text: "OCR completed while the replacement rebuild waited for activation.",
+        tokenEstimate: 9,
+        contentHash: `sha256:${runId}:replacement-ocr-chunk`,
+        headingText: replacementSection.title,
+        locator: {
+          version: 1,
+          kind: "pdf",
+          sectionId: replacementSection.id,
+          pageRange: { start: 1, end: 1 },
+        },
+      },
+    });
+    await expect(finalizeReplacement([1])).resolves.toMatchObject({ id: replacement.id });
     await expect(
       prisma.materialPage.findUniqueOrThrow({
         where: {
@@ -419,8 +481,21 @@ describeDatabase("localized material OCR evidence", () => {
         select: { ocrText: true, textStatus: true },
       }),
     ).resolves.toEqual({
-      ocrText: "OCR completed after the replacement revision was activated.",
+      ocrText: "OCR completed while the replacement rebuild waited for activation.",
       textStatus: MaterialPageTextStatus.OCR_READY,
+    });
+    await expect(
+      prisma.materialChunk.findFirstOrThrow({
+        where: {
+          userId,
+          materialRevisionId: replacement.id,
+          text: { contains: "OCR completed while the replacement rebuild waited" },
+        },
+        select: { materialRevisionId: true, locator: true },
+      }),
+    ).resolves.toMatchObject({
+      materialRevisionId: replacement.id,
+      locator: { kind: "pdf", pageRange: { start: 1, end: 1 } },
     });
   });
 

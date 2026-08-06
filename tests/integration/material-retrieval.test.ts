@@ -100,4 +100,66 @@ describeDatabase("material retrieval", () => {
     expect(matches.map((chunk) => chunk.id)).toContain(lessonChunkId);
     expect(matches.map((chunk) => chunk.id)).not.toContain(indexChunkId);
   });
+
+  it("does not count answer-key chunks toward instructional section coverage", async () => {
+    const { revision } = await createMaterialWithInitialRevision({
+      userId,
+      title: "Mixed-outline Spanish handbook",
+      kind: StudyMaterialKind.PDF,
+    });
+    const mixedSection = await prisma.materialSection.create({
+      data: {
+        userId,
+        materialRevisionId: revision.id,
+        ordinal: 0,
+        title: "Part II",
+        normalizedTitle: "part ii",
+        pageStart: 20,
+        pageEnd: 300,
+        headingPath: ["Part II"],
+      },
+    });
+    const teachingChunkId = `${runId}_mixed_ser_teaching`;
+    await prisma.materialChunk.createMany({
+      data: [
+        {
+          id: teachingChunkId,
+          userId,
+          materialRevisionId: revision.id,
+          materialSectionId: mixedSection.id,
+          ordinal: 0,
+          text: "Ser identifies an essential characteristic.",
+          tokenEstimate: 7,
+          contentHash: `sha256:${runId}:mixed-ser`,
+          headingText: mixedSection.title,
+          locator: { kind: "pdf", pageRange: { start: 30, end: 30 } },
+        },
+        {
+          id: `${runId}_mixed_answer_key`,
+          userId,
+          materialRevisionId: revision.id,
+          materialSectionId: mixedSection.id,
+          ordinal: 1,
+          text: "Answer Key: estar exercise responses.",
+          tokenEstimate: 7,
+          contentHash: `sha256:${runId}:mixed-answer`,
+          headingText: mixedSection.title,
+          locator: { kind: "pdf", pageRange: { start: 290, end: 290 } },
+        },
+      ],
+    });
+
+    const matches = await searchMaterialChunksLexical({
+      userId,
+      materialRevisionId: revision.id,
+      query: "ser estar",
+      prefixMatching: true,
+      prefixOperator: "or",
+      minimumSectionPrefixMatches: 2,
+      excludeLikelyBackMatter: true,
+    });
+
+    expect(matches.map((chunk) => chunk.id)).not.toContain(teachingChunkId);
+    expect(matches).toEqual([]);
+  });
 });

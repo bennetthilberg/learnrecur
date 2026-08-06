@@ -275,6 +275,37 @@ describe("material scope planning", () => {
     expect(recovered.map((chunk) => chunk.id)).toEqual(["single-teaching-chunk"]);
   });
 
+  it("uses aggregate section relevance when peak recovery scores tie", () => {
+    const recovered = selectFocusedMaterialTopicRecoveryChunks([
+      {
+        id: "cats-teaching-1",
+        materialSectionId: "cats-lesson",
+        headingText: "Cats",
+        text: "A cat uses singular agreement.",
+        lexicalScore: 1,
+      },
+      {
+        id: "cats-teaching-2",
+        materialSectionId: "cats-lesson",
+        headingText: "Cats",
+        text: "The cat example contrasts with plural agreement.",
+        lexicalScore: 1,
+      },
+      {
+        id: "cat-incidental",
+        materialSectionId: "later-reference",
+        headingText: "Reference",
+        text: "A later example mentions a cat.",
+        lexicalScore: 1,
+      },
+    ]);
+
+    expect(recovered.map((chunk) => chunk.id)).toEqual([
+      "cats-teaching-1",
+      "cats-teaching-2",
+    ]);
+  });
+
   it("keeps successful semantic retrieval instead of replacing it with a weak lexical cluster", () => {
     const semantic = [
       {

@@ -238,28 +238,49 @@ export async function ensureMaterialPageOcr(input: {
   ) {
     return { status: "unavailable" as const, processedPageCount: 0 };
   }
-  const claimedCandidates: typeof candidates = [];
-  for (const candidate of candidates) {
-    const claimed = await prisma.materialPage.updateMany({
-      where: {
-        id: candidate.id,
-        userId: input.userId,
-        materialRevisionId: input.materialRevisionId,
-        OR: [
-          {
-            textStatus: {
-              in: [MaterialPageTextStatus.NEEDS_OCR, MaterialPageTextStatus.OCR_FAILED],
-            },
-          },
-          { textStatus: MaterialPageTextStatus.OCR_PROCESSING, updatedAt: { lt: staleBefore } },
-        ],
-      },
-      data: { textStatus: MaterialPageTextStatus.OCR_PROCESSING, updatedAt: now },
-    });
-    if (claimed.count === 1) {
-      claimedCandidates.push(candidate);
+  const claimedCandidates = await prisma.$transaction(async (tx) => {
+    const lockedMaterials = await tx.$queryRaw<
+      Array<{ activeRevisionId: string | null }>
+    >`
+      SELECT material."activeRevisionId" AS "activeRevisionId"
+      FROM "material_revisions" revision
+      INNER JOIN "study_materials" material
+        ON material."id" = revision."materialId"
+       AND material."userId" = revision."userId"
+      WHERE revision."id" = ${input.materialRevisionId}
+        AND revision."userId" = ${input.userId}
+      FOR UPDATE OF material
+    `;
+    if (lockedMaterials[0]?.activeRevisionId !== input.materialRevisionId) {
+      return [] as typeof candidates;
     }
-  }
+    const claimedPages: typeof candidates = [];
+    for (const candidate of candidates) {
+      const claimed = await tx.materialPage.updateMany({
+        where: {
+          id: candidate.id,
+          userId: input.userId,
+          materialRevisionId: input.materialRevisionId,
+          OR: [
+            {
+              textStatus: {
+                in: [MaterialPageTextStatus.NEEDS_OCR, MaterialPageTextStatus.OCR_FAILED],
+              },
+            },
+            {
+              textStatus: MaterialPageTextStatus.OCR_PROCESSING,
+              updatedAt: { lt: staleBefore },
+            },
+          ],
+        },
+        data: { textStatus: MaterialPageTextStatus.OCR_PROCESSING, updatedAt: now },
+      });
+      if (claimed.count === 1) {
+        claimedPages.push(candidate);
+      }
+    }
+    return claimedPages;
+  });
   if (claimedCandidates.length === 0) {
     return { status: "not-needed" as const, processedPageCount: 0 };
   }
@@ -308,30 +329,9 @@ export async function ensureMaterialPageOcr(input: {
           AND revision."userId" = ${input.userId}
         FOR UPDATE OF material
       `;
-      const material = lockedMaterials.length === 1
-        ? await tx.studyMaterial.findFirst({
-            where: {
-              id: lockedMaterials[0].id,
-              userId: input.userId,
-              revisions: { some: { id: input.materialRevisionId } },
-            },
-            select: {
-              activeRevision: {
-                select: { id: true, processingMetadata: true },
-              },
-            },
-          })
-        : null;
-      const activeRevision = material?.activeRevision;
-      const activeMetadata = activeRevision?.processingMetadata;
-      const mirrorRevisionId =
-        activeRevision?.id !== input.materialRevisionId &&
-        activeMetadata &&
-        typeof activeMetadata === "object" &&
-        !Array.isArray(activeMetadata) &&
-        activeMetadata.rebuildOfRevisionId === input.materialRevisionId
-          ? activeRevision.id
-          : null;
+      if (lockedMaterials.length !== 1) {
+        return { processedPageCount: 0, failedPageCount: 0 };
+      }
       let processedPageCount = 0;
       for (const page of readyPages) {
         const contentHash = sha256(page.text);
@@ -357,33 +357,6 @@ export async function ensureMaterialPageOcr(input: {
           },
         });
         processedPageCount += updated.count;
-        if (updated.count === 1 && mirrorRevisionId) {
-          await tx.materialPage.upsert({
-            where: {
-              materialRevisionId_pageNumber: {
-                materialRevisionId: mirrorRevisionId,
-                pageNumber: page.pageNumber,
-              },
-            },
-            create: {
-              userId: input.userId,
-              materialRevisionId: mirrorRevisionId,
-              pageNumber: page.pageNumber,
-              ocrText: page.text,
-              textStatus: MaterialPageTextStatus.OCR_READY,
-              contentHash,
-              tokenEstimate,
-              metadata,
-            },
-            update: {
-              ocrText: page.text,
-              textStatus: MaterialPageTextStatus.OCR_READY,
-              contentHash,
-              tokenEstimate,
-              metadata,
-            },
-          });
-        }
       }
       let failedPageCount = 0;
       if (failedIds.length > 0) {

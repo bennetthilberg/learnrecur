@@ -137,6 +137,13 @@ export async function searchMaterialChunksLexical(input: {
         ) >= ${input.minimumPrefixMatches}`
       : Prisma.sql`AND FALSE`
     : Prisma.empty;
+  const sectionBackMatterFilter = input.excludeLikelyBackMatter
+    ? Prisma.sql`AND NOT (
+        COALESCE(section_chunk."headingText", '') ~* ${STRONG_BACK_MATTER_SQL_PATTERN}
+        OR COALESCE(section_chunk."headingText", '') ~* ${GENERIC_BACK_MATTER_HEADING_SQL_PATTERN}
+        OR LEFT(section_chunk."text", 800) ~* ${STRONG_BACK_MATTER_SQL_PATTERN}
+      )`
+    : Prisma.empty;
   const minimumSectionPrefixFilter = input.minimumSectionPrefixMatches
     ? minimumPrefixTerms.length >= input.minimumSectionPrefixMatches
       ? Prisma.sql`AND (
@@ -148,6 +155,7 @@ export async function searchMaterialChunksLexical(input: {
             WHERE section_chunk."userId" = ${input.userId}
               AND section_chunk."materialRevisionId" = ${input.materialRevisionId}
               AND section_chunk."materialSectionId" = "material_chunks"."materialSectionId"
+              ${sectionBackMatterFilter}
               AND section_chunk."searchText" @@ to_tsquery(
                 'simple',
                 recovery_term.term || ':*'
