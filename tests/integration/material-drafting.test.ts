@@ -1123,6 +1123,152 @@ describeDatabase("material multi-skill drafting", () => {
     expect(planningInput?.chunks.map((chunk) => chunk.id)).not.toContain(answerKeyChunkId);
   });
 
+  it("recovers comparison terms split across a section despite a semantic decoy", async () => {
+    const { material, revision } = await createMaterialWithInitialRevision({
+      userId,
+      title: "Split comparison fixture",
+      kind: StudyMaterialKind.PDF,
+    });
+    const comparisonSection = await prisma.materialSection.create({
+      data: {
+        userId,
+        materialRevisionId: revision.id,
+        ordinal: 0,
+        level: 1,
+        title: "Copular verbs",
+        normalizedTitle: "copular verbs",
+        pageStart: 30,
+        pageEnd: 34,
+        headingPath: ["Copular verbs"],
+      },
+    });
+    const decoySection = await prisma.materialSection.create({
+      data: {
+        userId,
+        materialRevisionId: revision.id,
+        ordinal: 1,
+        level: 1,
+        title: "Verb reference",
+        normalizedTitle: "verb reference",
+        pageStart: 100,
+        pageEnd: 190,
+        headingPath: ["Verb reference"],
+      },
+    });
+    const teachingChunkIds = [
+      `${runId}_split_ser_teaching`,
+      `${runId}_split_estar_teaching`,
+    ];
+    const decoyChunkIds = Array.from(
+      { length: 85 },
+      (_, index) => `${runId}_split_comparison_decoy_${index}`,
+    );
+    await prisma.materialChunk.createMany({
+      data: [
+        {
+          id: teachingChunkIds[0],
+          userId,
+          materialRevisionId: revision.id,
+          materialSectionId: comparisonSection.id,
+          ordinal: 0,
+          text: "Ser identifies an essential characteristic or identity.",
+          tokenEstimate: 8,
+          contentHash: `sha256:${runId}:split-ser`,
+          headingText: comparisonSection.title,
+          locator: { kind: "pdf", pageRange: { start: 30, end: 31 } },
+        },
+        {
+          id: teachingChunkIds[1],
+          userId,
+          materialRevisionId: revision.id,
+          materialSectionId: comparisonSection.id,
+          ordinal: 1,
+          text: "Estar describes a condition or location.",
+          tokenEstimate: 7,
+          contentHash: `sha256:${runId}:split-estar`,
+          headingText: comparisonSection.title,
+          locator: { kind: "pdf", pageRange: { start: 32, end: 34 } },
+        },
+        ...decoyChunkIds.map((id, index) => ({
+          id,
+          userId,
+          materialRevisionId: revision.id,
+          materialSectionId: decoySection.id,
+          ordinal: index + 2,
+          text: `Ser reference list entry ${index + 1}.`,
+          tokenEstimate: 6,
+          contentHash: `sha256:${runId}:split-decoy:${index}`,
+          headingText: decoySection.title,
+          locator: {
+            kind: "pdf" as const,
+            pageRange: { start: 100 + index, end: 100 + index },
+          },
+        })),
+      ],
+    });
+    const semanticEmbedding = Array.from(
+      { length: MATERIAL_EMBEDDING_DIMENSIONS },
+      (_, index) => (index === 0 ? 1 : 0),
+    );
+    await storeMaterialChunkEmbedding({
+      userId,
+      materialRevisionId: revision.id,
+      chunkId: decoyChunkIds[0],
+      embedding: semanticEmbedding,
+    });
+    await finalizeMaterialRevision({
+      userId,
+      materialId: material.id,
+      materialRevisionId: revision.id,
+      contentHash: `sha256:${runId}:split-comparison`,
+      byteSize: 32_768,
+      pageCount: 190,
+      storageBucket: "test-materials",
+      storageKey: `${runId}/split-comparison.pdf`,
+      processingMetadata: { embeddingStatus: "ready" },
+    });
+    const planScope = vi.fn(async () => ({
+      resolutionStatus: "resolved" as const,
+      resolvedScopeLabel: "Ser and estar",
+      clarification: null,
+      warnings: [],
+      items: [
+        {
+          key: "ser-estar-comparison",
+          title: "Ser and estar",
+          objective: "Choose between ser and estar for identity, condition, and location.",
+          materialSectionIds: [comparisonSection.id],
+          evidenceChunkIds: teachingChunkIds,
+        },
+      ],
+    }));
+
+    const result = await planMaterialSkills({
+      userId,
+      input: {
+        materialId: material.id,
+        materialRevisionId: revision.id,
+        instruction: "make skills for ser and estar",
+        idempotencyKey: `${runId}_split_comparison_recovery`,
+      },
+      now: new Date(),
+      aiSetup: createAiSetup({ planScope }),
+      embeddingGenerator: async () => [semanticEmbedding],
+    });
+
+    expect(result.status).toBe("planned");
+    const planningInput = planScope.mock.calls[0]?.[0];
+    expect(planningInput?.sections.map((section) => section.id)).toEqual([
+      comparisonSection.id,
+    ]);
+    expect(planningInput?.chunks.map((chunk) => chunk.id)).toEqual(
+      expect.arrayContaining(teachingChunkIds),
+    );
+    expect(planningInput?.chunks.map((chunk) => chunk.id)).not.toContain(
+      decoyChunkIds[0],
+    );
+  });
+
   it("reserves fallback evidence for later sections before truncating ranked chunks", async () => {
     const { material, revision } = await createMaterialWithInitialRevision({
       userId,

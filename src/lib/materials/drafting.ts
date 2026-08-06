@@ -263,7 +263,7 @@ export function resolveMaterialTopicSearchQuery(instruction: string): string | n
   if (!topic) {
     return null;
   }
-  const tokens = normalizeComparableText(topic).split(" ").filter(Boolean);
+  const tokens = normalizeMaterialTopicRecoveryText(topic).split(" ").filter(Boolean);
   if (tokens[0] === "the" || tokens[0] === "some") {
     tokens.shift();
   }
@@ -294,6 +294,9 @@ function normalizeMaterialTopicRecoveryText(value: string) {
 }
 
 function normalizeMaterialTopicRecoveryToken(token: string) {
+  if (token.length > 4 && token.endsWith("ies")) {
+    return token.slice(0, -3);
+  }
   if (token.length > 6 && token.endsWith("ing")) {
     return token.slice(0, -3);
   }

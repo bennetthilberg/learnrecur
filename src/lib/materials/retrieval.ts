@@ -107,6 +107,7 @@ export async function searchMaterialChunksLexical(input: {
   prefixMatching?: boolean;
   prefixOperator?: "and" | "or";
   minimumPrefixMatches?: 1 | 2;
+  minimumSectionPrefixMatches?: 1 | 2;
 }): Promise<MaterialChunkSearchResult[]> {
   const prisma = getPrisma();
   const limit = Math.max(1, Math.min(input.limit ?? 24, 80));
@@ -116,9 +117,11 @@ export async function searchMaterialChunksLexical(input: {
   const prefixQuery = input.prefixMatching
     ? toSimplePrefixTsQuery(input.query, input.prefixOperator)
     : null;
-  const minimumPrefixTerms = input.prefixMatching && input.minimumPrefixMatches
-    ? simplePrefixTerms(input.query)
-    : [];
+  const minimumPrefixTerms =
+    input.prefixMatching &&
+    (input.minimumPrefixMatches || input.minimumSectionPrefixMatches)
+      ? simplePrefixTerms(input.query)
+      : [];
   const minimumPrefixFilter = input.minimumPrefixMatches
     ? minimumPrefixTerms.length >= input.minimumPrefixMatches
       ? Prisma.sql`AND (
@@ -126,6 +129,25 @@ export async function searchMaterialChunksLexical(input: {
           FROM unnest(ARRAY[${Prisma.join(minimumPrefixTerms)}]::text[]) AS recovery_term(term)
           WHERE "searchText" @@ to_tsquery('simple', recovery_term.term || ':*')
         ) >= ${input.minimumPrefixMatches}`
+      : Prisma.sql`AND FALSE`
+    : Prisma.empty;
+  const minimumSectionPrefixFilter = input.minimumSectionPrefixMatches
+    ? minimumPrefixTerms.length >= input.minimumSectionPrefixMatches
+      ? Prisma.sql`AND (
+          SELECT COUNT(*)
+          FROM unnest(ARRAY[${Prisma.join(minimumPrefixTerms)}]::text[]) AS recovery_term(term)
+          WHERE EXISTS (
+            SELECT 1
+            FROM "material_chunks" AS section_chunk
+            WHERE section_chunk."userId" = ${input.userId}
+              AND section_chunk."materialRevisionId" = ${input.materialRevisionId}
+              AND section_chunk."materialSectionId" = "material_chunks"."materialSectionId"
+              AND section_chunk."searchText" @@ to_tsquery(
+                'simple',
+                recovery_term.term || ':*'
+              )
+          )
+        ) >= ${input.minimumSectionPrefixMatches}`
       : Prisma.sql`AND FALSE`
     : Prisma.empty;
   const textQuery = prefixQuery
@@ -159,6 +181,7 @@ export async function searchMaterialChunksLexical(input: {
       AND "materialRevisionId" = ${input.materialRevisionId}
       ${sectionFilter}
       ${minimumPrefixFilter}
+      ${minimumSectionPrefixFilter}
     ORDER BY "score" DESC, "ordinal" ASC
     LIMIT ${limit}
   `;

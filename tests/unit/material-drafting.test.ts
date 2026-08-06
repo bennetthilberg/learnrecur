@@ -107,6 +107,9 @@ describe("material scope planning", () => {
     expect(resolveMaterialTopicSearchQuery("make skills for reflexive verbs")).toBe(
       "reflexive verbs",
     );
+    expect(resolveMaterialTopicSearchQuery("make skills for números ordinales")).toBe(
+      "números ordinales",
+    );
     expect(resolveMaterialTopicSearchQuery("zygomatic conjugation sentinel")).toBeNull();
   });
 
@@ -122,6 +125,7 @@ describe("material scope planning", () => {
     expect(buildMaterialTopicRecoveryQuery("make skills for ser and estar")).toBe(
       "ser estar",
     );
+    expect(buildMaterialTopicRecoveryQuery("make skills for cities")).toBe("cit");
   });
 
   it("focuses open-topic retrieval on the dominant instructional section", () => {

@@ -2189,7 +2189,6 @@ async function planExistingMaterialBatch(input: {
       materialRevision: {
         select: {
           status: true,
-          processingMetadata: true,
           material: { select: { id: true, title: true, kind: true } },
           sourceFiles: {
             where: { status: SourceFileStatus.READY },
@@ -2313,9 +2312,6 @@ async function planExistingMaterialBatch(input: {
       sectionIds: structural.candidateSectionIds,
       sections: sections.filter((section) =>
         structural.candidateSectionIds.includes(section.id),
-      ),
-      embeddingsIncomplete: hasUnavailableMaterialEmbeddings(
-        batch.materialRevision.processingMetadata,
       ),
       embeddingGenerator: input.embeddingGenerator,
     });
@@ -2520,7 +2516,6 @@ async function retrievePlanningChunks(input: {
   topicSearchQuery?: string | null;
   sectionIds: string[];
   sections: MaterialPlanningSection[];
-  embeddingsIncomplete: boolean;
   embeddingGenerator?: MaterialEmbeddingGenerator | null;
 }) {
   const prisma = getPrisma();
@@ -2575,11 +2570,7 @@ async function retrievePlanningChunks(input: {
       focusedTopic = true;
     }
   }
-  if (
-    input.topicSearchQuery &&
-    !strictLexicalFocused &&
-    (!focusedTopic || input.embeddingsIncomplete)
-  ) {
+  if (input.topicSearchQuery && !strictLexicalFocused) {
     const recoveryQuery = buildMaterialTopicRecoveryQuery(input.topicSearchQuery);
     if (recoveryQuery) {
       const minimumPrefixMatches = recoveryQuery.split(" ").length >= 2 ? 2 : 1;
@@ -2592,10 +2583,8 @@ async function retrievePlanningChunks(input: {
           limit: 80,
           prefixMatching: true,
           prefixOperator: "or",
-          minimumPrefixMatches,
+          minimumSectionPrefixMatches: minimumPrefixMatches,
         })
-      ).filter((chunk) =>
-        materialChunkMatchesRecoveryTerms(chunk, recoveryQuery),
       );
       const recovered = selectFocusedMaterialTopicRecoveryChunks(recoveryMatches);
       if (recovered.length > 0) {
@@ -2740,30 +2729,6 @@ async function retrievePlanningChunks(input: {
     ]),
     focusedTopic,
   };
-}
-
-function materialChunkMatchesRecoveryTerms(
-  chunk: Pick<MaterialChunkSearchResult, "headingText" | "text">,
-  recoveryQuery: string,
-) {
-  const terms = recoveryQuery.split(" ").filter(Boolean);
-  const searchable = `${chunk.headingText ?? ""} ${chunk.text}`
-    .normalize("NFC")
-    .toLocaleLowerCase()
-    .match(/[\p{L}\p{N}]+/gu) ?? [];
-  const matchedTerms = terms.filter((term) =>
-    searchable.some((token) => token.startsWith(term)),
-  );
-  return matchedTerms.length >= Math.min(2, terms.length);
-}
-
-function hasUnavailableMaterialEmbeddings(processingMetadata: unknown) {
-  return Boolean(
-    processingMetadata &&
-      typeof processingMetadata === "object" &&
-      !Array.isArray(processingMetadata) &&
-      (processingMetadata as Record<string, unknown>).embeddingStatus === "unavailable",
-  );
 }
 
 async function retrieveBackMatterRecoveryCandidates(input: {
