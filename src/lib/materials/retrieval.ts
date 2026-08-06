@@ -116,12 +116,16 @@ export async function searchMaterialChunksLexical(input: {
   const prefixQuery = input.prefixMatching
     ? toSimplePrefixTsQuery(input.query, input.prefixOperator)
     : null;
-  const minimumPrefixQuery = input.prefixMatching && input.minimumPrefixMatches
-    ? toSimpleMinimumPrefixTsQuery(input.query, input.minimumPrefixMatches)
-    : null;
+  const minimumPrefixTerms = input.prefixMatching && input.minimumPrefixMatches
+    ? simplePrefixTerms(input.query)
+    : [];
   const minimumPrefixFilter = input.minimumPrefixMatches
-    ? minimumPrefixQuery
-      ? Prisma.sql`AND "searchText" @@ to_tsquery('simple', ${minimumPrefixQuery})`
+    ? minimumPrefixTerms.length >= input.minimumPrefixMatches
+      ? Prisma.sql`AND (
+          SELECT COUNT(*)
+          FROM unnest(ARRAY[${Prisma.join(minimumPrefixTerms)}]::text[]) AS recovery_term(term)
+          WHERE "searchText" @@ to_tsquery('simple', recovery_term.term || ':*')
+        ) >= ${input.minimumPrefixMatches}`
       : Prisma.sql`AND FALSE`
     : Prisma.empty;
   const textQuery = prefixQuery
@@ -164,23 +168,6 @@ export function toSimplePrefixTsQuery(query: string, operator: "and" | "or" = "a
   return simplePrefixTerms(query)
     .map((token) => `${token}:*`)
     .join(operator === "or" ? " | " : " & ");
-}
-
-export function toSimpleMinimumPrefixTsQuery(
-  query: string,
-  minimumMatches: 1 | 2,
-) {
-  const terms = simplePrefixTerms(query);
-  if (minimumMatches === 1) {
-    return terms.map((term) => `${term}:*`).join(" | ");
-  }
-  const pairs: string[] = [];
-  for (let left = 0; left < terms.length; left += 1) {
-    for (let right = left + 1; right < terms.length; right += 1) {
-      pairs.push(`(${terms[left]}:* & ${terms[right]}:*)`);
-    }
-  }
-  return pairs.join(" | ");
 }
 
 function simplePrefixTerms(query: string) {

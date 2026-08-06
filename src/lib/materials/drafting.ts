@@ -279,7 +279,7 @@ export function buildMaterialTopicRecoveryQuery(topic: string): string | null {
     .filter(Boolean)
     .filter((token) => !materialTopicRecoveryStopTerms.has(token))
     .map(normalizeMaterialTopicRecoveryToken)
-    .filter((token) => token.length >= 4);
+    .filter((token) => token.length >= 2);
 
   const uniqueTokens = [...new Set(tokens)];
   return uniqueTokens.length > 0 ? uniqueTokens.join(" ") : null;

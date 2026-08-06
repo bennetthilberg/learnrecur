@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  toSimpleMinimumPrefixTsQuery,
-  toSimplePrefixTsQuery,
-} from "@/lib/materials/retrieval";
+import { toSimplePrefixTsQuery } from "@/lib/materials/retrieval";
 
 describe("material lexical retrieval", () => {
   it("matches language-neutral word variants for focused topic searches", () => {
@@ -23,12 +20,6 @@ describe("material lexical retrieval", () => {
   it("can build a disjunctive prefix query for progressive topic recovery", () => {
     expect(toSimplePrefixTsQuery("conjugat verb preterit", "or")).toBe(
       "conjugat:* | verb:* | preterit:*",
-    );
-  });
-
-  it("can require any two recovery terms before ranking and limiting", () => {
-    expect(toSimpleMinimumPrefixTsQuery("conjugat verb preterit", 2)).toBe(
-      "(conjugat:* & verb:*) | (conjugat:* & preterit:*) | (verb:* & preterit:*)",
     );
   });
 });

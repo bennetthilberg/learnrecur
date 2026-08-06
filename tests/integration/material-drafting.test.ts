@@ -33,7 +33,11 @@ import {
   finalizeMaterialRevision,
   requestMaterialDeletion,
 } from "@/lib/materials/lifecycle";
-import { searchMaterialChunksLexical } from "@/lib/materials/retrieval";
+import {
+  MATERIAL_EMBEDDING_DIMENSIONS,
+  searchMaterialChunksLexical,
+  storeMaterialChunkEmbedding,
+} from "@/lib/materials/retrieval";
 import { loadLocalizedMaterialEvidence } from "@/lib/materials/evidence";
 import { getPrisma } from "@/lib/prisma";
 import {
@@ -1060,6 +1064,16 @@ describeDatabase("material multi-skill drafting", () => {
         })),
       ],
     });
+    const partialEmbedding = Array.from(
+      { length: MATERIAL_EMBEDDING_DIMENSIONS },
+      (_, index) => (index === 0 ? 1 : 0),
+    );
+    await storeMaterialChunkEmbedding({
+      userId,
+      materialRevisionId: revision.id,
+      chunkId: `${runId}_preterit_incidental_0`,
+      embedding: partialEmbedding,
+    });
     await finalizeMaterialRevision({
       userId,
       materialId: material.id,
@@ -1097,7 +1111,7 @@ describeDatabase("material multi-skill drafting", () => {
       },
       now: new Date(),
       aiSetup: createAiSetup({ planScope }),
-      embeddingGenerator: null,
+      embeddingGenerator: async () => [partialEmbedding],
     });
 
     expect(result.status).toBe("planned");

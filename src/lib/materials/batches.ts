@@ -47,6 +47,7 @@ import {
   buildMaterialTopicRecoveryQuery,
   resolveMaterialTopicSearchQuery,
   resolveStructuralMaterialScope,
+  selectFocusedMaterialTopicChunks,
   selectFocusedMaterialTopicRecoveryChunks,
   selectMaterialTopicRetrievalChunks,
   type MaterialPlanningSection,
@@ -2188,6 +2189,7 @@ async function planExistingMaterialBatch(input: {
       materialRevision: {
         select: {
           status: true,
+          processingMetadata: true,
           material: { select: { id: true, title: true, kind: true } },
           sourceFiles: {
             where: { status: SourceFileStatus.READY },
@@ -2311,6 +2313,9 @@ async function planExistingMaterialBatch(input: {
       sectionIds: structural.candidateSectionIds,
       sections: sections.filter((section) =>
         structural.candidateSectionIds.includes(section.id),
+      ),
+      embeddingsIncomplete: hasUnavailableMaterialEmbeddings(
+        batch.materialRevision.processingMetadata,
       ),
       embeddingGenerator: input.embeddingGenerator,
     });
@@ -2515,6 +2520,7 @@ async function retrievePlanningChunks(input: {
   topicSearchQuery?: string | null;
   sectionIds: string[];
   sections: MaterialPlanningSection[];
+  embeddingsIncomplete: boolean;
   embeddingGenerator?: MaterialEmbeddingGenerator | null;
 }) {
   const prisma = getPrisma();
@@ -2548,6 +2554,7 @@ async function retrievePlanningChunks(input: {
       });
     }
   }
+  let strictLexicalFocused = false;
   if (input.topicSearchQuery) {
     const lexicalMatches = await searchMaterialChunksLexical({
       userId: input.userId,
@@ -2557,6 +2564,8 @@ async function retrievePlanningChunks(input: {
       limit: 48,
       prefixMatching: true,
     });
+    strictLexicalFocused =
+      selectFocusedMaterialTopicChunks(lexicalMatches).length > 0;
     const selected = selectMaterialTopicRetrievalChunks({
       semantic: ranked,
       lexical: lexicalMatches,
@@ -2566,7 +2575,11 @@ async function retrievePlanningChunks(input: {
       focusedTopic = true;
     }
   }
-  if (input.topicSearchQuery && !focusedTopic && ranked.length === 0) {
+  if (
+    input.topicSearchQuery &&
+    !strictLexicalFocused &&
+    (!focusedTopic || input.embeddingsIncomplete)
+  ) {
     const recoveryQuery = buildMaterialTopicRecoveryQuery(input.topicSearchQuery);
     if (recoveryQuery) {
       const minimumPrefixMatches = recoveryQuery.split(" ").length >= 2 ? 2 : 1;
@@ -2742,6 +2755,15 @@ function materialChunkMatchesRecoveryTerms(
     searchable.some((token) => token.startsWith(term)),
   );
   return matchedTerms.length >= Math.min(2, terms.length);
+}
+
+function hasUnavailableMaterialEmbeddings(processingMetadata: unknown) {
+  return Boolean(
+    processingMetadata &&
+      typeof processingMetadata === "object" &&
+      !Array.isArray(processingMetadata) &&
+      (processingMetadata as Record<string, unknown>).embeddingStatus === "unavailable",
+  );
 }
 
 async function retrieveBackMatterRecoveryCandidates(input: {

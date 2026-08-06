@@ -115,9 +115,12 @@ describe("material scope planning", () => {
       buildMaterialTopicRecoveryQuery(
         "conjugating ar er and ir verbs in the preterit",
       ),
-    ).toBe("conjugat verb preterit");
+    ).toBe("conjugat ar er ir verb preterit");
     expect(buildMaterialTopicRecoveryQuery("números ordinales")).toBe(
       "número ordinale",
+    );
+    expect(buildMaterialTopicRecoveryQuery("make skills for ser and estar")).toBe(
+      "ser estar",
     );
   });
 
