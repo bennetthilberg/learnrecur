@@ -16,6 +16,9 @@ describe("material lexical retrieval", () => {
     );
     expect(toSimplePrefixTsQuery("!? ")).toBe("");
     expect(toSimplePrefixTsQuery("İspanyol")).toBe("ispanyol:*");
+    expect(toSimplePrefixTsQuery("ﬁrst conditional")).toBe(
+      "first:* & conditional:*",
+    );
   });
 
   it("can build a disjunctive prefix query for progressive topic recovery", () => {

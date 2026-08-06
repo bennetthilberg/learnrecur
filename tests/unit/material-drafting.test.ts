@@ -114,6 +114,9 @@ describe("material scope planning", () => {
     expect(resolveMaterialTopicSearchQuery("make skills for İspanyol verbs")).toBe(
       "ispanyol verbs",
     );
+    expect(resolveMaterialTopicSearchQuery("make skills for ﬁrst conditional")).toBe(
+      "first conditional",
+    );
     expect(resolveMaterialTopicSearchQuery("zygomatic conjugation sentinel")).toBeNull();
   });
 
@@ -130,6 +133,10 @@ describe("material scope planning", () => {
       "ser estar",
     );
     expect(buildMaterialTopicRecoveryQuery("make skills for cities")).toBe("cit");
+    expect(buildMaterialTopicRecoveryQuery("make skills for cats")).toBe("cat");
+    expect(buildMaterialTopicRecoveryQuery("make skills for ﬁrst conditional")).toBe(
+      "first conditional",
+    );
     expect(buildMaterialTopicRecoveryQuery("make skills for İspanyol classes")).toBe(
       "ispanyol class",
     );
@@ -233,6 +240,20 @@ describe("material scope planning", () => {
     ]);
 
     expect(recovered.map((chunk) => chunk.id)).toEqual(["teaching-1", "teaching-2"]);
+  });
+
+  it("accepts a single teaching chunk after section-level term coverage is proven", () => {
+    const recovered = selectFocusedMaterialTopicRecoveryChunks([
+      {
+        id: "single-teaching-chunk",
+        materialSectionId: "short-lesson",
+        headingText: "Cats",
+        text: "A cat uses singular agreement while cats use plural agreement.",
+        lexicalScore: 2.5,
+      },
+    ]);
+
+    expect(recovered.map((chunk) => chunk.id)).toEqual(["single-teaching-chunk"]);
   });
 
   it("keeps successful semantic retrieval instead of replacing it with a weak lexical cluster", () => {

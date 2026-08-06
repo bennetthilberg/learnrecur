@@ -4,6 +4,7 @@ import { PDFDocument, StandardFonts } from "pdf-lib";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import {
+  MaterialPageTextStatus,
   MaterialRevisionStatus,
   SkillStatus,
   SourceFileKind,
@@ -250,6 +251,19 @@ describeDatabase("material ingestion", () => {
       storageKey: objectKey,
       processingMetadata: { embeddingStatus: "unavailable" },
     });
+    await prisma.materialPage.create({
+      data: {
+        userId,
+        materialRevisionId: activeRevision.id,
+        pageNumber: 1,
+        embeddedText: null,
+        ocrText: "Cached OCR text from the preserved PDF page.",
+        textStatus: MaterialPageTextStatus.OCR_READY,
+        contentHash: `sha256:${runId}:cached-reindex-ocr`,
+        tokenEstimate: 9,
+        metadata: { reason: "lazy-ocr" },
+      },
+    });
     const linkedSkill = await prisma.skill.create({
       data: {
         userId,
@@ -308,6 +322,21 @@ describeDatabase("material ingestion", () => {
         select: { activeRevisionId: true },
       }),
     ).toEqual({ activeRevisionId: activeRevision.id });
+    await expect(
+      prisma.materialPage.findUniqueOrThrow({
+        where: {
+          materialRevisionId_pageNumber: {
+            materialRevisionId: result.materialRevisionId,
+            pageNumber: 1,
+          },
+        },
+        select: { ocrText: true, textStatus: true, tokenEstimate: true },
+      }),
+    ).resolves.toEqual({
+      ocrText: "Cached OCR text from the preserved PDF page.",
+      textStatus: MaterialPageTextStatus.OCR_READY,
+      tokenEstimate: 9,
+    });
 
     await expect(
       queueMaterialPdfReindex({
@@ -337,6 +366,21 @@ describeDatabase("material ingestion", () => {
         select: { activeRevisionId: true },
       }),
     ).toEqual({ activeRevisionId: result.materialRevisionId });
+    await expect(
+      prisma.materialPage.findUniqueOrThrow({
+        where: {
+          materialRevisionId_pageNumber: {
+            materialRevisionId: result.materialRevisionId,
+            pageNumber: 1,
+          },
+        },
+        select: { ocrText: true, textStatus: true, tokenEstimate: true },
+      }),
+    ).resolves.toEqual({
+      ocrText: "Cached OCR text from the preserved PDF page.",
+      textStatus: MaterialPageTextStatus.OCR_READY,
+      tokenEstimate: 9,
+    });
     expect(
       (await getMaterialDetail({ userId, materialId: material.id }))?.linkedSkills.map(
         (skill) => skill.id,

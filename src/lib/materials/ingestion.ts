@@ -820,6 +820,39 @@ export async function queueMaterialPdfReindex(input: {
       },
       select: { id: true },
     });
+    const cachedOcrPages = await tx.materialPage.findMany({
+      where: {
+        userId: input.userId,
+        materialRevisionId: activeRevision.id,
+        textStatus: MaterialPageTextStatus.OCR_READY,
+        ocrText: { not: null },
+      },
+      orderBy: { pageNumber: "asc" },
+      select: {
+        pageNumber: true,
+        embeddedText: true,
+        ocrText: true,
+        textStatus: true,
+        contentHash: true,
+        tokenEstimate: true,
+        metadata: true,
+      },
+    });
+    if (cachedOcrPages.length > 0) {
+      await tx.materialPage.createMany({
+        data: cachedOcrPages.map((page) => ({
+          userId: input.userId,
+          materialRevisionId: revision.id,
+          pageNumber: page.pageNumber,
+          embeddedText: page.embeddedText,
+          ocrText: page.ocrText,
+          textStatus: page.textStatus,
+          contentHash: page.contentHash,
+          tokenEstimate: page.tokenEstimate,
+          metadata: page.metadata ?? Prisma.JsonNull,
+        })),
+      });
+    }
     return {
       status: "created" as const,
       materialRevisionId: revision.id,
@@ -1421,6 +1454,23 @@ async function persistPdfIndex(input: {
   });
 
   await prisma.$transaction(async (tx) => {
+    const cachedOcrPages = await tx.materialPage.findMany({
+      where: {
+        materialRevisionId: input.materialRevisionId,
+        userId: input.userId,
+        textStatus: MaterialPageTextStatus.OCR_READY,
+        ocrText: { not: null },
+      },
+      select: {
+        pageNumber: true,
+        embeddedText: true,
+        ocrText: true,
+        textStatus: true,
+        contentHash: true,
+        tokenEstimate: true,
+        metadata: true,
+      },
+    });
     await tx.materialChunk.deleteMany({ where: { materialRevisionId: input.materialRevisionId, userId: input.userId } });
     await tx.materialPage.deleteMany({ where: { materialRevisionId: input.materialRevisionId, userId: input.userId } });
     await tx.materialSection.deleteMany({ where: { materialRevisionId: input.materialRevisionId, userId: input.userId } });
@@ -1439,21 +1489,57 @@ async function persistPdfIndex(input: {
       })),
     });
     const visualPages = input.pages.filter((page) => page.needsOcr || page.hasVisualContent);
-    if (visualPages.length > 0) {
+    const pagesToPersist = new Map<
+      number,
+      {
+        pageNumber: number;
+        embeddedText: string | null;
+        ocrText: string | null;
+        textStatus: MaterialPageTextStatus;
+        contentHash: string;
+        tokenEstimate: number;
+        metadata: Prisma.InputJsonValue;
+      }
+    >();
+    for (const page of visualPages) {
+      pagesToPersist.set(page.pageNumber, {
+        pageNumber: page.pageNumber,
+        embeddedText: page.text || null,
+        ocrText: null,
+        textStatus: page.needsOcr
+          ? MaterialPageTextStatus.NEEDS_OCR
+          : MaterialPageTextStatus.OCR_READY,
+        contentHash: sha256(Buffer.from(page.text || `visual-page-${page.pageNumber}`)),
+        tokenEstimate: page.text ? estimateTokens(page.text) : 0,
+        metadata: {
+          reason: page.needsOcr ? "insufficient-embedded-text" : "visual-content",
+        },
+      });
+    }
+    for (const page of cachedOcrPages) {
+      const extracted = pagesToPersist.get(page.pageNumber);
+      pagesToPersist.set(page.pageNumber, {
+        pageNumber: page.pageNumber,
+        embeddedText: extracted?.embeddedText ?? page.embeddedText,
+        ocrText: page.ocrText,
+        textStatus: page.textStatus,
+        contentHash: page.contentHash,
+        tokenEstimate: page.tokenEstimate,
+        metadata: (page.metadata ?? Prisma.JsonNull) as Prisma.InputJsonValue,
+      });
+    }
+    if (pagesToPersist.size > 0) {
       await tx.materialPage.createMany({
-        data: visualPages.map((page) => ({
+        data: [...pagesToPersist.values()].map((page) => ({
           userId: input.userId,
           materialRevisionId: input.materialRevisionId,
           pageNumber: page.pageNumber,
-          embeddedText: page.text || null,
-          textStatus: page.needsOcr
-            ? MaterialPageTextStatus.NEEDS_OCR
-            : MaterialPageTextStatus.OCR_READY,
-          contentHash: sha256(Buffer.from(page.text || `visual-page-${page.pageNumber}`)),
-          tokenEstimate: page.text ? estimateTokens(page.text) : 0,
-          metadata: {
-            reason: page.needsOcr ? "insufficient-embedded-text" : "visual-content",
-          },
+          embeddedText: page.embeddedText,
+          ocrText: page.ocrText,
+          textStatus: page.textStatus,
+          contentHash: page.contentHash,
+          tokenEstimate: page.tokenEstimate,
+          metadata: page.metadata,
         })),
       });
     }

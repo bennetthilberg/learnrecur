@@ -287,10 +287,10 @@ export function buildMaterialTopicRecoveryQuery(topic: string): string | null {
 
 function normalizeMaterialTopicRecoveryText(value: string) {
   return value
-    .normalize("NFC")
+    .normalize("NFKC")
     .toLowerCase()
     .replace(/\u0307/gu, "")
-    .normalize("NFC")
+    .normalize("NFKC")
     .replace(/[^\p{L}\p{N}]+/gu, " ")
     .trim();
 }
@@ -308,7 +308,7 @@ function normalizeMaterialTopicRecoveryToken(token: string) {
   if (token.length > 5 && token.endsWith("ed")) {
     return token.slice(0, -2);
   }
-  if (token.length > 4 && token.endsWith("s") && !token.endsWith("ss")) {
+  if (token.length > 3 && token.endsWith("s") && !token.endsWith("ss")) {
     return token.slice(0, -1);
   }
   return token;
@@ -379,7 +379,7 @@ export function selectFocusedMaterialTopicRecoveryChunks<
   const runnerUp = rankedSections[1]?.[1] ?? [];
   const dominantMaximum = Math.max(0, ...dominant.map((chunk) => chunk.lexicalScore));
   const runnerUpMaximum = Math.max(0, ...runnerUp.map((chunk) => chunk.lexicalScore));
-  if (dominant.length < 2 || dominantMaximum <= runnerUpMaximum) {
+  if (dominant.length === 0 || dominantMaximum <= runnerUpMaximum) {
     return [];
   }
   const dominantIds = new Set(dominant.map((chunk) => chunk.id));
