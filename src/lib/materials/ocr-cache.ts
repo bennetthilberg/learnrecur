@@ -5,6 +5,8 @@ import {
   type Prisma,
 } from "@/generated/prisma/client";
 
+export const MATERIAL_OCR_PROCESSING_STALE_MS = 10 * 60 * 1_000;
+
 const READY_MATERIAL_OCR_PAGE_WHERE = {
   textStatus: MaterialPageTextStatus.OCR_READY,
   ocrText: { not: null },

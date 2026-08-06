@@ -11,7 +11,10 @@ import {
   StudyMaterialStatus,
   Prisma,
 } from "@/generated/prisma/client";
-import { readyMaterialOcrPageQuery } from "@/lib/materials/ocr-cache";
+import {
+  MATERIAL_OCR_PROCESSING_STALE_MS,
+  readyMaterialOcrPageQuery,
+} from "@/lib/materials/ocr-cache";
 import { getPrisma } from "@/lib/prisma";
 
 export type CreateMaterialInput = {
@@ -129,6 +132,7 @@ export async function finalizeMaterialRevision(input: {
   processingMetadata?: Prisma.InputJsonValue;
   copyReadyOcrFromRevisionId?: string | null;
   indexedOcrPageNumbers?: number[];
+  now?: Date;
 }) {
   const prisma = getPrisma();
 
@@ -173,6 +177,19 @@ export async function finalizeMaterialRevision(input: {
       input.copyReadyOcrFromRevisionId &&
       input.copyReadyOcrFromRevisionId !== revision.id
     ) {
+      const staleBefore = new Date(
+        (input.now ?? new Date()).getTime() - MATERIAL_OCR_PROCESSING_STALE_MS,
+      );
+      await tx.materialPage.updateMany({
+        where: {
+          userId: input.userId,
+          materialRevisionId: input.copyReadyOcrFromRevisionId,
+          textStatus: MaterialPageTextStatus.OCR_PROCESSING,
+          updatedAt: { lt: staleBefore },
+          ...(input.pageCount ? { pageNumber: { lte: input.pageCount } } : {}),
+        },
+        data: { textStatus: MaterialPageTextStatus.OCR_FAILED },
+      });
       const processingOcrPageCount = await tx.materialPage.count({
         where: {
           userId: input.userId,

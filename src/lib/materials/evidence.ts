@@ -25,6 +25,7 @@ import {
   type SkillSourceLocator,
 } from "@/lib/materials/contracts";
 import { materialPageEvidenceId, parseMaterialPageEvidenceId } from "@/lib/materials/evidence-ids";
+import { MATERIAL_OCR_PROCESSING_STALE_MS } from "@/lib/materials/ocr-cache";
 import { estimateTokens } from "@/lib/materials/pdf";
 import {
   buildMetaMuseDataUrl,
@@ -43,7 +44,6 @@ export const MAX_LOCALIZED_PDF_SLICE_BYTES = 49_000_000;
 const MAX_MATERIAL_SOURCE_BYTES = 100 * 1024 * 1024;
 const DEFAULT_CONTEXT_CHARACTER_LIMIT = 4_000;
 export const MAX_LAZY_OCR_PAGES_PER_RUN = 8;
-const OCR_PROCESSING_STALE_MS = 10 * 60 * 1_000;
 
 const materialOcrResponseSchema = z.strictObject({
   pages: z
@@ -203,7 +203,7 @@ export async function ensureMaterialPageOcr(input: {
     return { status: "unavailable" as const, processedPageCount: 0 };
   }
   const now = input.now ?? new Date();
-  const staleBefore = new Date(now.getTime() - OCR_PROCESSING_STALE_MS);
+  const staleBefore = new Date(now.getTime() - MATERIAL_OCR_PROCESSING_STALE_MS);
   const prisma = getPrisma();
   const candidates = await prisma.materialPage.findMany({
     where: {

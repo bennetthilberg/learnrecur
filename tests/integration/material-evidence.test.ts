@@ -386,6 +386,69 @@ describeDatabase("localized material OCR evidence", () => {
     ).resolves.toMatchObject({ status: "processed", processedPageCount: 1 });
   });
 
+  it("releases stale OCR claims before activating a replacement", async () => {
+    const claimTime = new Date("2026-07-09T16:20:00.000Z");
+    const { material, revision } = await createMaterialWithInitialRevision({
+      userId,
+      title: "Workbook with a stale OCR claim",
+      kind: StudyMaterialKind.PDF,
+    });
+    await prisma.materialPage.create({
+      data: {
+        userId,
+        materialRevisionId: revision.id,
+        pageNumber: 1,
+        textStatus: MaterialPageTextStatus.OCR_PROCESSING,
+        contentHash: `visual:${runId}:stale-claim`,
+        updatedAt: claimTime,
+      },
+    });
+    await finalizeMaterialRevision({
+      userId,
+      materialId: material.id,
+      materialRevisionId: revision.id,
+      contentHash: `sha256:${runId}:stale-claim`,
+      byteSize: pdfBytes.byteLength,
+      pageCount: 1,
+      storageBucket: "test-materials",
+      storageKey: `${runId}/stale-claim.pdf`,
+    });
+    const replacement = await createNextMaterialRevision({
+      userId,
+      materialId: material.id,
+    });
+    if (!replacement) {
+      throw new Error("expected replacement revision");
+    }
+
+    await expect(
+      finalizeMaterialRevision({
+        userId,
+        materialId: material.id,
+        materialRevisionId: replacement.id,
+        contentHash: `sha256:${runId}:stale-claim-replacement`,
+        byteSize: pdfBytes.byteLength,
+        pageCount: 1,
+        storageBucket: "test-materials",
+        storageKey: `${runId}/stale-claim.pdf`,
+        copyReadyOcrFromRevisionId: revision.id,
+        indexedOcrPageNumbers: [],
+        now: new Date(claimTime.getTime() + 10 * 60 * 1_000 + 1),
+      }),
+    ).resolves.toMatchObject({ id: replacement.id });
+    await expect(
+      prisma.materialPage.findUniqueOrThrow({
+        where: {
+          materialRevisionId_pageNumber: {
+            materialRevisionId: revision.id,
+            pageNumber: 1,
+          },
+        },
+        select: { textStatus: true },
+      }),
+    ).resolves.toEqual({ textStatus: MaterialPageTextStatus.OCR_FAILED });
+  });
+
   it("defers replacement activation until in-flight OCR is indexed", async () => {
     const { material, revision } = await createMaterialWithInitialRevision({
       userId,
@@ -501,6 +564,7 @@ describeDatabase("localized material OCR evidence", () => {
         processingMetadata: { rebuildOfRevisionId: revision.id },
         copyReadyOcrFromRevisionId: revision.id,
         indexedOcrPageNumbers,
+        now: new Date("2026-07-09T16:35:00.000Z"),
       });
     await expect(finalizeReplacement([])).rejects.toThrow(/OCR is still processing/i);
     await expect(
