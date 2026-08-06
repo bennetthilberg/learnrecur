@@ -344,6 +344,22 @@ describe("material scope planning", () => {
     });
   });
 
+  it("preserves a lone exact lexical match instead of replacing it with broader stems", () => {
+    const exact = {
+      id: "exact-classes-lesson",
+      materialSectionId: "classes-lesson",
+      headingText: "Classes",
+      text: "Classes group related objects and behavior.",
+      lexicalScore: 2.4,
+      vectorScore: 0,
+    };
+
+    expect(selectMaterialTopicRetrievalChunks({ semantic: [], lexical: [exact] })).toEqual({
+      chunks: [exact],
+      focused: false,
+    });
+  });
+
   it("keeps nested evidence limits out of the Gemini response schema", () => {
     const plannerItemProperties =
       materialScopePlannerJsonSchema.properties.items.items.properties;

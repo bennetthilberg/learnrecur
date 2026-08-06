@@ -312,6 +312,80 @@ describeDatabase("localized material OCR evidence", () => {
     ).resolves.toBe(1);
   });
 
+  it("OCRs a still-ready revision after a replacement becomes active", async () => {
+    const { material, revision } = await createMaterialWithInitialRevision({
+      userId,
+      title: "Workbook with an existing draft batch",
+      kind: StudyMaterialKind.PDF,
+    });
+    const objectKey = `${runId}/obsolete-ready-revision.pdf`;
+    const obsoleteSource = await prisma.sourceFile.create({
+      data: {
+        userId,
+        materialRevisionId: revision.id,
+        kind: SourceFileKind.PDF,
+        status: SourceFileStatus.READY,
+        originalName: "obsolete-ready-revision.pdf",
+        mimeType: "application/pdf",
+        storageBucket: "test-materials",
+        storageKey: objectKey,
+      },
+    });
+    await prisma.materialPage.create({
+      data: {
+        userId,
+        materialRevisionId: revision.id,
+        pageNumber: 1,
+        textStatus: MaterialPageTextStatus.NEEDS_OCR,
+        contentHash: `visual:${runId}:obsolete-ready`,
+      },
+    });
+    await finalizeMaterialRevision({
+      userId,
+      materialId: material.id,
+      materialRevisionId: revision.id,
+      contentHash: `sha256:${runId}:obsolete-ready`,
+      byteSize: pdfBytes.byteLength,
+      pageCount: 1,
+      storageBucket: "test-materials",
+      storageKey: objectKey,
+    });
+    const replacement = await createNextMaterialRevision({
+      userId,
+      materialId: material.id,
+    });
+    if (!replacement) {
+      throw new Error("expected replacement revision");
+    }
+    await finalizeMaterialRevision({
+      userId,
+      materialId: material.id,
+      materialRevisionId: replacement.id,
+      contentHash: `sha256:${runId}:active-replacement`,
+      byteSize: pdfBytes.byteLength,
+      pageCount: 1,
+      storageBucket: "test-materials",
+      storageKey: objectKey,
+    });
+
+    await expect(
+      ensureMaterialPageOcr({
+        userId,
+        materialRevisionId: revision.id,
+        sourceFile: obsoleteSource,
+        pageRanges: [{ start: 1, end: 1 }],
+        storage: createStorage(pdfBytes),
+        ocrGenerator: async ({ pageNumbers }) => ({
+          pages: pageNumbers.map((pageNumber) => ({
+            pageNumber,
+            text: "OCR evidence for the still-ready revision batch.",
+          })),
+        }),
+        now: new Date("2026-07-09T16:15:00.000Z"),
+      }),
+    ).resolves.toMatchObject({ status: "processed", processedPageCount: 1 });
+  });
+
   it("defers replacement activation until in-flight OCR is indexed", async () => {
     const { material, revision } = await createMaterialWithInitialRevision({
       userId,

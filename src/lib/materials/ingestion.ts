@@ -1146,6 +1146,24 @@ async function ingestPdfRevision(input: {
     bucket: input.sourceFile.storageBucket,
     maxBytes: MAX_MATERIAL_PDF_BYTES,
   });
+  const contentHash = sha256(bytes);
+  if (input.rebuildOfRevisionId) {
+    const sourceRevision = await getPrisma().materialRevision.findFirst({
+      where: {
+        id: input.rebuildOfRevisionId,
+        userId: input.userId,
+        materialId: input.materialId,
+        status: MaterialRevisionStatus.READY,
+      },
+      select: { contentHash: true },
+    });
+    if (!sourceRevision?.contentHash || sourceRevision.contentHash !== contentHash) {
+      throw new MaterialIngestionError(
+        "The saved PDF changed after it was uploaded, so LearnRecur did not reuse its cached text.",
+        { retryable: false },
+      );
+    }
+  }
   const extracted = await extractPdfPages(bytes, { maximumPages: MAX_MATERIAL_PDF_PAGES });
   const indexedPages = await mergeCachedOcrIntoExtractedPdfPages({
     userId: input.userId,
@@ -1205,7 +1223,7 @@ async function ingestPdfRevision(input: {
     userId: input.userId,
     materialId: input.materialId,
     materialRevisionId: input.materialRevisionId,
-    contentHash: sha256(bytes),
+    contentHash,
     byteSize: bytes.byteLength,
     pageCount: extracted.pageCount,
     summary,

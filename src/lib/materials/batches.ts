@@ -47,7 +47,6 @@ import {
   buildMaterialTopicRecoveryQuery,
   resolveMaterialTopicSearchQuery,
   resolveStructuralMaterialScope,
-  selectFocusedMaterialTopicChunks,
   selectFocusedMaterialTopicRecoveryChunks,
   selectMaterialTopicRetrievalChunks,
   type MaterialPlanningSection,
@@ -2549,7 +2548,7 @@ async function retrievePlanningChunks(input: {
       });
     }
   }
-  let strictLexicalFocused = false;
+  let strictLexicalMatched = false;
   if (input.topicSearchQuery) {
     const lexicalMatches = await searchMaterialChunksLexical({
       userId: input.userId,
@@ -2560,18 +2559,21 @@ async function retrievePlanningChunks(input: {
       prefixMatching: true,
       excludeLikelyBackMatter: true,
     });
-    strictLexicalFocused =
-      selectFocusedMaterialTopicChunks(lexicalMatches).length > 0;
+    const strictLexical = selectMaterialTopicRetrievalChunks({
+      semantic: [],
+      lexical: lexicalMatches,
+    });
+    strictLexicalMatched = strictLexical.chunks.length > 0;
     const selected = selectMaterialTopicRetrievalChunks({
       semantic: ranked,
       lexical: lexicalMatches,
     });
-    if (selected.focused) {
-      ranked = [...selected.chunks];
-      focusedTopic = true;
+    if (selected.chunks.length > 0) {
+      ranked = uniqueById([...selected.chunks, ...strictLexical.chunks]);
+      focusedTopic = selected.focused || strictLexical.focused;
     }
   }
-  if (input.topicSearchQuery && !strictLexicalFocused) {
+  if (input.topicSearchQuery && !strictLexicalMatched) {
     const recoveryQuery = buildMaterialTopicRecoveryQuery(input.topicSearchQuery);
     if (recoveryQuery) {
       const minimumPrefixMatches = recoveryQuery.split(" ").length >= 2 ? 2 : 1;

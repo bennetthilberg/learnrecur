@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 import { PDFDocument, StandardFonts } from "pdf-lib";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -249,7 +249,7 @@ describeDatabase("material ingestion", () => {
       userId,
       materialId: material.id,
       materialRevisionId: activeRevision.id,
-      contentHash: `sha256:${runId}:reindexable`,
+      contentHash: createHash("sha256").update(bytes).digest("hex"),
       byteSize: bytes.byteLength,
       pageCount: 2,
       storageBucket: storage.bucketName,
@@ -492,6 +492,83 @@ describeDatabase("material ingestion", () => {
         (skill) => skill.id,
       ),
     ).toContain(linkedSkill.id);
+  });
+
+  it("rejects a rebuild when the preserved PDF bytes changed after queueing", async () => {
+    const original = await PDFDocument.create();
+    original.addPage([612, 792]).drawText("Original preserved lesson.");
+    const originalBytes = Buffer.from(await original.save());
+    const replacement = await PDFDocument.create();
+    replacement.addPage([612, 792]).drawText("Different replaced lesson.");
+    const replacementBytes = Buffer.from(await replacement.save());
+    const storage = createMemoryStorage();
+    const objectKey = `${runId}/changed-reindex/original.pdf`;
+    storage.objects.set(objectKey, originalBytes);
+    const material = await prisma.studyMaterial.create({
+      data: {
+        userId,
+        title: "Changed preserved PDF",
+        kind: StudyMaterialKind.PDF,
+        revisions: {
+          create: {
+            revisionNumber: 1,
+            storageBucket: storage.bucketName,
+            storageKey: objectKey,
+            sourceFiles: {
+              create: {
+                kind: SourceFileKind.PDF,
+                status: SourceFileStatus.READY,
+                originalName: "changed-preserved.pdf",
+                mimeType: "application/pdf",
+                byteSize: originalBytes.byteLength,
+                storageBucket: storage.bucketName,
+                storageKey: objectKey,
+              },
+            },
+          },
+        },
+      },
+      include: { revisions: true },
+    });
+    const activeRevision = material.revisions[0];
+    await finalizeMaterialRevision({
+      userId,
+      materialId: material.id,
+      materialRevisionId: activeRevision.id,
+      contentHash: createHash("sha256").update(originalBytes).digest("hex"),
+      byteSize: originalBytes.byteLength,
+      pageCount: 1,
+      storageBucket: storage.bucketName,
+      storageKey: objectKey,
+    });
+    const queued = await queueMaterialPdfReindex({
+      userId,
+      materialId: material.id,
+      now: new Date("2026-08-06T22:00:00.000Z"),
+      storage,
+      eventSender: { async sendMaterialIngestionRequested() {} },
+    });
+    expect(queued.status).toBe("queued");
+    if (queued.status !== "queued") {
+      throw new Error("expected queued PDF reindex");
+    }
+    storage.objects.set(objectKey, replacementBytes);
+
+    await expect(
+      runMaterialIngestionJob({
+        userId,
+        materialRevisionId: queued.materialRevisionId,
+        storage,
+        embeddingGenerator: null,
+        summaryGenerator: null,
+      }),
+    ).rejects.toThrow(/saved PDF changed/i);
+    await expect(
+      prisma.studyMaterial.findUniqueOrThrow({
+        where: { id: material.id },
+        select: { activeRevisionId: true },
+      }),
+    ).resolves.toEqual({ activeRevisionId: activeRevision.id });
   });
 
   it("allows a new PDF rebuild after the previous rebuild fails to queue", async () => {

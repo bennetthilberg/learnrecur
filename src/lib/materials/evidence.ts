@@ -8,9 +8,11 @@ import { z } from "zod";
 
 import {
   MaterialPageTextStatus,
+  MaterialRevisionStatus,
   type Prisma,
   SourceFileKind,
   SourceFileStatus,
+  StudyMaterialStatus,
 } from "@/generated/prisma/client";
 import { getGeminiEnv } from "@/lib/env";
 import {
@@ -239,10 +241,15 @@ export async function ensureMaterialPageOcr(input: {
     return { status: "unavailable" as const, processedPageCount: 0 };
   }
   const claimedCandidates = await prisma.$transaction(async (tx) => {
-    const lockedMaterials = await tx.$queryRaw<
-      Array<{ activeRevisionId: string | null }>
+    const lockedRevisions = await tx.$queryRaw<
+      Array<{
+        materialStatus: StudyMaterialStatus;
+        revisionStatus: MaterialRevisionStatus;
+      }>
     >`
-      SELECT material."activeRevisionId" AS "activeRevisionId"
+      SELECT
+        material."status" AS "materialStatus",
+        revision."status" AS "revisionStatus"
       FROM "material_revisions" revision
       INNER JOIN "study_materials" material
         ON material."id" = revision."materialId"
@@ -251,7 +258,10 @@ export async function ensureMaterialPageOcr(input: {
         AND revision."userId" = ${input.userId}
       FOR UPDATE OF material
     `;
-    if (lockedMaterials[0]?.activeRevisionId !== input.materialRevisionId) {
+    if (
+      lockedRevisions[0]?.materialStatus !== StudyMaterialStatus.ACTIVE ||
+      lockedRevisions[0]?.revisionStatus !== MaterialRevisionStatus.READY
+    ) {
       return [] as typeof candidates;
     }
     const claimedPages: typeof candidates = [];

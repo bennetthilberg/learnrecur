@@ -417,8 +417,17 @@ export function selectMaterialTopicRetrievalChunks<
   if (semantic.length > 0) {
     return { chunks: semantic, focused: true };
   }
-  const lexical = selectFocusedMaterialTopicChunks(input.lexical);
-  return { chunks: lexical, focused: lexical.length > 0 };
+  const focusedLexical = selectFocusedMaterialTopicChunks(input.lexical);
+  if (focusedLexical.length > 0) {
+    return { chunks: focusedLexical, focused: true };
+  }
+  const exactLexical = input.lexical.filter(
+    (chunk) =>
+      chunk.lexicalScore > 0 &&
+      chunk.materialSectionId !== null &&
+      !isLikelyBackMatterEvidence(chunk),
+  );
+  return { chunks: exactLexical, focused: false };
 }
 
 export async function recoverBackMatterMaterialScope<
