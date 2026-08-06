@@ -229,7 +229,7 @@ const structuralTitleStopWords = new Set([
 ]);
 
 const backMatterHeadingPattern =
-  /\b(?:answer\s+key|answers?\s+will\s+vary|solutions?|front\s+matter|table\s+of\s+contents|contents|index|glossary|bibliography|references)\b/iu;
+  /\b(?:answer\s+key|answers?\s+will\s+vary|solutions?\s+(?:key|manual)|front\s+matter|table\s+of\s+contents|contents|index|glossary|bibliography|references)\b/iu;
 
 const materialSkillRequestPattern =
   /^\s*(?:please\s+)?(?:make|create|generate|add)\s+(?:me\s+)?(?:(?:up\s+to\s+)?(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+)?(?:new\s+)?skills?\s+(?:for|about|on|covering|from)\s+(.+?)\s*$/iu;
@@ -289,6 +289,8 @@ function normalizeMaterialTopicRecoveryText(value: string) {
   return value
     .normalize("NFC")
     .toLocaleLowerCase()
+    .replace(/\u0307/gu, "")
+    .normalize("NFC")
     .replace(/[^\p{L}\p{N}]+/gu, " ")
     .trim();
 }
@@ -296,6 +298,9 @@ function normalizeMaterialTopicRecoveryText(value: string) {
 function normalizeMaterialTopicRecoveryToken(token: string) {
   if (token.length > 4 && token.endsWith("ies")) {
     return token.slice(0, -3);
+  }
+  if (token.length > 4 && token.endsWith("es")) {
+    return token.slice(0, -2);
   }
   if (token.length > 6 && token.endsWith("ing")) {
     return token.slice(0, -3);

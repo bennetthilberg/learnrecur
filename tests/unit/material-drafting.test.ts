@@ -13,6 +13,7 @@ import {
   expandPlanningChunkNeighbors,
   generateValidatedMaterialScopePlan,
   generateVerifiedMaterialDraft,
+  isLikelyBackMatterEvidence,
   repairMaterialDraftTarget,
   recoverBackMatterMaterialScope,
   resolveMaterialTopicSearchQuery,
@@ -110,6 +111,9 @@ describe("material scope planning", () => {
     expect(resolveMaterialTopicSearchQuery("make skills for números ordinales")).toBe(
       "números ordinales",
     );
+    expect(resolveMaterialTopicSearchQuery("make skills for İspanyol verbs")).toBe(
+      "ispanyol verbs",
+    );
     expect(resolveMaterialTopicSearchQuery("zygomatic conjugation sentinel")).toBeNull();
   });
 
@@ -120,12 +124,34 @@ describe("material scope planning", () => {
       ),
     ).toBe("conjugat ar er ir verb preterit");
     expect(buildMaterialTopicRecoveryQuery("números ordinales")).toBe(
-      "número ordinale",
+      "número ordinal",
     );
     expect(buildMaterialTopicRecoveryQuery("make skills for ser and estar")).toBe(
       "ser estar",
     );
     expect(buildMaterialTopicRecoveryQuery("make skills for cities")).toBe("cit");
+    expect(buildMaterialTopicRecoveryQuery("make skills for İspanyol classes")).toBe(
+      "ispanyol class",
+    );
+  });
+
+  it("does not mistake instructional solution language for answer-key material", () => {
+    expect(
+      isLikelyBackMatterEvidence({
+        id: "quadratic-solutions",
+        materialSectionId: "quadratics",
+        headingText: "Quadratic equations",
+        text: "Solutions of quadratic equations can be found by factoring.",
+      }),
+    ).toBe(false);
+    expect(
+      isLikelyBackMatterEvidence({
+        id: "solution-key",
+        materialSectionId: "back-matter",
+        headingText: "Solution key",
+        text: "Solution key for the chapter exercises.",
+      }),
+    ).toBe(true);
   });
 
   it("focuses open-topic retrieval on the dominant instructional section", () => {
