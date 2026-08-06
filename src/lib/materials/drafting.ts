@@ -288,7 +288,7 @@ export function buildMaterialTopicRecoveryQuery(topic: string): string | null {
 function normalizeMaterialTopicRecoveryText(value: string) {
   return value
     .normalize("NFC")
-    .toLocaleLowerCase()
+    .toLowerCase()
     .replace(/\u0307/gu, "")
     .normalize("NFC")
     .replace(/[^\p{L}\p{N}]+/gu, " ")

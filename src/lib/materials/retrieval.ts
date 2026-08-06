@@ -196,6 +196,8 @@ export function toSimplePrefixTsQuery(query: string, operator: "and" | "or" = "a
 function simplePrefixTerms(query: string) {
   return query
     .normalize("NFC")
-    .toLocaleLowerCase()
+    .toLowerCase()
+    .replace(/\u0307/gu, "")
+    .normalize("NFC")
     .match(/[\p{L}\p{N}]+/gu) ?? [];
 }
