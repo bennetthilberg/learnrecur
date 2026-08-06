@@ -1,14 +1,16 @@
 import "server-only";
 
+import { randomUUID } from "node:crypto";
+
 import {
   MaterialCleanupStatus,
-  MaterialPageTextStatus,
   MaterialRevisionStatus,
   SkillDraftBatchStatus,
   StudyMaterialKind,
   StudyMaterialStatus,
   Prisma,
 } from "@/generated/prisma/client";
+import { readyMaterialOcrPageQuery } from "@/lib/materials/ocr-cache";
 import { getPrisma } from "@/lib/prisma";
 
 export type CreateMaterialInput = {
@@ -169,52 +171,62 @@ export async function finalizeMaterialRevision(input: {
       input.copyReadyOcrFromRevisionId &&
       input.copyReadyOcrFromRevisionId !== revision.id
     ) {
+      const readyOcrQuery = readyMaterialOcrPageQuery({
+        userId: input.userId,
+        materialRevisionId: input.copyReadyOcrFromRevisionId,
+      });
       const readyOcrPages = await tx.materialPage.findMany({
         where: {
-          userId: input.userId,
-          materialRevisionId: input.copyReadyOcrFromRevisionId,
-          textStatus: MaterialPageTextStatus.OCR_READY,
-          ocrText: { not: null },
+          ...readyOcrQuery.where,
           materialRevision: { materialId: input.materialId },
+          ...(input.pageCount ? { pageNumber: { lte: input.pageCount } } : {}),
         },
         orderBy: { pageNumber: "asc" },
-        select: {
-          pageNumber: true,
-          embeddedText: true,
-          ocrText: true,
-          textStatus: true,
-          contentHash: true,
-          tokenEstimate: true,
-          metadata: true,
-        },
+        select: readyOcrQuery.select,
       });
-      for (const page of readyOcrPages) {
-        await tx.materialPage.upsert({
-          where: {
-            materialRevisionId_pageNumber: {
-              materialRevisionId: revision.id,
-              pageNumber: page.pageNumber,
-            },
-          },
-          create: {
-            userId: input.userId,
-            materialRevisionId: revision.id,
-            pageNumber: page.pageNumber,
-            embeddedText: page.embeddedText,
-            ocrText: page.ocrText,
-            textStatus: page.textStatus,
-            contentHash: page.contentHash,
-            tokenEstimate: page.tokenEstimate,
-            metadata: page.metadata ?? Prisma.JsonNull,
-          },
-          update: {
-            ocrText: page.ocrText,
-            textStatus: page.textStatus,
-            contentHash: page.contentHash,
-            tokenEstimate: page.tokenEstimate,
-            metadata: page.metadata ?? Prisma.JsonNull,
-          },
+      if (readyOcrPages.length > 0) {
+        const copiedAt = new Date();
+        const values = readyOcrPages.map((page) => {
+          const metadata = page.metadata === null ? null : JSON.stringify(page.metadata);
+          return Prisma.sql`(
+            ${randomUUID()},
+            ${input.userId},
+            ${revision.id},
+            ${page.pageNumber},
+            ${page.embeddedText},
+            ${page.ocrText},
+            ${page.textStatus}::"MaterialPageTextStatus",
+            ${page.contentHash},
+            ${page.tokenEstimate},
+            ${metadata}::jsonb,
+            ${copiedAt},
+            ${copiedAt}
+          )`;
         });
+        await tx.$executeRaw`
+          INSERT INTO "material_pages" (
+            "id",
+            "userId",
+            "materialRevisionId",
+            "pageNumber",
+            "embeddedText",
+            "ocrText",
+            "textStatus",
+            "contentHash",
+            "tokenEstimate",
+            "metadata",
+            "createdAt",
+            "updatedAt"
+          )
+          VALUES ${Prisma.join(values)}
+          ON CONFLICT ("materialRevisionId", "pageNumber") DO UPDATE SET
+            "ocrText" = EXCLUDED."ocrText",
+            "textStatus" = EXCLUDED."textStatus",
+            "contentHash" = EXCLUDED."contentHash",
+            "tokenEstimate" = EXCLUDED."tokenEstimate",
+            "metadata" = EXCLUDED."metadata",
+            "updatedAt" = EXCLUDED."updatedAt"
+        `;
       }
     }
 

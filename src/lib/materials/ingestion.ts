@@ -32,6 +32,7 @@ import {
   createNextMaterialRevision,
   finalizeMaterialRevision,
 } from "@/lib/materials/lifecycle";
+import { readyMaterialOcrPageQuery } from "@/lib/materials/ocr-cache";
 import {
   buildPdfIndex,
   chunkSectionText,
@@ -720,7 +721,7 @@ export async function queueMaterialPdfReindex(input: {
       revisions: {
         orderBy: { revisionNumber: "desc" },
         take: 1,
-        select: { id: true },
+        select: { id: true, status: true },
       },
     },
   });
@@ -737,7 +738,11 @@ export async function queueMaterialPdfReindex(input: {
   ) {
     return { status: "not-found", message: "Ready PDF material was not found." };
   }
-  if (material.revisions[0]?.id !== activeRevision.id) {
+  const latestRevision = material.revisions[0];
+  if (
+    latestRevision?.id !== activeRevision.id &&
+    latestRevision?.status !== MaterialRevisionStatus.FAILED
+  ) {
     return { status: "not-queued", message: "This material is already rebuilding." };
   }
   if (storageSetup.storage.bucketName !== sourceFile.storageBucket) {
@@ -752,7 +757,7 @@ export async function queueMaterialPdfReindex(input: {
     const expectedByteSize = sourceFile.byteSize ?? activeRevision.byteSize;
     if (
       (expectedByteSize !== null && head.byteSize !== expectedByteSize) ||
-      head.mimeType?.split(";")[0] !== "application/pdf"
+      head.mimeType?.split(";")[0]?.trim().toLowerCase() !== "application/pdf"
     ) {
       return { status: "not-queued", message: "The saved PDF could not be verified." };
     }
@@ -780,7 +785,7 @@ export async function queueMaterialPdfReindex(input: {
         revisions: {
           orderBy: { revisionNumber: "desc" },
           take: 1,
-          select: { id: true, revisionNumber: true },
+          select: { id: true, revisionNumber: true, status: true },
         },
       },
     });
@@ -788,7 +793,8 @@ export async function queueMaterialPdfReindex(input: {
     if (
       !locked ||
       locked.activeRevisionId !== activeRevision.id ||
-      latestRevision?.id !== activeRevision.id
+      (latestRevision?.id !== activeRevision.id &&
+        latestRevision?.status !== MaterialRevisionStatus.FAILED)
     ) {
       return { status: "already-running" as const };
     }
@@ -817,27 +823,16 @@ export async function queueMaterialPdfReindex(input: {
         byteSize: null,
         storageBucket: sourceFile.storageBucket,
         storageKey: sourceFile.storageKey,
-        metadata: sourceFile.metadata ?? Prisma.JsonNull,
+        metadata: sourceFile.metadata ?? Prisma.DbNull,
       },
       select: { id: true },
     });
     const cachedOcrPages = await tx.materialPage.findMany({
-      where: {
+      ...readyMaterialOcrPageQuery({
         userId: input.userId,
         materialRevisionId: activeRevision.id,
-        textStatus: MaterialPageTextStatus.OCR_READY,
-        ocrText: { not: null },
-      },
+      }),
       orderBy: { pageNumber: "asc" },
-      select: {
-        pageNumber: true,
-        embeddedText: true,
-        ocrText: true,
-        textStatus: true,
-        contentHash: true,
-        tokenEstimate: true,
-        metadata: true,
-      },
     });
     if (cachedOcrPages.length > 0) {
       await tx.materialPage.createMany({
@@ -850,7 +845,7 @@ export async function queueMaterialPdfReindex(input: {
           textStatus: page.textStatus,
           contentHash: page.contentHash,
           tokenEstimate: page.tokenEstimate,
-          metadata: page.metadata ?? Prisma.JsonNull,
+          metadata: page.metadata ?? Prisma.DbNull,
         })),
       });
     }
@@ -1237,17 +1232,14 @@ async function mergeCachedOcrIntoExtractedPdfPages(input: {
   materialRevisionId: string;
   rebuildOfRevisionId: string | null;
   pages: ExtractedPdfPage[];
-}) {
+}): Promise<IndexedPdfPage[]> {
   const prisma = getPrisma();
   const readyPageQuery = (materialRevisionId: string) =>
     prisma.materialPage.findMany({
-      where: {
+      ...readyMaterialOcrPageQuery({
         userId: input.userId,
         materialRevisionId,
-        textStatus: MaterialPageTextStatus.OCR_READY,
-        ocrText: { not: null },
-      },
-      select: { pageNumber: true, ocrText: true },
+      }),
     });
   const [preservedPages, newlyReadySourcePages] = await Promise.all([
     readyPageQuery(input.materialRevisionId),
@@ -1268,6 +1260,7 @@ async function mergeCachedOcrIntoExtractedPdfPages(input: {
     const embeddedText = page.text.trim();
     return {
       ...page,
+      extractedText: page.text,
       text:
         embeddedText
           ? embeddedText.includes(ocrText)
@@ -1502,11 +1495,15 @@ type MaterialSourceFile = {
   metadata: Prisma.JsonValue | null;
 };
 
+type IndexedPdfPage = ExtractedPdfPage & {
+  extractedText?: string;
+};
+
 async function persistPdfIndex(input: {
   userId: string;
   materialRevisionId: string;
   sourceFileId: string;
-  pages: ExtractedPdfPage[];
+  pages: IndexedPdfPage[];
   sections: ReturnType<typeof buildPdfIndex>["sections"];
   chunks: ReturnType<typeof buildPdfIndex>["chunks"];
 }) {
@@ -1525,21 +1522,10 @@ async function persistPdfIndex(input: {
 
   await prisma.$transaction(async (tx) => {
     const cachedOcrPages = await tx.materialPage.findMany({
-      where: {
+      ...readyMaterialOcrPageQuery({
         materialRevisionId: input.materialRevisionId,
         userId: input.userId,
-        textStatus: MaterialPageTextStatus.OCR_READY,
-        ocrText: { not: null },
-      },
-      select: {
-        pageNumber: true,
-        embeddedText: true,
-        ocrText: true,
-        textStatus: true,
-        contentHash: true,
-        tokenEstimate: true,
-        metadata: true,
-      },
+      }),
     });
     await tx.materialChunk.deleteMany({ where: { materialRevisionId: input.materialRevisionId, userId: input.userId } });
     await tx.materialPage.deleteMany({ where: { materialRevisionId: input.materialRevisionId, userId: input.userId } });
@@ -1568,13 +1554,13 @@ async function persistPdfIndex(input: {
         textStatus: MaterialPageTextStatus;
         contentHash: string;
         tokenEstimate: number;
-        metadata: Prisma.InputJsonValue;
+        metadata: Prisma.InputJsonValue | typeof Prisma.DbNull;
       }
     >();
     for (const page of visualPages) {
       pagesToPersist.set(page.pageNumber, {
         pageNumber: page.pageNumber,
-        embeddedText: page.text || null,
+        embeddedText: (page.extractedText ?? page.text) || null,
         ocrText: null,
         textStatus: page.needsOcr
           ? MaterialPageTextStatus.NEEDS_OCR
@@ -1595,7 +1581,7 @@ async function persistPdfIndex(input: {
         textStatus: page.textStatus,
         contentHash: page.contentHash,
         tokenEstimate: page.tokenEstimate,
-        metadata: (page.metadata ?? Prisma.JsonNull) as Prisma.InputJsonValue,
+        metadata: page.metadata ?? Prisma.DbNull,
       });
     }
     if (pagesToPersist.size > 0) {

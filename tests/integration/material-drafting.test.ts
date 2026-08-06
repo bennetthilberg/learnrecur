@@ -1125,9 +1125,11 @@ describeDatabase("material multi-skill drafting", () => {
       expect.arrayContaining(teachingChunkIds),
     );
     expect(planningInput?.chunks.map((chunk) => chunk.id)).not.toContain(answerKeyChunkId);
-    expect(planningInput?.chunks.map((chunk) => chunk.id)).not.toEqual(
-      expect.arrayContaining(answerKeyChunkIds),
-    );
+    expect(
+      planningInput?.chunks
+        .map((chunk) => chunk.id)
+        .filter((id) => answerKeyChunkIds.includes(id)),
+    ).toEqual([]);
   });
 
   it("recovers comparison terms split across a section despite a semantic decoy", async () => {
