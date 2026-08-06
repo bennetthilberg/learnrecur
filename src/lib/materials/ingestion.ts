@@ -792,6 +792,7 @@ export async function queueMaterialPdfReindex(input: {
     const latestRevision = locked?.revisions[0];
     if (
       !locked ||
+      !latestRevision ||
       locked.activeRevisionId !== activeRevision.id ||
       (latestRevision?.id !== activeRevision.id &&
         latestRevision?.status !== MaterialRevisionStatus.FAILED)
