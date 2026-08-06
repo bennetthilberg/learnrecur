@@ -162,6 +162,22 @@ describe("material scope planning", () => {
         text: "Solution key for the chapter exercises.",
       }),
     ).toBe(true);
+    expect(
+      isLikelyBackMatterEvidence({
+        id: "database-indexes",
+        materialSectionId: "database-indexing",
+        headingText: "Database indexing",
+        text: "A database index speeds up queries by storing ordered lookup keys.",
+      }),
+    ).toBe(false);
+    expect(
+      isLikelyBackMatterEvidence({
+        id: "book-index",
+        materialSectionId: "back-matter",
+        headingText: "Index",
+        text: "Database indexing, 214; query plans, 219.",
+      }),
+    ).toBe(true);
   });
 
   it("focuses open-topic retrieval on the dominant instructional section", () => {

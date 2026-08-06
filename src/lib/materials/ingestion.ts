@@ -1152,12 +1152,18 @@ async function ingestPdfRevision(input: {
     maxBytes: MAX_MATERIAL_PDF_BYTES,
   });
   const extracted = await extractPdfPages(bytes, { maximumPages: MAX_MATERIAL_PDF_PAGES });
-  if (extracted.pages.every((page) => page.needsOcr)) {
+  const indexedPages = await mergeCachedOcrIntoExtractedPdfPages({
+    userId: input.userId,
+    materialRevisionId: input.materialRevisionId,
+    rebuildOfRevisionId: input.rebuildOfRevisionId,
+    pages: extracted.pages,
+  });
+  if (indexedPages.every((page) => page.needsOcr)) {
     // Keep the revision usable: selected pages can be OCRed lazily and cached.
     // A placeholder section gives scope planning a stable page range meanwhile.
-    extracted.pages[0] = { ...extracted.pages[0], text: "Scanned document", needsOcr: true };
+    indexedPages[0] = { ...indexedPages[0], text: "Scanned document", needsOcr: true };
   }
-  const index = buildPdfIndex(extracted.pages);
+  const index = buildPdfIndex(indexedPages);
   if (index.sections.length === 0) {
     index.sections.push({
       ordinal: 0,
@@ -1173,7 +1179,7 @@ async function ingestPdfRevision(input: {
     userId: input.userId,
     materialRevisionId: input.materialRevisionId,
     sourceFileId: input.sourceFile.id,
-    pages: extracted.pages,
+    pages: indexedPages,
     sections: index.sections,
     chunks: index.chunks,
   });
@@ -1183,7 +1189,7 @@ async function ingestPdfRevision(input: {
     chunks: persisted.chunks,
     embeddingGenerator: input.embeddingGenerator,
   });
-  const excerpt = extracted.pages
+  const excerpt = indexedPages
     .filter((page) => !page.needsOcr)
     .map((page) => page.text)
     .join("\n\n")
@@ -1224,6 +1230,54 @@ async function ingestPdfRevision(input: {
   });
 
   return { pageCount: extracted.pageCount, chunkCount: persisted.chunks.length };
+}
+
+async function mergeCachedOcrIntoExtractedPdfPages(input: {
+  userId: string;
+  materialRevisionId: string;
+  rebuildOfRevisionId: string | null;
+  pages: ExtractedPdfPage[];
+}) {
+  const prisma = getPrisma();
+  const readyPageQuery = (materialRevisionId: string) =>
+    prisma.materialPage.findMany({
+      where: {
+        userId: input.userId,
+        materialRevisionId,
+        textStatus: MaterialPageTextStatus.OCR_READY,
+        ocrText: { not: null },
+      },
+      select: { pageNumber: true, ocrText: true },
+    });
+  const [preservedPages, newlyReadySourcePages] = await Promise.all([
+    readyPageQuery(input.materialRevisionId),
+    input.rebuildOfRevisionId
+      ? readyPageQuery(input.rebuildOfRevisionId)
+      : Promise.resolve([]),
+  ]);
+  const ocrByPage = new Map(
+    [...preservedPages, ...newlyReadySourcePages].flatMap((page) =>
+      page.ocrText?.trim() ? [[page.pageNumber, page.ocrText.trim()] as const] : [],
+    ),
+  );
+  return input.pages.map((page) => {
+    const ocrText = ocrByPage.get(page.pageNumber);
+    if (!ocrText) {
+      return page;
+    }
+    const embeddedText = page.text.trim();
+    return {
+      ...page,
+      text:
+        embeddedText
+          ? embeddedText.includes(ocrText)
+            ? embeddedText
+            : `${embeddedText}\n\n${ocrText}`
+          : ocrText,
+      needsOcr: false,
+      hasVisualContent: true,
+    };
+  });
 }
 
 function readRebuildOfRevisionId(metadata: Prisma.JsonValue | null) {

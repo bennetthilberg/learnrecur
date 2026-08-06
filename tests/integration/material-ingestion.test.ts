@@ -208,7 +208,11 @@ describeDatabase("material ingestion", () => {
 
   it("reindexes a ready PDF from the preserved original into a new immutable revision", async () => {
     const document = await PDFDocument.create();
-    document.addPage([612, 792]);
+    const font = await document.embedFont(StandardFonts.Helvetica);
+    document.addPage([612, 792]).drawText(
+      "Embedded overview text that does not contain the cached visual lesson topic.",
+      { x: 48, y: 720, size: 12, font },
+    );
     document.addPage([612, 792]);
     const bytes = Buffer.from(await document.save());
     const storage = createMemoryStorage();
@@ -397,7 +401,12 @@ describeDatabase("material ingestion", () => {
         userId,
         materialRevisionId: result.materialRevisionId,
         storage,
-        embeddingGenerator: null,
+        embeddingGenerator: async ({ texts }) =>
+          texts.map(() =>
+            Array.from({ length: MATERIAL_EMBEDDING_DIMENSIONS }, (_, index) =>
+              index === 0 ? 1 : 0,
+            ),
+          ),
         summaryGenerator: null,
       }),
     ).resolves.toMatchObject({ status: "ready", pageCount: 2 });
@@ -437,6 +446,19 @@ describeDatabase("material ingestion", () => {
       textStatus: MaterialPageTextStatus.OCR_READY,
       tokenEstimate: 10,
     });
+    const rebuiltIndex = await prisma.materialRevision.findUniqueOrThrow({
+      where: { id: result.materialRevisionId },
+      select: { processingMetadata: true, chunks: { select: { text: true } } },
+    });
+    expect(rebuiltIndex.processingMetadata).toMatchObject({ embeddingStatus: "ready" });
+    expect(rebuiltIndex.chunks.some((chunk) => chunk.text.includes("Cached OCR text"))).toBe(
+      true,
+    );
+    expect(
+      rebuiltIndex.chunks.some((chunk) =>
+        chunk.text.includes("OCR text that finished while the replacement was rebuilding"),
+      ),
+    ).toBe(true);
     expect(
       (await getMaterialDetail({ userId, materialId: material.id }))?.linkedSkills.map(
         (skill) => skill.id,

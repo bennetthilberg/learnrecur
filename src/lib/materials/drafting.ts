@@ -228,8 +228,10 @@ const structuralTitleStopWords = new Set([
   ...numberWords.keys(),
 ]);
 
-const backMatterHeadingPattern =
-  /\b(?:answer\s+key|answers?\s+will\s+vary|solutions?\s+(?:key|manual)|front\s+matter|table\s+of\s+contents|contents|index|glossary|bibliography|references)\b/iu;
+const strongBackMatterPattern =
+  /\b(?:answer\s+key|answers?\s+will\s+vary|solutions?\s+(?:key|manual)|front\s+matter|table\s+of\s+contents)\b/iu;
+const genericBackMatterHeadingPattern =
+  /^[\s\p{P}\p{S}]*(?:contents|index|glossary|bibliography|references)[\s\p{P}\p{S}]*$/iu;
 
 const materialSkillRequestPattern =
   /^\s*(?:please\s+)?(?:make|create|generate|add)\s+(?:me\s+)?(?:(?:up\s+to\s+)?(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+)?(?:new\s+)?skills?\s+(?:for|about|on|covering|from)\s+(.+?)\s*$/iu;
@@ -1176,13 +1178,14 @@ function isConfidentCanonicalTitle(terms: readonly string[]) {
 }
 
 function isLikelyBackMatterHeading(value: string) {
-  return backMatterHeadingPattern.test(value.slice(0, 500));
+  const heading = value.slice(0, 500);
+  return strongBackMatterPattern.test(heading) || genericBackMatterHeadingPattern.test(heading);
 }
 
 export function isLikelyBackMatterEvidence(chunk: MaterialPlanningEvidenceChunk) {
   return (
     isLikelyBackMatterHeading(chunk.headingText ?? "") ||
-    backMatterHeadingPattern.test(chunk.text.slice(0, 800))
+    strongBackMatterPattern.test(chunk.text.slice(0, 800))
   );
 }
 

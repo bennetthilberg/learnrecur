@@ -5,8 +5,10 @@ import { getPrisma } from "@/lib/prisma";
 
 export const MATERIAL_EMBEDDING_DIMENSIONS = 768;
 
-const LIKELY_BACK_MATTER_SQL_PATTERN =
-  "(^|[^[:alnum:]_])(answer[[:space:]]+key|answers?[[:space:]]+will[[:space:]]+vary|solutions?[[:space:]]+(key|manual)|front[[:space:]]+matter|table[[:space:]]+of[[:space:]]+contents|contents|index|glossary|bibliography|references)([^[:alnum:]_]|$)";
+const STRONG_BACK_MATTER_SQL_PATTERN =
+  "(^|[^[:alnum:]_])(answer[[:space:]]+key|answers?[[:space:]]+will[[:space:]]+vary|solutions?[[:space:]]+(key|manual)|front[[:space:]]+matter|table[[:space:]]+of[[:space:]]+contents)([^[:alnum:]_]|$)";
+const GENERIC_BACK_MATTER_HEADING_SQL_PATTERN =
+  "^[[:space:][:punct:]]*(contents|index|glossary|bibliography|references)[[:space:][:punct:]]*$";
 
 export type MaterialChunkSearchResult = {
   id: string;
@@ -156,8 +158,9 @@ export async function searchMaterialChunksLexical(input: {
     : Prisma.empty;
   const backMatterFilter = input.excludeLikelyBackMatter
     ? Prisma.sql`AND NOT (
-        COALESCE("headingText", '') ~* ${LIKELY_BACK_MATTER_SQL_PATTERN}
-        OR LEFT("text", 800) ~* ${LIKELY_BACK_MATTER_SQL_PATTERN}
+        COALESCE("headingText", '') ~* ${STRONG_BACK_MATTER_SQL_PATTERN}
+        OR COALESCE("headingText", '') ~* ${GENERIC_BACK_MATTER_HEADING_SQL_PATTERN}
+        OR LEFT("text", 800) ~* ${STRONG_BACK_MATTER_SQL_PATTERN}
       )`
     : Prisma.empty;
   const textQuery = prefixQuery
