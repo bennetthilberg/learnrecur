@@ -236,6 +236,28 @@ const materialSkillRequestPattern =
 
 const genericTrailingTopicTerms = new Set(["concepts", "rules", "topics"]);
 
+const materialTopicRecoveryStopTerms = new Set([
+  "a",
+  "about",
+  "add",
+  "an",
+  "and",
+  "create",
+  "for",
+  "from",
+  "generate",
+  "in",
+  "make",
+  "of",
+  "on",
+  "or",
+  "skill",
+  "skills",
+  "some",
+  "the",
+  "to",
+]);
+
 export function resolveMaterialTopicSearchQuery(instruction: string): string | null {
   const topic = extractMaterialRequestTopic(instruction);
   if (!topic) {
@@ -249,6 +271,31 @@ export function resolveMaterialTopicSearchQuery(instruction: string): string | n
     tokens.pop();
   }
   return tokens.length > 0 ? tokens.join(" ") : null;
+}
+
+export function buildMaterialTopicRecoveryQuery(topic: string): string | null {
+  const tokens = normalizeComparableText(topic)
+    .split(" ")
+    .filter(Boolean)
+    .filter((token) => !materialTopicRecoveryStopTerms.has(token))
+    .map(normalizeMaterialTopicRecoveryToken)
+    .filter((token) => token.length >= 4);
+
+  const uniqueTokens = [...new Set(tokens)];
+  return uniqueTokens.length > 0 ? uniqueTokens.join(" ") : null;
+}
+
+function normalizeMaterialTopicRecoveryToken(token: string) {
+  if (token.length > 6 && token.endsWith("ing")) {
+    return token.slice(0, -3);
+  }
+  if (token.length > 5 && token.endsWith("ed")) {
+    return token.slice(0, -2);
+  }
+  if (token.length > 4 && token.endsWith("s") && !token.endsWith("ss")) {
+    return token.slice(0, -1);
+  }
+  return token;
 }
 
 export function selectFocusedMaterialTopicChunks<
@@ -280,6 +327,43 @@ export function selectFocusedMaterialTopicChunks<
   const dominant = rankedSections[0]?.[1] ?? [];
   const runnerUp = rankedSections[1]?.[1] ?? [];
   if (dominant.length < 2 || dominant.length <= runnerUp.length) {
+    return [];
+  }
+  const dominantIds = new Set(dominant.map((chunk) => chunk.id));
+  return chunks.filter((chunk) => dominantIds.has(chunk.id));
+}
+
+export function selectFocusedMaterialTopicRecoveryChunks<
+  T extends MaterialPlanningEvidenceChunk & { lexicalScore: number },
+>(chunks: readonly T[]): T[] {
+  const bySection = new Map<string, T[]>();
+  for (const chunk of chunks) {
+    if (
+      chunk.lexicalScore <= 0 ||
+      !chunk.materialSectionId ||
+      isLikelyBackMatterEvidence(chunk)
+    ) {
+      continue;
+    }
+    const sectionChunks = bySection.get(chunk.materialSectionId) ?? [];
+    sectionChunks.push(chunk);
+    bySection.set(chunk.materialSectionId, sectionChunks);
+  }
+  const rankedSections = [...bySection.entries()].sort(([, left], [, right]) => {
+    const leftScores = left.map((chunk) => chunk.lexicalScore).sort((a, b) => b - a);
+    const rightScores = right.map((chunk) => chunk.lexicalScore).sort((a, b) => b - a);
+    return (
+      (rightScores[0] ?? 0) - (leftScores[0] ?? 0) ||
+      rightScores.slice(0, 3).reduce((sum, score) => sum + score, 0) -
+        leftScores.slice(0, 3).reduce((sum, score) => sum + score, 0) ||
+      right.length - left.length
+    );
+  });
+  const dominant = rankedSections[0]?.[1] ?? [];
+  const runnerUp = rankedSections[1]?.[1] ?? [];
+  const dominantMaximum = Math.max(0, ...dominant.map((chunk) => chunk.lexicalScore));
+  const runnerUpMaximum = Math.max(0, ...runnerUp.map((chunk) => chunk.lexicalScore));
+  if (dominant.length < 2 || dominantMaximum <= runnerUpMaximum) {
     return [];
   }
   const dominantIds = new Set(dominant.map((chunk) => chunk.id));

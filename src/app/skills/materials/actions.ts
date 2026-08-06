@@ -9,6 +9,7 @@ import {
   discardPreparedMaterialPdf,
   prepareMaterialPdf,
   queueMaterialPdfIngestion,
+  queueMaterialPdfReindex,
   queueWebsiteMaterialImport,
   queueWebsiteMaterialRefresh,
   retryMaterialIngestion,
@@ -184,6 +185,20 @@ export async function refreshWebsiteMaterialAction(formData: FormData) {
   }
   const materialId = formString(formData, "materialId");
   await queueWebsiteMaterialRefresh({
+    userId: user.userId,
+    materialId,
+    now: new Date(),
+  });
+  revalidateMaterialPaths(materialId);
+}
+
+export async function reindexMaterialPdfAction(formData: FormData) {
+  const user = await requireMaterialUser();
+  if (user.status === "error") {
+    return;
+  }
+  const materialId = formString(formData, "materialId");
+  await queueMaterialPdfReindex({
     userId: user.userId,
     materialId,
     now: new Date(),

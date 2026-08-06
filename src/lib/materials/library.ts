@@ -113,6 +113,7 @@ export async function getMaterialDetail(input: { userId: string; materialId: str
           pageCount: true,
           fetchedPageCount: true,
           summary: true,
+          processingMetadata: true,
           errorCode: true,
           errorMessage: true,
           finalizedAt: true,

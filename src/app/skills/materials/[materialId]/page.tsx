@@ -9,13 +9,17 @@ import { formatDisplayLabel } from "@/lib/formatters";
 import { getMaterialIngestionDisplayState } from "@/lib/materials/ingestion-status";
 import { getMaterialDetail } from "@/lib/materials/library";
 import { truncateMaterialTitle } from "@/lib/materials/pdf-upload";
-import { getMaterialAvailabilityMessage } from "@/lib/materials/presentation";
+import {
+  getMaterialAvailabilityMessage,
+  getMaterialIndexHealth,
+} from "@/lib/materials/presentation";
 import { buildMaterialSummaryFallback } from "@/lib/materials/summary";
 import { ensureDatabaseUser } from "@/lib/users";
 
 import { SkillsTopbar } from "../../skills-topbar";
 import {
   refreshWebsiteMaterialAction,
+  reindexMaterialPdfAction,
   retryMaterialIngestionAction,
 } from "../actions";
 import { MaterialDeleteControl } from "../material-delete-control";
@@ -70,6 +74,7 @@ export default async function MaterialDetailPage({ params }: { params: Promise<{
         outlineTitles: contentRevision.sections.map((section) => section.title),
       })
     : null;
+  const indexHealth = getMaterialIndexHealth(contentRevision?.processingMetadata);
 
   return (
     <main className="skillShell materialShell materialDetailShell">
@@ -154,6 +159,21 @@ export default async function MaterialDetailPage({ params }: { params: Promise<{
             <input name="materialRevisionId" type="hidden" value={revision.id} />
             <MaterialRetryButton>Retry import</MaterialRetryButton>
           </form>
+        </section>
+      ) : null}
+
+      {indexHealth.status === "degraded" && revision?.status === "READY" ? (
+        <section className="skillPanel materialFailurePanel" aria-live="polite">
+          <div>
+            <h2>{indexHealth.title}</h2>
+            <p>{indexHealth.description}</p>
+          </div>
+          {material.kind === "PDF" ? (
+            <form action={reindexMaterialPdfAction}>
+              <input name="materialId" type="hidden" value={material.id} />
+              <MaterialRetryButton>Rebuild search</MaterialRetryButton>
+            </form>
+          ) : null}
         </section>
       ) : null}
 

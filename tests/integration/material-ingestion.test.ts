@@ -14,6 +14,7 @@ import { queueMaterialDeletion, runMaterialCleanupJob } from "@/lib/materials/cl
 import {
   discardPreparedMaterialPdf,
   prepareMaterialPdf,
+  queueMaterialPdfReindex,
   queueMaterialPdfIngestion,
   queueWebsiteMaterialImport,
   queueWebsiteMaterialRefresh,
@@ -21,6 +22,7 @@ import {
   runMaterialIngestionJob,
 } from "@/lib/materials/ingestion";
 import { MATERIAL_QUEUE_STALE_AFTER_MS } from "@/lib/materials/ingestion-status";
+import { finalizeMaterialRevision } from "@/lib/materials/lifecycle";
 import { getMaterialDetail, getMaterialLibrary } from "@/lib/materials/library";
 import { MATERIAL_EMBEDDING_DIMENSIONS } from "@/lib/materials/retrieval";
 import { getPrisma } from "@/lib/prisma";
@@ -201,6 +203,126 @@ describeDatabase("material ingestion", () => {
       status: MaterialRevisionStatus.QUEUED,
       updatedAt: now,
     });
+  });
+
+  it("reindexes a ready PDF from the preserved original into a new immutable revision", async () => {
+    const document = await PDFDocument.create();
+    document.addPage([612, 792]);
+    const bytes = Buffer.from(await document.save());
+    const storage = createMemoryStorage();
+    const objectKey = `${runId}/reindex/original.pdf`;
+    storage.objects.set(objectKey, bytes);
+    const material = await prisma.studyMaterial.create({
+      data: {
+        userId,
+        title: "Reindexable Spanish reference",
+        kind: StudyMaterialKind.PDF,
+        revisions: {
+          create: {
+            revisionNumber: 1,
+            storageBucket: storage.bucketName,
+            storageKey: objectKey,
+            sourceFiles: {
+              create: {
+                kind: SourceFileKind.PDF,
+                status: SourceFileStatus.READY,
+                originalName: "spanish-reference.pdf",
+                mimeType: "application/pdf",
+                byteSize: bytes.byteLength,
+                storageBucket: storage.bucketName,
+                storageKey: objectKey,
+              },
+            },
+          },
+        },
+      },
+      include: { revisions: { include: { sourceFiles: true } } },
+    });
+    const activeRevision = material.revisions[0];
+    await finalizeMaterialRevision({
+      userId,
+      materialId: material.id,
+      materialRevisionId: activeRevision.id,
+      contentHash: `sha256:${runId}:reindexable`,
+      byteSize: bytes.byteLength,
+      pageCount: 1,
+      storageBucket: storage.bucketName,
+      storageKey: objectKey,
+      processingMetadata: { embeddingStatus: "unavailable" },
+    });
+    const sentRevisionIds: string[] = [];
+
+    const result = await queueMaterialPdfReindex({
+      userId,
+      materialId: material.id,
+      now: new Date("2026-08-06T20:00:00.000Z"),
+      storage,
+      eventSender: {
+        async sendMaterialIngestionRequested(payload) {
+          sentRevisionIds.push(payload.materialRevisionId);
+        },
+      },
+    });
+
+    expect(result).toMatchObject({ status: "queued", materialId: material.id });
+    if (result.status !== "queued") {
+      throw new Error("expected queued PDF reindex");
+    }
+    expect(sentRevisionIds).toEqual([result.materialRevisionId]);
+    const revisions = await prisma.materialRevision.findMany({
+      where: { materialId: material.id },
+      orderBy: { revisionNumber: "asc" },
+      include: { sourceFiles: true },
+    });
+    expect(revisions.map((revision) => revision.revisionNumber)).toEqual([1, 2]);
+    expect(revisions[1]).toMatchObject({
+      status: MaterialRevisionStatus.QUEUED,
+      storageBucket: storage.bucketName,
+      storageKey: objectKey,
+      sourceFiles: [
+        expect.objectContaining({
+          status: SourceFileStatus.UPLOADED,
+          storageBucket: storage.bucketName,
+          storageKey: objectKey,
+          byteSize: null,
+        }),
+      ],
+    });
+    expect(
+      await prisma.studyMaterial.findUniqueOrThrow({
+        where: { id: material.id },
+        select: { activeRevisionId: true },
+      }),
+    ).toEqual({ activeRevisionId: activeRevision.id });
+
+    await expect(
+      queueMaterialPdfReindex({
+        userId,
+        materialId: material.id,
+        now: new Date("2026-08-06T20:00:01.000Z"),
+        storage,
+        eventSender: { async sendMaterialIngestionRequested() {} },
+      }),
+    ).resolves.toMatchObject({
+      status: "not-queued",
+      message: expect.stringMatching(/already/i),
+    });
+
+    await expect(
+      runMaterialIngestionJob({
+        userId,
+        materialRevisionId: result.materialRevisionId,
+        storage,
+        embeddingGenerator: null,
+        summaryGenerator: null,
+      }),
+    ).resolves.toMatchObject({ status: "ready", pageCount: 1 });
+    expect(
+      await prisma.studyMaterial.findUniqueOrThrow({
+        where: { id: material.id },
+        select: { activeRevisionId: true },
+      }),
+    ).toEqual({ activeRevisionId: result.materialRevisionId });
   });
 
   it("does not requeue a revision that is still within the worker pickup window", async () => {

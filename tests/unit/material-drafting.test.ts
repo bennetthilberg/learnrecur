@@ -9,6 +9,7 @@ import {
 } from "@/lib/materials/ai";
 import {
   annotateMaterialPlanOverlaps,
+  buildMaterialTopicRecoveryQuery,
   expandPlanningChunkNeighbors,
   generateValidatedMaterialScopePlan,
   generateVerifiedMaterialDraft,
@@ -17,6 +18,7 @@ import {
   resolveMaterialTopicSearchQuery,
   resolveStructuralMaterialScope,
   selectMaterialTopicRetrievalChunks,
+  selectFocusedMaterialTopicRecoveryChunks,
   selectFocusedMaterialTopicChunks,
   summarizeMaterialDraftBatch,
   validateMaterialScopePlannerResponse,
@@ -108,6 +110,14 @@ describe("material scope planning", () => {
     expect(resolveMaterialTopicSearchQuery("zygomatic conjugation sentinel")).toBeNull();
   });
 
+  it("builds a relaxed recovery query without request glue or brittle inflections", () => {
+    expect(
+      buildMaterialTopicRecoveryQuery(
+        "conjugating ar er and ir verbs in the preterit",
+      ),
+    ).toBe("conjugat verb preterit");
+  });
+
   it("focuses open-topic retrieval on the dominant instructional section", () => {
     const focused = selectFocusedMaterialTopicChunks([
       {
@@ -159,6 +169,34 @@ describe("material scope planning", () => {
       "lesson-2",
       "lesson-3",
     ]);
+  });
+
+  it("prefers concentrated recovery relevance over a larger incidental section", () => {
+    const recovered = selectFocusedMaterialTopicRecoveryChunks([
+      ...Array.from({ length: 5 }, (_, index) => ({
+        id: `incidental-${index}`,
+        materialSectionId: "later-reference",
+        headingText: "Later reference",
+        text: "A later lesson mentions a verb and the preterit in passing.",
+        lexicalScore: 1.2 - index * 0.05,
+      })),
+      {
+        id: "teaching-1",
+        materialSectionId: "preterit-lesson",
+        headingText: "Part II",
+        text: "Formation of the preterit for regular verbs.",
+        lexicalScore: 3.3,
+      },
+      {
+        id: "teaching-2",
+        materialSectionId: "preterit-lesson",
+        headingText: "Part II",
+        text: "Conjugate regular verbs with the preterit endings.",
+        lexicalScore: 2.4,
+      },
+    ]);
+
+    expect(recovered.map((chunk) => chunk.id)).toEqual(["teaching-1", "teaching-2"]);
   });
 
   it("keeps successful semantic retrieval instead of replacing it with a weak lexical cluster", () => {

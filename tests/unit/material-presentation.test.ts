@@ -7,6 +7,7 @@ import {
   getMaterialDraftAdjustmentCopy,
   getMaterialDraftItemErrorMessage,
   getMaterialAvailabilityMessage,
+  getMaterialIndexHealth,
   getPublicMaterialActionErrorMessage,
 } from "@/lib/materials/presentation";
 
@@ -22,6 +23,18 @@ describe("material availability messages", () => {
       title: "Ready to create skills",
       description: "Choose any section from this material to start creating skills.",
       tone: "ready",
+    });
+  });
+
+  it("distinguishes a usable material from a fully healthy search index", () => {
+    expect(getMaterialIndexHealth({ embeddingStatus: "unavailable" })).toEqual({
+      status: "degraded",
+      title: "Search coverage needs a refresh",
+      description:
+        "The original is saved, but some topics may be harder to find. Rebuild the searchable copy without uploading again.",
+    });
+    expect(getMaterialIndexHealth({ embeddingStatus: "ready" })).toEqual({
+      status: "complete",
     });
   });
 

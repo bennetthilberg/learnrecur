@@ -44,8 +44,10 @@ import {
   generateVerifiedMaterialDraft,
   repairMaterialDraftTarget,
   recoverBackMatterMaterialScope,
+  buildMaterialTopicRecoveryQuery,
   resolveMaterialTopicSearchQuery,
   resolveStructuralMaterialScope,
+  selectFocusedMaterialTopicRecoveryChunks,
   selectMaterialTopicRetrievalChunks,
   type MaterialPlanningSection,
 } from "@/lib/materials/drafting";
@@ -2564,6 +2566,29 @@ async function retrievePlanningChunks(input: {
       focusedTopic = true;
     }
   }
+  if (input.topicSearchQuery && !focusedTopic && ranked.length === 0) {
+    const recoveryQuery = buildMaterialTopicRecoveryQuery(input.topicSearchQuery);
+    if (recoveryQuery) {
+      const recoveryMatches = (
+        await searchMaterialChunksLexical({
+          userId: input.userId,
+          materialRevisionId: input.materialRevisionId,
+          query: recoveryQuery,
+          materialSectionIds: input.sectionIds,
+          limit: 80,
+          prefixMatching: true,
+          prefixOperator: "or",
+        })
+      ).filter((chunk) =>
+        materialChunkMatchesRecoveryTerms(chunk, recoveryQuery),
+      );
+      const recovered = selectFocusedMaterialTopicRecoveryChunks(recoveryMatches);
+      if (recovered.length > 0) {
+        ranked = recovered;
+        focusedTopic = true;
+      }
+    }
+  }
   if (ranked.length === 0) {
     ranked = (
       await searchMaterialChunksLexical({
@@ -2700,6 +2725,21 @@ async function retrievePlanningChunks(input: {
     ]),
     focusedTopic,
   };
+}
+
+function materialChunkMatchesRecoveryTerms(
+  chunk: Pick<MaterialChunkSearchResult, "headingText" | "text">,
+  recoveryQuery: string,
+) {
+  const terms = recoveryQuery.split(" ").filter(Boolean);
+  const searchable = `${chunk.headingText ?? ""} ${chunk.text}`
+    .normalize("NFC")
+    .toLocaleLowerCase()
+    .match(/[\p{L}\p{N}]+/gu) ?? [];
+  const matchedTerms = terms.filter((term) =>
+    searchable.some((token) => token.startsWith(term)),
+  );
+  return matchedTerms.length >= Math.min(2, terms.length);
 }
 
 async function retrieveBackMatterRecoveryCandidates(input: {

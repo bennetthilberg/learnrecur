@@ -946,6 +946,144 @@ describeDatabase("material multi-skill drafting", () => {
     );
   });
 
+  it("recovers preterit teaching chunks from a malformed outline without embeddings", async () => {
+    const { material, revision } = await createMaterialWithInitialRevision({
+      userId,
+      title: "Malformed preterit outline fixture",
+      kind: StudyMaterialKind.PDF,
+    });
+    const broadPart = await prisma.materialSection.create({
+      data: {
+        userId,
+        materialRevisionId: revision.id,
+        ordinal: 0,
+        level: 1,
+        title: "Part II",
+        normalizedTitle: "part ii",
+        pageStart: 255,
+        pageEnd: 299,
+        headingPath: ["Part II"],
+      },
+    });
+    const answerKey = await prisma.materialSection.create({
+      data: {
+        userId,
+        materialRevisionId: revision.id,
+        ordinal: 1,
+        level: 1,
+        title: "Chapter 14 The Preterit Tense",
+        normalizedTitle: "chapter 14 the preterit tense",
+        pageStart: 601,
+        pageEnd: 601,
+        headingPath: ["Chapter 14 The Preterit Tense"],
+      },
+    });
+    const teachingChunkIds = [
+      `${runId}_preterit_teaching_ar`,
+      `${runId}_preterit_teaching_er_ir`,
+    ];
+    const answerKeyChunkId = `${runId}_preterit_answer_key`;
+    await prisma.materialChunk.createMany({
+      data: [
+        {
+          id: `${runId}_part_two_lead_in`,
+          userId,
+          materialRevisionId: revision.id,
+          materialSectionId: broadPart.id,
+          ordinal: 0,
+          text: "The previous lesson concludes with a reading comprehension exercise.",
+          tokenEstimate: 10,
+          contentHash: `sha256:${runId}:part-two-lead-in`,
+          headingText: broadPart.title,
+          locator: { kind: "pdf", pageRange: { start: 257, end: 261 } },
+        },
+        {
+          id: teachingChunkIds[0],
+          userId,
+          materialRevisionId: revision.id,
+          materialSectionId: broadPart.id,
+          ordinal: 1,
+          text: "Formation of the preterit. To conjugate regular -ar verbs, drop the ending and add the regular preterit endings.",
+          tokenEstimate: 18,
+          contentHash: `sha256:${runId}:preterit-ar`,
+          headingText: broadPart.title,
+          locator: { kind: "pdf", pageRange: { start: 262, end: 264 } },
+        },
+        {
+          id: teachingChunkIds[1],
+          userId,
+          materialRevisionId: revision.id,
+          materialSectionId: broadPart.id,
+          ordinal: 2,
+          text: "Regular -er and -ir verbs use the same preterit endings. Conjugate each verb by replacing its infinitive ending.",
+          tokenEstimate: 19,
+          contentHash: `sha256:${runId}:preterit-er-ir`,
+          headingText: broadPart.title,
+          locator: { kind: "pdf", pageRange: { start: 264, end: 267 } },
+        },
+        {
+          id: answerKeyChunkId,
+          userId,
+          materialRevisionId: revision.id,
+          materialSectionId: answerKey.id,
+          ordinal: 3,
+          text: "Answer Key Chapter 14. Irregular preterit exercise answers: hice, dije, fui.",
+          tokenEstimate: 12,
+          contentHash: `sha256:${runId}:preterit-answer-key`,
+          headingText: answerKey.title,
+          locator: { kind: "pdf", pageRange: { start: 601, end: 601 } },
+        },
+      ],
+    });
+    await finalizeMaterialRevision({
+      userId,
+      materialId: material.id,
+      materialRevisionId: revision.id,
+      contentHash: `sha256:${runId}:malformed-preterit`,
+      byteSize: 25_963_871,
+      pageCount: 628,
+      storageBucket: "test-materials",
+      storageKey: `${runId}/malformed-preterit.pdf`,
+      processingMetadata: { embeddingStatus: "unavailable" },
+    });
+    const planScope = vi.fn(async () => ({
+      resolutionStatus: "resolved" as const,
+      resolvedScopeLabel: "Regular preterit conjugations",
+      clarification: null,
+      warnings: [],
+      items: [
+        {
+          key: "regular-preterit-endings",
+          title: "Regular preterit endings",
+          objective: "Conjugate regular -ar, -er, and -ir verbs in the preterit.",
+          materialSectionIds: [broadPart.id],
+          evidenceChunkIds: teachingChunkIds,
+        },
+      ],
+    }));
+
+    const result = await planMaterialSkills({
+      userId,
+      input: {
+        materialId: material.id,
+        materialRevisionId: revision.id,
+        instruction: "make skills for conjugating -ar, -er, and -ir verbs in the preterit",
+        idempotencyKey: `${runId}_malformed_preterit_recovery`,
+      },
+      now: new Date(),
+      aiSetup: createAiSetup({ planScope }),
+      embeddingGenerator: null,
+    });
+
+    expect(result.status).toBe("planned");
+    const planningInput = planScope.mock.calls[0]?.[0];
+    expect(planningInput?.sections.map((section) => section.id)).toEqual([broadPart.id]);
+    expect(planningInput?.chunks.map((chunk) => chunk.id)).toEqual(
+      expect.arrayContaining(teachingChunkIds),
+    );
+    expect(planningInput?.chunks.map((chunk) => chunk.id)).not.toContain(answerKeyChunkId);
+  });
+
   it("reserves fallback evidence for later sections before truncating ranked chunks", async () => {
     const { material, revision } = await createMaterialWithInitialRevision({
       userId,

@@ -16,4 +16,10 @@ describe("material lexical retrieval", () => {
     );
     expect(toSimplePrefixTsQuery("!? ")).toBe("");
   });
+
+  it("can build a disjunctive prefix query for progressive topic recovery", () => {
+    expect(toSimplePrefixTsQuery("conjugat verb preterit", "or")).toBe(
+      "conjugat:* | verb:* | preterit:*",
+    );
+  });
 });

@@ -6,6 +6,32 @@ export type MaterialAvailabilityMessage = {
   tone: "ready" | "working" | "attention";
 };
 
+export type MaterialIndexHealth =
+  | { status: "complete" }
+  | {
+      status: "degraded";
+      title: string;
+      description: string;
+    };
+
+export function getMaterialIndexHealth(processingMetadata: unknown): MaterialIndexHealth {
+  if (
+    processingMetadata &&
+    typeof processingMetadata === "object" &&
+    !Array.isArray(processingMetadata) &&
+    (processingMetadata as Record<string, unknown>).embeddingStatus === "unavailable"
+  ) {
+    return {
+      status: "degraded",
+      title: "Search coverage needs a refresh",
+      description:
+        "The original is saved, but some topics may be harder to find. Rebuild the searchable copy without uploading again.",
+    };
+  }
+
+  return { status: "complete" };
+}
+
 const PROVIDER_ERROR_MARKERS = [
   "DEADLINE_EXCEEDED",
   "INVALID_ARGUMENT",

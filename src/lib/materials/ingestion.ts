@@ -669,6 +669,203 @@ export async function retryMaterialIngestion(input: {
   };
 }
 
+export async function queueMaterialPdfReindex(input: {
+  userId: string;
+  materialId: string;
+  now: Date;
+  storage?: SourceObjectStorage;
+  eventSender?: MaterialIngestionEventSender;
+}): Promise<QueueMaterialIngestionResult> {
+  const storageSetup = resolveMaterialStorage(input.storage);
+  if (storageSetup.status === "missing-env") {
+    return { status: "not-queued", message: storageSetup.message };
+  }
+  const envStatus = getInngestEnvStatus();
+  if (envStatus.status === "missing-env" && !input.eventSender) {
+    return { status: "not-queued", message: envStatus.message };
+  }
+
+  const prisma = getPrisma();
+  const material = await prisma.studyMaterial.findFirst({
+    where: {
+      id: input.materialId,
+      userId: input.userId,
+      kind: StudyMaterialKind.PDF,
+      status: StudyMaterialStatus.ACTIVE,
+    },
+    select: {
+      id: true,
+      collectionId: true,
+      activeRevision: {
+        select: {
+          id: true,
+          status: true,
+          byteSize: true,
+          sourceFiles: {
+            where: { kind: SourceFileKind.PDF },
+            orderBy: { createdAt: "asc" },
+            take: 1,
+            select: {
+              status: true,
+              originalName: true,
+              mimeType: true,
+              byteSize: true,
+              storageBucket: true,
+              storageKey: true,
+              metadata: true,
+            },
+          },
+        },
+      },
+      revisions: {
+        orderBy: { revisionNumber: "desc" },
+        take: 1,
+        select: { id: true },
+      },
+    },
+  });
+  const activeRevision = material?.activeRevision;
+  const sourceFile = activeRevision?.sourceFiles[0];
+  if (
+    !material ||
+    !activeRevision ||
+    activeRevision.status !== MaterialRevisionStatus.READY ||
+    sourceFile?.status !== SourceFileStatus.READY ||
+    !sourceFile.storageBucket ||
+    !sourceFile.storageKey ||
+    !sourceFile.mimeType
+  ) {
+    return { status: "not-found", message: "Ready PDF material was not found." };
+  }
+  if (material.revisions[0]?.id !== activeRevision.id) {
+    return { status: "not-queued", message: "This material is already rebuilding." };
+  }
+  if (storageSetup.storage.bucketName !== sourceFile.storageBucket) {
+    return { status: "not-queued", message: "The saved PDF storage location is unavailable." };
+  }
+
+  try {
+    const head = await storageSetup.storage.headObject({
+      key: sourceFile.storageKey,
+      bucket: sourceFile.storageBucket,
+    });
+    const expectedByteSize = sourceFile.byteSize ?? activeRevision.byteSize;
+    if (
+      (expectedByteSize !== null && head.byteSize !== expectedByteSize) ||
+      head.mimeType?.split(";")[0] !== "application/pdf"
+    ) {
+      return { status: "not-queued", message: "The saved PDF could not be verified." };
+    }
+  } catch {
+    return { status: "not-queued", message: "The saved PDF could not be verified." };
+  }
+
+  const created = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`
+      SELECT "id"
+      FROM "study_materials"
+      WHERE "id" = ${material.id} AND "userId" = ${input.userId}
+      FOR UPDATE
+    `;
+    const locked = await tx.studyMaterial.findFirst({
+      where: {
+        id: material.id,
+        userId: input.userId,
+        kind: StudyMaterialKind.PDF,
+        status: StudyMaterialStatus.ACTIVE,
+      },
+      select: {
+        collectionId: true,
+        activeRevisionId: true,
+        revisions: {
+          orderBy: { revisionNumber: "desc" },
+          take: 1,
+          select: { id: true, revisionNumber: true },
+        },
+      },
+    });
+    const latestRevision = locked?.revisions[0];
+    if (
+      !locked ||
+      locked.activeRevisionId !== activeRevision.id ||
+      latestRevision?.id !== activeRevision.id
+    ) {
+      return { status: "already-running" as const };
+    }
+    const revision = await tx.materialRevision.create({
+      data: {
+        userId: input.userId,
+        materialId: material.id,
+        revisionNumber: latestRevision.revisionNumber + 1,
+        status: MaterialRevisionStatus.QUEUED,
+        storageBucket: sourceFile.storageBucket,
+        storageKey: sourceFile.storageKey,
+      },
+      select: { id: true },
+    });
+    const nextSourceFile = await tx.sourceFile.create({
+      data: {
+        userId: input.userId,
+        collectionId: locked.collectionId,
+        materialRevisionId: revision.id,
+        kind: SourceFileKind.PDF,
+        status: SourceFileStatus.UPLOADED,
+        originalName: sourceFile.originalName,
+        mimeType: sourceFile.mimeType,
+        // The original source row already accounts for this shared object in storage quotas.
+        byteSize: null,
+        storageBucket: sourceFile.storageBucket,
+        storageKey: sourceFile.storageKey,
+        metadata: sourceFile.metadata ?? Prisma.JsonNull,
+      },
+      select: { id: true },
+    });
+    return {
+      status: "created" as const,
+      materialRevisionId: revision.id,
+      sourceFileId: nextSourceFile.id,
+    };
+  });
+  if (created.status === "already-running") {
+    return { status: "not-queued", message: "This material is already rebuilding." };
+  }
+
+  try {
+    await (input.eventSender ?? inngestMaterialIngestionEventSender).sendMaterialIngestionRequested({
+      userId: input.userId,
+      materialRevisionId: created.materialRevisionId,
+      requestedAt: input.now.toISOString(),
+    });
+  } catch {
+    await prisma.$transaction([
+      prisma.materialRevision.updateMany({
+        where: {
+          id: created.materialRevisionId,
+          userId: input.userId,
+          status: MaterialRevisionStatus.QUEUED,
+        },
+        data: {
+          status: MaterialRevisionStatus.FAILED,
+          errorCode: "EVENT_SEND_FAILED",
+          errorMessage: "Background processing could not be queued.",
+        },
+      }),
+      prisma.sourceFile.updateMany({
+        where: { id: created.sourceFileId, userId: input.userId },
+        data: { status: SourceFileStatus.FAILED },
+      }),
+    ]);
+    return { status: "not-queued", message: "PDF reindex could not be queued. Try again." };
+  }
+
+  return {
+    status: "queued",
+    materialId: material.id,
+    materialRevisionId: created.materialRevisionId,
+    message: "Search rebuild queued from the saved PDF.",
+  };
+}
+
 export async function queueWebsiteMaterialRefresh(input: {
   userId: string;
   materialId: string;

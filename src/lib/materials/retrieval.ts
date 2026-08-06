@@ -105,6 +105,7 @@ export async function searchMaterialChunksLexical(input: {
   materialSectionIds?: readonly string[];
   limit?: number;
   prefixMatching?: boolean;
+  prefixOperator?: "and" | "or";
 }): Promise<MaterialChunkSearchResult[]> {
   const prisma = getPrisma();
   const limit = Math.max(1, Math.min(input.limit ?? 24, 80));
@@ -112,7 +113,7 @@ export async function searchMaterialChunksLexical(input: {
     ? Prisma.sql`AND "materialSectionId" IN (${Prisma.join(input.materialSectionIds)})`
     : Prisma.empty;
   const prefixQuery = input.prefixMatching
-    ? toSimplePrefixTsQuery(input.query)
+    ? toSimplePrefixTsQuery(input.query, input.prefixOperator)
     : null;
   const textQuery = prefixQuery
     ? Prisma.sql`to_tsquery('simple', ${prefixQuery})`
@@ -149,11 +150,11 @@ export async function searchMaterialChunksLexical(input: {
   `;
 }
 
-export function toSimplePrefixTsQuery(query: string) {
+export function toSimplePrefixTsQuery(query: string, operator: "and" | "or" = "and") {
   return query
     .normalize("NFC")
     .toLocaleLowerCase()
     .match(/[\p{L}\p{N}]+/gu)
     ?.map((token) => `${token}:*`)
-    .join(" & ") ?? "";
+    .join(operator === "or" ? " | " : " & ") ?? "";
 }
