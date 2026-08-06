@@ -127,7 +127,7 @@ describe("material scope planning", () => {
       ),
     ).toBe("conjugat ar er ir verb preterit");
     expect(buildMaterialTopicRecoveryQuery("números ordinales")).toBe(
-      "número ordinal",
+      "número|numero ordinal",
     );
     expect(buildMaterialTopicRecoveryQuery("make skills for ser and estar")).toBe(
       "ser estar",
@@ -145,6 +145,8 @@ describe("material scope planning", () => {
     ).toBe("run plan stop action");
     expect(buildMaterialTopicRecoveryQuery("making predictions while hiking"))
       .toBe("mak prediction while hik");
+    expect(buildMaterialTopicRecoveryQuery("matrix indices and vertices"))
+      .toBe("matrix index|indice vertex|vertice");
   });
 
   it("does not mistake instructional solution language for answer-key material", () => {

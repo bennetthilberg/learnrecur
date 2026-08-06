@@ -260,6 +260,13 @@ const materialTopicRecoveryStopTerms = new Set([
   "to",
 ]);
 
+const irregularIcesRecoverySingulars = new Map([
+  ["appendices", "appendix"],
+  ["indices", "index"],
+  ["matrices", "matrix"],
+  ["vertices", "vertex"],
+]);
+
 export function resolveMaterialTopicSearchQuery(instruction: string): string | null {
   const topic = extractMaterialRequestTopic(instruction);
   if (!topic) {
@@ -276,15 +283,24 @@ export function resolveMaterialTopicSearchQuery(instruction: string): string | n
 }
 
 export function buildMaterialTopicRecoveryQuery(topic: string): string | null {
-  const tokens = normalizeMaterialTopicRecoveryText(topic)
+  const tokenGroups = normalizeMaterialTopicRecoveryText(topic)
     .split(" ")
     .filter(Boolean)
     .filter((token) => !materialTopicRecoveryStopTerms.has(token))
     .map(normalizeMaterialTopicRecoveryToken)
-    .filter((token) => token.length >= 2);
+    .map((tokens) =>
+      [...new Set(tokens.flatMap(addDiacriticCompatibilityAlternative))].filter(
+        (token) => token.length >= 2,
+      ),
+    )
+    .filter((tokens) => tokens.length > 0);
 
-  const uniqueTokens = [...new Set(tokens)];
-  return uniqueTokens.length > 0 ? uniqueTokens.join(" ") : null;
+  const uniqueGroups = [
+    ...new Map(tokenGroups.map((tokens) => [tokens.join("|"), tokens])).values(),
+  ];
+  return uniqueGroups.length > 0
+    ? uniqueGroups.map((tokens) => tokens.join("|")).join(" ")
+    : null;
 }
 
 function normalizeMaterialTopicRecoveryText(value: string) {
@@ -298,22 +314,31 @@ function normalizeMaterialTopicRecoveryText(value: string) {
 }
 
 function normalizeMaterialTopicRecoveryToken(token: string) {
+  const irregularSingular = irregularIcesRecoverySingulars.get(token);
+  if (irregularSingular) {
+    return [irregularSingular, token.slice(0, -1)];
+  }
   if (token.length > 4 && token.endsWith("ies")) {
-    return token.slice(0, -3);
+    return [token.slice(0, -3)];
   }
   if (token.length > 4 && token.endsWith("es")) {
-    return token.slice(0, -2);
+    return [token.slice(0, -2)];
   }
   if (token.length > 5 && token.endsWith("ing")) {
-    return normalizeDoubledConsonantStem(token.slice(0, -3));
+    return [normalizeDoubledConsonantStem(token.slice(0, -3))];
   }
   if (token.length > 5 && token.endsWith("ed")) {
-    return normalizeDoubledConsonantStem(token.slice(0, -2));
+    return [normalizeDoubledConsonantStem(token.slice(0, -2))];
   }
   if (token.length > 3 && token.endsWith("s") && !token.endsWith("ss")) {
-    return token.slice(0, -1);
+    return [token.slice(0, -1)];
   }
-  return token;
+  return [token];
+}
+
+function addDiacriticCompatibilityAlternative(token: string) {
+  const compatibility = token.normalize("NFD").replace(/\p{M}+/gu, "");
+  return compatibility === token ? [token] : [token, compatibility];
 }
 
 function normalizeDoubledConsonantStem(stem: string) {

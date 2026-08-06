@@ -81,7 +81,10 @@ export default async function MaterialDetailPage({
         outlineTitles: contentRevision.sections.map((section) => section.title),
       })
     : null;
-  const indexHealth = getMaterialIndexHealth(contentRevision?.processingMetadata);
+  const indexHealth = getMaterialIndexHealth({
+    kind: material.kind,
+    processingMetadata: contentRevision?.processingMetadata,
+  });
 
   return (
     <main className="skillShell materialShell materialDetailShell">

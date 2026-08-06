@@ -25,5 +25,8 @@ describe("material lexical retrieval", () => {
     expect(toSimplePrefixTsQuery("conjugat verb preterit", "or")).toBe(
       "conjugat:* | verb:* | preterit:*",
     );
+    expect(toSimplePrefixTsQuery("número|numero ordinal", "or")).toBe(
+      "(número:* | numero:*) | ordinal:*",
+    );
   });
 });

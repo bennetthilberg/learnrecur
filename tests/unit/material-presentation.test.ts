@@ -27,15 +27,31 @@ describe("material availability messages", () => {
   });
 
   it("distinguishes a usable material from a fully healthy search index", () => {
-    expect(getMaterialIndexHealth({ embeddingStatus: "unavailable" })).toEqual({
+    expect(
+      getMaterialIndexHealth({
+        kind: "PDF",
+        processingMetadata: { embeddingStatus: "unavailable" },
+      }),
+    ).toEqual({
       status: "degraded",
       title: "Search coverage needs a refresh",
       description:
         "The original is saved, but some topics may be harder to find. Rebuild the searchable copy without uploading again.",
     });
-    expect(getMaterialIndexHealth({ embeddingStatus: "ready" })).toEqual({
+    expect(
+      getMaterialIndexHealth({
+        kind: "WEB",
+        processingMetadata: { embeddingStatus: "unavailable" },
+      }),
+    ).toEqual({
       status: "complete",
     });
+    expect(
+      getMaterialIndexHealth({
+        kind: "PDF",
+        processingMetadata: { embeddingStatus: "ready" },
+      }),
+    ).toEqual({ status: "complete" });
   });
 
   it("explains that first-time processing blocks skill creation", () => {

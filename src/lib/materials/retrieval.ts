@@ -123,17 +123,19 @@ export async function searchMaterialChunksLexical(input: {
   const prefixQuery = input.prefixMatching
     ? toSimplePrefixTsQuery(input.query, input.prefixOperator)
     : null;
-  const minimumPrefixTerms =
+  const minimumPrefixGroups =
     input.prefixMatching &&
     (input.minimumPrefixMatches || input.minimumSectionPrefixMatches)
-      ? simplePrefixTerms(input.query)
+      ? simplePrefixTermGroups(input.query).map((group) =>
+          group.map((token) => `${token}:*`).join(" | "),
+        )
       : [];
   const minimumPrefixFilter = input.minimumPrefixMatches
-    ? minimumPrefixTerms.length >= input.minimumPrefixMatches
+    ? minimumPrefixGroups.length >= input.minimumPrefixMatches
       ? Prisma.sql`AND (
           SELECT COUNT(*)
-          FROM unnest(ARRAY[${Prisma.join(minimumPrefixTerms)}]::text[]) AS recovery_term(term)
-          WHERE "searchText" @@ to_tsquery('simple', recovery_term.term || ':*')
+          FROM unnest(ARRAY[${Prisma.join(minimumPrefixGroups)}]::text[]) AS recovery_group(query)
+          WHERE "searchText" @@ to_tsquery('simple', recovery_group.query)
         ) >= ${input.minimumPrefixMatches}`
       : Prisma.sql`AND FALSE`
     : Prisma.empty;
@@ -145,10 +147,10 @@ export async function searchMaterialChunksLexical(input: {
       )`
     : Prisma.empty;
   const minimumSectionPrefixFilter = input.minimumSectionPrefixMatches
-    ? minimumPrefixTerms.length >= input.minimumSectionPrefixMatches
+    ? minimumPrefixGroups.length >= input.minimumSectionPrefixMatches
       ? Prisma.sql`AND (
           SELECT COUNT(*)
-          FROM unnest(ARRAY[${Prisma.join(minimumPrefixTerms)}]::text[]) AS recovery_term(term)
+          FROM unnest(ARRAY[${Prisma.join(minimumPrefixGroups)}]::text[]) AS recovery_group(query)
           WHERE EXISTS (
             SELECT 1
             FROM "material_chunks" AS section_chunk
@@ -158,7 +160,7 @@ export async function searchMaterialChunksLexical(input: {
               ${sectionBackMatterFilter}
               AND section_chunk."searchText" @@ to_tsquery(
                 'simple',
-                recovery_term.term || ':*'
+                recovery_group.query
               )
           )
         ) >= ${input.minimumSectionPrefixMatches}`
@@ -210,16 +212,28 @@ export async function searchMaterialChunksLexical(input: {
 }
 
 export function toSimplePrefixTsQuery(query: string, operator: "and" | "or" = "and") {
-  return simplePrefixTerms(query)
-    .map((token) => `${token}:*`)
+  return simplePrefixTermGroups(query)
+    .map((group) => {
+      const query = group.map((token) => `${token}:*`).join(" | ");
+      return group.length > 1 ? `(${query})` : query;
+    })
     .join(operator === "or" ? " | " : " & ");
 }
 
-function simplePrefixTerms(query: string) {
+function simplePrefixTermGroups(query: string) {
   return query
     .normalize("NFKC")
     .toLowerCase()
     .replace(/\u0307/gu, "")
     .normalize("NFKC")
-    .match(/[\p{L}\p{N}]+/gu) ?? [];
+    .split(/\s+/u)
+    .flatMap((segment) => {
+      if (segment.includes("|")) {
+        const alternatives = segment
+          .split("|")
+          .flatMap((part) => part.match(/[\p{L}\p{N}]+/gu) ?? []);
+        return alternatives.length > 0 ? [[...new Set(alternatives)]] : [];
+      }
+      return (segment.match(/[\p{L}\p{N}]+/gu) ?? []).map((token) => [token]);
+    });
 }

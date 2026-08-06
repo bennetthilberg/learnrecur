@@ -14,12 +14,16 @@ export type MaterialIndexHealth =
       description: string;
     };
 
-export function getMaterialIndexHealth(processingMetadata: unknown): MaterialIndexHealth {
+export function getMaterialIndexHealth(input: {
+  kind: "PDF" | "WEB";
+  processingMetadata: unknown;
+}): MaterialIndexHealth {
   if (
-    processingMetadata &&
-    typeof processingMetadata === "object" &&
-    !Array.isArray(processingMetadata) &&
-    (processingMetadata as Record<string, unknown>).embeddingStatus === "unavailable"
+    input.kind === "PDF" &&
+    input.processingMetadata &&
+    typeof input.processingMetadata === "object" &&
+    !Array.isArray(input.processingMetadata) &&
+    (input.processingMetadata as Record<string, unknown>).embeddingStatus === "unavailable"
   ) {
     return {
       status: "degraded",
