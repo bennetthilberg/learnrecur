@@ -10,6 +10,7 @@ import {
 import {
   annotateMaterialPlanOverlaps,
   buildMaterialTopicRecoveryQuery,
+  getMaterialTopicRecoveryGroupCount,
   expandPlanningChunkNeighbors,
   generateValidatedMaterialScopePlan,
   generateVerifiedMaterialDraft,
@@ -145,8 +146,13 @@ describe("material scope planning", () => {
     ).toBe("run plan stop action");
     expect(buildMaterialTopicRecoveryQuery("making predictions while hiking"))
       .toBe("mak prediction while hik");
+    expect(buildMaterialTopicRecoveryQuery("simplified fractions")).toBe(
+      "simplify fraction",
+    );
     expect(buildMaterialTopicRecoveryQuery("matrix indices and vertices"))
       .toBe("matrix index|indice vertex|vertice");
+    expect(getMaterialTopicRecoveryGroupCount("ser estar haber")).toBe(3);
+    expect(getMaterialTopicRecoveryGroupCount("número|numero ordinal")).toBe(2);
   });
 
   it("does not mistake instructional solution language for answer-key material", () => {

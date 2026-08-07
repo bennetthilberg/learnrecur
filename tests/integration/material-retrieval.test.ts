@@ -272,4 +272,81 @@ describeDatabase("material retrieval", () => {
     });
     expect(irregularPluralMatches.map((chunk) => chunk.id)).toEqual([matrixChunkId]);
   });
+
+  it("requires complete section coverage for three recovery concepts", async () => {
+    const { revision } = await createMaterialWithInitialRevision({
+      userId,
+      title: "Spanish copula and auxiliary handbook",
+      kind: StudyMaterialKind.PDF,
+    });
+    const [completeSection, partialSection] = await Promise.all([
+      prisma.materialSection.create({
+        data: {
+          userId,
+          materialRevisionId: revision.id,
+          ordinal: 0,
+          title: "Ser, estar, and haber",
+          normalizedTitle: "ser estar and haber",
+          pageStart: 10,
+          pageEnd: 12,
+          headingPath: ["Ser, estar, and haber"],
+        },
+      }),
+      prisma.materialSection.create({
+        data: {
+          userId,
+          materialRevisionId: revision.id,
+          ordinal: 1,
+          title: "Ser and estar review",
+          normalizedTitle: "ser and estar review",
+          pageStart: 20,
+          pageEnd: 21,
+          headingPath: ["Ser and estar review"],
+        },
+      }),
+    ]);
+    const completeIds = ["ser", "estar", "haber"].map(
+      (term) => `${runId}_complete_${term}`,
+    );
+    await prisma.materialChunk.createMany({
+      data: [
+        ...["ser", "estar", "haber"].map((term, index) => ({
+          id: completeIds[index],
+          userId,
+          materialRevisionId: revision.id,
+          materialSectionId: completeSection.id,
+          ordinal: index,
+          text: `${term} is explained in this connected lesson.`,
+          tokenEstimate: 7,
+          contentHash: `sha256:${runId}:complete-${term}`,
+          headingText: completeSection.title,
+          locator: { kind: "pdf", pageRange: { start: 10 + index, end: 10 + index } },
+        })),
+        ...["ser", "estar"].map((term, index) => ({
+          id: `${runId}_partial_${term}`,
+          userId,
+          materialRevisionId: revision.id,
+          materialSectionId: partialSection.id,
+          ordinal: 3 + index,
+          text: `${term} appears in this incomplete review.`,
+          tokenEstimate: 7,
+          contentHash: `sha256:${runId}:partial-${term}`,
+          headingText: partialSection.title,
+          locator: { kind: "pdf", pageRange: { start: 20 + index, end: 20 + index } },
+        })),
+      ],
+    });
+
+    const matches = await searchMaterialChunksLexical({
+      userId,
+      materialRevisionId: revision.id,
+      query: "ser estar haber",
+      prefixMatching: true,
+      prefixOperator: "or",
+      minimumSectionPrefixMatches: 3,
+      excludeLikelyBackMatter: true,
+    });
+
+    expect(matches.map((chunk) => chunk.id)).toEqual(completeIds);
+  });
 });

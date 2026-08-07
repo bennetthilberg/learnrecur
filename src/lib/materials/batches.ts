@@ -45,6 +45,7 @@ import {
   repairMaterialDraftTarget,
   recoverBackMatterMaterialScope,
   buildMaterialTopicRecoveryQuery,
+  getMaterialTopicRecoveryGroupCount,
   resolveMaterialTopicSearchQuery,
   resolveStructuralMaterialScope,
   selectFocusedMaterialTopicRecoveryChunks,
@@ -2576,7 +2577,7 @@ async function retrievePlanningChunks(input: {
   if (input.topicSearchQuery && !strictLexicalMatched) {
     const recoveryQuery = buildMaterialTopicRecoveryQuery(input.topicSearchQuery);
     if (recoveryQuery) {
-      const minimumPrefixMatches = recoveryQuery.split(" ").length >= 2 ? 2 : 1;
+      const minimumPrefixMatches = getMaterialTopicRecoveryGroupCount(recoveryQuery);
       const recoveryMatches = (
         await searchMaterialChunksLexical({
           userId: input.userId,

@@ -16,7 +16,7 @@ import {
 } from "@/lib/materials/ingestion";
 import { getMaterialDeletionReturnPath } from "@/lib/materials/material-delete";
 import { discoverBookWebsite, type WebsiteDiscovery } from "@/lib/materials/web";
-import { ensureDatabaseUser } from "@/lib/users";
+import { ensureAuthenticatedDatabaseUser } from "@/lib/users";
 
 export type MaterialActionError = {
   status: "error";
@@ -236,11 +236,10 @@ async function requireMaterialUser(): Promise<
   { status: "ready"; userId: string } | MaterialActionError
 > {
   const { userId } = await auth.protect();
-  const clerkUser = await currentUser();
-  if (!clerkUser) {
-    return { status: "error", message: `Clerk returned no user for authenticated user ${userId}.` };
-  }
-  const databaseUser = await ensureDatabaseUser(clerkUser);
+  const databaseUser = await ensureAuthenticatedDatabaseUser({
+    userId,
+    loadClerkUser: currentUser,
+  });
   if (databaseUser.status !== "ready") {
     return { status: "error", message: databaseUser.message };
   }

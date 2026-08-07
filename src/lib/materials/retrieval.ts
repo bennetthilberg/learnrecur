@@ -111,8 +111,8 @@ export async function searchMaterialChunksLexical(input: {
   limit?: number;
   prefixMatching?: boolean;
   prefixOperator?: "and" | "or";
-  minimumPrefixMatches?: 1 | 2;
-  minimumSectionPrefixMatches?: 1 | 2;
+  minimumPrefixMatches?: number;
+  minimumSectionPrefixMatches?: number;
   excludeLikelyBackMatter?: boolean;
 }): Promise<MaterialChunkSearchResult[]> {
   const prisma = getPrisma();

@@ -303,6 +303,10 @@ export function buildMaterialTopicRecoveryQuery(topic: string): string | null {
     : null;
 }
 
+export function getMaterialTopicRecoveryGroupCount(query: string) {
+  return query.split(/\s+/u).filter(Boolean).length;
+}
+
 function normalizeMaterialTopicRecoveryText(value: string) {
   return value
     .normalize("NFKC")
@@ -323,6 +327,9 @@ function normalizeMaterialTopicRecoveryToken(token: string) {
   }
   if (token.length > 4 && token.endsWith("es")) {
     return [token.slice(0, -2)];
+  }
+  if (token.length > 4 && token.endsWith("ied")) {
+    return [`${token.slice(0, -3)}y`];
   }
   if (token.length > 5 && token.endsWith("ing")) {
     return [normalizeDoubledConsonantStem(token.slice(0, -3))];
