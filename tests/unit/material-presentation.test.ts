@@ -103,6 +103,7 @@ describe("material recovery display", () => {
   it("offers search rebuild instead of import retry after a replacement rebuild fails", () => {
     expect(
       getMaterialRecoveryDisplayState({
+        kind: "PDF",
         currentRevision: { id: "revision-2", status: MaterialRevisionStatus.FAILED },
         activeRevision: { id: "revision-1", status: MaterialRevisionStatus.READY },
         indexHealthStatus: "degraded",
@@ -118,8 +119,25 @@ describe("material recovery display", () => {
   it("keeps import retry for a failed first revision", () => {
     expect(
       getMaterialRecoveryDisplayState({
+        kind: "PDF",
         currentRevision: { id: "revision-1", status: MaterialRevisionStatus.FAILED },
         activeRevision: null,
+        indexHealthStatus: "complete",
+        processing: false,
+        stalled: false,
+      }),
+    ).toEqual({
+      showImportRetry: true,
+      showSearchRebuild: false,
+    });
+  });
+
+  it("keeps retry available after a website refresh fails", () => {
+    expect(
+      getMaterialRecoveryDisplayState({
+        kind: "WEB",
+        currentRevision: { id: "revision-2", status: MaterialRevisionStatus.FAILED },
+        activeRevision: { id: "revision-1", status: MaterialRevisionStatus.READY },
         indexHealthStatus: "complete",
         processing: false,
         stalled: false,

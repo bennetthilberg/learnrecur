@@ -87,6 +87,7 @@ export default async function MaterialDetailPage({
     processingMetadata: contentRevision?.processingMetadata,
   });
   const recoveryDisplay = getMaterialRecoveryDisplayState({
+    kind: material.kind,
     currentRevision: revision,
     activeRevision: material.activeRevision,
     indexHealthStatus: indexHealth.status,

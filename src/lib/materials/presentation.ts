@@ -37,6 +37,7 @@ export function getMaterialIndexHealth(input: {
 }
 
 export function getMaterialRecoveryDisplayState(input: {
+  kind: "PDF" | "WEB";
   currentRevision: { id: string; status: MaterialRevisionStatus } | null;
   activeRevision: { id: string; status: MaterialRevisionStatus } | null;
   indexHealthStatus: MaterialIndexHealth["status"];
@@ -46,6 +47,7 @@ export function getMaterialRecoveryDisplayState(input: {
   const hasReadyActiveRevision =
     input.activeRevision?.status === MaterialRevisionStatus.READY;
   const failedReplacement =
+    input.kind === "PDF" &&
     input.currentRevision?.status === MaterialRevisionStatus.FAILED &&
     hasReadyActiveRevision &&
     input.currentRevision.id !== input.activeRevision?.id;
