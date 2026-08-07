@@ -867,8 +867,8 @@ export async function queueMaterialPdfReindex(input: {
       requestedAt: input.now.toISOString(),
     });
   } catch {
-    await prisma.$transaction([
-      prisma.materialRevision.updateMany({
+    await prisma.$transaction(async (tx) => {
+      const failedRevision = await tx.materialRevision.updateMany({
         where: {
           id: created.materialRevisionId,
           userId: input.userId,
@@ -879,12 +879,14 @@ export async function queueMaterialPdfReindex(input: {
           errorCode: "EVENT_SEND_FAILED",
           errorMessage: "Background processing could not be queued.",
         },
-      }),
-      prisma.sourceFile.updateMany({
-        where: { id: created.sourceFileId, userId: input.userId },
-        data: { status: SourceFileStatus.FAILED },
-      }),
-    ]);
+      });
+      if (failedRevision.count === 1) {
+        await tx.sourceFile.updateMany({
+          where: { id: created.sourceFileId, userId: input.userId },
+          data: { status: SourceFileStatus.FAILED },
+        });
+      }
+    });
     return { status: "not-queued", message: "PDF reindex could not be queued. Try again." };
   }
 

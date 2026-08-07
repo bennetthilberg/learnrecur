@@ -667,6 +667,77 @@ describeDatabase("material ingestion", () => {
     ]);
   });
 
+  it("preserves a rebuild source when the worker claims an ambiguously delivered event", async () => {
+    const document = await PDFDocument.create();
+    document.addPage([612, 792]);
+    const bytes = Buffer.from(await document.save());
+    const storage = createMemoryStorage();
+    const objectKey = `${runId}/ambiguous-reindex/original.pdf`;
+    storage.objects.set(objectKey, bytes);
+    const material = await prisma.studyMaterial.create({
+      data: {
+        userId,
+        title: "Ambiguously delivered PDF rebuild",
+        kind: StudyMaterialKind.PDF,
+        revisions: {
+          create: {
+            revisionNumber: 1,
+            storageBucket: storage.bucketName,
+            storageKey: objectKey,
+            sourceFiles: {
+              create: {
+                kind: SourceFileKind.PDF,
+                status: SourceFileStatus.READY,
+                originalName: "ambiguous.pdf",
+                mimeType: "application/pdf",
+                byteSize: bytes.byteLength,
+                storageBucket: storage.bucketName,
+                storageKey: objectKey,
+              },
+            },
+          },
+        },
+      },
+      include: { revisions: true },
+    });
+    await finalizeMaterialRevision({
+      userId,
+      materialId: material.id,
+      materialRevisionId: material.revisions[0].id,
+      contentHash: createHash("sha256").update(bytes).digest("hex"),
+      byteSize: bytes.byteLength,
+      pageCount: 1,
+      storageBucket: storage.bucketName,
+      storageKey: objectKey,
+    });
+
+    const result = await queueMaterialPdfReindex({
+      userId,
+      materialId: material.id,
+      now: new Date("2026-08-06T23:30:00.000Z"),
+      storage,
+      eventSender: {
+        async sendMaterialIngestionRequested(payload) {
+          await prisma.materialRevision.update({
+            where: { id: payload.materialRevisionId },
+            data: { status: MaterialRevisionStatus.PROCESSING },
+          });
+          throw new Error("response lost after the worker claimed the event");
+        },
+      },
+    });
+
+    expect(result).toMatchObject({ status: "not-queued" });
+    const replacement = await prisma.materialRevision.findFirstOrThrow({
+      where: { materialId: material.id, revisionNumber: 2 },
+      include: { sourceFiles: true },
+    });
+    expect(replacement.status).toBe(MaterialRevisionStatus.PROCESSING);
+    expect(replacement.sourceFiles).toEqual([
+      expect.objectContaining({ status: SourceFileStatus.UPLOADED }),
+    ]);
+  });
+
   it("does not requeue a revision that is still within the worker pickup window", async () => {
     const now = new Date("2026-07-10T18:00:00.000Z");
     const material = await prisma.studyMaterial.create({

@@ -135,10 +135,7 @@ export async function ensureAuthenticatedDatabaseUser(
     if (user) {
       console.warn("[users] Clerk user lookup failed; using mirrored user", {
         userId: input.userId,
-        error:
-          clerkLookupError instanceof Error
-            ? clerkLookupError.message
-            : "Clerk returned no user",
+        reason: clerkLookupError ? "lookup-error" : "user-not-found",
       });
       return { status: "ready", user };
     }

@@ -12,6 +12,7 @@ import { truncateMaterialTitle } from "@/lib/materials/pdf-upload";
 import {
   getMaterialAvailabilityMessage,
   getMaterialIndexHealth,
+  getMaterialRecoveryDisplayState,
 } from "@/lib/materials/presentation";
 import { buildMaterialSummaryFallback } from "@/lib/materials/summary";
 import { ensureDatabaseUser } from "@/lib/users";
@@ -84,6 +85,13 @@ export default async function MaterialDetailPage({
   const indexHealth = getMaterialIndexHealth({
     kind: material.kind,
     processingMetadata: contentRevision?.processingMetadata,
+  });
+  const recoveryDisplay = getMaterialRecoveryDisplayState({
+    currentRevision: revision,
+    activeRevision: material.activeRevision,
+    indexHealthStatus: indexHealth.status,
+    processing,
+    stalled,
   });
 
   return (
@@ -158,7 +166,7 @@ export default async function MaterialDetailPage({
             <p>Extracting headings, page references, readable text, and retrieval chunks. This page updates automatically.</p>
           </div>
         </section>
-      ) : revision?.status === "FAILED" ? (
+      ) : recoveryDisplay.showImportRetry && revision ? (
         <section className="skillPanel materialFailurePanel">
           <div>
             <h2>Import needs attention</h2>
@@ -172,7 +180,7 @@ export default async function MaterialDetailPage({
         </section>
       ) : null}
 
-      {indexHealth.status === "degraded" && revision?.status === "READY" ? (
+      {indexHealth.status === "degraded" && recoveryDisplay.showSearchRebuild ? (
         <section className="skillPanel materialFailurePanel" aria-live="polite">
           <div>
             <h2>{indexHealth.title}</h2>

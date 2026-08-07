@@ -366,14 +366,14 @@ export function selectFocusedMaterialTopicChunks<
   }
   const rankedSections = [...bySection.entries()].sort(
     ([leftId, left], [rightId, right]) =>
-      right.length - left.length ||
-      right.reduce((sum, chunk) => sum + chunk.lexicalScore, 0) -
-        left.reduce((sum, chunk) => sum + chunk.lexicalScore, 0) ||
-      leftId.localeCompare(rightId),
+      compareMaterialSectionRelevance(right, left) || leftId.localeCompare(rightId),
   );
   const dominant = rankedSections[0]?.[1] ?? [];
   const runnerUp = rankedSections[1]?.[1] ?? [];
-  if (dominant.length < 2 || dominant.length <= runnerUp.length) {
+  if (
+    dominant.length === 0 ||
+    (runnerUp.length > 0 && compareMaterialSectionRelevance(dominant, runnerUp) <= 0)
+  ) {
     return [];
   }
   const dominantIds = new Set(dominant.map((chunk) => chunk.id));
@@ -398,13 +398,13 @@ export function selectFocusedMaterialTopicRecoveryChunks<
   }
   const rankedSections = [...bySection.entries()].sort(
     ([leftId, left], [rightId, right]) =>
-      compareRecoverySectionRelevance(right, left) || leftId.localeCompare(rightId),
+      compareMaterialSectionRelevance(right, left) || leftId.localeCompare(rightId),
   );
   const dominant = rankedSections[0]?.[1] ?? [];
   const runnerUp = rankedSections[1]?.[1] ?? [];
   if (
     dominant.length === 0 ||
-    (runnerUp.length > 0 && compareRecoverySectionRelevance(dominant, runnerUp) <= 0)
+    (runnerUp.length > 0 && compareMaterialSectionRelevance(dominant, runnerUp) <= 0)
   ) {
     return [];
   }
@@ -412,7 +412,7 @@ export function selectFocusedMaterialTopicRecoveryChunks<
   return chunks.filter((chunk) => dominantIds.has(chunk.id));
 }
 
-function compareRecoverySectionRelevance<
+function compareMaterialSectionRelevance<
   T extends MaterialPlanningEvidenceChunk & { lexicalScore: number },
 >(left: readonly T[], right: readonly T[]) {
   const metrics = (chunks: readonly T[]) => {

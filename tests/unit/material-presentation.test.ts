@@ -8,6 +8,7 @@ import {
   getMaterialDraftItemErrorMessage,
   getMaterialAvailabilityMessage,
   getMaterialIndexHealth,
+  getMaterialRecoveryDisplayState,
   getPublicMaterialActionErrorMessage,
 } from "@/lib/materials/presentation";
 
@@ -94,6 +95,38 @@ describe("material availability messages", () => {
       title: "Processing needs attention",
       description: "Retry processing before you can create skills from this material.",
       tone: "attention",
+    });
+  });
+});
+
+describe("material recovery display", () => {
+  it("offers search rebuild instead of import retry after a replacement rebuild fails", () => {
+    expect(
+      getMaterialRecoveryDisplayState({
+        currentRevision: { id: "revision-2", status: MaterialRevisionStatus.FAILED },
+        activeRevision: { id: "revision-1", status: MaterialRevisionStatus.READY },
+        indexHealthStatus: "degraded",
+        processing: false,
+        stalled: false,
+      }),
+    ).toEqual({
+      showImportRetry: false,
+      showSearchRebuild: true,
+    });
+  });
+
+  it("keeps import retry for a failed first revision", () => {
+    expect(
+      getMaterialRecoveryDisplayState({
+        currentRevision: { id: "revision-1", status: MaterialRevisionStatus.FAILED },
+        activeRevision: null,
+        indexHealthStatus: "complete",
+        processing: false,
+        stalled: false,
+      }),
+    ).toEqual({
+      showImportRetry: true,
+      showSearchRebuild: false,
     });
   });
 });

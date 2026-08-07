@@ -251,6 +251,7 @@ describe("ensureDatabaseUser", () => {
   });
 
   it("uses the existing mirrored user when Clerk's server lookup fails", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const mirroredUser = {
       id: baseClerkUser.id,
       email: "preserved@example.com",
@@ -286,6 +287,14 @@ describe("ensureDatabaseUser", () => {
       },
     });
     expect(upsert).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledWith(
+      "[users] Clerk user lookup failed; using mirrored user",
+      {
+        userId: baseClerkUser.id,
+        reason: "lookup-error",
+      },
+    );
+    expect(JSON.stringify(warn.mock.calls)).not.toContain("fetch failed");
   });
 
   it("returns a safe error when Clerk fails before the user was mirrored", async () => {

@@ -36,6 +36,32 @@ export function getMaterialIndexHealth(input: {
   return { status: "complete" };
 }
 
+export function getMaterialRecoveryDisplayState(input: {
+  currentRevision: { id: string; status: MaterialRevisionStatus } | null;
+  activeRevision: { id: string; status: MaterialRevisionStatus } | null;
+  indexHealthStatus: MaterialIndexHealth["status"];
+  processing: boolean;
+  stalled: boolean;
+}) {
+  const hasReadyActiveRevision =
+    input.activeRevision?.status === MaterialRevisionStatus.READY;
+  const failedReplacement =
+    input.currentRevision?.status === MaterialRevisionStatus.FAILED &&
+    hasReadyActiveRevision &&
+    input.currentRevision.id !== input.activeRevision?.id;
+
+  return {
+    showImportRetry:
+      input.currentRevision?.status === MaterialRevisionStatus.FAILED &&
+      !failedReplacement,
+    showSearchRebuild:
+      input.indexHealthStatus === "degraded" &&
+      hasReadyActiveRevision &&
+      !input.processing &&
+      !input.stalled,
+  };
+}
+
 const PROVIDER_ERROR_MARKERS = [
   "DEADLINE_EXCEEDED",
   "INVALID_ARGUMENT",

@@ -237,6 +237,55 @@ describe("material scope planning", () => {
     ]);
   });
 
+  it("accepts a single high-confidence open-topic teaching chunk", () => {
+    const focused = selectFocusedMaterialTopicChunks([
+      {
+        id: "single-teaching-chunk",
+        materialSectionId: "preterit-lesson",
+        headingText: "Regular preterit endings",
+        text: "Regular -ar verbs use the endings e, aste, o, amos, and aron.",
+        lexicalScore: 4.2,
+      },
+      {
+        id: "incidental-reference",
+        materialSectionId: "later-reference",
+        headingText: "Reference",
+        text: "A later example mentions the preterit.",
+        lexicalScore: 0.6,
+      },
+    ]);
+
+    expect(focused.map((chunk) => chunk.id)).toEqual(["single-teaching-chunk"]);
+  });
+
+  it("prefers stronger open-topic evidence over a larger incidental section", () => {
+    const focused = selectFocusedMaterialTopicChunks([
+      ...Array.from({ length: 5 }, (_, index) => ({
+        id: `incidental-${index}`,
+        materialSectionId: "later-reference",
+        headingText: "Later reference",
+        text: "A later example mentions the preterit.",
+        lexicalScore: 0.8 - index * 0.05,
+      })),
+      {
+        id: "teaching-1",
+        materialSectionId: "preterit-lesson",
+        headingText: "Regular preterit endings",
+        text: "Regular -ar verbs use a specific set of preterit endings.",
+        lexicalScore: 3.5,
+      },
+      {
+        id: "teaching-2",
+        materialSectionId: "preterit-lesson",
+        headingText: "Regular preterit endings",
+        text: "Use these endings after removing the infinitive ending.",
+        lexicalScore: 2.7,
+      },
+    ]);
+
+    expect(focused.map((chunk) => chunk.id)).toEqual(["teaching-1", "teaching-2"]);
+  });
+
   it("prefers concentrated recovery relevance over a larger incidental section", () => {
     const recovered = selectFocusedMaterialTopicRecoveryChunks([
       ...Array.from({ length: 5 }, (_, index) => ({
@@ -358,7 +407,7 @@ describe("material scope planning", () => {
 
     expect(selectMaterialTopicRetrievalChunks({ semantic: [], lexical: [exact] })).toEqual({
       chunks: [exact],
-      focused: false,
+      focused: true,
     });
   });
 
