@@ -15,7 +15,7 @@ import {
   retryMaterialDraftItem,
 } from "@/lib/materials/batches";
 import { materialScopePlanSchema } from "@/lib/materials/contracts";
-import { ensureDatabaseUser } from "@/lib/users";
+import { ensureAuthenticatedDatabaseUser } from "@/lib/users";
 
 const automaticRepairInputSchema = z.strictObject({
   batchId: z.string().trim().min(1).max(64),
@@ -209,11 +209,10 @@ export async function excludeMaterialDraftItemAction(formData: FormData) {
 
 async function requireBatchUser() {
   const { userId } = await auth.protect();
-  const clerkUser = await currentUser();
-  if (!clerkUser) {
-    throw new Error(`Clerk returned no user for authenticated user ${userId}.`);
-  }
-  const databaseUser = await ensureDatabaseUser(clerkUser);
+  const databaseUser = await ensureAuthenticatedDatabaseUser({
+    userId,
+    loadClerkUser: currentUser,
+  });
   if (databaseUser.status !== "ready") {
     throw new Error(databaseUser.message);
   }

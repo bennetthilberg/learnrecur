@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  ensureAuthenticatedDatabaseUser,
   ensureDatabaseUser,
+  type AuthenticatedUserClient,
   type ClerkUserSnapshot,
   type MirroredUserRecord,
   type UserMirrorClient,
@@ -245,6 +247,66 @@ describe("ensureDatabaseUser", () => {
     ).resolves.toEqual({
       status: "error",
       message: "database is unavailable",
+    });
+  });
+
+  it("uses the existing mirrored user when Clerk's server lookup fails", async () => {
+    const mirroredUser = {
+      id: baseClerkUser.id,
+      email: "preserved@example.com",
+      name: "Preserved Name",
+      createdAt: new Date("2026-01-01T00:00:00.000Z"),
+      updatedAt: new Date("2026-01-02T00:00:00.000Z"),
+    };
+    const { client, upsert } = makeMirrorClient();
+    const findUnique = vi.fn(async () => mirroredUser);
+    const prisma = {
+      user: { ...client.user, findUnique },
+    } satisfies AuthenticatedUserClient;
+
+    await expect(
+      ensureAuthenticatedDatabaseUser(
+        {
+          userId: baseClerkUser.id,
+          loadClerkUser: async () => {
+            throw new Error("fetch failed");
+          },
+        },
+        { prisma, skipEnvCheck: true },
+      ),
+    ).resolves.toEqual({ status: "ready", user: mirroredUser });
+    expect(findUnique).toHaveBeenCalledWith({
+      where: { id: baseClerkUser.id },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+    expect(upsert).not.toHaveBeenCalled();
+  });
+
+  it("returns a safe error when Clerk fails before the user was mirrored", async () => {
+    const { client } = makeMirrorClient();
+    const prisma = {
+      user: { ...client.user, findUnique: vi.fn(async () => null) },
+    } satisfies AuthenticatedUserClient;
+
+    await expect(
+      ensureAuthenticatedDatabaseUser(
+        {
+          userId: "user_not_mirrored",
+          loadClerkUser: async () => {
+            throw new Error("private upstream detail");
+          },
+        },
+        { prisma, skipEnvCheck: true },
+      ),
+    ).resolves.toEqual({
+      status: "error",
+      message: "Your account details could not be refreshed. Reload this page to try again.",
     });
   });
 
