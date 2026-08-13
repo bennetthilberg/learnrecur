@@ -58,6 +58,7 @@ export type SkillsLibraryActiveSkill = {
   readyExerciseCount: number;
   isReadyNow: boolean;
   dueLabel: string;
+  agentProvenance: { clientName: string; addedAt: Date } | null;
 };
 
 export type SkillsLibraryRecoverySkill = {
@@ -76,6 +77,7 @@ export type SkillsLibraryRecoverySkill = {
   retiredExerciseCount: number;
   readyExerciseCount: number;
   dueLabel: string;
+  agentProvenance: { clientName: string; addedAt: Date } | null;
 };
 
 export type SkillsLibrarySourceProcessingSummary = {
@@ -132,6 +134,10 @@ type SkillsLibrarySkillRecord = {
     choices: Prisma.JsonValue | null;
     answerSpec: Prisma.JsonValue;
   }>;
+  agentCreatedItems: Array<{
+    completedAt: Date | null;
+    operation: { connection: { clientName: string } };
+  }>;
 };
 
 export async function getSkillsLibrary(input: GetSkillsLibraryInput): Promise<SkillsLibrary> {
@@ -187,6 +193,15 @@ export async function getSkillsLibrary(input: GetSkillsLibraryInput): Promise<Sk
             retiredAt: true,
             choices: true,
             answerSpec: true,
+          },
+        },
+        agentCreatedItems: {
+          where: { status: "ACTIVE" },
+          orderBy: { completedAt: "desc" },
+          take: 1,
+          select: {
+            completedAt: true,
+            operation: { select: { connection: { select: { clientName: true } } } },
           },
         },
       },
@@ -363,6 +378,7 @@ function toActiveSkillSummary(
     readyExerciseCount,
     isReadyNow: isReadyNow(skill, now, readyExerciseCount),
     dueLabel: getDueLabel(skill, now, readyExerciseCount),
+    agentProvenance: toAgentProvenance(skill),
   };
 }
 
@@ -392,7 +408,15 @@ function toRecoverySkillSummary(
     retiredExerciseCount: skill.exercises.filter((exercise) => exercise.retiredAt !== null).length,
     readyExerciseCount,
     dueLabel: getDueLabel(skill, now, readyExerciseCount),
+    agentProvenance: toAgentProvenance(skill),
   };
+}
+
+function toAgentProvenance(skill: SkillsLibrarySkillRecord) {
+  const item = skill.agentCreatedItems[0];
+  return item?.completedAt
+    ? { clientName: item.operation.connection.clientName, addedAt: item.completedAt }
+    : null;
 }
 
 function isRecoverySkillRecord(

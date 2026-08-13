@@ -10,6 +10,7 @@ vi.mock("@/lib/inngest/events", () => ({
 import {
   AgentConnectionStatus,
   AgentOperationKind,
+  AgentOperationItemStatus,
   AgentOperationStatus,
   AgentRemoteRevocationStatus,
   AgentRevocationOutboxStatus,
@@ -17,6 +18,8 @@ import {
 } from "@/generated/prisma/client";
 import {
   disableAgentAccessForAccountDeletion,
+  pauseSkillsFromAgent,
+  resolveAgentDuplicateReview,
   revokeAgentConnection,
 } from "@/lib/agent-access/settings";
 import {
@@ -262,5 +265,123 @@ describeDatabase("agent access persistence", () => {
       ),
     );
     expect(reservations.filter(Boolean)).toHaveLength(1);
+  });
+
+  it("pauses only active skills created through the selected connection", async () => {
+    const fixture = await createConnection("pause");
+    const [agentSkill, browserSkill] = await Promise.all([
+      prisma.skill.create({
+        data: {
+          userId: fixture.userId,
+          title: "Agent-created limits",
+          objective: "Recall the limits attached to an agent-created skill.",
+          status: SkillStatus.ACTIVE,
+        },
+      }),
+      prisma.skill.create({
+        data: {
+          userId: fixture.userId,
+          title: "Browser-created limits",
+          objective: "Recall the limits attached to a browser-created skill.",
+          status: SkillStatus.ACTIVE,
+        },
+      }),
+    ]);
+    await prisma.agentSkillOperation.create({
+      data: {
+        userId: fixture.userId,
+        connectionId: fixture.connection.id,
+        kind: AgentOperationKind.SPEC_BATCH,
+        toolName: "skills.add_from_specs",
+        status: AgentOperationStatus.SUCCEEDED,
+        idempotencyKey: `pause-${runId}`,
+        payloadHash: "c".repeat(64),
+        requestedCount: 1,
+        activeCount: 1,
+        items: {
+          create: {
+            ordinal: 0,
+            clientReference: "pause-skill",
+            status: AgentOperationItemStatus.ACTIVE,
+            createdSkillId: agentSkill.id,
+            resultSkillId: agentSkill.id,
+            completedAt: new Date("2026-08-13T18:30:00.000Z"),
+          },
+        },
+      },
+    });
+
+    await expect(
+      pauseSkillsFromAgent({ userId: fixture.userId, connectionId: fixture.connection.id }),
+    ).resolves.toEqual({ status: "paused", count: 1 });
+    await expect(
+      prisma.skill.findMany({
+        where: { id: { in: [agentSkill.id, browserSkill.id] } },
+        orderBy: { title: "asc" },
+        select: { title: true, status: true },
+      }),
+    ).resolves.toEqual([
+      { title: "Agent-created limits", status: SkillStatus.PAUSED },
+      { title: "Browser-created limits", status: SkillStatus.ACTIVE },
+    ]);
+  });
+
+  it("resolves duplicate review without letting the agent choose the outcome", async () => {
+    const fixture = await createConnection("duplicate-review");
+    const existingSkill = await prisma.skill.create({
+      data: {
+        userId: fixture.userId,
+        title: "Existing boundary checks",
+        objective: "Practice the boundary checks already stored in the library.",
+        status: SkillStatus.ACTIVE,
+      },
+    });
+    const proposedDraft = await prisma.skill.create({
+      data: {
+        userId: fixture.userId,
+        title: "Proposed boundary checks",
+        objective: "Practice a proposed set of overlapping boundary checks.",
+        status: SkillStatus.DRAFT,
+      },
+    });
+    const operation = await prisma.agentSkillOperation.create({
+      data: {
+        userId: fixture.userId,
+        connectionId: fixture.connection.id,
+        kind: AgentOperationKind.SPEC_BATCH,
+        toolName: "skills.add_from_specs",
+        status: AgentOperationStatus.NEEDS_REVIEW,
+        idempotencyKey: `review-${runId}`,
+        payloadHash: "d".repeat(64),
+        requestedCount: 1,
+        items: {
+          create: {
+            ordinal: 0,
+            clientReference: "duplicate-skill",
+            status: AgentOperationItemStatus.NEEDS_REVIEW,
+            createdSkillId: proposedDraft.id,
+            resultSkillId: existingSkill.id,
+          },
+        },
+      },
+      include: { items: true },
+    });
+    const item = operation.items[0];
+
+    await expect(
+      resolveAgentDuplicateReview({
+        userId: fixture.userId,
+        itemId: item.id,
+        decision: "use-existing",
+        now: new Date("2026-08-13T19:00:00.000Z"),
+      }),
+    ).resolves.toEqual({ status: "saved" });
+    await expect(prisma.skill.findUnique({ where: { id: proposedDraft.id } })).resolves.toBeNull();
+    await expect(
+      prisma.agentSkillOperationItem.findUniqueOrThrow({ where: { id: item.id } }),
+    ).resolves.toMatchObject({
+      status: AgentOperationItemStatus.REUSED,
+      resultSkillId: existingSkill.id,
+    });
   });
 });

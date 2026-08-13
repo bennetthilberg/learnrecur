@@ -8004,6 +8004,293 @@ body {
   }
 }
 
+/* Agent access stays flat and operational: one address, divided rows, no provider tiles. */
+.agentAccessPanel {
+  display: grid;
+  gap: 28px;
+}
+
+.agentMcpAddress {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 18px;
+  border-block: 1px solid var(--lr-divider);
+  padding: 18px 0;
+}
+
+.agentMcpAddress > div {
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+}
+
+.agentMcpAddress span,
+.agentConnectionRow span,
+.agentActivityRow span,
+.agentAccessSubheading span,
+.agentDuplicateColumns article > span {
+  color: var(--lr-text-secondary);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.agentMcpAddress code {
+  overflow-x: auto;
+  color: var(--lr-ink);
+  font-family: var(--lr-font-mono);
+  font-size: 14px;
+  line-height: 1.5;
+  scrollbar-width: thin;
+  white-space: nowrap;
+}
+
+.agentPermissionCopy,
+.agentActivityEmpty,
+.agentRevokeCopy {
+  margin: -8px 0 0;
+  color: var(--lr-text-secondary);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.agentAccessSubsection {
+  display: grid;
+  gap: 12px;
+}
+
+.agentAccessSubheading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.agentAccessSubheading h3 {
+  margin: 0;
+  color: var(--lr-ink);
+  font-family: var(--lr-font-display);
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.agentConnectionList,
+.agentActivityList {
+  display: grid;
+  border-top: 1px solid var(--lr-divider);
+}
+
+.agentConnectionRow,
+.agentActivityRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 18px;
+  border-bottom: 1px solid var(--lr-divider);
+  padding: 15px 0;
+}
+
+.agentConnectionRow > div:first-child,
+.agentActivityRow > div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.agentConnectionRow strong,
+.agentActivityRow strong {
+  color: var(--lr-ink);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.agentConnectionRow p {
+  margin: 0;
+  color: var(--lr-text-secondary);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.agentConnectionActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.agentConnectionState {
+  color: var(--lr-primary-ink) !important;
+  font-weight: 700;
+}
+
+.agentConnectionActions .textButton {
+  min-height: 36px;
+}
+
+.agentActivityRow {
+  align-items: baseline;
+}
+
+.agentActivityRow time {
+  color: var(--lr-text-secondary);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.agentAccessEmpty {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  border-block: 1px solid var(--lr-divider);
+  color: var(--lr-text-secondary);
+  padding: 16px 0;
+}
+
+.agentAccessEmpty p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.agentRevokeActions,
+.agentDuplicateActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.agentSkillQueuePanel,
+.agentSkillReviewPanel {
+  width: min(calc(100% - 28px), 860px);
+  margin: 18px auto 0;
+}
+
+.agentSkillQueuePanel .skillPanelHeader p,
+.agentSkillReviewPanel .skillPanelHeader p {
+  margin: 4px 0 0;
+  color: var(--lr-text-secondary);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.agentSkillQueuePanel .skillLibraryRowMain strong {
+  color: var(--lr-ink);
+  font-size: 15px;
+}
+
+.agentDuplicateReviewHeader,
+.agentDuplicateCompare {
+  width: min(calc(100% - 28px), 860px);
+  margin-right: auto;
+  margin-left: auto;
+}
+
+.agentDuplicateCompare {
+  margin-top: 18px;
+}
+
+.agentDuplicateColumns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-block: 1px solid var(--lr-divider);
+}
+
+.agentDuplicateColumns article {
+  min-width: 0;
+  padding: 24px 24px 24px 0;
+}
+
+.agentDuplicateColumns article + article {
+  border-left: 1px solid var(--lr-divider);
+  padding-right: 0;
+  padding-left: 24px;
+}
+
+.agentDuplicateColumns h3 {
+  margin: 8px 0 0;
+  color: var(--lr-ink);
+  font-family: var(--lr-font-display);
+  font-size: 21px;
+  line-height: 1.25;
+}
+
+.agentDuplicateColumns h3 a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--lr-card-border);
+  text-underline-offset: 3px;
+}
+
+.agentDuplicateColumns p {
+  margin: 10px 0 0;
+  color: var(--lr-text-secondary);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.skillAgentProvenance {
+  margin: 6px 0 0 !important;
+  color: var(--lr-text-secondary) !important;
+  font-size: 12px !important;
+  line-height: 1.4 !important;
+}
+
+@media (max-width: 620px) {
+  .agentMcpAddress,
+  .agentConnectionRow,
+  .agentActivityRow,
+  .agentDuplicateColumns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .agentMcpAddress .secondaryButton,
+  .agentConnectionActions {
+    justify-self: stretch;
+  }
+
+  .agentMcpAddress .secondaryButton {
+    min-height: 44px;
+  }
+
+  .agentConnectionActions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .agentConnectionActions .textButton {
+    min-height: 44px;
+  }
+
+  .agentActivityRow time {
+    white-space: normal;
+  }
+
+  .agentDuplicateColumns article,
+  .agentDuplicateColumns article + article {
+    border-left: 0;
+    padding: 20px 0;
+  }
+
+  .agentDuplicateColumns article + article {
+    border-top: 1px solid var(--lr-divider);
+  }
+
+  .agentDuplicateActions,
+  .agentRevokeActions {
+    align-items: stretch;
+    flex-direction: column-reverse;
+  }
+
+  .agentDuplicateActions button,
+  .agentRevokeActions button {
+    min-height: 44px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .routeSkeleton.routeSkeletonShimmer::after {
     animation: none !important;

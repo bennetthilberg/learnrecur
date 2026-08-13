@@ -259,6 +259,7 @@ test.describe("auth spine", () => {
       "/skills/materials/example-material-id",
       "/skills/materials/example-material-id/create",
       "/skills/batches/example-batch-id",
+      "/skills/agent-review/example-item-id",
     ]) {
       await page.goto(protectedPath);
       await expect(page).toHaveURL(/\/sign-in|accounts\.dev\/sign-in/);
