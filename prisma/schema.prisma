@@ -178,14 +178,78 @@ enum ReminderSendStatus {
   FAILED
 }
 
+enum AgentConnectionStatus {
+  ACTIVE
+  REVOKED
+}
+
+enum AgentRemoteRevocationStatus {
+  NOT_REQUESTED
+  PENDING
+  SUCCEEDED
+  FAILED
+}
+
+enum AgentOperationKind {
+  SPEC_BATCH
+  TEXT_SOURCE
+  MATERIAL_BATCH
+  QUICK_FILES
+}
+
+enum AgentOperationStatus {
+  AWAITING_UPLOAD
+  QUEUED
+  PLANNING
+  NEEDS_INPUT
+  NEEDS_REVIEW
+  GENERATING
+  VERIFYING
+  ACTIVATING
+  SUCCEEDED
+  PARTIAL
+  FAILED
+  CANCELED
+}
+
+enum AgentOperationItemStatus {
+  QUEUED
+  PLANNING
+  NEEDS_INPUT
+  NEEDS_REVIEW
+  GENERATING
+  VERIFYING
+  ACTIVATING
+  ACTIVE
+  REUSED
+  FAILED
+  CANCELED
+}
+
+enum AgentCandidateStatus {
+  PENDING
+  VALIDATED
+  VERIFIED
+  REJECTED
+  NOT_PROCESSED
+}
+
+enum AgentRevocationOutboxStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
 model User {
-  id         String    @id
-  email      String?
-  name       String?
-  imageUrl   String?
-  lastSeenAt DateTime?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  id                    String    @id
+  email                 String?
+  name                  String?
+  imageUrl              String?
+  lastSeenAt            DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  agentAccessDisabledAt DateTime?
 
   collections          Collection[]
   sourceFiles          SourceFile[]
@@ -206,6 +270,12 @@ model User {
   generationJobs       GenerationJob[]
   reminderPreference   ReminderPreference?
   reminderSendLogs     ReminderSendLog[]
+  workosIdentity       WorkosIdentity?
+  agentConnections     AgentConnection[]
+  agentOperations      AgentSkillOperation[]
+  agentOperationItems  AgentSkillOperationItem[]
+  agentCandidates      AgentExerciseCandidate[]
+  agentRevocationJobs  AgentRevocationOutbox[]
 
   @@map("users")
 }
@@ -247,11 +317,12 @@ model SourceFile {
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
 
-  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  collection       Collection?       @relation(fields: [collectionId, userId], references: [id, userId], onDelete: NoAction)
-  materialRevision MaterialRevision? @relation(fields: [materialRevisionId, userId], references: [id, userId], onDelete: Cascade)
+  user             User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  collection       Collection?           @relation(fields: [collectionId, userId], references: [id, userId], onDelete: NoAction)
+  materialRevision MaterialRevision?     @relation(fields: [materialRevisionId, userId], references: [id, userId], onDelete: Cascade)
   skillRefs        SkillSourceRef[]
   materialChunks   MaterialChunk[]
+  agentOperations  AgentSkillOperation[]
 
   @@unique([id, userId])
   @@unique([id, materialRevisionId, userId])
@@ -307,14 +378,15 @@ model MaterialRevision {
   createdAt          DateTime               @default(now())
   updatedAt          DateTime               @updatedAt
 
-  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  material          StudyMaterial     @relation("MaterialRevisions", fields: [materialId, userId], references: [id, userId], onDelete: Cascade)
-  activeForMaterial StudyMaterial?    @relation("ActiveMaterialRevision")
+  user              User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  material          StudyMaterial         @relation("MaterialRevisions", fields: [materialId, userId], references: [id, userId], onDelete: Cascade)
+  activeForMaterial StudyMaterial?        @relation("ActiveMaterialRevision")
   sourceFiles       SourceFile[]
   sections          MaterialSection[]
   chunks            MaterialChunk[]
   pages             MaterialPage[]
   draftBatches      SkillDraftBatch[]
+  agentOperations   AgentSkillOperation[]
 
   @@unique([id, userId])
   @@unique([materialId, revisionNumber])
@@ -452,14 +524,16 @@ model Skill {
   createdAt                      DateTime                    @default(now())
   updatedAt                      DateTime                    @updatedAt
 
-  user            User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  collection      Collection?           @relation(fields: [collectionId, userId], references: [id, userId], onDelete: NoAction)
-  sourceRefs      SkillSourceRef[]
-  exercises       Exercise[]
-  attempts        ExerciseAttempt[]
-  reviewLogs      ReviewLog[]
-  generationJobs  GenerationJob[]
-  draftBatchItems SkillDraftBatchItem[]
+  user              User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  collection        Collection?               @relation(fields: [collectionId, userId], references: [id, userId], onDelete: NoAction)
+  sourceRefs        SkillSourceRef[]
+  exercises         Exercise[]
+  attempts          ExerciseAttempt[]
+  reviewLogs        ReviewLog[]
+  generationJobs    GenerationJob[]
+  draftBatchItems   SkillDraftBatchItem[]
+  agentCreatedItems AgentSkillOperationItem[] @relation("AgentCreatedSkill")
+  agentResultItems  AgentSkillOperationItem[] @relation("AgentResultSkill")
 
   @@unique([id, userId])
   @@index([userId, status, dueAt])
@@ -572,10 +646,11 @@ model Exercise {
   createdAt            DateTime                   @default(now())
   updatedAt            DateTime                   @updatedAt
 
-  user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  skill    Skill             @relation(fields: [skillId, userId], references: [id, userId], onDelete: Cascade)
-  attempts ExerciseAttempt[]
-  flags    ExerciseFlag[]
+  user           User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skill          Skill                   @relation(fields: [skillId, userId], references: [id, userId], onDelete: Cascade)
+  attempts       ExerciseAttempt[]
+  flags          ExerciseFlag[]
+  agentCandidate AgentExerciseCandidate?
 
   @@unique([id, userId])
   @@unique([id, skillId, userId])
@@ -736,4 +811,171 @@ model ReminderSendLog {
   @@unique([userId, localDate])
   @@index([status, createdAt])
   @@map("reminder_send_logs")
+}
+
+model WorkosIdentity {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  workosUserId String   @unique
+  externalId   String   @unique
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  connections AgentConnection[]
+
+  @@unique([id, userId])
+  @@map("workos_identities")
+}
+
+model AgentConnection {
+  id                     String                      @id @default(cuid())
+  userId                 String
+  workosIdentityId       String
+  workosSubject          String
+  workosSessionId        String                      @unique
+  workosApplicationId    String
+  clientId               String
+  clientName             String
+  clientDomain           String
+  resourceUrl            String
+  scopes                 String[]
+  permissionVersion      Int                         @default(1)
+  status                 AgentConnectionStatus       @default(ACTIVE)
+  remoteRevocationStatus AgentRemoteRevocationStatus @default(NOT_REQUESTED)
+  connectedAt            DateTime                    @default(now())
+  lastUsedAt             DateTime?
+  revokedAt              DateTime?
+  createdAt              DateTime                    @default(now())
+  updatedAt              DateTime                    @updatedAt
+
+  user           User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workosIdentity WorkosIdentity         @relation(fields: [workosIdentityId, userId], references: [id, userId], onDelete: Cascade)
+  operations     AgentSkillOperation[]
+  revocationJob  AgentRevocationOutbox?
+
+  @@unique([id, userId])
+  @@index([userId, status, connectedAt])
+  @@index([workosSubject, clientId, resourceUrl])
+  @@map("agent_connections")
+}
+
+model AgentSkillOperation {
+  id                 String               @id @default(cuid())
+  userId             String
+  connectionId       String
+  kind               AgentOperationKind
+  toolName           String
+  status             AgentOperationStatus @default(QUEUED)
+  idempotencyKey     String
+  payloadHash        String
+  requestPayload     Json?
+  payloadExpiresAt   DateTime?
+  sourceFileId       String?
+  materialRevisionId String?
+  requestedCount     Int                  @default(0)
+  activeCount        Int                  @default(0)
+  reusedCount        Int                  @default(0)
+  failedCount        Int                  @default(0)
+  errorCode          String?
+  errorMessage       String?
+  startedAt          DateTime?
+  completedAt        DateTime?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  user             User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  connection       AgentConnection           @relation(fields: [connectionId, userId], references: [id, userId], onDelete: Cascade)
+  sourceFile       SourceFile?               @relation(fields: [sourceFileId], references: [id], onDelete: SetNull)
+  materialRevision MaterialRevision?         @relation(fields: [materialRevisionId], references: [id], onDelete: SetNull)
+  items            AgentSkillOperationItem[]
+
+  @@unique([id, userId])
+  @@unique([connectionId, toolName, idempotencyKey])
+  @@index([userId, status, createdAt])
+  @@index([connectionId, createdAt])
+  @@map("agent_skill_operations")
+}
+
+model AgentSkillOperationItem {
+  id                          String                   @id @default(cuid())
+  userId                      String
+  operationId                 String
+  ordinal                     Int
+  clientReference             String
+  status                      AgentOperationItemStatus @default(QUEUED)
+  proposedTitle               String?
+  proposedObjective           String?
+  skillSnapshot               Json?
+  candidateFingerprint        String?
+  duplicateLibraryFingerprint String?
+  duplicateConfidence         String?
+  createdSkillId              String?                  @unique
+  resultSkillId               String?
+  errorCode                   String?
+  errorMessage                String?
+  retryCount                  Int                      @default(0)
+  startedAt                   DateTime?
+  completedAt                 DateTime?
+  createdAt                   DateTime                 @default(now())
+  updatedAt                   DateTime                 @updatedAt
+
+  user         User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  operation    AgentSkillOperation      @relation(fields: [operationId, userId], references: [id, userId], onDelete: Cascade)
+  createdSkill Skill?                   @relation("AgentCreatedSkill", fields: [createdSkillId], references: [id], onDelete: SetNull)
+  resultSkill  Skill?                   @relation("AgentResultSkill", fields: [resultSkillId], references: [id], onDelete: SetNull)
+  candidates   AgentExerciseCandidate[]
+
+  @@unique([id, userId])
+  @@unique([operationId, ordinal])
+  @@unique([operationId, clientReference])
+  @@index([userId, status, createdAt])
+  @@index([resultSkillId])
+  @@map("agent_skill_operation_items")
+}
+
+model AgentExerciseCandidate {
+  id                String               @id @default(cuid())
+  userId            String
+  operationItemId   String
+  ordinal           Int
+  clientReference   String?
+  kind              AnswerKind
+  normalizedPayload Json
+  status            AgentCandidateStatus @default(PENDING)
+  verifierReason    String?
+  verifierNote      String?
+  exerciseId        String?              @unique
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  user          User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  operationItem AgentSkillOperationItem @relation(fields: [operationItemId, userId], references: [id, userId], onDelete: Cascade)
+  exercise      Exercise?               @relation(fields: [exerciseId], references: [id], onDelete: SetNull)
+
+  @@unique([id, userId])
+  @@unique([operationItemId, ordinal])
+  @@index([userId, status, createdAt])
+  @@map("agent_exercise_candidates")
+}
+
+model AgentRevocationOutbox {
+  id            String                      @id @default(cuid())
+  userId        String
+  connectionId  String
+  status        AgentRevocationOutboxStatus @default(PENDING)
+  attemptCount  Int                         @default(0)
+  errorCode     String?
+  nextAttemptAt DateTime?
+  completedAt   DateTime?
+  createdAt     DateTime                    @default(now())
+  updatedAt     DateTime                    @updatedAt
+
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  connection AgentConnection @relation(fields: [connectionId, userId], references: [id, userId], onDelete: Cascade)
+
+  @@unique([id, userId])
+  @@unique([connectionId, userId])
+  @@index([status, nextAttemptAt])
+  @@map("agent_revocation_outbox")
 }
