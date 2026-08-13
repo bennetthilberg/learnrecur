@@ -8,6 +8,7 @@ import {
   agentGetOperationSchema,
   agentPrepareFilesSchema,
   agentSearchMaterialExcerptsSchema,
+  buildAgentCandidateDuplicateKey,
   buildAgentPayloadHash,
   normalizeAgentCandidateExercise,
 } from "@/lib/agent-access/contracts";
@@ -211,6 +212,29 @@ describe("agent MCP contracts", () => {
     );
     expect(buildAgentPayloadHash({ value: 1 })).not.toBe(
       buildAgentPayloadHash({ value: 2 }),
+    );
+  });
+
+  it("deduplicates candidates by practice identity rather than optional metadata", () => {
+    const normalized = normalizeAgentCandidateExercise(
+      agentCandidateExerciseSchema.parse({
+        kind: "text",
+        prompt: "Complete: Yo ___ de Chicago.",
+        acceptedAnswers: ["soy"],
+        explanation: "Identity uses ser.",
+        difficulty: 2,
+      }),
+      0,
+    );
+    expect(
+      buildAgentCandidateDuplicateKey(normalized),
+    ).toBe(
+      buildAgentCandidateDuplicateKey({
+        ...normalized,
+        prompt: "  COMPLETE: YO ___ DE CHICAGO. ",
+        explanation: "Different optional wording.",
+        difficulty: 5,
+      }),
     );
   });
 });

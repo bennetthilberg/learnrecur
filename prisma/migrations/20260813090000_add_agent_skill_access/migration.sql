@@ -6,6 +6,8 @@ CREATE TYPE "AgentOperationItemStatus" AS ENUM ('QUEUED', 'PLANNING', 'NEEDS_INP
 CREATE TYPE "AgentCandidateStatus" AS ENUM ('PENDING', 'VALIDATED', 'VERIFIED', 'REJECTED', 'NOT_PROCESSED');
 CREATE TYPE "AgentRevocationOutboxStatus" AS ENUM ('PENDING', 'RUNNING', 'SUCCEEDED', 'FAILED');
 
+CREATE TYPE "AgentRateLimitKind" AS ENUM ('MUTATION', 'READ');
+
 ALTER TABLE "users" ADD COLUMN "agentAccessDisabledAt" TIMESTAMP(3);
 
 CREATE TABLE "workos_identities" (
@@ -80,11 +82,13 @@ CREATE TABLE "agent_skill_operation_items" (
   "candidateFingerprint" TEXT,
   "duplicateLibraryFingerprint" TEXT,
   "duplicateConfidence" TEXT,
+  "duplicateOverrideApprovedAt" TIMESTAMP(3),
   "createdSkillId" TEXT,
   "resultSkillId" TEXT,
   "errorCode" TEXT,
   "errorMessage" TEXT,
   "retryCount" INTEGER NOT NULL DEFAULT 0,
+  "activationReservedAt" TIMESTAMP(3),
   "startedAt" TIMESTAMP(3),
   "completedAt" TIMESTAMP(3),
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -123,6 +127,19 @@ CREATE TABLE "agent_revocation_outbox" (
   CONSTRAINT "agent_revocation_outbox_pkey" PRIMARY KEY ("id")
 );
 
+CREATE TABLE "agent_rate_limit_buckets" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "connectionId" TEXT NOT NULL,
+    "kind" "AgentRateLimitKind" NOT NULL,
+    "windowStart" TIMESTAMP(3) NOT NULL,
+    "count" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "agent_rate_limit_buckets_pkey" PRIMARY KEY ("id")
+);
+
 CREATE UNIQUE INDEX "workos_identities_userId_key" ON "workos_identities"("userId");
 CREATE UNIQUE INDEX "workos_identities_workosUserId_key" ON "workos_identities"("workosUserId");
 CREATE UNIQUE INDEX "workos_identities_externalId_key" ON "workos_identities"("externalId");
@@ -149,6 +166,9 @@ CREATE UNIQUE INDEX "agent_revocation_outbox_id_userId_key" ON "agent_revocation
 CREATE UNIQUE INDEX "agent_revocation_outbox_connectionId_userId_key" ON "agent_revocation_outbox"("connectionId", "userId");
 CREATE INDEX "agent_revocation_outbox_status_nextAttemptAt_idx" ON "agent_revocation_outbox"("status", "nextAttemptAt");
 
+CREATE UNIQUE INDEX "agent_rate_limit_buckets_connectionId_kind_windowStart_key" ON "agent_rate_limit_buckets"("connectionId", "kind", "windowStart");
+CREATE INDEX "agent_rate_limit_buckets_userId_windowStart_idx" ON "agent_rate_limit_buckets"("userId", "windowStart");
+
 ALTER TABLE "workos_identities" ADD CONSTRAINT "workos_identities_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "agent_connections" ADD CONSTRAINT "agent_connections_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "agent_connections" ADD CONSTRAINT "agent_connections_workosIdentityId_userId_fkey" FOREIGN KEY ("workosIdentityId", "userId") REFERENCES "workos_identities"("id", "userId") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -165,3 +185,6 @@ ALTER TABLE "agent_exercise_candidates" ADD CONSTRAINT "agent_exercise_candidate
 ALTER TABLE "agent_exercise_candidates" ADD CONSTRAINT "agent_exercise_candidates_exerciseId_fkey" FOREIGN KEY ("exerciseId") REFERENCES "exercises"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 ALTER TABLE "agent_revocation_outbox" ADD CONSTRAINT "agent_revocation_outbox_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "agent_revocation_outbox" ADD CONSTRAINT "agent_revocation_outbox_connectionId_userId_fkey" FOREIGN KEY ("connectionId", "userId") REFERENCES "agent_connections"("id", "userId") ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE "agent_rate_limit_buckets" ADD CONSTRAINT "agent_rate_limit_buckets_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "agent_rate_limit_buckets" ADD CONSTRAINT "agent_rate_limit_buckets_connectionId_userId_fkey" FOREIGN KEY ("connectionId", "userId") REFERENCES "agent_connections"("id", "userId") ON DELETE CASCADE ON UPDATE CASCADE;

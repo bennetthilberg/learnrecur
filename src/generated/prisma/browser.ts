@@ -133,6 +133,16 @@ export type AgentConnection = Prisma.AgentConnectionModel
  */
 export type AgentSkillOperation = Prisma.AgentSkillOperationModel
 /**
+ * Model AgentOperationAction
+ *
+ */
+export type AgentOperationAction = Prisma.AgentOperationActionModel
+/**
+ * Model AgentOperationSource
+ *
+ */
+export type AgentOperationSource = Prisma.AgentOperationSourceModel
+/**
  * Model AgentSkillOperationItem
  *
  */
@@ -147,3 +157,8 @@ export type AgentExerciseCandidate = Prisma.AgentExerciseCandidateModel
  *
  */
 export type AgentRevocationOutbox = Prisma.AgentRevocationOutboxModel
+/**
+ * Model AgentRateLimitBucket
+ *
+ */
+export type AgentRateLimitBucket = Prisma.AgentRateLimitBucketModel

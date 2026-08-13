@@ -21,13 +21,15 @@ export async function GET(request: Request) {
     .max(200)
     .safeParse(new URL(request.url).searchParams.get("external_auth_id"));
   if (!externalAuthId.success) {
-    return NextResponse.redirect(new URL("/settings?agentConnection=invalid", request.url));
+    return NextResponse.redirect(
+      new URL("/settings?agentConnection=invalid", config.resourceOrigin),
+    );
   }
 
   const { userId } = await auth();
   const destination = userId
-    ? new URL("/oauth/workos/complete", request.url)
-    : new URL("/sign-in?redirect_url=/oauth/workos/complete", request.url);
+    ? new URL("/oauth/workos/complete", config.resourceOrigin)
+    : new URL("/sign-in?redirect_url=/oauth/workos/complete", config.resourceOrigin);
   const response = NextResponse.redirect(destination);
   response.cookies.set(
     WORKOS_EXTERNAL_AUTH_COOKIE,

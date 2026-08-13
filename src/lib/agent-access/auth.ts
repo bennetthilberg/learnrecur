@@ -1,5 +1,6 @@
 import "server-only";
 
+import type { AuthInfo as McpAuthInfo } from "@modelcontextprotocol/server";
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from "jose";
 import { z } from "zod";
 
@@ -46,14 +47,12 @@ export type AgentAuthContext = AgentAccessTokenClaims & {
   resourceUrl: string;
 };
 
-type McpAuthInfo = {
-  token: string;
-  clientId: string;
-  scopes: string[];
-  expiresAt: number;
-  resource: URL;
-  extra: Record<string, unknown>;
-};
+export class AgentAccessAuthorizationError extends Error {
+  constructor(readonly code: "authentication_required" | "permission_denied", message: string) {
+    super(message);
+    this.name = "AgentAccessAuthorizationError";
+  }
+}
 
 const jwksByIssuer = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
 
@@ -165,9 +164,19 @@ export function requireAgentAuthContext(
   authInfo: McpAuthInfo | undefined,
   requiredScopes: readonly AgentAccessScope[],
 ): AgentAuthContext {
-  if (!authInfo) throw new Error("Agent authentication is required.");
+  if (!authInfo) {
+    throw new AgentAccessAuthorizationError(
+      "authentication_required",
+      "Connect LearnRecur and approve the required permissions.",
+    );
+  }
   const missingScope = requiredScopes.find((scope) => !authInfo.scopes.includes(scope));
-  if (missingScope) throw new Error(`Agent permission ${missingScope} is required.`);
+  if (missingScope) {
+    throw new AgentAccessAuthorizationError(
+      "permission_denied",
+      `Agent permission ${missingScope} is required.`,
+    );
+  }
   const value = z
     .object({
       userId: z.string().min(1),
@@ -178,6 +187,9 @@ export function requireAgentAuthContext(
       clientDomain: z.string().min(1),
     })
     .parse(authInfo.extra);
+  if (!authInfo.resource || typeof authInfo.expiresAt !== "number") {
+    throw new Error("Agent authentication metadata is incomplete.");
+  }
   return {
     userId: value.userId,
     connectionId: value.connectionId,
@@ -272,7 +284,11 @@ async function fetchAuthorizedGrant(input: {
 }) {
   const response = await fetch(
     `https://api.workos.com/user_management/users/${encodeURIComponent(input.workosUserId)}/authorized_applications?limit=100`,
-    { headers: { authorization: `Bearer ${input.apiKey}` }, redirect: "error" },
+    {
+      headers: { authorization: `Bearer ${input.apiKey}` },
+      redirect: "error",
+      signal: AbortSignal.timeout(10_000),
+    },
   );
   if (!response.ok) return null;
   const value = z

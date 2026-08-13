@@ -902,6 +902,23 @@ export type EnumAgentRevocationOutboxStatusWithAggregatesFilter<$PrismaModel = n
   _max?: Prisma.NestedEnumAgentRevocationOutboxStatusFilter<$PrismaModel>
 }
 
+export type EnumAgentRateLimitKindFilter<$PrismaModel = never> = {
+  equals?: $Enums.AgentRateLimitKind | Prisma.EnumAgentRateLimitKindFieldRefInput<$PrismaModel>
+  in?: $Enums.AgentRateLimitKind[] | Prisma.ListEnumAgentRateLimitKindFieldRefInput<$PrismaModel>
+  notIn?: $Enums.AgentRateLimitKind[] | Prisma.ListEnumAgentRateLimitKindFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumAgentRateLimitKindFilter<$PrismaModel> | $Enums.AgentRateLimitKind
+}
+
+export type EnumAgentRateLimitKindWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.AgentRateLimitKind | Prisma.EnumAgentRateLimitKindFieldRefInput<$PrismaModel>
+  in?: $Enums.AgentRateLimitKind[] | Prisma.ListEnumAgentRateLimitKindFieldRefInput<$PrismaModel>
+  notIn?: $Enums.AgentRateLimitKind[] | Prisma.ListEnumAgentRateLimitKindFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumAgentRateLimitKindWithAggregatesFilter<$PrismaModel> | $Enums.AgentRateLimitKind
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumAgentRateLimitKindFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumAgentRateLimitKindFilter<$PrismaModel>
+}
+
 export type NestedStringFilter<$PrismaModel = never> = {
   equals?: string | Prisma.StringFieldRefInput<$PrismaModel>
   in?: string[] | Prisma.ListStringFieldRefInput<$PrismaModel>
@@ -1725,6 +1742,23 @@ export type NestedEnumAgentRevocationOutboxStatusWithAggregatesFilter<$PrismaMod
   _count?: Prisma.NestedIntFilter<$PrismaModel>
   _min?: Prisma.NestedEnumAgentRevocationOutboxStatusFilter<$PrismaModel>
   _max?: Prisma.NestedEnumAgentRevocationOutboxStatusFilter<$PrismaModel>
+}
+
+export type NestedEnumAgentRateLimitKindFilter<$PrismaModel = never> = {
+  equals?: $Enums.AgentRateLimitKind | Prisma.EnumAgentRateLimitKindFieldRefInput<$PrismaModel>
+  in?: $Enums.AgentRateLimitKind[] | Prisma.ListEnumAgentRateLimitKindFieldRefInput<$PrismaModel>
+  notIn?: $Enums.AgentRateLimitKind[] | Prisma.ListEnumAgentRateLimitKindFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumAgentRateLimitKindFilter<$PrismaModel> | $Enums.AgentRateLimitKind
+}
+
+export type NestedEnumAgentRateLimitKindWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.AgentRateLimitKind | Prisma.EnumAgentRateLimitKindFieldRefInput<$PrismaModel>
+  in?: $Enums.AgentRateLimitKind[] | Prisma.ListEnumAgentRateLimitKindFieldRefInput<$PrismaModel>
+  notIn?: $Enums.AgentRateLimitKind[] | Prisma.ListEnumAgentRateLimitKindFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumAgentRateLimitKindWithAggregatesFilter<$PrismaModel> | $Enums.AgentRateLimitKind
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumAgentRateLimitKindFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumAgentRateLimitKindFilter<$PrismaModel>
 }
 
 

@@ -407,9 +407,12 @@ export const ModelName = {
   WorkosIdentity: 'WorkosIdentity',
   AgentConnection: 'AgentConnection',
   AgentSkillOperation: 'AgentSkillOperation',
+  AgentOperationAction: 'AgentOperationAction',
+  AgentOperationSource: 'AgentOperationSource',
   AgentSkillOperationItem: 'AgentSkillOperationItem',
   AgentExerciseCandidate: 'AgentExerciseCandidate',
-  AgentRevocationOutbox: 'AgentRevocationOutbox'
+  AgentRevocationOutbox: 'AgentRevocationOutbox',
+  AgentRateLimitBucket: 'AgentRateLimitBucket'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -425,7 +428,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "collection" | "sourceFile" | "studyMaterial" | "materialRevision" | "materialSection" | "materialChunk" | "materialPage" | "materialCleanupJob" | "skill" | "skillDraftBatch" | "skillDraftBatchItem" | "skillSourceRef" | "exercise" | "exerciseAttempt" | "reviewLog" | "exerciseFlag" | "generationJob" | "reminderPreference" | "reminderSendLog" | "workosIdentity" | "agentConnection" | "agentSkillOperation" | "agentSkillOperationItem" | "agentExerciseCandidate" | "agentRevocationOutbox"
+    modelProps: "user" | "collection" | "sourceFile" | "studyMaterial" | "materialRevision" | "materialSection" | "materialChunk" | "materialPage" | "materialCleanupJob" | "skill" | "skillDraftBatch" | "skillDraftBatchItem" | "skillSourceRef" | "exercise" | "exerciseAttempt" | "reviewLog" | "exerciseFlag" | "generationJob" | "reminderPreference" | "reminderSendLog" | "workosIdentity" | "agentConnection" | "agentSkillOperation" | "agentOperationAction" | "agentOperationSource" | "agentSkillOperationItem" | "agentExerciseCandidate" | "agentRevocationOutbox" | "agentRateLimitBucket"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -2131,6 +2134,154 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    AgentOperationAction: {
+      payload: Prisma.$AgentOperationActionPayload<ExtArgs>
+      fields: Prisma.AgentOperationActionFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.AgentOperationActionFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AgentOperationActionPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.AgentOperationActionFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AgentOperationActionPayload>
+        }
+        findFirst: {
+          args: Prisma.AgentOperationActionFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AgentOperationActionPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.AgentOperationActionFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AgentOperationActionPayload>
+        }
+        findMany: {
+          args: Prisma.AgentOperationActionFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AgentOperationActionPayload>[]
+        }
+        create: {
+          args: Prisma.AgentOperationActionCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AgentOperationActionPayload>
+        }
+        createMany: {
+          args: Prisma.AgentOperationActionCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.AgentOperationActionCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AgentOperationActionPayload>[]
+        }
+        delete: {
+          args: Prisma.AgentOperationActionDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AgentOperationActionPayload>
+        }
+        update: {
+          args: Prisma.AgentOperationActionUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AgentOperationActionPayload>
+        }
+        deleteMany: {
+          args: Prisma.AgentOperationActionDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.AgentOperationActionUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.AgentOperationActionUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AgentOperationActionPayload>[]
+        }
+        upsert: {
+          args: Prisma.AgentOperationActionUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AgentOperationActionPayload>
+        }
+        aggregate: {
+          args: Prisma.AgentOperationActionAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateAgentOperationAction>
+        }
+        groupBy: {
+          args: Prisma.AgentOperationActionGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AgentOperationActionGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.AgentOperationActionCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AgentOperationActionCountAggregateOutputType> | number
+        }
+      }
+    }
+    AgentOperationSource: {
+      payload: Prisma.$AgentOperationSourcePayload<ExtArgs>
+      fields: Prisma.AgentOperationSourceFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.AgentOperationSourceFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AgentOperationSourcePayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.AgentOperationSourceFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AgentOperationSourcePayload>
+        }
+        findFirst: {
+          args: Prisma.AgentOperationSourceFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AgentOperationSourcePayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.AgentOperationSourceFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AgentOperationSourcePayload>
+        }
+        findMany: {
+          args: Prisma.AgentOperationSourceFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AgentOperationSourcePayload>[]
+        }
+        create: {
+          args: Prisma.AgentOperationSourceCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AgentOperationSourcePayload>
+        }
+        createMany: {
+          args: Prisma.AgentOperationSourceCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.AgentOperationSourceCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AgentOperationSourcePayload>[]
+        }
+        delete: {
+          args: Prisma.AgentOperationSourceDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AgentOperationSourcePayload>
+        }
+        update: {
+          args: Prisma.AgentOperationSourceUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AgentOperationSourcePayload>
+        }
+        deleteMany: {
+          args: Prisma.AgentOperationSourceDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.AgentOperationSourceUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.AgentOperationSourceUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AgentOperationSourcePayload>[]
+        }
+        upsert: {
+          args: Prisma.AgentOperationSourceUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AgentOperationSourcePayload>
+        }
+        aggregate: {
+          args: Prisma.AgentOperationSourceAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateAgentOperationSource>
+        }
+        groupBy: {
+          args: Prisma.AgentOperationSourceGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AgentOperationSourceGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.AgentOperationSourceCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AgentOperationSourceCountAggregateOutputType> | number
+        }
+      }
+    }
     AgentSkillOperationItem: {
       payload: Prisma.$AgentSkillOperationItemPayload<ExtArgs>
       fields: Prisma.AgentSkillOperationItemFieldRefs
@@ -2350,6 +2501,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.AgentRevocationOutboxCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.AgentRevocationOutboxCountAggregateOutputType> | number
+        }
+      }
+    }
+    AgentRateLimitBucket: {
+      payload: Prisma.$AgentRateLimitBucketPayload<ExtArgs>
+      fields: Prisma.AgentRateLimitBucketFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.AgentRateLimitBucketFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AgentRateLimitBucketPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.AgentRateLimitBucketFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AgentRateLimitBucketPayload>
+        }
+        findFirst: {
+          args: Prisma.AgentRateLimitBucketFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AgentRateLimitBucketPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.AgentRateLimitBucketFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AgentRateLimitBucketPayload>
+        }
+        findMany: {
+          args: Prisma.AgentRateLimitBucketFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AgentRateLimitBucketPayload>[]
+        }
+        create: {
+          args: Prisma.AgentRateLimitBucketCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AgentRateLimitBucketPayload>
+        }
+        createMany: {
+          args: Prisma.AgentRateLimitBucketCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.AgentRateLimitBucketCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AgentRateLimitBucketPayload>[]
+        }
+        delete: {
+          args: Prisma.AgentRateLimitBucketDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AgentRateLimitBucketPayload>
+        }
+        update: {
+          args: Prisma.AgentRateLimitBucketUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AgentRateLimitBucketPayload>
+        }
+        deleteMany: {
+          args: Prisma.AgentRateLimitBucketDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.AgentRateLimitBucketUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.AgentRateLimitBucketUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AgentRateLimitBucketPayload>[]
+        }
+        upsert: {
+          args: Prisma.AgentRateLimitBucketUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AgentRateLimitBucketPayload>
+        }
+        aggregate: {
+          args: Prisma.AgentRateLimitBucketAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateAgentRateLimitBucket>
+        }
+        groupBy: {
+          args: Prisma.AgentRateLimitBucketGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AgentRateLimitBucketGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.AgentRateLimitBucketCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AgentRateLimitBucketCountAggregateOutputType> | number
         }
       }
     }
@@ -2864,6 +3089,31 @@ export const AgentSkillOperationScalarFieldEnum = {
 export type AgentSkillOperationScalarFieldEnum = (typeof AgentSkillOperationScalarFieldEnum)[keyof typeof AgentSkillOperationScalarFieldEnum]
 
 
+export const AgentOperationActionScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  connectionId: 'connectionId',
+  operationId: 'operationId',
+  toolName: 'toolName',
+  idempotencyKey: 'idempotencyKey',
+  payloadHash: 'payloadHash',
+  createdAt: 'createdAt'
+} as const
+
+export type AgentOperationActionScalarFieldEnum = (typeof AgentOperationActionScalarFieldEnum)[keyof typeof AgentOperationActionScalarFieldEnum]
+
+
+export const AgentOperationSourceScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  operationId: 'operationId',
+  sourceFileId: 'sourceFileId',
+  ordinal: 'ordinal'
+} as const
+
+export type AgentOperationSourceScalarFieldEnum = (typeof AgentOperationSourceScalarFieldEnum)[keyof typeof AgentOperationSourceScalarFieldEnum]
+
+
 export const AgentSkillOperationItemScalarFieldEnum = {
   id: 'id',
   userId: 'userId',
@@ -2877,11 +3127,13 @@ export const AgentSkillOperationItemScalarFieldEnum = {
   candidateFingerprint: 'candidateFingerprint',
   duplicateLibraryFingerprint: 'duplicateLibraryFingerprint',
   duplicateConfidence: 'duplicateConfidence',
+  duplicateOverrideApprovedAt: 'duplicateOverrideApprovedAt',
   createdSkillId: 'createdSkillId',
   resultSkillId: 'resultSkillId',
   errorCode: 'errorCode',
   errorMessage: 'errorMessage',
   retryCount: 'retryCount',
+  activationReservedAt: 'activationReservedAt',
   startedAt: 'startedAt',
   completedAt: 'completedAt',
   createdAt: 'createdAt',
@@ -2914,6 +3166,8 @@ export const AgentRevocationOutboxScalarFieldEnum = {
   id: 'id',
   userId: 'userId',
   connectionId: 'connectionId',
+  workosUserId: 'workosUserId',
+  applicationId: 'applicationId',
   status: 'status',
   attemptCount: 'attemptCount',
   errorCode: 'errorCode',
@@ -2924,6 +3178,20 @@ export const AgentRevocationOutboxScalarFieldEnum = {
 } as const
 
 export type AgentRevocationOutboxScalarFieldEnum = (typeof AgentRevocationOutboxScalarFieldEnum)[keyof typeof AgentRevocationOutboxScalarFieldEnum]
+
+
+export const AgentRateLimitBucketScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  connectionId: 'connectionId',
+  kind: 'kind',
+  windowStart: 'windowStart',
+  count: 'count',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type AgentRateLimitBucketScalarFieldEnum = (typeof AgentRateLimitBucketScalarFieldEnum)[keyof typeof AgentRateLimitBucketScalarFieldEnum]
 
 
 export const SortOrder = {
@@ -3476,6 +3744,20 @@ export type EnumAgentRevocationOutboxStatusFieldRefInput<$PrismaModel> = FieldRe
 export type ListEnumAgentRevocationOutboxStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AgentRevocationOutboxStatus[]'>
 
 
+
+/**
+ * Reference to a field of type 'AgentRateLimitKind'
+ */
+export type EnumAgentRateLimitKindFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AgentRateLimitKind'>
+
+
+
+/**
+ * Reference to a field of type 'AgentRateLimitKind[]'
+ */
+export type ListEnumAgentRateLimitKindFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AgentRateLimitKind[]'>
+
+
 /**
  * Batch Payload for updateMany & deleteMany & createMany
  */
@@ -3609,9 +3891,12 @@ export type GlobalOmitConfig = {
   workosIdentity?: Prisma.WorkosIdentityOmit
   agentConnection?: Prisma.AgentConnectionOmit
   agentSkillOperation?: Prisma.AgentSkillOperationOmit
+  agentOperationAction?: Prisma.AgentOperationActionOmit
+  agentOperationSource?: Prisma.AgentOperationSourceOmit
   agentSkillOperationItem?: Prisma.AgentSkillOperationItemOmit
   agentExerciseCandidate?: Prisma.AgentExerciseCandidateOmit
   agentRevocationOutbox?: Prisma.AgentRevocationOutboxOmit
+  agentRateLimitBucket?: Prisma.AgentRateLimitBucketOmit
 }
 
 /* Types for Logging */

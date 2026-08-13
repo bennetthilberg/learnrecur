@@ -12,7 +12,7 @@ import { ensureDatabaseUser } from "@/lib/users";
 
 export const runtime = "nodejs";
 
-export async function GET(request: Request) {
+export async function GET() {
   const config = getAgentAccessConfig();
   if (!config.enabled) return new Response("Not found", { status: 404 });
   const cookieStore = await cookies();
@@ -22,20 +22,28 @@ export async function GET(request: Request) {
   );
   cookieStore.delete(WORKOS_EXTERNAL_AUTH_COOKIE);
   if (!externalAuthId) {
-    return NextResponse.redirect(new URL("/settings?agentConnection=expired", request.url));
+    return NextResponse.redirect(
+      new URL("/settings?agentConnection=expired", config.resourceOrigin),
+    );
   }
 
   const clerkUser = await currentUser();
   if (!clerkUser) {
-    return NextResponse.redirect(new URL("/sign-in?redirect_url=/oauth/workos/complete", request.url));
+    return NextResponse.redirect(
+      new URL("/sign-in?redirect_url=/oauth/workos/complete", config.resourceOrigin),
+    );
   }
   const emailAddress = clerkUser.primaryEmailAddress;
   if (!emailAddress?.emailAddress || emailAddress.verification?.status !== "verified") {
-    return NextResponse.redirect(new URL("/settings?agentConnection=email", request.url));
+    return NextResponse.redirect(
+      new URL("/settings?agentConnection=email", config.resourceOrigin),
+    );
   }
   const databaseUser = await ensureDatabaseUser(clerkUser);
   if (databaseUser.status !== "ready") {
-    return NextResponse.redirect(new URL("/settings?agentConnection=failed", request.url));
+    return NextResponse.redirect(
+      new URL("/settings?agentConnection=failed", config.resourceOrigin),
+    );
   }
 
   try {
@@ -56,6 +64,8 @@ export async function GET(request: Request) {
       userId: clerkUser.id,
       errorName: error instanceof Error ? error.name : "UnknownError",
     });
-    return NextResponse.redirect(new URL("/settings?agentConnection=failed", request.url));
+    return NextResponse.redirect(
+      new URL("/settings?agentConnection=failed", config.resourceOrigin),
+    );
   }
 }

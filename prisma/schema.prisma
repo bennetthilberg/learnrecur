@@ -241,6 +241,11 @@ enum AgentRevocationOutboxStatus {
   FAILED
 }
 
+enum AgentRateLimitKind {
+  MUTATION
+  READ
+}
+
 model User {
   id                    String    @id
   email                 String?
@@ -251,31 +256,33 @@ model User {
   updatedAt             DateTime  @updatedAt
   agentAccessDisabledAt DateTime?
 
-  collections          Collection[]
-  sourceFiles          SourceFile[]
-  studyMaterials       StudyMaterial[]
-  materialRevisions    MaterialRevision[]
-  materialSections     MaterialSection[]
-  materialChunks       MaterialChunk[]
-  materialPages        MaterialPage[]
-  materialCleanupJobs  MaterialCleanupJob[]
-  skillDraftBatches    SkillDraftBatch[]
-  skillDraftBatchItems SkillDraftBatchItem[]
-  skills               Skill[]
-  skillSourceRefs      SkillSourceRef[]
-  exercises            Exercise[]
-  exerciseAttempts     ExerciseAttempt[]
-  reviewLogs           ReviewLog[]
-  exerciseFlags        ExerciseFlag[]
-  generationJobs       GenerationJob[]
-  reminderPreference   ReminderPreference?
-  reminderSendLogs     ReminderSendLog[]
-  workosIdentity       WorkosIdentity?
-  agentConnections     AgentConnection[]
-  agentOperations      AgentSkillOperation[]
-  agentOperationItems  AgentSkillOperationItem[]
-  agentCandidates      AgentExerciseCandidate[]
-  agentRevocationJobs  AgentRevocationOutbox[]
+  collections           Collection[]
+  sourceFiles           SourceFile[]
+  studyMaterials        StudyMaterial[]
+  materialRevisions     MaterialRevision[]
+  materialSections      MaterialSection[]
+  materialChunks        MaterialChunk[]
+  materialPages         MaterialPage[]
+  materialCleanupJobs   MaterialCleanupJob[]
+  skillDraftBatches     SkillDraftBatch[]
+  skillDraftBatchItems  SkillDraftBatchItem[]
+  skills                Skill[]
+  skillSourceRefs       SkillSourceRef[]
+  exercises             Exercise[]
+  exerciseAttempts      ExerciseAttempt[]
+  reviewLogs            ReviewLog[]
+  exerciseFlags         ExerciseFlag[]
+  generationJobs        GenerationJob[]
+  reminderPreference    ReminderPreference?
+  reminderSendLogs      ReminderSendLog[]
+  workosIdentity        WorkosIdentity?
+  agentConnections      AgentConnection[]
+  agentRateLimitBuckets AgentRateLimitBucket[]
+  agentOperationActions AgentOperationAction[]
+  agentOperationSources AgentOperationSource[]
+  agentOperations       AgentSkillOperation[]
+  agentOperationItems   AgentSkillOperationItem[]
+  agentCandidates       AgentExerciseCandidate[]
 
   @@map("users")
 }
@@ -317,12 +324,13 @@ model SourceFile {
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
 
-  user             User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  collection       Collection?           @relation(fields: [collectionId, userId], references: [id, userId], onDelete: NoAction)
-  materialRevision MaterialRevision?     @relation(fields: [materialRevisionId, userId], references: [id, userId], onDelete: Cascade)
+  user             User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  collection       Collection?            @relation(fields: [collectionId, userId], references: [id, userId], onDelete: NoAction)
+  materialRevision MaterialRevision?      @relation(fields: [materialRevisionId, userId], references: [id, userId], onDelete: Cascade)
   skillRefs        SkillSourceRef[]
   materialChunks   MaterialChunk[]
   agentOperations  AgentSkillOperation[]
+  agentSources     AgentOperationSource[]
 
   @@unique([id, userId])
   @@unique([id, materialRevisionId, userId])
@@ -849,10 +857,11 @@ model AgentConnection {
   createdAt              DateTime                    @default(now())
   updatedAt              DateTime                    @updatedAt
 
-  user           User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  workosIdentity WorkosIdentity         @relation(fields: [workosIdentityId, userId], references: [id, userId], onDelete: Cascade)
-  operations     AgentSkillOperation[]
-  revocationJob  AgentRevocationOutbox?
+  user             User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workosIdentity   WorkosIdentity         @relation(fields: [workosIdentityId, userId], references: [id, userId], onDelete: Cascade)
+  operations       AgentSkillOperation[]
+  operationActions AgentOperationAction[]
+  rateLimitBuckets AgentRateLimitBucket[]
 
   @@unique([id, userId])
   @@index([userId, status, connectedAt])
@@ -889,12 +898,50 @@ model AgentSkillOperation {
   sourceFile       SourceFile?               @relation(fields: [sourceFileId], references: [id], onDelete: SetNull)
   materialRevision MaterialRevision?         @relation(fields: [materialRevisionId], references: [id], onDelete: SetNull)
   items            AgentSkillOperationItem[]
+  actions          AgentOperationAction[]
+  sources          AgentOperationSource[]
 
   @@unique([id, userId])
   @@unique([connectionId, toolName, idempotencyKey])
   @@index([userId, status, createdAt])
   @@index([connectionId, createdAt])
   @@map("agent_skill_operations")
+}
+
+model AgentOperationAction {
+  id             String   @id @default(cuid())
+  userId         String
+  connectionId   String
+  operationId    String
+  toolName       String
+  idempotencyKey String
+  payloadHash    String
+  createdAt      DateTime @default(now())
+
+  user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  connection AgentConnection     @relation(fields: [connectionId, userId], references: [id, userId], onDelete: Cascade)
+  operation  AgentSkillOperation @relation(fields: [operationId, userId], references: [id, userId], onDelete: Cascade)
+
+  @@unique([connectionId, toolName, idempotencyKey])
+  @@index([operationId, createdAt])
+  @@map("agent_operation_actions")
+}
+
+model AgentOperationSource {
+  id           String @id @default(cuid())
+  userId       String
+  operationId  String
+  sourceFileId String
+  ordinal      Int
+
+  user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  operation  AgentSkillOperation @relation(fields: [operationId, userId], references: [id, userId], onDelete: Cascade)
+  sourceFile SourceFile          @relation(fields: [sourceFileId, userId], references: [id, userId], onDelete: Cascade)
+
+  @@unique([operationId, sourceFileId])
+  @@unique([operationId, ordinal])
+  @@index([sourceFileId])
+  @@map("agent_operation_sources")
 }
 
 model AgentSkillOperationItem {
@@ -910,11 +957,13 @@ model AgentSkillOperationItem {
   candidateFingerprint        String?
   duplicateLibraryFingerprint String?
   duplicateConfidence         String?
+  duplicateOverrideApprovedAt DateTime?
   createdSkillId              String?                  @unique
   resultSkillId               String?
   errorCode                   String?
   errorMessage                String?
   retryCount                  Int                      @default(0)
+  activationReservedAt        DateTime?
   startedAt                   DateTime?
   completedAt                 DateTime?
   createdAt                   DateTime                 @default(now())
@@ -963,6 +1012,8 @@ model AgentRevocationOutbox {
   id            String                      @id @default(cuid())
   userId        String
   connectionId  String
+  workosUserId  String
+  applicationId String
   status        AgentRevocationOutboxStatus @default(PENDING)
   attemptCount  Int                         @default(0)
   errorCode     String?
@@ -971,11 +1022,26 @@ model AgentRevocationOutbox {
   createdAt     DateTime                    @default(now())
   updatedAt     DateTime                    @updatedAt
 
+  @@unique([id, userId])
+  @@unique([connectionId])
+  @@index([status, nextAttemptAt])
+  @@map("agent_revocation_outbox")
+}
+
+model AgentRateLimitBucket {
+  id           String             @id @default(cuid())
+  userId       String
+  connectionId String
+  kind         AgentRateLimitKind
+  windowStart  DateTime
+  count        Int                @default(0)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
   user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   connection AgentConnection @relation(fields: [connectionId, userId], references: [id, userId], onDelete: Cascade)
 
-  @@unique([id, userId])
-  @@unique([connectionId, userId])
-  @@index([status, nextAttemptAt])
-  @@map("agent_revocation_outbox")
+  @@unique([connectionId, kind, windowStart])
+  @@index([userId, windowStart])
+  @@map("agent_rate_limit_buckets")
 }

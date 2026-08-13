@@ -9,7 +9,14 @@ import {
   parseMaterialDraftItemEventPayload,
   parseMaterialIngestionEventPayload,
   parseSourceUploadDraftEventPayload,
+  parseAgentSkillOperationEventPayload,
+  parseAgentConnectionRevocationEventPayload,
 } from "@/lib/inngest/events";
+import {
+  runAgentAccessMaintenance,
+  runAgentConnectionRevocationJob,
+} from "@/lib/agent-access/settings";
+import { AgentSkillWorkerError, runAgentSkillOperationJob } from "@/lib/agent-access/worker";
 import {
   MaterialIngestionError,
   runMaterialIngestionJob,
@@ -41,6 +48,8 @@ import {
   MATERIAL_DRAFT_ITEM_REQUESTED_EVENT,
   MATERIAL_INGESTION_REQUESTED_EVENT,
   SOURCE_UPLOAD_DRAFT_REQUESTED_EVENT,
+  AGENT_SKILL_OPERATION_REQUESTED_EVENT,
+  AGENT_CONNECTION_REVOCATION_REQUESTED_EVENT,
 } from "./events";
 import { inngest } from "./client";
 
@@ -219,6 +228,55 @@ export const duePracticeReminderFunction = inngest.createFunction(
     ),
 );
 
+export const agentSkillOperationFunction = inngest.createFunction(
+  {
+    id: "agent-skill-operation",
+    retries: 3,
+    concurrency: { limit: 1, key: "event.data.userId" },
+    triggers: [{ event: AGENT_SKILL_OPERATION_REQUESTED_EVENT }],
+  },
+  async ({ event, step }) => {
+    const payload = parseAgentSkillOperationEventPayload(event.data);
+    try {
+      return await step.run("process agent skill operation", () =>
+        runAgentSkillOperationJob(payload),
+      );
+    } catch (error) {
+      if (error instanceof AgentSkillWorkerError && !error.retryable) {
+        throw new NonRetriableError(error.message, { cause: error });
+      }
+      throw error;
+    }
+  },
+);
+
+export const agentConnectionRevocationFunction = inngest.createFunction(
+  {
+    id: "agent-connection-revocation",
+    retries: 3,
+    concurrency: { limit: 1, key: "event.data.userId" },
+    triggers: [{ event: AGENT_CONNECTION_REVOCATION_REQUESTED_EVENT }],
+  },
+  async ({ event, step }) => {
+    const payload = parseAgentConnectionRevocationEventPayload(event.data);
+    return step.run("revoke WorkOS authorized application", () =>
+      runAgentConnectionRevocationJob(payload),
+    );
+  },
+);
+
+export const agentAccessMaintenanceFunction = inngest.createFunction(
+  {
+    id: "agent-access-maintenance",
+    retries: 2,
+    triggers: [{ cron: "17 3 * * *" }],
+  },
+  async ({ step }) =>
+    step.run("purge agent payloads and retry revocations", () =>
+      runAgentAccessMaintenance(new Date()),
+    ),
+);
+
 export const learnRecurInngestFunctions = [
   choiceExerciseRefillFunction,
   exactInputExerciseRefillFunction,
@@ -228,5 +286,8 @@ export const learnRecurInngestFunctions = [
   materialCleanupFunction,
   materialDraftItemFunction,
   materialBatchActivationFunction,
+  agentSkillOperationFunction,
+  agentConnectionRevocationFunction,
+  agentAccessMaintenanceFunction,
   duePracticeReminderFunction,
 ];

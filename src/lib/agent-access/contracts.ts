@@ -387,6 +387,23 @@ export function buildAgentPayloadHash(payload: unknown): string {
   return createHash("sha256").update(canonicalJson(payload)).digest("hex");
 }
 
+export function buildAgentCandidateDuplicateKey(payload: unknown): string {
+  const record =
+    payload && typeof payload === "object" && !Array.isArray(payload)
+      ? (payload as Record<string, unknown>)
+      : {};
+  return buildAgentPayloadHash({
+    type: record.type,
+    answerKind: record.answerKind,
+    prompt:
+      typeof record.prompt === "string"
+        ? record.prompt.normalize("NFKC").trim().toLocaleLowerCase("en-US")
+        : record.prompt,
+    choices: record.choices,
+    answerSpec: record.answerSpec,
+  });
+}
+
 function assertSelfChecks(answerSpec: AnswerSpec, choices: unknown, displayAnswer: string) {
   const result = checkAnswer({ answerSpec, choices, submittedAnswer: displayAnswer });
   if (!result.isCorrect) {

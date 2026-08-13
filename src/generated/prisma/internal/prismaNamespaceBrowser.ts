@@ -74,9 +74,12 @@ export const ModelName = {
   WorkosIdentity: 'WorkosIdentity',
   AgentConnection: 'AgentConnection',
   AgentSkillOperation: 'AgentSkillOperation',
+  AgentOperationAction: 'AgentOperationAction',
+  AgentOperationSource: 'AgentOperationSource',
   AgentSkillOperationItem: 'AgentSkillOperationItem',
   AgentExerciseCandidate: 'AgentExerciseCandidate',
-  AgentRevocationOutbox: 'AgentRevocationOutbox'
+  AgentRevocationOutbox: 'AgentRevocationOutbox',
+  AgentRateLimitBucket: 'AgentRateLimitBucket'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -567,6 +570,31 @@ export const AgentSkillOperationScalarFieldEnum = {
 export type AgentSkillOperationScalarFieldEnum = (typeof AgentSkillOperationScalarFieldEnum)[keyof typeof AgentSkillOperationScalarFieldEnum]
 
 
+export const AgentOperationActionScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  connectionId: 'connectionId',
+  operationId: 'operationId',
+  toolName: 'toolName',
+  idempotencyKey: 'idempotencyKey',
+  payloadHash: 'payloadHash',
+  createdAt: 'createdAt'
+} as const
+
+export type AgentOperationActionScalarFieldEnum = (typeof AgentOperationActionScalarFieldEnum)[keyof typeof AgentOperationActionScalarFieldEnum]
+
+
+export const AgentOperationSourceScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  operationId: 'operationId',
+  sourceFileId: 'sourceFileId',
+  ordinal: 'ordinal'
+} as const
+
+export type AgentOperationSourceScalarFieldEnum = (typeof AgentOperationSourceScalarFieldEnum)[keyof typeof AgentOperationSourceScalarFieldEnum]
+
+
 export const AgentSkillOperationItemScalarFieldEnum = {
   id: 'id',
   userId: 'userId',
@@ -580,11 +608,13 @@ export const AgentSkillOperationItemScalarFieldEnum = {
   candidateFingerprint: 'candidateFingerprint',
   duplicateLibraryFingerprint: 'duplicateLibraryFingerprint',
   duplicateConfidence: 'duplicateConfidence',
+  duplicateOverrideApprovedAt: 'duplicateOverrideApprovedAt',
   createdSkillId: 'createdSkillId',
   resultSkillId: 'resultSkillId',
   errorCode: 'errorCode',
   errorMessage: 'errorMessage',
   retryCount: 'retryCount',
+  activationReservedAt: 'activationReservedAt',
   startedAt: 'startedAt',
   completedAt: 'completedAt',
   createdAt: 'createdAt',
@@ -617,6 +647,8 @@ export const AgentRevocationOutboxScalarFieldEnum = {
   id: 'id',
   userId: 'userId',
   connectionId: 'connectionId',
+  workosUserId: 'workosUserId',
+  applicationId: 'applicationId',
   status: 'status',
   attemptCount: 'attemptCount',
   errorCode: 'errorCode',
@@ -627,6 +659,20 @@ export const AgentRevocationOutboxScalarFieldEnum = {
 } as const
 
 export type AgentRevocationOutboxScalarFieldEnum = (typeof AgentRevocationOutboxScalarFieldEnum)[keyof typeof AgentRevocationOutboxScalarFieldEnum]
+
+
+export const AgentRateLimitBucketScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  connectionId: 'connectionId',
+  kind: 'kind',
+  windowStart: 'windowStart',
+  count: 'count',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type AgentRateLimitBucketScalarFieldEnum = (typeof AgentRateLimitBucketScalarFieldEnum)[keyof typeof AgentRateLimitBucketScalarFieldEnum]
 
 
 export const SortOrder = {

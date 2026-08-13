@@ -61,7 +61,7 @@ describeDatabase("persistent material foundation", () => {
     await prisma.$disconnect();
   });
 
-  it("keeps finalized revisions immutable, retrieves exact vectors within ownership, and exports v2", async () => {
+  it("keeps finalized revisions immutable, retrieves exact vectors within ownership, and exports v3", async () => {
     const { material, revision } = await createMaterialWithInitialRevision({
       userId,
       title: "Practical Spanish Grammar",
@@ -266,7 +266,7 @@ describeDatabase("persistent material foundation", () => {
     if (exported.status !== "ready") {
       throw new Error("expected a ready export");
     }
-    expect(exported.export.exportVersion).toBe(2);
+    expect(exported.export.exportVersion).toBe(3);
     expect(exported.export.studyMaterials.map((entry) => entry.id)).toContain(material.id);
     expect(exported.export.materialRevisions).toEqual(
       expect.arrayContaining([

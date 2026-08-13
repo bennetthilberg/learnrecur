@@ -1,6 +1,11 @@
 import "server-only";
 
 import type {
+  AgentConnectionStatus,
+  AgentOperationItemStatus,
+  AgentOperationKind,
+  AgentOperationStatus,
+  AgentRemoteRevocationStatus,
   AnswerKind,
   CollectionStatus,
   ExerciseAttemptResult,
@@ -28,7 +33,7 @@ import type {
 } from "@/generated/prisma/client";
 import { getPrisma } from "@/lib/prisma";
 
-export const STUDY_DATA_EXPORT_VERSION = 2;
+export const STUDY_DATA_EXPORT_VERSION = 3;
 const PRIVATE_SOURCE_METADATA_KEYS = new Set([
   "bucketName",
   "objectKey",
@@ -40,7 +45,7 @@ const PRIVATE_SOURCE_METADATA_KEYS = new Set([
 export type StudyDataExportResult =
   | {
       status: "ready";
-      export: StudyDataExportV2;
+      export: StudyDataExportV3;
       filename: string;
     }
   | {
@@ -48,7 +53,7 @@ export type StudyDataExportResult =
       message: string;
     };
 
-export type StudyDataExportV2 = {
+export type StudyDataExportV3 = {
   exportVersion: typeof STUDY_DATA_EXPORT_VERSION;
   generatedAt: string;
   user: ExportUser;
@@ -71,6 +76,64 @@ export type StudyDataExportV2 = {
   skillDraftBatchItems: ExportSkillDraftBatchItem[];
   reminderPreference: ExportReminderPreference | null;
   reminderSendLogs: ExportReminderSendLog[];
+  agentConnections: ExportAgentConnection[];
+  agentOperations: ExportAgentOperation[];
+  agentOperationItems: ExportAgentOperationItem[];
+};
+
+export type ExportAgentConnection = {
+  id: string;
+  clientId: string;
+  clientName: string;
+  clientDomain: string;
+  resourceUrl: string;
+  scopes: string[];
+  permissionVersion: number;
+  status: AgentConnectionStatus;
+  remoteRevocationStatus: AgentRemoteRevocationStatus;
+  connectedAt: string;
+  lastUsedAt: string | null;
+  revokedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ExportAgentOperation = {
+  id: string;
+  connectionId: string;
+  kind: AgentOperationKind;
+  toolName: string;
+  status: AgentOperationStatus;
+  payloadHash: string;
+  sourceFileId: string | null;
+  materialRevisionId: string | null;
+  requestedCount: number;
+  activeCount: number;
+  reusedCount: number;
+  failedCount: number;
+  errorCode: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ExportAgentOperationItem = {
+  id: string;
+  operationId: string;
+  clientReference: string;
+  status: AgentOperationItemStatus;
+  proposedTitle: string | null;
+  proposedObjective: string | null;
+  duplicateConfidence: string | null;
+  createdSkillId: string | null;
+  resultSkillId: string | null;
+  errorCode: string | null;
+  retryCount: number;
+  startedAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type ExportUser = {
@@ -773,6 +836,67 @@ export async function getUserDataExport(input: {
           updatedAt: true,
         },
       },
+      agentConnections: {
+        orderBy: { id: "asc" },
+        select: {
+          id: true,
+          clientId: true,
+          clientName: true,
+          clientDomain: true,
+          resourceUrl: true,
+          scopes: true,
+          permissionVersion: true,
+          status: true,
+          remoteRevocationStatus: true,
+          connectedAt: true,
+          lastUsedAt: true,
+          revokedAt: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      },
+      agentOperations: {
+        orderBy: { id: "asc" },
+        select: {
+          id: true,
+          connectionId: true,
+          kind: true,
+          toolName: true,
+          status: true,
+          payloadHash: true,
+          sourceFileId: true,
+          materialRevisionId: true,
+          requestedCount: true,
+          activeCount: true,
+          reusedCount: true,
+          failedCount: true,
+          errorCode: true,
+          startedAt: true,
+          completedAt: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      },
+      agentOperationItems: {
+        orderBy: { id: "asc" },
+        select: {
+          id: true,
+          operationId: true,
+          clientReference: true,
+          status: true,
+          proposedTitle: true,
+          proposedObjective: true,
+          duplicateConfidence: true,
+          createdSkillId: true,
+          resultSkillId: true,
+          errorCode: true,
+          retryCount: true,
+          startedAt: true,
+          completedAt: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      },
     },
   });
 
@@ -783,7 +907,7 @@ export async function getUserDataExport(input: {
     };
   }
 
-  const exportData: StudyDataExportV2 = {
+  const exportData: StudyDataExportV3 = {
     exportVersion: STUDY_DATA_EXPORT_VERSION,
     generatedAt: serializeExportDate(input.generatedAt),
     user: {
@@ -905,6 +1029,28 @@ export async function getUserDataExport(input: {
       ...log,
       createdAt: serializeExportDate(log.createdAt),
       updatedAt: serializeExportDate(log.updatedAt),
+    })),
+    agentConnections: user.agentConnections.map((connection) => ({
+      ...connection,
+      connectedAt: serializeExportDate(connection.connectedAt),
+      lastUsedAt: serializeExportDate(connection.lastUsedAt),
+      revokedAt: serializeExportDate(connection.revokedAt),
+      createdAt: serializeExportDate(connection.createdAt),
+      updatedAt: serializeExportDate(connection.updatedAt),
+    })),
+    agentOperations: user.agentOperations.map((operation) => ({
+      ...operation,
+      startedAt: serializeExportDate(operation.startedAt),
+      completedAt: serializeExportDate(operation.completedAt),
+      createdAt: serializeExportDate(operation.createdAt),
+      updatedAt: serializeExportDate(operation.updatedAt),
+    })),
+    agentOperationItems: user.agentOperationItems.map((item) => ({
+      ...item,
+      startedAt: serializeExportDate(item.startedAt),
+      completedAt: serializeExportDate(item.completedAt),
+      createdAt: serializeExportDate(item.createdAt),
+      updatedAt: serializeExportDate(item.updatedAt),
     })),
   };
 

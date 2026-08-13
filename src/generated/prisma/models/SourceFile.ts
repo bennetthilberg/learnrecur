@@ -306,6 +306,7 @@ export type SourceFileWhereInput = {
   skillRefs?: Prisma.SkillSourceRefListRelationFilter
   materialChunks?: Prisma.MaterialChunkListRelationFilter
   agentOperations?: Prisma.AgentSkillOperationListRelationFilter
+  agentSources?: Prisma.AgentOperationSourceListRelationFilter
 }
 
 export type SourceFileOrderByWithRelationInput = {
@@ -331,6 +332,7 @@ export type SourceFileOrderByWithRelationInput = {
   skillRefs?: Prisma.SkillSourceRefOrderByRelationAggregateInput
   materialChunks?: Prisma.MaterialChunkOrderByRelationAggregateInput
   agentOperations?: Prisma.AgentSkillOperationOrderByRelationAggregateInput
+  agentSources?: Prisma.AgentOperationSourceOrderByRelationAggregateInput
 }
 
 export type SourceFileWhereUniqueInput = Prisma.AtLeast<{
@@ -361,6 +363,7 @@ export type SourceFileWhereUniqueInput = Prisma.AtLeast<{
   skillRefs?: Prisma.SkillSourceRefListRelationFilter
   materialChunks?: Prisma.MaterialChunkListRelationFilter
   agentOperations?: Prisma.AgentSkillOperationListRelationFilter
+  agentSources?: Prisma.AgentOperationSourceListRelationFilter
 }, "id" | "id_userId" | "id_materialRevisionId_userId">
 
 export type SourceFileOrderByWithAggregationInput = {
@@ -429,6 +432,7 @@ export type SourceFileCreateInput = {
   skillRefs?: Prisma.SkillSourceRefCreateNestedManyWithoutSourceFileInput
   materialChunks?: Prisma.MaterialChunkCreateNestedManyWithoutSourceFileInput
   agentOperations?: Prisma.AgentSkillOperationCreateNestedManyWithoutSourceFileInput
+  agentSources?: Prisma.AgentOperationSourceCreateNestedManyWithoutSourceFileInput
 }
 
 export type SourceFileUncheckedCreateInput = {
@@ -451,6 +455,7 @@ export type SourceFileUncheckedCreateInput = {
   skillRefs?: Prisma.SkillSourceRefUncheckedCreateNestedManyWithoutSourceFileInput
   materialChunks?: Prisma.MaterialChunkUncheckedCreateNestedManyWithoutSourceFileInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedCreateNestedManyWithoutSourceFileInput
+  agentSources?: Prisma.AgentOperationSourceUncheckedCreateNestedManyWithoutSourceFileInput
 }
 
 export type SourceFileUpdateInput = {
@@ -473,6 +478,7 @@ export type SourceFileUpdateInput = {
   skillRefs?: Prisma.SkillSourceRefUpdateManyWithoutSourceFileNestedInput
   materialChunks?: Prisma.MaterialChunkUpdateManyWithoutSourceFileNestedInput
   agentOperations?: Prisma.AgentSkillOperationUpdateManyWithoutSourceFileNestedInput
+  agentSources?: Prisma.AgentOperationSourceUpdateManyWithoutSourceFileNestedInput
 }
 
 export type SourceFileUncheckedUpdateInput = {
@@ -495,6 +501,7 @@ export type SourceFileUncheckedUpdateInput = {
   skillRefs?: Prisma.SkillSourceRefUncheckedUpdateManyWithoutSourceFileNestedInput
   materialChunks?: Prisma.MaterialChunkUncheckedUpdateManyWithoutSourceFileNestedInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedUpdateManyWithoutSourceFileNestedInput
+  agentSources?: Prisma.AgentOperationSourceUncheckedUpdateManyWithoutSourceFileNestedInput
 }
 
 export type SourceFileCreateManyInput = {
@@ -833,6 +840,20 @@ export type SourceFileUpdateOneWithoutAgentOperationsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.SourceFileUpdateToOneWithWhereWithoutAgentOperationsInput, Prisma.SourceFileUpdateWithoutAgentOperationsInput>, Prisma.SourceFileUncheckedUpdateWithoutAgentOperationsInput>
 }
 
+export type SourceFileCreateNestedOneWithoutAgentSourcesInput = {
+  create?: Prisma.XOR<Prisma.SourceFileCreateWithoutAgentSourcesInput, Prisma.SourceFileUncheckedCreateWithoutAgentSourcesInput>
+  connectOrCreate?: Prisma.SourceFileCreateOrConnectWithoutAgentSourcesInput
+  connect?: Prisma.SourceFileWhereUniqueInput
+}
+
+export type SourceFileUpdateOneRequiredWithoutAgentSourcesNestedInput = {
+  create?: Prisma.XOR<Prisma.SourceFileCreateWithoutAgentSourcesInput, Prisma.SourceFileUncheckedCreateWithoutAgentSourcesInput>
+  connectOrCreate?: Prisma.SourceFileCreateOrConnectWithoutAgentSourcesInput
+  upsert?: Prisma.SourceFileUpsertWithoutAgentSourcesInput
+  connect?: Prisma.SourceFileWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.SourceFileUpdateToOneWithWhereWithoutAgentSourcesInput, Prisma.SourceFileUpdateWithoutAgentSourcesInput>, Prisma.SourceFileUncheckedUpdateWithoutAgentSourcesInput>
+}
+
 export type SourceFileCreateWithoutUserInput = {
   id?: string
   kind?: $Enums.SourceFileKind
@@ -852,6 +873,7 @@ export type SourceFileCreateWithoutUserInput = {
   skillRefs?: Prisma.SkillSourceRefCreateNestedManyWithoutSourceFileInput
   materialChunks?: Prisma.MaterialChunkCreateNestedManyWithoutSourceFileInput
   agentOperations?: Prisma.AgentSkillOperationCreateNestedManyWithoutSourceFileInput
+  agentSources?: Prisma.AgentOperationSourceCreateNestedManyWithoutSourceFileInput
 }
 
 export type SourceFileUncheckedCreateWithoutUserInput = {
@@ -873,6 +895,7 @@ export type SourceFileUncheckedCreateWithoutUserInput = {
   skillRefs?: Prisma.SkillSourceRefUncheckedCreateNestedManyWithoutSourceFileInput
   materialChunks?: Prisma.MaterialChunkUncheckedCreateNestedManyWithoutSourceFileInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedCreateNestedManyWithoutSourceFileInput
+  agentSources?: Prisma.AgentOperationSourceUncheckedCreateNestedManyWithoutSourceFileInput
 }
 
 export type SourceFileCreateOrConnectWithoutUserInput = {
@@ -942,6 +965,7 @@ export type SourceFileCreateWithoutCollectionInput = {
   skillRefs?: Prisma.SkillSourceRefCreateNestedManyWithoutSourceFileInput
   materialChunks?: Prisma.MaterialChunkCreateNestedManyWithoutSourceFileInput
   agentOperations?: Prisma.AgentSkillOperationCreateNestedManyWithoutSourceFileInput
+  agentSources?: Prisma.AgentOperationSourceCreateNestedManyWithoutSourceFileInput
 }
 
 export type SourceFileUncheckedCreateWithoutCollectionInput = {
@@ -962,6 +986,7 @@ export type SourceFileUncheckedCreateWithoutCollectionInput = {
   skillRefs?: Prisma.SkillSourceRefUncheckedCreateNestedManyWithoutSourceFileInput
   materialChunks?: Prisma.MaterialChunkUncheckedCreateNestedManyWithoutSourceFileInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedCreateNestedManyWithoutSourceFileInput
+  agentSources?: Prisma.AgentOperationSourceUncheckedCreateNestedManyWithoutSourceFileInput
 }
 
 export type SourceFileCreateOrConnectWithoutCollectionInput = {
@@ -1009,6 +1034,7 @@ export type SourceFileCreateWithoutMaterialRevisionInput = {
   skillRefs?: Prisma.SkillSourceRefCreateNestedManyWithoutSourceFileInput
   materialChunks?: Prisma.MaterialChunkCreateNestedManyWithoutSourceFileInput
   agentOperations?: Prisma.AgentSkillOperationCreateNestedManyWithoutSourceFileInput
+  agentSources?: Prisma.AgentOperationSourceCreateNestedManyWithoutSourceFileInput
 }
 
 export type SourceFileUncheckedCreateWithoutMaterialRevisionInput = {
@@ -1029,6 +1055,7 @@ export type SourceFileUncheckedCreateWithoutMaterialRevisionInput = {
   skillRefs?: Prisma.SkillSourceRefUncheckedCreateNestedManyWithoutSourceFileInput
   materialChunks?: Prisma.MaterialChunkUncheckedCreateNestedManyWithoutSourceFileInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedCreateNestedManyWithoutSourceFileInput
+  agentSources?: Prisma.AgentOperationSourceUncheckedCreateNestedManyWithoutSourceFileInput
 }
 
 export type SourceFileCreateOrConnectWithoutMaterialRevisionInput = {
@@ -1076,6 +1103,7 @@ export type SourceFileCreateWithoutMaterialChunksInput = {
   materialRevision?: Prisma.MaterialRevisionCreateNestedOneWithoutSourceFilesInput
   skillRefs?: Prisma.SkillSourceRefCreateNestedManyWithoutSourceFileInput
   agentOperations?: Prisma.AgentSkillOperationCreateNestedManyWithoutSourceFileInput
+  agentSources?: Prisma.AgentOperationSourceCreateNestedManyWithoutSourceFileInput
 }
 
 export type SourceFileUncheckedCreateWithoutMaterialChunksInput = {
@@ -1097,6 +1125,7 @@ export type SourceFileUncheckedCreateWithoutMaterialChunksInput = {
   updatedAt?: Date | string
   skillRefs?: Prisma.SkillSourceRefUncheckedCreateNestedManyWithoutSourceFileInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedCreateNestedManyWithoutSourceFileInput
+  agentSources?: Prisma.AgentOperationSourceUncheckedCreateNestedManyWithoutSourceFileInput
 }
 
 export type SourceFileCreateOrConnectWithoutMaterialChunksInput = {
@@ -1134,6 +1163,7 @@ export type SourceFileUpdateWithoutMaterialChunksInput = {
   materialRevision?: Prisma.MaterialRevisionUpdateOneWithoutSourceFilesNestedInput
   skillRefs?: Prisma.SkillSourceRefUpdateManyWithoutSourceFileNestedInput
   agentOperations?: Prisma.AgentSkillOperationUpdateManyWithoutSourceFileNestedInput
+  agentSources?: Prisma.AgentOperationSourceUpdateManyWithoutSourceFileNestedInput
 }
 
 export type SourceFileUncheckedUpdateWithoutMaterialChunksInput = {
@@ -1155,6 +1185,7 @@ export type SourceFileUncheckedUpdateWithoutMaterialChunksInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   skillRefs?: Prisma.SkillSourceRefUncheckedUpdateManyWithoutSourceFileNestedInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedUpdateManyWithoutSourceFileNestedInput
+  agentSources?: Prisma.AgentOperationSourceUncheckedUpdateManyWithoutSourceFileNestedInput
 }
 
 export type SourceFileCreateWithoutSkillRefsInput = {
@@ -1176,6 +1207,7 @@ export type SourceFileCreateWithoutSkillRefsInput = {
   materialRevision?: Prisma.MaterialRevisionCreateNestedOneWithoutSourceFilesInput
   materialChunks?: Prisma.MaterialChunkCreateNestedManyWithoutSourceFileInput
   agentOperations?: Prisma.AgentSkillOperationCreateNestedManyWithoutSourceFileInput
+  agentSources?: Prisma.AgentOperationSourceCreateNestedManyWithoutSourceFileInput
 }
 
 export type SourceFileUncheckedCreateWithoutSkillRefsInput = {
@@ -1197,6 +1229,7 @@ export type SourceFileUncheckedCreateWithoutSkillRefsInput = {
   updatedAt?: Date | string
   materialChunks?: Prisma.MaterialChunkUncheckedCreateNestedManyWithoutSourceFileInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedCreateNestedManyWithoutSourceFileInput
+  agentSources?: Prisma.AgentOperationSourceUncheckedCreateNestedManyWithoutSourceFileInput
 }
 
 export type SourceFileCreateOrConnectWithoutSkillRefsInput = {
@@ -1234,6 +1267,7 @@ export type SourceFileUpdateWithoutSkillRefsInput = {
   materialRevision?: Prisma.MaterialRevisionUpdateOneWithoutSourceFilesNestedInput
   materialChunks?: Prisma.MaterialChunkUpdateManyWithoutSourceFileNestedInput
   agentOperations?: Prisma.AgentSkillOperationUpdateManyWithoutSourceFileNestedInput
+  agentSources?: Prisma.AgentOperationSourceUpdateManyWithoutSourceFileNestedInput
 }
 
 export type SourceFileUncheckedUpdateWithoutSkillRefsInput = {
@@ -1255,6 +1289,7 @@ export type SourceFileUncheckedUpdateWithoutSkillRefsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   materialChunks?: Prisma.MaterialChunkUncheckedUpdateManyWithoutSourceFileNestedInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedUpdateManyWithoutSourceFileNestedInput
+  agentSources?: Prisma.AgentOperationSourceUncheckedUpdateManyWithoutSourceFileNestedInput
 }
 
 export type SourceFileCreateWithoutAgentOperationsInput = {
@@ -1276,6 +1311,7 @@ export type SourceFileCreateWithoutAgentOperationsInput = {
   materialRevision?: Prisma.MaterialRevisionCreateNestedOneWithoutSourceFilesInput
   skillRefs?: Prisma.SkillSourceRefCreateNestedManyWithoutSourceFileInput
   materialChunks?: Prisma.MaterialChunkCreateNestedManyWithoutSourceFileInput
+  agentSources?: Prisma.AgentOperationSourceCreateNestedManyWithoutSourceFileInput
 }
 
 export type SourceFileUncheckedCreateWithoutAgentOperationsInput = {
@@ -1297,6 +1333,7 @@ export type SourceFileUncheckedCreateWithoutAgentOperationsInput = {
   updatedAt?: Date | string
   skillRefs?: Prisma.SkillSourceRefUncheckedCreateNestedManyWithoutSourceFileInput
   materialChunks?: Prisma.MaterialChunkUncheckedCreateNestedManyWithoutSourceFileInput
+  agentSources?: Prisma.AgentOperationSourceUncheckedCreateNestedManyWithoutSourceFileInput
 }
 
 export type SourceFileCreateOrConnectWithoutAgentOperationsInput = {
@@ -1334,6 +1371,7 @@ export type SourceFileUpdateWithoutAgentOperationsInput = {
   materialRevision?: Prisma.MaterialRevisionUpdateOneWithoutSourceFilesNestedInput
   skillRefs?: Prisma.SkillSourceRefUpdateManyWithoutSourceFileNestedInput
   materialChunks?: Prisma.MaterialChunkUpdateManyWithoutSourceFileNestedInput
+  agentSources?: Prisma.AgentOperationSourceUpdateManyWithoutSourceFileNestedInput
 }
 
 export type SourceFileUncheckedUpdateWithoutAgentOperationsInput = {
@@ -1355,6 +1393,111 @@ export type SourceFileUncheckedUpdateWithoutAgentOperationsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   skillRefs?: Prisma.SkillSourceRefUncheckedUpdateManyWithoutSourceFileNestedInput
   materialChunks?: Prisma.MaterialChunkUncheckedUpdateManyWithoutSourceFileNestedInput
+  agentSources?: Prisma.AgentOperationSourceUncheckedUpdateManyWithoutSourceFileNestedInput
+}
+
+export type SourceFileCreateWithoutAgentSourcesInput = {
+  id?: string
+  kind?: $Enums.SourceFileKind
+  status?: $Enums.SourceFileStatus
+  originalName: string
+  mimeType?: string | null
+  byteSize?: number | null
+  storageBucket?: string | null
+  storageKey?: string | null
+  publicUrl?: string | null
+  extractedText?: string | null
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  user: Prisma.UserCreateNestedOneWithoutSourceFilesInput
+  collection?: Prisma.CollectionCreateNestedOneWithoutSourceFilesInput
+  materialRevision?: Prisma.MaterialRevisionCreateNestedOneWithoutSourceFilesInput
+  skillRefs?: Prisma.SkillSourceRefCreateNestedManyWithoutSourceFileInput
+  materialChunks?: Prisma.MaterialChunkCreateNestedManyWithoutSourceFileInput
+  agentOperations?: Prisma.AgentSkillOperationCreateNestedManyWithoutSourceFileInput
+}
+
+export type SourceFileUncheckedCreateWithoutAgentSourcesInput = {
+  id?: string
+  userId: string
+  collectionId?: string | null
+  materialRevisionId?: string | null
+  kind?: $Enums.SourceFileKind
+  status?: $Enums.SourceFileStatus
+  originalName: string
+  mimeType?: string | null
+  byteSize?: number | null
+  storageBucket?: string | null
+  storageKey?: string | null
+  publicUrl?: string | null
+  extractedText?: string | null
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  skillRefs?: Prisma.SkillSourceRefUncheckedCreateNestedManyWithoutSourceFileInput
+  materialChunks?: Prisma.MaterialChunkUncheckedCreateNestedManyWithoutSourceFileInput
+  agentOperations?: Prisma.AgentSkillOperationUncheckedCreateNestedManyWithoutSourceFileInput
+}
+
+export type SourceFileCreateOrConnectWithoutAgentSourcesInput = {
+  where: Prisma.SourceFileWhereUniqueInput
+  create: Prisma.XOR<Prisma.SourceFileCreateWithoutAgentSourcesInput, Prisma.SourceFileUncheckedCreateWithoutAgentSourcesInput>
+}
+
+export type SourceFileUpsertWithoutAgentSourcesInput = {
+  update: Prisma.XOR<Prisma.SourceFileUpdateWithoutAgentSourcesInput, Prisma.SourceFileUncheckedUpdateWithoutAgentSourcesInput>
+  create: Prisma.XOR<Prisma.SourceFileCreateWithoutAgentSourcesInput, Prisma.SourceFileUncheckedCreateWithoutAgentSourcesInput>
+  where?: Prisma.SourceFileWhereInput
+}
+
+export type SourceFileUpdateToOneWithWhereWithoutAgentSourcesInput = {
+  where?: Prisma.SourceFileWhereInput
+  data: Prisma.XOR<Prisma.SourceFileUpdateWithoutAgentSourcesInput, Prisma.SourceFileUncheckedUpdateWithoutAgentSourcesInput>
+}
+
+export type SourceFileUpdateWithoutAgentSourcesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  kind?: Prisma.EnumSourceFileKindFieldUpdateOperationsInput | $Enums.SourceFileKind
+  status?: Prisma.EnumSourceFileStatusFieldUpdateOperationsInput | $Enums.SourceFileStatus
+  originalName?: Prisma.StringFieldUpdateOperationsInput | string
+  mimeType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  byteSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  storageBucket?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  publicUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  extractedText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  user?: Prisma.UserUpdateOneRequiredWithoutSourceFilesNestedInput
+  collection?: Prisma.CollectionUpdateOneWithoutSourceFilesNestedInput
+  materialRevision?: Prisma.MaterialRevisionUpdateOneWithoutSourceFilesNestedInput
+  skillRefs?: Prisma.SkillSourceRefUpdateManyWithoutSourceFileNestedInput
+  materialChunks?: Prisma.MaterialChunkUpdateManyWithoutSourceFileNestedInput
+  agentOperations?: Prisma.AgentSkillOperationUpdateManyWithoutSourceFileNestedInput
+}
+
+export type SourceFileUncheckedUpdateWithoutAgentSourcesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
+  collectionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  materialRevisionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kind?: Prisma.EnumSourceFileKindFieldUpdateOperationsInput | $Enums.SourceFileKind
+  status?: Prisma.EnumSourceFileStatusFieldUpdateOperationsInput | $Enums.SourceFileStatus
+  originalName?: Prisma.StringFieldUpdateOperationsInput | string
+  mimeType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  byteSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  storageBucket?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  publicUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  extractedText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  skillRefs?: Prisma.SkillSourceRefUncheckedUpdateManyWithoutSourceFileNestedInput
+  materialChunks?: Prisma.MaterialChunkUncheckedUpdateManyWithoutSourceFileNestedInput
+  agentOperations?: Prisma.AgentSkillOperationUncheckedUpdateManyWithoutSourceFileNestedInput
 }
 
 export type SourceFileCreateManyUserInput = {
@@ -1394,6 +1537,7 @@ export type SourceFileUpdateWithoutUserInput = {
   skillRefs?: Prisma.SkillSourceRefUpdateManyWithoutSourceFileNestedInput
   materialChunks?: Prisma.MaterialChunkUpdateManyWithoutSourceFileNestedInput
   agentOperations?: Prisma.AgentSkillOperationUpdateManyWithoutSourceFileNestedInput
+  agentSources?: Prisma.AgentOperationSourceUpdateManyWithoutSourceFileNestedInput
 }
 
 export type SourceFileUncheckedUpdateWithoutUserInput = {
@@ -1415,6 +1559,7 @@ export type SourceFileUncheckedUpdateWithoutUserInput = {
   skillRefs?: Prisma.SkillSourceRefUncheckedUpdateManyWithoutSourceFileNestedInput
   materialChunks?: Prisma.MaterialChunkUncheckedUpdateManyWithoutSourceFileNestedInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedUpdateManyWithoutSourceFileNestedInput
+  agentSources?: Prisma.AgentOperationSourceUncheckedUpdateManyWithoutSourceFileNestedInput
 }
 
 export type SourceFileUncheckedUpdateManyWithoutUserInput = {
@@ -1471,6 +1616,7 @@ export type SourceFileUpdateWithoutCollectionInput = {
   skillRefs?: Prisma.SkillSourceRefUpdateManyWithoutSourceFileNestedInput
   materialChunks?: Prisma.MaterialChunkUpdateManyWithoutSourceFileNestedInput
   agentOperations?: Prisma.AgentSkillOperationUpdateManyWithoutSourceFileNestedInput
+  agentSources?: Prisma.AgentOperationSourceUpdateManyWithoutSourceFileNestedInput
 }
 
 export type SourceFileUncheckedUpdateWithoutCollectionInput = {
@@ -1491,6 +1637,7 @@ export type SourceFileUncheckedUpdateWithoutCollectionInput = {
   skillRefs?: Prisma.SkillSourceRefUncheckedUpdateManyWithoutSourceFileNestedInput
   materialChunks?: Prisma.MaterialChunkUncheckedUpdateManyWithoutSourceFileNestedInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedUpdateManyWithoutSourceFileNestedInput
+  agentSources?: Prisma.AgentOperationSourceUncheckedUpdateManyWithoutSourceFileNestedInput
 }
 
 export type SourceFileUncheckedUpdateManyWithoutCollectionInput = {
@@ -1546,6 +1693,7 @@ export type SourceFileUpdateWithoutMaterialRevisionInput = {
   skillRefs?: Prisma.SkillSourceRefUpdateManyWithoutSourceFileNestedInput
   materialChunks?: Prisma.MaterialChunkUpdateManyWithoutSourceFileNestedInput
   agentOperations?: Prisma.AgentSkillOperationUpdateManyWithoutSourceFileNestedInput
+  agentSources?: Prisma.AgentOperationSourceUpdateManyWithoutSourceFileNestedInput
 }
 
 export type SourceFileUncheckedUpdateWithoutMaterialRevisionInput = {
@@ -1566,6 +1714,7 @@ export type SourceFileUncheckedUpdateWithoutMaterialRevisionInput = {
   skillRefs?: Prisma.SkillSourceRefUncheckedUpdateManyWithoutSourceFileNestedInput
   materialChunks?: Prisma.MaterialChunkUncheckedUpdateManyWithoutSourceFileNestedInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedUpdateManyWithoutSourceFileNestedInput
+  agentSources?: Prisma.AgentOperationSourceUncheckedUpdateManyWithoutSourceFileNestedInput
 }
 
 export type SourceFileUncheckedUpdateManyWithoutMaterialRevisionInput = {
@@ -1594,12 +1743,14 @@ export type SourceFileCountOutputType = {
   skillRefs: number
   materialChunks: number
   agentOperations: number
+  agentSources: number
 }
 
 export type SourceFileCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   skillRefs?: boolean | SourceFileCountOutputTypeCountSkillRefsArgs
   materialChunks?: boolean | SourceFileCountOutputTypeCountMaterialChunksArgs
   agentOperations?: boolean | SourceFileCountOutputTypeCountAgentOperationsArgs
+  agentSources?: boolean | SourceFileCountOutputTypeCountAgentSourcesArgs
 }
 
 /**
@@ -1633,6 +1784,13 @@ export type SourceFileCountOutputTypeCountAgentOperationsArgs<ExtArgs extends ru
   where?: Prisma.AgentSkillOperationWhereInput
 }
 
+/**
+ * SourceFileCountOutputType without action
+ */
+export type SourceFileCountOutputTypeCountAgentSourcesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.AgentOperationSourceWhereInput
+}
+
 
 export type SourceFileSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -1657,6 +1815,7 @@ export type SourceFileSelect<ExtArgs extends runtime.Types.Extensions.InternalAr
   skillRefs?: boolean | Prisma.SourceFile$skillRefsArgs<ExtArgs>
   materialChunks?: boolean | Prisma.SourceFile$materialChunksArgs<ExtArgs>
   agentOperations?: boolean | Prisma.SourceFile$agentOperationsArgs<ExtArgs>
+  agentSources?: boolean | Prisma.SourceFile$agentSourcesArgs<ExtArgs>
   _count?: boolean | Prisma.SourceFileCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["sourceFile"]>
 
@@ -1731,6 +1890,7 @@ export type SourceFileInclude<ExtArgs extends runtime.Types.Extensions.InternalA
   skillRefs?: boolean | Prisma.SourceFile$skillRefsArgs<ExtArgs>
   materialChunks?: boolean | Prisma.SourceFile$materialChunksArgs<ExtArgs>
   agentOperations?: boolean | Prisma.SourceFile$agentOperationsArgs<ExtArgs>
+  agentSources?: boolean | Prisma.SourceFile$agentSourcesArgs<ExtArgs>
   _count?: boolean | Prisma.SourceFileCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type SourceFileIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1753,6 +1913,7 @@ export type $SourceFilePayload<ExtArgs extends runtime.Types.Extensions.Internal
     skillRefs: Prisma.$SkillSourceRefPayload<ExtArgs>[]
     materialChunks: Prisma.$MaterialChunkPayload<ExtArgs>[]
     agentOperations: Prisma.$AgentSkillOperationPayload<ExtArgs>[]
+    agentSources: Prisma.$AgentOperationSourcePayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -2171,6 +2332,7 @@ export interface Prisma__SourceFileClient<T, Null = never, ExtArgs extends runti
   skillRefs<T extends Prisma.SourceFile$skillRefsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.SourceFile$skillRefsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$SkillSourceRefPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   materialChunks<T extends Prisma.SourceFile$materialChunksArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.SourceFile$materialChunksArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$MaterialChunkPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   agentOperations<T extends Prisma.SourceFile$agentOperationsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.SourceFile$agentOperationsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AgentSkillOperationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  agentSources<T extends Prisma.SourceFile$agentSourcesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.SourceFile$agentSourcesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AgentOperationSourcePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -2724,6 +2886,30 @@ export type SourceFile$agentOperationsArgs<ExtArgs extends runtime.Types.Extensi
   take?: number
   skip?: number
   distinct?: Prisma.AgentSkillOperationScalarFieldEnum | Prisma.AgentSkillOperationScalarFieldEnum[]
+}
+
+/**
+ * SourceFile.agentSources
+ */
+export type SourceFile$agentSourcesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the AgentOperationSource
+   */
+  select?: Prisma.AgentOperationSourceSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the AgentOperationSource
+   */
+  omit?: Prisma.AgentOperationSourceOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.AgentOperationSourceInclude<ExtArgs> | null
+  where?: Prisma.AgentOperationSourceWhereInput
+  orderBy?: Prisma.AgentOperationSourceOrderByWithRelationInput | Prisma.AgentOperationSourceOrderByWithRelationInput[]
+  cursor?: Prisma.AgentOperationSourceWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.AgentOperationSourceScalarFieldEnum | Prisma.AgentOperationSourceScalarFieldEnum[]
 }
 
 /**

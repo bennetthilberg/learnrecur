@@ -103,6 +103,7 @@ export async function completeWorkosStandaloneAuth(input: {
         },
       }),
       redirect: "error",
+      signal: AbortSignal.timeout(10_000),
     },
   );
   if (!completionResponse.ok) {
@@ -121,6 +122,7 @@ export async function completeWorkosStandaloneAuth(input: {
     {
       headers: { authorization: `Bearer ${input.config.workosApiKey}` },
       redirect: "error",
+      signal: AbortSignal.timeout(10_000),
     },
   );
   if (!userResponse.ok) {

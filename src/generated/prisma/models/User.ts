@@ -227,10 +227,12 @@ export type UserWhereInput = {
   reminderSendLogs?: Prisma.ReminderSendLogListRelationFilter
   workosIdentity?: Prisma.XOR<Prisma.WorkosIdentityNullableScalarRelationFilter, Prisma.WorkosIdentityWhereInput> | null
   agentConnections?: Prisma.AgentConnectionListRelationFilter
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketListRelationFilter
+  agentOperationActions?: Prisma.AgentOperationActionListRelationFilter
+  agentOperationSources?: Prisma.AgentOperationSourceListRelationFilter
   agentOperations?: Prisma.AgentSkillOperationListRelationFilter
   agentOperationItems?: Prisma.AgentSkillOperationItemListRelationFilter
   agentCandidates?: Prisma.AgentExerciseCandidateListRelationFilter
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxListRelationFilter
 }
 
 export type UserOrderByWithRelationInput = {
@@ -263,10 +265,12 @@ export type UserOrderByWithRelationInput = {
   reminderSendLogs?: Prisma.ReminderSendLogOrderByRelationAggregateInput
   workosIdentity?: Prisma.WorkosIdentityOrderByWithRelationInput
   agentConnections?: Prisma.AgentConnectionOrderByRelationAggregateInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketOrderByRelationAggregateInput
+  agentOperationActions?: Prisma.AgentOperationActionOrderByRelationAggregateInput
+  agentOperationSources?: Prisma.AgentOperationSourceOrderByRelationAggregateInput
   agentOperations?: Prisma.AgentSkillOperationOrderByRelationAggregateInput
   agentOperationItems?: Prisma.AgentSkillOperationItemOrderByRelationAggregateInput
   agentCandidates?: Prisma.AgentExerciseCandidateOrderByRelationAggregateInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxOrderByRelationAggregateInput
 }
 
 export type UserWhereUniqueInput = Prisma.AtLeast<{
@@ -302,10 +306,12 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   reminderSendLogs?: Prisma.ReminderSendLogListRelationFilter
   workosIdentity?: Prisma.XOR<Prisma.WorkosIdentityNullableScalarRelationFilter, Prisma.WorkosIdentityWhereInput> | null
   agentConnections?: Prisma.AgentConnectionListRelationFilter
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketListRelationFilter
+  agentOperationActions?: Prisma.AgentOperationActionListRelationFilter
+  agentOperationSources?: Prisma.AgentOperationSourceListRelationFilter
   agentOperations?: Prisma.AgentSkillOperationListRelationFilter
   agentOperationItems?: Prisma.AgentSkillOperationItemListRelationFilter
   agentCandidates?: Prisma.AgentExerciseCandidateListRelationFilter
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxListRelationFilter
 }, "id">
 
 export type UserOrderByWithAggregationInput = {
@@ -366,10 +372,12 @@ export type UserCreateInput = {
   reminderSendLogs?: Prisma.ReminderSendLogCreateNestedManyWithoutUserInput
   workosIdentity?: Prisma.WorkosIdentityCreateNestedOneWithoutUserInput
   agentConnections?: Prisma.AgentConnectionCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceCreateNestedManyWithoutUserInput
   agentOperations?: Prisma.AgentSkillOperationCreateNestedManyWithoutUserInput
   agentOperationItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutUserInput
   agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateInput = {
@@ -402,10 +410,12 @@ export type UserUncheckedCreateInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUncheckedCreateNestedManyWithoutUserInput
   workosIdentity?: Prisma.WorkosIdentityUncheckedCreateNestedOneWithoutUserInput
   agentConnections?: Prisma.AgentConnectionUncheckedCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedCreateNestedManyWithoutUserInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedCreateNestedManyWithoutUserInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutUserInput
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserUpdateInput = {
@@ -438,10 +448,12 @@ export type UserUpdateInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUpdateManyWithoutUserNestedInput
   workosIdentity?: Prisma.WorkosIdentityUpdateOneWithoutUserNestedInput
   agentConnections?: Prisma.AgentConnectionUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUpdateManyWithoutUserNestedInput
   agentOperations?: Prisma.AgentSkillOperationUpdateManyWithoutUserNestedInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutUserNestedInput
   agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateInput = {
@@ -474,10 +486,12 @@ export type UserUncheckedUpdateInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUncheckedUpdateManyWithoutUserNestedInput
   workosIdentity?: Prisma.WorkosIdentityUncheckedUpdateOneWithoutUserNestedInput
   agentConnections?: Prisma.AgentConnectionUncheckedUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedUpdateManyWithoutUserNestedInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedUpdateManyWithoutUserNestedInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutUserNestedInput
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateManyInput = {
@@ -875,6 +889,34 @@ export type UserUpdateOneRequiredWithoutAgentOperationsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutAgentOperationsInput, Prisma.UserUpdateWithoutAgentOperationsInput>, Prisma.UserUncheckedUpdateWithoutAgentOperationsInput>
 }
 
+export type UserCreateNestedOneWithoutAgentOperationActionsInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutAgentOperationActionsInput, Prisma.UserUncheckedCreateWithoutAgentOperationActionsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutAgentOperationActionsInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneRequiredWithoutAgentOperationActionsNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutAgentOperationActionsInput, Prisma.UserUncheckedCreateWithoutAgentOperationActionsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutAgentOperationActionsInput
+  upsert?: Prisma.UserUpsertWithoutAgentOperationActionsInput
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutAgentOperationActionsInput, Prisma.UserUpdateWithoutAgentOperationActionsInput>, Prisma.UserUncheckedUpdateWithoutAgentOperationActionsInput>
+}
+
+export type UserCreateNestedOneWithoutAgentOperationSourcesInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutAgentOperationSourcesInput, Prisma.UserUncheckedCreateWithoutAgentOperationSourcesInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutAgentOperationSourcesInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneRequiredWithoutAgentOperationSourcesNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutAgentOperationSourcesInput, Prisma.UserUncheckedCreateWithoutAgentOperationSourcesInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutAgentOperationSourcesInput
+  upsert?: Prisma.UserUpsertWithoutAgentOperationSourcesInput
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutAgentOperationSourcesInput, Prisma.UserUpdateWithoutAgentOperationSourcesInput>, Prisma.UserUncheckedUpdateWithoutAgentOperationSourcesInput>
+}
+
 export type UserCreateNestedOneWithoutAgentOperationItemsInput = {
   create?: Prisma.XOR<Prisma.UserCreateWithoutAgentOperationItemsInput, Prisma.UserUncheckedCreateWithoutAgentOperationItemsInput>
   connectOrCreate?: Prisma.UserCreateOrConnectWithoutAgentOperationItemsInput
@@ -903,18 +945,18 @@ export type UserUpdateOneRequiredWithoutAgentCandidatesNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutAgentCandidatesInput, Prisma.UserUpdateWithoutAgentCandidatesInput>, Prisma.UserUncheckedUpdateWithoutAgentCandidatesInput>
 }
 
-export type UserCreateNestedOneWithoutAgentRevocationJobsInput = {
-  create?: Prisma.XOR<Prisma.UserCreateWithoutAgentRevocationJobsInput, Prisma.UserUncheckedCreateWithoutAgentRevocationJobsInput>
-  connectOrCreate?: Prisma.UserCreateOrConnectWithoutAgentRevocationJobsInput
+export type UserCreateNestedOneWithoutAgentRateLimitBucketsInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutAgentRateLimitBucketsInput, Prisma.UserUncheckedCreateWithoutAgentRateLimitBucketsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutAgentRateLimitBucketsInput
   connect?: Prisma.UserWhereUniqueInput
 }
 
-export type UserUpdateOneRequiredWithoutAgentRevocationJobsNestedInput = {
-  create?: Prisma.XOR<Prisma.UserCreateWithoutAgentRevocationJobsInput, Prisma.UserUncheckedCreateWithoutAgentRevocationJobsInput>
-  connectOrCreate?: Prisma.UserCreateOrConnectWithoutAgentRevocationJobsInput
-  upsert?: Prisma.UserUpsertWithoutAgentRevocationJobsInput
+export type UserUpdateOneRequiredWithoutAgentRateLimitBucketsNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutAgentRateLimitBucketsInput, Prisma.UserUncheckedCreateWithoutAgentRateLimitBucketsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutAgentRateLimitBucketsInput
+  upsert?: Prisma.UserUpsertWithoutAgentRateLimitBucketsInput
   connect?: Prisma.UserWhereUniqueInput
-  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutAgentRevocationJobsInput, Prisma.UserUpdateWithoutAgentRevocationJobsInput>, Prisma.UserUncheckedUpdateWithoutAgentRevocationJobsInput>
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutAgentRateLimitBucketsInput, Prisma.UserUpdateWithoutAgentRateLimitBucketsInput>, Prisma.UserUncheckedUpdateWithoutAgentRateLimitBucketsInput>
 }
 
 export type UserCreateWithoutCollectionsInput = {
@@ -946,10 +988,12 @@ export type UserCreateWithoutCollectionsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogCreateNestedManyWithoutUserInput
   workosIdentity?: Prisma.WorkosIdentityCreateNestedOneWithoutUserInput
   agentConnections?: Prisma.AgentConnectionCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceCreateNestedManyWithoutUserInput
   agentOperations?: Prisma.AgentSkillOperationCreateNestedManyWithoutUserInput
   agentOperationItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutUserInput
   agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutCollectionsInput = {
@@ -981,10 +1025,12 @@ export type UserUncheckedCreateWithoutCollectionsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUncheckedCreateNestedManyWithoutUserInput
   workosIdentity?: Prisma.WorkosIdentityUncheckedCreateNestedOneWithoutUserInput
   agentConnections?: Prisma.AgentConnectionUncheckedCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedCreateNestedManyWithoutUserInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedCreateNestedManyWithoutUserInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutUserInput
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutCollectionsInput = {
@@ -1032,10 +1078,12 @@ export type UserUpdateWithoutCollectionsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUpdateManyWithoutUserNestedInput
   workosIdentity?: Prisma.WorkosIdentityUpdateOneWithoutUserNestedInput
   agentConnections?: Prisma.AgentConnectionUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUpdateManyWithoutUserNestedInput
   agentOperations?: Prisma.AgentSkillOperationUpdateManyWithoutUserNestedInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutUserNestedInput
   agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutCollectionsInput = {
@@ -1067,10 +1115,12 @@ export type UserUncheckedUpdateWithoutCollectionsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUncheckedUpdateManyWithoutUserNestedInput
   workosIdentity?: Prisma.WorkosIdentityUncheckedUpdateOneWithoutUserNestedInput
   agentConnections?: Prisma.AgentConnectionUncheckedUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedUpdateManyWithoutUserNestedInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedUpdateManyWithoutUserNestedInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutUserNestedInput
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutSourceFilesInput = {
@@ -1102,10 +1152,12 @@ export type UserCreateWithoutSourceFilesInput = {
   reminderSendLogs?: Prisma.ReminderSendLogCreateNestedManyWithoutUserInput
   workosIdentity?: Prisma.WorkosIdentityCreateNestedOneWithoutUserInput
   agentConnections?: Prisma.AgentConnectionCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceCreateNestedManyWithoutUserInput
   agentOperations?: Prisma.AgentSkillOperationCreateNestedManyWithoutUserInput
   agentOperationItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutUserInput
   agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutSourceFilesInput = {
@@ -1137,10 +1189,12 @@ export type UserUncheckedCreateWithoutSourceFilesInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUncheckedCreateNestedManyWithoutUserInput
   workosIdentity?: Prisma.WorkosIdentityUncheckedCreateNestedOneWithoutUserInput
   agentConnections?: Prisma.AgentConnectionUncheckedCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedCreateNestedManyWithoutUserInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedCreateNestedManyWithoutUserInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutUserInput
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutSourceFilesInput = {
@@ -1188,10 +1242,12 @@ export type UserUpdateWithoutSourceFilesInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUpdateManyWithoutUserNestedInput
   workosIdentity?: Prisma.WorkosIdentityUpdateOneWithoutUserNestedInput
   agentConnections?: Prisma.AgentConnectionUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUpdateManyWithoutUserNestedInput
   agentOperations?: Prisma.AgentSkillOperationUpdateManyWithoutUserNestedInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutUserNestedInput
   agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutSourceFilesInput = {
@@ -1223,10 +1279,12 @@ export type UserUncheckedUpdateWithoutSourceFilesInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUncheckedUpdateManyWithoutUserNestedInput
   workosIdentity?: Prisma.WorkosIdentityUncheckedUpdateOneWithoutUserNestedInput
   agentConnections?: Prisma.AgentConnectionUncheckedUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedUpdateManyWithoutUserNestedInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedUpdateManyWithoutUserNestedInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutUserNestedInput
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutStudyMaterialsInput = {
@@ -1258,10 +1316,12 @@ export type UserCreateWithoutStudyMaterialsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogCreateNestedManyWithoutUserInput
   workosIdentity?: Prisma.WorkosIdentityCreateNestedOneWithoutUserInput
   agentConnections?: Prisma.AgentConnectionCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceCreateNestedManyWithoutUserInput
   agentOperations?: Prisma.AgentSkillOperationCreateNestedManyWithoutUserInput
   agentOperationItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutUserInput
   agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutStudyMaterialsInput = {
@@ -1293,10 +1353,12 @@ export type UserUncheckedCreateWithoutStudyMaterialsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUncheckedCreateNestedManyWithoutUserInput
   workosIdentity?: Prisma.WorkosIdentityUncheckedCreateNestedOneWithoutUserInput
   agentConnections?: Prisma.AgentConnectionUncheckedCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedCreateNestedManyWithoutUserInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedCreateNestedManyWithoutUserInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutUserInput
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutStudyMaterialsInput = {
@@ -1344,10 +1406,12 @@ export type UserUpdateWithoutStudyMaterialsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUpdateManyWithoutUserNestedInput
   workosIdentity?: Prisma.WorkosIdentityUpdateOneWithoutUserNestedInput
   agentConnections?: Prisma.AgentConnectionUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUpdateManyWithoutUserNestedInput
   agentOperations?: Prisma.AgentSkillOperationUpdateManyWithoutUserNestedInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutUserNestedInput
   agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutStudyMaterialsInput = {
@@ -1379,10 +1443,12 @@ export type UserUncheckedUpdateWithoutStudyMaterialsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUncheckedUpdateManyWithoutUserNestedInput
   workosIdentity?: Prisma.WorkosIdentityUncheckedUpdateOneWithoutUserNestedInput
   agentConnections?: Prisma.AgentConnectionUncheckedUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedUpdateManyWithoutUserNestedInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedUpdateManyWithoutUserNestedInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutUserNestedInput
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutMaterialRevisionsInput = {
@@ -1414,10 +1480,12 @@ export type UserCreateWithoutMaterialRevisionsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogCreateNestedManyWithoutUserInput
   workosIdentity?: Prisma.WorkosIdentityCreateNestedOneWithoutUserInput
   agentConnections?: Prisma.AgentConnectionCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceCreateNestedManyWithoutUserInput
   agentOperations?: Prisma.AgentSkillOperationCreateNestedManyWithoutUserInput
   agentOperationItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutUserInput
   agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutMaterialRevisionsInput = {
@@ -1449,10 +1517,12 @@ export type UserUncheckedCreateWithoutMaterialRevisionsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUncheckedCreateNestedManyWithoutUserInput
   workosIdentity?: Prisma.WorkosIdentityUncheckedCreateNestedOneWithoutUserInput
   agentConnections?: Prisma.AgentConnectionUncheckedCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedCreateNestedManyWithoutUserInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedCreateNestedManyWithoutUserInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutUserInput
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutMaterialRevisionsInput = {
@@ -1500,10 +1570,12 @@ export type UserUpdateWithoutMaterialRevisionsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUpdateManyWithoutUserNestedInput
   workosIdentity?: Prisma.WorkosIdentityUpdateOneWithoutUserNestedInput
   agentConnections?: Prisma.AgentConnectionUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUpdateManyWithoutUserNestedInput
   agentOperations?: Prisma.AgentSkillOperationUpdateManyWithoutUserNestedInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutUserNestedInput
   agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutMaterialRevisionsInput = {
@@ -1535,10 +1607,12 @@ export type UserUncheckedUpdateWithoutMaterialRevisionsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUncheckedUpdateManyWithoutUserNestedInput
   workosIdentity?: Prisma.WorkosIdentityUncheckedUpdateOneWithoutUserNestedInput
   agentConnections?: Prisma.AgentConnectionUncheckedUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedUpdateManyWithoutUserNestedInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedUpdateManyWithoutUserNestedInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutUserNestedInput
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutMaterialSectionsInput = {
@@ -1570,10 +1644,12 @@ export type UserCreateWithoutMaterialSectionsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogCreateNestedManyWithoutUserInput
   workosIdentity?: Prisma.WorkosIdentityCreateNestedOneWithoutUserInput
   agentConnections?: Prisma.AgentConnectionCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceCreateNestedManyWithoutUserInput
   agentOperations?: Prisma.AgentSkillOperationCreateNestedManyWithoutUserInput
   agentOperationItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutUserInput
   agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutMaterialSectionsInput = {
@@ -1605,10 +1681,12 @@ export type UserUncheckedCreateWithoutMaterialSectionsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUncheckedCreateNestedManyWithoutUserInput
   workosIdentity?: Prisma.WorkosIdentityUncheckedCreateNestedOneWithoutUserInput
   agentConnections?: Prisma.AgentConnectionUncheckedCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedCreateNestedManyWithoutUserInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedCreateNestedManyWithoutUserInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutUserInput
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutMaterialSectionsInput = {
@@ -1656,10 +1734,12 @@ export type UserUpdateWithoutMaterialSectionsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUpdateManyWithoutUserNestedInput
   workosIdentity?: Prisma.WorkosIdentityUpdateOneWithoutUserNestedInput
   agentConnections?: Prisma.AgentConnectionUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUpdateManyWithoutUserNestedInput
   agentOperations?: Prisma.AgentSkillOperationUpdateManyWithoutUserNestedInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutUserNestedInput
   agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutMaterialSectionsInput = {
@@ -1691,10 +1771,12 @@ export type UserUncheckedUpdateWithoutMaterialSectionsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUncheckedUpdateManyWithoutUserNestedInput
   workosIdentity?: Prisma.WorkosIdentityUncheckedUpdateOneWithoutUserNestedInput
   agentConnections?: Prisma.AgentConnectionUncheckedUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedUpdateManyWithoutUserNestedInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedUpdateManyWithoutUserNestedInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutUserNestedInput
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutMaterialChunksInput = {
@@ -1726,10 +1808,12 @@ export type UserCreateWithoutMaterialChunksInput = {
   reminderSendLogs?: Prisma.ReminderSendLogCreateNestedManyWithoutUserInput
   workosIdentity?: Prisma.WorkosIdentityCreateNestedOneWithoutUserInput
   agentConnections?: Prisma.AgentConnectionCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceCreateNestedManyWithoutUserInput
   agentOperations?: Prisma.AgentSkillOperationCreateNestedManyWithoutUserInput
   agentOperationItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutUserInput
   agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutMaterialChunksInput = {
@@ -1761,10 +1845,12 @@ export type UserUncheckedCreateWithoutMaterialChunksInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUncheckedCreateNestedManyWithoutUserInput
   workosIdentity?: Prisma.WorkosIdentityUncheckedCreateNestedOneWithoutUserInput
   agentConnections?: Prisma.AgentConnectionUncheckedCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedCreateNestedManyWithoutUserInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedCreateNestedManyWithoutUserInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutUserInput
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutMaterialChunksInput = {
@@ -1812,10 +1898,12 @@ export type UserUpdateWithoutMaterialChunksInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUpdateManyWithoutUserNestedInput
   workosIdentity?: Prisma.WorkosIdentityUpdateOneWithoutUserNestedInput
   agentConnections?: Prisma.AgentConnectionUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUpdateManyWithoutUserNestedInput
   agentOperations?: Prisma.AgentSkillOperationUpdateManyWithoutUserNestedInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutUserNestedInput
   agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutMaterialChunksInput = {
@@ -1847,10 +1935,12 @@ export type UserUncheckedUpdateWithoutMaterialChunksInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUncheckedUpdateManyWithoutUserNestedInput
   workosIdentity?: Prisma.WorkosIdentityUncheckedUpdateOneWithoutUserNestedInput
   agentConnections?: Prisma.AgentConnectionUncheckedUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedUpdateManyWithoutUserNestedInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedUpdateManyWithoutUserNestedInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutUserNestedInput
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutMaterialPagesInput = {
@@ -1882,10 +1972,12 @@ export type UserCreateWithoutMaterialPagesInput = {
   reminderSendLogs?: Prisma.ReminderSendLogCreateNestedManyWithoutUserInput
   workosIdentity?: Prisma.WorkosIdentityCreateNestedOneWithoutUserInput
   agentConnections?: Prisma.AgentConnectionCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceCreateNestedManyWithoutUserInput
   agentOperations?: Prisma.AgentSkillOperationCreateNestedManyWithoutUserInput
   agentOperationItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutUserInput
   agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutMaterialPagesInput = {
@@ -1917,10 +2009,12 @@ export type UserUncheckedCreateWithoutMaterialPagesInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUncheckedCreateNestedManyWithoutUserInput
   workosIdentity?: Prisma.WorkosIdentityUncheckedCreateNestedOneWithoutUserInput
   agentConnections?: Prisma.AgentConnectionUncheckedCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedCreateNestedManyWithoutUserInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedCreateNestedManyWithoutUserInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutUserInput
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutMaterialPagesInput = {
@@ -1968,10 +2062,12 @@ export type UserUpdateWithoutMaterialPagesInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUpdateManyWithoutUserNestedInput
   workosIdentity?: Prisma.WorkosIdentityUpdateOneWithoutUserNestedInput
   agentConnections?: Prisma.AgentConnectionUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUpdateManyWithoutUserNestedInput
   agentOperations?: Prisma.AgentSkillOperationUpdateManyWithoutUserNestedInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutUserNestedInput
   agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutMaterialPagesInput = {
@@ -2003,10 +2099,12 @@ export type UserUncheckedUpdateWithoutMaterialPagesInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUncheckedUpdateManyWithoutUserNestedInput
   workosIdentity?: Prisma.WorkosIdentityUncheckedUpdateOneWithoutUserNestedInput
   agentConnections?: Prisma.AgentConnectionUncheckedUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedUpdateManyWithoutUserNestedInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedUpdateManyWithoutUserNestedInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutUserNestedInput
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutMaterialCleanupJobsInput = {
@@ -2038,10 +2136,12 @@ export type UserCreateWithoutMaterialCleanupJobsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogCreateNestedManyWithoutUserInput
   workosIdentity?: Prisma.WorkosIdentityCreateNestedOneWithoutUserInput
   agentConnections?: Prisma.AgentConnectionCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceCreateNestedManyWithoutUserInput
   agentOperations?: Prisma.AgentSkillOperationCreateNestedManyWithoutUserInput
   agentOperationItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutUserInput
   agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutMaterialCleanupJobsInput = {
@@ -2073,10 +2173,12 @@ export type UserUncheckedCreateWithoutMaterialCleanupJobsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUncheckedCreateNestedManyWithoutUserInput
   workosIdentity?: Prisma.WorkosIdentityUncheckedCreateNestedOneWithoutUserInput
   agentConnections?: Prisma.AgentConnectionUncheckedCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedCreateNestedManyWithoutUserInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedCreateNestedManyWithoutUserInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutUserInput
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutMaterialCleanupJobsInput = {
@@ -2124,10 +2226,12 @@ export type UserUpdateWithoutMaterialCleanupJobsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUpdateManyWithoutUserNestedInput
   workosIdentity?: Prisma.WorkosIdentityUpdateOneWithoutUserNestedInput
   agentConnections?: Prisma.AgentConnectionUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUpdateManyWithoutUserNestedInput
   agentOperations?: Prisma.AgentSkillOperationUpdateManyWithoutUserNestedInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutUserNestedInput
   agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutMaterialCleanupJobsInput = {
@@ -2159,10 +2263,12 @@ export type UserUncheckedUpdateWithoutMaterialCleanupJobsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUncheckedUpdateManyWithoutUserNestedInput
   workosIdentity?: Prisma.WorkosIdentityUncheckedUpdateOneWithoutUserNestedInput
   agentConnections?: Prisma.AgentConnectionUncheckedUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedUpdateManyWithoutUserNestedInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedUpdateManyWithoutUserNestedInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutUserNestedInput
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutSkillsInput = {
@@ -2194,10 +2300,12 @@ export type UserCreateWithoutSkillsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogCreateNestedManyWithoutUserInput
   workosIdentity?: Prisma.WorkosIdentityCreateNestedOneWithoutUserInput
   agentConnections?: Prisma.AgentConnectionCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceCreateNestedManyWithoutUserInput
   agentOperations?: Prisma.AgentSkillOperationCreateNestedManyWithoutUserInput
   agentOperationItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutUserInput
   agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutSkillsInput = {
@@ -2229,10 +2337,12 @@ export type UserUncheckedCreateWithoutSkillsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUncheckedCreateNestedManyWithoutUserInput
   workosIdentity?: Prisma.WorkosIdentityUncheckedCreateNestedOneWithoutUserInput
   agentConnections?: Prisma.AgentConnectionUncheckedCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedCreateNestedManyWithoutUserInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedCreateNestedManyWithoutUserInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutUserInput
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutSkillsInput = {
@@ -2280,10 +2390,12 @@ export type UserUpdateWithoutSkillsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUpdateManyWithoutUserNestedInput
   workosIdentity?: Prisma.WorkosIdentityUpdateOneWithoutUserNestedInput
   agentConnections?: Prisma.AgentConnectionUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUpdateManyWithoutUserNestedInput
   agentOperations?: Prisma.AgentSkillOperationUpdateManyWithoutUserNestedInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutUserNestedInput
   agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutSkillsInput = {
@@ -2315,10 +2427,12 @@ export type UserUncheckedUpdateWithoutSkillsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUncheckedUpdateManyWithoutUserNestedInput
   workosIdentity?: Prisma.WorkosIdentityUncheckedUpdateOneWithoutUserNestedInput
   agentConnections?: Prisma.AgentConnectionUncheckedUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedUpdateManyWithoutUserNestedInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedUpdateManyWithoutUserNestedInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutUserNestedInput
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutSkillDraftBatchesInput = {
@@ -2350,10 +2464,12 @@ export type UserCreateWithoutSkillDraftBatchesInput = {
   reminderSendLogs?: Prisma.ReminderSendLogCreateNestedManyWithoutUserInput
   workosIdentity?: Prisma.WorkosIdentityCreateNestedOneWithoutUserInput
   agentConnections?: Prisma.AgentConnectionCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceCreateNestedManyWithoutUserInput
   agentOperations?: Prisma.AgentSkillOperationCreateNestedManyWithoutUserInput
   agentOperationItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutUserInput
   agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutSkillDraftBatchesInput = {
@@ -2385,10 +2501,12 @@ export type UserUncheckedCreateWithoutSkillDraftBatchesInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUncheckedCreateNestedManyWithoutUserInput
   workosIdentity?: Prisma.WorkosIdentityUncheckedCreateNestedOneWithoutUserInput
   agentConnections?: Prisma.AgentConnectionUncheckedCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedCreateNestedManyWithoutUserInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedCreateNestedManyWithoutUserInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutUserInput
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutSkillDraftBatchesInput = {
@@ -2436,10 +2554,12 @@ export type UserUpdateWithoutSkillDraftBatchesInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUpdateManyWithoutUserNestedInput
   workosIdentity?: Prisma.WorkosIdentityUpdateOneWithoutUserNestedInput
   agentConnections?: Prisma.AgentConnectionUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUpdateManyWithoutUserNestedInput
   agentOperations?: Prisma.AgentSkillOperationUpdateManyWithoutUserNestedInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutUserNestedInput
   agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutSkillDraftBatchesInput = {
@@ -2471,10 +2591,12 @@ export type UserUncheckedUpdateWithoutSkillDraftBatchesInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUncheckedUpdateManyWithoutUserNestedInput
   workosIdentity?: Prisma.WorkosIdentityUncheckedUpdateOneWithoutUserNestedInput
   agentConnections?: Prisma.AgentConnectionUncheckedUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedUpdateManyWithoutUserNestedInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedUpdateManyWithoutUserNestedInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutUserNestedInput
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutSkillDraftBatchItemsInput = {
@@ -2506,10 +2628,12 @@ export type UserCreateWithoutSkillDraftBatchItemsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogCreateNestedManyWithoutUserInput
   workosIdentity?: Prisma.WorkosIdentityCreateNestedOneWithoutUserInput
   agentConnections?: Prisma.AgentConnectionCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceCreateNestedManyWithoutUserInput
   agentOperations?: Prisma.AgentSkillOperationCreateNestedManyWithoutUserInput
   agentOperationItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutUserInput
   agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutSkillDraftBatchItemsInput = {
@@ -2541,10 +2665,12 @@ export type UserUncheckedCreateWithoutSkillDraftBatchItemsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUncheckedCreateNestedManyWithoutUserInput
   workosIdentity?: Prisma.WorkosIdentityUncheckedCreateNestedOneWithoutUserInput
   agentConnections?: Prisma.AgentConnectionUncheckedCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedCreateNestedManyWithoutUserInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedCreateNestedManyWithoutUserInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutUserInput
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutSkillDraftBatchItemsInput = {
@@ -2592,10 +2718,12 @@ export type UserUpdateWithoutSkillDraftBatchItemsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUpdateManyWithoutUserNestedInput
   workosIdentity?: Prisma.WorkosIdentityUpdateOneWithoutUserNestedInput
   agentConnections?: Prisma.AgentConnectionUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUpdateManyWithoutUserNestedInput
   agentOperations?: Prisma.AgentSkillOperationUpdateManyWithoutUserNestedInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutUserNestedInput
   agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutSkillDraftBatchItemsInput = {
@@ -2627,10 +2755,12 @@ export type UserUncheckedUpdateWithoutSkillDraftBatchItemsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUncheckedUpdateManyWithoutUserNestedInput
   workosIdentity?: Prisma.WorkosIdentityUncheckedUpdateOneWithoutUserNestedInput
   agentConnections?: Prisma.AgentConnectionUncheckedUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedUpdateManyWithoutUserNestedInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedUpdateManyWithoutUserNestedInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutUserNestedInput
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutSkillSourceRefsInput = {
@@ -2662,10 +2792,12 @@ export type UserCreateWithoutSkillSourceRefsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogCreateNestedManyWithoutUserInput
   workosIdentity?: Prisma.WorkosIdentityCreateNestedOneWithoutUserInput
   agentConnections?: Prisma.AgentConnectionCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceCreateNestedManyWithoutUserInput
   agentOperations?: Prisma.AgentSkillOperationCreateNestedManyWithoutUserInput
   agentOperationItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutUserInput
   agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutSkillSourceRefsInput = {
@@ -2697,10 +2829,12 @@ export type UserUncheckedCreateWithoutSkillSourceRefsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUncheckedCreateNestedManyWithoutUserInput
   workosIdentity?: Prisma.WorkosIdentityUncheckedCreateNestedOneWithoutUserInput
   agentConnections?: Prisma.AgentConnectionUncheckedCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedCreateNestedManyWithoutUserInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedCreateNestedManyWithoutUserInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutUserInput
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutSkillSourceRefsInput = {
@@ -2748,10 +2882,12 @@ export type UserUpdateWithoutSkillSourceRefsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUpdateManyWithoutUserNestedInput
   workosIdentity?: Prisma.WorkosIdentityUpdateOneWithoutUserNestedInput
   agentConnections?: Prisma.AgentConnectionUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUpdateManyWithoutUserNestedInput
   agentOperations?: Prisma.AgentSkillOperationUpdateManyWithoutUserNestedInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutUserNestedInput
   agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutSkillSourceRefsInput = {
@@ -2783,10 +2919,12 @@ export type UserUncheckedUpdateWithoutSkillSourceRefsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUncheckedUpdateManyWithoutUserNestedInput
   workosIdentity?: Prisma.WorkosIdentityUncheckedUpdateOneWithoutUserNestedInput
   agentConnections?: Prisma.AgentConnectionUncheckedUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedUpdateManyWithoutUserNestedInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedUpdateManyWithoutUserNestedInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutUserNestedInput
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutExercisesInput = {
@@ -2818,10 +2956,12 @@ export type UserCreateWithoutExercisesInput = {
   reminderSendLogs?: Prisma.ReminderSendLogCreateNestedManyWithoutUserInput
   workosIdentity?: Prisma.WorkosIdentityCreateNestedOneWithoutUserInput
   agentConnections?: Prisma.AgentConnectionCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceCreateNestedManyWithoutUserInput
   agentOperations?: Prisma.AgentSkillOperationCreateNestedManyWithoutUserInput
   agentOperationItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutUserInput
   agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutExercisesInput = {
@@ -2853,10 +2993,12 @@ export type UserUncheckedCreateWithoutExercisesInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUncheckedCreateNestedManyWithoutUserInput
   workosIdentity?: Prisma.WorkosIdentityUncheckedCreateNestedOneWithoutUserInput
   agentConnections?: Prisma.AgentConnectionUncheckedCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedCreateNestedManyWithoutUserInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedCreateNestedManyWithoutUserInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutUserInput
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutExercisesInput = {
@@ -2904,10 +3046,12 @@ export type UserUpdateWithoutExercisesInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUpdateManyWithoutUserNestedInput
   workosIdentity?: Prisma.WorkosIdentityUpdateOneWithoutUserNestedInput
   agentConnections?: Prisma.AgentConnectionUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUpdateManyWithoutUserNestedInput
   agentOperations?: Prisma.AgentSkillOperationUpdateManyWithoutUserNestedInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutUserNestedInput
   agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutExercisesInput = {
@@ -2939,10 +3083,12 @@ export type UserUncheckedUpdateWithoutExercisesInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUncheckedUpdateManyWithoutUserNestedInput
   workosIdentity?: Prisma.WorkosIdentityUncheckedUpdateOneWithoutUserNestedInput
   agentConnections?: Prisma.AgentConnectionUncheckedUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedUpdateManyWithoutUserNestedInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedUpdateManyWithoutUserNestedInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutUserNestedInput
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutExerciseAttemptsInput = {
@@ -2974,10 +3120,12 @@ export type UserCreateWithoutExerciseAttemptsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogCreateNestedManyWithoutUserInput
   workosIdentity?: Prisma.WorkosIdentityCreateNestedOneWithoutUserInput
   agentConnections?: Prisma.AgentConnectionCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceCreateNestedManyWithoutUserInput
   agentOperations?: Prisma.AgentSkillOperationCreateNestedManyWithoutUserInput
   agentOperationItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutUserInput
   agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutExerciseAttemptsInput = {
@@ -3009,10 +3157,12 @@ export type UserUncheckedCreateWithoutExerciseAttemptsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUncheckedCreateNestedManyWithoutUserInput
   workosIdentity?: Prisma.WorkosIdentityUncheckedCreateNestedOneWithoutUserInput
   agentConnections?: Prisma.AgentConnectionUncheckedCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedCreateNestedManyWithoutUserInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedCreateNestedManyWithoutUserInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutUserInput
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutExerciseAttemptsInput = {
@@ -3060,10 +3210,12 @@ export type UserUpdateWithoutExerciseAttemptsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUpdateManyWithoutUserNestedInput
   workosIdentity?: Prisma.WorkosIdentityUpdateOneWithoutUserNestedInput
   agentConnections?: Prisma.AgentConnectionUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUpdateManyWithoutUserNestedInput
   agentOperations?: Prisma.AgentSkillOperationUpdateManyWithoutUserNestedInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutUserNestedInput
   agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutExerciseAttemptsInput = {
@@ -3095,10 +3247,12 @@ export type UserUncheckedUpdateWithoutExerciseAttemptsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUncheckedUpdateManyWithoutUserNestedInput
   workosIdentity?: Prisma.WorkosIdentityUncheckedUpdateOneWithoutUserNestedInput
   agentConnections?: Prisma.AgentConnectionUncheckedUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedUpdateManyWithoutUserNestedInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedUpdateManyWithoutUserNestedInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutUserNestedInput
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutReviewLogsInput = {
@@ -3130,10 +3284,12 @@ export type UserCreateWithoutReviewLogsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogCreateNestedManyWithoutUserInput
   workosIdentity?: Prisma.WorkosIdentityCreateNestedOneWithoutUserInput
   agentConnections?: Prisma.AgentConnectionCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceCreateNestedManyWithoutUserInput
   agentOperations?: Prisma.AgentSkillOperationCreateNestedManyWithoutUserInput
   agentOperationItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutUserInput
   agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutReviewLogsInput = {
@@ -3165,10 +3321,12 @@ export type UserUncheckedCreateWithoutReviewLogsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUncheckedCreateNestedManyWithoutUserInput
   workosIdentity?: Prisma.WorkosIdentityUncheckedCreateNestedOneWithoutUserInput
   agentConnections?: Prisma.AgentConnectionUncheckedCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedCreateNestedManyWithoutUserInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedCreateNestedManyWithoutUserInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutUserInput
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutReviewLogsInput = {
@@ -3216,10 +3374,12 @@ export type UserUpdateWithoutReviewLogsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUpdateManyWithoutUserNestedInput
   workosIdentity?: Prisma.WorkosIdentityUpdateOneWithoutUserNestedInput
   agentConnections?: Prisma.AgentConnectionUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUpdateManyWithoutUserNestedInput
   agentOperations?: Prisma.AgentSkillOperationUpdateManyWithoutUserNestedInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutUserNestedInput
   agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutReviewLogsInput = {
@@ -3251,10 +3411,12 @@ export type UserUncheckedUpdateWithoutReviewLogsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUncheckedUpdateManyWithoutUserNestedInput
   workosIdentity?: Prisma.WorkosIdentityUncheckedUpdateOneWithoutUserNestedInput
   agentConnections?: Prisma.AgentConnectionUncheckedUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedUpdateManyWithoutUserNestedInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedUpdateManyWithoutUserNestedInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutUserNestedInput
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutExerciseFlagsInput = {
@@ -3286,10 +3448,12 @@ export type UserCreateWithoutExerciseFlagsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogCreateNestedManyWithoutUserInput
   workosIdentity?: Prisma.WorkosIdentityCreateNestedOneWithoutUserInput
   agentConnections?: Prisma.AgentConnectionCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceCreateNestedManyWithoutUserInput
   agentOperations?: Prisma.AgentSkillOperationCreateNestedManyWithoutUserInput
   agentOperationItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutUserInput
   agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutExerciseFlagsInput = {
@@ -3321,10 +3485,12 @@ export type UserUncheckedCreateWithoutExerciseFlagsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUncheckedCreateNestedManyWithoutUserInput
   workosIdentity?: Prisma.WorkosIdentityUncheckedCreateNestedOneWithoutUserInput
   agentConnections?: Prisma.AgentConnectionUncheckedCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedCreateNestedManyWithoutUserInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedCreateNestedManyWithoutUserInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutUserInput
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutExerciseFlagsInput = {
@@ -3372,10 +3538,12 @@ export type UserUpdateWithoutExerciseFlagsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUpdateManyWithoutUserNestedInput
   workosIdentity?: Prisma.WorkosIdentityUpdateOneWithoutUserNestedInput
   agentConnections?: Prisma.AgentConnectionUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUpdateManyWithoutUserNestedInput
   agentOperations?: Prisma.AgentSkillOperationUpdateManyWithoutUserNestedInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutUserNestedInput
   agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutExerciseFlagsInput = {
@@ -3407,10 +3575,12 @@ export type UserUncheckedUpdateWithoutExerciseFlagsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUncheckedUpdateManyWithoutUserNestedInput
   workosIdentity?: Prisma.WorkosIdentityUncheckedUpdateOneWithoutUserNestedInput
   agentConnections?: Prisma.AgentConnectionUncheckedUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedUpdateManyWithoutUserNestedInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedUpdateManyWithoutUserNestedInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutUserNestedInput
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutGenerationJobsInput = {
@@ -3442,10 +3612,12 @@ export type UserCreateWithoutGenerationJobsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogCreateNestedManyWithoutUserInput
   workosIdentity?: Prisma.WorkosIdentityCreateNestedOneWithoutUserInput
   agentConnections?: Prisma.AgentConnectionCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceCreateNestedManyWithoutUserInput
   agentOperations?: Prisma.AgentSkillOperationCreateNestedManyWithoutUserInput
   agentOperationItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutUserInput
   agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutGenerationJobsInput = {
@@ -3477,10 +3649,12 @@ export type UserUncheckedCreateWithoutGenerationJobsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUncheckedCreateNestedManyWithoutUserInput
   workosIdentity?: Prisma.WorkosIdentityUncheckedCreateNestedOneWithoutUserInput
   agentConnections?: Prisma.AgentConnectionUncheckedCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedCreateNestedManyWithoutUserInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedCreateNestedManyWithoutUserInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutUserInput
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutGenerationJobsInput = {
@@ -3528,10 +3702,12 @@ export type UserUpdateWithoutGenerationJobsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUpdateManyWithoutUserNestedInput
   workosIdentity?: Prisma.WorkosIdentityUpdateOneWithoutUserNestedInput
   agentConnections?: Prisma.AgentConnectionUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUpdateManyWithoutUserNestedInput
   agentOperations?: Prisma.AgentSkillOperationUpdateManyWithoutUserNestedInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutUserNestedInput
   agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutGenerationJobsInput = {
@@ -3563,10 +3739,12 @@ export type UserUncheckedUpdateWithoutGenerationJobsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUncheckedUpdateManyWithoutUserNestedInput
   workosIdentity?: Prisma.WorkosIdentityUncheckedUpdateOneWithoutUserNestedInput
   agentConnections?: Prisma.AgentConnectionUncheckedUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedUpdateManyWithoutUserNestedInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedUpdateManyWithoutUserNestedInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutUserNestedInput
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutReminderPreferenceInput = {
@@ -3598,10 +3776,12 @@ export type UserCreateWithoutReminderPreferenceInput = {
   reminderSendLogs?: Prisma.ReminderSendLogCreateNestedManyWithoutUserInput
   workosIdentity?: Prisma.WorkosIdentityCreateNestedOneWithoutUserInput
   agentConnections?: Prisma.AgentConnectionCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceCreateNestedManyWithoutUserInput
   agentOperations?: Prisma.AgentSkillOperationCreateNestedManyWithoutUserInput
   agentOperationItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutUserInput
   agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutReminderPreferenceInput = {
@@ -3633,10 +3813,12 @@ export type UserUncheckedCreateWithoutReminderPreferenceInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUncheckedCreateNestedManyWithoutUserInput
   workosIdentity?: Prisma.WorkosIdentityUncheckedCreateNestedOneWithoutUserInput
   agentConnections?: Prisma.AgentConnectionUncheckedCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedCreateNestedManyWithoutUserInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedCreateNestedManyWithoutUserInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutUserInput
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutReminderPreferenceInput = {
@@ -3684,10 +3866,12 @@ export type UserUpdateWithoutReminderPreferenceInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUpdateManyWithoutUserNestedInput
   workosIdentity?: Prisma.WorkosIdentityUpdateOneWithoutUserNestedInput
   agentConnections?: Prisma.AgentConnectionUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUpdateManyWithoutUserNestedInput
   agentOperations?: Prisma.AgentSkillOperationUpdateManyWithoutUserNestedInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutUserNestedInput
   agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutReminderPreferenceInput = {
@@ -3719,10 +3903,12 @@ export type UserUncheckedUpdateWithoutReminderPreferenceInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUncheckedUpdateManyWithoutUserNestedInput
   workosIdentity?: Prisma.WorkosIdentityUncheckedUpdateOneWithoutUserNestedInput
   agentConnections?: Prisma.AgentConnectionUncheckedUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedUpdateManyWithoutUserNestedInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedUpdateManyWithoutUserNestedInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutUserNestedInput
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutReminderSendLogsInput = {
@@ -3754,10 +3940,12 @@ export type UserCreateWithoutReminderSendLogsInput = {
   reminderPreference?: Prisma.ReminderPreferenceCreateNestedOneWithoutUserInput
   workosIdentity?: Prisma.WorkosIdentityCreateNestedOneWithoutUserInput
   agentConnections?: Prisma.AgentConnectionCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceCreateNestedManyWithoutUserInput
   agentOperations?: Prisma.AgentSkillOperationCreateNestedManyWithoutUserInput
   agentOperationItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutUserInput
   agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutReminderSendLogsInput = {
@@ -3789,10 +3977,12 @@ export type UserUncheckedCreateWithoutReminderSendLogsInput = {
   reminderPreference?: Prisma.ReminderPreferenceUncheckedCreateNestedOneWithoutUserInput
   workosIdentity?: Prisma.WorkosIdentityUncheckedCreateNestedOneWithoutUserInput
   agentConnections?: Prisma.AgentConnectionUncheckedCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedCreateNestedManyWithoutUserInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedCreateNestedManyWithoutUserInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutUserInput
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutReminderSendLogsInput = {
@@ -3840,10 +4030,12 @@ export type UserUpdateWithoutReminderSendLogsInput = {
   reminderPreference?: Prisma.ReminderPreferenceUpdateOneWithoutUserNestedInput
   workosIdentity?: Prisma.WorkosIdentityUpdateOneWithoutUserNestedInput
   agentConnections?: Prisma.AgentConnectionUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUpdateManyWithoutUserNestedInput
   agentOperations?: Prisma.AgentSkillOperationUpdateManyWithoutUserNestedInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutUserNestedInput
   agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutReminderSendLogsInput = {
@@ -3875,10 +4067,12 @@ export type UserUncheckedUpdateWithoutReminderSendLogsInput = {
   reminderPreference?: Prisma.ReminderPreferenceUncheckedUpdateOneWithoutUserNestedInput
   workosIdentity?: Prisma.WorkosIdentityUncheckedUpdateOneWithoutUserNestedInput
   agentConnections?: Prisma.AgentConnectionUncheckedUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedUpdateManyWithoutUserNestedInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedUpdateManyWithoutUserNestedInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutUserNestedInput
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutWorkosIdentityInput = {
@@ -3910,10 +4104,12 @@ export type UserCreateWithoutWorkosIdentityInput = {
   reminderPreference?: Prisma.ReminderPreferenceCreateNestedOneWithoutUserInput
   reminderSendLogs?: Prisma.ReminderSendLogCreateNestedManyWithoutUserInput
   agentConnections?: Prisma.AgentConnectionCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceCreateNestedManyWithoutUserInput
   agentOperations?: Prisma.AgentSkillOperationCreateNestedManyWithoutUserInput
   agentOperationItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutUserInput
   agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutWorkosIdentityInput = {
@@ -3945,10 +4141,12 @@ export type UserUncheckedCreateWithoutWorkosIdentityInput = {
   reminderPreference?: Prisma.ReminderPreferenceUncheckedCreateNestedOneWithoutUserInput
   reminderSendLogs?: Prisma.ReminderSendLogUncheckedCreateNestedManyWithoutUserInput
   agentConnections?: Prisma.AgentConnectionUncheckedCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedCreateNestedManyWithoutUserInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedCreateNestedManyWithoutUserInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutUserInput
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutWorkosIdentityInput = {
@@ -3996,10 +4194,12 @@ export type UserUpdateWithoutWorkosIdentityInput = {
   reminderPreference?: Prisma.ReminderPreferenceUpdateOneWithoutUserNestedInput
   reminderSendLogs?: Prisma.ReminderSendLogUpdateManyWithoutUserNestedInput
   agentConnections?: Prisma.AgentConnectionUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUpdateManyWithoutUserNestedInput
   agentOperations?: Prisma.AgentSkillOperationUpdateManyWithoutUserNestedInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutUserNestedInput
   agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutWorkosIdentityInput = {
@@ -4031,10 +4231,12 @@ export type UserUncheckedUpdateWithoutWorkosIdentityInput = {
   reminderPreference?: Prisma.ReminderPreferenceUncheckedUpdateOneWithoutUserNestedInput
   reminderSendLogs?: Prisma.ReminderSendLogUncheckedUpdateManyWithoutUserNestedInput
   agentConnections?: Prisma.AgentConnectionUncheckedUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedUpdateManyWithoutUserNestedInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedUpdateManyWithoutUserNestedInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutUserNestedInput
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutAgentConnectionsInput = {
@@ -4066,10 +4268,12 @@ export type UserCreateWithoutAgentConnectionsInput = {
   reminderPreference?: Prisma.ReminderPreferenceCreateNestedOneWithoutUserInput
   reminderSendLogs?: Prisma.ReminderSendLogCreateNestedManyWithoutUserInput
   workosIdentity?: Prisma.WorkosIdentityCreateNestedOneWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceCreateNestedManyWithoutUserInput
   agentOperations?: Prisma.AgentSkillOperationCreateNestedManyWithoutUserInput
   agentOperationItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutUserInput
   agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutAgentConnectionsInput = {
@@ -4101,10 +4305,12 @@ export type UserUncheckedCreateWithoutAgentConnectionsInput = {
   reminderPreference?: Prisma.ReminderPreferenceUncheckedCreateNestedOneWithoutUserInput
   reminderSendLogs?: Prisma.ReminderSendLogUncheckedCreateNestedManyWithoutUserInput
   workosIdentity?: Prisma.WorkosIdentityUncheckedCreateNestedOneWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedCreateNestedManyWithoutUserInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedCreateNestedManyWithoutUserInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutUserInput
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutAgentConnectionsInput = {
@@ -4152,10 +4358,12 @@ export type UserUpdateWithoutAgentConnectionsInput = {
   reminderPreference?: Prisma.ReminderPreferenceUpdateOneWithoutUserNestedInput
   reminderSendLogs?: Prisma.ReminderSendLogUpdateManyWithoutUserNestedInput
   workosIdentity?: Prisma.WorkosIdentityUpdateOneWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUpdateManyWithoutUserNestedInput
   agentOperations?: Prisma.AgentSkillOperationUpdateManyWithoutUserNestedInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutUserNestedInput
   agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutAgentConnectionsInput = {
@@ -4187,10 +4395,12 @@ export type UserUncheckedUpdateWithoutAgentConnectionsInput = {
   reminderPreference?: Prisma.ReminderPreferenceUncheckedUpdateOneWithoutUserNestedInput
   reminderSendLogs?: Prisma.ReminderSendLogUncheckedUpdateManyWithoutUserNestedInput
   workosIdentity?: Prisma.WorkosIdentityUncheckedUpdateOneWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedUpdateManyWithoutUserNestedInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedUpdateManyWithoutUserNestedInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutUserNestedInput
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutAgentOperationsInput = {
@@ -4223,9 +4433,11 @@ export type UserCreateWithoutAgentOperationsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogCreateNestedManyWithoutUserInput
   workosIdentity?: Prisma.WorkosIdentityCreateNestedOneWithoutUserInput
   agentConnections?: Prisma.AgentConnectionCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceCreateNestedManyWithoutUserInput
   agentOperationItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutUserInput
   agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutAgentOperationsInput = {
@@ -4258,9 +4470,11 @@ export type UserUncheckedCreateWithoutAgentOperationsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUncheckedCreateNestedManyWithoutUserInput
   workosIdentity?: Prisma.WorkosIdentityUncheckedCreateNestedOneWithoutUserInput
   agentConnections?: Prisma.AgentConnectionUncheckedCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedCreateNestedManyWithoutUserInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutUserInput
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutAgentOperationsInput = {
@@ -4309,9 +4523,11 @@ export type UserUpdateWithoutAgentOperationsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUpdateManyWithoutUserNestedInput
   workosIdentity?: Prisma.WorkosIdentityUpdateOneWithoutUserNestedInput
   agentConnections?: Prisma.AgentConnectionUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUpdateManyWithoutUserNestedInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutUserNestedInput
   agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutAgentOperationsInput = {
@@ -4344,9 +4560,339 @@ export type UserUncheckedUpdateWithoutAgentOperationsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUncheckedUpdateManyWithoutUserNestedInput
   workosIdentity?: Prisma.WorkosIdentityUncheckedUpdateOneWithoutUserNestedInput
   agentConnections?: Prisma.AgentConnectionUncheckedUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedUpdateManyWithoutUserNestedInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutUserNestedInput
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUncheckedUpdateManyWithoutUserNestedInput
+}
+
+export type UserCreateWithoutAgentOperationActionsInput = {
+  id: string
+  email?: string | null
+  name?: string | null
+  imageUrl?: string | null
+  lastSeenAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  agentAccessDisabledAt?: Date | string | null
+  collections?: Prisma.CollectionCreateNestedManyWithoutUserInput
+  sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutUserInput
+  studyMaterials?: Prisma.StudyMaterialCreateNestedManyWithoutUserInput
+  materialRevisions?: Prisma.MaterialRevisionCreateNestedManyWithoutUserInput
+  materialSections?: Prisma.MaterialSectionCreateNestedManyWithoutUserInput
+  materialChunks?: Prisma.MaterialChunkCreateNestedManyWithoutUserInput
+  materialPages?: Prisma.MaterialPageCreateNestedManyWithoutUserInput
+  materialCleanupJobs?: Prisma.MaterialCleanupJobCreateNestedManyWithoutUserInput
+  skillDraftBatches?: Prisma.SkillDraftBatchCreateNestedManyWithoutUserInput
+  skillDraftBatchItems?: Prisma.SkillDraftBatchItemCreateNestedManyWithoutUserInput
+  skills?: Prisma.SkillCreateNestedManyWithoutUserInput
+  skillSourceRefs?: Prisma.SkillSourceRefCreateNestedManyWithoutUserInput
+  exercises?: Prisma.ExerciseCreateNestedManyWithoutUserInput
+  exerciseAttempts?: Prisma.ExerciseAttemptCreateNestedManyWithoutUserInput
+  reviewLogs?: Prisma.ReviewLogCreateNestedManyWithoutUserInput
+  exerciseFlags?: Prisma.ExerciseFlagCreateNestedManyWithoutUserInput
+  generationJobs?: Prisma.GenerationJobCreateNestedManyWithoutUserInput
+  reminderPreference?: Prisma.ReminderPreferenceCreateNestedOneWithoutUserInput
+  reminderSendLogs?: Prisma.ReminderSendLogCreateNestedManyWithoutUserInput
+  workosIdentity?: Prisma.WorkosIdentityCreateNestedOneWithoutUserInput
+  agentConnections?: Prisma.AgentConnectionCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceCreateNestedManyWithoutUserInput
+  agentOperations?: Prisma.AgentSkillOperationCreateNestedManyWithoutUserInput
+  agentOperationItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutUserInput
+  agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
+}
+
+export type UserUncheckedCreateWithoutAgentOperationActionsInput = {
+  id: string
+  email?: string | null
+  name?: string | null
+  imageUrl?: string | null
+  lastSeenAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  agentAccessDisabledAt?: Date | string | null
+  collections?: Prisma.CollectionUncheckedCreateNestedManyWithoutUserInput
+  sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutUserInput
+  studyMaterials?: Prisma.StudyMaterialUncheckedCreateNestedManyWithoutUserInput
+  materialRevisions?: Prisma.MaterialRevisionUncheckedCreateNestedManyWithoutUserInput
+  materialSections?: Prisma.MaterialSectionUncheckedCreateNestedManyWithoutUserInput
+  materialChunks?: Prisma.MaterialChunkUncheckedCreateNestedManyWithoutUserInput
+  materialPages?: Prisma.MaterialPageUncheckedCreateNestedManyWithoutUserInput
+  materialCleanupJobs?: Prisma.MaterialCleanupJobUncheckedCreateNestedManyWithoutUserInput
+  skillDraftBatches?: Prisma.SkillDraftBatchUncheckedCreateNestedManyWithoutUserInput
+  skillDraftBatchItems?: Prisma.SkillDraftBatchItemUncheckedCreateNestedManyWithoutUserInput
+  skills?: Prisma.SkillUncheckedCreateNestedManyWithoutUserInput
+  skillSourceRefs?: Prisma.SkillSourceRefUncheckedCreateNestedManyWithoutUserInput
+  exercises?: Prisma.ExerciseUncheckedCreateNestedManyWithoutUserInput
+  exerciseAttempts?: Prisma.ExerciseAttemptUncheckedCreateNestedManyWithoutUserInput
+  reviewLogs?: Prisma.ReviewLogUncheckedCreateNestedManyWithoutUserInput
+  exerciseFlags?: Prisma.ExerciseFlagUncheckedCreateNestedManyWithoutUserInput
+  generationJobs?: Prisma.GenerationJobUncheckedCreateNestedManyWithoutUserInput
+  reminderPreference?: Prisma.ReminderPreferenceUncheckedCreateNestedOneWithoutUserInput
+  reminderSendLogs?: Prisma.ReminderSendLogUncheckedCreateNestedManyWithoutUserInput
+  workosIdentity?: Prisma.WorkosIdentityUncheckedCreateNestedOneWithoutUserInput
+  agentConnections?: Prisma.AgentConnectionUncheckedCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedCreateNestedManyWithoutUserInput
+  agentOperations?: Prisma.AgentSkillOperationUncheckedCreateNestedManyWithoutUserInput
+  agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutUserInput
+  agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
+}
+
+export type UserCreateOrConnectWithoutAgentOperationActionsInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutAgentOperationActionsInput, Prisma.UserUncheckedCreateWithoutAgentOperationActionsInput>
+}
+
+export type UserUpsertWithoutAgentOperationActionsInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutAgentOperationActionsInput, Prisma.UserUncheckedUpdateWithoutAgentOperationActionsInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutAgentOperationActionsInput, Prisma.UserUncheckedCreateWithoutAgentOperationActionsInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutAgentOperationActionsInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutAgentOperationActionsInput, Prisma.UserUncheckedUpdateWithoutAgentOperationActionsInput>
+}
+
+export type UserUpdateWithoutAgentOperationActionsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  imageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  collections?: Prisma.CollectionUpdateManyWithoutUserNestedInput
+  sourceFiles?: Prisma.SourceFileUpdateManyWithoutUserNestedInput
+  studyMaterials?: Prisma.StudyMaterialUpdateManyWithoutUserNestedInput
+  materialRevisions?: Prisma.MaterialRevisionUpdateManyWithoutUserNestedInput
+  materialSections?: Prisma.MaterialSectionUpdateManyWithoutUserNestedInput
+  materialChunks?: Prisma.MaterialChunkUpdateManyWithoutUserNestedInput
+  materialPages?: Prisma.MaterialPageUpdateManyWithoutUserNestedInput
+  materialCleanupJobs?: Prisma.MaterialCleanupJobUpdateManyWithoutUserNestedInput
+  skillDraftBatches?: Prisma.SkillDraftBatchUpdateManyWithoutUserNestedInput
+  skillDraftBatchItems?: Prisma.SkillDraftBatchItemUpdateManyWithoutUserNestedInput
+  skills?: Prisma.SkillUpdateManyWithoutUserNestedInput
+  skillSourceRefs?: Prisma.SkillSourceRefUpdateManyWithoutUserNestedInput
+  exercises?: Prisma.ExerciseUpdateManyWithoutUserNestedInput
+  exerciseAttempts?: Prisma.ExerciseAttemptUpdateManyWithoutUserNestedInput
+  reviewLogs?: Prisma.ReviewLogUpdateManyWithoutUserNestedInput
+  exerciseFlags?: Prisma.ExerciseFlagUpdateManyWithoutUserNestedInput
+  generationJobs?: Prisma.GenerationJobUpdateManyWithoutUserNestedInput
+  reminderPreference?: Prisma.ReminderPreferenceUpdateOneWithoutUserNestedInput
+  reminderSendLogs?: Prisma.ReminderSendLogUpdateManyWithoutUserNestedInput
+  workosIdentity?: Prisma.WorkosIdentityUpdateOneWithoutUserNestedInput
+  agentConnections?: Prisma.AgentConnectionUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUpdateManyWithoutUserNestedInput
+  agentOperations?: Prisma.AgentSkillOperationUpdateManyWithoutUserNestedInput
+  agentOperationItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutUserNestedInput
+  agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
+}
+
+export type UserUncheckedUpdateWithoutAgentOperationActionsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  imageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  collections?: Prisma.CollectionUncheckedUpdateManyWithoutUserNestedInput
+  sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutUserNestedInput
+  studyMaterials?: Prisma.StudyMaterialUncheckedUpdateManyWithoutUserNestedInput
+  materialRevisions?: Prisma.MaterialRevisionUncheckedUpdateManyWithoutUserNestedInput
+  materialSections?: Prisma.MaterialSectionUncheckedUpdateManyWithoutUserNestedInput
+  materialChunks?: Prisma.MaterialChunkUncheckedUpdateManyWithoutUserNestedInput
+  materialPages?: Prisma.MaterialPageUncheckedUpdateManyWithoutUserNestedInput
+  materialCleanupJobs?: Prisma.MaterialCleanupJobUncheckedUpdateManyWithoutUserNestedInput
+  skillDraftBatches?: Prisma.SkillDraftBatchUncheckedUpdateManyWithoutUserNestedInput
+  skillDraftBatchItems?: Prisma.SkillDraftBatchItemUncheckedUpdateManyWithoutUserNestedInput
+  skills?: Prisma.SkillUncheckedUpdateManyWithoutUserNestedInput
+  skillSourceRefs?: Prisma.SkillSourceRefUncheckedUpdateManyWithoutUserNestedInput
+  exercises?: Prisma.ExerciseUncheckedUpdateManyWithoutUserNestedInput
+  exerciseAttempts?: Prisma.ExerciseAttemptUncheckedUpdateManyWithoutUserNestedInput
+  reviewLogs?: Prisma.ReviewLogUncheckedUpdateManyWithoutUserNestedInput
+  exerciseFlags?: Prisma.ExerciseFlagUncheckedUpdateManyWithoutUserNestedInput
+  generationJobs?: Prisma.GenerationJobUncheckedUpdateManyWithoutUserNestedInput
+  reminderPreference?: Prisma.ReminderPreferenceUncheckedUpdateOneWithoutUserNestedInput
+  reminderSendLogs?: Prisma.ReminderSendLogUncheckedUpdateManyWithoutUserNestedInput
+  workosIdentity?: Prisma.WorkosIdentityUncheckedUpdateOneWithoutUserNestedInput
+  agentConnections?: Prisma.AgentConnectionUncheckedUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedUpdateManyWithoutUserNestedInput
+  agentOperations?: Prisma.AgentSkillOperationUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutUserNestedInput
+  agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
+}
+
+export type UserCreateWithoutAgentOperationSourcesInput = {
+  id: string
+  email?: string | null
+  name?: string | null
+  imageUrl?: string | null
+  lastSeenAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  agentAccessDisabledAt?: Date | string | null
+  collections?: Prisma.CollectionCreateNestedManyWithoutUserInput
+  sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutUserInput
+  studyMaterials?: Prisma.StudyMaterialCreateNestedManyWithoutUserInput
+  materialRevisions?: Prisma.MaterialRevisionCreateNestedManyWithoutUserInput
+  materialSections?: Prisma.MaterialSectionCreateNestedManyWithoutUserInput
+  materialChunks?: Prisma.MaterialChunkCreateNestedManyWithoutUserInput
+  materialPages?: Prisma.MaterialPageCreateNestedManyWithoutUserInput
+  materialCleanupJobs?: Prisma.MaterialCleanupJobCreateNestedManyWithoutUserInput
+  skillDraftBatches?: Prisma.SkillDraftBatchCreateNestedManyWithoutUserInput
+  skillDraftBatchItems?: Prisma.SkillDraftBatchItemCreateNestedManyWithoutUserInput
+  skills?: Prisma.SkillCreateNestedManyWithoutUserInput
+  skillSourceRefs?: Prisma.SkillSourceRefCreateNestedManyWithoutUserInput
+  exercises?: Prisma.ExerciseCreateNestedManyWithoutUserInput
+  exerciseAttempts?: Prisma.ExerciseAttemptCreateNestedManyWithoutUserInput
+  reviewLogs?: Prisma.ReviewLogCreateNestedManyWithoutUserInput
+  exerciseFlags?: Prisma.ExerciseFlagCreateNestedManyWithoutUserInput
+  generationJobs?: Prisma.GenerationJobCreateNestedManyWithoutUserInput
+  reminderPreference?: Prisma.ReminderPreferenceCreateNestedOneWithoutUserInput
+  reminderSendLogs?: Prisma.ReminderSendLogCreateNestedManyWithoutUserInput
+  workosIdentity?: Prisma.WorkosIdentityCreateNestedOneWithoutUserInput
+  agentConnections?: Prisma.AgentConnectionCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionCreateNestedManyWithoutUserInput
+  agentOperations?: Prisma.AgentSkillOperationCreateNestedManyWithoutUserInput
+  agentOperationItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutUserInput
+  agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
+}
+
+export type UserUncheckedCreateWithoutAgentOperationSourcesInput = {
+  id: string
+  email?: string | null
+  name?: string | null
+  imageUrl?: string | null
+  lastSeenAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  agentAccessDisabledAt?: Date | string | null
+  collections?: Prisma.CollectionUncheckedCreateNestedManyWithoutUserInput
+  sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutUserInput
+  studyMaterials?: Prisma.StudyMaterialUncheckedCreateNestedManyWithoutUserInput
+  materialRevisions?: Prisma.MaterialRevisionUncheckedCreateNestedManyWithoutUserInput
+  materialSections?: Prisma.MaterialSectionUncheckedCreateNestedManyWithoutUserInput
+  materialChunks?: Prisma.MaterialChunkUncheckedCreateNestedManyWithoutUserInput
+  materialPages?: Prisma.MaterialPageUncheckedCreateNestedManyWithoutUserInput
+  materialCleanupJobs?: Prisma.MaterialCleanupJobUncheckedCreateNestedManyWithoutUserInput
+  skillDraftBatches?: Prisma.SkillDraftBatchUncheckedCreateNestedManyWithoutUserInput
+  skillDraftBatchItems?: Prisma.SkillDraftBatchItemUncheckedCreateNestedManyWithoutUserInput
+  skills?: Prisma.SkillUncheckedCreateNestedManyWithoutUserInput
+  skillSourceRefs?: Prisma.SkillSourceRefUncheckedCreateNestedManyWithoutUserInput
+  exercises?: Prisma.ExerciseUncheckedCreateNestedManyWithoutUserInput
+  exerciseAttempts?: Prisma.ExerciseAttemptUncheckedCreateNestedManyWithoutUserInput
+  reviewLogs?: Prisma.ReviewLogUncheckedCreateNestedManyWithoutUserInput
+  exerciseFlags?: Prisma.ExerciseFlagUncheckedCreateNestedManyWithoutUserInput
+  generationJobs?: Prisma.GenerationJobUncheckedCreateNestedManyWithoutUserInput
+  reminderPreference?: Prisma.ReminderPreferenceUncheckedCreateNestedOneWithoutUserInput
+  reminderSendLogs?: Prisma.ReminderSendLogUncheckedCreateNestedManyWithoutUserInput
+  workosIdentity?: Prisma.WorkosIdentityUncheckedCreateNestedOneWithoutUserInput
+  agentConnections?: Prisma.AgentConnectionUncheckedCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedCreateNestedManyWithoutUserInput
+  agentOperations?: Prisma.AgentSkillOperationUncheckedCreateNestedManyWithoutUserInput
+  agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutUserInput
+  agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
+}
+
+export type UserCreateOrConnectWithoutAgentOperationSourcesInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutAgentOperationSourcesInput, Prisma.UserUncheckedCreateWithoutAgentOperationSourcesInput>
+}
+
+export type UserUpsertWithoutAgentOperationSourcesInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutAgentOperationSourcesInput, Prisma.UserUncheckedUpdateWithoutAgentOperationSourcesInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutAgentOperationSourcesInput, Prisma.UserUncheckedCreateWithoutAgentOperationSourcesInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutAgentOperationSourcesInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutAgentOperationSourcesInput, Prisma.UserUncheckedUpdateWithoutAgentOperationSourcesInput>
+}
+
+export type UserUpdateWithoutAgentOperationSourcesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  imageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  collections?: Prisma.CollectionUpdateManyWithoutUserNestedInput
+  sourceFiles?: Prisma.SourceFileUpdateManyWithoutUserNestedInput
+  studyMaterials?: Prisma.StudyMaterialUpdateManyWithoutUserNestedInput
+  materialRevisions?: Prisma.MaterialRevisionUpdateManyWithoutUserNestedInput
+  materialSections?: Prisma.MaterialSectionUpdateManyWithoutUserNestedInput
+  materialChunks?: Prisma.MaterialChunkUpdateManyWithoutUserNestedInput
+  materialPages?: Prisma.MaterialPageUpdateManyWithoutUserNestedInput
+  materialCleanupJobs?: Prisma.MaterialCleanupJobUpdateManyWithoutUserNestedInput
+  skillDraftBatches?: Prisma.SkillDraftBatchUpdateManyWithoutUserNestedInput
+  skillDraftBatchItems?: Prisma.SkillDraftBatchItemUpdateManyWithoutUserNestedInput
+  skills?: Prisma.SkillUpdateManyWithoutUserNestedInput
+  skillSourceRefs?: Prisma.SkillSourceRefUpdateManyWithoutUserNestedInput
+  exercises?: Prisma.ExerciseUpdateManyWithoutUserNestedInput
+  exerciseAttempts?: Prisma.ExerciseAttemptUpdateManyWithoutUserNestedInput
+  reviewLogs?: Prisma.ReviewLogUpdateManyWithoutUserNestedInput
+  exerciseFlags?: Prisma.ExerciseFlagUpdateManyWithoutUserNestedInput
+  generationJobs?: Prisma.GenerationJobUpdateManyWithoutUserNestedInput
+  reminderPreference?: Prisma.ReminderPreferenceUpdateOneWithoutUserNestedInput
+  reminderSendLogs?: Prisma.ReminderSendLogUpdateManyWithoutUserNestedInput
+  workosIdentity?: Prisma.WorkosIdentityUpdateOneWithoutUserNestedInput
+  agentConnections?: Prisma.AgentConnectionUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUpdateManyWithoutUserNestedInput
+  agentOperations?: Prisma.AgentSkillOperationUpdateManyWithoutUserNestedInput
+  agentOperationItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutUserNestedInput
+  agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
+}
+
+export type UserUncheckedUpdateWithoutAgentOperationSourcesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  imageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  collections?: Prisma.CollectionUncheckedUpdateManyWithoutUserNestedInput
+  sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutUserNestedInput
+  studyMaterials?: Prisma.StudyMaterialUncheckedUpdateManyWithoutUserNestedInput
+  materialRevisions?: Prisma.MaterialRevisionUncheckedUpdateManyWithoutUserNestedInput
+  materialSections?: Prisma.MaterialSectionUncheckedUpdateManyWithoutUserNestedInput
+  materialChunks?: Prisma.MaterialChunkUncheckedUpdateManyWithoutUserNestedInput
+  materialPages?: Prisma.MaterialPageUncheckedUpdateManyWithoutUserNestedInput
+  materialCleanupJobs?: Prisma.MaterialCleanupJobUncheckedUpdateManyWithoutUserNestedInput
+  skillDraftBatches?: Prisma.SkillDraftBatchUncheckedUpdateManyWithoutUserNestedInput
+  skillDraftBatchItems?: Prisma.SkillDraftBatchItemUncheckedUpdateManyWithoutUserNestedInput
+  skills?: Prisma.SkillUncheckedUpdateManyWithoutUserNestedInput
+  skillSourceRefs?: Prisma.SkillSourceRefUncheckedUpdateManyWithoutUserNestedInput
+  exercises?: Prisma.ExerciseUncheckedUpdateManyWithoutUserNestedInput
+  exerciseAttempts?: Prisma.ExerciseAttemptUncheckedUpdateManyWithoutUserNestedInput
+  reviewLogs?: Prisma.ReviewLogUncheckedUpdateManyWithoutUserNestedInput
+  exerciseFlags?: Prisma.ExerciseFlagUncheckedUpdateManyWithoutUserNestedInput
+  generationJobs?: Prisma.GenerationJobUncheckedUpdateManyWithoutUserNestedInput
+  reminderPreference?: Prisma.ReminderPreferenceUncheckedUpdateOneWithoutUserNestedInput
+  reminderSendLogs?: Prisma.ReminderSendLogUncheckedUpdateManyWithoutUserNestedInput
+  workosIdentity?: Prisma.WorkosIdentityUncheckedUpdateOneWithoutUserNestedInput
+  agentConnections?: Prisma.AgentConnectionUncheckedUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedUpdateManyWithoutUserNestedInput
+  agentOperations?: Prisma.AgentSkillOperationUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutUserNestedInput
+  agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutAgentOperationItemsInput = {
@@ -4379,9 +4925,11 @@ export type UserCreateWithoutAgentOperationItemsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogCreateNestedManyWithoutUserInput
   workosIdentity?: Prisma.WorkosIdentityCreateNestedOneWithoutUserInput
   agentConnections?: Prisma.AgentConnectionCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceCreateNestedManyWithoutUserInput
   agentOperations?: Prisma.AgentSkillOperationCreateNestedManyWithoutUserInput
   agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutAgentOperationItemsInput = {
@@ -4414,9 +4962,11 @@ export type UserUncheckedCreateWithoutAgentOperationItemsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUncheckedCreateNestedManyWithoutUserInput
   workosIdentity?: Prisma.WorkosIdentityUncheckedCreateNestedOneWithoutUserInput
   agentConnections?: Prisma.AgentConnectionUncheckedCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedCreateNestedManyWithoutUserInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedCreateNestedManyWithoutUserInput
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutAgentOperationItemsInput = {
@@ -4465,9 +5015,11 @@ export type UserUpdateWithoutAgentOperationItemsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUpdateManyWithoutUserNestedInput
   workosIdentity?: Prisma.WorkosIdentityUpdateOneWithoutUserNestedInput
   agentConnections?: Prisma.AgentConnectionUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUpdateManyWithoutUserNestedInput
   agentOperations?: Prisma.AgentSkillOperationUpdateManyWithoutUserNestedInput
   agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutAgentOperationItemsInput = {
@@ -4500,9 +5052,11 @@ export type UserUncheckedUpdateWithoutAgentOperationItemsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUncheckedUpdateManyWithoutUserNestedInput
   workosIdentity?: Prisma.WorkosIdentityUncheckedUpdateOneWithoutUserNestedInput
   agentConnections?: Prisma.AgentConnectionUncheckedUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedUpdateManyWithoutUserNestedInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedUpdateManyWithoutUserNestedInput
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutAgentCandidatesInput = {
@@ -4535,9 +5089,11 @@ export type UserCreateWithoutAgentCandidatesInput = {
   reminderSendLogs?: Prisma.ReminderSendLogCreateNestedManyWithoutUserInput
   workosIdentity?: Prisma.WorkosIdentityCreateNestedOneWithoutUserInput
   agentConnections?: Prisma.AgentConnectionCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceCreateNestedManyWithoutUserInput
   agentOperations?: Prisma.AgentSkillOperationCreateNestedManyWithoutUserInput
   agentOperationItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutUserInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutAgentCandidatesInput = {
@@ -4570,9 +5126,11 @@ export type UserUncheckedCreateWithoutAgentCandidatesInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUncheckedCreateNestedManyWithoutUserInput
   workosIdentity?: Prisma.WorkosIdentityUncheckedCreateNestedOneWithoutUserInput
   agentConnections?: Prisma.AgentConnectionUncheckedCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedCreateNestedManyWithoutUserInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedCreateNestedManyWithoutUserInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutUserInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutAgentCandidatesInput = {
@@ -4621,9 +5179,11 @@ export type UserUpdateWithoutAgentCandidatesInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUpdateManyWithoutUserNestedInput
   workosIdentity?: Prisma.WorkosIdentityUpdateOneWithoutUserNestedInput
   agentConnections?: Prisma.AgentConnectionUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUpdateManyWithoutUserNestedInput
   agentOperations?: Prisma.AgentSkillOperationUpdateManyWithoutUserNestedInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutUserNestedInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutAgentCandidatesInput = {
@@ -4656,12 +5216,14 @@ export type UserUncheckedUpdateWithoutAgentCandidatesInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUncheckedUpdateManyWithoutUserNestedInput
   workosIdentity?: Prisma.WorkosIdentityUncheckedUpdateOneWithoutUserNestedInput
   agentConnections?: Prisma.AgentConnectionUncheckedUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedUpdateManyWithoutUserNestedInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedUpdateManyWithoutUserNestedInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutUserNestedInput
-  agentRevocationJobs?: Prisma.AgentRevocationOutboxUncheckedUpdateManyWithoutUserNestedInput
 }
 
-export type UserCreateWithoutAgentRevocationJobsInput = {
+export type UserCreateWithoutAgentRateLimitBucketsInput = {
   id: string
   email?: string | null
   name?: string | null
@@ -4691,12 +5253,14 @@ export type UserCreateWithoutAgentRevocationJobsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogCreateNestedManyWithoutUserInput
   workosIdentity?: Prisma.WorkosIdentityCreateNestedOneWithoutUserInput
   agentConnections?: Prisma.AgentConnectionCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceCreateNestedManyWithoutUserInput
   agentOperations?: Prisma.AgentSkillOperationCreateNestedManyWithoutUserInput
   agentOperationItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutUserInput
   agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
 }
 
-export type UserUncheckedCreateWithoutAgentRevocationJobsInput = {
+export type UserUncheckedCreateWithoutAgentRateLimitBucketsInput = {
   id: string
   email?: string | null
   name?: string | null
@@ -4726,28 +5290,30 @@ export type UserUncheckedCreateWithoutAgentRevocationJobsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUncheckedCreateNestedManyWithoutUserInput
   workosIdentity?: Prisma.WorkosIdentityUncheckedCreateNestedOneWithoutUserInput
   agentConnections?: Prisma.AgentConnectionUncheckedCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedCreateNestedManyWithoutUserInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedCreateNestedManyWithoutUserInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutUserInput
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
 }
 
-export type UserCreateOrConnectWithoutAgentRevocationJobsInput = {
+export type UserCreateOrConnectWithoutAgentRateLimitBucketsInput = {
   where: Prisma.UserWhereUniqueInput
-  create: Prisma.XOR<Prisma.UserCreateWithoutAgentRevocationJobsInput, Prisma.UserUncheckedCreateWithoutAgentRevocationJobsInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutAgentRateLimitBucketsInput, Prisma.UserUncheckedCreateWithoutAgentRateLimitBucketsInput>
 }
 
-export type UserUpsertWithoutAgentRevocationJobsInput = {
-  update: Prisma.XOR<Prisma.UserUpdateWithoutAgentRevocationJobsInput, Prisma.UserUncheckedUpdateWithoutAgentRevocationJobsInput>
-  create: Prisma.XOR<Prisma.UserCreateWithoutAgentRevocationJobsInput, Prisma.UserUncheckedCreateWithoutAgentRevocationJobsInput>
+export type UserUpsertWithoutAgentRateLimitBucketsInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutAgentRateLimitBucketsInput, Prisma.UserUncheckedUpdateWithoutAgentRateLimitBucketsInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutAgentRateLimitBucketsInput, Prisma.UserUncheckedCreateWithoutAgentRateLimitBucketsInput>
   where?: Prisma.UserWhereInput
 }
 
-export type UserUpdateToOneWithWhereWithoutAgentRevocationJobsInput = {
+export type UserUpdateToOneWithWhereWithoutAgentRateLimitBucketsInput = {
   where?: Prisma.UserWhereInput
-  data: Prisma.XOR<Prisma.UserUpdateWithoutAgentRevocationJobsInput, Prisma.UserUncheckedUpdateWithoutAgentRevocationJobsInput>
+  data: Prisma.XOR<Prisma.UserUpdateWithoutAgentRateLimitBucketsInput, Prisma.UserUncheckedUpdateWithoutAgentRateLimitBucketsInput>
 }
 
-export type UserUpdateWithoutAgentRevocationJobsInput = {
+export type UserUpdateWithoutAgentRateLimitBucketsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -4777,12 +5343,14 @@ export type UserUpdateWithoutAgentRevocationJobsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUpdateManyWithoutUserNestedInput
   workosIdentity?: Prisma.WorkosIdentityUpdateOneWithoutUserNestedInput
   agentConnections?: Prisma.AgentConnectionUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUpdateManyWithoutUserNestedInput
   agentOperations?: Prisma.AgentSkillOperationUpdateManyWithoutUserNestedInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutUserNestedInput
   agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
 }
 
-export type UserUncheckedUpdateWithoutAgentRevocationJobsInput = {
+export type UserUncheckedUpdateWithoutAgentRateLimitBucketsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -4812,6 +5380,8 @@ export type UserUncheckedUpdateWithoutAgentRevocationJobsInput = {
   reminderSendLogs?: Prisma.ReminderSendLogUncheckedUpdateManyWithoutUserNestedInput
   workosIdentity?: Prisma.WorkosIdentityUncheckedUpdateOneWithoutUserNestedInput
   agentConnections?: Prisma.AgentConnectionUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedUpdateManyWithoutUserNestedInput
   agentOperations?: Prisma.AgentSkillOperationUncheckedUpdateManyWithoutUserNestedInput
   agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutUserNestedInput
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
@@ -4842,10 +5412,12 @@ export type UserCountOutputType = {
   generationJobs: number
   reminderSendLogs: number
   agentConnections: number
+  agentRateLimitBuckets: number
+  agentOperationActions: number
+  agentOperationSources: number
   agentOperations: number
   agentOperationItems: number
   agentCandidates: number
-  agentRevocationJobs: number
 }
 
 export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -4868,10 +5440,12 @@ export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.I
   generationJobs?: boolean | UserCountOutputTypeCountGenerationJobsArgs
   reminderSendLogs?: boolean | UserCountOutputTypeCountReminderSendLogsArgs
   agentConnections?: boolean | UserCountOutputTypeCountAgentConnectionsArgs
+  agentRateLimitBuckets?: boolean | UserCountOutputTypeCountAgentRateLimitBucketsArgs
+  agentOperationActions?: boolean | UserCountOutputTypeCountAgentOperationActionsArgs
+  agentOperationSources?: boolean | UserCountOutputTypeCountAgentOperationSourcesArgs
   agentOperations?: boolean | UserCountOutputTypeCountAgentOperationsArgs
   agentOperationItems?: boolean | UserCountOutputTypeCountAgentOperationItemsArgs
   agentCandidates?: boolean | UserCountOutputTypeCountAgentCandidatesArgs
-  agentRevocationJobs?: boolean | UserCountOutputTypeCountAgentRevocationJobsArgs
 }
 
 /**
@@ -5020,6 +5594,27 @@ export type UserCountOutputTypeCountAgentConnectionsArgs<ExtArgs extends runtime
 /**
  * UserCountOutputType without action
  */
+export type UserCountOutputTypeCountAgentRateLimitBucketsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.AgentRateLimitBucketWhereInput
+}
+
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountAgentOperationActionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.AgentOperationActionWhereInput
+}
+
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountAgentOperationSourcesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.AgentOperationSourceWhereInput
+}
+
+/**
+ * UserCountOutputType without action
+ */
 export type UserCountOutputTypeCountAgentOperationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   where?: Prisma.AgentSkillOperationWhereInput
 }
@@ -5036,13 +5631,6 @@ export type UserCountOutputTypeCountAgentOperationItemsArgs<ExtArgs extends runt
  */
 export type UserCountOutputTypeCountAgentCandidatesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   where?: Prisma.AgentExerciseCandidateWhereInput
-}
-
-/**
- * UserCountOutputType without action
- */
-export type UserCountOutputTypeCountAgentRevocationJobsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  where?: Prisma.AgentRevocationOutboxWhereInput
 }
 
 
@@ -5076,10 +5664,12 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   reminderSendLogs?: boolean | Prisma.User$reminderSendLogsArgs<ExtArgs>
   workosIdentity?: boolean | Prisma.User$workosIdentityArgs<ExtArgs>
   agentConnections?: boolean | Prisma.User$agentConnectionsArgs<ExtArgs>
+  agentRateLimitBuckets?: boolean | Prisma.User$agentRateLimitBucketsArgs<ExtArgs>
+  agentOperationActions?: boolean | Prisma.User$agentOperationActionsArgs<ExtArgs>
+  agentOperationSources?: boolean | Prisma.User$agentOperationSourcesArgs<ExtArgs>
   agentOperations?: boolean | Prisma.User$agentOperationsArgs<ExtArgs>
   agentOperationItems?: boolean | Prisma.User$agentOperationItemsArgs<ExtArgs>
   agentCandidates?: boolean | Prisma.User$agentCandidatesArgs<ExtArgs>
-  agentRevocationJobs?: boolean | Prisma.User$agentRevocationJobsArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["user"]>
 
@@ -5139,10 +5729,12 @@ export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   reminderSendLogs?: boolean | Prisma.User$reminderSendLogsArgs<ExtArgs>
   workosIdentity?: boolean | Prisma.User$workosIdentityArgs<ExtArgs>
   agentConnections?: boolean | Prisma.User$agentConnectionsArgs<ExtArgs>
+  agentRateLimitBuckets?: boolean | Prisma.User$agentRateLimitBucketsArgs<ExtArgs>
+  agentOperationActions?: boolean | Prisma.User$agentOperationActionsArgs<ExtArgs>
+  agentOperationSources?: boolean | Prisma.User$agentOperationSourcesArgs<ExtArgs>
   agentOperations?: boolean | Prisma.User$agentOperationsArgs<ExtArgs>
   agentOperationItems?: boolean | Prisma.User$agentOperationItemsArgs<ExtArgs>
   agentCandidates?: boolean | Prisma.User$agentCandidatesArgs<ExtArgs>
-  agentRevocationJobs?: boolean | Prisma.User$agentRevocationJobsArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type UserIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
@@ -5172,10 +5764,12 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     reminderSendLogs: Prisma.$ReminderSendLogPayload<ExtArgs>[]
     workosIdentity: Prisma.$WorkosIdentityPayload<ExtArgs> | null
     agentConnections: Prisma.$AgentConnectionPayload<ExtArgs>[]
+    agentRateLimitBuckets: Prisma.$AgentRateLimitBucketPayload<ExtArgs>[]
+    agentOperationActions: Prisma.$AgentOperationActionPayload<ExtArgs>[]
+    agentOperationSources: Prisma.$AgentOperationSourcePayload<ExtArgs>[]
     agentOperations: Prisma.$AgentSkillOperationPayload<ExtArgs>[]
     agentOperationItems: Prisma.$AgentSkillOperationItemPayload<ExtArgs>[]
     agentCandidates: Prisma.$AgentExerciseCandidatePayload<ExtArgs>[]
-    agentRevocationJobs: Prisma.$AgentRevocationOutboxPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -5601,10 +6195,12 @@ export interface Prisma__UserClient<T, Null = never, ExtArgs extends runtime.Typ
   reminderSendLogs<T extends Prisma.User$reminderSendLogsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$reminderSendLogsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ReminderSendLogPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   workosIdentity<T extends Prisma.User$workosIdentityArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$workosIdentityArgs<ExtArgs>>): Prisma.Prisma__WorkosIdentityClient<runtime.Types.Result.GetResult<Prisma.$WorkosIdentityPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   agentConnections<T extends Prisma.User$agentConnectionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$agentConnectionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AgentConnectionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  agentRateLimitBuckets<T extends Prisma.User$agentRateLimitBucketsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$agentRateLimitBucketsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AgentRateLimitBucketPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  agentOperationActions<T extends Prisma.User$agentOperationActionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$agentOperationActionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AgentOperationActionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  agentOperationSources<T extends Prisma.User$agentOperationSourcesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$agentOperationSourcesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AgentOperationSourcePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   agentOperations<T extends Prisma.User$agentOperationsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$agentOperationsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AgentSkillOperationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   agentOperationItems<T extends Prisma.User$agentOperationItemsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$agentOperationItemsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AgentSkillOperationItemPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   agentCandidates<T extends Prisma.User$agentCandidatesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$agentCandidatesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AgentExerciseCandidatePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
-  agentRevocationJobs<T extends Prisma.User$agentRevocationJobsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$agentRevocationJobsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AgentRevocationOutboxPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -6529,6 +7125,78 @@ export type User$agentConnectionsArgs<ExtArgs extends runtime.Types.Extensions.I
 }
 
 /**
+ * User.agentRateLimitBuckets
+ */
+export type User$agentRateLimitBucketsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the AgentRateLimitBucket
+   */
+  select?: Prisma.AgentRateLimitBucketSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the AgentRateLimitBucket
+   */
+  omit?: Prisma.AgentRateLimitBucketOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.AgentRateLimitBucketInclude<ExtArgs> | null
+  where?: Prisma.AgentRateLimitBucketWhereInput
+  orderBy?: Prisma.AgentRateLimitBucketOrderByWithRelationInput | Prisma.AgentRateLimitBucketOrderByWithRelationInput[]
+  cursor?: Prisma.AgentRateLimitBucketWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.AgentRateLimitBucketScalarFieldEnum | Prisma.AgentRateLimitBucketScalarFieldEnum[]
+}
+
+/**
+ * User.agentOperationActions
+ */
+export type User$agentOperationActionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the AgentOperationAction
+   */
+  select?: Prisma.AgentOperationActionSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the AgentOperationAction
+   */
+  omit?: Prisma.AgentOperationActionOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.AgentOperationActionInclude<ExtArgs> | null
+  where?: Prisma.AgentOperationActionWhereInput
+  orderBy?: Prisma.AgentOperationActionOrderByWithRelationInput | Prisma.AgentOperationActionOrderByWithRelationInput[]
+  cursor?: Prisma.AgentOperationActionWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.AgentOperationActionScalarFieldEnum | Prisma.AgentOperationActionScalarFieldEnum[]
+}
+
+/**
+ * User.agentOperationSources
+ */
+export type User$agentOperationSourcesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the AgentOperationSource
+   */
+  select?: Prisma.AgentOperationSourceSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the AgentOperationSource
+   */
+  omit?: Prisma.AgentOperationSourceOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.AgentOperationSourceInclude<ExtArgs> | null
+  where?: Prisma.AgentOperationSourceWhereInput
+  orderBy?: Prisma.AgentOperationSourceOrderByWithRelationInput | Prisma.AgentOperationSourceOrderByWithRelationInput[]
+  cursor?: Prisma.AgentOperationSourceWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.AgentOperationSourceScalarFieldEnum | Prisma.AgentOperationSourceScalarFieldEnum[]
+}
+
+/**
  * User.agentOperations
  */
 export type User$agentOperationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -6598,30 +7266,6 @@ export type User$agentCandidatesArgs<ExtArgs extends runtime.Types.Extensions.In
   take?: number
   skip?: number
   distinct?: Prisma.AgentExerciseCandidateScalarFieldEnum | Prisma.AgentExerciseCandidateScalarFieldEnum[]
-}
-
-/**
- * User.agentRevocationJobs
- */
-export type User$agentRevocationJobsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  /**
-   * Select specific fields to fetch from the AgentRevocationOutbox
-   */
-  select?: Prisma.AgentRevocationOutboxSelect<ExtArgs> | null
-  /**
-   * Omit specific fields from the AgentRevocationOutbox
-   */
-  omit?: Prisma.AgentRevocationOutboxOmit<ExtArgs> | null
-  /**
-   * Choose, which related nodes to fetch as well
-   */
-  include?: Prisma.AgentRevocationOutboxInclude<ExtArgs> | null
-  where?: Prisma.AgentRevocationOutboxWhereInput
-  orderBy?: Prisma.AgentRevocationOutboxOrderByWithRelationInput | Prisma.AgentRevocationOutboxOrderByWithRelationInput[]
-  cursor?: Prisma.AgentRevocationOutboxWhereUniqueInput
-  take?: number
-  skip?: number
-  distinct?: Prisma.AgentRevocationOutboxScalarFieldEnum | Prisma.AgentRevocationOutboxScalarFieldEnum[]
 }
 
 /**

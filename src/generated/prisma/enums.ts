@@ -331,3 +331,11 @@ export const AgentRevocationOutboxStatus = {
 } as const
 
 export type AgentRevocationOutboxStatus = (typeof AgentRevocationOutboxStatus)[keyof typeof AgentRevocationOutboxStatus]
+
+
+export const AgentRateLimitKind = {
+  MUTATION: 'MUTATION',
+  READ: 'READ'
+} as const
+
+export type AgentRateLimitKind = (typeof AgentRateLimitKind)[keyof typeof AgentRateLimitKind]
