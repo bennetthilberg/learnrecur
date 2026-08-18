@@ -27,6 +27,7 @@ import {
   createAgentSpecOperation,
 } from "@/lib/agent-access/operations";
 import { reserveAgentActivation } from "@/lib/agent-access/worker";
+import { sendAgentConnectionRevocationRequested } from "@/lib/inngest/events";
 import { getPrisma } from "@/lib/prisma";
 import { getUserDataExport } from "@/lib/settings/data-export";
 
@@ -79,10 +80,18 @@ describeDatabase("agent access persistence", () => {
   it("revokes locally before queuing a durable remote revocation", async () => {
     const fixture = await createConnection("revoke");
     const now = new Date("2026-08-13T15:00:00.000Z");
+    vi.mocked(sendAgentConnectionRevocationRequested).mockRejectedValueOnce(
+      new Error("temporary event dispatch failure"),
+    );
 
     await expect(
       revokeAgentConnection({ userId: fixture.userId, connectionId: fixture.connection.id, now }),
     ).resolves.toMatchObject({ status: "revoked", alreadyRevoked: false });
+    expect(sendAgentConnectionRevocationRequested).toHaveBeenCalledWith({
+      userId: fixture.userId,
+      connectionId: fixture.connection.id,
+      requestedAt: now.toISOString(),
+    });
 
     const connection = await prisma.agentConnection.findUniqueOrThrow({
       where: { id: fixture.connection.id },

@@ -148,11 +148,19 @@ export async function revokeAgentConnection(input: { userId: string; connectionI
     return { status: "revoked" as const, alreadyRevoked: false };
   });
   if (result.status === "revoked") {
-    await sendAgentConnectionRevocationRequested({
-      userId: input.userId,
-      connectionId: input.connectionId,
-      requestedAt: input.now.toISOString(),
-    });
+    try {
+      await sendAgentConnectionRevocationRequested({
+        userId: input.userId,
+        connectionId: input.connectionId,
+        requestedAt: input.now.toISOString(),
+      });
+    } catch (error) {
+      console.error("[agent-access] WorkOS revocation dispatch deferred", {
+        userId: input.userId,
+        connectionId: input.connectionId,
+        errorName: error instanceof Error ? error.name : "UnknownError",
+      });
+    }
   }
   return result;
 }
