@@ -624,15 +624,7 @@ async function createAndActivateItem(input: {
   });
   const draft = await createSkillDraft({
     userId: input.userId,
-    input: {
-      title: input.snapshot.title,
-      objective: input.snapshot.objective,
-      rules: input.snapshot.rules,
-      examples: input.snapshot.examples,
-      exerciseConstraints: input.snapshot.exerciseConstraints,
-      tags: input.snapshot.tags,
-      collectionName: input.snapshot.collection,
-    },
+    input: buildSkillDraftInputFromSnapshot(input.snapshot),
   });
   if (draft.status !== "created") {
     await failItem(input.itemId, input.userId, "DRAFT_CREATE_FAILED", input.now);
@@ -875,8 +867,12 @@ export async function reserveAgentActivation(userId: string, itemId: string, now
 async function failItem(itemId: string, userId: string, errorCode: string, now: Date) {
   await getPrisma().agentSkillOperationItem.updateMany({
     where: { id: itemId, userId },
-    data: { status: AgentOperationItemStatus.FAILED, errorCode: errorCode.toUpperCase(), activationReservedAt: null, completedAt: now },
+    data: { status: AgentOperationItemStatus.FAILED, errorCode: normalizeAgentItemErrorCode(errorCode), activationReservedAt: null, completedAt: now },
   });
+}
+
+export function normalizeAgentItemErrorCode(errorCode: string) {
+  return errorCode.toUpperCase().replace(/[^A-Z0-9]+/g, "_");
 }
 
 async function reconcileAgentOperation(operationId: string, userId: string, now: Date) {
@@ -903,6 +899,18 @@ type SkillSnapshot = {
   tags: string[];
   collection?: string;
 };
+
+export function buildSkillDraftInputFromSnapshot(snapshot: SkillSnapshot) {
+  return {
+    title: snapshot.title,
+    objective: snapshot.objective,
+    rules: snapshot.rules.join("\n"),
+    examples: snapshot.examples.join("\n"),
+    exerciseConstraints: snapshot.exerciseConstraints,
+    tags: snapshot.tags,
+    collectionName: snapshot.collection,
+  };
+}
 
 function parseSkillSnapshot(value: unknown): SkillSnapshot | null {
   const record = parseRecord(value);

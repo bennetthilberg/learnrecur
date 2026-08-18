@@ -934,8 +934,9 @@ function parseStoredRecord(value: Prisma.JsonValue | null): Record<string, unkno
     : {};
 }
 
-function isRetryableAgentItemError(errorCode: string | null) {
+export function isRetryableAgentItemError(errorCode: string | null) {
   if (!errorCode) return false;
+  const normalizedErrorCode = errorCode.toUpperCase().replace(/[^A-Z0-9]+/g, "_");
   return [
     "DRAFT_CREATE_FAILED",
     "DRAFT_GENERATION_FAILED",
@@ -947,8 +948,9 @@ function isRetryableAgentItemError(errorCode: string | null) {
     "MISSING_S3_ENV",
     "QUOTA_EXCEEDED",
     "SOURCE_NOT_READY",
+    "SKILL_NOT_DRAFT",
     "VERIFICATION_FAILED",
-  ].includes(errorCode);
+  ].includes(normalizedErrorCode);
 }
 
 function daysFromNow(days: number) {

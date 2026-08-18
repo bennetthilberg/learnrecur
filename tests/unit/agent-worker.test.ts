@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import { SkillStatus } from "@/generated/prisma/client";
-import { classifyAgentDuplicate } from "@/lib/agent-access/worker";
+import {
+  buildSkillDraftInputFromSnapshot,
+  classifyAgentDuplicate,
+  normalizeAgentItemErrorCode,
+} from "@/lib/agent-access/worker";
 
 const baseMatch = {
   score: 1,
@@ -38,5 +42,36 @@ describe("classifyAgentDuplicate", () => {
 
   it("creates only when no match exists", () => {
     expect(classifyAgentDuplicate(null)).toEqual({ action: "create", confidence: null });
+  });
+});
+
+describe("buildSkillDraftInputFromSnapshot", () => {
+  it("adapts structured agent guidance to the canonical draft form contract", () => {
+    expect(
+      buildSkillDraftInputFromSnapshot({
+        title: "Estimate binary search comparisons",
+        objective: "Bound the comparisons required by binary search.",
+        rules: ["Keep the possible half.", "Stop when the interval is empty."],
+        examples: ["Eight items need at most four comparisons."],
+        exerciseConstraints: "Use small positive list sizes.",
+        tags: ["algorithms", "binary search"],
+        collection: "Computer science",
+      }),
+    ).toEqual({
+      title: "Estimate binary search comparisons",
+      objective: "Bound the comparisons required by binary search.",
+      rules: "Keep the possible half.\nStop when the interval is empty.",
+      examples: "Eight items need at most four comparisons.",
+      exerciseConstraints: "Use small positive list sizes.",
+      tags: ["algorithms", "binary search"],
+      collectionName: "Computer science",
+    });
+  });
+});
+
+describe("normalizeAgentItemErrorCode", () => {
+  it("stores domain reasons in the public underscore format", () => {
+    expect(normalizeAgentItemErrorCode("skill-not-draft")).toBe("SKILL_NOT_DRAFT");
+    expect(normalizeAgentItemErrorCode("verification_failed")).toBe("VERIFICATION_FAILED");
   });
 });

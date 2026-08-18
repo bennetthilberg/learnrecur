@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import { AgentOperationItemStatus, AgentOperationStatus } from "@/generated/prisma/client";
-import { reduceAgentOperationStatus } from "@/lib/agent-access/operations";
+import {
+  isRetryableAgentItemError,
+  reduceAgentOperationStatus,
+} from "@/lib/agent-access/operations";
 
 describe("reduceAgentOperationStatus", () => {
   it.each([
@@ -28,5 +31,16 @@ describe("reduceAgentOperationStatus", () => {
         AgentOperationItemStatus.GENERATING,
       ]),
     ).toBe(AgentOperationStatus.NEEDS_REVIEW);
+  });
+});
+
+describe("isRetryableAgentItemError", () => {
+  it("accepts canonical and legacy punctuation for recoverable activation failures", () => {
+    expect(isRetryableAgentItemError("SKILL_NOT_DRAFT")).toBe(true);
+    expect(isRetryableAgentItemError("SKILL-NOT-DRAFT")).toBe(true);
+  });
+
+  it("does not retry unknown failures", () => {
+    expect(isRetryableAgentItemError("UNSAFE_UNKNOWN_FAILURE")).toBe(false);
   });
 });
