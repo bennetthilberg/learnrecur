@@ -213,10 +213,15 @@ async function resolveAgentAuthContext(
 ): Promise<AgentAuthContext | null> {
   const prisma = getPrisma();
   const identity = await prisma.workosIdentity.findUnique({
-    where: { workosUserId: claims.subject },
+    where: { externalId: claims.subject },
     include: { user: { select: { agentAccessDisabledAt: true } } },
   });
-  if (!identity || identity.externalId !== identity.userId || identity.user.agentAccessDisabledAt) {
+  if (
+    !identity ||
+    identity.externalId !== identity.userId ||
+    claims.subject !== identity.externalId ||
+    identity.user.agentAccessDisabledAt
+  ) {
     return null;
   }
 
@@ -225,7 +230,7 @@ async function resolveAgentAuthContext(
   });
   if (!connection) {
     const grant = await fetchAuthorizedGrant({
-      workosUserId: claims.subject,
+      workosUserId: identity.workosUserId,
       clientId: claims.clientId,
       resourceUrl: config.resourceUrl,
       apiKey: config.workosApiKey,

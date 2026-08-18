@@ -25,7 +25,7 @@ function validEvidence(): WorkosGateEvidence {
     initialToken: {
       issuer: "https://learnrecur-staging.authkit.app",
       audience: canonicalResource,
-      subject: "user_workos_123",
+      subject: "user_clerk_123",
       sessionId: "app_consent_123",
       expiresAt: 2_000_000_000,
       scopes: ["skills:create", "materials:read", "sources:upload"],
@@ -33,7 +33,7 @@ function validEvidence(): WorkosGateEvidence {
     refreshedToken: {
       issuer: "https://learnrecur-staging.authkit.app",
       audience: canonicalResource,
-      subject: "user_workos_123",
+      subject: "user_clerk_123",
       sessionId: "app_consent_123",
       expiresAt: 2_000_000_100,
       scopes: ["skills:create", "materials:read", "sources:upload"],
@@ -70,6 +70,10 @@ describe("WorkOS MCP release gate", () => {
     }],
     ["email-style identity remapping", (evidence: WorkosGateEvidence) => {
       evidence.workosUser.externalId = "learner@example.com";
+    }],
+    ["token subject that is not the Clerk user", (evidence: WorkosGateEvidence) => {
+      evidence.initialToken.subject = "user_workos_123";
+      evidence.refreshedToken.subject = "user_workos_123";
     }],
     ["changed grant after refresh", (evidence: WorkosGateEvidence) => {
       evidence.refreshedToken.sessionId = "app_consent_other";

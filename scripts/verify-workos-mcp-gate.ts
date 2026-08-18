@@ -67,9 +67,12 @@ async function main() {
     env.MCP_RESOURCE_URL,
     jwks,
   );
-  const workosUser = await fetchWorkosUser(initialToken.subject, env.WORKOS_API_KEY);
-  const applications = await listAuthorizedApplications(
+  const workosUser = await fetchWorkosUserByExternalId(
     initialToken.subject,
+    env.WORKOS_API_KEY,
+  );
+  const applications = await listAuthorizedApplications(
+    workosUser.id,
     env.WORKOS_API_KEY,
   );
   const rotationApplication = requireAuthorizedApplication(
@@ -103,7 +106,7 @@ async function main() {
   });
 
   const grantDeletionSucceeded = await deleteAuthorizedApplication({
-    userId: initialToken.subject,
+    userId: workosUser.id,
     applicationId: revocationApplication.application?.id ?? "",
     apiKey: env.WORKOS_API_KEY,
   });
@@ -180,14 +183,15 @@ function requiredClaim(payload: JWTPayload, claim: string): string {
   return value;
 }
 
-async function fetchWorkosUser(userId: string, apiKey: string) {
+async function fetchWorkosUserByExternalId(externalId: string, apiKey: string) {
   const value = z
     .object({ id: z.string(), external_id: z.string().nullable().optional() })
     .passthrough()
     .parse(
-      await fetchJson(`https://api.workos.com/user_management/users/${encodeURIComponent(userId)}`, {
-        headers: { authorization: `Bearer ${apiKey}` },
-      }),
+      await fetchJson(
+        `https://api.workos.com/user_management/users/external_id/${encodeURIComponent(externalId)}`,
+        { headers: { authorization: `Bearer ${apiKey}` } },
+      ),
     );
   return { id: value.id, externalId: value.external_id ?? null };
 }

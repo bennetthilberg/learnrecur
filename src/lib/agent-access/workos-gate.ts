@@ -111,9 +111,9 @@ export function evaluateWorkosGateEvidence(
     check(
       "immutable_identity_mapping",
       evidence.initialToken.subject === evidence.refreshedToken.subject &&
-        evidence.initialToken.subject === evidence.workosUser.id &&
+        evidence.initialToken.subject === evidence.expectedClerkUserId &&
         evidence.workosUser.externalId === evidence.expectedClerkUserId,
-      "WorkOS subject maps to the immutable Clerk user ID.",
+      "The token subject and WorkOS external identity match the immutable Clerk user ID.",
     ),
     check(
       "stable_grant",

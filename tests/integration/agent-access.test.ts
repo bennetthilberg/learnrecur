@@ -63,7 +63,7 @@ describeDatabase("agent access persistence", () => {
       data: {
         userId,
         workosIdentityId: identity.id,
-        workosSubject: identity.workosUserId,
+        workosSubject: identity.externalId,
         workosSessionId: `session_${label}_${runId}`,
         workosApplicationId: `application_${label}_${runId}`,
         clientId: `https://${label}.example.test/client.json`,
@@ -184,7 +184,7 @@ describeDatabase("agent access persistence", () => {
     const auth = {
       userId: fixture.userId,
       connectionId: fixture.connection.id,
-      subject: fixture.identity.workosUserId,
+      subject: fixture.identity.externalId,
       sessionId: fixture.connection.workosSessionId,
       clientId: fixture.connection.clientId,
       clientName: fixture.connection.clientName,

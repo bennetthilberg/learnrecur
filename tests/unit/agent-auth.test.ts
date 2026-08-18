@@ -42,14 +42,14 @@ describe("agent access configuration", () => {
   it("requires subject, grant, client, expiry, and supported custom scopes", () => {
     expect(
       parseAgentAccessTokenClaims({
-        sub: "user_workos_1",
+        sub: "user_clerk_1",
         sid: "app_consent_1",
         client_id: "client_static_1",
         exp: 2_000_000_000,
         scope: "skills:create materials:read offline_access",
       }),
     ).toEqual({
-      subject: "user_workos_1",
+      subject: "user_clerk_1",
       sessionId: "app_consent_1",
       clientId: "client_static_1",
       expiresAt: 2_000_000_000,
@@ -58,7 +58,7 @@ describe("agent access configuration", () => {
 
     expect(() =>
       parseAgentAccessTokenClaims({
-        sub: "user_workos_1",
+        sub: "user_clerk_1",
         sid: "app_consent_1",
         exp: 2_000_000_000,
         scope: "skills:create",
@@ -66,7 +66,7 @@ describe("agent access configuration", () => {
     ).toThrow(/client_id/);
     expect(() =>
       parseAgentAccessTokenClaims({
-        sub: "user_workos_1",
+        sub: "user_clerk_1",
         sid: "app_consent_1",
         client_id: "client_static_1",
         exp: 2_000_000_000,
