@@ -9,6 +9,10 @@ import { getPrisma } from "@/lib/prisma";
 
 export const WORKOS_EXTERNAL_AUTH_COOKIE = "lr_workos_external_auth";
 export const WORKOS_EXTERNAL_AUTH_COOKIE_MAX_AGE_SECONDS = 300;
+const WORKOS_COMPLETION_PATHS = new Set([
+  "/oauth/authorize/complete",
+  "/oauth2/authorize/complete",
+]);
 
 type StandaloneClerkUser = {
   id: string;
@@ -95,7 +99,7 @@ export function requireWorkosCompletionRedirect(value: string, issuer: string): 
       "WorkOS returned a completion redirect for an unexpected origin.",
     );
   }
-  if (redirect.pathname !== "/oauth/authorize/complete") {
+  if (!WORKOS_COMPLETION_PATHS.has(redirect.pathname)) {
     throw new WorkosStandaloneAuthError(
       "completion_redirect_path_invalid",
       "WorkOS returned a completion redirect for an unexpected path.",

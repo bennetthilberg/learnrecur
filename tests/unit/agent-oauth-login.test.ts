@@ -32,6 +32,12 @@ describe("WorkOS standalone login handoff", () => {
         "https://learnrecur.authkit.app",
       ).toString(),
     ).toBe("https://learnrecur.authkit.app/oauth/authorize/complete?state=signed");
+    expect(
+      requireWorkosCompletionRedirect(
+        "https://learnrecur.authkit.app/oauth2/authorize/complete?state=signed",
+        "https://learnrecur.authkit.app",
+      ).toString(),
+    ).toBe("https://learnrecur.authkit.app/oauth2/authorize/complete?state=signed");
 
     expect(() =>
       requireWorkosCompletionRedirect(
