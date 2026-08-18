@@ -6,6 +6,7 @@ import { getAgentAccessConfig } from "@/lib/agent-access/auth";
 import {
   completeWorkosStandaloneAuth,
   getWorkosStandaloneAuthErrorCode,
+  getWorkosStandaloneAuthErrorDiagnostic,
   parseExternalAuthCookie,
   WORKOS_EXTERNAL_AUTH_COOKIE,
 } from "@/lib/agent-access/oauth-login";
@@ -65,6 +66,7 @@ export async function GET() {
       userId: clerkUser.id,
       errorName: error instanceof Error ? error.name : "UnknownError",
       errorCode: getWorkosStandaloneAuthErrorCode(error),
+      diagnostic: getWorkosStandaloneAuthErrorDiagnostic(error),
     });
     return NextResponse.redirect(
       new URL("/settings?agentConnection=failed", config.resourceOrigin),

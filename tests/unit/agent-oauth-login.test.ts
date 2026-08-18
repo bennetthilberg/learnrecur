@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   createExternalAuthCookie,
   getWorkosStandaloneAuthErrorCode,
+  getWorkosStandaloneAuthErrorDiagnostic,
   parseExternalAuthCookie,
   requireWorkosCompletionRedirect,
   WorkosStandaloneAuthError,
@@ -74,6 +75,18 @@ describe("WorkOS standalone login handoff", () => {
     ).toBe("identity_lookup_http_error");
     expect(getWorkosStandaloneAuthErrorCode(new Error("private response body"))).toBe(
       "unexpected",
+    );
+    expect(
+      getWorkosStandaloneAuthErrorDiagnostic(
+        new WorkosStandaloneAuthError(
+          "completion_redirect_path_invalid",
+          "Unexpected path.",
+          "/oauth/safe-path",
+        ),
+      ),
+    ).toBe("/oauth/safe-path");
+    expect(getWorkosStandaloneAuthErrorDiagnostic(new Error("private response body"))).toBe(
+      undefined,
     );
   });
 });
