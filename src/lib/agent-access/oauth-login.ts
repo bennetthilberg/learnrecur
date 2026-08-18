@@ -11,7 +11,7 @@ export const WORKOS_EXTERNAL_AUTH_COOKIE = "lr_workos_external_auth";
 export const WORKOS_EXTERNAL_AUTH_COOKIE_MAX_AGE_SECONDS = 300;
 const WORKOS_COMPLETION_PATHS = new Set([
   "/oauth/authorize/complete",
-  "/oauth2/authorize/complete",
+  "/oauth2/external/callback",
 ]);
 
 type StandaloneClerkUser = {
@@ -39,7 +39,6 @@ export class WorkosStandaloneAuthError extends Error {
   constructor(
     readonly code: WorkosStandaloneAuthErrorCode,
     message: string,
-    readonly diagnostic?: string,
   ) {
     super(message);
     this.name = "WorkosStandaloneAuthError";
@@ -48,10 +47,6 @@ export class WorkosStandaloneAuthError extends Error {
 
 export function getWorkosStandaloneAuthErrorCode(error: unknown) {
   return error instanceof WorkosStandaloneAuthError ? error.code : "unexpected";
-}
-
-export function getWorkosStandaloneAuthErrorDiagnostic(error: unknown) {
-  return error instanceof WorkosStandaloneAuthError ? error.diagnostic : undefined;
 }
 
 export function createExternalAuthCookie(
@@ -108,9 +103,6 @@ export function requireWorkosCompletionRedirect(value: string, issuer: string): 
     throw new WorkosStandaloneAuthError(
       "completion_redirect_path_invalid",
       "WorkOS returned a completion redirect for an unexpected path.",
-      /^\/[a-z0-9/_-]{1,120}$/i.test(redirect.pathname)
-        ? redirect.pathname
-        : "redacted",
     );
   }
   if (redirect.username || redirect.password || redirect.hash) {
