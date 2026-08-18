@@ -26,7 +26,10 @@ async function handle(request: Request) {
   return withMcpAuth(mcpHandler, verifyAgentBearerToken, {
     required: true,
     resourceMetadataPath: "/.well-known/oauth-protected-resource/mcp",
-    resourceUrl: config.resourceUrl,
+    // mcp-handler appends resourceMetadataPath to this value. Supplying the
+    // full protected resource would incorrectly advertise
+    // /mcp/.well-known/oauth-protected-resource/mcp in the challenge.
+    resourceUrl: config.resourceOrigin,
   })(request);
 }
 

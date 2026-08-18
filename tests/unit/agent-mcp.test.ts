@@ -127,7 +127,7 @@ describe("MCP resource discovery", () => {
     );
     expect(response.status).toBe(401);
     expect(response.headers.get("www-authenticate")).toContain(
-      "/.well-known/oauth-protected-resource/mcp",
+      'resource_metadata="https://learnrecur.com/.well-known/oauth-protected-resource/mcp"',
     );
   });
 });
