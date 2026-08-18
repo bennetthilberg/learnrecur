@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { getAgentAccessConfig } from "@/lib/agent-access/auth";
 import {
   completeWorkosStandaloneAuth,
+  getWorkosStandaloneAuthErrorCode,
   parseExternalAuthCookie,
   WORKOS_EXTERNAL_AUTH_COOKIE,
 } from "@/lib/agent-access/oauth-login";
@@ -63,6 +64,7 @@ export async function GET() {
     console.error("[agent-access] WorkOS standalone completion failed", {
       userId: clerkUser.id,
       errorName: error instanceof Error ? error.name : "UnknownError",
+      errorCode: getWorkosStandaloneAuthErrorCode(error),
     });
     return NextResponse.redirect(
       new URL("/settings?agentConnection=failed", config.resourceOrigin),

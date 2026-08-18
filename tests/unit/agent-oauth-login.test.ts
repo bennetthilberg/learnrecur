@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import {
   createExternalAuthCookie,
+  getWorkosStandaloneAuthErrorCode,
   parseExternalAuthCookie,
   requireWorkosCompletionRedirect,
+  WorkosStandaloneAuthError,
 } from "@/lib/agent-access/oauth-login";
 
 describe("WorkOS standalone login handoff", () => {
@@ -36,12 +38,28 @@ describe("WorkOS standalone login handoff", () => {
         "https://attacker.example/oauth/authorize/complete?state=signed",
         "https://learnrecur.authkit.app",
       ),
-    ).toThrow();
+    ).toThrowError(
+      expect.objectContaining({ code: "completion_redirect_invalid" }),
+    );
     expect(() =>
       requireWorkosCompletionRedirect(
         "https://learnrecur.authkit.app/other?state=signed",
         "https://learnrecur.authkit.app",
       ),
     ).toThrow();
+  });
+
+  it("reduces standalone failures to non-sensitive diagnostic codes", () => {
+    expect(
+      getWorkosStandaloneAuthErrorCode(
+        new WorkosStandaloneAuthError(
+          "identity_lookup_http_error",
+          "WorkOS identity lookup failed.",
+        ),
+      ),
+    ).toBe("identity_lookup_http_error");
+    expect(getWorkosStandaloneAuthErrorCode(new Error("private response body"))).toBe(
+      "unexpected",
+    );
   });
 });

@@ -18,6 +18,31 @@ type StandaloneClerkUser = {
   name?: string | null;
 };
 
+export type WorkosStandaloneAuthErrorCode =
+  | "invalid_clerk_user"
+  | "completion_http_error"
+  | "completion_response_invalid"
+  | "completion_redirect_invalid"
+  | "identity_lookup_http_error"
+  | "identity_response_invalid"
+  | "identity_mismatch"
+  | "identity_conflict"
+  | "persistence_failed";
+
+export class WorkosStandaloneAuthError extends Error {
+  constructor(
+    readonly code: WorkosStandaloneAuthErrorCode,
+    message: string,
+  ) {
+    super(message);
+    this.name = "WorkosStandaloneAuthError";
+  }
+}
+
+export function getWorkosStandaloneAuthErrorCode(error: unknown) {
+  return error instanceof WorkosStandaloneAuthError ? error.code : "unexpected";
+}
+
 export function createExternalAuthCookie(
   externalAuthId: string,
   secret: string,
@@ -69,7 +94,10 @@ export function requireWorkosCompletionRedirect(value: string, issuer: string): 
     redirect.password ||
     redirect.hash
   ) {
-    throw new Error("WorkOS returned an unexpected completion redirect.");
+    throw new WorkosStandaloneAuthError(
+      "completion_redirect_invalid",
+      "WorkOS returned an unexpected completion redirect.",
+    );
   }
   return redirect;
 }
@@ -82,7 +110,10 @@ export async function completeWorkosStandaloneAuth(input: {
 }) {
   const fetchImpl = input.fetchImpl ?? fetch;
   if (input.clerkUser.id.length > 64) {
-    throw new Error("The Clerk user ID is too long for the WorkOS external identity field.");
+    throw new WorkosStandaloneAuthError(
+      "invalid_clerk_user",
+      "The Clerk user ID is too long for the WorkOS external identity field.",
+    );
   }
   const completionResponse = await fetchImpl(
     "https://api.workos.com/authkit/oauth2/complete",
@@ -107,11 +138,22 @@ export async function completeWorkosStandaloneAuth(input: {
     },
   );
   if (!completionResponse.ok) {
-    throw new Error(`WorkOS standalone authentication failed with HTTP ${completionResponse.status}.`);
+    throw new WorkosStandaloneAuthError(
+      "completion_http_error",
+      `WorkOS standalone authentication failed with HTTP ${completionResponse.status}.`,
+    );
   }
-  const completion = z
-    .object({ redirect_uri: z.string().url() })
-    .parse(await completionResponse.json());
+  let completion: { redirect_uri: string };
+  try {
+    completion = z
+      .object({ redirect_uri: z.string().url() })
+      .parse(await completionResponse.json());
+  } catch {
+    throw new WorkosStandaloneAuthError(
+      "completion_response_invalid",
+      "WorkOS returned an invalid standalone completion response.",
+    );
+  }
   const redirect = requireWorkosCompletionRedirect(
     completion.redirect_uri,
     input.config.workosIssuer,
@@ -126,42 +168,69 @@ export async function completeWorkosStandaloneAuth(input: {
     },
   );
   if (!userResponse.ok) {
-    throw new Error(`WorkOS identity lookup failed with HTTP ${userResponse.status}.`);
+    throw new WorkosStandaloneAuthError(
+      "identity_lookup_http_error",
+      `WorkOS identity lookup failed with HTTP ${userResponse.status}.`,
+    );
   }
-  const workosUser = z
-    .object({ id: z.string().min(1), external_id: z.string().min(1) })
-    .passthrough()
-    .parse(await userResponse.json());
+  let workosUser: { id: string; external_id: string };
+  try {
+    workosUser = z
+      .object({ id: z.string().min(1), external_id: z.string().min(1) })
+      .passthrough()
+      .parse(await userResponse.json());
+  } catch {
+    throw new WorkosStandaloneAuthError(
+      "identity_response_invalid",
+      "WorkOS returned an invalid identity response.",
+    );
+  }
   if (workosUser.external_id !== input.clerkUser.id) {
-    throw new Error("WorkOS returned an identity with a mismatched external ID.");
+    throw new WorkosStandaloneAuthError(
+      "identity_mismatch",
+      "WorkOS returned an identity with a mismatched external ID.",
+    );
   }
 
   const prisma = getPrisma();
-  await prisma.$transaction(async (transaction) => {
-    const conflicting = await transaction.workosIdentity.findFirst({
-      where: {
-        OR: [
-          { workosUserId: workosUser.id, userId: { not: input.clerkUser.id } },
-          { externalId: input.clerkUser.id, workosUserId: { not: workosUser.id } },
-        ],
-      },
-      select: { id: true },
+  try {
+    await prisma.$transaction(async (transaction) => {
+      const conflicting = await transaction.workosIdentity.findFirst({
+        where: {
+          OR: [
+            { workosUserId: workosUser.id, userId: { not: input.clerkUser.id } },
+            { externalId: input.clerkUser.id, workosUserId: { not: workosUser.id } },
+          ],
+        },
+        select: { id: true },
+      });
+      if (conflicting) {
+        throw new WorkosStandaloneAuthError(
+          "identity_conflict",
+          "WorkOS identity mapping conflicts with another account.",
+        );
+      }
+      await transaction.workosIdentity.upsert({
+        where: { userId: input.clerkUser.id },
+        update: { workosUserId: workosUser.id, externalId: input.clerkUser.id },
+        create: {
+          userId: input.clerkUser.id,
+          workosUserId: workosUser.id,
+          externalId: input.clerkUser.id,
+        },
+      });
+      await transaction.user.update({
+        where: { id: input.clerkUser.id },
+        data: { agentAccessDisabledAt: null },
+      });
     });
-    if (conflicting) throw new Error("WorkOS identity mapping conflicts with another account.");
-    await transaction.workosIdentity.upsert({
-      where: { userId: input.clerkUser.id },
-      update: { workosUserId: workosUser.id, externalId: input.clerkUser.id },
-      create: {
-        userId: input.clerkUser.id,
-        workosUserId: workosUser.id,
-        externalId: input.clerkUser.id,
-      },
-    });
-    await transaction.user.update({
-      where: { id: input.clerkUser.id },
-      data: { agentAccessDisabledAt: null },
-    });
-  });
+  } catch (error) {
+    if (error instanceof WorkosStandaloneAuthError) throw error;
+    throw new WorkosStandaloneAuthError(
+      "persistence_failed",
+      "LearnRecur could not persist the WorkOS identity mapping.",
+    );
+  }
 
   return redirect;
 }
