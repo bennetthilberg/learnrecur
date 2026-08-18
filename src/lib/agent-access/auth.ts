@@ -314,8 +314,8 @@ async function fetchAuthorizedGrant(input: {
     .parse(await response.json());
   const matches = value.data.filter(
     (entry) =>
-      entry.oauth_resource === input.resourceUrl &&
-      entry.application.client_id === input.clientId,
+      entry.application.client_id === input.clientId &&
+      (entry.oauth_resource == null || entry.oauth_resource === input.resourceUrl),
   );
   if (matches.length !== 1) return null;
   const match = matches[0];

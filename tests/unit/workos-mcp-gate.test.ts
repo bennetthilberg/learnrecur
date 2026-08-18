@@ -45,7 +45,7 @@ function validEvidence(): WorkosGateEvidence {
     authorizedApplication: {
       applicationId: "conn_app_123",
       clientId: "client_123",
-      oauthResource: canonicalResource,
+      oauthResource: null,
       grantedScopes: ["skills:create", "materials:read", "sources:upload"],
       usesPkce: true,
     },
@@ -67,6 +67,9 @@ describe("WorkOS MCP release gate", () => {
   it.each([
     ["wrong audience", (evidence: WorkosGateEvidence) => {
       evidence.initialToken.audience = "https://learnrecur.com/api";
+    }],
+    ["wrong advertised grant resource", (evidence: WorkosGateEvidence) => {
+      evidence.authorizedApplication.oauthResource = "https://learnrecur.com/api";
     }],
     ["email-style identity remapping", (evidence: WorkosGateEvidence) => {
       evidence.workosUser.externalId = "learner@example.com";

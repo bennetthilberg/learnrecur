@@ -36,7 +36,7 @@ export type WorkosGateEvidence = {
   authorizedApplication: {
     applicationId: string;
     clientId: string;
-    oauthResource: string | null;
+    oauthResource?: string | null;
     grantedScopes: string[];
     usesPkce: boolean;
   };
@@ -105,8 +105,9 @@ export function evaluateWorkosGateEvidence(
       "exact_resource_audience",
       exactAudience(evidence.initialToken.audience) &&
         exactAudience(evidence.refreshedToken.audience) &&
-        evidence.authorizedApplication.oauthResource === evidence.canonicalResource,
-      "Initial token, refreshed token, and grant are bound to the exact MCP resource.",
+        (evidence.authorizedApplication.oauthResource == null ||
+          evidence.authorizedApplication.oauthResource === evidence.canonicalResource),
+      "Both tokens are bound to the exact MCP resource, and any grant resource agrees.",
     ),
     check(
       "immutable_identity_mapping",

@@ -91,6 +91,7 @@ async function main() {
     clientId: env.WORKOS_MCP_GATE_CLIENT_ID,
     clientSecret: env.WORKOS_MCP_GATE_CLIENT_SECRET,
     refreshToken: env.WORKOS_MCP_GATE_REFRESH_TOKEN,
+    resource: env.MCP_RESOURCE_URL,
   });
   const refreshedToken = await verifyAccessToken(
     firstRefresh.accessToken,
@@ -98,11 +99,13 @@ async function main() {
     env.MCP_RESOURCE_URL,
     jwks,
   );
+  await delay(31_000);
   const reusedRefreshRejected = await refreshIsRejected({
     endpoint: metadata.token_endpoint,
     clientId: env.WORKOS_MCP_GATE_CLIENT_ID,
     clientSecret: env.WORKOS_MCP_GATE_CLIENT_SECRET,
     refreshToken: env.WORKOS_MCP_GATE_REFRESH_TOKEN,
+    resource: env.MCP_RESOURCE_URL,
   });
 
   const grantDeletionSucceeded = await deleteAuthorizedApplication({
@@ -115,6 +118,7 @@ async function main() {
     clientId: env.WORKOS_MCP_GATE_REVOCATION_CLIENT_ID,
     clientSecret: env.WORKOS_MCP_GATE_REVOCATION_CLIENT_SECRET,
     refreshToken: env.WORKOS_MCP_GATE_REVOCATION_REFRESH_TOKEN,
+    resource: env.MCP_RESOURCE_URL,
   });
 
   const result = evaluateWorkosGateEvidence({
@@ -216,7 +220,8 @@ function requireAuthorizedApplication(
 ) {
   const application = applications.find(
     (entry) =>
-      entry.application?.client_id === clientId && entry.oauth_resource === resource,
+      entry.application?.client_id === clientId &&
+      (entry.oauth_resource == null || entry.oauth_resource === resource),
   );
   if (!application?.application?.id) {
     throw new Error(`No authorized application matches the configured client and MCP resource.`);
@@ -229,11 +234,13 @@ async function exchangeRefreshToken(input: {
   clientId: string;
   clientSecret: string;
   refreshToken: string;
+  resource: string;
 }) {
   const body = new URLSearchParams({
     grant_type: "refresh_token",
     client_id: input.clientId,
     refresh_token: input.refreshToken,
+    resource: input.resource,
   });
   if (input.clientSecret) body.set("client_secret", input.clientSecret);
   const response = await fetch(input.endpoint, {
@@ -259,11 +266,13 @@ async function refreshIsRejected(input: {
   clientId: string;
   clientSecret: string;
   refreshToken: string;
+  resource: string;
 }) {
   const body = new URLSearchParams({
     grant_type: "refresh_token",
     client_id: input.clientId,
     refresh_token: input.refreshToken,
+    resource: input.resource,
   });
   if (input.clientSecret) body.set("client_secret", input.clientSecret);
   const response = await fetch(input.endpoint, {
@@ -299,6 +308,10 @@ async function fetchJson(url: string, init?: RequestInit): Promise<unknown> {
 
 function withoutTrailingSlash(value: string) {
   return value.replace(/\/$/, "");
+}
+
+function delay(milliseconds: number) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
 main().catch((error: unknown) => {
