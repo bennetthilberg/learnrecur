@@ -39,14 +39,22 @@ describe("WorkOS standalone login handoff", () => {
         "https://learnrecur.authkit.app",
       ),
     ).toThrowError(
-      expect.objectContaining({ code: "completion_redirect_invalid" }),
+      expect.objectContaining({ code: "completion_redirect_origin_invalid" }),
     );
     expect(() =>
       requireWorkosCompletionRedirect(
         "https://learnrecur.authkit.app/other?state=signed",
         "https://learnrecur.authkit.app",
       ),
-    ).toThrow();
+    ).toThrowError(
+      expect.objectContaining({ code: "completion_redirect_path_invalid" }),
+    );
+    expect(() =>
+      requireWorkosCompletionRedirect(
+        "https://learnrecur.authkit.app/oauth/authorize/complete?state=signed#unsafe",
+        "https://learnrecur.authkit.app",
+      ),
+    ).toThrowError(expect.objectContaining({ code: "completion_redirect_unsafe" }));
   });
 
   it("reduces standalone failures to non-sensitive diagnostic codes", () => {

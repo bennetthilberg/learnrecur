@@ -22,7 +22,9 @@ export type WorkosStandaloneAuthErrorCode =
   | "invalid_clerk_user"
   | "completion_http_error"
   | "completion_response_invalid"
-  | "completion_redirect_invalid"
+  | "completion_redirect_origin_invalid"
+  | "completion_redirect_path_invalid"
+  | "completion_redirect_unsafe"
   | "identity_lookup_http_error"
   | "identity_response_invalid"
   | "identity_mismatch"
@@ -87,16 +89,22 @@ export function parseExternalAuthCookie(
 export function requireWorkosCompletionRedirect(value: string, issuer: string): URL {
   const redirect = new URL(value);
   const expectedIssuer = new URL(issuer);
-  if (
-    redirect.origin !== expectedIssuer.origin ||
-    redirect.pathname !== "/oauth/authorize/complete" ||
-    redirect.username ||
-    redirect.password ||
-    redirect.hash
-  ) {
+  if (redirect.origin !== expectedIssuer.origin) {
     throw new WorkosStandaloneAuthError(
-      "completion_redirect_invalid",
-      "WorkOS returned an unexpected completion redirect.",
+      "completion_redirect_origin_invalid",
+      "WorkOS returned a completion redirect for an unexpected origin.",
+    );
+  }
+  if (redirect.pathname !== "/oauth/authorize/complete") {
+    throw new WorkosStandaloneAuthError(
+      "completion_redirect_path_invalid",
+      "WorkOS returned a completion redirect for an unexpected path.",
+    );
+  }
+  if (redirect.username || redirect.password || redirect.hash) {
+    throw new WorkosStandaloneAuthError(
+      "completion_redirect_unsafe",
+      "WorkOS returned a completion redirect with unsafe URL components.",
     );
   }
   return redirect;
