@@ -56,7 +56,10 @@ export class AgentSkillWorkerError extends Error {
 
 export function classifyAgentDuplicate(match: SkillSimilarityMatch | null) {
   if (!match) return { action: "create" as const, confidence: null };
-  if (match.confidence === "exact") {
+  if (
+    match.confidence === "exact" &&
+    (match.skill.status === SkillStatus.ACTIVE || match.skill.status === SkillStatus.PAUSED)
+  ) {
     return { action: "reuse" as const, confidence: match.confidence, skillId: match.skill.id };
   }
   return {
@@ -73,7 +76,7 @@ export async function runAgentSkillOperationJob(input: {
 }) {
   const prisma = getPrisma();
   const now = input.now ?? new Date();
-  const operation = await prisma.agentSkillOperation.findFirst({
+  let operation = await prisma.agentSkillOperation.findFirst({
     where: { id: input.operationId, userId: input.userId },
     include: AGENT_OPERATION_INCLUDE,
   });
@@ -85,6 +88,41 @@ export async function runAgentSkillOperationJob(input: {
     operation.status === AgentOperationStatus.CANCELED
   ) {
     return { status: "complete" as const, operationId: operation.id };
+  }
+
+  const reclaimed = await prisma.agentSkillOperationItem.updateMany({
+    where: {
+      operationId: operation.id,
+      userId: input.userId,
+      status: {
+        in: [
+          AgentOperationItemStatus.GENERATING,
+          AgentOperationItemStatus.VERIFYING,
+          AgentOperationItemStatus.ACTIVATING,
+        ],
+      },
+    },
+    data: {
+      status: AgentOperationItemStatus.QUEUED,
+      activationReservedAt: null,
+      errorCode: "TRANSIENT_WORKER_FAILURE",
+    },
+  });
+  if (reclaimed.count > 0) {
+    await prisma.agentSkillOperation.update({
+      where: { id: operation.id },
+      data: {
+        status: AgentOperationStatus.QUEUED,
+        errorCode: null,
+        errorMessage: null,
+        completedAt: null,
+      },
+    });
+    operation = await prisma.agentSkillOperation.findFirst({
+      where: { id: input.operationId, userId: input.userId },
+      include: AGENT_OPERATION_INCLUDE,
+    });
+    if (!operation) return { status: "not-found" as const };
   }
 
   await prisma.agentSkillOperation.update({
@@ -194,7 +232,7 @@ async function processMaterialOperation(input: {
 }) {
   const prisma = getPrisma();
   const payload = parseRecord(input.operation.requestPayload);
-  const instruction = typeof payload.instruction === "string" ? payload.instruction : "";
+  const instruction = buildMaterialOperationInstruction(payload);
   const maxSkills =
     typeof payload.maxSkills === "number" && Number.isInteger(payload.maxSkills)
       ? Math.min(10, Math.max(1, payload.maxSkills))
@@ -448,6 +486,14 @@ async function processMaterialOperation(input: {
   }
 }
 
+export function buildMaterialOperationInstruction(payload: Record<string, unknown>) {
+  const instruction = typeof payload.instruction === "string" ? payload.instruction.trim() : "";
+  const clarification =
+    typeof payload.clarification === "string" ? payload.clarification.trim() : "";
+  if (!instruction || !clarification) return instruction;
+  return `${instruction}\n\nClarification: ${clarification}`;
+}
+
 function boundedMaterialInstruction(
   instruction: string,
   maxSkills: number,
@@ -535,6 +581,20 @@ async function processTextOperation(input: {
     return;
   }
   if (item.status !== AgentOperationItemStatus.QUEUED) return;
+  if (item.createdSkillId) {
+    const reserved = await reserveAgentActivation(input.operation.userId, item.id, input.now);
+    if (!reserved) {
+      await failItem(item.id, input.operation.userId, "QUOTA_EXCEEDED", input.now);
+      return;
+    }
+    await activateCreatedDraft(
+      input.operation.userId,
+      item.id,
+      item.createdSkillId,
+      input.now,
+    );
+    return;
+  }
   const payload = parseRecord(input.operation.requestPayload);
   await getPrisma().agentSkillOperationItem.update({
     where: { id: item.id },

@@ -12,8 +12,11 @@ import {
   AgentOperationKind,
   AgentOperationItemStatus,
   AgentOperationStatus,
+  AgentRateLimitKind,
   AgentRemoteRevocationStatus,
   AgentRevocationOutboxStatus,
+  SourceFileKind,
+  SourceFileStatus,
   SkillStatus,
 } from "@/generated/prisma/client";
 import {
@@ -21,13 +24,19 @@ import {
   pauseSkillsFromAgent,
   resolveAgentDuplicateReview,
   revokeAgentConnection,
+  runAgentAccessMaintenance,
 } from "@/lib/agent-access/settings";
 import {
   AgentOperationError,
+  continueAgentOperation,
   createAgentSpecOperation,
 } from "@/lib/agent-access/operations";
-import { reserveAgentActivation } from "@/lib/agent-access/worker";
-import { sendAgentConnectionRevocationRequested } from "@/lib/inngest/events";
+import { listAgentMaterials } from "@/lib/agent-access/materials";
+import { reserveAgentActivation, runAgentSkillOperationJob } from "@/lib/agent-access/worker";
+import {
+  sendAgentConnectionRevocationRequested,
+  sendAgentSkillOperationRequested,
+} from "@/lib/inngest/events";
 import { getPrisma } from "@/lib/prisma";
 import { getUserDataExport } from "@/lib/settings/data-export";
 
@@ -111,6 +120,46 @@ describeDatabase("agent access persistence", () => {
       applicationId: fixture.connection.workosApplicationId,
       status: AgentRevocationOutboxStatus.PENDING,
     });
+  });
+
+  it("revokes every local connection covered by one WorkOS grant", async () => {
+    const fixture = await createConnection("grant-revoke");
+    const sibling = await prisma.agentConnection.create({
+      data: {
+        userId: fixture.userId,
+        workosIdentityId: fixture.identity.id,
+        workosSubject: fixture.identity.externalId,
+        workosSessionId: `session_grant_sibling_${runId}`,
+        workosApplicationId: fixture.connection.workosApplicationId,
+        clientId: fixture.connection.clientId,
+        clientName: fixture.connection.clientName,
+        clientDomain: fixture.connection.clientDomain,
+        resourceUrl: fixture.connection.resourceUrl,
+        scopes: ["skills:create"],
+      },
+    });
+    const now = new Date("2026-08-13T15:30:00.000Z");
+
+    await expect(
+      revokeAgentConnection({ userId: fixture.userId, connectionId: fixture.connection.id, now }),
+    ).resolves.toMatchObject({ status: "revoked", alreadyRevoked: false });
+    await expect(
+      prisma.agentConnection.findMany({
+        where: { id: { in: [fixture.connection.id, sibling.id] } },
+        select: { status: true, revokedAt: true, remoteRevocationStatus: true },
+      }),
+    ).resolves.toEqual([
+      {
+        status: AgentConnectionStatus.REVOKED,
+        revokedAt: now,
+        remoteRevocationStatus: AgentRemoteRevocationStatus.PENDING,
+      },
+      {
+        status: AgentConnectionStatus.REVOKED,
+        revokedAt: now,
+        remoteRevocationStatus: AgentRemoteRevocationStatus.PENDING,
+      },
+    ]);
   });
 
   it("keeps remote revocation tombstones after account data cascades", async () => {
@@ -219,6 +268,7 @@ describeDatabase("agent access persistence", () => {
       ],
     };
 
+    vi.mocked(sendAgentSkillOperationRequested).mockClear();
     const concurrent = await Promise.all(
       Array.from({ length: 4 }, () => createAgentSpecOperation(auth, request)),
     );
@@ -237,6 +287,198 @@ describeDatabase("agent access persistence", () => {
         where: { connectionId: fixture.connection.id, toolName: "skills.add_from_specs" },
       }),
     ).resolves.toBe(1);
+    expect(sendAgentSkillOperationRequested).toHaveBeenCalledTimes(1);
+  });
+
+  it("rate-limits material reads through the shared connection bucket", async () => {
+    const fixture = await createConnection("material-read-limit");
+    const auth = {
+      userId: fixture.userId,
+      connectionId: fixture.connection.id,
+      subject: fixture.identity.externalId,
+      sessionId: fixture.connection.workosSessionId,
+      clientId: fixture.connection.clientId,
+      clientName: fixture.connection.clientName,
+      clientDomain: fixture.connection.clientDomain,
+      resourceUrl: fixture.connection.resourceUrl,
+      expiresAt: Math.floor(Date.now() / 1_000) + 300,
+      scopes: ["materials:read" as const],
+    };
+
+    await prisma.agentRateLimitBucket.create({
+      data: {
+        userId: fixture.userId,
+        connectionId: fixture.connection.id,
+        kind: AgentRateLimitKind.READ,
+        windowStart: new Date(Math.floor(Date.now() / 60_000) * 60_000),
+        count: 60,
+      },
+    });
+    await expect(listAgentMaterials(auth, {})).rejects.toMatchObject<
+      Partial<AgentOperationError>
+    >({ code: "rate_limited" });
+  });
+
+  it("preserves a material request while recording its clarification", async () => {
+    const fixture = await createConnection("material-clarification");
+    const operation = await prisma.agentSkillOperation.create({
+      data: {
+        userId: fixture.userId,
+        connectionId: fixture.connection.id,
+        kind: AgentOperationKind.MATERIAL_BATCH,
+        toolName: "skills.add_from_material",
+        status: AgentOperationStatus.NEEDS_INPUT,
+        idempotencyKey: `clarification-${runId}`,
+        payloadHash: "e".repeat(64),
+        requestPayload: {
+          instruction: "Cover the proof techniques in this chapter.",
+          maxSkills: 3,
+        },
+        requestedCount: 3,
+      },
+    });
+    const auth = {
+      userId: fixture.userId,
+      connectionId: fixture.connection.id,
+      subject: fixture.identity.externalId,
+      sessionId: fixture.connection.workosSessionId,
+      clientId: fixture.connection.clientId,
+      clientName: fixture.connection.clientName,
+      clientDomain: fixture.connection.clientDomain,
+      resourceUrl: fixture.connection.resourceUrl,
+      expiresAt: Math.floor(Date.now() / 1_000) + 300,
+      scopes: ["skills:create" as const],
+    };
+
+    await continueAgentOperation(auth, {
+      operation_id: operation.id,
+      idempotency_key: "continue-material-request",
+      instruction: "Focus on induction and contradiction.",
+    });
+
+    await expect(
+      prisma.agentSkillOperation.findUniqueOrThrow({
+        where: { id: operation.id },
+        select: { requestPayload: true },
+      }),
+    ).resolves.toEqual({
+      requestPayload: {
+        instruction: "Cover the proof techniques in this chapter.",
+        clarification: "Focus on induction and contradiction.",
+        maxSkills: 3,
+      },
+    });
+  });
+
+  it("cancels expired upload operations and removes their draft sources", async () => {
+    const fixture = await createConnection("upload-expiry");
+    const source = await prisma.sourceFile.create({
+      data: {
+        userId: fixture.userId,
+        kind: SourceFileKind.PDF,
+        status: SourceFileStatus.DRAFT,
+        originalName: "abandoned.pdf",
+        mimeType: "application/pdf",
+        byteSize: 1_024,
+        storageBucket: "staging-private",
+        storageKey: `agent-test/${runId}/abandoned.pdf`,
+      },
+    });
+    const operation = await prisma.agentSkillOperation.create({
+      data: {
+        userId: fixture.userId,
+        connectionId: fixture.connection.id,
+        kind: AgentOperationKind.QUICK_FILES,
+        toolName: "skills.prepare_files",
+        status: AgentOperationStatus.AWAITING_UPLOAD,
+        idempotencyKey: `upload-expiry-${runId}`,
+        payloadHash: "f".repeat(64),
+        requestedCount: 1,
+        createdAt: new Date("2026-08-13T10:00:00.000Z"),
+        items: { create: { ordinal: 0, clientReference: "files-1" } },
+        sources: { create: { sourceFileId: source.id, ordinal: 0 } },
+      },
+      include: { items: true },
+    });
+
+    await expect(
+      runAgentAccessMaintenance(new Date("2026-08-13T10:11:00.000Z")),
+    ).resolves.toMatchObject({ expiredUploadOperations: 1 });
+    await expect(
+      prisma.agentSkillOperation.findUniqueOrThrow({ where: { id: operation.id } }),
+    ).resolves.toMatchObject({
+      status: AgentOperationStatus.CANCELED,
+      errorCode: "UPLOAD_WINDOW_EXPIRED",
+    });
+    await expect(
+      prisma.agentSkillOperationItem.findUniqueOrThrow({ where: { id: operation.items[0].id } }),
+    ).resolves.toMatchObject({
+      status: AgentOperationItemStatus.CANCELED,
+      errorCode: "UPLOAD_WINDOW_EXPIRED",
+    });
+    await expect(prisma.sourceFile.findUnique({ where: { id: source.id } })).resolves.toBeNull();
+  });
+
+  it("reclaims interrupted text items and resumes their stored draft", async () => {
+    const fixture = await createConnection("worker-recovery");
+    const [source, staleDraft] = await Promise.all([
+      prisma.sourceFile.create({
+        data: {
+          userId: fixture.userId,
+          kind: SourceFileKind.TEXT,
+          status: SourceFileStatus.READY,
+          originalName: "agent text",
+          extractedText: "A sufficiently long source passage for an interrupted text operation.",
+        },
+      }),
+      prisma.skill.create({
+        data: {
+          userId: fixture.userId,
+          title: "Interrupted draft",
+          objective: "Practice recovering a previously created agent skill draft.",
+          status: SkillStatus.ARCHIVED,
+        },
+      }),
+    ]);
+    const operation = await prisma.agentSkillOperation.create({
+      data: {
+        userId: fixture.userId,
+        connectionId: fixture.connection.id,
+        kind: AgentOperationKind.TEXT_SOURCE,
+        toolName: "skills.add_from_text",
+        status: AgentOperationStatus.ACTIVATING,
+        idempotencyKey: `worker-recovery-${runId}`,
+        payloadHash: "1".repeat(64),
+        sourceFileId: source.id,
+        requestedCount: 1,
+        items: {
+          create: {
+            ordinal: 0,
+            clientReference: "text-1",
+            status: AgentOperationItemStatus.ACTIVATING,
+            createdSkillId: staleDraft.id,
+            activationReservedAt: new Date("2026-08-13T11:00:00.000Z"),
+          },
+        },
+      },
+      include: { items: true },
+    });
+
+    await expect(
+      runAgentSkillOperationJob({
+        userId: fixture.userId,
+        operationId: operation.id,
+        now: new Date("2026-08-13T11:05:00.000Z"),
+      }),
+    ).resolves.toMatchObject({ status: "processed" });
+    await expect(
+      prisma.agentSkillOperationItem.findUniqueOrThrow({ where: { id: operation.items[0].id } }),
+    ).resolves.toMatchObject({
+      status: AgentOperationItemStatus.FAILED,
+      createdSkillId: staleDraft.id,
+      errorCode: "DRAFT_NOT_FOUND",
+      activationReservedAt: null,
+    });
   });
 
   it("serializes active-skill reservations at the shared account limit", async () => {

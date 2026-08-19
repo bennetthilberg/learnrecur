@@ -269,7 +269,7 @@ export const agentAccessMaintenanceFunction = inngest.createFunction(
   {
     id: "agent-access-maintenance",
     retries: 2,
-    triggers: [{ cron: "17 3 * * *" }],
+    triggers: [{ cron: "*/5 * * * *" }],
   },
   async ({ step }) =>
     step.run("purge agent payloads and retry revocations", () =>

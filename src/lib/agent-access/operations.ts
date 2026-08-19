@@ -164,12 +164,13 @@ export async function createAgentSpecOperation(
 ): Promise<PublicAgentOperation> {
   const input = agentAddFromSpecsSchema.parse(rawInput);
   const payloadHash = buildAgentPayloadHash(input);
-  const operation = await runAgentSerializable(
+  const claim = await runAgentSerializable(
     async (tx) => {
+      await assertActiveConnectionAndConsumeMutation(tx, auth);
       const replay = await findReplay(tx, auth, "skills.add_from_specs", input.idempotency_key, payloadHash);
-      if (replay) return replay;
-      await assertConnectionAndLimits(tx, auth, input.items.length);
-      return tx.agentSkillOperation.create({
+      if (replay) return { operation: replay, created: false as const };
+      await assertPendingItemLimit(tx, auth.userId, input.items.length);
+      const operation = await tx.agentSkillOperation.create({
         data: {
           userId: auth.userId,
           connectionId: auth.connectionId,
@@ -212,10 +213,11 @@ export async function createAgentSpecOperation(
         },
         select: PUBLIC_OPERATION_SELECT,
       });
+      return { operation, created: true as const };
     },
   );
-  await enqueueOperation(auth.userId, operation.id);
-  return serializeAgentOperation(operation);
+  if (claim.created) await enqueueOperation(auth.userId, claim.operation.id);
+  return serializeAgentOperation(claim.operation);
 }
 
 export async function createAgentTextOperation(
@@ -224,11 +226,12 @@ export async function createAgentTextOperation(
 ): Promise<PublicAgentOperation> {
   const input = agentAddFromTextSchema.parse(rawInput);
   const payloadHash = buildAgentPayloadHash(input);
-  const operation = await runAgentSerializable(
+  const claim = await runAgentSerializable(
     async (tx) => {
+      await assertActiveConnectionAndConsumeMutation(tx, auth);
       const replay = await findReplay(tx, auth, "skills.add_from_text", input.idempotency_key, payloadHash);
-      if (replay) return replay;
-      await assertConnectionAndLimits(tx, auth, 1);
+      if (replay) return { operation: replay, created: false as const };
+      await assertPendingItemLimit(tx, auth.userId, 1);
       const source = await tx.sourceFile.create({
         data: {
           userId: auth.userId,
@@ -241,7 +244,7 @@ export async function createAgentTextOperation(
           metadata: toJson({ source: "agent", connectionId: auth.connectionId }),
         },
       });
-      return tx.agentSkillOperation.create({
+      const operation = await tx.agentSkillOperation.create({
         data: {
           userId: auth.userId,
           connectionId: auth.connectionId,
@@ -280,10 +283,11 @@ export async function createAgentTextOperation(
         },
         select: PUBLIC_OPERATION_SELECT,
       });
+      return { operation, created: true as const };
     },
   );
-  await enqueueOperation(auth.userId, operation.id);
-  return serializeAgentOperation(operation);
+  if (claim.created) await enqueueOperation(auth.userId, claim.operation.id);
+  return serializeAgentOperation(claim.operation);
 }
 
 export async function createAgentMaterialOperation(
@@ -292,11 +296,12 @@ export async function createAgentMaterialOperation(
 ): Promise<PublicAgentOperation> {
   const input = agentAddFromMaterialSchema.parse(rawInput);
   const payloadHash = buildAgentPayloadHash(input);
-  const operation = await runAgentSerializable(
+  const claim = await runAgentSerializable(
     async (tx) => {
+      await assertActiveConnectionAndConsumeMutation(tx, auth);
       const replay = await findReplay(tx, auth, "skills.add_from_material", input.idempotency_key, payloadHash);
-      if (replay) return replay;
-      await assertConnectionAndLimits(tx, auth, input.max_skills);
+      if (replay) return { operation: replay, created: false as const };
+      await assertPendingItemLimit(tx, auth.userId, input.max_skills);
       const material = await tx.studyMaterial.findFirst({
         where: { id: input.material_id, userId: auth.userId, status: StudyMaterialStatus.ACTIVE },
         select: { activeRevisionId: true },
@@ -322,7 +327,7 @@ export async function createAgentMaterialOperation(
           throw new AgentOperationError("material_not_found", "One or more requested material sections were not found.");
         }
       }
-      return tx.agentSkillOperation.create({
+      const operation = await tx.agentSkillOperation.create({
         data: {
           userId: auth.userId,
           connectionId: auth.connectionId,
@@ -342,10 +347,11 @@ export async function createAgentMaterialOperation(
         },
         select: PUBLIC_OPERATION_SELECT,
       });
+      return { operation, created: true as const };
     },
   );
-  await enqueueOperation(auth.userId, operation.id);
-  return serializeAgentOperation(operation);
+  if (claim.created) await enqueueOperation(auth.userId, claim.operation.id);
+  return serializeAgentOperation(claim.operation);
 }
 
 export type PreparedAgentFileOperation = PublicAgentOperation & {
@@ -364,28 +370,9 @@ export async function prepareAgentFileOperation(
   const input = agentPrepareFilesSchema.parse(rawInput);
   const payloadHash = buildAgentPayloadHash(input);
   const prisma = getPrisma();
-  const existing = await prisma.agentSkillOperation.findUnique({
-    where: {
-      connectionId_toolName_idempotencyKey: {
-        connectionId: auth.connectionId,
-        toolName: "skills.prepare_files",
-        idempotencyKey: input.idempotency_key,
-      },
-    },
-    select: { ...PUBLIC_OPERATION_SELECT, payloadHash: true, userId: true },
-  });
-  if (existing) {
-    if (existing.userId !== auth.userId) {
-      throw new AgentOperationError("permission_denied", "The operation is not owned by this account.");
-    }
-    if (existing.payloadHash !== payloadHash) {
-      throw new AgentOperationError("idempotency_conflict", "That idempotency key was already used with different input.");
-    }
-    return buildPreparedFileResponse(auth, existing);
-  }
-
   const preparedClaim = await runAgentSerializable(
     async (tx) => {
+      await assertActiveConnectionAndConsumeMutation(tx, auth);
       const replay = await findReplay(
         tx,
         auth,
@@ -394,7 +381,7 @@ export async function prepareAgentFileOperation(
         payloadHash,
       );
       if (replay) return { operation: replay, created: false as const };
-      await assertConnectionAndLimits(tx, auth, 1);
+      await assertPendingItemLimit(tx, auth.userId, 1);
       const operation = await tx.agentSkillOperation.create({
         data: {
           userId: auth.userId,
@@ -522,7 +509,7 @@ export async function startAgentFileOperation(
 ): Promise<PublicAgentOperation> {
   const input = agentStartFilesSchema.parse(rawInput);
   const payloadHash = buildAgentPayloadHash(input);
-  const operation = await mutateOperationWithAction({
+  const claim = await mutateOperationWithAction({
     auth,
     operationId: input.operation_id,
     toolName: "skills.start_files",
@@ -540,8 +527,8 @@ export async function startAgentFileOperation(
       }
     },
   });
-  await enqueueOperation(auth.userId, operation.operation_id);
-  return operation;
+  if (claim.mutated) await enqueueOperation(auth.userId, claim.operation.operation_id);
+  return claim.operation;
 }
 
 export async function continueAgentOperation(
@@ -550,7 +537,7 @@ export async function continueAgentOperation(
 ): Promise<PublicAgentOperation> {
   const input = agentContinueOperationSchema.parse(rawInput);
   const payloadHash = buildAgentPayloadHash(input);
-  const operation = await mutateOperationWithAction({
+  const claim = await mutateOperationWithAction({
     auth,
     operationId: input.operation_id,
     toolName: "operations.continue",
@@ -568,15 +555,15 @@ export async function continueAgentOperation(
         where: { id: current.id },
         data: {
           status: AgentOperationStatus.PLANNING,
-          requestPayload: toJson({ ...payload, instruction: input.instruction }),
+          requestPayload: toJson({ ...payload, clarification: input.instruction }),
           errorCode: null,
           errorMessage: null,
         },
       });
     },
   });
-  await enqueueOperation(auth.userId, operation.operation_id);
-  return operation;
+  if (claim.mutated) await enqueueOperation(auth.userId, claim.operation.operation_id);
+  return claim.operation;
 }
 
 export async function retryFailedAgentOperationItems(
@@ -585,7 +572,7 @@ export async function retryFailedAgentOperationItems(
 ): Promise<PublicAgentOperation> {
   const input = agentRetryOperationSchema.parse(rawInput);
   const payloadHash = buildAgentPayloadHash(input);
-  const operation = await mutateOperationWithAction({
+  const claim = await mutateOperationWithAction({
     auth,
     operationId: input.operation_id,
     toolName: "operations.retry_failed",
@@ -655,8 +642,8 @@ export async function retryFailedAgentOperationItems(
       });
     },
   });
-  await enqueueOperation(auth.userId, operation.operation_id);
-  return operation;
+  if (claim.mutated) await enqueueOperation(auth.userId, claim.operation.operation_id);
+  return claim.operation;
 }
 
 export async function getAgentOperation(
@@ -664,13 +651,26 @@ export async function getAgentOperation(
   operationId: string,
 ): Promise<PublicAgentOperation> {
   const prisma = getPrisma();
-  await runAgentSerializable((tx) => consumeRateLimit(tx, auth, AgentRateLimitKind.READ, 60));
+  await consumeAgentReadRateLimit(auth);
   const operation = await prisma.agentSkillOperation.findFirst({
     where: { id: operationId, userId: auth.userId, connectionId: auth.connectionId },
     select: PUBLIC_OPERATION_SELECT,
   });
   if (!operation) throw new AgentOperationError("operation_not_found", "The operation was not found.");
   return serializeAgentOperation(operation);
+}
+
+export async function consumeAgentReadRateLimit(auth: AgentAuthContext) {
+  await runAgentSerializable(async (tx) => {
+    const connection = await tx.agentConnection.findFirst({
+      where: { id: auth.connectionId, userId: auth.userId, status: AgentConnectionStatus.ACTIVE },
+      select: { id: true },
+    });
+    if (!connection) {
+      throw new AgentOperationError("permission_denied", "The agent connection is not active.");
+    }
+    await consumeRateLimit(tx, auth, AgentRateLimitKind.READ, 60);
+  });
 }
 
 export function serializeAgentOperation(
@@ -754,7 +754,7 @@ async function mutateOperationWithAction(input: {
       requestPayload: Prisma.JsonValue | null;
     },
   ) => Promise<void>;
-}): Promise<PublicAgentOperation> {
+}): Promise<{ operation: PublicAgentOperation; mutated: boolean }> {
   return runAgentSerializable(
     async (tx) => {
       await consumeRateLimit(tx, input.auth, AgentRateLimitKind.MUTATION, 10);
@@ -779,6 +779,7 @@ async function mutateOperationWithAction(input: {
         },
         select: { operationId: true, userId: true, payloadHash: true },
       });
+      let mutated = false;
       if (replay) {
         if (
           replay.operationId !== operation.id ||
@@ -789,6 +790,7 @@ async function mutateOperationWithAction(input: {
         }
       } else {
         await input.mutate(tx, operation);
+        mutated = true;
         await tx.agentOperationAction.create({
           data: {
             userId: input.auth.userId,
@@ -811,7 +813,7 @@ async function mutateOperationWithAction(input: {
       if (!updated) {
         throw new AgentOperationError("operation_not_found", "The operation was not found.");
       }
-      return serializeAgentOperation(updated);
+      return { operation: serializeAgentOperation(updated), mutated };
     },
   );
 }
@@ -820,7 +822,7 @@ async function runAgentSerializable<T>(
   work: (tx: Prisma.TransactionClient) => Promise<T>,
 ): Promise<T> {
   const prisma = getPrisma();
-  for (let attempt = 0; attempt < 3; attempt += 1) {
+  for (let attempt = 0; attempt < 8; attempt += 1) {
     try {
       return await prisma.$transaction(work, {
         isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
@@ -829,7 +831,8 @@ async function runAgentSerializable<T>(
       const retryableConflict =
         error instanceof Prisma.PrismaClientKnownRequestError &&
         (error.code === "P2002" || error.code === "P2034");
-      if (!retryableConflict || attempt === 2) throw error;
+      if (!retryableConflict || attempt === 7) throw error;
+      await new Promise((resolve) => setTimeout(resolve, (attempt + 1) * 10));
     }
   }
   throw new AgentOperationError("rate_limited", "The request could not obtain a database reservation.");
@@ -866,10 +869,9 @@ async function findReplay(
   };
 }
 
-async function assertConnectionAndLimits(
+async function assertActiveConnectionAndConsumeMutation(
   tx: Prisma.TransactionClient,
   auth: AgentAuthContext,
-  requestedItems: number,
 ) {
   const connection = await tx.agentConnection.findFirst({
     where: { id: auth.connectionId, userId: auth.userId, status: AgentConnectionStatus.ACTIVE },
@@ -877,12 +879,19 @@ async function assertConnectionAndLimits(
   });
   if (!connection) throw new AgentOperationError("permission_denied", "The agent connection is not active.");
   await consumeRateLimit(tx, auth, AgentRateLimitKind.MUTATION, 10);
+}
+
+async function assertPendingItemLimit(
+  tx: Prisma.TransactionClient,
+  userId: string,
+  requestedItems: number,
+) {
   const nonterminalItems = await tx.agentSkillOperationItem.count({
-    where: { userId: auth.userId, status: { in: NONTERMINAL_ITEM_STATUSES } },
+    where: { userId, status: { in: NONTERMINAL_ITEM_STATUSES } },
   });
   const unmaterializedOperations = await tx.agentSkillOperation.findMany({
     where: {
-      userId: auth.userId,
+      userId,
       status: {
         in: [
           AgentOperationStatus.QUEUED,

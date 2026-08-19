@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { SkillStatus } from "@/generated/prisma/client";
 import {
+  buildMaterialOperationInstruction,
   buildSkillDraftInputFromSnapshot,
   classifyAgentDuplicate,
   normalizeAgentItemErrorCode,
@@ -32,6 +33,23 @@ describe("classifyAgentDuplicate", () => {
     });
   });
 
+  it.each([SkillStatus.DRAFT, SkillStatus.ARCHIVED])(
+    "requires review before treating an exact %s skill as reused",
+    (status) => {
+      expect(
+        classifyAgentDuplicate({
+          ...baseMatch,
+          confidence: "exact",
+          skill: { ...baseMatch.skill, status },
+        }),
+      ).toEqual({
+        action: "review",
+        confidence: "exact",
+        skillId: "skill-1",
+      });
+    },
+  );
+
   it.each(["likely", "possible"] as const)("routes %s matches to user review", (confidence) => {
     expect(classifyAgentDuplicate({ ...baseMatch, confidence })).toEqual({
       action: "review",
@@ -42,6 +60,20 @@ describe("classifyAgentDuplicate", () => {
 
   it("creates only when no match exists", () => {
     expect(classifyAgentDuplicate(null)).toEqual({ action: "create", confidence: null });
+  });
+});
+
+describe("buildMaterialOperationInstruction", () => {
+  it("preserves the original objective when adding a clarification", () => {
+    expect(
+      buildMaterialOperationInstruction({
+        instruction: "Create skills covering the proof techniques in this chapter.",
+        clarification: "Focus on induction and contradiction.",
+      }),
+    ).toBe(
+      "Create skills covering the proof techniques in this chapter.\n\n" +
+        "Clarification: Focus on induction and contradiction.",
+    );
   });
 });
 

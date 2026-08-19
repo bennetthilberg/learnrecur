@@ -7,6 +7,7 @@ import {
   agentListMaterialsSchema,
   agentSearchMaterialExcerptsSchema,
 } from "@/lib/agent-access/contracts";
+import { consumeAgentReadRateLimit } from "@/lib/agent-access/operations";
 import { searchMaterialChunksLexical } from "@/lib/materials/retrieval";
 import { getPrisma } from "@/lib/prisma";
 
@@ -25,6 +26,7 @@ export class AgentMaterialError extends Error {
 
 export async function listAgentMaterials(auth: AgentAuthContext, rawInput: unknown) {
   const input = agentListMaterialsSchema.parse(rawInput);
+  await consumeAgentReadRateLimit(auth);
   const cursor = decodeCursor(input.cursor);
   const prisma = getPrisma();
   const rows = await prisma.studyMaterial.findMany({
@@ -75,6 +77,7 @@ export async function listAgentMaterials(auth: AgentAuthContext, rawInput: unkno
 
 export async function getAgentMaterialOutline(auth: AgentAuthContext, rawInput: unknown) {
   const input = agentGetMaterialOutlineSchema.parse(rawInput);
+  await consumeAgentReadRateLimit(auth);
   const cursorOrdinal = decodeOrdinalCursor(input.cursor);
   const prisma = getPrisma();
   const material = await prisma.studyMaterial.findFirst({
@@ -131,6 +134,7 @@ export async function getAgentMaterialOutline(auth: AgentAuthContext, rawInput: 
 
 export async function searchAgentMaterialExcerpts(auth: AgentAuthContext, rawInput: unknown) {
   const input = agentSearchMaterialExcerptsSchema.parse(rawInput);
+  await consumeAgentReadRateLimit(auth);
   const prisma = getPrisma();
   const material = await prisma.studyMaterial.findFirst({
     where: {

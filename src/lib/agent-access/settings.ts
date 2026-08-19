@@ -2,6 +2,7 @@ import "server-only";
 
 import {
   AgentConnectionStatus,
+  AgentOperationKind,
   AgentOperationItemStatus,
   AgentOperationStatus,
   AgentRemoteRevocationStatus,
@@ -12,6 +13,9 @@ import {
 import { getAgentAccessConfig } from "@/lib/agent-access/auth";
 import { sendAgentConnectionRevocationRequested, sendAgentSkillOperationRequested } from "@/lib/inngest/events";
 import { getPrisma } from "@/lib/prisma";
+import { cleanupPreparedSourceUploads } from "@/lib/skills/uploads";
+
+const AGENT_UPLOAD_WINDOW_MS = 10 * 60 * 1_000;
 
 export async function getAgentAccessOverview(userId: string) {
   const config = getAgentAccessConfig();
@@ -120,11 +124,25 @@ export async function revokeAgentConnection(input: { userId: string; connectionI
       },
     });
     if (!connection) return { status: "not-found" as const };
-    if (connection.status === AgentConnectionStatus.REVOKED) {
+    const grantConnections = await tx.agentConnection.findMany({
+      where: {
+        userId: input.userId,
+        workosApplicationId: connection.workosApplicationId,
+      },
+      select: { id: true, status: true },
+    });
+    const hasActiveConnection = grantConnections.some(
+      (candidate) => candidate.status === AgentConnectionStatus.ACTIVE,
+    );
+    if (!hasActiveConnection) {
       return { status: "revoked" as const, alreadyRevoked: true };
     }
-    await tx.agentConnection.update({
-      where: { id: connection.id },
+    await tx.agentConnection.updateMany({
+      where: {
+        userId: input.userId,
+        workosApplicationId: connection.workosApplicationId,
+        status: AgentConnectionStatus.ACTIVE,
+      },
       data: {
         status: AgentConnectionStatus.REVOKED,
         revokedAt: input.now,
@@ -349,7 +367,10 @@ export async function runAgentConnectionRevocationJob(input: {
         data: { status: AgentRevocationOutboxStatus.FAILED, errorCode: `WORKOS_${response.status}`, nextAttemptAt: new Date(Date.now() + 60_000) },
       }),
       prisma.agentConnection.updateMany({
-        where: { id: input.connectionId, userId: input.userId },
+        where: {
+          userId: input.userId,
+          workosApplicationId: revocationJob.applicationId,
+        },
         data: { remoteRevocationStatus: AgentRemoteRevocationStatus.FAILED },
       }),
     ]);
@@ -361,7 +382,10 @@ export async function runAgentConnectionRevocationJob(input: {
       data: { status: AgentRevocationOutboxStatus.SUCCEEDED, errorCode: null, completedAt: new Date(), nextAttemptAt: null },
     }),
     prisma.agentConnection.updateMany({
-      where: { id: input.connectionId, userId: input.userId },
+      where: {
+        userId: input.userId,
+        workosApplicationId: revocationJob.applicationId,
+      },
       data: { remoteRevocationStatus: AgentRemoteRevocationStatus.SUCCEEDED },
     }),
   ]);
@@ -370,7 +394,8 @@ export async function runAgentConnectionRevocationJob(input: {
 
 export async function runAgentAccessMaintenance(now: Date) {
   const prisma = getPrisma();
-  const [purged, rateBuckets, pending] = await Promise.all([
+  const uploadCutoff = new Date(now.getTime() - AGENT_UPLOAD_WINDOW_MS);
+  const [purged, rateBuckets, pending, expiredUploads] = await Promise.all([
     prisma.agentSkillOperation.updateMany({
       where: { payloadExpiresAt: { lte: now }, requestPayload: { not: Prisma.DbNull } },
       data: { requestPayload: Prisma.DbNull, payloadExpiresAt: null },
@@ -387,13 +412,71 @@ export async function runAgentAccessMaintenance(now: Date) {
       take: 25,
       select: { userId: true, connectionId: true },
     }),
+    prisma.agentSkillOperation.findMany({
+      where: {
+        kind: AgentOperationKind.QUICK_FILES,
+        OR: [
+          { status: AgentOperationStatus.AWAITING_UPLOAD, createdAt: { lte: uploadCutoff } },
+          { status: AgentOperationStatus.CANCELED, errorCode: "UPLOAD_WINDOW_EXPIRED" },
+        ],
+        sources: { some: {} },
+      },
+      orderBy: { createdAt: "asc" },
+      take: 25,
+      select: {
+        id: true,
+        userId: true,
+        status: true,
+        sources: { select: { sourceFileId: true } },
+      },
+    }),
   ]);
+  let expiredUploadOperations = 0;
+  for (const operation of expiredUploads) {
+    if (operation.status === AgentOperationStatus.AWAITING_UPLOAD) {
+      const claimed = await prisma.agentSkillOperation.updateMany({
+        where: {
+          id: operation.id,
+          userId: operation.userId,
+          status: AgentOperationStatus.AWAITING_UPLOAD,
+          createdAt: { lte: uploadCutoff },
+        },
+        data: {
+          status: AgentOperationStatus.CANCELED,
+          errorCode: "UPLOAD_WINDOW_EXPIRED",
+          errorMessage: "The private upload window expired before the files were started.",
+          completedAt: now,
+          requestPayload: Prisma.DbNull,
+          payloadExpiresAt: null,
+        },
+      });
+      if (claimed.count === 0) continue;
+      await prisma.agentSkillOperationItem.updateMany({
+        where: {
+          operationId: operation.id,
+          userId: operation.userId,
+          status: AgentOperationItemStatus.QUEUED,
+        },
+        data: {
+          status: AgentOperationItemStatus.CANCELED,
+          errorCode: "UPLOAD_WINDOW_EXPIRED",
+          completedAt: now,
+        },
+      });
+      expiredUploadOperations += 1;
+    }
+    await cleanupPreparedSourceUploads({
+      userId: operation.userId,
+      sourceFileIds: operation.sources.map((source) => source.sourceFileId),
+    });
+  }
   const revocations = await Promise.allSettled(
     pending.map((job) => runAgentConnectionRevocationJob(job)),
   );
   return {
     purgedPayloads: purged.count,
     purgedRateBuckets: rateBuckets.count,
+    expiredUploadOperations,
     revocationsAttempted: pending.length,
     revocationsFailed: revocations.filter((result) => result.status === "rejected").length,
   };
