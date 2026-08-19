@@ -69,10 +69,6 @@ import {
   type SourceUploadMimeType,
 } from "@/lib/skills/source-upload-policy";
 import {
-  buildSkillDuplicateCandidateFingerprint,
-  findSimilarSkillsForUser,
-} from "@/lib/skills/similarity";
-import {
   resolveS3SourceObjectStorage,
   type SourceObjectStorage,
 } from "@/lib/storage/s3";
@@ -552,8 +548,6 @@ export type ActivateSkillDraftInput = {
   model?: string;
   skipUsageLimitCheck?: boolean;
   verifiedAgentCandidateItemId?: string;
-  expectedDraftFingerprint?: string;
-  expectedDuplicateLibraryFingerprint?: string;
 };
 
 export type AgentCandidateVerificationInput = {
