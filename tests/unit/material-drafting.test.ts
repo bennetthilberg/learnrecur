@@ -9,14 +9,18 @@ import {
 } from "@/lib/materials/ai";
 import {
   annotateMaterialPlanOverlaps,
+  buildMaterialTopicRecoveryQuery,
+  getMaterialTopicRecoveryGroupCount,
   expandPlanningChunkNeighbors,
   generateValidatedMaterialScopePlan,
   generateVerifiedMaterialDraft,
+  isLikelyBackMatterEvidence,
   repairMaterialDraftTarget,
   recoverBackMatterMaterialScope,
   resolveMaterialTopicSearchQuery,
   resolveStructuralMaterialScope,
   selectMaterialTopicRetrievalChunks,
+  selectFocusedMaterialTopicRecoveryChunks,
   selectFocusedMaterialTopicChunks,
   summarizeMaterialDraftBatch,
   validateMaterialScopePlannerResponse,
@@ -105,7 +109,85 @@ describe("material scope planning", () => {
     expect(resolveMaterialTopicSearchQuery("make skills for reflexive verbs")).toBe(
       "reflexive verbs",
     );
+    expect(resolveMaterialTopicSearchQuery("make skills for números ordinales")).toBe(
+      "números ordinales",
+    );
+    expect(resolveMaterialTopicSearchQuery("make skills for İspanyol verbs")).toBe(
+      "ispanyol verbs",
+    );
+    expect(resolveMaterialTopicSearchQuery("make skills for ﬁrst conditional")).toBe(
+      "first conditional",
+    );
     expect(resolveMaterialTopicSearchQuery("zygomatic conjugation sentinel")).toBeNull();
+  });
+
+  it("builds a relaxed recovery query without request glue or brittle inflections", () => {
+    expect(
+      buildMaterialTopicRecoveryQuery(
+        "conjugating ar er and ir verbs in the preterit",
+      ),
+    ).toBe("conjugat ar er ir verb preterit");
+    expect(buildMaterialTopicRecoveryQuery("números ordinales")).toBe(
+      "número|numero ordinal",
+    );
+    expect(buildMaterialTopicRecoveryQuery("make skills for ser and estar")).toBe(
+      "ser estar",
+    );
+    expect(buildMaterialTopicRecoveryQuery("make skills for cities")).toBe("cit");
+    expect(buildMaterialTopicRecoveryQuery("make skills for cats")).toBe("cat");
+    expect(buildMaterialTopicRecoveryQuery("make skills for ﬁrst conditional")).toBe(
+      "first conditional",
+    );
+    expect(buildMaterialTopicRecoveryQuery("make skills for İspanyol classes")).toBe(
+      "ispanyol class",
+    );
+    expect(
+      buildMaterialTopicRecoveryQuery("make skills for running planned and stopped actions"),
+    ).toBe("run plan stop action");
+    expect(buildMaterialTopicRecoveryQuery("making predictions while hiking"))
+      .toBe("mak prediction while hik");
+    expect(buildMaterialTopicRecoveryQuery("simplified fractions")).toBe(
+      "simplify fraction",
+    );
+    expect(buildMaterialTopicRecoveryQuery("matrix indices and vertices"))
+      .toBe("matrix index|indice vertex|vertice");
+    expect(getMaterialTopicRecoveryGroupCount("ser estar haber")).toBe(3);
+    expect(getMaterialTopicRecoveryGroupCount("número|numero ordinal")).toBe(2);
+  });
+
+  it("does not mistake instructional solution language for answer-key material", () => {
+    expect(
+      isLikelyBackMatterEvidence({
+        id: "quadratic-solutions",
+        materialSectionId: "quadratics",
+        headingText: "Quadratic equations",
+        text: "Solutions of quadratic equations can be found by factoring.",
+      }),
+    ).toBe(false);
+    expect(
+      isLikelyBackMatterEvidence({
+        id: "solution-key",
+        materialSectionId: "back-matter",
+        headingText: "Solution key",
+        text: "Solution key for the chapter exercises.",
+      }),
+    ).toBe(true);
+    expect(
+      isLikelyBackMatterEvidence({
+        id: "database-indexes",
+        materialSectionId: "database-indexing",
+        headingText: "Database indexing",
+        text: "A database index speeds up queries by storing ordered lookup keys.",
+      }),
+    ).toBe(false);
+    expect(
+      isLikelyBackMatterEvidence({
+        id: "book-index",
+        materialSectionId: "back-matter",
+        headingText: "Index",
+        text: "Database indexing, 214; query plans, 219.",
+      }),
+    ).toBe(true);
   });
 
   it("focuses open-topic retrieval on the dominant instructional section", () => {
@@ -161,6 +243,128 @@ describe("material scope planning", () => {
     ]);
   });
 
+  it("accepts a single high-confidence open-topic teaching chunk", () => {
+    const focused = selectFocusedMaterialTopicChunks([
+      {
+        id: "single-teaching-chunk",
+        materialSectionId: "preterit-lesson",
+        headingText: "Regular preterit endings",
+        text: "Regular -ar verbs use the endings e, aste, o, amos, and aron.",
+        lexicalScore: 4.2,
+      },
+      {
+        id: "incidental-reference",
+        materialSectionId: "later-reference",
+        headingText: "Reference",
+        text: "A later example mentions the preterit.",
+        lexicalScore: 0.6,
+      },
+    ]);
+
+    expect(focused.map((chunk) => chunk.id)).toEqual(["single-teaching-chunk"]);
+  });
+
+  it("prefers stronger open-topic evidence over a larger incidental section", () => {
+    const focused = selectFocusedMaterialTopicChunks([
+      ...Array.from({ length: 5 }, (_, index) => ({
+        id: `incidental-${index}`,
+        materialSectionId: "later-reference",
+        headingText: "Later reference",
+        text: "A later example mentions the preterit.",
+        lexicalScore: 0.8 - index * 0.05,
+      })),
+      {
+        id: "teaching-1",
+        materialSectionId: "preterit-lesson",
+        headingText: "Regular preterit endings",
+        text: "Regular -ar verbs use a specific set of preterit endings.",
+        lexicalScore: 3.5,
+      },
+      {
+        id: "teaching-2",
+        materialSectionId: "preterit-lesson",
+        headingText: "Regular preterit endings",
+        text: "Use these endings after removing the infinitive ending.",
+        lexicalScore: 2.7,
+      },
+    ]);
+
+    expect(focused.map((chunk) => chunk.id)).toEqual(["teaching-1", "teaching-2"]);
+  });
+
+  it("prefers concentrated recovery relevance over a larger incidental section", () => {
+    const recovered = selectFocusedMaterialTopicRecoveryChunks([
+      ...Array.from({ length: 5 }, (_, index) => ({
+        id: `incidental-${index}`,
+        materialSectionId: "later-reference",
+        headingText: "Later reference",
+        text: "A later lesson mentions a verb and the preterit in passing.",
+        lexicalScore: 1.2 - index * 0.05,
+      })),
+      {
+        id: "teaching-1",
+        materialSectionId: "preterit-lesson",
+        headingText: "Part II",
+        text: "Formation of the preterit for regular verbs.",
+        lexicalScore: 3.3,
+      },
+      {
+        id: "teaching-2",
+        materialSectionId: "preterit-lesson",
+        headingText: "Part II",
+        text: "Conjugate regular verbs with the preterit endings.",
+        lexicalScore: 2.4,
+      },
+    ]);
+
+    expect(recovered.map((chunk) => chunk.id)).toEqual(["teaching-1", "teaching-2"]);
+  });
+
+  it("accepts a single teaching chunk after section-level term coverage is proven", () => {
+    const recovered = selectFocusedMaterialTopicRecoveryChunks([
+      {
+        id: "single-teaching-chunk",
+        materialSectionId: "short-lesson",
+        headingText: "Cats",
+        text: "A cat uses singular agreement while cats use plural agreement.",
+        lexicalScore: 2.5,
+      },
+    ]);
+
+    expect(recovered.map((chunk) => chunk.id)).toEqual(["single-teaching-chunk"]);
+  });
+
+  it("uses aggregate section relevance when peak recovery scores tie", () => {
+    const recovered = selectFocusedMaterialTopicRecoveryChunks([
+      {
+        id: "cats-teaching-1",
+        materialSectionId: "cats-lesson",
+        headingText: "Cats",
+        text: "A cat uses singular agreement.",
+        lexicalScore: 1,
+      },
+      {
+        id: "cats-teaching-2",
+        materialSectionId: "cats-lesson",
+        headingText: "Cats",
+        text: "The cat example contrasts with plural agreement.",
+        lexicalScore: 1,
+      },
+      {
+        id: "cat-incidental",
+        materialSectionId: "later-reference",
+        headingText: "Reference",
+        text: "A later example mentions a cat.",
+        lexicalScore: 1,
+      },
+    ]);
+
+    expect(recovered.map((chunk) => chunk.id)).toEqual([
+      "cats-teaching-1",
+      "cats-teaching-2",
+    ]);
+  });
+
   it("keeps successful semantic retrieval instead of replacing it with a weak lexical cluster", () => {
     const semantic = [
       {
@@ -193,6 +397,22 @@ describe("material scope planning", () => {
 
     expect(selectMaterialTopicRetrievalChunks({ semantic, lexical })).toEqual({
       chunks: semantic,
+      focused: true,
+    });
+  });
+
+  it("preserves a lone exact lexical match instead of replacing it with broader stems", () => {
+    const exact = {
+      id: "exact-classes-lesson",
+      materialSectionId: "classes-lesson",
+      headingText: "Classes",
+      text: "Classes group related objects and behavior.",
+      lexicalScore: 2.4,
+      vectorScore: 0,
+    };
+
+    expect(selectMaterialTopicRetrievalChunks({ semantic: [], lexical: [exact] })).toEqual({
+      chunks: [exact],
       focused: true,
     });
   });

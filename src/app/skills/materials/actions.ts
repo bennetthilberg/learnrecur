@@ -9,13 +9,14 @@ import {
   discardPreparedMaterialPdf,
   prepareMaterialPdf,
   queueMaterialPdfIngestion,
+  queueMaterialPdfReindex,
   queueWebsiteMaterialImport,
   queueWebsiteMaterialRefresh,
   retryMaterialIngestion,
 } from "@/lib/materials/ingestion";
 import { getMaterialDeletionReturnPath } from "@/lib/materials/material-delete";
 import { discoverBookWebsite, type WebsiteDiscovery } from "@/lib/materials/web";
-import { ensureDatabaseUser } from "@/lib/users";
+import { ensureAuthenticatedDatabaseUser } from "@/lib/users";
 
 export type MaterialActionError = {
   status: "error";
@@ -191,6 +192,24 @@ export async function refreshWebsiteMaterialAction(formData: FormData) {
   revalidateMaterialPaths(materialId);
 }
 
+export async function reindexMaterialPdfAction(formData: FormData) {
+  const user = await requireMaterialUser();
+  if (user.status === "error") {
+    return;
+  }
+  const materialId = formString(formData, "materialId");
+  const result = await queueMaterialPdfReindex({
+    userId: user.userId,
+    materialId,
+    now: new Date(),
+  });
+  if (result.status !== "queued") {
+    redirect(`/skills/materials/${materialId}?reindex=failed`);
+  }
+  revalidateMaterialPaths(materialId);
+  redirect(`/skills/materials/${materialId}`);
+}
+
 export async function deleteMaterialAction(formData: FormData): Promise<MaterialActionError> {
   const user = await requireMaterialUser();
   if (user.status === "error") {
@@ -217,11 +236,10 @@ async function requireMaterialUser(): Promise<
   { status: "ready"; userId: string } | MaterialActionError
 > {
   const { userId } = await auth.protect();
-  const clerkUser = await currentUser();
-  if (!clerkUser) {
-    return { status: "error", message: `Clerk returned no user for authenticated user ${userId}.` };
-  }
-  const databaseUser = await ensureDatabaseUser(clerkUser);
+  const databaseUser = await ensureAuthenticatedDatabaseUser({
+    userId,
+    loadClerkUser: currentUser,
+  });
   if (databaseUser.status !== "ready") {
     return { status: "error", message: databaseUser.message };
   }

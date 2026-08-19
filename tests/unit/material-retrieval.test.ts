@@ -15,5 +15,18 @@ describe("material lexical retrieval", () => {
       "números:* & 21:* & 99:*",
     );
     expect(toSimplePrefixTsQuery("!? ")).toBe("");
+    expect(toSimplePrefixTsQuery("İspanyol")).toBe("ispanyol:*");
+    expect(toSimplePrefixTsQuery("ﬁrst conditional")).toBe(
+      "first:* & conditional:*",
+    );
+  });
+
+  it("can build a disjunctive prefix query for progressive topic recovery", () => {
+    expect(toSimplePrefixTsQuery("conjugat verb preterit", "or")).toBe(
+      "conjugat:* | verb:* | preterit:*",
+    );
+    expect(toSimplePrefixTsQuery("número|numero ordinal", "or")).toBe(
+      "(número:* | numero:*) | ordinal:*",
+    );
   });
 });

@@ -1,9 +1,10 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 import { PDFDocument, StandardFonts } from "pdf-lib";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import {
+  MaterialPageTextStatus,
   MaterialRevisionStatus,
   SkillStatus,
   SourceFileKind,
@@ -14,6 +15,7 @@ import { queueMaterialDeletion, runMaterialCleanupJob } from "@/lib/materials/cl
 import {
   discardPreparedMaterialPdf,
   prepareMaterialPdf,
+  queueMaterialPdfReindex,
   queueMaterialPdfIngestion,
   queueWebsiteMaterialImport,
   queueWebsiteMaterialRefresh,
@@ -21,6 +23,7 @@ import {
   runMaterialIngestionJob,
 } from "@/lib/materials/ingestion";
 import { MATERIAL_QUEUE_STALE_AFTER_MS } from "@/lib/materials/ingestion-status";
+import { finalizeMaterialRevision } from "@/lib/materials/lifecycle";
 import { getMaterialDetail, getMaterialLibrary } from "@/lib/materials/library";
 import { MATERIAL_EMBEDDING_DIMENSIONS } from "@/lib/materials/retrieval";
 import { getPrisma } from "@/lib/prisma";
@@ -201,6 +204,538 @@ describeDatabase("material ingestion", () => {
       status: MaterialRevisionStatus.QUEUED,
       updatedAt: now,
     });
+  });
+
+  it("reindexes a ready PDF from the preserved original into a new immutable revision", async () => {
+    const document = await PDFDocument.create();
+    const font = await document.embedFont(StandardFonts.Helvetica);
+    document.addPage([612, 792]).drawText(
+      "Embedded overview text that does not contain the cached visual lesson topic.",
+      { x: 48, y: 720, size: 12, font },
+    );
+    document.addPage([612, 792]);
+    const bytes = Buffer.from(await document.save());
+    const storage = createMemoryStorage();
+    const objectKey = `${runId}/reindex/original.pdf`;
+    storage.objects.set(objectKey, bytes);
+    const material = await prisma.studyMaterial.create({
+      data: {
+        userId,
+        title: "Reindexable Spanish reference",
+        kind: StudyMaterialKind.PDF,
+        revisions: {
+          create: {
+            revisionNumber: 1,
+            storageBucket: storage.bucketName,
+            storageKey: objectKey,
+            sourceFiles: {
+              create: {
+                kind: SourceFileKind.PDF,
+                status: SourceFileStatus.READY,
+                originalName: "spanish-reference.pdf",
+                mimeType: "application/pdf",
+                byteSize: bytes.byteLength,
+                storageBucket: storage.bucketName,
+                storageKey: objectKey,
+              },
+            },
+          },
+        },
+      },
+      include: { revisions: { include: { sourceFiles: true } } },
+    });
+    const activeRevision = material.revisions[0];
+    await finalizeMaterialRevision({
+      userId,
+      materialId: material.id,
+      materialRevisionId: activeRevision.id,
+      contentHash: createHash("sha256").update(bytes).digest("hex"),
+      byteSize: bytes.byteLength,
+      pageCount: 2,
+      storageBucket: storage.bucketName,
+      storageKey: objectKey,
+      processingMetadata: { embeddingStatus: "unavailable" },
+    });
+    await prisma.materialPage.create({
+      data: {
+        userId,
+        materialRevisionId: activeRevision.id,
+        pageNumber: 1,
+        embeddedText: null,
+        ocrText: "Cached OCR text from the preserved PDF page.",
+        textStatus: MaterialPageTextStatus.OCR_READY,
+        contentHash: `sha256:${runId}:cached-reindex-ocr`,
+        tokenEstimate: 9,
+      },
+    });
+    await prisma.materialPage.create({
+      data: {
+        userId,
+        materialRevisionId: activeRevision.id,
+        pageNumber: 2,
+        embeddedText: null,
+        ocrText: null,
+        textStatus: MaterialPageTextStatus.OCR_PROCESSING,
+        contentHash: `sha256:${runId}:in-flight-reindex-ocr`,
+        tokenEstimate: 0,
+        metadata: { reason: "lazy-ocr" },
+      },
+    });
+    const linkedSkill = await prisma.skill.create({
+      data: {
+        userId,
+        title: "Regular preterit endings",
+        tags: [],
+      },
+    });
+    await prisma.skillSourceRef.create({
+      data: {
+        userId,
+        skillId: linkedSkill.id,
+        sourceFileId: activeRevision.sourceFiles[0].id,
+      },
+    });
+    const sentRevisionIds: string[] = [];
+
+    const result = await queueMaterialPdfReindex({
+      userId,
+      materialId: material.id,
+      now: new Date("2026-08-06T20:00:00.000Z"),
+      storage,
+      eventSender: {
+        async sendMaterialIngestionRequested(payload) {
+          sentRevisionIds.push(payload.materialRevisionId);
+        },
+      },
+    });
+
+    expect(result).toMatchObject({ status: "queued", materialId: material.id });
+    if (result.status !== "queued") {
+      throw new Error("expected queued PDF reindex");
+    }
+    expect(sentRevisionIds).toEqual([result.materialRevisionId]);
+    const revisions = await prisma.materialRevision.findMany({
+      where: { materialId: material.id },
+      orderBy: { revisionNumber: "asc" },
+      include: { sourceFiles: true },
+    });
+    expect(revisions.map((revision) => revision.revisionNumber)).toEqual([1, 2]);
+    expect(revisions[1]).toMatchObject({
+      status: MaterialRevisionStatus.QUEUED,
+      storageBucket: storage.bucketName,
+      storageKey: objectKey,
+      processingMetadata: { rebuildOfRevisionId: activeRevision.id },
+      sourceFiles: [
+        expect.objectContaining({
+          status: SourceFileStatus.UPLOADED,
+          storageBucket: storage.bucketName,
+          storageKey: objectKey,
+          byteSize: null,
+        }),
+      ],
+    });
+    expect(
+      await prisma.studyMaterial.findUniqueOrThrow({
+        where: { id: material.id },
+        select: { activeRevisionId: true },
+      }),
+    ).toEqual({ activeRevisionId: activeRevision.id });
+    await expect(
+      prisma.materialPage.findUniqueOrThrow({
+        where: {
+          materialRevisionId_pageNumber: {
+            materialRevisionId: result.materialRevisionId,
+            pageNumber: 1,
+          },
+        },
+        select: {
+          embeddedText: true,
+          ocrText: true,
+          textStatus: true,
+          tokenEstimate: true,
+        },
+      }),
+    ).resolves.toEqual({
+      embeddedText: null,
+      ocrText: "Cached OCR text from the preserved PDF page.",
+      textStatus: MaterialPageTextStatus.OCR_READY,
+      tokenEstimate: 9,
+    });
+    const copiedNulls = await prisma.$queryRaw<
+      Array<{ pageMetadataIsNull: boolean; sourceMetadataIsNull: boolean }>
+    >`
+      SELECT
+        page."metadata" IS NULL AS "pageMetadataIsNull",
+        source."metadata" IS NULL AS "sourceMetadataIsNull"
+      FROM "material_pages" page
+      INNER JOIN "source_files" source
+        ON source."materialRevisionId" = page."materialRevisionId"
+      WHERE page."materialRevisionId" = ${result.materialRevisionId}
+        AND page."pageNumber" = 1
+      LIMIT 1
+    `;
+    expect(copiedNulls).toEqual([
+      { pageMetadataIsNull: true, sourceMetadataIsNull: true },
+    ]);
+    await expect(
+      prisma.materialPage.findUnique({
+        where: {
+          materialRevisionId_pageNumber: {
+            materialRevisionId: result.materialRevisionId,
+            pageNumber: 2,
+          },
+        },
+      }),
+    ).resolves.toBeNull();
+
+    await prisma.materialPage.update({
+      where: {
+        materialRevisionId_pageNumber: {
+          materialRevisionId: activeRevision.id,
+          pageNumber: 2,
+        },
+      },
+      data: {
+        ocrText: "OCR text that finished while the replacement was rebuilding.",
+        textStatus: MaterialPageTextStatus.OCR_READY,
+        contentHash: `sha256:${runId}:finished-reindex-ocr`,
+        tokenEstimate: 10,
+        metadata: { reason: "lazy-ocr", completedDuringRebuild: true },
+      },
+    });
+
+    await expect(
+      queueMaterialPdfReindex({
+        userId,
+        materialId: material.id,
+        now: new Date("2026-08-06T20:00:01.000Z"),
+        storage,
+        eventSender: { async sendMaterialIngestionRequested() {} },
+      }),
+    ).resolves.toMatchObject({
+      status: "not-queued",
+      message: expect.stringMatching(/already/i),
+    });
+
+    await expect(
+      runMaterialIngestionJob({
+        userId,
+        materialRevisionId: result.materialRevisionId,
+        storage,
+        embeddingGenerator: async ({ texts }) =>
+          texts.map(() =>
+            Array.from({ length: MATERIAL_EMBEDDING_DIMENSIONS }, (_, index) =>
+              index === 0 ? 1 : 0,
+            ),
+          ),
+        summaryGenerator: null,
+      }),
+    ).resolves.toMatchObject({ status: "ready", pageCount: 2 });
+    expect(
+      await prisma.studyMaterial.findUniqueOrThrow({
+        where: { id: material.id },
+        select: { activeRevisionId: true },
+      }),
+    ).toEqual({ activeRevisionId: result.materialRevisionId });
+    await expect(
+      prisma.materialPage.findUniqueOrThrow({
+        where: {
+          materialRevisionId_pageNumber: {
+            materialRevisionId: result.materialRevisionId,
+            pageNumber: 1,
+          },
+        },
+        select: {
+          embeddedText: true,
+          ocrText: true,
+          textStatus: true,
+          tokenEstimate: true,
+        },
+      }),
+    ).resolves.toEqual({
+      embeddedText:
+        "Embedded overview text that does not contain the cached visual lesson topic.",
+      ocrText: "Cached OCR text from the preserved PDF page.",
+      textStatus: MaterialPageTextStatus.OCR_READY,
+      tokenEstimate: 9,
+    });
+    await expect(
+      prisma.materialPage.findUniqueOrThrow({
+        where: {
+          materialRevisionId_pageNumber: {
+            materialRevisionId: result.materialRevisionId,
+            pageNumber: 2,
+          },
+        },
+        select: { ocrText: true, textStatus: true, tokenEstimate: true },
+      }),
+    ).resolves.toEqual({
+      ocrText: "OCR text that finished while the replacement was rebuilding.",
+      textStatus: MaterialPageTextStatus.OCR_READY,
+      tokenEstimate: 10,
+    });
+    const rebuiltIndex = await prisma.materialRevision.findUniqueOrThrow({
+      where: { id: result.materialRevisionId },
+      select: { processingMetadata: true, chunks: { select: { text: true } } },
+    });
+    expect(rebuiltIndex.processingMetadata).toMatchObject({ embeddingStatus: "ready" });
+    expect(rebuiltIndex.chunks.some((chunk) => chunk.text.includes("Cached OCR text"))).toBe(
+      true,
+    );
+    expect(
+      rebuiltIndex.chunks.some((chunk) =>
+        chunk.text.includes("OCR text that finished while the replacement was rebuilding"),
+      ),
+    ).toBe(true);
+    expect(
+      (await getMaterialDetail({ userId, materialId: material.id }))?.linkedSkills.map(
+        (skill) => skill.id,
+      ),
+    ).toContain(linkedSkill.id);
+  });
+
+  it("rejects a rebuild when the preserved PDF bytes changed after queueing", async () => {
+    const original = await PDFDocument.create();
+    original.addPage([612, 792]).drawText("Original preserved lesson.");
+    const originalBytes = Buffer.from(await original.save());
+    const replacement = await PDFDocument.create();
+    replacement.addPage([612, 792]).drawText("Different replaced lesson.");
+    const replacementBytes = Buffer.from(await replacement.save());
+    const storage = createMemoryStorage();
+    const objectKey = `${runId}/changed-reindex/original.pdf`;
+    storage.objects.set(objectKey, originalBytes);
+    const material = await prisma.studyMaterial.create({
+      data: {
+        userId,
+        title: "Changed preserved PDF",
+        kind: StudyMaterialKind.PDF,
+        revisions: {
+          create: {
+            revisionNumber: 1,
+            storageBucket: storage.bucketName,
+            storageKey: objectKey,
+            sourceFiles: {
+              create: {
+                kind: SourceFileKind.PDF,
+                status: SourceFileStatus.READY,
+                originalName: "changed-preserved.pdf",
+                mimeType: "application/pdf",
+                byteSize: originalBytes.byteLength,
+                storageBucket: storage.bucketName,
+                storageKey: objectKey,
+              },
+            },
+          },
+        },
+      },
+      include: { revisions: true },
+    });
+    const activeRevision = material.revisions[0];
+    await finalizeMaterialRevision({
+      userId,
+      materialId: material.id,
+      materialRevisionId: activeRevision.id,
+      contentHash: createHash("sha256").update(originalBytes).digest("hex"),
+      byteSize: originalBytes.byteLength,
+      pageCount: 1,
+      storageBucket: storage.bucketName,
+      storageKey: objectKey,
+    });
+    const queued = await queueMaterialPdfReindex({
+      userId,
+      materialId: material.id,
+      now: new Date("2026-08-06T22:00:00.000Z"),
+      storage,
+      eventSender: { async sendMaterialIngestionRequested() {} },
+    });
+    expect(queued.status).toBe("queued");
+    if (queued.status !== "queued") {
+      throw new Error("expected queued PDF reindex");
+    }
+    storage.objects.set(objectKey, replacementBytes);
+
+    await expect(
+      runMaterialIngestionJob({
+        userId,
+        materialRevisionId: queued.materialRevisionId,
+        storage,
+        embeddingGenerator: null,
+        summaryGenerator: null,
+      }),
+    ).rejects.toThrow(/saved PDF changed/i);
+    await expect(
+      prisma.studyMaterial.findUniqueOrThrow({
+        where: { id: material.id },
+        select: { activeRevisionId: true },
+      }),
+    ).resolves.toEqual({ activeRevisionId: activeRevision.id });
+  });
+
+  it("allows a new PDF rebuild after the previous rebuild fails to queue", async () => {
+    const document = await PDFDocument.create();
+    document.addPage([612, 792]);
+    const bytes = Buffer.from(await document.save());
+    const storage = createMemoryStorage();
+    const objectKey = `${runId}/failed-reindex/original.pdf`;
+    storage.objects.set(objectKey, bytes);
+    storage.headObject = async ({ key }) => {
+      const stored = storage.objects.get(key);
+      return {
+        byteSize: stored?.byteLength ?? null,
+        mimeType: stored ? " Application/PDF ; charset=binary" : null,
+      };
+    };
+    const material = await prisma.studyMaterial.create({
+      data: {
+        userId,
+        title: "Retryable failed PDF rebuild",
+        kind: StudyMaterialKind.PDF,
+        revisions: {
+          create: {
+            revisionNumber: 1,
+            storageBucket: storage.bucketName,
+            storageKey: objectKey,
+            sourceFiles: {
+              create: {
+                kind: SourceFileKind.PDF,
+                status: SourceFileStatus.READY,
+                originalName: "retryable.pdf",
+                mimeType: "application/pdf",
+                byteSize: bytes.byteLength,
+                storageBucket: storage.bucketName,
+                storageKey: objectKey,
+              },
+            },
+          },
+        },
+      },
+      include: { revisions: true },
+    });
+    await finalizeMaterialRevision({
+      userId,
+      materialId: material.id,
+      materialRevisionId: material.revisions[0].id,
+      contentHash: `sha256:${runId}:retryable-rebuild`,
+      byteSize: bytes.byteLength,
+      pageCount: 1,
+      storageBucket: storage.bucketName,
+      storageKey: objectKey,
+    });
+
+    await expect(
+      queueMaterialPdfReindex({
+        userId,
+        materialId: material.id,
+        now: new Date("2026-08-06T23:00:00.000Z"),
+        storage,
+        eventSender: {
+          async sendMaterialIngestionRequested() {
+            throw new Error("fixture send failure");
+          },
+        },
+      }),
+    ).resolves.toMatchObject({ status: "not-queued" });
+
+    const sentRevisionIds: string[] = [];
+    const retried = await queueMaterialPdfReindex({
+      userId,
+      materialId: material.id,
+      now: new Date("2026-08-06T23:00:01.000Z"),
+      storage,
+      eventSender: {
+        async sendMaterialIngestionRequested(payload) {
+          sentRevisionIds.push(payload.materialRevisionId);
+        },
+      },
+    });
+
+    expect(retried).toMatchObject({ status: "queued", materialId: material.id });
+    if (retried.status !== "queued") {
+      throw new Error("expected replacement rebuild to queue");
+    }
+    expect(sentRevisionIds).toEqual([retried.materialRevisionId]);
+    await expect(
+      prisma.materialRevision.findMany({
+        where: { materialId: material.id },
+        orderBy: { revisionNumber: "asc" },
+        select: { revisionNumber: true, status: true },
+      }),
+    ).resolves.toEqual([
+      { revisionNumber: 1, status: MaterialRevisionStatus.READY },
+      { revisionNumber: 2, status: MaterialRevisionStatus.FAILED },
+      { revisionNumber: 3, status: MaterialRevisionStatus.QUEUED },
+    ]);
+  });
+
+  it("preserves a rebuild source when the worker claims an ambiguously delivered event", async () => {
+    const document = await PDFDocument.create();
+    document.addPage([612, 792]);
+    const bytes = Buffer.from(await document.save());
+    const storage = createMemoryStorage();
+    const objectKey = `${runId}/ambiguous-reindex/original.pdf`;
+    storage.objects.set(objectKey, bytes);
+    const material = await prisma.studyMaterial.create({
+      data: {
+        userId,
+        title: "Ambiguously delivered PDF rebuild",
+        kind: StudyMaterialKind.PDF,
+        revisions: {
+          create: {
+            revisionNumber: 1,
+            storageBucket: storage.bucketName,
+            storageKey: objectKey,
+            sourceFiles: {
+              create: {
+                kind: SourceFileKind.PDF,
+                status: SourceFileStatus.READY,
+                originalName: "ambiguous.pdf",
+                mimeType: "application/pdf",
+                byteSize: bytes.byteLength,
+                storageBucket: storage.bucketName,
+                storageKey: objectKey,
+              },
+            },
+          },
+        },
+      },
+      include: { revisions: true },
+    });
+    await finalizeMaterialRevision({
+      userId,
+      materialId: material.id,
+      materialRevisionId: material.revisions[0].id,
+      contentHash: createHash("sha256").update(bytes).digest("hex"),
+      byteSize: bytes.byteLength,
+      pageCount: 1,
+      storageBucket: storage.bucketName,
+      storageKey: objectKey,
+    });
+
+    const result = await queueMaterialPdfReindex({
+      userId,
+      materialId: material.id,
+      now: new Date("2026-08-06T23:30:00.000Z"),
+      storage,
+      eventSender: {
+        async sendMaterialIngestionRequested(payload) {
+          await prisma.materialRevision.update({
+            where: { id: payload.materialRevisionId },
+            data: { status: MaterialRevisionStatus.PROCESSING },
+          });
+          throw new Error("response lost after the worker claimed the event");
+        },
+      },
+    });
+
+    expect(result).toMatchObject({ status: "not-queued" });
+    const replacement = await prisma.materialRevision.findFirstOrThrow({
+      where: { materialId: material.id, revisionNumber: 2 },
+      include: { sourceFiles: true },
+    });
+    expect(replacement.status).toBe(MaterialRevisionStatus.PROCESSING);
+    expect(replacement.sourceFiles).toEqual([
+      expect.objectContaining({ status: SourceFileStatus.UPLOADED }),
+    ]);
   });
 
   it("does not requeue a revision that is still within the worker pickup window", async () => {

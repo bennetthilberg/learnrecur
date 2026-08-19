@@ -63,20 +63,98 @@ export type UserMirrorClient = {
   };
 };
 
+export type AuthenticatedUserClient = UserMirrorClient & {
+  user: UserMirrorClient["user"] & {
+    findUnique: (args: {
+      where: { id: string };
+      select: {
+        id: true;
+        email: true;
+        name: true;
+        createdAt: true;
+        updatedAt: true;
+      };
+    }) => Promise<MirroredUserRecord | null>;
+  };
+};
+
 type EnsureDatabaseUserOptions = {
   prisma?: UserMirrorClient;
   skipEnvCheck?: boolean;
 };
+
+type EnsureAuthenticatedDatabaseUserOptions = {
+  prisma?: AuthenticatedUserClient;
+  skipEnvCheck?: boolean;
+};
+
+export async function ensureAuthenticatedDatabaseUser(
+  input: {
+    userId: string;
+    loadClerkUser: () => Promise<ClerkUserSnapshot | null>;
+  },
+  options: EnsureAuthenticatedDatabaseUserOptions = {},
+): Promise<DatabaseUserStatus> {
+  if (!options.skipEnvCheck && !hasDatabaseEnv()) {
+    return missingDatabaseEnvStatus();
+  }
+
+  let clerkUser: ClerkUserSnapshot | null = null;
+  let clerkLookupError: unknown;
+  try {
+    clerkUser = await input.loadClerkUser();
+  } catch (error) {
+    clerkLookupError = error;
+  }
+
+  if (clerkUser) {
+    if (clerkUser.id !== input.userId) {
+      return {
+        status: "error",
+        message: "Your account details could not be refreshed. Reload this page to try again.",
+      };
+    }
+    return ensureDatabaseUser(clerkUser, {
+      prisma: options.prisma,
+      skipEnvCheck: true,
+    });
+  }
+
+  try {
+    const prisma = options.prisma ?? getPrisma();
+    const user = await prisma.user.findUnique({
+      where: { id: input.userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+    if (user) {
+      console.warn("[users] Clerk user lookup failed; using mirrored user", {
+        userId: input.userId,
+        reason: clerkLookupError ? "lookup-error" : "user-not-found",
+      });
+      return { status: "ready", user };
+    }
+  } catch (error) {
+    return { status: "error", message: formatDatabaseUserError(error) };
+  }
+
+  return {
+    status: "error",
+    message: "Your account details could not be refreshed. Reload this page to try again.",
+  };
+}
 
 export async function ensureDatabaseUser(
   clerkUser: ClerkUserSnapshot,
   options: EnsureDatabaseUserOptions = {},
 ): Promise<DatabaseUserStatus> {
   if (!options.skipEnvCheck && !hasDatabaseEnv()) {
-    return {
-      status: "missing-env",
-      message: "Add DATABASE_URL to .env.local, then run Prisma migration and reload this page.",
-    };
+    return missingDatabaseEnvStatus();
   }
 
   try {
@@ -115,6 +193,13 @@ export async function ensureDatabaseUser(
       message: formatDatabaseUserError(error),
     };
   }
+}
+
+function missingDatabaseEnvStatus(): DatabaseUserStatus {
+  return {
+    status: "missing-env",
+    message: "Add DATABASE_URL to .env.local, then run Prisma migration and reload this page.",
+  };
 }
 
 function formatDatabaseUserError(error: unknown): string {

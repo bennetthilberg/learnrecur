@@ -7,6 +7,8 @@ import {
   getMaterialDraftAdjustmentCopy,
   getMaterialDraftItemErrorMessage,
   getMaterialAvailabilityMessage,
+  getMaterialIndexHealth,
+  getMaterialRecoveryDisplayState,
   getPublicMaterialActionErrorMessage,
 } from "@/lib/materials/presentation";
 
@@ -23,6 +25,34 @@ describe("material availability messages", () => {
       description: "Choose any section from this material to start creating skills.",
       tone: "ready",
     });
+  });
+
+  it("distinguishes a usable material from a fully healthy search index", () => {
+    expect(
+      getMaterialIndexHealth({
+        kind: "PDF",
+        processingMetadata: { embeddingStatus: "unavailable" },
+      }),
+    ).toEqual({
+      status: "degraded",
+      title: "Search coverage needs a refresh",
+      description:
+        "The original is saved, but some topics may be harder to find. Rebuild the searchable copy without uploading again.",
+    });
+    expect(
+      getMaterialIndexHealth({
+        kind: "WEB",
+        processingMetadata: { embeddingStatus: "unavailable" },
+      }),
+    ).toEqual({
+      status: "complete",
+    });
+    expect(
+      getMaterialIndexHealth({
+        kind: "PDF",
+        processingMetadata: { embeddingStatus: "ready" },
+      }),
+    ).toEqual({ status: "complete" });
   });
 
   it("explains that first-time processing blocks skill creation", () => {
@@ -65,6 +95,56 @@ describe("material availability messages", () => {
       title: "Processing needs attention",
       description: "Retry processing before you can create skills from this material.",
       tone: "attention",
+    });
+  });
+});
+
+describe("material recovery display", () => {
+  it("offers search rebuild instead of import retry after a replacement rebuild fails", () => {
+    expect(
+      getMaterialRecoveryDisplayState({
+        kind: "PDF",
+        currentRevision: { id: "revision-2", status: MaterialRevisionStatus.FAILED },
+        activeRevision: { id: "revision-1", status: MaterialRevisionStatus.READY },
+        indexHealthStatus: "degraded",
+        processing: false,
+        stalled: false,
+      }),
+    ).toEqual({
+      showImportRetry: false,
+      showSearchRebuild: true,
+    });
+  });
+
+  it("keeps import retry for a failed first revision", () => {
+    expect(
+      getMaterialRecoveryDisplayState({
+        kind: "PDF",
+        currentRevision: { id: "revision-1", status: MaterialRevisionStatus.FAILED },
+        activeRevision: null,
+        indexHealthStatus: "complete",
+        processing: false,
+        stalled: false,
+      }),
+    ).toEqual({
+      showImportRetry: true,
+      showSearchRebuild: false,
+    });
+  });
+
+  it("keeps retry available after a website refresh fails", () => {
+    expect(
+      getMaterialRecoveryDisplayState({
+        kind: "WEB",
+        currentRevision: { id: "revision-2", status: MaterialRevisionStatus.FAILED },
+        activeRevision: { id: "revision-1", status: MaterialRevisionStatus.READY },
+        indexHealthStatus: "complete",
+        processing: false,
+        stalled: false,
+      }),
+    ).toEqual({
+      showImportRetry: true,
+      showSearchRebuild: false,
     });
   });
 });

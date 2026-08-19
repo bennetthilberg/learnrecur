@@ -33,7 +33,11 @@ import {
   finalizeMaterialRevision,
   requestMaterialDeletion,
 } from "@/lib/materials/lifecycle";
-import { searchMaterialChunksLexical } from "@/lib/materials/retrieval";
+import {
+  MATERIAL_EMBEDDING_DIMENSIONS,
+  searchMaterialChunksLexical,
+  storeMaterialChunkEmbedding,
+} from "@/lib/materials/retrieval";
 import { loadLocalizedMaterialEvidence } from "@/lib/materials/evidence";
 import { getPrisma } from "@/lib/prisma";
 import {
@@ -1529,6 +1533,334 @@ describeDatabase("material multi-skill drafting", () => {
     );
     expect(planningInput?.chunks.every((chunk) => chunk.materialSectionId === lesson.id)).toBe(
       true,
+    );
+  });
+
+  it("recovers preterit teaching chunks from a malformed outline without embeddings", async () => {
+    const { material, revision } = await createMaterialWithInitialRevision({
+      userId,
+      title: "Malformed preterit outline fixture",
+      kind: StudyMaterialKind.PDF,
+    });
+    const broadPart = await prisma.materialSection.create({
+      data: {
+        userId,
+        materialRevisionId: revision.id,
+        ordinal: 0,
+        level: 1,
+        title: "Part II",
+        normalizedTitle: "part ii",
+        pageStart: 255,
+        pageEnd: 299,
+        headingPath: ["Part II"],
+      },
+    });
+    const answerKey = await prisma.materialSection.create({
+      data: {
+        userId,
+        materialRevisionId: revision.id,
+        ordinal: 1,
+        level: 1,
+        title: "Chapter 14 The Preterit Tense",
+        normalizedTitle: "chapter 14 the preterit tense",
+        pageStart: 601,
+        pageEnd: 601,
+        headingPath: ["Chapter 14 The Preterit Tense"],
+      },
+    });
+    const incidentalSection = await prisma.materialSection.create({
+      data: {
+        userId,
+        materialRevisionId: revision.id,
+        ordinal: 2,
+        level: 1,
+        title: "Earlier lessons",
+        normalizedTitle: "earlier lessons",
+        pageStart: 50,
+        pageEnd: 140,
+        headingPath: ["Earlier lessons"],
+      },
+    });
+    const teachingChunkIds = [
+      `${runId}_preterit_teaching_ar`,
+      `${runId}_preterit_teaching_er_ir`,
+    ];
+    const answerKeyChunkIds = Array.from(
+      { length: 85 },
+      (_, index) => `${runId}_preterit_answer_key_${index}`,
+    );
+    const answerKeyChunkId = answerKeyChunkIds[0];
+    await prisma.materialChunk.createMany({
+      data: [
+        {
+          id: `${runId}_part_two_lead_in`,
+          userId,
+          materialRevisionId: revision.id,
+          materialSectionId: broadPart.id,
+          ordinal: 0,
+          text: "The previous lesson concludes with a reading comprehension exercise.",
+          tokenEstimate: 10,
+          contentHash: `sha256:${runId}:part-two-lead-in`,
+          headingText: broadPart.title,
+          locator: { kind: "pdf", pageRange: { start: 257, end: 261 } },
+        },
+        {
+          id: teachingChunkIds[0],
+          userId,
+          materialRevisionId: revision.id,
+          materialSectionId: broadPart.id,
+          ordinal: 1,
+          text: "Formation of the preterit. To conjugate regular -ar verbs, drop the ending and add the regular preterit endings.",
+          tokenEstimate: 18,
+          contentHash: `sha256:${runId}:preterit-ar`,
+          headingText: broadPart.title,
+          locator: { kind: "pdf", pageRange: { start: 262, end: 264 } },
+        },
+        {
+          id: teachingChunkIds[1],
+          userId,
+          materialRevisionId: revision.id,
+          materialSectionId: broadPart.id,
+          ordinal: 2,
+          text: "Regular -er and -ir verbs use the same preterit endings. Conjugate each verb by replacing its infinitive ending.",
+          tokenEstimate: 19,
+          contentHash: `sha256:${runId}:preterit-er-ir`,
+          headingText: broadPart.title,
+          locator: { kind: "pdf", pageRange: { start: 264, end: 267 } },
+        },
+        ...answerKeyChunkIds.map((id, index) => ({
+          id,
+          userId,
+          materialRevisionId: revision.id,
+          materialSectionId: answerKey.id,
+          ordinal: index + 3,
+          text: `${"Answer Key regular preterit conjugate ar er ir verb. ".repeat(8)}Entry ${index + 1}.`,
+          tokenEstimate: 80,
+          contentHash: `sha256:${runId}:preterit-answer-key:${index}`,
+          headingText: answerKey.title,
+          locator: { kind: "pdf", pageRange: { start: 601, end: 601 } },
+        })),
+        ...Array.from({ length: 85 }, (_, index) => ({
+          id: `${runId}_preterit_incidental_${index}`,
+          userId,
+          materialRevisionId: revision.id,
+          materialSectionId: incidentalSection.id,
+          ordinal: index + 88,
+          text: `${"preterit ".repeat(40)}reference note ${index}`,
+          tokenEstimate: 42,
+          contentHash: `sha256:${runId}:preterit-incidental:${index}`,
+          headingText: incidentalSection.title,
+          locator: { kind: "pdf", pageRange: { start: 50 + index, end: 50 + index } },
+        })),
+      ],
+    });
+    const partialEmbedding = Array.from(
+      { length: MATERIAL_EMBEDDING_DIMENSIONS },
+      (_, index) => (index === 0 ? 1 : 0),
+    );
+    await storeMaterialChunkEmbedding({
+      userId,
+      materialRevisionId: revision.id,
+      chunkId: `${runId}_preterit_incidental_0`,
+      embedding: partialEmbedding,
+    });
+    await finalizeMaterialRevision({
+      userId,
+      materialId: material.id,
+      materialRevisionId: revision.id,
+      contentHash: `sha256:${runId}:malformed-preterit`,
+      byteSize: 25_963_871,
+      pageCount: 628,
+      storageBucket: "test-materials",
+      storageKey: `${runId}/malformed-preterit.pdf`,
+      processingMetadata: { embeddingStatus: "unavailable" },
+    });
+    const planScope = vi.fn(async () => ({
+      resolutionStatus: "resolved" as const,
+      resolvedScopeLabel: "Regular preterit conjugations",
+      clarification: null,
+      warnings: [],
+      items: [
+        {
+          key: "regular-preterit-endings",
+          title: "Regular preterit endings",
+          objective: "Conjugate regular -ar, -er, and -ir verbs in the preterit.",
+          materialSectionIds: [broadPart.id],
+          evidenceChunkIds: teachingChunkIds,
+        },
+      ],
+    }));
+
+    const result = await planMaterialSkills({
+      userId,
+      input: {
+        materialId: material.id,
+        materialRevisionId: revision.id,
+        instruction: "make skills for conjugating -ar, -er, and -ir verbs in the preterit",
+        idempotencyKey: `${runId}_malformed_preterit_recovery`,
+      },
+      now: new Date(),
+      aiSetup: createAiSetup({ planScope }),
+      embeddingGenerator: async () => [partialEmbedding],
+    });
+
+    expect(result.status).toBe("planned");
+    const planningInput = planScope.mock.calls[0]?.[0];
+    expect(planningInput?.sections.map((section) => section.id)).toEqual([broadPart.id]);
+    expect(planningInput?.chunks.map((chunk) => chunk.id)).toEqual(
+      expect.arrayContaining(teachingChunkIds),
+    );
+    expect(planningInput?.chunks.map((chunk) => chunk.id)).not.toContain(answerKeyChunkId);
+    expect(
+      planningInput?.chunks
+        .map((chunk) => chunk.id)
+        .filter((id) => answerKeyChunkIds.includes(id)),
+    ).toEqual([]);
+  });
+
+  it("recovers comparison terms split across a section despite a semantic decoy", async () => {
+    const { material, revision } = await createMaterialWithInitialRevision({
+      userId,
+      title: "Split comparison fixture",
+      kind: StudyMaterialKind.PDF,
+    });
+    const comparisonSection = await prisma.materialSection.create({
+      data: {
+        userId,
+        materialRevisionId: revision.id,
+        ordinal: 0,
+        level: 1,
+        title: "Copular verbs",
+        normalizedTitle: "copular verbs",
+        pageStart: 30,
+        pageEnd: 34,
+        headingPath: ["Copular verbs"],
+      },
+    });
+    const decoySection = await prisma.materialSection.create({
+      data: {
+        userId,
+        materialRevisionId: revision.id,
+        ordinal: 1,
+        level: 1,
+        title: "Verb reference",
+        normalizedTitle: "verb reference",
+        pageStart: 100,
+        pageEnd: 190,
+        headingPath: ["Verb reference"],
+      },
+    });
+    const teachingChunkIds = [
+      `${runId}_split_ser_teaching`,
+      `${runId}_split_estar_teaching`,
+    ];
+    const decoyChunkIds = Array.from(
+      { length: 85 },
+      (_, index) => `${runId}_split_comparison_decoy_${index}`,
+    );
+    await prisma.materialChunk.createMany({
+      data: [
+        {
+          id: teachingChunkIds[0],
+          userId,
+          materialRevisionId: revision.id,
+          materialSectionId: comparisonSection.id,
+          ordinal: 0,
+          text: "Ser identifies an essential characteristic or identity.",
+          tokenEstimate: 8,
+          contentHash: `sha256:${runId}:split-ser`,
+          headingText: comparisonSection.title,
+          locator: { kind: "pdf", pageRange: { start: 30, end: 31 } },
+        },
+        {
+          id: teachingChunkIds[1],
+          userId,
+          materialRevisionId: revision.id,
+          materialSectionId: comparisonSection.id,
+          ordinal: 1,
+          text: "Estar describes a condition or location.",
+          tokenEstimate: 7,
+          contentHash: `sha256:${runId}:split-estar`,
+          headingText: comparisonSection.title,
+          locator: { kind: "pdf", pageRange: { start: 32, end: 34 } },
+        },
+        ...decoyChunkIds.map((id, index) => ({
+          id,
+          userId,
+          materialRevisionId: revision.id,
+          materialSectionId: decoySection.id,
+          ordinal: index + 2,
+          text: `Ser reference list entry ${index + 1}.`,
+          tokenEstimate: 6,
+          contentHash: `sha256:${runId}:split-decoy:${index}`,
+          headingText: decoySection.title,
+          locator: {
+            kind: "pdf" as const,
+            pageRange: { start: 100 + index, end: 100 + index },
+          },
+        })),
+      ],
+    });
+    const semanticEmbedding = Array.from(
+      { length: MATERIAL_EMBEDDING_DIMENSIONS },
+      (_, index) => (index === 0 ? 1 : 0),
+    );
+    await storeMaterialChunkEmbedding({
+      userId,
+      materialRevisionId: revision.id,
+      chunkId: decoyChunkIds[0],
+      embedding: semanticEmbedding,
+    });
+    await finalizeMaterialRevision({
+      userId,
+      materialId: material.id,
+      materialRevisionId: revision.id,
+      contentHash: `sha256:${runId}:split-comparison`,
+      byteSize: 32_768,
+      pageCount: 190,
+      storageBucket: "test-materials",
+      storageKey: `${runId}/split-comparison.pdf`,
+      processingMetadata: { embeddingStatus: "ready" },
+    });
+    const planScope = vi.fn(async () => ({
+      resolutionStatus: "resolved" as const,
+      resolvedScopeLabel: "Ser and estar",
+      clarification: null,
+      warnings: [],
+      items: [
+        {
+          key: "ser-estar-comparison",
+          title: "Ser and estar",
+          objective: "Choose between ser and estar for identity, condition, and location.",
+          materialSectionIds: [comparisonSection.id],
+          evidenceChunkIds: teachingChunkIds,
+        },
+      ],
+    }));
+
+    const result = await planMaterialSkills({
+      userId,
+      input: {
+        materialId: material.id,
+        materialRevisionId: revision.id,
+        instruction: "make skills for ser and estar",
+        idempotencyKey: `${runId}_split_comparison_recovery`,
+      },
+      now: new Date(),
+      aiSetup: createAiSetup({ planScope }),
+      embeddingGenerator: async () => [semanticEmbedding],
+    });
+
+    expect(result.status).toBe("planned");
+    const planningInput = planScope.mock.calls[0]?.[0];
+    expect(planningInput?.sections.map((section) => section.id)).toEqual([
+      comparisonSection.id,
+    ]);
+    expect(planningInput?.chunks.map((chunk) => chunk.id)).toEqual(
+      expect.arrayContaining(teachingChunkIds),
+    );
+    expect(planningInput?.chunks.map((chunk) => chunk.id)).not.toContain(
+      decoyChunkIds[0],
     );
   });
 

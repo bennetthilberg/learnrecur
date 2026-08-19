@@ -231,20 +231,51 @@ const structuralTitleStopWords = new Set([
   ...numberWords.keys(),
 ]);
 
-const backMatterHeadingPattern =
-  /\b(?:answer\s+key|answers?\s+will\s+vary|solutions?|front\s+matter|table\s+of\s+contents|contents|index|glossary|bibliography|references)\b/iu;
+const strongBackMatterPattern =
+  /\b(?:answer\s+key|answers?\s+will\s+vary|solutions?\s+(?:key|manual)|front\s+matter|table\s+of\s+contents)\b/iu;
+const genericBackMatterHeadingPattern =
+  /^[\s\p{P}\p{S}]*(?:contents|index|glossary|bibliography|references)[\s\p{P}\p{S}]*$/iu;
 
 const materialSkillRequestPattern =
   /^\s*(?:please\s+)?(?:make|create|generate|add)\s+(?:me\s+)?(?:(?:up\s+to\s+)?(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+)?(?:new\s+)?skills?\s+(?:for|about|on|covering|from)\s+(.+?)\s*$/iu;
 
 const genericTrailingTopicTerms = new Set(["concepts", "rules", "topics"]);
 
+const materialTopicRecoveryStopTerms = new Set([
+  "a",
+  "about",
+  "add",
+  "an",
+  "and",
+  "create",
+  "for",
+  "from",
+  "generate",
+  "in",
+  "make",
+  "of",
+  "on",
+  "or",
+  "skill",
+  "skills",
+  "some",
+  "the",
+  "to",
+]);
+
+const irregularIcesRecoverySingulars = new Map([
+  ["appendices", "appendix"],
+  ["indices", "index"],
+  ["matrices", "matrix"],
+  ["vertices", "vertex"],
+]);
+
 export function resolveMaterialTopicSearchQuery(instruction: string): string | null {
   const topic = extractMaterialRequestTopic(instruction);
   if (!topic) {
     return null;
   }
-  const tokens = normalizeComparableText(topic).split(" ").filter(Boolean);
+  const tokens = normalizeMaterialTopicRecoveryText(topic).split(" ").filter(Boolean);
   if (tokens[0] === "the" || tokens[0] === "some") {
     tokens.shift();
   }
@@ -252,6 +283,76 @@ export function resolveMaterialTopicSearchQuery(instruction: string): string | n
     tokens.pop();
   }
   return tokens.length > 0 ? tokens.join(" ") : null;
+}
+
+export function buildMaterialTopicRecoveryQuery(topic: string): string | null {
+  const tokenGroups = normalizeMaterialTopicRecoveryText(topic)
+    .split(" ")
+    .filter(Boolean)
+    .filter((token) => !materialTopicRecoveryStopTerms.has(token))
+    .map(normalizeMaterialTopicRecoveryToken)
+    .map((tokens) =>
+      [...new Set(tokens.flatMap(addDiacriticCompatibilityAlternative))].filter(
+        (token) => token.length >= 2,
+      ),
+    )
+    .filter((tokens) => tokens.length > 0);
+
+  const uniqueGroups = [
+    ...new Map(tokenGroups.map((tokens) => [tokens.join("|"), tokens])).values(),
+  ];
+  return uniqueGroups.length > 0
+    ? uniqueGroups.map((tokens) => tokens.join("|")).join(" ")
+    : null;
+}
+
+export function getMaterialTopicRecoveryGroupCount(query: string) {
+  return query.split(/\s+/u).filter(Boolean).length;
+}
+
+function normalizeMaterialTopicRecoveryText(value: string) {
+  return value
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/\u0307/gu, "")
+    .normalize("NFKC")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
+}
+
+function normalizeMaterialTopicRecoveryToken(token: string) {
+  const irregularSingular = irregularIcesRecoverySingulars.get(token);
+  if (irregularSingular) {
+    return [irregularSingular, token.slice(0, -1)];
+  }
+  if (token.length > 4 && token.endsWith("ies")) {
+    return [token.slice(0, -3)];
+  }
+  if (token.length > 4 && token.endsWith("es")) {
+    return [token.slice(0, -2)];
+  }
+  if (token.length > 4 && token.endsWith("ied")) {
+    return [`${token.slice(0, -3)}y`];
+  }
+  if (token.length > 5 && token.endsWith("ing")) {
+    return [normalizeDoubledConsonantStem(token.slice(0, -3))];
+  }
+  if (token.length > 5 && token.endsWith("ed")) {
+    return [normalizeDoubledConsonantStem(token.slice(0, -2))];
+  }
+  if (token.length > 3 && token.endsWith("s") && !token.endsWith("ss")) {
+    return [token.slice(0, -1)];
+  }
+  return [token];
+}
+
+function addDiacriticCompatibilityAlternative(token: string) {
+  const compatibility = token.normalize("NFD").replace(/\p{M}+/gu, "");
+  return compatibility === token ? [token] : [token, compatibility];
+}
+
+function normalizeDoubledConsonantStem(stem: string) {
+  return /([bcdfghjklmnpqrstvwxyz])\1$/u.test(stem) ? stem.slice(0, -1) : stem;
 }
 
 export function selectFocusedMaterialTopicChunks<
@@ -275,18 +376,70 @@ export function selectFocusedMaterialTopicChunks<
   }
   const rankedSections = [...bySection.entries()].sort(
     ([leftId, left], [rightId, right]) =>
-      right.length - left.length ||
-      right.reduce((sum, chunk) => sum + chunk.lexicalScore, 0) -
-        left.reduce((sum, chunk) => sum + chunk.lexicalScore, 0) ||
-      leftId.localeCompare(rightId),
+      compareMaterialSectionRelevance(right, left) || leftId.localeCompare(rightId),
   );
   const dominant = rankedSections[0]?.[1] ?? [];
   const runnerUp = rankedSections[1]?.[1] ?? [];
-  if (dominant.length < 2 || dominant.length <= runnerUp.length) {
+  if (
+    dominant.length === 0 ||
+    (runnerUp.length > 0 && compareMaterialSectionRelevance(dominant, runnerUp) <= 0)
+  ) {
     return [];
   }
   const dominantIds = new Set(dominant.map((chunk) => chunk.id));
   return chunks.filter((chunk) => dominantIds.has(chunk.id));
+}
+
+export function selectFocusedMaterialTopicRecoveryChunks<
+  T extends MaterialPlanningEvidenceChunk & { lexicalScore: number },
+>(chunks: readonly T[]): T[] {
+  const bySection = new Map<string, T[]>();
+  for (const chunk of chunks) {
+    if (
+      chunk.lexicalScore <= 0 ||
+      !chunk.materialSectionId ||
+      isLikelyBackMatterEvidence(chunk)
+    ) {
+      continue;
+    }
+    const sectionChunks = bySection.get(chunk.materialSectionId) ?? [];
+    sectionChunks.push(chunk);
+    bySection.set(chunk.materialSectionId, sectionChunks);
+  }
+  const rankedSections = [...bySection.entries()].sort(
+    ([leftId, left], [rightId, right]) =>
+      compareMaterialSectionRelevance(right, left) || leftId.localeCompare(rightId),
+  );
+  const dominant = rankedSections[0]?.[1] ?? [];
+  const runnerUp = rankedSections[1]?.[1] ?? [];
+  if (
+    dominant.length === 0 ||
+    (runnerUp.length > 0 && compareMaterialSectionRelevance(dominant, runnerUp) <= 0)
+  ) {
+    return [];
+  }
+  const dominantIds = new Set(dominant.map((chunk) => chunk.id));
+  return chunks.filter((chunk) => dominantIds.has(chunk.id));
+}
+
+function compareMaterialSectionRelevance<
+  T extends MaterialPlanningEvidenceChunk & { lexicalScore: number },
+>(left: readonly T[], right: readonly T[]) {
+  const metrics = (chunks: readonly T[]) => {
+    const scores = chunks.map((chunk) => chunk.lexicalScore).sort((a, b) => b - a);
+    return {
+      peak: scores[0] ?? 0,
+      topThreeTotal: scores.slice(0, 3).reduce((sum, score) => sum + score, 0),
+      chunkCount: chunks.length,
+    };
+  };
+  const leftMetrics = metrics(left);
+  const rightMetrics = metrics(right);
+  return (
+    leftMetrics.peak - rightMetrics.peak ||
+    leftMetrics.topThreeTotal - rightMetrics.topThreeTotal ||
+    leftMetrics.chunkCount - rightMetrics.chunkCount
+  );
 }
 
 export function selectMaterialTopicRetrievalChunks<
@@ -299,8 +452,17 @@ export function selectMaterialTopicRetrievalChunks<
   if (semantic.length > 0) {
     return { chunks: semantic, focused: true };
   }
-  const lexical = selectFocusedMaterialTopicChunks(input.lexical);
-  return { chunks: lexical, focused: lexical.length > 0 };
+  const focusedLexical = selectFocusedMaterialTopicChunks(input.lexical);
+  if (focusedLexical.length > 0) {
+    return { chunks: focusedLexical, focused: true };
+  }
+  const exactLexical = input.lexical.filter(
+    (chunk) =>
+      chunk.lexicalScore > 0 &&
+      chunk.materialSectionId !== null &&
+      !isLikelyBackMatterEvidence(chunk),
+  );
+  return { chunks: exactLexical, focused: false };
 }
 
 export async function recoverBackMatterMaterialScope<
@@ -1077,13 +1239,14 @@ function isConfidentCanonicalTitle(terms: readonly string[]) {
 }
 
 function isLikelyBackMatterHeading(value: string) {
-  return backMatterHeadingPattern.test(value.slice(0, 500));
+  const heading = value.slice(0, 500);
+  return strongBackMatterPattern.test(heading) || genericBackMatterHeadingPattern.test(heading);
 }
 
 export function isLikelyBackMatterEvidence(chunk: MaterialPlanningEvidenceChunk) {
   return (
     isLikelyBackMatterHeading(chunk.headingText ?? "") ||
-    backMatterHeadingPattern.test(chunk.text.slice(0, 800))
+    strongBackMatterPattern.test(chunk.text.slice(0, 800))
   );
 }
 

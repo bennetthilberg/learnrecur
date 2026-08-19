@@ -44,8 +44,11 @@ import {
   generateVerifiedMaterialDraft,
   repairMaterialDraftTarget,
   recoverBackMatterMaterialScope,
+  buildMaterialTopicRecoveryQuery,
+  getMaterialTopicRecoveryGroupCount,
   resolveMaterialTopicSearchQuery,
   resolveStructuralMaterialScope,
+  selectFocusedMaterialTopicRecoveryChunks,
   selectMaterialTopicRetrievalChunks,
   type MaterialPlanningSection,
 } from "@/lib/materials/drafting";
@@ -3824,6 +3827,7 @@ async function retrievePlanningChunks(input: {
       });
     }
   }
+  let strictLexicalMatched = false;
   if (input.topicSearchQuery) {
     const lexicalMatches = await searchMaterialChunksLexical({
       userId: input.userId,
@@ -3832,14 +3836,44 @@ async function retrievePlanningChunks(input: {
       materialSectionIds: input.sectionIds,
       limit: 48,
       prefixMatching: true,
+      excludeLikelyBackMatter: true,
     });
+    const strictLexical = selectMaterialTopicRetrievalChunks({
+      semantic: [],
+      lexical: lexicalMatches,
+    });
+    strictLexicalMatched = strictLexical.chunks.length > 0;
     const selected = selectMaterialTopicRetrievalChunks({
       semantic: ranked,
       lexical: lexicalMatches,
     });
-    if (selected.focused) {
-      ranked = [...selected.chunks];
-      focusedTopic = true;
+    if (selected.chunks.length > 0) {
+      ranked = uniqueById([...selected.chunks, ...strictLexical.chunks]);
+      focusedTopic = selected.focused || strictLexical.focused;
+    }
+  }
+  if (input.topicSearchQuery && !strictLexicalMatched) {
+    const recoveryQuery = buildMaterialTopicRecoveryQuery(input.topicSearchQuery);
+    if (recoveryQuery) {
+      const minimumPrefixMatches = getMaterialTopicRecoveryGroupCount(recoveryQuery);
+      const recoveryMatches = (
+        await searchMaterialChunksLexical({
+          userId: input.userId,
+          materialRevisionId: input.materialRevisionId,
+          query: recoveryQuery,
+          materialSectionIds: input.sectionIds,
+          limit: 80,
+          prefixMatching: true,
+          prefixOperator: "or",
+          minimumSectionPrefixMatches: minimumPrefixMatches,
+          excludeLikelyBackMatter: true,
+        })
+      );
+      const recovered = selectFocusedMaterialTopicRecoveryChunks(recoveryMatches);
+      if (recovered.length > 0) {
+        ranked = recovered;
+        focusedTopic = true;
+      }
     }
   }
   if (ranked.length === 0) {

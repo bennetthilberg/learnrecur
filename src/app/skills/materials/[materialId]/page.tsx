@@ -9,13 +9,18 @@ import { formatDisplayLabel } from "@/lib/formatters";
 import { getMaterialIngestionDisplayState } from "@/lib/materials/ingestion-status";
 import { getMaterialDetail } from "@/lib/materials/library";
 import { truncateMaterialTitle } from "@/lib/materials/pdf-upload";
-import { getMaterialAvailabilityMessage } from "@/lib/materials/presentation";
+import {
+  getMaterialAvailabilityMessage,
+  getMaterialIndexHealth,
+  getMaterialRecoveryDisplayState,
+} from "@/lib/materials/presentation";
 import { buildMaterialSummaryFallback } from "@/lib/materials/summary";
 import { ensureDatabaseUser } from "@/lib/users";
 
 import { SkillsTopbar } from "../../skills-topbar";
 import {
   refreshWebsiteMaterialAction,
+  reindexMaterialPdfAction,
   retryMaterialIngestionAction,
 } from "../actions";
 import { MaterialDeleteControl } from "../material-delete-control";
@@ -24,8 +29,15 @@ import { MaterialRetryButton } from "../material-retry-button";
 
 export const dynamic = "force-dynamic";
 
-export default async function MaterialDetailPage({ params }: { params: Promise<{ materialId: string }> }) {
-  const { materialId } = await params;
+export default async function MaterialDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ materialId: string }>;
+  searchParams: Promise<{ reindex?: string | string[] }>;
+}) {
+  const [{ materialId }, query] = await Promise.all([params, searchParams]);
+  const reindexFailed = query.reindex === "failed";
   const { userId } = await auth.protect();
   const clerkUser = await currentUser();
   if (!clerkUser) {
@@ -70,6 +82,18 @@ export default async function MaterialDetailPage({ params }: { params: Promise<{
         outlineTitles: contentRevision.sections.map((section) => section.title),
       })
     : null;
+  const indexHealth = getMaterialIndexHealth({
+    kind: material.kind,
+    processingMetadata: contentRevision?.processingMetadata,
+  });
+  const recoveryDisplay = getMaterialRecoveryDisplayState({
+    kind: material.kind,
+    currentRevision: revision,
+    activeRevision: material.activeRevision,
+    indexHealthStatus: indexHealth.status,
+    processing,
+    stalled,
+  });
 
   return (
     <main className="skillShell materialShell materialDetailShell">
@@ -143,7 +167,7 @@ export default async function MaterialDetailPage({ params }: { params: Promise<{
             <p>Extracting headings, page references, readable text, and retrieval chunks. This page updates automatically.</p>
           </div>
         </section>
-      ) : revision?.status === "FAILED" ? (
+      ) : recoveryDisplay.showImportRetry && revision ? (
         <section className="skillPanel materialFailurePanel">
           <div>
             <h2>Import needs attention</h2>
@@ -154,6 +178,26 @@ export default async function MaterialDetailPage({ params }: { params: Promise<{
             <input name="materialRevisionId" type="hidden" value={revision.id} />
             <MaterialRetryButton>Retry import</MaterialRetryButton>
           </form>
+        </section>
+      ) : null}
+
+      {indexHealth.status === "degraded" && recoveryDisplay.showSearchRebuild ? (
+        <section className="skillPanel materialFailurePanel" aria-live="polite">
+          <div>
+            <h2>{indexHealth.title}</h2>
+            <p>{indexHealth.description}</p>
+            {reindexFailed ? (
+              <p className="materialReindexError" role="alert">
+                Search rebuild could not start. Your existing material is still available. Try again.
+              </p>
+            ) : null}
+          </div>
+          {material.kind === "PDF" ? (
+            <form action={reindexMaterialPdfAction}>
+              <input name="materialId" type="hidden" value={material.id} />
+              <MaterialRetryButton>Rebuild search</MaterialRetryButton>
+            </form>
+          ) : null}
         </section>
       ) : null}
 
@@ -201,9 +245,9 @@ export default async function MaterialDetailPage({ params }: { params: Promise<{
         <aside className="materialDetailSidebar">
           <section className="skillPanel materialLinkedSkills" aria-labelledby="material-skills-title">
             <div className="skillPanelHeader"><div><h2 id="material-skills-title">Created skills</h2></div></div>
-            {contentRevision?.linkedSkills.length ? (
+            {material.linkedSkills.length ? (
               <div className="materialLinkedSkillList">
-                {contentRevision.linkedSkills.map((skill) => (
+                {material.linkedSkills.map((skill) => (
                   <Link href={`/skills/${skill.id}`} key={skill.id}>
                     <strong>{skill.title}</strong>
                     <small>{formatDisplayLabel(skill.status)}</small>

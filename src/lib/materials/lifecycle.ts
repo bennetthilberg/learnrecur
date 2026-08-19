@@ -1,13 +1,20 @@
 import "server-only";
 
+import { randomUUID } from "node:crypto";
+
 import {
   MaterialCleanupStatus,
+  MaterialPageTextStatus,
   MaterialRevisionStatus,
   SkillDraftBatchStatus,
   StudyMaterialKind,
   StudyMaterialStatus,
-  type Prisma,
+  Prisma,
 } from "@/generated/prisma/client";
+import {
+  MATERIAL_OCR_PROCESSING_STALE_MS,
+  readyMaterialOcrPageQuery,
+} from "@/lib/materials/ocr-cache";
 import { getPrisma } from "@/lib/prisma";
 
 export type CreateMaterialInput = {
@@ -123,6 +130,9 @@ export async function finalizeMaterialRevision(input: {
   storageBucket: string;
   storageKey: string;
   processingMetadata?: Prisma.InputJsonValue;
+  copyReadyOcrFromRevisionId?: string | null;
+  indexedOcrPageNumbers?: number[];
+  now?: Date;
 }) {
   const prisma = getPrisma();
 
@@ -161,6 +171,101 @@ export async function finalizeMaterialRevision(input: {
 
     if (!revision) {
       return null;
+    }
+
+    if (
+      input.copyReadyOcrFromRevisionId &&
+      input.copyReadyOcrFromRevisionId !== revision.id
+    ) {
+      const staleBefore = new Date(
+        (input.now ?? new Date()).getTime() - MATERIAL_OCR_PROCESSING_STALE_MS,
+      );
+      await tx.materialPage.updateMany({
+        where: {
+          userId: input.userId,
+          materialRevisionId: input.copyReadyOcrFromRevisionId,
+          textStatus: MaterialPageTextStatus.OCR_PROCESSING,
+          updatedAt: { lt: staleBefore },
+          ...(input.pageCount ? { pageNumber: { lte: input.pageCount } } : {}),
+        },
+        data: { textStatus: MaterialPageTextStatus.OCR_FAILED },
+      });
+      const processingOcrPageCount = await tx.materialPage.count({
+        where: {
+          userId: input.userId,
+          materialRevisionId: input.copyReadyOcrFromRevisionId,
+          textStatus: MaterialPageTextStatus.OCR_PROCESSING,
+          ...(input.pageCount ? { pageNumber: { lte: input.pageCount } } : {}),
+        },
+      });
+      if (processingOcrPageCount > 0) {
+        throw new Error(
+          "Material OCR is still processing; retry the rebuild after it finishes.",
+        );
+      }
+      const readyOcrQuery = readyMaterialOcrPageQuery({
+        userId: input.userId,
+        materialRevisionId: input.copyReadyOcrFromRevisionId,
+      });
+      const readyOcrPages = await tx.materialPage.findMany({
+        where: {
+          ...readyOcrQuery.where,
+          materialRevision: { materialId: input.materialId },
+          ...(input.pageCount ? { pageNumber: { lte: input.pageCount } } : {}),
+        },
+        orderBy: { pageNumber: "asc" },
+        select: readyOcrQuery.select,
+      });
+      const indexedOcrPageNumbers = new Set(input.indexedOcrPageNumbers ?? []);
+      if (readyOcrPages.some((page) => !indexedOcrPageNumbers.has(page.pageNumber))) {
+        throw new Error(
+          "Material OCR became ready during the rebuild; retry to include it in the search index.",
+        );
+      }
+      if (readyOcrPages.length > 0) {
+        const copiedAt = new Date();
+        const values = readyOcrPages.map((page) => {
+          const metadata = page.metadata === null ? null : JSON.stringify(page.metadata);
+          return Prisma.sql`(
+            ${randomUUID()},
+            ${input.userId},
+            ${revision.id},
+            ${page.pageNumber},
+            ${page.embeddedText},
+            ${page.ocrText},
+            ${page.textStatus}::"MaterialPageTextStatus",
+            ${page.contentHash},
+            ${page.tokenEstimate},
+            ${metadata}::jsonb,
+            ${copiedAt},
+            ${copiedAt}
+          )`;
+        });
+        await tx.$executeRaw`
+          INSERT INTO "material_pages" (
+            "id",
+            "userId",
+            "materialRevisionId",
+            "pageNumber",
+            "embeddedText",
+            "ocrText",
+            "textStatus",
+            "contentHash",
+            "tokenEstimate",
+            "metadata",
+            "createdAt",
+            "updatedAt"
+          )
+          VALUES ${Prisma.join(values)}
+          ON CONFLICT ("materialRevisionId", "pageNumber") DO UPDATE SET
+            "ocrText" = EXCLUDED."ocrText",
+            "textStatus" = EXCLUDED."textStatus",
+            "contentHash" = EXCLUDED."contentHash",
+            "tokenEstimate" = EXCLUDED."tokenEstimate",
+            "metadata" = EXCLUDED."metadata",
+            "updatedAt" = EXCLUDED."updatedAt"
+        `;
+      }
     }
 
     const finalizedAt = new Date();

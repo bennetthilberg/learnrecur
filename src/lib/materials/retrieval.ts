@@ -5,6 +5,11 @@ import { getPrisma } from "@/lib/prisma";
 
 export const MATERIAL_EMBEDDING_DIMENSIONS = 768;
 
+const STRONG_BACK_MATTER_SQL_PATTERN =
+  "(^|[^[:alnum:]_])(answer[[:space:]]+key|answers?[[:space:]]+will[[:space:]]+vary|solutions?[[:space:]]+(key|manual)|front[[:space:]]+matter|table[[:space:]]+of[[:space:]]+contents)([^[:alnum:]_]|$)";
+const GENERIC_BACK_MATTER_HEADING_SQL_PATTERN =
+  "^[[:space:][:punct:]]*(contents|index|glossary|bibliography|references)[[:space:][:punct:]]*$";
+
 export type MaterialChunkSearchResult = {
   id: string;
   materialRevisionId: string;
@@ -105,6 +110,10 @@ export async function searchMaterialChunksLexical(input: {
   materialSectionIds?: readonly string[];
   limit?: number;
   prefixMatching?: boolean;
+  prefixOperator?: "and" | "or";
+  minimumPrefixMatches?: number;
+  minimumSectionPrefixMatches?: number;
+  excludeLikelyBackMatter?: boolean;
 }): Promise<MaterialChunkSearchResult[]> {
   const prisma = getPrisma();
   const limit = Math.max(1, Math.min(input.limit ?? 24, 80));
@@ -112,8 +121,58 @@ export async function searchMaterialChunksLexical(input: {
     ? Prisma.sql`AND "materialSectionId" IN (${Prisma.join(input.materialSectionIds)})`
     : Prisma.empty;
   const prefixQuery = input.prefixMatching
-    ? toSimplePrefixTsQuery(input.query)
+    ? toSimplePrefixTsQuery(input.query, input.prefixOperator)
     : null;
+  const minimumPrefixGroups =
+    input.prefixMatching &&
+    (input.minimumPrefixMatches || input.minimumSectionPrefixMatches)
+      ? simplePrefixTermGroups(input.query).map((group) =>
+          group.map((token) => `${token}:*`).join(" | "),
+        )
+      : [];
+  const minimumPrefixFilter = input.minimumPrefixMatches
+    ? minimumPrefixGroups.length >= input.minimumPrefixMatches
+      ? Prisma.sql`AND (
+          SELECT COUNT(*)
+          FROM unnest(ARRAY[${Prisma.join(minimumPrefixGroups)}]::text[]) AS recovery_group(query)
+          WHERE "searchText" @@ to_tsquery('simple', recovery_group.query)
+        ) >= ${input.minimumPrefixMatches}`
+      : Prisma.sql`AND FALSE`
+    : Prisma.empty;
+  const sectionBackMatterFilter = input.excludeLikelyBackMatter
+    ? Prisma.sql`AND NOT (
+        COALESCE(section_chunk."headingText", '') ~* ${STRONG_BACK_MATTER_SQL_PATTERN}
+        OR COALESCE(section_chunk."headingText", '') ~* ${GENERIC_BACK_MATTER_HEADING_SQL_PATTERN}
+        OR LEFT(section_chunk."text", 800) ~* ${STRONG_BACK_MATTER_SQL_PATTERN}
+      )`
+    : Prisma.empty;
+  const minimumSectionPrefixFilter = input.minimumSectionPrefixMatches
+    ? minimumPrefixGroups.length >= input.minimumSectionPrefixMatches
+      ? Prisma.sql`AND (
+          SELECT COUNT(*)
+          FROM unnest(ARRAY[${Prisma.join(minimumPrefixGroups)}]::text[]) AS recovery_group(query)
+          WHERE EXISTS (
+            SELECT 1
+            FROM "material_chunks" AS section_chunk
+            WHERE section_chunk."userId" = ${input.userId}
+              AND section_chunk."materialRevisionId" = ${input.materialRevisionId}
+              AND section_chunk."materialSectionId" = "material_chunks"."materialSectionId"
+              ${sectionBackMatterFilter}
+              AND section_chunk."searchText" @@ to_tsquery(
+                'simple',
+                recovery_group.query
+              )
+          )
+        ) >= ${input.minimumSectionPrefixMatches}`
+      : Prisma.sql`AND FALSE`
+    : Prisma.empty;
+  const backMatterFilter = input.excludeLikelyBackMatter
+    ? Prisma.sql`AND NOT (
+        COALESCE("headingText", '') ~* ${STRONG_BACK_MATTER_SQL_PATTERN}
+        OR COALESCE("headingText", '') ~* ${GENERIC_BACK_MATTER_HEADING_SQL_PATTERN}
+        OR LEFT("text", 800) ~* ${STRONG_BACK_MATTER_SQL_PATTERN}
+      )`
+    : Prisma.empty;
   const textQuery = prefixQuery
     ? Prisma.sql`to_tsquery('simple', ${prefixQuery})`
     : Prisma.sql`websearch_to_tsquery('simple', ${input.query})`;
@@ -144,16 +203,37 @@ export async function searchMaterialChunksLexical(input: {
     WHERE "userId" = ${input.userId}
       AND "materialRevisionId" = ${input.materialRevisionId}
       ${sectionFilter}
+      ${minimumPrefixFilter}
+      ${minimumSectionPrefixFilter}
+      ${backMatterFilter}
     ORDER BY "score" DESC, "ordinal" ASC
     LIMIT ${limit}
   `;
 }
 
-export function toSimplePrefixTsQuery(query: string) {
+export function toSimplePrefixTsQuery(query: string, operator: "and" | "or" = "and") {
+  return simplePrefixTermGroups(query)
+    .map((group) => {
+      const query = group.map((token) => `${token}:*`).join(" | ");
+      return group.length > 1 ? `(${query})` : query;
+    })
+    .join(operator === "or" ? " | " : " & ");
+}
+
+function simplePrefixTermGroups(query: string) {
   return query
-    .normalize("NFC")
-    .toLocaleLowerCase()
-    .match(/[\p{L}\p{N}]+/gu)
-    ?.map((token) => `${token}:*`)
-    .join(" & ") ?? "";
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/\u0307/gu, "")
+    .normalize("NFKC")
+    .split(/\s+/u)
+    .flatMap((segment) => {
+      if (segment.includes("|")) {
+        const alternatives = segment
+          .split("|")
+          .flatMap((part) => part.match(/[\p{L}\p{N}]+/gu) ?? []);
+        return alternatives.length > 0 ? [[...new Set(alternatives)]] : [];
+      }
+      return (segment.match(/[\p{L}\p{N}]+/gu) ?? []).map((token) => [token]);
+    });
 }

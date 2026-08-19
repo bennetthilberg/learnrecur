@@ -33,7 +33,7 @@ import {
   getMaterialDraftItemErrorMessage,
   getPublicMaterialActionErrorMessage,
 } from "@/lib/materials/presentation";
-import { ensureDatabaseUser } from "@/lib/users";
+import { ensureAuthenticatedDatabaseUser } from "@/lib/users";
 
 import { MaterialStatusPoller } from "../../materials/material-status-poller";
 import { SkillsTopbar } from "../../skills-topbar";
@@ -71,11 +71,10 @@ export default async function MaterialBatchPage({
 }) {
   const { batchId } = await params;
   const { userId } = await auth.protect();
-  const clerkUser = await currentUser();
-  if (!clerkUser) {
-    throw new Error(`Clerk returned no user for authenticated user ${userId}.`);
-  }
-  const databaseUser = await ensureDatabaseUser(clerkUser);
+  const databaseUser = await ensureAuthenticatedDatabaseUser({
+    userId,
+    loadClerkUser: currentUser,
+  });
   if (databaseUser.status !== "ready") {
     return (
       <main className="skillShell">
