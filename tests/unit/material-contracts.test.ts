@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   activateBatchInputSchema,
+  confirmMaterialPlanInputSchema,
   discoverWebsiteMaterialInputSchema,
   MATERIAL_LOCATOR_VERSION,
   materialScopePlanSchema,
@@ -237,6 +238,103 @@ describe("material contracts", () => {
         itemIds: Array.from({ length: 11 }, (_, index) => `item_${index}`),
       }),
     ).toThrow();
+
+    expect(
+      activateBatchInputSchema.parse({
+        batchId: "batch_1",
+        itemIds: ["item_1", "item_2"],
+        createSeparatelyMatches: [
+          {
+            itemId: "item_2",
+            skillId: "skill_2",
+            candidateFingerprint: "a".repeat(64),
+            skillFingerprint: "b".repeat(64),
+          },
+        ],
+      }),
+    ).toMatchObject({
+      createSeparatelyMatches: [
+        {
+          itemId: "item_2",
+          skillId: "skill_2",
+          candidateFingerprint: "a".repeat(64),
+          skillFingerprint: "b".repeat(64),
+        },
+      ],
+    });
+    expect(() =>
+      activateBatchInputSchema.parse({
+        batchId: "batch_1",
+        itemIds: ["item_1"],
+        createSeparatelyMatches: [
+          {
+            itemId: "item_2",
+            skillId: "skill_2",
+            candidateFingerprint: "a".repeat(64),
+            skillFingerprint: "b".repeat(64),
+          },
+        ],
+      }),
+    ).toThrow(/selected/i);
+  });
+
+  it("accepts explicit duplicate overrides only for matched plan items", () => {
+    const duplicateItem = {
+      key: "direct-objects",
+      title: "Direct object pronouns",
+      objective: "Replace a direct object with the correct Spanish pronoun.",
+      materialSectionIds: ["section_4_1"],
+      evidenceChunkIds: ["chunk_1"],
+      locator: {
+        version: MATERIAL_LOCATOR_VERSION,
+        materialRevisionId: "revision_1",
+        materialSectionIds: ["section_4_1"],
+        evidenceChunkIds: ["chunk_1"],
+        source: { kind: "pdf" as const, pageRanges: [{ start: 48, end: 51 }] },
+      },
+      overlapSkillId: "existing_skill",
+      overlapSkillFingerprint: "a".repeat(64),
+      overlapConfidence: "likely" as const,
+      overlapScore: 0.88,
+      overlapWarning: "This appears to cover the same material as an existing skill.",
+    };
+    const plan = materialScopePlanSchema.parse({
+      version: 1,
+      materialRevisionId: "revision_1",
+      instruction: "Make a skill from chapter four.",
+      resolutionStatus: "resolved",
+      resolvedScopeLabel: "Chapter 4",
+      warnings: [],
+      items: [duplicateItem],
+    });
+
+    expect(
+      confirmMaterialPlanInputSchema.parse({
+        batchId: "batch_1",
+        plan,
+        createSeparatelyTargetKeys: [duplicateItem.key],
+      }),
+    ).toMatchObject({ createSeparatelyTargetKeys: [duplicateItem.key] });
+    expect(() =>
+      confirmMaterialPlanInputSchema.parse({
+        batchId: "batch_1",
+        plan: {
+          ...plan,
+          items: [
+            {
+              ...duplicateItem,
+              key: "new-skill",
+              overlapSkillId: undefined,
+              overlapSkillFingerprint: undefined,
+              overlapConfidence: undefined,
+              overlapScore: undefined,
+              overlapWarning: undefined,
+            },
+          ],
+        },
+        createSeparatelyTargetKeys: ["new-skill"],
+      }),
+    ).toThrow(/matched/i);
   });
 
   it("rejects a resolved scope preview with no proposed skills", () => {

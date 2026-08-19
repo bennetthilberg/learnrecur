@@ -22,6 +22,13 @@ const automaticRepairInputSchema = z.strictObject({
   itemIds: z.array(z.string().trim().min(1).max(64)).min(1).max(10),
 });
 
+const useExistingDecisionInputSchema = z.strictObject({
+  expectedCandidateId: z.string().trim().min(1).max(64),
+  expectedCandidateFingerprint: z.string().regex(/^[a-f0-9]{64}$/),
+  expectedMatchId: z.string().trim().min(1).max(64),
+  expectedMatchFingerprint: z.string().regex(/^[a-f0-9]{64}$/),
+});
+
 export async function planMaterialSkillsAction(formData: FormData) {
   const userId = await requireBatchUser();
   const materialId = formString(formData, "materialId");
@@ -77,7 +84,14 @@ export async function confirmMaterialPlanAction(formData: FormData) {
   const result = await confirmMaterialPlan({
     userId,
     now: new Date(),
-    input: { batchId, plan: plan.data },
+    input: {
+      batchId,
+      plan: plan.data,
+      createSeparatelyTargetKeys: formStrings(
+        formData,
+        "createSeparatelyTargetKey",
+      ),
+    },
   });
   if (result.status === "queued") {
     revalidatePath(`/skills/batches/${batchId}`);
@@ -141,19 +155,72 @@ export async function autoRepairMaterialDraftItemsAction(input: unknown) {
 export async function activateMaterialBatchAction(formData: FormData) {
   const userId = await requireBatchUser();
   const batchId = formString(formData, "batchId");
-  const itemIds = formData
-    .getAll("itemId")
-    .filter((value): value is string => typeof value === "string")
-    .map((value) => value.trim())
-    .filter(Boolean);
+  const itemIds = formStrings(formData, "itemId");
+  const createSeparatelyItemIds = formStrings(
+    formData,
+    "createSeparatelyItemId",
+  );
+  const createSeparatelySkillIds = formStrings(
+    formData,
+    "createSeparatelySkillId",
+  );
+  const createSeparatelyCandidateFingerprints = formStrings(
+    formData,
+    "createSeparatelyCandidateFingerprint",
+  );
+  const createSeparatelySkillFingerprints = formStrings(
+    formData,
+    "createSeparatelySkillFingerprint",
+  );
   const result = await queueMaterialBatchActivation({
     userId,
-    input: { batchId, itemIds },
+    input: {
+      batchId,
+      itemIds,
+      createSeparatelyMatches: createSeparatelyItemIds.map(
+        (itemId, index) => ({
+          itemId,
+          skillId: createSeparatelySkillIds[index] ?? "",
+          candidateFingerprint:
+            createSeparatelyCandidateFingerprints[index] ?? "",
+          skillFingerprint:
+            createSeparatelySkillFingerprints[index] ?? "",
+        }),
+      ),
+    },
     now: new Date(),
   });
   if (
+    result.status === "review-required" ||
+    (result.status === "partial" && result.reviewItemIds.length > 0)
+  ) {
+    revalidatePath(`/skills/batches/${batchId}`);
+    revalidatePath("/skills");
+    const notice =
+      result.reviewItemIds.length === 1
+        ? "duplicate-review"
+        : "duplicate-reviews";
+    const firstReviewItemId = result.reviewItemIds[0];
+    const reviewTarget = firstReviewItemId
+      ? `#batch-draft-review-${encodeURIComponent(firstReviewItemId)}`
+      : "";
+    const partialFailure =
+      result.status === "partial" && result.failedItemIds.length > 0
+        ? `&error=${encodeURIComponent("Some other skills could not start. Retry the failed drafts below.")}`
+        : "";
+    return redirect(
+      `/skills/batches/${batchId}?notice=${notice}${partialFailure}${reviewTarget}`,
+    );
+  }
+  if (result.status === "partial") {
+    revalidatePath(`/skills/batches/${batchId}`);
+    revalidatePath("/skills");
+    return redirect(
+      `/skills/batches/${batchId}?error=${encodeURIComponent("Some skills could not start. Retry the failed drafts below.")}`,
+    );
+  }
+  if (
     result.status === "queued" ||
-    result.status === "partial" ||
     result.status === "already-queued"
   ) {
     revalidatePath(`/skills/batches/${batchId}`);
@@ -178,7 +245,7 @@ export async function retryMaterialBatchActivationItemAction(formData: FormData)
   });
   revalidatePath(`/skills/batches/${batchId}`);
   revalidatePath("/skills");
-  if (result.status !== "queued") {
+  if (result.status !== "queued" && result.status !== "already-running") {
     const message = "message" in result ? result.message : "Activation could not be retried.";
     redirect(`/skills/batches/${batchId}?error=${encodeURIComponent(message)}`);
   }
@@ -187,19 +254,68 @@ export async function retryMaterialBatchActivationItemAction(formData: FormData)
 export async function excludeMaterialDraftItemAction(formData: FormData) {
   const userId = await requireBatchUser();
   const batchId = formString(formData, "batchId");
-  const result = await excludeMaterialDraftItem({
-    userId,
-    batchId,
-    itemId: formString(formData, "itemId"),
-    now: new Date(),
-  });
+  const rawIntent = formData.get("intent");
+  if (rawIntent !== "exclude" && rawIntent !== "use-existing") {
+    return {
+      status: "error" as const,
+      message: "This choice was incomplete. Refresh the batch and try again.",
+    };
+  }
+  const itemId = formString(formData, "itemId");
+  let result: Awaited<ReturnType<typeof excludeMaterialDraftItem>>;
+  if (rawIntent === "use-existing") {
+    const decision = useExistingDecisionInputSchema.safeParse({
+      expectedCandidateId: formData.get("expectedCandidateId"),
+      expectedCandidateFingerprint: formData.get(
+        "expectedCandidateFingerprint",
+      ),
+      expectedMatchId: formData.get("expectedMatchId"),
+      expectedMatchFingerprint: formData.get("expectedMatchFingerprint"),
+    });
+    if (!decision.success) {
+      return {
+        status: "error" as const,
+        message:
+          "The existing skill preview changed. Refresh the batch and compare it again.",
+      };
+    }
+    result = await excludeMaterialDraftItem({
+      userId,
+      batchId,
+      itemId,
+      intent: "use-existing",
+      expectedCandidateId: decision.data.expectedCandidateId,
+      expectedCandidateFingerprint:
+        decision.data.expectedCandidateFingerprint,
+      expectedMatchId: decision.data.expectedMatchId,
+      expectedMatchFingerprint: decision.data.expectedMatchFingerprint,
+      now: new Date(),
+    });
+  } else {
+    result = await excludeMaterialDraftItem({
+      userId,
+      batchId,
+      itemId,
+      intent: "exclude",
+      now: new Date(),
+    });
+  }
   if (result.status !== "excluded") {
+    const refreshRequired =
+      result.status === "not-excluded" &&
+      [
+        "draft-changed",
+        "match-changed",
+        "match-not-found",
+        "skill-not-draft",
+      ].includes(result.reason);
     return {
       status: "error" as const,
       message:
         result.status === "not-excluded"
           ? result.message
           : "This draft could not be excluded. Refresh the batch and try again.",
+      refreshRequired,
     };
   }
   revalidatePath(`/skills/batches/${batchId}`);
@@ -229,4 +345,12 @@ function revalidateBatchPaths(batchId: string, materialId: string) {
 function formString(formData: FormData, key: string) {
   const value = formData.get(key);
   return typeof value === "string" ? value.trim() : "";
+}
+
+function formStrings(formData: FormData, key: string) {
+  return formData
+    .getAll(key)
+    .filter((value): value is string => typeof value === "string")
+    .map((value) => value.trim())
+    .filter(Boolean);
 }

@@ -2115,6 +2115,8 @@ export const SkillScalarFieldEnum = {
   examples: 'examples',
   exerciseConstraints: 'exerciseConstraints',
   tags: 'tags',
+  similarityEmbeddingModel: 'similarityEmbeddingModel',
+  similarityEmbeddingFingerprint: 'similarityEmbeddingFingerprint',
   status: 'status',
   dueAt: 'dueAt',
   stability: 'stability',

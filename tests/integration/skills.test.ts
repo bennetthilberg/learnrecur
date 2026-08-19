@@ -20,6 +20,7 @@ import {
   getNextPracticeItemForUser,
 } from "@/app/practice/queries";
 import { getDashboardHome } from "@/lib/dashboard";
+import { DEFAULT_GEMINI_MODEL } from "@/lib/gemini";
 import { getPrisma } from "@/lib/prisma";
 import {
   ACTIVATION_GENERATION_TIMEOUT_MS,
@@ -78,6 +79,11 @@ import type {
 import { getSkillsLibrary } from "@/lib/skills/library";
 import { getSkillCreationSourceRecoveryItems } from "@/lib/skills/source-recovery";
 import { removeSkillSource } from "@/lib/skills/sources";
+import {
+  buildSkillDuplicateCandidateFingerprint,
+  buildSkillDuplicateLibraryFingerprint,
+  buildSkillDuplicateReviewFingerprint,
+} from "@/lib/skills/similarity";
 import { createInitialSkillSchedule } from "@/lib/scheduling";
 
 const runDatabaseTests = process.env.RUN_DATABASE_TESTS === "1";
@@ -883,7 +889,784 @@ describeDatabase("skill drafts and Gemini activation", () => {
     }
   });
 
-  it("retries draft activation by reusing a stale running activation job", async () => {
+  it("does not start activation when the draft changed after duplicate review", async () => {
+    const userId = await createUser("activate_reviewed_snapshot");
+    const draft = await createSkillDraft({
+      userId,
+      input: {
+        title: "Spanish classroom directions",
+        objective: "Choose the correct meaning for common classroom directions.",
+        collectionName: "Spanish",
+        tags: "spanish, classroom",
+      },
+    });
+
+    if (draft.status !== "created") {
+      throw new Error("Expected draft creation to succeed.");
+    }
+
+    const expectedDraftFingerprint =
+      buildSkillDuplicateCandidateFingerprint(draft.skill);
+    const updated = await updateSkillDraft({
+      userId,
+      skillId: draft.skill.id,
+      input: {
+        title: "Updated Spanish classroom directions",
+        objective: "Choose the correct meaning after reviewing the updated scope.",
+        collectionName: "Spanish",
+        tags: "spanish, classroom",
+      },
+    });
+    expect(updated.status).toBe("updated");
+    const generator = vi.fn(successfulGenerator);
+
+    const result = await activateSkillDraft({
+      userId,
+      skillId: draft.skill.id,
+      expectedDraftFingerprint,
+      now,
+      generateChoiceExercises: generator,
+      verifyChoiceExercises: acceptAllVerifier,
+      model: "test-gemini",
+    });
+
+    expect(result).toMatchObject({
+      status: "not-activated",
+      reason: "draft-changed",
+    });
+    expect(generator).not.toHaveBeenCalled();
+    await expect(
+      prisma.generationJob.count({
+        where: {
+          userId,
+          skillId: draft.skill.id,
+          kind: GenerationJobKind.SKILL_ACTIVATION,
+        },
+      }),
+    ).resolves.toBe(0);
+    await expect(
+      prisma.skill.findUniqueOrThrow({ where: { id: draft.skill.id } }),
+    ).resolves.toMatchObject({
+      title: "Updated Spanish classroom directions",
+      status: SkillStatus.DRAFT,
+    });
+  });
+
+  it("does not start activation when a matching skill appears after an initial no-match snapshot", async () => {
+    const userId = await createUser("activate_new_duplicate_before_reservation");
+    const draft = await createSkillDraft({
+      userId,
+      input: {
+        title: "Spanish direct object pronouns",
+        objective:
+          "Choose the correct direct object pronoun in short Spanish sentences.",
+      },
+    });
+    if (draft.status !== "created") {
+      throw new Error("Expected draft creation to succeed.");
+    }
+    const expectedDuplicateLibraryFingerprint =
+      buildSkillDuplicateLibraryFingerprint([draft.skill]);
+
+    const matchingSkill = await createSkillDraft({
+      userId,
+      input: {
+        title: draft.skill.title,
+        objective: draft.skill.objective,
+      },
+    });
+    if (matchingSkill.status !== "created") {
+      throw new Error("Expected matching draft creation to succeed.");
+    }
+    const generator = vi.fn(successfulGenerator);
+
+    const result = await activateSkillDraft({
+      userId,
+      skillId: draft.skill.id,
+      expectedDraftFingerprint:
+        buildSkillDuplicateCandidateFingerprint(draft.skill),
+      expectedDuplicateLibraryFingerprint,
+      now,
+      generateChoiceExercises: generator,
+      verifyChoiceExercises: acceptAllVerifier,
+      model: "test-gemini",
+    });
+
+    expect(result).toMatchObject({
+      status: "not-activated",
+      reason: "duplicate-review-changed",
+      message:
+        "Your skill library changed after the duplicate check. Check again before adding this draft.",
+    });
+    expect(generator).not.toHaveBeenCalled();
+    await expect(
+      prisma.generationJob.count({
+        where: {
+          userId,
+          skillId: draft.skill.id,
+          kind: GenerationJobKind.SKILL_ACTIVATION,
+        },
+      }),
+    ).resolves.toBe(0);
+    await expect(
+      prisma.skill.findUniqueOrThrow({ where: { id: draft.skill.id } }),
+    ).resolves.toMatchObject({ status: SkillStatus.DRAFT });
+  });
+
+  it("does not finish activation when an existing skill becomes a match after the no-match snapshot", async () => {
+    const userId = await createUser("activate_edited_duplicate_during_generation");
+    const [draft, existing] = await Promise.all([
+      createSkillDraft({
+        userId,
+        input: {
+          title: "Spanish indirect object pronouns",
+          objective:
+            "Choose the correct indirect object pronoun in short Spanish sentences.",
+        },
+      }),
+      createSkillDraft({
+        userId,
+        input: {
+          title: "Spanish classroom greetings",
+          objective: "Choose an appropriate greeting for a classroom exchange.",
+        },
+      }),
+    ]);
+    if (draft.status !== "created" || existing.status !== "created") {
+      throw new Error("Expected both draft creations to succeed.");
+    }
+    const expectedDuplicateLibraryFingerprint =
+      buildSkillDuplicateLibraryFingerprint([
+        draft.skill,
+        existing.skill,
+      ]);
+    const generator: ChoiceExerciseGenerator = async (generatorInput) => {
+      const updated = await updateSkillDraft({
+        userId,
+        skillId: existing.skill.id,
+        input: {
+          title: draft.skill.title,
+          objective: draft.skill.objective,
+        },
+      });
+      expect(updated.status).toBe("updated");
+      return successfulGenerator(generatorInput);
+    };
+
+    const result = await activateSkillDraft({
+      userId,
+      skillId: draft.skill.id,
+      expectedDraftFingerprint:
+        buildSkillDuplicateCandidateFingerprint(draft.skill),
+      expectedDuplicateLibraryFingerprint,
+      now,
+      generateChoiceExercises: generator,
+      verifyChoiceExercises: acceptAllVerifier,
+      model: "test-gemini",
+    });
+
+    expect(result).toMatchObject({
+      status: "not-activated",
+      reason: "duplicate-review-changed",
+      message:
+        "Your skill library changed while exercises were being prepared. Check again before adding this draft.",
+    });
+    const [candidate, exerciseCount, generationJob] = await Promise.all([
+      prisma.skill.findUniqueOrThrow({ where: { id: draft.skill.id } }),
+      prisma.exercise.count({ where: { userId, skillId: draft.skill.id } }),
+      prisma.generationJob.findFirstOrThrow({
+        where: {
+          userId,
+          skillId: draft.skill.id,
+          kind: GenerationJobKind.SKILL_ACTIVATION,
+        },
+      }),
+    ]);
+    expect(candidate.status).toBe(SkillStatus.DRAFT);
+    expect(exerciseCount).toBe(0);
+    expect(generationJob).toMatchObject({
+      status: GenerationJobStatus.FAILED,
+      errorMessage:
+        "Your skill library changed while exercises were being prepared. Check again before adding this draft.",
+    });
+  });
+
+  it("does not invalidate a no-match library snapshot for lifecycle-only changes", async () => {
+    const userId = await createUser("activate_library_lifecycle_change");
+    const [draft, existing] = await Promise.all([
+      createSkillDraft({
+        userId,
+        input: {
+          title: "Spanish present-tense endings",
+          objective: "Choose the correct present-tense ending for a regular verb.",
+        },
+      }),
+      createSkillDraft({
+        userId,
+        input: {
+          title: "Spanish classroom greetings",
+          objective: "Choose an appropriate greeting for a classroom exchange.",
+        },
+      }),
+    ]);
+    if (draft.status !== "created" || existing.status !== "created") {
+      throw new Error("Expected both draft creations to succeed.");
+    }
+    const expectedDuplicateLibraryFingerprint =
+      buildSkillDuplicateLibraryFingerprint([
+        draft.skill,
+        existing.skill,
+      ]);
+    const generator: ChoiceExerciseGenerator = async (generatorInput) => {
+      await prisma.skill.update({
+        where: { id: existing.skill.id },
+        data: { status: SkillStatus.ARCHIVED },
+      });
+      return successfulGenerator(generatorInput);
+    };
+
+    const result = await activateSkillDraft({
+      userId,
+      skillId: draft.skill.id,
+      expectedDraftFingerprint:
+        buildSkillDuplicateCandidateFingerprint(draft.skill),
+      expectedDuplicateLibraryFingerprint,
+      now,
+      generateChoiceExercises: generator,
+      verifyChoiceExercises: acceptAllVerifier,
+      model: "test-gemini",
+    });
+
+    expect(result).toMatchObject({
+      status: "activated",
+      skillId: draft.skill.id,
+      exerciseCount: 3,
+    });
+  });
+
+  it("does not start activation when the reviewed duplicate changes before reservation", async () => {
+    const userId = await createUser("activate_changed_duplicate");
+    const [draft, existing] = await Promise.all([
+      createSkillDraft({
+        userId,
+        input: {
+          title: "Ser or estar practice",
+          objective: "Choose the correct Spanish copula in short sentences.",
+        },
+      }),
+      createSkillDraft({
+        userId,
+        input: {
+          title: "Ser and estar in context",
+          objective:
+            "Choose ser or estar for identity, location, and temporary state.",
+        },
+      }),
+    ]);
+
+    if (draft.status !== "created" || existing.status !== "created") {
+      throw new Error("Expected both draft creations to succeed.");
+    }
+
+    const reviewedDuplicateFingerprint = buildSkillDuplicateReviewFingerprint(
+      existing.skill,
+    );
+    const reviewedLibraryFingerprint =
+      buildSkillDuplicateLibraryFingerprint([
+        draft.skill,
+        existing.skill,
+      ]);
+    const updated = await updateSkillDraft({
+      userId,
+      skillId: existing.skill.id,
+      input: {
+        title: "Updated ser and estar contexts",
+        objective:
+          "Choose the copula for identity, condition, place, and event prompts.",
+      },
+    });
+    expect(updated.status).toBe("updated");
+    const generator = vi.fn(successfulGenerator);
+
+    const result = await activateSkillDraft({
+      userId,
+      skillId: draft.skill.id,
+      expectedDraftFingerprint:
+        buildSkillDuplicateCandidateFingerprint(draft.skill),
+      expectedDuplicateLibraryFingerprint:
+        reviewedLibraryFingerprint,
+      expectedDuplicateMatch: {
+        skillId: existing.skill.id,
+        fingerprint: reviewedDuplicateFingerprint,
+      },
+      now,
+      generateChoiceExercises: generator,
+      verifyChoiceExercises: acceptAllVerifier,
+      model: "test-gemini",
+    });
+
+    expect(result).toMatchObject({
+      status: "not-activated",
+      reason: "duplicate-review-changed",
+    });
+    expect(generator).not.toHaveBeenCalled();
+    await expect(
+      prisma.generationJob.count({
+        where: {
+          userId,
+          skillId: draft.skill.id,
+          kind: GenerationJobKind.SKILL_ACTIVATION,
+        },
+      }),
+    ).resolves.toBe(0);
+    await expect(
+      prisma.skill.findUniqueOrThrow({ where: { id: draft.skill.id } }),
+    ).resolves.toMatchObject({
+      status: SkillStatus.DRAFT,
+    });
+  });
+
+  it("does not finish activation when the reviewed duplicate changes during generation", async () => {
+    const userId = await createUser(
+      "activate_duplicate_changed_during_generation",
+    );
+    const [draft, existing] = await Promise.all([
+      createSkillDraft({
+        userId,
+        input: {
+          title: "Ser or estar drills",
+          objective: "Choose the correct Spanish copula in short prompts.",
+        },
+      }),
+      createSkillDraft({
+        userId,
+        input: {
+          title: "Ser and estar sentence practice",
+          objective:
+            "Choose ser or estar for identity, location, and temporary state.",
+        },
+      }),
+    ]);
+
+    if (draft.status !== "created" || existing.status !== "created") {
+      throw new Error("Expected both draft creations to succeed.");
+    }
+
+    const reviewedDuplicateFingerprint =
+      buildSkillDuplicateReviewFingerprint(existing.skill);
+    const reviewedLibraryFingerprint =
+      buildSkillDuplicateLibraryFingerprint([
+        draft.skill,
+        existing.skill,
+      ]);
+    const generator: ChoiceExerciseGenerator = async (generatorInput) => {
+      const updated = await updateSkillDraft({
+        userId,
+        skillId: existing.skill.id,
+        input: {
+          title: "Updated ser and estar sentence practice",
+          objective:
+            "Choose the copula for identity, condition, place, and event prompts.",
+        },
+      });
+      expect(updated.status).toBe("updated");
+      return successfulGenerator(generatorInput);
+    };
+
+    const result = await activateSkillDraft({
+      userId,
+      skillId: draft.skill.id,
+      expectedDraftFingerprint:
+        buildSkillDuplicateCandidateFingerprint(draft.skill),
+      expectedDuplicateLibraryFingerprint:
+        reviewedLibraryFingerprint,
+      expectedDuplicateMatch: {
+        skillId: existing.skill.id,
+        fingerprint: reviewedDuplicateFingerprint,
+      },
+      now,
+      generateChoiceExercises: generator,
+      verifyChoiceExercises: acceptAllVerifier,
+      model: "test-gemini",
+    });
+
+    expect(result).toMatchObject({
+      status: "not-activated",
+      reason: "duplicate-review-changed",
+    });
+    const [candidate, exerciseCount, generationJob] = await Promise.all([
+      prisma.skill.findUniqueOrThrow({ where: { id: draft.skill.id } }),
+      prisma.exercise.count({ where: { userId, skillId: draft.skill.id } }),
+      prisma.generationJob.findFirstOrThrow({
+        where: {
+          userId,
+          skillId: draft.skill.id,
+          kind: GenerationJobKind.SKILL_ACTIVATION,
+        },
+      }),
+    ]);
+    expect(candidate.status).toBe(SkillStatus.DRAFT);
+    expect(exerciseCount).toBe(0);
+    expect(generationJob).toMatchObject({
+      status: GenerationJobStatus.FAILED,
+      errorMessage:
+        "The existing skill changed while exercises were being prepared. Compare it again before adding this draft separately.",
+    });
+  });
+
+  it("does not activate generated exercises when the draft changes during generation", async () => {
+    const userId = await createUser("activate_changed_during_generation");
+    const draft = await createSkillDraft({
+      userId,
+      input: {
+        title: "Spanish weather phrases",
+        objective: "Choose the correct meaning for common weather phrases.",
+        collectionName: "Spanish",
+        tags: "spanish, weather",
+      },
+    });
+
+    if (draft.status !== "created") {
+      throw new Error("Expected draft creation to succeed.");
+    }
+
+    const expectedDraftFingerprint =
+      buildSkillDuplicateCandidateFingerprint(draft.skill);
+    const generator: ChoiceExerciseGenerator = async () => {
+      const updated = await updateSkillDraft({
+        userId,
+        skillId: draft.skill.id,
+        input: {
+          title: "Spanish weather questions",
+          objective: "Answer short questions about current weather conditions.",
+          collectionName: "Spanish",
+          tags: "spanish, weather",
+        },
+      });
+      expect(updated.status).toBe("updated");
+      return successfulGenerator({
+        skill: draft.skill,
+        sourceContext: null,
+        requestedCount: 3,
+      });
+    };
+
+    const result = await activateSkillDraft({
+      userId,
+      skillId: draft.skill.id,
+      expectedDraftFingerprint,
+      now,
+      generateChoiceExercises: generator,
+      verifyChoiceExercises: acceptAllVerifier,
+      model: "test-gemini",
+    });
+
+    expect(result).toMatchObject({
+      status: "not-activated",
+      reason: "draft-changed",
+    });
+    const [skill, exerciseCount, generationJob] = await Promise.all([
+      prisma.skill.findUniqueOrThrow({ where: { id: draft.skill.id } }),
+      prisma.exercise.count({ where: { userId, skillId: draft.skill.id } }),
+      prisma.generationJob.findFirstOrThrow({
+        where: {
+          userId,
+          skillId: draft.skill.id,
+          kind: GenerationJobKind.SKILL_ACTIVATION,
+        },
+      }),
+    ]);
+    expect(skill).toMatchObject({
+      title: "Spanish weather questions",
+      status: SkillStatus.DRAFT,
+    });
+    expect(exerciseCount).toBe(0);
+    expect(generationJob).toMatchObject({
+      status: GenerationJobStatus.FAILED,
+      errorMessage:
+        "This draft changed while exercises were being prepared. Review it again before adding it.",
+    });
+  });
+
+  it("does not let a waiting draft edit overwrite a completed activation", async () => {
+    const userId = await createUser("activate_waiting_edit");
+    const draft = await createSkillDraft({
+      userId,
+      input: {
+        title: "Spanish calendar words",
+        objective: "Choose the correct calendar word for a short date prompt.",
+      },
+    });
+
+    if (draft.status !== "created") {
+      throw new Error("Expected draft creation to succeed.");
+    }
+
+    let markSkillLocked: (() => void) | undefined;
+    const skillLocked = new Promise<void>((resolve) => {
+      markSkillLocked = resolve;
+    });
+    let allowActivationCommit: (() => void) | undefined;
+    const activationCanCommit = new Promise<void>((resolve) => {
+      allowActivationCommit = resolve;
+    });
+    const activation = prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`
+        SELECT "id"
+        FROM "skills"
+        WHERE "id" = ${draft.skill.id} AND "userId" = ${userId}
+        FOR UPDATE
+      `;
+      markSkillLocked?.();
+      await activationCanCommit;
+      await tx.skill.update({
+        where: { id: draft.skill.id },
+        data: {
+          ...createInitialSkillSchedule(now),
+          status: SkillStatus.ACTIVE,
+        },
+      });
+    });
+
+    await skillLocked;
+    const waitingUpdate = updateSkillDraft({
+      userId,
+      skillId: draft.skill.id,
+      input: {
+        title: "Stale calendar edit",
+        objective: "This stale edit must not overwrite the active skill.",
+      },
+    });
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    allowActivationCommit?.();
+    await activation;
+
+    await expect(waitingUpdate).resolves.toMatchObject({
+      status: "not-found",
+      reason: "skill-not-found",
+    });
+    await expect(
+      prisma.skill.findUniqueOrThrow({ where: { id: draft.skill.id } }),
+    ).resolves.toMatchObject({
+      title: "Spanish calendar words",
+      status: SkillStatus.ACTIVE,
+    });
+  });
+
+  it("lets only the newest worker finish after reclaiming a stale activation", async () => {
+    const userId = await createUser("activate_stale_worker_fence");
+    const draft = await createSkillDraft({
+      userId,
+      input: {
+        title: "Spanish time expressions",
+        objective: "Choose the correct time expression for a short schedule prompt.",
+      },
+    });
+
+    if (draft.status !== "created") {
+      throw new Error("Expected draft creation to succeed.");
+    }
+
+    let signalFirstStarted: (() => void) | undefined;
+    const firstStarted = new Promise<void>((resolve) => {
+      signalFirstStarted = resolve;
+    });
+    let releaseFirst: (() => void) | undefined;
+    const firstCanFinish = new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
+    const firstActivation = activateSkillDraft({
+      userId,
+      skillId: draft.skill.id,
+      now,
+      generateChoiceExercises: async () => {
+        signalFirstStarted?.();
+        await firstCanFinish;
+        return successfulGenerator({
+          skill: draft.skill,
+          sourceContext: null,
+          requestedCount: 3,
+        });
+      },
+      verifyChoiceExercises: acceptAllVerifier,
+      model: "first-test-gemini",
+    });
+    await firstStarted;
+
+    let signalSecondStarted: (() => void) | undefined;
+    const secondStarted = new Promise<void>((resolve) => {
+      signalSecondStarted = resolve;
+    });
+    let releaseSecond: (() => void) | undefined;
+    const secondCanFinish = new Promise<void>((resolve) => {
+      releaseSecond = resolve;
+    });
+    const secondActivation = activateSkillDraft({
+      userId,
+      skillId: draft.skill.id,
+      now: new Date(now.getTime() + ACTIVATION_GENERATION_TIMEOUT_MS + 1_000),
+      generateChoiceExercises: async () => {
+        signalSecondStarted?.();
+        await secondCanFinish;
+        return successfulGenerator({
+          skill: draft.skill,
+          sourceContext: null,
+          requestedCount: 3,
+        });
+      },
+      verifyChoiceExercises: acceptAllVerifier,
+      model: "second-test-gemini",
+    });
+    await secondStarted;
+
+    releaseFirst?.();
+    const firstResult = await firstActivation;
+    releaseSecond?.();
+    const secondResult = await secondActivation;
+
+    expect(firstResult).toMatchObject({
+      status: "not-activated",
+      reason: "activation-superseded",
+    });
+    expect(secondResult).toMatchObject({
+      status: "activated",
+      skillId: draft.skill.id,
+      exerciseCount: 3,
+    });
+    if (
+      firstResult.status !== "not-activated" ||
+      secondResult.status !== "activated"
+    ) {
+      throw new Error("Expected the replacement worker alone to activate the skill.");
+    }
+    const [skill, generationJobs, exerciseCount] = await Promise.all([
+      prisma.skill.findUniqueOrThrow({ where: { id: draft.skill.id } }),
+      prisma.generationJob.findMany({
+        where: {
+          userId,
+          skillId: draft.skill.id,
+          kind: GenerationJobKind.SKILL_ACTIVATION,
+        },
+        orderBy: { createdAt: "asc" },
+      }),
+      prisma.exercise.count({ where: { userId, skillId: draft.skill.id } }),
+    ]);
+    expect(skill.status).toBe(SkillStatus.ACTIVE);
+    expect(generationJobs).toHaveLength(2);
+    expect(
+      generationJobs.find(
+        (job) => job.id === firstResult.generationJobId,
+      ),
+    ).toMatchObject({
+      status: GenerationJobStatus.FAILED,
+      errorMessage: "A newer activation attempt replaced this one.",
+    });
+    expect(
+      generationJobs.find(
+        (job) => job.id === secondResult.generationJobId,
+      ),
+    ).toMatchObject({
+      status: GenerationJobStatus.SUCCEEDED,
+    });
+    expect(exerciseCount).toBe(3);
+  });
+
+  it("enforces the active-skill cap when two activations finish together", async () => {
+    const userId = await createUser("activate_concurrent_cap");
+    await prisma.skill.createMany({
+      data: Array.from({ length: 99 }, (_, index) => ({
+        userId,
+        title: `Active cap fixture ${index + 1}`,
+        tags: [],
+        status: SkillStatus.ACTIVE,
+      })),
+    });
+    const drafts = await Promise.all([
+      createSkillDraft({
+        userId,
+        input: {
+          title: "First cap boundary draft",
+          objective: "Choose the first correct answer at the active skill boundary.",
+        },
+      }),
+      createSkillDraft({
+        userId,
+        input: {
+          title: "Second cap boundary draft",
+          objective: "Choose the second correct answer at the active skill boundary.",
+        },
+      }),
+    ]);
+    if (drafts.some((draft) => draft.status !== "created")) {
+      throw new Error("Expected both cap-boundary drafts to be created.");
+    }
+    const skillIds = drafts.map((draft) =>
+      draft.status === "created" ? draft.skill.id : "missing-skill",
+    );
+
+    let startedCount = 0;
+    let signalBothStarted: (() => void) | undefined;
+    const bothStarted = new Promise<void>((resolve) => {
+      signalBothStarted = resolve;
+    });
+    let releaseGenerators: (() => void) | undefined;
+    const generatorsCanFinish = new Promise<void>((resolve) => {
+      releaseGenerators = resolve;
+    });
+    const generator: ChoiceExerciseGenerator = async () => {
+      startedCount += 1;
+      if (startedCount === 2) {
+        signalBothStarted?.();
+      }
+      await generatorsCanFinish;
+      return successfulGenerator({
+        skill: {
+          id: "cap-boundary-skill",
+          title: "Cap boundary",
+          objective: "Choose the correct cap-boundary answer.",
+          rules: null,
+          examples: null,
+          exerciseConstraints: null,
+          tags: [],
+        },
+        sourceContext: null,
+        requestedCount: 3,
+      });
+    };
+    const activationResultsPromise = Promise.all(
+      skillIds.map((skillId) =>
+        activateSkillDraft({
+          userId,
+          skillId,
+          now,
+          generateChoiceExercises: generator,
+          verifyChoiceExercises: acceptAllVerifier,
+          model: "test-gemini",
+        }),
+      ),
+    );
+    await bothStarted;
+    releaseGenerators?.();
+    const activationResults = await activationResultsPromise;
+
+    expect(
+      activationResults.map((result) =>
+        result.status === "activated"
+          ? "activated"
+          : `${result.status}:${result.reason}`,
+      ).sort(),
+    ).toEqual(["activated", "not-activated:quota-exceeded"]);
+    await expect(
+      prisma.skill.count({
+        where: {
+          userId,
+          status: { in: [SkillStatus.ACTIVE, SkillStatus.PAUSED] },
+        },
+      }),
+    ).resolves.toBe(100);
+  });
+
+  it("retries draft activation with a new job after superseding a stale worker", async () => {
     const userId = await createUser("activate_stale_job");
     const draft = await createSkillDraft({
       userId,
@@ -922,9 +1705,12 @@ describeDatabase("skill drafts and Gemini activation", () => {
 
     expect(activated).toMatchObject({
       status: "activated",
-      generationJobId: staleJob.id,
       exerciseCount: 3,
     });
+    if (activated.status !== "activated") {
+      throw new Error("Expected the replacement activation to succeed.");
+    }
+    expect(activated.generationJobId).not.toBe(staleJob.id);
 
     const [skill, generationJobs] = await Promise.all([
       prisma.skill.findUniqueOrThrow({ where: { id: draft.skill.id } }),
@@ -932,9 +1718,23 @@ describeDatabase("skill drafts and Gemini activation", () => {
     ]);
 
     expect(skill.status).toBe(SkillStatus.ACTIVE);
-    expect(generationJobs).toHaveLength(1);
-    expect(generationJobs[0]).toMatchObject({
+    expect(generationJobs).toHaveLength(2);
+    expect(
+      generationJobs.find((generationJob) => generationJob.id === staleJob.id),
+    ).toMatchObject({
       id: staleJob.id,
+      status: GenerationJobStatus.FAILED,
+      model: "stale-test-gemini",
+      errorMessage: "A newer activation attempt replaced this one.",
+      completedAt: now,
+    });
+    expect(
+      generationJobs.find(
+        (generationJob) =>
+          generationJob.id === activated.generationJobId,
+      ),
+    ).toMatchObject({
+      id: activated.generationJobId,
       status: GenerationJobStatus.SUCCEEDED,
       model: "test-gemini",
       acceptedCount: 3,
@@ -6766,7 +7566,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
       expect(job).toMatchObject({
         status: GenerationJobStatus.FAILED,
         provider: "google",
-        model: "gemini-3.5-flash",
+        model: process.env.GEMINI_MODEL?.trim() || DEFAULT_GEMINI_MODEL,
         acceptedCount: 0,
         rejectedCount: 0,
       });

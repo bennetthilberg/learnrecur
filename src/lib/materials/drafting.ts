@@ -13,6 +13,9 @@ import {
   type GeneratedSkillDraft,
   type SkillDraftGenerator,
 } from "@/lib/skills";
+import {
+  type SkillSimilarityCandidateResult,
+} from "@/lib/skills/similarity";
 
 export { summarizeMaterialDraftBatch } from "@/lib/materials/batch-summary";
 
@@ -760,34 +763,36 @@ export async function repairMaterialDraftTarget(input: {
 
 export function annotateMaterialPlanOverlaps(
   plan: MaterialScopeResolution,
-  existingSkills: readonly { id: string; title: string; objective: string | null }[],
+  results: readonly SkillSimilarityCandidateResult[],
 ): MaterialScopeResolution {
+  const resultByKey = new Map(results.map((result) => [result.key, result]));
   return {
     ...plan,
     items: plan.items.map((item) => {
-      const titleKey = normalizeComparableText(item.title);
-      const objectiveKey = normalizeComparableText(item.objective);
-      const exact = existingSkills.find(
-        (skill) =>
-          normalizeComparableText(skill.title) === titleKey &&
-          normalizeComparableText(skill.objective ?? "") === objectiveKey,
-      );
-      if (exact) {
-        return {
-          ...item,
-          overlapSkillId: exact.id,
-          overlapWarning: `An exact skill already exists: ${exact.title}. It will be excluded by default.`,
-        };
+      const match = resultByKey.get(item.key)?.bestMatch;
+      if (!match) {
+        const unmatched = { ...item };
+        delete unmatched.overlapSkillId;
+        delete unmatched.overlapSkillFingerprint;
+        delete unmatched.overlapConfidence;
+        delete unmatched.overlapScore;
+        delete unmatched.overlapWarning;
+        return unmatched;
       }
-      const possible = existingSkills.find(
-        (skill) => tokenSimilarity(normalizeComparableText(skill.title), titleKey) >= 0.75,
-      );
-      return possible
-        ? {
-            ...item,
-            overlapWarning: `This may overlap with an existing skill: ${possible.title}.`,
-          }
-        : item;
+      const warning =
+        match.confidence === "exact"
+          ? `This matches an existing skill: ${match.skill.title}. Compare it before creating another skill.`
+          : match.confidence === "likely"
+            ? `This appears to cover the same skill as ${match.skill.title}. Compare it before creating another skill.`
+            : `This may overlap with ${match.skill.title}. Compare it before creating another skill.`;
+      return {
+        ...item,
+        overlapSkillId: match.skill.id,
+        overlapSkillFingerprint: match.skill.contentFingerprint,
+        overlapConfidence: match.confidence,
+        overlapScore: match.score,
+        overlapWarning: warning,
+      };
     }),
   };
 }
@@ -1180,16 +1185,6 @@ function findObjectiveRequirementsMissingFromConcepts(input: {
         !requirementTokens.some((token) => declaredTokens.has(token))
       );
     });
-}
-
-function tokenSimilarity(left: string, right: string) {
-  const leftTokens = new Set(left.split(" ").filter(Boolean));
-  const rightTokens = new Set(right.split(" ").filter(Boolean));
-  if (leftTokens.size === 0 || rightTokens.size === 0) {
-    return 0;
-  }
-  const intersection = [...leftTokens].filter((token) => rightTokens.has(token)).length;
-  return intersection / new Set([...leftTokens, ...rightTokens]).size;
 }
 
 function unique<T>(values: T[]) {

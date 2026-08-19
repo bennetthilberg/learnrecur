@@ -139,6 +139,9 @@ export const materialScopePlanItemSchema = z
     evidenceChunkIds: uniqueIdentifiersSchema(80),
     locator: skillSourceLocatorSchema,
     overlapSkillId: identifierSchema.optional(),
+    overlapSkillFingerprint: z.string().regex(/^[a-f0-9]{64}$/).optional(),
+    overlapConfidence: z.enum(["exact", "likely", "possible"]).optional(),
+    overlapScore: z.number().min(0).max(1).optional(),
     overlapWarning: z.string().trim().min(1).max(500).optional(),
   })
   .superRefine((item, context) => {
@@ -150,6 +153,18 @@ export const materialScopePlanItemSchema = z
         code: "custom",
         message: "Plan evidence must match the versioned locator.",
         path: ["locator"],
+      });
+    }
+    if (
+      (item.overlapSkillFingerprint !== undefined ||
+        item.overlapConfidence !== undefined ||
+        item.overlapScore !== undefined) &&
+      !item.overlapSkillId
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "Duplicate-match confidence requires an existing skill.",
+        path: ["overlapSkillId"],
       });
     }
   });
@@ -322,10 +337,32 @@ export const planMaterialSkillsInputSchema = z.object({
   idempotencyKey: z.string().trim().min(8).max(200),
 });
 
-export const confirmMaterialPlanInputSchema = z.object({
-  batchId: identifierSchema,
-  plan: materialScopePlanSchema,
-});
+export const confirmMaterialPlanInputSchema = z
+  .object({
+    batchId: identifierSchema,
+    plan: materialScopePlanSchema,
+    createSeparatelyTargetKeys: z
+      .array(identifierSchema)
+      .max(MAX_SKILLS_PER_BATCH)
+      .refine((values) => new Set(values).size === values.length, {
+        message: "Identifiers must be unique.",
+      })
+      .optional(),
+  })
+  .superRefine((input, context) => {
+    const matchedKeys = new Set(
+      input.plan.items.filter((item) => item.overlapSkillId).map((item) => item.key),
+    );
+    for (const [index, key] of (input.createSeparatelyTargetKeys ?? []).entries()) {
+      if (!matchedKeys.has(key)) {
+        context.addIssue({
+          code: "custom",
+          message: "Only matched skills can be created separately.",
+          path: ["createSeparatelyTargetKeys", index],
+        });
+      }
+    }
+  });
 
 export const replanMaterialSkillsInputSchema = z.object({
   batchId: identifierSchema,
@@ -345,10 +382,41 @@ export const batchItemMutationInputSchema = z.object({
   itemId: identifierSchema,
 });
 
-export const activateBatchInputSchema = z.object({
-  batchId: identifierSchema,
-  itemIds: uniqueIdentifiersSchema(MAX_SKILLS_PER_BATCH),
-});
+export const activateBatchInputSchema = z
+  .object({
+    batchId: identifierSchema,
+    itemIds: uniqueIdentifiersSchema(MAX_SKILLS_PER_BATCH),
+    createSeparatelyMatches: z
+      .array(
+        z.object({
+          itemId: identifierSchema,
+          skillId: identifierSchema,
+          candidateFingerprint: z.string().regex(/^[a-f0-9]{64}$/),
+          skillFingerprint: z.string().regex(/^[a-f0-9]{64}$/),
+        }),
+      )
+      .max(MAX_SKILLS_PER_BATCH)
+      .refine(
+        (values) =>
+          new Set(values.map((value) => value.itemId)).size === values.length,
+        {
+          message: "Duplicate overrides must target unique items.",
+        },
+      )
+      .optional(),
+  })
+  .superRefine((input, context) => {
+    const selectedIds = new Set(input.itemIds);
+    for (const [index, match] of (input.createSeparatelyMatches ?? []).entries()) {
+      if (!selectedIds.has(match.itemId)) {
+        context.addIssue({
+          code: "custom",
+          message: "A duplicate override must be one of the selected items.",
+          path: ["createSeparatelyMatches", index, "itemId"],
+        });
+      }
+    }
+  });
 
 export const refreshMaterialInputSchema = z.object({
   materialId: identifierSchema,

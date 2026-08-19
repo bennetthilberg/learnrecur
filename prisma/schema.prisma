@@ -339,9 +339,9 @@ model MaterialSection {
   metadata           Json?
   createdAt          DateTime @default(now())
 
-  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  materialRevision MaterialRevision @relation(fields: [materialRevisionId, userId], references: [id, userId], onDelete: Cascade)
-  parent           MaterialSection? @relation("MaterialSectionHierarchy", fields: [parentId, materialRevisionId, userId], references: [id, materialRevisionId, userId], onDelete: NoAction)
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  materialRevision MaterialRevision  @relation(fields: [materialRevisionId, userId], references: [id, userId], onDelete: Cascade)
+  parent           MaterialSection?  @relation("MaterialSectionHierarchy", fields: [parentId, materialRevisionId, userId], references: [id, materialRevisionId, userId], onDelete: NoAction)
   children         MaterialSection[] @relation("MaterialSectionHierarchy")
   chunks           MaterialChunk[]
 
@@ -354,7 +354,7 @@ model MaterialSection {
 }
 
 model MaterialChunk {
-  id                 String                   @id @default(cuid())
+  id                 String                      @id @default(cuid())
   userId             String
   materialRevisionId String
   materialSectionId  String?
@@ -365,9 +365,9 @@ model MaterialChunk {
   contentHash        String
   locator            Json
   headingText        String?
-  searchText         Unsupported("tsvector")? @default(dbgenerated("to_tsvector('simple'::regconfig, ((COALESCE(\"headingText\", ''::text) || ' '::text) || text))"))
+  searchText         Unsupported("tsvector")?    @default(dbgenerated("to_tsvector('simple'::regconfig, ((COALESCE(\"headingText\", ''::text) || ' '::text) || text))"))
   embedding          Unsupported("vector(768)")?
-  createdAt          DateTime                 @default(now())
+  createdAt          DateTime                    @default(now())
 
   user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   materialRevision MaterialRevision @relation(fields: [materialRevisionId, userId], references: [id, userId], onDelete: Cascade)
@@ -426,28 +426,31 @@ model MaterialCleanupJob {
 }
 
 model Skill {
-  id                  String         @id @default(cuid())
-  userId              String
-  collectionId        String?
-  title               String
-  objective           String?
-  rules               Json?
-  examples            Json?
-  exerciseConstraints Json?
-  tags                String[]
-  status              SkillStatus    @default(DRAFT)
-  dueAt               DateTime?
-  stability           Float?
-  difficulty          Float?
-  elapsedDays         Int            @default(0)
-  scheduledDays       Int            @default(0)
-  learningSteps       Int            @default(0)
-  repetitions         Int            @default(0)
-  lapses              Int            @default(0)
-  fsrsState           SkillFsrsState @default(NEW)
-  lastReviewedAt      DateTime?
-  createdAt           DateTime       @default(now())
-  updatedAt           DateTime       @updatedAt
+  id                             String                      @id @default(cuid())
+  userId                         String
+  collectionId                   String?
+  title                          String
+  objective                      String?
+  rules                          Json?
+  examples                       Json?
+  exerciseConstraints            Json?
+  tags                           String[]
+  similarityEmbedding            Unsupported("vector(768)")?
+  similarityEmbeddingModel       String?
+  similarityEmbeddingFingerprint String?
+  status                         SkillStatus                 @default(DRAFT)
+  dueAt                          DateTime?
+  stability                      Float?
+  difficulty                     Float?
+  elapsedDays                    Int                         @default(0)
+  scheduledDays                  Int                         @default(0)
+  learningSteps                  Int                         @default(0)
+  repetitions                    Int                         @default(0)
+  lapses                         Int                         @default(0)
+  fsrsState                      SkillFsrsState              @default(NEW)
+  lastReviewedAt                 DateTime?
+  createdAt                      DateTime                    @default(now())
+  updatedAt                      DateTime                    @updatedAt
 
   user            User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
   collection      Collection?           @relation(fields: [collectionId, userId], references: [id, userId], onDelete: NoAction)

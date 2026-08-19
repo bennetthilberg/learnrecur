@@ -23,6 +23,11 @@ import {
   restoreArchivedSkill,
   resumeSkill,
 } from "@/lib/skills/lifecycle";
+import {
+  buildSkillDuplicateCandidateFingerprint,
+  findSimilarSkillsForUser,
+  type SkillSimilarityMatch,
+} from "@/lib/skills/similarity";
 import { deleteSkillPermanently } from "@/lib/skills/delete";
 import {
   cleanupPreparedSourceUploads,
@@ -51,11 +56,13 @@ export type CreatedSkillDraftForReview = {
 };
 
 export type SkillFormActionState = {
-  status: "idle" | "error" | "saved" | "activated";
+  status: "idle" | "error" | "saved" | "activated" | "duplicate-warning";
   message: string | null;
   fieldErrors?: Record<string, string[]>;
   createdSkill?: CreatedSkillDraftForReview;
   activatedSkillId?: string;
+  duplicateMatch?: SkillSimilarityMatch;
+  draftValues?: CreatedSkillDraftForReview["values"];
   refreshRecovery?: boolean;
 };
 
@@ -196,10 +203,10 @@ export async function activateSkillDraftAction(
 }
 
 export async function addSkillDraftToPracticeAction(
-  _previousState: SkillFormActionState,
+  previousState: SkillFormActionState,
   formData: FormData,
 ): Promise<SkillFormActionState> {
-  const result = await saveAndActivateSkillDraft(formData);
+  const result = await saveAndActivateSkillDraft(previousState, formData);
 
   if (result.status === "activated" && result.activatedSkillId) {
     revalidatePath(`/skills/${result.activatedSkillId}`);
@@ -213,10 +220,10 @@ export async function addSkillDraftToPracticeAction(
 }
 
 export async function addSkillDraftToPracticeInlineAction(
-  _previousState: SkillFormActionState,
+  previousState: SkillFormActionState,
   formData: FormData,
 ): Promise<SkillFormActionState> {
-  return saveAndActivateSkillDraft(formData);
+  return saveAndActivateSkillDraft(previousState, formData);
 }
 
 export async function generateSkillDraftFromSourceAction(
@@ -953,7 +960,10 @@ function isLifecycleAction(value: string): value is LifecycleAction {
   return value === "pause" || value === "resume" || value === "archive" || value === "restore";
 }
 
-async function saveAndActivateSkillDraft(formData: FormData): Promise<SkillFormActionState> {
+async function saveAndActivateSkillDraft(
+  previousState: SkillFormActionState,
+  formData: FormData,
+): Promise<SkillFormActionState> {
   const user = await requireSkillActionUser();
 
   if (user.status === "error") {
@@ -981,6 +991,7 @@ async function saveAndActivateSkillDraft(formData: FormData): Promise<SkillFormA
       status: "error",
       message: saveResult.message,
       fieldErrors: saveResult.fieldErrors,
+      draftValues: draftInput,
     };
   }
 
@@ -988,12 +999,60 @@ async function saveAndActivateSkillDraft(formData: FormData): Promise<SkillFormA
     return {
       status: "error",
       message: saveResult.message,
+      draftValues: draftInput,
+    };
+  }
+
+  const duplicateCheck = await findSingleSkillDuplicateCheck({
+    userId: user.userId,
+    skillId,
+    title: draftInput.title,
+    objective: draftInput.objective,
+  });
+  const duplicateMatch = duplicateCheck.match;
+  const duplicateOverrideSkillId = getOptionalFormString(
+    formData,
+    "duplicateOverrideSkillId",
+  );
+  const previouslyReviewedMatch =
+    previousState.status === "duplicate-warning"
+      ? previousState.duplicateMatch ?? null
+      : null;
+  const duplicateOverrideAccepted =
+    Boolean(duplicateMatch) &&
+    duplicateOverrideSkillId === duplicateMatch?.skill.id &&
+    previouslyReviewedMatch?.skill.id === duplicateMatch?.skill.id &&
+    previouslyReviewedMatch.skill.contentFingerprint ===
+      duplicateMatch.skill.contentFingerprint;
+  const staleOverrideMessage =
+    duplicateOverrideSkillId && previouslyReviewedMatch
+      ? previouslyReviewedMatch.skill.id === duplicateMatch?.skill.id
+        ? "The saved skill changed after your first comparison. We refreshed it; review and confirm again."
+        : "LearnRecur found a different similar skill. Compare it before deciding."
+      : null;
+
+  if (duplicateMatch && !duplicateOverrideAccepted) {
+    return {
+      status: "duplicate-warning",
+      message: staleOverrideMessage,
+      duplicateMatch,
+      draftValues: draftInput,
     };
   }
 
   const addResult = await activateSkillDraft({
     userId: user.userId,
     skillId,
+    expectedDraftFingerprint:
+      buildSkillDuplicateCandidateFingerprint(saveResult.skill),
+    expectedDuplicateLibraryFingerprint:
+      duplicateCheck.libraryFingerprint ?? undefined,
+    expectedDuplicateMatch: duplicateOverrideAccepted && duplicateMatch
+      ? {
+          skillId: duplicateMatch.skill.id,
+          fingerprint: duplicateMatch.skill.contentFingerprint,
+        }
+      : undefined,
     now: new Date(),
   });
 
@@ -1007,13 +1066,98 @@ async function saveAndActivateSkillDraft(formData: FormData): Promise<SkillFormA
       status: "activated",
       message: "Skill added.",
       activatedSkillId: addResult.skillId,
+      draftValues: draftInput,
+    };
+  }
+
+  if (
+    addResult.status === "not-activated" &&
+    addResult.reason === "draft-changed"
+  ) {
+    const latestDraft = await getSkillDraftForReview(user.userId, skillId);
+    return {
+      status: "error",
+      message:
+        "This draft changed in another tab. Review the latest version, then add it again.",
+      draftValues: latestDraft?.values ?? draftInput,
+    };
+  }
+
+  if (
+    addResult.status === "not-activated" &&
+    addResult.reason === "duplicate-review-changed"
+  ) {
+    const refreshedCheck = await findSingleSkillDuplicateCheck({
+      userId: user.userId,
+      skillId,
+      title: draftInput.title,
+      objective: draftInput.objective,
+    });
+    const refreshedMatch = refreshedCheck.match;
+    if (refreshedMatch) {
+      return {
+        status: "duplicate-warning",
+        message:
+          duplicateMatch
+            ? "The existing skill changed after you reviewed it. Compare the updated preview before deciding."
+            : "LearnRecur found a similar skill while this draft was being checked. Compare it before deciding.",
+        duplicateMatch: refreshedMatch,
+        draftValues: draftInput,
+      };
+    }
+    return {
+      status: "error",
+      message:
+        "Your library changed while this skill was being checked. Review the draft, then add it again.",
+      draftValues: draftInput,
     };
   }
 
   return {
     status: "saved",
     message: `Your changes were saved, but the skill was not added. ${addResult.message}`,
+    draftValues: draftInput,
   };
+}
+
+async function findSingleSkillDuplicateCheck(input: {
+  userId: string;
+  skillId: string;
+  title: string;
+  objective: string;
+}): Promise<{
+  match: SkillSimilarityMatch | null;
+  libraryFingerprint: string | null;
+}> {
+  try {
+    const similarityResult = await findSimilarSkillsForUser({
+      userId: input.userId,
+      candidates: [
+        {
+          key: "skill-draft",
+          skillId: input.skillId,
+          title: input.title,
+          objective: input.objective,
+        },
+      ],
+      limitPerCandidate: 1,
+    });
+    return {
+      match: similarityResult.candidates[0]?.bestMatch ?? null,
+      libraryFingerprint:
+        similarityResult.duplicateLibraryFingerprint,
+    };
+  } catch (error) {
+    console.warn("[skills] duplicate check unavailable", {
+      userId: input.userId,
+      skillId: input.skillId,
+      errorName: error instanceof Error ? error.name : "UnknownError",
+    });
+    return {
+      match: null,
+      libraryFingerprint: null,
+    };
+  }
 }
 
 async function getSkillDraftForReview(
