@@ -111,6 +111,8 @@ describe("MCP resource discovery", () => {
     await expect(metadataResponse.json()).resolves.toMatchObject({
       resource: "https://learnrecur.com/mcp",
       authorization_servers: ["https://learnrecur-staging.authkit.app"],
+      scopes_supported: ["skills:create", "materials:read", "sources:upload"],
+      bearer_methods_supported: ["header"],
     });
 
     const mcpRoute = await import("@/app/mcp/route");
