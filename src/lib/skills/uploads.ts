@@ -155,6 +155,19 @@ export type PrepareSourceUploadResult =
       message: string;
     };
 
+export type RefreshPreparedSourceUploadResult =
+  | {
+      status: "prepared";
+      sourceFileId: string;
+      uploadUrl: string;
+      headers: Record<string, string>;
+      expiresInSeconds: number;
+    }
+  | {
+      status: "not-found" | "not-prepared";
+      message: string;
+    };
+
 export type SourceTextExtractorInput = {
   bytes: Buffer;
   mimeType: SourceUploadMimeType;
@@ -555,6 +568,57 @@ export async function prepareSourceUpload(
       reason: "storage-failed",
       message: `S3 upload preparation failed: ${formatEnvError(error)}`,
     };
+  }
+}
+
+export async function refreshPreparedSourceUpload(input: {
+  userId: string;
+  sourceFileId: string;
+  storage?: SourceUploadStorage;
+}): Promise<RefreshPreparedSourceUploadResult> {
+  const storageSetup = resolveUploadStorage(input.storage);
+  if (storageSetup.status === "missing-env") {
+    return { status: "not-prepared", message: storageSetup.message };
+  }
+  const sourceFile = await getPrisma().sourceFile.findFirst({
+    where: {
+      id: input.sourceFileId,
+      userId: input.userId,
+      materialRevisionId: null,
+      status: SourceFileStatus.DRAFT,
+    },
+    select: { id: true, storageBucket: true, storageKey: true, mimeType: true, byteSize: true },
+  });
+  if (
+    !sourceFile?.storageKey ||
+    !sourceFile.storageBucket ||
+    !sourceFile.mimeType ||
+    !isSourceUploadMimeType(sourceFile.mimeType) ||
+    !sourceFile.byteSize
+  ) {
+    return { status: "not-found", message: "The prepared upload was not found." };
+  }
+  if (sourceFile.storageBucket !== storageSetup.storage.bucketName) {
+    return { status: "not-prepared", message: "The prepared upload bucket is unavailable." };
+  }
+  const expiresInSeconds = 600;
+  try {
+    const uploadUrl = await storageSetup.storage.createPresignedUploadUrl({
+      key: sourceFile.storageKey,
+      mimeType: sourceFile.mimeType,
+      byteSize: sourceFile.byteSize,
+      maxBytes: MAX_SOURCE_UPLOAD_BYTES,
+      expiresInSeconds,
+    });
+    return {
+      status: "prepared",
+      sourceFileId: sourceFile.id,
+      uploadUrl,
+      headers: { "Content-Type": sourceFile.mimeType },
+      expiresInSeconds,
+    };
+  } catch {
+    return { status: "not-prepared", message: "The upload URL could not be refreshed." };
   }
 }
 

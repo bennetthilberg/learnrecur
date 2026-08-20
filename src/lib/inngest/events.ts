@@ -14,6 +14,10 @@ export const MATERIAL_CLEANUP_REQUESTED_EVENT = "learnrecur/material-cleanup.req
 export const MATERIAL_DRAFT_ITEM_REQUESTED_EVENT = "learnrecur/material-draft-item.requested";
 export const MATERIAL_BATCH_ACTIVATION_REQUESTED_EVENT =
   "learnrecur/material-batch-activation.requested";
+export const AGENT_SKILL_OPERATION_REQUESTED_EVENT =
+  "learnrecur/agent-skill-operation.requested";
+export const AGENT_CONNECTION_REVOCATION_REQUESTED_EVENT =
+  "learnrecur/agent-connection-revocation.requested";
 
 const refillEventPayloadSchema = z.strictObject({
   userId: z.string().trim().min(1),
@@ -57,6 +61,18 @@ const materialBatchActivationEventPayloadSchema = z.strictObject({
   requestedAt: z.string().trim().min(1),
 });
 
+const agentSkillOperationEventPayloadSchema = z.strictObject({
+  userId: z.string().trim().min(1),
+  operationId: z.string().trim().min(1),
+  requestedAt: z.string().trim().min(1),
+});
+
+const agentConnectionRevocationEventPayloadSchema = z.strictObject({
+  userId: z.string().trim().min(1),
+  connectionId: z.string().trim().min(1),
+  requestedAt: z.string().trim().min(1),
+});
+
 export type ExerciseRefillEventPayload = z.infer<typeof refillEventPayloadSchema>;
 export type SourceUploadDraftEventPayload = z.infer<
   typeof sourceUploadDraftEventPayloadSchema
@@ -68,6 +84,12 @@ export type MaterialCleanupEventPayload = z.infer<typeof materialCleanupEventPay
 export type MaterialDraftItemEventPayload = z.infer<typeof materialDraftItemEventPayloadSchema>;
 export type MaterialBatchActivationEventPayload = z.infer<
   typeof materialBatchActivationEventPayloadSchema
+>;
+export type AgentSkillOperationEventPayload = z.infer<
+  typeof agentSkillOperationEventPayloadSchema
+>;
+export type AgentConnectionRevocationEventPayload = z.infer<
+  typeof agentConnectionRevocationEventPayloadSchema
 >;
 
 export type ExerciseRefillEventSender = {
@@ -126,6 +148,18 @@ export function parseMaterialBatchActivationEventPayload(
   input: unknown,
 ): MaterialBatchActivationEventPayload {
   return materialBatchActivationEventPayloadSchema.parse(input);
+}
+
+export function parseAgentSkillOperationEventPayload(
+  input: unknown,
+): AgentSkillOperationEventPayload {
+  return agentSkillOperationEventPayloadSchema.parse(input);
+}
+
+export function parseAgentConnectionRevocationEventPayload(
+  input: unknown,
+): AgentConnectionRevocationEventPayload {
+  return agentConnectionRevocationEventPayloadSchema.parse(input);
 }
 
 export const inngestExerciseRefillEventSender: ExerciseRefillEventSender = {
@@ -193,3 +227,18 @@ export const inngestMaterialBatchActivationEventSender: MaterialBatchActivationE
     });
   },
 };
+
+export async function sendAgentSkillOperationRequested(
+  payload: AgentSkillOperationEventPayload,
+) {
+  await inngest.send({
+    name: AGENT_SKILL_OPERATION_REQUESTED_EVENT,
+    data: payload,
+  });
+}
+
+export async function sendAgentConnectionRevocationRequested(
+  payload: AgentConnectionRevocationEventPayload,
+) {
+  await inngest.send({ name: AGENT_CONNECTION_REVOCATION_REQUESTED_EVENT, data: payload });
+}

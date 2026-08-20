@@ -8,6 +8,7 @@ import {
   type NormalizedReminderPreferenceInput,
 } from "@/lib/reminders";
 import { ensureDatabaseUser } from "@/lib/users";
+import { pauseSkillsFromAgent, revokeAgentConnection } from "@/lib/agent-access/settings";
 
 export type ReminderSettingsActionState = {
   status: "idle" | "error" | "saved";
@@ -64,6 +65,27 @@ export async function saveReminderSettingsAction(
     status: "error",
     message: result.message,
   };
+}
+
+export async function revokeAgentConnectionAction(connectionId: string) {
+  const user = await requireSettingsActionUser();
+  if (user.status === "error") return user;
+  const result = await revokeAgentConnection({ userId: user.userId, connectionId, now: new Date() });
+  revalidatePath("/settings");
+  return result.status === "revoked"
+    ? { status: "saved" as const, message: "Agent connection revoked. Existing skills were kept." }
+    : { status: "error" as const, message: "That agent connection was not found." };
+}
+
+export async function pauseAgentSkillsAction(connectionId: string) {
+  const user = await requireSettingsActionUser();
+  if (user.status === "error") return user;
+  const result = await pauseSkillsFromAgent({ userId: user.userId, connectionId });
+  revalidatePath("/settings");
+  revalidatePath("/skills");
+  return result.status === "paused"
+    ? { status: "saved" as const, message: `${result.count} active ${result.count === 1 ? "skill was" : "skills were"} paused.` }
+    : { status: "error" as const, message: "That agent connection was not found." };
 }
 
 async function requireSettingsActionUser(): Promise<SettingsActionUserResult> {

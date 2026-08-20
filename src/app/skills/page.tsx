@@ -11,6 +11,7 @@ import {
 } from "@/lib/skills/library";
 import { formatDisplayLabel, formatFsrsState } from "@/lib/formatters";
 import { ensureDatabaseUser } from "@/lib/users";
+import { getAgentAccessOverview } from "@/lib/agent-access/settings";
 
 import { SkillRowActions } from "./skill-row-actions";
 import { SkillsTopbar } from "./skills-topbar";
@@ -44,10 +45,10 @@ export default async function SkillsPage({ searchParams }: SkillsPageProps) {
     );
   }
 
-  const library = await getSkillsLibrary({
-    userId,
-    now: new Date(),
-  });
+  const [library, agentAccess] = await Promise.all([
+    getSkillsLibrary({ userId, now: new Date() }),
+    getAgentAccessOverview(userId),
+  ]);
 
   return (
     <main className="skillShell">
@@ -73,6 +74,50 @@ export default async function SkillsPage({ searchParams }: SkillsPageProps) {
         <p className="skillFormMessage" data-tone="saved" role="status">
           Skill permanently deleted.
         </p>
+      ) : null}
+
+      {agentAccess.status === "ready" && agentAccess.preparing.length > 0 ? (
+        <section className="skillPanel agentSkillQueuePanel" aria-labelledby="agent-preparing-title">
+          <div className="skillPanelHeader">
+            <div><h2 id="agent-preparing-title">Preparing</h2><p>Agent requests still being generated, verified, or activated.</p></div>
+            <PanelHeaderCount ariaLabel="Agent skills preparing" label="Skills" value={formatCount(agentAccess.preparing.length)} />
+          </div>
+          <div className="skillLibraryList">
+            {agentAccess.preparing.map((item) => (
+              <article className="skillLibraryRow" key={item.id}>
+                <div className="skillLibraryRowMain">
+                  <div><strong>{item.proposedTitle ?? "Planning skill"}</strong><p>Added by {item.operation.connection.clientName}</p></div>
+                  <span className="dashboardChip">{formatDisplayLabel(item.status)}</span>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {agentAccess.status === "ready" && agentAccess.needsReview.length > 0 ? (
+        <section className="skillPanel agentSkillReviewPanel" aria-labelledby="agent-review-title">
+          <div className="skillPanelHeader">
+            <div><h2 id="agent-review-title">Needs review</h2><p>Possible duplicates are paused until you choose what to keep.</p></div>
+            <PanelHeaderCount ariaLabel="Agent skills needing review" label="Skills" value={formatCount(agentAccess.needsReview.length)} />
+          </div>
+          <div className="skillLibraryList">
+            {agentAccess.needsReview.map((item) => (
+              <article className="skillLibraryRow" key={item.id}>
+                <div className="skillLibraryRowMain">
+                  <div>
+                    <Link aria-label={`Review ${item.proposedTitle ?? "agent skill"}`} href={`/skills/agent-review/${item.id}`}>
+                      {item.proposedTitle ?? "Untitled proposal"}<span className="rowOpenCue" aria-hidden="true">Review</span>
+                    </Link>
+                    <p>{item.proposedObjective ?? `Added by ${item.operation.connection.clientName}`}</p>
+                  </div>
+                  <span className="dashboardChip" data-tone="ready">Possible duplicate</span>
+                </div>
+                <div className="skillMetaLine"><span>Added by {item.operation.connection.clientName}</span></div>
+              </article>
+            ))}
+          </div>
+        </section>
       ) : null}
 
       <div className="skillLibraryGrid" data-layout="single">
@@ -154,6 +199,7 @@ function ActiveSkillRow({ skill }: { skill: SkillsLibraryActiveSkill }) {
       <div className="skillMetaLine skillMetaLineSchedule">
         <span>{skill.collectionName ?? "Uncollected"}</span>
         <span>{formatFsrsState(skill.fsrsState)}</span>
+        {skill.agentProvenance ? <span>Added by {skill.agentProvenance.clientName}</span> : null}
       </div>
     </article>
   );
@@ -181,6 +227,7 @@ function RecoverySkillRow({ skill }: { skill: SkillsLibraryRecoverySkill }) {
       <div className="skillMetaLine">
         <span>{skill.collectionName ?? "Uncollected"}</span>
         <span>{skill.dueLabel}</span>
+        {skill.agentProvenance ? <span>Added by {skill.agentProvenance.clientName}</span> : null}
         {skill.tags.slice(0, 3).map((tag) => (
           <span className="dashboardTag" key={tag}>
             {tag}

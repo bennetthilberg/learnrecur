@@ -5,9 +5,11 @@ import { DownloadSimpleIcon } from "@phosphor-icons/react/dist/ssr";
 import { UserStatusPanel } from "@/components/app/user-status-panel";
 import { getReminderSettings } from "@/lib/reminders";
 import { ensureDatabaseUser } from "@/lib/users";
+import { getAgentAccessOverview } from "@/lib/agent-access/settings";
 
 import { ReminderSettingsForm } from "./reminder-settings-form";
 import { SkillsTopbar } from "../skills/skills-topbar";
+import { AgentAccessPanel } from "./agent-access-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +32,10 @@ export default async function SettingsPage() {
     );
   }
 
-  const settings = await getReminderSettings({ userId });
+  const [settings, agentAccess] = await Promise.all([
+    getReminderSettings({ userId }),
+    getAgentAccessOverview(userId),
+  ]);
 
   if (settings.status !== "ready") {
     return (
@@ -69,6 +74,33 @@ export default async function SettingsPage() {
         </div>
       </section>
 
+      {agentAccess.status === "ready" ? (
+        <AgentAccessPanel
+          resourceUrl={agentAccess.resourceUrl}
+          connections={agentAccess.connections.map((connection) => ({
+            id: connection.id,
+            clientName: connection.clientName,
+            clientDomain: connection.clientDomain,
+            scopes: connection.scopes,
+            status: connection.status,
+            connectedAt: connection.connectedAt.toISOString(),
+            lastUsedAt: connection.lastUsedAt?.toISOString() ?? null,
+            remoteRevocationStatus: connection.remoteRevocationStatus,
+            operationCount: connection._count.operations,
+          }))}
+          activity={agentAccess.operations.map((operation) => ({
+            id: operation.id,
+            clientName: operation.connection.clientName,
+            status: operation.status,
+            requestedCount: operation.requestedCount,
+            activeCount: operation.activeCount,
+            reusedCount: operation.reusedCount,
+            failedCount: operation.failedCount,
+            updatedAt: operation.updatedAt.toISOString(),
+          }))}
+        />
+      ) : null}
+
       <section className="skillPanel settingsExportPanel" aria-labelledby="data-export-title" id="study-data">
         <div className="settingsSectionIntro">
           <h2 id="data-export-title">Study data</h2>
@@ -80,7 +112,8 @@ export default async function SettingsPage() {
         <div className="settingsExportBody">
           <p>
             The export includes collections, skills, source text records, exercises,
-            attempts, review history, flags, preparation records, and reminder settings.
+            attempts, review history, flags, preparation records, agent connection history,
+            and reminder settings.
           </p>
           <Link className="secondaryButton" href="/settings/export" prefetch={false}>
             <DownloadSimpleIcon aria-hidden="true" size={16} weight="bold" />

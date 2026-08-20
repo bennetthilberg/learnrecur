@@ -97,6 +97,15 @@ export default async function SkillPage({
         },
         take: 1,
       },
+      agentCreatedItems: {
+        where: { userId },
+        orderBy: { completedAt: "desc" },
+        take: 1,
+        select: {
+          completedAt: true,
+          operation: { select: { connection: { select: { clientName: true } } } },
+        },
+      },
       exercises: {
         select: {
           answerKind: true,
@@ -168,6 +177,12 @@ export default async function SkillPage({
     exerciseConstraints: notesToText(skill.exerciseConstraints),
     tags: skill.tags.join(", "),
   };
+  const agentProvenance = skill.agentCreatedItems[0]
+    ? {
+        clientName: skill.agentCreatedItems[0].operation.connection.clientName,
+        addedAt: skill.agentCreatedItems[0].completedAt ?? skill.createdAt,
+      }
+    : null;
 
   if (skill.status === SkillStatus.ACTIVE) {
     const inventory = countChoiceExerciseInventory(skill.exercises);
@@ -238,6 +253,7 @@ export default async function SkillPage({
               <div>
                 <h1>{skill.title}</h1>
                 <p>{skill.objective ?? "This skill is active in the practice schedule."}</p>
+                <SkillAgentProvenance provenance={agentProvenance} />
                 {skill.tags.length > 0 ? (
                   <div className="skillDetailTags" aria-label="Skill tags">
                     {skill.tags.map((tag) => (
@@ -484,6 +500,7 @@ export default async function SkillPage({
           <div>
             <h1>{skill.title}</h1>
             <p>{skill.objective ?? statusCopy.body}</p>
+            <SkillAgentProvenance provenance={agentProvenance} />
           </div>
         </header>
 
@@ -560,6 +577,7 @@ export default async function SkillPage({
         <div>
           <h1>{skill.title}</h1>
           <p>Check what LearnRecur made, make any edits, then add the skill.</p>
+          <SkillAgentProvenance provenance={agentProvenance} />
         </div>
       </header>
 
@@ -573,6 +591,23 @@ export default async function SkillPage({
       <SkillSourcePanel skillId={skill.id} sources={sourceSummaries} />
       <SkillLifecyclePanel skillId={skill.id} skillTitle={skill.title} status={skill.status} />
     </main>
+  );
+}
+
+function SkillAgentProvenance({
+  provenance,
+}: {
+  provenance: { clientName: string; addedAt: Date } | null;
+}) {
+  if (!provenance) return null;
+  return (
+    <p className="skillAgentProvenance">
+      Added by {provenance.clientName} · {provenance.addedAt.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      })}
+    </p>
   );
 }
 
