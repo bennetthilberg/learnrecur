@@ -453,6 +453,12 @@ describe("environment validation", () => {
     ).toBe(true);
     expect(
       shouldCheckProductionEnv({
+        LEARNRECUR_DEPLOYMENT_TIER: "stagin",
+        VERCEL_ENV: "production",
+      }),
+    ).toBe(true);
+    expect(
+      shouldCheckProductionEnv({
         LEARNRECUR_DEPLOYMENT_TIER: "staging",
         LEARNRECUR_STRICT_ENV: "1",
         VERCEL_ENV: "production",
