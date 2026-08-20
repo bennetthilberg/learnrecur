@@ -46,6 +46,7 @@ const managedEnvKeys = [
   "INNGEST_DEV",
   "INNGEST_EVENT_KEY",
   "INNGEST_SIGNING_KEY",
+  "LEARNRECUR_DEPLOYMENT_TIER",
   "LEARNRECUR_STRICT_ENV",
   "VERCEL_ENV",
 ] as const;
@@ -434,10 +435,30 @@ describe("environment validation", () => {
     expect(formatEnvError("wat")).toBe("Missing or invalid environment configuration.");
   });
 
-  it("runs strict production checks only for explicit strict or Vercel production contexts", () => {
+  it("runs strict production checks unless a Vercel production target is explicitly staging", () => {
     expect(shouldCheckProductionEnv({})).toBe(false);
     expect(shouldCheckProductionEnv({ VERCEL_ENV: "preview" })).toBe(false);
     expect(shouldCheckProductionEnv({ VERCEL_ENV: "production" })).toBe(true);
+    expect(
+      shouldCheckProductionEnv({
+        LEARNRECUR_DEPLOYMENT_TIER: "staging",
+        VERCEL_ENV: "production",
+      }),
+    ).toBe(false);
+    expect(
+      shouldCheckProductionEnv({
+        LEARNRECUR_DEPLOYMENT_TIER: "development",
+        VERCEL_ENV: "production",
+      }),
+    ).toBe(true);
+    expect(
+      shouldCheckProductionEnv({
+        LEARNRECUR_DEPLOYMENT_TIER: "staging",
+        LEARNRECUR_STRICT_ENV: "1",
+        VERCEL_ENV: "production",
+      }),
+    ).toBe(true);
+    expect(shouldCheckProductionEnv({ LEARNRECUR_DEPLOYMENT_TIER: "production" })).toBe(true);
     expect(shouldCheckProductionEnv({ LEARNRECUR_STRICT_ENV: "1" })).toBe(true);
   });
 });

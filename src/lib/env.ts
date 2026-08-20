@@ -343,7 +343,16 @@ export function hasProductionEnv(): boolean {
 }
 
 export function shouldCheckProductionEnv(env: NodeJS.ProcessEnv = process.env): boolean {
-  return env.LEARNRECUR_STRICT_ENV === "1" || env.VERCEL_ENV === "production";
+  if (
+    env.LEARNRECUR_STRICT_ENV === "1" ||
+    env.LEARNRECUR_DEPLOYMENT_TIER === "production"
+  ) {
+    return true;
+  }
+
+  return (
+    env.VERCEL_ENV === "production" && env.LEARNRECUR_DEPLOYMENT_TIER !== "staging"
+  );
 }
 
 export function formatEnvError(error: unknown): string {
