@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   getAgentAccessConfig,
   isAgentClientIdAllowed,
+  isJwksProviderFailure,
   parseAgentAccessTokenClaims,
 } from "@/lib/agent-access/auth";
 
@@ -148,5 +149,19 @@ describe("agent access configuration", () => {
         scope: "openid profile",
       }),
     ).toThrow(/custom scope/i);
+  });
+
+  it("separates remote JWKS failures from invalid bearer tokens", () => {
+    expect(isJwksProviderFailure(Object.assign(new Error("timeout"), {
+      code: "ERR_JWKS_TIMEOUT",
+    }))).toBe(true);
+    expect(isJwksProviderFailure(Object.assign(new Error("bad response"), {
+      code: "ERR_JOSE_GENERIC",
+    }))).toBe(true);
+    expect(isJwksProviderFailure(new TypeError("network error"))).toBe(true);
+    expect(isJwksProviderFailure(Object.assign(new Error("bad signature"), {
+      code: "ERR_JWS_SIGNATURE_VERIFICATION_FAILED",
+    }))).toBe(false);
+    expect(isJwksProviderFailure(new Error("invalid token"))).toBe(false);
   });
 });

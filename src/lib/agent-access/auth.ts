@@ -57,6 +57,54 @@ export class AgentAccessAuthorizationError extends Error {
 
 const jwksByIssuer = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
 
+type AgentAuthFailureReason =
+  | "jwt_invalid"
+  | "jwks_provider_unavailable"
+  | "claims_invalid"
+  | "client_not_allowed"
+  | "identity_mapping_missing_or_disabled"
+  | "authorized_grant_lookup_http_error"
+  | "authorized_grant_response_invalid"
+  | "authorized_grant_match_count"
+  | "authorized_grant_pkce_missing"
+  | "authorized_grant_scope_mismatch"
+  | "connection_mismatch_or_inactive"
+  | "verification_exception";
+
+type AgentAuthFailureDetails =
+  | { status: number }
+  | { matchCount: number }
+  | { errorName: string }
+  | Record<string, never>;
+
+const agentAuthFailureLastLoggedAt = new Map<AgentAuthFailureReason, number>();
+const AGENT_AUTH_FAILURE_LOG_INTERVAL_MS = 60_000;
+
+function recordAgentAuthFailure(
+  reason: AgentAuthFailureReason,
+  details: AgentAuthFailureDetails = {},
+) {
+  const now = Date.now();
+  const lastLoggedAt = agentAuthFailureLastLoggedAt.get(reason);
+  if (lastLoggedAt !== undefined && now - lastLoggedAt < AGENT_AUTH_FAILURE_LOG_INTERVAL_MS) {
+    return;
+  }
+  agentAuthFailureLastLoggedAt.set(reason, now);
+  console.warn("[agent-access] bearer authentication rejected", { reason, ...details });
+}
+
+export function isJwksProviderFailure(error: unknown) {
+  if (error instanceof TypeError) return true;
+  if (!error || typeof error !== "object" || !("code" in error)) return false;
+  const code = error.code;
+  return (
+    code === "ERR_JOSE_GENERIC" ||
+    code === "ERR_JWK_INVALID" ||
+    code === "ERR_JWKS_INVALID" ||
+    code === "ERR_JWKS_TIMEOUT"
+  );
+}
+
 export function getAgentAccessConfig(
   env: NodeJS.ProcessEnv = process.env,
 ): AgentAccessConfig {
@@ -162,12 +210,29 @@ export async function verifyAgentBearerToken(
     }
     const jwks = jwksByIssuer.get(config.workosIssuer);
     if (!jwks) return undefined;
-    const { payload } = await jwtVerify(bearerToken, jwks, {
-      issuer: config.workosIssuer,
-      audience: config.resourceUrl,
-    });
-    const claims = parseAgentAccessTokenClaims(payload);
-    if (!isAgentClientIdAllowed(claims.clientId, config)) return undefined;
+    let payload: JWTPayload;
+    try {
+      ({ payload } = await jwtVerify(bearerToken, jwks, {
+        issuer: config.workosIssuer,
+        audience: config.resourceUrl,
+      }));
+    } catch (error) {
+      recordAgentAuthFailure(
+        isJwksProviderFailure(error) ? "jwks_provider_unavailable" : "jwt_invalid",
+      );
+      return undefined;
+    }
+    let claims: AgentAccessTokenClaims;
+    try {
+      claims = parseAgentAccessTokenClaims(payload);
+    } catch {
+      recordAgentAuthFailure("claims_invalid");
+      return undefined;
+    }
+    if (!isAgentClientIdAllowed(claims.clientId, config)) {
+      recordAgentAuthFailure("client_not_allowed");
+      return undefined;
+    }
     const context = await resolveAgentAuthContext(claims, config);
     if (!context) return undefined;
 
@@ -186,7 +251,10 @@ export async function verifyAgentBearerToken(
         clientDomain: context.clientDomain,
       },
     };
-  } catch {
+  } catch (error) {
+    recordAgentAuthFailure("verification_exception", {
+      errorName: error instanceof Error ? error.name : "UnknownError",
+    });
     return undefined;
   }
 }
@@ -253,6 +321,7 @@ async function resolveAgentAuthContext(
     claims.subject !== identity.externalId ||
     identity.user.agentAccessDisabledAt
   ) {
+    recordAgentAuthFailure("identity_mapping_missing_or_disabled");
     return null;
   }
 
@@ -266,7 +335,15 @@ async function resolveAgentAuthContext(
       resourceUrl: config.resourceUrl,
       apiKey: config.workosApiKey,
     });
-    if (!grant || !grant.usesPkce || !claims.scopes.every((scope) => grant.scopes.includes(scope))) {
+    if (!grant) {
+      return null;
+    }
+    if (!grant.usesPkce) {
+      recordAgentAuthFailure("authorized_grant_pkce_missing");
+      return null;
+    }
+    if (!claims.scopes.every((scope) => grant.scopes.includes(scope))) {
+      recordAgentAuthFailure("authorized_grant_scope_mismatch");
       return null;
     }
     connection = await prisma.agentConnection.create({
@@ -295,6 +372,7 @@ async function resolveAgentAuthContext(
     connection.status !== AgentConnectionStatus.ACTIVE ||
     !claims.scopes.every((scope) => connection.scopes.includes(scope))
   ) {
+    recordAgentAuthFailure("connection_mismatch_or_inactive");
     return null;
   }
 
@@ -326,8 +404,13 @@ async function fetchAuthorizedGrant(input: {
       signal: AbortSignal.timeout(10_000),
     },
   );
-  if (!response.ok) return null;
-  const value = z
+  if (!response.ok) {
+    recordAgentAuthFailure("authorized_grant_lookup_http_error", {
+      status: response.status,
+    });
+    return null;
+  }
+  const parsed = z
     .object({
       data: z.array(
         z.object({
@@ -342,13 +425,23 @@ async function fetchAuthorizedGrant(input: {
         }),
       ),
     })
-    .parse(await response.json());
+    .safeParse(await response.json());
+  if (!parsed.success) {
+    recordAgentAuthFailure("authorized_grant_response_invalid");
+    return null;
+  }
+  const value = parsed.data;
   const matches = value.data.filter(
     (entry) =>
       entry.application.client_id === input.clientId &&
       (entry.oauth_resource == null || entry.oauth_resource === input.resourceUrl),
   );
-  if (matches.length !== 1) return null;
+  if (matches.length !== 1) {
+    recordAgentAuthFailure("authorized_grant_match_count", {
+      matchCount: matches.length,
+    });
+    return null;
+  }
   const match = matches[0];
   return {
     applicationId: match.application.id,
