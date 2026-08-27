@@ -59,6 +59,7 @@ const jwksByIssuer = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
 
 type AgentAuthFailureReason =
   | "jwt_invalid"
+  | "jwks_provider_unavailable"
   | "claims_invalid"
   | "client_not_allowed"
   | "identity_mapping_missing_or_disabled"
@@ -76,11 +77,32 @@ type AgentAuthFailureDetails =
   | { errorName: string }
   | Record<string, never>;
 
+const agentAuthFailureLastLoggedAt = new Map<AgentAuthFailureReason, number>();
+const AGENT_AUTH_FAILURE_LOG_INTERVAL_MS = 60_000;
+
 function recordAgentAuthFailure(
   reason: AgentAuthFailureReason,
   details: AgentAuthFailureDetails = {},
 ) {
+  const now = Date.now();
+  const lastLoggedAt = agentAuthFailureLastLoggedAt.get(reason);
+  if (lastLoggedAt !== undefined && now - lastLoggedAt < AGENT_AUTH_FAILURE_LOG_INTERVAL_MS) {
+    return;
+  }
+  agentAuthFailureLastLoggedAt.set(reason, now);
   console.warn("[agent-access] bearer authentication rejected", { reason, ...details });
+}
+
+export function isJwksProviderFailure(error: unknown) {
+  if (error instanceof TypeError) return true;
+  if (!error || typeof error !== "object" || !("code" in error)) return false;
+  const code = error.code;
+  return (
+    code === "ERR_JOSE_GENERIC" ||
+    code === "ERR_JWK_INVALID" ||
+    code === "ERR_JWKS_INVALID" ||
+    code === "ERR_JWKS_TIMEOUT"
+  );
 }
 
 export function getAgentAccessConfig(
@@ -194,8 +216,10 @@ export async function verifyAgentBearerToken(
         issuer: config.workosIssuer,
         audience: config.resourceUrl,
       }));
-    } catch {
-      recordAgentAuthFailure("jwt_invalid");
+    } catch (error) {
+      recordAgentAuthFailure(
+        isJwksProviderFailure(error) ? "jwks_provider_unavailable" : "jwt_invalid",
+      );
       return undefined;
     }
     let claims: AgentAccessTokenClaims;
