@@ -65,6 +65,39 @@ describe("agent access configuration", () => {
     expect(isAgentClientIdAllowed("https://agent.example/client.json#fragment", config)).toBe(false);
   });
 
+  it("allows CIMD-only admission without a dummy static client ID", () => {
+    const config = getAgentAccessConfig({
+      NODE_ENV: "production",
+      AGENT_SKILL_CREATION_ENABLED: "1",
+      MCP_RESOURCE_URL: "https://learnrecur.com/mcp",
+      MCP_ALLOWED_ORIGINS: "https://learnrecur.com",
+      MCP_ALLOW_VERIFIED_CIMD_CLIENTS: "1",
+      WORKOS_AUTHKIT_ISSUER: "https://learnrecur.authkit.app",
+      WORKOS_API_KEY: "sk_test_workos",
+      AGENT_OAUTH_COOKIE_SECRET: "a".repeat(32),
+    });
+
+    expect(config).toMatchObject({
+      enabled: true,
+      allowedClientIds: [],
+      allowVerifiedCimdClients: true,
+    });
+  });
+
+  it("fails closed when no client admission mechanism is configured", () => {
+    expect(() =>
+      getAgentAccessConfig({
+        NODE_ENV: "production",
+        AGENT_SKILL_CREATION_ENABLED: "1",
+        MCP_RESOURCE_URL: "https://learnrecur.com/mcp",
+        MCP_ALLOWED_ORIGINS: "https://learnrecur.com",
+        WORKOS_AUTHKIT_ISSUER: "https://learnrecur.authkit.app",
+        WORKOS_API_KEY: "sk_test_workos",
+        AGENT_OAUTH_COOKIE_SECRET: "a".repeat(32),
+      }),
+    ).toThrow(/client admission/i);
+  });
+
   it("keeps metadata clients behind an explicit launch switch", () => {
     const config = getAgentAccessConfig({
       NODE_ENV: "production",

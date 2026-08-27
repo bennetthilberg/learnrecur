@@ -66,7 +66,7 @@ export function getAgentAccessConfig(
     .object({
       MCP_RESOURCE_URL: z.string().url(),
       MCP_ALLOWED_ORIGINS: z.string().trim().min(1),
-      MCP_ALLOWED_CLIENT_IDS: z.string().trim().min(1),
+      MCP_ALLOWED_CLIENT_IDS: z.string().trim().default(""),
       WORKOS_AUTHKIT_ISSUER: z.string().url(),
       WORKOS_API_KEY: z.string().trim().min(1),
       AGENT_OAUTH_COOKIE_SECRET: z.string().min(32),
@@ -80,9 +80,15 @@ export function getAgentAccessConfig(
     requireOrigin(value, "MCP_ALLOWED_ORIGINS"),
   );
   const allowedClientIds = normalizeCsv(parsed.MCP_ALLOWED_CLIENT_IDS);
+  const allowVerifiedCimdClients = parsed.MCP_ALLOW_VERIFIED_CIMD_CLIENTS === "1";
 
   if (!allowedOrigins.includes(resource.origin)) {
     throw new Error("MCP_ALLOWED_ORIGINS must include the MCP resource origin.");
+  }
+  if (allowedClientIds.length === 0 && !allowVerifiedCimdClients) {
+    throw new Error(
+      "Agent access requires at least one client admission mechanism: MCP_ALLOWED_CLIENT_IDS or MCP_ALLOW_VERIFIED_CIMD_CLIENTS=1.",
+    );
   }
 
   return {
@@ -95,7 +101,7 @@ export function getAgentAccessConfig(
     oauthCookieSecret: parsed.AGENT_OAUTH_COOKIE_SECRET,
     allowedOrigins,
     allowedClientIds,
-    allowVerifiedCimdClients: parsed.MCP_ALLOW_VERIFIED_CIMD_CLIENTS === "1",
+    allowVerifiedCimdClients,
     permissionVersion: parsed.AGENT_PERMISSION_VERSION,
   };
 }
