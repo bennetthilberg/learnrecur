@@ -27,6 +27,7 @@ export type EnabledAgentAccessConfig = {
   oauthCookieSecret: string;
   allowedOrigins: string[];
   allowedClientIds: string[];
+  allowVerifiedCimdClients: boolean;
   permissionVersion: number;
 };
 export type AgentAccessConfig = DisabledAgentAccessConfig | EnabledAgentAccessConfig;
@@ -69,6 +70,7 @@ export function getAgentAccessConfig(
       WORKOS_AUTHKIT_ISSUER: z.string().url(),
       WORKOS_API_KEY: z.string().trim().min(1),
       AGENT_OAUTH_COOKIE_SECRET: z.string().min(32),
+      MCP_ALLOW_VERIFIED_CIMD_CLIENTS: z.enum(["0", "1"]).default("0"),
       AGENT_PERMISSION_VERSION: z.coerce.number().int().positive().default(1),
     })
     .parse(env);
@@ -93,8 +95,31 @@ export function getAgentAccessConfig(
     oauthCookieSecret: parsed.AGENT_OAUTH_COOKIE_SECRET,
     allowedOrigins,
     allowedClientIds,
+    allowVerifiedCimdClients: parsed.MCP_ALLOW_VERIFIED_CIMD_CLIENTS === "1",
     permissionVersion: parsed.AGENT_PERMISSION_VERSION,
   };
+}
+
+export function isAgentClientIdAllowed(
+  clientId: string,
+  config: Pick<EnabledAgentAccessConfig, "allowedClientIds" | "allowVerifiedCimdClients">,
+) {
+  if (config.allowedClientIds.includes(clientId)) return true;
+  if (!config.allowVerifiedCimdClients) return false;
+
+  try {
+    const metadataUrl = new URL(clientId);
+    return (
+      metadataUrl.protocol === "https:" &&
+      metadataUrl.pathname !== "/" &&
+      !metadataUrl.username &&
+      !metadataUrl.password &&
+      !metadataUrl.search &&
+      !metadataUrl.hash
+    );
+  } catch {
+    return false;
+  }
 }
 
 export function parseAgentAccessTokenClaims(payload: JWTPayload): AgentAccessTokenClaims {
@@ -136,7 +161,7 @@ export async function verifyAgentBearerToken(
       audience: config.resourceUrl,
     });
     const claims = parseAgentAccessTokenClaims(payload);
-    if (!config.allowedClientIds.includes(claims.clientId)) return undefined;
+    if (!isAgentClientIdAllowed(claims.clientId, config)) return undefined;
     const context = await resolveAgentAuthContext(claims, config);
     if (!context) return undefined;
 

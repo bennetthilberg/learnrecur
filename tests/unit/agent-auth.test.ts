@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   getAgentAccessConfig,
+  isAgentClientIdAllowed,
   parseAgentAccessTokenClaims,
 } from "@/lib/agent-access/auth";
 
@@ -20,6 +21,7 @@ describe("agent access configuration", () => {
       WORKOS_AUTHKIT_ISSUER: "https://learnrecur.authkit.app",
       WORKOS_API_KEY: "sk_test_workos",
       AGENT_OAUTH_COOKIE_SECRET: "a".repeat(32),
+      MCP_ALLOW_VERIFIED_CIMD_CLIENTS: "1",
     });
 
     expect(config).toMatchObject({
@@ -27,6 +29,7 @@ describe("agent access configuration", () => {
       resourceUrl: "https://learnrecur.com/mcp",
       allowedOrigins: ["https://chatgpt.com", "https://learnrecur.com"],
       allowedClientIds: ["client_static_1", "https://agent.example/client.json"],
+      allowVerifiedCimdClients: true,
       permissionVersion: 1,
     });
 
@@ -37,6 +40,45 @@ describe("agent access configuration", () => {
         MCP_RESOURCE_URL: "http://localhost:3000/mcp",
       }),
     ).toThrow();
+  });
+
+  it("admits WorkOS-verified HTTPS metadata clients without opening opaque client IDs", () => {
+    const config = getAgentAccessConfig({
+      NODE_ENV: "production",
+      AGENT_SKILL_CREATION_ENABLED: "1",
+      MCP_RESOURCE_URL: "https://learnrecur.com/mcp",
+      MCP_ALLOWED_ORIGINS: "https://learnrecur.com",
+      MCP_ALLOWED_CLIENT_IDS: "client_static_1",
+      MCP_ALLOW_VERIFIED_CIMD_CLIENTS: "1",
+      WORKOS_AUTHKIT_ISSUER: "https://learnrecur.authkit.app",
+      WORKOS_API_KEY: "sk_test_workos",
+      AGENT_OAUTH_COOKIE_SECRET: "a".repeat(32),
+    });
+
+    expect(isAgentClientIdAllowed("client_static_1", config)).toBe(true);
+    expect(isAgentClientIdAllowed("https://agent.example/oauth/client.json", config)).toBe(true);
+    expect(isAgentClientIdAllowed("client_unregistered", config)).toBe(false);
+    expect(isAgentClientIdAllowed("http://agent.example/oauth/client.json", config)).toBe(false);
+    expect(isAgentClientIdAllowed("https://agent.example", config)).toBe(false);
+    expect(isAgentClientIdAllowed("https://user:pass@agent.example/client.json", config)).toBe(false);
+    expect(isAgentClientIdAllowed("https://agent.example/client.json?redirect=evil", config)).toBe(false);
+    expect(isAgentClientIdAllowed("https://agent.example/client.json#fragment", config)).toBe(false);
+  });
+
+  it("keeps metadata clients behind an explicit launch switch", () => {
+    const config = getAgentAccessConfig({
+      NODE_ENV: "production",
+      AGENT_SKILL_CREATION_ENABLED: "1",
+      MCP_RESOURCE_URL: "https://learnrecur.com/mcp",
+      MCP_ALLOWED_ORIGINS: "https://learnrecur.com",
+      MCP_ALLOWED_CLIENT_IDS: "client_static_1",
+      WORKOS_AUTHKIT_ISSUER: "https://learnrecur.authkit.app",
+      WORKOS_API_KEY: "sk_test_workos",
+      AGENT_OAUTH_COOKIE_SECRET: "a".repeat(32),
+    });
+
+    expect(config).toMatchObject({ allowVerifiedCimdClients: false });
+    expect(isAgentClientIdAllowed("https://agent.example/oauth/client.json", config)).toBe(false);
   });
 
   it("requires subject, grant, client, expiry, and supported custom scopes", () => {
