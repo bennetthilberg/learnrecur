@@ -37,7 +37,6 @@ export type WorkosGateEvidence = {
     applicationId: string;
     clientId: string;
     oauthResource?: string | null;
-    grantedScopes: string[];
     usesPkce: boolean;
   };
   refreshRotated: boolean;
@@ -76,9 +75,6 @@ export function evaluateWorkosGateEvidence(
   const requiredScopes = new Set(normalizeScopes(evidence.requiredScopes));
   const initialScopes = new Set(normalizeScopes(evidence.initialToken.scopes));
   const refreshedScopes = new Set(normalizeScopes(evidence.refreshedToken.scopes));
-  const grantedScopes = new Set(
-    normalizeScopes(evidence.authorizedApplication.grantedScopes),
-  );
   const exactAudience = (audience: string | string[]) =>
     typeof audience === "string"
       ? audience === evidence.canonicalResource
@@ -126,10 +122,8 @@ export function evaluateWorkosGateEvidence(
     ),
     check(
       "custom_scopes",
-      hasEveryScope(initialScopes) &&
-        hasEveryScope(refreshedScopes) &&
-        hasEveryScope(grantedScopes),
-      "Required custom scopes are present on the grant and both tokens.",
+      hasEveryScope(initialScopes) && hasEveryScope(refreshedScopes),
+      "Required custom scopes are present on both signed tokens.",
     ),
     check(
       "token_expiry",

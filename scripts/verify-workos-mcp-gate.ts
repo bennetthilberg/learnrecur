@@ -29,7 +29,6 @@ const gateEnvSchema = z.object({
 
 type AuthorizedApplication = {
   oauth_resource?: string | null;
-  granted_scopes?: string[];
   application?: {
     id?: string;
     client_id?: string;
@@ -133,7 +132,6 @@ async function main() {
       applicationId: rotationApplication.application?.id ?? "",
       clientId: rotationApplication.application?.client_id ?? "",
       oauthResource: rotationApplication.oauth_resource ?? null,
-      grantedScopes: rotationApplication.granted_scopes ?? [],
       usesPkce: rotationApplication.application?.uses_pkce === true,
     },
     refreshRotated:

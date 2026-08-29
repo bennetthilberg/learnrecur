@@ -67,7 +67,6 @@ type AgentAuthFailureReason =
   | "authorized_grant_response_invalid"
   | "authorized_grant_match_count"
   | "authorized_grant_pkce_missing"
-  | "authorized_grant_scope_mismatch"
   | "connection_mismatch_or_inactive"
   | "verification_exception";
 
@@ -103,6 +102,19 @@ export function isJwksProviderFailure(error: unknown) {
     code === "ERR_JWKS_INVALID" ||
     code === "ERR_JWKS_TIMEOUT"
   );
+}
+
+export function deriveConnectionScopesFromAuthorizedGrant(input: {
+  usesPkce: boolean;
+  tokenScopes: readonly AgentAccessScope[];
+}): AgentAccessScope[] | null {
+  if (!input.usesPkce) return null;
+
+  // WorkOS signs these scopes into the short-lived token after consent. The
+  // authorized-application lookup independently proves that the same user,
+  // client, and resource still have a PKCE grant, but its granted_scopes field
+  // can omit MCP custom scopes even when the token contains them.
+  return [...input.tokenScopes];
 }
 
 export function getAgentAccessConfig(
@@ -338,12 +350,12 @@ async function resolveAgentAuthContext(
     if (!grant) {
       return null;
     }
-    if (!grant.usesPkce) {
+    const connectionScopes = deriveConnectionScopesFromAuthorizedGrant({
+      usesPkce: grant.usesPkce,
+      tokenScopes: claims.scopes,
+    });
+    if (!connectionScopes) {
       recordAgentAuthFailure("authorized_grant_pkce_missing");
-      return null;
-    }
-    if (!claims.scopes.every((scope) => grant.scopes.includes(scope))) {
-      recordAgentAuthFailure("authorized_grant_scope_mismatch");
       return null;
     }
     connection = await prisma.agentConnection.create({
@@ -357,7 +369,7 @@ async function resolveAgentAuthContext(
         clientName: grant.clientName,
         clientDomain: clientDomain(claims.clientId),
         resourceUrl: config.resourceUrl,
-        scopes: claims.scopes,
+        scopes: connectionScopes,
         permissionVersion: config.permissionVersion,
       },
     });
@@ -447,7 +459,6 @@ async function fetchAuthorizedGrant(input: {
     applicationId: match.application.id,
     clientName: match.application.name.trim() || clientDomain(input.clientId),
     usesPkce: match.application.uses_pkce,
-    scopes: parseScopeClaim(match.granted_scopes),
   };
 }
 
