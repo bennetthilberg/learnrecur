@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  deriveConnectionScopesFromAuthorizedGrant,
   getAgentAccessConfig,
   isAgentClientIdAllowed,
   isJwksProviderFailure,
@@ -163,5 +164,20 @@ describe("agent access configuration", () => {
       code: "ERR_JWS_SIGNATURE_VERIFICATION_FAILED",
     }))).toBe(false);
     expect(isJwksProviderFailure(new Error("invalid token"))).toBe(false);
+  });
+
+  it("uses signed token scopes when WorkOS omits custom grant scopes", () => {
+    expect(
+      deriveConnectionScopesFromAuthorizedGrant({
+        usesPkce: true,
+        tokenScopes: ["materials:read", "skills:create", "sources:upload"],
+      }),
+    ).toEqual(["materials:read", "skills:create", "sources:upload"]);
+    expect(
+      deriveConnectionScopesFromAuthorizedGrant({
+        usesPkce: false,
+        tokenScopes: ["skills:create"],
+      }),
+    ).toBeNull();
   });
 });
