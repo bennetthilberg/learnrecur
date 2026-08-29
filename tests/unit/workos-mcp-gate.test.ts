@@ -46,7 +46,6 @@ function validEvidence(): WorkosGateEvidence {
       applicationId: "conn_app_123",
       clientId: "client_123",
       oauthResource: null,
-      grantedScopes: ["skills:create", "materials:read", "sources:upload"],
       usesPkce: true,
     },
     refreshRotated: true,
@@ -81,8 +80,8 @@ describe("WorkOS MCP release gate", () => {
     ["changed grant after refresh", (evidence: WorkosGateEvidence) => {
       evidence.refreshedToken.sessionId = "app_consent_other";
     }],
-    ["missing custom scope", (evidence: WorkosGateEvidence) => {
-      evidence.authorizedApplication.grantedScopes = ["skills:create"];
+    ["missing custom scope on the signed token", (evidence: WorkosGateEvidence) => {
+      evidence.refreshedToken.scopes = ["skills:create"];
     }],
     ["reusable refresh token", (evidence: WorkosGateEvidence) => {
       evidence.reusedRefreshRejected = false;
@@ -98,6 +97,18 @@ describe("WorkOS MCP release gate", () => {
 
     expect(result.passed).toBe(false);
     expect(result.checks.some((check) => !check.passed)).toBe(true);
+  });
+
+  it("trusts custom scopes from both verified tokens instead of the authorized-app response", () => {
+    const evidence = validEvidence();
+
+    const result = evaluateWorkosGateEvidence(evidence, 1_900_000_000);
+
+    expect(result.checks.find((check) => check.id === "custom_scopes")).toEqual({
+      id: "custom_scopes",
+      passed: true,
+      message: "Required custom scopes are present on both signed tokens.",
+    });
   });
 
   it("normalizes space- and array-based scope claims without accepting other values", () => {
