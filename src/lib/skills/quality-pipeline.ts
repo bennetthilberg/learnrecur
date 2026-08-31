@@ -8,7 +8,11 @@ import {
   SkillFsrsState,
   type Prisma,
 } from "@/generated/prisma/client";
-import { planExerciseBlueprint, type SubjectCapabilityId } from "@/lib/skills/exercise-planning";
+import {
+  planExerciseBlueprint,
+  type AnswerMode,
+  type SubjectCapabilityId,
+} from "@/lib/skills/exercise-planning";
 import {
   CONTEXT_MANIFEST_VERSION as AUDIT_CONTEXT_MANIFEST_VERSION,
   MAX_GENERATION_AUDIT_LIST_ENTRIES,
@@ -173,6 +177,7 @@ export function buildGenerationQualityContext(input: {
   skill: GenerationQualitySkill;
   sourceContext: string | null;
   requestedCount: number;
+  answerModes?: readonly AnswerMode[];
   now?: Date;
   sourceEvidence?: readonly GenerationSourceIdentity[];
 }): GenerationQualityContext {
@@ -247,12 +252,13 @@ export function buildGenerationQualityContext(input: {
         },
         materialFingerprint,
       });
+  const answerModes = input.answerModes?.length ? [...input.answerModes] : ["choice" as const];
   const planned = planExerciseBlueprint({
     skillSpec: {
       ...skillSpec,
       skillId: input.skill.id,
       fingerprint: materialFingerprint,
-      allowedAnswerModes: ["choice"],
+      allowedAnswerModes: answerModes,
       sourceRequirements: {
         ...skillSpec.sourceRequirements,
         evidenceIds: input.sourceContext ? ["source-context"] : [],
@@ -267,11 +273,16 @@ export function buildGenerationQualityContext(input: {
       repetitions: input.skill.repetitions ?? 0,
       stability: input.skill.stability ?? null,
       desiredCount: Math.max(1, Math.min(10, Math.trunc(input.requestedCount))),
-      supportedAnswerModes: ["choice"],
+      supportedAnswerModes: answerModes,
       subjectCapability,
     },
     recentExercises: [],
   });
+  if (planned.slots.length === 0 && planned.reasonCodes.includes("no_supported_answer_mode")) {
+    throw new Error(
+      `Skill capability ${subjectCapability} does not support the requested answer modes: ${answerModes.join(", ")}.`,
+    );
+  }
   const blueprint = exerciseBlueprintSchema.parse({
     contractVersion: GENERATION_QUALITY_CONTRACT_VERSION,
     blueprintVersion: BLUEPRINT_VERSION,

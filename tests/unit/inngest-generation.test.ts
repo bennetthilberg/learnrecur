@@ -5,6 +5,7 @@ import {
   exactInputExerciseRefillFunction,
   mathExerciseRefillFunction,
 } from "@/lib/inngest/functions";
+import { REFILL_JOB_RETRY_LIMIT } from "@/lib/skills/refill-policy";
 
 describe("Inngest exercise refill functions", () => {
   it.each([
@@ -13,7 +14,7 @@ describe("Inngest exercise refill functions", () => {
     ["math", mathExerciseRefillFunction],
   ])("uses bounded retries and per-skill concurrency for %s refills", (_name, fn) => {
     expect(fn.opts).toMatchObject({
-      retries: 2,
+      retries: REFILL_JOB_RETRY_LIMIT,
       concurrency: {
         limit: 1,
         key: "event.data.skillId",

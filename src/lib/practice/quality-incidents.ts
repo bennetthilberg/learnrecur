@@ -48,7 +48,7 @@ async function lockExerciseFamilyForQualityMutation(
     skillId: string;
     exerciseFamily: string;
     qualityVersion: string;
-    generatorReleaseId: string | null;
+    generatorReleaseId: string;
   },
 ): Promise<boolean> {
   const lockedExercises = await tx.$queryRaw<Array<{ id: string }>>`
@@ -58,7 +58,7 @@ async function lockExerciseFamilyForQualityMutation(
       AND "skillId" = ${exercise.skillId}
       AND "exerciseFamily" = ${exercise.exerciseFamily}
       AND "qualityVersion" = ${exercise.qualityVersion}
-      AND "generatorReleaseId" IS NOT DISTINCT FROM ${exercise.generatorReleaseId}
+      AND "generatorReleaseId" = ${exercise.generatorReleaseId}
     ORDER BY "id"
     FOR UPDATE
   `;
@@ -115,11 +115,13 @@ export async function adjudicateExerciseQualityIncident(input: {
       input.adjudication === "confirmed" &&
       input.quarantineRelated &&
       exercise.exerciseFamily &&
-      exercise.qualityVersion
+      exercise.qualityVersion &&
+      exercise.generatorReleaseId
         ? await lockExerciseFamilyForQualityMutation(tx, {
             ...exercise,
             exerciseFamily: exercise.exerciseFamily,
             qualityVersion: exercise.qualityVersion,
+            generatorReleaseId: exercise.generatorReleaseId,
           })
         : await lockExerciseForQualityMutation(tx, input.userId, input.exerciseId);
     if (!locked) return { status: "not-found" };
@@ -212,7 +214,12 @@ export async function adjudicateExerciseQualityIncident(input: {
     });
 
     let quarantinedExerciseCount = 0;
-    if (input.quarantineRelated && exercise.exerciseFamily && exercise.qualityVersion) {
+    if (
+      input.quarantineRelated &&
+      exercise.exerciseFamily &&
+      exercise.qualityVersion &&
+      exercise.generatorReleaseId
+    ) {
       const quarantine = await tx.exercise.updateMany({
         where: {
           userId: input.userId,

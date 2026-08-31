@@ -1665,7 +1665,12 @@ describe("MetaMuse exercise fallbacks", () => {
       requestedCount: 1,
     });
     await createMetaMuseMathExerciseVerifier(metaMuse)({
-      skill,
+      skill: {
+        ...skill,
+        title: "Algebra source skill",
+        objective: "Practice algebraic equivalence from the source.",
+        tags: ["math", "algebra"],
+      },
       sourceContext: "Use the worksheet scope.",
       sourceMedia: imageMedia,
       candidates: [

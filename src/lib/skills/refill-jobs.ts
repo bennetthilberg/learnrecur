@@ -1,6 +1,7 @@
 import "server-only";
 
 import {
+  GenerationAuditDecision,
   GenerationFailureCategory,
   GenerationJobKind,
   GenerationJobStage,
@@ -372,6 +373,90 @@ export async function runMathExerciseRefillJob(
     generateMathExercises: input.generateMathExercises,
     verifyMathExercises: input.verifyMathExercises,
     model: input.model,
+  });
+}
+
+export async function markRefillJobRetryableFailure(input: {
+  userId: string;
+  skillId: string;
+  generationJobId: string;
+  now: Date;
+  error: unknown;
+}): Promise<void> {
+  const prisma = getPrisma();
+  await prisma.$transaction(async (tx) => {
+    const updated = await tx.generationJob.updateMany({
+      where: {
+        id: input.generationJobId,
+        userId: input.userId,
+        skillId: input.skillId,
+        status: GenerationJobStatus.RUNNING,
+      },
+      data: {
+        status: GenerationJobStatus.FAILED,
+        stage: GenerationJobStage.FAILED,
+        checkpoint: "retryable-exception",
+        failureCategory: GenerationFailureCategory.UNKNOWN,
+        errorMessage: `Unexpected refill failure: ${formatEnvError(input.error)}`,
+        completedAt: input.now,
+      },
+    });
+    if (updated.count !== 1) return;
+    const job = await tx.generationJob.findUniqueOrThrow({
+      where: { id: input.generationJobId },
+      select: {
+        id: true,
+        userId: true,
+        skillId: true,
+        idempotencyKey: true,
+        attemptCount: true,
+        retryCount: true,
+        provider: true,
+        model: true,
+        promptVersion: true,
+        releaseTuple: true,
+        contextManifest: true,
+        contextManifestHash: true,
+        degradedState: true,
+        generationReleaseId: true,
+        verifierReleaseId: true,
+        requestedCount: true,
+        acceptedCount: true,
+        rejectedCount: true,
+      },
+    });
+    await tx.generationAuditRecord.createMany({
+      data: [{
+        userId: job.userId,
+        jobId: job.id,
+        skillId: job.skillId,
+        idempotencyKey: job.idempotencyKey ?? job.id,
+        eventKey: `retryable-exception-${job.attemptCount}`,
+        stage: GenerationJobStage.FAILED,
+        checkpoint: "retryable-exception",
+        attempt: job.attemptCount,
+        retryCount: job.retryCount,
+        releaseTuple: (job.releaseTuple ?? {
+          provider: job.provider,
+          model: job.model,
+          generationPromptVersion: job.promptVersion,
+        }) as Prisma.InputJsonValue,
+        contextManifest: job.contextManifest as Prisma.InputJsonValue | undefined,
+        contextManifestHash: job.contextManifestHash,
+        stageMetrics: {
+          requestedCount: job.requestedCount,
+          acceptedCount: job.acceptedCount,
+          rejectedCount: job.rejectedCount,
+          attemptCount: job.attemptCount,
+        },
+        failureCategory: GenerationFailureCategory.UNKNOWN,
+        degradedState: job.degradedState,
+        decision: GenerationAuditDecision.FAILED,
+        generationReleaseId: job.generationReleaseId,
+        verifierReleaseId: job.verifierReleaseId,
+      }],
+      skipDuplicates: true,
+    });
   });
 }
 

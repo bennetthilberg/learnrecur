@@ -8,8 +8,10 @@ import {
   ExerciseType,
   ExerciseVerificationStatus,
   GenerationJobKind,
+  GenerationAuditDecision,
   GenerationJobStatus,
   Prisma,
+  SkillGenerationSpecStatus,
   SkillFsrsState,
   SkillStatus,
   SourceFileKind,
@@ -65,11 +67,13 @@ import {
   queueExactInputExerciseRefillForSkill,
   queueChoiceExerciseRefillForSkill,
   queueMathExerciseRefillForSkill,
+  markRefillJobRetryableFailure,
   runChoiceExerciseRefillJob,
   runExactInputExerciseRefillJob,
   runMathExerciseRefillJob,
   type RefillQueueResult,
 } from "@/lib/skills/refill-jobs";
+import { REFILL_JOB_RETRY_LIMIT } from "@/lib/skills/refill-policy";
 import type {
   ExerciseRefillEventPayload,
   ExerciseRefillEventSender,
@@ -803,6 +807,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
       answerKind: "choice",
       requestedCount: 5,
     });
+    expect(afterUpdate.generationSpecStatus).toBe(SkillGenerationSpecStatus.SUPERSEDED);
   });
 
   it("activates a draft with verified choice exercises, FSRS fields, and audit metadata", async () => {
@@ -2095,6 +2100,14 @@ describeDatabase("skill drafts and Gemini activation", () => {
       status: GenerationJobStatus.FAILED,
       acceptedCount: 2,
       rejectedCount: 0,
+    });
+    await expect(prisma.generationAuditRecord.findFirstOrThrow({
+      where: { jobId: skill.generationJobs[0].id, checkpoint: "failed" },
+      select: { decision: true, failureCategory: true, stageMetrics: true },
+    })).resolves.toMatchObject({
+      decision: GenerationAuditDecision.FAILED,
+      failureCategory: skill.generationJobs[0].failureCategory,
+      stageMetrics: expect.objectContaining({ acceptedCount: 2, rejectedCount: 0 }),
     });
   });
 
@@ -6168,6 +6181,164 @@ describeDatabase("skill drafts and Gemini activation", () => {
     ]);
   });
 
+  it("reclaims a refill job after an unexpected retriable worker failure", async () => {
+    const userId = await createUser("choice_refill_retry");
+    const skill = await createActiveSkillFixture({ userId, title: "Retry refill skill" });
+    await createChoiceExerciseFixture({ userId, skillId: skill.id, id: 1 });
+    await createChoiceExerciseFixture({ userId, skillId: skill.id, id: 2 });
+    const fake = createFakeRefillSender();
+    const queued = expectQueued(await queueChoiceExerciseRefillForSkill({
+      userId,
+      skillId: skill.id,
+      now,
+      sender: fake.sender,
+      model: "test-gemini",
+    }));
+    await prisma.generationJob.update({
+      where: { id: queued.generationJobId },
+      data: {
+        status: GenerationJobStatus.RUNNING,
+        stage: "GENERATING",
+        checkpoint: "claimed",
+        attemptCount: 1,
+        startedAt: now,
+      },
+    });
+    await markRefillJobRetryableFailure({
+      userId,
+      skillId: skill.id,
+      generationJobId: queued.generationJobId,
+      now,
+      error: new Error("database connection reset"),
+    });
+
+    const result = await runChoiceExerciseRefillJob({
+      userId,
+      skillId: skill.id,
+      generationJobId: queued.generationJobId,
+      targetReadyCount: queued.targetReadyCount,
+      requestedAt: now.toISOString(),
+      now,
+      generateChoiceExercises: async () => ({
+        exercises: [generatedExercise(501), generatedExercise(502), generatedExercise(503)],
+      }),
+      verifyChoiceExercises: acceptAllVerifier,
+      model: "test-gemini",
+    });
+
+    expect(result).toMatchObject({ status: "refilled", exerciseCount: 3 });
+    await expect(prisma.generationJob.findUniqueOrThrow({
+      where: { id: queued.generationJobId },
+      select: { status: true, attemptCount: true, retryCount: true },
+    })).resolves.toEqual({
+      status: GenerationJobStatus.SUCCEEDED,
+      attemptCount: 2,
+      retryCount: 1,
+    });
+    await expect(prisma.generationAuditRecord.findFirstOrThrow({
+      where: { jobId: queued.generationJobId, checkpoint: "retryable-exception" },
+      select: { decision: true, idempotencyKey: true },
+    })).resolves.toEqual({
+      decision: GenerationAuditDecision.FAILED,
+      idempotencyKey: `${GenerationJobKind.CHOICE_EXERCISE_GENERATION}:${skill.id}:${now.toISOString()}`,
+    });
+  });
+
+  it("leaves refill jobs terminally failed after the worker retry limit", async () => {
+    const userId = await createUser("choice_refill_retry_limit");
+    const skill = await createActiveSkillFixture({ userId, title: "Retry-limited refill skill" });
+    const fake = createFakeRefillSender();
+    const queued = expectQueued(await queueChoiceExerciseRefillForSkill({
+      userId,
+      skillId: skill.id,
+      now,
+      sender: fake.sender,
+      model: "test-gemini",
+    }));
+    await prisma.generationJob.update({
+      where: { id: queued.generationJobId },
+      data: {
+        status: GenerationJobStatus.FAILED,
+        checkpoint: "retryable-exception",
+        attemptCount: REFILL_JOB_RETRY_LIMIT + 1,
+        retryCount: REFILL_JOB_RETRY_LIMIT,
+      },
+    });
+
+    const result = await runChoiceExerciseRefillJob({
+      userId,
+      skillId: skill.id,
+      generationJobId: queued.generationJobId,
+      targetReadyCount: queued.targetReadyCount,
+      requestedAt: now.toISOString(),
+      now,
+      generateChoiceExercises: async () => {
+        throw new Error("Retry-limited jobs must not call the generator.");
+      },
+      verifyChoiceExercises: acceptAllVerifier,
+      model: "test-gemini",
+    });
+
+    expect(result).toMatchObject({ status: "not-refilled", reason: "job-not-pending" });
+    await expect(prisma.generationJob.findUniqueOrThrow({
+      where: { id: queued.generationJobId },
+      select: { status: true, attemptCount: true, retryCount: true },
+    })).resolves.toEqual({
+      status: GenerationJobStatus.FAILED,
+      attemptCount: REFILL_JOB_RETRY_LIMIT + 1,
+      retryCount: REFILL_JOB_RETRY_LIMIT,
+    });
+  });
+
+  it("reclaims the final refill attempt allowed by the worker retry limit", async () => {
+    const userId = await createUser("choice_refill_last_retry");
+    const skill = await createActiveSkillFixture({ userId, title: "Last retry refill skill" });
+    const fake = createFakeRefillSender();
+    const queued = expectQueued(await queueChoiceExerciseRefillForSkill({
+      userId,
+      skillId: skill.id,
+      now,
+      sender: fake.sender,
+      model: "test-gemini",
+    }));
+    await prisma.generationJob.update({
+      where: { id: queued.generationJobId },
+      data: {
+        status: GenerationJobStatus.FAILED,
+        checkpoint: "retryable-exception",
+        attemptCount: REFILL_JOB_RETRY_LIMIT,
+        retryCount: REFILL_JOB_RETRY_LIMIT - 1,
+      },
+    });
+
+    const result = await runChoiceExerciseRefillJob({
+      userId,
+      skillId: skill.id,
+      generationJobId: queued.generationJobId,
+      targetReadyCount: queued.targetReadyCount,
+      requestedAt: now.toISOString(),
+      now,
+      generateChoiceExercises: async () => ({
+        exercises: Array.from(
+          { length: DEFAULT_READY_EXERCISE_TARGET },
+          (_, index) => generatedExercise(601 + index),
+        ),
+      }),
+      verifyChoiceExercises: acceptAllVerifier,
+      model: "test-gemini",
+    });
+
+    expect(result).toMatchObject({ status: "refilled" });
+    await expect(prisma.generationJob.findUniqueOrThrow({
+      where: { id: queued.generationJobId },
+      select: { status: true, attemptCount: true, retryCount: true },
+    })).resolves.toEqual({
+      status: GenerationJobStatus.SUCCEEDED,
+      attemptCount: REFILL_JOB_RETRY_LIMIT + 1,
+      retryCount: REFILL_JOB_RETRY_LIMIT,
+    });
+  });
+
   it("does not queue duplicate or locked refill jobs", async () => {
     const userId = await createUser("refill_queue_guards");
     const skill = await createActiveSkillFixture({
@@ -7209,6 +7380,40 @@ describeDatabase("skill drafts and Gemini activation", () => {
     });
   });
 
+  it("reports an exact-input refill as superseded when its job finishes concurrently", async () => {
+    const userId = await createUser("exact_refill_concurrent_finish");
+    const skill = await createActiveSkillFixture({
+      userId,
+      repetitions: EXACT_INPUT_UNLOCK_REPETITIONS,
+    });
+
+    const result = await refillExactInputExercisesForSkill({
+      userId,
+      skillId: skill.id,
+      now,
+      generateExactInputExercises: async () => {
+        await prisma.generationJob.updateMany({
+          where: {
+            userId,
+            skillId: skill.id,
+            kind: GenerationJobKind.EXACT_INPUT_EXERCISE_GENERATION,
+            status: GenerationJobStatus.RUNNING,
+          },
+          data: { status: GenerationJobStatus.SUCCEEDED },
+        });
+        throw new Error("late provider failure");
+      },
+      verifyExactInputExercises: acceptAllExactInputVerifier,
+      model: "test-gemini",
+    });
+
+    expect(result).toMatchObject({ status: "not-refilled", reason: "job-not-pending" });
+    await expect(prisma.generationJob.findFirstOrThrow({
+      where: { userId, skillId: skill.id },
+      select: { status: true },
+    })).resolves.toEqual({ status: GenerationJobStatus.SUCCEEDED });
+  });
+
   it("rejects non-active, missing, and cross-user exact-input refills without jobs", async () => {
     const userId = await createUser("exact_refill_rejects");
     const otherUserId = await createUser("exact_refill_rejects_other");
@@ -7386,6 +7591,40 @@ describeDatabase("skill drafts and Gemini activation", () => {
       acceptedCount: 0,
       rejectedCount: 1,
     });
+  });
+
+  it("reports a math refill as superseded when its job finishes concurrently", async () => {
+    const userId = await createUser("math_refill_concurrent_finish");
+    const skill = await createActiveSkillFixture({
+      userId,
+      repetitions: EXACT_INPUT_UNLOCK_REPETITIONS,
+    });
+
+    const result = await refillMathExercisesForSkill({
+      userId,
+      skillId: skill.id,
+      now,
+      generateMathExercises: async () => {
+        await prisma.generationJob.updateMany({
+          where: {
+            userId,
+            skillId: skill.id,
+            kind: GenerationJobKind.MATH_EXERCISE_GENERATION,
+            status: GenerationJobStatus.RUNNING,
+          },
+          data: { status: GenerationJobStatus.SUCCEEDED },
+        });
+        throw new Error("late provider failure");
+      },
+      verifyMathExercises: acceptAllMathVerifier,
+      model: "test-gemini",
+    });
+
+    expect(result).toMatchObject({ status: "not-refilled", reason: "job-not-pending" });
+    await expect(prisma.generationJob.findFirstOrThrow({
+      where: { userId, skillId: skill.id },
+      select: { status: true },
+    })).resolves.toEqual({ status: GenerationJobStatus.SUCCEEDED });
   });
 
   it("rejects non-active, missing, and cross-user math refills without jobs", async () => {

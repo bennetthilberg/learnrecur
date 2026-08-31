@@ -135,6 +135,47 @@ describe("buildGenerationQualityContext", () => {
     expect(auditContextManifestSchema.safeParse(metadata.contextManifest).success).toBe(true);
   });
 
+  it("builds mode-specific blueprints for exact-input and math generation", () => {
+    const exact = buildGenerationQualityContext({
+      skill,
+      sourceContext: null,
+      requestedCount: 2,
+      answerModes: ["text", "numeric"],
+    });
+    const math = buildGenerationQualityContext({
+      skill,
+      sourceContext: null,
+      requestedCount: 2,
+      answerModes: ["math"],
+    });
+
+    expect(exact.blueprint.slots).toHaveLength(2);
+    expect(math.blueprint.slots).toHaveLength(2);
+    expect(exact.blueprint.slots.every((slot) => ["text", "numeric"].includes(slot.answerMode)))
+      .toBe(true);
+    expect(math.blueprint.slots.every((slot) => slot.answerMode === "math")).toBe(true);
+  });
+
+  it("fails closed when the requested answer mode is unsupported for the skill", () => {
+    const result = safeBuildGenerationQualityContext({
+      skill: {
+        ...skill,
+        id: "skill-history",
+        title: "Explain the causes of the French Revolution",
+        objective: "Recall evidence-backed historical causes.",
+        tags: ["history"],
+      },
+      sourceContext: "The source describes fiscal pressure and unequal taxation.",
+      requestedCount: 2,
+      answerModes: ["math"],
+    });
+
+    expect(result).toMatchObject({ status: "invalid", failureCategory: "SCHEMA" });
+    expect(result.status === "invalid" ? result.message : "").toContain(
+      "does not support the requested answer modes",
+    );
+  });
+
   it("records source truncation instead of silently treating a clipped excerpt as complete", () => {
     const context = buildGenerationQualityContext({
       skill,

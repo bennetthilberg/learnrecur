@@ -72,6 +72,8 @@ import {
   assessChoiceCandidateQuality,
   type CandidateAcceptanceDecision,
 } from "@/lib/skills/generation-quality";
+import type { AnswerMode } from "@/lib/skills/exercise-planning";
+import { REFILL_JOB_RETRY_LIMIT } from "@/lib/skills/refill-policy";
 import {
   buildGenerationQualityContext,
   buildGenerationRuntimeMetadata,
@@ -1852,6 +1854,7 @@ export async function updateSkillPracticeGuidance(input: {
       rules: toNotesJson(normalized.value.rules),
       examples: toNotesJson(normalized.value.examples),
       exerciseConstraints: toConstraintsJson(normalized.value.exerciseConstraints),
+      generationSpecStatus: SkillGenerationSpecStatus.SUPERSEDED,
     },
   });
 
@@ -3354,7 +3357,7 @@ export async function activateSkillDraft(
         userId: input.userId,
         jobId: generationJob.id,
         skillId: skill.id,
-        idempotencyKey: generationJob.id,
+        idempotencyKey: generationJob.idempotencyKey ?? generationJob.id,
         eventKey: "publication-complete",
         stage: GenerationJobStage.COMPLETE,
         checkpoint: "published",
@@ -3446,6 +3449,21 @@ async function synchronizeActivatedMaterialDraftBatches(input: {
   }
 }
 
+function refillJobNoLongerRunning(
+  generationJobId: string,
+  readyExerciseCount: number,
+  targetReadyCount: number,
+) {
+  return {
+    status: "not-refilled" as const,
+    reason: "job-not-pending" as const,
+    message: "This refill job is no longer running.",
+    generationJobId,
+    readyExerciseCount,
+    targetReadyCount,
+  };
+}
+
 export async function refillChoiceExercisesForSkill(
   input: RefillChoiceExercisesInput,
 ): Promise<SkillExerciseRefillResult> {
@@ -3466,6 +3484,11 @@ export async function refillChoiceExercisesForSkill(
       exerciseConstraints: true,
       tags: true,
       status: true,
+      fsrsState: true,
+      dueAt: true,
+      repetitions: true,
+      lapses: true,
+      stability: true,
       sourceRefs: {
         orderBy: {
           createdAt: "asc",
@@ -3605,13 +3628,20 @@ export async function refillChoiceExercisesForSkill(
     sourceMedia = sourceEvidence.sourceMedia;
   } catch (error) {
     const message = buildSourceMediaLoadFailureMessage(error);
-    await markGenerationJobFailed(prisma, generationJob.id, {
+    const jobFailed = await markGenerationJobFailed(prisma, generationJob.id, {
       message,
       acceptedCount: 0,
       rejectedCount: 0,
       now: input.now,
       providerUsage: providerUsage.latest(),
     });
+    if (!jobFailed) {
+      return refillJobNoLongerRunning(
+        generationJob.id,
+        inventory.readyExerciseCount,
+        targetReadyCount,
+      );
+    }
 
     return {
       status: "not-refilled",
@@ -3644,14 +3674,11 @@ export async function refillChoiceExercisesForSkill(
       providerUsage: providerUsage.latest(),
     });
     if (!jobFailed) {
-      return {
-        status: "not-refilled",
-        reason: "job-not-pending",
-        message: "This refill job is no longer running.",
-        generationJobId: generationJob.id,
-        readyExerciseCount: inventory.readyExerciseCount,
+      return refillJobNoLongerRunning(
+        generationJob.id,
+        inventory.readyExerciseCount,
         targetReadyCount,
-      };
+      );
     }
     return {
       status: "not-refilled",
@@ -3681,13 +3708,20 @@ export async function refillChoiceExercisesForSkill(
     );
   } catch (error) {
     const message = `Gemini exercise generation failed: ${formatEnvError(error)}`;
-    await markGenerationJobFailed(prisma, generationJob.id, {
+    const jobFailed = await markGenerationJobFailed(prisma, generationJob.id, {
       message,
       acceptedCount: 0,
       rejectedCount: 0,
       now: input.now,
       providerUsage: providerUsage.latest(),
     });
+    if (!jobFailed) {
+      return refillJobNoLongerRunning(
+        generationJob.id,
+        inventory.readyExerciseCount,
+        targetReadyCount,
+      );
+    }
 
     return {
       status: "not-refilled",
@@ -3708,14 +3742,11 @@ export async function refillChoiceExercisesForSkill(
     generationJob.attemptCount,
   );
   if (!validatingMarked) {
-    return {
-      status: "not-refilled",
-      reason: "job-not-pending",
-      message: "This refill job is no longer running.",
-      generationJobId: generationJob.id,
-      readyExerciseCount: inventory.readyExerciseCount,
+    return refillJobNoLongerRunning(
+      generationJob.id,
+      inventory.readyExerciseCount,
       targetReadyCount,
-    };
+    );
   }
   const validation = validateGeneratedChoiceExercises(rawGeneration, {
     minValidExercises: 1,
@@ -3723,13 +3754,20 @@ export async function refillChoiceExercisesForSkill(
   });
 
   if (validation.status === "invalid") {
-    await markGenerationJobFailed(prisma, generationJob.id, {
+    const jobFailed = await markGenerationJobFailed(prisma, generationJob.id, {
       message: validation.message,
       acceptedCount: validation.validCount,
       rejectedCount: validation.rejectedCount,
       now: input.now,
       providerUsage: providerUsage.latest(),
     });
+    if (!jobFailed) {
+      return refillJobNoLongerRunning(
+        generationJob.id,
+        inventory.readyExerciseCount,
+        targetReadyCount,
+      );
+    }
 
     return {
       status: "not-refilled",
@@ -3745,13 +3783,20 @@ export async function refillChoiceExercisesForSkill(
 
   if (deduplicated.exercises.length === 0) {
     const message = "Gemini returned only duplicate exercises for this skill.";
-    await markGenerationJobFailed(prisma, generationJob.id, {
+    const jobFailed = await markGenerationJobFailed(prisma, generationJob.id, {
       message,
       acceptedCount: 0,
       rejectedCount: validation.rejectedCount + deduplicated.duplicateCount,
       now: input.now,
       providerUsage: providerUsage.latest(),
     });
+    if (!jobFailed) {
+      return refillJobNoLongerRunning(
+        generationJob.id,
+        inventory.readyExerciseCount,
+        targetReadyCount,
+      );
+    }
 
     return {
       status: "not-refilled",
@@ -3773,14 +3818,11 @@ export async function refillChoiceExercisesForSkill(
     generationJob.attemptCount,
   );
   if (!verifyingMarked) {
-    return {
-      status: "not-refilled",
-      reason: "job-not-pending",
-      message: "This refill job is no longer running.",
-      generationJobId: generationJob.id,
-      readyExerciseCount: inventory.readyExerciseCount,
+    return refillJobNoLongerRunning(
+      generationJob.id,
+      inventory.readyExerciseCount,
       targetReadyCount,
-    };
+    );
   }
   let rawVerification: unknown;
 
@@ -3799,7 +3841,7 @@ export async function refillChoiceExercisesForSkill(
     );
   } catch (error) {
     const message = `Gemini exercise verification failed: ${formatEnvError(error)}`;
-    await markGenerationJobFailed(prisma, generationJob.id, {
+    const jobFailed = await markGenerationJobFailed(prisma, generationJob.id, {
       message,
       acceptedCount: 0,
       rejectedCount:
@@ -3807,6 +3849,13 @@ export async function refillChoiceExercisesForSkill(
       now: input.now,
       providerUsage: providerUsage.latest(),
     });
+    if (!jobFailed) {
+      return refillJobNoLongerRunning(
+        generationJob.id,
+        inventory.readyExerciseCount,
+        targetReadyCount,
+      );
+    }
 
     return {
       status: "not-refilled",
@@ -3829,7 +3878,7 @@ export async function refillChoiceExercisesForSkill(
   );
 
   if (verification.status === "invalid") {
-    await markGenerationJobFailed(prisma, generationJob.id, {
+    const jobFailed = await markGenerationJobFailed(prisma, generationJob.id, {
       message: verification.message,
       acceptedCount: verification.verifiedCount,
       rejectedCount:
@@ -3837,6 +3886,13 @@ export async function refillChoiceExercisesForSkill(
       now: input.now,
       providerUsage: providerUsage.latest(),
     });
+    if (!jobFailed) {
+      return refillJobNoLongerRunning(
+        generationJob.id,
+        inventory.readyExerciseCount,
+        targetReadyCount,
+      );
+    }
 
     return {
       status: "not-refilled",
@@ -3868,14 +3924,11 @@ export async function refillChoiceExercisesForSkill(
     generationJob.attemptCount,
   );
   if (!publishingMarked) {
-    return {
-      status: "not-refilled",
-      reason: "job-not-pending",
-      message: "This refill job is no longer running.",
-      generationJobId: generationJob.id,
-      readyExerciseCount: inventory.readyExerciseCount,
+    return refillJobNoLongerRunning(
+      generationJob.id,
+      inventory.readyExerciseCount,
       targetReadyCount,
-    };
+    );
   }
 
   return mapGenerationPublicationRace(
@@ -4004,7 +4057,7 @@ export async function refillChoiceExercisesForSkill(
         userId: input.userId,
         jobId: generationJob.id,
         skillId: skill.id,
-        idempotencyKey: generationJob.id,
+        idempotencyKey: generationJob.idempotencyKey ?? generationJob.id,
         eventKey: "publication-complete",
         stage: GenerationJobStage.COMPLETE,
         checkpoint: "published",
@@ -4030,14 +4083,11 @@ export async function refillChoiceExercisesForSkill(
       targetReadyCount,
     };
     }),
-    () => ({
-      status: "not-refilled" as const,
-      reason: "job-not-pending" as const,
-      message: "This refill job is no longer running.",
-      generationJobId: generationJob.id,
-      readyExerciseCount: inventory.readyExerciseCount,
+    () => refillJobNoLongerRunning(
+      generationJob.id,
+      inventory.readyExerciseCount,
       targetReadyCount,
-    }),
+    ),
   );
 }
 
@@ -4065,6 +4115,10 @@ export async function refillExactInputExercisesForSkill(
       tags: true,
       status: true,
       repetitions: true,
+      fsrsState: true,
+      dueAt: true,
+      lapses: true,
+      stability: true,
       sourceRefs: {
         orderBy: {
           createdAt: "asc",
@@ -4212,12 +4266,19 @@ export async function refillExactInputExercisesForSkill(
     sourceMedia = sourceEvidence.sourceMedia;
   } catch (error) {
     const message = buildSourceMediaLoadFailureMessage(error);
-    await markGenerationJobFailed(prisma, generationJob.id, {
+    const jobFailed = await markGenerationJobFailed(prisma, generationJob.id, {
       message,
       acceptedCount: 0,
       rejectedCount: 0,
       now: input.now,
     });
+    if (!jobFailed) {
+      return refillJobNoLongerRunning(
+        generationJob.id,
+        inventory.readyExerciseCount,
+        targetReadyCount,
+      );
+    }
 
     return {
       status: "not-refilled",
@@ -4245,13 +4306,20 @@ export async function refillExactInputExercisesForSkill(
     );
   } catch (error) {
     const message = `Gemini exact-input exercise generation failed: ${formatEnvError(error)}`;
-    await markGenerationJobFailed(prisma, generationJob.id, {
+    const jobFailed = await markGenerationJobFailed(prisma, generationJob.id, {
       message,
       acceptedCount: 0,
       rejectedCount: 0,
       now: input.now,
       providerUsage: providerUsage.latest(),
     });
+    if (!jobFailed) {
+      return refillJobNoLongerRunning(
+        generationJob.id,
+        inventory.readyExerciseCount,
+        targetReadyCount,
+      );
+    }
 
     return {
       status: "not-refilled",
@@ -4269,13 +4337,20 @@ export async function refillExactInputExercisesForSkill(
   });
 
   if (validation.status === "invalid") {
-    await markGenerationJobFailed(prisma, generationJob.id, {
+    const jobFailed = await markGenerationJobFailed(prisma, generationJob.id, {
       message: validation.message,
       acceptedCount: validation.validCount,
       rejectedCount: validation.rejectedCount,
       now: input.now,
       providerUsage: providerUsage.latest(),
     });
+    if (!jobFailed) {
+      return refillJobNoLongerRunning(
+        generationJob.id,
+        inventory.readyExerciseCount,
+        targetReadyCount,
+      );
+    }
 
     return {
       status: "not-refilled",
@@ -4291,13 +4366,20 @@ export async function refillExactInputExercisesForSkill(
 
   if (deduplicated.exercises.length === 0) {
     const message = "Gemini returned only duplicate exact-input exercises for this skill.";
-    await markGenerationJobFailed(prisma, generationJob.id, {
+    const jobFailed = await markGenerationJobFailed(prisma, generationJob.id, {
       message,
       acceptedCount: 0,
       rejectedCount: validation.rejectedCount + deduplicated.duplicateCount,
       now: input.now,
       providerUsage: providerUsage.latest(),
     });
+    if (!jobFailed) {
+      return refillJobNoLongerRunning(
+        generationJob.id,
+        inventory.readyExerciseCount,
+        targetReadyCount,
+      );
+    }
 
     return {
       status: "not-refilled",
@@ -4326,7 +4408,7 @@ export async function refillExactInputExercisesForSkill(
     );
   } catch (error) {
     const message = `Gemini exact-input exercise verification failed: ${formatEnvError(error)}`;
-    await markGenerationJobFailed(prisma, generationJob.id, {
+    const jobFailed = await markGenerationJobFailed(prisma, generationJob.id, {
       message,
       acceptedCount: 0,
       rejectedCount:
@@ -4334,6 +4416,13 @@ export async function refillExactInputExercisesForSkill(
       now: input.now,
       providerUsage: providerUsage.latest(),
     });
+    if (!jobFailed) {
+      return refillJobNoLongerRunning(
+        generationJob.id,
+        inventory.readyExerciseCount,
+        targetReadyCount,
+      );
+    }
 
     return {
       status: "not-refilled",
@@ -4356,7 +4445,7 @@ export async function refillExactInputExercisesForSkill(
   );
 
   if (verification.status === "invalid") {
-    await markGenerationJobFailed(prisma, generationJob.id, {
+    const jobFailed = await markGenerationJobFailed(prisma, generationJob.id, {
       message: verification.message,
       acceptedCount: verification.verifiedCount,
       rejectedCount:
@@ -4364,6 +4453,13 @@ export async function refillExactInputExercisesForSkill(
       now: input.now,
       providerUsage: providerUsage.latest(),
     });
+    if (!jobFailed) {
+      return refillJobNoLongerRunning(
+        generationJob.id,
+        inventory.readyExerciseCount,
+        targetReadyCount,
+      );
+    }
 
     return {
       status: "not-refilled",
@@ -4507,6 +4603,10 @@ export async function refillMathExercisesForSkill(
       tags: true,
       status: true,
       repetitions: true,
+      fsrsState: true,
+      dueAt: true,
+      lapses: true,
+      stability: true,
       sourceRefs: {
         orderBy: {
           createdAt: "asc",
@@ -4654,12 +4754,19 @@ export async function refillMathExercisesForSkill(
     sourceMedia = sourceEvidence.sourceMedia;
   } catch (error) {
     const message = buildSourceMediaLoadFailureMessage(error);
-    await markGenerationJobFailed(prisma, generationJob.id, {
+    const jobFailed = await markGenerationJobFailed(prisma, generationJob.id, {
       message,
       acceptedCount: 0,
       rejectedCount: 0,
       now: input.now,
     });
+    if (!jobFailed) {
+      return refillJobNoLongerRunning(
+        generationJob.id,
+        inventory.readyExerciseCount,
+        targetReadyCount,
+      );
+    }
 
     return {
       status: "not-refilled",
@@ -4687,13 +4794,20 @@ export async function refillMathExercisesForSkill(
     );
   } catch (error) {
     const message = `Gemini math exercise generation failed: ${formatEnvError(error)}`;
-    await markGenerationJobFailed(prisma, generationJob.id, {
+    const jobFailed = await markGenerationJobFailed(prisma, generationJob.id, {
       message,
       acceptedCount: 0,
       rejectedCount: 0,
       now: input.now,
       providerUsage: providerUsage.latest(),
     });
+    if (!jobFailed) {
+      return refillJobNoLongerRunning(
+        generationJob.id,
+        inventory.readyExerciseCount,
+        targetReadyCount,
+      );
+    }
 
     return {
       status: "not-refilled",
@@ -4711,13 +4825,20 @@ export async function refillMathExercisesForSkill(
   });
 
   if (validation.status === "invalid") {
-    await markGenerationJobFailed(prisma, generationJob.id, {
+    const jobFailed = await markGenerationJobFailed(prisma, generationJob.id, {
       message: validation.message,
       acceptedCount: validation.validCount,
       rejectedCount: validation.rejectedCount,
       now: input.now,
       providerUsage: providerUsage.latest(),
     });
+    if (!jobFailed) {
+      return refillJobNoLongerRunning(
+        generationJob.id,
+        inventory.readyExerciseCount,
+        targetReadyCount,
+      );
+    }
 
     return {
       status: "not-refilled",
@@ -4733,13 +4854,20 @@ export async function refillMathExercisesForSkill(
 
   if (deduplicated.exercises.length === 0) {
     const message = "Gemini returned only duplicate math exercises for this skill.";
-    await markGenerationJobFailed(prisma, generationJob.id, {
+    const jobFailed = await markGenerationJobFailed(prisma, generationJob.id, {
       message,
       acceptedCount: 0,
       rejectedCount: validation.rejectedCount + deduplicated.duplicateCount,
       now: input.now,
       providerUsage: providerUsage.latest(),
     });
+    if (!jobFailed) {
+      return refillJobNoLongerRunning(
+        generationJob.id,
+        inventory.readyExerciseCount,
+        targetReadyCount,
+      );
+    }
 
     return {
       status: "not-refilled",
@@ -4768,7 +4896,7 @@ export async function refillMathExercisesForSkill(
     );
   } catch (error) {
     const message = `Gemini math exercise verification failed: ${formatEnvError(error)}`;
-    await markGenerationJobFailed(prisma, generationJob.id, {
+    const jobFailed = await markGenerationJobFailed(prisma, generationJob.id, {
       message,
       acceptedCount: 0,
       rejectedCount:
@@ -4776,6 +4904,13 @@ export async function refillMathExercisesForSkill(
       now: input.now,
       providerUsage: providerUsage.latest(),
     });
+    if (!jobFailed) {
+      return refillJobNoLongerRunning(
+        generationJob.id,
+        inventory.readyExerciseCount,
+        targetReadyCount,
+      );
+    }
 
     return {
       status: "not-refilled",
@@ -4798,7 +4933,7 @@ export async function refillMathExercisesForSkill(
   );
 
   if (verification.status === "invalid") {
-    await markGenerationJobFailed(prisma, generationJob.id, {
+    const jobFailed = await markGenerationJobFailed(prisma, generationJob.id, {
       message: verification.message,
       acceptedCount: verification.verifiedCount,
       rejectedCount:
@@ -4806,6 +4941,13 @@ export async function refillMathExercisesForSkill(
       now: input.now,
       providerUsage: providerUsage.latest(),
     });
+    if (!jobFailed) {
+      return refillJobNoLongerRunning(
+        generationJob.id,
+        inventory.readyExerciseCount,
+        targetReadyCount,
+      );
+    }
 
     return {
       status: "not-refilled",
@@ -6969,6 +7111,7 @@ function buildGenerationQualityPromptLines(
     qualityContext?: GenerationQualityContext;
   },
   requestedCount: number,
+  answerModes: readonly AnswerMode[] = ["choice"],
 ) {
   const qualityContext =
     input.qualityContext ??
@@ -6976,6 +7119,7 @@ function buildGenerationQualityPromptLines(
       skill: input.skill,
       sourceContext: input.sourceContext,
       requestedCount,
+      answerModes,
     });
 
   return [
@@ -7180,7 +7324,11 @@ function buildExactInputExercisePrompt(input: ExactInputExerciseGeneratorInput):
     `Exercise constraints: ${summarizeJsonNotes(input.skill.exerciseConstraints)}`,
   ];
 
-  prompt.push(...buildGenerationQualityPromptLines(input, input.requestedCount));
+  prompt.push(...buildGenerationQualityPromptLines(
+    input,
+    input.requestedCount,
+    ["text", "numeric"],
+  ));
 
   prompt.push(...buildSourceMediaPromptLines(input.sourceMedia));
 
@@ -7241,7 +7389,11 @@ function buildExactInputExerciseVerificationPrompt(input: ExactInputExerciseVeri
     `Exercise constraints: ${summarizeJsonNotes(input.skill.exerciseConstraints)}`,
   ];
 
-  prompt.push(...buildGenerationQualityPromptLines(input, input.candidates.length));
+  prompt.push(...buildGenerationQualityPromptLines(
+    input,
+    input.candidates.length,
+    ["text", "numeric"],
+  ));
 
   prompt.push(...buildSourceMediaPromptLines(input.sourceMedia));
 
@@ -7290,7 +7442,7 @@ function buildMathExercisePrompt(input: MathExerciseGeneratorInput): string {
     `Exercise constraints: ${summarizeJsonNotes(input.skill.exerciseConstraints)}`,
   ];
 
-  prompt.push(...buildGenerationQualityPromptLines(input, input.requestedCount));
+  prompt.push(...buildGenerationQualityPromptLines(input, input.requestedCount, ["math"]));
 
   prompt.push(...buildSourceMediaPromptLines(input.sourceMedia));
 
@@ -7351,7 +7503,7 @@ function buildMathExerciseVerificationPrompt(input: MathExerciseVerifierInput): 
     `Exercise constraints: ${summarizeJsonNotes(input.skill.exerciseConstraints)}`,
   ];
 
-  prompt.push(...buildGenerationQualityPromptLines(input, input.candidates.length));
+  prompt.push(...buildGenerationQualityPromptLines(input, input.candidates.length, ["math"]));
 
   prompt.push(...buildSourceMediaPromptLines(input.sourceMedia));
 
@@ -7863,7 +8015,7 @@ async function createGeneratedSkillDraftsForSourceFileInTransaction(
 }
 
 async function markGenerationJobFailed(
-  prisma: Pick<Prisma.TransactionClient, "generationJob">,
+  prisma: ReturnType<typeof getPrisma>,
   generationJobId: string,
   input: {
     message: string;
@@ -7874,24 +8026,83 @@ async function markGenerationJobFailed(
     providerUsage?: AiProviderUsage | null;
   },
 ) {
-  const updated = await prisma.generationJob.updateMany({
-    where: {
-      id: generationJobId,
-      status: GenerationJobStatus.RUNNING,
-    },
-    data: {
-      ...buildGenerationJobProviderUpdate(input.providerUsage ?? null),
-      status: GenerationJobStatus.FAILED,
-      stage: GenerationJobStage.FAILED,
-      checkpoint: "failed",
-      failureCategory: input.failureCategory ?? classifyGenerationFailure(input.message),
-      acceptedCount: input.acceptedCount,
-      rejectedCount: input.rejectedCount,
-      errorMessage: input.message,
-      completedAt: input.now,
-    },
+  const failureCategory = input.failureCategory ?? classifyGenerationFailure(input.message);
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.generationJob.updateMany({
+      where: {
+        id: generationJobId,
+        status: GenerationJobStatus.RUNNING,
+      },
+      data: {
+        ...buildGenerationJobProviderUpdate(input.providerUsage ?? null),
+        status: GenerationJobStatus.FAILED,
+        stage: GenerationJobStage.FAILED,
+        checkpoint: "failed",
+        failureCategory,
+        acceptedCount: input.acceptedCount,
+        rejectedCount: input.rejectedCount,
+        errorMessage: input.message,
+        completedAt: input.now,
+      },
+    });
+    if (updated.count !== 1) return false;
+
+    const job = await tx.generationJob.findUniqueOrThrow({
+      where: { id: generationJobId },
+      select: {
+        id: true,
+        userId: true,
+        skillId: true,
+        idempotencyKey: true,
+        kind: true,
+        attemptCount: true,
+        retryCount: true,
+        provider: true,
+        model: true,
+        promptVersion: true,
+        releaseTuple: true,
+        contextManifest: true,
+        contextManifestHash: true,
+        degradedState: true,
+        generationReleaseId: true,
+        verifierReleaseId: true,
+        requestedCount: true,
+      },
+    });
+    await tx.generationAuditRecord.createMany({
+      data: [{
+        userId: job.userId,
+        jobId: job.id,
+        skillId: job.skillId,
+        idempotencyKey: job.idempotencyKey ?? job.id,
+        eventKey: `failure-${job.attemptCount}-${job.retryCount}`,
+        stage: GenerationJobStage.FAILED,
+        checkpoint: "failed",
+        attempt: job.attemptCount,
+        retryCount: job.retryCount,
+        releaseTuple: (job.releaseTuple ?? {
+          provider: job.provider,
+          model: job.model,
+          generationPromptVersion: job.promptVersion,
+        }) as Prisma.InputJsonValue,
+        contextManifest: job.contextManifest as Prisma.InputJsonValue | undefined,
+        contextManifestHash: job.contextManifestHash,
+        stageMetrics: {
+          requestedCount: job.requestedCount,
+          acceptedCount: input.acceptedCount,
+          rejectedCount: input.rejectedCount,
+          attemptCount: job.attemptCount,
+        },
+        failureCategory,
+        degradedState: job.degradedState,
+        decision: GenerationAuditDecision.FAILED,
+        generationReleaseId: job.generationReleaseId,
+        verifierReleaseId: job.verifierReleaseId,
+      }],
+      skipDuplicates: true,
+    });
+    return true;
   });
-  return updated.count === 1;
 }
 
 async function markGenerationJobStage(
@@ -7952,6 +8163,11 @@ type ActivationGenerationSetup =
     };
 
 type ActivationGenerationJobClient = Pick<Prisma.TransactionClient, "generationJob">;
+type ClaimedGenerationJob = {
+  id: string;
+  attemptCount: number;
+  idempotencyKey: string | null;
+};
 
 async function createOrClaimActivationGenerationJob({
   prisma,
@@ -7970,10 +8186,7 @@ async function createOrClaimActivationGenerationJob({
 }): Promise<
   | {
       status: "ready";
-      generationJob: {
-        id: string;
-        attemptCount: number;
-      };
+      generationJob: ClaimedGenerationJob;
     }
   | {
       status: "not-ready";
@@ -8015,6 +8228,7 @@ async function createOrClaimActivationGenerationJob({
         select: {
           id: true,
           attemptCount: true,
+          idempotencyKey: true,
         },
       });
 
@@ -8070,6 +8284,7 @@ async function createOrClaimActivationGenerationJob({
       startedAt: true,
       updatedAt: true,
       errorMessage: true,
+      idempotencyKey: true,
     },
   });
 
@@ -8101,6 +8316,7 @@ async function createOrClaimActivationGenerationJob({
           generationJob: {
             id: activeJob.id,
             attemptCount: data.attemptCount,
+            idempotencyKey: activeJob.idempotencyKey,
           },
         };
       }
@@ -8162,6 +8378,7 @@ async function createOrClaimActivationGenerationJob({
           generationJob: {
             id: activeJob.id,
             attemptCount: data.attemptCount,
+            idempotencyKey: activeJob.idempotencyKey,
           },
         };
       }
@@ -8242,10 +8459,7 @@ async function createOrClaimRefillGenerationJob({
 }): Promise<
   | {
       status: "ready";
-      generationJob: {
-        id: string;
-        attemptCount: number;
-      };
+      generationJob: ClaimedGenerationJob;
     }
   | {
       status: "not-ready";
@@ -8282,6 +8496,7 @@ async function createOrClaimRefillGenerationJob({
       select: {
         id: true,
         attemptCount: true,
+        idempotencyKey: true,
       },
     });
 
@@ -8291,24 +8506,51 @@ async function createOrClaimRefillGenerationJob({
     };
   }
 
-  const claim = await prisma.generationJob.updateMany({
+  const claimableJob = await prisma.generationJob.findFirst({
     where: {
       id: generationJobId,
       userId,
       skillId,
       kind,
-      status: GenerationJobStatus.PENDING,
+      OR: [
+        { status: GenerationJobStatus.PENDING },
+        {
+          status: GenerationJobStatus.FAILED,
+          checkpoint: "retryable-exception",
+          retryCount: { lt: REFILL_JOB_RETRY_LIMIT },
+        },
+      ],
     },
-    data,
+    select: { status: true, updatedAt: true },
   });
+  const claim = claimableJob
+    ? await prisma.generationJob.updateMany({
+    where: {
+      id: generationJobId,
+      userId,
+      skillId,
+      kind,
+      status: claimableJob.status,
+      updatedAt: claimableJob.updatedAt,
+    },
+    data: {
+      ...data,
+      attemptCount: { increment: 1 },
+      retryCount: claimableJob.status === GenerationJobStatus.FAILED
+        ? { increment: 1 }
+        : 0,
+    },
+  })
+    : { count: 0 };
 
   if (claim.count === 1) {
+    const claimedJob = await prisma.generationJob.findUniqueOrThrow({
+      where: { id: generationJobId },
+      select: { id: true, attemptCount: true, idempotencyKey: true },
+    });
     return {
       status: "ready",
-      generationJob: {
-        id: generationJobId,
-        attemptCount: data.attemptCount,
-      },
+      generationJob: claimedJob,
     };
   }
 
