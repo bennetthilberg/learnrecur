@@ -1,5 +1,5 @@
 export const DEFAULT_META_MUSE_BASE_URL = "https://api.meta.ai/v1";
-export const DEFAULT_META_MUSE_MODEL = "muse-spark-1.1";
+export const DEFAULT_META_MUSE_MODEL = "muse-spark-1.2";
 export const DEFAULT_META_MUSE_REQUEST_TIMEOUT_MS = 60_000;
 export const MAX_META_MUSE_INLINE_FILE_BYTES = 50_000_000;
 

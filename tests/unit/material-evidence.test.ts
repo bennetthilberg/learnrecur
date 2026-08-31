@@ -95,7 +95,7 @@ describe("localized material evidence", () => {
       createMetaMuseMaterialOcrGenerator({
         apiKey: "LLM|123|secret",
         baseUrl: "https://api.meta.ai/v1",
-        model: "muse-spark-1.1",
+        model: "muse-spark-1.2",
       })({ pdfBytes: Buffer.from("%PDF slice"), pageNumbers: [7] }),
     ).resolves.toEqual({ pages: [{ pageNumber: 7, text: "A diagram." }] });
     const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));

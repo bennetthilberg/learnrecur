@@ -260,7 +260,7 @@ describeDatabase("study data export", () => {
         kind: GenerationJobKind.CHOICE_EXERCISE_GENERATION,
         status: GenerationJobStatus.SUCCEEDED,
         provider: "gemini",
-        model: "gemini-3.5-flash",
+        model: "gemini-3.7-flash",
         promptVersion: "test-v0",
         requestedCount: 3,
         acceptedCount: 3,
