@@ -1531,7 +1531,7 @@ describeDatabase("practice review service", () => {
         requestedCount: 5,
         provider: "google",
         model: "test-gemini",
-        promptVersion: "skill-mcq-v0",
+        promptVersion: "skill-mcq-v1",
       },
       {
         retiredAt: flaggedAt,

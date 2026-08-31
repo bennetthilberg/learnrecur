@@ -855,3 +855,19 @@ Outstanding quality means going further: the system reliably chooses the smalles
 clearest, most varied exercise that yields useful independent evidence at the right
 time, while preserving the learner's source and never pretending uncertainty is
 knowledge.
+
+## Implementation Status
+
+The code-side foundation in this plan is implemented on the generation-hardening
+branch: solve-first verification, deterministic semantic and answer checks,
+versioned skill/blueprint/context contracts, memory-aware exercise planning,
+source identity manifests, acceptance metadata, staged jobs, bounded retries and
+concurrency, release/canary controls, redacted eval artifacts, live primary,
+fallback and handoff tests, learner incident quarantine, and deterministic FSRS
+replay. The operational procedure is in `docs/ai-skill-generation-operations.md`.
+
+The statistical and human evidence gates remain intentionally open. A blind audit
+of accepted exercises, the 1,000-item broad-production target, real canary traffic,
+and delayed independent-retrieval outcomes require approved production samples
+and human labels; they cannot be truthfully completed by code or synthetic model
+calls. Priority 2 remains gated on that evidence, as specified above.

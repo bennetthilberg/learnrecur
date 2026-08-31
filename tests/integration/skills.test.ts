@@ -869,7 +869,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
       status: GenerationJobStatus.SUCCEEDED,
       provider: "google",
       model: "test-gemini",
-      promptVersion: "skill-mcq-v0",
+      promptVersion: "skill-mcq-v1",
       requestedCount: 5,
       acceptedCount: 3,
       rejectedCount: 0,
@@ -6227,7 +6227,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
       skillId: skill.id,
       provider: "google",
       model: "test-gemini",
-      promptVersion: "skill-mcq-v0",
+      promptVersion: "skill-mcq-v1",
       requestedCount: 3,
     };
 
@@ -6393,7 +6393,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
       kind: GenerationJobKind.CHOICE_EXERCISE_GENERATION,
       provider: "google",
       model: "test-gemini",
-      promptVersion: "skill-mcq-v0",
+      promptVersion: "skill-mcq-v1",
       requestedCount: 3,
       acceptedCount: 3,
       rejectedCount: 0,

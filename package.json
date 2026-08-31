@@ -7,6 +7,7 @@
     "dev:app": "next dev",
     "dev:inngest": "inngest dev --no-discovery -u http://localhost:3000/api/inngest",
     "env:check": "tsx scripts/check-production-env.ts --strict",
+    "eval:ai-generation": "NODE_OPTIONS='--conditions=react-server' tsx scripts/ai-generation-eval.ts",
     "agent:workos-gate": "tsx scripts/verify-workos-mcp-gate.ts",
     "prebuild": "tsx scripts/check-production-env.ts",
     "build": "next build",

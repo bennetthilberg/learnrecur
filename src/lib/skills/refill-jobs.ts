@@ -1,7 +1,9 @@
 import "server-only";
 
 import {
+  GenerationFailureCategory,
   GenerationJobKind,
+  GenerationJobStage,
   GenerationJobStatus,
   Prisma,
   SkillStatus,
@@ -428,6 +430,7 @@ async function queueExerciseRefillJob({
       promptVersion,
       requestedCount,
       model: input.model,
+      now: input.now,
     });
   let generationJob: { id: string };
 
@@ -467,6 +470,9 @@ async function queueExerciseRefillJob({
       },
       data: {
         status: GenerationJobStatus.FAILED,
+        stage: GenerationJobStage.FAILED,
+        checkpoint: "event-send-failed",
+        failureCategory: GenerationFailureCategory.TRANSPORT,
         errorMessage: message,
         completedAt: input.now,
       },
@@ -500,6 +506,7 @@ async function createNewGenerationJob({
   promptVersion,
   requestedCount,
   model,
+  now,
 }: {
   userId: string;
   skillId: string;
@@ -507,6 +514,7 @@ async function createNewGenerationJob({
   promptVersion: string;
   requestedCount: number;
   model?: string;
+  now: Date;
 }): Promise<{ id: string }> {
   return getPrisma().generationJob.create({
     data: {
@@ -514,6 +522,9 @@ async function createNewGenerationJob({
       skillId,
       kind,
       status: GenerationJobStatus.PENDING,
+      stage: GenerationJobStage.QUEUED,
+      checkpoint: "event-pending",
+      idempotencyKey: `${kind}:${skillId}:${now.toISOString()}`,
       provider: GEMINI_PROVIDER,
       model: model?.trim() || process.env.GEMINI_MODEL?.trim() || DEFAULT_GEMINI_MODEL,
       promptVersion,

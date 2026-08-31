@@ -56,6 +56,8 @@ import { inngest } from "./client";
 export const choiceExerciseRefillFunction = inngest.createFunction(
   {
     id: "choice-exercise-refill",
+    retries: 2,
+    concurrency: { limit: 1, key: "event.data.skillId" },
     triggers: [{ event: CHOICE_REFILL_REQUESTED_EVENT }],
   },
   async ({ event, step }) => {
@@ -73,6 +75,8 @@ export const choiceExerciseRefillFunction = inngest.createFunction(
 export const exactInputExerciseRefillFunction = inngest.createFunction(
   {
     id: "exact-input-exercise-refill",
+    retries: 2,
+    concurrency: { limit: 1, key: "event.data.skillId" },
     triggers: [{ event: EXACT_INPUT_REFILL_REQUESTED_EVENT }],
   },
   async ({ event, step }) => {
@@ -90,6 +94,8 @@ export const exactInputExerciseRefillFunction = inngest.createFunction(
 export const mathExerciseRefillFunction = inngest.createFunction(
   {
     id: "math-exercise-refill",
+    retries: 2,
+    concurrency: { limit: 1, key: "event.data.skillId" },
     triggers: [{ event: MATH_REFILL_REQUESTED_EVENT }],
   },
   async ({ event, step }) => {

@@ -3,6 +3,7 @@ import "server-only";
 import {
   AnswerKind,
   ExerciseAttemptResult,
+  ExerciseEvidenceCorrectionStatus,
   ExerciseFlagReason,
   ExerciseFlagStatus,
   ExerciseRetirementReason,
@@ -36,6 +37,12 @@ import {
   queueMathExerciseRefillForSkill,
   type RefillQueueResult,
 } from "@/lib/skills/refill-jobs";
+
+export {
+  adjudicateExerciseQualityIncident,
+  type ExerciseIncidentAdjudication,
+  type ExerciseIncidentResult,
+} from "./quality-incidents";
 
 const SUPPORTED_ANSWER_KINDS = [
   AnswerKind.CHOICE,
@@ -417,6 +424,9 @@ export async function flagPracticeExercise(
   }
 
   const retirementReason = toExerciseRetirementReason(uniqueReasons);
+  const practiceEvidenceNeedsCorrection = uniqueReasons.some((reason) =>
+    reason !== ExerciseFlagReason.NOT_USEFUL && reason !== ExerciseFlagReason.OTHER
+  );
   const prisma = getPrisma();
 
   return prisma.$transaction(async (tx) => {
@@ -477,6 +487,10 @@ export async function flagPracticeExercise(
           resolutionNote: RETIREMENT_RESOLUTION_NOTE,
           retiredExerciseAt: exercise.retiredAt ?? input.flaggedAt,
           retirementReason: exercise.retirementReason ?? retirementReason,
+          practiceEvidenceNeedsCorrection,
+          evidenceCorrectionStatus: practiceEvidenceNeedsCorrection
+            ? ExerciseEvidenceCorrectionStatus.PENDING
+            : ExerciseEvidenceCorrectionStatus.NOT_REQUIRED,
         },
       });
 
@@ -506,6 +520,10 @@ export async function flagPracticeExercise(
           resolutionNote: RETIREMENT_RESOLUTION_NOTE,
           retiredExerciseAt: exercise.retiredAt ?? input.flaggedAt,
           retirementReason: exercise.retirementReason ?? retirementReason,
+          practiceEvidenceNeedsCorrection,
+          evidenceCorrectionStatus: practiceEvidenceNeedsCorrection
+            ? ExerciseEvidenceCorrectionStatus.PENDING
+            : ExerciseEvidenceCorrectionStatus.NOT_REQUIRED,
         })),
       });
     }

@@ -182,6 +182,40 @@ describe("Meta Muse Responses client", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
+  it("retries one network-level transport failure", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(new TypeError("fetch failed"))
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            status: "completed",
+            output: [
+              {
+                type: "message",
+                role: "assistant",
+                content: [{ type: "output_text", text: JSON.stringify({ ok: true }) }],
+              },
+            ],
+          }),
+          { status: 200 },
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      runMetaMuseJsonResponse({
+        apiKey: "LLM|123|secret",
+        baseUrl: DEFAULT_META_MUSE_BASE_URL,
+        model: DEFAULT_META_MUSE_MODEL,
+        operation: "exercise verification",
+        instructions: "Return JSON.",
+        userContent: "Return JSON.",
+      }),
+    ).resolves.toEqual({ ok: true });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it("aborts stalled requests after the configured timeout", async () => {
     vi.useFakeTimers();
     vi.stubGlobal(

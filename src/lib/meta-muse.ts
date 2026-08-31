@@ -121,15 +121,28 @@ export async function runMetaMuseJsonResponse({
     let attempt = 0;
     while (attempt < 2) {
       attempt += 1;
-      response = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: requestBody,
-        signal: abortController.signal,
-      });
+      try {
+        response = await fetch(endpoint, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: requestBody,
+          signal: abortController.signal,
+        });
+      } catch (error) {
+        if (attempt < 2 && !abortController.signal.aborted) {
+          console.warn("[ai] retrying transient meta muse transport failure", {
+            ...context,
+            attempt,
+            error: getMetaMuseErrorLogDetails(error),
+          });
+          await waitForMetaMuseTransportRetry(attempt, abortController.signal);
+          continue;
+        }
+        throw error;
+      }
       body = parseMaybeJson(await response.text());
       if (response.ok) {
         break;
@@ -188,6 +201,20 @@ export async function runMetaMuseJsonResponse({
   } finally {
     clearTimeout(timeoutId);
   }
+}
+
+async function waitForMetaMuseTransportRetry(attempt: number, signal: AbortSignal): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const timeoutId = setTimeout(resolve, 100 * attempt);
+    signal.addEventListener(
+      "abort",
+      () => {
+        clearTimeout(timeoutId);
+        reject(signal.reason);
+      },
+      { once: true },
+    );
+  });
 }
 
 function isRetryableMetaMuseStatus(status: number): boolean {
