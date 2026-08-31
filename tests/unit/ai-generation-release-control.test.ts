@@ -15,6 +15,12 @@ describe("generation release controls", () => {
     );
   });
 
+  it("uses code-point key order so release fingerprints do not depend on locale", () => {
+    expect(fingerprintReleaseTuple({ "ä": 1, z: 2, A: 3 })).toBe(
+      "e0d8f979d0484efb726de1b2d8e62df0d32d450c6084edf0526f65004795dedf",
+    );
+  });
+
   it("assigns canaries deterministically and enforces percentage bounds", () => {
     const input = { jobId: "job-1", releaseFingerprint: "a".repeat(64), canaryPercent: 7 };
     expect(isCanarySelected(input)).toBe(isCanarySelected(input));
@@ -41,6 +47,42 @@ describe("generation release controls", () => {
       fallbackCount: 10,
       p95LatencyMs: 1_000,
     }).action).toBe("pause");
+  });
+
+  it("continues an empty canary until actual observations exist", () => {
+    expect(evaluateCanary({
+      sampleCount: 0,
+      acceptedCount: 0,
+      criticalDefects: 0,
+      schemaFailures: 0,
+      fallbackCount: 0,
+      p95LatencyMs: 0,
+    })).toEqual({
+      action: "continue",
+      reasons: ["0 samples observed; 30 required."],
+    });
+  });
+
+  it("rolls back a critical defect even when no sampled generation was counted", () => {
+    expect(evaluateCanary({
+      sampleCount: 0,
+      acceptedCount: 0,
+      criticalDefects: 1,
+      schemaFailures: 0,
+      fallbackCount: 0,
+      p95LatencyMs: 0,
+    }).action).toBe("rollback");
+  });
+
+  it("rejects latency measurements when no canary samples exist", () => {
+    expect(() => evaluateCanary({
+      sampleCount: 0,
+      acceptedCount: 0,
+      criticalDefects: 0,
+      schemaFailures: 0,
+      fallbackCount: 0,
+      p95LatencyMs: 1,
+    })).toThrow("P95 latency must be zero when no canary samples exist.");
   });
 
   it("approves only after the evidence threshold", () => {

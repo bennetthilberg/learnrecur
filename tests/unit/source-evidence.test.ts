@@ -313,7 +313,7 @@ describe("source context packing", () => {
   });
 
   it("truncates optional unicode evidence at a safe boundary and accounts for characters and bytes", () => {
-    const sourceText = "🙂 café — " + "字".repeat(30);
+    const sourceText = "🙂 café — " + "字".repeat(300);
     const contract = makeContract({
       claims: [
         {
@@ -361,8 +361,9 @@ describe("source context packing", () => {
       ]),
     );
     expect(result.details.totalBytes).toBeLessThanOrEqual(900);
+    expect(result.details.totalCharacters).toBe(Array.from(result.context).length);
     expect(result.details.fieldAccounting.every((field) => field.included.bytes <= 900)).toBe(true);
-    expect(result.context).not.toContain("\uD800");
+    expect(result.context).not.toMatch(/[\uD800-\uDFFF]/u);
     expect(Array.from(result.context).join("")).toBe(result.context);
   });
 });

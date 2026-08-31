@@ -780,7 +780,7 @@ function normalizeProfile(profile: GenerationProfile): {
     (dueOffsetMs !== null
       ? new Date((explicitNow ?? new Date(0)).getTime() + dueOffsetMs)
       : null);
-  const now = explicitNow ?? (dueAt && dueOffsetMs === null ? new Date(dueAt.getTime()) : dueOffsetMs !== null ? new Date(0) : null);
+  const now = explicitNow ?? (dueOffsetMs !== null ? new Date(0) : null);
   const ratingsValue = resolveProfileValue<readonly FsrsRatingInput[]>(
     profile,
     "recentRatings",

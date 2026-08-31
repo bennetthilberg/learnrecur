@@ -3,7 +3,9 @@ import "server-only";
 import {
   AnswerKind,
   ExerciseAttemptResult,
+  ExerciseEvidenceCorrectionAction,
   ExerciseEvidenceCorrectionStatus,
+  ExerciseFlagAdjudicationStatus,
   ExerciseFlagReason,
   ExerciseFlagStatus,
   ExerciseRetirementReason,
@@ -455,6 +457,27 @@ export async function flagPracticeExercise(
       return exerciseNotFound();
     }
 
+    const existingFlags = await tx.exerciseFlag.findMany({
+      where: {
+        userId: input.userId,
+        exerciseId: exercise.id,
+      },
+      select: {
+        id: true,
+        reason: true,
+        adjudicationStatus: true,
+      },
+    });
+    if (existingFlags.some(
+      (flag) => flag.adjudicationStatus === ExerciseFlagAdjudicationStatus.CONFIRMED,
+    )) {
+      return {
+        status: "not-flagged",
+        reason: "invalid-flag",
+        message: "This exercise already has a confirmed quality incident.",
+      };
+    }
+
     await tx.exercise.update({
       where: { id: exercise.id },
       data: {
@@ -463,23 +486,16 @@ export async function flagPracticeExercise(
       },
     });
 
-    const existingFlags = await tx.exerciseFlag.findMany({
-      where: {
-        userId: input.userId,
-        exerciseId: exercise.id,
-        reason: { in: uniqueReasons },
-      },
-      select: {
-        id: true,
-        reason: true,
-      },
-    });
-    const existingReasons = new Set(existingFlags.map((flag) => flag.reason));
+    const requestedExistingFlags = existingFlags.filter((flag) =>
+      uniqueReasons.includes(flag.reason),
+    );
+    const existingReasons = new Set(requestedExistingFlags.map((flag) => flag.reason));
+    const resettableFlagIds = requestedExistingFlags.map((flag) => flag.id);
 
-    if (existingFlags.length > 0) {
+    if (resettableFlagIds.length > 0) {
       await tx.exerciseFlag.updateMany({
         where: {
-          id: { in: existingFlags.map((flag) => flag.id) },
+          id: { in: resettableFlagIds },
         },
         data: {
           status: ExerciseFlagStatus.RESOLVED,
@@ -487,18 +503,25 @@ export async function flagPracticeExercise(
           resolutionNote: RETIREMENT_RESOLUTION_NOTE,
           retiredExerciseAt: exercise.retiredAt ?? input.flaggedAt,
           retirementReason: exercise.retirementReason ?? retirementReason,
+          adjudicationStatus: ExerciseFlagAdjudicationStatus.PENDING,
+          adjudicatedAt: null,
+          adjudicationCode: null,
+          incidentKey: null,
+          evidenceCorrectionAction: ExerciseEvidenceCorrectionAction.NONE,
           practiceEvidenceNeedsCorrection,
           evidenceCorrectionStatus: practiceEvidenceNeedsCorrection
             ? ExerciseEvidenceCorrectionStatus.PENDING
             : ExerciseEvidenceCorrectionStatus.NOT_REQUIRED,
+          affectedReviewCount: 0,
+          correctionStartedAt: null,
+          correctionCompletedAt: null,
         },
       });
 
       if (existingReasons.has(ExerciseFlagReason.OTHER)) {
         await tx.exerciseFlag.updateMany({
           where: {
-            userId: input.userId,
-            exerciseId: exercise.id,
+            id: { in: resettableFlagIds },
             reason: ExerciseFlagReason.OTHER,
           },
           data: { note: otherNote },

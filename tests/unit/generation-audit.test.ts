@@ -182,6 +182,7 @@ describe("generation audit metadata", () => {
     expect(serialized).not.toContain("another private source");
     expect(result).toMatchObject({
       job: auditMetadata.job,
+      stageMetrics: { attemptCount: 1 },
       contextManifest,
     });
   });
@@ -215,6 +216,15 @@ describe("generation audit metadata", () => {
   ])("rejects unsafe or internally inconsistent metadata: %s", (_label, input) => {
     expect(() => buildGenerationAuditMetadata(input)).toThrow();
   });
+
+  it("keeps actionable schema details in validation errors", () => {
+    expect(() =>
+      buildGenerationAuditMetadata({
+        ...auditMetadata,
+        release: { ...releaseTuple, fingerprint: "not-a-hash" },
+      }),
+    ).toThrow(/release\.fingerprint.*64 hexadecimal characters/i);
+  });
 });
 
 describe("generation job state transitions", () => {
@@ -228,6 +238,16 @@ describe("generation job state transitions", () => {
       "advances through stages",
       { status: "RUNNING", stage: "PLANNING", attempt: 1, retryCount: 0 },
       { status: "RUNNING", stage: "GENERATING", attempt: 1, retryCount: 0 },
+    ],
+    [
+      "adjudicates after verification",
+      { status: "RUNNING", stage: "VERIFYING", attempt: 1, retryCount: 0 },
+      { status: "RUNNING", stage: "ADJUDICATING", attempt: 1, retryCount: 0 },
+    ],
+    [
+      "publishes after verification",
+      { status: "RUNNING", stage: "VERIFYING", attempt: 1, retryCount: 0 },
+      { status: "RUNNING", stage: "PUBLISHING", attempt: 1, retryCount: 0 },
     ],
     [
       "publishes a completed job",
@@ -264,6 +284,16 @@ describe("generation job state transitions", () => {
       "regresses a running stage",
       { status: "RUNNING", stage: "VERIFYING", attempt: 1, retryCount: 0 },
       { status: "RUNNING", stage: "GENERATING", attempt: 1, retryCount: 0 },
+    ],
+    [
+      "publishes before verification",
+      { status: "RUNNING", stage: "PLANNING", attempt: 1, retryCount: 0 },
+      { status: "RUNNING", stage: "PUBLISHING", attempt: 1, retryCount: 0 },
+    ],
+    [
+      "adjudicates before verification",
+      { status: "RUNNING", stage: "GENERATING", attempt: 1, retryCount: 0 },
+      { status: "RUNNING", stage: "ADJUDICATING", attempt: 1, retryCount: 0 },
     ],
     [
       "resurrects a successful job",

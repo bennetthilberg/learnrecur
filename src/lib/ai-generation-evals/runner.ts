@@ -23,6 +23,8 @@ import {
 } from "./contracts";
 import { scoreEvaluationAttempt } from "./scoring";
 
+const MIN_REGRESSION_DELTA = 0.05;
+
 export async function runEvaluation(options: RunEvaluationOptions): Promise<EvaluationReport> {
   const fixtures = options.fixtures;
   const providerSelection = options.providerSelection;
@@ -101,8 +103,8 @@ async function executeAttempt(
 
   try {
     return await executor(fixture, provider);
-  } catch {
-    return failedLiveAttempt(provider, "executor-error");
+  } catch (error) {
+    return failedLiveAttempt(provider, error);
   }
 }
 
@@ -126,16 +128,47 @@ function replayAttempt(
 
 function failedLiveAttempt(
   provider: EvaluationProvider,
-  errorCode: string,
+  error: unknown,
 ): EvaluationAttempt {
+  const failure = classifyExecutorFailure(error);
   return {
     provider,
     status: "live-failure",
     model: "unavailable",
     evidence: "live-provider",
-    retryable: false,
-    errorCode,
+    retryable: failure.retryable,
+    errorCode: failure.errorCode,
     metadata: emptyLiveMetadata(),
+  };
+}
+
+function classifyExecutorFailure(error: unknown): { retryable: boolean; errorCode: string } {
+  const record = error && typeof error === "object" ? error as Record<string, unknown> : null;
+  const values = [record?.status, record?.code];
+  const transientStatuses = new Set([408, 409, 425, 429, 500, 502, 503, 504]);
+  const transientCodes = new Set([
+    "ECONNRESET",
+    "ECONNREFUSED",
+    "EHOSTUNREACH",
+    "ENETUNREACH",
+    "ETIMEDOUT",
+    "RATE_LIMITED",
+    "RESOURCE_EXHAUSTED",
+    "UNAVAILABLE",
+  ]);
+  const retryable = record?.retryable === true || values.some((value) =>
+    (typeof value === "number" && transientStatuses.has(value)) ||
+    (typeof value === "string" && (
+      transientCodes.has(value.toUpperCase()) ||
+      transientStatuses.has(Number(value))
+    )),
+  );
+  const status = values.find((value) => typeof value === "number" || typeof value === "string");
+  return {
+    retryable,
+    errorCode: retryable && status !== undefined
+      ? `executor-${String(status).toLowerCase().slice(0, 40)}`
+      : "executor-error",
   };
 }
 
@@ -236,7 +269,11 @@ export function compareEvaluationReports(
       if (before.passRate === null || after.passRate === null) {
         continue;
       }
-      if (after.passRate < before.passRate) {
+      const passRateDrop = before.passRate - after.passRate;
+      const hasEnoughEvidence =
+        before.trials >= DEFAULT_MIN_SAMPLE_SIZE &&
+        after.trials >= DEFAULT_MIN_SAMPLE_SIZE;
+      if (hasEnoughEvidence && passRateDrop >= MIN_REGRESSION_DELTA) {
         qualityRegression = true;
         regressionReasons.push(`${provider} ${metric} fell from ${before.passRate.toFixed(2)} to ${after.passRate.toFixed(2)}.`);
       }
@@ -363,7 +400,12 @@ function buildGates(input: {
     (run) => run.provider === "fallback" || run.provider === "chain",
   );
   const fallbackQualityFailures = fallbackRuns.filter(
-    (run) => run.expectedDecision === "accept" && run.observedDecision === "reject",
+    (run) =>
+      run.expectedDecision === "accept" &&
+      (run.observedDecision !== "accept" ||
+        Object.entries(run.metrics).some(
+          ([metric, score]) => metric !== "failureFallback" && score.status === "fail",
+        )),
   ).length;
   const metadataUnmeasured = input.qualityRuns.some((run) =>
     ["latency", "tokenMetadata", "costMetadata"].some(

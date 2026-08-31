@@ -889,7 +889,11 @@ describe("validateChoiceExerciseVerification", () => {
         "What does sample 3 mean?",
         "What does sample 5 mean?",
       ]);
-      expect(result.exercises.every((exercise) => !("candidateId" in exercise))).toBe(true);
+      expect(result.exercises.map((exercise) => exercise.candidateId)).toEqual([
+        "candidate-1",
+        "candidate-3",
+        "candidate-5",
+      ]);
       expect(result.rejectedCount).toBe(2);
       expect(result.decisions[1]).toMatchObject({
         candidateId: "candidate-2",
@@ -1240,7 +1244,15 @@ describe("buildSourceContextExcerpt", () => {
     const result = buildSourceContextExcerpt([oversized]);
 
     expect(result).not.toBeNull();
-    expect(result?.length).toBeLessThanOrEqual(SOURCE_CONTEXT_CHAR_LIMIT);
+    expect(Array.from(result ?? "")).toHaveLength(SOURCE_CONTEXT_CHAR_LIMIT);
+    expect(result?.endsWith("[truncated]")).toBe(true);
+  });
+
+  it("truncates source context without splitting Unicode surrogate pairs", () => {
+    const result = buildSourceContextExcerpt(["🙂".repeat(SOURCE_CONTEXT_CHAR_LIMIT + 20)]);
+
+    expect(Array.from(result ?? "")).toHaveLength(SOURCE_CONTEXT_CHAR_LIMIT);
+    expect(result).not.toMatch(/[\uD800-\uDFFF]/u);
     expect(result?.endsWith("[truncated]")).toBe(true);
   });
 
@@ -1693,6 +1705,9 @@ describe("MetaMuse exercise fallbacks", () => {
       "expectedSeconds",
     ]);
     expect(
+      requestBodies[0].text.format.schema.properties.exercises.items.properties.prompt.maxLength,
+    ).toBe(1_200);
+    expect(
       requestBodies[1].text.format.schema.properties.exercises.items.required,
     ).toEqual([
       "prompt",
@@ -1723,7 +1738,7 @@ describe("MetaMuse exercise fallbacks", () => {
     expect(
       requestBodies[2].text.format.schema.properties.verifications.items.properties
         .reason.enum,
-    ).toContain(null);
+    ).not.toContain(null);
     expect(requestBodies[0].input[0].content[1]).toEqual({
       type: "input_image",
       image_url: "data:image/png;base64,aW1hZ2UgYnl0ZXM=",

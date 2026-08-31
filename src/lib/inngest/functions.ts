@@ -57,7 +57,7 @@ export const choiceExerciseRefillFunction = inngest.createFunction(
   {
     id: "choice-exercise-refill",
     retries: 2,
-    concurrency: { limit: 1, key: "event.data.skillId" },
+    concurrency: { limit: 1, key: "event.data.skillId", scope: "env" },
     triggers: [{ event: CHOICE_REFILL_REQUESTED_EVENT }],
   },
   async ({ event, step }) => {
@@ -76,7 +76,7 @@ export const exactInputExerciseRefillFunction = inngest.createFunction(
   {
     id: "exact-input-exercise-refill",
     retries: 2,
-    concurrency: { limit: 1, key: "event.data.skillId" },
+    concurrency: { limit: 1, key: "event.data.skillId", scope: "env" },
     triggers: [{ event: EXACT_INPUT_REFILL_REQUESTED_EVENT }],
   },
   async ({ event, step }) => {
@@ -95,7 +95,7 @@ export const mathExerciseRefillFunction = inngest.createFunction(
   {
     id: "math-exercise-refill",
     retries: 2,
-    concurrency: { limit: 1, key: "event.data.skillId" },
+    concurrency: { limit: 1, key: "event.data.skillId", scope: "env" },
     triggers: [{ event: MATH_REFILL_REQUESTED_EVENT }],
   },
   async ({ event, step }) => {

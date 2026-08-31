@@ -3,8 +3,14 @@ import { describe, expect, it } from "vitest";
 import { SkillFsrsState } from "@/generated/prisma/client";
 import {
   buildGenerationQualityContext,
+  buildGenerationRuntimeMetadata,
+  safeBuildGenerationQualityContext,
   toPersistedChoiceQuality,
 } from "@/lib/skills/quality-pipeline";
+import {
+  contextManifestSchema as auditContextManifestSchema,
+  generationReleaseTupleSchema,
+} from "@/lib/skills/generation-audit";
 import { contextManifestSchema, exerciseBlueprintSchema } from "@/lib/skills/generation-quality";
 
 const skill = {
@@ -37,9 +43,96 @@ describe("buildGenerationQualityContext", () => {
     expect(exerciseBlueprintSchema.safeParse(first.blueprint).success).toBe(true);
     expect(contextManifestSchema.safeParse(first.contextManifest).success).toBe(true);
     expect(first.blueprint.slots).toHaveLength(3);
+    expect(first.blueprint.slots.every((slot) => slot.answerMode === "choice")).toBe(true);
     expect(first.skillSpec.sourceRequirements.required).toBe(true);
     expect(first.skillSpec.materialFingerprint).toMatch(/^[a-f0-9]{64}$/);
     expect(JSON.stringify(first.contextManifest)).not.toContain("sample estimate");
+  });
+
+  it("fails closed with a categorized schema error for invalid quality inputs", () => {
+    const result = safeBuildGenerationQualityContext({
+      skill: { ...skill, title: "", tags: [] },
+      sourceContext: null,
+      requestedCount: Number.NaN,
+    });
+
+    expect(result).toMatchObject({ status: "invalid", failureCategory: "SCHEMA" });
+    expect(result.status === "invalid" ? result.message : "").toContain("requestedCount");
+  });
+
+  it("bounds audit metadata for oversized and unsafe media identifiers", () => {
+    const context = buildGenerationQualityContext({
+      skill,
+      sourceContext: null,
+      requestedCount: 1,
+      now: new Date("2026-08-31T12:00:00.000Z"),
+    });
+    const metadata = buildGenerationRuntimeMetadata({
+      provider: "meta",
+      model: "muse-spark-1.2",
+      promptVersion: "skill-mcq-v1",
+      context,
+      sourceMedia: Array.from({ length: 40 }, (_, index) => ({
+        sourceFileId: `unsafe media id ${index}`,
+        mimeType: "image/png",
+      })),
+    });
+
+    expect(metadata.contextManifest.mediaCount).toBe(32);
+    expect(metadata.contextManifest.evidenceOmitted).toBe(true);
+    expect(metadata.contextManifest.sourceFileIds).toHaveLength(40);
+    expect(metadata.contextManifest.sourceFileIds.every((id) => !id.includes(" "))).toBe(true);
+    expect(auditContextManifestSchema.safeParse(metadata.contextManifest).success).toBe(true);
+  });
+
+  it("builds audit-compatible runtime metadata for the provider that actually responded", () => {
+    const context = buildGenerationQualityContext({
+      skill,
+      sourceContext: "Evidence excerpt.",
+      requestedCount: 1,
+      now: new Date("2026-08-31T12:00:00.000Z"),
+    });
+    const metadata = buildGenerationRuntimeMetadata({
+      provider: "meta",
+      model: "muse-spark-1.2",
+      promptVersion: "skill-mcq-v1",
+      context,
+      sourceMedia: [
+        { sourceFileId: "pdf-source-1", mimeType: "application/pdf" },
+      ],
+    });
+
+    expect(metadata.releaseTuple).toMatchObject({
+      provider: "meta",
+      model: "muse-spark-1.2",
+      endpointMode: "responses",
+    });
+    expect(metadata.contextManifest).toMatchObject({
+      sourceKind: "mixed",
+      mediaCount: 1,
+      sourceFileIds: expect.arrayContaining(["pdf-source-1"]),
+    });
+    expect(generationReleaseTupleSchema.safeParse(metadata.releaseTuple).success).toBe(true);
+    expect(auditContextManifestSchema.safeParse(metadata.contextManifest).success).toBe(true);
+  });
+
+  it("classifies a media-only audit manifest by its attachment type", () => {
+    const context = buildGenerationQualityContext({
+      skill,
+      sourceContext: null,
+      requestedCount: 1,
+      now: new Date("2026-08-31T12:00:00.000Z"),
+    });
+    const metadata = buildGenerationRuntimeMetadata({
+      provider: "meta",
+      model: "muse-spark-1.2",
+      promptVersion: "skill-mcq-v1",
+      context,
+      sourceMedia: [{ sourceFileId: "pdf-source-1", mimeType: "application/pdf" }],
+    });
+
+    expect(metadata.contextManifest).toMatchObject({ sourceKind: "pdf", mediaCount: 1 });
+    expect(auditContextManifestSchema.safeParse(metadata.contextManifest).success).toBe(true);
   });
 
   it("records source truncation instead of silently treating a clipped excerpt as complete", () => {
@@ -82,7 +175,7 @@ describe("toPersistedChoiceQuality", () => {
       },
     });
 
-    expect(result.acceptanceDecision).toBe("PUBLISHED");
+    expect(result.acceptanceDecision).toBe("ACCEPTED");
     expect(result.acceptanceMetadata).toMatchObject({ accepted: true });
     expect(JSON.stringify(result)).not.toContain("Private source evidence");
   });

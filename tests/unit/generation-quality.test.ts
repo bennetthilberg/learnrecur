@@ -247,6 +247,10 @@ describe("deterministic proportion and confidence-interval assessment", () => {
       "unrelated mean interval",
       "A 95% confidence interval for the mean number of pages is (65, 75). Select the median.",
     ],
+    [
+      "estimated mean language",
+      "The estimated mean is 105 pages and its 95% confidence interval is (95, 115).",
+    ],
   ])("accepts a consistent or unrelated numeric relationship: %s", (_name, prompt) => {
     const result = assessPromptNumericConsistency(prompt);
 
@@ -380,6 +384,26 @@ describe("choice candidate contracts and deterministic quality decisions", () =>
 
     expect(decision.accepted).toBe(true);
     expect(decision.rejectCodes).toEqual([]);
+  });
+
+  it("does not treat a bare article as a choice ID", () => {
+    const decision = assessChoiceCandidateQuality(
+      baseCandidate({
+        explanation: "The answer is a completed action supported by the stated relationship.",
+      }),
+    );
+
+    expect(decision.accepted).toBe(true);
+    expect(decision.rejectCodes).not.toContain("explanation-answer-mismatch");
+  });
+
+  it("recognizes a bare choice ID followed by a bounded explanation", () => {
+    const decision = assessChoiceCandidateQuality(
+      baseCandidate({ explanation: "The answer is a because it follows from the interval." }),
+    );
+
+    expect(decision.accepted).toBe(false);
+    expect(decision.rejectCodes).toContain("explanation-answer-mismatch");
   });
 
   it.each([

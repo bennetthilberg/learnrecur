@@ -7,6 +7,7 @@ import { config as loadEnv } from "dotenv";
 import {
   cliHelp,
   parseCliArgs,
+  shouldFailEvaluationRun,
 } from "../src/lib/ai-generation-evals/cli";
 import {
   compareEvaluationReports,
@@ -82,7 +83,11 @@ async function main() {
     comparisonRecommendation: comparison?.recommendation ?? null,
   }, null, 2));
 
-  if (liveResults.some((result) => !result.passed) || comparison?.recommendation === "rollback") {
+  if (shouldFailEvaluationRun({
+    offlineVerdict: offlineReport.overallVerdict,
+    livePassed: liveResults.map((result) => result.passed),
+    comparisonRecommendation: comparison?.recommendation,
+  })) {
     process.exitCode = 1;
   }
 }

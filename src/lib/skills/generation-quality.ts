@@ -584,7 +584,7 @@ const numericTokenPatternGlobal = new RegExp(
 );
 
 const proportionContextPattern =
-  /\b(?:proportion|percentage|percent|rate|prevalence|share|estimate|estimated|observed|probability|support(?:s|ed)?|respondent\w*|volunteer\w*|participant\w*|success|positive)\b/i;
+  /\b(?:proportion|percentage|percent|rate|prevalence|share|probability|support(?:s|ed)?|respondent\w*|volunteer\w*|participant\w*|success|positive)\b/i;
 
 function parseNumericToken(raw: string, start: number): NumericToken | null {
   const match = raw.trim().match(
@@ -1103,7 +1103,11 @@ function assessExplanationConsistency(candidate: ChoiceCandidateInput): {
     const escapedId = escapeRegExp(choice.id);
     const idPatterns = [
       new RegExp(
-        `\\b(?:the\\s+)?(?:correct\\s+)?(?:answer|choice|option)\\s*(?:is|was|:|=)\\s*(?:(?:choice|option)\\s+)?${escapedId}(?=\\b|[.,;!?]|$)`,
+        `\\b(?:the\\s+)?(?:correct\\s+)?(?:answer|choice|option)\\s*(?:is|was|:|=)\\s*(?:choice|option)\\s+${escapedId}\\b`,
+        "i",
+      ),
+      new RegExp(
+        `\\b(?:the\\s+)?(?:correct\\s+)?(?:answer|choice|option)\\s*(?:is|was|:|=)\\s*${escapedId}(?=[.,;!?]|$|\\s+(?:because|since)\\b)`,
         "i",
       ),
       new RegExp(
@@ -1389,7 +1393,7 @@ export function assessChoiceCandidatesQuality(
     if (decision.accepted) {
       const parsed = choiceCandidateSchema.safeParse(input);
       if (parsed.success) {
-        acceptedCandidates.push(input as ChoiceCandidateInput);
+        acceptedCandidates.push(parsed.data);
       }
     } else {
       rejectedCandidates.push(input);

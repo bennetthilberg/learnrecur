@@ -22,7 +22,8 @@ export function getPrisma(): PrismaClient {
   const prisma = new PrismaClient({
     adapter,
     transactionOptions: {
-      maxWait: 10_000,
+      // Keep pool wait plus execution below the shortest configured route limit (120s).
+      maxWait: 5_000,
       timeout: 15_000,
     },
   });

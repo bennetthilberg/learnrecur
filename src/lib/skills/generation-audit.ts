@@ -8,6 +8,8 @@ export const CONTEXT_MANIFEST_VERSION = 1 as const;
 export const MAX_GENERATION_AUDIT_METADATA_BYTES = 32 * 1024;
 export const MAX_GENERATION_AUDIT_CONTEXT_MANIFEST_BYTES = 8 * 1024;
 export const MAX_GENERATION_AUDIT_LIST_ENTRIES = 128;
+export const MAX_GENERATION_AUDIT_MEDIA_ITEMS = 32;
+export const MAX_GENERATION_AUDIT_SELECTED_EVIDENCE = 1_000;
 
 const MAX_IDENTIFIER_LENGTH = 200;
 const MAX_VERSION_LENGTH = 120;
@@ -137,8 +139,13 @@ export const contextManifestSchema = z
     pageNumbers: uniqueArray(z.number().int().min(1).max(100_000)).default([]),
     contentHashes: uniqueArray(hashSchema).default([]),
     sourceKind: contextSourceKindSchema,
-    mediaCount: z.number().int().min(0).max(32).default(0),
-    selectedEvidenceCount: z.number().int().min(0).max(1_000).default(0),
+    mediaCount: z.number().int().min(0).max(MAX_GENERATION_AUDIT_MEDIA_ITEMS).default(0),
+    selectedEvidenceCount: z
+      .number()
+      .int()
+      .min(0)
+      .max(MAX_GENERATION_AUDIT_SELECTED_EVIDENCE)
+      .default(0),
     extractionConfidence: z.number().finite().min(0).max(1).optional(),
     evidenceOmitted: z.boolean().default(false),
   })
@@ -489,6 +496,7 @@ const SAFE_AUDIT_KEY_NAMES = new Set(
     "acceptedCount",
     "rejectedCount",
     "unfilledSlotCount",
+    "attemptCount",
     "latencyMs",
     "inputTokens",
     "outputTokens",
@@ -620,9 +628,13 @@ function parseOrThrow<T>(schema: z.ZodType<T>, input: unknown, label: string): T
   const result = schema.safeParse(redactGenerationAuditMetadata(input));
 
   if (!result.success) {
+    const issueSummary = result.error.issues
+      .slice(0, 3)
+      .map((issue) => `${issue.path.join(".") || "root"}: ${issue.message}`)
+      .join("; ");
     throw new GenerationAuditValidationError(
       "invalid_metadata",
-      `${label} failed audit validation.`,
+      `${label} failed audit validation${issueSummary ? `: ${issueSummary}` : "."}`,
       result.error.issues,
     );
   }
@@ -713,18 +725,6 @@ export type GenerationJobTransitionResult =
   | { valid: true; from: GenerationJobState; to: GenerationJobState }
   | { valid: false; code: string; message: string; issues: readonly unknown[] };
 
-const stageRank: Record<z.infer<typeof generationJobStageSchema>, number> = {
-  QUEUED: 0,
-  PLANNING: 1,
-  GENERATING: 2,
-  VALIDATING: 3,
-  VERIFYING: 4,
-  ADJUDICATING: 5,
-  PUBLISHING: 6,
-  COMPLETE: 7,
-  FAILED: -1,
-};
-
 function invalidTransition(message: string, issues: readonly unknown[] = []): GenerationJobTransitionResult {
   return { valid: false, code: "invalid_transition", message, issues };
 }
@@ -787,9 +787,20 @@ export function validateGenerationJobTransition(fromInput: unknown, toInput: unk
   }
 
   if (from.status === "RUNNING") {
+    const allowedRunningPredecessors: Partial<
+      Record<GenerationJobState["stage"], readonly GenerationJobState["stage"][]>
+    > = {
+      PLANNING: ["PLANNING"],
+      GENERATING: ["PLANNING", "GENERATING"],
+      VALIDATING: ["GENERATING", "VALIDATING"],
+      VERIFYING: ["VALIDATING", "VERIFYING"],
+      ADJUDICATING: ["VERIFYING", "ADJUDICATING"],
+      PUBLISHING: ["VERIFYING", "ADJUDICATING", "PUBLISHING"],
+    };
+    const allowedPredecessors = allowedRunningPredecessors[to.stage] ?? [];
     if (
       to.status === "RUNNING" &&
-      stageRank[to.stage] >= stageRank[from.stage] &&
+      allowedPredecessors.includes(from.stage) &&
       to.attempt === from.attempt &&
       to.retryCount === from.retryCount
     ) {

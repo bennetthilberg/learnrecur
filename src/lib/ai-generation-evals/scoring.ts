@@ -483,8 +483,8 @@ function scoreDiversity(
     }
   }
 
-  const threshold = oracle.maxSimilarity || DEFAULT_MAX_SIMILARITY;
-  const leakage = comparisons.filter((comparison) => comparison.similarity >= threshold);
+  const threshold = oracle.maxSimilarity ?? DEFAULT_MAX_SIMILARITY;
+  const leakage = comparisons.filter((comparison) => comparison.similarity > threshold);
 
   if (leakage.length === 0) {
     return passMetric(1, "No exact or near-duplicate prompt exceeded the fixture threshold.");

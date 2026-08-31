@@ -51,10 +51,22 @@ export async function adjudicateExerciseQualityIncident(input: {
     });
     if (!exercise) return { status: "not-found" };
 
-    const flagCount = await tx.exerciseFlag.count({
+    const flags = await tx.exerciseFlag.findMany({
       where: { exerciseId: exercise.id, userId: input.userId },
+      select: { adjudicationStatus: true },
     });
-    if (flagCount === 0) return { status: "not-found" };
+    if (flags.length === 0) return { status: "not-found" };
+
+    if (
+      input.adjudication !== "confirmed" &&
+      flags.some(
+        (flag) => flag.adjudicationStatus === ExerciseFlagAdjudicationStatus.CONFIRMED,
+      )
+    ) {
+      throw new Error(
+        "A confirmed quality incident cannot be reversed without restoring its scheduling evidence.",
+      );
+    }
 
     if (input.adjudication !== "confirmed") {
       await tx.exerciseFlag.updateMany({

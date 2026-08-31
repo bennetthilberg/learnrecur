@@ -15,6 +15,20 @@ export type EvalCliOptions = {
   help: boolean;
 };
 
+export function shouldFailEvaluationRun(input: {
+  offlineVerdict: "proceed" | "pause" | "rollback";
+  livePassed: readonly boolean[];
+  comparisonRecommendation?: "proceed" | "pause" | "rollback" | null;
+}): boolean {
+  return (
+    input.offlineVerdict !== "proceed" ||
+    input.livePassed.some((passed) => !passed) ||
+    (input.comparisonRecommendation !== undefined &&
+      input.comparisonRecommendation !== null &&
+      input.comparisonRecommendation !== "proceed")
+  );
+}
+
 export function assertLiveOptIn(env: NodeJS.ProcessEnv = process.env): void {
   if (!isLiveOptedIn(env)) {
     throw new Error(

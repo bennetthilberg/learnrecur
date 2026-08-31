@@ -2,7 +2,11 @@ import { createHash } from "node:crypto";
 
 import { z } from "zod";
 
-import type { ContextManifest as GenerationQualityContextManifest } from "@/lib/skills/generation-quality";
+import {
+  GENERATION_QUALITY_CONTRACT_VERSION,
+  type ContextManifest as GenerationQualityContextManifest,
+} from "@/lib/skills/generation-quality";
+import { CONTEXT_MANIFEST_VERSION } from "@/lib/skills/quality-pipeline";
 
 /**
  * Source evidence is intentionally kept in this module rather than coupled to
@@ -11,6 +15,7 @@ import type { ContextManifest as GenerationQualityContextManifest } from "@/lib/
  */
 export const SOURCE_EVIDENCE_CONTRACT_VERSION = 1 as const;
 export const SOURCE_CONTEXT_MANIFEST_VERSION = 1 as const;
+export const SOURCE_QUALITY_MANIFEST_VERSION = CONTEXT_MANIFEST_VERSION;
 
 export const MAX_SOURCE_EVIDENCE_CLAIMS = 256;
 export const MAX_SOURCE_EVIDENCE_ITEMS = 512;
@@ -763,9 +768,8 @@ export type SafeSourceEvidenceLocator = {
 };
 
 /**
- * This is deliberately structural. `generation-quality.ts` is not present in
- * the current checkout; its future ContextManifest can accept this shape
- * without making source-evidence validation depend on that module at runtime.
+ * This structural manifest is validated by the shared generation-quality
+ * contract so source selection and generation persistence cannot drift.
  */
 export type SourceEvidenceContextManifest = GenerationQualityContextManifest;
 
@@ -1293,8 +1297,8 @@ function createManifest(input: {
     };
   });
   const manifest = {
-    contractVersion: "generation-quality-v1" as const,
-    manifestVersion: "context-manifest-1",
+    contractVersion: GENERATION_QUALITY_CONTRACT_VERSION,
+    manifestVersion: SOURCE_QUALITY_MANIFEST_VERSION,
     privacyClassification: "private" as const,
     includedSources,
     omittedSources,
@@ -1345,8 +1349,8 @@ function toManifestOmissionReason(
 
 function emptyManifest(): SourceEvidenceContextManifest {
   return {
-    contractVersion: "generation-quality-v1",
-    manifestVersion: "context-manifest-1",
+    contractVersion: GENERATION_QUALITY_CONTRACT_VERSION,
+    manifestVersion: SOURCE_QUALITY_MANIFEST_VERSION,
     privacyClassification: "private",
     includedSources: [],
     omittedSources: [],

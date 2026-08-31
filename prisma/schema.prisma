@@ -636,7 +636,7 @@ model Skill {
 
   @@unique([id, userId])
   @@index([userId, status, dueAt])
-  @@index([userId, generationSpecStatus, generationSpecFingerprint])
+  @@index([userId, generationSpecStatus, generationSpecFingerprint], map: "skills_generation_spec_lookup_idx")
   @@index([collectionId])
   @@map("skills")
 }
@@ -967,9 +967,9 @@ model ModelRelease {
   @@map("model_releases")
 }
 
-// This row is intentionally append-only at the application contract level. It
-// holds one versioned decision envelope for a job stage or candidate attempt;
-// queryable columns support operations without normalizing every gate.
+// This row is append-only while its owning learner/job exists. Skill, exercise,
+// job, and account deletion intentionally cascade to satisfy learner-data
+// deletion; application code never rewrites a surviving audit decision.
 model GenerationAuditRecord {
   id                  String                    @id @default(cuid())
   userId              String

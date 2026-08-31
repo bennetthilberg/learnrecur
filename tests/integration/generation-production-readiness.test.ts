@@ -27,9 +27,11 @@ const runId = `generation_readiness_${randomUUID()}`;
 describeDatabase("generation production-readiness persistence", () => {
   const prisma = getPrisma();
   const userIds: string[] = [];
+  const releaseIds: string[] = [];
 
   afterAll(async () => {
     await prisma.user.deleteMany({ where: { id: { in: userIds } } });
+    await prisma.modelRelease.deleteMany({ where: { id: { in: releaseIds } } });
     await prisma.$disconnect();
   });
 
@@ -60,6 +62,7 @@ describeDatabase("generation production-readiness persistence", () => {
         canaryPercent: 5,
       },
     });
+    releaseIds.push(release.id);
     const createJob = (userId: string, skillId: string) => prisma.generationJob.create({
       data: {
         userId,
@@ -233,6 +236,31 @@ describeDatabase("generation production-readiness persistence", () => {
       where: { exerciseId: badExercise.id },
     })).resolves.toMatchObject({
       adjudicationStatus: ExerciseFlagAdjudicationStatus.CONFIRMED,
+      affectedReviewCount: 1,
+      practiceEvidenceNeedsCorrection: false,
+    });
+    await expect(adjudicateExerciseQualityIncident({
+      userId: user.id,
+      exerciseId: badExercise.id,
+      adjudication: "rejected",
+      adjudicationCode: "attempted-reversal",
+      now: new Date("2026-08-06T14:00:00.000Z"),
+    })).rejects.toThrow(/cannot be reversed/i);
+
+    await expect(flagPracticeExercise({
+      userId: user.id,
+      exerciseId: badExercise.id,
+      reasons: [ExerciseFlagReason.INCORRECT_ANSWER],
+      flaggedAt: new Date("2026-08-06T15:00:00.000Z"),
+    })).resolves.toMatchObject({
+      status: "not-flagged",
+      reason: "invalid-flag",
+    });
+    await expect(prisma.exerciseFlag.findFirstOrThrow({
+      where: { exerciseId: badExercise.id },
+    })).resolves.toMatchObject({
+      adjudicationStatus: ExerciseFlagAdjudicationStatus.CONFIRMED,
+      adjudicationCode: "incorrect-answer-key",
       affectedReviewCount: 1,
       practiceEvidenceNeedsCorrection: false,
     });

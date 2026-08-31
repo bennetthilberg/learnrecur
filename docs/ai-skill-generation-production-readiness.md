@@ -1,6 +1,6 @@
 # AI Skill Generation Production Readiness Plan
 
-Status: proposed plan only; no implementation is authorized by this document.
+Status: code-side foundation implemented; human audit, canary, and retention gates remain open.
 
 Last updated: 2026-08-31
 

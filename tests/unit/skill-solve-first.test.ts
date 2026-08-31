@@ -44,7 +44,7 @@ type AuditDecision = {
   explanation: AuditDimension;
   ambiguity: AuditDimension;
   distractorQuality: AuditDimension;
-  reason: string | null;
+  reason: string;
   note: string | null;
 };
 
@@ -152,7 +152,7 @@ function makeAudit(
         explanation: passingDimension("The explanation agrees with the answer and prompt."),
         ambiguity: passingDimension("Only one choice is defensible from the prompt."),
         distractorQuality: passingDimension("Each distractor represents a plausible error."),
-        reason: null,
+        reason: "other",
         note: null,
         ...overrides,
       },
@@ -198,6 +198,7 @@ function metaMuseResponse(value: unknown) {
 
 describe("production multiple-choice solve-first verification", () => {
   beforeEach(() => {
+    geminiGenerateContentMock.mockReset();
     vi.spyOn(console, "info").mockImplementation(() => {});
     vi.spyOn(console, "warn").mockImplementation(() => {});
     vi.spyOn(console, "error").mockImplementation(() => {});
@@ -321,6 +322,8 @@ describe("production multiple-choice solve-first verification", () => {
       .mockResolvedValueOnce(geminiResponse({ decisions: [] }))
       .mockResolvedValueOnce(geminiResponse(makeAudit(candidate)));
     const missingDecision = await verifier(makeVerifierInput(candidate));
+    expect(geminiGenerateContentMock).toHaveBeenCalledTimes(2);
+    geminiGenerateContentMock.mockReset();
 
     geminiGenerateContentMock
       .mockResolvedValueOnce(
@@ -328,6 +331,8 @@ describe("production multiple-choice solve-first verification", () => {
       )
       .mockResolvedValueOnce(geminiResponse(makeAudit(candidate)));
     const unknownSelectedId = await verifier(makeVerifierInput(candidate));
+    expect(geminiGenerateContentMock).toHaveBeenCalledTimes(2);
+    geminiGenerateContentMock.mockReset();
 
     geminiGenerateContentMock
       .mockResolvedValueOnce(geminiResponse(makeSolve(candidate)))
@@ -339,6 +344,7 @@ describe("production multiple-choice solve-first verification", () => {
         ),
       );
     const missingEvidence = await verifier(makeVerifierInput(candidate));
+    expect(geminiGenerateContentMock).toHaveBeenCalledTimes(2);
 
     for (const rawVerification of [missingDecision, unknownSelectedId, missingEvidence]) {
       expect(

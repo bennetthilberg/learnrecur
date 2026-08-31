@@ -32,6 +32,7 @@ import type {
   SkillDraftBatchItemStatus,
   SkillDraftBatchStatus,
   SkillFsrsState,
+  SkillGenerationSpecStatus,
   SkillStatus,
   SourceFileKind,
   SourceFileStatus,
@@ -320,7 +321,7 @@ export type ExportSkill = {
   generationSpec: Prisma.JsonValue | null;
   generationSpecVersion: string | null;
   generationSpecFingerprint: string | null;
-  generationSpecStatus: string;
+  generationSpecStatus: SkillGenerationSpecStatus;
   status: SkillStatus;
   dueAt: string | null;
   stability: number | null;

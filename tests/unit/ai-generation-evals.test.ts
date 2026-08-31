@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   DEFAULT_MIN_SAMPLE_SIZE,
@@ -7,11 +7,13 @@ import {
   runEvaluation,
   serializeEvaluationArtifact,
   wilsonInterval,
+  type EvaluationAttempt,
   type EvaluationFixture,
 } from "@/lib/ai-generation-evals";
 import {
   assertLiveOptIn,
   parseCliArgs,
+  shouldFailEvaluationRun,
 } from "@/lib/ai-generation-evals/cli";
 import { seedFixtures } from "../../tests/fixtures/ai-generation";
 
@@ -158,6 +160,109 @@ describe("AI generation evaluation fixtures", () => {
     expect(recovery?.criticalDefectDetected).toBe(false);
   });
 
+  it("fails fallback quality when an accepted response fails a deterministic quality metric", async () => {
+    const source = seedFixtures.find((item) => item.id === "fallback-recovery-control");
+    if (!source) throw new Error("missing fallback recovery fixture");
+    const fixture = structuredClone(source);
+    const response = fixture.replay.fallback.response as { exercises: Array<{ prompt: string }> };
+    fixture.job.existingExerciseContext = `Prompt: ${response.exercises[0]?.prompt ?? ""}`;
+    fixture.expected.diversity = { maxSimilarity: 0, compareAgainstExisting: true };
+
+    const report = await runEvaluation({
+      fixtures: [fixture],
+      mode: "offline-replay",
+      providerSelection: "fallback",
+      minSampleSize: 0,
+    });
+
+    expect(report.runs[0]?.observedDecision).toBe("reject");
+    expect(report.runs[0]?.metrics.diversity.status).toBe("fail");
+    expect(report.gates.find((gate) => gate.id === "fallback-quality")?.status).toBe("fail");
+  });
+
+  it("accepts similarity exactly equal to the configured maximum", async () => {
+    const source = seedFixtures.find((item) => item.id === "fallback-recovery-control");
+    if (!source) throw new Error("missing fallback recovery fixture");
+    const fixture = structuredClone(source);
+    const response = fixture.replay.fallback.response as { exercises: Array<{ prompt: string }> };
+    fixture.job.existingExerciseContext = `Prompt: ${response.exercises[0]?.prompt ?? ""}`;
+    fixture.expected.diversity = { maxSimilarity: 1, compareAgainstExisting: true };
+
+    const report = await runEvaluation({
+      fixtures: [fixture],
+      mode: "offline-replay",
+      providerSelection: "fallback",
+      minSampleSize: 0,
+    });
+
+    expect(report.runs[0]?.metrics.diversity.status).toBe("pass");
+  });
+
+  it("attempts live fallback after an executor exception and fails the gate if fallback returns no response", async () => {
+    const fixture = seedFixtures.find((item) => item.id === "fallback-recovery-control");
+    if (!fixture) throw new Error("missing fallback recovery fixture");
+    const successfulFallback: EvaluationAttempt = {
+      provider: "fallback",
+      status: "live-success",
+      model: fixture.replay.fallback.model,
+      evidence: "live-provider",
+      retryable: false,
+      response: fixture.replay.fallback.response,
+      metadata: fixture.replay.fallback.metadata,
+    };
+    const recovered = await runEvaluation({
+      fixtures: [fixture],
+      mode: "live",
+      providerSelection: "chain",
+      minSampleSize: 0,
+      executors: {
+        primary: async () => { throw Object.assign(new Error("primary unavailable"), { code: 503 }); },
+        fallback: async () => successfulFallback,
+      },
+    });
+
+    expect(recovered.runs[0]?.attempts.map((attempt) => attempt.status)).toEqual([
+      "live-failure",
+      "live-success",
+    ]);
+    expect(recovered.gates.find((gate) => gate.id === "fallback-quality")?.status).toBe("pass");
+
+    const failed = await runEvaluation({
+      fixtures: [fixture],
+      mode: "live",
+      providerSelection: "chain",
+      minSampleSize: 0,
+      executors: {
+        primary: async () => { throw Object.assign(new Error("primary unavailable"), { code: 503 }); },
+        fallback: async () => { throw new Error("fallback unavailable"); },
+      },
+    });
+
+    expect(failed.runs[0]?.observedDecision).toBe("no-response");
+    expect(failed.gates.find((gate) => gate.id === "fallback-quality")?.status).toBe("fail");
+    expect(failed.overallVerdict).not.toBe("proceed");
+  });
+
+  it("does not hand permanent executor failures to the fallback provider", async () => {
+    const fixture = seedFixtures.find((item) => item.id === "fallback-recovery-control");
+    if (!fixture) throw new Error("missing fallback recovery fixture");
+    const fallback = vi.fn();
+    const report = await runEvaluation({
+      fixtures: [fixture],
+      mode: "live",
+      providerSelection: "chain",
+      minSampleSize: 0,
+      executors: {
+        primary: async () => { throw Object.assign(new Error("invalid credentials"), { status: 401 }); },
+        fallback,
+      },
+    });
+
+    expect(fallback).not.toHaveBeenCalled();
+    expect(report.runs[0]?.attempts).toHaveLength(1);
+    expect(report.runs[0]?.observedDecision).toBe("no-response");
+  });
+
   it("reports Wilson intervals as descriptive evidence and does not overclaim two successes", () => {
     const interval = wilsonInterval(2, 2);
 
@@ -213,6 +318,24 @@ describe("AI generation evaluation fixtures", () => {
     expect(comparison.rollbackTarget?.label).toBe("baseline");
   });
 
+  it("does not claim a rate regression from fewer than 30 metric trials", async () => {
+    const baseline = await runEvaluation({
+      fixtures: seedFixtures,
+      mode: "offline-replay",
+      providerSelection: "primary",
+      minSampleSize: 0,
+    });
+    const candidate = structuredClone(baseline);
+    const baselineMetric = baseline.providers[0]?.metrics.semanticCorrectness;
+    const candidateMetric = candidate.providers[0]?.metrics.semanticCorrectness;
+    if (!baselineMetric || !candidateMetric) throw new Error("missing semantic metric");
+    Object.assign(baselineMetric, { successes: 10, trials: 10, passRate: 1 });
+    Object.assign(candidateMetric, { successes: 8, trials: 10, passRate: 0.8 });
+
+    const comparison = compareEvaluationReports(baseline, candidate);
+    expect(comparison.gates.find((gate) => gate.id === "quality-regression")?.status).toBe("pass");
+  });
+
   it("serializes a report without source text, prompts, injected instructions, or provider secrets", async () => {
     const report = await runEvaluation({
       fixtures: seedFixtures,
@@ -245,5 +368,21 @@ describe("AI generation eval CLI contract", () => {
     expect(() => assertLiveOptIn({ LEARNRECUR_AI_GENERATION_EVAL_LIVE: "0" })).toThrow(
       /offline replay/i,
     );
+  });
+
+  it("returns a failing exit decision for pause, rollback, or a failed live smoke", () => {
+    expect(shouldFailEvaluationRun({ offlineVerdict: "pause", livePassed: [] })).toBe(true);
+    expect(shouldFailEvaluationRun({
+      offlineVerdict: "proceed",
+      livePassed: [true],
+      comparisonRecommendation: "rollback",
+    })).toBe(true);
+    expect(shouldFailEvaluationRun({
+      offlineVerdict: "proceed",
+      livePassed: [true],
+      comparisonRecommendation: "pause",
+    })).toBe(true);
+    expect(shouldFailEvaluationRun({ offlineVerdict: "proceed", livePassed: [true, false] })).toBe(true);
+    expect(shouldFailEvaluationRun({ offlineVerdict: "proceed", livePassed: [true] })).toBe(false);
   });
 });

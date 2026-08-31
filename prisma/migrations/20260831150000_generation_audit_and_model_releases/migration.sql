@@ -154,7 +154,7 @@ CREATE INDEX "generation_jobs_failureCategory_createdAt_idx"
 CREATE INDEX "generation_jobs_degradedState_createdAt_idx"
   ON "generation_jobs"("degradedState", "createdAt");
 
-CREATE INDEX "skills_userId_generationSpecStatus_generationSpecFingerprint_idx"
+CREATE INDEX "skills_generation_spec_lookup_idx"
   ON "skills"("userId", "generationSpecStatus", "generationSpecFingerprint");
 CREATE INDEX "exercises_skillId_skillSpecFingerprint_idx"
   ON "exercises"("skillId", "skillSpecFingerprint");

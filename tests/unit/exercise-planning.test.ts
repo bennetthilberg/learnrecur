@@ -134,6 +134,20 @@ describe("planExerciseBlueprint", () => {
     expect(result.slots[0].assistancePolicy).toBe("optional_scaffold");
   });
 
+  it("does not infer the current time from an absolute due date", () => {
+    const result = planExerciseBlueprint({
+      skillSpec: skillSpec(),
+      generationProfile: profile({
+        dueAt: new Date("2026-09-01T12:00:00.000Z"),
+        now: undefined,
+      }),
+      recentExercises: [],
+    });
+
+    expect(result.memoryState.dueStatus).toBe("unknown");
+    expect(result.reasonCodes).toContain("due_unknown");
+  });
+
   it("clamps excessive counts and keeps unsupported subject capabilities fail-closed", () => {
     const result = planExerciseBlueprint({
       skillSpec: skillSpec({ subjectCapability: "unsupported" }),

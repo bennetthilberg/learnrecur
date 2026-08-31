@@ -60,6 +60,12 @@ export function evaluateCanary(
   policy: CanaryPolicy = DEFAULT_CANARY_POLICY,
 ): CanaryDecision {
   validateObservation(observation);
+  if (observation.sampleCount === 0 && observation.criticalDefects === 0) {
+    return {
+      action: "continue",
+      reasons: [`0 samples observed; ${policy.minimumSampleCount} required.`],
+    };
+  }
   const schemaFailureRate = rate(observation.schemaFailures, observation.sampleCount);
   const fallbackRate = rate(observation.fallbackCount, observation.sampleCount);
   const acceptedYield = rate(observation.acceptedCount, observation.sampleCount);
@@ -134,6 +140,9 @@ function validateObservation(observation: CanaryObservation) {
   ) {
     throw new Error("Canary event counts cannot exceed the sample count.");
   }
+  if (observation.sampleCount === 0 && observation.p95LatencyMs !== 0) {
+    throw new Error("P95 latency must be zero when no canary samples exist.");
+  }
 }
 
 function rate(numerator: number, denominator: number): number {
@@ -144,7 +153,7 @@ function stableJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
   if (value && typeof value === "object") {
     return `{${Object.entries(value)
-      .sort(([left], [right]) => left.localeCompare(right))
+      .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
       .map(([key, item]) => `${JSON.stringify(key)}:${stableJson(item)}`)
       .join(",")}}`;
   }

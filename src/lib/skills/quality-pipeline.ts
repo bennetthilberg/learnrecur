@@ -1,7 +1,21 @@
 import { createHash } from "node:crypto";
 
-import { GenerationAuditDecision, SkillFsrsState, type Prisma } from "@/generated/prisma/client";
+import { ZodError } from "zod";
+
+import {
+  GenerationAuditDecision,
+  GenerationFailureCategory,
+  SkillFsrsState,
+  type Prisma,
+} from "@/generated/prisma/client";
 import { planExerciseBlueprint, type SubjectCapabilityId } from "@/lib/skills/exercise-planning";
+import {
+  CONTEXT_MANIFEST_VERSION as AUDIT_CONTEXT_MANIFEST_VERSION,
+  MAX_GENERATION_AUDIT_LIST_ENTRIES,
+  MAX_GENERATION_AUDIT_MEDIA_ITEMS,
+  MAX_GENERATION_AUDIT_SELECTED_EVIDENCE,
+  contextManifestSchema as auditContextManifestSchema,
+} from "@/lib/skills/generation-audit";
 import {
   GENERATION_QUALITY_CONTRACT_VERSION,
   assessChoiceCandidateQuality,
@@ -12,11 +26,14 @@ import {
   type ExerciseBlueprint,
   type SkillGenerationSpec,
 } from "@/lib/skills/generation-quality";
+import {
+  SOURCE_CONTEXT_CHAR_LIMIT,
+  SOURCE_CONTEXT_TRUNCATION_MARKER,
+} from "@/lib/skills/source-context";
 
 const SKILL_SPEC_VERSION = "skill-generation-spec-v1";
 const BLUEPRINT_VERSION = "exercise-blueprint-v1";
-const CONTEXT_MANIFEST_VERSION = "generation-context-v1";
-const TRUNCATION_MARKER = "[truncated]";
+export const CONTEXT_MANIFEST_VERSION = "generation-context-v1" as const;
 
 export type GenerationQualitySkill = {
   id: string;
@@ -52,10 +69,62 @@ export function buildGenerationRuntimeMetadata(input: {
   model: string;
   promptVersion: string;
   context: GenerationQualityContext;
+  sourceMedia?: readonly { sourceFileId: string | null; mimeType: string }[];
+  endpointMode?: string;
 }) {
-  const releaseTuple = {
+  const sourceMedia = input.sourceMedia ?? [];
+  const allSourceRevisionIds = normalizeAuditIdentifiers(
+    input.context.contextManifest.includedSources.flatMap((source) =>
+      source.revisionId ? [source.revisionId] : [],
+    ),
+    "source-revision",
+  );
+  const allSourceFileIds = normalizeAuditIdentifiers([
+    ...input.context.contextManifest.includedSources.map((source) => source.sourceId),
+    ...sourceMedia.map((media, index) => media.sourceFileId ?? `attached-media-${index + 1}`),
+  ], "source-file");
+  const sourceRevisionIds = allSourceRevisionIds.slice(0, MAX_GENERATION_AUDIT_LIST_ENTRIES);
+  const sourceFileIds = allSourceFileIds.slice(0, MAX_GENERATION_AUDIT_LIST_ENTRIES);
+  const contentHashes = uniqueStrings(
+    input.context.contextManifest.sourceFingerprints
+      .map((source) => source.fingerprint)
+      .filter((fingerprint) => /^[a-f0-9]{64}$/i.test(fingerprint)),
+  ).slice(0, MAX_GENERATION_AUDIT_LIST_ENTRIES);
+  const selectedEvidenceCount =
+    input.context.contextManifest.includedSources.length + sourceMedia.length;
+  const contextManifestHash = sha256(stableJson({
+    contextManifest: input.context.contextManifest,
+    sourceMedia: sourceMedia.map((media) => ({
+      sourceFileId: media.sourceFileId,
+      mimeType: media.mimeType,
+    })),
+  }));
+  const auditContextManifest = auditContextManifestSchema.parse({
+    version: AUDIT_CONTEXT_MANIFEST_VERSION,
+    manifestHash: contextManifestHash,
+    sourceRevisionIds,
+    sourceFileIds,
+    sectionIds: [],
+    chunkIds: [],
+    pageNumbers: [],
+    contentHashes,
+    sourceKind: sourceKind(input.context.contextManifest.includedSources.length > 0, sourceMedia),
+    mediaCount: Math.min(sourceMedia.length, MAX_GENERATION_AUDIT_MEDIA_ITEMS),
+    selectedEvidenceCount: Math.min(
+      selectedEvidenceCount,
+      MAX_GENERATION_AUDIT_SELECTED_EVIDENCE,
+    ),
+    evidenceOmitted:
+      input.context.contextManifest.omittedSources.length > 0 ||
+      input.context.contextManifest.truncationNotices.length > 0 ||
+      sourceRevisionIds.length < allSourceRevisionIds.length ||
+      sourceFileIds.length < allSourceFileIds.length ||
+      sourceMedia.length > MAX_GENERATION_AUDIT_MEDIA_ITEMS,
+  });
+  const releaseTupleWithoutFingerprint = {
     provider: input.provider,
     model: input.model,
+    endpointMode: input.endpointMode ?? endpointModeForProvider(input.provider),
     generationPromptVersion: input.promptVersion,
     verificationPromptVersion: `${input.promptVersion}-solve-first-v1`,
     responseSchemaVersion: "choice-exercise-response-v1",
@@ -67,11 +136,37 @@ export function buildGenerationRuntimeMetadata(input: {
   };
   return {
     releaseTuple: {
-      ...releaseTuple,
-      fingerprint: sha256(stableJson(releaseTuple)),
+      ...releaseTupleWithoutFingerprint,
+      fingerprint: sha256(stableJson(releaseTupleWithoutFingerprint)),
     },
-    contextManifestHash: sha256(stableJson(input.context.contextManifest)),
+    contextManifest: auditContextManifest,
+    contextManifestHash,
   };
+}
+
+export type GenerationQualityContextBuildResult =
+  | { status: "ready"; context: GenerationQualityContext }
+  | {
+      status: "invalid";
+      failureCategory: GenerationFailureCategory;
+      message: string;
+    };
+
+export function safeBuildGenerationQualityContext(
+  input: Parameters<typeof buildGenerationQualityContext>[0],
+): GenerationQualityContextBuildResult {
+  try {
+    return { status: "ready", context: buildGenerationQualityContext(input) };
+  } catch (error) {
+    const diagnostic = formatQualityContextError(error);
+    console.error("[ai] generation quality context build failed", { diagnostic });
+    return {
+      status: "invalid",
+      failureCategory: GenerationFailureCategory.SCHEMA,
+      message:
+        `Generation quality context failed deterministic contract validation: ${diagnostic}`,
+    };
+  }
 }
 
 export function buildGenerationQualityContext(input: {
@@ -96,18 +191,32 @@ export function buildGenerationQualityContext(input: {
       sourceFingerprint: input.sourceContext ? sha256(input.sourceContext) : null,
     }),
   );
+  const objective = boundedText(
+    input.skill.objective?.trim() || `Practice ${input.skill.title.trim() || "this skill"}.`,
+    1_200,
+  );
+  const includedScope = normalizeTextList(
+    [input.skill.title, ...input.skill.tags],
+    240,
+    32,
+    "The approved skill objective.",
+  );
   const skillSpec = existingSpec.success
     ? existingSpec.data
     : skillGenerationSpecSchema.parse({
         contractVersion: GENERATION_QUALITY_CONTRACT_VERSION,
         specVersion: SKILL_SPEC_VERSION,
-        objective: input.skill.objective?.trim() || `Practice ${input.skill.title}.`,
+        objective,
         observableSuccessCriteria: [
-          input.skill.objective?.trim() || `Answer objective exercises about ${input.skill.title}.`,
+          boundedText(
+            input.skill.objective?.trim() ||
+              `Answer objective exercises about ${input.skill.title.trim() || "this skill"}.`,
+            500,
+          ),
         ],
         prerequisiteAssumptions: [],
         scopeBoundaries: {
-          included: [input.skill.title, ...input.skill.tags].filter(Boolean),
+          included: includedScope,
           excluded: ["Claims not supported by the skill definition or linked source evidence."],
         },
         sourceRequirements: {
@@ -143,7 +252,7 @@ export function buildGenerationQualityContext(input: {
       ...skillSpec,
       skillId: input.skill.id,
       fingerprint: materialFingerprint,
-      allowedAnswerModes: ["choice", "text", "numeric", "math"],
+      allowedAnswerModes: ["choice"],
       sourceRequirements: {
         ...skillSpec.sourceRequirements,
         evidenceIds: input.sourceContext ? ["source-context"] : [],
@@ -158,7 +267,7 @@ export function buildGenerationQualityContext(input: {
       repetitions: input.skill.repetitions ?? 0,
       stability: input.skill.stability ?? null,
       desiredCount: Math.max(1, Math.min(10, Math.trunc(input.requestedCount))),
-      supportedAnswerModes: ["choice", "text", "numeric", "math"],
+      supportedAnswerModes: ["choice"],
       subjectCapability,
     },
     recentExercises: [],
@@ -203,11 +312,13 @@ export function toPersistedChoiceQuality(input: {
     expectedSeconds: number | null;
   };
 }) {
+  const slot = input.context.blueprint.slots[input.slotIndex] ?? null;
   const decision = assessChoiceCandidateQuality({
     ...input.exercise,
     candidateId: input.candidateId,
+  }, {
+    blueprintSlot: slot ?? undefined,
   });
-  const slot = input.context.blueprint.slots[input.slotIndex] ?? null;
 
   return {
     skillSpecVersion: input.context.skillSpec.specVersion,
@@ -222,7 +333,7 @@ export function toPersistedChoiceQuality(input: {
       sourceFingerprints: input.context.contextManifest.sourceFingerprints,
     },
     acceptanceDecision: decision.accepted
-      ? GenerationAuditDecision.PUBLISHED
+      ? GenerationAuditDecision.ACCEPTED
       : GenerationAuditDecision.REJECTED,
     acceptanceMetadata: decision,
     generationMetadata: {
@@ -250,10 +361,10 @@ function buildContextManifest(
   }
 
   const includedCharacters = Array.from(sourceContext).length;
-  const truncated = sourceContext.trimEnd().endsWith(TRUNCATION_MARKER);
+  const truncated = sourceContext.endsWith(SOURCE_CONTEXT_TRUNCATION_MARKER);
   const fingerprint = sha256(sourceContext);
   const identities = sourceEvidence.length
-    ? sourceEvidence
+    ? deduplicateSourceEvidence(sourceEvidence)
     : [{ sourceFileId: "source-context", revisionId: null, locator: "linked source excerpt" }];
   return contextManifestSchema.parse({
     contractVersion: GENERATION_QUALITY_CONTRACT_VERSION,
@@ -286,7 +397,7 @@ function buildContextManifest(
       sourceContext: {
         originalCharacters: truncated ? includedCharacters + 1 : includedCharacters,
         includedCharacters,
-        limitCharacters: 4_000,
+        limitCharacters: SOURCE_CONTEXT_CHAR_LIMIT,
         truncated,
       },
     },
@@ -319,6 +430,92 @@ function targetDifficulty(skill: GenerationQualitySkill): number {
   return 3;
 }
 
+function endpointModeForProvider(provider: string): string {
+  return provider.toLowerCase() === "meta" ? "responses" : "enterprise-agent-platform";
+}
+
+function sourceKind(
+  hasText: boolean,
+  media: readonly { mimeType: string }[],
+): "none" | "pdf" | "image" | "text" | "mixed" {
+  if (media.length === 0) return hasText ? "text" : "none";
+  const kinds = new Set([
+    ...(hasText ? ["text"] : []),
+    ...media.map((item) =>
+    item.mimeType === "application/pdf"
+      ? "pdf"
+      : item.mimeType.startsWith("image/")
+        ? "image"
+        : "other",
+    ),
+  ]);
+  if (kinds.size === 1 && kinds.has("pdf")) return "pdf";
+  if (kinds.size === 1 && kinds.has("image")) return "image";
+  return "mixed";
+}
+
+function boundedText(value: string, maximum: number): string {
+  const normalized = value.trim();
+  return Array.from(normalized || "Unspecified skill.").slice(0, maximum).join("");
+}
+
+function normalizeTextList(
+  values: readonly string[],
+  maximumLength: number,
+  maximumItems: number,
+  fallback: string,
+): string[] {
+  const normalized = uniqueStrings(
+    values
+      .map((value) => boundedText(value, maximumLength))
+      .filter(Boolean),
+  ).slice(0, maximumItems);
+  return normalized.length ? normalized : [fallback];
+}
+
+function uniqueStrings(values: readonly string[]): string[] {
+  return [...new Set(values)];
+}
+
+function normalizeAuditIdentifiers(values: readonly string[], namespace: string): string[] {
+  return uniqueStrings(
+    values.map((value) => {
+      const normalized = value.trim();
+      if (
+        normalized.length <= 200 &&
+        /^[A-Za-z0-9][A-Za-z0-9._:/-]*$/.test(normalized)
+      ) {
+        return normalized;
+      }
+      return `${namespace}:${sha256(value)}`;
+    }),
+  );
+}
+
+function formatQualityContextError(error: unknown): string {
+  if (error instanceof ZodError) {
+    return error.issues
+      .slice(0, 5)
+      .map((issue) => `${issue.path.join(".") || "root"}: ${issue.message}`)
+      .join("; ");
+  }
+  return error instanceof Error
+    ? Array.from(error.message.replace(/[\u0000-\u001f\u007f]/g, " ")).slice(0, 500).join("")
+    : "unknown schema error";
+}
+
+function deduplicateSourceEvidence(
+  sourceEvidence: readonly GenerationSourceIdentity[],
+): GenerationSourceIdentity[] {
+  const bySourceFileId = new Map<string, GenerationSourceIdentity>();
+  for (const identity of sourceEvidence) {
+    const sourceFileId = identity.sourceFileId.trim();
+    if (!sourceFileId || bySourceFileId.has(sourceFileId)) continue;
+    bySourceFileId.set(sourceFileId, { ...identity, sourceFileId });
+  }
+  return [...bySourceFileId.values()];
+}
+
 function sha256(value: string): string {
   return createHash("sha256").update(value).digest("hex");
 }
@@ -331,7 +528,7 @@ function stableJson(value: unknown): string {
     return `[${value.map(stableJson).join(",")}]`;
   }
   return `{${Object.entries(value as Record<string, unknown>)
-    .sort(([left], [right]) => left.localeCompare(right))
+    .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
     .map(([key, child]) => `${JSON.stringify(key)}:${stableJson(child)}`)
     .join(",")}}`;
 }
