@@ -27,6 +27,7 @@ import {
 import { formatEnvError } from "@/lib/env";
 import type { ExerciseRefillEventSender } from "@/lib/inngest/events";
 import { getPrisma } from "@/lib/prisma";
+import { lockExerciseForQualityMutation } from "@/lib/practice/quality-incidents";
 import {
   advanceSkillSchedule,
   mapAttemptToFsrsRating,
@@ -432,6 +433,9 @@ export async function flagPracticeExercise(
   const prisma = getPrisma();
 
   return prisma.$transaction(async (tx) => {
+    if (!await lockExerciseForQualityMutation(tx, input.userId, input.exerciseId)) {
+      return exerciseNotFound();
+    }
     const exercise = await tx.exercise.findFirst({
       where: {
         id: input.exerciseId,

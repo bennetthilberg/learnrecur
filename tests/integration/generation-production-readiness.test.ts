@@ -265,4 +265,62 @@ describeDatabase("generation production-readiness persistence", () => {
       practiceEvidenceNeedsCorrection: false,
     });
   });
+
+  it("serializes parallel confirmed incidents that replay one skill schedule", async () => {
+    const user = await createUser("parallel_incidents");
+    const skill = await createSkillFixture(prisma, {
+      userId: user.id,
+      title: "Parallel incident skill",
+    });
+    const exercises = await Promise.all([
+      createChoiceExercise({
+        prisma,
+        userId: user.id,
+        skillId: skill.id,
+        prompt: "First suspect prompt",
+      }),
+      createChoiceExercise({
+        prisma,
+        userId: user.id,
+        skillId: skill.id,
+        prompt: "Second suspect prompt",
+      }),
+    ]);
+    await prisma.exercise.updateMany({
+      where: { id: { in: exercises.map((exercise) => exercise.id) } },
+      data: { exerciseFamily: "parallel-family", qualityVersion: "quality-v1" },
+    });
+    await prisma.exerciseFlag.createMany({
+      data: exercises.map((exercise) => ({
+        userId: user.id,
+        exerciseId: exercise.id,
+        reason: ExerciseFlagReason.INCORRECT_ANSWER,
+        practiceEvidenceNeedsCorrection: true,
+      })),
+    });
+
+    const results = await Promise.all(
+      exercises.map((exercise, index) =>
+        adjudicateExerciseQualityIncident({
+          userId: user.id,
+          exerciseId: exercise.id,
+          adjudication: "confirmed",
+          adjudicationCode: `parallel-incident-${index + 1}`,
+          now: new Date("2026-08-07T12:00:00.000Z"),
+          quarantineRelated: true,
+        }),
+      ),
+    );
+
+    expect(results).toEqual([
+      expect.objectContaining({ status: "adjudicated", adjudication: "confirmed" }),
+      expect.objectContaining({ status: "adjudicated", adjudication: "confirmed" }),
+    ]);
+    await expect(prisma.exerciseFlag.count({
+      where: {
+        exerciseId: { in: exercises.map((exercise) => exercise.id) },
+        adjudicationStatus: ExerciseFlagAdjudicationStatus.CONFIRMED,
+      },
+    })).resolves.toBe(2);
+  });
 });

@@ -397,7 +397,10 @@ function buildGates(input: {
       ),
   ).length;
   const fallbackRuns = input.runs.filter(
-    (run) => run.provider === "fallback" || run.provider === "chain",
+    (run) =>
+      run.provider === "fallback" ||
+      (run.provider === "chain" &&
+        run.attempts.some((attempt) => attempt.provider === "fallback")),
   );
   const fallbackQualityFailures = fallbackRuns.filter(
     (run) =>
@@ -450,7 +453,7 @@ function buildGates(input: {
             : "fail",
       reason:
         fallbackRuns.length === 0
-          ? "No fallback or provider-chain run was included."
+          ? "No direct fallback or fallback-invoking provider-chain run was included."
           : fallbackQualityFailures === 0
             ? "Fallback responses met the same quality bar as primary responses."
             : `${fallbackQualityFailures} fallback path run(s) failed the quality bar.`,

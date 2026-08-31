@@ -198,6 +198,36 @@ describe("AI generation evaluation fixtures", () => {
     expect(report.runs[0]?.metrics.diversity.status).toBe("pass");
   });
 
+  it("does not claim fallback quality when a successful chain run never invokes fallback", async () => {
+    const fixture = seedFixtures.find((item) => item.id === "fallback-recovery-control");
+    if (!fixture) throw new Error("missing fallback recovery fixture");
+    const fallback = vi.fn();
+    const report = await runEvaluation({
+      fixtures: [fixture],
+      mode: "live",
+      providerSelection: "chain",
+      minSampleSize: 0,
+      executors: {
+        primary: async () => ({
+          provider: "primary",
+          status: "live-success",
+          model: fixture.replay.primary.model,
+          evidence: "live-provider",
+          retryable: false,
+          response: fixture.replay.primary.response,
+          metadata: fixture.replay.primary.metadata,
+        }),
+        fallback,
+      },
+    });
+
+    expect(fallback).not.toHaveBeenCalled();
+    expect(report.gates.find((gate) => gate.id === "fallback-quality")).toMatchObject({
+      status: "insufficient-evidence",
+      reason: "No direct fallback or fallback-invoking provider-chain run was included.",
+    });
+  });
+
   it("attempts live fallback after an executor exception and fails the gate if fallback returns no response", async () => {
     const fixture = seedFixtures.find((item) => item.id === "fallback-recovery-control");
     if (!fixture) throw new Error("missing fallback recovery fixture");

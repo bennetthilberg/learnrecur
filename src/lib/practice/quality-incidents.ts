@@ -5,6 +5,7 @@ import {
   ExerciseEvidenceCorrectionStatus,
   ExerciseFlagAdjudicationStatus,
   type FsrsRating,
+  type Prisma,
 } from "@/generated/prisma/client";
 import { getPrisma } from "@/lib/prisma";
 import { createInitialSkillSchedule, type SkillScheduleFields } from "@/lib/scheduling";
@@ -25,6 +26,59 @@ export type ExerciseIncidentResult =
       quarantinedExerciseCount: number;
     };
 
+export async function lockExerciseForQualityMutation(
+  tx: Pick<Prisma.TransactionClient, "$queryRaw">,
+  userId: string,
+  exerciseId: string,
+): Promise<boolean> {
+  const lockedExercises = await tx.$queryRaw<Array<{ id: string }>>`
+    SELECT "id"
+    FROM "exercises"
+    WHERE "id" = ${exerciseId} AND "userId" = ${userId}
+    FOR UPDATE
+  `;
+  return lockedExercises.length === 1;
+}
+
+async function lockExerciseFamilyForQualityMutation(
+  tx: Pick<Prisma.TransactionClient, "$queryRaw">,
+  exercise: {
+    id: string;
+    userId: string;
+    skillId: string;
+    exerciseFamily: string;
+    qualityVersion: string;
+    generatorReleaseId: string | null;
+  },
+): Promise<boolean> {
+  const lockedExercises = await tx.$queryRaw<Array<{ id: string }>>`
+    SELECT "id"
+    FROM "exercises"
+    WHERE "userId" = ${exercise.userId}
+      AND "skillId" = ${exercise.skillId}
+      AND "exerciseFamily" = ${exercise.exerciseFamily}
+      AND "qualityVersion" = ${exercise.qualityVersion}
+      AND "generatorReleaseId" IS NOT DISTINCT FROM ${exercise.generatorReleaseId}
+    ORDER BY "id"
+    FOR UPDATE
+  `;
+  return lockedExercises.some((locked) => locked.id === exercise.id);
+}
+
+async function lockSkillForQualityReplay(
+  tx: Pick<Prisma.TransactionClient, "$queryRaw">,
+  userId: string,
+  skillId: string,
+): Promise<boolean> {
+  const lockedSkills = await tx.$queryRaw<Array<{ id: string }>>`
+    SELECT "id"
+    FROM "skills"
+    WHERE "id" = ${skillId} AND "userId" = ${userId}
+    FOR UPDATE
+  `;
+  return lockedSkills.length === 1;
+}
+
 export async function adjudicateExerciseQualityIncident(input: {
   userId: string;
   exerciseId: string;
@@ -42,6 +96,7 @@ export async function adjudicateExerciseQualityIncident(input: {
       where: { id: input.exerciseId, userId: input.userId },
       select: {
         id: true,
+        userId: true,
         skillId: true,
         exerciseFamily: true,
         qualityVersion: true,
@@ -50,6 +105,24 @@ export async function adjudicateExerciseQualityIncident(input: {
       },
     });
     if (!exercise) return { status: "not-found" };
+    if (
+      input.adjudication === "confirmed" &&
+      !await lockSkillForQualityReplay(tx, input.userId, exercise.skillId)
+    ) {
+      return { status: "not-found" };
+    }
+    const locked =
+      input.adjudication === "confirmed" &&
+      input.quarantineRelated &&
+      exercise.exerciseFamily &&
+      exercise.qualityVersion
+        ? await lockExerciseFamilyForQualityMutation(tx, {
+            ...exercise,
+            exerciseFamily: exercise.exerciseFamily,
+            qualityVersion: exercise.qualityVersion,
+          })
+        : await lockExerciseForQualityMutation(tx, input.userId, input.exerciseId);
+    if (!locked) return { status: "not-found" };
 
     const flags = await tx.exerciseFlag.findMany({
       where: { exerciseId: exercise.id, userId: input.userId },
