@@ -6,6 +6,7 @@ loadEnv({ path: ".env", quiet: true });
 
 const baseURL = process.env.E2E_BASE_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 const e2eWorkers = parseWorkerCount(process.env.E2E_CLERK_USER_COUNT);
+const webServer = localWebServer(baseURL);
 
 export default defineConfig({
   testDir: "tests/e2e",
@@ -17,12 +18,7 @@ export default defineConfig({
     baseURL,
     trace: "on-first-retry",
   },
-  webServer: {
-    command: "npm run dev:app",
-    url: baseURL,
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-  },
+  webServer,
   projects: [
     {
       name: "clerk-setup",
@@ -58,4 +54,22 @@ function parseWorkerCount(value: string | undefined) {
   }
 
   return parsed;
+}
+
+function localWebServer(target: string) {
+  const url = new URL(target);
+  if (url.hostname !== "localhost" && url.hostname !== "127.0.0.1") {
+    return undefined;
+  }
+  if (url.protocol !== "http:") {
+    throw new Error("Local Playwright targets must use http://.");
+  }
+
+  const port = url.port || "3000";
+  return {
+    command: `npm run dev:app -- --hostname ${url.hostname} --port ${port}`,
+    url: target,
+    reuseExistingServer: !process.env.CI,
+    timeout: 120_000,
+  };
 }

@@ -20,6 +20,8 @@
     "test:e2e": "playwright test --project=anonymous-chromium",
     "test:e2e:auth": "playwright test --project=authenticated-chromium",
     "test:e2e:all": "playwright test --project=anonymous-chromium --project=authenticated-chromium",
+    "test:e2e:db:prepare": "tsx scripts/manage-e2e-database.ts prepare",
+    "test:e2e:db:cleanup": "tsx scripts/manage-e2e-database.ts cleanup",
     "test:all": "npm run test:unit && npm run test:db && npm run test:e2e:all",
     "test:coverage": "vitest run tests/unit --coverage",
     "prisma:validate": "prisma validate",

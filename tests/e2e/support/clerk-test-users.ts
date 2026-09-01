@@ -3,6 +3,10 @@ import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 
+import {
+  shouldDeleteManagedClerkUser,
+  type ManagedClerkUser,
+} from "./clerk-orphans";
 import { deleteDatabaseTestUsers } from "./database";
 
 export const clerkManifestPath = path.resolve("test-results/e2e-clerk-users.json");
@@ -22,6 +26,7 @@ type ClerkTestManifest = {
 export async function provisionClerkTestUsers() {
   assertDevelopmentClerkKeys();
   await cleanupClerkTestUsers();
+  await cleanupOrphanedClerkTestUsers();
 
   const runId = randomUUID().replaceAll("-", "").slice(0, 16);
   const manifest: ClerkTestManifest = {
@@ -44,6 +49,7 @@ export async function provisionClerkTestUsers() {
         privateMetadata: {
           learnrecurE2E: {
             runId,
+            scope: process.env.CI ? "ci" : "local",
             workerIndex,
           },
         },
@@ -60,6 +66,52 @@ export async function provisionClerkTestUsers() {
   }
 
   return manifest;
+}
+
+async function cleanupOrphanedClerkTestUsers() {
+  const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
+  const orphanIds: string[] = [];
+  let offset = 0;
+
+  while (true) {
+    const page = await clerk.users.getUserList({
+      limit: 100,
+      offset,
+      query: "learnrecur-e2e-",
+    });
+    orphanIds.push(
+      ...page.data
+        .filter((user) =>
+          shouldDeleteManagedClerkUser(user as ManagedClerkUser, {
+            ci: Boolean(process.env.CI),
+            now: Date.now(),
+          }),
+        )
+        .map((user) => user.id),
+    );
+    offset += page.data.length;
+    if (offset >= page.totalCount || page.data.length === 0) {
+      break;
+    }
+  }
+
+  if (orphanIds.length === 0) {
+    return;
+  }
+
+  if (process.env.DATABASE_URL) {
+    await deleteDatabaseTestUsers(orphanIds);
+  }
+  const results = await Promise.allSettled(
+    orphanIds.map((userId) => clerk.users.deleteUser(userId)),
+  );
+  const errors = results
+    .filter((result): result is PromiseRejectedResult => result.status === "rejected")
+    .map((result) => result.reason)
+    .filter((error) => !isClerkNotFound(error));
+  if (errors.length > 0) {
+    throw new AggregateError(errors, "Authenticated E2E orphan cleanup did not complete.");
+  }
 }
 
 export async function readClerkTestManifest() {
