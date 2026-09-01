@@ -27,12 +27,18 @@ export type AggregateGenerationJob = {
 }
 
 export type GenerationJobAvgAggregateOutputType = {
+  attemptCount: number | null
+  retryCount: number | null
+  maxAttempts: number | null
   requestedCount: number | null
   acceptedCount: number | null
   rejectedCount: number | null
 }
 
 export type GenerationJobSumAggregateOutputType = {
+  attemptCount: number | null
+  retryCount: number | null
+  maxAttempts: number | null
   requestedCount: number | null
   acceptedCount: number | null
   rejectedCount: number | null
@@ -47,6 +53,20 @@ export type GenerationJobMinAggregateOutputType = {
   provider: string | null
   model: string | null
   promptVersion: string | null
+  idempotencyKey: string | null
+  generationReleaseId: string | null
+  verifierReleaseId: string | null
+  stage: $Enums.GenerationJobStage | null
+  checkpoint: string | null
+  attemptCount: number | null
+  retryCount: number | null
+  maxAttempts: number | null
+  contextManifestHash: string | null
+  failureCategory: $Enums.GenerationFailureCategory | null
+  degradedState: $Enums.GenerationDegradedState | null
+  fallbackProvider: string | null
+  fallbackModel: string | null
+  fallbackReasonCode: string | null
   requestedCount: number | null
   acceptedCount: number | null
   rejectedCount: number | null
@@ -66,6 +86,20 @@ export type GenerationJobMaxAggregateOutputType = {
   provider: string | null
   model: string | null
   promptVersion: string | null
+  idempotencyKey: string | null
+  generationReleaseId: string | null
+  verifierReleaseId: string | null
+  stage: $Enums.GenerationJobStage | null
+  checkpoint: string | null
+  attemptCount: number | null
+  retryCount: number | null
+  maxAttempts: number | null
+  contextManifestHash: string | null
+  failureCategory: $Enums.GenerationFailureCategory | null
+  degradedState: $Enums.GenerationDegradedState | null
+  fallbackProvider: string | null
+  fallbackModel: string | null
+  fallbackReasonCode: string | null
   requestedCount: number | null
   acceptedCount: number | null
   rejectedCount: number | null
@@ -85,6 +119,23 @@ export type GenerationJobCountAggregateOutputType = {
   provider: number
   model: number
   promptVersion: number
+  idempotencyKey: number
+  releaseTuple: number
+  generationReleaseId: number
+  verifierReleaseId: number
+  stage: number
+  checkpoint: number
+  attemptCount: number
+  retryCount: number
+  maxAttempts: number
+  contextManifest: number
+  contextManifestHash: number
+  stageMetrics: number
+  failureCategory: number
+  degradedState: number
+  fallbackProvider: number
+  fallbackModel: number
+  fallbackReasonCode: number
   requestedCount: number
   acceptedCount: number
   rejectedCount: number
@@ -98,12 +149,18 @@ export type GenerationJobCountAggregateOutputType = {
 
 
 export type GenerationJobAvgAggregateInputType = {
+  attemptCount?: true
+  retryCount?: true
+  maxAttempts?: true
   requestedCount?: true
   acceptedCount?: true
   rejectedCount?: true
 }
 
 export type GenerationJobSumAggregateInputType = {
+  attemptCount?: true
+  retryCount?: true
+  maxAttempts?: true
   requestedCount?: true
   acceptedCount?: true
   rejectedCount?: true
@@ -118,6 +175,20 @@ export type GenerationJobMinAggregateInputType = {
   provider?: true
   model?: true
   promptVersion?: true
+  idempotencyKey?: true
+  generationReleaseId?: true
+  verifierReleaseId?: true
+  stage?: true
+  checkpoint?: true
+  attemptCount?: true
+  retryCount?: true
+  maxAttempts?: true
+  contextManifestHash?: true
+  failureCategory?: true
+  degradedState?: true
+  fallbackProvider?: true
+  fallbackModel?: true
+  fallbackReasonCode?: true
   requestedCount?: true
   acceptedCount?: true
   rejectedCount?: true
@@ -137,6 +208,20 @@ export type GenerationJobMaxAggregateInputType = {
   provider?: true
   model?: true
   promptVersion?: true
+  idempotencyKey?: true
+  generationReleaseId?: true
+  verifierReleaseId?: true
+  stage?: true
+  checkpoint?: true
+  attemptCount?: true
+  retryCount?: true
+  maxAttempts?: true
+  contextManifestHash?: true
+  failureCategory?: true
+  degradedState?: true
+  fallbackProvider?: true
+  fallbackModel?: true
+  fallbackReasonCode?: true
   requestedCount?: true
   acceptedCount?: true
   rejectedCount?: true
@@ -156,6 +241,23 @@ export type GenerationJobCountAggregateInputType = {
   provider?: true
   model?: true
   promptVersion?: true
+  idempotencyKey?: true
+  releaseTuple?: true
+  generationReleaseId?: true
+  verifierReleaseId?: true
+  stage?: true
+  checkpoint?: true
+  attemptCount?: true
+  retryCount?: true
+  maxAttempts?: true
+  contextManifest?: true
+  contextManifestHash?: true
+  stageMetrics?: true
+  failureCategory?: true
+  degradedState?: true
+  fallbackProvider?: true
+  fallbackModel?: true
+  fallbackReasonCode?: true
   requestedCount?: true
   acceptedCount?: true
   rejectedCount?: true
@@ -262,6 +364,23 @@ export type GenerationJobGroupByOutputType = {
   provider: string
   model: string
   promptVersion: string
+  idempotencyKey: string | null
+  releaseTuple: runtime.JsonValue | null
+  generationReleaseId: string | null
+  verifierReleaseId: string | null
+  stage: $Enums.GenerationJobStage
+  checkpoint: string | null
+  attemptCount: number
+  retryCount: number
+  maxAttempts: number
+  contextManifest: runtime.JsonValue | null
+  contextManifestHash: string | null
+  stageMetrics: runtime.JsonValue | null
+  failureCategory: $Enums.GenerationFailureCategory
+  degradedState: $Enums.GenerationDegradedState
+  fallbackProvider: string | null
+  fallbackModel: string | null
+  fallbackReasonCode: string | null
   requestedCount: number
   acceptedCount: number
   rejectedCount: number
@@ -304,6 +423,23 @@ export type GenerationJobWhereInput = {
   provider?: Prisma.StringFilter<"GenerationJob"> | string
   model?: Prisma.StringFilter<"GenerationJob"> | string
   promptVersion?: Prisma.StringFilter<"GenerationJob"> | string
+  idempotencyKey?: Prisma.StringNullableFilter<"GenerationJob"> | string | null
+  releaseTuple?: Prisma.JsonNullableFilter<"GenerationJob">
+  generationReleaseId?: Prisma.StringNullableFilter<"GenerationJob"> | string | null
+  verifierReleaseId?: Prisma.StringNullableFilter<"GenerationJob"> | string | null
+  stage?: Prisma.EnumGenerationJobStageFilter<"GenerationJob"> | $Enums.GenerationJobStage
+  checkpoint?: Prisma.StringNullableFilter<"GenerationJob"> | string | null
+  attemptCount?: Prisma.IntFilter<"GenerationJob"> | number
+  retryCount?: Prisma.IntFilter<"GenerationJob"> | number
+  maxAttempts?: Prisma.IntFilter<"GenerationJob"> | number
+  contextManifest?: Prisma.JsonNullableFilter<"GenerationJob">
+  contextManifestHash?: Prisma.StringNullableFilter<"GenerationJob"> | string | null
+  stageMetrics?: Prisma.JsonNullableFilter<"GenerationJob">
+  failureCategory?: Prisma.EnumGenerationFailureCategoryFilter<"GenerationJob"> | $Enums.GenerationFailureCategory
+  degradedState?: Prisma.EnumGenerationDegradedStateFilter<"GenerationJob"> | $Enums.GenerationDegradedState
+  fallbackProvider?: Prisma.StringNullableFilter<"GenerationJob"> | string | null
+  fallbackModel?: Prisma.StringNullableFilter<"GenerationJob"> | string | null
+  fallbackReasonCode?: Prisma.StringNullableFilter<"GenerationJob"> | string | null
   requestedCount?: Prisma.IntFilter<"GenerationJob"> | number
   acceptedCount?: Prisma.IntFilter<"GenerationJob"> | number
   rejectedCount?: Prisma.IntFilter<"GenerationJob"> | number
@@ -314,6 +450,9 @@ export type GenerationJobWhereInput = {
   updatedAt?: Prisma.DateTimeFilter<"GenerationJob"> | Date | string
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   skill?: Prisma.XOR<Prisma.SkillScalarRelationFilter, Prisma.SkillWhereInput>
+  auditRecords?: Prisma.GenerationAuditRecordListRelationFilter
+  generationRelease?: Prisma.XOR<Prisma.ModelReleaseNullableScalarRelationFilter, Prisma.ModelReleaseWhereInput> | null
+  verifierRelease?: Prisma.XOR<Prisma.ModelReleaseNullableScalarRelationFilter, Prisma.ModelReleaseWhereInput> | null
 }
 
 export type GenerationJobOrderByWithRelationInput = {
@@ -325,6 +464,23 @@ export type GenerationJobOrderByWithRelationInput = {
   provider?: Prisma.SortOrder
   model?: Prisma.SortOrder
   promptVersion?: Prisma.SortOrder
+  idempotencyKey?: Prisma.SortOrderInput | Prisma.SortOrder
+  releaseTuple?: Prisma.SortOrderInput | Prisma.SortOrder
+  generationReleaseId?: Prisma.SortOrderInput | Prisma.SortOrder
+  verifierReleaseId?: Prisma.SortOrderInput | Prisma.SortOrder
+  stage?: Prisma.SortOrder
+  checkpoint?: Prisma.SortOrderInput | Prisma.SortOrder
+  attemptCount?: Prisma.SortOrder
+  retryCount?: Prisma.SortOrder
+  maxAttempts?: Prisma.SortOrder
+  contextManifest?: Prisma.SortOrderInput | Prisma.SortOrder
+  contextManifestHash?: Prisma.SortOrderInput | Prisma.SortOrder
+  stageMetrics?: Prisma.SortOrderInput | Prisma.SortOrder
+  failureCategory?: Prisma.SortOrder
+  degradedState?: Prisma.SortOrder
+  fallbackProvider?: Prisma.SortOrderInput | Prisma.SortOrder
+  fallbackModel?: Prisma.SortOrderInput | Prisma.SortOrder
+  fallbackReasonCode?: Prisma.SortOrderInput | Prisma.SortOrder
   requestedCount?: Prisma.SortOrder
   acceptedCount?: Prisma.SortOrder
   rejectedCount?: Prisma.SortOrder
@@ -335,10 +491,15 @@ export type GenerationJobOrderByWithRelationInput = {
   updatedAt?: Prisma.SortOrder
   user?: Prisma.UserOrderByWithRelationInput
   skill?: Prisma.SkillOrderByWithRelationInput
+  auditRecords?: Prisma.GenerationAuditRecordOrderByRelationAggregateInput
+  generationRelease?: Prisma.ModelReleaseOrderByWithRelationInput
+  verifierRelease?: Prisma.ModelReleaseOrderByWithRelationInput
 }
 
 export type GenerationJobWhereUniqueInput = Prisma.AtLeast<{
   id?: string
+  id_userId?: Prisma.GenerationJobIdUserIdCompoundUniqueInput
+  userId_idempotencyKey?: Prisma.GenerationJobUserIdIdempotencyKeyCompoundUniqueInput
   AND?: Prisma.GenerationJobWhereInput | Prisma.GenerationJobWhereInput[]
   OR?: Prisma.GenerationJobWhereInput[]
   NOT?: Prisma.GenerationJobWhereInput | Prisma.GenerationJobWhereInput[]
@@ -349,6 +510,23 @@ export type GenerationJobWhereUniqueInput = Prisma.AtLeast<{
   provider?: Prisma.StringFilter<"GenerationJob"> | string
   model?: Prisma.StringFilter<"GenerationJob"> | string
   promptVersion?: Prisma.StringFilter<"GenerationJob"> | string
+  idempotencyKey?: Prisma.StringNullableFilter<"GenerationJob"> | string | null
+  releaseTuple?: Prisma.JsonNullableFilter<"GenerationJob">
+  generationReleaseId?: Prisma.StringNullableFilter<"GenerationJob"> | string | null
+  verifierReleaseId?: Prisma.StringNullableFilter<"GenerationJob"> | string | null
+  stage?: Prisma.EnumGenerationJobStageFilter<"GenerationJob"> | $Enums.GenerationJobStage
+  checkpoint?: Prisma.StringNullableFilter<"GenerationJob"> | string | null
+  attemptCount?: Prisma.IntFilter<"GenerationJob"> | number
+  retryCount?: Prisma.IntFilter<"GenerationJob"> | number
+  maxAttempts?: Prisma.IntFilter<"GenerationJob"> | number
+  contextManifest?: Prisma.JsonNullableFilter<"GenerationJob">
+  contextManifestHash?: Prisma.StringNullableFilter<"GenerationJob"> | string | null
+  stageMetrics?: Prisma.JsonNullableFilter<"GenerationJob">
+  failureCategory?: Prisma.EnumGenerationFailureCategoryFilter<"GenerationJob"> | $Enums.GenerationFailureCategory
+  degradedState?: Prisma.EnumGenerationDegradedStateFilter<"GenerationJob"> | $Enums.GenerationDegradedState
+  fallbackProvider?: Prisma.StringNullableFilter<"GenerationJob"> | string | null
+  fallbackModel?: Prisma.StringNullableFilter<"GenerationJob"> | string | null
+  fallbackReasonCode?: Prisma.StringNullableFilter<"GenerationJob"> | string | null
   requestedCount?: Prisma.IntFilter<"GenerationJob"> | number
   acceptedCount?: Prisma.IntFilter<"GenerationJob"> | number
   rejectedCount?: Prisma.IntFilter<"GenerationJob"> | number
@@ -359,7 +537,10 @@ export type GenerationJobWhereUniqueInput = Prisma.AtLeast<{
   updatedAt?: Prisma.DateTimeFilter<"GenerationJob"> | Date | string
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   skill?: Prisma.XOR<Prisma.SkillScalarRelationFilter, Prisma.SkillWhereInput>
-}, "id">
+  auditRecords?: Prisma.GenerationAuditRecordListRelationFilter
+  generationRelease?: Prisma.XOR<Prisma.ModelReleaseNullableScalarRelationFilter, Prisma.ModelReleaseWhereInput> | null
+  verifierRelease?: Prisma.XOR<Prisma.ModelReleaseNullableScalarRelationFilter, Prisma.ModelReleaseWhereInput> | null
+}, "id" | "id_userId" | "userId_idempotencyKey">
 
 export type GenerationJobOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
@@ -370,6 +551,23 @@ export type GenerationJobOrderByWithAggregationInput = {
   provider?: Prisma.SortOrder
   model?: Prisma.SortOrder
   promptVersion?: Prisma.SortOrder
+  idempotencyKey?: Prisma.SortOrderInput | Prisma.SortOrder
+  releaseTuple?: Prisma.SortOrderInput | Prisma.SortOrder
+  generationReleaseId?: Prisma.SortOrderInput | Prisma.SortOrder
+  verifierReleaseId?: Prisma.SortOrderInput | Prisma.SortOrder
+  stage?: Prisma.SortOrder
+  checkpoint?: Prisma.SortOrderInput | Prisma.SortOrder
+  attemptCount?: Prisma.SortOrder
+  retryCount?: Prisma.SortOrder
+  maxAttempts?: Prisma.SortOrder
+  contextManifest?: Prisma.SortOrderInput | Prisma.SortOrder
+  contextManifestHash?: Prisma.SortOrderInput | Prisma.SortOrder
+  stageMetrics?: Prisma.SortOrderInput | Prisma.SortOrder
+  failureCategory?: Prisma.SortOrder
+  degradedState?: Prisma.SortOrder
+  fallbackProvider?: Prisma.SortOrderInput | Prisma.SortOrder
+  fallbackModel?: Prisma.SortOrderInput | Prisma.SortOrder
+  fallbackReasonCode?: Prisma.SortOrderInput | Prisma.SortOrder
   requestedCount?: Prisma.SortOrder
   acceptedCount?: Prisma.SortOrder
   rejectedCount?: Prisma.SortOrder
@@ -397,6 +595,23 @@ export type GenerationJobScalarWhereWithAggregatesInput = {
   provider?: Prisma.StringWithAggregatesFilter<"GenerationJob"> | string
   model?: Prisma.StringWithAggregatesFilter<"GenerationJob"> | string
   promptVersion?: Prisma.StringWithAggregatesFilter<"GenerationJob"> | string
+  idempotencyKey?: Prisma.StringNullableWithAggregatesFilter<"GenerationJob"> | string | null
+  releaseTuple?: Prisma.JsonNullableWithAggregatesFilter<"GenerationJob">
+  generationReleaseId?: Prisma.StringNullableWithAggregatesFilter<"GenerationJob"> | string | null
+  verifierReleaseId?: Prisma.StringNullableWithAggregatesFilter<"GenerationJob"> | string | null
+  stage?: Prisma.EnumGenerationJobStageWithAggregatesFilter<"GenerationJob"> | $Enums.GenerationJobStage
+  checkpoint?: Prisma.StringNullableWithAggregatesFilter<"GenerationJob"> | string | null
+  attemptCount?: Prisma.IntWithAggregatesFilter<"GenerationJob"> | number
+  retryCount?: Prisma.IntWithAggregatesFilter<"GenerationJob"> | number
+  maxAttempts?: Prisma.IntWithAggregatesFilter<"GenerationJob"> | number
+  contextManifest?: Prisma.JsonNullableWithAggregatesFilter<"GenerationJob">
+  contextManifestHash?: Prisma.StringNullableWithAggregatesFilter<"GenerationJob"> | string | null
+  stageMetrics?: Prisma.JsonNullableWithAggregatesFilter<"GenerationJob">
+  failureCategory?: Prisma.EnumGenerationFailureCategoryWithAggregatesFilter<"GenerationJob"> | $Enums.GenerationFailureCategory
+  degradedState?: Prisma.EnumGenerationDegradedStateWithAggregatesFilter<"GenerationJob"> | $Enums.GenerationDegradedState
+  fallbackProvider?: Prisma.StringNullableWithAggregatesFilter<"GenerationJob"> | string | null
+  fallbackModel?: Prisma.StringNullableWithAggregatesFilter<"GenerationJob"> | string | null
+  fallbackReasonCode?: Prisma.StringNullableWithAggregatesFilter<"GenerationJob"> | string | null
   requestedCount?: Prisma.IntWithAggregatesFilter<"GenerationJob"> | number
   acceptedCount?: Prisma.IntWithAggregatesFilter<"GenerationJob"> | number
   rejectedCount?: Prisma.IntWithAggregatesFilter<"GenerationJob"> | number
@@ -414,6 +629,21 @@ export type GenerationJobCreateInput = {
   provider: string
   model: string
   promptVersion: string
+  idempotencyKey?: string | null
+  releaseTuple?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  stage?: $Enums.GenerationJobStage
+  checkpoint?: string | null
+  attemptCount?: number
+  retryCount?: number
+  maxAttempts?: number
+  contextManifest?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  contextManifestHash?: string | null
+  stageMetrics?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  failureCategory?: $Enums.GenerationFailureCategory
+  degradedState?: $Enums.GenerationDegradedState
+  fallbackProvider?: string | null
+  fallbackModel?: string | null
+  fallbackReasonCode?: string | null
   requestedCount: number
   acceptedCount?: number
   rejectedCount?: number
@@ -424,6 +654,9 @@ export type GenerationJobCreateInput = {
   updatedAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutGenerationJobsInput
   skill: Prisma.SkillCreateNestedOneWithoutGenerationJobsInput
+  auditRecords?: Prisma.GenerationAuditRecordCreateNestedManyWithoutJobInput
+  generationRelease?: Prisma.ModelReleaseCreateNestedOneWithoutGenerationJobsInput
+  verifierRelease?: Prisma.ModelReleaseCreateNestedOneWithoutVerifierJobsInput
 }
 
 export type GenerationJobUncheckedCreateInput = {
@@ -435,6 +668,23 @@ export type GenerationJobUncheckedCreateInput = {
   provider: string
   model: string
   promptVersion: string
+  idempotencyKey?: string | null
+  releaseTuple?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  generationReleaseId?: string | null
+  verifierReleaseId?: string | null
+  stage?: $Enums.GenerationJobStage
+  checkpoint?: string | null
+  attemptCount?: number
+  retryCount?: number
+  maxAttempts?: number
+  contextManifest?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  contextManifestHash?: string | null
+  stageMetrics?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  failureCategory?: $Enums.GenerationFailureCategory
+  degradedState?: $Enums.GenerationDegradedState
+  fallbackProvider?: string | null
+  fallbackModel?: string | null
+  fallbackReasonCode?: string | null
   requestedCount: number
   acceptedCount?: number
   rejectedCount?: number
@@ -443,6 +693,7 @@ export type GenerationJobUncheckedCreateInput = {
   completedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  auditRecords?: Prisma.GenerationAuditRecordUncheckedCreateNestedManyWithoutJobInput
 }
 
 export type GenerationJobUpdateInput = {
@@ -452,6 +703,21 @@ export type GenerationJobUpdateInput = {
   provider?: Prisma.StringFieldUpdateOperationsInput | string
   model?: Prisma.StringFieldUpdateOperationsInput | string
   promptVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  idempotencyKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  releaseTuple?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  stage?: Prisma.EnumGenerationJobStageFieldUpdateOperationsInput | $Enums.GenerationJobStage
+  checkpoint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  retryCount?: Prisma.IntFieldUpdateOperationsInput | number
+  maxAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  contextManifest?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  contextManifestHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  stageMetrics?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  failureCategory?: Prisma.EnumGenerationFailureCategoryFieldUpdateOperationsInput | $Enums.GenerationFailureCategory
+  degradedState?: Prisma.EnumGenerationDegradedStateFieldUpdateOperationsInput | $Enums.GenerationDegradedState
+  fallbackProvider?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  fallbackModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  fallbackReasonCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestedCount?: Prisma.IntFieldUpdateOperationsInput | number
   acceptedCount?: Prisma.IntFieldUpdateOperationsInput | number
   rejectedCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -462,6 +728,9 @@ export type GenerationJobUpdateInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutGenerationJobsNestedInput
   skill?: Prisma.SkillUpdateOneRequiredWithoutGenerationJobsNestedInput
+  auditRecords?: Prisma.GenerationAuditRecordUpdateManyWithoutJobNestedInput
+  generationRelease?: Prisma.ModelReleaseUpdateOneWithoutGenerationJobsNestedInput
+  verifierRelease?: Prisma.ModelReleaseUpdateOneWithoutVerifierJobsNestedInput
 }
 
 export type GenerationJobUncheckedUpdateInput = {
@@ -473,6 +742,23 @@ export type GenerationJobUncheckedUpdateInput = {
   provider?: Prisma.StringFieldUpdateOperationsInput | string
   model?: Prisma.StringFieldUpdateOperationsInput | string
   promptVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  idempotencyKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  releaseTuple?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  generationReleaseId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  verifierReleaseId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  stage?: Prisma.EnumGenerationJobStageFieldUpdateOperationsInput | $Enums.GenerationJobStage
+  checkpoint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  retryCount?: Prisma.IntFieldUpdateOperationsInput | number
+  maxAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  contextManifest?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  contextManifestHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  stageMetrics?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  failureCategory?: Prisma.EnumGenerationFailureCategoryFieldUpdateOperationsInput | $Enums.GenerationFailureCategory
+  degradedState?: Prisma.EnumGenerationDegradedStateFieldUpdateOperationsInput | $Enums.GenerationDegradedState
+  fallbackProvider?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  fallbackModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  fallbackReasonCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestedCount?: Prisma.IntFieldUpdateOperationsInput | number
   acceptedCount?: Prisma.IntFieldUpdateOperationsInput | number
   rejectedCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -481,6 +767,7 @@ export type GenerationJobUncheckedUpdateInput = {
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  auditRecords?: Prisma.GenerationAuditRecordUncheckedUpdateManyWithoutJobNestedInput
 }
 
 export type GenerationJobCreateManyInput = {
@@ -492,6 +779,23 @@ export type GenerationJobCreateManyInput = {
   provider: string
   model: string
   promptVersion: string
+  idempotencyKey?: string | null
+  releaseTuple?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  generationReleaseId?: string | null
+  verifierReleaseId?: string | null
+  stage?: $Enums.GenerationJobStage
+  checkpoint?: string | null
+  attemptCount?: number
+  retryCount?: number
+  maxAttempts?: number
+  contextManifest?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  contextManifestHash?: string | null
+  stageMetrics?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  failureCategory?: $Enums.GenerationFailureCategory
+  degradedState?: $Enums.GenerationDegradedState
+  fallbackProvider?: string | null
+  fallbackModel?: string | null
+  fallbackReasonCode?: string | null
   requestedCount: number
   acceptedCount?: number
   rejectedCount?: number
@@ -509,6 +813,21 @@ export type GenerationJobUpdateManyMutationInput = {
   provider?: Prisma.StringFieldUpdateOperationsInput | string
   model?: Prisma.StringFieldUpdateOperationsInput | string
   promptVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  idempotencyKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  releaseTuple?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  stage?: Prisma.EnumGenerationJobStageFieldUpdateOperationsInput | $Enums.GenerationJobStage
+  checkpoint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  retryCount?: Prisma.IntFieldUpdateOperationsInput | number
+  maxAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  contextManifest?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  contextManifestHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  stageMetrics?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  failureCategory?: Prisma.EnumGenerationFailureCategoryFieldUpdateOperationsInput | $Enums.GenerationFailureCategory
+  degradedState?: Prisma.EnumGenerationDegradedStateFieldUpdateOperationsInput | $Enums.GenerationDegradedState
+  fallbackProvider?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  fallbackModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  fallbackReasonCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestedCount?: Prisma.IntFieldUpdateOperationsInput | number
   acceptedCount?: Prisma.IntFieldUpdateOperationsInput | number
   rejectedCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -528,6 +847,23 @@ export type GenerationJobUncheckedUpdateManyInput = {
   provider?: Prisma.StringFieldUpdateOperationsInput | string
   model?: Prisma.StringFieldUpdateOperationsInput | string
   promptVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  idempotencyKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  releaseTuple?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  generationReleaseId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  verifierReleaseId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  stage?: Prisma.EnumGenerationJobStageFieldUpdateOperationsInput | $Enums.GenerationJobStage
+  checkpoint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  retryCount?: Prisma.IntFieldUpdateOperationsInput | number
+  maxAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  contextManifest?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  contextManifestHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  stageMetrics?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  failureCategory?: Prisma.EnumGenerationFailureCategoryFieldUpdateOperationsInput | $Enums.GenerationFailureCategory
+  degradedState?: Prisma.EnumGenerationDegradedStateFieldUpdateOperationsInput | $Enums.GenerationDegradedState
+  fallbackProvider?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  fallbackModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  fallbackReasonCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestedCount?: Prisma.IntFieldUpdateOperationsInput | number
   acceptedCount?: Prisma.IntFieldUpdateOperationsInput | number
   rejectedCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -548,6 +884,16 @@ export type GenerationJobOrderByRelationAggregateInput = {
   _count?: Prisma.SortOrder
 }
 
+export type GenerationJobIdUserIdCompoundUniqueInput = {
+  id: string
+  userId: string
+}
+
+export type GenerationJobUserIdIdempotencyKeyCompoundUniqueInput = {
+  userId: string
+  idempotencyKey: string
+}
+
 export type GenerationJobCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   userId?: Prisma.SortOrder
@@ -557,6 +903,23 @@ export type GenerationJobCountOrderByAggregateInput = {
   provider?: Prisma.SortOrder
   model?: Prisma.SortOrder
   promptVersion?: Prisma.SortOrder
+  idempotencyKey?: Prisma.SortOrder
+  releaseTuple?: Prisma.SortOrder
+  generationReleaseId?: Prisma.SortOrder
+  verifierReleaseId?: Prisma.SortOrder
+  stage?: Prisma.SortOrder
+  checkpoint?: Prisma.SortOrder
+  attemptCount?: Prisma.SortOrder
+  retryCount?: Prisma.SortOrder
+  maxAttempts?: Prisma.SortOrder
+  contextManifest?: Prisma.SortOrder
+  contextManifestHash?: Prisma.SortOrder
+  stageMetrics?: Prisma.SortOrder
+  failureCategory?: Prisma.SortOrder
+  degradedState?: Prisma.SortOrder
+  fallbackProvider?: Prisma.SortOrder
+  fallbackModel?: Prisma.SortOrder
+  fallbackReasonCode?: Prisma.SortOrder
   requestedCount?: Prisma.SortOrder
   acceptedCount?: Prisma.SortOrder
   rejectedCount?: Prisma.SortOrder
@@ -568,6 +931,9 @@ export type GenerationJobCountOrderByAggregateInput = {
 }
 
 export type GenerationJobAvgOrderByAggregateInput = {
+  attemptCount?: Prisma.SortOrder
+  retryCount?: Prisma.SortOrder
+  maxAttempts?: Prisma.SortOrder
   requestedCount?: Prisma.SortOrder
   acceptedCount?: Prisma.SortOrder
   rejectedCount?: Prisma.SortOrder
@@ -582,6 +948,20 @@ export type GenerationJobMaxOrderByAggregateInput = {
   provider?: Prisma.SortOrder
   model?: Prisma.SortOrder
   promptVersion?: Prisma.SortOrder
+  idempotencyKey?: Prisma.SortOrder
+  generationReleaseId?: Prisma.SortOrder
+  verifierReleaseId?: Prisma.SortOrder
+  stage?: Prisma.SortOrder
+  checkpoint?: Prisma.SortOrder
+  attemptCount?: Prisma.SortOrder
+  retryCount?: Prisma.SortOrder
+  maxAttempts?: Prisma.SortOrder
+  contextManifestHash?: Prisma.SortOrder
+  failureCategory?: Prisma.SortOrder
+  degradedState?: Prisma.SortOrder
+  fallbackProvider?: Prisma.SortOrder
+  fallbackModel?: Prisma.SortOrder
+  fallbackReasonCode?: Prisma.SortOrder
   requestedCount?: Prisma.SortOrder
   acceptedCount?: Prisma.SortOrder
   rejectedCount?: Prisma.SortOrder
@@ -601,6 +981,20 @@ export type GenerationJobMinOrderByAggregateInput = {
   provider?: Prisma.SortOrder
   model?: Prisma.SortOrder
   promptVersion?: Prisma.SortOrder
+  idempotencyKey?: Prisma.SortOrder
+  generationReleaseId?: Prisma.SortOrder
+  verifierReleaseId?: Prisma.SortOrder
+  stage?: Prisma.SortOrder
+  checkpoint?: Prisma.SortOrder
+  attemptCount?: Prisma.SortOrder
+  retryCount?: Prisma.SortOrder
+  maxAttempts?: Prisma.SortOrder
+  contextManifestHash?: Prisma.SortOrder
+  failureCategory?: Prisma.SortOrder
+  degradedState?: Prisma.SortOrder
+  fallbackProvider?: Prisma.SortOrder
+  fallbackModel?: Prisma.SortOrder
+  fallbackReasonCode?: Prisma.SortOrder
   requestedCount?: Prisma.SortOrder
   acceptedCount?: Prisma.SortOrder
   rejectedCount?: Prisma.SortOrder
@@ -612,9 +1006,17 @@ export type GenerationJobMinOrderByAggregateInput = {
 }
 
 export type GenerationJobSumOrderByAggregateInput = {
+  attemptCount?: Prisma.SortOrder
+  retryCount?: Prisma.SortOrder
+  maxAttempts?: Prisma.SortOrder
   requestedCount?: Prisma.SortOrder
   acceptedCount?: Prisma.SortOrder
   rejectedCount?: Prisma.SortOrder
+}
+
+export type GenerationJobScalarRelationFilter = {
+  is?: Prisma.GenerationJobWhereInput
+  isNot?: Prisma.GenerationJobWhereInput
 }
 
 export type GenerationJobCreateNestedManyWithoutUserInput = {
@@ -709,6 +1111,116 @@ export type EnumGenerationJobStatusFieldUpdateOperationsInput = {
   set?: $Enums.GenerationJobStatus
 }
 
+export type EnumGenerationJobStageFieldUpdateOperationsInput = {
+  set?: $Enums.GenerationJobStage
+}
+
+export type EnumGenerationFailureCategoryFieldUpdateOperationsInput = {
+  set?: $Enums.GenerationFailureCategory
+}
+
+export type EnumGenerationDegradedStateFieldUpdateOperationsInput = {
+  set?: $Enums.GenerationDegradedState
+}
+
+export type GenerationJobCreateNestedManyWithoutGenerationReleaseInput = {
+  create?: Prisma.XOR<Prisma.GenerationJobCreateWithoutGenerationReleaseInput, Prisma.GenerationJobUncheckedCreateWithoutGenerationReleaseInput> | Prisma.GenerationJobCreateWithoutGenerationReleaseInput[] | Prisma.GenerationJobUncheckedCreateWithoutGenerationReleaseInput[]
+  connectOrCreate?: Prisma.GenerationJobCreateOrConnectWithoutGenerationReleaseInput | Prisma.GenerationJobCreateOrConnectWithoutGenerationReleaseInput[]
+  createMany?: Prisma.GenerationJobCreateManyGenerationReleaseInputEnvelope
+  connect?: Prisma.GenerationJobWhereUniqueInput | Prisma.GenerationJobWhereUniqueInput[]
+}
+
+export type GenerationJobCreateNestedManyWithoutVerifierReleaseInput = {
+  create?: Prisma.XOR<Prisma.GenerationJobCreateWithoutVerifierReleaseInput, Prisma.GenerationJobUncheckedCreateWithoutVerifierReleaseInput> | Prisma.GenerationJobCreateWithoutVerifierReleaseInput[] | Prisma.GenerationJobUncheckedCreateWithoutVerifierReleaseInput[]
+  connectOrCreate?: Prisma.GenerationJobCreateOrConnectWithoutVerifierReleaseInput | Prisma.GenerationJobCreateOrConnectWithoutVerifierReleaseInput[]
+  createMany?: Prisma.GenerationJobCreateManyVerifierReleaseInputEnvelope
+  connect?: Prisma.GenerationJobWhereUniqueInput | Prisma.GenerationJobWhereUniqueInput[]
+}
+
+export type GenerationJobUncheckedCreateNestedManyWithoutGenerationReleaseInput = {
+  create?: Prisma.XOR<Prisma.GenerationJobCreateWithoutGenerationReleaseInput, Prisma.GenerationJobUncheckedCreateWithoutGenerationReleaseInput> | Prisma.GenerationJobCreateWithoutGenerationReleaseInput[] | Prisma.GenerationJobUncheckedCreateWithoutGenerationReleaseInput[]
+  connectOrCreate?: Prisma.GenerationJobCreateOrConnectWithoutGenerationReleaseInput | Prisma.GenerationJobCreateOrConnectWithoutGenerationReleaseInput[]
+  createMany?: Prisma.GenerationJobCreateManyGenerationReleaseInputEnvelope
+  connect?: Prisma.GenerationJobWhereUniqueInput | Prisma.GenerationJobWhereUniqueInput[]
+}
+
+export type GenerationJobUncheckedCreateNestedManyWithoutVerifierReleaseInput = {
+  create?: Prisma.XOR<Prisma.GenerationJobCreateWithoutVerifierReleaseInput, Prisma.GenerationJobUncheckedCreateWithoutVerifierReleaseInput> | Prisma.GenerationJobCreateWithoutVerifierReleaseInput[] | Prisma.GenerationJobUncheckedCreateWithoutVerifierReleaseInput[]
+  connectOrCreate?: Prisma.GenerationJobCreateOrConnectWithoutVerifierReleaseInput | Prisma.GenerationJobCreateOrConnectWithoutVerifierReleaseInput[]
+  createMany?: Prisma.GenerationJobCreateManyVerifierReleaseInputEnvelope
+  connect?: Prisma.GenerationJobWhereUniqueInput | Prisma.GenerationJobWhereUniqueInput[]
+}
+
+export type GenerationJobUpdateManyWithoutGenerationReleaseNestedInput = {
+  create?: Prisma.XOR<Prisma.GenerationJobCreateWithoutGenerationReleaseInput, Prisma.GenerationJobUncheckedCreateWithoutGenerationReleaseInput> | Prisma.GenerationJobCreateWithoutGenerationReleaseInput[] | Prisma.GenerationJobUncheckedCreateWithoutGenerationReleaseInput[]
+  connectOrCreate?: Prisma.GenerationJobCreateOrConnectWithoutGenerationReleaseInput | Prisma.GenerationJobCreateOrConnectWithoutGenerationReleaseInput[]
+  upsert?: Prisma.GenerationJobUpsertWithWhereUniqueWithoutGenerationReleaseInput | Prisma.GenerationJobUpsertWithWhereUniqueWithoutGenerationReleaseInput[]
+  createMany?: Prisma.GenerationJobCreateManyGenerationReleaseInputEnvelope
+  set?: Prisma.GenerationJobWhereUniqueInput | Prisma.GenerationJobWhereUniqueInput[]
+  disconnect?: Prisma.GenerationJobWhereUniqueInput | Prisma.GenerationJobWhereUniqueInput[]
+  delete?: Prisma.GenerationJobWhereUniqueInput | Prisma.GenerationJobWhereUniqueInput[]
+  connect?: Prisma.GenerationJobWhereUniqueInput | Prisma.GenerationJobWhereUniqueInput[]
+  update?: Prisma.GenerationJobUpdateWithWhereUniqueWithoutGenerationReleaseInput | Prisma.GenerationJobUpdateWithWhereUniqueWithoutGenerationReleaseInput[]
+  updateMany?: Prisma.GenerationJobUpdateManyWithWhereWithoutGenerationReleaseInput | Prisma.GenerationJobUpdateManyWithWhereWithoutGenerationReleaseInput[]
+  deleteMany?: Prisma.GenerationJobScalarWhereInput | Prisma.GenerationJobScalarWhereInput[]
+}
+
+export type GenerationJobUpdateManyWithoutVerifierReleaseNestedInput = {
+  create?: Prisma.XOR<Prisma.GenerationJobCreateWithoutVerifierReleaseInput, Prisma.GenerationJobUncheckedCreateWithoutVerifierReleaseInput> | Prisma.GenerationJobCreateWithoutVerifierReleaseInput[] | Prisma.GenerationJobUncheckedCreateWithoutVerifierReleaseInput[]
+  connectOrCreate?: Prisma.GenerationJobCreateOrConnectWithoutVerifierReleaseInput | Prisma.GenerationJobCreateOrConnectWithoutVerifierReleaseInput[]
+  upsert?: Prisma.GenerationJobUpsertWithWhereUniqueWithoutVerifierReleaseInput | Prisma.GenerationJobUpsertWithWhereUniqueWithoutVerifierReleaseInput[]
+  createMany?: Prisma.GenerationJobCreateManyVerifierReleaseInputEnvelope
+  set?: Prisma.GenerationJobWhereUniqueInput | Prisma.GenerationJobWhereUniqueInput[]
+  disconnect?: Prisma.GenerationJobWhereUniqueInput | Prisma.GenerationJobWhereUniqueInput[]
+  delete?: Prisma.GenerationJobWhereUniqueInput | Prisma.GenerationJobWhereUniqueInput[]
+  connect?: Prisma.GenerationJobWhereUniqueInput | Prisma.GenerationJobWhereUniqueInput[]
+  update?: Prisma.GenerationJobUpdateWithWhereUniqueWithoutVerifierReleaseInput | Prisma.GenerationJobUpdateWithWhereUniqueWithoutVerifierReleaseInput[]
+  updateMany?: Prisma.GenerationJobUpdateManyWithWhereWithoutVerifierReleaseInput | Prisma.GenerationJobUpdateManyWithWhereWithoutVerifierReleaseInput[]
+  deleteMany?: Prisma.GenerationJobScalarWhereInput | Prisma.GenerationJobScalarWhereInput[]
+}
+
+export type GenerationJobUncheckedUpdateManyWithoutGenerationReleaseNestedInput = {
+  create?: Prisma.XOR<Prisma.GenerationJobCreateWithoutGenerationReleaseInput, Prisma.GenerationJobUncheckedCreateWithoutGenerationReleaseInput> | Prisma.GenerationJobCreateWithoutGenerationReleaseInput[] | Prisma.GenerationJobUncheckedCreateWithoutGenerationReleaseInput[]
+  connectOrCreate?: Prisma.GenerationJobCreateOrConnectWithoutGenerationReleaseInput | Prisma.GenerationJobCreateOrConnectWithoutGenerationReleaseInput[]
+  upsert?: Prisma.GenerationJobUpsertWithWhereUniqueWithoutGenerationReleaseInput | Prisma.GenerationJobUpsertWithWhereUniqueWithoutGenerationReleaseInput[]
+  createMany?: Prisma.GenerationJobCreateManyGenerationReleaseInputEnvelope
+  set?: Prisma.GenerationJobWhereUniqueInput | Prisma.GenerationJobWhereUniqueInput[]
+  disconnect?: Prisma.GenerationJobWhereUniqueInput | Prisma.GenerationJobWhereUniqueInput[]
+  delete?: Prisma.GenerationJobWhereUniqueInput | Prisma.GenerationJobWhereUniqueInput[]
+  connect?: Prisma.GenerationJobWhereUniqueInput | Prisma.GenerationJobWhereUniqueInput[]
+  update?: Prisma.GenerationJobUpdateWithWhereUniqueWithoutGenerationReleaseInput | Prisma.GenerationJobUpdateWithWhereUniqueWithoutGenerationReleaseInput[]
+  updateMany?: Prisma.GenerationJobUpdateManyWithWhereWithoutGenerationReleaseInput | Prisma.GenerationJobUpdateManyWithWhereWithoutGenerationReleaseInput[]
+  deleteMany?: Prisma.GenerationJobScalarWhereInput | Prisma.GenerationJobScalarWhereInput[]
+}
+
+export type GenerationJobUncheckedUpdateManyWithoutVerifierReleaseNestedInput = {
+  create?: Prisma.XOR<Prisma.GenerationJobCreateWithoutVerifierReleaseInput, Prisma.GenerationJobUncheckedCreateWithoutVerifierReleaseInput> | Prisma.GenerationJobCreateWithoutVerifierReleaseInput[] | Prisma.GenerationJobUncheckedCreateWithoutVerifierReleaseInput[]
+  connectOrCreate?: Prisma.GenerationJobCreateOrConnectWithoutVerifierReleaseInput | Prisma.GenerationJobCreateOrConnectWithoutVerifierReleaseInput[]
+  upsert?: Prisma.GenerationJobUpsertWithWhereUniqueWithoutVerifierReleaseInput | Prisma.GenerationJobUpsertWithWhereUniqueWithoutVerifierReleaseInput[]
+  createMany?: Prisma.GenerationJobCreateManyVerifierReleaseInputEnvelope
+  set?: Prisma.GenerationJobWhereUniqueInput | Prisma.GenerationJobWhereUniqueInput[]
+  disconnect?: Prisma.GenerationJobWhereUniqueInput | Prisma.GenerationJobWhereUniqueInput[]
+  delete?: Prisma.GenerationJobWhereUniqueInput | Prisma.GenerationJobWhereUniqueInput[]
+  connect?: Prisma.GenerationJobWhereUniqueInput | Prisma.GenerationJobWhereUniqueInput[]
+  update?: Prisma.GenerationJobUpdateWithWhereUniqueWithoutVerifierReleaseInput | Prisma.GenerationJobUpdateWithWhereUniqueWithoutVerifierReleaseInput[]
+  updateMany?: Prisma.GenerationJobUpdateManyWithWhereWithoutVerifierReleaseInput | Prisma.GenerationJobUpdateManyWithWhereWithoutVerifierReleaseInput[]
+  deleteMany?: Prisma.GenerationJobScalarWhereInput | Prisma.GenerationJobScalarWhereInput[]
+}
+
+export type GenerationJobCreateNestedOneWithoutAuditRecordsInput = {
+  create?: Prisma.XOR<Prisma.GenerationJobCreateWithoutAuditRecordsInput, Prisma.GenerationJobUncheckedCreateWithoutAuditRecordsInput>
+  connectOrCreate?: Prisma.GenerationJobCreateOrConnectWithoutAuditRecordsInput
+  connect?: Prisma.GenerationJobWhereUniqueInput
+}
+
+export type GenerationJobUpdateOneRequiredWithoutAuditRecordsNestedInput = {
+  create?: Prisma.XOR<Prisma.GenerationJobCreateWithoutAuditRecordsInput, Prisma.GenerationJobUncheckedCreateWithoutAuditRecordsInput>
+  connectOrCreate?: Prisma.GenerationJobCreateOrConnectWithoutAuditRecordsInput
+  upsert?: Prisma.GenerationJobUpsertWithoutAuditRecordsInput
+  connect?: Prisma.GenerationJobWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.GenerationJobUpdateToOneWithWhereWithoutAuditRecordsInput, Prisma.GenerationJobUpdateWithoutAuditRecordsInput>, Prisma.GenerationJobUncheckedUpdateWithoutAuditRecordsInput>
+}
+
 export type GenerationJobCreateWithoutUserInput = {
   id?: string
   kind: $Enums.GenerationJobKind
@@ -716,6 +1228,21 @@ export type GenerationJobCreateWithoutUserInput = {
   provider: string
   model: string
   promptVersion: string
+  idempotencyKey?: string | null
+  releaseTuple?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  stage?: $Enums.GenerationJobStage
+  checkpoint?: string | null
+  attemptCount?: number
+  retryCount?: number
+  maxAttempts?: number
+  contextManifest?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  contextManifestHash?: string | null
+  stageMetrics?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  failureCategory?: $Enums.GenerationFailureCategory
+  degradedState?: $Enums.GenerationDegradedState
+  fallbackProvider?: string | null
+  fallbackModel?: string | null
+  fallbackReasonCode?: string | null
   requestedCount: number
   acceptedCount?: number
   rejectedCount?: number
@@ -725,6 +1252,9 @@ export type GenerationJobCreateWithoutUserInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   skill: Prisma.SkillCreateNestedOneWithoutGenerationJobsInput
+  auditRecords?: Prisma.GenerationAuditRecordCreateNestedManyWithoutJobInput
+  generationRelease?: Prisma.ModelReleaseCreateNestedOneWithoutGenerationJobsInput
+  verifierRelease?: Prisma.ModelReleaseCreateNestedOneWithoutVerifierJobsInput
 }
 
 export type GenerationJobUncheckedCreateWithoutUserInput = {
@@ -735,6 +1265,23 @@ export type GenerationJobUncheckedCreateWithoutUserInput = {
   provider: string
   model: string
   promptVersion: string
+  idempotencyKey?: string | null
+  releaseTuple?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  generationReleaseId?: string | null
+  verifierReleaseId?: string | null
+  stage?: $Enums.GenerationJobStage
+  checkpoint?: string | null
+  attemptCount?: number
+  retryCount?: number
+  maxAttempts?: number
+  contextManifest?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  contextManifestHash?: string | null
+  stageMetrics?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  failureCategory?: $Enums.GenerationFailureCategory
+  degradedState?: $Enums.GenerationDegradedState
+  fallbackProvider?: string | null
+  fallbackModel?: string | null
+  fallbackReasonCode?: string | null
   requestedCount: number
   acceptedCount?: number
   rejectedCount?: number
@@ -743,6 +1290,7 @@ export type GenerationJobUncheckedCreateWithoutUserInput = {
   completedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  auditRecords?: Prisma.GenerationAuditRecordUncheckedCreateNestedManyWithoutJobInput
 }
 
 export type GenerationJobCreateOrConnectWithoutUserInput = {
@@ -783,6 +1331,23 @@ export type GenerationJobScalarWhereInput = {
   provider?: Prisma.StringFilter<"GenerationJob"> | string
   model?: Prisma.StringFilter<"GenerationJob"> | string
   promptVersion?: Prisma.StringFilter<"GenerationJob"> | string
+  idempotencyKey?: Prisma.StringNullableFilter<"GenerationJob"> | string | null
+  releaseTuple?: Prisma.JsonNullableFilter<"GenerationJob">
+  generationReleaseId?: Prisma.StringNullableFilter<"GenerationJob"> | string | null
+  verifierReleaseId?: Prisma.StringNullableFilter<"GenerationJob"> | string | null
+  stage?: Prisma.EnumGenerationJobStageFilter<"GenerationJob"> | $Enums.GenerationJobStage
+  checkpoint?: Prisma.StringNullableFilter<"GenerationJob"> | string | null
+  attemptCount?: Prisma.IntFilter<"GenerationJob"> | number
+  retryCount?: Prisma.IntFilter<"GenerationJob"> | number
+  maxAttempts?: Prisma.IntFilter<"GenerationJob"> | number
+  contextManifest?: Prisma.JsonNullableFilter<"GenerationJob">
+  contextManifestHash?: Prisma.StringNullableFilter<"GenerationJob"> | string | null
+  stageMetrics?: Prisma.JsonNullableFilter<"GenerationJob">
+  failureCategory?: Prisma.EnumGenerationFailureCategoryFilter<"GenerationJob"> | $Enums.GenerationFailureCategory
+  degradedState?: Prisma.EnumGenerationDegradedStateFilter<"GenerationJob"> | $Enums.GenerationDegradedState
+  fallbackProvider?: Prisma.StringNullableFilter<"GenerationJob"> | string | null
+  fallbackModel?: Prisma.StringNullableFilter<"GenerationJob"> | string | null
+  fallbackReasonCode?: Prisma.StringNullableFilter<"GenerationJob"> | string | null
   requestedCount?: Prisma.IntFilter<"GenerationJob"> | number
   acceptedCount?: Prisma.IntFilter<"GenerationJob"> | number
   rejectedCount?: Prisma.IntFilter<"GenerationJob"> | number
@@ -800,6 +1365,21 @@ export type GenerationJobCreateWithoutSkillInput = {
   provider: string
   model: string
   promptVersion: string
+  idempotencyKey?: string | null
+  releaseTuple?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  stage?: $Enums.GenerationJobStage
+  checkpoint?: string | null
+  attemptCount?: number
+  retryCount?: number
+  maxAttempts?: number
+  contextManifest?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  contextManifestHash?: string | null
+  stageMetrics?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  failureCategory?: $Enums.GenerationFailureCategory
+  degradedState?: $Enums.GenerationDegradedState
+  fallbackProvider?: string | null
+  fallbackModel?: string | null
+  fallbackReasonCode?: string | null
   requestedCount: number
   acceptedCount?: number
   rejectedCount?: number
@@ -809,6 +1389,9 @@ export type GenerationJobCreateWithoutSkillInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutGenerationJobsInput
+  auditRecords?: Prisma.GenerationAuditRecordCreateNestedManyWithoutJobInput
+  generationRelease?: Prisma.ModelReleaseCreateNestedOneWithoutGenerationJobsInput
+  verifierRelease?: Prisma.ModelReleaseCreateNestedOneWithoutVerifierJobsInput
 }
 
 export type GenerationJobUncheckedCreateWithoutSkillInput = {
@@ -818,6 +1401,23 @@ export type GenerationJobUncheckedCreateWithoutSkillInput = {
   provider: string
   model: string
   promptVersion: string
+  idempotencyKey?: string | null
+  releaseTuple?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  generationReleaseId?: string | null
+  verifierReleaseId?: string | null
+  stage?: $Enums.GenerationJobStage
+  checkpoint?: string | null
+  attemptCount?: number
+  retryCount?: number
+  maxAttempts?: number
+  contextManifest?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  contextManifestHash?: string | null
+  stageMetrics?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  failureCategory?: $Enums.GenerationFailureCategory
+  degradedState?: $Enums.GenerationDegradedState
+  fallbackProvider?: string | null
+  fallbackModel?: string | null
+  fallbackReasonCode?: string | null
   requestedCount: number
   acceptedCount?: number
   rejectedCount?: number
@@ -826,6 +1426,7 @@ export type GenerationJobUncheckedCreateWithoutSkillInput = {
   completedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  auditRecords?: Prisma.GenerationAuditRecordUncheckedCreateNestedManyWithoutJobInput
 }
 
 export type GenerationJobCreateOrConnectWithoutSkillInput = {
@@ -854,6 +1455,362 @@ export type GenerationJobUpdateManyWithWhereWithoutSkillInput = {
   data: Prisma.XOR<Prisma.GenerationJobUpdateManyMutationInput, Prisma.GenerationJobUncheckedUpdateManyWithoutSkillInput>
 }
 
+export type GenerationJobCreateWithoutGenerationReleaseInput = {
+  id?: string
+  kind: $Enums.GenerationJobKind
+  status?: $Enums.GenerationJobStatus
+  provider: string
+  model: string
+  promptVersion: string
+  idempotencyKey?: string | null
+  releaseTuple?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  stage?: $Enums.GenerationJobStage
+  checkpoint?: string | null
+  attemptCount?: number
+  retryCount?: number
+  maxAttempts?: number
+  contextManifest?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  contextManifestHash?: string | null
+  stageMetrics?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  failureCategory?: $Enums.GenerationFailureCategory
+  degradedState?: $Enums.GenerationDegradedState
+  fallbackProvider?: string | null
+  fallbackModel?: string | null
+  fallbackReasonCode?: string | null
+  requestedCount: number
+  acceptedCount?: number
+  rejectedCount?: number
+  errorMessage?: string | null
+  startedAt?: Date | string | null
+  completedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  user: Prisma.UserCreateNestedOneWithoutGenerationJobsInput
+  skill: Prisma.SkillCreateNestedOneWithoutGenerationJobsInput
+  auditRecords?: Prisma.GenerationAuditRecordCreateNestedManyWithoutJobInput
+  verifierRelease?: Prisma.ModelReleaseCreateNestedOneWithoutVerifierJobsInput
+}
+
+export type GenerationJobUncheckedCreateWithoutGenerationReleaseInput = {
+  id?: string
+  userId: string
+  skillId: string
+  kind: $Enums.GenerationJobKind
+  status?: $Enums.GenerationJobStatus
+  provider: string
+  model: string
+  promptVersion: string
+  idempotencyKey?: string | null
+  releaseTuple?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  verifierReleaseId?: string | null
+  stage?: $Enums.GenerationJobStage
+  checkpoint?: string | null
+  attemptCount?: number
+  retryCount?: number
+  maxAttempts?: number
+  contextManifest?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  contextManifestHash?: string | null
+  stageMetrics?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  failureCategory?: $Enums.GenerationFailureCategory
+  degradedState?: $Enums.GenerationDegradedState
+  fallbackProvider?: string | null
+  fallbackModel?: string | null
+  fallbackReasonCode?: string | null
+  requestedCount: number
+  acceptedCount?: number
+  rejectedCount?: number
+  errorMessage?: string | null
+  startedAt?: Date | string | null
+  completedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  auditRecords?: Prisma.GenerationAuditRecordUncheckedCreateNestedManyWithoutJobInput
+}
+
+export type GenerationJobCreateOrConnectWithoutGenerationReleaseInput = {
+  where: Prisma.GenerationJobWhereUniqueInput
+  create: Prisma.XOR<Prisma.GenerationJobCreateWithoutGenerationReleaseInput, Prisma.GenerationJobUncheckedCreateWithoutGenerationReleaseInput>
+}
+
+export type GenerationJobCreateManyGenerationReleaseInputEnvelope = {
+  data: Prisma.GenerationJobCreateManyGenerationReleaseInput | Prisma.GenerationJobCreateManyGenerationReleaseInput[]
+  skipDuplicates?: boolean
+}
+
+export type GenerationJobCreateWithoutVerifierReleaseInput = {
+  id?: string
+  kind: $Enums.GenerationJobKind
+  status?: $Enums.GenerationJobStatus
+  provider: string
+  model: string
+  promptVersion: string
+  idempotencyKey?: string | null
+  releaseTuple?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  stage?: $Enums.GenerationJobStage
+  checkpoint?: string | null
+  attemptCount?: number
+  retryCount?: number
+  maxAttempts?: number
+  contextManifest?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  contextManifestHash?: string | null
+  stageMetrics?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  failureCategory?: $Enums.GenerationFailureCategory
+  degradedState?: $Enums.GenerationDegradedState
+  fallbackProvider?: string | null
+  fallbackModel?: string | null
+  fallbackReasonCode?: string | null
+  requestedCount: number
+  acceptedCount?: number
+  rejectedCount?: number
+  errorMessage?: string | null
+  startedAt?: Date | string | null
+  completedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  user: Prisma.UserCreateNestedOneWithoutGenerationJobsInput
+  skill: Prisma.SkillCreateNestedOneWithoutGenerationJobsInput
+  auditRecords?: Prisma.GenerationAuditRecordCreateNestedManyWithoutJobInput
+  generationRelease?: Prisma.ModelReleaseCreateNestedOneWithoutGenerationJobsInput
+}
+
+export type GenerationJobUncheckedCreateWithoutVerifierReleaseInput = {
+  id?: string
+  userId: string
+  skillId: string
+  kind: $Enums.GenerationJobKind
+  status?: $Enums.GenerationJobStatus
+  provider: string
+  model: string
+  promptVersion: string
+  idempotencyKey?: string | null
+  releaseTuple?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  generationReleaseId?: string | null
+  stage?: $Enums.GenerationJobStage
+  checkpoint?: string | null
+  attemptCount?: number
+  retryCount?: number
+  maxAttempts?: number
+  contextManifest?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  contextManifestHash?: string | null
+  stageMetrics?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  failureCategory?: $Enums.GenerationFailureCategory
+  degradedState?: $Enums.GenerationDegradedState
+  fallbackProvider?: string | null
+  fallbackModel?: string | null
+  fallbackReasonCode?: string | null
+  requestedCount: number
+  acceptedCount?: number
+  rejectedCount?: number
+  errorMessage?: string | null
+  startedAt?: Date | string | null
+  completedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  auditRecords?: Prisma.GenerationAuditRecordUncheckedCreateNestedManyWithoutJobInput
+}
+
+export type GenerationJobCreateOrConnectWithoutVerifierReleaseInput = {
+  where: Prisma.GenerationJobWhereUniqueInput
+  create: Prisma.XOR<Prisma.GenerationJobCreateWithoutVerifierReleaseInput, Prisma.GenerationJobUncheckedCreateWithoutVerifierReleaseInput>
+}
+
+export type GenerationJobCreateManyVerifierReleaseInputEnvelope = {
+  data: Prisma.GenerationJobCreateManyVerifierReleaseInput | Prisma.GenerationJobCreateManyVerifierReleaseInput[]
+  skipDuplicates?: boolean
+}
+
+export type GenerationJobUpsertWithWhereUniqueWithoutGenerationReleaseInput = {
+  where: Prisma.GenerationJobWhereUniqueInput
+  update: Prisma.XOR<Prisma.GenerationJobUpdateWithoutGenerationReleaseInput, Prisma.GenerationJobUncheckedUpdateWithoutGenerationReleaseInput>
+  create: Prisma.XOR<Prisma.GenerationJobCreateWithoutGenerationReleaseInput, Prisma.GenerationJobUncheckedCreateWithoutGenerationReleaseInput>
+}
+
+export type GenerationJobUpdateWithWhereUniqueWithoutGenerationReleaseInput = {
+  where: Prisma.GenerationJobWhereUniqueInput
+  data: Prisma.XOR<Prisma.GenerationJobUpdateWithoutGenerationReleaseInput, Prisma.GenerationJobUncheckedUpdateWithoutGenerationReleaseInput>
+}
+
+export type GenerationJobUpdateManyWithWhereWithoutGenerationReleaseInput = {
+  where: Prisma.GenerationJobScalarWhereInput
+  data: Prisma.XOR<Prisma.GenerationJobUpdateManyMutationInput, Prisma.GenerationJobUncheckedUpdateManyWithoutGenerationReleaseInput>
+}
+
+export type GenerationJobUpsertWithWhereUniqueWithoutVerifierReleaseInput = {
+  where: Prisma.GenerationJobWhereUniqueInput
+  update: Prisma.XOR<Prisma.GenerationJobUpdateWithoutVerifierReleaseInput, Prisma.GenerationJobUncheckedUpdateWithoutVerifierReleaseInput>
+  create: Prisma.XOR<Prisma.GenerationJobCreateWithoutVerifierReleaseInput, Prisma.GenerationJobUncheckedCreateWithoutVerifierReleaseInput>
+}
+
+export type GenerationJobUpdateWithWhereUniqueWithoutVerifierReleaseInput = {
+  where: Prisma.GenerationJobWhereUniqueInput
+  data: Prisma.XOR<Prisma.GenerationJobUpdateWithoutVerifierReleaseInput, Prisma.GenerationJobUncheckedUpdateWithoutVerifierReleaseInput>
+}
+
+export type GenerationJobUpdateManyWithWhereWithoutVerifierReleaseInput = {
+  where: Prisma.GenerationJobScalarWhereInput
+  data: Prisma.XOR<Prisma.GenerationJobUpdateManyMutationInput, Prisma.GenerationJobUncheckedUpdateManyWithoutVerifierReleaseInput>
+}
+
+export type GenerationJobCreateWithoutAuditRecordsInput = {
+  id?: string
+  kind: $Enums.GenerationJobKind
+  status?: $Enums.GenerationJobStatus
+  provider: string
+  model: string
+  promptVersion: string
+  idempotencyKey?: string | null
+  releaseTuple?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  stage?: $Enums.GenerationJobStage
+  checkpoint?: string | null
+  attemptCount?: number
+  retryCount?: number
+  maxAttempts?: number
+  contextManifest?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  contextManifestHash?: string | null
+  stageMetrics?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  failureCategory?: $Enums.GenerationFailureCategory
+  degradedState?: $Enums.GenerationDegradedState
+  fallbackProvider?: string | null
+  fallbackModel?: string | null
+  fallbackReasonCode?: string | null
+  requestedCount: number
+  acceptedCount?: number
+  rejectedCount?: number
+  errorMessage?: string | null
+  startedAt?: Date | string | null
+  completedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  user: Prisma.UserCreateNestedOneWithoutGenerationJobsInput
+  skill: Prisma.SkillCreateNestedOneWithoutGenerationJobsInput
+  generationRelease?: Prisma.ModelReleaseCreateNestedOneWithoutGenerationJobsInput
+  verifierRelease?: Prisma.ModelReleaseCreateNestedOneWithoutVerifierJobsInput
+}
+
+export type GenerationJobUncheckedCreateWithoutAuditRecordsInput = {
+  id?: string
+  userId: string
+  skillId: string
+  kind: $Enums.GenerationJobKind
+  status?: $Enums.GenerationJobStatus
+  provider: string
+  model: string
+  promptVersion: string
+  idempotencyKey?: string | null
+  releaseTuple?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  generationReleaseId?: string | null
+  verifierReleaseId?: string | null
+  stage?: $Enums.GenerationJobStage
+  checkpoint?: string | null
+  attemptCount?: number
+  retryCount?: number
+  maxAttempts?: number
+  contextManifest?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  contextManifestHash?: string | null
+  stageMetrics?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  failureCategory?: $Enums.GenerationFailureCategory
+  degradedState?: $Enums.GenerationDegradedState
+  fallbackProvider?: string | null
+  fallbackModel?: string | null
+  fallbackReasonCode?: string | null
+  requestedCount: number
+  acceptedCount?: number
+  rejectedCount?: number
+  errorMessage?: string | null
+  startedAt?: Date | string | null
+  completedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+}
+
+export type GenerationJobCreateOrConnectWithoutAuditRecordsInput = {
+  where: Prisma.GenerationJobWhereUniqueInput
+  create: Prisma.XOR<Prisma.GenerationJobCreateWithoutAuditRecordsInput, Prisma.GenerationJobUncheckedCreateWithoutAuditRecordsInput>
+}
+
+export type GenerationJobUpsertWithoutAuditRecordsInput = {
+  update: Prisma.XOR<Prisma.GenerationJobUpdateWithoutAuditRecordsInput, Prisma.GenerationJobUncheckedUpdateWithoutAuditRecordsInput>
+  create: Prisma.XOR<Prisma.GenerationJobCreateWithoutAuditRecordsInput, Prisma.GenerationJobUncheckedCreateWithoutAuditRecordsInput>
+  where?: Prisma.GenerationJobWhereInput
+}
+
+export type GenerationJobUpdateToOneWithWhereWithoutAuditRecordsInput = {
+  where?: Prisma.GenerationJobWhereInput
+  data: Prisma.XOR<Prisma.GenerationJobUpdateWithoutAuditRecordsInput, Prisma.GenerationJobUncheckedUpdateWithoutAuditRecordsInput>
+}
+
+export type GenerationJobUpdateWithoutAuditRecordsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  kind?: Prisma.EnumGenerationJobKindFieldUpdateOperationsInput | $Enums.GenerationJobKind
+  status?: Prisma.EnumGenerationJobStatusFieldUpdateOperationsInput | $Enums.GenerationJobStatus
+  provider?: Prisma.StringFieldUpdateOperationsInput | string
+  model?: Prisma.StringFieldUpdateOperationsInput | string
+  promptVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  idempotencyKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  releaseTuple?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  stage?: Prisma.EnumGenerationJobStageFieldUpdateOperationsInput | $Enums.GenerationJobStage
+  checkpoint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  retryCount?: Prisma.IntFieldUpdateOperationsInput | number
+  maxAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  contextManifest?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  contextManifestHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  stageMetrics?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  failureCategory?: Prisma.EnumGenerationFailureCategoryFieldUpdateOperationsInput | $Enums.GenerationFailureCategory
+  degradedState?: Prisma.EnumGenerationDegradedStateFieldUpdateOperationsInput | $Enums.GenerationDegradedState
+  fallbackProvider?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  fallbackModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  fallbackReasonCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  requestedCount?: Prisma.IntFieldUpdateOperationsInput | number
+  acceptedCount?: Prisma.IntFieldUpdateOperationsInput | number
+  rejectedCount?: Prisma.IntFieldUpdateOperationsInput | number
+  errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  user?: Prisma.UserUpdateOneRequiredWithoutGenerationJobsNestedInput
+  skill?: Prisma.SkillUpdateOneRequiredWithoutGenerationJobsNestedInput
+  generationRelease?: Prisma.ModelReleaseUpdateOneWithoutGenerationJobsNestedInput
+  verifierRelease?: Prisma.ModelReleaseUpdateOneWithoutVerifierJobsNestedInput
+}
+
+export type GenerationJobUncheckedUpdateWithoutAuditRecordsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
+  skillId?: Prisma.StringFieldUpdateOperationsInput | string
+  kind?: Prisma.EnumGenerationJobKindFieldUpdateOperationsInput | $Enums.GenerationJobKind
+  status?: Prisma.EnumGenerationJobStatusFieldUpdateOperationsInput | $Enums.GenerationJobStatus
+  provider?: Prisma.StringFieldUpdateOperationsInput | string
+  model?: Prisma.StringFieldUpdateOperationsInput | string
+  promptVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  idempotencyKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  releaseTuple?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  generationReleaseId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  verifierReleaseId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  stage?: Prisma.EnumGenerationJobStageFieldUpdateOperationsInput | $Enums.GenerationJobStage
+  checkpoint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  retryCount?: Prisma.IntFieldUpdateOperationsInput | number
+  maxAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  contextManifest?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  contextManifestHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  stageMetrics?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  failureCategory?: Prisma.EnumGenerationFailureCategoryFieldUpdateOperationsInput | $Enums.GenerationFailureCategory
+  degradedState?: Prisma.EnumGenerationDegradedStateFieldUpdateOperationsInput | $Enums.GenerationDegradedState
+  fallbackProvider?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  fallbackModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  fallbackReasonCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  requestedCount?: Prisma.IntFieldUpdateOperationsInput | number
+  acceptedCount?: Prisma.IntFieldUpdateOperationsInput | number
+  rejectedCount?: Prisma.IntFieldUpdateOperationsInput | number
+  errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
 export type GenerationJobCreateManyUserInput = {
   id?: string
   skillId: string
@@ -862,6 +1819,23 @@ export type GenerationJobCreateManyUserInput = {
   provider: string
   model: string
   promptVersion: string
+  idempotencyKey?: string | null
+  releaseTuple?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  generationReleaseId?: string | null
+  verifierReleaseId?: string | null
+  stage?: $Enums.GenerationJobStage
+  checkpoint?: string | null
+  attemptCount?: number
+  retryCount?: number
+  maxAttempts?: number
+  contextManifest?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  contextManifestHash?: string | null
+  stageMetrics?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  failureCategory?: $Enums.GenerationFailureCategory
+  degradedState?: $Enums.GenerationDegradedState
+  fallbackProvider?: string | null
+  fallbackModel?: string | null
+  fallbackReasonCode?: string | null
   requestedCount: number
   acceptedCount?: number
   rejectedCount?: number
@@ -879,6 +1853,21 @@ export type GenerationJobUpdateWithoutUserInput = {
   provider?: Prisma.StringFieldUpdateOperationsInput | string
   model?: Prisma.StringFieldUpdateOperationsInput | string
   promptVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  idempotencyKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  releaseTuple?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  stage?: Prisma.EnumGenerationJobStageFieldUpdateOperationsInput | $Enums.GenerationJobStage
+  checkpoint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  retryCount?: Prisma.IntFieldUpdateOperationsInput | number
+  maxAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  contextManifest?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  contextManifestHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  stageMetrics?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  failureCategory?: Prisma.EnumGenerationFailureCategoryFieldUpdateOperationsInput | $Enums.GenerationFailureCategory
+  degradedState?: Prisma.EnumGenerationDegradedStateFieldUpdateOperationsInput | $Enums.GenerationDegradedState
+  fallbackProvider?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  fallbackModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  fallbackReasonCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestedCount?: Prisma.IntFieldUpdateOperationsInput | number
   acceptedCount?: Prisma.IntFieldUpdateOperationsInput | number
   rejectedCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -888,6 +1877,9 @@ export type GenerationJobUpdateWithoutUserInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   skill?: Prisma.SkillUpdateOneRequiredWithoutGenerationJobsNestedInput
+  auditRecords?: Prisma.GenerationAuditRecordUpdateManyWithoutJobNestedInput
+  generationRelease?: Prisma.ModelReleaseUpdateOneWithoutGenerationJobsNestedInput
+  verifierRelease?: Prisma.ModelReleaseUpdateOneWithoutVerifierJobsNestedInput
 }
 
 export type GenerationJobUncheckedUpdateWithoutUserInput = {
@@ -898,6 +1890,23 @@ export type GenerationJobUncheckedUpdateWithoutUserInput = {
   provider?: Prisma.StringFieldUpdateOperationsInput | string
   model?: Prisma.StringFieldUpdateOperationsInput | string
   promptVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  idempotencyKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  releaseTuple?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  generationReleaseId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  verifierReleaseId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  stage?: Prisma.EnumGenerationJobStageFieldUpdateOperationsInput | $Enums.GenerationJobStage
+  checkpoint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  retryCount?: Prisma.IntFieldUpdateOperationsInput | number
+  maxAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  contextManifest?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  contextManifestHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  stageMetrics?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  failureCategory?: Prisma.EnumGenerationFailureCategoryFieldUpdateOperationsInput | $Enums.GenerationFailureCategory
+  degradedState?: Prisma.EnumGenerationDegradedStateFieldUpdateOperationsInput | $Enums.GenerationDegradedState
+  fallbackProvider?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  fallbackModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  fallbackReasonCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestedCount?: Prisma.IntFieldUpdateOperationsInput | number
   acceptedCount?: Prisma.IntFieldUpdateOperationsInput | number
   rejectedCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -906,6 +1915,7 @@ export type GenerationJobUncheckedUpdateWithoutUserInput = {
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  auditRecords?: Prisma.GenerationAuditRecordUncheckedUpdateManyWithoutJobNestedInput
 }
 
 export type GenerationJobUncheckedUpdateManyWithoutUserInput = {
@@ -916,6 +1926,23 @@ export type GenerationJobUncheckedUpdateManyWithoutUserInput = {
   provider?: Prisma.StringFieldUpdateOperationsInput | string
   model?: Prisma.StringFieldUpdateOperationsInput | string
   promptVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  idempotencyKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  releaseTuple?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  generationReleaseId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  verifierReleaseId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  stage?: Prisma.EnumGenerationJobStageFieldUpdateOperationsInput | $Enums.GenerationJobStage
+  checkpoint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  retryCount?: Prisma.IntFieldUpdateOperationsInput | number
+  maxAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  contextManifest?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  contextManifestHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  stageMetrics?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  failureCategory?: Prisma.EnumGenerationFailureCategoryFieldUpdateOperationsInput | $Enums.GenerationFailureCategory
+  degradedState?: Prisma.EnumGenerationDegradedStateFieldUpdateOperationsInput | $Enums.GenerationDegradedState
+  fallbackProvider?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  fallbackModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  fallbackReasonCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestedCount?: Prisma.IntFieldUpdateOperationsInput | number
   acceptedCount?: Prisma.IntFieldUpdateOperationsInput | number
   rejectedCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -933,6 +1960,23 @@ export type GenerationJobCreateManySkillInput = {
   provider: string
   model: string
   promptVersion: string
+  idempotencyKey?: string | null
+  releaseTuple?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  generationReleaseId?: string | null
+  verifierReleaseId?: string | null
+  stage?: $Enums.GenerationJobStage
+  checkpoint?: string | null
+  attemptCount?: number
+  retryCount?: number
+  maxAttempts?: number
+  contextManifest?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  contextManifestHash?: string | null
+  stageMetrics?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  failureCategory?: $Enums.GenerationFailureCategory
+  degradedState?: $Enums.GenerationDegradedState
+  fallbackProvider?: string | null
+  fallbackModel?: string | null
+  fallbackReasonCode?: string | null
   requestedCount: number
   acceptedCount?: number
   rejectedCount?: number
@@ -950,6 +1994,21 @@ export type GenerationJobUpdateWithoutSkillInput = {
   provider?: Prisma.StringFieldUpdateOperationsInput | string
   model?: Prisma.StringFieldUpdateOperationsInput | string
   promptVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  idempotencyKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  releaseTuple?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  stage?: Prisma.EnumGenerationJobStageFieldUpdateOperationsInput | $Enums.GenerationJobStage
+  checkpoint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  retryCount?: Prisma.IntFieldUpdateOperationsInput | number
+  maxAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  contextManifest?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  contextManifestHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  stageMetrics?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  failureCategory?: Prisma.EnumGenerationFailureCategoryFieldUpdateOperationsInput | $Enums.GenerationFailureCategory
+  degradedState?: Prisma.EnumGenerationDegradedStateFieldUpdateOperationsInput | $Enums.GenerationDegradedState
+  fallbackProvider?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  fallbackModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  fallbackReasonCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestedCount?: Prisma.IntFieldUpdateOperationsInput | number
   acceptedCount?: Prisma.IntFieldUpdateOperationsInput | number
   rejectedCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -959,6 +2018,9 @@ export type GenerationJobUpdateWithoutSkillInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutGenerationJobsNestedInput
+  auditRecords?: Prisma.GenerationAuditRecordUpdateManyWithoutJobNestedInput
+  generationRelease?: Prisma.ModelReleaseUpdateOneWithoutGenerationJobsNestedInput
+  verifierRelease?: Prisma.ModelReleaseUpdateOneWithoutVerifierJobsNestedInput
 }
 
 export type GenerationJobUncheckedUpdateWithoutSkillInput = {
@@ -968,6 +2030,23 @@ export type GenerationJobUncheckedUpdateWithoutSkillInput = {
   provider?: Prisma.StringFieldUpdateOperationsInput | string
   model?: Prisma.StringFieldUpdateOperationsInput | string
   promptVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  idempotencyKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  releaseTuple?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  generationReleaseId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  verifierReleaseId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  stage?: Prisma.EnumGenerationJobStageFieldUpdateOperationsInput | $Enums.GenerationJobStage
+  checkpoint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  retryCount?: Prisma.IntFieldUpdateOperationsInput | number
+  maxAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  contextManifest?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  contextManifestHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  stageMetrics?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  failureCategory?: Prisma.EnumGenerationFailureCategoryFieldUpdateOperationsInput | $Enums.GenerationFailureCategory
+  degradedState?: Prisma.EnumGenerationDegradedStateFieldUpdateOperationsInput | $Enums.GenerationDegradedState
+  fallbackProvider?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  fallbackModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  fallbackReasonCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestedCount?: Prisma.IntFieldUpdateOperationsInput | number
   acceptedCount?: Prisma.IntFieldUpdateOperationsInput | number
   rejectedCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -976,6 +2055,7 @@ export type GenerationJobUncheckedUpdateWithoutSkillInput = {
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  auditRecords?: Prisma.GenerationAuditRecordUncheckedUpdateManyWithoutJobNestedInput
 }
 
 export type GenerationJobUncheckedUpdateManyWithoutSkillInput = {
@@ -985,6 +2065,23 @@ export type GenerationJobUncheckedUpdateManyWithoutSkillInput = {
   provider?: Prisma.StringFieldUpdateOperationsInput | string
   model?: Prisma.StringFieldUpdateOperationsInput | string
   promptVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  idempotencyKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  releaseTuple?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  generationReleaseId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  verifierReleaseId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  stage?: Prisma.EnumGenerationJobStageFieldUpdateOperationsInput | $Enums.GenerationJobStage
+  checkpoint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  retryCount?: Prisma.IntFieldUpdateOperationsInput | number
+  maxAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  contextManifest?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  contextManifestHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  stageMetrics?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  failureCategory?: Prisma.EnumGenerationFailureCategoryFieldUpdateOperationsInput | $Enums.GenerationFailureCategory
+  degradedState?: Prisma.EnumGenerationDegradedStateFieldUpdateOperationsInput | $Enums.GenerationDegradedState
+  fallbackProvider?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  fallbackModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  fallbackReasonCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   requestedCount?: Prisma.IntFieldUpdateOperationsInput | number
   acceptedCount?: Prisma.IntFieldUpdateOperationsInput | number
   rejectedCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -995,6 +2092,319 @@ export type GenerationJobUncheckedUpdateManyWithoutSkillInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
+export type GenerationJobCreateManyGenerationReleaseInput = {
+  id?: string
+  userId: string
+  skillId: string
+  kind: $Enums.GenerationJobKind
+  status?: $Enums.GenerationJobStatus
+  provider: string
+  model: string
+  promptVersion: string
+  idempotencyKey?: string | null
+  releaseTuple?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  verifierReleaseId?: string | null
+  stage?: $Enums.GenerationJobStage
+  checkpoint?: string | null
+  attemptCount?: number
+  retryCount?: number
+  maxAttempts?: number
+  contextManifest?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  contextManifestHash?: string | null
+  stageMetrics?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  failureCategory?: $Enums.GenerationFailureCategory
+  degradedState?: $Enums.GenerationDegradedState
+  fallbackProvider?: string | null
+  fallbackModel?: string | null
+  fallbackReasonCode?: string | null
+  requestedCount: number
+  acceptedCount?: number
+  rejectedCount?: number
+  errorMessage?: string | null
+  startedAt?: Date | string | null
+  completedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+}
+
+export type GenerationJobCreateManyVerifierReleaseInput = {
+  id?: string
+  userId: string
+  skillId: string
+  kind: $Enums.GenerationJobKind
+  status?: $Enums.GenerationJobStatus
+  provider: string
+  model: string
+  promptVersion: string
+  idempotencyKey?: string | null
+  releaseTuple?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  generationReleaseId?: string | null
+  stage?: $Enums.GenerationJobStage
+  checkpoint?: string | null
+  attemptCount?: number
+  retryCount?: number
+  maxAttempts?: number
+  contextManifest?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  contextManifestHash?: string | null
+  stageMetrics?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  failureCategory?: $Enums.GenerationFailureCategory
+  degradedState?: $Enums.GenerationDegradedState
+  fallbackProvider?: string | null
+  fallbackModel?: string | null
+  fallbackReasonCode?: string | null
+  requestedCount: number
+  acceptedCount?: number
+  rejectedCount?: number
+  errorMessage?: string | null
+  startedAt?: Date | string | null
+  completedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+}
+
+export type GenerationJobUpdateWithoutGenerationReleaseInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  kind?: Prisma.EnumGenerationJobKindFieldUpdateOperationsInput | $Enums.GenerationJobKind
+  status?: Prisma.EnumGenerationJobStatusFieldUpdateOperationsInput | $Enums.GenerationJobStatus
+  provider?: Prisma.StringFieldUpdateOperationsInput | string
+  model?: Prisma.StringFieldUpdateOperationsInput | string
+  promptVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  idempotencyKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  releaseTuple?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  stage?: Prisma.EnumGenerationJobStageFieldUpdateOperationsInput | $Enums.GenerationJobStage
+  checkpoint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  retryCount?: Prisma.IntFieldUpdateOperationsInput | number
+  maxAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  contextManifest?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  contextManifestHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  stageMetrics?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  failureCategory?: Prisma.EnumGenerationFailureCategoryFieldUpdateOperationsInput | $Enums.GenerationFailureCategory
+  degradedState?: Prisma.EnumGenerationDegradedStateFieldUpdateOperationsInput | $Enums.GenerationDegradedState
+  fallbackProvider?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  fallbackModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  fallbackReasonCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  requestedCount?: Prisma.IntFieldUpdateOperationsInput | number
+  acceptedCount?: Prisma.IntFieldUpdateOperationsInput | number
+  rejectedCount?: Prisma.IntFieldUpdateOperationsInput | number
+  errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  user?: Prisma.UserUpdateOneRequiredWithoutGenerationJobsNestedInput
+  skill?: Prisma.SkillUpdateOneRequiredWithoutGenerationJobsNestedInput
+  auditRecords?: Prisma.GenerationAuditRecordUpdateManyWithoutJobNestedInput
+  verifierRelease?: Prisma.ModelReleaseUpdateOneWithoutVerifierJobsNestedInput
+}
+
+export type GenerationJobUncheckedUpdateWithoutGenerationReleaseInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
+  skillId?: Prisma.StringFieldUpdateOperationsInput | string
+  kind?: Prisma.EnumGenerationJobKindFieldUpdateOperationsInput | $Enums.GenerationJobKind
+  status?: Prisma.EnumGenerationJobStatusFieldUpdateOperationsInput | $Enums.GenerationJobStatus
+  provider?: Prisma.StringFieldUpdateOperationsInput | string
+  model?: Prisma.StringFieldUpdateOperationsInput | string
+  promptVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  idempotencyKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  releaseTuple?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  verifierReleaseId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  stage?: Prisma.EnumGenerationJobStageFieldUpdateOperationsInput | $Enums.GenerationJobStage
+  checkpoint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  retryCount?: Prisma.IntFieldUpdateOperationsInput | number
+  maxAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  contextManifest?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  contextManifestHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  stageMetrics?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  failureCategory?: Prisma.EnumGenerationFailureCategoryFieldUpdateOperationsInput | $Enums.GenerationFailureCategory
+  degradedState?: Prisma.EnumGenerationDegradedStateFieldUpdateOperationsInput | $Enums.GenerationDegradedState
+  fallbackProvider?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  fallbackModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  fallbackReasonCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  requestedCount?: Prisma.IntFieldUpdateOperationsInput | number
+  acceptedCount?: Prisma.IntFieldUpdateOperationsInput | number
+  rejectedCount?: Prisma.IntFieldUpdateOperationsInput | number
+  errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  auditRecords?: Prisma.GenerationAuditRecordUncheckedUpdateManyWithoutJobNestedInput
+}
+
+export type GenerationJobUncheckedUpdateManyWithoutGenerationReleaseInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
+  skillId?: Prisma.StringFieldUpdateOperationsInput | string
+  kind?: Prisma.EnumGenerationJobKindFieldUpdateOperationsInput | $Enums.GenerationJobKind
+  status?: Prisma.EnumGenerationJobStatusFieldUpdateOperationsInput | $Enums.GenerationJobStatus
+  provider?: Prisma.StringFieldUpdateOperationsInput | string
+  model?: Prisma.StringFieldUpdateOperationsInput | string
+  promptVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  idempotencyKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  releaseTuple?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  verifierReleaseId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  stage?: Prisma.EnumGenerationJobStageFieldUpdateOperationsInput | $Enums.GenerationJobStage
+  checkpoint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  retryCount?: Prisma.IntFieldUpdateOperationsInput | number
+  maxAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  contextManifest?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  contextManifestHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  stageMetrics?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  failureCategory?: Prisma.EnumGenerationFailureCategoryFieldUpdateOperationsInput | $Enums.GenerationFailureCategory
+  degradedState?: Prisma.EnumGenerationDegradedStateFieldUpdateOperationsInput | $Enums.GenerationDegradedState
+  fallbackProvider?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  fallbackModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  fallbackReasonCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  requestedCount?: Prisma.IntFieldUpdateOperationsInput | number
+  acceptedCount?: Prisma.IntFieldUpdateOperationsInput | number
+  rejectedCount?: Prisma.IntFieldUpdateOperationsInput | number
+  errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
+export type GenerationJobUpdateWithoutVerifierReleaseInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  kind?: Prisma.EnumGenerationJobKindFieldUpdateOperationsInput | $Enums.GenerationJobKind
+  status?: Prisma.EnumGenerationJobStatusFieldUpdateOperationsInput | $Enums.GenerationJobStatus
+  provider?: Prisma.StringFieldUpdateOperationsInput | string
+  model?: Prisma.StringFieldUpdateOperationsInput | string
+  promptVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  idempotencyKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  releaseTuple?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  stage?: Prisma.EnumGenerationJobStageFieldUpdateOperationsInput | $Enums.GenerationJobStage
+  checkpoint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  retryCount?: Prisma.IntFieldUpdateOperationsInput | number
+  maxAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  contextManifest?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  contextManifestHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  stageMetrics?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  failureCategory?: Prisma.EnumGenerationFailureCategoryFieldUpdateOperationsInput | $Enums.GenerationFailureCategory
+  degradedState?: Prisma.EnumGenerationDegradedStateFieldUpdateOperationsInput | $Enums.GenerationDegradedState
+  fallbackProvider?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  fallbackModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  fallbackReasonCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  requestedCount?: Prisma.IntFieldUpdateOperationsInput | number
+  acceptedCount?: Prisma.IntFieldUpdateOperationsInput | number
+  rejectedCount?: Prisma.IntFieldUpdateOperationsInput | number
+  errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  user?: Prisma.UserUpdateOneRequiredWithoutGenerationJobsNestedInput
+  skill?: Prisma.SkillUpdateOneRequiredWithoutGenerationJobsNestedInput
+  auditRecords?: Prisma.GenerationAuditRecordUpdateManyWithoutJobNestedInput
+  generationRelease?: Prisma.ModelReleaseUpdateOneWithoutGenerationJobsNestedInput
+}
+
+export type GenerationJobUncheckedUpdateWithoutVerifierReleaseInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
+  skillId?: Prisma.StringFieldUpdateOperationsInput | string
+  kind?: Prisma.EnumGenerationJobKindFieldUpdateOperationsInput | $Enums.GenerationJobKind
+  status?: Prisma.EnumGenerationJobStatusFieldUpdateOperationsInput | $Enums.GenerationJobStatus
+  provider?: Prisma.StringFieldUpdateOperationsInput | string
+  model?: Prisma.StringFieldUpdateOperationsInput | string
+  promptVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  idempotencyKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  releaseTuple?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  generationReleaseId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  stage?: Prisma.EnumGenerationJobStageFieldUpdateOperationsInput | $Enums.GenerationJobStage
+  checkpoint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  retryCount?: Prisma.IntFieldUpdateOperationsInput | number
+  maxAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  contextManifest?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  contextManifestHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  stageMetrics?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  failureCategory?: Prisma.EnumGenerationFailureCategoryFieldUpdateOperationsInput | $Enums.GenerationFailureCategory
+  degradedState?: Prisma.EnumGenerationDegradedStateFieldUpdateOperationsInput | $Enums.GenerationDegradedState
+  fallbackProvider?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  fallbackModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  fallbackReasonCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  requestedCount?: Prisma.IntFieldUpdateOperationsInput | number
+  acceptedCount?: Prisma.IntFieldUpdateOperationsInput | number
+  rejectedCount?: Prisma.IntFieldUpdateOperationsInput | number
+  errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  auditRecords?: Prisma.GenerationAuditRecordUncheckedUpdateManyWithoutJobNestedInput
+}
+
+export type GenerationJobUncheckedUpdateManyWithoutVerifierReleaseInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
+  skillId?: Prisma.StringFieldUpdateOperationsInput | string
+  kind?: Prisma.EnumGenerationJobKindFieldUpdateOperationsInput | $Enums.GenerationJobKind
+  status?: Prisma.EnumGenerationJobStatusFieldUpdateOperationsInput | $Enums.GenerationJobStatus
+  provider?: Prisma.StringFieldUpdateOperationsInput | string
+  model?: Prisma.StringFieldUpdateOperationsInput | string
+  promptVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  idempotencyKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  releaseTuple?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  generationReleaseId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  stage?: Prisma.EnumGenerationJobStageFieldUpdateOperationsInput | $Enums.GenerationJobStage
+  checkpoint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  retryCount?: Prisma.IntFieldUpdateOperationsInput | number
+  maxAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  contextManifest?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  contextManifestHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  stageMetrics?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  failureCategory?: Prisma.EnumGenerationFailureCategoryFieldUpdateOperationsInput | $Enums.GenerationFailureCategory
+  degradedState?: Prisma.EnumGenerationDegradedStateFieldUpdateOperationsInput | $Enums.GenerationDegradedState
+  fallbackProvider?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  fallbackModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  fallbackReasonCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  requestedCount?: Prisma.IntFieldUpdateOperationsInput | number
+  acceptedCount?: Prisma.IntFieldUpdateOperationsInput | number
+  rejectedCount?: Prisma.IntFieldUpdateOperationsInput | number
+  errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
+
+/**
+ * Count Type GenerationJobCountOutputType
+ */
+
+export type GenerationJobCountOutputType = {
+  auditRecords: number
+}
+
+export type GenerationJobCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  auditRecords?: boolean | GenerationJobCountOutputTypeCountAuditRecordsArgs
+}
+
+/**
+ * GenerationJobCountOutputType without action
+ */
+export type GenerationJobCountOutputTypeDefaultArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the GenerationJobCountOutputType
+   */
+  select?: Prisma.GenerationJobCountOutputTypeSelect<ExtArgs> | null
+}
+
+/**
+ * GenerationJobCountOutputType without action
+ */
+export type GenerationJobCountOutputTypeCountAuditRecordsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.GenerationAuditRecordWhereInput
+}
 
 
 export type GenerationJobSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -1006,6 +2416,23 @@ export type GenerationJobSelect<ExtArgs extends runtime.Types.Extensions.Interna
   provider?: boolean
   model?: boolean
   promptVersion?: boolean
+  idempotencyKey?: boolean
+  releaseTuple?: boolean
+  generationReleaseId?: boolean
+  verifierReleaseId?: boolean
+  stage?: boolean
+  checkpoint?: boolean
+  attemptCount?: boolean
+  retryCount?: boolean
+  maxAttempts?: boolean
+  contextManifest?: boolean
+  contextManifestHash?: boolean
+  stageMetrics?: boolean
+  failureCategory?: boolean
+  degradedState?: boolean
+  fallbackProvider?: boolean
+  fallbackModel?: boolean
+  fallbackReasonCode?: boolean
   requestedCount?: boolean
   acceptedCount?: boolean
   rejectedCount?: boolean
@@ -1016,6 +2443,10 @@ export type GenerationJobSelect<ExtArgs extends runtime.Types.Extensions.Interna
   updatedAt?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   skill?: boolean | Prisma.SkillDefaultArgs<ExtArgs>
+  auditRecords?: boolean | Prisma.GenerationJob$auditRecordsArgs<ExtArgs>
+  generationRelease?: boolean | Prisma.GenerationJob$generationReleaseArgs<ExtArgs>
+  verifierRelease?: boolean | Prisma.GenerationJob$verifierReleaseArgs<ExtArgs>
+  _count?: boolean | Prisma.GenerationJobCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["generationJob"]>
 
 export type GenerationJobSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -1027,6 +2458,23 @@ export type GenerationJobSelectCreateManyAndReturn<ExtArgs extends runtime.Types
   provider?: boolean
   model?: boolean
   promptVersion?: boolean
+  idempotencyKey?: boolean
+  releaseTuple?: boolean
+  generationReleaseId?: boolean
+  verifierReleaseId?: boolean
+  stage?: boolean
+  checkpoint?: boolean
+  attemptCount?: boolean
+  retryCount?: boolean
+  maxAttempts?: boolean
+  contextManifest?: boolean
+  contextManifestHash?: boolean
+  stageMetrics?: boolean
+  failureCategory?: boolean
+  degradedState?: boolean
+  fallbackProvider?: boolean
+  fallbackModel?: boolean
+  fallbackReasonCode?: boolean
   requestedCount?: boolean
   acceptedCount?: boolean
   rejectedCount?: boolean
@@ -1037,6 +2485,8 @@ export type GenerationJobSelectCreateManyAndReturn<ExtArgs extends runtime.Types
   updatedAt?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   skill?: boolean | Prisma.SkillDefaultArgs<ExtArgs>
+  generationRelease?: boolean | Prisma.GenerationJob$generationReleaseArgs<ExtArgs>
+  verifierRelease?: boolean | Prisma.GenerationJob$verifierReleaseArgs<ExtArgs>
 }, ExtArgs["result"]["generationJob"]>
 
 export type GenerationJobSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -1048,6 +2498,23 @@ export type GenerationJobSelectUpdateManyAndReturn<ExtArgs extends runtime.Types
   provider?: boolean
   model?: boolean
   promptVersion?: boolean
+  idempotencyKey?: boolean
+  releaseTuple?: boolean
+  generationReleaseId?: boolean
+  verifierReleaseId?: boolean
+  stage?: boolean
+  checkpoint?: boolean
+  attemptCount?: boolean
+  retryCount?: boolean
+  maxAttempts?: boolean
+  contextManifest?: boolean
+  contextManifestHash?: boolean
+  stageMetrics?: boolean
+  failureCategory?: boolean
+  degradedState?: boolean
+  fallbackProvider?: boolean
+  fallbackModel?: boolean
+  fallbackReasonCode?: boolean
   requestedCount?: boolean
   acceptedCount?: boolean
   rejectedCount?: boolean
@@ -1058,6 +2525,8 @@ export type GenerationJobSelectUpdateManyAndReturn<ExtArgs extends runtime.Types
   updatedAt?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   skill?: boolean | Prisma.SkillDefaultArgs<ExtArgs>
+  generationRelease?: boolean | Prisma.GenerationJob$generationReleaseArgs<ExtArgs>
+  verifierRelease?: boolean | Prisma.GenerationJob$verifierReleaseArgs<ExtArgs>
 }, ExtArgs["result"]["generationJob"]>
 
 export type GenerationJobSelectScalar = {
@@ -1069,6 +2538,23 @@ export type GenerationJobSelectScalar = {
   provider?: boolean
   model?: boolean
   promptVersion?: boolean
+  idempotencyKey?: boolean
+  releaseTuple?: boolean
+  generationReleaseId?: boolean
+  verifierReleaseId?: boolean
+  stage?: boolean
+  checkpoint?: boolean
+  attemptCount?: boolean
+  retryCount?: boolean
+  maxAttempts?: boolean
+  contextManifest?: boolean
+  contextManifestHash?: boolean
+  stageMetrics?: boolean
+  failureCategory?: boolean
+  degradedState?: boolean
+  fallbackProvider?: boolean
+  fallbackModel?: boolean
+  fallbackReasonCode?: boolean
   requestedCount?: boolean
   acceptedCount?: boolean
   rejectedCount?: boolean
@@ -1079,18 +2565,26 @@ export type GenerationJobSelectScalar = {
   updatedAt?: boolean
 }
 
-export type GenerationJobOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "skillId" | "kind" | "status" | "provider" | "model" | "promptVersion" | "requestedCount" | "acceptedCount" | "rejectedCount" | "errorMessage" | "startedAt" | "completedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["generationJob"]>
+export type GenerationJobOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "skillId" | "kind" | "status" | "provider" | "model" | "promptVersion" | "idempotencyKey" | "releaseTuple" | "generationReleaseId" | "verifierReleaseId" | "stage" | "checkpoint" | "attemptCount" | "retryCount" | "maxAttempts" | "contextManifest" | "contextManifestHash" | "stageMetrics" | "failureCategory" | "degradedState" | "fallbackProvider" | "fallbackModel" | "fallbackReasonCode" | "requestedCount" | "acceptedCount" | "rejectedCount" | "errorMessage" | "startedAt" | "completedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["generationJob"]>
 export type GenerationJobInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   skill?: boolean | Prisma.SkillDefaultArgs<ExtArgs>
+  auditRecords?: boolean | Prisma.GenerationJob$auditRecordsArgs<ExtArgs>
+  generationRelease?: boolean | Prisma.GenerationJob$generationReleaseArgs<ExtArgs>
+  verifierRelease?: boolean | Prisma.GenerationJob$verifierReleaseArgs<ExtArgs>
+  _count?: boolean | Prisma.GenerationJobCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type GenerationJobIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   skill?: boolean | Prisma.SkillDefaultArgs<ExtArgs>
+  generationRelease?: boolean | Prisma.GenerationJob$generationReleaseArgs<ExtArgs>
+  verifierRelease?: boolean | Prisma.GenerationJob$verifierReleaseArgs<ExtArgs>
 }
 export type GenerationJobIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   skill?: boolean | Prisma.SkillDefaultArgs<ExtArgs>
+  generationRelease?: boolean | Prisma.GenerationJob$generationReleaseArgs<ExtArgs>
+  verifierRelease?: boolean | Prisma.GenerationJob$verifierReleaseArgs<ExtArgs>
 }
 
 export type $GenerationJobPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1098,6 +2592,9 @@ export type $GenerationJobPayload<ExtArgs extends runtime.Types.Extensions.Inter
   objects: {
     user: Prisma.$UserPayload<ExtArgs>
     skill: Prisma.$SkillPayload<ExtArgs>
+    auditRecords: Prisma.$GenerationAuditRecordPayload<ExtArgs>[]
+    generationRelease: Prisma.$ModelReleasePayload<ExtArgs> | null
+    verifierRelease: Prisma.$ModelReleasePayload<ExtArgs> | null
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1108,6 +2605,23 @@ export type $GenerationJobPayload<ExtArgs extends runtime.Types.Extensions.Inter
     provider: string
     model: string
     promptVersion: string
+    idempotencyKey: string | null
+    releaseTuple: runtime.JsonValue | null
+    generationReleaseId: string | null
+    verifierReleaseId: string | null
+    stage: $Enums.GenerationJobStage
+    checkpoint: string | null
+    attemptCount: number
+    retryCount: number
+    maxAttempts: number
+    contextManifest: runtime.JsonValue | null
+    contextManifestHash: string | null
+    stageMetrics: runtime.JsonValue | null
+    failureCategory: $Enums.GenerationFailureCategory
+    degradedState: $Enums.GenerationDegradedState
+    fallbackProvider: string | null
+    fallbackModel: string | null
+    fallbackReasonCode: string | null
     requestedCount: number
     acceptedCount: number
     rejectedCount: number
@@ -1512,6 +3026,9 @@ export interface Prisma__GenerationJobClient<T, Null = never, ExtArgs extends ru
   readonly [Symbol.toStringTag]: "PrismaPromise"
   user<T extends Prisma.UserDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.UserDefaultArgs<ExtArgs>>): Prisma.Prisma__UserClient<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   skill<T extends Prisma.SkillDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.SkillDefaultArgs<ExtArgs>>): Prisma.Prisma__SkillClient<runtime.Types.Result.GetResult<Prisma.$SkillPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+  auditRecords<T extends Prisma.GenerationJob$auditRecordsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.GenerationJob$auditRecordsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$GenerationAuditRecordPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  generationRelease<T extends Prisma.GenerationJob$generationReleaseArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.GenerationJob$generationReleaseArgs<ExtArgs>>): Prisma.Prisma__ModelReleaseClient<runtime.Types.Result.GetResult<Prisma.$ModelReleasePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+  verifierRelease<T extends Prisma.GenerationJob$verifierReleaseArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.GenerationJob$verifierReleaseArgs<ExtArgs>>): Prisma.Prisma__ModelReleaseClient<runtime.Types.Result.GetResult<Prisma.$ModelReleasePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1549,6 +3066,23 @@ export interface GenerationJobFieldRefs {
   readonly provider: Prisma.FieldRef<"GenerationJob", 'String'>
   readonly model: Prisma.FieldRef<"GenerationJob", 'String'>
   readonly promptVersion: Prisma.FieldRef<"GenerationJob", 'String'>
+  readonly idempotencyKey: Prisma.FieldRef<"GenerationJob", 'String'>
+  readonly releaseTuple: Prisma.FieldRef<"GenerationJob", 'Json'>
+  readonly generationReleaseId: Prisma.FieldRef<"GenerationJob", 'String'>
+  readonly verifierReleaseId: Prisma.FieldRef<"GenerationJob", 'String'>
+  readonly stage: Prisma.FieldRef<"GenerationJob", 'GenerationJobStage'>
+  readonly checkpoint: Prisma.FieldRef<"GenerationJob", 'String'>
+  readonly attemptCount: Prisma.FieldRef<"GenerationJob", 'Int'>
+  readonly retryCount: Prisma.FieldRef<"GenerationJob", 'Int'>
+  readonly maxAttempts: Prisma.FieldRef<"GenerationJob", 'Int'>
+  readonly contextManifest: Prisma.FieldRef<"GenerationJob", 'Json'>
+  readonly contextManifestHash: Prisma.FieldRef<"GenerationJob", 'String'>
+  readonly stageMetrics: Prisma.FieldRef<"GenerationJob", 'Json'>
+  readonly failureCategory: Prisma.FieldRef<"GenerationJob", 'GenerationFailureCategory'>
+  readonly degradedState: Prisma.FieldRef<"GenerationJob", 'GenerationDegradedState'>
+  readonly fallbackProvider: Prisma.FieldRef<"GenerationJob", 'String'>
+  readonly fallbackModel: Prisma.FieldRef<"GenerationJob", 'String'>
+  readonly fallbackReasonCode: Prisma.FieldRef<"GenerationJob", 'String'>
   readonly requestedCount: Prisma.FieldRef<"GenerationJob", 'Int'>
   readonly acceptedCount: Prisma.FieldRef<"GenerationJob", 'Int'>
   readonly rejectedCount: Prisma.FieldRef<"GenerationJob", 'Int'>
@@ -1955,6 +3489,68 @@ export type GenerationJobDeleteManyArgs<ExtArgs extends runtime.Types.Extensions
    * Limit how many GenerationJobs to delete.
    */
   limit?: number
+}
+
+/**
+ * GenerationJob.auditRecords
+ */
+export type GenerationJob$auditRecordsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the GenerationAuditRecord
+   */
+  select?: Prisma.GenerationAuditRecordSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the GenerationAuditRecord
+   */
+  omit?: Prisma.GenerationAuditRecordOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.GenerationAuditRecordInclude<ExtArgs> | null
+  where?: Prisma.GenerationAuditRecordWhereInput
+  orderBy?: Prisma.GenerationAuditRecordOrderByWithRelationInput | Prisma.GenerationAuditRecordOrderByWithRelationInput[]
+  cursor?: Prisma.GenerationAuditRecordWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.GenerationAuditRecordScalarFieldEnum | Prisma.GenerationAuditRecordScalarFieldEnum[]
+}
+
+/**
+ * GenerationJob.generationRelease
+ */
+export type GenerationJob$generationReleaseArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ModelRelease
+   */
+  select?: Prisma.ModelReleaseSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ModelRelease
+   */
+  omit?: Prisma.ModelReleaseOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ModelReleaseInclude<ExtArgs> | null
+  where?: Prisma.ModelReleaseWhereInput
+}
+
+/**
+ * GenerationJob.verifierRelease
+ */
+export type GenerationJob$verifierReleaseArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ModelRelease
+   */
+  select?: Prisma.ModelReleaseSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ModelRelease
+   */
+  omit?: Prisma.ModelReleaseOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ModelReleaseInclude<ExtArgs> | null
+  where?: Prisma.ModelReleaseWhereInput
 }
 
 /**

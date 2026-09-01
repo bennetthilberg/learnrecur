@@ -49,8 +49,10 @@ export default function PrivacyPage() {
               <h2>AI processing</h2>
               <p>
                 Source material, skill definitions, and exercise candidates may be sent to
-                configured AI providers to draft skills, extract text, generate exercises,
-                and verify exercise quality.
+                Google Gemini to draft skills, generate exercises, and verify exercise quality.
+                Meta Muse is used only as a fallback after a retryable Gemini failure. Requests
+                are bounded to the current task; the generation models receive no tools, browsing,
+                account access, or authority to change study data directly.
               </p>
             </section>
             <section>

@@ -11,12 +11,12 @@ import {
 } from "@/lib/gemini";
 
 describe("Gemini fallback helpers", () => {
-  it("defaults the primary model to Gemini 3.6 Flash", () => {
+  it("defaults the primary model to Gemini 3.7 Flash", () => {
     const config = resolveGeminiRuntimeConfig({
       GEMINI_API_KEY: "developer-key",
     });
 
-    expect(config.model).toBe("gemini-3.6-flash");
+    expect(config.model).toBe("gemini-3.7-flash");
   });
 
   it("parses fallback models from comma-separated env values", () => {
@@ -31,14 +31,14 @@ describe("Gemini fallback helpers", () => {
     const config = resolveGeminiRuntimeConfig({
       GEMINI_API_KEY: "developer-key",
       GEMINI_ENTERPRISE_AGENT_KEY_PLATFORM_KEY: "enterprise-key",
-      GEMINI_MODEL: "gemini-3.5-flash",
+      GEMINI_MODEL: "gemini-3.7-flash",
     });
 
     expect(getGeminiRuntimeLogContext(config)).toEqual({
       provider: "google",
       apiMode: "enterprise-agent-platform",
       endpoint: "https://aiplatform.googleapis.com/",
-      model: "gemini-3.5-flash",
+      model: "gemini-3.7-flash",
     });
     expect(config.clientOptions).toMatchObject({
       vertexai: true,
@@ -52,14 +52,14 @@ describe("Gemini fallback helpers", () => {
   it("uses the Gemini Developer API when no Enterprise Agent Platform key is configured", () => {
     const config = resolveGeminiRuntimeConfig({
       GEMINI_API_KEY: "developer-key",
-      GEMINI_MODEL: "gemini-3.5-flash",
+      GEMINI_MODEL: "gemini-3.7-flash",
     });
 
     expect(getGeminiRuntimeLogContext(config)).toEqual({
       provider: "google",
       apiMode: "developer-api",
       endpoint: "https://generativelanguage.googleapis.com/",
-      model: "gemini-3.5-flash",
+      model: "gemini-3.7-flash",
     });
     expect(config.clientOptions).toEqual({
       apiKey: "developer-key",
@@ -72,7 +72,7 @@ describe("Gemini fallback helpers", () => {
 
     await expect(
       runWithGeminiProviderFallback({
-        primaryModel: "gemini-3.5-flash",
+        primaryModel: "gemini-3.7-flash",
         operation: "unit test generation",
         async runPrimary() {
           calls.push("gemini");
@@ -88,7 +88,7 @@ describe("Gemini fallback helpers", () => {
         },
         fallback: {
           provider: "meta",
-          model: "muse-spark-1.1",
+          model: "muse-spark-1.2",
           async run() {
             calls.push("meta");
             return "ok:meta";
@@ -101,9 +101,9 @@ describe("Gemini fallback helpers", () => {
     expect(warningSpy).toHaveBeenCalledWith(
       "[ai] retrying with fallback provider",
       expect.objectContaining({
-        failedModel: "gemini-3.5-flash",
+        failedModel: "gemini-3.7-flash",
         fallbackProvider: "meta",
-        fallbackModel: "muse-spark-1.1",
+        fallbackModel: "muse-spark-1.2",
       }),
     );
     warningSpy.mockRestore();
@@ -121,7 +121,7 @@ describe("Gemini fallback helpers", () => {
 
       await expect(
         runWithGeminiProviderFallback({
-          primaryModel: "gemini-3.5-flash",
+          primaryModel: "gemini-3.7-flash",
           operation: "unit test generation",
           async runPrimary() {
             calls.push("gemini");
@@ -137,7 +137,7 @@ describe("Gemini fallback helpers", () => {
           },
           fallback: {
             provider: "meta",
-            model: "muse-spark-1.1",
+            model: "muse-spark-1.2",
             async run() {
               calls.push("meta");
               return "ok:meta";
@@ -169,7 +169,7 @@ describe("Gemini fallback helpers", () => {
 
     await expect(
       runWithGeminiProviderFallback({
-        primaryModel: "gemini-3.5-flash",
+        primaryModel: "gemini-3.7-flash",
         operation: "unit test generation",
         async runPrimary() {
           calls.push("gemini");
@@ -185,7 +185,7 @@ describe("Gemini fallback helpers", () => {
         },
         fallback: {
           provider: "meta",
-          model: "muse-spark-1.1",
+          model: "muse-spark-1.2",
           async run() {
             calls.push("meta");
             return "ok:meta";

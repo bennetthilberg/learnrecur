@@ -9,13 +9,20 @@ import type {
   AnswerKind,
   CollectionStatus,
   ExerciseAttemptResult,
+  ExerciseEvidenceCorrectionAction,
+  ExerciseEvidenceCorrectionStatus,
+  ExerciseFlagAdjudicationStatus,
   ExerciseFlagReason,
   ExerciseFlagStatus,
   ExerciseRetirementReason,
   ExerciseType,
   ExerciseVerificationStatus,
   FsrsRating,
+  GenerationAuditDecision,
+  GenerationDegradedState,
+  GenerationFailureCategory,
   GenerationJobKind,
+  GenerationJobStage,
   GenerationJobStatus,
   MaterialCleanupStatus,
   MaterialPageTextStatus,
@@ -25,6 +32,7 @@ import type {
   SkillDraftBatchItemStatus,
   SkillDraftBatchStatus,
   SkillFsrsState,
+  SkillGenerationSpecStatus,
   SkillStatus,
   SourceFileKind,
   SourceFileStatus,
@@ -72,6 +80,7 @@ export type StudyDataExportV3 = {
   reviewLogs: ExportReviewLog[];
   exerciseFlags: ExportExerciseFlag[];
   generationJobs: ExportGenerationJob[];
+  generationAuditRecords: ExportGenerationAuditRecord[];
   skillDraftBatches: ExportSkillDraftBatch[];
   skillDraftBatchItems: ExportSkillDraftBatchItem[];
   reminderPreference: ExportReminderPreference | null;
@@ -309,6 +318,10 @@ export type ExportSkill = {
   examples: Prisma.JsonValue | null;
   exerciseConstraints: Prisma.JsonValue | null;
   tags: string[];
+  generationSpec: Prisma.JsonValue | null;
+  generationSpecVersion: string | null;
+  generationSpecFingerprint: string | null;
+  generationSpecStatus: SkillGenerationSpecStatus;
   status: SkillStatus;
   dueAt: string | null;
   stability: number | null;
@@ -350,6 +363,17 @@ export type ExportExercise = {
   retirementReason: ExerciseRetirementReason | null;
   freshnessKey: string | null;
   sourceRefs: Prisma.JsonValue | null;
+  skillSpecVersion: string | null;
+  skillSpecFingerprint: string | null;
+  exerciseSpecVersion: string | null;
+  blueprintVersion: string | null;
+  blueprintSlot: string | null;
+  exerciseFamily: string | null;
+  qualityVersion: string | null;
+  provenance: Prisma.JsonValue | null;
+  acceptanceDecision: GenerationAuditDecision | null;
+  acceptanceMetadata: Prisma.JsonValue | null;
+  generationMetadata: Prisma.JsonValue | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -410,6 +434,16 @@ export type ExportExerciseFlag = {
   resolutionNote: string | null;
   retiredExerciseAt: string | null;
   retirementReason: ExerciseRetirementReason | null;
+  adjudicationStatus: ExerciseFlagAdjudicationStatus;
+  adjudicatedAt: string | null;
+  adjudicationCode: string | null;
+  evidenceCorrectionAction: ExerciseEvidenceCorrectionAction;
+  evidenceCorrectionStatus: ExerciseEvidenceCorrectionStatus;
+  practiceEvidenceNeedsCorrection: boolean;
+  affectedReviewCount: number;
+  correctionStartedAt: string | null;
+  correctionCompletedAt: string | null;
+  incidentKey: string | null;
   createdAt: string;
 };
 
@@ -421,6 +455,21 @@ export type ExportGenerationJob = {
   provider: string;
   model: string;
   promptVersion: string;
+  idempotencyKey: string | null;
+  releaseTuple: Prisma.JsonValue | null;
+  stage: GenerationJobStage;
+  checkpoint: string | null;
+  attemptCount: number;
+  retryCount: number;
+  maxAttempts: number;
+  contextManifest: Prisma.JsonValue | null;
+  contextManifestHash: string | null;
+  stageMetrics: Prisma.JsonValue | null;
+  failureCategory: GenerationFailureCategory;
+  degradedState: GenerationDegradedState;
+  fallbackProvider: string | null;
+  fallbackModel: string | null;
+  fallbackReasonCode: string | null;
   requestedCount: number;
   acceptedCount: number;
   rejectedCount: number;
@@ -429,6 +478,29 @@ export type ExportGenerationJob = {
   completedAt: string | null;
   createdAt: string;
   updatedAt: string;
+};
+
+export type ExportGenerationAuditRecord = {
+  id: string;
+  jobId: string;
+  skillId: string | null;
+  candidateId: string | null;
+  exerciseId: string | null;
+  idempotencyKey: string;
+  eventKey: string;
+  stage: GenerationJobStage;
+  checkpoint: string | null;
+  attempt: number;
+  retryCount: number;
+  releaseTuple: Prisma.JsonValue;
+  contextManifest: Prisma.JsonValue | null;
+  contextManifestHash: string | null;
+  stageMetrics: Prisma.JsonValue | null;
+  candidateMetadata: Prisma.JsonValue | null;
+  failureCategory: GenerationFailureCategory;
+  degradedState: GenerationDegradedState;
+  decision: GenerationAuditDecision;
+  createdAt: string;
 };
 
 export type ExportReminderPreference = {
@@ -630,6 +702,10 @@ export async function getUserDataExport(input: {
           examples: true,
           exerciseConstraints: true,
           tags: true,
+          generationSpec: true,
+          generationSpecVersion: true,
+          generationSpecFingerprint: true,
+          generationSpecStatus: true,
           status: true,
           dueAt: true,
           stability: true,
@@ -675,6 +751,17 @@ export async function getUserDataExport(input: {
           retirementReason: true,
           freshnessKey: true,
           sourceRefs: true,
+          skillSpecVersion: true,
+          skillSpecFingerprint: true,
+          exerciseSpecVersion: true,
+          blueprintVersion: true,
+          blueprintSlot: true,
+          exerciseFamily: true,
+          qualityVersion: true,
+          provenance: true,
+          acceptanceDecision: true,
+          acceptanceMetadata: true,
+          generationMetadata: true,
           createdAt: true,
           updatedAt: true,
         },
@@ -741,6 +828,16 @@ export async function getUserDataExport(input: {
           resolutionNote: true,
           retiredExerciseAt: true,
           retirementReason: true,
+          adjudicationStatus: true,
+          adjudicatedAt: true,
+          adjudicationCode: true,
+          evidenceCorrectionAction: true,
+          evidenceCorrectionStatus: true,
+          practiceEvidenceNeedsCorrection: true,
+          affectedReviewCount: true,
+          correctionStartedAt: true,
+          correctionCompletedAt: true,
+          incidentKey: true,
           createdAt: true,
         },
       },
@@ -754,6 +851,21 @@ export async function getUserDataExport(input: {
           provider: true,
           model: true,
           promptVersion: true,
+          idempotencyKey: true,
+          releaseTuple: true,
+          stage: true,
+          checkpoint: true,
+          attemptCount: true,
+          retryCount: true,
+          maxAttempts: true,
+          contextManifest: true,
+          contextManifestHash: true,
+          stageMetrics: true,
+          failureCategory: true,
+          degradedState: true,
+          fallbackProvider: true,
+          fallbackModel: true,
+          fallbackReasonCode: true,
           requestedCount: true,
           acceptedCount: true,
           rejectedCount: true,
@@ -762,6 +874,31 @@ export async function getUserDataExport(input: {
           completedAt: true,
           createdAt: true,
           updatedAt: true,
+        },
+      },
+      generationAuditRecords: {
+        orderBy: { id: "asc" },
+        select: {
+          id: true,
+          jobId: true,
+          skillId: true,
+          candidateId: true,
+          exerciseId: true,
+          idempotencyKey: true,
+          eventKey: true,
+          stage: true,
+          checkpoint: true,
+          attempt: true,
+          retryCount: true,
+          releaseTuple: true,
+          contextManifest: true,
+          contextManifestHash: true,
+          stageMetrics: true,
+          candidateMetadata: true,
+          failureCategory: true,
+          degradedState: true,
+          decision: true,
+          createdAt: true,
         },
       },
       skillDraftBatches: {
@@ -995,6 +1132,9 @@ export async function getUserDataExport(input: {
       ...flag,
       resolvedAt: serializeExportDate(flag.resolvedAt),
       retiredExerciseAt: serializeExportDate(flag.retiredExerciseAt),
+      adjudicatedAt: serializeExportDate(flag.adjudicatedAt),
+      correctionStartedAt: serializeExportDate(flag.correctionStartedAt),
+      correctionCompletedAt: serializeExportDate(flag.correctionCompletedAt),
       createdAt: serializeExportDate(flag.createdAt),
     })),
     generationJobs: user.generationJobs.map((job) => ({
@@ -1003,6 +1143,10 @@ export async function getUserDataExport(input: {
       completedAt: serializeExportDate(job.completedAt),
       createdAt: serializeExportDate(job.createdAt),
       updatedAt: serializeExportDate(job.updatedAt),
+    })),
+    generationAuditRecords: user.generationAuditRecords.map((record) => ({
+      ...record,
+      createdAt: serializeExportDate(record.createdAt),
     })),
     skillDraftBatches: user.skillDraftBatches.map((batch) => ({
       ...batch,

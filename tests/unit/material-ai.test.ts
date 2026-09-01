@@ -26,7 +26,7 @@ afterEach(() => {
 const gemini = {
   apiMode: "enterprise-agent-platform" as const,
   endpoint: "https://aiplatform.googleapis.com/",
-  model: "gemini-3.5-flash",
+  model: "gemini-3.7-flash",
   clientOptions: {
     vertexai: true,
     apiKey: "enterprise-key",
@@ -39,7 +39,7 @@ const gemini = {
 const metaMuseFallback = {
   apiKey: "LLM|123|secret",
   baseUrl: "https://api.meta.ai/v1",
-  model: "muse-spark-1.1",
+  model: "muse-spark-1.2",
 };
 
 const plannerInput: MaterialScopePlannerInput = {

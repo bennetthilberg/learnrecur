@@ -889,7 +889,11 @@ describe("validateChoiceExerciseVerification", () => {
         "What does sample 3 mean?",
         "What does sample 5 mean?",
       ]);
-      expect(result.exercises.every((exercise) => !("candidateId" in exercise))).toBe(true);
+      expect(result.exercises.map((exercise) => exercise.candidateId)).toEqual([
+        "candidate-1",
+        "candidate-3",
+        "candidate-5",
+      ]);
       expect(result.rejectedCount).toBe(2);
       expect(result.decisions[1]).toMatchObject({
         candidateId: "candidate-2",
@@ -1240,7 +1244,15 @@ describe("buildSourceContextExcerpt", () => {
     const result = buildSourceContextExcerpt([oversized]);
 
     expect(result).not.toBeNull();
-    expect(result?.length).toBeLessThanOrEqual(SOURCE_CONTEXT_CHAR_LIMIT);
+    expect(Array.from(result ?? "")).toHaveLength(SOURCE_CONTEXT_CHAR_LIMIT);
+    expect(result?.endsWith("[truncated]")).toBe(true);
+  });
+
+  it("truncates source context without splitting Unicode surrogate pairs", () => {
+    const result = buildSourceContextExcerpt(["🙂".repeat(SOURCE_CONTEXT_CHAR_LIMIT + 20)]);
+
+    expect(Array.from(result ?? "")).toHaveLength(SOURCE_CONTEXT_CHAR_LIMIT);
+    expect(result).not.toMatch(/[\uD800-\uDFFF]/u);
     expect(result?.endsWith("[truncated]")).toBe(true);
   });
 
@@ -1406,7 +1418,7 @@ function metaMuseResponse(value: unknown) {
   return new Response(
     JSON.stringify({
       status: "completed",
-      model: "muse-spark-1.1",
+      model: "muse-spark-1.2",
       output: [
         {
           type: "message",
@@ -1428,7 +1440,7 @@ describe("MetaMuse exercise fallbacks", () => {
     await createMetaMuseChoiceExerciseGenerator({
       apiKey: "LLM|123|secret",
       baseUrl: "https://api.meta.ai/v1",
-      model: "muse-spark-1.1",
+      model: "muse-spark-1.2",
     })({
       skill: {
         id: "skill_1",
@@ -1469,7 +1481,7 @@ describe("MetaMuse exercise fallbacks", () => {
       gemini: {
         apiMode: "enterprise-agent-platform",
         endpoint: "https://aiplatform.googleapis.com/",
-        model: "gemini-3.5-flash",
+        model: "gemini-3.7-flash",
         clientOptions: {
           vertexai: true,
           apiKey: "enterprise-key",
@@ -1479,7 +1491,7 @@ describe("MetaMuse exercise fallbacks", () => {
       metaMuseFallback: {
         apiKey: "LLM|123|secret",
         baseUrl: "https://api.meta.ai/v1",
-        model: "muse-spark-1.1",
+        model: "muse-spark-1.2",
       },
     })({
       skill: {
@@ -1526,7 +1538,7 @@ describe("MetaMuse exercise fallbacks", () => {
       gemini: {
         apiMode: "enterprise-agent-platform",
         endpoint: "https://aiplatform.googleapis.com/",
-        model: "gemini-3.5-flash",
+        model: "gemini-3.7-flash",
         clientOptions: {
           vertexai: true,
           apiKey: "enterprise-key",
@@ -1538,7 +1550,7 @@ describe("MetaMuse exercise fallbacks", () => {
       metaMuseFallback: {
         apiKey: "LLM|123|secret",
         baseUrl: "https://api.meta.ai/v1",
-        model: "muse-spark-1.1",
+        model: "muse-spark-1.2",
       },
       recordProviderUsage,
     })({
@@ -1568,15 +1580,15 @@ describe("MetaMuse exercise fallbacks", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(recordProviderUsage).toHaveBeenCalledWith({
       provider: "meta",
-      model: "muse-spark-1.1",
+      model: "muse-spark-1.2",
     });
     expect(warningSpy).toHaveBeenCalledWith(
       "[ai] retrying with fallback provider",
       expect.objectContaining({
         operation: "choice exercise generation",
-        failedModel: "gemini-3.5-flash",
+        failedModel: "gemini-3.7-flash",
         fallbackProvider: "meta",
-        fallbackModel: "muse-spark-1.1",
+        fallbackModel: "muse-spark-1.2",
       }),
     );
     const requestBody = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
@@ -1612,7 +1624,7 @@ describe("MetaMuse exercise fallbacks", () => {
     const metaMuse = {
       apiKey: "LLM|123|secret",
       baseUrl: "https://api.meta.ai/v1",
-      model: "muse-spark-1.1",
+      model: "muse-spark-1.2",
     };
     const skill = {
       id: "skill_1",
@@ -1653,7 +1665,12 @@ describe("MetaMuse exercise fallbacks", () => {
       requestedCount: 1,
     });
     await createMetaMuseMathExerciseVerifier(metaMuse)({
-      skill,
+      skill: {
+        ...skill,
+        title: "Algebra source skill",
+        objective: "Practice algebraic equivalence from the source.",
+        tags: ["math", "algebra"],
+      },
       sourceContext: "Use the worksheet scope.",
       sourceMedia: imageMedia,
       candidates: [
@@ -1668,9 +1685,9 @@ describe("MetaMuse exercise fallbacks", () => {
       JSON.parse(String(init?.body)),
     );
     expect(requestBodies.map((body) => body.model)).toEqual([
-      "muse-spark-1.1",
-      "muse-spark-1.1",
-      "muse-spark-1.1",
+      "muse-spark-1.2",
+      "muse-spark-1.2",
+      "muse-spark-1.2",
     ]);
     expect(
       requestBodies.map((body) => body.text.format.name),
@@ -1692,6 +1709,9 @@ describe("MetaMuse exercise fallbacks", () => {
       "difficulty",
       "expectedSeconds",
     ]);
+    expect(
+      requestBodies[0].text.format.schema.properties.exercises.items.properties.prompt.maxLength,
+    ).toBe(1_200);
     expect(
       requestBodies[1].text.format.schema.properties.exercises.items.required,
     ).toEqual([
@@ -1723,7 +1743,7 @@ describe("MetaMuse exercise fallbacks", () => {
     expect(
       requestBodies[2].text.format.schema.properties.verifications.items.properties
         .reason.enum,
-    ).toContain(null);
+    ).not.toContain(null);
     expect(requestBodies[0].input[0].content[1]).toEqual({
       type: "input_image",
       image_url: "data:image/png;base64,aW1hZ2UgYnl0ZXM=",

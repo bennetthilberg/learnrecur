@@ -19,7 +19,14 @@ export function getPrisma(): PrismaClient {
   neonConfig.webSocketConstructor = ws;
 
   const adapter = new PrismaNeon({ connectionString: DATABASE_URL });
-  const prisma = new PrismaClient({ adapter });
+  const prisma = new PrismaClient({
+    adapter,
+    transactionOptions: {
+      // Keep pool wait plus execution below the shortest configured route limit (120s).
+      maxWait: 5_000,
+      timeout: 15_000,
+    },
+  });
 
   if (process.env.NODE_ENV !== "production") {
     globalForPrisma.prisma = prisma;

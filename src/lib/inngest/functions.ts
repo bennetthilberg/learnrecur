@@ -33,10 +33,12 @@ import {
   resolveClerkReminderAccountEmail,
 } from "@/lib/reminders";
 import {
+  markRefillJobRetryableFailure,
   runChoiceExerciseRefillJob,
   runExactInputExerciseRefillJob,
   runMathExerciseRefillJob,
 } from "@/lib/skills/refill-jobs";
+import { REFILL_JOB_RETRY_LIMIT } from "@/lib/skills/refill-policy";
 import { runQueuedSourceUploadDraftJob } from "@/lib/skills/uploads";
 
 import {
@@ -53,54 +55,78 @@ import {
 } from "./events";
 import { inngest } from "./client";
 
+async function markRefillFailureBestEffort(
+  input: Parameters<typeof markRefillJobRetryableFailure>[0],
+) {
+  try {
+    await markRefillJobRetryableFailure(input);
+  } catch (markError) {
+    console.error("[inngest] refill failure marking failed", {
+      error: markError instanceof Error ? markError.message : String(markError),
+    });
+  }
+}
+
 export const choiceExerciseRefillFunction = inngest.createFunction(
   {
     id: "choice-exercise-refill",
+    retries: REFILL_JOB_RETRY_LIMIT,
+    concurrency: { limit: 1, key: "event.data.skillId", scope: "env" },
     triggers: [{ event: CHOICE_REFILL_REQUESTED_EVENT }],
   },
   async ({ event, step }) => {
     const payload = parseExerciseRefillEventPayload(event.data);
 
-    return step.run("refill choice exercises", () =>
-      runChoiceExerciseRefillJob({
-        ...payload,
-        now: new Date(),
-      }),
-    );
+    return step.run("refill choice exercises", async () => {
+      try {
+        return await runChoiceExerciseRefillJob({ ...payload, now: new Date() });
+      } catch (error) {
+        await markRefillFailureBestEffort({ ...payload, now: new Date(), error });
+        throw error;
+      }
+    });
   },
 );
 
 export const exactInputExerciseRefillFunction = inngest.createFunction(
   {
     id: "exact-input-exercise-refill",
+    retries: REFILL_JOB_RETRY_LIMIT,
+    concurrency: { limit: 1, key: "event.data.skillId", scope: "env" },
     triggers: [{ event: EXACT_INPUT_REFILL_REQUESTED_EVENT }],
   },
   async ({ event, step }) => {
     const payload = parseExerciseRefillEventPayload(event.data);
 
-    return step.run("refill exact-input exercises", () =>
-      runExactInputExerciseRefillJob({
-        ...payload,
-        now: new Date(),
-      }),
-    );
+    return step.run("refill exact-input exercises", async () => {
+      try {
+        return await runExactInputExerciseRefillJob({ ...payload, now: new Date() });
+      } catch (error) {
+        await markRefillFailureBestEffort({ ...payload, now: new Date(), error });
+        throw error;
+      }
+    });
   },
 );
 
 export const mathExerciseRefillFunction = inngest.createFunction(
   {
     id: "math-exercise-refill",
+    retries: REFILL_JOB_RETRY_LIMIT,
+    concurrency: { limit: 1, key: "event.data.skillId", scope: "env" },
     triggers: [{ event: MATH_REFILL_REQUESTED_EVENT }],
   },
   async ({ event, step }) => {
     const payload = parseExerciseRefillEventPayload(event.data);
 
-    return step.run("refill math exercises", () =>
-      runMathExerciseRefillJob({
-        ...payload,
-        now: new Date(),
-      }),
-    );
+    return step.run("refill math exercises", async () => {
+      try {
+        return await runMathExerciseRefillJob({ ...payload, now: new Date() });
+      } catch (error) {
+        await markRefillFailureBestEffort({ ...payload, now: new Date(), error });
+        throw error;
+      }
+    });
   },
 );
 

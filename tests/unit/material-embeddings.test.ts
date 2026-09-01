@@ -10,7 +10,7 @@ describe("material embedding requests", () => {
     const configs = resolveMaterialEmbeddingRuntimeConfigs({
       GEMINI_API_KEY: "developer-key",
       GEMINI_ENTERPRISE_AGENT_KEY_PLATFORM_KEY: "enterprise-key",
-      GEMINI_MODEL: "gemini-3.5-flash",
+      GEMINI_MODEL: "gemini-3.7-flash",
       GEMINI_EMBEDDING_MODEL: "gemini-embedding-2",
       GEMINI_EMBEDDING_API_MODE: "auto",
       GEMINI_FALLBACK_MODELS: [],
@@ -35,7 +35,7 @@ describe("material embedding requests", () => {
     const configs = resolveMaterialEmbeddingRuntimeConfigs({
       GEMINI_API_KEY: "developer-key",
       GEMINI_ENTERPRISE_AGENT_KEY_PLATFORM_KEY: "enterprise-key",
-      GEMINI_MODEL: "gemini-3.5-flash",
+      GEMINI_MODEL: "gemini-3.7-flash",
       GEMINI_EMBEDDING_MODEL: "gemini-embedding-2",
       GEMINI_EMBEDDING_API_MODE: "developer-api",
       GEMINI_FALLBACK_MODELS: [],

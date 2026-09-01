@@ -4,7 +4,9 @@ import { createHash, randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 
 import {
+  GenerationFailureCategory,
   GenerationJobKind,
+  GenerationJobStage,
   GenerationJobStatus,
   MaterialPageTextStatus,
   MaterialRevisionStatus,
@@ -1927,6 +1929,8 @@ export async function runMaterialBatchActivationJob(input: {
       },
       data: {
         status: GenerationJobStatus.FAILED,
+        stage: GenerationJobStage.FAILED,
+        failureCategory: GenerationFailureCategory.UNKNOWN,
         errorMessage: message.slice(0, 1_000),
         completedAt: now,
       },
@@ -2203,6 +2207,8 @@ async function claimMaterialBatchActivationSlot(input: {
           where: { id: job.id },
           data: {
             status: GenerationJobStatus.FAILED,
+            stage: GenerationJobStage.FAILED,
+            failureCategory: GenerationFailureCategory.CANCELED,
             errorMessage:
               job.status === GenerationJobStatus.RUNNING
                 ? ACTIVATION_SUPERSEDED_JOB_MESSAGE
@@ -2247,6 +2253,8 @@ async function claimMaterialBatchActivationSlot(input: {
         },
         data: {
           status: GenerationJobStatus.FAILED,
+          stage: GenerationJobStage.FAILED,
+          failureCategory: GenerationFailureCategory.CANCELED,
           errorMessage: ACTIVATION_SUPERSEDED_JOB_MESSAGE,
           completedAt: input.now,
         },
@@ -2470,6 +2478,8 @@ export async function retryMaterialBatchActivationItem(input: {
         },
         data: {
           status: GenerationJobStatus.FAILED,
+          stage: GenerationJobStage.FAILED,
+          failureCategory: GenerationFailureCategory.CANCELED,
           errorMessage: ACTIVATION_SUPERSEDED_JOB_MESSAGE,
           completedAt: input.now,
         },
@@ -2645,6 +2655,8 @@ async function failUnclaimedMaterialBatchActivationReservations(input: {
         },
         data: {
           status: GenerationJobStatus.FAILED,
+          stage: GenerationJobStage.FAILED,
+          failureCategory: GenerationFailureCategory.CANCELED,
           errorMessage: "Activation could not be queued.",
           completedAt: input.now,
         },
@@ -2772,6 +2784,8 @@ async function releaseMaterialBatchActivationForDraftReview(input: {
       },
       data: {
         status: GenerationJobStatus.FAILED,
+        stage: GenerationJobStage.FAILED,
+        failureCategory: GenerationFailureCategory.UNKNOWN,
         errorMessage: input.message,
         completedAt: input.now,
       },
@@ -3232,6 +3246,8 @@ export async function getMaterialDraftBatch(input: { userId: string; batchId: st
         },
         data: {
           status: GenerationJobStatus.FAILED,
+          stage: GenerationJobStage.FAILED,
+          failureCategory: GenerationFailureCategory.CANCELED,
           errorMessage: ACTIVATION_SUPERSEDED_JOB_MESSAGE,
           completedAt: now,
         },

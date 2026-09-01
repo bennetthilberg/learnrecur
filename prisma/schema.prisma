@@ -91,6 +91,14 @@ enum SkillStatus {
   ARCHIVED
 }
 
+enum SkillGenerationSpecStatus {
+  DRAFT
+  READY
+  ACCEPTED
+  REJECTED
+  SUPERSEDED
+}
+
 enum SkillFsrsState {
   NEW
   LEARNING
@@ -157,6 +165,27 @@ enum ExerciseFlagStatus {
   DISMISSED
 }
 
+enum ExerciseFlagAdjudicationStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+  INCONCLUSIVE
+}
+
+enum ExerciseEvidenceCorrectionAction {
+  NONE
+  INVALIDATE
+  INVALIDATE_AND_REPLAY
+}
+
+enum ExerciseEvidenceCorrectionStatus {
+  NOT_REQUIRED
+  PENDING
+  IN_PROGRESS
+  COMPLETE
+  BLOCKED
+}
+
 enum GenerationJobKind {
   SKILL_ACTIVATION
   CHOICE_EXERCISE_GENERATION
@@ -169,6 +198,62 @@ enum GenerationJobStatus {
   RUNNING
   SUCCEEDED
   FAILED
+}
+
+enum GenerationJobStage {
+  QUEUED
+  PLANNING
+  GENERATING
+  VALIDATING
+  VERIFYING
+  ADJUDICATING
+  PUBLISHING
+  COMPLETE
+  FAILED
+}
+
+enum GenerationFailureCategory {
+  NONE
+  TRANSPORT
+  TIMEOUT
+  RATE_LIMIT
+  AUTHENTICATION
+  SCHEMA
+  DETERMINISTIC
+  SEMANTIC
+  SOURCE_EVIDENCE
+  DUPLICATE
+  DIVERSITY
+  COST_LIMIT
+  CANCELED
+  UNKNOWN
+}
+
+enum GenerationDegradedState {
+  NONE
+  FALLBACK_ACTIVE
+  FALLBACK_USED
+  QUALITY_REPAIR
+  ADJUDICATION_REQUIRED
+}
+
+enum GenerationAuditDecision {
+  IN_PROGRESS
+  RETRY
+  ACCEPTED
+  REJECTED
+  QUARANTINED
+  PUBLISHED
+  FAILED
+}
+
+enum ModelReleaseState {
+  DRAFT
+  CANARY
+  APPROVED
+  PAUSED
+  ROLLED_BACK
+  REJECTED
 }
 
 enum ReminderSendStatus {
@@ -256,33 +341,34 @@ model User {
   updatedAt             DateTime  @updatedAt
   agentAccessDisabledAt DateTime?
 
-  collections           Collection[]
-  sourceFiles           SourceFile[]
-  studyMaterials        StudyMaterial[]
-  materialRevisions     MaterialRevision[]
-  materialSections      MaterialSection[]
-  materialChunks        MaterialChunk[]
-  materialPages         MaterialPage[]
-  materialCleanupJobs   MaterialCleanupJob[]
-  skillDraftBatches     SkillDraftBatch[]
-  skillDraftBatchItems  SkillDraftBatchItem[]
-  skills                Skill[]
-  skillSourceRefs       SkillSourceRef[]
-  exercises             Exercise[]
-  exerciseAttempts      ExerciseAttempt[]
-  reviewLogs            ReviewLog[]
-  exerciseFlags         ExerciseFlag[]
-  generationJobs        GenerationJob[]
-  reminderPreference    ReminderPreference?
-  reminderSendLogs      ReminderSendLog[]
-  workosIdentity        WorkosIdentity?
-  agentConnections      AgentConnection[]
-  agentRateLimitBuckets AgentRateLimitBucket[]
-  agentOperationActions AgentOperationAction[]
-  agentOperationSources AgentOperationSource[]
-  agentOperations       AgentSkillOperation[]
-  agentOperationItems   AgentSkillOperationItem[]
-  agentCandidates       AgentExerciseCandidate[]
+  collections            Collection[]
+  sourceFiles            SourceFile[]
+  studyMaterials         StudyMaterial[]
+  materialRevisions      MaterialRevision[]
+  materialSections       MaterialSection[]
+  materialChunks         MaterialChunk[]
+  materialPages          MaterialPage[]
+  materialCleanupJobs    MaterialCleanupJob[]
+  skillDraftBatches      SkillDraftBatch[]
+  skillDraftBatchItems   SkillDraftBatchItem[]
+  skills                 Skill[]
+  skillSourceRefs        SkillSourceRef[]
+  exercises              Exercise[]
+  exerciseAttempts       ExerciseAttempt[]
+  reviewLogs             ReviewLog[]
+  exerciseFlags          ExerciseFlag[]
+  generationJobs         GenerationJob[]
+  generationAuditRecords GenerationAuditRecord[]
+  reminderPreference     ReminderPreference?
+  reminderSendLogs       ReminderSendLog[]
+  workosIdentity         WorkosIdentity?
+  agentConnections       AgentConnection[]
+  agentRateLimitBuckets  AgentRateLimitBucket[]
+  agentOperationActions  AgentOperationAction[]
+  agentOperationSources  AgentOperationSource[]
+  agentOperations        AgentSkillOperation[]
+  agentOperationItems    AgentSkillOperationItem[]
+  agentCandidates        AgentExerciseCandidate[]
 
   @@map("users")
 }
@@ -515,6 +601,10 @@ model Skill {
   examples                       Json?
   exerciseConstraints            Json?
   tags                           String[]
+  generationSpec                 Json?
+  generationSpecVersion          String?
+  generationSpecFingerprint      String?
+  generationSpecStatus           SkillGenerationSpecStatus   @default(DRAFT)
   similarityEmbedding            Unsupported("vector(768)")?
   similarityEmbeddingModel       String?
   similarityEmbeddingFingerprint String?
@@ -532,19 +622,21 @@ model Skill {
   createdAt                      DateTime                    @default(now())
   updatedAt                      DateTime                    @updatedAt
 
-  user              User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  collection        Collection?               @relation(fields: [collectionId, userId], references: [id, userId], onDelete: NoAction)
-  sourceRefs        SkillSourceRef[]
-  exercises         Exercise[]
-  attempts          ExerciseAttempt[]
-  reviewLogs        ReviewLog[]
-  generationJobs    GenerationJob[]
-  draftBatchItems   SkillDraftBatchItem[]
-  agentCreatedItems AgentSkillOperationItem[] @relation("AgentCreatedSkill")
-  agentResultItems  AgentSkillOperationItem[] @relation("AgentResultSkill")
+  user                   User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  collection             Collection?               @relation(fields: [collectionId, userId], references: [id, userId], onDelete: NoAction)
+  sourceRefs             SkillSourceRef[]
+  exercises              Exercise[]
+  attempts               ExerciseAttempt[]
+  reviewLogs             ReviewLog[]
+  generationJobs         GenerationJob[]
+  generationAuditRecords GenerationAuditRecord[]
+  draftBatchItems        SkillDraftBatchItem[]
+  agentCreatedItems      AgentSkillOperationItem[] @relation("AgentCreatedSkill")
+  agentResultItems       AgentSkillOperationItem[] @relation("AgentResultSkill")
 
   @@unique([id, userId])
   @@index([userId, status, dueAt])
+  @@index([userId, generationSpecStatus, generationSpecFingerprint], map: "skills_generation_spec_lookup_idx")
   @@index([collectionId])
   @@map("skills")
 }
@@ -651,20 +743,38 @@ model Exercise {
   retirementReason     ExerciseRetirementReason?
   freshnessKey         String?
   sourceRefs           Json?
+  skillSpecVersion     String?
+  skillSpecFingerprint String?
+  exerciseSpecVersion  String?
+  blueprintVersion     String?
+  blueprintSlot        String?
+  exerciseFamily       String?
+  qualityVersion       String?
+  provenance           Json?
+  acceptanceDecision   GenerationAuditDecision?
+  acceptanceMetadata   Json?
+  generationMetadata   Json?
+  generatorReleaseId   String?
+  verifierReleaseId    String?
   createdAt            DateTime                   @default(now())
   updatedAt            DateTime                   @updatedAt
 
-  user           User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  skill          Skill                   @relation(fields: [skillId, userId], references: [id, userId], onDelete: Cascade)
-  attempts       ExerciseAttempt[]
-  flags          ExerciseFlag[]
-  agentCandidate AgentExerciseCandidate?
+  user             User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skill            Skill                   @relation(fields: [skillId, userId], references: [id, userId], onDelete: Cascade)
+  attempts         ExerciseAttempt[]
+  flags            ExerciseFlag[]
+  agentCandidate   AgentExerciseCandidate?
+  auditRecords     GenerationAuditRecord[]
+  generatorRelease ModelRelease?           @relation("ExerciseGeneratorRelease", fields: [generatorReleaseId], references: [id], onDelete: SetNull)
+  verifierRelease  ModelRelease?           @relation("ExerciseVerifierRelease", fields: [verifierReleaseId], references: [id], onDelete: SetNull)
 
   @@unique([id, userId])
   @@unique([id, skillId, userId])
   @@index([userId, createdAt])
   @@index([skillId, verificationStatus])
   @@index([skillId, verificationStatus, retiredAt])
+  @@index([skillId, skillSpecFingerprint])
+  @@index([exerciseFamily, qualityVersion])
   @@map("exercises")
 }
 
@@ -738,50 +848,166 @@ model ReviewLog {
 }
 
 model ExerciseFlag {
-  id                String                    @id @default(cuid())
-  userId            String
-  exerciseId        String
-  reason            ExerciseFlagReason
-  note              String?
-  status            ExerciseFlagStatus        @default(OPEN)
-  resolvedAt        DateTime?
-  resolutionNote    String?
-  retiredExerciseAt DateTime?
-  retirementReason  ExerciseRetirementReason?
-  createdAt         DateTime                  @default(now())
+  id                              String                           @id @default(cuid())
+  userId                          String
+  exerciseId                      String
+  reason                          ExerciseFlagReason
+  note                            String?
+  status                          ExerciseFlagStatus               @default(OPEN)
+  resolvedAt                      DateTime?
+  resolutionNote                  String?
+  retiredExerciseAt               DateTime?
+  retirementReason                ExerciseRetirementReason?
+  adjudicationStatus              ExerciseFlagAdjudicationStatus   @default(PENDING)
+  adjudicatedAt                   DateTime?
+  adjudicationCode                String?
+  evidenceCorrectionAction        ExerciseEvidenceCorrectionAction @default(NONE)
+  evidenceCorrectionStatus        ExerciseEvidenceCorrectionStatus @default(NOT_REQUIRED)
+  practiceEvidenceNeedsCorrection Boolean                          @default(false)
+  affectedReviewCount             Int                              @default(0)
+  correctionStartedAt             DateTime?
+  correctionCompletedAt           DateTime?
+  incidentKey                     String?
+  createdAt                       DateTime                         @default(now())
 
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   exercise Exercise @relation(fields: [exerciseId, userId], references: [id, userId], onDelete: Cascade)
 
   @@index([userId, createdAt])
   @@index([exerciseId, status])
+  @@index([adjudicationStatus, evidenceCorrectionStatus])
+  @@index([incidentKey])
   @@map("exercise_flags")
 }
 
 model GenerationJob {
-  id             String              @id @default(cuid())
-  userId         String
-  skillId        String
-  kind           GenerationJobKind
-  status         GenerationJobStatus @default(PENDING)
-  provider       String
-  model          String
-  promptVersion  String
-  requestedCount Int
-  acceptedCount  Int                 @default(0)
-  rejectedCount  Int                 @default(0)
-  errorMessage   String?
-  startedAt      DateTime?
-  completedAt    DateTime?
-  createdAt      DateTime            @default(now())
-  updatedAt      DateTime            @updatedAt
+  id                  String                    @id @default(cuid())
+  userId              String
+  skillId             String
+  kind                GenerationJobKind
+  status              GenerationJobStatus       @default(PENDING)
+  provider            String
+  model               String
+  promptVersion       String
+  idempotencyKey      String?
+  releaseTuple        Json?
+  generationReleaseId String?
+  verifierReleaseId   String?
+  stage               GenerationJobStage        @default(QUEUED)
+  checkpoint          String?
+  attemptCount        Int                       @default(0)
+  retryCount          Int                       @default(0)
+  maxAttempts         Int                       @default(3)
+  contextManifest     Json?
+  contextManifestHash String?
+  stageMetrics        Json?
+  failureCategory     GenerationFailureCategory @default(NONE)
+  degradedState       GenerationDegradedState   @default(NONE)
+  fallbackProvider    String?
+  fallbackModel       String?
+  fallbackReasonCode  String?
+  requestedCount      Int
+  acceptedCount       Int                       @default(0)
+  rejectedCount       Int                       @default(0)
+  errorMessage        String?
+  startedAt           DateTime?
+  completedAt         DateTime?
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
 
-  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  skill Skill @relation(fields: [skillId, userId], references: [id, userId], onDelete: Cascade)
+  user              User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skill             Skill                   @relation(fields: [skillId, userId], references: [id, userId], onDelete: Cascade)
+  auditRecords      GenerationAuditRecord[]
+  generationRelease ModelRelease?           @relation("GenerationJobGenerationRelease", fields: [generationReleaseId], references: [id], onDelete: SetNull)
+  verifierRelease   ModelRelease?           @relation("GenerationJobVerifierRelease", fields: [verifierReleaseId], references: [id], onDelete: SetNull)
 
+  @@unique([id, userId])
+  @@unique([userId, idempotencyKey])
   @@index([userId, createdAt])
   @@index([skillId, status])
+  @@index([userId, stage, status])
+  @@index([failureCategory, createdAt])
+  @@index([degradedState, createdAt])
   @@map("generation_jobs")
+}
+
+model ModelRelease {
+  id                  String            @id @default(cuid())
+  provider            String
+  model               String
+  releaseFingerprint  String
+  state               ModelReleaseState @default(DRAFT)
+  releaseTuple        Json
+  canaryPercent       Int               @default(0)
+  canarySampleCount   Int               @default(0)
+  canaryAcceptedCount Int               @default(0)
+  canaryRejectedCount Int               @default(0)
+  canaryStopReason    String?
+  canaryMetrics       Json?
+  rollbackToId        String?
+  approvedAt          DateTime?
+  canaryStartedAt     DateTime?
+  pausedAt            DateTime?
+  rolledBackAt        DateTime?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  rollbackTo             ModelRelease?           @relation("ModelReleaseRollback", fields: [rollbackToId], references: [id], onDelete: SetNull)
+  rollbackSources        ModelRelease[]          @relation("ModelReleaseRollback")
+  generationJobs         GenerationJob[]         @relation("GenerationJobGenerationRelease")
+  verifierJobs           GenerationJob[]         @relation("GenerationJobVerifierRelease")
+  generatedExercises     Exercise[]              @relation("ExerciseGeneratorRelease")
+  verifiedExercises      Exercise[]              @relation("ExerciseVerifierRelease")
+  generationAuditRecords GenerationAuditRecord[] @relation("AuditGenerationRelease")
+  verifierAuditRecords   GenerationAuditRecord[] @relation("AuditVerifierRelease")
+
+  @@unique([provider, model, releaseFingerprint])
+  @@index([provider, model, state])
+  @@index([state, updatedAt])
+  @@map("model_releases")
+}
+
+// This row is append-only while its owning learner/job exists. Skill, exercise,
+// job, and account deletion intentionally cascade to satisfy learner-data
+// deletion; application code never rewrites a surviving audit decision.
+model GenerationAuditRecord {
+  id                  String                    @id @default(cuid())
+  userId              String
+  jobId               String
+  skillId             String?
+  candidateId         String?
+  exerciseId          String?
+  idempotencyKey      String
+  eventKey            String
+  stage               GenerationJobStage
+  checkpoint          String?
+  attempt             Int
+  retryCount          Int                       @default(0)
+  releaseTuple        Json
+  contextManifest     Json?
+  contextManifestHash String?
+  stageMetrics        Json?
+  candidateMetadata   Json?
+  failureCategory     GenerationFailureCategory @default(NONE)
+  degradedState       GenerationDegradedState   @default(NONE)
+  decision            GenerationAuditDecision   @default(IN_PROGRESS)
+  generationReleaseId String?
+  verifierReleaseId   String?
+  createdAt           DateTime                  @default(now())
+
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  job               GenerationJob @relation(fields: [jobId, userId], references: [id, userId], onDelete: Cascade)
+  skill             Skill?        @relation(fields: [skillId, userId], references: [id, userId], onDelete: Cascade)
+  exercise          Exercise?     @relation(fields: [exerciseId, userId], references: [id, userId], onDelete: Cascade)
+  generationRelease ModelRelease? @relation("AuditGenerationRelease", fields: [generationReleaseId], references: [id], onDelete: SetNull)
+  verifierRelease   ModelRelease? @relation("AuditVerifierRelease", fields: [verifierReleaseId], references: [id], onDelete: SetNull)
+
+  @@unique([jobId, eventKey])
+  @@index([userId, createdAt])
+  @@index([jobId, stage, createdAt])
+  @@index([idempotencyKey])
+  @@index([decision, createdAt])
+  @@map("generation_audit_records")
 }
 
 model ReminderPreference {
