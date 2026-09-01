@@ -1,11 +1,13 @@
 import { defineConfig, devices } from "@playwright/test";
 import { config as loadEnv } from "dotenv";
 
+import { parseE2EUserCount } from "./tests/e2e/support/config";
+
 loadEnv({ path: ".env.local", quiet: true });
 loadEnv({ path: ".env", quiet: true });
 
 const baseURL = process.env.E2E_BASE_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-const e2eWorkers = parseWorkerCount(process.env.E2E_CLERK_USER_COUNT);
+const e2eWorkers = parseE2EUserCount(process.env.E2E_CLERK_USER_COUNT);
 const webServer = localWebServer(baseURL);
 
 export default defineConfig({
@@ -42,19 +44,6 @@ export default defineConfig({
     },
   ],
 });
-
-function parseWorkerCount(value: string | undefined) {
-  if (!value) {
-    return 2;
-  }
-
-  const parsed = Number.parseInt(value, 10);
-  if (!Number.isInteger(parsed) || parsed < 2 || parsed > 6) {
-    throw new Error("E2E_CLERK_USER_COUNT must be an integer between 2 and 6.");
-  }
-
-  return parsed;
-}
 
 function localWebServer(target: string) {
   const url = new URL(target);

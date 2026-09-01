@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import path from "node:path";
 
 import { shouldDeleteManagedClerkUser } from "../e2e/support/clerk-orphans";
+import { parseE2EUserCount } from "../e2e/support/config";
+import {
+  cleanupClerkTestUsers,
+  clerkManifestPath,
+} from "../e2e/support/clerk-test-users";
 import {
   assertManagedE2EDatabaseName,
   isManagedE2EDatabaseName,
@@ -10,6 +17,14 @@ import {
 const now = Date.UTC(2026, 8, 1);
 
 describe("authenticated E2E isolation", () => {
+  it("strictly parses the complete worker count", () => {
+    expect(parseE2EUserCount(undefined)).toBe(2);
+    expect(parseE2EUserCount("6")).toBe(6);
+    expect(() => parseE2EUserCount("2.5")).toThrow();
+    expect(() => parseE2EUserCount("2workers")).toThrow();
+    expect(() => parseE2EUserCount(" 2 ")).toThrow();
+  });
+
   it("accepts only CI-owned database names", () => {
     expect(isManagedE2EDatabaseName("e2e_33532585618_1")).toBe(true);
     expect(isManagedE2EDatabaseName("neondb")).toBe(false);
@@ -50,6 +65,41 @@ describe("authenticated E2E isolation", () => {
 
     expect(shouldDeleteManagedClerkUser(user, { ci: true, now })).toBe(false);
   });
+
+  it("retains the recovery manifest when cleanup configuration is missing", async () => {
+    const databaseUrl = process.env.DATABASE_URL;
+    const clerkSecretKey = process.env.CLERK_SECRET_KEY;
+    await mkdir(path.dirname(clerkManifestPath), { recursive: true });
+    await writeFile(
+      clerkManifestPath,
+      JSON.stringify({
+        createdAt: new Date(now).toISOString(),
+        runId: "a1b2c3d4e5f60718",
+        users: [
+          {
+            email: "learnrecur-e2e-a1b2c3d4e5f60718-0+clerk_test@example.com",
+            id: "user_recovery_test",
+            workerIndex: 0,
+          },
+        ],
+      }),
+    );
+
+    try {
+      delete process.env.DATABASE_URL;
+      delete process.env.CLERK_SECRET_KEY;
+      await expect(cleanupClerkTestUsers()).rejects.toThrow(
+        "Authenticated E2E cleanup did not complete.",
+      );
+      await expect(readFile(clerkManifestPath, "utf8")).resolves.toContain(
+        "user_recovery_test",
+      );
+    } finally {
+      restoreEnvironment("DATABASE_URL", databaseUrl);
+      restoreEnvironment("CLERK_SECRET_KEY", clerkSecretKey);
+      await rm(clerkManifestPath, { force: true });
+    }
+  });
 });
 
 function testUser(scope: "ci" | "local", createdAt: number) {
@@ -67,4 +117,12 @@ function testUser(scope: "ci" | "local", createdAt: number) {
       },
     },
   };
+}
+
+function restoreEnvironment(name: string, value: string | undefined) {
+  if (value === undefined) {
+    delete process.env[name];
+  } else {
+    process.env[name] = value;
+  }
 }

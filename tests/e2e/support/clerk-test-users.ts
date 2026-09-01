@@ -7,6 +7,7 @@ import {
   shouldDeleteManagedClerkUser,
   type ManagedClerkUser,
 } from "./clerk-orphans";
+import { parseE2EUserCount } from "./config";
 import { deleteDatabaseTestUsers } from "./database";
 
 export const clerkManifestPath = path.resolve("test-results/e2e-clerk-users.json");
@@ -35,7 +36,7 @@ export async function provisionClerkTestUsers() {
     users: [],
   };
   const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
-  const userCount = readUserCount();
+  const userCount = parseE2EUserCount(process.env.E2E_CLERK_USER_COUNT);
 
   await persistManifest(manifest);
 
@@ -131,22 +132,28 @@ export async function cleanupClerkTestUsers() {
 
   const errors: unknown[] = [];
 
-  if (manifest.users.length > 0 && process.env.DATABASE_URL) {
-    try {
-      await deleteDatabaseTestUsers(manifest.users.map((user) => user.id));
-    } catch (error) {
-      errors.push(error);
+  if (manifest.users.length > 0) {
+    if (!process.env.DATABASE_URL) {
+      errors.push(new Error("DATABASE_URL is required to clean authenticated E2E users."));
+    } else {
+      try {
+        await deleteDatabaseTestUsers(manifest.users.map((user) => user.id));
+      } catch (error) {
+        errors.push(error);
+      }
     }
-  }
 
-  if (process.env.CLERK_SECRET_KEY) {
-    const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
-    const results = await Promise.allSettled(
-      manifest.users.map((user) => clerk.users.deleteUser(user.id)),
-    );
-    for (const result of results) {
-      if (result.status === "rejected" && !isClerkNotFound(result.reason)) {
-        errors.push(result.reason);
+    if (!process.env.CLERK_SECRET_KEY) {
+      errors.push(new Error("CLERK_SECRET_KEY is required to clean authenticated E2E users."));
+    } else {
+      const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
+      const results = await Promise.allSettled(
+        manifest.users.map((user) => clerk.users.deleteUser(user.id)),
+      );
+      for (const result of results) {
+        if (result.status === "rejected" && !isClerkNotFound(result.reason)) {
+          errors.push(result.reason);
+        }
       }
     }
   }
@@ -182,15 +189,6 @@ function assertDevelopmentClerkKeys() {
   if (!publishableKey.startsWith("pk_test_") || !secretKey.startsWith("sk_test_")) {
     throw new Error("Authenticated E2E only accepts Clerk development-instance keys.");
   }
-}
-
-function readUserCount() {
-  const value = process.env.E2E_CLERK_USER_COUNT ?? "2";
-  const count = Number.parseInt(value, 10);
-  if (!Number.isInteger(count) || count < 2 || count > 6) {
-    throw new Error("E2E_CLERK_USER_COUNT must be an integer between 2 and 6.");
-  }
-  return count;
 }
 
 async function persistManifest(manifest: ClerkTestManifest) {
