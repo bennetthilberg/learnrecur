@@ -42,3 +42,59 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  authenticated-e2e:
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: authenticated-e2e-${{ github.repository }}
+      cancel-in-progress: false
+    env:
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.E2E_CLERK_PUBLISHABLE_KEY }}
+      CLERK_SECRET_KEY: ${{ secrets.E2E_CLERK_SECRET_KEY }}
+      E2E_DATABASE_URL: ${{ secrets.E2E_DATABASE_URL }}
+      E2E_DIRECT_URL: ${{ secrets.E2E_DIRECT_URL }}
+      E2E_DATABASE_NAME: e2e_${{ github.run_id }}_${{ github.run_attempt }}
+      E2E_CLERK_USER_COUNT: "2"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Validate authenticated test secrets
+        run: |
+          test -n "$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"
+          test -n "$CLERK_SECRET_KEY"
+          test -n "$E2E_DATABASE_URL"
+          test -n "$E2E_DIRECT_URL"
+
+      - name: Prepare isolated test database
+        run: npm run test:e2e:db:prepare
+
+      - name: Generate Prisma client
+        run: npm run prisma:generate
+
+      - name: Apply test database migrations
+        run: npm run prisma:deploy
+
+      - name: Authenticated browser tests
+        run: npm run test:e2e:auth
+
+      - name: Drop isolated test database
+        if: always()
+        run: npm run test:e2e:db:cleanup
