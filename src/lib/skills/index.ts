@@ -36,6 +36,7 @@ import { formatEnvError, getGeminiEnv } from "@/lib/env";
 import { summarizeMaterialDraftBatch } from "@/lib/materials/batch-summary";
 import {
   DEFAULT_GEMINI_MODEL,
+  GEMINI_LOW_THINKING_CONFIG,
   getGeminiRuntimeLogContext,
   getGeminiErrorLogDetails,
   getPublicGeminiFailureMessage,
@@ -6141,9 +6142,7 @@ export function createGeminiSkillDraftGenerator({
               config: {
                 responseMimeType: "application/json",
                 responseJsonSchema: geminiSkillDraftJsonSchema,
-                thinkingConfig: {
-                  thinkingBudget: 128,
-                },
+                thinkingConfig: GEMINI_LOW_THINKING_CONFIG,
               },
             });
             const text = response.text;
@@ -6343,9 +6342,7 @@ export function createGeminiChoiceExerciseGenerator({
                 config: {
                   responseMimeType: "application/json",
                   responseJsonSchema: buildGeminiResponseJsonSchema(input.requestedCount),
-                  thinkingConfig: {
-                    thinkingBudget: 128,
-                  },
+                  thinkingConfig: GEMINI_LOW_THINKING_CONFIG,
                 },
               });
               const text = response.text;
@@ -6451,9 +6448,7 @@ async function runGeminiChoiceVerificationStage({
           config: {
             responseMimeType: "application/json",
             responseJsonSchema,
-            thinkingConfig: {
-              thinkingBudget: 128,
-            },
+            thinkingConfig: GEMINI_LOW_THINKING_CONFIG,
           },
         });
         const text = response.text;
@@ -6512,9 +6507,7 @@ function createGeminiExactInputExerciseGenerator({
               config: {
                 responseMimeType: "application/json",
                 responseJsonSchema: buildGeminiExactInputResponseJsonSchema(input.requestedCount),
-                thinkingConfig: {
-                  thinkingBudget: 128,
-                },
+                thinkingConfig: GEMINI_LOW_THINKING_CONFIG,
               },
             });
             const text = response.text;
@@ -6572,9 +6565,7 @@ function createGeminiExactInputExerciseVerifier({
               config: {
                 responseMimeType: "application/json",
                 responseJsonSchema: buildGeminiExactInputVerificationJsonSchema(input.candidates.length),
-                thinkingConfig: {
-                  thinkingBudget: 128,
-                },
+                thinkingConfig: GEMINI_LOW_THINKING_CONFIG,
               },
             });
             const text = response.text;
@@ -6632,9 +6623,7 @@ function createGeminiMathExerciseGenerator({
               config: {
                 responseMimeType: "application/json",
                 responseJsonSchema: buildGeminiMathResponseJsonSchema(input.requestedCount),
-                thinkingConfig: {
-                  thinkingBudget: 128,
-                },
+                thinkingConfig: GEMINI_LOW_THINKING_CONFIG,
               },
             });
             const text = response.text;
@@ -6692,9 +6681,7 @@ function createGeminiMathExerciseVerifier({
               config: {
                 responseMimeType: "application/json",
                 responseJsonSchema: buildGeminiMathVerificationJsonSchema(input.candidates.length),
-                thinkingConfig: {
-                  thinkingBudget: 128,
-                },
+                thinkingConfig: GEMINI_LOW_THINKING_CONFIG,
               },
             });
             const text = response.text;

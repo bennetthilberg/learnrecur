@@ -1481,7 +1481,7 @@ describe("MetaMuse exercise fallbacks", () => {
       gemini: {
         apiMode: "enterprise-agent-platform",
         endpoint: "https://aiplatform.googleapis.com/",
-        model: "gemini-3.7-flash",
+        model: "gemini-3.8-flash",
         clientOptions: {
           vertexai: true,
           apiKey: "enterprise-key",
@@ -1538,7 +1538,7 @@ describe("MetaMuse exercise fallbacks", () => {
       gemini: {
         apiMode: "enterprise-agent-platform",
         endpoint: "https://aiplatform.googleapis.com/",
-        model: "gemini-3.7-flash",
+        model: "gemini-3.8-flash",
         clientOptions: {
           vertexai: true,
           apiKey: "enterprise-key",
@@ -1586,7 +1586,7 @@ describe("MetaMuse exercise fallbacks", () => {
       "[ai] retrying with fallback provider",
       expect.objectContaining({
         operation: "choice exercise generation",
-        failedModel: "gemini-3.7-flash",
+        failedModel: "gemini-3.8-flash",
         fallbackProvider: "meta",
         fallbackModel: "muse-spark-1.2",
       }),

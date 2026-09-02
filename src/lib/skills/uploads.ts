@@ -14,6 +14,7 @@ import {
 import { formatEnvError, getGeminiEnv } from "@/lib/env";
 import {
   DEFAULT_GEMINI_MODEL,
+  GEMINI_LOW_THINKING_CONFIG,
   getGeminiRuntimeLogContext,
   getGeminiErrorLogDetails,
   getPublicGeminiFailureMessage,
@@ -2511,9 +2512,7 @@ function createGeminiSourceTextExtractor({
               config: {
                 responseMimeType: "application/json",
                 responseJsonSchema: geminiSourceExtractionJsonSchema,
-                thinkingConfig: {
-                  thinkingBudget: 128,
-                },
+                thinkingConfig: GEMINI_LOW_THINKING_CONFIG,
               },
             });
             const text = response.text;

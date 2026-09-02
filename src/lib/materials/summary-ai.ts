@@ -3,7 +3,11 @@ import "server-only";
 import { GoogleGenAI } from "@google/genai";
 
 import { getGeminiEnv } from "@/lib/env";
-import { resolveGeminiRuntimeConfig, runLoggedGeminiOperation } from "@/lib/gemini";
+import {
+  GEMINI_LOW_THINKING_CONFIG,
+  resolveGeminiRuntimeConfig,
+  runLoggedGeminiOperation,
+} from "@/lib/gemini";
 import {
   buildMaterialSummaryPrompt,
   materialSummaryResponseSchema,
@@ -40,7 +44,7 @@ export function createGeminiMaterialSummaryGenerator(): MaterialSummaryGenerator
           config: {
             responseMimeType: "application/json",
             responseJsonSchema: materialSummaryJsonSchema,
-            thinkingConfig: { thinkingBudget: 128 },
+            thinkingConfig: GEMINI_LOW_THINKING_CONFIG,
           },
         });
         if (!response.text) {

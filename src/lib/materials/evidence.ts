@@ -16,6 +16,7 @@ import {
 } from "@/generated/prisma/client";
 import { getGeminiEnv } from "@/lib/env";
 import {
+  GEMINI_LOW_THINKING_CONFIG,
   getGeminiRuntimeLogContext,
   resolveGeminiRuntimeConfig,
   runWithGeminiProviderFallback,
@@ -472,7 +473,7 @@ export function createGeminiMaterialOcrGenerator(input: {
             },
           },
         },
-        thinkingConfig: { thinkingBudget: 128 },
+        thinkingConfig: GEMINI_LOW_THINKING_CONFIG,
       },
     });
     if (!response.text) {
