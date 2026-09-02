@@ -14,7 +14,7 @@ import {
 const releaseTuple = {
   releaseId: "release-2026-08-31-01",
   provider: "gemini",
-  model: "gemini-3.7-flash",
+  model: "gemini-3.8-flash",
   endpointMode: "vertex",
   generationPromptVersion: "generation-prompt-v3",
   verificationPromptVersion: "verification-prompt-v2",

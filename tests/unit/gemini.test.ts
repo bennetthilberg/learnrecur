@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  GEMINI_LOW_THINKING_CONFIG,
   getGeminiRuntimeLogContext,
   getPublicGeminiFailureMessage,
   getPublicGeminiScopePlanningFailureMessage,
@@ -11,12 +12,13 @@ import {
 } from "@/lib/gemini";
 
 describe("Gemini fallback helpers", () => {
-  it("defaults the primary model to Gemini 3.7 Flash", () => {
+  it("defaults the primary model to Gemini 3.8 Flash", () => {
     const config = resolveGeminiRuntimeConfig({
       GEMINI_API_KEY: "developer-key",
     });
 
-    expect(config.model).toBe("gemini-3.7-flash");
+    expect(config.model).toBe("gemini-3.8-flash");
+    expect(GEMINI_LOW_THINKING_CONFIG).toEqual({ thinkingLevel: "LOW" });
   });
 
   it("parses fallback models from comma-separated env values", () => {
@@ -31,14 +33,14 @@ describe("Gemini fallback helpers", () => {
     const config = resolveGeminiRuntimeConfig({
       GEMINI_API_KEY: "developer-key",
       GEMINI_ENTERPRISE_AGENT_KEY_PLATFORM_KEY: "enterprise-key",
-      GEMINI_MODEL: "gemini-3.7-flash",
+      GEMINI_MODEL: "gemini-3.8-flash",
     });
 
     expect(getGeminiRuntimeLogContext(config)).toEqual({
       provider: "google",
       apiMode: "enterprise-agent-platform",
       endpoint: "https://aiplatform.googleapis.com/",
-      model: "gemini-3.7-flash",
+      model: "gemini-3.8-flash",
     });
     expect(config.clientOptions).toMatchObject({
       vertexai: true,
@@ -52,14 +54,14 @@ describe("Gemini fallback helpers", () => {
   it("uses the Gemini Developer API when no Enterprise Agent Platform key is configured", () => {
     const config = resolveGeminiRuntimeConfig({
       GEMINI_API_KEY: "developer-key",
-      GEMINI_MODEL: "gemini-3.7-flash",
+      GEMINI_MODEL: "gemini-3.8-flash",
     });
 
     expect(getGeminiRuntimeLogContext(config)).toEqual({
       provider: "google",
       apiMode: "developer-api",
       endpoint: "https://generativelanguage.googleapis.com/",
-      model: "gemini-3.7-flash",
+      model: "gemini-3.8-flash",
     });
     expect(config.clientOptions).toEqual({
       apiKey: "developer-key",
@@ -72,7 +74,7 @@ describe("Gemini fallback helpers", () => {
 
     await expect(
       runWithGeminiProviderFallback({
-        primaryModel: "gemini-3.7-flash",
+        primaryModel: "gemini-3.8-flash",
         operation: "unit test generation",
         async runPrimary() {
           calls.push("gemini");
@@ -101,7 +103,7 @@ describe("Gemini fallback helpers", () => {
     expect(warningSpy).toHaveBeenCalledWith(
       "[ai] retrying with fallback provider",
       expect.objectContaining({
-        failedModel: "gemini-3.7-flash",
+        failedModel: "gemini-3.8-flash",
         fallbackProvider: "meta",
         fallbackModel: "muse-spark-1.2",
       }),
@@ -121,7 +123,7 @@ describe("Gemini fallback helpers", () => {
 
       await expect(
         runWithGeminiProviderFallback({
-          primaryModel: "gemini-3.7-flash",
+          primaryModel: "gemini-3.8-flash",
           operation: "unit test generation",
           async runPrimary() {
             calls.push("gemini");
@@ -169,7 +171,7 @@ describe("Gemini fallback helpers", () => {
 
     await expect(
       runWithGeminiProviderFallback({
-        primaryModel: "gemini-3.7-flash",
+        primaryModel: "gemini-3.8-flash",
         operation: "unit test generation",
         async runPrimary() {
           calls.push("gemini");

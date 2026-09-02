@@ -26,7 +26,7 @@ afterEach(() => {
 const gemini = {
   apiMode: "enterprise-agent-platform" as const,
   endpoint: "https://aiplatform.googleapis.com/",
-  model: "gemini-3.7-flash",
+  model: "gemini-3.8-flash",
   clientOptions: {
     vertexai: true,
     apiKey: "enterprise-key",

@@ -2,6 +2,7 @@ import "server-only";
 
 import { getGeminiEnv } from "@/lib/env";
 import {
+  GEMINI_LOW_THINKING_CONFIG,
   getGeminiRuntimeLogContext,
   resolveGeminiRuntimeConfig,
   runLoggedGeminiOperation,
@@ -251,7 +252,7 @@ function createGeminiMaterialDraftTargetRepairer(
               config: {
                 responseMimeType: "application/json",
                 responseJsonSchema: draftTargetRepairJsonSchema,
-                thinkingConfig: { thinkingBudget: 192 },
+                thinkingConfig: GEMINI_LOW_THINKING_CONFIG,
               },
             });
             if (!response.text) {
@@ -295,7 +296,7 @@ function createGeminiMaterialScopeReviewer(
               config: {
                 responseMimeType: "application/json",
                 responseJsonSchema: materialScopePlannerJsonSchema,
-                thinkingConfig: { thinkingBudget: 256 },
+                thinkingConfig: GEMINI_LOW_THINKING_CONFIG,
               },
             });
             if (!response.text) {
@@ -339,7 +340,7 @@ function createGeminiMaterialScopePlanner(
               config: {
                 responseMimeType: "application/json",
                 responseJsonSchema: materialScopePlannerJsonSchema,
-                thinkingConfig: { thinkingBudget: 256 },
+                thinkingConfig: GEMINI_LOW_THINKING_CONFIG,
               },
             });
             if (!response.text) {
@@ -405,7 +406,7 @@ function createGeminiMaterialDraftVerifier(
               config: {
                 responseMimeType: "application/json",
                 responseJsonSchema: draftVerificationJsonSchema,
-                thinkingConfig: { thinkingBudget: 128 },
+                thinkingConfig: GEMINI_LOW_THINKING_CONFIG,
               },
             });
             if (!response.text) {

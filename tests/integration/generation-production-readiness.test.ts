@@ -49,13 +49,13 @@ describeDatabase("generation production-readiness persistence", () => {
     ]);
     const releaseTuple = {
       provider: "google",
-      model: "gemini-3.7-flash",
+      model: "gemini-3.8-flash",
       promptVersion: "skill-mcq-v1",
     };
     const release = await prisma.modelRelease.create({
       data: {
         provider: "google",
-        model: "gemini-3.7-flash",
+        model: "gemini-3.8-flash",
         releaseFingerprint: `${runId}-release`,
         state: ModelReleaseState.CANARY,
         releaseTuple,
@@ -71,7 +71,7 @@ describeDatabase("generation production-readiness persistence", () => {
         status: GenerationJobStatus.RUNNING,
         stage: GenerationJobStage.VERIFYING,
         provider: "google",
-        model: "gemini-3.7-flash",
+        model: "gemini-3.8-flash",
         promptVersion: "skill-mcq-v1",
         idempotencyKey: "same-logical-job",
         requestedCount: 5,
@@ -125,7 +125,7 @@ describeDatabase("generation production-readiness persistence", () => {
         skillId: ownerSkill.id,
         kind: GenerationJobKind.CHOICE_EXERCISE_GENERATION,
         provider: "google",
-        model: "gemini-3.7-flash",
+        model: "gemini-3.8-flash",
         promptVersion: "skill-mcq-v1",
         requestedCount: 1,
       },
@@ -141,7 +141,7 @@ describeDatabase("generation production-readiness persistence", () => {
         eventKey: "bad-link",
         stage: GenerationJobStage.QUEUED,
         attempt: 0,
-        releaseTuple: { provider: "google", model: "gemini-3.7-flash" },
+        releaseTuple: { provider: "google", model: "gemini-3.8-flash" },
       },
     })).rejects.toBeInstanceOf(Prisma.PrismaClientKnownRequestError);
   });

@@ -1,8 +1,15 @@
-import { GoogleGenAI, type GenerateContentResponse } from "@google/genai";
+import {
+  GoogleGenAI,
+  type GenerateContentResponse,
+  type ThinkingLevel,
+} from "@google/genai";
 
-export const DEFAULT_GEMINI_MODEL = "gemini-3.7-flash";
+export const DEFAULT_GEMINI_MODEL = "gemini-3.8-flash";
 export const DEFAULT_GEMINI_EMBEDDING_MODEL = "gemini-embedding-2";
 export const DEFAULT_GEMINI_FALLBACK_MODELS = [] as const;
+export const GEMINI_LOW_THINKING_CONFIG = Object.freeze({
+  thinkingLevel: "LOW" as ThinkingLevel,
+});
 
 export type GeminiApiMode = "developer-api" | "enterprise-agent-platform";
 

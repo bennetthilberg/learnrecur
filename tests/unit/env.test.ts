@@ -138,7 +138,7 @@ describe("environment validation", () => {
       GEMINI_API_KEY: "gemini-secret",
       GEMINI_EMBEDDING_API_MODE: "auto",
       GEMINI_EMBEDDING_MODEL: "gemini-embedding-2",
-      GEMINI_MODEL: "gemini-3.7-flash",
+      GEMINI_MODEL: "gemini-3.8-flash",
       GEMINI_FALLBACK_MODELS: [],
     });
     expect(hasMetaMuseEnv()).toBe(false);
@@ -164,7 +164,7 @@ describe("environment validation", () => {
   it("accepts the Gemini Enterprise Agent Platform key without a developer API key", () => {
     resetManagedEnv({
       GEMINI_ENTERPRISE_AGENT_KEY_PLATFORM_KEY: " eap-secret ",
-      GEMINI_MODEL: " gemini-3.7-flash ",
+      GEMINI_MODEL: " gemini-3.8-flash ",
     });
 
     expect(hasGeminiEnv()).toBe(true);
@@ -172,7 +172,7 @@ describe("environment validation", () => {
       GEMINI_ENTERPRISE_AGENT_KEY_PLATFORM_KEY: "eap-secret",
       GEMINI_EMBEDDING_API_MODE: "auto",
       GEMINI_EMBEDDING_MODEL: "gemini-embedding-2",
-      GEMINI_MODEL: "gemini-3.7-flash",
+      GEMINI_MODEL: "gemini-3.8-flash",
       GEMINI_FALLBACK_MODELS: [],
     });
   });
@@ -234,7 +234,7 @@ describe("environment validation", () => {
       DATABASE_URL: "postgresql://runtime:secret@example-pooler.aws.neon.tech/neondb?sslmode=require",
       DIRECT_URL: "postgresql://migrate:secret@example.aws.neon.tech/neondb?sslmode=require",
       GEMINI_API_KEY: "gemini-secret",
-      GEMINI_MODEL: "gemini-3.7-flash",
+      GEMINI_MODEL: "gemini-3.8-flash",
       META_API_KEY: "LLM_opaque_meta_key",
       META_MUSE_MODEL: "muse-spark-1.2",
       AWS_REGION: "us-east-1",
@@ -272,7 +272,7 @@ describe("environment validation", () => {
       DATABASE_URL: "postgresql://runtime:secret@example-pooler.aws.neon.tech/neondb?sslmode=require",
       DIRECT_URL: "postgresql://migrate:secret@example.aws.neon.tech/neondb?sslmode=require",
       GEMINI_API_KEY: "gemini-secret",
-      GEMINI_MODEL: "gemini-3.7-flash",
+      GEMINI_MODEL: "gemini-3.8-flash",
       AWS_REGION: "us-east-1",
       S3_BUCKET_NAME: "learnrecur-prod-source-uploads",
       AWS_ACCESS_KEY_ID: "prod-access-key",
