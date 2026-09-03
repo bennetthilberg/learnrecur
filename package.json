@@ -70,7 +70,7 @@
     "@types/react-dom": "19.2.3",
     "@types/ws": "^8.18.1",
     "@vitest/coverage-v8": "^4.1.8",
-    "concurrently": "^10.0.3",
+    "concurrently": "^10.0.5",
     "dotenv": "^17.4.2",
     "eslint": "9.39.4",
     "eslint-config-next": "16.2.11",
