@@ -39,7 +39,7 @@ const gemini = {
 const metaMuseFallback = {
   apiKey: "LLM|123|secret",
   baseUrl: "https://api.meta.ai/v1",
-  model: "muse-spark-1.2",
+  model: "muse-spark-1.3",
 };
 
 const plannerInput: MaterialScopePlannerInput = {

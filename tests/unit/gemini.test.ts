@@ -90,7 +90,7 @@ describe("Gemini fallback helpers", () => {
         },
         fallback: {
           provider: "meta",
-          model: "muse-spark-1.2",
+          model: "muse-spark-1.3",
           async run() {
             calls.push("meta");
             return "ok:meta";
@@ -105,7 +105,7 @@ describe("Gemini fallback helpers", () => {
       expect.objectContaining({
         failedModel: "gemini-3.8-flash",
         fallbackProvider: "meta",
-        fallbackModel: "muse-spark-1.2",
+        fallbackModel: "muse-spark-1.3",
       }),
     );
     warningSpy.mockRestore();
@@ -139,7 +139,7 @@ describe("Gemini fallback helpers", () => {
           },
           fallback: {
             provider: "meta",
-            model: "muse-spark-1.2",
+            model: "muse-spark-1.3",
             async run() {
               calls.push("meta");
               return "ok:meta";
@@ -187,7 +187,7 @@ describe("Gemini fallback helpers", () => {
         },
         fallback: {
           provider: "meta",
-          model: "muse-spark-1.2",
+          model: "muse-spark-1.3",
           async run() {
             calls.push("meta");
             return "ok:meta";

@@ -145,7 +145,7 @@ describe("environment validation", () => {
     expect(getMetaMuseEnv()).toEqual({
       META_API_KEY: undefined,
       META_MUSE_BASE_URL: "https://api.meta.ai/v1",
-      META_MUSE_MODEL: "muse-spark-1.2",
+      META_MUSE_MODEL: "muse-spark-1.3",
     });
 
     resetManagedEnv({
@@ -236,7 +236,7 @@ describe("environment validation", () => {
       GEMINI_API_KEY: "gemini-secret",
       GEMINI_MODEL: "gemini-3.8-flash",
       META_API_KEY: "LLM_opaque_meta_key",
-      META_MUSE_MODEL: "muse-spark-1.2",
+      META_MUSE_MODEL: "muse-spark-1.3",
       AWS_REGION: "us-east-1",
       S3_BUCKET_NAME: "learnrecur-prod-source-uploads",
       AWS_ACCESS_KEY_ID: "prod-access-key",
@@ -257,7 +257,7 @@ describe("environment validation", () => {
       DATABASE_URL: "postgresql://runtime:secret@example-pooler.aws.neon.tech/neondb?sslmode=require",
       DIRECT_URL: "postgresql://migrate:secret@example.aws.neon.tech/neondb?sslmode=require",
       META_API_KEY: "LLM_opaque_meta_key",
-      META_MUSE_MODEL: "muse-spark-1.2",
+      META_MUSE_MODEL: "muse-spark-1.3",
       META_MUSE_BASE_URL: "https://api.meta.ai/v1",
       INNGEST_APP_ID: "learnrecur",
       INNGEST_DEV: "0",
@@ -289,7 +289,7 @@ describe("environment validation", () => {
     const productionEnv = getProductionEnv();
     expect(productionEnv).not.toHaveProperty("META_API_KEY");
     expect(productionEnv).toMatchObject({
-      META_MUSE_MODEL: "muse-spark-1.2",
+      META_MUSE_MODEL: "muse-spark-1.3",
       META_MUSE_BASE_URL: "https://api.meta.ai/v1",
     });
   });
