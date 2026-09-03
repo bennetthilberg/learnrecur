@@ -1418,7 +1418,7 @@ function metaMuseResponse(value: unknown) {
   return new Response(
     JSON.stringify({
       status: "completed",
-      model: "muse-spark-1.2",
+      model: "muse-spark-1.3",
       output: [
         {
           type: "message",
@@ -1440,7 +1440,7 @@ describe("MetaMuse exercise fallbacks", () => {
     await createMetaMuseChoiceExerciseGenerator({
       apiKey: "LLM|123|secret",
       baseUrl: "https://api.meta.ai/v1",
-      model: "muse-spark-1.2",
+      model: "muse-spark-1.3",
     })({
       skill: {
         id: "skill_1",
@@ -1491,7 +1491,7 @@ describe("MetaMuse exercise fallbacks", () => {
       metaMuseFallback: {
         apiKey: "LLM|123|secret",
         baseUrl: "https://api.meta.ai/v1",
-        model: "muse-spark-1.2",
+        model: "muse-spark-1.3",
       },
     })({
       skill: {
@@ -1550,7 +1550,7 @@ describe("MetaMuse exercise fallbacks", () => {
       metaMuseFallback: {
         apiKey: "LLM|123|secret",
         baseUrl: "https://api.meta.ai/v1",
-        model: "muse-spark-1.2",
+        model: "muse-spark-1.3",
       },
       recordProviderUsage,
     })({
@@ -1580,7 +1580,7 @@ describe("MetaMuse exercise fallbacks", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(recordProviderUsage).toHaveBeenCalledWith({
       provider: "meta",
-      model: "muse-spark-1.2",
+      model: "muse-spark-1.3",
     });
     expect(warningSpy).toHaveBeenCalledWith(
       "[ai] retrying with fallback provider",
@@ -1588,7 +1588,7 @@ describe("MetaMuse exercise fallbacks", () => {
         operation: "choice exercise generation",
         failedModel: "gemini-3.8-flash",
         fallbackProvider: "meta",
-        fallbackModel: "muse-spark-1.2",
+        fallbackModel: "muse-spark-1.3",
       }),
     );
     const requestBody = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
@@ -1624,7 +1624,7 @@ describe("MetaMuse exercise fallbacks", () => {
     const metaMuse = {
       apiKey: "LLM|123|secret",
       baseUrl: "https://api.meta.ai/v1",
-      model: "muse-spark-1.2",
+      model: "muse-spark-1.3",
     };
     const skill = {
       id: "skill_1",
@@ -1685,9 +1685,9 @@ describe("MetaMuse exercise fallbacks", () => {
       JSON.parse(String(init?.body)),
     );
     expect(requestBodies.map((body) => body.model)).toEqual([
-      "muse-spark-1.2",
-      "muse-spark-1.2",
-      "muse-spark-1.2",
+      "muse-spark-1.3",
+      "muse-spark-1.3",
+      "muse-spark-1.3",
     ]);
     expect(
       requestBodies.map((body) => body.text.format.name),

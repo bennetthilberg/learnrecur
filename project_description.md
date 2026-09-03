@@ -498,7 +498,7 @@ The selected stack is:
 - Neon Postgres.
 - Prisma.
 - Amazon S3 for private object storage.
-- Google Gemini as the primary AI provider, with Meta Muse Spark 1.2 as the direct multimodal fallback for extraction, generation, and verification.
+- Google Gemini as the primary AI provider, with Meta Muse Spark 1.3 as the direct multimodal fallback for extraction, generation, and verification.
 - Inngest for background jobs.
 - Resend for email.
 - Vercel for hosting.
@@ -532,7 +532,7 @@ Use a narrow two-provider chain for source-backed work. Google Gemini is primary
 
 The model should remain environment-configurable through `GEMINI_MODEL` so it can be changed without code edits.
 
-Meta Muse Spark 1.2 is the fallback through Meta's Model API. It remains configurable through `META_MUSE_MODEL`, and its server-only credential is `META_API_KEY`. Treat the issued key as an opaque Bearer token; do not parse it or reconstruct it from team or project identifiers. Do not route this fallback through an intermediary provider.
+Meta Muse Spark 1.3 is the fallback through Meta's Model API. It remains configurable through `META_MUSE_MODEL`, and its server-only credential is `META_API_KEY`. Treat the issued key as an opaque Bearer token; do not parse it or reconstruct it from team or project identifiers. Do not route this fallback through an intermediary provider.
 
 The provider chain is responsible for:
 

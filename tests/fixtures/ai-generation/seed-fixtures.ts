@@ -75,7 +75,7 @@ function successReplay(
   metadataOverrides: Partial<typeof primaryMetadata> = {},
 ): ReplayAttempt {
   return {
-    model: provider === "primary" ? "fixture-gemini-3.8-flash" : "fixture-muse-spark-1.2",
+    model: provider === "primary" ? "fixture-gemini-3.8-flash" : "fixture-muse-spark-1.3",
     outcome: "success",
     retryable: false,
     response,
@@ -92,7 +92,7 @@ function failedReplay(
   retryable = true,
 ): ReplayAttempt {
   return {
-    model: provider === "primary" ? "fixture-gemini-3.8-flash" : "fixture-muse-spark-1.2",
+    model: provider === "primary" ? "fixture-gemini-3.8-flash" : "fixture-muse-spark-1.3",
     outcome: "failure",
     retryable,
     errorCode,

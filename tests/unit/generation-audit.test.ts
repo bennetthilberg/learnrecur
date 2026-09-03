@@ -89,7 +89,7 @@ const auditMetadata = {
     verifier: {
       releaseId: "release-2026-08-31-verifier-01",
       provider: "meta",
-      model: "muse-spark-1.2",
+      model: "muse-spark-1.3",
       decision: "ACCEPTED",
       independentAnswerMatch: true,
       premisesConsistent: true,
@@ -131,7 +131,7 @@ describe("generation audit metadata", () => {
       acceptanceDecision: "ACCEPTED",
     });
     expect(result.candidate?.verifier).toMatchObject({
-      model: "muse-spark-1.2",
+      model: "muse-spark-1.3",
       premisesConsistent: true,
     });
     expect(getGenerationAuditMetadataByteSize(result)).toBeLessThanOrEqual(

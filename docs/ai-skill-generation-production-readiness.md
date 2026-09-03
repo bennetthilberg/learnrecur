@@ -94,7 +94,7 @@ generators, strict provider response schemas, a 3,557-character prompt, a
 source-backed statistics skill, and existing-exercise context.
 
 - The historical `gemini-3.7-flash` probe returned five structurally valid exercises.
-- `muse-spark-1.2` returned five structurally valid exercises.
+- The historical `muse-spark-1.2` probe returned five structurally valid exercises.
 - The current deterministic response validator accepted all ten candidates.
 - One Gemini candidate said that 95% of sampled volunteers supported an
   initiative while also giving a confidence interval of `(0.65, 0.75)`. The

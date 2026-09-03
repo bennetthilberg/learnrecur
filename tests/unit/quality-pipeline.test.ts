@@ -69,7 +69,7 @@ describe("buildGenerationQualityContext", () => {
     });
     const metadata = buildGenerationRuntimeMetadata({
       provider: "meta",
-      model: "muse-spark-1.2",
+      model: "muse-spark-1.3",
       promptVersion: "skill-mcq-v1",
       context,
       sourceMedia: Array.from({ length: 40 }, (_, index) => ({
@@ -94,7 +94,7 @@ describe("buildGenerationQualityContext", () => {
     });
     const metadata = buildGenerationRuntimeMetadata({
       provider: "meta",
-      model: "muse-spark-1.2",
+      model: "muse-spark-1.3",
       promptVersion: "skill-mcq-v1",
       context,
       sourceMedia: [
@@ -104,7 +104,7 @@ describe("buildGenerationQualityContext", () => {
 
     expect(metadata.releaseTuple).toMatchObject({
       provider: "meta",
-      model: "muse-spark-1.2",
+      model: "muse-spark-1.3",
       endpointMode: "responses",
     });
     expect(metadata.contextManifest).toMatchObject({
@@ -125,7 +125,7 @@ describe("buildGenerationQualityContext", () => {
     });
     const metadata = buildGenerationRuntimeMetadata({
       provider: "meta",
-      model: "muse-spark-1.2",
+      model: "muse-spark-1.3",
       promptVersion: "skill-mcq-v1",
       context,
       sourceMedia: [{ sourceFileId: "pdf-source-1", mimeType: "application/pdf" }],
