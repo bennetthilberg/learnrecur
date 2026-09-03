@@ -153,6 +153,29 @@ describe("ensureDatabaseUser", () => {
     });
   });
 
+  it("does not recreate a user after a durable deletion request exists", async () => {
+    const { client, upsert } = makeMirrorClient();
+    const findDeletionJob = vi.fn().mockResolvedValue({ id: "deletion-job-1" });
+
+    await expect(
+      ensureDatabaseUser(baseClerkUser, {
+        prisma: {
+          ...client,
+          accountDeletionJob: { findUnique: findDeletionJob },
+        },
+        skipEnvCheck: true,
+      }),
+    ).resolves.toEqual({
+      status: "error",
+      message: "Account deletion is in progress. App access is disabled.",
+    });
+    expect(findDeletionJob).toHaveBeenCalledWith({
+      where: { userId: baseClerkUser.id },
+      select: { id: true },
+    });
+    expect(upsert).not.toHaveBeenCalled();
+  });
+
   it("falls back from full name to first/last name, then username, then null", async () => {
     const cases: Array<{
       clerkUser: ClerkUserSnapshot;

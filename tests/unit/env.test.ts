@@ -46,6 +46,9 @@ const managedEnvKeys = [
   "INNGEST_DEV",
   "INNGEST_EVENT_KEY",
   "INNGEST_SIGNING_KEY",
+  "ALPHA_ALLOWED_EMAILS",
+  "READINESS_PROBE_SECRET",
+  "SUPPORT_EMAIL",
   "LEARNRECUR_DEPLOYMENT_TIER",
   "LEARNRECUR_STRICT_ENV",
   "VERCEL_ENV",
@@ -247,6 +250,9 @@ describe("environment validation", () => {
       INNGEST_SIGNING_KEY: "inngest-signing-key",
       RESEND_API_KEY: "re_example",
       RESEND_FROM_EMAIL: "LearnRecur <practice@app.learnrecur.com>",
+      ALPHA_ALLOWED_EMAILS: "alpha@example.com",
+      READINESS_PROBE_SECRET: "readiness-secret-with-at-least-32-characters",
+      SUPPORT_EMAIL: "support@example.com",
     });
 
     expect(hasProductionEnv()).toBe(true);
@@ -261,6 +267,9 @@ describe("environment validation", () => {
       META_MUSE_BASE_URL: "https://api.meta.ai/v1",
       INNGEST_APP_ID: "learnrecur",
       INNGEST_DEV: "0",
+      ALPHA_ALLOWED_EMAILS: "alpha@example.com",
+      READINESS_PROBE_SECRET: "readiness-secret-with-at-least-32-characters",
+      SUPPORT_EMAIL: "support@example.com",
     });
   });
 
@@ -283,6 +292,9 @@ describe("environment validation", () => {
       INNGEST_SIGNING_KEY: "inngest-signing-key",
       RESEND_API_KEY: "re_example",
       RESEND_FROM_EMAIL: "LearnRecur <practice@app.learnrecur.com>",
+      ALPHA_ALLOWED_EMAILS: "alpha@example.com",
+      READINESS_PROBE_SECRET: "readiness-secret-with-at-least-32-characters",
+      SUPPORT_EMAIL: "support@example.com",
     });
 
     expect(hasProductionEnv()).toBe(true);
@@ -313,6 +325,9 @@ describe("environment validation", () => {
       INNGEST_SIGNING_KEY: "inngest-signing-key",
       RESEND_API_KEY: "re_example",
       RESEND_FROM_EMAIL: "LearnRecur <practice@app.learnrecur.com>",
+      ALPHA_ALLOWED_EMAILS: "alpha@example.com",
+      READINESS_PROBE_SECRET: "readiness-secret-with-at-least-32-characters",
+      SUPPORT_EMAIL: "support@example.com",
     });
 
     expect(hasProductionEnv()).toBe(false);
@@ -323,6 +338,35 @@ describe("environment validation", () => {
     expect(() => getProductionEnv()).toThrow(/DIRECT_URL is required/);
     expect(() => getProductionEnv()).toThrow(/INNGEST_APP_ID must not be learnrecur-dev/);
     expect(() => getProductionEnv()).toThrow(/INNGEST_DEV must be absent or false/);
+  });
+
+  it("requires closed-alpha, readiness, and support configuration in production", () => {
+    resetManagedEnv({
+      NEXT_PUBLIC_APP_URL: "https://app.learnrecur.com",
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "pk_live_example",
+      CLERK_SECRET_KEY: "sk_live_example",
+      DATABASE_URL: "postgresql://runtime:secret@example-pooler.aws.neon.tech/neondb?sslmode=require",
+      DIRECT_URL: "postgresql://migrate:secret@example.aws.neon.tech/neondb?sslmode=require",
+      GEMINI_API_KEY: "gemini-secret",
+      AWS_REGION: "us-east-1",
+      S3_BUCKET_NAME: "learnrecur-prod-source-uploads",
+      AWS_ACCESS_KEY_ID: "prod-access-key",
+      AWS_SECRET_ACCESS_KEY: "prod-secret",
+      INNGEST_APP_ID: "learnrecur",
+      INNGEST_DEV: "0",
+      INNGEST_EVENT_KEY: "inngest-event-key",
+      INNGEST_SIGNING_KEY: "inngest-signing-key",
+      RESEND_API_KEY: "re_example",
+      RESEND_FROM_EMAIL: "LearnRecur <practice@app.learnrecur.com>",
+      ALPHA_ALLOWED_EMAILS: "valid@example.com, not-an-email",
+      READINESS_PROBE_SECRET: "too-short",
+      SUPPORT_EMAIL: "not-an-email",
+    });
+
+    expect(hasProductionEnv()).toBe(false);
+    expect(() => getProductionEnv()).toThrow(/ALPHA_ALLOWED_EMAILS/);
+    expect(() => getProductionEnv()).toThrow(/READINESS_PROBE_SECRET/);
+    expect(() => getProductionEnv()).toThrow(/SUPPORT_EMAIL/);
   });
 
   it("formats missing production environment variables by name", () => {
@@ -375,6 +419,9 @@ describe("environment validation", () => {
       INNGEST_SIGNING_KEY: "inngest-signing-key",
       RESEND_API_KEY: "re_example",
       RESEND_FROM_EMAIL: "LearnRecur <practice@app.learnrecur.com>",
+      ALPHA_ALLOWED_EMAILS: "alpha@example.com",
+      READINESS_PROBE_SECRET: "readiness-secret-with-at-least-32-characters",
+      SUPPORT_EMAIL: "support@example.com",
     });
 
     expect(hasProductionEnv()).toBe(false);

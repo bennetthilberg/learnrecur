@@ -3,6 +3,12 @@ import "server-only";
 import { NonRetriableError } from "inngest";
 
 import {
+  AccountDeletionWorkflowError,
+  recoverRetryableAccountDeletionJobs,
+  runAccountDeletionJob,
+} from "@/lib/account-deletion";
+import {
+  parseAccountDeletionEventPayload,
   parseExerciseRefillEventPayload,
   parseMaterialBatchActivationEventPayload,
   parseMaterialCleanupEventPayload,
@@ -52,6 +58,7 @@ import {
   SOURCE_UPLOAD_DRAFT_REQUESTED_EVENT,
   AGENT_SKILL_OPERATION_REQUESTED_EVENT,
   AGENT_CONNECTION_REVOCATION_REQUESTED_EVENT,
+  ACCOUNT_DELETION_REQUESTED_EVENT,
 } from "./events";
 import { inngest } from "./client";
 
@@ -291,6 +298,38 @@ export const agentConnectionRevocationFunction = inngest.createFunction(
   },
 );
 
+export const accountDeletionFunction = inngest.createFunction(
+  {
+    id: "account-deletion",
+    retries: 3,
+    concurrency: { limit: 1, key: "event.data.userId" },
+    triggers: [{ event: ACCOUNT_DELETION_REQUESTED_EVENT }],
+  },
+  async ({ event, step }) => {
+    const payload = parseAccountDeletionEventPayload(event.data);
+    try {
+      return await step.run("delete account", () => runAccountDeletionJob(payload));
+    } catch (error) {
+      if (error instanceof AccountDeletionWorkflowError && !error.retryable) {
+        throw new NonRetriableError(error.message, { cause: error });
+      }
+      throw error;
+    }
+  },
+);
+
+export const accountDeletionRecoveryFunction = inngest.createFunction(
+  {
+    id: "account-deletion-recovery",
+    retries: 2,
+    triggers: [{ cron: "*/15 * * * *" }],
+  },
+  async ({ step }) =>
+    step.run("redispatch retryable account deletions", () =>
+      recoverRetryableAccountDeletionJobs({ now: new Date() }),
+    ),
+);
+
 export const agentAccessMaintenanceFunction = inngest.createFunction(
   {
     id: "agent-access-maintenance",
@@ -314,6 +353,8 @@ export const learnRecurInngestFunctions = [
   materialBatchActivationFunction,
   agentSkillOperationFunction,
   agentConnectionRevocationFunction,
+  accountDeletionFunction,
+  accountDeletionRecoveryFunction,
   agentAccessMaintenanceFunction,
   duePracticeReminderFunction,
 ];

@@ -1,0 +1,38 @@
+name: production health
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-health
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    env:
+      PRODUCTION_URL: https://alpha.learnrecur.com
+      READINESS_PROBE_SECRET: ${{ secrets.PRODUCTION_READINESS_PROBE_SECRET }}
+    steps:
+      - name: Check liveness
+        shell: bash
+        run: |
+          set -euo pipefail
+          response="$(curl --fail --silent --show-error --max-time 15 --retry 2 "$PRODUCTION_URL/api/health")"
+          test "$(jq -r '.status' <<<"$response")" = "ok"
+
+      - name: Check dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$READINESS_PROBE_SECRET"
+          response="$(curl --fail --silent --show-error --max-time 20 --retry 2 \
+            -H "Authorization: Bearer $READINESS_PROBE_SECRET" \
+            "$PRODUCTION_URL/api/readiness")"
+          test "$(jq -r '.status' <<<"$response")" = "ready"

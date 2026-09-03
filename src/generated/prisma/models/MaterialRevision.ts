@@ -870,14 +870,6 @@ export type MaterialRevisionUncheckedUpdateManyWithoutMaterialNestedInput = {
   deleteMany?: Prisma.MaterialRevisionScalarWhereInput | Prisma.MaterialRevisionScalarWhereInput[]
 }
 
-export type IntFieldUpdateOperationsInput = {
-  set?: number
-  increment?: number
-  decrement?: number
-  multiply?: number
-  divide?: number
-}
-
 export type EnumMaterialRevisionStatusFieldUpdateOperationsInput = {
   set?: $Enums.MaterialRevisionStatus
 }

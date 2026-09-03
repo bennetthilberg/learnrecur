@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { AgentConnectionStatus } from "@/generated/prisma/client";
 import { parseScopeClaim } from "@/lib/agent-access/workos-gate";
+import { getAlphaAccessPolicy, isAlphaUserAllowed } from "@/lib/alpha-access";
 import { getPrisma } from "@/lib/prisma";
 
 export const AGENT_ACCESS_SCOPES = [
@@ -333,6 +334,20 @@ async function resolveAgentAuthContext(
     claims.subject !== identity.externalId ||
     identity.user.agentAccessDisabledAt
   ) {
+    recordAgentAuthFailure("identity_mapping_missing_or_disabled");
+    return null;
+  }
+
+  if (!(await isAlphaUserAllowed(identity.userId, getAlphaAccessPolicy()))) {
+    recordAgentAuthFailure("identity_mapping_missing_or_disabled");
+    return null;
+  }
+
+  const deletionJob = await prisma.accountDeletionJob.findUnique({
+    where: { userId: identity.userId },
+    select: { id: true },
+  });
+  if (deletionJob) {
     recordAgentAuthFailure("identity_mapping_missing_or_disabled");
     return null;
   }

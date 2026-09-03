@@ -385,6 +385,7 @@ type FieldRefInputType<Model, FieldType> = Model extends never ? never : FieldRe
 
 export const ModelName = {
   User: 'User',
+  AccountDeletionJob: 'AccountDeletionJob',
   Collection: 'Collection',
   SourceFile: 'SourceFile',
   StudyMaterial: 'StudyMaterial',
@@ -430,7 +431,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "collection" | "sourceFile" | "studyMaterial" | "materialRevision" | "materialSection" | "materialChunk" | "materialPage" | "materialCleanupJob" | "skill" | "skillDraftBatch" | "skillDraftBatchItem" | "skillSourceRef" | "exercise" | "exerciseAttempt" | "reviewLog" | "exerciseFlag" | "generationJob" | "modelRelease" | "generationAuditRecord" | "reminderPreference" | "reminderSendLog" | "workosIdentity" | "agentConnection" | "agentSkillOperation" | "agentOperationAction" | "agentOperationSource" | "agentSkillOperationItem" | "agentExerciseCandidate" | "agentRevocationOutbox" | "agentRateLimitBucket"
+    modelProps: "user" | "accountDeletionJob" | "collection" | "sourceFile" | "studyMaterial" | "materialRevision" | "materialSection" | "materialChunk" | "materialPage" | "materialCleanupJob" | "skill" | "skillDraftBatch" | "skillDraftBatchItem" | "skillSourceRef" | "exercise" | "exerciseAttempt" | "reviewLog" | "exerciseFlag" | "generationJob" | "modelRelease" | "generationAuditRecord" | "reminderPreference" | "reminderSendLog" | "workosIdentity" | "agentConnection" | "agentSkillOperation" | "agentOperationAction" | "agentOperationSource" | "agentSkillOperationItem" | "agentExerciseCandidate" | "agentRevocationOutbox" | "agentRateLimitBucket"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -505,6 +506,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.UserCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.UserCountAggregateOutputType> | number
+        }
+      }
+    }
+    AccountDeletionJob: {
+      payload: Prisma.$AccountDeletionJobPayload<ExtArgs>
+      fields: Prisma.AccountDeletionJobFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.AccountDeletionJobFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AccountDeletionJobPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.AccountDeletionJobFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AccountDeletionJobPayload>
+        }
+        findFirst: {
+          args: Prisma.AccountDeletionJobFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AccountDeletionJobPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.AccountDeletionJobFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AccountDeletionJobPayload>
+        }
+        findMany: {
+          args: Prisma.AccountDeletionJobFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AccountDeletionJobPayload>[]
+        }
+        create: {
+          args: Prisma.AccountDeletionJobCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AccountDeletionJobPayload>
+        }
+        createMany: {
+          args: Prisma.AccountDeletionJobCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.AccountDeletionJobCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AccountDeletionJobPayload>[]
+        }
+        delete: {
+          args: Prisma.AccountDeletionJobDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AccountDeletionJobPayload>
+        }
+        update: {
+          args: Prisma.AccountDeletionJobUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AccountDeletionJobPayload>
+        }
+        deleteMany: {
+          args: Prisma.AccountDeletionJobDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.AccountDeletionJobUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.AccountDeletionJobUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AccountDeletionJobPayload>[]
+        }
+        upsert: {
+          args: Prisma.AccountDeletionJobUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AccountDeletionJobPayload>
+        }
+        aggregate: {
+          args: Prisma.AccountDeletionJobAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateAccountDeletionJob>
+        }
+        groupBy: {
+          args: Prisma.AccountDeletionJobGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AccountDeletionJobGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.AccountDeletionJobCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AccountDeletionJobCountAggregateOutputType> | number
         }
       }
     }
@@ -2781,6 +2856,35 @@ export const UserScalarFieldEnum = {
 export type UserScalarFieldEnum = (typeof UserScalarFieldEnum)[keyof typeof UserScalarFieldEnum]
 
 
+export const AccountDeletionJobScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  status: 'status',
+  phase: 'phase',
+  manifestVersion: 'manifestVersion',
+  manifest: 'manifest',
+  objectCount: 'objectCount',
+  deletedObjectCount: 'deletedObjectCount',
+  agentConnectionCount: 'agentConnectionCount',
+  revokedAgentConnectionCount: 'revokedAgentConnectionCount',
+  attemptCount: 'attemptCount',
+  clerkAttemptCount: 'clerkAttemptCount',
+  accessDisabledAt: 'accessDisabledAt',
+  objectsDeletedAt: 'objectsDeletedAt',
+  relationalDataDeletedAt: 'relationalDataDeletedAt',
+  clerkDeletedAt: 'clerkDeletedAt',
+  startedAt: 'startedAt',
+  completedAt: 'completedAt',
+  lastErrorCode: 'lastErrorCode',
+  lastErrorMessage: 'lastErrorMessage',
+  nextAttemptAt: 'nextAttemptAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type AccountDeletionJobScalarFieldEnum = (typeof AccountDeletionJobScalarFieldEnum)[keyof typeof AccountDeletionJobScalarFieldEnum]
+
+
 export const CollectionScalarFieldEnum = {
   id: 'id',
   userId: 'userId',
@@ -3450,19 +3554,19 @@ export const SortOrder = {
 export type SortOrder = (typeof SortOrder)[keyof typeof SortOrder]
 
 
+export const JsonNullValueInput = {
+  JsonNull: JsonNull
+} as const
+
+export type JsonNullValueInput = (typeof JsonNullValueInput)[keyof typeof JsonNullValueInput]
+
+
 export const NullableJsonNullValueInput = {
   DbNull: DbNull,
   JsonNull: JsonNull
 } as const
 
 export type NullableJsonNullValueInput = (typeof NullableJsonNullValueInput)[keyof typeof NullableJsonNullValueInput]
-
-
-export const JsonNullValueInput = {
-  JsonNull: JsonNull
-} as const
-
-export type JsonNullValueInput = (typeof JsonNullValueInput)[keyof typeof JsonNullValueInput]
 
 
 export const QueryMode = {
@@ -3525,6 +3629,62 @@ export type ListDateTimeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaM
 
 
 /**
+ * Reference to a field of type 'AccountDeletionJobStatus'
+ */
+export type EnumAccountDeletionJobStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AccountDeletionJobStatus'>
+    
+
+
+/**
+ * Reference to a field of type 'AccountDeletionJobStatus[]'
+ */
+export type ListEnumAccountDeletionJobStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AccountDeletionJobStatus[]'>
+    
+
+
+/**
+ * Reference to a field of type 'AccountDeletionPhase'
+ */
+export type EnumAccountDeletionPhaseFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AccountDeletionPhase'>
+    
+
+
+/**
+ * Reference to a field of type 'AccountDeletionPhase[]'
+ */
+export type ListEnumAccountDeletionPhaseFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AccountDeletionPhase[]'>
+    
+
+
+/**
+ * Reference to a field of type 'Int'
+ */
+export type IntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Int'>
+    
+
+
+/**
+ * Reference to a field of type 'Int[]'
+ */
+export type ListIntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Int[]'>
+    
+
+
+/**
+ * Reference to a field of type 'Json'
+ */
+export type JsonFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Json'>
+    
+
+
+/**
+ * Reference to a field of type 'QueryMode'
+ */
+export type EnumQueryModeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'QueryMode'>
+    
+
+
+/**
  * Reference to a field of type 'CollectionStatus'
  */
 export type EnumCollectionStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'CollectionStatus'>
@@ -3563,34 +3723,6 @@ export type EnumSourceFileStatusFieldRefInput<$PrismaModel> = FieldRefInputType<
  * Reference to a field of type 'SourceFileStatus[]'
  */
 export type ListEnumSourceFileStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'SourceFileStatus[]'>
-    
-
-
-/**
- * Reference to a field of type 'Int'
- */
-export type IntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Int'>
-    
-
-
-/**
- * Reference to a field of type 'Int[]'
- */
-export type ListIntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Int[]'>
-    
-
-
-/**
- * Reference to a field of type 'Json'
- */
-export type JsonFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Json'>
-    
-
-
-/**
- * Reference to a field of type 'QueryMode'
- */
-export type EnumQueryModeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'QueryMode'>
     
 
 
@@ -4243,6 +4375,7 @@ export type PrismaClientOptions = ({
 }
 export type GlobalOmitConfig = {
   user?: Prisma.UserOmit
+  accountDeletionJob?: Prisma.AccountDeletionJobOmit
   collection?: Prisma.CollectionOmit
   sourceFile?: Prisma.SourceFileOmit
   studyMaterial?: Prisma.StudyMaterialOmit

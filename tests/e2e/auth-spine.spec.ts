@@ -1,6 +1,13 @@
 import { expect, test } from "@playwright/test";
 
 test.describe("auth spine", () => {
+  test("alpha robots policy disallows crawling", async ({ request }) => {
+    const response = await request.get("/robots.txt");
+
+    expect(response.ok()).toBe(true);
+    expect(await response.text()).toMatch(/User-Agent: \*\s+Disallow: \//i);
+  });
+
   test("home page points signed-out users at account creation and sign-in", async ({ page }) => {
     await page.goto("/");
 
@@ -19,19 +26,22 @@ test.describe("auth spine", () => {
     await expect(page.getByText(/canvas tint|heading weight|border radius/i)).toHaveCount(0);
   });
 
-  test("policy pages are public drafts", async ({ page }) => {
+  test("policy pages publish current closed-alpha behavior", async ({ page }) => {
     await page.goto("/privacy");
 
     await expect(page.getByRole("heading", { name: /^privacy$/i })).toBeVisible();
     await expect(page.getByText(/ai processing/i)).toBeVisible();
-    await expect(page.getByText(/legal review/i)).toBeVisible();
+    await expect(page.getByText(/closed alpha privacy notice/i)).toBeVisible();
+    await expect(page.getByText(/background deletion workflow/i)).toBeVisible();
+    await expect(page.getByText(/legal review|legal advice|policy draft/i)).toHaveCount(0);
 
     await page.goto("/terms");
 
     await expect(page.getByRole("heading", { name: /^terms$/i })).toBeVisible();
     await expect(page.getByRole("list", { name: /terms summary/i })).toBeVisible();
     await expect(page.getByText(/account access/i)).toBeVisible();
-    await expect(page.getByText(/legal review/i)).toBeVisible();
+    await expect(page.getByText(/closed alpha participation terms/i)).toBeVisible();
+    await expect(page.getByText(/legal review|legal advice|participation draft/i)).toHaveCount(0);
   });
 
   test("sign-in renders the LearnRecur auth shell and Clerk form", async ({ page }) => {

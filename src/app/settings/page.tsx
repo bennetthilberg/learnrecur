@@ -3,22 +3,42 @@ import Link from "next/link";
 import { DownloadSimpleIcon } from "@phosphor-icons/react/dist/ssr";
 
 import { UserStatusPanel } from "@/components/app/user-status-panel";
+import { getAccountDeletionStatus } from "@/lib/account-deletion";
+import { hasDatabaseEnv } from "@/lib/env";
 import { getReminderSettings } from "@/lib/reminders";
 import { ensureDatabaseUser } from "@/lib/users";
 import { getAgentAccessOverview } from "@/lib/agent-access/settings";
+import { getSupportEmail } from "@/lib/support";
 
 import { ReminderSettingsForm } from "./reminder-settings-form";
 import { SkillsTopbar } from "../skills/skills-topbar";
 import { AgentAccessPanel } from "./agent-access-panel";
+import { AccountDeletionPanel } from "./account-deletion/account-deletion-panel";
 
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
   const { userId } = await auth.protect();
+  const supportEmail = getSupportEmail();
   const clerkUser = await currentUser();
 
   if (!clerkUser) {
     throw new Error("Clerk returned no authenticated user.");
+  }
+
+  const accountDeletion = hasDatabaseEnv()
+    ? await getAccountDeletionStatus(userId)
+    : { status: "none" as const, phase: null, lastErrorCode: null };
+  if (accountDeletion.status !== "none") {
+    return (
+      <main className="skillShell settingsShell">
+        <SkillsTopbar current="settings" />
+        <header className="skillHeader settingsHeader">
+          <h1>Settings</h1>
+        </header>
+        <AccountDeletionPanel status={accountDeletion} />
+      </main>
+    );
   }
 
   const databaseUser = await ensureDatabaseUser(clerkUser);
@@ -145,6 +165,13 @@ export default async function SettingsPage() {
           are not included.
         </p>
       </section>
+
+      <AccountDeletionPanel status={{ status: "none", phase: null, lastErrorCode: null }} />
+
+      <p className="settingsFinePrint">
+        <Link href="/privacy">Privacy</Link> · <Link href="/terms">Terms</Link>
+        {supportEmail ? <> · <a href={`mailto:${supportEmail}`}>Support</a></> : null}
+      </p>
     </main>
   );
 }

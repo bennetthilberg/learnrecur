@@ -61,6 +61,12 @@ export type UserMirrorClient = {
       };
     }) => Promise<MirroredUserRecord>;
   };
+  accountDeletionJob?: {
+    findUnique: (args: {
+      where: { userId: string };
+      select: { id: true };
+    }) => Promise<{ id: string } | null>;
+  };
 };
 
 export type AuthenticatedUserClient = UserMirrorClient & {
@@ -122,6 +128,16 @@ export async function ensureAuthenticatedDatabaseUser(
 
   try {
     const prisma = options.prisma ?? getPrisma();
+    const deletionJob = await prisma.accountDeletionJob?.findUnique({
+      where: { userId: input.userId },
+      select: { id: true },
+    });
+    if (deletionJob) {
+      return {
+        status: "error",
+        message: "Account deletion is in progress. App access is disabled.",
+      };
+    }
     const user = await prisma.user.findUnique({
       where: { id: input.userId },
       select: {
@@ -161,6 +177,17 @@ export async function ensureDatabaseUser(
     const email = clerkUser.primaryEmailAddress?.emailAddress ?? null;
     const name = getDisplayName(clerkUser);
     const prisma = options.prisma ?? getPrisma();
+    const deletionJob = await prisma.accountDeletionJob?.findUnique({
+      where: { userId: clerkUser.id },
+      select: { id: true },
+    });
+
+    if (deletionJob) {
+      return {
+        status: "error",
+        message: "Account deletion is in progress. App access is disabled.",
+      };
+    }
 
     const user = await prisma.user.upsert({
       where: { id: clerkUser.id },

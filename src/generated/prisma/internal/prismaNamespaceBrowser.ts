@@ -52,6 +52,7 @@ export const AnyNull = runtime.AnyNull
 
 export const ModelName = {
   User: 'User',
+  AccountDeletionJob: 'AccountDeletionJob',
   Collection: 'Collection',
   SourceFile: 'SourceFile',
   StudyMaterial: 'StudyMaterial',
@@ -112,6 +113,35 @@ export const UserScalarFieldEnum = {
 } as const
 
 export type UserScalarFieldEnum = (typeof UserScalarFieldEnum)[keyof typeof UserScalarFieldEnum]
+
+
+export const AccountDeletionJobScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  status: 'status',
+  phase: 'phase',
+  manifestVersion: 'manifestVersion',
+  manifest: 'manifest',
+  objectCount: 'objectCount',
+  deletedObjectCount: 'deletedObjectCount',
+  agentConnectionCount: 'agentConnectionCount',
+  revokedAgentConnectionCount: 'revokedAgentConnectionCount',
+  attemptCount: 'attemptCount',
+  clerkAttemptCount: 'clerkAttemptCount',
+  accessDisabledAt: 'accessDisabledAt',
+  objectsDeletedAt: 'objectsDeletedAt',
+  relationalDataDeletedAt: 'relationalDataDeletedAt',
+  clerkDeletedAt: 'clerkDeletedAt',
+  startedAt: 'startedAt',
+  completedAt: 'completedAt',
+  lastErrorCode: 'lastErrorCode',
+  lastErrorMessage: 'lastErrorMessage',
+  nextAttemptAt: 'nextAttemptAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type AccountDeletionJobScalarFieldEnum = (typeof AccountDeletionJobScalarFieldEnum)[keyof typeof AccountDeletionJobScalarFieldEnum]
 
 
 export const CollectionScalarFieldEnum = {
@@ -783,19 +813,19 @@ export const SortOrder = {
 export type SortOrder = (typeof SortOrder)[keyof typeof SortOrder]
 
 
+export const JsonNullValueInput = {
+  JsonNull: JsonNull
+} as const
+
+export type JsonNullValueInput = (typeof JsonNullValueInput)[keyof typeof JsonNullValueInput]
+
+
 export const NullableJsonNullValueInput = {
   DbNull: DbNull,
   JsonNull: JsonNull
 } as const
 
 export type NullableJsonNullValueInput = (typeof NullableJsonNullValueInput)[keyof typeof NullableJsonNullValueInput]
-
-
-export const JsonNullValueInput = {
-  JsonNull: JsonNull
-} as const
-
-export type JsonNullValueInput = (typeof JsonNullValueInput)[keyof typeof JsonNullValueInput]
 
 
 export const QueryMode = {
