@@ -959,10 +959,18 @@ describeDatabase("material ingestion", () => {
       "https://books.example/chapter-1",
       "https://books.example/chapter-2",
     ]);
-    expect(revision.chunks[0].locator).toMatchObject({
-      kind: "web",
-      url: "https://books.example/chapter-1",
-    });
+    expect(revision.chunks.map((chunk) => chunk.locator)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "web",
+          url: "https://books.example/chapter-1",
+        }),
+        expect.objectContaining({
+          kind: "web",
+          url: "https://books.example/chapter-2",
+        }),
+      ]),
+    );
   });
 
   it("fetches large website selections in bounded concurrent groups", async () => {
