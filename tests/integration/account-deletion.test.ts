@@ -480,6 +480,22 @@ describeDatabase("durable account deletion", () => {
       nextAttemptAt: null,
     });
 
+    await expect(
+      runAccountDeletionJob({
+        userId: fixture.userId,
+        deletionJobId: result.jobId,
+        storage: { deleteObject: vi.fn() },
+        clerk: safeClerk(),
+        ...safeAgentDependencies(),
+      }),
+    ).rejects.toMatchObject({
+      code: "ACCOUNT_DELETION_DEAD_LETTERED",
+      retryable: false,
+    });
+    await expect(
+      prisma.accountDeletionJob.findUniqueOrThrow({ where: { id: result.jobId } }),
+    ).resolves.toMatchObject({ attemptCount: 8 });
+
     const eventSender = { sendAccountDeletionRequested: vi.fn().mockResolvedValue(undefined) };
     await expect(
       requestAccountDeletion({

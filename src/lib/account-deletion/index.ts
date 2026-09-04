@@ -332,6 +332,9 @@ export async function runAccountDeletionJob(input: {
   if (job.status === AccountDeletionJobStatus.COMPLETE) {
     return { status: "already-complete", jobId: job.id };
   }
+  if (job.status === AccountDeletionJobStatus.DEAD_LETTER) {
+    throw new AccountDeletionWorkflowError("ACCOUNT_DELETION_DEAD_LETTERED", false);
+  }
 
   try {
     if (job.manifestVersion !== ACCOUNT_DELETION_MANIFEST_VERSION) {
