@@ -105,12 +105,14 @@ export type AccountDeletionJobResult =
 export class AccountDeletionWorkflowError extends Error {
   readonly code: string;
   readonly retryable: boolean;
+  readonly retryAt: Date | null;
 
-  constructor(code: string, retryable = true) {
+  constructor(code: string, retryable = true, retryAt: Date | null = null) {
     super(PUBLIC_FAILURE_MESSAGE);
     this.name = "AccountDeletionWorkflowError";
     this.code = code;
     this.retryable = retryable;
+    this.retryAt = retryAt;
   }
 }
 
@@ -238,12 +240,18 @@ export async function recoverRetryableAccountDeletionJobs(input: {
   const sender = input.eventSender ?? inngestAccountDeletionEventSender;
   const candidates = await prisma.accountDeletionJob.findMany({
     where: {
-      status: AccountDeletionJobStatus.FAILED,
+      status: {
+        in: [
+          AccountDeletionJobStatus.PENDING,
+          AccountDeletionJobStatus.RUNNING,
+          AccountDeletionJobStatus.FAILED,
+        ],
+      },
       nextAttemptAt: { lte: input.now },
     },
     orderBy: [{ nextAttemptAt: "asc" }, { createdAt: "asc" }],
     take: ACCOUNT_DELETION_RECOVERY_BATCH_SIZE,
-    select: { id: true, userId: true },
+    select: { id: true, userId: true, status: true },
   });
   let claimed = 0;
   let dispatched = 0;
@@ -253,12 +261,12 @@ export async function recoverRetryableAccountDeletionJobs(input: {
     const claim = await prisma.accountDeletionJob.updateMany({
       where: {
         id: candidate.id,
-        status: AccountDeletionJobStatus.FAILED,
+        status: candidate.status,
         nextAttemptAt: { lte: input.now },
       },
       data: {
         status: AccountDeletionJobStatus.PENDING,
-        nextAttemptAt: null,
+        nextAttemptAt: nextRecoveryAt(input.now),
       },
     });
     if (claim.count === 0) continue;
@@ -339,7 +347,7 @@ export async function runAccountDeletionJob(input: {
         startedAt: now,
         lastErrorCode: null,
         lastErrorMessage: null,
-        nextAttemptAt: null,
+        nextAttemptAt: nextRecoveryAt(now),
       },
     });
 
@@ -351,6 +359,7 @@ export async function runAccountDeletionJob(input: {
         prisma,
         now,
       });
+      await assertNoActiveUploadLeases(prisma, input.userId, now);
       manifest = await refreshManifestBeforeDestructiveSteps({
         prisma,
         userId: input.userId,
@@ -384,6 +393,7 @@ export async function runAccountDeletionJob(input: {
       }
 
       if (phase === AccountDeletionPhase.DELETE_OBJECTS) {
+        await assertNoActiveUploadLeases(prisma, input.userId, now);
         manifest = await refreshManifestBeforeDestructiveSteps({
           prisma,
           userId: input.userId,
@@ -482,6 +492,7 @@ export async function runAccountDeletionJob(input: {
       workflowError.code,
       now,
       workflowError.retryable,
+      workflowError.retryAt,
     );
     throw workflowError;
   }
@@ -597,6 +608,8 @@ async function persistAccountDeletionRequest(
         };
       }
 
+      await tx.$queryRaw`SELECT "id" FROM "users" WHERE "id" = ${input.userId} FOR UPDATE`;
+
       const [sourceFiles, materialRevisions, agentConnections] = await Promise.all([
         tx.sourceFile.findMany({
           where: { userId: input.userId },
@@ -624,6 +637,7 @@ async function persistAccountDeletionRequest(
           manifest: manifest as Prisma.InputJsonValue,
           objectCount: manifest.storageObjects.length,
           agentConnectionCount: manifest.agentConnections.length,
+          nextAttemptAt: nextRecoveryAt(input.now),
         },
         select: { id: true },
       });
@@ -892,7 +906,10 @@ async function deleteManifestObjects(input: {
         phase: AccountDeletionPhase.DELETE_OBJECTS,
         deletedObjectCount: index,
       },
-      data: { deletedObjectCount: index + 1 },
+      data: {
+        deletedObjectCount: index + 1,
+        nextAttemptAt: nextRecoveryAt(new Date()),
+      },
     });
   }
 }
@@ -916,11 +933,11 @@ async function markPhaseReady(
     where: { id: jobId },
     data: {
       ...data,
-      status: AccountDeletionJobStatus.PENDING,
+      status: AccountDeletionJobStatus.RUNNING,
       phase,
       lastErrorCode: null,
       lastErrorMessage: null,
-      nextAttemptAt: null,
+      nextAttemptAt: nextRecoveryAt(new Date()),
     },
   });
 }
@@ -931,6 +948,7 @@ async function markAccountDeletionFailed(
   code: string,
   now: Date,
   retryable: boolean,
+  retryAt: Date | null = null,
 ) {
   await prisma.accountDeletionJob.updateMany({
     where: { id: jobId },
@@ -938,9 +956,31 @@ async function markAccountDeletionFailed(
       status: AccountDeletionJobStatus.FAILED,
       lastErrorCode: code,
       lastErrorMessage: PUBLIC_FAILURE_MESSAGE,
-      nextAttemptAt: retryable ? nextRecoveryAt(now) : null,
+      nextAttemptAt: retryable ? retryAt ?? nextRecoveryAt(now) : null,
     },
   });
+}
+
+async function assertNoActiveUploadLeases(
+  prisma: ReturnType<typeof getPrisma>,
+  userId: string,
+  now: Date,
+): Promise<void> {
+  const activeLease = await prisma.sourceFile.findFirst({
+    where: {
+      userId,
+      presignedUploadExpiresAt: { gt: now },
+    },
+    orderBy: { presignedUploadExpiresAt: "desc" },
+    select: { presignedUploadExpiresAt: true },
+  });
+  if (activeLease?.presignedUploadExpiresAt) {
+    throw new AccountDeletionWorkflowError(
+      "PRESIGNED_UPLOAD_URL_ACTIVE",
+      true,
+      activeLease.presignedUploadExpiresAt,
+    );
+  }
 }
 
 function nextRecoveryAt(now: Date): Date {

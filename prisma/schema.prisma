@@ -392,29 +392,29 @@ model User {
 // final relational cascade so object, agent-provider, and Clerk retries still
 // have durable state after the app's user-owned records are gone.
 model AccountDeletionJob {
-  id                         String                   @id @default(cuid())
-  userId                     String                   @unique
-  status                     AccountDeletionJobStatus @default(PENDING)
-  phase                      AccountDeletionPhase    @default(DISABLE_ACCESS)
-  manifestVersion            Int                      @default(1)
-  manifest                   Json
-  objectCount                Int                      @default(0)
-  deletedObjectCount         Int                      @default(0)
-  agentConnectionCount       Int                      @default(0)
-  revokedAgentConnectionCount Int                     @default(0)
-  attemptCount               Int                      @default(0)
-  clerkAttemptCount          Int                      @default(0)
-  accessDisabledAt           DateTime?
-  objectsDeletedAt           DateTime?
-  relationalDataDeletedAt    DateTime?
-  clerkDeletedAt             DateTime?
-  startedAt                  DateTime?
-  completedAt                DateTime?
-  lastErrorCode              String?
-  lastErrorMessage           String?
-  nextAttemptAt              DateTime?
-  createdAt                  DateTime                 @default(now())
-  updatedAt                  DateTime                 @updatedAt
+  id                          String                   @id @default(cuid())
+  userId                      String                   @unique
+  status                      AccountDeletionJobStatus @default(PENDING)
+  phase                       AccountDeletionPhase     @default(DISABLE_ACCESS)
+  manifestVersion             Int                      @default(1)
+  manifest                    Json
+  objectCount                 Int                      @default(0)
+  deletedObjectCount          Int                      @default(0)
+  agentConnectionCount        Int                      @default(0)
+  revokedAgentConnectionCount Int                      @default(0)
+  attemptCount                Int                      @default(0)
+  clerkAttemptCount           Int                      @default(0)
+  accessDisabledAt            DateTime?
+  objectsDeletedAt            DateTime?
+  relationalDataDeletedAt     DateTime?
+  clerkDeletedAt              DateTime?
+  startedAt                   DateTime?
+  completedAt                 DateTime?
+  lastErrorCode               String?
+  lastErrorMessage            String?
+  nextAttemptAt               DateTime?
+  createdAt                   DateTime                 @default(now())
+  updatedAt                   DateTime                 @updatedAt
 
   @@index([status, nextAttemptAt])
   @@index([phase, status])
@@ -441,22 +441,23 @@ model Collection {
 }
 
 model SourceFile {
-  id                 String           @id @default(cuid())
-  userId             String
-  collectionId       String?
-  materialRevisionId String?
-  kind               SourceFileKind   @default(OTHER)
-  status             SourceFileStatus @default(DRAFT)
-  originalName       String
-  mimeType           String?
-  byteSize           Int?
-  storageBucket      String?
-  storageKey         String?
-  publicUrl          String?
-  extractedText      String?
-  metadata           Json?
-  createdAt          DateTime         @default(now())
-  updatedAt          DateTime         @updatedAt
+  id                       String           @id @default(cuid())
+  userId                   String
+  collectionId             String?
+  materialRevisionId       String?
+  kind                     SourceFileKind   @default(OTHER)
+  status                   SourceFileStatus @default(DRAFT)
+  originalName             String
+  mimeType                 String?
+  byteSize                 Int?
+  storageBucket            String?
+  storageKey               String?
+  presignedUploadExpiresAt DateTime?
+  publicUrl                String?
+  extractedText            String?
+  metadata                 Json?
+  createdAt                DateTime         @default(now())
+  updatedAt                DateTime         @updatedAt
 
   user             User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
   collection       Collection?            @relation(fields: [collectionId, userId], references: [id, userId], onDelete: NoAction)
@@ -469,6 +470,7 @@ model SourceFile {
   @@unique([id, userId])
   @@unique([id, materialRevisionId, userId])
   @@index([userId, status])
+  @@index([userId, presignedUploadExpiresAt])
   @@index([collectionId])
   @@index([materialRevisionId])
   @@map("source_files")

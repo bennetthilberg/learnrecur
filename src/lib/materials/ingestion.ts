@@ -65,6 +65,8 @@ import {
 } from "@/lib/usage-limits";
 
 const MATERIAL_STORAGE_PREFIX = "source-uploads/materials";
+const MATERIAL_UPLOAD_URL_EXPIRES_IN_SECONDS = 600;
+const MATERIAL_UPLOAD_LEASE_SAFETY_MS = 30_000;
 const MATERIAL_EMBEDDING_BATCH_SIZE = 32;
 const MATERIAL_SOURCE_EXCERPT_LIMIT = 4_000;
 const MATERIAL_WEBSITE_FETCH_CONCURRENCY = 16;
@@ -133,8 +135,24 @@ export async function prepareMaterialPdf(input: {
   }
 
   const prisma = getPrisma();
+  const expiresInSeconds = MATERIAL_UPLOAD_URL_EXPIRES_IN_SECONDS;
+  const presignedUploadExpiresAt = new Date(
+    input.now.getTime() + expiresInSeconds * 1_000 + MATERIAL_UPLOAD_LEASE_SAFETY_MS,
+  );
   const created = await prisma.$transaction(
     async (tx) => {
+      await tx.$queryRaw`SELECT "id" FROM "users" WHERE "id" = ${input.userId} FOR UPDATE`;
+      const deletionJob = await tx.accountDeletionJob.findUnique({
+        where: { userId: input.userId },
+        select: { id: true },
+      });
+      if (deletionJob) {
+        return {
+          status: "account-deletion" as const,
+          message: "Uploads are disabled while account deletion is in progress.",
+        };
+      }
+
       const quota = await checkSourceStorageUsageLimit({
         userId: input.userId,
         byteSize: parsed.data.byteSize,
@@ -180,6 +198,7 @@ export async function prepareMaterialPdf(input: {
           byteSize: parsed.data.byteSize,
           storageBucket: storageSetup.storage.bucketName,
           storageKey: objectKey,
+          presignedUploadExpiresAt,
         },
         select: { id: true },
       });
@@ -199,12 +218,11 @@ export async function prepareMaterialPdf(input: {
     { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
   );
 
-  if (created.status === "limited") {
+  if (created.status === "limited" || created.status === "account-deletion") {
     return { status: "not-prepared", message: created.message };
   }
 
   try {
-    const expiresInSeconds = 600;
     const uploadUrl = await storageSetup.storage.createPresignedUploadUrl({
       key: created.objectKey,
       mimeType: parsed.data.mimeType,

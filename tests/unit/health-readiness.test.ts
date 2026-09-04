@@ -4,7 +4,9 @@ import { GET as healthGET } from "@/app/api/health/route";
 import {
   handleHealthRequest,
   handleReadinessRequest,
+  checkStorageReadiness,
   runReadinessChecks,
+  verifyStorageBucketReadiness,
 } from "@/lib/observability/readiness";
 
 function createLogger() {
@@ -52,6 +54,31 @@ describe("health route", () => {
 });
 
 describe("readiness route", () => {
+  it("fails closed when storage configuration is missing", async () => {
+    await expect(
+      checkStorageReadiness({ status: "missing-env", message: "private configuration detail" }),
+    ).rejects.toMatchObject({ category: "configuration" });
+  });
+
+  it("accepts an accessible empty readiness prefix", async () => {
+    const listObjects = vi.fn().mockResolvedValue([]);
+    await expect(
+      checkStorageReadiness({ status: "ready", storage: { listObjects } as never }),
+    ).resolves.toBeUndefined();
+    expect(listObjects).toHaveBeenCalledWith({ prefix: "__learnrecur_readiness_probe__/" });
+  });
+
+  it("verifies the bucket itself instead of accepting an ambiguous object 404", async () => {
+    const listObjects = vi.fn().mockRejectedValue(
+      Object.assign(new Error("missing bucket"), { name: "NoSuchBucket", statusCode: 404 }),
+    );
+
+    await expect(verifyStorageBucketReadiness({ listObjects })).rejects.toMatchObject({
+      name: "NoSuchBucket",
+    });
+    expect(listObjects).toHaveBeenCalledWith({ prefix: "__learnrecur_readiness_probe__/" });
+  });
+
   it("requires the operator secret before running any readiness check", async () => {
     const check = vi.fn();
     const response = await handleReadinessRequest(

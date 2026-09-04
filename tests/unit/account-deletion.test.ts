@@ -58,7 +58,9 @@ afterEach(() => {
 
 describe("account deletion recovery", () => {
   it("atomically claims and redispatches retryable failed jobs", async () => {
-    const findMany = vi.fn().mockResolvedValue([{ id: "job-1", userId: "user-1" }]);
+    const findMany = vi.fn().mockResolvedValue([
+      { id: "job-1", userId: "user-1", status: "FAILED" },
+    ]);
     const updateMany = vi.fn().mockResolvedValue({ count: 1 });
     vi.mocked(getPrisma).mockReturnValue({
       accountDeletionJob: { findMany, updateMany },
@@ -79,7 +81,43 @@ describe("account deletion recovery", () => {
     expect(updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ id: "job-1", status: "FAILED" }),
-        data: { status: "PENDING", nextAttemptAt: null },
+        data: {
+          status: "PENDING",
+          nextAttemptAt: new Date("2026-09-03T16:15:00.000Z"),
+        },
+      }),
+    );
+  });
+
+  it("reclaims a running job after its worker lease expires", async () => {
+    const findMany = vi.fn().mockResolvedValue([
+      { id: "job-running", userId: "user-1", status: "RUNNING" },
+    ]);
+    const updateMany = vi.fn().mockResolvedValue({ count: 1 });
+    vi.mocked(getPrisma).mockReturnValue({
+      accountDeletionJob: { findMany, updateMany },
+    } as never);
+    const eventSender = {
+      sendAccountDeletionRequested: vi.fn().mockResolvedValue(undefined),
+    };
+    const now = new Date("2026-09-03T16:00:00.000Z");
+
+    await expect(recoverRetryableAccountDeletionJobs({ now, eventSender })).resolves.toEqual({
+      claimed: 1,
+      dispatched: 1,
+      failed: 0,
+    });
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          status: { in: ["PENDING", "RUNNING", "FAILED"] },
+          nextAttemptAt: { lte: now },
+        }),
+      }),
+    );
+    expect(updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ status: "RUNNING", nextAttemptAt: { lte: now } }),
       }),
     );
   });
@@ -91,7 +129,9 @@ describe("account deletion recovery", () => {
       .mockResolvedValueOnce({ count: 1 });
     vi.mocked(getPrisma).mockReturnValue({
       accountDeletionJob: {
-        findMany: vi.fn().mockResolvedValue([{ id: "job-1", userId: "user-1" }]),
+        findMany: vi.fn().mockResolvedValue([
+          { id: "job-1", userId: "user-1", status: "FAILED" },
+        ]),
         updateMany,
       },
     } as never);

@@ -30,6 +30,8 @@ import {
   runAccountDeletionJob,
 } from "@/lib/account-deletion";
 import { getPrisma } from "@/lib/prisma";
+import { prepareMaterialPdf } from "@/lib/materials/ingestion";
+import { prepareSourceUpload } from "@/lib/skills/uploads";
 
 const runDatabaseTests = process.env.RUN_DATABASE_TESTS === "1";
 const describeDatabase = runDatabaseTests ? describe : describe.skip;
@@ -280,6 +282,91 @@ describeDatabase("durable account deletion", () => {
       deletedObjectCount: 4,
       manifest: { version: 1, storageObjects: [], agentConnections: [] },
     });
+  });
+
+  it("waits for every issued upload URL to expire before deleting private objects", async () => {
+    const fixture = await createUser("upload-lease", { objects: true });
+    const leaseExpiresAt = new Date("2026-09-03T14:10:30.000Z");
+    await prisma.sourceFile.updateMany({
+      where: { userId: fixture.userId },
+      data: { presignedUploadExpiresAt: leaseExpiresAt },
+    });
+    const { result } = await queueDeletion(fixture.userId, "upload-lease");
+    const storage = { deleteObject: vi.fn().mockResolvedValue(undefined) };
+    const clerk = safeClerk();
+    const agent = safeAgentDependencies();
+
+    await expect(
+      runAccountDeletionJob({
+        userId: fixture.userId,
+        deletionJobId: result.jobId,
+        now: new Date("2026-09-03T14:01:00.000Z"),
+        storage,
+        clerk,
+        ...agent,
+      }),
+    ).rejects.toMatchObject({
+      code: "PRESIGNED_UPLOAD_URL_ACTIVE",
+      retryable: true,
+      retryAt: leaseExpiresAt,
+    });
+    expect(storage.deleteObject).not.toHaveBeenCalled();
+    await expect(
+      prisma.accountDeletionJob.findUniqueOrThrow({ where: { id: result.jobId } }),
+    ).resolves.toMatchObject({
+      status: AccountDeletionJobStatus.FAILED,
+      phase: AccountDeletionPhase.DISABLE_ACCESS,
+      nextAttemptAt: leaseExpiresAt,
+    });
+
+    await expect(
+      runAccountDeletionJob({
+        userId: fixture.userId,
+        deletionJobId: result.jobId,
+        now: new Date("2026-09-03T14:10:31.000Z"),
+        storage,
+        clerk,
+        ...agent,
+      }),
+    ).resolves.toEqual({ status: "completed", jobId: result.jobId });
+    expect(storage.deleteObject).toHaveBeenCalledTimes(3);
+  });
+
+  it("refuses to issue new upload URLs after deletion is requested", async () => {
+    const fixture = await createUser("blocked-upload");
+    await queueDeletion(fixture.userId, "blocked-upload");
+    const createPresignedUploadUrl = vi.fn().mockResolvedValue("https://uploads.example.test");
+    const storage = {
+      bucketName: "account-deletion-test-bucket",
+      createPresignedUploadUrl,
+    } as never;
+
+    await expect(
+      prepareSourceUpload({
+        userId: fixture.userId,
+        now: new Date("2026-09-03T14:00:00.000Z"),
+        storage,
+        input: {
+          originalName: "notes.png",
+          mimeType: "image/png",
+          byteSize: "1024",
+        },
+      }),
+    ).resolves.toMatchObject({ status: "not-prepared", reason: "account-deletion" });
+    await expect(
+      prepareMaterialPdf({
+        userId: fixture.userId,
+        now: new Date("2026-09-03T14:00:00.000Z"),
+        storage,
+        input: {
+          title: "Blocked material",
+          originalName: "notes.pdf",
+          mimeType: "application/pdf",
+          byteSize: "1024",
+        },
+      }),
+    ).resolves.toMatchObject({ status: "not-prepared", message: expect.stringMatching(/deletion/) });
+    expect(createPresignedUploadUrl).not.toHaveBeenCalled();
   });
 
   it("keeps a failed queue dispatch retryable without rebuilding the tombstone", async () => {

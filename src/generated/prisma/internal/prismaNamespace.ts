@@ -2910,6 +2910,7 @@ export const SourceFileScalarFieldEnum = {
   byteSize: 'byteSize',
   storageBucket: 'storageBucket',
   storageKey: 'storageKey',
+  presignedUploadExpiresAt: 'presignedUploadExpiresAt',
   publicUrl: 'publicUrl',
   extractedText: 'extractedText',
   metadata: 'metadata',

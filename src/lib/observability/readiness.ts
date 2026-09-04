@@ -5,6 +5,7 @@ import { getGeminiEnv } from "@/lib/env";
 import { resolveGeminiRuntimeConfig } from "@/lib/gemini";
 import { getPrisma } from "@/lib/prisma";
 import { resolveS3SourceObjectStorage } from "@/lib/storage/s3";
+import type { SourceObjectStorage, SourceObjectStorageSetup } from "@/lib/storage/s3";
 
 import {
   classifyOperationalError,
@@ -17,7 +18,7 @@ import {
 } from "./index";
 
 export const READINESS_CHECK_TIMEOUT_MS = 3_000;
-export const READINESS_STORAGE_PROBE_KEY = "__learnrecur_readiness_probe__/missing";
+export const READINESS_STORAGE_PROBE_PREFIX = "__learnrecur_readiness_probe__/";
 
 export type ReadinessCheck = {
   name: string;
@@ -248,20 +249,24 @@ export async function checkDatabaseReadiness(): Promise<void> {
   await getPrisma().$queryRaw`SELECT 1`;
 }
 
-export async function checkStorageReadiness(): Promise<void> {
-  const setup = resolveS3SourceObjectStorage();
+export async function checkStorageReadiness(
+  setup: SourceObjectStorageSetup = resolveS3SourceObjectStorage(),
+): Promise<void> {
 
   if (setup.status !== "ready") {
     throw new ReadinessProbeError("configuration", "Source storage is not configured.");
   }
 
-  try {
-    await setup.storage.headObject({ key: READINESS_STORAGE_PROBE_KEY });
-  } catch (error) {
-    if (!isMissingStorageObjectError(error)) {
-      throw error;
-    }
-  }
+  // Listing an empty prefix verifies the bucket itself exists and is accessible.
+  // HeadObject cannot distinguish a missing object from a missing bucket on every
+  // S3-compatible implementation because both may surface as a generic 404.
+  await verifyStorageBucketReadiness(setup.storage);
+}
+
+export async function verifyStorageBucketReadiness(
+  storage: Pick<SourceObjectStorage, "listObjects">,
+): Promise<void> {
+  await storage.listObjects({ prefix: READINESS_STORAGE_PROBE_PREFIX });
 }
 
 export function checkProviderReadiness(): void {
@@ -275,19 +280,6 @@ export function checkInngestReadiness(): void {
   if (status.status !== "ready") {
     throw new ReadinessProbeError("configuration", "Inngest is not configured.");
   }
-}
-
-export function isMissingStorageObjectError(error: unknown): boolean {
-  if (error instanceof Error && ["NotFound", "NoSuchKey", "NotFoundError"].includes(error.name)) {
-    return true;
-  }
-
-  if (!isRecord(error)) {
-    return false;
-  }
-
-  const metadata = isRecord(error.$metadata) ? error.$metadata : null;
-  return metadata?.httpStatusCode === 404 || error.statusCode === 404;
 }
 
 function readBearerToken(request: Pick<Request, "headers">): string | null {
@@ -345,8 +337,4 @@ function normalizeTimeoutMs(value: number): number {
 
 function elapsedMs(startedAt: number): number {
   return Math.max(0, Date.now() - startedAt);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }
