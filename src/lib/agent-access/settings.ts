@@ -23,23 +23,56 @@ export async function revokeAllWorkosAuthorizedApplicationsForUser(input: {
   userId: string;
   fetchImpl?: typeof fetch;
 }): Promise<{ revoked: number }> {
-  const identity = await getPrisma().workosIdentity.findUnique({
-    where: { userId: input.userId },
-    select: { workosUserId: true },
-  });
-  if (!identity) return { revoked: 0 };
-
   const config = getAgentAccessConfig();
   const apiKey = config.enabled ? config.workosApiKey : process.env.WORKOS_API_KEY?.trim();
   const resourceUrl = config.enabled ? config.resourceUrl : process.env.MCP_RESOURCE_URL?.trim();
   if (!apiKey) throw new Error("WorkOS revocation credentials are unavailable.");
   if (!resourceUrl) throw new Error("WorkOS resource configuration is unavailable.");
+  const identity = await getPrisma().workosIdentity.findUnique({
+    where: { userId: input.userId },
+    select: { workosUserId: true },
+  });
+  const fetchImpl = input.fetchImpl ?? fetch;
+  const workosUserId = identity?.workosUserId ?? await resolveWorkosUserIdByExternalId({
+    externalId: input.userId,
+    apiKey,
+    fetchImpl,
+  });
+  if (!workosUserId) return { revoked: 0 };
   return revokeWorkosAuthorizedApplications({
-    workosUserId: identity.workosUserId,
+    workosUserId,
     apiKey,
     resourceUrl,
-    fetchImpl: input.fetchImpl,
+    fetchImpl,
   });
+}
+
+async function resolveWorkosUserIdByExternalId(input: {
+  externalId: string;
+  apiKey: string;
+  fetchImpl: typeof fetch;
+}): Promise<string | null> {
+  const response = await input.fetchImpl(
+    `https://api.workos.com/user_management/users/external_id/${encodeURIComponent(input.externalId)}`,
+    {
+      headers: { authorization: `Bearer ${input.apiKey}` },
+      redirect: "error",
+      signal: AbortSignal.timeout(10_000),
+    },
+  );
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    throw new Error(`WorkOS identity lookup failed with HTTP ${response.status}.`);
+  }
+  const body = await response.json() as { id?: unknown; external_id?: unknown };
+  if (
+    typeof body.id !== "string" ||
+    !body.id ||
+    body.external_id !== input.externalId
+  ) {
+    throw new Error("WorkOS identity lookup returned an invalid response.");
+  }
+  return body.id;
 }
 
 export async function revokeWorkosAuthorizedApplications(input: {

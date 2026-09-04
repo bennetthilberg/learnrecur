@@ -1,6 +1,10 @@
 import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+
+const require = createRequire(import.meta.url);
+const { Cvss2, Cvss3P0, Cvss3P1, Cvss4P0 } = require("ae-cvss-calculator") as typeof import("ae-cvss-calculator");
 
 export type DependencyScope = "runtime" | "dev-only" | "unknown";
 export type AuditSeverity = "info" | "low" | "moderate" | "high" | "critical";
@@ -564,7 +568,7 @@ type OsvBatchResult = {
   next_page_token?: unknown;
 };
 
-type OsvVulnerability = {
+export type OsvVulnerability = {
   id?: unknown;
   aliases?: unknown;
   summary?: unknown;
@@ -582,14 +586,40 @@ function lockPackageName(node: string, value: NpmLockPackage): string | null {
   return parts[0]?.startsWith("@") ? parts.slice(0, 2).join("/") : parts[0] ?? null;
 }
 
-function osvSeverity(vulnerability: OsvVulnerability): AuditSeverity {
+function cvssBaseScore(vector: string): number | null {
+  const numericScore = Number(vector);
+  if (Number.isFinite(numericScore) && numericScore >= 0 && numericScore <= 10) {
+    return numericScore;
+  }
+
+  try {
+    const calculator = vector.startsWith("CVSS:4.0/")
+      ? new Cvss4P0(vector)
+      : vector.startsWith("CVSS:3.1/")
+        ? new Cvss3P1(vector)
+        : vector.startsWith("CVSS:3.0/")
+          ? new Cvss3P0(vector)
+          : new Cvss2(vector);
+    const score = calculator.calculateScores().overall;
+    return Number.isFinite(score) && score >= 0 && score <= 10 ? score : null;
+  } catch {
+    return null;
+  }
+}
+
+export function osvSeverity(vulnerability: OsvVulnerability): AuditSeverity {
   const declared = vulnerability.database_specific?.severity;
-  if (typeof declared === "string") return normalizedSeverity(declared);
-  const cvss = vulnerability.severity
-    ?.map((entry) => entry.score)
-    .find((score): score is string => typeof score === "string");
-  const baseScore = cvss?.match(/(?:^|\/)AV:[^/]+.*?/) ? null : Number(cvss);
-  if (baseScore !== null && Number.isFinite(baseScore)) {
+  if (typeof declared === "string") {
+    const normalized = normalizedSeverity(declared);
+    if (normalized !== "info" || declared.toLowerCase() === "info") return normalized;
+  }
+  const baseScores = (vulnerability.severity ?? [])
+    .map((entry) => entry.score)
+    .filter((score): score is string => typeof score === "string")
+    .map(cvssBaseScore)
+    .filter((score): score is number => score !== null);
+  const baseScore = baseScores.length > 0 ? Math.max(...baseScores) : null;
+  if (baseScore !== null) {
     if (baseScore >= 9) return "critical";
     if (baseScore >= 7) return "high";
     if (baseScore >= 4) return "moderate";

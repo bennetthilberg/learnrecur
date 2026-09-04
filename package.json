@@ -73,6 +73,7 @@
     "@types/react-dom": "19.2.3",
     "@types/ws": "^8.18.1",
     "@vitest/coverage-v8": "^4.1.8",
+    "ae-cvss-calculator": "1.0.13",
     "concurrently": "^10.0.3",
     "dotenv": "^17.4.2",
     "eslint": "9.39.4",

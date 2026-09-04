@@ -100,7 +100,8 @@ test.describe("authenticated learner lifecycle", () => {
       runId: `${learnerFixture.runKey}-foreign-export`,
       userId: otherLearner.id,
     });
-    await completeCorrectReview(page, scenario);
+    try {
+      await completeCorrectReview(page, scenario);
 
     await page.goto("/history");
 
@@ -184,7 +185,9 @@ test.describe("authenticated learner lifecycle", () => {
       ),
     ).toBe(true);
     expect(exported.reviewLogs.length).toBeGreaterThan(0);
-    await deleteE2EPracticeFixture(foreignScenario);
+    } finally {
+      await deleteE2EPracticeFixture(foreignScenario);
+    }
   });
 
   test("retires a flagged exercise without saving a review and advances to its replacement", async ({

@@ -1,8 +1,63 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { revokeWorkosAuthorizedApplications } from "@/lib/agent-access/settings";
+const dependencyMocks = vi.hoisted(() => ({
+  findIdentity: vi.fn(),
+  getAgentAccessConfig: vi.fn(),
+}));
+
+vi.mock("@/lib/prisma", () => ({
+  getPrisma: () => ({ workosIdentity: { findUnique: dependencyMocks.findIdentity } }),
+}));
+
+vi.mock("@/lib/agent-access/auth", () => ({
+  getAgentAccessConfig: dependencyMocks.getAgentAccessConfig,
+}));
+
+import {
+  revokeAllWorkosAuthorizedApplicationsForUser,
+  revokeWorkosAuthorizedApplications,
+} from "@/lib/agent-access/settings";
 
 describe("WorkOS authorized application cleanup", () => {
+  it("resolves the WorkOS user by Clerk external ID when local persistence failed", async () => {
+    dependencyMocks.findIdentity.mockResolvedValueOnce(null);
+    dependencyMocks.getAgentAccessConfig.mockReturnValueOnce({
+      enabled: true,
+      workosApiKey: "sk_test_fixture",
+      resourceUrl: "https://learnrecur.example/mcp",
+    });
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        Response.json({ id: "workos-user-1", external_id: "clerk-user-1" }),
+      )
+      .mockResolvedValueOnce(
+        Response.json({
+          data: [
+            {
+              application: { id: "app-1" },
+              oauth_resource: "https://learnrecur.example/mcp",
+            },
+          ],
+          list_metadata: { after: null },
+        }),
+      )
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+    await expect(
+      revokeAllWorkosAuthorizedApplicationsForUser({
+        userId: "clerk-user-1",
+        fetchImpl,
+      }),
+    ).resolves.toEqual({ revoked: 1 });
+    expect(String(fetchImpl.mock.calls[0]?.[0])).toContain(
+      "/users/external_id/clerk-user-1",
+    );
+    expect(String(fetchImpl.mock.calls[2]?.[0])).toContain(
+      "/users/workos-user-1/authorized_applications/app-1",
+    );
+  });
+
   it("lists every page before revoking every distinct grant", async () => {
     const fetchImpl = vi
       .fn<typeof fetch>()

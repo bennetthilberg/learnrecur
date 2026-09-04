@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   classifyDependencyNode,
   evaluateRuntimeAudit,
+  osvSeverity,
   type NpmAuditReport,
   type NpmLockfile,
   type PackageManifest,
@@ -73,6 +74,32 @@ const activeException: RuntimeAuditException = {
 };
 
 describe("runtime dependency audit policy", () => {
+  it("classifies vector-only OSV severity with a CVSS parser", () => {
+    expect(
+      osvSeverity({
+        severity: [
+          {
+            score: "CVSS:3.1/AV:N/AC:L/PR:L/UI:R/S:C/C:N/I:L/A:N",
+          },
+        ],
+      }),
+    ).toBe("moderate");
+    expect(
+      osvSeverity({
+        severity: [
+          {
+            score:
+              "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N",
+          },
+        ],
+      }),
+    ).toBe("critical");
+  });
+
+  it("fails closed when OSV severity cannot be parsed", () => {
+    expect(osvSeverity({ severity: [{ score: "not-a-cvss-vector" }] })).toBe("high");
+  });
+
   it("classifies a production-reachable package as runtime even when npm marks it devOptional", () => {
     const productionMarkedPackage: NpmLockfile = {
       packages: {
