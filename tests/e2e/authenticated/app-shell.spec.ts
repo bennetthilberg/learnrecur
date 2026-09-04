@@ -3,6 +3,16 @@ import { clerk } from "@clerk/testing/playwright";
 import { expect, test } from "../fixtures/authenticated";
 
 test("an authenticated learner can open the core application pages", async ({ page }) => {
+  test.setTimeout(60_000);
+  const hydrationErrors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error" && /hydration failed/i.test(message.text())) {
+      hydrationErrors.push(message.text());
+    }
+  });
+  page.on("pageerror", (error) => {
+    if (/hydration failed/i.test(error.message)) hydrationErrors.push(error.message);
+  });
   const pages = [
     { path: "/dashboard", heading: /due skill/i },
     { path: "/skills", heading: /^skills$/i },
@@ -16,6 +26,7 @@ test("an authenticated learner can open the core application pages", async ({ pa
     await expect(page).toHaveURL(new RegExp(`${expected.path.replace("/", "\\/")}$`));
     await expect(page.getByRole("heading", { name: expected.heading }).first()).toBeVisible();
   }
+  expect(hydrationErrors).toEqual([]);
 });
 
 test("signing out removes access to protected pages", async ({ page }) => {

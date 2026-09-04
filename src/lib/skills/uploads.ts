@@ -68,6 +68,8 @@ import { checkSourceUploadUsageLimit } from "@/lib/usage-limits";
 
 export const SOURCE_UPLOAD_PREFIX = "source-uploads";
 export const SOURCE_UPLOAD_PROMPT_VERSION = "source-upload-drafts-v0";
+export const SOURCE_UPLOAD_URL_EXPIRES_IN_SECONDS = 600;
+const SOURCE_UPLOAD_LEASE_SAFETY_MS = 30_000;
 export const SOURCE_PROCESSING_STALE_AFTER_MS = 15 * 60 * 1000;
 export const MAX_SOURCE_UPLOAD_REQUEUE_ATTEMPTS = 3;
 const SOURCE_UPLOAD_GENERATION_TIMEOUT_MS = 45_000;
@@ -152,7 +154,7 @@ export type PrepareSourceUploadResult =
   | Extract<SourceUploadInputResult, { status: "invalid" }>
   | {
       status: "not-prepared";
-      reason: "missing-s3-env" | "quota-exceeded" | "storage-failed";
+      reason: "missing-s3-env" | "quota-exceeded" | "storage-failed" | "account-deletion";
       message: string;
     };
 
@@ -519,12 +521,25 @@ export async function prepareSourceUpload(
     };
   }
 
+  const expiresInSeconds = SOURCE_UPLOAD_URL_EXPIRES_IN_SECONDS;
+  const presignedUploadExpiresAt = new Date(
+    input.now.getTime() + expiresInSeconds * 1_000 + SOURCE_UPLOAD_LEASE_SAFETY_MS,
+  );
   const preparedRecord = await createSourceUploadRecord({
     userId: input.userId,
     now: input.now,
     normalized: normalized.value,
     storageBucket: storageSetup.storage.bucketName,
+    presignedUploadExpiresAt,
   });
+
+  if (preparedRecord.status === "account-deletion") {
+    return {
+      status: "not-prepared",
+      reason: "account-deletion",
+      message: "Uploads are disabled while account deletion is in progress.",
+    };
+  }
 
   if (preparedRecord.status === "limited") {
     return {
@@ -537,7 +552,6 @@ export async function prepareSourceUpload(
   const prisma = getPrisma();
 
   try {
-    const expiresInSeconds = 600;
     const uploadUrl = await storageSetup.storage.createPresignedUploadUrl({
       key: preparedRecord.objectKey,
       mimeType: normalized.value.mimeType,
@@ -575,20 +589,41 @@ export async function prepareSourceUpload(
 export async function refreshPreparedSourceUpload(input: {
   userId: string;
   sourceFileId: string;
+  now?: Date;
   storage?: SourceUploadStorage;
 }): Promise<RefreshPreparedSourceUploadResult> {
   const storageSetup = resolveUploadStorage(input.storage);
   if (storageSetup.status === "missing-env") {
     return { status: "not-prepared", message: storageSetup.message };
   }
-  const sourceFile = await getPrisma().sourceFile.findFirst({
-    where: {
-      id: input.sourceFileId,
-      userId: input.userId,
-      materialRevisionId: null,
-      status: SourceFileStatus.DRAFT,
-    },
-    select: { id: true, storageBucket: true, storageKey: true, mimeType: true, byteSize: true },
+  const now = input.now ?? new Date();
+  const expiresInSeconds = SOURCE_UPLOAD_URL_EXPIRES_IN_SECONDS;
+  const presignedUploadExpiresAt = new Date(
+    now.getTime() + expiresInSeconds * 1_000 + SOURCE_UPLOAD_LEASE_SAFETY_MS,
+  );
+  const sourceFile = await getPrisma().$transaction(async (tx) => {
+    await lockUserForUploadLease(tx, input.userId);
+    const deletionJob = await tx.accountDeletionJob.findUnique({
+      where: { userId: input.userId },
+      select: { id: true },
+    });
+    if (deletionJob) return null;
+
+    const existing = await tx.sourceFile.findFirst({
+      where: {
+        id: input.sourceFileId,
+        userId: input.userId,
+        materialRevisionId: null,
+        status: SourceFileStatus.DRAFT,
+      },
+      select: { id: true, storageBucket: true, storageKey: true, mimeType: true, byteSize: true },
+    });
+    if (!existing) return null;
+    await tx.sourceFile.update({
+      where: { id_userId: { id: existing.id, userId: input.userId } },
+      data: { presignedUploadExpiresAt },
+    });
+    return existing;
   });
   if (
     !sourceFile?.storageKey ||
@@ -602,7 +637,6 @@ export async function refreshPreparedSourceUpload(input: {
   if (sourceFile.storageBucket !== storageSetup.storage.bucketName) {
     return { status: "not-prepared", message: "The prepared upload bucket is unavailable." };
   }
-  const expiresInSeconds = 600;
   try {
     const uploadUrl = await storageSetup.storage.createPresignedUploadUrl({
       key: sourceFile.storageKey,
@@ -628,16 +662,18 @@ async function createSourceUploadRecord(input: {
   now: Date;
   normalized: NormalizedSourceUploadInput;
   storageBucket: string;
+  presignedUploadExpiresAt: Date;
 }): Promise<
   | {
       status: "created";
       sourceFileId: string;
       objectKey: string;
     }
-  | {
+    | {
       status: "limited";
       message: string;
     }
+  | { status: "account-deletion" }
 > {
   const prisma = getPrisma();
 
@@ -645,6 +681,13 @@ async function createSourceUploadRecord(input: {
     try {
       return await prisma.$transaction(
         async (tx) => {
+          await lockUserForUploadLease(tx, input.userId);
+          const deletionJob = await tx.accountDeletionJob.findUnique({
+            where: { userId: input.userId },
+            select: { id: true },
+          });
+          if (deletionJob) return { status: "account-deletion" as const };
+
           const quota = await checkSourceUploadUsageLimit({
             userId: input.userId,
             byteSize: input.normalized.byteSize,
@@ -668,6 +711,7 @@ async function createSourceUploadRecord(input: {
               mimeType: input.normalized.mimeType,
               byteSize: input.normalized.byteSize,
               storageBucket: input.storageBucket,
+              presignedUploadExpiresAt: input.presignedUploadExpiresAt,
               metadata: buildUploadMetadata({
                 normalized: input.normalized,
                 model: null,
@@ -717,6 +761,13 @@ async function createSourceUploadRecord(input: {
     status: "limited",
     message: "Upload quota changed while preparing this upload. Try again.",
   };
+}
+
+async function lockUserForUploadLease(
+  tx: Prisma.TransactionClient,
+  userId: string,
+): Promise<void> {
+  await tx.$queryRaw`SELECT "id" FROM "users" WHERE "id" = ${userId} FOR UPDATE`;
 }
 
 function normalizeCompletionSourceFileIds(input: CompleteSourceUploadDraftsInput):

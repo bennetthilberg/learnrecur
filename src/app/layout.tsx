@@ -5,6 +5,7 @@ import "./globals.css";
 import "./open-water.css";
 
 import { ClerkProvider } from "@clerk/nextjs";
+import { ui } from "@clerk/ui";
 import type { Metadata } from "next";
 import { Instrument_Sans, Plus_Jakarta_Sans } from "next/font/google";
 
@@ -39,7 +40,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${instrumentSans.variable} ${plusJakartaSans.variable}`}>
       <body>
-        <ClerkProvider appearance={clerkAppearance} localization={clerkLocalization}>
+        <ClerkProvider appearance={clerkAppearance} localization={clerkLocalization} ui={ui}>
           <Providers>{children}</Providers>
         </ClerkProvider>
       </body>

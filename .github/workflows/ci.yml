@@ -26,13 +26,16 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --no-audit --no-fund
+
+      - name: Runtime audit
+        run: npm run check:runtime-audit
 
       - name: Lint
         run: npm run lint
 
-      - name: Unit tests
-        run: npm run test:unit
+      - name: Unit tests with coverage gate
+        run: npm run test:coverage
 
       - name: Validate Prisma schema
         run: npm run prisma:validate
@@ -45,6 +48,7 @@ jobs:
 
   authenticated-e2e:
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    needs: verify
     runs-on: ubuntu-latest
     timeout-minutes: 20
     concurrency:
@@ -71,7 +75,7 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --no-audit --no-fund
 
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
@@ -91,6 +95,9 @@ jobs:
 
       - name: Apply test database migrations
         run: npm run prisma:deploy
+
+      - name: Database integration tests
+        run: npm run test:db
 
       - name: Authenticated browser tests
         run: npm run test:e2e:auth

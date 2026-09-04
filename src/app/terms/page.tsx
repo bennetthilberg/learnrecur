@@ -1,13 +1,16 @@
 import Link from "next/link";
 
 import { OpenWaterBackground, OpenWaterLogoMark } from "@/components/app/open-water";
+import { getSupportEmail } from "@/lib/support";
 
 export const metadata = {
   title: "Terms | LearnRecur",
-  description: "Participation terms draft for LearnRecur.",
+  description: "Participation terms for the LearnRecur closed alpha.",
 };
 
 export default function TermsPage() {
+  const supportEmail = getSupportEmail();
+
   return (
     <main className="entryShell">
       <OpenWaterBackground />
@@ -20,7 +23,7 @@ export default function TermsPage() {
           <div className="skillPanelHeader">
             <div>
               <h1 id="terms-title">Terms</h1>
-              <p>Participation draft. Review before sharing with external testers.</p>
+              <p>Closed alpha participation terms. Updated September 3, 2026.</p>
             </div>
           </div>
           <menu className="policyGrid" aria-label="Terms summary">
@@ -28,8 +31,8 @@ export default function TermsPage() {
               <section>
                 <h2>Account access</h2>
                 <p>
-                  LearnRecur is an early product. Access can be changed, paused,
-                  or removed while the app is being tested.
+                  LearnRecur is an invitation-only early product. Access may be changed, paused,
+                  or removed while the closed alpha is being tested.
                 </p>
               </section>
             </li>
@@ -66,8 +69,9 @@ export default function TermsPage() {
               <section>
                 <h2>Data</h2>
                 <p>
-                  Users can export study data from settings. Deletion and support requests
-                  are handled manually during early testing until the automated workflow is complete.
+                  You can export saved study records from settings. Account deletion runs in the
+                  background, disables access first, and may require retries before every provider
+                  step is complete. Do not treat a queued request as immediate completion.
                 </p>
               </section>
             </li>
@@ -75,15 +79,15 @@ export default function TermsPage() {
               <section>
                 <h2>Contact</h2>
                 <p>
-                  The production deployment must publish a support email before external
-                  testers use the app.
+                  {supportEmail ? (
+                    <>Contact <a href={`mailto:${supportEmail}`}>{supportEmail}</a> for account or policy questions.</>
+                  ) : (
+                    <>Use the support address included with your alpha invitation for account or policy questions.</>
+                  )}{" "}Learn how data is handled in the <Link href="/privacy">Privacy notice</Link>.
                 </p>
               </section>
             </li>
           </menu>
-          <p className="skillFormMessage policyNotice" data-tone="error" role="note">
-            This is a product draft, not legal advice. Final copy needs founder and legal review.
-          </p>
         </article>
       </section>
     </main>

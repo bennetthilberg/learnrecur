@@ -1,0 +1,15 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+    # Keep routine minor and patch updates reviewable as one low-risk batch.
+    # Security updates remain enabled through the repository's Dependabot
+    # security-update settings and are not disabled or folded into this group.
+    groups:
+      low-risk-npm-updates:
+        applies-to: version-updates
+        update-types:
+          - minor
+          - patch

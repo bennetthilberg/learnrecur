@@ -451,3 +451,25 @@ export const AgentRateLimitKind = {
 } as const
 
 export type AgentRateLimitKind = (typeof AgentRateLimitKind)[keyof typeof AgentRateLimitKind]
+
+
+export const AccountDeletionJobStatus = {
+  PENDING: 'PENDING',
+  RUNNING: 'RUNNING',
+  FAILED: 'FAILED',
+  DEAD_LETTER: 'DEAD_LETTER',
+  COMPLETE: 'COMPLETE'
+} as const
+
+export type AccountDeletionJobStatus = (typeof AccountDeletionJobStatus)[keyof typeof AccountDeletionJobStatus]
+
+
+export const AccountDeletionPhase = {
+  DISABLE_ACCESS: 'DISABLE_ACCESS',
+  DELETE_OBJECTS: 'DELETE_OBJECTS',
+  DELETE_RELATIONAL_DATA: 'DELETE_RELATIONAL_DATA',
+  DELETE_CLERK_IDENTITY: 'DELETE_CLERK_IDENTITY',
+  COMPLETE: 'COMPLETE'
+} as const
+
+export type AccountDeletionPhase = (typeof AccountDeletionPhase)[keyof typeof AccountDeletionPhase]

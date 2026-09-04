@@ -546,10 +546,12 @@ export function SkillsTopbar({
           </nav>
           <div ref={userMenuRef} className="practiceUserMenu">
             <div className="practiceUserProfile">
-              <span className="practiceUserFallbackAvatar" aria-hidden="true">
-                {userInitial}
-              </span>
               <UserButton
+                fallback={
+                  <span className="practiceUserFallbackAvatar" aria-hidden="true">
+                    {userInitial}
+                  </span>
+                }
                 appearance={{
                   elements: {
                     userButtonAvatarBox: "learnrecurUserAvatar",

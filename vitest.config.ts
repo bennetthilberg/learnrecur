@@ -22,10 +22,24 @@ export default defineConfig({
       exclude: ["src/generated/**"],
       reporter: ["text", "html"],
       thresholds: {
-        branches: 80,
-        functions: 80,
-        lines: 80,
-        statements: 80,
+        // This is the first enforced whole-repository baseline. Raise these
+        // floors as coverage grows; never lower them to make a PR pass.
+        branches: 42,
+        functions: 55,
+        lines: 47,
+        statements: 47,
+        "src/lib/answer-checking/**": {
+          branches: 80,
+          functions: 80,
+          lines: 80,
+          statements: 80,
+        },
+        "src/lib/scheduling/**": {
+          branches: 80,
+          functions: 80,
+          lines: 80,
+          statements: 80,
+        },
       },
     },
   },

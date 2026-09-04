@@ -18,6 +18,7 @@ export const AGENT_SKILL_OPERATION_REQUESTED_EVENT =
   "learnrecur/agent-skill-operation.requested";
 export const AGENT_CONNECTION_REVOCATION_REQUESTED_EVENT =
   "learnrecur/agent-connection-revocation.requested";
+export const ACCOUNT_DELETION_REQUESTED_EVENT = "learnrecur/account-deletion.requested";
 
 const refillEventPayloadSchema = z.strictObject({
   userId: z.string().trim().min(1),
@@ -73,6 +74,12 @@ const agentConnectionRevocationEventPayloadSchema = z.strictObject({
   requestedAt: z.string().trim().min(1),
 });
 
+const accountDeletionEventPayloadSchema = z.strictObject({
+  userId: z.string().trim().min(1),
+  deletionJobId: z.string().trim().min(1),
+  requestedAt: z.string().trim().min(1),
+});
+
 export type ExerciseRefillEventPayload = z.infer<typeof refillEventPayloadSchema>;
 export type SourceUploadDraftEventPayload = z.infer<
   typeof sourceUploadDraftEventPayloadSchema
@@ -91,6 +98,7 @@ export type AgentSkillOperationEventPayload = z.infer<
 export type AgentConnectionRevocationEventPayload = z.infer<
   typeof agentConnectionRevocationEventPayloadSchema
 >;
+export type AccountDeletionEventPayload = z.infer<typeof accountDeletionEventPayloadSchema>;
 
 export type ExerciseRefillEventSender = {
   sendChoiceRefillRequested(payload: ExerciseRefillEventPayload): Promise<void>;
@@ -118,6 +126,10 @@ export type MaterialBatchActivationEventSender = {
   sendMaterialBatchActivationRequested(
     payload: MaterialBatchActivationEventPayload,
   ): Promise<void>;
+};
+
+export type AccountDeletionEventSender = {
+  sendAccountDeletionRequested(payload: AccountDeletionEventPayload): Promise<void>;
 };
 
 export function parseExerciseRefillEventPayload(input: unknown): ExerciseRefillEventPayload {
@@ -160,6 +172,10 @@ export function parseAgentConnectionRevocationEventPayload(
   input: unknown,
 ): AgentConnectionRevocationEventPayload {
   return agentConnectionRevocationEventPayloadSchema.parse(input);
+}
+
+export function parseAccountDeletionEventPayload(input: unknown): AccountDeletionEventPayload {
+  return accountDeletionEventPayloadSchema.parse(input);
 }
 
 export const inngestExerciseRefillEventSender: ExerciseRefillEventSender = {
@@ -242,3 +258,9 @@ export async function sendAgentConnectionRevocationRequested(
 ) {
   await inngest.send({ name: AGENT_CONNECTION_REVOCATION_REQUESTED_EVENT, data: payload });
 }
+
+export const inngestAccountDeletionEventSender: AccountDeletionEventSender = {
+  async sendAccountDeletionRequested(payload) {
+    await inngest.send({ name: ACCOUNT_DELETION_REQUESTED_EVENT, data: payload });
+  },
+};

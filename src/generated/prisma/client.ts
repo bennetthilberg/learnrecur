@@ -47,6 +47,11 @@ export { Prisma }
  */
 export type User = Prisma.UserModel
 /**
+ * Model AccountDeletionJob
+ * 
+ */
+export type AccountDeletionJob = Prisma.AccountDeletionJobModel
+/**
  * Model Collection
  * 
  */

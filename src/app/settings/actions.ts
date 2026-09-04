@@ -7,6 +7,7 @@ import {
   saveReminderPreference,
   type NormalizedReminderPreferenceInput,
 } from "@/lib/reminders";
+import { requestAccountDeletion } from "@/lib/account-deletion";
 import { ensureDatabaseUser } from "@/lib/users";
 import { pauseSkillsFromAgent, revokeAgentConnection } from "@/lib/agent-access/settings";
 
@@ -88,14 +89,51 @@ export async function pauseAgentSkillsAction(connectionId: string) {
     : { status: "error" as const, message: "That agent connection was not found." };
 }
 
-async function requireSettingsActionUser(): Promise<SettingsActionUserResult> {
+export async function requestAccountDeletionAction(confirmation: string) {
+  const { userId } = await auth.protect();
+  const clerkUser = await currentUser();
+  if (!clerkUser || clerkUser.id !== userId) {
+    return {
+      status: "error" as const,
+      message: "Sign in again before deleting your account.",
+    };
+  }
+
+  try {
+    const result = await requestAccountDeletion({
+      userId,
+      confirmation,
+      now: new Date(),
+    });
+
+    if (result.status === "queued" || result.status === "already-deleted") {
+      revalidatePath("/settings");
+      return {
+        status: "saved" as const,
+        deletionStatus: result.status,
+        message: result.message,
+      };
+    }
+
+    return { status: "error" as const, message: result.message };
+  } catch {
+    return {
+      status: "error" as const,
+      message: "Account deletion could not be started. Try again.",
+    };
+  }
+}
+
+async function requireSettingsActionUser(
+  missingUserMessage = "Sign in again before changing reminders.",
+): Promise<SettingsActionUserResult> {
   const { userId } = await auth.protect();
   const clerkUser = await currentUser();
 
   if (!clerkUser) {
     return {
       status: "error",
-      message: "Sign in again before changing reminders.",
+      message: missingUserMessage,
     };
   }
 

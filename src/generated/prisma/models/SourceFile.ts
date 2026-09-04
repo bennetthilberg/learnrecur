@@ -46,6 +46,7 @@ export type SourceFileMinAggregateOutputType = {
   byteSize: number | null
   storageBucket: string | null
   storageKey: string | null
+  presignedUploadExpiresAt: Date | null
   publicUrl: string | null
   extractedText: string | null
   createdAt: Date | null
@@ -64,6 +65,7 @@ export type SourceFileMaxAggregateOutputType = {
   byteSize: number | null
   storageBucket: string | null
   storageKey: string | null
+  presignedUploadExpiresAt: Date | null
   publicUrl: string | null
   extractedText: string | null
   createdAt: Date | null
@@ -82,6 +84,7 @@ export type SourceFileCountAggregateOutputType = {
   byteSize: number
   storageBucket: number
   storageKey: number
+  presignedUploadExpiresAt: number
   publicUrl: number
   extractedText: number
   metadata: number
@@ -111,6 +114,7 @@ export type SourceFileMinAggregateInputType = {
   byteSize?: true
   storageBucket?: true
   storageKey?: true
+  presignedUploadExpiresAt?: true
   publicUrl?: true
   extractedText?: true
   createdAt?: true
@@ -129,6 +133,7 @@ export type SourceFileMaxAggregateInputType = {
   byteSize?: true
   storageBucket?: true
   storageKey?: true
+  presignedUploadExpiresAt?: true
   publicUrl?: true
   extractedText?: true
   createdAt?: true
@@ -147,6 +152,7 @@ export type SourceFileCountAggregateInputType = {
   byteSize?: true
   storageBucket?: true
   storageKey?: true
+  presignedUploadExpiresAt?: true
   publicUrl?: true
   extractedText?: true
   metadata?: true
@@ -253,6 +259,7 @@ export type SourceFileGroupByOutputType = {
   byteSize: number | null
   storageBucket: string | null
   storageKey: string | null
+  presignedUploadExpiresAt: Date | null
   publicUrl: string | null
   extractedText: string | null
   metadata: runtime.JsonValue | null
@@ -295,6 +302,7 @@ export type SourceFileWhereInput = {
   byteSize?: Prisma.IntNullableFilter<"SourceFile"> | number | null
   storageBucket?: Prisma.StringNullableFilter<"SourceFile"> | string | null
   storageKey?: Prisma.StringNullableFilter<"SourceFile"> | string | null
+  presignedUploadExpiresAt?: Prisma.DateTimeNullableFilter<"SourceFile"> | Date | string | null
   publicUrl?: Prisma.StringNullableFilter<"SourceFile"> | string | null
   extractedText?: Prisma.StringNullableFilter<"SourceFile"> | string | null
   metadata?: Prisma.JsonNullableFilter<"SourceFile">
@@ -321,6 +329,7 @@ export type SourceFileOrderByWithRelationInput = {
   byteSize?: Prisma.SortOrderInput | Prisma.SortOrder
   storageBucket?: Prisma.SortOrderInput | Prisma.SortOrder
   storageKey?: Prisma.SortOrderInput | Prisma.SortOrder
+  presignedUploadExpiresAt?: Prisma.SortOrderInput | Prisma.SortOrder
   publicUrl?: Prisma.SortOrderInput | Prisma.SortOrder
   extractedText?: Prisma.SortOrderInput | Prisma.SortOrder
   metadata?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -352,6 +361,7 @@ export type SourceFileWhereUniqueInput = Prisma.AtLeast<{
   byteSize?: Prisma.IntNullableFilter<"SourceFile"> | number | null
   storageBucket?: Prisma.StringNullableFilter<"SourceFile"> | string | null
   storageKey?: Prisma.StringNullableFilter<"SourceFile"> | string | null
+  presignedUploadExpiresAt?: Prisma.DateTimeNullableFilter<"SourceFile"> | Date | string | null
   publicUrl?: Prisma.StringNullableFilter<"SourceFile"> | string | null
   extractedText?: Prisma.StringNullableFilter<"SourceFile"> | string | null
   metadata?: Prisma.JsonNullableFilter<"SourceFile">
@@ -378,6 +388,7 @@ export type SourceFileOrderByWithAggregationInput = {
   byteSize?: Prisma.SortOrderInput | Prisma.SortOrder
   storageBucket?: Prisma.SortOrderInput | Prisma.SortOrder
   storageKey?: Prisma.SortOrderInput | Prisma.SortOrder
+  presignedUploadExpiresAt?: Prisma.SortOrderInput | Prisma.SortOrder
   publicUrl?: Prisma.SortOrderInput | Prisma.SortOrder
   extractedText?: Prisma.SortOrderInput | Prisma.SortOrder
   metadata?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -405,6 +416,7 @@ export type SourceFileScalarWhereWithAggregatesInput = {
   byteSize?: Prisma.IntNullableWithAggregatesFilter<"SourceFile"> | number | null
   storageBucket?: Prisma.StringNullableWithAggregatesFilter<"SourceFile"> | string | null
   storageKey?: Prisma.StringNullableWithAggregatesFilter<"SourceFile"> | string | null
+  presignedUploadExpiresAt?: Prisma.DateTimeNullableWithAggregatesFilter<"SourceFile"> | Date | string | null
   publicUrl?: Prisma.StringNullableWithAggregatesFilter<"SourceFile"> | string | null
   extractedText?: Prisma.StringNullableWithAggregatesFilter<"SourceFile"> | string | null
   metadata?: Prisma.JsonNullableWithAggregatesFilter<"SourceFile">
@@ -421,6 +433,7 @@ export type SourceFileCreateInput = {
   byteSize?: number | null
   storageBucket?: string | null
   storageKey?: string | null
+  presignedUploadExpiresAt?: Date | string | null
   publicUrl?: string | null
   extractedText?: string | null
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -447,6 +460,7 @@ export type SourceFileUncheckedCreateInput = {
   byteSize?: number | null
   storageBucket?: string | null
   storageKey?: string | null
+  presignedUploadExpiresAt?: Date | string | null
   publicUrl?: string | null
   extractedText?: string | null
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -467,6 +481,7 @@ export type SourceFileUpdateInput = {
   byteSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   storageBucket?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  presignedUploadExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   publicUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   extractedText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -493,6 +508,7 @@ export type SourceFileUncheckedUpdateInput = {
   byteSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   storageBucket?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  presignedUploadExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   publicUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   extractedText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -516,6 +532,7 @@ export type SourceFileCreateManyInput = {
   byteSize?: number | null
   storageBucket?: string | null
   storageKey?: string | null
+  presignedUploadExpiresAt?: Date | string | null
   publicUrl?: string | null
   extractedText?: string | null
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -532,6 +549,7 @@ export type SourceFileUpdateManyMutationInput = {
   byteSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   storageBucket?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  presignedUploadExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   publicUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   extractedText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -551,6 +569,7 @@ export type SourceFileUncheckedUpdateManyInput = {
   byteSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   storageBucket?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  presignedUploadExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   publicUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   extractedText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -591,6 +610,7 @@ export type SourceFileCountOrderByAggregateInput = {
   byteSize?: Prisma.SortOrder
   storageBucket?: Prisma.SortOrder
   storageKey?: Prisma.SortOrder
+  presignedUploadExpiresAt?: Prisma.SortOrder
   publicUrl?: Prisma.SortOrder
   extractedText?: Prisma.SortOrder
   metadata?: Prisma.SortOrder
@@ -614,6 +634,7 @@ export type SourceFileMaxOrderByAggregateInput = {
   byteSize?: Prisma.SortOrder
   storageBucket?: Prisma.SortOrder
   storageKey?: Prisma.SortOrder
+  presignedUploadExpiresAt?: Prisma.SortOrder
   publicUrl?: Prisma.SortOrder
   extractedText?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -632,6 +653,7 @@ export type SourceFileMinOrderByAggregateInput = {
   byteSize?: Prisma.SortOrder
   storageBucket?: Prisma.SortOrder
   storageKey?: Prisma.SortOrder
+  presignedUploadExpiresAt?: Prisma.SortOrder
   publicUrl?: Prisma.SortOrder
   extractedText?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -863,6 +885,7 @@ export type SourceFileCreateWithoutUserInput = {
   byteSize?: number | null
   storageBucket?: string | null
   storageKey?: string | null
+  presignedUploadExpiresAt?: Date | string | null
   publicUrl?: string | null
   extractedText?: string | null
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -887,6 +910,7 @@ export type SourceFileUncheckedCreateWithoutUserInput = {
   byteSize?: number | null
   storageBucket?: string | null
   storageKey?: string | null
+  presignedUploadExpiresAt?: Date | string | null
   publicUrl?: string | null
   extractedText?: string | null
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -939,6 +963,7 @@ export type SourceFileScalarWhereInput = {
   byteSize?: Prisma.IntNullableFilter<"SourceFile"> | number | null
   storageBucket?: Prisma.StringNullableFilter<"SourceFile"> | string | null
   storageKey?: Prisma.StringNullableFilter<"SourceFile"> | string | null
+  presignedUploadExpiresAt?: Prisma.DateTimeNullableFilter<"SourceFile"> | Date | string | null
   publicUrl?: Prisma.StringNullableFilter<"SourceFile"> | string | null
   extractedText?: Prisma.StringNullableFilter<"SourceFile"> | string | null
   metadata?: Prisma.JsonNullableFilter<"SourceFile">
@@ -955,6 +980,7 @@ export type SourceFileCreateWithoutCollectionInput = {
   byteSize?: number | null
   storageBucket?: string | null
   storageKey?: string | null
+  presignedUploadExpiresAt?: Date | string | null
   publicUrl?: string | null
   extractedText?: string | null
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -978,6 +1004,7 @@ export type SourceFileUncheckedCreateWithoutCollectionInput = {
   byteSize?: number | null
   storageBucket?: string | null
   storageKey?: string | null
+  presignedUploadExpiresAt?: Date | string | null
   publicUrl?: string | null
   extractedText?: string | null
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1024,6 +1051,7 @@ export type SourceFileCreateWithoutMaterialRevisionInput = {
   byteSize?: number | null
   storageBucket?: string | null
   storageKey?: string | null
+  presignedUploadExpiresAt?: Date | string | null
   publicUrl?: string | null
   extractedText?: string | null
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1047,6 +1075,7 @@ export type SourceFileUncheckedCreateWithoutMaterialRevisionInput = {
   byteSize?: number | null
   storageBucket?: string | null
   storageKey?: string | null
+  presignedUploadExpiresAt?: Date | string | null
   publicUrl?: string | null
   extractedText?: string | null
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1093,6 +1122,7 @@ export type SourceFileCreateWithoutMaterialChunksInput = {
   byteSize?: number | null
   storageBucket?: string | null
   storageKey?: string | null
+  presignedUploadExpiresAt?: Date | string | null
   publicUrl?: string | null
   extractedText?: string | null
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1118,6 +1148,7 @@ export type SourceFileUncheckedCreateWithoutMaterialChunksInput = {
   byteSize?: number | null
   storageBucket?: string | null
   storageKey?: string | null
+  presignedUploadExpiresAt?: Date | string | null
   publicUrl?: string | null
   extractedText?: string | null
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1153,6 +1184,7 @@ export type SourceFileUpdateWithoutMaterialChunksInput = {
   byteSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   storageBucket?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  presignedUploadExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   publicUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   extractedText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1178,6 +1210,7 @@ export type SourceFileUncheckedUpdateWithoutMaterialChunksInput = {
   byteSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   storageBucket?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  presignedUploadExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   publicUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   extractedText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1197,6 +1230,7 @@ export type SourceFileCreateWithoutSkillRefsInput = {
   byteSize?: number | null
   storageBucket?: string | null
   storageKey?: string | null
+  presignedUploadExpiresAt?: Date | string | null
   publicUrl?: string | null
   extractedText?: string | null
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1222,6 +1256,7 @@ export type SourceFileUncheckedCreateWithoutSkillRefsInput = {
   byteSize?: number | null
   storageBucket?: string | null
   storageKey?: string | null
+  presignedUploadExpiresAt?: Date | string | null
   publicUrl?: string | null
   extractedText?: string | null
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1257,6 +1292,7 @@ export type SourceFileUpdateWithoutSkillRefsInput = {
   byteSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   storageBucket?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  presignedUploadExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   publicUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   extractedText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1282,6 +1318,7 @@ export type SourceFileUncheckedUpdateWithoutSkillRefsInput = {
   byteSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   storageBucket?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  presignedUploadExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   publicUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   extractedText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1301,6 +1338,7 @@ export type SourceFileCreateWithoutAgentOperationsInput = {
   byteSize?: number | null
   storageBucket?: string | null
   storageKey?: string | null
+  presignedUploadExpiresAt?: Date | string | null
   publicUrl?: string | null
   extractedText?: string | null
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1326,6 +1364,7 @@ export type SourceFileUncheckedCreateWithoutAgentOperationsInput = {
   byteSize?: number | null
   storageBucket?: string | null
   storageKey?: string | null
+  presignedUploadExpiresAt?: Date | string | null
   publicUrl?: string | null
   extractedText?: string | null
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1361,6 +1400,7 @@ export type SourceFileUpdateWithoutAgentOperationsInput = {
   byteSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   storageBucket?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  presignedUploadExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   publicUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   extractedText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1386,6 +1426,7 @@ export type SourceFileUncheckedUpdateWithoutAgentOperationsInput = {
   byteSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   storageBucket?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  presignedUploadExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   publicUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   extractedText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1405,6 +1446,7 @@ export type SourceFileCreateWithoutAgentSourcesInput = {
   byteSize?: number | null
   storageBucket?: string | null
   storageKey?: string | null
+  presignedUploadExpiresAt?: Date | string | null
   publicUrl?: string | null
   extractedText?: string | null
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1430,6 +1472,7 @@ export type SourceFileUncheckedCreateWithoutAgentSourcesInput = {
   byteSize?: number | null
   storageBucket?: string | null
   storageKey?: string | null
+  presignedUploadExpiresAt?: Date | string | null
   publicUrl?: string | null
   extractedText?: string | null
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1465,6 +1508,7 @@ export type SourceFileUpdateWithoutAgentSourcesInput = {
   byteSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   storageBucket?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  presignedUploadExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   publicUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   extractedText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1490,6 +1534,7 @@ export type SourceFileUncheckedUpdateWithoutAgentSourcesInput = {
   byteSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   storageBucket?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  presignedUploadExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   publicUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   extractedText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1511,6 +1556,7 @@ export type SourceFileCreateManyUserInput = {
   byteSize?: number | null
   storageBucket?: string | null
   storageKey?: string | null
+  presignedUploadExpiresAt?: Date | string | null
   publicUrl?: string | null
   extractedText?: string | null
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1527,6 +1573,7 @@ export type SourceFileUpdateWithoutUserInput = {
   byteSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   storageBucket?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  presignedUploadExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   publicUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   extractedText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1551,6 +1598,7 @@ export type SourceFileUncheckedUpdateWithoutUserInput = {
   byteSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   storageBucket?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  presignedUploadExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   publicUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   extractedText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1573,6 +1621,7 @@ export type SourceFileUncheckedUpdateManyWithoutUserInput = {
   byteSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   storageBucket?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  presignedUploadExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   publicUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   extractedText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1590,6 +1639,7 @@ export type SourceFileCreateManyCollectionInput = {
   byteSize?: number | null
   storageBucket?: string | null
   storageKey?: string | null
+  presignedUploadExpiresAt?: Date | string | null
   publicUrl?: string | null
   extractedText?: string | null
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1606,6 +1656,7 @@ export type SourceFileUpdateWithoutCollectionInput = {
   byteSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   storageBucket?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  presignedUploadExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   publicUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   extractedText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1629,6 +1680,7 @@ export type SourceFileUncheckedUpdateWithoutCollectionInput = {
   byteSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   storageBucket?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  presignedUploadExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   publicUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   extractedText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1650,6 +1702,7 @@ export type SourceFileUncheckedUpdateManyWithoutCollectionInput = {
   byteSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   storageBucket?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  presignedUploadExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   publicUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   extractedText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1667,6 +1720,7 @@ export type SourceFileCreateManyMaterialRevisionInput = {
   byteSize?: number | null
   storageBucket?: string | null
   storageKey?: string | null
+  presignedUploadExpiresAt?: Date | string | null
   publicUrl?: string | null
   extractedText?: string | null
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1683,6 +1737,7 @@ export type SourceFileUpdateWithoutMaterialRevisionInput = {
   byteSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   storageBucket?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  presignedUploadExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   publicUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   extractedText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1706,6 +1761,7 @@ export type SourceFileUncheckedUpdateWithoutMaterialRevisionInput = {
   byteSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   storageBucket?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  presignedUploadExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   publicUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   extractedText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1727,6 +1783,7 @@ export type SourceFileUncheckedUpdateManyWithoutMaterialRevisionInput = {
   byteSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   storageBucket?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  presignedUploadExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   publicUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   extractedText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1804,6 +1861,7 @@ export type SourceFileSelect<ExtArgs extends runtime.Types.Extensions.InternalAr
   byteSize?: boolean
   storageBucket?: boolean
   storageKey?: boolean
+  presignedUploadExpiresAt?: boolean
   publicUrl?: boolean
   extractedText?: boolean
   metadata?: boolean
@@ -1831,6 +1889,7 @@ export type SourceFileSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Ex
   byteSize?: boolean
   storageBucket?: boolean
   storageKey?: boolean
+  presignedUploadExpiresAt?: boolean
   publicUrl?: boolean
   extractedText?: boolean
   metadata?: boolean
@@ -1853,6 +1912,7 @@ export type SourceFileSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Ex
   byteSize?: boolean
   storageBucket?: boolean
   storageKey?: boolean
+  presignedUploadExpiresAt?: boolean
   publicUrl?: boolean
   extractedText?: boolean
   metadata?: boolean
@@ -1875,6 +1935,7 @@ export type SourceFileSelectScalar = {
   byteSize?: boolean
   storageBucket?: boolean
   storageKey?: boolean
+  presignedUploadExpiresAt?: boolean
   publicUrl?: boolean
   extractedText?: boolean
   metadata?: boolean
@@ -1882,7 +1943,7 @@ export type SourceFileSelectScalar = {
   updatedAt?: boolean
 }
 
-export type SourceFileOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "collectionId" | "materialRevisionId" | "kind" | "status" | "originalName" | "mimeType" | "byteSize" | "storageBucket" | "storageKey" | "publicUrl" | "extractedText" | "metadata" | "createdAt" | "updatedAt", ExtArgs["result"]["sourceFile"]>
+export type SourceFileOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "collectionId" | "materialRevisionId" | "kind" | "status" | "originalName" | "mimeType" | "byteSize" | "storageBucket" | "storageKey" | "presignedUploadExpiresAt" | "publicUrl" | "extractedText" | "metadata" | "createdAt" | "updatedAt", ExtArgs["result"]["sourceFile"]>
 export type SourceFileInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   collection?: boolean | Prisma.SourceFile$collectionArgs<ExtArgs>
@@ -1927,6 +1988,7 @@ export type $SourceFilePayload<ExtArgs extends runtime.Types.Extensions.Internal
     byteSize: number | null
     storageBucket: string | null
     storageKey: string | null
+    presignedUploadExpiresAt: Date | null
     publicUrl: string | null
     extractedText: string | null
     metadata: runtime.JsonValue | null
@@ -2373,6 +2435,7 @@ export interface SourceFileFieldRefs {
   readonly byteSize: Prisma.FieldRef<"SourceFile", 'Int'>
   readonly storageBucket: Prisma.FieldRef<"SourceFile", 'String'>
   readonly storageKey: Prisma.FieldRef<"SourceFile", 'String'>
+  readonly presignedUploadExpiresAt: Prisma.FieldRef<"SourceFile", 'DateTime'>
   readonly publicUrl: Prisma.FieldRef<"SourceFile", 'String'>
   readonly extractedText: Prisma.FieldRef<"SourceFile", 'String'>
   readonly metadata: Prisma.FieldRef<"SourceFile", 'Json'>

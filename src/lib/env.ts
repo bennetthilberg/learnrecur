@@ -232,6 +232,33 @@ const inngestProductionEnvSchema = z.object({
     .min(1, "INNGEST_SIGNING_KEY is required"),
 });
 
+const productionAccessAndOperationsEnvSchema = z.object({
+  ALPHA_ALLOWED_EMAILS: z
+    .string({ error: "ALPHA_ALLOWED_EMAILS is required" })
+    .trim()
+    .min(1, "ALPHA_ALLOWED_EMAILS must contain at least one email")
+    .superRefine((value, context) => {
+      const emails = value.split(/[,\n]/u).map((email) => email.trim()).filter(Boolean);
+      if (
+        emails.length === 0 ||
+        emails.some((email) => !z.string().email().safeParse(email).success)
+      ) {
+        context.addIssue({
+          code: "custom",
+          message: "ALPHA_ALLOWED_EMAILS must contain only valid comma- or newline-separated emails",
+        });
+      }
+    }),
+  READINESS_PROBE_SECRET: z
+    .string({ error: "READINESS_PROBE_SECRET is required" })
+    .trim()
+    .min(32, "READINESS_PROBE_SECRET must be at least 32 characters"),
+  SUPPORT_EMAIL: z
+    .string({ error: "SUPPORT_EMAIL is required" })
+    .trim()
+    .email("SUPPORT_EMAIL must be a valid email address"),
+});
+
 const falseEnvValues = new Set(["0", "false", "no", "n", "off"]);
 
 const productionEnvSchema = requiredDatabaseEnvSchema
@@ -245,6 +272,7 @@ const productionEnvSchema = requiredDatabaseEnvSchema
   )
   .merge(s3EnvSchema)
   .merge(inngestProductionEnvSchema)
+  .merge(productionAccessAndOperationsEnvSchema)
   .superRefine((value, context) => {
     requireGeminiApiKey(value, context);
 
