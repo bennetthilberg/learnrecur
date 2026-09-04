@@ -36,6 +36,7 @@ vi.mock("@/lib/storage/s3", () => ({
 import {
   ACCOUNT_DELETION_CONFIRMATION,
   ACCOUNT_DELETION_MANIFEST_VERSION,
+  accountDeletionUiStatusAfterRequest,
 } from "@/lib/account-deletion/contracts";
 import {
   AccountDeletionWorkflowError,
@@ -172,16 +173,8 @@ describe("account deletion manifest", () => {
         { bucket: "private-bucket", key: "m/revision.pdf" },
       ],
       agentConnections: [
-        {
-          id: "connection-z",
-          workosApplicationId: "application-z",
-          workosIdentity: { workosUserId: "workos-z" },
-        },
-        {
-          id: "connection-a",
-          workosApplicationId: "application-a",
-          workosIdentity: { workosUserId: "workos-a" },
-        },
+        { id: "connection-z" },
+        { id: "connection-a" },
       ],
     });
 
@@ -248,6 +241,13 @@ describe("account deletion manifest", () => {
         { connectionId: "connection-a" },
       ],
     });
+  });
+});
+
+describe("account deletion UI state", () => {
+  it("preserves completion when a stale panel receives an already-deleted result", () => {
+    expect(accountDeletionUiStatusAfterRequest("already-deleted")).toBe("COMPLETE");
+    expect(accountDeletionUiStatusAfterRequest("queued")).toBe("PENDING");
   });
 });
 

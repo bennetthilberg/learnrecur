@@ -49,7 +49,11 @@ export type SourceObjectStorage = {
     mimeType: string;
     bucket?: string;
   }): Promise<void>;
-  listObjects(input?: { prefix?: string; bucket?: string }): Promise<string[]>;
+  listObjects(input?: {
+    prefix?: string;
+    bucket?: string;
+    abortSignal?: AbortSignal;
+  }): Promise<string[]>;
   deleteObject(input: { key: string; bucket?: string }): Promise<void>;
 };
 
@@ -160,6 +164,7 @@ export function createS3SourceObjectStorage(env: S3Env): SourceObjectStorage {
             Prefix: input.prefix,
             ContinuationToken: continuationToken,
           }),
+          input.abortSignal ? { abortSignal: input.abortSignal } : undefined,
         );
 
         for (const object of result.Contents ?? []) {

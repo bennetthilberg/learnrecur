@@ -179,8 +179,16 @@ describe("readiness route", () => {
   });
 
   it("turns a hung check into a timeout category", async () => {
+    let receivedSignal: AbortSignal | undefined;
     const result = await runReadinessChecks(
-      [{ name: "provider", category: "provider", run: () => new Promise<void>(() => {}) }],
+      [{
+        name: "provider",
+        category: "provider",
+        run: (signal) => {
+          receivedSignal = signal;
+          return new Promise<void>(() => {});
+        },
+      }],
       5,
     );
 
@@ -188,5 +196,6 @@ describe("readiness route", () => {
       status: "not_ready",
       checks: [{ name: "provider", status: "failed", category: "timeout" }],
     });
+    expect(receivedSignal?.aborted).toBe(true);
   });
 });

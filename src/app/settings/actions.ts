@@ -108,7 +108,11 @@ export async function requestAccountDeletionAction(confirmation: string) {
 
     if (result.status === "queued" || result.status === "already-deleted") {
       revalidatePath("/settings");
-      return { status: "saved" as const, message: result.message };
+      return {
+        status: "saved" as const,
+        deletionStatus: result.status,
+        message: result.message,
+      };
     }
 
     return { status: "error" as const, message: result.message };

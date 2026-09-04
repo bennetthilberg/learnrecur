@@ -14,6 +14,7 @@ export interface PackageManifest {
 
 export interface NpmLockPackage {
   dependencies?: Record<string, string>;
+  devDependencies?: Record<string, string>;
   optionalDependencies?: Record<string, string>;
   dev?: boolean;
   devOptional?: boolean;

@@ -89,6 +89,17 @@ test.describe("authenticated learner lifecycle", () => {
     page,
   }) => {
     const scenario = learnerFixture.scenarios.choice;
+    const manifest = await readClerkTestManifest();
+    const otherLearner = manifest.users.find((user) => user.id !== clerkTestUser.id);
+    if (!otherLearner) {
+      throw new Error("Export isolation requires a second Clerk test user.");
+    }
+    const foreignScenario = await createE2EPracticeScenario({
+      email: otherLearner.email,
+      kind: "choice",
+      runId: `${learnerFixture.runKey}-foreign-export`,
+      userId: otherLearner.id,
+    });
     await completeCorrectReview(page, scenario);
 
     await page.goto("/history");
@@ -160,12 +171,20 @@ test.describe("authenticated learner lifecycle", () => {
     expect(exported.exercises.map((exercise) => exercise.id)).toContain(
       scenario.exercise.id,
     );
+    expect(exported.collections.map((collection) => collection.id)).not.toContain(
+      foreignScenario.collectionId,
+    );
+    expect(exported.skills.map((skill) => skill.id)).not.toContain(foreignScenario.skillId);
+    expect(exported.exercises.map((exercise) => exercise.id)).not.toContain(
+      foreignScenario.exercise.id,
+    );
     expect(
       exported.exerciseAttempts.some(
         (attempt) => attempt.exerciseId === scenario.exercise.id,
       ),
     ).toBe(true);
     expect(exported.reviewLogs.length).toBeGreaterThan(0);
+    await deleteE2EPracticeFixture(foreignScenario);
   });
 
   test("retires a flagged exercise without saving a review and advances to its replacement", async ({

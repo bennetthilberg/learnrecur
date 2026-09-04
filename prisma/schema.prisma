@@ -335,6 +335,7 @@ enum AccountDeletionJobStatus {
   PENDING
   RUNNING
   FAILED
+  DEAD_LETTER
   COMPLETE
 }
 

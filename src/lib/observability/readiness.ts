@@ -23,7 +23,7 @@ export const READINESS_STORAGE_PROBE_PREFIX = "__learnrecur_readiness_probe__/";
 export type ReadinessCheck = {
   name: string;
   category?: OperationalErrorCategory;
-  run: () => void | Promise<void>;
+  run: (signal: AbortSignal) => void | Promise<void>;
 };
 
 export type ReadinessCheckResult =
@@ -230,7 +230,7 @@ export function getDefaultReadinessChecks(): ReadinessCheck[] {
     {
       name: "storage",
       category: "storage",
-      run: checkStorageReadiness,
+      run: (signal) => checkStorageReadiness(undefined, signal),
     },
     {
       name: "provider",
@@ -251,6 +251,7 @@ export async function checkDatabaseReadiness(): Promise<void> {
 
 export async function checkStorageReadiness(
   setup: SourceObjectStorageSetup = resolveS3SourceObjectStorage(),
+  signal?: AbortSignal,
 ): Promise<void> {
 
   if (setup.status !== "ready") {
@@ -260,13 +261,17 @@ export async function checkStorageReadiness(
   // Listing an empty prefix verifies the bucket itself exists and is accessible.
   // HeadObject cannot distinguish a missing object from a missing bucket on every
   // S3-compatible implementation because both may surface as a generic 404.
-  await verifyStorageBucketReadiness(setup.storage);
+  await verifyStorageBucketReadiness(setup.storage, signal);
 }
 
 export async function verifyStorageBucketReadiness(
   storage: Pick<SourceObjectStorage, "listObjects">,
+  signal?: AbortSignal,
 ): Promise<void> {
-  await storage.listObjects({ prefix: READINESS_STORAGE_PROBE_PREFIX });
+  await storage.listObjects({
+    prefix: READINESS_STORAGE_PROBE_PREFIX,
+    ...(signal ? { abortSignal: signal } : {}),
+  });
 }
 
 export function checkProviderReadiness(): void {
@@ -309,13 +314,15 @@ function jsonResponse(
 }
 
 async function runWithTimeout(
-  run: () => void | Promise<void>,
+  run: (signal: AbortSignal) => void | Promise<void>,
   timeoutMs: number,
 ): Promise<void> {
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
-  const operation = Promise.resolve().then(run);
+  const controller = new AbortController();
+  const operation = Promise.resolve().then(() => run(controller.signal));
   const timeout = new Promise<never>((_, reject) => {
     timeoutId = setTimeout(() => {
+      controller.abort();
       reject(new ReadinessProbeError("timeout", "Readiness check timed out."));
     }, timeoutMs);
   });

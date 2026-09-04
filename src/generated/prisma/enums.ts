@@ -457,6 +457,7 @@ export const AccountDeletionJobStatus = {
   PENDING: 'PENDING',
   RUNNING: 'RUNNING',
   FAILED: 'FAILED',
+  DEAD_LETTER: 'DEAD_LETTER',
   COMPLETE: 'COMPLETE'
 } as const
 

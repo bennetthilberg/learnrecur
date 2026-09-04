@@ -179,11 +179,7 @@ describeDatabase("durable account deletion", () => {
           { bucket: "account-deletion-test-bucket", key: `${runId}/success/revision.pdf` },
         ],
         agentConnections: [
-          {
-            id: fixture.connectionId!,
-            workosApplicationId: `${runId}_application_success`,
-            workosIdentity: { workosUserId: `${runId}_workos_success` },
-          },
+          { id: fixture.connectionId! },
         ],
       }),
     );
@@ -456,6 +452,50 @@ describeDatabase("durable account deletion", () => {
     expect(deletedKeys.filter((key) => key.endsWith("/a.pdf"))).toHaveLength(1);
     expect(deletedKeys.filter((key) => key.endsWith("/b.pdf"))).toHaveLength(1);
     expect(storage.deleteObject).toHaveBeenCalledTimes(4);
+  });
+
+  it("dead-letters persistent failures after bounded attempts and allows explicit requeue", async () => {
+    const fixture = await createUser("dead-letter", { objects: true });
+    const { result } = await queueDeletion(fixture.userId, "dead-letter");
+    await prisma.accountDeletionJob.update({
+      where: { id: result.jobId },
+      data: { attemptCount: 7 },
+    });
+
+    await expect(
+      runAccountDeletionJob({
+        userId: fixture.userId,
+        deletionJobId: result.jobId,
+        now: new Date("2026-09-03T13:05:00.000Z"),
+        storage: { deleteObject: vi.fn().mockRejectedValue(new Error("persistent S3 failure")) },
+        clerk: safeClerk(),
+        ...safeAgentDependencies(),
+      }),
+    ).rejects.toMatchObject({ code: "S3_OBJECT_DELETE_FAILED" });
+    await expect(
+      prisma.accountDeletionJob.findUniqueOrThrow({ where: { id: result.jobId } }),
+    ).resolves.toMatchObject({
+      status: AccountDeletionJobStatus.DEAD_LETTER,
+      attemptCount: 8,
+      nextAttemptAt: null,
+    });
+
+    const eventSender = { sendAccountDeletionRequested: vi.fn().mockResolvedValue(undefined) };
+    await expect(
+      requestAccountDeletion({
+        userId: fixture.userId,
+        confirmation: ACCOUNT_DELETION_CONFIRMATION,
+        now: new Date("2026-09-03T13:06:00.000Z"),
+        eventSender,
+      }),
+    ).resolves.toMatchObject({ status: "queued", jobId: result.jobId, alreadyQueued: true });
+    await expect(
+      prisma.accountDeletionJob.findUniqueOrThrow({ where: { id: result.jobId } }),
+    ).resolves.toMatchObject({
+      status: AccountDeletionJobStatus.PENDING,
+      attemptCount: 0,
+    });
+    expect(eventSender.sendAccountDeletionRequested).toHaveBeenCalledOnce();
   });
 
   it("retains the manifest when Clerk identity deletion fails and retries last", async () => {

@@ -12,6 +12,7 @@ import { useState, useTransition } from "react";
 
 import {
   ACCOUNT_DELETION_CONFIRMATION,
+  accountDeletionUiStatusAfterRequest,
   type AccountDeletionUiSnapshot,
   type AccountDeletionUiStatus,
 } from "@/lib/account-deletion/contracts";
@@ -60,7 +61,7 @@ export function AccountDeletionPanel({ status }: { status: AccountDeletionUiSnap
         });
 
         if (saved) {
-          setLocalStatus("PENDING");
+          setLocalStatus(accountDeletionUiStatusAfterRequest(result.deletionStatus));
           setOpened(false);
           setConfirmation("");
         }
@@ -198,6 +199,15 @@ function renderStatus(status: AccountDeletionUiStatus) {
     return (
       <p className="skillFormMessage" data-tone="error" role="status">
         Deletion needs another attempt. The deletion record and private-object inventory are retained so it can resume safely.
+      </p>
+    );
+  }
+
+  if (status === "DEAD_LETTER") {
+    return (
+      <p className="skillFormMessage" data-tone="error" role="status">
+        Automatic deletion stopped after repeated failures. Contact support so the remaining
+        deletion can be completed safely.
       </p>
     );
   }

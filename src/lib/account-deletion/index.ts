@@ -19,6 +19,7 @@ import {
   type AccountDeletionEventSender,
 } from "@/lib/inngest/events";
 import { getPrisma } from "@/lib/prisma";
+import { logOperationalEvent } from "@/lib/observability";
 import {
   resolveS3SourceObjectStorage,
   type SourceObjectStorage,
@@ -37,6 +38,7 @@ const CLERK_SESSION_PAGE_SIZE = 500;
 const MAX_DESTRUCTIVE_PASSES = 5;
 const ACCOUNT_DELETION_RECOVERY_DELAY_MS = 15 * 60 * 1_000;
 const ACCOUNT_DELETION_RECOVERY_BATCH_SIZE = 25;
+export const ACCOUNT_DELETION_MAX_AUTOMATIC_ATTEMPTS = 8;
 
 // Keep this schema independent of the database row so a malformed or manually
 // edited manifest fails closed before any provider or relational deletion.
@@ -579,7 +581,9 @@ async function persistAccountDeletionRequest(
           };
         }
 
-        const shouldRequeue = existing.status === AccountDeletionJobStatus.FAILED;
+        const shouldRequeue =
+          existing.status === AccountDeletionJobStatus.FAILED ||
+          existing.status === AccountDeletionJobStatus.DEAD_LETTER;
         if (shouldRequeue) {
           await tx.accountDeletionJob.update({
             where: { id: existing.id },
@@ -588,6 +592,9 @@ async function persistAccountDeletionRequest(
               lastErrorCode: null,
               lastErrorMessage: null,
               nextAttemptAt: input.now,
+              ...(existing.status === AccountDeletionJobStatus.DEAD_LETTER
+                ? { attemptCount: 0 }
+                : {}),
             },
           });
         }
@@ -697,10 +704,14 @@ async function disableAccessAndRevokeAgents(input: {
   ]);
 
   if (clerkResult.status === "rejected") {
-    throw new AccountDeletionWorkflowError("CLERK_SESSION_REVOCATION_FAILED");
+    throw clerkResult.reason instanceof AccountDeletionWorkflowError
+      ? clerkResult.reason
+      : new AccountDeletionWorkflowError("CLERK_SESSION_REVOCATION_FAILED");
   }
   if (agentResult.status === "rejected") {
-    throw new AccountDeletionWorkflowError("AGENT_ACCESS_DISABLE_FAILED");
+    throw agentResult.reason instanceof AccountDeletionWorkflowError
+      ? agentResult.reason
+      : new AccountDeletionWorkflowError("AGENT_ACCESS_DISABLE_FAILED");
   }
 }
 
@@ -950,15 +961,40 @@ async function markAccountDeletionFailed(
   retryable: boolean,
   retryAt: Date | null = null,
 ) {
+  const job = await prisma.accountDeletionJob.findUnique({
+    where: { id: jobId },
+    select: { attemptCount: true, phase: true },
+  });
+  const expectedLeaseDelay = code === "PRESIGNED_UPLOAD_URL_ACTIVE";
+  const exhausted =
+    retryable &&
+    !expectedLeaseDelay &&
+    (job?.attemptCount ?? ACCOUNT_DELETION_MAX_AUTOMATIC_ATTEMPTS) >=
+      ACCOUNT_DELETION_MAX_AUTOMATIC_ATTEMPTS;
   await prisma.accountDeletionJob.updateMany({
     where: { id: jobId },
     data: {
-      status: AccountDeletionJobStatus.FAILED,
+      status: exhausted
+        ? AccountDeletionJobStatus.DEAD_LETTER
+        : AccountDeletionJobStatus.FAILED,
       lastErrorCode: code,
       lastErrorMessage: PUBLIC_FAILURE_MESSAGE,
-      nextAttemptAt: retryable ? retryAt ?? nextRecoveryAt(now) : null,
+      nextAttemptAt:
+        retryable && !exhausted ? retryAt ?? nextRecoveryAt(now) : null,
     },
   });
+  if (exhausted) {
+    logOperationalEvent({
+      operation: "account_deletion.dead_lettered",
+      status: "failed",
+      errorCategory: "dependency",
+      details: {
+        attemptCount: job?.attemptCount ?? null,
+        code,
+        phase: job?.phase ?? null,
+      },
+    });
+  }
 }
 
 async function assertNoActiveUploadLeases(

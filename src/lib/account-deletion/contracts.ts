@@ -21,7 +21,14 @@ export type AccountDeletionUiStatus =
   | "PENDING"
   | "RUNNING"
   | "FAILED"
+  | "DEAD_LETTER"
   | "COMPLETE";
+
+export function accountDeletionUiStatusAfterRequest(
+  status: "queued" | "already-deleted",
+): AccountDeletionUiStatus {
+  return status === "already-deleted" ? "COMPLETE" : "PENDING";
+}
 
 export type AccountDeletionUiSnapshot = {
   status: AccountDeletionUiStatus;
