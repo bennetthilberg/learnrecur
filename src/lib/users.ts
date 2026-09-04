@@ -1,3 +1,4 @@
+import { getAlphaAccessPolicy, isAlphaUserAllowed } from "./alpha-access";
 import { formatEnvError, hasDatabaseEnv } from "./env";
 import { getPrisma } from "./prisma";
 
@@ -87,6 +88,7 @@ export type AuthenticatedUserClient = UserMirrorClient & {
 type EnsureDatabaseUserOptions = {
   prisma?: UserMirrorClient;
   skipEnvCheck?: boolean;
+  skipAlphaCheck?: boolean;
 };
 
 type EnsureAuthenticatedDatabaseUserOptions = {
@@ -103,6 +105,10 @@ export async function ensureAuthenticatedDatabaseUser(
 ): Promise<DatabaseUserStatus> {
   if (!options.skipEnvCheck && !hasDatabaseEnv()) {
     return missingDatabaseEnvStatus();
+  }
+
+  if (!(await isAlphaUserAllowed(input.userId, getAlphaAccessPolicy()))) {
+    return alphaAccessDeniedStatus();
   }
 
   let clerkUser: ClerkUserSnapshot | null = null;
@@ -123,37 +129,26 @@ export async function ensureAuthenticatedDatabaseUser(
     return ensureDatabaseUser(clerkUser, {
       prisma: options.prisma,
       skipEnvCheck: true,
+      skipAlphaCheck: true,
     });
   }
 
   try {
-    const prisma = options.prisma ?? getPrisma();
-    const deletionJob = await prisma.accountDeletionJob?.findUnique({
-      where: { userId: input.userId },
-      select: { id: true },
-    });
-    if (deletionJob) {
-      return {
-        status: "error",
-        message: "Account deletion is in progress. App access is disabled.",
-      };
+    const existing = options.prisma
+      ? await findMirroredUser(options.prisma, input.userId)
+      : await getPrisma().$transaction(async (transaction) => {
+          await transaction.$queryRaw`SELECT "id" FROM "users" WHERE "id" = ${input.userId} FOR UPDATE`;
+          return findMirroredUser(transaction, input.userId);
+        });
+    if (existing.status === "deletion-in-progress") {
+      return deletionInProgressStatus();
     }
-    const user = await prisma.user.findUnique({
-      where: { id: input.userId },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    });
-    if (user) {
+    if (existing.user) {
       console.warn("[users] Clerk user lookup failed; using mirrored user", {
         userId: input.userId,
         reason: clerkLookupError ? "lookup-error" : "user-not-found",
       });
-      return { status: "ready", user };
+      return { status: "ready", user: existing.user };
     }
   } catch (error) {
     return { status: "error", message: formatDatabaseUserError(error) };
@@ -165,6 +160,31 @@ export async function ensureAuthenticatedDatabaseUser(
   };
 }
 
+async function findMirroredUser(
+  prisma: AuthenticatedUserClient,
+  userId: string,
+): Promise<
+  | { status: "found"; user: MirroredUserRecord | null }
+  | { status: "deletion-in-progress" }
+> {
+  const deletionJob = await prisma.accountDeletionJob?.findUnique({
+    where: { userId },
+    select: { id: true },
+  });
+  if (deletionJob) return { status: "deletion-in-progress" };
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
+  return { status: "found", user };
+}
+
 export async function ensureDatabaseUser(
   clerkUser: ClerkUserSnapshot,
   options: EnsureDatabaseUserOptions = {},
@@ -173,53 +193,92 @@ export async function ensureDatabaseUser(
     return missingDatabaseEnvStatus();
   }
 
+  if (
+    !options.skipAlphaCheck &&
+    !(await isAlphaUserAllowed(clerkUser.id, getAlphaAccessPolicy()))
+  ) {
+    return alphaAccessDeniedStatus();
+  }
+
   try {
     const email = clerkUser.primaryEmailAddress?.emailAddress ?? null;
     const name = getDisplayName(clerkUser);
-    const prisma = options.prisma ?? getPrisma();
-    const deletionJob = await prisma.accountDeletionJob?.findUnique({
-      where: { userId: clerkUser.id },
-      select: { id: true },
-    });
-
-    if (deletionJob) {
-      return {
-        status: "error",
-        message: "Account deletion is in progress. App access is disabled.",
-      };
-    }
-
-    const user = await prisma.user.upsert({
-      where: { id: clerkUser.id },
-      update: {
-        email,
-        name,
-        imageUrl: clerkUser.imageUrl ?? null,
-        lastSeenAt: new Date(),
-      },
-      create: {
+    const mirror = (prisma: UserMirrorClient) =>
+      mirrorDatabaseUser(prisma, {
         id: clerkUser.id,
         email,
         name,
         imageUrl: clerkUser.imageUrl ?? null,
-        lastSeenAt: new Date(),
-      },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    });
+      });
+    const result = options.prisma
+      ? await mirror(options.prisma)
+      : await getPrisma().$transaction(async (transaction) => {
+          await transaction.$queryRaw`SELECT "id" FROM "users" WHERE "id" = ${clerkUser.id} FOR UPDATE`;
+          return mirror(transaction);
+        });
 
-    return { status: "ready", user };
+    return result.status === "ready"
+      ? result
+      : deletionInProgressStatus();
   } catch (error) {
     return {
       status: "error",
       message: formatDatabaseUserError(error),
     };
   }
+}
+
+async function mirrorDatabaseUser(
+  prisma: UserMirrorClient,
+  input: {
+    id: string;
+    email: string | null;
+    name: string | null;
+    imageUrl: string | null;
+  },
+): Promise<
+  | Extract<DatabaseUserStatus, { status: "ready" }>
+  | { status: "deletion-in-progress" }
+> {
+  const deletionJob = await prisma.accountDeletionJob?.findUnique({
+    where: { userId: input.id },
+    select: { id: true },
+  });
+  if (deletionJob) return { status: "deletion-in-progress" };
+
+  const lastSeenAt = new Date();
+  const user = await prisma.user.upsert({
+    where: { id: input.id },
+    update: {
+      email: input.email,
+      name: input.name,
+      imageUrl: input.imageUrl,
+      lastSeenAt,
+    },
+    create: { ...input, lastSeenAt },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
+  return { status: "ready", user };
+}
+
+function deletionInProgressStatus(): DatabaseUserStatus {
+  return {
+    status: "error",
+    message: "Account deletion is in progress. App access is disabled.",
+  };
+}
+
+function alphaAccessDeniedStatus(): DatabaseUserStatus {
+  return {
+    status: "error",
+    message: "This LearnRecur alpha is invitation-only.",
+  };
 }
 
 function missingDatabaseEnvStatus(): DatabaseUserStatus {

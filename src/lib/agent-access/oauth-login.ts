@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import type { EnabledAgentAccessConfig } from "@/lib/agent-access/auth";
 import { getPrisma } from "@/lib/prisma";
+import { revokeWorkosAuthorizedApplications } from "@/lib/agent-access/settings";
 
 export const WORKOS_EXTERNAL_AUTH_COOKIE = "lr_workos_external_auth";
 export const WORKOS_EXTERNAL_AUTH_COOKIE_MAX_AGE_SECONDS = 300;
@@ -33,6 +34,7 @@ export type WorkosStandaloneAuthErrorCode =
   | "identity_response_invalid"
   | "identity_mismatch"
   | "identity_conflict"
+  | "account_deletion_in_progress"
   | "persistence_failed";
 
 export class WorkosStandaloneAuthError extends Error {
@@ -205,8 +207,18 @@ export async function completeWorkosStandaloneAuth(input: {
   }
 
   const prisma = getPrisma();
+  let deletionInProgress = false;
   try {
     await prisma.$transaction(async (transaction) => {
+      await transaction.$queryRaw`SELECT "id" FROM "users" WHERE "id" = ${input.clerkUser.id} FOR UPDATE`;
+      const deletionJob = await transaction.accountDeletionJob.findUnique({
+        where: { userId: input.clerkUser.id },
+        select: { id: true },
+      });
+      if (deletionJob) {
+        deletionInProgress = true;
+        return;
+      }
       const conflicting = await transaction.workosIdentity.findFirst({
         where: {
           OR: [
@@ -241,6 +253,26 @@ export async function completeWorkosStandaloneAuth(input: {
     throw new WorkosStandaloneAuthError(
       "persistence_failed",
       "LearnRecur could not persist the WorkOS identity mapping.",
+    );
+  }
+
+  if (deletionInProgress) {
+    try {
+      await revokeWorkosAuthorizedApplications({
+        workosUserId: workosUser.id,
+        apiKey: input.config.workosApiKey,
+        resourceUrl: input.config.resourceUrl,
+        fetchImpl,
+      });
+    } catch {
+      throw new WorkosStandaloneAuthError(
+        "persistence_failed",
+        "LearnRecur could not revoke agent authorization during account deletion.",
+      );
+    }
+    throw new WorkosStandaloneAuthError(
+      "account_deletion_in_progress",
+      "Agent authorization cannot finish while account deletion is in progress.",
     );
   }
 

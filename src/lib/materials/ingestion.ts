@@ -1344,6 +1344,9 @@ async function ingestWebsiteRevision(input: {
       retryable: true,
     });
   }
+  const storageKey = input.sourceFile.storageKey;
+  const storageBucket = input.sourceFile.storageBucket;
+  const putObject = input.storage.putObject;
   const base = await validatePublicHttpsUrl(input.sourceUrl, input.resolveHostname);
   const selectedUrls = readStringArray(input.sourceFile.metadata, "selectedUrls");
   if (selectedUrls.length === 0) {
@@ -1429,21 +1432,49 @@ async function ingestWebsiteRevision(input: {
   if (quota.status === "limited") {
     throw new MaterialIngestionError(quota.message, { retryable: false });
   }
-  if (!(await canWriteWebsiteSnapshot(input))) {
-    throw websiteSnapshotDeletionError();
-  }
-  await input.storage.putObject({
-    key: input.sourceFile.storageKey,
-    bucket: input.sourceFile.storageBucket,
-    bytes: snapshotBytes,
-    mimeType: "application/json",
-  });
-  if (!(await canWriteWebsiteSnapshot(input))) {
-    await input.storage.deleteObject({
-      key: input.sourceFile.storageKey,
-      bucket: input.sourceFile.storageBucket,
+  const writePrisma = getPrisma();
+  const leaseExpiresAt = new Date(
+    Date.now() + MATERIAL_UPLOAD_URL_EXPIRES_IN_SECONDS * 1_000 + MATERIAL_UPLOAD_LEASE_SAFETY_MS,
+  );
+  await writePrisma.$transaction(async (transaction) => {
+    await transaction.$queryRaw`SELECT "id" FROM "users" WHERE "id" = ${input.userId} FOR UPDATE`;
+    if (!(await canWriteWebsiteSnapshot(input, transaction))) {
+      throw websiteSnapshotDeletionError();
+    }
+    const leased = await transaction.sourceFile.updateMany({
+      where: {
+        id: input.sourceFile.id,
+        userId: input.userId,
+        materialRevisionId: input.materialRevisionId,
+      },
+      data: { presignedUploadExpiresAt: leaseExpiresAt },
     });
-    throw websiteSnapshotDeletionError();
+    if (leased.count !== 1) throw websiteSnapshotDeletionError();
+  });
+
+  try {
+    await putObject({
+      key: storageKey,
+      bucket: storageBucket,
+      bytes: snapshotBytes,
+      mimeType: "application/json",
+    });
+    if (!(await canWriteWebsiteSnapshot(input))) {
+      await input.storage.deleteObject({
+        key: storageKey,
+        bucket: storageBucket,
+      });
+      throw websiteSnapshotDeletionError();
+    }
+  } finally {
+    await writePrisma.sourceFile.updateMany({
+      where: {
+        id: input.sourceFile.id,
+        userId: input.userId,
+        presignedUploadExpiresAt: leaseExpiresAt,
+      },
+      data: { presignedUploadExpiresAt: null },
+    });
   }
 
   const persisted = await persistWebsiteIndex({
@@ -1505,10 +1536,9 @@ async function canWriteWebsiteSnapshot(input: {
   materialId: string;
   materialRevisionId: string;
   sourceFile: MaterialSourceFile;
-}) {
-  const prisma = getPrisma();
-  return (
-    (await prisma.materialRevision.count({
+}, prisma: Pick<Prisma.TransactionClient, "materialRevision" | "accountDeletionJob"> = getPrisma()) {
+  const [matchingRevisionCount, deletionJob] = await Promise.all([
+    prisma.materialRevision.count({
       where: {
         id: input.materialRevisionId,
         materialId: input.materialId,
@@ -1517,8 +1547,13 @@ async function canWriteWebsiteSnapshot(input: {
         material: { status: StudyMaterialStatus.ACTIVE },
         sourceFiles: { some: { id: input.sourceFile.id, userId: input.userId } },
       },
-    })) === 1
-  );
+    }),
+    prisma.accountDeletionJob.findUnique({
+      where: { userId: input.userId },
+      select: { id: true },
+    }),
+  ]);
+  return matchingRevisionCount === 1 && !deletionJob;
 }
 
 function websiteSnapshotDeletionError() {

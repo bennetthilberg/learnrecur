@@ -14,6 +14,7 @@ vi.mock("@clerk/nextjs/server", () => ({
 
 vi.mock("@/lib/agent-access/settings", () => ({
   disableAgentAccessForAccountDeletion: vi.fn(),
+  revokeAllWorkosAuthorizedApplicationsForUser: vi.fn(),
   runAgentConnectionRevocationJob: vi.fn(),
 }));
 

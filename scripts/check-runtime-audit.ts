@@ -1,4 +1,3 @@
-import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -13,6 +12,8 @@ export interface PackageManifest {
 }
 
 export interface NpmLockPackage {
+  name?: string;
+  version?: string;
   dependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
   optionalDependencies?: Record<string, string>;
@@ -86,7 +87,8 @@ export interface RuntimeAuditEvaluation {
 }
 
 const HIGH_RISK_SEVERITIES = new Set<AuditSeverity>(["high", "critical"]);
-const NPM_AUDIT_TIMEOUT_MS = 180_000;
+const OSV_QUERY_BATCH_SIZE = 500;
+const OSV_REQUEST_TIMEOUT_MS = 30_000;
 
 // These are the four concrete advisories reported today. They are only
 // accepted while the affected node remains dev-only and before this review
@@ -242,7 +244,7 @@ function isAdvisory(value: string | NpmAuditAdvisory): value is NpmAuditAdvisory
 }
 
 function advisoryId(advisory: NpmAuditAdvisory): string {
-  for (const value of [advisory.url, advisory.title]) {
+  for (const value of [advisory.url, advisory.title, String(advisory.source ?? "")]) {
     const match = value?.match(/GHSA-[A-Z0-9-]+/i);
     if (match) {
       return match[0].toUpperCase();
@@ -527,7 +529,7 @@ function formatFinding(finding: RuntimeAuditFinding): string {
 }
 
 export function formatRuntimeAuditResult(evaluation: RuntimeAuditEvaluation): string {
-  const lines = ["Runtime dependency audit (npm audit --omit=dev --json)", ""];
+  const lines = ["Runtime dependency audit (OSV package-version queries)", ""];
 
   if (evaluation.findings.length === 0) {
     lines.push("No advisories reported.");
@@ -552,41 +554,174 @@ function readJsonFile<T>(filePath: string): T {
   return JSON.parse(readFileSync(filePath, "utf8")) as T;
 }
 
-function readAuditReport(): NpmAuditReport {
-  const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
-  const result = spawnSync(npmCommand, ["audit", "--omit=dev", "--json"], {
-    encoding: "utf8",
-    maxBuffer: 10 * 1024 * 1024,
-    timeout: NPM_AUDIT_TIMEOUT_MS,
-  });
+type OsvQuery = {
+  package: { ecosystem: "npm"; name: string };
+  version: string;
+};
 
-  if (result.error) {
-    throw new Error(`could not run npm audit: ${result.error.message}`);
-  }
+type OsvBatchResult = {
+  vulns?: Array<{ id?: unknown }>;
+  next_page_token?: unknown;
+};
 
-  const output = [result.stdout, result.stderr]
-    .map((value) => (typeof value === "string" ? value.trim() : ""))
-    .find((value) => value.startsWith("{"));
+type OsvVulnerability = {
+  id?: unknown;
+  aliases?: unknown;
+  summary?: unknown;
+  database_specific?: { severity?: unknown };
+  severity?: Array<{ score?: unknown }>;
+};
 
-  if (!output) {
-    throw new Error(`npm audit did not return JSON (exit ${result.status ?? "unknown"})`);
-  }
-
-  try {
-    return JSON.parse(output) as NpmAuditReport;
-  } catch (error) {
-    throw new Error(
-      `npm audit returned invalid JSON: ${error instanceof Error ? error.message : String(error)}`,
-    );
-  }
+function lockPackageName(node: string, value: NpmLockPackage): string | null {
+  if (value.name) return value.name;
+  const marker = node.lastIndexOf("node_modules/");
+  if (marker < 0) return null;
+  const remainder = node.slice(marker + "node_modules/".length);
+  if (!remainder) return null;
+  const parts = remainder.split("/");
+  return parts[0]?.startsWith("@") ? parts.slice(0, 2).join("/") : parts[0] ?? null;
 }
 
-function run(): number {
+function osvSeverity(vulnerability: OsvVulnerability): AuditSeverity {
+  const declared = vulnerability.database_specific?.severity;
+  if (typeof declared === "string") return normalizedSeverity(declared);
+  const cvss = vulnerability.severity
+    ?.map((entry) => entry.score)
+    .find((score): score is string => typeof score === "string");
+  const baseScore = cvss?.match(/(?:^|\/)AV:[^/]+.*?/) ? null : Number(cvss);
+  if (baseScore !== null && Number.isFinite(baseScore)) {
+    if (baseScore >= 9) return "critical";
+    if (baseScore >= 7) return "high";
+    if (baseScore >= 4) return "moderate";
+    return "low";
+  }
+  // Missing severity is treated conservatively so an incomplete advisory
+  // cannot silently pass the release gate.
+  return "high";
+}
+
+function highestSeverity(values: AuditSeverity[]): AuditSeverity {
+  const order: AuditSeverity[] = ["critical", "high", "moderate", "low", "info"];
+  return order.find((severity) => values.includes(severity)) ?? "high";
+}
+
+async function fetchOsvJson<T>(url: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(url, {
+    ...init,
+    signal: AbortSignal.timeout(OSV_REQUEST_TIMEOUT_MS),
+  });
+  if (!response.ok) throw new Error(`OSV request failed with HTTP ${response.status}.`);
+  return await response.json() as T;
+}
+
+async function readAuditReport(lockfile: NpmLockfile): Promise<NpmAuditReport> {
+  const queryNodes = new Map<string, { query: OsvQuery; nodes: string[] }>();
+  for (const [node, value] of Object.entries(lockfile.packages ?? {})) {
+    const name = lockPackageName(node, value);
+    if (!name || !value.version) continue;
+    const key = `${name}\0${value.version}`;
+    const existing = queryNodes.get(key);
+    if (existing) existing.nodes.push(node);
+    else {
+      queryNodes.set(key, {
+        query: { package: { ecosystem: "npm", name }, version: value.version },
+        nodes: [node],
+      });
+    }
+  }
+
+  const entries = [...queryNodes.values()];
+  const matches: Array<{ packageName: string; nodes: string[]; advisoryId: string }> = [];
+  for (let start = 0; start < entries.length; start += OSV_QUERY_BATCH_SIZE) {
+    const batch = entries.slice(start, start + OSV_QUERY_BATCH_SIZE);
+    const response = await fetchOsvJson<{ results?: OsvBatchResult[] }>(
+      "https://api.osv.dev/v1/querybatch",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ queries: batch.map((entry) => entry.query) }),
+      },
+    );
+    if (!Array.isArray(response.results) || response.results.length !== batch.length) {
+      throw new Error("OSV batch response did not match the dependency query.");
+    }
+    response.results.forEach((result, index) => {
+      if (result.next_page_token) {
+        throw new Error("OSV returned a paginated result that the release audit cannot safely omit.");
+      }
+      for (const vulnerability of result.vulns ?? []) {
+        if (typeof vulnerability.id !== "string" || !vulnerability.id) {
+          throw new Error("OSV returned an invalid vulnerability identifier.");
+        }
+        const entry = batch[index];
+        if (!entry) throw new Error("OSV batch response index was invalid.");
+        matches.push({
+          packageName: entry.query.package.name,
+          nodes: entry.nodes,
+          advisoryId: vulnerability.id,
+        });
+      }
+    });
+  }
+
+  const detailById = new Map<string, OsvVulnerability>();
+  const advisoryIds = [...new Set(matches.map((match) => match.advisoryId))];
+  for (let start = 0; start < advisoryIds.length; start += 20) {
+    const batch = advisoryIds.slice(start, start + 20);
+    const details = await Promise.all(
+      batch.map((id) =>
+        fetchOsvJson<OsvVulnerability>(
+          `https://api.osv.dev/v1/vulns/${encodeURIComponent(id)}`,
+        ),
+      ),
+    );
+    details.forEach((detail, index) => detailById.set(batch[index]!, detail));
+  }
+
+  const vulnerabilities: Record<string, NpmAuditVulnerability> = {};
+  for (const match of matches) {
+    const detail = detailById.get(match.advisoryId);
+    if (!detail) throw new Error(`OSV detail was missing for ${match.advisoryId}.`);
+    const aliases = Array.isArray(detail.aliases)
+      ? detail.aliases.filter((value): value is string => typeof value === "string")
+      : [];
+    const id = [match.advisoryId, ...aliases].find((value) => /^GHSA-/iu.test(value))
+      ?? match.advisoryId;
+    const severity = osvSeverity(detail);
+    const advisory: NpmAuditAdvisory = {
+      source: id,
+      name: match.packageName,
+      dependency: match.packageName,
+      title: typeof detail.summary === "string" ? detail.summary : id,
+      url: `https://osv.dev/vulnerability/${encodeURIComponent(match.advisoryId)}`,
+      severity,
+    };
+    const current = vulnerabilities[match.packageName];
+    if (!current) {
+      vulnerabilities[match.packageName] = {
+        name: match.packageName,
+        severity,
+        via: [advisory],
+        nodes: [...match.nodes],
+      };
+      continue;
+    }
+    const alreadyRecorded = current.via?.some(
+      (value) => typeof value === "object" && value.source === id,
+    );
+    if (!alreadyRecorded) current.via = [...(current.via ?? []), advisory];
+    current.nodes = [...new Set([...(current.nodes ?? []), ...match.nodes])];
+    current.severity = highestSeverity([normalizedSeverity(current.severity), severity]);
+  }
+  return { auditReportVersion: 2, vulnerabilities };
+}
+
+async function run(): Promise<number> {
   const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
   const repositoryRoot = path.resolve(scriptDirectory, "..");
   const manifest = readJsonFile<PackageManifest>(path.join(repositoryRoot, "package.json"));
   const lockfile = readJsonFile<NpmLockfile>(path.join(repositoryRoot, "package-lock.json"));
-  const evaluation = evaluateRuntimeAudit(readAuditReport(), { manifest, lockfile });
+  const evaluation = evaluateRuntimeAudit(await readAuditReport(lockfile), { manifest, lockfile });
 
   console.log(formatRuntimeAuditResult(evaluation));
   return evaluation.passed ? 0 : 1;
@@ -594,10 +729,10 @@ function run(): number {
 
 const invokedScript = process.argv[1] ? path.resolve(process.argv[1]) : undefined;
 if (invokedScript === fileURLToPath(import.meta.url)) {
-  try {
-    process.exitCode = run();
-  } catch (error) {
+  run().then((exitCode) => {
+    process.exitCode = exitCode;
+  }).catch((error) => {
     console.error(error instanceof Error ? error.message : String(error));
     process.exitCode = 1;
-  }
+  });
 }

@@ -152,6 +152,7 @@ describeDatabase("durable account deletion", () => {
     return {
       agentAccessDisabler: vi.fn().mockResolvedValue(undefined),
       agentConnectionRevoker: vi.fn().mockResolvedValue({ status: "revoked" as const }),
+      agentGrantRevoker: vi.fn().mockResolvedValue({ revoked: 0 }),
     };
   }
 
@@ -218,6 +219,7 @@ describeDatabase("durable account deletion", () => {
       userId: fixture.userId,
       connectionId: fixture.connectionId,
     });
+    expect(agent.agentGrantRevoker).toHaveBeenCalledWith({ userId: fixture.userId });
     await expect(prisma.user.findUnique({ where: { id: fixture.userId } })).resolves.toBeNull();
     await expect(
       prisma.accountDeletionJob.findUniqueOrThrow({ where: { id: result.jobId } }),
@@ -231,6 +233,60 @@ describeDatabase("durable account deletion", () => {
     await expect(
       prisma.agentRevocationOutbox.findUnique({ where: { connectionId: fixture.connectionId! } }),
     ).resolves.toBeNull();
+  });
+
+  it("revokes remote grants even when no local agent connection was recorded", async () => {
+    const fixture = await createUser("orphan-grant");
+    await prisma.workosIdentity.create({
+      data: {
+        userId: fixture.userId,
+        workosUserId: `${runId}_workos_orphan_grant`,
+        externalId: fixture.userId,
+      },
+    });
+    const { result } = await queueDeletion(fixture.userId, "orphan-grant");
+    const agent = safeAgentDependencies();
+
+    await expect(
+      runAccountDeletionJob({
+        userId: fixture.userId,
+        deletionJobId: result.jobId,
+        clerk: safeClerk(),
+        ...agent,
+      }),
+    ).resolves.toEqual({ status: "completed", jobId: result.jobId });
+
+    expect(agent.agentConnectionRevoker).not.toHaveBeenCalled();
+    expect(agent.agentGrantRevoker).toHaveBeenCalledWith({ userId: fixture.userId });
+  });
+
+  it("keeps relational data retryable when remote grant cleanup fails", async () => {
+    const fixture = await createUser("grant-retry", { agent: true });
+    const { result } = await queueDeletion(fixture.userId, "grant-retry");
+    const agent = safeAgentDependencies();
+    agent.agentGrantRevoker
+      .mockRejectedValueOnce(new Error("fixture WorkOS failure"))
+      .mockResolvedValueOnce({ revoked: 1 });
+
+    await expect(
+      runAccountDeletionJob({
+        userId: fixture.userId,
+        deletionJobId: result.jobId,
+        clerk: safeClerk(),
+        ...agent,
+      }),
+    ).rejects.toMatchObject({ code: "AGENT_GRANT_REVOCATION_FAILED" });
+    await expect(prisma.user.findUnique({ where: { id: fixture.userId } })).resolves.not.toBeNull();
+
+    await expect(
+      runAccountDeletionJob({
+        userId: fixture.userId,
+        deletionJobId: result.jobId,
+        clerk: safeClerk(),
+        ...agent,
+      }),
+    ).resolves.toEqual({ status: "completed", jobId: result.jobId });
+    expect(agent.agentGrantRevoker).toHaveBeenCalledTimes(2);
   });
 
   it("discovers a late object without moving the durable cursor or orphaning storage", async () => {
@@ -588,6 +644,7 @@ describeDatabase("durable account deletion", () => {
       .fn()
       .mockRejectedValueOnce(new Error("fixture remote failure"))
       .mockResolvedValueOnce({ status: "not-found" as const });
+    const agentGrantRevoker = vi.fn().mockResolvedValue({ revoked: 0 });
 
     await expect(
       runAccountDeletionJob({
@@ -596,6 +653,7 @@ describeDatabase("durable account deletion", () => {
         clerk,
         agentAccessDisabler,
         agentConnectionRevoker,
+        agentGrantRevoker,
       }),
     ).rejects.toMatchObject({ code: "AGENT_REVOCATION_FAILED" });
     await expect(
@@ -613,6 +671,7 @@ describeDatabase("durable account deletion", () => {
         clerk,
         agentAccessDisabler,
         agentConnectionRevoker,
+        agentGrantRevoker,
       }),
     ).resolves.toEqual({ status: "completed", jobId: result.jobId });
     expect(agentConnectionRevoker).toHaveBeenCalledTimes(2);

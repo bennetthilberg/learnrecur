@@ -11,6 +11,7 @@ import {
 } from "@/generated/prisma/client";
 import {
   disableAgentAccessForAccountDeletion,
+  revokeAllWorkosAuthorizedApplicationsForUser,
   runAgentConnectionRevocationJob,
 } from "@/lib/agent-access/settings";
 import { getInngestEnvStatus } from "@/lib/inngest/client";
@@ -73,6 +74,10 @@ export type AccountDeletionAgentConnectionRevoker = (input: {
   userId: string;
   connectionId: string;
 }) => Promise<{ status: "revoked" | "not-found" }>;
+
+export type AccountDeletionAgentGrantRevoker = (input: {
+  userId: string;
+}) => Promise<{ revoked: number }>;
 
 export type AccountDeletionRequestResult =
   | {
@@ -309,6 +314,7 @@ export async function runAccountDeletionJob(input: {
   clerk?: AccountDeletionClerkClient;
   agentAccessDisabler?: AccountDeletionAgentAccessDisabler;
   agentConnectionRevoker?: AccountDeletionAgentConnectionRevoker;
+  agentGrantRevoker?: AccountDeletionAgentGrantRevoker;
 }): Promise<AccountDeletionJobResult> {
   const prisma = getPrisma();
   const now = input.now ?? new Date();
@@ -426,6 +432,10 @@ export async function runAccountDeletionJob(input: {
         phase = AccountDeletionPhase.DELETE_RELATIONAL_DATA;
       }
 
+      await revokeAllAgentGrants({
+        userId: input.userId,
+        revoker: input.agentGrantRevoker,
+      });
       const finalization = await finalizeRelationalDataOrDiscoverObjects({
         prisma,
         userId: input.userId,
@@ -689,6 +699,7 @@ async function disableAccessAndRevokeAgents(input: {
     clerk?: AccountDeletionClerkClient;
     agentAccessDisabler?: AccountDeletionAgentAccessDisabler;
     agentConnectionRevoker?: AccountDeletionAgentConnectionRevoker;
+    agentGrantRevoker?: AccountDeletionAgentGrantRevoker;
   };
   prisma: ReturnType<typeof getPrisma>;
   now: Date;
@@ -715,6 +726,19 @@ async function disableAccessAndRevokeAgents(input: {
     throw agentResult.reason instanceof AccountDeletionWorkflowError
       ? agentResult.reason
       : new AccountDeletionWorkflowError("AGENT_ACCESS_DISABLE_FAILED");
+  }
+}
+
+async function revokeAllAgentGrants(input: {
+  userId: string;
+  revoker?: AccountDeletionAgentGrantRevoker;
+}): Promise<void> {
+  try {
+    await (input.revoker ?? revokeAllWorkosAuthorizedApplicationsForUser)({
+      userId: input.userId,
+    });
+  } catch {
+    throw new AccountDeletionWorkflowError("AGENT_GRANT_REVOCATION_FAILED");
   }
 }
 

@@ -1,5 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const clerkMocks = vi.hoisted(() => ({
+  clerkClient: vi.fn(),
+  getUser: vi.fn(),
+}));
+
+vi.mock("@clerk/nextjs/server", () => ({
+  clerkClient: clerkMocks.clerkClient,
+}));
+
 import {
   ensureAuthenticatedDatabaseUser,
   ensureDatabaseUser,
@@ -50,10 +59,20 @@ const baseClerkUser: ClerkUserSnapshot = {
 
 describe("ensureDatabaseUser", () => {
   beforeEach(() => {
+    clerkMocks.clerkClient.mockReset();
+    clerkMocks.getUser.mockReset();
+    clerkMocks.clerkClient.mockResolvedValue({ users: { getUser: clerkMocks.getUser } });
+    clerkMocks.getUser.mockResolvedValue({
+      primaryEmailAddress: {
+        emailAddress: "ada@example.com",
+        verification: { status: "verified" },
+      },
+    });
     process.env = { ...originalEnv };
     delete process.env.DATABASE_URL;
     delete process.env.DIRECT_URL;
     delete process.env.VERCEL_ENV;
+    delete process.env.ALPHA_ALLOWED_EMAILS;
   });
 
   afterEach(() => {
@@ -71,6 +90,7 @@ describe("ensureDatabaseUser", () => {
   it("mirrors signed-in users in Vercel preview deployments", async () => {
     process.env.NODE_ENV = "production";
     process.env.VERCEL_ENV = "preview";
+    process.env.ALPHA_ALLOWED_EMAILS = "ada@example.com";
     const { client, upsert } = makeMirrorClient();
 
     await expect(
@@ -85,6 +105,7 @@ describe("ensureDatabaseUser", () => {
   it("mirrors signed-in users in Vercel production deployments", async () => {
     process.env.NODE_ENV = "production";
     process.env.VERCEL_ENV = "production";
+    process.env.ALPHA_ALLOWED_EMAILS = "ada@example.com";
     const { client, upsert } = makeMirrorClient();
 
     await expect(
@@ -98,6 +119,7 @@ describe("ensureDatabaseUser", () => {
 
   it("mirrors signed-in users in production Node deployments", async () => {
     process.env.NODE_ENV = "production";
+    process.env.ALPHA_ALLOWED_EMAILS = "ada@example.com";
     const { client, upsert } = makeMirrorClient();
 
     await expect(
@@ -173,6 +195,30 @@ describe("ensureDatabaseUser", () => {
       where: { userId: baseClerkUser.id },
       select: { id: true },
     });
+    expect(upsert).not.toHaveBeenCalled();
+  });
+
+  it("blocks a direct server mutation for a non-allowlisted production user", async () => {
+    process.env.NODE_ENV = "production";
+    process.env.ALPHA_ALLOWED_EMAILS = "approved@example.com";
+    clerkMocks.getUser.mockResolvedValue({
+      primaryEmailAddress: {
+        emailAddress: "not-approved@example.com",
+        verification: { status: "verified" },
+      },
+    });
+    const { client, upsert } = makeMirrorClient();
+
+    await expect(
+      ensureDatabaseUser(baseClerkUser, {
+        prisma: client,
+        skipEnvCheck: true,
+      }),
+    ).resolves.toEqual({
+      status: "error",
+      message: "This LearnRecur alpha is invitation-only.",
+    });
+    expect(clerkMocks.getUser).toHaveBeenCalledWith(baseClerkUser.id);
     expect(upsert).not.toHaveBeenCalled();
   });
 
@@ -318,6 +364,31 @@ describe("ensureDatabaseUser", () => {
       },
     );
     expect(JSON.stringify(warn.mock.calls)).not.toContain("fetch failed");
+  });
+
+  it("does not use a mirrored fallback after account deletion starts", async () => {
+    const { client } = makeMirrorClient();
+    const findUnique = vi.fn();
+    const prisma = {
+      user: { ...client.user, findUnique },
+      accountDeletionJob: { findUnique: vi.fn().mockResolvedValue({ id: "deletion-job-1" }) },
+    } satisfies AuthenticatedUserClient;
+
+    await expect(
+      ensureAuthenticatedDatabaseUser(
+        {
+          userId: baseClerkUser.id,
+          loadClerkUser: async () => {
+            throw new Error("fetch failed");
+          },
+        },
+        { prisma, skipEnvCheck: true },
+      ),
+    ).resolves.toEqual({
+      status: "error",
+      message: "Account deletion is in progress. App access is disabled.",
+    });
+    expect(findUnique).not.toHaveBeenCalled();
   });
 
   it("returns a safe error when Clerk fails before the user was mirrored", async () => {

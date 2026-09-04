@@ -16,6 +16,106 @@ import { getPrisma } from "@/lib/prisma";
 import { cleanupPreparedSourceUploads } from "@/lib/skills/uploads";
 
 const AGENT_UPLOAD_WINDOW_MS = 10 * 60 * 1_000;
+const WORKOS_AUTHORIZED_APPLICATION_PAGE_LIMIT = 100;
+const WORKOS_AUTHORIZED_APPLICATION_MAX_PAGES = 20;
+
+export async function revokeAllWorkosAuthorizedApplicationsForUser(input: {
+  userId: string;
+  fetchImpl?: typeof fetch;
+}): Promise<{ revoked: number }> {
+  const identity = await getPrisma().workosIdentity.findUnique({
+    where: { userId: input.userId },
+    select: { workosUserId: true },
+  });
+  if (!identity) return { revoked: 0 };
+
+  const config = getAgentAccessConfig();
+  const apiKey = config.enabled ? config.workosApiKey : process.env.WORKOS_API_KEY?.trim();
+  const resourceUrl = config.enabled ? config.resourceUrl : process.env.MCP_RESOURCE_URL?.trim();
+  if (!apiKey) throw new Error("WorkOS revocation credentials are unavailable.");
+  if (!resourceUrl) throw new Error("WorkOS resource configuration is unavailable.");
+  return revokeWorkosAuthorizedApplications({
+    workosUserId: identity.workosUserId,
+    apiKey,
+    resourceUrl,
+    fetchImpl: input.fetchImpl,
+  });
+}
+
+export async function revokeWorkosAuthorizedApplications(input: {
+  workosUserId: string;
+  apiKey: string;
+  resourceUrl: string;
+  fetchImpl?: typeof fetch;
+}): Promise<{ revoked: number }> {
+  const fetchImpl = input.fetchImpl ?? fetch;
+  const applicationIds = new Set<string>();
+  let after: string | null = null;
+
+  for (let page = 0; page < WORKOS_AUTHORIZED_APPLICATION_MAX_PAGES; page += 1) {
+    const url = new URL(
+      `https://api.workos.com/user_management/users/${encodeURIComponent(input.workosUserId)}/authorized_applications`,
+    );
+    url.searchParams.set("limit", String(WORKOS_AUTHORIZED_APPLICATION_PAGE_LIMIT));
+    if (after) url.searchParams.set("after", after);
+    const response = await fetchImpl(url, {
+      headers: { authorization: `Bearer ${input.apiKey}` },
+      redirect: "error",
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (response.status === 404 && page === 0) return { revoked: 0 };
+    if (!response.ok) {
+      throw new Error(`WorkOS authorized application listing failed with HTTP ${response.status}.`);
+    }
+    const body = await response.json() as {
+      data?: Array<{
+        application?: { id?: unknown };
+        oauth_resource?: unknown;
+      }>;
+      list_metadata?: { after?: unknown };
+    };
+    if (!Array.isArray(body.data)) {
+      throw new Error("WorkOS authorized application listing returned an invalid response.");
+    }
+    for (const entry of body.data) {
+      if (typeof entry.application?.id !== "string" || !entry.application.id) {
+        throw new Error("WorkOS authorized application listing returned an invalid application.");
+      }
+      if (
+        entry.oauth_resource == null ||
+        entry.oauth_resource === input.resourceUrl
+      ) {
+        applicationIds.add(entry.application.id);
+      }
+    }
+    const nextAfter = body.list_metadata?.after;
+    if (nextAfter == null) break;
+    if (typeof nextAfter !== "string" || !nextAfter || nextAfter === after) {
+      throw new Error("WorkOS authorized application listing returned an invalid cursor.");
+    }
+    after = nextAfter;
+    if (page === WORKOS_AUTHORIZED_APPLICATION_MAX_PAGES - 1) {
+      throw new Error("WorkOS authorized application listing exceeded the page limit.");
+    }
+  }
+
+  for (const applicationId of applicationIds) {
+    const response = await fetchImpl(
+      `https://api.workos.com/user_management/users/${encodeURIComponent(input.workosUserId)}/authorized_applications/${encodeURIComponent(applicationId)}`,
+      {
+        method: "DELETE",
+        headers: { authorization: `Bearer ${input.apiKey}` },
+        redirect: "error",
+        signal: AbortSignal.timeout(10_000),
+      },
+    );
+    if (!response.ok && response.status !== 404) {
+      throw new Error(`WorkOS authorized application deletion failed with HTTP ${response.status}.`);
+    }
+  }
+
+  return { revoked: applicationIds.size };
+}
 
 export async function getAgentAccessOverview(userId: string) {
   const config = getAgentAccessConfig();

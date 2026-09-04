@@ -1091,6 +1091,121 @@ describeDatabase("material ingestion", () => {
     expect(storage.deleted).toContain(writtenKey);
   });
 
+  it("does not write a website snapshot after an account deletion tombstone exists", async () => {
+    const storage = createMemoryStorage();
+    const queued = await queueWebsiteMaterialImport({
+      userId,
+      now: new Date(),
+      storage,
+      eventSender: { async sendMaterialIngestionRequested() {} },
+      input: {
+        title: "Account deletion blocks snapshot",
+        sourceUrl: "https://books.example/account-deletion-book",
+        selectedUrls: ["https://books.example/account-deletion-chapter"],
+      },
+    });
+    expect(queued.status).toBe("queued");
+    if (queued.status !== "queued") {
+      throw new Error("expected queued website import");
+    }
+    const deletionJob = await prisma.accountDeletionJob.create({
+      data: {
+        userId,
+        manifest: { version: 1, storageObjects: [], agentConnections: [] },
+      },
+    });
+
+    try {
+      await expect(
+        runMaterialIngestionJob({
+          userId,
+          materialRevisionId: queued.materialRevisionId,
+          storage,
+          summaryGenerator: null,
+          resolveHostname: async () => ["93.184.216.34"],
+          fetchResource: async (url) => ({
+            url,
+            contentType: "text/html",
+            bytes: Buffer.from(
+              "<html><body><main><h1>Blocked chapter</h1><p>This private snapshot must never be written after account deletion starts.</p></main></body></html>",
+            ),
+          }),
+          embeddingGenerator: null,
+        }),
+      ).rejects.toThrow(/deleted/i);
+      expect(storage.puts).toHaveLength(0);
+      expect(storage.objects.size).toBe(0);
+    } finally {
+      await prisma.accountDeletionJob.delete({ where: { id: deletionJob.id } });
+    }
+  });
+
+  it("removes a website snapshot when account deletion starts during the storage write", async () => {
+    const storage = createMemoryStorage();
+    const queued = await queueWebsiteMaterialImport({
+      userId,
+      now: new Date(),
+      storage,
+      eventSender: { async sendMaterialIngestionRequested() {} },
+      input: {
+        title: "Concurrent account deletion snapshot",
+        sourceUrl: "https://books.example/concurrent-deletion-book",
+        selectedUrls: ["https://books.example/concurrent-deletion-chapter"],
+      },
+    });
+    expect(queued.status).toBe("queued");
+    if (queued.status !== "queued") throw new Error("expected queued website import");
+    const sourceFile = await prisma.sourceFile.findFirstOrThrow({
+      where: { materialRevisionId: queued.materialRevisionId, userId },
+      select: { id: true },
+    });
+    const putObject = storage.putObject?.bind(storage);
+    if (!putObject) throw new Error("expected snapshot storage");
+    let deletionJobId: string | null = null;
+    storage.putObject = async (putInput) => {
+      const job = await prisma.accountDeletionJob.create({
+        data: {
+          userId,
+          manifest: { version: 1, storageObjects: [], agentConnections: [] },
+        },
+      });
+      deletionJobId = job.id;
+      await putObject(putInput);
+    };
+
+    try {
+      await expect(
+        runMaterialIngestionJob({
+          userId,
+          materialRevisionId: queued.materialRevisionId,
+          storage,
+          summaryGenerator: null,
+          resolveHostname: async () => ["93.184.216.34"],
+          fetchResource: async (url) => ({
+            url,
+            contentType: "text/html",
+            bytes: Buffer.from(
+              "<html><body><main><h1>Concurrent deletion</h1><p>This snapshot is removed because account deletion starts during its write.</p></main></body></html>",
+            ),
+          }),
+          embeddingGenerator: null,
+        }),
+      ).rejects.toThrow(/deleted/i);
+      expect(storage.puts).toHaveLength(1);
+      expect(storage.objects.size).toBe(0);
+      await expect(
+        prisma.sourceFile.findUniqueOrThrow({
+          where: { id: sourceFile.id },
+          select: { presignedUploadExpiresAt: true },
+        }),
+      ).resolves.toEqual({ presignedUploadExpiresAt: null });
+    } finally {
+      if (deletionJobId) {
+        await prisma.accountDeletionJob.delete({ where: { id: deletionJobId } });
+      }
+    }
+  });
+
   it("does not create a website refresh revision when Inngest is unavailable", async () => {
     const material = await prisma.studyMaterial.findFirstOrThrow({
       where: { userId, title: "Open Grammar" },
