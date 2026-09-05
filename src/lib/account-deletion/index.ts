@@ -1,6 +1,6 @@
 import "server-only";
 
-import { clerkClient } from "@clerk/nextjs/server";
+import { createClerkServiceClient } from "@/lib/clerk/backend";
 import { z } from "zod";
 
 import {
@@ -516,7 +516,7 @@ export async function runAccountDeletionJob(input: {
 export function createDefaultClerkAccountDeletionClient(): AccountDeletionClerkClient {
   return {
     async disableAccess(userId) {
-      const client = await clerkClient();
+      const client = await createClerkServiceClient();
 
       try {
         await client.users.lockUser(userId);
@@ -562,7 +562,7 @@ export function createDefaultClerkAccountDeletionClient(): AccountDeletionClerkC
       throw new AccountDeletionWorkflowError("CLERK_SESSIONS_REMAIN_ACTIVE");
     },
     async deleteIdentity(userId) {
-      const client = await clerkClient();
+      const client = await createClerkServiceClient();
       try {
         await client.users.deleteUser(userId);
       } catch (error) {

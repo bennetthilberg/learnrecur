@@ -8,8 +8,8 @@ const clerkMocks = vi.hoisted(() => ({
   deleteUser: vi.fn(),
 }));
 
-vi.mock("@clerk/nextjs/server", () => ({
-  clerkClient: clerkMocks.clerkClient,
+vi.mock("@/lib/clerk/backend", () => ({
+  createClerkServiceClient: clerkMocks.clerkClient,
 }));
 
 vi.mock("@/lib/agent-access/settings", () => ({

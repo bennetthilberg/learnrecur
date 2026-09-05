@@ -1,6 +1,6 @@
 import "server-only";
 
-import { clerkClient } from "@clerk/nextjs/server";
+import { createClerkServiceClient } from "@/lib/clerk/backend";
 import { z } from "zod";
 
 const emailSchema = z.string().email();
@@ -102,7 +102,7 @@ export async function isAlphaUserAllowed(
 }
 
 async function loadClerkAlphaUser(userId: string): Promise<AlphaUserSnapshot> {
-  const client = await clerkClient();
+  const client = await createClerkServiceClient();
   const user = await client.users.getUser(userId);
   const primaryEmail = user.primaryEmailAddress;
 

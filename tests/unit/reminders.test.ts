@@ -4,8 +4,8 @@ const clerkMocks = vi.hoisted(() => ({
   getUser: vi.fn(),
 }));
 
-vi.mock("@clerk/nextjs/server", () => ({
-  clerkClient: vi.fn(async () => ({
+vi.mock("@/lib/clerk/backend", () => ({
+  createClerkServiceClient: vi.fn(async () => ({
     users: {
       getUser: clerkMocks.getUser,
     },
