@@ -33,6 +33,7 @@ import {
   buildMetaMuseSourceMediaPart,
   buildSourceContextExcerpt,
   createGeminiChoiceExerciseGenerator,
+  createGeminiExactInputExerciseGenerator,
   createMetaMuseChoiceExerciseGenerator,
   createMetaMuseExactInputExerciseGenerator,
   createMetaMuseMathExerciseVerifier,
@@ -1855,5 +1856,24 @@ describe("createSkillDraftFromSource", () => {
       status: "not-created",
       reason: "invalid-generation",
     });
+  });
+});
+
+describe("Gemini exact-input response contract", () => {
+  it("requires actual text or numeric answer specifications instead of unconstrained empty objects", async () => {
+    geminiGenerateContentMock.mockResolvedValueOnce({ text: JSON.stringify({ exercises: [validExactInputExercise(1)] }) });
+    const generate = createGeminiExactInputExerciseGenerator({ gemini: {
+      apiMode: "developer-api", endpoint: "https://generativelanguage.googleapis.com/", model: "gemini-3.8-flash", clientOptions: { apiKey: "fixture-key" },
+    }, metaMuseFallback: null });
+    await generate({ skill: { title: "Spanish articles", objective: "Type the correct singular definite article.", rules: null, examples: null, exerciseConstraints: null, tags: ["spanish"] }, sourceContext: "", sourceMedia: [], requestedCount: 1 });
+    const schema = geminiGenerateContentMock.mock.calls[0][0].config.responseJsonSchema;
+    const variants = schema.properties.exercises.items.properties.answerSpec.anyOf;
+    expect(variants).toHaveLength(2);
+    for (const variant of variants) {
+      expect(variant.required).toEqual(expect.arrayContaining(["kind", "accepted"]));
+      expect(variant.properties.accepted.minItems).toBe(1);
+      expect(variant.additionalProperties).toBe(false);
+    }
+    expect(variants.map((variant: { properties: { kind: { enum: string[] } } }) => variant.properties.kind.enum[0])).toEqual(["text", "numeric"]);
   });
 });
