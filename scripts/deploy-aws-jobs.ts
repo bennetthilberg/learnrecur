@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { parseArgs } from "node:util";
 import { parse } from "dotenv";
 import { createJobsTemplate } from "../infra/aws/jobs-template";
-import { selectWorkerEnvironment } from "../src/lib/jobs/environment";
+import { selectWorkerEnvironment, workerEnvironmentManifest } from "../src/lib/jobs/environment";
 
 // AWS CLI owns the login session. Secret values use temporary mode-0600 files,
 // never process arguments or command output. A deployment states its schedule
@@ -46,6 +46,7 @@ function main() {
     input = Object.fromEntries(parameters.map((parameter) => [parameter.Name.slice(prefix.length), parameter.Value]));
   } else input = parse(readFileSync(options["env-file"]!));
   const values = selectWorkerEnvironment(input);
+  if (reuseRevision && input._MANIFEST !== workerEnvironmentManifest(values)) throw new Error("Worker configuration revision is incomplete");
   let databaseHost = "";
   try { databaseHost = new URL(values.DATABASE_URL).hostname; } catch { throw new Error("Invalid database configuration"); }
   if (databaseHost !== options["database-host"] || values.S3_BUCKET_NAME !== options["source-bucket"]) throw new Error("Database or source bucket differs from the verified deployment target");
@@ -56,7 +57,7 @@ function main() {
   const key = `${environment}/${createHash("sha256").update(zip).digest("hex")}.zip`;
   aws(["s3api", "put-object", "--bucket", bucket, "--key", key, "--body", resolve(".aws-build/jobs.zip")]);
   const configurationRevision = reuseRevision ?? randomUUID();
-  if (!reuseRevision) for (const [name, value] of Object.entries(values)) {
+  if (!reuseRevision) for (const [name, value] of Object.entries({ ...values, _MANIFEST: workerEnvironmentManifest(values) })) {
       aws(["ssm", "put-parameter"], { Name: `/learnrecur/${environment}/jobs/${configurationRevision}/${name}`, Value: value, Type: "SecureString", Tier: "Standard", Overwrite: false });
     }
   mkdirSync(".aws-build", { recursive: true });

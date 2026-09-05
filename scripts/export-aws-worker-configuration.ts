@@ -13,4 +13,8 @@ async function main() {
   } finally { client.destroy(); }
 }
 
-main().catch(() => { console.error("WORKER_CONFIGURATION_EXPORT_FAILED"); process.exitCode = 1; });
+main().catch((error) => {
+  const knownTypes = ["ThrottlingException", "TooManyUpdates", "AccessDeniedException", "ParameterAlreadyExists", "ValidationException"];
+  console.error(JSON.stringify({ outcome: "WORKER_CONFIGURATION_EXPORT_FAILED", type: error instanceof Error && knownTypes.includes(error.name) ? error.name : "CONFIGURATION_ERROR" }));
+  process.exitCode = 1;
+});

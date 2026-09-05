@@ -22,16 +22,25 @@ export function selectWorkerEnvironment(input: Record<string, string | undefined
   return values;
 }
 
+export function workerEnvironmentManifest(values: Record<string, string>): string {
+  return `v1\n${Object.keys(values).sort().join("\n")}`;
+}
+
 export async function loadWorkerEnvironment(config: JobsConfig): Promise<void> {
   const revision = process.env.JOBS_CONFIG_REVISION;
   if (revision && !/^[a-zA-Z0-9-]{1,80}$/.test(revision)) throw new Error("JOB_ENVIRONMENT_INVALID");
   const prefix = `/learnrecur/${config.environment}/jobs/${revision ? `${revision}/` : ""}`;
   const client = new SSMClient({ region: config.region, maxAttempts: 3 });
   const values: Record<string, string> = {};
+  let manifest: string | undefined;
   try {
     for await (const page of paginateGetParametersByPath({ client }, { Path: prefix, Recursive: false, WithDecryption: true })) {
       for (const parameter of page.Parameters ?? []) {
         const key = parameter.Name?.slice(prefix.length);
+        if (revision && parameter.Name === `${prefix}_MANIFEST` && parameter.Type === "SecureString") {
+          manifest = parameter.Value;
+          continue;
+        }
         if (!parameter.Name?.startsWith(prefix) || !WORKER_ENV_KEYS.includes(key as typeof WORKER_ENV_KEYS[number]) || parameter.Type !== "SecureString" || !parameter.Value?.trim()) {
           throw new Error("JOB_ENVIRONMENT_INVALID");
         }
@@ -42,6 +51,7 @@ export async function loadWorkerEnvironment(config: JobsConfig): Promise<void> {
     client.destroy();
   }
   selectWorkerEnvironment(values);
+  if (revision && manifest !== workerEnvironmentManifest(values)) throw new Error("JOB_ENVIRONMENT_INCOMPLETE");
   // Never inherit a removed parameter from an earlier initialization attempt.
   for (const key of WORKER_ENV_KEYS) delete process.env[key];
   Object.assign(process.env, values);

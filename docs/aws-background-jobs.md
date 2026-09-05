@@ -64,7 +64,8 @@ uploads a content-addressed worker artifact, writes a complete revision of
 standard encrypted SSM parameters, and deploys the CloudFormation stack. Source
 secrets are excluded from process arguments and output. Lambda reads only the
 configuration revision deployed with its code, preventing mixed configuration
-during rotation. Redeploy after rotating secrets. Keep previous revisions for
+during rotation. A completion manifest is written last; workers reject partial
+snapshots. Redeploy after rotating secrets. Keep previous revisions for
 rollback; remove obsolete revisions only after their worker versions are retired.
 
 For unreadable Vercel production secrets, the optional prebuild exporter can
