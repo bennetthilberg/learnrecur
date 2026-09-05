@@ -12,8 +12,10 @@ export async function exportWorkerConfiguration(env: Record<string, string | und
     const command = new PutParameterCommand({ Name: `/learnrecur/production/jobs/${revision}/${key}`, Type: "SecureString", Tier: "Standard", Value: value, Overwrite: false });
     for (let attempt = 0; ; attempt++) {
       try { await send(command); break; } catch (error) {
-        if (attempt >= 5 || !(error instanceof Error) || !["ThrottlingException", "TooManyUpdates"].includes(error.name)) throw error;
-        await pause(Math.min(5000, 500 * 2 ** attempt));
+        // A newly attached, narrowly scoped deployment policy can take time
+        // to propagate. This bounded build-only retry does not broaden access.
+        if (attempt >= 7 || !(error instanceof Error) || !["ThrottlingException", "TooManyUpdates", "AccessDeniedException"].includes(error.name)) throw error;
+        await pause(Math.min(10000, (error.name === "AccessDeniedException" ? 1000 : 500) * 2 ** attempt));
       }
     }
     // PutParameter has a lower default rate limit than read operations.

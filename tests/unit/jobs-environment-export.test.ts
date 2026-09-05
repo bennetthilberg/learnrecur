@@ -25,13 +25,13 @@ it("writes only worker settings into a new immutable encrypted revision", async 
   expect(JSON.stringify(send.mock.calls)).not.toContain("do-not-copy");
 });
 
-it("backs off on SSM throttling and writes the completion manifest last", async () => {
-  const send = vi.fn().mockRejectedValueOnce(Object.assign(new Error("rate limited"), { name: "ThrottlingException" })).mockResolvedValue({});
+it.each([["ThrottlingException", 500], ["AccessDeniedException", 1000]] as const)("backs off on %s and writes the completion manifest last", async (name, delay) => {
+  const send = vi.fn().mockRejectedValueOnce(Object.assign(new Error("temporary failure"), { name })).mockResolvedValue({});
   const pause = vi.fn().mockResolvedValue(undefined);
   const values = Object.fromEntries(["DATABASE_URL", "S3_BUCKET_NAME", "CLERK_SECRET_KEY", "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY", "NEXT_PUBLIC_APP_URL", "RESEND_API_KEY", "RESEND_FROM_EMAIL", "GEMINI_API_KEY"].map((key) => [key, `fixture-${key}`]));
   await exportWorkerConfiguration({ ...context, ...values }, send, pause);
   expect(send).toHaveBeenCalledTimes(10);
   expect(send.mock.calls[0][0]).toBe(send.mock.calls[1][0]);
-  expect(pause).toHaveBeenCalledWith(500);
+  expect(pause).toHaveBeenCalledWith(delay);
   expect(send.mock.calls.at(-1)![0].input.Name).toMatch(/\/_MANIFEST$/);
 });
