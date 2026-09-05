@@ -26,6 +26,10 @@ describe("AWS deployment contract", () => {
     }
     const trust = template.Resources.WorkerRole.Properties.AssumeRolePolicyDocument as { Statement: { Principal: unknown; Condition?: unknown }[] };
     expect(trust.Statement[0]).toEqual({ Effect: "Allow", Principal: { Service: "lambda.amazonaws.com" }, Action: "sts:AssumeRole" });
+    expect(template.Resources.AlertPolicy.Properties.PolicyDocument).toMatchObject({ Statement: [{
+      Principal: { Service: "cloudwatch.amazonaws.com" }, Action: "sns:Publish",
+      Condition: { StringEquals: { "aws:SourceAccount": { Ref: "AWS::AccountId" } } },
+    }] });
   });
 
   it.each(["staging", "production"] as const)("creates valid, deduplicated %s schedule messages in the worker's FIFO groups", (environment) => {

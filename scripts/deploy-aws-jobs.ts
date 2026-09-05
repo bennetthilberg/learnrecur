@@ -14,6 +14,7 @@ import { selectWorkerEnvironment } from "../src/lib/jobs/environment";
 const { values: options } = parseArgs({ options: {
   environment: { type: "string" }, "env-file": { type: "string" }, schedules: { type: "string" },
   "source-bucket": { type: "string" }, "database-host": { type: "string" }, region: { type: "string", default: "us-east-1" },
+  "configuration-revision": { type: "string" },
 } });
 
 function aws(args: string[], input?: unknown): Record<string, unknown> {
@@ -32,10 +33,19 @@ function aws(args: string[], input?: unknown): Record<string, unknown> {
 
 function main() {
   const environment = options.environment;
-  if ((environment !== "staging" && environment !== "production") || !options["env-file"] || !options["source-bucket"] || !options["database-host"] || !["enabled", "disabled"].includes(options.schedules ?? "")) {
-    throw new Error("Required: --environment staging|production --env-file <secure path> --source-bucket <verified bucket> --database-host <verified host> --schedules enabled|disabled");
+  const reuseRevision = options["configuration-revision"];
+  if ((environment !== "staging" && environment !== "production") || (!options["env-file"] === !reuseRevision) || (reuseRevision && !/^[a-zA-Z0-9-]{1,80}$/.test(reuseRevision)) || !options["source-bucket"] || !options["database-host"] || !["enabled", "disabled"].includes(options.schedules ?? "")) {
+    throw new Error("Required: --environment staging|production, exactly one of --env-file or --configuration-revision, --source-bucket <verified bucket> --database-host <verified host> --schedules enabled|disabled");
   }
-  const values = selectWorkerEnvironment(parse(readFileSync(options["env-file"])));
+  let input: Record<string, string>;
+  if (reuseRevision) {
+    const prefix = `/learnrecur/${environment}/jobs/${reuseRevision}/`;
+    const result = aws(["ssm", "get-parameters-by-path", "--path", prefix, "--with-decryption"]);
+    const parameters = result.Parameters as { Name: string; Value: string; Type: string }[];
+    if (!Array.isArray(parameters) || parameters.some((parameter) => !parameter.Name.startsWith(prefix) || parameter.Type !== "SecureString")) throw new Error("Worker configuration snapshot unavailable");
+    input = Object.fromEntries(parameters.map((parameter) => [parameter.Name.slice(prefix.length), parameter.Value]));
+  } else input = parse(readFileSync(options["env-file"]!));
+  const values = selectWorkerEnvironment(input);
   let databaseHost = "";
   try { databaseHost = new URL(values.DATABASE_URL).hostname; } catch { throw new Error("Invalid database configuration"); }
   if (databaseHost !== options["database-host"] || values.S3_BUCKET_NAME !== options["source-bucket"]) throw new Error("Database or source bucket differs from the verified deployment target");
@@ -45,10 +55,10 @@ function main() {
   const zip = readFileSync(".aws-build/jobs.zip");
   const key = `${environment}/${createHash("sha256").update(zip).digest("hex")}.zip`;
   aws(["s3api", "put-object", "--bucket", bucket, "--key", key, "--body", resolve(".aws-build/jobs.zip")]);
-  const configurationRevision = randomUUID();
-  for (const [name, value] of Object.entries(values)) {
-    aws(["ssm", "put-parameter"], { Name: `/learnrecur/${environment}/jobs/${configurationRevision}/${name}`, Value: value, Type: "SecureString", Tier: "Standard", Overwrite: false });
-  }
+  const configurationRevision = reuseRevision ?? randomUUID();
+  if (!reuseRevision) for (const [name, value] of Object.entries(values)) {
+      aws(["ssm", "put-parameter"], { Name: `/learnrecur/${environment}/jobs/${configurationRevision}/${name}`, Value: value, Type: "SecureString", Tier: "Standard", Overwrite: false });
+    }
   mkdirSync(".aws-build", { recursive: true });
   const template = resolve(`.aws-build/${environment}-template.json`);
   writeFileSync(template, JSON.stringify(createJobsTemplate(environment), null, 2));

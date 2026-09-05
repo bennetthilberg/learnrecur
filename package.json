@@ -9,7 +9,7 @@
     "check:runtime-audit": "tsx scripts/check-runtime-audit.ts",
     "eval:ai-generation": "NODE_OPTIONS='--conditions=react-server' tsx scripts/ai-generation-eval.ts",
     "agent:workos-gate": "tsx scripts/verify-workos-mcp-gate.ts",
-    "prebuild": "tsx scripts/check-production-env.ts",
+    "prebuild": "tsx scripts/check-production-env.ts && NODE_OPTIONS=--conditions=react-server tsx scripts/export-aws-worker-configuration.ts",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",

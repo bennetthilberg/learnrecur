@@ -81,6 +81,12 @@ export function createJobsTemplate(environment: "staging" | "production") {
       },
     },
     Alerts: { Type: "AWS::SNS::Topic", Properties: { TopicName: name("jobs-alerts") } },
+    AlertPolicy: { Type: "AWS::SNS::TopicPolicy", Properties: {
+      Topics: [ref("Alerts")], PolicyDocument: { Version: "2012-10-17", Statement: [{
+        Effect: "Allow", Principal: { Service: "cloudwatch.amazonaws.com" }, Action: "sns:Publish", Resource: ref("Alerts"),
+        Condition: { StringEquals: { "aws:SourceAccount": ref("AWS::AccountId") }, ArnLike: { "aws:SourceArn": sub('arn:${AWS::Partition}:cloudwatch:${AWS::Region}:${AWS::AccountId}:alarm:learnrecur-' + environment + '-*') } },
+      }] },
+    } },
   };
 
   // SQS requires exactly one resource per queue-policy statement.

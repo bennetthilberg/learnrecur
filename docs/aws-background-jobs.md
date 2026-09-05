@@ -67,6 +67,15 @@ configuration revision deployed with its code, preventing mixed configuration
 during rotation. Redeploy after rotating secrets. Keep previous revisions for
 rollback; remove obsolete revisions only after their worker versions are retired.
 
+For unreadable Vercel production secrets, the optional prebuild exporter can
+transfer them directly to SSM. Set `AWS_WORKER_CONFIG_EXPORT_REVISION` only on a
+production candidate build with `--skip-domain`, and grant its existing AWS
+identity temporary `ssm:PutParameter`/`kms:Encrypt` access to that exact revision.
+Remove the temporary permission after the build. The exporter rejects previews
+and copies only the worker allowlist. Deploy the worker using
+`--configuration-revision REVISION` instead of `--env-file`; the deploy command
+still checks the database host and bucket. Ordinary builds do not export secrets.
+
 Queues, logs, and artifacts are retained if the stack is deleted. Do not delete
 and recreate a failed stack casually: retained named resources must be imported
 or reconciled. Keep schedules disabled until producer cutover and old-scheduler
