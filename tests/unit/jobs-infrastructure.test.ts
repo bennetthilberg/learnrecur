@@ -15,6 +15,7 @@ describe("AWS deployment contract", () => {
     expect(template.Resources.Worker.Properties).not.toHaveProperty("VpcConfig");
     expect(template.Resources.EventSource.Properties).toMatchObject({ BatchSize: 1, FunctionResponseTypes: ["ReportBatchItemFailures"] });
     expect(template.Resources.EventSource.Properties).not.toHaveProperty("ProvisionedPollerConfig");
+    expect(template.Resources.PublisherPolicy.Properties.PolicyDocument).toEqual({ Version: "2012-10-17", Statement: [{ Effect: "Allow", Action: ["sqs:SendMessage", "sqs:GetQueueAttributes"], Resource: { "Fn::GetAtt": ["Queue", "Arn"] } }] });
     expect(template.Resources.SchedulerDeadLetters.Properties).not.toHaveProperty("FifoQueue");
     expect(template.Resources.DeadLetters.Properties).toMatchObject({ FifoQueue: true, MessageRetentionPeriod: 1209600 });
     const policies = Object.values(template.Resources).filter((resource) => resource.Type === "AWS::SQS::QueuePolicy");

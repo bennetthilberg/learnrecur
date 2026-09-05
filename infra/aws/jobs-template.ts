@@ -71,6 +71,12 @@ export function createJobsTemplate(environment: "staging" | "production") {
       Type: "AWS::Lambda::EventSourceMapping",
       Properties: { EventSourceArn: arn("Queue"), FunctionName: ref("Worker"), BatchSize: 1, Enabled: true, FunctionResponseTypes: ["ReportBatchItemFailures"], ScalingConfig: { MaximumConcurrency: ref("MaximumConcurrency") } },
     },
+    PublisherPolicy: {
+      Type: "AWS::IAM::Policy", Properties: {
+        PolicyName: name("jobs-publisher"), Users: [ref("WebPublisherUserName")],
+        PolicyDocument: { Version: "2012-10-17", Statement: [{ Effect: "Allow", Action: actions("sqs:SendMessage", "sqs:GetQueueAttributes"), Resource: arn("Queue") }] },
+      },
+    },
     ScheduleGroup: { Type: "AWS::Scheduler::ScheduleGroup", Properties: { Name: name("jobs") } },
     SchedulerRole: {
       Type: "AWS::IAM::Role",
@@ -137,6 +143,7 @@ export function createJobsTemplate(environment: "staging" | "production") {
     Parameters: {
       CodeBucket: { Type: "String" }, CodeKey: { Type: "String" }, SourceBucketName: { Type: "String" },
       ConfigurationRevision: { Type: "String", AllowedPattern: "[a-zA-Z0-9-]{1,80}" },
+      WebPublisherUserName: { Type: "String", Default: environment === "production" ? "learnrecur-prod-s3-app" : "learnrecur-agent-staging-vercel" },
       EnableSchedules: { Type: "String", AllowedValues: ["true", "false"], Default: "false" },
       MaximumConcurrency: { Type: "Number", Default: environment === "production" ? 5 : 2, MinValue: 2, MaxValue: 5 },
     },
