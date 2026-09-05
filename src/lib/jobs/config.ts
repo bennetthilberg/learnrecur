@@ -18,7 +18,7 @@ export function getJobsConfig(env: JobsConfigEnv = process.env): JobsConfig {
   if (url.protocol !== "https:" || url.host !== `sqs.${region}.amazonaws.com` || url.username || url.password || url.search || url.hash || match?.[2] !== environment) {
     throw new Error("JOB_QUEUE_ENVIRONMENT_MISMATCH");
   }
-  const tier = env.DEPLOYMENT_TIER || (env.VERCEL_ENV === "production" ? "production" : env.VERCEL_ENV === "preview" ? "staging" : undefined);
+  const tier = env.LEARNRECUR_DEPLOYMENT_TIER || (env.VERCEL_ENV === "production" ? "production" : env.VERCEL_ENV === "preview" ? "staging" : undefined);
   if (tier && tier !== environment) throw new Error("JOB_DEPLOYMENT_ENVIRONMENT_MISMATCH");
   return { environment, region, queueUrl, queueArn: `arn:aws:sqs:${region}:${match[1]}:learnrecur-${environment}-jobs.fifo` };
 }

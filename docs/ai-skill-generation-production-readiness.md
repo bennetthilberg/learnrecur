@@ -755,7 +755,7 @@ No single layer establishes production readiness.
    response schema, and the real fallback path.
 6. **Database integration tests:** ownership, idempotency, candidate decisions,
    atomic publication, schedule repair, and cleanup.
-7. **Inngest tests:** retries, duplicate delivery, cancellation, timeout, partial
+7. **Background delivery tests:** retries, duplicate delivery, cancellation, timeout, partial
    completion, and recovery.
 8. **Browser tests:** skill review, evidence display, generation failure, flagging,
    quarantine, and correction UX.

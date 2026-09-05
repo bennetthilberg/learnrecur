@@ -69,7 +69,7 @@ export const JOB_DEFINITIONS: readonly JobDefinition[] = [
 
 const envelopeSchema = z.strictObject({
   version: z.literal(1),
-  id: z.string().min(1).max(128).regex(/^[a-zA-Z0-9_-]+(?:-[a-zA-Z0-9_-]+)*$/),
+  id: z.string().min(1).max(128).regex(/^[a-zA-Z0-9_.:-]+$/),
   environment: z.enum(JOB_ENVIRONMENTS),
   name: z.enum(Object.keys(JOB_PAYLOAD_SCHEMAS) as [JobName, ...JobName[]]),
   data: z.unknown(),

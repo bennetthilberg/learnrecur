@@ -6,12 +6,12 @@ const packageJson = JSON.parse(
 ) as { scripts?: Record<string, string> };
 
 describe("local development command", () => {
-  it("starts Next.js and the Inngest dev server together", () => {
+  it("starts Next.js and the local SQS worker together", () => {
     const devCommand = packageJson.scripts?.dev ?? "";
 
     expect(devCommand).toContain("concurrently");
     expect(devCommand).toContain("next dev");
-    expect(devCommand).toContain("inngest dev");
-    expect(devCommand).toContain("http://localhost:3000/api/inngest");
+    expect(devCommand).toContain("npm run jobs:dev");
+    expect(packageJson.scripts?.["jobs:dev"]).toContain("scripts/jobs-dev.ts");
   });
 });

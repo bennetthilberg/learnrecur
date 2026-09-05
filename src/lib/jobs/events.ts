@@ -1,8 +1,9 @@
 import "server-only";
 
-import { z } from "zod";
+import type { z } from "zod";
+import { JOB_PAYLOAD_SCHEMAS } from "./contracts";
 
-import { inngest } from "./client";
+import { publishJob } from "./publisher";
 
 export const CHOICE_REFILL_REQUESTED_EVENT = "learnrecur/choice-refill.requested";
 export const EXACT_INPUT_REFILL_REQUESTED_EVENT = "learnrecur/exact-input-refill.requested";
@@ -20,65 +21,23 @@ export const AGENT_CONNECTION_REVOCATION_REQUESTED_EVENT =
   "learnrecur/agent-connection-revocation.requested";
 export const ACCOUNT_DELETION_REQUESTED_EVENT = "learnrecur/account-deletion.requested";
 
-const refillEventPayloadSchema = z.strictObject({
-  userId: z.string().trim().min(1),
-  skillId: z.string().trim().min(1),
-  generationJobId: z.string().trim().min(1),
-  targetReadyCount: z.number().int().positive().max(50),
-  requestedAt: z.string().trim().min(1),
-});
+const refillEventPayloadSchema = JOB_PAYLOAD_SCHEMAS[CHOICE_REFILL_REQUESTED_EVENT];
 
-const sourceUploadDraftEventPayloadSchema = z.strictObject({
-  userId: z.string().trim().min(1),
-  sourceFileId: z.string().trim().min(1),
-  requestedAt: z.string().trim().min(1),
-});
+const sourceUploadDraftEventPayloadSchema = JOB_PAYLOAD_SCHEMAS[SOURCE_UPLOAD_DRAFT_REQUESTED_EVENT];
 
-const materialIngestionEventPayloadSchema = z.strictObject({
-  userId: z.string().trim().min(1),
-  materialRevisionId: z.string().trim().min(1),
-  requestedAt: z.string().trim().min(1),
-});
+const materialIngestionEventPayloadSchema = JOB_PAYLOAD_SCHEMAS[MATERIAL_INGESTION_REQUESTED_EVENT];
 
-const materialCleanupEventPayloadSchema = z.strictObject({
-  userId: z.string().trim().min(1),
-  materialId: z.string().trim().min(1),
-  cleanupJobId: z.string().trim().min(1),
-  requestedAt: z.string().trim().min(1),
-});
+const materialCleanupEventPayloadSchema = JOB_PAYLOAD_SCHEMAS[MATERIAL_CLEANUP_REQUESTED_EVENT];
 
-const materialDraftItemEventPayloadSchema = z.strictObject({
-  userId: z.string().trim().min(1),
-  batchId: z.string().trim().min(1),
-  itemId: z.string().trim().min(1),
-  requestedAt: z.string().trim().min(1),
-});
+const materialDraftItemEventPayloadSchema = JOB_PAYLOAD_SCHEMAS[MATERIAL_DRAFT_ITEM_REQUESTED_EVENT];
 
-const materialBatchActivationEventPayloadSchema = z.strictObject({
-  userId: z.string().trim().min(1),
-  batchId: z.string().trim().min(1),
-  itemId: z.string().trim().min(1),
-  generationJobId: z.string().trim().min(1),
-  requestedAt: z.string().trim().min(1),
-});
+const materialBatchActivationEventPayloadSchema = JOB_PAYLOAD_SCHEMAS[MATERIAL_BATCH_ACTIVATION_REQUESTED_EVENT];
 
-const agentSkillOperationEventPayloadSchema = z.strictObject({
-  userId: z.string().trim().min(1),
-  operationId: z.string().trim().min(1),
-  requestedAt: z.string().trim().min(1),
-});
+const agentSkillOperationEventPayloadSchema = JOB_PAYLOAD_SCHEMAS[AGENT_SKILL_OPERATION_REQUESTED_EVENT];
 
-const agentConnectionRevocationEventPayloadSchema = z.strictObject({
-  userId: z.string().trim().min(1),
-  connectionId: z.string().trim().min(1),
-  requestedAt: z.string().trim().min(1),
-});
+const agentConnectionRevocationEventPayloadSchema = JOB_PAYLOAD_SCHEMAS[AGENT_CONNECTION_REVOCATION_REQUESTED_EVENT];
 
-const accountDeletionEventPayloadSchema = z.strictObject({
-  userId: z.string().trim().min(1),
-  deletionJobId: z.string().trim().min(1),
-  requestedAt: z.string().trim().min(1),
-});
+const accountDeletionEventPayloadSchema = JOB_PAYLOAD_SCHEMAS[ACCOUNT_DELETION_REQUESTED_EVENT];
 
 export type ExerciseRefillEventPayload = z.infer<typeof refillEventPayloadSchema>;
 export type SourceUploadDraftEventPayload = z.infer<
@@ -178,89 +137,62 @@ export function parseAccountDeletionEventPayload(input: unknown): AccountDeletio
   return accountDeletionEventPayloadSchema.parse(input);
 }
 
-export const inngestExerciseRefillEventSender: ExerciseRefillEventSender = {
+export const awsExerciseRefillEventSender: ExerciseRefillEventSender = {
   async sendChoiceRefillRequested(payload) {
-    await inngest.send({
-      name: CHOICE_REFILL_REQUESTED_EVENT,
-      data: payload,
-    });
+    await publishJob(CHOICE_REFILL_REQUESTED_EVENT, payload);
   },
   async sendExactInputRefillRequested(payload) {
-    await inngest.send({
-      name: EXACT_INPUT_REFILL_REQUESTED_EVENT,
-      data: payload,
-    });
+    await publishJob(EXACT_INPUT_REFILL_REQUESTED_EVENT, payload);
   },
   async sendMathRefillRequested(payload) {
-    await inngest.send({
-      name: MATH_REFILL_REQUESTED_EVENT,
-      data: payload,
-    });
+    await publishJob(MATH_REFILL_REQUESTED_EVENT, payload);
   },
 };
 
-export const inngestSourceUploadDraftEventSender: SourceUploadDraftEventSender = {
+export const awsSourceUploadDraftEventSender: SourceUploadDraftEventSender = {
   async sendSourceUploadDraftRequested(payload) {
-    await inngest.send({
-      name: SOURCE_UPLOAD_DRAFT_REQUESTED_EVENT,
-      data: payload,
-    });
+    await publishJob(SOURCE_UPLOAD_DRAFT_REQUESTED_EVENT, payload);
   },
 };
 
-export const inngestMaterialIngestionEventSender: MaterialIngestionEventSender = {
+export const awsMaterialIngestionEventSender: MaterialIngestionEventSender = {
   async sendMaterialIngestionRequested(payload) {
-    await inngest.send({
-      name: MATERIAL_INGESTION_REQUESTED_EVENT,
-      data: payload,
-    });
+    await publishJob(MATERIAL_INGESTION_REQUESTED_EVENT, payload);
   },
 };
 
-export const inngestMaterialCleanupEventSender: MaterialCleanupEventSender = {
+export const awsMaterialCleanupEventSender: MaterialCleanupEventSender = {
   async sendMaterialCleanupRequested(payload) {
-    await inngest.send({
-      name: MATERIAL_CLEANUP_REQUESTED_EVENT,
-      data: payload,
-    });
+    await publishJob(MATERIAL_CLEANUP_REQUESTED_EVENT, payload);
   },
 };
 
-export const inngestMaterialDraftItemEventSender: MaterialDraftItemEventSender = {
+export const awsMaterialDraftItemEventSender: MaterialDraftItemEventSender = {
   async sendMaterialDraftItemRequested(payload) {
-    await inngest.send({
-      name: MATERIAL_DRAFT_ITEM_REQUESTED_EVENT,
-      data: payload,
-    });
+    await publishJob(MATERIAL_DRAFT_ITEM_REQUESTED_EVENT, payload);
   },
 };
 
-export const inngestMaterialBatchActivationEventSender: MaterialBatchActivationEventSender = {
+export const awsMaterialBatchActivationEventSender: MaterialBatchActivationEventSender = {
   async sendMaterialBatchActivationRequested(payload) {
-    await inngest.send({
-      name: MATERIAL_BATCH_ACTIVATION_REQUESTED_EVENT,
-      data: payload,
-    });
+    await publishJob(MATERIAL_BATCH_ACTIVATION_REQUESTED_EVENT, payload);
   },
 };
 
 export async function sendAgentSkillOperationRequested(
   payload: AgentSkillOperationEventPayload,
 ) {
-  await inngest.send({
-    name: AGENT_SKILL_OPERATION_REQUESTED_EVENT,
-    data: payload,
-  });
+  await publishJob(AGENT_SKILL_OPERATION_REQUESTED_EVENT, payload);
 }
 
 export async function sendAgentConnectionRevocationRequested(
   payload: AgentConnectionRevocationEventPayload,
 ) {
-  await inngest.send({ name: AGENT_CONNECTION_REVOCATION_REQUESTED_EVENT, data: payload });
+  await publishJob(AGENT_CONNECTION_REVOCATION_REQUESTED_EVENT, payload);
 }
 
-export const inngestAccountDeletionEventSender: AccountDeletionEventSender = {
+export const awsAccountDeletionEventSender: AccountDeletionEventSender = {
   async sendAccountDeletionRequested(payload) {
-    await inngest.send({ name: ACCOUNT_DELETION_REQUESTED_EVENT, data: payload });
+    await publishJob(ACCOUNT_DELETION_REQUESTED_EVENT, payload);
   },
 };

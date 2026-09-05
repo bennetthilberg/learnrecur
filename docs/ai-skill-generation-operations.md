@@ -55,13 +55,18 @@ an acceptable release process.
 
 Generation jobs record an explicit stage, checkpoint, attempts, failure category,
 release tuple, context-manifest hash, and bounded counts. Choice generation uses
-per-skill Inngest concurrency and two retries. Transport/capacity failures may
+per-skill SQS FIFO ordering and two retries in the Lambda worker. Transport/capacity failures may
 use fallback; semantic rejection is never reclassified as provider downtime.
 
 For a stranded job, first inspect its `stage`, `updatedAt`, `failureCategory`, and
 audit record. Requeue only an idempotent pending/failed operation. Never change a
 failed candidate to accepted manually. Prefer a smaller trusted inventory over
 publishing an under-verified batch.
+
+Delivery-level attempts, leases, and terminal state live in `BackgroundJobDelivery`.
+Inspect those alongside the domain record; a completed delivery can also mean an
+idempotent handler found work already finished. Queue and recovery procedures are
+documented in [AWS background jobs](aws-background-jobs.md).
 
 ## Learner quality incidents
 

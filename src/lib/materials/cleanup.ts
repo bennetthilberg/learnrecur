@@ -1,11 +1,11 @@
 import "server-only";
 
 import { MaterialCleanupStatus } from "@/generated/prisma/client";
-import { getInngestEnvStatus } from "@/lib/inngest/client";
+import { getJobsEnvStatus } from "@/lib/jobs/config";
 import {
-  inngestMaterialCleanupEventSender,
+  awsMaterialCleanupEventSender,
   type MaterialCleanupEventSender,
-} from "@/lib/inngest/events";
+} from "@/lib/jobs/events";
 import {
   requestMaterialDeletion,
   rollbackMaterialDeletionRequest,
@@ -20,7 +20,7 @@ export async function queueMaterialDeletion(input: {
   now: Date;
   eventSender?: MaterialCleanupEventSender;
 }) {
-  const envStatus = getInngestEnvStatus();
+  const envStatus = getJobsEnvStatus();
   if (envStatus.status === "missing-env" && !input.eventSender) {
     return {
       status: "not-deleted" as const,
@@ -34,7 +34,7 @@ export async function queueMaterialDeletion(input: {
   }
 
   try {
-    await (input.eventSender ?? inngestMaterialCleanupEventSender).sendMaterialCleanupRequested({
+    await (input.eventSender ?? awsMaterialCleanupEventSender).sendMaterialCleanupRequested({
       userId: input.userId,
       materialId: deletion.materialId,
       cleanupJobId: deletion.cleanupJobId,

@@ -55,7 +55,7 @@ describe("AWS environment isolation", () => {
     { AWS_REGION: "us-west-2" },
     { JOBS_QUEUE_URL: "http://localhost:9324/123456789012/learnrecur-staging-jobs.fifo" },
     { JOBS_QUEUE_URL: env.JOBS_QUEUE_URL + "?redirect=somewhere" },
-    { DEPLOYMENT_TIER: "production" },
+    { LEARNRECUR_DEPLOYMENT_TIER: "production" },
     { VERCEL_ENV: "production" },
   ])("fails closed for invalid or mismatched environment configuration", (overrides) => {
     expect(() => getJobsConfig({ ...env, ...overrides })).toThrow();
@@ -63,6 +63,6 @@ describe("AWS environment isolation", () => {
   });
 
   it("accepts explicitly isolated staging deployed to a Vercel production slot", () => {
-    expect(getJobsEnvStatus({ ...env, DEPLOYMENT_TIER: "staging", VERCEL_ENV: "production" }).status).toBe("configured");
+    expect(getJobsEnvStatus({ ...env, LEARNRECUR_DEPLOYMENT_TIER: "staging", VERCEL_ENV: "production" }).status).toBe("configured");
   });
 });

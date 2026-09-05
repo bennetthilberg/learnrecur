@@ -1206,7 +1206,7 @@ describeDatabase("material ingestion", () => {
     }
   });
 
-  it("does not create a website refresh revision when Inngest is unavailable", async () => {
+  it("does not create a website refresh revision when the background queue is unavailable", async () => {
     const material = await prisma.studyMaterial.findFirstOrThrow({
       where: { userId, title: "Open Grammar" },
     });
@@ -1215,14 +1215,10 @@ describeDatabase("material ingestion", () => {
     });
     const previousEnv = {
       NODE_ENV: process.env.NODE_ENV,
-      INNGEST_DEV: process.env.INNGEST_DEV,
-      INNGEST_EVENT_KEY: process.env.INNGEST_EVENT_KEY,
-      INNGEST_SIGNING_KEY: process.env.INNGEST_SIGNING_KEY,
+      JOBS_QUEUE_URL: process.env.JOBS_QUEUE_URL,
     };
     process.env.NODE_ENV = "production";
-    delete process.env.INNGEST_DEV;
-    delete process.env.INNGEST_EVENT_KEY;
-    delete process.env.INNGEST_SIGNING_KEY;
+    delete process.env.JOBS_QUEUE_URL;
 
     try {
       await expect(
@@ -1232,15 +1228,13 @@ describeDatabase("material ingestion", () => {
           now: new Date(),
           storage: createMemoryStorage(),
         }),
-      ).resolves.toMatchObject({ status: "not-queued", message: expect.stringMatching(/Inngest/) });
+      ).resolves.toMatchObject({ status: "not-queued", message: expect.stringMatching(/Background jobs/) });
       await expect(
         prisma.materialRevision.count({ where: { materialId: material.id } }),
       ).resolves.toBe(revisionCount);
     } finally {
       restoreEnv("NODE_ENV", previousEnv.NODE_ENV);
-      restoreEnv("INNGEST_DEV", previousEnv.INNGEST_DEV);
-      restoreEnv("INNGEST_EVENT_KEY", previousEnv.INNGEST_EVENT_KEY);
-      restoreEnv("INNGEST_SIGNING_KEY", previousEnv.INNGEST_SIGNING_KEY);
+      restoreEnv("JOBS_QUEUE_URL", previousEnv.JOBS_QUEUE_URL);
     }
   });
 
@@ -1391,7 +1385,7 @@ describeDatabase("material ingestion", () => {
         now: new Date(),
         eventSender: {
           async sendMaterialCleanupRequested() {
-            throw new Error("Inngest unavailable");
+            throw new Error("AWS background jobs unavailable");
           },
         },
       }),

@@ -4,6 +4,7 @@ import nextTypeScript from "eslint-config-next/typescript";
 const eslintConfig = [
   {
     ignores: [
+      ".aws-build/**",
       "coverage/**",
       "playwright-report/**",
       "references/**",

@@ -17,13 +17,13 @@ import {
   SourceFileStatus,
   StudyMaterialStatus,
 } from "@/generated/prisma/client";
-import { getInngestEnvStatus } from "@/lib/inngest/client";
+import { getJobsEnvStatus } from "@/lib/jobs/config";
 import {
-  inngestMaterialBatchActivationEventSender,
-  inngestMaterialDraftItemEventSender,
+  awsMaterialBatchActivationEventSender,
+  awsMaterialDraftItemEventSender,
   type MaterialBatchActivationEventSender,
   type MaterialDraftItemEventSender,
-} from "@/lib/inngest/events";
+} from "@/lib/jobs/events";
 import {
   resolveMaterialDraftAiSetup,
   type MaterialDraftAiSetup,
@@ -286,7 +286,7 @@ export async function confirmMaterialPlan(input: {
   const createSeparatelyTargetKeys = new Set(
     parsed.data.createSeparatelyTargetKeys ?? [],
   );
-  const env = getInngestEnvStatus();
+  const env = getJobsEnvStatus();
 
   const confirmation = await prisma.$transaction(async (tx) => {
     await tx.$queryRaw`
@@ -507,7 +507,7 @@ export async function confirmMaterialPlan(input: {
   const queuedItems = createdItems.filter(
     (item) => item.status === SkillDraftBatchItemStatus.PLANNED,
   );
-  const sender = input.eventSender ?? inngestMaterialDraftItemEventSender;
+  const sender = input.eventSender ?? awsMaterialDraftItemEventSender;
   const sendResults = await Promise.allSettled(
     queuedItems.map((item) =>
       sender.sendMaterialDraftItemRequested({
@@ -523,7 +523,7 @@ export async function confirmMaterialPlan(input: {
       return [];
     }
     const itemId = queuedItems[index].id;
-    console.error("[inngest] material draft event send failed", {
+    console.error("[background-jobs] material draft event send failed", {
       batchId: batch.id,
       itemId,
       error: getEventSendErrorLogDetails(result.reason),
@@ -1156,7 +1156,7 @@ export async function retryMaterialDraftItem(input: {
   automatic?: boolean;
   eventSender?: MaterialDraftItemEventSender;
 }) {
-  const env = getInngestEnvStatus();
+  const env = getJobsEnvStatus();
   if (env.status === "missing-env" && !input.eventSender) {
     return { status: "not-queued" as const, message: env.message };
   }
@@ -1213,14 +1213,14 @@ export async function retryMaterialDraftItem(input: {
     return { status: "not-found" as const, message: "Failed draft item was not found." };
   }
   try {
-    await (input.eventSender ?? inngestMaterialDraftItemEventSender).sendMaterialDraftItemRequested({
+    await (input.eventSender ?? awsMaterialDraftItemEventSender).sendMaterialDraftItemRequested({
       userId: input.userId,
       batchId: input.batchId,
       itemId: input.itemId,
       requestedAt: input.now.toISOString(),
     });
   } catch (error) {
-    console.error("[inngest] material draft event send failed", {
+    console.error("[background-jobs] material draft event send failed", {
       batchId: input.batchId,
       itemId: input.itemId,
       error: getEventSendErrorLogDetails(error),
@@ -1255,7 +1255,7 @@ export async function queueMaterialBatchActivation(input: {
       fieldErrors: parsed.error.flatten().fieldErrors,
     };
   }
-  const env = getInngestEnvStatus();
+  const env = getJobsEnvStatus();
   if (env.status === "missing-env" && !input.eventSender) {
     return { status: "not-queued" as const, message: env.message };
   }
@@ -1796,7 +1796,7 @@ export async function queueMaterialBatchActivation(input: {
   if (reservation.status !== "reserved") {
     return reservation;
   }
-  const sender = input.eventSender ?? inngestMaterialBatchActivationEventSender;
+  const sender = input.eventSender ?? awsMaterialBatchActivationEventSender;
   const payloads = reservation.reservations.map((item) => ({
     userId: input.userId,
     batchId: reservation.batchId,
@@ -2340,7 +2340,7 @@ export async function retryMaterialBatchActivationItem(input: {
   if (!parsed.success) {
     return { status: "invalid" as const, message: "Activation item was invalid." };
   }
-  const env = getInngestEnvStatus();
+  const env = getJobsEnvStatus();
   if (env.status === "missing-env" && !input.eventSender) {
     return { status: "not-queued" as const, message: env.message };
   }
@@ -2544,7 +2544,7 @@ export async function retryMaterialBatchActivationItem(input: {
     requestedAt: input.now.toISOString(),
   };
   try {
-    await (input.eventSender ?? inngestMaterialBatchActivationEventSender)
+    await (input.eventSender ?? awsMaterialBatchActivationEventSender)
       .sendMaterialBatchActivationRequested(payload);
   } catch {
     const [failedItemId] =

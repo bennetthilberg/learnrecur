@@ -11,7 +11,7 @@ import {
   SkillStatus,
 } from "@/generated/prisma/client";
 import { getAgentAccessConfig } from "@/lib/agent-access/auth";
-import { sendAgentConnectionRevocationRequested, sendAgentSkillOperationRequested } from "@/lib/inngest/events";
+import { sendAgentConnectionRevocationRequested, sendAgentSkillOperationRequested } from "@/lib/jobs/events";
 import { getPrisma } from "@/lib/prisma";
 import { cleanupPreparedSourceUploads } from "@/lib/skills/uploads";
 

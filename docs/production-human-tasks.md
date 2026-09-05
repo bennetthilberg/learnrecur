@@ -38,8 +38,8 @@ Steps:
 4. Build command: `npm run build`.
 5. Add the production domain.
 6. Confirm Vercel production builds run with `VERCEL_ENV=production`.
-7. Confirm `/api/inngest` is reachable by Inngest. Vercel deployment protection must not block it.
-8. Confirm the plan supports the configured `/api/inngest` `maxDuration` in `vercel.json`.
+7. Configure the production SQS queue URL and a scoped AWS publishing identity.
+8. Confirm authenticated `/api/readiness` can probe the matching production queue.
 
 ### 3. Create the Neon production database
 
@@ -111,30 +111,16 @@ Steps:
 
 After deployment, upload a PNG and a PDF through the real app and confirm direct S3 object URLs are denied.
 
-### 6. Create the Inngest production app
+### 6. Deploy AWS background jobs
 
-Steps:
-
-1. Create a production Inngest app/environment.
-2. Create an event key.
-3. Copy it to Vercel as `INNGEST_EVENT_KEY`.
-4. Copy the signing key to Vercel as `INNGEST_SIGNING_KEY`.
-5. Set:
-
-```text
-INNGEST_APP_ID=learnrecur
-INNGEST_DEV=0
-```
-
-6. Deploy Vercel production.
-7. Sync functions from `https://your-production-url/api/inngest`.
-8. Confirm these functions appear:
-   - `choice-exercise-refill`
-   - `exact-input-exercise-refill`
-   - `math-exercise-refill`
-   - `source-upload-draft`
-   - `due-practice-reminders`
-9. Turn on Inngest failure alerts.
+Follow [AWS background jobs](aws-background-jobs.md) to deploy the private queues,
+Lambda worker, encrypted configuration, schedules, and alarms. Keep schedules
+disabled until the producer cutover and retirement of the previous scheduler.
+Verify every job family in staging, then confirm production queue publishing,
+worker completion, all three scheduled jobs, and delivery of an owner alert.
+The web app needs `JOBS_ENVIRONMENT=production`, a matching `JOBS_QUEUE_URL`, and
+permission to send messages and read attributes on that queue. It does not need
+permission to receive or delete queued work.
 
 ### 7. Create the Gemini production key
 
@@ -197,10 +183,8 @@ AWS_REGION=...
 S3_BUCKET_NAME=...
 AWS_ACCESS_KEY_ID=...
 AWS_SECRET_ACCESS_KEY=...
-INNGEST_APP_ID=learnrecur
-INNGEST_DEV=0
-INNGEST_EVENT_KEY=...
-INNGEST_SIGNING_KEY=...
+JOBS_ENVIRONMENT=production
+JOBS_QUEUE_URL=https://sqs.REGION.amazonaws.com/ACCOUNT_ID/learnrecur-production-jobs.fifo
 RESEND_API_KEY=re_...
 RESEND_FROM_EMAIL=LearnRecur <practice@app.learnrecur.com>
 ```
@@ -244,7 +228,7 @@ Use a production test account.
 6. Paste source material and generate drafts.
 7. Upload a small PNG source.
 8. Upload a small PDF source.
-9. Confirm Inngest processes upload jobs.
+9. Confirm SQS delivers upload jobs to Lambda and the resulting domain records complete.
 10. Activate a draft skill.
 11. Confirm verified exercises are created.
 12. Open `/practice`.
@@ -254,7 +238,7 @@ Use a production test account.
 16. Download `/settings/export`.
 17. Run `npm run ops -- report` from a trusted local machine with production env configured.
 18. Confirm Vercel logs have no unexpected server errors.
-19. Confirm Inngest shows successful function runs.
+19. Confirm the durable delivery records and redacted Lambda logs show successful runs.
 20. Confirm Neon connection counts look normal.
 21. Confirm S3 objects are private.
 22. Confirm Gemini usage is expected.
@@ -273,7 +257,7 @@ Complete these before anyone outside your direct test circle uses the app:
 7. Configure provider alerts:
    - Vercel deploy and server-error alerts.
    - Neon billing/storage/connection alerts.
-   - Inngest function failure alerts.
+   - AWS queue, Lambda failure, dead-letter, and missing-schedule alerts.
    - Gemini quota and budget alerts.
    - Resend bounce or complaint alerts.
    - AWS S3 public-access and storage growth alerts.
@@ -302,13 +286,13 @@ The delete command is dry-run unless `--confirm USER_ID --delete-s3` are both pr
 
 These cannot be completed by code alone:
 
-- Payment method for Vercel, Neon, AWS, Gemini, Inngest, Resend, and domain/DNS.
+- Payment method for Vercel, Neon, AWS, Gemini, Resend, and domain/DNS.
 - Production provider accounts and ownership.
 - Production credentials.
 - DNS control.
 - Email/domain verification.
 - Clerk production restricted-signup setup.
-- Inngest function sync from the deployed app.
+- AWS worker deployment and verified production schedule cutover.
 - Gemini live smoke tests with real billing/quota.
 - Resend live email delivery test.
 - S3 bucket creation and public-access verification.

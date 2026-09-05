@@ -14,11 +14,11 @@ import {
   revokeAllWorkosAuthorizedApplicationsForUser,
   runAgentConnectionRevocationJob,
 } from "@/lib/agent-access/settings";
-import { getInngestEnvStatus } from "@/lib/inngest/client";
+import { getJobsEnvStatus } from "@/lib/jobs/config";
 import {
-  inngestAccountDeletionEventSender,
+  awsAccountDeletionEventSender,
   type AccountDeletionEventSender,
-} from "@/lib/inngest/events";
+} from "@/lib/jobs/events";
 import { getPrisma } from "@/lib/prisma";
 import { logOperationalEvent } from "@/lib/observability";
 import {
@@ -167,7 +167,7 @@ export async function requestAccountDeletion(input: {
     };
   }
 
-  const envStatus = getInngestEnvStatus();
+  const envStatus = getJobsEnvStatus();
   if (envStatus.status === "missing-env" && !input.eventSender) {
     return {
       status: "queue-unavailable",
@@ -187,7 +187,7 @@ export async function requestAccountDeletion(input: {
   }
 
   try {
-    await (input.eventSender ?? inngestAccountDeletionEventSender).sendAccountDeletionRequested({
+    await (input.eventSender ?? awsAccountDeletionEventSender).sendAccountDeletionRequested({
       userId: input.userId,
       deletionJobId: persisted.jobId,
       requestedAt: input.now.toISOString(),
@@ -244,7 +244,7 @@ export async function recoverRetryableAccountDeletionJobs(input: {
   eventSender?: AccountDeletionEventSender;
 }): Promise<{ claimed: number; dispatched: number; failed: number }> {
   const prisma = getPrisma();
-  const sender = input.eventSender ?? inngestAccountDeletionEventSender;
+  const sender = input.eventSender ?? awsAccountDeletionEventSender;
   const candidates = await prisma.accountDeletionJob.findMany({
     where: {
       status: {

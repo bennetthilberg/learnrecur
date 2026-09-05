@@ -11,11 +11,11 @@ import {
   StudyMaterialKind,
   StudyMaterialStatus,
 } from "@/generated/prisma/client";
-import { getInngestEnvStatus } from "@/lib/inngest/client";
+import { getJobsEnvStatus } from "@/lib/jobs/config";
 import {
-  inngestMaterialIngestionEventSender,
+  awsMaterialIngestionEventSender,
   type MaterialIngestionEventSender,
-} from "@/lib/inngest/events";
+} from "@/lib/jobs/events";
 import {
   MAX_MATERIAL_PDF_BYTES,
   MAX_MATERIAL_PDF_PAGES,
@@ -372,7 +372,7 @@ export async function queueMaterialPdfIngestion(input: {
   storage?: SourceObjectStorage;
   eventSender?: MaterialIngestionEventSender;
 }): Promise<QueueMaterialIngestionResult> {
-  const envStatus = getInngestEnvStatus();
+  const envStatus = getJobsEnvStatus();
   if (envStatus.status === "missing-env" && !input.eventSender) {
     return { status: "not-queued", message: envStatus.message };
   }
@@ -459,7 +459,7 @@ export async function queueMaterialPdfIngestion(input: {
   ]);
 
   try {
-    await (input.eventSender ?? inngestMaterialIngestionEventSender).sendMaterialIngestionRequested({
+    await (input.eventSender ?? awsMaterialIngestionEventSender).sendMaterialIngestionRequested({
       userId: input.userId,
       materialRevisionId: revision.id,
       requestedAt: input.now.toISOString(),
@@ -516,7 +516,7 @@ export async function queueWebsiteMaterialImport(input: {
   if (storageSetup.status === "missing-env") {
     return { status: "not-queued", message: storageSetup.message };
   }
-  const envStatus = getInngestEnvStatus();
+  const envStatus = getJobsEnvStatus();
   if (envStatus.status === "missing-env" && !input.eventSender) {
     return { status: "not-queued", message: envStatus.message };
   }
@@ -575,7 +575,7 @@ export async function queueWebsiteMaterialImport(input: {
   });
 
   try {
-    await (input.eventSender ?? inngestMaterialIngestionEventSender).sendMaterialIngestionRequested({
+    await (input.eventSender ?? awsMaterialIngestionEventSender).sendMaterialIngestionRequested({
       userId: input.userId,
       materialRevisionId: created.materialRevisionId,
       requestedAt: input.now.toISOString(),
@@ -658,7 +658,7 @@ export async function retryMaterialIngestion(input: {
     };
   }
   try {
-    await (input.eventSender ?? inngestMaterialIngestionEventSender).sendMaterialIngestionRequested({
+    await (input.eventSender ?? awsMaterialIngestionEventSender).sendMaterialIngestionRequested({
       userId: input.userId,
       materialRevisionId: revision.id,
       requestedAt: input.now.toISOString(),
@@ -699,7 +699,7 @@ export async function queueMaterialPdfReindex(input: {
   if (storageSetup.status === "missing-env") {
     return { status: "not-queued", message: storageSetup.message };
   }
-  const envStatus = getInngestEnvStatus();
+  const envStatus = getJobsEnvStatus();
   if (envStatus.status === "missing-env" && !input.eventSender) {
     return { status: "not-queued", message: envStatus.message };
   }
@@ -879,7 +879,7 @@ export async function queueMaterialPdfReindex(input: {
   }
 
   try {
-    await (input.eventSender ?? inngestMaterialIngestionEventSender).sendMaterialIngestionRequested({
+    await (input.eventSender ?? awsMaterialIngestionEventSender).sendMaterialIngestionRequested({
       userId: input.userId,
       materialRevisionId: created.materialRevisionId,
       requestedAt: input.now.toISOString(),
@@ -927,7 +927,7 @@ export async function queueWebsiteMaterialRefresh(input: {
   if (storageSetup.status === "missing-env") {
     return { status: "not-queued", message: storageSetup.message };
   }
-  const envStatus = getInngestEnvStatus();
+  const envStatus = getJobsEnvStatus();
   if (envStatus.status === "missing-env" && !input.eventSender) {
     return { status: "not-queued", message: envStatus.message };
   }
@@ -995,7 +995,7 @@ export async function queueWebsiteMaterialRefresh(input: {
   ]);
 
   try {
-    await (input.eventSender ?? inngestMaterialIngestionEventSender).sendMaterialIngestionRequested({
+    await (input.eventSender ?? awsMaterialIngestionEventSender).sendMaterialIngestionRequested({
       userId: input.userId,
       materialRevisionId: revision.id,
       requestedAt: input.now.toISOString(),

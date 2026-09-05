@@ -88,4 +88,13 @@ describe("AWS background job contracts", () => {
       .toEqual([3, 3, 3]);
     expect([1, 2, 3, 20].map(retryDelaySeconds)).toEqual([30, 60, 120, 900]);
   });
+
+  it("accepts stable Scheduler occurrence IDs so retries deduplicate after five minutes", () => {
+    const envelope = {
+      version: 1, environment: "staging", name: "learnrecur/agent-access.maintenance",
+      id: "agent-access-maintenance-2026-09-05T02:00:00Z",
+      data: { requestedAt: "2026-09-05T02:00:00Z" },
+    };
+    expect(parseJobEnvelope(JSON.stringify(envelope), "staging")).toEqual(envelope);
+  });
 });

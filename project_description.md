@@ -499,7 +499,7 @@ The selected stack is:
 - Prisma.
 - Amazon S3 for private object storage.
 - Google Gemini as the primary AI provider, with Meta Muse Spark 1.3 as the direct multimodal fallback for extraction, generation, and verification.
-- Inngest for background jobs.
+- Amazon SQS FIFO, AWS Lambda, and EventBridge Scheduler for background jobs.
 - Resend for email.
 - Vercel for hosting.
 - `ts-fsrs` for spaced repetition.
@@ -557,7 +557,7 @@ Use Amazon S3 private object storage. Uploaded originals should be kept with the
 
 ### 14.7 Background Jobs Decision
 
-Use Inngest for managed background jobs. This is important because upload parsing, AI extraction, exercise generation, verification, and queue refills should not block ordinary web requests.
+Use Amazon SQS FIFO for job delivery, AWS Lambda for execution, and EventBridge Scheduler for recurring work. Upload parsing, AI extraction, exercise generation, verification, and queue refills must not block ordinary web requests. Preserve per-skill or per-user ordering, bounded retries, idempotent domain handlers, durable delivery records, dead-letter recovery, and separate local, staging, and production resources. See `docs/aws-background-jobs.md` for deployment and recovery procedures.
 
 ### 14.8 Email Decision
 
@@ -703,7 +703,7 @@ As of the first implementation pass, the repository includes:
 - Prisma schema.
 - Gemini service layer skeleton.
 - S3 upload-signing endpoint.
-- Inngest endpoint and placeholder functions.
+- AWS queue publisher, Lambda worker, and scheduled maintenance functions.
 - Resend reminder helper.
 - Clerk webhook endpoint and optional middleware.
 - Unit tests for answer checking, FSRS mapping, and demo review flow.

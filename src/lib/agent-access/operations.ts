@@ -29,7 +29,7 @@ import {
   normalizeAgentCandidateExercise,
 } from "@/lib/agent-access/contracts";
 import { getPrisma } from "@/lib/prisma";
-import { sendAgentSkillOperationRequested } from "@/lib/inngest/events";
+import { sendAgentSkillOperationRequested } from "@/lib/jobs/events";
 import {
   prepareSourceUpload,
   refreshPreparedSourceUpload,
