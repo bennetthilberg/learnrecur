@@ -4,11 +4,15 @@ vi.mock("@aws-sdk/client-ssm", () => ({ SSMClient: class { destroy() {} }, pagin
 import { loadWorkerEnvironment, selectWorkerEnvironment, workerEnvironmentManifest, WORKER_ENV_KEYS } from "@/lib/jobs/environment";
 import { getJobsConfig } from "@/lib/jobs/config";
 const config = getJobsConfig({ AWS_REGION: "us-east-1", JOBS_ENVIRONMENT: "staging", JOBS_QUEUE_URL: "https://sqs.us-east-1.amazonaws.com/123456789012/learnrecur-staging-jobs.fifo" });
-const required = ["DATABASE_URL", "S3_BUCKET_NAME", "CLERK_SECRET_KEY", "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY", "NEXT_PUBLIC_APP_URL", "RESEND_API_KEY", "RESEND_FROM_EMAIL", "GEMINI_API_KEY"];
+const required = ["DATABASE_URL", "S3_BUCKET_NAME", "CLERK_SECRET_KEY", "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY", "NEXT_PUBLIC_APP_URL", "RESEND_API_KEY", "RESEND_FROM_EMAIL", "GEMINI_API_KEY", "WORKOS_API_KEY", "MCP_RESOURCE_URL"];
 const params = () => required.map((key) => ({ Name: `/learnrecur/staging/jobs/${key}`, Type: "SecureString", Value: `fixture-${key}` }));
 afterEach(() => vi.unstubAllEnvs());
 
 describe("Lambda environment loading", () => {
+  it.each(["WORKOS_API_KEY", "MCP_RESOURCE_URL"])("requires %s for account cleanup even when agent creation is disabled", (key) => {
+    const values = Object.fromEntries(params().map((parameter) => [parameter.Name.split("/").at(-1)!, parameter.Value]));
+    expect(() => selectWorkerEnvironment({ ...values, AGENT_SKILL_CREATION_ENABLED: "false", [key]: undefined })).toThrow("JOB_ENVIRONMENT_INCOMPLETE");
+  });
   it("does not accept Vercel's unreadable-secret placeholders as deployable configuration", () => {
     const values = Object.fromEntries(params().map((parameter) => [parameter.Name.split("/").at(-1)!, parameter.Value]));
     expect(() => selectWorkerEnvironment({ ...values, DATABASE_URL: "[SENSITIVE]" })).toThrow("JOB_ENVIRONMENT_INCOMPLETE");

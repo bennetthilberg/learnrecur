@@ -48,7 +48,9 @@ npm run jobs:build
 
 Prepare a mode-0600 environment file from the authoritative environment store.
 It must contain the worker's database, isolated S3 bucket, Clerk, Gemini, and
-Resend configuration. Optional Meta and WorkOS settings are included when used.
+Resend configuration. `WORKOS_API_KEY` and `MCP_RESOURCE_URL` are also required
+for account cleanup, including when agent creation is disabled. Other optional
+Meta and WorkOS settings are included when used.
 The allowlist is in `src/lib/jobs/environment.ts`. `[SENSITIVE]` placeholders
 from a Vercel environment export are not usable credentials.
 

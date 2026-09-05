@@ -12,7 +12,9 @@ export const WORKER_ENV_KEYS = [
   "AGENT_PERMISSION_VERSION",
 ] as const;
 
-const required = ["DATABASE_URL", "S3_BUCKET_NAME", "CLERK_SECRET_KEY", "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY", "NEXT_PUBLIC_APP_URL", "RESEND_API_KEY", "RESEND_FROM_EMAIL"];
+// Account cleanup must revoke existing grants even when new agent access is
+// disabled. These settings are required independently of that feature flag.
+const required = ["DATABASE_URL", "S3_BUCKET_NAME", "CLERK_SECRET_KEY", "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY", "NEXT_PUBLIC_APP_URL", "RESEND_API_KEY", "RESEND_FROM_EMAIL", "WORKOS_API_KEY", "MCP_RESOURCE_URL"];
 
 export function selectWorkerEnvironment(input: Record<string, string | undefined>): Record<string, string> {
   const values = Object.fromEntries(WORKER_ENV_KEYS.filter((key) => input[key]?.trim()).map((key) => [key, input[key]!]));
