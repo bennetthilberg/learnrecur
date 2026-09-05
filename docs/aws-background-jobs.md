@@ -126,6 +126,13 @@ Before production cutover:
    readiness, and a real end-to-end background operation.
 6. Revoke retired Inngest credentials and any exposed deployment bypass token.
 
+The production-health workflow accepts the canonical production URL or one
+explicitly trusted immutable candidate. Before testing a candidate, verify its
+Vercel project, production target and source commit, then set the repository
+variable `PRODUCTION_HEALTH_CANDIDATE_URL` to that exact URL. A matching hostname
+alone is insufficient. Only trusted repository operators should update this
+variable or dispatch the workflow; no credentials are sent to an unpinned target.
+
 For a failed delivery, inspect its redacted log outcome and durable record,
 then inspect the associated domain status. Fix the cause before replaying.
 Keep the envelope ID for an ambiguous-delivery retry so completed work remains

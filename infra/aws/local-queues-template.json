@@ -22,6 +22,20 @@
         "RedrivePolicy": { "deadLetterTargetArn": { "Fn::GetAtt": ["DeadLetters", "Arn"] }, "maxReceiveCount": 6 }
       }
     },
+    "QueueTransportPolicy": {
+      "Type": "AWS::SQS::QueuePolicy",
+      "Properties": {
+        "Queues": [{ "Ref": "Queue" }],
+        "PolicyDocument": { "Version": "2012-10-17", "Statement": [{ "Effect": "Deny", "Principal": "*", "Action": "sqs:*", "Resource": { "Fn::GetAtt": ["Queue", "Arn"] }, "Condition": { "Bool": { "aws:SecureTransport": "false" } } }] }
+      }
+    },
+    "DeadLettersTransportPolicy": {
+      "Type": "AWS::SQS::QueuePolicy",
+      "Properties": {
+        "Queues": [{ "Ref": "DeadLetters" }],
+        "PolicyDocument": { "Version": "2012-10-17", "Statement": [{ "Effect": "Deny", "Principal": "*", "Action": "sqs:*", "Resource": { "Fn::GetAtt": ["DeadLetters", "Arn"] }, "Condition": { "Bool": { "aws:SecureTransport": "false" } } }] }
+      }
+    },
     "DeveloperPolicy": {
       "Type": "AWS::IAM::Policy",
       "Properties": {

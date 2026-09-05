@@ -1,8 +1,21 @@
 import { describe, expect, it } from "vitest";
 import { createJobsTemplate } from "../../infra/aws/jobs-template";
 import { getJobMessageGroupId, parseJobEnvelope } from "@/lib/jobs/contracts";
+import localTemplate from "../../infra/aws/local-queues-template.json";
 
 describe("AWS deployment contract", () => {
+  it.each(["Queue", "DeadLetters"])("requires TLS for the local %s", (queue) => {
+    expect(Object.values(localTemplate.Resources)).toContainEqual({
+      Type: "AWS::SQS::QueuePolicy",
+      Properties: {
+        Queues: [{ Ref: queue }],
+        PolicyDocument: { Version: "2012-10-17", Statement: [{
+          Effect: "Deny", Principal: "*", Action: "sqs:*", Resource: { "Fn::GetAtt": [queue, "Arn"] },
+          Condition: { Bool: { "aws:SecureTransport": "false" } },
+        }] },
+      },
+    });
+  });
   it.each(["staging", "production"] as const)("keeps %s encrypted, bounded, isolated, and initially unscheduled", (environment) => {
     const template = createJobsTemplate(environment);
     expect(template.Parameters.EnableSchedules.Default).toBe("false");

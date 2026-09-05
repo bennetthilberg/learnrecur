@@ -11,7 +11,7 @@ an unconditional production-readiness sign-off.
 - The dedicated staging site, `project-0oqzu.vercel.app`, runs
   `dpl_HVo9pZRRu7FncuWtotuVbKBacTfS`, built from `e8344ed`.
 - Production and staging run the same content-addressed worker artifact:
-  `232cddf8a6b79d4fbc3aca52c374aa429058269cdd9ab1cd1abac3843a7f198c.zip`.
+  `99ff029cab06b51c40efcbd19f06bfb8e8907e1c7c0a3d14e89fb053117889cf.zip`.
 - Production worker configuration:
   `vercel-92a7b3d9-e563-4eb7-9dbd-b7ed2171d312` (22 settings).
 - Staging worker configuration:
@@ -29,7 +29,7 @@ an unconditional production-readiness sign-off.
 
 ## Automated verification
 
-- 836 unit tests passed across 84 files.
+- 853 unit tests passed across 86 files.
 - All 353 database tests passed across 23 files against the hosted development
   database. Files run sequentially; concurrency tests within each file still
   race the actual operations. Parallel files had produced unrelated fixture
@@ -46,6 +46,11 @@ an unconditional production-readiness sign-off.
 - The first pull-request CI run stopped before database tests because its saved
   Neon password was stale. Both CI database secrets were refreshed from the
   verified development database credentials; production credentials were not used.
+- The repaired CI run passed 836 unit tests with coverage, all 353 database
+  tests and 11 authenticated browser tests on `60d8608`:
+  [CI run](https://github.com/bennetthilberg/learnrecur/actions/runs/33945507181).
+  The subsequent review fixes add 17 unit cases for trusted health-check targets,
+  local queue TLS, sanitized diagnostics and job-error classification.
 
 ## Live execution evidence
 
@@ -98,6 +103,12 @@ The public production target passed after promotion:
 [post-cutover check](https://github.com/bennetthilberg/learnrecur/actions/runs/33943148902).
 The isolated preview and dedicated agent-staging deployment also returned
 `ready` for database, storage, provider and background-job checks.
+
+Review follow-ups pin candidate health checks to a repository variable containing
+one verified immutable Vercel deployment. Its project and source commit were
+checked before pinning; the tests reject unpinned matching hostnames and foreign
+destinations. Both local queues now have deployed TLS-deny policies, verified
+through their live attributes. Local diagnostics expose only recognized codes.
 
 ## Open operational items
 

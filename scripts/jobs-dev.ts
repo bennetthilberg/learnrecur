@@ -2,12 +2,13 @@ import { config as loadEnv } from "dotenv";
 import { DeleteMessageCommand, ReceiveMessageCommand, SQSClient } from "@aws-sdk/client-sqs";
 import type { SQSRecord } from "aws-lambda";
 import { getJobsConfig } from "../src/lib/jobs/config";
+import { getLocalWorkerFailureCode } from "../src/lib/jobs/diagnostics";
 
 async function main() {
   loadEnv({ path: ".env.local", quiet: true });
   loadEnv({ path: ".env", quiet: true });
   const config = getJobsConfig();
-  if (config.environment !== "local") throw new Error("Local workers require JOBS_ENVIRONMENT=local and the local FIFO queue.");
+  if (config.environment !== "local") throw new Error("JOB_LOCAL_ENVIRONMENT_REQUIRED");
   const { createRuntimeWorker, JOB_TIMEOUT_SECONDS } = await import("../src/lib/jobs/lambda");
   const worker = await createRuntimeWorker();
   const client = new SQSClient({ region: config.region });
@@ -47,4 +48,7 @@ async function main() {
   }
 }
 
-main().catch(() => { console.error("Local AWS worker stopped. Check AWS access and local job configuration."); process.exitCode = 1; });
+main().catch((error) => {
+  console.error("Local AWS worker stopped. Check AWS access and local job configuration.", { code: getLocalWorkerFailureCode(error) });
+  process.exitCode = 1;
+});

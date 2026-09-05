@@ -23,6 +23,7 @@ jobs:
     timeout-minutes: 3
     env:
       PRODUCTION_URL: ${{ inputs.deployment_url || 'https://alpha.learnrecur.com' }}
+      TRUSTED_CANDIDATE_URL: ${{ vars.PRODUCTION_HEALTH_CANDIDATE_URL }}
       READINESS_PROBE_SECRET: ${{ secrets.PRODUCTION_READINESS_PROBE_SECRET }}
       DEPLOYMENT_BYPASS_SECRET: ${{ secrets.PRODUCTION_DEPLOYMENT_BYPASS_SECRET }}
     steps:
@@ -31,8 +32,10 @@ jobs:
         run: |
           set -euo pipefail
           if [[ "$PRODUCTION_URL" != "https://alpha.learnrecur.com" ]]; then
-            [[ "$PRODUCTION_URL" =~ ^https://learnrecur-[a-z0-9]+-learn-recur\.vercel\.app$ ]]
-            test -n "$DEPLOYMENT_BYPASS_SECRET"
+            [[ "$PRODUCTION_URL" =~ ^https://learnrecur-[a-z0-9]+-learn-recur\.vercel\.app$ ]] || exit 1
+            test -n "$TRUSTED_CANDIDATE_URL" || exit 1
+            [[ "$PRODUCTION_URL" == "$TRUSTED_CANDIDATE_URL" ]] || exit 1
+            test -n "$DEPLOYMENT_BYPASS_SECRET" || exit 1
           fi
       - name: Check liveness
         shell: bash
