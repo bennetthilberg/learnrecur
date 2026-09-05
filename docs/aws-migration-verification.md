@@ -11,7 +11,7 @@ an unconditional production-readiness sign-off.
 - The dedicated staging site, `project-0oqzu.vercel.app`, runs
   `dpl_HVo9pZRRu7FncuWtotuVbKBacTfS`, built from `e8344ed`.
 - Production and staging run the same content-addressed worker artifact:
-  `a24ea8f07f8ac6004d586edfc6a268aa00136d65a51ee2c27fba7bb353a0b390.zip`.
+  `232cddf8a6b79d4fbc3aca52c374aa429058269cdd9ab1cd1abac3843a7f198c.zip`.
 - Production worker configuration:
   `vercel-92a7b3d9-e563-4eb7-9dbd-b7ed2171d312` (22 settings).
 - Staging worker configuration:
@@ -29,7 +29,7 @@ an unconditional production-readiness sign-off.
 
 ## Automated verification
 
-- 834 unit tests passed across 84 files.
+- 836 unit tests passed across 84 files.
 - All 353 database tests passed across 23 files against the hosted development
   database. Files run sequentially; concurrency tests within each file still
   race the actual operations. Parallel files had produced unrelated fixture
@@ -43,6 +43,9 @@ an unconditional production-readiness sign-off.
   export tests. These are whole-repository coverage numbers.
 - Runtime dependency audit: zero blocking findings; four existing development
   tooling exceptions remain documented in the repository audit policy.
+- The first pull-request CI run stopped before database tests because its saved
+  Neon password was stale. Both CI database secrets were refreshed from the
+  verified development database credentials; production credentials were not used.
 
 ## Live execution evidence
 
@@ -63,6 +66,7 @@ an unconditional production-readiness sign-off.
 | Staging cleanup recovery | Missing WorkOS configuration initially blocked account cleanup. After the authoritative staging configuration transfer, all seven fixture accounts reached COMPLETE. |
 | Retry exhaustion and dead-letter recovery | Seven staging cleanup envelopes exhausted four attempts and reached the real dead-letter queue with `JOB_RETRIES_EXHAUSTED`. After their domain jobs reached COMPLETE and their fixture users were gone, only those seven messages were removed. The staging dead-letter queue was empty, including in-flight messages, at 04:35 UTC. |
 | Scheduled work | Account-deletion recovery completed at 03:55:27 UTC, agent-access maintenance at 03:55:27 UTC, and practice reminders at 04:00:05 UTC. All seven production alarms were OK at 04:21 UTC. |
+| Configuration regression guard | Two failing tests reproduced acceptance of missing account-cleanup settings. The worker now rejects snapshots without `WORKOS_API_KEY` or `MCP_RESOURCE_URL`, even when agent creation is disabled. Both environments were redeployed and completed an isolated no-op delivery on attempt one at 04:46 UTC. |
 
 The forced-timeout test used a temporary directly invoked Lambda, followed by
 real SQS redelivery to the normal worker. A native SQS-triggered timeout can wait
