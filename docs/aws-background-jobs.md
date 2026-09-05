@@ -72,8 +72,10 @@ For unreadable Vercel production secrets, the optional prebuild exporter can
 transfer them directly to SSM. Set `AWS_WORKER_CONFIG_EXPORT_REVISION` only on a
 production candidate build with `--skip-domain`, and grant its existing AWS
 identity temporary `ssm:PutParameter`/`kms:Encrypt` access to that exact revision.
-Remove the temporary permission after the build. The exporter rejects previews
-and copies only the worker allowlist. Deploy the worker using
+Remove the temporary permission after the build. For a dedicated staging project,
+both `JOBS_ENVIRONMENT` and `LEARNRECUR_DEPLOYMENT_TIER` must be `staging`; its
+production-target build exports only to the staging parameter namespace.
+The exporter rejects previews and copies only the worker allowlist. Deploy the worker using
 `--configuration-revision REVISION` instead of `--env-file`; the deploy command
 still checks the database host and bucket. Ordinary builds do not export secrets.
 

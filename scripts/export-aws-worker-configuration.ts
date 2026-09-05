@@ -9,7 +9,7 @@ async function main() {
   const client = new SSMClient({ region: process.env.AWS_REGION, maxAttempts: 3 });
   try {
     const result = await exportWorkerConfiguration(process.env, (command) => client.send(command));
-    if (result.exported) console.info(`Exported ${result.count} encrypted worker parameters to production revision ${result.revision}`);
+    if (result.exported) console.info(`Exported ${result.count} encrypted worker parameters to ${process.env.JOBS_ENVIRONMENT} revision ${result.revision}`);
   } finally { client.destroy(); }
 }
 

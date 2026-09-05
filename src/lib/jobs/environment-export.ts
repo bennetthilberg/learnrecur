@@ -4,12 +4,13 @@ import { selectWorkerEnvironment, workerEnvironmentManifest } from "./environmen
 export async function exportWorkerConfiguration(env: Record<string, string | undefined>, send: (command: PutParameterCommand) => Promise<unknown>, pause = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))) {
   const revision = env.AWS_WORKER_CONFIG_EXPORT_REVISION;
   if (!revision) return { exported: false as const };
-  if (env.VERCEL !== "1" || env.JOBS_ENVIRONMENT !== "production" || env.VERCEL_ENV !== "production" || env.LEARNRECUR_DEPLOYMENT_TIER !== "production" || !/^[a-zA-Z0-9-]{1,80}$/.test(revision)) {
+  const environment = env.JOBS_ENVIRONMENT;
+  if (env.VERCEL !== "1" || !["production", "staging"].includes(environment ?? "") || env.VERCEL_ENV !== "production" || env.LEARNRECUR_DEPLOYMENT_TIER !== environment || !/^[a-zA-Z0-9-]{1,80}$/.test(revision)) {
     throw new Error("WORKER_CONFIGURATION_EXPORT_CONTEXT_INVALID");
   }
   const values = selectWorkerEnvironment(env);
   for (const [key, value] of Object.entries({ ...values, _MANIFEST: workerEnvironmentManifest(values) })) {
-    const command = new PutParameterCommand({ Name: `/learnrecur/production/jobs/${revision}/${key}`, Type: "SecureString", Tier: "Standard", Value: value, Overwrite: false });
+    const command = new PutParameterCommand({ Name: `/learnrecur/${environment}/jobs/${revision}/${key}`, Type: "SecureString", Tier: "Standard", Value: value, Overwrite: false });
     for (let attempt = 0; ; attempt++) {
       try { await send(command); break; } catch (error) {
         // A newly attached, narrowly scoped deployment policy can take time

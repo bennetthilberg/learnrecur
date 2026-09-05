@@ -9,6 +9,23 @@ it("does nothing in ordinary builds", async () => {
   expect(send).not.toHaveBeenCalled();
 });
 
+it("exports a staging project's production deployment only to its staging namespace", async () => {
+  const send = vi.fn().mockResolvedValue({});
+  const values = Object.fromEntries(["DATABASE_URL", "S3_BUCKET_NAME", "CLERK_SECRET_KEY", "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY", "NEXT_PUBLIC_APP_URL", "RESEND_API_KEY", "RESEND_FROM_EMAIL", "GEMINI_API_KEY"].map((key) => [key, `fixture-${key}`]));
+  await exportWorkerConfiguration({ ...context, ...values, JOBS_ENVIRONMENT: "staging", LEARNRECUR_DEPLOYMENT_TIER: "staging" }, send, async () => {});
+  expect(send).toHaveBeenCalledTimes(9);
+  for (const [command] of send.mock.calls) expect(command.input.Name).toMatch(/^\/learnrecur\/staging\/jobs\/verified-revision\//);
+});
+
+it.each([
+  { JOBS_ENVIRONMENT: "local", LEARNRECUR_DEPLOYMENT_TIER: "local" },
+  { JOBS_ENVIRONMENT: "staging", LEARNRECUR_DEPLOYMENT_TIER: "staging", VERCEL_ENV: "preview" },
+])("rejects local and preview staging exports", async (override) => {
+  const send = vi.fn();
+  await expect(exportWorkerConfiguration({ ...context, ...override }, send)).rejects.toThrow("WORKER_CONFIGURATION_EXPORT_CONTEXT_INVALID");
+  expect(send).not.toHaveBeenCalled();
+});
+
 it.each([{ VERCEL: "0" }, { VERCEL_ENV: "preview" }, { JOBS_ENVIRONMENT: "staging" }, { LEARNRECUR_DEPLOYMENT_TIER: "staging" }, { AWS_WORKER_CONFIG_EXPORT_REVISION: "../other" }])("rejects unsafe export contexts before sending secrets", async (override) => {
   const send = vi.fn();
   await expect(exportWorkerConfiguration({ ...context, ...override }, send)).rejects.toThrow("WORKER_CONFIGURATION_EXPORT_CONTEXT_INVALID");
