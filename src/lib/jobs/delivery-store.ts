@@ -48,15 +48,18 @@ export function createJobDeliveryStore(input: { prisma: PrismaClient; now: () =>
       if (existing.status === "DEAD_LETTER") {
         return { status: "dead-letter", reason: existing.errorCode === "JOB_NON_RETRYABLE" ? "JOB_NON_RETRYABLE" : "JOB_RETRIES_EXHAUSTED" };
       }
-      if (existing.leaseUntil > now) return { status: "busy" };
+      const busy = (leaseUntil: Date): JobClaim => ({
+        status: "busy", retryAfterSeconds: Math.min(900, Math.max(1, Math.ceil((leaseUntil.getTime() - now.getTime()) / 1000) + 1)),
+      });
+      if (existing.leaseUntil > now) return busy(existing.leaseUntil);
       if (existing.attempts >= maxAttempts) {
         const result = await prisma.backgroundJobDelivery.updateMany({
           where: { ...ownedLease(job, existing.leaseToken), status: { in: ["RUNNING", "RETRYABLE"] }, leaseUntil: { lte: now } },
           data: { status: "DEAD_LETTER", errorCode: "JOB_RETRIES_EXHAUSTED", updatedAt: now },
         });
-        return result.count ? { status: "dead-letter", reason: "JOB_RETRIES_EXHAUSTED" } : { status: "busy" };
+        return result.count ? { status: "dead-letter", reason: "JOB_RETRIES_EXHAUSTED" } : busy(leaseUntil);
       }
-      return { status: "busy" };
+      return busy(leaseUntil);
     },
 
     async complete(job: JobEnvelope, token: string) {

@@ -50,10 +50,10 @@ describe("SQS worker delivery safety", () => {
 
   it("retries an active lease instead of losing a duplicate after its original fails", async () => {
     const { dependencies, run } = setup();
-    vi.mocked(dependencies.claim).mockResolvedValue({ status: "busy" });
+    vi.mocked(dependencies.claim).mockResolvedValue({ status: "busy", retryAfterSeconds: 661 });
     expect(await run({ Records: [record()] })).toEqual({ batchItemFailures: [{ itemIdentifier: "message-a" }] });
     expect(dependencies.execute).not.toHaveBeenCalled();
-    expect(dependencies.retry).toHaveBeenCalled();
+    expect(dependencies.retry).toHaveBeenCalledWith(expect.anything(), 661);
   });
 
   it("retries transient errors with bounded delay and without logging private error text", async () => {

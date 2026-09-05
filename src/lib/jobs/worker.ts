@@ -19,7 +19,7 @@ export type JobFailureCode =
 export type JobClaim =
   | { status: "claimed"; attempt: number; token: string }
   | { status: "complete" }
-  | { status: "busy" }
+  | { status: "busy"; retryAfterSeconds: number }
   | { status: "dead-letter"; reason: JobFailureCode };
 
 export type JobExecutionContext = { attempt: number; maxAttempts: number };
@@ -69,7 +69,7 @@ export function createJobWorker(dependencies: JobWorkerDependencies) {
       return true;
     }
     if (claim.status === "busy") {
-      await dependencies.retry(record, 60);
+      await dependencies.retry(record, claim.retryAfterSeconds);
       log({ outcome: "leased", name: job.name, id: job.id });
       return false;
     }
