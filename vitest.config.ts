@@ -16,6 +16,9 @@ export default defineConfig({
     exclude: ["tests/e2e/**"],
     setupFiles: ["./tests/setup/env.ts"],
     testTimeout: 30_000,
+    // Database suites share one small Neon compute. Unbounded file workers
+    // exhaust its transaction budget and make ownership/race checks time out.
+    maxWorkers: process.env.RUN_DATABASE_TESTS === "1" ? 2 : undefined,
     coverage: {
       provider: "v8",
       include: ["src/lib/**/*.ts"],

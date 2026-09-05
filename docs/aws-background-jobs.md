@@ -86,10 +86,21 @@ retirement are verified.
 
 Use a `learnrecur-local-jobs.fifo` queue with a matching FIFO dead-letter queue,
 an isolated development database, and non-production service credentials.
+Create the queues and grant the existing development identity access with:
+
+```sh
+aws cloudformation deploy --stack-name learnrecur-local-jobs \
+  --template-file infra/aws/local-queues-template.json \
+  --capabilities CAPABILITY_NAMED_IAM --region us-east-1
+```
+
 `JOBS_ENVIRONMENT=local`, `JOBS_QUEUE_URL`, and `AWS_REGION` must agree.
 `npm run dev` runs Next.js and the local queue consumer. The local consumer does
 not execute EventBridge schedules. Run individual maintenance jobs explicitly
 when testing those paths. Never consume a staging or production queue locally.
+Set `S3_BUCKET_NAME` and AWS credentials to the development/staging identity,
+never the production publisher. Keep credentials in the ignored local environment
+file; the queues template does not create access keys.
 
 ## Operations and cutover
 
