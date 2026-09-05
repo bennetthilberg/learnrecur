@@ -42,10 +42,9 @@ const managedEnvKeys = [
   "S3_BUCKET_NAME",
   "AWS_ACCESS_KEY_ID",
   "AWS_SECRET_ACCESS_KEY",
-  "INNGEST_APP_ID",
-  "INNGEST_DEV",
-  "INNGEST_EVENT_KEY",
-  "INNGEST_SIGNING_KEY",
+  "JOBS_ENVIRONMENT",
+  "JOBS_QUEUE_URL",
+  "AWS_SESSION_TOKEN",
   "ALPHA_ALLOWED_EMAILS",
   "READINESS_PROBE_SECRET",
   "SUPPORT_EMAIL",
@@ -244,10 +243,8 @@ describe("environment validation", () => {
       S3_BUCKET_NAME: "learnrecur-prod-source-uploads",
       AWS_ACCESS_KEY_ID: "prod-access-key",
       AWS_SECRET_ACCESS_KEY: "prod-secret",
-      INNGEST_APP_ID: "learnrecur",
-      INNGEST_DEV: "0",
-      INNGEST_EVENT_KEY: "inngest-event-key",
-      INNGEST_SIGNING_KEY: "inngest-signing-key",
+      JOBS_ENVIRONMENT: "production",
+      JOBS_QUEUE_URL: "https://sqs.us-east-1.amazonaws.com/123456789012/learnrecur-production-jobs.fifo",
       RESEND_API_KEY: "re_example",
       RESEND_FROM_EMAIL: "LearnRecur <practice@app.learnrecur.com>",
       ALPHA_ALLOWED_EMAILS: "alpha@example.com",
@@ -265,8 +262,8 @@ describe("environment validation", () => {
       META_API_KEY: "LLM_opaque_meta_key",
       META_MUSE_MODEL: "muse-spark-1.3",
       META_MUSE_BASE_URL: "https://api.meta.ai/v1",
-      INNGEST_APP_ID: "learnrecur",
-      INNGEST_DEV: "0",
+      JOBS_ENVIRONMENT: "production",
+      JOBS_QUEUE_URL: "https://sqs.us-east-1.amazonaws.com/123456789012/learnrecur-production-jobs.fifo",
       ALPHA_ALLOWED_EMAILS: "alpha@example.com",
       READINESS_PROBE_SECRET: "readiness-secret-with-at-least-32-characters",
       SUPPORT_EMAIL: "support@example.com",
@@ -286,10 +283,8 @@ describe("environment validation", () => {
       S3_BUCKET_NAME: "learnrecur-prod-source-uploads",
       AWS_ACCESS_KEY_ID: "prod-access-key",
       AWS_SECRET_ACCESS_KEY: "prod-secret",
-      INNGEST_APP_ID: "learnrecur",
-      INNGEST_DEV: "0",
-      INNGEST_EVENT_KEY: "inngest-event-key",
-      INNGEST_SIGNING_KEY: "inngest-signing-key",
+      JOBS_ENVIRONMENT: "production",
+      JOBS_QUEUE_URL: "https://sqs.us-east-1.amazonaws.com/123456789012/learnrecur-production-jobs.fifo",
       RESEND_API_KEY: "re_example",
       RESEND_FROM_EMAIL: "LearnRecur <practice@app.learnrecur.com>",
       ALPHA_ALLOWED_EMAILS: "alpha@example.com",
@@ -319,10 +314,8 @@ describe("environment validation", () => {
       S3_BUCKET_NAME: "learnrecur-prod-source-uploads",
       AWS_ACCESS_KEY_ID: "prod-access-key",
       AWS_SECRET_ACCESS_KEY: "prod-secret",
-      INNGEST_APP_ID: "learnrecur-dev",
-      INNGEST_DEV: "1",
-      INNGEST_EVENT_KEY: "inngest-event-key",
-      INNGEST_SIGNING_KEY: "inngest-signing-key",
+      JOBS_ENVIRONMENT: "local",
+      JOBS_QUEUE_URL: "https://sqs.us-east-1.amazonaws.com/123456789012/learnrecur-local-jobs.fifo",
       RESEND_API_KEY: "re_example",
       RESEND_FROM_EMAIL: "LearnRecur <practice@app.learnrecur.com>",
       ALPHA_ALLOWED_EMAILS: "alpha@example.com",
@@ -336,8 +329,7 @@ describe("environment validation", () => {
     expect(() => getProductionEnv()).toThrow(/pk_live_/);
     expect(() => getProductionEnv()).toThrow(/sk_live_/);
     expect(() => getProductionEnv()).toThrow(/DIRECT_URL is required/);
-    expect(() => getProductionEnv()).toThrow(/INNGEST_APP_ID must not be learnrecur-dev/);
-    expect(() => getProductionEnv()).toThrow(/INNGEST_DEV must be absent or false/);
+    expect(() => getProductionEnv()).toThrow(/JOBS_ENVIRONMENT/);
   });
 
   it("requires closed-alpha, readiness, and support configuration in production", () => {
@@ -352,10 +344,8 @@ describe("environment validation", () => {
       S3_BUCKET_NAME: "learnrecur-prod-source-uploads",
       AWS_ACCESS_KEY_ID: "prod-access-key",
       AWS_SECRET_ACCESS_KEY: "prod-secret",
-      INNGEST_APP_ID: "learnrecur",
-      INNGEST_DEV: "0",
-      INNGEST_EVENT_KEY: "inngest-event-key",
-      INNGEST_SIGNING_KEY: "inngest-signing-key",
+      JOBS_ENVIRONMENT: "production",
+      JOBS_QUEUE_URL: "https://sqs.us-east-1.amazonaws.com/123456789012/learnrecur-production-jobs.fifo",
       RESEND_API_KEY: "re_example",
       RESEND_FROM_EMAIL: "LearnRecur <practice@app.learnrecur.com>",
       ALPHA_ALLOWED_EMAILS: "valid@example.com, not-an-email",
@@ -400,7 +390,7 @@ describe("environment validation", () => {
     expect(formatEnvError(zodError)).toBe("DIRECT_URL is required");
   });
 
-  it("rejects unexpected INNGEST_DEV values in production", () => {
+  it("rejects a queue from a different environment in production", () => {
     resetManagedEnv({
       NEXT_PUBLIC_APP_URL: "https://app.learnrecur.com",
       NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "pk_live_example",
@@ -413,10 +403,8 @@ describe("environment validation", () => {
       S3_BUCKET_NAME: "learnrecur-prod-source-uploads",
       AWS_ACCESS_KEY_ID: "prod-access-key",
       AWS_SECRET_ACCESS_KEY: "prod-secret",
-      INNGEST_APP_ID: "learnrecur",
-      INNGEST_DEV: "banana",
-      INNGEST_EVENT_KEY: "inngest-event-key",
-      INNGEST_SIGNING_KEY: "inngest-signing-key",
+      JOBS_ENVIRONMENT: "production",
+      JOBS_QUEUE_URL: "https://sqs.us-east-1.amazonaws.com/123456789012/learnrecur-staging-jobs.fifo",
       RESEND_API_KEY: "re_example",
       RESEND_FROM_EMAIL: "LearnRecur <practice@app.learnrecur.com>",
       ALPHA_ALLOWED_EMAILS: "alpha@example.com",
@@ -425,7 +413,7 @@ describe("environment validation", () => {
     });
 
     expect(hasProductionEnv()).toBe(false);
-    expect(() => getProductionEnv()).toThrow(/INNGEST_DEV must be absent or false/);
+    expect(() => getProductionEnv()).toThrow(/JOBS_QUEUE_URL/);
   });
 
   it("requires an app URL outside local development", () => {

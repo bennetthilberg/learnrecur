@@ -1098,7 +1098,7 @@ describeDatabase("material multi-skill drafting", () => {
 
     expect(result).toMatchObject({ status: "partial", failedItemIds: [expect.any(String)] });
     expect(errorSpy).toHaveBeenCalledWith(
-      "[inngest] material draft event send failed",
+      "[background-jobs] material draft event send failed",
       expect.objectContaining({
         batchId: planned.batchId,
         itemId: result.failedItemIds[0],
@@ -2648,7 +2648,7 @@ describeDatabase("material multi-skill drafting", () => {
     ).resolves.toMatchObject({ status: "ready", alreadyGenerated: false });
   });
 
-  it("keeps retryable generation failures claimable for the same Inngest event", async () => {
+  it("keeps retryable generation failures claimable for the same AWS background jobs event", async () => {
     const batch = await prisma.skillDraftBatch.create({
       data: {
         userId,
@@ -4896,7 +4896,7 @@ describeDatabase("material multi-skill drafting", () => {
     ).resolves.toBe(2);
   });
 
-  it("keeps a transient activation failure in progress while Inngest retries remain", async () => {
+  it("keeps a transient activation failure in progress while AWS background jobs retries remain", async () => {
     const ready = await createReadyBatch([
       {
         key: "automatic-activation-retry",

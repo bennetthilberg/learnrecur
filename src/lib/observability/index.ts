@@ -246,7 +246,7 @@ export function classifyOperationalError(
   if (/gemini|google|meta muse|provider|model/.test(normalizedDescription)) {
     return "provider";
   }
-  if (/inngest|queue|background job/.test(normalizedDescription)) {
+  if (/sqs|dlq|queue|background job|\bjob_/.test(normalizedDescription)) {
     return "background";
   }
   if (/unauthorized|forbidden|authentication|credential|secret/.test(normalizedDescription)) {

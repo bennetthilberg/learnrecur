@@ -82,6 +82,7 @@ export const ModelName = {
   AgentSkillOperationItem: 'AgentSkillOperationItem',
   AgentExerciseCandidate: 'AgentExerciseCandidate',
   AgentRevocationOutbox: 'AgentRevocationOutbox',
+  BackgroundJobDelivery: 'BackgroundJobDelivery',
   AgentRateLimitBucket: 'AgentRateLimitBucket'
 } as const
 
@@ -790,6 +791,25 @@ export const AgentRevocationOutboxScalarFieldEnum = {
 } as const
 
 export type AgentRevocationOutboxScalarFieldEnum = (typeof AgentRevocationOutboxScalarFieldEnum)[keyof typeof AgentRevocationOutboxScalarFieldEnum]
+
+
+export const BackgroundJobDeliveryScalarFieldEnum = {
+  environment: 'environment',
+  id: 'id',
+  name: 'name',
+  payloadHash: 'payloadHash',
+  status: 'status',
+  attempts: 'attempts',
+  leaseToken: 'leaseToken',
+  leaseUntil: 'leaseUntil',
+  errorCode: 'errorCode',
+  completedAt: 'completedAt',
+  expiresAt: 'expiresAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type BackgroundJobDeliveryScalarFieldEnum = (typeof BackgroundJobDeliveryScalarFieldEnum)[keyof typeof BackgroundJobDeliveryScalarFieldEnum]
 
 
 export const AgentRateLimitBucketScalarFieldEnum = {

@@ -23,11 +23,11 @@ import {
   runWithGeminiProviderFallback,
   type GeminiRuntimeConfig,
 } from "@/lib/gemini";
-import { getInngestEnvStatus } from "@/lib/inngest/client";
+import { getJobsEnvStatus } from "@/lib/jobs/config";
 import {
-  inngestSourceUploadDraftEventSender,
+  awsSourceUploadDraftEventSender,
   type SourceUploadDraftEventSender,
-} from "@/lib/inngest/events";
+} from "@/lib/jobs/events";
 import { inspectPdfPageCount } from "@/lib/materials/pdf";
 import { MAX_QUICK_PDF_PAGES } from "@/lib/materials/quick-flow";
 import {
@@ -223,7 +223,7 @@ export type QueueSourceUploadDraftsResult =
       status: "not-queued";
       reason:
         | "missing-s3-env"
-        | "missing-inngest-env"
+        | "missing-jobs-env"
         | "invalid-upload"
         | "event-send-failed";
       message: string;
@@ -260,7 +260,7 @@ export type RequeueSourceUploadDraftResult =
       status: "not-queued";
       reason:
         | "missing-s3-env"
-        | "missing-inngest-env"
+        | "missing-jobs-env"
         | "invalid-upload"
         | "event-send-failed"
         | "not-stale"
@@ -1130,11 +1130,11 @@ export async function queueSourceUploadDrafts(
   const actualByteSize = uploadValidation.byteSize;
 
   if (!input.eventSender) {
-    const inngestEnv = getInngestEnvStatus();
+    const awsEnv = getJobsEnvStatus();
 
-    if (inngestEnv.status === "missing-env") {
+    if (awsEnv.status === "missing-env") {
       await cleanupUploadedSource(sourceFile, storageSetup.storage);
-      return notQueued("missing-inngest-env", inngestEnv.message);
+      return notQueued("missing-jobs-env", awsEnv.message);
     }
   }
 
@@ -1156,7 +1156,7 @@ export async function queueSourceUploadDrafts(
     return notQueued("invalid-upload", "This upload has already been processed or is processing.");
   }
 
-  const eventSender = input.eventSender ?? inngestSourceUploadDraftEventSender;
+  const eventSender = input.eventSender ?? awsSourceUploadDraftEventSender;
 
   try {
     await eventSender.sendSourceUploadDraftRequested({
@@ -1250,10 +1250,10 @@ export async function requeueSourceUploadDraft(
   }
 
   if (!input.eventSender) {
-    const inngestEnv = getInngestEnvStatus();
+    const awsEnv = getJobsEnvStatus();
 
-    if (inngestEnv.status === "missing-env") {
-      return requeueNotQueued("missing-inngest-env", inngestEnv.message);
+    if (awsEnv.status === "missing-env") {
+      return requeueNotQueued("missing-jobs-env", awsEnv.message);
     }
   }
 
@@ -1285,7 +1285,7 @@ export async function requeueSourceUploadDraft(
     );
   }
 
-  const eventSender = input.eventSender ?? inngestSourceUploadDraftEventSender;
+  const eventSender = input.eventSender ?? awsSourceUploadDraftEventSender;
 
   try {
     await eventSender.sendSourceUploadDraftRequested({
@@ -3188,7 +3188,7 @@ function requeueNotQueued(
 function queueFailureToCompletionReason(
   reason: Extract<QueueSourceUploadDraftsResult, { status: "not-queued" }>["reason"],
 ): Extract<CompleteSourceUploadDraftsResult, { status: "not-created" }>["reason"] {
-  if (reason === "event-send-failed" || reason === "missing-inngest-env") {
+  if (reason === "event-send-failed" || reason === "missing-jobs-env") {
     return "invalid-upload";
   }
 

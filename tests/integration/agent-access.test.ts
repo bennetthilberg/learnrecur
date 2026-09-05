@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/inngest/events", () => ({
+vi.mock("@/lib/jobs/events", () => ({
   sendAgentConnectionRevocationRequested: vi.fn().mockResolvedValue(undefined),
   sendAgentSkillOperationRequested: vi.fn().mockResolvedValue(undefined),
 }));
@@ -36,7 +36,7 @@ import { reserveAgentActivation, runAgentSkillOperationJob } from "@/lib/agent-a
 import {
   sendAgentConnectionRevocationRequested,
   sendAgentSkillOperationRequested,
-} from "@/lib/inngest/events";
+} from "@/lib/jobs/events";
 import { getPrisma } from "@/lib/prisma";
 import { getUserDataExport } from "@/lib/settings/data-export";
 

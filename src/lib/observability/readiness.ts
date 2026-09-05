@@ -1,6 +1,7 @@
 import "server-only";
 
-import { getInngestEnvStatus } from "@/lib/inngest/client";
+import { getJobsConfig } from "@/lib/jobs/config";
+import { createJobTransport } from "@/lib/jobs/transport";
 import { getGeminiEnv } from "@/lib/env";
 import { resolveGeminiRuntimeConfig } from "@/lib/gemini";
 import { getPrisma } from "@/lib/prisma";
@@ -238,9 +239,9 @@ export function getDefaultReadinessChecks(): ReadinessCheck[] {
       run: checkProviderReadiness,
     },
     {
-      name: "inngest",
+      name: "background-jobs",
       category: "background",
-      run: checkInngestReadiness,
+      run: checkJobsReadiness,
     },
   ];
 }
@@ -279,12 +280,8 @@ export function checkProviderReadiness(): void {
   resolveGeminiRuntimeConfig(env);
 }
 
-export function checkInngestReadiness(): void {
-  const status = getInngestEnvStatus();
-
-  if (status.status !== "ready") {
-    throw new ReadinessProbeError("configuration", "Inngest is not configured.");
-  }
+export async function checkJobsReadiness(signal?: AbortSignal): Promise<void> {
+  await createJobTransport(getJobsConfig()).probe(signal);
 }
 
 function readBearerToken(request: Pick<Request, "headers">): string | null {

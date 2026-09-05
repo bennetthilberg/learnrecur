@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  classifyOperationalError,
   constantTimeSecretEqual,
   getReadinessProbeSecret,
   getRequestContext,
@@ -18,6 +19,9 @@ function createLogger() {
 }
 
 describe("operational observability", () => {
+  it.each(["JOB_DLQ_RECEIPT_MISSING", "JOB_WORKER_UNAVAILABLE", "JOB_WORKER_INITIALIZATION_FAILED", "JOB_LEASE_LOST"])("classifies %s as background work", (code) => {
+    expect(classifyOperationalError(new Error(code))).toBe("background");
+  });
   it("emits JSON with the supported operational fields", () => {
     const logger = createLogger();
 

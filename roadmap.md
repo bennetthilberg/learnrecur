@@ -83,8 +83,8 @@ Define these environment variables:
 - `S3_BUCKET_NAME`.
 - `AWS_ACCESS_KEY_ID`.
 - `AWS_SECRET_ACCESS_KEY`.
-- `INNGEST_EVENT_KEY`.
-- `INNGEST_SIGNING_KEY`.
+- `JOBS_ENVIRONMENT`.
+- `JOBS_QUEUE_URL`.
 - `RESEND_API_KEY`.
 - `RESEND_FROM_EMAIL`.
 
@@ -690,7 +690,7 @@ Use conservative defaults. Reject uncertain exercises.
 
 Move AI and long-running work off the request path.
 
-### 15.2 Inngest Jobs
+### 15.2 AWS Background Jobs
 
 Implement jobs for:
 
@@ -1486,7 +1486,7 @@ A polished LearnRecur should have:
 9. AI extraction: source to skill drafts.
 10. AI generation: skill to exercises.
 11. AI verification: conservative quality gate.
-12. Background jobs: Inngest for async workflows.
+12. Background jobs: Amazon SQS FIFO, AWS Lambda, and EventBridge Scheduler for async workflows.
 13. Queue management: verified buffers and refill triggers.
 14. Data controls: delete, archive, export.
 15. Reminders: Resend email.

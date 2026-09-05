@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { getJobsConfig, jobsEnvSchema } from "@/lib/jobs/config";
 
 import {
   DEFAULT_GEMINI_FALLBACK_MODELS,
@@ -214,23 +215,9 @@ const s3EnvSchema = z.object({
     .string({ error: "AWS_SECRET_ACCESS_KEY is required" })
     .trim()
     .min(1, "AWS_SECRET_ACCESS_KEY is required"),
+  AWS_SESSION_TOKEN: optionalNonEmptyString(z.string().trim().min(1)),
 });
 
-const inngestProductionEnvSchema = z.object({
-  INNGEST_APP_ID: z
-    .string({ error: "INNGEST_APP_ID is required" })
-    .trim()
-    .min(1, "INNGEST_APP_ID is required"),
-  INNGEST_DEV: optionalNonEmptyString(z.string().trim()),
-  INNGEST_EVENT_KEY: z
-    .string({ error: "INNGEST_EVENT_KEY is required" })
-    .trim()
-    .min(1, "INNGEST_EVENT_KEY is required"),
-  INNGEST_SIGNING_KEY: z
-    .string({ error: "INNGEST_SIGNING_KEY is required" })
-    .trim()
-    .min(1, "INNGEST_SIGNING_KEY is required"),
-});
 
 const productionAccessAndOperationsEnvSchema = z.object({
   ALPHA_ALLOWED_EMAILS: z
@@ -259,8 +246,6 @@ const productionAccessAndOperationsEnvSchema = z.object({
     .email("SUPPORT_EMAIL must be a valid email address"),
 });
 
-const falseEnvValues = new Set(["0", "false", "no", "n", "off"]);
-
 const productionEnvSchema = requiredDatabaseEnvSchema
   .merge(productionClerkEnvSchema)
   .merge(geminiEnvBaseSchema)
@@ -271,24 +256,23 @@ const productionEnvSchema = requiredDatabaseEnvSchema
     }),
   )
   .merge(s3EnvSchema)
-  .merge(inngestProductionEnvSchema)
+  .merge(jobsEnvSchema)
   .merge(productionAccessAndOperationsEnvSchema)
   .superRefine((value, context) => {
     requireGeminiApiKey(value, context);
 
-    if (value.INNGEST_APP_ID === "learnrecur-dev") {
-      context.addIssue({
-        code: "custom",
-        path: ["INNGEST_APP_ID"],
-        message: "INNGEST_APP_ID must not be learnrecur-dev in production",
+    try {
+      getJobsConfig({
+        AWS_REGION: value.AWS_REGION,
+        JOBS_ENVIRONMENT: value.JOBS_ENVIRONMENT,
+        JOBS_QUEUE_URL: value.JOBS_QUEUE_URL,
+        LEARNRECUR_DEPLOYMENT_TIER: "production",
       });
-    }
-
-    if (value.INNGEST_DEV && !falseEnvValues.has(value.INNGEST_DEV.toLowerCase())) {
+    } catch {
       context.addIssue({
         code: "custom",
-        path: ["INNGEST_DEV"],
-        message: "INNGEST_DEV must be absent or false in production",
+        path: [value.JOBS_ENVIRONMENT === "production" ? "JOBS_QUEUE_URL" : "JOBS_ENVIRONMENT"],
+        message: "JOBS_ENVIRONMENT and JOBS_QUEUE_URL must identify the production AWS queue",
       });
     }
   });

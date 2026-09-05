@@ -1,6 +1,6 @@
 import "server-only";
 
-import { clerkClient } from "@clerk/nextjs/server";
+import { createClerkServiceClient } from "@/lib/clerk/backend";
 import { Resend } from "resend";
 import { z } from "zod";
 
@@ -663,7 +663,7 @@ export async function processDueReminderPreference(input: {
 }
 
 export async function resolveClerkReminderAccountEmail(userId: string): Promise<string | null> {
-  const client = await clerkClient();
+  const client = await createClerkServiceClient();
   let user: Awaited<ReturnType<typeof client.users.getUser>>;
 
   try {

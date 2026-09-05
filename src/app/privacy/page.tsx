@@ -66,7 +66,7 @@ export default function PrivacyPage() {
                 LearnRecur uses service providers for hosting, authentication, database storage,
                 private object storage, background jobs, model processing, optional agent access,
                 and reminder email. Current integrations include Vercel, Clerk, Neon, Amazon S3,
-                Inngest, Google Gemini, optional Meta Muse and WorkOS, and Resend.
+                AWS Lambda, Amazon SQS, Amazon EventBridge, Google Gemini, optional Meta Muse and WorkOS, and Resend.
               </p>
             </section>
             <section>

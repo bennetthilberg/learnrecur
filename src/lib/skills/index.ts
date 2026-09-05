@@ -1310,7 +1310,10 @@ function buildGeminiExactInputResponseJsonSchema(requestedCount: number) {
               enum: [AnswerKind.TEXT, AnswerKind.NUMERIC],
             },
             answerSpec: {
-              type: "object",
+              anyOf: [
+                buildTextAnswerSpecJsonSchema(),
+                buildNumericAnswerSpecJsonSchema(),
+              ],
             },
             correctAnswerDisplay: { type: "string" },
             explanation: { type: "string" },
@@ -1468,7 +1471,7 @@ function buildMetaMuseChoiceAuditJsonSchema(candidateCount: number) {
   return buildChoiceAuditJsonSchema(candidateCount);
 }
 
-function buildMetaMuseTextAnswerSpecJsonSchema() {
+function buildTextAnswerSpecJsonSchema() {
   return {
     type: "object",
     additionalProperties: false,
@@ -1493,7 +1496,7 @@ function buildMetaMuseTextAnswerSpecJsonSchema() {
   };
 }
 
-function buildMetaMuseNumericAnswerSpecJsonSchema() {
+function buildNumericAnswerSpecJsonSchema() {
   return {
     type: "object",
     additionalProperties: false,
@@ -1540,8 +1543,8 @@ function buildMetaMuseExactInputResponseJsonSchema(requestedCount: number) {
             },
             answerSpec: {
               anyOf: [
-                buildMetaMuseTextAnswerSpecJsonSchema(),
-                buildMetaMuseNumericAnswerSpecJsonSchema(),
+                buildTextAnswerSpecJsonSchema(),
+                buildNumericAnswerSpecJsonSchema(),
               ],
             },
             correctAnswerDisplay: { type: "string" },
@@ -6468,7 +6471,7 @@ async function runGeminiChoiceVerificationStage({
   );
 }
 
-function createGeminiExactInputExerciseGenerator({
+export function createGeminiExactInputExerciseGenerator({
   gemini,
   metaMuseFallback,
   recordProviderUsage,

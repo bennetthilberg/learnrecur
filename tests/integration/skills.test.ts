@@ -79,7 +79,7 @@ import type {
   ExerciseRefillEventSender,
   SourceUploadDraftEventPayload,
   SourceUploadDraftEventSender,
-} from "@/lib/inngest/events";
+} from "@/lib/jobs/events";
 import { getSkillsLibrary } from "@/lib/skills/library";
 import { getSkillCreationSourceRecoveryItems } from "@/lib/skills/source-recovery";
 import { removeSkillSource } from "@/lib/skills/sources";

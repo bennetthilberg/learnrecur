@@ -48,3 +48,6 @@ AGENTS.md
 human-stuff.md
 # clerk configuration (can include secrets)
 /.clerk/
+
+# AWS worker deployment artifacts
+.aws-build/

@@ -25,7 +25,7 @@ import {
   getNextPracticeItem,
   previewPracticeAnswer,
 } from "@/lib/practice";
-import type { ExerciseRefillEventPayload, ExerciseRefillEventSender } from "@/lib/inngest/events";
+import type { ExerciseRefillEventPayload, ExerciseRefillEventSender } from "@/lib/jobs/events";
 import { ensureDevPracticeSampleData } from "@/lib/practice/sample-data";
 import { getPrisma } from "@/lib/prisma";
 import { createInitialSkillSchedule } from "@/lib/scheduling";

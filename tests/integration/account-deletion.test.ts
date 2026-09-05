@@ -2,8 +2,8 @@ import { randomUUID } from "node:crypto";
 
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/inngest/events", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/inngest/events")>();
+vi.mock("@/lib/jobs/events", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/jobs/events")>();
   return {
     ...actual,
     sendAgentConnectionRevocationRequested: vi.fn().mockResolvedValue(undefined),

@@ -11,12 +11,12 @@ import {
 } from "@/generated/prisma/client";
 import { formatEnvError } from "@/lib/env";
 import { DEFAULT_GEMINI_MODEL } from "@/lib/gemini";
-import { getInngestEnvStatus } from "@/lib/inngest/client";
+import { getJobsEnvStatus } from "@/lib/jobs/config";
 import {
-  inngestExerciseRefillEventSender,
+  awsExerciseRefillEventSender,
   type ExerciseRefillEventPayload,
   type ExerciseRefillEventSender,
-} from "@/lib/inngest/events";
+} from "@/lib/jobs/events";
 import { getPrisma } from "@/lib/prisma";
 import { checkExerciseRefillUsageLimit } from "@/lib/usage-limits";
 
@@ -71,7 +71,7 @@ export type RefillQueueResult =
       targetReadyCount?: number;
     }
   | {
-      status: "missing-inngest-env";
+      status: "missing-jobs-env";
       message: string;
     }
   | {
@@ -480,17 +480,17 @@ async function queueExerciseRefillJob({
     payload: ExerciseRefillEventPayload,
   ) => Promise<void>;
 }): Promise<RefillQueueResult> {
-  const envStatus = input.sender ? null : getInngestEnvStatus();
+  const envStatus = input.sender ? null : getJobsEnvStatus();
 
   if (envStatus?.status === "missing-env") {
     return {
-      status: "missing-inngest-env",
+      status: "missing-jobs-env",
       message: envStatus.message,
     };
   }
 
   const prisma = getPrisma();
-  const sender = input.sender ?? inngestExerciseRefillEventSender;
+  const sender = input.sender ?? awsExerciseRefillEventSender;
   const quota = await checkExerciseRefillUsageLimit({
     userId: input.userId,
     now: input.now,
@@ -548,7 +548,7 @@ async function queueExerciseRefillJob({
       requestedAt: input.now.toISOString(),
     });
   } catch (error) {
-    const message = `Inngest refill event failed: ${formatEnvError(error)}`;
+    const message = `AWS background jobs refill event failed: ${formatEnvError(error)}`;
     await prisma.generationJob.update({
       where: {
         id: generationJob.id,

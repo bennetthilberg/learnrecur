@@ -25,7 +25,7 @@ import {
   type AnswerCheckResult,
 } from "@/lib/answer-checking";
 import { formatEnvError } from "@/lib/env";
-import type { ExerciseRefillEventSender } from "@/lib/inngest/events";
+import type { ExerciseRefillEventSender } from "@/lib/jobs/events";
 import { getPrisma } from "@/lib/prisma";
 import { lockExerciseForQualityMutation } from "@/lib/practice/quality-incidents";
 import {
@@ -199,7 +199,7 @@ export type PracticeFlagRefillResult =
         | "event-send-failed"
         | "exact-input-locked"
         | "job-in-progress"
-        | "missing-inngest-env"
+        | "missing-jobs-env"
         | "quota-exceeded"
         | "queue-error"
         | "skill-not-active"
@@ -673,10 +673,10 @@ function toPracticeFlagRefillResult(result: RefillQueueResult): PracticeFlagRefi
     };
   }
 
-  if (result.status === "missing-inngest-env") {
+  if (result.status === "missing-jobs-env") {
     return {
       status: "not-queued",
-      reason: "missing-inngest-env",
+      reason: "missing-jobs-env",
       message: result.message,
     };
   }

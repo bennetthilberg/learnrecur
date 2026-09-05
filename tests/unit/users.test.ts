@@ -8,6 +8,9 @@ const clerkMocks = vi.hoisted(() => ({
 vi.mock("@clerk/nextjs/server", () => ({
   clerkClient: clerkMocks.clerkClient,
 }));
+vi.mock("@/lib/clerk/backend", () => ({
+  createClerkServiceClient: clerkMocks.clerkClient,
+}));
 
 import {
   ensureAuthenticatedDatabaseUser,

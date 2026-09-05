@@ -28,9 +28,8 @@ export function getPrisma(): PrismaClient {
     },
   });
 
-  if (process.env.NODE_ENV !== "production") {
-    globalForPrisma.prisma = prisma;
-  }
+  // Lambda reuses execution environments; retain the pool across invocations.
+  globalForPrisma.prisma = prisma;
 
   return prisma;
 }

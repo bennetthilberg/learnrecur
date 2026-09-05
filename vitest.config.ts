@@ -16,6 +16,11 @@ export default defineConfig({
     exclude: ["tests/e2e/**"],
     setupFiles: ["./tests/setup/env.ts"],
     testTimeout: 30_000,
+    // Suites share a schema and use SERIALIZABLE transactions. Run files in
+    // sequence to avoid unrelated fixture writes causing predicate conflicts;
+    // each suite still exercises its explicit concurrent ownership/race cases.
+    maxWorkers: process.env.RUN_DATABASE_TESTS === "1" ? 1 : undefined,
+    hookTimeout: process.env.RUN_DATABASE_TESTS === "1" ? 60_000 : 10_000,
     coverage: {
       provider: "v8",
       include: ["src/lib/**/*.ts"],

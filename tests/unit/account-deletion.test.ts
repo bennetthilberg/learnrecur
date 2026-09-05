@@ -8,8 +8,8 @@ const clerkMocks = vi.hoisted(() => ({
   deleteUser: vi.fn(),
 }));
 
-vi.mock("@clerk/nextjs/server", () => ({
-  clerkClient: clerkMocks.clerkClient,
+vi.mock("@/lib/clerk/backend", () => ({
+  createClerkServiceClient: clerkMocks.clerkClient,
 }));
 
 vi.mock("@/lib/agent-access/settings", () => ({
@@ -18,12 +18,12 @@ vi.mock("@/lib/agent-access/settings", () => ({
   runAgentConnectionRevocationJob: vi.fn(),
 }));
 
-vi.mock("@/lib/inngest/client", () => ({
-  getInngestEnvStatus: vi.fn(() => ({ status: "ready", appId: "test", isDev: true })),
+vi.mock("@/lib/jobs/config", () => ({
+  getJobsEnvStatus: vi.fn(() => ({ status: "ready", appId: "test", isDev: true })),
 }));
 
-vi.mock("@/lib/inngest/events", () => ({
-  inngestAccountDeletionEventSender: { sendAccountDeletionRequested: vi.fn() },
+vi.mock("@/lib/jobs/events", () => ({
+  awsAccountDeletionEventSender: { sendAccountDeletionRequested: vi.fn() },
 }));
 
 vi.mock("@/lib/prisma", () => ({

@@ -1,0 +1,54 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "LearnRecur local development queues; consumed by npm run dev",
+  "Parameters": {
+    "DeveloperUserName": { "Type": "String", "Default": "learnrecur-agent-staging-vercel" }
+  },
+  "Resources": {
+    "DeadLetters": {
+      "Type": "AWS::SQS::Queue",
+      "DeletionPolicy": "Retain",
+      "UpdateReplacePolicy": "Retain",
+      "Properties": { "QueueName": "learnrecur-local-jobs-dlq.fifo", "FifoQueue": true, "ContentBasedDeduplication": true, "SqsManagedSseEnabled": true, "MessageRetentionPeriod": 1209600 }
+    },
+    "Queue": {
+      "Type": "AWS::SQS::Queue",
+      "DeletionPolicy": "Retain",
+      "UpdateReplacePolicy": "Retain",
+      "Properties": {
+        "QueueName": "learnrecur-local-jobs.fifo", "FifoQueue": true, "ContentBasedDeduplication": true,
+        "SqsManagedSseEnabled": true, "MaximumMessageSize": 65536, "MessageRetentionPeriod": 345600,
+        "VisibilityTimeout": 3600, "ReceiveMessageWaitTimeSeconds": 20,
+        "RedrivePolicy": { "deadLetterTargetArn": { "Fn::GetAtt": ["DeadLetters", "Arn"] }, "maxReceiveCount": 6 }
+      }
+    },
+    "QueueTransportPolicy": {
+      "Type": "AWS::SQS::QueuePolicy",
+      "Properties": {
+        "Queues": [{ "Ref": "Queue" }],
+        "PolicyDocument": { "Version": "2012-10-17", "Statement": [{ "Effect": "Deny", "Principal": "*", "Action": "sqs:*", "Resource": { "Fn::GetAtt": ["Queue", "Arn"] }, "Condition": { "Bool": { "aws:SecureTransport": "false" } } }] }
+      }
+    },
+    "DeadLettersTransportPolicy": {
+      "Type": "AWS::SQS::QueuePolicy",
+      "Properties": {
+        "Queues": [{ "Ref": "DeadLetters" }],
+        "PolicyDocument": { "Version": "2012-10-17", "Statement": [{ "Effect": "Deny", "Principal": "*", "Action": "sqs:*", "Resource": { "Fn::GetAtt": ["DeadLetters", "Arn"] }, "Condition": { "Bool": { "aws:SecureTransport": "false" } } }] }
+      }
+    },
+    "DeveloperPolicy": {
+      "Type": "AWS::IAM::Policy",
+      "Properties": {
+        "PolicyName": "learnrecur-local-jobs-consumer", "Users": [{ "Ref": "DeveloperUserName" }],
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            { "Effect": "Allow", "Action": ["sqs:SendMessage", "sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:ChangeMessageVisibility", "sqs:GetQueueAttributes"], "Resource": { "Fn::GetAtt": ["Queue", "Arn"] } },
+            { "Effect": "Allow", "Action": ["sqs:SendMessage"], "Resource": { "Fn::GetAtt": ["DeadLetters", "Arn"] } }
+          ]
+        }
+      }
+    }
+  },
+  "Outputs": { "QueueUrl": { "Value": { "Ref": "Queue" } } }
+}

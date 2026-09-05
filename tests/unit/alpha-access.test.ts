@@ -1,4 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+const getUser = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/clerk/backend", () => ({ createClerkServiceClient: () => ({ users: { getUser } }) }));
+afterEach(() => { getUser.mockReset(); });
 
 import robots from "@/app/robots";
 import {
@@ -9,6 +13,14 @@ import {
 } from "@/lib/alpha-access";
 
 describe("alpha access", () => {
+  it("checks the current verified primary email using the request-independent service client", async () => {
+    const policy = { mode: "allowlist" as const, allowedEmails: ["approved@example.com"] };
+    getUser.mockResolvedValue({ primaryEmailAddress: { emailAddress: "approved@example.com", verification: { status: "verified" } } });
+    await expect(isAlphaUserAllowed("user-one", policy)).resolves.toBe(true);
+    expect(getUser).toHaveBeenCalledWith("user-one");
+    getUser.mockResolvedValue({ primaryEmailAddress: { emailAddress: "approved@example.com", verification: { status: "unverified" } } });
+    await expect(isAlphaUserAllowed("user-one", policy)).resolves.toBe(false);
+  });
   it("keeps non-production environments open", () => {
     const policy = getAlphaAccessPolicy({ NODE_ENV: "test" });
 
