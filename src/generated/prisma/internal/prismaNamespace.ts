@@ -415,6 +415,7 @@ export const ModelName = {
   AgentSkillOperationItem: 'AgentSkillOperationItem',
   AgentExerciseCandidate: 'AgentExerciseCandidate',
   AgentRevocationOutbox: 'AgentRevocationOutbox',
+  BackgroundJobDelivery: 'BackgroundJobDelivery',
   AgentRateLimitBucket: 'AgentRateLimitBucket'
 } as const
 
@@ -431,7 +432,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "accountDeletionJob" | "collection" | "sourceFile" | "studyMaterial" | "materialRevision" | "materialSection" | "materialChunk" | "materialPage" | "materialCleanupJob" | "skill" | "skillDraftBatch" | "skillDraftBatchItem" | "skillSourceRef" | "exercise" | "exerciseAttempt" | "reviewLog" | "exerciseFlag" | "generationJob" | "modelRelease" | "generationAuditRecord" | "reminderPreference" | "reminderSendLog" | "workosIdentity" | "agentConnection" | "agentSkillOperation" | "agentOperationAction" | "agentOperationSource" | "agentSkillOperationItem" | "agentExerciseCandidate" | "agentRevocationOutbox" | "agentRateLimitBucket"
+    modelProps: "user" | "accountDeletionJob" | "collection" | "sourceFile" | "studyMaterial" | "materialRevision" | "materialSection" | "materialChunk" | "materialPage" | "materialCleanupJob" | "skill" | "skillDraftBatch" | "skillDraftBatchItem" | "skillSourceRef" | "exercise" | "exerciseAttempt" | "reviewLog" | "exerciseFlag" | "generationJob" | "modelRelease" | "generationAuditRecord" | "reminderPreference" | "reminderSendLog" | "workosIdentity" | "agentConnection" | "agentSkillOperation" | "agentOperationAction" | "agentOperationSource" | "agentSkillOperationItem" | "agentExerciseCandidate" | "agentRevocationOutbox" | "backgroundJobDelivery" | "agentRateLimitBucket"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -2729,6 +2730,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    BackgroundJobDelivery: {
+      payload: Prisma.$BackgroundJobDeliveryPayload<ExtArgs>
+      fields: Prisma.BackgroundJobDeliveryFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.BackgroundJobDeliveryFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BackgroundJobDeliveryPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.BackgroundJobDeliveryFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BackgroundJobDeliveryPayload>
+        }
+        findFirst: {
+          args: Prisma.BackgroundJobDeliveryFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BackgroundJobDeliveryPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.BackgroundJobDeliveryFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BackgroundJobDeliveryPayload>
+        }
+        findMany: {
+          args: Prisma.BackgroundJobDeliveryFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BackgroundJobDeliveryPayload>[]
+        }
+        create: {
+          args: Prisma.BackgroundJobDeliveryCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BackgroundJobDeliveryPayload>
+        }
+        createMany: {
+          args: Prisma.BackgroundJobDeliveryCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.BackgroundJobDeliveryCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BackgroundJobDeliveryPayload>[]
+        }
+        delete: {
+          args: Prisma.BackgroundJobDeliveryDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BackgroundJobDeliveryPayload>
+        }
+        update: {
+          args: Prisma.BackgroundJobDeliveryUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BackgroundJobDeliveryPayload>
+        }
+        deleteMany: {
+          args: Prisma.BackgroundJobDeliveryDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.BackgroundJobDeliveryUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.BackgroundJobDeliveryUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BackgroundJobDeliveryPayload>[]
+        }
+        upsert: {
+          args: Prisma.BackgroundJobDeliveryUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BackgroundJobDeliveryPayload>
+        }
+        aggregate: {
+          args: Prisma.BackgroundJobDeliveryAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateBackgroundJobDelivery>
+        }
+        groupBy: {
+          args: Prisma.BackgroundJobDeliveryGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.BackgroundJobDeliveryGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.BackgroundJobDeliveryCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.BackgroundJobDeliveryCountAggregateOutputType> | number
+        }
+      }
+    }
     AgentRateLimitBucket: {
       payload: Prisma.$AgentRateLimitBucketPayload<ExtArgs>
       fields: Prisma.AgentRateLimitBucketFieldRefs
@@ -3533,6 +3608,25 @@ export const AgentRevocationOutboxScalarFieldEnum = {
 export type AgentRevocationOutboxScalarFieldEnum = (typeof AgentRevocationOutboxScalarFieldEnum)[keyof typeof AgentRevocationOutboxScalarFieldEnum]
 
 
+export const BackgroundJobDeliveryScalarFieldEnum = {
+  environment: 'environment',
+  id: 'id',
+  name: 'name',
+  payloadHash: 'payloadHash',
+  status: 'status',
+  attempts: 'attempts',
+  leaseToken: 'leaseToken',
+  leaseUntil: 'leaseUntil',
+  errorCode: 'errorCode',
+  completedAt: 'completedAt',
+  expiresAt: 'expiresAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type BackgroundJobDeliveryScalarFieldEnum = (typeof BackgroundJobDeliveryScalarFieldEnum)[keyof typeof BackgroundJobDeliveryScalarFieldEnum]
+
+
 export const AgentRateLimitBucketScalarFieldEnum = {
   id: 'id',
   userId: 'userId',
@@ -4253,6 +4347,20 @@ export type ListEnumAgentRevocationOutboxStatusFieldRefInput<$PrismaModel> = Fie
 
 
 /**
+ * Reference to a field of type 'BackgroundJobDeliveryStatus'
+ */
+export type EnumBackgroundJobDeliveryStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'BackgroundJobDeliveryStatus'>
+    
+
+
+/**
+ * Reference to a field of type 'BackgroundJobDeliveryStatus[]'
+ */
+export type ListEnumBackgroundJobDeliveryStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'BackgroundJobDeliveryStatus[]'>
+    
+
+
+/**
  * Reference to a field of type 'AgentRateLimitKind'
  */
 export type EnumAgentRateLimitKindFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AgentRateLimitKind'>
@@ -4406,6 +4514,7 @@ export type GlobalOmitConfig = {
   agentSkillOperationItem?: Prisma.AgentSkillOperationItemOmit
   agentExerciseCandidate?: Prisma.AgentExerciseCandidateOmit
   agentRevocationOutbox?: Prisma.AgentRevocationOutboxOmit
+  backgroundJobDelivery?: Prisma.BackgroundJobDeliveryOmit
   agentRateLimitBucket?: Prisma.AgentRateLimitBucketOmit
 }
 

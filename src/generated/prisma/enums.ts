@@ -473,3 +473,13 @@ export const AccountDeletionPhase = {
 } as const
 
 export type AccountDeletionPhase = (typeof AccountDeletionPhase)[keyof typeof AccountDeletionPhase]
+
+
+export const BackgroundJobDeliveryStatus = {
+  RUNNING: 'RUNNING',
+  RETRYABLE: 'RETRYABLE',
+  COMPLETED: 'COMPLETED',
+  DEAD_LETTER: 'DEAD_LETTER'
+} as const
+
+export type BackgroundJobDeliveryStatus = (typeof BackgroundJobDeliveryStatus)[keyof typeof BackgroundJobDeliveryStatus]

@@ -173,6 +173,11 @@ export type AgentExerciseCandidate = Prisma.AgentExerciseCandidateModel
  */
 export type AgentRevocationOutbox = Prisma.AgentRevocationOutboxModel
 /**
+ * Model BackgroundJobDelivery
+ * 
+ */
+export type BackgroundJobDelivery = Prisma.BackgroundJobDeliveryModel
+/**
  * Model AgentRateLimitBucket
  * 
  */

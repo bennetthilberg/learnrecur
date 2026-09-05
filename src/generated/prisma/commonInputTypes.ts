@@ -1106,6 +1106,23 @@ export type EnumAgentRevocationOutboxStatusWithAggregatesFilter<$PrismaModel = n
   _max?: Prisma.NestedEnumAgentRevocationOutboxStatusFilter<$PrismaModel>
 }
 
+export type EnumBackgroundJobDeliveryStatusFilter<$PrismaModel = never> = {
+  equals?: $Enums.BackgroundJobDeliveryStatus | Prisma.EnumBackgroundJobDeliveryStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.BackgroundJobDeliveryStatus[] | Prisma.ListEnumBackgroundJobDeliveryStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.BackgroundJobDeliveryStatus[] | Prisma.ListEnumBackgroundJobDeliveryStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumBackgroundJobDeliveryStatusFilter<$PrismaModel> | $Enums.BackgroundJobDeliveryStatus
+}
+
+export type EnumBackgroundJobDeliveryStatusWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.BackgroundJobDeliveryStatus | Prisma.EnumBackgroundJobDeliveryStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.BackgroundJobDeliveryStatus[] | Prisma.ListEnumBackgroundJobDeliveryStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.BackgroundJobDeliveryStatus[] | Prisma.ListEnumBackgroundJobDeliveryStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumBackgroundJobDeliveryStatusWithAggregatesFilter<$PrismaModel> | $Enums.BackgroundJobDeliveryStatus
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumBackgroundJobDeliveryStatusFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumBackgroundJobDeliveryStatusFilter<$PrismaModel>
+}
+
 export type EnumAgentRateLimitKindFilter<$PrismaModel = never> = {
   equals?: $Enums.AgentRateLimitKind | Prisma.EnumAgentRateLimitKindFieldRefInput<$PrismaModel>
   in?: $Enums.AgentRateLimitKind[] | Prisma.ListEnumAgentRateLimitKindFieldRefInput<$PrismaModel>
@@ -2150,6 +2167,23 @@ export type NestedEnumAgentRevocationOutboxStatusWithAggregatesFilter<$PrismaMod
   _count?: Prisma.NestedIntFilter<$PrismaModel>
   _min?: Prisma.NestedEnumAgentRevocationOutboxStatusFilter<$PrismaModel>
   _max?: Prisma.NestedEnumAgentRevocationOutboxStatusFilter<$PrismaModel>
+}
+
+export type NestedEnumBackgroundJobDeliveryStatusFilter<$PrismaModel = never> = {
+  equals?: $Enums.BackgroundJobDeliveryStatus | Prisma.EnumBackgroundJobDeliveryStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.BackgroundJobDeliveryStatus[] | Prisma.ListEnumBackgroundJobDeliveryStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.BackgroundJobDeliveryStatus[] | Prisma.ListEnumBackgroundJobDeliveryStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumBackgroundJobDeliveryStatusFilter<$PrismaModel> | $Enums.BackgroundJobDeliveryStatus
+}
+
+export type NestedEnumBackgroundJobDeliveryStatusWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.BackgroundJobDeliveryStatus | Prisma.EnumBackgroundJobDeliveryStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.BackgroundJobDeliveryStatus[] | Prisma.ListEnumBackgroundJobDeliveryStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.BackgroundJobDeliveryStatus[] | Prisma.ListEnumBackgroundJobDeliveryStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumBackgroundJobDeliveryStatusWithAggregatesFilter<$PrismaModel> | $Enums.BackgroundJobDeliveryStatus
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumBackgroundJobDeliveryStatusFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumBackgroundJobDeliveryStatusFilter<$PrismaModel>
 }
 
 export type NestedEnumAgentRateLimitKindFilter<$PrismaModel = never> = {
