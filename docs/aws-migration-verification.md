@@ -1,15 +1,15 @@
 # AWS migration verification
 
-Verified 2026-09-05 UTC. The production migration is live. Owner alert delivery
-and final revocation of the retired Inngest event key remain open; this is not
-an unconditional production-readiness sign-off.
+Verified 2026-09-05 UTC. The production migration is live, both environments have
+confirmed owner alert subscriptions, and the retired Inngest event key is revoked.
+The test evidence and remaining browser-test limitation are recorded below.
 
 ## Deployed state
 
-- `alpha.learnrecur.com` was promoted at approximately 03:54 UTC to
-  `dpl_3tV95EaNym1Nv5EwvC9QQ2CPCqy6`, built from `b144002`.
+- `alpha.learnrecur.com` was promoted at approximately 05:23 UTC to
+  `dpl_4hu6TMpWaC4EqL9WjvAbGuforzm9`, built from `7307dd5`.
 - The dedicated staging site, `project-0oqzu.vercel.app`, runs
-  `dpl_HVo9pZRRu7FncuWtotuVbKBacTfS`, built from `e8344ed`.
+  `dpl_4D4fu7DoZSE9Pq27YDCD18eKNWjr`, also built from `7307dd5`.
 - Production and staging run the same content-addressed worker artifact:
   `99ff029cab06b51c40efcbd19f06bfb8e8907e1c7c0a3d14e89fb053117889cf.zip`.
 - Production worker configuration:
@@ -51,6 +51,16 @@ an unconditional production-readiness sign-off.
   [CI run](https://github.com/bennetthilberg/learnrecur/actions/runs/33945507181).
   The subsequent review fixes add 17 unit cases for trusted health-check targets,
   local queue TLS, sanitized diagnostics and job-error classification.
+- Final CI on `7307dd5` passed 853 unit tests with coverage, all 353 database
+  tests and all required checks:
+  [final CI run](https://github.com/bennetthilberg/learnrecur/actions/runs/33946253972).
+  The authenticated browser suite had ten first-attempt passes and one app-shell
+  hydration mismatch that passed on retry. The earlier eleven-test CI run and
+  local 24-test browser suite passed without retries; the hydration flake remains
+  a recorded limitation.
+- The final code review reported no major issues on `7307dd5`. Both permitted
+  manual review requests have been used. Subsequent documentation changes have
+  not received another manual review.
 
 ## Live execution evidence
 
@@ -92,15 +102,18 @@ events, with no learner events requiring transfer.
 The Vercel Inngest integration now excludes both LearnRecur projects; the
 unrelated project retains its existing access. All `INNGEST_*` environment
 variables were removed from both LearnRecur Vercel projects and local development.
+The retired `Vercel: learnrecur` event key was permanently deleted with owner
+approval. At 17:04 UTC, the official API and dashboard confirmed that the key was
+absent and the unrelated default event key remained present.
 The exposed Inngest deployment-bypass token was revoked. A protected preview
 returned a redirect for that old token and HTTP 200 for the replacement token
 at 04:07 UTC. The replacement is stored as a GitHub Actions secret for candidate
 health checks. Temporary SSM export permissions were removed after each transfer.
 
-Candidate liveness and authenticated readiness passed before promotion:
-[production candidate check](https://github.com/bennetthilberg/learnrecur/actions/runs/33943000755).
+Candidate liveness and authenticated readiness passed on `7307dd5` before promotion:
+[production candidate check](https://github.com/bennetthilberg/learnrecur/actions/runs/33946579986).
 The public production target passed after promotion:
-[post-cutover check](https://github.com/bennetthilberg/learnrecur/actions/runs/33943148902).
+[post-cutover check](https://github.com/bennetthilberg/learnrecur/actions/runs/33947125656).
 The isolated preview and dedicated agent-staging deployment also returned
 `ready` for database, storage, provider and background-job checks.
 
@@ -110,14 +123,20 @@ checked before pinning; the tests reject unpinned matching hostnames and foreign
 destinations. Both local queues now have deployed TLS-deny policies, verified
 through their live attributes. Local diagnostics expose only recognized codes.
 
-## Open operational items
+## Owner alert delivery
 
-- Confirm an owner-controlled SNS destination and deliver a test alert. Topics
-  and alarms exist, but topic existence does not establish owner notification.
-- Permanently revoke the retired `Vercel: learnrecur` Inngest event key. The
-  browser confirmation request is pending. The old app is archived and cannot
-  execute new LearnRecur work.
-- Complete pull-request CI/review and record the final reviewed commit.
+The production and staging SNS topics each have one confirmed email subscription
+to the owner-selected destination. A controlled `WorkerErrors` state transition
+tested the actual CloudWatch-to-SNS path; no worker failure was injected.
+
+- Staging's test alarm and automatic recovery successfully published at 17:05
+  and 17:06 UTC. The owner acknowledged receipt and supplied screenshots of both.
+- Production's test alarm successfully published at 17:22:41 UTC. Its matching
+  `TEST ONLY` email was opened and verified in the owner's Apple Mail inbox,
+  including the production alarm name, account, recipient and timestamp.
+
+This verifies both subscription confirmation and delivery to the owner's inbox,
+rather than inferring delivery from topic existence or a publish response.
 
 Raw verification receipts and synthetic fixture identifiers are kept locally in
 ignored `.aws-build/`; credentials remain in private mode-0600 files. Synthetic
