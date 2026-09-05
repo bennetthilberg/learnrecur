@@ -11,8 +11,10 @@ import { markRefillJobRetryableFailure, runChoiceExerciseRefillJob, runExactInpu
 import { runQueuedSourceUploadDraftJob } from "@/lib/skills/uploads";
 import type { JobEnvelope } from "./contracts";
 import type { JobExecutionContext } from "./worker";
+import { recoverInterruptedJob } from "./recovery";
 
 export async function executeJob(job: JobEnvelope, context: JobExecutionContext): Promise<unknown> {
+  if (context.attempt > 0) await recoverInterruptedJob(job);
   switch (job.name) {
     case "learnrecur/choice-refill.requested":
     case "learnrecur/exact-input-refill.requested":

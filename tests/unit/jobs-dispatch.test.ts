@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+const recover = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/jobs/recovery", () => ({ recoverInterruptedJob: recover }));
 const handlers = vi.hoisted(() => ({
   choice: vi.fn(), exact: vi.fn(), math: vi.fn(), refillFailure: vi.fn(), source: vi.fn(),
   ingestion: vi.fn(), cleanup: vi.fn(), draft: vi.fn(), activation: vi.fn(),
@@ -23,7 +25,7 @@ const user = { userId: "user-a", requestedAt };
 const refill = { ...user, skillId: "skill-a", generationJobId: "generation-a", targetReadyCount: 5 };
 const item = { ...user, batchId: "batch-a", itemId: "item-a" };
 const now = new Date("2026-09-05T02:00:00.000Z");
-const context = { attempt: 1, maxAttempts: 4 };
+const context = { attempt: 0, maxAttempts: 4 };
 
 describe("all migrated job families", () => {
   afterEach(() => { vi.useRealTimers(); vi.resetAllMocks(); });
@@ -49,6 +51,20 @@ describe("all migrated job families", () => {
     await executeJob(buildJobEnvelope(`learnrecur/${name}`, data, "staging"), context);
     expect(handlers[handler]).toHaveBeenCalledExactlyOnceWith(expected);
     expect(Object.values(handlers).reduce((sum, mock) => sum + mock.mock.calls.length, 0)).toBe(1);
+    expect(recover).not.toHaveBeenCalled();
+  });
+
+  it("recovers an interrupted domain claim before executing a reclaimed delivery", async () => {
+    const job = buildJobEnvelope("learnrecur/choice-refill.requested", refill, "staging");
+    await executeJob(job, { attempt: 1, maxAttempts: 3 });
+    expect(recover).toHaveBeenCalledExactlyOnceWith(job);
+    expect(recover.mock.invocationCallOrder[0]).toBeLessThan(handlers.choice.mock.invocationCallOrder[0]);
+  });
+
+  it("does not execute when interrupted-state recovery fails", async () => {
+    recover.mockRejectedValue(new Error("database unavailable"));
+    await expect(executeJob(buildJobEnvelope("learnrecur/choice-refill.requested", refill, "staging"), { attempt: 1, maxAttempts: 3 })).rejects.toThrow("database unavailable");
+    expect(handlers.choice).not.toHaveBeenCalled();
   });
 
   it.each(["choice", "exact-input", "math"])("marks %s refill failures retryable without replacing the original error", async (kind) => {
