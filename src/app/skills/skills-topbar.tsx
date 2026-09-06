@@ -410,26 +410,6 @@ export function SkillsTopbar({
     };
   }, [positionActiveIndicator]);
 
-  useEffect(() => {
-    const prefetchPrimaryRoutes = () => {
-      for (const item of navItems) {
-        if (item.key !== currentNavKey) {
-          prefetchNavRoute(item.href);
-        }
-      }
-    };
-    let timeoutHandle: number | null = null;
-    const frameHandle = window.requestAnimationFrame(() => {
-      timeoutHandle = window.setTimeout(prefetchPrimaryRoutes, 80);
-    });
-
-    return () => {
-      window.cancelAnimationFrame(frameHandle);
-      if (timeoutHandle !== null) {
-        window.clearTimeout(timeoutHandle);
-      }
-    };
-  }, [currentNavKey, prefetchNavRoute]);
 
   const handleNavPointerDown = useCallback(
     (targetKey: PrimaryNavKey, event: PointerEvent<HTMLAnchorElement>) => {
@@ -517,7 +497,7 @@ export function SkillsTopbar({
                     handleNavPointerDown(item.key, event);
                   }}
                   onPointerEnter={() => prefetchNavRoute(item.href)}
-                  prefetch={true}
+                  prefetch={false}
                 >
                   <NavIcon
                     aria-hidden="true"

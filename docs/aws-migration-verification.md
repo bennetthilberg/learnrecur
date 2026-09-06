@@ -79,7 +79,13 @@ five core pages on desktop and mobile, wait for actual page content and the
 account widget, and verify that the menu opens. Production React hydration errors
 are checked as well as development diagnostics.
 
-Local verification includes 855 unit tests, lint, Prisma validation/generation,
+The optimized-build check also exposed avoidable Clerk API pressure: each header
+mount prefetched all private navigation routes, including full dynamic pages.
+Navigation now prefetches on pointer or keyboard intent. A separate regression
+proves that mounting the header makes no eager route requests and focusing a
+link still prefetches its destination.
+
+Local verification includes 856 unit tests, lint, Prisma validation/generation,
 an optimized Next.js build, and the runtime audit with zero blocking findings.
 Three desktop/mobile browser rounds passed without retries before the additional
 page-content wait was added. Final release results belong to the follow-up PR
