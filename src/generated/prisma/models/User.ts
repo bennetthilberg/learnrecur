@@ -33,6 +33,8 @@ export type UserMinAggregateOutputType = {
   createdAt: Date | null
   updatedAt: Date | null
   agentAccessDisabledAt: Date | null
+  practicePreference: $Enums.PracticePreference | null
+  mixedReview: boolean | null
 }
 
 export type UserMaxAggregateOutputType = {
@@ -44,6 +46,8 @@ export type UserMaxAggregateOutputType = {
   createdAt: Date | null
   updatedAt: Date | null
   agentAccessDisabledAt: Date | null
+  practicePreference: $Enums.PracticePreference | null
+  mixedReview: boolean | null
 }
 
 export type UserCountAggregateOutputType = {
@@ -55,6 +59,8 @@ export type UserCountAggregateOutputType = {
   createdAt: number
   updatedAt: number
   agentAccessDisabledAt: number
+  practicePreference: number
+  mixedReview: number
   _all: number
 }
 
@@ -68,6 +74,8 @@ export type UserMinAggregateInputType = {
   createdAt?: true
   updatedAt?: true
   agentAccessDisabledAt?: true
+  practicePreference?: true
+  mixedReview?: true
 }
 
 export type UserMaxAggregateInputType = {
@@ -79,6 +87,8 @@ export type UserMaxAggregateInputType = {
   createdAt?: true
   updatedAt?: true
   agentAccessDisabledAt?: true
+  practicePreference?: true
+  mixedReview?: true
 }
 
 export type UserCountAggregateInputType = {
@@ -90,6 +100,8 @@ export type UserCountAggregateInputType = {
   createdAt?: true
   updatedAt?: true
   agentAccessDisabledAt?: true
+  practicePreference?: true
+  mixedReview?: true
   _all?: true
 }
 
@@ -174,6 +186,8 @@ export type UserGroupByOutputType = {
   createdAt: Date
   updatedAt: Date
   agentAccessDisabledAt: Date | null
+  practicePreference: $Enums.PracticePreference
+  mixedReview: boolean
   _count: UserCountAggregateOutputType | null
   _min: UserMinAggregateOutputType | null
   _max: UserMaxAggregateOutputType | null
@@ -206,6 +220,8 @@ export type UserWhereInput = {
   createdAt?: Prisma.DateTimeFilter<"User"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"User"> | Date | string
   agentAccessDisabledAt?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFilter<"User"> | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFilter<"User"> | boolean
   collections?: Prisma.CollectionListRelationFilter
   sourceFiles?: Prisma.SourceFileListRelationFilter
   studyMaterials?: Prisma.StudyMaterialListRelationFilter
@@ -245,6 +261,8 @@ export type UserOrderByWithRelationInput = {
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   agentAccessDisabledAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  practicePreference?: Prisma.SortOrder
+  mixedReview?: Prisma.SortOrder
   collections?: Prisma.CollectionOrderByRelationAggregateInput
   sourceFiles?: Prisma.SourceFileOrderByRelationAggregateInput
   studyMaterials?: Prisma.StudyMaterialOrderByRelationAggregateInput
@@ -287,6 +305,8 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   createdAt?: Prisma.DateTimeFilter<"User"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"User"> | Date | string
   agentAccessDisabledAt?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFilter<"User"> | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFilter<"User"> | boolean
   collections?: Prisma.CollectionListRelationFilter
   sourceFiles?: Prisma.SourceFileListRelationFilter
   studyMaterials?: Prisma.StudyMaterialListRelationFilter
@@ -326,6 +346,8 @@ export type UserOrderByWithAggregationInput = {
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   agentAccessDisabledAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  practicePreference?: Prisma.SortOrder
+  mixedReview?: Prisma.SortOrder
   _count?: Prisma.UserCountOrderByAggregateInput
   _max?: Prisma.UserMaxOrderByAggregateInput
   _min?: Prisma.UserMinOrderByAggregateInput
@@ -343,6 +365,8 @@ export type UserScalarWhereWithAggregatesInput = {
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"User"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"User"> | Date | string
   agentAccessDisabledAt?: Prisma.DateTimeNullableWithAggregatesFilter<"User"> | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceWithAggregatesFilter<"User"> | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolWithAggregatesFilter<"User"> | boolean
 }
 
 export type UserCreateInput = {
@@ -354,6 +378,8 @@ export type UserCreateInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   collections?: Prisma.CollectionCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutUserInput
   studyMaterials?: Prisma.StudyMaterialCreateNestedManyWithoutUserInput
@@ -393,6 +419,8 @@ export type UserUncheckedCreateInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   collections?: Prisma.CollectionUncheckedCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutUserInput
   studyMaterials?: Prisma.StudyMaterialUncheckedCreateNestedManyWithoutUserInput
@@ -432,6 +460,8 @@ export type UserUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   collections?: Prisma.CollectionUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUpdateManyWithoutUserNestedInput
   studyMaterials?: Prisma.StudyMaterialUpdateManyWithoutUserNestedInput
@@ -471,6 +501,8 @@ export type UserUncheckedUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   collections?: Prisma.CollectionUncheckedUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutUserNestedInput
   studyMaterials?: Prisma.StudyMaterialUncheckedUpdateManyWithoutUserNestedInput
@@ -510,6 +542,8 @@ export type UserCreateManyInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
 }
 
 export type UserUpdateManyMutationInput = {
@@ -521,6 +555,8 @@ export type UserUpdateManyMutationInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
 }
 
 export type UserUncheckedUpdateManyInput = {
@@ -532,6 +568,8 @@ export type UserUncheckedUpdateManyInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
 }
 
 export type UserCountOrderByAggregateInput = {
@@ -543,6 +581,8 @@ export type UserCountOrderByAggregateInput = {
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   agentAccessDisabledAt?: Prisma.SortOrder
+  practicePreference?: Prisma.SortOrder
+  mixedReview?: Prisma.SortOrder
 }
 
 export type UserMaxOrderByAggregateInput = {
@@ -554,6 +594,8 @@ export type UserMaxOrderByAggregateInput = {
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   agentAccessDisabledAt?: Prisma.SortOrder
+  practicePreference?: Prisma.SortOrder
+  mixedReview?: Prisma.SortOrder
 }
 
 export type UserMinOrderByAggregateInput = {
@@ -565,6 +607,8 @@ export type UserMinOrderByAggregateInput = {
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   agentAccessDisabledAt?: Prisma.SortOrder
+  practicePreference?: Prisma.SortOrder
+  mixedReview?: Prisma.SortOrder
 }
 
 export type UserScalarRelationFilter = {
@@ -586,6 +630,14 @@ export type NullableDateTimeFieldUpdateOperationsInput = {
 
 export type DateTimeFieldUpdateOperationsInput = {
   set?: Date | string
+}
+
+export type EnumPracticePreferenceFieldUpdateOperationsInput = {
+  set?: $Enums.PracticePreference
+}
+
+export type BoolFieldUpdateOperationsInput = {
+  set?: boolean
 }
 
 export type UserCreateNestedOneWithoutCollectionsInput = {
@@ -989,6 +1041,8 @@ export type UserCreateWithoutCollectionsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutUserInput
   studyMaterials?: Prisma.StudyMaterialCreateNestedManyWithoutUserInput
   materialRevisions?: Prisma.MaterialRevisionCreateNestedManyWithoutUserInput
@@ -1027,6 +1081,8 @@ export type UserUncheckedCreateWithoutCollectionsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutUserInput
   studyMaterials?: Prisma.StudyMaterialUncheckedCreateNestedManyWithoutUserInput
   materialRevisions?: Prisma.MaterialRevisionUncheckedCreateNestedManyWithoutUserInput
@@ -1081,6 +1137,8 @@ export type UserUpdateWithoutCollectionsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   sourceFiles?: Prisma.SourceFileUpdateManyWithoutUserNestedInput
   studyMaterials?: Prisma.StudyMaterialUpdateManyWithoutUserNestedInput
   materialRevisions?: Prisma.MaterialRevisionUpdateManyWithoutUserNestedInput
@@ -1119,6 +1177,8 @@ export type UserUncheckedUpdateWithoutCollectionsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutUserNestedInput
   studyMaterials?: Prisma.StudyMaterialUncheckedUpdateManyWithoutUserNestedInput
   materialRevisions?: Prisma.MaterialRevisionUncheckedUpdateManyWithoutUserNestedInput
@@ -1157,6 +1217,8 @@ export type UserCreateWithoutSourceFilesInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   collections?: Prisma.CollectionCreateNestedManyWithoutUserInput
   studyMaterials?: Prisma.StudyMaterialCreateNestedManyWithoutUserInput
   materialRevisions?: Prisma.MaterialRevisionCreateNestedManyWithoutUserInput
@@ -1195,6 +1257,8 @@ export type UserUncheckedCreateWithoutSourceFilesInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   collections?: Prisma.CollectionUncheckedCreateNestedManyWithoutUserInput
   studyMaterials?: Prisma.StudyMaterialUncheckedCreateNestedManyWithoutUserInput
   materialRevisions?: Prisma.MaterialRevisionUncheckedCreateNestedManyWithoutUserInput
@@ -1249,6 +1313,8 @@ export type UserUpdateWithoutSourceFilesInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   collections?: Prisma.CollectionUpdateManyWithoutUserNestedInput
   studyMaterials?: Prisma.StudyMaterialUpdateManyWithoutUserNestedInput
   materialRevisions?: Prisma.MaterialRevisionUpdateManyWithoutUserNestedInput
@@ -1287,6 +1353,8 @@ export type UserUncheckedUpdateWithoutSourceFilesInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   collections?: Prisma.CollectionUncheckedUpdateManyWithoutUserNestedInput
   studyMaterials?: Prisma.StudyMaterialUncheckedUpdateManyWithoutUserNestedInput
   materialRevisions?: Prisma.MaterialRevisionUncheckedUpdateManyWithoutUserNestedInput
@@ -1325,6 +1393,8 @@ export type UserCreateWithoutStudyMaterialsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   collections?: Prisma.CollectionCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutUserInput
   materialRevisions?: Prisma.MaterialRevisionCreateNestedManyWithoutUserInput
@@ -1363,6 +1433,8 @@ export type UserUncheckedCreateWithoutStudyMaterialsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   collections?: Prisma.CollectionUncheckedCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutUserInput
   materialRevisions?: Prisma.MaterialRevisionUncheckedCreateNestedManyWithoutUserInput
@@ -1417,6 +1489,8 @@ export type UserUpdateWithoutStudyMaterialsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   collections?: Prisma.CollectionUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUpdateManyWithoutUserNestedInput
   materialRevisions?: Prisma.MaterialRevisionUpdateManyWithoutUserNestedInput
@@ -1455,6 +1529,8 @@ export type UserUncheckedUpdateWithoutStudyMaterialsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   collections?: Prisma.CollectionUncheckedUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutUserNestedInput
   materialRevisions?: Prisma.MaterialRevisionUncheckedUpdateManyWithoutUserNestedInput
@@ -1493,6 +1569,8 @@ export type UserCreateWithoutMaterialRevisionsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   collections?: Prisma.CollectionCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutUserInput
   studyMaterials?: Prisma.StudyMaterialCreateNestedManyWithoutUserInput
@@ -1531,6 +1609,8 @@ export type UserUncheckedCreateWithoutMaterialRevisionsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   collections?: Prisma.CollectionUncheckedCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutUserInput
   studyMaterials?: Prisma.StudyMaterialUncheckedCreateNestedManyWithoutUserInput
@@ -1585,6 +1665,8 @@ export type UserUpdateWithoutMaterialRevisionsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   collections?: Prisma.CollectionUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUpdateManyWithoutUserNestedInput
   studyMaterials?: Prisma.StudyMaterialUpdateManyWithoutUserNestedInput
@@ -1623,6 +1705,8 @@ export type UserUncheckedUpdateWithoutMaterialRevisionsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   collections?: Prisma.CollectionUncheckedUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutUserNestedInput
   studyMaterials?: Prisma.StudyMaterialUncheckedUpdateManyWithoutUserNestedInput
@@ -1661,6 +1745,8 @@ export type UserCreateWithoutMaterialSectionsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   collections?: Prisma.CollectionCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutUserInput
   studyMaterials?: Prisma.StudyMaterialCreateNestedManyWithoutUserInput
@@ -1699,6 +1785,8 @@ export type UserUncheckedCreateWithoutMaterialSectionsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   collections?: Prisma.CollectionUncheckedCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutUserInput
   studyMaterials?: Prisma.StudyMaterialUncheckedCreateNestedManyWithoutUserInput
@@ -1753,6 +1841,8 @@ export type UserUpdateWithoutMaterialSectionsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   collections?: Prisma.CollectionUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUpdateManyWithoutUserNestedInput
   studyMaterials?: Prisma.StudyMaterialUpdateManyWithoutUserNestedInput
@@ -1791,6 +1881,8 @@ export type UserUncheckedUpdateWithoutMaterialSectionsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   collections?: Prisma.CollectionUncheckedUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutUserNestedInput
   studyMaterials?: Prisma.StudyMaterialUncheckedUpdateManyWithoutUserNestedInput
@@ -1829,6 +1921,8 @@ export type UserCreateWithoutMaterialChunksInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   collections?: Prisma.CollectionCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutUserInput
   studyMaterials?: Prisma.StudyMaterialCreateNestedManyWithoutUserInput
@@ -1867,6 +1961,8 @@ export type UserUncheckedCreateWithoutMaterialChunksInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   collections?: Prisma.CollectionUncheckedCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutUserInput
   studyMaterials?: Prisma.StudyMaterialUncheckedCreateNestedManyWithoutUserInput
@@ -1921,6 +2017,8 @@ export type UserUpdateWithoutMaterialChunksInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   collections?: Prisma.CollectionUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUpdateManyWithoutUserNestedInput
   studyMaterials?: Prisma.StudyMaterialUpdateManyWithoutUserNestedInput
@@ -1959,6 +2057,8 @@ export type UserUncheckedUpdateWithoutMaterialChunksInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   collections?: Prisma.CollectionUncheckedUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutUserNestedInput
   studyMaterials?: Prisma.StudyMaterialUncheckedUpdateManyWithoutUserNestedInput
@@ -1997,6 +2097,8 @@ export type UserCreateWithoutMaterialPagesInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   collections?: Prisma.CollectionCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutUserInput
   studyMaterials?: Prisma.StudyMaterialCreateNestedManyWithoutUserInput
@@ -2035,6 +2137,8 @@ export type UserUncheckedCreateWithoutMaterialPagesInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   collections?: Prisma.CollectionUncheckedCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutUserInput
   studyMaterials?: Prisma.StudyMaterialUncheckedCreateNestedManyWithoutUserInput
@@ -2089,6 +2193,8 @@ export type UserUpdateWithoutMaterialPagesInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   collections?: Prisma.CollectionUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUpdateManyWithoutUserNestedInput
   studyMaterials?: Prisma.StudyMaterialUpdateManyWithoutUserNestedInput
@@ -2127,6 +2233,8 @@ export type UserUncheckedUpdateWithoutMaterialPagesInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   collections?: Prisma.CollectionUncheckedUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutUserNestedInput
   studyMaterials?: Prisma.StudyMaterialUncheckedUpdateManyWithoutUserNestedInput
@@ -2165,6 +2273,8 @@ export type UserCreateWithoutMaterialCleanupJobsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   collections?: Prisma.CollectionCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutUserInput
   studyMaterials?: Prisma.StudyMaterialCreateNestedManyWithoutUserInput
@@ -2203,6 +2313,8 @@ export type UserUncheckedCreateWithoutMaterialCleanupJobsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   collections?: Prisma.CollectionUncheckedCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutUserInput
   studyMaterials?: Prisma.StudyMaterialUncheckedCreateNestedManyWithoutUserInput
@@ -2257,6 +2369,8 @@ export type UserUpdateWithoutMaterialCleanupJobsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   collections?: Prisma.CollectionUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUpdateManyWithoutUserNestedInput
   studyMaterials?: Prisma.StudyMaterialUpdateManyWithoutUserNestedInput
@@ -2295,6 +2409,8 @@ export type UserUncheckedUpdateWithoutMaterialCleanupJobsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   collections?: Prisma.CollectionUncheckedUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutUserNestedInput
   studyMaterials?: Prisma.StudyMaterialUncheckedUpdateManyWithoutUserNestedInput
@@ -2333,6 +2449,8 @@ export type UserCreateWithoutSkillsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   collections?: Prisma.CollectionCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutUserInput
   studyMaterials?: Prisma.StudyMaterialCreateNestedManyWithoutUserInput
@@ -2371,6 +2489,8 @@ export type UserUncheckedCreateWithoutSkillsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   collections?: Prisma.CollectionUncheckedCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutUserInput
   studyMaterials?: Prisma.StudyMaterialUncheckedCreateNestedManyWithoutUserInput
@@ -2425,6 +2545,8 @@ export type UserUpdateWithoutSkillsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   collections?: Prisma.CollectionUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUpdateManyWithoutUserNestedInput
   studyMaterials?: Prisma.StudyMaterialUpdateManyWithoutUserNestedInput
@@ -2463,6 +2585,8 @@ export type UserUncheckedUpdateWithoutSkillsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   collections?: Prisma.CollectionUncheckedUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutUserNestedInput
   studyMaterials?: Prisma.StudyMaterialUncheckedUpdateManyWithoutUserNestedInput
@@ -2501,6 +2625,8 @@ export type UserCreateWithoutSkillDraftBatchesInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   collections?: Prisma.CollectionCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutUserInput
   studyMaterials?: Prisma.StudyMaterialCreateNestedManyWithoutUserInput
@@ -2539,6 +2665,8 @@ export type UserUncheckedCreateWithoutSkillDraftBatchesInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   collections?: Prisma.CollectionUncheckedCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutUserInput
   studyMaterials?: Prisma.StudyMaterialUncheckedCreateNestedManyWithoutUserInput
@@ -2593,6 +2721,8 @@ export type UserUpdateWithoutSkillDraftBatchesInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   collections?: Prisma.CollectionUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUpdateManyWithoutUserNestedInput
   studyMaterials?: Prisma.StudyMaterialUpdateManyWithoutUserNestedInput
@@ -2631,6 +2761,8 @@ export type UserUncheckedUpdateWithoutSkillDraftBatchesInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   collections?: Prisma.CollectionUncheckedUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutUserNestedInput
   studyMaterials?: Prisma.StudyMaterialUncheckedUpdateManyWithoutUserNestedInput
@@ -2669,6 +2801,8 @@ export type UserCreateWithoutSkillDraftBatchItemsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   collections?: Prisma.CollectionCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutUserInput
   studyMaterials?: Prisma.StudyMaterialCreateNestedManyWithoutUserInput
@@ -2707,6 +2841,8 @@ export type UserUncheckedCreateWithoutSkillDraftBatchItemsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   collections?: Prisma.CollectionUncheckedCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutUserInput
   studyMaterials?: Prisma.StudyMaterialUncheckedCreateNestedManyWithoutUserInput
@@ -2761,6 +2897,8 @@ export type UserUpdateWithoutSkillDraftBatchItemsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   collections?: Prisma.CollectionUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUpdateManyWithoutUserNestedInput
   studyMaterials?: Prisma.StudyMaterialUpdateManyWithoutUserNestedInput
@@ -2799,6 +2937,8 @@ export type UserUncheckedUpdateWithoutSkillDraftBatchItemsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   collections?: Prisma.CollectionUncheckedUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutUserNestedInput
   studyMaterials?: Prisma.StudyMaterialUncheckedUpdateManyWithoutUserNestedInput
@@ -2837,6 +2977,8 @@ export type UserCreateWithoutSkillSourceRefsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   collections?: Prisma.CollectionCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutUserInput
   studyMaterials?: Prisma.StudyMaterialCreateNestedManyWithoutUserInput
@@ -2875,6 +3017,8 @@ export type UserUncheckedCreateWithoutSkillSourceRefsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   collections?: Prisma.CollectionUncheckedCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutUserInput
   studyMaterials?: Prisma.StudyMaterialUncheckedCreateNestedManyWithoutUserInput
@@ -2929,6 +3073,8 @@ export type UserUpdateWithoutSkillSourceRefsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   collections?: Prisma.CollectionUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUpdateManyWithoutUserNestedInput
   studyMaterials?: Prisma.StudyMaterialUpdateManyWithoutUserNestedInput
@@ -2967,6 +3113,8 @@ export type UserUncheckedUpdateWithoutSkillSourceRefsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   collections?: Prisma.CollectionUncheckedUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutUserNestedInput
   studyMaterials?: Prisma.StudyMaterialUncheckedUpdateManyWithoutUserNestedInput
@@ -3005,6 +3153,8 @@ export type UserCreateWithoutExercisesInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   collections?: Prisma.CollectionCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutUserInput
   studyMaterials?: Prisma.StudyMaterialCreateNestedManyWithoutUserInput
@@ -3043,6 +3193,8 @@ export type UserUncheckedCreateWithoutExercisesInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   collections?: Prisma.CollectionUncheckedCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutUserInput
   studyMaterials?: Prisma.StudyMaterialUncheckedCreateNestedManyWithoutUserInput
@@ -3097,6 +3249,8 @@ export type UserUpdateWithoutExercisesInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   collections?: Prisma.CollectionUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUpdateManyWithoutUserNestedInput
   studyMaterials?: Prisma.StudyMaterialUpdateManyWithoutUserNestedInput
@@ -3135,6 +3289,8 @@ export type UserUncheckedUpdateWithoutExercisesInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   collections?: Prisma.CollectionUncheckedUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutUserNestedInput
   studyMaterials?: Prisma.StudyMaterialUncheckedUpdateManyWithoutUserNestedInput
@@ -3173,6 +3329,8 @@ export type UserCreateWithoutExerciseAttemptsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   collections?: Prisma.CollectionCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutUserInput
   studyMaterials?: Prisma.StudyMaterialCreateNestedManyWithoutUserInput
@@ -3211,6 +3369,8 @@ export type UserUncheckedCreateWithoutExerciseAttemptsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   collections?: Prisma.CollectionUncheckedCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutUserInput
   studyMaterials?: Prisma.StudyMaterialUncheckedCreateNestedManyWithoutUserInput
@@ -3265,6 +3425,8 @@ export type UserUpdateWithoutExerciseAttemptsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   collections?: Prisma.CollectionUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUpdateManyWithoutUserNestedInput
   studyMaterials?: Prisma.StudyMaterialUpdateManyWithoutUserNestedInput
@@ -3303,6 +3465,8 @@ export type UserUncheckedUpdateWithoutExerciseAttemptsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   collections?: Prisma.CollectionUncheckedUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutUserNestedInput
   studyMaterials?: Prisma.StudyMaterialUncheckedUpdateManyWithoutUserNestedInput
@@ -3341,6 +3505,8 @@ export type UserCreateWithoutReviewLogsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   collections?: Prisma.CollectionCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutUserInput
   studyMaterials?: Prisma.StudyMaterialCreateNestedManyWithoutUserInput
@@ -3379,6 +3545,8 @@ export type UserUncheckedCreateWithoutReviewLogsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   collections?: Prisma.CollectionUncheckedCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutUserInput
   studyMaterials?: Prisma.StudyMaterialUncheckedCreateNestedManyWithoutUserInput
@@ -3433,6 +3601,8 @@ export type UserUpdateWithoutReviewLogsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   collections?: Prisma.CollectionUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUpdateManyWithoutUserNestedInput
   studyMaterials?: Prisma.StudyMaterialUpdateManyWithoutUserNestedInput
@@ -3471,6 +3641,8 @@ export type UserUncheckedUpdateWithoutReviewLogsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   collections?: Prisma.CollectionUncheckedUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutUserNestedInput
   studyMaterials?: Prisma.StudyMaterialUncheckedUpdateManyWithoutUserNestedInput
@@ -3509,6 +3681,8 @@ export type UserCreateWithoutExerciseFlagsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   collections?: Prisma.CollectionCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutUserInput
   studyMaterials?: Prisma.StudyMaterialCreateNestedManyWithoutUserInput
@@ -3547,6 +3721,8 @@ export type UserUncheckedCreateWithoutExerciseFlagsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   collections?: Prisma.CollectionUncheckedCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutUserInput
   studyMaterials?: Prisma.StudyMaterialUncheckedCreateNestedManyWithoutUserInput
@@ -3601,6 +3777,8 @@ export type UserUpdateWithoutExerciseFlagsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   collections?: Prisma.CollectionUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUpdateManyWithoutUserNestedInput
   studyMaterials?: Prisma.StudyMaterialUpdateManyWithoutUserNestedInput
@@ -3639,6 +3817,8 @@ export type UserUncheckedUpdateWithoutExerciseFlagsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   collections?: Prisma.CollectionUncheckedUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutUserNestedInput
   studyMaterials?: Prisma.StudyMaterialUncheckedUpdateManyWithoutUserNestedInput
@@ -3677,6 +3857,8 @@ export type UserCreateWithoutGenerationJobsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   collections?: Prisma.CollectionCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutUserInput
   studyMaterials?: Prisma.StudyMaterialCreateNestedManyWithoutUserInput
@@ -3715,6 +3897,8 @@ export type UserUncheckedCreateWithoutGenerationJobsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   collections?: Prisma.CollectionUncheckedCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutUserInput
   studyMaterials?: Prisma.StudyMaterialUncheckedCreateNestedManyWithoutUserInput
@@ -3769,6 +3953,8 @@ export type UserUpdateWithoutGenerationJobsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   collections?: Prisma.CollectionUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUpdateManyWithoutUserNestedInput
   studyMaterials?: Prisma.StudyMaterialUpdateManyWithoutUserNestedInput
@@ -3807,6 +3993,8 @@ export type UserUncheckedUpdateWithoutGenerationJobsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   collections?: Prisma.CollectionUncheckedUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutUserNestedInput
   studyMaterials?: Prisma.StudyMaterialUncheckedUpdateManyWithoutUserNestedInput
@@ -3845,6 +4033,8 @@ export type UserCreateWithoutGenerationAuditRecordsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   collections?: Prisma.CollectionCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutUserInput
   studyMaterials?: Prisma.StudyMaterialCreateNestedManyWithoutUserInput
@@ -3883,6 +4073,8 @@ export type UserUncheckedCreateWithoutGenerationAuditRecordsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   collections?: Prisma.CollectionUncheckedCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutUserInput
   studyMaterials?: Prisma.StudyMaterialUncheckedCreateNestedManyWithoutUserInput
@@ -3937,6 +4129,8 @@ export type UserUpdateWithoutGenerationAuditRecordsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   collections?: Prisma.CollectionUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUpdateManyWithoutUserNestedInput
   studyMaterials?: Prisma.StudyMaterialUpdateManyWithoutUserNestedInput
@@ -3975,6 +4169,8 @@ export type UserUncheckedUpdateWithoutGenerationAuditRecordsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   collections?: Prisma.CollectionUncheckedUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutUserNestedInput
   studyMaterials?: Prisma.StudyMaterialUncheckedUpdateManyWithoutUserNestedInput
@@ -4013,6 +4209,8 @@ export type UserCreateWithoutReminderPreferenceInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   collections?: Prisma.CollectionCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutUserInput
   studyMaterials?: Prisma.StudyMaterialCreateNestedManyWithoutUserInput
@@ -4051,6 +4249,8 @@ export type UserUncheckedCreateWithoutReminderPreferenceInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   collections?: Prisma.CollectionUncheckedCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutUserInput
   studyMaterials?: Prisma.StudyMaterialUncheckedCreateNestedManyWithoutUserInput
@@ -4105,6 +4305,8 @@ export type UserUpdateWithoutReminderPreferenceInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   collections?: Prisma.CollectionUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUpdateManyWithoutUserNestedInput
   studyMaterials?: Prisma.StudyMaterialUpdateManyWithoutUserNestedInput
@@ -4143,6 +4345,8 @@ export type UserUncheckedUpdateWithoutReminderPreferenceInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   collections?: Prisma.CollectionUncheckedUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutUserNestedInput
   studyMaterials?: Prisma.StudyMaterialUncheckedUpdateManyWithoutUserNestedInput
@@ -4181,6 +4385,8 @@ export type UserCreateWithoutReminderSendLogsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   collections?: Prisma.CollectionCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutUserInput
   studyMaterials?: Prisma.StudyMaterialCreateNestedManyWithoutUserInput
@@ -4219,6 +4425,8 @@ export type UserUncheckedCreateWithoutReminderSendLogsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   collections?: Prisma.CollectionUncheckedCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutUserInput
   studyMaterials?: Prisma.StudyMaterialUncheckedCreateNestedManyWithoutUserInput
@@ -4273,6 +4481,8 @@ export type UserUpdateWithoutReminderSendLogsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   collections?: Prisma.CollectionUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUpdateManyWithoutUserNestedInput
   studyMaterials?: Prisma.StudyMaterialUpdateManyWithoutUserNestedInput
@@ -4311,6 +4521,8 @@ export type UserUncheckedUpdateWithoutReminderSendLogsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   collections?: Prisma.CollectionUncheckedUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutUserNestedInput
   studyMaterials?: Prisma.StudyMaterialUncheckedUpdateManyWithoutUserNestedInput
@@ -4349,6 +4561,8 @@ export type UserCreateWithoutWorkosIdentityInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   collections?: Prisma.CollectionCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutUserInput
   studyMaterials?: Prisma.StudyMaterialCreateNestedManyWithoutUserInput
@@ -4387,6 +4601,8 @@ export type UserUncheckedCreateWithoutWorkosIdentityInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   collections?: Prisma.CollectionUncheckedCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutUserInput
   studyMaterials?: Prisma.StudyMaterialUncheckedCreateNestedManyWithoutUserInput
@@ -4441,6 +4657,8 @@ export type UserUpdateWithoutWorkosIdentityInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   collections?: Prisma.CollectionUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUpdateManyWithoutUserNestedInput
   studyMaterials?: Prisma.StudyMaterialUpdateManyWithoutUserNestedInput
@@ -4479,6 +4697,8 @@ export type UserUncheckedUpdateWithoutWorkosIdentityInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   collections?: Prisma.CollectionUncheckedUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutUserNestedInput
   studyMaterials?: Prisma.StudyMaterialUncheckedUpdateManyWithoutUserNestedInput
@@ -4517,6 +4737,8 @@ export type UserCreateWithoutAgentConnectionsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   collections?: Prisma.CollectionCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutUserInput
   studyMaterials?: Prisma.StudyMaterialCreateNestedManyWithoutUserInput
@@ -4555,6 +4777,8 @@ export type UserUncheckedCreateWithoutAgentConnectionsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   collections?: Prisma.CollectionUncheckedCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutUserInput
   studyMaterials?: Prisma.StudyMaterialUncheckedCreateNestedManyWithoutUserInput
@@ -4609,6 +4833,8 @@ export type UserUpdateWithoutAgentConnectionsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   collections?: Prisma.CollectionUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUpdateManyWithoutUserNestedInput
   studyMaterials?: Prisma.StudyMaterialUpdateManyWithoutUserNestedInput
@@ -4647,6 +4873,8 @@ export type UserUncheckedUpdateWithoutAgentConnectionsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   collections?: Prisma.CollectionUncheckedUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutUserNestedInput
   studyMaterials?: Prisma.StudyMaterialUncheckedUpdateManyWithoutUserNestedInput
@@ -4685,6 +4913,8 @@ export type UserCreateWithoutAgentOperationsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   collections?: Prisma.CollectionCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutUserInput
   studyMaterials?: Prisma.StudyMaterialCreateNestedManyWithoutUserInput
@@ -4723,6 +4953,8 @@ export type UserUncheckedCreateWithoutAgentOperationsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   collections?: Prisma.CollectionUncheckedCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutUserInput
   studyMaterials?: Prisma.StudyMaterialUncheckedCreateNestedManyWithoutUserInput
@@ -4777,6 +5009,8 @@ export type UserUpdateWithoutAgentOperationsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   collections?: Prisma.CollectionUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUpdateManyWithoutUserNestedInput
   studyMaterials?: Prisma.StudyMaterialUpdateManyWithoutUserNestedInput
@@ -4815,6 +5049,8 @@ export type UserUncheckedUpdateWithoutAgentOperationsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   collections?: Prisma.CollectionUncheckedUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutUserNestedInput
   studyMaterials?: Prisma.StudyMaterialUncheckedUpdateManyWithoutUserNestedInput
@@ -4853,6 +5089,8 @@ export type UserCreateWithoutAgentOperationActionsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   collections?: Prisma.CollectionCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutUserInput
   studyMaterials?: Prisma.StudyMaterialCreateNestedManyWithoutUserInput
@@ -4891,6 +5129,8 @@ export type UserUncheckedCreateWithoutAgentOperationActionsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   collections?: Prisma.CollectionUncheckedCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutUserInput
   studyMaterials?: Prisma.StudyMaterialUncheckedCreateNestedManyWithoutUserInput
@@ -4945,6 +5185,8 @@ export type UserUpdateWithoutAgentOperationActionsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   collections?: Prisma.CollectionUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUpdateManyWithoutUserNestedInput
   studyMaterials?: Prisma.StudyMaterialUpdateManyWithoutUserNestedInput
@@ -4983,6 +5225,8 @@ export type UserUncheckedUpdateWithoutAgentOperationActionsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   collections?: Prisma.CollectionUncheckedUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutUserNestedInput
   studyMaterials?: Prisma.StudyMaterialUncheckedUpdateManyWithoutUserNestedInput
@@ -5021,6 +5265,8 @@ export type UserCreateWithoutAgentOperationSourcesInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   collections?: Prisma.CollectionCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutUserInput
   studyMaterials?: Prisma.StudyMaterialCreateNestedManyWithoutUserInput
@@ -5059,6 +5305,8 @@ export type UserUncheckedCreateWithoutAgentOperationSourcesInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   collections?: Prisma.CollectionUncheckedCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutUserInput
   studyMaterials?: Prisma.StudyMaterialUncheckedCreateNestedManyWithoutUserInput
@@ -5113,6 +5361,8 @@ export type UserUpdateWithoutAgentOperationSourcesInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   collections?: Prisma.CollectionUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUpdateManyWithoutUserNestedInput
   studyMaterials?: Prisma.StudyMaterialUpdateManyWithoutUserNestedInput
@@ -5151,6 +5401,8 @@ export type UserUncheckedUpdateWithoutAgentOperationSourcesInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   collections?: Prisma.CollectionUncheckedUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutUserNestedInput
   studyMaterials?: Prisma.StudyMaterialUncheckedUpdateManyWithoutUserNestedInput
@@ -5189,6 +5441,8 @@ export type UserCreateWithoutAgentOperationItemsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   collections?: Prisma.CollectionCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutUserInput
   studyMaterials?: Prisma.StudyMaterialCreateNestedManyWithoutUserInput
@@ -5227,6 +5481,8 @@ export type UserUncheckedCreateWithoutAgentOperationItemsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   collections?: Prisma.CollectionUncheckedCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutUserInput
   studyMaterials?: Prisma.StudyMaterialUncheckedCreateNestedManyWithoutUserInput
@@ -5281,6 +5537,8 @@ export type UserUpdateWithoutAgentOperationItemsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   collections?: Prisma.CollectionUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUpdateManyWithoutUserNestedInput
   studyMaterials?: Prisma.StudyMaterialUpdateManyWithoutUserNestedInput
@@ -5319,6 +5577,8 @@ export type UserUncheckedUpdateWithoutAgentOperationItemsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   collections?: Prisma.CollectionUncheckedUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutUserNestedInput
   studyMaterials?: Prisma.StudyMaterialUncheckedUpdateManyWithoutUserNestedInput
@@ -5357,6 +5617,8 @@ export type UserCreateWithoutAgentCandidatesInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   collections?: Prisma.CollectionCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutUserInput
   studyMaterials?: Prisma.StudyMaterialCreateNestedManyWithoutUserInput
@@ -5395,6 +5657,8 @@ export type UserUncheckedCreateWithoutAgentCandidatesInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   collections?: Prisma.CollectionUncheckedCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutUserInput
   studyMaterials?: Prisma.StudyMaterialUncheckedCreateNestedManyWithoutUserInput
@@ -5449,6 +5713,8 @@ export type UserUpdateWithoutAgentCandidatesInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   collections?: Prisma.CollectionUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUpdateManyWithoutUserNestedInput
   studyMaterials?: Prisma.StudyMaterialUpdateManyWithoutUserNestedInput
@@ -5487,6 +5753,8 @@ export type UserUncheckedUpdateWithoutAgentCandidatesInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   collections?: Prisma.CollectionUncheckedUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutUserNestedInput
   studyMaterials?: Prisma.StudyMaterialUncheckedUpdateManyWithoutUserNestedInput
@@ -5525,6 +5793,8 @@ export type UserCreateWithoutAgentRateLimitBucketsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   collections?: Prisma.CollectionCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutUserInput
   studyMaterials?: Prisma.StudyMaterialCreateNestedManyWithoutUserInput
@@ -5563,6 +5833,8 @@ export type UserUncheckedCreateWithoutAgentRateLimitBucketsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
   collections?: Prisma.CollectionUncheckedCreateNestedManyWithoutUserInput
   sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutUserInput
   studyMaterials?: Prisma.StudyMaterialUncheckedCreateNestedManyWithoutUserInput
@@ -5617,6 +5889,8 @@ export type UserUpdateWithoutAgentRateLimitBucketsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   collections?: Prisma.CollectionUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUpdateManyWithoutUserNestedInput
   studyMaterials?: Prisma.StudyMaterialUpdateManyWithoutUserNestedInput
@@ -5655,6 +5929,8 @@ export type UserUncheckedUpdateWithoutAgentRateLimitBucketsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
   collections?: Prisma.CollectionUncheckedUpdateManyWithoutUserNestedInput
   sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutUserNestedInput
   studyMaterials?: Prisma.StudyMaterialUncheckedUpdateManyWithoutUserNestedInput
@@ -5949,6 +6225,8 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   createdAt?: boolean
   updatedAt?: boolean
   agentAccessDisabledAt?: boolean
+  practicePreference?: boolean
+  mixedReview?: boolean
   collections?: boolean | Prisma.User$collectionsArgs<ExtArgs>
   sourceFiles?: boolean | Prisma.User$sourceFilesArgs<ExtArgs>
   studyMaterials?: boolean | Prisma.User$studyMaterialsArgs<ExtArgs>
@@ -5989,6 +6267,8 @@ export type UserSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   createdAt?: boolean
   updatedAt?: boolean
   agentAccessDisabledAt?: boolean
+  practicePreference?: boolean
+  mixedReview?: boolean
 }, ExtArgs["result"]["user"]>
 
 export type UserSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -6000,6 +6280,8 @@ export type UserSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   createdAt?: boolean
   updatedAt?: boolean
   agentAccessDisabledAt?: boolean
+  practicePreference?: boolean
+  mixedReview?: boolean
 }, ExtArgs["result"]["user"]>
 
 export type UserSelectScalar = {
@@ -6011,9 +6293,11 @@ export type UserSelectScalar = {
   createdAt?: boolean
   updatedAt?: boolean
   agentAccessDisabledAt?: boolean
+  practicePreference?: boolean
+  mixedReview?: boolean
 }
 
-export type UserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "email" | "name" | "imageUrl" | "lastSeenAt" | "createdAt" | "updatedAt" | "agentAccessDisabledAt", ExtArgs["result"]["user"]>
+export type UserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "email" | "name" | "imageUrl" | "lastSeenAt" | "createdAt" | "updatedAt" | "agentAccessDisabledAt" | "practicePreference" | "mixedReview", ExtArgs["result"]["user"]>
 export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   collections?: boolean | Prisma.User$collectionsArgs<ExtArgs>
   sourceFiles?: boolean | Prisma.User$sourceFilesArgs<ExtArgs>
@@ -6089,6 +6373,8 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     createdAt: Date
     updatedAt: Date
     agentAccessDisabledAt: Date | null
+    practicePreference: $Enums.PracticePreference
+    mixedReview: boolean
   }, ExtArgs["result"]["user"]>
   composites: {}
 }
@@ -6548,6 +6834,8 @@ export interface UserFieldRefs {
   readonly createdAt: Prisma.FieldRef<"User", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"User", 'DateTime'>
   readonly agentAccessDisabledAt: Prisma.FieldRef<"User", 'DateTime'>
+  readonly practicePreference: Prisma.FieldRef<"User", 'PracticePreference'>
+  readonly mixedReview: Prisma.FieldRef<"User", 'Boolean'>
 }
     
 

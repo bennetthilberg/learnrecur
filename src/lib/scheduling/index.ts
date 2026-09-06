@@ -16,6 +16,8 @@ import {
 
 import { FsrsRating, SkillFsrsState, SkillStatus } from "@/generated/prisma/client";
 
+export const RATING_POLICY_VERSION = "correct-good-v2";
+
 export const SCHEDULER_NAME = "ts-fsrs";
 const nodeRequire = createRequire(import.meta.url);
 const SCHEDULER_VERSION_FALLBACK = "unknown";
@@ -29,6 +31,7 @@ export type SkillScheduleFields = {
   scheduledDays: number;
   learningSteps: number;
   repetitions: number;
+  alreadyStudied?: boolean;
   lapses: number;
   fsrsState: SkillFsrsState;
   lastReviewedAt: Date | null;
@@ -103,18 +106,6 @@ export function mapAttemptToFsrsRating(input: MapAttemptToFsrsRatingInput): Fsrs
     input.manualRating === FsrsRating.EASY
   ) {
     return input.manualRating;
-  }
-
-  if (
-    typeof input.responseMs === "number" &&
-    Number.isFinite(input.responseMs) &&
-    input.responseMs >= 0 &&
-    typeof input.expectedSeconds === "number" &&
-    Number.isFinite(input.expectedSeconds) &&
-    input.expectedSeconds > 0 &&
-    input.responseMs <= input.expectedSeconds * 500
-  ) {
-    return FsrsRating.EASY;
   }
 
   return FsrsRating.GOOD;

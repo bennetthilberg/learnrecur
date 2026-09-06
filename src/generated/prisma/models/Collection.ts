@@ -25,6 +25,7 @@ export type AggregateCollection = {
 }
 
 export type CollectionMinAggregateOutputType = {
+  practicePreference: $Enums.PracticePreference | null
   id: string | null
   userId: string | null
   name: string | null
@@ -35,6 +36,7 @@ export type CollectionMinAggregateOutputType = {
 }
 
 export type CollectionMaxAggregateOutputType = {
+  practicePreference: $Enums.PracticePreference | null
   id: string | null
   userId: string | null
   name: string | null
@@ -45,6 +47,8 @@ export type CollectionMaxAggregateOutputType = {
 }
 
 export type CollectionCountAggregateOutputType = {
+  practicePreference: number
+  textPolicy: number
   id: number
   userId: number
   name: number
@@ -57,6 +61,7 @@ export type CollectionCountAggregateOutputType = {
 
 
 export type CollectionMinAggregateInputType = {
+  practicePreference?: true
   id?: true
   userId?: true
   name?: true
@@ -67,6 +72,7 @@ export type CollectionMinAggregateInputType = {
 }
 
 export type CollectionMaxAggregateInputType = {
+  practicePreference?: true
   id?: true
   userId?: true
   name?: true
@@ -77,6 +83,8 @@ export type CollectionMaxAggregateInputType = {
 }
 
 export type CollectionCountAggregateInputType = {
+  practicePreference?: true
+  textPolicy?: true
   id?: true
   userId?: true
   name?: true
@@ -160,6 +168,8 @@ export type CollectionGroupByArgs<ExtArgs extends runtime.Types.Extensions.Inter
 }
 
 export type CollectionGroupByOutputType = {
+  practicePreference: $Enums.PracticePreference | null
+  textPolicy: runtime.JsonValue | null
   id: string
   userId: string
   name: string
@@ -191,6 +201,8 @@ export type CollectionWhereInput = {
   AND?: Prisma.CollectionWhereInput | Prisma.CollectionWhereInput[]
   OR?: Prisma.CollectionWhereInput[]
   NOT?: Prisma.CollectionWhereInput | Prisma.CollectionWhereInput[]
+  practicePreference?: Prisma.EnumPracticePreferenceNullableFilter<"Collection"> | $Enums.PracticePreference | null
+  textPolicy?: Prisma.JsonNullableFilter<"Collection">
   id?: Prisma.StringFilter<"Collection"> | string
   userId?: Prisma.StringFilter<"Collection"> | string
   name?: Prisma.StringFilter<"Collection"> | string
@@ -205,6 +217,8 @@ export type CollectionWhereInput = {
 }
 
 export type CollectionOrderByWithRelationInput = {
+  practicePreference?: Prisma.SortOrderInput | Prisma.SortOrder
+  textPolicy?: Prisma.SortOrderInput | Prisma.SortOrder
   id?: Prisma.SortOrder
   userId?: Prisma.SortOrder
   name?: Prisma.SortOrder
@@ -224,6 +238,8 @@ export type CollectionWhereUniqueInput = Prisma.AtLeast<{
   AND?: Prisma.CollectionWhereInput | Prisma.CollectionWhereInput[]
   OR?: Prisma.CollectionWhereInput[]
   NOT?: Prisma.CollectionWhereInput | Prisma.CollectionWhereInput[]
+  practicePreference?: Prisma.EnumPracticePreferenceNullableFilter<"Collection"> | $Enums.PracticePreference | null
+  textPolicy?: Prisma.JsonNullableFilter<"Collection">
   userId?: Prisma.StringFilter<"Collection"> | string
   name?: Prisma.StringFilter<"Collection"> | string
   description?: Prisma.StringNullableFilter<"Collection"> | string | null
@@ -237,6 +253,8 @@ export type CollectionWhereUniqueInput = Prisma.AtLeast<{
 }, "id" | "id_userId">
 
 export type CollectionOrderByWithAggregationInput = {
+  practicePreference?: Prisma.SortOrderInput | Prisma.SortOrder
+  textPolicy?: Prisma.SortOrderInput | Prisma.SortOrder
   id?: Prisma.SortOrder
   userId?: Prisma.SortOrder
   name?: Prisma.SortOrder
@@ -253,6 +271,8 @@ export type CollectionScalarWhereWithAggregatesInput = {
   AND?: Prisma.CollectionScalarWhereWithAggregatesInput | Prisma.CollectionScalarWhereWithAggregatesInput[]
   OR?: Prisma.CollectionScalarWhereWithAggregatesInput[]
   NOT?: Prisma.CollectionScalarWhereWithAggregatesInput | Prisma.CollectionScalarWhereWithAggregatesInput[]
+  practicePreference?: Prisma.EnumPracticePreferenceNullableWithAggregatesFilter<"Collection"> | $Enums.PracticePreference | null
+  textPolicy?: Prisma.JsonNullableWithAggregatesFilter<"Collection">
   id?: Prisma.StringWithAggregatesFilter<"Collection"> | string
   userId?: Prisma.StringWithAggregatesFilter<"Collection"> | string
   name?: Prisma.StringWithAggregatesFilter<"Collection"> | string
@@ -263,6 +283,8 @@ export type CollectionScalarWhereWithAggregatesInput = {
 }
 
 export type CollectionCreateInput = {
+  practicePreference?: $Enums.PracticePreference | null
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   id?: string
   name: string
   description?: string | null
@@ -276,6 +298,8 @@ export type CollectionCreateInput = {
 }
 
 export type CollectionUncheckedCreateInput = {
+  practicePreference?: $Enums.PracticePreference | null
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   id?: string
   userId: string
   name: string
@@ -289,6 +313,8 @@ export type CollectionUncheckedCreateInput = {
 }
 
 export type CollectionUpdateInput = {
+  practicePreference?: Prisma.NullableEnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference | null
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -302,6 +328,8 @@ export type CollectionUpdateInput = {
 }
 
 export type CollectionUncheckedUpdateInput = {
+  practicePreference?: Prisma.NullableEnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference | null
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   id?: Prisma.StringFieldUpdateOperationsInput | string
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
@@ -315,6 +343,8 @@ export type CollectionUncheckedUpdateInput = {
 }
 
 export type CollectionCreateManyInput = {
+  practicePreference?: $Enums.PracticePreference | null
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   id?: string
   userId: string
   name: string
@@ -325,6 +355,8 @@ export type CollectionCreateManyInput = {
 }
 
 export type CollectionUpdateManyMutationInput = {
+  practicePreference?: Prisma.NullableEnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference | null
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -334,6 +366,8 @@ export type CollectionUpdateManyMutationInput = {
 }
 
 export type CollectionUncheckedUpdateManyInput = {
+  practicePreference?: Prisma.NullableEnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference | null
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   id?: Prisma.StringFieldUpdateOperationsInput | string
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
@@ -359,6 +393,8 @@ export type CollectionIdUserIdCompoundUniqueInput = {
 }
 
 export type CollectionCountOrderByAggregateInput = {
+  practicePreference?: Prisma.SortOrder
+  textPolicy?: Prisma.SortOrder
   id?: Prisma.SortOrder
   userId?: Prisma.SortOrder
   name?: Prisma.SortOrder
@@ -369,6 +405,7 @@ export type CollectionCountOrderByAggregateInput = {
 }
 
 export type CollectionMaxOrderByAggregateInput = {
+  practicePreference?: Prisma.SortOrder
   id?: Prisma.SortOrder
   userId?: Prisma.SortOrder
   name?: Prisma.SortOrder
@@ -379,6 +416,7 @@ export type CollectionMaxOrderByAggregateInput = {
 }
 
 export type CollectionMinOrderByAggregateInput = {
+  practicePreference?: Prisma.SortOrder
   id?: Prisma.SortOrder
   userId?: Prisma.SortOrder
   name?: Prisma.SortOrder
@@ -435,6 +473,10 @@ export type CollectionUncheckedUpdateManyWithoutUserNestedInput = {
   deleteMany?: Prisma.CollectionScalarWhereInput | Prisma.CollectionScalarWhereInput[]
 }
 
+export type NullableEnumPracticePreferenceFieldUpdateOperationsInput = {
+  set?: $Enums.PracticePreference | null
+}
+
 export type EnumCollectionStatusFieldUpdateOperationsInput = {
   set?: $Enums.CollectionStatus
 }
@@ -488,6 +530,8 @@ export type CollectionUpdateOneWithoutSkillsNestedInput = {
 }
 
 export type CollectionCreateWithoutUserInput = {
+  practicePreference?: $Enums.PracticePreference | null
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   id?: string
   name: string
   description?: string | null
@@ -500,6 +544,8 @@ export type CollectionCreateWithoutUserInput = {
 }
 
 export type CollectionUncheckedCreateWithoutUserInput = {
+  practicePreference?: $Enums.PracticePreference | null
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   id?: string
   name: string
   description?: string | null
@@ -541,6 +587,8 @@ export type CollectionScalarWhereInput = {
   AND?: Prisma.CollectionScalarWhereInput | Prisma.CollectionScalarWhereInput[]
   OR?: Prisma.CollectionScalarWhereInput[]
   NOT?: Prisma.CollectionScalarWhereInput | Prisma.CollectionScalarWhereInput[]
+  practicePreference?: Prisma.EnumPracticePreferenceNullableFilter<"Collection"> | $Enums.PracticePreference | null
+  textPolicy?: Prisma.JsonNullableFilter<"Collection">
   id?: Prisma.StringFilter<"Collection"> | string
   userId?: Prisma.StringFilter<"Collection"> | string
   name?: Prisma.StringFilter<"Collection"> | string
@@ -551,6 +599,8 @@ export type CollectionScalarWhereInput = {
 }
 
 export type CollectionCreateWithoutSourceFilesInput = {
+  practicePreference?: $Enums.PracticePreference | null
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   id?: string
   name: string
   description?: string | null
@@ -563,6 +613,8 @@ export type CollectionCreateWithoutSourceFilesInput = {
 }
 
 export type CollectionUncheckedCreateWithoutSourceFilesInput = {
+  practicePreference?: $Enums.PracticePreference | null
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   id?: string
   userId: string
   name: string
@@ -591,6 +643,8 @@ export type CollectionUpdateToOneWithWhereWithoutSourceFilesInput = {
 }
 
 export type CollectionUpdateWithoutSourceFilesInput = {
+  practicePreference?: Prisma.NullableEnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference | null
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -603,6 +657,8 @@ export type CollectionUpdateWithoutSourceFilesInput = {
 }
 
 export type CollectionUncheckedUpdateWithoutSourceFilesInput = {
+  practicePreference?: Prisma.NullableEnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference | null
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   id?: Prisma.StringFieldUpdateOperationsInput | string
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
@@ -615,6 +671,8 @@ export type CollectionUncheckedUpdateWithoutSourceFilesInput = {
 }
 
 export type CollectionCreateWithoutStudyMaterialsInput = {
+  practicePreference?: $Enums.PracticePreference | null
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   id?: string
   name: string
   description?: string | null
@@ -627,6 +685,8 @@ export type CollectionCreateWithoutStudyMaterialsInput = {
 }
 
 export type CollectionUncheckedCreateWithoutStudyMaterialsInput = {
+  practicePreference?: $Enums.PracticePreference | null
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   id?: string
   userId: string
   name: string
@@ -655,6 +715,8 @@ export type CollectionUpdateToOneWithWhereWithoutStudyMaterialsInput = {
 }
 
 export type CollectionUpdateWithoutStudyMaterialsInput = {
+  practicePreference?: Prisma.NullableEnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference | null
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -667,6 +729,8 @@ export type CollectionUpdateWithoutStudyMaterialsInput = {
 }
 
 export type CollectionUncheckedUpdateWithoutStudyMaterialsInput = {
+  practicePreference?: Prisma.NullableEnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference | null
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   id?: Prisma.StringFieldUpdateOperationsInput | string
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
@@ -679,6 +743,8 @@ export type CollectionUncheckedUpdateWithoutStudyMaterialsInput = {
 }
 
 export type CollectionCreateWithoutSkillsInput = {
+  practicePreference?: $Enums.PracticePreference | null
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   id?: string
   name: string
   description?: string | null
@@ -691,6 +757,8 @@ export type CollectionCreateWithoutSkillsInput = {
 }
 
 export type CollectionUncheckedCreateWithoutSkillsInput = {
+  practicePreference?: $Enums.PracticePreference | null
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   id?: string
   userId: string
   name: string
@@ -719,6 +787,8 @@ export type CollectionUpdateToOneWithWhereWithoutSkillsInput = {
 }
 
 export type CollectionUpdateWithoutSkillsInput = {
+  practicePreference?: Prisma.NullableEnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference | null
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -731,6 +801,8 @@ export type CollectionUpdateWithoutSkillsInput = {
 }
 
 export type CollectionUncheckedUpdateWithoutSkillsInput = {
+  practicePreference?: Prisma.NullableEnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference | null
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   id?: Prisma.StringFieldUpdateOperationsInput | string
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
@@ -743,6 +815,8 @@ export type CollectionUncheckedUpdateWithoutSkillsInput = {
 }
 
 export type CollectionCreateManyUserInput = {
+  practicePreference?: $Enums.PracticePreference | null
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   id?: string
   name: string
   description?: string | null
@@ -752,6 +826,8 @@ export type CollectionCreateManyUserInput = {
 }
 
 export type CollectionUpdateWithoutUserInput = {
+  practicePreference?: Prisma.NullableEnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference | null
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -764,6 +840,8 @@ export type CollectionUpdateWithoutUserInput = {
 }
 
 export type CollectionUncheckedUpdateWithoutUserInput = {
+  practicePreference?: Prisma.NullableEnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference | null
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -776,6 +854,8 @@ export type CollectionUncheckedUpdateWithoutUserInput = {
 }
 
 export type CollectionUncheckedUpdateManyWithoutUserInput = {
+  practicePreference?: Prisma.NullableEnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference | null
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -834,6 +914,8 @@ export type CollectionCountOutputTypeCountStudyMaterialsArgs<ExtArgs extends run
 
 
 export type CollectionSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
+  practicePreference?: boolean
+  textPolicy?: boolean
   id?: boolean
   userId?: boolean
   name?: boolean
@@ -849,6 +931,8 @@ export type CollectionSelect<ExtArgs extends runtime.Types.Extensions.InternalAr
 }, ExtArgs["result"]["collection"]>
 
 export type CollectionSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
+  practicePreference?: boolean
+  textPolicy?: boolean
   id?: boolean
   userId?: boolean
   name?: boolean
@@ -860,6 +944,8 @@ export type CollectionSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Ex
 }, ExtArgs["result"]["collection"]>
 
 export type CollectionSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
+  practicePreference?: boolean
+  textPolicy?: boolean
   id?: boolean
   userId?: boolean
   name?: boolean
@@ -871,6 +957,8 @@ export type CollectionSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Ex
 }, ExtArgs["result"]["collection"]>
 
 export type CollectionSelectScalar = {
+  practicePreference?: boolean
+  textPolicy?: boolean
   id?: boolean
   userId?: boolean
   name?: boolean
@@ -880,7 +968,7 @@ export type CollectionSelectScalar = {
   updatedAt?: boolean
 }
 
-export type CollectionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "name" | "description" | "status" | "createdAt" | "updatedAt", ExtArgs["result"]["collection"]>
+export type CollectionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"practicePreference" | "textPolicy" | "id" | "userId" | "name" | "description" | "status" | "createdAt" | "updatedAt", ExtArgs["result"]["collection"]>
 export type CollectionInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   skills?: boolean | Prisma.Collection$skillsArgs<ExtArgs>
@@ -904,6 +992,8 @@ export type $CollectionPayload<ExtArgs extends runtime.Types.Extensions.Internal
     studyMaterials: Prisma.$StudyMaterialPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
+    practicePreference: $Enums.PracticePreference | null
+    textPolicy: runtime.JsonValue | null
     id: string
     userId: string
     name: string
@@ -994,8 +1084,8 @@ export interface CollectionDelegate<ExtArgs extends runtime.Types.Extensions.Int
    * // Get first 10 Collections
    * const collections = await prisma.collection.findMany({ take: 10 })
    * 
-   * // Only select the `id`
-   * const collectionWithIdOnly = await prisma.collection.findMany({ select: { id: true } })
+   * // Only select the `textPolicy`
+   * const collectionWithTextPolicyOnly = await prisma.collection.findMany({ select: { textPolicy: true } })
    * 
    */
   findMany<T extends CollectionFindManyArgs>(args?: Prisma.SelectSubset<T, CollectionFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$CollectionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions>>
@@ -1039,9 +1129,9 @@ export interface CollectionDelegate<ExtArgs extends runtime.Types.Extensions.Int
    *   ]
    * })
    * 
-   * // Create many Collections and only return the `id`
-   * const collectionWithIdOnly = await prisma.collection.createManyAndReturn({
-   *   select: { id: true },
+   * // Create many Collections and only return the `textPolicy`
+   * const collectionWithTextPolicyOnly = await prisma.collection.createManyAndReturn({
+   *   select: { textPolicy: true },
    *   data: [
    *     // ... provide data here
    *   ]
@@ -1130,9 +1220,9 @@ export interface CollectionDelegate<ExtArgs extends runtime.Types.Extensions.Int
    *   ]
    * })
    * 
-   * // Update zero or more Collections and only return the `id`
-   * const collectionWithIdOnly = await prisma.collection.updateManyAndReturn({
-   *   select: { id: true },
+   * // Update zero or more Collections and only return the `textPolicy`
+   * const collectionWithTextPolicyOnly = await prisma.collection.updateManyAndReturn({
+   *   select: { textPolicy: true },
    *   where: {
    *     // ... provide filter here
    *   },
@@ -1338,6 +1428,8 @@ export interface Prisma__CollectionClient<T, Null = never, ExtArgs extends runti
  * Fields of the Collection model
  */
 export interface CollectionFieldRefs {
+  readonly practicePreference: Prisma.FieldRef<"Collection", 'PracticePreference'>
+  readonly textPolicy: Prisma.FieldRef<"Collection", 'Json'>
   readonly id: Prisma.FieldRef<"Collection", 'String'>
   readonly userId: Prisma.FieldRef<"Collection", 'String'>
   readonly name: Prisma.FieldRef<"Collection", 'String'>

@@ -27,6 +27,7 @@ export type AggregateSkill = {
 }
 
 export type SkillAvgAggregateOutputType = {
+  textPolicyRevision: number | null
   stability: number | null
   difficulty: number | null
   elapsedDays: number | null
@@ -37,6 +38,7 @@ export type SkillAvgAggregateOutputType = {
 }
 
 export type SkillSumAggregateOutputType = {
+  textPolicyRevision: number | null
   stability: number | null
   difficulty: number | null
   elapsedDays: number | null
@@ -47,6 +49,9 @@ export type SkillSumAggregateOutputType = {
 }
 
 export type SkillMinAggregateOutputType = {
+  practicePreference: $Enums.PracticePreference | null
+  alreadyStudied: boolean | null
+  textPolicyRevision: number | null
   id: string | null
   userId: string | null
   collectionId: string | null
@@ -73,6 +78,9 @@ export type SkillMinAggregateOutputType = {
 }
 
 export type SkillMaxAggregateOutputType = {
+  practicePreference: $Enums.PracticePreference | null
+  alreadyStudied: boolean | null
+  textPolicyRevision: number | null
   id: string | null
   userId: string | null
   collectionId: string | null
@@ -99,6 +107,10 @@ export type SkillMaxAggregateOutputType = {
 }
 
 export type SkillCountAggregateOutputType = {
+  practicePreference: number
+  alreadyStudied: number
+  textPolicy: number
+  textPolicyRevision: number
   id: number
   userId: number
   collectionId: number
@@ -132,6 +144,7 @@ export type SkillCountAggregateOutputType = {
 
 
 export type SkillAvgAggregateInputType = {
+  textPolicyRevision?: true
   stability?: true
   difficulty?: true
   elapsedDays?: true
@@ -142,6 +155,7 @@ export type SkillAvgAggregateInputType = {
 }
 
 export type SkillSumAggregateInputType = {
+  textPolicyRevision?: true
   stability?: true
   difficulty?: true
   elapsedDays?: true
@@ -152,6 +166,9 @@ export type SkillSumAggregateInputType = {
 }
 
 export type SkillMinAggregateInputType = {
+  practicePreference?: true
+  alreadyStudied?: true
+  textPolicyRevision?: true
   id?: true
   userId?: true
   collectionId?: true
@@ -178,6 +195,9 @@ export type SkillMinAggregateInputType = {
 }
 
 export type SkillMaxAggregateInputType = {
+  practicePreference?: true
+  alreadyStudied?: true
+  textPolicyRevision?: true
   id?: true
   userId?: true
   collectionId?: true
@@ -204,6 +224,10 @@ export type SkillMaxAggregateInputType = {
 }
 
 export type SkillCountAggregateInputType = {
+  practicePreference?: true
+  alreadyStudied?: true
+  textPolicy?: true
+  textPolicyRevision?: true
   id?: true
   userId?: true
   collectionId?: true
@@ -322,6 +346,10 @@ export type SkillGroupByArgs<ExtArgs extends runtime.Types.Extensions.InternalAr
 }
 
 export type SkillGroupByOutputType = {
+  practicePreference: $Enums.PracticePreference | null
+  alreadyStudied: boolean
+  textPolicy: runtime.JsonValue | null
+  textPolicyRevision: number
   id: string
   userId: string
   collectionId: string | null
@@ -376,6 +404,10 @@ export type SkillWhereInput = {
   AND?: Prisma.SkillWhereInput | Prisma.SkillWhereInput[]
   OR?: Prisma.SkillWhereInput[]
   NOT?: Prisma.SkillWhereInput | Prisma.SkillWhereInput[]
+  practicePreference?: Prisma.EnumPracticePreferenceNullableFilter<"Skill"> | $Enums.PracticePreference | null
+  alreadyStudied?: Prisma.BoolFilter<"Skill"> | boolean
+  textPolicy?: Prisma.JsonNullableFilter<"Skill">
+  textPolicyRevision?: Prisma.IntFilter<"Skill"> | number
   id?: Prisma.StringFilter<"Skill"> | string
   userId?: Prisma.StringFilter<"Skill"> | string
   collectionId?: Prisma.StringNullableFilter<"Skill"> | string | null
@@ -418,6 +450,10 @@ export type SkillWhereInput = {
 }
 
 export type SkillOrderByWithRelationInput = {
+  practicePreference?: Prisma.SortOrderInput | Prisma.SortOrder
+  alreadyStudied?: Prisma.SortOrder
+  textPolicy?: Prisma.SortOrderInput | Prisma.SortOrder
+  textPolicyRevision?: Prisma.SortOrder
   id?: Prisma.SortOrder
   userId?: Prisma.SortOrder
   collectionId?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -465,6 +501,10 @@ export type SkillWhereUniqueInput = Prisma.AtLeast<{
   AND?: Prisma.SkillWhereInput | Prisma.SkillWhereInput[]
   OR?: Prisma.SkillWhereInput[]
   NOT?: Prisma.SkillWhereInput | Prisma.SkillWhereInput[]
+  practicePreference?: Prisma.EnumPracticePreferenceNullableFilter<"Skill"> | $Enums.PracticePreference | null
+  alreadyStudied?: Prisma.BoolFilter<"Skill"> | boolean
+  textPolicy?: Prisma.JsonNullableFilter<"Skill">
+  textPolicyRevision?: Prisma.IntFilter<"Skill"> | number
   userId?: Prisma.StringFilter<"Skill"> | string
   collectionId?: Prisma.StringNullableFilter<"Skill"> | string | null
   title?: Prisma.StringFilter<"Skill"> | string
@@ -506,6 +546,10 @@ export type SkillWhereUniqueInput = Prisma.AtLeast<{
 }, "id" | "id_userId">
 
 export type SkillOrderByWithAggregationInput = {
+  practicePreference?: Prisma.SortOrderInput | Prisma.SortOrder
+  alreadyStudied?: Prisma.SortOrder
+  textPolicy?: Prisma.SortOrderInput | Prisma.SortOrder
+  textPolicyRevision?: Prisma.SortOrder
   id?: Prisma.SortOrder
   userId?: Prisma.SortOrder
   collectionId?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -545,6 +589,10 @@ export type SkillScalarWhereWithAggregatesInput = {
   AND?: Prisma.SkillScalarWhereWithAggregatesInput | Prisma.SkillScalarWhereWithAggregatesInput[]
   OR?: Prisma.SkillScalarWhereWithAggregatesInput[]
   NOT?: Prisma.SkillScalarWhereWithAggregatesInput | Prisma.SkillScalarWhereWithAggregatesInput[]
+  practicePreference?: Prisma.EnumPracticePreferenceNullableWithAggregatesFilter<"Skill"> | $Enums.PracticePreference | null
+  alreadyStudied?: Prisma.BoolWithAggregatesFilter<"Skill"> | boolean
+  textPolicy?: Prisma.JsonNullableWithAggregatesFilter<"Skill">
+  textPolicyRevision?: Prisma.IntWithAggregatesFilter<"Skill"> | number
   id?: Prisma.StringWithAggregatesFilter<"Skill"> | string
   userId?: Prisma.StringWithAggregatesFilter<"Skill"> | string
   collectionId?: Prisma.StringNullableWithAggregatesFilter<"Skill"> | string | null
@@ -576,6 +624,10 @@ export type SkillScalarWhereWithAggregatesInput = {
 }
 
 export type SkillCreateInput = {
+  practicePreference?: $Enums.PracticePreference | null
+  alreadyStudied?: boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: number
   id?: string
   title: string
   objective?: string | null
@@ -616,6 +668,10 @@ export type SkillCreateInput = {
 }
 
 export type SkillUncheckedCreateInput = {
+  practicePreference?: $Enums.PracticePreference | null
+  alreadyStudied?: boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: number
   id?: string
   userId: string
   collectionId?: string | null
@@ -656,6 +712,10 @@ export type SkillUncheckedCreateInput = {
 }
 
 export type SkillUpdateInput = {
+  practicePreference?: Prisma.NullableEnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference | null
+  alreadyStudied?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: Prisma.IntFieldUpdateOperationsInput | number
   id?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   objective?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -696,6 +756,10 @@ export type SkillUpdateInput = {
 }
 
 export type SkillUncheckedUpdateInput = {
+  practicePreference?: Prisma.NullableEnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference | null
+  alreadyStudied?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: Prisma.IntFieldUpdateOperationsInput | number
   id?: Prisma.StringFieldUpdateOperationsInput | string
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   collectionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -736,6 +800,10 @@ export type SkillUncheckedUpdateInput = {
 }
 
 export type SkillCreateManyInput = {
+  practicePreference?: $Enums.PracticePreference | null
+  alreadyStudied?: boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: number
   id?: string
   userId: string
   collectionId?: string | null
@@ -767,6 +835,10 @@ export type SkillCreateManyInput = {
 }
 
 export type SkillUpdateManyMutationInput = {
+  practicePreference?: Prisma.NullableEnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference | null
+  alreadyStudied?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: Prisma.IntFieldUpdateOperationsInput | number
   id?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   objective?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -796,6 +868,10 @@ export type SkillUpdateManyMutationInput = {
 }
 
 export type SkillUncheckedUpdateManyInput = {
+  practicePreference?: Prisma.NullableEnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference | null
+  alreadyStudied?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: Prisma.IntFieldUpdateOperationsInput | number
   id?: Prisma.StringFieldUpdateOperationsInput | string
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   collectionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -842,6 +918,10 @@ export type SkillIdUserIdCompoundUniqueInput = {
 }
 
 export type SkillCountOrderByAggregateInput = {
+  practicePreference?: Prisma.SortOrder
+  alreadyStudied?: Prisma.SortOrder
+  textPolicy?: Prisma.SortOrder
+  textPolicyRevision?: Prisma.SortOrder
   id?: Prisma.SortOrder
   userId?: Prisma.SortOrder
   collectionId?: Prisma.SortOrder
@@ -873,6 +953,7 @@ export type SkillCountOrderByAggregateInput = {
 }
 
 export type SkillAvgOrderByAggregateInput = {
+  textPolicyRevision?: Prisma.SortOrder
   stability?: Prisma.SortOrder
   difficulty?: Prisma.SortOrder
   elapsedDays?: Prisma.SortOrder
@@ -883,6 +964,9 @@ export type SkillAvgOrderByAggregateInput = {
 }
 
 export type SkillMaxOrderByAggregateInput = {
+  practicePreference?: Prisma.SortOrder
+  alreadyStudied?: Prisma.SortOrder
+  textPolicyRevision?: Prisma.SortOrder
   id?: Prisma.SortOrder
   userId?: Prisma.SortOrder
   collectionId?: Prisma.SortOrder
@@ -909,6 +993,9 @@ export type SkillMaxOrderByAggregateInput = {
 }
 
 export type SkillMinOrderByAggregateInput = {
+  practicePreference?: Prisma.SortOrder
+  alreadyStudied?: Prisma.SortOrder
+  textPolicyRevision?: Prisma.SortOrder
   id?: Prisma.SortOrder
   userId?: Prisma.SortOrder
   collectionId?: Prisma.SortOrder
@@ -935,6 +1022,7 @@ export type SkillMinOrderByAggregateInput = {
 }
 
 export type SkillSumOrderByAggregateInput = {
+  textPolicyRevision?: Prisma.SortOrder
   stability?: Prisma.SortOrder
   difficulty?: Prisma.SortOrder
   elapsedDays?: Prisma.SortOrder
@@ -1202,6 +1290,10 @@ export type SkillUpdateOneWithoutAgentResultItemsNestedInput = {
 }
 
 export type SkillCreateWithoutUserInput = {
+  practicePreference?: $Enums.PracticePreference | null
+  alreadyStudied?: boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: number
   id?: string
   title: string
   objective?: string | null
@@ -1241,6 +1333,10 @@ export type SkillCreateWithoutUserInput = {
 }
 
 export type SkillUncheckedCreateWithoutUserInput = {
+  practicePreference?: $Enums.PracticePreference | null
+  alreadyStudied?: boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: number
   id?: string
   collectionId?: string | null
   title: string
@@ -1309,6 +1405,10 @@ export type SkillScalarWhereInput = {
   AND?: Prisma.SkillScalarWhereInput | Prisma.SkillScalarWhereInput[]
   OR?: Prisma.SkillScalarWhereInput[]
   NOT?: Prisma.SkillScalarWhereInput | Prisma.SkillScalarWhereInput[]
+  practicePreference?: Prisma.EnumPracticePreferenceNullableFilter<"Skill"> | $Enums.PracticePreference | null
+  alreadyStudied?: Prisma.BoolFilter<"Skill"> | boolean
+  textPolicy?: Prisma.JsonNullableFilter<"Skill">
+  textPolicyRevision?: Prisma.IntFilter<"Skill"> | number
   id?: Prisma.StringFilter<"Skill"> | string
   userId?: Prisma.StringFilter<"Skill"> | string
   collectionId?: Prisma.StringNullableFilter<"Skill"> | string | null
@@ -1340,6 +1440,10 @@ export type SkillScalarWhereInput = {
 }
 
 export type SkillCreateWithoutCollectionInput = {
+  practicePreference?: $Enums.PracticePreference | null
+  alreadyStudied?: boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: number
   id?: string
   title: string
   objective?: string | null
@@ -1379,6 +1483,10 @@ export type SkillCreateWithoutCollectionInput = {
 }
 
 export type SkillUncheckedCreateWithoutCollectionInput = {
+  practicePreference?: $Enums.PracticePreference | null
+  alreadyStudied?: boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: number
   id?: string
   title: string
   objective?: string | null
@@ -1443,6 +1551,10 @@ export type SkillUpdateManyWithWhereWithoutCollectionInput = {
 }
 
 export type SkillCreateWithoutDraftBatchItemsInput = {
+  practicePreference?: $Enums.PracticePreference | null
+  alreadyStudied?: boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: number
   id?: string
   title: string
   objective?: string | null
@@ -1482,6 +1594,10 @@ export type SkillCreateWithoutDraftBatchItemsInput = {
 }
 
 export type SkillUncheckedCreateWithoutDraftBatchItemsInput = {
+  practicePreference?: $Enums.PracticePreference | null
+  alreadyStudied?: boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: number
   id?: string
   userId: string
   collectionId?: string | null
@@ -1537,6 +1653,10 @@ export type SkillUpdateToOneWithWhereWithoutDraftBatchItemsInput = {
 }
 
 export type SkillUpdateWithoutDraftBatchItemsInput = {
+  practicePreference?: Prisma.NullableEnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference | null
+  alreadyStudied?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: Prisma.IntFieldUpdateOperationsInput | number
   id?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   objective?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1576,6 +1696,10 @@ export type SkillUpdateWithoutDraftBatchItemsInput = {
 }
 
 export type SkillUncheckedUpdateWithoutDraftBatchItemsInput = {
+  practicePreference?: Prisma.NullableEnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference | null
+  alreadyStudied?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: Prisma.IntFieldUpdateOperationsInput | number
   id?: Prisma.StringFieldUpdateOperationsInput | string
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   collectionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1615,6 +1739,10 @@ export type SkillUncheckedUpdateWithoutDraftBatchItemsInput = {
 }
 
 export type SkillCreateWithoutSourceRefsInput = {
+  practicePreference?: $Enums.PracticePreference | null
+  alreadyStudied?: boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: number
   id?: string
   title: string
   objective?: string | null
@@ -1654,6 +1782,10 @@ export type SkillCreateWithoutSourceRefsInput = {
 }
 
 export type SkillUncheckedCreateWithoutSourceRefsInput = {
+  practicePreference?: $Enums.PracticePreference | null
+  alreadyStudied?: boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: number
   id?: string
   userId: string
   collectionId?: string | null
@@ -1709,6 +1841,10 @@ export type SkillUpdateToOneWithWhereWithoutSourceRefsInput = {
 }
 
 export type SkillUpdateWithoutSourceRefsInput = {
+  practicePreference?: Prisma.NullableEnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference | null
+  alreadyStudied?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: Prisma.IntFieldUpdateOperationsInput | number
   id?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   objective?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1748,6 +1884,10 @@ export type SkillUpdateWithoutSourceRefsInput = {
 }
 
 export type SkillUncheckedUpdateWithoutSourceRefsInput = {
+  practicePreference?: Prisma.NullableEnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference | null
+  alreadyStudied?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: Prisma.IntFieldUpdateOperationsInput | number
   id?: Prisma.StringFieldUpdateOperationsInput | string
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   collectionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1787,6 +1927,10 @@ export type SkillUncheckedUpdateWithoutSourceRefsInput = {
 }
 
 export type SkillCreateWithoutExercisesInput = {
+  practicePreference?: $Enums.PracticePreference | null
+  alreadyStudied?: boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: number
   id?: string
   title: string
   objective?: string | null
@@ -1826,6 +1970,10 @@ export type SkillCreateWithoutExercisesInput = {
 }
 
 export type SkillUncheckedCreateWithoutExercisesInput = {
+  practicePreference?: $Enums.PracticePreference | null
+  alreadyStudied?: boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: number
   id?: string
   userId: string
   collectionId?: string | null
@@ -1881,6 +2029,10 @@ export type SkillUpdateToOneWithWhereWithoutExercisesInput = {
 }
 
 export type SkillUpdateWithoutExercisesInput = {
+  practicePreference?: Prisma.NullableEnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference | null
+  alreadyStudied?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: Prisma.IntFieldUpdateOperationsInput | number
   id?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   objective?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1920,6 +2072,10 @@ export type SkillUpdateWithoutExercisesInput = {
 }
 
 export type SkillUncheckedUpdateWithoutExercisesInput = {
+  practicePreference?: Prisma.NullableEnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference | null
+  alreadyStudied?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: Prisma.IntFieldUpdateOperationsInput | number
   id?: Prisma.StringFieldUpdateOperationsInput | string
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   collectionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1959,6 +2115,10 @@ export type SkillUncheckedUpdateWithoutExercisesInput = {
 }
 
 export type SkillCreateWithoutAttemptsInput = {
+  practicePreference?: $Enums.PracticePreference | null
+  alreadyStudied?: boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: number
   id?: string
   title: string
   objective?: string | null
@@ -1998,6 +2158,10 @@ export type SkillCreateWithoutAttemptsInput = {
 }
 
 export type SkillUncheckedCreateWithoutAttemptsInput = {
+  practicePreference?: $Enums.PracticePreference | null
+  alreadyStudied?: boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: number
   id?: string
   userId: string
   collectionId?: string | null
@@ -2053,6 +2217,10 @@ export type SkillUpdateToOneWithWhereWithoutAttemptsInput = {
 }
 
 export type SkillUpdateWithoutAttemptsInput = {
+  practicePreference?: Prisma.NullableEnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference | null
+  alreadyStudied?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: Prisma.IntFieldUpdateOperationsInput | number
   id?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   objective?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2092,6 +2260,10 @@ export type SkillUpdateWithoutAttemptsInput = {
 }
 
 export type SkillUncheckedUpdateWithoutAttemptsInput = {
+  practicePreference?: Prisma.NullableEnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference | null
+  alreadyStudied?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: Prisma.IntFieldUpdateOperationsInput | number
   id?: Prisma.StringFieldUpdateOperationsInput | string
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   collectionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2131,6 +2303,10 @@ export type SkillUncheckedUpdateWithoutAttemptsInput = {
 }
 
 export type SkillCreateWithoutReviewLogsInput = {
+  practicePreference?: $Enums.PracticePreference | null
+  alreadyStudied?: boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: number
   id?: string
   title: string
   objective?: string | null
@@ -2170,6 +2346,10 @@ export type SkillCreateWithoutReviewLogsInput = {
 }
 
 export type SkillUncheckedCreateWithoutReviewLogsInput = {
+  practicePreference?: $Enums.PracticePreference | null
+  alreadyStudied?: boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: number
   id?: string
   userId: string
   collectionId?: string | null
@@ -2225,6 +2405,10 @@ export type SkillUpdateToOneWithWhereWithoutReviewLogsInput = {
 }
 
 export type SkillUpdateWithoutReviewLogsInput = {
+  practicePreference?: Prisma.NullableEnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference | null
+  alreadyStudied?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: Prisma.IntFieldUpdateOperationsInput | number
   id?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   objective?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2264,6 +2448,10 @@ export type SkillUpdateWithoutReviewLogsInput = {
 }
 
 export type SkillUncheckedUpdateWithoutReviewLogsInput = {
+  practicePreference?: Prisma.NullableEnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference | null
+  alreadyStudied?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: Prisma.IntFieldUpdateOperationsInput | number
   id?: Prisma.StringFieldUpdateOperationsInput | string
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   collectionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2303,6 +2491,10 @@ export type SkillUncheckedUpdateWithoutReviewLogsInput = {
 }
 
 export type SkillCreateWithoutGenerationJobsInput = {
+  practicePreference?: $Enums.PracticePreference | null
+  alreadyStudied?: boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: number
   id?: string
   title: string
   objective?: string | null
@@ -2342,6 +2534,10 @@ export type SkillCreateWithoutGenerationJobsInput = {
 }
 
 export type SkillUncheckedCreateWithoutGenerationJobsInput = {
+  practicePreference?: $Enums.PracticePreference | null
+  alreadyStudied?: boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: number
   id?: string
   userId: string
   collectionId?: string | null
@@ -2397,6 +2593,10 @@ export type SkillUpdateToOneWithWhereWithoutGenerationJobsInput = {
 }
 
 export type SkillUpdateWithoutGenerationJobsInput = {
+  practicePreference?: Prisma.NullableEnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference | null
+  alreadyStudied?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: Prisma.IntFieldUpdateOperationsInput | number
   id?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   objective?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2436,6 +2636,10 @@ export type SkillUpdateWithoutGenerationJobsInput = {
 }
 
 export type SkillUncheckedUpdateWithoutGenerationJobsInput = {
+  practicePreference?: Prisma.NullableEnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference | null
+  alreadyStudied?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: Prisma.IntFieldUpdateOperationsInput | number
   id?: Prisma.StringFieldUpdateOperationsInput | string
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   collectionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2475,6 +2679,10 @@ export type SkillUncheckedUpdateWithoutGenerationJobsInput = {
 }
 
 export type SkillCreateWithoutGenerationAuditRecordsInput = {
+  practicePreference?: $Enums.PracticePreference | null
+  alreadyStudied?: boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: number
   id?: string
   title: string
   objective?: string | null
@@ -2514,6 +2722,10 @@ export type SkillCreateWithoutGenerationAuditRecordsInput = {
 }
 
 export type SkillUncheckedCreateWithoutGenerationAuditRecordsInput = {
+  practicePreference?: $Enums.PracticePreference | null
+  alreadyStudied?: boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: number
   id?: string
   userId: string
   collectionId?: string | null
@@ -2569,6 +2781,10 @@ export type SkillUpdateToOneWithWhereWithoutGenerationAuditRecordsInput = {
 }
 
 export type SkillUpdateWithoutGenerationAuditRecordsInput = {
+  practicePreference?: Prisma.NullableEnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference | null
+  alreadyStudied?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: Prisma.IntFieldUpdateOperationsInput | number
   id?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   objective?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2608,6 +2824,10 @@ export type SkillUpdateWithoutGenerationAuditRecordsInput = {
 }
 
 export type SkillUncheckedUpdateWithoutGenerationAuditRecordsInput = {
+  practicePreference?: Prisma.NullableEnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference | null
+  alreadyStudied?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: Prisma.IntFieldUpdateOperationsInput | number
   id?: Prisma.StringFieldUpdateOperationsInput | string
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   collectionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2647,6 +2867,10 @@ export type SkillUncheckedUpdateWithoutGenerationAuditRecordsInput = {
 }
 
 export type SkillCreateWithoutAgentCreatedItemsInput = {
+  practicePreference?: $Enums.PracticePreference | null
+  alreadyStudied?: boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: number
   id?: string
   title: string
   objective?: string | null
@@ -2686,6 +2910,10 @@ export type SkillCreateWithoutAgentCreatedItemsInput = {
 }
 
 export type SkillUncheckedCreateWithoutAgentCreatedItemsInput = {
+  practicePreference?: $Enums.PracticePreference | null
+  alreadyStudied?: boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: number
   id?: string
   userId: string
   collectionId?: string | null
@@ -2730,6 +2958,10 @@ export type SkillCreateOrConnectWithoutAgentCreatedItemsInput = {
 }
 
 export type SkillCreateWithoutAgentResultItemsInput = {
+  practicePreference?: $Enums.PracticePreference | null
+  alreadyStudied?: boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: number
   id?: string
   title: string
   objective?: string | null
@@ -2769,6 +3001,10 @@ export type SkillCreateWithoutAgentResultItemsInput = {
 }
 
 export type SkillUncheckedCreateWithoutAgentResultItemsInput = {
+  practicePreference?: $Enums.PracticePreference | null
+  alreadyStudied?: boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: number
   id?: string
   userId: string
   collectionId?: string | null
@@ -2824,6 +3060,10 @@ export type SkillUpdateToOneWithWhereWithoutAgentCreatedItemsInput = {
 }
 
 export type SkillUpdateWithoutAgentCreatedItemsInput = {
+  practicePreference?: Prisma.NullableEnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference | null
+  alreadyStudied?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: Prisma.IntFieldUpdateOperationsInput | number
   id?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   objective?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2863,6 +3103,10 @@ export type SkillUpdateWithoutAgentCreatedItemsInput = {
 }
 
 export type SkillUncheckedUpdateWithoutAgentCreatedItemsInput = {
+  practicePreference?: Prisma.NullableEnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference | null
+  alreadyStudied?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: Prisma.IntFieldUpdateOperationsInput | number
   id?: Prisma.StringFieldUpdateOperationsInput | string
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   collectionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2913,6 +3157,10 @@ export type SkillUpdateToOneWithWhereWithoutAgentResultItemsInput = {
 }
 
 export type SkillUpdateWithoutAgentResultItemsInput = {
+  practicePreference?: Prisma.NullableEnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference | null
+  alreadyStudied?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: Prisma.IntFieldUpdateOperationsInput | number
   id?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   objective?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2952,6 +3200,10 @@ export type SkillUpdateWithoutAgentResultItemsInput = {
 }
 
 export type SkillUncheckedUpdateWithoutAgentResultItemsInput = {
+  practicePreference?: Prisma.NullableEnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference | null
+  alreadyStudied?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: Prisma.IntFieldUpdateOperationsInput | number
   id?: Prisma.StringFieldUpdateOperationsInput | string
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   collectionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2991,6 +3243,10 @@ export type SkillUncheckedUpdateWithoutAgentResultItemsInput = {
 }
 
 export type SkillCreateManyUserInput = {
+  practicePreference?: $Enums.PracticePreference | null
+  alreadyStudied?: boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: number
   id?: string
   collectionId?: string | null
   title: string
@@ -3021,6 +3277,10 @@ export type SkillCreateManyUserInput = {
 }
 
 export type SkillUpdateWithoutUserInput = {
+  practicePreference?: Prisma.NullableEnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference | null
+  alreadyStudied?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: Prisma.IntFieldUpdateOperationsInput | number
   id?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   objective?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -3060,6 +3320,10 @@ export type SkillUpdateWithoutUserInput = {
 }
 
 export type SkillUncheckedUpdateWithoutUserInput = {
+  practicePreference?: Prisma.NullableEnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference | null
+  alreadyStudied?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: Prisma.IntFieldUpdateOperationsInput | number
   id?: Prisma.StringFieldUpdateOperationsInput | string
   collectionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   title?: Prisma.StringFieldUpdateOperationsInput | string
@@ -3099,6 +3363,10 @@ export type SkillUncheckedUpdateWithoutUserInput = {
 }
 
 export type SkillUncheckedUpdateManyWithoutUserInput = {
+  practicePreference?: Prisma.NullableEnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference | null
+  alreadyStudied?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: Prisma.IntFieldUpdateOperationsInput | number
   id?: Prisma.StringFieldUpdateOperationsInput | string
   collectionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   title?: Prisma.StringFieldUpdateOperationsInput | string
@@ -3129,6 +3397,10 @@ export type SkillUncheckedUpdateManyWithoutUserInput = {
 }
 
 export type SkillCreateManyCollectionInput = {
+  practicePreference?: $Enums.PracticePreference | null
+  alreadyStudied?: boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: number
   id?: string
   title: string
   objective?: string | null
@@ -3158,6 +3430,10 @@ export type SkillCreateManyCollectionInput = {
 }
 
 export type SkillUpdateWithoutCollectionInput = {
+  practicePreference?: Prisma.NullableEnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference | null
+  alreadyStudied?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: Prisma.IntFieldUpdateOperationsInput | number
   id?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   objective?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -3197,6 +3473,10 @@ export type SkillUpdateWithoutCollectionInput = {
 }
 
 export type SkillUncheckedUpdateWithoutCollectionInput = {
+  practicePreference?: Prisma.NullableEnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference | null
+  alreadyStudied?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: Prisma.IntFieldUpdateOperationsInput | number
   id?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   objective?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -3235,6 +3515,10 @@ export type SkillUncheckedUpdateWithoutCollectionInput = {
 }
 
 export type SkillUncheckedUpdateManyWithoutCollectionInput = {
+  practicePreference?: Prisma.NullableEnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference | null
+  alreadyStudied?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: Prisma.IntFieldUpdateOperationsInput | number
   id?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   objective?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -3367,6 +3651,10 @@ export type SkillCountOutputTypeCountAgentResultItemsArgs<ExtArgs extends runtim
 
 
 export type SkillSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
+  practicePreference?: boolean
+  alreadyStudied?: boolean
+  textPolicy?: boolean
+  textPolicyRevision?: boolean
   id?: boolean
   userId?: boolean
   collectionId?: boolean
@@ -3410,6 +3698,10 @@ export type SkillSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
 }, ExtArgs["result"]["skill"]>
 
 export type SkillSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
+  practicePreference?: boolean
+  alreadyStudied?: boolean
+  textPolicy?: boolean
+  textPolicyRevision?: boolean
   id?: boolean
   userId?: boolean
   collectionId?: boolean
@@ -3443,6 +3735,10 @@ export type SkillSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensi
 }, ExtArgs["result"]["skill"]>
 
 export type SkillSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
+  practicePreference?: boolean
+  alreadyStudied?: boolean
+  textPolicy?: boolean
+  textPolicyRevision?: boolean
   id?: boolean
   userId?: boolean
   collectionId?: boolean
@@ -3476,6 +3772,10 @@ export type SkillSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensi
 }, ExtArgs["result"]["skill"]>
 
 export type SkillSelectScalar = {
+  practicePreference?: boolean
+  alreadyStudied?: boolean
+  textPolicy?: boolean
+  textPolicyRevision?: boolean
   id?: boolean
   userId?: boolean
   collectionId?: boolean
@@ -3506,7 +3806,7 @@ export type SkillSelectScalar = {
   updatedAt?: boolean
 }
 
-export type SkillOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "collectionId" | "title" | "objective" | "rules" | "examples" | "exerciseConstraints" | "tags" | "generationSpec" | "generationSpecVersion" | "generationSpecFingerprint" | "generationSpecStatus" | "similarityEmbeddingModel" | "similarityEmbeddingFingerprint" | "status" | "dueAt" | "stability" | "difficulty" | "elapsedDays" | "scheduledDays" | "learningSteps" | "repetitions" | "lapses" | "fsrsState" | "lastReviewedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["skill"]>
+export type SkillOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"practicePreference" | "alreadyStudied" | "textPolicy" | "textPolicyRevision" | "id" | "userId" | "collectionId" | "title" | "objective" | "rules" | "examples" | "exerciseConstraints" | "tags" | "generationSpec" | "generationSpecVersion" | "generationSpecFingerprint" | "generationSpecStatus" | "similarityEmbeddingModel" | "similarityEmbeddingFingerprint" | "status" | "dueAt" | "stability" | "difficulty" | "elapsedDays" | "scheduledDays" | "learningSteps" | "repetitions" | "lapses" | "fsrsState" | "lastReviewedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["skill"]>
 export type SkillInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   collection?: boolean | Prisma.Skill$collectionArgs<ExtArgs>
@@ -3546,6 +3846,10 @@ export type $SkillPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs 
     agentResultItems: Prisma.$AgentSkillOperationItemPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
+    practicePreference: $Enums.PracticePreference | null
+    alreadyStudied: boolean
+    textPolicy: runtime.JsonValue | null
+    textPolicyRevision: number
     id: string
     userId: string
     collectionId: string | null
@@ -3657,8 +3961,8 @@ export interface SkillDelegate<ExtArgs extends runtime.Types.Extensions.Internal
    * // Get first 10 Skills
    * const skills = await prisma.skill.findMany({ take: 10 })
    * 
-   * // Only select the `id`
-   * const skillWithIdOnly = await prisma.skill.findMany({ select: { id: true } })
+   * // Only select the `alreadyStudied`
+   * const skillWithAlreadyStudiedOnly = await prisma.skill.findMany({ select: { alreadyStudied: true } })
    * 
    */
   findMany<T extends SkillFindManyArgs>(args?: Prisma.SelectSubset<T, SkillFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$SkillPayload<ExtArgs>, T, "findMany", GlobalOmitOptions>>
@@ -3702,9 +4006,9 @@ export interface SkillDelegate<ExtArgs extends runtime.Types.Extensions.Internal
    *   ]
    * })
    * 
-   * // Create many Skills and only return the `id`
-   * const skillWithIdOnly = await prisma.skill.createManyAndReturn({
-   *   select: { id: true },
+   * // Create many Skills and only return the `alreadyStudied`
+   * const skillWithAlreadyStudiedOnly = await prisma.skill.createManyAndReturn({
+   *   select: { alreadyStudied: true },
    *   data: [
    *     // ... provide data here
    *   ]
@@ -3793,9 +4097,9 @@ export interface SkillDelegate<ExtArgs extends runtime.Types.Extensions.Internal
    *   ]
    * })
    * 
-   * // Update zero or more Skills and only return the `id`
-   * const skillWithIdOnly = await prisma.skill.updateManyAndReturn({
-   *   select: { id: true },
+   * // Update zero or more Skills and only return the `alreadyStudied`
+   * const skillWithAlreadyStudiedOnly = await prisma.skill.updateManyAndReturn({
+   *   select: { alreadyStudied: true },
    *   where: {
    *     // ... provide filter here
    *   },
@@ -4008,6 +4312,10 @@ export interface Prisma__SkillClient<T, Null = never, ExtArgs extends runtime.Ty
  * Fields of the Skill model
  */
 export interface SkillFieldRefs {
+  readonly practicePreference: Prisma.FieldRef<"Skill", 'PracticePreference'>
+  readonly alreadyStudied: Prisma.FieldRef<"Skill", 'Boolean'>
+  readonly textPolicy: Prisma.FieldRef<"Skill", 'Json'>
+  readonly textPolicyRevision: Prisma.FieldRef<"Skill", 'Int'>
   readonly id: Prisma.FieldRef<"Skill", 'String'>
   readonly userId: Prisma.FieldRef<"Skill", 'String'>
   readonly collectionId: Prisma.FieldRef<"Skill", 'String'>
