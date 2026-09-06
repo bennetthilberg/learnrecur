@@ -45,6 +45,7 @@ import { ensureDatabaseUser } from "@/lib/users";
 export type CreatedSkillDraftForReview = {
   skillId: string;
   values: {
+    alreadyStudied?: boolean;
     title: string;
     objective: string;
     collectionName: string;
@@ -1232,6 +1233,7 @@ async function requireSkillActionUser(): Promise<SkillActionUserResult> {
 
 function formDataToDraftInput(formData: FormData) {
   return {
+    ...(formData.has("familiarityPresent") ? {alreadyStudied:formData.get("alreadyStudied") === "on"} : {}),
     title: getFormString(formData, "title"),
     objective: getFormString(formData, "objective"),
     collectionName: getFormString(formData, "collectionName"),

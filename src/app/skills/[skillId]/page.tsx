@@ -1,3 +1,4 @@
+import { SkillPracticePreferences } from "@/components/app/skill-practice-preferences";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -193,7 +194,7 @@ export default async function SkillPage({
     const hasActiveMathRefillJob = hasActiveGenerationJob(latestMathGenerationJob);
     const canRefill =
       inventory.readyExerciseCount < DEFAULT_READY_EXERCISE_TARGET && !hasActiveChoiceRefillJob;
-    const exactInputUnlocked = isExactInputUnlocked(skill.repetitions);
+    const exactInputUnlocked = isExactInputUnlocked(skill.repetitions, skill.alreadyStudied);
     const canRefillExactInput =
       exactInputUnlocked &&
       exactInputInventory.readyExerciseCount < DEFAULT_READY_EXACT_INPUT_TARGET &&
@@ -285,6 +286,8 @@ export default async function SkillPage({
               rules={draftValues.rules}
               skillId={skill.id}
             />
+
+            <SkillPracticePreferences userId={userId} skillId={skill.id}/>
 
             <SkillDetailReviewOutcomesCard groups={reviewOutcomeGroups} />
 
@@ -587,6 +590,7 @@ export default async function SkillPage({
         </section>
       ) : null}
 
+      <SkillPracticePreferences userId={userId} skillId={skill.id}/>
       <SkillDraftForm initialValues={draftValues} mode="edit" skillId={skill.id} />
       <SkillSourcePanel skillId={skill.id} sources={sourceSummaries} />
       <SkillLifecyclePanel skillId={skill.id} skillTitle={skill.title} status={skill.status} />

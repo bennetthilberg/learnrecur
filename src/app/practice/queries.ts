@@ -17,6 +17,8 @@ const COLLECTION_SCOPE_UNAVAILABLE_MESSAGE =
   "That collection is not available for practice.";
 
 export type PracticeScopeInput = {
+  mixedReview?: boolean;
+  previousSkillId?: string | null;
   collectionId?: string | null;
 };
 
@@ -73,6 +75,8 @@ export async function getNextPracticeItemForUser(
     userId,
     now,
     answerKinds: PRACTICE_ANSWER_KINDS,
+    mixedReview: scopeInput.mixedReview,
+    previousSkillId: scopeInput.previousSkillId,
     collectionId: scope.collectionId,
   });
 
@@ -129,8 +133,9 @@ function toPracticeItem(
   if (result.status === "none-due") {
     return {
       status: "none-due",
+      preparing: result.preparing,
       message:
-        scope.kind === "collection"
+        !result.preparing && scope.kind === "collection"
           ? `No due exercise is ready in ${scope.collectionName}.`
           : result.message,
       scope,

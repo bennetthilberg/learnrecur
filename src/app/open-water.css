@@ -6389,6 +6389,7 @@ body {
     "hero"
     "schedule"
     "guidance"
+    "preferences"
     "outcomes"
     "preparation"
     "recent"
@@ -8307,4 +8308,14 @@ body {
     animation-duration: .001ms !important;
     transition-duration: .001ms !important;
   }
+}
+
+/* Reuse the existing practice grid and contrast tokens for compact preferences. */
+.skillDetailCanvas > .skillPracticePreferences { grid-area: preferences; }
+.practicePreferencesForm .mantine-InputWrapper-description,
+.practicePreferencesForm .mantine-Checkbox-description,
+.practicePreferencesForm .mantine-Switch-description { color: var(--lr-text-secondary); }
+.practiceSessionOptions { width: calc(100% - 28px); max-width: 920px; margin: 14px auto; }
+@media (min-width: 1100px) {
+  .practiceSessionOptions { width: calc(100% - 68px); }
 }

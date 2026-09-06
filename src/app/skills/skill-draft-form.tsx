@@ -1,5 +1,6 @@
 "use client";
 
+import { Checkbox } from "@mantine/core";
 import Link from "next/link";
 import { forwardRef, useActionState, useEffect, useId, useRef } from "react";
 import type React from "react";
@@ -16,6 +17,7 @@ import {
 } from "./actions";
 
 export type SkillDraftFormValues = {
+  alreadyStudied?: boolean;
   title: string;
   objective: string;
   collectionName: string;
@@ -297,6 +299,8 @@ export function SkillDraftForm(props: SkillDraftFormProps) {
           </div>
         </fieldset>
 
+        {mode === "create" && <Checkbox name="alreadyStudied" label="I have already studied this skill" description="Allow suitable input practice from the first review." defaultChecked={displayedValues.alreadyStudied ?? false} disabled={isSubmitting}/>}
+        {mode === "create" && <input type="hidden" name="familiarityPresent" value="true"/>}
         <div className="skillFormActions">
           {onBack ? (
             <button
