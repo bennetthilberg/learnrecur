@@ -52,6 +52,7 @@ export type SkillsLibraryActiveSkill = {
   dueAt: Date | null;
   fsrsState: SkillFsrsState;
   repetitions: number;
+  alreadyStudied?: boolean;
   lapses: number;
   verifiedExerciseCount: number;
   retiredExerciseCount: number;
@@ -73,6 +74,7 @@ export type SkillsLibraryRecoverySkill = {
   dueAt: Date | null;
   fsrsState: SkillFsrsState;
   repetitions: number;
+  alreadyStudied?: boolean;
   verifiedExerciseCount: number;
   retiredExerciseCount: number;
   readyExerciseCount: number;
@@ -118,6 +120,7 @@ type SkillsLibrarySkillRecord = {
   difficulty: number | null;
   fsrsState: SkillFsrsState;
   repetitions: number;
+  alreadyStudied?: boolean;
   lapses: number;
   updatedAt: Date;
   collection: {
@@ -161,6 +164,7 @@ export async function getSkillsLibrary(input: GetSkillsLibraryInput): Promise<Sk
         difficulty: true,
         fsrsState: true,
         repetitions: true,
+        alreadyStudied: true,
         lapses: true,
         updatedAt: true,
         collection: {
@@ -419,9 +423,9 @@ function toAgentProvenance(skill: SkillsLibrarySkillRecord) {
     : null;
 }
 
-function isRecoverySkillRecord(
-  skill: SkillsLibrarySkillRecord,
-): skill is SkillsLibrarySkillRecord & { status: Extract<SkillStatus, "PAUSED" | "ARCHIVED"> } {
+function isRecoverySkillRecord<T extends SkillsLibrarySkillRecord>(
+  skill: T,
+): skill is T & { status: Extract<SkillStatus, "PAUSED" | "ARCHIVED"> } {
   return skill.status === SkillStatus.PAUSED || skill.status === SkillStatus.ARCHIVED;
 }
 

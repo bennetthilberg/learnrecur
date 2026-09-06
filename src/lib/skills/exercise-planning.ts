@@ -102,6 +102,7 @@ export type SkillGenerationSpec = SkillGenerationSpecInput;
  * should not pass raw learner answers or private source material here.
  */
 export type GenerationProfile = {
+  recoveryActive?: boolean;
   fsrsState?: FsrsStateInput;
   state?: FsrsStateInput;
   dueAt?: Date | string | number | null;
@@ -113,6 +114,8 @@ export type GenerationProfile = {
   repetitions?: number;
   reps?: number;
   recentRatings?: readonly FsrsRatingInput[];
+  recentAnswerModes?: readonly string[];
+  recentExerciseFamilies?: readonly string[];
   ratings?: readonly FsrsRatingInput[];
   desiredCount?: number;
   count?: number;
@@ -745,6 +748,7 @@ function resolveProfileValue<T>(profile: GenerationProfile, primary: keyof Gener
 }
 
 function normalizeProfile(profile: GenerationProfile): {
+  recoveryActive?: boolean;
   state: MemoryStateSummary["fsrsState"];
   dueAt: Date | null;
   now: Date | null;
@@ -755,7 +759,9 @@ function normalizeProfile(profile: GenerationProfile): {
   supportedModes: AnswerMode[];
   capability: SubjectCapabilityProfile;
   stability: number | null;
-  independentReviews: number;
+  independentReviews: number | undefined;
+  recentAnswerModes: AnswerMode[];
+  recentExerciseFamilies: string[];
   assistedAttempts: number;
 } {
   const stateToken = normalizeToken(resolveProfileValue<FsrsStateInput>(profile, "fsrsState", "state"))
@@ -802,6 +808,9 @@ function normalizeProfile(profile: GenerationProfile): {
   );
   const capability = resolveCapability(profile.subjectCapability ?? profile.capability);
   return {
+    recoveryActive: profile.recoveryActive,
+    recentAnswerModes: canonicalModeList(profile.recentAnswerModes),
+    recentExerciseFamilies: normalizeStringList(profile.recentExerciseFamilies).map(normalizeToken),
     state,
     dueAt,
     now,
@@ -815,7 +824,7 @@ function normalizeProfile(profile: GenerationProfile): {
       typeof profile.stability === "number" && Number.isFinite(profile.stability)
         ? Math.max(0, profile.stability)
         : null,
-    independentReviews: finiteNonNegativeInteger(
+    independentReviews: profile.recentIndependentReviews === undefined && profile.independentReviews === undefined ? undefined : finiteNonNegativeInteger(
       profile.recentIndependentReviews ?? profile.independentReviews,
     ),
     assistedAttempts: finiteNonNegativeInteger(
@@ -851,9 +860,9 @@ function buildMemoryState(profile: ReturnType<typeof normalizeProfile>): MemoryS
     EASY: profile.ratings.filter((rating) => rating === "EASY").length,
   };
   const recentIndependentReviews =
-    profile.independentReviews ||
+    profile.independentReviews ??
     profile.ratings.filter((rating) => rating === "GOOD" || rating === "EASY").length;
-  const hasFailure = profile.lapses > 0 || counts.AGAIN > 0 || profile.state === "RELEARNING";
+  const hasFailure = profile.recoveryActive ?? (profile.lapses > 0 || counts.AGAIN > 0 || profile.state === "RELEARNING");
   const uncertain =
     profile.state === "NEW" ||
     profile.state === "LEARNING" ||
@@ -1181,11 +1190,11 @@ export function planExerciseBlueprint(
 
   const allowedFamilies = normalizeStringList(input.spec.allowedExerciseFamilies);
   const recent = normalizedRecentExercises(input.recentExercises);
-  const recentFamilies = [...new Set(recent.map((item) => item.family).filter(Boolean))].sort();
+  const recentFamilies = [...new Set([...recent.map((item) => item.family), ...profile.recentExerciseFamilies].filter(Boolean))].sort();
   const recentSurfaceFeatures = [...new Set(recent.flatMap((item) => item.features))].sort();
   const recentFreshnessKeys = [...new Set(recent.map((item) => item.freshnessKey).filter(Boolean))].sort();
   const usedFamilies: string[] = [];
-  const usedModes: AnswerMode[] = [];
+  const usedModes: AnswerMode[] = [...profile.recentAnswerModes];
   const sequence = memory.planKind === "retention" ? RETENTION_SEQUENCE : LEARNING_SEQUENCE;
   const slots: BlueprintSlot[] = [];
   for (let index = 0; index < plannedCount; index += 1) {

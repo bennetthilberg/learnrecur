@@ -198,6 +198,7 @@ export async function queueExactInputExerciseRefillForSkill(
       id: true,
       status: true,
       repetitions: true,
+      alreadyStudied: true,
       exercises: {
         select: {
           answerKind: true,
@@ -217,7 +218,7 @@ export async function queueExactInputExerciseRefillForSkill(
     return skillNotActive("Only active skills can queue exact-input practice.");
   }
 
-  if (!isExactInputUnlocked(skill.repetitions)) {
+  if (!isExactInputUnlocked(skill.repetitions, skill.alreadyStudied)) {
     return {
       status: "not-queued",
       reason: "exact-input-locked",
@@ -273,6 +274,7 @@ export async function queueMathExerciseRefillForSkill(
       id: true,
       status: true,
       repetitions: true,
+      alreadyStudied: true,
       exercises: {
         select: {
           answerKind: true,
@@ -292,7 +294,7 @@ export async function queueMathExerciseRefillForSkill(
     return skillNotActive("Only active skills can queue math practice.");
   }
 
-  if (!isExactInputUnlocked(skill.repetitions)) {
+  if (!isExactInputUnlocked(skill.repetitions, skill.alreadyStudied)) {
     return {
       status: "not-queued",
       reason: "exact-input-locked",

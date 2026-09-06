@@ -1,3 +1,4 @@
+import { retentionTextFixtures, retentionBiologyFixture } from "./retention-fixtures";
 import {
   parseEvaluationFixtures,
   type EvaluationFixture,
@@ -591,4 +592,20 @@ const fixtures: unknown[] = [
   }),
 ];
 
-export const seedFixtures = parseEvaluationFixtures(fixtures);
+// Source-bounded recognition counterparts accompany the native input-contract
+// corpus. Replay validates the harness, not live provider quality or retention.
+const retentionControls = [
+  ...retentionTextFixtures.map((fixture) => ({
+    id: `retention-${fixture.id}`, title: fixture.title, source: fixture.source,
+    exercise: {prompt: fixture.prompt, choices: [{id:"a",label:fixture.answer},{id:"b",label:fixture.wrong},{id:"c",label:"No completion fits"}],correctChoiceId:"a",explanation:fixture.source,difficulty:3,expectedSeconds:30},
+  })),
+  { id:"retention-numeric", title:"Equivalent numeric fractions", source:"One half equals 0.5.", exercise:{prompt:"Which decimal equals one half?",choices:[{id:"a",label:"0.5"},{id:"b",label:"2"},{id:"c",label:"0.25"}],correctChoiceId:"a",explanation:"One half equals 0.5.",difficulty:2,expectedSeconds:30}},
+  { id:"retention-symbolic", title:"Combining like terms in algebra", source:"Three copies of x add to 3x.", exercise:{prompt:"Simplify the expression x + x + x.",choices:[{id:"a",label:"3x"},{id:"b",label:"x+3"},{id:"c",label:"x cubed"}],correctChoiceId:"a",explanation:"Three copies of x add to 3x.",difficulty:2,expectedSeconds:30}},
+  {id:"retention-biology",title:"Distinguish biological transport processes",source:retentionBiologyFixture.source,exercise:{prompt:retentionBiologyFixture.prompt,choices:retentionBiologyFixture.choices,correctChoiceId:retentionBiologyFixture.correctChoiceId,explanation:retentionBiologyFixture.explanation,difficulty:3,expectedSeconds:30}},
+].map((control)=>makeFixture({
+  id:control.id,title:control.title,domain:"retention",tags:["control","retention"],
+  job:makeJob({id:control.id,title:control.title,objective:`Apply this approved target: ${control.title}.`,rules:[control.source],examples:[control.exercise.explanation],sourceContext:control.source}),
+  response:{exercises:[control.exercise]},expected:{publication:"accept",critical:false,defectCodes:[],semantic:{premiseRule:"none",expectedChoiceId:control.exercise.correctChoiceId,requiredTerms:[],forbiddenTerms:[]},source:{requiredTerms:[],forbiddenTerms:[],requiresConflictLanguage:false,promptInjectionRule:"none"},explanation:{requiredTerms:[],forbiddenTerms:[]},diversity:{maxSimilarity:0.86,compareAgainstExisting:false}},
+}));
+
+export const seedFixtures = parseEvaluationFixtures([...fixtures,...retentionControls]);

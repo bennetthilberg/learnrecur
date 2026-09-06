@@ -31,7 +31,6 @@ export type SkillScheduleFields = {
   scheduledDays: number;
   learningSteps: number;
   repetitions: number;
-  alreadyStudied?: boolean;
   lapses: number;
   fsrsState: SkillFsrsState;
   lastReviewedAt: Date | null;

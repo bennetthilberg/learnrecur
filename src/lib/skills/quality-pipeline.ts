@@ -1,3 +1,5 @@
+import { resolveTextPolicy } from "@/lib/practice/policies";
+import { summarizeRecentEvidence, type GenerationRecentEvidence } from "./recent-evidence";
 import { createHash } from "node:crypto";
 
 import { ZodError } from "zod";
@@ -48,6 +50,9 @@ export type GenerationQualitySkill = {
   exerciseConstraints: Prisma.JsonValue | null;
   tags: string[];
   generationSpec?: Prisma.JsonValue | null;
+  textPolicy?: Prisma.JsonValue | null;
+  textPolicyRevision?: number;
+  collection?: { textPolicy: Prisma.JsonValue | null } | null;
   fsrsState?: SkillFsrsState | null;
   dueAt?: Date | null;
   repetitions?: number;
@@ -56,6 +61,7 @@ export type GenerationQualitySkill = {
 };
 
 export type GenerationQualityContext = {
+  recentEvidence?: ReturnType<typeof summarizeRecentEvidence>;
   skillSpec: SkillGenerationSpec;
   blueprint: ExerciseBlueprint;
   contextManifest: ContextManifest;
@@ -180,7 +186,10 @@ export function buildGenerationQualityContext(input: {
   answerModes?: readonly AnswerMode[];
   now?: Date;
   sourceEvidence?: readonly GenerationSourceIdentity[];
+  recentEvidence?: GenerationRecentEvidence;
 }): GenerationQualityContext {
+  const now = input.now ?? new Date();
+  const recent = summarizeRecentEvidence({ reviews: input.recentEvidence?.reviews ?? [], lapses: input.skill.lapses, state: input.skill.fsrsState, now });
   const existingSpec = skillGenerationSpecSchema.safeParse(input.skill.generationSpec);
   const subjectCapability = inferSubjectCapability(input.skill);
   const materialFingerprint = sha256(
@@ -192,6 +201,8 @@ export function buildGenerationQualityContext(input: {
         examples: input.skill.examples,
         exerciseConstraints: input.skill.exerciseConstraints,
         tags: input.skill.tags,
+        textPolicy: resolveTextPolicy({ skill: input.skill.textPolicy, collection: input.skill.collection?.textPolicy }),
+        textPolicyRevision: input.skill.textPolicyRevision ?? 0,
       },
       sourceFingerprint: input.sourceContext ? sha256(input.sourceContext) : null,
     }),
@@ -207,7 +218,7 @@ export function buildGenerationQualityContext(input: {
     "The approved skill objective.",
   );
   const skillSpec = existingSpec.success
-    ? existingSpec.data
+    ? { ...existingSpec.data, materialFingerprint, difficultyPolicy: { ...existingSpec.data.difficultyPolicy, target: targetDifficulty(input.skill, recent.recoveryActive) } }
     : skillGenerationSpecSchema.parse({
         contractVersion: GENERATION_QUALITY_CONTRACT_VERSION,
         specVersion: SKILL_SPEC_VERSION,
@@ -235,7 +246,7 @@ export function buildGenerationQualityContext(input: {
         difficultyPolicy: {
           min: 1,
           max: 5,
-          target: targetDifficulty(input.skill),
+          target: targetDifficulty(input.skill, recent.recoveryActive),
           progression: "mastery-aware",
           dimensions: ["cueing", "surface-complexity", "transfer-distance", "response-production"],
         },
@@ -268,7 +279,8 @@ export function buildGenerationQualityContext(input: {
     generationProfile: {
       fsrsState: input.skill.fsrsState ?? SkillFsrsState.NEW,
       dueAt: input.skill.dueAt ?? null,
-      now: input.now ?? new Date(0),
+      now,
+      ...recent,
       lapses: input.skill.lapses ?? 0,
       repetitions: input.skill.repetitions ?? 0,
       stability: input.skill.stability ?? null,
@@ -276,7 +288,7 @@ export function buildGenerationQualityContext(input: {
       supportedAnswerModes: answerModes,
       subjectCapability,
     },
-    recentExercises: [],
+    recentExercises: input.recentEvidence?.exercises ?? [],
   });
   if (planned.slots.length === 0 && planned.reasonCodes.includes("no_supported_answer_mode")) {
     throw new Error(
@@ -306,6 +318,7 @@ export function buildGenerationQualityContext(input: {
     blueprint,
     contextManifest: buildContextManifest(input.sourceContext, input.sourceEvidence ?? []),
     subjectCapability,
+    recentEvidence: recent,
   };
 }
 
@@ -349,8 +362,27 @@ export function toPersistedChoiceQuality(input: {
     acceptanceMetadata: decision,
     generationMetadata: {
       subjectCapability: input.context.subjectCapability,
+      recentEvidence: input.context.recentEvidence ?? {},
       contextManifest: input.context.contextManifest,
     },
+  };
+}
+
+// Persist actual input preparation provenance without borrowing the choice-only
+// acceptance checker or claiming a planned evidence label was observed behavior.
+export function toPersistedInputQuality(input: { context: GenerationQualityContext; slotIndex: number }) {
+  const slot = input.context.blueprint.slots[input.slotIndex];
+  return {
+    skillSpecVersion: input.context.skillSpec.specVersion,
+    skillSpecFingerprint: input.context.skillSpec.materialFingerprint,
+    exerciseSpecVersion: GENERATION_QUALITY_CONTRACT_VERSION,
+    blueprintVersion: input.context.blueprint.blueprintVersion,
+    blueprintSlot: slot?.slotId ?? null,
+    exerciseFamily: slot?.familyConstraints.allowedFamilies[0] ?? slot?.mode ?? null,
+    qualityVersion: GENERATION_QUALITY_CONTRACT_VERSION,
+    provenance: { sourceIds: input.context.contextManifest.includedSources.map((source) => source.sourceId), sourceFingerprints: input.context.contextManifest.sourceFingerprints },
+    acceptanceDecision: GenerationAuditDecision.ACCEPTED,
+    generationMetadata: { subjectCapability: input.context.subjectCapability, recentEvidence: input.context.recentEvidence ?? {}, contextManifest: input.context.contextManifest },
   };
 }
 
@@ -420,7 +452,7 @@ function formatLocator(locator: Prisma.JsonValue | null): string {
   return stableJson(locator).slice(0, 600) || "linked source excerpt";
 }
 
-function inferSubjectCapability(skill: GenerationQualitySkill): SubjectCapabilityId {
+export function inferSubjectCapability(skill: GenerationQualitySkill): SubjectCapabilityId {
   const terms = `${skill.title} ${skill.tags.join(" ")}`.toLowerCase();
   if (/\b(math|algebra|arithmetic|calculus|geometry|statistics|probability)\b/u.test(terms)) {
     return "symbolic_numeric";
@@ -431,8 +463,8 @@ function inferSubjectCapability(skill: GenerationQualitySkill): SubjectCapabilit
   return "conceptual_source_grounded";
 }
 
-function targetDifficulty(skill: GenerationQualitySkill): number {
-  if ((skill.lapses ?? 0) > 1 || skill.fsrsState === SkillFsrsState.RELEARNING) {
+function targetDifficulty(skill: GenerationQualitySkill, recoveryActive: boolean): number {
+  if (recoveryActive) {
     return 2;
   }
   if ((skill.repetitions ?? 0) >= 5 && (skill.stability ?? 0) >= 10) {

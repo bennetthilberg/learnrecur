@@ -50,7 +50,7 @@ export function registerLearnRecurMcpTools(server: McpServer) {
   registerTool(server, {
     name: "skills.add_from_specs",
     title: "Add skills from structured specifications",
-    description: "Queue one to ten independent LearnRecur skills. LearnRecur verifies exercises and activates each skill asynchronously.",
+    description: "Queue one to ten independent LearnRecur skills. LearnRecur verifies exercises and activates each skill asynchronously. Text candidates use policyVersion 2, preserve diacritics, and must match the skill or collection text profile. Skills may explicitly declare alreadyStudied and a nullable practicePreference override.",
     schema: agentAddFromSpecsSchema,
     scopes: ["skills:create"],
     readOnly: false,

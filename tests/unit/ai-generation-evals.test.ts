@@ -130,7 +130,7 @@ describe("AI generation evaluation fixtures", () => {
 
     expect(
       report.runs
-        .filter((run) => run.fixtureId === "statistics-hard-control" || run.fixtureId === "spanish-hard-control")
+        .filter((run) => run.fixtureId === "statistics-hard-control" || run.fixtureId === "spanish-hard-control" || run.fixtureId.startsWith("retention-"))
         .every((run) => run.observedDecision === "accept"),
     ).toBe(true);
   });

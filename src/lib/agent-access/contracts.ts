@@ -1,3 +1,4 @@
+import { practicePreferenceOverrideSchema, textPolicySchema } from "@/lib/practice/policies";
 import { createHash } from "node:crypto";
 
 import { z } from "zod";
@@ -74,8 +75,9 @@ const choiceCandidateSchema = z
 const textCandidateSchema = z.strictObject({
   kind: z.literal("text"),
   ...commonCandidateFields,
+  policyVersion: z.literal(2).default(2),
   acceptedAnswers: z
-    .array(z.string().trim().min(1).max(500))
+    .array(z.string().min(1).max(500).refine((value) => value.trim().length > 0))
     .min(1)
     .max(8)
     .superRefine(uniqueStrings("Accepted answers")),
@@ -83,10 +85,10 @@ const textCandidateSchema = z.strictObject({
     .strictObject({
       case: z.boolean().default(true),
       whitespace: z.boolean().default(true),
-      diacritics: z.boolean().default(true),
+      diacritics: z.literal(false).default(false),
     })
-    .default({ case: true, whitespace: true, diacritics: true }),
-  displayAnswer: z.string().trim().min(1).max(500).optional(),
+    .default({ case: true, whitespace: true, diacritics: false }),
+  displayAnswer: z.string().min(1).max(500).refine((value) => value.trim().length > 0).optional(),
 });
 
 const numericAnswerSchema = z
@@ -122,7 +124,7 @@ const mathCandidateSchema = z.strictObject({
     .max(4)
     .superRefine(uniqueStrings("Accepted expressions")),
   equivalence: z.literal("basic-symbolic").default("basic-symbolic"),
-  displayAnswer: z.string().trim().min(1).max(500).optional(),
+  displayAnswer: z.string().min(1).max(500).refine((value) => value.trim().length > 0).optional(),
 });
 
 export const agentCandidateExerciseSchema = z.discriminatedUnion("kind", [
@@ -135,6 +137,9 @@ export const agentCandidateExerciseSchema = z.discriminatedUnion("kind", [
 export type AgentCandidateExercise = z.infer<typeof agentCandidateExerciseSchema>;
 
 export const agentSkillSpecSchema = z.strictObject({
+  alreadyStudied: z.boolean().optional(),
+  practicePreference: practicePreferenceOverrideSchema.optional(),
+  textPolicy: textPolicySchema.nullable().optional(),
   title: titleSchema,
   objective: objectiveSchema,
   rules: guidanceLinesSchema,
@@ -328,6 +333,7 @@ export function normalizeAgentCandidateExercise(
   if (candidate.kind === "text") {
     const answerSpec = {
       kind: "text" as const,
+      policyVersion: candidate.policyVersion,
       accepted: candidate.acceptedAnswers,
       normalizeCase: candidate.normalization.case,
       normalizeWhitespace: candidate.normalization.whitespace,

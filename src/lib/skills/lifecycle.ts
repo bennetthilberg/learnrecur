@@ -47,6 +47,7 @@ type LifecycleSkillRecord = {
   stability: number | null;
   difficulty: number | null;
   repetitions: number;
+  alreadyStudied?: boolean;
   exercises: Array<{
     answerKind: AnswerKind;
     verificationStatus: ExerciseVerificationStatus;
@@ -102,6 +103,7 @@ export async function restoreArchivedSkill(
       stability: true,
       difficulty: true,
       repetitions: true,
+      alreadyStudied: true,
       exercises: {
         select: {
           answerKind: true,

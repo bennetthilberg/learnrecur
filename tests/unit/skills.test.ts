@@ -1729,6 +1729,7 @@ describe("MetaMuse exercise fallbacks", () => {
         .answerSpec.anyOf[0].required,
     ).toEqual([
       "kind",
+      "policyVersion",
       "accepted",
       "normalizeCase",
       "normalizeWhitespace",

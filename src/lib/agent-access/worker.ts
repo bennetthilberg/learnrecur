@@ -1,3 +1,4 @@
+import { practicePreferenceOverrideSchema, textPolicySchema, type PracticePreference, type TextPolicy } from "@/lib/practice/policies";
 import "server-only";
 
 import {
@@ -951,6 +952,9 @@ async function reconcileAgentOperation(operationId: string, userId: string, now:
 }
 
 type SkillSnapshot = {
+  alreadyStudied?: boolean;
+  practicePreference?: PracticePreference | null;
+  textPolicy?: TextPolicy | null;
   title: string;
   objective: string;
   rules: string[];
@@ -962,6 +966,9 @@ type SkillSnapshot = {
 
 export function buildSkillDraftInputFromSnapshot(snapshot: SkillSnapshot) {
   return {
+    ...(snapshot.alreadyStudied !== undefined ? {alreadyStudied:snapshot.alreadyStudied} : {}),
+    ...(snapshot.practicePreference !== undefined ? {practicePreference:snapshot.practicePreference} : {}),
+    ...(snapshot.textPolicy !== undefined ? {textPolicy:snapshot.textPolicy} : {}),
     title: snapshot.title,
     objective: snapshot.objective,
     rules: snapshot.rules.join("\n"),
@@ -976,6 +983,9 @@ function parseSkillSnapshot(value: unknown): SkillSnapshot | null {
   const record = parseRecord(value);
   if (typeof record.title !== "string" || typeof record.objective !== "string") return null;
   return {
+    ...(typeof record.alreadyStudied === "boolean" ? {alreadyStudied:record.alreadyStudied} : {}),
+    ...(record.practicePreference !== undefined ? {practicePreference:practicePreferenceOverrideSchema.parse(record.practicePreference)} : {}),
+    ...(record.textPolicy !== undefined ? {textPolicy:record.textPolicy === null ? null : textPolicySchema.parse(record.textPolicy)} : {}),
     title: record.title,
     objective: record.objective,
     rules: stringArray(record.rules),

@@ -113,10 +113,11 @@ const generatedExactInputExercise = (id: number) => ({
   answerKind: AnswerKind.TEXT,
   answerSpec: {
     kind: "text",
+    policyVersion: 2,
     accepted: [`exact answer ${id}`],
     normalizeCase: true,
     normalizeWhitespace: true,
-    normalizeDiacritics: true,
+    normalizeDiacritics: false,
   },
   correctAnswerDisplay: `exact answer ${id}`,
   explanation: `Exact item ${id} checks direct recall.`,
@@ -874,7 +875,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
       status: GenerationJobStatus.SUCCEEDED,
       provider: "google",
       model: "test-gemini",
-      promptVersion: "skill-mcq-v1",
+      promptVersion: "skill-mcq-v2",
       requestedCount: 5,
       acceptedCount: 3,
       rejectedCount: 0,
@@ -6398,7 +6399,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
       skillId: skill.id,
       provider: "google",
       model: "test-gemini",
-      promptVersion: "skill-mcq-v1",
+      promptVersion: "skill-mcq-v2",
       requestedCount: 3,
     };
 
@@ -6437,7 +6438,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
           ...jobDefaults,
           kind: GenerationJobKind.EXACT_INPUT_EXERCISE_GENERATION,
           status: GenerationJobStatus.PENDING,
-          promptVersion: "skill-exact-input-v0",
+          promptVersion: "skill-exact-input-v2",
         },
       }),
     ).resolves.toBeTruthy();
@@ -6564,7 +6565,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
       kind: GenerationJobKind.CHOICE_EXERCISE_GENERATION,
       provider: "google",
       model: "test-gemini",
-      promptVersion: "skill-mcq-v1",
+      promptVersion: "skill-mcq-v2",
       requestedCount: 3,
       acceptedCount: 3,
       rejectedCount: 0,
@@ -7208,6 +7209,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
     const userId = await createUser("math_refill_queue");
     const skill = await createActiveSkillFixture({
       userId,
+      title: "Algebra input practice",
       repetitions: EXACT_INPUT_UNLOCK_REPETITIONS,
     });
     const fake = createFakeRefillSender();
@@ -7554,6 +7556,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
     const userId = await createUser("math_refill_verification_fail");
     const skill = await createActiveSkillFixture({
       userId,
+      title: "Algebra input practice",
       repetitions: EXACT_INPUT_UNLOCK_REPETITIONS,
     });
 
@@ -7597,6 +7600,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
     const userId = await createUser("math_refill_concurrent_finish");
     const skill = await createActiveSkillFixture({
       userId,
+      title: "Algebra input practice",
       repetitions: EXACT_INPUT_UNLOCK_REPETITIONS,
     });
 

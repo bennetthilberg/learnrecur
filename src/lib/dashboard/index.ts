@@ -30,6 +30,7 @@ export type DashboardSkillSummary = {
   tags: string[];
   fsrsState: SkillFsrsState;
   repetitions: number;
+  alreadyStudied?: boolean;
   lapses: number;
   dueAt: Date | null;
   stability: number | null;
@@ -64,6 +65,7 @@ type DashboardSkillRecord = {
   difficulty: number | null;
   fsrsState: SkillFsrsState;
   repetitions: number;
+  alreadyStudied?: boolean;
   lapses: number;
   collection: {
     id: string;
@@ -114,6 +116,7 @@ export async function getDashboardHome(input: GetDashboardHomeInput): Promise<Da
         difficulty: true,
         fsrsState: true,
         repetitions: true,
+        alreadyStudied: true,
         lapses: true,
         collection: {
           select: {
