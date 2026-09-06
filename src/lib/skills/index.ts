@@ -3445,10 +3445,16 @@ export async function activateSkillDraft(
     }),
     () => activationSuperseded(generationJob.id),
   );
-  if (activation.status === "activated" && skill.alreadyStudied) {
+  if (activation.status === "activated") {
     try {
-      const { queueRetentionPreparation } = await import("./retention-preparation");
-      await queueRetentionPreparation({ userId: input.userId, skillId: skill.id, now: input.now, sender: input.refillSender });
+      const current = await prisma.skill.findFirst({
+        where: { id: skill.id, userId: input.userId },
+        select: { alreadyStudied: true },
+      });
+      if (current?.alreadyStudied) {
+        const { queueRetentionPreparation } = await import("./retention-preparation");
+        await queueRetentionPreparation({ userId: input.userId, skillId: skill.id, now: input.now, sender: input.refillSender });
+      }
     } catch {
       console.error("Input preparation could not be queued after activation.");
     }

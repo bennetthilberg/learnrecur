@@ -129,6 +129,34 @@ for (const width of [1280, 390])
       ).toBe(true);
 
       await page.goto(`/skills/${spanish.skillId}`);
+      await page.getByText("Exercise preparation", { exact: true }).click();
+      const unlockCopy = page.getByText(
+        "Exact input is available when suitable verified exercises are ready.",
+        { exact: true },
+      );
+      const mathCopy = page.getByText(
+        "Math input is available when suitable verified exercises are ready.",
+        { exact: true },
+      );
+      await expect(unlockCopy).toBeAttached();
+      await expect(mathCopy).toBeAttached();
+      if (width >= 768) {
+        await expect(unlockCopy).toBeVisible();
+        await expect(mathCopy).toBeVisible();
+      } else {
+        // The established mobile layout hides helper copy and keeps controls.
+        await expect(unlockCopy).toBeHidden();
+        await expect(
+          page.getByRole("button", {
+            name: "Prepare exact input",
+            exact: true,
+          }),
+        ).toBeEnabled();
+        await expect(
+          page.getByRole("button", { name: "Prepare math", exact: true }),
+        ).toBeEnabled();
+      }
+      await page.getByText("Exercise preparation", { exact: true }).click();
       await page
         .getByText("Advanced practice preferences", { exact: true })
         .click();

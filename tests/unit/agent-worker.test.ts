@@ -5,6 +5,7 @@ import {
   buildMaterialOperationInstruction,
   buildSkillDraftInputFromSnapshot,
   classifyAgentDuplicate,
+  parseSkillSnapshot,
   normalizeAgentItemErrorCode,
 } from "@/lib/agent-access/worker";
 
@@ -105,5 +106,17 @@ describe("normalizeAgentItemErrorCode", () => {
   it("stores domain reasons in the public underscore format", () => {
     expect(normalizeAgentItemErrorCode("skill-not-draft")).toBe("SKILL_NOT_DRAFT");
     expect(normalizeAgentItemErrorCode("verification_failed")).toBe("VERIFICATION_FAILED");
+  });
+});
+
+
+describe("persisted skill snapshots", () => {
+  it("rejects malformed policy fields per item without throwing or silently changing the policy", () => {
+    const base = {title:"Protocol command",objective:"Recall the literal command."};
+    for (const fields of [{practicePreference:"INVALID"},{textPolicy:{version:3}},{alreadyStudied:"true"}]) {
+      expect(parseSkillSnapshot({...base,...fields})).toBeNull();
+    }
+    expect(parseSkillSnapshot({...base,practicePreference:null,textPolicy:null,alreadyStudied:true})).toMatchObject({practicePreference:null,textPolicy:null,alreadyStudied:true});
+    expect(parseSkillSnapshot(base)).toMatchObject(base);
   });
 });

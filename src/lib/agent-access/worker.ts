@@ -979,13 +979,17 @@ export function buildSkillDraftInputFromSnapshot(snapshot: SkillSnapshot) {
   };
 }
 
-function parseSkillSnapshot(value: unknown): SkillSnapshot | null {
+export function parseSkillSnapshot(value: unknown): SkillSnapshot | null {
   const record = parseRecord(value);
   if (typeof record.title !== "string" || typeof record.objective !== "string") return null;
+  const practicePreference = practicePreferenceOverrideSchema.optional().safeParse(record.practicePreference);
+  const textPolicy = textPolicySchema.nullable().optional().safeParse(record.textPolicy);
+  if (!practicePreference.success || !textPolicy.success ||
+      (record.alreadyStudied !== undefined && typeof record.alreadyStudied !== "boolean")) return null;
   return {
     ...(typeof record.alreadyStudied === "boolean" ? {alreadyStudied:record.alreadyStudied} : {}),
-    ...(record.practicePreference !== undefined ? {practicePreference:practicePreferenceOverrideSchema.parse(record.practicePreference)} : {}),
-    ...(record.textPolicy !== undefined ? {textPolicy:record.textPolicy === null ? null : textPolicySchema.parse(record.textPolicy)} : {}),
+    ...(practicePreference.data !== undefined ? {practicePreference:practicePreference.data} : {}),
+    ...(textPolicy.data !== undefined ? {textPolicy:textPolicy.data} : {}),
     title: record.title,
     objective: record.objective,
     rules: stringArray(record.rules),

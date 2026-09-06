@@ -21,7 +21,15 @@ describe("mixed review selection", () => {
       selectMixedReviewSkill([skill("old"), skill("varied")], skill("old"))?.id,
     ).toBe("varied");
   });
-  it("keeps older overdue work first and respects subject boundaries", () => {
+  it("skips same-day foreign candidates when a compatible alternative exists", () => {
+    expect(
+      selectMixedReviewSkill(
+        [skill("foreign", 5, "math", ["math"]), skill("compatible", 5)],
+        skill("previous"),
+      )?.id,
+    ).toBe("compatible");
+  });
+  it("keeps older overdue work first and falls back for insufficient alternatives", () => {
     expect(
       selectMixedReviewSkill(
         [skill("urgent", 4, "math", ["math"]), skill("other")],

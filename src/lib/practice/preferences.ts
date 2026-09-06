@@ -158,10 +158,7 @@ export async function saveCollectionPracticePreferences(input: {
           select: { id: true },
         })
       : [];
-    if (inheriting.length > 500)
-      throw new Error(
-        "A text policy edit can affect at most 500 inheriting skills. Split this collection before changing its text policy.",
-      );
+    if (inheriting.length > 500) return { status: "too-large" as const };
     const inheritingIds = inheriting.map((skill) => skill.id);
     if (inheritingIds.length)
       await tx.$queryRaw`SELECT "id" FROM "skills" WHERE "userId" = ${input.userId} AND "id" IN (${Prisma.join(inheritingIds)}) ORDER BY "id" FOR UPDATE`;

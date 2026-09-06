@@ -367,8 +367,9 @@ export default async function SkillPage({
                       targetCount={DEFAULT_READY_EXACT_INPUT_TARGET}
                     />
                     <p className="skillQueueCopy">
-                      Exact input begins after {EXACT_INPUT_UNLOCK_REPETITIONS} saved reviews, once
-                      the skill has a short multiple-choice history.
+                      {exactInputUnlocked
+                        ? "Exact input is available when suitable verified exercises are ready."
+                        : `Exact input begins after ${EXACT_INPUT_UNLOCK_REPETITIONS} saved reviews, once the skill has a short multiple-choice history.`}
                     </p>
                     {latestExactInputGenerationJob ? (
                       <SkillQueueJobStatus
@@ -428,8 +429,9 @@ export default async function SkillPage({
                       targetCount={DEFAULT_READY_MATH_TARGET}
                     />
                     <p className="skillQueueCopy">
-                      Math practice begins after {EXACT_INPUT_UNLOCK_REPETITIONS} saved reviews,
-                      once the skill has a short multiple-choice history.
+                      {exactInputUnlocked
+                        ? "Math input is available when suitable verified exercises are ready."
+                        : `Math practice begins after ${EXACT_INPUT_UNLOCK_REPETITIONS} saved reviews, once the skill has a short multiple-choice history.`}
                     </p>
                     {latestMathGenerationJob ? (
                       <SkillQueueJobStatus job={latestMathGenerationJob} label="Latest math preparation" />

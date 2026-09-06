@@ -2,7 +2,7 @@ import { getPrisma } from "@/lib/prisma";
 import {
   resolvePracticePreference,
   resolveTextPolicy,
-  textPolicySchema,
+  parseTextPolicyOverride,
 } from "@/lib/practice/policies";
 import { PracticePreferencesForm } from "./practice-preferences-form";
 
@@ -32,11 +32,9 @@ export async function SkillPracticePreferences({
             collection: skill.collection?.practicePreference,
             user: skill.user.practicePreference,
           })}
-          textPolicy={
-            skill.textPolicy ? textPolicySchema.parse(skill.textPolicy) : null
-          }
+          textPolicy={parseTextPolicyOverride(skill.textPolicy)}
           inheritedTextPolicy={resolveTextPolicy({
-            collection: skill.collection?.textPolicy,
+            collection: parseTextPolicyOverride(skill.collection?.textPolicy),
           })}
           alreadyStudied={skill.alreadyStudied}
         />

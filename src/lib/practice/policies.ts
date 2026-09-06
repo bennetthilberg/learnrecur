@@ -49,6 +49,13 @@ export const EXACT_TEXT_POLICY: TextPolicy = {
   normalizeWhitespace: false,
 };
 
+// Read-only preference surfaces can still render so an invalid stored setting
+// can be repaired. Generation and policy writes retain strict validation.
+export function parseTextPolicyOverride(value: unknown): TextPolicy | null {
+  const parsed = textPolicySchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
+}
+
 export function resolveTextPolicy(input: {
   skill?: unknown;
   collection?: unknown;

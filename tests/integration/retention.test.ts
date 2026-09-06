@@ -94,7 +94,7 @@ suite("retention preferences through persisted practice", () => {
         now,
         input: { practicePreference: null, textPolicy: NATURAL_TEXT_POLICY },
       }),
-    ).rejects.toThrow("500");
+    ).resolves.toMatchObject({ status: "too-large" });
     expect(
       await prisma.collection.findUniqueOrThrow({
         where: { id: collection.id },
@@ -103,6 +103,39 @@ suite("retention preferences through persisted practice", () => {
       textPolicy: EXACT_TEXT_POLICY,
       practicePreference: "BALANCED",
     });
+  });
+
+  it("returns familiarity in active and recovery read models", async () => {
+    const { getDashboardHome } = await import("@/lib/dashboard");
+    const { getSkillsLibrary } = await import("@/lib/skills/library");
+    const skill = await createSkillFixture(prisma, {
+      userId,
+      title: "Read model familiarity",
+      dueAt: now,
+    });
+    await prisma.skill.update({
+      where: { id: skill.id },
+      data: { alreadyStudied: true },
+    });
+    expect(
+      (await getDashboardHome({ userId, now })).skills.find(
+        (s) => s.id === skill.id,
+      ),
+    ).toMatchObject({ alreadyStudied: true });
+    expect(
+      (await getSkillsLibrary({ userId, now })).activeSkills.find(
+        (s) => s.id === skill.id,
+      ),
+    ).toMatchObject({ alreadyStudied: true });
+    await prisma.skill.update({
+      where: { id: skill.id },
+      data: { status: "PAUSED" },
+    });
+    expect(
+      (await getSkillsLibrary({ userId, now })).recoverySkills.find(
+        (s) => s.id === skill.id,
+      ),
+    ).toMatchObject({ alreadyStudied: true });
   });
 
   it("defaults to Balanced without familiarity or mixed-review claims", async () => {
@@ -322,9 +355,13 @@ suite("retention preferences through persisted practice", () => {
       "../fixtures/ai-generation/retention-fixtures"
     );
     const fixture = retentionTextFixtures[0];
+    const collection = await prisma.collection.create({
+      data: { userId, name: "Stale policy fixture" },
+    });
     const skill = await createSkillFixture(prisma, {
       userId,
       title: fixture.title,
+      collectionId: collection.id,
       tags: [...fixture.tags],
       dueAt: now,
     });
@@ -368,8 +405,8 @@ suite("retention preferences through persisted practice", () => {
       0,
     );
     expect(
-      await getNextPracticeItem({ userId, collectionId: undefined, now }),
-    ).not.toBeNull();
+      await getNextPracticeItem({ userId, collectionId: collection.id, now }),
+    ).toMatchObject({ status: "none-due", preparing: true });
     const prepared = await refillExactInputExercisesForSkill({
       userId,
       skillId: skill.id,
@@ -699,83 +736,100 @@ suite("retention preferences through persisted practice", () => {
     });
   });
 
-  it("activates declared familiarity with real verified inventory and queues input without invented reviews", async () => {
-    const { createSkillDraft, activateSkillDraft } = await import(
-      "@/lib/skills"
-    );
-    const events: string[] = [];
-    const sender = {
-      sendChoiceRefillRequested: async () => {
-        events.push("choice");
-      },
-      sendExactInputRefillRequested: async () => {
-        events.push("text");
-      },
-      sendMathRefillRequested: async () => {
-        events.push("math");
-      },
-    };
-    const draft = await createSkillDraft({
-      userId,
-      input: {
-        title: "Spanish accents activation",
-        objective: "Select the required accent for the approved Spanish word.",
-        rules: "Preserve accents",
-        examples: "año",
-        exerciseConstraints: "Use familiar words",
-        tags: "Spanish",
-        collectionName: "",
+  it.each([false, true])(
+    "activates current familiarity with real verified inventory (initially studied: %s)",
+    async (initiallyStudied) => {
+      const { createSkillDraft, activateSkillDraft } = await import(
+        "@/lib/skills"
+      );
+      const events: string[] = [];
+      const sender = {
+        sendChoiceRefillRequested: async () => {
+          events.push("choice");
+        },
+        sendExactInputRefillRequested: async () => {
+          events.push("text");
+        },
+        sendMathRefillRequested: async () => {
+          events.push("math");
+        },
+      };
+      const draft = await createSkillDraft({
+        userId,
+        input: {
+          title: "Spanish accents activation",
+          objective:
+            "Select the required accent for the approved Spanish word.",
+          rules: "Preserve accents",
+          examples: "año",
+          exerciseConstraints: "Use familiar words",
+          tags: "Spanish",
+          collectionName: "",
+          alreadyStudied: initiallyStudied,
+          practicePreference: "RECALL_FIRST",
+        },
+      });
+      if (draft.status !== "created") throw Error("Draft creation failed");
+      const result = await activateSkillDraft({
+        userId,
+        skillId: draft.skill.id,
+        now,
+        model: "test-gemini",
+        refillSender: sender,
+        generateChoiceExercises: async () => {
+          if (!initiallyStudied)
+            await saveSkillPracticePreferences({
+              userId,
+              skillId: draft.skill.id,
+              now,
+              input: {
+                alreadyStudied: true,
+                practicePreference: "RECALL_FIRST",
+                textPolicy: null,
+              },
+            });
+          return {
+            exercises: [1, 2, 3].map((id) => ({
+              prompt: `What is the best translation for item ${id}?`,
+              choices: [
+                { id: "correct", label: `Correct answer ${id}` },
+                { id: "close", label: `Close distractor ${id}` },
+                { id: "wrong", label: `Wrong answer ${id}` },
+              ],
+              correctChoiceId: "correct",
+              explanation: `Item ${id} checks the defined skill.`,
+              difficulty: 2,
+              expectedSeconds: 30,
+            })),
+          };
+        },
+        verifyChoiceExercises: async ({ candidates }) => ({
+          verifications: candidates.map((c) => ({
+            candidateId: c.candidateId,
+            verdict: "verified",
+          })),
+        }),
+      });
+      expect(result.status).toBe("activated");
+      expect(events).toContain("text");
+      expect(
+        await prisma.skill.findUniqueOrThrow({ where: { id: draft.skill.id } }),
+      ).toMatchObject({
+        status: "ACTIVE",
+        repetitions: 0,
         alreadyStudied: true,
-        practicePreference: "RECALL_FIRST",
-      },
-    });
-    if (draft.status !== "created") throw Error("Draft creation failed");
-    const result = await activateSkillDraft({
-      userId,
-      skillId: draft.skill.id,
-      now,
-      model: "test-gemini",
-      refillSender: sender,
-      generateChoiceExercises: async () => ({
-        exercises: [1, 2, 3].map((id) => ({
-          prompt: `What is the best translation for item ${id}?`,
-          choices: [
-            { id: "correct", label: `Correct answer ${id}` },
-            { id: "close", label: `Close distractor ${id}` },
-            { id: "wrong", label: `Wrong answer ${id}` },
-          ],
-          correctChoiceId: "correct",
-          explanation: `Item ${id} checks the defined skill.`,
-          difficulty: 2,
-          expectedSeconds: 30,
-        })),
-      }),
-      verifyChoiceExercises: async ({ candidates }) => ({
-        verifications: candidates.map((c) => ({
-          candidateId: c.candidateId,
-          verdict: "verified",
-        })),
-      }),
-    });
-    expect(result.status).toBe("activated");
-    expect(events).toContain("text");
-    expect(
-      await prisma.skill.findUniqueOrThrow({ where: { id: draft.skill.id } }),
-    ).toMatchObject({
-      status: "ACTIVE",
-      repetitions: 0,
-      alreadyStudied: true,
-      lastReviewedAt: null,
-    });
-    expect(
-      await prisma.exercise.count({
-        where: { skillId: draft.skill.id, verificationStatus: "VERIFIED" },
-      }),
-    ).toBeGreaterThanOrEqual(3);
-    expect(
-      await prisma.reviewLog.count({ where: { skillId: draft.skill.id } }),
-    ).toBe(0);
-  });
+        lastReviewedAt: null,
+      });
+      expect(
+        await prisma.exercise.count({
+          where: { skillId: draft.skill.id, verificationStatus: "VERIFIED" },
+        }),
+      ).toBeGreaterThanOrEqual(3);
+      expect(
+        await prisma.reviewLog.count({ where: { skillId: draft.skill.id } }),
+      ).toBe(0);
+    },
+  );
 
   it("uses a choice fallback and bounded preparation, then reports missing stock as preparation needed", async () => {
     const { queueRetentionPreparation } = await import(
@@ -897,6 +951,38 @@ suite("retention preferences through persisted practice", () => {
 
   it("exports new policies and presentation history within the existing ownership boundary", async () => {
     const { getUserDataExport } = await import("@/lib/settings/data-export");
+    await saveUserPracticePreferences(userId, {
+      practicePreference: "BALANCED",
+      mixedReview: true,
+    });
+    const skill = await createSkillFixture(prisma, {
+      userId,
+      title: "Independent export fixture",
+      dueAt: now,
+    });
+    await saveSkillPracticePreferences({
+      userId,
+      skillId: skill.id,
+      now,
+      input: {
+        practicePreference: "RECALL_FIRST",
+        alreadyStudied: true,
+        textPolicy: null,
+      },
+    });
+    const exercise = await createChoiceExercise({
+      prisma,
+      userId,
+      skillId: skill.id,
+    });
+    await commitPracticeReview({
+      userId,
+      exerciseId: exercise.id,
+      attemptId: randomUUID(),
+      submittedAnswer: "right",
+      responseMs: 1000,
+      reviewedAt: now,
+    });
     const result = await getUserDataExport({ userId, generatedAt: now });
     expect(result).toMatchObject({
       status: "ready",

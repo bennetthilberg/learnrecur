@@ -1,4 +1,4 @@
-import { resolvePracticePreference, textPolicySchema, type TextPolicy, type PracticePreference } from "@/lib/practice/policies";
+import { resolvePracticePreference, parseTextPolicyOverride, type TextPolicy, type PracticePreference } from "@/lib/practice/policies";
 import "server-only";
 
 import { z } from "zod";
@@ -503,7 +503,7 @@ function toCollectionSummary(collection: CollectionRecord, now: Date): Collectio
     id: collection.id,
     practicePreference: collection.practicePreference,
     inheritedPreference: resolvePracticePreference({user:collection.user?.practicePreference}),
-    textPolicy: collection.textPolicy ? textPolicySchema.parse(collection.textPolicy) : null,
+    textPolicy: parseTextPolicyOverride(collection.textPolicy),
     name: collection.name,
     description: collection.description,
     status: collection.status,

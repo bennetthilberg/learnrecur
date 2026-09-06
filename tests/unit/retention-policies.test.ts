@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { checkAnswer, textAnswerSpecSchema } from "@/lib/answer-checking";
 import {
   NATURAL_TEXT_POLICY, EXACT_TEXT_POLICY, resolvePracticePreference,
-  resolveTextPolicy, textPolicySchema, textAnswerContract,
+  resolveTextPolicy, textPolicySchema, textAnswerContract, parseTextPolicyOverride,
 } from "@/lib/practice/policies";
 
 describe("effective practice policy", () => {
@@ -15,6 +15,11 @@ describe("effective practice policy", () => {
     expect(resolveTextPolicy({ collection: EXACT_TEXT_POLICY })).toEqual(EXACT_TEXT_POLICY);
     expect(resolveTextPolicy({ collection: EXACT_TEXT_POLICY, skill: NATURAL_TEXT_POLICY })).toEqual(NATURAL_TEXT_POLICY);
     expect(resolveTextPolicy({})).toEqual(NATURAL_TEXT_POLICY);
+  });
+  it("reads malformed stored display preferences without weakening strict generation validation", () => {
+    expect(parseTextPolicyOverride(EXACT_TEXT_POLICY)).toEqual(EXACT_TEXT_POLICY);
+    for (const value of [null,undefined,{version:3},"EXACT"]) expect(parseTextPolicyOverride(value)).toBeNull();
+    expect(()=>resolveTextPolicy({skill:{version:3}})).toThrow();
   });
   it("rejects contradictory named profiles and unsupported versions", () => {
     expect(textPolicySchema.safeParse({ ...EXACT_TEXT_POLICY, normalizeCase: true }).success).toBe(false);

@@ -207,6 +207,7 @@ export async function getDashboardHome(input: GetDashboardHomeInput): Promise<Da
       tags: skill.tags,
       fsrsState: skill.fsrsState,
       repetitions: skill.repetitions,
+    alreadyStudied: skill.alreadyStudied,
       lapses: skill.lapses,
       dueAt: skill.dueAt,
       stability: skill.stability,

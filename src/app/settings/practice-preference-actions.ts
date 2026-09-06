@@ -48,6 +48,12 @@ export async function savePracticePreferencesAction(
           status: "error" as const,
           message: "These practice settings are no longer available.",
         };
+      if (result.status === "too-large")
+        return {
+          status: "error" as const,
+          message:
+            "A text policy edit can affect at most 500 inheriting skills. Split this collection before changing its text policy.",
+        };
       after(async () => {
         for (const skillId of result.skillIds) {
           try {
@@ -56,8 +62,11 @@ export async function savePracticePreferencesAction(
               skillId,
               now: new Date(),
             });
-          } catch {
-            console.error("Retention preparation could not be queued.");
+          } catch (error) {
+            console.error("Retention preparation could not be queued.", {
+              skillId,
+              errorType: error instanceof Error ? error.name : "UnknownError",
+            });
           }
         }
       });
@@ -73,6 +82,9 @@ export async function savePracticePreferencesAction(
     if (target.scope === "skill") revalidatePath(`/skills/${target.id}`);
     return { status: "saved" as const, message: "Practice preferences saved." };
   } catch (error) {
+    console.error("Practice preferences could not be saved.", {
+      errorType: error instanceof Error ? error.name : "UnknownError",
+    });
     return {
       status: "error" as const,
       message:

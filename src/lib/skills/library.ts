@@ -374,6 +374,7 @@ function toActiveSkillSummary(
     dueAt: skill.dueAt,
     fsrsState: skill.fsrsState,
     repetitions: skill.repetitions,
+    alreadyStudied: skill.alreadyStudied,
     lapses: skill.lapses,
     verifiedExerciseCount: skill.exercises.filter(
       (exercise) => exercise.verificationStatus === ExerciseVerificationStatus.VERIFIED,
@@ -406,6 +407,7 @@ function toRecoverySkillSummary(
     dueAt: skill.dueAt,
     fsrsState: skill.fsrsState,
     repetitions: skill.repetitions,
+    alreadyStudied: skill.alreadyStudied,
     verifiedExerciseCount: skill.exercises.filter(
       (exercise) => exercise.verificationStatus === ExerciseVerificationStatus.VERIFIED,
     ).length,
