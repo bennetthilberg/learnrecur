@@ -203,10 +203,10 @@ The product should support reasonable equivalence without becoming subjective.
 
 Text answer normalization should support:
 
-- Case-insensitive matching.
-- Optional whitespace normalization.
-- Optional accent/diacritic normalization.
-- Accepted answer variants.
+- Version 2 text contracts compare canonical Unicode (NFC) and preserve letters and accents.
+- Natural language text intentionally ignores capitalization and normalizes whitespace.
+- Exact text preserves capitalization and whitespace; Custom configures those two choices.
+- Explicit accepted variants express limited equivalences. Unversioned legacy contracts keep their original comparison behavior.
 
 Numeric answer normalization should support:
 
@@ -299,9 +299,9 @@ The app should map attempts to FSRS ratings without asking the user to constantl
 V1 rating policy:
 
 - Incorrect answer maps to `Again`.
-- Correct and very fast maps to `Easy`.
-- Correct and not very fast maps to `Good`.
-- `Hard` is only applied when the user manually chooses it.
+- Correct maps to `Good`, regardless of speed.
+- Correct answers may explicitly use `Hard`, `Good`, or `Easy`.
+- New attempts record rating policy `correct-good-v2`; recorded historical ratings remain unchanged.
 
 This avoids punishing the user for defocusing, getting interrupted, or leaving the tab open. Slow correct answers should not automatically become Hard.
 
@@ -313,9 +313,9 @@ For wrong answers, the default should remain `Again`. A future version could all
 
 ### 8.6 Timing Signal
 
-Response time can help distinguish Good from Easy, but only for correct answers. The timer should pause or ignore hidden-tab time so leaving the screen does not distort scheduling.
+Response time remains available for display and analysis. The timer pauses hidden-tab time. Speed does not choose a rating.
 
-Each exercise should include an expected response time. Fast correct answers can be classified as Easy relative to this expected time.
+Each exercise may include an expected response time. Learners can deliberately select Easy after a correct answer; normal scheduling uses the recorded final rating.
 
 ## 9. Exercise Generation Strategy
 
@@ -723,3 +723,11 @@ The demo mode exists so the product can be clicked before external credentials a
 8. Keep the stack boring and reliable.
 9. Make exercise trust the early success metric.
 10. Do not let future classroom scope bloat the V1 product.
+
+## Configurable retention practice
+
+Balanced is the user default. Nullable collection and skill overrides resolve skill, collection, user, then Balanced. Recall first prefers verified compatible input before rotating within an answer mode and uses choice as a temporary fallback. An explicit already-studied declaration allows suitable input from the first review without fabricating FSRS evidence; otherwise input unlocks after three reviews.
+
+Mixed review defaults off and can be changed for a session. It hides skill and collection cues until feedback, then varies compatible due skills while preserving overdue-day priority. Actual mode, mixed presentation, and comparison/rating policies are recorded with new attempts. Choice success and typed success remain distinguishable; neither proves spoken performance.
+
+Generation consumes bounded real recent evidence and can recover from historical lapses. Text policy changes retire future text stock and fence obsolete work without regrading history or resetting schedules. See [retention implementation](docs/retention-implementation.md) for configuration, legacy behavior, bounded preparation, recovery rules, and validation limits.
