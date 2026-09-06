@@ -138,6 +138,97 @@ suite("retention preferences through persisted practice", () => {
     ).toMatchObject({ alreadyStudied: true });
   });
 
+  it("repairs malformed stored policies while rejecting malformed new submissions", async () => {
+    const { Prisma } = await import("@/generated/prisma/client");
+    const collection = await prisma.collection.create({
+      data: { userId, name: "Policy repair", textPolicy: { version: 3 } },
+    });
+    const skill = await createSkillFixture(prisma, {
+      userId,
+      title: "Policy repair",
+      collectionId: collection.id,
+      dueAt: now,
+    });
+    await prisma.skill.update({
+      where: { id: skill.id },
+      data: { textPolicy: { profile: "BROKEN" } },
+    });
+    const old = await createTextExercise(prisma, userId, skill.id, {
+      answerSpec: textAnswerContract(["GET /v1"], EXACT_TEXT_POLICY),
+    });
+    expect(
+      await saveSkillPracticePreferences({
+        userId,
+        skillId: skill.id,
+        now,
+        input: {
+          practicePreference: null,
+          alreadyStudied: true,
+          textPolicy: EXACT_TEXT_POLICY,
+        },
+      }),
+    ).toMatchObject({ status: "saved", policyChanged: true });
+    expect(
+      await prisma.exercise.findUniqueOrThrow({ where: { id: old.id } }),
+    ).toMatchObject({ retiredAt: now, retirementReason: "REPLACED" });
+    await prisma.skill.update({
+      where: { id: skill.id },
+      data: { textPolicy: Prisma.DbNull },
+    });
+    expect(
+      await saveSkillPracticePreferences({
+        userId,
+        skillId: skill.id,
+        now,
+        input: {
+          practicePreference: "RECALL_FIRST",
+          alreadyStudied: true,
+          textPolicy: null,
+        },
+      }),
+    ).toMatchObject({ status: "saved", policyChanged: true });
+    expect(
+      await saveCollectionPracticePreferences({
+        userId,
+        collectionId: collection.id,
+        now,
+        input: { practicePreference: null, textPolicy: NATURAL_TEXT_POLICY },
+      }),
+    ).toMatchObject({ status: "saved", policyChanged: true });
+    expect(
+      await prisma.skill.findUniqueOrThrow({ where: { id: skill.id } }),
+    ).toMatchObject({
+      textPolicyRevision: 3,
+      repetitions: 0,
+      lastReviewedAt: null,
+    });
+    await expect(
+      saveSkillPracticePreferences({
+        userId,
+        skillId: skill.id,
+        now,
+        input: {
+          practicePreference: null,
+          alreadyStudied: true,
+          textPolicy: { version: 3 },
+        },
+      }),
+    ).rejects.toThrow();
+    await expect(
+      saveCollectionPracticePreferences({
+        userId,
+        collectionId: collection.id,
+        now,
+        input: { practicePreference: null, textPolicy: { version: 3 } },
+      }),
+    ).rejects.toThrow();
+    expect(
+      await prisma.collection.findUniqueOrThrow({
+        where: { id: collection.id },
+      }),
+    ).toMatchObject({ textPolicy: NATURAL_TEXT_POLICY });
+  });
+
   it("defaults to Balanced without familiarity or mixed-review claims", async () => {
     expect(
       await prisma.user.findUniqueOrThrow({ where: { id: userId } }),

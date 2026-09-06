@@ -3,6 +3,7 @@ import { z } from "zod";
 import { Prisma } from "@/generated/prisma/client";
 import { getPrisma } from "@/lib/prisma";
 import {
+  parseTextPolicyOverride,
   practicePreferenceOverrideSchema,
   practicePreferenceSchema,
   resolveTextPolicy,
@@ -101,15 +102,27 @@ export async function saveSkillPracticePreferences(input: {
       include: { collection: true },
     });
     if (!skill) return { status: "not-found" as const };
+    const storedSkillPolicy = parseTextPolicyOverride(skill.textPolicy);
+    const storedCollectionPolicy = parseTextPolicyOverride(
+      skill.collection?.textPolicy,
+    );
+    const invalidInheritedPolicy =
+      skill.collection?.textPolicy != null && storedCollectionPolicy === null;
+    const invalidPreviousPolicy =
+      skill.textPolicy !== null
+        ? storedSkillPolicy === null
+        : invalidInheritedPolicy;
     const previous = resolveTextPolicy({
-      skill: skill.textPolicy,
-      collection: skill.collection?.textPolicy,
+      skill: storedSkillPolicy,
+      collection: storedCollectionPolicy,
     });
     const next = resolveTextPolicy({
       skill: data.textPolicy,
-      collection: skill.collection?.textPolicy,
+      collection: storedCollectionPolicy,
     });
     const policyChanged =
+      invalidPreviousPolicy ||
+      (data.textPolicy === null && invalidInheritedPolicy) ||
       previous.normalizeCase !== next.normalizeCase ||
       previous.normalizeWhitespace !== next.normalizeWhitespace ||
       // Explicitly adopting v2 for the first time also renews legacy inventory.
@@ -140,9 +153,13 @@ export async function saveCollectionPracticePreferences(input: {
       where: { id: input.collectionId, userId: input.userId },
     });
     if (!collection) return { status: "not-found" as const };
-    const previous = resolveTextPolicy({ collection: collection.textPolicy });
+    const storedPolicy = parseTextPolicyOverride(collection.textPolicy);
+    const invalidPreviousPolicy =
+      collection.textPolicy !== null && storedPolicy === null;
+    const previous = resolveTextPolicy({ collection: storedPolicy });
     const next = resolveTextPolicy({ collection: data.textPolicy });
     const policyChanged =
+      invalidPreviousPolicy ||
       previous.normalizeCase !== next.normalizeCase ||
       previous.normalizeWhitespace !== next.normalizeWhitespace ||
       (collection.textPolicy === null && data.textPolicy !== null);
