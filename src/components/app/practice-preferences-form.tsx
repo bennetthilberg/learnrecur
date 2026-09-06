@@ -1,5 +1,5 @@
 "use client";
-import { useState, useTransition } from "react";
+import { useState, useSyncExternalStore, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Checkbox, NativeSelect, Stack, Switch, Text } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
@@ -23,9 +23,16 @@ type Props = {
 };
 const label = (value: PracticePreference) =>
   value === "RECALL_FIRST" ? "Recall first" : "Balanced";
+const subscribe = () => () => {};
+const clientSnapshot = () => true;
+const serverSnapshot = () => false;
 export function PracticePreferencesForm(props: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  // A native input can change before its React handler hydrates. Keep every
+  // control disabled until its selected value can be retained and submitted.
+  const hasHydrated = useSyncExternalStore(subscribe, clientSnapshot, serverSnapshot);
+  const disabled = pending || !hasHydrated;
   const [preference, setPreference] = useState(props.preference ?? "DEFAULT");
   const [profile, setProfile] = useState(
     props.textPolicy?.profile ?? "DEFAULT",
@@ -103,7 +110,7 @@ export function PracticePreferencesForm(props: Props) {
       <Stack gap="md">
         <NativeSelect
           label="Practice preference"
-          disabled={pending}
+          disabled={disabled}
           value={preference}
           onChange={(event) => setPreference(event.currentTarget.value)}
           data={[
@@ -125,7 +132,7 @@ export function PracticePreferencesForm(props: Props) {
             label="I have already studied this skill"
             description="Allow suitable input practice from the first review."
             checked={studied}
-            disabled={pending}
+            disabled={disabled}
             onChange={(event) => setStudied(event.currentTarget.checked)}
           />
         )}
@@ -134,14 +141,14 @@ export function PracticePreferencesForm(props: Props) {
             label="Mixed review by default"
             description="Reduce rule cues and vary compatible due skills within your chosen scope. You can switch this during a session."
             checked={mixed}
-            disabled={pending}
+            disabled={disabled}
             onChange={(event) => setMixed(event.currentTarget.checked)}
           />
         ) : (
           <>
             <NativeSelect
               label="Text comparison"
-              disabled={pending}
+              disabled={disabled}
               value={profile}
               onChange={(event) =>
                 setProfile(event.currentTarget.value as typeof profile)
@@ -161,7 +168,7 @@ export function PracticePreferencesForm(props: Props) {
                 <Checkbox
                   label="Ignore capitalization"
                   checked={caseLenient}
-                  disabled={pending}
+                  disabled={disabled}
                   onChange={(event) =>
                     setCaseLenient(event.currentTarget.checked)
                   }
@@ -169,7 +176,7 @@ export function PracticePreferencesForm(props: Props) {
                 <Checkbox
                   label="Normalize whitespace"
                   checked={spaceLenient}
-                  disabled={pending}
+                  disabled={disabled}
                   onChange={(event) =>
                     setSpaceLenient(event.currentTarget.checked)
                   }
@@ -187,7 +194,7 @@ export function PracticePreferencesForm(props: Props) {
           </>
         )}
         <div>
-          <button className="primaryButton" disabled={pending} type="submit">
+          <button className="primaryButton" disabled={disabled} type="submit">
             <FloppyDisk size={16} aria-hidden="true" />
             {pending ? "Saving" : "Save practice preferences"}
           </button>

@@ -770,20 +770,28 @@ suite("MCP practice settings HTTP and persistence", () => {
   it("rechecks revocation after waiting for an in-flight connection change", async () => {
     let locked!: () => void;
     let release!: () => void;
+    let revocationPid = 0;
     const didLock = new Promise<void>((resolve) => {
       locked = resolve;
     });
     const canCommit = new Promise<void>((resolve) => {
       release = resolve;
     });
-    const revoke = prisma.$transaction(async (tx) => {
-      await tx.agentConnection.update({
-        where: { id: auth.connectionId },
-        data: { status: "REVOKED" },
-      });
-      locked();
-      await canCommit;
-    });
+    const revoke = prisma.$transaction(
+      async (tx) => {
+        const [backend] = await tx.$queryRaw<
+          Array<{ pid: number }>
+        >`SELECT pg_backend_pid() AS pid`;
+        revocationPid = backend.pid;
+        await tx.agentConnection.update({
+          where: { id: auth.connectionId },
+          data: { status: "REVOKED" },
+        });
+        locked();
+        await canCommit;
+      },
+      { timeout: 10_000 },
+    );
     await didLock;
     const pending = updateAgentPracticeSettings(auth, {
       target: { scope: "user" },
@@ -792,7 +800,27 @@ suite("MCP practice settings HTTP and persistence", () => {
     const assertion = expect(pending).rejects.toMatchObject({
       code: "permission_denied",
     });
-    release();
+    try {
+      // Observe PostgreSQL's actual lock wait before committing revocation.
+      // A plain status lookup without the connection lock must fail this test.
+      await expect
+        .poll(
+          async () => {
+            const [state] = await prisma.$queryRaw<Array<{ waiting: boolean }>>`
+          SELECT EXISTS (
+            SELECT 1 FROM pg_stat_activity
+            WHERE datname = current_database()
+              AND ${revocationPid} = ANY(pg_blocking_pids(pid))
+          ) AS waiting
+        `;
+            return state.waiting;
+          },
+          { timeout: 3_000, interval: 50 },
+        )
+        .toBe(true);
+    } finally {
+      release();
+    }
     await revoke;
     await assertion;
     expect(

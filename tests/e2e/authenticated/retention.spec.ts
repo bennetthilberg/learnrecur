@@ -37,12 +37,29 @@ for (const width of [1280, 390])
       spanish.exercise.id,
     ]);
     try {
-      await page.goto("/settings");
+      let releaseScripts!: () => void;
+      const scriptsReady = new Promise<void>((resolve) => { releaseScripts = resolve; });
+      await page.route("**/_next/static/**", async (route) => {
+        if (route.request().resourceType() === "script") await scriptsReady;
+        await route.continue();
+      });
+      await page.goto("/settings", { waitUntil: "commit" });
       const preference = page.getByRole("combobox", {
         name: "Practice preference",
         exact: true,
       });
-      await expect(preference).toHaveValue("BALANCED");
+      try {
+        await expect(preference).toHaveValue("BALANCED");
+        // Server-rendered controls must not accept changes before React can
+        // retain them. Otherwise Save can report success with the old value.
+        await expect(preference).toBeDisabled();
+        await expect(page.getByRole("switch", { name: "Mixed review by default" })).toBeDisabled();
+        await expect(page.getByRole("button", { name: "Save practice preferences" })).toBeDisabled();
+      } finally {
+        releaseScripts();
+        await page.unrouteAll({ behavior: "wait" });
+      }
+      await expect(preference).toBeEnabled();
       await preference.selectOption("RECALL_FIRST");
       await page
         .getByRole("switch", { name: "Mixed review by default" })

@@ -91,7 +91,7 @@ Release requirements: register `practice:read` and `practice:write` in the WorkO
 4. Repeated generation explanations crowded the select. Its description now states the effective value and a short explanation of Recall first.
 5. Exact whitespace could disappear in correct-answer feedback. The answer display preserves whitespace and line breaks.
 
-Existing Mantine controls, Phosphor icons, fonts, colors and navigation remain the visual foundation. Desktop and mobile browser scenarios exercise settings reload, disabled saving controls, network-error retry, keyboard toggles, accent feedback, exact technical rejection and symbolic grading.
+The settings hydration guard also prevents early native-input edits from being lost before React attaches handlers. Existing Mantine controls, Phosphor icons, fonts, colors and navigation remain the visual foundation. Desktop and mobile browser scenarios exercise settings reload, disabled saving controls, network-error retry, keyboard toggles, accent feedback, exact technical rejection and symbolic grading.
 
 ## Local verification
 
@@ -100,15 +100,17 @@ The original checkout and unrelated product-discovery files remain untouched. A 
 Verified locally:
 
 - `npm run lint` passes.
-- Unit suite: 882 tests, including actual-assistance and candidate-slot regressions. `npm run test:coverage` passes repository thresholds.
+- Unit suite: 899 tests, including actual-assistance and candidate-slot regressions. `npm run test:coverage` passes repository thresholds.
 - `npm run prisma:validate`, `npm run prisma:generate`, and `npm run build` pass.
 - `npm run check:runtime-audit` passes with the repository's existing accepted development-dependency exceptions and no blocking runtime findings.
-- Database coverage totals 371 tests across the full suite and targeted reruns. The full run passed 360 tests and exposed three math fixtures missing a math capability plus an export assertion for a deliberately omitted field. Corrected suites passed 112/112; the final retention suite, including real query-window, large-collection and input-provenance regressions, passed 18/18. The title-independent math refill regression also passes. Final regressions also cover familiarity changes during activation, read-model fields and independently runnable exports.
-- `E2E_BASE_URL=http://localhost:3011 npm run test:e2e:all` passes all 28 checks, including setup/cleanup, signed-out gates, ownership, every answer mode, settings, failures, loading, keyboard controls, and desktop/mobile retained-cue behavior. Screenshots of settings, skill preferences, and feedback were inspected at 1280 and 390 pixels. The final targeted browser rerun also covers unlocked preparation copy and the existing compact mobile controls. Browser checks use the repository's development-server harness; an additional production-start trial could not pass Clerk development authentication.
+- Full database suite: 388 tests pass across 25 files. This includes 17 MCP HTTP/persistence scenarios for every setting, both protocol revisions, consent, ownership, revocation, deletion, rate limits, concurrent partial writes, idempotent saves, bounded collection invalidation, malformed-policy repair and preserved attempts/FSRS state. The final MCP rerun also observes the actual PostgreSQL lock wait while revocation is in flight; all 17 pass.
+- `E2E_BASE_URL=http://localhost:3011 npm run test:e2e:all` passes all 28 checks, including setup/cleanup, signed-out gates, ownership, every answer mode, settings, failures, loading, keyboard controls, and desktop/mobile retained-cue behavior. Screenshots of settings, skill preferences, and feedback were inspected at 1280 and 390 pixels. The final targeted browser rerun also covers unlocked preparation copy, compact mobile controls, and delayed JavaScript loading. The delayed-script regression failed before the hydration guard and passes after it: all preference controls remain disabled until React can retain changes, then the chosen values persist through save/reload. This fixes a hosted-browser failure that reported a successful save of the old default. Browser checks use the repository's development-server harness; an additional production-start trial could not pass Clerk development authentication.
+
+The production build and a separate type check of the touched agent tests pass. An unrestricted `tsc --noEmit` also includes older repository tests with existing typing errors outside this slice; it is not a passing whole-repository check.
 
 PR checks and review threads are the source of truth for hosted verification and review of the submitted head. A passing local build is not deployment evidence.
 
-The automatic Codex review and both permitted manual reviews were consumed. All valid findings were fixed and their conversations resolved. The final malformed-policy repair follows the last review and has not been re-reviewed; do not claim a clean review of that exact head. CodeRabbit's original findings were addressed, while its follow-up review was rate limited.
+The automatic Codex review and both permitted manual reviews were consumed. All valid findings were fixed and their conversations resolved. The later policy repair, MCP settings tools, and hydration fix have not received another manual Codex review; do not claim a clean Codex review of the exact final head. CodeRabbit's original findings were addressed and its automated check passed on the MCP implementation commit.
 
 The offline generation corpus now includes Spanish, French terminology, exact technical text, numeric and symbolic math, and biological discrimination. All seeded acceptance/critical-defect expectations pass in unit tests. The offline CLI retains its default **pause** gate because each provider has fewer than 30 fixture trials; this is expected insufficient evidence, not a live quality certification. No threshold was lowered and no live provider calls were made for this slice.
 
