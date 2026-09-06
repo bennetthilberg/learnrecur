@@ -184,6 +184,7 @@ export function buildGenerationQualityContext(input: {
   sourceContext: string | null;
   requestedCount: number;
   answerModes?: readonly AnswerMode[];
+  subjectCapability?: SubjectCapabilityId;
   now?: Date;
   sourceEvidence?: readonly GenerationSourceIdentity[];
   recentEvidence?: GenerationRecentEvidence;
@@ -191,7 +192,7 @@ export function buildGenerationQualityContext(input: {
   const now = input.now ?? new Date();
   const recent = summarizeRecentEvidence({ reviews: input.recentEvidence?.reviews ?? [], lapses: input.skill.lapses, state: input.skill.fsrsState, now });
   const existingSpec = skillGenerationSpecSchema.safeParse(input.skill.generationSpec);
-  const subjectCapability = inferSubjectCapability(input.skill);
+  const subjectCapability = input.subjectCapability ?? inferSubjectCapability(input.skill);
   const materialFingerprint = sha256(
     stableJson({
       skill: {

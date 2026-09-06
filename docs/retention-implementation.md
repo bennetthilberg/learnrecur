@@ -10,7 +10,7 @@ The original checkout at `7b6c7f9` and its untracked product-discovery work are 
 - Newly generated text contracts snapshot `policyVersion: 2`, preserve Unicode letters/accents and normalize canonical Unicode to NFC. Natural text ignores capitalization and normalizes whitespace; Exact preserves both; Custom changes only those two choices. Explicit accepted alternatives express limited equivalence.
 - Unversioned text retains the existing legacy normalization defaults, including accent folding. Existing exercise contracts and historical outcomes are not rewritten. New attempts snapshot their answer contract; older attempts refer to their immutable exercise contract.
 - Automatic correct ratings are Good (`correct-good-v2`); wrong answers remain Again and deliberate correct Hard/Good/Easy overrides remain available. Legacy attempt records receive `speed-v1` without recalculation. Replay uses recorded final ratings.
-- A text policy change renews future text inventory with the existing retirement mechanism. A skill revision and row lock fence obsolete input generation. Collection changes affect inheriting skills in a bounded edit of at most 500 skills. Existing schedules are preserved.
+- A text policy change renews future text inventory with the existing retirement mechanism. A skill revision and row lock fence obsolete input generation. Collection text changes affect inheriting skills in a bounded edit of at most 500 skills. Explicit overrides do not count toward this bound, and preference-only saves do not invalidate stock or require this limit. Existing schedules are preserved.
 - Planner evidence is bounded to 20 recent recorded reviews and 100 recent exercises, ordered chronologically with IDs breaking ties. Raw private learner answers are not selected. Confirmed defective exercises are excluded.
 - Recovery ends after two consecutive correct unassisted scheduled reviews after the latest eligible failure, with at least one on a later UTC calendar day. A failure reopens recovery. Missing legacy history conservatively requires two unassisted correct scheduled reviews across UTC days. This is an initial heuristic, not a demonstrated optimum.
 - Mixed selection preserves the earliest overdue UTC day, then prefers a different compatible skill. Compatibility requires the same nonempty collection plus a shared tag or at least two substantive objective terms. Only due, eligible work is selected.
@@ -19,7 +19,7 @@ The original checkout at `7b6c7f9` and its untracked product-discovery work are 
 
 Migration `20260906173000_retention_preferences` is additive. No production migration or deployment is authorized by this implementation. Rolling back the migration discards new preferences and audit metadata; roll back the application with it, or preferably retain the additive columns. Historical grades and schedules require no backfill or replay.
 
-A separate disposable database, `e2e_1788716100_1`, was created for this branch and all 32 migrations applied successfully. The worktree's ignored `.env.local` points to it. The existing application database was not migrated. Do not run its background worker against a real queue during tests.
+Separate disposable databases were created for this branch and all 32 migrations applied successfully. CI cleaned up the first `e2e_*` database; final local reruns use `retention_local_1788719520`, outside that cleanup namespace. The worktree's ignored `.env.local` points to the local test database. The existing application database was not migrated. Do not run its background worker against a real queue during tests.
 
 ## Configuration examples
 
@@ -31,7 +31,9 @@ Settings exposes the user practice default and Mixed review default. Collections
 
 ## Preparation, history and API contracts
 
-Activation continues to require at least three verified choice exercises, including eligible verified agent candidates. A familiarity declaration opens verified production at zero repetitions and queues suitable input after activation. Choice remains usable while input prepares. Existing target counts, daily quotas, idempotency and retry limits bound preparation. Practice opening and successful review submission also check at most ten due skills in scope, and preference saves attempt affected active skills. A failed or limited job remains visible through existing skill preparation controls; the empty practice screen reports preparation needed rather than claiming the learner is caught up.
+Activation continues to require at least three verified choice exercises, including eligible verified agent candidates. A familiarity declaration opens verified production at zero repetitions and queues suitable input after activation. Choice remains usable while input prepares. Existing target counts, daily quotas, idempotency and retry limits bound preparation. Practice opening and successful review submission also check at most ten due skills in scope, and preference saves check at most ten affected active skills, with the remainder picked up through practice or existing preparation controls. A failed or limited job remains visible through existing skill preparation controls; the empty practice screen reports preparation needed rather than claiming the learner is caught up.
+
+An explicit Prepare math operation supplies the symbolic capability to planning without relying on title tokens. Native generation and verification still enforce the approved objective. Automatic preparation continues to use the existing conservative subject inference. Input candidates retain original planning slots across deterministic rejection, duplicate removal and verifier rejection.
 
 Recall first picks an available production mode before fresh/least-recently-used exercise rotation (math, numeric, text, then choice). Only verified usable contracts can participate; this order does not convert conceptual objectives into exact-string questions. The existing capability planner and verifier must support the mode. Every review still advances exactly one skill schedule.
 
@@ -55,15 +57,15 @@ Existing Mantine controls, Phosphor icons, fonts, colors and navigation remain t
 
 ## Local verification
 
-The original checkout and unrelated product-discovery files remain untouched. A separate disposable database and isolated Clerk test users support all database/browser checks. No real account settings, production migration, deployment, paid live evaluation, or merge has been performed.
+The original checkout and unrelated product-discovery files remain untouched. A separate disposable database and isolated Clerk test users support all database/browser checks. No real account settings, production migration, manual deployment, paid live evaluation, or merge has been performed. Repository integrations automatically create Vercel previews on push.
 
 Verified locally:
 
 - `npm run lint` passes.
-- Unit suite: 877 tests, including the added actual-assistance regression. `npm run test:coverage` passes repository thresholds.
+- Unit suite: 879 tests, including actual-assistance and candidate-slot regressions. `npm run test:coverage` passes repository thresholds.
 - `npm run prisma:validate`, `npm run prisma:generate`, and `npm run build` pass.
 - `npm run check:runtime-audit` passes with the repository's existing accepted development-dependency exceptions and no blocking runtime findings.
-- Database coverage totals 365 tests across the full suite and targeted reruns. The full run passed 360 tests and exposed three math fixtures missing a math capability plus an export assertion for a deliberately omitted field. Corrected suites passed 112/112; the final retention suite, including the additional real query-window test, passed 12/12.
+- Database coverage totals 368 tests across the full suite and targeted reruns. The full run passed 360 tests and exposed three math fixtures missing a math capability plus an export assertion for a deliberately omitted field. Corrected suites passed 112/112; the final retention suite, including real query-window, large-collection and input-provenance regressions, passed 15/15. The title-independent math refill regression also passes.
 - `E2E_BASE_URL=http://localhost:3011 npm run test:e2e:all` passes all 28 checks, including setup/cleanup, signed-out gates, ownership, every answer mode, settings, failures, loading, keyboard controls, and desktop/mobile retained-cue behavior. Screenshots of settings, skill preferences, and feedback were inspected at 1280 and 390 pixels.
 
 PR checks and review threads are the source of truth for hosted verification and review of the submitted head. A passing local build is not deployment evidence.

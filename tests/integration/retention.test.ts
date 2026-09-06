@@ -38,6 +38,73 @@ suite("retention preferences through persisted practice", () => {
     await prisma.$disconnect();
   });
 
+  it("bounds collection invalidation by inheriting skills without blocking preference-only saves", async () => {
+    const collection = await prisma.collection.create({
+      data: { userId, name: "Large reference collection" },
+    });
+    await prisma.skill.createMany({
+      data: Array.from({ length: 501 }, (_, index) => ({
+        userId,
+        collectionId: collection.id,
+        title: `Explicit ${index}`,
+        textPolicy: EXACT_TEXT_POLICY,
+      })),
+    });
+    const inheriting = await createSkillFixture(prisma, {
+      userId,
+      collectionId: collection.id,
+      title: "Inherited comparison",
+    });
+    expect(
+      await saveCollectionPracticePreferences({
+        userId,
+        collectionId: collection.id,
+        now,
+        input: { practicePreference: "RECALL_FIRST", textPolicy: null },
+      }),
+    ).toMatchObject({ status: "saved", policyChanged: false });
+    expect(
+      await saveCollectionPracticePreferences({
+        userId,
+        collectionId: collection.id,
+        now,
+        input: {
+          practicePreference: "BALANCED",
+          textPolicy: EXACT_TEXT_POLICY,
+        },
+      }),
+    ).toMatchObject({ status: "saved", policyChanged: true });
+    expect(
+      await prisma.skill.findUniqueOrThrow({ where: { id: inheriting.id } }),
+    ).toMatchObject({ textPolicyRevision: 1 });
+    expect(
+      await prisma.skill.count({
+        where: { collectionId: collection.id, textPolicyRevision: 1 },
+      }),
+    ).toBe(1);
+    const { Prisma } = await import("@/generated/prisma/client");
+    await prisma.skill.updateMany({
+      where: { collectionId: collection.id },
+      data: { textPolicy: Prisma.DbNull },
+    });
+    await expect(
+      saveCollectionPracticePreferences({
+        userId,
+        collectionId: collection.id,
+        now,
+        input: { practicePreference: null, textPolicy: NATURAL_TEXT_POLICY },
+      }),
+    ).rejects.toThrow("500");
+    expect(
+      await prisma.collection.findUniqueOrThrow({
+        where: { id: collection.id },
+      }),
+    ).toMatchObject({
+      textPolicy: EXACT_TEXT_POLICY,
+      practicePreference: "BALANCED",
+    });
+  });
+
   it("defaults to Balanced without familiarity or mixed-review claims", async () => {
     expect(
       await prisma.user.findUniqueOrThrow({ where: { id: userId } }),
@@ -336,6 +403,99 @@ suite("retention preferences through persisted practice", () => {
     ).toMatchObject({ repetitions: 0, lastReviewedAt: null });
   });
 
+  it.each(["TEXT", "MATH"] as const)(
+    "keeps %s planning slots through validation, duplicate removal and verification",
+    async (answerKind) => {
+      const { refillExactInputExercisesForSkill, refillMathExercisesForSkill } =
+        await import("@/lib/skills");
+      const {
+        retentionGeneratedText,
+        retentionTextFixtures,
+        retentionMathFixtures,
+      } = await import("../fixtures/ai-generation/retention-fixtures");
+      const skill = await createSkillFixture(prisma, {
+        userId,
+        title:
+          answerKind === "MATH"
+            ? "Solving linear equations"
+            : "French terminology",
+        repetitions: 3,
+      });
+      const base =
+        answerKind === "TEXT"
+          ? retentionGeneratedText(retentionTextFixtures[1])
+          : {
+              prompt: "Simplify x+x+x.",
+              answerKind: "MATH" as const,
+              answerSpec: retentionMathFixtures[1].answerSpec,
+              correctAnswerDisplay: "3*x",
+              explanation: "Combine the three equal terms.",
+              difficulty: 3,
+              expectedSeconds: 30,
+            };
+      await prisma.exercise.create({
+        data: {
+          userId,
+          skillId: skill.id,
+          type: "EXACT_INPUT",
+          verificationStatus: "VERIFIED",
+          ...base,
+        },
+      });
+      let expectedSlot: string | undefined;
+      const generate = async (input: {
+        qualityContext?: ReturnType<typeof buildGenerationQualityContext>;
+      }) => {
+        expectedSlot = input.qualityContext?.blueprint.slots[3]?.slotId;
+        return {
+          exercises: [
+            { ...base, answerSpec: { kind: "invalid" } },
+            base,
+            { ...base, prompt: "Rejected fresh prompt." },
+            { ...base, prompt: "Accepted fresh prompt." },
+          ],
+        };
+      };
+      const verify = async ({
+        candidates,
+      }: {
+        candidates: Array<{ candidateId: string }>;
+      }) => ({
+        verifications: candidates.map((c, index) => ({
+          candidateId: c.candidateId,
+          verdict: index === 0 ? "rejected" : "verified",
+          reason: index === 0 ? "unclear_prompt" : null,
+        })),
+      });
+      const common = {
+        userId,
+        skillId: skill.id,
+        now,
+        targetReadyCount: 5,
+        model: "test-gemini",
+      };
+      const result =
+        answerKind === "TEXT"
+          ? await refillExactInputExercisesForSkill({
+              ...common,
+              generateExactInputExercises: generate,
+              verifyExactInputExercises: verify,
+            })
+          : await refillMathExercisesForSkill({
+              ...common,
+              generateMathExercises: generate,
+              verifyMathExercises: verify,
+            });
+      expect(result).toMatchObject({ status: "refilled", exerciseCount: 1 });
+      expect(expectedSlot).toEqual(expect.any(String));
+      expect(
+        await prisma.exercise.findFirstOrThrow({
+          where: { skillId: skill.id, prompt: "Accepted fresh prompt." },
+        }),
+      ).toMatchObject({ blueprintSlot: expectedSlot });
+    },
+  );
+
   it("feeds persisted recovery and valid exercise history into the actual input generator", async () => {
     const { refillExactInputExercisesForSkill } = await import("@/lib/skills");
     const { retentionTextFixtures, retentionGeneratedText } = await import(
@@ -432,13 +592,20 @@ suite("retention preferences through persisted practice", () => {
       generateExactInputExercises: async (input) => {
         captured = input.qualityContext;
         return {
-          exercises: [retentionGeneratedText(retentionTextFixtures[1])],
+          exercises: [
+            retentionGeneratedText(retentionTextFixtures[1]),
+            {
+              ...retentionGeneratedText(retentionTextFixtures[1]),
+              prompt: "Complete the familiar phrase: la ___ française. (coast)",
+            },
+          ],
         };
       },
       verifyExactInputExercises: async ({ candidates }) => ({
-        verifications: candidates.map((c) => ({
+        verifications: candidates.map((c, index) => ({
           candidateId: c.candidateId,
-          verdict: "verified",
+          verdict: index === 0 ? "rejected" : "verified",
+          reason: index === 0 ? "unclear_prompt" : null,
         })),
       }),
     });
@@ -452,6 +619,19 @@ suite("retention preferences through persisted practice", () => {
         now,
         recentEvidence: evidence,
       }),
+    );
+    const published = await prisma.exercise.findFirstOrThrow({
+      where: { skillId: skill.id, answerKind: "TEXT" },
+    });
+    expect(published.blueprintSlot).toBe(
+      buildGenerationQualityContext({
+        skill: sourceSkill,
+        sourceContext: null,
+        requestedCount: 2,
+        answerModes: ["text", "numeric"],
+        now,
+        recentEvidence: evidence,
+      }).blueprint.slots[1].slotId,
     );
     expect(captured).toMatchObject({
       skillSpec: { difficultyPolicy: { target: 3 } },

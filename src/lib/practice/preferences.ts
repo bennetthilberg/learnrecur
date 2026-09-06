@@ -140,27 +140,31 @@ export async function saveCollectionPracticePreferences(input: {
       where: { id: input.collectionId, userId: input.userId },
     });
     if (!collection) return { status: "not-found" as const };
-    const skills = await tx.skill.findMany({
-      where: { userId: input.userId, collectionId: collection.id },
-      orderBy: { id: "asc" },
-      take: 501,
-      select: { id: true, textPolicy: true },
-    });
-    if (skills.length > 500)
-      throw new Error(
-        "This collection is too large to change at once. Split it into smaller collections first.",
-      );
-    const inheritingIds = skills
-      .filter((skill) => skill.textPolicy === null)
-      .map((skill) => skill.id);
-    if (inheritingIds.length)
-      await tx.$queryRaw`SELECT "id" FROM "skills" WHERE "userId" = ${input.userId} AND "id" IN (${Prisma.join(inheritingIds)}) ORDER BY "id" FOR UPDATE`;
     const previous = resolveTextPolicy({ collection: collection.textPolicy });
     const next = resolveTextPolicy({ collection: data.textPolicy });
     const policyChanged =
       previous.normalizeCase !== next.normalizeCase ||
       previous.normalizeWhitespace !== next.normalizeWhitespace ||
       (collection.textPolicy === null && data.textPolicy !== null);
+    const inheriting = policyChanged
+      ? await tx.skill.findMany({
+          where: {
+            userId: input.userId,
+            collectionId: collection.id,
+            textPolicy: { equals: Prisma.AnyNull },
+          },
+          orderBy: { id: "asc" },
+          take: 501,
+          select: { id: true },
+        })
+      : [];
+    if (inheriting.length > 500)
+      throw new Error(
+        "A text policy edit can affect at most 500 inheriting skills. Split this collection before changing its text policy.",
+      );
+    const inheritingIds = inheriting.map((skill) => skill.id);
+    if (inheritingIds.length)
+      await tx.$queryRaw`SELECT "id" FROM "skills" WHERE "userId" = ${input.userId} AND "id" IN (${Prisma.join(inheritingIds)}) ORDER BY "id" FOR UPDATE`;
     await tx.collection.update({
       where: { id: collection.id },
       data: { ...data, textPolicy: data.textPolicy ?? Prisma.DbNull },
@@ -169,7 +173,20 @@ export async function saveCollectionPracticePreferences(input: {
       await invalidateTextInventory(tx, input.userId, inheritingIds, input.now);
     return {
       status: "saved" as const,
-      skillIds: skills.map((skill) => skill.id),
+      // Immediate preparation is bounded; remaining due skills are picked up
+      // when practice opens or the learner uses existing preparation controls.
+      skillIds: (
+        await tx.skill.findMany({
+          where: {
+            userId: input.userId,
+            collectionId: collection.id,
+            status: "ACTIVE",
+          },
+          orderBy: [{ dueAt: "asc" }, { id: "asc" }],
+          take: 10,
+          select: { id: true },
+        })
+      ).map((skill) => skill.id),
       policyChanged,
     };
   });

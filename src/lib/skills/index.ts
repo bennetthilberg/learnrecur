@@ -364,6 +364,7 @@ export type GeneratedChoiceExerciseValidationOptions = {
 export type GeneratedExactInputExerciseValidationResult =
   | {
       status: "ready";
+      sourceIndexes: number[];
       exercises: GeneratedExactInputExercise[];
       rejectedCount: number;
     }
@@ -385,6 +386,7 @@ export type GeneratedExactInputExerciseValidationOptions = {
 export type GeneratedMathExerciseValidationResult =
   | {
       status: "ready";
+      sourceIndexes: number[];
       exercises: GeneratedMathExercise[];
       rejectedCount: number;
     }
@@ -4477,6 +4479,11 @@ export async function refillExactInputExercisesForSkill(
   }
 
   const candidates = toGeneratedExactInputExerciseCandidates(deduplicated.exercises);
+  // Deduplication preserves object identity; keep positions from the original
+  // generated batch across deterministic rejection and verification filtering.
+  const candidateSlotIndexes = deduplicated.exercises.map((exercise) =>
+    validation.sourceIndexes[validation.exercises.indexOf(exercise)],
+  );
   let rawVerification: unknown;
 
   try {
@@ -4557,6 +4564,15 @@ export async function refillExactInputExercisesForSkill(
     };
   }
 
+  const verifiedCandidateIds = new Set(
+    verification.decisions
+      .filter((decision) => decision.verdict === "verified")
+      .map((decision) => decision.candidateId),
+  );
+  const verifiedCandidates = candidates.filter((candidate) =>
+    verifiedCandidateIds.has(candidate.candidateId),
+  );
+
   return prisma.$transaction(async (tx) => {
     const locked = await tx.$queryRaw<Array<{ textPolicyRevision: number }>>`
       SELECT "textPolicyRevision" FROM "skills"
@@ -4632,8 +4648,11 @@ export async function refillExactInputExercisesForSkill(
     }
 
     await tx.exercise.createMany({
-      data: verification.exercises.map((exercise, slotIndex) => ({
-        ...toPersistedInputQuality({ context: qualityContext, slotIndex }),
+      data: verifiedCandidates.map((exercise) => ({
+        ...toPersistedInputQuality({
+          context: qualityContext,
+          slotIndex: candidateSlotIndexes[getCandidateSlotIndex(candidates, exercise.candidateId)],
+        }),
         userId: input.userId,
         skillId: skill.id,
         type: ExerciseType.EXACT_INPUT,
@@ -4881,6 +4900,9 @@ export async function refillMathExercisesForSkill(
   const qualityContextResult = safeBuildGenerationQualityContext({
     skill, sourceContext, requestedCount, now: input.now,
     answerModes: ["math"],
+    // The selected math-preparation operation supplies this capability. The
+    // generator and verifier still enforce the unchanged skill objective.
+    subjectCapability: "symbolic_numeric",
     recentEvidence: await loadGenerationRecentEvidence({ userId: input.userId, skillId: skill.id, now: input.now }),
     sourceEvidence: skill.sourceRefs.map((ref) => ({ sourceFileId: ref.sourceFile.id, revisionId: ref.sourceFile.materialRevisionId, locator: ref.locator })),
   });
@@ -4993,6 +5015,11 @@ export async function refillMathExercisesForSkill(
   }
 
   const candidates = toGeneratedMathExerciseCandidates(deduplicated.exercises);
+  // Deduplication preserves object identity; keep positions from the original
+  // generated batch across deterministic rejection and verification filtering.
+  const candidateSlotIndexes = deduplicated.exercises.map((exercise) =>
+    validation.sourceIndexes[validation.exercises.indexOf(exercise)],
+  );
   let rawVerification: unknown;
 
   try {
@@ -5073,6 +5100,15 @@ export async function refillMathExercisesForSkill(
     };
   }
 
+  const verifiedCandidateIds = new Set(
+    verification.decisions
+      .filter((decision) => decision.verdict === "verified")
+      .map((decision) => decision.candidateId),
+  );
+  const verifiedCandidates = candidates.filter((candidate) =>
+    verifiedCandidateIds.has(candidate.candidateId),
+  );
+
   return prisma.$transaction(async (tx) => {
     const currentSkill = await tx.skill.findFirst({
       where: {
@@ -5140,8 +5176,11 @@ export async function refillMathExercisesForSkill(
     }
 
     await tx.exercise.createMany({
-      data: verification.exercises.map((exercise, slotIndex) => ({
-        ...toPersistedInputQuality({ context: qualityContext, slotIndex }),
+      data: verifiedCandidates.map((exercise) => ({
+        ...toPersistedInputQuality({
+          context: qualityContext,
+          slotIndex: candidateSlotIndexes[getCandidateSlotIndex(candidates, exercise.candidateId)],
+        }),
         userId: input.userId,
         skillId: skill.id,
         type: ExerciseType.EXACT_INPUT,
@@ -5278,7 +5317,7 @@ export function toGeneratedChoiceExerciseCandidates(
 }
 
 function getCandidateSlotIndex(
-  candidates: readonly GeneratedChoiceExerciseCandidate[],
+  candidates: readonly { candidateId: string }[],
   candidateId: string,
 ): number {
   const index = candidates.findIndex((candidate) => candidate.candidateId === candidateId);
@@ -5654,13 +5693,15 @@ export function validateGeneratedExactInputExercises(
   }
 
   const exercises: GeneratedExactInputExercise[] = [];
+  const sourceIndexes: number[] = [];
   let rejectedCount = 0;
 
-  for (const candidate of envelopeResult.data.exercises) {
+  for (const [sourceIndex, candidate] of envelopeResult.data.exercises.entries()) {
     const parsed = parseGeneratedExactInputExercise(candidate);
 
     if (parsed && (parsed.answerKind !== AnswerKind.TEXT || !options.textPolicy || matchesTextPolicy(parsed.answerSpec, options.textPolicy))) {
       exercises.push(parsed);
+      sourceIndexes.push(sourceIndex);
     } else {
       rejectedCount += 1;
     }
@@ -5678,6 +5719,7 @@ export function validateGeneratedExactInputExercises(
   return {
     status: "ready",
     exercises,
+    sourceIndexes,
     rejectedCount,
   };
 }
@@ -5700,13 +5742,15 @@ export function validateGeneratedMathExercises(
   }
 
   const exercises: GeneratedMathExercise[] = [];
+  const sourceIndexes: number[] = [];
   let rejectedCount = 0;
 
-  for (const candidate of envelopeResult.data.exercises) {
+  for (const [sourceIndex, candidate] of envelopeResult.data.exercises.entries()) {
     const parsed = parseGeneratedMathExercise(candidate);
 
     if (parsed) {
       exercises.push(parsed);
+      sourceIndexes.push(sourceIndex);
     } else {
       rejectedCount += 1;
     }
@@ -5724,6 +5768,7 @@ export function validateGeneratedMathExercises(
   return {
     status: "ready",
     exercises,
+    sourceIndexes,
     rejectedCount,
   };
 }

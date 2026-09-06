@@ -7209,7 +7209,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
     const userId = await createUser("math_refill_queue");
     const skill = await createActiveSkillFixture({
       userId,
-      title: "Algebra input practice",
+      title: "Solving linear equations",
       repetitions: EXACT_INPUT_UNLOCK_REPETITIONS,
     });
     const fake = createFakeRefillSender();
