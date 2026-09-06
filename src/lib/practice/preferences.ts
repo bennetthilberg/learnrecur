@@ -34,9 +34,13 @@ export async function getUserPracticePreferences(userId: string) {
 export async function saveUserPracticePreferences(
   userId: string,
   input: unknown,
+  transaction?: Prisma.TransactionClient,
 ) {
   const data = userPracticePreferencesSchema.parse(input);
-  await getPrisma().user.update({ where: { id: userId }, data });
+  await (transaction ?? getPrisma()).user.update({
+    where: { id: userId },
+    data,
+  });
   return data;
 }
 
@@ -87,14 +91,17 @@ export async function invalidateTextInventory(
   });
 }
 
-export async function saveSkillPracticePreferences(input: {
-  userId: string;
-  skillId: string;
-  input: unknown;
-  now: Date;
-}) {
+export async function saveSkillPracticePreferences(
+  input: {
+    userId: string;
+    skillId: string;
+    input: unknown;
+    now: Date;
+  },
+  transaction?: Prisma.TransactionClient,
+) {
   const data = skillPracticePreferencesSchema.parse(input.input);
-  return getPrisma().$transaction(async (tx) => {
+  const save = async (tx: Prisma.TransactionClient) => {
     await tx.$queryRaw`SELECT "id" FROM "users" WHERE "id" = ${input.userId} FOR UPDATE`;
     await tx.$queryRaw`SELECT "id" FROM "skills" WHERE "id" = ${input.skillId} AND "userId" = ${input.userId} FOR UPDATE`;
     const skill = await tx.skill.findFirst({
@@ -134,19 +141,23 @@ export async function saveSkillPracticePreferences(input: {
     if (policyChanged)
       await invalidateTextInventory(tx, input.userId, [skill.id], input.now);
     return { status: "saved" as const, skillIds: [skill.id], policyChanged };
-  });
+  };
+  return transaction ? save(transaction) : getPrisma().$transaction(save);
 }
 
 // Collections are a compact override, not a global language setting. Bound the
 // edit to 500 inheriting skills; explicit skill overrides remain independent.
-export async function saveCollectionPracticePreferences(input: {
-  userId: string;
-  collectionId: string;
-  input: unknown;
-  now: Date;
-}) {
+export async function saveCollectionPracticePreferences(
+  input: {
+    userId: string;
+    collectionId: string;
+    input: unknown;
+    now: Date;
+  },
+  transaction?: Prisma.TransactionClient,
+) {
   const data = collectionPracticePreferencesSchema.parse(input.input);
-  return getPrisma().$transaction(async (tx) => {
+  const save = async (tx: Prisma.TransactionClient) => {
     await tx.$queryRaw`SELECT "id" FROM "users" WHERE "id" = ${input.userId} FOR UPDATE`;
     await tx.$queryRaw`SELECT "id" FROM "collections" WHERE "id" = ${input.collectionId} AND "userId" = ${input.userId} FOR UPDATE`;
     const collection = await tx.collection.findFirst({
@@ -203,5 +214,6 @@ export async function saveCollectionPracticePreferences(input: {
       ).map((skill) => skill.id),
       policyChanged,
     };
-  });
+  };
+  return transaction ? save(transaction) : getPrisma().$transaction(save);
 }

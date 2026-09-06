@@ -12,7 +12,7 @@ function validEvidence(): WorkosGateEvidence {
   return {
     canonicalResource,
     expectedClerkUserId: "user_clerk_123",
-    requiredScopes: ["skills:create", "materials:read", "sources:upload"],
+    requiredScopes: ["skills:create", "materials:read", "sources:upload", "practice:read", "practice:write"],
     metadata: {
       issuer: "https://learnrecur-staging.authkit.app",
       authorization_endpoint:
@@ -28,7 +28,7 @@ function validEvidence(): WorkosGateEvidence {
       subject: "user_clerk_123",
       sessionId: "app_consent_123",
       expiresAt: 2_000_000_000,
-      scopes: ["skills:create", "materials:read", "sources:upload"],
+      scopes: ["skills:create", "materials:read", "sources:upload", "practice:read", "practice:write"],
     },
     refreshedToken: {
       issuer: "https://learnrecur-staging.authkit.app",
@@ -36,7 +36,7 @@ function validEvidence(): WorkosGateEvidence {
       subject: "user_clerk_123",
       sessionId: "app_consent_123",
       expiresAt: 2_000_000_100,
-      scopes: ["skills:create", "materials:read", "sources:upload"],
+      scopes: ["skills:create", "materials:read", "sources:upload", "practice:read", "practice:write"],
     },
     workosUser: {
       id: "user_workos_123",

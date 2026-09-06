@@ -45,6 +45,44 @@ New external text candidates use comparison policy v2. `policyVersion` defaults 
 
 Prompt versions are `skill-mcq-v2`, `skill-exact-input-v2`, and `skill-math-v1`. Export version 4 adds user/collection/skill preferences and new attempt comparison/rating/context snapshots. Existing ownership filters and cascades cover these additive columns; no separate deletion subsystem is introduced.
 
+## Connected-agent settings
+
+MCP exposes every persistent practice preference through three tools:
+
+| Tool | Permission | Behavior |
+| --- | --- | --- |
+| `practice.list_targets` | `practice:read` | Find owned collections or skills by name; stable ID pagination, 20 results by default and 50 maximum. |
+| `practice.get_settings` | `practice:read` | Return stored overrides, effective inheritance, and malformed-policy repair indicators. |
+| `practice.update_settings` | `practice:write` | Atomically patch only supplied settings and return the saved/effective values. |
+
+Account targets support `practicePreference` and `mixedReview`. Collections support nullable `practicePreference` and `textPolicy`. Skills support those overrides plus `alreadyStudied`. Setting an override to `null` restores inheritance; explicit `BALANCED` remains an override. Text profiles support Natural, Exact, and Custom case/whitespace rules; diacritics are always preserved. `mixedReview` sets the persistent account default; an already-open browser session retains its temporary session choice. MCP does not control that browser session.
+
+Example `practice.update_settings` arguments for a skill:
+
+```json
+{
+  "target": { "scope": "skill", "id": "owned-skill-id" },
+  "changes": {
+    "practicePreference": "RECALL_FIRST",
+    "alreadyStudied": true,
+    "textPolicy": {
+      "version": 2,
+      "profile": "NATURAL",
+      "normalizeCase": true,
+      "normalizeWhitespace": true
+    }
+  }
+}
+```
+
+Use `{"target":{"scope":"user"},"changes":{"mixedReview":true}}` for the account default. Use a collection target with `textPolicy.profile: "EXACT"` and both normalization flags `false` for exact technical text. Read before editing when inheritance matters.
+
+Ownership comes exclusively from authentication. The transaction rechecks the token scope, persisted connection scope/status/identity, expiry, account disablement, and deletion tombstone. Locks serialize partial patches with preference saves and revocation. Reads share the existing 60/minute connection allowance; writes share its 10/minute mutation allowance. Repeated identical patches do not retire stock or prepare again. Text policy changes use the same invalidation and stale-job fence as UI saves, including the 500-inheriting-skill collection bound and at most 10 immediate preparation targets. Preparation delivery failure returns `preparation_deferred: true` after a successful save, without exposing provider errors. Existing practice-opening/preparation controls provide recovery.
+
+Invalid stored policies are identified without returning arbitrary stored JSON or pretending the effective policy is valid. An agent can repair its target by explicitly supplying `textPolicy` or clearing it with `null`; an unrelated partial edit cannot silently clear malformed data.
+
+Release requirements: register `practice:read` and `practice:write` in the WorkOS OAuth resource with consent descriptions for reading and editing account, collection, and skill practice settings. Deploy this code and the existing additive retention migration through the ordinary release process, then reconnect existing clients and approve the new scopes. Old `skills:create` grants remain valid for creation and **do not** acquire edit permission. Do not bump `AGENT_PERMISSION_VERSION` merely to add these optional scopes. The WorkOS gate now requires both new scopes in initial and refreshed token evidence. The local tests inject the verified token boundary; they do not constitute a live WorkOS consent/refresh witness. No production configuration or deployment was changed for this follow-up.
+
 ## UI critique and corrections
 
 1. Default dimmed helper text was too faint. Preference descriptions now use the approved secondary text token.
