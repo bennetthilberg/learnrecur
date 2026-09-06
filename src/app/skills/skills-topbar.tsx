@@ -1,6 +1,5 @@
 "use client";
 
-import { UserButton, useUser } from "@clerk/nextjs";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -17,7 +16,7 @@ import {
 import type { Icon } from "@phosphor-icons/react";
 
 import { OpenWaterBackground, OpenWaterLogoMark } from "@/components/app/open-water";
-import { designTokens } from "@/lib/design-tokens";
+import { AccountMenu } from "@/components/auth/account-menu";
 
 import {
   PrimaryRouteLoadingContent,
@@ -265,14 +264,7 @@ export function SkillsTopbar({
   const pendingNavKeyRef = useRef<PrimaryNavKey | null>(null);
   const [visualNavKey, setVisualNavKey] = useState<PrimaryNavKey | undefined>(currentNavKey);
   const visualNavKeyRef = useRef<PrimaryNavKey | undefined>(currentNavKey);
-  const userMenuRef = useRef<HTMLDivElement | null>(null);
-  const { isLoaded: isUserLoaded, user } = useUser();
   const pendingConfig = pendingNavKey ? primaryRouteLoadingByKey[pendingNavKey] : null;
-  const primaryEmail = user?.primaryEmailAddress?.emailAddress ?? user?.emailAddresses[0]?.emailAddress;
-  const userDisplayName =
-    user?.fullName ?? user?.firstName ?? user?.username ?? primaryEmail ?? "Account";
-  const userDetail = primaryEmail ?? (isUserLoaded ? "Signed in" : "Loading profile");
-  const userInitial = userDisplayName.trim().charAt(0).toUpperCase() || "A";
 
   const prefetchNavRoute = useCallback(
     (href: string) => {
@@ -418,26 +410,6 @@ export function SkillsTopbar({
     };
   }, [positionActiveIndicator]);
 
-  useEffect(() => {
-    const prefetchPrimaryRoutes = () => {
-      for (const item of navItems) {
-        if (item.key !== currentNavKey) {
-          prefetchNavRoute(item.href);
-        }
-      }
-    };
-    let timeoutHandle: number | null = null;
-    const frameHandle = window.requestAnimationFrame(() => {
-      timeoutHandle = window.setTimeout(prefetchPrimaryRoutes, 80);
-    });
-
-    return () => {
-      window.cancelAnimationFrame(frameHandle);
-      if (timeoutHandle !== null) {
-        window.clearTimeout(timeoutHandle);
-      }
-    };
-  }, [currentNavKey, prefetchNavRoute]);
 
   const handleNavPointerDown = useCallback(
     (targetKey: PrimaryNavKey, event: PointerEvent<HTMLAnchorElement>) => {
@@ -495,10 +467,6 @@ export function SkillsTopbar({
     [currentNavKey, moveVisualIndicator, router],
   );
 
-  const openUserMenu = useCallback(() => {
-    userMenuRef.current?.querySelector<HTMLButtonElement>(".learnrecurUserButton")?.click();
-  }, []);
-
   return (
     <>
       <OpenWaterBackground />
@@ -529,7 +497,7 @@ export function SkillsTopbar({
                     handleNavPointerDown(item.key, event);
                   }}
                   onPointerEnter={() => prefetchNavRoute(item.href)}
-                  prefetch={true}
+                  prefetch={false}
                 >
                   <NavIcon
                     aria-hidden="true"
@@ -544,35 +512,7 @@ export function SkillsTopbar({
               );
             })}
           </nav>
-          <div ref={userMenuRef} className="practiceUserMenu">
-            <div className="practiceUserProfile">
-              <UserButton
-                fallback={
-                  <span className="practiceUserFallbackAvatar" aria-hidden="true">
-                    {userInitial}
-                  </span>
-                }
-                appearance={{
-                  elements: {
-                    userButtonAvatarBox: "learnrecurUserAvatar",
-                    userButtonTrigger: "learnrecurUserButton",
-                  },
-                  variables: {
-                    colorPrimary: designTokens.colorPrimary,
-                  },
-                }}
-              />
-              <button
-                type="button"
-                className="practiceUserIdentity"
-                onClick={openUserMenu}
-                aria-label={`Open account menu for ${userDisplayName}`}
-              >
-                <span className="practiceUserName">{userDisplayName}</span>
-                <span className="practiceUserMeta">{userDetail}</span>
-              </button>
-            </div>
-          </div>
+          <AccountMenu />
         </div>
       </header>
       {pendingConfig ? (
