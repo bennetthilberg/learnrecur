@@ -88,6 +88,46 @@ for (const width of [1280, 390])
         path: testInfo.outputPath(`settings-${width}.png`),
         fullPage: true,
       });
+      await page.goto("/collections");
+      const collectionRow = page
+        .getByRole("article")
+        .filter({ hasText: spanish.collectionName });
+      await collectionRow
+        .getByText("Practice preferences", { exact: true })
+        .click();
+      const collectionPreference = collectionRow.getByRole("combobox", {
+        name: "Practice preference",
+        exact: true,
+      });
+      await collectionPreference.selectOption("BALANCED");
+      await collectionRow
+        .getByRole("button", { name: "Save practice preferences" })
+        .click();
+      await expect(
+        page.getByText("Preferences saved", { exact: true }),
+      ).toBeVisible();
+      await page.reload();
+      await collectionRow
+        .getByText("Practice preferences", { exact: true })
+        .click();
+      await expect(collectionPreference).toHaveValue("BALANCED");
+      await collectionPreference.selectOption("RECALL_FIRST");
+      await collectionRow
+        .getByRole("button", { name: "Save practice preferences" })
+        .click();
+      await expect(
+        page.getByText("Preferences saved", { exact: true }),
+      ).toBeVisible();
+      await page.screenshot({
+        path: testInfo.outputPath(`collection-${width}.png`),
+        fullPage: true,
+      });
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= window.innerWidth,
+        ),
+      ).toBe(true);
+
       await page.goto(`/skills/${spanish.skillId}`);
       await page
         .getByText("Advanced practice preferences", { exact: true })
@@ -103,6 +143,34 @@ for (const width of [1280, 390])
           name: "I have already studied this skill",
         }),
       ).toBeChecked();
+      const skillPreference = page.getByRole("combobox", {
+        name: "Practice preference",
+        exact: true,
+      });
+      await skillPreference.selectOption("BALANCED");
+      await page
+        .getByRole("button", { name: "Save practice preferences" })
+        .click();
+      await expect(
+        page.getByText("Preferences saved", { exact: true }),
+      ).toBeVisible();
+      await page.reload();
+      await page
+        .getByText("Advanced practice preferences", { exact: true })
+        .click();
+      await expect(skillPreference).toHaveValue("BALANCED");
+      await skillPreference.selectOption("DEFAULT");
+      await page
+        .getByRole("button", { name: "Save practice preferences" })
+        .click();
+      await expect(
+        page.getByText("Preferences saved", { exact: true }),
+      ).toBeVisible();
+      await page.reload();
+      await page
+        .getByText("Advanced practice preferences", { exact: true })
+        .click();
+      await expect(skillPreference).toHaveValue("DEFAULT");
       await page.screenshot({
         path: testInfo.outputPath(`skill-${width}.png`),
         fullPage: true,
@@ -146,6 +214,11 @@ for (const width of [1280, 390])
       await expect(
         page.getByLabel("Correct answer: habló", { exact: true }),
       ).toBeVisible();
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= window.innerWidth,
+        ),
+      ).toBe(true);
       await page.screenshot({
         path: testInfo.outputPath(`feedback-${width}.png`),
         fullPage: true,
