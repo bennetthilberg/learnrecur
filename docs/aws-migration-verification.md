@@ -2,7 +2,7 @@
 
 Verified 2026-09-05 UTC. The production migration is live, both environments have
 confirmed owner alert subscriptions, and the retired Inngest event key is revoked.
-The test evidence and remaining browser-test limitation are recorded below.
+The original migration evidence and subsequent browser fix are recorded below.
 
 ## Deployed state
 
@@ -61,6 +61,29 @@ The test evidence and remaining browser-test limitation are recorded below.
 - The final code review reported no major issues on `7307dd5`. Both permitted
   manual review requests have been used. Subsequent documentation changes have
   not received another manual review.
+
+## Account-menu hydration follow-up
+
+The post-merge run on `3623eb4` reproduced the earlier browser failure on every
+retry: [post-merge CI](https://github.com/bennetthilberg/learnrecur/actions/runs/33982029079).
+Clerk could insert its `UserButton` host before React hydrated the header's
+server-rendered fallback. This was an application defect, not evidence of an AWS
+worker failure.
+
+The account menu now uses a stable server snapshot for its first browser render,
+then mounts Clerk's widget after hydration. The existing avatar, profile text,
+menu interaction and responsive styles are preserved. A deterministic SSR and
+hydration regression reproduced the exact DOM mismatch before the fix and passes
+after it; a second case covers Clerk loading later. Browser checks now cover all
+five core pages on desktop and mobile, wait for actual page content and the
+account widget, and verify that the menu opens. Production React hydration errors
+are checked as well as development diagnostics.
+
+Local verification includes 855 unit tests, lint, Prisma validation/generation,
+an optimized Next.js build, and the runtime audit with zero blocking findings.
+Three desktop/mobile browser rounds passed without retries before the additional
+page-content wait was added. Final release results belong to the follow-up PR
+and its post-merge CI, rather than the earlier migration run.
 
 ## Live execution evidence
 
