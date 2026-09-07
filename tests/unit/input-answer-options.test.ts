@@ -10,6 +10,9 @@ it.each([
   "Name the object. Choose from: livre, table, chaise.",
   "Select an answer:\n1. red\n2. blue\n3. green",
   "Which is correct? A) red B) blue C) green",
+  "Use one of the following words: livre, table, chaise.",
+  "Answer with one of these nouns: livre, table, chaise.",
+  "Complete the sentence. Word bank: livre, table, chaise.",
 ])("rejects an explicit answer list in a production prompt: %s", (prompt) => {
   expect(hasExplicitAnswerOptions(prompt)).toBe(true);
   expect(validateGeneratedExactInputExercises({ exercises: [{

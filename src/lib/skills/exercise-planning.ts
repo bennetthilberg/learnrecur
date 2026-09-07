@@ -916,7 +916,11 @@ function familyCandidates(stage: RetrievalStage, mode: AnswerMode): string[] {
     interleaved_discrimination: ["interleaved-choice", "interleaved-discrimination"],
     delayed_transfer: ["delayed-transfer", "transfer-context"],
   };
-  return candidates[stage];
+  return candidates[stage].filter((family) => familySupportsMode(family, mode));
+}
+
+function familySupportsMode(family: string, mode: AnswerMode): boolean {
+  return mode === "choice" || !/recogn|choice/.test(normalizeToken(family));
 }
 
 function familyFit(family: string, stage: RetrievalStage): number {
@@ -1205,7 +1209,8 @@ export function planExerciseBlueprint(
     const retrievalStage = plannedStage === "recognition" && answerMode !== "choice"
       ? "cued_recall"
       : plannedStage;
-    const chosen = chooseFamily(retrievalStage, answerMode, allowedFamilies, usedFamilies, recentFamilies);
+    const modeFamilies = allowedFamilies.filter((family) => familySupportsMode(family, answerMode));
+    const chosen = chooseFamily(retrievalStage, answerMode, modeFamilies, usedFamilies, recentFamilies);
     const family = chosen.family;
     const normalizedFamily = normalizeToken(family);
     const slotReasons: GenerationReasonCode[] = [
@@ -1284,7 +1289,7 @@ export function planExerciseBlueprint(
         requireChangedSurface: recent.length > 0,
       },
       familyConstraints: {
-        allowedFamilies: allowedFamilies.length > 0 ? allowedFamilies : [family],
+        allowedFamilies: modeFamilies.length > 0 ? modeFamilies : [family],
         excludedFamilies: normalizeStringList(effectiveCapability.blockedExerciseFamilies),
         maxSlotsPerFamily: familyMaxCount(plannedCount),
       },

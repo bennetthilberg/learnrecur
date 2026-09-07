@@ -75,6 +75,23 @@ function recentExercise(overrides: Partial<RecentExercise> = {}): RecentExercise
 }
 
 describe("planExerciseBlueprint", () => {
+  it.each(["text", "numeric", "math"] as const)("keeps recognition families out of every %s slot", (mode) => {
+    for (const fsrsState of ["NEW", "REVIEW"] as const) {
+      for (const allowedExerciseFamilies of [[], ["recognition-choice"], ["recognition-choice", "interleaved-choice", "exact-recall"]]) {
+        const result = planExerciseBlueprint({
+          skillSpec: skillSpec({ allowedAnswerModes: [mode], allowedExerciseFamilies, subjectCapability: "symbolic_numeric" }),
+          generationProfile: profile({ fsrsState, repetitions: fsrsState === "NEW" ? 0 : 4, desiredCount: 8, supportedAnswerModes: [mode], subjectCapability: "symbolic_numeric" }),
+          recentExercises: [],
+        });
+        expect(result.slots).toHaveLength(8);
+        for (const slot of result.slots) {
+          expect(slot.answerMode).toBe(mode);
+          expect(slot.family).not.toMatch(/recognition|choice/);
+          expect(slot.familyConstraints.allowedFamilies.join(" ")).not.toMatch(/recognition|choice/);
+        }
+      }
+    }
+  });
   it("is deterministic, bounded, and progresses a stable review from recall to transfer", () => {
     const input = {
       skillSpec: skillSpec(),

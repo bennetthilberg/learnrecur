@@ -8,5 +8,7 @@ export function hasExplicitAnswerOptions(prompt: string): boolean {
   return labelledOptions.length >= 2 ||
     (numberedOptions.length >= 2 && /\b(?:(?:choose|select|pick)\b[^\n.!?]{0,80}|options|choices)[:?]\s*\d+[).]/i.test(text)) ||
     /\b(?:choose|select|pick)\s+from\s*:/i.test(text) ||
+    /\b(?:use|answer\s+with)\s+one\s+of\b[^\n.!?]{0,80}:\s*[^\n,]+,[^\n,]+/i.test(text) ||
+    /\bword\s+bank\s*:/i.test(text) ||
     /\bwhich\b[^\n:?!]{1,160}:[^\n:?!]{1,100},[^\n:?!]{1,100},?\s+or\s+[^\n:?!]{1,80}\?/i.test(text);
 }
