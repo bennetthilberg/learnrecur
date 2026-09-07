@@ -81,3 +81,8 @@ A dedicated third-party WorkOS client displayed the real consent screen. Both
 the initial signed token and a rotated refresh token contain all five application
 scopes. Production MCP account preference edits, read-back and restoration passed.
 Collection/skill changes and revocation remain pending.
+
+CLI uploads do not inherit the repository's Git exclusions. `.vercelignore`
+therefore explicitly excludes local credentials, OAuth sessions, worker artifacts
+and test reports from deployment source uploads. Verify the deployment file list
+before promotion and remove superseded trial deployments after the clean upload.
