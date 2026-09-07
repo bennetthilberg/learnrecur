@@ -15,6 +15,7 @@ import {
   CollectionCreateForm,
   CollectionRestoreForm,
   CollectionUpdateForm,
+  CollectionPracticeForm,
 } from "./collection-forms";
 import { SkillsTopbar } from "../skills/skills-topbar";
 
@@ -147,6 +148,7 @@ function ActiveCollectionRow({
       <div className="collectionRowActions">
         <CollectionArchiveForm collectionId={collection.id} collectionName={collection.name} />
         <CollectionUpdateForm collection={collection} />
+        <CollectionPracticeForm collection={collection} />
         <Link
           aria-label={`Practice collection ${collection.name}`}
           className="secondaryButton collectionPracticeLink"

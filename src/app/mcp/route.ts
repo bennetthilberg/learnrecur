@@ -13,8 +13,8 @@ export const dynamic = "force-dynamic";
 const mcpHandler = createMcpHandler(
   (server) => registerLearnRecurMcpTools(server),
   {
-    serverInfo: { name: "learnrecur", version: "0.1.0-beta" },
-    instructions: "Create and inspect private LearnRecur skill operations for the connected account. Never send user IDs, source URLs, storage keys, or verifier decisions.",
+    serverInfo: { name: "learnrecur", version: "0.2.0-beta" },
+    instructions: "Create and inspect private LearnRecur skill operations and manage practice settings for the connected account with the required permissions. Use practice.list_targets to find owned skills and collections, practice.get_settings to inspect inheritance, and practice.update_settings for partial edits. Never send user IDs, source URLs, storage keys, or verifier decisions.",
   },
 );
 

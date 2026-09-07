@@ -1,5 +1,8 @@
 "use server";
 
+import { after } from "next/server";
+import { queueDueRetentionPreparation } from "@/lib/skills/retention-preparation";
+
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { z } from "zod";
 
@@ -40,6 +43,8 @@ type PreviewPracticeAnswerInput = {
 
 type CommitPracticeReviewInput = PreviewPracticeAnswerInput & {
   attemptId: string;
+  mixedReview?: boolean;
+  reducedRuleCues?: boolean;
   manualRating?: FsrsRating | null;
 };
 
@@ -51,6 +56,8 @@ type FlagChoicePracticeExerciseInput = {
 };
 
 const flagChoicePracticeExerciseInputSchema = z.object({
+  mixedReview: z.boolean().optional(),
+  previousSkillId: z.string().min(1).max(200).optional(),
   exerciseId: z.string().min(1),
   reasons: z.array(z.enum(ExerciseFlagReason)).min(1),
   otherNote: z.string().trim().max(MAX_EXERCISE_FLAG_OTHER_NOTE_LENGTH).nullable().optional(),
@@ -165,16 +172,21 @@ export async function commitPracticeReviewAction(
     responseMs: input.responseMs,
     manualRating: normalizeManualRating(input.manualRating),
     reviewedAt,
+    mixedReview: input.mixedReview === true,
+    reducedRuleCues: input.mixedReview === true && input.reducedRuleCues === true,
     collectionId: scope.collectionId,
   });
 
   if (result.status === "committed") {
+    after(async () => { await queueDueRetentionPreparation({userId,collectionId:scope.collectionId,now:new Date()}); });
     return {
       status: "committed",
       idempotent: result.idempotent,
       finalRating: result.finalRating,
       nextItem: await getNextPracticeItemForUser(userId, reviewedAt, {
         collectionId: scope.collectionId,
+        mixedReview: input.mixedReview === true,
+        previousSkillId: result.skill.id,
       }),
     };
   }
@@ -254,6 +266,8 @@ export async function flagPracticeExerciseAction(
       message: formatFlagMessage(result.message, result.refill),
       nextItem: await getNextPracticeItemForUser(userId, flaggedAt, {
         collectionId: scope.collectionId,
+        mixedReview: flagInput.mixedReview,
+        previousSkillId: flagInput.previousSkillId,
       }),
     };
   }

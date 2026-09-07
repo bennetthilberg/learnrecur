@@ -1,3 +1,5 @@
+import { PracticePreferencesForm } from "@/components/app/practice-preferences-form";
+import { getUserPracticePreferences } from "@/lib/practice/preferences";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import Link from "next/link";
 import { DownloadSimpleIcon } from "@phosphor-icons/react/dist/ssr";
@@ -52,9 +54,10 @@ export default async function SettingsPage() {
     );
   }
 
-  const [settings, agentAccess] = await Promise.all([
+  const [settings, agentAccess, practicePreferences] = await Promise.all([
     getReminderSettings({ userId }),
     getAgentAccessOverview(userId),
+    getUserPracticePreferences(userId),
   ]);
 
   if (settings.status !== "ready") {
@@ -76,6 +79,11 @@ export default async function SettingsPage() {
       <header className="skillHeader settingsHeader">
         <h1>Settings</h1>
       </header>
+
+      <section className="skillPanel settingsPanel" aria-labelledby="practice-preferences-title">
+        <div className="settingsSectionIntro"><h2 id="practice-preferences-title">Practice preferences</h2></div>
+        <div style={{padding: "0 18px 18px"}}><PracticePreferencesForm target={{scope:"user"}} preference={practicePreferences.practicePreference} mixedReview={practicePreferences.mixedReview}/></div>
+      </section>
 
       <section className="skillPanel settingsPanel" aria-labelledby="reminder-settings-title">
         <div className="settingsSectionIntro" id="email-reminders">

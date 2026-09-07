@@ -102,6 +102,9 @@ export class AgentOperationError extends Error {
     readonly code:
       | "idempotency_conflict"
       | "permission_denied"
+      | "settings_not_found"
+      | "invalid_stored_settings"
+      | "collection_too_large"
       | "rate_limited"
       | "too_many_pending_items"
       | "material_not_found"
@@ -915,7 +918,7 @@ async function assertPendingItemLimit(
   }
 }
 
-async function consumeRateLimit(
+export async function consumeRateLimit(
   tx: Prisma.TransactionClient,
   auth: AgentAuthContext,
   kind: AgentRateLimitKind,

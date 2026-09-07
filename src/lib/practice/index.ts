@@ -1,3 +1,5 @@
+import { selectMixedReviewSkill, type MixedReviewSkill } from "./mixed-review";
+import { practiceContextSchema, resolvePracticePreference, type PracticePreference } from "./policies";
 import "server-only";
 
 import {
@@ -31,6 +33,7 @@ import { lockExerciseForQualityMutation } from "@/lib/practice/quality-incidents
 import {
   advanceSkillSchedule,
   mapAttemptToFsrsRating,
+  RATING_POLICY_VERSION,
   type SkillScheduleFields,
 } from "@/lib/scheduling";
 import { isExactInputUnlocked } from "@/lib/skills";
@@ -65,6 +68,7 @@ export type PracticeSkillSummary = {
   difficulty: number | null;
   fsrsState: SkillFsrsState;
   repetitions: number;
+  alreadyStudied?: boolean;
   lapses: number;
   lastReviewedAt: Date | null;
 };
@@ -115,6 +119,8 @@ export type NextPracticeItemResult =
     }
   | {
       status: "none-due";
+      preparing?: boolean;
+      preparationSkillIds?: string[];
       message: string;
     };
 
@@ -218,6 +224,8 @@ export type PracticeExerciseFlagWithRefillResult =
   | Extract<PracticeExerciseFlagResult, { status: "not-flagged" | "not-found" }>;
 
 export type GetNextPracticeItemInput = {
+  mixedReview?: boolean;
+  previousSkillId?: string | null;
   userId: string;
   now: Date;
   answerKinds?: readonly AnswerKind[];
@@ -236,6 +244,8 @@ export type PreviewPracticeAnswerInput = {
 
 export type CommitPracticeReviewInput = PreviewPracticeAnswerInput & {
   attemptId: string;
+  mixedReview?: boolean;
+  reducedRuleCues?: boolean;
   manualRating?: FsrsRating | null;
   reviewedAt: Date;
 };
@@ -255,6 +265,10 @@ export type FlagPracticeExerciseAndQueueRefillInput = FlagPracticeExerciseInput 
 };
 
 type PracticeSkillRecord = SkillScheduleFields & {
+  alreadyStudied?: boolean;
+  practicePreference?: PracticePreference;
+  tags?: MixedReviewSkill["tags"];
+  objective?: string | null;
   id: string;
   title: string;
   collectionId: string | null;
@@ -327,12 +341,16 @@ export async function getNextPracticeItem(
     now: input.now,
     answerKinds: input.answerKinds,
     collectionId: input.collectionId,
+    mixedReview: input.mixedReview,
+    previousSkillId: input.previousSkillId,
   });
 
   if (!exercise) {
+    const dueSkills = await prisma.skill.findMany({ where: { userId: input.userId, status: "ACTIVE", dueAt: { lte: input.now }, ...(input.collectionId ? { collectionId: input.collectionId } : {}) }, orderBy: [{dueAt:"asc"},{id:"asc"}], take: 10, select: { id: true } });
     return {
       status: "none-due",
-      message: "No due exercise is ready.",
+      ...(dueSkills.length ? { preparing: true, preparationSkillIds: dueSkills.map((skill) => skill.id) } : {}),
+      message: dueSkills.length ? "Due skills need prepared exercises. Open a skill to check preparation or retry." : "No due exercise is ready.",
     };
   }
 
@@ -760,6 +778,9 @@ async function commitPracticeReviewInTransaction(
         ? ExerciseAttemptResult.CORRECT
         : ExerciseAttemptResult.INCORRECT,
       responseMs: input.responseMs ?? null,
+      ratingPolicyVersion: RATING_POLICY_VERSION,
+      practiceContext: practiceContextSchema.parse({ version: 1, answerMode: exercise.answerKind, mixedReview: input.mixedReview ?? false, reducedRuleCues: input.reducedRuleCues ?? false, assistance: "none" }),
+      answerPolicySnapshot: exercise.answerSpec as Prisma.InputJsonValue,
       proposedRating,
       finalRating,
       feedbackShownAt: input.reviewedAt,
@@ -884,6 +905,8 @@ function toExerciseRetirementReason(
 async function findEligibleExercise(
   prisma: PracticeQueryClient,
   input: {
+    mixedReview?: boolean;
+    previousSkillId?: string | null;
     userId: string;
     exerciseId?: string;
     now: Date;
@@ -916,7 +939,7 @@ async function findEligibleExercise(
       },
     },
     include: {
-      skill: true,
+      skill: { include: { user: { select: { practicePreference: true } }, collection: { select: { practicePreference: true } } } },
     },
   });
   const exerciseRecords = exercises
@@ -928,11 +951,16 @@ async function findEligibleExercise(
     exerciseIds: exerciseRecords.map((exercise) => exercise.id),
   });
 
-  return (
-    exerciseRecords.toSorted((left, right) =>
-      comparePracticeExercises(left, right, attemptStatsByExerciseId),
-    )[0] ?? null
-  );
+  const ordered = exerciseRecords.toSorted((left, right) => comparePracticeExercises(left, right, attemptStatsByExerciseId));
+  if (input.mixedReview && input.previousSkillId && !input.exerciseId) {
+    const previous = await prisma.skill.findFirst({
+      where: { id: input.previousSkillId, userId: input.userId, ...(input.collectionId ? { collectionId: input.collectionId } : {}) },
+      select: { id: true, collectionId: true, tags: true, objective: true, dueAt: true },
+    });
+    const selected = selectMixedReviewSkill(ordered.map((item) => ({ ...item.skill, tags: item.skill.tags ?? [], objective: item.skill.objective ?? null })), previous?.dueAt ? { ...previous, dueAt: previous.dueAt } : null);
+    return ordered.find((item) => item.skill.id === selected?.id) ?? null;
+  }
+  return ordered[0] ?? null;
 }
 
 async function getExerciseAttemptRotationStats(
@@ -1062,6 +1090,12 @@ function comparePracticeExercises(
     return skillDifference;
   }
 
+  if (left.skill.practicePreference === "RECALL_FIRST") {
+    const modeOrder = { MATH: 0, NUMERIC: 1, TEXT: 2, CHOICE: 3 };
+    const productionDifference = modeOrder[left.answerKind] - modeOrder[right.answerKind];
+    if (productionDifference !== 0) return productionDifference;
+  }
+
   const leftAttemptStats = getExerciseAttemptStats(attemptStatsByExerciseId, left.id);
   const rightAttemptStats = getExerciseAttemptStats(attemptStatsByExerciseId, right.id);
   const leftWasAttempted = leftAttemptStats.attemptCount > 0;
@@ -1115,7 +1149,7 @@ function isPracticeExerciseUnlockedForSkill(exercise: PracticeExerciseRecord): b
     exercise.answerKind === AnswerKind.NUMERIC ||
     exercise.answerKind === AnswerKind.MATH
   ) {
-    return isExactInputUnlocked(exercise.skill.repetitions);
+    return isExactInputUnlocked(exercise.skill.repetitions, exercise.skill.alreadyStudied);
   }
 
   return true;
@@ -1140,7 +1174,17 @@ function hasCompatiblePracticeAnswerSpec(exercise: PracticeExerciseRecord): bool
 function toPracticeExerciseRecord(
   exercise: RawEligibleExerciseRecord,
 ): PracticeExerciseRecord {
-  const skill = toPracticeSkillRecordOrThrow(exercise.skill);
+  const skill = {
+    ...toPracticeSkillRecordOrThrow(exercise.skill),
+    alreadyStudied: exercise.skill.alreadyStudied,
+    tags: exercise.skill.tags,
+    objective: exercise.skill.objective,
+    practicePreference: resolvePracticePreference({
+      skill: exercise.skill.practicePreference,
+      collection: exercise.skill.collection?.practicePreference,
+      user: exercise.skill.user?.practicePreference,
+    }),
+  };
 
   return {
     id: exercise.id,
@@ -1317,6 +1361,11 @@ type RawEligibleExerciseRecord = Awaited<
   ReturnType<PracticeQueryClient["exercise"]["findMany"]>
 >[number] & {
   skill: NullableSkillScheduleRecord & {
+    tags?: string[];
+    objective?: string | null;
+    practicePreference?: PracticePreference | null;
+    user?: { practicePreference: PracticePreference };
+    collection?: { practicePreference: PracticePreference | null } | null;
     id: string;
     title: string;
     collectionId: string | null;
@@ -1332,6 +1381,7 @@ type NullableSkillScheduleRecord = {
   scheduledDays: number;
   learningSteps: number;
   repetitions: number;
+  alreadyStudied?: boolean;
   lapses: number;
   fsrsState: SkillFsrsState;
   lastReviewedAt: Date | null;

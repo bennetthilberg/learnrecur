@@ -14,6 +14,7 @@ export type PracticeReadModelExercise = ChoiceExerciseInventoryRecord &
 
 export type PracticeReadModelSkill = {
   repetitions: number;
+  alreadyStudied?: boolean;
 };
 
 export function isPracticeReadModelExerciseReady(
@@ -24,7 +25,7 @@ export function isPracticeReadModelExerciseReady(
     return true;
   }
 
-  if (!isExactInputUnlocked(skill.repetitions)) {
+  if (!isExactInputUnlocked(skill.repetitions, skill.alreadyStudied)) {
     return false;
   }
 

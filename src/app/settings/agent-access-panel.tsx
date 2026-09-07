@@ -77,7 +77,7 @@ export function AgentAccessPanel({ resourceUrl, connections, activity }: {
     <section className="skillPanel settingsPanel agentAccessPanel" aria-labelledby="agent-access-title" id="agent-access">
       <div className="settingsSectionIntro">
         <h2 id="agent-access-title">AI agent access</h2>
-        <p>Connect an agent once, then let it add verified skills to this account. Each connection can be revoked independently.</p>
+        <p>Connect an agent to add verified skills and manage practice settings with your permission. Each connection can be revoked independently.</p>
       </div>
 
       <div className="agentMcpAddress">
@@ -92,7 +92,7 @@ export function AgentAccessPanel({ resourceUrl, connections, activity }: {
       </div>
 
       <p className="agentPermissionCopy">
-        During connection, LearnRecur asks for only the permissions the agent requests: create and activate skills, read saved material outlines and excerpts, or prepare private source uploads. Disconnecting stops future calls and keeps existing skills.
+        During connection, LearnRecur asks for only the permissions the agent requests: add skills, read materials, upload sources, or read and edit practice settings. Existing connections need new consent before they can edit settings. Disconnecting stops future calls and keeps existing skills.
       </p>
 
       <div className="agentAccessSubsection">
@@ -172,7 +172,7 @@ export function AgentAccessPanel({ resourceUrl, connections, activity }: {
 }
 
 function permissionSummary(scopes: string[]) {
-  const labels = scopes.flatMap((scope) => scope === "skills:create" ? ["add skills"] : scope === "materials:read" ? ["read materials"] : scope === "sources:upload" ? ["upload sources"] : []);
+  const labels = scopes.flatMap((scope) => scope === "skills:create" ? ["add skills"] : scope === "materials:read" ? ["read materials"] : scope === "sources:upload" ? ["upload sources"] : scope === "practice:read" ? ["read practice settings"] : scope === "practice:write" ? ["edit practice settings"] : []);
   return labels.length ? labels.join(" · ") : "No active permissions";
 }
 

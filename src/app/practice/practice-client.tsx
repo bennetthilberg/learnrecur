@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { Switch } from "@mantine/core";
 import Link from "next/link";
 import { CheckCircle, Flag } from "@phosphor-icons/react";
 
@@ -31,6 +32,7 @@ import type {
 } from "./types";
 
 type PracticeClientProps = {
+  initialMixedReview?: boolean;
   initialItem: PracticeItem;
   canUseSampleData: boolean;
 };
@@ -81,7 +83,9 @@ const RATING_OPTIONS: Array<{ rating: FsrsRating; shortcut: string }> = [
 
 const REVIEW_SAVED_MESSAGES = new Set(["Review saved.", "Review already saved."]);
 
-export function PracticeClient({ initialItem, canUseSampleData }: PracticeClientProps) {
+export function PracticeClient({ initialItem, canUseSampleData, initialMixedReview = false }: PracticeClientProps) {
+  const [mixedReview, setMixedReview] = useState(initialMixedReview);
+  const [revealingCueSeen, setRevealingCueSeen] = useState(!initialMixedReview);
   const [item, setItem] = useState(initialItem);
   const [answerValue, setAnswerValue] = useState("");
   const [attemptId, setAttemptId] = useState(() => crypto.randomUUID());
@@ -193,6 +197,8 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
         submittedAnswer: answerValue,
         responseMs: submittedResponseMs ?? timer.getElapsedMs(),
         attemptId,
+        mixedReview,
+        reducedRuleCues: mixedReview && !revealingCueSeen,
         manualRating: feedback.answerCheck.isCorrect ? manualRating : null,
         collectionId: scopedCollectionId,
       });
@@ -202,6 +208,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
       if (result.status === "committed") {
         shouldFocusNextReadyAnswerRef.current = true;
         setItem(result.nextItem);
+        setRevealingCueSeen(!mixedReview);
         resetAttemptState();
         setStatusNotice(
           createStatusNotice(result.idempotent ? "Review already saved." : "Review saved."),
@@ -212,6 +219,8 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
     });
   }, [
     attemptId,
+    mixedReview,
+    revealingCueSeen,
     answerValue,
     feedback,
     item,
@@ -239,6 +248,8 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
 
     startTransition(async () => {
       const result = await flagPracticeExerciseAction({
+        mixedReview,
+        previousSkillId: item.skill.id,
         exerciseId: item.exercise.id,
         reasons: selectedFlagReasons,
         otherNote: otherFlagNote,
@@ -249,6 +260,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
 
       if (result.status === "flagged") {
         setItem(result.nextItem);
+        setRevealingCueSeen(!mixedReview);
         resetAttemptState();
         setStatusNotice(createStatusNotice(result.message));
       } else {
@@ -257,6 +269,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
     });
   }, [
     canSubmitFlag,
+    mixedReview,
     feedback,
     item,
     otherFlagNote,
@@ -281,12 +294,13 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
 
       if (result.status === "ready") {
         setItem(result.nextItem);
+        setRevealingCueSeen(!mixedReview);
         resetAttemptState();
       }
 
       setStatusNotice(createStatusNotice(result.message, getSampleDataStatusTone(result.status)));
     });
-  }, [pendingAction, resetAttemptState, startTransition]);
+  }, [mixedReview, pendingAction, resetAttemptState, startTransition]);
 
   useEffect(() => {
     const focusTarget = window.requestAnimationFrame(() => {
@@ -393,6 +407,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
         <PracticeScopeBar scope={item.scope} />
         {item.status === "none-due" ? (
           <PracticeCompleteState
+            preparing={item.preparing}
             canUseSampleData={canUseSampleData && !scoped}
             message={item.message}
             onSampleData={handleSampleData}
@@ -429,11 +444,12 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
 
   return (
     <>
-      <PracticeScopeBar scope={item.scope} />
+      {(!mixedReview || checkedFeedback) && <PracticeScopeBar scope={item.scope} />}
+      <div className="practiceSessionOptions"><Switch label="Mixed review" checked={mixedReview} disabled={pendingAction !== null || feedback !== null} onChange={(event) => { const enabled = event.currentTarget.checked; setMixedReview(enabled); if (!enabled) setRevealingCueSeen(true); }} /></div>
       <section className="practiceFrame" aria-labelledby="practice-title">
         <div className="practiceMetaRow">
           <div>
-            <h1 id="practice-title">{item.skill.title}</h1>
+            <h1 id="practice-title">{mixedReview && !checkedFeedback ? "Review" : item.skill.title}</h1>
             <p className="practiceMetaSummary tnum">
               {formatFsrsState(item.skill.fsrsState)} · {formatElapsed(timer.elapsedMs)}
             </p>
@@ -542,7 +558,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
           >
             <div>
               <dt>Correct answer</dt>
-              <dd>
+              <dd style={{ whiteSpace: "pre-wrap" }}>
                 <MathText text={checkedFeedback.correctAnswerDisplay} />
               </dd>
             </div>
@@ -706,6 +722,7 @@ function getScopedCollectionId(item: PracticeItem): string | null {
 }
 
 function PracticeCompleteState({
+  preparing,
   canUseSampleData,
   message,
   onSampleData,
@@ -713,6 +730,7 @@ function PracticeCompleteState({
   scoped,
   statusNotice,
 }: {
+  preparing?: boolean;
   canUseSampleData: boolean;
   message: string;
   onSampleData: () => void;
@@ -729,9 +747,9 @@ function PracticeCompleteState({
         <CheckCircle size={28} weight="bold" />
       </div>
       <div className="practiceCompleteCopy">
-        <h1 id="practice-empty-title">Nice work. You&apos;re all caught up.</h1>
+        <h1 id="practice-empty-title">{preparing ? "Exercises need preparation." : "Nice work. You're all caught up."}</h1>
         <p>
-          {scoped
+          {preparing ? "Due skills are waiting for compatible exercises. Check their preparation status or refresh to try again." : scoped
             ? "Every due exercise in this collection is finished for now."
             : "Every due exercise is finished for now."}{" "}
           LearnRecur will bring skills back when the schedule says they are ready.
@@ -740,7 +758,7 @@ function PracticeCompleteState({
       <div className="practiceCompleteSummary" aria-label="Practice completion summary">
         <div>
           <span>Queue</span>
-          <strong>Clear for now</strong>
+          <strong>{preparing ? "Preparation pending" : "Clear for now"}</strong>
         </div>
         <div>
           <span>Schedule</span>

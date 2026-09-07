@@ -1531,7 +1531,7 @@ describeDatabase("practice review service", () => {
         requestedCount: 5,
         provider: "google",
         model: "test-gemini",
-        promptVersion: "skill-mcq-v1",
+        promptVersion: "skill-mcq-v2",
       },
       {
         retiredAt: flaggedAt,
@@ -1595,7 +1595,7 @@ describeDatabase("practice review service", () => {
       kind: GenerationJobKind.EXACT_INPUT_EXERCISE_GENERATION,
       status: GenerationJobStatus.PENDING,
       requestedCount: 2,
-      promptVersion: "skill-exact-input-v0",
+      promptVersion: "skill-exact-input-v2",
     });
   });
 
@@ -1693,7 +1693,7 @@ describeDatabase("practice review service", () => {
     ).resolves.toEqual({
       status: GenerationJobStatus.PENDING,
       requestedCount: 2,
-      promptVersion: "skill-math-v0",
+      promptVersion: "skill-math-v1",
     });
   });
 

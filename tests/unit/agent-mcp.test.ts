@@ -83,6 +83,9 @@ describe("registerLearnRecurMcpTools", () => {
     const registerTool = vi.fn();
     registerLearnRecurMcpTools({ registerTool } as never);
     expect(registerTool.mock.calls.map(([name]) => name)).toEqual([
+      "practice.list_targets",
+      "practice.get_settings",
+      "practice.update_settings",
       "skills.add_from_specs",
       "skills.add_from_text",
       "skills.add_from_material",
@@ -104,14 +107,12 @@ describe("MCP resource discovery", () => {
     const metadataRoute = await import(
       "@/app/.well-known/oauth-protected-resource/mcp/route"
     );
-    const metadataResponse = metadataRoute.GET(
-      new Request("https://learnrecur.com/.well-known/oauth-protected-resource/mcp"),
-    );
+    const metadataResponse = metadataRoute.GET();
     expect(metadataResponse.status).toBe(200);
     await expect(metadataResponse.json()).resolves.toMatchObject({
       resource: "https://learnrecur.com/mcp",
       authorization_servers: ["https://learnrecur-staging.authkit.app"],
-      scopes_supported: ["skills:create", "materials:read", "sources:upload"],
+      scopes_supported: ["skills:create", "materials:read", "sources:upload", "practice:read", "practice:write"],
       bearer_methods_supported: ["header"],
     });
 

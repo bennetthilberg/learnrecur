@@ -53,12 +53,14 @@ export type PracticeItem =
         title: string;
         fsrsState: SkillFsrsState;
         repetitions: number;
+        alreadyStudied?: boolean;
         lapses: number;
       };
       exercise: PracticeExercise;
     }
   | {
       status: "none-due";
+      preparing?: boolean;
       message: string;
       scope: PracticeScope;
     }

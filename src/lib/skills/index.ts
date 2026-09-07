@@ -1,3 +1,7 @@
+import type { ExerciseRefillEventSender } from "@/lib/jobs/events";
+import { loadGenerationRecentEvidence } from "./generation-history";
+import { invalidateTextInventory } from "@/lib/practice/preferences";
+import { matchesTextPolicy, resolveTextPolicy, textAnswerContract, practicePreferenceOverrideSchema, textPolicySchema, type PracticePreference, type TextPolicy } from "@/lib/practice/policies";
 import "server-only";
 
 import { z } from "zod";
@@ -80,6 +84,7 @@ import {
   buildGenerationRuntimeMetadata,
   safeBuildGenerationQualityContext,
   toPersistedChoiceQuality,
+  toPersistedInputQuality,
   type GenerationQualityContext,
 } from "@/lib/skills/quality-pipeline";
 import {
@@ -143,13 +148,16 @@ const ACTIVE_GENERATION_JOB_STATUSES: GenerationJobStatus[] = [
   GenerationJobStatus.PENDING,
   GenerationJobStatus.RUNNING,
 ];
-export const SKILL_MCQ_PROMPT_VERSION = "skill-mcq-v1";
-export const SKILL_EXACT_INPUT_PROMPT_VERSION = "skill-exact-input-v0";
-export const SKILL_MATH_PROMPT_VERSION = "skill-math-v0";
+export const SKILL_MCQ_PROMPT_VERSION = "skill-mcq-v2";
+export const SKILL_EXACT_INPUT_PROMPT_VERSION = "skill-exact-input-v2";
+export const SKILL_MATH_PROMPT_VERSION = "skill-math-v1";
 export const GEMINI_PROVIDER = "google";
 export const META_MUSE_PROVIDER = "meta";
 
 export type NormalizedSkillDraftInput = {
+  alreadyStudied?: boolean;
+  practicePreference?: PracticePreference | null;
+  textPolicy?: TextPolicy | null;
   title: string;
   objective: string;
   collectionName: string | null;
@@ -356,6 +364,7 @@ export type GeneratedChoiceExerciseValidationOptions = {
 export type GeneratedExactInputExerciseValidationResult =
   | {
       status: "ready";
+      sourceIndexes: number[];
       exercises: GeneratedExactInputExercise[];
       rejectedCount: number;
     }
@@ -369,6 +378,7 @@ export type GeneratedExactInputExerciseValidationResult =
     };
 
 export type GeneratedExactInputExerciseValidationOptions = {
+  textPolicy?: TextPolicy;
   minValidExercises?: number;
   maxGeneratedExercises?: number;
 };
@@ -376,6 +386,7 @@ export type GeneratedExactInputExerciseValidationOptions = {
 export type GeneratedMathExerciseValidationResult =
   | {
       status: "ready";
+      sourceIndexes: number[];
       exercises: GeneratedMathExercise[];
       rejectedCount: number;
     }
@@ -444,6 +455,9 @@ type SkillGenerationSourceRef = LocalizedMaterialSourceRef & {
 
 export type ChoiceExerciseGeneratorInput = {
   skill: {
+    textPolicy?: Prisma.JsonValue | null;
+    textPolicyRevision?: number;
+    collection?: { textPolicy: Prisma.JsonValue | null } | null;
     id: string;
     title: string;
     objective: string | null;
@@ -484,6 +498,7 @@ export type ExactInputExerciseGenerator = (
 ) => Promise<unknown>;
 
 export type ExactInputExerciseVerifierInput = {
+  qualityContext?: GenerationQualityContext;
   skill: ExactInputExerciseGeneratorInput["skill"];
   sourceContext: string | null;
   sourceMedia?: SourceMediaContext[];
@@ -502,6 +517,7 @@ export type MathExerciseGenerator = (
 ) => Promise<unknown>;
 
 export type MathExerciseVerifierInput = {
+  qualityContext?: GenerationQualityContext;
   skill: MathExerciseGeneratorInput["skill"];
   sourceContext: string | null;
   sourceMedia?: SourceMediaContext[];
@@ -565,6 +581,7 @@ export type UpdateSkillDraftInput = CreateSkillDraftInput & {
 };
 
 export type ActivateSkillDraftInput = {
+  refillSender?: ExerciseRefillEventSender;
   userId: string;
   skillId: string;
   expectedDraftFingerprint?: string;
@@ -940,6 +957,9 @@ const tagsInputSchema = z
   .union([tagStringSchema, z.array(z.string().trim().min(1).max(MAX_TAG_LENGTH)).max(MAX_TAGS)])
   .optional();
 const draftInputSchema = z.strictObject({
+  alreadyStudied: z.boolean().optional(),
+  practicePreference: practicePreferenceOverrideSchema.optional(),
+  textPolicy: textPolicySchema.nullable().optional(),
   title: z.string().trim().min(1, "Skill title is required.").max(120),
   objective: z
     .string()
@@ -1001,7 +1021,7 @@ const generatedExactInputExerciseSchema = z.strictObject({
   prompt: z.string().trim().min(8).max(1200),
   answerKind: z.enum([AnswerKind.TEXT, AnswerKind.NUMERIC]),
   answerSpec: z.unknown(),
-  correctAnswerDisplay: z.string().trim().min(1).max(500),
+  correctAnswerDisplay: z.string().min(1).max(500).refine((value) => value.trim().length > 0),
   explanation: z.string().trim().min(1).max(1200).optional(),
   difficulty: z.number().int().min(1).max(5).optional(),
   expectedSeconds: z.number().int().min(5).max(180).optional(),
@@ -1477,6 +1497,7 @@ function buildTextAnswerSpecJsonSchema() {
     additionalProperties: false,
     required: [
       "kind",
+      "policyVersion",
       "accepted",
       "normalizeCase",
       "normalizeWhitespace",
@@ -1484,6 +1505,7 @@ function buildTextAnswerSpecJsonSchema() {
     ],
     properties: {
       kind: { type: "string", enum: ["text"] },
+      policyVersion: { type: "integer", enum: [2] },
       accepted: {
         type: "array",
         minItems: 1,
@@ -1491,7 +1513,7 @@ function buildTextAnswerSpecJsonSchema() {
       },
       normalizeCase: { type: "boolean" },
       normalizeWhitespace: { type: "boolean" },
-      normalizeDiacritics: { type: "boolean" },
+      normalizeDiacritics: { type: "boolean", enum: [false] },
     },
   };
 }
@@ -1676,6 +1698,9 @@ export function normalizeSkillDraftInput(input: unknown): SkillDraftInputResult 
   return {
     status: "ready",
     value: {
+      ...(value.alreadyStudied !== undefined ? { alreadyStudied: value.alreadyStudied } : {}),
+      ...(value.practicePreference !== undefined ? { practicePreference: value.practicePreference } : {}),
+      ...(value.textPolicy !== undefined ? { textPolicy: value.textPolicy } : {}),
       title: value.title,
       objective: value.objective,
       collectionName: value.collectionName ?? null,
@@ -1754,6 +1779,9 @@ export async function createSkillDraft(input: CreateSkillDraftInput): Promise<Sk
       data: {
         userId: input.userId,
         collectionId,
+        alreadyStudied: normalized.value.alreadyStudied,
+        practicePreference: normalized.value.practicePreference,
+        textPolicy: normalized.value.textPolicy === null ? Prisma.DbNull : normalized.value.textPolicy,
         title: normalized.value.title,
         objective: normalized.value.objective,
         rules: toNotesJson(normalized.value.rules),
@@ -1802,10 +1830,21 @@ export async function updateSkillDraft(input: UpdateSkillDraftInput): Promise<Sk
 
     const collectionId = await resolveCollectionId(tx, input.userId, normalized.value.collectionName);
 
+    const previousSkill = await tx.skill.findUniqueOrThrow({ where: { id: existingSkill.id }, include: { collection: true } });
+    const nextCollection = collectionId ? await tx.collection.findUnique({ where: { id: collectionId } }) : null;
+    const previousPolicy = resolveTextPolicy({ skill: previousSkill.textPolicy, collection: previousSkill.collection?.textPolicy });
+    const nextPolicy = resolveTextPolicy({ skill: normalized.value.textPolicy === undefined ? previousSkill.textPolicy : normalized.value.textPolicy, collection: nextCollection?.textPolicy });
+    // Drafts can already have agent candidates or running activation work.
+    if (previousSkill.collectionId !== collectionId || JSON.stringify(previousPolicy) !== JSON.stringify(nextPolicy) || (previousSkill.textPolicy === null && normalized.value.textPolicy != null)) {
+      await invalidateTextInventory(tx, input.userId, [existingSkill.id], new Date());
+    }
     const skill = await tx.skill.update({
       where: { id: existingSkill.id },
       data: {
         collectionId,
+        alreadyStudied: normalized.value.alreadyStudied,
+        practicePreference: normalized.value.practicePreference,
+        textPolicy: normalized.value.textPolicy === null ? Prisma.DbNull : normalized.value.textPolicy,
         title: normalized.value.title,
         objective: normalized.value.objective,
         rules: toNotesJson(normalized.value.rules),
@@ -2465,6 +2504,9 @@ export async function verifyUntrustedAgentExerciseCandidates(
     where: { id: input.skillId, userId: input.userId, status: SkillStatus.DRAFT },
     select: {
       id: true,
+      textPolicy: true,
+      textPolicyRevision: true,
+      collection: { select: { textPolicy: true } },
       title: true,
       objective: true,
       rules: true,
@@ -2494,6 +2536,10 @@ export async function verifyUntrustedAgentExerciseCandidates(
   });
   if (!skill) {
     return { status: "not-verified", reason: "skill-not-draft", message: "The skill is not an owned draft." };
+  }
+  const textPolicy = resolveTextPolicy({ skill: skill.textPolicy, collection: skill.collection?.textPolicy });
+  if (parsed.some((candidate) => candidate.answerKind === AnswerKind.TEXT && !matchesTextPolicy(candidate.answerSpec, textPolicy))) {
+    return { status: "not-verified", reason: "verification-failed", message: "Text candidate policy does not match this skill's effective text policy v2." };
   }
   const providerUsage = createAiProviderUsageTracker();
   const choiceSetup = resolveActivationSetup(
@@ -2641,6 +2687,10 @@ export async function activateSkillDraft(
       select: {
         id: true,
         userId: true,
+        textPolicy: true,
+        textPolicyRevision: true,
+        alreadyStudied: true,
+        collection: { select: { textPolicy: true } },
         title: true,
         objective: true,
         collectionId: true,
@@ -2744,7 +2794,7 @@ export async function activateSkillDraft(
       : [];
     const parsedAgentCandidates = verifiedAgentCandidates.flatMap((candidate) => {
       const parsed = agentCandidatePayloadSchema.safeParse(candidate.normalizedPayload);
-      return parsed.success ? [{ id: candidate.id, payload: parsed.data }] : [];
+      return parsed.success && (parsed.data.answerKind !== AnswerKind.TEXT || matchesTextPolicy(parsed.data.answerSpec, resolveTextPolicy({skill:skill.textPolicy,collection:skill.collection?.textPolicy}))) ? [{ id: candidate.id, payload: parsed.data }] : [];
     });
     if (parsedAgentCandidates.length !== verifiedAgentCandidates.length) {
       return {
@@ -2848,6 +2898,7 @@ export async function activateSkillDraft(
   }
 
   const qualityContextResult = safeBuildGenerationQualityContext({
+    recentEvidence: await loadGenerationRecentEvidence({ userId: input.userId, skillId: skill.id, now: input.now }),
     skill,
     sourceContext,
     sourceEvidence: skill.sourceRefs.map((sourceRef) => ({
@@ -3046,7 +3097,7 @@ export async function activateSkillDraft(
     return activationSuperseded(generationJob.id);
   }
 
-  return mapGenerationPublicationRace(
+  const activation: SkillActivationResult = await mapGenerationPublicationRace(
     prisma.$transaction(async (tx) => {
     await tx.$queryRaw`
       SELECT "id"
@@ -3394,6 +3445,21 @@ export async function activateSkillDraft(
     }),
     () => activationSuperseded(generationJob.id),
   );
+  if (activation.status === "activated") {
+    try {
+      const current = await prisma.skill.findFirst({
+        where: { id: skill.id, userId: input.userId },
+        select: { alreadyStudied: true },
+      });
+      if (current?.alreadyStudied) {
+        const { queueRetentionPreparation } = await import("./retention-preparation");
+        await queueRetentionPreparation({ userId: input.userId, skillId: skill.id, now: input.now, sender: input.refillSender });
+      }
+    } catch {
+      console.error("Input preparation could not be queued after activation.");
+    }
+  }
+  return activation;
 }
 
 async function synchronizeActivatedMaterialDraftBatches(input: {
@@ -3479,6 +3545,9 @@ export async function refillChoiceExercisesForSkill(
       userId: input.userId,
     },
     select: {
+      textPolicy: true,
+      textPolicyRevision: true,
+      collection: { select: { textPolicy: true } },
       id: true,
       userId: true,
       title: true,
@@ -3491,6 +3560,7 @@ export async function refillChoiceExercisesForSkill(
       fsrsState: true,
       dueAt: true,
       repetitions: true,
+      alreadyStudied: true,
       lapses: true,
       stability: true,
       sourceRefs: {
@@ -3658,6 +3728,7 @@ export async function refillChoiceExercisesForSkill(
   }
 
   const qualityContextResult = safeBuildGenerationQualityContext({
+    recentEvidence: await loadGenerationRecentEvidence({ userId: input.userId, skillId: skill.id, now: input.now }),
     skill,
     sourceContext,
     sourceEvidence: skill.sourceRefs.map((sourceRef) => ({
@@ -4111,6 +4182,9 @@ export async function refillExactInputExercisesForSkill(
     select: {
       id: true,
       userId: true,
+      textPolicy: true,
+      textPolicyRevision: true,
+      collection: { select: { textPolicy: true } },
       title: true,
       objective: true,
       rules: true,
@@ -4119,6 +4193,7 @@ export async function refillExactInputExercisesForSkill(
       tags: true,
       status: true,
       repetitions: true,
+      alreadyStudied: true,
       fsrsState: true,
       dueAt: true,
       lapses: true,
@@ -4173,7 +4248,7 @@ export async function refillExactInputExercisesForSkill(
     };
   }
 
-  if (!isExactInputUnlocked(skill.repetitions)) {
+  if (!isExactInputUnlocked(skill.repetitions, skill.alreadyStudied)) {
     return {
       status: "not-refilled",
       reason: "exact-input-locked",
@@ -4294,6 +4369,18 @@ export async function refillExactInputExercisesForSkill(
     };
   }
 
+  const qualityContextResult = safeBuildGenerationQualityContext({
+    skill, sourceContext, requestedCount, now: input.now,
+    answerModes: ["text", "numeric"],
+    recentEvidence: await loadGenerationRecentEvidence({ userId: input.userId, skillId: skill.id, now: input.now }),
+    sourceEvidence: skill.sourceRefs.map((ref) => ({ sourceFileId: ref.sourceFile.id, revisionId: ref.sourceFile.materialRevisionId, locator: ref.locator })),
+  });
+  if (qualityContextResult.status === "invalid") {
+    await markGenerationJobFailed(prisma, generationJob.id, {message: qualityContextResult.message, acceptedCount: 0, rejectedCount: 0, now: input.now, failureCategory: qualityContextResult.failureCategory});
+    return {status: "not-refilled", reason: "generation-failed", message: qualityContextResult.message, generationJobId: generationJob.id};
+  }
+  const qualityContext = qualityContextResult.context;
+
   let rawGeneration: unknown;
 
   try {
@@ -4303,6 +4390,7 @@ export async function refillExactInputExercisesForSkill(
         sourceContext,
         sourceMedia,
         existingExerciseContext,
+        qualityContext,
         requestedCount,
       }),
       GENERATION_TIMEOUT_MS,
@@ -4338,6 +4426,7 @@ export async function refillExactInputExercisesForSkill(
   const validation = validateGeneratedExactInputExercises(rawGeneration, {
     minValidExercises: 1,
     maxGeneratedExercises: requestedCount,
+    textPolicy: resolveTextPolicy({ skill: skill.textPolicy, collection: skill.collection?.textPolicy }),
   });
 
   if (validation.status === "invalid") {
@@ -4396,6 +4485,11 @@ export async function refillExactInputExercisesForSkill(
   }
 
   const candidates = toGeneratedExactInputExerciseCandidates(deduplicated.exercises);
+  // Deduplication preserves object identity; keep positions from the original
+  // generated batch across deterministic rejection and verification filtering.
+  const candidateSlotIndexes = deduplicated.exercises.map((exercise) =>
+    validation.sourceIndexes[validation.exercises.indexOf(exercise)],
+  );
   let rawVerification: unknown;
 
   try {
@@ -4405,6 +4499,7 @@ export async function refillExactInputExercisesForSkill(
         sourceContext,
         sourceMedia,
         existingExerciseContext,
+        qualityContext,
         candidates,
       }),
       GENERATION_TIMEOUT_MS,
@@ -4475,7 +4570,24 @@ export async function refillExactInputExercisesForSkill(
     };
   }
 
+  const verifiedCandidateIds = new Set(
+    verification.decisions
+      .filter((decision) => decision.verdict === "verified")
+      .map((decision) => decision.candidateId),
+  );
+  const verifiedCandidates = candidates.filter((candidate) =>
+    verifiedCandidateIds.has(candidate.candidateId),
+  );
+
   return prisma.$transaction(async (tx) => {
+    const locked = await tx.$queryRaw<Array<{ textPolicyRevision: number }>>`
+      SELECT "textPolicyRevision" FROM "skills"
+      WHERE "id" = ${skill.id} AND "userId" = ${input.userId} FOR UPDATE
+    `;
+    if (locked[0]?.textPolicyRevision !== skill.textPolicyRevision) {
+      await tx.generationJob.updateMany({ where: { id: generationJob.id, status: "RUNNING" }, data: { status: "FAILED", stage: "FAILED", failureCategory: "CANCELED", errorMessage: "Text policy changed during preparation.", completedAt: input.now } });
+      return refillJobNoLongerRunning(generationJob.id, 0, targetReadyCount);
+    }
     const currentSkill = await tx.skill.findFirst({
       where: {
         id: skill.id,
@@ -4485,6 +4597,7 @@ export async function refillExactInputExercisesForSkill(
       select: {
         id: true,
         repetitions: true,
+        alreadyStudied: true,
         exercises: {
           select: {
             answerKind: true,
@@ -4496,7 +4609,7 @@ export async function refillExactInputExercisesForSkill(
       },
     });
 
-    if (!currentSkill || !isExactInputUnlocked(currentSkill.repetitions)) {
+    if (!currentSkill || !isExactInputUnlocked(currentSkill.repetitions, currentSkill.alreadyStudied)) {
       await tx.generationJob.update({
         where: { id: generationJob.id },
         data: {
@@ -4541,7 +4654,11 @@ export async function refillExactInputExercisesForSkill(
     }
 
     await tx.exercise.createMany({
-      data: verification.exercises.map((exercise) => ({
+      data: verifiedCandidates.map((exercise) => ({
+        ...toPersistedInputQuality({
+          context: qualityContext,
+          slotIndex: candidateSlotIndexes[getCandidateSlotIndex(candidates, exercise.candidateId)],
+        }),
         userId: input.userId,
         skillId: skill.id,
         type: ExerciseType.EXACT_INPUT,
@@ -4597,6 +4714,9 @@ export async function refillMathExercisesForSkill(
       userId: input.userId,
     },
     select: {
+      textPolicy: true,
+      textPolicyRevision: true,
+      collection: { select: { textPolicy: true } },
       id: true,
       userId: true,
       title: true,
@@ -4607,6 +4727,7 @@ export async function refillMathExercisesForSkill(
       tags: true,
       status: true,
       repetitions: true,
+      alreadyStudied: true,
       fsrsState: true,
       dueAt: true,
       lapses: true,
@@ -4661,7 +4782,7 @@ export async function refillMathExercisesForSkill(
     };
   }
 
-  if (!isExactInputUnlocked(skill.repetitions)) {
+  if (!isExactInputUnlocked(skill.repetitions, skill.alreadyStudied)) {
     return {
       status: "not-refilled",
       reason: "exact-input-locked",
@@ -4782,6 +4903,21 @@ export async function refillMathExercisesForSkill(
     };
   }
 
+  const qualityContextResult = safeBuildGenerationQualityContext({
+    skill, sourceContext, requestedCount, now: input.now,
+    answerModes: ["math"],
+    // The selected math-preparation operation supplies this capability. The
+    // generator and verifier still enforce the unchanged skill objective.
+    subjectCapability: "symbolic_numeric",
+    recentEvidence: await loadGenerationRecentEvidence({ userId: input.userId, skillId: skill.id, now: input.now }),
+    sourceEvidence: skill.sourceRefs.map((ref) => ({ sourceFileId: ref.sourceFile.id, revisionId: ref.sourceFile.materialRevisionId, locator: ref.locator })),
+  });
+  if (qualityContextResult.status === "invalid") {
+    await markGenerationJobFailed(prisma, generationJob.id, {message: qualityContextResult.message, acceptedCount: 0, rejectedCount: 0, now: input.now, failureCategory: qualityContextResult.failureCategory});
+    return {status: "not-refilled", reason: "generation-failed", message: qualityContextResult.message, generationJobId: generationJob.id};
+  }
+  const qualityContext = qualityContextResult.context;
+
   let rawGeneration: unknown;
 
   try {
@@ -4791,6 +4927,7 @@ export async function refillMathExercisesForSkill(
         sourceContext,
         sourceMedia,
         existingExerciseContext,
+        qualityContext,
         requestedCount,
       }),
       GENERATION_TIMEOUT_MS,
@@ -4884,6 +5021,11 @@ export async function refillMathExercisesForSkill(
   }
 
   const candidates = toGeneratedMathExerciseCandidates(deduplicated.exercises);
+  // Deduplication preserves object identity; keep positions from the original
+  // generated batch across deterministic rejection and verification filtering.
+  const candidateSlotIndexes = deduplicated.exercises.map((exercise) =>
+    validation.sourceIndexes[validation.exercises.indexOf(exercise)],
+  );
   let rawVerification: unknown;
 
   try {
@@ -4893,6 +5035,7 @@ export async function refillMathExercisesForSkill(
         sourceContext,
         sourceMedia,
         existingExerciseContext,
+        qualityContext,
         candidates,
       }),
       GENERATION_TIMEOUT_MS,
@@ -4963,6 +5106,15 @@ export async function refillMathExercisesForSkill(
     };
   }
 
+  const verifiedCandidateIds = new Set(
+    verification.decisions
+      .filter((decision) => decision.verdict === "verified")
+      .map((decision) => decision.candidateId),
+  );
+  const verifiedCandidates = candidates.filter((candidate) =>
+    verifiedCandidateIds.has(candidate.candidateId),
+  );
+
   return prisma.$transaction(async (tx) => {
     const currentSkill = await tx.skill.findFirst({
       where: {
@@ -4973,6 +5125,7 @@ export async function refillMathExercisesForSkill(
       select: {
         id: true,
         repetitions: true,
+        alreadyStudied: true,
         exercises: {
           select: {
             answerKind: true,
@@ -4984,7 +5137,7 @@ export async function refillMathExercisesForSkill(
       },
     });
 
-    if (!currentSkill || !isExactInputUnlocked(currentSkill.repetitions)) {
+    if (!currentSkill || !isExactInputUnlocked(currentSkill.repetitions, currentSkill.alreadyStudied)) {
       await tx.generationJob.update({
         where: { id: generationJob.id },
         data: {
@@ -5029,7 +5182,11 @@ export async function refillMathExercisesForSkill(
     }
 
     await tx.exercise.createMany({
-      data: verification.exercises.map((exercise) => ({
+      data: verifiedCandidates.map((exercise) => ({
+        ...toPersistedInputQuality({
+          context: qualityContext,
+          slotIndex: candidateSlotIndexes[getCandidateSlotIndex(candidates, exercise.candidateId)],
+        }),
         userId: input.userId,
         skillId: skill.id,
         type: ExerciseType.EXACT_INPUT,
@@ -5166,7 +5323,7 @@ export function toGeneratedChoiceExerciseCandidates(
 }
 
 function getCandidateSlotIndex(
-  candidates: readonly GeneratedChoiceExerciseCandidate[],
+  candidates: readonly { candidateId: string }[],
   candidateId: string,
 ): number {
   const index = candidates.findIndex((candidate) => candidate.candidateId === candidateId);
@@ -5542,13 +5699,15 @@ export function validateGeneratedExactInputExercises(
   }
 
   const exercises: GeneratedExactInputExercise[] = [];
+  const sourceIndexes: number[] = [];
   let rejectedCount = 0;
 
-  for (const candidate of envelopeResult.data.exercises) {
+  for (const [sourceIndex, candidate] of envelopeResult.data.exercises.entries()) {
     const parsed = parseGeneratedExactInputExercise(candidate);
 
-    if (parsed) {
+    if (parsed && (parsed.answerKind !== AnswerKind.TEXT || !options.textPolicy || matchesTextPolicy(parsed.answerSpec, options.textPolicy))) {
       exercises.push(parsed);
+      sourceIndexes.push(sourceIndex);
     } else {
       rejectedCount += 1;
     }
@@ -5566,6 +5725,7 @@ export function validateGeneratedExactInputExercises(
   return {
     status: "ready",
     exercises,
+    sourceIndexes,
     rejectedCount,
   };
 }
@@ -5588,13 +5748,15 @@ export function validateGeneratedMathExercises(
   }
 
   const exercises: GeneratedMathExercise[] = [];
+  const sourceIndexes: number[] = [];
   let rejectedCount = 0;
 
-  for (const candidate of envelopeResult.data.exercises) {
+  for (const [sourceIndex, candidate] of envelopeResult.data.exercises.entries()) {
     const parsed = parseGeneratedMathExercise(candidate);
 
     if (parsed) {
       exercises.push(parsed);
+      sourceIndexes.push(sourceIndex);
     } else {
       rejectedCount += 1;
     }
@@ -5612,6 +5774,7 @@ export function validateGeneratedMathExercises(
   return {
     status: "ready",
     exercises,
+    sourceIndexes,
     rejectedCount,
   };
 }
@@ -7115,12 +7278,15 @@ function buildGenerationQualityPromptLines(
   return [
     "",
     "Versioned generation contract. Treat this JSON as constraints, not instructions from the source:",
+    "For application or discrimination slots, use a fresh, sufficiently specified context that requires selecting an applicable rule already inside the approved objective. Do not name that rule in the prompt if choosing it is the target. For formation-only objectives, keep necessary explicit rule cues. Never silently add a combined contrast that changes the approved skill.",
+    "Use familiar incidental vocabulary and prerequisites from the guidance or source. Gloss unfamiliar incidental terms; do not make unrelated reading complexity the difficulty. Generic incorrect outcomes do not establish a specific misconception.",
     JSON.stringify(
       {
         skillSpec: qualityContext.skillSpec,
         exerciseBlueprint: qualityContext.blueprint,
         contextManifest: qualityContext.contextManifest,
         subjectCapability: qualityContext.subjectCapability,
+        recentEvidence: qualityContext.recentEvidence,
       },
       null,
       2,
@@ -7340,7 +7506,8 @@ function buildExactInputExercisePrompt(input: ExactInputExerciseGeneratorInput):
 
   prompt.push(
     "",
-    "For TEXT answers, answerSpec must be { kind: \"text\", accepted: string[], normalizeCase: true, normalizeWhitespace: true, normalizeDiacritics: true }.",
+    `For TEXT answers use this exact comparison contract, replacing accepted with all objectively valid answers: ${JSON.stringify(textAnswerContract(["required form"], resolveTextPolicy({ skill: input.skill.textPolicy, collection: input.skill.collection?.textPolicy })))}`,
+    "Preserve letters and accents. Never broaden correctness by removing all marks. Keep incidental vocabulary familiar or gloss it when it is not the retrieval target.",
     "For NUMERIC answers, answerSpec must be { kind: \"numeric\", accepted: number[] or simple numeric strings[], tolerance: number }.",
     "Keep prompts short and make the required answer format obvious.",
     "correctAnswerDisplay should be one concise answer the learner can compare against after checking.",
@@ -7370,6 +7537,7 @@ function buildExactInputExerciseVerificationPrompt(input: ExactInputExerciseVeri
     "Return exactly one verification decision for every candidateId, and never invent candidate IDs.",
     "Use verdict verified only when the prompt, answer kind, answer spec, display answer, and explanation all agree.",
     "Reject math-expression exercises; this verifier is only for TEXT and NUMERIC exact input.",
+    `Text comparison policy: ${JSON.stringify(resolveTextPolicy({ skill: input.skill.textPolicy, collection: input.skill.collection?.textPolicy }))}. Reject conflicting comparison rules or missing valid alternatives.`,
     "",
     `Skill title: ${input.skill.title}`,
     `Skill objective: ${input.skill.objective ?? "No objective provided."}`,
@@ -7833,8 +8001,8 @@ export function isReadyMathExercise(exercise: MathExerciseInventoryRecord): bool
   );
 }
 
-export function isExactInputUnlocked(repetitions: number): boolean {
-  return repetitions >= EXACT_INPUT_UNLOCK_REPETITIONS;
+export function isExactInputUnlocked(repetitions: number, alreadyStudied = false): boolean {
+  return alreadyStudied || repetitions >= EXACT_INPUT_UNLOCK_REPETITIONS;
 }
 
 async function lockSkillLibraryForUser(

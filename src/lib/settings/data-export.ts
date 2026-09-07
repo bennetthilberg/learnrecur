@@ -1,3 +1,4 @@
+import type { PracticePreference } from "@/lib/practice/policies";
 import "server-only";
 
 import type {
@@ -41,7 +42,7 @@ import type {
 } from "@/generated/prisma/client";
 import { getPrisma } from "@/lib/prisma";
 
-export const STUDY_DATA_EXPORT_VERSION = 3;
+export const STUDY_DATA_EXPORT_VERSION = 4;
 const PRIVATE_SOURCE_METADATA_KEYS = new Set([
   "bucketName",
   "objectKey",
@@ -53,7 +54,7 @@ const PRIVATE_SOURCE_METADATA_KEYS = new Set([
 export type StudyDataExportResult =
   | {
       status: "ready";
-      export: StudyDataExportV3;
+      export: StudyDataExportV4;
       filename: string;
     }
   | {
@@ -61,7 +62,7 @@ export type StudyDataExportResult =
       message: string;
     };
 
-export type StudyDataExportV3 = {
+export type StudyDataExportV4 = {
   exportVersion: typeof STUDY_DATA_EXPORT_VERSION;
   generatedAt: string;
   user: ExportUser;
@@ -146,6 +147,8 @@ export type ExportAgentOperationItem = {
 };
 
 export type ExportUser = {
+  practicePreference: PracticePreference;
+  mixedReview: boolean;
   id: string;
   email: string | null;
   name: string | null;
@@ -156,6 +159,8 @@ export type ExportUser = {
 };
 
 export type ExportCollection = {
+  practicePreference: PracticePreference | null;
+  textPolicy: Prisma.JsonValue | null;
   id: string;
   name: string;
   description: string | null;
@@ -310,6 +315,9 @@ export type ExportSkillDraftBatchItem = {
 };
 
 export type ExportSkill = {
+  practicePreference: PracticePreference | null;
+  textPolicy: Prisma.JsonValue | null;
+  textPolicyRevision: number;
   id: string;
   collectionId: string | null;
   title: string;
@@ -330,6 +338,7 @@ export type ExportSkill = {
   scheduledDays: number;
   learningSteps: number;
   repetitions: number;
+  alreadyStudied: boolean;
   lapses: number;
   fsrsState: SkillFsrsState;
   lastReviewedAt: string | null;
@@ -379,6 +388,9 @@ export type ExportExercise = {
 };
 
 export type ExportExerciseAttempt = {
+  ratingPolicyVersion: string;
+  practiceContext: Prisma.JsonValue | null;
+  answerPolicySnapshot: Prisma.JsonValue | null;
   id: string;
   skillId: string;
   exerciseId: string;
@@ -555,6 +567,8 @@ export async function getUserDataExport(input: {
   const user = await prisma.user.findUnique({
     where: { id: input.userId },
     select: {
+      practicePreference: true,
+      mixedReview: true,
       id: true,
       email: true,
       name: true,
@@ -565,6 +579,7 @@ export async function getUserDataExport(input: {
       collections: {
         orderBy: { id: "asc" },
         select: {
+          practicePreference: true, textPolicy: true,
           id: true,
           name: true,
           description: true,
@@ -694,6 +709,7 @@ export async function getUserDataExport(input: {
       skills: {
         orderBy: { id: "asc" },
         select: {
+          practicePreference: true, textPolicy: true, textPolicyRevision: true,
           id: true,
           collectionId: true,
           title: true,
@@ -714,6 +730,7 @@ export async function getUserDataExport(input: {
           scheduledDays: true,
           learningSteps: true,
           repetitions: true,
+          alreadyStudied: true,
           lapses: true,
           fsrsState: true,
           lastReviewedAt: true,
@@ -769,6 +786,7 @@ export async function getUserDataExport(input: {
       exerciseAttempts: {
         orderBy: { id: "asc" },
         select: {
+          ratingPolicyVersion: true, practiceContext: true, answerPolicySnapshot: true,
           id: true,
           skillId: true,
           exerciseId: true,
@@ -1044,10 +1062,12 @@ export async function getUserDataExport(input: {
     };
   }
 
-  const exportData: StudyDataExportV3 = {
+  const exportData: StudyDataExportV4 = {
     exportVersion: STUDY_DATA_EXPORT_VERSION,
     generatedAt: serializeExportDate(input.generatedAt),
     user: {
+      practicePreference: user.practicePreference,
+      mixedReview: user.mixedReview,
       id: user.id,
       email: user.email,
       name: user.name,

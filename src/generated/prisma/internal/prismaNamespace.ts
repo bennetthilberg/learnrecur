@@ -2925,7 +2925,9 @@ export const UserScalarFieldEnum = {
   lastSeenAt: 'lastSeenAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
-  agentAccessDisabledAt: 'agentAccessDisabledAt'
+  agentAccessDisabledAt: 'agentAccessDisabledAt',
+  practicePreference: 'practicePreference',
+  mixedReview: 'mixedReview'
 } as const
 
 export type UserScalarFieldEnum = (typeof UserScalarFieldEnum)[keyof typeof UserScalarFieldEnum]
@@ -2961,6 +2963,8 @@ export type AccountDeletionJobScalarFieldEnum = (typeof AccountDeletionJobScalar
 
 
 export const CollectionScalarFieldEnum = {
+  practicePreference: 'practicePreference',
+  textPolicy: 'textPolicy',
   id: 'id',
   userId: 'userId',
   name: 'name',
@@ -3112,6 +3116,10 @@ export type MaterialCleanupJobScalarFieldEnum = (typeof MaterialCleanupJobScalar
 
 
 export const SkillScalarFieldEnum = {
+  practicePreference: 'practicePreference',
+  alreadyStudied: 'alreadyStudied',
+  textPolicy: 'textPolicy',
+  textPolicyRevision: 'textPolicyRevision',
   id: 'id',
   userId: 'userId',
   collectionId: 'collectionId',
@@ -3247,6 +3255,9 @@ export type ExerciseScalarFieldEnum = (typeof ExerciseScalarFieldEnum)[keyof typ
 
 
 export const ExerciseAttemptScalarFieldEnum = {
+  ratingPolicyVersion: 'ratingPolicyVersion',
+  practiceContext: 'practiceContext',
+  answerPolicySnapshot: 'answerPolicySnapshot',
   id: 'id',
   userId: 'userId',
   skillId: 'skillId',
@@ -3724,6 +3735,27 @@ export type ListDateTimeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaM
 
 
 /**
+ * Reference to a field of type 'PracticePreference'
+ */
+export type EnumPracticePreferenceFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'PracticePreference'>
+    
+
+
+/**
+ * Reference to a field of type 'PracticePreference[]'
+ */
+export type ListEnumPracticePreferenceFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'PracticePreference[]'>
+    
+
+
+/**
+ * Reference to a field of type 'Boolean'
+ */
+export type BooleanFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Boolean'>
+    
+
+
+/**
  * Reference to a field of type 'AccountDeletionJobStatus'
  */
 export type EnumAccountDeletionJobStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AccountDeletionJobStatus'>
@@ -4042,13 +4074,6 @@ export type EnumGenerationAuditDecisionFieldRefInput<$PrismaModel> = FieldRefInp
  * Reference to a field of type 'GenerationAuditDecision[]'
  */
 export type ListEnumGenerationAuditDecisionFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'GenerationAuditDecision[]'>
-    
-
-
-/**
- * Reference to a field of type 'Boolean'
- */
-export type BooleanFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Boolean'>
     
 
 

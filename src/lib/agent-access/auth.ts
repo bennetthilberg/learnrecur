@@ -13,6 +13,8 @@ export const AGENT_ACCESS_SCOPES = [
   "skills:create",
   "materials:read",
   "sources:upload",
+  "practice:read",
+  "practice:write",
 ] as const;
 
 export type AgentAccessScope = (typeof AGENT_ACCESS_SCOPES)[number];

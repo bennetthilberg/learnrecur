@@ -123,7 +123,7 @@ async function main() {
   const result = evaluateWorkosGateEvidence({
     canonicalResource: env.MCP_RESOURCE_URL,
     expectedClerkUserId: env.WORKOS_MCP_GATE_EXPECTED_CLERK_USER_ID,
-    requiredScopes: ["skills:create", "materials:read", "sources:upload"],
+    requiredScopes: ["skills:create", "materials:read", "sources:upload", "practice:read", "practice:write"],
     metadata,
     initialToken,
     refreshedToken,

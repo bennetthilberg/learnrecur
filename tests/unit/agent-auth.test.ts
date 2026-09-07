@@ -57,6 +57,7 @@ describe("agent access configuration", () => {
       AGENT_OAUTH_COOKIE_SECRET: "a".repeat(32),
     });
 
+    if (!config.enabled) throw new Error("Expected enabled agent access");
     expect(isAgentClientIdAllowed("client_static_1", config)).toBe(true);
     expect(isAgentClientIdAllowed("https://agent.example/oauth/client.json", config)).toBe(true);
     expect(isAgentClientIdAllowed("client_unregistered", config)).toBe(false);
@@ -113,24 +114,28 @@ describe("agent access configuration", () => {
     });
 
     expect(config).toMatchObject({ allowVerifiedCimdClients: false });
+    if (!config.enabled) throw new Error("Expected enabled agent access");
     expect(isAgentClientIdAllowed("https://agent.example/oauth/client.json", config)).toBe(false);
   });
 
   it("requires subject, grant, client, expiry, and supported custom scopes", () => {
+    expect(parseAgentAccessTokenClaims({ sub: "user_clerk_1", sid: "settings_consent",
+      client_id: "client_static_1", exp: 2_000_000_000, scope: "practice:read practice:write" }).scopes)
+      .toEqual(["practice:read", "practice:write"]);
     expect(
       parseAgentAccessTokenClaims({
         sub: "user_clerk_1",
         sid: "app_consent_1",
         client_id: "client_static_1",
         exp: 2_000_000_000,
-        scope: "skills:create materials:read offline_access",
+        scope: "skills:create materials:read practice:read practice:write offline_access",
       }),
     ).toEqual({
       subject: "user_clerk_1",
       sessionId: "app_consent_1",
       clientId: "client_static_1",
       expiresAt: 2_000_000_000,
-      scopes: ["materials:read", "skills:create"],
+      scopes: ["materials:read", "practice:read", "practice:write", "skills:create"],
     });
 
     expect(() =>

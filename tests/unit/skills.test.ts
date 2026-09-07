@@ -498,6 +498,13 @@ describe("validateGeneratedChoiceExercises", () => {
 });
 
 describe("validateGeneratedExactInputExercises", () => {
+  it("retains original slot positions after deterministic rejection", () => {
+    const result = validateGeneratedExactInputExercises({
+      exercises: [{ ...validExactInputExercise(1), answerSpec: { kind: "invalid" } }, validExactInputExercise(2)],
+    });
+    expect(result).toMatchObject({ status: "ready", sourceIndexes: [1], rejectedCount: 1 });
+  });
+
   it("accepts valid text and numeric exact-input exercises", () => {
     const result = validateGeneratedExactInputExercises({
       exercises: [
@@ -652,6 +659,13 @@ describe("validateGeneratedExactInputExercises", () => {
 });
 
 describe("validateGeneratedMathExercises", () => {
+  it("retains original slot positions after deterministic rejection", () => {
+    const result = validateGeneratedMathExercises({
+      exercises: [{ ...validMathExercise(1), answerSpec: { kind: "invalid" } }, validMathExercise(2)],
+    });
+    expect(result).toMatchObject({ status: "ready", sourceIndexes: [1], rejectedCount: 1 });
+  });
+
   it("accepts valid generated math exercises", () => {
     const result = validateGeneratedMathExercises({
       exercises: [validMathExercise(1), validMathExercise(2)],
@@ -1729,6 +1743,7 @@ describe("MetaMuse exercise fallbacks", () => {
         .answerSpec.anyOf[0].required,
     ).toEqual([
       "kind",
+      "policyVersion",
       "accepted",
       "normalizeCase",
       "normalizeWhitespace",

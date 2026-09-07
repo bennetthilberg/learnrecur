@@ -1,3 +1,4 @@
+import { SkillPracticePreferences } from "@/components/app/skill-practice-preferences";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -193,7 +194,7 @@ export default async function SkillPage({
     const hasActiveMathRefillJob = hasActiveGenerationJob(latestMathGenerationJob);
     const canRefill =
       inventory.readyExerciseCount < DEFAULT_READY_EXERCISE_TARGET && !hasActiveChoiceRefillJob;
-    const exactInputUnlocked = isExactInputUnlocked(skill.repetitions);
+    const exactInputUnlocked = isExactInputUnlocked(skill.repetitions, skill.alreadyStudied);
     const canRefillExactInput =
       exactInputUnlocked &&
       exactInputInventory.readyExerciseCount < DEFAULT_READY_EXACT_INPUT_TARGET &&
@@ -286,6 +287,8 @@ export default async function SkillPage({
               skillId={skill.id}
             />
 
+            <SkillPracticePreferences userId={userId} skillId={skill.id}/>
+
             <SkillDetailReviewOutcomesCard groups={reviewOutcomeGroups} />
 
             <details className="skillDetailCard skillDetailPreparation skillFormDetails">
@@ -364,8 +367,9 @@ export default async function SkillPage({
                       targetCount={DEFAULT_READY_EXACT_INPUT_TARGET}
                     />
                     <p className="skillQueueCopy">
-                      Exact input begins after {EXACT_INPUT_UNLOCK_REPETITIONS} saved reviews, once
-                      the skill has a short multiple-choice history.
+                      {exactInputUnlocked
+                        ? "Exact input is available when suitable verified exercises are ready."
+                        : `Exact input begins after ${EXACT_INPUT_UNLOCK_REPETITIONS} saved reviews, once the skill has a short multiple-choice history.`}
                     </p>
                     {latestExactInputGenerationJob ? (
                       <SkillQueueJobStatus
@@ -425,8 +429,9 @@ export default async function SkillPage({
                       targetCount={DEFAULT_READY_MATH_TARGET}
                     />
                     <p className="skillQueueCopy">
-                      Math practice begins after {EXACT_INPUT_UNLOCK_REPETITIONS} saved reviews,
-                      once the skill has a short multiple-choice history.
+                      {exactInputUnlocked
+                        ? "Math input is available when suitable verified exercises are ready."
+                        : `Math practice begins after ${EXACT_INPUT_UNLOCK_REPETITIONS} saved reviews, once the skill has a short multiple-choice history.`}
                     </p>
                     {latestMathGenerationJob ? (
                       <SkillQueueJobStatus job={latestMathGenerationJob} label="Latest math preparation" />
@@ -587,6 +592,7 @@ export default async function SkillPage({
         </section>
       ) : null}
 
+      <SkillPracticePreferences userId={userId} skillId={skill.id}/>
       <SkillDraftForm initialValues={draftValues} mode="edit" skillId={skill.id} />
       <SkillSourcePanel skillId={skill.id} sources={sourceSummaries} />
       <SkillLifecyclePanel skillId={skill.id} skillTitle={skill.title} status={skill.status} />

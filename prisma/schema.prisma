@@ -347,6 +347,11 @@ enum AccountDeletionPhase {
   COMPLETE
 }
 
+enum PracticePreference {
+  BALANCED
+  RECALL_FIRST
+}
+
 model User {
   id                    String    @id
   email                 String?
@@ -356,6 +361,8 @@ model User {
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
   agentAccessDisabledAt DateTime?
+  practicePreference    PracticePreference @default(BALANCED)
+  mixedReview           Boolean @default(false)
 
   collections            Collection[]
   sourceFiles            SourceFile[]
@@ -423,6 +430,8 @@ model AccountDeletionJob {
 }
 
 model Collection {
+  practicePreference PracticePreference?
+  textPolicy         Json?
   id          String           @id @default(cuid())
   userId      String
   name        String
@@ -643,6 +652,10 @@ model MaterialCleanupJob {
 }
 
 model Skill {
+  practicePreference PracticePreference?
+  alreadyStudied     Boolean @default(false)
+  textPolicy         Json?
+  textPolicyRevision Int @default(0)
   id                             String                      @id @default(cuid())
   userId                         String
   collectionId                   String?
@@ -830,6 +843,9 @@ model Exercise {
 }
 
 model ExerciseAttempt {
+  ratingPolicyVersion String @default("speed-v1")
+  practiceContext     Json?
+  answerPolicySnapshot Json?
   id               String                @id @default(cuid())
   userId           String
   skillId          String

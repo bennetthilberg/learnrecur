@@ -110,7 +110,9 @@ export const UserScalarFieldEnum = {
   lastSeenAt: 'lastSeenAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
-  agentAccessDisabledAt: 'agentAccessDisabledAt'
+  agentAccessDisabledAt: 'agentAccessDisabledAt',
+  practicePreference: 'practicePreference',
+  mixedReview: 'mixedReview'
 } as const
 
 export type UserScalarFieldEnum = (typeof UserScalarFieldEnum)[keyof typeof UserScalarFieldEnum]
@@ -146,6 +148,8 @@ export type AccountDeletionJobScalarFieldEnum = (typeof AccountDeletionJobScalar
 
 
 export const CollectionScalarFieldEnum = {
+  practicePreference: 'practicePreference',
+  textPolicy: 'textPolicy',
   id: 'id',
   userId: 'userId',
   name: 'name',
@@ -297,6 +301,10 @@ export type MaterialCleanupJobScalarFieldEnum = (typeof MaterialCleanupJobScalar
 
 
 export const SkillScalarFieldEnum = {
+  practicePreference: 'practicePreference',
+  alreadyStudied: 'alreadyStudied',
+  textPolicy: 'textPolicy',
+  textPolicyRevision: 'textPolicyRevision',
   id: 'id',
   userId: 'userId',
   collectionId: 'collectionId',
@@ -432,6 +440,9 @@ export type ExerciseScalarFieldEnum = (typeof ExerciseScalarFieldEnum)[keyof typ
 
 
 export const ExerciseAttemptScalarFieldEnum = {
+  ratingPolicyVersion: 'ratingPolicyVersion',
+  practiceContext: 'practiceContext',
+  answerPolicySnapshot: 'answerPolicySnapshot',
   id: 'id',
   userId: 'userId',
   skillId: 'skillId',

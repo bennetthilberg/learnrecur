@@ -139,6 +139,7 @@ type ReminderPreferenceRecord = NormalizedReminderPreferenceInput & {
 type DuePracticeSkillRecord = {
   id: string;
   repetitions: number;
+  alreadyStudied?: boolean;
   exercises: Array<{
     answerKind: AnswerKind;
     verificationStatus: ExerciseVerificationStatus;
@@ -344,6 +345,7 @@ export async function getDuePracticeSkillCount(input: {
     select: {
       id: true,
       repetitions: true,
+      alreadyStudied: true,
       exercises: {
         select: {
           answerKind: true,

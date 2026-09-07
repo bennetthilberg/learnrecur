@@ -45,12 +45,29 @@ import {
   createAgentTextOperation,
   getAgentOperation,
 } from "@/lib/agent-access/operations";
+import { agentGetPracticeSettingsSchema, agentListPracticeTargetsSchema, agentUpdatePracticeSettingsSchema } from "./practice-contracts";
+import { getAgentPracticeSettings, listAgentPracticeTargets, updateAgentPracticeSettings } from "./practice";
 
 export function registerLearnRecurMcpTools(server: McpServer) {
   registerTool(server, {
+    name: "practice.list_targets", title: "Find collections and skills for practice settings",
+    description: "List owned collection or skill IDs and names, optionally filtered by name. Bounded to 50 per page; pass next_cursor as after_id for the next page. Does not expose source content or answers.",
+    schema: agentListPracticeTargetsSchema, scopes: ["practice:read"], readOnly: true, handler: listAgentPracticeTargets,
+  });
+  registerTool(server, {
+    name: "practice.get_settings", title: "Read practice settings",
+    description: "Read account defaults or owned collection/skill overrides and effective inherited settings. Null overrides inherit skill → collection → user → Balanced; text defaults to Natural. invalid_fields identifies malformed stored policies needing repair. Mixed review is the account default; a browser session can override it temporarily.",
+    schema: agentGetPracticeSettingsSchema, scopes: ["practice:read"], readOnly: true, handler: getAgentPracticeSettings,
+  });
+  registerTool(server, {
+    name: "practice.update_settings", title: "Update practice settings",
+    description: "Patch only supplied settings. User: practicePreference (BALANCED or RECALL_FIRST), mixedReview. Collection: nullable practicePreference and textPolicy. Skill: nullable practicePreference and textPolicy, alreadyStudied. Null restores inheritance. Text policies are version 2 Natural, Exact, or Custom case/whitespace rules; diacritics are always preserved. A policy change retires future text stock without regrading history or resetting schedules; up to 500 inheriting skills per collection edit. Preparation may be deferred until practice opens. Requires practice:write consent; creation permission alone is insufficient.",
+    schema: agentUpdatePracticeSettingsSchema, scopes: ["practice:write"], readOnly: false, handler: updateAgentPracticeSettings,
+  });
+  registerTool(server, {
     name: "skills.add_from_specs",
     title: "Add skills from structured specifications",
-    description: "Queue one to ten independent LearnRecur skills. LearnRecur verifies exercises and activates each skill asynchronously.",
+    description: "Queue one to ten independent LearnRecur skills. LearnRecur verifies exercises and activates each skill asynchronously. Text candidates use policyVersion 2, preserve diacritics, and must match the skill or collection text profile. Skills may explicitly declare alreadyStudied and a nullable practicePreference override.",
     schema: agentAddFromSpecsSchema,
     scopes: ["skills:create"],
     readOnly: false,

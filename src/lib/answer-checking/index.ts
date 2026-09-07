@@ -18,7 +18,8 @@ export const MAX_MATH_EXPRESSION_LENGTH = 500;
 export const MAX_MATH_EXPRESSION_NESTING = 32;
 
 const nonEmptyStringSchema = z.string().trim().min(1);
-const textAnswerStringSchema = nonEmptyStringSchema.max(MAX_TEXT_ANSWER_LENGTH);
+const textAnswerStringSchema = z.string().min(1).max(MAX_TEXT_ANSWER_LENGTH)
+  .refine((value) => value.trim().length > 0, "Accepted answers cannot be blank.");
 const numericAnswerStringSchema = nonEmptyStringSchema.max(MAX_NUMERIC_ANSWER_LENGTH);
 const mathExpressionStringSchema = nonEmptyStringSchema.max(MAX_MATH_EXPRESSION_LENGTH);
 const NUMERIC_ACCEPTED_VALUE_LENGTH_ERROR = `Accepted numeric answers must be ${MAX_NUMERIC_ANSWER_LENGTH} characters or fewer without exponent notation.`;
@@ -37,10 +38,15 @@ export const choiceAnswerSpecSchema = z.strictObject({
 
 export const textAnswerSpecSchema = z.strictObject({
   kind: z.literal("text"),
+  policyVersion: z.literal(2).optional(),
   accepted: z.array(textAnswerStringSchema).min(1),
   normalizeCase: z.boolean().default(true),
   normalizeWhitespace: z.boolean().default(true),
   normalizeDiacritics: z.boolean().default(true),
+}).superRefine((spec, context) => {
+  if (spec.policyVersion === 2 && spec.normalizeDiacritics) {
+    context.addIssue({ code: "custom", path: ["normalizeDiacritics"], message: "Text policy v2 preserves letters and accents. List limited accepted alternatives explicitly." });
+  }
 });
 
 const numericAcceptedNumberSchema = z
@@ -273,7 +279,7 @@ function checkTextAnswer(answerSpec: TextAnswerSpec, submittedAnswer: unknown): 
   }
 
   const accepted = new Set(
-    answerSpec.accepted.map((acceptedAnswer) => normalizeTextAnswer(acceptedAnswer, answerSpec)),
+    answerSpec.accepted.map((acceptedAnswer) => normalizeTextAnswer(answerSpec.policyVersion === 2 ? acceptedAnswer : acceptedAnswer.trim(), answerSpec)),
   );
 
   return {
@@ -392,7 +398,7 @@ function parseSelectedChoiceId(submittedAnswer: unknown): string | null {
 }
 
 function normalizeTextAnswer(answer: string, options: TextAnswerSpec): string {
-  let normalized = answer;
+  let normalized = options.policyVersion === 2 ? answer.normalize("NFC") : answer;
 
   if (options.normalizeWhitespace) {
     normalized = normalized.trim().replace(/\s+/g, " ");

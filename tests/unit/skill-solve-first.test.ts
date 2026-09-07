@@ -429,7 +429,7 @@ describe("production multiple-choice solve-first verification", () => {
     });
   });
 
-  it("uses prompt version v1 and carries repair context into generation", async () => {
+  it("uses prompt version v2 and carries repair context into generation", async () => {
     const repairContext = "Repair the interval midpoint after the prior candidate was rejected.";
     geminiGenerateContentMock.mockResolvedValueOnce(
       geminiResponse({
@@ -455,7 +455,7 @@ describe("production multiple-choice solve-first verification", () => {
       repairContext,
     });
 
-    expect(SKILL_MCQ_PROMPT_VERSION).toBe("skill-mcq-v1");
+    expect(SKILL_MCQ_PROMPT_VERSION).toBe("skill-mcq-v2");
     const generationRequest = JSON.stringify(geminiGenerateContentMock.mock.calls[0]?.[0]);
     expect(generationRequest).toContain("internally consistent");
     expect(generationRequest).toContain("explanation must agree");

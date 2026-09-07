@@ -1,3 +1,4 @@
+import { practicePreferenceOverrideSchema, textPolicySchema, type PracticePreference, type TextPolicy } from "@/lib/practice/policies";
 import "server-only";
 
 import {
@@ -951,6 +952,9 @@ async function reconcileAgentOperation(operationId: string, userId: string, now:
 }
 
 type SkillSnapshot = {
+  alreadyStudied?: boolean;
+  practicePreference?: PracticePreference | null;
+  textPolicy?: TextPolicy | null;
   title: string;
   objective: string;
   rules: string[];
@@ -962,6 +966,9 @@ type SkillSnapshot = {
 
 export function buildSkillDraftInputFromSnapshot(snapshot: SkillSnapshot) {
   return {
+    ...(snapshot.alreadyStudied !== undefined ? {alreadyStudied:snapshot.alreadyStudied} : {}),
+    ...(snapshot.practicePreference !== undefined ? {practicePreference:snapshot.practicePreference} : {}),
+    ...(snapshot.textPolicy !== undefined ? {textPolicy:snapshot.textPolicy} : {}),
     title: snapshot.title,
     objective: snapshot.objective,
     rules: snapshot.rules.join("\n"),
@@ -972,10 +979,17 @@ export function buildSkillDraftInputFromSnapshot(snapshot: SkillSnapshot) {
   };
 }
 
-function parseSkillSnapshot(value: unknown): SkillSnapshot | null {
+export function parseSkillSnapshot(value: unknown): SkillSnapshot | null {
   const record = parseRecord(value);
   if (typeof record.title !== "string" || typeof record.objective !== "string") return null;
+  const practicePreference = practicePreferenceOverrideSchema.optional().safeParse(record.practicePreference);
+  const textPolicy = textPolicySchema.nullable().optional().safeParse(record.textPolicy);
+  if (!practicePreference.success || !textPolicy.success ||
+      (record.alreadyStudied !== undefined && typeof record.alreadyStudied !== "boolean")) return null;
   return {
+    ...(typeof record.alreadyStudied === "boolean" ? {alreadyStudied:record.alreadyStudied} : {}),
+    ...(practicePreference.data !== undefined ? {practicePreference:practicePreference.data} : {}),
+    ...(textPolicy.data !== undefined ? {textPolicy:textPolicy.data} : {}),
     title: record.title,
     objective: record.objective,
     rules: stringArray(record.rules),

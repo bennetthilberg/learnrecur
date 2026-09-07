@@ -35,6 +35,7 @@ export type ExerciseAttemptSumAggregateOutputType = {
 }
 
 export type ExerciseAttemptMinAggregateOutputType = {
+  ratingPolicyVersion: string | null
   id: string | null
   userId: string | null
   skillId: string | null
@@ -50,6 +51,7 @@ export type ExerciseAttemptMinAggregateOutputType = {
 }
 
 export type ExerciseAttemptMaxAggregateOutputType = {
+  ratingPolicyVersion: string | null
   id: string | null
   userId: string | null
   skillId: string | null
@@ -65,6 +67,9 @@ export type ExerciseAttemptMaxAggregateOutputType = {
 }
 
 export type ExerciseAttemptCountAggregateOutputType = {
+  ratingPolicyVersion: number
+  practiceContext: number
+  answerPolicySnapshot: number
   id: number
   userId: number
   skillId: number
@@ -91,6 +96,7 @@ export type ExerciseAttemptSumAggregateInputType = {
 }
 
 export type ExerciseAttemptMinAggregateInputType = {
+  ratingPolicyVersion?: true
   id?: true
   userId?: true
   skillId?: true
@@ -106,6 +112,7 @@ export type ExerciseAttemptMinAggregateInputType = {
 }
 
 export type ExerciseAttemptMaxAggregateInputType = {
+  ratingPolicyVersion?: true
   id?: true
   userId?: true
   skillId?: true
@@ -121,6 +128,9 @@ export type ExerciseAttemptMaxAggregateInputType = {
 }
 
 export type ExerciseAttemptCountAggregateInputType = {
+  ratingPolicyVersion?: true
+  practiceContext?: true
+  answerPolicySnapshot?: true
   id?: true
   userId?: true
   skillId?: true
@@ -224,6 +234,9 @@ export type ExerciseAttemptGroupByArgs<ExtArgs extends runtime.Types.Extensions.
 }
 
 export type ExerciseAttemptGroupByOutputType = {
+  ratingPolicyVersion: string
+  practiceContext: runtime.JsonValue | null
+  answerPolicySnapshot: runtime.JsonValue | null
   id: string
   userId: string
   skillId: string
@@ -263,6 +276,9 @@ export type ExerciseAttemptWhereInput = {
   AND?: Prisma.ExerciseAttemptWhereInput | Prisma.ExerciseAttemptWhereInput[]
   OR?: Prisma.ExerciseAttemptWhereInput[]
   NOT?: Prisma.ExerciseAttemptWhereInput | Prisma.ExerciseAttemptWhereInput[]
+  ratingPolicyVersion?: Prisma.StringFilter<"ExerciseAttempt"> | string
+  practiceContext?: Prisma.JsonNullableFilter<"ExerciseAttempt">
+  answerPolicySnapshot?: Prisma.JsonNullableFilter<"ExerciseAttempt">
   id?: Prisma.StringFilter<"ExerciseAttempt"> | string
   userId?: Prisma.StringFilter<"ExerciseAttempt"> | string
   skillId?: Prisma.StringFilter<"ExerciseAttempt"> | string
@@ -283,6 +299,9 @@ export type ExerciseAttemptWhereInput = {
 }
 
 export type ExerciseAttemptOrderByWithRelationInput = {
+  ratingPolicyVersion?: Prisma.SortOrder
+  practiceContext?: Prisma.SortOrderInput | Prisma.SortOrder
+  answerPolicySnapshot?: Prisma.SortOrderInput | Prisma.SortOrder
   id?: Prisma.SortOrder
   userId?: Prisma.SortOrder
   skillId?: Prisma.SortOrder
@@ -309,6 +328,9 @@ export type ExerciseAttemptWhereUniqueInput = Prisma.AtLeast<{
   AND?: Prisma.ExerciseAttemptWhereInput | Prisma.ExerciseAttemptWhereInput[]
   OR?: Prisma.ExerciseAttemptWhereInput[]
   NOT?: Prisma.ExerciseAttemptWhereInput | Prisma.ExerciseAttemptWhereInput[]
+  ratingPolicyVersion?: Prisma.StringFilter<"ExerciseAttempt"> | string
+  practiceContext?: Prisma.JsonNullableFilter<"ExerciseAttempt">
+  answerPolicySnapshot?: Prisma.JsonNullableFilter<"ExerciseAttempt">
   userId?: Prisma.StringFilter<"ExerciseAttempt"> | string
   skillId?: Prisma.StringFilter<"ExerciseAttempt"> | string
   exerciseId?: Prisma.StringFilter<"ExerciseAttempt"> | string
@@ -328,6 +350,9 @@ export type ExerciseAttemptWhereUniqueInput = Prisma.AtLeast<{
 }, "id" | "id_userId" | "id_skillId_userId">
 
 export type ExerciseAttemptOrderByWithAggregationInput = {
+  ratingPolicyVersion?: Prisma.SortOrder
+  practiceContext?: Prisma.SortOrderInput | Prisma.SortOrder
+  answerPolicySnapshot?: Prisma.SortOrderInput | Prisma.SortOrder
   id?: Prisma.SortOrder
   userId?: Prisma.SortOrder
   skillId?: Prisma.SortOrder
@@ -352,6 +377,9 @@ export type ExerciseAttemptScalarWhereWithAggregatesInput = {
   AND?: Prisma.ExerciseAttemptScalarWhereWithAggregatesInput | Prisma.ExerciseAttemptScalarWhereWithAggregatesInput[]
   OR?: Prisma.ExerciseAttemptScalarWhereWithAggregatesInput[]
   NOT?: Prisma.ExerciseAttemptScalarWhereWithAggregatesInput | Prisma.ExerciseAttemptScalarWhereWithAggregatesInput[]
+  ratingPolicyVersion?: Prisma.StringWithAggregatesFilter<"ExerciseAttempt"> | string
+  practiceContext?: Prisma.JsonNullableWithAggregatesFilter<"ExerciseAttempt">
+  answerPolicySnapshot?: Prisma.JsonNullableWithAggregatesFilter<"ExerciseAttempt">
   id?: Prisma.StringWithAggregatesFilter<"ExerciseAttempt"> | string
   userId?: Prisma.StringWithAggregatesFilter<"ExerciseAttempt"> | string
   skillId?: Prisma.StringWithAggregatesFilter<"ExerciseAttempt"> | string
@@ -368,6 +396,9 @@ export type ExerciseAttemptScalarWhereWithAggregatesInput = {
 }
 
 export type ExerciseAttemptCreateInput = {
+  ratingPolicyVersion?: string
+  practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   id?: string
   answer: Prisma.JsonNullValueInput | runtime.InputJsonValue
   normalizedAnswer?: string | null
@@ -385,6 +416,9 @@ export type ExerciseAttemptCreateInput = {
 }
 
 export type ExerciseAttemptUncheckedCreateInput = {
+  ratingPolicyVersion?: string
+  practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   id?: string
   userId: string
   skillId: string
@@ -402,6 +436,9 @@ export type ExerciseAttemptUncheckedCreateInput = {
 }
 
 export type ExerciseAttemptUpdateInput = {
+  ratingPolicyVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   id?: Prisma.StringFieldUpdateOperationsInput | string
   answer?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   normalizedAnswer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -419,6 +456,9 @@ export type ExerciseAttemptUpdateInput = {
 }
 
 export type ExerciseAttemptUncheckedUpdateInput = {
+  ratingPolicyVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   id?: Prisma.StringFieldUpdateOperationsInput | string
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   skillId?: Prisma.StringFieldUpdateOperationsInput | string
@@ -436,6 +476,9 @@ export type ExerciseAttemptUncheckedUpdateInput = {
 }
 
 export type ExerciseAttemptCreateManyInput = {
+  ratingPolicyVersion?: string
+  practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   id?: string
   userId: string
   skillId: string
@@ -452,6 +495,9 @@ export type ExerciseAttemptCreateManyInput = {
 }
 
 export type ExerciseAttemptUpdateManyMutationInput = {
+  ratingPolicyVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   id?: Prisma.StringFieldUpdateOperationsInput | string
   answer?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   normalizedAnswer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -465,6 +511,9 @@ export type ExerciseAttemptUpdateManyMutationInput = {
 }
 
 export type ExerciseAttemptUncheckedUpdateManyInput = {
+  ratingPolicyVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   id?: Prisma.StringFieldUpdateOperationsInput | string
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   skillId?: Prisma.StringFieldUpdateOperationsInput | string
@@ -502,6 +551,9 @@ export type ExerciseAttemptIdSkillIdUserIdCompoundUniqueInput = {
 }
 
 export type ExerciseAttemptCountOrderByAggregateInput = {
+  ratingPolicyVersion?: Prisma.SortOrder
+  practiceContext?: Prisma.SortOrder
+  answerPolicySnapshot?: Prisma.SortOrder
   id?: Prisma.SortOrder
   userId?: Prisma.SortOrder
   skillId?: Prisma.SortOrder
@@ -522,6 +574,7 @@ export type ExerciseAttemptAvgOrderByAggregateInput = {
 }
 
 export type ExerciseAttemptMaxOrderByAggregateInput = {
+  ratingPolicyVersion?: Prisma.SortOrder
   id?: Prisma.SortOrder
   userId?: Prisma.SortOrder
   skillId?: Prisma.SortOrder
@@ -537,6 +590,7 @@ export type ExerciseAttemptMaxOrderByAggregateInput = {
 }
 
 export type ExerciseAttemptMinOrderByAggregateInput = {
+  ratingPolicyVersion?: Prisma.SortOrder
   id?: Prisma.SortOrder
   userId?: Prisma.SortOrder
   skillId?: Prisma.SortOrder
@@ -686,10 +740,6 @@ export type ExerciseAttemptUncheckedUpdateManyWithoutExerciseNestedInput = {
   deleteMany?: Prisma.ExerciseAttemptScalarWhereInput | Prisma.ExerciseAttemptScalarWhereInput[]
 }
 
-export type BoolFieldUpdateOperationsInput = {
-  set?: boolean
-}
-
 export type EnumExerciseAttemptResultFieldUpdateOperationsInput = {
   set?: $Enums.ExerciseAttemptResult
 }
@@ -713,6 +763,9 @@ export type ExerciseAttemptUpdateOneRequiredWithoutReviewLogNestedInput = {
 }
 
 export type ExerciseAttemptCreateWithoutUserInput = {
+  ratingPolicyVersion?: string
+  practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   id?: string
   answer: Prisma.JsonNullValueInput | runtime.InputJsonValue
   normalizedAnswer?: string | null
@@ -729,6 +782,9 @@ export type ExerciseAttemptCreateWithoutUserInput = {
 }
 
 export type ExerciseAttemptUncheckedCreateWithoutUserInput = {
+  ratingPolicyVersion?: string
+  practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   id?: string
   skillId: string
   exerciseId: string
@@ -774,6 +830,9 @@ export type ExerciseAttemptScalarWhereInput = {
   AND?: Prisma.ExerciseAttemptScalarWhereInput | Prisma.ExerciseAttemptScalarWhereInput[]
   OR?: Prisma.ExerciseAttemptScalarWhereInput[]
   NOT?: Prisma.ExerciseAttemptScalarWhereInput | Prisma.ExerciseAttemptScalarWhereInput[]
+  ratingPolicyVersion?: Prisma.StringFilter<"ExerciseAttempt"> | string
+  practiceContext?: Prisma.JsonNullableFilter<"ExerciseAttempt">
+  answerPolicySnapshot?: Prisma.JsonNullableFilter<"ExerciseAttempt">
   id?: Prisma.StringFilter<"ExerciseAttempt"> | string
   userId?: Prisma.StringFilter<"ExerciseAttempt"> | string
   skillId?: Prisma.StringFilter<"ExerciseAttempt"> | string
@@ -790,6 +849,9 @@ export type ExerciseAttemptScalarWhereInput = {
 }
 
 export type ExerciseAttemptCreateWithoutSkillInput = {
+  ratingPolicyVersion?: string
+  practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   id?: string
   answer: Prisma.JsonNullValueInput | runtime.InputJsonValue
   normalizedAnswer?: string | null
@@ -806,6 +868,9 @@ export type ExerciseAttemptCreateWithoutSkillInput = {
 }
 
 export type ExerciseAttemptUncheckedCreateWithoutSkillInput = {
+  ratingPolicyVersion?: string
+  practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   id?: string
   exerciseId: string
   answer: Prisma.JsonNullValueInput | runtime.InputJsonValue
@@ -847,6 +912,9 @@ export type ExerciseAttemptUpdateManyWithWhereWithoutSkillInput = {
 }
 
 export type ExerciseAttemptCreateWithoutExerciseInput = {
+  ratingPolicyVersion?: string
+  practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   id?: string
   answer: Prisma.JsonNullValueInput | runtime.InputJsonValue
   normalizedAnswer?: string | null
@@ -863,6 +931,9 @@ export type ExerciseAttemptCreateWithoutExerciseInput = {
 }
 
 export type ExerciseAttemptUncheckedCreateWithoutExerciseInput = {
+  ratingPolicyVersion?: string
+  practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   id?: string
   answer: Prisma.JsonNullValueInput | runtime.InputJsonValue
   normalizedAnswer?: string | null
@@ -903,6 +974,9 @@ export type ExerciseAttemptUpdateManyWithWhereWithoutExerciseInput = {
 }
 
 export type ExerciseAttemptCreateWithoutReviewLogInput = {
+  ratingPolicyVersion?: string
+  practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   id?: string
   answer: Prisma.JsonNullValueInput | runtime.InputJsonValue
   normalizedAnswer?: string | null
@@ -919,6 +993,9 @@ export type ExerciseAttemptCreateWithoutReviewLogInput = {
 }
 
 export type ExerciseAttemptUncheckedCreateWithoutReviewLogInput = {
+  ratingPolicyVersion?: string
+  practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   id?: string
   userId: string
   skillId: string
@@ -951,6 +1028,9 @@ export type ExerciseAttemptUpdateToOneWithWhereWithoutReviewLogInput = {
 }
 
 export type ExerciseAttemptUpdateWithoutReviewLogInput = {
+  ratingPolicyVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   id?: Prisma.StringFieldUpdateOperationsInput | string
   answer?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   normalizedAnswer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -967,6 +1047,9 @@ export type ExerciseAttemptUpdateWithoutReviewLogInput = {
 }
 
 export type ExerciseAttemptUncheckedUpdateWithoutReviewLogInput = {
+  ratingPolicyVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   id?: Prisma.StringFieldUpdateOperationsInput | string
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   skillId?: Prisma.StringFieldUpdateOperationsInput | string
@@ -983,6 +1066,9 @@ export type ExerciseAttemptUncheckedUpdateWithoutReviewLogInput = {
 }
 
 export type ExerciseAttemptCreateManyUserInput = {
+  ratingPolicyVersion?: string
+  practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   id?: string
   skillId: string
   exerciseId: string
@@ -998,6 +1084,9 @@ export type ExerciseAttemptCreateManyUserInput = {
 }
 
 export type ExerciseAttemptUpdateWithoutUserInput = {
+  ratingPolicyVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   id?: Prisma.StringFieldUpdateOperationsInput | string
   answer?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   normalizedAnswer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1014,6 +1103,9 @@ export type ExerciseAttemptUpdateWithoutUserInput = {
 }
 
 export type ExerciseAttemptUncheckedUpdateWithoutUserInput = {
+  ratingPolicyVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   id?: Prisma.StringFieldUpdateOperationsInput | string
   skillId?: Prisma.StringFieldUpdateOperationsInput | string
   exerciseId?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1030,6 +1122,9 @@ export type ExerciseAttemptUncheckedUpdateWithoutUserInput = {
 }
 
 export type ExerciseAttemptUncheckedUpdateManyWithoutUserInput = {
+  ratingPolicyVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   id?: Prisma.StringFieldUpdateOperationsInput | string
   skillId?: Prisma.StringFieldUpdateOperationsInput | string
   exerciseId?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1045,6 +1140,9 @@ export type ExerciseAttemptUncheckedUpdateManyWithoutUserInput = {
 }
 
 export type ExerciseAttemptCreateManySkillInput = {
+  ratingPolicyVersion?: string
+  practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   id?: string
   exerciseId: string
   answer: Prisma.JsonNullValueInput | runtime.InputJsonValue
@@ -1059,6 +1157,9 @@ export type ExerciseAttemptCreateManySkillInput = {
 }
 
 export type ExerciseAttemptUpdateWithoutSkillInput = {
+  ratingPolicyVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   id?: Prisma.StringFieldUpdateOperationsInput | string
   answer?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   normalizedAnswer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1075,6 +1176,9 @@ export type ExerciseAttemptUpdateWithoutSkillInput = {
 }
 
 export type ExerciseAttemptUncheckedUpdateWithoutSkillInput = {
+  ratingPolicyVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   id?: Prisma.StringFieldUpdateOperationsInput | string
   exerciseId?: Prisma.StringFieldUpdateOperationsInput | string
   answer?: Prisma.JsonNullValueInput | runtime.InputJsonValue
@@ -1090,6 +1194,9 @@ export type ExerciseAttemptUncheckedUpdateWithoutSkillInput = {
 }
 
 export type ExerciseAttemptUncheckedUpdateManyWithoutSkillInput = {
+  ratingPolicyVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   id?: Prisma.StringFieldUpdateOperationsInput | string
   exerciseId?: Prisma.StringFieldUpdateOperationsInput | string
   answer?: Prisma.JsonNullValueInput | runtime.InputJsonValue
@@ -1104,6 +1211,9 @@ export type ExerciseAttemptUncheckedUpdateManyWithoutSkillInput = {
 }
 
 export type ExerciseAttemptCreateManyExerciseInput = {
+  ratingPolicyVersion?: string
+  practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   id?: string
   answer: Prisma.JsonNullValueInput | runtime.InputJsonValue
   normalizedAnswer?: string | null
@@ -1117,6 +1227,9 @@ export type ExerciseAttemptCreateManyExerciseInput = {
 }
 
 export type ExerciseAttemptUpdateWithoutExerciseInput = {
+  ratingPolicyVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   id?: Prisma.StringFieldUpdateOperationsInput | string
   answer?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   normalizedAnswer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1133,6 +1246,9 @@ export type ExerciseAttemptUpdateWithoutExerciseInput = {
 }
 
 export type ExerciseAttemptUncheckedUpdateWithoutExerciseInput = {
+  ratingPolicyVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   id?: Prisma.StringFieldUpdateOperationsInput | string
   answer?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   normalizedAnswer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1147,6 +1263,9 @@ export type ExerciseAttemptUncheckedUpdateWithoutExerciseInput = {
 }
 
 export type ExerciseAttemptUncheckedUpdateManyWithoutExerciseInput = {
+  ratingPolicyVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   id?: Prisma.StringFieldUpdateOperationsInput | string
   answer?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   normalizedAnswer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1162,6 +1281,9 @@ export type ExerciseAttemptUncheckedUpdateManyWithoutExerciseInput = {
 
 
 export type ExerciseAttemptSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
+  ratingPolicyVersion?: boolean
+  practiceContext?: boolean
+  answerPolicySnapshot?: boolean
   id?: boolean
   userId?: boolean
   skillId?: boolean
@@ -1182,6 +1304,9 @@ export type ExerciseAttemptSelect<ExtArgs extends runtime.Types.Extensions.Inter
 }, ExtArgs["result"]["exerciseAttempt"]>
 
 export type ExerciseAttemptSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
+  ratingPolicyVersion?: boolean
+  practiceContext?: boolean
+  answerPolicySnapshot?: boolean
   id?: boolean
   userId?: boolean
   skillId?: boolean
@@ -1201,6 +1326,9 @@ export type ExerciseAttemptSelectCreateManyAndReturn<ExtArgs extends runtime.Typ
 }, ExtArgs["result"]["exerciseAttempt"]>
 
 export type ExerciseAttemptSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
+  ratingPolicyVersion?: boolean
+  practiceContext?: boolean
+  answerPolicySnapshot?: boolean
   id?: boolean
   userId?: boolean
   skillId?: boolean
@@ -1220,6 +1348,9 @@ export type ExerciseAttemptSelectUpdateManyAndReturn<ExtArgs extends runtime.Typ
 }, ExtArgs["result"]["exerciseAttempt"]>
 
 export type ExerciseAttemptSelectScalar = {
+  ratingPolicyVersion?: boolean
+  practiceContext?: boolean
+  answerPolicySnapshot?: boolean
   id?: boolean
   userId?: boolean
   skillId?: boolean
@@ -1235,7 +1366,7 @@ export type ExerciseAttemptSelectScalar = {
   createdAt?: boolean
 }
 
-export type ExerciseAttemptOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "skillId" | "exerciseId" | "answer" | "normalizedAnswer" | "isCorrect" | "result" | "responseMs" | "proposedRating" | "finalRating" | "feedbackShownAt" | "createdAt", ExtArgs["result"]["exerciseAttempt"]>
+export type ExerciseAttemptOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"ratingPolicyVersion" | "practiceContext" | "answerPolicySnapshot" | "id" | "userId" | "skillId" | "exerciseId" | "answer" | "normalizedAnswer" | "isCorrect" | "result" | "responseMs" | "proposedRating" | "finalRating" | "feedbackShownAt" | "createdAt", ExtArgs["result"]["exerciseAttempt"]>
 export type ExerciseAttemptInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   skill?: boolean | Prisma.SkillDefaultArgs<ExtArgs>
@@ -1262,6 +1393,9 @@ export type $ExerciseAttemptPayload<ExtArgs extends runtime.Types.Extensions.Int
     reviewLog: Prisma.$ReviewLogPayload<ExtArgs> | null
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
+    ratingPolicyVersion: string
+    practiceContext: runtime.JsonValue | null
+    answerPolicySnapshot: runtime.JsonValue | null
     id: string
     userId: string
     skillId: string
@@ -1358,8 +1492,8 @@ export interface ExerciseAttemptDelegate<ExtArgs extends runtime.Types.Extension
    * // Get first 10 ExerciseAttempts
    * const exerciseAttempts = await prisma.exerciseAttempt.findMany({ take: 10 })
    * 
-   * // Only select the `id`
-   * const exerciseAttemptWithIdOnly = await prisma.exerciseAttempt.findMany({ select: { id: true } })
+   * // Only select the `ratingPolicyVersion`
+   * const exerciseAttemptWithRatingPolicyVersionOnly = await prisma.exerciseAttempt.findMany({ select: { ratingPolicyVersion: true } })
    * 
    */
   findMany<T extends ExerciseAttemptFindManyArgs>(args?: Prisma.SelectSubset<T, ExerciseAttemptFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ExerciseAttemptPayload<ExtArgs>, T, "findMany", GlobalOmitOptions>>
@@ -1403,9 +1537,9 @@ export interface ExerciseAttemptDelegate<ExtArgs extends runtime.Types.Extension
    *   ]
    * })
    * 
-   * // Create many ExerciseAttempts and only return the `id`
-   * const exerciseAttemptWithIdOnly = await prisma.exerciseAttempt.createManyAndReturn({
-   *   select: { id: true },
+   * // Create many ExerciseAttempts and only return the `ratingPolicyVersion`
+   * const exerciseAttemptWithRatingPolicyVersionOnly = await prisma.exerciseAttempt.createManyAndReturn({
+   *   select: { ratingPolicyVersion: true },
    *   data: [
    *     // ... provide data here
    *   ]
@@ -1494,9 +1628,9 @@ export interface ExerciseAttemptDelegate<ExtArgs extends runtime.Types.Extension
    *   ]
    * })
    * 
-   * // Update zero or more ExerciseAttempts and only return the `id`
-   * const exerciseAttemptWithIdOnly = await prisma.exerciseAttempt.updateManyAndReturn({
-   *   select: { id: true },
+   * // Update zero or more ExerciseAttempts and only return the `ratingPolicyVersion`
+   * const exerciseAttemptWithRatingPolicyVersionOnly = await prisma.exerciseAttempt.updateManyAndReturn({
+   *   select: { ratingPolicyVersion: true },
    *   where: {
    *     // ... provide filter here
    *   },
@@ -1702,6 +1836,9 @@ export interface Prisma__ExerciseAttemptClient<T, Null = never, ExtArgs extends 
  * Fields of the ExerciseAttempt model
  */
 export interface ExerciseAttemptFieldRefs {
+  readonly ratingPolicyVersion: Prisma.FieldRef<"ExerciseAttempt", 'String'>
+  readonly practiceContext: Prisma.FieldRef<"ExerciseAttempt", 'Json'>
+  readonly answerPolicySnapshot: Prisma.FieldRef<"ExerciseAttempt", 'Json'>
   readonly id: Prisma.FieldRef<"ExerciseAttempt", 'String'>
   readonly userId: Prisma.FieldRef<"ExerciseAttempt", 'String'>
   readonly skillId: Prisma.FieldRef<"ExerciseAttempt", 'String'>

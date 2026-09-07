@@ -232,7 +232,7 @@ Every active skill gets a new FSRS card state when activated.
 Implement V1 rating policy:
 
 - Incorrect answer -> `Again`.
-- Correct and very fast -> `Easy`.
+- Correct -> `Good`; explicit correct-answer Hard/Good/Easy overrides remain available.
 - Correct and normal speed -> `Good`.
 - Correct and manually marked hard -> `Hard`.
 
@@ -261,7 +261,7 @@ Every completed exercise should produce:
 Write tests for:
 
 - Wrong maps to Again.
-- Quick correct maps to Easy.
+- Quick correct maps to Good under `correct-good-v2`.
 - Normal correct maps to Good.
 - Manual Hard works.
 - FSRS state advances after review.
@@ -1563,3 +1563,7 @@ Whenever a future decision is unclear, choose the option that makes this loop be
 4. The user practices quickly.
 5. The app schedules the skill intelligently.
 6. The user returns and remembers more.
+
+## Configurable retention slice (2026-09-06)
+
+Implementation branch `a/retention-preferences` adds inherited practice preferences, explicit prior-study onboarding, versioned faithful text comparison, universal Good defaults, actual recent generation evidence with recoverable recovery, and optional mixed practice. MCP read/edit tools cover all persistent settings with separate consent, ownership checks, partial updates, and the shared text-policy lifecycle. The scope preserves one FSRS schedule per skill, deterministic feedback, and the current AWS job stack. No production migration or deployment is part of this slice. Detailed behavior, migration boundaries, verification, and configuration examples are maintained in [docs/retention-implementation.md](docs/retention-implementation.md).

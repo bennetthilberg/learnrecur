@@ -1,3 +1,4 @@
+import { resolvePracticePreference, parseTextPolicyOverride, type TextPolicy, type PracticePreference } from "@/lib/practice/policies";
 import "server-only";
 
 import { z } from "zod";
@@ -53,6 +54,9 @@ export type CollectionSkillCounts = {
 };
 
 export type CollectionSummary = {
+  practicePreference?: PracticePreference | null;
+  inheritedPreference?: PracticePreference;
+  textPolicy?: TextPolicy | null;
   id: string;
   name: string;
   description: string | null;
@@ -112,6 +116,9 @@ type CollectionNotFoundResult = {
 type CollectionMutationClient = Pick<Prisma.TransactionClient, "$executeRaw" | "collection">;
 
 type CollectionRecord = {
+  practicePreference?: PracticePreference | null;
+  user?: {practicePreference:PracticePreference};
+  textPolicy?: Prisma.JsonValue | null;
   id: string;
   name: string;
   description: string | null;
@@ -125,6 +132,7 @@ type CollectionRecord = {
     stability: number | null;
     difficulty: number | null;
     repetitions: number;
+    alreadyStudied?: boolean;
     exercises: Array<{
       answerKind: AnswerKind;
       verificationStatus: ExerciseVerificationStatus;
@@ -170,6 +178,9 @@ export async function getCollectionsHome(
     },
     orderBy: [{ status: "asc" }, { name: "asc" }, { id: "asc" }],
     select: {
+      practicePreference: true,
+      textPolicy: true,
+      user: {select:{practicePreference:true}},
       id: true,
       name: true,
       description: true,
@@ -188,6 +199,7 @@ export async function getCollectionsHome(
           stability: true,
           difficulty: true,
           repetitions: true,
+          alreadyStudied: true,
           exercises: {
             select: {
               answerKind: true,
@@ -489,6 +501,9 @@ function toCollectionSummary(collection: CollectionRecord, now: Date): Collectio
 
   return {
     id: collection.id,
+    practicePreference: collection.practicePreference,
+    inheritedPreference: resolvePracticePreference({user:collection.user?.practicePreference}),
+    textPolicy: parseTextPolicyOverride(collection.textPolicy),
     name: collection.name,
     description: collection.description,
     status: collection.status,

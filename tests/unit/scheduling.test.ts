@@ -53,14 +53,14 @@ describe("mapAttemptToFsrsRating", () => {
     ).toBe(FsrsRating.AGAIN);
   });
 
-  it("maps fast correct answers to Easy using half the expected time", () => {
+  it("maps fast correct answers to Good regardless of expected time", () => {
     expect(
       mapAttemptToFsrsRating({
         isCorrect: true,
         responseMs: 15_000,
         expectedSeconds: 30,
       }),
-    ).toBe(FsrsRating.EASY);
+    ).toBe(FsrsRating.GOOD);
   });
 
   it("maps normal and slow correct answers to Good", () => {
@@ -117,7 +117,7 @@ describe("mapAttemptToFsrsRating", () => {
         expectedSeconds: 30,
         manualRating: FsrsRating.AGAIN,
       }),
-    ).toBe(FsrsRating.EASY);
+    ).toBe(FsrsRating.GOOD);
     expect(
       mapAttemptToFsrsRating({
         isCorrect: true,

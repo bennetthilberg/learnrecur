@@ -161,7 +161,7 @@ test.describe("authenticated learner lifecycle", () => {
       reviewLogs: Array<{ exerciseAttemptId: string }>;
     };
 
-    expect(exported.exportVersion).toBe(3);
+    expect(exported.exportVersion).toBe(4);
     expect(exported.user.id).toBe(clerkTestUser.id);
     expect(exported.collections.map((collection) => collection.id)).toContain(
       scenario.collectionId,

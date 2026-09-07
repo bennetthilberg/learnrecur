@@ -475,6 +475,14 @@ export const AccountDeletionPhase = {
 export type AccountDeletionPhase = (typeof AccountDeletionPhase)[keyof typeof AccountDeletionPhase]
 
 
+export const PracticePreference = {
+  BALANCED: 'BALANCED',
+  RECALL_FIRST: 'RECALL_FIRST'
+} as const
+
+export type PracticePreference = (typeof PracticePreference)[keyof typeof PracticePreference]
+
+
 export const BackgroundJobDeliveryStatus = {
   RUNNING: 'RUNNING',
   RETRYABLE: 'RETRYABLE',

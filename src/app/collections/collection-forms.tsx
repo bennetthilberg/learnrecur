@@ -1,5 +1,7 @@
 "use client";
 
+import { PracticePreferencesForm } from "@/components/app/practice-preferences-form";
+
 import { useActionState, useId } from "react";
 import { Archive, ArrowClockwise, PencilSimple } from "@phosphor-icons/react";
 
@@ -211,4 +213,10 @@ function FormMessage({ state }: { state: CollectionFormActionState }) {
 
 function hasFieldError(state: CollectionFormActionState, field: string) {
   return Boolean(state.fieldErrors?.[field]?.length);
+}
+
+export function CollectionPracticeForm({collection}:{collection:CollectionSummary}) {
+  return <details className="collectionInlineDetails"><summary>Practice preferences</summary>
+    <div className="collectionInlineForm"><PracticePreferencesForm target={{scope:"collection",id:collection.id}} preference={collection.practicePreference ?? null} inheritedPreference={collection.inheritedPreference} textPolicy={collection.textPolicy}/></div>
+  </details>;
 }
