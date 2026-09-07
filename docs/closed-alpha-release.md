@@ -166,26 +166,30 @@ forced handoff is distinguished from the real production 429 above.
 ## Verification and release references
 
 Local verification passed 947 unit tests, lint, Prisma validation/generation,
-production builds and ARM64 worker packaging. The database suite passed 390
-cases initially; its two stale prompt-version assertions passed on targeted
-rerun. The complete local browser suite passed all 28 tests after the export fix.
-CI run `34165917776` at `2f8b58f` passed 392 database tests and 15 authenticated
-browser tests. The final revision must pass the same required CI checks before merge; current
+production builds and ARM64 worker packaging. The complete local browser suite passed all 28 tests after the export fix.
+CI run `34167292071` at `05a1acf` passed 392 database tests and all 15
+authenticated browser checks without retries. Run `34168425274` at `2ef8a55`
+also passed 947 unit and 392 database tests, but one browser check needed a retry:
+a label selector briefly matched both the visible answer field and a hidden
+copy after reload. That check now uses the visible textbox role. The retention file then passed
+both desktop/mobile repetitions with retries disabled: eight checks including
+setup and cleanup. The final revision must pass the same required CI checks before merge; current
 results and merge status are linked from [PR #130](https://github.com/bennetthilberg/learnrecur/pull/130).
 
 Two manual code-review requests have been used on PR #130. All findings are
-fixed. The numbered-instruction, saved-family, word-bank, export and reminder-copy
-fixes follow the last manually reviewed revision. They are not claimed to have
+fixed. The numbered-instruction, saved-family, word-bank, export, reminder-copy and
+browser-selector fixes follow the last manually reviewed revision. They are not claimed to have
 received a clean review of their exact head.
 
-The generation release was promoted to web deployment
-`dpl_99F7rTs6TJQ9WTae6YytVCe29SNu` and worker artifact
-`5e8bbec193a41011af3fca7aaa63e99bbac6626c74c52bee0f1277f2d56f20cb.zip`.
+Runtime revision `2ef8a55`, including the reminder copy correction, was promoted
+to web deployment `dpl_HLmuHA6cDGAwbb1eHE1Hd1ytD9b8` and worker artifact
+`0ad98640d33ce727a8ee42cbc6e48eff9cd869b8c3e683c4ea6b9af039fd71f4.zip`.
 Canonical production readiness passed in
-[run 34167734433](https://github.com/bennetthilberg/learnrecur/actions/runs/34167734433).
-The reminder copy correction requires a matching web and worker rollout before
-release completion. Final deployment identifiers and checks belong in the PR
-release receipt so that documenting them does not change the verified source.
+[run 34168893060](https://github.com/bennetthilberg/learnrecur/actions/runs/34168893060).
+All seven production alarms were OK and the job/dead-letter queues were empty.
+The later browser-selector correction changes test code only. Final merge
+deployment identifiers and CI results belong in the PR release receipt so that
+documenting them does not change the verified source.
 
 Redacted receipts and synthetic fixture identifiers remain in ignored
 `.aws-build/`. Secret files are mode 0600 and excluded from Git and deployment
