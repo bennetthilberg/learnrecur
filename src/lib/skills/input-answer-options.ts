@@ -6,7 +6,7 @@ export function hasExplicitAnswerOptions(prompt: string): boolean {
   const labelledOptions = text.match(/(?:^|\s)[a-e][).]\s+\S/gi) ?? [];
   const numberedOptions = text.match(/(?:^|\n)\s*\d+[).]\s+\S/g) ?? [];
   return labelledOptions.length >= 2 ||
-    (numberedOptions.length >= 2 && /\b(?:choose|select|pick|which|options)\b/i.test(text)) ||
+    (numberedOptions.length >= 2 && /\b(?:(?:choose|select|pick)\b[^\n.!?]{0,80}|options|choices)[:?]\s*\d+[).]/i.test(text)) ||
     /\b(?:choose|select|pick)\s+from\s*:/i.test(text) ||
     /\bwhich\b[^\n:?!]{1,160}:[^\n:?!]{1,100},[^\n:?!]{1,100},?\s+or\s+[^\n:?!]{1,80}\?/i.test(text);
 }

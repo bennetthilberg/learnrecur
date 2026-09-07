@@ -27,6 +27,7 @@ it.each([
   "Translate: I buy apples, pears, or oranges.",
   "Translate: Do you buy apples, pears, or oranges?",
   "Follow these steps:\n1. Differentiate x^2.\n2. Evaluate at x = 3.",
+  "Which value results after these steps?\n1. Add 2 to 3.\n2. Multiply by 4.",
   "Write the exact command to read a record in the fictional protocol.",
 ])("keeps necessary question context: %s", (prompt) => {
   expect(hasExplicitAnswerOptions(prompt)).toBe(false);
