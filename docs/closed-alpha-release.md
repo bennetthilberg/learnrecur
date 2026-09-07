@@ -1,88 +1,192 @@
 # Closed alpha release verification
 
 Release work started September 7, 2026 from merged revision `5373a3e`.
-External learner invitations are excluded from this task.
+No external learner invitations are authorized or sent by this task.
 
-## Access and deployment checks
+## Access and schema
 
-`ALPHA_ALLOWED_EMAILS` accepts exact addresses and `*@example.com` rules. A
-domain rule matches only that exact email domain, requires a verified primary
-Clerk email, and applies to both web and MCP access. Subdomains, suffix lookalikes,
-partial wildcards and malformed configuration do not grant access. The requested
-production policy is `*@bennetthilberg.com,bennett.hilberg@gmail.com`.
+Production allows `*@bennetthilberg.com,bennett.hilberg@gmail.com`. Domain rules
+match only that exact domain on the verified primary Clerk email. Subdomains,
+suffix lookalikes, partial wildcards and malformed configuration fail closed.
+The policy applies to web and MCP access. A disposable account with a verified
+address on the allowed domain signed in; a fresh Gmail alias outside the exact
+allowlist received HTTP 403.
 
-Authenticated readiness now checks that the required Prisma migration is complete.
-Missing, unfinished or rolled-back migration records fail readiness;
-public liveness remains minimal. A unit check requires the declared migration to
-match the latest tracked migration, and database tests exercise missing,
-unfinished and rolled-back states inside transactions that always roll back.
+Authenticated readiness requires migration
+`20260906173000_retention_preferences` with non-null `finished_at` and null
+`rolled_back_at`. Missing, unfinished and rolled-back records fail readiness.
+Public liveness remains minimal. Unit coverage keeps the declared requirement
+aligned with the latest tracked migration; database tests exercise incompatible
+states inside transactions that roll back.
 
-The authenticated CI job has a 45-minute limit so serial database verification
-cannot consume the entire browser verification window.
+The authenticated CI job limit is now 45 minutes. It runs the serial database
+suite and browser suite against an isolated development database.
 
-## Verified production database change
+## Database and recovery
 
-Snapshot `snap-summer-sun-ap0yvzf0` was restored into a separate branch before
-changing production. The restored 1,376 skills, 82 attempts and 46 review logs
-matched production by ordered record checksums. Migration
-`20260906173000_retention_preferences` then applied through Prisma migrate deploy.
-Checksums of the pre-existing skill, attempt and review fields remained identical
-after migration. No historical grades, schedules or owner preferences changed.
+Before migration, snapshot `snap-summer-sun-ap0yvzf0` was restored into separate
+branch `br-floral-wildflower-apfy29bb`. The restored 1,376 skills, 82 attempts and
+46 review logs matched production by ordered record checksums. All 32 migrations
+then applied to production. Checksums of pre-existing skill, attempt and review
+fields stayed identical. No historical grades, schedules or owner preferences
+were changed.
 
-## Remaining evidence
+The worker rollback drill restored the original artifact
+`99ff029cab06b51c40efcbd19f06bfb8e8907e1c7c0a3d14e89fb053117889cf.zip` through
+CloudFormation, initialized it against the current database and encrypted SSM
+configuration, then restored the updated worker and repeated initialization.
+Queues and schedules were retained. The application rollback drill promoted the
+original web deployment `dpl_JCj7pwtJQ8L4zSgEFNZ2M6E2CR4d`, checked HTTP 200
+liveness and MCP discovery, and restored the updated deployment.
 
-- Deploy and verify the matching worker and web release, including rollback.
-- Set and verify the production access policy.
-- Complete CI and production browser checks on the final revision.
-- Prove new MCP scopes through consent, refresh, settings operations and revocation.
-- Complete the disposable learner flow, reminders, export and deletion.
-- Run bounded live generation canaries and review their accepted exercises.
+These were real rollback operations, with database restoration into a separate
+branch. They do not establish a longer recovery window than Neon's configured
+six hours. The pre-migration snapshot remains available.
 
-## Release checkpoint
+## Real OAuth and MCP settings
 
-- PR #130 CI at `40ba24a` passed lint, runtime audit, 920 unit tests with coverage,
-  392 database tests and 15 authenticated browser tests without retries.
-- Production worker update completed successfully with artifact
-  `b49dad9ebec54f23ebf98be14fc80a503dc9dc0daa96dc160472fc921ca99fdd.zip`,
-  retaining configuration revision `vercel-92a7b3d9-e563-4eb7-9dbd-b7ed2171d312`
-  and enabled schedules.
-- Production candidate `dpl_GZ4tro8S9CK3ZF31WNCwa2cj5cQc` at `40ba24a` passed
-  authenticated readiness in GitHub run `34162744777`.
-- WorkOS now defines `practice:read` and `practice:write` with consent descriptions.
-  The existing PKCE gate application requests both in addition to its original
-  scopes. Consent and refresh proof are still pending.
-- A bounded 30-job production canary is running with synthetic Spanish, French,
-  technical text, numeric, symbolic and biology skills. It records real job IDs
-  and outcomes in `.aws-build/production-canary.json`; resume that manifest rather
-  than queueing replacement jobs if the runner is interrupted.
+A disposable third-party WorkOS client displayed a fresh consent screen. PKCE
+S256 authorization produced a signed token with all five application scopes,
+including `practice:read` and `practice:write`. Refresh rotated the token while
+preserving its issuer, resource, client, subject, grant and scopes.
 
-Deployment receipts, test output and synthetic fixture identifiers are retained
-locally in ignored `.aws-build/`. Secrets are held in mode-0600 files and are not
-part of these release records.
+Authenticated production HTTP MCP calls verified:
 
-## Findings from the production trial
+- Account preference and mixed review edits, read-back and restoration.
+- Collection preference and Natural, Exact and Custom text policies.
+- Skill preference, text policies, both Custom flags and `alreadyStudied`.
+- Explicit false values, partial updates, null inheritance resets and effective
+  inherited values. The browser displayed the resulting skill settings.
+- Denial of a write to a different synthetic user's skill.
+- Revocation from Settings: the previously valid access token received HTTP 401,
+  refresh received HTTP 400 `invalid_refresh_token`, and the remote revocation
+  outbox completed successfully.
 
-The PDF upload trial found a deployment packaging failure: quick-upload page
-inspection imported PDF.js, whose rendering worker and native dependencies were
-absent from the web function. Page counting now uses the existing `pdf-lib`
-dependency. A regression test verifies it with PDF.js unavailable; full material
-text extraction continues in the packaged background worker.
+The extra MCP-created technical draft reported `INVALID_GENERATION`. Its fixture
+requested choice exercises while also prohibiting choice lists. It
+remained a recoverable draft and served as the settings target. This is not
+recorded as successful agent skill activation. PDF skill activation is proven
+separately below.
 
-The first canary fixture stored rules as arrays instead of the application's
-`{ items: [...] }` representation. That run is excluded from source-fidelity
-evidence. The corrected run found recognition families attached to typed input:
-some French prompts supplied a list containing the answer. The planner now uses
-cued recall for those input slots. Generation and semantic verification prohibit
-answer lists, and native and external-agent validation reject explicit lists.
-Prompt and blueprint versions advance for this behavior. A new live canary is
-required after deployment; neither earlier run approves this revision.
+## Production learner trial
 
-A dedicated third-party WorkOS client displayed the real consent screen. Both
-the initial signed token and a rotated refresh token contain all five application
-scopes. Production MCP account preference edits, read-back and restoration passed.
-Collection/skill changes and revocation remain pending.
+A verified disposable Clerk user completed PDF upload, source processing, saved
+draft review, editing and activation. The skill retained the PDF's quarter/eighth
+facts and generated verified exercises. A real primary-provider HTTP 429 during
+activation used the configured fallback and completed successfully.
 
-CLI uploads do not inherit the repository's Git exclusions. `.vercelignore`
-therefore explicitly excludes local credentials, OAuth sessions, worker artifacts
-and test reports from deployment source uploads. Verify the deployment file list
-before promotion and remove superseded trial deployments after the clean upload.
+The learner answered an exercise on mobile, received deterministic Correct
+feedback with Good preselected, and saved a review. Database and export evidence
+show the new FSRS schedule and preserved mixed-review context. History and
+practice were checked at 1280px and 390px. The version-4 account export contained
+the user's attempt and review and excluded other synthetic accounts.
+
+Reminder settings persisted through a reload. A bounded production reminder call
+for this user returned a provider message ID; repeating the same day's request
+returned `already-processed`. The matching message arrived at 22:17 UTC in the recipient's iCloud Junk folder.
+Its raw headers report SPF, DKIM and DMARC passing for `learnrecur.com`; both
+links target the production practice and settings pages. Delivery is proven,
+but inbox placement is not. The send-only API key could not read delivery
+events, so the evidence comes from the recipient mailbox.
+
+Both disposable Clerk accounts have been removed. Export followed by account
+deletion succeeded after the download fix. The deletion job completed on its
+first attempt: the user was absent from the database, Clerk returned HTTP 404,
+the uploaded PDF returned S3 HTTP 404, and WorkOS listed no remaining grants.
+All four canary fixture users have also been removed after asserting that they
+contained only the expected synthetic skills and terminal generation jobs.
+
+## Exercise quality
+
+The valid production canary ran 30 queued jobs through SQS, Lambda, the real
+providers and verification. Six subjects covered Spanish preterite accents,
+French nouns, exact protocol strings, numeric fractions, polynomial derivatives
+and biology transport concepts. All 60 accepted exercises were manually reviewed
+for correctness, source scope and answer-mode suitability. No incorrect answer
+keys or answer lists in typed recall prompts were found.
+
+Production release record `cmtrtxvdn0000uupv2yrbnzdl` stores the final canary
+observation from generation revision `05a1acf` and
+passes the unchanged bounded canary policy:
+
+| Measure | Observed |
+| --- | --- |
+| Completed jobs | 30 |
+| Jobs with accepted exercises | 30 |
+| Accepted/requested exercises | 60/65 |
+| Rejected candidates | 5 |
+| Critical defects | 0 |
+| Job schema failures | 0 |
+| Jobs using fallback | 1/30 |
+| P95 queue-to-terminal persisted update | 26,891 ms |
+
+The record describes the configured Google `gemini-3.8-flash` and Meta
+`muse-spark-1.3` chain across modes. It does not claim 30 samples per provider or
+mode. Latency uses `updatedAt - createdAt`, because the existing `completedAt`
+field uses the caller's captured timestamp. Repeated synthetic examples do not
+establish broad exercise diversity. All accepted prompts also passed the revised
+contract guard after review fixes. One numeric exercise allowed tolerance
+`0.0001` under the existing numeric grading contract; this canary does not
+establish zero-tolerance decimal comparison. The later reminder copy correction
+does not change generation code or configuration.
+
+Separate live provider smokes passed for Gemini, Muse and a forced-primary-503
+handoff. Each verifier rejected a deliberately contradictory answer key. The
+forced handoff is distinguished from the real production 429 above.
+
+## Defects found and fixed
+
+- PDF upload inspection imported PDF.js rendering dependencies missing from the
+  web deployment. Page counting now uses the existing `pdf-lib` dependency;
+  full extraction continues in the packaged worker. A regression counts a real
+  PDF with PDF.js unavailable.
+- The initial canary fixture stored rules as arrays instead of `{ items: [...] }`.
+  That run was excluded from source-fidelity evidence. A corrected run exposed
+  recognition families assigned to typed input. The planner now uses cued recall
+  for those slots, and versioned prompts and validators prohibit answer lists.
+- Review found false positives for ordinary comma lists and numbered calculation
+  instructions, plus missed inline/numbered choices. Table-driven contract tests
+  cover those cases. The guard handles explicit lists; semantic verification
+  still checks less regular answer cues.
+- Explicitly saved recognition families and unlabelled word banks could still
+  leak into typed input. The planner now filters both default and saved family
+  lists, and the shared guard rejects explicit word banks. Regressions cover
+  both paths and preserve valid recall and calculation prompts.
+- The delivered reminder said "You have 1 skill is ready". Both HTML and plain
+  text now say "1 skill is ready", with singular and plural rendering coverage.
+- Export used client-side navigation, leaving subsequent Settings actions posting
+  to the export endpoint, which returns HTTP 405. Both links now use native
+  downloads. A browser regression reproduced the failure, then passed by saving
+  preferences after each export link.
+- CLI deployments do not inherit Git exclusions. `.vercelignore` excludes local
+  credentials, OAuth sessions, worker artifacts and test reports. Source file
+  listings verified clean uploads; the three superseded uploads containing local
+  artifacts were removed from Vercel.
+
+## Verification and release references
+
+Local verification passed 947 unit tests, lint, Prisma validation/generation,
+production builds and ARM64 worker packaging. The database suite passed 390
+cases initially; its two stale prompt-version assertions passed on targeted
+rerun. The complete local browser suite passed all 28 tests after the export fix.
+CI run `34165917776` at `2f8b58f` passed 392 database tests and 15 authenticated
+browser tests. The final revision must pass the same required CI checks before merge; current
+results and merge status are linked from [PR #130](https://github.com/bennetthilberg/learnrecur/pull/130).
+
+Two manual code-review requests have been used on PR #130. All findings are
+fixed. The numbered-instruction, saved-family, word-bank, export and reminder-copy
+fixes follow the last manually reviewed revision. They are not claimed to have
+received a clean review of their exact head.
+
+The generation release was promoted to web deployment
+`dpl_99F7rTs6TJQ9WTae6YytVCe29SNu` and worker artifact
+`5e8bbec193a41011af3fca7aaa63e99bbac6626c74c52bee0f1277f2d56f20cb.zip`.
+Canonical production readiness passed in
+[run 34167734433](https://github.com/bennetthilberg/learnrecur/actions/runs/34167734433).
+The reminder copy correction requires a matching web and worker rollout before
+release completion. Final deployment identifiers and checks belong in the PR
+release receipt so that documenting them does not change the verified source.
+
+Redacted receipts and synthetic fixture identifiers remain in ignored
+`.aws-build/`. Secret files are mode 0600 and excluded from Git and deployment
+source. Never publish token, connection-string or private source files.
