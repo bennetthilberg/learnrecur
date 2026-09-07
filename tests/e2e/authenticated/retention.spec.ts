@@ -245,7 +245,7 @@ for (const width of [1280, 390])
       ).toBeVisible();
       // Reload starts a genuinely reduced-cue presentation after testing reversibility.
       await page.reload();
-      await page.getByLabel("Your answer", { exact: true }).fill("hablo");
+      await page.getByRole("textbox", { name: "Your answer", exact: true }).fill("hablo");
       await page.keyboard.press("Enter");
       await expect(
         page.getByRole("heading", { name: "Not quite.", exact: true }),

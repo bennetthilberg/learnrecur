@@ -200,16 +200,21 @@ describe("clerk reminder account email resolution", () => {
 });
 
 describe("reminder email rendering", () => {
-  it("keeps email content count-only and private", () => {
+  it.each([
+    [1, "1 skill is"],
+    [3, "3 skills are"],
+  ] as const)("keeps the email for %i due skills count-only and private", (dueCount, countLabel) => {
     const email = renderDueReminderEmail({
-      dueCount: 3,
+      dueCount,
       practiceUrl: "https://learnrecur.example/practice",
       settingsUrl: "https://learnrecur.example/settings",
     });
     const combined = `${email.subject}\n${email.text}\n${email.html}`;
 
-    expect(email.subject).toBe("3 skills are ready for practice");
-    expect(combined).toContain("3 skills are");
+    expect(email.subject).toBe(`${countLabel} ready for practice`);
+    expect(email.text).toContain(`${countLabel} ready in LearnRecur.`);
+    expect(email.html).toContain(`<strong>${countLabel}</strong> ready in LearnRecur.`);
+    expect(combined).not.toContain("You have");
     expect(combined).toContain("https://learnrecur.example/practice");
     expect(combined).toContain("https://learnrecur.example/settings");
     expect(combined).not.toMatch(/ser vs estar|source|answer|exercise/i);

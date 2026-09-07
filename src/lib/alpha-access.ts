@@ -1,9 +1,8 @@
 import "server-only";
 
 import { createClerkServiceClient } from "@/lib/clerk/backend";
-import { z } from "zod";
-
-const emailSchema = z.string().email();
+import { normalizeAlphaEmail, parseAlphaAllowlist } from "@/lib/alpha-policy";
+export { normalizeAlphaEmail } from "@/lib/alpha-policy";
 
 export type AlphaAccessPolicy =
   | { mode: "open" }
@@ -19,16 +18,6 @@ export type AlphaUserSnapshot = {
 
 export type AlphaUserLoader = (userId: string) => Promise<AlphaUserSnapshot>;
 
-export function normalizeAlphaEmail(value: unknown): string | null {
-  if (typeof value !== "string") {
-    return null;
-  }
-
-  const normalized = value.normalize("NFKC").trim().toLowerCase();
-
-  return emailSchema.safeParse(normalized).success ? normalized : null;
-}
-
 export function getAlphaAccessPolicy(
   env: NodeJS.ProcessEnv = process.env,
 ): AlphaAccessPolicy {
@@ -36,24 +25,14 @@ export function getAlphaAccessPolicy(
     return { mode: "open" };
   }
 
-  const configuredEmails = (env.ALPHA_ALLOWED_EMAILS ?? "")
-    .split(/[,\n]/u)
-    .map((value) => value.trim())
-    .filter(Boolean);
-
-  if (configuredEmails.length === 0) {
-    return { mode: "closed" };
-  }
-
-  const normalizedEmails = configuredEmails.map(normalizeAlphaEmail);
-
-  if (normalizedEmails.some((email) => email === null)) {
+  const normalizedEmails = parseAlphaAllowlist(env.ALPHA_ALLOWED_EMAILS);
+  if (!normalizedEmails) {
     return { mode: "closed" };
   }
 
   return {
     mode: "allowlist",
-    allowedEmails: [...new Set(normalizedEmails as string[])],
+    allowedEmails: normalizedEmails,
   };
 }
 
@@ -71,7 +50,9 @@ export function isAlphaEmailAllowed(
 
   const normalizedEmail = normalizeAlphaEmail(email);
 
-  return normalizedEmail !== null && policy.allowedEmails.includes(normalizedEmail);
+  if (!normalizedEmail) return false;
+  const domainRule = `*@${normalizedEmail.slice(normalizedEmail.lastIndexOf("@") + 1)}`;
+  return policy.allowedEmails.includes(normalizedEmail) || policy.allowedEmails.includes(domainRule);
 }
 
 export async function isAlphaUserAllowed(

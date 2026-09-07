@@ -143,10 +143,10 @@ export default async function SettingsPage() {
             attempts, review history, flags, preparation records, agent connection history,
             and reminder settings.
           </p>
-          <Link className="secondaryButton" href="/settings/export" prefetch={false}>
+          <a className="secondaryButton" href="/settings/export" download>
             <DownloadSimpleIcon aria-hidden="true" size={16} weight="bold" />
             Download export
-          </Link>
+          </a>
         </div>
 
         <dl className="settingsExportFacts" aria-label="Data export details">

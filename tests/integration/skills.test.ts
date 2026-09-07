@@ -6438,7 +6438,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
           ...jobDefaults,
           kind: GenerationJobKind.EXACT_INPUT_EXERCISE_GENERATION,
           status: GenerationJobStatus.PENDING,
-          promptVersion: "skill-exact-input-v2",
+          promptVersion: "skill-exact-input-v3",
         },
       }),
     ).resolves.toBeTruthy();

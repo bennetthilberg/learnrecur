@@ -736,8 +736,8 @@ export function renderDueReminderEmail(input: {
 
   return {
     subject: `${countLabel} ready for practice`,
-    text: `You have ${countLabel.toLowerCase()} ready in LearnRecur.\n\nPractice now: ${input.practiceUrl}\nManage reminders: ${input.settingsUrl}`,
-    html: `<p>You have <strong>${escapeHtml(countLabel.toLowerCase())}</strong> ready in LearnRecur.</p><p><a href="${escapedUrl}">Practice now</a></p><p><a href="${escapedSettingsUrl}">Manage reminders</a></p>`,
+    text: `${countLabel} ready in LearnRecur.\n\nPractice now: ${input.practiceUrl}\nManage reminders: ${input.settingsUrl}`,
+    html: `<p><strong>${escapeHtml(countLabel)}</strong> ready in LearnRecur.</p><p><a href="${escapedUrl}">Practice now</a></p><p><a href="${escapedSettingsUrl}">Manage reminders</a></p>`,
   };
 }
 

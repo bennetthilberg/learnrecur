@@ -20,6 +20,7 @@ import {
 
 export const READINESS_CHECK_TIMEOUT_MS = 3_000;
 export const READINESS_STORAGE_PROBE_PREFIX = "__learnrecur_readiness_probe__/";
+export const REQUIRED_SCHEMA_MIGRATION = "20260906173000_retention_preferences";
 
 export type ReadinessCheck = {
   name: string;
@@ -226,7 +227,7 @@ export function getDefaultReadinessChecks(): ReadinessCheck[] {
     {
       name: "database",
       category: "database",
-      run: checkDatabaseReadiness,
+      run: () => checkDatabaseReadiness(),
     },
     {
       name: "storage",
@@ -246,8 +247,19 @@ export function getDefaultReadinessChecks(): ReadinessCheck[] {
   ];
 }
 
-export async function checkDatabaseReadiness(): Promise<void> {
-  await getPrisma().$queryRaw`SELECT 1`;
+export async function checkDatabaseReadiness(
+  prisma: Pick<ReturnType<typeof getPrisma>, "$queryRaw"> = getPrisma(),
+): Promise<void> {
+  const rows = await prisma.$queryRaw<{ compatible: boolean }[]>`
+    SELECT EXISTS (
+      SELECT 1 FROM "_prisma_migrations"
+      WHERE migration_name = ${REQUIRED_SCHEMA_MIGRATION}
+        AND finished_at IS NOT NULL AND rolled_back_at IS NULL
+    ) AS compatible
+  `;
+  if (rows[0]?.compatible !== true) {
+    throw new ReadinessProbeError("database", "The required database migration is not applied.");
+  }
 }
 
 export async function checkStorageReadiness(

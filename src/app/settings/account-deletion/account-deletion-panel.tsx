@@ -7,7 +7,6 @@ import {
   DownloadSimpleIcon,
   WarningCircleIcon,
 } from "@phosphor-icons/react";
-import Link from "next/link";
 import { useState, useTransition } from "react";
 
 import {
@@ -102,10 +101,10 @@ export function AccountDeletionPanel({ status }: { status: AccountDeletionUiSnap
             Download your study export before continuing. It includes saved study records,
             but not original uploaded file bytes. Account deletion cannot be undone.
           </p>
-          <Link className="secondaryButton" href="/settings/export" prefetch={false}>
+          <a className="secondaryButton" href="/settings/export" download>
             <DownloadSimpleIcon aria-hidden="true" size={16} weight="bold" />
             Download export first
-          </Link>
+          </a>
         </div>
       ) : null}
 
