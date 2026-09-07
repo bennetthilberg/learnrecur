@@ -11,8 +11,8 @@ Clerk email, and applies to both web and MCP access. Subdomains, suffix lookalik
 partial wildcards and malformed configuration do not grant access. The requested
 production policy is `*@bennetthilberg.com,bennett.hilberg@gmail.com`.
 
-Authenticated readiness now checks for the latest required completed Prisma
-migration. Missing, unfinished or rolled-back migration records fail readiness;
+Authenticated readiness now checks that the required Prisma migration is complete.
+Missing, unfinished or rolled-back migration records fail readiness;
 public liveness remains minimal. A unit check requires the declared migration to
 match the latest tracked migration, and database tests exercise missing,
 unfinished and rolled-back states inside transactions that always roll back.
@@ -37,6 +37,24 @@ after migration. No historical grades, schedules or owner preferences changed.
 - Prove new MCP scopes through consent, refresh, settings operations and revocation.
 - Complete the disposable learner flow, reminders, export and deletion.
 - Run bounded live generation canaries and review their accepted exercises.
+
+## Release checkpoint
+
+- PR #130 CI at `40ba24a` passed lint, runtime audit, 920 unit tests with coverage,
+  392 database tests and 15 authenticated browser tests without retries.
+- Production worker update completed successfully with artifact
+  `b49dad9ebec54f23ebf98be14fc80a503dc9dc0daa96dc160472fc921ca99fdd.zip`,
+  retaining configuration revision `vercel-92a7b3d9-e563-4eb7-9dbd-b7ed2171d312`
+  and enabled schedules.
+- Production candidate `dpl_GZ4tro8S9CK3ZF31WNCwa2cj5cQc` at `40ba24a` passed
+  authenticated readiness in GitHub run `34162744777`.
+- WorkOS now defines `practice:read` and `practice:write` with consent descriptions.
+  The existing PKCE gate application requests both in addition to its original
+  scopes. Consent and refresh proof are still pending.
+- A bounded 30-job production canary is running with synthetic Spanish, French,
+  technical text, numeric, symbolic and biology skills. It records real job IDs
+  and outcomes in `.aws-build/production-canary.json`; resume that manifest rather
+  than queueing replacement jobs if the runner is interrupted.
 
 Deployment receipts, test output and synthetic fixture identifiers are retained
 locally in ignored `.aws-build/`. Secrets are held in mode-0600 files and are not
