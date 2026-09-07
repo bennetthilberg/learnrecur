@@ -161,6 +161,20 @@ test.describe("authenticated learner lifecycle", () => {
       reviewLogs: Array<{ exerciseAttemptId: string }>;
     };
 
+    // Downloading must not change the client router's action endpoint. Both
+    // export links leave settings interactive, including account deletion.
+    for (const linkName of [null, "Download export first"] as const) {
+      if (linkName) {
+        const anotherDownload = page.waitForEvent("download");
+        await page.getByRole("link", { name: linkName, exact: true }).click();
+        await anotherDownload;
+      }
+      await expect(page).toHaveURL(/\/settings$/);
+      await page.getByRole("combobox", { name: "Practice preference", exact: true }).selectOption("RECALL_FIRST");
+      await page.getByRole("button", { name: "Save practice preferences", exact: true }).click();
+      await expect(page.getByText("Preferences saved", { exact: true })).toBeVisible();
+    }
+
     expect(exported.exportVersion).toBe(4);
     expect(exported.user.id).toBe(clerkTestUser.id);
     expect(exported.collections.map((collection) => collection.id)).toContain(
