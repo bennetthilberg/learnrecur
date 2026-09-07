@@ -1,4 +1,5 @@
 import type { ExerciseRefillEventSender } from "@/lib/jobs/events";
+import { hasExplicitAnswerOptions } from "./input-answer-options";
 import { loadGenerationRecentEvidence } from "./generation-history";
 import { invalidateTextInventory } from "@/lib/practice/preferences";
 import { matchesTextPolicy, resolveTextPolicy, textAnswerContract, practicePreferenceOverrideSchema, textPolicySchema, type PracticePreference, type TextPolicy } from "@/lib/practice/policies";
@@ -149,8 +150,8 @@ const ACTIVE_GENERATION_JOB_STATUSES: GenerationJobStatus[] = [
   GenerationJobStatus.RUNNING,
 ];
 export const SKILL_MCQ_PROMPT_VERSION = "skill-mcq-v2";
-export const SKILL_EXACT_INPUT_PROMPT_VERSION = "skill-exact-input-v2";
-export const SKILL_MATH_PROMPT_VERSION = "skill-math-v1";
+export const SKILL_EXACT_INPUT_PROMPT_VERSION = "skill-exact-input-v3";
+export const SKILL_MATH_PROMPT_VERSION = "skill-math-v2";
 export const GEMINI_PROVIDER = "google";
 export const META_MUSE_PROVIDER = "meta";
 
@@ -7471,6 +7472,7 @@ function buildExactInputExercisePrompt(input: ExactInputExerciseGeneratorInput):
     `Create exactly ${input.requestedCount} exercises.`,
     "Each exercise must test the skill directly and have an objectively checkable short answer.",
     "Use only TEXT or NUMERIC answer kinds. Do not generate math-expression exercises.",
+    "Require the learner to produce the answer from memory or calculation. Never list candidate answers, a word bank, multiple-choice options, or letters to select. A typed choice is recognition, not productive recall. Use NUMERIC for numerical quantities so equivalent decimal and fraction forms compare correctly.",
     "",
     `Skill title: ${input.skill.title}`,
     `Skill objective: ${input.skill.objective ?? "No objective provided."}`,
@@ -7537,6 +7539,7 @@ function buildExactInputExerciseVerificationPrompt(input: ExactInputExerciseVeri
     "Return exactly one verification decision for every candidateId, and never invent candidate IDs.",
     "Use verdict verified only when the prompt, answer kind, answer spec, display answer, and explanation all agree.",
     "Reject math-expression exercises; this verifier is only for TEXT and NUMERIC exact input.",
+    "Reject candidates that provide answer options, a word bank, or the answer itself for the learner to copy. Input must require production, not typing a listed choice. Reject numerical quantity answers represented as TEXT rather than NUMERIC. Reject targets outside the skill's stated rules and source boundaries.",
     `Text comparison policy: ${JSON.stringify(resolveTextPolicy({ skill: input.skill.textPolicy, collection: input.skill.collection?.textPolicy }))}. Reject conflicting comparison rules or missing valid alternatives.`,
     "",
     `Skill title: ${input.skill.title}`,
@@ -7590,6 +7593,7 @@ function buildMathExercisePrompt(input: MathExerciseGeneratorInput): string {
     `Create exactly ${input.requestedCount} exercises.`,
     "Each exercise must test the skill directly and have one objectively checkable single-expression answer.",
     "Use only MATH answer kind. Do not generate text, numeric-only, proof, multi-step, diagram, or wordy explanation tasks.",
+    "Require production of an expression. Never provide answer options or the completed answer to copy, even for a new or uncertain skill.",
     "Keep V0 conservative: arithmetic, fractions, powers, variables, simplification, and basic algebraic equivalence only.",
     "",
     `Skill title: ${input.skill.title}`,
@@ -7652,6 +7656,7 @@ function buildMathExerciseVerificationPrompt(input: MathExerciseVerifierInput): 
     "Return exactly one verification decision for every candidateId, and never invent candidate IDs.",
     "Use verdict verified only when the prompt, math answer spec, display answer, and explanation all agree.",
     "Reject proof, multi-step, diagram, calculus-heavy, ambiguous notation, or answer-shape-mismatched exercises.",
+    "Reject answer options, a supplied solution to copy, and examples outside the approved skill's rules and source boundaries.",
     "",
     `Skill title: ${input.skill.title}`,
     `Skill objective: ${input.skill.objective ?? "No objective provided."}`,
@@ -8861,6 +8866,7 @@ function parseGeneratedExactInputExercise(candidate: unknown): GeneratedExactInp
   }
 
   const exercise = result.data;
+  if (hasExplicitAnswerOptions(exercise.prompt)) return null;
   const answerSpecResult = answerSpecSchema.safeParse(exercise.answerSpec);
 
   if (!answerSpecResult.success) {
@@ -8901,6 +8907,7 @@ function parseGeneratedMathExercise(candidate: unknown): GeneratedMathExercise |
   }
 
   const exercise = result.data;
+  if (hasExplicitAnswerOptions(exercise.prompt)) return null;
   const answerSpecResult = mathAnswerSpecSchema.safeParse(exercise.answerSpec);
 
   if (!answerSpecResult.success) {

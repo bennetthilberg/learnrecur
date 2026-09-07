@@ -59,3 +59,25 @@ after migration. No historical grades, schedules or owner preferences changed.
 Deployment receipts, test output and synthetic fixture identifiers are retained
 locally in ignored `.aws-build/`. Secrets are held in mode-0600 files and are not
 part of these release records.
+
+## Findings from the production trial
+
+The PDF upload trial found a deployment packaging failure: quick-upload page
+inspection imported PDF.js, whose rendering worker and native dependencies were
+absent from the web function. Page counting now uses the existing `pdf-lib`
+dependency. A regression test verifies it with PDF.js unavailable; full material
+text extraction continues in the packaged background worker.
+
+The first canary fixture stored rules as arrays instead of the application's
+`{ items: [...] }` representation. That run is excluded from source-fidelity
+evidence. The corrected run found recognition families attached to typed input:
+some French prompts supplied a list containing the answer. The planner now uses
+cued recall for those input slots. Generation and semantic verification prohibit
+answer lists, and native and external-agent validation reject explicit lists.
+Prompt and blueprint versions advance for this behavior. A new live canary is
+required after deployment; neither earlier run approves this revision.
+
+A dedicated third-party WorkOS client displayed the real consent screen. Both
+the initial signed token and a rotated refresh token contain all five application
+scopes. Production MCP account preference edits, read-back and restoration passed.
+Collection/skill changes and revocation remain pending.

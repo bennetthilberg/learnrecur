@@ -42,21 +42,21 @@ const difficultSkill = {
   title: "Interpret confidence intervals and sampling claims",
   objective:
     "Check internal consistency, distinguish sample estimates from confidence levels, and interpret interval endpoints without overstating what the data prove.",
-  rules: [
+  rules: { items: [
     "A reported point estimate must lie inside a confidence interval intended to estimate that same quantity.",
     "A 95% confidence level is not the same thing as a 95% sample estimate.",
     "The midpoint of a symmetric interval is the average of its endpoints.",
     "Do not infer causation, population certainty, or a universal rule from the supplied sample summary.",
-  ],
-  examples: [
+  ] },
+  examples: { items: [
     "A sample estimate of 70% is consistent with the interval (0.65, 0.75).",
     "A claim that the sample estimate is 95% conflicts with the interval (0.65, 0.75).",
-  ],
-  exerciseConstraints: [
+  ] },
+  exerciseConstraints: { items: [
     "Use exactly one objectively correct choice.",
     "Mix consistency checking, interpretation, and changed-surface application.",
     "Use plausible distractors based on confusing confidence level, point estimate, and endpoints.",
-  ],
+  ] },
   tags: ["statistics", "confidence intervals", "source grounded"],
 };
 

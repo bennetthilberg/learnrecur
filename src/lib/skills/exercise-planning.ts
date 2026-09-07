@@ -15,7 +15,7 @@ import type {
 } from "@/lib/skills/generation-quality";
 import { GENERATION_QUALITY_CONTRACT_VERSION } from "@/lib/skills/generation-quality";
 
-export const EXERCISE_PLANNING_VERSION = "exercise-planning-v1" as const;
+export const EXERCISE_PLANNING_VERSION = "exercise-planning-v2" as const;
 export const MAX_BLUEPRINT_SLOTS = 10;
 export const MAX_RECENT_EXERCISES_CONSIDERED = 100;
 
@@ -1198,8 +1198,13 @@ export function planExerciseBlueprint(
   const sequence = memory.planKind === "retention" ? RETENTION_SEQUENCE : LEARNING_SEQUENCE;
   const slots: BlueprintSlot[] = [];
   for (let index = 0; index < plannedCount; index += 1) {
-    const retrievalStage = sequence[index % sequence.length];
-    const answerMode = chooseMode(retrievalStage, modes, effectiveCapability, usedModes);
+    const plannedStage = sequence[index % sequence.length];
+    const answerMode = chooseMode(plannedStage, modes, effectiveCapability, usedModes);
+    // A typed answer must require production. A recognition blueprint otherwise
+    // encourages the generator to put a choice list inside a text prompt.
+    const retrievalStage = plannedStage === "recognition" && answerMode !== "choice"
+      ? "cued_recall"
+      : plannedStage;
     const chosen = chooseFamily(retrievalStage, answerMode, allowedFamilies, usedFamilies, recentFamilies);
     const family = chosen.family;
     const normalizedFamily = normalizeToken(family);

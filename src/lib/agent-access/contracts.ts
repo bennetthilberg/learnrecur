@@ -1,4 +1,5 @@
 import { practicePreferenceOverrideSchema, textPolicySchema } from "@/lib/practice/policies";
+import { hasExplicitAnswerOptions } from "@/lib/skills/input-answer-options";
 import { createHash } from "node:crypto";
 
 import { z } from "zod";
@@ -132,7 +133,11 @@ export const agentCandidateExerciseSchema = z.discriminatedUnion("kind", [
   textCandidateSchema,
   numericCandidateSchema,
   mathCandidateSchema,
-]);
+]).superRefine((candidate, context) => {
+  if (candidate.kind !== "choice" && hasExplicitAnswerOptions(candidate.prompt)) {
+    context.addIssue({ code: "custom", path: ["prompt"], message: "Input exercises must require an answer without a choice list. Use a choice exercise for listed answers." });
+  }
+});
 
 export type AgentCandidateExercise = z.infer<typeof agentCandidateExerciseSchema>;
 

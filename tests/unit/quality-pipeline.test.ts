@@ -29,6 +29,21 @@ const skill = {
 };
 
 describe("buildGenerationQualityContext", () => {
+  it.each(["text", "numeric", "math"] as const)("plans production rather than recognition for a new %s skill", (answerMode) => {
+    const result = buildGenerationQualityContext({
+      skill: { ...skill, fsrsState: SkillFsrsState.NEW, repetitions: 0, lapses: 0 },
+      sourceContext: null,
+      subjectCapability: "symbolic_numeric",
+      answerModes: [answerMode],
+      requestedCount: 3,
+      now: new Date("2026-09-07T12:00:00Z"),
+    });
+    expect(result.blueprint.slots).toHaveLength(3);
+    for (const slot of result.blueprint.slots) {
+      expect(slot.answerMode).toBe(answerMode);
+      expect(slot.familyConstraints.allowedFamilies.join(" ")).not.toMatch(/recognition|choice/);
+    }
+  });
   it("builds deterministic validated specs, manifests, and mastery-aware blueprints", () => {
     const input = {
       skill,

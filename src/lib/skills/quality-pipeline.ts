@@ -38,7 +38,7 @@ import {
 } from "@/lib/skills/source-context";
 
 const SKILL_SPEC_VERSION = "skill-generation-spec-v1";
-const BLUEPRINT_VERSION = "exercise-blueprint-v1";
+const BLUEPRINT_VERSION = "exercise-blueprint-v2";
 export const CONTEXT_MANIFEST_VERSION = "generation-context-v1" as const;
 
 export type GenerationQualitySkill = {

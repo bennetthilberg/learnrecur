@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { PDFDocument } from "pdf-lib";
 
 import type { TextItem } from "pdfjs-dist/types/src/display/api";
 
@@ -59,19 +60,10 @@ export class PdfPageLimitError extends Error {
 }
 
 export async function inspectPdfPageCount(bytes: Buffer): Promise<number> {
-  const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
-  const loadingTask = pdfjs.getDocument({
-    data: new Uint8Array(bytes),
-    useSystemFonts: true,
-  });
-  const document = await loadingTask.promise;
-
-  try {
-    return document.numPages;
-  } finally {
-    await document.cleanup();
-    await loadingTask.destroy();
-  }
+  // Upload preflight only needs the page tree. PDF.js also loads its rendering
+  // worker and native canvas, which are not traced into the web function.
+  const document = await PDFDocument.load(bytes);
+  return document.getPageCount();
 }
 
 export async function extractPdfPages(

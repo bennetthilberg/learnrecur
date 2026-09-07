@@ -119,7 +119,7 @@ describe("planExerciseBlueprint", () => {
 
     expect(result.slots.map((slot) => slot.retrievalStage)).toEqual([
       "recognition",
-      "recognition",
+      "cued_recall",
       "cued_recall",
       "cued_recall",
       "exact_recall",
