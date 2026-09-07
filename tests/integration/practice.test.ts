@@ -1595,7 +1595,7 @@ describeDatabase("practice review service", () => {
       kind: GenerationJobKind.EXACT_INPUT_EXERCISE_GENERATION,
       status: GenerationJobStatus.PENDING,
       requestedCount: 2,
-      promptVersion: "skill-exact-input-v2",
+      promptVersion: "skill-exact-input-v3",
     });
   });
 
@@ -1693,7 +1693,7 @@ describeDatabase("practice review service", () => {
     ).resolves.toEqual({
       status: GenerationJobStatus.PENDING,
       requestedCount: 2,
-      promptVersion: "skill-math-v1",
+      promptVersion: "skill-math-v2",
     });
   });
 
