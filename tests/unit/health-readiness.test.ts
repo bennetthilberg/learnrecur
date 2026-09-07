@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { readdirSync } from "node:fs";
 
 import { GET as healthGET } from "@/app/api/health/route";
 import {
@@ -7,6 +8,8 @@ import {
   checkStorageReadiness,
   runReadinessChecks,
   verifyStorageBucketReadiness,
+  checkDatabaseReadiness,
+  REQUIRED_SCHEMA_MIGRATION,
 } from "@/lib/observability/readiness";
 
 function createLogger() {
@@ -54,6 +57,19 @@ describe("health route", () => {
 });
 
 describe("readiness route", () => {
+  it("requires the latest tracked schema migration", () => {
+    const migrations = readdirSync("prisma/migrations", { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort();
+    expect(REQUIRED_SCHEMA_MIGRATION).toBe(migrations.at(-1));
+  });
+
+  it.each([true, false])("checks schema compatibility, not just connectivity (%s)", async (compatible) => {
+    const query = vi.fn().mockResolvedValue([{ compatible }]);
+    const check = checkDatabaseReadiness({ $queryRaw: query });
+    if (compatible) await expect(check).resolves.toBeUndefined();
+    else await expect(check).rejects.toMatchObject({ category: "database" });
+    expect(query).toHaveBeenCalledTimes(1);
+    expect(query.mock.calls[0].slice(1)).toContain(REQUIRED_SCHEMA_MIGRATION);
+  });
   it("fails closed when storage configuration is missing", async () => {
     await expect(
       checkStorageReadiness({ status: "missing-env", message: "private configuration detail" }),

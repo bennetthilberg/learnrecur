@@ -13,6 +13,32 @@ import {
 } from "@/lib/alpha-access";
 
 describe("alpha access", () => {
+  it.each([
+    ["person@bennetthilberg.com", true],
+    ["Person+qa@BENNETTHILBERG.COM", true],
+    ["bennett.hilberg@gmail.com", true],
+    ["bennett.hilberg+qa@gmail.com", false],
+    ["person@sub.bennetthilberg.com", false],
+    ["person@bennetthilberg.com.attacker.com", false],
+    ["person@evilbennetthilberg.com", false],
+    ["person@gmail.com", false],
+    ["*@bennetthilberg.com", false],
+    ["not-an-email", false],
+  ])("matches exact domain rules for %s", (email, allowed) => {
+    const policy = getAlphaAccessPolicy({ NODE_ENV: "production", ALPHA_ALLOWED_EMAILS: "*@bennetthilberg.com,bennett.hilberg@gmail.com" });
+    expect(isAlphaEmailAllowed(policy, email)).toBe(allowed);
+  });
+
+  it.each(["*", "*@*", "*@*.example.com", "person*@example.com", "*@example", "*@example.com/", "*@example.com,invalid"])("fails closed for malformed rule %s", (rule) => {
+    expect(getAlphaAccessPolicy({ NODE_ENV: "production", ALPHA_ALLOWED_EMAILS: rule })).toEqual({ mode: "closed" });
+  });
+
+  it("requires a verified primary email even for an allowed domain", async () => {
+    const policy = getAlphaAccessPolicy({ NODE_ENV: "production", ALPHA_ALLOWED_EMAILS: "*@bennetthilberg.com" });
+    for (const verified of [true, false]) {
+      await expect(isAlphaUserAllowed("domain-user", policy, async () => ({ primaryEmailAddress: { emailAddress: "qa@bennetthilberg.com", verification: { status: verified ? "verified" : "unverified" } } }))).resolves.toBe(verified);
+    }
+  });
   it("checks the current verified primary email using the request-independent service client", async () => {
     const policy = { mode: "allowlist" as const, allowedEmails: ["approved@example.com"] };
     getUser.mockResolvedValue({ primaryEmailAddress: { emailAddress: "approved@example.com", verification: { status: "verified" } } });

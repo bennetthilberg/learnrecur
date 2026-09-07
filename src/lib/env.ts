@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { parseAlphaAllowlist } from "@/lib/alpha-policy";
 import { getJobsConfig, jobsEnvSchema } from "@/lib/jobs/config";
 
 import {
@@ -225,14 +226,10 @@ const productionAccessAndOperationsEnvSchema = z.object({
     .trim()
     .min(1, "ALPHA_ALLOWED_EMAILS must contain at least one email")
     .superRefine((value, context) => {
-      const emails = value.split(/[,\n]/u).map((email) => email.trim()).filter(Boolean);
-      if (
-        emails.length === 0 ||
-        emails.some((email) => !z.string().email().safeParse(email).success)
-      ) {
+      if (!parseAlphaAllowlist(value)) {
         context.addIssue({
           code: "custom",
-          message: "ALPHA_ALLOWED_EMAILS must contain only valid comma- or newline-separated emails",
+          message: "ALPHA_ALLOWED_EMAILS must contain valid comma- or newline-separated emails or exact domain rules such as *@example.com",
         });
       }
     }),

@@ -253,6 +253,11 @@ describe("environment validation", () => {
     });
 
     expect(hasProductionEnv()).toBe(true);
+    process.env.ALPHA_ALLOWED_EMAILS = "*@bennetthilberg.com,bennett.hilberg@gmail.com";
+    expect(hasProductionEnv()).toBe(true);
+    process.env.ALPHA_ALLOWED_EMAILS = "*@*.bennetthilberg.com";
+    expect(hasProductionEnv()).toBe(false);
+    process.env.ALPHA_ALLOWED_EMAILS = "alpha@example.com";
     expect(getProductionEnv()).toMatchObject({
       NEXT_PUBLIC_APP_URL: "https://app.learnrecur.com",
       NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "pk_live_example",
