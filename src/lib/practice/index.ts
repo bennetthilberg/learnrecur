@@ -22,6 +22,7 @@ import {
 import {
   checkAnswer,
   choiceAnswerSpecSchema,
+  isUsableChoicePresentation,
   isUsableMathAnswerSpec,
   numericAnswerSpecSchema,
   textAnswerSpecSchema,
@@ -337,9 +338,24 @@ export const MAX_EXERCISE_FLAG_OTHER_NOTE_LENGTH = 500;
 export async function getNextPracticeItem(
   input: GetNextPracticeItemInput,
 ): Promise<NextPracticeItemResult> {
+  return selectNextPracticeItem(input, true);
+}
+
+// Dashboard/server previews must not spend an introduction or change a skill.
+export async function previewNextPracticeItem(
+  input: GetNextPracticeItemInput,
+): Promise<NextPracticeItemResult> {
+  return selectNextPracticeItem(input, false);
+}
+
+async function selectNextPracticeItem(
+  input: GetNextPracticeItemInput,
+  recordIntroduction: boolean,
+): Promise<NextPracticeItemResult> {
   return getPrisma().$transaction(
     async (tx) => {
-      await tx.$queryRaw`SELECT "id" FROM "users" WHERE "id" = ${input.userId} FOR NO KEY UPDATE`;
+      if (recordIntroduction)
+        await tx.$queryRaw`SELECT "id" FROM "users" WHERE "id" = ${input.userId} FOR NO KEY UPDATE`;
       const allowance = await getDailyNewSkillAllowance(
         tx,
         input.userId,
@@ -379,17 +395,18 @@ export async function getNextPracticeItem(
             ? "Due skills need prepared exercises. Open a skill to check preparation or retry."
             : dailyLimitReached
               ? allowance.limit === 0
-              ? "New skills are paused because your daily limit is 0. Increase the limit in Settings to introduce new skills."
-              : `Your daily limit of ${allowance.limit} new skills is reached. New introductions resume at midnight (${allowance.timezone}).`
+                ? "New skills are paused because your daily limit is 0. Increase the limit in Settings to introduce new skills."
+                : `Your daily limit of ${allowance.limit} new skills is reached. New introductions resume at midnight (${allowance.timezone}).`
               : "No due exercise is ready.",
         };
       }
-      await recordSkillIntroduction(
-        tx,
-        input.userId,
-        exercise.skillId,
-        input.now,
-      );
+      if (recordIntroduction)
+        await recordSkillIntroduction(
+          tx,
+          input.userId,
+          exercise.skillId,
+          input.now,
+        );
       return {
         status: "ready",
         skill: toPracticeSkillSummary(exercise.skill),
@@ -1223,6 +1240,9 @@ function isPracticeExerciseUnlockedForSkill(exercise: PracticeExerciseRecord): b
 }
 
 function hasCompatiblePracticeAnswerSpec(exercise: PracticeExerciseRecord): boolean {
+  if (exercise.answerKind === AnswerKind.CHOICE) {
+    return isUsableChoicePresentation(exercise.answerSpec, exercise.choices);
+  }
   if (exercise.answerKind === AnswerKind.TEXT) {
     return textAnswerSpecSchema.safeParse(exercise.answerSpec).success;
   }

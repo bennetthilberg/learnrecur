@@ -1,4 +1,5 @@
 import "server-only";
+import { isUsableChoicePresentation } from "@/lib/answer-checking";
 
 import {
   isExactInputUnlocked,
@@ -21,7 +22,7 @@ export function isPracticeReadModelExerciseReady(
   exercise: PracticeReadModelExercise,
   skill: PracticeReadModelSkill,
 ): boolean {
-  if (isReadyChoiceExercise(exercise)) {
+  if (isReadyChoiceExercise(exercise) && isUsableChoicePresentation(exercise.answerSpec, exercise.choices)) {
     return true;
   }
 

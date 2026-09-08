@@ -22,7 +22,7 @@ for (const width of [1280, 390]) {
       [userId],
     );
     await sql.query(
-      'UPDATE skills SET repetitions=0, "lastReviewedAt"=NULL, "firstIntroducedAt"=NULL WHERE id=$1 AND "userId"=$2',
+      'UPDATE skills SET "dueAt"=\'2026-01-01\', repetitions=0, "lastReviewedAt"=NULL, "firstIntroducedAt"=NULL WHERE id=$1 AND "userId"=$2',
       [fresh.skillId, userId],
     );
     await sql.query(
@@ -94,6 +94,19 @@ for (const width of [1280, 390]) {
       await expect(
         page.getByText("Preferences saved", { exact: true }),
       ).toBeVisible();
+      await page.goto("/dashboard");
+      await expect(
+        page.getByRole("heading", { name: /due skill/i }),
+      ).toBeVisible();
+      await page.request.get("/dashboard");
+      expect(
+        (
+          await sql.query(
+            'SELECT "firstIntroducedAt" FROM skills WHERE id=$1',
+            [fresh.skillId],
+          )
+        )[0].firstIntroducedAt,
+      ).toBeNull();
       // Rendering/prefetching an authenticated route cannot spend the allowance.
       const prefetched = await page.request.get(practiceUrl);
       expect(prefetched.ok()).toBe(true);

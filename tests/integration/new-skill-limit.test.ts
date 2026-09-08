@@ -15,6 +15,7 @@ import { getUserDataExport } from "@/lib/settings/data-export";
 import { getDashboardHome } from "@/lib/dashboard";
 import { getCollectionsHome } from "@/lib/collections";
 import { getDuePracticeSkillCount } from "@/lib/reminders";
+import { previewNextPracticeItemForUser } from "@/app/practice/queries";
 
 const suite = process.env.RUN_DATABASE_TESTS === "1" ? describe : describe.skip;
 suite("daily introductions through persisted practice", () => {
@@ -194,6 +195,76 @@ suite("daily introductions through persisted practice", () => {
       }),
     ).toBe(0);
   });
+  it("keeps dashboard previews read-only across collections", async () => {
+    const { userId, items } = await fixture();
+    for (const item of items) {
+      expect(
+        await previewNextPracticeItemForUser(userId, now, {
+          collectionId: item.collectionId,
+        }),
+      ).toMatchObject({ status: "ready" });
+    }
+    expect(
+      await prisma.skill.count({
+        where: { userId, firstIntroducedAt: { not: null } },
+      }),
+    ).toBe(0);
+    expect(
+      await getNextPracticeItem({
+        userId,
+        now,
+        collectionId: items[2].collectionId,
+      }),
+    ).toMatchObject({ status: "ready" });
+    expect(
+      await previewNextPracticeItemForUser(userId, now, {
+        collectionId: items[0].collectionId,
+      }),
+    ).toMatchObject({ status: "none-due", dailyLimitReached: true });
+  });
+  it.each(
+    [
+      [],
+      [{ id: "right", label: "Right" }, { id: "wrong" }],
+      [
+        { id: "right", label: "Right" },
+        { id: "right", label: "Duplicate" },
+      ],
+      [{ id: "wrong", label: "Missing correct choice" }],
+      [{ id: "right", label: " " }],
+    ].map((choices) => ({ choices })),
+  )(
+    "skips unusable choice options without charging their skill: %j",
+    async ({ choices }) => {
+      const { userId, items } = await fixture();
+      const broken = items[0];
+      await prisma.exercise.update({
+        where: { id: broken.exercise.id },
+        data: { choices },
+      });
+      expect(
+        await getNextPracticeItem({
+          userId,
+          now,
+          collectionId: broken.collectionId,
+        }),
+      ).toMatchObject({ status: "none-due", preparing: true });
+      expect(
+        (
+          await prisma.skill.findUniqueOrThrow({
+            where: { id: broken.skill.id },
+          })
+        ).firstIntroducedAt,
+      ).toBeNull();
+      expect(
+        await getNextPracticeItem({
+          userId,
+          now,
+          collectionId: items[1].collectionId,
+        }),
+      ).toMatchObject({ status: "ready" });
+    },
+  );
   it("caps readiness counts and lets actual scheduled follow-ups continue after the allowance is spent", async () => {
     const { userId, items } = await fixture();
     expect((await getDashboardHome({ userId, now })).readyNowCount).toBe(1);
@@ -220,7 +291,11 @@ suite("daily introductions through persisted practice", () => {
     });
     const limitedDashboard = await getDashboardHome({ userId, now });
     expect(limitedDashboard.readyNowCount).toBe(0);
-    expect(limitedDashboard.skills.filter(s => s.id !== item.skill.id).map(s => s.dueLabel)).toEqual(["Daily limit reached", "Daily limit reached"]);
+    expect(
+      limitedDashboard.skills
+        .filter((s) => s.id !== item.skill.id)
+        .map((s) => s.dueLabel),
+    ).toEqual(["Daily limit reached", "Daily limit reached"]);
     expect(await getDuePracticeSkillCount({ userId, now })).toBe(0);
     expect(
       (await getCollectionsHome({ userId, now })).activeCollections.map(
