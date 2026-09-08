@@ -17,6 +17,12 @@ import {
 } from "@/lib/ai-generation-evals/cli";
 import { seedFixtures } from "../../tests/fixtures/ai-generation";
 
+function testProcessEnv(values: Record<string, string> = {}): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = { NODE_ENV: "test" };
+  Object.assign(env, values);
+  return env;
+}
+
 describe("AI generation evaluation fixtures", () => {
   it("loads typed adversarial and hard-control fixtures, including the exact interval contradiction", () => {
     const fixtureIds = seedFixtures.map((fixture) => fixture.id);
@@ -386,16 +392,19 @@ describe("AI generation evaluation fixtures", () => {
 
 describe("AI generation eval CLI contract", () => {
   it("defaults to offline replay and requires the explicit live opt-in flag", () => {
-    expect(parseCliArgs([], {} as NodeJS.ProcessEnv).mode).toBe("offline-replay");
-    expect(() => parseCliArgs(["--live"], {} as NodeJS.ProcessEnv)).toThrow(
+    expect(parseCliArgs([], testProcessEnv()).mode).toBe("offline-replay");
+    expect(() => parseCliArgs(["--live"], testProcessEnv())).toThrow(
       /LEARNRECUR_AI_GENERATION_EVAL_LIVE=1/i,
     );
     expect(
-      parseCliArgs(["--live", "--provider", "chain"], {
-        LEARNRECUR_AI_GENERATION_EVAL_LIVE: "1",
-      } as NodeJS.ProcessEnv),
+      parseCliArgs(
+        ["--live", "--provider", "chain"],
+        testProcessEnv({ LEARNRECUR_AI_GENERATION_EVAL_LIVE: "1" }),
+      ),
     ).toMatchObject({ mode: "live", providerSelection: "chain" });
-    expect(() => assertLiveOptIn({ LEARNRECUR_AI_GENERATION_EVAL_LIVE: "0" })).toThrow(
+    expect(() =>
+      assertLiveOptIn(testProcessEnv({ LEARNRECUR_AI_GENERATION_EVAL_LIVE: "0" })),
+    ).toThrow(
       /offline replay/i,
     );
   });

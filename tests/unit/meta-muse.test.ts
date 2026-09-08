@@ -27,7 +27,7 @@ describe("Meta Muse Responses client", () => {
   });
 
   it("sends private PDF evidence with strict structured output", async () => {
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn<typeof fetch>(async () =>
       new Response(
         JSON.stringify({
           id: "resp_test",

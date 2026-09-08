@@ -1,5 +1,6 @@
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import {
   buildPdfIndex,
@@ -24,6 +25,47 @@ import {
   validatePublicHttpsUrl,
 } from "@/lib/materials/web";
 import { getQuickPdfDisposition } from "@/lib/materials/quick-flow";
+
+const invalidPdfCases = [
+  {
+    field: "title",
+    input: { title: "x".repeat(205) },
+    message:
+      "The material title is 205 characters. Shorten it to 72 characters or fewer.",
+  },
+  {
+    field: "originalName",
+    input: { originalName: `${"x".repeat(256)}.pdf` },
+    message:
+      "The PDF filename is 260 characters. Rename it to 255 characters or fewer, then choose it again.",
+  },
+  {
+    field: "mimeType",
+    input: { mimeType: "application/octet-stream" },
+    message:
+      "This file was reported as application/octet-stream, not a PDF. Choose a PDF file.",
+  },
+  {
+    field: "byteSize",
+    input: { byteSize: MAX_MATERIAL_PDF_BYTES + 1 },
+    message: "This PDF is over the 100 MB limit. Choose a smaller PDF and try again.",
+  },
+  {
+    field: "byteSize",
+    input: { byteSize: 0 },
+    message: "This PDF is empty. Choose a PDF that contains pages and try again.",
+  },
+  {
+    field: "collectionId",
+    input: { collectionId: "x".repeat(201) },
+    message:
+      "The selected collection is invalid. Choose another collection or leave it blank.",
+  },
+] satisfies Array<{
+  field: keyof z.infer<typeof prepareMaterialPdfInputSchema>;
+  input: Record<string, unknown>;
+  message: string;
+}>;
 
 describe("PDF material ingestion", () => {
   it("inspects actual PDF pages and identifies pages that need OCR", async () => {
@@ -103,42 +145,7 @@ describe("PDF material ingestion", () => {
     ).toBe(true);
   });
 
-  it.each([
-    {
-      field: "title",
-      input: { title: "x".repeat(205) },
-      message:
-        "The material title is 205 characters. Shorten it to 72 characters or fewer.",
-    },
-    {
-      field: "originalName",
-      input: { originalName: `${"x".repeat(256)}.pdf` },
-      message:
-        "The PDF filename is 260 characters. Rename it to 255 characters or fewer, then choose it again.",
-    },
-    {
-      field: "mimeType",
-      input: { mimeType: "application/octet-stream" },
-      message:
-        "This file was reported as application/octet-stream, not a PDF. Choose a PDF file.",
-    },
-    {
-      field: "byteSize",
-      input: { byteSize: MAX_MATERIAL_PDF_BYTES + 1 },
-      message: "This PDF is over the 100 MB limit. Choose a smaller PDF and try again.",
-    },
-    {
-      field: "byteSize",
-      input: { byteSize: 0 },
-      message: "This PDF is empty. Choose a PDF that contains pages and try again.",
-    },
-    {
-      field: "collectionId",
-      input: { collectionId: "x".repeat(201) },
-      message:
-        "The selected collection is invalid. Choose another collection or leave it blank.",
-    },
-  ])("explains how to fix an invalid PDF $field", ({ field, input, message }) => {
+  it.each(invalidPdfCases)("explains how to fix an invalid PDF $field", ({ field, input, message }) => {
     const result = prepareMaterialPdfInputSchema.safeParse({
       title: "Practical Spanish Grammar",
       originalName: "spanish.pdf",

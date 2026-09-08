@@ -27,7 +27,6 @@ import {
   runAgentAccessMaintenance,
 } from "@/lib/agent-access/settings";
 import {
-  AgentOperationError,
   continueAgentOperation,
   createAgentSpecOperation,
 } from "@/lib/agent-access/operations";
@@ -281,7 +280,7 @@ describeDatabase("agent access persistence", () => {
         ...request,
         items: [{ ...request.items[0], client_reference: "changed-item" }],
       }),
-    ).rejects.toMatchObject<Partial<AgentOperationError>>({ code: "idempotency_conflict" });
+    ).rejects.toMatchObject({ code: "idempotency_conflict" });
     await expect(
       prisma.agentSkillOperation.count({
         where: { connectionId: fixture.connection.id, toolName: "skills.add_from_specs" },
@@ -314,9 +313,9 @@ describeDatabase("agent access persistence", () => {
         count: 60,
       },
     });
-    await expect(listAgentMaterials(auth, {})).rejects.toMatchObject<
-      Partial<AgentOperationError>
-    >({ code: "rate_limited" });
+    await expect(listAgentMaterials(auth, {})).rejects.toMatchObject({
+      code: "rate_limited",
+    });
   });
 
   it("preserves a material request while recording its clarification", async () => {

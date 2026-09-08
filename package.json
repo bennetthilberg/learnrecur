@@ -54,7 +54,7 @@
     "jose": "^6.2.8",
     "katex": "^0.17.0",
     "mcp-handler": "^2.1.0",
-    "next": "16.2.11",
+    "next": "16.3.4",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^6.2.108",
     "react": "19.2.6",
@@ -75,19 +75,19 @@
     "@types/react": "19.2.15",
     "@types/react-dom": "19.2.3",
     "@types/ws": "^8.18.1",
-    "@vitest/coverage-v8": "^4.1.8",
+    "@vitest/coverage-v8": "4.1.11",
     "ae-cvss-calculator": "1.0.13",
     "concurrently": "^10.0.3",
     "dotenv": "^17.4.2",
     "esbuild": "^0.28.2",
     "eslint": "9.39.4",
-    "eslint-config-next": "16.2.11",
+    "eslint-config-next": "16.3.4",
     "jsdom": "^30.0.1",
     "postcss": "8.5.26",
     "prisma": "^7.8.0",
     "tsx": "^4.22.4",
     "typescript": "6.0.3",
-    "vitest": "^4.1.8"
+    "vitest": "4.1.11"
   },
   "overrides": {
     "adm-zip": "0.6.0",
@@ -105,7 +105,8 @@
     "postcss": "8.5.26",
     "protobufjs": "7.6.5",
     "shell-quote": "1.10.0",
-    "sharp": "0.35.3",
-    "ws": "$ws"
+    "sharp": "0.35.4",
+    "ws": "$ws",
+    "hono": "4.13.7"
   }
 }

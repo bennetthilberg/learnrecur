@@ -55,6 +55,12 @@ const managedEnvKeys = [
 
 const originalEnv = process.env;
 
+function makeProcessEnv(values: Record<string, string> = {}): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = { NODE_ENV: "test" };
+  Object.assign(env, values);
+  return env;
+}
+
 function resetManagedEnv(values: Partial<Record<(typeof managedEnvKeys)[number], string>> = {}) {
   process.env = { ...originalEnv };
 
@@ -430,7 +436,7 @@ describe("environment validation", () => {
     expect(hasResendEnv()).toBe(false);
     expect(() => getResendEnv()).toThrow(/NEXT_PUBLIC_APP_URL is required/);
 
-    process.env.NODE_ENV = "development";
+    Object.assign(process.env, { NODE_ENV: "development" });
 
     expect(getResendEnv()).toMatchObject({
       NEXT_PUBLIC_APP_URL: "http://localhost:3000",
@@ -476,35 +482,37 @@ describe("environment validation", () => {
   });
 
   it("runs strict production checks unless a Vercel production target is explicitly staging", () => {
-    expect(shouldCheckProductionEnv({})).toBe(false);
-    expect(shouldCheckProductionEnv({ VERCEL_ENV: "preview" })).toBe(false);
-    expect(shouldCheckProductionEnv({ VERCEL_ENV: "production" })).toBe(true);
+    expect(shouldCheckProductionEnv(makeProcessEnv())).toBe(false);
+    expect(shouldCheckProductionEnv(makeProcessEnv({ VERCEL_ENV: "preview" }))).toBe(false);
+    expect(shouldCheckProductionEnv(makeProcessEnv({ VERCEL_ENV: "production" }))).toBe(true);
     expect(
-      shouldCheckProductionEnv({
+      shouldCheckProductionEnv(makeProcessEnv({
         LEARNRECUR_DEPLOYMENT_TIER: "staging",
         VERCEL_ENV: "production",
-      }),
+      })),
     ).toBe(false);
     expect(
-      shouldCheckProductionEnv({
+      shouldCheckProductionEnv(makeProcessEnv({
         LEARNRECUR_DEPLOYMENT_TIER: "development",
         VERCEL_ENV: "production",
-      }),
+      })),
     ).toBe(true);
     expect(
-      shouldCheckProductionEnv({
+      shouldCheckProductionEnv(makeProcessEnv({
         LEARNRECUR_DEPLOYMENT_TIER: "stagin",
         VERCEL_ENV: "production",
-      }),
+      })),
     ).toBe(true);
     expect(
-      shouldCheckProductionEnv({
+      shouldCheckProductionEnv(makeProcessEnv({
         LEARNRECUR_DEPLOYMENT_TIER: "staging",
         LEARNRECUR_STRICT_ENV: "1",
         VERCEL_ENV: "production",
-      }),
+      })),
     ).toBe(true);
-    expect(shouldCheckProductionEnv({ LEARNRECUR_DEPLOYMENT_TIER: "production" })).toBe(true);
-    expect(shouldCheckProductionEnv({ LEARNRECUR_STRICT_ENV: "1" })).toBe(true);
+    expect(
+      shouldCheckProductionEnv(makeProcessEnv({ LEARNRECUR_DEPLOYMENT_TIER: "production" })),
+    ).toBe(true);
+    expect(shouldCheckProductionEnv(makeProcessEnv({ LEARNRECUR_STRICT_ENV: "1" }))).toBe(true);
   });
 });

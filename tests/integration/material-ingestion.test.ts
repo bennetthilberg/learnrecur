@@ -1650,7 +1650,7 @@ describeDatabase("material ingestion", () => {
       NODE_ENV: process.env.NODE_ENV,
       JOBS_QUEUE_URL: process.env.JOBS_QUEUE_URL,
     };
-    process.env.NODE_ENV = "production";
+    Object.assign(process.env, { NODE_ENV: "production" });
     delete process.env.JOBS_QUEUE_URL;
 
     try {

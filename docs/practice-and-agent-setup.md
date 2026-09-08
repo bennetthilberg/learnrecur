@@ -118,7 +118,8 @@ use one worker and one database lease.
 
 | Check | Result |
 | --- | --- |
-| `npm ci --ignore-scripts` | Passed once; no second install was needed. |
+| Dependency security refresh | Next and eslint-config-next are 16.3.4, sharp is 0.35.4, Vitest and coverage-v8 are 4.1.11, and Hono is pinned to 4.13.7. Lock-only resolution stayed at Hono 4.13.3, so the narrow root override enforces the patched compatible release. React remains 19.2.6. |
+| `npm ci --ignore-scripts` | Passed after the dependency security refresh. |
 | `npm run prisma:validate` | Passed. |
 | `npm run prisma:generate` | Passed after schema stabilization. |
 | `npm run prisma:deploy` | Passed against the disposable database; all 34 migrations applied. |
@@ -132,16 +133,16 @@ use one worker and one database lease.
 | Focused practice refill integration | `refill-delivery-recovery.test.ts`: 6/6 passed, including crash recovery, single-claim leases, stale publishers, delivery exhaustion, and deletion tombstones. |
 | Focused durable setup integration | `agent-setup.test.ts`: 10/10 passed, including last-seen snapshot stability, stale setting edits, journal recovery, and concurrent apply fencing. |
 | Setup conflict classification | Nested Prisma 7 Neon `driverAdapterError.cause.code` and `cause.kind` cases are covered by the focused unit suite. |
-| Full unit suite | 109 files, 1,068 tests passed. |
-| Combined coverage proof | `npm run test:coverage` runs unit and integration tests with `RUN_DATABASE_TESTS=1`; the local proof passed 110 files and 1,087 tests against the disposable database with statements 52.52%, branches 46.01%, functions 61.75%, and lines 52.35%. This proof predates the final narrow regression files; thresholds and source coverage scope are unchanged, and the exact final-head run is enforced by CI. |
+| Full unit suite | 110 files, 1,070 tests passed on the refreshed dependency set. |
+| Combined coverage proof | `npm run test:coverage` runs unit and integration tests with `RUN_DATABASE_TESTS=1`; the local proof passed 110 files and 1,087 tests against the disposable database with statements 52.52%, branches 46.01%, functions 61.75%, and lines 52.35%. The exact 1c0acdf CI snapshot below passed 146 files and 1,562 tests; thresholds and source coverage scope are unchanged. |
 | Full lint | Passed. |
-| Application build | Passed; Next.js typecheck and static generation completed. |
+| Application build | Passed with Next.js 16.3.4; TypeScript and static generation completed. |
 | Worker bundle | `npm run jobs:build` passed and wrote the ignored `.aws-build/jobs.zip`. |
-| Runtime audit | `npm run check:runtime-audit` passed: 0 runtime findings and 0 blockers; four accepted dev-only Prisma CLI exceptions. |
+| Runtime audit | `npm run check:runtime-audit` passed after the dependency refresh: 0 runtime findings and 0 blockers; four accepted dev-only Prisma CLI exceptions. |
 | Focused MCP protocol unit tests | 4 files, 22 tests passed. `setup_in_progress` is publicly retryable; `setup_stale` is not, and lifecycle mutations carry destructive hints. |
 | Null relation practice loader regression | `practice-null-relation.test.ts`: 2/2 passed through the public preview loader, covering a missing relation beside a valid owned candidate and an all-missing empty result. |
 | Targeted stale-submit browser regression | `learner-lifecycle.spec.ts` stale second submit: 3/3 passed with Clerk setup and cleanup, including the authenticated browser case in 16.8s. |
-| Exact-head GitHub CI | Run [34274320695](https://github.com/bennetthilberg/learnrecur/actions/runs/34274320695) passed at `419615657f10b6404298794afbc681e47ff25e53`: verify passed runtime audit, lint, unit, Prisma validation/client generation, and build; the combined gate passed 146 files and 1,560 tests with 80.42% statements, 71.36% branches, 88.03% functions, and 80.88% lines; authenticated Chromium passed 26 tests. |
+| Prior exact-head CI snapshot | Run [34276546438](https://github.com/bennetthilberg/learnrecur/actions/runs/34276546438) passed at source commit `1c0acdf0091adc560172de8562248410a1a5160c`: verify passed 109 unit files and 1,068 tests, the combined gate passed 146 files and 1,562 tests with the recorded coverage thresholds, and authenticated Chromium passed 25 tests. The later `a34efe3` head stopped at the runtime audit because OSV had newly reported eight dependency findings; the refreshed dependency set clears those blockers. Final-head CI remains pending until the dependency and typing follow-up is pushed. |
 | Authenticated browser flows | 7 product tests passed across desktop and mobile settings, daily-limit gating, advanced retention/day-start persistence, custom setup/completion, mixed-review cues, and Needs Attention states. The externally seeded fractional-retention case passed in a focused 1/1 rerun after a test locator correction. Clerk setup and cleanup passed for both runs. Custom mobile frame measured 14px left, 361px right, with no horizontal document overflow. |
 | Malformed Needs Attention cursor browser check | `needs-attention.spec.ts`: 5/5 passed with Clerk setup/cleanup, including desktop, mobile, and first-page recovery for a malformed cursor. |
 | Full serialized integration suite | Broad baseline: 35 files, 446 tests with 442 passed and 4 agent-practice failures. The final affected rerun passed 3 files and 32 tests after updating tool/settings contracts, bounded Neon conflict retries, and setup snapshot fencing; it covers all four original failure paths plus the new setup regression. The broad suite was not repeated, so this is not a fresh 446-test all-green claim. |
@@ -156,10 +157,12 @@ not available there. No threshold or coverage exclusion changed. The exact
 final-head run above passed; it proves CI for this revision and does not prove
 deployment.
 
-The standalone `npx tsc --noEmit` command reports an existing test typing
-backlog. A disposable archive comparison against `b49f132` found the same 83
-diagnostics, 30 unique path/code/severity keys, and unchanged messages, with
-zero introduced diagnostics. The application build typecheck passes.
+The standalone `npx tsc --noEmit --pretty false` command now passes with zero
+diagnostics. Next.js 16.3.4 enabled its TypeScript CLI during builds and
+exposed the repository's existing test fixture typing backlog; the follow-up
+kept runtime assertions intact and made the narrow mock, fixture, JSON-null,
+discriminated-result, and config-import types explicit. No production behavior
+was changed to bypass typechecking.
 
 The two allowed manual review requests are exhausted. The final manual review
 covered `8add41e` and identified scheduled per-skill planning, lifecycle MCP

@@ -1210,6 +1210,9 @@ describe("material scope planning", () => {
         },
       ],
       candidatePlan: {
+        version: 1 as const,
+        materialRevisionId: "revision-1",
+        instruction: "Make skills for numbers above 20 plus ordinals.",
         resolutionStatus: "resolved" as const,
         resolvedScopeLabel: "Numbers",
         warnings: [],
@@ -1220,6 +1223,13 @@ describe("material scope planning", () => {
             objective: "Write Spanish cardinal numbers from 21 through 99.",
             materialSectionIds: ["chapter-4"],
             evidenceChunkIds: ["numbers-23"],
+            locator: {
+              version: 1 as const,
+              materialRevisionId: "revision-1",
+              materialSectionIds: ["chapter-4"],
+              evidenceChunkIds: ["numbers-23"],
+              source: { kind: "pdf" as const, pageRanges: [{ start: 1, end: 1 }] },
+            },
           },
         ],
       },

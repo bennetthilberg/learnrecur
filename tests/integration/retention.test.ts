@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { Prisma } from "@/generated/prisma/client";
 import { getPrisma } from "@/lib/prisma";
 import {
   commitPracticeReview,
@@ -1137,7 +1138,13 @@ suite("retention preferences through persisted practice", () => {
       at: new Date(now.getTime() + (index - 21) * 1000),
     }));
     await prisma.exerciseAttempt.createMany({
-      data: rows.map((row) => ({ ...attempt, id: row.id })),
+      data: rows.map((row) => ({
+        ...attempt,
+        id: row.id,
+        practiceContext: attempt.practiceContext ?? Prisma.DbNull,
+        answerPolicySnapshot: attempt.answerPolicySnapshot ?? Prisma.DbNull,
+        answer: attempt.answer ?? Prisma.JsonNull,
+      })),
     });
     await prisma.reviewLog.createMany({
       data: rows.map((row) => ({
@@ -1146,6 +1153,7 @@ suite("retention preferences through persisted practice", () => {
         exerciseAttemptId: row.id,
         reviewedAt: row.at,
         previousDueAt: row.at,
+        schedulerParameters: review.schedulerParameters ?? Prisma.JsonNull,
       })),
     });
     const evidence = await loadGenerationRecentEvidence({

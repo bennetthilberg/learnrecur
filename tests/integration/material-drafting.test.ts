@@ -70,6 +70,10 @@ const queueMaterialBatchActivation = (
     embeddingGenerator: null,
     ...input,
   });
+type MaterialBatchActivationEvent = Pick<
+  Parameters<typeof runMaterialBatchActivationJob>[0],
+  "userId" | "batchId" | "itemId" | "generationJobId"
+>;
 
 describeDatabase("material multi-skill drafting", () => {
   const prisma = getPrisma();
@@ -235,7 +239,7 @@ describeDatabase("material multi-skill drafting", () => {
         status: SkillStatus.DRAFT,
       },
     });
-    const planScope = vi.fn(async () => ({
+    const planScope = vi.fn<MaterialDraftAiSetup["planScope"]>(async () => ({
       resolutionStatus: "resolved",
       resolvedScopeLabel: "Chapter 4, pages 90–128",
       clarification: null,
@@ -1012,7 +1016,7 @@ describeDatabase("material multi-skill drafting", () => {
   });
 
   it("requires clarification without calling the semantic planner when a chapter is absent", async () => {
-    const planScope = vi.fn(async () => {
+    const planScope = vi.fn<MaterialDraftAiSetup["planScope"]>(async () => {
       throw new Error("semantic planner should not run");
     });
     const result = await planMaterialSkills({
@@ -1053,7 +1057,7 @@ describeDatabase("material multi-skill drafting", () => {
   });
 
   it("records structured diagnostics when draft events cannot be queued", async () => {
-    const planScope = vi.fn(async () => ({
+    const planScope = vi.fn<MaterialDraftAiSetup["planScope"]>(async () => ({
       resolutionStatus: "resolved" as const,
       resolvedScopeLabel: "Chapter 4",
       clarification: null,
@@ -1097,11 +1101,15 @@ describeDatabase("material multi-skill drafting", () => {
     });
 
     expect(result).toMatchObject({ status: "partial", failedItemIds: [expect.any(String)] });
+    if (result.status !== "partial" || !result.failedItemIds?.[0]) {
+      throw new Error("expected one failed item id");
+    }
+    const failedItemId = result.failedItemIds[0];
     expect(errorSpy).toHaveBeenCalledWith(
       "[background-jobs] material draft event send failed",
       expect.objectContaining({
         batchId: planned.batchId,
-        itemId: result.failedItemIds[0],
+        itemId: failedItemId,
         error: expect.objectContaining({
           message: "connect ECONNREFUSED 127.0.0.1:8288",
         }),
@@ -1164,7 +1172,7 @@ describeDatabase("material multi-skill drafting", () => {
       markFirstPlannerStarted = resolve;
     });
     let callCount = 0;
-    const planScope = vi.fn(async () => {
+    const planScope = vi.fn<MaterialDraftAiSetup["planScope"]>(async () => {
       callCount += 1;
       const call = callCount;
       if (call === 1) {
@@ -1220,7 +1228,7 @@ describeDatabase("material multi-skill drafting", () => {
   });
 
   it("rechecks the reviewed plan after acquiring the confirmation lock", async () => {
-    const planScope = vi.fn(async () => ({
+    const planScope = vi.fn<MaterialDraftAiSetup["planScope"]>(async () => ({
       resolutionStatus: "resolved" as const,
       resolvedScopeLabel: "Chapter 4",
       clarification: null,
@@ -1282,7 +1290,7 @@ describeDatabase("material multi-skill drafting", () => {
   });
 
   it("gives the planner a fallback chunk from every candidate section before the cap", async () => {
-    const planScope = vi.fn(async () => ({
+    const planScope = vi.fn<MaterialDraftAiSetup["planScope"]>(async () => ({
       resolutionStatus: "resolved",
       resolvedScopeLabel: "Chapter 4",
       clarification: null,
@@ -1468,7 +1476,7 @@ describeDatabase("material multi-skill drafting", () => {
       storageBucket: "test-materials",
       storageKey: `${runId}/reflexive-retrieval.pdf`,
     });
-    const planScope = vi.fn(async () => ({
+    const planScope = vi.fn<MaterialDraftAiSetup["planScope"]>(async () => ({
       resolutionStatus: "resolved" as const,
       resolvedScopeLabel: "Reflexive verb rules",
       clarification: null,
@@ -1675,7 +1683,7 @@ describeDatabase("material multi-skill drafting", () => {
       storageKey: `${runId}/malformed-preterit.pdf`,
       processingMetadata: { embeddingStatus: "unavailable" },
     });
-    const planScope = vi.fn(async () => ({
+    const planScope = vi.fn<MaterialDraftAiSetup["planScope"]>(async () => ({
       resolutionStatus: "resolved" as const,
       resolvedScopeLabel: "Regular preterit conjugations",
       clarification: null,
@@ -1822,7 +1830,7 @@ describeDatabase("material multi-skill drafting", () => {
       storageKey: `${runId}/split-comparison.pdf`,
       processingMetadata: { embeddingStatus: "ready" },
     });
-    const planScope = vi.fn(async () => ({
+    const planScope = vi.fn<MaterialDraftAiSetup["planScope"]>(async () => ({
       resolutionStatus: "resolved" as const,
       resolvedScopeLabel: "Ser and estar",
       clarification: null,
@@ -1937,7 +1945,7 @@ describeDatabase("material multi-skill drafting", () => {
     if (!lastChunkId) {
       throw new Error("expected a later fallback chunk");
     }
-    const planScope = vi.fn(async () => ({
+    const planScope = vi.fn<MaterialDraftAiSetup["planScope"]>(async () => ({
       resolutionStatus: "resolved" as const,
       resolvedScopeLabel: "Balanced topic 20",
       clarification: null,
@@ -2025,7 +2033,7 @@ describeDatabase("material multi-skill drafting", () => {
       storageBucket: "test-materials",
       storageKey: `${runId}/large-retrieval.pdf`,
     });
-    const planScope = vi.fn(async () => ({
+    const planScope = vi.fn<MaterialDraftAiSetup["planScope"]>(async () => ({
       resolutionStatus: "resolved" as const,
       resolvedScopeLabel: "Topic 61",
       clarification: null,
@@ -2059,7 +2067,7 @@ describeDatabase("material multi-skill drafting", () => {
   });
 
   it("keeps a verified draft when a sibling exhausts its bounded regeneration", async () => {
-    const planScope = vi.fn(async () => ({
+    const planScope = vi.fn<MaterialDraftAiSetup["planScope"]>(async () => ({
       resolutionStatus: "resolved",
       resolvedScopeLabel: "Chapter 4, pages 90–128",
       clarification: null,
@@ -2490,7 +2498,7 @@ describeDatabase("material multi-skill drafting", () => {
   });
 
   it("does not let a stale worker overwrite a newer successful claim", async () => {
-    const planScope = vi.fn(async () => ({
+    const planScope = vi.fn<MaterialDraftAiSetup["planScope"]>(async () => ({
       resolutionStatus: "resolved" as const,
       resolvedScopeLabel: "Chapter 4",
       clarification: null,
@@ -2949,7 +2957,7 @@ describeDatabase("material multi-skill drafting", () => {
         evidenceChunkIds: [directChunkId],
       },
     ]);
-    const events: Array<{ itemId: string; generationJobId: string }> = [];
+    const events: MaterialBatchActivationEvent[] = [];
     const queued = await queueMaterialBatchActivation({
       userId,
       input: { batchId: ready.id, itemIds: [ready.items[0].id] },
@@ -3057,7 +3065,7 @@ describeDatabase("material multi-skill drafting", () => {
         evidenceChunkIds: [directChunkId],
       },
     ]);
-    const events: Array<{ itemId: string; generationJobId: string }> = [];
+    const events: MaterialBatchActivationEvent[] = [];
     const queued = await queueMaterialBatchActivation({
       userId,
       input: { batchId: ready.id, itemIds: [ready.items[0].id] },
@@ -3263,7 +3271,7 @@ describeDatabase("material multi-skill drafting", () => {
         status: SkillStatus.DRAFT,
       },
     });
-    const events: Array<{ itemId: string; generationJobId: string }> = [];
+    const events: MaterialBatchActivationEvent[] = [];
     const queued = await queueMaterialBatchActivation({
       userId,
       input: {
@@ -4086,7 +4094,7 @@ describeDatabase("material multi-skill drafting", () => {
         evidenceChunkIds: [directChunkId],
       },
     ]);
-    const events: Array<{ itemId: string; generationJobId: string }> = [];
+    const events: MaterialBatchActivationEvent[] = [];
     await queueMaterialBatchActivation({
       userId,
       input: { batchId: ready.id, itemIds: [ready.items[0].id] },
@@ -4155,7 +4163,7 @@ describeDatabase("material multi-skill drafting", () => {
         evidenceChunkIds: [directChunkId],
       },
     ]);
-    const events: Array<{ itemId: string; generationJobId: string }> = [];
+    const events: MaterialBatchActivationEvent[] = [];
     await queueMaterialBatchActivation({
       userId,
       input: { batchId: ready.id, itemIds: [ready.items[0].id] },
@@ -4595,7 +4603,7 @@ describeDatabase("material multi-skill drafting", () => {
     if (!skillId) {
       throw new Error("expected a stale activation retry fixture skill");
     }
-    const queuedEvents: Array<{ itemId: string; generationJobId: string }> = [];
+    const queuedEvents: MaterialBatchActivationEvent[] = [];
     await queueMaterialBatchActivation({
       userId,
       input: { batchId: ready.id, itemIds: [ready.items[0].id] },
@@ -4619,8 +4627,6 @@ describeDatabase("material multi-skill drafting", () => {
       releaseStaleWorker = resolve;
     });
     const staleWorker = runMaterialBatchActivationJob({
-      userId,
-      batchId: ready.id,
       ...queuedEvents[0],
       now: new Date(),
       generateChoiceExercises: async () => {
@@ -4664,7 +4670,7 @@ describeDatabase("material multi-skill drafting", () => {
       errorMessage: ACTIVATION_SUPERSEDED_JOB_MESSAGE,
     });
 
-    const retryEvents: Array<{ itemId: string; generationJobId: string }> = [];
+    const retryEvents: MaterialBatchActivationEvent[] = [];
     await expect(
       retryMaterialBatchActivationItem({
         userId,
@@ -4696,8 +4702,6 @@ describeDatabase("material multi-skill drafting", () => {
       releaseReplacement = resolve;
     });
     const replacementWorker = runMaterialBatchActivationJob({
-      userId,
-      batchId: ready.id,
       ...retryEvents[0],
       now: new Date(),
       generateChoiceExercises: async () => {
@@ -4788,7 +4792,7 @@ describeDatabase("material multi-skill drafting", () => {
         evidenceChunkIds: [indirectChunkId],
       },
     ]);
-    const events: Array<{ itemId: string; generationJobId: string }> = [];
+    const events: MaterialBatchActivationEvent[] = [];
     await queueMaterialBatchActivation({
       userId,
       input: { batchId: ready.id, itemIds: ready.items.map((item) => item.id) },
@@ -4906,7 +4910,7 @@ describeDatabase("material multi-skill drafting", () => {
         evidenceChunkIds: [directChunkId],
       },
     ]);
-    const events: Array<{ itemId: string; generationJobId: string }> = [];
+    const events: MaterialBatchActivationEvent[] = [];
     await queueMaterialBatchActivation({
       userId,
       input: { batchId: ready.id, itemIds: [ready.items[0].id] },
@@ -5127,7 +5131,7 @@ describeDatabase("material multi-skill drafting", () => {
         evidenceChunkIds: [indirectChunkId],
       },
     ]);
-    const events: Array<{ itemId: string; generationJobId: string }> = [];
+    const events: MaterialBatchActivationEvent[] = [];
     await queueMaterialBatchActivation({
       userId,
       input: { batchId: ready.id, itemIds: [ready.items[0].id] },
@@ -5296,7 +5300,7 @@ describeDatabase("material multi-skill drafting", () => {
       throw new Error("expected the original activation event");
     }
 
-    const retryEvents: Array<{ itemId: string; generationJobId: string }> = [];
+    const retryEvents: MaterialBatchActivationEvent[] = [];
     await expect(
       retryMaterialBatchActivationItem({
         userId,
@@ -5365,7 +5369,7 @@ describeDatabase("material multi-skill drafting", () => {
         evidenceChunkIds: [indirectChunkId],
       },
     ]);
-    const originalEvents: Array<{ itemId: string; generationJobId: string }> = [];
+    const originalEvents: MaterialBatchActivationEvent[] = [];
     await expect(queueMaterialBatchActivation({
       userId,
       input: { batchId: ready.id, itemIds: [ready.items[0].id] },
@@ -5434,7 +5438,7 @@ describeDatabase("material multi-skill drafting", () => {
       }),
     ).resolves.toMatchObject({ status: GenerationJobStatus.FAILED });
 
-    const nextRetryEvents: Array<{ itemId: string; generationJobId: string }> = [];
+    const nextRetryEvents: MaterialBatchActivationEvent[] = [];
     await expect(
       retryMaterialBatchActivationItem({
         userId,
@@ -5481,7 +5485,7 @@ describeDatabase("material multi-skill drafting", () => {
         evidenceChunkIds: [directChunkId],
       },
     ]);
-    const originalEvents: Array<{ itemId: string; generationJobId: string }> = [];
+    const originalEvents: MaterialBatchActivationEvent[] = [];
     const retryDayStart = new Date("2032-02-05T00:00:00.000Z");
     const retryDayEnd = new Date("2032-02-06T00:00:00.000Z");
     await expect(
@@ -5720,7 +5724,7 @@ describeDatabase("material multi-skill drafting", () => {
       where: { id: activeSkillId },
       data: { status: SkillStatus.ACTIVE },
     });
-    const events: Array<{ itemId: string; generationJobId: string }> = [];
+    const events: MaterialBatchActivationEvent[] = [];
 
     const result = await queueMaterialBatchActivation({
       userId,
@@ -5774,7 +5778,7 @@ describeDatabase("material multi-skill drafting", () => {
         evidenceChunkIds: [directChunkId],
       },
     ]);
-    const events: Array<{ itemId: string; generationJobId: string }> = [];
+    const events: MaterialBatchActivationEvent[] = [];
     expect(
       await queueMaterialBatchActivation({
         userId,
@@ -5864,7 +5868,7 @@ describeDatabase("material multi-skill drafting", () => {
         }),
       ),
     });
-    const firstEvents: Array<{ itemId: string; generationJobId: string }> = [];
+    const firstEvents: MaterialBatchActivationEvent[] = [];
     expect(
       await queueMaterialBatchActivation({
         userId,

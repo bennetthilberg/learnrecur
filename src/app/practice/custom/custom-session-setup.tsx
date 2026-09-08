@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { createCustomPracticeSessionAction } from "../actions";
 
 type SetupCollection = { id: string; name: string };
@@ -20,6 +21,7 @@ export function CustomSessionSetup({
   skills: SetupSkill[];
   tags: string[];
 }) {
+  const router = useRouter();
   const [mode, setMode] = useState<"PRACTICE_ONLY" | "SCHEDULED">("PRACTICE_ONLY");
   const [targetCount, setTargetCount] = useState(10);
   const [collectionId, setCollectionId] = useState("");
@@ -51,7 +53,7 @@ export function CustomSessionSetup({
         },
       });
       if (result.status === "ready" || result.status === "preparing") {
-        window.location.assign(`/practice?sessionId=${encodeURIComponent(result.sessionId)}`);
+        router.push(`/practice?sessionId=${encodeURIComponent(result.sessionId)}`);
         return;
       }
       setMessage(result.message ?? "The session could not be created.");
