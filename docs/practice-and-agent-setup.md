@@ -108,7 +108,7 @@ use one worker and one database lease.
 | Focused progress and Needs Attention integration | 2 files, 5 tests passed (2 progress and 3 Needs Attention). |
 | Setup concurrency integration | 1 selected test passed after recognizing the Prisma 7 Neon nested `driverAdapterError.cause.kind` shape. |
 | Full unit suite | 106 files, 1,043 tests passed. |
-| Combined coverage proof | Unit tests plus the directly affected database files passed 110 files and 1,087 tests against the disposable database; coverage was statements 52.52%, branches 46.01%, functions 61.75%, and lines 52.35%, with the existing thresholds unchanged. |
+| Combined coverage proof | `npm run test:coverage` runs unit and integration tests with `RUN_DATABASE_TESTS=1`; local unit plus directly affected database files passed 110 files and 1,087 tests against the disposable database with statements 52.52%, branches 46.01%, functions 61.75%, and lines 52.35%. Thresholds are unchanged; the command requires an isolated configured database. |
 | Full lint | Passed. |
 | Application build | Passed; Next.js typecheck and static generation completed. |
 | Worker bundle | `npm run jobs:build` passed and wrote the ignored `.aws-build/jobs.zip`. |

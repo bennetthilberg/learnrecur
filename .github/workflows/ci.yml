@@ -98,7 +98,7 @@ jobs:
         run: npm run prisma:deploy
 
       - name: Database integration tests with coverage gate
-        run: npm run test:coverage:db
+        run: npm run test:coverage
 
       - name: Authenticated browser tests
         run: npm run test:e2e:auth
