@@ -1,6 +1,6 @@
 import "server-only";
 import type { Prisma } from "@/generated/prisma/client";
-import { getPracticeLocalDate } from "./daily-limit-contracts";
+import { getPracticeDayBounds } from "./daily-limit-contracts";
 
 export const previouslyIntroducedSkillWhere: Prisma.SkillWhereInput = {
   OR: [
@@ -23,30 +23,52 @@ export async function getDailyNewSkillAllowance(
 ) {
   const user = await tx.user.findUniqueOrThrow({
     where: { id: userId },
-    select: { dailyNewSkillLimit: true, practiceTimezone: true },
+    select: {
+      dailyNewSkillLimit: true,
+      practiceTimezone: true,
+      practiceDayStartMinutes: true,
+    },
   });
-  const { dailyNewSkillLimit: limit, practiceTimezone: timezone } = user;
-  if (limit === null) return { limit, timezone, remaining: null };
-  if (limit === 0) return { limit, timezone, remaining: 0 };
-  const localDate = getPracticeLocalDate(now, timezone);
-  // A local calendar day can be 23 or 25 hours. Narrow by the indexed timestamp
-  // first, then compare local dates without assuming a fixed-length day.
-  const windowMs = 36 * 60 * 60 * 1000;
+  const {
+    dailyNewSkillLimit: limit,
+    practiceTimezone: timezone,
+    practiceDayStartMinutes: dayStartMinutes,
+  } = user;
+  if (limit === null) {
+    return {
+      limit,
+      timezone,
+      dayStartMinutes,
+      remaining: null,
+    };
+  }
+  if (limit === 0) {
+    return {
+      limit,
+      timezone,
+      dayStartMinutes,
+      remaining: 0,
+    };
+  }
+  const bounds = getPracticeDayBounds(now, timezone, dayStartMinutes);
+  // Query consecutive local-calendar boundaries. DST can make this interval 23
+  // or 25 hours, so a fixed-width subtraction would miscount introductions.
   const introductions = await tx.skill.findMany({
     where: {
       userId,
       firstIntroducedAt: {
-        gte: new Date(now.getTime() - windowMs),
-        lte: new Date(now.getTime() + windowMs),
+        gte: bounds.start,
+        lt: bounds.end,
       },
     },
     select: { firstIntroducedAt: true },
   });
-  const used = introductions.filter(
-    (item) =>
-      getPracticeLocalDate(item.firstIntroducedAt!, timezone) === localDate,
-  ).length;
-  return { limit, timezone, remaining: Math.max(0, limit - used) };
+  return {
+    limit,
+    timezone,
+    dayStartMinutes,
+    remaining: Math.max(0, limit - introductions.length),
+  };
 }
 
 export async function recordSkillIntroduction(

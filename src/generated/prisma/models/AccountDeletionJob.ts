@@ -783,14 +783,6 @@ export type EnumAccountDeletionPhaseFieldUpdateOperationsInput = {
   set?: $Enums.AccountDeletionPhase
 }
 
-export type IntFieldUpdateOperationsInput = {
-  set?: number
-  increment?: number
-  decrement?: number
-  multiply?: number
-  divide?: number
-}
-
 
 
 export type AccountDeletionJobSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{

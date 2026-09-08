@@ -20,7 +20,7 @@ import {
 
 export const READINESS_CHECK_TIMEOUT_MS = 3_000;
 export const READINESS_STORAGE_PROBE_PREFIX = "__learnrecur_readiness_probe__/";
-export const REQUIRED_SCHEMA_MIGRATION = "20260907220000_daily_new_skill_limit";
+export const REQUIRED_SCHEMA_MIGRATION = "20260908120000_advanced_practice_settings_and_sessions";
 
 export type ReadinessCheck = {
   name: string;

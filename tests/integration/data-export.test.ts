@@ -297,10 +297,12 @@ describeDatabase("study data export", () => {
     if (result.status !== "ready") {
       throw new Error("expected ready data export");
     }
-    expect(result.export.exportVersion).toBe(5);
+    expect(result.export.exportVersion).toBe(6);
     expect(result.export.agentConnections).toEqual([]);
     expect(result.export.agentOperations).toEqual([]);
     expect(result.export.agentOperationItems).toEqual([]);
+    expect(result.export.practiceSessions).toEqual([]);
+    expect(result.export.agentSetupPlans).toEqual([]);
     expect(result.export.generatedAt).toBe("2026-06-07T14:00:00.000Z");
     expect(result.export.user).toMatchObject({
       id: userId,

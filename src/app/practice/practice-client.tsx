@@ -705,15 +705,17 @@ export function PracticeClient({ initialItem, canUseSampleData, initialMixedRevi
 }
 
 function PracticeScopeBar({ scope }: { scope?: PracticeScope }) {
-  if (!scope || scope.kind !== "collection") {
-    return null;
-  }
-
   return (
     <div className="practiceScopeBar" aria-label="Practice scope">
-      <span>Collection</span>
-      <strong>{scope.collectionName}</strong>
-      <Link href="/practice">All practice</Link>
+      {scope?.kind === "collection" ? (
+        <>
+          <span>Collection</span>
+          <strong>{scope.collectionName}</strong>
+          <Link href="/practice">All practice</Link>
+        </>
+      ) : <strong>All practice</strong>}
+      <Link href="/practice/custom">Custom session</Link>
+      <Link href="/practice/attention">Needs attention</Link>
     </div>
   );
 }

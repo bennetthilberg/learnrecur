@@ -82,7 +82,7 @@ export default async function SettingsPage() {
 
       <section className="skillPanel settingsPanel" aria-labelledby="practice-preferences-title">
         <div className="settingsSectionIntro"><h2 id="practice-preferences-title">Practice preferences</h2></div>
-        <div style={{padding: "0 18px 18px"}}><PracticePreferencesForm target={{scope:"user"}} preference={practicePreferences.practicePreference} mixedReview={practicePreferences.mixedReview} dailyNewSkillLimit={practicePreferences.dailyNewSkillLimit} practiceTimezone={practicePreferences.practiceTimezone}/></div>
+        <div style={{padding: "0 18px 18px"}}><PracticePreferencesForm target={{scope:"user"}} preference={practicePreferences.practicePreference} mixedReview={practicePreferences.mixedReview} dailyNewSkillLimit={practicePreferences.dailyNewSkillLimit} practiceTimezone={practicePreferences.practiceTimezone} desiredRetention={practicePreferences.desiredRetention} practiceDayStartMinutes={practicePreferences.practiceDayStartMinutes}/></div>
       </section>
 
       <section className="skillPanel settingsPanel" aria-labelledby="reminder-settings-title">

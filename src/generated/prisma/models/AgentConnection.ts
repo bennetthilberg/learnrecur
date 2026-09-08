@@ -329,6 +329,7 @@ export type AgentConnectionWhereInput = {
   operations?: Prisma.AgentSkillOperationListRelationFilter
   operationActions?: Prisma.AgentOperationActionListRelationFilter
   rateLimitBuckets?: Prisma.AgentRateLimitBucketListRelationFilter
+  setupPlans?: Prisma.AgentSetupPlanListRelationFilter
 }
 
 export type AgentConnectionOrderByWithRelationInput = {
@@ -356,6 +357,7 @@ export type AgentConnectionOrderByWithRelationInput = {
   operations?: Prisma.AgentSkillOperationOrderByRelationAggregateInput
   operationActions?: Prisma.AgentOperationActionOrderByRelationAggregateInput
   rateLimitBuckets?: Prisma.AgentRateLimitBucketOrderByRelationAggregateInput
+  setupPlans?: Prisma.AgentSetupPlanOrderByRelationAggregateInput
 }
 
 export type AgentConnectionWhereUniqueInput = Prisma.AtLeast<{
@@ -387,6 +389,7 @@ export type AgentConnectionWhereUniqueInput = Prisma.AtLeast<{
   operations?: Prisma.AgentSkillOperationListRelationFilter
   operationActions?: Prisma.AgentOperationActionListRelationFilter
   rateLimitBuckets?: Prisma.AgentRateLimitBucketListRelationFilter
+  setupPlans?: Prisma.AgentSetupPlanListRelationFilter
 }, "id" | "workosSessionId" | "id_userId">
 
 export type AgentConnectionOrderByWithAggregationInput = {
@@ -464,6 +467,7 @@ export type AgentConnectionCreateInput = {
   operations?: Prisma.AgentSkillOperationCreateNestedManyWithoutConnectionInput
   operationActions?: Prisma.AgentOperationActionCreateNestedManyWithoutConnectionInput
   rateLimitBuckets?: Prisma.AgentRateLimitBucketCreateNestedManyWithoutConnectionInput
+  setupPlans?: Prisma.AgentSetupPlanCreateNestedManyWithoutConnectionInput
 }
 
 export type AgentConnectionUncheckedCreateInput = {
@@ -489,6 +493,7 @@ export type AgentConnectionUncheckedCreateInput = {
   operations?: Prisma.AgentSkillOperationUncheckedCreateNestedManyWithoutConnectionInput
   operationActions?: Prisma.AgentOperationActionUncheckedCreateNestedManyWithoutConnectionInput
   rateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedCreateNestedManyWithoutConnectionInput
+  setupPlans?: Prisma.AgentSetupPlanUncheckedCreateNestedManyWithoutConnectionInput
 }
 
 export type AgentConnectionUpdateInput = {
@@ -514,6 +519,7 @@ export type AgentConnectionUpdateInput = {
   operations?: Prisma.AgentSkillOperationUpdateManyWithoutConnectionNestedInput
   operationActions?: Prisma.AgentOperationActionUpdateManyWithoutConnectionNestedInput
   rateLimitBuckets?: Prisma.AgentRateLimitBucketUpdateManyWithoutConnectionNestedInput
+  setupPlans?: Prisma.AgentSetupPlanUpdateManyWithoutConnectionNestedInput
 }
 
 export type AgentConnectionUncheckedUpdateInput = {
@@ -539,6 +545,7 @@ export type AgentConnectionUncheckedUpdateInput = {
   operations?: Prisma.AgentSkillOperationUncheckedUpdateManyWithoutConnectionNestedInput
   operationActions?: Prisma.AgentOperationActionUncheckedUpdateManyWithoutConnectionNestedInput
   rateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedUpdateManyWithoutConnectionNestedInput
+  setupPlans?: Prisma.AgentSetupPlanUncheckedUpdateManyWithoutConnectionNestedInput
 }
 
 export type AgentConnectionCreateManyInput = {
@@ -798,6 +805,20 @@ export type EnumAgentRemoteRevocationStatusFieldUpdateOperationsInput = {
   set?: $Enums.AgentRemoteRevocationStatus
 }
 
+export type AgentConnectionCreateNestedOneWithoutSetupPlansInput = {
+  create?: Prisma.XOR<Prisma.AgentConnectionCreateWithoutSetupPlansInput, Prisma.AgentConnectionUncheckedCreateWithoutSetupPlansInput>
+  connectOrCreate?: Prisma.AgentConnectionCreateOrConnectWithoutSetupPlansInput
+  connect?: Prisma.AgentConnectionWhereUniqueInput
+}
+
+export type AgentConnectionUpdateOneRequiredWithoutSetupPlansNestedInput = {
+  create?: Prisma.XOR<Prisma.AgentConnectionCreateWithoutSetupPlansInput, Prisma.AgentConnectionUncheckedCreateWithoutSetupPlansInput>
+  connectOrCreate?: Prisma.AgentConnectionCreateOrConnectWithoutSetupPlansInput
+  upsert?: Prisma.AgentConnectionUpsertWithoutSetupPlansInput
+  connect?: Prisma.AgentConnectionWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.AgentConnectionUpdateToOneWithWhereWithoutSetupPlansInput, Prisma.AgentConnectionUpdateWithoutSetupPlansInput>, Prisma.AgentConnectionUncheckedUpdateWithoutSetupPlansInput>
+}
+
 export type AgentConnectionCreateNestedOneWithoutOperationsInput = {
   create?: Prisma.XOR<Prisma.AgentConnectionCreateWithoutOperationsInput, Prisma.AgentConnectionUncheckedCreateWithoutOperationsInput>
   connectOrCreate?: Prisma.AgentConnectionCreateOrConnectWithoutOperationsInput
@@ -862,6 +883,7 @@ export type AgentConnectionCreateWithoutUserInput = {
   operations?: Prisma.AgentSkillOperationCreateNestedManyWithoutConnectionInput
   operationActions?: Prisma.AgentOperationActionCreateNestedManyWithoutConnectionInput
   rateLimitBuckets?: Prisma.AgentRateLimitBucketCreateNestedManyWithoutConnectionInput
+  setupPlans?: Prisma.AgentSetupPlanCreateNestedManyWithoutConnectionInput
 }
 
 export type AgentConnectionUncheckedCreateWithoutUserInput = {
@@ -886,6 +908,7 @@ export type AgentConnectionUncheckedCreateWithoutUserInput = {
   operations?: Prisma.AgentSkillOperationUncheckedCreateNestedManyWithoutConnectionInput
   operationActions?: Prisma.AgentOperationActionUncheckedCreateNestedManyWithoutConnectionInput
   rateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedCreateNestedManyWithoutConnectionInput
+  setupPlans?: Prisma.AgentSetupPlanUncheckedCreateNestedManyWithoutConnectionInput
 }
 
 export type AgentConnectionCreateOrConnectWithoutUserInput = {
@@ -961,6 +984,7 @@ export type AgentConnectionCreateWithoutWorkosIdentityInput = {
   operations?: Prisma.AgentSkillOperationCreateNestedManyWithoutConnectionInput
   operationActions?: Prisma.AgentOperationActionCreateNestedManyWithoutConnectionInput
   rateLimitBuckets?: Prisma.AgentRateLimitBucketCreateNestedManyWithoutConnectionInput
+  setupPlans?: Prisma.AgentSetupPlanCreateNestedManyWithoutConnectionInput
 }
 
 export type AgentConnectionUncheckedCreateWithoutWorkosIdentityInput = {
@@ -984,6 +1008,7 @@ export type AgentConnectionUncheckedCreateWithoutWorkosIdentityInput = {
   operations?: Prisma.AgentSkillOperationUncheckedCreateNestedManyWithoutConnectionInput
   operationActions?: Prisma.AgentOperationActionUncheckedCreateNestedManyWithoutConnectionInput
   rateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedCreateNestedManyWithoutConnectionInput
+  setupPlans?: Prisma.AgentSetupPlanUncheckedCreateNestedManyWithoutConnectionInput
 }
 
 export type AgentConnectionCreateOrConnectWithoutWorkosIdentityInput = {
@@ -1012,6 +1037,122 @@ export type AgentConnectionUpdateManyWithWhereWithoutWorkosIdentityInput = {
   data: Prisma.XOR<Prisma.AgentConnectionUpdateManyMutationInput, Prisma.AgentConnectionUncheckedUpdateManyWithoutWorkosIdentityInput>
 }
 
+export type AgentConnectionCreateWithoutSetupPlansInput = {
+  id?: string
+  workosSubject: string
+  workosSessionId: string
+  workosApplicationId: string
+  clientId: string
+  clientName: string
+  clientDomain: string
+  resourceUrl: string
+  scopes?: Prisma.AgentConnectionCreatescopesInput | string[]
+  permissionVersion?: number
+  status?: $Enums.AgentConnectionStatus
+  remoteRevocationStatus?: $Enums.AgentRemoteRevocationStatus
+  connectedAt?: Date | string
+  lastUsedAt?: Date | string | null
+  revokedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  user: Prisma.UserCreateNestedOneWithoutAgentConnectionsInput
+  workosIdentity: Prisma.WorkosIdentityCreateNestedOneWithoutConnectionsInput
+  operations?: Prisma.AgentSkillOperationCreateNestedManyWithoutConnectionInput
+  operationActions?: Prisma.AgentOperationActionCreateNestedManyWithoutConnectionInput
+  rateLimitBuckets?: Prisma.AgentRateLimitBucketCreateNestedManyWithoutConnectionInput
+}
+
+export type AgentConnectionUncheckedCreateWithoutSetupPlansInput = {
+  id?: string
+  userId: string
+  workosIdentityId: string
+  workosSubject: string
+  workosSessionId: string
+  workosApplicationId: string
+  clientId: string
+  clientName: string
+  clientDomain: string
+  resourceUrl: string
+  scopes?: Prisma.AgentConnectionCreatescopesInput | string[]
+  permissionVersion?: number
+  status?: $Enums.AgentConnectionStatus
+  remoteRevocationStatus?: $Enums.AgentRemoteRevocationStatus
+  connectedAt?: Date | string
+  lastUsedAt?: Date | string | null
+  revokedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  operations?: Prisma.AgentSkillOperationUncheckedCreateNestedManyWithoutConnectionInput
+  operationActions?: Prisma.AgentOperationActionUncheckedCreateNestedManyWithoutConnectionInput
+  rateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedCreateNestedManyWithoutConnectionInput
+}
+
+export type AgentConnectionCreateOrConnectWithoutSetupPlansInput = {
+  where: Prisma.AgentConnectionWhereUniqueInput
+  create: Prisma.XOR<Prisma.AgentConnectionCreateWithoutSetupPlansInput, Prisma.AgentConnectionUncheckedCreateWithoutSetupPlansInput>
+}
+
+export type AgentConnectionUpsertWithoutSetupPlansInput = {
+  update: Prisma.XOR<Prisma.AgentConnectionUpdateWithoutSetupPlansInput, Prisma.AgentConnectionUncheckedUpdateWithoutSetupPlansInput>
+  create: Prisma.XOR<Prisma.AgentConnectionCreateWithoutSetupPlansInput, Prisma.AgentConnectionUncheckedCreateWithoutSetupPlansInput>
+  where?: Prisma.AgentConnectionWhereInput
+}
+
+export type AgentConnectionUpdateToOneWithWhereWithoutSetupPlansInput = {
+  where?: Prisma.AgentConnectionWhereInput
+  data: Prisma.XOR<Prisma.AgentConnectionUpdateWithoutSetupPlansInput, Prisma.AgentConnectionUncheckedUpdateWithoutSetupPlansInput>
+}
+
+export type AgentConnectionUpdateWithoutSetupPlansInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  workosSubject?: Prisma.StringFieldUpdateOperationsInput | string
+  workosSessionId?: Prisma.StringFieldUpdateOperationsInput | string
+  workosApplicationId?: Prisma.StringFieldUpdateOperationsInput | string
+  clientId?: Prisma.StringFieldUpdateOperationsInput | string
+  clientName?: Prisma.StringFieldUpdateOperationsInput | string
+  clientDomain?: Prisma.StringFieldUpdateOperationsInput | string
+  resourceUrl?: Prisma.StringFieldUpdateOperationsInput | string
+  scopes?: Prisma.AgentConnectionUpdatescopesInput | string[]
+  permissionVersion?: Prisma.IntFieldUpdateOperationsInput | number
+  status?: Prisma.EnumAgentConnectionStatusFieldUpdateOperationsInput | $Enums.AgentConnectionStatus
+  remoteRevocationStatus?: Prisma.EnumAgentRemoteRevocationStatusFieldUpdateOperationsInput | $Enums.AgentRemoteRevocationStatus
+  connectedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastUsedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  user?: Prisma.UserUpdateOneRequiredWithoutAgentConnectionsNestedInput
+  workosIdentity?: Prisma.WorkosIdentityUpdateOneRequiredWithoutConnectionsNestedInput
+  operations?: Prisma.AgentSkillOperationUpdateManyWithoutConnectionNestedInput
+  operationActions?: Prisma.AgentOperationActionUpdateManyWithoutConnectionNestedInput
+  rateLimitBuckets?: Prisma.AgentRateLimitBucketUpdateManyWithoutConnectionNestedInput
+}
+
+export type AgentConnectionUncheckedUpdateWithoutSetupPlansInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
+  workosIdentityId?: Prisma.StringFieldUpdateOperationsInput | string
+  workosSubject?: Prisma.StringFieldUpdateOperationsInput | string
+  workosSessionId?: Prisma.StringFieldUpdateOperationsInput | string
+  workosApplicationId?: Prisma.StringFieldUpdateOperationsInput | string
+  clientId?: Prisma.StringFieldUpdateOperationsInput | string
+  clientName?: Prisma.StringFieldUpdateOperationsInput | string
+  clientDomain?: Prisma.StringFieldUpdateOperationsInput | string
+  resourceUrl?: Prisma.StringFieldUpdateOperationsInput | string
+  scopes?: Prisma.AgentConnectionUpdatescopesInput | string[]
+  permissionVersion?: Prisma.IntFieldUpdateOperationsInput | number
+  status?: Prisma.EnumAgentConnectionStatusFieldUpdateOperationsInput | $Enums.AgentConnectionStatus
+  remoteRevocationStatus?: Prisma.EnumAgentRemoteRevocationStatusFieldUpdateOperationsInput | $Enums.AgentRemoteRevocationStatus
+  connectedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastUsedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  operations?: Prisma.AgentSkillOperationUncheckedUpdateManyWithoutConnectionNestedInput
+  operationActions?: Prisma.AgentOperationActionUncheckedUpdateManyWithoutConnectionNestedInput
+  rateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedUpdateManyWithoutConnectionNestedInput
+}
+
 export type AgentConnectionCreateWithoutOperationsInput = {
   id?: string
   workosSubject: string
@@ -1034,6 +1175,7 @@ export type AgentConnectionCreateWithoutOperationsInput = {
   workosIdentity: Prisma.WorkosIdentityCreateNestedOneWithoutConnectionsInput
   operationActions?: Prisma.AgentOperationActionCreateNestedManyWithoutConnectionInput
   rateLimitBuckets?: Prisma.AgentRateLimitBucketCreateNestedManyWithoutConnectionInput
+  setupPlans?: Prisma.AgentSetupPlanCreateNestedManyWithoutConnectionInput
 }
 
 export type AgentConnectionUncheckedCreateWithoutOperationsInput = {
@@ -1058,6 +1200,7 @@ export type AgentConnectionUncheckedCreateWithoutOperationsInput = {
   updatedAt?: Date | string
   operationActions?: Prisma.AgentOperationActionUncheckedCreateNestedManyWithoutConnectionInput
   rateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedCreateNestedManyWithoutConnectionInput
+  setupPlans?: Prisma.AgentSetupPlanUncheckedCreateNestedManyWithoutConnectionInput
 }
 
 export type AgentConnectionCreateOrConnectWithoutOperationsInput = {
@@ -1098,6 +1241,7 @@ export type AgentConnectionUpdateWithoutOperationsInput = {
   workosIdentity?: Prisma.WorkosIdentityUpdateOneRequiredWithoutConnectionsNestedInput
   operationActions?: Prisma.AgentOperationActionUpdateManyWithoutConnectionNestedInput
   rateLimitBuckets?: Prisma.AgentRateLimitBucketUpdateManyWithoutConnectionNestedInput
+  setupPlans?: Prisma.AgentSetupPlanUpdateManyWithoutConnectionNestedInput
 }
 
 export type AgentConnectionUncheckedUpdateWithoutOperationsInput = {
@@ -1122,6 +1266,7 @@ export type AgentConnectionUncheckedUpdateWithoutOperationsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   operationActions?: Prisma.AgentOperationActionUncheckedUpdateManyWithoutConnectionNestedInput
   rateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedUpdateManyWithoutConnectionNestedInput
+  setupPlans?: Prisma.AgentSetupPlanUncheckedUpdateManyWithoutConnectionNestedInput
 }
 
 export type AgentConnectionCreateWithoutOperationActionsInput = {
@@ -1146,6 +1291,7 @@ export type AgentConnectionCreateWithoutOperationActionsInput = {
   workosIdentity: Prisma.WorkosIdentityCreateNestedOneWithoutConnectionsInput
   operations?: Prisma.AgentSkillOperationCreateNestedManyWithoutConnectionInput
   rateLimitBuckets?: Prisma.AgentRateLimitBucketCreateNestedManyWithoutConnectionInput
+  setupPlans?: Prisma.AgentSetupPlanCreateNestedManyWithoutConnectionInput
 }
 
 export type AgentConnectionUncheckedCreateWithoutOperationActionsInput = {
@@ -1170,6 +1316,7 @@ export type AgentConnectionUncheckedCreateWithoutOperationActionsInput = {
   updatedAt?: Date | string
   operations?: Prisma.AgentSkillOperationUncheckedCreateNestedManyWithoutConnectionInput
   rateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedCreateNestedManyWithoutConnectionInput
+  setupPlans?: Prisma.AgentSetupPlanUncheckedCreateNestedManyWithoutConnectionInput
 }
 
 export type AgentConnectionCreateOrConnectWithoutOperationActionsInput = {
@@ -1210,6 +1357,7 @@ export type AgentConnectionUpdateWithoutOperationActionsInput = {
   workosIdentity?: Prisma.WorkosIdentityUpdateOneRequiredWithoutConnectionsNestedInput
   operations?: Prisma.AgentSkillOperationUpdateManyWithoutConnectionNestedInput
   rateLimitBuckets?: Prisma.AgentRateLimitBucketUpdateManyWithoutConnectionNestedInput
+  setupPlans?: Prisma.AgentSetupPlanUpdateManyWithoutConnectionNestedInput
 }
 
 export type AgentConnectionUncheckedUpdateWithoutOperationActionsInput = {
@@ -1234,6 +1382,7 @@ export type AgentConnectionUncheckedUpdateWithoutOperationActionsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   operations?: Prisma.AgentSkillOperationUncheckedUpdateManyWithoutConnectionNestedInput
   rateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedUpdateManyWithoutConnectionNestedInput
+  setupPlans?: Prisma.AgentSetupPlanUncheckedUpdateManyWithoutConnectionNestedInput
 }
 
 export type AgentConnectionCreateWithoutRateLimitBucketsInput = {
@@ -1258,6 +1407,7 @@ export type AgentConnectionCreateWithoutRateLimitBucketsInput = {
   workosIdentity: Prisma.WorkosIdentityCreateNestedOneWithoutConnectionsInput
   operations?: Prisma.AgentSkillOperationCreateNestedManyWithoutConnectionInput
   operationActions?: Prisma.AgentOperationActionCreateNestedManyWithoutConnectionInput
+  setupPlans?: Prisma.AgentSetupPlanCreateNestedManyWithoutConnectionInput
 }
 
 export type AgentConnectionUncheckedCreateWithoutRateLimitBucketsInput = {
@@ -1282,6 +1432,7 @@ export type AgentConnectionUncheckedCreateWithoutRateLimitBucketsInput = {
   updatedAt?: Date | string
   operations?: Prisma.AgentSkillOperationUncheckedCreateNestedManyWithoutConnectionInput
   operationActions?: Prisma.AgentOperationActionUncheckedCreateNestedManyWithoutConnectionInput
+  setupPlans?: Prisma.AgentSetupPlanUncheckedCreateNestedManyWithoutConnectionInput
 }
 
 export type AgentConnectionCreateOrConnectWithoutRateLimitBucketsInput = {
@@ -1322,6 +1473,7 @@ export type AgentConnectionUpdateWithoutRateLimitBucketsInput = {
   workosIdentity?: Prisma.WorkosIdentityUpdateOneRequiredWithoutConnectionsNestedInput
   operations?: Prisma.AgentSkillOperationUpdateManyWithoutConnectionNestedInput
   operationActions?: Prisma.AgentOperationActionUpdateManyWithoutConnectionNestedInput
+  setupPlans?: Prisma.AgentSetupPlanUpdateManyWithoutConnectionNestedInput
 }
 
 export type AgentConnectionUncheckedUpdateWithoutRateLimitBucketsInput = {
@@ -1346,6 +1498,7 @@ export type AgentConnectionUncheckedUpdateWithoutRateLimitBucketsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   operations?: Prisma.AgentSkillOperationUncheckedUpdateManyWithoutConnectionNestedInput
   operationActions?: Prisma.AgentOperationActionUncheckedUpdateManyWithoutConnectionNestedInput
+  setupPlans?: Prisma.AgentSetupPlanUncheckedUpdateManyWithoutConnectionNestedInput
 }
 
 export type AgentConnectionCreateManyUserInput = {
@@ -1391,6 +1544,7 @@ export type AgentConnectionUpdateWithoutUserInput = {
   operations?: Prisma.AgentSkillOperationUpdateManyWithoutConnectionNestedInput
   operationActions?: Prisma.AgentOperationActionUpdateManyWithoutConnectionNestedInput
   rateLimitBuckets?: Prisma.AgentRateLimitBucketUpdateManyWithoutConnectionNestedInput
+  setupPlans?: Prisma.AgentSetupPlanUpdateManyWithoutConnectionNestedInput
 }
 
 export type AgentConnectionUncheckedUpdateWithoutUserInput = {
@@ -1415,6 +1569,7 @@ export type AgentConnectionUncheckedUpdateWithoutUserInput = {
   operations?: Prisma.AgentSkillOperationUncheckedUpdateManyWithoutConnectionNestedInput
   operationActions?: Prisma.AgentOperationActionUncheckedUpdateManyWithoutConnectionNestedInput
   rateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedUpdateManyWithoutConnectionNestedInput
+  setupPlans?: Prisma.AgentSetupPlanUncheckedUpdateManyWithoutConnectionNestedInput
 }
 
 export type AgentConnectionUncheckedUpdateManyWithoutUserInput = {
@@ -1480,6 +1635,7 @@ export type AgentConnectionUpdateWithoutWorkosIdentityInput = {
   operations?: Prisma.AgentSkillOperationUpdateManyWithoutConnectionNestedInput
   operationActions?: Prisma.AgentOperationActionUpdateManyWithoutConnectionNestedInput
   rateLimitBuckets?: Prisma.AgentRateLimitBucketUpdateManyWithoutConnectionNestedInput
+  setupPlans?: Prisma.AgentSetupPlanUpdateManyWithoutConnectionNestedInput
 }
 
 export type AgentConnectionUncheckedUpdateWithoutWorkosIdentityInput = {
@@ -1503,6 +1659,7 @@ export type AgentConnectionUncheckedUpdateWithoutWorkosIdentityInput = {
   operations?: Prisma.AgentSkillOperationUncheckedUpdateManyWithoutConnectionNestedInput
   operationActions?: Prisma.AgentOperationActionUncheckedUpdateManyWithoutConnectionNestedInput
   rateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedUpdateManyWithoutConnectionNestedInput
+  setupPlans?: Prisma.AgentSetupPlanUncheckedUpdateManyWithoutConnectionNestedInput
 }
 
 export type AgentConnectionUncheckedUpdateManyWithoutWorkosIdentityInput = {
@@ -1534,12 +1691,14 @@ export type AgentConnectionCountOutputType = {
   operations: number
   operationActions: number
   rateLimitBuckets: number
+  setupPlans: number
 }
 
 export type AgentConnectionCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   operations?: boolean | AgentConnectionCountOutputTypeCountOperationsArgs
   operationActions?: boolean | AgentConnectionCountOutputTypeCountOperationActionsArgs
   rateLimitBuckets?: boolean | AgentConnectionCountOutputTypeCountRateLimitBucketsArgs
+  setupPlans?: boolean | AgentConnectionCountOutputTypeCountSetupPlansArgs
 }
 
 /**
@@ -1573,6 +1732,13 @@ export type AgentConnectionCountOutputTypeCountRateLimitBucketsArgs<ExtArgs exte
   where?: Prisma.AgentRateLimitBucketWhereInput
 }
 
+/**
+ * AgentConnectionCountOutputType without action
+ */
+export type AgentConnectionCountOutputTypeCountSetupPlansArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.AgentSetupPlanWhereInput
+}
+
 
 export type AgentConnectionSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -1599,6 +1765,7 @@ export type AgentConnectionSelect<ExtArgs extends runtime.Types.Extensions.Inter
   operations?: boolean | Prisma.AgentConnection$operationsArgs<ExtArgs>
   operationActions?: boolean | Prisma.AgentConnection$operationActionsArgs<ExtArgs>
   rateLimitBuckets?: boolean | Prisma.AgentConnection$rateLimitBucketsArgs<ExtArgs>
+  setupPlans?: boolean | Prisma.AgentConnection$setupPlansArgs<ExtArgs>
   _count?: boolean | Prisma.AgentConnectionCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["agentConnection"]>
 
@@ -1679,6 +1846,7 @@ export type AgentConnectionInclude<ExtArgs extends runtime.Types.Extensions.Inte
   operations?: boolean | Prisma.AgentConnection$operationsArgs<ExtArgs>
   operationActions?: boolean | Prisma.AgentConnection$operationActionsArgs<ExtArgs>
   rateLimitBuckets?: boolean | Prisma.AgentConnection$rateLimitBucketsArgs<ExtArgs>
+  setupPlans?: boolean | Prisma.AgentConnection$setupPlansArgs<ExtArgs>
   _count?: boolean | Prisma.AgentConnectionCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type AgentConnectionIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1698,6 +1866,7 @@ export type $AgentConnectionPayload<ExtArgs extends runtime.Types.Extensions.Int
     operations: Prisma.$AgentSkillOperationPayload<ExtArgs>[]
     operationActions: Prisma.$AgentOperationActionPayload<ExtArgs>[]
     rateLimitBuckets: Prisma.$AgentRateLimitBucketPayload<ExtArgs>[]
+    setupPlans: Prisma.$AgentSetupPlanPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -2118,6 +2287,7 @@ export interface Prisma__AgentConnectionClient<T, Null = never, ExtArgs extends 
   operations<T extends Prisma.AgentConnection$operationsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.AgentConnection$operationsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AgentSkillOperationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   operationActions<T extends Prisma.AgentConnection$operationActionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.AgentConnection$operationActionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AgentOperationActionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   rateLimitBuckets<T extends Prisma.AgentConnection$rateLimitBucketsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.AgentConnection$rateLimitBucketsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AgentRateLimitBucketPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  setupPlans<T extends Prisma.AgentConnection$setupPlansArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.AgentConnection$setupPlansArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AgentSetupPlanPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -2636,6 +2806,30 @@ export type AgentConnection$rateLimitBucketsArgs<ExtArgs extends runtime.Types.E
   take?: number
   skip?: number
   distinct?: Prisma.AgentRateLimitBucketScalarFieldEnum | Prisma.AgentRateLimitBucketScalarFieldEnum[]
+}
+
+/**
+ * AgentConnection.setupPlans
+ */
+export type AgentConnection$setupPlansArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the AgentSetupPlan
+   */
+  select?: Prisma.AgentSetupPlanSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the AgentSetupPlan
+   */
+  omit?: Prisma.AgentSetupPlanOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.AgentSetupPlanInclude<ExtArgs> | null
+  where?: Prisma.AgentSetupPlanWhereInput
+  orderBy?: Prisma.AgentSetupPlanOrderByWithRelationInput | Prisma.AgentSetupPlanOrderByWithRelationInput[]
+  cursor?: Prisma.AgentSetupPlanWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.AgentSetupPlanScalarFieldEnum | Prisma.AgentSetupPlanScalarFieldEnum[]
 }
 
 /**

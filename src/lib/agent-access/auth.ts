@@ -11,10 +11,19 @@ import { getPrisma } from "@/lib/prisma";
 
 export const AGENT_ACCESS_SCOPES = [
   "skills:create",
+  "skills:read",
+  "skills:write",
+  "collections:read",
+  "collections:write",
   "materials:read",
   "sources:upload",
   "practice:read",
   "practice:write",
+  "reminders:read",
+  "reminders:write",
+  "progress:read",
+  "setup:read",
+  "setup:write",
 ] as const;
 
 export type AgentAccessScope = (typeof AGENT_ACCESS_SCOPES)[number];
@@ -49,6 +58,8 @@ export type AgentAuthContext = AgentAccessTokenClaims & {
   clientName: string;
   clientDomain: string;
   resourceUrl: string;
+  /** Permission version observed while authenticating the bearer token. */
+  permissionVersion?: number;
 };
 
 export class AgentAccessAuthorizationError extends Error {
@@ -264,6 +275,7 @@ export async function verifyAgentBearerToken(
         workosSessionId: context.sessionId,
         clientName: context.clientName,
         clientDomain: context.clientDomain,
+        permissionVersion: context.permissionVersion,
       },
     };
   } catch (error) {
@@ -277,6 +289,7 @@ export async function verifyAgentBearerToken(
 export function requireAgentAuthContext(
   authInfo: McpAuthInfo | undefined,
   requiredScopes: readonly AgentAccessScope[],
+  alternativeScopeSets: readonly (readonly AgentAccessScope[])[] = [],
 ): AgentAuthContext {
   if (!authInfo) {
     throw new AgentAccessAuthorizationError(
@@ -284,11 +297,18 @@ export function requireAgentAuthContext(
       "Connect LearnRecur and approve the required permissions.",
     );
   }
-  const missingScope = requiredScopes.find((scope) => !authInfo.scopes.includes(scope));
-  if (missingScope) {
+  const scopeSets = alternativeScopeSets.length > 0
+    ? alternativeScopeSets
+    : [requiredScopes];
+  const hasRequiredScopeSet = scopeSets.some((scopeSet) =>
+    scopeSet.every((scope) => authInfo.scopes.includes(scope)),
+  );
+  if (!hasRequiredScopeSet) {
+    const missingScope = scopeSets[0]?.find((scope) => !authInfo.scopes.includes(scope))
+      ?? requiredScopes[0];
     throw new AgentAccessAuthorizationError(
       "permission_denied",
-      `Agent permission ${missingScope} is required.`,
+      `Agent permission ${missingScope ?? "for this operation"} is required.`,
     );
   }
   const value = z
@@ -299,6 +319,7 @@ export function requireAgentAuthContext(
       workosSessionId: z.string().min(1),
       clientName: z.string().min(1),
       clientDomain: z.string().min(1),
+      permissionVersion: z.number().int().positive().optional(),
     })
     .parse(authInfo.extra);
   if (!authInfo.resource || typeof authInfo.expiresAt !== "number") {
@@ -313,6 +334,7 @@ export function requireAgentAuthContext(
     clientName: value.clientName,
     clientDomain: value.clientDomain,
     resourceUrl: authInfo.resource.toString(),
+    permissionVersion: value.permissionVersion,
     expiresAt: authInfo.expiresAt,
     scopes: authInfo.scopes.filter(
       (scope): scope is AgentAccessScope =>
@@ -416,6 +438,7 @@ async function resolveAgentAuthContext(
     clientName: connection.clientName,
     clientDomain: connection.clientDomain,
     resourceUrl: connection.resourceUrl,
+    permissionVersion: config.permissionVersion,
   };
 }
 

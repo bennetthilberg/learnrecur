@@ -1,4 +1,9 @@
-import { AnswerKind, type FsrsRating, type SkillFsrsState } from "@/generated/prisma/enums";
+import {
+  AnswerKind,
+  type ExerciseType,
+  type FsrsRating,
+  type SkillFsrsState,
+} from "@/generated/prisma/enums";
 
 export type PracticeAnswerCheckResult = {
   status: "correct" | "incorrect" | "invalid-input" | "invalid-spec" | "unsupported";
@@ -139,5 +144,76 @@ export type ChoicePracticeSeedResult =
     }
   | {
       status: "disabled" | "error";
+      message: string;
+    };
+
+export type CustomPracticeSessionClientSummary = {
+  id: string;
+  mode: "PRACTICE_ONLY" | "SCHEDULED";
+  mixedReview: boolean;
+  status: "ACTIVE" | "STOPPED" | "COMPLETED";
+  targetCount: number;
+  completedCount: number;
+};
+
+export type CustomPracticeClientItem = {
+  itemKey: string;
+  exerciseId: string;
+  skillId: string;
+  skillTitle: string;
+  answerKind: AnswerKind;
+  exerciseType?: ExerciseType;
+  prompt: string;
+  choices: ChoiceOption[];
+  difficulty: number | null;
+  expectedSeconds: number | null;
+};
+
+export type CustomPracticeClientView =
+  | {
+      status: "ready";
+      session: CustomPracticeSessionClientSummary;
+      item: CustomPracticeClientItem;
+    }
+  | {
+      status: "completed" | "stopped" | "preparing" | "daily-limit" | "unavailable";
+      session?: CustomPracticeSessionClientSummary;
+      message: string;
+    };
+
+export type CustomPracticeClientPreviewResult =
+  | {
+      status: "checked";
+      answerCheck: PracticeAnswerCheckResult;
+      correctChoiceId: string | null;
+      correctAnswerDisplay: string;
+      explanation: string | null;
+    }
+  | {
+      status: "not-found" | "unavailable";
+      message: string;
+    };
+
+export type CustomPracticeClientCommitResult =
+  | {
+      status: "committed";
+      idempotent: boolean;
+      completedCount: number;
+      targetCount: number;
+      next: CustomPracticeClientView;
+    }
+  | {
+      status: "invalid-answer" | "not-found" | "conflict" | "not-presented" | "unavailable";
+      message: string;
+    };
+
+export type CustomPracticeSessionCreateResult =
+  | {
+      status: "ready" | "preparing";
+      sessionId: string;
+      message?: string;
+    }
+  | {
+      status: "unavailable";
       message: string;
     };

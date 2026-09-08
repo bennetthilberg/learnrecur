@@ -575,6 +575,7 @@ export type SkillDraftWriteResult =
 export type CreateSkillDraftInput = {
   userId: string;
   input: unknown;
+  transaction?: Prisma.TransactionClient;
 };
 
 export type UpdateSkillDraftInput = CreateSkillDraftInput & {
@@ -1807,9 +1808,7 @@ export async function updateSkillDraft(input: UpdateSkillDraftInput): Promise<Sk
     return normalized;
   }
 
-  const prisma = getPrisma();
-
-  return prisma.$transaction(async (tx) => {
+  const write = async (tx: Prisma.TransactionClient): Promise<SkillDraftWriteResult> => {
     await tx.$queryRaw`
       SELECT "id"
       FROM "users"
@@ -1859,13 +1858,16 @@ export async function updateSkillDraft(input: UpdateSkillDraftInput): Promise<Sk
       status: "updated",
       skill,
     };
-  });
+  };
+
+  return input.transaction ? write(input.transaction) : getPrisma().$transaction(write);
 }
 
 export async function updateSkillPracticeGuidance(input: {
   userId: string;
   skillId: string;
   input: unknown;
+  transaction?: Prisma.TransactionClient;
 }): Promise<
   | {
       status: "updated";
@@ -1888,7 +1890,7 @@ export async function updateSkillPracticeGuidance(input: {
     return normalized;
   }
 
-  const updateResult = await getPrisma().skill.updateMany({
+  const updateResult = await (input.transaction ?? getPrisma()).skill.updateMany({
     where: {
       id: input.skillId,
       userId: input.userId,
@@ -1914,6 +1916,66 @@ export async function updateSkillPracticeGuidance(input: {
     status: "updated",
     skillId: input.skillId,
   };
+}
+
+/**
+ * Update metadata that is safe to change after a skill has entered review.
+ * Objective meaning stays with the draft-only editor; moving a skill between
+ * collections invalidates future text inventory under the destination policy
+ * while leaving attempts, review logs, and FSRS state untouched.
+ */
+export async function updateSkillMetadata(input: {
+  userId: string;
+  skillId: string;
+  title?: string;
+  tags?: string[];
+  collectionId?: string | null;
+  transaction?: Prisma.TransactionClient;
+}): Promise<
+  | { status: "updated"; skillId: string; updatedAt: Date; collectionId: string | null; tags: string[] }
+  | { status: "not-found"; message: string }
+  | { status: "invalid"; message: string }
+> {
+  const write = async (tx: Prisma.TransactionClient) => {
+    await tx.$queryRaw`SELECT "id" FROM "users" WHERE "id" = ${input.userId} FOR UPDATE`;
+    await tx.$queryRaw`SELECT "id" FROM "skills" WHERE "id" = ${input.skillId} AND "userId" = ${input.userId} FOR UPDATE`;
+    const skill = await tx.skill.findFirst({
+      where: { id: input.skillId, userId: input.userId },
+      include: { collection: true },
+    });
+    if (!skill) return { status: "not-found" as const, message: "Skill was not found." };
+    if (skill.status === SkillStatus.ARCHIVED) {
+      return { status: "invalid" as const, message: "Archived skills cannot be edited." };
+    }
+    let nextCollection = skill.collection;
+    if (input.collectionId !== undefined) {
+      nextCollection = input.collectionId
+        ? await tx.collection.findFirst({ where: { id: input.collectionId, userId: input.userId, status: CollectionStatus.ACTIVE } })
+        : null;
+      if (input.collectionId && !nextCollection) {
+        return { status: "invalid" as const, message: "The destination collection was not found or is archived." };
+      }
+    }
+    const previousPolicy = resolveTextPolicy({ skill: skill.textPolicy, collection: skill.collection?.textPolicy });
+    const nextPolicy = resolveTextPolicy({ skill: skill.textPolicy, collection: nextCollection?.textPolicy });
+    if (
+      input.collectionId !== undefined &&
+      (skill.collectionId !== (nextCollection?.id ?? null) || JSON.stringify(previousPolicy) !== JSON.stringify(nextPolicy))
+    ) {
+      await invalidateTextInventory(tx, input.userId, [skill.id], new Date());
+    }
+    const updated = await tx.skill.update({
+      where: { id: skill.id },
+      data: {
+        ...(input.title === undefined ? {} : { title: input.title }),
+        ...(input.tags === undefined ? {} : { tags: input.tags }),
+        ...(input.collectionId === undefined ? {} : { collectionId: nextCollection?.id ?? null }),
+      },
+      select: { id: true, updatedAt: true, collectionId: true, tags: true },
+    });
+    return { status: "updated" as const, skillId: updated.id, updatedAt: updated.updatedAt, collectionId: updated.collectionId, tags: updated.tags };
+  };
+  return input.transaction ? write(input.transaction) : getPrisma().$transaction(write);
 }
 
 export async function createSkillDraftFromSource(

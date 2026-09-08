@@ -12,6 +12,7 @@ import { getPrisma } from "@/lib/prisma";
 export type SkillLifecycleInput = {
   userId: string;
   skillId: string;
+  transaction?: Prisma.TransactionClient;
 };
 
 export type SkillLifecycleUpdatedResult = {
@@ -90,7 +91,7 @@ export async function archiveSkill(input: SkillLifecycleInput): Promise<SkillLif
 export async function restoreArchivedSkill(
   input: SkillLifecycleInput,
 ): Promise<SkillLifecycleResult> {
-  const prisma = getPrisma();
+  const prisma = input.transaction ?? getPrisma();
   const skill = await prisma.skill.findFirst({
     where: {
       id: input.skillId,
@@ -169,12 +170,13 @@ export async function restoreArchivedSkill(
 async function transitionSkill(input: {
   userId: string;
   skillId: string;
+  transaction?: Prisma.TransactionClient;
   allowedStatuses: readonly SkillStatus[];
   nextStatus: SkillStatus;
   successMessage: string;
   invalidMessage: string;
 }): Promise<SkillLifecycleResult> {
-  const prisma = getPrisma();
+  const prisma = input.transaction ?? getPrisma();
   const skill = await prisma.skill.findFirst({
     where: {
       id: input.skillId,

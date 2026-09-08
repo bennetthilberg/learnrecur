@@ -9,6 +9,7 @@
  * 🟢 You can import this file directly.
  */
 export type * from './models/User'
+export type * from './models/PracticeSession'
 export type * from './models/AccountDeletionJob'
 export type * from './models/Collection'
 export type * from './models/SourceFile'
@@ -33,6 +34,7 @@ export type * from './models/ReminderPreference'
 export type * from './models/ReminderSendLog'
 export type * from './models/WorkosIdentity'
 export type * from './models/AgentConnection'
+export type * from './models/AgentSetupPlan'
 export type * from './models/AgentSkillOperation'
 export type * from './models/AgentOperationAction'
 export type * from './models/AgentOperationSource'

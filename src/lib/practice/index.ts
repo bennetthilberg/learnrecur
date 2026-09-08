@@ -243,6 +243,8 @@ export type PreviewPracticeAnswerInput = {
   now?: Date;
   answerKinds?: readonly AnswerKind[];
   collectionId?: string | null;
+  expectedSkillId?: string;
+  allowNotDue?: boolean;
 };
 
 export type CommitPracticeReviewInput = PreviewPracticeAnswerInput & {
@@ -251,6 +253,14 @@ export type CommitPracticeReviewInput = PreviewPracticeAnswerInput & {
   reducedRuleCues?: boolean;
   manualRating?: FsrsRating | null;
   reviewedAt: Date;
+  /** Custom scheduled sessions keep the normal due-only admission rule. */
+  expectedSkillId?: string;
+  allowNotDue?: boolean;
+  sessionContext?: {
+    sessionId: string;
+    sessionMode: "PRACTICE_ONLY" | "SCHEDULED";
+    exposure: "PRACTICE_ONLY" | "SCHEDULED";
+  };
 };
 
 export type FlagPracticeExerciseInput = {
@@ -269,6 +279,7 @@ export type FlagPracticeExerciseAndQueueRefillInput = FlagPracticeExerciseInput 
 
 type PracticeSkillRecord = SkillScheduleFields & {
   alreadyStudied?: boolean;
+  desiredRetention?: number | null;
   practicePreference?: PracticePreference;
   tags?: MixedReviewSkill["tags"];
   objective?: string | null;
@@ -431,8 +442,6 @@ export async function previewPracticeAnswer(
         skillWhere:
           allowance.remaining === 0 ? previouslyIntroducedSkillWhere : {},
       });
-      if (selected)
-        await recordSkillIntroduction(tx, input.userId, selected.skillId, now);
       return selected;
     },
     { timeout: 15_000 },
@@ -489,6 +498,143 @@ export async function commitPracticeReview(
 
     throw error;
   }
+}
+
+export type CommitPracticeOnlyAttemptInput = {
+  userId: string;
+  exerciseId: string;
+  expectedSkillId: string;
+  attemptId: string;
+  submittedAnswer: PracticeSubmittedAnswer;
+  responseMs?: number | null;
+  now: Date;
+  answerKinds?: readonly AnswerKind[];
+  collectionId?: string | null;
+  mixedReview?: boolean;
+  reducedRuleCues?: boolean;
+  sessionContext: {
+    sessionId: string;
+    sessionMode: "PRACTICE_ONLY";
+    exposure: "PRACTICE_ONLY";
+  };
+};
+
+export type PracticeOnlyAttemptCommitResult =
+  | {
+      status: "committed";
+      idempotent: boolean;
+      answerCheck: AnswerCheckResult;
+      attempt: PracticeAttemptSummary;
+    }
+  | Extract<PracticeReviewCommitResult, { status: "not-committed" | "not-found" | "conflict" }>;
+
+/**
+ * Record an honest practice-only exposure without advancing the scheduler.
+ * Callers that own a custom session transaction must invoke this helper inside
+ * that transaction; the deterministic attempt ID makes retries converge.
+ */
+export async function commitPracticeOnlyAttemptInTransaction(
+  tx: Prisma.TransactionClient,
+  input: CommitPracticeOnlyAttemptInput,
+): Promise<PracticeOnlyAttemptCommitResult> {
+  const existingAttempt = await tx.exerciseAttempt.findUnique({
+    where: { id: input.attemptId },
+  });
+
+  if (existingAttempt) {
+    if (
+      existingAttempt.userId !== input.userId ||
+      existingAttempt.exerciseId !== input.exerciseId ||
+      existingAttempt.skillId !== input.expectedSkillId
+    ) {
+      return {
+        status: "conflict",
+        reason: "attempt-id-conflict",
+        message: "Attempt ID has already been used for a different practice item.",
+      };
+    }
+
+    return {
+      status: "committed",
+      idempotent: true,
+      answerCheck: {
+        status: existingAttempt.isCorrect ? "correct" : "incorrect",
+        isCorrect: existingAttempt.isCorrect,
+        normalizedAnswer: existingAttempt.normalizedAnswer,
+      },
+      attempt: toPracticeAttemptSummary(existingAttempt),
+    };
+  }
+
+  const exercise = await findEligibleExercise(tx, {
+    userId: input.userId,
+    exerciseId: input.exerciseId,
+    skillId: input.expectedSkillId,
+    now: input.now,
+    answerKinds: input.answerKinds,
+    collectionId: input.collectionId,
+    allowNotDue: true,
+    // Presentation records an introduction before this path is reachable.
+    // Use the full previously-introduced predicate so legacy reviewed skills
+    // that predate firstIntroducedAt remain eligible without bypassing the
+    // daily allowance for genuinely new skills.
+    skillWhere: previouslyIntroducedSkillWhere,
+  });
+
+  if (!exercise) {
+    return exerciseNotFound();
+  }
+
+  const answerCheck = checkAnswer({
+    answerSpec: exercise.answerSpec,
+    choices: exercise.choices,
+    submittedAnswer: input.submittedAnswer,
+  });
+
+  if (answerCheck.status !== "correct" && answerCheck.status !== "incorrect") {
+    return {
+      status: "not-committed",
+      answerCheck,
+      reason: "invalid-answer",
+      message: "Answer was checked but is not commit-ready.",
+    };
+  }
+
+  const attempt = await tx.exerciseAttempt.create({
+    data: {
+      id: input.attemptId,
+      userId: input.userId,
+      skillId: exercise.skillId,
+      exerciseId: exercise.id,
+      answer: toStoredAnswer(input.submittedAnswer),
+      normalizedAnswer: answerCheck.normalizedAnswer,
+      isCorrect: answerCheck.isCorrect,
+      result: answerCheck.isCorrect
+        ? ExerciseAttemptResult.CORRECT
+        : ExerciseAttemptResult.INCORRECT,
+      responseMs: input.responseMs ?? null,
+      ratingPolicyVersion: "practice-only-v1",
+      practiceContext: practiceContextSchema.parse({
+        version: 1,
+        answerMode: exercise.answerKind,
+        mixedReview: input.mixedReview ?? false,
+        reducedRuleCues: input.reducedRuleCues ?? false,
+        assistance: "none",
+        ...input.sessionContext,
+      }),
+      answerPolicySnapshot: exercise.answerSpec as Prisma.InputJsonValue,
+      proposedRating: null,
+      finalRating: null,
+      feedbackShownAt: input.now,
+    },
+  });
+
+  return {
+    status: "committed",
+    idempotent: false,
+    answerCheck,
+    attempt: toPracticeAttemptSummary(attempt),
+  };
 }
 
 export async function flagPracticeExercise(
@@ -784,7 +930,7 @@ function toPracticeFlagRefillResult(result: RefillQueueResult): PracticeFlagRefi
   };
 }
 
-async function commitPracticeReviewInTransaction(
+export async function commitPracticeReviewInTransaction(
   tx: Prisma.TransactionClient,
   input: CommitPracticeReviewInput,
 ): Promise<PracticeReviewCommitResult> {
@@ -808,6 +954,8 @@ async function commitPracticeReviewInTransaction(
     skillWhere: allowance.remaining === 0 ? previouslyIntroducedSkillWhere : {},
     answerKinds: input.answerKinds,
     collectionId: input.collectionId,
+    skillId: input.expectedSkillId,
+    allowNotDue: input.allowNotDue,
   });
 
   if (!exercise) {
@@ -845,6 +993,7 @@ async function commitPracticeReviewInTransaction(
     current: exercise.skill,
     rating: finalRating,
     reviewedAt: input.reviewedAt,
+    desiredRetention: exercise.skill.desiredRetention,
   });
 
   const attempt = await tx.exerciseAttempt.create({
@@ -861,7 +1010,14 @@ async function commitPracticeReviewInTransaction(
         : ExerciseAttemptResult.INCORRECT,
       responseMs: input.responseMs ?? null,
       ratingPolicyVersion: RATING_POLICY_VERSION,
-      practiceContext: practiceContextSchema.parse({ version: 1, answerMode: exercise.answerKind, mixedReview: input.mixedReview ?? false, reducedRuleCues: input.reducedRuleCues ?? false, assistance: "none" }),
+      practiceContext: practiceContextSchema.parse({
+        version: 1,
+        answerMode: exercise.answerKind,
+        mixedReview: input.mixedReview ?? false,
+        reducedRuleCues: input.reducedRuleCues ?? false,
+        assistance: "none",
+        ...input.sessionContext,
+      }),
       answerPolicySnapshot: exercise.answerSpec as Prisma.InputJsonValue,
       proposedRating,
       finalRating,
@@ -992,9 +1148,11 @@ async function findEligibleExercise(
     previousSkillId?: string | null;
     userId: string;
     exerciseId?: string;
+    skillId?: string;
     now: Date;
     answerKinds?: readonly AnswerKind[];
     collectionId?: string | null;
+    allowNotDue?: boolean;
   },
 ): Promise<PracticeExerciseRecord | null> {
   const answerKinds = [...(input.answerKinds ?? SUPPORTED_ANSWER_KINDS)].filter(
@@ -1015,15 +1173,21 @@ async function findEligibleExercise(
       skill: {
         ...input.skillWhere,
         userId: input.userId,
+        ...(input.skillId ? { id: input.skillId } : {}),
         ...(input.collectionId ? { collectionId: input.collectionId } : {}),
         status: SkillStatus.ACTIVE,
-        dueAt: { lte: input.now },
+        ...(input.allowNotDue ? {} : { dueAt: { lte: input.now } }),
         stability: { not: null },
         difficulty: { not: null },
       },
     },
     include: {
-      skill: { include: { user: { select: { practicePreference: true } }, collection: { select: { practicePreference: true } } } },
+      skill: {
+        include: {
+          user: { select: { practicePreference: true, desiredRetention: true } },
+          collection: { select: { practicePreference: true } },
+        },
+      },
     },
   });
   const exerciseRecords = exercises
@@ -1264,6 +1428,7 @@ function toPracticeExerciseRecord(
   const skill = {
     ...toPracticeSkillRecordOrThrow(exercise.skill),
     alreadyStudied: exercise.skill.alreadyStudied,
+    desiredRetention: exercise.skill.user?.desiredRetention,
     tags: exercise.skill.tags,
     objective: exercise.skill.objective,
     practicePreference: resolvePracticePreference({
@@ -1451,7 +1616,7 @@ type RawEligibleExerciseRecord = Awaited<
     tags?: string[];
     objective?: string | null;
     practicePreference?: PracticePreference | null;
-    user?: { practicePreference: PracticePreference };
+    user?: { practicePreference: PracticePreference; desiredRetention: number | null };
     collection?: { practicePreference: PracticePreference | null } | null;
     id: string;
     title: string;

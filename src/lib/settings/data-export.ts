@@ -7,6 +7,7 @@ import type {
   AgentOperationKind,
   AgentOperationStatus,
   AgentRemoteRevocationStatus,
+  AgentSetupPlanStatus,
   AnswerKind,
   CollectionStatus,
   ExerciseAttemptResult,
@@ -29,6 +30,8 @@ import type {
   MaterialPageTextStatus,
   MaterialRevisionStatus,
   Prisma,
+  PracticeSessionMode,
+  PracticeSessionStatus,
   ReminderSendStatus,
   SkillDraftBatchItemStatus,
   SkillDraftBatchStatus,
@@ -42,7 +45,7 @@ import type {
 } from "@/generated/prisma/client";
 import { getPrisma } from "@/lib/prisma";
 
-export const STUDY_DATA_EXPORT_VERSION = 5;
+export const STUDY_DATA_EXPORT_VERSION = 6;
 const PRIVATE_SOURCE_METADATA_KEYS = new Set([
   "bucketName",
   "objectKey",
@@ -54,7 +57,7 @@ const PRIVATE_SOURCE_METADATA_KEYS = new Set([
 export type StudyDataExportResult =
   | {
       status: "ready";
-      export: StudyDataExportV4;
+      export: StudyDataExportV6;
       filename: string;
     }
   | {
@@ -62,7 +65,7 @@ export type StudyDataExportResult =
       message: string;
     };
 
-export type StudyDataExportV4 = {
+export type StudyDataExportV6 = {
   exportVersion: typeof STUDY_DATA_EXPORT_VERSION;
   generatedAt: string;
   user: ExportUser;
@@ -89,6 +92,8 @@ export type StudyDataExportV4 = {
   agentConnections: ExportAgentConnection[];
   agentOperations: ExportAgentOperation[];
   agentOperationItems: ExportAgentOperationItem[];
+  practiceSessions: ExportPracticeSession[];
+  agentSetupPlans: ExportAgentSetupPlan[];
 };
 
 export type ExportAgentConnection = {
@@ -146,9 +151,43 @@ export type ExportAgentOperationItem = {
   updatedAt: string;
 };
 
+export type ExportPracticeSession = {
+  id: string;
+  mode: PracticeSessionMode;
+  status: PracticeSessionStatus;
+  targetCount: number;
+  completedCount: number;
+  nextIndex: number;
+  version: number;
+  scope: Prisma.JsonValue;
+  plan: Prisma.JsonValue;
+  startedAt: string;
+  stoppedAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ExportAgentSetupPlan = {
+  id: string;
+  connectionId: string;
+  idempotencyKey: string;
+  payloadHash: string;
+  permissionVersion: number;
+  requestedSpec: Prisma.JsonValue;
+  snapshot: Prisma.JsonValue;
+  status: AgentSetupPlanStatus;
+  result: Prisma.JsonValue | null;
+  errors: Prisma.JsonValue | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type ExportUser = {
   dailyNewSkillLimit: number | null;
   practiceTimezone: string;
+  desiredRetention: number | null;
+  practiceDayStartMinutes: number;
   practicePreference: PracticePreference;
   mixedReview: boolean;
   id: string;
@@ -574,6 +613,8 @@ export async function getUserDataExport(input: {
       mixedReview: true,
       dailyNewSkillLimit: true,
       practiceTimezone: true,
+      desiredRetention: true,
+      practiceDayStartMinutes: true,
       id: true,
       email: true,
       name: true,
@@ -1058,6 +1099,42 @@ export async function getUserDataExport(input: {
           updatedAt: true,
         },
       },
+      practiceSessions: {
+        orderBy: { id: "asc" },
+        select: {
+          id: true,
+          mode: true,
+          status: true,
+          targetCount: true,
+          completedCount: true,
+          nextIndex: true,
+          version: true,
+          scope: true,
+          plan: true,
+          startedAt: true,
+          stoppedAt: true,
+          completedAt: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      },
+      agentSetupPlans: {
+        orderBy: { id: "asc" },
+        select: {
+          id: true,
+          connectionId: true,
+          idempotencyKey: true,
+          payloadHash: true,
+          permissionVersion: true,
+          requestedSpec: true,
+          snapshot: true,
+          status: true,
+          result: true,
+          errors: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      },
     },
   });
 
@@ -1068,7 +1145,7 @@ export async function getUserDataExport(input: {
     };
   }
 
-  const exportData: StudyDataExportV4 = {
+  const exportData: StudyDataExportV6 = {
     exportVersion: STUDY_DATA_EXPORT_VERSION,
     generatedAt: serializeExportDate(input.generatedAt),
     user: {
@@ -1076,6 +1153,8 @@ export async function getUserDataExport(input: {
       mixedReview: user.mixedReview,
       dailyNewSkillLimit: user.dailyNewSkillLimit,
       practiceTimezone: user.practiceTimezone,
+      desiredRetention: user.desiredRetention,
+      practiceDayStartMinutes: user.practiceDayStartMinutes,
       id: user.id,
       email: user.email,
       name: user.name,
@@ -1224,6 +1303,25 @@ export async function getUserDataExport(input: {
       completedAt: serializeExportDate(item.completedAt),
       createdAt: serializeExportDate(item.createdAt),
       updatedAt: serializeExportDate(item.updatedAt),
+    })),
+    practiceSessions: user.practiceSessions.map((session) => ({
+      ...session,
+      scope: sanitizeSourceFileMetadata(session.scope) ?? {},
+      plan: sanitizeSourceFileMetadata(session.plan) ?? [],
+      startedAt: serializeExportDate(session.startedAt),
+      stoppedAt: serializeExportDate(session.stoppedAt),
+      completedAt: serializeExportDate(session.completedAt),
+      createdAt: serializeExportDate(session.createdAt),
+      updatedAt: serializeExportDate(session.updatedAt),
+    })),
+    agentSetupPlans: user.agentSetupPlans.map((plan) => ({
+      ...plan,
+      requestedSpec: sanitizeSourceFileMetadata(plan.requestedSpec) ?? {},
+      snapshot: sanitizeSourceFileMetadata(plan.snapshot) ?? {},
+      result: sanitizeSourceFileMetadata(plan.result),
+      errors: sanitizeSourceFileMetadata(plan.errors),
+      createdAt: serializeExportDate(plan.createdAt),
+      updatedAt: serializeExportDate(plan.updatedAt),
     })),
   };
 

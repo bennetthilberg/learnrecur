@@ -75,6 +75,7 @@ export async function checkSourceStorageUsageLimit(input: {
   userId: string;
   byteSize: number;
   quickUploadsOnly?: boolean;
+  replaceSourceFileId?: string;
   prisma?: UsageLimitClient;
 }): Promise<UsageLimitResult> {
   const prisma = input.prisma ?? getPrisma();
@@ -83,6 +84,7 @@ export async function checkSourceStorageUsageLimit(input: {
       userId: input.userId,
       ...(input.quickUploadsOnly ? { materialRevisionId: null } : {}),
       storageKey: { not: null },
+      ...(input.replaceSourceFileId ? { id: { not: input.replaceSourceFileId } } : {}),
     },
     _sum: { byteSize: true },
   });

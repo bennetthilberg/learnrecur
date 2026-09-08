@@ -194,6 +194,10 @@ suite("MCP practice settings HTTP and persistence", () => {
       "practice.list_targets",
       "practice.get_settings",
       "practice.update_settings",
+      "practice.sessions.create",
+      "practice.sessions.get",
+      "practice.sessions.stop",
+      "practice.sessions.resume",
     ]);
     expect(tools[0]._meta.securitySchemes[0].scopes).toEqual(["practice:read"]);
     expect(tools[1].annotations.readOnlyHint).toBe(true);
@@ -238,7 +242,14 @@ suite("MCP practice settings HTTP and persistence", () => {
           { practicePreference: "RECALL_FIRST", mixedReview: true },
         )
       ).structuredContent.settings,
-    ).toEqual({ practicePreference: "RECALL_FIRST", mixedReview: true, dailyNewSkillLimit: null, practiceTimezone: "UTC" });
+    ).toEqual({
+      practicePreference: "RECALL_FIRST",
+      mixedReview: true,
+      dailyNewSkillLimit: null,
+      practiceTimezone: "UTC",
+      desiredRetention: null,
+      practiceDayStartMinutes: 0,
+    });
     expect(
       (
         await call("practice.get_settings", {
@@ -301,6 +312,8 @@ suite("MCP practice settings HTTP and persistence", () => {
       mixedReview: false,
       dailyNewSkillLimit: null,
       practiceTimezone: "UTC",
+      desiredRetention: null,
+      practiceDayStartMinutes: 0,
     });
   });
 

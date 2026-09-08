@@ -75,11 +75,12 @@ async function resolveValidatedPublicHttpsUrl(
     throw new Error("Website URLs cannot contain credentials.");
   }
 
-  if (!url.hostname || url.hostname === "localhost" || url.hostname.endsWith(".local")) {
+  const hostname = url.hostname.replace(/^\[|\]$/g, "");
+  if (!hostname || hostname === "localhost" || hostname.endsWith(".local")) {
     throw new Error("Website imports must use a public internet address.");
   }
 
-  const addresses = isIP(url.hostname) ? [url.hostname] : await resolveHostname(url.hostname);
+  const addresses = isIP(hostname) ? [hostname] : await resolveHostname(hostname);
 
   if (addresses.length === 0 || addresses.some(isPrivateOrReservedAddress)) {
     throw new Error("Website imports must use a public internet address.");
@@ -367,8 +368,9 @@ async function resolvePublicAddresses(hostname: string) {
 function isPrivateOrReservedAddress(address: string) {
   const normalized = address.toLowerCase().split("%")[0];
 
-  if (normalized.startsWith("::ffff:")) {
-    return isPrivateOrReservedAddress(normalized.slice("::ffff:".length));
+  const mappedIpv4 = extractIpv4MappedAddress(normalized);
+  if (mappedIpv4) {
+    return isPrivateOrReservedAddress(mappedIpv4);
   }
 
   if (isIP(normalized) === 4) {
@@ -399,6 +401,64 @@ function isPrivateOrReservedAddress(address: string) {
   }
 
   return true;
+}
+
+/**
+ * URL normalizes dotted IPv4-mapped literals (for example, ::ffff:127.0.0.1)
+ * into hexadecimal IPv6 groups. Decode the complete mapped range before
+ * applying the IPv4 private/reserved-address checks.
+ */
+function extractIpv4MappedAddress(address: string) {
+  if (isIP(address) !== 6) return null;
+
+  const compressionIndex = address.indexOf("::");
+  if (
+    compressionIndex !== -1 &&
+    address.indexOf("::", compressionIndex + 2) !== -1
+  ) {
+    return null;
+  }
+
+  const parseGroups = (part: string) => {
+    if (!part) return [] as number[];
+    const groups: number[] = [];
+    for (const value of part.split(":")) {
+      if (isIP(value) === 4) {
+        const octets = value.split(".").map(Number);
+        groups.push((octets[0] << 8) | octets[1], (octets[2] << 8) | octets[3]);
+        continue;
+      }
+      if (!/^[0-9a-f]{1,4}$/i.test(value)) return null;
+      groups.push(Number.parseInt(value, 16));
+    }
+    return groups;
+  };
+
+  const leftText = compressionIndex === -1
+    ? address
+    : address.slice(0, compressionIndex);
+  const rightText = compressionIndex === -1
+    ? ""
+    : address.slice(compressionIndex + 2);
+  const left = parseGroups(leftText);
+  const right = parseGroups(rightText);
+  if (!left || !right) return null;
+
+  const groups = compressionIndex === -1
+    ? [...left]
+    : [...left, ...Array.from({ length: 8 - left.length - right.length }, () => 0), ...right];
+  if (groups.length !== 8 || groups.some((group) => group < 0 || group > 0xffff)) {
+    return null;
+  }
+
+  if (
+    !groups.slice(0, 5).every((group) => group === 0) ||
+    groups[5] !== 0xffff
+  ) {
+    return null;
+  }
+
+  return `${groups[6] >> 8}.${groups[6] & 0xff}.${groups[7] >> 8}.${groups[7] & 0xff}`;
 }
 
 async function readResponseBytes(body: AsyncIterable<Uint8Array> | null, maximumBytes: number) {

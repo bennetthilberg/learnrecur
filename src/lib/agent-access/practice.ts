@@ -2,6 +2,7 @@ import "server-only";
 import { isDeepStrictEqual } from "node:util";
 import { AgentRateLimitKind, type Prisma } from "@/generated/prisma/client";
 import type { AgentAccessScope, AgentAuthContext } from "./auth";
+import { withAgentMutation } from "./access";
 import { AgentOperationError, consumeRateLimit } from "./operations";
 import {
   agentGetPracticeSettingsSchema,
@@ -47,7 +48,7 @@ async function authorize(
       scopes: { has: scope },
       user: { agentAccessDisabledAt: null },
     },
-    select: { id: true },
+    select: { id: true, permissionVersion: true },
   });
   const deleting = await tx.accountDeletionJob.findUnique({
     where: { userId: auth.userId },
@@ -57,7 +58,8 @@ async function authorize(
     !connection ||
     deleting ||
     !auth.scopes.includes(scope) ||
-    auth.expiresAt <= Date.now() / 1000
+    auth.expiresAt <= Date.now() / 1000 ||
+    (auth.permissionVersion !== undefined && connection.permissionVersion !== auth.permissionVersion)
   ) {
     throw new AgentOperationError(
       "permission_denied",
@@ -124,7 +126,7 @@ async function loadSettings(
 ) {
   const user = await tx.user.findUniqueOrThrow({
     where: { id: userId },
-    select: { practicePreference: true, mixedReview: true, dailyNewSkillLimit: true, practiceTimezone: true },
+    select: { practicePreference: true, mixedReview: true, dailyNewSkillLimit: true, practiceTimezone: true, desiredRetention: true, practiceDayStartMinutes: true },
   });
   if (target.scope === "user")
     return { settings: user, user, collection: null };
@@ -202,6 +204,8 @@ function publicSettings(
       mixedReview: stored.user.mixedReview,
       dailyNewSkillLimit: stored.user.dailyNewSkillLimit,
       practiceTimezone: stored.user.practiceTimezone,
+      desiredRetention: stored.user.desiredRetention,
+      practiceDayStartMinutes: stored.user.practiceDayStartMinutes,
       textPolicy,
     },
     invalid_fields: invalidFields,
@@ -222,82 +226,82 @@ export async function getAgentPracticeSettings(
 export async function updateAgentPracticeSettings(
   auth: AgentAuthContext,
   rawInput: unknown,
+  transaction?: Prisma.TransactionClient,
 ): Promise<Record<string, unknown>> {
   const { target, changes } = agentUpdatePracticeSettingsSchema.parse(rawInput);
-  const result = await getPrisma().$transaction(
-    async (tx) => {
-      await authorize(tx, auth, "practice:write");
-      const stored = await loadSettings(tx, auth.userId, target);
-      const schema =
-        target.scope === "user"
-          ? userPracticePreferencesSchema
-          : target.scope === "collection"
-            ? collectionPracticePreferencesSchema
-            : skillPracticePreferencesSchema;
-      // Merge under the user lock so disjoint concurrent patches cannot overwrite
-      // one another. Never silently replace malformed stored policies with defaults.
-      const parsed = schema.safeParse({ ...stored.settings, ...changes });
-      if (!parsed.success)
-        throw new AgentOperationError(
-          "invalid_stored_settings",
-          "Repair the invalid stored setting by supplying an explicit textPolicy or null.",
-        );
-      const data = parsed.data;
-      const changed = !isDeepStrictEqual(data, stored.settings);
-      let skillIds: string[] = [];
-      let policyChanged = false;
-      if (changed) {
-        if (target.scope === "user")
-          await saveUserPracticePreferences(auth.userId, data, tx);
-        else {
-          const common = { userId: auth.userId, input: data, now: new Date() };
-          const saved =
-            target.scope === "skill"
-              ? await saveSkillPracticePreferences(
-                  { ...common, skillId: target.id },
-                  tx,
-                )
-              : await saveCollectionPracticePreferences(
-                  { ...common, collectionId: target.id },
-                  tx,
-                );
-          if (saved.status === "not-found") throw settingsNotFound();
-          if (saved.status === "too-large")
-            throw new AgentOperationError(
-              "collection_too_large",
-              "A text policy edit can affect at most 500 inheriting skills. Split this collection before changing its text policy.",
-            );
-          skillIds = saved.skillIds;
-          policyChanged = saved.policyChanged;
-        }
+  const write = async (tx: Prisma.TransactionClient) => {
+    const stored = await loadSettings(tx, auth.userId, target);
+    const schema =
+      target.scope === "user"
+        ? userPracticePreferencesSchema
+        : target.scope === "collection"
+          ? collectionPracticePreferencesSchema
+          : skillPracticePreferencesSchema;
+    // Merge under the user lock so disjoint concurrent patches cannot overwrite
+    // one another. Never silently replace malformed stored policies with defaults.
+    const parsed = schema.safeParse({ ...stored.settings, ...changes });
+    if (!parsed.success)
+      throw new AgentOperationError(
+        "invalid_stored_settings",
+        "Repair the invalid stored setting by supplying an explicit textPolicy or null.",
+      );
+    const data = parsed.data;
+    const changed = !isDeepStrictEqual(data, stored.settings);
+    let skillIds: string[] = [];
+    let policyChanged = false;
+    if (changed) {
+      if (target.scope === "user")
+        await saveUserPracticePreferences(auth.userId, data, tx);
+      else {
+        const common = { userId: auth.userId, input: data, now: new Date() };
+        const saved =
+          target.scope === "skill"
+            ? await saveSkillPracticePreferences(
+                { ...common, skillId: target.id },
+                tx,
+              )
+            : await saveCollectionPracticePreferences(
+                { ...common, collectionId: target.id },
+                tx,
+              );
+        if (saved.status === "not-found") throw settingsNotFound();
+        if (saved.status === "too-large")
+          throw new AgentOperationError(
+            "collection_too_large",
+            "A text policy edit can affect at most 500 inheriting skills. Split this collection before changing its text policy.",
+          );
+        skillIds = saved.skillIds;
+        policyChanged = saved.policyChanged;
       }
-      return {
-        response: {
-          status: "saved",
-          changed,
-          policy_changed: policyChanged,
-          ...publicSettings(
-            target,
-            await loadSettings(tx, auth.userId, target),
-          ),
-        },
-        skillIds,
-      };
-    },
-    { timeout: 15_000 },
-  );
+    }
+    return {
+      response: {
+        status: "saved",
+        changed,
+        policy_changed: policyChanged,
+        ...publicSettings(
+          target,
+          await loadSettings(tx, auth.userId, target),
+        ),
+      },
+      skillIds,
+    };
+  };
+  const result = await withAgentMutation(auth, "practice:write", write, transaction);
   // Same bounded refill path as the UI. A delivery failure does not turn an
   // already-committed setting into an apparent failed save or leak provider data.
-  let preparationDeferred = false;
-  for (const skillId of result.skillIds) {
-    try {
-      await queueRetentionPreparation({
-        userId: auth.userId,
-        skillId,
-        now: new Date(),
-      });
-    } catch {
-      preparationDeferred = true;
+  let preparationDeferred = transaction ? result.skillIds.length > 0 : false;
+  if (!transaction) {
+    for (const skillId of result.skillIds) {
+      try {
+        await queueRetentionPreparation({
+          userId: auth.userId,
+          skillId,
+          now: new Date(),
+        });
+      } catch {
+        preparationDeferred = true;
+      }
     }
   }
   return { ...result.response, preparation_deferred: preparationDeferred };

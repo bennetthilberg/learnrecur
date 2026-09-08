@@ -1165,14 +1165,6 @@ export type EnumSkillStatusFieldUpdateOperationsInput = {
   set?: $Enums.SkillStatus
 }
 
-export type NullableFloatFieldUpdateOperationsInput = {
-  set?: number | null
-  increment?: number
-  decrement?: number
-  multiply?: number
-  divide?: number
-}
-
 export type EnumSkillFsrsStateFieldUpdateOperationsInput = {
   set?: $Enums.SkillFsrsState
 }

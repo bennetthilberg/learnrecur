@@ -28,7 +28,34 @@ import {
   agentRetryOperationSchema,
   agentSearchMaterialExcerptsSchema,
   agentStartFilesSchema,
+  agentCollectionCreateSchema,
+  agentCollectionLifecycleSchema,
+  agentCollectionUpdateSchema,
+  agentCustomSessionCreateSchema,
+  agentCustomSessionGetSchema,
+  agentCustomSessionMutationSchema,
+  agentNeedsAttentionSchema,
+  agentProgressSummarySchema,
+  agentReadinessGetSchema,
+  agentReadinessRepairSchema,
+  agentReminderGetSchema,
+  agentReminderUpdateSchema,
+  agentSetupApplySchema,
+  agentSetupGetSchema,
+  agentSetupPreviewSchema,
+  agentSkillBatchUpdateSchema,
+  agentSkillGetSchema,
+  agentSkillLifecycleSchema,
+  agentSkillSearchSchema,
+  agentSkillUpdateSchema,
 } from "@/lib/agent-access/contracts";
+import {
+  agentCompleteMaterialUploadSchema,
+  agentGetMaterialStatusSchema,
+  agentImportMaterialUrlSchema,
+  agentPrepareMaterialUploadSchema,
+  agentRetryMaterialIngestionSchema,
+} from "@/lib/agent-access/material-ingestion-contracts";
 import {
   getAgentMaterialOutline,
   listAgentMaterials,
@@ -45,6 +72,29 @@ import {
   createAgentTextOperation,
   getAgentOperation,
 } from "@/lib/agent-access/operations";
+import {
+  getAgentSkill,
+  searchAgentSkills,
+  updateAgentSkill,
+  lifecycleAgentSkill,
+  batchUpdateAgentSkills,
+  createAgentCollection,
+  updateAgentCollection,
+  lifecycleAgentCollection,
+} from "@/lib/agent-access/library";
+import { getAgentReminders, updateAgentReminders } from "@/lib/agent-access/reminders";
+import { getAgentNeedsAttention, getAgentProgressSummary, getAgentReadiness, repairAgentReadiness } from "@/lib/agent-access/progress";
+import { applyAgentSetup, getAgentSetupPlan, previewAgentSetup } from "@/lib/agent-access/setup";
+import { createAgentCustomSession, getAgentCustomSession, resumeAgentCustomSession, stopAgentCustomSession } from "@/lib/agent-access/custom-sessions";
+import {
+  completeAgentMaterialUpload,
+  getAgentMaterialStatus,
+  getAgentMaterialOperationStatus,
+  importAgentMaterialUrl,
+  prepareAgentMaterialUpload,
+  retryAgentMaterialIngestion,
+} from "@/lib/agent-access/material-ingestion";
+import { AgentMaterialIngestionError } from "@/lib/agent-access/material-ingestion";
 import { agentGetPracticeSettingsSchema, agentListPracticeTargetsSchema, agentUpdatePracticeSettingsSchema } from "./practice-contracts";
 import { getAgentPracticeSettings, listAgentPracticeTargets, updateAgentPracticeSettings } from "./practice";
 
@@ -56,13 +106,224 @@ export function registerLearnRecurMcpTools(server: McpServer) {
   });
   registerTool(server, {
     name: "practice.get_settings", title: "Read practice settings",
-    description: "Read account defaults or owned collection/skill overrides and effective inherited settings. Null overrides inherit skill → collection → user → Balanced; text defaults to Natural. invalid_fields identifies malformed stored policies needing repair. Mixed review is the account default; a browser session can override it temporarily.",
+    description: "Read account settings plus owned collection/skill practice and text overrides with effective inherited values. Practice preference inheritance resolves skill → collection → user → Balanced; text defaults to Natural. User desiredRetention is an account-only nullable setting; null resolves to the 0.90 product default. invalid_fields identifies malformed stored policies needing repair. Mixed review is the account default; custom-session setup can select a per-session value.",
     schema: agentGetPracticeSettingsSchema, scopes: ["practice:read"], readOnly: true, handler: getAgentPracticeSettings,
   });
   registerTool(server, {
     name: "practice.update_settings", title: "Update practice settings",
-    description: "Patch only supplied settings. User: practicePreference (BALANCED or RECALL_FIRST), mixedReview, dailyNewSkillLimit (0-1000, null for unlimited; counts the first presented exercise per new skill, with scheduled follow-up reviews exempt), practiceTimezone (IANA timezone for midnight reset). Collection: nullable practicePreference and textPolicy. Skill: nullable practicePreference and textPolicy, alreadyStudied. Null restores inheritance. Text policies are version 2 Natural, Exact, or Custom case/whitespace rules; diacritics are always preserved. A policy change retires future text stock without regrading history or resetting schedules; up to 500 inheriting skills per collection edit. Preparation may be deferred until practice opens. Requires practice:write consent; creation permission alone is insufficient.",
+    description: "Patch only supplied settings. User: practicePreference, mixedReview, dailyNewSkillLimit, practiceTimezone, desiredRetention (0.70-0.99 or null for the ts-fsrs default), and practiceDayStartMinutes (0-1439). Collection: nullable practicePreference and textPolicy. Skill: nullable practicePreference and textPolicy, alreadyStudied. Null restores inheritance. A policy change retires future text stock without regrading history or resetting schedules. Requires practice:write consent; creation permission alone is insufficient.",
     schema: agentUpdatePracticeSettingsSchema, scopes: ["practice:write"], readOnly: false, handler: updateAgentPracticeSettings,
+  });
+  registerTool(server, {
+    name: "practice.sessions.create",
+    title: "Create a bounded practice session",
+    description: "Create a persisted practice-only or scheduled session from owned skills, collections, tags, or recent misses. Creation does not submit answers or fabricate review history.",
+    schema: agentCustomSessionCreateSchema,
+    scopes: ["practice:write"],
+    readOnly: false,
+    handler: createAgentCustomSession,
+  });
+  registerTool(server, {
+    name: "practice.sessions.get",
+    title: "Read a practice session",
+    description: "Read the persisted scope and bounded item status for one owned custom practice session without exposing answer keys.",
+    schema: agentCustomSessionGetSchema,
+    scopes: ["practice:read"],
+    readOnly: true,
+    handler: getAgentCustomSession,
+  });
+  registerTool(server, {
+    name: "practice.sessions.stop",
+    title: "Stop a practice session",
+    description: "Stop one owned custom practice session so it can be resumed later.",
+    schema: agentCustomSessionMutationSchema,
+    scopes: ["practice:write"],
+    readOnly: false,
+    handler: stopAgentCustomSession,
+  });
+  registerTool(server, {
+    name: "practice.sessions.resume",
+    title: "Resume a practice session",
+    description: "Resume one owned custom practice session without submitting a review answer.",
+    schema: agentCustomSessionMutationSchema,
+    scopes: ["practice:write"],
+    readOnly: false,
+    handler: resumeAgentCustomSession,
+  });
+  registerTool(server, {
+    name: "skills.search",
+    title: "Search the skill library",
+    description: "Search owned skills with objective, guidance, tags, source links, schedule readiness, and optional safe exercise previews. Reads do not reserve new-skill allowance or create review attempts.",
+    schema: agentSkillSearchSchema,
+    scopes: ["skills:read"],
+    readOnly: true,
+    handler: searchAgentSkills,
+  });
+  registerTool(server, {
+    name: "skills.get",
+    title: "Read a skill",
+    description: "Read one owned skill with objective, guidance, provenance links, schedule state, readiness, generation status, and safe previews that omit answer keys.",
+    schema: agentSkillGetSchema,
+    scopes: ["skills:read"],
+    readOnly: true,
+    handler: getAgentSkill,
+  });
+  registerTool(server, {
+    name: "skills.update",
+    title: "Update a skill",
+    description: "Update draft skill content or safe active metadata and guidance. Active objective meaning cannot be changed through this tool; create a new skill to preserve the original review history.",
+    schema: agentSkillUpdateSchema,
+    scopes: ["skills:write"],
+    readOnly: false,
+    handler: updateAgentSkill,
+  });
+  registerTool(server, {
+    name: "skills.lifecycle",
+    title: "Change skill lifecycle state",
+    description: "Pause, resume, archive, or restore one owned skill while preserving its review history.",
+    schema: agentSkillLifecycleSchema,
+    scopes: ["skills:write"],
+    readOnly: false,
+    handler: lifecycleAgentSkill,
+  });
+  for (const action of ["pause", "resume", "archive", "restore"] as const) {
+    registerTool(server, {
+      name: `skills.${action}`,
+      title: `${action[0].toUpperCase()}${action.slice(1)} a skill`,
+      description: `Safely ${action} one owned skill while preserving its review history.`,
+      schema: z.strictObject({ skill_id: z.string().trim().min(1).max(200) }),
+      scopes: ["skills:write"],
+      readOnly: false,
+      handler: (auth, input) => lifecycleAgentSkill(auth, { ...input, action }),
+    });
+  }
+  registerTool(server, {
+    name: "skills.batch_update",
+    title: "Move or tag skills in bulk",
+    description: "Move or tag up to 50 owned skills. Collection moves use the native policy invalidation path; stale siblings are reported individually without claiming success.",
+    schema: agentSkillBatchUpdateSchema,
+    scopes: ["skills:write"],
+    readOnly: false,
+    handler: batchUpdateAgentSkills,
+  });
+  registerTool(server, {
+    name: "collections.create",
+    title: "Create a collection",
+    description: "Create one owned active collection with a bounded name and description.",
+    schema: agentCollectionCreateSchema,
+    scopes: ["collections:write"],
+    readOnly: false,
+    handler: createAgentCollection,
+  });
+  registerTool(server, {
+    name: "collections.update",
+    title: "Update a collection",
+    description: "Update an owned collection with an optional updated_at concurrency check.",
+    schema: agentCollectionUpdateSchema,
+    scopes: ["collections:write"],
+    readOnly: false,
+    handler: updateAgentCollection,
+  });
+  registerTool(server, {
+    name: "collections.lifecycle",
+    title: "Archive or restore a collection",
+    description: "Archive or restore an owned collection while retaining its skills and source links.",
+    schema: agentCollectionLifecycleSchema,
+    scopes: ["collections:write"],
+    readOnly: false,
+    handler: lifecycleAgentCollection,
+  });
+  for (const action of ["archive", "restore"] as const) {
+    registerTool(server, {
+      name: `collections.${action}`,
+      title: `${action[0].toUpperCase()}${action.slice(1)} a collection`,
+      description: `${action[0].toUpperCase()}${action.slice(1)} one owned collection while retaining its skills and source links.`,
+      schema: z.strictObject({ collection_id: z.string().trim().min(1).max(200) }),
+      scopes: ["collections:write"],
+      readOnly: false,
+      handler: (auth, input) => lifecycleAgentCollection(auth, { ...input, action }),
+    });
+  }
+  registerTool(server, {
+    name: "reminders.get",
+    title: "Read reminder settings",
+    description: "Read the account reminder preference and current due-skill count without changing practice state.",
+    schema: agentReminderGetSchema,
+    scopes: ["reminders:read"],
+    readOnly: true,
+    handler: getAgentReminders,
+  });
+  registerTool(server, {
+    name: "reminders.update",
+    title: "Update reminder settings",
+    description: "Patch the account reminder preference with a verified account email and valid local timezone.",
+    schema: agentReminderUpdateSchema,
+    scopes: ["reminders:write"],
+    readOnly: false,
+    handler: updateAgentReminders,
+  });
+  registerTool(server, {
+    name: "progress.summary",
+    title: "Read progress summary",
+    description: "Read due work, readiness, allowance remaining, recent trouble spots, flags, and preparation counts. It does not reserve allowance or write review attempts.",
+    schema: agentProgressSummarySchema,
+    scopes: ["progress:read"],
+    readOnly: true,
+    handler: getAgentProgressSummary,
+  });
+  registerTool(server, {
+    name: "progress.needs_attention",
+    title: "Read needs-attention findings",
+    description: "Read bounded repeated-miss and preparation findings derived from valid scheduled review evidence. It does not treat practice-only previews as review history.",
+    schema: agentNeedsAttentionSchema,
+    scopes: ["progress:read"],
+    readOnly: true,
+    handler: getAgentNeedsAttention,
+  });
+  registerTool(server, {
+    name: "readiness.get",
+    title: "Read skill readiness",
+    description: "Read bounded exercise readiness and the latest preparation job for owned skills.",
+    schema: agentReadinessGetSchema,
+    scopes: ["progress:read"],
+    readOnly: true,
+    handler: getAgentReadiness,
+  });
+  registerTool(server, {
+    name: "readiness.repair",
+    title: "Repair skill readiness",
+    description: "Queue preparation, retry preparation, update active practice guidance, or flag one exercise using the existing bounded repair paths.",
+    schema: agentReadinessRepairSchema,
+    scopes: ["skills:write"],
+    readOnly: false,
+    handler: repairAgentReadiness,
+  });
+  registerTool(server, {
+    name: "setup.preview",
+    title: "Preview a durable setup plan",
+    description: "Validate a bounded plan for selected skills, collections, practice settings, and reminders. The preview stores a connection-bound plan but makes no learner configuration changes and does no surprise AI work.",
+    schema: agentSetupPreviewSchema,
+    scopes: ["setup:write"],
+    readOnly: false,
+    handler: previewAgentSetup,
+  });
+  registerTool(server, {
+    name: "setup.apply",
+    title: "Apply a setup plan",
+    description: "Apply one previously previewed, connection-bound setup plan with stale-state checks, durable partial results, safe child-operation idempotency, and retryable asynchronous creation status.",
+    schema: agentSetupApplySchema,
+    scopes: ["setup:write"],
+    readOnly: false,
+    handler: applyAgentSetup,
+  });
+  registerTool(server, {
+    name: "setup.get",
+    title: "Read setup plan status",
+    description: "Read the exact durable status and per-action result of a setup plan owned by this connection.",
+    schema: agentSetupGetSchema,
+    scopes: ["setup:read"],
+    readOnly: true,
+    handler: getAgentSetupPlan,
   });
   registerTool(server, {
     name: "skills.add_from_specs",
@@ -137,13 +398,61 @@ export function registerLearnRecurMcpTools(server: McpServer) {
     handler: searchAgentMaterialExcerpts,
   });
   registerTool(server, {
+    name: "materials.prepare_upload",
+    title: "Prepare a reusable material upload",
+    description: "Create one private PDF material upload lease. The operation is idempotent and never accepts a caller-supplied storage key.",
+    schema: agentPrepareMaterialUploadSchema,
+    scopes: ["sources:upload"],
+    readOnly: false,
+    handler: prepareAgentMaterialUpload,
+  });
+  registerTool(server, {
+    name: "materials.complete_upload",
+    title: "Complete a reusable material upload",
+    description: "Finalize one private uploaded PDF and queue bounded extraction. It returns the durable operation status and does not claim readiness while processing is pending.",
+    schema: agentCompleteMaterialUploadSchema,
+    scopes: ["sources:upload"],
+    readOnly: false,
+    handler: completeAgentMaterialUpload,
+  });
+  registerTool(server, {
+    name: "materials.import_url",
+    title: "Import a reusable web material",
+    description: "Import a bounded same-origin public HTTPS page selection into the private material library with SSRF-safe validation and durable processing status.",
+    schema: agentImportMaterialUrlSchema,
+    scopes: ["sources:upload"],
+    readOnly: false,
+    handler: importAgentMaterialUrl,
+  });
+  registerTool(server, {
+    name: "materials.get_status",
+    title: "Read material ingestion status",
+    description: "Read the owned material revision processing state and readiness without exposing storage keys.",
+    schema: agentGetMaterialStatusSchema,
+    scopes: ["materials:read"],
+    readOnly: true,
+    handler: getAgentMaterialStatus,
+  });
+  registerTool(server, {
+    name: "materials.retry_ingestion",
+    title: "Retry material ingestion",
+    description: "Retry one owned failed or stalled material revision with durable idempotency and exact status reporting.",
+    schema: agentRetryMaterialIngestionSchema,
+    scopes: ["sources:upload"],
+    readOnly: false,
+    handler: retryAgentMaterialIngestion,
+  });
+  registerTool(server, {
     name: "operations.get",
     title: "Get skill operation progress",
     description: "Return compact aggregate and per-item progress for an operation created by this connection.",
     schema: agentGetOperationSchema,
-    scopes: ["skills:create"],
+    scopes: ["skills:create", "materials:read", "sources:upload"],
+    alternativeScopes: [["skills:create"], ["materials:read"], ["sources:upload"]],
     readOnly: true,
-    handler: (auth, input) => getAgentOperation(auth, input.operation_id),
+    handler: async (auth, input) =>
+      (await getAgentMaterialOperationStatus(auth, input.operation_id)) ??
+      getAgentOperation(auth, input.operation_id),
   });
   registerTool(server, {
     name: "operations.continue",
@@ -204,6 +513,7 @@ type ToolDefinition<T extends z.ZodType> = {
   description: string;
   schema: T;
   scopes: AgentAccessScope[];
+  alternativeScopes?: readonly (readonly AgentAccessScope[])[];
   readOnly: boolean;
   handler: (
     auth: ReturnType<typeof requireAgentAuthContext>,
@@ -212,6 +522,12 @@ type ToolDefinition<T extends z.ZodType> = {
 };
 
 function registerTool<T extends z.ZodType>(server: McpServer, definition: ToolDefinition<T>) {
+  const securitySchemes = definition.alternativeScopes?.length
+    ? definition.alternativeScopes.map((scopes) => ({
+        type: "oauth2" as const,
+        scopes: [...scopes],
+      }))
+    : [{ type: "oauth2" as const, scopes: definition.scopes }];
   const callback = (async (
     input: z.infer<T>,
     context: ServerContext,
@@ -220,6 +536,7 @@ function registerTool<T extends z.ZodType>(server: McpServer, definition: ToolDe
       const auth = requireAgentAuthContext(
         context.http?.authInfo as AuthInfo | undefined,
         definition.scopes,
+        definition.alternativeScopes,
       );
       const output = await definition.handler(auth, input as z.infer<T>);
       return {
@@ -251,7 +568,7 @@ function registerTool<T extends z.ZodType>(server: McpServer, definition: ToolDe
         openWorldHint: false,
       },
       _meta: {
-        securitySchemes: [{ type: "oauth2", scopes: definition.scopes }],
+        securitySchemes,
       },
     },
     callback,
@@ -263,7 +580,14 @@ export function toPublicError(error: unknown): { code: string; message: string; 
     return { code: error.code, message: error.message, retryable: false };
   }
   if (error instanceof AgentOperationError) {
-    return { code: error.code, message: error.message, retryable: error.code === "rate_limited" };
+    return {
+      code: error.code,
+      message: error.message,
+      retryable: error.code === "rate_limited" || error.code === "setup_in_progress",
+    };
+  }
+  if (error instanceof AgentMaterialIngestionError) {
+    return { code: error.code, message: error.message, retryable: error.retryable };
   }
   if (error && typeof error === "object" && "code" in error && "message" in error) {
     const code = String(error.code);

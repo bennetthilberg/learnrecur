@@ -251,6 +251,24 @@ describe("website material discovery", () => {
       /public/i,
     );
     await expect(
+      validatePublicHttpsUrl("https://[::ffff:127.0.0.1]/book", publicResolver),
+    ).rejects.toThrow(/public/i);
+    await expect(
+      validatePublicHttpsUrl("https://[::ffff:7f00:1]/book", publicResolver),
+    ).rejects.toThrow(/public/i);
+    await expect(
+      validatePublicHttpsUrl("https://[0:0:0:0:0:ffff:c0a8:101]/book", publicResolver),
+    ).rejects.toThrow(/public/i);
+    await expect(
+      validatePublicHttpsUrl("https://[::ffff:a9fe:101]/book", publicResolver),
+    ).rejects.toThrow(/public/i);
+    await expect(
+      validatePublicHttpsUrl("https://[fe80::1]/book", publicResolver),
+    ).rejects.toThrow(/public/i);
+    await expect(
+      validatePublicHttpsUrl("https://[::ffff:8.8.8.8]/book", publicResolver),
+    ).resolves.toMatchObject({ protocol: "https:" });
+    await expect(
       validatePublicHttpsUrl("https://textbook.example/book", async () => ["10.0.0.8"]),
     ).rejects.toThrow(/public/i);
     await expect(validatePublicHttpsUrl("https://example.com/book", publicResolver)).resolves.toMatchObject({

@@ -185,6 +185,7 @@ export async function adjudicateExerciseQualityIncident(input: {
         previousRepetitions: true,
         previousLapses: true,
         previousState: true,
+        desiredRetention: true,
         exerciseAttempt: { select: { exerciseId: true } },
       },
     });
@@ -203,6 +204,7 @@ export async function adjudicateExerciseQualityIncident(input: {
           reviewedAt: review.reviewedAt,
           rating: review.finalRating as FsrsRating,
           evidenceKind: "independent" as const,
+          desiredRetention: review.desiredRetention,
         })),
         invalidAttemptIds,
       }),

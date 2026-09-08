@@ -15,6 +15,7 @@ import {
   checkExerciseRefillUsageLimit,
   checkPastedSourceDraftUsageLimit,
   checkSkillActivationUsageLimit,
+  checkSourceStorageUsageLimit,
   checkSourceUploadUsageLimit,
   startOfUtcDay,
 } from "@/lib/usage-limits";
@@ -104,6 +105,34 @@ describe("usage limits", () => {
       _sum: {
         byteSize: true,
       },
+    });
+  });
+
+  it("excludes a replaced source object from the storage total", async () => {
+    const prisma = {
+      sourceFile: {
+        aggregate: vi.fn(async () => ({ _sum: { byteSize: ALPHA_STORED_SOURCE_BYTES - 2 } })),
+      },
+      generationJob: {},
+      skill: {},
+    };
+
+    await expect(
+      checkSourceStorageUsageLimit({
+        userId: "user_1",
+        byteSize: 2,
+        replaceSourceFileId: "source_1",
+        prisma: prisma as never,
+      }),
+    ).resolves.toEqual({ status: "ok" });
+
+    expect(prisma.sourceFile.aggregate).toHaveBeenCalledWith({
+      where: {
+        userId: "user_1",
+        storageKey: { not: null },
+        id: { not: "source_1" },
+      },
+      _sum: { byteSize: true },
     });
   });
 

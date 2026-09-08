@@ -235,6 +235,7 @@ export async function getCollectionsHome(
 export async function createCollection(input: {
   userId: string;
   input: unknown;
+  transaction?: CollectionMutationClient;
 }): Promise<CreateCollectionResult> {
   const normalized = normalizeCollectionInput(input.input);
 
@@ -242,9 +243,7 @@ export async function createCollection(input: {
     return normalized;
   }
 
-  const prisma = getPrisma();
-
-  return prisma.$transaction(async (tx) => {
+  const write = async (tx: CollectionMutationClient): Promise<CreateCollectionResult> => {
     await lockActiveCollectionName(tx, input.userId, normalized.value.nameKey);
 
     const duplicate = await findActiveCollectionNameConflict(tx, {
@@ -269,13 +268,16 @@ export async function createCollection(input: {
       status: "created",
       collection,
     };
-  });
+  };
+
+  return input.transaction ? write(input.transaction) : getPrisma().$transaction(write);
 }
 
 export async function updateCollection(input: {
   userId: string;
   collectionId: string;
   input: unknown;
+  transaction?: CollectionMutationClient;
 }): Promise<UpdateCollectionResult> {
   const normalized = normalizeCollectionInput(input.input);
 
@@ -283,8 +285,7 @@ export async function updateCollection(input: {
     return normalized;
   }
 
-  const prisma = getPrisma();
-  return prisma.$transaction(async (tx) => {
+  const write = async (tx: CollectionMutationClient): Promise<UpdateCollectionResult> => {
     const collection = await tx.collection.findFirst({
       where: {
         id: input.collectionId,
@@ -327,14 +328,17 @@ export async function updateCollection(input: {
       status: "updated",
       collection: updated,
     };
-  });
+  };
+
+  return input.transaction ? write(input.transaction) : getPrisma().$transaction(write);
 }
 
 export async function archiveCollection(input: {
   userId: string;
   collectionId: string;
+  transaction?: CollectionMutationClient;
 }): Promise<CollectionLifecycleResult> {
-  const prisma = getPrisma();
+  const prisma = input.transaction ?? getPrisma();
   const collection = await prisma.collection.findFirst({
     where: {
       id: input.collectionId,
@@ -377,10 +381,9 @@ export async function archiveCollection(input: {
 export async function restoreCollection(input: {
   userId: string;
   collectionId: string;
+  transaction?: CollectionMutationClient;
 }): Promise<CollectionLifecycleResult> {
-  const prisma = getPrisma();
-
-  return prisma.$transaction(async (tx) => {
+  const write = async (tx: CollectionMutationClient): Promise<CollectionLifecycleResult> => {
     const collection = await tx.collection.findFirst({
       where: {
         id: input.collectionId,
@@ -431,7 +434,9 @@ export async function restoreCollection(input: {
       collection: updated,
       message: "Collection restored.",
     };
-  });
+  };
+
+  return input.transaction ? write(input.transaction) : getPrisma().$transaction(write);
 }
 
 async function findActiveCollectionNameConflict(

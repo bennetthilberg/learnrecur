@@ -9,6 +9,7 @@ import {
   Stack,
   Switch,
   Text,
+  TextInput,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { CheckCircle, FloppyDisk, WarningCircle } from "@phosphor-icons/react";
@@ -22,14 +23,20 @@ import {
 
 import {
   dailyNewSkillLimitSchema,
+  formatPracticeDayStart,
+  parsePracticeDayStart,
+  practiceDayStartTimeSchema,
   practiceTimezoneSchema,
 } from "@/lib/practice/daily-limit-contracts";
+import { desiredRetentionSchema } from "@/lib/scheduling/contracts";
 
 const practiceTimezones = ["UTC", ...Intl.supportedValuesOf("timeZone")];
 
 type Props = {
   dailyNewSkillLimit?: number | null;
   practiceTimezone?: string;
+  desiredRetention?: number | null;
+  practiceDayStartMinutes?: number;
   target: { scope: "user" } | { scope: "collection" | "skill"; id: string };
   preference: PracticePreference | null;
   inheritedPreference?: PracticePreference;
@@ -71,9 +78,25 @@ export function PracticePreferencesForm(props: Props) {
     props.dailyNewSkillLimit ?? 20,
   );
   const [timezone, setTimezone] = useState(props.practiceTimezone ?? "UTC");
+  const [useDefaultRetention, setUseDefaultRetention] = useState(
+    props.desiredRetention == null,
+  );
+  const [retentionPercent, setRetentionPercent] = useState<number | string>(
+    props.desiredRetention == null
+      ? 90
+      : Math.round(props.desiredRetention * 100),
+  );
+  const [dayStart, setDayStart] = useState(
+    formatPracticeDayStart(props.practiceDayStartMinutes ?? 0),
+  );
   const validDailyLimit =
     unlimited || dailyNewSkillLimitSchema.safeParse(dailyLimit).success;
   const validTimezone = practiceTimezoneSchema.safeParse(timezone).success;
+  const retentionValue =
+    typeof retentionPercent === "number" ? retentionPercent / 100 : null;
+  const validRetention =
+    useDefaultRetention || desiredRetentionSchema.safeParse(retentionValue).success;
+  const validDayStart = practiceDayStartTimeSchema.safeParse(dayStart).success;
   const effectivePreference =
     preference === "DEFAULT"
       ? (props.inheritedPreference ?? "BALANCED")
@@ -99,7 +122,7 @@ export function PracticePreferencesForm(props: Props) {
         event.preventDefault();
         if (
           props.target.scope === "user" &&
-          (!validDailyLimit || !validTimezone)
+          (!validDailyLimit || !validTimezone || !validRetention || !validDayStart)
         )
           return;
         startTransition(async () => {
@@ -111,6 +134,8 @@ export function PracticePreferencesForm(props: Props) {
                   mixedReview: mixed,
                   dailyNewSkillLimit: unlimited ? null : dailyLimit,
                   practiceTimezone: timezone,
+                  desiredRetention: useDefaultRetention ? null : retentionValue,
+                  practiceDayStartMinutes: parsePracticeDayStart(dayStart),
                 }
               : {
                   practicePreference:
@@ -204,24 +229,69 @@ export function PracticePreferencesForm(props: Props) {
                 !validDailyLimit
                   ? "Enter a whole number from 0 to 1000."
                   : undefined
-              }
+                }
             />
-            <Select
-              label="Daily reset timezone"
-              description="The allowance resets at midnight in this timezone."
-              data={
-                practiceTimezones.includes(timezone)
-                  ? practiceTimezones
-                  : [timezone, ...practiceTimezones]
-              }
-              value={timezone}
-              onChange={(value) => {
-                if (value) setTimezone(value);
-              }}
-              searchable
-              allowDeselect={false}
-              disabled={disabled}
-            />
+            <Text size="sm">
+              New-skill allowance follows a practice day starting at {dayStart} in {timezone}.
+            </Text>
+            <details className="practiceAdvancedSettings">
+              <summary>Advanced practice settings</summary>
+              <Stack gap="md" mt="sm">
+                <Checkbox
+                  label="Use default retention (90%)"
+                  checked={useDefaultRetention}
+                  disabled={disabled}
+                  onChange={(event) =>
+                    setUseDefaultRetention(event.currentTarget.checked)
+                  }
+                />
+                <NumberInput
+                  label="Desired retention"
+                  description="Higher retention schedules reviews closer together."
+                  value={retentionPercent}
+                  min={70}
+                  max={99}
+                  step={1}
+                  suffix="%"
+                  allowDecimal={false}
+                  allowNegative={false}
+                  disabled={disabled || useDefaultRetention}
+                  onChange={setRetentionPercent}
+                  error={
+                    !validRetention
+                      ? "Enter a whole percentage from 70 to 99."
+                      : undefined
+                  }
+                />
+                <TextInput
+                  label="Practice day starts at"
+                  description="This local time defines when the daily allowance resets."
+                  type="time"
+                  value={dayStart}
+                  disabled={disabled}
+                  onChange={(event) => setDayStart(event.currentTarget.value)}
+                  error={
+                    !validDayStart ? "Use a local time in HH:mm format." : undefined
+                  }
+                />
+                <Select
+                  label="Practice timezone"
+                  description="Uses the local time in this zone, including daylight-saving changes."
+                  data={
+                    practiceTimezones.includes(timezone)
+                      ? practiceTimezones
+                      : [timezone, ...practiceTimezones]
+                  }
+                  value={timezone}
+                  onChange={(value) => {
+                    if (value) setTimezone(value);
+                  }}
+                  searchable
+                  allowDeselect={false}
+                  disabled={disabled}
+                />
+              </Stack>
+            </details>
           </>
         ) : (
           <>
@@ -278,7 +348,7 @@ export function PracticePreferencesForm(props: Props) {
             disabled={
               disabled ||
               (props.target.scope === "user" &&
-                (!validDailyLimit || !validTimezone))
+                (!validDailyLimit || !validTimezone || !validRetention || !validDayStart))
             }
             type="submit"
           >

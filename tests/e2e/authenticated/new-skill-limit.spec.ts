@@ -14,7 +14,7 @@ for (const width of [1280, 390]) {
     const fresh = learnerFixture.scenarios.choice;
     const review = learnerFixture.scenarios.text;
     const settings = await sql.query(
-      'SELECT "dailyNewSkillLimit", "practiceTimezone" FROM users WHERE id=$1',
+      'SELECT "dailyNewSkillLimit", "practiceTimezone", "desiredRetention", "practiceDayStartMinutes" FROM users WHERE id=$1',
       [userId],
     );
     await sql.query(
@@ -46,8 +46,9 @@ for (const width of [1280, 390]) {
       await expect(limit).toBeDisabled();
       await unlimited.uncheck();
       await limit.fill("0");
+      await page.getByText("Advanced practice settings", { exact: true }).click();
       const timezone = page.getByRole("combobox", {
-        name: "Daily reset timezone",
+        name: "Practice timezone",
         exact: true,
       });
       await timezone.fill("America/Chicago");
@@ -61,6 +62,7 @@ for (const width of [1280, 390]) {
       ).toBeVisible();
       await page.reload();
       await expect(limit).toHaveValue("0");
+      await page.getByText("Advanced practice settings", { exact: true }).click();
       await expect(timezone).toHaveValue("America/Chicago");
       await page.screenshot({
         path: testInfo.outputPath(`daily-limit-settings-${width}.png`),
@@ -160,9 +162,101 @@ for (const width of [1280, 390]) {
       ).toBe(true);
     } finally {
       await sql.query(
-        'UPDATE users SET "dailyNewSkillLimit"=$1, "practiceTimezone"=$2 WHERE id=$3',
-        [settings[0].dailyNewSkillLimit, settings[0].practiceTimezone, userId],
+        'UPDATE users SET "dailyNewSkillLimit"=$1, "practiceTimezone"=$2, "desiredRetention"=$3, "practiceDayStartMinutes"=$4 WHERE id=$5',
+        [
+          settings[0].dailyNewSkillLimit,
+          settings[0].practiceTimezone,
+          settings[0].desiredRetention,
+          settings[0].practiceDayStartMinutes,
+          userId,
+        ],
       );
     }
   });
 }
+
+test("advanced retention and practice-day settings persist and reset", async ({
+  page,
+  learnerFixture,
+}, testInfo) => {
+  test.setTimeout(60_000);
+  const sql = neon(process.env.DATABASE_URL!);
+  const userId = learnerFixture.userId;
+  const settings = await sql.query(
+    'SELECT "desiredRetention", "practiceDayStartMinutes", "practiceTimezone" FROM users WHERE id=$1',
+    [userId],
+  );
+
+  try {
+    await page.goto("/settings");
+    const advanced = page.getByText("Advanced practice settings", { exact: true });
+    await expect(advanced).toBeVisible();
+    await expect(page.locator("details.practiceAdvancedSettings")).not.toHaveAttribute(
+      "open",
+      "",
+    );
+    await advanced.click();
+    await page.screenshot({
+      path: testInfo.outputPath("advanced-settings-open-desktop.png"),
+      fullPage: true,
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.screenshot({
+      path: testInfo.outputPath("advanced-settings-open-mobile.png"),
+      fullPage: true,
+    });
+    await page.setViewportSize({ width: 1280, height: 900 });
+
+    const defaultRetention = page.getByRole("checkbox", {
+      name: "Use default retention (90%)",
+    });
+    const retention = page.getByRole("textbox", {
+      name: "Desired retention",
+      exact: true,
+    });
+    await expect(defaultRetention).toBeChecked();
+    await expect(retention).toBeDisabled();
+    await defaultRetention.uncheck();
+    await retention.fill("97");
+
+    await page.getByRole("textbox", { name: "Practice day starts at", exact: true }).fill("23:45");
+    const timezone = page.getByRole("combobox", {
+      name: "Practice timezone",
+      exact: true,
+    });
+    await timezone.fill("America/Chicago");
+    await page
+      .getByRole("listbox")
+      .getByRole("option", { name: "America/Chicago", exact: true })
+      .click();
+    await page.getByRole("button", { name: "Save practice preferences", exact: true }).click();
+    await expect(page.getByText("Preferences saved", { exact: true })).toBeVisible();
+
+    await page.reload();
+    await page.getByText("Advanced practice settings", { exact: true }).click();
+    await expect(defaultRetention).not.toBeChecked();
+    await expect(retention).toHaveValue("97%");
+    await expect(
+      page.getByRole("textbox", { name: "Practice day starts at", exact: true }),
+    ).toHaveValue("23:45");
+    await expect(timezone).toHaveValue("America/Chicago");
+
+    await defaultRetention.check();
+    await page.getByRole("button", { name: "Save practice preferences", exact: true }).click();
+    await expect(page.getByText("Preferences saved", { exact: true })).toBeVisible();
+    await page.reload();
+    await page.getByText("Advanced practice settings", { exact: true }).click();
+    await expect(defaultRetention).toBeChecked();
+    await expect(retention).toBeDisabled();
+  } finally {
+    await sql.query(
+      'UPDATE users SET "desiredRetention"=$1, "practiceDayStartMinutes"=$2, "practiceTimezone"=$3 WHERE id=$4',
+      [
+        settings[0].desiredRetention,
+        settings[0].practiceDayStartMinutes,
+        settings[0].practiceTimezone,
+        userId,
+      ],
+    );
+  }
+});

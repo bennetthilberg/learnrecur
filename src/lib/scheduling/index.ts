@@ -6,7 +6,6 @@ import { dirname, join } from "node:path";
 
 import {
   createEmptyCard,
-  default_request_retention,
   fsrs,
   Rating,
   State,
@@ -15,6 +14,13 @@ import {
 } from "ts-fsrs";
 
 import { FsrsRating, SkillFsrsState, SkillStatus } from "@/generated/prisma/client";
+import { resolveDesiredRetention } from "./contracts";
+
+export {
+  DEFAULT_DESIRED_RETENTION,
+  desiredRetentionSchema,
+  resolveDesiredRetention,
+} from "./contracts";
 
 export const RATING_POLICY_VERSION = "correct-good-v2";
 
@@ -60,15 +66,16 @@ export type ReviewLogSnapshot = {
   schedulerName: typeof SCHEDULER_NAME;
   schedulerVersion: typeof SCHEDULER_VERSION;
   desiredRetention: number;
-  schedulerParameters: {
-    source: "ts-fsrs-defaults";
-  };
+  schedulerParameters:
+    | { source: "ts-fsrs-defaults" }
+    | { source: "user-setting"; requestRetention: number };
 };
 
 export type AdvanceSkillScheduleInput = {
   current: SkillScheduleFields;
   rating: FsrsRating;
   reviewedAt: Date;
+  desiredRetention?: number | null;
 };
 
 export type AdvanceSkillScheduleResult = {
@@ -113,7 +120,8 @@ export function mapAttemptToFsrsRating(input: MapAttemptToFsrsRatingInput): Fsrs
 export function advanceSkillSchedule(
   input: AdvanceSkillScheduleInput,
 ): AdvanceSkillScheduleResult {
-  const scheduler = fsrs();
+  const desiredRetention = resolveDesiredRetention(input.desiredRetention);
+  const scheduler = fsrs({ request_retention: desiredRetention });
   const card = toFsrsCard(input.current);
   const result = scheduler.next(card, input.reviewedAt, toTsFsrsRating(input.rating));
   const skillUpdate = fromFsrsCard(result.card);
@@ -144,10 +152,11 @@ export function advanceSkillSchedule(
       nextState: skillUpdate.fsrsState,
       schedulerName: SCHEDULER_NAME,
       schedulerVersion: SCHEDULER_VERSION,
-      desiredRetention: default_request_retention,
-      schedulerParameters: {
-        source: "ts-fsrs-defaults",
-      },
+      desiredRetention,
+      schedulerParameters:
+        input.desiredRetention === null || input.desiredRetention === undefined
+          ? { source: "ts-fsrs-defaults" }
+          : { source: "user-setting", requestRetention: desiredRetention },
     },
   };
 }

@@ -55,6 +55,13 @@ export class AgentSkillWorkerError extends Error {
   }
 }
 
+export function isMaterialLibraryOperation(operation: {
+  kind: AgentOperationKind;
+  toolName: string;
+}) {
+  return operation.kind === AgentOperationKind.MATERIAL_BATCH && operation.toolName.startsWith("materials.");
+}
+
 export function classifyAgentDuplicate(match: SkillSimilarityMatch | null) {
   if (!match) return { action: "create" as const, confidence: null };
   if (
@@ -89,6 +96,13 @@ export async function runAgentSkillOperationJob(input: {
     operation.status === AgentOperationStatus.CANCELED
   ) {
     return { status: "complete" as const, operationId: operation.id };
+  }
+  // Material-library ingestion uses the native material-ingestion job and
+  // shares AgentSkillOperation only for durable ownership/idempotency records.
+  // A misplaced skill-operation event must never send its URL/PDF payload into
+  // the skills.add_from_material planner.
+  if (isMaterialLibraryOperation(operation)) {
+    return { status: "delegated" as const, operationId: operation.id };
   }
 
   const reclaimed = await prisma.agentSkillOperationItem.updateMany({

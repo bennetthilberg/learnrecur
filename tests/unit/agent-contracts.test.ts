@@ -8,6 +8,7 @@ import {
   agentGetOperationSchema,
   agentPrepareFilesSchema,
   agentSearchMaterialExcerptsSchema,
+  agentSetupPreviewSchema,
   buildAgentCandidateDuplicateKey,
   buildAgentPayloadHash,
   normalizeAgentCandidateExercise,
@@ -236,5 +237,39 @@ describe("agent MCP contracts", () => {
         difficulty: 5,
       }),
     );
+  });
+
+  it("bounds setup plans and accepts advanced practice settings explicitly", () => {
+    const parsed = agentSetupPreviewSchema.parse({
+      idempotency_key: "setup-plan-001",
+      skills: [
+        {
+          kind: "reuse",
+          skill_id: "skill-1",
+          collection_id: null,
+          tags: ["review"],
+        },
+      ],
+      practice: {
+        daily_new_skill_limit: 5,
+        desired_retention: 0.9,
+        practice_day_start_minutes: 1_140,
+      },
+      reminders: { enabled: true, local_hour: 19, timezone: "America/Chicago" },
+    });
+    expect(parsed.skills).toHaveLength(1);
+    expect(parsed.practice?.practice_day_start_minutes).toBe(1_140);
+    expect(() =>
+      agentSetupPreviewSchema.parse({
+        idempotency_key: "setup-plan-002",
+        skills: Array.from({ length: 11 }, (_, index) => ({ kind: "reuse", skill_id: `skill-${index}` })),
+      }),
+    ).toThrow();
+    expect(() =>
+      agentSetupPreviewSchema.parse({
+        idempotency_key: "setup-plan-003",
+        practice: { desired_retention: 0.69 },
+      }),
+    ).toThrow();
   });
 });

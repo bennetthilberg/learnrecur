@@ -10,6 +10,9 @@ describe("MCP practice settings contracts", () => {
   it.each([
     [{ scope: "user" }, { practicePreference: "RECALL_FIRST" }],
     [{ scope: "user" }, { mixedReview: false }],
+    [{ scope: "user" }, { desiredRetention: null, practiceDayStartMinutes: 0 }],
+    [{ scope: "user" }, { desiredRetention: 0.7 }],
+    [{ scope: "user" }, { desiredRetention: 0.99, practiceDayStartMinutes: 1439 }],
     [
       { scope: "collection", id: "c1" },
       { practicePreference: null, textPolicy: EXACT_TEXT_POLICY },
@@ -40,6 +43,8 @@ describe("MCP practice settings contracts", () => {
     [{ scope: "user" }, { textPolicy: EXACT_TEXT_POLICY }],
     [{ scope: "collection", id: "c1" }, { alreadyStudied: true }],
     [{ scope: "skill", id: "s1" }, { mixedReview: true }],
+    [{ scope: "user" }, { desiredRetention: 0.69 }],
+    [{ scope: "user" }, { practiceDayStartMinutes: 1440 }],
     [{ scope: "skill", id: "s1" }, { alreadyStudied: "true" }],
     [
       { scope: "skill", id: "s1" },

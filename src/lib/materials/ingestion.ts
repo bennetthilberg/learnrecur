@@ -465,13 +465,30 @@ export async function queueMaterialPdfIngestion(input: {
       requestedAt: input.now.toISOString(),
     });
   } catch {
-    await prisma.materialRevision.update({
-      where: { id: revision.id },
-      data: {
-        status: MaterialRevisionStatus.FAILED,
-        errorCode: "EVENT_SEND_FAILED",
-        errorMessage: "Background processing could not be queued.",
-      },
+    await prisma.$transaction(async (tx) => {
+      const failedRevision = await tx.materialRevision.updateMany({
+        where: {
+          id: revision.id,
+          userId: input.userId,
+          status: MaterialRevisionStatus.QUEUED,
+        },
+        data: {
+          status: MaterialRevisionStatus.FAILED,
+          errorCode: "EVENT_SEND_FAILED",
+          errorMessage: "Background processing could not be queued.",
+        },
+      });
+      if (failedRevision.count === 1) {
+        await tx.sourceFile.updateMany({
+          where: {
+            id: sourceFile.id,
+            userId: input.userId,
+            materialRevisionId: revision.id,
+            status: SourceFileStatus.UPLOADED,
+          },
+          data: { status: SourceFileStatus.FAILED },
+        });
+      }
     });
     return {
       status: "not-queued",
@@ -581,20 +598,31 @@ export async function queueWebsiteMaterialImport(input: {
       requestedAt: input.now.toISOString(),
     });
   } catch {
-    await prisma.$transaction([
-      prisma.materialRevision.update({
-        where: { id: created.materialRevisionId },
+    await prisma.$transaction(async (tx) => {
+      const failedRevision = await tx.materialRevision.updateMany({
+        where: {
+          id: created.materialRevisionId,
+          userId: input.userId,
+          status: MaterialRevisionStatus.QUEUED,
+        },
         data: {
           status: MaterialRevisionStatus.FAILED,
           errorCode: "EVENT_SEND_FAILED",
           errorMessage: "Background processing could not be queued.",
         },
-      }),
-      prisma.sourceFile.update({
-        where: { id: created.sourceFileId },
-        data: { status: SourceFileStatus.FAILED },
-      }),
-    ]);
+      });
+      if (failedRevision.count === 1) {
+        await tx.sourceFile.updateMany({
+          where: {
+            id: created.sourceFileId,
+            userId: input.userId,
+            materialRevisionId: created.materialRevisionId,
+            status: SourceFileStatus.UPLOADED,
+          },
+          data: { status: SourceFileStatus.FAILED },
+        });
+      }
+    });
     return { status: "not-queued", message: "Background processing could not be queued. Try again." };
   }
 
@@ -969,7 +997,7 @@ export async function queueWebsiteMaterialRefresh(input: {
     materialRevisionId: revision.id,
     fileName: "website-snapshot.json",
   });
-  await prisma.$transaction([
+  const [, createdSourceFile] = await prisma.$transaction([
     prisma.materialRevision.update({
       where: { id: revision.id },
       data: {
@@ -991,6 +1019,7 @@ export async function queueWebsiteMaterialRefresh(input: {
         storageKey,
         metadata: metadata ?? Prisma.JsonNull,
       },
+      select: { id: true },
     }),
   ]);
 
@@ -1001,9 +1030,30 @@ export async function queueWebsiteMaterialRefresh(input: {
       requestedAt: input.now.toISOString(),
     });
   } catch {
-    await prisma.materialRevision.update({
-      where: { id: revision.id },
-      data: { status: MaterialRevisionStatus.FAILED, errorCode: "EVENT_SEND_FAILED" },
+    await prisma.$transaction(async (tx) => {
+      const failedRevision = await tx.materialRevision.updateMany({
+        where: {
+          id: revision.id,
+          userId: input.userId,
+          status: MaterialRevisionStatus.QUEUED,
+        },
+        data: {
+          status: MaterialRevisionStatus.FAILED,
+          errorCode: "EVENT_SEND_FAILED",
+          errorMessage: "Background processing could not be queued.",
+        },
+      });
+      if (failedRevision.count === 1) {
+        await tx.sourceFile.updateMany({
+          where: {
+            id: createdSourceFile.id,
+            userId: input.userId,
+            materialRevisionId: revision.id,
+            status: SourceFileStatus.UPLOADED,
+          },
+          data: { status: SourceFileStatus.FAILED },
+        });
+      }
     });
     return { status: "not-queued", message: "Website refresh could not be queued. Try again." };
   }
@@ -1428,6 +1478,7 @@ async function ingestWebsiteRevision(input: {
   const quota = await checkSourceStorageUsageLimit({
     userId: input.userId,
     byteSize: snapshotBytes.byteLength,
+    replaceSourceFileId: input.sourceFile.id,
   });
   if (quota.status === "limited") {
     throw new MaterialIngestionError(quota.message, { retryable: false });
@@ -1466,6 +1517,10 @@ async function ingestWebsiteRevision(input: {
       });
       throw websiteSnapshotDeletionError();
     }
+    await writePrisma.sourceFile.update({
+      where: { id: input.sourceFile.id },
+      data: { byteSize: snapshotBytes.byteLength },
+    });
   } finally {
     await writePrisma.sourceFile.updateMany({
       where: {

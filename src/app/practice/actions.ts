@@ -15,6 +15,21 @@ import {
   type PracticeSubmittedAnswer,
   type PracticeFlagRefillResult,
 } from "@/lib/practice";
+import {
+  commitCustomPracticeAnswer,
+  createCustomPracticeSession,
+  presentCustomPracticeSessionItem,
+  previewCustomPracticeAnswer,
+  resumeCustomPracticeSession,
+  stopCustomPracticeSession,
+  type CustomPracticeCommitResult,
+  type CustomPracticePreviewResult,
+  type CustomPracticeSessionView,
+} from "@/lib/practice/custom-session";
+import {
+  customPracticeSessionModeSchema,
+  customPracticeSessionScopeSchema,
+} from "@/lib/practice/custom-session-contracts";
 import { ensureDevPracticeSampleData } from "@/lib/practice/sample-data";
 import { ensureDatabaseUser } from "@/lib/users";
 
@@ -32,6 +47,12 @@ import type {
   PracticeCommitResult,
   PracticeFlagResult,
   PracticePreviewResult,
+} from "./types";
+import type {
+  CustomPracticeClientCommitResult,
+  CustomPracticeClientPreviewResult,
+  CustomPracticeClientView,
+  CustomPracticeSessionCreateResult,
 } from "./types";
 
 type PreviewPracticeAnswerInput = {
@@ -221,6 +242,228 @@ export async function commitPracticeReviewAction(
     status: "not-found",
     message: result.message,
   };
+}
+
+const customPracticeSessionActionInputSchema = z.strictObject({
+  mode: customPracticeSessionModeSchema.optional(),
+  targetCount: z.number().int().min(1).max(100).optional(),
+  scope: customPracticeSessionScopeSchema,
+});
+
+export async function createCustomPracticeSessionAction(
+  rawInput: unknown,
+): Promise<CustomPracticeSessionCreateResult> {
+  const practiceUser = await requirePracticeUserId();
+  if (practiceUser.status !== "ready") {
+    return { status: "unavailable", message: practiceUser.message };
+  }
+
+  const parsed = customPracticeSessionActionInputSchema.safeParse(rawInput);
+  if (!parsed.success) {
+    return {
+      status: "unavailable",
+      message: "Choose a valid scope and an exercise count from 1 to 100.",
+    };
+  }
+
+  const result = await createCustomPracticeSession({
+    userId: practiceUser.userId,
+    mode: parsed.data.mode,
+    targetCount: parsed.data.targetCount,
+    scope: parsed.data.scope,
+  });
+  if (result.status === "unavailable") return result;
+  return {
+    status: result.status,
+    sessionId: result.session.id,
+    message: "message" in result ? result.message : undefined,
+  };
+}
+
+export async function loadCustomPracticeSessionItemAction(input: {
+  sessionId: string;
+}): Promise<CustomPracticeClientView> {
+  const practiceUser = await requirePracticeUserId();
+  if (practiceUser.status !== "ready") {
+    return { status: "unavailable", message: practiceUser.message };
+  }
+  const sessionId = z.string().min(1).max(200).parse(input.sessionId);
+  return toCustomPracticeClientView(
+    await presentCustomPracticeSessionItem({
+      userId: practiceUser.userId,
+      sessionId,
+    }),
+  );
+}
+
+export async function previewCustomPracticeAnswerAction(input: {
+  sessionId: string;
+  itemKey: string;
+  exerciseId: string;
+  submittedAnswer: string;
+  responseMs?: number | null;
+}): Promise<CustomPracticeClientPreviewResult> {
+  const practiceUser = await requirePracticeUserId();
+  if (practiceUser.status !== "ready") {
+    return { status: "unavailable", message: practiceUser.message };
+  }
+  const parsed = z
+    .strictObject({
+      sessionId: z.string().min(1).max(200),
+      itemKey: z.string().regex(/^item-[0-9]{1,3}$/),
+      exerciseId: z.string().min(1).max(200),
+      submittedAnswer: z.string().max(10_000),
+      responseMs: z.number().int().min(0).max(86_400_000).nullable().optional(),
+    })
+    .parse(input);
+  const result = await previewCustomPracticeAnswer({
+    userId: practiceUser.userId,
+    ...parsed,
+    submittedAnswer: parsed.submittedAnswer,
+  });
+  return toCustomPracticeClientPreviewResult(result);
+}
+
+export async function commitCustomPracticeAnswerAction(input: {
+  sessionId: string;
+  itemKey: string;
+  exerciseId: string;
+  submittedAnswer: string;
+  responseMs?: number | null;
+  manualRating?: FsrsRating | null;
+  reducedRuleCues?: boolean;
+}): Promise<CustomPracticeClientCommitResult> {
+  const practiceUser = await requirePracticeUserId();
+  if (practiceUser.status !== "ready") {
+    return { status: "unavailable", message: practiceUser.message };
+  }
+  const parsed = z
+    .strictObject({
+      sessionId: z.string().min(1).max(200),
+      itemKey: z.string().regex(/^item-[0-9]{1,3}$/),
+      exerciseId: z.string().min(1).max(200),
+      submittedAnswer: z.string().max(10_000),
+      responseMs: z.number().int().min(0).max(86_400_000).nullable().optional(),
+      manualRating: z.nativeEnum(FsrsRating).nullable().optional(),
+      reducedRuleCues: z.boolean().optional(),
+    })
+    .parse(input);
+  const result = await commitCustomPracticeAnswer({
+    userId: practiceUser.userId,
+    ...parsed,
+    submittedAnswer: parsed.submittedAnswer,
+  });
+  return toCustomPracticeClientCommitResult(result);
+}
+
+export async function stopCustomPracticeSessionAction(input: {
+  sessionId: string;
+}): Promise<CustomPracticeClientView | { status: "unavailable"; message: string }> {
+  return mutateCustomPracticeSessionAction(input, stopCustomPracticeSession);
+}
+
+export async function resumeCustomPracticeSessionAction(input: {
+  sessionId: string;
+}): Promise<CustomPracticeClientView | { status: "unavailable"; message: string }> {
+  return mutateCustomPracticeSessionAction(input, resumeCustomPracticeSession);
+}
+
+async function mutateCustomPracticeSessionAction(
+  input: { sessionId: string },
+  mutation: typeof stopCustomPracticeSession,
+): Promise<CustomPracticeClientView | { status: "unavailable"; message: string }> {
+  const practiceUser = await requirePracticeUserId();
+  if (practiceUser.status !== "ready") {
+    return { status: "unavailable", message: practiceUser.message };
+  }
+  const sessionId = z.string().min(1).max(200).parse(input.sessionId);
+  const result = await mutation({ userId: practiceUser.userId, sessionId });
+  if (result.status !== "updated") {
+    return { status: "unavailable", message: result.message };
+  }
+  return toCustomPracticeClientView(
+    await presentCustomPracticeSessionItem({
+      userId: practiceUser.userId,
+      sessionId,
+    }),
+  );
+}
+
+function toCustomPracticeClientView(view: CustomPracticeSessionView): CustomPracticeClientView {
+  if (view.status !== "ready") {
+    return {
+      status: view.status,
+      session: view.session
+        ? {
+            id: view.session.id,
+            mode: view.session.mode,
+            mixedReview: view.session.scope.mixedReview,
+            status: view.session.status,
+            targetCount: view.session.targetCount,
+            completedCount: view.session.completedCount,
+          }
+        : undefined,
+      message: view.message,
+    };
+  }
+  return {
+    status: "ready",
+    session: {
+      id: view.session.id,
+      mode: view.session.mode,
+      mixedReview: view.session.scope.mixedReview,
+      status: view.session.status,
+      targetCount: view.session.targetCount,
+      completedCount: view.session.completedCount,
+    },
+    item: {
+      itemKey: view.sessionItem.itemKey,
+      exerciseId: view.exercise.id,
+      skillId: view.skill.id,
+      skillTitle: view.skill.title,
+      answerKind: view.exercise.answerKind,
+      prompt: view.exercise.prompt,
+      choices: toChoiceOptions(view.exercise.choices),
+      difficulty: view.exercise.difficulty,
+      expectedSeconds: view.exercise.expectedSeconds,
+    },
+  };
+}
+
+function toCustomPracticeClientPreviewResult(
+  result: CustomPracticePreviewResult,
+): CustomPracticeClientPreviewResult {
+  if (result.status !== "checked") return result;
+  return result;
+}
+
+function toCustomPracticeClientCommitResult(
+  result: CustomPracticeCommitResult,
+): CustomPracticeClientCommitResult {
+  if (result.status !== "committed") return result;
+  return {
+    status: "committed",
+    idempotent: result.idempotent,
+    completedCount: result.completedCount,
+    targetCount: result.targetCount,
+    next: toCustomPracticeClientView(result.next),
+  };
+}
+
+function toChoiceOptions(choices: unknown): Array<{ id: string; label: string }> {
+  if (!Array.isArray(choices)) return [];
+  return choices.flatMap((choice) => {
+    if (
+      typeof choice === "object" &&
+      choice !== null &&
+      !Array.isArray(choice) &&
+      typeof choice.id === "string" &&
+      typeof choice.label === "string"
+    ) {
+      return [{ id: choice.id, label: choice.label }];
+    }
+    return [];
+  });
 }
 
 export async function flagChoicePracticeExerciseAction(

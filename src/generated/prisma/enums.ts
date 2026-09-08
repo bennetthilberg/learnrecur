@@ -453,6 +453,19 @@ export const AgentRateLimitKind = {
 export type AgentRateLimitKind = (typeof AgentRateLimitKind)[keyof typeof AgentRateLimitKind]
 
 
+export const AgentSetupPlanStatus = {
+  PREVIEWED: 'PREVIEWED',
+  APPLYING: 'APPLYING',
+  SUCCEEDED: 'SUCCEEDED',
+  PARTIAL: 'PARTIAL',
+  FAILED: 'FAILED',
+  STALE: 'STALE',
+  CANCELED: 'CANCELED'
+} as const
+
+export type AgentSetupPlanStatus = (typeof AgentSetupPlanStatus)[keyof typeof AgentSetupPlanStatus]
+
+
 export const AccountDeletionJobStatus = {
   PENDING: 'PENDING',
   RUNNING: 'RUNNING',
@@ -481,6 +494,23 @@ export const PracticePreference = {
 } as const
 
 export type PracticePreference = (typeof PracticePreference)[keyof typeof PracticePreference]
+
+
+export const PracticeSessionMode = {
+  PRACTICE_ONLY: 'PRACTICE_ONLY',
+  SCHEDULED: 'SCHEDULED'
+} as const
+
+export type PracticeSessionMode = (typeof PracticeSessionMode)[keyof typeof PracticeSessionMode]
+
+
+export const PracticeSessionStatus = {
+  ACTIVE: 'ACTIVE',
+  STOPPED: 'STOPPED',
+  COMPLETED: 'COMPLETED'
+} as const
+
+export type PracticeSessionStatus = (typeof PracticeSessionStatus)[keyof typeof PracticeSessionStatus]
 
 
 export const BackgroundJobDeliveryStatus = {

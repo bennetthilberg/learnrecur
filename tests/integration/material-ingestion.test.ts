@@ -128,6 +128,59 @@ describeDatabase("material ingestion", () => {
     expect(revision.sourceFiles[0].status).toBe(SourceFileStatus.READY);
   });
 
+  it("keeps a completed PDF when event delivery fails after the worker finishes", async () => {
+    const document = await PDFDocument.create();
+    document.addPage([612, 792]);
+    const bytes = Buffer.from(await document.save());
+    const storage = createMemoryStorage();
+    const prepared = await prepareMaterialPdf({
+      userId,
+      now: new Date(),
+      storage,
+      input: {
+        title: "Ambiguous PDF queue",
+        originalName: "ambiguous.pdf",
+        mimeType: "application/pdf",
+        byteSize: bytes.byteLength,
+      },
+    });
+    expect(prepared.status).toBe("prepared");
+    if (prepared.status !== "prepared") throw new Error("expected prepared upload");
+    storage.objects.set(storage.lastPreparedKey, bytes);
+
+    const result = await queueMaterialPdfIngestion({
+      userId,
+      materialRevisionId: prepared.materialRevisionId,
+      now: new Date(),
+      storage,
+      eventSender: {
+        async sendMaterialIngestionRequested(payload) {
+          await prisma.sourceFile.updateMany({
+            where: { materialRevisionId: payload.materialRevisionId, userId },
+            data: { status: SourceFileStatus.READY },
+          });
+          await prisma.materialRevision.update({
+            where: { id: payload.materialRevisionId },
+            data: { status: MaterialRevisionStatus.READY },
+          });
+          throw new Error("response lost after the worker finished");
+        },
+      },
+    });
+
+    expect(result).toMatchObject({ status: "not-queued" });
+    await expect(
+      prisma.materialRevision.findUniqueOrThrow({
+        where: { id: prepared.materialRevisionId },
+        select: { status: true, errorCode: true, sourceFiles: { select: { status: true } } },
+      }),
+    ).resolves.toEqual({
+      status: MaterialRevisionStatus.READY,
+      errorCode: null,
+      sourceFiles: [{ status: SourceFileStatus.READY }],
+    });
+  });
+
   it("discards a prepared PDF when the direct upload does not finish", async () => {
     const storage = createMemoryStorage();
     const prepared = await prepareMaterialPdf({
@@ -902,6 +955,107 @@ describeDatabase("material ingestion", () => {
     expect(storage.deleted).toContain(prepared.objectKey);
   });
 
+  it("keeps a completed website import when event delivery fails after the worker finishes", async () => {
+    const storage = createMemoryStorage();
+    const queued = await queueWebsiteMaterialImport({
+      userId,
+      now: new Date(),
+      storage,
+      eventSender: {
+        async sendMaterialIngestionRequested(payload) {
+          await prisma.sourceFile.updateMany({
+            where: { materialRevisionId: payload.materialRevisionId, userId },
+            data: { status: SourceFileStatus.READY },
+          });
+          await prisma.materialRevision.update({
+            where: { id: payload.materialRevisionId },
+            data: { status: MaterialRevisionStatus.READY },
+          });
+          throw new Error("response lost after the worker finished");
+        },
+      },
+      input: {
+        title: "Ambiguous website import",
+        sourceUrl: "https://books.example/ambiguous-book",
+        selectedUrls: ["https://books.example/ambiguous-chapter"],
+      },
+    });
+
+    expect(queued).toMatchObject({ status: "not-queued" });
+    const revision = await prisma.materialRevision.findFirstOrThrow({
+      where: { userId, sourceUrl: "https://books.example/ambiguous-book" },
+      select: { status: true, errorCode: true, sourceFiles: { select: { status: true } } },
+    });
+    expect(revision).toEqual({
+      status: MaterialRevisionStatus.READY,
+      errorCode: null,
+      sourceFiles: [{ status: SourceFileStatus.READY }],
+    });
+  });
+
+  it("keeps a completed website refresh when event delivery fails after the worker finishes", async () => {
+    const storage = createMemoryStorage();
+    const initial = await queueWebsiteMaterialImport({
+      userId,
+      now: new Date(),
+      storage,
+      eventSender: { async sendMaterialIngestionRequested() {} },
+      input: {
+        title: "Ambiguous website refresh",
+        sourceUrl: "https://books.example/refresh-book",
+        selectedUrls: ["https://books.example/refresh-chapter"],
+      },
+    });
+    expect(initial.status).toBe("queued");
+    if (initial.status !== "queued") throw new Error("expected queued website import");
+    await prisma.$transaction([
+      prisma.materialRevision.update({
+        where: { id: initial.materialRevisionId },
+        data: { status: MaterialRevisionStatus.READY },
+      }),
+      prisma.sourceFile.updateMany({
+        where: { materialRevisionId: initial.materialRevisionId, userId },
+        data: { status: SourceFileStatus.READY },
+      }),
+      prisma.studyMaterial.update({
+        where: { id: initial.materialId },
+        data: { activeRevisionId: initial.materialRevisionId },
+      }),
+    ]);
+
+    const refreshed = await queueWebsiteMaterialRefresh({
+      userId,
+      materialId: initial.materialId,
+      now: new Date(),
+      storage,
+      eventSender: {
+        async sendMaterialIngestionRequested(payload) {
+          await prisma.sourceFile.updateMany({
+            where: { materialRevisionId: payload.materialRevisionId, userId },
+            data: { status: SourceFileStatus.READY },
+          });
+          await prisma.materialRevision.update({
+            where: { id: payload.materialRevisionId },
+            data: { status: MaterialRevisionStatus.READY },
+          });
+          throw new Error("response lost after the worker finished");
+        },
+      },
+    });
+
+    expect(refreshed).toMatchObject({ status: "not-queued" });
+    const revision = await prisma.materialRevision.findFirstOrThrow({
+      where: { id: { not: initial.materialRevisionId }, materialId: initial.materialId },
+      orderBy: { revisionNumber: "desc" },
+      select: { status: true, errorCode: true, sourceFiles: { select: { status: true } } },
+    });
+    expect(revision).toEqual({
+      status: MaterialRevisionStatus.READY,
+      errorCode: null,
+      sourceFiles: [{ status: SourceFileStatus.READY }],
+    });
+  });
+
   it("snapshots selected same-origin website pages and builds URL locators", async () => {
     const storage = createMemoryStorage();
     const sentEvents: string[] = [];
@@ -971,6 +1125,99 @@ describeDatabase("material ingestion", () => {
         }),
       ]),
     );
+  });
+
+  it("tracks a website snapshot before a later index failure and cleans it up", async () => {
+    const storage = createMemoryStorage();
+    const queued = await queueWebsiteMaterialImport({
+      userId,
+      now: new Date(),
+      storage,
+      eventSender: { async sendMaterialIngestionRequested() {} },
+      input: {
+        title: "Website index failure",
+        sourceUrl: "https://books.example/index-failure-book",
+        selectedUrls: ["https://books.example/index-failure-chapter"],
+      },
+    });
+    expect(queued.status).toBe("queued");
+    if (queued.status !== "queued") throw new Error("expected queued website import");
+
+    const triggerBase = `test_midx_${randomUUID().replaceAll("-", "").slice(0, 24)}`;
+    const functionName = `${triggerBase}_fn`;
+    const triggerName = `${triggerBase}_trigger`;
+    await prisma.$executeRawUnsafe(`
+      CREATE FUNCTION "${functionName}"() RETURNS trigger
+      LANGUAGE plpgsql AS $$
+      BEGIN
+        IF NEW."userId" = '${userId}' THEN
+          RAISE EXCEPTION 'fixture website index failure';
+        END IF;
+        RETURN NEW;
+      END;
+      $$;
+    `);
+    await prisma.$executeRawUnsafe(`
+      CREATE TRIGGER "${triggerName}"
+      BEFORE INSERT ON "material_sections"
+      FOR EACH ROW EXECUTE FUNCTION "${functionName}"();
+    `);
+
+    let writtenKey = "";
+    try {
+      await expect(
+        runMaterialIngestionJob({
+          userId,
+          materialRevisionId: queued.materialRevisionId,
+          storage,
+          resolveHostname: async () => ["93.184.216.34"],
+          fetchResource: async (url) => ({
+            url,
+            contentType: "text/html",
+            bytes: Buffer.from(
+              "<html><body><main><h1>Index failure chapter</h1><p>This page has enough readable textbook content to write the private snapshot before the index fixture fails.</p></main></body></html>",
+            ),
+          }),
+          embeddingGenerator: null,
+          summaryGenerator: null,
+        }),
+      ).rejects.toThrow(/fixture website index failure/i);
+
+      expect(storage.puts).toHaveLength(1);
+      writtenKey = storage.puts[0].key;
+      expect(storage.objects.has(writtenKey)).toBe(true);
+      const sourceFile = await prisma.sourceFile.findFirstOrThrow({
+        where: { materialRevisionId: queued.materialRevisionId, userId },
+        select: { status: true, byteSize: true, storageKey: true },
+      });
+      expect(sourceFile).toEqual({
+        status: SourceFileStatus.FAILED,
+        byteSize: storage.puts[0].bytes.byteLength,
+        storageKey: writtenKey,
+      });
+    } finally {
+      await prisma.$executeRawUnsafe(`DROP TRIGGER IF EXISTS "${triggerName}" ON "material_sections";`);
+      await prisma.$executeRawUnsafe(`DROP FUNCTION IF EXISTS "${functionName}"();`);
+    }
+
+    const deletion = await queueMaterialDeletion({
+      userId,
+      materialId: queued.materialId,
+      confirmationTitle: "Website index failure",
+      now: new Date(),
+      eventSender: { async sendMaterialCleanupRequested() {} },
+    });
+    expect(deletion.status).toBe("queued");
+    if (deletion.status !== "queued") throw new Error("expected queued cleanup");
+    await expect(
+      runMaterialCleanupJob({
+        userId,
+        materialId: queued.materialId,
+        cleanupJobId: deletion.cleanupJobId,
+        storage,
+      }),
+    ).resolves.toMatchObject({ status: "deleted" });
+    expect(storage.objects.has(writtenKey)).toBe(false);
   });
 
   it("fetches large website selections in bounded concurrent groups", async () => {
