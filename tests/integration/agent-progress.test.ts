@@ -540,6 +540,11 @@ suite("agent progress read model", () => {
       userId: auth.userId,
       title: "Committed refill event",
     });
+    const deferredQueueSender: ExerciseRefillEventSender = {
+      async sendChoiceRefillRequested() {},
+      async sendExactInputRefillRequested() {},
+      async sendMathRefillRequested() {},
+    };
     let queued!: Awaited<ReturnType<typeof queueChoiceExerciseRefillForSkill>>;
     await prisma.$transaction(async (tx) => {
       queued = await queueChoiceExerciseRefillForSkill({
@@ -547,6 +552,7 @@ suite("agent progress read model", () => {
         skillId: skill.id,
         now,
         transaction: tx,
+        sender: deferredQueueSender,
         deferEvent: true,
       });
     });
