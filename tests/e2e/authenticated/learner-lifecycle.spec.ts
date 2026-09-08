@@ -44,11 +44,13 @@ test.describe("authenticated learner lifecycle", () => {
     ).toContainText(normalizeRenderedPrompt(scenario.exercise.prompt));
   });
 
-  test("grades choice, text, numeric, and math answers and persists FSRS state", async ({
-    learnerFixture,
-    page,
-  }) => {
-    for (const kind of ["choice", "text", "numeric", "math"] as const) {
+  // Each answer kind gets its own fixture and deadline; four remote-backed
+  // practice flows can exceed one shared 30-second budget on a slow CI runner.
+  for (const kind of ["choice", "text", "numeric", "math"] as const) {
+    test(`grades ${kind} answers and persists FSRS state`, async ({
+      learnerFixture,
+      page,
+    }) => {
       const scenario = learnerFixture.scenarios[kind];
       const before = await readE2EPracticeState({
         exerciseId: scenario.exercise.id,
@@ -80,8 +82,8 @@ test.describe("authenticated learner lifecycle", () => {
         Date.parse(before.dueAt!),
       );
       expect(after.latestReview?.nextDueAt).toBe(after.dueAt);
-    }
-  });
+    });
+  }
 
   test("shows a saved review in history and exports only the learner data", async ({
     clerkTestUser,
