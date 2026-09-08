@@ -194,6 +194,10 @@ suite("daily introductions through persisted practice", () => {
         where: { userId, firstIntroducedAt: { not: null } },
       }),
     ).toBe(0);
+    await prisma.user.update({ where: { id: userId }, data: { dailyNewSkillLimit: 0 } });
+    const dashboard = await getDashboardHome({ userId, now });
+    expect(dashboard.skills.find((skill) => skill.id === items[0].skill.id)?.dueLabel)
+      .toBe("Not available in practice yet");
   });
   it("keeps dashboard previews read-only across collections", async () => {
     const { userId, items } = await fixture();

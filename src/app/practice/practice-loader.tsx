@@ -25,11 +25,13 @@ export function PracticeLoader({
         collectionId,
         mixedReview: initialMixedReview,
       });
-      void request.current
+      const pending = request.current;
+      void pending
         .then((result) => {
           if (mounted) setItem(result);
         })
         .catch(() => {
+          if (request.current === pending) request.current = null;
           if (mounted) setFailed(true);
         });
     };

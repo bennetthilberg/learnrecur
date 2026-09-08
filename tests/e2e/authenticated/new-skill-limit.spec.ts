@@ -68,7 +68,18 @@ for (const width of [1280, 390]) {
       });
 
       const practiceUrl = `/practice?collectionId=${fresh.collectionId}`;
+      let failedLoad = false;
+      await page.route("**/practice?**", route => {
+        if (!failedLoad && route.request().method() === "POST") {
+          failedLoad = true;
+          return route.abort("failed");
+        }
+        return route.continue();
+      });
       await page.goto(practiceUrl);
+      await expect(page.getByRole("heading", { name: "Could not load practice." })).toBeVisible();
+      // Returning to a visible Practice tab retries a transient failed request.
+      await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
       await expect(
         page.getByRole("heading", { name: "Daily new-skill limit reached." }),
       ).toBeVisible();

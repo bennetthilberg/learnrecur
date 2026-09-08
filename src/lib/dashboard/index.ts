@@ -209,7 +209,7 @@ export async function getDashboardHome(input: GetDashboardHomeInput): Promise<Da
       dueAt: skill.dueAt,
       stability: skill.stability,
       isReadyNow: readySkillIds.has(skill.id),
-      dueLabel: allowance.remaining === 0 && !wasSkillIntroduced(skill) && skill.dueAt && skill.dueAt <= input.now
+      dueLabel: allowance.remaining === 0 && !wasSkillIntroduced(skill) && isReadyNow(skill, input.now)
         ? "Daily limit reached"
         : getDueLabel(skill, input.now),
     })),
