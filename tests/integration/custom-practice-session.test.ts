@@ -331,6 +331,94 @@ suite("custom practice sessions", () => {
     expect(await prisma.reviewLog.count({ where: { userId } })).toBe(2);
   });
 
+  it("limits scheduled inventory to one exercise per due skill", async () => {
+    const userId = await createUser();
+    const firstSkill = await createSkillFixture(prisma, {
+      userId,
+      title: "Scheduled first with extra inventory",
+      dueAt: new Date("2026-06-02T12:00:00.000Z"),
+      repetitions: 2,
+    });
+    const secondSkill = await createSkillFixture(prisma, {
+      userId,
+      title: "Scheduled second with extra inventory",
+      dueAt: new Date("2026-06-02T13:00:00.000Z"),
+      repetitions: 2,
+    });
+    await createChoiceExercise({ prisma, userId, skillId: firstSkill.id });
+    await createChoiceExercise({
+      prisma,
+      userId,
+      skillId: firstSkill.id,
+      prompt: "Choose the second first-skill answer.",
+    });
+    await createChoiceExercise({ prisma, userId, skillId: secondSkill.id });
+    await createChoiceExercise({
+      prisma,
+      userId,
+      skillId: secondSkill.id,
+      prompt: "Choose the second second-skill answer.",
+    });
+
+    const created = await createCustomPracticeSession({
+      userId,
+      mode: "SCHEDULED",
+      targetCount: 3,
+      scope: {
+        collectionIds: [],
+        tags: [],
+        skillIds: [firstSkill.id, secondSkill.id],
+        recentlyMissed: false,
+        mixedReview: false,
+      },
+      now,
+    });
+    expect(created.status).toBe("ready");
+    if (created.status !== "ready") throw new Error("expected a ready scheduled session");
+    expect(created.session.plan).toHaveLength(2);
+    expect(new Set(created.session.plan.map((item) => item.skillId))).toEqual(
+      new Set([firstSkill.id, secondSkill.id]),
+    );
+
+    const first = await presentCustomPracticeSessionItem({
+      userId,
+      sessionId: created.session.id,
+      now,
+    });
+    expect(first.status).toBe("ready");
+    if (first.status !== "ready") throw new Error("expected the first scheduled item");
+    const firstCommit = await commitCustomPracticeAnswer({
+      userId,
+      sessionId: created.session.id,
+      itemKey: first.sessionItem.itemKey,
+      exerciseId: first.exercise.id,
+      submittedAnswer: "right",
+      manualRating: "GOOD",
+      now,
+    });
+    expect(firstCommit.status).toBe("committed");
+    if (firstCommit.status !== "committed") throw new Error("expected the first commit");
+    expect(firstCommit.next.status).toBe("ready");
+    if (firstCommit.next.status !== "ready") throw new Error("expected the second item");
+    expect(firstCommit.next.exercise.skillId).toBe(secondSkill.id);
+
+    const secondCommit = await commitCustomPracticeAnswer({
+      userId,
+      sessionId: created.session.id,
+      itemKey: firstCommit.next.sessionItem.itemKey,
+      exerciseId: firstCommit.next.exercise.id,
+      submittedAnswer: "right",
+      manualRating: "GOOD",
+      now: new Date(now.getTime() + 60_000),
+    });
+    expect(secondCommit.status).toBe("committed");
+    if (secondCommit.status !== "committed") throw new Error("expected the second commit");
+    expect(secondCommit.completedCount).toBe(2);
+    expect(secondCommit.targetCount).toBe(3);
+    expect(secondCommit.next.status).toBe("completed");
+    expect(await prisma.reviewLog.count({ where: { userId } })).toBe(2);
+  });
+
   it("persists a late appended item across presentation and completes the target", async () => {
     const userId = await createUser();
     const skill = await createSkillFixture(prisma, {

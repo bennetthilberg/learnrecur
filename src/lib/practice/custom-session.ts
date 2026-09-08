@@ -812,7 +812,10 @@ async function buildSessionPlan(
 
 async function buildSessionCandidates(
   tx: SessionDbClient,
-  input: SessionPlanBuildInput & { excludeExerciseIds?: readonly string[] },
+  input: SessionPlanBuildInput & {
+    excludeExerciseIds?: readonly string[];
+    excludeSkillIds?: readonly string[];
+  },
 ): Promise<SessionCandidate[]> {
   const missedSince = new Date(
     input.now.getTime() - RECENTLY_MISSED_LOOKBACK_DAYS * 24 * 60 * 60 * 1000,
@@ -823,8 +826,15 @@ async function buildSessionCandidates(
     ...(input.scope.collectionIds.length > 0
       ? { collectionId: { in: input.scope.collectionIds } }
       : {}),
-    ...(input.scope.skillIds.length > 0
-      ? { id: { in: input.scope.skillIds } }
+    ...(input.scope.skillIds.length > 0 || (input.excludeSkillIds?.length ?? 0) > 0
+      ? {
+          id: {
+            ...(input.scope.skillIds.length > 0 ? { in: input.scope.skillIds } : {}),
+            ...(input.excludeSkillIds && input.excludeSkillIds.length > 0
+              ? { notIn: [...input.excludeSkillIds] }
+              : {}),
+          },
+        }
       : {}),
     ...(input.scope.tags.length > 0
       ? { tags: { hasEvery: input.scope.tags } }
@@ -916,6 +926,7 @@ async function buildSessionCandidates(
   const orderedSkillIds = orderedSkills.map((skill) => skill.id);
   const candidates: SessionCandidate[] = [];
   for (let offset = 0; ; offset += 1) {
+    if (input.mode === "SCHEDULED" && offset > 0) break;
     let added = false;
     for (const skillId of orderedSkillIds) {
       const exercise = sortedBySkill.get(skillId)?.[offset];
@@ -1002,6 +1013,16 @@ async function replenishSessionPlan(
     scope: session.scope,
     now,
     excludeExerciseIds: session.plan.map((item) => item.exerciseId),
+    excludeSkillIds:
+      session.mode === "SCHEDULED"
+        ? [
+            ...new Set(
+              session.plan
+                .filter((item) => item.status !== "SKIPPED")
+                .map((item) => item.skillId),
+            ),
+          ]
+        : undefined,
   });
   if (candidates.length === 0) return session;
 

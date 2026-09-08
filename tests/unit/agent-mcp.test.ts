@@ -141,6 +141,22 @@ describe("registerLearnRecurMcpTools", () => {
       "operations.retry_failed",
     ]);
   });
+
+  it("marks lifecycle mutations as potentially destructive", () => {
+    const registerTool = vi.fn();
+    registerLearnRecurMcpTools({ registerTool } as never);
+    const optionsFor = (name: string) =>
+      registerTool.mock.calls.find(([registeredName]) => registeredName === name)?.[1] as {
+        annotations: { destructiveHint: boolean };
+      };
+
+    expect(optionsFor("skills.lifecycle").annotations.destructiveHint).toBe(true);
+    expect(optionsFor("skills.archive").annotations.destructiveHint).toBe(true);
+    expect(optionsFor("collections.lifecycle").annotations.destructiveHint).toBe(true);
+    expect(optionsFor("collections.archive").annotations.destructiveHint).toBe(true);
+    expect(optionsFor("skills.update").annotations.destructiveHint).toBe(false);
+    expect(optionsFor("progress.summary").annotations.destructiveHint).toBe(false);
+  });
 });
 
 describe("MCP resource discovery", () => {

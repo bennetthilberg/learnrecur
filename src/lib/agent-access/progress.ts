@@ -194,6 +194,7 @@ export async function getAgentProgressSummary(
       limit: allowance.limit,
       remaining: allowance.remaining,
       timezone: allowance.timezone,
+      day_start_minutes: allowance.dayStartMinutes,
     },
     trouble_spots: troubleSpots,
     quality: { open_flag_count: openFlagCount },

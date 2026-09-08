@@ -11,6 +11,9 @@ connected-agent surface.
 Custom sessions are bounded, owned practice plans. `PRACTICE_ONLY` may include
 not-yet-due compatible exercises and records an exposure without changing FSRS.
 `SCHEDULED` admits due compatible work and records the normal review outcome.
+Scheduled plans include at most one exercise per due skill; replenishment can
+replace a skipped, unreviewed item while a reviewed skill stays out of the
+same session.
 Both modes carry account, collection, tag, skill, recently-missed, and mixed-
 review scope through planning, presentation, answer submission, continuation,
 and history. Repeated submissions use deterministic item and attempt keys.
@@ -114,19 +117,20 @@ use one worker and one database lease.
 | Canonical readiness SQL parity | `readiness-sql.test.ts`: 16/16 passed, including malformed numeric, fraction, math, policy, retired, and unverified inventory. |
 | Advanced settings persistence integration | 1 file, 2 tests passed. |
 | Focused agent library and MCP wrapper integration | `agent-library-management.test.ts`: 12/12 passed, including per-skill timestamps, readiness parity, malformed specs, tag overflow, and revoked access. |
-| Focused custom-session integration | `custom-practice-session.test.ts`: 13/13 passed, including mixed-review cue metadata, undersized-plan replenishment, and explicit owned-scope validation. |
+| Focused custom-session integration | `custom-practice-session.test.ts`: 14/14 passed, including scheduled one-per-skill planning, mixed-review cue metadata, undersized-plan replenishment, and explicit owned-scope validation. |
 | Focused material integration | `agent-material-ingestion.test.ts`: 10/10 passed, including concurrent completion, revocation/deletion during URL replay, operation reconciliation, and late acknowledgement. Native ingestion evidence: 24 tests passed. |
 | Focused progress and Needs Attention integration | `agent-progress.test.ts`: 7/7 passed, including authorization races, guidance merging, skill ownership, SQL readiness, and lost post-commit event acknowledgement; Needs Attention: 3/3 passed. |
 | Focused practice refill integration | `refill-delivery-recovery.test.ts`: 6/6 passed, including crash recovery, single-claim leases, stale publishers, delivery exhaustion, and deletion tombstones. |
 | Focused durable setup integration | `agent-setup.test.ts`: 10/10 passed, including last-seen snapshot stability, stale setting edits, journal recovery, and concurrent apply fencing. |
 | Setup conflict classification | Nested Prisma 7 Neon `driverAdapterError.cause.code` and `cause.kind` cases are covered by the focused unit suite. |
-| Full unit suite | 109 files, 1,067 tests passed. |
+| Full unit suite | 109 files, 1,068 tests passed. |
 | Combined coverage proof | `npm run test:coverage` runs unit and integration tests with `RUN_DATABASE_TESTS=1`; the local proof passed 110 files and 1,087 tests against the disposable database with statements 52.52%, branches 46.01%, functions 61.75%, and lines 52.35%. This proof predates the final narrow regression files; thresholds and source coverage scope are unchanged, and the exact final-head run is enforced by CI. |
 | Full lint | Passed. |
 | Application build | Passed; Next.js typecheck and static generation completed. |
 | Worker bundle | `npm run jobs:build` passed and wrote the ignored `.aws-build/jobs.zip`. |
 | Runtime audit | `npm run check:runtime-audit` passed: 0 runtime findings and 0 blockers; four accepted dev-only Prisma CLI exceptions. |
-| Focused MCP protocol unit tests | 2 files, 23 tests passed. `setup_in_progress` is publicly retryable; `setup_stale` is not. |
+| Focused MCP protocol unit tests | 4 files, 22 tests passed. `setup_in_progress` is publicly retryable; `setup_stale` is not, and lifecycle mutations carry destructive hints. |
+| Exact-head GitHub CI | Run [34274320695](https://github.com/bennetthilberg/learnrecur/actions/runs/34274320695) passed at `419615657f10b6404298794afbc681e47ff25e53`: verify passed runtime audit, lint, unit, Prisma validation/client generation, and build; the combined gate passed 146 files and 1,560 tests with 80.42% statements, 71.36% branches, 88.03% functions, and 80.88% lines; authenticated Chromium passed 26 tests. |
 | Authenticated browser flows | 7 product tests passed across desktop and mobile settings, daily-limit gating, advanced retention/day-start persistence, custom setup/completion, mixed-review cues, and Needs Attention states. The externally seeded fractional-retention case passed in a focused 1/1 rerun after a test locator correction. Clerk setup and cleanup passed for both runs. Custom mobile frame measured 14px left, 361px right, with no horizontal document overflow. |
 | Malformed Needs Attention cursor browser check | `needs-attention.spec.ts`: 5/5 passed with Clerk setup/cleanup, including desktop, mobile, and first-page recovery for a malformed cursor. |
 | Full serialized integration suite | Broad baseline: 35 files, 446 tests with 442 passed and 4 agent-practice failures. The final affected rerun passed 3 files and 32 tests after updating tool/settings contracts, bounded Neon conflict retries, and setup snapshot fencing; it covers all four original failure paths plus the new setup regression. The broad suite was not repeated, so this is not a fresh 446-test all-green claim. |
@@ -137,14 +141,24 @@ coverage gate. CI prepares an isolated database, applies migrations, and runs
 the unit and integration suites together so the threshold measures the real
 database paths. Same-repository pull requests and main receive this full gate;
 fork pull requests retain fast checks because trusted database credentials are
-not available there. No threshold or coverage exclusion changed. The
-final-head CI result is tracked on PR #132; this record reports the local proof
-above and does not claim CI or deployment status before those gates complete.
+not available there. No threshold or coverage exclusion changed. The exact
+final-head run above passed; it proves CI for this revision and does not prove
+deployment.
 
 The standalone `npx tsc --noEmit` command reports an existing test typing
 backlog. A disposable archive comparison against `b49f132` found the same 83
 diagnostics, 30 unique path/code/severity keys, and unchanged messages, with
 zero introduced diagnostics. The application build typecheck passes.
+
+The two manual Codex review requests are exhausted. The final request reviewed
+`8add41e` and identified scheduled per-skill planning, lifecycle MCP
+destructive annotations, and the missing progress day-start field; follow-up
+test commit `4196156` and the current review-fix changes address those
+findings and were validated by focused tests and exact-head CI. No third manual
+review was requested. CodeRabbit suggestions were triaged separately: the fork
+coverage trust boundary and bounded DST boundary search remain intentional, while
+broad renames, formatting churn, and speculative optimizations were deferred.
+This record does not claim every automated review comment is resolved.
 
 ## Browser review and self-critique
 

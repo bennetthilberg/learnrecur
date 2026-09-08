@@ -94,6 +94,14 @@ suite("agent progress read model", () => {
 
   it("uses alreadyStudied and effective text policy in readiness and due totals", async () => {
     const auth = await createAuth();
+    await prisma.user.update({
+      where: { id: auth.userId },
+      data: {
+        dailyNewSkillLimit: 3,
+        practiceTimezone: "America/Chicago",
+        practiceDayStartMinutes: 270,
+      },
+    });
     const locked = await createSkillFixture(prisma, {
       userId: auth.userId,
       title: "Locked exact input",
@@ -173,6 +181,11 @@ suite("agent progress read model", () => {
     await expect(
       getAgentProgressSummary(auth, { collection_id: exactCollection.id }),
     ).resolves.toMatchObject({
+      new_skill_allowance: {
+        limit: 3,
+        timezone: "America/Chicago",
+        day_start_minutes: 270,
+      },
       due: {
         skill_count: 1,
         ready_skill_count: 0,

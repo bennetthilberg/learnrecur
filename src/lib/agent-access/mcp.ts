@@ -184,6 +184,7 @@ export function registerLearnRecurMcpTools(server: McpServer) {
     schema: agentSkillLifecycleSchema,
     scopes: ["skills:write"],
     readOnly: false,
+    destructiveHint: true,
     handler: lifecycleAgentSkill,
   });
   for (const action of ["pause", "resume", "archive", "restore"] as const) {
@@ -194,6 +195,7 @@ export function registerLearnRecurMcpTools(server: McpServer) {
       schema: z.strictObject({ skill_id: z.string().trim().min(1).max(200) }),
       scopes: ["skills:write"],
       readOnly: false,
+      destructiveHint: true,
       handler: (auth, input) => lifecycleAgentSkill(auth, { ...input, action }),
     });
   }
@@ -231,6 +233,7 @@ export function registerLearnRecurMcpTools(server: McpServer) {
     schema: agentCollectionLifecycleSchema,
     scopes: ["collections:write"],
     readOnly: false,
+    destructiveHint: true,
     handler: lifecycleAgentCollection,
   });
   for (const action of ["archive", "restore"] as const) {
@@ -241,6 +244,7 @@ export function registerLearnRecurMcpTools(server: McpServer) {
       schema: z.strictObject({ collection_id: z.string().trim().min(1).max(200) }),
       scopes: ["collections:write"],
       readOnly: false,
+      destructiveHint: true,
       handler: (auth, input) => lifecycleAgentCollection(auth, { ...input, action }),
     });
   }
@@ -265,7 +269,7 @@ export function registerLearnRecurMcpTools(server: McpServer) {
   registerTool(server, {
     name: "progress.summary",
     title: "Read progress summary",
-    description: "Read due work, readiness, allowance remaining, recent trouble spots, flags, and preparation counts. It does not reserve allowance or write review attempts.",
+    description: "Read due work, readiness, allowance remaining and local reset time, recent trouble spots, flags, and preparation counts. It does not reserve allowance or write review attempts.",
     schema: agentProgressSummarySchema,
     scopes: ["progress:read"],
     readOnly: true,
@@ -515,6 +519,7 @@ type ToolDefinition<T extends z.ZodType> = {
   scopes: AgentAccessScope[];
   alternativeScopes?: readonly (readonly AgentAccessScope[])[];
   readOnly: boolean;
+  destructiveHint?: boolean;
   handler: (
     auth: ReturnType<typeof requireAgentAuthContext>,
     input: z.infer<T>,
@@ -563,7 +568,7 @@ function registerTool<T extends z.ZodType>(server: McpServer, definition: ToolDe
       inputSchema: definition.schema,
       annotations: {
         readOnlyHint: definition.readOnly,
-        destructiveHint: false,
+        destructiveHint: definition.destructiveHint ?? false,
         idempotentHint: definition.readOnly,
         openWorldHint: false,
       },
