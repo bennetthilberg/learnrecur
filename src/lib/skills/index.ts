@@ -1956,13 +1956,23 @@ export async function updateSkillMetadata(input: {
         return { status: "invalid" as const, message: "The destination collection was not found or is archived." };
       }
     }
-    const previousPolicy = resolveTextPolicy({ skill: skill.textPolicy, collection: skill.collection?.textPolicy });
-    const nextPolicy = resolveTextPolicy({ skill: skill.textPolicy, collection: nextCollection?.textPolicy });
-    if (
-      input.collectionId !== undefined &&
-      (skill.collectionId !== (nextCollection?.id ?? null) || JSON.stringify(previousPolicy) !== JSON.stringify(nextPolicy))
-    ) {
-      await invalidateTextInventory(tx, input.userId, [skill.id], new Date());
+    const collectionChanged =
+      input.collectionId !== undefined && skill.collectionId !== (nextCollection?.id ?? null);
+    if (collectionChanged) {
+      let previousPolicy;
+      let nextPolicy;
+      try {
+        previousPolicy = resolveTextPolicy({ skill: skill.textPolicy, collection: skill.collection?.textPolicy });
+        nextPolicy = resolveTextPolicy({ skill: skill.textPolicy, collection: nextCollection?.textPolicy });
+      } catch {
+        return {
+          status: "invalid" as const,
+          message: "The skill's text comparison policy is invalid; repair it before moving the skill.",
+        };
+      }
+      if (JSON.stringify(previousPolicy) !== JSON.stringify(nextPolicy)) {
+        await invalidateTextInventory(tx, input.userId, [skill.id], new Date());
+      }
     }
     const updated = await tx.skill.update({
       where: { id: skill.id },

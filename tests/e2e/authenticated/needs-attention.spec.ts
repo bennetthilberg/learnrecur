@@ -35,3 +35,10 @@ for (const viewport of [
     });
   });
 }
+
+test("returns to the first page for a malformed needs-attention cursor", async ({ page }) => {
+  await page.goto("/practice/attention?cursor=not-base64-json");
+
+  await expect(page).toHaveURL(/\/practice\/attention$/);
+  await expect(page.getByRole("heading", { name: /^needs attention$/i })).toBeVisible();
+});

@@ -7,6 +7,7 @@ import {
   WarningCircle,
 } from "@phosphor-icons/react/dist/ssr";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 import { UserStatusPanel } from "@/components/app/user-status-panel";
 import {
@@ -18,6 +19,7 @@ import {
   isNeedsAttentionMiss,
   NEEDS_ATTENTION_DEFAULT_LIMIT,
   NEEDS_ATTENTION_MAX_LIMIT,
+  NeedsAttentionCursorError,
   type NeedsAttentionItem,
 } from "@/lib/practice/needs-attention";
 import { ensureDatabaseUser } from "@/lib/users";
@@ -57,12 +59,20 @@ export default async function NeedsAttentionPage({
     );
   }
 
-  const result = await getNeedsAttention({
-    userId,
-    now: new Date(),
-    limit,
-    cursor,
-  });
+  let result;
+  try {
+    result = await getNeedsAttention({
+      userId,
+      now: new Date(),
+      limit,
+      cursor,
+    });
+  } catch (error) {
+    if (error instanceof NeedsAttentionCursorError) {
+      redirect(buildAttentionHref({ limit }));
+    }
+    throw error;
+  }
 
   return (
     <main className="practiceShell practiceAttentionShell">
@@ -88,7 +98,7 @@ export default async function NeedsAttentionPage({
         </header>
 
         {result.items.length === 0 ? (
-          <EmptyState />
+          <EmptyState pageScoped={Boolean(cursor || result.nextCursor)} />
         ) : (
           <>
             <div className="practiceAttentionListHeader">
@@ -238,15 +248,18 @@ function PreparationDetail({ item }: { item: NeedsAttentionItem }) {
   );
 }
 
-function EmptyState() {
+function EmptyState({ pageScoped = false }: { pageScoped?: boolean }) {
   return (
     <section className="practiceAttentionEmpty" aria-labelledby="practice-attention-empty-title">
       <CheckCircle size={28} weight="bold" aria-hidden="true" />
       <div>
-        <h2 id="practice-attention-empty-title">Nothing needs attention right now</h2>
+        <h2 id="practice-attention-empty-title">
+          {pageScoped ? "No findings on this page" : "Nothing needs attention right now"}
+        </h2>
         <p>
-          We need enough recent, valid scheduled evidence before we show a pattern. Keep
-          practicing when a skill is due, and we will leave your history intact.
+          {pageScoped
+            ? "There are no additional findings in this page of the list. Return to the first page to review earlier findings."
+            : "We need enough recent, valid scheduled evidence before we show a pattern. Keep practicing when a skill is due, and we will leave your history intact."}
         </p>
         <div className="practiceAttentionEmptyActions">
           <Link className="primaryButton" href="/practice">

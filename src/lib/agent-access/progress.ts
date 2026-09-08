@@ -29,14 +29,22 @@ import {
 } from "@/lib/skills/retention-preparation";
 import {
   publishDeferredExerciseRefillEvent,
+  type RefillQueueResult,
   type DeferredExerciseRefillEvent,
   type RefillQueueResultWithDeferredEvent,
 } from "@/lib/skills/refill-jobs";
 import {
+  buildReadyExerciseSql,
+  DEFAULT_READY_TEXT_POLICY_SQL,
+} from "@/lib/practice/readiness-sql";
+import {
   isPracticeReadModelExerciseReady,
   resolveReadModelTextPolicy,
 } from "@/lib/practice/read-model-eligibility";
-import { getNeedsAttention } from "@/lib/practice/needs-attention";
+import {
+  getNeedsAttention,
+  NeedsAttentionCursorError,
+} from "@/lib/practice/needs-attention";
 
 type ReadinessExercise = {
   id: string;
@@ -77,6 +85,45 @@ function guidanceConstraints(value: Prisma.JsonValue | null): string {
 
 function publicGenerationErrorMessage(errorMessage: string | null): string | null {
   return errorMessage ? "Exercise preparation failed. Retry the repair." : null;
+}
+
+export type ReadinessPreparationStatus =
+  | "queued"
+  | "partial"
+  | "not-queued"
+  | "ready"
+  | "in-progress";
+
+/**
+ * Summarize each bounded refill result without claiming work was queued when
+ * every refill was rejected or already satisfied.
+ */
+export function summarizeReadinessPreparationStatus(
+  results: readonly RefillQueueResult[],
+): ReadinessPreparationStatus {
+  if (results.length === 0) return "not-queued";
+
+  const queuedCount = results.filter((result) => result.status === "queued").length;
+  if (queuedCount === results.length) return "queued";
+  if (queuedCount > 0) return "partial";
+
+  if (
+    results.every(
+      (result) =>
+        result.status === "not-queued" && result.reason === "already-at-target",
+    )
+  ) {
+    return "ready";
+  }
+  if (
+    results.every(
+      (result) =>
+        result.status === "not-queued" && result.reason === "job-in-progress",
+    )
+  ) {
+    return "in-progress";
+  }
+  return "not-queued";
 }
 
 export async function getAgentProgressSummary(
@@ -210,126 +257,15 @@ async function loadProgressCounts(input: {
             FROM "exercises" e
             WHERE e."userId" = s."userId"
               AND e."skillId" = s."id"
-              AND e."verificationStatus" = ${ExerciseVerificationStatus.VERIFIED}::"ExerciseVerificationStatus"
-              AND e."retiredAt" IS NULL
-              AND (
-                (
-                  e."answerKind" = ${AnswerKind.CHOICE}::"AnswerKind"
-                  AND jsonb_typeof(e."choices") = 'array'
-                  AND jsonb_array_length(
-                    CASE
-                      WHEN jsonb_typeof(e."choices") = 'array' THEN e."choices"
-                      ELSE '[]'::jsonb
-                    END
-                  ) > 0
-                  AND e."answerSpec"->>'kind' = 'choice'
-                  AND EXISTS (
-                    SELECT 1
-                    FROM jsonb_array_elements(
-                      CASE
-                        WHEN jsonb_typeof(e."choices") = 'array' THEN e."choices"
-                        ELSE '[]'::jsonb
-                      END
-                    ) choice
-                    WHERE choice->>'id' = e."answerSpec"->>'correctChoiceId'
-                  )
-                )
-                OR (
-                  (s."alreadyStudied" = TRUE OR s."repetitions" >= 3)
-                  AND (
-                    (
-                      e."answerKind" = ${AnswerKind.TEXT}::"AnswerKind"
-                      AND e."answerSpec"->>'kind' = 'text'
-                      AND jsonb_typeof(e."answerSpec"->'accepted') = 'array'
-                      AND jsonb_array_length(
-                        CASE
-                          WHEN jsonb_typeof(e."answerSpec"->'accepted') = 'array' THEN e."answerSpec"->'accepted'
-                          ELSE '[]'::jsonb
-                        END
-                      ) > 0
-                      AND e."answerSpec"->>'policyVersion' = COALESCE(
-                        s."textPolicy",
-                        c."textPolicy",
-                        '{"version":2,"profile":"NATURAL","normalizeCase":true,"normalizeWhitespace":true}'::jsonb
-                      )->>'version'
-                      AND e."answerSpec"->>'normalizeCase' = COALESCE(
-                        s."textPolicy",
-                        c."textPolicy",
-                        '{"version":2,"profile":"NATURAL","normalizeCase":true,"normalizeWhitespace":true}'::jsonb
-                      )->>'normalizeCase'
-                      AND e."answerSpec"->>'normalizeWhitespace' = COALESCE(
-                        s."textPolicy",
-                        c."textPolicy",
-                        '{"version":2,"profile":"NATURAL","normalizeCase":true,"normalizeWhitespace":true}'::jsonb
-                      )->>'normalizeWhitespace'
-                      AND e."answerSpec"->>'normalizeDiacritics' = 'false'
-                      AND (
-                        (COALESCE(
-                          s."textPolicy",
-                          c."textPolicy",
-                          '{"version":2,"profile":"NATURAL","normalizeCase":true,"normalizeWhitespace":true}'::jsonb
-                        )->>'profile' = 'CUSTOM')
-                        OR (
-                          COALESCE(
-                            s."textPolicy",
-                            c."textPolicy",
-                            '{"version":2,"profile":"NATURAL","normalizeCase":true,"normalizeWhitespace":true}'::jsonb
-                          )->>'profile' = 'NATURAL'
-                          AND COALESCE(
-                            s."textPolicy",
-                            c."textPolicy",
-                            '{"version":2,"profile":"NATURAL","normalizeCase":true,"normalizeWhitespace":true}'::jsonb
-                          )->>'normalizeCase' = 'true'
-                          AND COALESCE(
-                            s."textPolicy",
-                            c."textPolicy",
-                            '{"version":2,"profile":"NATURAL","normalizeCase":true,"normalizeWhitespace":true}'::jsonb
-                          )->>'normalizeWhitespace' = 'true'
-                        )
-                        OR (
-                          COALESCE(
-                            s."textPolicy",
-                            c."textPolicy",
-                            '{"version":2,"profile":"NATURAL","normalizeCase":true,"normalizeWhitespace":true}'::jsonb
-                          )->>'profile' = 'EXACT'
-                          AND COALESCE(
-                            s."textPolicy",
-                            c."textPolicy",
-                            '{"version":2,"profile":"NATURAL","normalizeCase":true,"normalizeWhitespace":true}'::jsonb
-                          )->>'normalizeCase' = 'false'
-                          AND COALESCE(
-                            s."textPolicy",
-                            c."textPolicy",
-                            '{"version":2,"profile":"NATURAL","normalizeCase":true,"normalizeWhitespace":true}'::jsonb
-                          )->>'normalizeWhitespace' = 'false'
-                        )
-                      )
-                    )
-                    OR (
-                      e."answerKind" = ${AnswerKind.NUMERIC}::"AnswerKind"
-                      AND e."answerSpec"->>'kind' = 'numeric'
-                      AND jsonb_typeof(e."answerSpec"->'accepted') = 'array'
-                      AND jsonb_array_length(
-                        CASE
-                          WHEN jsonb_typeof(e."answerSpec"->'accepted') = 'array' THEN e."answerSpec"->'accepted'
-                          ELSE '[]'::jsonb
-                        END
-                      ) > 0
-                    )
-                    OR (
-                      e."answerKind" = ${AnswerKind.MATH}::"AnswerKind"
-                      AND e."answerSpec"->>'kind' = 'math'
-                      AND jsonb_typeof(e."answerSpec"->'acceptedExpressions') = 'array'
-                      AND jsonb_array_length(
-                        CASE
-                          WHEN jsonb_typeof(e."answerSpec"->'acceptedExpressions') = 'array' THEN e."answerSpec"->'acceptedExpressions'
-                          ELSE '[]'::jsonb
-                        END
-                      ) > 0
-                    )
-                  )
-                )
-              )
+              AND ${buildReadyExerciseSql({
+                repetitions: Prisma.sql`s."repetitions"`,
+                alreadyStudied: Prisma.sql`s."alreadyStudied"`,
+                textPolicy: Prisma.sql`COALESCE(
+                  s."textPolicy",
+                  c."textPolicy",
+                  ${DEFAULT_READY_TEXT_POLICY_SQL}
+                )`,
+              })}
           )
       ) AS ready_due_skill_count,
       COUNT(*) FILTER (
@@ -367,12 +303,23 @@ export async function getAgentNeedsAttention(
 ) {
   const input = agentNeedsAttentionSchema.parse(rawInput);
   await authorizeAgentRead(auth, "progress:read");
-  const result = await getNeedsAttention({
-    userId: auth.userId,
-    now: new Date(),
-    limit: input.limit,
-    cursor: input.cursor,
-  });
+  let result;
+  try {
+    result = await getNeedsAttention({
+      userId: auth.userId,
+      now: new Date(),
+      limit: input.limit,
+      cursor: input.cursor,
+    });
+  } catch (error) {
+    if (error instanceof NeedsAttentionCursorError) {
+      throw new AgentOperationError(
+        "invalid_input",
+        "The needs-attention cursor is invalid. Request the first page and try again.",
+      );
+    }
+    throw error;
+  }
   return {
     status: result.status,
     items: result.items.map((item) => ({
@@ -659,12 +606,14 @@ export async function repairAgentReadiness(
   }
 
   if (transactionResult.kind === "preparation") {
+    const preparation = transactionResult.value.preparation.map((result) => {
+      if (result.status !== "queued" || !result.deferredEvent) return result;
+      return published.get(result.generationJobId) ?? result;
+    });
     return {
       ...transactionResult.value,
-      preparation: transactionResult.value.preparation.map((result) => {
-        if (result.status !== "queued" || !result.deferredEvent) return result;
-        return published.get(result.generationJobId) ?? result;
-      }),
+      status: summarizeReadinessPreparationStatus(preparation),
+      preparation,
     };
   }
 

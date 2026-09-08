@@ -56,6 +56,16 @@ describe("agent setup progress contracts", () => {
       },
       true,
     ],
+    [
+      "P2010",
+      {
+        driverAdapterError: {
+          name: "DriverAdapterError",
+          cause: { code: "40001", kind: "Other" },
+        },
+      },
+      true,
+    ],
     ["P2010", { code: "23505" }, false],
     ["P2002", { code: "40001" }, false],
     [

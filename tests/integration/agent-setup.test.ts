@@ -228,6 +228,19 @@ describeDatabase("durable agent setup plans", () => {
     ).resolves.toMatchObject({ status: AgentSetupPlanStatus.STALE });
   });
 
+  it("ignores a last-seen update between preview and apply", async () => {
+    const fixture = await createFixture("last-seen");
+    const preview = await previewAgentSetup(fixture.auth, practicePlan(`${runId}_last_seen`));
+    await prisma.user.update({
+      where: { id: fixture.userId },
+      data: { lastSeenAt: new Date("2026-09-08T14:00:00.000Z") },
+    });
+
+    await expect(
+      applyAgentSetup(fixture.auth, { plan_id: preview.plan_id }),
+    ).resolves.toMatchObject({ plan_id: preview.plan_id, status: "SUCCEEDED" });
+  });
+
   it("reconciles an existing deterministic child operation after an interrupted apply", async () => {
     const fixture = await createFixture("resume");
     const planInput = specsPlan(`${runId}_resume`);

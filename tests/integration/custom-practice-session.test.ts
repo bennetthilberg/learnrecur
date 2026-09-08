@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { afterAll, describe, expect, it } from "vitest";
 
-import { ExerciseAttemptResult } from "@/generated/prisma/client";
+import { CollectionStatus, ExerciseAttemptResult, SkillStatus } from "@/generated/prisma/client";
 import {
   commitCustomPracticeAnswer,
   createCustomPracticeSession,
@@ -128,6 +128,105 @@ suite("custom practice sessions", () => {
       expect.objectContaining({ status: "committed", idempotent: true }),
     );
     expect(await prisma.exerciseAttempt.count({ where: { id: ready.sessionItem.attemptId } })).toBe(1);
+  });
+
+  it("rejects mixed invalid explicit scope IDs before persisting a session", async () => {
+    const userId = await createUser();
+    const foreignUserId = await createUser();
+    const ownedCollection = await prisma.collection.create({
+      data: { userId, name: "Owned active collection" },
+    });
+    const foreignCollection = await prisma.collection.create({
+      data: { userId: foreignUserId, name: "Foreign collection" },
+    });
+    const archivedCollection = await prisma.collection.create({
+      data: { userId, name: "Archived collection", status: CollectionStatus.ARCHIVED },
+    });
+    const ownedSkill = await createSkillFixture(prisma, {
+      userId,
+      title: "Owned active skill",
+      collectionId: ownedCollection.id,
+      dueAt: now,
+      repetitions: 1,
+    });
+    const foreignSkill = await createSkillFixture(prisma, {
+      userId: foreignUserId,
+      title: "Foreign skill",
+      dueAt: now,
+      repetitions: 1,
+    });
+    const archivedSkill = await createSkillFixture(prisma, {
+      userId,
+      title: "Archived skill",
+      status: SkillStatus.ARCHIVED,
+      initialized: false,
+    });
+    await createChoiceExercise({ prisma, userId, skillId: ownedSkill.id });
+
+    const allowed = await createCustomPracticeSession({
+      userId,
+      targetCount: 1,
+      scope: {
+        collectionIds: [ownedCollection.id],
+        tags: [],
+        skillIds: [ownedSkill.id],
+        recentlyMissed: false,
+        mixedReview: false,
+      },
+      now,
+    });
+    expect(allowed.status).toBe("ready");
+    const persistedBeforeInvalid = await prisma.practiceSession.count({ where: { userId } });
+    expect(persistedBeforeInvalid).toBe(1);
+
+    const invalidScopes = [
+      {
+        name: "foreign skill",
+        scope: { skillIds: [ownedSkill.id, foreignSkill.id], collectionIds: [ownedCollection.id] },
+      },
+      {
+        name: "missing skill",
+        scope: { skillIds: [ownedSkill.id, "missing-skill"], collectionIds: [ownedCollection.id] },
+      },
+      {
+        name: "archived skill",
+        scope: { skillIds: [ownedSkill.id, archivedSkill.id], collectionIds: [ownedCollection.id] },
+      },
+      {
+        name: "foreign collection",
+        scope: { skillIds: [ownedSkill.id], collectionIds: [ownedCollection.id, foreignCollection.id] },
+      },
+      {
+        name: "missing collection",
+        scope: { skillIds: [ownedSkill.id], collectionIds: [ownedCollection.id, "missing-collection"] },
+      },
+      {
+        name: "archived collection",
+        scope: { skillIds: [ownedSkill.id], collectionIds: [ownedCollection.id, archivedCollection.id] },
+      },
+    ] as const;
+
+    for (const invalid of invalidScopes) {
+      const result = await createCustomPracticeSession({
+        userId,
+        targetCount: 1,
+        scope: {
+          collectionIds: [...invalid.scope.collectionIds],
+          tags: [],
+          skillIds: [...invalid.scope.skillIds],
+          recentlyMissed: false,
+          mixedReview: false,
+        },
+        now,
+      });
+      expect(result.status, invalid.name).toBe("unavailable");
+      if (result.status === "unavailable") {
+        expect(result.message).toMatch(/selected skills or collections are no longer available/i);
+      }
+      expect(await prisma.practiceSession.count({ where: { userId } }), invalid.name).toBe(
+        persistedBeforeInvalid,
+      );
+    }
   });
 
   it("keeps scheduled sessions due-only and replays a non-last review after the card advances", async () => {

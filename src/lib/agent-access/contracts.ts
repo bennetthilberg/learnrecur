@@ -27,7 +27,8 @@ const guidanceLineSchema = z.string().trim().min(1).max(500);
 const guidanceLinesSchema = z.array(guidanceLineSchema).max(8).default([]);
 const exerciseConstraintsSchema = z.string().trim().max(1_000).default("");
 const tagSchema = z.string().trim().min(1).max(40);
-const tagsSchema = z.array(tagSchema).max(12).default([]).superRefine(uniqueStrings("Tags"));
+const boundedTagsSchema = z.array(tagSchema).max(12).superRefine(uniqueStrings("Tags"));
+const tagsSchema = boundedTagsSchema.default([]);
 const collectionSchema = z.string().trim().min(1).max(120).optional();
 const promptSchema = z.string().trim().min(8).max(1_200);
 const explanationSchema = z.string().trim().min(1).max(1_200).optional();
@@ -299,7 +300,9 @@ export const agentRetryOperationSchema = z.strictObject({
 // skill creation. A connection that can add a generated skill must not gain
 // access to the learner's library, collections, or reminders implicitly.
 const collectionIdSchema = idSchema;
-const expectedUpdatedAtSchema = z.string().datetime({ offset: true }).optional();
+const expectedUpdatedAtValueSchema = z.string().datetime({ offset: true });
+const expectedUpdatedAtSchema = expectedUpdatedAtValueSchema.optional();
+const expectedUpdatedAtBySkillSchema = z.record(idSchema, expectedUpdatedAtValueSchema).optional();
 
 export const agentSkillSearchSchema = z.strictObject({
   query: z.string().trim().min(1).max(120).optional(),
@@ -342,12 +345,40 @@ export const agentSkillBatchUpdateSchema = z
   .strictObject({
     skill_ids: z.array(idSchema).min(1).max(50).superRefine(uniqueStrings("Skill IDs")),
     expected_updated_at: expectedUpdatedAtSchema,
+    expected_updated_at_by_skill: expectedUpdatedAtBySkillSchema,
     collection_id: collectionIdSchema.nullable().optional(),
-    set_tags: tagsSchema.optional(),
-    add_tags: tagsSchema.optional(),
-    remove_tags: tagsSchema.optional(),
+    set_tags: boundedTagsSchema.optional(),
+    add_tags: boundedTagsSchema.optional(),
+    remove_tags: boundedTagsSchema.optional(),
   })
   .superRefine((value, context) => {
+    if (value.expected_updated_at !== undefined && value.expected_updated_at_by_skill !== undefined) {
+      context.addIssue({
+        code: "custom",
+        path: ["expected_updated_at_by_skill"],
+        message: "Choose expected_updated_at or expected_updated_at_by_skill, not both.",
+      });
+    }
+    if (value.skill_ids.length > 1 && value.expected_updated_at !== undefined) {
+      context.addIssue({
+        code: "custom",
+        path: ["expected_updated_at"],
+        message: "A global expected_updated_at can only be used for one skill; use expected_updated_at_by_skill for a batch.",
+      });
+    }
+    if (value.expected_updated_at_by_skill !== undefined) {
+      const requestedIds = new Set(value.skill_ids);
+      const providedIds = Object.keys(value.expected_updated_at_by_skill);
+      const unknownIds = providedIds.filter((skillId) => !requestedIds.has(skillId));
+      const missingIds = value.skill_ids.filter((skillId) => !Object.hasOwn(value.expected_updated_at_by_skill!, skillId));
+      if (unknownIds.length > 0 || missingIds.length > 0) {
+        context.addIssue({
+          code: "custom",
+          path: ["expected_updated_at_by_skill"],
+          message: "expected_updated_at_by_skill must contain exactly one timestamp for each requested skill.",
+        });
+      }
+    }
     if (value.collection_id === undefined && !value.set_tags && !value.add_tags && !value.remove_tags) {
       context.addIssue({ code: "custom", path: [], message: "Supply a collection or tag change." });
     }
@@ -539,7 +570,7 @@ const setupReminderChangesSchema = z.strictObject({
   email: z.string().trim().max(254).optional(),
   local_hour: z.number().int().min(0).max(23).optional(),
   timezone: z.string().trim().min(1).max(80).optional(),
-  minimum_due_count: z.number().int().min(1).max(99).optional(),
+  minimum_due_count: z.number().int().min(1).max(100).optional(),
 });
 
 export const agentSetupPreviewSchema = z
@@ -571,6 +602,12 @@ export const agentSetupPreviewSchema = z
       value.reminders === undefined
     ) {
       context.addIssue({ code: "custom", path: [], message: "A setup plan needs at least one requested action." });
+    }
+    if (value.practice !== undefined && Object.keys(value.practice).length === 0) {
+      context.addIssue({ code: "custom", path: ["practice"], message: "Supply at least one practice setting." });
+    }
+    if (value.reminders !== undefined && Object.keys(value.reminders).length === 0) {
+      context.addIssue({ code: "custom", path: ["reminders"], message: "Supply at least one reminder setting." });
     }
   });
 

@@ -7,7 +7,9 @@ import {
   agentCandidateExerciseSchema,
   agentGetOperationSchema,
   agentPrepareFilesSchema,
+  agentReminderUpdateSchema,
   agentSearchMaterialExcerptsSchema,
+  agentSkillBatchUpdateSchema,
   agentSetupPreviewSchema,
   buildAgentCandidateDuplicateKey,
   buildAgentPayloadHash,
@@ -25,6 +27,89 @@ const skill = {
 };
 
 describe("agent MCP contracts", () => {
+  it.each([
+    [100, true],
+    [101, false],
+  ])("keeps reminder due-count bounds aligned with native settings (%i)", (minimumDueCount, valid) => {
+    const native = agentReminderUpdateSchema.safeParse({
+      changes: { minimum_due_count: minimumDueCount },
+    });
+    const setup = agentSetupPreviewSchema.safeParse({
+      idempotency_key: "reminder-bound-001",
+      reminders: { minimum_due_count: minimumDueCount },
+    });
+    expect(native.success).toBe(valid);
+    expect(setup.success).toBe(valid);
+  });
+
+  it.each([
+    ["practice", { practice: {} }],
+    ["reminders", { reminders: {} }],
+  ])("rejects an empty %s setup section", (_section, changes) => {
+    expect(() =>
+      agentSetupPreviewSchema.parse({
+        idempotency_key: "empty-section-001",
+        ...changes,
+      }),
+    ).toThrow(/at least one .* setting/i);
+  });
+
+  it("keeps explicit false, zero, and null setup changes meaningful", () => {
+    expect(
+      agentSetupPreviewSchema.parse({
+        idempotency_key: "explicit-values-001",
+        practice: { mixed_review: false, daily_new_skill_limit: 0, desired_retention: null },
+        reminders: { enabled: false },
+      }),
+    ).toMatchObject({
+      practice: { mixed_review: false, daily_new_skill_limit: 0, desired_retention: null },
+      reminders: { enabled: false },
+    });
+  });
+
+  it("requires per-skill timestamps for multi-skill batches", () => {
+    const expectedUpdatedAt = "2026-09-08T12:00:00.000Z";
+    expect(() =>
+      agentSkillBatchUpdateSchema.parse({
+        skill_ids: ["skill-a", "skill-b"],
+        expected_updated_at: expectedUpdatedAt,
+        set_tags: ["review"],
+      }),
+    ).toThrow(/expected_updated_at_by_skill/i);
+
+    expect(
+      agentSkillBatchUpdateSchema.parse({
+        skill_ids: ["skill-a", "skill-b"],
+        expected_updated_at_by_skill: {
+          "skill-a": expectedUpdatedAt,
+          "skill-b": "2026-09-08T13:00:00.000+01:00",
+        },
+        set_tags: ["review"],
+      }).expected_updated_at_by_skill,
+    ).toEqual({
+      "skill-a": expectedUpdatedAt,
+      "skill-b": "2026-09-08T13:00:00.000+01:00",
+    });
+    expect(() =>
+      agentSkillBatchUpdateSchema.parse({
+        skill_ids: ["skill-a", "skill-b"],
+        expected_updated_at_by_skill: { "skill-a": expectedUpdatedAt },
+        set_tags: ["review"],
+      }),
+    ).toThrow(/exactly one timestamp/i);
+    expect(() =>
+      agentSkillBatchUpdateSchema.parse({
+        skill_ids: ["skill-a", "skill-b"],
+        expected_updated_at_by_skill: {
+          "skill-a": expectedUpdatedAt,
+          "skill-b": expectedUpdatedAt,
+          "skill-c": expectedUpdatedAt,
+        },
+        set_tags: ["review"],
+      }),
+    ).toThrow(/exactly one timestamp/i);
+  });
+
   it("accepts a bounded structured batch and rejects caller-owned fields", () => {
     expect(
       agentAddFromSpecsSchema.parse({

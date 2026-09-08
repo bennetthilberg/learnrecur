@@ -1530,21 +1530,28 @@ async function ingestWebsiteRevision(input: {
       mimeType: "application/json",
     });
     if (!(await canWriteWebsiteSnapshot(input))) {
-      await input.storage.deleteObject({
-        key: storageKey,
-        bucket: storageBucket,
-      });
+      await discardWebsiteSnapshot(input.storage, storageKey, storageBucket);
       throw websiteSnapshotDeletionError();
     }
-    await writePrisma.sourceFile.update({
-      where: { id: input.sourceFile.id },
+    const finalizedSource = await writePrisma.sourceFile.updateMany({
+      where: {
+        id: input.sourceFile.id,
+        userId: input.userId,
+        materialRevisionId: input.materialRevisionId,
+        presignedUploadExpiresAt: leaseExpiresAt,
+      },
       data: { byteSize: snapshotBytes.byteLength },
     });
+    if (finalizedSource.count !== 1) {
+      await discardWebsiteSnapshot(input.storage, storageKey, storageBucket);
+      throw websiteSnapshotDeletionError();
+    }
   } finally {
     await writePrisma.sourceFile.updateMany({
       where: {
         id: input.sourceFile.id,
         userId: input.userId,
+        materialRevisionId: input.materialRevisionId,
         presignedUploadExpiresAt: leaseExpiresAt,
       },
       data: { presignedUploadExpiresAt: null },
@@ -1635,6 +1642,18 @@ function websiteSnapshotDeletionError() {
     "The material was deleted before its website snapshot could be finalized.",
     { retryable: false },
   );
+}
+
+async function discardWebsiteSnapshot(
+  storage: SourceObjectStorage,
+  key: string,
+  bucket: string,
+) {
+  try {
+    await storage.deleteObject({ key, bucket });
+  } catch {
+    // Preserve the structured deletion error even if best-effort object cleanup fails.
+  }
 }
 
 type MaterialSourceFile = {

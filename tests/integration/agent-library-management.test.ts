@@ -72,6 +72,14 @@ type PublicSkill = {
   sample_exercises?: Array<Record<string, unknown>>;
 };
 
+function equivalentOffset(timestamp: Date) {
+  return timestamp.toISOString().replace("Z", "+00:00");
+}
+
+function previousInstant(timestamp: Date) {
+  return new Date(timestamp.getTime() - 1_000).toISOString();
+}
+
 describeDatabase("agent library and reminder management", () => {
   const prisma = getPrisma();
   const ownedUserIds: string[] = [];
@@ -266,14 +274,16 @@ describeDatabase("agent library and reminder management", () => {
       collectionId: collection.id,
       repetitions: 3,
     });
+    // The incompatible row is older than the ready rows. Samples must keep
+    // scanning after it instead of letting it consume one of the three slots.
+    await createTextExercise(prisma, auth.userId, skill.id, {
+      answerSpec: textAnswerContract(["right"], EXACT_TEXT_POLICY),
+    });
     await Promise.all(
       Array.from({ length: 4 }, () =>
         createChoiceExercise({ prisma, userId: auth.userId, skillId: skill.id }),
       ),
     );
-    await createTextExercise(prisma, auth.userId, skill.id, {
-      answerSpec: textAnswerContract(["right"], EXACT_TEXT_POLICY),
-    });
 
     const withoutSamples = await searchAgentSkills(auth, { query: "readiness" });
     const withoutSamplesSkill = (withoutSamples.skills as unknown as PublicSkill[])[0];
@@ -293,6 +303,7 @@ describeDatabase("agent library and reminder management", () => {
       readiness: { status: "ready", ready_exercise_count: 4 },
     });
     expect(withSamplesSkill.sample_exercises).toHaveLength(3);
+    expect(withSamplesSkill.sample_exercises?.every((sample) => sample.type === ExerciseType.MULTIPLE_CHOICE)).toBe(true);
   });
 
   it("matches search and get readiness for already-studied text and rejects malformed numeric or math specs", async () => {
@@ -549,6 +560,105 @@ describeDatabase("agent library and reminder management", () => {
     ).rejects.toMatchObject({ code: "collection_not_found" });
   });
 
+  it("compares collection, skill, and batch timestamps by instant", async () => {
+    const auth = await createConnection("library-timestamp-offsets");
+    const collection = await prisma.collection.create({
+      data: { userId: auth.userId, name: "Timestamp collection" },
+    });
+    const skill = await createSkillFixture(prisma, {
+      userId: auth.userId,
+      title: "Timestamp skill",
+      collectionId: collection.id,
+    });
+
+    await expect(
+      updateAgentCollection(auth, {
+        collection_id: collection.id,
+        expected_updated_at: equivalentOffset(collection.updatedAt),
+        changes: { description: "Offset spelling accepted" },
+      }),
+    ).resolves.toMatchObject({ status: "updated" });
+    const changedCollection = await prisma.collection.findUniqueOrThrow({
+      where: { id: collection.id },
+    });
+    await expect(
+      updateAgentCollection(auth, {
+        collection_id: collection.id,
+        expected_updated_at: previousInstant(changedCollection.updatedAt),
+        changes: { description: "Old collection timestamp rejected" },
+      }),
+    ).rejects.toMatchObject({ code: "stale_state" });
+
+    const currentSkill = await prisma.skill.findUniqueOrThrow({ where: { id: skill.id } });
+    await expect(
+      updateAgentSkill(auth, {
+        skill_id: skill.id,
+        expected_updated_at: equivalentOffset(currentSkill.updatedAt),
+        changes: { title: "Timestamp skill renamed" },
+      }),
+    ).resolves.toMatchObject({ status: "updated" });
+    const changedSkill = await prisma.skill.findUniqueOrThrow({ where: { id: skill.id } });
+    await expect(
+      updateAgentSkill(auth, {
+        skill_id: skill.id,
+        expected_updated_at: previousInstant(changedSkill.updatedAt),
+        changes: { title: "Old skill timestamp rejected" },
+      }),
+    ).rejects.toMatchObject({ code: "stale_state" });
+
+    const batchCurrent = await prisma.skill.findUniqueOrThrow({ where: { id: skill.id } });
+    await expect(
+      batchUpdateAgentSkills(auth, {
+        skill_ids: [skill.id],
+        expected_updated_at: equivalentOffset(batchCurrent.updatedAt),
+        set_tags: ["timestamp"],
+      }),
+    ).resolves.toMatchObject({
+      status: "updated",
+      results: [{ skill_id: skill.id, status: "updated" }],
+    });
+    const changedBatchSkill = await prisma.skill.findUniqueOrThrow({ where: { id: skill.id } });
+    await expect(
+      batchUpdateAgentSkills(auth, {
+        skill_ids: [skill.id],
+        expected_updated_at: previousInstant(changedBatchSkill.updatedAt),
+        set_tags: ["old-timestamp-rejected"],
+      }),
+    ).resolves.toMatchObject({
+      status: "partial",
+      results: [{ skill_id: skill.id, status: "stale" }],
+    });
+
+    const secondSkill = await createSkillFixture(prisma, {
+      userId: auth.userId,
+      title: "Second timestamp skill",
+    });
+    const secondCurrent = await prisma.skill.findUniqueOrThrow({ where: { id: secondSkill.id } });
+    await expect(
+      batchUpdateAgentSkills(auth, {
+        skill_ids: [skill.id, secondSkill.id],
+        expected_updated_at: changedBatchSkill.updatedAt.toISOString(),
+        set_tags: ["legacy-global-rejected"],
+      }),
+    ).rejects.toThrow(/expected_updated_at_by_skill/i);
+    await expect(
+      batchUpdateAgentSkills(auth, {
+        skill_ids: [skill.id, secondSkill.id],
+        expected_updated_at_by_skill: {
+          [skill.id]: changedBatchSkill.updatedAt.toISOString(),
+          [secondSkill.id]: equivalentOffset(secondCurrent.updatedAt),
+        },
+        set_tags: ["per-skill-timestamp"],
+      }),
+    ).resolves.toMatchObject({
+      status: "updated",
+      results: [
+        { skill_id: skill.id, status: "updated" },
+        { skill_id: secondSkill.id, status: "updated" },
+      ],
+    });
+  });
+
   it("reports a partial batch when an archived skill fails beside an updated skill", async () => {
     const auth = await createConnection("library-batch-partial", ["skills:read", "skills:write"]);
     const destination = await prisma.collection.create({
@@ -580,6 +690,73 @@ describeDatabase("agent library and reminder management", () => {
     });
     expect(await prisma.skill.findUniqueOrThrow({ where: { id: active.id } })).toMatchObject({
       collectionId: destination.id,
+    });
+  });
+
+  it("fails only the batch item whose merged tags exceed the native limit", async () => {
+    const auth = await createConnection("library-batch-tags", ["skills:read", "skills:write"]);
+    const tooMany = await createSkillFixture(prisma, {
+      userId: auth.userId,
+      title: "Too many batch tags",
+      tags: Array.from({ length: 12 }, (_, index) => `tag-${index}`),
+    });
+    const withinLimit = await createSkillFixture(prisma, {
+      userId: auth.userId,
+      title: "Within batch tag limit",
+    });
+
+    const result = await batchUpdateAgentSkills(auth, {
+      skill_ids: [tooMany.id, withinLimit.id],
+      add_tags: ["overflow"],
+    });
+
+    expect(result).toMatchObject({
+      status: "partial",
+      results: [
+        { skill_id: tooMany.id, status: "failed", message: expect.stringMatching(/12 tags/i) },
+        { skill_id: withinLimit.id, status: "updated", tags: ["overflow"] },
+      ],
+    });
+    expect((await prisma.skill.findUniqueOrThrow({ where: { id: tooMany.id } })).tags).toHaveLength(12);
+    expect((await prisma.skill.findUniqueOrThrow({ where: { id: withinLimit.id } })).tags).toEqual(["overflow"]);
+  });
+
+  it("allows metadata-only edits with malformed policy and rejects an explicit move", async () => {
+    const auth = await createConnection("library-malformed-policy", ["skills:read", "skills:write"]);
+    const source = await prisma.collection.create({
+      data: { userId: auth.userId, name: "Malformed source", textPolicy: NATURAL_TEXT_POLICY },
+    });
+    const destination = await prisma.collection.create({
+      data: { userId: auth.userId, name: "Malformed destination", textPolicy: EXACT_TEXT_POLICY },
+    });
+    const skill = await createSkillFixture(prisma, {
+      userId: auth.userId,
+      title: "Malformed metadata policy",
+      collectionId: source.id,
+    });
+    await prisma.skill.update({
+      where: { id: skill.id },
+      data: { textPolicy: { invalid: true } },
+    });
+
+    await expect(
+      updateAgentSkill(auth, {
+        skill_id: skill.id,
+        changes: { title: "Metadata remains editable" },
+      }),
+    ).resolves.toMatchObject({
+      status: "updated",
+      skill: { title: "Metadata remains editable", collection_id: source.id },
+    });
+    await expect(
+      updateAgentSkill(auth, {
+        skill_id: skill.id,
+        changes: { collection_id: destination.id },
+      }),
+    ).rejects.toMatchObject({ code: "invalid_input", message: expect.stringMatching(/policy/i) });
+    expect(await prisma.skill.findUniqueOrThrow({ where: { id: skill.id } })).toMatchObject({
+      collectionId: source.id,
+      title: "Metadata remains editable",
     });
   });
 

@@ -27,8 +27,15 @@ import {
 } from "@/lib/agent-access/operations";
 import { updateAgentPracticeSettings } from "@/lib/agent-access/practice";
 import { updateAgentReminders } from "@/lib/agent-access/reminders";
+import {
+  isAgentSerializationConflict,
+} from "@/lib/agent-access/transactions";
 import { getPrisma } from "@/lib/prisma";
 import { normalizeReminderPreferenceInput } from "@/lib/reminders";
+
+export {
+  isAgentSerializationConflict as isSerializationConflict,
+} from "@/lib/agent-access/transactions";
 
 const SETUP_LEASE_MS = 10 * 60 * 1_000;
 const CLAIM_SERIALIZATION_RETRIES = 1;
@@ -445,7 +452,6 @@ async function buildSnapshot(
   const user = await tx.user.findUnique({
     where: { id: auth.userId },
     select: {
-      updatedAt: true,
       practicePreference: true,
       mixedReview: true,
       dailyNewSkillLimit: true,
@@ -496,7 +502,6 @@ async function buildSnapshot(
   return {
     permission_version: auth.permissionVersion ?? null,
     user: {
-      updated_at: user.updatedAt.toISOString(),
       practice_preference: user.practicePreference,
       mixed_review: user.mixedReview,
       daily_new_skill_limit: user.dailyNewSkillLimit,
@@ -866,29 +871,6 @@ export async function previewAgentSetup(
   });
 }
 
-export function isSerializationConflict(error: unknown) {
-  if (!(error instanceof Prisma.PrismaClientKnownRequestError)) return false;
-  if (error.code === "P2034") return true;
-  if (error.code !== "P2010" || !error.meta || typeof error.meta !== "object") {
-    return false;
-  }
-  const sqlState = "code" in error.meta ? error.meta.code : undefined;
-  if (sqlState === "40001" || sqlState === "40P01") return true;
-  const adapter = "driverAdapterError" in error.meta
-    ? error.meta.driverAdapterError
-    : undefined;
-  if (!adapter || typeof adapter !== "object") return false;
-  const cause = "cause" in adapter ? adapter.cause : undefined;
-  if (!cause || typeof cause !== "object") return false;
-  const originalCode = "originalCode" in cause ? cause.originalCode : undefined;
-  const kind = "kind" in cause ? cause.kind : undefined;
-  return (
-    kind === "TransactionWriteConflict" ||
-    originalCode === "40001" ||
-    originalCode === "40P01"
-  );
-}
-
 async function claimSetupPlanOnce(auth: AgentAuthContext, planId: string) {
   return withAgentMutation(auth, "setup:write", async (tx) => {
     const plan = await tx.agentSetupPlan.findFirst({
@@ -1017,7 +999,7 @@ async function claimSetupPlan(auth: AgentAuthContext, planId: string) {
     try {
       return await claimSetupPlanOnce(auth, planId);
     } catch (error) {
-      if (!isSerializationConflict(error)) throw error;
+      if (!isAgentSerializationConflict(error)) throw error;
       if (attempt === CLAIM_SERIALIZATION_RETRIES) {
         return resolveClaimSerializationConflict(auth, planId);
       }

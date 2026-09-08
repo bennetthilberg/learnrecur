@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 
 import {
   AnswerKind,
+  CollectionStatus,
   ExerciseAttemptResult,
   ExerciseVerificationStatus,
   FsrsRating,
@@ -61,6 +62,8 @@ const CUSTOM_SESSION_STOPPED_MESSAGE = "This practice session is stopped. Resume
 const CUSTOM_SESSION_COMPLETED_MESSAGE = "This practice session is complete.";
 const CUSTOM_SESSION_PREPARING_MESSAGE =
   "No verified compatible exercises are ready in this session scope yet.";
+const CUSTOM_SESSION_INVALID_SCOPE_MESSAGE =
+  "One or more selected skills or collections are no longer available to this account.";
 const CUSTOM_SESSION_DAILY_LIMIT_MESSAGE =
   "Your daily new-skill limit is reached. Resume this session after the limit resets or change it in Settings.";
 
@@ -190,6 +193,14 @@ export async function createCustomPracticeSession(input: {
 
   const createInTransaction = async (tx: Prisma.TransactionClient) => {
     await lockUser(tx, input.userId);
+    const invalidScopeMessage = await validateCustomPracticeSessionScope(
+      tx,
+      input.userId,
+      parsed.scope,
+    );
+    if (invalidScopeMessage) {
+      return { status: "unavailable" as const, message: invalidScopeMessage };
+    }
     const plan = await buildSessionPlan(tx, {
       userId: input.userId,
       sessionId,
@@ -208,9 +219,11 @@ export async function createCustomPracticeSession(input: {
       now,
     });
   };
-  const session = input.transaction
+  const created = input.transaction
     ? await createInTransaction(input.transaction)
     : await getPrisma().$transaction(createInTransaction);
+  if (created.status === "unavailable") return created;
+  const session = created;
 
   if (session.plan.length === 0) {
     return {
@@ -221,6 +234,43 @@ export async function createCustomPracticeSession(input: {
   }
 
   return { status: "ready", session };
+}
+
+async function validateCustomPracticeSessionScope(
+  tx: SessionDbClient,
+  userId: string,
+  scope: CustomPracticeSessionScope,
+): Promise<string | null> {
+  const [collections, skills] = await Promise.all([
+    scope.collectionIds.length === 0
+      ? Promise.resolve([])
+      : tx.collection.findMany({
+          where: {
+            userId,
+            id: { in: scope.collectionIds },
+            status: CollectionStatus.ACTIVE,
+          },
+          select: { id: true },
+        }),
+    scope.skillIds.length === 0
+      ? Promise.resolve([])
+      : tx.skill.findMany({
+          where: {
+            userId,
+            id: { in: scope.skillIds },
+            status: SkillStatus.ACTIVE,
+          },
+          select: { id: true },
+        }),
+  ]);
+
+  if (
+    collections.length !== scope.collectionIds.length ||
+    skills.length !== scope.skillIds.length
+  ) {
+    return CUSTOM_SESSION_INVALID_SCOPE_MESSAGE;
+  }
+  return null;
 }
 
 export async function getCustomPracticeSession(
@@ -651,30 +701,41 @@ async function selectNextSessionItem(
   let current = session;
   current = await replenishSessionPlan(tx, current, now);
   const plan = [...current.plan].sort((left, right) => left.ordinal - right.ordinal);
+  const pendingItems = plan.filter(
+    (item) => item.status === "PENDING" || item.status === "PRESENTED",
+  );
+  const eligibleExercises = await findCurrentSessionExercises(
+    tx,
+    session.userId,
+    current,
+    pendingItems,
+    now,
+  );
   let blockedByDailyLimit = false;
-  let skippedIneligibleItem = false;
+  const ineligibleItems = pendingItems.filter((item) => !eligibleExercises.has(item.itemKey));
+  if (ineligibleItems.length > 0) {
+    const ineligibleKeys = new Set(ineligibleItems.map((item) => item.itemKey));
+    const nextPlan = current.plan.map((item) =>
+      ineligibleKeys.has(item.itemKey)
+        ? updatePlanItem(item, { status: "SKIPPED", completedAt: null })
+        : item,
+    );
+    current = await updateSessionRow(tx, current, {
+      plan: customPracticeSessionPlanSchema.parse(nextPlan),
+      nextIndex: findNextPlanIndex(nextPlan, 0) ?? nextPlan.length,
+      version: current.version + 1,
+    });
+  }
 
-  for (const item of plan) {
+  for (const item of current.plan) {
     if (item.status === "COMPLETED" || item.status === "SKIPPED") {
       continue;
     }
-    const exercise = await findCurrentSessionExercise(tx, session.userId, session, item, now);
-    if (!exercise) {
-      const skipped = updatePlanItem(item, { status: "SKIPPED", completedAt: null });
-      current = await updateSessionRow(tx, current, {
-        plan: replacePlanItem(current.plan, skipped),
-        nextIndex: item.ordinal + 1,
-        version: current.version + 1,
-      });
-      skippedIneligibleItem = true;
-      continue;
-    }
+    const exercise = eligibleExercises.get(item.itemKey);
+    if (!exercise) continue;
     if (!options.allowUnintroduced && !isSkillIntroduced(exercise.skill)) {
       blockedByDailyLimit = true;
       continue;
-    }
-    if (item.status === "PRESENTED") {
-      return { status: "selected", session: current, sessionItem: item, exercise, skill: exercise.skill };
     }
     return { status: "selected", session: current, sessionItem: item, exercise, skill: exercise.skill };
   }
@@ -682,7 +743,7 @@ async function selectNextSessionItem(
   const hasPendingInventory = current.plan.some(
     (item) => item.status === "PENDING" || item.status === "PRESENTED",
   );
-  if (skippedIneligibleItem && refillAttempt < MAX_CUSTOM_PRACTICE_SESSION_ITEMS) {
+  if (ineligibleItems.length > 0 && refillAttempt < MAX_CUSTOM_PRACTICE_SESSION_ITEMS) {
     return selectNextSessionItem(tx, current, now, options, refillAttempt + 1);
   }
   if (blockedByDailyLimit) {
@@ -1029,6 +1090,50 @@ function isSessionExerciseUnlocked(exercise: SessionExercise): boolean {
   return true;
 }
 
+export async function findCurrentSessionExercises(
+  client: SessionDbClient | ReturnType<typeof getPrisma>,
+  userId: string,
+  session: CustomPracticeSessionRecord,
+  items: readonly CustomPracticeSessionItem[],
+  now: Date,
+): Promise<ReadonlyMap<string, SessionExercise>> {
+  if (items.length === 0) return new Map();
+
+  const missedSince = new Date(
+    now.getTime() - RECENTLY_MISSED_LOOKBACK_DAYS * 24 * 60 * 60 * 1000,
+  );
+  const itemByExerciseId = new Map<string, CustomPracticeSessionItem[]>();
+  for (const item of items) {
+    const matchingItems = itemByExerciseId.get(item.exerciseId) ?? [];
+    matchingItems.push(item);
+    itemByExerciseId.set(item.exerciseId, matchingItems);
+  }
+
+  const exercises = (await client.exercise.findMany({
+    where: {
+      id: { in: [...itemByExerciseId.keys()] },
+      userId,
+      skillId: { in: [...new Set(items.map((item) => item.skillId))] },
+      verificationStatus: ExerciseVerificationStatus.VERIFIED,
+      retiredAt: null,
+      answerKind: { in: [...CUSTOM_ANSWER_KINDS] },
+      skill: buildCurrentSessionSkillWhere(userId, session, now, missedSince),
+    },
+    include: { skill: true },
+  })) as unknown as SessionExercise[];
+
+  const eligibleByItemKey = new Map<string, SessionExercise>();
+  for (const exercise of exercises) {
+    const matchingItems = itemByExerciseId.get(exercise.id) ?? [];
+    for (const item of matchingItems) {
+      if (isCurrentSessionExerciseEligible(exercise, item)) {
+        eligibleByItemKey.set(item.itemKey, exercise);
+      }
+    }
+  }
+  return eligibleByItemKey;
+}
+
 async function findCurrentSessionExercise(
   client: SessionDbClient | ReturnType<typeof getPrisma>,
   userId: string,
@@ -1036,54 +1141,58 @@ async function findCurrentSessionExercise(
   item: CustomPracticeSessionItem,
   now: Date,
 ): Promise<SessionExercise | null> {
-  const missedSince = new Date(
-    now.getTime() - RECENTLY_MISSED_LOOKBACK_DAYS * 24 * 60 * 60 * 1000,
+  return (
+    (await findCurrentSessionExercises(client, userId, session, [item], now)).get(item.itemKey) ??
+    null
   );
-  const exercise = (await client.exercise.findFirst({
-    where: {
-      id: item.exerciseId,
-      userId,
-      skillId: item.skillId,
-      verificationStatus: ExerciseVerificationStatus.VERIFIED,
-      retiredAt: null,
-      answerKind: { in: [...CUSTOM_ANSWER_KINDS] },
-      skill: {
-        userId,
-        id: item.skillId,
-        status: SkillStatus.ACTIVE,
-        ...(session.scope.collectionIds.length > 0
-          ? { collectionId: { in: session.scope.collectionIds } }
-          : {}),
-        ...(session.scope.skillIds.length > 0
-          ? { id: { in: session.scope.skillIds } }
-          : {}),
-        ...(session.scope.tags.length > 0
-          ? { tags: { hasEvery: session.scope.tags } }
-          : {}),
-        ...(session.scope.recentlyMissed
-          ? {
-              attempts: {
-                some: {
-                  userId,
-                  result: ExerciseAttemptResult.INCORRECT,
-                  createdAt: { gte: missedSince, lte: now },
-                },
-              },
-            }
-          : {}),
-        ...(session.mode === "SCHEDULED"
-          ? { dueAt: { not: null, lte: now } }
-          : {}),
-        stability: { not: null },
-        difficulty: { not: null },
-      },
-    },
-    include: { skill: true },
-  })) as unknown as SessionExercise | null;
-  if (!exercise || !hasCompatibleSessionAnswerSpec(exercise) || !isSessionExerciseUnlocked(exercise)) {
-    return null;
-  }
-  return exercise;
+}
+
+function buildCurrentSessionSkillWhere(
+  userId: string,
+  session: CustomPracticeSessionRecord,
+  now: Date,
+  missedSince: Date,
+): Prisma.SkillWhereInput {
+  return {
+    userId,
+    status: SkillStatus.ACTIVE,
+    ...(session.scope.collectionIds.length > 0
+      ? { collectionId: { in: session.scope.collectionIds } }
+      : {}),
+    ...(session.scope.skillIds.length > 0
+      ? { id: { in: session.scope.skillIds } }
+      : {}),
+    ...(session.scope.tags.length > 0
+      ? { tags: { hasEvery: session.scope.tags } }
+      : {}),
+    ...(session.scope.recentlyMissed
+      ? {
+          attempts: {
+            some: {
+              userId,
+              result: ExerciseAttemptResult.INCORRECT,
+              createdAt: { gte: missedSince, lte: now },
+            },
+          },
+        }
+      : {}),
+    ...(session.mode === "SCHEDULED"
+      ? { dueAt: { not: null, lte: now } }
+      : {}),
+    stability: { not: null },
+    difficulty: { not: null },
+  };
+}
+
+function isCurrentSessionExerciseEligible(
+  exercise: SessionExercise,
+  item: CustomPracticeSessionItem,
+): boolean {
+  return (
+    exercise.skillId === item.skillId &&
+    hasCompatibleSessionAnswerSpec(exercise) &&
+    isSessionExerciseUnlocked(exercise)
+  );
 }
 
 function updatePlanItem(

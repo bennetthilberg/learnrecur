@@ -23,7 +23,10 @@ vi.mock("@/lib/prisma", () => ({
 
 import type { AgentAuthContext } from "@/lib/agent-access/auth";
 import { createAgentCustomSession } from "@/lib/agent-access/custom-sessions";
-import { previewCustomPracticeAnswer } from "@/lib/practice/custom-session";
+import {
+  findCurrentSessionExercises,
+  previewCustomPracticeAnswer,
+} from "@/lib/practice/custom-session";
 
 const auth = { userId: "user-1" } as AgentAuthContext;
 const sessionDates = {
@@ -118,4 +121,42 @@ describe("custom practice session service boundaries", () => {
       expect(mocks.getPrisma().exercise.findFirst).not.toHaveBeenCalled();
     },
   );
+
+  it("batches a large pending plan through one eligibility query", async () => {
+    const items = Array.from({ length: 100 }, (_, index) => ({
+      ordinal: index,
+      itemKey: `item-${index}`,
+      skillId: "skill-1",
+      exerciseId: `exercise-${index}`,
+      attemptId: `custom-session-1-item-${index}`,
+      status: "PENDING" as const,
+      presentedAt: null,
+      completedAt: null,
+    }));
+    const exercises = items.map((item) => ({
+      id: item.exerciseId,
+      userId: "user-1",
+      skillId: item.skillId,
+      answerKind: "CHOICE",
+      answerSpec: { kind: "choice", correctChoiceId: "right" },
+      choices: [
+        { id: "right", label: "Right" },
+        { id: "wrong", label: "Wrong" },
+      ],
+      skill: { repetitions: 1, alreadyStudied: true },
+    }));
+    const findMany = vi.fn().mockResolvedValue(exercises);
+
+    const eligible = await findCurrentSessionExercises(
+      { exercise: { findMany } } as never,
+      "user-1",
+      session("ACTIVE"),
+      items,
+      sessionDates.startedAt,
+    );
+
+    expect(findMany).toHaveBeenCalledTimes(1);
+    expect(findMany.mock.calls[0]?.[0].where.id.in).toHaveLength(100);
+    expect(eligible.size).toBe(100);
+  });
 });

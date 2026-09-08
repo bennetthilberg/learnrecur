@@ -357,9 +357,9 @@ export async function prepareAgentMaterialUpload(
 
 /**
  * Verify an uploaded PDF, transition its revision to queued, and enqueue the
- * existing material ingestion worker. The storage HEAD check happens while
- * holding the serializable mutation fence so two completion retries cannot
- * enqueue the same revision twice.
+ * existing material ingestion worker. Storage verification happens before the
+ * database mutation fence; the fenced claim still re-reads the owned source
+ * snapshot so a concurrent change cannot enqueue the wrong object.
  */
 export async function completeAgentMaterialUpload(
   auth: AgentAuthContext,
@@ -369,6 +369,11 @@ export async function completeAgentMaterialUpload(
   requireSourceUploadScope(auth);
   const input = agentCompleteMaterialUploadSchema.parse(rawInput);
   const payloadHash = buildAgentPayloadHash(input);
+  await authorizeAgentRead(auth, "sources:upload");
+
+  const replay = await findMaterialCompletionReplay(auth, input, payloadHash);
+  if (replay) return serializeMaterialOperation(replay);
+
   const storage = resolveMaterialStorage(dependencies.storage);
   if (storage.status === "missing-env") {
     throw new AgentMaterialIngestionError(
@@ -377,6 +382,32 @@ export async function completeAgentMaterialUpload(
       true,
     );
   }
+
+  const preparedOperation = await findPreparedMaterialOperation(
+    getPrisma(),
+    auth,
+    input,
+  );
+  if (!preparedOperation) {
+    throw new AgentMaterialIngestionError(
+      "material_not_found",
+      "The prepared material upload was not found.",
+    );
+  }
+  assertMaterialOperationIdentifiers(preparedOperation, input);
+  const preparedSnapshot = await readPreparedMaterialUploadSnapshot(
+    getPrisma(),
+    auth,
+    input,
+    preparedOperation,
+  );
+  const verifiedHead =
+    preparedSnapshot.revision.status === MaterialRevisionStatus.PENDING_UPLOAD
+      ? await verifyPreparedMaterialUpload(
+          storage.storage,
+          preparedSnapshot.sourceFile,
+        )
+      : null;
 
   const claim = await runMaterialMutation(auth, async (tx) => {
     const replay = await tx.agentOperationAction.findUnique({
@@ -412,60 +443,16 @@ export async function completeAgentMaterialUpload(
     }
 
     assertMaterialOperationIdentifiers(operation, input);
-    const materialId = operation.materialRevision?.materialId;
-    const sourceFileId = operation.sourceFileId;
-    if (!materialId || !sourceFileId) {
-      throw new AgentMaterialIngestionError(
-        "stale_material_revision",
-        "The prepared material upload is missing its ownership record.",
-      );
-    }
-    const material = await tx.studyMaterial.findFirst({
-      where: {
-        id: materialId,
-        userId: auth.userId,
-        kind: StudyMaterialKind.PDF,
-        status: StudyMaterialStatus.ACTIVE,
-      },
-      select: { id: true },
-    });
-    const revision = await tx.materialRevision.findFirst({
-      where: {
-        id: input.material_revision_id,
-        userId: auth.userId,
-        materialId,
-      },
-      select: {
-        id: true,
-        materialId: true,
-        status: true,
-        sourceFiles: {
-          where: {
-            id: sourceFileId,
-            userId: auth.userId,
-            kind: SourceFileKind.PDF,
-          },
-          take: 1,
-          select: {
-            id: true,
-            status: true,
-            storageBucket: true,
-            storageKey: true,
-            mimeType: true,
-            byteSize: true,
-          },
-        },
-      },
-    });
-    const sourceFile = revision?.sourceFiles[0];
-    if (!material || !revision || !sourceFile) {
-      throw new AgentMaterialIngestionError(
-        "stale_material_revision",
-        "The prepared material upload is no longer available.",
-      );
-    }
+    const currentSnapshot = await readPreparedMaterialUploadSnapshot(
+      tx,
+      auth,
+      input,
+      operation,
+    );
 
-    if (revision.status !== MaterialRevisionStatus.PENDING_UPLOAD) {
+    if (
+      currentSnapshot.revision.status !== MaterialRevisionStatus.PENDING_UPLOAD
+    ) {
       await recordMaterialAction(
         tx,
         auth,
@@ -480,6 +467,20 @@ export async function completeAgentMaterialUpload(
       };
     }
     if (
+      verifiedHead === null ||
+      !samePreparedMaterialUploadSnapshot(
+        preparedSnapshot,
+        currentSnapshot,
+      )
+    ) {
+      throw new AgentMaterialIngestionError(
+        "stale_material_revision",
+        "The prepared material upload changed while it was being verified. Prepare a new material upload.",
+      );
+    }
+    const sourceFile = currentSnapshot.sourceFile;
+    const revision = currentSnapshot.revision;
+    if (
       sourceFile.status !== SourceFileStatus.DRAFT ||
       !sourceFile.storageBucket ||
       !sourceFile.storageKey ||
@@ -491,33 +492,12 @@ export async function completeAgentMaterialUpload(
         "The prepared PDF upload is no longer available. Prepare a new material upload.",
       );
     }
-    let head: Awaited<ReturnType<SourceObjectStorage["headObject"]>>;
-    try {
-      head = await storage.storage.headObject({
-        key: sourceFile.storageKey,
-        bucket: sourceFile.storageBucket,
-      });
-    } catch {
-      throw new AgentMaterialIngestionError(
-        "upload_not_available",
-        "The private PDF upload could not be verified. Try uploading it again.",
-        true,
-      );
-    }
-    if (
-      head.byteSize !== sourceFile.byteSize ||
-      head.mimeType?.split(";")[0]?.trim().toLowerCase() !== "application/pdf"
-    ) {
-      throw new AgentMaterialIngestionError(
-        "upload_not_available",
-        "The uploaded PDF did not match the prepared file. Upload it again or prepare a new material.",
-      );
-    }
 
     const claimed = await tx.materialRevision.updateMany({
       where: {
         id: revision.id,
         userId: auth.userId,
+        materialId: revision.materialId,
         status: MaterialRevisionStatus.PENDING_UPLOAD,
       },
       data: {
@@ -538,14 +518,25 @@ export async function completeAgentMaterialUpload(
       );
       return { operation: current, enqueue: false as const };
     }
-    await tx.sourceFile.updateMany({
+    const uploaded = await tx.sourceFile.updateMany({
       where: {
         id: sourceFile.id,
         userId: auth.userId,
+        materialRevisionId: revision.id,
         status: SourceFileStatus.DRAFT,
+        storageBucket: sourceFile.storageBucket,
+        storageKey: sourceFile.storageKey,
+        mimeType: sourceFile.mimeType,
+        byteSize: sourceFile.byteSize,
       },
       data: { status: SourceFileStatus.UPLOADED },
     });
+    if (uploaded.count !== 1) {
+      throw new AgentMaterialIngestionError(
+        "stale_material_revision",
+        "The prepared material upload changed while it was being verified. Prepare a new material upload.",
+      );
+    }
     await tx.agentSkillOperation.update({
       where: { id: operation.id },
       data: {
@@ -1026,6 +1017,34 @@ type MaterialOperation = Prisma.AgentSkillOperationGetPayload<{
   select: typeof MATERIAL_OPERATION_SELECT;
 }>;
 
+type MaterialOperationDatabase = Pick<
+  Prisma.TransactionClient,
+  "agentSkillOperation" | "materialRevision" | "sourceFile" | "studyMaterial"
+>;
+
+type PreparedMaterialUploadSnapshot = {
+  revision: {
+    id: string;
+    materialId: string;
+    status: MaterialRevisionStatus;
+  };
+  sourceFile: {
+    id: string;
+    status: SourceFileStatus;
+    storageBucket: string | null;
+    storageKey: string | null;
+    mimeType: string | null;
+    byteSize: number | null;
+  };
+};
+
+type PreparedUploadLeaseSnapshot = {
+  revision: PreparedMaterialUploadSnapshot["revision"];
+  sourceFile: PreparedMaterialUploadSnapshot["sourceFile"] & {
+    presignedUploadExpiresAt: Date | null;
+  };
+};
+
 function serializeMaterialOperation(
   operation: MaterialOperation,
 ): AgentMaterialOperationStatus {
@@ -1128,31 +1147,49 @@ async function refreshOrSerializePreparedUpload(input: {
       expires_in_seconds: null,
     };
   }
-  const sourceFile = await getPrisma().sourceFile.findFirst({
-    where: {
-      id: input.operation.sourceFileId,
-      userId: input.auth.userId,
-      materialRevisionId: input.operation.materialRevisionId,
-      status: SourceFileStatus.DRAFT,
-      materialRevision: {
-        status: MaterialRevisionStatus.PENDING_UPLOAD,
-        material: {
-          status: StudyMaterialStatus.ACTIVE,
-          kind: StudyMaterialKind.PDF,
+  const preflight = await withAgentMutation(
+    input.auth,
+    "sources:upload",
+    async (tx) => {
+      const operation = await tx.agentSkillOperation.findFirst({
+        where: {
+          id: input.operation.id,
+          userId: input.auth.userId,
+          connectionId: input.auth.connectionId,
+          toolName: MATERIAL_PREPARE_TOOL,
         },
-      },
+        select: MATERIAL_OPERATION_SELECT,
+      });
+      if (!operation) {
+        return { operation: input.operation, snapshot: null };
+      }
+      if (
+        operation.status !== AgentOperationStatus.AWAITING_UPLOAD ||
+        !operation.materialRevisionId ||
+        !operation.sourceFileId
+      ) {
+        return { operation, snapshot: null };
+      }
+      return {
+        operation,
+        snapshot: await readPreparedUploadLeaseSnapshot(
+          tx,
+          input.auth,
+          operation,
+        ),
+      };
     },
-    select: {
-      id: true,
-      originalName: true,
-      mimeType: true,
-      byteSize: true,
-      storageBucket: true,
-      storageKey: true,
-    },
-  });
+  );
+  if (!preflight.snapshot) {
+    return {
+      ...serializeMaterialOperation(preflight.operation),
+      upload_url: null,
+      headers: null,
+      expires_in_seconds: null,
+    };
+  }
+  const sourceFile = preflight.snapshot.sourceFile;
   if (
-    !sourceFile ||
     sourceFile.mimeType !== "application/pdf" ||
     sourceFile.byteSize === null ||
     !sourceFile.storageBucket ||
@@ -1170,21 +1207,77 @@ async function refreshOrSerializePreparedUpload(input: {
     maxBytes: MAX_MATERIAL_PDF_BYTES,
     expiresInSeconds: MATERIAL_UPLOAD_URL_EXPIRES_IN_SECONDS,
   });
-  await getPrisma().sourceFile.updateMany({
-    where: {
-      id: sourceFile.id,
-      userId: input.auth.userId,
-      status: SourceFileStatus.DRAFT,
-    },
-    data: {
-      presignedUploadExpiresAt: new Date(
+  const claimed = await withAgentMutation(
+    input.auth,
+    "sources:upload",
+    async (tx) => {
+      const operation = await tx.agentSkillOperation.findFirst({
+        where: {
+          id: input.operation.id,
+          userId: input.auth.userId,
+          connectionId: input.auth.connectionId,
+          toolName: MATERIAL_PREPARE_TOOL,
+        },
+        select: MATERIAL_OPERATION_SELECT,
+      });
+      if (!operation) {
+        return { operation: preflight.operation, claimed: false as const };
+      }
+      if (
+        operation.status !== AgentOperationStatus.AWAITING_UPLOAD ||
+        !operation.materialRevisionId ||
+        !operation.sourceFileId
+      ) {
+        return { operation, claimed: false as const };
+      }
+      const current = await readPreparedUploadLeaseSnapshot(
+        tx,
+        input.auth,
+        operation,
+      );
+      if (!samePreparedUploadLeaseSnapshot(preflight.snapshot, current)) {
+        throw new AgentMaterialIngestionError(
+          "stale_material_revision",
+          "The prepared material upload changed while its upload URL was being refreshed. Prepare a new material upload.",
+        );
+      }
+      const leaseExpiresAt = new Date(
         Date.now() +
           MATERIAL_UPLOAD_URL_EXPIRES_IN_SECONDS * 1_000 +
           MATERIAL_UPLOAD_LEASE_SAFETY_MS,
-      ),
+      );
+      const leased = await tx.sourceFile.updateMany({
+        where: {
+          id: current.sourceFile.id,
+          userId: input.auth.userId,
+          materialRevisionId: current.revision.id,
+          status: SourceFileStatus.DRAFT,
+          storageBucket: current.sourceFile.storageBucket,
+          storageKey: current.sourceFile.storageKey,
+          mimeType: current.sourceFile.mimeType,
+          byteSize: current.sourceFile.byteSize,
+          presignedUploadExpiresAt: current.sourceFile.presignedUploadExpiresAt,
+        },
+        data: { presignedUploadExpiresAt: leaseExpiresAt },
+      });
+      if (leased.count !== 1) {
+        throw new AgentMaterialIngestionError(
+          "stale_material_revision",
+          "The prepared material upload changed while its upload URL was being refreshed. Prepare a new material upload.",
+        );
+      }
+      return { operation, claimed: true as const };
     },
-  });
-  return buildUploadResponse(input.operation, {
+  );
+  if (!claimed.claimed) {
+    return {
+      ...serializeMaterialOperation(claimed.operation),
+      upload_url: null,
+      headers: null,
+      expires_in_seconds: null,
+    };
+  }
+  return buildUploadResponse(claimed.operation, {
     uploadUrl,
     expiresInSeconds: MATERIAL_UPLOAD_URL_EXPIRES_IN_SECONDS,
   });
@@ -1379,7 +1472,7 @@ async function validateSameOriginWebsiteUrls(
 }
 
 async function findPreparedMaterialOperation(
-  tx: Prisma.TransactionClient,
+  tx: MaterialOperationDatabase,
   auth: AgentAuthContext,
   input: AgentCompleteMaterialUploadInput,
 ) {
@@ -1405,6 +1498,219 @@ async function findPreparedMaterialOperation(
     orderBy: { createdAt: "desc" },
     select: MATERIAL_OPERATION_SELECT,
   });
+}
+
+async function findMaterialCompletionReplay(
+  auth: AgentAuthContext,
+  input: AgentCompleteMaterialUploadInput,
+  payloadHash: string,
+) {
+  const prisma = getPrisma();
+  const replay = await prisma.agentOperationAction.findUnique({
+    where: {
+      connectionId_toolName_idempotencyKey: {
+        connectionId: auth.connectionId,
+        toolName: MATERIAL_COMPLETE_TOOL,
+        idempotencyKey: input.idempotency_key,
+      },
+    },
+    select: { operationId: true, userId: true, payloadHash: true },
+  });
+  if (!replay) return null;
+  if (replay.userId !== auth.userId) {
+    throw new AgentMaterialIngestionError(
+      "idempotency_conflict",
+      "That idempotency key was already used for a different material operation.",
+    );
+  }
+  assertPayloadHash(replay.payloadHash, payloadHash);
+  return refreshMaterialOperation(prisma, replay.operationId);
+}
+
+async function readPreparedMaterialUploadSnapshot(
+  tx: MaterialOperationDatabase,
+  auth: AgentAuthContext,
+  input: AgentCompleteMaterialUploadInput,
+  operation: MaterialOperation,
+): Promise<PreparedMaterialUploadSnapshot> {
+  const materialId = operation.materialRevision?.materialId;
+  const sourceFileId = operation.sourceFileId;
+  if (!materialId || !sourceFileId) {
+    throw new AgentMaterialIngestionError(
+      "stale_material_revision",
+      "The prepared material upload is missing its ownership record.",
+    );
+  }
+  const material = await tx.studyMaterial.findFirst({
+    where: {
+      id: materialId,
+      userId: auth.userId,
+      kind: StudyMaterialKind.PDF,
+      status: StudyMaterialStatus.ACTIVE,
+    },
+    select: { id: true },
+  });
+  const revision = await tx.materialRevision.findFirst({
+    where: {
+      id: input.material_revision_id,
+      userId: auth.userId,
+      materialId,
+    },
+    select: {
+      id: true,
+      materialId: true,
+      status: true,
+      sourceFiles: {
+        where: {
+          id: sourceFileId,
+          userId: auth.userId,
+          kind: SourceFileKind.PDF,
+        },
+        take: 1,
+        select: {
+          id: true,
+          status: true,
+          storageBucket: true,
+          storageKey: true,
+          mimeType: true,
+          byteSize: true,
+        },
+      },
+    },
+  });
+  const sourceFile = revision?.sourceFiles[0];
+  if (!material || !revision || !sourceFile) {
+    throw new AgentMaterialIngestionError(
+      "stale_material_revision",
+      "The prepared material upload is no longer available.",
+    );
+  }
+  return { revision, sourceFile };
+}
+
+async function verifyPreparedMaterialUpload(
+  storage: SourceObjectStorage,
+  sourceFile: PreparedMaterialUploadSnapshot["sourceFile"],
+) {
+  if (
+    sourceFile.status !== SourceFileStatus.DRAFT ||
+    !sourceFile.storageBucket ||
+    !sourceFile.storageKey ||
+    sourceFile.mimeType !== "application/pdf" ||
+    sourceFile.byteSize === null
+  ) {
+    throw new AgentMaterialIngestionError(
+      "upload_not_available",
+      "The prepared PDF upload is no longer available. Prepare a new material upload.",
+    );
+  }
+  let head: Awaited<ReturnType<SourceObjectStorage["headObject"]>>;
+  try {
+    head = await storage.headObject({
+      key: sourceFile.storageKey,
+      bucket: sourceFile.storageBucket,
+    });
+  } catch {
+    throw new AgentMaterialIngestionError(
+      "upload_not_available",
+      "The private PDF upload could not be verified. Try uploading it again.",
+      true,
+    );
+  }
+  if (
+    head.byteSize !== sourceFile.byteSize ||
+    head.mimeType?.split(";")[0]?.trim().toLowerCase() !== "application/pdf"
+  ) {
+    throw new AgentMaterialIngestionError(
+      "upload_not_available",
+      "The uploaded PDF did not match the prepared file. Upload it again or prepare a new material.",
+    );
+  }
+}
+
+function samePreparedMaterialUploadSnapshot(
+  left: PreparedMaterialUploadSnapshot,
+  right: PreparedMaterialUploadSnapshot,
+) {
+  return (
+    left.revision.id === right.revision.id &&
+    left.revision.materialId === right.revision.materialId &&
+    left.revision.status === right.revision.status &&
+    left.sourceFile.id === right.sourceFile.id &&
+    left.sourceFile.status === right.sourceFile.status &&
+    left.sourceFile.storageBucket === right.sourceFile.storageBucket &&
+    left.sourceFile.storageKey === right.sourceFile.storageKey &&
+    left.sourceFile.byteSize === right.sourceFile.byteSize &&
+    left.sourceFile.mimeType === right.sourceFile.mimeType
+  );
+}
+
+async function readPreparedUploadLeaseSnapshot(
+  tx: Pick<Prisma.TransactionClient, "sourceFile">,
+  auth: AgentAuthContext,
+  operation: MaterialOperation,
+): Promise<PreparedUploadLeaseSnapshot> {
+  const materialRevisionId = operation.materialRevisionId;
+  const sourceFileId = operation.sourceFileId;
+  if (!materialRevisionId || !sourceFileId) {
+    throw new AgentMaterialIngestionError(
+      "stale_material_revision",
+      "The prepared material upload is missing its ownership record.",
+    );
+  }
+  const sourceFile = await tx.sourceFile.findFirst({
+    where: {
+      id: sourceFileId,
+      userId: auth.userId,
+      materialRevisionId,
+      status: SourceFileStatus.DRAFT,
+      materialRevision: {
+        id: materialRevisionId,
+        status: MaterialRevisionStatus.PENDING_UPLOAD,
+        material: {
+          status: StudyMaterialStatus.ACTIVE,
+          kind: StudyMaterialKind.PDF,
+        },
+      },
+    },
+    select: {
+      id: true,
+      status: true,
+      storageBucket: true,
+      storageKey: true,
+      mimeType: true,
+      byteSize: true,
+      presignedUploadExpiresAt: true,
+      materialRevision: {
+        select: { id: true, materialId: true, status: true },
+      },
+    },
+  });
+  if (!sourceFile?.materialRevision) {
+    throw new AgentMaterialIngestionError(
+      "stale_material_revision",
+      "The prepared material upload is no longer available. Prepare a new material upload.",
+    );
+  }
+  return {
+    revision: sourceFile.materialRevision,
+    sourceFile: {
+      id: sourceFile.id,
+      status: sourceFile.status,
+      storageBucket: sourceFile.storageBucket,
+      storageKey: sourceFile.storageKey,
+      mimeType: sourceFile.mimeType,
+      byteSize: sourceFile.byteSize,
+      presignedUploadExpiresAt: sourceFile.presignedUploadExpiresAt,
+    },
+  };
+}
+
+function samePreparedUploadLeaseSnapshot(
+  left: PreparedUploadLeaseSnapshot,
+  right: PreparedUploadLeaseSnapshot,
+) {
+  return samePreparedMaterialUploadSnapshot(left, right);
 }
 
 function assertMaterialOperationIdentifiers(
@@ -1445,7 +1751,7 @@ async function recordMaterialAction(
 }
 
 async function refreshMaterialOperation(
-  tx: Prisma.TransactionClient,
+  tx: Pick<Prisma.TransactionClient, "agentSkillOperation">,
   operationId: string,
 ) {
   return tx.agentSkillOperation.findUniqueOrThrow({

@@ -12,6 +12,10 @@ import {
   AnswerKind,
 } from "@/generated/prisma/client";
 import {
+  buildReadyExerciseSql,
+  DEFAULT_READY_TEXT_POLICY_SQL,
+} from "@/lib/practice/readiness-sql";
+import {
   isPracticeReadModelExerciseReady,
   resolveReadModelTextPolicy,
 } from "@/lib/practice/read-model-eligibility";
@@ -22,6 +26,7 @@ export const NEEDS_ATTENTION_MISS_THRESHOLD = 3;
 export const NEEDS_ATTENTION_DEFAULT_LIMIT = 20;
 export const NEEDS_ATTENTION_MAX_LIMIT = 50;
 export const NEEDS_ATTENTION_POLICY_VERSION = "needs-attention-v1";
+const NEEDS_ATTENTION_MAX_CANDIDATE_SCANS = 2;
 
 export type NeedsAttentionKind = "repeated-misses" | "preparation";
 
@@ -152,6 +157,15 @@ type NeedsAttentionCursor = NeedsAttentionSortKey & {
   version: 1;
 };
 
+export class NeedsAttentionCursorError extends Error {
+  readonly code = "invalid_cursor" as const;
+
+  constructor() {
+    super("Invalid needs-attention cursor.");
+    this.name = "NeedsAttentionCursorError";
+  }
+}
+
 /**
  * Returns the bounded evidence that is allowed to drive a persistent-failure
  * notice. Scheduled status is derived from the review snapshot, not from the
@@ -259,13 +273,15 @@ export async function getNeedsAttention(
   const collectionId = input.collectionId?.trim() || null;
   let scanCursor = decodeNeedsAttentionCursor(input.cursor);
   const items: NeedsAttentionItem[] = [];
-  let hasMoreCandidates = true;
+  let hasMoreCandidates = false;
+  let lastScannedCursor: NeedsAttentionCursor | null = null;
+  let scanCount = 0;
 
   // Candidate selection and detail loading are both bounded. A second scan is
   // only needed when a candidate's exact read-model check removes a SQL
   // candidate; this keeps pagination truthful without querying one skill at a
   // time.
-  while (items.length <= limit && hasMoreCandidates) {
+  while (scanCount < NEEDS_ATTENTION_MAX_CANDIDATE_SCANS) {
     const candidates = await loadFindingCandidates({
       userId: input.userId,
       now: input.now,
@@ -273,7 +289,13 @@ export async function getNeedsAttention(
       limit: limit + 1,
       collectionId,
     });
-    if (candidates.length === 0) break;
+    scanCount += 1;
+    if (candidates.length === 0) {
+      // An exhausted query must terminate pagination. Keeping the previous
+      // value here would return a cursor that repeats the same empty query.
+      hasMoreCandidates = false;
+      break;
+    }
 
     const repeatedSkillIds = candidates
       .filter((candidate) => candidate.kind === "repeated-misses")
@@ -301,25 +323,33 @@ export async function getNeedsAttention(
     );
 
     const lastCandidate = candidates.at(-1);
-    if (!lastCandidate) break;
-    scanCursor = {
+    if (!lastCandidate) {
+      hasMoreCandidates = false;
+      break;
+    }
+    lastScannedCursor = scanCursor = {
       version: 1,
       ...candidateToSortKey(lastCandidate),
     };
     hasMoreCandidates = candidates.length > limit;
+    if (!hasMoreCandidates || items.length >= limit) break;
   }
 
   const orderedItems = items.toSorted(compareNeedsAttentionItems);
   const page = orderedItems.slice(0, limit);
-  const hasMore = orderedItems.length > limit || hasMoreCandidates;
+  const hasMoreValidItems = orderedItems.length > limit;
+  const nextCursorKey = hasMoreValidItems
+    ? page.at(-1)
+      ? toSortKey(page.at(-1)!)
+      : null
+    : hasMoreCandidates
+      ? lastScannedCursor
+      : null;
 
   return {
     status: "ready",
     items: page,
-    nextCursor:
-      hasMore && page.at(-1)
-        ? encodeNeedsAttentionCursor(toSortKey(page.at(-1)!))
-        : null,
+    nextCursor: nextCursorKey ? encodeNeedsAttentionCursor(nextCursorKey) : null,
   };
 }
 
@@ -468,111 +498,15 @@ async function loadFindingCandidates(input: {
           FROM "exercises" e
           WHERE e."userId" = s."userId"
             AND e."skillId" = s."id"
-            AND e."verificationStatus" = ${ExerciseVerificationStatus.VERIFIED}::"ExerciseVerificationStatus"
-            AND e."retiredAt" IS NULL
-            AND (
-              (
-                e."answerKind" = ${AnswerKind.CHOICE}::"AnswerKind"
-                AND jsonb_typeof(e."choices") = 'array'
-                AND jsonb_array_length(
-                  CASE WHEN jsonb_typeof(e."choices") = 'array' THEN e."choices" ELSE '[]'::jsonb END
-                ) > 0
-                AND e."answerSpec"->>'kind' = 'choice'
-                AND EXISTS (
-                  SELECT 1
-                  FROM jsonb_array_elements(
-                    CASE WHEN jsonb_typeof(e."choices") = 'array' THEN e."choices" ELSE '[]'::jsonb END
-                  ) choice
-                  WHERE choice->>'id' = e."answerSpec"->>'correctChoiceId'
-                )
-              )
-              OR (
-                (s."alreadyStudied" = TRUE OR s."repetitions" >= 3)
-                AND (
-                  (
-                    e."answerKind" = ${AnswerKind.TEXT}::"AnswerKind"
-                    AND e."answerSpec"->>'kind' = 'text'
-                    AND jsonb_typeof(e."answerSpec"->'accepted') = 'array'
-                    AND jsonb_array_length(
-                      CASE WHEN jsonb_typeof(e."answerSpec"->'accepted') = 'array' THEN e."answerSpec"->'accepted' ELSE '[]'::jsonb END
-                    ) > 0
-                    AND e."answerSpec"->>'policyVersion' = COALESCE(
-                      s."textPolicy",
-                      c."textPolicy",
-                      '{"version":2,"profile":"NATURAL","normalizeCase":true,"normalizeWhitespace":true}'::jsonb
-                    )->>'version'
-                    AND e."answerSpec"->>'normalizeCase' = COALESCE(
-                      s."textPolicy",
-                      c."textPolicy",
-                      '{"version":2,"profile":"NATURAL","normalizeCase":true,"normalizeWhitespace":true}'::jsonb
-                    )->>'normalizeCase'
-                    AND e."answerSpec"->>'normalizeWhitespace' = COALESCE(
-                      s."textPolicy",
-                      c."textPolicy",
-                      '{"version":2,"profile":"NATURAL","normalizeCase":true,"normalizeWhitespace":true}'::jsonb
-                    )->>'normalizeWhitespace'
-                    AND e."answerSpec"->>'normalizeDiacritics' = 'false'
-                    AND (
-                      (COALESCE(
-                        s."textPolicy",
-                        c."textPolicy",
-                        '{"version":2,"profile":"NATURAL","normalizeCase":true,"normalizeWhitespace":true}'::jsonb
-                      )->>'profile' = 'CUSTOM')
-                      OR (
-                        COALESCE(
-                          s."textPolicy",
-                          c."textPolicy",
-                          '{"version":2,"profile":"NATURAL","normalizeCase":true,"normalizeWhitespace":true}'::jsonb
-                        )->>'profile' = 'NATURAL'
-                        AND COALESCE(
-                          s."textPolicy",
-                          c."textPolicy",
-                          '{"version":2,"profile":"NATURAL","normalizeCase":true,"normalizeWhitespace":true}'::jsonb
-                        )->>'normalizeCase' = 'true'
-                        AND COALESCE(
-                          s."textPolicy",
-                          c."textPolicy",
-                          '{"version":2,"profile":"NATURAL","normalizeCase":true,"normalizeWhitespace":true}'::jsonb
-                        )->>'normalizeWhitespace' = 'true'
-                      )
-                      OR (
-                        COALESCE(
-                          s."textPolicy",
-                          c."textPolicy",
-                          '{"version":2,"profile":"NATURAL","normalizeCase":true,"normalizeWhitespace":true}'::jsonb
-                        )->>'profile' = 'EXACT'
-                        AND COALESCE(
-                          s."textPolicy",
-                          c."textPolicy",
-                          '{"version":2,"profile":"NATURAL","normalizeCase":true,"normalizeWhitespace":true}'::jsonb
-                        )->>'normalizeCase' = 'false'
-                        AND COALESCE(
-                          s."textPolicy",
-                          c."textPolicy",
-                          '{"version":2,"profile":"NATURAL","normalizeCase":true,"normalizeWhitespace":true}'::jsonb
-                        )->>'normalizeWhitespace' = 'false'
-                      )
-                    )
-                  )
-                  OR (
-                    e."answerKind" = ${AnswerKind.NUMERIC}::"AnswerKind"
-                    AND e."answerSpec"->>'kind' = 'numeric'
-                    AND jsonb_typeof(e."answerSpec"->'accepted') = 'array'
-                    AND jsonb_array_length(
-                      CASE WHEN jsonb_typeof(e."answerSpec"->'accepted') = 'array' THEN e."answerSpec"->'accepted' ELSE '[]'::jsonb END
-                    ) > 0
-                  )
-                  OR (
-                    e."answerKind" = ${AnswerKind.MATH}::"AnswerKind"
-                    AND e."answerSpec"->>'kind' = 'math'
-                    AND jsonb_typeof(e."answerSpec"->'acceptedExpressions') = 'array'
-                    AND jsonb_array_length(
-                      CASE WHEN jsonb_typeof(e."answerSpec"->'acceptedExpressions') = 'array' THEN e."answerSpec"->'acceptedExpressions' ELSE '[]'::jsonb END
-                    ) > 0
-                  )
-                )
-              )
-            )
+            AND ${buildReadyExerciseSql({
+              repetitions: Prisma.sql`s."repetitions"`,
+              alreadyStudied: Prisma.sql`s."alreadyStudied"`,
+              textPolicy: Prisma.sql`COALESCE(
+                s."textPolicy",
+                c."textPolicy",
+                ${DEFAULT_READY_TEXT_POLICY_SQL}
+              )`,
+            })}
         )
     ),
     all_findings AS (
@@ -913,14 +847,15 @@ function decodeNeedsAttentionCursor(
       typeof parsed.skillId !== "string" ||
       typeof parsed.sortAt !== "string"
     ) {
-      throw new Error("Invalid needs-attention cursor.");
+      throw new NeedsAttentionCursorError();
     }
     const sortAt = new Date(parsed.sortAt);
-    if (!Number.isFinite(sortAt.getTime()))
-      throw new Error("Invalid needs-attention cursor.");
+    if (!parsed.skillId.trim() || !Number.isFinite(sortAt.getTime()))
+      throw new NeedsAttentionCursorError();
     return { version: 1, kind: parsed.kind, skillId: parsed.skillId, sortAt };
-  } catch {
-    throw new Error("Invalid needs-attention cursor.");
+  } catch (error) {
+    if (error instanceof NeedsAttentionCursorError) throw error;
+    throw new NeedsAttentionCursorError();
   }
 }
 

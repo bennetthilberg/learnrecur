@@ -57,6 +57,16 @@ inventory and reprepare it through the existing bounded pipeline. Attempts,
 review logs, and source provenance remain immutable. Public errors do not
 expose provider messages, private material, storage keys, or database details.
 
+Deferred exercise-refill events persist their provider payload and bounded
+delivery state on the `GenerationJob` row before the transaction commits. The
+`agent-access.maintenance` job scans at most 25 stale deliveries every five
+minutes, fences claims by account, deletion tombstone, and delivery lease, and
+marks exhausted delivery attempts as an actionable repair failure. A process
+crash after provider acceptance can cause a duplicate delivery; the refill
+worker must remain idempotent by generation-job ID. The deployed maintenance
+job and refill worker must ship with the application revision for this
+recovery path to remain live.
+
 ## Defaults, scopes, and rollout
 
 The schema migration
@@ -101,22 +111,24 @@ use one worker and one database lease.
 | `npm run prisma:generate` | Passed after schema stabilization. |
 | `npm run prisma:deploy` | Passed against the disposable database; all 34 migrations applied. |
 | Schema readiness and export integration | 2 files, 6 tests passed. |
+| Canonical readiness SQL parity | `readiness-sql.test.ts`: 16/16 passed, including malformed numeric, fraction, math, policy, retired, and unverified inventory. |
 | Advanced settings persistence integration | 1 file, 2 tests passed. |
-| Focused agent library and MCP wrapper integration | `agent-library-management.test.ts`: 9/9 passed; the post-freeze malformed-numeric readiness case was rerun 1/1 after the final numeric guard edit. |
-| Focused custom-session integration | `custom-practice-session.test.ts`: 12/12 passed, including mixed-review cue metadata and undersized-plan replenishment. |
-| Focused material integration | Native ingestion 1 file, 24 tests passed; agent late-ack case 1 selected test passed. |
-| Focused progress and Needs Attention integration | `agent-progress.test.ts`: 6/6 passed, including authorization races, guidance merging, skill ownership, and lost post-commit event acknowledgement; Needs Attention: 3/3 passed. |
-| Focused practice refill integration | 4/4 selected refill and event-failure cases passed. |
-| Setup and material affected integration | 25/25 passed in the serialized affected batch. |
-| Setup concurrency integration | 1 selected test passed after recognizing the Prisma 7 Neon nested `driverAdapterError.cause.kind` shape. |
-| Full unit suite | 107 files, 1,047 tests passed. |
-| Combined coverage proof | `npm run test:coverage` runs unit and integration tests with `RUN_DATABASE_TESTS=1`; the local proof passed 110 files and 1,087 tests against the disposable database with statements 52.52%, branches 46.01%, functions 61.75%, and lines 52.35%. Thresholds and source coverage scope are unchanged; the command requires an isolated configured database. The exact final-head run is enforced by CI. |
+| Focused agent library and MCP wrapper integration | `agent-library-management.test.ts`: 12/12 passed, including per-skill timestamps, readiness parity, malformed specs, tag overflow, and revoked access. |
+| Focused custom-session integration | `custom-practice-session.test.ts`: 13/13 passed, including mixed-review cue metadata, undersized-plan replenishment, and explicit owned-scope validation. |
+| Focused material integration | `agent-material-ingestion.test.ts`: 10/10 passed, including concurrent completion, revocation/deletion during URL replay, operation reconciliation, and late acknowledgement. Native ingestion evidence: 24 tests passed. |
+| Focused progress and Needs Attention integration | `agent-progress.test.ts`: 7/7 passed, including authorization races, guidance merging, skill ownership, SQL readiness, and lost post-commit event acknowledgement; Needs Attention: 3/3 passed. |
+| Focused practice refill integration | `refill-delivery-recovery.test.ts`: 6/6 passed, including crash recovery, single-claim leases, stale publishers, delivery exhaustion, and deletion tombstones. |
+| Focused durable setup integration | `agent-setup.test.ts`: 10/10 passed, including last-seen snapshot stability, stale setting edits, journal recovery, and concurrent apply fencing. |
+| Setup conflict classification | Nested Prisma 7 Neon `driverAdapterError.cause.code` and `cause.kind` cases are covered by the focused unit suite. |
+| Full unit suite | 109 files, 1,067 tests passed. |
+| Combined coverage proof | `npm run test:coverage` runs unit and integration tests with `RUN_DATABASE_TESTS=1`; the local proof passed 110 files and 1,087 tests against the disposable database with statements 52.52%, branches 46.01%, functions 61.75%, and lines 52.35%. This proof predates the final narrow regression files; thresholds and source coverage scope are unchanged, and the exact final-head run is enforced by CI. |
 | Full lint | Passed. |
 | Application build | Passed; Next.js typecheck and static generation completed. |
 | Worker bundle | `npm run jobs:build` passed and wrote the ignored `.aws-build/jobs.zip`. |
 | Runtime audit | `npm run check:runtime-audit` passed: 0 runtime findings and 0 blockers; four accepted dev-only Prisma CLI exceptions. |
 | Focused MCP protocol unit tests | 2 files, 23 tests passed. `setup_in_progress` is publicly retryable; `setup_stale` is not. |
 | Authenticated browser flows | 7 product tests passed across desktop and mobile settings, daily-limit gating, advanced retention/day-start persistence, custom setup/completion, mixed-review cues, and Needs Attention states. The externally seeded fractional-retention case passed in a focused 1/1 rerun after a test locator correction. Clerk setup and cleanup passed for both runs. Custom mobile frame measured 14px left, 361px right, with no horizontal document overflow. |
+| Malformed Needs Attention cursor browser check | `needs-attention.spec.ts`: 5/5 passed with Clerk setup/cleanup, including desktop, mobile, and first-page recovery for a malformed cursor. |
 | Full serialized integration suite | Broad baseline: 35 files, 446 tests with 442 passed and 4 agent-practice failures. The final affected rerun passed 3 files and 32 tests after updating tool/settings contracts, bounded Neon conflict retries, and setup snapshot fencing; it covers all four original failure paths plus the new setup regression. The broad suite was not repeated, so this is not a fresh 446-test all-green claim. |
 | Anonymous E2E suite | 13 tests passed with 2 workers. |
 
@@ -169,5 +181,6 @@ This record proves local source, schema, build, worker-bundle, database, and
 browser checks only. It does not prove a deployed revision, external WorkOS
 configuration, a production migration, a production queue, provider consent,
 or live material ingestion. Apply the additive migration before the dependent
-application and worker, update and reconsent WorkOS scopes, run the ordinary CI
-and release gates, and verify the deployed revision separately.
+application and worker, deploy the five-minute maintenance job with the refill
+worker, update and reconsent WorkOS scopes, run the ordinary CI and release
+gates, and verify the deployed revision separately.

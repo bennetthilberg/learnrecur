@@ -126,11 +126,11 @@ describeDatabase("agent material ingestion", () => {
       material_revision_id: first.material_revision_id!,
       operation_id: first.operation_id,
     };
-    const completed = await completeAgentMaterialUpload(
-      auth,
-      completeInput,
-      dependencies,
-    );
+    const [completed, concurrentReplay] = await Promise.all([
+      completeAgentMaterialUpload(auth, completeInput, dependencies),
+      completeAgentMaterialUpload(auth, completeInput, dependencies),
+    ]);
+    const headCallsAfterConcurrentCompletion = storage.headCalls;
     const replay = await completeAgentMaterialUpload(
       auth,
       completeInput,
@@ -142,7 +142,12 @@ describeDatabase("agent material ingestion", () => {
       status: "queued",
       retryable: false,
     });
+    expect(concurrentReplay).toMatchObject({
+      operation_id: first.operation_id,
+      status: "queued",
+    });
     expect(replay.operation_id).toBe(completed.operation_id);
+    expect(storage.headCalls).toBe(headCallsAfterConcurrentCompletion);
     expect(events).toHaveLength(1);
     await expect(
       prisma.materialRevision.findUniqueOrThrow({
@@ -192,6 +197,86 @@ describeDatabase("agent material ingestion", () => {
         dependencies,
       ),
     ).rejects.toMatchObject({ code: "idempotency_conflict" });
+  });
+
+  it("does not refresh a replayed upload after revocation during presigning", async () => {
+    const auth = await createAuth("replay_revoked");
+    const storage = createMemoryStorage();
+    const input = {
+      idempotency_key: `replay_revoked_${randomUUID()}`,
+      title: "Revoked replay",
+      original_name: "revoked-replay.pdf",
+      mime_type: "application/pdf" as const,
+      byte_size: 1_024,
+    };
+    const prepared = await prepareAgentMaterialUpload(auth, input, { storage });
+    const before = await prisma.sourceFile.findUniqueOrThrow({
+      where: { id: prepared.source_file_id! },
+      select: { presignedUploadExpiresAt: true },
+    });
+    let presignCalls = 0;
+    storage.createPresignedUploadUrl = async () => {
+      presignCalls += 1;
+      await prisma.agentConnection.update({
+        where: { id: auth.connectionId },
+        data: { status: AgentConnectionStatus.REVOKED },
+      });
+      return "https://uploads.example/revoked-replay";
+    };
+
+    await expect(
+      prepareAgentMaterialUpload(auth, input, { storage }),
+    ).rejects.toMatchObject({ code: "permission_denied" });
+    expect(presignCalls).toBe(1);
+    await expect(
+      prisma.sourceFile.findUniqueOrThrow({
+        where: { id: prepared.source_file_id! },
+        select: { presignedUploadExpiresAt: true },
+      }),
+    ).resolves.toEqual(before);
+  });
+
+  it("denies a replay during account deletion before generating an upload URL", async () => {
+    const auth = await createAuth("replay_deleting");
+    const storage = createMemoryStorage();
+    const input = {
+      idempotency_key: `replay_deleting_${randomUUID()}`,
+      title: "Deleting replay",
+      original_name: "deleting-replay.pdf",
+      mime_type: "application/pdf" as const,
+      byte_size: 1_024,
+    };
+    const prepared = await prepareAgentMaterialUpload(auth, input, { storage });
+    const before = await prisma.sourceFile.findUniqueOrThrow({
+      where: { id: prepared.source_file_id! },
+      select: { presignedUploadExpiresAt: true },
+    });
+    const deletionJob = await prisma.accountDeletionJob.create({
+      data: {
+        userId: auth.userId,
+        manifest: { version: 1, storageObjects: [], agentConnections: [] },
+      },
+    });
+    let presignCalls = 0;
+    storage.createPresignedUploadUrl = async () => {
+      presignCalls += 1;
+      return "https://uploads.example/deleting-replay";
+    };
+
+    try {
+      await expect(
+        prepareAgentMaterialUpload(auth, input, { storage }),
+      ).rejects.toMatchObject({ code: "permission_denied" });
+      expect(presignCalls).toBe(0);
+      await expect(
+        prisma.sourceFile.findUniqueOrThrow({
+          where: { id: prepared.source_file_id! },
+          select: { presignedUploadExpiresAt: true },
+        }),
+      ).resolves.toEqual(before);
+    } finally {
+      await prisma.accountDeletionJob.delete({ where: { id: deletionJob.id } });
+    }
   });
 
   it("reconciles native failure and deletion states for operation polling", async () => {
@@ -576,17 +661,20 @@ describeDatabase("agent material ingestion", () => {
 function createMemoryStorage(): SourceObjectStorage & {
   objects: Map<string, Buffer>;
   lastPreparedKey: string;
+  headCalls: number;
 } {
   const objects = new Map<string, Buffer>();
   const storage = {
     bucketName: "test-agent-materials",
     objects,
     lastPreparedKey: "",
+    headCalls: 0,
     async createPresignedUploadUrl({ key }: { key: string }) {
       storage.lastPreparedKey = key;
       return `https://uploads.example/${encodeURIComponent(key)}`;
     },
     async headObject({ key }: { key: string }) {
+      storage.headCalls += 1;
       const bytes = objects.get(key);
       return {
         byteSize: bytes?.byteLength ?? null,
@@ -607,6 +695,7 @@ function createMemoryStorage(): SourceObjectStorage & {
   } satisfies SourceObjectStorage & {
     objects: Map<string, Buffer>;
     lastPreparedKey: string;
+    headCalls: number;
   };
   return storage;
 }

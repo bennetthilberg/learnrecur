@@ -14,6 +14,7 @@ import { getAgentAccessConfig } from "@/lib/agent-access/auth";
 import { sendAgentConnectionRevocationRequested, sendAgentSkillOperationRequested } from "@/lib/jobs/events";
 import { getPrisma } from "@/lib/prisma";
 import { cleanupPreparedSourceUploads } from "@/lib/skills/uploads";
+import { recoverPendingRefillEvents } from "@/lib/skills/refill-jobs";
 
 const AGENT_UPLOAD_WINDOW_MS = 10 * 60 * 1_000;
 const WORKOS_AUTHORIZED_APPLICATION_PAGE_LIMIT = 100;
@@ -528,7 +529,7 @@ export async function runAgentConnectionRevocationJob(input: {
 export async function runAgentAccessMaintenance(now: Date) {
   const prisma = getPrisma();
   const uploadCutoff = new Date(now.getTime() - AGENT_UPLOAD_WINDOW_MS);
-  const [purged, rateBuckets, pending, expiredUploads] = await Promise.all([
+  const [purged, rateBuckets, pending, expiredUploads, refillEvents] = await Promise.all([
     prisma.agentSkillOperation.updateMany({
       where: { payloadExpiresAt: { lte: now }, requestPayload: { not: Prisma.DbNull } },
       data: { requestPayload: Prisma.DbNull, payloadExpiresAt: null },
@@ -563,6 +564,7 @@ export async function runAgentAccessMaintenance(now: Date) {
         sources: { select: { sourceFileId: true } },
       },
     }),
+    recoverPendingRefillEvents({ now }),
   ]);
   let expiredUploadOperations = 0;
   for (const operation of expiredUploads) {
@@ -612,5 +614,8 @@ export async function runAgentAccessMaintenance(now: Date) {
     expiredUploadOperations,
     revocationsAttempted: pending.length,
     revocationsFailed: revocations.filter((result) => result.status === "rejected").length,
+    refillEventsAttempted: refillEvents.attempted,
+    refillEventsDelivered: refillEvents.delivered,
+    refillEventsFailed: refillEvents.failed,
   };
 }
