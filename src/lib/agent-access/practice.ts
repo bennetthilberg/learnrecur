@@ -124,7 +124,7 @@ async function loadSettings(
 ) {
   const user = await tx.user.findUniqueOrThrow({
     where: { id: userId },
-    select: { practicePreference: true, mixedReview: true },
+    select: { practicePreference: true, mixedReview: true, dailyNewSkillLimit: true, practiceTimezone: true },
   });
   if (target.scope === "user")
     return { settings: user, user, collection: null };
@@ -200,6 +200,8 @@ function publicSettings(
         user: stored.user.practicePreference,
       }),
       mixedReview: stored.user.mixedReview,
+      dailyNewSkillLimit: stored.user.dailyNewSkillLimit,
+      practiceTimezone: stored.user.practiceTimezone,
       textPolicy,
     },
     invalid_fields: invalidFields,

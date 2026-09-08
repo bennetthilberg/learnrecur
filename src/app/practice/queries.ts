@@ -1,7 +1,11 @@
 import "server-only";
 
-import { AnswerKind, CollectionStatus, type Prisma } from "@/generated/prisma/client";
-import { getNextPracticeItem } from "@/lib/practice";
+import {
+  AnswerKind,
+  CollectionStatus,
+  type Prisma,
+} from "@/generated/prisma/client";
+import { getNextPracticeItem, previewNextPracticeItem } from "@/lib/practice";
 import { getPrisma } from "@/lib/prisma";
 
 import type { ChoiceOption, PracticeItem, PracticeScope } from "./types";
@@ -62,6 +66,28 @@ export async function getNextPracticeItemForUser(
   now = new Date(),
   scopeInput: PracticeScopeInput = {},
 ): Promise<PracticeItem> {
+  return loadPracticeItemForUser(userId, now, scopeInput, getNextPracticeItem);
+}
+
+export async function previewNextPracticeItemForUser(
+  userId: string,
+  now = new Date(),
+  scopeInput: PracticeScopeInput = {},
+): Promise<PracticeItem> {
+  return loadPracticeItemForUser(
+    userId,
+    now,
+    scopeInput,
+    previewNextPracticeItem,
+  );
+}
+
+async function loadPracticeItemForUser(
+  userId: string,
+  now: Date,
+  scopeInput: PracticeScopeInput,
+  selectItem: typeof getNextPracticeItem,
+): Promise<PracticeItem> {
   const scope = await resolvePracticeScopeForUser(userId, scopeInput);
 
   if (scope.status === "unavailable") {
@@ -71,7 +97,7 @@ export async function getNextPracticeItemForUser(
     };
   }
 
-  const result = await getNextPracticeItem({
+  const result = await selectItem({
     userId,
     now,
     answerKinds: PRACTICE_ANSWER_KINDS,
@@ -134,8 +160,11 @@ function toPracticeItem(
     return {
       status: "none-due",
       preparing: result.preparing,
+      dailyLimitReached: result.dailyLimitReached,
       message:
-        !result.preparing && scope.kind === "collection"
+        !result.preparing &&
+        !result.dailyLimitReached &&
+        scope.kind === "collection"
           ? `No due exercise is ready in ${scope.collectionName}.`
           : result.message,
       scope,

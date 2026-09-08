@@ -1,5 +1,9 @@
 import { z } from "zod";
 import {
+  dailyNewSkillLimitSchema,
+  practiceTimezoneSchema,
+} from "@/lib/practice/daily-limit-contracts";
+import {
   collectionPracticePreferencesSchema,
   skillPracticePreferencesSchema,
   userPracticePreferencesSchema,
@@ -31,6 +35,8 @@ export const agentUpdatePracticeSettingsSchema = z
     changes: z.strictObject({
       practicePreference: practicePreferenceOverrideSchema.optional(),
       mixedReview: z.boolean().optional(),
+      dailyNewSkillLimit: dailyNewSkillLimitSchema.optional(),
+      practiceTimezone: practiceTimezoneSchema.optional(),
       textPolicy: textPolicySchema.nullable().optional(),
       alreadyStudied: z.boolean().optional(),
     }),
@@ -50,7 +56,7 @@ export const agentUpdatePracticeSettingsSchema = z
         code: "custom",
         path: ["changes"],
         message:
-          "Supply at least one setting supported by this target. User settings: practicePreference (non-null), mixedReview. Collection: practicePreference, textPolicy. Skill: practicePreference, textPolicy, alreadyStudied.",
+          "Supply at least one setting supported by this target. User settings: practicePreference (non-null), mixedReview, dailyNewSkillLimit (0-1000 or null for unlimited), practiceTimezone (IANA timezone). Collection: practicePreference, textPolicy. Skill: practicePreference, textPolicy, alreadyStudied.",
       });
     }
   });

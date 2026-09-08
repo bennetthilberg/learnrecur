@@ -726,6 +726,8 @@ The demo mode exists so the product can be clicked before external credentials a
 
 ## Configurable retention practice
 
+Account practice preferences also support a daily new-skill allowance. It counts the first exercise presented for each previously unpracticed skill across collections, resets at midnight in an explicit practice timezone, and leaves scheduled follow-up reviews available. Unlimited remains the default; zero enables review-only practice. See `docs/daily-new-skill-limit.md` for the accounting and MCP contract.
+
 Balanced is the user default. Nullable collection and skill overrides resolve skill, collection, user, then Balanced. Recall first prefers verified compatible input before rotating within an answer mode and uses choice as a temporary fallback. An explicit already-studied declaration allows suitable input from the first review without fabricating FSRS evidence; otherwise input unlocks after three reviews.
 
 Mixed review defaults off and can be changed for a session. It hides skill and collection cues until feedback, then varies compatible due skills while preserving overdue-day priority. Actual mode, mixed presentation, and comparison/rating policies are recorded with new attempts. Choice success and typed success remain distinguishable; neither proves spoken performance.

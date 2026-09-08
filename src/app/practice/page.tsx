@@ -1,5 +1,3 @@
-import { after } from "next/server";
-import { queueDueRetentionPreparation } from "@/lib/skills/retention-preparation";
 import { getUserPracticePreferences } from "@/lib/practice/preferences";
 import { auth, currentUser } from "@clerk/nextjs/server";
 
@@ -7,8 +5,7 @@ import { UserStatusPanel } from "@/components/app/user-status-panel";
 import { ensureDatabaseUser } from "@/lib/users";
 
 import { SkillsTopbar } from "../skills/skills-topbar";
-import { getNextPracticeItemForUser } from "./queries";
-import { PracticeClient } from "./practice-client";
+import { PracticeLoader } from "./practice-loader";
 
 export const dynamic = "force-dynamic";
 
@@ -40,20 +37,13 @@ export default async function PracticePage({ searchParams }: PracticePageProps) 
   }
 
   const preferences = await getUserPracticePreferences(userId);
-  const initialItem = await getNextPracticeItemForUser(userId, new Date(), {
-    collectionId,
-    mixedReview: preferences.mixedReview,
-  });
-
-  if (initialItem.status !== "unavailable") {
-    after(async () => { await queueDueRetentionPreparation({userId,collectionId,now:new Date()}); });
-  }
   return (
     <main className="practiceShell">
       <SkillsTopbar current="practice" />
 
-      <PracticeClient
-        initialItem={initialItem}
+      <PracticeLoader
+        key={collectionId ?? "all"}
+        collectionId={collectionId}
         initialMixedReview={preferences.mixedReview}
         canUseSampleData={process.env.NODE_ENV !== "production"}
       />

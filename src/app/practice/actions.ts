@@ -64,6 +64,17 @@ const flagChoicePracticeExerciseInputSchema = z.object({
   collectionId: z.string().min(1).nullable().optional(),
 });
 
+// Selecting the first exercise writes an introduction marker, so do this only
+// after Practice mounts in a visible tab, never during route rendering/prefetch.
+export async function loadPracticeItemAction(rawInput: unknown) {
+  const input = z.object({ collectionId: z.string().min(1).max(200).nullable(), mixedReview: z.boolean() }).parse(rawInput);
+  const user = await requirePracticeUserId();
+  if (user.status !== "ready") return { status: "unavailable" as const, message: user.message };
+  const item = await getNextPracticeItemForUser(user.userId, new Date(), input);
+  if (item.status !== "unavailable") after(async () => { await queueDueRetentionPreparation({ userId: user.userId, collectionId: input.collectionId, now: new Date() }); });
+  return item;
+}
+
 export async function previewChoicePracticeAnswerAction(
   input: {
     exerciseId: string;

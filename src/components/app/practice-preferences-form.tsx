@@ -1,7 +1,15 @@
 "use client";
 import { useState, useSyncExternalStore, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Checkbox, NativeSelect, Stack, Switch, Text } from "@mantine/core";
+import {
+  Checkbox,
+  NativeSelect,
+  NumberInput,
+  Select,
+  Stack,
+  Switch,
+  Text,
+} from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { CheckCircle, FloppyDisk, WarningCircle } from "@phosphor-icons/react";
 import { savePracticePreferencesAction } from "@/app/settings/practice-preference-actions";
@@ -12,7 +20,16 @@ import {
   type TextPolicy,
 } from "@/lib/practice/policies";
 
+import {
+  dailyNewSkillLimitSchema,
+  practiceTimezoneSchema,
+} from "@/lib/practice/daily-limit-contracts";
+
+const practiceTimezones = ["UTC", ...Intl.supportedValuesOf("timeZone")];
+
 type Props = {
+  dailyNewSkillLimit?: number | null;
+  practiceTimezone?: string;
   target: { scope: "user" } | { scope: "collection" | "skill"; id: string };
   preference: PracticePreference | null;
   inheritedPreference?: PracticePreference;
@@ -31,7 +48,11 @@ export function PracticePreferencesForm(props: Props) {
   const [pending, startTransition] = useTransition();
   // A native input can change before its React handler hydrates. Keep every
   // control disabled until its selected value can be retained and submitted.
-  const hasHydrated = useSyncExternalStore(subscribe, clientSnapshot, serverSnapshot);
+  const hasHydrated = useSyncExternalStore(
+    subscribe,
+    clientSnapshot,
+    serverSnapshot,
+  );
   const disabled = pending || !hasHydrated;
   const [preference, setPreference] = useState(props.preference ?? "DEFAULT");
   const [profile, setProfile] = useState(
@@ -45,6 +66,14 @@ export function PracticePreferencesForm(props: Props) {
   );
   const [studied, setStudied] = useState(props.alreadyStudied ?? false);
   const [mixed, setMixed] = useState(props.mixedReview ?? false);
+  const [unlimited, setUnlimited] = useState(props.dailyNewSkillLimit == null);
+  const [dailyLimit, setDailyLimit] = useState<number | string>(
+    props.dailyNewSkillLimit ?? 20,
+  );
+  const [timezone, setTimezone] = useState(props.practiceTimezone ?? "UTC");
+  const validDailyLimit =
+    unlimited || dailyNewSkillLimitSchema.safeParse(dailyLimit).success;
+  const validTimezone = practiceTimezoneSchema.safeParse(timezone).success;
   const effectivePreference =
     preference === "DEFAULT"
       ? (props.inheritedPreference ?? "BALANCED")
@@ -68,11 +97,21 @@ export function PracticePreferencesForm(props: Props) {
       className="practicePreferencesForm"
       onSubmit={(event) => {
         event.preventDefault();
+        if (
+          props.target.scope === "user" &&
+          (!validDailyLimit || !validTimezone)
+        )
+          return;
         startTransition(async () => {
           const result = await savePracticePreferencesAction(
             props.target,
             props.target.scope === "user"
-              ? { practicePreference: effectivePreference, mixedReview: mixed }
+              ? {
+                  practicePreference: effectivePreference,
+                  mixedReview: mixed,
+                  dailyNewSkillLimit: unlimited ? null : dailyLimit,
+                  practiceTimezone: timezone,
+                }
               : {
                   practicePreference:
                     preference === "DEFAULT" ? null : preference,
@@ -137,13 +176,53 @@ export function PracticePreferencesForm(props: Props) {
           />
         )}
         {props.target.scope === "user" ? (
-          <Switch
-            label="Mixed review by default"
-            description="Reduce rule cues and vary compatible due skills within your chosen scope. You can switch this during a session."
-            checked={mixed}
-            disabled={disabled}
-            onChange={(event) => setMixed(event.currentTarget.checked)}
-          />
+          <>
+            <Switch
+              label="Mixed review by default"
+              description="Reduce rule cues and vary compatible due skills within your chosen scope. You can switch this during a session."
+              checked={mixed}
+              disabled={disabled}
+              onChange={(event) => setMixed(event.currentTarget.checked)}
+            />
+            <Checkbox
+              label="Unlimited new skills"
+              checked={unlimited}
+              disabled={disabled}
+              onChange={(event) => setUnlimited(event.currentTarget.checked)}
+            />
+            <NumberInput
+              label="New skills per day"
+              description="Counts the first exercise shown for each new skill, across all collections. Scheduled follow-up reviews stay available. Use 0 for review-only practice."
+              value={dailyLimit}
+              min={0}
+              max={1000}
+              allowDecimal={false}
+              allowNegative={false}
+              disabled={disabled || unlimited}
+              onChange={setDailyLimit}
+              error={
+                !validDailyLimit
+                  ? "Enter a whole number from 0 to 1000."
+                  : undefined
+              }
+            />
+            <Select
+              label="Daily reset timezone"
+              description="The allowance resets at midnight in this timezone."
+              data={
+                practiceTimezones.includes(timezone)
+                  ? practiceTimezones
+                  : [timezone, ...practiceTimezones]
+              }
+              value={timezone}
+              onChange={(value) => {
+                if (value) setTimezone(value);
+              }}
+              searchable
+              allowDeselect={false}
+              disabled={disabled}
+            />
+          </>
         ) : (
           <>
             <NativeSelect
@@ -194,7 +273,15 @@ export function PracticePreferencesForm(props: Props) {
           </>
         )}
         <div>
-          <button className="primaryButton" disabled={disabled} type="submit">
+          <button
+            className="primaryButton"
+            disabled={
+              disabled ||
+              (props.target.scope === "user" &&
+                (!validDailyLimit || !validTimezone))
+            }
+            type="submit"
+          >
             <FloppyDisk size={16} aria-hidden="true" />
             {pending ? "Saving" : "Save practice preferences"}
           </button>

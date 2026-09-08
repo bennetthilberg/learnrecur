@@ -1265,8 +1265,8 @@ describeDatabase("practice review service", () => {
     });
 
     await expect(getNextChoicePracticeItemForUser(userId, now)).resolves.toMatchObject({
-      status: "unavailable",
-      message: "This exercise does not have valid answer choices.",
+      status: "none-due",
+      preparing: true,
     });
   });
 
@@ -1284,8 +1284,8 @@ describeDatabase("practice review service", () => {
     });
 
     await expect(getNextChoicePracticeItemForUser(userId, now)).resolves.toMatchObject({
-      status: "unavailable",
-      message: "This exercise does not have valid answer choices.",
+      status: "none-due",
+      preparing: true,
     });
   });
 
@@ -2409,8 +2409,8 @@ describeDatabase("practice review service", () => {
         reviewedAt: now,
       }),
     ).resolves.toMatchObject({
-      status: "not-committed",
-      answerCheck: { status: "invalid-spec" },
+      status: "not-found",
+      reason: "exercise-not-found",
     });
 
     await expect(

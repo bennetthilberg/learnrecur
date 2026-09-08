@@ -1,3 +1,5 @@
+import { getDailyNewSkillAllowance } from "@/lib/practice/daily-limit";
+import { countAvailablePracticeSkills, wasSkillIntroduced } from "@/lib/practice/daily-limit-contracts";
 import "server-only";
 
 import {
@@ -86,7 +88,7 @@ export async function getDashboardHome(input: GetDashboardHomeInput): Promise<Da
   const activitySince = startOfLocalDay(input.now);
   activitySince.setDate(activitySince.getDate() - (ACTIVITY_WINDOW_DAYS - 1));
 
-  const [collections, activeSkills, activityAttempts] = await Promise.all([
+  const [collections, activeSkills, activityAttempts, allowance] = await Promise.all([
     prisma.collection.findMany({
       where: {
         userId: input.userId,
@@ -116,6 +118,8 @@ export async function getDashboardHome(input: GetDashboardHomeInput): Promise<Da
         difficulty: true,
         fsrsState: true,
         repetitions: true,
+        firstIntroducedAt: true,
+        lastReviewedAt: true,
         alreadyStudied: true,
         lapses: true,
         collection: {
@@ -151,15 +155,15 @@ export async function getDashboardHome(input: GetDashboardHomeInput): Promise<Da
         result: true,
       },
     }),
+    getDailyNewSkillAllowance(prisma, input.userId, input.now),
   ]);
 
   const sortedActiveSkills = activeSkills.toSorted(compareDashboardSkills);
   const recentAttempts = activityAttempts.filter((attempt) => attempt.createdAt >= recentSince);
   const readySkillIds = new Set(
-    sortedActiveSkills.filter((skill) => isReadyNow(skill, input.now)).map((skill) => skill.id),
+    sortedActiveSkills.filter((skill) => isReadyNow(skill, input.now) && (allowance.remaining !== 0 || wasSkillIntroduced(skill))).map((skill) => skill.id),
   );
   const activeSkillCountByCollection = new Map<string, number>();
-  const readySkillCountByCollection = new Map<string, number>();
 
   for (const skill of sortedActiveSkills) {
     if (!skill.collectionId) {
@@ -170,13 +174,6 @@ export async function getDashboardHome(input: GetDashboardHomeInput): Promise<Da
       skill.collectionId,
       (activeSkillCountByCollection.get(skill.collectionId) ?? 0) + 1,
     );
-
-    if (readySkillIds.has(skill.id)) {
-      readySkillCountByCollection.set(
-        skill.collectionId,
-        (readySkillCountByCollection.get(skill.collectionId) ?? 0) + 1,
-      );
-    }
   }
 
   const correctReviewCount = recentAttempts.filter(
@@ -184,7 +181,7 @@ export async function getDashboardHome(input: GetDashboardHomeInput): Promise<Da
   ).length;
 
   return {
-    readyNowCount: readySkillIds.size,
+    readyNowCount: countAvailablePracticeSkills(sortedActiveSkills.filter(skill => readySkillIds.has(skill.id)), allowance.remaining),
     activeSkillCount: sortedActiveSkills.length,
     recentReviewCount: recentAttempts.length,
     recentAccuracyPercent:
@@ -198,7 +195,7 @@ export async function getDashboardHome(input: GetDashboardHomeInput): Promise<Da
       name: collection.name,
       status: collection.status,
       activeSkillCount: activeSkillCountByCollection.get(collection.id) ?? 0,
-      readyNowCount: readySkillCountByCollection.get(collection.id) ?? 0,
+      readyNowCount: countAvailablePracticeSkills(sortedActiveSkills.filter(skill => skill.collectionId === collection.id && readySkillIds.has(skill.id)), allowance.remaining),
     })),
     skills: sortedActiveSkills.map((skill) => ({
       id: skill.id,
@@ -212,7 +209,9 @@ export async function getDashboardHome(input: GetDashboardHomeInput): Promise<Da
       dueAt: skill.dueAt,
       stability: skill.stability,
       isReadyNow: readySkillIds.has(skill.id),
-      dueLabel: getDueLabel(skill, input.now),
+      dueLabel: allowance.remaining === 0 && !wasSkillIntroduced(skill) && isReadyNow(skill, input.now)
+        ? "Daily limit reached"
+        : getDueLabel(skill, input.now),
     })),
   };
 }

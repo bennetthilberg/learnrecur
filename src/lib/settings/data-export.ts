@@ -42,7 +42,7 @@ import type {
 } from "@/generated/prisma/client";
 import { getPrisma } from "@/lib/prisma";
 
-export const STUDY_DATA_EXPORT_VERSION = 4;
+export const STUDY_DATA_EXPORT_VERSION = 5;
 const PRIVATE_SOURCE_METADATA_KEYS = new Set([
   "bucketName",
   "objectKey",
@@ -147,6 +147,8 @@ export type ExportAgentOperationItem = {
 };
 
 export type ExportUser = {
+  dailyNewSkillLimit: number | null;
+  practiceTimezone: string;
   practicePreference: PracticePreference;
   mixedReview: boolean;
   id: string;
@@ -315,6 +317,7 @@ export type ExportSkillDraftBatchItem = {
 };
 
 export type ExportSkill = {
+  firstIntroducedAt: string | null;
   practicePreference: PracticePreference | null;
   textPolicy: Prisma.JsonValue | null;
   textPolicyRevision: number;
@@ -569,6 +572,8 @@ export async function getUserDataExport(input: {
     select: {
       practicePreference: true,
       mixedReview: true,
+      dailyNewSkillLimit: true,
+      practiceTimezone: true,
       id: true,
       email: true,
       name: true,
@@ -734,6 +739,7 @@ export async function getUserDataExport(input: {
           lapses: true,
           fsrsState: true,
           lastReviewedAt: true,
+          firstIntroducedAt: true,
           createdAt: true,
           updatedAt: true,
         },
@@ -1068,6 +1074,8 @@ export async function getUserDataExport(input: {
     user: {
       practicePreference: user.practicePreference,
       mixedReview: user.mixedReview,
+      dailyNewSkillLimit: user.dailyNewSkillLimit,
+      practiceTimezone: user.practiceTimezone,
       id: user.id,
       email: user.email,
       name: user.name,
@@ -1123,6 +1131,7 @@ export async function getUserDataExport(input: {
       ...skill,
       dueAt: serializeExportDate(skill.dueAt),
       lastReviewedAt: serializeExportDate(skill.lastReviewedAt),
+      firstIntroducedAt: serializeExportDate(skill.firstIntroducedAt),
       createdAt: serializeExportDate(skill.createdAt),
       updatedAt: serializeExportDate(skill.updatedAt),
     })),

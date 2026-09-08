@@ -213,6 +213,21 @@ export function isUsableMathAnswerSpec(input: unknown): boolean {
   );
 }
 
+export function isUsableChoicePresentation(
+  answerSpec: unknown,
+  choicesInput: unknown,
+): boolean {
+  const spec = choiceAnswerSpecSchema.safeParse(answerSpec);
+  const choices = choicesSchema.safeParse(choicesInput);
+  return (
+    spec.success &&
+    choices.success &&
+    choices.data.every((choice) => choice.label.trim().length > 0) &&
+    checkChoiceAnswer(spec.data, choices.data, spec.data.correctChoiceId)
+      .status === "correct"
+  );
+}
+
 function checkChoiceAnswer(
   answerSpec: ChoiceAnswerSpec,
   choicesInput: unknown,

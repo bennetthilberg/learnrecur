@@ -1,3 +1,5 @@
+import { getDailyNewSkillAllowance } from "@/lib/practice/daily-limit";
+import { countAvailablePracticeSkills } from "@/lib/practice/daily-limit-contracts";
 import "server-only";
 
 import { createClerkServiceClient } from "@/lib/clerk/backend";
@@ -345,6 +347,8 @@ export async function getDuePracticeSkillCount(input: {
     select: {
       id: true,
       repetitions: true,
+      firstIntroducedAt: true,
+      lastReviewedAt: true,
       alreadyStudied: true,
       exercises: {
         select: {
@@ -358,7 +362,8 @@ export async function getDuePracticeSkillCount(input: {
     },
   });
 
-  return skills.filter(isDuePracticeSkillReady).length;
+  const allowance = await getDailyNewSkillAllowance(prisma, input.userId, input.now);
+  return countAvailablePracticeSkills(skills.filter(isDuePracticeSkillReady), allowance.remaining);
 }
 
 export async function processDueReminderBatch(input: {

@@ -61,6 +61,7 @@ export type PracticeItem =
   | {
       status: "none-due";
       preparing?: boolean;
+      dailyLimitReached?: boolean;
       message: string;
       scope: PracticeScope;
     }

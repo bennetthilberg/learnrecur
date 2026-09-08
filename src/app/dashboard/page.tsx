@@ -1,5 +1,9 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
-import { CirclesThreePlus, Gauge, Translate } from "@phosphor-icons/react/dist/ssr";
+import {
+  CirclesThreePlus,
+  Gauge,
+  Translate,
+} from "@phosphor-icons/react/dist/ssr";
 import Link from "next/link";
 
 import {
@@ -12,7 +16,7 @@ import { formatFsrsState } from "@/lib/formatters";
 import { ensureDatabaseUser } from "@/lib/users";
 
 import { MathText } from "../practice/math-text";
-import { getNextPracticeItemForUser } from "../practice/queries";
+import { previewNextPracticeItemForUser } from "../practice/queries";
 import type { PracticeItem } from "../practice/types";
 import { SkillsTopbar } from "../skills/skills-topbar";
 
@@ -42,7 +46,7 @@ export default async function DashboardPage() {
     userId,
     now,
   });
-  const nextPracticeItem = await getNextPracticeItemForUser(userId, now);
+  const nextPracticeItem = await previewNextPracticeItemForUser(userId, now);
   const hasDuePractice = dashboard.readyNowCount > 0;
 
   return (
@@ -73,16 +77,25 @@ export default async function DashboardPage() {
             </div>
           ) : (
             <p className="dashboardHeroComplete">
-              You&apos;ve completed all your exercises for today. Check back tomorrow for the
-              next wave of practice.
+              {nextPracticeItem.status === "none-due" &&
+              (nextPracticeItem.dailyLimitReached || nextPracticeItem.preparing)
+                ? nextPracticeItem.message
+                : "You've completed all your exercises for today. Check back tomorrow for the next wave of practice."}
             </p>
           )}
         </div>
       </section>
 
       <section className="openWaterStatGrid" aria-label="Practice summary">
-        <StatTile label="Due" value={formatCount(dashboard.readyNowCount)} tone="blue" />
-        <StatTile label="Active" value={formatCount(dashboard.activeSkillCount)} />
+        <StatTile
+          label="Due"
+          value={formatCount(dashboard.readyNowCount)}
+          tone="blue"
+        />
+        <StatTile
+          label="Active"
+          value={formatCount(dashboard.activeSkillCount)}
+        />
         <StatTile
           label="Retention"
           value={formatAccuracy(dashboard.recentAccuracyPercent)}
@@ -104,7 +117,10 @@ function DashboardHeroShoreWave() {
       aria-hidden="true"
       className="dashboardHeroShoreWave"
     >
-      <path d="M0 43 Q 72 31 145 43 T 290 43 T 435 43 T 580 43 V60 H0 Z" fill="#E3CE98" />
+      <path
+        d="M0 43 Q 72 31 145 43 T 290 43 T 435 43 T 580 43 V60 H0 Z"
+        fill="#E3CE98"
+      />
       <path
         d="M0 43 Q 72 31 145 43 T 290 43 T 435 43 T 580 43"
         fill="none"
@@ -145,28 +161,41 @@ function DashboardReviewCard({
   item: PracticeItem;
 }) {
   const ready = item.status === "ready";
-  const caughtUp = item.status === "none-due";
+  const deferred =
+    item.status === "none-due" && (item.dailyLimitReached || item.preparing);
+  const caughtUp = item.status === "none-due" && !deferred;
   const prompt = ready
     ? item.exercise.prompt
-    : caughtUp
-      ? "You're all caught up for now."
-      : "Practice is unavailable right now.";
+    : deferred
+      ? item.message
+      : caughtUp
+        ? "You're all caught up for now."
+        : "Practice is unavailable right now.";
   const skillTitle = ready
     ? item.skill.title
-    : caughtUp
-      ? "Due queue clear"
-      : "Practice unavailable";
+    : deferred
+      ? item.preparing
+        ? "Preparation pending"
+        : "Daily limit reached"
+      : caughtUp
+        ? "Due queue clear"
+        : "Practice unavailable";
   const label = ready
     ? formatFsrsState(item.skill.fsrsState)
-    : caughtUp
-      ? "No due practice right now"
-      : "Practice needs attention";
+    : deferred
+      ? "Practice deferred"
+      : caughtUp
+        ? "No due practice right now"
+        : "Practice needs attention";
   const activeSummary = `${formatCount(dashboard.activeSkillCount)} active skill${
     dashboard.activeSkillCount === 1 ? "" : "s"
   }`;
 
   return (
-    <section className="openWaterSection openWaterReviewSection" aria-labelledby="up-next-title">
+    <section
+      className="openWaterSection openWaterReviewSection"
+      aria-labelledby="up-next-title"
+    >
       <h2 id="up-next-title" className="disp openWaterSectionTitle">
         Up next
       </h2>
@@ -196,8 +225,17 @@ function DashboardReviewCard({
               </Link>
             </>
           ) : (
-            <Link className="bpbtn bpbtn-blue" href="/skills">
-              Review skills
+            <Link
+              className="bpbtn bpbtn-blue"
+              href={
+                item.status === "none-due" && item.dailyLimitReached
+                  ? "/settings"
+                  : "/skills"
+              }
+            >
+              {item.status === "none-due" && item.dailyLimitReached
+                ? "Change daily limit"
+                : "Review skills"}
             </Link>
           )}
         </div>
@@ -210,7 +248,10 @@ function DashboardCollections({ dashboard }: { dashboard: DashboardHome }) {
   const rows = getCollectionRows(dashboard);
 
   return (
-    <section className="openWaterSection openWaterCollections" aria-labelledby="collections-title">
+    <section
+      className="openWaterSection openWaterCollections"
+      aria-labelledby="collections-title"
+    >
       <div className="openWaterSectionHeader">
         <h2 id="collections-title" className="disp openWaterSectionTitle">
           Collections
@@ -229,10 +270,13 @@ function DashboardCollections({ dashboard }: { dashboard: DashboardHome }) {
       ) : (
         <div className="openWaterDeckList">
           {rows.map((row, index) => {
-            const Icon = row.kind === "collection" ? getCollectionIcon(index) : null;
+            const Icon =
+              row.kind === "collection" ? getCollectionIcon(index) : null;
             const hasActiveSkills = row.activeCount > 0;
             const progress = hasActiveSkills
-              ? Math.round(((row.activeCount - row.readyCount) / row.activeCount) * 100)
+              ? Math.round(
+                  ((row.activeCount - row.readyCount) / row.activeCount) * 100,
+                )
               : 0;
 
             return (
@@ -265,7 +309,9 @@ function DashboardCollections({ dashboard }: { dashboard: DashboardHome }) {
                       className="openWaterStatusBadge tnum"
                       data-tone={row.readyCount > 0 ? "due" : "stable"}
                     >
-                      {row.readyCount > 0 ? `${formatCount(row.readyCount)} due` : "Stable"}
+                      {row.readyCount > 0
+                        ? `${formatCount(row.readyCount)} due`
+                        : "Stable"}
                     </span>
                   </>
                 ) : null}
