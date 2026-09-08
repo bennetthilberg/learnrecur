@@ -67,6 +67,37 @@ type SetupProgress = {
   retryable?: boolean;
 };
 
+const PUBLIC_SETUP_UNEXPECTED_ERROR = "The setup action could not be completed.";
+const PUBLIC_AGENT_OPERATION_ERROR_CODES: ReadonlySet<string> = new Set([
+  "idempotency_conflict",
+  "permission_denied",
+  "settings_not_found",
+  "invalid_stored_settings",
+  "collection_too_large",
+  "rate_limited",
+  "too_many_pending_items",
+  "material_not_found",
+  "stale_material_revision",
+  "operation_not_found",
+  "operation_not_ready",
+  "operation_not_retryable",
+  "upload_preparation_failed",
+  "invalid_input",
+  "skill_not_found",
+  "skill_not_active",
+  "collection_not_found",
+  "stale_state",
+  "meaning_change_requires_reset",
+  "setup_not_found",
+  "setup_stale",
+  "setup_in_progress",
+  "setup_failed",
+]);
+const PUBLIC_SETUP_ERROR_CODES: ReadonlySet<string> = new Set([
+  ...PUBLIC_AGENT_OPERATION_ERROR_CODES,
+  "partial_failure",
+]);
+
 class SetupLeaseLostError extends Error {
   constructor() {
     super("The setup plan lease was replaced by another apply attempt.");
@@ -130,7 +161,63 @@ function publicSetupProgress(value: Prisma.JsonValue | null) {
   const publicValue = { ...progress };
   delete publicValue.lease_token;
   delete publicValue.lease_expires_at;
+  publicValue.actions = progress.actions.map(publicSetupAction);
   return publicValue;
+}
+
+function publicSetupAction(action: SetupActionRecord) {
+  const publicAction = { ...action };
+  if ("error" in publicAction) {
+    publicAction.error = publicStoredSetupError(
+      publicAction.error,
+      PUBLIC_AGENT_OPERATION_ERROR_CODES,
+    );
+  }
+  if (
+    typeof publicAction.error_message === "string" &&
+    (typeof publicAction.error_code !== "string" ||
+      !PUBLIC_AGENT_OPERATION_ERROR_CODES.has(publicAction.error_code))
+  ) {
+    publicAction.error_message = PUBLIC_SETUP_UNEXPECTED_ERROR;
+  }
+  return publicAction;
+}
+
+function publicStoredSetupError(
+  value: unknown,
+  allowedCodes: ReadonlySet<string> = PUBLIC_AGENT_OPERATION_ERROR_CODES,
+) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return { code: "internal_error", message: PUBLIC_SETUP_UNEXPECTED_ERROR };
+  }
+  const record = value as Record<string, unknown>;
+  const code = typeof record.code === "string" ? record.code : null;
+  if (!code || !allowedCodes.has(code)) {
+    return { code: "internal_error", message: PUBLIC_SETUP_UNEXPECTED_ERROR };
+  }
+  return {
+    code,
+    message:
+      typeof record.message === "string"
+        ? record.message
+        : PUBLIC_SETUP_UNEXPECTED_ERROR,
+  };
+}
+
+function publicSetupErrors(value: Prisma.JsonValue | null) {
+  if (value === null) return null;
+  const sanitized = publicStoredSetupError(value, PUBLIC_SETUP_ERROR_CODES);
+  if (!value || typeof value !== "object" || Array.isArray(value)) return sanitized;
+  const record = value as Record<string, unknown>;
+  return {
+    ...sanitized,
+    ...(typeof record.expected_snapshot_hash === "string"
+      ? { expected_snapshot_hash: record.expected_snapshot_hash }
+      : {}),
+    ...(typeof record.current_snapshot_hash === "string"
+      ? { current_snapshot_hash: record.current_snapshot_hash }
+      : {}),
+  };
 }
 
 function leaseIsExpired(progress: SetupProgress, now = Date.now()) {
@@ -327,7 +414,7 @@ function publicPlan(plan: PlanRecord, input?: SetupInput): SetupResult {
     summary,
     planned_changes: storedInput ? projectSetupPlannedChanges(storedInput) : null,
     result: publicSetupProgress(plan.result),
-    errors: plan.errors,
+    errors: publicSetupErrors(plan.errors),
     created_at: plan.createdAt.toISOString(),
     updated_at: plan.updatedAt.toISOString(),
     plan_uri: `learnrecur://setup-plans/${plan.id}`,
@@ -1641,10 +1728,9 @@ async function applySetupActions(
   };
 }
 
-function publicSetupError(error: unknown) {
+export function publicSetupError(error: unknown) {
   if (error instanceof AgentOperationError) return { code: error.code, message: error.message };
-  if (error instanceof Error) return { code: "internal_error", message: error.message };
-  return { code: "internal_error", message: "The setup action could not be completed." };
+  return { code: "internal_error", message: PUBLIC_SETUP_UNEXPECTED_ERROR };
 }
 
 async function finishSetupPlan(

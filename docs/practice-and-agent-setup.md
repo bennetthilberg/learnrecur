@@ -102,21 +102,32 @@ use one worker and one database lease.
 | `npm run prisma:deploy` | Passed against the disposable database; all 34 migrations applied. |
 | Schema readiness and export integration | 2 files, 6 tests passed. |
 | Advanced settings persistence integration | 1 file, 2 tests passed. |
-| Focused agent library and MCP wrapper integration | 1 file, 6 tests passed. |
-| Focused custom-session integration | 1 file, 6 tests passed initially; final mixed-review cue case passed after the legacy introduced-skill admission fix. |
+| Focused agent library and MCP wrapper integration | `agent-library-management.test.ts`: 9/9 passed; the post-freeze malformed-numeric readiness case was rerun 1/1 after the final numeric guard edit. |
+| Focused custom-session integration | `custom-practice-session.test.ts`: 12/12 passed, including mixed-review cue metadata and undersized-plan replenishment. |
 | Focused material integration | Native ingestion 1 file, 24 tests passed; agent late-ack case 1 selected test passed. |
-| Focused progress and Needs Attention integration | 2 files, 5 tests passed (2 progress and 3 Needs Attention). |
+| Focused progress and Needs Attention integration | `agent-progress.test.ts`: 6/6 passed, including authorization races, guidance merging, skill ownership, and lost post-commit event acknowledgement; Needs Attention: 3/3 passed. |
+| Focused practice refill integration | 4/4 selected refill and event-failure cases passed. |
+| Setup and material affected integration | 25/25 passed in the serialized affected batch. |
 | Setup concurrency integration | 1 selected test passed after recognizing the Prisma 7 Neon nested `driverAdapterError.cause.kind` shape. |
-| Full unit suite | 106 files, 1,043 tests passed. |
-| Combined coverage proof | `npm run test:coverage` runs unit and integration tests with `RUN_DATABASE_TESTS=1`; local unit plus directly affected database files passed 110 files and 1,087 tests against the disposable database with statements 52.52%, branches 46.01%, functions 61.75%, and lines 52.35%. Thresholds are unchanged; the command requires an isolated configured database. |
+| Full unit suite | 107 files, 1,047 tests passed. |
+| Combined coverage proof | `npm run test:coverage` runs unit and integration tests with `RUN_DATABASE_TESTS=1`; the local proof passed 110 files and 1,087 tests against the disposable database with statements 52.52%, branches 46.01%, functions 61.75%, and lines 52.35%. Thresholds and source coverage scope are unchanged; the command requires an isolated configured database. The exact final-head run is enforced by CI. |
 | Full lint | Passed. |
 | Application build | Passed; Next.js typecheck and static generation completed. |
 | Worker bundle | `npm run jobs:build` passed and wrote the ignored `.aws-build/jobs.zip`. |
 | Runtime audit | `npm run check:runtime-audit` passed: 0 runtime findings and 0 blockers; four accepted dev-only Prisma CLI exceptions. |
 | Focused MCP protocol unit tests | 2 files, 23 tests passed. `setup_in_progress` is publicly retryable; `setup_stale` is not. |
-| Final custom browser flow | 3 tests passed with Clerk setup/cleanup at 1280px and 390px. Mobile frame measured 14px left, 361px right, with no horizontal document overflow. |
+| Authenticated browser flows | 7 product tests passed across desktop and mobile settings, daily-limit gating, advanced retention/day-start persistence, custom setup/completion, mixed-review cues, and Needs Attention states. The externally seeded fractional-retention case passed in a focused 1/1 rerun after a test locator correction. Clerk setup and cleanup passed for both runs. Custom mobile frame measured 14px left, 361px right, with no horizontal document overflow. |
 | Full serialized integration suite | Broad baseline: 35 files, 446 tests with 442 passed and 4 agent-practice failures. The final affected rerun passed 3 files and 32 tests after updating tool/settings contracts, bounded Neon conflict retries, and setup snapshot fencing; it covers all four original failure paths plus the new setup regression. The broad suite was not repeated, so this is not a fresh 446-test all-green claim. |
 | Anonymous E2E suite | 13 tests passed with 2 workers. |
+
+The canonical `npm run test:coverage` command is also the enforced database-job
+coverage gate. CI prepares an isolated database, applies migrations, and runs
+the unit and integration suites together so the threshold measures the real
+database paths. Same-repository pull requests and main receive this full gate;
+fork pull requests retain fast checks because trusted database credentials are
+not available there. No threshold or coverage exclusion changed. The
+final-head CI result is tracked on PR #132; this record reports the local proof
+above and does not claim CI or deployment status before those gates complete.
 
 The standalone `npx tsc --noEmit` command reports an existing test typing
 backlog. A disposable archive comparison against `b49f132` found the same 83

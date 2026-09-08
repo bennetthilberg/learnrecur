@@ -53,7 +53,7 @@ function publicSession(session: {
     created_at: session.createdAt.toISOString(),
     updated_at: session.updatedAt.toISOString(),
     practice_uri: `learnrecur://practice-sessions/${session.id}`,
-    practice_url: `/practice?session=${encodeURIComponent(session.id)}`,
+    practice_url: `/practice?sessionId=${encodeURIComponent(session.id)}`,
   };
 }
 

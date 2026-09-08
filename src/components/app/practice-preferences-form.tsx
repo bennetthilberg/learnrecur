@@ -81,10 +81,11 @@ export function PracticePreferencesForm(props: Props) {
   const [useDefaultRetention, setUseDefaultRetention] = useState(
     props.desiredRetention == null,
   );
+  const [retentionEdited, setRetentionEdited] = useState(false);
   const [retentionPercent, setRetentionPercent] = useState<number | string>(
     props.desiredRetention == null
       ? 90
-      : Math.round(props.desiredRetention * 100),
+      : props.desiredRetention * 100,
   );
   const [dayStart, setDayStart] = useState(
     formatPracticeDayStart(props.practiceDayStartMinutes ?? 0),
@@ -94,6 +95,10 @@ export function PracticePreferencesForm(props: Props) {
   const validTimezone = practiceTimezoneSchema.safeParse(timezone).success;
   const retentionValue =
     typeof retentionPercent === "number" ? retentionPercent / 100 : null;
+  const savedRetention =
+    !retentionEdited && props.desiredRetention != null
+      ? props.desiredRetention
+      : retentionValue;
   const validRetention =
     useDefaultRetention || desiredRetentionSchema.safeParse(retentionValue).success;
   const validDayStart = practiceDayStartTimeSchema.safeParse(dayStart).success;
@@ -134,7 +139,7 @@ export function PracticePreferencesForm(props: Props) {
                   mixedReview: mixed,
                   dailyNewSkillLimit: unlimited ? null : dailyLimit,
                   practiceTimezone: timezone,
-                  desiredRetention: useDefaultRetention ? null : retentionValue,
+                  desiredRetention: useDefaultRetention ? null : savedRetention,
                   practiceDayStartMinutes: parsePracticeDayStart(dayStart),
                 }
               : {
@@ -247,19 +252,22 @@ export function PracticePreferencesForm(props: Props) {
                 />
                 <NumberInput
                   label="Desired retention"
-                  description="Higher retention schedules reviews closer together."
+                  description="Higher retention schedules reviews closer together. Decimals are allowed."
                   value={retentionPercent}
                   min={70}
                   max={99}
-                  step={1}
+                  step={0.1}
                   suffix="%"
-                  allowDecimal={false}
+                  allowDecimal
                   allowNegative={false}
                   disabled={disabled || useDefaultRetention}
-                  onChange={setRetentionPercent}
+                  onChange={(value) => {
+                    setRetentionEdited(true);
+                    setRetentionPercent(value);
+                  }}
                   error={
                     !validRetention
-                      ? "Enter a whole percentage from 70 to 99."
+                      ? "Enter a percentage from 70 to 99."
                       : undefined
                   }
                 />

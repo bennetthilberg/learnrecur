@@ -24,7 +24,14 @@ import { getDailyNewSkillAllowance } from "@/lib/practice/daily-limit";
 import { flagPracticeExerciseAndQueueRefill } from "@/lib/practice";
 import { getPrisma } from "@/lib/prisma";
 import { updateSkillPracticeGuidance } from "@/lib/skills";
-import { queueRetentionPreparation } from "@/lib/skills/retention-preparation";
+import {
+  queueRetentionPreparation,
+} from "@/lib/skills/retention-preparation";
+import {
+  publishDeferredExerciseRefillEvent,
+  type DeferredExerciseRefillEvent,
+  type RefillQueueResultWithDeferredEvent,
+} from "@/lib/skills/refill-jobs";
 import {
   isPracticeReadModelExerciseReady,
   resolveReadModelTextPolicy,
@@ -54,6 +61,22 @@ function isReady(skill: {
   return skill.exercises.filter((exercise) =>
     isPracticeReadModelExerciseReady(exercise, { ...skill, textPolicy }),
   );
+}
+
+function guidanceLines(value: Prisma.JsonValue | null): string {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return "";
+  if (!("items" in value) || !Array.isArray(value.items)) return "";
+  return value.items.filter((item): item is string => typeof item === "string").join("\n");
+}
+
+function guidanceConstraints(value: Prisma.JsonValue | null): string {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return "";
+  if (!("notes" in value) || typeof value.notes !== "string") return "";
+  return value.notes;
+}
+
+function publicGenerationErrorMessage(errorMessage: string | null): string | null {
+  return errorMessage ? "Exercise preparation failed. Retry the repair." : null;
 }
 
 export async function getAgentProgressSummary(
@@ -457,7 +480,7 @@ export async function getAgentReadiness(
               status: job.status,
               stage: job.stage,
               failure_category: job.failureCategory,
-              error_message: job.errorMessage,
+              error_message: publicGenerationErrorMessage(job.errorMessage),
               retry_count: job.retryCount,
               completed_at: job.completedAt?.toISOString() ?? null,
             }
@@ -479,75 +502,181 @@ export async function repairAgentReadiness(
   rawInput: unknown,
 ) {
   const input = agentReadinessRepairSchema.parse(rawInput);
-  // Claim the write permission and ownership before invoking the existing
-  // generation/flag/guidance services. Those services have their own CAS and
-  // idempotent job guards; this preflight prevents a foreign skill from being
-  // handed to them.
-  const skill = await withAgentMutation(auth, "skills:write", async (tx) => {
-    const row = await tx.skill.findFirst({
-      where: { id: input.skill_id, userId: auth.userId },
-      select: { id: true, status: true },
-    });
-    if (!row)
-      throw new AgentOperationError(
-        "skill_not_found",
-        "The skill was not found.",
-      );
-    return row;
-  });
-  const now = new Date();
-  if (input.action === "update_guidance") {
-    const result = await updateSkillPracticeGuidance({
-      userId: auth.userId,
-      skillId: skill.id,
-      input: {
-        rules: (input.rules ?? []).join("\n"),
-        examples: (input.examples ?? []).join("\n"),
-        exerciseConstraints: input.exercise_constraints ?? "",
-      },
-    });
-    if (result.status !== "updated")
-      throw new AgentOperationError("skill_not_found", result.message);
-    return { status: "updated", action: input.action, skill_id: skill.id };
-  }
-  if (input.action === "flag_exercise") {
-    const result = await flagPracticeExerciseAndQueueRefill({
-      userId: auth.userId,
-      exerciseId: input.exercise_id!,
-      reasons: input.reasons!,
-      otherNote: input.other_note,
-      flaggedAt: now,
-      model: undefined,
-    });
-    if (result.status !== "flagged")
+  const providedFields =
+    rawInput && typeof rawInput === "object"
+      ? (rawInput as Record<string, unknown>)
+      : {};
+  const hasProvidedField = (field: string) =>
+    Object.prototype.hasOwnProperty.call(providedFields, field);
+  const transactionResult = await withAgentMutation(
+    auth,
+    "skills:write",
+    async (tx) => {
+      await tx.$queryRaw`
+        SELECT "id"
+        FROM "skills"
+        WHERE "id" = ${input.skill_id} AND "userId" = ${auth.userId}
+        FOR UPDATE
+      `;
+      const skill = await tx.skill.findFirst({
+        where: { id: input.skill_id, userId: auth.userId },
+        select: {
+          id: true,
+          status: true,
+          rules: true,
+          examples: true,
+          exerciseConstraints: true,
+        },
+      });
+      if (!skill) {
+        throw new AgentOperationError(
+          "skill_not_found",
+          "The skill was not found.",
+        );
+      }
+
+      const now = new Date();
+      if (input.action === "update_guidance") {
+        const result = await updateSkillPracticeGuidance({
+          userId: auth.userId,
+          skillId: skill.id,
+          input: {
+            rules: hasProvidedField("rules")
+              ? input.rules!.join("\n")
+              : guidanceLines(skill.rules),
+            examples: hasProvidedField("examples")
+              ? input.examples!.join("\n")
+              : guidanceLines(skill.examples),
+            exerciseConstraints:
+              hasProvidedField("exercise_constraints")
+                ? input.exercise_constraints
+                : guidanceConstraints(skill.exerciseConstraints),
+          },
+          transaction: tx,
+        });
+        if (result.status !== "updated") {
+          throw new AgentOperationError("skill_not_found", result.message);
+        }
+        return {
+          kind: "guidance" as const,
+          value: { status: "updated", action: input.action, skill_id: skill.id },
+          deferredEvents: [] as DeferredExerciseRefillEvent[],
+        };
+      }
+
+      if (input.action === "flag_exercise") {
+        const result = await flagPracticeExerciseAndQueueRefill({
+          userId: auth.userId,
+          exerciseId: input.exercise_id!,
+          expectedSkillId: skill.id,
+          reasons: input.reasons!,
+          otherNote: input.other_note,
+          flaggedAt: now,
+          model: undefined,
+          transaction: tx,
+        });
+        if (result.status !== "flagged") {
+          return {
+            kind: "flag" as const,
+            value: {
+              status: result.status,
+              action: input.action,
+              message: result.message,
+            },
+            deferredEvents: [] as DeferredExerciseRefillEvent[],
+          };
+        }
+        return {
+          kind: "flag" as const,
+          value: {
+            status: "updated" as const,
+            action: input.action,
+            skill_id: result.skillId,
+            exercise_id: result.exerciseId,
+            refill: result.refill,
+          },
+          deferredEvents: result.deferredEvents ?? [],
+        };
+      }
+
+      if (skill.status !== SkillStatus.ACTIVE) {
+        throw new AgentOperationError(
+          "skill_not_active",
+          "Only active skills can be prepared or retried.",
+        );
+      }
+
+      const queued = await queueRetentionPreparation({
+        userId: auth.userId,
+        skillId: skill.id,
+        now,
+        transaction: tx,
+      });
       return {
-        status: result.status,
-        action: input.action,
-        message: result.message,
+        kind: "preparation" as const,
+        value: {
+          status: "queued" as const,
+          action: input.action,
+          skill_id: skill.id,
+          preparation: queued ?? [],
+        },
+        deferredEvents: (queued ?? [])
+          .flatMap((result) => result.deferredEvent ? [result.deferredEvent] : []),
       };
-    return {
-      status: "updated",
-      action: input.action,
-      skill_id: result.skillId,
-      exercise_id: result.exerciseId,
-      refill: result.refill,
-    };
-  }
-  if (skill.status !== SkillStatus.ACTIVE) {
-    throw new AgentOperationError(
-      "skill_not_active",
-      "Only active skills can be prepared or retried.",
+    },
+    undefined,
+    { retryUniqueConstraint: true },
+  );
+
+  const deferredResults = new Map<string, RefillQueueResultWithDeferredEvent>();
+  if (transactionResult.kind === "preparation") {
+    for (const result of transactionResult.value.preparation) {
+      if (result.status === "queued" && result.deferredEvent) {
+        deferredResults.set(result.generationJobId, result);
+      }
+    }
+  } else if (
+    transactionResult.kind === "flag" &&
+    transactionResult.value.status === "updated" &&
+    transactionResult.value.refill.status === "queued" &&
+    transactionResult.value.refill.deferredEvent
+  ) {
+    deferredResults.set(
+      transactionResult.value.refill.generationJobId,
+      transactionResult.value.refill,
     );
   }
-  const queued = await queueRetentionPreparation({
-    userId: auth.userId,
-    skillId: skill.id,
-    now,
-  });
-  return {
-    status: "queued",
-    action: input.action,
-    skill_id: skill.id,
-    preparation: queued ?? [],
-  };
+
+  const published = new Map<string, Awaited<ReturnType<typeof publishDeferredExerciseRefillEvent>>>();
+  for (const event of transactionResult.deferredEvents) {
+    const deferredResult = deferredResults.get(event.payload.generationJobId);
+    if (!deferredResult) continue;
+    const result = await publishDeferredExerciseRefillEvent({
+      result: deferredResult,
+      now: new Date(),
+    });
+    published.set(event.payload.generationJobId, result);
+  }
+
+  if (transactionResult.kind === "preparation") {
+    return {
+      ...transactionResult.value,
+      preparation: transactionResult.value.preparation.map((result) => {
+        if (result.status !== "queued" || !result.deferredEvent) return result;
+        return published.get(result.generationJobId) ?? result;
+      }),
+    };
+  }
+
+  if (transactionResult.kind === "flag" && transactionResult.value.status === "updated") {
+    const refill = transactionResult.value.refill;
+    return {
+      ...transactionResult.value,
+      refill: refill.status === "queued" && refill.deferredEvent
+        ? published.get(refill.generationJobId) ?? refill
+        : refill,
+    };
+  }
+
+  return transactionResult.value;
 }

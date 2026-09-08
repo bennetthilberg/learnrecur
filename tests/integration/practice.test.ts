@@ -13,6 +13,7 @@ import {
   ExerciseVerificationStatus,
   FsrsRating,
   GenerationJobKind,
+  GenerationJobStage,
   GenerationJobStatus,
   type Prisma,
   SkillFsrsState,
@@ -1834,9 +1835,98 @@ describeDatabase("practice review service", () => {
       {
         kind: GenerationJobKind.CHOICE_EXERCISE_GENERATION,
         status: GenerationJobStatus.FAILED,
-        errorMessage: expect.stringContaining("dev server offline"),
+        errorMessage: "Exercise preparation could not be delivered. Retry the repair.",
       },
     ]);
+  });
+
+  it("preserves an advanced refill job and tolerates a deleted job after a lost event acknowledgement", async () => {
+    const advanced = await createDueChoiceFixture("flag_refill_lost_ack_running");
+    const advancedSender: ExerciseRefillEventSender = {
+      async sendChoiceRefillRequested(payload) {
+        await prisma.generationJob.update({
+          where: { id: payload.generationJobId },
+          data: {
+            status: GenerationJobStatus.RUNNING,
+            stage: GenerationJobStage.GENERATING,
+          },
+        });
+        throw new Error("ack lost after worker started");
+      },
+      async sendExactInputRefillRequested() {
+        throw new Error("unexpected exact-input event");
+      },
+      async sendMathRefillRequested() {
+        throw new Error("unexpected math event");
+      },
+    };
+
+    const advancedResult = await flagPracticeExerciseAndQueueRefill({
+      userId: advanced.userId,
+      exerciseId: advanced.exercise.id,
+      reasons: [ExerciseFlagReason.OFF_TOPIC],
+      flaggedAt: now,
+      refillSender: advancedSender,
+      model: "test-gemini",
+    });
+
+    expect(advancedResult).toMatchObject({
+      status: "flagged",
+      refill: {
+        status: "queued",
+        message: "Exercise preparation is already running.",
+      },
+    });
+    if (advancedResult.status !== "flagged" || advancedResult.refill.status !== "queued") {
+      throw new Error("Expected an advanced refill job to remain authoritative.");
+    }
+    await expect(
+      prisma.generationJob.findUniqueOrThrow({
+        where: { id: advancedResult.refill.generationJobId },
+        select: { status: true, stage: true },
+      }),
+    ).resolves.toEqual({
+      status: GenerationJobStatus.RUNNING,
+      stage: GenerationJobStage.GENERATING,
+    });
+
+    const deleted = await createDueChoiceFixture("flag_refill_lost_ack_deleted");
+    const deletedSender: ExerciseRefillEventSender = {
+      async sendChoiceRefillRequested(payload) {
+        await prisma.generationJob.delete({ where: { id: payload.generationJobId } });
+        throw new Error("ack lost after job deletion");
+      },
+      async sendExactInputRefillRequested() {
+        throw new Error("unexpected exact-input event");
+      },
+      async sendMathRefillRequested() {
+        throw new Error("unexpected math event");
+      },
+    };
+
+    const deletedResult = await flagPracticeExerciseAndQueueRefill({
+      userId: deleted.userId,
+      exerciseId: deleted.exercise.id,
+      reasons: [ExerciseFlagReason.OFF_TOPIC],
+      flaggedAt: now,
+      refillSender: deletedSender,
+      model: "test-gemini",
+    });
+
+    expect(deletedResult).toMatchObject({
+      status: "flagged",
+      refill: {
+        status: "not-queued",
+        reason: "event-send-failed",
+        message: "Exercise preparation could not be delivered. Retry the repair.",
+      },
+    });
+    if (deletedResult.status !== "flagged" || deletedResult.refill.status !== "not-queued") {
+      throw new Error("Expected a deleted refill job to return a bounded queue failure.");
+    }
+    await expect(
+      prisma.generationJob.count({ where: { userId: deleted.userId } }),
+    ).resolves.toBe(0);
   });
 
   it("rejects cross-user flag refill attempts without writing flags or jobs", async () => {

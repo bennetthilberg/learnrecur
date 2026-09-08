@@ -53,6 +53,7 @@ export async function withAgentMutation<T>(
   requiredScopes: AgentAccessScope | readonly AgentAccessScope[],
   work: (tx: Prisma.TransactionClient) => Promise<T>,
   transaction?: Prisma.TransactionClient,
+  options?: { retryUniqueConstraint?: boolean },
 ): Promise<T> {
   const scopes = Array.isArray(requiredScopes) ? [...requiredScopes] : [requiredScopes];
   if (scopes.some((scope) => !auth.scopes.includes(scope))) {
@@ -110,5 +111,8 @@ export async function withAgentMutation<T>(
   return runAgentSerializable(async (tx) => {
     await verify(tx, true);
     return work(tx);
-  }, { timeout: 15_000 });
+  }, {
+    timeout: 15_000,
+    retryUniqueConstraint: options?.retryUniqueConstraint,
+  });
 }

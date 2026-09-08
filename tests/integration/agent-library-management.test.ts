@@ -3,8 +3,11 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import {
+  AnswerKind,
   AgentConnectionStatus,
   CollectionStatus,
+  ExerciseType,
+  ExerciseVerificationStatus,
   FsrsRating,
   GenerationFailureCategory,
   GenerationJobKind,
@@ -248,6 +251,160 @@ describeDatabase("agent library and reminder management", () => {
     });
   });
 
+  it("keeps search readiness independent of samples and excludes incompatible text inventory", async () => {
+    const auth = await createConnection("library-search-readiness", ["skills:read"]);
+    const collection = await prisma.collection.create({
+      data: {
+        userId: auth.userId,
+        name: "Natural search policy",
+        textPolicy: NATURAL_TEXT_POLICY,
+      },
+    });
+    const skill = await createSkillFixture(prisma, {
+      userId: auth.userId,
+      title: "Search readiness fixture",
+      collectionId: collection.id,
+      repetitions: 3,
+    });
+    await Promise.all(
+      Array.from({ length: 4 }, () =>
+        createChoiceExercise({ prisma, userId: auth.userId, skillId: skill.id }),
+      ),
+    );
+    await createTextExercise(prisma, auth.userId, skill.id, {
+      answerSpec: textAnswerContract(["right"], EXACT_TEXT_POLICY),
+    });
+
+    const withoutSamples = await searchAgentSkills(auth, { query: "readiness" });
+    const withoutSamplesSkill = (withoutSamples.skills as unknown as PublicSkill[])[0];
+    expect(withoutSamplesSkill).toMatchObject({
+      skill_id: skill.id,
+      readiness: { status: "ready", ready_exercise_count: 4 },
+    });
+    expect(withoutSamplesSkill.sample_exercises).toBeUndefined();
+
+    const withSamples = await searchAgentSkills(auth, {
+      query: "readiness",
+      include_samples: true,
+    });
+    const withSamplesSkill = (withSamples.skills as unknown as PublicSkill[])[0];
+    expect(withSamplesSkill).toMatchObject({
+      skill_id: skill.id,
+      readiness: { status: "ready", ready_exercise_count: 4 },
+    });
+    expect(withSamplesSkill.sample_exercises).toHaveLength(3);
+  });
+
+  it("matches search and get readiness for already-studied text and rejects malformed numeric or math specs", async () => {
+    const auth = await createConnection("library-readiness-parity", ["skills:read"]);
+    const collection = await prisma.collection.create({
+      data: {
+        userId: auth.userId,
+        name: "Parity text policy",
+        textPolicy: NATURAL_TEXT_POLICY,
+      },
+    });
+    const alreadyStudied = await createSkillFixture(prisma, {
+      userId: auth.userId,
+      title: "Already studied text",
+      collectionId: collection.id,
+      repetitions: 0,
+    });
+    await prisma.skill.update({
+      where: { id: alreadyStudied.id },
+      data: { alreadyStudied: true },
+    });
+    await createTextExercise(prisma, auth.userId, alreadyStudied.id, {
+      answerSpec: textAnswerContract(["ready"], NATURAL_TEXT_POLICY),
+    });
+
+    const search = await searchAgentSkills(auth, {
+      query: "Already studied text",
+    });
+    const searchSkill = (search.skills as unknown as PublicSkill[])[0];
+    expect(searchSkill).toMatchObject({
+      skill_id: alreadyStudied.id,
+      readiness: { status: "ready", ready_exercise_count: 1 },
+    });
+    const read = await getAgentSkill(auth, {
+      skill_id: alreadyStudied.id,
+      sample_limit: 1,
+    });
+    const readSkill = read.skill as unknown as PublicSkill;
+    expect(readSkill).toMatchObject({
+      readiness: { status: "ready", ready_exercise_count: 1, verified_exercise_count: 1 },
+    });
+    expect(readSkill.sample_exercises).toHaveLength(1);
+
+    const malformed = await createSkillFixture(prisma, {
+      userId: auth.userId,
+      title: "Malformed inventory",
+      repetitions: 3,
+    });
+    await prisma.exercise.createMany({
+      data: [
+        {
+          userId: auth.userId,
+          skillId: malformed.id,
+          type: ExerciseType.EXACT_INPUT,
+          answerKind: AnswerKind.NUMERIC,
+          prompt: "Malformed numeric answer",
+          answerSpec: { kind: "numeric", accepted: [{ type: "unknown", value: 1 }] },
+          correctAnswerDisplay: "1",
+          verificationStatus: ExerciseVerificationStatus.VERIFIED,
+        },
+        {
+          userId: auth.userId,
+          skillId: malformed.id,
+          type: ExerciseType.EXACT_INPUT,
+          answerKind: AnswerKind.MATH,
+          prompt: "Malformed math answer",
+          answerSpec: { kind: "math", acceptedExpressions: [123] },
+          correctAnswerDisplay: "1",
+          verificationStatus: ExerciseVerificationStatus.VERIFIED,
+        },
+        {
+          userId: auth.userId,
+          skillId: malformed.id,
+          type: ExerciseType.EXACT_INPUT,
+          answerKind: AnswerKind.NUMERIC,
+          prompt: "Oversized numeric answer",
+          answerSpec: { kind: "numeric", accepted: [1e64] },
+          correctAnswerDisplay: "1",
+          verificationStatus: ExerciseVerificationStatus.VERIFIED,
+        },
+        {
+          userId: auth.userId,
+          skillId: malformed.id,
+          type: ExerciseType.EXACT_INPUT,
+          answerKind: AnswerKind.NUMERIC,
+          prompt: "Non-integer fraction answer",
+          answerSpec: {
+            kind: "numeric",
+            accepted: [{ type: "fraction", numerator: 1.5, denominator: 2 }],
+          },
+          correctAnswerDisplay: "0.75",
+          verificationStatus: ExerciseVerificationStatus.VERIFIED,
+        },
+      ],
+    });
+
+    const malformedSearch = await searchAgentSkills(auth, { query: "Malformed inventory" });
+    expect((malformedSearch.skills as unknown as PublicSkill[])[0]).toMatchObject({
+      skill_id: malformed.id,
+      readiness: { status: "needs_preparation", ready_exercise_count: 0 },
+    });
+    const malformedRead = await getAgentSkill(auth, {
+      skill_id: malformed.id,
+      sample_limit: 2,
+    });
+    const malformedReadSkill = malformedRead.skill as unknown as PublicSkill;
+    expect(malformedReadSkill).toMatchObject({
+      readiness: { status: "needs_preparation", ready_exercise_count: 0, verified_exercise_count: 4 },
+    });
+    expect(malformedReadSkill.sample_exercises).toHaveLength(0);
+  });
+
   it("updates active guidance without resetting mastery and rejects active objective changes", async () => {
     const auth = await createConnection("library-guidance", ["skills:read", "skills:write"]);
     const skill = await createSkillFixture(prisma, {
@@ -390,6 +547,40 @@ describeDatabase("agent library and reminder management", () => {
     await expect(
       lifecycleAgentCollection(auth, { collection_id: foreignCollection.id, action: "archive" }),
     ).rejects.toMatchObject({ code: "collection_not_found" });
+  });
+
+  it("reports a partial batch when an archived skill fails beside an updated skill", async () => {
+    const auth = await createConnection("library-batch-partial", ["skills:read", "skills:write"]);
+    const destination = await prisma.collection.create({
+      data: { userId: auth.userId, name: "Batch destination" },
+    });
+    const archived = await createSkillFixture(prisma, {
+      userId: auth.userId,
+      title: "Archived batch skill",
+    });
+    const active = await createSkillFixture(prisma, {
+      userId: auth.userId,
+      title: "Active batch skill",
+    });
+    await lifecycleAgentSkill(auth, { skill_id: archived.id, action: "archive" });
+
+    const result = await batchUpdateAgentSkills(auth, {
+      skill_ids: [archived.id, active.id],
+      collection_id: destination.id,
+    });
+
+    expect(result.status).toBe("partial");
+    expect(result.results).toEqual([
+      expect.objectContaining({ skill_id: archived.id, status: "failed" }),
+      expect.objectContaining({ skill_id: active.id, status: "updated" }),
+    ]);
+    expect(await prisma.skill.findUniqueOrThrow({ where: { id: archived.id } })).toMatchObject({
+      status: SkillStatus.ARCHIVED,
+      collectionId: null,
+    });
+    expect(await prisma.skill.findUniqueOrThrow({ where: { id: active.id } })).toMatchObject({
+      collectionId: destination.id,
+    });
   });
 
   it("uses the transactional MCP custom-session wrapper without spending preview allowance", async () => {

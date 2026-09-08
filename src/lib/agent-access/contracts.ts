@@ -557,11 +557,11 @@ export const agentSetupPreviewSchema = z
     if (new Set(references).size !== references.length) {
       context.addIssue({ code: "custom", path: ["skills"], message: "Skill client references must be unique." });
     }
-    const createdMaterialCount = value.skills.reduce(
-      (total, skill) => total + (skill.kind === "create_material" ? skill.max_skills : 0),
+    const requestedSkillCount = value.skills.reduce(
+      (total, skill) => total + (skill.kind === "create_material" ? skill.max_skills : 1),
       0,
     );
-    if (value.skills.length + createdMaterialCount > AGENT_MAX_BATCH_ITEMS) {
+    if (requestedSkillCount > AGENT_MAX_BATCH_ITEMS) {
       context.addIssue({ code: "custom", path: ["skills"], message: `A setup plan can select at most ${AGENT_MAX_BATCH_ITEMS} skills.` });
     }
     if (

@@ -1475,14 +1475,6 @@ async function ingestWebsiteRevision(input: {
       retryable: false,
     });
   }
-  const quota = await checkSourceStorageUsageLimit({
-    userId: input.userId,
-    byteSize: snapshotBytes.byteLength,
-    replaceSourceFileId: input.sourceFile.id,
-  });
-  if (quota.status === "limited") {
-    throw new MaterialIngestionError(quota.message, { retryable: false });
-  }
   const writePrisma = getPrisma();
   const leaseExpiresAt = new Date(
     Date.now() + MATERIAL_UPLOAD_URL_EXPIRES_IN_SECONDS * 1_000 + MATERIAL_UPLOAD_LEASE_SAFETY_MS,
@@ -1492,13 +1484,40 @@ async function ingestWebsiteRevision(input: {
     if (!(await canWriteWebsiteSnapshot(input, transaction))) {
       throw websiteSnapshotDeletionError();
     }
+    const currentSourceFile = await transaction.sourceFile.findFirst({
+      where: {
+        id: input.sourceFile.id,
+        userId: input.userId,
+        materialRevisionId: input.materialRevisionId,
+      },
+      select: { byteSize: true },
+    });
+    if (!currentSourceFile) {
+      throw websiteSnapshotDeletionError();
+    }
+    const reservedByteSize = Math.max(
+      currentSourceFile.byteSize ?? 0,
+      snapshotBytes.byteLength,
+    );
+    const quota = await checkSourceStorageUsageLimit({
+      userId: input.userId,
+      byteSize: reservedByteSize,
+      replaceSourceFileId: input.sourceFile.id,
+      prisma: transaction,
+    });
+    if (quota.status === "limited") {
+      throw new MaterialIngestionError(quota.message, { retryable: false });
+    }
     const leased = await transaction.sourceFile.updateMany({
       where: {
         id: input.sourceFile.id,
         userId: input.userId,
         materialRevisionId: input.materialRevisionId,
       },
-      data: { presignedUploadExpiresAt: leaseExpiresAt },
+      data: {
+        byteSize: reservedByteSize,
+        presignedUploadExpiresAt: leaseExpiresAt,
+      },
     });
     if (leased.count !== 1) throw websiteSnapshotDeletionError();
   });

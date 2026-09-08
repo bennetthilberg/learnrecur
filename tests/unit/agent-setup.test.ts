@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import { Prisma } from "@/generated/prisma/client";
 import { agentSetupPreviewSchema } from "@/lib/agent-access/contracts";
+import { AgentOperationError } from "@/lib/agent-access/operations";
 import {
   isSerializationConflict,
   normalizeSetupOperationStatus,
+  publicSetupError,
   projectSetupPlannedChanges,
   requiredSetupScopes,
   stableHash,
@@ -12,6 +14,20 @@ import {
 } from "@/lib/agent-access/setup";
 
 describe("agent setup progress contracts", () => {
+  it("keeps documented operation errors public and hides unexpected details", () => {
+    const privateMarker = "provider-prisma-private-marker";
+
+    expect(publicSetupError(new AgentOperationError("invalid_input", "Use a supported setup value."))).toEqual({
+      code: "invalid_input",
+      message: "Use a supported setup value.",
+    });
+    expect(publicSetupError(new Error(privateMarker))).toEqual({
+      code: "internal_error",
+      message: "The setup action could not be completed.",
+    });
+    expect(JSON.stringify(publicSetupError(new Error(privateMarker)))).not.toContain(privateMarker);
+  });
+
   it.each([
     ["P2034", undefined, true],
     ["P2010", { code: "40001" }, true],

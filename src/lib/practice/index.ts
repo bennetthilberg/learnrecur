@@ -28,7 +28,6 @@ import {
   textAnswerSpecSchema,
   type AnswerCheckResult,
 } from "@/lib/answer-checking";
-import { formatEnvError } from "@/lib/env";
 import type { ExerciseRefillEventSender } from "@/lib/jobs/events";
 import { getPrisma } from "@/lib/prisma";
 import { lockExerciseForQualityMutation } from "@/lib/practice/quality-incidents";
@@ -43,7 +42,8 @@ import {
   queueChoiceExerciseRefillForSkill,
   queueExactInputExerciseRefillForSkill,
   queueMathExerciseRefillForSkill,
-  type RefillQueueResult,
+  type DeferredExerciseRefillEvent,
+  type RefillQueueResultWithDeferredEvent,
 } from "@/lib/skills/refill-jobs";
 
 export {
@@ -195,6 +195,7 @@ export type PracticeExerciseFlagResult =
 export type PracticeFlagRefillResult =
   | {
       status: "queued";
+      skillId: string;
       generationJobId: string;
       requestedCount: number;
       readyExerciseCount: number;
@@ -220,9 +221,14 @@ export type PracticeFlagRefillResult =
       targetReadyCount?: number;
     };
 
+type PracticeFlagRefillResultWithDeferredEvent = PracticeFlagRefillResult & {
+  deferredEvent?: DeferredExerciseRefillEvent;
+};
+
 export type PracticeExerciseFlagWithRefillResult =
   | (Extract<PracticeExerciseFlagResult, { status: "flagged" }> & {
-      refill: PracticeFlagRefillResult;
+      refill: PracticeFlagRefillResultWithDeferredEvent;
+      deferredEvents?: DeferredExerciseRefillEvent[];
     })
   | Extract<PracticeExerciseFlagResult, { status: "not-flagged" | "not-found" }>;
 
@@ -266,6 +272,7 @@ export type CommitPracticeReviewInput = PreviewPracticeAnswerInput & {
 export type FlagPracticeExerciseInput = {
   userId: string;
   exerciseId: string;
+  expectedSkillId?: string;
   reasons: readonly ExerciseFlagReason[];
   otherNote?: string | null;
   flaggedAt: Date;
@@ -275,6 +282,7 @@ export type FlagPracticeExerciseInput = {
 export type FlagPracticeExerciseAndQueueRefillInput = FlagPracticeExerciseInput & {
   refillSender?: ExerciseRefillEventSender;
   model?: string;
+  transaction?: Prisma.TransactionClient;
 };
 
 type PracticeSkillRecord = SkillScheduleFields & {
@@ -639,6 +647,7 @@ export async function commitPracticeOnlyAttemptInTransaction(
 
 export async function flagPracticeExercise(
   input: FlagPracticeExerciseInput,
+  transaction?: Prisma.TransactionClient,
 ): Promise<PracticeExerciseFlagResult> {
   const uniqueReasons = [...new Set(input.reasons)];
 
@@ -674,7 +683,7 @@ export async function flagPracticeExercise(
   );
   const prisma = getPrisma();
 
-  return prisma.$transaction(async (tx) => {
+  const write = async (tx: Prisma.TransactionClient): Promise<PracticeExerciseFlagResult> => {
     if (!await lockExerciseForQualityMutation(tx, input.userId, input.exerciseId)) {
       return exerciseNotFound();
     }
@@ -687,6 +696,11 @@ export async function flagPracticeExercise(
               skill: {
                 collectionId: input.collectionId,
               },
+            }
+          : {}),
+        ...(input.expectedSkillId
+          ? {
+              skillId: input.expectedSkillId,
             }
           : {}),
       },
@@ -807,13 +821,15 @@ export async function flagPracticeExercise(
       retirementReason: exercise.retirementReason ?? retirementReason,
       message: "Exercise reported and retired from practice.",
     };
-  });
+  };
+
+  return transaction ? write(transaction) : prisma.$transaction(write);
 }
 
 export async function flagPracticeExerciseAndQueueRefill(
   input: FlagPracticeExerciseAndQueueRefillInput,
 ): Promise<PracticeExerciseFlagWithRefillResult> {
-  const flagResult = await flagPracticeExercise(input);
+  const flagResult = await flagPracticeExercise(input, input.transaction);
 
   if (flagResult.status !== "flagged") {
     return flagResult;
@@ -826,11 +842,13 @@ export async function flagPracticeExerciseAndQueueRefill(
     now: input.flaggedAt,
     sender: input.refillSender,
     model: input.model,
+    transaction: input.transaction,
   });
 
   return {
     ...flagResult,
     refill,
+    ...(refill.deferredEvent ? { deferredEvents: [refill.deferredEvent] } : {}),
   };
 }
 
@@ -841,6 +859,7 @@ async function queueRefillAfterPracticeFlag({
   now,
   sender,
   model,
+  transaction,
 }: {
   userId: string;
   skillId: string;
@@ -848,7 +867,8 @@ async function queueRefillAfterPracticeFlag({
   now: Date;
   sender?: ExerciseRefillEventSender;
   model?: string;
-}): Promise<PracticeFlagRefillResult> {
+  transaction?: Prisma.TransactionClient;
+}): Promise<PracticeFlagRefillResultWithDeferredEvent> {
   try {
     switch (answerKind) {
       case AnswerKind.CHOICE:
@@ -859,6 +879,8 @@ async function queueRefillAfterPracticeFlag({
             now,
             sender,
             model,
+            transaction,
+            deferEvent: Boolean(transaction),
           }),
         );
       case AnswerKind.TEXT:
@@ -870,6 +892,8 @@ async function queueRefillAfterPracticeFlag({
             now,
             sender,
             model,
+            transaction,
+            deferEvent: Boolean(transaction),
           }),
         );
       case AnswerKind.MATH:
@@ -880,27 +904,34 @@ async function queueRefillAfterPracticeFlag({
             now,
             sender,
             model,
+            transaction,
+            deferEvent: Boolean(transaction),
           }),
         );
     }
   } catch (error) {
+    if (transaction) throw error;
     return {
       status: "not-queued",
       reason: "queue-error",
-      message: `Replacement preparation could not start: ${formatEnvError(error)}`,
+      message: "Replacement preparation could not start. Retry the repair.",
     };
   }
 }
 
-function toPracticeFlagRefillResult(result: RefillQueueResult): PracticeFlagRefillResult {
+function toPracticeFlagRefillResult(
+  result: RefillQueueResultWithDeferredEvent,
+): PracticeFlagRefillResultWithDeferredEvent {
   if (result.status === "queued") {
     return {
       status: "queued",
+      skillId: result.skillId,
       generationJobId: result.generationJobId,
       requestedCount: result.requestedCount,
       readyExerciseCount: result.readyExerciseCount,
       targetReadyCount: result.targetReadyCount,
       message: result.message,
+      deferredEvent: result.deferredEvent,
     };
   }
 
@@ -912,6 +943,7 @@ function toPracticeFlagRefillResult(result: RefillQueueResult): PracticeFlagRefi
       generationJobId: result.generationJobId,
       readyExerciseCount: result.readyExerciseCount,
       targetReadyCount: result.targetReadyCount,
+      deferredEvent: result.deferredEvent,
     };
   }
 
@@ -920,6 +952,7 @@ function toPracticeFlagRefillResult(result: RefillQueueResult): PracticeFlagRefi
       status: "not-queued",
       reason: "missing-jobs-env",
       message: result.message,
+      deferredEvent: result.deferredEvent,
     };
   }
 
@@ -927,6 +960,7 @@ function toPracticeFlagRefillResult(result: RefillQueueResult): PracticeFlagRefi
     status: "not-queued",
     reason: "skill-not-found",
     message: result.message,
+    deferredEvent: result.deferredEvent,
   };
 }
 

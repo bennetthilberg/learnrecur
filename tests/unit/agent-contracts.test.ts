@@ -240,6 +240,37 @@ describe("agent MCP contracts", () => {
   });
 
   it("bounds setup plans and accepts advanced practice settings explicitly", () => {
+    const materialSkill = {
+      kind: "create_material" as const,
+      client_reference: "material-skill",
+      material_id: "material-1",
+      expected_revision_id: "revision-1",
+      instruction: "Extract durable concepts.",
+    };
+    const defaultMaterialPlan = agentSetupPreviewSchema.parse({
+      idempotency_key: "setup-material-default",
+      skills: [materialSkill],
+    });
+    expect(defaultMaterialPlan.skills[0]).toMatchObject({ max_skills: 10 });
+
+    const mixedPlan = agentSetupPreviewSchema.parse({
+      idempotency_key: "setup-material-mixed",
+      skills: [
+        { kind: "reuse", skill_id: "skill-1" },
+        { ...materialSkill, max_skills: 9 },
+      ],
+    });
+    expect(mixedPlan.skills).toHaveLength(2);
+    expect(() =>
+      agentSetupPreviewSchema.parse({
+        idempotency_key: "setup-material-over-limit",
+        skills: [
+          { kind: "reuse", skill_id: "skill-1" },
+          { ...materialSkill, max_skills: 10 },
+        ],
+      }),
+    ).toThrow(/at most 10 skills/i);
+
     const parsed = agentSetupPreviewSchema.parse({
       idempotency_key: "setup-plan-001",
       skills: [

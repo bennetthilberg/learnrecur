@@ -8,6 +8,9 @@ import {
   createCustomPracticeSession,
   getCustomPracticeSession,
   presentCustomPracticeSessionItem,
+  previewCustomPracticeAnswer,
+  resumeCustomPracticeSession,
+  stopCustomPracticeSession,
 } from "@/lib/practice/custom-session";
 import { getPrisma } from "@/lib/prisma";
 
@@ -229,6 +232,133 @@ suite("custom practice sessions", () => {
     expect(await prisma.reviewLog.count({ where: { userId } })).toBe(2);
   });
 
+  it("persists a late appended item across presentation and completes the target", async () => {
+    const userId = await createUser();
+    const skill = await createSkillFixture(prisma, {
+      userId,
+      title: "Late exercise skill",
+      dueAt: now,
+      repetitions: 1,
+    });
+    const firstExercise = await createChoiceExercise({ prisma, userId, skillId: skill.id });
+    const created = await createCustomPracticeSession({
+      userId,
+      mode: "PRACTICE_ONLY",
+      targetCount: 2,
+      scope: {
+        collectionIds: [],
+        tags: [],
+        skillIds: [skill.id],
+        recentlyMissed: false,
+        mixedReview: false,
+      },
+      now,
+    });
+    if (created.status !== "ready") throw new Error("expected the first exercise to be planned");
+    expect(created.session.plan).toHaveLength(1);
+
+    const firstReady = await presentCustomPracticeSessionItem({
+      userId,
+      sessionId: created.session.id,
+      now,
+    });
+    if (firstReady.status !== "ready") throw new Error("expected the first item");
+    const secondExercise = await createChoiceExercise({ prisma, userId, skillId: skill.id });
+    const firstCommit = await commitCustomPracticeAnswer({
+      userId,
+      sessionId: created.session.id,
+      itemKey: firstReady.sessionItem.itemKey,
+      exerciseId: firstExercise.id,
+      submittedAnswer: "right",
+      now,
+    });
+    expect(firstCommit.status).toBe("committed");
+    if (firstCommit.status !== "committed") throw new Error("expected the first commit");
+    expect(firstCommit.next.status).toBe("ready");
+    const secondReady = firstCommit.next;
+    if (secondReady.status !== "ready") throw new Error("expected the appended second item");
+    expect(secondReady.exercise.id).toBe(secondExercise.id);
+    expect(secondReady.session.plan).toHaveLength(2);
+    expect(secondReady.session.plan.map((item) => item.status)).toEqual(["COMPLETED", "PRESENTED"]);
+    expect(secondReady.session.plan[0]?.attemptId).not.toBe(secondReady.session.plan[1]?.attemptId);
+
+    const secondCommit = await commitCustomPracticeAnswer({
+      userId,
+      sessionId: created.session.id,
+      itemKey: secondReady.sessionItem.itemKey,
+      exerciseId: secondExercise.id,
+      submittedAnswer: "right",
+      now: new Date(now.getTime() + 60_000),
+    });
+    expect(secondCommit.status).toBe("committed");
+    if (secondCommit.status !== "committed") throw new Error("expected the second commit");
+    expect(secondCommit.completedCount).toBe(2);
+    expect(secondCommit.next.status).toBe("completed");
+
+    const attempts = await prisma.exerciseAttempt.findMany({
+      where: { userId, skillId: skill.id },
+      orderBy: { createdAt: "asc" },
+      select: { exerciseId: true, id: true },
+    });
+    expect(attempts.map((attempt) => attempt.exerciseId)).toEqual(
+      expect.arrayContaining([firstExercise.id, secondExercise.id]),
+    );
+    expect(new Set(attempts.map((attempt) => attempt.id)).size).toBe(2);
+  });
+
+  it("completes an exhausted undersized session with its no-inventory message", async () => {
+    const userId = await createUser();
+    const skill = await createSkillFixture(prisma, {
+      userId,
+      title: "Exhausted undersized skill",
+      dueAt: now,
+      repetitions: 1,
+    });
+    const exercise = await createChoiceExercise({ prisma, userId, skillId: skill.id });
+    const created = await createCustomPracticeSession({
+      userId,
+      mode: "PRACTICE_ONLY",
+      targetCount: 2,
+      scope: {
+        collectionIds: [],
+        tags: [],
+        skillIds: [skill.id],
+        recentlyMissed: false,
+        mixedReview: false,
+      },
+      now,
+    });
+    if (created.status !== "ready") throw new Error("expected the undersized plan");
+
+    const ready = await presentCustomPracticeSessionItem({
+      userId,
+      sessionId: created.session.id,
+      now,
+    });
+    if (ready.status !== "ready") throw new Error("expected the only item");
+    const committed = await commitCustomPracticeAnswer({
+      userId,
+      sessionId: created.session.id,
+      itemKey: ready.sessionItem.itemKey,
+      exerciseId: exercise.id,
+      submittedAnswer: "right",
+      now,
+    });
+    expect(committed.status).toBe("committed");
+    if (committed.status !== "committed") throw new Error("expected the exhausted commit");
+    expect(committed.completedCount).toBe(1);
+    expect(committed.next).toEqual(
+      expect.objectContaining({
+        status: "completed",
+        message: "This session ended because no selected exercise remains available.",
+      }),
+    );
+    if (committed.next.status !== "completed" || !committed.next.session) {
+      throw new Error("expected exhausted completion");
+    }
+    expect(committed.next.session.plan).toHaveLength(1);
+  });
+
   it("does not admit a not-yet-due exercise into scheduled mode", async () => {
     const userId = await createUser();
     const skill = await createSkillFixture(prisma, {
@@ -389,6 +519,251 @@ suite("custom practice sessions", () => {
     if (ready.status !== "ready") throw new Error("expected introduced item to remain available");
     expect(ready.skill.id).toBe(introducedSkill.id);
     expect((await prisma.skill.findUniqueOrThrow({ where: { id: newSkill.id } })).firstIntroducedAt).toBeNull();
+  });
+
+  it("refills a planned item that becomes ineligible before completing the session", async () => {
+    const userId = await createUser();
+    const collection = await prisma.collection.create({ data: { userId, name: "Refill scope" } });
+    const retiredSkill = await createSkillFixture(prisma, {
+      userId,
+      title: "Retired planned skill",
+      collectionId: collection.id,
+      dueAt: new Date("2026-06-01T10:00:00.000Z"),
+      repetitions: 1,
+    });
+    const retiredExercise = await createChoiceExercise({ prisma, userId, skillId: retiredSkill.id });
+    const retiredReplacementSkill = await createSkillFixture(prisma, {
+      userId,
+      title: "Retired replacement skill",
+      collectionId: collection.id,
+      dueAt: new Date("2026-06-02T10:00:00.000Z"),
+      repetitions: 1,
+    });
+    const retiredReplacementExercise = await createChoiceExercise({
+      prisma,
+      userId,
+      skillId: retiredReplacementSkill.id,
+    });
+
+    const retiredSession = await createCustomPracticeSession({
+      userId,
+      targetCount: 1,
+      scope: {
+        collectionIds: [collection.id],
+        tags: [],
+        skillIds: [retiredSkill.id, retiredReplacementSkill.id],
+        recentlyMissed: false,
+        mixedReview: false,
+      },
+      now,
+    });
+    if (retiredSession.status !== "ready") throw new Error("expected retired replacement plan");
+    expect(retiredSession.session.plan[0]?.exerciseId).toBe(retiredExercise.id);
+    await prisma.exercise.update({
+      where: { id: retiredExercise.id },
+      data: { retiredAt: now, retirementReason: "MANUAL" },
+    });
+
+    const retiredReady = await presentCustomPracticeSessionItem({
+      userId,
+      sessionId: retiredSession.session.id,
+      now,
+    });
+    expect(retiredReady.status).toBe("ready");
+    if (retiredReady.status !== "ready") throw new Error("expected retired replacement item");
+    expect(retiredReady.exercise.id).toBe(retiredReplacementExercise.id);
+    expect(retiredReady.sessionItem.status).toBe("PRESENTED");
+    expect(retiredReady.session.plan.some((item) => item.status === "SKIPPED")).toBe(false);
+
+    const movedSkill = await createSkillFixture(prisma, {
+      userId,
+      title: "Moved planned skill",
+      collectionId: collection.id,
+      dueAt: new Date("2026-06-01T11:00:00.000Z"),
+      repetitions: 1,
+    });
+    const movedExercise = await createChoiceExercise({ prisma, userId, skillId: movedSkill.id });
+    const movedReplacementSkill = await createSkillFixture(prisma, {
+      userId,
+      title: "Moved replacement skill",
+      collectionId: collection.id,
+      dueAt: new Date("2026-06-02T11:00:00.000Z"),
+      repetitions: 1,
+    });
+    const movedReplacementExercise = await createChoiceExercise({
+      prisma,
+      userId,
+      skillId: movedReplacementSkill.id,
+    });
+    const otherCollection = await prisma.collection.create({
+      data: { userId, name: "Moved destination" },
+    });
+    const movedSession = await createCustomPracticeSession({
+      userId,
+      targetCount: 1,
+      scope: {
+        collectionIds: [collection.id],
+        tags: [],
+        skillIds: [movedSkill.id, movedReplacementSkill.id],
+        recentlyMissed: false,
+        mixedReview: false,
+      },
+      now,
+    });
+    if (movedSession.status !== "ready") throw new Error("expected moved replacement plan");
+    expect(movedSession.session.plan[0]?.exerciseId).toBe(movedExercise.id);
+    await prisma.skill.update({
+      where: { id: movedSkill.id },
+      data: { collectionId: otherCollection.id },
+    });
+
+    const movedReady = await presentCustomPracticeSessionItem({
+      userId,
+      sessionId: movedSession.session.id,
+      now,
+    });
+    expect(movedReady.status).toBe("ready");
+    if (movedReady.status !== "ready") throw new Error("expected moved replacement item");
+    expect(movedReady.exercise.id).toBe(movedReplacementExercise.id);
+    expect(movedReady.sessionItem.status).toBe("PRESENTED");
+    expect(movedReady.session.plan.some((item) => item.status === "SKIPPED")).toBe(false);
+  });
+
+  it("serves an introduced replacement before daily limit when another item is blocked", async () => {
+    const userId = await createUser({ dailyNewSkillLimit: 0 });
+    const skippedSkill = await createSkillFixture(prisma, {
+      userId,
+      title: "Skipped before limit",
+      dueAt: new Date("2026-06-01T10:00:00.000Z"),
+      repetitions: 1,
+    });
+    const blockedSkill = await createSkillFixture(prisma, {
+      userId,
+      title: "Blocked new skill",
+      dueAt: new Date("2026-06-02T10:00:00.000Z"),
+    });
+    const replacementSkill = await createSkillFixture(prisma, {
+      userId,
+      title: "Introduced replacement",
+      dueAt: new Date("2026-06-03T10:00:00.000Z"),
+      repetitions: 1,
+    });
+    await prisma.skill.update({
+      where: { id: replacementSkill.id },
+      data: { firstIntroducedAt: new Date("2026-06-01T12:00:00.000Z") },
+    });
+    const skippedExercise = await createChoiceExercise({ prisma, userId, skillId: skippedSkill.id });
+    const blockedExercise = await createChoiceExercise({ prisma, userId, skillId: blockedSkill.id });
+    const replacementExercise = await createChoiceExercise({ prisma, userId, skillId: replacementSkill.id });
+
+    const created = await createCustomPracticeSession({
+      userId,
+      mode: "PRACTICE_ONLY",
+      targetCount: 2,
+      scope: {
+        collectionIds: [],
+        tags: [],
+        skillIds: [skippedSkill.id, blockedSkill.id, replacementSkill.id],
+        recentlyMissed: false,
+        mixedReview: false,
+      },
+      now,
+    });
+    if (created.status !== "ready") throw new Error("expected daily-limit replacement plan");
+    expect(created.session.plan.map((item) => item.exerciseId)).toEqual(
+      expect.arrayContaining([skippedExercise.id, blockedExercise.id]),
+    );
+    await prisma.exercise.update({
+      where: { id: skippedExercise.id },
+      data: { retiredAt: now, retirementReason: "MANUAL" },
+    });
+
+    const ready = await presentCustomPracticeSessionItem({
+      userId,
+      sessionId: created.session.id,
+      now,
+    });
+    expect(ready.status).toBe("ready");
+    if (ready.status !== "ready") throw new Error("expected introduced replacement before limit");
+    expect(ready.exercise.id).toBe(replacementExercise.id);
+    expect(ready.session.plan.some((item) => item.status === "SKIPPED")).toBe(false);
+
+    const committed = await commitCustomPracticeAnswer({
+      userId,
+      sessionId: created.session.id,
+      itemKey: ready.sessionItem.itemKey,
+      exerciseId: replacementExercise.id,
+      submittedAnswer: "right",
+      now,
+    });
+    expect(committed.status).toBe("committed");
+    if (committed.status !== "committed") throw new Error("expected replacement commit");
+    expect(committed.next.status).toBe("daily-limit");
+  });
+
+  it("rejects a second-tab preview while stopped and allows it after resume", async () => {
+    const userId = await createUser();
+    const skill = await createSkillFixture(prisma, {
+      userId,
+      title: "Stopped preview skill",
+      dueAt: now,
+      repetitions: 1,
+    });
+    const exercise = await createChoiceExercise({ prisma, userId, skillId: skill.id });
+    const created = await createCustomPracticeSession({
+      userId,
+      targetCount: 1,
+      scope: {
+        collectionIds: [],
+        tags: [],
+        skillIds: [skill.id],
+        recentlyMissed: false,
+        mixedReview: false,
+      },
+      now,
+    });
+    if (created.status !== "ready") throw new Error("expected stopped-preview session");
+    const ready = await presentCustomPracticeSessionItem({
+      userId,
+      sessionId: created.session.id,
+      now,
+    });
+    if (ready.status !== "ready") throw new Error("expected stopped-preview item");
+
+    const stopped = await stopCustomPracticeSession({
+      userId,
+      sessionId: created.session.id,
+      now,
+    });
+    expect(stopped.status).toBe("updated");
+    const denied = await previewCustomPracticeAnswer({
+      userId,
+      sessionId: created.session.id,
+      itemKey: ready.sessionItem.itemKey,
+      exerciseId: exercise.id,
+      submittedAnswer: "right",
+      now,
+    });
+    expect(denied).toEqual({
+      status: "unavailable",
+      message: "This practice session is stopped. Resume it to continue.",
+    });
+
+    const resumed = await resumeCustomPracticeSession({
+      userId,
+      sessionId: created.session.id,
+      now: new Date(now.getTime() + 1_000),
+    });
+    expect(resumed.status).toBe("updated");
+    const preview = await previewCustomPracticeAnswer({
+      userId,
+      sessionId: created.session.id,
+      itemKey: ready.sessionItem.itemKey,
+      exerciseId: exercise.id,
+      submittedAnswer: "right",
+      now: new Date(now.getTime() + 1_000),
+    });
+    expect(preview.status).toBe("checked");
   });
 
   it("rechecks selected filters and inventory when a queued item changes", async () => {

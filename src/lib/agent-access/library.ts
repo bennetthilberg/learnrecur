@@ -23,10 +23,19 @@ import {
 } from "@/lib/agent-access/contracts";
 import { createCollection, restoreCollection, archiveCollection, updateCollection } from "@/lib/collections";
 import { updateSkillDraft, updateSkillMetadata, updateSkillPracticeGuidance } from "@/lib/skills";
-import { isPracticeReadModelExerciseReady } from "@/lib/practice/read-model-eligibility";
+import {
+  isPracticeReadModelExerciseReady,
+  resolveReadModelTextPolicy,
+} from "@/lib/practice/read-model-eligibility";
 import { getPrisma } from "@/lib/prisma";
 
 const MAX_GUIDANCE_ITEMS = 8;
+const DEFAULT_TEXT_POLICY_JSON = JSON.stringify({
+  version: 2,
+  profile: "NATURAL",
+  normalizeCase: true,
+  normalizeWhitespace: true,
+});
 
 type PublicExercisePreview = {
   exercise_id: string;
@@ -127,6 +136,14 @@ function readyExercises(
     stability: number | null;
     difficulty: number | null;
     repetitions: number;
+    alreadyStudied?: boolean;
+    textPolicy?: Prisma.JsonValue | null;
+    collection?: {
+      id?: string;
+      name?: string;
+      status?: CollectionStatus;
+      textPolicy?: Prisma.JsonValue | null;
+    } | null;
   exercises: Array<{
     id: string;
     type: ExerciseType;
@@ -141,8 +158,350 @@ function readyExercises(
     }>;
   },
 ) {
+  const hasTextPolicy =
+    skill.textPolicy !== undefined || skill.collection?.textPolicy !== undefined;
+  const textPolicy = hasTextPolicy
+    ? resolveReadModelTextPolicy({
+        skill: skill.textPolicy,
+        collection: skill.collection?.textPolicy,
+      })
+    : undefined;
   return skill.exercises.filter((exercise) =>
-    isPracticeReadModelExerciseReady(exercise, skill),
+    isPracticeReadModelExerciseReady(exercise, { ...skill, textPolicy }),
+  );
+}
+
+type ReadinessCountRow = {
+  skill_id: string;
+  ready_exercise_count: bigint | number;
+  verified_exercise_count: bigint | number;
+};
+
+type VerifiedReadinessCountRow = {
+  skill_id: string;
+  verified_exercise_count: bigint | number;
+};
+
+type ReadinessCounts = {
+  readyExerciseCount: number;
+  verifiedExerciseCount: number;
+};
+
+/**
+ * Search returns a small exercise preview, but readiness is an inventory
+ * property. Count compatible inventory in SQL so `include_samples` cannot
+ * change the answer and a large skill never hydrates every exercise row.
+ */
+async function loadReadinessCounts(
+  userId: string,
+  skillIds: string[],
+): Promise<Map<string, ReadinessCounts>> {
+  if (skillIds.length === 0) return new Map();
+
+  const prisma = getPrisma();
+  const [rows, verifiedRows] = await Promise.all([
+    prisma.$queryRaw<ReadinessCountRow[]>`
+    WITH skill_policy AS (
+      SELECT
+        s."id",
+        s."userId",
+        s."repetitions",
+        s."alreadyStudied",
+        COALESCE(
+          s."textPolicy",
+          c."textPolicy",
+          ${DEFAULT_TEXT_POLICY_JSON}::jsonb
+        ) AS "effectivePolicy"
+      FROM "skills" s
+      LEFT JOIN "collections" c
+        ON c."id" = s."collectionId"
+       AND c."userId" = s."userId"
+      WHERE s."userId" = ${userId}
+        AND s."id" IN (${Prisma.join(skillIds)})
+    )
+    SELECT
+      sp."id" AS skill_id,
+      COUNT(*) FILTER (
+        WHERE e."verificationStatus" = ${ExerciseVerificationStatus.VERIFIED}::"ExerciseVerificationStatus"
+          AND e."retiredAt" IS NULL
+      ) AS verified_exercise_count,
+      COUNT(*) AS ready_exercise_count
+    FROM skill_policy sp
+    JOIN "exercises" e
+      ON e."userId" = sp."userId"
+     AND e."skillId" = sp."id"
+    WHERE e."verificationStatus" = ${ExerciseVerificationStatus.VERIFIED}::"ExerciseVerificationStatus"
+      AND e."retiredAt" IS NULL
+      AND (
+        (
+          e."answerKind" = ${AnswerKind.CHOICE}::"AnswerKind"
+          AND jsonb_typeof(e."choices") = 'array'
+          AND jsonb_array_length(
+            CASE WHEN jsonb_typeof(e."choices") = 'array' THEN e."choices" ELSE '[]'::jsonb END
+          ) > 0
+          AND CASE
+            WHEN jsonb_typeof(e."answerSpec") = 'object' THEN (
+              SELECT COUNT(*) FROM jsonb_object_keys(e."answerSpec")
+            )
+            ELSE -1
+          END = 2
+          AND e."answerSpec"->>'kind' = 'choice'
+          AND COALESCE(e."answerSpec"->>'correctChoiceId', '') <> ''
+          AND EXISTS (
+            SELECT 1
+            FROM jsonb_array_elements(
+              CASE WHEN jsonb_typeof(e."choices") = 'array' THEN e."choices" ELSE '[]'::jsonb END
+            ) choice
+            WHERE choice->>'id' = e."answerSpec"->>'correctChoiceId'
+          )
+          AND NOT EXISTS (
+            SELECT 1
+            FROM jsonb_array_elements(
+              CASE WHEN jsonb_typeof(e."choices") = 'array' THEN e."choices" ELSE '[]'::jsonb END
+            ) choice
+            WHERE jsonb_typeof(choice->'id') <> 'string'
+               OR COALESCE(btrim(choice->>'id'), '') = ''
+               OR jsonb_typeof(choice->'label') <> 'string'
+               OR COALESCE(btrim(choice->>'label'), '') = ''
+               OR CASE
+                 WHEN jsonb_typeof(choice) = 'object' THEN (
+                   SELECT COUNT(*) FROM jsonb_object_keys(choice)
+                 )
+                 ELSE -1
+               END <> 2
+          )
+          AND (
+            SELECT COUNT(DISTINCT choice->>'id')
+            FROM jsonb_array_elements(
+              CASE WHEN jsonb_typeof(e."choices") = 'array' THEN e."choices" ELSE '[]'::jsonb END
+            ) choice
+          ) = jsonb_array_length(
+            CASE WHEN jsonb_typeof(e."choices") = 'array' THEN e."choices" ELSE '[]'::jsonb END
+          )
+        )
+        OR (
+          (sp."alreadyStudied" = TRUE OR sp."repetitions" >= 3)
+          AND (
+            (
+              e."answerKind" = ${AnswerKind.TEXT}::"AnswerKind"
+              AND e."answerSpec"->>'kind' = 'text'
+              AND CASE
+                WHEN jsonb_typeof(e."answerSpec") = 'object' THEN (
+                  SELECT COUNT(*) FROM jsonb_object_keys(e."answerSpec")
+                )
+                ELSE -1
+              END = 6
+              AND jsonb_typeof(e."answerSpec"->'accepted') = 'array'
+              AND jsonb_array_length(
+                CASE
+                  WHEN jsonb_typeof(e."answerSpec"->'accepted') = 'array' THEN e."answerSpec"->'accepted'
+                  ELSE '[]'::jsonb
+                END
+              ) > 0
+              AND NOT EXISTS (
+                SELECT 1
+                FROM jsonb_array_elements(
+                  CASE
+                    WHEN jsonb_typeof(e."answerSpec"->'accepted') = 'array' THEN e."answerSpec"->'accepted'
+                    ELSE '[]'::jsonb
+                  END
+                ) accepted
+                WHERE jsonb_typeof(accepted) <> 'string'
+                   OR COALESCE(btrim(accepted #>> '{}'), '') = ''
+                   OR length(accepted #>> '{}') > 500
+              )
+              AND e."answerSpec"->>'policyVersion' = sp."effectivePolicy"->>'version'
+              AND e."answerSpec"->>'normalizeCase' = sp."effectivePolicy"->>'normalizeCase'
+              AND e."answerSpec"->>'normalizeWhitespace' = sp."effectivePolicy"->>'normalizeWhitespace'
+              AND e."answerSpec"->>'normalizeDiacritics' = 'false'
+              AND sp."effectivePolicy"->>'version' = '2'
+              AND sp."effectivePolicy"->>'profile' IN ('CUSTOM', 'NATURAL', 'EXACT')
+              AND CASE
+                WHEN jsonb_typeof(sp."effectivePolicy") = 'object' THEN (
+                  SELECT COUNT(*) FROM jsonb_object_keys(sp."effectivePolicy")
+                )
+                ELSE -1
+              END = 4
+              AND jsonb_typeof(sp."effectivePolicy"->'normalizeCase') = 'boolean'
+              AND jsonb_typeof(sp."effectivePolicy"->'normalizeWhitespace') = 'boolean'
+              AND (
+                sp."effectivePolicy"->>'profile' = 'CUSTOM'
+                OR (
+                  sp."effectivePolicy"->>'profile' = 'NATURAL'
+                  AND sp."effectivePolicy"->>'normalizeCase' = 'true'
+                  AND sp."effectivePolicy"->>'normalizeWhitespace' = 'true'
+                )
+                OR (
+                  sp."effectivePolicy"->>'profile' = 'EXACT'
+                  AND sp."effectivePolicy"->>'normalizeCase' = 'false'
+                  AND sp."effectivePolicy"->>'normalizeWhitespace' = 'false'
+                )
+              )
+            )
+            OR (
+              e."answerKind" = ${AnswerKind.NUMERIC}::"AnswerKind"
+              AND e."answerSpec"->>'kind' = 'numeric'
+              AND CASE
+                WHEN jsonb_typeof(e."answerSpec") = 'object' THEN (
+                  SELECT COUNT(*) FROM jsonb_object_keys(e."answerSpec")
+                )
+                ELSE -1
+              END = CASE WHEN e."answerSpec" ? 'tolerance' THEN 3 ELSE 2 END
+              AND CASE
+                WHEN e."answerSpec" ? 'tolerance' THEN
+                  CASE
+                    WHEN jsonb_typeof(e."answerSpec"->'tolerance') = 'number' THEN
+                      (e."answerSpec"->>'tolerance')::numeric >= 0
+                    ELSE FALSE
+                  END
+                ELSE TRUE
+              END
+              AND jsonb_typeof(e."answerSpec"->'accepted') = 'array'
+              AND jsonb_array_length(
+                CASE
+                  WHEN jsonb_typeof(e."answerSpec"->'accepted') = 'array' THEN e."answerSpec"->'accepted'
+                  ELSE '[]'::jsonb
+                END
+              ) > 0
+              AND NOT EXISTS (
+                SELECT 1
+                FROM jsonb_array_elements(
+                  CASE
+                    WHEN jsonb_typeof(e."answerSpec"->'accepted') = 'array' THEN e."answerSpec"->'accepted'
+                    ELSE '[]'::jsonb
+                  END
+                ) accepted
+                WHERE NOT (
+                  (
+                    jsonb_typeof(accepted) = 'number'
+                    AND length((accepted #>> '{}')::numeric::text) <= 64
+                  )
+                  OR (
+                    jsonb_typeof(accepted) = 'string'
+                    AND length(btrim(accepted #>> '{}')) BETWEEN 1 AND 64
+                  )
+                  OR (
+                    jsonb_typeof(accepted) = 'object'
+                    AND accepted->>'type' IN ('integer', 'decimal')
+                    AND CASE
+                      WHEN jsonb_typeof(accepted) = 'object' THEN (
+                        SELECT COUNT(*) FROM jsonb_object_keys(accepted)
+                      )
+                      ELSE -1
+                    END = 2
+                    AND jsonb_typeof(accepted->'value') = 'number'
+                    AND length((accepted->>'value')::numeric::text) <= 64
+                    AND CASE
+                      WHEN accepted->>'type' = 'integer' THEN
+                        CASE
+                          WHEN jsonb_typeof(accepted->'value') = 'number' THEN
+                            (accepted->>'value')::numeric % 1 = 0
+                          ELSE FALSE
+                        END
+                      ELSE TRUE
+                    END
+                  )
+                  OR (
+                    jsonb_typeof(accepted) = 'object'
+                    AND accepted->>'type' = 'fraction'
+                    AND (
+                      (
+                        CASE
+                          WHEN jsonb_typeof(accepted) = 'object' THEN (
+                            SELECT COUNT(*) FROM jsonb_object_keys(accepted)
+                          )
+                          ELSE -1
+                        END = 3
+                        AND jsonb_typeof(accepted->'numerator') = 'number'
+                        AND jsonb_typeof(accepted->'denominator') = 'number'
+                        AND (accepted->>'numerator')::numeric % 1 = 0
+                        AND (accepted->>'denominator')::numeric % 1 = 0
+                        AND length(
+                          (accepted->>'numerator')::numeric::text
+                        ) + 1 + length((accepted->>'denominator')::numeric::text) <= 64
+                      )
+                      OR (
+                        CASE
+                          WHEN jsonb_typeof(accepted) = 'object' THEN (
+                            SELECT COUNT(*) FROM jsonb_object_keys(accepted)
+                          )
+                          ELSE -1
+                        END = 2
+                        AND jsonb_typeof(accepted->'value') = 'string'
+                        AND length(btrim(accepted->>'value')) BETWEEN 1 AND 64
+                      )
+                    )
+                  )
+                )
+              )
+            )
+            OR (
+              e."answerKind" = ${AnswerKind.MATH}::"AnswerKind"
+              AND e."answerSpec"->>'kind' = 'math'
+              AND CASE
+                WHEN jsonb_typeof(e."answerSpec") = 'object' THEN (
+                  SELECT COUNT(*) FROM jsonb_object_keys(e."answerSpec")
+                )
+                ELSE -1
+              END = CASE WHEN e."answerSpec" ? 'equivalence' THEN 3 ELSE 2 END
+              AND CASE
+                WHEN e."answerSpec" ? 'equivalence' THEN e."answerSpec"->>'equivalence' = 'basic-symbolic'
+                ELSE TRUE
+              END
+              AND jsonb_typeof(e."answerSpec"->'acceptedExpressions') = 'array'
+              AND jsonb_array_length(
+                CASE
+                  WHEN jsonb_typeof(e."answerSpec"->'acceptedExpressions') = 'array' THEN e."answerSpec"->'acceptedExpressions'
+                  ELSE '[]'::jsonb
+                END
+              ) BETWEEN 1 AND 4
+              AND NOT EXISTS (
+                SELECT 1
+                FROM jsonb_array_elements(
+                  CASE
+                    WHEN jsonb_typeof(e."answerSpec"->'acceptedExpressions') = 'array' THEN e."answerSpec"->'acceptedExpressions'
+                    ELSE '[]'::jsonb
+                  END
+                ) expression
+                WHERE jsonb_typeof(expression) <> 'string'
+                   OR COALESCE(btrim(expression #>> '{}'), '') = ''
+                   OR length(expression #>> '{}') > 500
+              )
+            )
+          )
+        )
+      )
+    GROUP BY sp."id"
+    `,
+    prisma.$queryRaw<VerifiedReadinessCountRow[]>`
+      SELECT
+        s."id" AS skill_id,
+        COUNT(*) AS verified_exercise_count
+      FROM "skills" s
+      JOIN "exercises" e
+        ON e."userId" = s."userId"
+       AND e."skillId" = s."id"
+      WHERE s."userId" = ${userId}
+        AND s."id" IN (${Prisma.join(skillIds)})
+        AND e."verificationStatus" = ${ExerciseVerificationStatus.VERIFIED}::"ExerciseVerificationStatus"
+        AND e."retiredAt" IS NULL
+      GROUP BY s."id"
+    `,
+  ]);
+
+  const verifiedBySkill = new Map(
+    verifiedRows.map((row) => [row.skill_id, Number(row.verified_exercise_count)]),
+  );
+  const readyBySkill = new Map(rows.map((row) => [row.skill_id, Number(row.ready_exercise_count)]));
+
+  return new Map(
+    skillIds.map((skillId) => [
+      skillId,
+      {
+        readyExerciseCount: readyBySkill.get(skillId) ?? 0,
+        verifiedExerciseCount: verifiedBySkill.get(skillId) ?? 0,
+      },
+    ]),
   );
 }
 
@@ -180,6 +539,8 @@ export async function searchAgentSkills(
       exerciseConstraints: true,
       tags: true,
       status: true,
+      textPolicy: true,
+      alreadyStudied: true,
       dueAt: true,
       stability: true,
       difficulty: true,
@@ -187,7 +548,7 @@ export async function searchAgentSkills(
       lapses: true,
       firstIntroducedAt: true,
       lastReviewedAt: true,
-      collection: { select: { id: true, name: true, status: true } },
+      collection: { select: { id: true, name: true, status: true, textPolicy: true } },
       sourceRefs: {
         orderBy: { id: "asc" },
         take: 24,
@@ -217,8 +578,18 @@ export async function searchAgentSkills(
     },
   });
   const page = rows.slice(0, input.limit);
+  const readinessCounts = await loadReadinessCounts(
+    auth.userId,
+    page.map((skill) => skill.id),
+  );
   return {
-    skills: page.map((skill) => toPublicSkill(skill, input.include_samples)),
+    skills: page.map((skill) =>
+      toPublicSkill(
+        skill,
+        input.include_samples,
+        readinessCounts.get(skill.id)?.readyExerciseCount ?? 0,
+      ),
+    ),
     next_cursor: rows.length > input.limit ? page.at(-1)?.id ?? null : null,
   };
 }
@@ -247,13 +618,15 @@ export async function getAgentSkill(
       scheduledDays: true,
       learningSteps: true,
       repetitions: true,
+      alreadyStudied: true,
       lapses: true,
       fsrsState: true,
       firstIntroducedAt: true,
       lastReviewedAt: true,
       updatedAt: true,
       generationSpecStatus: true,
-      collection: { select: { id: true, name: true, status: true } },
+      textPolicy: true,
+      collection: { select: { id: true, name: true, status: true, textPolicy: true } },
       sourceRefs: {
         orderBy: { id: "asc" },
         take: 24,
@@ -264,9 +637,9 @@ export async function getAgentSkill(
         },
       },
       exercises: {
-        where: { retiredAt: null },
+        where: { verificationStatus: ExerciseVerificationStatus.VERIFIED, retiredAt: null },
         orderBy: { createdAt: "asc" },
-        take: 100,
+        take: input.sample_limit,
         select: {
           id: true,
           type: true,
@@ -301,14 +674,16 @@ export async function getAgentSkill(
     },
   });
   if (!skill) throw new AgentOperationError("skill_not_found", "The skill was not found.");
+  const readinessCounts = await loadReadinessCounts(auth.userId, [skill.id]);
+  const counts = readinessCounts.get(skill.id) ?? {
+    readyExerciseCount: 0,
+    verifiedExerciseCount: 0,
+  };
   const ready = readyExercises(skill);
-  const previewExercises = skill.exercises
-    .filter((exercise) => exercise.verificationStatus === ExerciseVerificationStatus.VERIFIED && exercise.retiredAt === null)
-    .slice(0, input.sample_limit)
-    .map(previewExercise);
+  const previewExercises = ready.slice(0, input.sample_limit).map(previewExercise);
   return {
     skill: {
-      ...toPublicSkill(skill, false),
+      ...toPublicSkill(skill, false, counts.readyExerciseCount),
       guidance: {
         rules: jsonStringList(skill.rules),
         examples: jsonStringList(skill.examples),
@@ -328,9 +703,9 @@ export async function getAgentSkill(
         last_reviewed_at: skill.lastReviewedAt?.toISOString() ?? null,
       },
       readiness: {
-        ready_exercise_count: ready.length,
-        verified_exercise_count: skill.exercises.filter((exercise) => exercise.verificationStatus === ExerciseVerificationStatus.VERIFIED && exercise.retiredAt === null).length,
-        status: ready.length > 0 && skill.status === SkillStatus.ACTIVE ? "ready" : "needs_preparation",
+        ready_exercise_count: counts.readyExerciseCount,
+        verified_exercise_count: counts.verifiedExerciseCount,
+        status: counts.readyExerciseCount > 0 && skill.status === SkillStatus.ACTIVE ? "ready" : "needs_preparation",
         generation_spec_status: skill.generationSpecStatus,
       },
       sample_exercises: previewExercises,
@@ -365,10 +740,12 @@ function toPublicSkill(skill: {
   stability: number | null;
   difficulty: number | null;
   repetitions: number;
+  alreadyStudied?: boolean;
+  textPolicy?: Prisma.JsonValue | null;
   lapses: number;
   firstIntroducedAt: Date | null;
   lastReviewedAt: Date | null;
-  collection: { id: string; name: string; status: CollectionStatus } | null;
+  collection: { id: string; name: string; status: CollectionStatus; textPolicy?: Prisma.JsonValue | null } | null;
   sourceRefs: Array<{
     locator: Prisma.JsonValue | null;
     note: string | null;
@@ -386,7 +763,7 @@ function toPublicSkill(skill: {
     retiredAt: Date | null;
     answerSpec: Prisma.JsonValue;
   }>;
-}, includeSamples: boolean) {
+}, includeSamples: boolean, readyExerciseCount: number) {
   const ready = readyExercises(skill);
   return {
     skill_id: skill.id,
@@ -413,8 +790,8 @@ function toPublicSkill(skill: {
       last_reviewed_at: skill.lastReviewedAt?.toISOString() ?? null,
     },
     readiness: {
-      ready_exercise_count: ready.length,
-      status: ready.length > 0 && skill.status === SkillStatus.ACTIVE ? "ready" : "needs_preparation",
+      ready_exercise_count: readyExerciseCount,
+      status: readyExerciseCount > 0 && skill.status === SkillStatus.ACTIVE ? "ready" : "needs_preparation",
     },
     ...(includeSamples
       ? { sample_exercises: ready.slice(0, 3).map(previewExercise) }
@@ -608,7 +985,10 @@ export async function batchUpdateAgentSkills(auth: AgentAuthContext, rawInput: u
       }
       results.push({ skill_id: id, status: "updated", collection_id: updated.collectionId, tags: updated.tags, updated_at: updated.updatedAt.toISOString() });
     }
-    return { status: results.some((item) => item.status === "stale") ? "partial" : "updated", results };
+    return {
+      status: results.some((item) => item.status !== "updated") ? "partial" : "updated",
+      results,
+    };
   }, transaction);
 }
 

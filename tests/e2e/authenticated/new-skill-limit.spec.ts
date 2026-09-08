@@ -217,7 +217,7 @@ test("advanced retention and practice-day settings persist and reset", async ({
     await expect(defaultRetention).toBeChecked();
     await expect(retention).toBeDisabled();
     await defaultRetention.uncheck();
-    await retention.fill("97");
+    await retention.fill("97.5");
 
     await page.getByRole("textbox", { name: "Practice day starts at", exact: true }).fill("23:45");
     const timezone = page.getByRole("combobox", {
@@ -235,7 +235,7 @@ test("advanced retention and practice-day settings persist and reset", async ({
     await page.reload();
     await page.getByText("Advanced practice settings", { exact: true }).click();
     await expect(defaultRetention).not.toBeChecked();
-    await expect(retention).toHaveValue("97%");
+    await expect(retention).toHaveValue("97.5%");
     await expect(
       page.getByRole("textbox", { name: "Practice day starts at", exact: true }),
     ).toHaveValue("23:45");
@@ -255,6 +255,57 @@ test("advanced retention and practice-day settings persist and reset", async ({
         settings[0].desiredRetention,
         settings[0].practiceDayStartMinutes,
         settings[0].practiceTimezone,
+        userId,
+      ],
+    );
+  }
+});
+
+test("preserves a fractional retention set outside the form during an unrelated save", async ({
+  page,
+  learnerFixture,
+}) => {
+  test.setTimeout(60_000);
+  const sql = neon(process.env.DATABASE_URL!);
+  const userId = learnerFixture.userId;
+  const settings = await sql.query(
+    'SELECT "mixedReview", "dailyNewSkillLimit", "practiceTimezone", "desiredRetention", "practiceDayStartMinutes" FROM users WHERE id=$1',
+    [userId],
+  );
+
+  try {
+    // Seed the value as an MCP/settings writer would: the form must not round
+    // it when saving a different preference.
+    await sql.query('UPDATE users SET "desiredRetention"=0.905 WHERE id=$1', [userId]);
+    await page.goto("/settings");
+    await page.getByText("Advanced practice settings", { exact: true }).click();
+    const retention = page.getByRole("textbox", {
+      name: "Desired retention",
+      exact: true,
+    });
+    await expect(retention).toHaveValue("90.5%");
+
+    await page.getByRole("switch", { name: "Mixed review by default" }).click();
+    await page.getByRole("button", { name: "Save practice preferences", exact: true }).click();
+    await expect(page.getByText("Preferences saved", { exact: true })).toBeVisible();
+
+    await page.reload();
+    await page.getByText("Advanced practice settings", { exact: true }).click();
+    await expect(
+      page.getByRole("textbox", { name: "Desired retention", exact: true }),
+    ).toHaveValue("90.5%");
+    await expect(
+      await sql.query('SELECT "desiredRetention" FROM users WHERE id=$1', [userId]),
+    ).toEqual([{ desiredRetention: 0.905 }]);
+  } finally {
+    await sql.query(
+      'UPDATE users SET "mixedReview"=$1, "dailyNewSkillLimit"=$2, "practiceTimezone"=$3, "desiredRetention"=$4, "practiceDayStartMinutes"=$5 WHERE id=$6',
+      [
+        settings[0].mixedReview,
+        settings[0].dailyNewSkillLimit,
+        settings[0].practiceTimezone,
+        settings[0].desiredRetention,
+        settings[0].practiceDayStartMinutes,
         userId,
       ],
     );

@@ -1220,6 +1220,192 @@ describeDatabase("material ingestion", () => {
     expect(storage.objects.has(writtenKey)).toBe(false);
   });
 
+  it("serializes website snapshot quota reservations for concurrent workers", async () => {
+    const storage = createMemoryStorage();
+    const pageUrl = "https://books.example/quota-chapter";
+    const pageHtml =
+      "<html><body><main><h1>Quota chapter</h1><p>This page contains enough readable textbook content for the concurrent quota reservation fixture.</p></main></body></html>";
+    const snapshotBytes = Buffer.from(
+      JSON.stringify({
+        version: 1,
+        pages: [{ url: pageUrl, title: "Quota chapter", html: pageHtml }],
+      }),
+    );
+    const existingStorage = await prisma.sourceFile.aggregate({
+      where: { userId, storageKey: { not: null } },
+      _sum: { byteSize: true },
+    });
+    const prefillByteSize =
+      ALPHA_STORED_SOURCE_BYTES - (existingStorage._sum.byteSize ?? 0) - snapshotBytes.byteLength;
+    expect(prefillByteSize).toBeGreaterThan(0);
+    const prefill = await prisma.sourceFile.create({
+      data: {
+        userId,
+        kind: SourceFileKind.OTHER,
+        status: SourceFileStatus.READY,
+        originalName: "quota-prefill.bin",
+        mimeType: "application/octet-stream",
+        byteSize: prefillByteSize,
+        storageBucket: storage.bucketName,
+        storageKey: `${runId}/quota-prefill.bin`,
+      },
+      select: { id: true },
+    });
+
+    try {
+      const inputs = await Promise.all(
+        ["one", "two"].map((suffix) =>
+          queueWebsiteMaterialImport({
+            userId,
+            now: new Date(),
+            storage,
+            eventSender: { async sendMaterialIngestionRequested() {} },
+            input: {
+              title: `Concurrent quota ${suffix}`,
+              sourceUrl: "https://books.example/quota-book",
+              selectedUrls: [pageUrl],
+            },
+          }),
+        ),
+      );
+      expect(inputs.every((input) => input.status === "queued")).toBe(true);
+      const revisionIds = inputs.map((input) => {
+        if (input.status !== "queued") throw new Error("expected both quota fixtures to queue");
+        return input.materialRevisionId;
+      });
+      let fetchedCount = 0;
+      let releaseFetch!: () => void;
+      const fetchBarrier = new Promise<void>((resolve) => {
+        releaseFetch = resolve;
+      });
+      const fetchResource = async (url: string) => {
+        fetchedCount += 1;
+        if (fetchedCount === revisionIds.length) releaseFetch();
+        await fetchBarrier;
+        return { url, contentType: "text/html", bytes: Buffer.from(pageHtml) };
+      };
+
+      const results = await Promise.allSettled(
+        revisionIds.map((materialRevisionId) =>
+          runMaterialIngestionJob({
+            userId,
+            materialRevisionId,
+            storage,
+            resolveHostname: async () => ["93.184.216.34"],
+            fetchResource,
+            embeddingGenerator: null,
+            summaryGenerator: null,
+          }),
+        ),
+      );
+      expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+      expect(results.filter((result) => result.status === "rejected")).toHaveLength(1);
+      const rejected = results.find((result) => result.status === "rejected");
+      expect(rejected).toMatchObject({
+        status: "rejected",
+        reason: expect.objectContaining({ message: expect.stringMatching(/250 MB|store/i) }),
+      });
+      expect(storage.puts).toHaveLength(1);
+
+      const sourceFiles = await prisma.sourceFile.findMany({
+        where: { userId, materialRevisionId: { in: revisionIds } },
+        select: { status: true, byteSize: true },
+      });
+      expect(sourceFiles).toEqual(
+        expect.arrayContaining([
+          { status: SourceFileStatus.READY, byteSize: snapshotBytes.byteLength },
+          { status: SourceFileStatus.FAILED, byteSize: null },
+        ]),
+      );
+    } finally {
+      await prisma.sourceFile.delete({ where: { id: prefill.id } });
+    }
+  });
+
+  it("retains a failed website write reservation until a retry replaces it", async () => {
+    const storage = createMemoryStorage();
+    const pageUrl = "https://books.example/retry-chapter";
+    const pageHtml =
+      "<html><body><main><h1>Retry chapter</h1><p>This page contains enough readable textbook content for a failed storage write and retry fixture.</p></main></body></html>";
+    const snapshotBytes = Buffer.from(
+      JSON.stringify({
+        version: 1,
+        pages: [{ url: pageUrl, title: "Retry chapter", html: pageHtml }],
+      }),
+    );
+    const queued = await queueWebsiteMaterialImport({
+      userId,
+      now: new Date(),
+      storage,
+      eventSender: { async sendMaterialIngestionRequested() {} },
+      input: {
+        title: "Retry website write",
+        sourceUrl: "https://books.example/retry-book",
+        selectedUrls: [pageUrl],
+      },
+    });
+    expect(queued.status).toBe("queued");
+    if (queued.status !== "queued") throw new Error("expected queued website import");
+
+    const successfulPut = storage.putObject?.bind(storage);
+    if (!successfulPut) throw new Error("expected snapshot storage");
+    storage.putObject = async () => {
+      throw new Error("fixture storage write failed");
+    };
+    await expect(
+      runMaterialIngestionJob({
+        userId,
+        materialRevisionId: queued.materialRevisionId,
+        storage,
+        resolveHostname: async () => ["93.184.216.34"],
+        fetchResource: async (url) => ({
+          url,
+          contentType: "text/html",
+          bytes: Buffer.from(pageHtml),
+        }),
+        embeddingGenerator: null,
+        summaryGenerator: null,
+      }),
+    ).rejects.toThrow(/fixture storage write failed/i);
+
+    const failedSource = await prisma.sourceFile.findFirstOrThrow({
+      where: { materialRevisionId: queued.materialRevisionId, userId },
+      select: { status: true, byteSize: true, storageKey: true },
+    });
+    expect(failedSource).toMatchObject({
+      status: SourceFileStatus.FAILED,
+      byteSize: snapshotBytes.byteLength,
+    });
+    expect(storage.objects.size).toBe(0);
+
+    storage.putObject = successfulPut;
+    await expect(
+      runMaterialIngestionJob({
+        userId,
+        materialRevisionId: queued.materialRevisionId,
+        storage,
+        resolveHostname: async () => ["93.184.216.34"],
+        fetchResource: async (url) => ({
+          url,
+          contentType: "text/html",
+          bytes: Buffer.from(pageHtml),
+        }),
+        embeddingGenerator: null,
+        summaryGenerator: null,
+      }),
+    ).resolves.toMatchObject({ status: "ready" });
+    const completedSource = await prisma.sourceFile.findFirstOrThrow({
+      where: { materialRevisionId: queued.materialRevisionId, userId },
+      select: { status: true, byteSize: true, storageKey: true },
+    });
+    expect(completedSource).toMatchObject({
+      status: SourceFileStatus.READY,
+      byteSize: snapshotBytes.byteLength,
+    });
+    expect(storage.puts).toHaveLength(1);
+    expect(storage.objects.has(completedSource.storageKey ?? "")).toBe(true);
+  });
+
   it("fetches large website selections in bounded concurrent groups", async () => {
     const storage = createMemoryStorage();
     const selectedUrls = Array.from(

@@ -80,6 +80,15 @@ export type RefillQueueResult =
       message: string;
     };
 
+export type DeferredExerciseRefillEvent = {
+  kind: "choice" | "exact-input" | "math";
+  payload: ExerciseRefillEventPayload;
+};
+
+export type RefillQueueResultWithDeferredEvent = RefillQueueResult & {
+  deferredEvent?: DeferredExerciseRefillEvent;
+};
+
 type QueueExerciseRefillInput = {
   userId: string;
   skillId: string;
@@ -87,6 +96,8 @@ type QueueExerciseRefillInput = {
   targetReadyCount?: number;
   sender?: ExerciseRefillEventSender;
   model?: string;
+  transaction?: Prisma.TransactionClient;
+  deferEvent?: boolean;
 };
 
 type RunChoiceExerciseRefillJobInput = ExerciseRefillEventPayload & {
@@ -117,8 +128,8 @@ const ACTIVE_GENERATION_JOB_STATUSES = [
 
 export async function queueChoiceExerciseRefillForSkill(
   input: QueueExerciseRefillInput,
-): Promise<RefillQueueResult> {
-  const prisma = getPrisma();
+): Promise<RefillQueueResultWithDeferredEvent> {
+  const prisma = input.transaction ?? getPrisma();
   const targetReadyCount = normalizeQueueTarget(
     input.targetReadyCount,
     DEFAULT_READY_EXERCISE_TARGET,
@@ -154,6 +165,7 @@ export async function queueChoiceExerciseRefillForSkill(
     input.userId,
     skill.id,
     GenerationJobKind.CHOICE_EXERCISE_GENERATION,
+    prisma,
   );
 
   if (activeJob) {
@@ -178,13 +190,14 @@ export async function queueChoiceExerciseRefillForSkill(
     readyExerciseCount: inventory.readyExerciseCount,
     targetReadyCount,
     sendEvent: (sender, payload) => sender.sendChoiceRefillRequested(payload),
+    eventKind: "choice",
   });
 }
 
 export async function queueExactInputExerciseRefillForSkill(
   input: QueueExerciseRefillInput,
-): Promise<RefillQueueResult> {
-  const prisma = getPrisma();
+): Promise<RefillQueueResultWithDeferredEvent> {
+  const prisma = input.transaction ?? getPrisma();
   const targetReadyCount = normalizeQueueTarget(
     input.targetReadyCount,
     DEFAULT_READY_EXACT_INPUT_TARGET,
@@ -230,6 +243,7 @@ export async function queueExactInputExerciseRefillForSkill(
     input.userId,
     skill.id,
     GenerationJobKind.EXACT_INPUT_EXERCISE_GENERATION,
+    prisma,
   );
 
   if (activeJob) {
@@ -254,13 +268,14 @@ export async function queueExactInputExerciseRefillForSkill(
     readyExerciseCount: inventory.readyExerciseCount,
     targetReadyCount,
     sendEvent: (sender, payload) => sender.sendExactInputRefillRequested(payload),
+    eventKind: "exact-input",
   });
 }
 
 export async function queueMathExerciseRefillForSkill(
   input: QueueExerciseRefillInput,
-): Promise<RefillQueueResult> {
-  const prisma = getPrisma();
+): Promise<RefillQueueResultWithDeferredEvent> {
+  const prisma = input.transaction ?? getPrisma();
   const targetReadyCount = normalizeQueueTarget(
     input.targetReadyCount,
     DEFAULT_READY_MATH_TARGET,
@@ -306,6 +321,7 @@ export async function queueMathExerciseRefillForSkill(
     input.userId,
     skill.id,
     GenerationJobKind.MATH_EXERCISE_GENERATION,
+    prisma,
   );
 
   if (activeJob) {
@@ -330,6 +346,7 @@ export async function queueMathExerciseRefillForSkill(
     readyExerciseCount: inventory.readyExerciseCount,
     targetReadyCount,
     sendEvent: (sender, payload) => sender.sendMathRefillRequested(payload),
+    eventKind: "math",
   });
 }
 
@@ -470,6 +487,7 @@ async function queueExerciseRefillJob({
   readyExerciseCount,
   targetReadyCount,
   sendEvent,
+  eventKind,
 }: {
   input: QueueExerciseRefillInput;
   kind: GenerationJobKind;
@@ -481,7 +499,8 @@ async function queueExerciseRefillJob({
     sender: ExerciseRefillEventSender,
     payload: ExerciseRefillEventPayload,
   ) => Promise<void>;
-}): Promise<RefillQueueResult> {
+  eventKind: DeferredExerciseRefillEvent["kind"];
+}): Promise<RefillQueueResultWithDeferredEvent> {
   const envStatus = input.sender ? null : getJobsEnvStatus();
 
   if (envStatus?.status === "missing-env") {
@@ -491,7 +510,7 @@ async function queueExerciseRefillJob({
     };
   }
 
-  const prisma = getPrisma();
+  const prisma = input.transaction ?? getPrisma();
   const sender = input.sender ?? awsExerciseRefillEventSender;
   const quota = await checkExerciseRefillUsageLimit({
     userId: input.userId,
@@ -511,6 +530,7 @@ async function queueExerciseRefillJob({
 
   const createJob = () =>
     createNewGenerationJob({
+      prisma,
       userId: input.userId,
       skillId: input.skillId,
       kind,
@@ -527,8 +547,19 @@ async function queueExerciseRefillJob({
     if (!isUniqueConstraintError(error)) {
       throw error;
     }
+    if (input.transaction) {
+      // A failed write aborts the PostgreSQL transaction. Do not query the
+      // transaction client after P2002; the guarded outer mutation can retry
+      // the complete claim with fresh authorization instead.
+      throw error;
+    }
 
-    const activeJob = await findActiveGenerationJob(input.userId, input.skillId, kind);
+    const activeJob = await findActiveGenerationJob(
+      input.userId,
+      input.skillId,
+      kind,
+      prisma,
+    );
 
     if (!activeJob) {
       try {
@@ -541,38 +572,45 @@ async function queueExerciseRefillJob({
     }
   }
 
-  try {
-    await sendEvent(sender, {
-      userId: input.userId,
+  const payload: ExerciseRefillEventPayload = {
+    userId: input.userId,
+    skillId: input.skillId,
+    generationJobId: generationJob.id,
+    targetReadyCount,
+    requestedAt: input.now.toISOString(),
+  };
+
+  // A serializable agent mutation may be retried from the beginning. Keep
+  // provider delivery outside that callback so one committed job produces at
+  // most one event, even when the database retries the transaction.
+  if (input.transaction || input.deferEvent) {
+    return {
+      status: "queued",
       skillId: input.skillId,
       generationJobId: generationJob.id,
-      targetReadyCount,
-      requestedAt: input.now.toISOString(),
-    });
-  } catch (error) {
-    const message = `AWS background jobs refill event failed: ${formatEnvError(error)}`;
-    await prisma.generationJob.update({
-      where: {
-        id: generationJob.id,
-      },
-      data: {
-        status: GenerationJobStatus.FAILED,
-        stage: GenerationJobStage.FAILED,
-        checkpoint: "event-send-failed",
-        failureCategory: GenerationFailureCategory.TRANSPORT,
-        errorMessage: message,
-        completedAt: input.now,
-      },
-    });
-
-    return {
-      status: "not-queued",
-      reason: "event-send-failed",
-      message,
-      generationJobId: generationJob.id,
+      requestedCount,
       readyExerciseCount,
       targetReadyCount,
+      message: "Exercise preparation started. Refresh in a moment to see the updated inventory.",
+      deferredEvent: { kind: eventKind, payload },
     };
+  }
+
+  try {
+    await sendEvent(sender, payload);
+  } catch {
+    return markRefillEventFailure({
+      result: {
+        status: "queued",
+        skillId: input.skillId,
+        generationJobId: generationJob.id,
+        requestedCount,
+        readyExerciseCount,
+        targetReadyCount,
+        message: "Exercise preparation started. Refresh in a moment to see the updated inventory.",
+      },
+      now: input.now,
+    });
   }
 
   return {
@@ -586,7 +624,106 @@ async function queueExerciseRefillJob({
   };
 }
 
+export async function publishDeferredExerciseRefillEvent(input: {
+  result: RefillQueueResultWithDeferredEvent;
+  now: Date;
+  sender?: ExerciseRefillEventSender;
+}): Promise<RefillQueueResult> {
+  const { result, sender = awsExerciseRefillEventSender } = input;
+  if (result.status !== "queued" || !result.deferredEvent) {
+    return withoutDeferredEvent(result);
+  }
+
+  try {
+    switch (result.deferredEvent.kind) {
+      case "choice":
+        await sender.sendChoiceRefillRequested(result.deferredEvent.payload);
+        break;
+      case "exact-input":
+        await sender.sendExactInputRefillRequested(result.deferredEvent.payload);
+        break;
+      case "math":
+        await sender.sendMathRefillRequested(result.deferredEvent.payload);
+        break;
+    }
+  } catch {
+    return markRefillEventFailure({ result, now: input.now });
+  }
+
+  return withoutDeferredEvent(result);
+}
+
+type QueuedRefillResult = Extract<RefillQueueResultWithDeferredEvent, { status: "queued" }>;
+
+async function markRefillEventFailure(input: {
+  result: QueuedRefillResult;
+  now: Date;
+}): Promise<RefillQueueResult> {
+  const message = "Exercise preparation could not be delivered. Retry the repair.";
+  const update = await getPrisma().generationJob.updateMany({
+    where: {
+      id: input.result.generationJobId,
+      status: GenerationJobStatus.PENDING,
+    },
+    data: {
+      status: GenerationJobStatus.FAILED,
+      stage: GenerationJobStage.FAILED,
+      checkpoint: "event-send-failed",
+      failureCategory: GenerationFailureCategory.TRANSPORT,
+      errorMessage: message,
+      completedAt: input.now,
+    },
+  });
+  if (update.count === 1) {
+    return {
+      status: "not-queued",
+      reason: "event-send-failed",
+      message,
+      generationJobId: input.result.generationJobId,
+      readyExerciseCount: input.result.readyExerciseCount,
+      targetReadyCount: input.result.targetReadyCount,
+    };
+  }
+
+  const current = await getPrisma().generationJob.findUnique({
+    where: { id: input.result.generationJobId },
+    select: { status: true },
+  });
+  if (!current) {
+    return {
+      status: "not-queued",
+      reason: "event-send-failed",
+      message,
+      generationJobId: input.result.generationJobId,
+      readyExerciseCount: input.result.readyExerciseCount,
+      targetReadyCount: input.result.targetReadyCount,
+    };
+  }
+
+  const publicResult = withoutDeferredEvent(input.result);
+  return {
+    ...publicResult,
+    message:
+      current.status === GenerationJobStatus.RUNNING
+        ? "Exercise preparation is already running."
+        : current.status === GenerationJobStatus.SUCCEEDED
+          ? "Exercise preparation completed."
+          : current.status === GenerationJobStatus.FAILED
+            ? "Exercise preparation failed. Retry the repair."
+            : publicResult.message,
+  };
+}
+
+function withoutDeferredEvent(
+  result: RefillQueueResultWithDeferredEvent,
+): RefillQueueResult {
+  const publicResult = { ...result };
+  delete publicResult.deferredEvent;
+  return publicResult;
+}
+
 async function createNewGenerationJob({
+  prisma,
   userId,
   skillId,
   kind,
@@ -595,6 +732,7 @@ async function createNewGenerationJob({
   model,
   now,
 }: {
+  prisma: Pick<Prisma.TransactionClient, "generationJob">;
   userId: string;
   skillId: string;
   kind: GenerationJobKind;
@@ -603,7 +741,7 @@ async function createNewGenerationJob({
   model?: string;
   now: Date;
 }): Promise<{ id: string }> {
-  return getPrisma().generationJob.create({
+  return prisma.generationJob.create({
     data: {
       userId,
       skillId,
@@ -627,8 +765,9 @@ async function findActiveGenerationJob(
   userId: string,
   skillId: string,
   kind: GenerationJobKind,
+  prisma: Pick<Prisma.TransactionClient, "generationJob"> = getPrisma(),
 ): Promise<{ id: string } | null> {
-  return getPrisma().generationJob.findFirst({
+  return prisma.generationJob.findFirst({
     where: {
       userId,
       skillId,

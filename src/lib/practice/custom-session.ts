@@ -42,6 +42,7 @@ import {
   customPracticeSessionRecordSchema,
   createCustomPracticeAttemptId,
   createCustomPracticeSessionItemKey,
+  MAX_CUSTOM_PRACTICE_SESSION_ITEMS,
   MAX_CUSTOM_PRACTICE_SCOPE_SKILLS,
   normalizeCustomPracticeSessionScope,
   RECENTLY_MISSED_LOOKBACK_DAYS,
@@ -298,10 +299,10 @@ export async function presentCustomPracticeSessionItem(input: {
       status: "PRESENTED",
       presentedAt: selection.sessionItem.presentedAt ?? now,
     });
-    const nextSession = await updateSessionRow(tx, current, {
-      plan: replacePlanItem(current.plan, presentedItem),
+    const nextSession = await updateSessionRow(tx, selection.session, {
+      plan: replacePlanItem(selection.session.plan, presentedItem),
       nextIndex: presentedItem.ordinal,
-      version: current.version + 1,
+      version: selection.session.version + 1,
     });
 
     return toReadyItem(nextSession, presentedItem, selection.exercise);
@@ -319,6 +320,12 @@ export async function previewCustomPracticeAnswer(input: {
   const session = await getCustomPracticeSession(input.userId, input.sessionId);
   if (!session) {
     return { status: "not-found", message: CUSTOM_SESSION_MISSING_MESSAGE };
+  }
+  if (session.status === "STOPPED") {
+    return { status: "unavailable", message: CUSTOM_SESSION_STOPPED_MESSAGE };
+  }
+  if (session.status === "COMPLETED") {
+    return { status: "unavailable", message: CUSTOM_SESSION_COMPLETED_MESSAGE };
   }
   const item = session.plan.find((candidate) => candidate.itemKey === input.itemKey);
   if (!item || item.exerciseId !== input.exerciseId || item.status !== "PRESENTED") {
@@ -492,10 +499,9 @@ export async function commitCustomPracticeAnswer(input: {
     });
     const completedCount = session.completedCount + 1;
     const nextIndex = findNextPlanIndex(session.plan, completedItem.ordinal + 1);
-    const sessionStatus =
-      completedCount >= session.targetCount || nextIndex === null
-        ? "COMPLETED"
-        : "ACTIVE";
+    // Let the post-commit presentation step replenish an undersized plan before
+    // deciding that no eligible inventory remains.
+    const sessionStatus = completedCount >= session.targetCount ? "COMPLETED" : "ACTIVE";
     const updatedSession = await updateSessionRow(tx, session, {
       plan: replacePlanItem(session.plan, completedItem),
       completedCount,
@@ -631,14 +637,22 @@ async function selectNextSessionItem(
   session: CustomPracticeSessionRecord,
   now: Date,
   options: { allowUnintroduced?: boolean } = {},
+  refillAttempt = 0,
 ): Promise<
-  | { status: "selected"; sessionItem: CustomPracticeSessionItem; exercise: SessionExercise; skill: SessionSkill }
+  | {
+      status: "selected";
+      session: CustomPracticeSessionRecord;
+      sessionItem: CustomPracticeSessionItem;
+      exercise: SessionExercise;
+      skill: SessionSkill;
+    }
   | { status: "result"; result: CustomPracticeSessionView }
 > {
   let current = session;
   current = await replenishSessionPlan(tx, current, now);
   const plan = [...current.plan].sort((left, right) => left.ordinal - right.ordinal);
   let blockedByDailyLimit = false;
+  let skippedIneligibleItem = false;
 
   for (const item of plan) {
     if (item.status === "COMPLETED" || item.status === "SKIPPED") {
@@ -652,6 +666,7 @@ async function selectNextSessionItem(
         nextIndex: item.ordinal + 1,
         version: current.version + 1,
       });
+      skippedIneligibleItem = true;
       continue;
     }
     if (!options.allowUnintroduced && !isSkillIntroduced(exercise.skill)) {
@@ -659,14 +674,17 @@ async function selectNextSessionItem(
       continue;
     }
     if (item.status === "PRESENTED") {
-      return { status: "selected", sessionItem: item, exercise, skill: exercise.skill };
+      return { status: "selected", session: current, sessionItem: item, exercise, skill: exercise.skill };
     }
-    return { status: "selected", sessionItem: item, exercise, skill: exercise.skill };
+    return { status: "selected", session: current, sessionItem: item, exercise, skill: exercise.skill };
   }
 
   const hasPendingInventory = current.plan.some(
     (item) => item.status === "PENDING" || item.status === "PRESENTED",
   );
+  if (skippedIneligibleItem && refillAttempt < MAX_CUSTOM_PRACTICE_SESSION_ITEMS) {
+    return selectNextSessionItem(tx, current, now, options, refillAttempt + 1);
+  }
   if (blockedByDailyLimit) {
     return {
       status: "result",

@@ -10,10 +10,12 @@ import { AgentSetupPlanStatus } from "@/generated/prisma/client";
 import { sendAgentSkillOperationRequested } from "@/lib/jobs/events";
 import {
   applyAgentSetup,
+  getAgentSetupPlan,
   previewAgentSetup,
 } from "@/lib/agent-access/setup";
 import type { AgentAccessScope, AgentAuthContext } from "@/lib/agent-access/auth";
 import { createAgentSpecOperation } from "@/lib/agent-access/operations";
+import * as practiceAccess from "@/lib/agent-access/practice";
 import { getPrisma } from "@/lib/prisma";
 import { createSkillFixture } from "./test-helpers";
 
@@ -125,6 +127,81 @@ describeDatabase("durable agent setup plans", () => {
       pending_count: 0,
       failed_count: 0,
       actions: [expect.objectContaining({ step_key: "practice", status: "saved" })],
+    });
+  });
+
+  it("keeps unexpected provider details out of failed journals and later reads", async () => {
+    const fixture = await createFixture("unexpected-error");
+    const preview = await previewAgentSetup(fixture.auth, practicePlan(`${runId}_unexpected_error`));
+    const privateMarker = "provider-prisma-private-marker";
+    vi.spyOn(practiceAccess, "updateAgentPracticeSettings").mockImplementationOnce(async () => {
+      throw new Error(privateMarker);
+    });
+
+    const applied = await applyAgentSetup(fixture.auth, { plan_id: preview.plan_id });
+    expect(applied).toMatchObject({ plan_id: preview.plan_id, status: "FAILED" });
+    expect(JSON.stringify(applied)).not.toContain(privateMarker);
+
+    const stored = await prisma.agentSetupPlan.findUniqueOrThrow({ where: { id: preview.plan_id as string } });
+    expect(JSON.stringify(stored.result)).not.toContain(privateMarker);
+    expect(stored.result).toMatchObject({
+      actions: [
+        expect.objectContaining({
+          step_key: "practice",
+          status: "failed",
+          error: {
+            code: "internal_error",
+            message: "The setup action could not be completed.",
+          },
+        }),
+      ],
+    });
+
+    const laterRead = await getAgentSetupPlan(fixture.auth, { plan_id: preview.plan_id });
+    expect(JSON.stringify(laterRead)).not.toContain(privateMarker);
+    expect(laterRead).toMatchObject({
+      result: {
+        actions: [
+          expect.objectContaining({
+            error: {
+              code: "internal_error",
+              message: "The setup action could not be completed.",
+            },
+          }),
+        ],
+      },
+    });
+
+    await prisma.agentSetupPlan.update({
+      where: { id: preview.plan_id as string },
+      data: {
+        result: {
+          version: 1,
+          actions: [{
+            kind: "practice",
+            step_key: "practice",
+            status: "failed",
+            error: { code: "internal_error", message: privateMarker, provider_detail: privateMarker },
+          }],
+        },
+        errors: { code: "internal_error", message: privateMarker, provider_detail: privateMarker },
+      },
+    });
+    const legacyRead = await getAgentSetupPlan(fixture.auth, { plan_id: preview.plan_id });
+    expect(JSON.stringify(legacyRead)).not.toContain(privateMarker);
+    expect(legacyRead).toMatchObject({
+      result: {
+        actions: [{
+          error: {
+            code: "internal_error",
+            message: "The setup action could not be completed.",
+          },
+        }],
+      },
+      errors: {
+        code: "internal_error",
+        message: "The setup action could not be completed.",
+      },
     });
   });
 

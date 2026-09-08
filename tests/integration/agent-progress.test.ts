@@ -17,7 +17,13 @@ import {
 import {
   getAgentProgressSummary,
   getAgentReadiness,
+  repairAgentReadiness,
 } from "@/lib/agent-access/progress";
+import type { ExerciseRefillEventSender } from "@/lib/jobs/events";
+import {
+  publishDeferredExerciseRefillEvent,
+  queueChoiceExerciseRefillForSkill,
+} from "@/lib/skills/refill-jobs";
 import {
   EXACT_TEXT_POLICY,
   NATURAL_TEXT_POLICY,
@@ -60,7 +66,7 @@ suite("agent progress read model", () => {
         clientName: "Progress test agent",
         clientDomain: "agent.example",
         resourceUrl: "https://learnrecur.com/mcp",
-        scopes: ["progress:read"] satisfies AgentAccessScope[],
+        scopes: ["progress:read", "skills:write"] satisfies AgentAccessScope[],
       },
     });
     return {
@@ -73,7 +79,7 @@ suite("agent progress read model", () => {
       clientDomain: connection.clientDomain,
       resourceUrl: connection.resourceUrl,
       expiresAt: Math.floor(Date.now() / 1_000) + 3_600,
-      scopes: ["progress:read"],
+      scopes: ["progress:read", "skills:write"],
     };
   }
 
@@ -288,6 +294,300 @@ suite("agent progress read model", () => {
       failed_job_count: 1,
     });
     expect(summary.trouble_spots).toEqual([]);
+  });
+
+  it("merges omitted guidance fields from the locked current skill", async () => {
+    const auth = await createAuth();
+    const skill = await createSkillFixture(prisma, {
+      userId: auth.userId,
+      title: "Guidance repair",
+    });
+    await prisma.skill.update({
+      where: { id: skill.id },
+      data: {
+        rules: { items: ["Keep the original rule."] },
+        examples: { items: ["Keep the original example."] },
+        exerciseConstraints: {
+          notes: "Keep the original constraint.",
+          answerKind: "choice",
+          requestedCount: 5,
+        },
+      },
+    });
+
+    await expect(
+      repairAgentReadiness(auth, {
+        skill_id: skill.id,
+        action: "update_guidance",
+        rules: ["Use the repaired rule."],
+      }),
+    ).resolves.toMatchObject({
+      status: "updated",
+      action: "update_guidance",
+      skill_id: skill.id,
+    });
+
+    await expect(
+      prisma.skill.findUniqueOrThrow({
+        where: { id: skill.id },
+        select: { rules: true, examples: true, exerciseConstraints: true },
+      }),
+    ).resolves.toMatchObject({
+      rules: { items: ["Use the repaired rule."] },
+      examples: { items: ["Keep the original example."] },
+      exerciseConstraints: {
+        notes: "Keep the original constraint.",
+        answerKind: "choice",
+        requestedCount: 5,
+      },
+    });
+  });
+
+  it("does not flag an exercise from a different owned skill", async () => {
+    const auth = await createAuth();
+    const requestedSkill = await createSkillFixture(prisma, {
+      userId: auth.userId,
+      title: "Requested skill",
+    });
+    const otherSkill = await createSkillFixture(prisma, {
+      userId: auth.userId,
+      title: "Other skill",
+    });
+    const exercise = await createChoiceExercise({
+      prisma,
+      userId: auth.userId,
+      skillId: otherSkill.id,
+    });
+
+    await expect(
+      repairAgentReadiness(auth, {
+        skill_id: requestedSkill.id,
+        action: "flag_exercise",
+        exercise_id: exercise.id,
+        reasons: ["UNCLEAR_PROMPT"],
+      }),
+    ).resolves.toMatchObject({
+      status: "not-found",
+      action: "flag_exercise",
+    });
+    await expect(
+      prisma.exercise.findUniqueOrThrow({
+        where: { id: exercise.id },
+        select: { retiredAt: true },
+      }),
+    ).resolves.toEqual({ retiredAt: null });
+    await expect(
+      prisma.exerciseFlag.count({
+        where: { userId: auth.userId, exerciseId: exercise.id },
+      }),
+    ).resolves.toBe(0);
+  });
+
+  it("rechecks revocation before committing a readiness repair", async () => {
+    const auth = await createAuth();
+    const skill = await createSkillFixture(prisma, {
+      userId: auth.userId,
+      title: "Revocation repair",
+    });
+    await prisma.skill.update({
+      where: { id: skill.id },
+      data: { rules: { items: ["Original rule."] } },
+    });
+
+    let locked!: () => void;
+    let release!: () => void;
+    let revocationPid = 0;
+    const didLock = new Promise<void>((resolve) => {
+      locked = resolve;
+    });
+    const canCommit = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const revoke = prisma.$transaction(
+      async (tx) => {
+        const [backend] = await tx.$queryRaw<Array<{ pid: number }>>`
+          SELECT pg_backend_pid() AS pid
+        `;
+        revocationPid = backend.pid;
+        await tx.agentConnection.update({
+          where: { id: auth.connectionId },
+          data: { status: "REVOKED" },
+        });
+        locked();
+        await canCommit;
+      },
+      { timeout: 10_000 },
+    );
+    await didLock;
+
+    const pending = repairAgentReadiness(auth, {
+      skill_id: skill.id,
+      action: "update_guidance",
+      examples: ["This write must not commit."],
+    });
+    const assertion = expect(pending).rejects.toMatchObject({
+      code: "permission_denied",
+    });
+    try {
+      await expect
+        .poll(
+          async () => {
+            const [state] = await prisma.$queryRaw<Array<{ waiting: boolean }>>`
+              SELECT EXISTS (
+                SELECT 1 FROM pg_stat_activity
+                WHERE datname = current_database()
+                  AND ${revocationPid} = ANY(pg_blocking_pids(pid))
+              ) AS waiting
+            `;
+            return state.waiting;
+          },
+          { timeout: 3_000, interval: 50 },
+        )
+        .toBe(true);
+    } finally {
+      release();
+    }
+    await revoke;
+    await assertion;
+    await expect(
+      prisma.skill.findUniqueOrThrow({
+        where: { id: skill.id },
+        select: { examples: true },
+      }),
+    ).resolves.toEqual({ examples: null });
+  });
+
+  it("keeps the worker state when a committed refill event acknowledgement is lost", async () => {
+    const auth = await createAuth();
+    const skill = await createSkillFixture(prisma, {
+      userId: auth.userId,
+      title: "Lost refill acknowledgement",
+    });
+    const generationJob = await prisma.generationJob.create({
+      data: {
+        userId: auth.userId,
+        skillId: skill.id,
+        kind: GenerationJobKind.CHOICE_EXERCISE_GENERATION,
+        status: GenerationJobStatus.PENDING,
+        stage: GenerationJobStage.QUEUED,
+        provider: "test",
+        model: "fixture",
+        promptVersion: "fixture-v1",
+        requestedCount: 1,
+      },
+    });
+    const sender: ExerciseRefillEventSender = {
+      async sendChoiceRefillRequested() {
+        await prisma.generationJob.update({
+          where: { id: generationJob.id },
+          data: {
+            status: GenerationJobStatus.SUCCEEDED,
+            stage: GenerationJobStage.COMPLETE,
+          },
+        });
+        throw new Error("ack lost after worker started");
+      },
+      async sendExactInputRefillRequested() {
+        throw new Error("unexpected exact-input event");
+      },
+      async sendMathRefillRequested() {
+        throw new Error("unexpected math event");
+      },
+    };
+
+    const result = await publishDeferredExerciseRefillEvent({
+      result: {
+        status: "queued",
+        skillId: skill.id,
+        generationJobId: generationJob.id,
+        requestedCount: 1,
+        readyExerciseCount: 0,
+        targetReadyCount: 5,
+        message: "Exercise preparation started.",
+        deferredEvent: {
+          kind: "choice",
+          payload: {
+            userId: auth.userId,
+            skillId: skill.id,
+            generationJobId: generationJob.id,
+            targetReadyCount: 5,
+            requestedAt: now.toISOString(),
+          },
+        },
+      },
+      now,
+      sender,
+    });
+
+    expect(result).toMatchObject({
+      status: "queued",
+      message: "Exercise preparation completed.",
+    });
+    expect(JSON.stringify(result)).not.toContain("deferredEvent");
+    await expect(
+      prisma.generationJob.findUniqueOrThrow({
+        where: { id: generationJob.id },
+        select: { status: true, stage: true },
+      }),
+    ).resolves.toEqual({
+      status: GenerationJobStatus.SUCCEEDED,
+      stage: GenerationJobStage.COMPLETE,
+    });
+  });
+  it("publishes one committed refill event and strips deferred details from the result", async () => {
+    const auth = await createAuth();
+    const skill = await createSkillFixture(prisma, {
+      userId: auth.userId,
+      title: "Committed refill event",
+    });
+    let queued!: Awaited<ReturnType<typeof queueChoiceExerciseRefillForSkill>>;
+    await prisma.$transaction(async (tx) => {
+      queued = await queueChoiceExerciseRefillForSkill({
+        userId: auth.userId,
+        skillId: skill.id,
+        now,
+        transaction: tx,
+        deferEvent: true,
+      });
+    });
+
+    expect(queued).toMatchObject({ status: "queued" });
+    if (queued.status !== "queued" || !queued.deferredEvent) {
+      throw new Error("Expected a committed refill event to be deferred.");
+    }
+
+    let sendCount = 0;
+    let observedStatus: GenerationJobStatus | null = null;
+    const sender: ExerciseRefillEventSender = {
+      async sendChoiceRefillRequested(payload) {
+        sendCount += 1;
+        const job = await prisma.generationJob.findUniqueOrThrow({
+          where: { id: payload.generationJobId },
+          select: { status: true },
+        });
+        observedStatus = job.status;
+      },
+      async sendExactInputRefillRequested() {
+        throw new Error("unexpected exact-input event");
+      },
+      async sendMathRefillRequested() {
+        throw new Error("unexpected math event");
+      },
+    };
+
+    const result = await publishDeferredExerciseRefillEvent({
+      result: queued,
+      now,
+      sender,
+    });
+
+    expect(result).toMatchObject({
+      status: "queued",
+      generationJobId: queued.generationJobId,
+    });
+    expect(result).not.toHaveProperty("deferredEvent");
+    expect(sendCount).toBe(1);
+    expect(observedStatus).toBe(GenerationJobStatus.PENDING);
   });
 });
 
