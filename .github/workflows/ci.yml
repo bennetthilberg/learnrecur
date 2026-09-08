@@ -34,8 +34,8 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Unit tests with coverage gate
-        run: npm run test:coverage
+      - name: Unit tests
+        run: npm run test:unit
 
       - name: Validate Prisma schema
         run: npm run prisma:validate
@@ -97,8 +97,8 @@ jobs:
       - name: Apply test database migrations
         run: npm run prisma:deploy
 
-      - name: Database integration tests
-        run: npm run test:db
+      - name: Database integration tests with coverage gate
+        run: npm run test:coverage:db
 
       - name: Authenticated browser tests
         run: npm run test:e2e:auth

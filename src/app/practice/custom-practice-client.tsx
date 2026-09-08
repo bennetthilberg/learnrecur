@@ -204,7 +204,6 @@ export function CustomPracticeClient({
       <section className="practiceFrame customPracticeClient" aria-labelledby="custom-practice-title">
         <div className="practiceMetaRow">
           <div>
-            <p className="practiceEyebrow">Custom session</p>
             <h1 id="custom-practice-title">{session.mixedReview && !checked ? "Review" : exercise.skillTitle}</h1>
             <p className="practiceMetaSummary tnum">Exercise {session.completedCount + 1} of {session.targetCount}</p>
           </div>

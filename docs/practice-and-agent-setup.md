@@ -25,13 +25,14 @@ surfaces preparation, generation, review, and repair states with actionable
 links. `/practice/attention` has loading, empty, populated, failure, and retry
 states; reading it does not reserve skills or change a review schedule.
 
-Advanced practice settings preserve review history and schedules while exposing
-the account desired retention, account practice preference, mixed-review default,
-local day-start minutes, and an IANA practice timezone. Practice preference
-inheritance resolves skill override, collection override, user preference, then
-Balanced. Desired retention is account-only and nullable; a cleared value uses
-the 90% product default. Already-studied remains an existing per-skill control,
-not an account setting. The default practice day starts at 00:00 in UTC. Day
+Advanced practice settings preserve review history and schedules while adding
+account desired retention, local day-start minutes, and an IANA practice
+timezone. The existing account practice preference and mixed-review default
+remain available alongside these controls. Practice preference inheritance
+resolves skill override, collection override, user preference, then Balanced.
+Desired retention is account-only and nullable; a cleared value uses the 90%
+product default. Already-studied remains an existing per-skill control, not an
+account setting. The default practice day starts at 00:00 in UTC. Day
 boundaries use calendar semantics and DST-aware timezone conversion. Reminder
 local time remains a separate setting.
 
@@ -51,10 +52,10 @@ The connected-agent API exposes the bounded tools that exist in this release:
 
 Every read and mutation rechecks the active connection, expiry, consented
 scope, account state, ownership, and rate limit. Batch changes are bounded and
-per-item; policy or ownership changes retire incompatible future inventory and
-reprepare it through the existing bounded pipeline. Attempts, review logs, and
-source provenance remain immutable. Public errors do not expose provider
-messages, private material, storage keys, or database details.
+per-item; collection or text-policy changes retire incompatible future
+inventory and reprepare it through the existing bounded pipeline. Attempts,
+review logs, and source provenance remain immutable. Public errors do not
+expose provider messages, private material, storage keys, or database details.
 
 ## Defaults, scopes, and rollout
 
@@ -84,8 +85,9 @@ and [MCP authentication rollout guidance](https://workos.com/blog/how-to-add-aut
 The integration environment used one ignored `.env.local` backed by a
 disposable database, with `JOBS_ENVIRONMENT=local`. It did not target a
 production database, bucket, queue, provider, or invitation flow. Fixtures
-created and removed only their own rows. Generated artifacts, browser state,
-and worker archives remain ignored.
+created and removed only their own rows. The generated Prisma client is tracked
+with the schema change; test and browser artifacts and worker archives remain
+ignored.
 
 ## Verification record
 
@@ -106,6 +108,7 @@ use one worker and one database lease.
 | Focused progress and Needs Attention integration | 2 files, 5 tests passed (2 progress and 3 Needs Attention). |
 | Setup concurrency integration | 1 selected test passed after recognizing the Prisma 7 Neon nested `driverAdapterError.cause.kind` shape. |
 | Full unit suite | 106 files, 1,043 tests passed. |
+| Combined coverage proof | Unit tests plus the directly affected database files passed 110 files and 1,087 tests against the disposable database; coverage was statements 52.52%, branches 46.01%, functions 61.75%, and lines 52.35%, with the existing thresholds unchanged. |
 | Full lint | Passed. |
 | Application build | Passed; Next.js typecheck and static generation completed. |
 | Worker bundle | `npm run jobs:build` passed and wrote the ignored `.aws-build/jobs.zip`. |

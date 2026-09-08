@@ -24,6 +24,7 @@
     "test:e2e:db:cleanup": "tsx scripts/manage-e2e-database.ts cleanup",
     "test:all": "npm run test:unit && npm run test:db && npm run test:e2e:all",
     "test:coverage": "vitest run tests/unit --coverage",
+    "test:coverage:db": "RUN_DATABASE_TESTS=1 vitest run tests/unit tests/integration --coverage",
     "prisma:validate": "prisma validate",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",

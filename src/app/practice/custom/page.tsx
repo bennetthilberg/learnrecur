@@ -72,7 +72,6 @@ export default async function CustomPracticePage({
       <SkillsTopbar current="practice" />
       <header className="skillHeader customPracticeHeader">
         <div>
-          <p className="practiceEyebrow">Practice</p>
           <h1>Set up a custom session</h1>
           <p>Choose the skills you want to see now. Practice only is selected by default and never changes your schedule.</p>
         </div>
