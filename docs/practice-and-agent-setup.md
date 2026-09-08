@@ -23,6 +23,15 @@ rule cues were actually used; title withholding does not depend on how many
 skills are available. The session does not add timeboxing or a today-bonus
 system.
 
+The practice read path treats an exercise whose included skill relation has
+disappeared during loading as unavailable and continues with other owned
+candidates. A final CI browser retry exposed the missing guard through a
+`toSkillScheduleFields` null dereference while the shared authenticated fixture
+loaded the dashboard. The exact origin of the missing relation remains
+inferred from the retry-only failure; the product stack showed that the loader
+needed to handle the nullable relation. Present skills with incomplete FSRS
+fields still fail the existing invariant check.
+
 Needs Attention is a deterministic, ownership-scoped, bounded read model. It
 surfaces preparation, generation, review, and repair states with actionable
 links. `/practice/attention` has loading, empty, populated, failure, and retry
@@ -130,6 +139,8 @@ use one worker and one database lease.
 | Worker bundle | `npm run jobs:build` passed and wrote the ignored `.aws-build/jobs.zip`. |
 | Runtime audit | `npm run check:runtime-audit` passed: 0 runtime findings and 0 blockers; four accepted dev-only Prisma CLI exceptions. |
 | Focused MCP protocol unit tests | 4 files, 22 tests passed. `setup_in_progress` is publicly retryable; `setup_stale` is not, and lifecycle mutations carry destructive hints. |
+| Null relation practice loader regression | `practice-null-relation.test.ts`: 2/2 passed through the public preview loader, covering a missing relation beside a valid owned candidate and an all-missing empty result. |
+| Targeted stale-submit browser regression | `learner-lifecycle.spec.ts` stale second submit: 3/3 passed with Clerk setup and cleanup, including the authenticated browser case in 16.8s. |
 | Exact-head GitHub CI | Run [34274320695](https://github.com/bennetthilberg/learnrecur/actions/runs/34274320695) passed at `419615657f10b6404298794afbc681e47ff25e53`: verify passed runtime audit, lint, unit, Prisma validation/client generation, and build; the combined gate passed 146 files and 1,560 tests with 80.42% statements, 71.36% branches, 88.03% functions, and 80.88% lines; authenticated Chromium passed 26 tests. |
 | Authenticated browser flows | 7 product tests passed across desktop and mobile settings, daily-limit gating, advanced retention/day-start persistence, custom setup/completion, mixed-review cues, and Needs Attention states. The externally seeded fractional-retention case passed in a focused 1/1 rerun after a test locator correction. Clerk setup and cleanup passed for both runs. Custom mobile frame measured 14px left, 361px right, with no horizontal document overflow. |
 | Malformed Needs Attention cursor browser check | `needs-attention.spec.ts`: 5/5 passed with Clerk setup/cleanup, including desktop, mobile, and first-page recovery for a malformed cursor. |
@@ -150,15 +161,16 @@ backlog. A disposable archive comparison against `b49f132` found the same 83
 diagnostics, 30 unique path/code/severity keys, and unchanged messages, with
 zero introduced diagnostics. The application build typecheck passes.
 
-The two manual Codex review requests are exhausted. The final request reviewed
-`8add41e` and identified scheduled per-skill planning, lifecycle MCP
-destructive annotations, and the missing progress day-start field; follow-up
-test commit `4196156` and the current review-fix changes address those
-findings and were validated by focused tests and exact-head CI. No third manual
-review was requested. CodeRabbit suggestions were triaged separately: the fork
-coverage trust boundary and bounded DST boundary search remain intentional, while
-broad renames, formatting churn, and speculative optimizations were deferred.
-This record does not claim every automated review comment is resolved.
+The two allowed manual review requests are exhausted. The final manual review
+covered `8add41e` and identified scheduled per-skill planning, lifecycle MCP
+destructive annotations, and the missing progress day-start field. Follow-up
+test commit `4196156` was test-only; review-fix commit `1c0acdf` addressed
+those three findings, and both were validated by focused tests and exact-head
+CI. No third manual review was requested. Automated review suggestions were
+triaged separately: the fork coverage trust boundary and bounded DST boundary
+search remain intentional, while broad renames, formatting churn, and
+speculative optimizations were deferred. This record does not claim every
+automated review comment is resolved.
 
 ## Browser review and self-critique
 

@@ -1226,6 +1226,7 @@ async function findEligibleExercise(
   });
   const exerciseRecords = exercises
     .map(toPracticeExerciseRecord)
+    .filter((exercise): exercise is PracticeExerciseRecord => exercise !== null)
     .filter(hasCompatiblePracticeAnswerSpec)
     .filter(isPracticeExerciseUnlockedForSkill);
   const attemptStatsByExerciseId = await getExerciseAttemptRotationStats(prisma, {
@@ -1458,7 +1459,14 @@ function hasCompatiblePracticeAnswerSpec(exercise: PracticeExerciseRecord): bool
 
 function toPracticeExerciseRecord(
   exercise: RawEligibleExerciseRecord,
-): PracticeExerciseRecord {
+): PracticeExerciseRecord | null {
+  // A skill can disappear between the exercise query and relation hydration.
+  // Treat that candidate as unavailable while preserving the existing hard
+  // failure for a present skill with an invalid FSRS schedule.
+  if (!exercise.skill) {
+    return null;
+  }
+
   const skill = {
     ...toPracticeSkillRecordOrThrow(exercise.skill),
     alreadyStudied: exercise.skill.alreadyStudied,
@@ -1643,10 +1651,11 @@ type PracticeQueryClient = Pick<
   "exercise" | "exerciseAttempt" | "exerciseFlag" | "reviewLog" | "skill"
 >;
 
-type RawEligibleExerciseRecord = Awaited<
-  ReturnType<PracticeQueryClient["exercise"]["findMany"]>
->[number] & {
-  skill: NullableSkillScheduleRecord & {
+type RawEligibleExerciseRecord = Omit<
+  Awaited<ReturnType<PracticeQueryClient["exercise"]["findMany"]>>[number],
+  "skill"
+> & {
+  skill: (NullableSkillScheduleRecord & {
     tags?: string[];
     objective?: string | null;
     practicePreference?: PracticePreference | null;
@@ -1655,7 +1664,7 @@ type RawEligibleExerciseRecord = Awaited<
     id: string;
     title: string;
     collectionId: string | null;
-  };
+  }) | null;
 };
 
 type NullableSkillScheduleRecord = {
