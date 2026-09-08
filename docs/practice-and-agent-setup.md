@@ -136,18 +136,21 @@ directories.
 Five generic/default pitfalls were checked and corrected where evidence
 required it:
 
-1. The focused practice/session surface remains the primary hierarchy; no
-   marketing hero or oversized feature section was introduced.
-2. Controls use purposeful surfaces and spacing; no nested-card or uniform
-   border/shadow treatment was added.
-3. Labels and helper text carry meaning; no decorative gradients, section
-   numbers, or generic typography were added.
-4. Existing Mantine and Phosphor control language remains in use; no emoji or
-   replacement icon set was introduced.
-5. The mobile custom frame now uses the available width with equal containment
-   margins, and the mixed-review setup control changes the title/cue metadata
-   path. The rendered custom frame had no horizontal overflow and keyboard
-   focus reached the session controls.
+1. Repeated eyebrow labels would have added noise above an already clear
+   heading, so the redundant Practice label on setup and Custom session label
+   in the active card were removed.
+2. Technical timezone wording would have made the setting harder to scan, so
+   the helper now says it uses local time and includes daylight-saving changes.
+3. A narrow mobile card would have cramped the action edge, so the custom
+   frame was widened to equal 14px containment margins and verified without
+   horizontal overflow.
+4. Advanced controls shown in the main settings flow would have made the
+   common controls noisy, so retention and day-start inputs remain inside the
+   Advanced practice settings disclosure.
+5. Showing a skill title before feedback in mixed practice would reveal the
+   cue the mode is designed to withhold, so the active heading stays neutral as
+   Review until feedback and then shows the title; the setup choice records
+   actual reduced-cue use.
 
 ## Release boundary
 
