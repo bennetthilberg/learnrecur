@@ -112,7 +112,9 @@ export const UserScalarFieldEnum = {
   updatedAt: 'updatedAt',
   agentAccessDisabledAt: 'agentAccessDisabledAt',
   practicePreference: 'practicePreference',
-  mixedReview: 'mixedReview'
+  mixedReview: 'mixedReview',
+  dailyNewSkillLimit: 'dailyNewSkillLimit',
+  practiceTimezone: 'practiceTimezone'
 } as const
 
 export type UserScalarFieldEnum = (typeof UserScalarFieldEnum)[keyof typeof UserScalarFieldEnum]
@@ -301,6 +303,7 @@ export type MaterialCleanupJobScalarFieldEnum = (typeof MaterialCleanupJobScalar
 
 
 export const SkillScalarFieldEnum = {
+  firstIntroducedAt: 'firstIntroducedAt',
   practicePreference: 'practicePreference',
   alreadyStudied: 'alreadyStudied',
   textPolicy: 'textPolicy',

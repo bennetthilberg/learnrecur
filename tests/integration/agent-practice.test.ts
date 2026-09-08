@@ -238,7 +238,7 @@ suite("MCP practice settings HTTP and persistence", () => {
           { practicePreference: "RECALL_FIRST", mixedReview: true },
         )
       ).structuredContent.settings,
-    ).toEqual({ practicePreference: "RECALL_FIRST", mixedReview: true });
+    ).toEqual({ practicePreference: "RECALL_FIRST", mixedReview: true, dailyNewSkillLimit: null, practiceTimezone: "UTC" });
     expect(
       (
         await call("practice.get_settings", {
@@ -299,7 +299,21 @@ suite("MCP practice settings HTTP and persistence", () => {
     expect(userPartial.structuredContent.settings).toEqual({
       practicePreference: "RECALL_FIRST",
       mixedReview: false,
+      dailyNewSkillLimit: null,
+      practiceTimezone: "UTC",
     });
+  });
+
+  it("edits the daily limit and timezone through MCP without resetting other settings", async () => {
+    const saved = await call("practice.update_settings", { target: { scope: "user" }, changes: { dailyNewSkillLimit: 2, practiceTimezone: "America/Chicago" } });
+    expect(saved.structuredContent.settings).toMatchObject({ dailyNewSkillLimit: 2, practiceTimezone: "America/Chicago", practicePreference: "BALANCED" });
+    await call("practice.update_settings", { target: { scope: "user" }, changes: { mixedReview: true } });
+    const read = await call("practice.get_settings", { target: { scope: "user" } });
+    expect(read.structuredContent.settings).toMatchObject({ dailyNewSkillLimit: 2, practiceTimezone: "America/Chicago", mixedReview: true });
+    auth.scopes = ["practice:read"];
+    const denied = await call("practice.update_settings", { target: { scope: "user" }, changes: { dailyNewSkillLimit: null } });
+    expect(denied.isError).toBe(true);
+    expect((await prisma.user.findUniqueOrThrow({ where: { id: auth.userId } })).dailyNewSkillLimit).toBe(2);
   });
 
   it("discovers owned targets with bounded stable pagination and search", async () => {

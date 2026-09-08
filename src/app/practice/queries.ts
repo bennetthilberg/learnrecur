@@ -134,8 +134,9 @@ function toPracticeItem(
     return {
       status: "none-due",
       preparing: result.preparing,
+      dailyLimitReached: result.dailyLimitReached,
       message:
-        !result.preparing && scope.kind === "collection"
+        !result.preparing && !result.dailyLimitReached && scope.kind === "collection"
           ? `No due exercise is ready in ${scope.collectionName}.`
           : result.message,
       scope,

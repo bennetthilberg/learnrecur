@@ -1,5 +1,9 @@
 import "server-only";
 import { z } from "zod";
+import {
+  dailyNewSkillLimitSchema,
+  practiceTimezoneSchema,
+} from "./daily-limit-contracts";
 import { Prisma } from "@/generated/prisma/client";
 import { getPrisma } from "@/lib/prisma";
 import {
@@ -13,6 +17,8 @@ import {
 export const userPracticePreferencesSchema = z.strictObject({
   practicePreference: practicePreferenceSchema,
   mixedReview: z.boolean(),
+  dailyNewSkillLimit: dailyNewSkillLimitSchema,
+  practiceTimezone: practiceTimezoneSchema,
 });
 export const collectionPracticePreferencesSchema = z.strictObject({
   practicePreference: practicePreferenceOverrideSchema,
@@ -26,7 +32,12 @@ export const skillPracticePreferencesSchema =
 export async function getUserPracticePreferences(userId: string) {
   const user = await getPrisma().user.findUniqueOrThrow({
     where: { id: userId },
-    select: { practicePreference: true, mixedReview: true },
+    select: {
+      practicePreference: true,
+      mixedReview: true,
+      dailyNewSkillLimit: true,
+      practiceTimezone: true,
+    },
   });
   return userPracticePreferencesSchema.parse(user);
 }
@@ -36,12 +47,19 @@ export async function saveUserPracticePreferences(
   input: unknown,
   transaction?: Prisma.TransactionClient,
 ) {
-  const data = userPracticePreferencesSchema.parse(input);
-  await (transaction ?? getPrisma()).user.update({
+  const data = userPracticePreferencesSchema
+    .partial({ dailyNewSkillLimit: true, practiceTimezone: true })
+    .parse(input);
+  const saved = await (transaction ?? getPrisma()).user.update({
     where: { id: userId },
     data,
   });
-  return data;
+  return userPracticePreferencesSchema.parse({
+    practicePreference: saved.practicePreference,
+    mixedReview: saved.mixedReview,
+    dailyNewSkillLimit: saved.dailyNewSkillLimit,
+    practiceTimezone: saved.practiceTimezone,
+  });
 }
 
 // A comparison change retires future text inventory only. Neither historical

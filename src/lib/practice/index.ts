@@ -1,3 +1,4 @@
+import { getDailyNewSkillAllowance, previouslyIntroducedSkillWhere, unintroducedSkillWhere, recordSkillIntroduction } from "./daily-limit";
 import { selectMixedReviewSkill, type MixedReviewSkill } from "./mixed-review";
 import { practiceContextSchema, resolvePracticePreference, type PracticePreference } from "./policies";
 import "server-only";
@@ -119,6 +120,7 @@ export type NextPracticeItemResult =
     }
   | {
       status: "none-due";
+      dailyLimitReached?: boolean;
       preparing?: boolean;
       preparationSkillIds?: string[];
       message: string;
@@ -335,43 +337,89 @@ export const MAX_EXERCISE_FLAG_OTHER_NOTE_LENGTH = 500;
 export async function getNextPracticeItem(
   input: GetNextPracticeItemInput,
 ): Promise<NextPracticeItemResult> {
-  const prisma = getPrisma();
-  const exercise = await findEligibleExercise(prisma, {
-    userId: input.userId,
-    now: input.now,
-    answerKinds: input.answerKinds,
-    collectionId: input.collectionId,
-    mixedReview: input.mixedReview,
-    previousSkillId: input.previousSkillId,
-  });
-
-  if (!exercise) {
-    const dueSkills = await prisma.skill.findMany({ where: { userId: input.userId, status: "ACTIVE", dueAt: { lte: input.now }, ...(input.collectionId ? { collectionId: input.collectionId } : {}) }, orderBy: [{dueAt:"asc"},{id:"asc"}], take: 10, select: { id: true } });
-    return {
-      status: "none-due",
-      ...(dueSkills.length ? { preparing: true, preparationSkillIds: dueSkills.map((skill) => skill.id) } : {}),
-      message: dueSkills.length ? "Due skills need prepared exercises. Open a skill to check preparation or retry." : "No due exercise is ready.",
-    };
-  }
-
-  return {
-    status: "ready",
-    skill: toPracticeSkillSummary(exercise.skill),
-    exercise: toPracticeExerciseSummary(exercise),
-  };
+  return getPrisma().$transaction(
+    async (tx) => {
+      await tx.$queryRaw`SELECT "id" FROM "users" WHERE "id" = ${input.userId} FOR NO KEY UPDATE`;
+      const allowance = await getDailyNewSkillAllowance(
+        tx,
+        input.userId,
+        input.now,
+      );
+      const skillWhere =
+        allowance.remaining === 0 ? previouslyIntroducedSkillWhere : {};
+      const exercise = await findEligibleExercise(tx, { ...input, skillWhere });
+      if (!exercise) {
+        const scope = {
+          userId: input.userId,
+          status: SkillStatus.ACTIVE,
+          dueAt: { lte: input.now },
+          ...(input.collectionId ? { collectionId: input.collectionId } : {}),
+        };
+        const dueSkills = await tx.skill.findMany({
+          where: { ...scope, ...skillWhere },
+          orderBy: [{ dueAt: "asc" }, { id: "asc" }],
+          take: 10,
+          select: { id: true },
+        });
+        const dailyLimitReached =
+          allowance.remaining === 0 &&
+          (await tx.skill.count({
+            where: { ...scope, ...unintroducedSkillWhere },
+          })) > 0;
+        return {
+          status: "none-due",
+          ...(dueSkills.length
+            ? {
+                preparing: true,
+                preparationSkillIds: dueSkills.map((skill) => skill.id),
+              }
+            : {}),
+          ...(dailyLimitReached ? { dailyLimitReached: true } : {}),
+          message: dueSkills.length
+            ? "Due skills need prepared exercises. Open a skill to check preparation or retry."
+            : dailyLimitReached
+              ? allowance.limit === 0
+              ? "New skills are paused because your daily limit is 0. Increase the limit in Settings to introduce new skills."
+              : `Your daily limit of ${allowance.limit} new skills is reached. New introductions resume at midnight (${allowance.timezone}).`
+              : "No due exercise is ready.",
+        };
+      }
+      await recordSkillIntroduction(
+        tx,
+        input.userId,
+        exercise.skillId,
+        input.now,
+      );
+      return {
+        status: "ready",
+        skill: toPracticeSkillSummary(exercise.skill),
+        exercise: toPracticeExerciseSummary(exercise),
+      };
+    },
+    { timeout: 15_000 },
+  );
 }
 
 export async function previewPracticeAnswer(
   input: PreviewPracticeAnswerInput,
 ): Promise<PracticeAnswerPreviewResult> {
-  const prisma = getPrisma();
-  const exercise = await findEligibleExercise(prisma, {
-    userId: input.userId,
-    exerciseId: input.exerciseId,
-    now: input.now ?? new Date(),
-    answerKinds: input.answerKinds,
-    collectionId: input.collectionId,
-  });
+  const now = input.now ?? new Date();
+  const exercise = await getPrisma().$transaction(
+    async (tx) => {
+      await tx.$queryRaw`SELECT "id" FROM "users" WHERE "id" = ${input.userId} FOR NO KEY UPDATE`;
+      const allowance = await getDailyNewSkillAllowance(tx, input.userId, now);
+      const selected = await findEligibleExercise(tx, {
+        ...input,
+        now,
+        skillWhere:
+          allowance.remaining === 0 ? previouslyIntroducedSkillWhere : {},
+      });
+      if (selected)
+        await recordSkillIntroduction(tx, input.userId, selected.skillId, now);
+      return selected;
+    },
+    { timeout: 15_000 },
+  );
 
   if (!exercise) {
     return exerciseNotFound();
@@ -386,7 +434,11 @@ export async function previewPracticeAnswer(
   return {
     status: "checked",
     answerCheck,
-    proposedRating: getProposedRating(answerCheck, exercise.expectedSeconds, input.responseMs),
+    proposedRating: getProposedRating(
+      answerCheck,
+      exercise.expectedSeconds,
+      input.responseMs,
+    ),
     correctChoiceId: getCorrectChoiceId(exercise),
     correctAnswerDisplay: exercise.correctAnswerDisplay,
     explanation: exercise.explanation,
@@ -399,10 +451,19 @@ export async function commitPracticeReview(
   const prisma = getPrisma();
 
   try {
-    return await prisma.$transaction(async (tx) => commitPracticeReviewInTransaction(tx, input));
+    return await prisma.$transaction(
+      async (tx) => {
+        await tx.$queryRaw`SELECT "id" FROM "users" WHERE "id" = ${input.userId} FOR NO KEY UPDATE`;
+        return commitPracticeReviewInTransaction(tx, input);
+      },
+      { timeout: 15_000 },
+    );
   } catch (error) {
     if (isUniqueConstraintError(error)) {
-      const existingAttempt = await findExistingAttempt(prisma, input.attemptId);
+      const existingAttempt = await findExistingAttempt(
+        prisma,
+        input.attemptId,
+      );
 
       if (existingAttempt) {
         return existingAttemptToResult(existingAttempt, input);
@@ -707,7 +768,7 @@ function toPracticeFlagRefillResult(result: RefillQueueResult): PracticeFlagRefi
 }
 
 async function commitPracticeReviewInTransaction(
-  tx: PracticeQueryClient,
+  tx: Prisma.TransactionClient,
   input: CommitPracticeReviewInput,
 ): Promise<PracticeReviewCommitResult> {
   const existingAttempt = await tx.exerciseAttempt.findUnique({
@@ -722,10 +783,12 @@ async function commitPracticeReviewInTransaction(
     return existingAttemptToResult(existingAttempt, input);
   }
 
+  const allowance = await getDailyNewSkillAllowance(tx, input.userId, input.reviewedAt);
   const exercise = await findEligibleExercise(tx, {
     userId: input.userId,
     exerciseId: input.exerciseId,
     now: input.reviewedAt,
+    skillWhere: allowance.remaining === 0 ? previouslyIntroducedSkillWhere : {},
     answerKinds: input.answerKinds,
     collectionId: input.collectionId,
   });
@@ -748,6 +811,8 @@ async function commitPracticeReviewInTransaction(
       message: "Answer was checked but is not commit-ready.",
     };
   }
+
+  await recordSkillIntroduction(tx, input.userId, exercise.skillId, input.reviewedAt);
 
   const proposedRating = mapAttemptToFsrsRating({
     isCorrect: answerCheck.isCorrect,
@@ -905,6 +970,7 @@ function toExerciseRetirementReason(
 async function findEligibleExercise(
   prisma: PracticeQueryClient,
   input: {
+    skillWhere?: Prisma.SkillWhereInput;
     mixedReview?: boolean;
     previousSkillId?: string | null;
     userId: string;
@@ -930,6 +996,7 @@ async function findEligibleExercise(
       retiredAt: null,
       answerKind: { in: answerKinds },
       skill: {
+        ...input.skillWhere,
         userId: input.userId,
         ...(input.collectionId ? { collectionId: input.collectionId } : {}),
         status: SkillStatus.ACTIVE,

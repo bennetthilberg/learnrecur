@@ -1077,7 +1077,7 @@ suite("retention preferences through persisted practice", () => {
     const result = await getUserDataExport({ userId, generatedAt: now });
     expect(result).toMatchObject({
       status: "ready",
-      export: { exportVersion: 4 },
+      export: { exportVersion: 5 },
     });
     if (result.status !== "ready") throw Error("Missing export");
     expect(result.export.user).toMatchObject({

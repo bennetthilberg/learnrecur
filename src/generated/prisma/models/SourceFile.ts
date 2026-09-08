@@ -766,14 +766,6 @@ export type EnumSourceFileStatusFieldUpdateOperationsInput = {
   set?: $Enums.SourceFileStatus
 }
 
-export type NullableIntFieldUpdateOperationsInput = {
-  set?: number | null
-  increment?: number
-  decrement?: number
-  multiply?: number
-  divide?: number
-}
-
 export type SourceFileCreateNestedManyWithoutMaterialRevisionInput = {
   create?: Prisma.XOR<Prisma.SourceFileCreateWithoutMaterialRevisionInput, Prisma.SourceFileUncheckedCreateWithoutMaterialRevisionInput> | Prisma.SourceFileCreateWithoutMaterialRevisionInput[] | Prisma.SourceFileUncheckedCreateWithoutMaterialRevisionInput[]
   connectOrCreate?: Prisma.SourceFileCreateOrConnectWithoutMaterialRevisionInput | Prisma.SourceFileCreateOrConnectWithoutMaterialRevisionInput[]

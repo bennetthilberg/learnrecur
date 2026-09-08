@@ -2927,7 +2927,9 @@ export const UserScalarFieldEnum = {
   updatedAt: 'updatedAt',
   agentAccessDisabledAt: 'agentAccessDisabledAt',
   practicePreference: 'practicePreference',
-  mixedReview: 'mixedReview'
+  mixedReview: 'mixedReview',
+  dailyNewSkillLimit: 'dailyNewSkillLimit',
+  practiceTimezone: 'practiceTimezone'
 } as const
 
 export type UserScalarFieldEnum = (typeof UserScalarFieldEnum)[keyof typeof UserScalarFieldEnum]
@@ -3116,6 +3118,7 @@ export type MaterialCleanupJobScalarFieldEnum = (typeof MaterialCleanupJobScalar
 
 
 export const SkillScalarFieldEnum = {
+  firstIntroducedAt: 'firstIntroducedAt',
   practicePreference: 'practicePreference',
   alreadyStudied: 'alreadyStudied',
   textPolicy: 'textPolicy',
@@ -3756,6 +3759,20 @@ export type BooleanFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel,
 
 
 /**
+ * Reference to a field of type 'Int'
+ */
+export type IntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Int'>
+    
+
+
+/**
+ * Reference to a field of type 'Int[]'
+ */
+export type ListIntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Int[]'>
+    
+
+
+/**
  * Reference to a field of type 'AccountDeletionJobStatus'
  */
 export type EnumAccountDeletionJobStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AccountDeletionJobStatus'>
@@ -3780,20 +3797,6 @@ export type EnumAccountDeletionPhaseFieldRefInput<$PrismaModel> = FieldRefInputT
  * Reference to a field of type 'AccountDeletionPhase[]'
  */
 export type ListEnumAccountDeletionPhaseFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AccountDeletionPhase[]'>
-    
-
-
-/**
- * Reference to a field of type 'Int'
- */
-export type IntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Int'>
-    
-
-
-/**
- * Reference to a field of type 'Int[]'
- */
-export type ListIntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Int[]'>
     
 
 

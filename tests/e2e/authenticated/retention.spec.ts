@@ -53,6 +53,8 @@ for (const width of [1280, 390])
         // Server-rendered controls must not accept changes before React can
         // retain them. Otherwise Save can report success with the old value.
         await expect(preference).toBeDisabled();
+        await expect(page.getByRole("checkbox", { name: "Unlimited new skills" })).toBeDisabled();
+        await expect(page.getByRole("combobox", { name: "Daily reset timezone", exact: true })).toBeDisabled();
         await expect(page.getByRole("switch", { name: "Mixed review by default" })).toBeDisabled();
         await expect(page.getByRole("button", { name: "Save practice preferences" })).toBeDisabled();
       } finally {

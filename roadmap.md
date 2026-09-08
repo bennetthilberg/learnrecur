@@ -1566,4 +1566,6 @@ Whenever a future decision is unclear, choose the option that makes this loop be
 
 ## Configurable retention slice (2026-09-06)
 
+The daily new-skill allowance follow-up adds account Settings/MCP controls, shared introduction accounting, and consistent practice/readiness limits. It preserves the one-skill FSRS schedule and does not add a separate exercise scheduler. See `docs/daily-new-skill-limit.md`.
+
 Implementation branch `a/retention-preferences` adds inherited practice preferences, explicit prior-study onboarding, versioned faithful text comparison, universal Good defaults, actual recent generation evidence with recoverable recovery, and optional mixed practice. MCP read/edit tools cover all persistent settings with separate consent, ownership checks, partial updates, and the shared text-policy lifecycle. The scope preserves one FSRS schedule per skill, deterministic feedback, and the current AWS job stack. No production migration or deployment is part of this slice. Detailed behavior, migration boundaries, verification, and configuration examples are maintained in [docs/retention-implementation.md](docs/retention-implementation.md).

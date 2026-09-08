@@ -1,3 +1,5 @@
+import { getDailyNewSkillAllowance } from "@/lib/practice/daily-limit";
+import { countAvailablePracticeSkills } from "@/lib/practice/daily-limit-contracts";
 import { resolvePracticePreference, parseTextPolicyOverride, type TextPolicy, type PracticePreference } from "@/lib/practice/policies";
 import "server-only";
 
@@ -131,6 +133,8 @@ type CollectionRecord = {
     dueAt: Date | null;
     stability: number | null;
     difficulty: number | null;
+    firstIntroducedAt: Date | null;
+    lastReviewedAt: Date | null;
     repetitions: number;
     alreadyStudied?: boolean;
     exercises: Array<{
@@ -199,6 +203,8 @@ export async function getCollectionsHome(
           stability: true,
           difficulty: true,
           repetitions: true,
+          firstIntroducedAt: true,
+          lastReviewedAt: true,
           alreadyStudied: true,
           exercises: {
             select: {
@@ -213,7 +219,8 @@ export async function getCollectionsHome(
       },
     },
   });
-  const summaries = collections.map((collection) => toCollectionSummary(collection, input.now));
+  const allowance = await getDailyNewSkillAllowance(prisma, input.userId, input.now);
+  const summaries = collections.map((collection) => toCollectionSummary(collection, input.now, allowance.remaining));
 
   return {
     activeCollections: summaries
@@ -468,14 +475,14 @@ async function lockActiveCollectionName(
   await prisma.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`;
 }
 
-function toCollectionSummary(collection: CollectionRecord, now: Date): CollectionSummary {
+function toCollectionSummary(collection: CollectionRecord, now: Date, remaining: number | null): CollectionSummary {
   const skillCounts: CollectionSkillCounts = {
     active: 0,
     draft: 0,
     paused: 0,
     archived: 0,
   };
-  let readyNowCount = 0;
+  const readySkills: CollectionRecord["skills"] = [];
 
   for (const skill of collection.skills) {
     switch (skill.status) {
@@ -483,7 +490,7 @@ function toCollectionSummary(collection: CollectionRecord, now: Date): Collectio
         skillCounts.active += 1;
 
         if (isSkillReadyNow(skill, now)) {
-          readyNowCount += 1;
+          readySkills.push(skill);
         }
 
         break;
@@ -508,7 +515,7 @@ function toCollectionSummary(collection: CollectionRecord, now: Date): Collectio
     description: collection.description,
     status: collection.status,
     skillCounts,
-    readyNowCount,
+    readyNowCount: countAvailablePracticeSkills(readySkills, remaining),
     sourceCount: collection.sourceFiles.length,
     updatedAt: collection.updatedAt,
   };

@@ -408,6 +408,7 @@ export function PracticeClient({ initialItem, canUseSampleData, initialMixedRevi
         {item.status === "none-due" ? (
           <PracticeCompleteState
             preparing={item.preparing}
+            dailyLimitReached={item.dailyLimitReached}
             canUseSampleData={canUseSampleData && !scoped}
             message={item.message}
             onSampleData={handleSampleData}
@@ -723,6 +724,7 @@ function getScopedCollectionId(item: PracticeItem): string | null {
 
 function PracticeCompleteState({
   preparing,
+  dailyLimitReached,
   canUseSampleData,
   message,
   onSampleData,
@@ -731,6 +733,7 @@ function PracticeCompleteState({
   statusNotice,
 }: {
   preparing?: boolean;
+  dailyLimitReached?: boolean;
   canUseSampleData: boolean;
   message: string;
   onSampleData: () => void;
@@ -747,9 +750,9 @@ function PracticeCompleteState({
         <CheckCircle size={28} weight="bold" />
       </div>
       <div className="practiceCompleteCopy">
-        <h1 id="practice-empty-title">{preparing ? "Exercises need preparation." : "Nice work. You're all caught up."}</h1>
+        <h1 id="practice-empty-title">{preparing ? "Exercises need preparation." : dailyLimitReached ? "Daily new-skill limit reached." : "Nice work. You're all caught up."}</h1>
         <p>
-          {preparing ? "Due skills are waiting for compatible exercises. Check their preparation status or refresh to try again." : scoped
+          {preparing ? "Due skills are waiting for compatible exercises. Check their preparation status or refresh to try again." : dailyLimitReached ? "You can continue scheduled reviews or change your daily limit in Settings." : scoped
             ? "Every due exercise in this collection is finished for now."
             : "Every due exercise is finished for now."}{" "}
           LearnRecur will bring skills back when the schedule says they are ready.
@@ -758,14 +761,14 @@ function PracticeCompleteState({
       <div className="practiceCompleteSummary" aria-label="Practice completion summary">
         <div>
           <span>Queue</span>
-          <strong>{preparing ? "Preparation pending" : "Clear for now"}</strong>
+          <strong>{preparing ? "Preparation pending" : dailyLimitReached ? "New skills paused" : "Clear for now"}</strong>
         </div>
         <div>
           <span>Schedule</span>
           <strong>{message}</strong>
         </div>
       </div>
-      <PracticeCompleteActions scoped={scoped} />
+      <PracticeCompleteActions scoped={scoped} dailyLimitReached={dailyLimitReached} />
       {statusNotice ? (
         <p
           className="practiceCompleteStatus"
@@ -796,7 +799,7 @@ function PracticeCompleteState({
   );
 }
 
-function PracticeCompleteActions({ scoped }: { scoped: boolean }) {
+function PracticeCompleteActions({ scoped, dailyLimitReached }: { scoped: boolean; dailyLimitReached?: boolean }) {
   return (
     <div className="practiceCompleteActions" aria-label="Practice next actions">
       {scoped ? (
@@ -818,6 +821,7 @@ function PracticeCompleteActions({ scoped }: { scoped: boolean }) {
           </Link>
         </>
       )}
+      {dailyLimitReached ? <Link href="/settings" className="secondaryButton">Change daily limit</Link> : null}
     </div>
   );
 }
