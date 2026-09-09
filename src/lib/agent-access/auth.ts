@@ -8,6 +8,7 @@ import { AgentConnectionStatus } from "@/generated/prisma/client";
 import { parseScopeClaim } from "@/lib/agent-access/workos-gate";
 import { getAlphaAccessPolicy, isAlphaUserAllowed } from "@/lib/alpha-access";
 import { getPrisma } from "@/lib/prisma";
+import { runAgentSerializable } from "@/lib/agent-access/transactions";
 
 export const AGENT_ACCESS_SCOPES = [
   "skills:create",
@@ -414,32 +415,179 @@ async function resolveAgentAuthContext(
     });
   }
 
-  if (
-    connection.userId !== identity.userId ||
-    connection.workosSubject !== claims.subject ||
-    connection.clientId !== claims.clientId ||
-    connection.resourceUrl !== config.resourceUrl ||
-    connection.permissionVersion !== config.permissionVersion ||
-    connection.status !== AgentConnectionStatus.ACTIVE ||
-    !claims.scopes.every((scope) => connection.scopes.includes(scope))
-  ) {
+  if (!connection || !isConnectionBoundToClaims(connection, identity.id, identity.userId, claims, config)) {
+    recordAgentAuthFailure("connection_mismatch_or_inactive");
+    return null;
+  }
+  const boundConnection = connection;
+  let authenticatedConnection = boundConnection;
+
+  if (claims.expiresAt <= Math.floor(Date.now() / 1_000)) {
     recordAgentAuthFailure("connection_mismatch_or_inactive");
     return null;
   }
 
-  await prisma.agentConnection.update({
-    where: { id: connection.id },
-    data: { lastUsedAt: new Date() },
-  });
+  if (!claims.scopes.every((scope) => boundConnection.scopes.includes(scope))) {
+    const grant = await fetchAuthorizedGrant({
+      workosUserId: identity.workosUserId,
+      clientId: claims.clientId,
+      resourceUrl: config.resourceUrl,
+      apiKey: config.workosApiKey,
+    });
+    if (!grant || grant.applicationId !== boundConnection.workosApplicationId || !grant.usesPkce) {
+      recordAgentAuthFailure("connection_mismatch_or_inactive");
+      return null;
+    }
+
+    const reconciled = await reconcileExistingConnectionScopes({
+      claims,
+      config,
+      identityId: identity.id,
+      userId: identity.userId,
+      connectionId: boundConnection.id,
+      workosApplicationId: grant.applicationId,
+    });
+    if (!reconciled) {
+      recordAgentAuthFailure("connection_mismatch_or_inactive");
+      return null;
+    }
+    authenticatedConnection = reconciled;
+  } else {
+    const markedUsed = await prisma.agentConnection.updateMany({
+      where: {
+        id: boundConnection.id,
+        userId: identity.userId,
+        workosSubject: claims.subject,
+        workosSessionId: claims.sessionId,
+        clientId: claims.clientId,
+        resourceUrl: config.resourceUrl,
+        permissionVersion: config.permissionVersion,
+        status: AgentConnectionStatus.ACTIVE,
+      },
+      data: { lastUsedAt: new Date() },
+    });
+    if (markedUsed.count !== 1) {
+      recordAgentAuthFailure("connection_mismatch_or_inactive");
+      return null;
+    }
+  }
+
   return {
     ...claims,
     userId: identity.userId,
-    connectionId: connection.id,
-    clientName: connection.clientName,
-    clientDomain: connection.clientDomain,
-    resourceUrl: connection.resourceUrl,
+    connectionId: authenticatedConnection.id,
+    clientName: authenticatedConnection.clientName,
+    clientDomain: authenticatedConnection.clientDomain,
+    resourceUrl: authenticatedConnection.resourceUrl,
     permissionVersion: config.permissionVersion,
   };
+}
+
+function isConnectionBoundToClaims(
+  connection: {
+    userId: string;
+    workosIdentityId: string;
+    workosSubject: string;
+    workosSessionId: string;
+    clientId: string;
+    resourceUrl: string;
+    permissionVersion: number;
+    status: AgentConnectionStatus;
+    scopes: string[];
+  },
+  identityId: string,
+  userId: string,
+  claims: AgentAccessTokenClaims,
+  config: EnabledAgentAccessConfig,
+) {
+  return (
+    connection.userId === userId &&
+    connection.workosIdentityId === identityId &&
+    connection.workosSubject === claims.subject &&
+    connection.workosSessionId === claims.sessionId &&
+    connection.clientId === claims.clientId &&
+    connection.resourceUrl === config.resourceUrl &&
+    connection.permissionVersion === config.permissionVersion &&
+    connection.status === AgentConnectionStatus.ACTIVE
+  );
+}
+
+async function reconcileExistingConnectionScopes(input: {
+  claims: AgentAccessTokenClaims;
+  config: EnabledAgentAccessConfig;
+  identityId: string;
+  userId: string;
+  connectionId: string;
+  workosApplicationId: string;
+}) {
+  const nowEpochSeconds = Math.floor(Date.now() / 1_000);
+  if (input.claims.expiresAt <= nowEpochSeconds) return null;
+
+  return runAgentSerializable(async (tx) => {
+    const lockedUsers = await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT "id" FROM "users" WHERE "id" = ${input.userId} FOR UPDATE
+    `;
+    if (lockedUsers.length !== 1) return null;
+
+    const lockedConnections = await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT "id" FROM "agent_connections" WHERE "id" = ${input.connectionId} FOR UPDATE
+    `;
+    if (lockedConnections.length !== 1) return null;
+
+    const identity = await tx.workosIdentity.findUnique({
+      where: { id: input.identityId },
+      include: { user: { select: { id: true, agentAccessDisabledAt: true } } },
+    });
+    if (
+      !identity ||
+      identity.userId !== input.userId ||
+      identity.externalId !== input.claims.subject ||
+      identity.externalId !== identity.userId ||
+      identity.user.id !== input.userId ||
+      identity.user.agentAccessDisabledAt
+    ) {
+      return null;
+    }
+
+    const deletionJob = await tx.accountDeletionJob.findUnique({
+      where: { userId: input.userId },
+      select: { id: true },
+    });
+    if (deletionJob || input.claims.expiresAt <= Math.floor(Date.now() / 1_000)) {
+      return null;
+    }
+
+    const connection = await tx.agentConnection.findUnique({
+      where: { id: input.connectionId },
+    });
+    if (
+      !connection ||
+      connection.userId !== input.userId ||
+      connection.workosIdentityId !== input.identityId ||
+      connection.workosSubject !== input.claims.subject ||
+      connection.workosSessionId !== input.claims.sessionId ||
+      connection.clientId !== input.claims.clientId ||
+      connection.resourceUrl !== input.config.resourceUrl ||
+      connection.permissionVersion !== input.config.permissionVersion ||
+      connection.status !== AgentConnectionStatus.ACTIVE ||
+      connection.workosApplicationId !== input.workosApplicationId
+    ) {
+      return null;
+    }
+
+    const scopes = unionAgentAccessScopes(connection.scopes, input.claims.scopes);
+    return tx.agentConnection.update({
+      where: { id: connection.id },
+      data: { scopes, lastUsedAt: new Date() },
+    });
+  });
+}
+
+function unionAgentAccessScopes(
+  existingScopes: readonly string[],
+  incomingScopes: readonly AgentAccessScope[],
+) {
+  return [...new Set([...existingScopes, ...incomingScopes])];
 }
 
 async function fetchAuthorizedGrant(input: {

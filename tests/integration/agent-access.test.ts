@@ -423,6 +423,12 @@ describeDatabase("agent access persistence", () => {
   it("finishes expiry and revocation before retrying failed refill recovery", async () => {
     const fixture = await createConnection("maintenance-recovery-failure");
     const now = new Date("2026-08-13T10:11:00.000Z");
+    // Earlier cases intentionally leave durable outbox rows for their own
+    // assertions. Remove only this suite's earlier rows so the bounded
+    // maintenance batch tests this fixture deterministically.
+    await prisma.agentRevocationOutbox.deleteMany({
+      where: { userId: { in: userIds.filter((userId) => userId !== fixture.userId) } },
+    });
     const source = await prisma.sourceFile.create({
       data: {
         userId: fixture.userId,
@@ -468,6 +474,9 @@ describeDatabase("agent access persistence", () => {
     const fetch = vi
       .spyOn(globalThis, "fetch")
       .mockResolvedValue(new Response(null, { status: 404 }));
+    // The CI database gate intentionally does not provision WorkOS credentials.
+    // Supply a synthetic key so maintenance reaches the mocked remote delete.
+    vi.stubEnv("WORKOS_API_KEY", "sk_test_agent_maintenance");
     try {
       await expect(runAgentAccessMaintenance(now)).rejects.toMatchObject({
         message: "Agent access maintenance could not recover refill events.",
@@ -486,6 +495,7 @@ describeDatabase("agent access persistence", () => {
         prisma.agentRevocationOutbox.findUniqueOrThrow({ where: { connectionId: fixture.connection.id } }),
       ).resolves.toMatchObject({ status: AgentRevocationOutboxStatus.SUCCEEDED });
     } finally {
+      vi.unstubAllEnvs();
       recovery.mockRestore();
       fetch.mockRestore();
     }
