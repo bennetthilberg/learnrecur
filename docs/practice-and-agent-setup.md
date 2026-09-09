@@ -141,12 +141,11 @@ redeploy was required. This is distinct worker provenance, not a claim that
 the web and worker archives are byte-identical.
 
 The staging MCP r2 smoke passed 27 checks with 2 explicit read-only skips and
-0 failures. The final staging reconsent CAS proof passed 18 checks: 13 passed,
+0 failures. The final staging reconsent proof recorded 18 checks: 13 passed,
 5 explicit read-only skips, and 0 failures. It verified the same connection
 expanding from 3 to 14 scopes while permission version 1, connection binding,
 active status, and remote revocation state remained unchanged. Its redacted
-receipt is `staging-mcp-auth-r3-cas-receipt.json`; the final r4 report records
-the same result as 13 passed checks, 5 explicit read-only skips, and 0 failures.
+receipt is `staging-mcp-auth-r3-cas-receipt.json`.
 
 The native production MCP proof used the normal bundled CLI CIMD flow. The
 official app server connected through OAuth, advertised 46 tools, and returned
