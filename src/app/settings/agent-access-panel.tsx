@@ -1,5 +1,7 @@
 "use client";
 
+import { ActionNotification } from "@/components/app/action-notification";
+
 import { Modal } from "@mantine/core";
 import { CheckIcon, CopyIcon, PlugsConnectedIcon } from "@phosphor-icons/react";
 import { useState, useTransition } from "react";
@@ -143,7 +145,7 @@ export function AgentAccessPanel({ resourceUrl, connections, activity }: {
         )}
       </div>
 
-      {notice ? <p className="skillFormMessage" data-tone={notice.tone} role="status">{notice.message}</p> : null}
+      {notice ? <ActionNotification id="agent-access-action" title="Agent access" message={pending ? null : notice.message} tone={notice.tone === "saved" ? "success" : "error"} /> : null}
 
       <Modal
         opened={Boolean(selected)}

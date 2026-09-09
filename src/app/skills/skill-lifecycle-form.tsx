@@ -1,5 +1,7 @@
 "use client";
 
+import { ActionNotification } from "@/components/app/action-notification";
+
 import { useActionState } from "react";
 
 import { updateSkillLifecycleAction, type SkillFormActionState } from "./actions";
@@ -46,9 +48,12 @@ export function SkillLifecycleForm({
       ) : null}
       {description ? <p>{description}</p> : null}
       {state.message ? (
-        <p className="skillFormMessage" data-tone={state.status} role="status">
-          {state.message}
-        </p>
+        <ActionNotification
+          id={`skill-lifecycle-${skillId}`}
+          message={pending ? null : state.message}
+          title="Update skill"
+          tone={state.status === "error" ? "error" : "success"}
+        />
       ) : null}
       <button
         className="secondaryButton"

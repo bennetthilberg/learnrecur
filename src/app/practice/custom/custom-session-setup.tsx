@@ -1,5 +1,7 @@
 "use client";
 
+import { ActionNotification } from "@/components/app/action-notification";
+
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -141,7 +143,7 @@ export function CustomSessionSetup({
         </button>
         <Link className="secondaryButton" href="/practice">Cancel</Link>
       </div>
-      {message ? <p className="skillFormMessage" data-tone="error" role="alert">{message}</p> : null}
+      {message ? <ActionNotification id="custom-session-setup-error" title="Could not start session" message={message} /> : null}
     </section>
   );
 }

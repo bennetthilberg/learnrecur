@@ -1,5 +1,7 @@
 "use client";
 
+import { ActionNotification } from "@/components/app/action-notification";
+
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 
@@ -162,7 +164,7 @@ export function CustomPracticeClient({
                   : "This session is unavailable."}
         </h1>
         <p>{view.message}</p>
-        {actionError ? <p className="skillFormMessage" data-tone="error" role="alert">{actionError}</p> : null}
+        {actionError ? <ActionNotification id="custom-practice-error" title="Could not update session" message={actionError} /> : null}
         {view.session ? (
           <p className="practiceMetaSummary tnum">
             {view.session.completedCount} of {view.session.targetCount} exercises · {formatMode(view.session.mode)}
@@ -211,7 +213,7 @@ export function CustomPracticeClient({
         <article className="practicePromptPanel">
           <p><MathText formatBlanks text={exercise.prompt} /></p>
         </article>
-        {actionError ? <p className="skillFormMessage" data-tone="error" role="alert">{actionError}</p> : null}
+        {actionError ? <ActionNotification id="custom-practice-error" title="Could not update session" message={actionError} /> : null}
         {isChoice ? (
           <div className="choiceGrid" role="radiogroup" aria-label="Answer choices">
             {exercise.choices.map((choice, index) => (

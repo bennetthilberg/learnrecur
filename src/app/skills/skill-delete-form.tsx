@@ -1,5 +1,7 @@
 "use client";
 
+import { ActionNotification } from "@/components/app/action-notification";
+
 import { useActionState } from "react";
 
 import { deleteSkillPermanentlyAction, type SkillFormActionState } from "./actions";
@@ -41,9 +43,12 @@ export function SkillDeleteForm({ skillId, skillTitle }: SkillDeleteFormProps) {
           />
         </label>
         {state.message ? (
-          <p className="skillFormMessage" data-tone={state.status} role="status">
-            {state.message}
-          </p>
+          <ActionNotification
+            id={`skill-delete-${skillId}`}
+            message={pending ? null : state.message}
+            title="Delete skill"
+            tone={state.status === "error" ? "error" : "success"}
+          />
         ) : null}
         <button className="secondaryButton" data-tone="danger" disabled={pending} type="submit">
           {pending ? "Deleting" : "Delete skill"}
