@@ -32,15 +32,45 @@ test("opens a bounded practice-only session from normal practice and keeps it ou
     page.getByRole("checkbox", { name: new RegExp(scenario.skillTitle, "i") }),
   ).toBeChecked();
   await page.getByRole("checkbox", { name: /Mixed review/i }).check();
+  const desktopSetupLayout = await page.evaluate(() => {
+    const header = document.querySelector<HTMLElement>(".customPracticeHeader");
+    const rect = header?.getBoundingClientRect();
+    return {
+      documentClientWidth: document.documentElement.clientWidth,
+      documentScrollWidth: document.documentElement.scrollWidth,
+      headerLeft: rect?.left ?? null,
+      headerRight: rect?.right ?? null,
+    };
+  });
+  expect(desktopSetupLayout.documentScrollWidth).toBeLessThanOrEqual(desktopSetupLayout.documentClientWidth);
+  expect(desktopSetupLayout.headerLeft).toBeGreaterThanOrEqual(14);
+  expect(desktopSetupLayout.headerRight).toBeLessThanOrEqual(desktopSetupLayout.documentClientWidth - 14);
   await page.screenshot({
     path: testInfo.outputPath("custom-setup-desktop.png"),
     fullPage: true,
   });
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.screenshot({
-    path: testInfo.outputPath("custom-setup-mobile.png"),
-    fullPage: true,
-  });
+  for (const width of [375, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    const mobileSetupLayout = await page.evaluate(() => {
+      const header = document.querySelector<HTMLElement>(".customPracticeHeader");
+      const rect = header?.getBoundingClientRect();
+      return {
+        documentClientWidth: document.documentElement.clientWidth,
+        documentScrollWidth: document.documentElement.scrollWidth,
+        headerLeft: rect?.left ?? null,
+        headerRight: rect?.right ?? null,
+      };
+    });
+    expect(mobileSetupLayout.documentScrollWidth).toBeLessThanOrEqual(mobileSetupLayout.documentClientWidth);
+    expect(mobileSetupLayout.headerLeft).toBeGreaterThanOrEqual(14);
+    expect(mobileSetupLayout.headerRight).toBeLessThanOrEqual(mobileSetupLayout.documentClientWidth - 14);
+    if (width === 390) {
+      await page.screenshot({
+        path: testInfo.outputPath("custom-setup-mobile.png"),
+        fullPage: true,
+      });
+    }
+  }
   await page.setViewportSize({ width: 1280, height: 900 });
 
   await page.getByRole("combobox", { name: "Collection", exact: true }).selectOption(scenario.collectionId);

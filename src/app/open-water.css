@@ -6,6 +6,8 @@ body {
 
 .customPracticeHeader {
   align-items: end;
+  width: min(100% - 28px, 920px);
+  min-width: 0;
 }
 
 .customPracticeHeader > div:first-child {
