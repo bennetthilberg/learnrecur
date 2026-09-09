@@ -134,7 +134,7 @@ use one worker and one database lease.
 | Focused durable setup integration | `agent-setup.test.ts`: 10/10 passed, including last-seen snapshot stability, stale setting edits, journal recovery, and concurrent apply fencing. |
 | Setup conflict classification | Nested Prisma 7 Neon `driverAdapterError.cause.code` and `cause.kind` cases are covered by the focused unit suite. |
 | Full unit suite | 110 files, 1,070 tests passed on the refreshed dependency set. |
-| Combined coverage proof | `npm run test:coverage` runs unit and integration tests with `RUN_DATABASE_TESTS=1`; the local proof passed 110 files and 1,087 tests against the disposable database with statements 52.52%, branches 46.01%, functions 61.75%, and lines 52.35%. The exact 1c0acdf CI snapshot below passed 146 files and 1,562 tests; thresholds and source coverage scope are unchanged. |
+| Combined coverage proof | `npm run test:coverage` runs unit and integration tests with `RUN_DATABASE_TESTS=1`; the local proof passed 110 files and 1,087 tests against the disposable database with statements 52.52%, branches 46.01%, functions 61.75%, and lines 52.35%. The final exact-head CI run below passed 147 files and 1,564 tests with statements 80.46%, branches 71.42%, functions 88.11%, and lines 80.93%; thresholds and source coverage scope are unchanged. |
 | Full lint | Passed. |
 | Application build | Passed with Next.js 16.3.4; TypeScript and static generation completed. |
 | Worker bundle | `npm run jobs:build` passed and wrote the ignored `.aws-build/jobs.zip`. |
@@ -142,7 +142,7 @@ use one worker and one database lease.
 | Focused MCP protocol unit tests | 4 files, 22 tests passed. `setup_in_progress` is publicly retryable; `setup_stale` is not, and lifecycle mutations carry destructive hints. |
 | Null relation practice loader regression | `practice-null-relation.test.ts`: 2/2 passed through the public preview loader, covering a missing relation beside a valid owned candidate and an all-missing empty result. |
 | Targeted stale-submit browser regression | `learner-lifecycle.spec.ts` stale second submit: 3/3 passed with Clerk setup and cleanup, including the authenticated browser case in 16.8s. |
-| Prior exact-head CI snapshot | Run [34276546438](https://github.com/bennetthilberg/learnrecur/actions/runs/34276546438) passed at source commit `1c0acdf0091adc560172de8562248410a1a5160c`: verify passed 109 unit files and 1,068 tests, the combined gate passed 146 files and 1,562 tests with the recorded coverage thresholds, and authenticated Chromium passed 25 tests. The later `a34efe3` head stopped at the runtime audit because OSV had newly reported eight dependency findings; the refreshed dependency set clears those blockers. Final-head CI remains pending until the dependency and typing follow-up is pushed. |
+| Final exact-head CI | Run [34285383683](https://github.com/bennetthilberg/learnrecur/actions/runs/34285383683) passed at source commit `0c4cb86c9137106f8b1c87c4756e502e981a2ab5`: verify passed 110 unit files and 1,070 tests, the combined database gate passed 147 files and 1,564 tests with statements 80.46%, branches 71.42%, functions 88.11%, and lines 80.93%, and authenticated Chromium passed 26 tests. |
 | Authenticated browser flows | 7 product tests passed across desktop and mobile settings, daily-limit gating, advanced retention/day-start persistence, custom setup/completion, mixed-review cues, and Needs Attention states. The externally seeded fractional-retention case passed in a focused 1/1 rerun after a test locator correction. Clerk setup and cleanup passed for both runs. Custom mobile frame measured 14px left, 361px right, with no horizontal document overflow. |
 | Malformed Needs Attention cursor browser check | `needs-attention.spec.ts`: 5/5 passed with Clerk setup/cleanup, including desktop, mobile, and first-page recovery for a malformed cursor. |
 | Full serialized integration suite | Broad baseline: 35 files, 446 tests with 442 passed and 4 agent-practice failures. The final affected rerun passed 3 files and 32 tests after updating tool/settings contracts, bounded Neon conflict retries, and setup snapshot fencing; it covers all four original failure paths plus the new setup regression. The broad suite was not repeated, so this is not a fresh 446-test all-green claim. |
@@ -154,8 +154,8 @@ the unit and integration suites together so the threshold measures the real
 database paths. Same-repository pull requests and main receive this full gate;
 fork pull requests retain fast checks because trusted database credentials are
 not available there. No threshold or coverage exclusion changed. The exact
-final-head run above passed; it proves CI for this revision and does not prove
-deployment.
+final-head run above passed for source `0c4cb86`; it proves CI for this revision
+and does not prove deployment.
 
 The standalone `npx tsc --noEmit --pretty false` command now passes with zero
 diagnostics. Next.js 16.3.4 enabled its TypeScript CLI during builds and
