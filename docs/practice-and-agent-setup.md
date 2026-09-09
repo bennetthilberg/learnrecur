@@ -211,3 +211,9 @@ read-only settings proof did not change production practice preferences or
 history; mutation fixtures ran only in staging. The application alias,
 production worker, migration state, WorkOS catalog, and explicit staging
 allowlist baseline are now recorded with their live evidence.
+
+GitHub still reports [GHSA-3f6p-5ww8-9rcr](https://github.com/advisories/GHSA-3f6p-5ww8-9rcr)
+for `mysql2` 3.15.3 through Prisma's development tooling. The release runtime
+audit passed, and the deployed database paths use Postgres. Updating that
+dependency remains a maintenance follow-up; this receipt does not claim that
+every development dependency is free of advisories.
