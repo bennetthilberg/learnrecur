@@ -173,6 +173,11 @@ from merged source `eecd414ec36b9262ce42b9204e20fdcb8c295f3c`, assigned to
 `project-0oqzu.vercel.app`; its health endpoint returned `{"status":"ok"}`.
 The account-deletion receipt records the fresh fixture's owner rows, object,
 connection, zero remaining authorized applications, and Clerk identity cleanup.
+The deployed account-deletion job revoked the connection but left the WorkOS
+User Management mirror. A separate test-only cleanup removed only the fresh
+disposable WorkOS user after its external ID matched the fresh Clerk subject;
+the protected old provider and local identity were preserved. That manual
+cleanup is recorded in `staging-mcp-fresh-workos-deletion-receipt.json`.
 
 ## Browser review and self-critique
 
