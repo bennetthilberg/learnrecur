@@ -79,7 +79,17 @@ jobs:
         run: npm ci --no-audit --no-fund
 
       - name: Install Chromium
-        run: npx playwright install --with-deps chromium
+        run: |
+          set -euo pipefail
+          # The hosted image can carry a stale Google Chrome apt index. It is
+          # unrelated to Playwright's Chromium download, so disable only the
+          # matching source before Playwright installs its system packages.
+          for source in /etc/apt/sources.list.d/*; do
+            if [[ -f "$source" ]] && sudo grep -Eq 'dl\.google\.com/linux/chrome' "$source"; then
+              sudo mv "$source" "$source.disabled"
+            fi
+          done
+          npx playwright install --with-deps chromium
 
       - name: Validate authenticated test secrets
         run: |
