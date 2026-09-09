@@ -110,3 +110,35 @@ test("collection form errors use dismissible toasts and repeat after retry", asy
     await expect(toast).toHaveCount(0);
   }
 });
+
+
+test("resizing the sidebar keeps the selected settings link visible", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/settings");
+  await expect(page.locator(".routeSkeleton")).toHaveCount(0);
+  const nav = page.getByRole("navigation", { name: "Primary navigation" });
+  const settings = nav.getByRole("link", { name: "Settings", exact: true });
+  await expect(settings).toHaveAttribute("data-nav-active", "true");
+  for (const width of [800, 600, 390, 1280, 375]) {
+    await page.setViewportSize({ width, height: 844 });
+    // Allow subpixel clipping at the scroll container edge.
+    await expect(settings, `selected link at ${width}px`).toBeInViewport({ ratio: 0.99 });
+    await expect(page.locator(".practiceNavActiveIndicator, .practiceNavFloatingIndicator")).toHaveCount(0);
+  }
+});
+
+test("a corrected collection submission replaces the undismissed error toast", async ({ page }) => {
+  await page.goto("/collections");
+  const form = page.locator(".collectionCreateForm");
+  const name = form.getByRole("textbox", { name: /^Name\b/ });
+  const submit = form.getByRole("button", { name: "Create collection", exact: true });
+  await name.fill("   ");
+  await submit.click();
+  const toasts = page.locator(".learnrecurNotification");
+  await expect(toasts).toContainText("Could not update collection");
+  await name.fill(`Toast retry ${Date.now()}`);
+  await submit.click();
+  await expect(toasts).toHaveCount(1);
+  await expect(toasts).toContainText("Collection created.");
+  await expect(toasts).not.toContainText("Could not update collection");
+});

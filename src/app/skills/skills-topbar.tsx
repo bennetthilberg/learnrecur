@@ -143,11 +143,17 @@ export function SkillsTopbar({
   );
 
   useLayoutEffect(() => {
-    const nav = navRef.current;
-    const activeLink = nav?.querySelector<HTMLAnchorElement>('a[data-nav-active="true"]');
-    if (nav && activeLink) {
-      scrollNavLinkIntoView(nav, activeLink);
-    }
+    const scrollActiveLink = () => {
+      const nav = navRef.current;
+      const activeLink = nav?.querySelector<HTMLAnchorElement>('a[data-nav-active="true"]');
+      if (nav && activeLink) {
+        scrollNavLinkIntoView(nav, activeLink);
+      }
+    };
+
+    scrollActiveLink();
+    window.addEventListener("resize", scrollActiveLink);
+    return () => window.removeEventListener("resize", scrollActiveLink);
   }, [visualNavKey]);
 
   const handleNavClick = useCallback(
