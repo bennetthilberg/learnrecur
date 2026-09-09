@@ -98,6 +98,39 @@ describe("replayIndependentScheduleEvidence", () => {
       }),
     ).toThrow("Duplicate review ID");
   });
+
+  it("uses each review's historical retention snapshot during replay", () => {
+    const reviews = [
+      {
+        reviewId: "review-first",
+        attemptId: "attempt-first",
+        reviewedAt: new Date("2026-01-01T12:01:00.000Z"),
+        rating: FsrsRating.GOOD,
+        evidenceKind: "independent" as const,
+        desiredRetention: 0.7,
+      },
+      {
+        reviewId: "review-second",
+        attemptId: "attempt-second",
+        reviewedAt: new Date("2026-01-02T12:01:00.000Z"),
+        rating: FsrsRating.GOOD,
+        evidenceKind: "independent" as const,
+        desiredRetention: 0.7,
+      },
+    ];
+    const replayedAtLowRetention = replayIndependentScheduleEvidence({
+      initial,
+      reviews,
+    });
+    const replayedAtHighCurrentRetention = replayIndependentScheduleEvidence({
+      initial,
+      reviews: reviews.map((review) => ({ ...review, desiredRetention: 0.99 })),
+    });
+
+    expect(replayedAtLowRetention.schedule.dueAt.getTime()).toBeGreaterThan(
+      replayedAtHighCurrentRetention.schedule.dueAt.getTime(),
+    );
+  });
 });
 
 describe("buildScheduleReplayPlan", () => {

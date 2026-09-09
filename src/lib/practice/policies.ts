@@ -99,6 +99,9 @@ export const practiceContextSchema = z
     mixedReview: z.boolean(),
     reducedRuleCues: z.boolean(),
     assistance: z.enum(["none", "observed"]),
+    sessionId: z.string().trim().min(1).max(200).optional(),
+    sessionMode: z.enum(["PRACTICE_ONLY", "SCHEDULED"]).optional(),
+    exposure: z.enum(["PRACTICE_ONLY", "SCHEDULED"]).optional(),
   })
   .refine(
     (value) => !value.reducedRuleCues || value.mixedReview,

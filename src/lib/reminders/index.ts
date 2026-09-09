@@ -220,8 +220,9 @@ export function getDefaultReminderPreference(email: string | null): NormalizedRe
 
 export async function getReminderSettings(input: {
   userId: string;
+  transaction?: Prisma.TransactionClient;
 }): Promise<ReminderSettingsResult> {
-  const prisma = getPrisma();
+  const prisma = input.transaction ?? getPrisma();
   const user = await prisma.user.findUnique({
     where: { id: input.userId },
     select: {
@@ -260,6 +261,7 @@ export async function getReminderSettings(input: {
 export async function saveReminderPreference(input: {
   userId: string;
   input: unknown;
+  transaction?: Prisma.TransactionClient;
 }): Promise<SaveReminderPreferenceResult> {
   const normalized = normalizeReminderPreferenceInput(input.input);
 
@@ -267,7 +269,7 @@ export async function saveReminderPreference(input: {
     return normalized;
   }
 
-  const prisma = getPrisma();
+  const prisma = input.transaction ?? getPrisma();
   const user = await prisma.user.findUnique({
     where: { id: input.userId },
     select: {

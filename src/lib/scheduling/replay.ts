@@ -12,6 +12,8 @@ export type ScheduleReplayReview = {
   reviewedAt: Date;
   rating: FsrsRating;
   evidenceKind: PracticeEvidenceKind;
+  /** The retention setting captured by this review, never the current setting. */
+  desiredRetention?: number | null;
 };
 
 export type ScheduleReplayResult = {
@@ -81,6 +83,7 @@ export function replayIndependentScheduleEvidence({
       current: schedule,
       rating: review.rating,
       reviewedAt: review.reviewedAt,
+      desiredRetention: review.desiredRetention,
     }).skillUpdate;
     appliedReviewIds.push(review.reviewId);
   }

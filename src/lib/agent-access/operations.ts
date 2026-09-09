@@ -15,6 +15,7 @@ import {
   StudyMaterialStatus,
 } from "@/generated/prisma/client";
 import type { AgentAuthContext } from "@/lib/agent-access/auth";
+import { runAgentSerializable as runAgentDatabaseTransaction } from "@/lib/agent-access/transactions";
 import {
   AGENT_MAX_NONTERMINAL_ITEMS_PER_USER,
   AGENT_OPERATION_POLL_AFTER_MS,
@@ -112,7 +113,17 @@ export class AgentOperationError extends Error {
       | "operation_not_found"
       | "operation_not_ready"
       | "operation_not_retryable"
-      | "upload_preparation_failed",
+      | "upload_preparation_failed"
+      | "invalid_input"
+      | "skill_not_found"
+      | "skill_not_active"
+      | "collection_not_found"
+      | "stale_state"
+      | "meaning_change_requires_reset"
+      | "setup_not_found"
+      | "setup_stale"
+      | "setup_in_progress"
+      | "setup_failed",
     message: string,
   ) {
     super(message);
@@ -653,6 +664,12 @@ export async function getAgentOperation(
   auth: AgentAuthContext,
   operationId: string,
 ): Promise<PublicAgentOperation> {
+  if (!auth.scopes.includes("skills:create")) {
+    throw new AgentOperationError(
+      "permission_denied",
+      "Agent permission skills:create is required for skill operation status.",
+    );
+  }
   const prisma = getPrisma();
   await consumeAgentReadRateLimit(auth);
   const operation = await prisma.agentSkillOperation.findFirst({
@@ -666,10 +683,28 @@ export async function getAgentOperation(
 export async function consumeAgentReadRateLimit(auth: AgentAuthContext) {
   await runAgentSerializable(async (tx) => {
     const connection = await tx.agentConnection.findFirst({
-      where: { id: auth.connectionId, userId: auth.userId, status: AgentConnectionStatus.ACTIVE },
+      where: {
+        id: auth.connectionId,
+        userId: auth.userId,
+        status: AgentConnectionStatus.ACTIVE,
+        workosSubject: auth.subject,
+        workosSessionId: auth.sessionId,
+        clientId: auth.clientId,
+        resourceUrl: auth.resourceUrl,
+        user: { agentAccessDisabledAt: null },
+      },
+      select: { id: true, permissionVersion: true },
+    });
+    const deleting = await tx.accountDeletionJob.findUnique({
+      where: { userId: auth.userId },
       select: { id: true },
     });
-    if (!connection) {
+    if (
+      !connection ||
+      deleting ||
+      auth.expiresAt <= Date.now() / 1_000 ||
+      (auth.permissionVersion !== undefined && connection.permissionVersion !== auth.permissionVersion)
+    ) {
       throw new AgentOperationError("permission_denied", "The agent connection is not active.");
     }
     await consumeRateLimit(tx, auth, AgentRateLimitKind.READ, 60);
@@ -760,6 +795,7 @@ async function mutateOperationWithAction(input: {
 }): Promise<{ operation: PublicAgentOperation; mutated: boolean }> {
   return runAgentSerializable(
     async (tx) => {
+      await assertActiveConnection(tx, input.auth);
       await consumeRateLimit(tx, input.auth, AgentRateLimitKind.MUTATION, 10);
       const operation = await tx.agentSkillOperation.findFirst({
         where: {
@@ -824,21 +860,7 @@ async function mutateOperationWithAction(input: {
 async function runAgentSerializable<T>(
   work: (tx: Prisma.TransactionClient) => Promise<T>,
 ): Promise<T> {
-  const prisma = getPrisma();
-  for (let attempt = 0; attempt < 8; attempt += 1) {
-    try {
-      return await prisma.$transaction(work, {
-        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
-      });
-    } catch (error) {
-      const retryableConflict =
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        (error.code === "P2002" || error.code === "P2034");
-      if (!retryableConflict || attempt === 7) throw error;
-      await new Promise((resolve) => setTimeout(resolve, (attempt + 1) * 10));
-    }
-  }
-  throw new AgentOperationError("rate_limited", "The request could not obtain a database reservation.");
+  return runAgentDatabaseTransaction(work, { retryUniqueConstraint: true });
 }
 
 async function findReplay(
@@ -876,12 +898,34 @@ async function assertActiveConnectionAndConsumeMutation(
   tx: Prisma.TransactionClient,
   auth: AgentAuthContext,
 ) {
-  const connection = await tx.agentConnection.findFirst({
-    where: { id: auth.connectionId, userId: auth.userId, status: AgentConnectionStatus.ACTIVE },
-    select: { id: true },
-  });
-  if (!connection) throw new AgentOperationError("permission_denied", "The agent connection is not active.");
+  await assertActiveConnection(tx, auth);
   await consumeRateLimit(tx, auth, AgentRateLimitKind.MUTATION, 10);
+}
+
+async function assertActiveConnection(
+  tx: Prisma.TransactionClient,
+  auth: AgentAuthContext,
+) {
+  const connection = await tx.agentConnection.findFirst({
+    where: {
+      id: auth.connectionId,
+      userId: auth.userId,
+      status: AgentConnectionStatus.ACTIVE,
+      workosSubject: auth.subject,
+      workosSessionId: auth.sessionId,
+      clientId: auth.clientId,
+      resourceUrl: auth.resourceUrl,
+      user: { agentAccessDisabledAt: null },
+    },
+    select: { id: true, permissionVersion: true },
+  });
+  const deleting = await tx.accountDeletionJob.findUnique({ where: { userId: auth.userId }, select: { id: true } });
+  if (
+    !connection ||
+    deleting ||
+    auth.expiresAt <= Date.now() / 1_000 ||
+    (auth.permissionVersion !== undefined && connection.permissionVersion !== auth.permissionVersion)
+  ) throw new AgentOperationError("permission_denied", "The agent connection is not active.");
 }
 
 async function assertPendingItemLimit(

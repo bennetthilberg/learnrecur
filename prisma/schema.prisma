@@ -331,6 +331,16 @@ enum AgentRateLimitKind {
   READ
 }
 
+enum AgentSetupPlanStatus {
+  PREVIEWED
+  APPLYING
+  SUCCEEDED
+  PARTIAL
+  FAILED
+  STALE
+  CANCELED
+}
+
 enum AccountDeletionJobStatus {
   PENDING
   RUNNING
@@ -365,6 +375,8 @@ model User {
   mixedReview           Boolean @default(false)
   dailyNewSkillLimit     Int?
   practiceTimezone      String @default("UTC")
+  desiredRetention      Float?
+  practiceDayStartMinutes Int @default(0)
 
   collections            Collection[]
   sourceFiles            SourceFile[]
@@ -394,8 +406,45 @@ model User {
   agentOperations        AgentSkillOperation[]
   agentOperationItems    AgentSkillOperationItem[]
   agentCandidates        AgentExerciseCandidate[]
+  practiceSessions       PracticeSession[]
+  agentSetupPlans        AgentSetupPlan[]
 
   @@map("users")
+}
+
+enum PracticeSessionMode {
+  PRACTICE_ONLY
+  SCHEDULED
+}
+
+enum PracticeSessionStatus {
+  ACTIVE
+  STOPPED
+  COMPLETED
+}
+
+model PracticeSession {
+  id             String                @id @default(cuid())
+  userId         String
+  mode           PracticeSessionMode
+  status         PracticeSessionStatus @default(ACTIVE)
+  targetCount    Int
+  completedCount Int                   @default(0)
+  nextIndex      Int                   @default(0)
+  version        Int                   @default(0)
+  scope          Json
+  plan           Json
+  startedAt      DateTime              @default(now())
+  stoppedAt      DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([id, userId])
+  @@index([userId, status, updatedAt])
+  @@map("practice_sessions")
 }
 
 // This tombstone deliberately has no relation to User. It must survive the
@@ -1159,11 +1208,36 @@ model AgentConnection {
   operations       AgentSkillOperation[]
   operationActions AgentOperationAction[]
   rateLimitBuckets AgentRateLimitBucket[]
+  setupPlans       AgentSetupPlan[]
 
   @@unique([id, userId])
   @@index([userId, status, connectedAt])
   @@index([workosSubject, clientId, resourceUrl])
   @@map("agent_connections")
+}
+
+model AgentSetupPlan {
+  id                 String               @id @default(cuid())
+  userId             String
+  connectionId       String
+  idempotencyKey     String
+  payloadHash        String
+  permissionVersion  Int
+  requestedSpec      Json
+  snapshot           Json
+  status             AgentSetupPlanStatus @default(PREVIEWED)
+  result             Json?
+  errors             Json?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  connection AgentConnection @relation(fields: [connectionId, userId], references: [id, userId], onDelete: Cascade)
+
+  @@unique([id, userId])
+  @@unique([connectionId, idempotencyKey])
+  @@index([userId, status, updatedAt])
+  @@map("agent_setup_plans")
 }
 
 model AgentSkillOperation {

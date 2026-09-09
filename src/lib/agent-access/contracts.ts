@@ -2,6 +2,8 @@ import { practicePreferenceOverrideSchema, textPolicySchema } from "@/lib/practi
 import { hasExplicitAnswerOptions } from "@/lib/skills/input-answer-options";
 import { createHash } from "node:crypto";
 
+import { customPracticeSessionModeSchema } from "@/lib/practice/custom-session-contracts";
+
 import { z } from "zod";
 
 import {
@@ -25,7 +27,8 @@ const guidanceLineSchema = z.string().trim().min(1).max(500);
 const guidanceLinesSchema = z.array(guidanceLineSchema).max(8).default([]);
 const exerciseConstraintsSchema = z.string().trim().max(1_000).default("");
 const tagSchema = z.string().trim().min(1).max(40);
-const tagsSchema = z.array(tagSchema).max(12).default([]).superRefine(uniqueStrings("Tags"));
+const boundedTagsSchema = z.array(tagSchema).max(12).superRefine(uniqueStrings("Tags"));
+const tagsSchema = boundedTagsSchema.default([]);
 const collectionSchema = z.string().trim().min(1).max(120).optional();
 const promptSchema = z.string().trim().min(8).max(1_200);
 const explanationSchema = z.string().trim().min(1).max(1_200).optional();
@@ -291,6 +294,349 @@ export const agentRetryOperationSchema = z.strictObject({
     .max(10)
     .superRefine(uniqueStrings("Item IDs"))
     .optional(),
+});
+
+// Library and account-management contracts are intentionally separate from
+// skill creation. A connection that can add a generated skill must not gain
+// access to the learner's library, collections, or reminders implicitly.
+const collectionIdSchema = idSchema;
+const expectedUpdatedAtValueSchema = z.string().datetime({ offset: true });
+const expectedUpdatedAtSchema = expectedUpdatedAtValueSchema.optional();
+const expectedUpdatedAtBySkillSchema = z.record(idSchema, expectedUpdatedAtValueSchema).optional();
+
+export const agentSkillSearchSchema = z.strictObject({
+  query: z.string().trim().min(1).max(120).optional(),
+  collection_id: collectionIdSchema.optional(),
+  tags: tagsSchema.optional(),
+  status: z.enum(["DRAFT", "ACTIVE", "PAUSED", "ARCHIVED"]).optional(),
+  after_id: idSchema.optional(),
+  limit: z.number().int().min(1).max(50).default(20),
+  include_samples: z.boolean().default(false),
+});
+
+export const agentSkillGetSchema = z.strictObject({
+  skill_id: idSchema,
+  sample_limit: z.number().int().min(0).max(3).default(3),
+});
+
+export const agentSkillUpdateSchema = z
+  .strictObject({
+    skill_id: idSchema,
+    expected_updated_at: expectedUpdatedAtSchema,
+    changes: z
+      .strictObject({
+        title: titleSchema.optional(),
+        objective: objectiveSchema.optional(),
+        rules: guidanceLinesSchema.optional(),
+        examples: guidanceLinesSchema.optional(),
+        exercise_constraints: exerciseConstraintsSchema.optional(),
+        tags: tagsSchema.optional(),
+        collection_id: collectionIdSchema.nullable().optional(),
+      })
+      .refine((value) => Object.keys(value).length > 0, "Supply at least one skill change."),
+  });
+
+export const agentSkillLifecycleSchema = z.strictObject({
+  skill_id: idSchema,
+  action: z.enum(["pause", "resume", "archive", "restore"]),
+});
+
+export const agentSkillBatchUpdateSchema = z
+  .strictObject({
+    skill_ids: z.array(idSchema).min(1).max(50).superRefine(uniqueStrings("Skill IDs")),
+    expected_updated_at: expectedUpdatedAtSchema,
+    expected_updated_at_by_skill: expectedUpdatedAtBySkillSchema,
+    collection_id: collectionIdSchema.nullable().optional(),
+    set_tags: boundedTagsSchema.optional(),
+    add_tags: boundedTagsSchema.optional(),
+    remove_tags: boundedTagsSchema.optional(),
+  })
+  .superRefine((value, context) => {
+    if (value.expected_updated_at !== undefined && value.expected_updated_at_by_skill !== undefined) {
+      context.addIssue({
+        code: "custom",
+        path: ["expected_updated_at_by_skill"],
+        message: "Choose expected_updated_at or expected_updated_at_by_skill, not both.",
+      });
+    }
+    if (value.skill_ids.length > 1 && value.expected_updated_at !== undefined) {
+      context.addIssue({
+        code: "custom",
+        path: ["expected_updated_at"],
+        message: "A global expected_updated_at can only be used for one skill; use expected_updated_at_by_skill for a batch.",
+      });
+    }
+    if (value.expected_updated_at_by_skill !== undefined) {
+      const requestedIds = new Set(value.skill_ids);
+      const providedIds = Object.keys(value.expected_updated_at_by_skill);
+      const unknownIds = providedIds.filter((skillId) => !requestedIds.has(skillId));
+      const missingIds = value.skill_ids.filter((skillId) => !Object.hasOwn(value.expected_updated_at_by_skill!, skillId));
+      if (unknownIds.length > 0 || missingIds.length > 0) {
+        context.addIssue({
+          code: "custom",
+          path: ["expected_updated_at_by_skill"],
+          message: "expected_updated_at_by_skill must contain exactly one timestamp for each requested skill.",
+        });
+      }
+    }
+    if (value.collection_id === undefined && !value.set_tags && !value.add_tags && !value.remove_tags) {
+      context.addIssue({ code: "custom", path: [], message: "Supply a collection or tag change." });
+    }
+  });
+
+export const agentCollectionCreateSchema = z.strictObject({
+  name: z.string().trim().min(1).max(80),
+  description: z.string().trim().max(500).nullable().optional(),
+});
+
+export const agentCollectionUpdateSchema = z
+  .strictObject({
+    collection_id: collectionIdSchema,
+    expected_updated_at: expectedUpdatedAtSchema,
+    changes: z
+      .strictObject({
+        name: z.string().trim().min(1).max(80).optional(),
+        description: z.string().trim().max(500).nullable().optional(),
+      })
+      .refine((value) => Object.keys(value).length > 0, "Supply at least one collection change."),
+  });
+
+export const agentCollectionLifecycleSchema = z.strictObject({
+  collection_id: collectionIdSchema,
+  action: z.enum(["archive", "restore"]),
+});
+
+export const agentReminderGetSchema = z.strictObject({});
+export const agentReminderUpdateSchema = z
+  .strictObject({
+    changes: z
+      .strictObject({
+        enabled: z.boolean().optional(),
+        email: z.string().trim().max(254).optional(),
+        local_hour: z.number().int().min(0).max(23).optional(),
+        timezone: z.string().trim().min(1).max(80).optional(),
+        minimum_due_count: z.number().int().min(1).max(100).optional(),
+      })
+      .refine((value) => Object.keys(value).length > 0, "Supply at least one reminder setting."),
+  });
+
+export const agentProgressSummarySchema = z.strictObject({
+  collection_id: collectionIdSchema.optional(),
+  recent_limit: z.number().int().min(1).max(20).default(10),
+});
+
+export const agentNeedsAttentionSchema = z.strictObject({
+  limit: z.number().int().min(1).max(50).default(20),
+  cursor: z.string().trim().min(1).max(500).optional(),
+});
+
+export const agentReadinessGetSchema = z.strictObject({
+  skill_id: idSchema.optional(),
+  collection_id: collectionIdSchema.optional(),
+  limit: z.number().int().min(1).max(50).default(20),
+  after_id: idSchema.optional(),
+});
+
+export const agentReadinessRepairSchema = z.strictObject({
+  skill_id: idSchema,
+  action: z.enum(["prepare", "retry", "flag_exercise", "update_guidance"]),
+  exercise_id: idSchema.optional(),
+  reasons: z.array(z.enum(["INCORRECT_ANSWER", "UNCLEAR_PROMPT", "UNFAIR", "STALE", "NOT_USEFUL", "OFF_TOPIC", "OTHER"])).min(1).max(3).optional(),
+  other_note: z.string().trim().max(500).optional(),
+  rules: guidanceLinesSchema.optional(),
+  examples: guidanceLinesSchema.optional(),
+  exercise_constraints: exerciseConstraintsSchema.optional(),
+}).superRefine((value, context) => {
+  if (value.action === "flag_exercise" && !value.exercise_id) {
+    context.addIssue({ code: "custom", path: ["exercise_id"], message: "Flagging requires an exercise_id." });
+  }
+  if (value.action === "flag_exercise" && !value.reasons?.length) {
+    context.addIssue({ code: "custom", path: ["reasons"], message: "Flagging requires at least one reason." });
+  }
+  if (value.action === "update_guidance" && value.rules === undefined && value.examples === undefined && value.exercise_constraints === undefined) {
+    context.addIssue({ code: "custom", path: [], message: "Guidance repair requires a rules, examples, or exercise_constraints value." });
+  }
+});
+
+const setupCollectionActionSchema = z.discriminatedUnion("kind", [
+  z.strictObject({
+    kind: z.literal("reuse"),
+    collection_id: collectionIdSchema,
+  }),
+  z.strictObject({
+    kind: z.literal("create"),
+    client_reference: clientReferenceSchema,
+    name: z.string().trim().min(1).max(80),
+    description: z.string().trim().max(500).nullable().optional(),
+  }),
+]);
+
+const setupReuseSkillSchema = z
+  .strictObject({
+    kind: z.literal("reuse"),
+    skill_id: idSchema,
+    collection_id: collectionIdSchema.nullable().optional(),
+    collection_reference: clientReferenceSchema.optional(),
+    tags: tagsSchema.optional(),
+  })
+  .superRefine((value, context) => {
+    if (value.collection_id !== undefined && value.collection_reference !== undefined) {
+      context.addIssue({
+        code: "custom",
+        path: ["collection_reference"],
+        message: "Choose collection_id or collection_reference, not both.",
+      });
+    }
+  });
+
+const setupCreateSpecSkillSchema = z
+  .strictObject({
+    kind: z.literal("create_specs"),
+    client_reference: clientReferenceSchema,
+    skill: agentSkillSpecSchema,
+    collection_reference: clientReferenceSchema.optional(),
+    candidate_exercises: candidateListSchema,
+  })
+  .superRefine((value, context) => {
+    if (value.skill.collection !== undefined && value.collection_reference !== undefined) {
+      context.addIssue({
+        code: "custom",
+        path: ["collection_reference"],
+        message: "Choose skill.collection or collection_reference, not both.",
+      });
+    }
+  });
+
+const setupCreateTextSkillSchema = z
+  .strictObject({
+    kind: z.literal("create_text"),
+    client_reference: clientReferenceSchema,
+    source_text: z.string().trim().min(12).max(12_000),
+    intent: z.string().trim().min(12).max(800),
+    source_label: z.string().trim().min(1).max(160).optional(),
+    collection: collectionSchema,
+    collection_reference: clientReferenceSchema.optional(),
+    tags: tagsSchema,
+    candidate_exercises: candidateListSchema,
+  })
+  .superRefine((value, context) => {
+    if (value.collection !== undefined && value.collection_reference !== undefined) {
+      context.addIssue({
+        code: "custom",
+        path: ["collection_reference"],
+        message: "Choose collection or collection_reference, not both.",
+      });
+    }
+  });
+
+const setupCreateMaterialSkillSchema = z.strictObject({
+  kind: z.literal("create_material"),
+  client_reference: clientReferenceSchema,
+  material_id: idSchema,
+  expected_revision_id: idSchema,
+  instruction: z.string().trim().min(3).max(4_000),
+  section_ids: z.array(idSchema).max(24).superRefine(uniqueStrings("Section IDs")).optional(),
+  collection: collectionSchema,
+  collection_reference: clientReferenceSchema.optional(),
+  max_skills: z.number().int().min(1).max(10).default(10),
+}).superRefine((value, context) => {
+  if (value.collection !== undefined && value.collection_reference !== undefined) {
+    context.addIssue({
+      code: "custom",
+      path: ["collection_reference"],
+      message: "Choose collection or collection_reference, not both.",
+    });
+  }
+});
+
+export const agentSetupSkillActionSchema = z.discriminatedUnion("kind", [
+  setupReuseSkillSchema,
+  setupCreateSpecSkillSchema,
+  setupCreateTextSkillSchema,
+  setupCreateMaterialSkillSchema,
+]);
+
+const setupPracticeChangesSchema = z.strictObject({
+  practice_preference: z.enum(["BALANCED", "RECALL_FIRST"]).optional(),
+  mixed_review: z.boolean().optional(),
+  daily_new_skill_limit: z.number().int().min(0).max(1_000).nullable().optional(),
+  practice_timezone: z.string().trim().min(1).max(80).optional(),
+  desired_retention: z.number().finite().min(0.7).max(0.99).nullable().optional(),
+  practice_day_start_minutes: z.number().int().min(0).max(1_439).optional(),
+});
+
+const setupReminderChangesSchema = z.strictObject({
+  enabled: z.boolean().optional(),
+  email: z.string().trim().max(254).optional(),
+  local_hour: z.number().int().min(0).max(23).optional(),
+  timezone: z.string().trim().min(1).max(80).optional(),
+  minimum_due_count: z.number().int().min(1).max(100).optional(),
+});
+
+export const agentSetupPreviewSchema = z
+  .strictObject({
+    idempotency_key: idempotencyKeySchema,
+    collections: z.array(setupCollectionActionSchema).max(10).default([]),
+    skills: z.array(agentSetupSkillActionSchema).max(10).default([]),
+    practice: setupPracticeChangesSchema.optional(),
+    reminders: setupReminderChangesSchema.optional(),
+  })
+  .superRefine((value, context) => {
+    const references = value.skills
+      .filter((skill): skill is Extract<typeof skill, { client_reference: string }> => "client_reference" in skill)
+      .map((skill) => skill.client_reference);
+    if (new Set(references).size !== references.length) {
+      context.addIssue({ code: "custom", path: ["skills"], message: "Skill client references must be unique." });
+    }
+    const requestedSkillCount = value.skills.reduce(
+      (total, skill) => total + (skill.kind === "create_material" ? skill.max_skills : 1),
+      0,
+    );
+    if (requestedSkillCount > AGENT_MAX_BATCH_ITEMS) {
+      context.addIssue({ code: "custom", path: ["skills"], message: `A setup plan can select at most ${AGENT_MAX_BATCH_ITEMS} skills.` });
+    }
+    if (
+      value.collections.length === 0 &&
+      value.skills.length === 0 &&
+      value.practice === undefined &&
+      value.reminders === undefined
+    ) {
+      context.addIssue({ code: "custom", path: [], message: "A setup plan needs at least one requested action." });
+    }
+    if (value.practice !== undefined && Object.keys(value.practice).length === 0) {
+      context.addIssue({ code: "custom", path: ["practice"], message: "Supply at least one practice setting." });
+    }
+    if (value.reminders !== undefined && Object.keys(value.reminders).length === 0) {
+      context.addIssue({ code: "custom", path: ["reminders"], message: "Supply at least one reminder setting." });
+    }
+  });
+
+export const agentSetupApplySchema = z.strictObject({
+  plan_id: idSchema,
+});
+
+export const agentSetupGetSchema = z.strictObject({
+  plan_id: idSchema,
+});
+
+export const agentCustomSessionCreateSchema = z.strictObject({
+  mode: customPracticeSessionModeSchema.optional(),
+  target_count: z.number().int().min(1).max(100).optional(),
+  scope: z.strictObject({
+    collection_ids: z.array(idSchema).max(100).default([]),
+    tags: z.array(tagSchema).max(50).default([]),
+    skill_ids: z.array(idSchema).max(500).default([]),
+    recently_missed: z.boolean().default(false),
+    mixed_review: z.boolean().default(false),
+  }),
+});
+
+export const agentCustomSessionGetSchema = z.strictObject({
+  session_id: idSchema,
+});
+
+export const agentCustomSessionMutationSchema = z.strictObject({
+  session_id: idSchema,
 });
 
 export type NormalizedAgentCandidateExercise = {

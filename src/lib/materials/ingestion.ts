@@ -465,13 +465,30 @@ export async function queueMaterialPdfIngestion(input: {
       requestedAt: input.now.toISOString(),
     });
   } catch {
-    await prisma.materialRevision.update({
-      where: { id: revision.id },
-      data: {
-        status: MaterialRevisionStatus.FAILED,
-        errorCode: "EVENT_SEND_FAILED",
-        errorMessage: "Background processing could not be queued.",
-      },
+    await prisma.$transaction(async (tx) => {
+      const failedRevision = await tx.materialRevision.updateMany({
+        where: {
+          id: revision.id,
+          userId: input.userId,
+          status: MaterialRevisionStatus.QUEUED,
+        },
+        data: {
+          status: MaterialRevisionStatus.FAILED,
+          errorCode: "EVENT_SEND_FAILED",
+          errorMessage: "Background processing could not be queued.",
+        },
+      });
+      if (failedRevision.count === 1) {
+        await tx.sourceFile.updateMany({
+          where: {
+            id: sourceFile.id,
+            userId: input.userId,
+            materialRevisionId: revision.id,
+            status: SourceFileStatus.UPLOADED,
+          },
+          data: { status: SourceFileStatus.FAILED },
+        });
+      }
     });
     return {
       status: "not-queued",
@@ -581,20 +598,31 @@ export async function queueWebsiteMaterialImport(input: {
       requestedAt: input.now.toISOString(),
     });
   } catch {
-    await prisma.$transaction([
-      prisma.materialRevision.update({
-        where: { id: created.materialRevisionId },
+    await prisma.$transaction(async (tx) => {
+      const failedRevision = await tx.materialRevision.updateMany({
+        where: {
+          id: created.materialRevisionId,
+          userId: input.userId,
+          status: MaterialRevisionStatus.QUEUED,
+        },
         data: {
           status: MaterialRevisionStatus.FAILED,
           errorCode: "EVENT_SEND_FAILED",
           errorMessage: "Background processing could not be queued.",
         },
-      }),
-      prisma.sourceFile.update({
-        where: { id: created.sourceFileId },
-        data: { status: SourceFileStatus.FAILED },
-      }),
-    ]);
+      });
+      if (failedRevision.count === 1) {
+        await tx.sourceFile.updateMany({
+          where: {
+            id: created.sourceFileId,
+            userId: input.userId,
+            materialRevisionId: created.materialRevisionId,
+            status: SourceFileStatus.UPLOADED,
+          },
+          data: { status: SourceFileStatus.FAILED },
+        });
+      }
+    });
     return { status: "not-queued", message: "Background processing could not be queued. Try again." };
   }
 
@@ -969,7 +997,7 @@ export async function queueWebsiteMaterialRefresh(input: {
     materialRevisionId: revision.id,
     fileName: "website-snapshot.json",
   });
-  await prisma.$transaction([
+  const [, createdSourceFile] = await prisma.$transaction([
     prisma.materialRevision.update({
       where: { id: revision.id },
       data: {
@@ -991,6 +1019,7 @@ export async function queueWebsiteMaterialRefresh(input: {
         storageKey,
         metadata: metadata ?? Prisma.JsonNull,
       },
+      select: { id: true },
     }),
   ]);
 
@@ -1001,9 +1030,30 @@ export async function queueWebsiteMaterialRefresh(input: {
       requestedAt: input.now.toISOString(),
     });
   } catch {
-    await prisma.materialRevision.update({
-      where: { id: revision.id },
-      data: { status: MaterialRevisionStatus.FAILED, errorCode: "EVENT_SEND_FAILED" },
+    await prisma.$transaction(async (tx) => {
+      const failedRevision = await tx.materialRevision.updateMany({
+        where: {
+          id: revision.id,
+          userId: input.userId,
+          status: MaterialRevisionStatus.QUEUED,
+        },
+        data: {
+          status: MaterialRevisionStatus.FAILED,
+          errorCode: "EVENT_SEND_FAILED",
+          errorMessage: "Background processing could not be queued.",
+        },
+      });
+      if (failedRevision.count === 1) {
+        await tx.sourceFile.updateMany({
+          where: {
+            id: createdSourceFile.id,
+            userId: input.userId,
+            materialRevisionId: revision.id,
+            status: SourceFileStatus.UPLOADED,
+          },
+          data: { status: SourceFileStatus.FAILED },
+        });
+      }
     });
     return { status: "not-queued", message: "Website refresh could not be queued. Try again." };
   }
@@ -1425,13 +1475,6 @@ async function ingestWebsiteRevision(input: {
       retryable: false,
     });
   }
-  const quota = await checkSourceStorageUsageLimit({
-    userId: input.userId,
-    byteSize: snapshotBytes.byteLength,
-  });
-  if (quota.status === "limited") {
-    throw new MaterialIngestionError(quota.message, { retryable: false });
-  }
   const writePrisma = getPrisma();
   const leaseExpiresAt = new Date(
     Date.now() + MATERIAL_UPLOAD_URL_EXPIRES_IN_SECONDS * 1_000 + MATERIAL_UPLOAD_LEASE_SAFETY_MS,
@@ -1441,13 +1484,40 @@ async function ingestWebsiteRevision(input: {
     if (!(await canWriteWebsiteSnapshot(input, transaction))) {
       throw websiteSnapshotDeletionError();
     }
+    const currentSourceFile = await transaction.sourceFile.findFirst({
+      where: {
+        id: input.sourceFile.id,
+        userId: input.userId,
+        materialRevisionId: input.materialRevisionId,
+      },
+      select: { byteSize: true },
+    });
+    if (!currentSourceFile) {
+      throw websiteSnapshotDeletionError();
+    }
+    const reservedByteSize = Math.max(
+      currentSourceFile.byteSize ?? 0,
+      snapshotBytes.byteLength,
+    );
+    const quota = await checkSourceStorageUsageLimit({
+      userId: input.userId,
+      byteSize: reservedByteSize,
+      replaceSourceFileId: input.sourceFile.id,
+      prisma: transaction,
+    });
+    if (quota.status === "limited") {
+      throw new MaterialIngestionError(quota.message, { retryable: false });
+    }
     const leased = await transaction.sourceFile.updateMany({
       where: {
         id: input.sourceFile.id,
         userId: input.userId,
         materialRevisionId: input.materialRevisionId,
       },
-      data: { presignedUploadExpiresAt: leaseExpiresAt },
+      data: {
+        byteSize: reservedByteSize,
+        presignedUploadExpiresAt: leaseExpiresAt,
+      },
     });
     if (leased.count !== 1) throw websiteSnapshotDeletionError();
   });
@@ -1460,10 +1530,20 @@ async function ingestWebsiteRevision(input: {
       mimeType: "application/json",
     });
     if (!(await canWriteWebsiteSnapshot(input))) {
-      await input.storage.deleteObject({
-        key: storageKey,
-        bucket: storageBucket,
-      });
+      await discardWebsiteSnapshot(input.storage, storageKey, storageBucket);
+      throw websiteSnapshotDeletionError();
+    }
+    const finalizedSource = await writePrisma.sourceFile.updateMany({
+      where: {
+        id: input.sourceFile.id,
+        userId: input.userId,
+        materialRevisionId: input.materialRevisionId,
+        presignedUploadExpiresAt: leaseExpiresAt,
+      },
+      data: { byteSize: snapshotBytes.byteLength },
+    });
+    if (finalizedSource.count !== 1) {
+      await discardWebsiteSnapshot(input.storage, storageKey, storageBucket);
       throw websiteSnapshotDeletionError();
     }
   } finally {
@@ -1471,6 +1551,7 @@ async function ingestWebsiteRevision(input: {
       where: {
         id: input.sourceFile.id,
         userId: input.userId,
+        materialRevisionId: input.materialRevisionId,
         presignedUploadExpiresAt: leaseExpiresAt,
       },
       data: { presignedUploadExpiresAt: null },
@@ -1561,6 +1642,18 @@ function websiteSnapshotDeletionError() {
     "The material was deleted before its website snapshot could be finalized.",
     { retryable: false },
   );
+}
+
+async function discardWebsiteSnapshot(
+  storage: SourceObjectStorage,
+  key: string,
+  bucket: string,
+) {
+  try {
+    await storage.deleteObject({ key, bucket });
+  } catch {
+    // Preserve the structured deletion error even if best-effort object cleanup fails.
+  }
 }
 
 type MaterialSourceFile = {

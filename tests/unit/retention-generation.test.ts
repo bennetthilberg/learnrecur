@@ -63,6 +63,9 @@ describe("cross-subject retention generation contracts", () => {
           whitespace: fixture.policy.normalizeWhitespace,
         },
       });
+      if (agent.kind !== "text") {
+        throw new Error("expected a text candidate exercise");
+      }
       expect(normalizeAgentCandidateExercise(agent, 0).answerSpec).toEqual(
         exercise.answerSpec,
       );

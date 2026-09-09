@@ -69,7 +69,7 @@ describe("localized material evidence", () => {
   });
 
   it("gives Meta Muse the actual scanned PDF slice when OCR falls back", async () => {
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn<typeof fetch>(async () =>
       new Response(
         JSON.stringify({
           status: "completed",

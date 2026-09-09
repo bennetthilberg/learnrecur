@@ -14,6 +14,7 @@ import { getAgentAccessConfig } from "@/lib/agent-access/auth";
 import { sendAgentConnectionRevocationRequested, sendAgentSkillOperationRequested } from "@/lib/jobs/events";
 import { getPrisma } from "@/lib/prisma";
 import { cleanupPreparedSourceUploads } from "@/lib/skills/uploads";
+import { recoverPendingRefillEvents } from "@/lib/skills/refill-jobs";
 
 const AGENT_UPLOAD_WINDOW_MS = 10 * 60 * 1_000;
 const WORKOS_AUTHORIZED_APPLICATION_PAGE_LIMIT = 100;
@@ -528,7 +529,8 @@ export async function runAgentConnectionRevocationJob(input: {
 export async function runAgentAccessMaintenance(now: Date) {
   const prisma = getPrisma();
   const uploadCutoff = new Date(now.getTime() - AGENT_UPLOAD_WINDOW_MS);
-  const [purged, rateBuckets, pending, expiredUploads] = await Promise.all([
+  let refillRecoveryFailed = false;
+  const [purged, rateBuckets, pending, expiredUploads, refillEvents] = await Promise.all([
     prisma.agentSkillOperation.updateMany({
       where: { payloadExpiresAt: { lte: now }, requestPayload: { not: Prisma.DbNull } },
       data: { requestPayload: Prisma.DbNull, payloadExpiresAt: null },
@@ -562,6 +564,13 @@ export async function runAgentAccessMaintenance(now: Date) {
         status: true,
         sources: { select: { sourceFileId: true } },
       },
+    }),
+    recoverPendingRefillEvents({ now }).catch((error: unknown) => {
+      refillRecoveryFailed = true;
+      console.error("[agent-access] refill event recovery failed during maintenance", {
+        errorName: error instanceof Error ? error.name : "UnknownError",
+      });
+      return { attempted: 0, delivered: 0, failed: 1 };
     }),
   ]);
   let expiredUploadOperations = 0;
@@ -606,11 +615,22 @@ export async function runAgentAccessMaintenance(now: Date) {
   const revocations = await Promise.allSettled(
     pending.map((job) => runAgentConnectionRevocationJob(job)),
   );
-  return {
+  const result = {
     purgedPayloads: purged.count,
     purgedRateBuckets: rateBuckets.count,
     expiredUploadOperations,
     revocationsAttempted: pending.length,
     revocationsFailed: revocations.filter((result) => result.status === "rejected").length,
+    refillEventsAttempted: refillEvents.attempted,
+    refillEventsDelivered: refillEvents.delivered,
+    refillEventsFailed: refillEvents.failed,
   };
+  if (refillRecoveryFailed) {
+    const retryableError = new Error(
+      "Agent access maintenance could not recover refill events.",
+    );
+    Object.assign(retryableError, { retryable: true });
+    throw retryableError;
+  }
+  return result;
 }

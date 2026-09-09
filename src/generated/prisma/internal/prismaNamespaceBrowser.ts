@@ -52,6 +52,7 @@ export const AnyNull = runtime.AnyNull
 
 export const ModelName = {
   User: 'User',
+  PracticeSession: 'PracticeSession',
   AccountDeletionJob: 'AccountDeletionJob',
   Collection: 'Collection',
   SourceFile: 'SourceFile',
@@ -76,6 +77,7 @@ export const ModelName = {
   ReminderSendLog: 'ReminderSendLog',
   WorkosIdentity: 'WorkosIdentity',
   AgentConnection: 'AgentConnection',
+  AgentSetupPlan: 'AgentSetupPlan',
   AgentSkillOperation: 'AgentSkillOperation',
   AgentOperationAction: 'AgentOperationAction',
   AgentOperationSource: 'AgentOperationSource',
@@ -114,10 +116,33 @@ export const UserScalarFieldEnum = {
   practicePreference: 'practicePreference',
   mixedReview: 'mixedReview',
   dailyNewSkillLimit: 'dailyNewSkillLimit',
-  practiceTimezone: 'practiceTimezone'
+  practiceTimezone: 'practiceTimezone',
+  desiredRetention: 'desiredRetention',
+  practiceDayStartMinutes: 'practiceDayStartMinutes'
 } as const
 
 export type UserScalarFieldEnum = (typeof UserScalarFieldEnum)[keyof typeof UserScalarFieldEnum]
+
+
+export const PracticeSessionScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  mode: 'mode',
+  status: 'status',
+  targetCount: 'targetCount',
+  completedCount: 'completedCount',
+  nextIndex: 'nextIndex',
+  version: 'version',
+  scope: 'scope',
+  plan: 'plan',
+  startedAt: 'startedAt',
+  stoppedAt: 'stoppedAt',
+  completedAt: 'completedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type PracticeSessionScalarFieldEnum = (typeof PracticeSessionScalarFieldEnum)[keyof typeof PracticeSessionScalarFieldEnum]
 
 
 export const AccountDeletionJobScalarFieldEnum = {
@@ -686,6 +711,25 @@ export const AgentConnectionScalarFieldEnum = {
 } as const
 
 export type AgentConnectionScalarFieldEnum = (typeof AgentConnectionScalarFieldEnum)[keyof typeof AgentConnectionScalarFieldEnum]
+
+
+export const AgentSetupPlanScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  connectionId: 'connectionId',
+  idempotencyKey: 'idempotencyKey',
+  payloadHash: 'payloadHash',
+  permissionVersion: 'permissionVersion',
+  requestedSpec: 'requestedSpec',
+  snapshot: 'snapshot',
+  status: 'status',
+  result: 'result',
+  errors: 'errors',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type AgentSetupPlanScalarFieldEnum = (typeof AgentSetupPlanScalarFieldEnum)[keyof typeof AgentSetupPlanScalarFieldEnum]
 
 
 export const AgentSkillOperationScalarFieldEnum = {

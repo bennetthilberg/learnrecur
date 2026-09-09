@@ -5,6 +5,7 @@ import {
   buildMaterialOperationInstruction,
   buildSkillDraftInputFromSnapshot,
   classifyAgentDuplicate,
+  isMaterialLibraryOperation,
   parseSkillSnapshot,
   normalizeAgentItemErrorCode,
 } from "@/lib/agent-access/worker";
@@ -75,6 +76,13 @@ describe("buildMaterialOperationInstruction", () => {
       "Create skills covering the proof techniques in this chapter.\n\n" +
         "Clarification: Focus on induction and contradiction.",
     );
+  });
+});
+
+describe("isMaterialLibraryOperation", () => {
+  it("keeps reusable material operations out of the skill worker", () => {
+    expect(isMaterialLibraryOperation({ kind: "MATERIAL_BATCH", toolName: "materials.import_url" })).toBe(true);
+    expect(isMaterialLibraryOperation({ kind: "MATERIAL_BATCH", toolName: "skills.add_from_material" })).toBe(false);
   });
 });
 

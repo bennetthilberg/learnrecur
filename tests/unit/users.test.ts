@@ -91,7 +91,7 @@ describe("ensureDatabaseUser", () => {
   });
 
   it("mirrors signed-in users in Vercel preview deployments", async () => {
-    process.env.NODE_ENV = "production";
+    Object.assign(process.env, { NODE_ENV: "production" });
     process.env.VERCEL_ENV = "preview";
     process.env.ALPHA_ALLOWED_EMAILS = "ada@example.com";
     const { client, upsert } = makeMirrorClient();
@@ -106,7 +106,7 @@ describe("ensureDatabaseUser", () => {
   });
 
   it("mirrors signed-in users in Vercel production deployments", async () => {
-    process.env.NODE_ENV = "production";
+    Object.assign(process.env, { NODE_ENV: "production" });
     process.env.VERCEL_ENV = "production";
     process.env.ALPHA_ALLOWED_EMAILS = "ada@example.com";
     const { client, upsert } = makeMirrorClient();
@@ -121,7 +121,7 @@ describe("ensureDatabaseUser", () => {
   });
 
   it("mirrors signed-in users in production Node deployments", async () => {
-    process.env.NODE_ENV = "production";
+    Object.assign(process.env, { NODE_ENV: "production" });
     process.env.ALPHA_ALLOWED_EMAILS = "ada@example.com";
     const { client, upsert } = makeMirrorClient();
 
@@ -202,7 +202,7 @@ describe("ensureDatabaseUser", () => {
   });
 
   it("blocks a direct server mutation for a non-allowlisted production user", async () => {
-    process.env.NODE_ENV = "production";
+    Object.assign(process.env, { NODE_ENV: "production" });
     process.env.ALPHA_ALLOWED_EMAILS = "approved@example.com";
     clerkMocks.getUser.mockResolvedValue({
       primaryEmailAddress: {

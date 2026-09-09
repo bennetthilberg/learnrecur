@@ -7,7 +7,10 @@ import {
   agentCandidateExerciseSchema,
   agentGetOperationSchema,
   agentPrepareFilesSchema,
+  agentReminderUpdateSchema,
   agentSearchMaterialExcerptsSchema,
+  agentSkillBatchUpdateSchema,
+  agentSetupPreviewSchema,
   buildAgentCandidateDuplicateKey,
   buildAgentPayloadHash,
   normalizeAgentCandidateExercise,
@@ -24,6 +27,89 @@ const skill = {
 };
 
 describe("agent MCP contracts", () => {
+  it.each([
+    [100, true],
+    [101, false],
+  ])("keeps reminder due-count bounds aligned with native settings (%i)", (minimumDueCount, valid) => {
+    const native = agentReminderUpdateSchema.safeParse({
+      changes: { minimum_due_count: minimumDueCount },
+    });
+    const setup = agentSetupPreviewSchema.safeParse({
+      idempotency_key: "reminder-bound-001",
+      reminders: { minimum_due_count: minimumDueCount },
+    });
+    expect(native.success).toBe(valid);
+    expect(setup.success).toBe(valid);
+  });
+
+  it.each([
+    ["practice", { practice: {} }],
+    ["reminders", { reminders: {} }],
+  ])("rejects an empty %s setup section", (_section, changes) => {
+    expect(() =>
+      agentSetupPreviewSchema.parse({
+        idempotency_key: "empty-section-001",
+        ...changes,
+      }),
+    ).toThrow(/at least one .* setting/i);
+  });
+
+  it("keeps explicit false, zero, and null setup changes meaningful", () => {
+    expect(
+      agentSetupPreviewSchema.parse({
+        idempotency_key: "explicit-values-001",
+        practice: { mixed_review: false, daily_new_skill_limit: 0, desired_retention: null },
+        reminders: { enabled: false },
+      }),
+    ).toMatchObject({
+      practice: { mixed_review: false, daily_new_skill_limit: 0, desired_retention: null },
+      reminders: { enabled: false },
+    });
+  });
+
+  it("requires per-skill timestamps for multi-skill batches", () => {
+    const expectedUpdatedAt = "2026-09-08T12:00:00.000Z";
+    expect(() =>
+      agentSkillBatchUpdateSchema.parse({
+        skill_ids: ["skill-a", "skill-b"],
+        expected_updated_at: expectedUpdatedAt,
+        set_tags: ["review"],
+      }),
+    ).toThrow(/expected_updated_at_by_skill/i);
+
+    expect(
+      agentSkillBatchUpdateSchema.parse({
+        skill_ids: ["skill-a", "skill-b"],
+        expected_updated_at_by_skill: {
+          "skill-a": expectedUpdatedAt,
+          "skill-b": "2026-09-08T13:00:00.000+01:00",
+        },
+        set_tags: ["review"],
+      }).expected_updated_at_by_skill,
+    ).toEqual({
+      "skill-a": expectedUpdatedAt,
+      "skill-b": "2026-09-08T13:00:00.000+01:00",
+    });
+    expect(() =>
+      agentSkillBatchUpdateSchema.parse({
+        skill_ids: ["skill-a", "skill-b"],
+        expected_updated_at_by_skill: { "skill-a": expectedUpdatedAt },
+        set_tags: ["review"],
+      }),
+    ).toThrow(/exactly one timestamp/i);
+    expect(() =>
+      agentSkillBatchUpdateSchema.parse({
+        skill_ids: ["skill-a", "skill-b"],
+        expected_updated_at_by_skill: {
+          "skill-a": expectedUpdatedAt,
+          "skill-b": expectedUpdatedAt,
+          "skill-c": expectedUpdatedAt,
+        },
+        set_tags: ["review"],
+      }),
+    ).toThrow(/exactly one timestamp/i);
+  });
+
   it("accepts a bounded structured batch and rejects caller-owned fields", () => {
     expect(
       agentAddFromSpecsSchema.parse({
@@ -236,5 +322,70 @@ describe("agent MCP contracts", () => {
         difficulty: 5,
       }),
     );
+  });
+
+  it("bounds setup plans and accepts advanced practice settings explicitly", () => {
+    const materialSkill = {
+      kind: "create_material" as const,
+      client_reference: "material-skill",
+      material_id: "material-1",
+      expected_revision_id: "revision-1",
+      instruction: "Extract durable concepts.",
+    };
+    const defaultMaterialPlan = agentSetupPreviewSchema.parse({
+      idempotency_key: "setup-material-default",
+      skills: [materialSkill],
+    });
+    expect(defaultMaterialPlan.skills[0]).toMatchObject({ max_skills: 10 });
+
+    const mixedPlan = agentSetupPreviewSchema.parse({
+      idempotency_key: "setup-material-mixed",
+      skills: [
+        { kind: "reuse", skill_id: "skill-1" },
+        { ...materialSkill, max_skills: 9 },
+      ],
+    });
+    expect(mixedPlan.skills).toHaveLength(2);
+    expect(() =>
+      agentSetupPreviewSchema.parse({
+        idempotency_key: "setup-material-over-limit",
+        skills: [
+          { kind: "reuse", skill_id: "skill-1" },
+          { ...materialSkill, max_skills: 10 },
+        ],
+      }),
+    ).toThrow(/at most 10 skills/i);
+
+    const parsed = agentSetupPreviewSchema.parse({
+      idempotency_key: "setup-plan-001",
+      skills: [
+        {
+          kind: "reuse",
+          skill_id: "skill-1",
+          collection_id: null,
+          tags: ["review"],
+        },
+      ],
+      practice: {
+        daily_new_skill_limit: 5,
+        desired_retention: 0.9,
+        practice_day_start_minutes: 1_140,
+      },
+      reminders: { enabled: true, local_hour: 19, timezone: "America/Chicago" },
+    });
+    expect(parsed.skills).toHaveLength(1);
+    expect(parsed.practice?.practice_day_start_minutes).toBe(1_140);
+    expect(() =>
+      agentSetupPreviewSchema.parse({
+        idempotency_key: "setup-plan-002",
+        skills: Array.from({ length: 11 }, (_, index) => ({ kind: "reuse", skill_id: `skill-${index}` })),
+      }),
+    ).toThrow();
+    expect(() =>
+      agentSetupPreviewSchema.parse({
+        idempotency_key: "setup-plan-003",
+        practice: { desired_retention: 0.69 },
+      }),
+    ).toThrow();
   });
 });

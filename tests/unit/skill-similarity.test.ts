@@ -199,21 +199,20 @@ describe("skill similarity text and embedding contracts", () => {
       first,
       second,
     ]);
+    const editedSecond = {
+      ...second,
+      rules: { items: ["Use a table of values."] },
+      status: SkillStatus.ARCHIVED,
+      tags: ["edited"],
+    };
+    const movedFirst = {
+      ...first,
+      collectionId: "collection-2",
+      status: SkillStatus.PAUSED,
+    };
 
     expect(
-      buildSkillDuplicateLibraryFingerprint([
-        {
-          ...second,
-          rules: { items: ["Use a table of values."] },
-          status: SkillStatus.ARCHIVED,
-          tags: ["edited"],
-        },
-        {
-          ...first,
-          collectionId: "collection-2",
-          status: SkillStatus.PAUSED,
-        },
-      ]),
+      buildSkillDuplicateLibraryFingerprint([editedSecond, movedFirst]),
     ).toBe(fingerprint);
     expect(
       buildSkillDuplicateLibraryFingerprint([

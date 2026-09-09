@@ -2269,7 +2269,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
         objective: "Keep linked failed text out of source recovery.",
         rules: [],
         examples: [],
-        exerciseConstraints: null,
+        exerciseConstraints: Prisma.DbNull,
         tags: [],
         status: SkillStatus.DRAFT,
       },
@@ -2866,6 +2866,9 @@ describeDatabase("skill drafts and Gemini activation", () => {
       now,
       storage,
       extractSourceText: async (input) => {
+        if (!input.sourceLabel) {
+          throw new Error("expected a source label");
+        }
         extractionInputs.push(input.sourceLabel);
 
         if (extractionInputs.length === 2) {
@@ -3082,6 +3085,9 @@ describeDatabase("skill drafts and Gemini activation", () => {
       status: "not-created",
       reason: "invalid-upload",
     });
+    if (completed.status !== "not-created") {
+      throw new Error("expected invalid upload to return a public failure");
+    }
     expect(completed.message).toContain("Could not verify S3 upload:");
 
     const draftSources = await prisma.sourceFile.findMany({
@@ -3385,6 +3391,9 @@ describeDatabase("skill drafts and Gemini activation", () => {
         message:
           "The AI service is busy right now, so LearnRecur could not finish creating this skill. Try again in a minute.",
       });
+      if (completed.status !== "not-created") {
+        throw new Error("expected extraction failure to return a public failure");
+      }
       expect(completed.message).not.toContain("{");
 
       const failedSource = await prisma.sourceFile.findUniqueOrThrow({
@@ -4199,7 +4208,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
       sourceFileId: prepared.sourceFileId,
       now,
       storage,
-      extractSourceText: async () => {
+      extractSourceText: async (input) => {
         await expect(
           dismissFailedSourceUpload({
             userId,
@@ -4212,7 +4221,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
           sourceFileId: prepared.sourceFileId,
         });
 
-        return successfulSourceExtractor();
+        return successfulSourceExtractor(input);
       },
       generateSkillDraft: successfulSkillDraftGenerator,
       model: "test-gemini",
@@ -5564,7 +5573,13 @@ describeDatabase("skill drafts and Gemini activation", () => {
         dismissalPendingAt: now.toISOString(),
       }),
     });
-    expect(sourceDuringDelete?.metadata).not.toEqual(
+    const observedSourceDuringDelete = sourceDuringDelete as {
+      metadata: Prisma.JsonValue | null;
+    } | null;
+    if (!observedSourceDuringDelete) {
+      throw new Error("expected to observe the source before storage deletion");
+    }
+    expect(observedSourceDuringDelete.metadata).not.toEqual(
       expect.objectContaining({
         dismissedAt: expect.any(String),
       }),
@@ -7809,7 +7824,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
       expect(job).toMatchObject({
         status: GenerationJobStatus.FAILED,
         provider: "google",
-        model: process.env.GEMINI_MODEL?.trim() || DEFAULT_GEMINI_MODEL,
+        model: DEFAULT_GEMINI_MODEL,
         acceptedCount: 0,
         rejectedCount: 0,
       });

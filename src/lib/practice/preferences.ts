@@ -2,8 +2,10 @@ import "server-only";
 import { z } from "zod";
 import {
   dailyNewSkillLimitSchema,
+  practiceDayStartMinutesSchema,
   practiceTimezoneSchema,
 } from "./daily-limit-contracts";
+import { desiredRetentionSchema } from "@/lib/scheduling/contracts";
 import { Prisma } from "@/generated/prisma/client";
 import { getPrisma } from "@/lib/prisma";
 import {
@@ -19,6 +21,8 @@ export const userPracticePreferencesSchema = z.strictObject({
   mixedReview: z.boolean(),
   dailyNewSkillLimit: dailyNewSkillLimitSchema,
   practiceTimezone: practiceTimezoneSchema,
+  desiredRetention: desiredRetentionSchema,
+  practiceDayStartMinutes: practiceDayStartMinutesSchema,
 });
 export const collectionPracticePreferencesSchema = z.strictObject({
   practicePreference: practicePreferenceOverrideSchema,
@@ -37,6 +41,8 @@ export async function getUserPracticePreferences(userId: string) {
       mixedReview: true,
       dailyNewSkillLimit: true,
       practiceTimezone: true,
+      desiredRetention: true,
+      practiceDayStartMinutes: true,
     },
   });
   return userPracticePreferencesSchema.parse(user);
@@ -48,7 +54,12 @@ export async function saveUserPracticePreferences(
   transaction?: Prisma.TransactionClient,
 ) {
   const data = userPracticePreferencesSchema
-    .partial({ dailyNewSkillLimit: true, practiceTimezone: true })
+    .partial({
+      dailyNewSkillLimit: true,
+      practiceTimezone: true,
+      desiredRetention: true,
+      practiceDayStartMinutes: true,
+    })
     .parse(input);
   const saved = await (transaction ?? getPrisma()).user.update({
     where: { id: userId },
@@ -59,6 +70,8 @@ export async function saveUserPracticePreferences(
     mixedReview: saved.mixedReview,
     dailyNewSkillLimit: saved.dailyNewSkillLimit,
     practiceTimezone: saved.practiceTimezone,
+    desiredRetention: saved.desiredRetention,
+    practiceDayStartMinutes: saved.practiceDayStartMinutes,
   });
 }
 

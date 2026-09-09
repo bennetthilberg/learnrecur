@@ -12,6 +12,8 @@ import {
   practicePreferenceOverrideSchema,
   textPolicySchema,
 } from "@/lib/practice/policies";
+import { practiceDayStartMinutesSchema } from "@/lib/practice/daily-limit-contracts";
+import { desiredRetentionSchema } from "@/lib/scheduling/contracts";
 
 const id = z.string().trim().min(1).max(200);
 export const agentPracticeTargetSchema = z.discriminatedUnion("scope", [
@@ -37,6 +39,8 @@ export const agentUpdatePracticeSettingsSchema = z
       mixedReview: z.boolean().optional(),
       dailyNewSkillLimit: dailyNewSkillLimitSchema.optional(),
       practiceTimezone: practiceTimezoneSchema.optional(),
+      desiredRetention: desiredRetentionSchema.optional(),
+      practiceDayStartMinutes: practiceDayStartMinutesSchema.optional(),
       textPolicy: textPolicySchema.nullable().optional(),
       alreadyStudied: z.boolean().optional(),
     }),
@@ -56,7 +60,7 @@ export const agentUpdatePracticeSettingsSchema = z
         code: "custom",
         path: ["changes"],
         message:
-          "Supply at least one setting supported by this target. User settings: practicePreference (non-null), mixedReview, dailyNewSkillLimit (0-1000 or null for unlimited), practiceTimezone (IANA timezone). Collection: practicePreference, textPolicy. Skill: practicePreference, textPolicy, alreadyStudied.",
+          "Supply at least one setting supported by this target. User settings: practicePreference (non-null), mixedReview, dailyNewSkillLimit (0-1000 or null for unlimited), practiceTimezone (IANA timezone), desiredRetention (0.70-0.99 or null for the ts-fsrs default), practiceDayStartMinutes (0-1439). Collection: practicePreference, textPolicy. Skill: practicePreference, textPolicy, alreadyStudied.",
       });
     }
   });

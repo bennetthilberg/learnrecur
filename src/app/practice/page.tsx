@@ -6,12 +6,14 @@ import { ensureDatabaseUser } from "@/lib/users";
 
 import { SkillsTopbar } from "../skills/skills-topbar";
 import { PracticeLoader } from "./practice-loader";
+import { CustomPracticeLoader } from "./custom-practice-loader";
 
 export const dynamic = "force-dynamic";
 
 type PracticePageProps = {
   searchParams?: Promise<{
     collectionId?: string | string[];
+    sessionId?: string | string[];
   }>;
 };
 
@@ -20,6 +22,7 @@ export default async function PracticePage({ searchParams }: PracticePageProps) 
   const clerkUser = await currentUser();
   const resolvedSearchParams = searchParams ? await searchParams : {};
   const collectionId = parseCollectionId(resolvedSearchParams.collectionId);
+  const sessionId = parseCollectionId(resolvedSearchParams.sessionId);
 
   if (!clerkUser) {
     throw new Error(`Clerk returned no user for authenticated user ${userId}.`);
@@ -41,12 +44,16 @@ export default async function PracticePage({ searchParams }: PracticePageProps) 
     <main className="practiceShell">
       <SkillsTopbar current="practice" />
 
-      <PracticeLoader
-        key={collectionId ?? "all"}
-        collectionId={collectionId}
-        initialMixedReview={preferences.mixedReview}
-        canUseSampleData={process.env.NODE_ENV !== "production"}
-      />
+      {sessionId ? (
+        <CustomPracticeLoader key={sessionId} sessionId={sessionId} />
+      ) : (
+        <PracticeLoader
+          key={collectionId ?? "all"}
+          collectionId={collectionId}
+          initialMixedReview={preferences.mixedReview}
+          canUseSampleData={process.env.NODE_ENV !== "production"}
+        />
+      )}
     </main>
   );
 }
