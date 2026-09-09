@@ -72,11 +72,11 @@ export function MaterialDeleteControl({
           Remove <strong>“{title}”</strong> and every saved revision? Existing skills stay, but
           source-backed regeneration stops. This cannot be undone.
         </p>
-        {error ? (
+        {error || pending ? (
           <ActionNotification
             id={`material-delete-error-${materialId}`}
             title="Could not delete material"
-            message={error}
+            message={pending ? null : error}
           />
         ) : null}
         <div className="materialDeleteModalActions">

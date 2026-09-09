@@ -49,7 +49,7 @@ export function SkillLifecycleForm({
       {description ? <p>{description}</p> : null}
       {state.message ? (
         <ActionNotification
-          id={`skill-lifecycle-${skillId}`}
+          id={`skill-lifecycle-${skillId}-${actionType}`}
           message={pending ? null : state.message}
           title="Update skill"
           tone={state.status === "error" ? "error" : "success"}
