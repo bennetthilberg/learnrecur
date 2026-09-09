@@ -203,6 +203,32 @@ describeDatabase("durable agent setup plans", () => {
         message: "The setup action could not be completed.",
       },
     });
+
+    await prisma.agentSetupPlan.update({
+      where: { id: preview.plan_id as string },
+      data: {
+        result: {
+          version: 1,
+          actions: [{
+            kind: "practice",
+            step_key: "practice",
+            status: "failed",
+            error_code: "PRIVATE_INTERNAL_CODE",
+            error_message: privateMarker,
+          }],
+        },
+      },
+    });
+    const flatCodeRead = await getAgentSetupPlan(fixture.auth, { plan_id: preview.plan_id });
+    expect(JSON.stringify(flatCodeRead)).not.toContain(privateMarker);
+    expect(flatCodeRead).toMatchObject({
+      result: {
+        actions: [{
+          error_code: "internal_error",
+          error_message: "The setup action could not be completed.",
+        }],
+      },
+    });
   });
 
   it("rejects a preview before mutation when a required scope is absent", async () => {

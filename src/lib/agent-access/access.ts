@@ -53,7 +53,16 @@ export async function withAgentMutation<T>(
   requiredScopes: AgentAccessScope | readonly AgentAccessScope[],
   work: (tx: Prisma.TransactionClient) => Promise<T>,
   transaction?: Prisma.TransactionClient,
-  options?: { retryUniqueConstraint?: boolean },
+  options?: {
+    retryUniqueConstraint?: boolean;
+    /**
+     * A trusted continuation can recheck the connection after an external
+     * call without charging the same logical mutation twice. This must never
+     * be derived from tool input; the continuation still runs every
+     * authorization, lock, expiry, permission-version, and deletion check.
+     */
+    consumeMutationRate?: boolean;
+  },
 ): Promise<T> {
   const scopes = Array.isArray(requiredScopes) ? [...requiredScopes] : [requiredScopes];
   if (scopes.some((scope) => !auth.scopes.includes(scope))) {
@@ -109,7 +118,7 @@ export async function withAgentMutation<T>(
   }
 
   return runAgentSerializable(async (tx) => {
-    await verify(tx, true);
+    await verify(tx, options?.consumeMutationRate ?? true);
     return work(tx);
   }, {
     timeout: 15_000,

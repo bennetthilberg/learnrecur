@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import {
   AgentConnectionStatus,
+  AgentRateLimitKind,
   MaterialRevisionStatus,
   SourceFileKind,
   SourceFileStatus,
@@ -82,6 +83,17 @@ describeDatabase("agent material ingestion", () => {
     } satisfies AgentAuthClaims;
   }
 
+  async function mutationRateCount(auth: AgentAuthClaims) {
+    const buckets = await prisma.agentRateLimitBucket.findMany({
+      where: {
+        connectionId: auth.connectionId,
+        kind: AgentRateLimitKind.MUTATION,
+      },
+      select: { count: true },
+    });
+    return buckets.reduce((total, bucket) => total + bucket.count, 0);
+  }
+
   it("fences concurrent PDF preparation and enqueues one completion", async () => {
     const auth = await createAuth("pdf");
     const storage = createMemoryStorage();
@@ -120,7 +132,7 @@ describeDatabase("agent material ingestion", () => {
       await prisma.studyMaterial.count({ where: { userId: auth.userId } }),
     ).toBe(1);
 
-    storage.objects.set(storage.lastPreparedKey, Buffer.alloc(input.byte_size));
+    seedUploadedObject(storage, first.upload_url, input.byte_size);
     const completeInput = {
       idempotency_key: `complete_${randomUUID()}`,
       material_revision_id: first.material_revision_id!,
@@ -197,6 +209,88 @@ describeDatabase("agent material ingestion", () => {
         dependencies,
       ),
     ).rejects.toMatchObject({ code: "idempotency_conflict" });
+  });
+
+  it("charges one mutation allowance for an upload URL refresh", async () => {
+    const auth = await createAuth("replay_rate");
+    const storage = createMemoryStorage();
+    const input = {
+      idempotency_key: `replay_rate_${randomUUID()}`,
+      title: "Replay rate",
+      original_name: "replay-rate.pdf",
+      mime_type: "application/pdf" as const,
+      byte_size: 1_024,
+    };
+
+    const first = await prepareAgentMaterialUpload(auth, input, { storage });
+    const beforeReplay = await mutationRateCount(auth);
+    expect(beforeReplay).toBe(1);
+
+    const replay = await prepareAgentMaterialUpload(auth, input, { storage });
+    const afterReplay = await mutationRateCount(auth);
+
+    expect(replay.operation_id).toBe(first.operation_id);
+    // The idempotency claim pays once; both refresh checks are trusted
+    // continuations that must not charge again.
+    expect(afterReplay - beforeReplay).toBe(1);
+  });
+
+  it("keeps concurrent distinct preparations mapped to their own objects", async () => {
+    const auth = await createAuth("distinct_keys");
+    const storage = createMemoryStorage();
+    const firstInput = {
+      idempotency_key: `distinct_first_${randomUUID()}`,
+      title: "First distinct upload",
+      original_name: "first-distinct.pdf",
+      mime_type: "application/pdf" as const,
+      byte_size: 1_024,
+    };
+    const secondInput = {
+      idempotency_key: `distinct_second_${randomUUID()}`,
+      title: "Second distinct upload",
+      original_name: "second-distinct.pdf",
+      mime_type: "application/pdf" as const,
+      byte_size: 2_048,
+    };
+
+    const [first, second] = await Promise.all([
+      prepareAgentMaterialUpload(auth, firstInput, { storage }),
+      prepareAgentMaterialUpload(auth, secondInput, { storage }),
+    ]);
+    expect(first.operation_id).not.toBe(second.operation_id);
+    expect(first.upload_url).toMatch(/^https:\/\/uploads\.example\//);
+    expect(second.upload_url).toMatch(/^https:\/\/uploads\.example\//);
+    const firstKey = storageKeyFromUploadUrl(first.upload_url!);
+    const secondKey = storageKeyFromUploadUrl(second.upload_url!);
+    expect(firstKey).not.toBe(secondKey);
+    expect(storage.preparedKeys).toEqual(
+      expect.arrayContaining([firstKey, secondKey]),
+    );
+
+    seedUploadedObject(storage, first.upload_url, firstInput.byte_size);
+    seedUploadedObject(storage, second.upload_url, secondInput.byte_size);
+    const [completedFirst, completedSecond] = await Promise.all([
+      completeAgentMaterialUpload(
+        auth,
+        {
+          idempotency_key: `distinct_complete_first_${randomUUID()}`,
+          material_revision_id: first.material_revision_id!,
+          operation_id: first.operation_id,
+        },
+        { storage, eventSender: { async sendMaterialIngestionRequested() {} } },
+      ),
+      completeAgentMaterialUpload(
+        auth,
+        {
+          idempotency_key: `distinct_complete_second_${randomUUID()}`,
+          material_revision_id: second.material_revision_id!,
+          operation_id: second.operation_id,
+        },
+        { storage, eventSender: { async sendMaterialIngestionRequested() {} } },
+      ),
+    ]);
+    expect(completedFirst.status).toBe("queued");
+    expect(completedSecond.status).toBe("queued");
   });
 
   it("does not refresh a replayed upload after revocation during presigning", async () => {
@@ -293,7 +387,7 @@ describeDatabase("agent material ingestion", () => {
       },
       { storage },
     );
-    storage.objects.set(storage.lastPreparedKey, Buffer.alloc(1_024));
+    seedUploadedObject(storage, prepared.upload_url, 1_024);
     await completeAgentMaterialUpload(
       auth,
       {
@@ -359,7 +453,7 @@ describeDatabase("agent material ingestion", () => {
       },
       { storage },
     );
-    storage.objects.set(storage.lastPreparedKey, Buffer.alloc(1_024));
+    seedUploadedObject(storage, prepared.upload_url, 1_024);
     const finalizedAt = new Date();
     let senderReachedIntentionalFailure = false;
 
@@ -660,17 +754,17 @@ describeDatabase("agent material ingestion", () => {
 
 function createMemoryStorage(): SourceObjectStorage & {
   objects: Map<string, Buffer>;
-  lastPreparedKey: string;
+  preparedKeys: string[];
   headCalls: number;
 } {
   const objects = new Map<string, Buffer>();
   const storage = {
     bucketName: "test-agent-materials",
     objects,
-    lastPreparedKey: "",
+    preparedKeys: [] as string[],
     headCalls: 0,
     async createPresignedUploadUrl({ key }: { key: string }) {
-      storage.lastPreparedKey = key;
+      storage.preparedKeys.push(key);
       return `https://uploads.example/${encodeURIComponent(key)}`;
     },
     async headObject({ key }: { key: string }) {
@@ -694,8 +788,21 @@ function createMemoryStorage(): SourceObjectStorage & {
     },
   } satisfies SourceObjectStorage & {
     objects: Map<string, Buffer>;
-    lastPreparedKey: string;
+    preparedKeys: string[];
     headCalls: number;
   };
   return storage;
+}
+
+function storageKeyFromUploadUrl(uploadUrl: string) {
+  return decodeURIComponent(new URL(uploadUrl).pathname.slice(1));
+}
+
+function seedUploadedObject(
+  storage: { objects: Map<string, Buffer> },
+  uploadUrl: string | null,
+  byteSize: number,
+) {
+  expect(uploadUrl).toMatch(/^https:\/\/uploads\.example\//);
+  storage.objects.set(storageKeyFromUploadUrl(uploadUrl!), Buffer.alloc(byteSize));
 }

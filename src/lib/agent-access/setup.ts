@@ -181,10 +181,12 @@ function publicSetupAction(action: SetupActionRecord) {
     );
   }
   if (
-    typeof publicAction.error_message === "string" &&
-    (typeof publicAction.error_code !== "string" ||
-      !PUBLIC_AGENT_OPERATION_ERROR_CODES.has(publicAction.error_code))
+    (typeof publicAction.error_code === "string" &&
+      !PUBLIC_AGENT_OPERATION_ERROR_CODES.has(publicAction.error_code)) ||
+    (typeof publicAction.error_message === "string" &&
+      typeof publicAction.error_code !== "string")
   ) {
+    publicAction.error_code = "internal_error";
     publicAction.error_message = PUBLIC_SETUP_UNEXPECTED_ERROR;
   }
   return publicAction;

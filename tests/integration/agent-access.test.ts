@@ -2,7 +2,8 @@ import { randomUUID } from "node:crypto";
 
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/jobs/events", () => ({
+vi.mock("@/lib/jobs/events", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/jobs/events")>()),
   sendAgentConnectionRevocationRequested: vi.fn().mockResolvedValue(undefined),
   sendAgentSkillOperationRequested: vi.fn().mockResolvedValue(undefined),
 }));
@@ -38,6 +39,7 @@ import {
 } from "@/lib/jobs/events";
 import { getPrisma } from "@/lib/prisma";
 import { getUserDataExport } from "@/lib/settings/data-export";
+import * as refillJobs from "@/lib/skills/refill-jobs";
 
 const runDatabaseTests = process.env.RUN_DATABASE_TESTS === "1";
 const describeDatabase = runDatabaseTests ? describe : describe.skip;
@@ -416,6 +418,77 @@ describeDatabase("agent access persistence", () => {
       errorCode: "UPLOAD_WINDOW_EXPIRED",
     });
     await expect(prisma.sourceFile.findUnique({ where: { id: source.id } })).resolves.toBeNull();
+  });
+
+  it("finishes expiry and revocation before retrying failed refill recovery", async () => {
+    const fixture = await createConnection("maintenance-recovery-failure");
+    const now = new Date("2026-08-13T10:11:00.000Z");
+    const source = await prisma.sourceFile.create({
+      data: {
+        userId: fixture.userId,
+        kind: SourceFileKind.PDF,
+        status: SourceFileStatus.DRAFT,
+        originalName: "recovery-failure.pdf",
+        mimeType: "application/pdf",
+        byteSize: 1_024,
+        storageBucket: "staging-private",
+        storageKey: `agent-test/${runId}/recovery-failure.pdf`,
+      },
+    });
+    const operation = await prisma.agentSkillOperation.create({
+      data: {
+        userId: fixture.userId,
+        connectionId: fixture.connection.id,
+        kind: AgentOperationKind.QUICK_FILES,
+        toolName: "skills.prepare_files",
+        status: AgentOperationStatus.AWAITING_UPLOAD,
+        idempotencyKey: `recovery-failure-${runId}`,
+        payloadHash: "r".repeat(64),
+        requestedCount: 1,
+        createdAt: new Date("2026-08-13T10:00:00.000Z"),
+        items: { create: { ordinal: 0, clientReference: "files-1" } },
+        sources: { create: { sourceFileId: source.id, ordinal: 0 } },
+      },
+      include: { items: true },
+    });
+    await prisma.agentRevocationOutbox.create({
+      data: {
+        userId: fixture.userId,
+        connectionId: fixture.connection.id,
+        workosUserId: fixture.identity.workosUserId,
+        applicationId: fixture.connection.workosApplicationId,
+        status: AgentRevocationOutboxStatus.PENDING,
+        nextAttemptAt: now,
+      },
+    });
+
+    const recovery = vi
+      .spyOn(refillJobs, "recoverPendingRefillEvents")
+      .mockRejectedValueOnce(new Error("private database failure"));
+    const fetch = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(null, { status: 404 }));
+    try {
+      await expect(runAgentAccessMaintenance(now)).rejects.toMatchObject({
+        message: "Agent access maintenance could not recover refill events.",
+        retryable: true,
+      });
+      expect(recovery).toHaveBeenCalledWith({ now });
+      expect(fetch).toHaveBeenCalledTimes(1);
+      await expect(
+        prisma.agentSkillOperation.findUniqueOrThrow({ where: { id: operation.id } }),
+      ).resolves.toMatchObject({
+        status: AgentOperationStatus.CANCELED,
+        errorCode: "UPLOAD_WINDOW_EXPIRED",
+      });
+      await expect(prisma.sourceFile.findUnique({ where: { id: source.id } })).resolves.toBeNull();
+      await expect(
+        prisma.agentRevocationOutbox.findUniqueOrThrow({ where: { connectionId: fixture.connection.id } }),
+      ).resolves.toMatchObject({ status: AgentRevocationOutboxStatus.SUCCEEDED });
+    } finally {
+      recovery.mockRestore();
+      fetch.mockRestore();
+    }
   });
 
   it("reclaims interrupted text items and resumes their stored draft", async () => {

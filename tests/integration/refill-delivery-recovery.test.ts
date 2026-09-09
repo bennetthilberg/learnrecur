@@ -6,6 +6,7 @@ import {
   GenerationJobKind,
   GenerationJobStage,
   GenerationJobStatus,
+  Prisma,
 } from "@/generated/prisma/client";
 import type {
   ExerciseRefillEventPayload,
@@ -44,6 +45,7 @@ describeDatabase("refill delivery recovery", () => {
       attempt?: number;
       status?: GenerationJobStatus;
       updatedAt?: Date;
+      stageMetrics?: Prisma.InputJsonValue | typeof Prisma.DbNull;
     } = {},
   ) {
     const userId = `${runId}_${label}`;
@@ -53,6 +55,15 @@ describeDatabase("refill delivery recovery", () => {
       userId,
       title: `Recovery ${label}`,
     });
+    const stageMetrics = {
+      refillDelivery: {
+        kind: "choice",
+        targetReadyCount: 5,
+        requestedAt: staleUpdatedAt.toISOString(),
+        attempt: options.attempt ?? 0,
+        nextAttemptAt: staleUpdatedAt.toISOString(),
+      },
+    } satisfies Prisma.InputJsonValue;
     const generationJob = await prisma.generationJob.create({
       data: {
         userId,
@@ -67,15 +78,7 @@ describeDatabase("refill delivery recovery", () => {
         requestedCount: 1,
         createdAt: staleUpdatedAt,
         updatedAt: options.updatedAt ?? staleUpdatedAt,
-        stageMetrics: {
-          refillDelivery: {
-            kind: "choice",
-            targetReadyCount: 5,
-            requestedAt: staleUpdatedAt.toISOString(),
-            attempt: options.attempt ?? 0,
-            nextAttemptAt: staleUpdatedAt.toISOString(),
-          },
-        },
+        stageMetrics: "stageMetrics" in options ? options.stageMetrics : stageMetrics,
       },
     });
     return { userId, skill, generationJob };
@@ -142,10 +145,11 @@ describeDatabase("refill delivery recovery", () => {
       recoverPendingRefillEvents({ now, sender }),
     ]);
 
-    expect(results).toEqual([
+    expect(results).toHaveLength(2);
+    expect(results).toEqual(expect.arrayContaining([
       { attempted: 1, delivered: 1, failed: 0 },
       { attempted: 0, delivered: 0, failed: 0 },
-    ]);
+    ]));
     expect(payloads).toHaveLength(1);
     await expect(
       prisma.generationJob.findUniqueOrThrow({
@@ -262,6 +266,98 @@ describeDatabase("refill delivery recovery", () => {
       stage: GenerationJobStage.FAILED,
       checkpoint: "event-send-failed",
       errorMessage: "Exercise preparation delivery could not be recovered. Retry the repair.",
+    });
+  });
+
+  it("leaves legacy delivery rows unchanged without starving recoverable rows", async () => {
+    const legacyFixtures = [];
+    for (let index = 0; index < 25; index += 1) {
+      legacyFixtures.push(
+        await createPendingJob(`legacy-${index}`, {
+          stageMetrics:
+            index % 2 === 0
+              ? Prisma.DbNull
+              : ({} satisfies Prisma.InputJsonValue),
+        }),
+      );
+    }
+    const recoverable = await createPendingJob("legacy-batch-recoverable");
+    const legacyIds = legacyFixtures.map(({ generationJob }) => generationJob.id);
+    const legacyBefore = await prisma.generationJob.findMany({
+      where: { id: { in: legacyIds } },
+      orderBy: { id: "asc" },
+      select: {
+        id: true,
+        status: true,
+        stage: true,
+        checkpoint: true,
+        stageMetrics: true,
+        errorMessage: true,
+        updatedAt: true,
+      },
+    });
+    const payloads: ExerciseRefillEventPayload[] = [];
+
+    await expect(
+      recoverPendingRefillEvents({
+        now,
+        sender: senderFor((payload) => {
+          payloads.push(payload);
+        }),
+      }),
+    ).resolves.toEqual({ attempted: 1, delivered: 1, failed: 0 });
+
+    expect(payloads).toEqual([{
+      userId: recoverable.userId,
+      skillId: recoverable.skill.id,
+      generationJobId: recoverable.generationJob.id,
+      targetReadyCount: 5,
+      requestedAt: staleUpdatedAt.toISOString(),
+    }]);
+    await expect(
+      prisma.generationJob.findMany({
+        where: { id: { in: legacyIds } },
+        orderBy: { id: "asc" },
+        select: {
+          id: true,
+          status: true,
+          stage: true,
+          checkpoint: true,
+          stageMetrics: true,
+          errorMessage: true,
+          updatedAt: true,
+        },
+      }),
+    ).resolves.toEqual(legacyBefore);
+  });
+
+  it("fails malformed present delivery metadata without treating it as legacy", async () => {
+    const fixture = await createPendingJob("malformed-delivery-metadata", {
+      stageMetrics: {
+        refillDelivery: {
+          kind: "choice",
+          targetReadyCount: 0,
+        },
+      },
+    });
+
+    await expect(
+      recoverPendingRefillEvents({
+        now,
+        sender: senderFor(() => {
+          throw new Error("must not send malformed delivery metadata");
+        }),
+      }),
+    ).resolves.toEqual({ attempted: 0, delivered: 0, failed: 1 });
+    await expect(
+      prisma.generationJob.findUniqueOrThrow({
+        where: { id: fixture.generationJob.id },
+        select: { status: true, stage: true, checkpoint: true },
+      }),
+    ).resolves.toEqual({
+      status: GenerationJobStatus.FAILED,
+      stage: GenerationJobStage.FAILED,
+      checkpoint: "event-send-failed",
     });
   });
 

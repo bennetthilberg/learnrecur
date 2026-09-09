@@ -529,6 +529,7 @@ export async function runAgentConnectionRevocationJob(input: {
 export async function runAgentAccessMaintenance(now: Date) {
   const prisma = getPrisma();
   const uploadCutoff = new Date(now.getTime() - AGENT_UPLOAD_WINDOW_MS);
+  let refillRecoveryFailed = false;
   const [purged, rateBuckets, pending, expiredUploads, refillEvents] = await Promise.all([
     prisma.agentSkillOperation.updateMany({
       where: { payloadExpiresAt: { lte: now }, requestPayload: { not: Prisma.DbNull } },
@@ -564,7 +565,13 @@ export async function runAgentAccessMaintenance(now: Date) {
         sources: { select: { sourceFileId: true } },
       },
     }),
-    recoverPendingRefillEvents({ now }),
+    recoverPendingRefillEvents({ now }).catch((error: unknown) => {
+      refillRecoveryFailed = true;
+      console.error("[agent-access] refill event recovery failed during maintenance", {
+        errorName: error instanceof Error ? error.name : "UnknownError",
+      });
+      return { attempted: 0, delivered: 0, failed: 1 };
+    }),
   ]);
   let expiredUploadOperations = 0;
   for (const operation of expiredUploads) {
@@ -608,7 +615,7 @@ export async function runAgentAccessMaintenance(now: Date) {
   const revocations = await Promise.allSettled(
     pending.map((job) => runAgentConnectionRevocationJob(job)),
   );
-  return {
+  const result = {
     purgedPayloads: purged.count,
     purgedRateBuckets: rateBuckets.count,
     expiredUploadOperations,
@@ -618,4 +625,12 @@ export async function runAgentAccessMaintenance(now: Date) {
     refillEventsDelivered: refillEvents.delivered,
     refillEventsFailed: refillEvents.failed,
   };
+  if (refillRecoveryFailed) {
+    const retryableError = new Error(
+      "Agent access maintenance could not recover refill events.",
+    );
+    Object.assign(retryableError, { retryable: true });
+    throw retryableError;
+  }
+  return result;
 }

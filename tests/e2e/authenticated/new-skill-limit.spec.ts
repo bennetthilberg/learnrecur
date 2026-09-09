@@ -18,7 +18,7 @@ for (const width of [1280, 390]) {
       [userId],
     );
     await sql.query(
-      'UPDATE users SET "dailyNewSkillLimit"=NULL, "practiceTimezone"=\'UTC\' WHERE id=$1',
+      'UPDATE users SET "dailyNewSkillLimit"=NULL, "practiceTimezone"=\'UTC\', "desiredRetention"=NULL WHERE id=$1',
       [userId],
     );
     await sql.query(

@@ -1179,6 +1179,11 @@ async function refreshOrSerializePreparedUpload(input: {
         ),
       };
     },
+    undefined,
+    // The idempotency claim in prepareAgentMaterialUpload already charged
+    // this logical request. Recheck access and the owned snapshot without a
+    // second rate charge before making the external presign call.
+    { consumeMutationRate: false },
   );
   if (!preflight.snapshot) {
     return {
@@ -1268,6 +1273,11 @@ async function refreshOrSerializePreparedUpload(input: {
       }
       return { operation, claimed: true as const };
     },
+    undefined,
+    // The idempotency claim already charged this logical request. Recheck
+    // every connection and lease invariant after presigning, but do not
+    // charge the same idempotent upload retry again.
+    { consumeMutationRate: false },
   );
   if (!claimed.claimed) {
     return {

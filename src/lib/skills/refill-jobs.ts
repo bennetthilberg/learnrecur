@@ -797,6 +797,13 @@ export async function recoverPendingRefillEvents(input: {
         in: [REFILL_EVENT_PENDING_CHECKPOINT, REFILL_EVENT_DELIVERY_CHECKPOINT],
       },
       updatedAt: { lte: cutoff },
+      // Older refill writers did not persist a delivery payload. Keep those
+      // rows out of the bounded repair batch; malformed payloads that do have
+      // the marker are still selected and made visible by the parser below.
+      stageMetrics: {
+        path: ["refillDelivery"],
+        not: Prisma.JsonNull,
+      },
     },
     orderBy: { updatedAt: "asc" },
     take: REFILL_EVENT_RECOVERY_BATCH_SIZE,
