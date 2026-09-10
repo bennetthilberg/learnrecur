@@ -164,6 +164,13 @@ textarea::placeholder {
   opacity: 1;
 }
 
+/* Native labels wrap their input; Mantine links a separate label by id. */
+input[type="checkbox"]:enabled,
+label:has(input[type="checkbox"]:enabled),
+.mantine-Checkbox-root:has(input[type="checkbox"]:enabled) .mantine-Checkbox-label {
+  cursor: pointer;
+}
+
 a {
   color: inherit;
 }
