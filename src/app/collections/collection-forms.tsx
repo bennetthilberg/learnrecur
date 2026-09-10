@@ -1,5 +1,6 @@
 "use client";
 
+import { ActionNotification } from "@/components/app/action-notification";
 import { PracticePreferencesForm } from "@/components/app/practice-preferences-form";
 
 import { useActionState, useId } from "react";
@@ -63,7 +64,7 @@ export function CollectionCreateForm() {
         </div>
       </div>
 
-      <FormMessage state={state} />
+      <FormMessage state={state} pending={pending} />
     </form>
   );
 }
@@ -119,7 +120,7 @@ export function CollectionUpdateForm({
             {pending ? "Saving" : "Save changes"}
           </button>
         </div>
-        <FormMessage state={state} />
+        <FormMessage state={state} pending={pending} />
       </form>
     </details>
   );
@@ -149,7 +150,7 @@ export function CollectionArchiveForm({
         <button className="secondaryButton" data-tone="danger" disabled={pending} type="submit">
           {pending ? "Archiving" : "Archive collection"}
         </button>
-        <FormMessage state={state} />
+        <FormMessage state={state} pending={pending} />
       </form>
     </details>
   );
@@ -176,7 +177,7 @@ export function CollectionRestoreForm({
         <ArrowClockwise aria-hidden="true" size={17} weight="regular" />
         {pending ? "Restoring" : "Restore collection"}
       </button>
-      <FormMessage state={state} />
+      <FormMessage state={state} pending={pending} />
     </form>
   );
 }
@@ -199,15 +200,19 @@ function FieldError({
   return <em id={id}>{error}</em>;
 }
 
-function FormMessage({ state }: { state: CollectionFormActionState }) {
+function FormMessage({ state, pending }: { state: CollectionFormActionState; pending: boolean }) {
+  const id = useId();
   if (!state.message || state.status === "idle") {
     return null;
   }
 
   return (
-    <p className="skillFormMessage" data-tone={state.status === "saved" ? "saved" : "error"} role="status">
-      {state.message}
-    </p>
+    <ActionNotification
+      id={id}
+      message={pending ? null : state.message}
+      title={state.status === "saved" ? "Collection updated" : "Could not update collection"}
+      tone={state.status === "saved" ? "success" : "error"}
+    />
   );
 }
 

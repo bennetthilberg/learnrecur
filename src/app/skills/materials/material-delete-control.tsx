@@ -1,7 +1,9 @@
 "use client";
 
+import { ActionNotification } from "@/components/app/action-notification";
+
 import { Modal } from "@mantine/core";
-import { Trash, WarningCircle } from "@phosphor-icons/react";
+import { Trash } from "@phosphor-icons/react";
 import { useState, useTransition } from "react";
 
 import type { MaterialDeletionReturnPath } from "@/lib/materials/material-delete";
@@ -70,11 +72,12 @@ export function MaterialDeleteControl({
           Remove <strong>“{title}”</strong> and every saved revision? Existing skills stay, but
           source-backed regeneration stops. This cannot be undone.
         </p>
-        {error ? (
-          <p className="skillFormMessage materialDeleteModalError" data-tone="error" role="alert">
-            <WarningCircle size={17} weight="bold" aria-hidden="true" />
-            {error}
-          </p>
+        {error || pending ? (
+          <ActionNotification
+            id={`material-delete-error-${materialId}`}
+            title="Could not delete material"
+            message={pending ? null : error}
+          />
         ) : null}
         <div className="materialDeleteModalActions">
           <button

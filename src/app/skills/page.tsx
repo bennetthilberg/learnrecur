@@ -2,6 +2,7 @@ import { auth, currentUser } from "@clerk/nextjs/server";
 import { PlusCircle } from "@phosphor-icons/react/dist/ssr";
 import Link from "next/link";
 
+import { ActionNotification } from "@/components/app/action-notification";
 import { PanelHeaderCount } from "@/components/app/panel-header-count";
 import { UserStatusPanel } from "@/components/app/user-status-panel";
 import {
@@ -71,9 +72,12 @@ export default async function SkillsPage({ searchParams }: SkillsPageProps) {
       </header>
 
       {deletedSkill ? (
-        <p className="skillFormMessage" data-tone="saved" role="status">
-          Skill permanently deleted.
-        </p>
+        <ActionNotification
+          id="skill-permanently-deleted"
+          title="Skill deleted"
+          message="Skill permanently deleted."
+          tone="success"
+        />
       ) : null}
 
       {agentAccess.status === "ready" && agentAccess.preparing.length > 0 ? (

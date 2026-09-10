@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { MouseEvent, PointerEvent } from "react";
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
+import type { MouseEvent } from "react";
 import {
   Cards,
   ClockCounterClockwise,
@@ -22,134 +22,6 @@ import {
   PrimaryRouteLoadingContent,
   primaryRouteLoadingByKey,
 } from "./primary-route-loading-content";
-
-const floatingIndicatorActiveClass = "practiceNavFloatingActive";
-const floatingIndicatorClass = "practiceNavFloatingIndicator";
-let floatingIndicatorElement: HTMLSpanElement | null = null;
-let floatingIndicatorFrame: number | null = null;
-let floatingIndicatorTimeout: number | null = null;
-let pendingIndicatorStartRect: NavIndicatorRect | null = null;
-let previousIndicatorStartRect: NavIndicatorRect | null = null;
-
-type NavIndicatorRect = {
-  height: number;
-  left: number;
-  top: number;
-  width: number;
-};
-
-function setNavIndicatorFromLink(nav: HTMLElement, link: HTMLElement) {
-  const linkRect = link.getBoundingClientRect();
-
-  setNavIndicatorFromRect(nav, toNavIndicatorRect(nav, linkRect));
-}
-
-function setNavIndicatorFromRect(nav: HTMLElement, rect: NavIndicatorRect) {
-  nav.style.setProperty("--practice-nav-indicator-x", `${rect.left}px`);
-  nav.style.setProperty("--practice-nav-indicator-y", `${rect.top}px`);
-  nav.style.setProperty("--practice-nav-indicator-width", `${rect.width}px`);
-  nav.style.setProperty("--practice-nav-indicator-height", `${rect.height}px`);
-  nav.style.setProperty("--practice-nav-indicator-opacity", "1");
-}
-
-function setFloatingIndicatorRect(element: HTMLElement, rect: NavIndicatorRect) {
-  element.style.width = `${rect.width}px`;
-  element.style.height = `${rect.height}px`;
-  element.style.transform = `translate3d(${rect.left}px, ${rect.top}px, 0)`;
-}
-
-function toNavIndicatorRect(nav: HTMLElement, rect: DOMRect): NavIndicatorRect {
-  const navRect = nav.getBoundingClientRect();
-
-  return {
-    height: rect.height,
-    left: rect.left - navRect.left + nav.scrollLeft,
-    top: rect.top - navRect.top + nav.scrollTop,
-    width: rect.width,
-  };
-}
-
-function clearFloatingIndicatorTimer() {
-  if (floatingIndicatorTimeout !== null) {
-    window.clearTimeout(floatingIndicatorTimeout);
-    floatingIndicatorTimeout = null;
-  }
-}
-
-function clearFloatingIndicatorFrame() {
-  if (floatingIndicatorFrame !== null) {
-    window.cancelAnimationFrame(floatingIndicatorFrame);
-    floatingIndicatorFrame = null;
-  }
-}
-
-function finishFloatingIndicator() {
-  clearFloatingIndicatorFrame();
-  clearFloatingIndicatorTimer();
-  document.body.classList.remove(floatingIndicatorActiveClass);
-  floatingIndicatorElement?.remove();
-  floatingIndicatorElement = null;
-}
-
-function getFloatingIndicatorStartRect(nav: HTMLElement, targetLink: HTMLElement) {
-  if (floatingIndicatorElement?.isConnected) {
-    return toNavIndicatorRect(nav, floatingIndicatorElement.getBoundingClientRect());
-  }
-
-  const localIndicator = nav.querySelector<HTMLElement>(".practiceNavActiveIndicator");
-  const indicatorRect = localIndicator?.getBoundingClientRect();
-
-  if (localIndicator && indicatorRect && indicatorRect.width > 0 && indicatorRect.height > 0) {
-    return toNavIndicatorRect(nav, indicatorRect);
-  }
-
-  const activeLink =
-    nav.querySelector<HTMLElement>('a[data-nav-active="true"]') ??
-    nav.querySelector<HTMLElement>('a[aria-current="page"]');
-
-  return toNavIndicatorRect(nav, (activeLink ?? targetLink).getBoundingClientRect());
-}
-
-function moveFloatingIndicatorToLink(targetLink: HTMLElement) {
-  const nav = targetLink.closest<HTMLElement>(".practiceNav");
-  const localIndicator = nav?.querySelector<HTMLElement>(".practiceNavActiveIndicator");
-
-  if (!nav || !localIndicator || getComputedStyle(localIndicator).display === "none") {
-    return;
-  }
-
-  const startRect = getFloatingIndicatorStartRect(nav, targetLink);
-  const targetRect = toNavIndicatorRect(nav, targetLink.getBoundingClientRect());
-  pendingIndicatorStartRect = startRect;
-
-  if (!floatingIndicatorElement || !nav.contains(floatingIndicatorElement)) {
-    floatingIndicatorElement?.remove();
-    floatingIndicatorElement = document.createElement("span");
-    floatingIndicatorElement.className = floatingIndicatorClass;
-    floatingIndicatorElement.setAttribute("aria-hidden", "true");
-    nav.appendChild(floatingIndicatorElement);
-  }
-
-  clearFloatingIndicatorFrame();
-  clearFloatingIndicatorTimer();
-  document.body.classList.add(floatingIndicatorActiveClass);
-  floatingIndicatorElement.style.transition = "none";
-  setFloatingIndicatorRect(floatingIndicatorElement, startRect);
-  floatingIndicatorElement.getBoundingClientRect();
-
-  floatingIndicatorFrame = window.requestAnimationFrame(() => {
-    floatingIndicatorFrame = null;
-
-    if (!floatingIndicatorElement) {
-      return;
-    }
-
-    floatingIndicatorElement.style.transition = "";
-    setFloatingIndicatorRect(floatingIndicatorElement, targetRect);
-  });
-
-  floatingIndicatorTimeout = window.setTimeout(finishFloatingIndicator, 240);
-}
 
 function scrollNavLinkIntoView(nav: HTMLElement, link: HTMLElement) {
   if (nav.scrollWidth <= nav.clientWidth + 1) {
@@ -238,7 +110,7 @@ export type SkillsTopbarCurrent =
 type PrimaryNavKey = Exclude<SkillsTopbarCurrent, "skill">;
 
 function isPrimaryUnmodifiedEvent(
-  event: MouseEvent<HTMLAnchorElement> | PointerEvent<HTMLAnchorElement>,
+  event: MouseEvent<HTMLAnchorElement>,
 ) {
   return (
     !event.defaultPrevented &&
@@ -257,13 +129,10 @@ export function SkillsTopbar({
 }) {
   const router = useRouter();
   const navRef = useRef<HTMLElement | null>(null);
-  const activeIndicatorRef = useRef<HTMLSpanElement | null>(null);
-  const indicatorFrameRef = useRef<number | null>(null);
   const currentNavKey = navItems.find((item) => item.isCurrent(current))?.key;
   const [pendingNavKey, setPendingNavKey] = useState<PrimaryNavKey | null>(null);
   const pendingNavKeyRef = useRef<PrimaryNavKey | null>(null);
-  const [visualNavKey, setVisualNavKey] = useState<PrimaryNavKey | undefined>(currentNavKey);
-  const visualNavKeyRef = useRef<PrimaryNavKey | undefined>(currentNavKey);
+  const visualNavKey = pendingNavKey ?? currentNavKey;
   const pendingConfig = pendingNavKey ? primaryRouteLoadingByKey[pendingNavKey] : null;
 
   const prefetchNavRoute = useCallback(
@@ -273,155 +142,19 @@ export function SkillsTopbar({
     [router],
   );
 
-  const cancelIndicatorFrame = useCallback(() => {
-    if (indicatorFrameRef.current !== null) {
-      window.cancelAnimationFrame(indicatorFrameRef.current);
-      indicatorFrameRef.current = null;
-    }
-  }, []);
-
-  const queueIndicatorFrame = useCallback(
-    (callback: () => void) => {
-      cancelIndicatorFrame();
-      indicatorFrameRef.current = window.requestAnimationFrame(() => {
-        indicatorFrameRef.current = null;
-        callback();
-      });
-    },
-    [cancelIndicatorFrame],
-  );
-
-  const queueIndicatorPaintedFrame = useCallback(
-    (callback: () => void) => {
-      cancelIndicatorFrame();
-      indicatorFrameRef.current = window.requestAnimationFrame(() => {
-        indicatorFrameRef.current = window.requestAnimationFrame(() => {
-          indicatorFrameRef.current = null;
-          callback();
-        });
-      });
-    },
-    [cancelIndicatorFrame],
-  );
-
-  const positionActiveIndicator = useCallback(
-    () => {
-      const nav = navRef.current;
-      const indicator = activeIndicatorRef.current;
-      const activeLink =
-        nav?.querySelector<HTMLAnchorElement>('a[data-nav-active="true"]') ??
-        nav?.querySelector<HTMLAnchorElement>('a[aria-current="page"]');
-
-      if (!nav || !indicator || !activeLink) {
-        return;
-      }
-
-      scrollNavLinkIntoView(nav, activeLink);
-      cancelIndicatorFrame();
-
-      const startRect = previousIndicatorStartRect;
-      previousIndicatorStartRect = null;
-
-      if (startRect && getComputedStyle(indicator).display !== "none") {
-        indicator.style.transition = "none";
-        setNavIndicatorFromRect(nav, startRect);
-        indicator.getBoundingClientRect();
-        queueIndicatorPaintedFrame(() => {
-          indicator.style.transition = "";
-          setNavIndicatorFromLink(nav, activeLink);
-        });
-        return;
-      }
-
-      indicator.style.transition = "none";
-      setNavIndicatorFromLink(nav, activeLink);
-      queueIndicatorFrame(() => {
-        indicator.style.transition = "";
-      });
-    },
-    [cancelIndicatorFrame, queueIndicatorFrame, queueIndicatorPaintedFrame],
-  );
-
-  const moveVisualIndicator = useCallback((targetKey: PrimaryNavKey, targetLink: HTMLElement) => {
-    visualNavKeyRef.current = targetKey;
-    setVisualNavKey(targetKey);
-
-    const nav = navRef.current;
-    const indicator = activeIndicatorRef.current;
-
-    if (nav && indicator) {
-      cancelIndicatorFrame();
-      scrollNavLinkIntoView(nav, targetLink);
-      indicator.style.transition = "";
-      setNavIndicatorFromLink(nav, targetLink);
-    }
-  }, [cancelIndicatorFrame]);
-
-  useEffect(() => {
-    const indicator = activeIndicatorRef.current;
-    const nav = navRef.current;
-
-    return () => {
-      const indicatorRect = indicator?.getBoundingClientRect();
-
-      if (pendingIndicatorStartRect) {
-        previousIndicatorStartRect = pendingIndicatorStartRect;
-        pendingIndicatorStartRect = null;
-      } else if (
-        indicator &&
-        indicatorRect &&
-        indicatorRect.width > 0 &&
-        indicatorRect.height > 0 &&
-        getComputedStyle(indicator).display !== "none"
-      ) {
-        if (nav) {
-          previousIndicatorStartRect = toNavIndicatorRect(nav, indicatorRect);
-        }
-      }
-
-      cancelIndicatorFrame();
-      finishFloatingIndicator();
-    };
-  }, [cancelIndicatorFrame]);
-
   useLayoutEffect(() => {
-    positionActiveIndicator();
-  }, [positionActiveIndicator]);
-
-  useEffect(() => {
-    if (pendingNavKeyRef.current) {
-      return;
-    }
-
-    visualNavKeyRef.current = currentNavKey;
-    setVisualNavKey(currentNavKey);
-  }, [currentNavKey]);
-
-  useEffect(() => {
-    const handleViewportChange = () => {
-      finishFloatingIndicator();
-      positionActiveIndicator();
-    };
-
-    window.addEventListener("resize", handleViewportChange);
-
-    return () => {
-      window.removeEventListener("resize", handleViewportChange);
-    };
-  }, [positionActiveIndicator]);
-
-
-  const handleNavPointerDown = useCallback(
-    (targetKey: PrimaryNavKey, event: PointerEvent<HTMLAnchorElement>) => {
-      if (!isPrimaryUnmodifiedEvent(event) || visualNavKeyRef.current === targetKey) {
-        return;
+    const scrollActiveLink = () => {
+      const nav = navRef.current;
+      const activeLink = nav?.querySelector<HTMLAnchorElement>('a[data-nav-active="true"]');
+      if (nav && activeLink) {
+        scrollNavLinkIntoView(nav, activeLink);
       }
+    };
 
-      moveFloatingIndicatorToLink(event.currentTarget);
-      moveVisualIndicator(targetKey, event.currentTarget);
-    },
-    [moveVisualIndicator],
-  );
+    scrollActiveLink();
+    window.addEventListener("resize", scrollActiveLink);
+    return () => window.removeEventListener("resize", scrollActiveLink);
+  }, [visualNavKey]);
 
   const handleNavClick = useCallback(
     (targetKey: PrimaryNavKey, href: string, event: MouseEvent<HTMLAnchorElement>) => {
@@ -437,9 +170,6 @@ export function SkillsTopbar({
       }
 
       event.preventDefault();
-
-      moveFloatingIndicatorToLink(event.currentTarget);
-      moveVisualIndicator(targetKey, event.currentTarget);
 
       const shell = event.currentTarget.closest<HTMLElement>(
         ".dashboardShell, .practiceShell, .skillShell",
@@ -464,7 +194,7 @@ export function SkillsTopbar({
         router.push(href);
       }
     },
-    [currentNavKey, moveVisualIndicator, router],
+    [currentNavKey, router],
   );
 
   return (
@@ -477,7 +207,6 @@ export function SkillsTopbar({
         </Link>
         <div className="practiceTopbarRight">
           <nav ref={navRef} className="practiceNav" aria-label="Primary navigation">
-            <span ref={activeIndicatorRef} className="practiceNavActiveIndicator" aria-hidden="true" />
             {navItems.map((item) => {
               const NavIcon = item.icon;
               const isCurrentPage = item.isCurrent(current);
@@ -492,9 +221,8 @@ export function SkillsTopbar({
                   key={item.key}
                   onClick={(event) => handleNavClick(item.key, item.href, event)}
                   onFocus={() => prefetchNavRoute(item.href)}
-                  onPointerDown={(event) => {
+                  onPointerDown={() => {
                     prefetchNavRoute(item.href);
-                    handleNavPointerDown(item.key, event);
                   }}
                   onPointerEnter={() => prefetchNavRoute(item.href)}
                   prefetch={false}

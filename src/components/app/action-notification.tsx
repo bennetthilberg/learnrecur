@@ -18,6 +18,8 @@ export function ActionNotification({
   tone = "error",
 }: ActionNotificationProps) {
   useEffect(() => {
+    // Mantine ignores show calls for an id that is already present.
+    notifications.hide(id);
     if (!message) {
       return;
     }
