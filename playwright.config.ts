@@ -34,7 +34,7 @@ export default defineConfig({
     {
       name: "anonymous-chromium",
       use: { ...devices["Desktop Chrome"] },
-      testMatch: /auth-spine\.spec\.ts/,
+      testMatch: /(?:auth-spine|checkbox-cursors)\.spec\.ts/,
     },
     {
       name: "authenticated-chromium",
