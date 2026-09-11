@@ -284,6 +284,23 @@ export async function getCustomPracticeSession(
   return row ? parseSessionRow(row) : null;
 }
 
+// Preview only an existing plan entry; do not present, replenish, or write it.
+export async function preloadCustomPracticeSessionItem(input: { userId: string; sessionId: string; itemKey: string }): Promise<CustomPracticeReadyItem | null> {
+  const session = await getCustomPracticeSession(input.userId, input.sessionId);
+  if (!session || session.status !== "ACTIVE" || session.completedCount + 1 >= session.targetCount) return null;
+  const current = session.plan.find((item) => item.itemKey === input.itemKey && item.status === "PRESENTED");
+  if (!current) return null;
+  const next = session.plan.filter((item) => item.ordinal > current.ordinal && item.status === "PENDING").sort((a, b) => a.ordinal - b.ordinal)[0];
+  if (!next) return null;
+  const now = new Date();
+  const exercises = await findCurrentSessionExercises(getPrisma(), input.userId, session, [next], now);
+  const exercise = exercises.get(next.itemKey);
+  if (!exercise) return null;
+  const allowance = await getDailyNewSkillAllowance(getPrisma(), input.userId, now);
+  if (!isSkillIntroduced(exercise.skill) && allowance.remaining === 0) return null;
+  return toReadyItem({ ...session, completedCount: session.completedCount + 1 }, next, exercise);
+}
+
 export async function presentCustomPracticeSessionItem(input: {
   userId: string;
   sessionId: string;

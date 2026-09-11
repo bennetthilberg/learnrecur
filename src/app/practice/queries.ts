@@ -21,6 +21,8 @@ const COLLECTION_SCOPE_UNAVAILABLE_MESSAGE =
   "That collection is not available for practice.";
 
 export type PracticeScopeInput = {
+  excludeSkillId?: string;
+  preferredExerciseId?: string;
   mixedReview?: boolean;
   previousSkillId?: string | null;
   collectionId?: string | null;
@@ -101,6 +103,8 @@ async function loadPracticeItemForUser(
     userId,
     now,
     answerKinds: PRACTICE_ANSWER_KINDS,
+    excludeSkillId: scopeInput.excludeSkillId,
+    preferredExerciseId: scopeInput.preferredExerciseId,
     mixedReview: true,
     previousSkillId: scopeInput.previousSkillId,
     collectionId: scope.collectionId,

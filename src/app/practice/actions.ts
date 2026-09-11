@@ -18,6 +18,7 @@ import {
 import {
   commitCustomPracticeAnswer,
   createCustomPracticeSession,
+  preloadCustomPracticeSessionItem,
   presentCustomPracticeSessionItem,
   previewCustomPracticeAnswer,
   resumeCustomPracticeSession,
@@ -34,6 +35,7 @@ import { ensureDevPracticeSampleData } from "@/lib/practice/sample-data";
 import { ensureDatabaseUser } from "@/lib/users";
 
 import {
+  previewNextPracticeItemForUser,
   getNextChoicePracticeItemForUser,
   getNextPracticeItemForUser,
   resolvePracticeScopeForUser,
@@ -63,6 +65,7 @@ type PreviewPracticeAnswerInput = {
 };
 
 type CommitPracticeReviewInput = PreviewPracticeAnswerInput & {
+  preferredNextExerciseId?: string;
   attemptId: string;
   mixedReview?: boolean;
   reducedRuleCues?: boolean;
@@ -94,6 +97,23 @@ export async function loadPracticeItemAction(rawInput: unknown) {
   const item = await getNextPracticeItemForUser(user.userId, new Date(), { ...input, mixedReview: true });
   if (item.status !== "unavailable") after(async () => { await queueDueRetentionPreparation({ userId: user.userId, collectionId: input.collectionId, now: new Date() }); });
   return item;
+}
+
+// Read-only lookahead: never consumes a new-skill allowance before display.
+export async function preloadCustomPracticeItemAction(rawInput: unknown): Promise<CustomPracticeClientView | null> {
+  const input = z.object({ sessionId: z.string().min(1).max(200), itemKey: z.string().min(1).max(200) }).parse(rawInput);
+  const { userId } = await auth.protect();
+  const result = await preloadCustomPracticeSessionItem({ ...input, userId });
+  return result ? toCustomPracticeClientView(result) : null;
+}
+
+export async function preloadPracticeItemAction(rawInput: unknown): Promise<import("./types").PracticeItem | null> {
+  const input = z.object({ collectionId: z.string().min(1).max(200).nullable(), skillId: z.string().min(1).max(200) }).parse(rawInput);
+  const { userId } = await auth.protect();
+  const next = await previewNextPracticeItemForUser(userId, new Date(), {
+    collectionId: input.collectionId, excludeSkillId: input.skillId, previousSkillId: input.skillId,
+  });
+  return next.status === "ready" ? next : null;
 }
 
 export async function previewChoicePracticeAnswerAction(
@@ -219,6 +239,7 @@ export async function commitPracticeReviewAction(
         collectionId: scope.collectionId,
         mixedReview: true,
         previousSkillId: result.skill.id,
+        preferredExerciseId: input.preferredNextExerciseId,
       }),
     };
   }

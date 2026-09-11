@@ -9036,9 +9036,12 @@ body {
   margin: 24px auto 0;
 }
 .practiceFrame .practiceMetaRow {
+  display: flex;
+  align-items: center;
   border-bottom: 0;
   padding-bottom: 0;
 }
+.practiceMetaRow .practiceMetaSummary { margin: 0; }
 .practiceFrame:not(.practiceEmpty) h1 {
   margin: 0;
   font-size: 16px;

@@ -234,6 +234,8 @@ export type PracticeExerciseFlagWithRefillResult =
   | Extract<PracticeExerciseFlagResult, { status: "not-flagged" | "not-found" }>;
 
 export type GetNextPracticeItemInput = {
+  excludeSkillId?: string;
+  preferredExerciseId?: string;
   mixedReview?: boolean;
   previousSkillId?: string | null;
   userId: string;
@@ -383,7 +385,10 @@ async function selectNextPracticeItem(
       );
       const skillWhere =
         allowance.remaining === 0 ? previouslyIntroducedSkillWhere : {};
-      const exercise = await findEligibleExercise(tx, { ...input, skillWhere });
+      const selectionInput = { ...input, skillWhere: { ...skillWhere, ...(input.excludeSkillId ? { id: { not: input.excludeSkillId } } : {}) } };
+      const preferred = input.preferredExerciseId
+        ? await findEligibleExercise(tx, { ...selectionInput, exerciseId: input.preferredExerciseId }) : null;
+      const exercise = preferred ?? await findEligibleExercise(tx, selectionInput);
       if (!exercise) {
         const scope = {
           userId: input.userId,

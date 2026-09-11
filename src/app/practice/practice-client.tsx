@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
+import { useReviewSaveGuard } from "./use-review-save-guard";
 import { getInstantPracticeFeedback } from "@/lib/practice/instant-feedback";
 import { CheckCircle, Flag } from "@phosphor-icons/react";
 
@@ -18,6 +19,7 @@ import {
 } from "@/lib/practice-shortcuts";
 
 import {
+  preloadPracticeItemAction,
   commitPracticeReviewAction,
   ensureDevPracticeSampleDataAction,
   flagPracticeExerciseAction,
@@ -108,6 +110,23 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
     selectedFlagReasons.length > 0 && (!selectedOtherFlag || otherFlagNote.trim().length > 0);
   const scopedCollectionId = getScopedCollectionId(item);
 
+  const [advancePending, setAdvancePending] = useState(false);
+  const savingRef = useRef(false);
+  const [preloaded, setPreloaded] = useState<{ fromId: string; item: PracticeItem } | null>(null);
+  const preloadRequest = useRef<{ key: string; promise: Promise<PracticeItem | null> } | null>(null);
+  useReviewSaveGuard(advancePending);
+  useEffect(() => {
+    if (item.status !== "ready" || advancePending) return;
+    let active = true;
+    if (preloadRequest.current?.key !== item.exercise.id) {
+      preloadRequest.current = { key: item.exercise.id, promise: preloadPracticeItemAction({ collectionId: scopedCollectionId, skillId: item.skill.id }) };
+    }
+    void preloadRequest.current.promise
+      .then((next) => { if (active && next) setPreloaded({ fromId: item.exercise.id, item: next }); })
+      .catch(() => {}); // A failed preload falls back to the normal save/load path.
+    return () => { active = false; };
+  }, [item, scopedCollectionId, advancePending]);
+
   const resetAttemptState = useCallback(() => {
     setAnswerValue("");
     setAttemptId(crypto.randomUUID());
@@ -158,49 +177,50 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
       return;
     }
 
-    setPendingAction("continue");
-    setStatusNotice(null);
-
-    startTransition(async () => {
-      const result = await commitPracticeReviewAction({
-        exerciseId: item.exercise.id,
-        submittedAnswer: answerValue,
-        responseMs: submittedResponseMs ?? timer.getElapsedMs(),
-        attemptId,
-        mixedReview: true,
-        reducedRuleCues: true,
-        manualRating: feedback.answerCheck.isCorrect ? manualRating : null,
-        collectionId: scopedCollectionId,
-      });
-
+    if (savingRef.current) return;
+    savingRef.current = true;
+    setAdvancePending(true);
+    const next = preloaded?.fromId === item.exercise.id && preloaded.item.status === "ready" ? preloaded.item : null;
+    setPreloaded(null);
+    const restore = (message: string) => {
+      setItem(item);
+      setAnswerValue(answerValue);
+      setAttemptId(attemptId);
+      setFeedback(feedback);
+      setManualRating(manualRating);
+      setSubmittedResponseMs(submittedResponseMs);
       setPendingAction(null);
-
-      if (result.status === "committed") {
+      setStatusNotice(createStatusNotice(message));
+    };
+    if (next) {
+      shouldFocusNextReadyAnswerRef.current = true;
+      setItem(next);
+      resetAttemptState();
+    } else {
+      setPendingAction("continue");
+      setStatusNotice(null);
+    }
+    void commitPracticeReviewAction({
+      exerciseId: item.exercise.id, submittedAnswer: answerValue,
+      responseMs: submittedResponseMs ?? timer.getElapsedMs(), attemptId,
+      mixedReview: true, reducedRuleCues: true,
+      manualRating: feedback.answerCheck.isCorrect ? manualRating : null,
+      collectionId: scopedCollectionId, preferredNextExerciseId: next?.exercise.id,
+    }).then((result) => {
+      if (result.status !== "committed") { restore(result.message); return; }
+      const same = next && result.nextItem.status === "ready" && result.nextItem.exercise.id === next.exercise.id;
+      if (!same) {
         shouldFocusNextReadyAnswerRef.current = true;
         setItem(result.nextItem);
         resetAttemptState();
-        setStatusNotice(
-          createStatusNotice(result.idempotent ? "Review already saved." : "Review saved."),
-        );
-      } else {
-        setStatusNotice(createStatusNotice(result.message));
       }
-    });
-  }, [
-    attemptId,
-    answerValue,
-    feedback,
-    item,
-    manualRating,
-    pendingAction,
-    resetAttemptState,
-    scopedCollectionId,
-    submittedResponseMs,
-    timer,
-    startTransition,
-  ]);
+      setStatusNotice(createStatusNotice(result.idempotent ? "Review already saved." : "Review saved."));
+    }).catch(() => restore("Could not confirm the save. Your checked answer is restored. Press Continue to retry."))
+      .finally(() => { savingRef.current = false; setAdvancePending(false); setPendingAction(null); });
+  }, [attemptId, answerValue, feedback, item, manualRating, pendingAction, preloaded, resetAttemptState, scopedCollectionId, submittedResponseMs, timer]);
 
   const handleFlagSubmit = useCallback(() => {
+    if (savingRef.current) return;
     if (
       item.status !== "ready" ||
       feedback?.status !== "checked" ||
@@ -412,13 +432,14 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
       <div className="practiceToolbar">
         <PracticeScopeBar scope={item.scope} />
       </div>
-      <section className="practiceFrame" aria-label="Practice exercise">
+      <section className="practiceFrame" aria-label="Practice exercise" data-next-ready={preloaded?.fromId === (item.status === "ready" ? item.exercise.id : null)}>
         <div className="practiceMetaRow">
           <div>
             <p className="practiceMetaSummary tnum">
               {formatFsrsState(item.skill.fsrsState)} · {formatElapsed(timer.elapsedMs)}
             </p>
           </div>
+          {advancePending ? <p role="status" className="practiceMetaSummary">Saving…</p> : null}
         </div>
 
       <article className="practicePromptPanel">
@@ -566,7 +587,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
           <button
             className="primaryButton"
             type="button"
-            disabled={pendingAction !== null || feedback.status !== "checked"}
+            disabled={advancePending || pendingAction !== null || feedback.status !== "checked"}
             onClick={handleContinue}
             ref={continueButtonRef}
           >
@@ -661,7 +682,6 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
           </div>
         </section>
       ) : null}
-
       <PracticeStatusMessage notice={statusNotice} />
       </section>
     </>

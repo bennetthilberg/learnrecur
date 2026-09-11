@@ -4,6 +4,7 @@ import { ActionNotification } from "@/components/app/action-notification";
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useReviewSaveGuard } from "./use-review-save-guard";
 import { getInstantPracticeFeedback } from "@/lib/practice/instant-feedback";
 
 import { AnswerKind, FsrsRating } from "@/generated/prisma/enums";
@@ -14,6 +15,7 @@ import {
 } from "@/lib/answer-limits";
 
 import {
+  preloadCustomPracticeItemAction,
   commitCustomPracticeAnswerAction,
   resumeCustomPracticeSessionAction,
   stopCustomPracticeSessionAction,
@@ -37,6 +39,7 @@ export function CustomPracticeClient({
   const [actionError, setActionError] = useState<string | null>(null);
   const startedAt = useRef<number | null>(null);
   const submittedResponseMs = useRef<number | null>(null);
+  const restoredResponseMs = useRef<number | null>(null);
 
   const readyItem = view.status === "ready" ? view.item : null;
   const activeSessionId = view.status === "ready" ? view.session.id : null;
@@ -51,8 +54,26 @@ export function CustomPracticeClient({
     }
 
     startedAt.current = performance.now();
-    submittedResponseMs.current = null;
+    submittedResponseMs.current = restoredResponseMs.current;
+    restoredResponseMs.current = null;
   }, [presentedItemKey]);
+
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
+  const [preloaded, setPreloaded] = useState<{ fromKey: string; view: CustomPracticeClientView } | null>(null);
+  const preloadRequest = useRef<{ key: string; promise: Promise<CustomPracticeClientView | null> } | null>(null);
+  useReviewSaveGuard(saving);
+  useEffect(() => {
+    if (!activeSessionId || !presentedItemKey || saving) return;
+    let active = true;
+    if (preloadRequest.current?.key !== presentedItemKey) {
+      preloadRequest.current = { key: presentedItemKey, promise: preloadCustomPracticeItemAction({ sessionId: activeSessionId, itemKey: presentedItemKey }) };
+    }
+    void preloadRequest.current.promise
+      .then((next) => { if (active && next) setPreloaded({ fromKey: presentedItemKey, view: next }); })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [activeSessionId, presentedItemKey, saving]);
 
   const handleCheck = () => {
     if (!readyItem || answer.trim().length === 0 || pending) return;
@@ -73,34 +94,37 @@ export function CustomPracticeClient({
 
   const handleSave = () => {
     if (!readyItem || !feedback || feedback.status !== "checked" || pending) return;
-    setPending("save");
+    if (savingRef.current) return;
+    savingRef.current = true;
+    setSaving(true);
+    const next = preloaded?.fromKey === readyItem.itemKey && preloaded.view.status === "ready" ? preloaded.view : null;
+    const responseMs = submittedResponseMs.current ?? 0;
+    const restore = (message: string) => {
+      setView(view); setAnswer(answer); setFeedback(feedback); setManualRating(manualRating);
+      submittedResponseMs.current = responseMs;
+      if (next) restoredResponseMs.current = responseMs;
+      setActionError(message);
+    };
+    setPreloaded(null);
     setActionError(null);
+    if (next) { setView(next); setAnswer(""); setFeedback(null); setManualRating(FsrsRating.GOOD); }
+    else setPending("save");
     void commitCustomPracticeAnswerAction({
-      sessionId: activeSessionId ?? "",
-      itemKey: readyItem.itemKey,
-      exerciseId: readyItem.exerciseId,
-      submittedAnswer: answer,
-      responseMs: submittedResponseMs.current ?? 0,
+      sessionId: activeSessionId ?? "", itemKey: readyItem.itemKey, exerciseId: readyItem.exerciseId,
+      submittedAnswer: answer, responseMs,
       manualRating: view.status === "ready" && view.session.mode === "SCHEDULED" && feedback.answerCheck.isCorrect ? manualRating : null,
       reducedRuleCues: true,
-    })
-      .then((result) => {
-        if (result.status === "committed") {
-          setView(result.next);
-          setAnswer("");
-          setFeedback(null);
-          setManualRating(FsrsRating.GOOD);
-          startedAt.current = null;
-          return;
-        }
-        setFeedback({ status: "unavailable", message: result.message });
-      })
-      .catch(() => setActionError("Could not save this answer. Try again."))
-      .finally(() => setPending(null));
+    }).then((result) => {
+      if (result.status !== "committed") { restore(result.message); return; }
+      if (!next || result.next.status !== "ready" || result.next.item.itemKey !== next.item.itemKey) {
+        setView(result.next); setAnswer(""); setFeedback(null); setManualRating(FsrsRating.GOOD);
+      }
+    }).catch(() => restore("Could not confirm the save. Your checked answer is restored. Try saving again."))
+      .finally(() => { savingRef.current = false; setSaving(false); setPending(null); });
   };
 
   const handleStop = () => {
-    if (!sessionId || pending) return;
+    if (!sessionId || pending || savingRef.current) return;
     setPending("stop");
     setActionError(null);
     void stopCustomPracticeSessionAction({ sessionId })
@@ -115,7 +139,7 @@ export function CustomPracticeClient({
   };
 
   const handleResume = () => {
-    if (!sessionId || pending) return;
+    if (!sessionId || pending || savingRef.current) return;
     setPending("resume");
     setActionError(null);
     void resumeCustomPracticeSessionAction({ sessionId })
@@ -184,11 +208,12 @@ export function CustomPracticeClient({
         </button>
         <Link href="/practice/attention">Needs attention</Link>
       </div>
-      <section className="practiceFrame customPracticeClient" aria-label="Practice exercise">
+      <section className="practiceFrame customPracticeClient" aria-label="Practice exercise" data-next-ready={preloaded?.fromKey === presentedItemKey}>
         <div className="practiceMetaRow">
           <div>
             <p className="practiceMetaSummary tnum">Exercise {session.completedCount + 1} of {session.targetCount}</p>
           </div>
+          {saving ? <p role="status" className="practiceMetaSummary">Saving…</p> : null}
         </div>
         <article className="practicePromptPanel">
           <p><MathText formatBlanks text={exercise.prompt} /></p>
@@ -261,7 +286,7 @@ export function CustomPracticeClient({
         ) : null}
         {checked ? (
           <div className="practiceActions">
-            <button className="primaryButton" type="button" onClick={handleSave} disabled={pending !== null}>
+            <button className="primaryButton" type="button" onClick={handleSave} disabled={pending !== null || saving}>
               {pending === "save" ? "Saving" : session.mode === "PRACTICE_ONLY" ? "Save practice" : "Continue"}
             </button>
           </div>

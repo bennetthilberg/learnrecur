@@ -7,6 +7,7 @@ import {
   commitCustomPracticeAnswer,
   createCustomPracticeSession,
   getCustomPracticeSession,
+  preloadCustomPracticeSessionItem,
   presentCustomPracticeSessionItem,
   previewCustomPracticeAnswer,
   resumeCustomPracticeSession,
@@ -33,6 +34,25 @@ suite("custom practice sessions", () => {
   afterAll(async () => {
     await prisma.user.deleteMany({ where: { id: { in: userIds } } });
     await prisma.$disconnect();
+  });
+
+  it("preloads a next item without presenting it or spending its introduction", async () => {
+    const userId = await createUser();
+    const skills = await Promise.all([0, 1].map((index) => createSkillFixture(prisma, { userId, title: `Preload skill ${index}`, dueAt: now, repetitions: 0 })));
+    await Promise.all(skills.map((skill) => createChoiceExercise({ prisma, userId, skillId: skill.id })));
+    const created = await createCustomPracticeSession({ userId, mode: "PRACTICE_ONLY", targetCount: 2,
+      scope: { collectionIds: [], tags: [], skillIds: skills.map((skill) => skill.id), recentlyMissed: false, mixedReview: true }, now });
+    if (created.status !== "ready") throw new Error("Expected session");
+    const ready = await presentCustomPracticeSessionItem({ userId, sessionId: created.session.id, now });
+    if (ready.status !== "ready") throw new Error("Expected item");
+    const before = await getCustomPracticeSession(userId, created.session.id);
+    const preview = await preloadCustomPracticeSessionItem({ userId, sessionId: created.session.id, itemKey: ready.sessionItem.itemKey });
+    expect(preview?.status).toBe("ready");
+    expect(preview?.sessionItem.itemKey).not.toBe(ready.sessionItem.itemKey);
+    expect(await getCustomPracticeSession(userId, created.session.id)).toEqual(before);
+    expect((await prisma.skill.findUniqueOrThrow({ where: { id: preview!.skill.id } })).firstIntroducedAt).toBeNull();
+    expect(await prisma.exerciseAttempt.count({ where: { userId } })).toBe(0);
+    expect(await preloadCustomPracticeSessionItem({ userId: "another-user", sessionId: created.session.id, itemKey: ready.sessionItem.itemKey })).toBeNull();
   });
 
   it("records practice-only exposure without review evidence or FSRS changes", async () => {
