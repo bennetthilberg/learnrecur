@@ -61,6 +61,8 @@ suite("custom practice sessions", () => {
     });
     expect(created.status).toBe("ready");
     if (created.status !== "ready") throw new Error("expected a ready session");
+    expect(created.session.scope.mixedReview).toBe(true);
+    expect(created.session.scope.skillIds).toEqual([skill.id]);
 
     const ready = await presentCustomPracticeSessionItem({
       userId,
@@ -110,7 +112,7 @@ suite("custom practice sessions", () => {
           sessionId: created.session.id,
           sessionMode: "PRACTICE_ONLY",
           exposure: "PRACTICE_ONLY",
-          mixedReview: false,
+          mixedReview: true,
           reducedRuleCues: false,
         }),
       }),

@@ -12,13 +12,11 @@ type SetupSkill = { id: string; title: string; collectionId: string | null; tags
 
 export function CustomSessionSetup({
   collections,
-  initialMixedReview,
   initialSkillId,
   skills,
   tags,
 }: {
   collections: SetupCollection[];
-  initialMixedReview: boolean;
   initialSkillId: string | null;
   skills: SetupSkill[];
   tags: string[];
@@ -32,7 +30,6 @@ export function CustomSessionSetup({
     initialSkillId && skills.some((skill) => skill.id === initialSkillId) ? [initialSkillId] : [],
   );
   const [recentlyMissed, setRecentlyMissed] = useState(false);
-  const [mixedReview, setMixedReview] = useState(initialMixedReview);
   const [message, setMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -51,7 +48,7 @@ export function CustomSessionSetup({
           tags: selectedTags,
           skillIds: selectedSkills,
           recentlyMissed,
-          mixedReview,
+          mixedReview: true,
         },
       });
       if (result.status === "ready" || result.status === "preparing") {
@@ -126,14 +123,6 @@ export function CustomSessionSetup({
               </label>
             ))}
           </div>
-        </fieldset>
-
-        <fieldset>
-          <legend>Review behavior</legend>
-          <label className="customPracticeCheckLine">
-            <input type="checkbox" checked={mixedReview} onChange={(event) => setMixedReview(event.target.checked)} />
-            <span>Mixed review<small>Vary related skills and hide skill-name cues until you check your answer. Starts with your account setting.</small></span>
-          </label>
         </fieldset>
       </div>
       <div className="customPracticeSetupActions">

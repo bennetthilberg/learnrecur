@@ -1,9 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
-import { Popover, Switch } from "@mantine/core";
 import Link from "next/link";
-import { CheckCircle, Flag, Question } from "@phosphor-icons/react";
+import { CheckCircle, Flag } from "@phosphor-icons/react";
 
 import { AnswerKind, ExerciseFlagReason, FsrsRating } from "@/generated/prisma/enums";
 import {
@@ -32,7 +31,6 @@ import type {
 } from "./types";
 
 type PracticeClientProps = {
-  initialMixedReview?: boolean;
   initialItem: PracticeItem;
   canUseSampleData: boolean;
 };
@@ -83,9 +81,7 @@ const RATING_OPTIONS: Array<{ rating: FsrsRating; shortcut: string }> = [
 
 const REVIEW_SAVED_MESSAGES = new Set(["Review saved.", "Review already saved."]);
 
-export function PracticeClient({ initialItem, canUseSampleData, initialMixedReview = false }: PracticeClientProps) {
-  const [mixedReview, setMixedReview] = useState(initialMixedReview);
-  const [revealingCueSeen, setRevealingCueSeen] = useState(!initialMixedReview);
+export function PracticeClient({ initialItem, canUseSampleData }: PracticeClientProps) {
   const [item, setItem] = useState(initialItem);
   const [answerValue, setAnswerValue] = useState("");
   const [attemptId, setAttemptId] = useState(() => crypto.randomUUID());
@@ -197,8 +193,8 @@ export function PracticeClient({ initialItem, canUseSampleData, initialMixedRevi
         submittedAnswer: answerValue,
         responseMs: submittedResponseMs ?? timer.getElapsedMs(),
         attemptId,
-        mixedReview,
-        reducedRuleCues: mixedReview && !revealingCueSeen,
+        mixedReview: true,
+        reducedRuleCues: true,
         manualRating: feedback.answerCheck.isCorrect ? manualRating : null,
         collectionId: scopedCollectionId,
       });
@@ -208,7 +204,6 @@ export function PracticeClient({ initialItem, canUseSampleData, initialMixedRevi
       if (result.status === "committed") {
         shouldFocusNextReadyAnswerRef.current = true;
         setItem(result.nextItem);
-        setRevealingCueSeen(!mixedReview);
         resetAttemptState();
         setStatusNotice(
           createStatusNotice(result.idempotent ? "Review already saved." : "Review saved."),
@@ -219,8 +214,6 @@ export function PracticeClient({ initialItem, canUseSampleData, initialMixedRevi
     });
   }, [
     attemptId,
-    mixedReview,
-    revealingCueSeen,
     answerValue,
     feedback,
     item,
@@ -248,7 +241,7 @@ export function PracticeClient({ initialItem, canUseSampleData, initialMixedRevi
 
     startTransition(async () => {
       const result = await flagPracticeExerciseAction({
-        mixedReview,
+        mixedReview: true,
         previousSkillId: item.skill.id,
         exerciseId: item.exercise.id,
         reasons: selectedFlagReasons,
@@ -260,7 +253,6 @@ export function PracticeClient({ initialItem, canUseSampleData, initialMixedRevi
 
       if (result.status === "flagged") {
         setItem(result.nextItem);
-        setRevealingCueSeen(!mixedReview);
         resetAttemptState();
         setStatusNotice(createStatusNotice(result.message));
       } else {
@@ -269,7 +261,6 @@ export function PracticeClient({ initialItem, canUseSampleData, initialMixedRevi
     });
   }, [
     canSubmitFlag,
-    mixedReview,
     feedback,
     item,
     otherFlagNote,
@@ -294,13 +285,12 @@ export function PracticeClient({ initialItem, canUseSampleData, initialMixedRevi
 
       if (result.status === "ready") {
         setItem(result.nextItem);
-        setRevealingCueSeen(!mixedReview);
         resetAttemptState();
       }
 
       setStatusNotice(createStatusNotice(result.message, getSampleDataStatusTone(result.status)));
     });
-  }, [mixedReview, pendingAction, resetAttemptState, startTransition]);
+  }, [pendingAction, resetAttemptState, startTransition]);
 
   useEffect(() => {
     const focusTarget = window.requestAnimationFrame(() => {
@@ -446,35 +436,12 @@ export function PracticeClient({ initialItem, canUseSampleData, initialMixedRevi
   return (
     <>
       <div className="practiceToolbar">
-        <PracticeScopeBar scope={item.scope} hideScopeLabel={mixedReview && !checkedFeedback} />
-        <div className="practiceSessionOptions">
-          <Switch
-            size="md"
-            label="Mixed review"
-            checked={mixedReview}
-            disabled={pendingAction !== null || feedback !== null}
-            onChange={(event) => {
-              const enabled = event.currentTarget.checked;
-              setMixedReview(enabled);
-              if (!enabled) setRevealingCueSeen(true);
-            }}
-          />
-          <Popover width={300} position="bottom-end" withArrow withinPortal>
-            <Popover.Target>
-              <button className="mixedReviewHelp" type="button" aria-label="About mixed review"><Question size={18} /></button>
-            </Popover.Target>
-            <Popover.Dropdown className="mixedReviewHelpText">
-              <p><strong>Off:</strong> Show the skill name above each question, so you know what you’re practicing.</p>
-              <p><strong>On:</strong> Mix questions from related skills when possible, and hide their names until you check your answer. You work out which skill each question needs.</p>
-              <p>Off by default. Your choice here lasts for this session. To use mixed review every time, turn it on in Settings.</p>
-            </Popover.Dropdown>
-          </Popover>
-        </div>
+        <PracticeScopeBar scope={item.scope} />
       </div>
       <section className="practiceFrame" aria-labelledby="practice-title">
         <div className="practiceMetaRow">
           <div>
-            <h1 id="practice-title">{mixedReview && !checkedFeedback ? "Review" : item.skill.title}</h1>
+            <h1 id="practice-title">Review</h1>
             <p className="practiceMetaSummary tnum">
               {formatFsrsState(item.skill.fsrsState)} · {formatElapsed(timer.elapsedMs)}
             </p>
@@ -728,13 +695,13 @@ export function PracticeClient({ initialItem, canUseSampleData, initialMixedRevi
   );
 }
 
-function PracticeScopeBar({ scope, hideScopeLabel = false }: { scope?: PracticeScope; hideScopeLabel?: boolean }) {
+function PracticeScopeBar({ scope }: { scope?: PracticeScope }) {
   return (
     <div className="practiceScopeBar" aria-label="Practice scope">
       <div className="practiceScopeIdentity">
         {scope?.kind === "collection" ? (
-          <Link href="/practice" aria-label="All practice" title={hideScopeLabel ? "Return to all practice" : `${scope.collectionName} — return to all practice`}>
-            <strong>{hideScopeLabel ? "Practice" : scope.collectionName}</strong>
+          <Link href="/practice" aria-label="All practice" title="Return to all practice">
+            <strong>All practice</strong>
           </Link>
         ) : <strong>All practice</strong>}
       </div>

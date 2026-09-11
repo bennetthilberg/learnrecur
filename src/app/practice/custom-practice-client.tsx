@@ -34,9 +34,6 @@ export function CustomPracticeClient({
   const [feedback, setFeedback] = useState<CustomPracticeClientPreviewResult | null>(null);
   const [manualRating, setManualRating] = useState<FsrsRating>(FsrsRating.GOOD);
   const [pending, setPending] = useState<"check" | "save" | "stop" | "resume" | null>(null);
-  const [revealingCueSeen, setRevealingCueSeen] = useState(
-    !(initialView.status === "ready" && initialView.session.mixedReview),
-  );
   const [actionError, setActionError] = useState<string | null>(null);
   const startedAt = useRef<number | null>(null);
   const submittedResponseMs = useRef<number | null>(null);
@@ -94,14 +91,11 @@ export function CustomPracticeClient({
       submittedAnswer: answer,
       responseMs: submittedResponseMs.current ?? 0,
       manualRating: view.status === "ready" && view.session.mode === "SCHEDULED" && feedback.answerCheck.isCorrect ? manualRating : null,
-      reducedRuleCues: view.status === "ready" && view.session.mixedReview && !revealingCueSeen,
+      reducedRuleCues: true,
     })
       .then((result) => {
         if (result.status === "committed") {
           setView(result.next);
-          setRevealingCueSeen(
-            result.next.status !== "ready" || !result.next.session.mixedReview,
-          );
           setAnswer("");
           setFeedback(null);
           setManualRating(FsrsRating.GOOD);
@@ -121,7 +115,6 @@ export function CustomPracticeClient({
     void stopCustomPracticeSessionAction({ sessionId })
       .then((result) => {
         setView(result);
-        setRevealingCueSeen(true);
         setAnswer("");
         setFeedback(null);
         startedAt.current = null;
@@ -137,9 +130,6 @@ export function CustomPracticeClient({
     void resumeCustomPracticeSessionAction({ sessionId })
       .then((result) => {
         setView(result);
-        setRevealingCueSeen(
-          result.status !== "ready" || !result.session.mixedReview,
-        );
         setAnswer("");
         setFeedback(null);
         startedAt.current = null;
@@ -206,7 +196,7 @@ export function CustomPracticeClient({
       <section className="practiceFrame customPracticeClient" aria-labelledby="custom-practice-title">
         <div className="practiceMetaRow">
           <div>
-            <h1 id="custom-practice-title">{session.mixedReview && !checked ? "Review" : exercise.skillTitle}</h1>
+            <h1 id="custom-practice-title">Review</h1>
             <p className="practiceMetaSummary tnum">Exercise {session.completedCount + 1} of {session.targetCount}</p>
           </div>
         </div>

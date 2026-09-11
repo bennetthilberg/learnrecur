@@ -7,7 +7,6 @@ import {
   NumberInput,
   Select,
   Stack,
-  Switch,
   Text,
   TextInput,
 } from "@mantine/core";
@@ -45,7 +44,6 @@ type Props = {
   textPolicy?: TextPolicy | null;
   inheritedTextPolicy?: TextPolicy;
   alreadyStudied?: boolean;
-  mixedReview?: boolean;
 };
 const label = (value: PracticePreference) =>
   value === "RECALL_FIRST" ? "Recall first" : "Balanced";
@@ -74,7 +72,6 @@ export function PracticePreferencesForm(props: Props) {
     props.textPolicy?.normalizeWhitespace ?? true,
   );
   const [studied, setStudied] = useState(props.alreadyStudied ?? false);
-  const [mixed, setMixed] = useState(props.mixedReview ?? false);
   const [unlimited, setUnlimited] = useState(props.dailyNewSkillLimit == null);
   const [dailyLimit, setDailyLimit] = useState<number | string>(
     props.dailyNewSkillLimit ?? 20,
@@ -140,7 +137,7 @@ export function PracticePreferencesForm(props: Props) {
             props.target.scope === "user"
               ? {
                   practicePreference: effectivePreference,
-                  mixedReview: mixed,
+                  mixedReview: true,
                   dailyNewSkillLimit: unlimited ? null : dailyLimit,
                   practiceTimezone: timezone,
                   desiredRetention: useDefaultRetention ? null : savedRetention,
@@ -213,14 +210,6 @@ export function PracticePreferencesForm(props: Props) {
         )}
         {props.target.scope === "user" ? (
           <>
-            <Switch
-              size="md"
-              label="Mixed review by default"
-              description="Off follows the normal due order with skill names visible. On varies related skills and hides skill-name cues until you check your answer."
-              checked={mixed}
-              disabled={disabled}
-              onChange={(event) => setMixed(event.currentTarget.checked)}
-            />
             <Checkbox
               size="md"
               label="Unlimited new skills"

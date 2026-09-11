@@ -78,15 +78,12 @@ for (const width of [1280, 390]) {
       `/practice?collectionId=${learnerFixture.scenarios.text.collectionId}`,
     );
     await expect(page.getByLabel("Your answer", { exact: true })).toBeVisible();
-    const toolbar = page.locator(".practiceToolbar");
-    const before = await toolbar.boundingBox();
-    await page
-      .getByRole("switch", { name: "Mixed review", exact: true })
-      .check();
+    await expect(page.getByRole("switch", { name: "Mixed review", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Review", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: learnerFixture.scenarios.text.skillTitle, exact: true })).toHaveCount(0);
     await expect(
       page.getByRole("link", { name: "Custom session", exact: true }),
     ).toBeVisible();
-    expect((await toolbar.boundingBox())!.height).toBe(before!.height);
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth,

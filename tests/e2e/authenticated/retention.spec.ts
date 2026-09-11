@@ -57,7 +57,7 @@ for (const width of [1280, 390])
         await expect(
           page.locator('details.practiceAdvancedSettings [role="combobox"]'),
         ).toBeDisabled();
-        await expect(page.getByRole("switch", { name: "Mixed review by default" })).toBeDisabled();
+        await expect(page.getByRole("switch", { name: "Mixed review by default" })).toHaveCount(0);
         await expect(page.getByRole("button", { name: "Save practice preferences" })).toBeDisabled();
       } finally {
         releaseScripts();
@@ -65,9 +65,6 @@ for (const width of [1280, 390])
       }
       await expect(preference).toBeEnabled();
       await preference.selectOption("RECALL_FIRST");
-      await page
-        .getByRole("switch", { name: "Mixed review by default" })
-        .check();
       const save = page.getByRole("button", {
         name: "Save practice preferences",
       });
@@ -104,7 +101,7 @@ for (const width of [1280, 390])
       await expect(preference).toHaveValue("RECALL_FIRST");
       await expect(
         page.getByRole("switch", { name: "Mixed review by default" }),
-      ).toBeChecked();
+      ).toHaveCount(0);
       await page.screenshot({
         path: testInfo.outputPath(`settings-${width}.png`),
         fullPage: true,
@@ -227,24 +224,8 @@ for (const width of [1280, 390])
       ).toBeVisible();
       await expect(page.getByLabel("Practice scope", { exact: true })).not.toContainText(spanish.collectionName);
       await expect(page.getByRole("link", { name: "Custom session", exact: true })).toBeVisible();
-      const mixed = page.getByRole("switch", {
-        name: "Mixed review",
-        exact: true,
-      });
-      await mixed.focus();
-      await page.keyboard.press("Space");
-      await expect(
-        page.getByRole("heading", {
-          name: "Spanish preterite formation",
-          exact: true,
-        }),
-      ).toBeVisible();
-      await page.keyboard.press("Space");
-      await expect(
-        page.getByRole("heading", { name: "Review", exact: true }),
-      ).toBeVisible();
-      // Reload starts a genuinely reduced-cue presentation after testing reversibility.
-      await page.reload();
+      await expect(page.getByRole("switch", { name: "Mixed review", exact: true })).toHaveCount(0);
+      await expect(page.getByRole("heading", { name: "Spanish preterite formation", exact: true })).toHaveCount(0);
       await page.getByRole("textbox", { name: "Your answer", exact: true }).fill("hablo");
       await page.keyboard.press("Enter");
       await expect(
@@ -255,7 +236,7 @@ for (const width of [1280, 390])
           name: "Spanish preterite formation",
           exact: true,
         }),
-      ).toBeVisible();
+      ).toHaveCount(0);
       await expect(
         page.getByLabel("Correct answer: habló", { exact: true }),
       ).toBeVisible();

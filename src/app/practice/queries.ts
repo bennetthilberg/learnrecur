@@ -101,7 +101,7 @@ async function loadPracticeItemForUser(
     userId,
     now,
     answerKinds: PRACTICE_ANSWER_KINDS,
-    mixedReview: scopeInput.mixedReview,
+    mixedReview: true,
     previousSkillId: scopeInput.previousSkillId,
     collectionId: scope.collectionId,
   });

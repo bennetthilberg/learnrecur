@@ -109,6 +109,8 @@ body {
 .customPracticeFilterList,
 .customPracticeSkillList {
   display: grid;
+  grid-auto-rows: max-content;
+  align-content: start;
   max-height: 260px;
   gap: 8px;
   overflow: auto;
@@ -8383,10 +8385,6 @@ body {
 .practicePreferencesForm .mantine-InputWrapper-description,
 .practicePreferencesForm .mantine-Checkbox-description,
 .practicePreferencesForm .mantine-Switch-description { color: var(--lr-text-secondary); }
-.practiceSessionOptions { width: calc(100% - 28px); max-width: 920px; margin: 14px auto; }
-@media (min-width: 1100px) {
-  .practiceSessionOptions { width: calc(100% - 68px); }
-}
 
 .practiceAttentionPage {
   width: calc(100% - 28px);
@@ -9011,11 +9009,6 @@ body {
   width: auto;
   margin: 0;
 }
-.practiceToolbar .practiceSessionOptions {
-  width: auto;
-  margin: 0;
-  flex: 0 0 auto;
-}
 .practiceScopeBar {
   flex-wrap: wrap;
   row-gap: 8px;
@@ -9296,13 +9289,8 @@ body {
 }
 .practiceScopeLinks { display: flex; flex-wrap: nowrap; gap: 20px; align-items: center; }
 .practiceScopeLinks a { white-space: nowrap; }
-.practiceToolbar .practiceSessionOptions { display: flex; align-items: center; gap: 4px; }
 .practiceToolbar .practiceScopeLinks { min-height: 44px; }
 .practiceToolbar .practiceScopeLinks a { min-height: 44px; font-size: 14px; }
-.mixedReviewHelp { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 44px; border: 0; background: transparent; color: var(--lr-text-secondary); cursor: pointer; }
-.mixedReviewHelpText { font-size: 14px; line-height: 1.5; }
-.mixedReviewHelpText p { margin: 0 0 12px; }
-.mixedReviewHelpText p:last-child { margin: 0; }
 .practiceFrame.routeLoadingPracticeFrame { display: block; }
 .practiceLoadingMeta { width: 100%; }
 .practiceLoadingAnswers { display: grid; gap: 10px; margin-top: 18px; }
@@ -9310,7 +9298,6 @@ body {
 @media (max-width: 760px) {
   .practiceToolbar .practiceScopeBar { flex-basis: 100%; gap: 12px; }
   .practiceScopeLinks { gap: 14px; }
-  .practiceToolbar .practiceSessionOptions { margin-left: auto; }
   .practiceToolbar .practiceScopeIdentity { flex: 0 1 auto; }
   .practiceScopeLinks { flex-shrink: 0; }
 }
@@ -9462,7 +9449,6 @@ body {
 .practiceCompleteActions,
 .practiceEmptyPrimaryActions { justify-content: flex-end; }
 
-.practiceToolbar .practiceSessionOptions { min-height: 44px; }
 .practiceFrame:has(.practicePromptPanel) {
   display: flex;
   flex-direction: column;

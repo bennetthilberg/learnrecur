@@ -55,8 +55,8 @@ for (const width of [1280, 390]) {
       const link = await scope.getByRole("link", { name, exact: true }).boundingBox();
       expect(Math.abs((link!.y + link!.height / 2) - (identity!.y + identity!.height / 2))).toBeLessThanOrEqual(2);
     }
-    await page.getByRole("button", { name: "About mixed review" }).click();
-    await expect(page.getByText("Off by default.", { exact: false })).toBeVisible();
+    await expect(page.getByRole("button", { name: "About mixed review" })).toHaveCount(0);
+    await expect(page.getByRole("switch", { name: "Mixed review", exact: true })).toHaveCount(0);
     await page.goto("/practice/custom");
     await expect(page.getByRole("button", { name: "Start session" })).toBeEnabled();
     const primary = await page.getByRole("button", { name: "Start session" }).boundingBox();
@@ -69,6 +69,14 @@ for (const width of [1280, 390]) {
     const legend = page.locator(".customPracticeSkillFieldset legend");
     expect(await legend.locator("small").evaluate((node) => getComputedStyle(node).display)).toBe("block");
     expect(await page.locator(".customPracticeSkillList input").count()).toBeGreaterThan(0);
+    const skillRows = await page.locator(".customPracticeSkillList label").evaluateAll((rows) => rows.map((row) => {
+      const rect = row.getBoundingClientRect();
+      return { top: rect.top, bottom: rect.bottom, contentBottom: row.querySelector("span")!.getBoundingClientRect().bottom };
+    }));
+    for (let i = 0; i < skillRows.length; i++) {
+      expect(skillRows[i].contentBottom).toBeLessThanOrEqual(skillRows[i].bottom + 1);
+      if (i > 0) expect(skillRows[i].top).toBeGreaterThanOrEqual(skillRows[i - 1].bottom + 8);
+    }
     await page.screenshot({ path: testInfo.outputPath(`custom-ready-${width}.png`) });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   });

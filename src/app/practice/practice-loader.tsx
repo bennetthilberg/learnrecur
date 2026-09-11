@@ -8,11 +8,9 @@ import type { PracticeItem } from "./types";
 
 export function PracticeLoader({
   collectionId,
-  initialMixedReview,
   canUseSampleData,
 }: {
   collectionId: string | null;
-  initialMixedReview: boolean;
   canUseSampleData: boolean;
 }) {
   const [item, setItem] = useState<PracticeItem | null>(null);
@@ -24,7 +22,7 @@ export function PracticeLoader({
       if (document.visibilityState !== "visible") return;
       request.current ??= loadPracticeItemAction({
         collectionId,
-        mixedReview: initialMixedReview,
+        mixedReview: true,
       });
       const pending = request.current;
       void pending
@@ -42,12 +40,11 @@ export function PracticeLoader({
       mounted = false;
       document.removeEventListener("visibilitychange", load);
     };
-  }, [collectionId, initialMixedReview]);
+  }, [collectionId]);
   if (item)
     return (
       <PracticeClient
         initialItem={item}
-        initialMixedReview={initialMixedReview}
         canUseSampleData={canUseSampleData}
       />
     );

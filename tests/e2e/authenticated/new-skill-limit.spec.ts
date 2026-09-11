@@ -269,7 +269,7 @@ test("preserves a fractional retention set outside the form during an unrelated 
   const sql = neon(process.env.DATABASE_URL!);
   const userId = learnerFixture.userId;
   const settings = await sql.query(
-    'SELECT "mixedReview", "dailyNewSkillLimit", "practiceTimezone", "desiredRetention", "practiceDayStartMinutes" FROM users WHERE id=$1',
+    'SELECT "practicePreference", "mixedReview", "dailyNewSkillLimit", "practiceTimezone", "desiredRetention", "practiceDayStartMinutes" FROM users WHERE id=$1',
     [userId],
   );
 
@@ -285,7 +285,7 @@ test("preserves a fractional retention set outside the form during an unrelated 
     });
     await expect(retention).toHaveValue("90.5%");
 
-    await page.getByRole("switch", { name: "Mixed review by default" }).click();
+    await page.getByRole("combobox", { name: "Practice preference", exact: true }).selectOption("RECALL_FIRST");
     await page.getByRole("button", { name: "Save practice preferences", exact: true }).click();
     await expect(page.getByText("Preferences saved", { exact: true })).toBeVisible();
 
@@ -299,7 +299,7 @@ test("preserves a fractional retention set outside the form during an unrelated 
     ).toEqual([{ desiredRetention: 0.905 }]);
   } finally {
     await sql.query(
-      'UPDATE users SET "mixedReview"=$1, "dailyNewSkillLimit"=$2, "practiceTimezone"=$3, "desiredRetention"=$4, "practiceDayStartMinutes"=$5 WHERE id=$6',
+      'UPDATE users SET "mixedReview"=$1, "dailyNewSkillLimit"=$2, "practiceTimezone"=$3, "desiredRetention"=$4, "practiceDayStartMinutes"=$5, "practicePreference"=$7 WHERE id=$6',
       [
         settings[0].mixedReview,
         settings[0].dailyNewSkillLimit,
@@ -307,6 +307,7 @@ test("preserves a fractional retention set outside the form during an unrelated 
         settings[0].desiredRetention,
         settings[0].practiceDayStartMinutes,
         userId,
+        settings[0].practicePreference,
       ],
     );
   }

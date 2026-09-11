@@ -31,7 +31,7 @@ test("opens a bounded practice-only session from normal practice and keeps it ou
   await expect(
     page.getByRole("checkbox", { name: new RegExp(scenario.skillTitle, "i") }),
   ).toBeChecked();
-  await page.getByRole("checkbox", { name: /Mixed review/i }).check();
+  await expect(page.getByRole("checkbox", { name: /Mixed review/i })).toHaveCount(0);
   const desktopSetupLayout = await page.evaluate(() => {
     const header = document.querySelector<HTMLElement>(".customPracticeHeader");
     const rect = header?.getBoundingClientRect();
@@ -108,7 +108,8 @@ test("opens a bounded practice-only session from normal practice and keeps it ou
 
   await page.locator(".choiceCard").first().click();
   await page.getByRole("button", { name: "Check", exact: true }).click();
-  await expect(page.getByRole("heading", { name: scenario.skillTitle, exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: scenario.skillTitle, exact: true })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Review", exact: true })).toBeVisible();
   await expect(page.getByRole("status")).toContainText("Correct");
   await page.getByRole("button", { name: "Save practice", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Session complete.", exact: true })).toBeVisible();

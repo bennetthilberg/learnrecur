@@ -166,7 +166,6 @@ function DashboardRouteLoading() {
             <Skeleton component="span" className="routeSkeleton" height="1.4em" width={60} />
             <Skeleton component="span" className="routeSkeleton" height="1.4em" width={82} />
           </div>
-          <p className="openWaterReviewHint"><Skeleton component="span" className="routeSkeleton" height="1.5em" width="38%" /></p>
           <p className="disp openWaterReviewPrompt">
             <Skeleton component="span" className="routeSkeleton" height="1.35em" width="95%" />
             <Skeleton component="span" className="routeSkeleton dashboardLoadingMobileLine" height="1.35em" width="85%" />
@@ -222,13 +221,12 @@ export function PracticeRouteLoading({
             <div className="practiceScopeIdentity"><Skeleton component="span" className="routeSkeleton" height={32} width={92} /></div>
             <div className="practiceScopeLinks"><Skeleton component="span" className="routeSkeleton" height={20} width={102} /><Skeleton component="span" className="routeSkeleton" height={20} width={111} /></div>
           </div>
-          <div className="practiceSessionOptions"><Skeleton component="span" className="routeSkeleton" height={28} width={188} /></div>
         </div>
       )}
       <section className="practiceFrame routeLoadingPracticeFrame" aria-label={`${config.title} loading`} aria-busy="true">
         <div className="practiceMetaRow" aria-hidden="true">
           <div className="practiceLoadingMeta">
-            <h1><Skeleton component="span" className="routeSkeleton" height="1lh" width="min(340px, 80%)" /></h1>
+            <h1><Skeleton component="span" className="routeSkeleton" height="1lh" width="3.5em" /></h1>
             <p className="practiceMetaSummary"><Skeleton component="span" className="routeSkeleton" height="1lh" width={68} /></p>
           </div>
         </div>
@@ -449,7 +447,6 @@ function SettingsRouteLoading({ config }: { config: PrimaryRouteLoadingConfig })
         <div className="settingsSectionIntro"><h2>Practice preferences</h2></div>
         <div className="settingsPreferencesBody practicePreferencesLoading" aria-hidden="true">
           <div><Skeleton component="span" className="routeSkeleton" height={18} width={150} /><Skeleton component="span" className="routeSkeleton" height={48} mt={12} /></div>
-          <div><Skeleton component="span" className="routeSkeleton" height={24} width={230} /><Skeleton component="span" className="routeSkeleton" height={16} mt={12} width="85%" /></div>
           <div><Skeleton component="span" className="routeSkeleton" height={24} width={170} /><Skeleton component="span" className="routeSkeleton" height={48} mt={18} /></div>
           <Skeleton component="span" className="routeSkeleton" height={20} width="75%" />
           <Skeleton component="span" className="routeSkeleton" height={24} width={220} />

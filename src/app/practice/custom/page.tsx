@@ -2,7 +2,6 @@ import { auth, currentUser } from "@clerk/nextjs/server";
 import Link from "next/link";
 
 import { CollectionStatus, SkillStatus } from "@/generated/prisma/client";
-import { getUserPracticePreferences } from "@/lib/practice/preferences";
 import { getPrisma } from "@/lib/prisma";
 import { resolveCustomPracticeSkillPrefill } from "@/lib/practice/custom-session-contracts";
 import { ensureDatabaseUser } from "@/lib/users";
@@ -45,8 +44,7 @@ export default async function CustomPracticePage({
     );
   }
 
-  const [preferences, collections, skills] = await Promise.all([
-    getUserPracticePreferences(userId),
+  const [collections, skills] = await Promise.all([
     getPrisma().collection.findMany({
       where: { userId, status: CollectionStatus.ACTIVE },
       orderBy: [{ name: "asc" }, { id: "asc" }],
@@ -82,7 +80,6 @@ export default async function CustomPracticePage({
       </header>
       <CustomSessionSetup
         collections={collections}
-        initialMixedReview={preferences.mixedReview}
         initialSkillId={initialSkillId}
         skills={skills}
         tags={tags}

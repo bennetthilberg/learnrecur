@@ -88,10 +88,10 @@ const flagChoicePracticeExerciseInputSchema = z.object({
 // Selecting the first exercise writes an introduction marker, so do this only
 // after Practice mounts in a visible tab, never during route rendering/prefetch.
 export async function loadPracticeItemAction(rawInput: unknown) {
-  const input = z.object({ collectionId: z.string().min(1).max(200).nullable(), mixedReview: z.boolean() }).parse(rawInput);
+  const input = z.object({ collectionId: z.string().min(1).max(200).nullable(), mixedReview: z.boolean().optional() }).parse(rawInput);
   const user = await requirePracticeUserId();
   if (user.status !== "ready") return { status: "unavailable" as const, message: user.message };
-  const item = await getNextPracticeItemForUser(user.userId, new Date(), input);
+  const item = await getNextPracticeItemForUser(user.userId, new Date(), { ...input, mixedReview: true });
   if (item.status !== "unavailable") after(async () => { await queueDueRetentionPreparation({ userId: user.userId, collectionId: input.collectionId, now: new Date() }); });
   return item;
 }
@@ -204,8 +204,8 @@ export async function commitPracticeReviewAction(
     responseMs: input.responseMs,
     manualRating: normalizeManualRating(input.manualRating),
     reviewedAt,
-    mixedReview: input.mixedReview === true,
-    reducedRuleCues: input.mixedReview === true && input.reducedRuleCues === true,
+    mixedReview: true,
+    reducedRuleCues: input.reducedRuleCues === true,
     collectionId: scope.collectionId,
   });
 
@@ -217,7 +217,7 @@ export async function commitPracticeReviewAction(
       finalRating: result.finalRating,
       nextItem: await getNextPracticeItemForUser(userId, reviewedAt, {
         collectionId: scope.collectionId,
-        mixedReview: input.mixedReview === true,
+        mixedReview: true,
         previousSkillId: result.skill.id,
       }),
     };
@@ -270,7 +270,7 @@ export async function createCustomPracticeSessionAction(
     userId: practiceUser.userId,
     mode: parsed.data.mode,
     targetCount: parsed.data.targetCount,
-    scope: parsed.data.scope,
+    scope: { ...parsed.data.scope, mixedReview: true },
   });
   if (result.status === "unavailable") return result;
   return {
@@ -520,7 +520,7 @@ export async function flagPracticeExerciseAction(
       message: formatFlagMessage(result.message, result.refill),
       nextItem: await getNextPracticeItemForUser(userId, flaggedAt, {
         collectionId: scope.collectionId,
-        mixedReview: flagInput.mixedReview,
+        mixedReview: true,
         previousSkillId: flagInput.previousSkillId,
       }),
     };

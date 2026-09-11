@@ -187,7 +187,7 @@ export async function createCustomPracticeSession(input: {
   const parsed = customPracticeSessionCreateInputSchema.parse({
     mode: input.mode,
     targetCount: input.targetCount,
-    scope: normalizeCustomPracticeSessionScope(input.scope),
+    scope: normalizeCustomPracticeSessionScope({ ...input.scope, mixedReview: true }),
   });
   const sessionId = randomUUID();
 
@@ -512,8 +512,8 @@ export async function commitCustomPracticeAnswer(input: {
       now,
       answerKinds: CUSTOM_ANSWER_KINDS,
       collectionId: session.scope.collectionIds.length === 1 ? session.scope.collectionIds[0] : null,
-      mixedReview: session.scope.mixedReview,
-      reducedRuleCues: session.scope.mixedReview && input.reducedRuleCues === true,
+      mixedReview: true,
+      reducedRuleCues: input.reducedRuleCues === true,
     } as const;
 
     const attemptResult =
@@ -921,7 +921,6 @@ async function buildSessionCandidates(
       .map((skillId) => skillById.get(skillId))
       .filter((skill): skill is SessionSkill => Boolean(skill))
       .sort(compareSessionSkills),
-    input.scope.mixedReview,
   );
   const orderedSkillIds = orderedSkills.map((skill) => skill.id);
   const candidates: SessionCandidate[] = [];
@@ -950,10 +949,7 @@ function compareSessionSkills(left: SessionSkill, right: SessionSkill): number {
 
 function orderSessionSkills(
   skills: readonly SessionSkill[],
-  mixedReview: boolean,
 ): SessionSkill[] {
-  if (!mixedReview) return [...skills];
-
   const dueSkills = skills.filter(
     (skill): skill is SessionSkill & { dueAt: Date } => skill.dueAt instanceof Date,
   );

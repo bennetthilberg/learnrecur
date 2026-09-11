@@ -171,15 +171,6 @@ function DashboardReviewCard({
       : caughtUp
         ? "You're all caught up for now."
         : "Practice is unavailable right now.";
-  const skillTitle = ready
-    ? item.skill.title
-    : deferred
-      ? item.preparing
-        ? "Preparation pending"
-        : "Daily limit reached"
-      : caughtUp
-        ? "Due queue clear"
-        : "Practice unavailable";
   const label = ready
     ? formatFsrsState(item.skill.fsrsState)
     : deferred
@@ -204,7 +195,6 @@ function DashboardReviewCard({
           <span>{label}</span>
           <span className="tnum">{activeSummary}</span>
         </div>
-        <p className="openWaterReviewHint">{skillTitle}</p>
         <p className="disp openWaterReviewPrompt">
           <MathText text={prompt} />
         </p>
