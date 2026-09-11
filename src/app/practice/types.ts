@@ -1,3 +1,4 @@
+import type { PracticeCheckingData } from "@/lib/practice/instant-feedback";
 import {
   AnswerKind,
   type ExerciseType,
@@ -20,7 +21,7 @@ export type ChoiceOption = {
   label: string;
 };
 
-export type PracticeExercise =
+export type PracticeExercise = PracticeCheckingData & (
   | {
       id: string;
       skillId: string;
@@ -37,7 +38,7 @@ export type PracticeExercise =
       prompt: string;
       difficulty: number | null;
       expectedSeconds: number | null;
-    };
+    });
 
 export type PracticeScope =
   | {
@@ -156,7 +157,7 @@ export type CustomPracticeSessionClientSummary = {
   completedCount: number;
 };
 
-export type CustomPracticeClientItem = {
+export type CustomPracticeClientItem = PracticeCheckingData & {
   itemKey: string;
   exerciseId: string;
   skillId: string;

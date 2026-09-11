@@ -417,6 +417,9 @@ function toCustomPracticeClientView(view: CustomPracticeSessionView): CustomPrac
       completedCount: view.session.completedCount,
     },
     item: {
+      answerSpec: view.exercise.answerSpec,
+      correctAnswerDisplay: view.exercise.correctAnswerDisplay,
+      explanation: view.exercise.explanation,
       itemKey: view.sessionItem.itemKey,
       exerciseId: view.exercise.id,
       skillId: view.skill.id,

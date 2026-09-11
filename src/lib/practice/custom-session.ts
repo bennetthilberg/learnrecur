@@ -1275,6 +1275,7 @@ function toReadyItem(
       lastReviewedAt: exercise.skill.lastReviewedAt,
     },
     exercise: {
+      answerSpec: exercise.answerSpec,
       id: exercise.id,
       skillId: exercise.skillId,
       type: exercise.type,

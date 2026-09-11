@@ -199,6 +199,9 @@ function toPracticeItem(
       scope,
       skill,
       exercise: {
+        answerSpec: result.exercise.answerSpec,
+        correctAnswerDisplay: result.exercise.correctAnswerDisplay,
+        explanation: result.exercise.explanation,
         id: result.exercise.id,
         skillId: result.exercise.skillId,
         answerKind: result.exercise.answerKind,
@@ -227,6 +230,9 @@ function toPracticeItem(
     scope,
     skill,
     exercise: {
+      answerSpec: result.exercise.answerSpec,
+      correctAnswerDisplay: result.exercise.correctAnswerDisplay,
+      explanation: result.exercise.explanation,
       id: result.exercise.id,
       skillId: result.exercise.skillId,
       answerKind: result.exercise.answerKind,

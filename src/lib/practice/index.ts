@@ -76,6 +76,7 @@ export type PracticeSkillSummary = {
 };
 
 export type PracticeExerciseSummary = {
+  answerSpec: Prisma.JsonValue;
   id: string;
   skillId: string;
   type: ExerciseType;
@@ -1569,6 +1570,7 @@ function toPracticeSkillRecordFromReviewLog(
 
 function toPracticeExerciseSummary(exercise: PracticeExerciseRecord): PracticeExerciseSummary {
   return {
+    answerSpec: exercise.answerSpec,
     id: exercise.id,
     skillId: exercise.skillId,
     type: exercise.type,

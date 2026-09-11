@@ -107,7 +107,13 @@ test("opens a bounded practice-only session from normal practice and keeps it ou
   await page.setViewportSize({ width: 1280, height: 900 });
 
   await page.locator(".choiceCard").first().click();
-  await page.getByRole("button", { name: "Check", exact: true }).click();
+  await page.context().setOffline(true);
+  try {
+    await page.getByRole("button", { name: "Check", exact: true }).click();
+    await expect(page.getByRole("status")).toContainText("Correct", { timeout: 500 });
+  } finally {
+    await page.context().setOffline(false);
+  }
   await expect(page.getByRole("heading", { name: scenario.skillTitle, exact: true })).toHaveCount(0);
   await expect(page.getByRole("region", { name: "Practice exercise", exact: true })).toBeVisible();
   await expect(page.getByRole("status")).toContainText("Correct");

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
+import { getInstantPracticeFeedback } from "@/lib/practice/instant-feedback";
 import { CheckCircle, Flag } from "@phosphor-icons/react";
 
 import { AnswerKind, ExerciseFlagReason, FsrsRating } from "@/generated/prisma/enums";
@@ -20,7 +21,6 @@ import {
   commitPracticeReviewAction,
   ensureDevPracticeSampleDataAction,
   flagPracticeExerciseAction,
-  previewPracticeAnswerAction,
 } from "./actions";
 import { MathText } from "./math-text";
 import type {
@@ -136,43 +136,17 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
 
     const responseMs = timer.getElapsedMs();
     setSubmittedResponseMs(responseMs);
-    setPendingAction("check");
     setStatusNotice(null);
-
-    startTransition(async () => {
-      const result = await previewPracticeAnswerAction({
-        exerciseId: item.exercise.id,
-        submittedAnswer: answerValue,
-        responseMs,
-        collectionId: scopedCollectionId,
-      });
-
-      setPendingAction(null);
-
-      if (isTerminalPreviewResult(result)) {
-        setFeedback(result);
-
-        if (result.answerCheck.isCorrect) {
-          setManualRating(result.proposedRating ?? FsrsRating.GOOD);
-        } else {
-          setManualRating(FsrsRating.AGAIN);
-        }
-      } else {
-        setFeedback(null);
-        setManualRating(null);
-
-        if (result.status === "not-found") {
-          setItem({
-            status: "unavailable",
-            message: result.message,
-            scope: item.scope,
-          });
-        }
-
-        setStatusNotice(createStatusNotice(getPreviewStatusMessage(result)));
-      }
-    });
-  }, [answerValue, item, pendingAction, scopedCollectionId, timer, startTransition]);
+    const result = getInstantPracticeFeedback(item.exercise, answerValue);
+    if (isTerminalPreviewResult(result)) {
+      setFeedback(result);
+      setManualRating(result.proposedRating);
+    } else {
+      setFeedback(null);
+      setManualRating(null);
+      setStatusNotice(createStatusNotice(getPreviewStatusMessage(result)));
+    }
+  }, [answerValue, item, pendingAction, timer]);
 
   const handleContinue = useCallback(() => {
     if (

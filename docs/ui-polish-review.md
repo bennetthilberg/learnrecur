@@ -57,3 +57,13 @@ Verification for standard practice: lint, 1,081 unit tests, all 14 custom-sessio
 Removed the redundant Review label from normal and custom practice and its loading placeholder. The state/time or exercise count now sits above the question with spacing and no upper divider; the divider below the question remains. The exercise region retains an accessible name. This change does not alter Needs attention: it lists repeated misses and missing usable exercise inventory, while All practice follows the normal due/new-skill queue.
 
 Header cleanup verification: lint and five focused authenticated browser checks passed (including setup/cleanup); inspected desktop/mobile practice screenshots. No domain logic changed, so the database and unit suites were not rerun for this markup/CSS slice.
+
+## Instant answer feedback
+
+Checking an answer previously made a server-action round trip through Clerk account setup, scope validation, and a database transaction with a user-row lock before running the deterministic checker. Practice now loads the checking specification and prepared explanation with the authorized exercise. Normal and custom practice run the existing checker locally and render feedback immediately; invalid input remains editable. The initial rating uses the same shared rating policy as the server.
+
+Continue/Save still sends the raw answer to the authoritative server path, which independently checks eligibility and correctness before writing the attempt and schedule. Client feedback does not authorize a review, and no writes are presented as saved before server confirmation. Loading the next exercise still depends on that save. Checking data is available in the learner's browser, consistent with this solo study tool rather than a secure exam.
+
+Browser regression checks disconnect the network after loading each exercise, require feedback within 500 ms after clicking Check, reconnect, and verify the saved review. They cover choice, text, numeric, math, and custom practice.
+
+Instant-feedback verification: lint, 1,085 unit tests, TypeScript, Prisma validation/generation, and production build passed. The learner lifecycle and retention browser checks passed; the custom-session check passed after fixing its session-id reference. Offline feedback checks passed for all four answer formats and custom practice, followed by successful persisted reviews. Server grading, authorization, and transaction logic remain unchanged. No database migration or full database-suite rerun was needed.

@@ -4,6 +4,7 @@ import { ActionNotification } from "@/components/app/action-notification";
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { getInstantPracticeFeedback } from "@/lib/practice/instant-feedback";
 
 import { AnswerKind, FsrsRating } from "@/generated/prisma/enums";
 import {
@@ -14,7 +15,6 @@ import {
 
 import {
   commitCustomPracticeAnswerAction,
-  previewCustomPracticeAnswerAction,
   resumeCustomPracticeSessionAction,
   stopCustomPracticeSessionAction,
 } from "./actions";
@@ -61,23 +61,14 @@ export function CustomPracticeClient({
         ? 0
         : Math.max(0, Math.round(performance.now() - startedAt.current));
     submittedResponseMs.current = responseMs;
-    setPending("check");
     setActionError(null);
-    void previewCustomPracticeAnswerAction({
-      sessionId: activeSessionId ?? "",
-      itemKey: readyItem.itemKey,
-      exerciseId: readyItem.exerciseId,
-      submittedAnswer: answer,
-      responseMs,
-    })
-      .then((result) => {
-        setFeedback(result);
-        if (result.status === "checked") {
-          setManualRating(result.answerCheck.isCorrect ? FsrsRating.GOOD : FsrsRating.AGAIN);
-        }
-      })
-      .catch(() => setActionError("Could not check this answer. Try again."))
-      .finally(() => setPending(null));
+    const result = getInstantPracticeFeedback(readyItem, answer);
+    if (result.answerCheck.status !== "correct" && result.answerCheck.status !== "incorrect") {
+      setActionError(result.answerCheck.message ?? "Check your answer and try again.");
+      return;
+    }
+    setFeedback(result);
+    setManualRating(result.proposedRating ?? FsrsRating.GOOD);
   };
 
   const handleSave = () => {

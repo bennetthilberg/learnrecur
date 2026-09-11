@@ -384,10 +384,14 @@ async function completeCorrectReview(
     await page.getByLabel("Your answer").fill(scenario.exercise.testAnswer);
   }
 
-  await page.getByRole("button", { name: "Check", exact: true }).click();
-  await expect(
-    page.getByRole("heading", { name: "Correct.", exact: true }),
-  ).toBeVisible();
+  // Feedback must not depend on authentication or a database round trip.
+  await page.context().setOffline(true);
+  try {
+    await page.getByRole("button", { name: "Check", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Correct.", exact: true })).toBeVisible({ timeout: 500 });
+  } finally {
+    await page.context().setOffline(false);
+  }
   await expect(page.locator(".practiceFeedbackAnswer")).toContainText(
     scenario.exercise.correctAnswerDisplay,
   );
