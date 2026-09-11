@@ -220,7 +220,7 @@ for (const width of [1280, 390])
       });
       await page.goto(`/practice?collectionId=${spanish.collectionId}`);
       await expect(
-        page.getByRole("heading", { name: "Review", exact: true }),
+        page.getByRole("region", { name: "Practice exercise", exact: true }),
       ).toBeVisible();
       await expect(page.getByLabel("Practice scope", { exact: true })).not.toContainText(spanish.collectionName);
       await expect(page.getByRole("link", { name: "Custom session", exact: true })).toBeVisible();

@@ -9036,7 +9036,8 @@ body {
   margin: 24px auto 0;
 }
 .practiceFrame .practiceMetaRow {
-  padding-bottom: 18px;
+  border-bottom: 0;
+  padding-bottom: 0;
 }
 .practiceFrame:not(.practiceEmpty) h1 {
   margin: 0;

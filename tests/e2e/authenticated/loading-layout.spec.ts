@@ -50,6 +50,8 @@ for (const width of [1280, 390]) {
       await page.screenshot({ path: testInfo.outputPath(`${destination}-ready-${width}.png`) });
     }
     const scope = page.locator(".practiceScopeBar");
+    await expect(page.getByRole("heading", { name: "Review", exact: true })).toHaveCount(0);
+    expect(await page.locator(".practiceMetaRow").evaluate((node) => getComputedStyle(node).borderBottomWidth)).toBe("0px");
     const identity = await scope.locator(".practiceScopeIdentity").boundingBox();
     for (const name of ["Custom session", "Needs attention"]) {
       const link = await scope.getByRole("link", { name, exact: true }).boundingBox();

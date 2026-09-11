@@ -226,7 +226,6 @@ export function PracticeRouteLoading({
       <section className="practiceFrame routeLoadingPracticeFrame" aria-label={`${config.title} loading`} aria-busy="true">
         <div className="practiceMetaRow" aria-hidden="true">
           <div className="practiceLoadingMeta">
-            <h1><Skeleton component="span" className="routeSkeleton" height="1lh" width="3.5em" /></h1>
             <p className="practiceMetaSummary"><Skeleton component="span" className="routeSkeleton" height="1lh" width={68} /></p>
           </div>
         </div>

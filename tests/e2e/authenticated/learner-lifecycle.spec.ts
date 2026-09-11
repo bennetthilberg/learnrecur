@@ -37,7 +37,7 @@ test.describe("authenticated learner lifecycle", () => {
 
     await expect(page.getByLabel("Practice scope")).not.toContainText(scenario.collectionName);
     await expect(
-      page.getByRole("heading", { name: "Review", exact: true }),
+      page.getByRole("region", { name: "Practice exercise", exact: true }),
     ).toBeVisible();
     await expect(
       page.getByRole("article"),
@@ -278,8 +278,8 @@ test.describe("authenticated learner lifecycle", () => {
       ]);
       for (const learnerPage of [page, secondPage]) {
         await expect(
-          learnerPage.getByRole("heading", {
-            name: "Review",
+          learnerPage.getByRole("region", {
+            name: "Practice exercise",
             exact: true,
           }),
         ).toBeVisible();
@@ -375,7 +375,7 @@ async function completeCorrectReview(
 ) {
   await page.goto(practiceUrl(scenario));
   await expect(
-    page.getByRole("heading", { name: "Review", exact: true }),
+    page.getByRole("region", { name: "Practice exercise", exact: true }),
   ).toBeVisible();
 
   if (scenario.kind === "choice") {

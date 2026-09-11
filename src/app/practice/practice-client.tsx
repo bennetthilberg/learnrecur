@@ -438,10 +438,9 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
       <div className="practiceToolbar">
         <PracticeScopeBar scope={item.scope} />
       </div>
-      <section className="practiceFrame" aria-labelledby="practice-title">
+      <section className="practiceFrame" aria-label="Practice exercise">
         <div className="practiceMetaRow">
           <div>
-            <h1 id="practice-title">Review</h1>
             <p className="practiceMetaSummary tnum">
               {formatFsrsState(item.skill.fsrsState)} · {formatElapsed(timer.elapsedMs)}
             </p>

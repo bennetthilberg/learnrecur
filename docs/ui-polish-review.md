@@ -51,3 +51,9 @@ New custom sessions use the same ordering while preserving the selected skills, 
 Removed the corresponding loading placeholders and unused switch styles. Long custom-study skill names now expand their rows instead of overlapping the next item.
 
 Verification for standard practice: lint, 1,081 unit tests, all 14 custom-session database integration tests, Prisma validation/generation, and production build passed. The affected authenticated browser suite passed 23 checks, followed by four focused loading/layout checks (both counts include setup and cleanup). Inspected rendered desktop and mobile screenshots. The full database suite was stopped in favor of the affected custom-session suite; no full-database-suite result is claimed. No push or PR.
+
+## Practice header cleanup
+
+Removed the redundant Review label from normal and custom practice and its loading placeholder. The state/time or exercise count now sits above the question with spacing and no upper divider; the divider below the question remains. The exercise region retains an accessible name. This change does not alter Needs attention: it lists repeated misses and missing usable exercise inventory, while All practice follows the normal due/new-skill queue.
+
+Header cleanup verification: lint and five focused authenticated browser checks passed (including setup/cleanup); inspected desktop/mobile practice screenshots. No domain logic changed, so the database and unit suites were not rerun for this markup/CSS slice.

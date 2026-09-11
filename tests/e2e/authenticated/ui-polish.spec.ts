@@ -79,7 +79,7 @@ for (const width of [1280, 390]) {
     );
     await expect(page.getByLabel("Your answer", { exact: true })).toBeVisible();
     await expect(page.getByRole("switch", { name: "Mixed review", exact: true })).toHaveCount(0);
-    await expect(page.getByRole("heading", { name: "Review", exact: true })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Practice exercise", exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: learnerFixture.scenarios.text.skillTitle, exact: true })).toHaveCount(0);
     await expect(
       page.getByRole("link", { name: "Custom session", exact: true }),
