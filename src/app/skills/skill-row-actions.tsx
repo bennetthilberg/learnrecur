@@ -1,174 +1,212 @@
 "use client";
 
-import { DotsThreeVertical } from "@phosphor-icons/react";
-import Link from "next/link";
-import { useActionState, useEffect, useId, useRef, useState } from "react";
+import { Menu, Modal } from "@mantine/core";
+import {
+  Archive,
+  CheckCircle,
+  DotsThreeVertical,
+  Pause,
+  Play,
+  Trash,
+  WarningCircle,
+} from "@phosphor-icons/react";
+import { useRouter } from "next/navigation";
+import { useRef, useState, useTransition } from "react";
 
-import { updateSkillLifecycleAction, type SkillFormActionState } from "./actions";
+import { notifications } from "@mantine/notifications";
+import {
+  updateSkillLifecycleAction,
+  type SkillFormActionState,
+} from "./actions";
+import { SkillDeleteForm } from "./skill-delete-form";
 
 type SkillRowStatus = "DRAFT" | "ACTIVE" | "PAUSED" | "ARCHIVED";
+type LifecycleAction = "pause" | "resume" | "archive" | "restore";
 
-type LifecycleActionType = "pause" | "resume" | "archive" | "restore";
-
-type SkillRowActionsProps = {
+export function SkillRowActions({
+  skillId,
+  skillTitle,
+  status,
+}: {
   skillId: string;
   skillTitle: string;
   status: SkillRowStatus;
-};
+}) {
+  const router = useRouter();
+  const trigger = useRef<HTMLButtonElement>(null);
+  const [dialog, setDialog] = useState<"archive" | "delete" | null>(null);
+  const [pending, startTransition] = useTransition();
 
-type LifecycleMenuItem = {
-  actionType: LifecycleActionType;
-  label: string;
-  pendingLabel: string;
-  tone?: "danger";
-};
+  function closeDialog() {
+    if (pending) return;
+    setDialog(null);
+    trigger.current?.focus();
+  }
 
-const initialState: SkillFormActionState = {
-  status: "idle",
-  message: null,
-};
-
-export function SkillRowActions({ skillId, skillTitle, status }: SkillRowActionsProps) {
-  const [open, setOpen] = useState(false);
-  const [pendingLifecycleAction, setPendingLifecycleAction] =
-    useState<LifecycleActionType | null>(null);
-  const [, lifecycleFormAction, lifecyclePending] = useActionState(
-    updateSkillLifecycleAction,
-    initialState,
-  );
-  const menuId = useId();
-  const rootRef = useRef<HTMLDivElement | null>(null);
-  const lifecycleItems = getLifecycleItems(status);
-  const canDelete = status === "DRAFT" || status === "ARCHIVED";
-  const skillHref = `/skills/${skillId}`;
-
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-
-    function handlePointerDown(event: PointerEvent) {
-      if (!rootRef.current?.contains(event.target as Node)) {
-        setOpen(false);
+  function changeLifecycle(action: LifecycleAction) {
+    const data = new FormData();
+    data.set("skillId", skillId);
+    data.set("lifecycleAction", action);
+    if (action === "archive") data.set("confirmLifecycle", "yes");
+    notifications.hide(`skill-row-${skillId}`);
+    startTransition(async () => {
+      const next: SkillFormActionState = await updateSkillLifecycleAction(
+        { status: "idle", message: null },
+        data,
+      ).catch(() => ({
+        status: "error" as const,
+        message: "Could not update this skill. Try again.",
+      }));
+      notifications.show({
+        id: `skill-row-${skillId}`,
+        title:
+          next.status === "saved" ? "Skill updated" : "Could not update skill",
+        message: next.message,
+        color: next.status === "saved" ? "leaf" : "amber",
+        icon:
+          next.status === "saved" ? (
+            <CheckCircle size={18} />
+          ) : (
+            <WarningCircle size={18} />
+          ),
+        className: "learnrecurNotification",
+        position: "top-right",
+        withBorder: true,
+        withCloseButton: true,
+      });
+      if (next.status === "saved") {
+        setDialog(null);
+        router.refresh();
+        trigger.current?.focus();
       }
-    }
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setOpen(false);
-      }
-    }
-
-    document.addEventListener("pointerdown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [open]);
+    });
+  }
 
   return (
-    <div className="skillRowActions" ref={rootRef}>
-      <button
-        aria-controls={open ? menuId : undefined}
-        aria-expanded={open}
-        aria-label={`Open actions for ${skillTitle}`}
-        className="skillRowActionsTrigger"
-        onClick={() => setOpen((currentOpen) => !currentOpen)}
-        type="button"
+    <div className="skillRowActions">
+      <Menu
+        position="bottom-end"
+        withinPortal
+        shadow="none"
+        width={200}
+        returnFocus
       >
-        <DotsThreeVertical aria-hidden="true" size={22} weight="bold" />
-      </button>
-
-      {open ? (
-        <div className="skillRowActionsMenu" id={menuId}>
-          {lifecycleItems.map((item) =>
-            item.actionType === "archive" ? (
-              <Link
-                className="skillRowActionItem"
-                data-tone={item.tone}
-                href={skillHref}
-                key={item.actionType}
-              >
-                {item.label}
-              </Link>
+        <Menu.Target>
+          <button
+            ref={trigger}
+            aria-label={`Open actions for ${skillTitle}`}
+            className="skillRowActionsTrigger"
+            disabled={pending}
+            type="button"
+          >
+            {pending ? (
+              <span className="buttonSpinner" aria-hidden="true" />
             ) : (
-              <form action={lifecycleFormAction} key={item.actionType}>
-                <input name="skillId" type="hidden" value={skillId} />
-                <input name="lifecycleAction" type="hidden" value={item.actionType} />
-                <button
-                  className="skillRowActionItem"
-                  data-tone={item.tone}
-                  disabled={lifecyclePending}
-                  onClick={() => setPendingLifecycleAction(item.actionType)}
-                  type="submit"
-                >
-                  {lifecyclePending && pendingLifecycleAction === item.actionType
-                    ? item.pendingLabel
-                    : item.label}
-                </button>
-              </form>
-            ),
+              <DotsThreeVertical aria-hidden="true" size={22} weight="bold" />
+            )}
+          </button>
+        </Menu.Target>
+        <Menu.Dropdown className="skillActionsDropdown">
+          {status === "ACTIVE" && (
+            <Menu.Item
+              leftSection={<Pause size={18} />}
+              onClick={() => changeLifecycle("pause")}
+            >
+              Pause
+            </Menu.Item>
           )}
-
-          {canDelete ? (
-            <Link className="skillRowActionItem" data-tone="danger" href={skillHref}>
-              Delete
-            </Link>
-          ) : null}
-        </div>
-      ) : null}
+          {status === "PAUSED" && (
+            <Menu.Item
+              leftSection={<Play size={18} />}
+              onClick={() => changeLifecycle("resume")}
+            >
+              Resume
+            </Menu.Item>
+          )}
+          {status === "ARCHIVED" && (
+            <Menu.Item
+              leftSection={<Archive size={18} />}
+              onClick={() => changeLifecycle("restore")}
+            >
+              Restore
+            </Menu.Item>
+          )}
+          {status !== "ARCHIVED" && (
+            <Menu.Item
+              leftSection={<Archive size={18} />}
+              onClick={() => setDialog("archive")}
+            >
+              Archive
+            </Menu.Item>
+          )}
+          {(status === "DRAFT" || status === "ARCHIVED") && (
+            <Menu.Item
+              color="amber"
+              leftSection={<Trash size={18} />}
+              onClick={() => setDialog("delete")}
+            >
+              Delete permanently
+            </Menu.Item>
+          )}
+        </Menu.Dropdown>
+      </Menu>
+      <Modal
+        opened={dialog !== null}
+        onClose={closeDialog}
+        title={
+          dialog === "delete" ? "Delete skill permanently?" : "Archive skill?"
+        }
+        centered
+        size="md"
+        returnFocus={false}
+        closeOnClickOutside={!pending && dialog !== "delete"}
+        closeOnEscape={!pending && dialog !== "delete"}
+        withCloseButton={!pending && dialog !== "delete"}
+        transitionProps={{ duration: 0 }}
+        classNames={{
+          content: "skillGuidanceModalContent",
+          header: "skillGuidanceModalHeader",
+          title: "skillGuidanceModalTitle",
+          body: "skillActionDialogBody",
+        }}
+      >
+        <p className="skillActionSubject">{skillTitle}</p>
+        {dialog === "delete" ? (
+          <SkillDeleteForm
+            skillId={skillId}
+            skillTitle={skillTitle}
+            inline
+            onCancel={closeDialog}
+          />
+        ) : (
+          <>
+            <p>
+              This skill will leave your practice queue. Its sources, exercises,
+              and history stay saved, and you can restore it from archived
+              skills.
+            </p>
+            <div className="skillActionDialogActions">
+              <button
+                className="secondaryButton"
+                data-autofocus
+                disabled={pending}
+                onClick={closeDialog}
+                type="button"
+              >
+                Cancel
+              </button>
+              <button
+                className="primaryButton"
+                disabled={pending}
+                onClick={() => changeLifecycle("archive")}
+                type="button"
+              >
+                {pending ? "Archiving" : "Archive skill"}
+              </button>
+            </div>
+          </>
+        )}
+      </Modal>
     </div>
   );
-}
-
-function getLifecycleItems(status: SkillRowStatus): LifecycleMenuItem[] {
-  switch (status) {
-    case "DRAFT":
-      return [
-        {
-          actionType: "archive",
-          label: "Archive",
-          pendingLabel: "Archiving",
-          tone: "danger",
-        },
-      ];
-    case "ACTIVE":
-      return [
-        {
-          actionType: "pause",
-          label: "Pause",
-          pendingLabel: "Pausing",
-        },
-        {
-          actionType: "archive",
-          label: "Archive",
-          pendingLabel: "Archiving",
-          tone: "danger",
-        },
-      ];
-    case "PAUSED":
-      return [
-        {
-          actionType: "resume",
-          label: "Resume",
-          pendingLabel: "Resuming",
-        },
-        {
-          actionType: "archive",
-          label: "Archive",
-          pendingLabel: "Archiving",
-          tone: "danger",
-        },
-      ];
-    case "ARCHIVED":
-      return [
-        {
-          actionType: "restore",
-          label: "Restore",
-          pendingLabel: "Restoring",
-        },
-      ];
-  }
 }

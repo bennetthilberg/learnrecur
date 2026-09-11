@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { PracticeRouteLoading } from "../skills/primary-route-loading-content";
 
 import { loadCustomPracticeSessionItemAction } from "./actions";
 import { CustomPracticeClient } from "./custom-practice-client";
@@ -36,16 +37,22 @@ export function CustomPracticeLoader({ sessionId }: { sessionId: string }) {
 
   if (view) return <CustomPracticeClient initialView={view} />;
 
+  if (!failed) return <PracticeRouteLoading custom />;
+
   return (
-    <section className="practiceFrame practiceEmpty" aria-live="polite">
-      <h1>{failed ? "Could not load this practice session." : "Loading practice session…"}</h1>
-      {failed ? (
-        <button className="secondaryButton" type="button" onClick={() => window.location.reload()}>
-          Try again
-        </button>
-      ) : (
-        <p>Checking the selected exercise inventory.</p>
-      )}
+    <section
+      className="practiceFrame practiceEmpty practiceLoadError"
+      aria-live="polite"
+    >
+      <h1>Could not load practice.</h1>
+      <p>Your progress is saved. Try loading the session again.</p>
+      <button
+        className="secondaryButton"
+        type="button"
+        onClick={() => window.location.reload()}
+      >
+        Try again
+      </button>
     </section>
   );
 }

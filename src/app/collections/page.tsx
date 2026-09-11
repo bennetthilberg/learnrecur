@@ -33,7 +33,7 @@ export default async function CollectionsPage() {
 
   if (databaseUser.status !== "ready") {
     return (
-      <main className="skillShell">
+      <main className="skillShell libraryShell">
         <SkillsTopbar current="collections" />
         <UserStatusPanel id="collections-setup-title" status={databaseUser} />
       </main>
@@ -46,7 +46,7 @@ export default async function CollectionsPage() {
   });
 
   return (
-    <main className="skillShell">
+    <main className="skillShell libraryShell">
       <SkillsTopbar current="collections" />
 
       <header className="skillHeader">

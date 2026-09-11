@@ -214,37 +214,33 @@ function DashboardDeckRowSkeleton() {
   );
 }
 
-function PracticeRouteLoading({ config }: { config: PrimaryRouteLoadingConfig }) {
+export function PracticeRouteLoading({
+  config = primaryRouteLoadingByKey.practice,
+  custom = false,
+}: { config?: PrimaryRouteLoadingConfig; custom?: boolean }) {
   return (
     <>
-      <section className="practiceScopeBar routeLoadingScope" aria-label="Practice scope loading">
-        <Skeleton className="routeSkeleton" height={14} radius={5} width={132} />
-        <Skeleton className="routeSkeleton" height={14} radius={5} width={96} />
-      </section>
-      <section className="practiceFrame routeLoadingPracticeFrame" aria-label={`${config.title} loading`}>
-        <div className="practiceMetaRow">
-          <div>
-            <h1>{config.title}</h1>
-          </div>
-          <div className="routeLoadingPracticeFacts" aria-hidden="true">
-            <Skeleton className="routeSkeleton" height={36} radius={6} width={108} />
-            <Skeleton className="routeSkeleton" height={36} radius={6} width={82} />
-          </div>
+      {custom ? (
+        <div className="practiceScopeBar customPracticeScopeBar" aria-hidden="true">
+          <span>Custom session</span>
+          <Skeleton className="routeSkeleton" height={24} width={110} />
+          <Skeleton className="routeSkeleton" height={24} width={60} />
+          <Skeleton className="routeSkeleton" height={44} width={110} />
         </div>
-
-        <article className="practicePromptPanel">
-          <Skeleton className="routeSkeleton" height={17} radius={5} width={84} />
-          <Skeleton className="routeSkeleton routeLoadingPracticePrompt" height={33} radius={7} width="78%" />
-        </article>
-
-        <div className="choiceGrid" aria-hidden="true">
-          {Array.from({ length: 4 }, (_, index) => (
-            <Skeleton className="routeSkeleton routeLoadingChoice" height={58} key={index} radius={8} />
-          ))}
+      ) : <div className="practiceToolbar" aria-hidden="true">
+        <div className="practiceScopeIdentity"><Skeleton className="routeSkeleton" height={20} width="80%" /></div>
+        <div className="practiceSessionOptions"><Skeleton className="routeSkeleton" height={24} width={140} /></div>
+        <div className="practiceScopeLinks"><Skeleton className="routeSkeleton" height={24} width={230} /></div>
+      </div>}
+      <section className="practiceFrame routeLoadingPracticeFrame" aria-label={`${config.title} loading`} aria-busy="true">
+        <div className="practiceMetaRow" aria-hidden="true">
+          <Skeleton className="routeSkeleton" height={20} width="48%" />
         </div>
-        <div className="practiceActions" aria-hidden="true">
-          <Skeleton className="routeSkeleton routeLoadingActionButton" height={42} radius={8} width={112} />
+        <div className="practicePromptPanel" aria-hidden="true">
+          <Skeleton className="routeSkeleton" height={28} width="90%" />
+          <Skeleton className="routeSkeleton" height={28} mt={12} width="62%" />
         </div>
+        <p className="practiceLoadingStatus" role="status">Loading practice…</p>
       </section>
     </>
   );
@@ -443,16 +439,20 @@ function SettingsRouteLoading({ config }: { config: PrimaryRouteLoadingConfig })
   return (
     <>
       <header className="skillHeader settingsHeader">
-        <h1 aria-label={config.title}>
-          <Skeleton
-            aria-hidden="true"
-            className="routeSkeleton routeLoadingSettingsTitle"
-            height={42}
-            radius={7}
-            width={164}
-          />
-        </h1>
+        <h1>{config.title}</h1>
       </header>
+
+      <section className="skillPanel settingsPanel" aria-label="Practice preferences loading">
+        <div className="settingsSectionIntro"><h2>Practice preferences</h2></div>
+        <div className="settingsPreferencesBody practicePreferencesLoading" aria-hidden="true">
+          <div><Skeleton className="routeSkeleton" height={18} width={150} /><Skeleton className="routeSkeleton" height={48} mt={12} /></div>
+          <div><Skeleton className="routeSkeleton" height={24} width={230} /><Skeleton className="routeSkeleton" height={16} mt={12} width="85%" /></div>
+          <div><Skeleton className="routeSkeleton" height={24} width={170} /><Skeleton className="routeSkeleton" height={48} mt={18} /></div>
+          <Skeleton className="routeSkeleton" height={20} width="75%" />
+          <Skeleton className="routeSkeleton" height={24} width={220} />
+          <Skeleton className="routeSkeleton" height={44} width={220} />
+        </div>
+      </section>
 
       <section
         className="skillPanel settingsPanel routeLoadingSettingsPanel"

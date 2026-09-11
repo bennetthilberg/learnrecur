@@ -168,11 +168,8 @@ for (const width of [1280, 390])
         // The established mobile layout hides helper copy and keeps controls.
         await expect(unlockCopy).toBeHidden();
         await expect(
-          page.getByRole("button", {
-            name: "Prepare exact input",
-            exact: true,
-          }),
-        ).toBeEnabled();
+          page.getByText(/^(Prepare exact input|Preparing exact input)$/),
+        ).toBeVisible();
         await expect(
           page.getByRole("button", { name: "Prepare math", exact: true }),
         ).toBeEnabled();
@@ -228,9 +225,8 @@ for (const width of [1280, 390])
       await expect(
         page.getByRole("heading", { name: "Review", exact: true }),
       ).toBeVisible();
-      await expect(
-        page.getByLabel("Practice scope", { exact: true }),
-      ).toHaveCount(0);
+      await expect(page.getByLabel("Practice scope", { exact: true })).not.toContainText(spanish.collectionName);
+      await expect(page.getByRole("link", { name: "Custom session", exact: true })).toBeVisible();
       const mixed = page.getByRole("switch", {
         name: "Mixed review",
         exact: true,

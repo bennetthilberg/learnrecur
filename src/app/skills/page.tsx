@@ -39,7 +39,7 @@ export default async function SkillsPage({ searchParams }: SkillsPageProps) {
 
   if (databaseUser.status !== "ready") {
     return (
-      <main className="skillShell">
+      <main className="skillShell libraryShell">
         <SkillsTopbar current="skills" />
         <UserStatusPanel id="skills-setup-title" status={databaseUser} />
       </main>
@@ -52,7 +52,7 @@ export default async function SkillsPage({ searchParams }: SkillsPageProps) {
   ]);
 
   return (
-    <main className="skillShell">
+    <main className="skillShell libraryShell">
       <SkillsTopbar current="skills" />
 
       <header className="skillHeader">

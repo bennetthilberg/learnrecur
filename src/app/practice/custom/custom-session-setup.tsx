@@ -67,7 +67,6 @@ export function CustomSessionSetup({
       <div className="skillPanelHeader">
         <div>
           <h2 id="custom-session-form-title">Session choices</h2>
-          <p>Selections are saved with this session so reloads keep the same scope.</p>
         </div>
       </div>
       <div className="customPracticeSetupGrid">

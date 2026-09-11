@@ -445,8 +445,22 @@ export function PracticeClient({ initialItem, canUseSampleData, initialMixedRevi
 
   return (
     <>
-      {(!mixedReview || checkedFeedback) && <PracticeScopeBar scope={item.scope} />}
-      <div className="practiceSessionOptions"><Switch label="Mixed review" checked={mixedReview} disabled={pendingAction !== null || feedback !== null} onChange={(event) => { const enabled = event.currentTarget.checked; setMixedReview(enabled); if (!enabled) setRevealingCueSeen(true); }} /></div>
+      <div className="practiceToolbar">
+        <PracticeScopeBar scope={item.scope} hideScopeLabel={mixedReview && !checkedFeedback} />
+        <div className="practiceSessionOptions">
+          <Switch
+            size="md"
+            label="Mixed review"
+            checked={mixedReview}
+            disabled={pendingAction !== null || feedback !== null}
+            onChange={(event) => {
+              const enabled = event.currentTarget.checked;
+              setMixedReview(enabled);
+              if (!enabled) setRevealingCueSeen(true);
+            }}
+          />
+        </div>
+      </div>
       <section className="practiceFrame" aria-labelledby="practice-title">
         <div className="practiceMetaRow">
           <div>
@@ -704,18 +718,19 @@ export function PracticeClient({ initialItem, canUseSampleData, initialMixedRevi
   );
 }
 
-function PracticeScopeBar({ scope }: { scope?: PracticeScope }) {
+function PracticeScopeBar({ scope, hideScopeLabel = false }: { scope?: PracticeScope; hideScopeLabel?: boolean }) {
   return (
     <div className="practiceScopeBar" aria-label="Practice scope">
-      {scope?.kind === "collection" ? (
-        <>
-          <span>Collection</span>
-          <strong>{scope.collectionName}</strong>
-          <Link href="/practice">All practice</Link>
-        </>
-      ) : <strong>All practice</strong>}
-      <Link href="/practice/custom">Custom session</Link>
-      <Link href="/practice/attention">Needs attention</Link>
+      <div className="practiceScopeIdentity">
+        <strong title={!hideScopeLabel && scope?.kind === "collection" ? scope.collectionName : undefined}>
+          {hideScopeLabel ? "Practice" : scope?.kind === "collection" ? scope.collectionName : "All practice"}
+        </strong>
+      </div>
+      <div className="practiceScopeLinks">
+        <Link href="/practice/custom">Custom session</Link>
+        <Link href="/practice/attention">Needs attention</Link>
+        {scope?.kind === "collection" ? <Link href="/practice">All practice</Link> : null}
+      </div>
     </div>
   );
 }

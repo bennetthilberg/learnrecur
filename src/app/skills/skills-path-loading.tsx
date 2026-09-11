@@ -23,7 +23,7 @@ const loadingRouteConfig: Record<SkillsPathLoadingKind, LoadingRouteConfig> = {
   "skills-library": {
     current: "skills",
     label: "Skills library loading",
-    shellClassName: "skillShell",
+    shellClassName: "skillShell libraryShell",
   },
   "new-choice": {
     current: "new",
