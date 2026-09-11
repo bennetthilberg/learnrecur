@@ -132,15 +132,15 @@ export function CustomSessionSetup({
           <legend>Review behavior</legend>
           <label className="customPracticeCheckLine">
             <input type="checkbox" checked={mixedReview} onChange={(event) => setMixedReview(event.target.checked)} />
-            <span>Mixed review<small>Use the account&apos;s current mixed review preference by default.</small></span>
+            <span>Mixed review<small>Vary related skills and hide skill-name cues until you check your answer. Starts with your account setting.</small></span>
           </label>
         </fieldset>
       </div>
       <div className="customPracticeSetupActions">
+        <Link className="secondaryButton" href="/practice">Cancel</Link>
         <button className="primaryButton" type="button" onClick={submit} disabled={isPending || skills.length === 0}>
           {isPending ? "Preparing session" : "Start session"}
         </button>
-        <Link className="secondaryButton" href="/practice">Cancel</Link>
       </div>
       {message ? <ActionNotification id="custom-session-setup-error" title="Could not start session" message={message} /> : null}
     </section>

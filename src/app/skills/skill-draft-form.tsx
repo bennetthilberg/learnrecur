@@ -398,12 +398,7 @@ export const SkillDuplicateDecision = forwardRef<
         </div>
 
         <div className="skillDuplicateDecisionActions">
-          <Link
-            className="primaryButton"
-            href={`/skills/${match.skill.id}`}
-          >
-            Open existing skill
-          </Link>
+
           <button
             className="secondaryButton"
             disabled={isSubmitting}
@@ -423,6 +418,12 @@ export const SkillDuplicateDecision = forwardRef<
               ? "Checking and adding"
               : "Add as a separate skill anyway"}
           </button>
+          <Link
+            className="primaryButton"
+            href={`/skills/${match.skill.id}`}
+          >
+            Open existing skill
+          </Link>
         </div>
       </div>
     </section>

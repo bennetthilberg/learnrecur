@@ -68,11 +68,11 @@ export default async function DashboardPage() {
           </h1>
           {hasDuePractice ? (
             <div className="openWaterHeroActions">
-              <Link className="bpbtn bpbtn-hero" href="/practice">
-                Start practice
-              </Link>
               <Link className="bpbtn bpbtn-ghost" href="/skills">
                 Browse skills
+              </Link>
+              <Link className="bpbtn bpbtn-hero" href="/practice">
+                Start practice
               </Link>
             </div>
           ) : (
@@ -217,11 +217,11 @@ function DashboardReviewCard({
         <div className="openWaterReviewActions">
           {ready ? (
             <>
-              <Link className="bpbtn bpbtn-blue" href="/practice">
-                Practice now
-              </Link>
               <Link className="bpbtn bpbtn-white" href="/skills">
                 Review skills
+              </Link>
+              <Link className="bpbtn bpbtn-blue" href="/practice">
+                Practice now
               </Link>
             </>
           ) : (

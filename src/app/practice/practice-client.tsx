@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
-import { Switch } from "@mantine/core";
+import { Popover, Switch } from "@mantine/core";
 import Link from "next/link";
-import { CheckCircle, Flag } from "@phosphor-icons/react";
+import { CheckCircle, Flag, Question } from "@phosphor-icons/react";
 
 import { AnswerKind, ExerciseFlagReason, FsrsRating } from "@/generated/prisma/enums";
 import {
@@ -459,6 +459,16 @@ export function PracticeClient({ initialItem, canUseSampleData, initialMixedRevi
               if (!enabled) setRevealingCueSeen(true);
             }}
           />
+          <Popover width={300} position="bottom-end" withArrow withinPortal>
+            <Popover.Target>
+              <button className="mixedReviewHelp" type="button" aria-label="About mixed review"><Question size={18} /></button>
+            </Popover.Target>
+            <Popover.Dropdown className="mixedReviewHelpText">
+              <p><strong>Off:</strong> Follow the normal due order, with the skill name visible.</p>
+              <p><strong>On:</strong> Vary related skills when available and hide skill-name cues until you check your answer.</p>
+              <p>Off by default. Set your preferred default in Settings; this switch changes only this session.</p>
+            </Popover.Dropdown>
+          </Popover>
         </div>
       </div>
       <section className="practiceFrame" aria-labelledby="practice-title">
@@ -722,14 +732,16 @@ function PracticeScopeBar({ scope, hideScopeLabel = false }: { scope?: PracticeS
   return (
     <div className="practiceScopeBar" aria-label="Practice scope">
       <div className="practiceScopeIdentity">
-        <strong title={!hideScopeLabel && scope?.kind === "collection" ? scope.collectionName : undefined}>
-          {hideScopeLabel ? "Practice" : scope?.kind === "collection" ? scope.collectionName : "All practice"}
-        </strong>
+        {scope?.kind === "collection" ? (
+          <Link href="/practice" aria-label="All practice" title={hideScopeLabel ? "Return to all practice" : `${scope.collectionName} — return to all practice`}>
+            <strong>{hideScopeLabel ? "Practice" : scope.collectionName}</strong>
+          </Link>
+        ) : <strong>All practice</strong>}
       </div>
       <div className="practiceScopeLinks">
         <Link href="/practice/custom">Custom session</Link>
         <Link href="/practice/attention">Needs attention</Link>
-        {scope?.kind === "collection" ? <Link href="/practice">All practice</Link> : null}
+
       </div>
     </div>
   );
@@ -821,20 +833,20 @@ function PracticeCompleteActions({ scoped, dailyLimitReached }: { scoped: boolea
     <div className="practiceCompleteActions" aria-label="Practice next actions">
       {scoped ? (
         <>
-          <Link className="primaryButton" href="/practice">
-            Try all practice
-          </Link>
           <Link className="secondaryButton" href="/dashboard">
             Dashboard
+          </Link>
+          <Link className="primaryButton" href="/practice">
+            Try all practice
           </Link>
         </>
       ) : (
         <>
-          <Link className="primaryButton" href="/dashboard">
-            Dashboard
-          </Link>
           <Link className="secondaryButton" href="/skills">
             Review skills
+          </Link>
+          <Link className="primaryButton" href="/dashboard">
+            Dashboard
           </Link>
         </>
       )}

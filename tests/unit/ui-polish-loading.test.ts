@@ -32,6 +32,8 @@ describe("loading layout continuity", () => {
     const markup = render("practice");
     expect(markup).toContain("practiceToolbar");
     expect(markup).not.toContain('class="choiceGrid"');
-    expect(markup).toContain("Loading practice");
+    expect(markup).not.toContain("Loading practice…");
+    expect(markup).toContain('aria-label="Practice loading"');
+    expect(markup).toContain("practiceLoadingAnswers");
   });
 });

@@ -1,4 +1,5 @@
 import { Skeleton } from "@mantine/core";
+import Link from "next/link";
 import { SkillsTopbar } from "../../skills/skills-topbar";
 
 export default function CustomPracticeLoading() {
@@ -12,6 +13,10 @@ export default function CustomPracticeLoading() {
             Choose the skills you want to see now. Practice only is selected by
             default and never changes your schedule.
           </p>
+        </div>
+        <div className="materialHeaderActions">
+          <Link className="secondaryButton" href="/practice">Normal practice</Link>
+          <Link className="secondaryButton" href="/practice/attention">Needs attention</Link>
         </div>
       </header>
       <section

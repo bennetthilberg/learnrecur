@@ -86,11 +86,11 @@ export default async function NeedsAttentionPage({
             </p>
           </div>
           <div className="practiceAttentionHeaderActions">
-            <Link className="primaryButton" href="/practice">
-              Open practice
-            </Link>
             <Link className="secondaryButton" href="/skills">
               Browse skills
+            </Link>
+            <Link className="primaryButton" href="/practice">
+              Open practice
             </Link>
           </div>
         </header>

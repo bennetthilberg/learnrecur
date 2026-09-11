@@ -1057,15 +1057,16 @@ function SkillAddedPanel({
         </div>
       </div>
       <div className="skillFormActions createSkillDoneActions">
-        <Link className="primaryButton" href={`/skills/${skillId}`}>
-          View skill
-        </Link>
+
         <Link className="secondaryButton" href="/practice">
           Open practice
         </Link>
         <button className="secondaryButton" onClick={onAddAnother} type="button">
           Add another
         </button>
+        <Link className="primaryButton" href={`/skills/${skillId}`}>
+          View skill
+        </Link>
       </div>
     </section>
   );

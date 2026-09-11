@@ -171,14 +171,14 @@ export function CustomPracticeClient({
           </p>
         ) : null}
         <div className="practiceCompleteActions">
+          <Link className="secondaryButton" href="/practice/attention">Needs attention</Link>
+          <Link className="secondaryButton" href="/practice">Return to normal practice</Link>
+          <Link className={view.status === "stopped" ? "secondaryButton" : "primaryButton"} href="/practice/custom">Set up another session</Link>
           {view.status === "stopped" ? (
             <button className="primaryButton" type="button" onClick={handleResume} disabled={pending !== null}>
               {pending === "resume" ? "Resuming" : "Resume session"}
             </button>
           ) : null}
-          <Link className="primaryButton" href="/practice/custom">Set up another session</Link>
-          <Link className="secondaryButton" href="/practice">Return to normal practice</Link>
-          <Link className="secondaryButton" href="/practice/attention">Needs attention</Link>
         </div>
       </section>
     );

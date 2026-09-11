@@ -21,7 +21,7 @@ body {
 
 .customPracticeSetupGrid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(180px, .42fr);
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
   gap: 24px 32px;
 }
 
@@ -1268,50 +1268,28 @@ body {
   gap: 10px;
 }
 
-.routeSkeleton {
-  background-color: #E7EDF7 !important;
+.routeSkeleton,
+.routeSkeleton.routeSkeletonShimmer {
+  display: block;
+  background-color: #DEE7F3 !important;
 }
 
-.routeSkeleton::after {
-  display: none !important;
-  background-image: none !important;
+.routeSkeleton::before,
+.routeSkeleton.routeSkeletonShimmer::before {
+  background-color: #DEE7F3 !important;
 }
 
-.historyShell .routeSkeleton::after,
-.routePendingContent[data-route-kind="history"] .routeSkeleton::after,
-.createSkillShell .routeSkeleton::after,
-.routePendingContent[data-route-kind="new"] .routeSkeleton::after,
-.settingsShell .routeSkeleton::after,
-.routePendingContent[data-route-kind="settings"] .routeSkeleton::after {
-  display: block !important;
-  background-image: none !important;
-}
-
+.routeSkeleton::after,
 .routeSkeleton.routeSkeletonShimmer::after {
   position: absolute;
   inset: 0;
   display: block !important;
   background-color: transparent !important;
-  background-image: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0) 28%,
-    rgba(255, 255, 255, .88) 50%,
-    rgba(255, 255, 255, 0) 72%,
-    transparent 100%
-  ) !important;
+  background-image: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0) 28%, rgba(255,255,255,.88) 50%, rgba(255,255,255,0) 72%, transparent 100%) !important;
   content: "";
   transform: translateX(-105%);
-  animation: route-skeleton-shimmer 1.2s cubic-bezier(.4, 0, .2, 1) infinite !important;
+  animation: route-skeleton-shimmer 1.2s cubic-bezier(.4,0,.2,1) infinite !important;
   will-change: transform;
-}
-
-.routeSkeleton.routeSkeletonShimmer {
-  background-color: #DEE7F3 !important;
-}
-
-.routeSkeleton.routeSkeletonShimmer::before {
-  background-color: #DEE7F3 !important;
 }
 
 @keyframes route-skeleton-shimmer {
@@ -1420,8 +1398,8 @@ body {
   background-color: rgba(255, 255, 255, .08) !important;
 }
 
-.routeLoadingHero .routeSkeleton::after {
-  background-image: none !important;
+.routeLoadingHero .routeSkeleton::before {
+  background-color: rgba(255, 255, 255, .15) !important;
 }
 
 .routeLoadingHeroWave {
@@ -1510,8 +1488,7 @@ body {
 }
 
 .routeLoadingPracticeFrame {
-  display: grid;
-  gap: 18px;
+  display: block;
 }
 
 .routeLoadingPracticeFacts {
@@ -8384,6 +8361,7 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .routeSkeleton::after,
   .routeSkeleton.routeSkeletonShimmer::after {
     animation: none !important;
     opacity: .28;
@@ -9131,13 +9109,6 @@ body {
   min-height: 44px;
   font-size: 14px;
 }
-.practiceLoadingStatus {
-  margin: 24px 0;
-  font-size: 16px;
-}
-.practiceFrame.routeLoadingPracticeFrame {
-  min-height: 340px;
-}
 
 .skillField {
   gap: 8px;
@@ -9302,18 +9273,19 @@ body {
   }
 }
 
-/* Keep scope and session controls in place when rule cues are hidden. */
+/* Keep the practice navigation together, including when cues are hidden. */
 .practiceToolbar {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 4px 16px;
+  display: flex;
+  gap: 12px 20px;
 }
 .practiceToolbar .practiceScopeBar {
-  display: contents;
-}
-.practiceScopeIdentity {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: nowrap;
+  gap: 20px;
   min-width: 0;
 }
+.practiceScopeIdentity { min-width: 0; }
 .practiceScopeIdentity strong {
   display: block;
   width: fit-content;
@@ -9322,31 +9294,25 @@ body {
   white-space: nowrap;
   text-overflow: ellipsis;
 }
-.practiceToolbar .practiceScopeIdentity {
-  grid-column: 1;
-  grid-row: 1;
-}
-.practiceToolbar .practiceSessionOptions {
-  grid-column: 2;
-  grid-row: 1;
-}
-.practiceScopeLinks {
-  display: flex;
-  flex-wrap: wrap;
-  column-gap: 20px;
-  align-items: center;
-}
-.practiceToolbar .practiceScopeLinks {
-  grid-column: 1 / -1;
-  grid-row: 2;
-  min-height: 44px;
-}
-.practiceToolbar .practiceScopeLinks a {
-  min-height: 44px;
-  font-size: 14px;
-}
-.practiceToolbar .practiceScopeLinks a:last-child:nth-child(3) {
-  margin-left: auto;
+.practiceScopeLinks { display: flex; flex-wrap: nowrap; gap: 20px; align-items: center; }
+.practiceScopeLinks a { white-space: nowrap; }
+.practiceToolbar .practiceSessionOptions { display: flex; align-items: center; gap: 4px; }
+.practiceToolbar .practiceScopeLinks { min-height: 44px; }
+.practiceToolbar .practiceScopeLinks a { min-height: 44px; font-size: 14px; }
+.mixedReviewHelp { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 44px; border: 0; background: transparent; color: var(--lr-text-secondary); cursor: pointer; }
+.mixedReviewHelpText { font-size: 14px; line-height: 1.5; }
+.mixedReviewHelpText p { margin: 0 0 12px; }
+.mixedReviewHelpText p:last-child { margin: 0; }
+.practiceFrame.routeLoadingPracticeFrame { display: block; }
+.practiceLoadingMeta { width: 100%; }
+.practiceLoadingAnswers { display: grid; gap: 10px; margin-top: 18px; }
+.customPracticeSetupGrid legend small { display: block; margin-top: 8px; font-size: 14px; font-weight: 400; line-height: 1.5; }
+@media (max-width: 760px) {
+  .practiceToolbar .practiceScopeBar { flex-basis: 100%; gap: 12px; }
+  .practiceScopeLinks { gap: 14px; }
+  .practiceToolbar .practiceSessionOptions { margin-left: auto; }
+  .practiceToolbar .practiceScopeIdentity { flex: 0 1 auto; }
+  .practiceScopeLinks { flex-shrink: 0; }
 }
 .materialShell .skillPanelHeader {
   display: flex;
@@ -9473,3 +9439,59 @@ body {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* Form actions follow reading and keyboard order: secondary, then primary. */
+.customPracticeSetupActions,
+.skillFormActions,
+.settingsReminderForm .skillFormActions,
+.skillCreateFlow .skillFormActions,
+.skillDuplicateDecisionActions,
+.dashboardShell .openWaterReviewActions {
+  display: flex;
+  justify-content: flex-end;
+}
+.libraryShell .collectionCreateAction { justify-self: end; }
+.dashboardShell .openWaterHeroActions { justify-content: flex-end; }
+
+.practiceScopeIdentity > a { display: block; min-height: 0; max-width: 100%; }
+.practiceToolbar .practiceScopeIdentity { max-width: 200px; }
+@media (max-width: 760px) {
+  .practiceToolbar .practiceScopeIdentity { max-width: calc(100% - 241px); }
+  .practiceToolbar .practiceScopeIdentity strong { padding-inline: 6px; }
+}
+.practiceCompleteActions,
+.practiceEmptyPrimaryActions { justify-content: flex-end; }
+
+.practiceToolbar .practiceSessionOptions { min-height: 44px; }
+.practiceFrame:has(.practicePromptPanel) {
+  display: flex;
+  flex-direction: column;
+  min-height: 534px;
+}
+.practiceFrame:has(.practicePromptPanel) > .practiceActions:last-child {
+  margin-top: auto;
+  padding-top: 22px;
+}
+.practiceLoadingAnswer {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 60px;
+  padding: 12px 16px;
+  border: 1px solid var(--lr-card-border);
+  border-radius: 8px;
+}
+.practiceScopeBar:not(.customPracticeScopeBar) { display: flex; align-items: center; flex-wrap: nowrap; }
+
+.customPracticeHeader { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 24px; }
+.customPracticeHeader .materialHeaderActions { flex-wrap: nowrap; }
+@media (max-width: 760px) {
+  .customPracticeHeader { grid-template-columns: minmax(0, 1fr); }
+  .customPracticeHeader .materialHeaderActions { justify-content: flex-end; }
+}
+.openWaterStatTile strong > .routeSkeleton { font-size: inherit; }
+.routePendingContent[data-route-kind="dashboard"] .openWaterHeroActions,
+.routePendingContent[data-route-kind="dashboard"] .openWaterReviewActions { justify-content: flex-end; }
+
+.dashboardLoadingMobileLine { display: none; }
+@media (max-width: 760px) { .dashboardLoadingMobileLine { display: block; } }

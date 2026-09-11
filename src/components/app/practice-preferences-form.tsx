@@ -216,7 +216,7 @@ export function PracticePreferencesForm(props: Props) {
             <Switch
               size="md"
               label="Mixed review by default"
-              description="Reduce rule cues and vary compatible due skills within your chosen scope. You can switch this during a session."
+              description="Off follows the normal due order with skill names visible. On varies related skills and hides skill-name cues until you check your answer."
               checked={mixed}
               disabled={disabled}
               onChange={(event) => setMixed(event.currentTarget.checked)}
@@ -369,7 +369,7 @@ export function PracticePreferencesForm(props: Props) {
             </Text>
           </>
         )}
-        <div>
+        <div className="skillFormActions">
           <button
             className="primaryButton"
             disabled={
