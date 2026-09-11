@@ -464,9 +464,9 @@ export function PracticeClient({ initialItem, canUseSampleData, initialMixedRevi
               <button className="mixedReviewHelp" type="button" aria-label="About mixed review"><Question size={18} /></button>
             </Popover.Target>
             <Popover.Dropdown className="mixedReviewHelpText">
-              <p><strong>Off:</strong> Follow the normal due order, with the skill name visible.</p>
-              <p><strong>On:</strong> Vary related skills when available and hide skill-name cues until you check your answer.</p>
-              <p>Off by default. Set your preferred default in Settings; this switch changes only this session.</p>
+              <p><strong>Off:</strong> Show the skill name above each question, so you know what you’re practicing.</p>
+              <p><strong>On:</strong> Mix questions from related skills when possible, and hide their names until you check your answer. You work out which skill each question needs.</p>
+              <p>Off by default. Your choice here lasts for this session. To use mixed review every time, turn it on in Settings.</p>
             </Popover.Dropdown>
           </Popover>
         </div>
