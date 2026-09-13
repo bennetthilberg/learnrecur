@@ -5,7 +5,7 @@ import {
   CollectionStatus,
   type Prisma,
 } from "@/generated/prisma/client";
-import { getNextPracticeItem, previewNextPracticeItem } from "@/lib/practice";
+import { getNextPracticeItem, previewNextPracticeItem, previewPracticeItemBuffer } from "@/lib/practice";
 import { getPrisma } from "@/lib/prisma";
 
 import type { ChoiceOption, PracticeItem, PracticeScope } from "./types";
@@ -82,6 +82,16 @@ export async function previewNextPracticeItemForUser(
     scopeInput,
     previewNextPracticeItem,
   );
+}
+
+export async function preloadPracticeBufferForUser(userId: string, input: { collectionId: string | null; skillId: string; excludedSkillIds: string[]; limit: number }): Promise<PracticeItem[]> {
+  const scope = await resolvePracticeScopeForUser(userId, input);
+  if (scope.status !== "ready") return [];
+  const result = await previewPracticeItemBuffer({
+    userId, now: new Date(), collectionId: scope.collectionId, previousSkillId: input.excludedSkillIds.at(-1) ?? input.skillId,
+    excludedSkillIds: [input.skillId, ...input.excludedSkillIds], limit: input.limit, answerKinds: PRACTICE_ANSWER_KINDS,
+  });
+  return result.map((item) => toPracticeItem(item, scope.scope));
 }
 
 async function loadPracticeItemForUser(

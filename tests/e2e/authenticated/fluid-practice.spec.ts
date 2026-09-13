@@ -1,6 +1,38 @@
 import { neon } from "@neondatabase/serverless";
 import { expect, test } from "../fixtures/learner-lifecycle";
 
+test("replaces a buffered question when its skill becomes unavailable", async ({ page, learnerFixture }) => {
+  const sql = neon(process.env.DATABASE_URL!);
+  await page.goto("/practice");
+  const frame = page.getByRole("region", { name: "Practice exercise", exact: true });
+  await expect.poll(async () => Number(await frame.getAttribute("data-buffered-count"))).toBeGreaterThanOrEqual(2);
+  if (await page.locator(".choiceCard").count()) await page.locator(".choiceCard").first().click();
+  else await page.getByLabel("Your answer", { exact: true }).fill("0");
+  await page.getByRole("button", { name: "Check", exact: true }).click();
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => { release = resolve; });
+  await page.route("**/practice**", async (route) => {
+    if (route.request().method() === "POST") await held;
+    await route.continue();
+  });
+  let bufferedPrompt = "";
+  let retiredSkillId = "";
+  try {
+    await page.getByRole("button", { name: "Continue", exact: true }).click();
+    await expect(page.getByText("Saving…", { exact: true })).toBeVisible();
+    bufferedPrompt = await page.locator(".practicePromptPanel").innerText();
+    const scenario = Object.values(learnerFixture.scenarios).find((item) => bufferedPrompt.includes(item.exercise.prompt.slice(0, 25)));
+    expect(scenario).toBeTruthy();
+    retiredSkillId = scenario!.skillId;
+    await sql.query('UPDATE exercises SET "retiredAt" = NOW() WHERE "skillId" = $1 AND "userId" = $2', [retiredSkillId, learnerFixture.userId]);
+  } finally { release(); }
+  await expect(page.getByText("Saving…", { exact: true })).toHaveCount(0);
+  await expect(page.locator(".practicePromptPanel")).not.toHaveText(bufferedPrompt);
+  const [row] = await sql.query('SELECT count(*)::int AS count, count(*) FILTER (WHERE "skillId" = $2)::int AS retired FROM exercise_attempts WHERE "userId" = $1', [learnerFixture.userId, retiredSkillId]);
+  expect(row.count).toBe(1);
+  expect(row.retired).toBe(0);
+});
+
 for (const custom of [false, true]) {
   test(`advances before save completes in ${custom ? "custom" : "normal"} practice`, async ({ page, learnerFixture }, testInfo) => {
     await page.setViewportSize({ width: custom ? 390 : 1280, height: 900 });
@@ -11,6 +43,7 @@ for (const custom of [false, true]) {
     } else await page.goto("/practice");
     const frame = page.getByRole("region", { name: "Practice exercise", exact: true });
     await expect(frame).toHaveAttribute("data-next-ready", "true");
+    await expect.poll(async () => Number(await frame.getAttribute("data-buffered-count"))).toBeGreaterThanOrEqual(2);
     const before = await page.locator(".practicePromptPanel").innerText();
     if (await page.locator(".choiceCard").count()) await page.locator(".choiceCard").first().click();
     else await page.getByLabel("Your answer", { exact: true }).fill("0");
@@ -36,6 +69,19 @@ for (const custom of [false, true]) {
     } finally { release(); }
     await expect(page.getByText("Saving…", { exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: custom ? "Save practice" : "Continue", exact: true })).toBeEnabled();
+    // The third question must already be buffered too, without another fetch.
+    const secondPrompt = await page.locator(".practicePromptPanel").innerText();
+    let releaseSecond!: () => void;
+    const secondHeld = new Promise<void>((resolve) => { releaseSecond = resolve; });
+    await page.route("**/practice**", async (route) => {
+      if (route.request().method() === "POST") await secondHeld;
+      await route.continue();
+    });
+    try {
+      await page.getByRole("button", { name: custom ? "Save practice" : "Continue", exact: true }).click();
+      await expect(page.locator(".practicePromptPanel")).not.toHaveText(secondPrompt, { timeout: 500 });
+    } finally { releaseSecond(); }
+    await expect(page.getByText("Saving…", { exact: true })).toHaveCount(0);
   });
 }
 

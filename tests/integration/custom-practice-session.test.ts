@@ -8,12 +8,14 @@ import {
   createCustomPracticeSession,
   getCustomPracticeSession,
   preloadCustomPracticeSessionItem,
+  preloadCustomPracticeSessionBuffer,
   presentCustomPracticeSessionItem,
   previewCustomPracticeAnswer,
   resumeCustomPracticeSession,
   stopCustomPracticeSession,
 } from "@/lib/practice/custom-session";
 import { getPrisma } from "@/lib/prisma";
+import { previewPracticeItemBuffer } from "@/lib/practice";
 
 import { createChoiceExercise, createSkillFixture } from "./test-helpers";
 
@@ -38,20 +40,33 @@ suite("custom practice sessions", () => {
 
   it("preloads a next item without presenting it or spending its introduction", async () => {
     const userId = await createUser();
-    const skills = await Promise.all([0, 1].map((index) => createSkillFixture(prisma, { userId, title: `Preload skill ${index}`, dueAt: now, repetitions: 0 })));
+    const skills = await Promise.all([0, 1, 2, 3].map((index) => createSkillFixture(prisma, { userId, title: `Preload skill ${index}`, dueAt: now, repetitions: 0 })));
     await Promise.all(skills.map((skill) => createChoiceExercise({ prisma, userId, skillId: skill.id })));
-    const created = await createCustomPracticeSession({ userId, mode: "PRACTICE_ONLY", targetCount: 2,
+    const created = await createCustomPracticeSession({ userId, mode: "PRACTICE_ONLY", targetCount: 4,
       scope: { collectionIds: [], tags: [], skillIds: skills.map((skill) => skill.id), recentlyMissed: false, mixedReview: true }, now });
     if (created.status !== "ready") throw new Error("Expected session");
     const ready = await presentCustomPracticeSessionItem({ userId, sessionId: created.session.id, now });
     if (ready.status !== "ready") throw new Error("Expected item");
     const before = await getCustomPracticeSession(userId, created.session.id);
     const preview = await preloadCustomPracticeSessionItem({ userId, sessionId: created.session.id, itemKey: ready.sessionItem.itemKey });
+    const buffer = await preloadCustomPracticeSessionBuffer({ userId, sessionId: created.session.id, itemKey: ready.sessionItem.itemKey, excludedItemKeys: [], limit: 10 });
+    expect(buffer).toHaveLength(3);
+    expect(buffer.map((item) => item.session.completedCount)).toEqual([1, 2, 3]);
+    const refill = await preloadCustomPracticeSessionBuffer({ userId, sessionId: created.session.id, itemKey: ready.sessionItem.itemKey, excludedItemKeys: [buffer[0].sessionItem.itemKey], limit: 9 });
+    expect(refill.map((item) => item.sessionItem.itemKey)).toEqual(buffer.slice(1).map((item) => item.sessionItem.itemKey));
     expect(preview?.status).toBe("ready");
     expect(preview?.sessionItem.itemKey).not.toBe(ready.sessionItem.itemKey);
     expect(await getCustomPracticeSession(userId, created.session.id)).toEqual(before);
     expect((await prisma.skill.findUniqueOrThrow({ where: { id: preview!.skill.id } })).firstIntroducedAt).toBeNull();
     expect(await prisma.exerciseAttempt.count({ where: { userId } })).toBe(0);
+    const normal = await previewPracticeItemBuffer({ userId, now, previousSkillId: ready.skill.id, excludedSkillIds: [ready.skill.id], limit: 10 });
+    expect(normal).toHaveLength(3);
+    expect(new Set(normal.map((item) => item.skill.id)).size).toBe(3);
+    await prisma.user.update({ where: { id: userId }, data: { dailyNewSkillLimit: 2 } });
+    const limited = await previewPracticeItemBuffer({ userId, now, previousSkillId: ready.skill.id, excludedSkillIds: [ready.skill.id], limit: 10 });
+    expect(limited).toHaveLength(1);
+    expect(await previewPracticeItemBuffer({ userId, now, excludedSkillIds: [ready.skill.id, limited[0].skill.id], limit: 9 })).toEqual([]);
+    expect(await prisma.skill.count({ where: { userId, firstIntroducedAt: { not: null } } })).toBe(1);
     expect(await preloadCustomPracticeSessionItem({ userId: "another-user", sessionId: created.session.id, itemKey: ready.sessionItem.itemKey })).toBeNull();
   });
 

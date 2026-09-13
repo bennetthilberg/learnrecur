@@ -1,3 +1,4 @@
+import { PRACTICE_BUFFER_SIZE } from "./buffer";
 import "server-only";
 
 import { randomUUID } from "node:crypto";
@@ -286,19 +287,38 @@ export async function getCustomPracticeSession(
 
 // Preview only an existing plan entry; do not present, replenish, or write it.
 export async function preloadCustomPracticeSessionItem(input: { userId: string; sessionId: string; itemKey: string }): Promise<CustomPracticeReadyItem | null> {
+  return (await preloadCustomPracticeSessionBuffer({ ...input, excludedItemKeys: [], limit: 1 }))[0] ?? null;
+}
+
+export async function preloadCustomPracticeSessionBuffer(input: { userId: string; sessionId: string; itemKey: string; excludedItemKeys: string[]; limit: number }): Promise<CustomPracticeReadyItem[]> {
   const session = await getCustomPracticeSession(input.userId, input.sessionId);
-  if (!session || session.status !== "ACTIVE" || session.completedCount + 1 >= session.targetCount) return null;
+  if (!session || session.status !== "ACTIVE" || session.completedCount + 1 >= session.targetCount) return [];
   const current = session.plan.find((item) => item.itemKey === input.itemKey && item.status === "PRESENTED");
-  if (!current) return null;
-  const next = session.plan.filter((item) => item.ordinal > current.ordinal && item.status === "PENDING").sort((a, b) => a.ordinal - b.ordinal)[0];
-  if (!next) return null;
+  if (!current) return [];
+  const limit = Math.max(0, Math.min(input.limit, PRACTICE_BUFFER_SIZE));
+  const pending = session.plan.filter((item) => item.ordinal > current.ordinal && item.status === "PENDING")
+    .sort((a, b) => a.ordinal - b.ordinal).slice(0, limit + input.excludedItemKeys.length);
   const now = new Date();
-  const exercises = await findCurrentSessionExercises(getPrisma(), input.userId, session, [next], now);
-  const exercise = exercises.get(next.itemKey);
-  if (!exercise) return null;
+  const exercises = await findCurrentSessionExercises(getPrisma(), input.userId, session, pending, now);
   const allowance = await getDailyNewSkillAllowance(getPrisma(), input.userId, now);
-  if (!isSkillIntroduced(exercise.skill) && allowance.remaining === 0) return null;
-  return toReadyItem({ ...session, completedCount: session.completedCount + 1 }, next, exercise);
+  let remaining = allowance.remaining;
+  const introduced = new Set<string>();
+  const result: CustomPracticeReadyItem[] = [];
+  let offset = 0;
+  for (const item of pending) {
+    const exercise = exercises.get(item.itemKey);
+    if (!exercise) continue;
+    if (!isSkillIntroduced(exercise.skill) && !introduced.has(exercise.skillId)) {
+      if (remaining === 0) continue;
+      if (remaining !== null) remaining -= 1;
+      introduced.add(exercise.skillId);
+    }
+    offset += 1;
+    if (session.completedCount + offset >= session.targetCount) break;
+    if (input.excludedItemKeys.includes(item.itemKey)) continue;
+    result.push(toReadyItem({ ...session, completedCount: session.completedCount + offset }, item, exercise));
+  }
+  return result.slice(0, limit);
 }
 
 export async function presentCustomPracticeSessionItem(input: {

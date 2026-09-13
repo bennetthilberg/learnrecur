@@ -19,6 +19,7 @@ import {
   commitCustomPracticeAnswer,
   createCustomPracticeSession,
   preloadCustomPracticeSessionItem,
+  preloadCustomPracticeSessionBuffer,
   presentCustomPracticeSessionItem,
   previewCustomPracticeAnswer,
   resumeCustomPracticeSession,
@@ -36,6 +37,7 @@ import { ensureDatabaseUser } from "@/lib/users";
 
 import {
   previewNextPracticeItemForUser,
+  preloadPracticeBufferForUser,
   getNextChoicePracticeItemForUser,
   getNextPracticeItemForUser,
   resolvePracticeScopeForUser,
@@ -100,11 +102,23 @@ export async function loadPracticeItemAction(rawInput: unknown) {
 }
 
 // Read-only lookahead: never consumes a new-skill allowance before display.
+export async function preloadCustomPracticeBufferAction(rawInput: unknown): Promise<CustomPracticeClientView[]> {
+  const input = z.object({ sessionId: z.string().min(1).max(200), itemKey: z.string().min(1).max(200), excludedItemKeys: z.array(z.string().min(1).max(200)).max(10), limit: z.number().int().min(1).max(10) }).parse(rawInput);
+  const { userId } = await auth.protect();
+  return (await preloadCustomPracticeSessionBuffer({ ...input, userId })).map(toCustomPracticeClientView);
+}
+
 export async function preloadCustomPracticeItemAction(rawInput: unknown): Promise<CustomPracticeClientView | null> {
   const input = z.object({ sessionId: z.string().min(1).max(200), itemKey: z.string().min(1).max(200) }).parse(rawInput);
   const { userId } = await auth.protect();
   const result = await preloadCustomPracticeSessionItem({ ...input, userId });
   return result ? toCustomPracticeClientView(result) : null;
+}
+
+export async function preloadPracticeBufferAction(rawInput: unknown): Promise<import("./types").PracticeItem[]> {
+  const input = z.object({ collectionId: z.string().min(1).max(200).nullable(), skillId: z.string().min(1).max(200), excludedSkillIds: z.array(z.string().min(1).max(200)).max(10), limit: z.number().int().min(1).max(10) }).parse(rawInput);
+  const { userId } = await auth.protect();
+  return preloadPracticeBufferForUser(userId, input);
 }
 
 export async function preloadPracticeItemAction(rawInput: unknown): Promise<import("./types").PracticeItem | null> {
@@ -239,7 +253,6 @@ export async function commitPracticeReviewAction(
         collectionId: scope.collectionId,
         mixedReview: true,
         previousSkillId: result.skill.id,
-        preferredExerciseId: input.preferredNextExerciseId,
       }),
     };
   }

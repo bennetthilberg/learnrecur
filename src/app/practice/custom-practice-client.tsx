@@ -4,6 +4,7 @@ import { ActionNotification } from "@/components/app/action-notification";
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { appendPracticeBuffer, PRACTICE_BUFFER_SIZE, PRACTICE_BUFFER_LOW_WATER } from "@/lib/practice/buffer";
 import { useReviewSaveGuard } from "./use-review-save-guard";
 import { getInstantPracticeFeedback } from "@/lib/practice/instant-feedback";
 
@@ -15,7 +16,7 @@ import {
 } from "@/lib/answer-limits";
 
 import {
-  preloadCustomPracticeItemAction,
+  preloadCustomPracticeBufferAction,
   commitCustomPracticeAnswerAction,
   resumeCustomPracticeSessionAction,
   stopCustomPracticeSessionAction,
@@ -60,20 +61,30 @@ export function CustomPracticeClient({
 
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
-  const [preloaded, setPreloaded] = useState<{ fromKey: string; view: CustomPracticeClientView } | null>(null);
-  const preloadRequest = useRef<{ key: string; promise: Promise<CustomPracticeClientView | null> } | null>(null);
+  const [preloaded, setPreloaded] = useState<Extract<CustomPracticeClientView, { status: "ready" }>[]>([]);
+  const preloadRequest = useRef<{ key: string; promise: Promise<CustomPracticeClientView[]> } | null>(null);
   useReviewSaveGuard(saving);
   useEffect(() => {
-    if (!activeSessionId || !presentedItemKey || saving) return;
+    if (!activeSessionId || !presentedItemKey || saving || preloaded.length >= PRACTICE_BUFFER_LOW_WATER) return;
     let active = true;
-    if (preloadRequest.current?.key !== presentedItemKey) {
-      preloadRequest.current = { key: presentedItemKey, promise: preloadCustomPracticeItemAction({ sessionId: activeSessionId, itemKey: presentedItemKey }) };
+    const key = [presentedItemKey, ...preloaded.map((next) => next.item.itemKey)].join(":");
+    if (preloadRequest.current?.key !== key) {
+      preloadRequest.current = { key, promise: preloadCustomPracticeBufferAction({
+        sessionId: activeSessionId, itemKey: presentedItemKey,
+        excludedItemKeys: preloaded.map((next) => next.item.itemKey), limit: PRACTICE_BUFFER_SIZE - preloaded.length,
+      }) };
     }
-    void preloadRequest.current.promise
-      .then((next) => { if (active && next) setPreloaded({ fromKey: presentedItemKey, view: next }); })
-      .catch(() => {});
+    void preloadRequest.current.promise.then((items) => {
+      const next = items.filter((candidate): candidate is Extract<CustomPracticeClientView, { status: "ready" }> => candidate.status === "ready");
+      if (active && next.length) setPreloaded((current) => appendPracticeBuffer(current, next, (candidate) => candidate.item.itemKey));
+    }).catch(() => {});
     return () => { active = false; };
-  }, [activeSessionId, presentedItemKey, saving]);
+  }, [activeSessionId, presentedItemKey, saving, preloaded]);
+  useEffect(() => {
+    const refresh = () => { if (document.visibilityState === "visible") { preloadRequest.current = null; setPreloaded([]); } };
+    document.addEventListener("visibilitychange", refresh);
+    return () => document.removeEventListener("visibilitychange", refresh);
+  }, []);
 
   const handleCheck = () => {
     if (!readyItem || answer.trim().length === 0 || pending) return;
@@ -97,15 +108,17 @@ export function CustomPracticeClient({
     if (savingRef.current) return;
     savingRef.current = true;
     setSaving(true);
-    const next = preloaded?.fromKey === readyItem.itemKey && preloaded.view.status === "ready" ? preloaded.view : null;
+    const next = preloaded[0] ?? null;
     const responseMs = submittedResponseMs.current ?? 0;
     const restore = (message: string) => {
+      setPreloaded([]);
+      preloadRequest.current = null;
       setView(view); setAnswer(answer); setFeedback(feedback); setManualRating(manualRating);
       submittedResponseMs.current = responseMs;
       if (next) restoredResponseMs.current = responseMs;
       setActionError(message);
     };
-    setPreloaded(null);
+    setPreloaded((current) => current.slice(1));
     setActionError(null);
     if (next) { setView(next); setAnswer(""); setFeedback(null); setManualRating(FsrsRating.GOOD); }
     else setPending("save");
@@ -117,6 +130,8 @@ export function CustomPracticeClient({
     }).then((result) => {
       if (result.status !== "committed") { restore(result.message); return; }
       if (!next || result.next.status !== "ready" || result.next.item.itemKey !== next.item.itemKey) {
+        setPreloaded([]);
+        preloadRequest.current = null;
         setView(result.next); setAnswer(""); setFeedback(null); setManualRating(FsrsRating.GOOD);
       }
     }).catch(() => restore("Could not confirm the save. Your checked answer is restored. Try saving again."))
@@ -129,6 +144,8 @@ export function CustomPracticeClient({
     setActionError(null);
     void stopCustomPracticeSessionAction({ sessionId })
       .then((result) => {
+        setPreloaded([]);
+        preloadRequest.current = null;
         setView(result);
         setAnswer("");
         setFeedback(null);
@@ -144,6 +161,8 @@ export function CustomPracticeClient({
     setActionError(null);
     void resumeCustomPracticeSessionAction({ sessionId })
       .then((result) => {
+        setPreloaded([]);
+        preloadRequest.current = null;
         setView(result);
         setAnswer("");
         setFeedback(null);
@@ -208,7 +227,7 @@ export function CustomPracticeClient({
         </button>
         <Link href="/practice/attention">Needs attention</Link>
       </div>
-      <section className="practiceFrame customPracticeClient" aria-label="Practice exercise" data-next-ready={preloaded?.fromKey === presentedItemKey}>
+      <section className="practiceFrame customPracticeClient" aria-label="Practice exercise" data-next-ready={preloaded.length > 0} data-buffered-count={preloaded.length}>
         <div className="practiceMetaRow">
           <div>
             <p className="practiceMetaSummary tnum">Exercise {session.completedCount + 1} of {session.targetCount}</p>

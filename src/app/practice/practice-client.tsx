@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
+import { appendPracticeBuffer, PRACTICE_BUFFER_SIZE, PRACTICE_BUFFER_LOW_WATER } from "@/lib/practice/buffer";
 import { useReviewSaveGuard } from "./use-review-save-guard";
 import { getInstantPracticeFeedback } from "@/lib/practice/instant-feedback";
 import { CheckCircle, Flag } from "@phosphor-icons/react";
@@ -19,7 +20,7 @@ import {
 } from "@/lib/practice-shortcuts";
 
 import {
-  preloadPracticeItemAction,
+  preloadPracticeBufferAction,
   commitPracticeReviewAction,
   ensureDevPracticeSampleDataAction,
   flagPracticeExerciseAction,
@@ -112,20 +113,30 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
 
   const [advancePending, setAdvancePending] = useState(false);
   const savingRef = useRef(false);
-  const [preloaded, setPreloaded] = useState<{ fromId: string; item: PracticeItem } | null>(null);
-  const preloadRequest = useRef<{ key: string; promise: Promise<PracticeItem | null> } | null>(null);
+  const [preloaded, setPreloaded] = useState<Extract<PracticeItem, { status: "ready" }>[]>([]);
+  const preloadRequest = useRef<{ key: string; promise: Promise<PracticeItem[]> } | null>(null);
   useReviewSaveGuard(advancePending);
   useEffect(() => {
-    if (item.status !== "ready" || advancePending) return;
+    if (item.status !== "ready" || advancePending || preloaded.length >= PRACTICE_BUFFER_LOW_WATER) return;
     let active = true;
-    if (preloadRequest.current?.key !== item.exercise.id) {
-      preloadRequest.current = { key: item.exercise.id, promise: preloadPracticeItemAction({ collectionId: scopedCollectionId, skillId: item.skill.id }) };
+    const key = [item.exercise.id, ...preloaded.map((next) => next.exercise.id)].join(":");
+    if (preloadRequest.current?.key !== key) {
+      preloadRequest.current = { key, promise: preloadPracticeBufferAction({
+        collectionId: scopedCollectionId, skillId: item.skill.id,
+        excludedSkillIds: preloaded.map((next) => next.skill.id), limit: PRACTICE_BUFFER_SIZE - preloaded.length,
+      }) };
     }
-    void preloadRequest.current.promise
-      .then((next) => { if (active && next) setPreloaded({ fromId: item.exercise.id, item: next }); })
-      .catch(() => {}); // A failed preload falls back to the normal save/load path.
+    void preloadRequest.current.promise.then((items) => {
+      const next = items.filter((candidate): candidate is Extract<PracticeItem, { status: "ready" }> => candidate.status === "ready");
+      if (active && next.length) setPreloaded((current) => appendPracticeBuffer(current, next, (candidate) => candidate.exercise.id));
+    }).catch(() => {});
     return () => { active = false; };
-  }, [item, scopedCollectionId, advancePending]);
+  }, [item, scopedCollectionId, advancePending, preloaded]);
+  useEffect(() => {
+    const refresh = () => { if (document.visibilityState === "visible") { preloadRequest.current = null; setPreloaded([]); } };
+    document.addEventListener("visibilitychange", refresh);
+    return () => document.removeEventListener("visibilitychange", refresh);
+  }, []);
 
   const resetAttemptState = useCallback(() => {
     setAnswerValue("");
@@ -180,9 +191,11 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
     if (savingRef.current) return;
     savingRef.current = true;
     setAdvancePending(true);
-    const next = preloaded?.fromId === item.exercise.id && preloaded.item.status === "ready" ? preloaded.item : null;
-    setPreloaded(null);
+    const next = preloaded[0] ?? null;
+    setPreloaded((current) => current.slice(1));
     const restore = (message: string) => {
+      setPreloaded([]);
+      preloadRequest.current = null;
       setItem(item);
       setAnswerValue(answerValue);
       setAttemptId(attemptId);
@@ -205,11 +218,13 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
       responseMs: submittedResponseMs ?? timer.getElapsedMs(), attemptId,
       mixedReview: true, reducedRuleCues: true,
       manualRating: feedback.answerCheck.isCorrect ? manualRating : null,
-      collectionId: scopedCollectionId, preferredNextExerciseId: next?.exercise.id,
+      collectionId: scopedCollectionId,
     }).then((result) => {
       if (result.status !== "committed") { restore(result.message); return; }
       const same = next && result.nextItem.status === "ready" && result.nextItem.exercise.id === next.exercise.id;
       if (!same) {
+        setPreloaded([]);
+        preloadRequest.current = null;
         shouldFocusNextReadyAnswerRef.current = true;
         setItem(result.nextItem);
         resetAttemptState();
@@ -246,6 +261,8 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
       setPendingAction(null);
 
       if (result.status === "flagged") {
+        setPreloaded([]);
+        preloadRequest.current = null;
         setItem(result.nextItem);
         resetAttemptState();
         setStatusNotice(createStatusNotice(result.message));
@@ -432,7 +449,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
       <div className="practiceToolbar">
         <PracticeScopeBar scope={item.scope} />
       </div>
-      <section className="practiceFrame" aria-label="Practice exercise" data-next-ready={preloaded?.fromId === (item.status === "ready" ? item.exercise.id : null)}>
+      <section className="practiceFrame" aria-label="Practice exercise" data-next-ready={preloaded.length > 0} data-buffered-count={preloaded.length}>
         <div className="practiceMetaRow">
           <div>
             <p className="practiceMetaSummary tnum">
