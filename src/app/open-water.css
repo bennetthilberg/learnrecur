@@ -4447,6 +4447,14 @@ body {
   margin-top: 24px;
 }
 
+.materialImportLayout[data-layout="first-import"] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.materialImportFields {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+}
+
 .materialReusePanel,
 .materialImportPanel,
 .materialLibraryPanel,

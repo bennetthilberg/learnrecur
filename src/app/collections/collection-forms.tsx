@@ -52,7 +52,7 @@ export function CollectionCreateForm() {
             disabled={pending}
             maxLength={500}
             name="description"
-            placeholder="What belongs in this study area?"
+            placeholder="What belongs in this collection?"
             rows={2}
           />
           <FieldError id={descriptionErrorId} state={state} name="description" />

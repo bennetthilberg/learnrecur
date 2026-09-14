@@ -51,10 +51,9 @@ export default async function CollectionsPage() {
 
       <header className="skillHeader">
         <div>
-          <h1>Organize practice</h1>
+          <h1>Collections</h1>
           <p>
-            Create, describe, archive, and restore the study areas that organize
-            your skills.
+            Organize your skills into collections and practice them together.
           </p>
         </div>
         <Link className="secondaryButton" href="/skills/new">
@@ -65,7 +64,7 @@ export default async function CollectionsPage() {
       <section className="skillPanel collectionCreatePanel" aria-labelledby="create-collection-title">
         <div className="skillPanelHeader">
           <div>
-            <h2 id="create-collection-title">Add a study area</h2>
+            <h2 id="create-collection-title">Add a collection</h2>
           </div>
         </div>
         <CollectionCreateForm />
@@ -86,7 +85,7 @@ export default async function CollectionsPage() {
         {home.activeCollections.length === 0 ? (
           <CollectionEmptyState
             title="No active collections yet"
-            detail="Create a study area, then use its row to practice only that collection."
+            detail="Create a collection, then use its row to practice only that collection."
           />
         ) : (
           <div className="skillLibraryList">

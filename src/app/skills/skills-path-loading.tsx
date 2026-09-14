@@ -274,14 +274,7 @@ function NewMultipleLoading() {
         detail="Choose a reusable material now. You will describe and confirm the exact scope next."
         title="Create multiple skills"
       />
-      <div className="materialImportLayout" aria-hidden="true">
-        <section className="skillPanel materialReusePanel">
-          <PanelHeader detail="Select a book or reference you already imported." title="Reuse a material" />
-          <div className="materialCompactList">
-            <MaterialCompactRowLoading />
-            <MaterialCompactRowLoading compact />
-          </div>
-        </section>
+      <div className="materialImportLayout" data-layout="first-import" aria-hidden="true">
         <section className="skillPanel materialImportPanel">
           <PanelHeader detail="Import once, then return to different chapters over time." title="Add a material" />
           <div className="materialImportTabs skillsPathImportLoading">
@@ -291,7 +284,7 @@ function NewMultipleLoading() {
             </div>
             <div className="materialImportTabPanel materialImportForm">
               <p className="materialImportIntro">Up to 100 MB or 1,000 pages.</p>
-              <div className="skillTwoColumnFields">
+              <div className="skillTwoColumnFields materialImportFields">
                 <FieldLoading />
                 <FieldLoading compact />
               </div>
@@ -302,21 +295,6 @@ function NewMultipleLoading() {
         </section>
       </div>
     </>
-  );
-}
-
-function MaterialCompactRowLoading({ compact = false }: { compact?: boolean }) {
-  return (
-    <article className="materialCompactRow">
-      <div>
-        <LoadingBlock height={16} radius={5} width={compact ? "62%" : "84%"} />
-        <LoadingBlock height={12} mt={8} radius={5} width={compact ? "46%" : "64%"} />
-      </div>
-      <div className="materialCompactActions">
-        <LoadingBlock height={38} radius={8} />
-        <LoadingBlock height={38} radius={8} />
-      </div>
-    </article>
   );
 }
 

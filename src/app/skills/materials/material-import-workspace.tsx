@@ -50,68 +50,64 @@ export function MaterialImportWorkspace({
   const [isImportBusy, setIsImportBusy] = useState(false);
 
   return (
-    <div className="materialImportLayout">
-      <section className="skillPanel materialReusePanel" aria-labelledby="reuse-material-title">
-        <div className="skillPanelHeader">
-          <div>
-            <h2 id="reuse-material-title">Reuse a material</h2>
-            <p>Select a book or reference you already imported.</p>
+    <div className="materialImportLayout" data-layout={materials.length === 0 ? "first-import" : "with-library"}>
+      {materials.length > 0 ? (
+        <section className="skillPanel materialReusePanel" aria-labelledby="reuse-material-title">
+          <div className="skillPanelHeader">
+            <div>
+              <h2 id="reuse-material-title">Reuse a material</h2>
+              <p>Select a book or reference you already imported.</p>
+            </div>
+            <BookOpenText size={20} weight="bold" aria-hidden="true" />
           </div>
-          <BookOpenText size={20} weight="bold" aria-hidden="true" />
-        </div>
-        {materials.length > 0 ? (
-          <div className="materialCompactList">
-            {materials.slice(0, 6).map((material) => (
-              <article className="materialCompactRow" key={material.id}>
-                <div>
-                  <Link className="materialCompactTitle" href={`/skills/materials/${material.id}`}>
-                    {material.title}
-                  </Link>
-                  <p>{materialSummary(material)}</p>
-                </div>
-                <div className="materialCompactActions">
-                  <Link
-                    aria-label={
-                      material.revisionStatus === "READY"
-                        ? `Create skills from ${material.title}`
-                        : `Open ${material.title}`
-                    }
-                    className={
-                      material.revisionStatus === "READY" ? "primaryButton" : "secondaryButton"
-                    }
-                    href={
-                      material.revisionStatus === "READY"
-                        ? `/skills/materials/${material.id}/create`
-                        : `/skills/materials/${material.id}`
-                    }
-                  >
-                    {material.revisionStatus === "READY" ? (
-                      <>
-                        <Sparkle size={15} weight="bold" aria-hidden="true" /> Create skills
-                      </>
-                    ) : "Open material"}
-                  </Link>
-                  <MaterialDeleteControl
-                    compact
-                    materialId={material.id}
-                    returnTo="/skills/new/multiple"
-                    title={material.title}
-                  />
-                </div>
-              </article>
-            ))}
-          </div>
-        ) : (
-          <div className="materialInlineEmpty">
-            <p>No reusable materials yet. Add a PDF or public textbook site below.</p>
-          </div>
-        )}
-        {materials.length > 6 ? (
-          <Link className="materialTextLink" href="/skills/materials">
-            View all {materials.length} materials
-          </Link>
+            <div className="materialCompactList">
+              {materials.slice(0, 6).map((material) => (
+                <article className="materialCompactRow" key={material.id}>
+                  <div>
+                    <Link className="materialCompactTitle" href={`/skills/materials/${material.id}`}>
+                      {material.title}
+                    </Link>
+                    <p>{materialSummary(material)}</p>
+                  </div>
+                  <div className="materialCompactActions">
+                    <Link
+                      aria-label={
+                        material.revisionStatus === "READY"
+                          ? `Create skills from ${material.title}`
+                          : `Open ${material.title}`
+                      }
+                      className={
+                        material.revisionStatus === "READY" ? "primaryButton" : "secondaryButton"
+                      }
+                      href={
+                        material.revisionStatus === "READY"
+                          ? `/skills/materials/${material.id}/create`
+                          : `/skills/materials/${material.id}`
+                      }
+                    >
+                      {material.revisionStatus === "READY" ? (
+                        <>
+                          <Sparkle size={15} weight="bold" aria-hidden="true" /> Create skills
+                        </>
+                      ) : "Open material"}
+                    </Link>
+                    <MaterialDeleteControl
+                      compact
+                      materialId={material.id}
+                      returnTo="/skills/new/multiple"
+                      title={material.title}
+                    />
+                  </div>
+                </article>
+              ))}
+            </div>
+          {materials.length > 6 ? (
+            <Link className="materialTextLink" href="/skills/materials">
+              View all {materials.length} materials
+            </Link>
         ) : null}
       </section>
+      ) : null}
 
       <section className="skillPanel materialImportPanel" aria-labelledby="add-material-title">
         <div className="skillPanelHeader">
@@ -207,7 +203,7 @@ function MaterialPdfForm({
       <p className="materialImportIntro">
         Up to 100 MB or {MAX_MATERIAL_PDF_PAGES.toLocaleString()} pages.
       </p>
-      <div className="skillTwoColumnFields">
+      <div className="skillTwoColumnFields materialImportFields">
         <label className="skillField">
           <span>Material title</span>
           <input
@@ -487,7 +483,7 @@ function WebsiteMaterialForm({
                   />
                 ))}
               </div>
-              <div className="skillTwoColumnFields materialDiscoveryFields">
+              <div className="skillTwoColumnFields materialDiscoveryFields materialImportFields">
                 <label className="skillField">
                   <span>Material title</span>
                   <input

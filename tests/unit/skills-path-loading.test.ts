@@ -23,7 +23,7 @@ const routeCases: Array<{
   { current: "skills", kind: "skills-library", marker: "Manage the skills in your practice schedule." },
   { current: "new", kind: "new-choice", marker: "What are you adding?" },
   { current: "new", kind: "new-one", marker: "Add learning material" },
-  { current: "new", kind: "new-multiple", marker: "Reuse a material" },
+  { current: "new", kind: "new-multiple", marker: "Add a material" },
   { current: "skills", kind: "materials-library", marker: "Your references" },
   { current: "skills", kind: "material-detail", marker: "About this material" },
   { current: "new", kind: "material-describe", marker: "What should this book become?" },

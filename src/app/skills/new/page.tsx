@@ -10,7 +10,7 @@ export default async function NewSkillPage() {
       <header className="skillHeader createModeHeader">
         <div>
           <h1>What are you adding?</h1>
-          <p>Use the fast path for one target, or a reusable material for a chapter-sized batch.</p>
+          <p>Materials provide source content. Skills are what you practice. Collections keep related skills together.</p>
         </div>
       </header>
       <div className="createModeChoices">

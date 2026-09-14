@@ -23,9 +23,9 @@ export type PrimaryRouteLoadingConfig = {
 
 export const primaryRouteLoadingByKey: Record<PrimaryRouteKey, PrimaryRouteLoadingConfig> = {
   collections: {
-    detail: "Create, describe, archive, and restore the study areas that organize your skills.",
+    detail: "Organize your skills into collections and practice them together.",
     kind: "collections",
-    title: "Organize practice",
+    title: "Collections",
   },
   dashboard: {
     detail: "Loading your due skills and recent practice activity.",
@@ -152,10 +152,10 @@ function DashboardRouteLoading() {
         </div>
       </section>
       <section className="openWaterStatGrid" aria-label="Practice summary loading">
-        {["Due", "Active", "Retention"].map((label) => (
+        {["Due", "Active", "Recent accuracy"].map((label) => (
           <article className="openWaterStatTile" key={label}>
             <p>{label}</p>
-            <strong className="disp"><Skeleton component="span" className="routeSkeleton" height="1em" width={label === "Retention" ? 58 : 34} /></strong>
+            <strong className="disp"><Skeleton component="span" className="routeSkeleton" height="1em" width={label === "Recent accuracy" ? 58 : 34} /></strong>
           </article>
         ))}
       </section>
@@ -413,7 +413,7 @@ function CollectionsRouteLoading({ config }: { config: PrimaryRouteLoadingConfig
   return (
     <>
       <RouteHeader actionCount={1} config={config} />
-      <PanelSkeleton className="collectionCreatePanel" title="Add a study area">
+      <PanelSkeleton className="collectionCreatePanel" title="Add a collection">
         <div className="routeLoadingFormStack" aria-hidden="true">
           <Skeleton component="span" className="routeSkeleton" height={42} radius={8} />
           <Skeleton component="span" className="routeSkeleton" height={82} radius={8} />
