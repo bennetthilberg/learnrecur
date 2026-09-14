@@ -208,6 +208,38 @@ body {
   min-width: 0;
 }
 
+.appSelectInput {
+  min-height: 44px;
+  border-color: var(--lr-card-border);
+  color: var(--lr-ink);
+  background: var(--lr-white);
+}
+.appSelectInput:focus {
+  border-color: var(--lr-blue);
+}
+.appSelectDropdown {
+  border: 1px solid var(--lr-card-border);
+  border-radius: 8px;
+  padding: 4px;
+  background: var(--lr-white);
+  box-shadow: none;
+}
+.appSelectOption {
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: 4px;
+  color: var(--lr-ink);
+  font-size: 16px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.appSelectOption[data-checked],
+.appSelectOption[data-combobox-selected],
+.appSelectOption:hover {
+  background: var(--lr-blue-tint);
+  color: var(--lr-ink);
+}
+
 .routePendingContent > .skillLibraryGrid,
 .routePendingContent > .skillDraftGrid,
 .routePendingContent > .skillCreateStack {

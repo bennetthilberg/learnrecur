@@ -49,7 +49,7 @@ for (const width of [1280, 390])
         exact: true,
       });
       try {
-        await expect(preference).toHaveValue("BALANCED");
+        await expect(preference).toHaveValue("Balanced");
         // Server-rendered controls must not accept changes before React can
         // retain them. Otherwise Save can report success with the old value.
         await expect(preference).toBeDisabled();
@@ -64,7 +64,8 @@ for (const width of [1280, 390])
         await page.unrouteAll({ behavior: "wait" });
       }
       await expect(preference).toBeEnabled();
-      await preference.selectOption("RECALL_FIRST");
+      await preference.click();
+      await page.getByRole("option", { name: "Recall first", exact: true }).click();
       const save = page.getByRole("button", {
         name: "Save practice preferences",
       });
@@ -98,7 +99,7 @@ for (const width of [1280, 390])
       ).toBeVisible();
       await page.unroute("**/settings");
       await page.reload();
-      await expect(preference).toHaveValue("RECALL_FIRST");
+      await expect(preference).toHaveValue("Recall first");
       await expect(
         page.getByRole("switch", { name: "Mixed review by default" }),
       ).toHaveCount(0);
@@ -117,7 +118,8 @@ for (const width of [1280, 390])
         name: "Practice preference",
         exact: true,
       });
-      await collectionPreference.selectOption("BALANCED");
+      await collectionPreference.click();
+      await page.getByRole("option", { name: "Balanced", exact: true }).click();
       await collectionRow
         .getByRole("button", { name: "Save practice preferences" })
         .click();
@@ -128,8 +130,9 @@ for (const width of [1280, 390])
       await collectionRow
         .getByText("Practice preferences", { exact: true })
         .click();
-      await expect(collectionPreference).toHaveValue("BALANCED");
-      await collectionPreference.selectOption("RECALL_FIRST");
+      await expect(collectionPreference).toHaveValue("Balanced");
+      await collectionPreference.click();
+      await page.getByRole("option", { name: "Recall first", exact: true }).click();
       await collectionRow
         .getByRole("button", { name: "Save practice preferences" })
         .click();
@@ -180,7 +183,7 @@ for (const width of [1280, 390])
           name: "Practice preference",
           exact: true,
         }),
-      ).toHaveValue("DEFAULT");
+      ).toHaveValue(/^Use default/);
       await expect(
         page.getByRole("checkbox", {
           name: "I have already studied this skill",
@@ -190,7 +193,8 @@ for (const width of [1280, 390])
         name: "Practice preference",
         exact: true,
       });
-      await skillPreference.selectOption("BALANCED");
+      await skillPreference.click();
+      await page.getByRole("option", { name: "Balanced", exact: true }).click();
       await page
         .getByRole("button", { name: "Save practice preferences" })
         .click();
@@ -201,8 +205,9 @@ for (const width of [1280, 390])
       await page
         .getByText("Advanced practice preferences", { exact: true })
         .click();
-      await expect(skillPreference).toHaveValue("BALANCED");
-      await skillPreference.selectOption("DEFAULT");
+      await expect(skillPreference).toHaveValue("Balanced");
+      await skillPreference.click();
+      await page.getByRole("option", { name: /^Use default/, exact: true }).click();
       await page
         .getByRole("button", { name: "Save practice preferences" })
         .click();
@@ -213,7 +218,7 @@ for (const width of [1280, 390])
       await page
         .getByText("Advanced practice preferences", { exact: true })
         .click();
-      await expect(skillPreference).toHaveValue("DEFAULT");
+      await expect(skillPreference).toHaveValue(/^Use default/);
       await page.screenshot({
         path: testInfo.outputPath(`skill-${width}.png`),
         fullPage: true,

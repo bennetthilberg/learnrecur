@@ -1,5 +1,7 @@
 "use client";
 
+import { Select } from "@mantine/core";
+
 import { ActionNotification } from "@/components/app/action-notification";
 
 import { useState, useTransition } from "react";
@@ -89,10 +91,8 @@ export function CustomSessionSetup({
           <legend>Scope</legend>
           <label className="customPracticeSelectField">
             <span>Collection</span>
-            <select value={collectionId} onChange={(event) => setCollectionId(event.target.value)}>
-              <option value="">All collections</option>
-              {collections.map((collection) => <option key={collection.id} value={collection.id}>{collection.name}</option>)}
-            </select>
+            <Select value={collectionId} onChange={(value) => setCollectionId(value ?? "")}
+              data={[{ value: "", label: "All collections" }, ...collections.map((collection) => ({ value: collection.id, label: collection.name }))]} />
           </label>
           <label className="customPracticeCheckLine">
             <input type="checkbox" checked={recentlyMissed} onChange={(event) => setRecentlyMissed(event.target.checked)} />

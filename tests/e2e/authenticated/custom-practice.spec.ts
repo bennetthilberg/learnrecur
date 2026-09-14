@@ -73,7 +73,8 @@ test("opens a bounded practice-only session from normal practice and keeps it ou
   }
   await page.setViewportSize({ width: 1280, height: 900 });
 
-  await page.getByRole("combobox", { name: "Collection", exact: true }).selectOption(scenario.collectionId);
+  await page.getByRole("combobox", { name: "Collection", exact: true }).click();
+      await page.getByRole("option", { name: scenario.collectionName, exact: true }).click();
   await page.getByRole("checkbox", { name: new RegExp(scenario.skillTitle, "i") }).check();
   await page.getByRole("spinbutton", { name: /^Exercises\b/ }).fill("1");
   await page.getByRole("button", { name: "Start session", exact: true }).click();

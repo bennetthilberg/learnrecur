@@ -285,7 +285,8 @@ test("preserves a fractional retention set outside the form during an unrelated 
     });
     await expect(retention).toHaveValue("90.5%");
 
-    await page.getByRole("combobox", { name: "Practice preference", exact: true }).selectOption("RECALL_FIRST");
+    await page.getByRole("combobox", { name: "Practice preference", exact: true }).click();
+      await page.getByRole("option", { name: "Recall first", exact: true }).click();
     await page.getByRole("button", { name: "Save practice preferences", exact: true }).click();
     await expect(page.getByText("Preferences saved", { exact: true })).toBeVisible();
 

@@ -3,7 +3,6 @@ import { useState, useSyncExternalStore, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   Checkbox,
-  NativeSelect,
   NumberInput,
   Select,
   Stack,
@@ -178,12 +177,12 @@ export function PracticePreferencesForm(props: Props) {
       }}
     >
       <Stack gap="lg">
-        <NativeSelect
+        <Select
           size="md"
           label="Practice preference"
           disabled={disabled}
           value={preference}
-          onChange={(event) => setPreference(event.currentTarget.value)}
+          onChange={(value) => { if (value) setPreference(value); }}
           data={[
             ...(props.target.scope === "user"
               ? []
@@ -308,14 +307,12 @@ export function PracticePreferencesForm(props: Props) {
           </>
         ) : (
           <>
-            <NativeSelect
+            <Select
               size="md"
               label="Text comparison"
               disabled={disabled}
               value={profile}
-              onChange={(event) =>
-                setProfile(event.currentTarget.value as typeof profile)
-              }
+              onChange={(value) => { if (value) setProfile(value as typeof profile); }}
               data={[
                 {
                   value: "DEFAULT",

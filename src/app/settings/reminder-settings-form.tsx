@@ -1,5 +1,7 @@
 "use client";
 
+import { Select } from "@mantine/core";
+
 import { useCallback, useId, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { CheckCircle, WarningCircle } from "@phosphor-icons/react";
@@ -169,28 +171,23 @@ export function ReminderSettingsForm({
           <div className="skillTwoColumnFields">
             <label className="skillField">
               <span>Local hour</span>
-              <select
+              <Select
                 aria-describedby={
                   hasFieldError(state, "localHour") ? localHourErrorId : undefined
                 }
                 aria-invalid={hasFieldError(state, "localHour") ? "true" : undefined}
-                defaultValue={currentPreference.localHour}
+                defaultValue={String(currentPreference.localHour)}
                 disabled={pending}
                 name="localHour"
                 required
-              >
-                {Array.from({ length: 24 }, (_, hour) => (
-                  <option key={hour} value={hour}>
-                    {formatHour(hour)}
-                  </option>
-                ))}
-              </select>
+                data={Array.from({ length: 24 }, (_, hour) => ({ value: String(hour), label: formatHour(hour) }))}
+              />
               <FieldError id={localHourErrorId} state={state} name="localHour" />
             </label>
 
             <label className="skillField">
               <span>Timezone</span>
-              <select
+              <Select
                 aria-describedby={
                   hasFieldError(state, "timezone") ? timezoneErrorId : undefined
                 }
@@ -199,13 +196,9 @@ export function ReminderSettingsForm({
                 disabled={pending}
                 name="timezone"
                 required
-              >
-                {timezoneOptions.map((timezone) => (
-                  <option key={timezone} value={timezone}>
-                    {timezone}
-                  </option>
-                ))}
-              </select>
+                searchable
+                data={timezoneOptions}
+              />
               <FieldError id={timezoneErrorId} state={state} name="timezone" />
             </label>
           </div>

@@ -2,6 +2,7 @@
 
 import { MantineProvider, createTheme, rem } from "@mantine/core";
 import { Notifications } from "@mantine/notifications";
+import { CaretDown } from "@phosphor-icons/react";
 
 const theme = createTheme({
   fontFamily: "'Instrument Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
@@ -66,6 +67,20 @@ const theme = createTheme({
     ],
   },
   components: {
+    Select: {
+      defaultProps: {
+        size: "md",
+        allowDeselect: false,
+        rightSection: <CaretDown size={16} aria-hidden="true" />,
+        rightSectionPointerEvents: "none",
+        comboboxProps: { shadow: "none", offset: 4 },
+        classNames: {
+          input: "appSelectInput",
+          dropdown: "appSelectDropdown",
+          option: "appSelectOption",
+        },
+      },
+    },
     Card: {
       defaultProps: { radius: rem(8), withBorder: true },
       styles: { root: { borderColor: "#E4E8F1" } },

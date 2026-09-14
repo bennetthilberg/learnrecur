@@ -1,5 +1,7 @@
 "use client";
 
+import { Select } from "@mantine/core";
+
 import { Checkbox, Tabs } from "@mantine/core";
 import {
   BookOpenText,
@@ -498,18 +500,9 @@ function WebsiteMaterialForm({
                 </label>
                 <label className="skillField">
                   <span>Collection</span>
-                  <select
-                    disabled={isBusy}
-                    onChange={(event) => setCollectionId(event.currentTarget.value)}
-                    value={collectionId}
-                  >
-                    <option value="">No collection</option>
-                    {collections.map((collection) => (
-                      <option key={collection.id} value={collection.id}>
-                        {collection.name}
-                      </option>
-                    ))}
-                  </select>
+                  <Select disabled={isBusy} value={collectionId}
+                    onChange={(value) => setCollectionId(value ?? "")}
+                    data={[{ value: "", label: "No collection" }, ...collections.map((collection) => ({ value: collection.id, label: collection.name }))]} />
                 </label>
               </div>
               <div className="skillFormActions materialImportActions">
@@ -599,14 +592,8 @@ function CollectionSelect({
   return (
     <label className="skillField">
       <span>Collection</span>
-      <select disabled={disabled} name="collectionId">
-        <option value="">No collection</option>
-        {collections.map((collection) => (
-          <option key={collection.id} value={collection.id}>
-            {collection.name}
-          </option>
-        ))}
-      </select>
+      <Select disabled={disabled} name="collectionId" defaultValue=""
+        data={[{ value: "", label: "No collection" }, ...collections.map((collection) => ({ value: collection.id, label: collection.name }))]} />
     </label>
   );
 }
