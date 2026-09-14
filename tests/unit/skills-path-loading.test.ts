@@ -32,6 +32,12 @@ const routeCases: Array<{
 ];
 
 describe("SkillsPathLoading", () => {
+  it("keeps skill-detail loading sections in the loaded page order", () => {
+    const markup = renderToStaticMarkup(createElement(MantineProvider, null, createElement(SkillsPathLoading, { kind: "skill-detail" })));
+    expect([...markup.matchAll(/<h2[^>]*>([^<]+)<\/h2>/g)].map(match => match[1])).toEqual([
+      "Schedule", "Practice results", "Recent reviews", "Practice guidance",
+    ]);
+  });
   it.each(routeCases)("renders a page-shaped $kind loading state", ({ current, kind, marker }) => {
     const markup = renderToStaticMarkup(
       createElement(

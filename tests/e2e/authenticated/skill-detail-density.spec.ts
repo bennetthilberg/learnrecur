@@ -35,4 +35,13 @@ test("skill detail shows one empty summary and only populated guidance", async (
   await expect(results.getByRole("heading", { name: "Exact input", exact: true })).toHaveCount(0);
   await expect(results.getByRole("heading", { name: "Math", exact: true })).toHaveCount(0);
   await expect(page.getByRole("region", { name: "Recent reviews", exact: true })).toBeVisible();
+  await page.getByRole("link", { name: "Full history", exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`/history\\?skillId=${skill.skillId}$`));
+  await expect(page.getByRole("combobox", { name: "Skill", exact: true })).not.toHaveValue("All skills");
+  await page.goto("/collections");
+  const collectionLink = page.locator(`a[href="/skills?collection=${skill.collectionId}&status=ALL"]`);
+  await expect(collectionLink).toHaveText("View skills");
+  await collectionLink.click();
+  await expect(page.getByRole("combobox", { name: "Status", exact: true })).toHaveValue("All statuses");
+  await expect(page.locator(`a[href="/skills/${skill.skillId}"]`)).toBeVisible();
 });

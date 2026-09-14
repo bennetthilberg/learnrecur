@@ -558,6 +558,10 @@ function SkillDetailLoading() {
           </div>
           <LoadingBlock height={42} radius={8} width={122} />
         </header>
+        <div className="skillOrganizationControls">
+          <LoadingBlock height={44} radius={8} width={130} />
+          <LoadingBlock height={44} radius={8} width={160} />
+        </div>
         <section className="skillDetailCard skillDetailSchedule">
           <SkillDetailSectionHeaderLoading title="Schedule" />
           <div className="skillDetailFactGrid skillsPathFactGridLoading">
@@ -569,24 +573,22 @@ function SkillDetailLoading() {
             ))}
           </div>
         </section>
-        <section className="skillDetailCard skillDetailGuidance">
-          <SkillDetailSectionHeaderLoading title="Practice guidance" />
-          <div className="skillsPathGuidanceLoading">
-            {Array.from({ length: 3 }, (_, index) => (
-              <div key={index}>
-                <LoadingBlock height={14} radius={5} width={index === 0 ? 86 : 112} />
-                <LoadingBlock height={13} mt={10} radius={5} width="94%" />
-                <LoadingBlock height={13} mt={8} radius={5} width={index === 2 ? "64%" : "78%"} />
-              </div>
-            ))}
-          </div>
-        </section>
         <section className="skillDetailCard skillDetailOutcomes">
-          <SkillDetailSectionHeaderLoading title="Review outcomes" />
+          <SkillDetailSectionHeaderLoading title="Practice results" />
           <div className="skillsPathOutcomeLoading">
             <LoadingBlock height={15} radius={5} width={176} />
             <LoadingBlock height={13} mt={12} radius={5} width="68%" />
           </div>
+        </section>
+        <section className="skillPanel skillRecentReviewsPanel skillDetailRecent">
+          <SkillDetailSectionHeaderLoading title="Recent reviews" />
+          <LoadingBlock height={16} radius={5} width="75%" />
+          <LoadingBlock height={14} mt={12} radius={5} width="55%" />
+        </section>
+        <section className="skillDetailCard skillDetailGuidance">
+          <SkillDetailSectionHeaderLoading title="Practice guidance" />
+          <LoadingBlock height={14} radius={5} width="85%" />
+          <LoadingBlock height={14} mt={10} radius={5} width="65%" />
         </section>
       </div>
     </div>

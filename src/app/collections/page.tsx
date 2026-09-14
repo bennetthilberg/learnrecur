@@ -148,6 +148,7 @@ function ActiveCollectionRow({
         <CollectionArchiveForm collectionId={collection.id} collectionName={collection.name} />
         <CollectionUpdateForm collection={collection} />
         <CollectionPracticeForm collection={collection} />
+        <Link className="secondaryButton" href={`/skills?collection=${encodeURIComponent(collection.id)}&status=ALL`}>View skills</Link>
         <Link
           aria-label={`Practice collection ${collection.name}`}
           className="secondaryButton collectionPracticeLink"

@@ -292,6 +292,7 @@ export default async function SkillPage({
 
             <SkillRecentReviewsPanel
               className="skillDetailRecent"
+              skillId={skill.id}
               reviews={recentReviews}
             />
 
@@ -580,7 +581,7 @@ export default async function SkillPage({
           skillId={skill.id}
           sources={sourceSummaries}
         />
-        <SkillRecentReviewsPanel reviews={recentReviews} />
+        <SkillRecentReviewsPanel skillId={skill.id} reviews={recentReviews} />
       </main>
     );
   }
@@ -1113,11 +1114,13 @@ function SkillLifecyclePanel({
 }
 
 function SkillRecentReviewsPanel({
+  skillId,
   className,
   reviews,
   showEmpty = false,
 }: {
   className?: string;
+  skillId: string;
   reviews: PracticeHistoryReview[];
   showEmpty?: boolean;
 }) {
@@ -1134,7 +1137,7 @@ function SkillRecentReviewsPanel({
         <div>
           <h2 id="skill-reviews-title">Recent reviews</h2>
         </div>
-        <Link className="dashboardPanelLink" href="/history">
+        <Link className="dashboardPanelLink" href={`/history?skillId=${encodeURIComponent(skillId)}`}>
           Full history
         </Link>
       </div>
