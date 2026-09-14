@@ -164,7 +164,7 @@ export default async function MaterialDetailPage({
           <span className="materialProcessingPulse" aria-hidden="true" />
           <div>
             <h2>Building the outline</h2>
-            <p>Extracting headings, page references, readable text, and retrieval chunks. This page updates automatically.</p>
+            <p>Preparing your material for skill creation. You can leave this page; processing continues in the background. This page updates automatically.</p>
           </div>
         </section>
       ) : recoveryDisplay.showImportRetry && revision ? (

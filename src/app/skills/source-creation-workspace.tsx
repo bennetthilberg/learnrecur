@@ -1,4 +1,5 @@
 "use client";
+import { usePendingCreationGuard } from "@/components/app/use-pending-creation-guard";
 
 import { useFormDraft } from "@/components/app/use-form-draft";
 import { FormDraftNotice } from "@/components/app/form-draft-notice";
@@ -135,7 +136,17 @@ export function SourceCreationWorkspace({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const selectedFilesRef = useRef<SelectedSourceUploadFile[]>([]);
   const [textState, textAction, isGeneratingFromText] = useActionState(
-    generateSkillDraftFromSourceAction,
+    async (previous: SkillFormActionState, formData: FormData): Promise<SkillFormActionState> => {
+      try {
+        return await generateSkillDraftFromSourceAction(previous, formData);
+      } catch {
+        return {
+          status: "error",
+          message: "The connection was interrupted. Your text is kept. Check Skills before trying again; your draft may have finished creating.",
+          refreshRecovery: true,
+        };
+      }
+    },
     idleState,
   );
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]> | undefined>();
@@ -163,6 +174,7 @@ export function SourceCreationWorkspace({
     uploadStatus === "preparing" ||
     uploadStatus === "uploading" ||
     uploadStatus === "generating";
+  usePendingCreationGuard(isGeneratingFromText || uploadBusy);
   const restoreBusy = restoringSourceId !== null;
   const busy = isGeneratingFromText || uploadBusy || restoreBusy || !materialDraft.ready;
   const generationStatus = getGenerationStatus({
@@ -1177,6 +1189,7 @@ function SourceGenerationPanel({ status }: { status: SourceGenerationStatus }) {
       </div>
       <div className="sourceGenerationCopy">
         <h2>{status.title || defaultGenerationStatus.title}</h2>
+        <p>Keep this page open until your draft is ready. If you leave, check Skills before submitting again.</p>
         <p aria-hidden="true" className="sourceGenerationStatusLine">
           {messages[messageIndex % messages.length]}
         </p>
