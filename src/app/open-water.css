@@ -9613,7 +9613,7 @@ body {
 }
 
 /* Keep all destinations reachable when the sidebar is absent. */
-.compactNavMenu { flex: 0 0 auto; min-height: 40px; padding: 8px 12px; }
+.practiceTopbar .compactNavMenu { flex: 0 0 auto; min-height: 44px; padding: 8px 12px; font-size: 15px; }
 @media (max-width: 719px) {
   .practiceTopbar { grid-template-columns: minmax(0, 1fr) auto auto; }
   .compactNavMenu { grid-column: 2; grid-row: 1; }
