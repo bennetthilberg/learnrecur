@@ -9555,3 +9555,15 @@ body {
 
 .dashboardLoadingMobileLine { display: none; }
 @media (max-width: 760px) { .dashboardLoadingMobileLine { display: block; } }
+
+/* Dashboard uses the same instruction hierarchy as the practice card. */
+.openWaterReviewCard .practicePromptPanel {
+  border: 0;
+  padding: 20px 0;
+}
+.openWaterStatTile p.dashboardStatDescription {
+  font-size: 14px;
+  line-height: 1.4;
+  margin-top: 8px;
+  color: var(--lr-text-secondary);
+}

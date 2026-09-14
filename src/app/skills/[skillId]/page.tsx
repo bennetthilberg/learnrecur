@@ -267,9 +267,9 @@ export default async function SkillPage({
               </div>
               <Link
                 className={isReadyForPractice ? "primaryButton" : "secondaryButton"}
-                href="/practice"
+                href={`/practice/custom?skillId=${encodeURIComponent(skill.id)}`}
               >
-                {isReadyForPractice ? "Start practice" : "Open practice"}
+                Practice this skill
               </Link>
             </header>
 
