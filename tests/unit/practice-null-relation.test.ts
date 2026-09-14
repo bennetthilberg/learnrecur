@@ -76,6 +76,7 @@ function setupTransaction(exercises: unknown[]) {
       }),
     },
     skill: {
+      findFirst: vi.fn().mockResolvedValue(null),
       findMany: vi.fn().mockResolvedValue([]),
       count: vi.fn().mockResolvedValue(0),
     },

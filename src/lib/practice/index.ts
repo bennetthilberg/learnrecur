@@ -124,6 +124,8 @@ export type NextPracticeItemResult =
     }
   | {
       status: "none-due";
+      nextReviewAt?: Date | null;
+      nextReviewTimezone?: string;
       dailyLimitReached?: boolean;
       preparing?: boolean;
       preparationSkillIds?: string[];
@@ -443,8 +445,17 @@ async function selectNextPracticeItem(
           (await tx.skill.count({
             where: { ...scope, ...unintroducedSkillWhere },
           })) > 0;
+        const nextScheduled = await tx.skill.findFirst({
+          where: { userId: input.userId, status: SkillStatus.ACTIVE,
+            dueAt: { gt: input.now }, stability: { not: null }, difficulty: { not: null },
+            ...(input.collectionId ? { collectionId: input.collectionId } : {}),
+            ...skillWhere },
+          orderBy: [{ dueAt: "asc" }, { id: "asc" }], select: { dueAt: true },
+        });
         return {
           status: "none-due",
+          nextReviewAt: nextScheduled?.dueAt ?? null,
+          nextReviewTimezone: allowance.timezone,
           ...(dueSkills.length
             ? {
                 preparing: true,

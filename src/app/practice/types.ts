@@ -66,6 +66,9 @@ export type PracticeItem =
     }
   | {
       status: "none-due";
+      nextReviewAt?: string | null;
+      nextReviewTimezone?: string;
+      preparationSkillIds?: string[];
       preparing?: boolean;
       dailyLimitReached?: boolean;
       message: string;

@@ -6,7 +6,7 @@ import { appendPracticeBuffer, PRACTICE_BUFFER_SIZE, PRACTICE_BUFFER_LOW_WATER }
 import { writeRecovery, type NormalDraft, type Recovery } from "@/lib/practice/recovery";
 import { confirmReviewSave, useReviewSaveGuard } from "./use-review-save-guard";
 import { getInstantPracticeFeedback } from "@/lib/practice/instant-feedback";
-import { CheckCircle, Flag } from "@phosphor-icons/react";
+import { CheckCircle, Clock, Wrench, Flag } from "@phosphor-icons/react";
 
 import { AnswerKind, ExerciseFlagReason, FsrsRating } from "@/generated/prisma/enums";
 import {
@@ -417,6 +417,9 @@ export function PracticeClient({ initialItem, canUseSampleData, recoveryKey, ini
         {item.status === "none-due" ? (
           <PracticeCompleteState
             preparing={item.preparing}
+            nextReviewAt={item.nextReviewAt}
+            nextReviewTimezone={item.nextReviewTimezone}
+            preparationSkillIds={item.preparationSkillIds}
             dailyLimitReached={item.dailyLimitReached}
             canUseSampleData={canUseSampleData && !scoped}
             message={item.message}
@@ -734,6 +737,9 @@ function getScopedCollectionId(item: PracticeItem): string | null {
 }
 
 function PracticeCompleteState({
+  nextReviewTimezone,
+  nextReviewAt,
+  preparationSkillIds,
   preparing,
   dailyLimitReached,
   canUseSampleData,
@@ -743,6 +749,9 @@ function PracticeCompleteState({
   scoped,
   statusNotice,
 }: {
+  nextReviewAt?: string | null;
+  nextReviewTimezone?: string;
+  preparationSkillIds?: string[];
   preparing?: boolean;
   dailyLimitReached?: boolean;
   canUseSampleData: boolean;
@@ -758,28 +767,20 @@ function PracticeCompleteState({
       aria-labelledby="practice-empty-title"
     >
       <div className="practiceCompleteIcon" aria-hidden="true">
-        <CheckCircle size={28} weight="bold" />
+        {preparing ? <Wrench size={28} /> : dailyLimitReached ? <Clock size={28} /> : <CheckCircle size={28} weight="bold" />}
       </div>
       <div className="practiceCompleteCopy">
         <h1 id="practice-empty-title">{preparing ? "Exercises need preparation." : dailyLimitReached ? "Daily new-skill limit reached." : "Nice work. You're all caught up."}</h1>
         <p>
-          {preparing ? "Due skills are waiting for compatible exercises. Check their preparation status or refresh to try again." : dailyLimitReached ? "You can continue scheduled reviews or change your daily limit in Settings." : scoped
+          {preparing ? "Your due skills need exercises before you can continue. Open their preparation status to see what needs attention." : dailyLimitReached ? "You’ve reached today’s allowance for new skills. You can still do custom practice without changing your schedule." : scoped
             ? "Every due exercise in this collection is finished for now."
             : "Every due exercise is finished for now."}{" "}
-          LearnRecur will bring skills back when the schedule says they are ready.
+
         </p>
       </div>
-      <div className="practiceCompleteSummary" aria-label="Practice completion summary">
-        <div>
-          <span>Queue</span>
-          <strong>{preparing ? "Preparation pending" : dailyLimitReached ? "New skills paused" : "Clear for now"}</strong>
-        </div>
-        <div>
-          <span>Schedule</span>
-          <strong>{message}</strong>
-        </div>
-      </div>
-      <PracticeCompleteActions scoped={scoped} dailyLimitReached={dailyLimitReached} />
+      {nextReviewAt ? <p className="practiceNextReview">Next scheduled review: <time dateTime={nextReviewAt}>{new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: nextReviewTimezone ?? "UTC", timeZoneName: "short" }).format(new Date(nextReviewAt))}</time></p> : null}
+      {dailyLimitReached && !preparing ? <p>{message}</p> : null}
+      <PracticeCompleteActions scoped={scoped} dailyLimitReached={dailyLimitReached} preparing={preparing} preparationSkillIds={preparationSkillIds} />
       {statusNotice ? (
         <p
           className="practiceCompleteStatus"
@@ -810,29 +811,13 @@ function PracticeCompleteState({
   );
 }
 
-function PracticeCompleteActions({ scoped, dailyLimitReached }: { scoped: boolean; dailyLimitReached?: boolean }) {
+function PracticeCompleteActions({ scoped, dailyLimitReached, preparing, preparationSkillIds }: { scoped: boolean; dailyLimitReached?: boolean; preparing?: boolean; preparationSkillIds?: string[] }) {
   return (
     <div className="practiceCompleteActions" aria-label="Practice next actions">
-      {scoped ? (
-        <>
-          <Link className="secondaryButton" href="/dashboard">
-            Dashboard
-          </Link>
-          <Link className="primaryButton" href="/practice">
-            Try all practice
-          </Link>
-        </>
-      ) : (
-        <>
-          <Link className="secondaryButton" href="/skills">
-            Review skills
-          </Link>
-          <Link className="primaryButton" href="/dashboard">
-            Dashboard
-          </Link>
-        </>
-      )}
-      {dailyLimitReached ? <Link href="/settings" className="secondaryButton">Change daily limit</Link> : null}
+      <Link className="secondaryButton" href="/dashboard">Dashboard</Link>
+      {scoped ? <Link className="secondaryButton" href="/practice">Try all practice</Link> : null}
+      {dailyLimitReached ? <Link className="secondaryButton" href="/settings">Change daily limit</Link> : null}
+      {preparing ? <Link className="primaryButton" href={preparationSkillIds?.length === 1 ? `/skills/${preparationSkillIds[0]}` : "/skills"}>Check preparation</Link> : <Link className="primaryButton" href="/practice/custom">Custom practice</Link>}
     </div>
   );
 }

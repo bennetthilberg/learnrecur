@@ -174,6 +174,9 @@ function toPracticeItem(
     return {
       status: "none-due",
       preparing: result.preparing,
+      nextReviewAt: result.nextReviewAt?.toISOString() ?? null,
+      nextReviewTimezone: result.nextReviewTimezone,
+      preparationSkillIds: result.preparationSkillIds,
       dailyLimitReached: result.dailyLimitReached,
       message:
         !result.preparing &&
