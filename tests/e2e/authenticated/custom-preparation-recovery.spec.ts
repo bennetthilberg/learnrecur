@@ -41,7 +41,7 @@ test("an empty custom session survives refresh and continues after preparation",
   await expect(page.getByRole("region", { name: "Practice exercise", exact: true })).toBeVisible();
   await expect(page.getByRole("radio").first()).toBeFocused();
   expect(page.url()).toBe(url);
-  const sessions = await sql.query('SELECT id,status,"completedCount" FROM practice_sessions WHERE "userId"=$1', [skill.userId]);
+  const sessions = await sql.query('SELECT id,status,"completedCount" FROM practice_sessions WHERE "userId"=$1 AND id=$2', [skill.userId, sessionId]);
   expect(sessions).toEqual([{ id: sessionId, status: "ACTIVE", completedCount: 0 }]);
   expect((await sql.query('SELECT count(*)::int AS count FROM exercise_attempts WHERE "userId"=$1', [skill.userId]))[0].count).toBe(0);
 });

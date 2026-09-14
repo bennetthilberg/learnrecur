@@ -32,6 +32,7 @@ for (const width of [1280, 390]) {
     );
     await expect(page).toHaveURL(/\/skills$/);
 
+    await page.goto("/skills?status=ARCHIVED");
     await trigger.click();
     await page
       .getByRole("menuitem", { name: "Delete permanently", exact: true })

@@ -132,6 +132,10 @@ export async function createLearnerLifecycleFixture(input: {
     });
   }
 
+  // A worker account is reused across tests; preferences from a settings or
+  // completion scenario must not gate the next scenario's fresh skills.
+  await getTestSql().query('UPDATE users SET "dailyNewSkillLimit"=NULL, "practicePreference"=\'BALANCED\' WHERE id=$1', [input.userId]);
+
   const fixture: E2ELearnerLifecycleFixture = {
     userId: input.userId,
     runKey: input.runId,

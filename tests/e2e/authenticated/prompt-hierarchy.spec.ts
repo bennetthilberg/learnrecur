@@ -3,7 +3,7 @@ import { expect, test } from "../fixtures/learner-lifecycle";
 for (const custom of [false, true]) {
   test(`instruction hierarchy in ${custom ? "custom" : "normal"} practice`, async ({ page, learnerFixture }, testInfo) => {
     const scenario = learnerFixture.scenarios.choice;
-    await page.goto(`/practice${custom ? "/custom" : ""}?collectionId=${scenario.collectionId}`);
+    await page.goto(custom ? `/practice/custom?skillId=${scenario.skillId}` : `/practice?collectionId=${scenario.collectionId}`);
     if (custom) await page.getByRole("button", { name: "Start session", exact: true }).click();
     const instruction = page.locator(".practiceInstruction");
     await expect(instruction).toBeVisible();

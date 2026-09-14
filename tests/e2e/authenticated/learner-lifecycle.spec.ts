@@ -265,9 +265,8 @@ test.describe("authenticated learner lifecycle", () => {
 
     try {
       await page.goto(practiceUrl(scenario));
-      await expect(
-        page.getByRole("article"),
-      ).toContainText(normalizeRenderedPrompt(flaggedExercise.prompt));
+      await expect.poll(async () => normalizeRenderedPrompt((await page.locator(".practicePromptPanel p").allTextContents()).join(" ")))
+        .toBe(normalizeRenderedPrompt(flaggedExercise.prompt));
       await page.getByRole("radio", { name: /^Choice 2:/ }).click();
       await page.getByRole("button", { name: "Check", exact: true }).click();
       await expect(
@@ -288,9 +287,8 @@ test.describe("authenticated learner lifecycle", () => {
       await expect(
         page.getByText(/Exercise reported and retired from practice\./i),
       ).toBeVisible();
-      await expect(
-        page.getByRole("article"),
-      ).toContainText(normalizeRenderedPrompt(replacementExercise.prompt));
+      await expect.poll(async () => normalizeRenderedPrompt((await page.locator(".practicePromptPanel p").allTextContents()).join(" ")))
+        .toBe(normalizeRenderedPrompt(replacementExercise.prompt));
 
       const flagState = await readE2EFlagState({
         exerciseId: flaggedExercise.id,

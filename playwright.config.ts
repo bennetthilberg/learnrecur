@@ -37,6 +37,12 @@ export default defineConfig({
       testMatch: /(?:auth-spine|checkbox-cursors)\.spec\.ts/,
     },
     {
+      name: "authenticated-mobile-webkit",
+      use: { ...devices["iPhone 13"] },
+      testMatch: /authenticated\/mobile-content\.spec\.ts/,
+      dependencies: ["clerk-setup"],
+    },
+    {
       name: "authenticated-chromium",
       use: { ...devices["Desktop Chrome"] },
       testMatch: /authenticated\/.*\.spec\.ts/,

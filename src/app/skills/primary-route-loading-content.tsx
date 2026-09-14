@@ -156,6 +156,7 @@ function DashboardRouteLoading() {
           <article className="openWaterStatTile" key={label}>
             <p>{label}</p>
             <strong className="disp"><Skeleton component="span" className="routeSkeleton" height="1em" width={label === "Recent accuracy" ? 58 : 34} /></strong>
+            {label === "Recent accuracy" ? <p className="dashboardStatDescription"><Skeleton component="span" className="routeSkeleton" height="1.4em" width="100%" /></p> : null}
           </article>
         ))}
       </section>

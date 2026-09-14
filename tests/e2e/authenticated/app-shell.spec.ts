@@ -23,7 +23,7 @@ for (const viewport of [
     const pages = [
       { path: "/dashboard", heading: /due skill/i },
       { path: "/skills", heading: /^skills$/i },
-      { path: "/collections", heading: /organize practice/i },
+      { path: "/collections", heading: /^collections$/i },
       { path: "/history", heading: /^history$/i },
       { path: "/settings", heading: /^settings$/i },
     ];

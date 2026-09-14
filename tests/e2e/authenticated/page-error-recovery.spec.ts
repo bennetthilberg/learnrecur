@@ -18,7 +18,7 @@ for (const width of [390, 1280]) {
       // route boundary without changing the fixture's collection status.
       await page.route("**/collections", route => route.request().method() === "POST" ? route.abort() : route.continue());
       const failAction = async () => {
-        await page.getByText("Archive", { exact: true }).click();
+        await page.getByLabel(`Archive collection ${title}`, { exact: true }).click();
         await page.getByRole("button", { name: "Archive collection", exact: true }).click();
       };
       await failAction();
