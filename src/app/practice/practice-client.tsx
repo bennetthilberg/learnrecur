@@ -1,4 +1,5 @@
 "use client";
+import { practiceSessionEnded } from "@/lib/practice/session-status";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
@@ -167,11 +168,14 @@ export function PracticeClient({ initialItem, canUseSampleData, recoveryKey, ini
     }
   }, [answerValue, item, pendingAction, timer]);
 
+  const [needsSignIn, setNeedsSignIn] = useState(false);
+
   const handleContinue = useCallback(() => {
     if (
       item.status !== "ready" ||
       !isAnswerReady(answerValue) ||
       feedback?.status !== "checked" ||
+      needsSignIn ||
       pendingAction !== null
     ) {
       return;
@@ -236,9 +240,14 @@ export function PracticeClient({ initialItem, canUseSampleData, recoveryKey, ini
         resetAttemptState();
       }
       setStatusNotice(createStatusNotice(result.idempotent ? "Review already saved." : "Review saved."));
-    }).catch(() => restore("Could not confirm the save. Your checked answer is restored. Press Continue to retry."))
+    }).catch(async () => {
+      restore("Could not confirm the save. Your checked answer is restored. Try saving again.");
+      const ended = await practiceSessionEnded();
+      setNeedsSignIn(ended);
+      if (ended) setStatusNotice(null);
+    })
       .finally(() => { savingRef.current = false; setAdvancePending(false); setPendingAction(null); });
-  }, [attemptId, answerValue, feedback, item, manualRating, pendingAction, preloaded, resetAttemptState, scopedCollectionId, submittedResponseMs, timer, recoveryKey, finishSave]);
+  }, [attemptId, answerValue, feedback, item, manualRating, pendingAction, preloaded, resetAttemptState, scopedCollectionId, submittedResponseMs, timer, recoveryKey, finishSave, needsSignIn]);
 
   const handleFlagSubmit = useCallback(() => {
     if (savingRef.current) return;
@@ -463,7 +472,7 @@ export function PracticeClient({ initialItem, canUseSampleData, recoveryKey, ini
         <PracticeScopeBar scope={item.scope} />
       </div>
       <section className="practiceFrame" aria-label="Practice exercise" data-next-ready={preloaded.length > 0} data-buffered-count={preloaded.length}>
-        {showRecovery ? <RecoveryNotice storageKey={recoveryKey} saving={advancePending} /> : null}
+        {showRecovery ? <RecoveryNotice needsSignIn={needsSignIn} storageKey={recoveryKey} saving={advancePending} /> : null}
         <div className="practiceMetaRow">
           <div>
             <p className="practiceMetaSummary tnum">
@@ -615,7 +624,7 @@ export function PracticeClient({ initialItem, canUseSampleData, recoveryKey, ini
           <button
             className="primaryButton"
             type="button"
-            disabled={advancePending || pendingAction !== null || feedback.status !== "checked"}
+            disabled={needsSignIn || advancePending || pendingAction !== null || feedback.status !== "checked"}
             onClick={handleContinue}
             ref={continueButtonRef}
           >

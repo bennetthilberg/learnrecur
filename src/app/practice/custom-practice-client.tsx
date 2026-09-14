@@ -1,5 +1,7 @@
 "use client";
+import { practiceSessionEnded } from "@/lib/practice/session-status";
 
+import { notifications } from "@mantine/notifications";
 import { ActionNotification } from "@/components/app/action-notification";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -139,8 +141,10 @@ export function CustomPracticeClient({
     setManualRating(result.proposedRating ?? FsrsRating.GOOD);
   };
 
+  const [needsSignIn, setNeedsSignIn] = useState(false);
+
   const handleSave = () => {
-    if (!readyItem || !feedback || feedback.status !== "checked" || pending) return;
+    if (!readyItem || !feedback || feedback.status !== "checked" || pending || needsSignIn) return;
     if (savingRef.current) return;
     savingRef.current = true;
     pendingDraft.current = currentDraft.current;
@@ -189,7 +193,12 @@ export function CustomPracticeClient({
         preloadRequest.current = null;
         setView(result.next); setAnswer(""); setFeedback(null); setManualRating(FsrsRating.GOOD);
       }
-    }).catch(() => restore("Could not confirm the save. Your checked answer is restored. Try saving again."))
+    }).catch(async () => {
+      restore("Could not confirm the save. Your checked answer is restored. Try saving again.");
+      const ended = await practiceSessionEnded();
+      setNeedsSignIn(ended);
+      if (ended) { setActionError(null); notifications.hide("custom-practice-error"); }
+    })
       .finally(() => { savingRef.current = false; setSaving(false); setPending(null); });
   };
 
@@ -284,7 +293,7 @@ export function CustomPracticeClient({
         <Link href="/practice/attention">Needs attention</Link>
       </div>
       <section className="practiceFrame customPracticeClient" aria-label="Practice exercise" data-next-ready={preloaded.length > 0} data-buffered-count={preloaded.length}>
-        {showRecovery ? <RecoveryNotice storageKey={recoveryKey} saving={saving} /> : null}
+        {showRecovery ? <RecoveryNotice needsSignIn={needsSignIn} storageKey={recoveryKey} saving={saving} /> : null}
         <div className="practiceMetaRow">
           <div>
             <p className="practiceMetaSummary tnum">Exercise {session.completedCount + 1} of {session.targetCount}</p>
@@ -364,7 +373,7 @@ export function CustomPracticeClient({
         ) : null}
         {checked ? (
           <div className="practiceActions">
-            <button ref={continueButtonRef} className="primaryButton" type="button" onClick={handleSave} disabled={pending !== null || saving}>
+            <button ref={continueButtonRef} className="primaryButton" type="button" onClick={handleSave} disabled={needsSignIn || pending !== null || saving}>
               {pending === "save" ? "Saving" : session.mode === "PRACTICE_ONLY" ? "Save practice" : "Continue"}
             </button>
           </div>

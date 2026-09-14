@@ -9606,3 +9606,5 @@ body {
   .compactNavMenu { display: none; }
 }
 .compactNavItem[aria-current="page"] { background: var(--lr-wave-1); font-weight: 700; }
+
+.practiceRecoveryNotice > .primaryButton { margin-left: auto; }
