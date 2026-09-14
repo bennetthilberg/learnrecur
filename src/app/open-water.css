@@ -2735,6 +2735,26 @@ body {
   .skillShell .practiceNav {
     align-items: center;
   }
+
+  /* Keep the active marker out of the labels' vertical alignment. */
+  .practiceTopbar .practiceNav a {
+    border: 0;
+    padding-block: 0;
+  }
+
+  .practiceTopbar .practiceNav a[data-nav-active="true"]::after {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    height: 3px;
+    background: var(--lr-yellow);
+    content: "";
+  }
+
+  .practiceTopbar .practiceUserMenu {
+    align-self: center;
+  }
 }
 
 @media (min-width: 1120px) {
