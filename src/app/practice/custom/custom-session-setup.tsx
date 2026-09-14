@@ -1,6 +1,9 @@
 "use client";
 
-import { Select } from "@mantine/core";
+import { useFormDraft } from "@/components/app/use-form-draft";
+import { FormDraftNotice } from "@/components/app/form-draft-notice";
+import { customSetupDraftSchema, matchingCustomSkills, customExerciseCount, type CustomSetupSkill, type CustomSetupDraft } from "@/lib/practice/custom-setup";
+import { Select, UnstyledButton } from "@mantine/core";
 
 import { ActionNotification } from "@/components/app/action-notification";
 
@@ -10,28 +13,36 @@ import { useRouter } from "next/navigation";
 import { createCustomPracticeSessionAction } from "../actions";
 
 type SetupCollection = { id: string; name: string };
-type SetupSkill = { id: string; title: string; collectionId: string | null; tags: string[] };
+
 
 export function CustomSessionSetup({
   collections,
+  previewAt,
   initialSkillId,
   skills,
   tags,
 }: {
   collections: SetupCollection[];
   initialSkillId: string | null;
-  skills: SetupSkill[];
+  skills: CustomSetupSkill[];
+  previewAt: number;
   tags: string[];
 }) {
   const router = useRouter();
-  const [mode, setMode] = useState<"PRACTICE_ONLY" | "SCHEDULED">("PRACTICE_ONLY");
-  const [targetCount, setTargetCount] = useState(10);
-  const [collectionId, setCollectionId] = useState("");
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [selectedSkills, setSelectedSkills] = useState<string[]>(() =>
-    initialSkillId && skills.some((skill) => skill.id === initialSkillId) ? [initialSkillId] : [],
-  );
-  const [recentlyMissed, setRecentlyMissed] = useState(false);
+  const draft = useFormDraft(`custom-setup:${initialSkillId ?? "all"}`, {
+    mode: "PRACTICE_ONLY" as const, targetCount: "10", collectionId: "", selectedTags: [] as string[],
+    selectedSkills: initialSkillId && skills.some((skill) => skill.id === initialSkillId) ? [initialSkillId] : [], recentlyMissed: false,
+  } as CustomSetupDraft, customSetupDraftSchema);
+  const { mode, targetCount, collectionId, selectedTags, selectedSkills, recentlyMissed } = draft.value;
+  const setMode = (mode: CustomSetupDraft["mode"]) => draft.update({ mode });
+  const setTargetCount = (targetCount: string) => draft.update({ targetCount });
+  const setCollectionId = (collectionId: string) => draft.update({ collectionId });
+  const setSelectedTags = (selectedTags: string[]) => draft.update({ selectedTags });
+  const setSelectedSkills = (selectedSkills: string[]) => draft.update({ selectedSkills });
+  const setRecentlyMissed = (recentlyMissed: boolean) => draft.update({ recentlyMissed });
+  const matches = matchingCustomSkills(skills, draft.value, previewAt);
+  const eligible = selectedSkills.length ? matches.filter((skill) => selectedSkills.includes(skill.id)) : matches;
+  const excludedSelections = selectedSkills.filter((id) => !matches.some((skill) => skill.id === id)).length;
   const [message, setMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -41,10 +52,13 @@ export function CustomSessionSetup({
 
   const submit = () => {
     setMessage(null);
+    const count = customExerciseCount(targetCount);
+    if (count === null) { setMessage("Enter a whole number of exercises from 1 to 100."); return; }
     startTransition(async () => {
+      try {
       const result = await createCustomPracticeSessionAction({
         mode,
-        targetCount,
+        targetCount: count,
         scope: {
           collectionIds: collectionId ? [collectionId] : [],
           tags: selectedTags,
@@ -54,10 +68,12 @@ export function CustomSessionSetup({
         },
       });
       if (result.status === "ready" || result.status === "preparing") {
+        draft.discard();
         router.push(`/practice?sessionId=${encodeURIComponent(result.sessionId)}`);
         return;
       }
       setMessage(result.message ?? "The session could not be created.");
+      } catch { setMessage("Could not start the session. Your choices are kept; check your connection and try again."); }
     });
   };
 
@@ -68,6 +84,7 @@ export function CustomSessionSetup({
           <h2 id="custom-session-form-title">Session choices</h2>
         </div>
       </div>
+      <fieldset className="customPracticeDraftFields" disabled={isPending || !draft.ready}>
       <div className="customPracticeSetupGrid">
         <fieldset>
           <legend>Mode</legend>
@@ -83,7 +100,7 @@ export function CustomSessionSetup({
 
         <label className="customPracticeCountField">
           <span>Exercises</span>
-          <input type="number" min={1} max={100} value={targetCount} onChange={(event) => setTargetCount(Math.max(1, Math.min(100, Number(event.target.value) || 1)))} />
+          <input type="number" min={1} max={100} value={targetCount} onChange={(event) => setTargetCount(event.target.value)} />
           <small>Up to 100. The default is 10.</small>
         </label>
 
@@ -114,9 +131,14 @@ export function CustomSessionSetup({
         </fieldset>
 
         <fieldset className="customPracticeSkillFieldset">
-          <legend>Selected skills <small>Leave empty to use the other filters.</small></legend>
+          <legend>Choose skills <small>Leave unchecked to include every matching skill.</small></legend>
+          <p role="status">{eligible.length} eligible {eligible.length === 1 ? "skill" : "skills"}{selectedSkills.length ? ` · ${selectedSkills.length} selected` : ""}</p>
+          <p className="customPracticeMatchHelp">Matches the collection and every selected tag. Available exercises are checked when you start.</p>
+          {excludedSelections > 0 ? <p>{excludedSelections} selected {excludedSelections === 1 ? "skill does" : "skills do"} not match these filters and will not be included.</p> : null}
+          {selectedSkills.length > 0 ? <UnstyledButton className="dashboardPanelLink" onClick={() => setSelectedSkills([])}>Clear skill selection</UnstyledButton> : null}
+          {eligible.length === 0 ? <p>No skills match your choices. Change the filters{selectedSkills.length ? " or clear your skill selection" : ""}{mode === "SCHEDULED" ? ", or use Practice only for skills that are not due" : ""}.</p> : null}
           <div className="customPracticeSkillList">
-            {skills.length === 0 ? <p>No active skills are available yet.</p> : skills.map((skill) => (
+            {matches.map((skill) => (
               <label className="customPracticeCheckLine" key={skill.id}>
                 <input type="checkbox" checked={selectedSkills.includes(skill.id)} onChange={() => toggle(skill.id, selectedSkills, setSelectedSkills)} />
                 <span>{skill.title}<small>{skill.tags.length > 0 ? skill.tags.join(", ") : "No tags"}</small></span>
@@ -125,9 +147,11 @@ export function CustomSessionSetup({
           </div>
         </fieldset>
       </div>
+      </fieldset>
+      <FormDraftNotice {...draft} disabled={isPending || !draft.ready} onDiscard={() => draft.discard()} restoredMessage="Unfinished session choices restored." />
       <div className="customPracticeSetupActions">
         <Link className="secondaryButton" href="/practice">Cancel</Link>
-        <button className="primaryButton" type="button" onClick={submit} disabled={isPending || skills.length === 0}>
+        <button className="primaryButton" type="button" onClick={submit} disabled={isPending || !draft.ready || eligible.length === 0}>
           {isPending ? "Preparing session" : "Start session"}
         </button>
       </div>
