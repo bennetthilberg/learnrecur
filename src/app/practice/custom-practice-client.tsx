@@ -2,10 +2,11 @@
 
 import { ActionNotification } from "@/components/app/action-notification";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { appendPracticeBuffer, PRACTICE_BUFFER_SIZE, PRACTICE_BUFFER_LOW_WATER } from "@/lib/practice/buffer";
-import { useReviewSaveGuard } from "./use-review-save-guard";
+import { writeRecovery, type CustomDraft, type Recovery } from "@/lib/practice/recovery";
+import { confirmReviewSave, useReviewSaveGuard } from "./use-review-save-guard";
 import { getInstantPracticeFeedback } from "@/lib/practice/instant-feedback";
 
 import { AnswerKind, FsrsRating } from "@/generated/prisma/enums";
@@ -22,6 +23,7 @@ import {
   stopCustomPracticeSessionAction,
 } from "./actions";
 import { MathText } from "./math-text";
+import { RecoveryNotice } from "./recovery-notice";
 import { PracticePrompt } from "./practice-prompt";
 import type {
   CustomPracticeClientPreviewResult,
@@ -29,19 +31,23 @@ import type {
 } from "./types";
 
 export function CustomPracticeClient({
-  initialView,
+  initialView, recoveryKey, initialRecovery,
 }: {
   initialView: CustomPracticeClientView;
+  recoveryKey?: string;
+  initialRecovery?: Recovery<CustomDraft> | null;
 }) {
+  const restored = initialRecovery?.pending ?? initialRecovery?.current;
+  const [showRecovery, setShowRecovery] = useState(Boolean(initialRecovery));
   const [view, setView] = useState(initialView);
-  const [answer, setAnswer] = useState("");
-  const [feedback, setFeedback] = useState<CustomPracticeClientPreviewResult | null>(null);
-  const [manualRating, setManualRating] = useState<FsrsRating>(FsrsRating.GOOD);
+  const [answer, setAnswer] = useState(restored?.answer ?? "");
+  const [feedback, setFeedback] = useState<CustomPracticeClientPreviewResult | null>(() => restored?.checked ? getInstantPracticeFeedback(restored.view.item, restored.answer) : null);
+  const [manualRating, setManualRating] = useState<FsrsRating>(restored?.rating ?? FsrsRating.GOOD);
   const [pending, setPending] = useState<"check" | "save" | "stop" | "resume" | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const startedAt = useRef<number | null>(null);
   const submittedResponseMs = useRef<number | null>(null);
-  const restoredResponseMs = useRef<number | null>(null);
+  const restoredResponseMs = useRef<number | null>(restored?.responseMs ?? null);
 
   const readyItem = view.status === "ready" ? view.item : null;
   const activeSessionId = view.status === "ready" ? view.session.id : null;
@@ -64,7 +70,16 @@ export function CustomPracticeClient({
   const savingRef = useRef(false);
   const [preloaded, setPreloaded] = useState<Extract<CustomPracticeClientView, { status: "ready" }>[]>([]);
   const preloadRequest = useRef<{ key: string; promise: Promise<CustomPracticeClientView[]> } | null>(null);
-  useReviewSaveGuard(saving);
+  const pendingDraft = useRef<CustomDraft | undefined>(undefined);
+  const deferredDraft = useRef<CustomDraft | undefined>(initialRecovery?.pending ? initialRecovery.current : initialRecovery?.deferred);
+  const currentDraft = useRef<CustomDraft | undefined>(restored);
+  const [protectedDraft, setProtectedDraft] = useState(true);
+  const { finishSave, navigationMessage } = useReviewSaveGuard(saving, Boolean(answer) && !protectedDraft);
+  useLayoutEffect(() => {
+    const current: CustomDraft | undefined = view.status === "ready" ? { view, answer, checked: feedback?.status === "checked", rating: manualRating, responseMs: submittedResponseMs.current } : undefined;
+    currentDraft.current = current;
+    if (recoveryKey) setProtectedDraft(writeRecovery(recoveryKey, current && (current.answer || pendingDraft.current || deferredDraft.current) ? { current, pending: pendingDraft.current, deferred: deferredDraft.current } : null));
+  }, [view, answer, feedback, manualRating, recoveryKey, saving]);
   useEffect(() => {
     if (!activeSessionId || !presentedItemKey || saving || preloaded.length >= PRACTICE_BUFFER_LOW_WATER) return;
     let active = true;
@@ -108,10 +123,16 @@ export function CustomPracticeClient({
     if (!readyItem || !feedback || feedback.status !== "checked" || pending) return;
     if (savingRef.current) return;
     savingRef.current = true;
+    pendingDraft.current = currentDraft.current;
+    if (recoveryKey && pendingDraft.current) writeRecovery(recoveryKey, { current: pendingDraft.current, pending: pendingDraft.current, deferred: deferredDraft.current });
     setSaving(true);
     const next = preloaded[0] ?? null;
     const responseMs = submittedResponseMs.current ?? 0;
     const restore = (message: string) => {
+      if (currentDraft.current?.view.item.itemKey !== readyItem.itemKey) deferredDraft.current = currentDraft.current;
+      pendingDraft.current = undefined;
+      finishSave(false);
+      setShowRecovery(true);
       setPreloaded([]);
       preloadRequest.current = null;
       setView(view); setAnswer(answer); setFeedback(feedback); setManualRating(manualRating);
@@ -123,13 +144,26 @@ export function CustomPracticeClient({
     setActionError(null);
     if (next) { setView(next); setAnswer(""); setFeedback(null); setManualRating(FsrsRating.GOOD); }
     else setPending("save");
-    void commitCustomPracticeAnswerAction({
+    void confirmReviewSave(commitCustomPracticeAnswerAction({
       sessionId: activeSessionId ?? "", itemKey: readyItem.itemKey, exerciseId: readyItem.exerciseId,
       submittedAnswer: answer, responseMs,
       manualRating: view.status === "ready" && view.session.mode === "SCHEDULED" && feedback.answerCheck.isCorrect ? manualRating : null,
       reducedRuleCues: true,
-    }).then((result) => {
+    })).then((result) => {
       if (result.status !== "committed") { restore(result.message); return; }
+      pendingDraft.current = undefined;
+      finishSave(true);
+      setShowRecovery(false);
+      const recoveredNext = deferredDraft.current;
+      if (recoveredNext && result.next.status === "ready" && recoveredNext.view.item.itemKey === result.next.item.itemKey) {
+        setView(result.next); setAnswer(recoveredNext.answer);
+        setFeedback(recoveredNext.checked ? getInstantPracticeFeedback(result.next.item, recoveredNext.answer) : null);
+        setManualRating(recoveredNext.rating ?? FsrsRating.GOOD);
+        restoredResponseMs.current = recoveredNext.responseMs;
+        deferredDraft.current = undefined;
+        return;
+      }
+      deferredDraft.current = undefined;
       if (!next || result.next.status !== "ready" || result.next.item.itemKey !== next.item.itemKey) {
         setPreloaded([]);
         preloadRequest.current = null;
@@ -229,11 +263,12 @@ export function CustomPracticeClient({
         <Link href="/practice/attention">Needs attention</Link>
       </div>
       <section className="practiceFrame customPracticeClient" aria-label="Practice exercise" data-next-ready={preloaded.length > 0} data-buffered-count={preloaded.length}>
+        {showRecovery ? <RecoveryNotice storageKey={recoveryKey} saving={saving} /> : null}
         <div className="practiceMetaRow">
           <div>
             <p className="practiceMetaSummary tnum">Exercise {session.completedCount + 1} of {session.targetCount}</p>
           </div>
-          {saving ? <p role="status" className="practiceMetaSummary">Saving…</p> : null}
+          {saving || navigationMessage ? <p role="status" className="practiceMetaSummary">{navigationMessage ?? "Saving…"}</p> : null}
         </div>
         <PracticePrompt text={exercise.prompt} />
         {actionError ? <ActionNotification id="custom-practice-error" title="Could not update session" message={actionError} /> : null}

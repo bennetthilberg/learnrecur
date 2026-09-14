@@ -43,9 +43,10 @@ export default async function PracticePage({ searchParams }: PracticePageProps) 
       <SkillsTopbar current="practice" />
 
       {sessionId ? (
-        <CustomPracticeLoader key={sessionId} sessionId={sessionId} />
+        <CustomPracticeLoader userId={userId} key={sessionId} sessionId={sessionId} />
       ) : (
         <PracticeLoader
+          userId={userId}
           key={collectionId ?? "all"}
           collectionId={collectionId}
           canUseSampleData={process.env.NODE_ENV !== "production"}

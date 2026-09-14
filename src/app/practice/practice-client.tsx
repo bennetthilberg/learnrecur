@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { appendPracticeBuffer, PRACTICE_BUFFER_SIZE, PRACTICE_BUFFER_LOW_WATER } from "@/lib/practice/buffer";
-import { useReviewSaveGuard } from "./use-review-save-guard";
+import { writeRecovery, type NormalDraft, type Recovery } from "@/lib/practice/recovery";
+import { confirmReviewSave, useReviewSaveGuard } from "./use-review-save-guard";
 import { getInstantPracticeFeedback } from "@/lib/practice/instant-feedback";
 import { CheckCircle, Flag } from "@phosphor-icons/react";
 
@@ -26,6 +27,7 @@ import {
   flagPracticeExerciseAction,
 } from "./actions";
 import { MathText } from "./math-text";
+import { RecoveryNotice } from "./recovery-notice";
 import { PracticePrompt } from "./practice-prompt";
 import type {
   ChoicePracticeSeedResult,
@@ -35,6 +37,8 @@ import type {
 } from "./types";
 
 type PracticeClientProps = {
+  recoveryKey?: string;
+  initialRecovery?: Recovery<NormalDraft> | null;
   initialItem: PracticeItem;
   canUseSampleData: boolean;
 };
@@ -85,13 +89,15 @@ const RATING_OPTIONS: Array<{ rating: FsrsRating; shortcut: string }> = [
 
 const REVIEW_SAVED_MESSAGES = new Set(["Review saved.", "Review already saved."]);
 
-export function PracticeClient({ initialItem, canUseSampleData }: PracticeClientProps) {
+export function PracticeClient({ initialItem, canUseSampleData, recoveryKey, initialRecovery }: PracticeClientProps) {
+  const restored = initialRecovery?.pending ?? initialRecovery?.current;
+  const [showRecovery, setShowRecovery] = useState(Boolean(initialRecovery));
   const [item, setItem] = useState(initialItem);
-  const [answerValue, setAnswerValue] = useState("");
-  const [attemptId, setAttemptId] = useState(() => crypto.randomUUID());
-  const [feedback, setFeedback] = useState<PracticePreviewResult | null>(null);
-  const [manualRating, setManualRating] = useState<FsrsRating | null>(null);
-  const [submittedResponseMs, setSubmittedResponseMs] = useState<number | null>(null);
+  const [answerValue, setAnswerValue] = useState(restored?.answer ?? "");
+  const [attemptId, setAttemptId] = useState(() => restored?.attemptId ?? crypto.randomUUID());
+  const [feedback, setFeedback] = useState<PracticePreviewResult | null>(() => restored?.checked ? getInstantPracticeFeedback(restored.item.exercise, restored.answer) : null);
+  const [manualRating, setManualRating] = useState<FsrsRating | null>(restored?.rating ?? null);
+  const [submittedResponseMs, setSubmittedResponseMs] = useState<number | null>(restored?.responseMs ?? null);
   const [flagFormOpen, setFlagFormOpen] = useState(false);
   const [selectedFlagReasons, setSelectedFlagReasons] = useState<ExerciseFlagReason[]>([]);
   const [otherFlagNote, setOtherFlagNote] = useState("");
@@ -116,7 +122,16 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
   const savingRef = useRef(false);
   const [preloaded, setPreloaded] = useState<Extract<PracticeItem, { status: "ready" }>[]>([]);
   const preloadRequest = useRef<{ key: string; promise: Promise<PracticeItem[]> } | null>(null);
-  useReviewSaveGuard(advancePending);
+  const pendingDraft = useRef<NormalDraft | undefined>(undefined);
+  const deferredDraft = useRef<NormalDraft | undefined>(initialRecovery?.pending ? initialRecovery.current : initialRecovery?.deferred);
+  const currentDraft = useRef<NormalDraft | undefined>(restored);
+  const [protectedDraft, setProtectedDraft] = useState(true);
+  const { finishSave, navigationMessage } = useReviewSaveGuard(advancePending, Boolean(answerValue) && !protectedDraft);
+  useLayoutEffect(() => {
+    const current: NormalDraft | undefined = item.status === "ready" ? { item, answer: answerValue, attemptId, checked: checkedFeedback !== null, rating: manualRating, responseMs: submittedResponseMs } : undefined;
+    currentDraft.current = current;
+    if (recoveryKey) setProtectedDraft(writeRecovery(recoveryKey, current && (current.answer || pendingDraft.current || deferredDraft.current) ? { current, pending: pendingDraft.current, deferred: deferredDraft.current } : null));
+  }, [item, answerValue, attemptId, checkedFeedback, manualRating, submittedResponseMs, recoveryKey, advancePending]);
   useEffect(() => {
     if (item.status !== "ready" || advancePending || preloaded.length >= PRACTICE_BUFFER_LOW_WATER) return;
     let active = true;
@@ -140,6 +155,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
   }, []);
 
   const resetAttemptState = useCallback(() => {
+    setShowRecovery(false);
     setAnswerValue("");
     setAttemptId(crypto.randomUUID());
     setFeedback(null);
@@ -191,10 +207,16 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
 
     if (savingRef.current) return;
     savingRef.current = true;
+    pendingDraft.current = currentDraft.current;
+    if (recoveryKey && pendingDraft.current) writeRecovery(recoveryKey, { current: pendingDraft.current, pending: pendingDraft.current, deferred: deferredDraft.current });
     setAdvancePending(true);
     const next = preloaded[0] ?? null;
     setPreloaded((current) => current.slice(1));
     const restore = (message: string) => {
+      if (currentDraft.current?.item.exercise.id !== item.exercise.id) deferredDraft.current = currentDraft.current;
+      pendingDraft.current = undefined;
+      finishSave(false);
+      setShowRecovery(true);
       setPreloaded([]);
       preloadRequest.current = null;
       setItem(item);
@@ -214,14 +236,25 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
       setPendingAction("continue");
       setStatusNotice(null);
     }
-    void commitPracticeReviewAction({
+    void confirmReviewSave(commitPracticeReviewAction({
       exerciseId: item.exercise.id, submittedAnswer: answerValue,
       responseMs: submittedResponseMs ?? timer.getElapsedMs(), attemptId,
       mixedReview: true, reducedRuleCues: true,
       manualRating: feedback.answerCheck.isCorrect ? manualRating : null,
       collectionId: scopedCollectionId,
-    }).then((result) => {
+    })).then((result) => {
       if (result.status !== "committed") { restore(result.message); return; }
+      pendingDraft.current = undefined;
+      finishSave(true);
+      const recoveredNext = deferredDraft.current;
+      if (recoveredNext && result.nextItem.status === "ready" && recoveredNext.item.exercise.id === result.nextItem.exercise.id) {
+        setItem(result.nextItem); setAnswerValue(recoveredNext.answer); setAttemptId(recoveredNext.attemptId);
+        setFeedback(recoveredNext.checked ? getInstantPracticeFeedback(result.nextItem.exercise, recoveredNext.answer) : null);
+        setManualRating(recoveredNext.rating); setSubmittedResponseMs(recoveredNext.responseMs);
+        deferredDraft.current = undefined;
+        return;
+      }
+      deferredDraft.current = undefined;
       const same = next && result.nextItem.status === "ready" && result.nextItem.exercise.id === next.exercise.id;
       if (!same) {
         setPreloaded([]);
@@ -233,7 +266,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
       setStatusNotice(createStatusNotice(result.idempotent ? "Review already saved." : "Review saved."));
     }).catch(() => restore("Could not confirm the save. Your checked answer is restored. Press Continue to retry."))
       .finally(() => { savingRef.current = false; setAdvancePending(false); setPendingAction(null); });
-  }, [attemptId, answerValue, feedback, item, manualRating, pendingAction, preloaded, resetAttemptState, scopedCollectionId, submittedResponseMs, timer]);
+  }, [attemptId, answerValue, feedback, item, manualRating, pendingAction, preloaded, resetAttemptState, scopedCollectionId, submittedResponseMs, timer, recoveryKey, finishSave]);
 
   const handleFlagSubmit = useCallback(() => {
     if (savingRef.current) return;
@@ -451,13 +484,14 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
         <PracticeScopeBar scope={item.scope} />
       </div>
       <section className="practiceFrame" aria-label="Practice exercise" data-next-ready={preloaded.length > 0} data-buffered-count={preloaded.length}>
+        {showRecovery ? <RecoveryNotice storageKey={recoveryKey} saving={advancePending} /> : null}
         <div className="practiceMetaRow">
           <div>
             <p className="practiceMetaSummary tnum">
-              {formatFsrsState(item.skill.fsrsState)} · {formatElapsed(timer.elapsedMs)}
+              {formatFsrsState(item.skill.fsrsState)} · {formatElapsed(checkedFeedback ? submittedResponseMs ?? timer.elapsedMs : timer.elapsedMs)}
             </p>
           </div>
-          {advancePending ? <p role="status" className="practiceMetaSummary">Saving…</p> : null}
+          {advancePending || navigationMessage ? <p role="status" className="practiceMetaSummary">{navigationMessage ?? "Saving…"}</p> : null}
         </div>
 
       <PracticePrompt text={exercise.prompt} />
