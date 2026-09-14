@@ -17,12 +17,14 @@ import {
 } from "@/lib/answer-limits";
 
 import {
+  flagCustomPracticeExerciseAction,
   preloadCustomPracticeBufferAction,
   commitCustomPracticeAnswerAction,
   resumeCustomPracticeSessionAction,
   stopCustomPracticeSessionAction,
 } from "./actions";
 import { MathText } from "./math-text";
+import { ExerciseReport } from "./exercise-report";
 import { RecoveryNotice } from "./recovery-notice";
 import { PracticePrompt } from "./practice-prompt";
 import type {
@@ -43,7 +45,8 @@ export function CustomPracticeClient({
   const [answer, setAnswer] = useState(restored?.answer ?? "");
   const [feedback, setFeedback] = useState<CustomPracticeClientPreviewResult | null>(() => restored?.checked ? getInstantPracticeFeedback(restored.view.item, restored.answer) : null);
   const [manualRating, setManualRating] = useState<FsrsRating>(restored?.rating ?? FsrsRating.GOOD);
-  const [pending, setPending] = useState<"check" | "save" | "stop" | "resume" | null>(null);
+  const [pending, setPending] = useState<"check" | "save" | "stop" | "resume" | "flag" | null>(null);
+  const [reportedExerciseId, setReportedExerciseId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const startedAt = useRef<number | null>(null);
   const submittedResponseMs = useRef<number | null>(null);
@@ -224,6 +227,7 @@ export function CustomPracticeClient({
         </h1>
         <p>{view.message}</p>
         {actionError ? <ActionNotification id="custom-practice-error" title="Could not update session" message={actionError} /> : null}
+        {reportedExerciseId ? <ActionNotification id={`custom-report-${reportedExerciseId}`} title="Report saved" tone="success" message="The exercise was removed. Your review schedule is unchanged." /> : null}
         {view.session ? (
           <p className="practiceMetaSummary tnum">
             {view.session.completedCount} of {view.session.targetCount} exercises · {formatMode(view.session.mode)}
@@ -272,6 +276,7 @@ export function CustomPracticeClient({
         </div>
         <PracticePrompt text={exercise.prompt} />
         {actionError ? <ActionNotification id="custom-practice-error" title="Could not update session" message={actionError} /> : null}
+        {reportedExerciseId ? <ActionNotification id={`custom-report-${reportedExerciseId}`} title="Report saved" tone="success" message="The exercise was removed. Your review schedule is unchanged." /> : null}
         {isChoice ? (
           <div className="choiceGrid" role="radiogroup" aria-label="Answer choices">
             {exercise.choices.map((choice, index) => (
@@ -344,6 +349,19 @@ export function CustomPracticeClient({
             </button>
           </div>
         ) : null}
+        <ExerciseReport key={exercise.itemKey + exercise.exerciseId} disabled={pending !== null || saving} onReport={async (reasons, note) => {
+          setPending("flag");
+          try {
+            const result = await flagCustomPracticeExerciseAction({ sessionId: session.id, itemKey: exercise.itemKey, exerciseId: exercise.exerciseId, reasons, otherNote: note });
+            if (result.status !== "flagged") return result.message;
+            setPreloaded([]); preloadRequest.current = null;
+            pendingDraft.current = undefined; deferredDraft.current = undefined;
+            setReportedExerciseId(exercise.exerciseId);
+            setView(result.next); setAnswer(""); setFeedback(null); setShowRecovery(false);
+            setActionError(null); setManualRating(FsrsRating.GOOD);
+            return null;
+          } finally { setPending(null); }
+        }} />
       </section>
     </>
   );

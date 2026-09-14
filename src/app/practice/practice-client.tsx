@@ -27,6 +27,7 @@ import {
   flagPracticeExerciseAction,
 } from "./actions";
 import { MathText } from "./math-text";
+import { FLAG_REASON_OPTIONS } from "@/lib/practice/flag-reasons";
 import { RecoveryNotice } from "./recovery-notice";
 import { PracticePrompt } from "./practice-prompt";
 import type {
@@ -50,36 +51,6 @@ type PracticeStatusNotice = {
   tone: PracticeStatusTone;
 };
 
-const FLAG_REASON_OPTIONS: Array<{ reason: ExerciseFlagReason; label: string }> = [
-  {
-    reason: ExerciseFlagReason.INCORRECT_ANSWER,
-    label: "Correct answer seems wrong",
-  },
-  {
-    reason: ExerciseFlagReason.UNCLEAR_PROMPT,
-    label: "Prompt is unclear",
-  },
-  {
-    reason: ExerciseFlagReason.UNFAIR,
-    label: "Feels unfair or tricky",
-  },
-  {
-    reason: ExerciseFlagReason.STALE,
-    label: "Stale or outdated",
-  },
-  {
-    reason: ExerciseFlagReason.NOT_USEFUL,
-    label: "Not useful for this skill",
-  },
-  {
-    reason: ExerciseFlagReason.OFF_TOPIC,
-    label: "Off topic",
-  },
-  {
-    reason: ExerciseFlagReason.OTHER,
-    label: "Something else",
-  },
-];
 
 const RATING_OPTIONS: Array<{ rating: FsrsRating; shortcut: string }> = [
   { rating: FsrsRating.HARD, shortcut: "2" },
@@ -272,7 +243,6 @@ export function PracticeClient({ initialItem, canUseSampleData, recoveryKey, ini
     if (savingRef.current) return;
     if (
       item.status !== "ready" ||
-      feedback?.status !== "checked" ||
       pendingAction !== null ||
       !canSubmitFlag
     ) {
@@ -283,6 +253,7 @@ export function PracticeClient({ initialItem, canUseSampleData, recoveryKey, ini
     setStatusNotice(null);
 
     startTransition(async () => {
+      try {
       const result = await flagPracticeExerciseAction({
         mixedReview: true,
         previousSkillId: item.skill.id,
@@ -295,6 +266,7 @@ export function PracticeClient({ initialItem, canUseSampleData, recoveryKey, ini
       setPendingAction(null);
 
       if (result.status === "flagged") {
+        pendingDraft.current = undefined; deferredDraft.current = undefined;
         setPreloaded([]);
         preloadRequest.current = null;
         setItem(result.nextItem);
@@ -303,10 +275,12 @@ export function PracticeClient({ initialItem, canUseSampleData, recoveryKey, ini
       } else {
         setStatusNotice(createStatusNotice(result.message));
       }
+      } catch {
+        setStatusNotice(createStatusNotice("Could not send the report. Your choices are still here. Try again."));
+      } finally { setPendingAction(null); }
     });
   }, [
     canSubmitFlag,
-    feedback,
     item,
     otherFlagNote,
     pendingAction,
@@ -649,13 +623,13 @@ export function PracticeClient({ initialItem, canUseSampleData, recoveryKey, ini
         </div>
       ) : null}
 
-      {checkedFeedback && !flagFormOpen ? (
+      {!flagFormOpen ? (
         <div className="flagExerciseInline">
           <button
             ref={reportToggleRef}
             className="quietButton"
             type="button"
-            disabled={pendingAction !== null}
+            disabled={advancePending || pendingAction !== null}
             aria-expanded={false}
             onClick={() => setFlagFormOpen(true)}
           >
@@ -665,21 +639,21 @@ export function PracticeClient({ initialItem, canUseSampleData, recoveryKey, ini
         </div>
       ) : null}
 
-      {checkedFeedback && flagFormOpen ? (
+      {flagFormOpen ? (
         <section className="flagExercisePanel" aria-labelledby="flag-exercise-title">
           <div className="flagExerciseHeader">
             <div>
               <h2 id="flag-exercise-title">Report an issue</h2>
-              <p>Retire this exercise instead of saving the review.</p>
+              <p>This removes the exercise from practice. Reporting does not record an answer or change your review schedule.</p>
             </div>
             <button
               ref={reportToggleRef}
               className="secondaryButton"
               type="button"
-              disabled={pendingAction !== null}
+              disabled={advancePending || pendingAction !== null}
               aria-controls="practice-report-form"
               aria-expanded={flagFormOpen}
-              onClick={() => setFlagFormOpen((open) => !open)}
+              onClick={() => { setFlagFormOpen(false); window.requestAnimationFrame(() => reportToggleRef.current?.focus()); }}
             >
               Close report
             </button>
@@ -695,7 +669,7 @@ export function PracticeClient({ initialItem, canUseSampleData, recoveryKey, ini
                       ref={index === 0 ? firstFlagReasonRef : undefined}
                       type="checkbox"
                       checked={selectedFlagReasons.includes(option.reason)}
-                      disabled={pendingAction !== null}
+                      disabled={advancePending || pendingAction !== null}
                       onChange={() => handleFlagReasonToggle(option.reason)}
                     />
                     <span>{option.label}</span>
@@ -709,7 +683,7 @@ export function PracticeClient({ initialItem, canUseSampleData, recoveryKey, ini
                 <span>Note</span>
                 <textarea
                   value={otherFlagNote}
-                  disabled={pendingAction !== null}
+                  disabled={advancePending || pendingAction !== null}
                   maxLength={500}
                   rows={3}
                   onChange={(event) => setOtherFlagNote(event.target.value)}
@@ -721,7 +695,7 @@ export function PracticeClient({ initialItem, canUseSampleData, recoveryKey, ini
               <button
                 className="secondaryButton"
                 type="button"
-                disabled={pendingAction !== null || !canSubmitFlag}
+                disabled={advancePending || pendingAction !== null || !canSubmitFlag}
                 onClick={handleFlagSubmit}
               >
                 {pendingAction === "flag" ? "Reporting" : "Submit report"}

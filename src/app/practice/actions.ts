@@ -17,6 +17,7 @@ import {
 } from "@/lib/practice";
 import {
   commitCustomPracticeAnswer,
+  getCustomPracticeSession,
   createCustomPracticeSession,
   preloadCustomPracticeSessionItem,
   preloadCustomPracticeSessionBuffer,
@@ -693,4 +694,19 @@ function formatFlagRefillMessage(refill: PracticeFlagRefillResult): string {
     default:
       return "Replacement preparation could not start.";
   }
+}
+
+export async function flagCustomPracticeExerciseAction(input: unknown) {
+  const user = await requirePracticeUserId();
+  if (user.status !== "ready") return { status: "not-flagged" as const, message: user.message };
+  const parsed = flagChoicePracticeExerciseInputSchema.extend({ sessionId: z.string().min(1).max(200), itemKey: z.string().min(1).max(200) }).safeParse(input);
+  if (!parsed.success) return { status: "not-flagged" as const, message: "Choose a valid report reason and keep notes under 500 characters." };
+  const data = parsed.data;
+  const session = await getCustomPracticeSession(user.userId, data.sessionId);
+  if (!session || session.status !== "ACTIVE" || !session.plan.some(item => item.itemKey === data.itemKey && item.exerciseId === data.exerciseId && item.status === "PRESENTED")) {
+    return { status: "not-flagged" as const, message: "This exercise is no longer the current item in this session. Reload practice to continue." };
+  }
+  const result = await flagPracticeExerciseAndQueueRefill({ userId: user.userId, exerciseId: data.exerciseId, reasons: data.reasons, otherNote: data.otherNote, flaggedAt: new Date() });
+  if (result.status !== "flagged") return { status: "not-flagged" as const, message: result.message };
+  return { status: "flagged" as const, next: toCustomPracticeClientView(await presentCustomPracticeSessionItem({ userId: user.userId, sessionId: data.sessionId })) };
 }

@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   createCustomPracticeSession: vi.fn(),
+  getCustomPracticeSession: vi.fn(),
+  presentCustomPracticeSessionItem: vi.fn(),
   authProtect: vi.fn(),
   currentUser: vi.fn(),
   ensureDatabaseUser: vi.fn(),
@@ -34,6 +36,8 @@ vi.mock("@/lib/practice", () => ({
 
 vi.mock("@/lib/practice/custom-session", () => ({
   createCustomPracticeSession: mocks.createCustomPracticeSession,
+  getCustomPracticeSession: mocks.getCustomPracticeSession,
+  presentCustomPracticeSessionItem: mocks.presentCustomPracticeSessionItem,
 }));
 
 vi.mock("@/lib/practice/sample-data", () => ({
@@ -198,4 +202,26 @@ describe("practice server actions", () => {
       }),
     );
   });
+  it("reports a presented custom item without grading or opening normal practice", async () => {
+    const { flagCustomPracticeExerciseAction } = await import("@/app/practice/actions");
+    mocks.ensureDatabaseUser.mockResolvedValue({ status: "ready", userId: "user_alpha" });
+    mocks.getCustomPracticeSession.mockResolvedValue({ status: "ACTIVE", plan: [{ itemKey: "item", exerciseId: "exercise", status: "PRESENTED" }] });
+    mocks.flagPracticeExerciseAndQueueRefill.mockResolvedValue({ status: "flagged" });
+    mocks.presentCustomPracticeSessionItem.mockResolvedValue({ status: "unavailable", message: "Preparing another exercise" });
+    await expect(flagCustomPracticeExerciseAction({ sessionId: "session", itemKey: "item", exerciseId: "exercise", reasons: ["UNCLEAR_PROMPT"] })).resolves.toMatchObject({ status: "flagged" });
+    expect(mocks.getCustomPracticeSession).toHaveBeenCalledWith("user_alpha", "session");
+    expect(mocks.flagPracticeExerciseAndQueueRefill).toHaveBeenCalledWith(expect.objectContaining({ userId: "user_alpha", exerciseId: "exercise" }));
+    expect(mocks.commitPracticeReview).not.toHaveBeenCalled();
+    expect(mocks.getNextPracticeItemForUser).not.toHaveBeenCalled();
+  });
+  it("rejects foreign sessions and exercises outside the presented session item", async () => {
+    const { flagCustomPracticeExerciseAction } = await import("@/app/practice/actions");
+    mocks.ensureDatabaseUser.mockResolvedValue({ status: "ready", userId: "user_alpha" });
+    for (const session of [null, { status: "ACTIVE", plan: [{ itemKey: "item", exerciseId: "other", status: "PRESENTED" }] }]) {
+      mocks.getCustomPracticeSession.mockResolvedValue(session);
+      await expect(flagCustomPracticeExerciseAction({ sessionId: "foreign", itemKey: "item", exerciseId: "exercise", reasons: ["UNCLEAR_PROMPT"] })).resolves.toMatchObject({ status: "not-flagged" });
+    }
+    expect(mocks.flagPracticeExerciseAndQueueRefill).not.toHaveBeenCalled();
+  });
+
 });
