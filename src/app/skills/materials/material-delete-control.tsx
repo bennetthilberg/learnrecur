@@ -41,6 +41,7 @@ export function MaterialDeleteControl({
         Delete
       </button>
       <Modal
+        closeButtonProps={{ "aria-label": "Close material deletion confirmation" }}
         centered
         classNames={{
           body: "materialDeleteModalBody",

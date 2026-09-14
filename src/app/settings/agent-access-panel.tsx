@@ -148,6 +148,7 @@ export function AgentAccessPanel({ resourceUrl, connections, activity }: {
       {notice ? <ActionNotification id="agent-access-action" title="Agent access" message={pending ? null : notice.message} tone={notice.tone === "saved" ? "success" : "error"} /> : null}
 
       <Modal
+        closeButtonProps={{ "aria-label": "Close revoke connection confirmation" }}
         opened={Boolean(selected)}
         onClose={() => setSelected(null)}
         title={selected ? `Revoke ${selected.clientName}?` : "Revoke connection?"}

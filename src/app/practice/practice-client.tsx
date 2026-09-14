@@ -77,6 +77,7 @@ export function PracticeClient({ initialItem, canUseSampleData, recoveryKey, ini
   const [, startTransition] = useTransition();
   const answerInputRef = useRef<HTMLInputElement>(null);
   const continueButtonRef = useRef<HTMLButtonElement>(null);
+  const firstChoiceRef = useRef<HTMLButtonElement>(null);
   const firstFlagReasonRef = useRef<HTMLInputElement>(null);
   const reportToggleRef = useRef<HTMLButtonElement>(null);
   const shouldFocusNextReadyAnswerRef = useRef(false);
@@ -324,13 +325,13 @@ export function PracticeClient({ initialItem, canUseSampleData, recoveryKey, ini
 
       shouldFocusNextReadyAnswerRef.current = false;
 
-      if (item.status === "ready" && item.exercise.answerKind !== AnswerKind.CHOICE) {
-        answerInputRef.current?.focus({ preventScroll: true });
+      if (item.status === "ready") {
+        (item.exercise.answerKind === AnswerKind.CHOICE ? firstChoiceRef.current : answerInputRef.current)?.focus({ preventScroll: true });
       }
     });
 
     return () => window.cancelAnimationFrame(focusTarget);
-  }, [attemptId, checkedFeedback, item]);
+  }, [attemptId, checkedFeedback, item, advancePending]);
 
   useEffect(() => {
     if (!flagFormOpen) {
@@ -346,6 +347,7 @@ export function PracticeClient({ initialItem, canUseSampleData, recoveryKey, ini
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.isComposing || event.repeat || event.metaKey || event.ctrlKey || event.altKey) return;
       if (item.status !== "ready") {
         return;
       }
@@ -491,6 +493,7 @@ export function PracticeClient({ initialItem, canUseSampleData, recoveryKey, ini
             return (
               <button
                 key={choice.id}
+                ref={index === 0 ? firstChoiceRef : undefined}
                 className="choiceCard"
                 data-selected={selected ? "true" : "false"}
                 data-tone={tone}
@@ -928,6 +931,8 @@ function getShortcutTargetRole(
   if (!(target instanceof HTMLElement)) {
     return "document";
   }
+
+  if (target.matches("button.choiceCard")) return "document";
 
   if (answerInput && target === answerInput) {
     return "answer-input";

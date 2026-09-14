@@ -48,6 +48,10 @@ export function CustomPracticeClient({
   const [pending, setPending] = useState<"check" | "save" | "stop" | "resume" | "flag" | null>(null);
   const [reportedExerciseId, setReportedExerciseId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const continueButtonRef = useRef<HTMLButtonElement>(null);
+  const answerInputRef = useRef<HTMLInputElement>(null);
+  const firstChoiceRef = useRef<HTMLButtonElement>(null);
+  const previousItemKey = useRef<string | null>(null);
   const startedAt = useRef<number | null>(null);
   const submittedResponseMs = useRef<number | null>(null);
   const restoredResponseMs = useRef<number | null>(restored?.responseMs ?? null);
@@ -104,6 +108,19 @@ export function CustomPracticeClient({
     document.addEventListener("visibilitychange", refresh);
     return () => document.removeEventListener("visibilitychange", refresh);
   }, []);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      const changed = previousItemKey.current !== null && previousItemKey.current !== presentedItemKey;
+      previousItemKey.current = presentedItemKey;
+      if (feedback?.status === "checked") {
+        continueButtonRef.current?.focus();
+      } else if (changed && readyItem) {
+        (readyItem.answerKind === AnswerKind.CHOICE ? firstChoiceRef.current : answerInputRef.current)?.focus({ preventScroll: true });
+      }
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [presentedItemKey, readyItem, feedback, saving, pending]);
 
   const handleCheck = () => {
     if (!readyItem || answer.trim().length === 0 || pending) return;
@@ -285,6 +302,7 @@ export function CustomPracticeClient({
                 data-selected={answer === choice.id ? "true" : "false"}
                 data-tone={checked && (answer === choice.id || checked.correctChoiceId === choice.id) ? checked.answerCheck.isCorrect || checked.correctChoiceId === choice.id ? "correct" : "incorrect" : "neutral"}
                 key={choice.id}
+                ref={index === 0 ? firstChoiceRef : undefined}
                 type="button"
                 role="radio"
                 aria-checked={answer === choice.id}
@@ -300,6 +318,8 @@ export function CustomPracticeClient({
           <label className="exactAnswerField">
             <span>Your answer</span>
             <input
+              ref={answerInputRef}
+              onKeyDown={(event) => { if (event.key === "Enter" && !event.nativeEvent.isComposing && !event.repeat && !event.metaKey && !event.ctrlKey && !event.altKey) { event.preventDefault(); handleCheck(); } }}
               value={answer}
               inputMode={isNumeric ? "decimal" : "text"}
               autoComplete="off"
@@ -344,7 +364,7 @@ export function CustomPracticeClient({
         ) : null}
         {checked ? (
           <div className="practiceActions">
-            <button className="primaryButton" type="button" onClick={handleSave} disabled={pending !== null || saving}>
+            <button ref={continueButtonRef} className="primaryButton" type="button" onClick={handleSave} disabled={pending !== null || saving}>
               {pending === "save" ? "Saving" : session.mode === "PRACTICE_ONLY" ? "Save practice" : "Continue"}
             </button>
           </div>

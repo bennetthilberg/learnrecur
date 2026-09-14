@@ -151,6 +151,7 @@ export function SkillRowActions({
         </Menu.Dropdown>
       </Menu>
       <Modal
+        closeButtonProps={{ "aria-label": "Close archive confirmation" }}
         opened={dialog !== null}
         onClose={closeDialog}
         title={
