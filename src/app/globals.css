@@ -5838,3 +5838,24 @@ a {
     padding-left: 0;
   }
 }
+
+.skillsLibraryFilters {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+}
+.skillsLibraryResults {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-block: 20px;
+  color: var(--lr-text-secondary);
+}
+.skillsLibraryResults p { margin: 0; }
+.skillsLibraryMore { display: flex; justify-content: center; padding-top: 24px; }
+.skillsLibraryFilters > * { min-width: 0; }
+@media (max-width: 640px) {
+  .skillsLibraryFilters { grid-template-columns: minmax(0, 1fr); }
+}
