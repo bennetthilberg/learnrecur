@@ -1856,6 +1856,15 @@ body {
   white-space: pre-line;
 }
 
+.practicePromptPanel p.practiceInstruction {
+  margin: 0 0 12px;
+  font-family: var(--lr-font-body);
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: 0;
+}
+
 .mathTextBlank {
   display: inline-block;
   width: 2.45em;

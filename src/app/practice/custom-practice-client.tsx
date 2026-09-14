@@ -22,6 +22,7 @@ import {
   stopCustomPracticeSessionAction,
 } from "./actions";
 import { MathText } from "./math-text";
+import { PracticePrompt } from "./practice-prompt";
 import type {
   CustomPracticeClientPreviewResult,
   CustomPracticeClientView,
@@ -234,9 +235,7 @@ export function CustomPracticeClient({
           </div>
           {saving ? <p role="status" className="practiceMetaSummary">Saving…</p> : null}
         </div>
-        <article className="practicePromptPanel">
-          <p><MathText formatBlanks text={exercise.prompt} /></p>
-        </article>
+        <PracticePrompt text={exercise.prompt} />
         {actionError ? <ActionNotification id="custom-practice-error" title="Could not update session" message={actionError} /> : null}
         {isChoice ? (
           <div className="choiceGrid" role="radiogroup" aria-label="Answer choices">

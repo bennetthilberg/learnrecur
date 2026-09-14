@@ -26,6 +26,7 @@ import {
   flagPracticeExerciseAction,
 } from "./actions";
 import { MathText } from "./math-text";
+import { PracticePrompt } from "./practice-prompt";
 import type {
   ChoicePracticeSeedResult,
   PracticeItem,
@@ -459,11 +460,7 @@ export function PracticeClient({ initialItem, canUseSampleData }: PracticeClient
           {advancePending ? <p role="status" className="practiceMetaSummary">Saving…</p> : null}
         </div>
 
-      <article className="practicePromptPanel">
-        <p>
-          <MathText formatBlanks text={exercise.prompt} />
-        </p>
-      </article>
+      <PracticePrompt text={exercise.prompt} />
 
       {exercise.answerKind === AnswerKind.CHOICE ? (
         <div className="choiceGrid" role="radiogroup" aria-label="Answer choices">
