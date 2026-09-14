@@ -280,6 +280,13 @@ export default async function SkillPage({
               reviewCount={skill.repetitions}
             />
 
+            <SkillDetailReviewOutcomesCard groups={reviewOutcomeGroups} />
+
+            <SkillRecentReviewsPanel
+              className="skillDetailRecent"
+              reviews={recentReviews}
+            />
+
             <SkillDetailGuidanceCard
               constraints={draftValues.exerciseConstraints}
               examples={draftValues.examples}
@@ -289,7 +296,6 @@ export default async function SkillPage({
 
             <SkillPracticePreferences userId={userId} skillId={skill.id}/>
 
-            <SkillDetailReviewOutcomesCard groups={reviewOutcomeGroups} />
 
             <details className="skillDetailCard skillDetailPreparation skillFormDetails">
               <summary>
@@ -468,14 +474,8 @@ export default async function SkillPage({
             />
             <SkillSourcePanel
               className="skillDetailSources"
-              showEmpty
               skillId={skill.id}
               sources={sourceSummaries}
-            />
-            <SkillRecentReviewsPanel
-              className="skillDetailRecent"
-              reviews={recentReviews}
-              showEmpty
             />
           </div>
         </div>
@@ -680,16 +680,16 @@ function SkillDetailReviewOutcomesCard({ groups }: { groups: SkillReviewOutcomeG
   );
 
   return (
-    <section className="skillDetailCard skillDetailOutcomes" aria-labelledby="skill-detail-outcomes">
+    <section className="skillDetailCard skillDetailOutcomes" data-empty={totalReviews === 0 || undefined} aria-labelledby="skill-detail-outcomes">
       <div className="skillDetailSectionHeader">
         <div>
           <h2 id="skill-detail-outcomes">Practice results</h2>
-          <p>How completed reviews have gone for each answer type.</p>
+          {totalReviews > 0 ? <p>How completed reviews have gone for each answer type.</p> : null}
         </div>
       </div>
       {totalReviews > 0 ? (
         <div className="skillDetailOutcomeList">
-          {groups.map((group) => (
+          {groups.filter((group) => group.correctCount + group.incorrectCount > 0).map((group) => (
             <SkillDetailReviewOutcomeRow group={group} key={group.key} />
           ))}
         </div>
@@ -842,11 +842,11 @@ function SkillDetailGuidanceCard({
   skillId: string;
 }) {
   return (
-    <section className="skillDetailCard skillDetailGuidance" aria-labelledby="skill-detail-guidance">
+    <section className="skillDetailCard skillDetailGuidance" data-empty={!(rules.trim() || examples.trim() || constraints.trim()) || undefined} aria-labelledby="skill-detail-guidance">
       <div className="skillDetailSectionHeader">
         <div>
           <h2 id="skill-detail-guidance">Practice guidance</h2>
-          <p>What LearnRecur uses when it prepares exercises for this skill.</p>
+          {rules.trim() || examples.trim() || constraints.trim() ? <p>What LearnRecur uses when it prepares exercises for this skill.</p> : null}
         </div>
         <SkillPracticeGuidanceDialog
           constraints={constraints}
@@ -855,39 +855,33 @@ function SkillDetailGuidanceCard({
           skillId={skillId}
         />
       </div>
-      <div className="skillDetailGuidanceList">
-        <SkillDetailTextBlock fallback="No rules are saved for this skill yet." title="Rules">
-          {rules}
-        </SkillDetailTextBlock>
-        <SkillDetailTextBlock fallback="No examples are saved for this skill yet." title="Examples">
-          {examples}
-        </SkillDetailTextBlock>
-        <SkillDetailTextBlock
-          fallback="No extra exercise constraints are saved for this skill yet."
-          title="Exercise focus"
-        >
-          {constraints}
-        </SkillDetailTextBlock>
-      </div>
+      {rules.trim() || examples.trim() || constraints.trim() ? (
+        <div className="skillDetailGuidanceList">
+          <SkillDetailTextBlock title="Rules">{rules}</SkillDetailTextBlock>
+          <SkillDetailTextBlock title="Examples">{examples}</SkillDetailTextBlock>
+          <SkillDetailTextBlock title="Exercise focus">{constraints}</SkillDetailTextBlock>
+        </div>
+      ) : (
+        <p className="skillDetailEmptyText">No extra guidance yet. Add rules, examples, or an exercise focus with Edit.</p>
+      )}
     </section>
   );
 }
 
 function SkillDetailTextBlock({
   children,
-  fallback,
   title,
 }: {
   children: string;
-  fallback: string;
   title: string;
 }) {
   const body = children.trim();
+  if (!body) return null;
 
   return (
     <section className="skillDetailTextBlock">
       <h3>{title}</h3>
-      <p data-empty={body ? undefined : "true"}>{body || fallback}</p>
+      <p>{body}</p>
     </section>
   );
 }

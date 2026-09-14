@@ -6533,23 +6533,12 @@ body {
 .skillDetailCanvas {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-areas:
-    "hero"
-    "schedule"
-    "guidance"
-    "preferences"
-    "outcomes"
-    "preparation"
-    "recent"
-    "sources"
-    "controls";
   align-items: start;
   gap: 18px;
 }
 
 .skillDetailHero {
   display: grid;
-  grid-area: hero;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: end;
   gap: 18px;
@@ -6600,34 +6589,6 @@ body {
   width: 100%;
   max-width: none;
   margin: 0;
-}
-
-.skillDetailSchedule {
-  grid-area: schedule;
-}
-
-.skillDetailGuidance {
-  grid-area: guidance;
-}
-
-.skillDetailOutcomes {
-  grid-area: outcomes;
-}
-
-.skillDetailPreparation {
-  grid-area: preparation;
-}
-
-.skillDetailControls {
-  grid-area: controls;
-}
-
-.skillDetailSources {
-  grid-area: sources;
-}
-
-.skillDetailRecent {
-  grid-area: recent;
 }
 
 .skillDetailSectionHeader {
@@ -8460,7 +8421,6 @@ body {
 }
 
 /* Reuse the existing practice grid and contrast tokens for compact preferences. */
-.skillDetailCanvas > .skillPracticePreferences { grid-area: preferences; }
 .practicePreferencesForm .mantine-InputWrapper-description,
 .practicePreferencesForm .mantine-Checkbox-description,
 .practicePreferencesForm .mantine-Switch-description { color: var(--lr-text-secondary); }
@@ -9595,3 +9555,12 @@ body {
 .practiceRecoveryNotice { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 16px; margin-bottom: 16px; }
 .practiceRecoveryNotice p { margin: 0; color: var(--lr-text-secondary); font-size: 16px; }
 .flagExerciseHeader > button { flex-shrink: 0; white-space: nowrap; justify-self: start; }
+
+.skillDetailCard[data-empty="true"] .skillDetailSectionHeader {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.skillDetailCard[data-empty="true"] .skillDetailEmptyText {
+  margin: 8px 0 0;
+}
