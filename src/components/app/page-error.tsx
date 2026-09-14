@@ -19,10 +19,10 @@ export function PageError({ reset }: { reset: () => void }) {
   return (
     <main className="practiceShell">
       <SkillsTopbar current={current} />
-      <section className="practiceFrame practiceEmpty" aria-labelledby="page-error-title">
+      <section className="practiceFrame practiceEmpty practiceLoadError" aria-labelledby="page-error-title">
         <h1 id="page-error-title" ref={heading} tabIndex={-1}>This page couldn’t load</h1>
         <p>Try again, or open another page while we reconnect.</p>
-        <div className="practiceActions">
+        <div className="practiceActions pageErrorActions">
           <Link className="secondaryButton" href={current === "dashboard" ? "/skills" : "/dashboard"}>
             {current === "dashboard" ? "Open skills" : "Go to dashboard"}
           </Link>

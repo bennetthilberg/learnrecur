@@ -9432,6 +9432,12 @@ body {
   margin: 12px 0 20px;
   font-size: 16px;
 }
+
+.pageErrorActions {
+  width: 100%;
+  gap: 10px;
+  flex-wrap: wrap;
+}
 .libraryShell .panelHeaderCount {
   border-top: 0;
   border-left: 1px solid var(--lr-divider);
