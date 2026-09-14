@@ -93,7 +93,7 @@ export default async function SettingsPage() {
           </p>
         </div>
 
-        <ReminderSettingsForm preference={settings.preference} />
+        <ReminderSettingsForm preference={settings.preference} practiceTimezone={practicePreferences.practiceTimezone} />
         <div className="settingsPrivacyNote" role="note" aria-label="Reminder privacy">
           <p>
             Reminder emails include the number of due skills and one practice link.

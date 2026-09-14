@@ -37,20 +37,21 @@ const timezones = [
 
 export function ReminderSettingsForm({
   preference,
+  practiceTimezone,
 }: {
   preference: NormalizedReminderPreferenceInput;
+  practiceTimezone: string;
 }) {
   const [state, setState] = useState<ReminderSettingsActionState>(idleState);
   const [currentPreference, setCurrentPreference] = useState(preference);
+  const [timezone, setTimezone] = useState(preference.timezone);
   const [pending, setPending] = useState(false);
   const pendingRef = useRef(false);
   const emailErrorId = useId();
   const localHourErrorId = useId();
   const timezoneErrorId = useId();
   const minimumDueCountErrorId = useId();
-  const timezoneOptions = timezones.includes(currentPreference.timezone)
-    ? timezones
-    : [currentPreference.timezone, ...timezones];
+  const timezoneOptions = [...new Set([timezone, practiceTimezone, ...timezones])];
 
   const saveForm = useCallback(
     async (
@@ -72,6 +73,7 @@ export function ReminderSettingsForm({
 
         if (result.status === "saved" && result.preference) {
           setCurrentPreference(result.preference);
+          setTimezone(result.preference.timezone);
         }
 
         setState(result);
@@ -192,7 +194,8 @@ export function ReminderSettingsForm({
                   hasFieldError(state, "timezone") ? timezoneErrorId : undefined
                 }
                 aria-invalid={hasFieldError(state, "timezone") ? "true" : undefined}
-                defaultValue={currentPreference.timezone}
+                value={timezone}
+                onChange={(value) => { if (value) setTimezone(value); }}
                 disabled={pending}
                 name="timezone"
                 required
@@ -201,6 +204,16 @@ export function ReminderSettingsForm({
               />
               <FieldError id={timezoneErrorId} state={state} name="timezone" />
             </label>
+          </div>
+
+          <div className="reminderTimezoneHelp">
+            <p className="settingsFieldHint">
+              Practice uses {practiceTimezone} to reset your daily allowance. This timezone controls when reminder emails arrive.
+            </p>
+            <button className="secondaryButton" type="button" disabled={pending || timezone === practiceTimezone} onClick={() => setTimezone(practiceTimezone)}>
+              Use practice timezone
+            </button>
+            <p className="settingsFieldHint">Save changes to apply this reminder schedule.</p>
           </div>
 
           <label className="skillField">

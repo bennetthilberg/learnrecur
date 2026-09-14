@@ -43,7 +43,8 @@ for (const width of [1280, 390]) {
         name: "Save practice preferences",
       });
       await expect(unlimited).toBeChecked();
-      await expect(limit).toBeDisabled();
+      await expect(limit).toHaveValue("Unlimited");
+      await expect(limit).toHaveAttribute("readonly", "");
       await unlimited.uncheck();
       await limit.fill("0");
       await page.getByText("Advanced practice settings", { exact: true }).click();
@@ -97,8 +98,8 @@ for (const width of [1280, 390]) {
       });
       // The cap does not prevent a previously reviewed skill from being shown.
       await page.goto(`/practice?collectionId=${review.collectionId}`);
-      await expect(page.getByRole("article")).toContainText(
-        review.exercise.prompt,
+      await expect.poll(async () => (await page.locator(".practicePromptPanel p").allTextContents()).join(" ").replace(/\s+/g, " ").trim()).toBe(
+        review.exercise.prompt.replace(/_+/g, "").replace(/\s+/g, " ").trim(),
       );
 
       await page.goto("/settings");
@@ -132,7 +133,7 @@ for (const width of [1280, 390]) {
         )[0].firstIntroducedAt,
       ).toBeNull();
       await page.goto(practiceUrl);
-      await expect(page.getByRole("article")).toContainText(
+      await expect.poll(async () => (await page.locator(".practicePromptPanel p").allTextContents()).join(" ").replace(/\s+/g, " ").trim()).toBe(
         fresh.exercise.prompt.replace(/_+/g, "").replace(/\s+/g, " ").trim(),
       );
       const before = (
@@ -144,7 +145,7 @@ for (const width of [1280, 390]) {
       expect(before.firstIntroducedAt).not.toBeNull();
       expect(before.repetitions).toBe(0);
       await page.reload();
-      await expect(page.getByRole("article")).toContainText(
+      await expect.poll(async () => (await page.locator(".practicePromptPanel p").allTextContents()).join(" ").replace(/\s+/g, " ").trim()).toBe(
         fresh.exercise.prompt.replace(/_+/g, "").replace(/\s+/g, " ").trim(),
       );
       expect(
@@ -215,7 +216,8 @@ test("advanced retention and practice-day settings persist and reset", async ({
       exact: true,
     });
     await expect(defaultRetention).toBeChecked();
-    await expect(retention).toBeDisabled();
+    await expect(retention).toHaveValue("Using default: 90%");
+    await expect(retention).toHaveAttribute("readonly", "");
     await defaultRetention.uncheck();
     await retention.fill("97.5");
 
@@ -247,7 +249,8 @@ test("advanced retention and practice-day settings persist and reset", async ({
     await page.reload();
     await page.getByText("Advanced practice settings", { exact: true }).click();
     await expect(defaultRetention).toBeChecked();
-    await expect(retention).toBeDisabled();
+    await expect(retention).toHaveValue("Using default: 90%");
+    await expect(retention).toHaveAttribute("readonly", "");
   } finally {
     await sql.query(
       'UPDATE users SET "desiredRetention"=$1, "practiceDayStartMinutes"=$2, "practiceTimezone"=$3 WHERE id=$4',

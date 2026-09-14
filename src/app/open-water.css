@@ -9564,3 +9564,13 @@ body {
 .skillDetailCard[data-empty="true"] .skillDetailEmptyText {
   margin: 8px 0 0;
 }
+
+.reminderTimezoneHelp {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+}
+
+.reminderTimezoneHelp p {
+  margin: 0;
+}

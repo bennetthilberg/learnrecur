@@ -216,23 +216,33 @@ export function PracticePreferencesForm(props: Props) {
               disabled={disabled}
               onChange={(event) => setUnlimited(event.currentTarget.checked)}
             />
-            <NumberInput
-              size="md"
-              label="New skills per day"
-              description="Counts the first exercise shown for each new skill, across all collections. Scheduled follow-up reviews stay available. Use 0 for review-only practice."
-              value={dailyLimit}
-              min={0}
-              max={1000}
-              allowDecimal={false}
-              allowNegative={false}
-              disabled={disabled || unlimited}
-              onChange={setDailyLimit}
-              error={
-                !validDailyLimit
-                  ? "Enter a whole number from 0 to 1000."
-                  : undefined
-              }
-            />
+            {unlimited ? (
+              <TextInput
+                size="md"
+                label="New skills per day"
+                description="New skills can enter practice without a daily limit. Scheduled reviews are always available."
+                value="Unlimited"
+                readOnly
+              />
+            ) : (
+              <NumberInput
+                size="md"
+                label="New skills per day"
+                description="Counts the first exercise shown for each new skill, across all collections. Scheduled follow-up reviews stay available. Use 0 for review-only practice."
+                value={dailyLimit}
+                min={0}
+                max={1000}
+                allowDecimal={false}
+                allowNegative={false}
+                disabled={disabled || unlimited}
+                onChange={setDailyLimit}
+                error={
+                  !validDailyLimit
+                    ? "Enter a whole number from 0 to 1000."
+                    : undefined
+                }
+              />
+            )}
             <Text size="sm">
               New-skill allowance follows a practice day starting at {dayStart}{" "}
               in {timezone}.
@@ -249,28 +259,38 @@ export function PracticePreferencesForm(props: Props) {
                     setUseDefaultRetention(event.currentTarget.checked)
                   }
                 />
-                <NumberInput
-                  size="md"
-                  label="Desired retention"
-                  description="Higher retention schedules reviews closer together. Decimals are allowed."
-                  value={retentionPercent}
-                  min={70}
-                  max={99}
-                  step={0.1}
-                  suffix="%"
-                  allowDecimal
-                  allowNegative={false}
-                  disabled={disabled || useDefaultRetention}
-                  onChange={(value) => {
-                    setRetentionEdited(true);
-                    setRetentionPercent(value);
-                  }}
-                  error={
-                    !validRetention
-                      ? "Enter a percentage from 70 to 99."
-                      : undefined
-                  }
-                />
+                {useDefaultRetention ? (
+                  <TextInput
+                    size="md"
+                    label="Desired retention"
+                    description="Higher retention schedules reviews closer together."
+                    value="Using default: 90%"
+                    readOnly
+                  />
+                ) : (
+                  <NumberInput
+                    size="md"
+                    label="Desired retention"
+                    description="Higher retention schedules reviews closer together. Decimals are allowed."
+                    value={retentionPercent}
+                    min={70}
+                    max={99}
+                    step={0.1}
+                    suffix="%"
+                    allowDecimal
+                    allowNegative={false}
+                    disabled={disabled || useDefaultRetention}
+                    onChange={(value) => {
+                      setRetentionEdited(true);
+                      setRetentionPercent(value);
+                    }}
+                    error={
+                      !validRetention
+                        ? "Enter a percentage from 70 to 99."
+                        : undefined
+                    }
+                  />
+                )}
                 <TextInput
                   size="md"
                   label="Practice day starts at"
