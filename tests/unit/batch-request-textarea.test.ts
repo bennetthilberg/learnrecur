@@ -9,6 +9,8 @@ vi.mock("react-dom", async (importOriginal) => ({
   useFormStatus: () => ({ pending: formStatus.pending }),
 }));
 
+vi.mock("@/components/app/use-form-draft", () => ({ useFormDraft: (_scope: string, initial: object) => ({ value: initial, ready: true, dirty: false }) }));
+
 import { BatchRequestTextarea } from "@/app/skills/batches/batch-request-textarea";
 
 describe("BatchRequestTextarea", () => {
@@ -19,6 +21,7 @@ describe("BatchRequestTextarea", () => {
       createElement(BatchRequestTextarea, {
         defaultValue: "Make five skills from chapter ten.",
         name: "instruction",
+        draftScope: "test",
       }),
     );
 
@@ -33,6 +36,7 @@ describe("BatchRequestTextarea", () => {
     const markup = renderToStaticMarkup(
       createElement(BatchRequestTextarea, {
         name: "instruction",
+        draftScope: "test",
       }),
     );
 

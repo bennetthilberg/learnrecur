@@ -5362,6 +5362,8 @@ body {
 }
 
 .batchPrimaryAction {
+  gap: 12px;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
 }
@@ -9149,7 +9151,8 @@ body {
 .skillField {
   gap: 8px;
 }
-.skillField > span {
+.skillField > span,
+.skillField > label {
   font-size: 15px;
   line-height: 1.4;
 }
