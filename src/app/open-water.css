@@ -4830,6 +4830,13 @@ body {
   font-size: 11.5px;
 }
 
+.materialLibraryActions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .materialDeleteModalBody {
   display: grid;
   gap: 18px;
@@ -6336,6 +6343,10 @@ body {
     border-top: 1px solid var(--lr-divider);
     padding-top: 12px;
     flex-wrap: wrap;
+  }
+
+  .materialLibraryActions {
+    width: 100%;
   }
 
   .materialCompactRow {

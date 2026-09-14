@@ -16,17 +16,23 @@ test("a background import retains processing and failure state through navigatio
     await expect(page.getByText(/You can leave this page; processing continues/)).toBeVisible();
     await page.getByRole("link", { name: "Dashboard", exact: true }).click();
     await expect(page).toHaveURL(/\/dashboard$/);
-    await page.goBack();
+    await page.goto("/skills/materials");
+    await expect(page.getByText("Processing", { exact: true })).toBeVisible();
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.locator(".materialLibraryPanel").screenshot({ path: testInfo.outputPath("processing-library-1280.png") });
+    await page.getByRole("link", { name: "Long reference import", exact: true }).click();
     await expect(processing).toBeVisible();
     await page.reload();
     await expect(processing).toBeVisible();
     await page.setViewportSize({ width: 390, height: 900 });
     await page.locator(".materialProcessingPanel").screenshot({ path: testInfo.outputPath("processing-390.png") });
     // Simulate a persisted worker failure; the browser must pick up the state.
+    await page.goto("/skills/materials");
+    await expect(page.getByText("Processing", { exact: true })).toBeVisible();
     await sql.query('UPDATE material_revisions SET status=\'FAILED\',"errorMessage"=$2,"updatedAt"=now() WHERE id=$1', [revisionId, "Some pages could not be read. Retry this import."]);
-    await expect(page.getByRole("heading", { name: "Import needs attention", exact: true })).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByRole("button", { name: "Retry import", exact: true })).toBeEnabled();
-    await page.reload();
+    await expect(page.getByText("Needs attention", { exact: true })).toBeVisible({ timeout: 15_000 });
+    await page.locator(".materialLibraryPanel").screenshot({ path: testInfo.outputPath("failed-library-390.png") });
+    await page.getByRole("link", { name: "Review import", exact: true }).click();
     await expect(page.getByRole("button", { name: "Retry import", exact: true })).toBeEnabled();
     expect((await sql.query('SELECT count(*)::int AS count FROM material_revisions WHERE "materialId"=$1', [materialId]))[0].count).toBe(1);
   } finally {
