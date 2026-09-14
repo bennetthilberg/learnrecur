@@ -11,6 +11,9 @@ export type HistoryReviewRow = {
   answerKindLabel: string;
   collectionName: string;
   correctAnswerDisplay: string;
+  prompt: string;
+  submittedAnswerDisplay: string;
+  explanation: string | null;
   finalRatingLabel: string;
   nextDueLabel: string;
   previousDueLabel: string;
@@ -103,7 +106,7 @@ export function HistoryReviewsTable({ reviews }: { reviews: HistoryReviewRow[] }
         }}
         onClose={() => setSelectedReview(null)}
         opened={Boolean(selectedReview)}
-        lockScroll={false}
+        closeButtonProps={{ "aria-label": "Close review details" }}
         radius="md"
         size="lg"
         title="Review details"
@@ -134,6 +137,14 @@ function HistoryReviewDetails({ review }: { review: HistoryReviewRow }) {
         <p>{review.reviewedFullLabel}</p>
       </div>
 
+      <section className="historyReviewAnswer" aria-label="Question">
+        <h4>Question</h4>
+        <p><MathText formatBlanks text={review.prompt} /></p>
+      </section>
+      <section className="historyReviewAnswer" aria-label="Your answer">
+        <h4>Your answer</h4>
+        <p><MathText text={review.submittedAnswerDisplay} /></p>
+      </section>
       <section className="historyReviewAnswer" aria-labelledby="history-review-answer-title">
         <h4 id="history-review-answer-title">Correct answer</h4>
         <p>
@@ -141,6 +152,9 @@ function HistoryReviewDetails({ review }: { review: HistoryReviewRow }) {
         </p>
       </section>
 
+      {review.explanation ? <section className="historyReviewAnswer" aria-label="Explanation">
+        <h4>Explanation</h4><p><MathText text={review.explanation} /></p>
+      </section> : <p>No explanation was saved for this exercise.</p>}
       <dl className="historyReviewDetailGrid">
         <div>
           <dt>Rating</dt>

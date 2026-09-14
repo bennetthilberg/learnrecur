@@ -1,3 +1,4 @@
+import { neon } from "@neondatabase/serverless";
 import { readFile } from "node:fs/promises";
 import type { Page } from "@playwright/test";
 
@@ -27,11 +28,14 @@ test.describe("authenticated learner lifecycle", () => {
       page.getByText(scenario.objective, { exact: true }),
     ).toBeVisible();
     await expect(
-      page.getByRole("link", { name: "Start practice", exact: true }),
-    ).toHaveAttribute("href", "/practice");
+      page.getByRole("link", { name: "Practice this skill", exact: true }),
+    ).toHaveAttribute("href", `/practice/custom?skillId=${scenario.skillId}`);
     await expect(
       page.getByText("Exercise preparation", { exact: true }),
     ).toBeVisible();
+
+    await page.getByRole("link", { name: "Practice this skill", exact: true }).click();
+    await expect(page.getByRole("checkbox", { name: new RegExp(scenario.skillTitle) })).toBeChecked();
 
     await page.goto(practiceUrl(scenario));
 
@@ -39,9 +43,8 @@ test.describe("authenticated learner lifecycle", () => {
     await expect(
       page.getByRole("region", { name: "Practice exercise", exact: true }),
     ).toBeVisible();
-    await expect(
-      page.getByRole("article"),
-    ).toContainText(normalizeRenderedPrompt(scenario.exercise.prompt));
+    await expect.poll(async () => normalizeRenderedPrompt((await page.locator(".practicePromptPanel p").allTextContents()).join(" ")))
+      .toBe(normalizeRenderedPrompt(scenario.exercise.prompt));
   });
 
   // Each answer kind gets its own fixture and deadline; four remote-backed
@@ -85,6 +88,42 @@ test.describe("authenticated learner lifecycle", () => {
     });
   }
 
+  test("finds older mistakes with filters and load more", async ({ learnerFixture, page }) => {
+    test.setTimeout(60_000);
+    const scenario = learnerFixture.scenarios.choice;
+    await completeCorrectReview(page, scenario);
+    const sql = neon(process.env.DATABASE_URL!);
+    await sql.query(`INSERT INTO exercise_attempts SELECT (jsonb_populate_record(NULL::exercise_attempts,
+      to_jsonb(a) || jsonb_build_object('id', a.id || '-history-' || n, 'result', 'INCORRECT', 'isCorrect', false))).*
+      FROM exercise_attempts a CROSS JOIN generate_series(1, 51) n
+      WHERE a."skillId"=$1 AND a."userId"=$2`, [scenario.skillId, learnerFixture.userId]);
+    await sql.query(`INSERT INTO review_logs SELECT (jsonb_populate_record(NULL::review_logs,
+      to_jsonb(r) || jsonb_build_object('id', r.id || '-history-' || n, 'exerciseAttemptId', r."exerciseAttemptId" || '-history-' || n))).*
+      FROM review_logs r CROSS JOIN generate_series(1, 51) n
+      WHERE r."skillId"=$1 AND r."userId"=$2`, [scenario.skillId, learnerFixture.userId]);
+    await page.goto("/history");
+    await expect(page.getByRole("status").filter({ hasText: "Showing 50 reviews" })).toBeVisible();
+    await page.getByRole("button", { name: "Load more", exact: true }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Showing 52 reviews" })).toBeVisible();
+    await page.getByRole("combobox", { name: "Skill", exact: true }).click();
+    await page.getByRole("option", { name: scenario.skillTitle, exact: true }).click();
+    await page.getByRole("combobox", { name: "Collection", exact: true }).click();
+    await page.getByRole("option", { name: scenario.collectionName, exact: true }).click();
+    await page.getByRole("checkbox", { name: "Incorrect answers only" }).check();
+    await page.getByRole("button", { name: "Apply filters" }).click();
+    await expect(page.locator(".historySimpleTable tbody tr")).toHaveCount(50);
+    await expect(page.locator(".historyResultBadge").first()).toHaveText("Incorrect");
+    await page.getByRole("button", { name: "Load more", exact: true }).click();
+    await expect(page.locator(".historySimpleTable tbody tr")).toHaveCount(51);
+    await expect(page.getByRole("button", { name: "Load more", exact: true })).toHaveCount(0);
+    for (const width of [390, 1000, 1280]) {
+      await page.setViewportSize({ width, height: 900 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      const label = page.locator(".historyResultBadge .mantine-Badge-label").first();
+      expect(await label.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+    }
+  });
+
   test("shows a saved review in history and exports only the learner data", async ({
     clerkTestUser,
     learnerFixture,
@@ -127,10 +166,13 @@ test.describe("authenticated learner lifecycle", () => {
       reviewDialog.getByText("Correct answer", { exact: true }),
     ).toBeVisible();
     await expect(
-      reviewDialog.getByText(scenario.exercise.correctAnswerDisplay, {
+      reviewDialog.getByRole("region", { name: "Correct answer", exact: true }).getByText(scenario.exercise.correctAnswerDisplay, {
         exact: true,
       }),
     ).toBeVisible();
+    await expect(reviewDialog.getByRole("region", { name: "Your answer", exact: true })).toContainText(scenario.exercise.correctAnswerDisplay);
+    await expect(reviewDialog.getByRole("region", { name: "Question", exact: true })).toContainText(normalizeRenderedPrompt(scenario.exercise.prompt));
+    await expect(reviewDialog.getByRole("button", { name: "Close review details" })).toBeVisible();
     await expect(
       reviewDialog.getByText("Schedule", { exact: true }),
     ).toBeVisible();

@@ -334,6 +334,14 @@ function HistoryRouteLoading({ config }: { config: PrimaryRouteLoadingConfig }) 
         </div>
       </header>
 
+      <div className="historyFilters" aria-hidden="true">
+        {[0, 1].map(key => <div key={key}>
+          <Skeleton className="routeSkeleton routeSkeletonShimmer" height={20} width={80} mb={6} />
+          <Skeleton className="routeSkeleton routeSkeletonShimmer" height={44} />
+        </div>)}
+        <Skeleton className="routeSkeleton routeSkeletonShimmer" height={24} width={200} />
+        <div className="historyFilterActions"><Skeleton className="routeSkeleton routeSkeletonShimmer" height={44} width={220} /></div>
+      </div>
       <section
         className="skillPanel historyPanel routeLoadingHistoryPanel"
         aria-label="Review history loading"

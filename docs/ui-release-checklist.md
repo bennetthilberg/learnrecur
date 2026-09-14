@@ -77,3 +77,12 @@ These are verification tasks, not confirmed defects:
 Next: implement checked-answer preservation and save-aware navigation together, including custom practice. Preserve idempotent attempt identities, server-authoritative next-item selection and the single-outstanding-save invariant. Current `use-review-save-guard.ts` only silently blocks links while saving; both clients reset to a preview before save acknowledgement. A recovery solution must retain the original checked review as well as any new answer typed into the preview, and must cover Back/refresh/expired auth/offline behavior.
 
 Items 1, 2, 5, 7–16, 18–20 and the full release verification matrix remain open. Do not interpret this checkpoint as completion of the goal.
+
+### History checkpoint
+
+- Items 8 and 13 implemented: owned review details include question, submitted answer (choice IDs resolved to labels), correct answer, and saved explanation. Supports both legacy scalar answers and current `{ raw: ... }` storage without exposing arbitrary JSON. Correctness badges do not truncate; modal has a named close button and returns focus on close. Modal primary action is right-aligned.
+- History now has searchable skill/collection pickers, incorrect-only filtering, clear empty results, and Load more. Queries remain user-scoped on every page and use reviewedAt/id keyset pagination (50 rows), preserving tied timestamps. Failed loads retain current rows and permit retry; duplicate clicks/rows are guarded.
+- Updated loading layout to reserve filter space. Inspected real correct/incorrect history and narrow-screen filters; corrected a missing mobile inset found in that inspection.
+- Verification: history integration suite passed (5 tests, including 52 tied-timestamp reviews, cross-user cursor use, nonexistent scope filters). History answer/browser unit tests plus input tests passed (10). Authenticated browser tests passed for review detail/export isolation, skill-specific preselection, and 52-review pagination with combined filters. The pagination test checks 390/1000/1280 overflow and badge text width.
+- A pre-existing lifecycle assertion assumed whitespace between instruction/content DOM nodes; updated it to compare paragraph text joined with whitespace. It failed on the first run, then passed with the actual rendering contract.
+- Release-wide baseline and checks remain pending. The next core task remains items 1/2: checked-answer preservation and save-aware navigation. No changes to those clients yet. Other open items: 5, 7, 9–12, 14–16, 18–20 and full release verification.

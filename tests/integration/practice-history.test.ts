@@ -4,12 +4,14 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import {
   ExerciseAttemptResult,
+  Prisma,
   FsrsRating,
   SkillFsrsState,
   SkillStatus,
 } from "@/generated/prisma/client";
 import {
   getPracticeHistory,
+  getPracticeHistoryPage,
   getSkillPracticeHistory,
 } from "@/lib/practice/history";
 import { getPrisma } from "@/lib/prisma";
@@ -260,7 +262,7 @@ describeDatabase("practice history read model", () => {
     expect(history.reviews[0]?.id).toBe(valid.reviewLog.id);
   });
 
-  it("includes archived and paused skill history without exposing raw answers or prompts", async () => {
+  it("includes question and answer context for owned archived and paused skills", async () => {
     const userId = await createUser("privacy");
     await createReviewedAttempt({
       userId,
@@ -298,8 +300,8 @@ describeDatabase("practice history read model", () => {
       nextState: SkillFsrsState.RELEARNING,
     });
     const serialized = JSON.stringify(history.reviews);
-    expect(serialized).not.toContain("raw-secret-answer");
-    expect(serialized).not.toContain("Private prompt with source text");
+    expect(serialized).toContain("raw-secret-answer");
+    expect(serialized).toContain("Private prompt with source text");
     expect(serialized).not.toContain("answerSpec");
   });
 
@@ -341,4 +343,25 @@ describeDatabase("practice history read model", () => {
       message: "Skill not found.",
     });
   });
+  it("paginates tied timestamps without gaps and keeps filters and ownership on every page", async () => {
+    const userId = await createUser("pages");
+    const collection = await createCollection(userId, "Filtered collection");
+    const fixture = await createReviewedAttempt({ userId, collectionId: collection.id, label: "pages", result: ExerciseAttemptResult.INCORRECT, reviewedAt: now });
+    const attempts = Array.from({ length: 51 }, (_, i) => ({ ...fixture.attempt, answer: { raw: "wrong" }, practiceContext: Prisma.DbNull, answerPolicySnapshot: Prisma.DbNull, id: `${runId}_attempt_${i}` }));
+    await prisma.exerciseAttempt.createMany({ data: attempts });
+    await prisma.reviewLog.createMany({ data: attempts.map((attempt, i) => ({ ...fixture.reviewLog, schedulerParameters: {}, id: `${runId}_review_${String(i).padStart(3, "0")}`, exerciseAttemptId: attempt.id })) });
+    const filters = { userId, now, collectionId: collection.id, skillId: fixture.skill.id, incorrectOnly: true };
+    const first = await getPracticeHistoryPage(filters);
+    expect(first.reviews).toHaveLength(50);
+    expect(first.nextCursor).not.toBeNull();
+    const second = await getPracticeHistoryPage({ ...filters, cursor: first.nextCursor! });
+    expect(second.reviews).toHaveLength(2);
+    expect(second.nextCursor).toBeNull();
+    expect(new Set([...first.reviews, ...second.reviews].map(row => row.id)).size).toBe(52);
+    const other = await createUser("pages_other");
+    expect((await getPracticeHistoryPage({ ...filters, userId: other, cursor: first.nextCursor! })).reviews).toEqual([]);
+    expect((await getPracticeHistoryPage({ ...filters, skillId: "missing" })).reviews).toEqual([]);
+    expect((await getPracticeHistoryPage({ ...filters, collectionId: "missing" })).reviews).toEqual([]);
+  });
+
 });

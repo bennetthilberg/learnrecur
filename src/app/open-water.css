@@ -7436,6 +7436,7 @@ body {
 
 /* ===== History page simplification ===== */
 .historyShell .historyHeader,
+.historyShell .historyFilters,
 .historyShell .historyPanel {
   width: calc(100% - 28px);
   max-width: 860px;
@@ -9567,3 +9568,19 @@ body {
   margin-top: 8px;
   color: var(--lr-text-secondary);
 }
+
+.historyResultBadge { flex-shrink: 0; min-width: max-content; max-width: none; }
+.historyResultBadge .mantine-Badge-label { overflow: visible; text-overflow: clip; }
+.historyFilters {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: end;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+.historyFilterActions { display: flex; justify-content: flex-end; gap: 12px; }
+.historyLoadMore { padding: 20px 24px; display: grid; justify-items: center; gap: 12px; }
+.historyLoadMore p { margin: 0; color: var(--lr-text-secondary); }
+.historyReviewAnswer p { overflow-wrap: anywhere; white-space: pre-line; }
+@media (max-width: 719px) { .historyFilters { grid-template-columns: minmax(0, 1fr); } }
+.historyReviewModalActions { display: flex; justify-content: flex-end; }
