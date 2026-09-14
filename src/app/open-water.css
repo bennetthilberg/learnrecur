@@ -2716,10 +2716,19 @@ body {
 
   .dashboardShell > :not(.openWaterBackground):not(.practiceTopbar),
   .practiceShell > :not(.openWaterBackground):not(.practiceTopbar),
-  .skillShell > :not(.openWaterBackground):not(.practiceTopbar) {
+  .skillShell > :not(.openWaterBackground):not(.practiceTopbar),
+  :is(.dashboardShell, .practiceShell, .skillShell) > .routePendingContent > :not(.openWaterBackground):not(.practiceTopbar) {
     width: min(900px, calc(100% - 32px));
     margin-right: auto;
     margin-left: auto;
+  }
+
+  /* The optimistic preview adds a wrapper; constrain its children only once,
+     just like the destination route's direct content. */
+  :is(.dashboardShell, .practiceShell, .skillShell)[data-route-pending="true"] > .routePendingContent {
+    width: 100%;
+    max-width: none;
+    margin-inline: 0;
   }
 
   .dashboardShell .practiceTopbar,

@@ -107,3 +107,11 @@ The user approved implementation. Both practice modes now render clearly marked 
 Existing prompts are unstructured strings. A shared renderer splits only recognized directive prefixes followed by a colon or sentence-ending newline and nonempty content. Standalone questions, narrative opening lines, and ambiguous math prefixes retain their original rendering. Content and grading data are unchanged; a future structured instruction field would permit broader coverage without text inference.
 
 Self-review addressed five risks: competing bold lines now have distinct weights; excessive blank-line separation becomes a 12px gap; another bespoke type tier is avoided by using body text; phone wrapping retains readable 18px directions; ambiguous prompts remain intact instead of styling every first line as an instruction. Browser checks passed in normal and custom practice at 390px and 1280px, including exact spacing, weights, blanks, and answer feedback. Desktop/mobile screenshots were inspected. Lint, TypeScript, and prompt-splitting unit tests passed. No database or grading behavior changed.
+
+## Navigation width stability
+
+Reproduced a 48px width difference between optimistic loading and destination content at 1000px. The compact-header media query constrained the preview wrapper to the content width; its children then applied their own margins, so Dashboard and Skills started 24px further inward on each side. The wrapper now spans the available width and applies the destination's content constraint to its children exactly once. Phone and sidebar rules remain unchanged.
+
+Regression coverage holds route requests during navigation through Dashboard, Practice, History, and Skills, compares preview and loaded left edges/widths, and checks both compact-header breakpoint edges. This fixes a container geometry issue rather than hiding it with an animation. Self-review checks: no compounded gutters, no delayed width correction, no loss of centered maximum widths, no phone layout regression, and no sidebar layout regression.
+
+Verification passed: lint and seven browser checks including setup/cleanup, covering 390, 720, 1000, 1119, and 1280px. Preview/loaded Dashboard screenshots were inspected at the reproduced width. This CSS-only change did not rerun domain/database tests or the production build.
