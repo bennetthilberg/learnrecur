@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth } from "@clerk/nextjs";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { z } from "zod";
 import { formDraftKey, readFormDraft, writeFormDraft } from "@/lib/forms/drafts";
 
@@ -44,14 +44,14 @@ export function useFormDraft<T extends object>(scope: string, initial: T, schema
     return () => { window.removeEventListener("beforeunload", unload); document.removeEventListener("click", click, true); };
   }, [dirty, state.stored]);
 
-  function update(patch: Partial<T>) {
+  const update = useCallback((patch: Partial<T> | ((current: T) => Partial<T>)) => {
     if (!ready || !key) return;
-    const value = { ...latest.current.value, ...patch };
+    const value = { ...latest.current.value, ...(typeof patch === "function" ? patch(latest.current.value) : patch) };
     const stored = writeFormDraft(key, baseline, JSON.stringify(value) === latest.current.cleanValue ? null : value);
     const next = { ...latest.current, value, stored };
     latest.current = next;
     setState(next);
-  }
+  }, [ready, key, baseline]);
 
   function discard() {
     if (!key) return;

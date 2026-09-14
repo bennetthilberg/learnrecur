@@ -1,5 +1,9 @@
 "use client";
 
+import { useFormDraft } from "@/components/app/use-form-draft";
+import { FormDraftNotice } from "@/components/app/form-draft-notice";
+import { missingDraftFiles, reconcileDraftFiles, sourceCreationDraftSchema } from "@/lib/forms/creation-drafts";
+
 import { useActionState, useCallback, useEffect, useId, useRef, useState, useTransition } from "react";
 import type React from "react";
 import { Stepper } from "@mantine/core";
@@ -142,7 +146,10 @@ export function SourceCreationWorkspace({
   const [isInspectingPdf, setIsInspectingPdf] = useState(false);
   const [materialPdfNotice, setMaterialPdfNotice] = useState<string | null>(null);
   const [isPendingUpload, startUploadTransition] = useTransition();
-  const [materialSnapshot, setMaterialSnapshot] = useState<MaterialSnapshot>(emptyMaterialSnapshot);
+  const materialDraft = useFormDraft("create-one", { ...emptyMaterialSnapshot, pendingFileNames: [] as string[] }, sourceCreationDraftSchema);
+  const materialSnapshot = materialDraft.value;
+  const missingFileNames = missingDraftFiles(materialSnapshot.pendingFileNames, selectedFiles.map(({ file }) => file.name));
+  const setMaterialSnapshot = materialDraft.update;
   const [createdSkill, setCreatedSkill] = useState<CreatedSkillDraftForReview | null>(null);
   const [activatedSkillId, setActivatedSkillId] = useState<string | null>(null);
   const [dismissedSkillId, setDismissedSkillId] = useState<string | null>(null);
@@ -157,7 +164,7 @@ export function SourceCreationWorkspace({
     uploadStatus === "uploading" ||
     uploadStatus === "generating";
   const restoreBusy = restoringSourceId !== null;
-  const busy = isGeneratingFromText || uploadBusy || restoreBusy;
+  const busy = isGeneratingFromText || uploadBusy || restoreBusy || !materialDraft.ready;
   const generationStatus = getGenerationStatus({
     isGeneratingFromText,
     uploadBusy,
@@ -191,10 +198,13 @@ export function SourceCreationWorkspace({
     });
     setFieldErrors(undefined);
     setMaterialPdfNotice(null);
-  }, []);
+    setMaterialSnapshot({ pendingFileNames: [] });
+  }, [setMaterialSnapshot]);
 
   const removeSelectedFile = useCallback((fileId: string) => {
     clearFileInput(fileInputRef.current);
+    const removedName = selectedFiles.find((file) => file.id === fileId)?.file.name;
+    if (removedName) setMaterialSnapshot((current) => ({ pendingFileNames: missingDraftFiles(current.pendingFileNames, [removedName]) }));
     setSelectedFiles((currentFiles) => {
       const removedFile = currentFiles.find((selectedFile) => selectedFile.id === fileId);
 
@@ -205,7 +215,7 @@ export function SourceCreationWorkspace({
       return currentFiles.filter((selectedFile) => selectedFile.id !== fileId);
     });
     setFieldErrors(undefined);
-  }, []);
+  }, [selectedFiles, setMaterialSnapshot]);
 
   const showNotice = useCallback((nextNotice: SourceCreationNotice | null) => {
     notifications.hide(sourceCreationNotificationId);
@@ -271,6 +281,7 @@ export function SourceCreationWorkspace({
     const nextFiles = files.map(createSelectedSourceUploadFile);
     clearFileInput(fileInputRef.current);
     setSelectedFiles((currentFiles) => [...currentFiles, ...nextFiles]);
+    setMaterialSnapshot((current) => ({ pendingFileNames: reconcileDraftFiles(current.pendingFileNames, [...selectedFiles, ...nextFiles].map((file) => file.file.name)) }));
     setUploadStatus("idle");
     setFieldErrors(undefined);
     setMaterialPdfNotice(null);
@@ -301,6 +312,7 @@ export function SourceCreationWorkspace({
             revokeSelectedSourceUploadFiles(removed);
             return currentFiles.filter((item) => !longPdfIds.has(item.id));
           });
+          setMaterialSnapshot((current) => ({ pendingFileNames: missingDraftFiles(current.pendingFileNames, longPdfs.map(({ selectedFile }) => selectedFile.file.name)) }));
           const firstLongPdf = longPdfs[0];
           const additionalCount = longPdfs.length - 1;
           setMaterialPdfNotice(
@@ -322,7 +334,7 @@ export function SourceCreationWorkspace({
     }
 
     return true;
-  }, [selectedFiles, showNotice]);
+  }, [selectedFiles, showNotice, setMaterialSnapshot]);
 
   const restoreSavedSourceText = useCallback(
     async (upload: RecoverableSourceUpload) => {
@@ -384,7 +396,7 @@ export function SourceCreationWorkspace({
         setRestoringSourceId(null);
       }
     },
-    [clearSelectedFiles, restoringSourceId, showNotice],
+    [clearSelectedFiles, restoringSourceId, showNotice, setMaterialSnapshot],
   );
 
   useEffect(() => {
@@ -622,7 +634,7 @@ export function SourceCreationWorkspace({
         router.refresh();
       }
     },
-    [cleanupPreparedUploadBatch, handleActionError, router, selectedFiles, showNotice],
+    [cleanupPreparedUploadBatch, handleActionError, router, selectedFiles, showNotice, setDismissedSkillId, setCreatedSkill],
   );
 
   const submitUpload = useCallback(
@@ -666,6 +678,7 @@ export function SourceCreationWorkspace({
       initialValues={reviewSkill.values}
       mode="edit"
       onAdded={(skillId) => {
+        materialDraft.discard();
         setActivatedSkillId(skillId);
         setCreatedSkill(null);
         setDismissedSkillId(skillId);
@@ -687,6 +700,7 @@ export function SourceCreationWorkspace({
         action={textAction}
         className="createSkillMaterialForm"
         onSubmit={(event) => {
+          if (!materialDraft.ready || (missingFileNames.length > 0)) { event.preventDefault(); return; }
           const formData = new FormData(event.currentTarget);
           setMaterialSnapshot(formDataToMaterialSnapshot(formData));
           setDismissedSkillId(null);
@@ -775,7 +789,8 @@ export function SourceCreationWorkspace({
               aria-labelledby="create-skill-input-title"
               className="createSkillTextarea"
               disabled={busy}
-              defaultValue={materialSnapshot.sourceText}
+              value={materialSnapshot.sourceText}
+              onChange={(event) => setMaterialSnapshot({ sourceText: event.currentTarget.value })}
               id={sourceTextId}
               name="sourceText"
               placeholder="Paste notes, describe the skill, or drop a worksheet here."
@@ -859,14 +874,18 @@ export function SourceCreationWorkspace({
                   label="Source name"
                   name="sourceLabel"
                   placeholder="Chapter 4 notes"
-                  defaultValue={materialSnapshot.sourceLabel}
+                  value={materialSnapshot.sourceLabel}
+                  disabled={busy}
+                  onChange={(event) => setMaterialSnapshot({ sourceLabel: event.currentTarget.value })}
                 />
                 <SkillTextField
                   error={activeFieldErrors?.collectionName?.[0]}
                   label="Collection"
                   name="collectionName"
                   placeholder="Spanish grammar"
-                  defaultValue={materialSnapshot.collectionName}
+                  value={materialSnapshot.collectionName}
+                  disabled={busy}
+                  onChange={(event) => setMaterialSnapshot({ collectionName: event.currentTarget.value })}
                 />
               </div>
 
@@ -875,7 +894,9 @@ export function SourceCreationWorkspace({
                 label="Focus"
                 name="focusNote"
                 placeholder="Focus on the rule, not vocabulary memorization."
-                defaultValue={materialSnapshot.focusNote}
+                value={materialSnapshot.focusNote}
+                disabled={busy}
+                onChange={(event) => setMaterialSnapshot({ focusNote: event.currentTarget.value })}
                 rows={3}
               />
 
@@ -884,7 +905,9 @@ export function SourceCreationWorkspace({
                 label="Tags"
                 name="tags"
                 placeholder="spanish, verbs, grammar"
-                defaultValue={materialSnapshot.tags}
+                value={materialSnapshot.tags}
+                disabled={busy}
+                onChange={(event) => setMaterialSnapshot({ tags: event.currentTarget.value })}
               />
             </div>
           </details>
@@ -895,8 +918,16 @@ export function SourceCreationWorkspace({
             value={materialSnapshot.recoveredSourceFileId}
           />
 
+          {missingFileNames.length > 0 ? (
+            <div className="formDraftNotice">
+              <p role="status">File selections could not be restored. Choose these files again before creating the skill: {missingFileNames.join(", ")}.</p>
+              <button className="secondaryButton" type="button" disabled={busy} onClick={() => setMaterialSnapshot({ pendingFileNames: selectedFiles.map(({ file }) => file.name) })}>Continue without missing files</button>
+            </div>
+          ) : null}
+          <FormDraftNotice {...materialDraft} restoredMessage="Unfinished material restored. Create the skill when you’re ready." disabled={busy} onDiscard={() => { clearSelectedFiles(); materialDraft.discard(); }} />
+          {selectedFiles.length > 0 ? <p className="settingsFieldHint">Files stay on this page until you create the skill. If you leave or refresh first, choose them again.</p> : null}
           <div className="skillFormActions createSkillActions">
-            <button className="primaryButton" disabled={busy} type="submit">
+            <button className="primaryButton" disabled={busy || (missingFileNames.length > 0)} type="submit">
               {submitButtonLabel({
                 isGeneratingFromText,
                 selectedFileCount: selectedFiles.length,
