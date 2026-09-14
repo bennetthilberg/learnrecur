@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import { MantineProvider } from "@mantine/core";
 import { act, createElement, type AnchorHTMLAttributes } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, expect, it, vi } from "vitest";
@@ -17,17 +18,19 @@ vi.mock("next/link", () => ({
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.unstubAllGlobals();
   vi.clearAllMocks();
 });
 
 it("prefetches the route a learner focuses without eagerly loading every private page", async () => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
   vi.useFakeTimers();
+  vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
   const container = document.createElement("div");
   document.body.append(container);
   const root = createRoot(container);
   try {
-    await act(async () => root.render(createElement(SkillsTopbar, { current: "dashboard" })));
+    await act(async () => root.render(createElement(MantineProvider, null, createElement(SkillsTopbar, { current: "dashboard" }))));
     await act(async () => vi.advanceTimersByTime(200));
 
     expect(router.prefetch).not.toHaveBeenCalled();
