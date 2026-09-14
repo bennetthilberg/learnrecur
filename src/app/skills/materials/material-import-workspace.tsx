@@ -1,6 +1,9 @@
 "use client";
 
 import { Select } from "@mantine/core";
+import { useFormDraft } from "@/components/app/use-form-draft";
+import { FormDraftNotice } from "@/components/app/form-draft-notice";
+import { emptyMaterialWebsiteDraft, materialPdfDraftSchema, materialWebsiteDraftSchema } from "@/lib/forms/material-drafts";
 
 import { Checkbox, Tabs } from "@mantine/core";
 import {
@@ -123,7 +126,7 @@ export function MaterialImportWorkspace({
             tab: "materialImportTab",
             panel: "materialImportTabPanel",
           }}
-          keepMounted={false}
+          keepMounted
           onChange={(value) => {
             if (!isImportBusy) {
               setActiveSource(value);
@@ -169,10 +172,13 @@ function MaterialPdfForm({
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
-  const [title, setTitle] = useState("");
+  const draft = useFormDraft("material-pdf", { title: "", collectionId: "", fileName: "" }, materialPdfDraftSchema);
+  const { title } = draft.value;
+  const setTitle = (title: string) => draft.update({ title });
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]> | undefined>();
-  const [isBusy, runBusy] = useMaterialImportBusy(onBusyChange);
+  const [importBusy, runBusy] = useMaterialImportBusy(onBusyChange);
+  const isBusy = importBusy || !draft.ready;
   const titleError = fieldErrors?.title?.[0];
   const fileError =
     materialPdfFileErrorMessage(fieldErrors) ?? (file ? validateMaterialPdfFile(file) : null);
@@ -223,7 +229,7 @@ function MaterialPdfForm({
           />
           {titleError ? <em id="material-pdf-title-error">{titleError}</em> : null}
         </label>
-        <CollectionSelect collections={collections} disabled={isBusy} />
+        <CollectionSelect collections={collections} disabled={isBusy} value={draft.value.collectionId} onChange={(collectionId) => draft.update({ collectionId })} />
       </div>
       <label
         className="materialPdfDropzone"
@@ -238,6 +244,7 @@ function MaterialPdfForm({
           onChange={(event) => {
             const selected = event.currentTarget.files?.[0] ?? null;
             setFile(selected);
+            draft.update({ fileName: selected?.name ?? "" });
             setError(null);
             setFieldErrors(undefined);
             if (selected && !title.trim()) {
@@ -255,12 +262,14 @@ function MaterialPdfForm({
           </small>
         ) : null}
       </label>
+      {draft.value.fileName && !file ? <p className="settingsFieldHint" role="status">Choose {draft.value.fileName} again. Your title and collection have been kept, but files cannot be restored after refresh.</p> : null}
+      <FormDraftNotice {...draft} disabled={isBusy} restoredMessage="Unfinished import restored. Review it before importing." onDiscard={() => { setFile(null); if (fileInputRef.current) fileInputRef.current.value = ""; draft.discard(); }} />
       <ActionMessage error={error} message={null} />
       <div className="skillFormActions materialImportActions">
         <button
-          aria-busy={isBusy}
+          aria-busy={importBusy}
           className="primaryButton"
-          disabled={isBusy}
+          disabled={isBusy || !file}
           type="submit"
         >
           <span className="buttonPendingContent">
@@ -310,6 +319,7 @@ function MaterialPdfForm({
         return;
       }
       preparedMaterial = null;
+      draft.saved();
       router.push(queued.redirectTo);
       router.refresh();
     } catch (caught) {
@@ -364,14 +374,18 @@ function WebsiteMaterialForm({
   onBusyChange: (busy: boolean) => void;
 }) {
   const router = useRouter();
-  const [url, setUrl] = useState("");
-  const [title, setTitle] = useState("");
-  const [collectionId, setCollectionId] = useState("");
-  const [discovery, setDiscovery] = useState<WebsiteDiscovery | null>(null);
-  const [selectedUrls, setSelectedUrls] = useState<Set<string>>(new Set());
+  const draft = useFormDraft("material-website", emptyMaterialWebsiteDraft, materialWebsiteDraftSchema);
+  const { url, title, collectionId, discovery } = draft.value;
+  const selectedUrls = useMemo(() => new Set(draft.value.selectedUrls), [draft.value.selectedUrls]);
+  const setUrl = (url: string) => draft.update({ url });
+  const setTitle = (title: string) => draft.update({ title });
+  const setCollectionId = (collectionId: string) => draft.update({ collectionId });
+  const setDiscovery = (discovery: WebsiteDiscovery | null) => draft.update({ discovery });
+  const setSelectedUrls = (value: Set<string> | ((current: Set<string>) => Set<string>)) => draft.update((current) => ({ selectedUrls: [...(typeof value === "function" ? value(new Set(current.selectedUrls)) : value)] }));
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isBusy, runBusy] = useMaterialImportBusy(onBusyChange);
+  const [importBusy, runBusy] = useMaterialImportBusy(onBusyChange, () => { setError("Could not reach the server. Check your connection and try again."); setMessage(null); });
+  const isBusy = importBusy || !draft.ready;
   const selectedCount = selectedUrls.size;
   const allSelected = Boolean(
     discovery && discovery.pages.length > 0 && selectedCount === discovery.pages.length,
@@ -520,6 +534,7 @@ function WebsiteMaterialForm({
           ) : null}
         </div>
       ) : null}
+      <FormDraftNotice {...draft} disabled={isBusy} restoredMessage={discovery ? "Unfinished import restored. Review the selected pages before importing." : "Unfinished import restored. Discover pages when you’re ready."} onDiscard={() => draft.discard()} />
       <ActionMessage error={error} message={message} />
     </div>
   );
@@ -558,18 +573,19 @@ function WebsiteMaterialForm({
       setMessage(null);
       return;
     }
+    draft.saved();
     router.push(result.redirectTo);
     router.refresh();
   }
 }
 
-function useMaterialImportBusy(onBusyChange: (busy: boolean) => void) {
+function useMaterialImportBusy(onBusyChange: (busy: boolean) => void, onError?: () => void) {
   const [isBusy, setIsBusy] = useState(false);
 
   function runBusy(task: () => Promise<void>) {
     setIsBusy(true);
     onBusyChange(true);
-    void task().finally(() => {
+    void task().catch(() => { onError?.(); }).finally(() => {
       setIsBusy(false);
       onBusyChange(false);
     });
@@ -579,16 +595,14 @@ function useMaterialImportBusy(onBusyChange: (busy: boolean) => void) {
 }
 
 function CollectionSelect({
-  collections,
-  disabled,
+  collections, disabled, value, onChange,
 }: {
-  collections: CollectionOption[];
-  disabled: boolean;
+  collections: CollectionOption[]; disabled: boolean; value: string; onChange: (value: string) => void;
 }) {
   return (
     <label className="skillField">
       <span>Collection</span>
-      <Select disabled={disabled} name="collectionId" defaultValue=""
+      <Select disabled={disabled} name="collectionId" value={value} onChange={(value) => onChange(value ?? "")}
         data={[{ value: "", label: "No collection" }, ...collections.map((collection) => ({ value: collection.id, label: collection.name }))]} />
     </label>
   );
