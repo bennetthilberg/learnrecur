@@ -35,3 +35,5 @@ it.each([["UTC", "America/Chicago"], ["America/Chicago"]])(
     ).not.toThrow();
   },
 );
+
+vi.mock("@clerk/nextjs", () => ({ useAuth: () => ({ userId: "test-user" }) }));

@@ -8,7 +8,6 @@ test("copying practice timezone changes only the reminder draft until saved", as
   const reminders = page.getByRole("region", { name: "Email reminders", exact: true });
   const timezone = reminders.getByRole("combobox", { name: "Timezone", exact: true });
   await expect(reminders.getByText(/Practice uses Asia\/Kolkata/)).toBeVisible();
-  const original = await timezone.inputValue();
   await reminders.getByRole("button", { name: "Use practice timezone", exact: true }).click();
   await expect(timezone).toHaveValue("Asia/Kolkata");
   for (const width of [390, 1280]) {
@@ -17,8 +16,8 @@ test("copying practice timezone changes only the reminder draft until saved", as
     await reminders.screenshot({ path: testInfo.outputPath(`reminder-timezone-${width}.png`) });
   }
   await page.reload();
-  await expect(timezone).toHaveValue(original);
-  await reminders.getByRole("button", { name: "Use practice timezone", exact: true }).click();
+  await expect(timezone).toHaveValue("Asia/Kolkata");
+  await expect(reminders.getByText("Unfinished changes restored. Save to apply them.")).toBeVisible();
   await reminders.getByRole("button", { name: "Save changes", exact: true }).click();
   await expect(page.getByText("Reminder settings saved", { exact: true })).toBeVisible();
   await page.reload();

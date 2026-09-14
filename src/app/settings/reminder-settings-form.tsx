@@ -1,5 +1,8 @@
 "use client";
 
+import { useFormDraft } from "@/components/app/use-form-draft";
+import { FormDraftNotice } from "@/components/app/form-draft-notice";
+import { reminderDraftSchema } from "@/lib/forms/settings-drafts";
 import { Select } from "@mantine/core";
 
 import { useCallback, useId, useRef, useState } from "react";
@@ -43,8 +46,13 @@ export function ReminderSettingsForm({
   practiceTimezone: string;
 }) {
   const [state, setState] = useState<ReminderSettingsActionState>(idleState);
-  const [currentPreference, setCurrentPreference] = useState(preference);
-  const [timezone, setTimezone] = useState(preference.timezone);
+  const currentPreference = preference;
+  const draft = useFormDraft("reminders", {
+    enabled: currentPreference.enabled, timezone: currentPreference.timezone,
+    localHour: String(currentPreference.localHour), minimumDueCount: String(currentPreference.minimumDueCount),
+  }, reminderDraftSchema);
+  const { timezone } = draft.value;
+  const setTimezone = (timezone: string) => draft.update({ timezone });
   const [pending, setPending] = useState(false);
   const pendingRef = useRef(false);
   const emailErrorId = useId();
@@ -72,8 +80,7 @@ export function ReminderSettingsForm({
         const result = await saveReminderSettingsAction(idleState, formData);
 
         if (result.status === "saved" && result.preference) {
-          setCurrentPreference(result.preference);
-          setTimezone(result.preference.timezone);
+          draft.saved();
         }
 
         setState(result);
@@ -95,7 +102,7 @@ export function ReminderSettingsForm({
         setPending(false);
       }
     },
-    [],
+    [draft],
   );
 
   const handleSubmit = useCallback(
@@ -116,14 +123,15 @@ export function ReminderSettingsForm({
       }
 
       const checked = checkbox.checked;
+      draft.update({ enabled: checked });
 
       void saveForm(form, "toggle").then((result) => {
         if (!result || result.status !== "saved") {
-          checkbox.checked = !checked;
+          draft.update({ enabled: !checked });
         }
       });
     },
-    [saveForm],
+    [saveForm, draft],
   );
 
   return (
@@ -134,8 +142,8 @@ export function ReminderSettingsForm({
           <label className="settingsSwitchRow">
             <input
               className="settingsSwitchInput"
-              defaultChecked={currentPreference.enabled}
-              disabled={pending}
+              checked={draft.value.enabled}
+              disabled={pending || !draft.ready}
               name="enabled"
               onChange={handleEnabledChange}
               type="checkbox"
@@ -150,7 +158,7 @@ export function ReminderSettingsForm({
               aria-describedby={hasFieldError(state, "email") ? emailErrorId : undefined}
               aria-invalid={hasFieldError(state, "email") ? "true" : undefined}
               autoComplete="email"
-              disabled={pending}
+              disabled={pending || !draft.ready}
               maxLength={254}
               name="email"
               readOnly
@@ -178,8 +186,9 @@ export function ReminderSettingsForm({
                   hasFieldError(state, "localHour") ? localHourErrorId : undefined
                 }
                 aria-invalid={hasFieldError(state, "localHour") ? "true" : undefined}
-                defaultValue={String(currentPreference.localHour)}
-                disabled={pending}
+                value={draft.value.localHour}
+                onChange={(value) => { if (value) draft.update({ localHour: value }); }}
+                disabled={pending || !draft.ready}
                 name="localHour"
                 required
                 data={Array.from({ length: 24 }, (_, hour) => ({ value: String(hour), label: formatHour(hour) }))}
@@ -196,7 +205,7 @@ export function ReminderSettingsForm({
                 aria-invalid={hasFieldError(state, "timezone") ? "true" : undefined}
                 value={timezone}
                 onChange={(value) => { if (value) setTimezone(value); }}
-                disabled={pending}
+                disabled={pending || !draft.ready}
                 name="timezone"
                 required
                 searchable
@@ -223,8 +232,9 @@ export function ReminderSettingsForm({
                 hasFieldError(state, "minimumDueCount") ? minimumDueCountErrorId : undefined
               }
               aria-invalid={hasFieldError(state, "minimumDueCount") ? "true" : undefined}
-              defaultValue={currentPreference.minimumDueCount}
-              disabled={pending}
+              value={draft.value.minimumDueCount}
+              onChange={(event) => draft.update({ minimumDueCount: event.currentTarget.value })}
+              disabled={pending || !draft.ready}
               max={99}
               min={1}
               name="minimumDueCount"
@@ -240,8 +250,9 @@ export function ReminderSettingsForm({
         </div>
       </fieldset>
 
+      <FormDraftNotice {...draft} disabled={pending || !draft.ready} onDiscard={draft.discard} />
       <div className="skillFormActions">
-        <button className="primaryButton" disabled={pending} type="submit">
+        <button className="primaryButton" disabled={pending || !draft.ready} type="submit">
           {pending ? "Saving" : "Save changes"}
         </button>
       </div>

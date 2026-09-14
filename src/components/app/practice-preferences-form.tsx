@@ -1,5 +1,8 @@
 "use client";
-import { useState, useSyncExternalStore, useTransition } from "react";
+import { useTransition } from "react";
+import { useFormDraft } from "@/components/app/use-form-draft";
+import { FormDraftNotice } from "@/components/app/form-draft-notice";
+import { practiceSettingsDraftSchema } from "@/lib/forms/settings-drafts";
 import { useRouter } from "next/navigation";
 import {
   Checkbox,
@@ -46,46 +49,32 @@ type Props = {
 };
 const label = (value: PracticePreference) =>
   value === "RECALL_FIRST" ? "Recall first" : "Balanced";
-const subscribe = () => () => {};
-const clientSnapshot = () => true;
-const serverSnapshot = () => false;
 export function PracticePreferencesForm(props: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  // A native input can change before its React handler hydrates. Keep every
-  // control disabled until its selected value can be retained and submitted.
-  const hasHydrated = useSyncExternalStore(
-    subscribe,
-    clientSnapshot,
-    serverSnapshot,
-  );
-  const disabled = pending || !hasHydrated;
-  const [preference, setPreference] = useState(props.preference ?? "DEFAULT");
-  const [profile, setProfile] = useState(
-    props.textPolicy?.profile ?? "DEFAULT",
-  );
-  const [caseLenient, setCaseLenient] = useState(
-    props.textPolicy?.normalizeCase ?? true,
-  );
-  const [spaceLenient, setSpaceLenient] = useState(
-    props.textPolicy?.normalizeWhitespace ?? true,
-  );
-  const [studied, setStudied] = useState(props.alreadyStudied ?? false);
-  const [unlimited, setUnlimited] = useState(props.dailyNewSkillLimit == null);
-  const [dailyLimit, setDailyLimit] = useState<number | string>(
-    props.dailyNewSkillLimit ?? 20,
-  );
-  const [timezone, setTimezone] = useState(props.practiceTimezone ?? "UTC");
-  const [useDefaultRetention, setUseDefaultRetention] = useState(
-    props.desiredRetention == null,
-  );
-  const [retentionEdited, setRetentionEdited] = useState(false);
-  const [retentionPercent, setRetentionPercent] = useState<number | string>(
-    props.desiredRetention == null ? 90 : props.desiredRetention * 100,
-  );
-  const [dayStart, setDayStart] = useState(
-    formatPracticeDayStart(props.practiceDayStartMinutes ?? 0),
-  );
+  const draft = useFormDraft(`practice:${props.target.scope}:${"id" in props.target ? props.target.id : "account"}`, {
+    preference: props.preference ?? "DEFAULT", profile: props.textPolicy?.profile ?? "DEFAULT",
+    caseLenient: props.textPolicy?.normalizeCase ?? true, spaceLenient: props.textPolicy?.normalizeWhitespace ?? true,
+    studied: props.alreadyStudied ?? false, unlimited: props.dailyNewSkillLimit == null,
+    dailyLimit: props.dailyNewSkillLimit ?? 20, timezone: props.practiceTimezone ?? "UTC",
+    useDefaultRetention: props.desiredRetention == null, retentionEdited: false,
+    retentionPercent: props.desiredRetention == null ? 90 : props.desiredRetention * 100,
+    dayStart: formatPracticeDayStart(props.practiceDayStartMinutes ?? 0),
+  }, practiceSettingsDraftSchema);
+  const { preference, profile, caseLenient, spaceLenient, studied, unlimited, dailyLimit, timezone, useDefaultRetention, retentionEdited, retentionPercent, dayStart } = draft.value;
+  const disabled = pending || !draft.ready;
+  const setPreference = (value: typeof preference) => draft.update({ preference: value });
+  const setProfile = (value: typeof profile) => draft.update({ profile: value });
+  const setCaseLenient = (value: typeof caseLenient) => draft.update({ caseLenient: value });
+  const setSpaceLenient = (value: typeof spaceLenient) => draft.update({ spaceLenient: value });
+  const setStudied = (value: typeof studied) => draft.update({ studied: value });
+  const setUnlimited = (value: typeof unlimited) => draft.update({ unlimited: value });
+  const setDailyLimit = (value: typeof dailyLimit) => draft.update({ dailyLimit: value });
+  const setTimezone = (value: typeof timezone) => draft.update({ timezone: value });
+  const setUseDefaultRetention = (value: typeof useDefaultRetention) => draft.update({ useDefaultRetention: value });
+  const setRetentionEdited = (value: typeof retentionEdited) => draft.update({ retentionEdited: value });
+  const setRetentionPercent = (value: typeof retentionPercent) => draft.update({ retentionPercent: value });
+  const setDayStart = (value: typeof dayStart) => draft.update({ dayStart: value });
   const validDailyLimit =
     unlimited || dailyNewSkillLimitSchema.safeParse(dailyLimit).success;
   const validTimezone = practiceTimezoneSchema.safeParse(timezone).success;
@@ -172,7 +161,7 @@ export function PracticePreferencesForm(props: Props) {
             withBorder: true,
             withCloseButton: true,
           });
-          if (result.status === "saved") router.refresh();
+          if (result.status === "saved") { draft.saved(); router.refresh(); }
         });
       }}
     >
@@ -182,7 +171,7 @@ export function PracticePreferencesForm(props: Props) {
           label="Practice preference"
           disabled={disabled}
           value={preference}
-          onChange={(value) => { if (value) setPreference(value); }}
+          onChange={(value) => { if (value) setPreference(value as typeof preference); }}
           data={[
             ...(props.target.scope === "user"
               ? []
@@ -375,6 +364,7 @@ export function PracticePreferencesForm(props: Props) {
             </Text>
           </>
         )}
+        <FormDraftNotice {...draft} disabled={disabled} onDiscard={draft.discard} />
         <div className="skillFormActions">
           <button
             className="primaryButton"
