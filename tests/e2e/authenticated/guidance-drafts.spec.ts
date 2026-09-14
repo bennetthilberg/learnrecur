@@ -3,7 +3,7 @@ import { expect, test } from "../fixtures/learner-lifecycle";
 test("guidance edits survive close and refresh and clear after saving", async ({ page, learnerFixture }, testInfo) => {
   const skill = learnerFixture.scenarios.choice;
   await page.goto(`/skills/${skill.skillId}`);
-  const open = () => page.getByRole("region", { name: "Practice guidance", exact: true }).getByRole("button", { name: "Edit", exact: true }).click();
+  const open = () => page.getByRole("region", { name: "Practice guidance", exact: true }).getByRole("button", { name: "Edit guidance", exact: true }).click();
   await open();
   const dialog = page.getByRole("dialog", { name: "Edit practice guidance", exact: true });
   await dialog.getByRole("textbox", { name: /^Rules/ }).fill("Read the whole sentence first.");
@@ -27,5 +27,5 @@ test("guidance edits survive close and refresh and clear after saving", async ({
   await expect(dialog.getByRole("textbox", { name: /^Rules/ })).toHaveValue("Read the whole sentence first.");
   await expect(dialog.getByRole("button", { name: "Discard changes" })).toHaveCount(0);
   await dialog.getByRole("button", { name: "Close guidance editor", exact: true }).click();
-  await expect(page.getByRole("region", { name: "Practice guidance", exact: true }).getByRole("button", { name: "Edit", exact: true })).toBeFocused();
+  await expect(page.getByRole("region", { name: "Practice guidance", exact: true }).getByRole("button", { name: "Edit guidance", exact: true })).toBeFocused();
 });

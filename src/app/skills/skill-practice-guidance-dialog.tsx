@@ -95,7 +95,7 @@ export function SkillPracticeGuidanceDialog({
         type="button"
       >
         <PencilSimple size={15} weight="bold" aria-hidden="true" />
-        <span>Edit</span>
+        <span>Edit guidance</span>
       </button>
       <Modal
         centered

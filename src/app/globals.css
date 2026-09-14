@@ -5859,3 +5859,7 @@ a {
 @media (max-width: 640px) {
   .skillsLibraryFilters { grid-template-columns: minmax(0, 1fr); }
 }
+
+.skillOrganizationControls { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 24px; }
+.skillOrganizationForm { display: grid; gap: 20px; }
+.skillOrganizationForm > p { margin: 0; color: var(--lr-text-secondary); line-height: 1.6; }

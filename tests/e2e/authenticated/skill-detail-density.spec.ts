@@ -7,9 +7,9 @@ test("skill detail shows one empty summary and only populated guidance", async (
   await sql.query('UPDATE skills SET rules=NULL, examples=NULL, "exerciseConstraints"=NULL WHERE id=$1 AND "userId"=$2', [skill.skillId, skill.userId]);
   await page.goto(`/skills/${skill.skillId}`);
   const guidance = page.getByRole("region", { name: "Practice guidance", exact: true });
-  await expect(guidance.getByText("No extra guidance yet. Add rules, examples, or an exercise focus with Edit.")).toBeVisible();
+  await expect(guidance.getByText("No extra guidance yet. Add rules, examples, or an exercise focus with Edit guidance.")).toBeVisible();
   await expect(guidance.getByRole("heading", { level: 3 })).toHaveCount(0);
-  await expect(guidance.getByRole("button", { name: "Edit", exact: true })).toBeVisible();
+  await expect(guidance.getByRole("button", { name: "Edit guidance", exact: true })).toBeVisible();
   await expect(page.getByText("No completed reviews for this skill yet.", { exact: true })).toHaveCount(1);
   await expect(page.getByRole("region", { name: "Recent reviews", exact: true })).toHaveCount(0);
   for (const width of [390, 1280]) {

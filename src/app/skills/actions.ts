@@ -1,5 +1,6 @@
 "use server";
 
+import { skillOrganizationSchema } from "@/lib/forms/skill-organization";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -10,6 +11,7 @@ import {
   createSkillDraft,
   createSkillDraftFromSource,
   updateSkillDraft,
+  updateSkillMetadata,
   updateSkillPracticeGuidance,
 } from "@/lib/skills";
 import {
@@ -1305,4 +1307,25 @@ function notesToText(value: Prisma.JsonValue | null): string {
   }
 
   return "";
+}
+
+export async function updateSkillOrganizationAction(
+  _previous: SkillFormActionState,
+  formData: FormData,
+): Promise<SkillFormActionState> {
+  const user = await requireSkillActionUser();
+  if (user.status === "error") return user;
+  const skillId = getOptionalFormString(formData, "skillId");
+  if (!skillId) return { status: "error", message: "No skill was selected." };
+  const parsed = skillOrganizationSchema.safeParse({
+    mode: getFormString(formData, "mode"),
+    title: getFormString(formData, "title"),
+    collectionId: getOptionalFormString(formData, "collectionId"),
+  });
+  if (!parsed.success) return { status: "error", message: parsed.error.issues[0].message };
+  const changes = parsed.data.mode === "rename" ? { title: parsed.data.title } : { collectionId: parsed.data.collectionId };
+  const result = await updateSkillMetadata({ userId: user.userId, skillId, ...changes });
+  if (result.status !== "updated") return { status: "error", message: result.message };
+  for (const path of [`/skills/${skillId}`, "/skills", "/collections", "/dashboard", "/history", "/practice"]) revalidatePath(path);
+  return { status: "saved", message: parsed.data.mode === "rename" ? "Skill renamed." : "Skill moved." };
 }

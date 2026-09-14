@@ -44,6 +44,7 @@ import { SkillDeleteForm } from "../skill-delete-form";
 import { SkillExactInputRefillForm } from "../skill-exact-input-refill-form";
 import { SkillLifecycleForm } from "../skill-lifecycle-form";
 import { SkillMathRefillForm } from "../skill-math-refill-form";
+import { SkillOrganizationControls } from "../skill-organization-controls";
 import { SkillPracticeGuidanceDialog } from "../skill-practice-guidance-dialog";
 import { SkillRefillForm } from "../skill-refill-form";
 import { SkillSourcePanel } from "../skill-source-panel";
@@ -123,6 +124,11 @@ export default async function SkillPage({
     notFound();
   }
 
+  const organizationCollections: { id: string; name: string; disabled?: boolean }[] = await prisma.collection.findMany({ where: { userId, status: "ACTIVE" }, select: { id: true, name: true }, orderBy: { name: "asc" } });
+  if (skill.collectionId && skill.collection && !organizationCollections.some((item) => item.id === skill.collectionId)) {
+    organizationCollections.push({ id: skill.collectionId, name: `${skill.collection.name} (archived)`, disabled: true });
+  }
+  const organizationControls = <SkillOrganizationControls skillId={skill.id} title={skill.title} collectionId={skill.collectionId} collections={organizationCollections} />;
   const now = new Date();
   const [sourceSummariesResult, recentReviewsResult, reviewOutcomeGroups] = await Promise.all([
     getSkillSourceSummaries({ userId, skillId }),
@@ -272,6 +278,8 @@ export default async function SkillPage({
                 Practice this skill
               </Link>
             </header>
+
+            {organizationControls}
 
             <SkillDetailScheduleCard
               collectionName={skill.collection?.name ?? "Uncollected"}
@@ -508,6 +516,8 @@ export default async function SkillPage({
             <SkillAgentProvenance provenance={agentProvenance} />
           </div>
         </header>
+
+        {skill.status === SkillStatus.PAUSED ? organizationControls : null}
 
         <section className="skillPanel skillActivatedPanel" aria-labelledby="inactive-skill-title">
           <div>
@@ -862,7 +872,7 @@ function SkillDetailGuidanceCard({
           <SkillDetailTextBlock title="Exercise focus">{constraints}</SkillDetailTextBlock>
         </div>
       ) : (
-        <p className="skillDetailEmptyText">No extra guidance yet. Add rules, examples, or an exercise focus with Edit.</p>
+        <p className="skillDetailEmptyText">No extra guidance yet. Add rules, examples, or an exercise focus with Edit guidance.</p>
       )}
     </section>
   );
