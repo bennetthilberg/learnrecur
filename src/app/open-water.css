@@ -9586,3 +9586,8 @@ body {
   margin: 0;
   color: var(--lr-text-secondary);
 }
+
+/* Draft titles can contain long source identifiers as well as natural language. */
+.createSkillReviewShell .createSkillHeader h1 {
+  overflow-wrap: anywhere;
+}
