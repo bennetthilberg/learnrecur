@@ -25,3 +25,14 @@ it("reports unavailable browser storage without crashing", () => {
   vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("quota"); });
   expect(writeFormDraft("key", "a", { title: "hello" })).toBe(false);
 });
+it("recovers the latest draft when writes fail, including removal over older saved data", () => {
+  const key = formDraftKey("fallback", "settings");
+  expect(writeFormDraft(key, "a", { title: "Old" })).toBe(true);
+  vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("quota"); });
+  expect(writeFormDraft(key, "a", { title: "Latest" })).toBe(false);
+  expect(readFormDraft(key, "a", schema)).toEqual({ title: "Latest" });
+  expect(readFormDraft(formDraftKey("another", "settings"), "a", schema)).toBeNull();
+  vi.spyOn(Storage.prototype, "removeItem").mockImplementation(() => { throw new Error("unavailable"); });
+  expect(writeFormDraft(key, "a", null)).toBe(false);
+  expect(readFormDraft(key, "a", schema)).toBeNull();
+});

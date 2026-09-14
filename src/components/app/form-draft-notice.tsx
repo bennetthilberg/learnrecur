@@ -5,7 +5,7 @@ export function FormDraftNotice({ restored, stored, dirty, disabled, onDiscard, 
 }) {
   if (!dirty) return null;
   return <div className="formDraftNotice">
-    <p role="status">{!stored ? "Changes could not be kept in this tab. Save before leaving." : restored ? restoredMessage : "Unsaved changes kept in this tab."}</p>
+    <p role="status">{!stored ? "Save before refreshing or closing this tab. Browser storage is unavailable." : restored ? restoredMessage : "Unsaved changes kept in this tab."}</p>
     <button className="secondaryButton" type="button" disabled={disabled} onClick={onDiscard}>Discard changes</button>
   </div>;
 }

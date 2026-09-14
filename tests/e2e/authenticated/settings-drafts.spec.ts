@@ -58,3 +58,33 @@ test("reminder drafts retain hour and threshold independently of saved email pre
   await expect(form.getByRole("button", { name: "Discard changes", exact: true })).toHaveCount(0);
   await expect(form.getByRole("checkbox", { name: "Email me when practice is due" })).not.toBeChecked();
 });
+
+test("retains edits through browser Back when tab storage is unavailable", async ({ page }, testInfo) => {
+  await page.addInitScript(() => {
+    const set = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (key, value) {
+      if (key.startsWith("learnrecur:form:")) throw new DOMException("Storage unavailable", "QuotaExceededError");
+      return set.call(this, key, value);
+    };
+  });
+  await page.goto("/settings");
+  const form = page.getByRole("region", { name: "Email reminders", exact: true });
+  const count = form.getByRole("spinbutton", { name: "Minimum due skills", exact: true });
+  await expect(count).toBeEnabled();
+  const initial = await count.inputValue();
+  await count.fill("8");
+  await expect(form.getByText(/Save before refreshing or closing this tab/)).toBeVisible();
+  await page.getByRole("link", { name: "Dashboard", exact: true }).click();
+  await expect(page).toHaveURL(/\/dashboard$/);
+  await page.goBack();
+  await expect(count).toHaveValue("8");
+  await expect(form.getByText(/Save before refreshing or closing this tab/)).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 900 });
+  await form.screenshot({ path: testInfo.outputPath("memory-draft-390.png") });
+  await form.getByRole("button", { name: "Discard changes", exact: true }).click();
+  await expect(count).toHaveValue(initial);
+  await page.getByRole("link", { name: "Dashboard", exact: true }).click();
+  await expect(page).toHaveURL(/\/dashboard$/);
+  await page.goBack();
+  await expect(count).toHaveValue(initial);
+});

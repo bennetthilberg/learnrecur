@@ -3,7 +3,7 @@
 import { useAuth } from "@clerk/nextjs";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { z } from "zod";
-import { formDraftKey, readFormDraft, writeFormDraft } from "@/lib/forms/drafts";
+import { formDraftKey, hasMemoryFormDraft, readFormDraft, writeFormDraft } from "@/lib/forms/drafts";
 
 // Callers explicitly list draftable fields. Never pass credentials or file bytes.
 export function useFormDraft<T extends object>(scope: string, initial: T, schema: z.ZodType<T>) {
@@ -21,7 +21,7 @@ export function useFormDraft<T extends object>(scope: string, initial: T, schema
     void Promise.resolve().then(() => {
       if (cancelled) return;
       const saved = readFormDraft(key, baseline, schema);
-      const next = { key, baseline, cleanValue: baseline, value: saved ?? JSON.parse(baseline) as T, restored: saved !== null, stored: true };
+      const next = { key, baseline, cleanValue: baseline, value: saved ?? JSON.parse(baseline) as T, restored: saved !== null, stored: !hasMemoryFormDraft(key) };
       latest.current = next;
       setState(next);
     });
@@ -33,6 +33,7 @@ export function useFormDraft<T extends object>(scope: string, initial: T, schema
     if (!dirty || state.stored) return;
     const unload = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
     const click = (event: MouseEvent) => {
+      if (key && hasMemoryFormDraft(key)) return;
       const link = event.target instanceof Element ? event.target.closest("a[href]") : null;
       if (!link || event.defaultPrevented || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
       if (!window.confirm("Your changes could not be kept in this tab. Leave and discard them?")) {
@@ -42,7 +43,7 @@ export function useFormDraft<T extends object>(scope: string, initial: T, schema
     window.addEventListener("beforeunload", unload);
     document.addEventListener("click", click, true);
     return () => { window.removeEventListener("beforeunload", unload); document.removeEventListener("click", click, true); };
-  }, [dirty, state.stored]);
+  }, [dirty, state.stored, key]);
 
   const update = useCallback((patch: Partial<T> | ((current: T) => Partial<T>)) => {
     if (!ready || !key) return;

@@ -41,11 +41,11 @@ it("restores drafts, clears acknowledged changes, and respects new saved data an
     expect(current.value.title).toBe("Bob saved");
   } finally { await act(async () => root.unmount()); host.remove(); }
 });
-it("warns before leaving when a draft cannot be stored", async () => {
+it("keeps navigation recoverable and warns before unloading when storage fails", async () => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
   const host = document.createElement("div"); document.body.append(host);
-  const root = createRoot(host);
-  const link = document.createElement("a"); link.href = "/dashboard"; document.body.append(link);
+  let root = createRoot(host);
+  const link = document.createElement("a"); link.href = "#dashboard"; document.body.append(link);
   try {
     await act(async () => root.render(createElement(Form)));
     vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("quota"); });
@@ -54,8 +54,13 @@ it("warns before leaving when a draft cannot be stored", async () => {
     expect(current.stored).toBe(false);
     const event = new MouseEvent("click", { bubbles: true, cancelable: true });
     link.dispatchEvent(event);
-    expect(event.defaultPrevented).toBe(true);
-    expect(confirm).toHaveBeenCalledOnce();
+    expect(event.defaultPrevented).toBe(false);
+    expect(confirm).not.toHaveBeenCalled();
+    await act(async () => root.unmount());
+    root = createRoot(host);
+    await act(async () => root.render(createElement(Form)));
+    expect(current.value.title).toBe("Important edit");
+    expect(current.stored).toBe(false);
     const unload = new Event("beforeunload", { cancelable: true });
     window.dispatchEvent(unload);
     expect(unload.defaultPrevented).toBe(true);
