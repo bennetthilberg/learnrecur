@@ -9625,3 +9625,7 @@ body {
 .compactNavItem[aria-current="page"] { background: var(--lr-wave-1); font-weight: 700; }
 
 .practiceRecoveryNotice > .primaryButton { margin-left: auto; }
+
+.customPracticeState { grid-template-columns: minmax(0, 1fr); }
+.customPracticeState h1 { color: var(--lr-ink); font-size: 28px; font-weight: 800; line-height: 1.2; }
+.customPracticeState .practiceCompleteActions { grid-column: 1; width: 100%; }

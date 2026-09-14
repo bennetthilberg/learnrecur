@@ -38,6 +38,29 @@ suite("custom practice sessions", () => {
     await prisma.$disconnect();
   });
 
+  it("keeps an initially empty session preparing until an exercise is ready", async () => {
+    const userId = await createUser();
+    const skill = await createSkillFixture(prisma, { userId, title: "Waiting for preparation", dueAt: now, repetitions: 0 });
+    const created = await createCustomPracticeSession({ userId, mode: "PRACTICE_ONLY", targetCount: 1,
+      scope: { collectionIds: [], tags: [], skillIds: [skill.id], recentlyMissed: false, mixedReview: true }, now });
+    if (created.status !== "preparing") throw new Error("Expected preparation");
+    for (let check = 0; check < 2; check++) {
+      const waiting = await presentCustomPracticeSessionItem({ userId, sessionId: created.session.id, now });
+      expect(waiting.status).toBe("preparing");
+      expect(waiting.session).toMatchObject({ id: created.session.id, status: "ACTIVE", completedCount: 0, plan: [] });
+    }
+    expect(await prisma.exerciseAttempt.count({ where: { userId } })).toBe(0);
+    expect((await prisma.skill.findUniqueOrThrow({ where: { id: skill.id } })).firstIntroducedAt).toBeNull();
+    const exercise = await createChoiceExercise({ prisma, userId, skillId: skill.id });
+    const ready = await presentCustomPracticeSessionItem({ userId, sessionId: created.session.id, now });
+    expect(ready.status).toBe("ready");
+    if (ready.status !== "ready") throw new Error("Expected ready exercise");
+    expect(ready.session.id).toBe(created.session.id);
+    expect(ready.exercise.id).toBe(exercise.id);
+    expect(await prisma.practiceSession.count({ where: { userId } })).toBe(1);
+    expect((await presentCustomPracticeSessionItem({ userId: "other-user", sessionId: created.session.id, now })).status).toBe("unavailable");
+  });
+
   it("preloads a next item without presenting it or spending its introduction", async () => {
     const userId = await createUser();
     const skills = await Promise.all([0, 1, 2, 3].map((index) => createSkillFixture(prisma, { userId, title: `Preload skill ${index}`, dueAt: now, repetitions: 0 })));
@@ -607,7 +630,7 @@ suite("custom practice sessions", () => {
     });
     expect(created.status).toBe("preparing");
     if (created.status !== "preparing") throw new Error("expected no due scheduled inventory");
-    expect(created.message).toMatch(/verified compatible exercises/i);
+    expect(created.message).toContain("Your session is saved.");
   });
 
   it("keeps setup and reads preview-like and does not introduce a new skill at limit zero", async () => {

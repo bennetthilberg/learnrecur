@@ -20,6 +20,7 @@ import {
 
 import {
   flagCustomPracticeExerciseAction,
+  loadCustomPracticeSessionItemAction,
   preloadCustomPracticeBufferAction,
   commitCustomPracticeAnswerAction,
   resumeCustomPracticeSessionAction,
@@ -47,13 +48,15 @@ export function CustomPracticeClient({
   const [answer, setAnswer] = useState(restored?.answer ?? "");
   const [feedback, setFeedback] = useState<CustomPracticeClientPreviewResult | null>(() => restored?.checked ? getInstantPracticeFeedback(restored.view.item, restored.answer) : null);
   const [manualRating, setManualRating] = useState<FsrsRating>(restored?.rating ?? FsrsRating.GOOD);
-  const [pending, setPending] = useState<"check" | "save" | "stop" | "resume" | "flag" | null>(null);
+  const [pending, setPending] = useState<"check" | "save" | "stop" | "resume" | "flag" | "refresh" | null>(null);
   const [reportedExerciseId, setReportedExerciseId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const continueButtonRef = useRef<HTMLButtonElement>(null);
   const answerInputRef = useRef<HTMLInputElement>(null);
   const firstChoiceRef = useRef<HTMLButtonElement>(null);
   const previousItemKey = useRef<string | null>(null);
+  const focusPreparedItem = useRef(false);
+  const [preparationChecked, setPreparationChecked] = useState(false);
   const startedAt = useRef<number | null>(null);
   const submittedResponseMs = useRef<number | null>(null);
   const restoredResponseMs = useRef<number | null>(restored?.responseMs ?? null);
@@ -117,7 +120,8 @@ export function CustomPracticeClient({
       previousItemKey.current = presentedItemKey;
       if (feedback?.status === "checked") {
         continueButtonRef.current?.focus();
-      } else if (changed && readyItem) {
+      } else if ((changed || focusPreparedItem.current) && readyItem) {
+        focusPreparedItem.current = false;
         (readyItem.answerKind === AnswerKind.CHOICE ? firstChoiceRef.current : answerInputRef.current)?.focus({ preventScroll: true });
       }
     });
@@ -236,6 +240,23 @@ export function CustomPracticeClient({
       .finally(() => setPending(null));
   };
 
+  const handleCheckPreparation = () => {
+    if (!sessionId || pending || savingRef.current) return;
+    setPending("refresh");
+    setActionError(null);
+    setPreparationChecked(false);
+    void loadCustomPracticeSessionItemAction({ sessionId })
+      .then((result) => {
+        focusPreparedItem.current = result.status === "ready";
+        setView(result);
+        setPreparationChecked(result.status === "preparing");
+        setPreloaded([]);
+        preloadRequest.current = null;
+      })
+      .catch(() => setActionError("Could not check preparation. Your session is kept. Try again."))
+      .finally(() => setPending(null));
+  };
+
   if (view.status !== "ready") {
     return (
       <section className="practiceFrame practiceEmpty customPracticeState" aria-live="polite">
@@ -246,23 +267,30 @@ export function CustomPracticeClient({
             : view.status === "stopped"
               ? "Session paused."
               : view.status === "preparing"
-                ? "Exercises are still preparing."
+                ? "No exercises are ready yet."
                 : view.status === "daily-limit"
                   ? "Daily new-skill limit reached."
                   : "This session is unavailable."}
         </h1>
-        <p>{view.message}</p>
+        <p role={preparationChecked ? "status" : undefined}>{preparationChecked ? "Still waiting for exercises. Your session is saved; check again shortly or open Needs attention." : view.message}</p>
         {actionError ? <ActionNotification id="custom-practice-error" title="Could not update session" message={actionError} /> : null}
         {reportedExerciseId ? <ActionNotification id={`custom-report-${reportedExerciseId}`} title="Report saved" tone="success" message="The exercise was removed. Your review schedule is unchanged." /> : null}
         {view.session ? (
           <p className="practiceMetaSummary tnum">
-            {view.session.completedCount} of {view.session.targetCount} exercises · {formatMode(view.session.mode)}
+            {view.session.completedCount} of {view.session.targetCount} {view.session.targetCount === 1 ? "exercise" : "exercises"} · {formatMode(view.session.mode)}
           </p>
         ) : null}
         <div className="practiceCompleteActions">
           <Link className="secondaryButton" href="/practice/attention">Needs attention</Link>
-          <Link className="secondaryButton" href="/practice">Return to normal practice</Link>
-          <Link className={view.status === "stopped" ? "secondaryButton" : "primaryButton"} href="/practice/custom">Set up another session</Link>
+          {view.status !== "preparing" ? <>
+            <Link className="secondaryButton" href="/practice">Return to normal practice</Link>
+            <Link className={view.status === "stopped" || view.status === "daily-limit" ? "secondaryButton" : "primaryButton"} href="/practice/custom">Set up another session</Link>
+          </> : null}
+          {view.status === "preparing" || view.status === "daily-limit" ? (
+            <button className="primaryButton" type="button" onClick={handleCheckPreparation} disabled={pending !== null}>
+              {pending === "refresh" ? "Checking…" : "Check again"}
+            </button>
+          ) : null}
           {view.status === "stopped" ? (
             <button className="primaryButton" type="button" onClick={handleResume} disabled={pending !== null}>
               {pending === "resume" ? "Resuming" : "Resume session"}

@@ -63,7 +63,7 @@ const CUSTOM_SESSION_MISSING_MESSAGE = "That practice session is no longer avail
 const CUSTOM_SESSION_STOPPED_MESSAGE = "This practice session is stopped. Resume it to continue.";
 const CUSTOM_SESSION_COMPLETED_MESSAGE = "This practice session is complete.";
 const CUSTOM_SESSION_PREPARING_MESSAGE =
-  "No verified compatible exercises are ready in this session scope yet.";
+  "Your session is saved. Check preparation in Needs attention, or check again when exercises are ready.";
 const CUSTOM_SESSION_INVALID_SCOPE_MESSAGE =
   "One or more selected skills or collections are no longer available to this account.";
 const CUSTOM_SESSION_DAILY_LIMIT_MESSAGE =
@@ -360,6 +360,10 @@ export async function presentCustomPracticeSessionItem(input: {
           plan,
           version: current.version + 1,
         });
+      } else {
+        // An empty initial plan has not been completed. Keep its identity so
+        // opening or checking it again can use newly prepared exercises.
+        return { status: "preparing" as const, session: current, message: CUSTOM_SESSION_PREPARING_MESSAGE };
       }
     }
 
