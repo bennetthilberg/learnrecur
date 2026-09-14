@@ -471,7 +471,7 @@ export function PracticeClient({ initialItem, canUseSampleData, recoveryKey, ini
           {advancePending || navigationMessage ? <p role="status" className="practiceMetaSummary">{navigationMessage ?? "Saving…"}</p> : null}
         </div>
 
-      <PracticePrompt text={exercise.prompt} />
+      <PracticePrompt text={exercise.prompt} layout={exercise.promptLayout} />
 
       {exercise.answerKind === AnswerKind.CHOICE ? (
         <div className="choiceGrid" role="radiogroup" aria-label="Answer choices">

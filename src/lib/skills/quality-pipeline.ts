@@ -1,3 +1,4 @@
+import { readStructuredPrompt, type StructuredPrompt } from "@/lib/practice/structured-prompt";
 import { resolveTextPolicy } from "@/lib/practice/policies";
 import { summarizeRecentEvidence, type GenerationRecentEvidence } from "./recent-evidence";
 import { createHash } from "node:crypto";
@@ -329,6 +330,7 @@ export function toPersistedChoiceQuality(input: {
   slotIndex: number;
   exercise: {
     prompt: string;
+    promptLayout?: StructuredPrompt;
     choices: Array<{ id: string; label: string }>;
     answerSpec: { kind: "choice"; correctChoiceId: string };
     correctAnswerDisplay: string;
@@ -362,6 +364,7 @@ export function toPersistedChoiceQuality(input: {
       : GenerationAuditDecision.REJECTED,
     acceptanceMetadata: decision,
     generationMetadata: {
+      ...(input.exercise.promptLayout ? { promptLayout: readStructuredPrompt(input.exercise.prompt, input.exercise.promptLayout) } : {}),
       subjectCapability: input.context.subjectCapability,
       recentEvidence: input.context.recentEvidence ?? {},
       contextManifest: input.context.contextManifest,
@@ -371,7 +374,7 @@ export function toPersistedChoiceQuality(input: {
 
 // Persist actual input preparation provenance without borrowing the choice-only
 // acceptance checker or claiming a planned evidence label was observed behavior.
-export function toPersistedInputQuality(input: { context: GenerationQualityContext; slotIndex: number }) {
+export function toPersistedInputQuality(input: { context: GenerationQualityContext; slotIndex: number; exercise?: { prompt: string; promptLayout?: StructuredPrompt } }) {
   const slot = input.context.blueprint.slots[input.slotIndex];
   return {
     skillSpecVersion: input.context.skillSpec.specVersion,
@@ -383,7 +386,7 @@ export function toPersistedInputQuality(input: { context: GenerationQualityConte
     qualityVersion: GENERATION_QUALITY_CONTRACT_VERSION,
     provenance: { sourceIds: input.context.contextManifest.includedSources.map((source) => source.sourceId), sourceFingerprints: input.context.contextManifest.sourceFingerprints },
     acceptanceDecision: GenerationAuditDecision.ACCEPTED,
-    generationMetadata: { subjectCapability: input.context.subjectCapability, recentEvidence: input.context.recentEvidence ?? {}, contextManifest: input.context.contextManifest },
+    generationMetadata: { ...(input.exercise?.promptLayout ? { promptLayout: readStructuredPrompt(input.exercise.prompt, input.exercise.promptLayout) } : {}), subjectCapability: input.context.subjectCapability, recentEvidence: input.context.recentEvidence ?? {}, contextManifest: input.context.contextManifest },
   };
 }
 

@@ -1,3 +1,4 @@
+import { readStoredPromptLayout, type StructuredPrompt } from "./structured-prompt";
 import { PRACTICE_BUFFER_SIZE } from "./buffer";
 import { wasSkillIntroduced } from "./daily-limit-contracts";
 import { getDailyNewSkillAllowance, previouslyIntroducedSkillWhere, unintroducedSkillWhere, recordSkillIntroduction } from "./daily-limit";
@@ -84,6 +85,7 @@ export type PracticeExerciseSummary = {
   type: ExerciseType;
   answerKind: AnswerKind;
   prompt: string;
+  promptLayout?: StructuredPrompt | null;
   choices: Prisma.JsonValue | null;
   correctAnswerDisplay: string;
   explanation: string | null;
@@ -1547,6 +1549,7 @@ function toPracticeExerciseRecord(
     type: exercise.type,
     answerKind: exercise.answerKind,
     prompt: exercise.prompt,
+    promptLayout: readStoredPromptLayout(exercise.prompt, exercise.generationMetadata),
     choices: exercise.choices,
     answerSpec: exercise.answerSpec,
     correctAnswerDisplay: exercise.correctAnswerDisplay,
@@ -1635,6 +1638,7 @@ function toPracticeExerciseSummary(exercise: PracticeExerciseRecord): PracticeEx
     type: exercise.type,
     answerKind: exercise.answerKind,
     prompt: exercise.prompt,
+    promptLayout: exercise.promptLayout,
     choices: exercise.choices,
     correctAnswerDisplay: exercise.correctAnswerDisplay,
     explanation: exercise.explanation,

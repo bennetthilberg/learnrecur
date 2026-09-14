@@ -1,9 +1,10 @@
+import { structuredPromptSchema } from "./structured-prompt";
 import { z } from "zod";
 import { AnswerKind, FsrsRating, SkillFsrsState } from "@/generated/prisma/enums";
 import { answerSpecSchema } from "@/lib/answer-checking";
 
 const exercise = z.object({
-  answerKind: z.enum(AnswerKind), prompt: z.string(), answerSpec: answerSpecSchema,
+  answerKind: z.enum(AnswerKind), prompt: z.string(), promptLayout: structuredPromptSchema.nullable().optional(), answerSpec: answerSpecSchema,
   correctAnswerDisplay: z.string(), explanation: z.string().nullable(),
   difficulty: z.number().nullable(), expectedSeconds: z.number().nullable(),
   choices: z.array(z.object({ id: z.string(), label: z.string() })).default([]),

@@ -461,6 +461,7 @@ function toCustomPracticeClientView(view: CustomPracticeSessionView): CustomPrac
       skillTitle: view.skill.title,
       answerKind: view.exercise.answerKind,
       prompt: view.exercise.prompt,
+      promptLayout: view.exercise.promptLayout,
       choices: toChoiceOptions(view.exercise.choices),
       difficulty: view.exercise.difficulty,
       expectedSeconds: view.exercise.expectedSeconds,

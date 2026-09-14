@@ -199,7 +199,7 @@ function DashboardReviewCard({
           <span>{label}</span>
           <span className="tnum">{activeSummary}</span>
         </div>
-        {ready ? <PracticePrompt text={prompt} /> : <p className="disp openWaterReviewPrompt">{prompt}</p>}
+        {ready ? <PracticePrompt text={prompt} layout={item.exercise.promptLayout} /> : <p className="disp openWaterReviewPrompt">{prompt}</p>}
         <div className="openWaterReviewActions">
           {ready ? (
             <>

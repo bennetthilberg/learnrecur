@@ -274,7 +274,7 @@ export function CustomPracticeClient({
           </div>
           {saving || navigationMessage ? <p role="status" className="practiceMetaSummary">{navigationMessage ?? "Saving…"}</p> : null}
         </div>
-        <PracticePrompt text={exercise.prompt} />
+        <PracticePrompt text={exercise.prompt} layout={exercise.promptLayout} />
         {actionError ? <ActionNotification id="custom-practice-error" title="Could not update session" message={actionError} /> : null}
         {reportedExerciseId ? <ActionNotification id={`custom-report-${reportedExerciseId}`} title="Report saved" tone="success" message="The exercise was removed. Your review schedule is unchanged." /> : null}
         {isChoice ? (

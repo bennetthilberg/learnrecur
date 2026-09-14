@@ -1,3 +1,4 @@
+import type { StructuredPrompt } from "@/lib/practice/structured-prompt";
 import type { PracticeCheckingData } from "@/lib/practice/instant-feedback";
 import {
   AnswerKind,
@@ -27,6 +28,7 @@ export type PracticeExercise = PracticeCheckingData & (
       skillId: string;
       answerKind: typeof AnswerKind.CHOICE;
       prompt: string;
+      promptLayout?: StructuredPrompt | null;
       choices: ChoiceOption[];
       difficulty: number | null;
       expectedSeconds: number | null;
@@ -36,6 +38,7 @@ export type PracticeExercise = PracticeCheckingData & (
       skillId: string;
       answerKind: typeof AnswerKind.TEXT | typeof AnswerKind.NUMERIC | typeof AnswerKind.MATH;
       prompt: string;
+      promptLayout?: StructuredPrompt | null;
       difficulty: number | null;
       expectedSeconds: number | null;
     });
@@ -168,6 +171,7 @@ export type CustomPracticeClientItem = PracticeCheckingData & {
   answerKind: AnswerKind;
   exerciseType?: ExerciseType;
   prompt: string;
+      promptLayout?: StructuredPrompt | null;
   choices: ChoiceOption[];
   difficulty: number | null;
   expectedSeconds: number | null;

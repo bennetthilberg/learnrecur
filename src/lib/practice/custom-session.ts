@@ -1,3 +1,4 @@
+import { readStoredPromptLayout } from "./structured-prompt";
 import { PRACTICE_BUFFER_SIZE } from "./buffer";
 import "server-only";
 
@@ -108,6 +109,7 @@ type SessionExercise = Pick<
   | "type"
   | "answerKind"
   | "prompt"
+  | "generationMetadata"
   | "choices"
   | "answerSpec"
   | "correctAnswerDisplay"
@@ -1318,6 +1320,7 @@ function toReadyItem(
       type: exercise.type,
       answerKind: exercise.answerKind,
       prompt: exercise.prompt,
+      promptLayout: readStoredPromptLayout(exercise.prompt, exercise.generationMetadata),
       choices: exercise.choices,
       correctAnswerDisplay: exercise.correctAnswerDisplay,
       explanation: exercise.explanation,
