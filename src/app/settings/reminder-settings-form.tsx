@@ -6,7 +6,7 @@ import { reminderDraftSchema } from "@/lib/forms/settings-drafts";
 import { Select } from "@mantine/core";
 
 import { useCallback, useId, useRef, useState } from "react";
-import type { ChangeEvent, FormEvent } from "react";
+import type { FormEvent } from "react";
 import { CheckCircle, WarningCircle } from "@phosphor-icons/react";
 import { notifications } from "@mantine/notifications";
 
@@ -64,14 +64,12 @@ export function ReminderSettingsForm({
   const saveForm = useCallback(
     async (
       form: HTMLFormElement,
-      source: "form" | "toggle",
     ): Promise<ReminderSettingsActionState | null> => {
       if (pendingRef.current) {
         return null;
       }
 
       const formData = new FormData(form);
-      const enabled = formData.get("enabled") === "on";
 
       pendingRef.current = true;
       setPending(true);
@@ -84,7 +82,7 @@ export function ReminderSettingsForm({
         }
 
         setState(result);
-        showReminderSettingsNotification(result, source, enabled);
+        showReminderSettingsNotification(result);
 
         return result;
       } catch {
@@ -94,7 +92,7 @@ export function ReminderSettingsForm({
         };
 
         setState(result);
-        showReminderSettingsNotification(result, source, enabled);
+        showReminderSettingsNotification(result);
 
         return result;
       } finally {
@@ -108,31 +106,11 @@ export function ReminderSettingsForm({
   const handleSubmit = useCallback(
     (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
-      void saveForm(event.currentTarget, "form");
+      void saveForm(event.currentTarget);
     },
     [saveForm],
   );
 
-  const handleEnabledChange = useCallback(
-    (event: ChangeEvent<HTMLInputElement>) => {
-      const checkbox = event.currentTarget;
-      const form = checkbox.form;
-
-      if (!form) {
-        return;
-      }
-
-      const checked = checkbox.checked;
-      draft.update({ enabled: checked });
-
-      void saveForm(form, "toggle").then((result) => {
-        if (!result || result.status !== "saved") {
-          draft.update({ enabled: !checked });
-        }
-      });
-    },
-    [saveForm, draft],
-  );
 
   return (
     <form className="settingsReminderForm" onSubmit={handleSubmit}>
@@ -145,7 +123,7 @@ export function ReminderSettingsForm({
               checked={draft.value.enabled}
               disabled={pending || !draft.ready}
               name="enabled"
-              onChange={handleEnabledChange}
+              onChange={(event) => draft.update({ enabled: event.currentTarget.checked })}
               type="checkbox"
             />
             <span className="settingsSwitchControl" aria-hidden="true" />
@@ -222,7 +200,7 @@ export function ReminderSettingsForm({
             <button className="secondaryButton" type="button" disabled={pending || timezone === practiceTimezone} onClick={() => setTimezone(practiceTimezone)}>
               Use practice timezone
             </button>
-            <p className="settingsFieldHint">Save changes to apply this reminder schedule.</p>
+            <p className="settingsFieldHint">Save changes to apply your reminder preferences.</p>
           </div>
 
           <label className="skillField">
@@ -290,19 +268,12 @@ function formatHour(hour: number) {
 
 function showReminderSettingsNotification(
   state: ReminderSettingsActionState,
-  source: "form" | "toggle",
-  enabled: boolean,
 ) {
   if (!state.message || state.status === "idle") {
     return;
   }
 
   const saved = state.status === "saved";
-  const message = saved && source === "toggle"
-    ? enabled
-      ? "Reminders are on."
-      : "Reminders are off."
-    : state.message;
 
   notifications.show({
     id: reminderSettingsNotificationId,
@@ -314,7 +285,7 @@ function showReminderSettingsNotification(
     ) : (
       <WarningCircle size={18} weight="bold" />
     ),
-    message,
+    message: state.message,
     position: "top-right",
     title: saved ? "Reminder settings saved" : "Could not save reminders",
     withBorder: true,
