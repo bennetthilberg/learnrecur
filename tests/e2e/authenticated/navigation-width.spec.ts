@@ -1,3 +1,4 @@
+import { clickNavigation } from "../support/navigation";
 import { expect, test } from "../fixtures/learner-lifecycle";
 
 for (const width of [390, 720, 1000, 1119, 1280]) {
@@ -11,7 +12,7 @@ for (const width of [390, 720, 1000, 1119, 1280]) {
       await page.route(`**/${destination}?*`, async (route) => { await held; await route.continue(); });
       let before;
       try {
-        await page.locator(`.practiceNav a[data-nav-key="${destination}"]`).click();
+        await clickNavigation(page, destination[0].toUpperCase() + destination.slice(1));
         const pending = page.locator(`.routePendingContent[data-route-kind="${destination}"]`);
         await expect(pending.locator(selector).first()).toBeVisible();
         before = await pending.locator(selector).first().boundingBox();

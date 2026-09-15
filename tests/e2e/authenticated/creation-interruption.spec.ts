@@ -1,3 +1,4 @@
+import { clickNavigation } from "../support/navigation";
 import { expect, test } from "../fixtures/authenticated";
 
 test("warns before leaving an in-flight creation and keeps the original text", async ({ page }, testInfo) => {
@@ -20,7 +21,7 @@ test("warns before leaving an in-flight creation and keeps the original text", a
     await page.screenshot({ path: testInfo.outputPath("creating-390.png") });
     await page.setViewportSize({ width: 1280, height: 900 });
     const cancelNavigation = page.waitForEvent("dialog");
-    const navigation = page.getByRole("link", { name: "Dashboard", exact: true }).click();
+    const navigation = clickNavigation(page, "Dashboard");
     const dialog = await cancelNavigation;
     expect(dialog.type()).toBe("confirm");
     expect(dialog.message()).toContain("Check Skills before starting again");

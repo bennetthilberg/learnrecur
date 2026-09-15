@@ -1,3 +1,4 @@
+import { clickNavigation } from "../support/navigation";
 import { randomUUID } from "node:crypto";
 import { neon } from "@neondatabase/serverless";
 import { expect, test } from "../fixtures/authenticated";
@@ -14,7 +15,7 @@ test("a background import retains processing and failure state through navigatio
     const processing = page.getByRole("heading", { name: "Building the outline", exact: true });
     await expect(processing).toBeVisible();
     await expect(page.getByText(/You can leave this page; processing continues/)).toBeVisible();
-    await page.getByRole("link", { name: "Dashboard", exact: true }).click();
+    await clickNavigation(page, "Dashboard");
     await expect(page).toHaveURL(/\/dashboard$/);
     await page.goto("/skills/materials");
     await expect(page.getByText("Processing", { exact: true })).toBeVisible();

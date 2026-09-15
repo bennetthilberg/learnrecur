@@ -1,3 +1,4 @@
+import { clickNavigation } from "../support/navigation";
 import { expect, test } from "../fixtures/authenticated";
 
 test("unfinished source text and context survive refresh and navigation", async ({ page }, testInfo) => {
@@ -10,7 +11,7 @@ test("unfinished source text and context survive refresh and navigation", async 
   await page.getByRole("textbox", { name: "Source name", exact: true }).fill("Chapter 4");
   await page.getByRole("textbox", { name: "Focus", exact: true }).fill("Use short sentences.");
   await page.getByRole("textbox", { name: "Tags", exact: true }).fill("spanish, grammar");
-  await page.getByRole("link", { name: "Skills", exact: true }).click();
+  await clickNavigation(page, "Skills");
   await expect(page.getByRole("heading", { name: "Skills", exact: true, level: 1 })).toBeVisible();
   await expect(page).toHaveURL(/\/skills$/);
   await page.goBack();

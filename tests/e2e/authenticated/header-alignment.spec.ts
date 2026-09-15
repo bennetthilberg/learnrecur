@@ -12,11 +12,9 @@ test("compact header centers its brand navigation and avatar", async ({ page }, 
     const center = (box: { y: number; height: number }) => box.y + box.height / 2;
     if (width < 1120) {
       expect(Math.abs(center(brand!) - center(avatar!)), `brand/avatar at ${width}`).toBeLessThanOrEqual(1);
-      if (width >= 720) {
-        for (const label of await page.locator(".practiceNavLabel").all()) {
-          expect(Math.abs(center((await label.boundingBox())!) - center(brand!)), `nav/brand at ${width}`).toBeLessThanOrEqual(1);
-        }
-      }
+      const menu = await page.getByRole("button", { name: "Pages", exact: true }).boundingBox();
+      expect(Math.abs(center(menu!) - center(brand!))).toBeLessThanOrEqual(1);
+      await expect(page.locator(".practiceNav")).toBeHidden();
     } else {
       expect(avatar!.y).toBeGreaterThan(brand!.y);
     }

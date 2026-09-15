@@ -1,3 +1,4 @@
+import { clickNavigation } from "../support/navigation";
 import { expect, test } from "../fixtures/authenticated";
 
 test("material input drafts survive tab changes, refresh and navigation", async ({ page }, testInfo) => {
@@ -18,7 +19,7 @@ test("material input drafts survive tab changes, refresh and navigation", async 
   await expect(pdf.getByRole("button", { name: "Import PDF", exact: true })).toBeDisabled();
   await page.getByRole("tab", { name: "Website", exact: true }).click();
   await expect(website.getByRole("textbox", { name: /URL/ })).toHaveValue("https://example.com/reference");
-  await page.getByRole("link", { name: "Skills", exact: true }).click();
+  await clickNavigation(page, "Skills");
   await expect(page).toHaveURL(/\/skills$/);
   await page.goBack();
   await page.getByRole("tab", { name: "Website", exact: true }).click();

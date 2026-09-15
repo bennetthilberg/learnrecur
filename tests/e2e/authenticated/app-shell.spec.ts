@@ -1,3 +1,4 @@
+import { clickNavigation } from "../support/navigation";
 import { clerk } from "@clerk/testing/playwright";
 
 import { expect, test } from "../fixtures/authenticated";
@@ -81,16 +82,15 @@ for (const viewport of [
     await toast.getByRole("button").click();
     await expect(toast).toHaveCount(0);
 
-    const nav = page.getByRole("navigation", { name: "Primary navigation" });
-    const collections = nav.getByRole("link", { name: "Collections", exact: true });
-    await collections.click();
+    const nav = page.locator(".practiceNav");
+    await clickNavigation(page, "Collections");
     await expect(page).toHaveURL(/\/collections$/);
     await expect(page.locator(".routeSkeleton")).toHaveCount(0);
-    await expect(nav.getByRole("link", { name: "Collections", exact: true })).toHaveAttribute("aria-current", "page");
-    await expect(nav.getByRole("link", { name: "Collections", exact: true })).toHaveAttribute("data-nav-active", "true");
+    await expect(nav.locator('a[data-nav-key="collections"]')).toHaveAttribute("aria-current", "page");
+    await expect(nav.locator('a[data-nav-key="collections"]')).toHaveAttribute("data-nav-active", "true");
     await expect(page.locator(".practiceNavActiveIndicator, .practiceNavFloatingIndicator")).toHaveCount(0);
     if (viewport.name === "desktop") {
-      await expect(nav.getByRole("link", { name: "Collections", exact: true })).toHaveCSS("background-color", "rgb(255, 255, 255)");
+      await expect(nav.locator('a[data-nav-key="collections"]')).toHaveCSS("background-color", "rgb(255, 255, 255)");
     }
     await page.screenshot({ path: testInfo.outputPath(`static-nav-${viewport.name}.png`) });
   });
@@ -121,8 +121,11 @@ test("resizing the sidebar keeps the selected settings link visible", async ({ p
   await expect(settings).toHaveAttribute("data-nav-active", "true");
   for (const width of [800, 600, 390, 1280, 375]) {
     await page.setViewportSize({ width, height: 844 });
-    // Allow subpixel clipping at the scroll container edge.
-    await expect(settings, `selected link at ${width}px`).toBeInViewport({ ratio: 0.99 });
+    if (width < 1120) {
+      await page.getByRole("button", { name: "Pages", exact: true }).click();
+      await expect(page.getByRole("menuitem", { name: "Settings", exact: true })).toHaveAttribute("aria-current", "page");
+      await page.keyboard.press("Escape");
+    } else await expect(settings).toBeInViewport();
     await expect(page.locator(".practiceNavActiveIndicator, .practiceNavFloatingIndicator")).toHaveCount(0);
   }
 });

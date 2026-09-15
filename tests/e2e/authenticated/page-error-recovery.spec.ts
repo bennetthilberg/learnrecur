@@ -31,7 +31,7 @@ for (const width of [390, 1280]) {
       expect(actionBox).not.toBeNull();
       expect(retryBox).not.toBeNull();
       expect(Math.abs(actionBox!.x + actionBox!.width - retryBox!.x - retryBox!.width)).toBeLessThan(2);
-      await expect(page.getByRole("navigation", { name: "Primary navigation" })).toBeAttached();
+      await expect(page.locator(".practiceNav")).toBeAttached();
       await page.locator(".practiceFrame").screenshot({ path: testInfo.outputPath(`route-error-${width}.png`) });
       await page.getByRole("button", { name: "Try again", exact: true }).click();
       await expect(draft).toHaveValue("Unfinished collection name");

@@ -1,3 +1,4 @@
+import { clickNavigation } from "../support/navigation";
 import { expect, test } from "../fixtures/learner-lifecycle";
 
 for (const width of [1280, 390]) {
@@ -14,7 +15,7 @@ for (const width of [1280, 390]) {
         await held;
         await route.continue();
       });
-      await page.getByRole("navigation", { name: "Primary navigation" }).getByRole("link", { name: destination === "dashboard" ? "Dashboard" : "Practice", exact: true }).click();
+      await clickNavigation(page, destination === "dashboard" ? "Dashboard" : "Practice");
       const pending = page.locator(`.routePendingContent[data-route-kind="${destination}"]`);
       await expect(pending).toBeVisible();
       const selectors = destination === "dashboard"

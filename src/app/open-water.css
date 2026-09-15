@@ -9597,16 +9597,20 @@ body {
   overflow-wrap: anywhere;
 }
 
-/* Keep all destinations reachable when the sidebar is absent. */
+/* One navigation mode: menu below the sidebar breakpoint, sidebar above it. */
 .practiceTopbar .compactNavMenu { flex: 0 0 auto; min-height: 44px; padding: 8px 12px; font-size: 15px; }
-@media (max-width: 719px) {
-  .practiceTopbar { grid-template-columns: minmax(0, 1fr) auto auto; }
-  .compactNavMenu { grid-column: 2; grid-row: 1; }
-  .practiceTopbar .practiceUserMenu { grid-column: 3; grid-row: 1; }
+.practiceTopbar .compactNavMenu:hover,
+.practiceTopbar .compactNavMenu:active { transform: none; }
+@media (max-width: 1119px) {
+  .practiceTopbar { display: flex; align-items: center; justify-content: space-between; }
+  .practiceTopbar .practiceTopbarRight { display: flex; align-items: center; gap: 12px; }
+  .practiceTopbar .practiceNav { display: none; }
+  .practiceTopbar .practiceWordmark { flex-shrink: 0; }
 }
 @media (min-width: 1120px) {
   .compactNavMenu { display: none; }
 }
+.compactNavItem { min-height: 44px; }
 .compactNavItem[aria-current="page"] { background: var(--lr-wave-1); font-weight: 700; }
 
 .practiceRecoveryNotice > .primaryButton { margin-left: auto; }

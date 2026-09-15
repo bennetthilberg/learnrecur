@@ -1,3 +1,4 @@
+import { clickNavigation } from "../support/navigation";
 import { neon } from "@neondatabase/serverless";
 import { expect, test } from "../fixtures/learner-lifecycle";
 
@@ -17,7 +18,7 @@ test("skill draft edits survive refresh and leave the saved skill unchanged unti
   await expect(editor.getByRole("textbox", { name: "Rules", exact: true })).toHaveValue("Read the whole sentence before selecting a verb.");
   const rows = await sql.query('SELECT title FROM skills WHERE id=$1 AND "userId"=$2', [skill.skillId, skill.userId]);
   expect(rows[0].title).toBe(originalTitle);
-  await page.getByRole("link", { name: "Skills", exact: true }).click();
+  await clickNavigation(page, "Skills");
   await expect(page).toHaveURL(/\/skills$/);
   await page.goBack();
   await expect(title).toHaveValue("Choosing a verb from the sentence context");

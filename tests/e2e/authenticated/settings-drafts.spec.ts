@@ -1,3 +1,4 @@
+import { clickNavigation } from "../support/navigation";
 import { neon } from "@neondatabase/serverless";
 import { expect, test } from "../fixtures/authenticated";
 
@@ -11,7 +12,7 @@ test("practice edits survive navigation, failed saves and refresh without becomi
   await expect(unlimited).toBeEnabled();
   await unlimited.uncheck();
   await limit.fill("7");
-  await page.getByRole("link", { name: "Dashboard", exact: true }).click();
+  await clickNavigation(page, "Dashboard");
   await expect(page.getByRole("heading", { level: 1 })).toContainText("due skill");
   await page.goBack();
   await expect(limit).toHaveValue("7");
@@ -74,7 +75,7 @@ test("retains edits through browser Back when tab storage is unavailable", async
   const initial = await count.inputValue();
   await count.fill("8");
   await expect(form.getByText(/Save before refreshing or closing this tab/)).toBeVisible();
-  await page.getByRole("link", { name: "Dashboard", exact: true }).click();
+  await clickNavigation(page, "Dashboard");
   await expect(page).toHaveURL(/\/dashboard$/);
   await page.goBack();
   await expect(count).toHaveValue("8");
@@ -83,7 +84,7 @@ test("retains edits through browser Back when tab storage is unavailable", async
   await form.screenshot({ path: testInfo.outputPath("memory-draft-390.png") });
   await form.getByRole("button", { name: "Discard changes", exact: true }).click();
   await expect(count).toHaveValue(initial);
-  await page.getByRole("link", { name: "Dashboard", exact: true }).click();
+  await clickNavigation(page, "Dashboard");
   await expect(page).toHaveURL(/\/dashboard$/);
   await page.goBack();
   await expect(count).toHaveValue(initial);

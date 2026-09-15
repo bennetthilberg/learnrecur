@@ -1,3 +1,4 @@
+import { clickNavigation } from "../support/navigation";
 import { neon } from "@neondatabase/serverless";
 import { expect, test } from "../fixtures/learner-lifecycle";
 
@@ -129,7 +130,7 @@ for (const custom of [false, true]) {
     if (await page.locator(".choiceCard").count()) await page.locator(".choiceCard").first().click();
     else await page.getByLabel("Your answer", { exact: true }).fill("0");
     await page.getByRole("button", { name: "Check", exact: true }).click();
-    await page.getByRole("link", { name: "Dashboard", exact: true }).click();
+    await clickNavigation(page, "Dashboard");
     await expect(page).toHaveURL(/\/dashboard$/);
     await page.goBack();
     await expect(page).toHaveURL(url);
@@ -141,6 +142,7 @@ for (const custom of [false, true]) {
   });
 
   test(`queues navigation until a ${custom ? "custom" : "normal"} save is confirmed`, async ({ page, learnerFixture }) => {
+    await page.setViewportSize({ width: custom ? 390 : 1280, height: 900 });
     expect(learnerFixture.userId).toBeTruthy();
     if (custom) {
       await page.goto("/practice/custom");
@@ -158,7 +160,7 @@ for (const custom of [false, true]) {
     });
     try {
       await page.getByRole("button", { name: custom ? "Save practice" : "Continue", exact: true }).click();
-      await page.getByRole("link", { name: "Dashboard", exact: true }).click();
+      await clickNavigation(page, "Dashboard");
       await expect(page.getByText("Saving your review, then opening the page you chose…")).toBeVisible();
       expect(page.url()).toContain("/practice");
     } finally { release(); }

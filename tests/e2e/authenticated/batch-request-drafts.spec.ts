@@ -1,3 +1,4 @@
+import { clickNavigation } from "../support/navigation";
 import { randomUUID } from "node:crypto";
 import { neon } from "@neondatabase/serverless";
 import { expect, test } from "../fixtures/authenticated";
@@ -20,7 +21,7 @@ test("batch requests restore their text and retry identity without submitting ge
     await page.reload();
     await expect(request).toHaveValue("Make three skills from the examples in chapter four.");
     await expect(page.locator('input[name="idempotencyKey"]')).toHaveValue(identity);
-    await page.getByRole("link", { name: "Skills", exact: true }).click();
+    await clickNavigation(page, "Skills");
     await expect(page).toHaveURL(/\/skills$/);
     await page.goBack();
     await expect(request).toHaveValue("Make three skills from the examples in chapter four.");
