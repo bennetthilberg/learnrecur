@@ -1,3 +1,4 @@
+import { customDraftSchema, normalDraftSchema } from "@/lib/practice/recovery";
 import { clickNavigation } from "../support/navigation";
 import { neon } from "@neondatabase/serverless";
 import { expect, test } from "../fixtures/learner-lifecycle";
@@ -25,7 +26,7 @@ for (const custom of [false, true]) test(`preserves an answered buffered questio
   try {
     await page.getByRole("button", { name: custom ? "Save practice" : "Continue", exact: true }).click();
     await expect(page.getByText("Saving…", { exact: true })).toBeVisible();
-    bufferedPrompt = (await page.locator(".practicePromptPanel").textContent()) ?? "";
+    bufferedPrompt = (await page.locator(".practicePromptPanel:not([aria-hidden])").textContent()) ?? "";
     const scenario = Object.values(learnerFixture.scenarios).find((item) => bufferedPrompt.includes(item.exercise.prompt.slice(0, 25)));
     expect(scenario).toBeTruthy();
     retiredSkillId = scenario!.skillId;
@@ -40,7 +41,7 @@ for (const custom of [false, true]) test(`preserves an answered buffered questio
     await sql.query('UPDATE exercises SET "retiredAt" = NOW() WHERE "skillId" = $1 AND "userId" = $2', [retiredSkillId, learnerFixture.userId]);
   } finally { release(); }
   await expect(page.getByText("Saving…", { exact: true })).toHaveCount(0);
-  await expect(page.locator(".practicePromptPanel")).not.toHaveText(bufferedPrompt);
+  await expect(page.locator(".practicePromptPanel:not([aria-hidden])")).not.toHaveText(bufferedPrompt);
   const [row] = await sql.query('SELECT count(*)::int AS count, count(*) FILTER (WHERE "skillId" = $2)::int AS retired FROM exercise_attempts WHERE "userId" = $1', [learnerFixture.userId, retiredSkillId]);
   expect(row.count).toBe(1);
   expect(row.retired).toBe(0);
@@ -50,8 +51,9 @@ for (const custom of [false, true]) test(`preserves an answered buffered questio
   });
   await expect.poll(deferred).toEqual(optimisticDraft);
   await page.reload();
-  await expect(page.locator(".practicePromptPanel")).toBeVisible();
-  await expect.poll(deferred).toEqual(optimisticDraft);
+  await expect(page.locator(".practicePromptPanel:not([aria-hidden])")).toBeVisible();
+  // Recovery adds schema defaults, such as an empty choices list for text answers.
+  await expect.poll(deferred).toEqual((custom ? customDraftSchema : normalDraftSchema).parse(optimisticDraft));
 });
 
 for (const custom of [false, true]) {
@@ -65,7 +67,7 @@ for (const custom of [false, true]) {
     const frame = page.getByRole("region", { name: "Practice exercise", exact: true });
     await expect(frame).toHaveAttribute("data-next-ready", "true");
     await expect.poll(async () => Number(await frame.getAttribute("data-buffered-count"))).toBeGreaterThanOrEqual(2);
-    const before = (await page.locator(".practicePromptPanel").textContent()) ?? "";
+    const before = (await page.locator(".practicePromptPanel:not([aria-hidden])").textContent()) ?? "";
     if (await page.locator(".choiceCard").count()) await page.locator(".choiceCard").first().click();
     else await page.getByLabel("Your answer", { exact: true }).fill("0");
     await page.getByRole("button", { name: "Check", exact: true }).click();
@@ -77,7 +79,7 @@ for (const custom of [false, true]) {
     });
     try {
       await page.getByRole("button", { name: custom ? "Save practice" : "Continue", exact: true }).click();
-      await expect(page.locator(".practicePromptPanel")).not.toHaveText(before, { timeout: 500 });
+      await expect(page.locator(".practicePromptPanel:not([aria-hidden])")).not.toHaveText(before, { timeout: 500 });
       await expect(page.getByText("Saving…", { exact: true })).toBeVisible();
       const metadata = await page.locator(".practiceMetaRow > div").boundingBox();
       const saving = await page.getByText("Saving…", { exact: true }).boundingBox();
@@ -91,7 +93,7 @@ for (const custom of [false, true]) {
     await expect(page.getByText("Saving…", { exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: custom ? "Save practice" : "Continue", exact: true })).toBeEnabled();
     // The third question must already be buffered too, without another fetch.
-    const secondPrompt = (await page.locator(".practicePromptPanel").textContent()) ?? "";
+    const secondPrompt = (await page.locator(".practicePromptPanel:not([aria-hidden])").textContent()) ?? "";
     let releaseSecond!: () => void;
     const secondHeld = new Promise<void>((resolve) => { releaseSecond = resolve; });
     await page.route("**/practice**", async (route) => {
@@ -100,7 +102,7 @@ for (const custom of [false, true]) {
     });
     try {
       await page.getByRole("button", { name: custom ? "Save practice" : "Continue", exact: true }).click();
-      await expect(page.locator(".practicePromptPanel")).not.toHaveText(secondPrompt, { timeout: 500 });
+      await expect(page.locator(".practicePromptPanel:not([aria-hidden])")).not.toHaveText(secondPrompt, { timeout: 500 });
     } finally { releaseSecond(); }
     await expect(page.getByText("Saving…", { exact: true })).toHaveCount(0);
   });
@@ -114,7 +116,7 @@ for (const custom of [false, true]) {
       await page.getByRole("button", { name: "Start session", exact: true }).click();
     } else await page.goto("/practice");
     await expect(page.getByRole("region", { name: "Practice exercise", exact: true })).toHaveAttribute("data-next-ready", "true");
-    const before = (await page.locator(".practicePromptPanel").textContent()) ?? "";
+    const before = (await page.locator(".practicePromptPanel:not([aria-hidden])").textContent()) ?? "";
     if (await page.locator(".choiceCard").count()) await page.locator(".choiceCard").first().click();
     else await page.getByLabel("Your answer", { exact: true }).fill("0");
     await page.getByRole("button", { name: "Check", exact: true }).click();
@@ -126,10 +128,10 @@ for (const custom of [false, true]) {
     const save = page.getByRole("button", { name: custom ? "Save practice" : "Continue", exact: true });
     await save.click();
     await expect(page.getByText(/Your checked answer is restored/)).toBeVisible();
-    await expect(page.locator(".practicePromptPanel")).toHaveText(before);
+    await expect(page.locator(".practicePromptPanel:not([aria-hidden])")).toHaveText(before);
     await save.click();
     await expect(page.getByText("Saving…", { exact: true })).toHaveCount(0);
-    await expect(page.locator(".practicePromptPanel")).not.toHaveText(before);
+    await expect(page.locator(".practicePromptPanel:not([aria-hidden])")).not.toHaveText(before);
     await expect.poll(async () => {
       const [row] = await sql.query('SELECT count(*)::int AS count FROM exercise_attempts WHERE "userId" = $1', [learnerFixture.userId]);
       return row.count;
@@ -146,7 +148,7 @@ for (const custom of [false, true]) {
     } else await page.goto("/practice");
     await expect(page.getByRole("region", { name: "Practice exercise", exact: true })).toBeVisible();
     const url = page.url();
-    const prompt = (await page.locator(".practicePromptPanel").textContent()) ?? "";
+    const prompt = (await page.locator(".practicePromptPanel:not([aria-hidden])").textContent()) ?? "";
     if (await page.locator(".choiceCard").count()) await page.locator(".choiceCard").first().click();
     else await page.getByLabel("Your answer", { exact: true }).fill("0");
     await page.getByRole("button", { name: "Check", exact: true }).click();
@@ -154,10 +156,10 @@ for (const custom of [false, true]) {
     await expect(page).toHaveURL(/\/dashboard$/);
     await page.goBack();
     await expect(page).toHaveURL(url);
-    await expect(page.locator(".practicePromptPanel")).toHaveText(prompt);
+    await expect(page.locator(".practicePromptPanel:not([aria-hidden])")).toHaveText(prompt);
     await expect(page.getByRole("button", { name: custom ? "Save practice" : "Continue", exact: true })).toBeEnabled();
     await page.reload();
-    await expect(page.locator(".practicePromptPanel")).toHaveText(prompt);
+    await expect(page.locator(".practicePromptPanel:not([aria-hidden])")).toHaveText(prompt);
     await expect(page.getByRole("button", { name: custom ? "Save practice" : "Continue", exact: true })).toBeEnabled();
   });
 
@@ -197,7 +199,7 @@ for (const custom of [false, true]) {
       await page.getByRole("button", { name: "Start session", exact: true }).click();
     } else await page.goto("/practice");
     await expect(page.getByRole("region", { name: "Practice exercise", exact: true })).toHaveAttribute("data-next-ready", "true");
-    const first = (await page.locator(".practicePromptPanel").textContent()) ?? "";
+    const first = (await page.locator(".practicePromptPanel:not([aria-hidden])").textContent()) ?? "";
     async function check() {
       if (await page.locator(".choiceCard").count()) await page.locator(".choiceCard").first().click();
       else await page.getByLabel("Your answer", { exact: true }).fill("0");
@@ -215,15 +217,15 @@ for (const custom of [false, true]) {
     await save.click();
     let second = "";
     try {
-      await expect(page.locator(".practicePromptPanel")).not.toHaveText(first);
-      second = (await page.locator(".practicePromptPanel").textContent()) ?? "";
+      await expect(page.locator(".practicePromptPanel:not([aria-hidden])")).not.toHaveText(first);
+      second = (await page.locator(".practicePromptPanel:not([aria-hidden])").textContent()) ?? "";
       await check();
     } finally { release(); }
     await expect(page.getByText(/Your checked answer is restored/)).toBeVisible();
     await page.reload();
-    await expect(page.locator(".practicePromptPanel")).toHaveText(first);
+    await expect(page.locator(".practicePromptPanel:not([aria-hidden])")).toHaveText(first);
     await save.click();
-    await expect(page.locator(".practicePromptPanel")).toHaveText(second);
+    await expect(page.locator(".practicePromptPanel:not([aria-hidden])")).toHaveText(second);
     await expect(save).toBeEnabled();
     const [row] = await sql.query('SELECT count(*)::int AS count FROM exercise_attempts WHERE "userId"=$1', [learnerFixture.userId]);
     expect(row.count).toBe(1);
@@ -240,7 +242,7 @@ for (const custom of [false, true]) {
     } else await page.goto("/practice");
     await expect(page.getByRole("region", { name: "Practice exercise", exact: true })).toHaveAttribute("data-next-ready", "true");
     const practiceUrl = page.url();
-    const first = (await page.locator(".practicePromptPanel").textContent()) ?? "";
+    const first = (await page.locator(".practicePromptPanel:not([aria-hidden])").textContent()) ?? "";
     if (await page.locator(".choiceCard").count()) await page.locator(".choiceCard").first().click();
     else await page.getByLabel("Your answer", { exact: true }).fill("0");
     await page.getByRole("button", { name: "Check", exact: true }).click();
@@ -258,9 +260,9 @@ for (const custom of [false, true]) {
     } finally { release(); }
     await page.goForward();
     await expect(page).toHaveURL(practiceUrl);
-    await expect(page.locator(".practicePromptPanel")).toHaveText(first);
+    await expect(page.locator(".practicePromptPanel:not([aria-hidden])")).toHaveText(first);
     await page.getByRole("button", { name: custom ? "Save practice" : "Continue", exact: true }).click();
-    await expect(page.locator(".practicePromptPanel")).not.toHaveText(first);
+    await expect(page.locator(".practicePromptPanel:not([aria-hidden])")).not.toHaveText(first);
     const sql = neon(process.env.DATABASE_URL!);
     await expect.poll(async () => (await sql.query('SELECT count(*)::int AS count FROM exercise_attempts WHERE "userId"=$1', [learnerFixture.userId]))[0].count).toBe(1);
   });

@@ -197,7 +197,7 @@ export function ReminderSettingsForm({
             <p className="settingsFieldHint">
               Practice uses {practiceTimezone} to reset your daily allowance. This timezone controls when reminder emails arrive.
             </p>
-            <button className="secondaryButton" type="button" disabled={pending || timezone === practiceTimezone} onClick={() => setTimezone(practiceTimezone)}>
+            <button className="secondaryButton" type="button" disabled={pending || !draft.ready || timezone === practiceTimezone} onClick={() => setTimezone(practiceTimezone)}>
               Use practice timezone
             </button>
             <p className="settingsFieldHint">Save changes to apply your reminder preferences.</p>
