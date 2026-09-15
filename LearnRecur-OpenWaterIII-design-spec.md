@@ -23,6 +23,19 @@ This document specifies the exact look and feel of the approved LearnRecur dashb
 - All numeric figures (counts, percentages, intervals, "14 / 32", etc.) use `font-variant-numeric: tabular-nums;`.
 - Every motion is gated behind `@media (prefers-reduced-motion: reduce)` (see Sections 5 and 9).
 
+
+### 0.1 Comfortable, carefully considered product UI
+
+Use the main **Settings page (`/settings`) as the approved reference for comfort and usability** when designing or revising other pages. The intended feel is Khan Academy-like: calm, readable, approachable, and easy to act on. Borrow that clarity and care, not Khan Academy's branding. Keep LearnRecur's fonts, colors, icons, surfaces, and button treatment.
+
+- **Make everyday content easy to read.** Use the Settings page's body text and control sizes as the starting point. Reserve small text for genuinely secondary metadata; do not shrink labels, instructions, or actions to fit more on screen.
+- **Group related content with deliberate spacing.** Keep a label, its help text, and its control together; leave more space between separate tasks. Give columns enough room for their actual content. Avoid cramped rows, nested panels, excessive dividers, and large unexplained gaps.
+- **Keep the hierarchy simple.** The user's task should stand out. Supporting instructions should be quieter than the exercise or decision they explain. Avoid competing headings, decorative icon tiles, and redundant labels.
+- **Make actions predictable.** Use clear labels and comfortable touch targets. Put the primary action on the right of a shared action row. Explain unfamiliar choices and defaults briefly, beside the relevant control.
+- **Treat behavior as part of polish.** Preserve input and keyboard focus, keep navigation stable, match skeleton geometry to loaded content, and avoid motion or loading placeholders for content that is already available.
+
+These principles govern page density and usability when the dashboard-demo measurements below would produce a cramped interface. They do not authorize a new design language or uniformly oversized controls. Before finishing, compare the rendered page with Settings at desktop and phone widths: can a learner read it, understand the next action, and use it comfortably without hunting or precision clicking?
+
 ---
 
 ## 1. Design tokens
