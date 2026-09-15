@@ -1,3 +1,4 @@
+import { AddChoices } from "./new/add-choices";
 import { Skeleton, type SkeletonProps } from "@mantine/core";
 
 import { SkillsTopbar, type SkillsTopbarCurrent } from "./skills-topbar";
@@ -72,7 +73,7 @@ export function SkillsPathLoading({ kind }: { kind: SkillsPathLoadingKind }) {
 
   return (
     <main
-      aria-busy="true"
+      aria-busy={kind === "new-choice" ? undefined : true}
       aria-label={config.label}
       className={`${config.shellClassName} skillsPathLoading`}
       data-loading-route={kind}
@@ -88,7 +89,7 @@ function SkillsPathLoadingContent({ kind }: { kind: SkillsPathLoadingKind }) {
     case "skills-library":
       return <SkillsLibraryLoading />;
     case "new-choice":
-      return <NewChoiceLoading />;
+      return <AddChoices />;
     case "new-one":
       return <NewOneLoading />;
     case "new-multiple":
@@ -192,31 +193,6 @@ function SkillLibraryRowLoading({ compact = false }: { compact?: boolean }) {
         <LoadingBlock height={12} radius={5} width={72} />
       </div>
     </article>
-  );
-}
-
-function NewChoiceLoading() {
-  return (
-    <>
-      <FixedHeader
-        className="createModeHeader"
-        detail="Use the fast path for one target, or a reusable material for a chapter-sized batch."
-        title="What are you adding?"
-      />
-      <div className="createModeChoices skillsPathChoiceLoading" aria-hidden="true">
-        {["One skill", "Multiple skills"].map((label, index) => (
-          <article className="createModeChoice" key={label}>
-            <LoadingBlock circle height={40} width={40} />
-            <span>
-              <strong>{label}</strong>
-              <LoadingBlock height={13} mt={10} radius={5} width={index === 0 ? "84%" : "92%"} />
-              <LoadingBlock height={13} mt={8} radius={5} width={index === 0 ? "66%" : "74%"} />
-            </span>
-            <LoadingBlock className="createModeChoiceCue" height={12} radius={5} width={72} />
-          </article>
-        ))}
-      </div>
-    </>
   );
 }
 

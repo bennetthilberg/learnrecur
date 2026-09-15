@@ -8825,15 +8825,15 @@ body {
   margin-left: auto;
 }
 
-.libraryShell .skillHeader {
+.libraryShell > .skillHeader {
   margin-top: 36px;
   margin-bottom: 24px;
 }
-.libraryShell .skillHeader h1 {
+.libraryShell > .skillHeader h1 {
   margin: 0;
   font-size: 34px;
 }
-.libraryShell .skillHeader p {
+.libraryShell > .skillHeader p {
   margin: 12px 0 0;
   font-size: 16px;
   line-height: 1.5;
@@ -9199,11 +9199,11 @@ body {
     > .skillLibraryGrid {
     width: calc(100% - 32px);
   }
-  .libraryShell .skillHeader {
+  .libraryShell > .skillHeader {
     margin-top: 24px;
     gap: 16px;
   }
-  .libraryShell .skillHeader h1 {
+  .libraryShell > .skillHeader h1 {
     font-size: 30px;
   }
   .libraryShell .skillPanel {

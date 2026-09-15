@@ -45,9 +45,26 @@ for (const width of [390, 1280]) {
       const held = new Promise<void>((resolve) => { release = resolve; });
       await page.route(`**/${destination}?*`, async (route) => { await held; await route.continue(); });
       await page.evaluate(() => { (window as unknown as { revealCalls: unknown[] }).revealCalls.length = 0; });
+      if (destination === "skills/new") {
+        // Add must also skip a reveal inherited from the page being left.
+        await page.evaluate(async () => {
+          const skeleton = document.createElement("div");
+          skeleton.className = "routeSkeleton";
+          Object.assign(skeleton.style, { position: "fixed", top: "100px", left: "20px", width: "100px", height: "20px" });
+          document.querySelector("main")!.append(skeleton);
+          await new Promise<void>((resolve) => requestAnimationFrame(() => setTimeout(resolve, 250)));
+        });
+      }
+      let addBefore: { x: number; y: number; width: number; height: number } | null = null;
       try {
         await clickNavigation(page, destination === "skills/new" ? "Add" : destination[0].toUpperCase() + destination.slice(1));
-        await expect(page.locator(".routePendingContent .routeSkeleton").first()).toBeVisible();
+        if (destination === "skills/new") {
+          await expect(page.locator('.routePendingContent .createModeChoice')).toHaveCount(2);
+          await expect(page.locator('.routePendingContent .routeSkeleton')).toHaveCount(0);
+          addBefore = await page.locator('.routePendingContent .createModeChoices').boundingBox();
+        } else {
+          await expect(page.locator(".routePendingContent .routeSkeleton").first()).toBeVisible();
+        }
         // Exercise the slow-loading path, not a near-instant cached response.
         await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => setTimeout(resolve, 250))));
       } finally {
@@ -55,6 +72,15 @@ for (const width of [390, 1280]) {
         release();
       }
       await expect(page.locator(".routeSkeleton")).toHaveCount(0);
+      if (destination === "skills/new") {
+        await expect(page.locator('.routePendingContent')).toHaveCount(0);
+        const after = await page.locator('.createModeChoices').boundingBox();
+        expect(after).toEqual(addBefore);
+        expect(await page.evaluate(() => (window as unknown as { revealCalls: unknown[] }).revealCalls.length)).toBe(0);
+        await page.screenshot({ path: testInfo.outputPath(`add-${width}.png`) });
+        await page.unroute(`**/${destination}?*`);
+        continue;
+      }
       await expect.poll(() => page.evaluate(() => (window as unknown as { revealCalls: { className: string }[] }).revealCalls.some((call) => call.className === "skeletonRevealOverlay"))).toBe(true);
       if (destination === "settings") {
         expect(await page.locator(".skeletonRevealOverlay").evaluate((node) => getComputedStyle(node).pointerEvents)).toBe("none");

@@ -272,7 +272,7 @@ export function SkillsTopbar({
               : pendingConfig.kind === "settings"
                 ? "routePendingContent settingsShell"
                 : pendingConfig.kind === "new"
-                  ? "routePendingContent createSkillShell"
+                  ? "routePendingContent createModeShell"
                   : pendingConfig.kind === "skills" || pendingConfig.kind === "collections"
                     ? "routePendingContent libraryShell"
                     : "routePendingContent"

@@ -47,13 +47,18 @@ describe("SkillsPathLoading", () => {
       ),
     );
 
-    expect(markup).toContain('aria-busy="true"');
+    if (kind !== "new-choice") expect(markup).toContain('aria-busy="true"');
     expect(markup).toContain(`data-loading-route="${kind}"`);
     expect(markup).toContain(`data-current="${current}"`);
-    expect(markup).toContain("routeSkeletonShimmer");
+    if (kind !== "new-choice") expect(markup).toContain("routeSkeletonShimmer");
+    else expect(markup).not.toContain("routeSkeleton");
     expect(markup).toContain(marker);
     expect(markup).not.toContain("<button");
-    expect(markup).not.toContain("<a ");
+    if (kind !== "new-choice") expect(markup).not.toContain("<a ");
+    else {
+      expect(markup).toContain('href="/skills/new/one"');
+      expect(markup).toContain('href="/skills/new/multiple"');
+    }
     expect(markup).not.toContain("<form");
   });
 
@@ -91,13 +96,13 @@ describe("SkillsPathLoading", () => {
     expect(markup).not.toContain("routeLoadingFactsGrid");
   });
 
-  it("uses the choice-card skeleton during immediate Add navigation", () => {
+  it("uses real choices during immediate Add navigation", () => {
     const source = readFileSync(
       new URL("../../src/app/skills/primary-route-loading-content.tsx", import.meta.url),
       "utf8",
     );
 
     expect(source).toContain('title: "What are you adding?"');
-    expect(source).toContain('className="createModeChoices skillsPathChoiceLoading"');
+    expect(source).toContain("return <AddChoices />;");
   });
 });

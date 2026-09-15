@@ -1,3 +1,4 @@
+import { AddChoices } from "./new/add-choices";
 import { Skeleton } from "@mantine/core";
 import type { ReactNode } from "react";
 import { OpenWaterHeroRings, OpenWaterHeroWaves } from "@/components/app/open-water";
@@ -74,7 +75,7 @@ export function PrimaryRouteLoadingContent({
     case "skills":
       return <SkillsRouteLoading config={config} />;
     case "new":
-      return <NewSkillRouteLoading config={config} />;
+      return <AddChoices />;
     case "collections":
       return <CollectionsRouteLoading config={config} />;
     case "settings":
@@ -285,32 +286,6 @@ function SkillLibraryRowSkeleton({
         <Skeleton component="span" className="routeSkeleton routeSkeletonShimmer" height={12} radius={5} width={72} />
       </div>
     </article>
-  );
-}
-
-function NewSkillRouteLoading({ config }: { config: PrimaryRouteLoadingConfig }) {
-  return (
-    <>
-      <header className="skillHeader createModeHeader routeLoadingHeader">
-        <div>
-          <h1>{config.title}</h1>
-          <p>{config.detail}</p>
-        </div>
-      </header>
-      <div className="createModeChoices skillsPathChoiceLoading" aria-hidden="true">
-        {["One skill", "Multiple skills"].map((label, index) => (
-          <article className="createModeChoice" key={label}>
-            <Skeleton component="span" className="routeSkeleton routeSkeletonShimmer" circle height={40} width={40} />
-            <span>
-              <strong>{label}</strong>
-              <Skeleton component="span" className="routeSkeleton routeSkeletonShimmer" height={13} mt={10} radius={5} width={index === 0 ? "84%" : "92%"} />
-              <Skeleton component="span" className="routeSkeleton routeSkeletonShimmer" height={13} mt={8} radius={5} width={index === 0 ? "66%" : "74%"} />
-            </span>
-            <Skeleton component="span" className="routeSkeleton routeSkeletonShimmer createModeChoiceCue" height={12} radius={5} width={72} />
-          </article>
-        ))}
-      </div>
-    </>
   );
 }
 

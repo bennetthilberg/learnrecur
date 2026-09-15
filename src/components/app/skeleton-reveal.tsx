@@ -40,6 +40,14 @@ export function SkeletonReveal() {
       frame = 0;
       const shells = Array.from(document.querySelectorAll<HTMLElement>(shellSelector))
         .filter((shell) => shell.getClientRects().length > 0);
+      // Static destinations should not inherit a reveal from an interrupted load.
+      if (shells.some((shell) => Array.from(shell.querySelectorAll('[data-skeleton-reveal="skip"]'))
+        .some((node) => node.getClientRects().length > 0))) {
+        shapes = [];
+        loadingStartedAt = null;
+        cancel();
+        return;
+      }
       const skeletons = shells.flatMap((shell) => Array.from(shell.querySelectorAll<HTMLElement>(skeletonSelector)))
         .filter((node) => node.getClientRects().length > 0);
       if (skeletons.length) {
