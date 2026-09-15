@@ -2,9 +2,12 @@ import { clickNavigation } from "../support/navigation";
 import { neon } from "@neondatabase/serverless";
 import { expect, test } from "../fixtures/learner-lifecycle";
 
-test("replaces a buffered question when its skill becomes unavailable", async ({ page, learnerFixture }) => {
+for (const custom of [false, true]) test(`preserves an answered buffered question when its skill becomes unavailable in ${custom ? "custom" : "normal"} practice`, async ({ page, learnerFixture }) => {
   const sql = neon(process.env.DATABASE_URL!);
-  await page.goto("/practice");
+  if (custom) {
+    await page.goto("/practice/custom");
+    await page.getByRole("button", { name: "Start session", exact: true }).click();
+  } else await page.goto("/practice");
   const frame = page.getByRole("region", { name: "Practice exercise", exact: true });
   await expect.poll(async () => Number(await frame.getAttribute("data-buffered-count"))).toBeGreaterThanOrEqual(2);
   if (await page.locator(".choiceCard").count()) await page.locator(".choiceCard").first().click();
@@ -18,13 +21,22 @@ test("replaces a buffered question when its skill becomes unavailable", async ({
   });
   let bufferedPrompt = "";
   let retiredSkillId = "";
+  let optimisticDraft: Record<string, unknown> | null = null;
   try {
-    await page.getByRole("button", { name: "Continue", exact: true }).click();
+    await page.getByRole("button", { name: custom ? "Save practice" : "Continue", exact: true }).click();
     await expect(page.getByText("Saving…", { exact: true })).toBeVisible();
     bufferedPrompt = (await page.locator(".practicePromptPanel").textContent()) ?? "";
     const scenario = Object.values(learnerFixture.scenarios).find((item) => bufferedPrompt.includes(item.exercise.prompt.slice(0, 25)));
     expect(scenario).toBeTruthy();
     retiredSkillId = scenario!.skillId;
+    if (await page.locator(".choiceCard").count()) await page.locator(".choiceCard").first().click();
+    else await page.getByLabel("Your answer", { exact: true }).fill("42");
+    await page.getByRole("button", { name: "Check", exact: true }).click();
+    optimisticDraft = await page.evaluate(() => {
+      const key = Object.keys(sessionStorage).find(key => key.startsWith("learnrecur:review:v1:"))!;
+      return JSON.parse(sessionStorage.getItem(key)!).current;
+    });
+    expect(optimisticDraft?.checked).toBe(true);
     await sql.query('UPDATE exercises SET "retiredAt" = NOW() WHERE "skillId" = $1 AND "userId" = $2', [retiredSkillId, learnerFixture.userId]);
   } finally { release(); }
   await expect(page.getByText("Saving…", { exact: true })).toHaveCount(0);
@@ -32,6 +44,14 @@ test("replaces a buffered question when its skill becomes unavailable", async ({
   const [row] = await sql.query('SELECT count(*)::int AS count, count(*) FILTER (WHERE "skillId" = $2)::int AS retired FROM exercise_attempts WHERE "userId" = $1', [learnerFixture.userId, retiredSkillId]);
   expect(row.count).toBe(1);
   expect(row.retired).toBe(0);
+  const deferred = () => page.evaluate(() => {
+    const key = Object.keys(sessionStorage).find(key => key.startsWith("learnrecur:review:v1:"))!;
+    return JSON.parse(sessionStorage.getItem(key)!).deferred;
+  });
+  await expect.poll(deferred).toEqual(optimisticDraft);
+  await page.reload();
+  await expect(page.locator(".practicePromptPanel")).toBeVisible();
+  await expect.poll(deferred).toEqual(optimisticDraft);
 });
 
 for (const custom of [false, true]) {

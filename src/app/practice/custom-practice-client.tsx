@@ -90,7 +90,8 @@ export function CustomPracticeClient({
   useLayoutEffect(() => {
     const current: CustomDraft | undefined = view.status === "ready" ? { view, answer, checked: feedback?.status === "checked", rating: manualRating, responseMs: submittedResponseMs.current } : undefined;
     currentDraft.current = current;
-    if (recoveryKey) setProtectedDraft(writeRecovery(recoveryKey, current && (current.answer || pendingDraft.current || deferredDraft.current) ? { current, pending: pendingDraft.current, deferred: deferredDraft.current } : null));
+    const recoverable = current ?? deferredDraft.current;
+    if (recoveryKey) setProtectedDraft(writeRecovery(recoveryKey, recoverable && (recoverable.answer || pendingDraft.current || deferredDraft.current) ? { current: recoverable, pending: pendingDraft.current, deferred: deferredDraft.current } : null));
   }, [view, answer, feedback, manualRating, recoveryKey, saving]);
   useEffect(() => {
     if (!activeSessionId || !presentedItemKey || saving || preloaded.length >= PRACTICE_BUFFER_LOW_WATER) return;
@@ -183,16 +184,22 @@ export function CustomPracticeClient({
       finishSave(true);
       setShowRecovery(false);
       const recoveredNext = deferredDraft.current;
+      const same = next && result.next.status === "ready" && result.next.item.itemKey === next.item.itemKey;
+      const optimistic = currentDraft.current;
+      // The learner may already have answered the preview while this save ran.
+      // Keep that draft before accepting a different authoritative selection.
+      if (!same && next && optimistic?.view.item.itemKey === next.item.itemKey && optimistic?.answer) {
+        deferredDraft.current = optimistic;
+      }
       if (recoveredNext && result.next.status === "ready" && recoveredNext.view.item.itemKey === result.next.item.itemKey) {
         setView(result.next); setAnswer(recoveredNext.answer);
         setFeedback(recoveredNext.checked ? getInstantPracticeFeedback(result.next.item, recoveredNext.answer) : null);
         setManualRating(recoveredNext.rating ?? FsrsRating.GOOD);
         restoredResponseMs.current = recoveredNext.responseMs;
-        deferredDraft.current = undefined;
+        if (deferredDraft.current === recoveredNext) deferredDraft.current = undefined;
         return;
       }
-      deferredDraft.current = undefined;
-      if (!next || result.next.status !== "ready" || result.next.item.itemKey !== next.item.itemKey) {
+      if (!same) {
         setPreloaded([]);
         preloadRequest.current = null;
         setView(result.next); setAnswer(""); setFeedback(null); setManualRating(FsrsRating.GOOD);

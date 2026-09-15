@@ -147,8 +147,8 @@ function DashboardRouteLoading() {
         <div className="openWaterHeroContent">
           <h1 className="disp"><Skeleton component="span" className="routeSkeleton" height="1.18em" width="min(560px, 84%)" /></h1>
           <div className="openWaterHeroActions" aria-hidden="true">
-            <Skeleton component="span" className="routeSkeleton" height={38} width={114} />
-            <Skeleton component="span" className="routeSkeleton" height={38} width={126} />
+            <Skeleton component="span" width="auto" style={{ pointerEvents: "none", boxShadow: "none" }} className="routeSkeleton bpbtn bpbtn-ghost"><span style={{ visibility: "hidden" }}>Browse skills</span></Skeleton>
+            <Skeleton component="span" width="auto" style={{ pointerEvents: "none", boxShadow: "none" }} className="routeSkeleton bpbtn bpbtn-hero"><span style={{ visibility: "hidden" }}>Start practice</span></Skeleton>
           </div>
         </div>
       </section>
@@ -175,8 +175,8 @@ function DashboardRouteLoading() {
           </p>
           <p className="openWaterReviewNote"><Skeleton component="span" className="routeSkeleton" height="1.45em" width="68%" /></p>
           <div className="openWaterReviewActions">
-            <Skeleton component="span" className="routeSkeleton" height={36} width={106} />
-            <Skeleton component="span" className="routeSkeleton" height={36} width={110} />
+            <Skeleton component="span" width="auto" style={{ pointerEvents: "none", boxShadow: "none" }} className="routeSkeleton bpbtn bpbtn-white"><span style={{ visibility: "hidden" }}>Review skills</span></Skeleton>
+            <Skeleton component="span" width="auto" style={{ pointerEvents: "none", boxShadow: "none" }} className="routeSkeleton bpbtn bpbtn-blue"><span style={{ visibility: "hidden" }}>Practice now</span></Skeleton>
           </div>
         </article>
       </section>

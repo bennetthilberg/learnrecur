@@ -103,7 +103,8 @@ export function PracticeClient({ initialItem, canUseSampleData, recoveryKey, ini
   useLayoutEffect(() => {
     const current: NormalDraft | undefined = item.status === "ready" ? { item, answer: answerValue, attemptId, checked: checkedFeedback !== null, rating: manualRating, responseMs: submittedResponseMs } : undefined;
     currentDraft.current = current;
-    if (recoveryKey) setProtectedDraft(writeRecovery(recoveryKey, current && (current.answer || pendingDraft.current || deferredDraft.current) ? { current, pending: pendingDraft.current, deferred: deferredDraft.current } : null));
+    const recoverable = current ?? deferredDraft.current;
+    if (recoveryKey) setProtectedDraft(writeRecovery(recoveryKey, recoverable && (recoverable.answer || pendingDraft.current || deferredDraft.current) ? { current: recoverable, pending: pendingDraft.current, deferred: deferredDraft.current } : null));
   }, [item, answerValue, attemptId, checkedFeedback, manualRating, submittedResponseMs, recoveryKey, advancePending]);
   useEffect(() => {
     if (item.status !== "ready" || advancePending || preloaded.length >= PRACTICE_BUFFER_LOW_WATER) return;
@@ -223,15 +224,20 @@ export function PracticeClient({ initialItem, canUseSampleData, recoveryKey, ini
       pendingDraft.current = undefined;
       finishSave(true);
       const recoveredNext = deferredDraft.current;
+      const same = next && result.nextItem.status === "ready" && result.nextItem.exercise.id === next.exercise.id;
+      const optimistic = currentDraft.current;
+      // The learner may already have answered the preview while this save ran.
+      // Keep that draft before accepting a different authoritative selection.
+      if (!same && next && optimistic?.item.exercise.id === next.exercise.id && optimistic?.answer) {
+        deferredDraft.current = optimistic;
+      }
       if (recoveredNext && result.nextItem.status === "ready" && recoveredNext.item.exercise.id === result.nextItem.exercise.id) {
         setItem(result.nextItem); setAnswerValue(recoveredNext.answer); setAttemptId(recoveredNext.attemptId);
         setFeedback(recoveredNext.checked ? getInstantPracticeFeedback(result.nextItem.exercise, recoveredNext.answer) : null);
         setManualRating(recoveredNext.rating); setSubmittedResponseMs(recoveredNext.responseMs);
-        deferredDraft.current = undefined;
+        if (deferredDraft.current === recoveredNext) deferredDraft.current = undefined;
         return;
       }
-      deferredDraft.current = undefined;
-      const same = next && result.nextItem.status === "ready" && result.nextItem.exercise.id === next.exercise.id;
       if (!same) {
         setPreloaded([]);
         preloadRequest.current = null;
