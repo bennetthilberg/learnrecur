@@ -2,6 +2,7 @@
 
 import { MantineProvider, createTheme, rem } from "@mantine/core";
 import { Notifications } from "@mantine/notifications";
+import { SkeletonReveal } from "@/components/app/skeleton-reveal";
 import { CaretDown } from "@phosphor-icons/react";
 
 const theme = createTheme({
@@ -120,6 +121,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         position="top-right"
         zIndex={3000}
       />
+      <SkeletonReveal />
       {children}
     </MantineProvider>
   );

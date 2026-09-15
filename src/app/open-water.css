@@ -8401,6 +8401,8 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .skeletonRevealOverlay { display: none; }
+
   .routeSkeleton::after,
   .routeSkeleton.routeSkeletonShimmer::after {
     animation: none !important;
@@ -9621,3 +9623,12 @@ body {
 
 .practiceComplete .practiceNextReview { font-size: 16px; margin-top: 16px; }
 .practiceComplete .practiceCompleteActions { width: 100%; }
+
+/* Outgoing skeletons occupy no layout space and never intercept input. */
+.skeletonRevealOverlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: clip;
+  z-index: 1;
+}

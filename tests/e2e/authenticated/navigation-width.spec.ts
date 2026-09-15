@@ -6,6 +6,7 @@ for (const width of [390, 720, 1000, 1119, 1280]) {
     expect(learnerFixture.userId).toBeTruthy();
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/skills");
+    await expect(page.locator(".routeSkeleton")).toHaveCount(0);
     for (const [destination, selector] of [["dashboard", ".openWaterHero"], ["practice", ".practiceFrame"], ["history", ".historyHeader"], ["skills", ".skillHeader"]]) {
       let release!: () => void;
       const held = new Promise<void>((resolve) => { release = resolve; });
