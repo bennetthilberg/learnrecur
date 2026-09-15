@@ -11,9 +11,15 @@ test("completion distinguishes next review, preparation, and the daily limit", a
   await expect(page.getByRole("heading", { name: /all caught up/ })).toBeVisible();
   await expect(page.getByText(/Next scheduled review:/)).toBeVisible();
   await expect(page.getByRole("link", { name: "Custom practice", exact: true })).toHaveAttribute("href", "/practice/custom");
-  for (const width of [390, 1280]) {
+  for (const width of [390, 820, 1280]) {
     await page.setViewportSize({ width, height: 900 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    const copy = await page.locator(".practiceCompleteCopy").boundingBox();
+    const nextReview = await page.locator(".practiceNextReview").boundingBox();
+    const actions = await page.locator(".practiceCompleteActions").boundingBox();
+    expect(Math.abs(copy!.x - nextReview!.x)).toBeLessThan(1);
+    expect(actions!.y).toBeGreaterThanOrEqual(copy!.y + copy!.height);
+    expect(await page.locator(".practiceComplete").evaluate(el => getComputedStyle(el).gridTemplateColumns.split(" ").length)).toBe(1);
     await page.screenshot({ path: testInfo.outputPath(`completion-${width}.png`) });
   }
   await sql.query('UPDATE skills SET "dueAt"=NOW()-INTERVAL \'1 minute\' WHERE id=$1', [skill.skillId]);
@@ -21,7 +27,7 @@ test("completion distinguishes next review, preparation, and the daily limit", a
   await page.reload();
   await expect(page.getByRole("heading", { name: "Exercises need preparation.", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Check preparation", exact: true })).toHaveAttribute("href", `/skills/${skill.skillId}`);
-  for (const width of [390, 1280]) {
+  for (const width of [390, 820, 1280]) {
     await page.setViewportSize({ width, height: 900 });
     await page.screenshot({ path: testInfo.outputPath(`preparing-${width}.png`) });
   }
@@ -30,7 +36,7 @@ test("completion distinguishes next review, preparation, and the daily limit", a
   await expect(page.getByRole("heading", { name: "Daily new-skill limit reached.", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Change daily limit", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Custom practice", exact: true })).toBeVisible();
-  for (const width of [390, 1280]) {
+  for (const width of [390, 820, 1280]) {
     await page.setViewportSize({ width, height: 900 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath(`daily-limit-${width}.png`) });

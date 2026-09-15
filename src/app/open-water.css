@@ -3345,27 +3345,11 @@ body {
 }
 
 .practiceComplete {
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
   justify-content: start;
   gap: 18px 20px;
   padding: 28px 30px;
-}
-
-.practiceCompleteIcon {
-  display: inline-flex;
-  width: 52px;
-  height: 52px;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--lr-r-card);
-  background: var(--lr-blue);
-  color: #FFFFFF;
-  box-shadow: 0 3px 0 var(--lr-blue-edge);
-}
-
-.practiceCompleteIcon svg {
-  display: block;
 }
 
 .practiceCompleteCopy,
@@ -3373,11 +3357,11 @@ body {
 .practiceCompleteActions,
 .practiceCompleteStatus,
 .practiceCompleteDevAction {
-  grid-column: 2;
+  grid-column: 1;
 }
 
 .practiceComplete h1 {
-  margin: 5px 0 0;
+  margin: 0;
   color: var(--lr-ink);
   font-family: var(--lr-font-display);
   font-size: 28px;
@@ -3387,7 +3371,7 @@ body {
 }
 
 .practiceComplete p {
-  max-width: 620px;
+  max-width: 100%;
   margin: 10px 0 0;
   color: var(--lr-text-secondary);
   font-size: 15px;
@@ -3450,8 +3434,9 @@ body {
 }
 
 .practiceCompleteStatus[data-tone="saved"] {
-  border-color: var(--lr-green);
-  background: #E7F5EE;
+  border: 0;
+  background: transparent;
+  padding: 0;
   color: var(--lr-green);
 }
 
@@ -3468,7 +3453,7 @@ body {
 
 .practiceCompleteDevAction {
   display: flex;
-  width: min(100%, 640px);
+  width: 100%;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
@@ -9629,3 +9614,6 @@ body {
 .customPracticeState { grid-template-columns: minmax(0, 1fr); }
 .customPracticeState h1 { color: var(--lr-ink); font-size: 28px; font-weight: 800; line-height: 1.2; }
 .customPracticeState .practiceCompleteActions { grid-column: 1; width: 100%; }
+
+.practiceComplete .practiceNextReview { font-size: 16px; margin-top: 16px; }
+.practiceComplete .practiceCompleteActions { width: 100%; }

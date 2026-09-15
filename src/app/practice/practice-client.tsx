@@ -7,7 +7,7 @@ import { appendPracticeBuffer, PRACTICE_BUFFER_SIZE, PRACTICE_BUFFER_LOW_WATER }
 import { writeRecovery, type NormalDraft, type Recovery } from "@/lib/practice/recovery";
 import { confirmReviewSave, useReviewSaveGuard } from "./use-review-save-guard";
 import { getInstantPracticeFeedback } from "@/lib/practice/instant-feedback";
-import { CheckCircle, Clock, Wrench, Flag } from "@phosphor-icons/react";
+import { CheckCircle, Flag } from "@phosphor-icons/react";
 
 import { AnswerKind, ExerciseFlagReason, FsrsRating } from "@/generated/prisma/enums";
 import {
@@ -778,9 +778,6 @@ function PracticeCompleteState({
       className="practiceFrame practiceEmpty practiceComplete"
       aria-labelledby="practice-empty-title"
     >
-      <div className="practiceCompleteIcon" aria-hidden="true">
-        {preparing ? <Wrench size={28} /> : dailyLimitReached ? <Clock size={28} /> : <CheckCircle size={28} weight="bold" />}
-      </div>
       <div className="practiceCompleteCopy">
         <h1 id="practice-empty-title">{preparing ? "Exercises need preparation." : dailyLimitReached ? "Daily new-skill limit reached." : "Nice work. You're all caught up."}</h1>
         <p>
@@ -789,10 +786,10 @@ function PracticeCompleteState({
             : "Every due exercise is finished for now."}{" "}
 
         </p>
+        {nextReviewAt ? <p className="practiceNextReview">Next scheduled review: <time dateTime={nextReviewAt}>{new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: nextReviewTimezone ?? "UTC", timeZoneName: "short" }).format(new Date(nextReviewAt))}</time></p> : null}
       </div>
-      {nextReviewAt ? <p className="practiceNextReview">Next scheduled review: <time dateTime={nextReviewAt}>{new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: nextReviewTimezone ?? "UTC", timeZoneName: "short" }).format(new Date(nextReviewAt))}</time></p> : null}
+
       {dailyLimitReached && !preparing ? <p>{message}</p> : null}
-      <PracticeCompleteActions scoped={scoped} dailyLimitReached={dailyLimitReached} preparing={preparing} preparationSkillIds={preparationSkillIds} />
       {statusNotice ? (
         <p
           className="practiceCompleteStatus"
@@ -806,6 +803,7 @@ function PracticeCompleteState({
           <span>{statusNotice.message}</span>
         </p>
       ) : null}
+      <PracticeCompleteActions scoped={scoped} dailyLimitReached={dailyLimitReached} preparing={preparing} preparationSkillIds={preparationSkillIds} />
       {canUseSampleData ? (
         <div className="practiceCompleteDevAction">
           <span>Development mode</span>
