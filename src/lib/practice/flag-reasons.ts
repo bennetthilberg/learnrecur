@@ -30,4 +30,3 @@ export const FLAG_REASON_OPTIONS: Array<{ reason: ExerciseFlagReason; label: str
     label: "Something else",
   },
 ];
-

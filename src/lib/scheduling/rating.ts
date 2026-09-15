@@ -22,4 +22,3 @@ export function mapAttemptToFsrsRating(input: MapAttemptToFsrsRatingInput): Fsrs
 
   return FsrsRating.GOOD;
 }
-
