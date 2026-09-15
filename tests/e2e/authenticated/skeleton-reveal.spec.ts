@@ -22,6 +22,24 @@ for (const width of [390, 1280]) {
     });
     await page.goto("/skills");
     await expect(page.locator(".routeSkeleton")).toHaveCount(0);
+    await expect(page.locator(".skeletonRevealOverlay")).toHaveCount(0);
+    const fastHandoffs = await page.evaluate(async () => {
+      const calls = (window as unknown as { revealCalls: unknown[] }).revealCalls;
+      calls.length = 0;
+      const main = document.querySelector("main")!;
+      // Several short loads must not accumulate into one long loading period.
+      for (let index = 0; index < 4; index++) {
+        const skeleton = document.createElement("div");
+        skeleton.className = "routeSkeleton";
+        Object.assign(skeleton.style, { position: "fixed", top: "100px", left: "20px", width: "100px", height: "20px" });
+        main.append(skeleton);
+        await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+        skeleton.remove();
+        await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+      }
+      return calls.length;
+    });
+    expect(fastHandoffs).toBe(0);
     for (const destination of ["dashboard", "history", "settings", "practice", "collections", "skills/new", "skills"]) {
       let release!: () => void;
       const held = new Promise<void>((resolve) => { release = resolve; });
@@ -30,8 +48,8 @@ for (const width of [390, 1280]) {
       try {
         await clickNavigation(page, destination === "skills/new" ? "Add" : destination[0].toUpperCase() + destination.slice(1));
         await expect(page.locator(".routePendingContent .routeSkeleton").first()).toBeVisible();
-        // Ensure the browser has painted a skeleton before allowing the response.
-        await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+        // Exercise the slow-loading path, not a near-instant cached response.
+        await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => setTimeout(resolve, 250))));
       } finally {
         if (destination === "settings") await page.evaluate(() => { Object.assign(window, { freezeReveal: true }); });
         release();

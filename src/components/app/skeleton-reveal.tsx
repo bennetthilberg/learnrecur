@@ -4,6 +4,8 @@ import { useEffect } from "react";
 
 const skeletonSelector = ".routeSkeleton, .practiceAttentionSkeleton";
 const shellSelector = "main.dashboardShell, main.practiceShell, main.skillShell";
+// Fast loads should appear immediately, without adding a visual wait.
+const minimumLoadingDuration = 200;
 const duration = 240;
 const easing = "cubic-bezier(0.22, 1, 0.36, 1)";
 
@@ -17,6 +19,7 @@ export function SkeletonReveal() {
   useEffect(() => {
     const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
     let shapes: Shape[] = [];
+    let loadingStartedAt: number | null = null;
     let frame = 0;
     let overlay: HTMLDivElement | null = null;
     const animations = new Set<Animation>();
@@ -49,11 +52,15 @@ export function SkeletonReveal() {
           return [{ x: rect.left + scrollX, y: rect.top + scrollY, width: rect.width,
             height: rect.height, radius: style.borderRadius, color: style.backgroundColor }];
         });
+        loadingStartedAt = shapes.length ? (loadingStartedAt ?? performance.now()) : null;
         return;
       }
+      const wasLoadingLongEnough = loadingStartedAt !== null &&
+        performance.now() - loadingStartedAt >= minimumLoadingDuration;
+      loadingStartedAt = null;
       const previous = shapes;
       shapes = [];
-      if (!previous.length || motion.matches || !shells.length) return;
+      if (!wasLoadingLongEnough || !previous.length || motion.matches || !shells.length) return;
       cancel();
       const layer = document.createElement("div");
       layer.className = "skeletonRevealOverlay";
@@ -88,7 +95,7 @@ export function SkeletonReveal() {
     });
     observer.observe(document.body, { childList: true, subtree: true, attributes: true,
       attributeFilter: ["hidden", "data-route-pending"] });
-    const reset = () => { shapes = []; cancel(); schedule(); };
+    const reset = () => { shapes = []; loadingStartedAt = null; cancel(); schedule(); };
     // A viewport change invalidates the outgoing placeholder coordinates.
     window.addEventListener("resize", reset);
     window.addEventListener("scroll", reset, true);
