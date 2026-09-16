@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  createCustomPracticeSession: vi.fn(),
+  getCustomPracticeSession: vi.fn(),
+  presentCustomPracticeSessionItem: vi.fn(),
   authProtect: vi.fn(),
   currentUser: vi.fn(),
   ensureDatabaseUser: vi.fn(),
@@ -31,6 +34,12 @@ vi.mock("@/lib/practice", () => ({
   MAX_EXERCISE_FLAG_OTHER_NOTE_LENGTH: 500,
 }));
 
+vi.mock("@/lib/practice/custom-session", () => ({
+  createCustomPracticeSession: mocks.createCustomPracticeSession,
+  getCustomPracticeSession: mocks.getCustomPracticeSession,
+  presentCustomPracticeSessionItem: mocks.presentCustomPracticeSessionItem,
+}));
+
 vi.mock("@/lib/practice/sample-data", () => ({
   ensureDevPracticeSampleData: mocks.ensureDevPracticeSampleData,
 }));
@@ -55,6 +64,31 @@ describe("practice server actions", () => {
       status: "missing-env",
       message: "Add DATABASE_URL to .env.local, then run Prisma migration and reload this page.",
     });
+  });
+
+  it("uses mixed review even when an older client requests it off", async () => {
+    const { loadPracticeItemAction } = await import("@/app/practice/actions");
+    mocks.ensureDatabaseUser.mockResolvedValue({ status: "ready", userId: "user_alpha" });
+    mocks.getNextPracticeItemForUser.mockResolvedValue({ status: "unavailable", message: "No inventory" });
+    await loadPracticeItemAction({ collectionId: null, mixedReview: false });
+    expect(mocks.getNextPracticeItemForUser).toHaveBeenCalledWith("user_alpha", expect.any(Date), expect.objectContaining({ mixedReview: true }));
+  });
+
+  it("records the standard mixed policy without requiring an opt-in", async () => {
+    const { commitPracticeReviewAction } = await import("@/app/practice/actions");
+    mocks.ensureDatabaseUser.mockResolvedValue({ status: "ready", userId: "user_alpha" });
+    mocks.resolvePracticeScopeForUser.mockResolvedValue({ status: "ready", collectionId: null });
+    mocks.commitPracticeReview.mockResolvedValue({ status: "not-committed", message: "Stale attempt" });
+    await commitPracticeReviewAction({ exerciseId: "exercise_1", attemptId: "attempt_1", submittedAnswer: "answer", responseMs: 1000, mixedReview: false, reducedRuleCues: true });
+    expect(mocks.commitPracticeReview).toHaveBeenCalledWith(expect.objectContaining({ mixedReview: true, reducedRuleCues: true }));
+  });
+
+  it("keeps custom skill selection while enforcing mixed review", async () => {
+    const { createCustomPracticeSessionAction } = await import("@/app/practice/actions");
+    mocks.ensureDatabaseUser.mockResolvedValue({ status: "ready", userId: "user_alpha" });
+    mocks.createCustomPracticeSession.mockResolvedValue({ status: "unavailable", message: "No inventory" });
+    await createCustomPracticeSessionAction({ mode: "PRACTICE_ONLY", targetCount: 10, scope: { collectionIds: [], tags: [], skillIds: ["selected_skill"], recentlyMissed: false, mixedReview: false } });
+    expect(mocks.createCustomPracticeSession).toHaveBeenCalledWith(expect.objectContaining({ scope: expect.objectContaining({ skillIds: ["selected_skill"], mixedReview: true }) }));
   });
 
   it("stops practice mutations when account setup is not ready", async () => {
@@ -168,4 +202,26 @@ describe("practice server actions", () => {
       }),
     );
   });
+  it("reports a presented custom item without grading or opening normal practice", async () => {
+    const { flagCustomPracticeExerciseAction } = await import("@/app/practice/actions");
+    mocks.ensureDatabaseUser.mockResolvedValue({ status: "ready", userId: "user_alpha" });
+    mocks.getCustomPracticeSession.mockResolvedValue({ status: "ACTIVE", plan: [{ itemKey: "item", exerciseId: "exercise", status: "PRESENTED" }] });
+    mocks.flagPracticeExerciseAndQueueRefill.mockResolvedValue({ status: "flagged" });
+    mocks.presentCustomPracticeSessionItem.mockResolvedValue({ status: "unavailable", message: "Preparing another exercise" });
+    await expect(flagCustomPracticeExerciseAction({ sessionId: "session", itemKey: "item", exerciseId: "exercise", reasons: ["UNCLEAR_PROMPT"] })).resolves.toMatchObject({ status: "flagged" });
+    expect(mocks.getCustomPracticeSession).toHaveBeenCalledWith("user_alpha", "session");
+    expect(mocks.flagPracticeExerciseAndQueueRefill).toHaveBeenCalledWith(expect.objectContaining({ userId: "user_alpha", exerciseId: "exercise" }));
+    expect(mocks.commitPracticeReview).not.toHaveBeenCalled();
+    expect(mocks.getNextPracticeItemForUser).not.toHaveBeenCalled();
+  });
+  it("rejects foreign sessions and exercises outside the presented session item", async () => {
+    const { flagCustomPracticeExerciseAction } = await import("@/app/practice/actions");
+    mocks.ensureDatabaseUser.mockResolvedValue({ status: "ready", userId: "user_alpha" });
+    for (const session of [null, { status: "ACTIVE", plan: [{ itemKey: "item", exerciseId: "other", status: "PRESENTED" }] }]) {
+      mocks.getCustomPracticeSession.mockResolvedValue(session);
+      await expect(flagCustomPracticeExerciseAction({ sessionId: "foreign", itemKey: "item", exerciseId: "exercise", reasons: ["UNCLEAR_PROMPT"] })).resolves.toMatchObject({ status: "not-flagged" });
+    }
+    expect(mocks.flagPracticeExerciseAndQueueRefill).not.toHaveBeenCalled();
+  });
+
 });

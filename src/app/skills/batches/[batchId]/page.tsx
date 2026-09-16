@@ -353,16 +353,14 @@ function ScopeReview({
         </div>
         <form action={replanMaterialSkillsAction}>
           <input name="batchId" type="hidden" value={batchId} />
-          <label className="skillField">
-            <span>Skill request</span>
-            <BatchRequestTextarea
-              defaultValue={instruction}
-              maxLength={4_000}
-              name="instruction"
-              required
-              rows={7}
-            />
-          </label>
+          <BatchRequestTextarea
+            draftScope={`batch:${batchId}`}
+            defaultValue={instruction}
+            maxLength={4_000}
+            name="instruction"
+            required
+            rows={7}
+          />
           <BatchSubmitButton className="secondaryButton">
             Try again
           </BatchSubmitButton>

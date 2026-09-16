@@ -1,5 +1,9 @@
 "use client";
 
+import { useFormDraft } from "@/components/app/use-form-draft";
+import { FormDraftNotice } from "@/components/app/form-draft-notice";
+import { guidanceDraftSchema } from "@/lib/forms/guidance-drafts";
+
 import { useActionState, useEffect, useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Modal } from "@mantine/core";
@@ -31,10 +35,16 @@ export function SkillPracticeGuidanceDialog({
 }) {
   const router = useRouter();
   const [opened, setOpened] = useState(false);
-  const [state, action, isPending] = useActionState(
-    updateSkillPracticeGuidanceAction,
-    idleState,
-  );
+  const draft = useFormDraft(`skill-guidance:${skillId}`, { rules, examples, constraints }, guidanceDraftSchema);
+  const [state, action, isPending] = useActionState(async (previous: SkillFormActionState, formData: FormData): Promise<SkillFormActionState> => {
+    try {
+      const result = await updateSkillPracticeGuidanceAction(previous, formData);
+      if (result.status === "saved") draft.saved();
+      return result;
+    } catch {
+      return { status: "error", message: "Could not save guidance. Check your connection and try again." };
+    }
+  }, idleState);
   const rulesId = useId();
   const examplesId = useId();
   const constraintsId = useId();
@@ -85,7 +95,7 @@ export function SkillPracticeGuidanceDialog({
         type="button"
       >
         <PencilSimple size={15} weight="bold" aria-hidden="true" />
-        <span>Edit</span>
+        <span>Edit guidance</span>
       </button>
       <Modal
         centered
@@ -98,8 +108,12 @@ export function SkillPracticeGuidanceDialog({
           root: "skillGuidanceModalRoot",
           title: "skillGuidanceModalTitle",
         }}
+        closeButtonProps={{ "aria-label": "Close guidance editor" }}
+        closeOnClickOutside={!isPending}
+        closeOnEscape={!isPending}
+        withCloseButton={!isPending}
         lockScroll={false}
-        onClose={() => setOpened(false)}
+        onClose={() => { if (!isPending) setOpened(false); }}
         opened={opened}
         radius="md"
         size="lg"
@@ -121,8 +135,9 @@ export function SkillPracticeGuidanceDialog({
                 rulesError ? `${rulesHelpId} ${rulesId}-error` : rulesHelpId
               }
               aria-invalid={rulesError ? "true" : undefined}
-              defaultValue={rules}
-              disabled={isPending}
+              value={draft.value.rules}
+              onChange={(event) => draft.update({ rules: event.currentTarget.value })}
+              disabled={isPending || !draft.ready}
               id={rulesId}
               name="rules"
               rows={5}
@@ -141,8 +156,9 @@ export function SkillPracticeGuidanceDialog({
                 examplesError ? `${examplesHelpId} ${examplesId}-error` : examplesHelpId
               }
               aria-invalid={examplesError ? "true" : undefined}
-              defaultValue={examples}
-              disabled={isPending}
+              value={draft.value.examples}
+              onChange={(event) => draft.update({ examples: event.currentTarget.value })}
+              disabled={isPending || !draft.ready}
               id={examplesId}
               name="examples"
               rows={5}
@@ -165,8 +181,9 @@ export function SkillPracticeGuidanceDialog({
                   : constraintsHelpId
               }
               aria-invalid={constraintsError ? "true" : undefined}
-              defaultValue={constraints}
-              disabled={isPending}
+              value={draft.value.constraints}
+              onChange={(event) => draft.update({ constraints: event.currentTarget.value })}
+              disabled={isPending || !draft.ready}
               id={constraintsId}
               name="exerciseConstraints"
               rows={4}
@@ -177,16 +194,17 @@ export function SkillPracticeGuidanceDialog({
               </span>
             ) : null}
           </label>
+          <FormDraftNotice {...draft} disabled={isPending || !draft.ready} onDiscard={() => draft.discard()} />
           <div className="skillGuidanceDialogActions">
             <button
               className="secondaryButton"
-              disabled={isPending}
+              disabled={isPending || !draft.ready}
               onClick={() => setOpened(false)}
               type="button"
             >
               Cancel
             </button>
-            <button className="primaryButton" disabled={isPending} type="submit">
+            <button className="primaryButton" disabled={isPending || !draft.ready} type="submit">
               <FloppyDisk size={17} weight="bold" aria-hidden="true" />
               <span>{isPending ? "Saving" : "Save guidance"}</span>
             </button>

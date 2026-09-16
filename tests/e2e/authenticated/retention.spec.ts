@@ -49,7 +49,7 @@ for (const width of [1280, 390])
         exact: true,
       });
       try {
-        await expect(preference).toHaveValue("BALANCED");
+        await expect(preference).toHaveValue("Balanced");
         // Server-rendered controls must not accept changes before React can
         // retain them. Otherwise Save can report success with the old value.
         await expect(preference).toBeDisabled();
@@ -57,17 +57,15 @@ for (const width of [1280, 390])
         await expect(
           page.locator('details.practiceAdvancedSettings [role="combobox"]'),
         ).toBeDisabled();
-        await expect(page.getByRole("switch", { name: "Mixed review by default" })).toBeDisabled();
+        await expect(page.getByRole("switch", { name: "Mixed review by default" })).toHaveCount(0);
         await expect(page.getByRole("button", { name: "Save practice preferences" })).toBeDisabled();
       } finally {
         releaseScripts();
         await page.unrouteAll({ behavior: "wait" });
       }
       await expect(preference).toBeEnabled();
-      await preference.selectOption("RECALL_FIRST");
-      await page
-        .getByRole("switch", { name: "Mixed review by default" })
-        .check();
+      await preference.click();
+      await page.getByRole("option", { name: "Recall first", exact: true }).click();
       const save = page.getByRole("button", {
         name: "Save practice preferences",
       });
@@ -101,10 +99,10 @@ for (const width of [1280, 390])
       ).toBeVisible();
       await page.unroute("**/settings");
       await page.reload();
-      await expect(preference).toHaveValue("RECALL_FIRST");
+      await expect(preference).toHaveValue("Recall first");
       await expect(
         page.getByRole("switch", { name: "Mixed review by default" }),
-      ).toBeChecked();
+      ).toHaveCount(0);
       await page.screenshot({
         path: testInfo.outputPath(`settings-${width}.png`),
         fullPage: true,
@@ -120,7 +118,8 @@ for (const width of [1280, 390])
         name: "Practice preference",
         exact: true,
       });
-      await collectionPreference.selectOption("BALANCED");
+      await collectionPreference.click();
+      await page.getByRole("option", { name: "Balanced", exact: true }).click();
       await collectionRow
         .getByRole("button", { name: "Save practice preferences" })
         .click();
@@ -131,8 +130,9 @@ for (const width of [1280, 390])
       await collectionRow
         .getByText("Practice preferences", { exact: true })
         .click();
-      await expect(collectionPreference).toHaveValue("BALANCED");
-      await collectionPreference.selectOption("RECALL_FIRST");
+      await expect(collectionPreference).toHaveValue("Balanced");
+      await collectionPreference.click();
+      await page.getByRole("option", { name: "Recall first", exact: true }).click();
       await collectionRow
         .getByRole("button", { name: "Save practice preferences" })
         .click();
@@ -168,11 +168,8 @@ for (const width of [1280, 390])
         // The established mobile layout hides helper copy and keeps controls.
         await expect(unlockCopy).toBeHidden();
         await expect(
-          page.getByRole("button", {
-            name: "Prepare exact input",
-            exact: true,
-          }),
-        ).toBeEnabled();
+          page.getByText(/^(Prepare exact input|Preparing exact input)$/),
+        ).toBeVisible();
         await expect(
           page.getByRole("button", { name: "Prepare math", exact: true }),
         ).toBeEnabled();
@@ -186,7 +183,7 @@ for (const width of [1280, 390])
           name: "Practice preference",
           exact: true,
         }),
-      ).toHaveValue("DEFAULT");
+      ).toHaveValue(/^Use default/);
       await expect(
         page.getByRole("checkbox", {
           name: "I have already studied this skill",
@@ -196,7 +193,8 @@ for (const width of [1280, 390])
         name: "Practice preference",
         exact: true,
       });
-      await skillPreference.selectOption("BALANCED");
+      await skillPreference.click();
+      await page.getByRole("option", { name: "Balanced", exact: true }).click();
       await page
         .getByRole("button", { name: "Save practice preferences" })
         .click();
@@ -207,8 +205,9 @@ for (const width of [1280, 390])
       await page
         .getByText("Advanced practice preferences", { exact: true })
         .click();
-      await expect(skillPreference).toHaveValue("BALANCED");
-      await skillPreference.selectOption("DEFAULT");
+      await expect(skillPreference).toHaveValue("Balanced");
+      await skillPreference.click();
+      await page.getByRole("option", { name: /^Use default/, exact: true }).click();
       await page
         .getByRole("button", { name: "Save practice preferences" })
         .click();
@@ -219,36 +218,19 @@ for (const width of [1280, 390])
       await page
         .getByText("Advanced practice preferences", { exact: true })
         .click();
-      await expect(skillPreference).toHaveValue("DEFAULT");
+      await expect(skillPreference).toHaveValue(/^Use default/);
       await page.screenshot({
         path: testInfo.outputPath(`skill-${width}.png`),
         fullPage: true,
       });
       await page.goto(`/practice?collectionId=${spanish.collectionId}`);
       await expect(
-        page.getByRole("heading", { name: "Review", exact: true }),
+        page.getByRole("region", { name: "Practice exercise", exact: true }),
       ).toBeVisible();
-      await expect(
-        page.getByLabel("Practice scope", { exact: true }),
-      ).toHaveCount(0);
-      const mixed = page.getByRole("switch", {
-        name: "Mixed review",
-        exact: true,
-      });
-      await mixed.focus();
-      await page.keyboard.press("Space");
-      await expect(
-        page.getByRole("heading", {
-          name: "Spanish preterite formation",
-          exact: true,
-        }),
-      ).toBeVisible();
-      await page.keyboard.press("Space");
-      await expect(
-        page.getByRole("heading", { name: "Review", exact: true }),
-      ).toBeVisible();
-      // Reload starts a genuinely reduced-cue presentation after testing reversibility.
-      await page.reload();
+      await expect(page.getByLabel("Practice scope", { exact: true })).not.toContainText(spanish.collectionName);
+      await expect(page.getByRole("link", { name: "Custom session", exact: true })).toBeVisible();
+      await expect(page.getByRole("switch", { name: "Mixed review", exact: true })).toHaveCount(0);
+      await expect(page.getByRole("heading", { name: "Spanish preterite formation", exact: true })).toHaveCount(0);
       await page.getByRole("textbox", { name: "Your answer", exact: true }).fill("hablo");
       await page.keyboard.press("Enter");
       await expect(
@@ -259,7 +241,7 @@ for (const width of [1280, 390])
           name: "Spanish preterite formation",
           exact: true,
         }),
-      ).toBeVisible();
+      ).toHaveCount(0);
       await expect(
         page.getByLabel("Correct answer: habló", { exact: true }),
       ).toBeVisible();

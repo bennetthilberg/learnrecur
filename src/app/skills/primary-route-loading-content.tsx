@@ -1,5 +1,7 @@
+import { AddChoices } from "./new/add-choices";
 import { Skeleton } from "@mantine/core";
 import type { ReactNode } from "react";
+import { OpenWaterHeroRings, OpenWaterHeroWaves } from "@/components/app/open-water";
 
 import type { SkillsTopbarCurrent } from "./skills-topbar";
 
@@ -22,9 +24,9 @@ export type PrimaryRouteLoadingConfig = {
 
 export const primaryRouteLoadingByKey: Record<PrimaryRouteKey, PrimaryRouteLoadingConfig> = {
   collections: {
-    detail: "Create, describe, archive, and restore the study areas that organize your skills.",
+    detail: "Organize your skills into collections and practice them together.",
     kind: "collections",
-    title: "Organize practice",
+    title: "Collections",
   },
   dashboard: {
     detail: "Loading your due skills and recent practice activity.",
@@ -73,7 +75,7 @@ export function PrimaryRouteLoadingContent({
     case "skills":
       return <SkillsRouteLoading config={config} />;
     case "new":
-      return <NewSkillRouteLoading config={config} />;
+      return <AddChoices />;
     case "collections":
       return <CollectionsRouteLoading config={config} />;
     case "settings":
@@ -101,7 +103,7 @@ function RouteHeader({
       {actionCount > 0 ? (
         <div className="routeLoadingHeaderActions" aria-hidden="true">
           {Array.from({ length: actionCount }, (_, index) => (
-            <Skeleton
+            <Skeleton component="span"
               className={`routeSkeleton${shimmer ? " routeSkeletonShimmer" : ""}`}
               height={42}
               key={index}
@@ -139,63 +141,51 @@ function PanelSkeleton({
 function DashboardRouteLoading() {
   return (
     <>
-      <section className="openWaterHero dashboardHero routeLoadingHero" aria-label="Dashboard loading">
-        <div className="routeLoadingHeroWave" aria-hidden="true" />
-        <div className="routeLoadingHeroRings" aria-hidden="true" />
+      <section className="openWaterHero dashboardHero routeLoadingHero" aria-label="Dashboard loading" aria-busy="true">
+        <OpenWaterHeroWaves />
+        <OpenWaterHeroRings />
         <div className="openWaterHeroContent">
-          <h1 className="disp routeLoadingHeroTitle">
-            <Skeleton
-              className="routeSkeleton routeLoadingHeroSentence"
-              height={42}
-              radius={8}
-              width="min(560px, 84%)"
-            />
-          </h1>
+          <h1 className="disp"><Skeleton component="span" className="routeSkeleton" height="1.18em" width="min(560px, 84%)" /></h1>
           <div className="openWaterHeroActions" aria-hidden="true">
-            <Skeleton className="routeSkeleton routeLoadingHeroButton" height={44} radius={8} width={140} />
-            <Skeleton className="routeSkeleton routeLoadingHeroButton" height={44} radius={8} width={140} />
+            <Skeleton component="span" width="auto" style={{ pointerEvents: "none", boxShadow: "none" }} className="routeSkeleton bpbtn bpbtn-ghost"><span style={{ visibility: "hidden" }}>Browse skills</span></Skeleton>
+            <Skeleton component="span" width="auto" style={{ pointerEvents: "none", boxShadow: "none" }} className="routeSkeleton bpbtn bpbtn-hero"><span style={{ visibility: "hidden" }}>Start practice</span></Skeleton>
           </div>
         </div>
       </section>
-
       <section className="openWaterStatGrid" aria-label="Practice summary loading">
-        {["Due", "New", "Retention"].map((label) => (
-          <article className="openWaterStatTile routeLoadingStatTile" key={label}>
+        {["Due", "Active", "Recent accuracy"].map((label) => (
+          <article className="openWaterStatTile" key={label}>
             <p>{label}</p>
-            <Skeleton className="routeSkeleton" height={31} radius={6} width={label === "Retention" ? 58 : 34} />
+            <strong className="disp"><Skeleton component="span" className="routeSkeleton" height="1em" width={label === "Recent accuracy" ? 58 : 34} /></strong>
+            {label === "Recent accuracy" ? <p className="dashboardStatDescription"><Skeleton component="span" className="routeSkeleton" height="1.4em" width="100%" /></p> : null}
           </article>
         ))}
       </section>
-
-      <section className="openWaterSection openWaterReviewSection" aria-labelledby="loading-up-next-title">
-        <h2 id="loading-up-next-title" className="disp openWaterSectionTitle">
-          Up next
-        </h2>
-        <article className="openWaterReviewCard routeLoadingReviewCard">
-          <div className="openWaterReviewTop" aria-hidden="true">
-            <Skeleton className="routeSkeleton" height={15} radius={5} width={116} />
-            <Skeleton className="routeSkeleton" height={15} radius={5} width={82} />
+      <section className="openWaterSection openWaterReviewSection" aria-label="Up next loading">
+        <h2 className="disp openWaterSectionTitle">Up next</h2>
+        <article className="openWaterReviewCard" aria-hidden="true">
+          <div className="openWaterReviewTop">
+            <Skeleton component="span" className="routeSkeleton" height="1.4em" width={60} />
+            <Skeleton component="span" className="routeSkeleton" height="1.4em" width={82} />
           </div>
-          <Skeleton className="routeSkeleton" height={15} radius={5} width="38%" />
-          <Skeleton className="routeSkeleton routeLoadingReviewPrompt" height={34} radius={7} width="82%" />
-          <Skeleton className="routeSkeleton" height={14} radius={5} width="68%" />
-          <div className="openWaterReviewActions" aria-hidden="true">
-            <Skeleton className="routeSkeleton routeLoadingActionButton" height={44} radius={8} width={138} />
-            <Skeleton className="routeSkeleton routeLoadingActionButton" height={44} radius={8} width={132} />
+          <p className="disp openWaterReviewPrompt">
+            <Skeleton component="span" className="routeSkeleton" height="1.35em" width="95%" />
+            <Skeleton component="span" className="routeSkeleton dashboardLoadingMobileLine" height="1.35em" width="85%" />
+            <Skeleton component="span" className="routeSkeleton dashboardLoadingMobileLine" height="1.35em" width="62%" />
+          </p>
+          <p className="openWaterReviewNote"><Skeleton component="span" className="routeSkeleton" height="1.45em" width="68%" /></p>
+          <div className="openWaterReviewActions">
+            <Skeleton component="span" width="auto" style={{ pointerEvents: "none", boxShadow: "none" }} className="routeSkeleton bpbtn bpbtn-white"><span style={{ visibility: "hidden" }}>Review skills</span></Skeleton>
+            <Skeleton component="span" width="auto" style={{ pointerEvents: "none", boxShadow: "none" }} className="routeSkeleton bpbtn bpbtn-blue"><span style={{ visibility: "hidden" }}>Practice now</span></Skeleton>
           </div>
         </article>
       </section>
-
-      <section className="openWaterSection openWaterCollections" aria-labelledby="loading-collections-title">
+      <section className="openWaterSection openWaterCollections" aria-label="Collections loading">
         <div className="openWaterSectionHeader">
-          <h2 id="loading-collections-title" className="disp openWaterSectionTitle">
-            Collections
-          </h2>
-          <Skeleton className="routeSkeleton routeLoadingActionButton" height={39} radius={8} width={118} />
+          <h2 className="disp openWaterSectionTitle">Collections</h2>
+          <Skeleton component="span" className="routeSkeleton" height={34} width={90} />
         </div>
-        <div className="openWaterDeckList">
-          <DashboardDeckRowSkeleton />
-        </div>
+        <div className="openWaterDeckList"><DashboardDeckRowSkeleton /></div>
       </section>
     </>
   );
@@ -204,47 +194,55 @@ function DashboardRouteLoading() {
 function DashboardDeckRowSkeleton() {
   return (
     <article className="openWaterDeckRow routeLoadingDeckRow" aria-hidden="true">
-      <Skeleton className="routeSkeleton" height={32} radius={8} width={32} />
+      <Skeleton component="span" className="routeSkeleton" height={32} radius={8} width={32} />
       <div className="routeLoadingDeckText">
-        <Skeleton className="routeSkeleton" height={15} radius={5} width={190} />
-        <Skeleton className="routeSkeleton" height={12} radius={5} width={132} />
+        <Skeleton component="span" className="routeSkeleton" height={15} radius={5} width={190} />
+        <Skeleton component="span" className="routeSkeleton" height={12} radius={5} width={132} />
       </div>
-      <Skeleton className="routeSkeleton" height={24} radius={6} width={92} />
+      <Skeleton component="span" className="routeSkeleton" height={24} radius={6} width={92} />
     </article>
   );
 }
 
-function PracticeRouteLoading({ config }: { config: PrimaryRouteLoadingConfig }) {
+export function PracticeRouteLoading({
+  config = primaryRouteLoadingByKey.practice,
+  custom = false,
+}: { config?: PrimaryRouteLoadingConfig; custom?: boolean }) {
   return (
     <>
-      <section className="practiceScopeBar routeLoadingScope" aria-label="Practice scope loading">
-        <Skeleton className="routeSkeleton" height={14} radius={5} width={132} />
-        <Skeleton className="routeSkeleton" height={14} radius={5} width={96} />
-      </section>
-      <section className="practiceFrame routeLoadingPracticeFrame" aria-label={`${config.title} loading`}>
-        <div className="practiceMetaRow">
-          <div>
-            <h1>{config.title}</h1>
-          </div>
-          <div className="routeLoadingPracticeFacts" aria-hidden="true">
-            <Skeleton className="routeSkeleton" height={36} radius={6} width={108} />
-            <Skeleton className="routeSkeleton" height={36} radius={6} width={82} />
+      {custom ? (
+        <div className="practiceScopeBar customPracticeScopeBar" aria-hidden="true">
+          <Skeleton component="span" className="routeSkeleton" height={24} width={110} />
+          <Skeleton component="span" className="routeSkeleton" height={24} width={110} />
+          <Skeleton component="span" className="routeSkeleton" height={24} width={60} />
+          <Skeleton component="span" className="routeSkeleton" height={44} width={110} />
+        </div>
+      ) : (
+        <div className="practiceToolbar" aria-hidden="true">
+          <div className="practiceScopeBar">
+            <div className="practiceScopeIdentity"><Skeleton component="span" className="routeSkeleton" height={32} width={92} /></div>
+            <div className="practiceScopeLinks"><Skeleton component="span" className="routeSkeleton" height={20} width={102} /><Skeleton component="span" className="routeSkeleton" height={20} width={111} /></div>
           </div>
         </div>
-
-        <article className="practicePromptPanel">
-          <Skeleton className="routeSkeleton" height={17} radius={5} width={84} />
-          <Skeleton className="routeSkeleton routeLoadingPracticePrompt" height={33} radius={7} width="78%" />
+      )}
+      <section className="practiceFrame routeLoadingPracticeFrame" aria-label={`${config.title} loading`} aria-busy="true">
+        <div className="practiceMetaRow" aria-hidden="true">
+          <div className="practiceLoadingMeta">
+            <p className="practiceMetaSummary"><Skeleton component="span" className="routeSkeleton" height="1lh" width={68} /></p>
+          </div>
+        </div>
+        <article className="practicePromptPanel" aria-hidden="true">
+          <p><Skeleton component="span" className="routeSkeleton" height="1lh" width="95%" /><Skeleton component="span" className="routeSkeleton" height="1lh" width="62%" /></p>
         </article>
-
-        <div className="choiceGrid" aria-hidden="true">
-          {Array.from({ length: 4 }, (_, index) => (
-            <Skeleton className="routeSkeleton routeLoadingChoice" height={58} key={index} radius={8} />
+        <div className="practiceLoadingAnswers" aria-hidden="true">
+          {[0, 1, 2].map((index) => (
+            <div className="practiceLoadingAnswer" key={index}>
+              <Skeleton component="span" className="routeSkeleton" height={30} width={30} />
+              <Skeleton component="span" className="routeSkeleton" height={20} width={`${28 + index * 11}%`} />
+            </div>
           ))}
         </div>
-        <div className="practiceActions" aria-hidden="true">
-          <Skeleton className="routeSkeleton routeLoadingActionButton" height={42} radius={8} width={112} />
-        </div>
+        <div className="practiceActions" aria-hidden="true"><Skeleton component="span" className="routeSkeleton" height={48} width={136} /></div>
       </section>
     </>
   );
@@ -275,45 +273,19 @@ function SkillLibraryRowSkeleton({
     <article className="skillLibraryRow routeLoadingLibraryRow" aria-hidden="true">
       <div className="skillLibraryRowMain">
         <div className="routeLoadingLibraryCopy">
-          <Skeleton className="routeSkeleton routeSkeletonShimmer" height={18} radius={5} width={compact ? "54%" : "72%"} />
-          <Skeleton className="routeSkeleton routeSkeletonShimmer" height={13} radius={5} width={compact ? "64%" : "86%"} />
+          <Skeleton component="span" className="routeSkeleton routeSkeletonShimmer" height={18} radius={5} width={compact ? "54%" : "72%"} />
+          <Skeleton component="span" className="routeSkeleton routeSkeletonShimmer" height={13} radius={5} width={compact ? "64%" : "86%"} />
         </div>
         <div className="skillLibraryRowControls">
-          <Skeleton className="routeSkeleton routeSkeletonShimmer" height={25} radius={6} width={62} />
-          <Skeleton className="routeSkeleton routeSkeletonShimmer" height={34} radius={8} width={34} />
+          <Skeleton component="span" className="routeSkeleton routeSkeletonShimmer" height={25} radius={6} width={62} />
+          <Skeleton component="span" className="routeSkeleton routeSkeletonShimmer" height={34} radius={8} width={34} />
         </div>
       </div>
       <div className="routeLoadingMetaLine">
-        <Skeleton className="routeSkeleton routeSkeletonShimmer" height={12} radius={5} width={88} />
-        <Skeleton className="routeSkeleton routeSkeletonShimmer" height={12} radius={5} width={72} />
+        <Skeleton component="span" className="routeSkeleton routeSkeletonShimmer" height={12} radius={5} width={88} />
+        <Skeleton component="span" className="routeSkeleton routeSkeletonShimmer" height={12} radius={5} width={72} />
       </div>
     </article>
-  );
-}
-
-function NewSkillRouteLoading({ config }: { config: PrimaryRouteLoadingConfig }) {
-  return (
-    <>
-      <header className="skillHeader createModeHeader routeLoadingHeader">
-        <div>
-          <h1>{config.title}</h1>
-          <p>{config.detail}</p>
-        </div>
-      </header>
-      <div className="createModeChoices skillsPathChoiceLoading" aria-hidden="true">
-        {["One skill", "Multiple skills"].map((label, index) => (
-          <article className="createModeChoice" key={label}>
-            <Skeleton className="routeSkeleton routeSkeletonShimmer" circle height={40} width={40} />
-            <span>
-              <strong>{label}</strong>
-              <Skeleton className="routeSkeleton routeSkeletonShimmer" height={13} mt={10} radius={5} width={index === 0 ? "84%" : "92%"} />
-              <Skeleton className="routeSkeleton routeSkeletonShimmer" height={13} mt={8} radius={5} width={index === 0 ? "66%" : "74%"} />
-            </span>
-            <Skeleton className="routeSkeleton routeSkeletonShimmer createModeChoiceCue" height={12} radius={5} width={72} />
-          </article>
-        ))}
-      </div>
-    </>
   );
 }
 
@@ -323,7 +295,7 @@ function HistoryRouteLoading({ config }: { config: PrimaryRouteLoadingConfig }) 
       <header className="skillHeader historyHeader">
         <div>
           <h1 aria-label={config.title}>
-            <Skeleton
+            <Skeleton component="span"
               aria-hidden="true"
               className="routeSkeleton routeLoadingHistoryTitle"
               height={38}
@@ -332,19 +304,27 @@ function HistoryRouteLoading({ config }: { config: PrimaryRouteLoadingConfig }) 
             />
           </h1>
           <div className="routeLoadingHistoryHeaderCopy" aria-hidden="true">
-            <Skeleton className="routeSkeleton" height={16} radius={5} width="min(100%, 540px)" />
-            <Skeleton className="routeSkeleton" height={16} radius={5} width="min(100%, 430px)" />
+            <Skeleton component="span" className="routeSkeleton" height={16} radius={5} width="min(100%, 540px)" />
+            <Skeleton component="span" className="routeSkeleton" height={16} radius={5} width="min(100%, 430px)" />
           </div>
         </div>
       </header>
 
+      <div className="historyFilters" aria-hidden="true">
+        {[0, 1].map(key => <div key={key}>
+          <Skeleton className="routeSkeleton routeSkeletonShimmer" height={20} width={80} mb={6} />
+          <Skeleton className="routeSkeleton routeSkeletonShimmer" height={44} />
+        </div>)}
+        <Skeleton className="routeSkeleton routeSkeletonShimmer" height={24} width={200} />
+        <div className="historyFilterActions"><Skeleton className="routeSkeleton routeSkeletonShimmer" height={44} width={220} /></div>
+      </div>
       <section
         className="skillPanel historyPanel routeLoadingHistoryPanel"
         aria-label="Review history loading"
       >
         <div className="historyPanelIntro">
           <h2 aria-label="Completed reviews">
-            <Skeleton
+            <Skeleton component="span"
               aria-hidden="true"
               className="routeSkeleton routeLoadingHistorySectionTitle"
               height={28}
@@ -352,7 +332,7 @@ function HistoryRouteLoading({ config }: { config: PrimaryRouteLoadingConfig }) 
               width={230}
             />
           </h2>
-          <Skeleton className="routeSkeleton" height={20} radius={5} width={190} />
+          <Skeleton component="span" className="routeSkeleton" height={20} radius={5} width={190} />
         </div>
         <div className="historySimpleTableWrap">
           <table className="historySimpleTable routeLoadingHistoryTable">
@@ -382,24 +362,24 @@ function HistoryRowSkeleton() {
   return (
     <tr>
       <td data-label="Reviewed">
-        <Skeleton className="routeSkeleton" height={18} radius={5} width={72} />
-        <Skeleton className="routeSkeleton" height={13} radius={5} mt={10} width={62} />
+        <Skeleton component="span" className="routeSkeleton" height={18} radius={5} width={72} />
+        <Skeleton component="span" className="routeSkeleton" height={13} radius={5} mt={10} width={62} />
       </td>
       <td data-label="Skill">
-        <Skeleton className="routeSkeleton" height={18} radius={5} width="76%" />
-        <Skeleton className="routeSkeleton" height={13} radius={5} mt={12} width="48%" />
+        <Skeleton component="span" className="routeSkeleton" height={18} radius={5} width="76%" />
+        <Skeleton component="span" className="routeSkeleton" height={13} radius={5} mt={12} width="48%" />
       </td>
       <td data-label="Result">
-        <Skeleton className="routeSkeleton" height={24} radius={6} width={76} />
+        <Skeleton component="span" className="routeSkeleton" height={24} radius={6} width={76} />
       </td>
       <td data-label="Rating">
-        <Skeleton className="routeSkeleton" height={18} radius={5} width={58} />
+        <Skeleton component="span" className="routeSkeleton" height={18} radius={5} width={58} />
       </td>
       <td data-label="Next due">
-        <Skeleton className="routeSkeleton" height={18} radius={5} width={94} />
+        <Skeleton component="span" className="routeSkeleton" height={18} radius={5} width={94} />
       </td>
       <td data-label="Details">
-        <Skeleton className="routeSkeleton" height={34} radius={8} width={70} />
+        <Skeleton component="span" className="routeSkeleton" height={34} radius={8} width={70} />
       </td>
     </tr>
   );
@@ -409,30 +389,30 @@ function CollectionsRouteLoading({ config }: { config: PrimaryRouteLoadingConfig
   return (
     <>
       <RouteHeader actionCount={1} config={config} />
-      <PanelSkeleton className="collectionCreatePanel" title="Add a study area">
+      <PanelSkeleton className="collectionCreatePanel" title="Add a collection">
         <div className="routeLoadingFormStack" aria-hidden="true">
-          <Skeleton className="routeSkeleton" height={42} radius={8} />
-          <Skeleton className="routeSkeleton" height={82} radius={8} />
-          <Skeleton className="routeSkeleton routeLoadingActionButton" height={42} radius={8} width={148} />
+          <Skeleton component="span" className="routeSkeleton" height={42} radius={8} />
+          <Skeleton component="span" className="routeSkeleton" height={82} radius={8} />
+          <Skeleton component="span" className="routeSkeleton routeLoadingActionButton" height={42} radius={8} width={148} />
         </div>
       </PanelSkeleton>
       <PanelSkeleton className="collectionManagementPanel" title="Current collections">
         <article className="routeLoadingCollectionRow" aria-hidden="true">
           <div>
-            <Skeleton className="routeSkeleton" height={20} radius={5} width={190} />
-            <Skeleton className="routeSkeleton" height={14} radius={5} mt={13} width="62%" />
+            <Skeleton component="span" className="routeSkeleton" height={20} radius={5} width={190} />
+            <Skeleton component="span" className="routeSkeleton" height={14} radius={5} mt={13} width="62%" />
             <div className="routeLoadingMetaLine">
-              <Skeleton className="routeSkeleton" height={13} radius={5} width={92} />
-              <Skeleton className="routeSkeleton" height={13} radius={5} width={84} />
-              <Skeleton className="routeSkeleton" height={13} radius={5} width={110} />
+              <Skeleton component="span" className="routeSkeleton" height={13} radius={5} width={92} />
+              <Skeleton component="span" className="routeSkeleton" height={13} radius={5} width={84} />
+              <Skeleton component="span" className="routeSkeleton" height={13} radius={5} width={110} />
             </div>
             <div className="routeLoadingCollectionActions">
-              <Skeleton className="routeSkeleton" height={40} radius={8} width={82} />
-              <Skeleton className="routeSkeleton" height={40} radius={8} width={68} />
-              <Skeleton className="routeSkeleton" height={44} radius={8} width={128} />
+              <Skeleton component="span" className="routeSkeleton" height={40} radius={8} width={82} />
+              <Skeleton component="span" className="routeSkeleton" height={40} radius={8} width={68} />
+              <Skeleton component="span" className="routeSkeleton" height={44} radius={8} width={128} />
             </div>
           </div>
-          <Skeleton className="routeSkeleton" height={72} radius={8} width={124} />
+          <Skeleton component="span" className="routeSkeleton" height={72} radius={8} width={124} />
         </article>
       </PanelSkeleton>
     </>
@@ -443,16 +423,19 @@ function SettingsRouteLoading({ config }: { config: PrimaryRouteLoadingConfig })
   return (
     <>
       <header className="skillHeader settingsHeader">
-        <h1 aria-label={config.title}>
-          <Skeleton
-            aria-hidden="true"
-            className="routeSkeleton routeLoadingSettingsTitle"
-            height={42}
-            radius={7}
-            width={164}
-          />
-        </h1>
+        <h1>{config.title}</h1>
       </header>
+
+      <section className="skillPanel settingsPanel" aria-label="Practice preferences loading">
+        <div className="settingsSectionIntro"><h2>Practice preferences</h2></div>
+        <div className="settingsPreferencesBody practicePreferencesLoading" aria-hidden="true">
+          <div><Skeleton component="span" className="routeSkeleton" height={18} width={150} /><Skeleton component="span" className="routeSkeleton" height={48} mt={12} /></div>
+          <div><Skeleton component="span" className="routeSkeleton" height={24} width={170} /><Skeleton component="span" className="routeSkeleton" height={48} mt={18} /></div>
+          <Skeleton component="span" className="routeSkeleton" height={20} width="75%" />
+          <Skeleton component="span" className="routeSkeleton" height={24} width={220} />
+          <Skeleton component="span" className="routeSkeleton" height={44} width={220} />
+        </div>
+      </section>
 
       <section
         className="skillPanel settingsPanel routeLoadingSettingsPanel"
@@ -460,7 +443,7 @@ function SettingsRouteLoading({ config }: { config: PrimaryRouteLoadingConfig })
       >
         <div className="settingsSectionIntro">
           <h2 aria-label="Email reminders">
-            <Skeleton
+            <Skeleton component="span"
               aria-hidden="true"
               className="routeSkeleton routeLoadingSettingsSectionTitle"
               height={30}
@@ -468,7 +451,7 @@ function SettingsRouteLoading({ config }: { config: PrimaryRouteLoadingConfig })
               width={194}
             />
           </h2>
-          <Skeleton
+          <Skeleton component="span"
             className="routeSkeleton"
             height={16}
             radius={5}
@@ -479,26 +462,26 @@ function SettingsRouteLoading({ config }: { config: PrimaryRouteLoadingConfig })
         <div className="settingsReminderForm routeLoadingSettingsForm" aria-hidden="true">
           <fieldset className="skillFormFieldset settingsReminderFieldset">
             <legend>
-              <Skeleton className="routeSkeleton" height={25} radius={6} width={82} />
+              <Skeleton component="span" className="routeSkeleton" height={25} radius={6} width={82} />
             </legend>
             <div className="skillFormFieldsetBody settingsReminderFields">
               <div className="settingsSwitchRow">
-                <Skeleton className="routeSkeleton" height={24} radius={999} width={42} />
-                <Skeleton className="routeSkeleton" height={18} radius={5} width={224} />
+                <Skeleton component="span" className="routeSkeleton" height={24} radius={999} width={42} />
+                <Skeleton component="span" className="routeSkeleton" height={18} radius={5} width={224} />
               </div>
 
               <label className="skillField">
-                <Skeleton className="routeSkeleton" height={20} radius={5} width={110} />
-                <Skeleton className="routeSkeleton" height={48} radius={8} />
+                <Skeleton component="span" className="routeSkeleton" height={20} radius={5} width={110} />
+                <Skeleton component="span" className="routeSkeleton" height={48} radius={8} />
               </label>
             </div>
           </fieldset>
 
           <fieldset className="skillFormFieldset settingsReminderFieldset">
             <legend>
-              <Skeleton className="routeSkeleton" height={25} radius={6} width={94} />
+              <Skeleton component="span" className="routeSkeleton" height={25} radius={6} width={94} />
             </legend>
-            <Skeleton
+            <Skeleton component="span"
               className="routeSkeleton"
               height={16}
               radius={5}
@@ -507,25 +490,25 @@ function SettingsRouteLoading({ config }: { config: PrimaryRouteLoadingConfig })
             <div className="skillFormFieldsetBody settingsReminderFields">
               <div className="skillTwoColumnFields">
                 <label className="skillField">
-                  <Skeleton className="routeSkeleton" height={20} radius={5} width={92} />
-                  <Skeleton className="routeSkeleton" height={48} radius={8} />
+                  <Skeleton component="span" className="routeSkeleton" height={20} radius={5} width={92} />
+                  <Skeleton component="span" className="routeSkeleton" height={48} radius={8} />
                 </label>
 
                 <label className="skillField">
-                  <Skeleton className="routeSkeleton" height={20} radius={5} width={88} />
-                  <Skeleton className="routeSkeleton" height={48} radius={8} />
+                  <Skeleton component="span" className="routeSkeleton" height={20} radius={5} width={88} />
+                  <Skeleton component="span" className="routeSkeleton" height={48} radius={8} />
                 </label>
               </div>
 
               <label className="skillField">
-                <Skeleton className="routeSkeleton" height={20} radius={5} width={158} />
-                <Skeleton className="routeSkeleton" height={48} radius={8} />
+                <Skeleton component="span" className="routeSkeleton" height={20} radius={5} width={158} />
+                <Skeleton component="span" className="routeSkeleton" height={48} radius={8} />
               </label>
             </div>
           </fieldset>
 
           <div className="skillFormActions">
-            <Skeleton
+            <Skeleton component="span"
               className="routeSkeleton routeLoadingActionButton"
               height={42}
               radius={8}
@@ -535,7 +518,7 @@ function SettingsRouteLoading({ config }: { config: PrimaryRouteLoadingConfig })
         </div>
 
         <div className="settingsPrivacyNote routeLoadingPrivacyNote" aria-hidden="true">
-          <Skeleton
+          <Skeleton component="span"
             className="routeSkeleton"
             height={16}
             radius={5}
@@ -550,7 +533,7 @@ function SettingsRouteLoading({ config }: { config: PrimaryRouteLoadingConfig })
       >
         <div className="settingsSectionIntro">
           <h2 aria-label="Study data">
-            <Skeleton
+            <Skeleton component="span"
               aria-hidden="true"
               className="routeSkeleton routeLoadingSettingsSectionTitle"
               height={30}
@@ -558,7 +541,7 @@ function SettingsRouteLoading({ config }: { config: PrimaryRouteLoadingConfig })
               width={132}
             />
           </h2>
-          <Skeleton
+          <Skeleton component="span"
             className="routeSkeleton"
             height={16}
             radius={5}
@@ -567,8 +550,8 @@ function SettingsRouteLoading({ config }: { config: PrimaryRouteLoadingConfig })
         </div>
 
         <div className="settingsExportBody" aria-hidden="true">
-          <Skeleton className="routeSkeleton" height={44} radius={7} width="100%" />
-          <Skeleton
+          <Skeleton component="span" className="routeSkeleton" height={44} radius={7} width="100%" />
+          <Skeleton component="span"
             className="routeSkeleton routeLoadingActionButton"
             height={42}
             radius={8}
@@ -580,10 +563,10 @@ function SettingsRouteLoading({ config }: { config: PrimaryRouteLoadingConfig })
           {["Scope", "Format", "Access", "Originals"].map((label, index) => (
             <div data-priority={index === 0 ? "primary" : undefined} key={label}>
               <dt>
-                <Skeleton className="routeSkeleton" height={16} radius={5} width={74} />
+                <Skeleton component="span" className="routeSkeleton" height={16} radius={5} width={74} />
               </dt>
               <dd>
-                <Skeleton
+                <Skeleton component="span"
                   className="routeSkeleton"
                   height={18}
                   radius={5}
@@ -595,7 +578,7 @@ function SettingsRouteLoading({ config }: { config: PrimaryRouteLoadingConfig })
         </dl>
 
         <div className="settingsFinePrint" aria-hidden="true">
-          <Skeleton
+          <Skeleton component="span"
             className="routeSkeleton"
             height={16}
             radius={5}

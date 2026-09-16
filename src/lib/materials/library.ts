@@ -22,13 +22,17 @@ export type MaterialLibraryItem = {
   updatedAt: Date;
 };
 
-export async function getMaterialLibrary(input: { userId: string }): Promise<MaterialLibraryItem[]> {
+const visibleRevisionStatuses: MaterialRevisionStatus[] = [MaterialRevisionStatus.QUEUED, MaterialRevisionStatus.PROCESSING, MaterialRevisionStatus.READY, MaterialRevisionStatus.FAILED];
+
+export async function getMaterialLibrary(input: { userId: string; includeUnready?: boolean }): Promise<MaterialLibraryItem[]> {
   const prisma = getPrisma();
   const materials = await prisma.studyMaterial.findMany({
     where: {
       userId: input.userId,
       status: { not: StudyMaterialStatus.DELETING },
-      activeRevision: { is: { status: MaterialRevisionStatus.READY } },
+      ...(input.includeUnready
+        ? { revisions: { some: { status: { in: visibleRevisionStatuses } } } }
+        : { activeRevision: { is: { status: MaterialRevisionStatus.READY } } }),
     },
     orderBy: [{ lastUsedAt: "desc" }, { updatedAt: "desc" }, { id: "asc" }],
     select: {
@@ -52,7 +56,13 @@ export async function getMaterialLibrary(input: { userId: string }): Promise<Mat
         },
       },
       revisions: {
+        orderBy: { revisionNumber: "desc" },
         select: {
+          revisionNumber: true,
+          status: true,
+          pageCount: true,
+          fetchedPageCount: true,
+          byteSize: true,
           sourceFiles: {
             select: { skillRefs: { select: { skillId: true } } },
           },
@@ -62,7 +72,9 @@ export async function getMaterialLibrary(input: { userId: string }): Promise<Mat
   });
 
   return materials.flatMap((material) => {
-    const revision = material.activeRevision;
+    const revision = input.includeUnready
+      ? material.revisions.find(item => visibleRevisionStatuses.includes(item.status))
+      : material.activeRevision;
     if (!revision) {
       return [];
     }

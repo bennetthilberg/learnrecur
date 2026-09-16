@@ -23,7 +23,7 @@ const routeCases: Array<{
   { current: "skills", kind: "skills-library", marker: "Manage the skills in your practice schedule." },
   { current: "new", kind: "new-choice", marker: "What are you adding?" },
   { current: "new", kind: "new-one", marker: "Add learning material" },
-  { current: "new", kind: "new-multiple", marker: "Reuse a material" },
+  { current: "new", kind: "new-multiple", marker: "Add a material" },
   { current: "skills", kind: "materials-library", marker: "Your references" },
   { current: "skills", kind: "material-detail", marker: "About this material" },
   { current: "new", kind: "material-describe", marker: "What should this book become?" },
@@ -32,6 +32,12 @@ const routeCases: Array<{
 ];
 
 describe("SkillsPathLoading", () => {
+  it("keeps skill-detail loading sections in the loaded page order", () => {
+    const markup = renderToStaticMarkup(createElement(MantineProvider, null, createElement(SkillsPathLoading, { kind: "skill-detail" })));
+    expect([...markup.matchAll(/<h2[^>]*>([^<]+)<\/h2>/g)].map(match => match[1])).toEqual([
+      "Schedule", "Practice results", "Recent reviews", "Practice guidance",
+    ]);
+  });
   it.each(routeCases)("renders a page-shaped $kind loading state", ({ current, kind, marker }) => {
     const markup = renderToStaticMarkup(
       createElement(
@@ -41,13 +47,18 @@ describe("SkillsPathLoading", () => {
       ),
     );
 
-    expect(markup).toContain('aria-busy="true"');
+    if (kind !== "new-choice") expect(markup).toContain('aria-busy="true"');
     expect(markup).toContain(`data-loading-route="${kind}"`);
     expect(markup).toContain(`data-current="${current}"`);
-    expect(markup).toContain("routeSkeletonShimmer");
+    if (kind !== "new-choice") expect(markup).toContain("routeSkeletonShimmer");
+    else expect(markup).not.toContain("routeSkeleton");
     expect(markup).toContain(marker);
     expect(markup).not.toContain("<button");
-    expect(markup).not.toContain("<a ");
+    if (kind !== "new-choice") expect(markup).not.toContain("<a ");
+    else {
+      expect(markup).toContain('href="/skills/new/one"');
+      expect(markup).toContain('href="/skills/new/multiple"');
+    }
     expect(markup).not.toContain("<form");
   });
 
@@ -85,13 +96,13 @@ describe("SkillsPathLoading", () => {
     expect(markup).not.toContain("routeLoadingFactsGrid");
   });
 
-  it("uses the choice-card skeleton during immediate Add navigation", () => {
+  it("uses real choices during immediate Add navigation", () => {
     const source = readFileSync(
       new URL("../../src/app/skills/primary-route-loading-content.tsx", import.meta.url),
       "utf8",
     );
 
     expect(source).toContain('title: "What are you adding?"');
-    expect(source).toContain('className="createModeChoices skillsPathChoiceLoading"');
+    expect(source).toContain("return <AddChoices />;");
   });
 });

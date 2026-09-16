@@ -1,3 +1,4 @@
+import { AddChoices } from "./new/add-choices";
 import { Skeleton, type SkeletonProps } from "@mantine/core";
 
 import { SkillsTopbar, type SkillsTopbarCurrent } from "./skills-topbar";
@@ -23,7 +24,7 @@ const loadingRouteConfig: Record<SkillsPathLoadingKind, LoadingRouteConfig> = {
   "skills-library": {
     current: "skills",
     label: "Skills library loading",
-    shellClassName: "skillShell",
+    shellClassName: "skillShell libraryShell",
   },
   "new-choice": {
     current: "new",
@@ -72,7 +73,7 @@ export function SkillsPathLoading({ kind }: { kind: SkillsPathLoadingKind }) {
 
   return (
     <main
-      aria-busy="true"
+      aria-busy={kind === "new-choice" ? undefined : true}
       aria-label={config.label}
       className={`${config.shellClassName} skillsPathLoading`}
       data-loading-route={kind}
@@ -88,7 +89,7 @@ function SkillsPathLoadingContent({ kind }: { kind: SkillsPathLoadingKind }) {
     case "skills-library":
       return <SkillsLibraryLoading />;
     case "new-choice":
-      return <NewChoiceLoading />;
+      return <AddChoices />;
     case "new-one":
       return <NewOneLoading />;
     case "new-multiple":
@@ -195,31 +196,6 @@ function SkillLibraryRowLoading({ compact = false }: { compact?: boolean }) {
   );
 }
 
-function NewChoiceLoading() {
-  return (
-    <>
-      <FixedHeader
-        className="createModeHeader"
-        detail="Use the fast path for one target, or a reusable material for a chapter-sized batch."
-        title="What are you adding?"
-      />
-      <div className="createModeChoices skillsPathChoiceLoading" aria-hidden="true">
-        {["One skill", "Multiple skills"].map((label, index) => (
-          <article className="createModeChoice" key={label}>
-            <LoadingBlock circle height={40} width={40} />
-            <span>
-              <strong>{label}</strong>
-              <LoadingBlock height={13} mt={10} radius={5} width={index === 0 ? "84%" : "92%"} />
-              <LoadingBlock height={13} mt={8} radius={5} width={index === 0 ? "66%" : "74%"} />
-            </span>
-            <LoadingBlock className="createModeChoiceCue" height={12} radius={5} width={72} />
-          </article>
-        ))}
-      </div>
-    </>
-  );
-}
-
 function NewOneLoading() {
   return (
     <>
@@ -274,14 +250,7 @@ function NewMultipleLoading() {
         detail="Choose a reusable material now. You will describe and confirm the exact scope next."
         title="Create multiple skills"
       />
-      <div className="materialImportLayout" aria-hidden="true">
-        <section className="skillPanel materialReusePanel">
-          <PanelHeader detail="Select a book or reference you already imported." title="Reuse a material" />
-          <div className="materialCompactList">
-            <MaterialCompactRowLoading />
-            <MaterialCompactRowLoading compact />
-          </div>
-        </section>
+      <div className="materialImportLayout" data-layout="first-import" aria-hidden="true">
         <section className="skillPanel materialImportPanel">
           <PanelHeader detail="Import once, then return to different chapters over time." title="Add a material" />
           <div className="materialImportTabs skillsPathImportLoading">
@@ -291,7 +260,7 @@ function NewMultipleLoading() {
             </div>
             <div className="materialImportTabPanel materialImportForm">
               <p className="materialImportIntro">Up to 100 MB or 1,000 pages.</p>
-              <div className="skillTwoColumnFields">
+              <div className="skillTwoColumnFields materialImportFields">
                 <FieldLoading />
                 <FieldLoading compact />
               </div>
@@ -302,21 +271,6 @@ function NewMultipleLoading() {
         </section>
       </div>
     </>
-  );
-}
-
-function MaterialCompactRowLoading({ compact = false }: { compact?: boolean }) {
-  return (
-    <article className="materialCompactRow">
-      <div>
-        <LoadingBlock height={16} radius={5} width={compact ? "62%" : "84%"} />
-        <LoadingBlock height={12} mt={8} radius={5} width={compact ? "46%" : "64%"} />
-      </div>
-      <div className="materialCompactActions">
-        <LoadingBlock height={38} radius={8} />
-        <LoadingBlock height={38} radius={8} />
-      </div>
-    </article>
   );
 }
 
@@ -580,6 +534,10 @@ function SkillDetailLoading() {
           </div>
           <LoadingBlock height={42} radius={8} width={122} />
         </header>
+        <div className="skillOrganizationControls">
+          <LoadingBlock height={44} radius={8} width={130} />
+          <LoadingBlock height={44} radius={8} width={160} />
+        </div>
         <section className="skillDetailCard skillDetailSchedule">
           <SkillDetailSectionHeaderLoading title="Schedule" />
           <div className="skillDetailFactGrid skillsPathFactGridLoading">
@@ -591,24 +549,22 @@ function SkillDetailLoading() {
             ))}
           </div>
         </section>
-        <section className="skillDetailCard skillDetailGuidance">
-          <SkillDetailSectionHeaderLoading title="Practice guidance" />
-          <div className="skillsPathGuidanceLoading">
-            {Array.from({ length: 3 }, (_, index) => (
-              <div key={index}>
-                <LoadingBlock height={14} radius={5} width={index === 0 ? 86 : 112} />
-                <LoadingBlock height={13} mt={10} radius={5} width="94%" />
-                <LoadingBlock height={13} mt={8} radius={5} width={index === 2 ? "64%" : "78%"} />
-              </div>
-            ))}
-          </div>
-        </section>
         <section className="skillDetailCard skillDetailOutcomes">
-          <SkillDetailSectionHeaderLoading title="Review outcomes" />
+          <SkillDetailSectionHeaderLoading title="Practice results" />
           <div className="skillsPathOutcomeLoading">
             <LoadingBlock height={15} radius={5} width={176} />
             <LoadingBlock height={13} mt={12} radius={5} width="68%" />
           </div>
+        </section>
+        <section className="skillPanel skillRecentReviewsPanel skillDetailRecent">
+          <SkillDetailSectionHeaderLoading title="Recent reviews" />
+          <LoadingBlock height={16} radius={5} width="75%" />
+          <LoadingBlock height={14} mt={12} radius={5} width="55%" />
+        </section>
+        <section className="skillDetailCard skillDetailGuidance">
+          <SkillDetailSectionHeaderLoading title="Practice guidance" />
+          <LoadingBlock height={14} radius={5} width="85%" />
+          <LoadingBlock height={14} mt={10} radius={5} width="65%" />
         </section>
       </div>
     </div>

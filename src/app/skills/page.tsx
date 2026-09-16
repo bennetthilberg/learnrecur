@@ -15,6 +15,7 @@ import { ensureDatabaseUser } from "@/lib/users";
 import { getAgentAccessOverview } from "@/lib/agent-access/settings";
 
 import { SkillRowActions } from "./skill-row-actions";
+import { SkillsLibraryList } from "./skills-library-list";
 import { SkillsTopbar } from "./skills-topbar";
 
 export const dynamic = "force-dynamic";
@@ -39,7 +40,7 @@ export default async function SkillsPage({ searchParams }: SkillsPageProps) {
 
   if (databaseUser.status !== "ready") {
     return (
-      <main className="skillShell">
+      <main className="skillShell libraryShell">
         <SkillsTopbar current="skills" />
         <UserStatusPanel id="skills-setup-title" status={databaseUser} />
       </main>
@@ -52,7 +53,7 @@ export default async function SkillsPage({ searchParams }: SkillsPageProps) {
   ]);
 
   return (
-    <main className="skillShell">
+    <main className="skillShell libraryShell">
       <SkillsTopbar current="skills" />
 
       <header className="skillHeader">
@@ -124,57 +125,16 @@ export default async function SkillsPage({ searchParams }: SkillsPageProps) {
         </section>
       ) : null}
 
-      <div className="skillLibraryGrid" data-layout="single">
-        <section className="skillPanel skillLibraryActivePanel" aria-labelledby="active-skills-title">
-          <div className="skillPanelHeader">
-            <div>
-              <h2 id="active-skills-title">Skills</h2>
-            </div>
-            <PanelHeaderCount
-              ariaLabel="Skills shown"
-              label="Skills"
-              value={formatCount(library.activeSkills.length)}
-            />
-          </div>
-
-          {library.activeSkills.length === 0 ? (
-            <SkillLibraryEmptyState
-              title="No active skills"
-              detail={
-                library.recoverySkills.length > 0
-                  ? "Restore a paused or archived skill below, or add a new one."
-                  : "Add a skill to put it into practice."
-              }
-            />
-          ) : (
-            <div className="skillLibraryList">
-              {library.activeSkills.map((skill) => (
-                <ActiveSkillRow key={skill.id} skill={skill} />
-              ))}
-            </div>
-          )}
-        </section>
-      </div>
-
-      {library.recoverySkills.length > 0 ? (
-        <section className="skillPanel skillRecoveryPanel" aria-labelledby="recovery-skills-title">
-          <div className="skillPanelHeader">
-            <div>
-              <h2 id="recovery-skills-title">Paused and archived skills</h2>
-            </div>
-            <PanelHeaderCount
-              ariaLabel="Paused and archived skills shown"
-              label="Skills"
-              value={formatCount(library.recoverySkills.length)}
-            />
-          </div>
-          <div className="skillLibraryList">
-            {library.recoverySkills.map((skill) => (
-              <RecoverySkillRow key={skill.id} skill={skill} />
-            ))}
-          </div>
-        </section>
-      ) : null}
+      <SkillsLibraryList items={[
+        ...library.activeSkills.map((skill) => ({
+          id: skill.id, title: skill.title, status: "ACTIVE", collectionId: skill.collectionId ?? null,
+          collectionName: skill.collectionName, row: <ActiveSkillRow key={skill.id} skill={skill} />,
+        })),
+        ...library.recoverySkills.map((skill) => ({
+          id: skill.id, title: skill.title, status: skill.status, collectionId: skill.collectionId ?? null,
+          collectionName: skill.collectionName, row: <RecoverySkillRow key={skill.id} skill={skill} />,
+        })),
+      ]} />
     </main>
   );
 }
@@ -239,18 +199,6 @@ function RecoverySkillRow({ skill }: { skill: SkillsLibraryRecoverySkill }) {
         ))}
       </div>
     </article>
-  );
-}
-
-function SkillLibraryEmptyState({ title, detail }: { title: string; detail: string }) {
-  return (
-    <div className="dashboardEmptyState">
-      <h3>{title}</h3>
-      <p>{detail}</p>
-      <Link className="secondaryButton" href="/skills/new">
-        Add skill
-      </Link>
-    </div>
   );
 }
 

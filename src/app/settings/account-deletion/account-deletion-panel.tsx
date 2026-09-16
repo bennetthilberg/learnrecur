@@ -124,6 +124,7 @@ export function AccountDeletionPanel({ status }: { status: AccountDeletionUiSnap
       ) : null}
 
       <Modal
+        closeButtonProps={{ "aria-label": "Close account deletion confirmation" }}
         opened={opened}
         onClose={closeModal}
         title="Delete this account?"

@@ -1,10 +1,12 @@
 "use client";
 
+import { Menu } from "@mantine/core";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import type { MouseEvent } from "react";
 import {
+  List,
   Cards,
   ClockCounterClockwise,
   Folders,
@@ -171,7 +173,7 @@ export function SkillsTopbar({
 
       event.preventDefault();
 
-      const shell = event.currentTarget.closest<HTMLElement>(
+      const shell = navRef.current?.closest<HTMLElement>(
         ".dashboardShell, .practiceShell, .skillShell",
       );
 
@@ -240,6 +242,25 @@ export function SkillsTopbar({
               );
             })}
           </nav>
+          <Menu position="bottom-end" width={220} withinPortal>
+            <Menu.Target>
+              <button type="button" className="compactNavMenu secondaryButton" aria-label="Pages">
+                <List size={18} aria-hidden="true" />Pages
+              </button>
+            </Menu.Target>
+            <Menu.Dropdown>
+              {navItems.map((item) => {
+                const NavIcon = item.icon;
+                return <Menu.Item className="compactNavItem" key={item.key} component={Link} href={item.href} prefetch={false}
+                  aria-current={item.isCurrent(current) ? "page" : undefined}
+                  leftSection={<NavIcon size={18} aria-hidden="true" />}
+                  onFocus={() => prefetchNavRoute(item.href)}
+                  onClick={(event) => handleNavClick(item.key, item.href, event)}>
+                  {item.label}
+                </Menu.Item>;
+              })}
+            </Menu.Dropdown>
+          </Menu>
           <AccountMenu />
         </div>
       </header>
@@ -251,8 +272,10 @@ export function SkillsTopbar({
               : pendingConfig.kind === "settings"
                 ? "routePendingContent settingsShell"
                 : pendingConfig.kind === "new"
-                  ? "routePendingContent createSkillShell"
-                  : "routePendingContent"
+                  ? "routePendingContent createModeShell"
+                  : pendingConfig.kind === "skills" || pendingConfig.kind === "collections"
+                    ? "routePendingContent libraryShell"
+                    : "routePendingContent"
           }
           data-route-kind={pendingConfig.kind}
           aria-live="polite"

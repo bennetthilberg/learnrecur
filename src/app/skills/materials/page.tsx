@@ -9,6 +9,7 @@ import { ensureDatabaseUser } from "@/lib/users";
 import { SkillsTopbar } from "../skills-topbar";
 import { MaterialDeleteControl } from "./material-delete-control";
 import { MaterialDeletionNotification } from "./material-deletion-notification";
+import { MaterialStatusPoller } from "./material-status-poller";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +32,7 @@ export default async function MaterialsPage({ searchParams }: MaterialsPageProps
       </main>
     );
   }
-  const materials = await getMaterialLibrary({ userId });
+  const materials = await getMaterialLibrary({ userId, includeUnready: true });
   const params = searchParams ? await searchParams : {};
 
   return (
@@ -50,6 +51,7 @@ export default async function MaterialsPage({ searchParams }: MaterialsPageProps
       </header>
 
       <MaterialDeletionNotification active={parseBoolean(params.deleted)} />
+      <MaterialStatusPoller active={materials.some(material => material.revisionStatus === "QUEUED" || material.revisionStatus === "PROCESSING")} />
 
       <section className="skillPanel materialLibraryPanel" aria-labelledby="material-library-title">
         <div className="skillPanelHeader materialLibraryHeader">
@@ -62,6 +64,8 @@ export default async function MaterialsPage({ searchParams }: MaterialsPageProps
           <div className="materialLibraryList">
             {materials.map((material) => {
               const Icon = material.kind === "PDF" ? FilePdf : GlobeHemisphereWest;
+              const ready = material.revisionStatus === "READY";
+              const failed = material.revisionStatus === "FAILED";
               return (
                 <article className="materialLibraryRow" key={material.id}>
                   <span className="materialLibraryIcon" aria-hidden="true">
@@ -70,23 +74,29 @@ export default async function MaterialsPage({ searchParams }: MaterialsPageProps
                   <div className="materialLibraryMain">
                     <Link href={`/skills/materials/${material.id}`}>{material.title}</Link>
                     <p>{material.collectionName ?? "No collection"}</p>
+                    {!ready ? <p>{failed ? "Open this material to review the problem and retry." : "Processing continues in the background. You can leave and return here."}</p> : null}
                   </div>
                   <div className="materialLibraryFacts">
-                    <span>{material.pageCount ? `${material.pageCount} pages` : "Outline pending"}</span>
-                    <span>{material.linkedSkillCount} {material.linkedSkillCount === 1 ? "skill" : "skills"}</span>
-                    <span>{material.byteSize ? formatBytes(material.byteSize) : "—"}</span>
+                    {material.pageCount ? <span>{material.pageCount} pages</span> : null}
+                    {ready || material.linkedSkillCount > 0 ? <span>{material.linkedSkillCount} {material.linkedSkillCount === 1 ? "skill" : "skills"}</span> : null}
+                    {material.byteSize ? <span>{formatBytes(material.byteSize)}</span> : null}
                   </div>
                   <div className="materialLibraryStatus">
-                    <span className="dashboardChip" data-tone="ready">
-                      Ready
+                    <span className="dashboardChip" data-tone={ready ? "saved" : failed ? "attention" : "neutral"}>
+                      {ready ? "Ready" : failed ? "Needs attention" : material.revisionStatus === "QUEUED" ? "Waiting to process" : "Processing"}
                     </span>
-                    <small>Used {formatRelativeDate(material.lastUsedAt ?? material.updatedAt)}</small>
-                    <MaterialDeleteControl
-                      compact
-                      materialId={material.id}
-                      returnTo="/skills/materials"
-                      title={material.title}
-                    />
+                    <small>{material.lastUsedAt ? "Used" : "Updated"} {formatRelativeDate(material.lastUsedAt ?? material.updatedAt)}</small>
+                    <div className="materialLibraryActions">
+                      <MaterialDeleteControl
+                        compact
+                        materialId={material.id}
+                        returnTo="/skills/materials"
+                        title={material.title}
+                      />
+                      <Link className={failed ? "primaryButton" : "secondaryButton"} href={`/skills/materials/${material.id}`}>
+                        {failed ? "Review import" : ready ? "Open" : "View status"}
+                      </Link>
+                    </div>
                   </div>
                 </article>
               );
@@ -94,7 +104,7 @@ export default async function MaterialsPage({ searchParams }: MaterialsPageProps
           </div>
         ) : (
           <div className="dashboardEmptyState materialEmptyState">
-            <h3>No ready materials yet</h3>
+            <h3>No materials yet</h3>
             <p>Add a long PDF or public textbook site once, then reuse it for future skill batches.</p>
             <Link className="secondaryButton" href="/skills/new/multiple">Add your first material</Link>
           </div>

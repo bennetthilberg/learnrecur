@@ -102,18 +102,16 @@ export default async function CreateMaterialSkillsPage({
         <BatchDescribeForm action={planMaterialSkillsAction} className="batchDescribeForm">
           <input name="materialId" type="hidden" value={material.id} />
           <input name="materialRevisionId" type="hidden" value={revision.id} />
-          <input name="idempotencyKey" type="hidden" value={randomUUID()} />
-          <label className="skillField">
-            <span>Skill request</span>
-            <BatchRequestTextarea
-              autoFocus
-              maxLength={4_000}
-              name="instruction"
-              placeholder="Make skills for the three concepts in chapter four and the first concept in chapter six."
-              required
-              rows={6}
-            />
-          </label>
+          <BatchRequestTextarea
+            draftScope={`material:${revision.id}`}
+            idempotencyKey={randomUUID()}
+            autoFocus
+            maxLength={4_000}
+            name="instruction"
+            placeholder="Make skills for the three concepts in chapter four and the first concept in chapter six."
+            required
+            rows={6}
+          />
           <div className="batchRequestExamples" aria-label="Example requests">
             <span>Try:</span>
             <p>“The first two concepts in chapter 4”</p>

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { readStructuredPrompt, structuredPromptSchema } from "@/lib/practice/structured-prompt";
 
 /**
  * This version is part of every persisted generation-quality decision. Bump it
@@ -517,6 +518,7 @@ const choiceAnswerSpecSchema = z.strictObject({
  */
 export const choiceCandidateSchema = z.strictObject({
   candidateId: identifierSchema,
+  promptLayout: structuredPromptSchema.optional(),
   prompt: nonEmptyText(1_200).refine((prompt) => prompt.length >= 8, {
     message: "Prompt must be at least 8 characters.",
   }),
@@ -528,6 +530,8 @@ export const choiceCandidateSchema = z.strictObject({
   expectedSeconds: z.number().int().min(5).max(180).nullable(),
   correctChoiceId: identifierSchema.optional(),
   correctChoiceIndex: z.number().int().min(0).max(5).optional(),
+}).refine((candidate) => candidate.promptLayout === undefined || readStructuredPrompt(candidate.prompt, candidate.promptLayout) !== null, {
+  message: "Prompt parts must reproduce the full question.",
 });
 
 export type ChoiceCandidateInput = z.infer<typeof choiceCandidateSchema>;

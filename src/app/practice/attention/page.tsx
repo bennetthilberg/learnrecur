@@ -82,17 +82,15 @@ export default async function NeedsAttentionPage({
           <div>
             <h1>Needs attention</h1>
             <p>
-              A short list of observable practice patterns and preparation problems.
-              These signals do not diagnose a misconception, pause a skill, or erase
-              your history.
+              Skills with repeated misses, and exercises that need preparation.
             </p>
           </div>
           <div className="practiceAttentionHeaderActions">
-            <Link className="primaryButton" href="/practice">
-              Open practice
-            </Link>
             <Link className="secondaryButton" href="/skills">
               Browse skills
+            </Link>
+            <Link className="primaryButton" href="/practice">
+              Open practice
             </Link>
           </div>
         </header>
@@ -259,16 +257,9 @@ function EmptyState({ pageScoped = false }: { pageScoped?: boolean }) {
         <p>
           {pageScoped
             ? "There are no additional findings in this page of the list. Return to the first page to review earlier findings."
-            : "We need enough recent, valid scheduled evidence before we show a pattern. Keep practicing when a skill is due, and we will leave your history intact."}
+            : "No patterns or preparation problems to show from your recent reviews. Keep practicing as skills become due."}
         </p>
-        <div className="practiceAttentionEmptyActions">
-          <Link className="primaryButton" href="/practice">
-            Open practice
-          </Link>
-          <Link className="secondaryButton" href="/skills">
-            Browse skills
-          </Link>
-        </div>
+
       </div>
     </section>
   );

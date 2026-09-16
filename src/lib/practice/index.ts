@@ -1,3 +1,6 @@
+import { readStoredPromptLayout, type StructuredPrompt } from "./structured-prompt";
+import { PRACTICE_BUFFER_SIZE } from "./buffer";
+import { wasSkillIntroduced } from "./daily-limit-contracts";
 import { getDailyNewSkillAllowance, previouslyIntroducedSkillWhere, unintroducedSkillWhere, recordSkillIntroduction } from "./daily-limit";
 import { selectMixedReviewSkill, type MixedReviewSkill } from "./mixed-review";
 import { practiceContextSchema, resolvePracticePreference, type PracticePreference } from "./policies";
@@ -76,11 +79,13 @@ export type PracticeSkillSummary = {
 };
 
 export type PracticeExerciseSummary = {
+  answerSpec: Prisma.JsonValue;
   id: string;
   skillId: string;
   type: ExerciseType;
   answerKind: AnswerKind;
   prompt: string;
+  promptLayout?: StructuredPrompt | null;
   choices: Prisma.JsonValue | null;
   correctAnswerDisplay: string;
   explanation: string | null;
@@ -121,6 +126,8 @@ export type NextPracticeItemResult =
     }
   | {
       status: "none-due";
+      nextReviewAt?: Date | null;
+      nextReviewTimezone?: string;
       dailyLimitReached?: boolean;
       preparing?: boolean;
       preparationSkillIds?: string[];
@@ -233,6 +240,8 @@ export type PracticeExerciseFlagWithRefillResult =
   | Extract<PracticeExerciseFlagResult, { status: "not-flagged" | "not-found" }>;
 
 export type GetNextPracticeItemInput = {
+  excludeSkillId?: string;
+  preferredExerciseId?: string;
   mixedReview?: boolean;
   previousSkillId?: string | null;
   userId: string;
@@ -286,6 +295,7 @@ export type FlagPracticeExerciseAndQueueRefillInput = FlagPracticeExerciseInput 
 };
 
 type PracticeSkillRecord = SkillScheduleFields & {
+  firstIntroducedAt?: Date | null;
   alreadyStudied?: boolean;
   desiredRetention?: number | null;
   practicePreference?: PracticePreference;
@@ -367,6 +377,39 @@ export async function previewNextPracticeItem(
   return selectNextPracticeItem(input, false);
 }
 
+// A bounded read-only snapshot. Each normal review can reschedule its own skill,
+// so never buffer that skill twice or spend a new-skill allowance here.
+export async function previewPracticeItemBuffer(input: GetNextPracticeItemInput & { excludedSkillIds: string[]; limit?: number }): Promise<Extract<NextPracticeItemResult, { status: "ready" }>[]> {
+  const prisma = getPrisma();
+  const allowance = await getDailyNewSkillAllowance(prisma, input.userId, input.now);
+  const reserved = input.excludedSkillIds.length ? await prisma.skill.count({ where: {
+    userId: input.userId, id: { in: input.excludedSkillIds }, ...unintroducedSkillWhere,
+  } }) : 0;
+  let remaining = allowance.remaining === null ? null : Math.max(0, allowance.remaining - reserved);
+  let candidates = await findEligibleExercises(prisma, { ...input, skillWhere: {
+    ...(remaining === 0 ? previouslyIntroducedSkillWhere : {}), id: { notIn: input.excludedSkillIds },
+  } });
+  let previous: MixedReviewSkill | null = input.previousSkillId ? await prisma.skill.findFirst({
+    where: { id: input.previousSkillId, userId: input.userId },
+    select: { id: true, collectionId: true, tags: true, objective: true, dueAt: true },
+  }).then((skill) => skill?.dueAt ? { ...skill, dueAt: skill.dueAt } : null) : null;
+  const result: Extract<NextPracticeItemResult, { status: "ready" }>[] = [];
+  const limit = Math.max(0, Math.min(input.limit ?? PRACTICE_BUFFER_SIZE, PRACTICE_BUFFER_SIZE));
+  while (candidates.length && result.length < limit) {
+    const selected = selectMixedReviewSkill(candidates.map((item) => ({ ...item.skill, tags: item.skill.tags ?? [], objective: item.skill.objective ?? null })), previous);
+    const exercise = candidates.find((item) => item.skill.id === selected?.id);
+    if (!exercise) break;
+    candidates = candidates.filter((item) => item.skillId !== exercise.skillId);
+    if (!wasSkillIntroduced({ ...exercise.skill, firstIntroducedAt: exercise.skill.firstIntroducedAt ?? null })) {
+      if (remaining === 0) continue;
+      if (remaining !== null) remaining -= 1;
+    }
+    result.push({ status: "ready", skill: toPracticeSkillSummary(exercise.skill), exercise: toPracticeExerciseSummary(exercise) });
+    previous = { ...exercise.skill, tags: exercise.skill.tags ?? [], objective: exercise.skill.objective ?? null };
+  }
+  return result;
+}
+
 async function selectNextPracticeItem(
   input: GetNextPracticeItemInput,
   recordIntroduction: boolean,
@@ -382,7 +425,10 @@ async function selectNextPracticeItem(
       );
       const skillWhere =
         allowance.remaining === 0 ? previouslyIntroducedSkillWhere : {};
-      const exercise = await findEligibleExercise(tx, { ...input, skillWhere });
+      const selectionInput = { ...input, skillWhere: { ...skillWhere, ...(input.excludeSkillId ? { id: { not: input.excludeSkillId } } : {}) } };
+      const preferred = input.preferredExerciseId
+        ? await findEligibleExercise(tx, { ...selectionInput, exerciseId: input.preferredExerciseId }) : null;
+      const exercise = preferred ?? await findEligibleExercise(tx, selectionInput);
       if (!exercise) {
         const scope = {
           userId: input.userId,
@@ -401,8 +447,17 @@ async function selectNextPracticeItem(
           (await tx.skill.count({
             where: { ...scope, ...unintroducedSkillWhere },
           })) > 0;
+        const nextScheduled = await tx.skill.findFirst({
+          where: { userId: input.userId, status: SkillStatus.ACTIVE,
+            dueAt: { gt: input.now }, stability: { not: null }, difficulty: { not: null },
+            ...(input.collectionId ? { collectionId: input.collectionId } : {}),
+            ...skillWhere },
+          orderBy: [{ dueAt: "asc" }, { id: "asc" }], select: { dueAt: true },
+        });
         return {
           status: "none-due",
+          nextReviewAt: nextScheduled?.dueAt ?? null,
+          nextReviewTimezone: allowance.timezone,
           ...(dueSkills.length
             ? {
                 preparing: true,
@@ -1174,9 +1229,7 @@ function toExerciseRetirementReason(
   return ExerciseRetirementReason.OTHER;
 }
 
-async function findEligibleExercise(
-  prisma: PracticeQueryClient,
-  input: {
+type EligibleExerciseInput = {
     skillWhere?: Prisma.SkillWhereInput;
     mixedReview?: boolean;
     previousSkillId?: string | null;
@@ -1187,14 +1240,31 @@ async function findEligibleExercise(
     answerKinds?: readonly AnswerKind[];
     collectionId?: string | null;
     allowNotDue?: boolean;
-  },
+};
+
+async function findEligibleExercise(
+  prisma: PracticeQueryClient,
+  input: EligibleExerciseInput,
 ): Promise<PracticeExerciseRecord | null> {
+  const ordered = await findEligibleExercises(prisma, input);
+  if (input.mixedReview && input.previousSkillId && !input.exerciseId) {
+    const previous = await prisma.skill.findFirst({
+      where: { id: input.previousSkillId, userId: input.userId, ...(input.collectionId ? { collectionId: input.collectionId } : {}) },
+      select: { id: true, collectionId: true, tags: true, objective: true, dueAt: true },
+    });
+    const selected = selectMixedReviewSkill(ordered.map((item) => ({ ...item.skill, tags: item.skill.tags ?? [], objective: item.skill.objective ?? null })), previous?.dueAt ? { ...previous, dueAt: previous.dueAt } : null);
+    return ordered.find((item) => item.skill.id === selected?.id) ?? null;
+  }
+  return ordered[0] ?? null;
+}
+
+async function findEligibleExercises(prisma: PracticeQueryClient, input: EligibleExerciseInput): Promise<PracticeExerciseRecord[]> {
   const answerKinds = [...(input.answerKinds ?? SUPPORTED_ANSWER_KINDS)].filter(
     isSupportedAnswerKind,
   );
 
   if (answerKinds.length === 0) {
-    return null;
+    return [];
   }
 
   const exercises = await prisma.exercise.findMany({
@@ -1234,16 +1304,7 @@ async function findEligibleExercise(
     exerciseIds: exerciseRecords.map((exercise) => exercise.id),
   });
 
-  const ordered = exerciseRecords.toSorted((left, right) => comparePracticeExercises(left, right, attemptStatsByExerciseId));
-  if (input.mixedReview && input.previousSkillId && !input.exerciseId) {
-    const previous = await prisma.skill.findFirst({
-      where: { id: input.previousSkillId, userId: input.userId, ...(input.collectionId ? { collectionId: input.collectionId } : {}) },
-      select: { id: true, collectionId: true, tags: true, objective: true, dueAt: true },
-    });
-    const selected = selectMixedReviewSkill(ordered.map((item) => ({ ...item.skill, tags: item.skill.tags ?? [], objective: item.skill.objective ?? null })), previous?.dueAt ? { ...previous, dueAt: previous.dueAt } : null);
-    return ordered.find((item) => item.skill.id === selected?.id) ?? null;
-  }
-  return ordered[0] ?? null;
+  return exerciseRecords.toSorted((left, right) => comparePracticeExercises(left, right, attemptStatsByExerciseId));
 }
 
 async function getExerciseAttemptRotationStats(
@@ -1469,6 +1530,7 @@ function toPracticeExerciseRecord(
 
   const skill = {
     ...toPracticeSkillRecordOrThrow(exercise.skill),
+    firstIntroducedAt: exercise.skill.firstIntroducedAt,
     alreadyStudied: exercise.skill.alreadyStudied,
     desiredRetention: exercise.skill.user?.desiredRetention,
     tags: exercise.skill.tags,
@@ -1487,6 +1549,7 @@ function toPracticeExerciseRecord(
     type: exercise.type,
     answerKind: exercise.answerKind,
     prompt: exercise.prompt,
+    promptLayout: readStoredPromptLayout(exercise.prompt, exercise.generationMetadata),
     choices: exercise.choices,
     answerSpec: exercise.answerSpec,
     correctAnswerDisplay: exercise.correctAnswerDisplay,
@@ -1569,11 +1632,13 @@ function toPracticeSkillRecordFromReviewLog(
 
 function toPracticeExerciseSummary(exercise: PracticeExerciseRecord): PracticeExerciseSummary {
   return {
+    answerSpec: exercise.answerSpec,
     id: exercise.id,
     skillId: exercise.skillId,
     type: exercise.type,
     answerKind: exercise.answerKind,
     prompt: exercise.prompt,
+    promptLayout: exercise.promptLayout,
     choices: exercise.choices,
     correctAnswerDisplay: exercise.correctAnswerDisplay,
     explanation: exercise.explanation,
@@ -1668,6 +1733,7 @@ type RawEligibleExerciseRecord = Omit<
 };
 
 type NullableSkillScheduleRecord = {
+  firstIntroducedAt?: Date | null;
   collectionId: string | null;
   dueAt: Date | null;
   stability: number | null;

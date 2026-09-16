@@ -1719,7 +1719,8 @@ describe("MetaMuse exercise fallbacks", () => {
     expect(
       requestBodies[0].text.format.schema.properties.exercises.items.required,
     ).toEqual([
-      "prompt",
+      "instruction",
+      "content",
       "choices",
       "correctChoiceId",
       "explanation",
@@ -1727,12 +1728,13 @@ describe("MetaMuse exercise fallbacks", () => {
       "expectedSeconds",
     ]);
     expect(
-      requestBodies[0].text.format.schema.properties.exercises.items.properties.prompt.maxLength,
+      requestBodies[0].text.format.schema.properties.exercises.items.properties.content.maxLength,
     ).toBe(1_200);
     expect(
       requestBodies[1].text.format.schema.properties.exercises.items.required,
     ).toEqual([
-      "prompt",
+      "instruction",
+      "content",
       "answerKind",
       "answerSpec",
       "correctAnswerDisplay",

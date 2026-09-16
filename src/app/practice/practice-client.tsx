@@ -1,8 +1,12 @@
 "use client";
+import { practiceSessionEnded } from "@/lib/practice/session-status";
 
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
-import { Switch } from "@mantine/core";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
+import { appendPracticeBuffer, PRACTICE_BUFFER_SIZE, PRACTICE_BUFFER_LOW_WATER } from "@/lib/practice/buffer";
+import { writeRecovery, type NormalDraft, type Recovery } from "@/lib/practice/recovery";
+import { confirmReviewSave, useReviewSaveGuard } from "./use-review-save-guard";
+import { getInstantPracticeFeedback } from "@/lib/practice/instant-feedback";
 import { CheckCircle, Flag } from "@phosphor-icons/react";
 
 import { AnswerKind, ExerciseFlagReason, FsrsRating } from "@/generated/prisma/enums";
@@ -18,12 +22,15 @@ import {
 } from "@/lib/practice-shortcuts";
 
 import {
+  preloadPracticeBufferAction,
   commitPracticeReviewAction,
   ensureDevPracticeSampleDataAction,
   flagPracticeExerciseAction,
-  previewPracticeAnswerAction,
 } from "./actions";
 import { MathText } from "./math-text";
+import { FLAG_REASON_OPTIONS } from "@/lib/practice/flag-reasons";
+import { RecoveryNotice } from "./recovery-notice";
+import { PracticePrompt } from "./practice-prompt";
 import type {
   ChoicePracticeSeedResult,
   PracticeItem,
@@ -32,7 +39,8 @@ import type {
 } from "./types";
 
 type PracticeClientProps = {
-  initialMixedReview?: boolean;
+  recoveryKey?: string;
+  initialRecovery?: Recovery<NormalDraft> | null;
   initialItem: PracticeItem;
   canUseSampleData: boolean;
 };
@@ -44,36 +52,6 @@ type PracticeStatusNotice = {
   tone: PracticeStatusTone;
 };
 
-const FLAG_REASON_OPTIONS: Array<{ reason: ExerciseFlagReason; label: string }> = [
-  {
-    reason: ExerciseFlagReason.INCORRECT_ANSWER,
-    label: "Correct answer seems wrong",
-  },
-  {
-    reason: ExerciseFlagReason.UNCLEAR_PROMPT,
-    label: "Prompt is unclear",
-  },
-  {
-    reason: ExerciseFlagReason.UNFAIR,
-    label: "Feels unfair or tricky",
-  },
-  {
-    reason: ExerciseFlagReason.STALE,
-    label: "Stale or outdated",
-  },
-  {
-    reason: ExerciseFlagReason.NOT_USEFUL,
-    label: "Not useful for this skill",
-  },
-  {
-    reason: ExerciseFlagReason.OFF_TOPIC,
-    label: "Off topic",
-  },
-  {
-    reason: ExerciseFlagReason.OTHER,
-    label: "Something else",
-  },
-];
 
 const RATING_OPTIONS: Array<{ rating: FsrsRating; shortcut: string }> = [
   { rating: FsrsRating.HARD, shortcut: "2" },
@@ -83,15 +61,15 @@ const RATING_OPTIONS: Array<{ rating: FsrsRating; shortcut: string }> = [
 
 const REVIEW_SAVED_MESSAGES = new Set(["Review saved.", "Review already saved."]);
 
-export function PracticeClient({ initialItem, canUseSampleData, initialMixedReview = false }: PracticeClientProps) {
-  const [mixedReview, setMixedReview] = useState(initialMixedReview);
-  const [revealingCueSeen, setRevealingCueSeen] = useState(!initialMixedReview);
+export function PracticeClient({ initialItem, canUseSampleData, recoveryKey, initialRecovery }: PracticeClientProps) {
+  const restored = initialRecovery?.pending ?? initialRecovery?.current;
+  const [showRecovery, setShowRecovery] = useState(Boolean(initialRecovery));
   const [item, setItem] = useState(initialItem);
-  const [answerValue, setAnswerValue] = useState("");
-  const [attemptId, setAttemptId] = useState(() => crypto.randomUUID());
-  const [feedback, setFeedback] = useState<PracticePreviewResult | null>(null);
-  const [manualRating, setManualRating] = useState<FsrsRating | null>(null);
-  const [submittedResponseMs, setSubmittedResponseMs] = useState<number | null>(null);
+  const [answerValue, setAnswerValue] = useState(restored?.answer ?? "");
+  const [attemptId, setAttemptId] = useState(() => restored?.attemptId ?? crypto.randomUUID());
+  const [feedback, setFeedback] = useState<PracticePreviewResult | null>(() => restored?.checked ? getInstantPracticeFeedback(restored.item.exercise, restored.answer) : null);
+  const [manualRating, setManualRating] = useState<FsrsRating | null>(restored?.rating ?? null);
+  const [submittedResponseMs, setSubmittedResponseMs] = useState<number | null>(restored?.responseMs ?? null);
   const [flagFormOpen, setFlagFormOpen] = useState(false);
   const [selectedFlagReasons, setSelectedFlagReasons] = useState<ExerciseFlagReason[]>([]);
   const [otherFlagNote, setOtherFlagNote] = useState("");
@@ -100,6 +78,7 @@ export function PracticeClient({ initialItem, canUseSampleData, initialMixedRevi
   const [, startTransition] = useTransition();
   const answerInputRef = useRef<HTMLInputElement>(null);
   const continueButtonRef = useRef<HTMLButtonElement>(null);
+  const firstChoiceRef = useRef<HTMLButtonElement>(null);
   const firstFlagReasonRef = useRef<HTMLInputElement>(null);
   const reportToggleRef = useRef<HTMLButtonElement>(null);
   const shouldFocusNextReadyAnswerRef = useRef(false);
@@ -112,7 +91,45 @@ export function PracticeClient({ initialItem, canUseSampleData, initialMixedRevi
     selectedFlagReasons.length > 0 && (!selectedOtherFlag || otherFlagNote.trim().length > 0);
   const scopedCollectionId = getScopedCollectionId(item);
 
+  const [advancePending, setAdvancePending] = useState(false);
+  const savingRef = useRef(false);
+  const [preloaded, setPreloaded] = useState<Extract<PracticeItem, { status: "ready" }>[]>([]);
+  const preloadRequest = useRef<{ key: string; promise: Promise<PracticeItem[]> } | null>(null);
+  const pendingDraft = useRef<NormalDraft | undefined>(undefined);
+  const deferredDraft = useRef<NormalDraft | undefined>(initialRecovery?.pending ? initialRecovery.current : initialRecovery?.deferred);
+  const currentDraft = useRef<NormalDraft | undefined>(restored);
+  const [protectedDraft, setProtectedDraft] = useState(true);
+  const { finishSave, navigationMessage } = useReviewSaveGuard(advancePending, Boolean(answerValue) && !protectedDraft);
+  useLayoutEffect(() => {
+    const current: NormalDraft | undefined = item.status === "ready" ? { item, answer: answerValue, attemptId, checked: checkedFeedback !== null, rating: manualRating, responseMs: submittedResponseMs } : undefined;
+    currentDraft.current = current;
+    const recoverable = current ?? deferredDraft.current;
+    if (recoveryKey) setProtectedDraft(writeRecovery(recoveryKey, recoverable && (recoverable.answer || pendingDraft.current || deferredDraft.current) ? { current: recoverable, pending: pendingDraft.current, deferred: deferredDraft.current } : null));
+  }, [item, answerValue, attemptId, checkedFeedback, manualRating, submittedResponseMs, recoveryKey, advancePending]);
+  useEffect(() => {
+    if (item.status !== "ready" || advancePending || preloaded.length >= PRACTICE_BUFFER_LOW_WATER) return;
+    let active = true;
+    const key = [item.exercise.id, ...preloaded.map((next) => next.exercise.id)].join(":");
+    if (preloadRequest.current?.key !== key) {
+      preloadRequest.current = { key, promise: preloadPracticeBufferAction({
+        collectionId: scopedCollectionId, skillId: item.skill.id,
+        excludedSkillIds: preloaded.map((next) => next.skill.id), limit: PRACTICE_BUFFER_SIZE - preloaded.length,
+      }) };
+    }
+    void preloadRequest.current.promise.then((items) => {
+      const next = items.filter((candidate): candidate is Extract<PracticeItem, { status: "ready" }> => candidate.status === "ready");
+      if (active && next.length) setPreloaded((current) => appendPracticeBuffer(current, next, (candidate) => candidate.exercise.id));
+    }).catch(() => {});
+    return () => { active = false; };
+  }, [item, scopedCollectionId, advancePending, preloaded]);
+  useEffect(() => {
+    const refresh = () => { if (document.visibilityState === "visible") { preloadRequest.current = null; setPreloaded([]); } };
+    document.addEventListener("visibilitychange", refresh);
+    return () => document.removeEventListener("visibilitychange", refresh);
+  }, []);
+
   const resetAttemptState = useCallback(() => {
+    setShowRecovery(false);
     setAnswerValue("");
     setAttemptId(crypto.randomUUID());
     setFeedback(null);
@@ -140,103 +157,108 @@ export function PracticeClient({ initialItem, canUseSampleData, initialMixedRevi
 
     const responseMs = timer.getElapsedMs();
     setSubmittedResponseMs(responseMs);
-    setPendingAction("check");
     setStatusNotice(null);
+    const result = getInstantPracticeFeedback(item.exercise, answerValue);
+    if (isTerminalPreviewResult(result)) {
+      setFeedback(result);
+      setManualRating(result.proposedRating);
+    } else {
+      setFeedback(null);
+      setManualRating(null);
+      setStatusNotice(createStatusNotice(getPreviewStatusMessage(result)));
+    }
+  }, [answerValue, item, pendingAction, timer]);
 
-    startTransition(async () => {
-      const result = await previewPracticeAnswerAction({
-        exerciseId: item.exercise.id,
-        submittedAnswer: answerValue,
-        responseMs,
-        collectionId: scopedCollectionId,
-      });
-
-      setPendingAction(null);
-
-      if (isTerminalPreviewResult(result)) {
-        setFeedback(result);
-
-        if (result.answerCheck.isCorrect) {
-          setManualRating(result.proposedRating ?? FsrsRating.GOOD);
-        } else {
-          setManualRating(FsrsRating.AGAIN);
-        }
-      } else {
-        setFeedback(null);
-        setManualRating(null);
-
-        if (result.status === "not-found") {
-          setItem({
-            status: "unavailable",
-            message: result.message,
-            scope: item.scope,
-          });
-        }
-
-        setStatusNotice(createStatusNotice(getPreviewStatusMessage(result)));
-      }
-    });
-  }, [answerValue, item, pendingAction, scopedCollectionId, timer, startTransition]);
+  const [needsSignIn, setNeedsSignIn] = useState(false);
 
   const handleContinue = useCallback(() => {
     if (
       item.status !== "ready" ||
       !isAnswerReady(answerValue) ||
       feedback?.status !== "checked" ||
+      needsSignIn ||
       pendingAction !== null
     ) {
       return;
     }
 
-    setPendingAction("continue");
-    setStatusNotice(null);
-
-    startTransition(async () => {
-      const result = await commitPracticeReviewAction({
-        exerciseId: item.exercise.id,
-        submittedAnswer: answerValue,
-        responseMs: submittedResponseMs ?? timer.getElapsedMs(),
-        attemptId,
-        mixedReview,
-        reducedRuleCues: mixedReview && !revealingCueSeen,
-        manualRating: feedback.answerCheck.isCorrect ? manualRating : null,
-        collectionId: scopedCollectionId,
-      });
-
+    if (savingRef.current) return;
+    savingRef.current = true;
+    pendingDraft.current = currentDraft.current;
+    if (recoveryKey && pendingDraft.current) writeRecovery(recoveryKey, { current: pendingDraft.current, pending: pendingDraft.current, deferred: deferredDraft.current });
+    setAdvancePending(true);
+    const next = preloaded[0] ?? null;
+    setPreloaded((current) => current.slice(1));
+    const restore = (message: string) => {
+      if (currentDraft.current?.item.exercise.id !== item.exercise.id) deferredDraft.current = currentDraft.current;
+      pendingDraft.current = undefined;
+      finishSave(false);
+      setShowRecovery(true);
+      setPreloaded([]);
+      preloadRequest.current = null;
+      setItem(item);
+      setAnswerValue(answerValue);
+      setAttemptId(attemptId);
+      setFeedback(feedback);
+      setManualRating(manualRating);
+      setSubmittedResponseMs(submittedResponseMs);
       setPendingAction(null);
-
-      if (result.status === "committed") {
+      setStatusNotice(createStatusNotice(message));
+    };
+    if (next) {
+      shouldFocusNextReadyAnswerRef.current = true;
+      setItem(next);
+      resetAttemptState();
+    } else {
+      setPendingAction("continue");
+      setStatusNotice(null);
+    }
+    void confirmReviewSave(commitPracticeReviewAction({
+      exerciseId: item.exercise.id, submittedAnswer: answerValue,
+      responseMs: submittedResponseMs ?? timer.getElapsedMs(), attemptId,
+      mixedReview: true, reducedRuleCues: true,
+      manualRating: feedback.answerCheck.isCorrect ? manualRating : null,
+      collectionId: scopedCollectionId,
+    })).then((result) => {
+      if (result.status !== "committed") { restore(result.message); return; }
+      pendingDraft.current = undefined;
+      finishSave(true);
+      const recoveredNext = deferredDraft.current;
+      const same = next && result.nextItem.status === "ready" && result.nextItem.exercise.id === next.exercise.id;
+      const optimistic = currentDraft.current;
+      // The learner may already have answered the preview while this save ran.
+      // Keep that draft before accepting a different authoritative selection.
+      if (!same && next && optimistic?.item.exercise.id === next.exercise.id && optimistic?.answer) {
+        deferredDraft.current = optimistic;
+      }
+      if (recoveredNext && result.nextItem.status === "ready" && recoveredNext.item.exercise.id === result.nextItem.exercise.id) {
+        setItem(result.nextItem); setAnswerValue(recoveredNext.answer); setAttemptId(recoveredNext.attemptId);
+        setFeedback(recoveredNext.checked ? getInstantPracticeFeedback(result.nextItem.exercise, recoveredNext.answer) : null);
+        setManualRating(recoveredNext.rating); setSubmittedResponseMs(recoveredNext.responseMs);
+        if (deferredDraft.current === recoveredNext) deferredDraft.current = undefined;
+        return;
+      }
+      if (!same) {
+        setPreloaded([]);
+        preloadRequest.current = null;
         shouldFocusNextReadyAnswerRef.current = true;
         setItem(result.nextItem);
-        setRevealingCueSeen(!mixedReview);
         resetAttemptState();
-        setStatusNotice(
-          createStatusNotice(result.idempotent ? "Review already saved." : "Review saved."),
-        );
-      } else {
-        setStatusNotice(createStatusNotice(result.message));
       }
-    });
-  }, [
-    attemptId,
-    mixedReview,
-    revealingCueSeen,
-    answerValue,
-    feedback,
-    item,
-    manualRating,
-    pendingAction,
-    resetAttemptState,
-    scopedCollectionId,
-    submittedResponseMs,
-    timer,
-    startTransition,
-  ]);
+      setStatusNotice(createStatusNotice(result.idempotent ? "Review already saved." : "Review saved."));
+    }).catch(async () => {
+      restore("Could not confirm the save. Your checked answer is restored. Try saving again.");
+      const ended = await practiceSessionEnded();
+      setNeedsSignIn(ended);
+      if (ended) setStatusNotice(null);
+    })
+      .finally(() => { savingRef.current = false; setAdvancePending(false); setPendingAction(null); });
+  }, [attemptId, answerValue, feedback, item, manualRating, pendingAction, preloaded, resetAttemptState, scopedCollectionId, submittedResponseMs, timer, recoveryKey, finishSave, needsSignIn]);
 
   const handleFlagSubmit = useCallback(() => {
+    if (savingRef.current) return;
     if (
       item.status !== "ready" ||
-      feedback?.status !== "checked" ||
       pendingAction !== null ||
       !canSubmitFlag
     ) {
@@ -247,8 +269,9 @@ export function PracticeClient({ initialItem, canUseSampleData, initialMixedRevi
     setStatusNotice(null);
 
     startTransition(async () => {
+      try {
       const result = await flagPracticeExerciseAction({
-        mixedReview,
+        mixedReview: true,
         previousSkillId: item.skill.id,
         exerciseId: item.exercise.id,
         reasons: selectedFlagReasons,
@@ -259,18 +282,21 @@ export function PracticeClient({ initialItem, canUseSampleData, initialMixedRevi
       setPendingAction(null);
 
       if (result.status === "flagged") {
+        pendingDraft.current = undefined; deferredDraft.current = undefined;
+        setPreloaded([]);
+        preloadRequest.current = null;
         setItem(result.nextItem);
-        setRevealingCueSeen(!mixedReview);
         resetAttemptState();
         setStatusNotice(createStatusNotice(result.message));
       } else {
         setStatusNotice(createStatusNotice(result.message));
       }
+      } catch {
+        setStatusNotice(createStatusNotice("Could not send the report. Your choices are still here. Try again."));
+      } finally { setPendingAction(null); }
     });
   }, [
     canSubmitFlag,
-    mixedReview,
-    feedback,
     item,
     otherFlagNote,
     pendingAction,
@@ -294,13 +320,12 @@ export function PracticeClient({ initialItem, canUseSampleData, initialMixedRevi
 
       if (result.status === "ready") {
         setItem(result.nextItem);
-        setRevealingCueSeen(!mixedReview);
         resetAttemptState();
       }
 
       setStatusNotice(createStatusNotice(result.message, getSampleDataStatusTone(result.status)));
     });
-  }, [mixedReview, pendingAction, resetAttemptState, startTransition]);
+  }, [pendingAction, resetAttemptState, startTransition]);
 
   useEffect(() => {
     const focusTarget = window.requestAnimationFrame(() => {
@@ -315,13 +340,13 @@ export function PracticeClient({ initialItem, canUseSampleData, initialMixedRevi
 
       shouldFocusNextReadyAnswerRef.current = false;
 
-      if (item.status === "ready" && item.exercise.answerKind !== AnswerKind.CHOICE) {
-        answerInputRef.current?.focus({ preventScroll: true });
+      if (item.status === "ready") {
+        (item.exercise.answerKind === AnswerKind.CHOICE ? firstChoiceRef.current : answerInputRef.current)?.focus({ preventScroll: true });
       }
     });
 
     return () => window.cancelAnimationFrame(focusTarget);
-  }, [attemptId, checkedFeedback, item]);
+  }, [attemptId, checkedFeedback, item, advancePending]);
 
   useEffect(() => {
     if (!flagFormOpen) {
@@ -337,6 +362,7 @@ export function PracticeClient({ initialItem, canUseSampleData, initialMixedRevi
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.isComposing || event.repeat || event.metaKey || event.ctrlKey || event.altKey) return;
       if (item.status !== "ready") {
         return;
       }
@@ -408,6 +434,9 @@ export function PracticeClient({ initialItem, canUseSampleData, initialMixedRevi
         {item.status === "none-due" ? (
           <PracticeCompleteState
             preparing={item.preparing}
+            nextReviewAt={item.nextReviewAt}
+            nextReviewTimezone={item.nextReviewTimezone}
+            preparationSkillIds={item.preparationSkillIds}
             dailyLimitReached={item.dailyLimitReached}
             canUseSampleData={canUseSampleData && !scoped}
             message={item.message}
@@ -445,23 +474,21 @@ export function PracticeClient({ initialItem, canUseSampleData, initialMixedRevi
 
   return (
     <>
-      {(!mixedReview || checkedFeedback) && <PracticeScopeBar scope={item.scope} />}
-      <div className="practiceSessionOptions"><Switch label="Mixed review" checked={mixedReview} disabled={pendingAction !== null || feedback !== null} onChange={(event) => { const enabled = event.currentTarget.checked; setMixedReview(enabled); if (!enabled) setRevealingCueSeen(true); }} /></div>
-      <section className="practiceFrame" aria-labelledby="practice-title">
+      <div className="practiceToolbar">
+        <PracticeScopeBar scope={item.scope} />
+      </div>
+      <section className="practiceFrame" aria-label="Practice exercise" data-next-ready={preloaded.length > 0} data-buffered-count={preloaded.length}>
+        {showRecovery ? <RecoveryNotice needsSignIn={needsSignIn} storageKey={recoveryKey} saving={advancePending} /> : null}
         <div className="practiceMetaRow">
           <div>
-            <h1 id="practice-title">{mixedReview && !checkedFeedback ? "Review" : item.skill.title}</h1>
             <p className="practiceMetaSummary tnum">
-              {formatFsrsState(item.skill.fsrsState)} · {formatElapsed(timer.elapsedMs)}
+              {formatFsrsState(item.skill.fsrsState)} · {formatElapsed(checkedFeedback ? submittedResponseMs ?? timer.elapsedMs : timer.elapsedMs)}
             </p>
           </div>
+          {advancePending || navigationMessage ? <p role="status" className="practiceMetaSummary">{navigationMessage ?? "Saving…"}</p> : null}
         </div>
 
-      <article className="practicePromptPanel">
-        <p>
-          <MathText formatBlanks text={exercise.prompt} />
-        </p>
-      </article>
+      <PracticePrompt text={exercise.prompt} layout={exercise.promptLayout} />
 
       {exercise.answerKind === AnswerKind.CHOICE ? (
         <div className="choiceGrid" role="radiogroup" aria-label="Answer choices">
@@ -481,6 +508,7 @@ export function PracticeClient({ initialItem, canUseSampleData, initialMixedRevi
             return (
               <button
                 key={choice.id}
+                ref={index === 0 ? firstChoiceRef : undefined}
                 className="choiceCard"
                 data-selected={selected ? "true" : "false"}
                 data-tone={tone}
@@ -602,7 +630,7 @@ export function PracticeClient({ initialItem, canUseSampleData, initialMixedRevi
           <button
             className="primaryButton"
             type="button"
-            disabled={pendingAction !== null || feedback.status !== "checked"}
+            disabled={needsSignIn || advancePending || pendingAction !== null || feedback.status !== "checked"}
             onClick={handleContinue}
             ref={continueButtonRef}
           >
@@ -616,13 +644,13 @@ export function PracticeClient({ initialItem, canUseSampleData, initialMixedRevi
         </div>
       ) : null}
 
-      {checkedFeedback && !flagFormOpen ? (
+      {!flagFormOpen ? (
         <div className="flagExerciseInline">
           <button
             ref={reportToggleRef}
             className="quietButton"
             type="button"
-            disabled={pendingAction !== null}
+            disabled={advancePending || pendingAction !== null}
             aria-expanded={false}
             onClick={() => setFlagFormOpen(true)}
           >
@@ -632,21 +660,21 @@ export function PracticeClient({ initialItem, canUseSampleData, initialMixedRevi
         </div>
       ) : null}
 
-      {checkedFeedback && flagFormOpen ? (
+      {flagFormOpen ? (
         <section className="flagExercisePanel" aria-labelledby="flag-exercise-title">
           <div className="flagExerciseHeader">
             <div>
               <h2 id="flag-exercise-title">Report an issue</h2>
-              <p>Retire this exercise instead of saving the review.</p>
+              <p>This removes the exercise from practice. Reporting does not record an answer or change your review schedule.</p>
             </div>
             <button
               ref={reportToggleRef}
               className="secondaryButton"
               type="button"
-              disabled={pendingAction !== null}
+              disabled={advancePending || pendingAction !== null}
               aria-controls="practice-report-form"
               aria-expanded={flagFormOpen}
-              onClick={() => setFlagFormOpen((open) => !open)}
+              onClick={() => { setFlagFormOpen(false); window.requestAnimationFrame(() => reportToggleRef.current?.focus()); }}
             >
               Close report
             </button>
@@ -662,7 +690,7 @@ export function PracticeClient({ initialItem, canUseSampleData, initialMixedRevi
                       ref={index === 0 ? firstFlagReasonRef : undefined}
                       type="checkbox"
                       checked={selectedFlagReasons.includes(option.reason)}
-                      disabled={pendingAction !== null}
+                      disabled={advancePending || pendingAction !== null}
                       onChange={() => handleFlagReasonToggle(option.reason)}
                     />
                     <span>{option.label}</span>
@@ -676,7 +704,7 @@ export function PracticeClient({ initialItem, canUseSampleData, initialMixedRevi
                 <span>Note</span>
                 <textarea
                   value={otherFlagNote}
-                  disabled={pendingAction !== null}
+                  disabled={advancePending || pendingAction !== null}
                   maxLength={500}
                   rows={3}
                   onChange={(event) => setOtherFlagNote(event.target.value)}
@@ -688,7 +716,7 @@ export function PracticeClient({ initialItem, canUseSampleData, initialMixedRevi
               <button
                 className="secondaryButton"
                 type="button"
-                disabled={pendingAction !== null || !canSubmitFlag}
+                disabled={advancePending || pendingAction !== null || !canSubmitFlag}
                 onClick={handleFlagSubmit}
               >
                 {pendingAction === "flag" ? "Reporting" : "Submit report"}
@@ -697,7 +725,6 @@ export function PracticeClient({ initialItem, canUseSampleData, initialMixedRevi
           </div>
         </section>
       ) : null}
-
       <PracticeStatusMessage notice={statusNotice} />
       </section>
     </>
@@ -707,15 +734,18 @@ export function PracticeClient({ initialItem, canUseSampleData, initialMixedRevi
 function PracticeScopeBar({ scope }: { scope?: PracticeScope }) {
   return (
     <div className="practiceScopeBar" aria-label="Practice scope">
-      {scope?.kind === "collection" ? (
-        <>
-          <span>Collection</span>
-          <strong>{scope.collectionName}</strong>
-          <Link href="/practice">All practice</Link>
-        </>
-      ) : <strong>All practice</strong>}
-      <Link href="/practice/custom">Custom session</Link>
-      <Link href="/practice/attention">Needs attention</Link>
+      <div className="practiceScopeIdentity">
+        {scope?.kind === "collection" ? (
+          <Link href="/practice" aria-label="All practice" title="Return to all practice">
+            <strong>All practice</strong>
+          </Link>
+        ) : <strong>All practice</strong>}
+      </div>
+      <div className="practiceScopeLinks">
+        <Link href="/practice/custom">Custom session</Link>
+        <Link href="/practice/attention">Needs attention</Link>
+
+      </div>
     </div>
   );
 }
@@ -725,6 +755,9 @@ function getScopedCollectionId(item: PracticeItem): string | null {
 }
 
 function PracticeCompleteState({
+  nextReviewTimezone,
+  nextReviewAt,
+  preparationSkillIds,
   preparing,
   dailyLimitReached,
   canUseSampleData,
@@ -734,6 +767,9 @@ function PracticeCompleteState({
   scoped,
   statusNotice,
 }: {
+  nextReviewAt?: string | null;
+  nextReviewTimezone?: string;
+  preparationSkillIds?: string[];
   preparing?: boolean;
   dailyLimitReached?: boolean;
   canUseSampleData: boolean;
@@ -748,29 +784,18 @@ function PracticeCompleteState({
       className="practiceFrame practiceEmpty practiceComplete"
       aria-labelledby="practice-empty-title"
     >
-      <div className="practiceCompleteIcon" aria-hidden="true">
-        <CheckCircle size={28} weight="bold" />
-      </div>
       <div className="practiceCompleteCopy">
         <h1 id="practice-empty-title">{preparing ? "Exercises need preparation." : dailyLimitReached ? "Daily new-skill limit reached." : "Nice work. You're all caught up."}</h1>
         <p>
-          {preparing ? "Due skills are waiting for compatible exercises. Check their preparation status or refresh to try again." : dailyLimitReached ? "You can continue scheduled reviews or change your daily limit in Settings." : scoped
+          {preparing ? "Your due skills need exercises before you can continue. Open their preparation status to see what needs attention." : dailyLimitReached ? "You’ve reached today’s allowance for new skills. You can still do custom practice without changing your schedule." : scoped
             ? "Every due exercise in this collection is finished for now."
             : "Every due exercise is finished for now."}{" "}
-          LearnRecur will bring skills back when the schedule says they are ready.
+
         </p>
+        {nextReviewAt ? <p className="practiceNextReview">Next scheduled review: <time dateTime={nextReviewAt}>{new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: nextReviewTimezone ?? "UTC", timeZoneName: "short" }).format(new Date(nextReviewAt))}</time></p> : null}
       </div>
-      <div className="practiceCompleteSummary" aria-label="Practice completion summary">
-        <div>
-          <span>Queue</span>
-          <strong>{preparing ? "Preparation pending" : dailyLimitReached ? "New skills paused" : "Clear for now"}</strong>
-        </div>
-        <div>
-          <span>Schedule</span>
-          <strong>{message}</strong>
-        </div>
-      </div>
-      <PracticeCompleteActions scoped={scoped} dailyLimitReached={dailyLimitReached} />
+
+      {dailyLimitReached && !preparing ? <p>{message}</p> : null}
       {statusNotice ? (
         <p
           className="practiceCompleteStatus"
@@ -784,6 +809,7 @@ function PracticeCompleteState({
           <span>{statusNotice.message}</span>
         </p>
       ) : null}
+      <PracticeCompleteActions scoped={scoped} dailyLimitReached={dailyLimitReached} preparing={preparing} preparationSkillIds={preparationSkillIds} />
       {canUseSampleData ? (
         <div className="practiceCompleteDevAction">
           <span>Development mode</span>
@@ -801,29 +827,13 @@ function PracticeCompleteState({
   );
 }
 
-function PracticeCompleteActions({ scoped, dailyLimitReached }: { scoped: boolean; dailyLimitReached?: boolean }) {
+function PracticeCompleteActions({ scoped, dailyLimitReached, preparing, preparationSkillIds }: { scoped: boolean; dailyLimitReached?: boolean; preparing?: boolean; preparationSkillIds?: string[] }) {
   return (
     <div className="practiceCompleteActions" aria-label="Practice next actions">
-      {scoped ? (
-        <>
-          <Link className="primaryButton" href="/practice">
-            Try all practice
-          </Link>
-          <Link className="secondaryButton" href="/dashboard">
-            Dashboard
-          </Link>
-        </>
-      ) : (
-        <>
-          <Link className="primaryButton" href="/dashboard">
-            Dashboard
-          </Link>
-          <Link className="secondaryButton" href="/skills">
-            Review skills
-          </Link>
-        </>
-      )}
-      {dailyLimitReached ? <Link href="/settings" className="secondaryButton">Change daily limit</Link> : null}
+      <Link className="secondaryButton" href="/dashboard">Dashboard</Link>
+      {scoped ? <Link className="secondaryButton" href="/practice">Try all practice</Link> : null}
+      {dailyLimitReached ? <Link className="secondaryButton" href="/settings">Change daily limit</Link> : null}
+      {preparing ? <Link className="primaryButton" href={preparationSkillIds?.length === 1 ? `/skills/${preparationSkillIds[0]}` : "/skills"}>Check preparation</Link> : <Link className="primaryButton" href="/practice/custom">Custom practice</Link>}
     </div>
   );
 }
@@ -934,6 +944,8 @@ function getShortcutTargetRole(
   if (!(target instanceof HTMLElement)) {
     return "document";
   }
+
+  if (target.matches("button.choiceCard")) return "document";
 
   if (answerInput && target === answerInput) {
     return "answer-input";

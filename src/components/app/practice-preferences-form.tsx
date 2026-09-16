@@ -1,13 +1,14 @@
 "use client";
-import { useState, useSyncExternalStore, useTransition } from "react";
+import { useTransition } from "react";
+import { useFormDraft } from "@/components/app/use-form-draft";
+import { FormDraftNotice } from "@/components/app/form-draft-notice";
+import { practiceSettingsDraftSchema } from "@/lib/forms/settings-drafts";
 import { useRouter } from "next/navigation";
 import {
   Checkbox,
-  NativeSelect,
   NumberInput,
   Select,
   Stack,
-  Switch,
   Text,
   TextInput,
 } from "@mantine/core";
@@ -30,7 +31,9 @@ import {
 } from "@/lib/practice/daily-limit-contracts";
 import { desiredRetentionSchema } from "@/lib/scheduling/contracts";
 
-const practiceTimezones = ["UTC", ...Intl.supportedValuesOf("timeZone")];
+const practiceTimezones = [
+  ...new Set(["UTC", ...Intl.supportedValuesOf("timeZone")]),
+];
 
 type Props = {
   dailyNewSkillLimit?: number | null;
@@ -43,53 +46,35 @@ type Props = {
   textPolicy?: TextPolicy | null;
   inheritedTextPolicy?: TextPolicy;
   alreadyStudied?: boolean;
-  mixedReview?: boolean;
 };
 const label = (value: PracticePreference) =>
   value === "RECALL_FIRST" ? "Recall first" : "Balanced";
-const subscribe = () => () => {};
-const clientSnapshot = () => true;
-const serverSnapshot = () => false;
 export function PracticePreferencesForm(props: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  // A native input can change before its React handler hydrates. Keep every
-  // control disabled until its selected value can be retained and submitted.
-  const hasHydrated = useSyncExternalStore(
-    subscribe,
-    clientSnapshot,
-    serverSnapshot,
-  );
-  const disabled = pending || !hasHydrated;
-  const [preference, setPreference] = useState(props.preference ?? "DEFAULT");
-  const [profile, setProfile] = useState(
-    props.textPolicy?.profile ?? "DEFAULT",
-  );
-  const [caseLenient, setCaseLenient] = useState(
-    props.textPolicy?.normalizeCase ?? true,
-  );
-  const [spaceLenient, setSpaceLenient] = useState(
-    props.textPolicy?.normalizeWhitespace ?? true,
-  );
-  const [studied, setStudied] = useState(props.alreadyStudied ?? false);
-  const [mixed, setMixed] = useState(props.mixedReview ?? false);
-  const [unlimited, setUnlimited] = useState(props.dailyNewSkillLimit == null);
-  const [dailyLimit, setDailyLimit] = useState<number | string>(
-    props.dailyNewSkillLimit ?? 20,
-  );
-  const [timezone, setTimezone] = useState(props.practiceTimezone ?? "UTC");
-  const [useDefaultRetention, setUseDefaultRetention] = useState(
-    props.desiredRetention == null,
-  );
-  const [retentionEdited, setRetentionEdited] = useState(false);
-  const [retentionPercent, setRetentionPercent] = useState<number | string>(
-    props.desiredRetention == null
-      ? 90
-      : props.desiredRetention * 100,
-  );
-  const [dayStart, setDayStart] = useState(
-    formatPracticeDayStart(props.practiceDayStartMinutes ?? 0),
-  );
+  const draft = useFormDraft(`practice:${props.target.scope}:${"id" in props.target ? props.target.id : "account"}`, {
+    preference: props.preference ?? "DEFAULT", profile: props.textPolicy?.profile ?? "DEFAULT",
+    caseLenient: props.textPolicy?.normalizeCase ?? true, spaceLenient: props.textPolicy?.normalizeWhitespace ?? true,
+    studied: props.alreadyStudied ?? false, unlimited: props.dailyNewSkillLimit == null,
+    dailyLimit: props.dailyNewSkillLimit ?? 20, timezone: props.practiceTimezone ?? "UTC",
+    useDefaultRetention: props.desiredRetention == null, retentionEdited: false,
+    retentionPercent: props.desiredRetention == null ? 90 : props.desiredRetention * 100,
+    dayStart: formatPracticeDayStart(props.practiceDayStartMinutes ?? 0),
+  }, practiceSettingsDraftSchema);
+  const { preference, profile, caseLenient, spaceLenient, studied, unlimited, dailyLimit, timezone, useDefaultRetention, retentionEdited, retentionPercent, dayStart } = draft.value;
+  const disabled = pending || !draft.ready;
+  const setPreference = (value: typeof preference) => draft.update({ preference: value });
+  const setProfile = (value: typeof profile) => draft.update({ profile: value });
+  const setCaseLenient = (value: typeof caseLenient) => draft.update({ caseLenient: value });
+  const setSpaceLenient = (value: typeof spaceLenient) => draft.update({ spaceLenient: value });
+  const setStudied = (value: typeof studied) => draft.update({ studied: value });
+  const setUnlimited = (value: typeof unlimited) => draft.update({ unlimited: value });
+  const setDailyLimit = (value: typeof dailyLimit) => draft.update({ dailyLimit: value });
+  const setTimezone = (value: typeof timezone) => draft.update({ timezone: value });
+  const setUseDefaultRetention = (value: typeof useDefaultRetention) => draft.update({ useDefaultRetention: value });
+  const setRetentionEdited = (value: typeof retentionEdited) => draft.update({ retentionEdited: value });
+  const setRetentionPercent = (value: typeof retentionPercent) => draft.update({ retentionPercent: value });
+  const setDayStart = (value: typeof dayStart) => draft.update({ dayStart: value });
   const validDailyLimit =
     unlimited || dailyNewSkillLimitSchema.safeParse(dailyLimit).success;
   const validTimezone = practiceTimezoneSchema.safeParse(timezone).success;
@@ -100,7 +85,8 @@ export function PracticePreferencesForm(props: Props) {
       ? props.desiredRetention
       : retentionValue;
   const validRetention =
-    useDefaultRetention || desiredRetentionSchema.safeParse(retentionValue).success;
+    useDefaultRetention ||
+    desiredRetentionSchema.safeParse(retentionValue).success;
   const validDayStart = practiceDayStartTimeSchema.safeParse(dayStart).success;
   const effectivePreference =
     preference === "DEFAULT"
@@ -127,7 +113,10 @@ export function PracticePreferencesForm(props: Props) {
         event.preventDefault();
         if (
           props.target.scope === "user" &&
-          (!validDailyLimit || !validTimezone || !validRetention || !validDayStart)
+          (!validDailyLimit ||
+            !validTimezone ||
+            !validRetention ||
+            !validDayStart)
         )
           return;
         startTransition(async () => {
@@ -136,7 +125,7 @@ export function PracticePreferencesForm(props: Props) {
             props.target.scope === "user"
               ? {
                   practicePreference: effectivePreference,
-                  mixedReview: mixed,
+                  mixedReview: true,
                   dailyNewSkillLimit: unlimited ? null : dailyLimit,
                   practiceTimezone: timezone,
                   desiredRetention: useDefaultRetention ? null : savedRetention,
@@ -172,16 +161,17 @@ export function PracticePreferencesForm(props: Props) {
             withBorder: true,
             withCloseButton: true,
           });
-          if (result.status === "saved") router.refresh();
+          if (result.status === "saved") { draft.saved(); router.refresh(); }
         });
       }}
     >
-      <Stack gap="md">
-        <NativeSelect
+      <Stack gap="lg">
+        <Select
+          size="md"
           label="Practice preference"
           disabled={disabled}
           value={preference}
-          onChange={(event) => setPreference(event.currentTarget.value)}
+          onChange={(value) => { if (value) setPreference(value as typeof preference); }}
           data={[
             ...(props.target.scope === "user"
               ? []
@@ -194,10 +184,11 @@ export function PracticePreferencesForm(props: Props) {
             { value: "BALANCED", label: "Balanced" },
             { value: "RECALL_FIRST", label: "Recall first" },
           ]}
-          description={`Effective: ${label(effectivePreference)}. Recall first prefers suitable input exercises.`}
+          description="Balanced mixes answer formats. Recall first favors typing an answer when suitable exercises are available."
         />
         {props.target.scope === "skill" && (
           <Checkbox
+            size="md"
             label="I have already studied this skill"
             description="Allow suitable input practice from the first review."
             checked={studied}
@@ -207,42 +198,49 @@ export function PracticePreferencesForm(props: Props) {
         )}
         {props.target.scope === "user" ? (
           <>
-            <Switch
-              label="Mixed review by default"
-              description="Reduce rule cues and vary compatible due skills within your chosen scope. You can switch this during a session."
-              checked={mixed}
-              disabled={disabled}
-              onChange={(event) => setMixed(event.currentTarget.checked)}
-            />
             <Checkbox
+              size="md"
               label="Unlimited new skills"
               checked={unlimited}
               disabled={disabled}
               onChange={(event) => setUnlimited(event.currentTarget.checked)}
             />
-            <NumberInput
-              label="New skills per day"
-              description="Counts the first exercise shown for each new skill, across all collections. Scheduled follow-up reviews stay available. Use 0 for review-only practice."
-              value={dailyLimit}
-              min={0}
-              max={1000}
-              allowDecimal={false}
-              allowNegative={false}
-              disabled={disabled || unlimited}
-              onChange={setDailyLimit}
-              error={
-                !validDailyLimit
-                  ? "Enter a whole number from 0 to 1000."
-                  : undefined
+            {unlimited ? (
+              <TextInput
+                size="md"
+                label="New skills per day"
+                description="New skills can enter practice without a daily limit. Scheduled reviews are always available."
+                value="Unlimited"
+                readOnly
+              />
+            ) : (
+              <NumberInput
+                size="md"
+                label="New skills per day"
+                description="Counts the first exercise shown for each new skill, across all collections. Scheduled follow-up reviews stay available. Use 0 for review-only practice."
+                value={dailyLimit}
+                min={0}
+                max={1000}
+                allowDecimal={false}
+                allowNegative={false}
+                disabled={disabled || unlimited}
+                onChange={setDailyLimit}
+                error={
+                  !validDailyLimit
+                    ? "Enter a whole number from 0 to 1000."
+                    : undefined
                 }
-            />
+              />
+            )}
             <Text size="sm">
-              New-skill allowance follows a practice day starting at {dayStart} in {timezone}.
+              New-skill allowance follows a practice day starting at {dayStart}{" "}
+              in {timezone}.
             </Text>
             <details className="practiceAdvancedSettings">
               <summary>Advanced practice settings</summary>
-              <Stack gap="md" mt="sm">
+              <Stack gap="lg" mt="md">
                 <Checkbox
+                  size="md"
                   label="Use default retention (90%)"
                   checked={useDefaultRetention}
                   disabled={disabled}
@@ -250,28 +248,40 @@ export function PracticePreferencesForm(props: Props) {
                     setUseDefaultRetention(event.currentTarget.checked)
                   }
                 />
-                <NumberInput
-                  label="Desired retention"
-                  description="Higher retention schedules reviews closer together. Decimals are allowed."
-                  value={retentionPercent}
-                  min={70}
-                  max={99}
-                  step={0.1}
-                  suffix="%"
-                  allowDecimal
-                  allowNegative={false}
-                  disabled={disabled || useDefaultRetention}
-                  onChange={(value) => {
-                    setRetentionEdited(true);
-                    setRetentionPercent(value);
-                  }}
-                  error={
-                    !validRetention
-                      ? "Enter a percentage from 70 to 99."
-                      : undefined
-                  }
-                />
+                {useDefaultRetention ? (
+                  <TextInput
+                    size="md"
+                    label="Desired retention"
+                    description="Higher retention schedules reviews closer together."
+                    value="Using default: 90%"
+                    readOnly
+                  />
+                ) : (
+                  <NumberInput
+                    size="md"
+                    label="Desired retention"
+                    description="Higher retention schedules reviews closer together. Decimals are allowed."
+                    value={retentionPercent}
+                    min={70}
+                    max={99}
+                    step={0.1}
+                    suffix="%"
+                    allowDecimal
+                    allowNegative={false}
+                    disabled={disabled || useDefaultRetention}
+                    onChange={(value) => {
+                      setRetentionEdited(true);
+                      setRetentionPercent(value);
+                    }}
+                    error={
+                      !validRetention
+                        ? "Enter a percentage from 70 to 99."
+                        : undefined
+                    }
+                  />
+                )}
                 <TextInput
+                  size="md"
                   label="Practice day starts at"
                   description="This local time defines when the daily allowance resets."
                   type="time"
@@ -279,10 +289,13 @@ export function PracticePreferencesForm(props: Props) {
                   disabled={disabled}
                   onChange={(event) => setDayStart(event.currentTarget.value)}
                   error={
-                    !validDayStart ? "Use a local time in HH:mm format." : undefined
+                    !validDayStart
+                      ? "Use a local time in HH:mm format."
+                      : undefined
                   }
                 />
                 <Select
+                  size="md"
                   label="Practice timezone"
                   description="Uses the local time in this zone, including daylight-saving changes."
                   data={
@@ -303,13 +316,12 @@ export function PracticePreferencesForm(props: Props) {
           </>
         ) : (
           <>
-            <NativeSelect
+            <Select
+              size="md"
               label="Text comparison"
               disabled={disabled}
               value={profile}
-              onChange={(event) =>
-                setProfile(event.currentTarget.value as typeof profile)
-              }
+              onChange={(value) => { if (value) setProfile(value as typeof profile); }}
               data={[
                 {
                   value: "DEFAULT",
@@ -323,6 +335,7 @@ export function PracticePreferencesForm(props: Props) {
             {profile === "CUSTOM" && (
               <>
                 <Checkbox
+                  size="md"
                   label="Ignore capitalization"
                   checked={caseLenient}
                   disabled={disabled}
@@ -331,6 +344,7 @@ export function PracticePreferencesForm(props: Props) {
                   }
                 />
                 <Checkbox
+                  size="md"
                   label="Normalize whitespace"
                   checked={spaceLenient}
                   disabled={disabled}
@@ -350,13 +364,17 @@ export function PracticePreferencesForm(props: Props) {
             </Text>
           </>
         )}
-        <div>
+        <FormDraftNotice {...draft} disabled={disabled} onDiscard={draft.discard} />
+        <div className="skillFormActions">
           <button
             className="primaryButton"
             disabled={
               disabled ||
               (props.target.scope === "user" &&
-                (!validDailyLimit || !validTimezone || !validRetention || !validDayStart))
+                (!validDailyLimit ||
+                  !validTimezone ||
+                  !validRetention ||
+                  !validDayStart))
             }
             type="submit"
           >

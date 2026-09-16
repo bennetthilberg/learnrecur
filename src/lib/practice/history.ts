@@ -7,6 +7,7 @@ import {
   type SkillFsrsState,
   type SkillStatus,
 } from "@/generated/prisma/client";
+import { formatSubmittedHistoryAnswer } from "./history-answer";
 import { getPrisma } from "@/lib/prisma";
 
 const DEFAULT_HISTORY_LIMIT = 50;
@@ -32,6 +33,9 @@ export type PracticeHistoryReview = {
   previousState: SkillFsrsState | null;
   nextState: SkillFsrsState | null;
   correctAnswerDisplay: string;
+  prompt: string;
+  submittedAnswerDisplay: string;
+  explanation: string | null;
 };
 
 export type PracticeHistoryResult = {
@@ -50,6 +54,10 @@ export type GetPracticeHistoryInput = {
   userId: string;
   now: Date;
   limit?: number;
+  skillId?: string;
+  collectionId?: string;
+  incorrectOnly?: boolean;
+  cursor?: { reviewedAt: string; id: string };
 };
 
 export type GetSkillPracticeHistoryInput = GetPracticeHistoryInput & {
@@ -104,6 +112,11 @@ async function findPracticeHistoryReviews(
     where: {
       userId: input.userId,
       skillId: input.skillId,
+      skill: input.collectionId ? { userId: input.userId, collectionId: input.collectionId } : undefined,
+      ...(input.cursor ? { OR: [
+        { reviewedAt: { lt: new Date(input.cursor.reviewedAt) } },
+        { reviewedAt: new Date(input.cursor.reviewedAt), id: { gt: input.cursor.id } },
+      ] } : {}),
       reviewedAt: {
         lte: input.now,
       },
@@ -112,7 +125,7 @@ async function findPracticeHistoryReviews(
           not: null,
         },
         result: {
-          in: [ExerciseAttemptResult.CORRECT, ExerciseAttemptResult.INCORRECT],
+          in: input.incorrectOnly ? [ExerciseAttemptResult.INCORRECT] : [ExerciseAttemptResult.CORRECT, ExerciseAttemptResult.INCORRECT],
         },
       },
     },
@@ -132,10 +145,14 @@ async function findPracticeHistoryReviews(
         select: {
           result: true,
           responseMs: true,
+          answer: true,
           exercise: {
             select: {
               answerKind: true,
               correctAnswerDisplay: true,
+              prompt: true,
+              choices: true,
+              explanation: true,
             },
           },
           skill: {
@@ -171,6 +188,9 @@ async function findPracticeHistoryReviews(
     previousState: row.previousState,
     nextState: row.nextState,
     correctAnswerDisplay: row.exerciseAttempt.exercise.correctAnswerDisplay,
+    prompt: row.exerciseAttempt.exercise.prompt,
+    submittedAnswerDisplay: formatSubmittedHistoryAnswer(row.exerciseAttempt.answer, row.exerciseAttempt.exercise.choices),
+    explanation: row.exerciseAttempt.exercise.explanation,
   }));
 }
 
@@ -186,4 +206,13 @@ function assertValidHistoryDate(now: Date, caller: string) {
   if (!(now instanceof Date) || Number.isNaN(now.getTime())) {
     throw new Error(`${caller} requires a valid now Date.`);
   }
+}
+
+export async function getPracticeHistoryPage(input: GetPracticeHistoryInput) {
+  assertValidHistoryDate(input.now, "getPracticeHistoryPage");
+  const size = 50;
+  const rows = await findPracticeHistoryReviews({ ...input, limit: size + 1 });
+  const reviews = rows.slice(0, size);
+  const last = reviews.at(-1);
+  return { reviews, nextCursor: rows.length > size && last ? { reviewedAt: last.reviewedAt.toISOString(), id: last.id } : null };
 }

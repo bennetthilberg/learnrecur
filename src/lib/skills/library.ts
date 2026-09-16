@@ -36,6 +36,7 @@ export type SkillsLibraryDraftSkill = {
   title: string;
   objective: string | null;
   collectionName: string | null;
+  collectionId: string | null;
   tags: string[];
   sourceRefCount: number;
   updatedAt: Date;
@@ -47,6 +48,7 @@ export type SkillsLibraryActiveSkill = {
   title: string;
   objective: string | null;
   collectionName: string | null;
+  collectionId: string | null;
   tags: string[];
   sourceRefCount: number;
   dueAt: Date | null;
@@ -67,6 +69,7 @@ export type SkillsLibraryRecoverySkill = {
   title: string;
   objective: string | null;
   collectionName: string | null;
+  collectionId: string | null;
   tags: string[];
   status: Extract<SkillStatus, "PAUSED" | "ARCHIVED">;
   sourceRefCount: number;
@@ -124,6 +127,7 @@ type SkillsLibrarySkillRecord = {
   lapses: number;
   updatedAt: Date;
   collection: {
+    id: string;
     name: string;
   } | null;
   sourceRefs: Array<{
@@ -169,6 +173,7 @@ export async function getSkillsLibrary(input: GetSkillsLibraryInput): Promise<Sk
         updatedAt: true,
         collection: {
           select: {
+            id: true,
             name: true,
           },
         },
@@ -349,6 +354,7 @@ function toDraftSkillSummary(skill: SkillsLibrarySkillRecord): SkillsLibraryDraf
     title: skill.title,
     objective: skill.objective,
     collectionName: skill.collection?.name ?? null,
+    collectionId: skill.collection?.id ?? null,
     tags: skill.tags,
     sourceRefCount: skill.sourceRefs.length,
     updatedAt: skill.updatedAt,
@@ -369,6 +375,7 @@ function toActiveSkillSummary(
     title: skill.title,
     objective: skill.objective,
     collectionName: skill.collection?.name ?? null,
+    collectionId: skill.collection?.id ?? null,
     tags: skill.tags,
     sourceRefCount: skill.sourceRefs.length,
     dueAt: skill.dueAt,
@@ -400,6 +407,7 @@ function toRecoverySkillSummary(
     title: skill.title,
     objective: skill.objective,
     collectionName: skill.collection?.name ?? null,
+    collectionId: skill.collection?.id ?? null,
     tags: skill.tags,
     status: skill.status,
     sourceRefCount: skill.sourceRefs.length,

@@ -1,5 +1,9 @@
 "use client";
 
+import { useFormDraft } from "@/components/app/use-form-draft";
+import { FormDraftNotice } from "@/components/app/form-draft-notice";
+import { collectionDraftSchema } from "@/lib/forms/collection-drafts";
+
 import { ActionNotification } from "@/components/app/action-notification";
 import { PracticePreferencesForm } from "@/components/app/practice-preferences-form";
 
@@ -22,7 +26,13 @@ const idleState: CollectionFormActionState = {
 };
 
 export function CollectionCreateForm() {
-  const [state, formAction, pending] = useActionState(createCollectionAction, idleState);
+  const draft = useFormDraft("collection-create", { name: "", description: "" }, collectionDraftSchema);
+  const [state, formAction, submitting] = useActionState(async (previous: CollectionFormActionState, formData: FormData) => {
+    const result = await saveCollectionSafely(createCollectionAction, previous, formData);
+    if (result.status === "saved") draft.discard();
+    return result;
+  }, idleState);
+  const pending = submitting || !draft.ready;
   const nameErrorId = useId();
   const descriptionErrorId = useId();
 
@@ -37,6 +47,8 @@ export function CollectionCreateForm() {
             disabled={pending}
             maxLength={80}
             name="name"
+            value={draft.value.name}
+            onChange={(event) => draft.update({ name: event.currentTarget.value })}
             placeholder="Spanish grammar"
             required
           />
@@ -52,7 +64,9 @@ export function CollectionCreateForm() {
             disabled={pending}
             maxLength={500}
             name="description"
-            placeholder="What belongs in this study area?"
+            value={draft.value.description}
+            onChange={(event) => draft.update({ description: event.currentTarget.value })}
+            placeholder="What belongs in this collection?"
             rows={2}
           />
           <FieldError id={descriptionErrorId} state={state} name="description" />
@@ -64,6 +78,7 @@ export function CollectionCreateForm() {
         </div>
       </div>
 
+      <FormDraftNotice {...draft} disabled={pending} onDiscard={() => draft.discard()} />
       <FormMessage state={state} pending={pending} />
     </form>
   );
@@ -74,7 +89,13 @@ export function CollectionUpdateForm({
 }: {
   collection: CollectionSummary;
 }) {
-  const [state, formAction, pending] = useActionState(updateCollectionAction, idleState);
+  const draft = useFormDraft(`collection-edit:${collection.id}`, { name: collection.name, description: collection.description ?? "" }, collectionDraftSchema);
+  const [state, formAction, submitting] = useActionState(async (previous: CollectionFormActionState, formData: FormData) => {
+    const result = await saveCollectionSafely(updateCollectionAction, previous, formData);
+    if (result.status === "saved") draft.saved();
+    return result;
+  }, idleState);
+  const pending = submitting || !draft.ready;
   const nameErrorId = useId();
   const descriptionErrorId = useId();
 
@@ -91,10 +112,11 @@ export function CollectionUpdateForm({
           <input
             aria-describedby={hasFieldError(state, "name") ? nameErrorId : undefined}
             aria-invalid={hasFieldError(state, "name") ? "true" : undefined}
-            defaultValue={collection.name}
             disabled={pending}
             maxLength={80}
             name="name"
+            value={draft.value.name}
+            onChange={(event) => draft.update({ name: event.currentTarget.value })}
             required
           />
           <FieldError id={nameErrorId} state={state} name="name" />
@@ -106,10 +128,11 @@ export function CollectionUpdateForm({
               hasFieldError(state, "description") ? descriptionErrorId : undefined
             }
             aria-invalid={hasFieldError(state, "description") ? "true" : undefined}
-            defaultValue={collection.description ?? ""}
             disabled={pending}
             maxLength={500}
             name="description"
+            value={draft.value.description}
+            onChange={(event) => draft.update({ description: event.currentTarget.value })}
             rows={3}
           />
           <FieldError id={descriptionErrorId} state={state} name="description" />
@@ -120,6 +143,7 @@ export function CollectionUpdateForm({
             {pending ? "Saving" : "Save changes"}
           </button>
         </div>
+        <FormDraftNotice {...draft} disabled={pending} onDiscard={() => draft.discard()} />
         <FormMessage state={state} pending={pending} />
       </form>
     </details>
@@ -224,4 +248,13 @@ export function CollectionPracticeForm({collection}:{collection:CollectionSummar
   return <details className="collectionInlineDetails"><summary>Practice preferences</summary>
     <div className="collectionInlineForm"><PracticePreferencesForm target={{scope:"collection",id:collection.id}} preference={collection.practicePreference ?? null} inheritedPreference={collection.inheritedPreference} textPolicy={collection.textPolicy}/></div>
   </details>;
+}
+
+async function saveCollectionSafely(
+  action: typeof createCollectionAction,
+  previous: CollectionFormActionState,
+  formData: FormData,
+): Promise<CollectionFormActionState> {
+  try { return await action(previous, formData); }
+  catch { return { status: "error", message: "Could not save the collection. Check your connection and try again." }; }
 }

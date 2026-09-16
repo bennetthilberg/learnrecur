@@ -27,6 +27,7 @@ import { getPrisma } from "@/lib/prisma";
 import { getUserDataExport } from "@/lib/settings/data-export";
 import { deleteSkillPermanently } from "@/lib/skills/delete";
 import { getSkillsLibrary } from "@/lib/skills/library";
+import { getMaterialLibrary } from "@/lib/materials/library";
 import { getSkillCreationSourceRecoveryItems } from "@/lib/skills/source-recovery";
 import { removeSkillSource } from "@/lib/skills/sources";
 import {
@@ -59,6 +60,31 @@ describeDatabase("persistent material foundation", () => {
   afterAll(async () => {
     await prisma.user.deleteMany({ where: { id: { in: [userId, otherUserId] } } });
     await prisma.$disconnect();
+  });
+
+  it("lists unfinished imports only in the owned recovery library", async () => {
+    const fixtures = await Promise.all([
+      MaterialRevisionStatus.QUEUED, MaterialRevisionStatus.PROCESSING,
+      MaterialRevisionStatus.FAILED, MaterialRevisionStatus.READY,
+      MaterialRevisionStatus.PENDING_UPLOAD,
+    ].map(async (status) => {
+      const result = await createMaterialWithInitialRevision({ userId, title: `Recovery ${status}`, kind: StudyMaterialKind.PDF });
+      await prisma.materialRevision.update({ where: { id: result.revision.id }, data: { status } });
+      if (status === MaterialRevisionStatus.READY) await prisma.studyMaterial.update({ where: { id: result.material.id }, data: { activeRevisionId: result.revision.id } });
+      return { ...result, status };
+    }));
+    const ids = fixtures.map(({ material }) => material.id);
+    const reusable = (await getMaterialLibrary({ userId })).filter(item => ids.includes(item.id));
+    expect(reusable.map(item => item.revisionStatus)).toEqual([MaterialRevisionStatus.READY]);
+    const recovery = (await getMaterialLibrary({ userId, includeUnready: true })).filter(item => ids.includes(item.id));
+    expect(recovery.map(item => item.revisionStatus).sort()).toEqual(["FAILED", "PROCESSING", "QUEUED", "READY"]);
+    expect((await getMaterialLibrary({ userId: otherUserId, includeUnready: true })).some(item => ids.includes(item.id))).toBe(false);
+    const ready = fixtures.find(item => item.status === MaterialRevisionStatus.READY)!;
+    await prisma.materialRevision.create({ data: { userId, materialId: ready.material.id, revisionNumber: 2, status: MaterialRevisionStatus.FAILED } });
+    expect((await getMaterialLibrary({ userId })).find(item => item.id === ready.material.id)).toMatchObject({ revisionNumber: 1, revisionStatus: "READY" });
+    expect((await getMaterialLibrary({ userId, includeUnready: true })).find(item => item.id === ready.material.id)).toMatchObject({ revisionNumber: 2, revisionStatus: "FAILED" });
+    await prisma.studyMaterial.update({ where: { id: fixtures[0].material.id }, data: { status: StudyMaterialStatus.DELETING } });
+    expect((await getMaterialLibrary({ userId, includeUnready: true })).some(item => item.id === fixtures[0].material.id)).toBe(false);
   });
 
   it("keeps finalized revisions immutable, retrieves exact vectors within ownership, and exports v3", async () => {
