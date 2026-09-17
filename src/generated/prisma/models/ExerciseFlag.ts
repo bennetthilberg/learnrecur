@@ -27,11 +27,19 @@ export type AggregateExerciseFlag = {
 }
 
 export type ExerciseFlagAvgAggregateOutputType = {
+  affectedAttemptCount: number | null
   affectedReviewCount: number | null
+  practiceOnlyAttemptCount: number | null
+  replayedReviewCount: number | null
+  quarantinedExerciseCount: number | null
 }
 
 export type ExerciseFlagSumAggregateOutputType = {
+  affectedAttemptCount: number | null
   affectedReviewCount: number | null
+  practiceOnlyAttemptCount: number | null
+  replayedReviewCount: number | null
+  quarantinedExerciseCount: number | null
 }
 
 export type ExerciseFlagMinAggregateOutputType = {
@@ -51,10 +59,17 @@ export type ExerciseFlagMinAggregateOutputType = {
   evidenceCorrectionAction: $Enums.ExerciseEvidenceCorrectionAction | null
   evidenceCorrectionStatus: $Enums.ExerciseEvidenceCorrectionStatus | null
   practiceEvidenceNeedsCorrection: boolean | null
+  affectedAttemptCount: number | null
   affectedReviewCount: number | null
+  practiceOnlyAttemptCount: number | null
   correctionStartedAt: Date | null
   correctionCompletedAt: Date | null
   incidentKey: string | null
+  replayedReviewCount: number | null
+  quarantinedExerciseCount: number | null
+  resolutionIdempotencyKey: string | null
+  resolutionPayloadHash: string | null
+  updatedAt: Date | null
   createdAt: Date | null
 }
 
@@ -75,10 +90,17 @@ export type ExerciseFlagMaxAggregateOutputType = {
   evidenceCorrectionAction: $Enums.ExerciseEvidenceCorrectionAction | null
   evidenceCorrectionStatus: $Enums.ExerciseEvidenceCorrectionStatus | null
   practiceEvidenceNeedsCorrection: boolean | null
+  affectedAttemptCount: number | null
   affectedReviewCount: number | null
+  practiceOnlyAttemptCount: number | null
   correctionStartedAt: Date | null
   correctionCompletedAt: Date | null
   incidentKey: string | null
+  replayedReviewCount: number | null
+  quarantinedExerciseCount: number | null
+  resolutionIdempotencyKey: string | null
+  resolutionPayloadHash: string | null
+  updatedAt: Date | null
   createdAt: Date | null
 }
 
@@ -99,21 +121,36 @@ export type ExerciseFlagCountAggregateOutputType = {
   evidenceCorrectionAction: number
   evidenceCorrectionStatus: number
   practiceEvidenceNeedsCorrection: number
+  affectedAttemptCount: number
   affectedReviewCount: number
+  practiceOnlyAttemptCount: number
   correctionStartedAt: number
   correctionCompletedAt: number
   incidentKey: number
+  replayedReviewCount: number
+  quarantinedExerciseCount: number
+  resolutionIdempotencyKey: number
+  resolutionPayloadHash: number
+  updatedAt: number
   createdAt: number
   _all: number
 }
 
 
 export type ExerciseFlagAvgAggregateInputType = {
+  affectedAttemptCount?: true
   affectedReviewCount?: true
+  practiceOnlyAttemptCount?: true
+  replayedReviewCount?: true
+  quarantinedExerciseCount?: true
 }
 
 export type ExerciseFlagSumAggregateInputType = {
+  affectedAttemptCount?: true
   affectedReviewCount?: true
+  practiceOnlyAttemptCount?: true
+  replayedReviewCount?: true
+  quarantinedExerciseCount?: true
 }
 
 export type ExerciseFlagMinAggregateInputType = {
@@ -133,10 +170,17 @@ export type ExerciseFlagMinAggregateInputType = {
   evidenceCorrectionAction?: true
   evidenceCorrectionStatus?: true
   practiceEvidenceNeedsCorrection?: true
+  affectedAttemptCount?: true
   affectedReviewCount?: true
+  practiceOnlyAttemptCount?: true
   correctionStartedAt?: true
   correctionCompletedAt?: true
   incidentKey?: true
+  replayedReviewCount?: true
+  quarantinedExerciseCount?: true
+  resolutionIdempotencyKey?: true
+  resolutionPayloadHash?: true
+  updatedAt?: true
   createdAt?: true
 }
 
@@ -157,10 +201,17 @@ export type ExerciseFlagMaxAggregateInputType = {
   evidenceCorrectionAction?: true
   evidenceCorrectionStatus?: true
   practiceEvidenceNeedsCorrection?: true
+  affectedAttemptCount?: true
   affectedReviewCount?: true
+  practiceOnlyAttemptCount?: true
   correctionStartedAt?: true
   correctionCompletedAt?: true
   incidentKey?: true
+  replayedReviewCount?: true
+  quarantinedExerciseCount?: true
+  resolutionIdempotencyKey?: true
+  resolutionPayloadHash?: true
+  updatedAt?: true
   createdAt?: true
 }
 
@@ -181,10 +232,17 @@ export type ExerciseFlagCountAggregateInputType = {
   evidenceCorrectionAction?: true
   evidenceCorrectionStatus?: true
   practiceEvidenceNeedsCorrection?: true
+  affectedAttemptCount?: true
   affectedReviewCount?: true
+  practiceOnlyAttemptCount?: true
   correctionStartedAt?: true
   correctionCompletedAt?: true
   incidentKey?: true
+  replayedReviewCount?: true
+  quarantinedExerciseCount?: true
+  resolutionIdempotencyKey?: true
+  resolutionPayloadHash?: true
+  updatedAt?: true
   createdAt?: true
   _all?: true
 }
@@ -292,10 +350,17 @@ export type ExerciseFlagGroupByOutputType = {
   evidenceCorrectionAction: $Enums.ExerciseEvidenceCorrectionAction
   evidenceCorrectionStatus: $Enums.ExerciseEvidenceCorrectionStatus
   practiceEvidenceNeedsCorrection: boolean
+  affectedAttemptCount: number
   affectedReviewCount: number
+  practiceOnlyAttemptCount: number
   correctionStartedAt: Date | null
   correctionCompletedAt: Date | null
   incidentKey: string | null
+  replayedReviewCount: number
+  quarantinedExerciseCount: number
+  resolutionIdempotencyKey: string | null
+  resolutionPayloadHash: string | null
+  updatedAt: Date
   createdAt: Date
   _count: ExerciseFlagCountAggregateOutputType | null
   _avg: ExerciseFlagAvgAggregateOutputType | null
@@ -339,10 +404,17 @@ export type ExerciseFlagWhereInput = {
   evidenceCorrectionAction?: Prisma.EnumExerciseEvidenceCorrectionActionFilter<"ExerciseFlag"> | $Enums.ExerciseEvidenceCorrectionAction
   evidenceCorrectionStatus?: Prisma.EnumExerciseEvidenceCorrectionStatusFilter<"ExerciseFlag"> | $Enums.ExerciseEvidenceCorrectionStatus
   practiceEvidenceNeedsCorrection?: Prisma.BoolFilter<"ExerciseFlag"> | boolean
+  affectedAttemptCount?: Prisma.IntFilter<"ExerciseFlag"> | number
   affectedReviewCount?: Prisma.IntFilter<"ExerciseFlag"> | number
+  practiceOnlyAttemptCount?: Prisma.IntFilter<"ExerciseFlag"> | number
   correctionStartedAt?: Prisma.DateTimeNullableFilter<"ExerciseFlag"> | Date | string | null
   correctionCompletedAt?: Prisma.DateTimeNullableFilter<"ExerciseFlag"> | Date | string | null
   incidentKey?: Prisma.StringNullableFilter<"ExerciseFlag"> | string | null
+  replayedReviewCount?: Prisma.IntFilter<"ExerciseFlag"> | number
+  quarantinedExerciseCount?: Prisma.IntFilter<"ExerciseFlag"> | number
+  resolutionIdempotencyKey?: Prisma.StringNullableFilter<"ExerciseFlag"> | string | null
+  resolutionPayloadHash?: Prisma.StringNullableFilter<"ExerciseFlag"> | string | null
+  updatedAt?: Prisma.DateTimeFilter<"ExerciseFlag"> | Date | string
   createdAt?: Prisma.DateTimeFilter<"ExerciseFlag"> | Date | string
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   exercise?: Prisma.XOR<Prisma.ExerciseScalarRelationFilter, Prisma.ExerciseWhereInput>
@@ -365,10 +437,17 @@ export type ExerciseFlagOrderByWithRelationInput = {
   evidenceCorrectionAction?: Prisma.SortOrder
   evidenceCorrectionStatus?: Prisma.SortOrder
   practiceEvidenceNeedsCorrection?: Prisma.SortOrder
+  affectedAttemptCount?: Prisma.SortOrder
   affectedReviewCount?: Prisma.SortOrder
+  practiceOnlyAttemptCount?: Prisma.SortOrder
   correctionStartedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   correctionCompletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   incidentKey?: Prisma.SortOrderInput | Prisma.SortOrder
+  replayedReviewCount?: Prisma.SortOrder
+  quarantinedExerciseCount?: Prisma.SortOrder
+  resolutionIdempotencyKey?: Prisma.SortOrderInput | Prisma.SortOrder
+  resolutionPayloadHash?: Prisma.SortOrderInput | Prisma.SortOrder
+  updatedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   user?: Prisma.UserOrderByWithRelationInput
   exercise?: Prisma.ExerciseOrderByWithRelationInput
@@ -394,10 +473,17 @@ export type ExerciseFlagWhereUniqueInput = Prisma.AtLeast<{
   evidenceCorrectionAction?: Prisma.EnumExerciseEvidenceCorrectionActionFilter<"ExerciseFlag"> | $Enums.ExerciseEvidenceCorrectionAction
   evidenceCorrectionStatus?: Prisma.EnumExerciseEvidenceCorrectionStatusFilter<"ExerciseFlag"> | $Enums.ExerciseEvidenceCorrectionStatus
   practiceEvidenceNeedsCorrection?: Prisma.BoolFilter<"ExerciseFlag"> | boolean
+  affectedAttemptCount?: Prisma.IntFilter<"ExerciseFlag"> | number
   affectedReviewCount?: Prisma.IntFilter<"ExerciseFlag"> | number
+  practiceOnlyAttemptCount?: Prisma.IntFilter<"ExerciseFlag"> | number
   correctionStartedAt?: Prisma.DateTimeNullableFilter<"ExerciseFlag"> | Date | string | null
   correctionCompletedAt?: Prisma.DateTimeNullableFilter<"ExerciseFlag"> | Date | string | null
   incidentKey?: Prisma.StringNullableFilter<"ExerciseFlag"> | string | null
+  replayedReviewCount?: Prisma.IntFilter<"ExerciseFlag"> | number
+  quarantinedExerciseCount?: Prisma.IntFilter<"ExerciseFlag"> | number
+  resolutionIdempotencyKey?: Prisma.StringNullableFilter<"ExerciseFlag"> | string | null
+  resolutionPayloadHash?: Prisma.StringNullableFilter<"ExerciseFlag"> | string | null
+  updatedAt?: Prisma.DateTimeFilter<"ExerciseFlag"> | Date | string
   createdAt?: Prisma.DateTimeFilter<"ExerciseFlag"> | Date | string
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   exercise?: Prisma.XOR<Prisma.ExerciseScalarRelationFilter, Prisma.ExerciseWhereInput>
@@ -420,10 +506,17 @@ export type ExerciseFlagOrderByWithAggregationInput = {
   evidenceCorrectionAction?: Prisma.SortOrder
   evidenceCorrectionStatus?: Prisma.SortOrder
   practiceEvidenceNeedsCorrection?: Prisma.SortOrder
+  affectedAttemptCount?: Prisma.SortOrder
   affectedReviewCount?: Prisma.SortOrder
+  practiceOnlyAttemptCount?: Prisma.SortOrder
   correctionStartedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   correctionCompletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   incidentKey?: Prisma.SortOrderInput | Prisma.SortOrder
+  replayedReviewCount?: Prisma.SortOrder
+  quarantinedExerciseCount?: Prisma.SortOrder
+  resolutionIdempotencyKey?: Prisma.SortOrderInput | Prisma.SortOrder
+  resolutionPayloadHash?: Prisma.SortOrderInput | Prisma.SortOrder
+  updatedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   _count?: Prisma.ExerciseFlagCountOrderByAggregateInput
   _avg?: Prisma.ExerciseFlagAvgOrderByAggregateInput
@@ -452,10 +545,17 @@ export type ExerciseFlagScalarWhereWithAggregatesInput = {
   evidenceCorrectionAction?: Prisma.EnumExerciseEvidenceCorrectionActionWithAggregatesFilter<"ExerciseFlag"> | $Enums.ExerciseEvidenceCorrectionAction
   evidenceCorrectionStatus?: Prisma.EnumExerciseEvidenceCorrectionStatusWithAggregatesFilter<"ExerciseFlag"> | $Enums.ExerciseEvidenceCorrectionStatus
   practiceEvidenceNeedsCorrection?: Prisma.BoolWithAggregatesFilter<"ExerciseFlag"> | boolean
+  affectedAttemptCount?: Prisma.IntWithAggregatesFilter<"ExerciseFlag"> | number
   affectedReviewCount?: Prisma.IntWithAggregatesFilter<"ExerciseFlag"> | number
+  practiceOnlyAttemptCount?: Prisma.IntWithAggregatesFilter<"ExerciseFlag"> | number
   correctionStartedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"ExerciseFlag"> | Date | string | null
   correctionCompletedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"ExerciseFlag"> | Date | string | null
   incidentKey?: Prisma.StringNullableWithAggregatesFilter<"ExerciseFlag"> | string | null
+  replayedReviewCount?: Prisma.IntWithAggregatesFilter<"ExerciseFlag"> | number
+  quarantinedExerciseCount?: Prisma.IntWithAggregatesFilter<"ExerciseFlag"> | number
+  resolutionIdempotencyKey?: Prisma.StringNullableWithAggregatesFilter<"ExerciseFlag"> | string | null
+  resolutionPayloadHash?: Prisma.StringNullableWithAggregatesFilter<"ExerciseFlag"> | string | null
+  updatedAt?: Prisma.DateTimeWithAggregatesFilter<"ExerciseFlag"> | Date | string
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"ExerciseFlag"> | Date | string
 }
 
@@ -474,10 +574,17 @@ export type ExerciseFlagCreateInput = {
   evidenceCorrectionAction?: $Enums.ExerciseEvidenceCorrectionAction
   evidenceCorrectionStatus?: $Enums.ExerciseEvidenceCorrectionStatus
   practiceEvidenceNeedsCorrection?: boolean
+  affectedAttemptCount?: number
   affectedReviewCount?: number
+  practiceOnlyAttemptCount?: number
   correctionStartedAt?: Date | string | null
   correctionCompletedAt?: Date | string | null
   incidentKey?: string | null
+  replayedReviewCount?: number
+  quarantinedExerciseCount?: number
+  resolutionIdempotencyKey?: string | null
+  resolutionPayloadHash?: string | null
+  updatedAt?: Date | string
   createdAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutExerciseFlagsInput
   exercise: Prisma.ExerciseCreateNestedOneWithoutFlagsInput
@@ -500,10 +607,17 @@ export type ExerciseFlagUncheckedCreateInput = {
   evidenceCorrectionAction?: $Enums.ExerciseEvidenceCorrectionAction
   evidenceCorrectionStatus?: $Enums.ExerciseEvidenceCorrectionStatus
   practiceEvidenceNeedsCorrection?: boolean
+  affectedAttemptCount?: number
   affectedReviewCount?: number
+  practiceOnlyAttemptCount?: number
   correctionStartedAt?: Date | string | null
   correctionCompletedAt?: Date | string | null
   incidentKey?: string | null
+  replayedReviewCount?: number
+  quarantinedExerciseCount?: number
+  resolutionIdempotencyKey?: string | null
+  resolutionPayloadHash?: string | null
+  updatedAt?: Date | string
   createdAt?: Date | string
 }
 
@@ -522,10 +636,17 @@ export type ExerciseFlagUpdateInput = {
   evidenceCorrectionAction?: Prisma.EnumExerciseEvidenceCorrectionActionFieldUpdateOperationsInput | $Enums.ExerciseEvidenceCorrectionAction
   evidenceCorrectionStatus?: Prisma.EnumExerciseEvidenceCorrectionStatusFieldUpdateOperationsInput | $Enums.ExerciseEvidenceCorrectionStatus
   practiceEvidenceNeedsCorrection?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  affectedAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
   affectedReviewCount?: Prisma.IntFieldUpdateOperationsInput | number
+  practiceOnlyAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
   correctionStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   correctionCompletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   incidentKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  replayedReviewCount?: Prisma.IntFieldUpdateOperationsInput | number
+  quarantinedExerciseCount?: Prisma.IntFieldUpdateOperationsInput | number
+  resolutionIdempotencyKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  resolutionPayloadHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutExerciseFlagsNestedInput
   exercise?: Prisma.ExerciseUpdateOneRequiredWithoutFlagsNestedInput
@@ -548,10 +669,17 @@ export type ExerciseFlagUncheckedUpdateInput = {
   evidenceCorrectionAction?: Prisma.EnumExerciseEvidenceCorrectionActionFieldUpdateOperationsInput | $Enums.ExerciseEvidenceCorrectionAction
   evidenceCorrectionStatus?: Prisma.EnumExerciseEvidenceCorrectionStatusFieldUpdateOperationsInput | $Enums.ExerciseEvidenceCorrectionStatus
   practiceEvidenceNeedsCorrection?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  affectedAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
   affectedReviewCount?: Prisma.IntFieldUpdateOperationsInput | number
+  practiceOnlyAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
   correctionStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   correctionCompletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   incidentKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  replayedReviewCount?: Prisma.IntFieldUpdateOperationsInput | number
+  quarantinedExerciseCount?: Prisma.IntFieldUpdateOperationsInput | number
+  resolutionIdempotencyKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  resolutionPayloadHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -572,10 +700,17 @@ export type ExerciseFlagCreateManyInput = {
   evidenceCorrectionAction?: $Enums.ExerciseEvidenceCorrectionAction
   evidenceCorrectionStatus?: $Enums.ExerciseEvidenceCorrectionStatus
   practiceEvidenceNeedsCorrection?: boolean
+  affectedAttemptCount?: number
   affectedReviewCount?: number
+  practiceOnlyAttemptCount?: number
   correctionStartedAt?: Date | string | null
   correctionCompletedAt?: Date | string | null
   incidentKey?: string | null
+  replayedReviewCount?: number
+  quarantinedExerciseCount?: number
+  resolutionIdempotencyKey?: string | null
+  resolutionPayloadHash?: string | null
+  updatedAt?: Date | string
   createdAt?: Date | string
 }
 
@@ -594,10 +729,17 @@ export type ExerciseFlagUpdateManyMutationInput = {
   evidenceCorrectionAction?: Prisma.EnumExerciseEvidenceCorrectionActionFieldUpdateOperationsInput | $Enums.ExerciseEvidenceCorrectionAction
   evidenceCorrectionStatus?: Prisma.EnumExerciseEvidenceCorrectionStatusFieldUpdateOperationsInput | $Enums.ExerciseEvidenceCorrectionStatus
   practiceEvidenceNeedsCorrection?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  affectedAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
   affectedReviewCount?: Prisma.IntFieldUpdateOperationsInput | number
+  practiceOnlyAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
   correctionStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   correctionCompletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   incidentKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  replayedReviewCount?: Prisma.IntFieldUpdateOperationsInput | number
+  quarantinedExerciseCount?: Prisma.IntFieldUpdateOperationsInput | number
+  resolutionIdempotencyKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  resolutionPayloadHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -618,10 +760,17 @@ export type ExerciseFlagUncheckedUpdateManyInput = {
   evidenceCorrectionAction?: Prisma.EnumExerciseEvidenceCorrectionActionFieldUpdateOperationsInput | $Enums.ExerciseEvidenceCorrectionAction
   evidenceCorrectionStatus?: Prisma.EnumExerciseEvidenceCorrectionStatusFieldUpdateOperationsInput | $Enums.ExerciseEvidenceCorrectionStatus
   practiceEvidenceNeedsCorrection?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  affectedAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
   affectedReviewCount?: Prisma.IntFieldUpdateOperationsInput | number
+  practiceOnlyAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
   correctionStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   correctionCompletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   incidentKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  replayedReviewCount?: Prisma.IntFieldUpdateOperationsInput | number
+  quarantinedExerciseCount?: Prisma.IntFieldUpdateOperationsInput | number
+  resolutionIdempotencyKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  resolutionPayloadHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -652,15 +801,26 @@ export type ExerciseFlagCountOrderByAggregateInput = {
   evidenceCorrectionAction?: Prisma.SortOrder
   evidenceCorrectionStatus?: Prisma.SortOrder
   practiceEvidenceNeedsCorrection?: Prisma.SortOrder
+  affectedAttemptCount?: Prisma.SortOrder
   affectedReviewCount?: Prisma.SortOrder
+  practiceOnlyAttemptCount?: Prisma.SortOrder
   correctionStartedAt?: Prisma.SortOrder
   correctionCompletedAt?: Prisma.SortOrder
   incidentKey?: Prisma.SortOrder
+  replayedReviewCount?: Prisma.SortOrder
+  quarantinedExerciseCount?: Prisma.SortOrder
+  resolutionIdempotencyKey?: Prisma.SortOrder
+  resolutionPayloadHash?: Prisma.SortOrder
+  updatedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
 
 export type ExerciseFlagAvgOrderByAggregateInput = {
+  affectedAttemptCount?: Prisma.SortOrder
   affectedReviewCount?: Prisma.SortOrder
+  practiceOnlyAttemptCount?: Prisma.SortOrder
+  replayedReviewCount?: Prisma.SortOrder
+  quarantinedExerciseCount?: Prisma.SortOrder
 }
 
 export type ExerciseFlagMaxOrderByAggregateInput = {
@@ -680,10 +840,17 @@ export type ExerciseFlagMaxOrderByAggregateInput = {
   evidenceCorrectionAction?: Prisma.SortOrder
   evidenceCorrectionStatus?: Prisma.SortOrder
   practiceEvidenceNeedsCorrection?: Prisma.SortOrder
+  affectedAttemptCount?: Prisma.SortOrder
   affectedReviewCount?: Prisma.SortOrder
+  practiceOnlyAttemptCount?: Prisma.SortOrder
   correctionStartedAt?: Prisma.SortOrder
   correctionCompletedAt?: Prisma.SortOrder
   incidentKey?: Prisma.SortOrder
+  replayedReviewCount?: Prisma.SortOrder
+  quarantinedExerciseCount?: Prisma.SortOrder
+  resolutionIdempotencyKey?: Prisma.SortOrder
+  resolutionPayloadHash?: Prisma.SortOrder
+  updatedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
 
@@ -704,15 +871,26 @@ export type ExerciseFlagMinOrderByAggregateInput = {
   evidenceCorrectionAction?: Prisma.SortOrder
   evidenceCorrectionStatus?: Prisma.SortOrder
   practiceEvidenceNeedsCorrection?: Prisma.SortOrder
+  affectedAttemptCount?: Prisma.SortOrder
   affectedReviewCount?: Prisma.SortOrder
+  practiceOnlyAttemptCount?: Prisma.SortOrder
   correctionStartedAt?: Prisma.SortOrder
   correctionCompletedAt?: Prisma.SortOrder
   incidentKey?: Prisma.SortOrder
+  replayedReviewCount?: Prisma.SortOrder
+  quarantinedExerciseCount?: Prisma.SortOrder
+  resolutionIdempotencyKey?: Prisma.SortOrder
+  resolutionPayloadHash?: Prisma.SortOrder
+  updatedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
 
 export type ExerciseFlagSumOrderByAggregateInput = {
+  affectedAttemptCount?: Prisma.SortOrder
   affectedReviewCount?: Prisma.SortOrder
+  practiceOnlyAttemptCount?: Prisma.SortOrder
+  replayedReviewCount?: Prisma.SortOrder
+  quarantinedExerciseCount?: Prisma.SortOrder
 }
 
 export type ExerciseFlagCreateNestedManyWithoutUserInput = {
@@ -815,10 +993,6 @@ export type EnumExerciseEvidenceCorrectionActionFieldUpdateOperationsInput = {
   set?: $Enums.ExerciseEvidenceCorrectionAction
 }
 
-export type EnumExerciseEvidenceCorrectionStatusFieldUpdateOperationsInput = {
-  set?: $Enums.ExerciseEvidenceCorrectionStatus
-}
-
 export type ExerciseFlagCreateWithoutUserInput = {
   id?: string
   reason: $Enums.ExerciseFlagReason
@@ -834,10 +1008,17 @@ export type ExerciseFlagCreateWithoutUserInput = {
   evidenceCorrectionAction?: $Enums.ExerciseEvidenceCorrectionAction
   evidenceCorrectionStatus?: $Enums.ExerciseEvidenceCorrectionStatus
   practiceEvidenceNeedsCorrection?: boolean
+  affectedAttemptCount?: number
   affectedReviewCount?: number
+  practiceOnlyAttemptCount?: number
   correctionStartedAt?: Date | string | null
   correctionCompletedAt?: Date | string | null
   incidentKey?: string | null
+  replayedReviewCount?: number
+  quarantinedExerciseCount?: number
+  resolutionIdempotencyKey?: string | null
+  resolutionPayloadHash?: string | null
+  updatedAt?: Date | string
   createdAt?: Date | string
   exercise: Prisma.ExerciseCreateNestedOneWithoutFlagsInput
 }
@@ -858,10 +1039,17 @@ export type ExerciseFlagUncheckedCreateWithoutUserInput = {
   evidenceCorrectionAction?: $Enums.ExerciseEvidenceCorrectionAction
   evidenceCorrectionStatus?: $Enums.ExerciseEvidenceCorrectionStatus
   practiceEvidenceNeedsCorrection?: boolean
+  affectedAttemptCount?: number
   affectedReviewCount?: number
+  practiceOnlyAttemptCount?: number
   correctionStartedAt?: Date | string | null
   correctionCompletedAt?: Date | string | null
   incidentKey?: string | null
+  replayedReviewCount?: number
+  quarantinedExerciseCount?: number
+  resolutionIdempotencyKey?: string | null
+  resolutionPayloadHash?: string | null
+  updatedAt?: Date | string
   createdAt?: Date | string
 }
 
@@ -911,10 +1099,17 @@ export type ExerciseFlagScalarWhereInput = {
   evidenceCorrectionAction?: Prisma.EnumExerciseEvidenceCorrectionActionFilter<"ExerciseFlag"> | $Enums.ExerciseEvidenceCorrectionAction
   evidenceCorrectionStatus?: Prisma.EnumExerciseEvidenceCorrectionStatusFilter<"ExerciseFlag"> | $Enums.ExerciseEvidenceCorrectionStatus
   practiceEvidenceNeedsCorrection?: Prisma.BoolFilter<"ExerciseFlag"> | boolean
+  affectedAttemptCount?: Prisma.IntFilter<"ExerciseFlag"> | number
   affectedReviewCount?: Prisma.IntFilter<"ExerciseFlag"> | number
+  practiceOnlyAttemptCount?: Prisma.IntFilter<"ExerciseFlag"> | number
   correctionStartedAt?: Prisma.DateTimeNullableFilter<"ExerciseFlag"> | Date | string | null
   correctionCompletedAt?: Prisma.DateTimeNullableFilter<"ExerciseFlag"> | Date | string | null
   incidentKey?: Prisma.StringNullableFilter<"ExerciseFlag"> | string | null
+  replayedReviewCount?: Prisma.IntFilter<"ExerciseFlag"> | number
+  quarantinedExerciseCount?: Prisma.IntFilter<"ExerciseFlag"> | number
+  resolutionIdempotencyKey?: Prisma.StringNullableFilter<"ExerciseFlag"> | string | null
+  resolutionPayloadHash?: Prisma.StringNullableFilter<"ExerciseFlag"> | string | null
+  updatedAt?: Prisma.DateTimeFilter<"ExerciseFlag"> | Date | string
   createdAt?: Prisma.DateTimeFilter<"ExerciseFlag"> | Date | string
 }
 
@@ -933,10 +1128,17 @@ export type ExerciseFlagCreateWithoutExerciseInput = {
   evidenceCorrectionAction?: $Enums.ExerciseEvidenceCorrectionAction
   evidenceCorrectionStatus?: $Enums.ExerciseEvidenceCorrectionStatus
   practiceEvidenceNeedsCorrection?: boolean
+  affectedAttemptCount?: number
   affectedReviewCount?: number
+  practiceOnlyAttemptCount?: number
   correctionStartedAt?: Date | string | null
   correctionCompletedAt?: Date | string | null
   incidentKey?: string | null
+  replayedReviewCount?: number
+  quarantinedExerciseCount?: number
+  resolutionIdempotencyKey?: string | null
+  resolutionPayloadHash?: string | null
+  updatedAt?: Date | string
   createdAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutExerciseFlagsInput
 }
@@ -956,10 +1158,17 @@ export type ExerciseFlagUncheckedCreateWithoutExerciseInput = {
   evidenceCorrectionAction?: $Enums.ExerciseEvidenceCorrectionAction
   evidenceCorrectionStatus?: $Enums.ExerciseEvidenceCorrectionStatus
   practiceEvidenceNeedsCorrection?: boolean
+  affectedAttemptCount?: number
   affectedReviewCount?: number
+  practiceOnlyAttemptCount?: number
   correctionStartedAt?: Date | string | null
   correctionCompletedAt?: Date | string | null
   incidentKey?: string | null
+  replayedReviewCount?: number
+  quarantinedExerciseCount?: number
+  resolutionIdempotencyKey?: string | null
+  resolutionPayloadHash?: string | null
+  updatedAt?: Date | string
   createdAt?: Date | string
 }
 
@@ -1005,10 +1214,17 @@ export type ExerciseFlagCreateManyUserInput = {
   evidenceCorrectionAction?: $Enums.ExerciseEvidenceCorrectionAction
   evidenceCorrectionStatus?: $Enums.ExerciseEvidenceCorrectionStatus
   practiceEvidenceNeedsCorrection?: boolean
+  affectedAttemptCount?: number
   affectedReviewCount?: number
+  practiceOnlyAttemptCount?: number
   correctionStartedAt?: Date | string | null
   correctionCompletedAt?: Date | string | null
   incidentKey?: string | null
+  replayedReviewCount?: number
+  quarantinedExerciseCount?: number
+  resolutionIdempotencyKey?: string | null
+  resolutionPayloadHash?: string | null
+  updatedAt?: Date | string
   createdAt?: Date | string
 }
 
@@ -1027,10 +1243,17 @@ export type ExerciseFlagUpdateWithoutUserInput = {
   evidenceCorrectionAction?: Prisma.EnumExerciseEvidenceCorrectionActionFieldUpdateOperationsInput | $Enums.ExerciseEvidenceCorrectionAction
   evidenceCorrectionStatus?: Prisma.EnumExerciseEvidenceCorrectionStatusFieldUpdateOperationsInput | $Enums.ExerciseEvidenceCorrectionStatus
   practiceEvidenceNeedsCorrection?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  affectedAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
   affectedReviewCount?: Prisma.IntFieldUpdateOperationsInput | number
+  practiceOnlyAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
   correctionStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   correctionCompletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   incidentKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  replayedReviewCount?: Prisma.IntFieldUpdateOperationsInput | number
+  quarantinedExerciseCount?: Prisma.IntFieldUpdateOperationsInput | number
+  resolutionIdempotencyKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  resolutionPayloadHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   exercise?: Prisma.ExerciseUpdateOneRequiredWithoutFlagsNestedInput
 }
@@ -1051,10 +1274,17 @@ export type ExerciseFlagUncheckedUpdateWithoutUserInput = {
   evidenceCorrectionAction?: Prisma.EnumExerciseEvidenceCorrectionActionFieldUpdateOperationsInput | $Enums.ExerciseEvidenceCorrectionAction
   evidenceCorrectionStatus?: Prisma.EnumExerciseEvidenceCorrectionStatusFieldUpdateOperationsInput | $Enums.ExerciseEvidenceCorrectionStatus
   practiceEvidenceNeedsCorrection?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  affectedAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
   affectedReviewCount?: Prisma.IntFieldUpdateOperationsInput | number
+  practiceOnlyAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
   correctionStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   correctionCompletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   incidentKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  replayedReviewCount?: Prisma.IntFieldUpdateOperationsInput | number
+  quarantinedExerciseCount?: Prisma.IntFieldUpdateOperationsInput | number
+  resolutionIdempotencyKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  resolutionPayloadHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -1074,10 +1304,17 @@ export type ExerciseFlagUncheckedUpdateManyWithoutUserInput = {
   evidenceCorrectionAction?: Prisma.EnumExerciseEvidenceCorrectionActionFieldUpdateOperationsInput | $Enums.ExerciseEvidenceCorrectionAction
   evidenceCorrectionStatus?: Prisma.EnumExerciseEvidenceCorrectionStatusFieldUpdateOperationsInput | $Enums.ExerciseEvidenceCorrectionStatus
   practiceEvidenceNeedsCorrection?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  affectedAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
   affectedReviewCount?: Prisma.IntFieldUpdateOperationsInput | number
+  practiceOnlyAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
   correctionStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   correctionCompletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   incidentKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  replayedReviewCount?: Prisma.IntFieldUpdateOperationsInput | number
+  quarantinedExerciseCount?: Prisma.IntFieldUpdateOperationsInput | number
+  resolutionIdempotencyKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  resolutionPayloadHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -1096,10 +1333,17 @@ export type ExerciseFlagCreateManyExerciseInput = {
   evidenceCorrectionAction?: $Enums.ExerciseEvidenceCorrectionAction
   evidenceCorrectionStatus?: $Enums.ExerciseEvidenceCorrectionStatus
   practiceEvidenceNeedsCorrection?: boolean
+  affectedAttemptCount?: number
   affectedReviewCount?: number
+  practiceOnlyAttemptCount?: number
   correctionStartedAt?: Date | string | null
   correctionCompletedAt?: Date | string | null
   incidentKey?: string | null
+  replayedReviewCount?: number
+  quarantinedExerciseCount?: number
+  resolutionIdempotencyKey?: string | null
+  resolutionPayloadHash?: string | null
+  updatedAt?: Date | string
   createdAt?: Date | string
 }
 
@@ -1118,10 +1362,17 @@ export type ExerciseFlagUpdateWithoutExerciseInput = {
   evidenceCorrectionAction?: Prisma.EnumExerciseEvidenceCorrectionActionFieldUpdateOperationsInput | $Enums.ExerciseEvidenceCorrectionAction
   evidenceCorrectionStatus?: Prisma.EnumExerciseEvidenceCorrectionStatusFieldUpdateOperationsInput | $Enums.ExerciseEvidenceCorrectionStatus
   practiceEvidenceNeedsCorrection?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  affectedAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
   affectedReviewCount?: Prisma.IntFieldUpdateOperationsInput | number
+  practiceOnlyAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
   correctionStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   correctionCompletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   incidentKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  replayedReviewCount?: Prisma.IntFieldUpdateOperationsInput | number
+  quarantinedExerciseCount?: Prisma.IntFieldUpdateOperationsInput | number
+  resolutionIdempotencyKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  resolutionPayloadHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutExerciseFlagsNestedInput
 }
@@ -1141,10 +1392,17 @@ export type ExerciseFlagUncheckedUpdateWithoutExerciseInput = {
   evidenceCorrectionAction?: Prisma.EnumExerciseEvidenceCorrectionActionFieldUpdateOperationsInput | $Enums.ExerciseEvidenceCorrectionAction
   evidenceCorrectionStatus?: Prisma.EnumExerciseEvidenceCorrectionStatusFieldUpdateOperationsInput | $Enums.ExerciseEvidenceCorrectionStatus
   practiceEvidenceNeedsCorrection?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  affectedAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
   affectedReviewCount?: Prisma.IntFieldUpdateOperationsInput | number
+  practiceOnlyAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
   correctionStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   correctionCompletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   incidentKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  replayedReviewCount?: Prisma.IntFieldUpdateOperationsInput | number
+  quarantinedExerciseCount?: Prisma.IntFieldUpdateOperationsInput | number
+  resolutionIdempotencyKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  resolutionPayloadHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -1163,10 +1421,17 @@ export type ExerciseFlagUncheckedUpdateManyWithoutExerciseInput = {
   evidenceCorrectionAction?: Prisma.EnumExerciseEvidenceCorrectionActionFieldUpdateOperationsInput | $Enums.ExerciseEvidenceCorrectionAction
   evidenceCorrectionStatus?: Prisma.EnumExerciseEvidenceCorrectionStatusFieldUpdateOperationsInput | $Enums.ExerciseEvidenceCorrectionStatus
   practiceEvidenceNeedsCorrection?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  affectedAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
   affectedReviewCount?: Prisma.IntFieldUpdateOperationsInput | number
+  practiceOnlyAttemptCount?: Prisma.IntFieldUpdateOperationsInput | number
   correctionStartedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   correctionCompletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   incidentKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  replayedReviewCount?: Prisma.IntFieldUpdateOperationsInput | number
+  quarantinedExerciseCount?: Prisma.IntFieldUpdateOperationsInput | number
+  resolutionIdempotencyKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  resolutionPayloadHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -1189,10 +1454,17 @@ export type ExerciseFlagSelect<ExtArgs extends runtime.Types.Extensions.Internal
   evidenceCorrectionAction?: boolean
   evidenceCorrectionStatus?: boolean
   practiceEvidenceNeedsCorrection?: boolean
+  affectedAttemptCount?: boolean
   affectedReviewCount?: boolean
+  practiceOnlyAttemptCount?: boolean
   correctionStartedAt?: boolean
   correctionCompletedAt?: boolean
   incidentKey?: boolean
+  replayedReviewCount?: boolean
+  quarantinedExerciseCount?: boolean
+  resolutionIdempotencyKey?: boolean
+  resolutionPayloadHash?: boolean
+  updatedAt?: boolean
   createdAt?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   exercise?: boolean | Prisma.ExerciseDefaultArgs<ExtArgs>
@@ -1215,10 +1487,17 @@ export type ExerciseFlagSelectCreateManyAndReturn<ExtArgs extends runtime.Types.
   evidenceCorrectionAction?: boolean
   evidenceCorrectionStatus?: boolean
   practiceEvidenceNeedsCorrection?: boolean
+  affectedAttemptCount?: boolean
   affectedReviewCount?: boolean
+  practiceOnlyAttemptCount?: boolean
   correctionStartedAt?: boolean
   correctionCompletedAt?: boolean
   incidentKey?: boolean
+  replayedReviewCount?: boolean
+  quarantinedExerciseCount?: boolean
+  resolutionIdempotencyKey?: boolean
+  resolutionPayloadHash?: boolean
+  updatedAt?: boolean
   createdAt?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   exercise?: boolean | Prisma.ExerciseDefaultArgs<ExtArgs>
@@ -1241,10 +1520,17 @@ export type ExerciseFlagSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.
   evidenceCorrectionAction?: boolean
   evidenceCorrectionStatus?: boolean
   practiceEvidenceNeedsCorrection?: boolean
+  affectedAttemptCount?: boolean
   affectedReviewCount?: boolean
+  practiceOnlyAttemptCount?: boolean
   correctionStartedAt?: boolean
   correctionCompletedAt?: boolean
   incidentKey?: boolean
+  replayedReviewCount?: boolean
+  quarantinedExerciseCount?: boolean
+  resolutionIdempotencyKey?: boolean
+  resolutionPayloadHash?: boolean
+  updatedAt?: boolean
   createdAt?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   exercise?: boolean | Prisma.ExerciseDefaultArgs<ExtArgs>
@@ -1267,14 +1553,21 @@ export type ExerciseFlagSelectScalar = {
   evidenceCorrectionAction?: boolean
   evidenceCorrectionStatus?: boolean
   practiceEvidenceNeedsCorrection?: boolean
+  affectedAttemptCount?: boolean
   affectedReviewCount?: boolean
+  practiceOnlyAttemptCount?: boolean
   correctionStartedAt?: boolean
   correctionCompletedAt?: boolean
   incidentKey?: boolean
+  replayedReviewCount?: boolean
+  quarantinedExerciseCount?: boolean
+  resolutionIdempotencyKey?: boolean
+  resolutionPayloadHash?: boolean
+  updatedAt?: boolean
   createdAt?: boolean
 }
 
-export type ExerciseFlagOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "exerciseId" | "reason" | "note" | "status" | "resolvedAt" | "resolutionNote" | "retiredExerciseAt" | "retirementReason" | "adjudicationStatus" | "adjudicatedAt" | "adjudicationCode" | "evidenceCorrectionAction" | "evidenceCorrectionStatus" | "practiceEvidenceNeedsCorrection" | "affectedReviewCount" | "correctionStartedAt" | "correctionCompletedAt" | "incidentKey" | "createdAt", ExtArgs["result"]["exerciseFlag"]>
+export type ExerciseFlagOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "exerciseId" | "reason" | "note" | "status" | "resolvedAt" | "resolutionNote" | "retiredExerciseAt" | "retirementReason" | "adjudicationStatus" | "adjudicatedAt" | "adjudicationCode" | "evidenceCorrectionAction" | "evidenceCorrectionStatus" | "practiceEvidenceNeedsCorrection" | "affectedAttemptCount" | "affectedReviewCount" | "practiceOnlyAttemptCount" | "correctionStartedAt" | "correctionCompletedAt" | "incidentKey" | "replayedReviewCount" | "quarantinedExerciseCount" | "resolutionIdempotencyKey" | "resolutionPayloadHash" | "updatedAt" | "createdAt", ExtArgs["result"]["exerciseFlag"]>
 export type ExerciseFlagInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   exercise?: boolean | Prisma.ExerciseDefaultArgs<ExtArgs>
@@ -1311,10 +1604,17 @@ export type $ExerciseFlagPayload<ExtArgs extends runtime.Types.Extensions.Intern
     evidenceCorrectionAction: $Enums.ExerciseEvidenceCorrectionAction
     evidenceCorrectionStatus: $Enums.ExerciseEvidenceCorrectionStatus
     practiceEvidenceNeedsCorrection: boolean
+    affectedAttemptCount: number
     affectedReviewCount: number
+    practiceOnlyAttemptCount: number
     correctionStartedAt: Date | null
     correctionCompletedAt: Date | null
     incidentKey: string | null
+    replayedReviewCount: number
+    quarantinedExerciseCount: number
+    resolutionIdempotencyKey: string | null
+    resolutionPayloadHash: string | null
+    updatedAt: Date
     createdAt: Date
   }, ExtArgs["result"]["exerciseFlag"]>
   composites: {}
@@ -1757,10 +2057,17 @@ export interface ExerciseFlagFieldRefs {
   readonly evidenceCorrectionAction: Prisma.FieldRef<"ExerciseFlag", 'ExerciseEvidenceCorrectionAction'>
   readonly evidenceCorrectionStatus: Prisma.FieldRef<"ExerciseFlag", 'ExerciseEvidenceCorrectionStatus'>
   readonly practiceEvidenceNeedsCorrection: Prisma.FieldRef<"ExerciseFlag", 'Boolean'>
+  readonly affectedAttemptCount: Prisma.FieldRef<"ExerciseFlag", 'Int'>
   readonly affectedReviewCount: Prisma.FieldRef<"ExerciseFlag", 'Int'>
+  readonly practiceOnlyAttemptCount: Prisma.FieldRef<"ExerciseFlag", 'Int'>
   readonly correctionStartedAt: Prisma.FieldRef<"ExerciseFlag", 'DateTime'>
   readonly correctionCompletedAt: Prisma.FieldRef<"ExerciseFlag", 'DateTime'>
   readonly incidentKey: Prisma.FieldRef<"ExerciseFlag", 'String'>
+  readonly replayedReviewCount: Prisma.FieldRef<"ExerciseFlag", 'Int'>
+  readonly quarantinedExerciseCount: Prisma.FieldRef<"ExerciseFlag", 'Int'>
+  readonly resolutionIdempotencyKey: Prisma.FieldRef<"ExerciseFlag", 'String'>
+  readonly resolutionPayloadHash: Prisma.FieldRef<"ExerciseFlag", 'String'>
+  readonly updatedAt: Prisma.FieldRef<"ExerciseFlag", 'DateTime'>
   readonly createdAt: Prisma.FieldRef<"ExerciseFlag", 'DateTime'>
 }
     

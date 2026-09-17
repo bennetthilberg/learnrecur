@@ -22,9 +22,11 @@ import {
   NeedsAttentionCursorError,
   type NeedsAttentionItem,
 } from "@/lib/practice/needs-attention";
+import { getExerciseQualityIssues, type ExerciseQualityIssue } from "@/lib/practice/quality-issues";
 import { ensureDatabaseUser } from "@/lib/users";
 
 import { SkillsTopbar } from "../../skills/skills-topbar";
+import { ExerciseQualityIssueCard } from "./exercise-quality-issue-card";
 
 export const dynamic = "force-dynamic";
 
@@ -73,6 +75,9 @@ export default async function NeedsAttentionPage({
     }
     throw error;
   }
+  const qualityIssues = cursor
+    ? []
+    : await getExerciseQualityIssues({ userId });
 
   return (
     <main className="practiceShell practiceAttentionShell">
@@ -82,7 +87,7 @@ export default async function NeedsAttentionPage({
           <div>
             <h1>Needs attention</h1>
             <p>
-              Skills with repeated misses, and exercises that need preparation.
+              Skills with repeated misses, exercises that need preparation, and reports awaiting a quality decision.
             </p>
           </div>
           <div className="practiceAttentionHeaderActions">
@@ -95,8 +100,12 @@ export default async function NeedsAttentionPage({
           </div>
         </header>
 
+        {qualityIssues.length > 0 ? <QualityIssueList issues={qualityIssues} /> : null}
+
         {result.items.length === 0 ? (
-          <EmptyState pageScoped={Boolean(cursor || result.nextCursor)} />
+          qualityIssues.length === 0 ? (
+            <EmptyState pageScoped={Boolean(cursor || result.nextCursor)} />
+          ) : null
         ) : (
           <>
             <div className="practiceAttentionListHeader">
@@ -134,6 +143,23 @@ export default async function NeedsAttentionPage({
         ) : null}
       </div>
     </main>
+  );
+}
+
+function QualityIssueList({ issues }: { issues: ExerciseQualityIssue[] }) {
+  return (
+    <section className="practiceAttentionIssueSection" aria-labelledby="exercise-reports-title">
+      <div className="practiceAttentionListHeader">
+        <div>
+          <h2 id="exercise-reports-title">Exercise reports</h2>
+          <p>Review the prompt and the learner evidence, then record one decision. Confirming a defect keeps the history and excludes its evidence from FSRS replay.</p>
+        </div>
+        <p className="practiceAttentionScope">{issues.length} report{issues.length === 1 ? "" : "s"} awaiting attention.</p>
+      </div>
+      <div className="practiceAttentionList" aria-label="Exercise quality reports">
+        {issues.map((issue) => <ExerciseQualityIssueCard issue={issue} key={issue.exerciseId} />)}
+      </div>
+    </section>
   );
 }
 

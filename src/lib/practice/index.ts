@@ -51,6 +51,7 @@ import {
 
 export {
   adjudicateExerciseQualityIncident,
+  ExerciseQualityIncidentError,
   type ExerciseIncidentAdjudication,
   type ExerciseIncidentResult,
 } from "./quality-incidents";
@@ -827,9 +828,15 @@ export async function flagPracticeExercise(
           evidenceCorrectionStatus: practiceEvidenceNeedsCorrection
             ? ExerciseEvidenceCorrectionStatus.PENDING
             : ExerciseEvidenceCorrectionStatus.NOT_REQUIRED,
+          affectedAttemptCount: 0,
           affectedReviewCount: 0,
+          practiceOnlyAttemptCount: 0,
+          replayedReviewCount: 0,
+          quarantinedExerciseCount: 0,
           correctionStartedAt: null,
           correctionCompletedAt: null,
+          resolutionIdempotencyKey: null,
+          resolutionPayloadHash: null,
         },
       });
 
@@ -862,6 +869,12 @@ export async function flagPracticeExercise(
           evidenceCorrectionStatus: practiceEvidenceNeedsCorrection
             ? ExerciseEvidenceCorrectionStatus.PENDING
             : ExerciseEvidenceCorrectionStatus.NOT_REQUIRED,
+          affectedAttemptCount: 0,
+          practiceOnlyAttemptCount: 0,
+          replayedReviewCount: 0,
+          quarantinedExerciseCount: 0,
+          resolutionIdempotencyKey: null,
+          resolutionPayloadHash: null,
         })),
       });
     }

@@ -36,6 +36,10 @@ export type ExerciseAttemptSumAggregateOutputType = {
 
 export type ExerciseAttemptMinAggregateOutputType = {
   ratingPolicyVersion: string | null
+  evidenceCorrectionStatus: $Enums.ExerciseEvidenceCorrectionStatus | null
+  evidenceCorrectionNote: string | null
+  evidenceCorrectionAt: Date | null
+  evidenceCorrectionIncidentKey: string | null
   id: string | null
   userId: string | null
   skillId: string | null
@@ -52,6 +56,10 @@ export type ExerciseAttemptMinAggregateOutputType = {
 
 export type ExerciseAttemptMaxAggregateOutputType = {
   ratingPolicyVersion: string | null
+  evidenceCorrectionStatus: $Enums.ExerciseEvidenceCorrectionStatus | null
+  evidenceCorrectionNote: string | null
+  evidenceCorrectionAt: Date | null
+  evidenceCorrectionIncidentKey: string | null
   id: string | null
   userId: string | null
   skillId: string | null
@@ -70,6 +78,10 @@ export type ExerciseAttemptCountAggregateOutputType = {
   ratingPolicyVersion: number
   practiceContext: number
   answerPolicySnapshot: number
+  evidenceCorrectionStatus: number
+  evidenceCorrectionNote: number
+  evidenceCorrectionAt: number
+  evidenceCorrectionIncidentKey: number
   id: number
   userId: number
   skillId: number
@@ -97,6 +109,10 @@ export type ExerciseAttemptSumAggregateInputType = {
 
 export type ExerciseAttemptMinAggregateInputType = {
   ratingPolicyVersion?: true
+  evidenceCorrectionStatus?: true
+  evidenceCorrectionNote?: true
+  evidenceCorrectionAt?: true
+  evidenceCorrectionIncidentKey?: true
   id?: true
   userId?: true
   skillId?: true
@@ -113,6 +129,10 @@ export type ExerciseAttemptMinAggregateInputType = {
 
 export type ExerciseAttemptMaxAggregateInputType = {
   ratingPolicyVersion?: true
+  evidenceCorrectionStatus?: true
+  evidenceCorrectionNote?: true
+  evidenceCorrectionAt?: true
+  evidenceCorrectionIncidentKey?: true
   id?: true
   userId?: true
   skillId?: true
@@ -131,6 +151,10 @@ export type ExerciseAttemptCountAggregateInputType = {
   ratingPolicyVersion?: true
   practiceContext?: true
   answerPolicySnapshot?: true
+  evidenceCorrectionStatus?: true
+  evidenceCorrectionNote?: true
+  evidenceCorrectionAt?: true
+  evidenceCorrectionIncidentKey?: true
   id?: true
   userId?: true
   skillId?: true
@@ -237,6 +261,10 @@ export type ExerciseAttemptGroupByOutputType = {
   ratingPolicyVersion: string
   practiceContext: runtime.JsonValue | null
   answerPolicySnapshot: runtime.JsonValue | null
+  evidenceCorrectionStatus: $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote: string | null
+  evidenceCorrectionAt: Date | null
+  evidenceCorrectionIncidentKey: string | null
   id: string
   userId: string
   skillId: string
@@ -279,6 +307,10 @@ export type ExerciseAttemptWhereInput = {
   ratingPolicyVersion?: Prisma.StringFilter<"ExerciseAttempt"> | string
   practiceContext?: Prisma.JsonNullableFilter<"ExerciseAttempt">
   answerPolicySnapshot?: Prisma.JsonNullableFilter<"ExerciseAttempt">
+  evidenceCorrectionStatus?: Prisma.EnumExerciseEvidenceCorrectionStatusFilter<"ExerciseAttempt"> | $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: Prisma.StringNullableFilter<"ExerciseAttempt"> | string | null
+  evidenceCorrectionAt?: Prisma.DateTimeNullableFilter<"ExerciseAttempt"> | Date | string | null
+  evidenceCorrectionIncidentKey?: Prisma.StringNullableFilter<"ExerciseAttempt"> | string | null
   id?: Prisma.StringFilter<"ExerciseAttempt"> | string
   userId?: Prisma.StringFilter<"ExerciseAttempt"> | string
   skillId?: Prisma.StringFilter<"ExerciseAttempt"> | string
@@ -302,6 +334,10 @@ export type ExerciseAttemptOrderByWithRelationInput = {
   ratingPolicyVersion?: Prisma.SortOrder
   practiceContext?: Prisma.SortOrderInput | Prisma.SortOrder
   answerPolicySnapshot?: Prisma.SortOrderInput | Prisma.SortOrder
+  evidenceCorrectionStatus?: Prisma.SortOrder
+  evidenceCorrectionNote?: Prisma.SortOrderInput | Prisma.SortOrder
+  evidenceCorrectionAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  evidenceCorrectionIncidentKey?: Prisma.SortOrderInput | Prisma.SortOrder
   id?: Prisma.SortOrder
   userId?: Prisma.SortOrder
   skillId?: Prisma.SortOrder
@@ -331,6 +367,10 @@ export type ExerciseAttemptWhereUniqueInput = Prisma.AtLeast<{
   ratingPolicyVersion?: Prisma.StringFilter<"ExerciseAttempt"> | string
   practiceContext?: Prisma.JsonNullableFilter<"ExerciseAttempt">
   answerPolicySnapshot?: Prisma.JsonNullableFilter<"ExerciseAttempt">
+  evidenceCorrectionStatus?: Prisma.EnumExerciseEvidenceCorrectionStatusFilter<"ExerciseAttempt"> | $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: Prisma.StringNullableFilter<"ExerciseAttempt"> | string | null
+  evidenceCorrectionAt?: Prisma.DateTimeNullableFilter<"ExerciseAttempt"> | Date | string | null
+  evidenceCorrectionIncidentKey?: Prisma.StringNullableFilter<"ExerciseAttempt"> | string | null
   userId?: Prisma.StringFilter<"ExerciseAttempt"> | string
   skillId?: Prisma.StringFilter<"ExerciseAttempt"> | string
   exerciseId?: Prisma.StringFilter<"ExerciseAttempt"> | string
@@ -353,6 +393,10 @@ export type ExerciseAttemptOrderByWithAggregationInput = {
   ratingPolicyVersion?: Prisma.SortOrder
   practiceContext?: Prisma.SortOrderInput | Prisma.SortOrder
   answerPolicySnapshot?: Prisma.SortOrderInput | Prisma.SortOrder
+  evidenceCorrectionStatus?: Prisma.SortOrder
+  evidenceCorrectionNote?: Prisma.SortOrderInput | Prisma.SortOrder
+  evidenceCorrectionAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  evidenceCorrectionIncidentKey?: Prisma.SortOrderInput | Prisma.SortOrder
   id?: Prisma.SortOrder
   userId?: Prisma.SortOrder
   skillId?: Prisma.SortOrder
@@ -380,6 +424,10 @@ export type ExerciseAttemptScalarWhereWithAggregatesInput = {
   ratingPolicyVersion?: Prisma.StringWithAggregatesFilter<"ExerciseAttempt"> | string
   practiceContext?: Prisma.JsonNullableWithAggregatesFilter<"ExerciseAttempt">
   answerPolicySnapshot?: Prisma.JsonNullableWithAggregatesFilter<"ExerciseAttempt">
+  evidenceCorrectionStatus?: Prisma.EnumExerciseEvidenceCorrectionStatusWithAggregatesFilter<"ExerciseAttempt"> | $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: Prisma.StringNullableWithAggregatesFilter<"ExerciseAttempt"> | string | null
+  evidenceCorrectionAt?: Prisma.DateTimeNullableWithAggregatesFilter<"ExerciseAttempt"> | Date | string | null
+  evidenceCorrectionIncidentKey?: Prisma.StringNullableWithAggregatesFilter<"ExerciseAttempt"> | string | null
   id?: Prisma.StringWithAggregatesFilter<"ExerciseAttempt"> | string
   userId?: Prisma.StringWithAggregatesFilter<"ExerciseAttempt"> | string
   skillId?: Prisma.StringWithAggregatesFilter<"ExerciseAttempt"> | string
@@ -399,6 +447,10 @@ export type ExerciseAttemptCreateInput = {
   ratingPolicyVersion?: string
   practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  evidenceCorrectionStatus?: $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: string | null
+  evidenceCorrectionAt?: Date | string | null
+  evidenceCorrectionIncidentKey?: string | null
   id?: string
   answer: Prisma.JsonNullValueInput | runtime.InputJsonValue
   normalizedAnswer?: string | null
@@ -419,6 +471,10 @@ export type ExerciseAttemptUncheckedCreateInput = {
   ratingPolicyVersion?: string
   practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  evidenceCorrectionStatus?: $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: string | null
+  evidenceCorrectionAt?: Date | string | null
+  evidenceCorrectionIncidentKey?: string | null
   id?: string
   userId: string
   skillId: string
@@ -439,6 +495,10 @@ export type ExerciseAttemptUpdateInput = {
   ratingPolicyVersion?: Prisma.StringFieldUpdateOperationsInput | string
   practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  evidenceCorrectionStatus?: Prisma.EnumExerciseEvidenceCorrectionStatusFieldUpdateOperationsInput | $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  evidenceCorrectionAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  evidenceCorrectionIncidentKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   id?: Prisma.StringFieldUpdateOperationsInput | string
   answer?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   normalizedAnswer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -459,6 +519,10 @@ export type ExerciseAttemptUncheckedUpdateInput = {
   ratingPolicyVersion?: Prisma.StringFieldUpdateOperationsInput | string
   practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  evidenceCorrectionStatus?: Prisma.EnumExerciseEvidenceCorrectionStatusFieldUpdateOperationsInput | $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  evidenceCorrectionAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  evidenceCorrectionIncidentKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   id?: Prisma.StringFieldUpdateOperationsInput | string
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   skillId?: Prisma.StringFieldUpdateOperationsInput | string
@@ -479,6 +543,10 @@ export type ExerciseAttemptCreateManyInput = {
   ratingPolicyVersion?: string
   practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  evidenceCorrectionStatus?: $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: string | null
+  evidenceCorrectionAt?: Date | string | null
+  evidenceCorrectionIncidentKey?: string | null
   id?: string
   userId: string
   skillId: string
@@ -498,6 +566,10 @@ export type ExerciseAttemptUpdateManyMutationInput = {
   ratingPolicyVersion?: Prisma.StringFieldUpdateOperationsInput | string
   practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  evidenceCorrectionStatus?: Prisma.EnumExerciseEvidenceCorrectionStatusFieldUpdateOperationsInput | $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  evidenceCorrectionAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  evidenceCorrectionIncidentKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   id?: Prisma.StringFieldUpdateOperationsInput | string
   answer?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   normalizedAnswer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -514,6 +586,10 @@ export type ExerciseAttemptUncheckedUpdateManyInput = {
   ratingPolicyVersion?: Prisma.StringFieldUpdateOperationsInput | string
   practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  evidenceCorrectionStatus?: Prisma.EnumExerciseEvidenceCorrectionStatusFieldUpdateOperationsInput | $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  evidenceCorrectionAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  evidenceCorrectionIncidentKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   id?: Prisma.StringFieldUpdateOperationsInput | string
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   skillId?: Prisma.StringFieldUpdateOperationsInput | string
@@ -554,6 +630,10 @@ export type ExerciseAttemptCountOrderByAggregateInput = {
   ratingPolicyVersion?: Prisma.SortOrder
   practiceContext?: Prisma.SortOrder
   answerPolicySnapshot?: Prisma.SortOrder
+  evidenceCorrectionStatus?: Prisma.SortOrder
+  evidenceCorrectionNote?: Prisma.SortOrder
+  evidenceCorrectionAt?: Prisma.SortOrder
+  evidenceCorrectionIncidentKey?: Prisma.SortOrder
   id?: Prisma.SortOrder
   userId?: Prisma.SortOrder
   skillId?: Prisma.SortOrder
@@ -575,6 +655,10 @@ export type ExerciseAttemptAvgOrderByAggregateInput = {
 
 export type ExerciseAttemptMaxOrderByAggregateInput = {
   ratingPolicyVersion?: Prisma.SortOrder
+  evidenceCorrectionStatus?: Prisma.SortOrder
+  evidenceCorrectionNote?: Prisma.SortOrder
+  evidenceCorrectionAt?: Prisma.SortOrder
+  evidenceCorrectionIncidentKey?: Prisma.SortOrder
   id?: Prisma.SortOrder
   userId?: Prisma.SortOrder
   skillId?: Prisma.SortOrder
@@ -591,6 +675,10 @@ export type ExerciseAttemptMaxOrderByAggregateInput = {
 
 export type ExerciseAttemptMinOrderByAggregateInput = {
   ratingPolicyVersion?: Prisma.SortOrder
+  evidenceCorrectionStatus?: Prisma.SortOrder
+  evidenceCorrectionNote?: Prisma.SortOrder
+  evidenceCorrectionAt?: Prisma.SortOrder
+  evidenceCorrectionIncidentKey?: Prisma.SortOrder
   id?: Prisma.SortOrder
   userId?: Prisma.SortOrder
   skillId?: Prisma.SortOrder
@@ -740,6 +828,10 @@ export type ExerciseAttemptUncheckedUpdateManyWithoutExerciseNestedInput = {
   deleteMany?: Prisma.ExerciseAttemptScalarWhereInput | Prisma.ExerciseAttemptScalarWhereInput[]
 }
 
+export type EnumExerciseEvidenceCorrectionStatusFieldUpdateOperationsInput = {
+  set?: $Enums.ExerciseEvidenceCorrectionStatus
+}
+
 export type EnumExerciseAttemptResultFieldUpdateOperationsInput = {
   set?: $Enums.ExerciseAttemptResult
 }
@@ -766,6 +858,10 @@ export type ExerciseAttemptCreateWithoutUserInput = {
   ratingPolicyVersion?: string
   practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  evidenceCorrectionStatus?: $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: string | null
+  evidenceCorrectionAt?: Date | string | null
+  evidenceCorrectionIncidentKey?: string | null
   id?: string
   answer: Prisma.JsonNullValueInput | runtime.InputJsonValue
   normalizedAnswer?: string | null
@@ -785,6 +881,10 @@ export type ExerciseAttemptUncheckedCreateWithoutUserInput = {
   ratingPolicyVersion?: string
   practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  evidenceCorrectionStatus?: $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: string | null
+  evidenceCorrectionAt?: Date | string | null
+  evidenceCorrectionIncidentKey?: string | null
   id?: string
   skillId: string
   exerciseId: string
@@ -833,6 +933,10 @@ export type ExerciseAttemptScalarWhereInput = {
   ratingPolicyVersion?: Prisma.StringFilter<"ExerciseAttempt"> | string
   practiceContext?: Prisma.JsonNullableFilter<"ExerciseAttempt">
   answerPolicySnapshot?: Prisma.JsonNullableFilter<"ExerciseAttempt">
+  evidenceCorrectionStatus?: Prisma.EnumExerciseEvidenceCorrectionStatusFilter<"ExerciseAttempt"> | $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: Prisma.StringNullableFilter<"ExerciseAttempt"> | string | null
+  evidenceCorrectionAt?: Prisma.DateTimeNullableFilter<"ExerciseAttempt"> | Date | string | null
+  evidenceCorrectionIncidentKey?: Prisma.StringNullableFilter<"ExerciseAttempt"> | string | null
   id?: Prisma.StringFilter<"ExerciseAttempt"> | string
   userId?: Prisma.StringFilter<"ExerciseAttempt"> | string
   skillId?: Prisma.StringFilter<"ExerciseAttempt"> | string
@@ -852,6 +956,10 @@ export type ExerciseAttemptCreateWithoutSkillInput = {
   ratingPolicyVersion?: string
   practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  evidenceCorrectionStatus?: $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: string | null
+  evidenceCorrectionAt?: Date | string | null
+  evidenceCorrectionIncidentKey?: string | null
   id?: string
   answer: Prisma.JsonNullValueInput | runtime.InputJsonValue
   normalizedAnswer?: string | null
@@ -871,6 +979,10 @@ export type ExerciseAttemptUncheckedCreateWithoutSkillInput = {
   ratingPolicyVersion?: string
   practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  evidenceCorrectionStatus?: $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: string | null
+  evidenceCorrectionAt?: Date | string | null
+  evidenceCorrectionIncidentKey?: string | null
   id?: string
   exerciseId: string
   answer: Prisma.JsonNullValueInput | runtime.InputJsonValue
@@ -915,6 +1027,10 @@ export type ExerciseAttemptCreateWithoutExerciseInput = {
   ratingPolicyVersion?: string
   practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  evidenceCorrectionStatus?: $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: string | null
+  evidenceCorrectionAt?: Date | string | null
+  evidenceCorrectionIncidentKey?: string | null
   id?: string
   answer: Prisma.JsonNullValueInput | runtime.InputJsonValue
   normalizedAnswer?: string | null
@@ -934,6 +1050,10 @@ export type ExerciseAttemptUncheckedCreateWithoutExerciseInput = {
   ratingPolicyVersion?: string
   practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  evidenceCorrectionStatus?: $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: string | null
+  evidenceCorrectionAt?: Date | string | null
+  evidenceCorrectionIncidentKey?: string | null
   id?: string
   answer: Prisma.JsonNullValueInput | runtime.InputJsonValue
   normalizedAnswer?: string | null
@@ -977,6 +1097,10 @@ export type ExerciseAttemptCreateWithoutReviewLogInput = {
   ratingPolicyVersion?: string
   practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  evidenceCorrectionStatus?: $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: string | null
+  evidenceCorrectionAt?: Date | string | null
+  evidenceCorrectionIncidentKey?: string | null
   id?: string
   answer: Prisma.JsonNullValueInput | runtime.InputJsonValue
   normalizedAnswer?: string | null
@@ -996,6 +1120,10 @@ export type ExerciseAttemptUncheckedCreateWithoutReviewLogInput = {
   ratingPolicyVersion?: string
   practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  evidenceCorrectionStatus?: $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: string | null
+  evidenceCorrectionAt?: Date | string | null
+  evidenceCorrectionIncidentKey?: string | null
   id?: string
   userId: string
   skillId: string
@@ -1031,6 +1159,10 @@ export type ExerciseAttemptUpdateWithoutReviewLogInput = {
   ratingPolicyVersion?: Prisma.StringFieldUpdateOperationsInput | string
   practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  evidenceCorrectionStatus?: Prisma.EnumExerciseEvidenceCorrectionStatusFieldUpdateOperationsInput | $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  evidenceCorrectionAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  evidenceCorrectionIncidentKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   id?: Prisma.StringFieldUpdateOperationsInput | string
   answer?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   normalizedAnswer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1050,6 +1182,10 @@ export type ExerciseAttemptUncheckedUpdateWithoutReviewLogInput = {
   ratingPolicyVersion?: Prisma.StringFieldUpdateOperationsInput | string
   practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  evidenceCorrectionStatus?: Prisma.EnumExerciseEvidenceCorrectionStatusFieldUpdateOperationsInput | $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  evidenceCorrectionAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  evidenceCorrectionIncidentKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   id?: Prisma.StringFieldUpdateOperationsInput | string
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   skillId?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1069,6 +1205,10 @@ export type ExerciseAttemptCreateManyUserInput = {
   ratingPolicyVersion?: string
   practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  evidenceCorrectionStatus?: $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: string | null
+  evidenceCorrectionAt?: Date | string | null
+  evidenceCorrectionIncidentKey?: string | null
   id?: string
   skillId: string
   exerciseId: string
@@ -1087,6 +1227,10 @@ export type ExerciseAttemptUpdateWithoutUserInput = {
   ratingPolicyVersion?: Prisma.StringFieldUpdateOperationsInput | string
   practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  evidenceCorrectionStatus?: Prisma.EnumExerciseEvidenceCorrectionStatusFieldUpdateOperationsInput | $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  evidenceCorrectionAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  evidenceCorrectionIncidentKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   id?: Prisma.StringFieldUpdateOperationsInput | string
   answer?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   normalizedAnswer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1106,6 +1250,10 @@ export type ExerciseAttemptUncheckedUpdateWithoutUserInput = {
   ratingPolicyVersion?: Prisma.StringFieldUpdateOperationsInput | string
   practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  evidenceCorrectionStatus?: Prisma.EnumExerciseEvidenceCorrectionStatusFieldUpdateOperationsInput | $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  evidenceCorrectionAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  evidenceCorrectionIncidentKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   id?: Prisma.StringFieldUpdateOperationsInput | string
   skillId?: Prisma.StringFieldUpdateOperationsInput | string
   exerciseId?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1125,6 +1273,10 @@ export type ExerciseAttemptUncheckedUpdateManyWithoutUserInput = {
   ratingPolicyVersion?: Prisma.StringFieldUpdateOperationsInput | string
   practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  evidenceCorrectionStatus?: Prisma.EnumExerciseEvidenceCorrectionStatusFieldUpdateOperationsInput | $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  evidenceCorrectionAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  evidenceCorrectionIncidentKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   id?: Prisma.StringFieldUpdateOperationsInput | string
   skillId?: Prisma.StringFieldUpdateOperationsInput | string
   exerciseId?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1143,6 +1295,10 @@ export type ExerciseAttemptCreateManySkillInput = {
   ratingPolicyVersion?: string
   practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  evidenceCorrectionStatus?: $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: string | null
+  evidenceCorrectionAt?: Date | string | null
+  evidenceCorrectionIncidentKey?: string | null
   id?: string
   exerciseId: string
   answer: Prisma.JsonNullValueInput | runtime.InputJsonValue
@@ -1160,6 +1316,10 @@ export type ExerciseAttemptUpdateWithoutSkillInput = {
   ratingPolicyVersion?: Prisma.StringFieldUpdateOperationsInput | string
   practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  evidenceCorrectionStatus?: Prisma.EnumExerciseEvidenceCorrectionStatusFieldUpdateOperationsInput | $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  evidenceCorrectionAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  evidenceCorrectionIncidentKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   id?: Prisma.StringFieldUpdateOperationsInput | string
   answer?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   normalizedAnswer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1179,6 +1339,10 @@ export type ExerciseAttemptUncheckedUpdateWithoutSkillInput = {
   ratingPolicyVersion?: Prisma.StringFieldUpdateOperationsInput | string
   practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  evidenceCorrectionStatus?: Prisma.EnumExerciseEvidenceCorrectionStatusFieldUpdateOperationsInput | $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  evidenceCorrectionAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  evidenceCorrectionIncidentKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   id?: Prisma.StringFieldUpdateOperationsInput | string
   exerciseId?: Prisma.StringFieldUpdateOperationsInput | string
   answer?: Prisma.JsonNullValueInput | runtime.InputJsonValue
@@ -1197,6 +1361,10 @@ export type ExerciseAttemptUncheckedUpdateManyWithoutSkillInput = {
   ratingPolicyVersion?: Prisma.StringFieldUpdateOperationsInput | string
   practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  evidenceCorrectionStatus?: Prisma.EnumExerciseEvidenceCorrectionStatusFieldUpdateOperationsInput | $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  evidenceCorrectionAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  evidenceCorrectionIncidentKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   id?: Prisma.StringFieldUpdateOperationsInput | string
   exerciseId?: Prisma.StringFieldUpdateOperationsInput | string
   answer?: Prisma.JsonNullValueInput | runtime.InputJsonValue
@@ -1214,6 +1382,10 @@ export type ExerciseAttemptCreateManyExerciseInput = {
   ratingPolicyVersion?: string
   practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  evidenceCorrectionStatus?: $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: string | null
+  evidenceCorrectionAt?: Date | string | null
+  evidenceCorrectionIncidentKey?: string | null
   id?: string
   answer: Prisma.JsonNullValueInput | runtime.InputJsonValue
   normalizedAnswer?: string | null
@@ -1230,6 +1402,10 @@ export type ExerciseAttemptUpdateWithoutExerciseInput = {
   ratingPolicyVersion?: Prisma.StringFieldUpdateOperationsInput | string
   practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  evidenceCorrectionStatus?: Prisma.EnumExerciseEvidenceCorrectionStatusFieldUpdateOperationsInput | $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  evidenceCorrectionAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  evidenceCorrectionIncidentKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   id?: Prisma.StringFieldUpdateOperationsInput | string
   answer?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   normalizedAnswer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1249,6 +1425,10 @@ export type ExerciseAttemptUncheckedUpdateWithoutExerciseInput = {
   ratingPolicyVersion?: Prisma.StringFieldUpdateOperationsInput | string
   practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  evidenceCorrectionStatus?: Prisma.EnumExerciseEvidenceCorrectionStatusFieldUpdateOperationsInput | $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  evidenceCorrectionAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  evidenceCorrectionIncidentKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   id?: Prisma.StringFieldUpdateOperationsInput | string
   answer?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   normalizedAnswer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1266,6 +1446,10 @@ export type ExerciseAttemptUncheckedUpdateManyWithoutExerciseInput = {
   ratingPolicyVersion?: Prisma.StringFieldUpdateOperationsInput | string
   practiceContext?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   answerPolicySnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  evidenceCorrectionStatus?: Prisma.EnumExerciseEvidenceCorrectionStatusFieldUpdateOperationsInput | $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  evidenceCorrectionAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  evidenceCorrectionIncidentKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   id?: Prisma.StringFieldUpdateOperationsInput | string
   answer?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   normalizedAnswer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1284,6 +1468,10 @@ export type ExerciseAttemptSelect<ExtArgs extends runtime.Types.Extensions.Inter
   ratingPolicyVersion?: boolean
   practiceContext?: boolean
   answerPolicySnapshot?: boolean
+  evidenceCorrectionStatus?: boolean
+  evidenceCorrectionNote?: boolean
+  evidenceCorrectionAt?: boolean
+  evidenceCorrectionIncidentKey?: boolean
   id?: boolean
   userId?: boolean
   skillId?: boolean
@@ -1307,6 +1495,10 @@ export type ExerciseAttemptSelectCreateManyAndReturn<ExtArgs extends runtime.Typ
   ratingPolicyVersion?: boolean
   practiceContext?: boolean
   answerPolicySnapshot?: boolean
+  evidenceCorrectionStatus?: boolean
+  evidenceCorrectionNote?: boolean
+  evidenceCorrectionAt?: boolean
+  evidenceCorrectionIncidentKey?: boolean
   id?: boolean
   userId?: boolean
   skillId?: boolean
@@ -1329,6 +1521,10 @@ export type ExerciseAttemptSelectUpdateManyAndReturn<ExtArgs extends runtime.Typ
   ratingPolicyVersion?: boolean
   practiceContext?: boolean
   answerPolicySnapshot?: boolean
+  evidenceCorrectionStatus?: boolean
+  evidenceCorrectionNote?: boolean
+  evidenceCorrectionAt?: boolean
+  evidenceCorrectionIncidentKey?: boolean
   id?: boolean
   userId?: boolean
   skillId?: boolean
@@ -1351,6 +1547,10 @@ export type ExerciseAttemptSelectScalar = {
   ratingPolicyVersion?: boolean
   practiceContext?: boolean
   answerPolicySnapshot?: boolean
+  evidenceCorrectionStatus?: boolean
+  evidenceCorrectionNote?: boolean
+  evidenceCorrectionAt?: boolean
+  evidenceCorrectionIncidentKey?: boolean
   id?: boolean
   userId?: boolean
   skillId?: boolean
@@ -1366,7 +1566,7 @@ export type ExerciseAttemptSelectScalar = {
   createdAt?: boolean
 }
 
-export type ExerciseAttemptOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"ratingPolicyVersion" | "practiceContext" | "answerPolicySnapshot" | "id" | "userId" | "skillId" | "exerciseId" | "answer" | "normalizedAnswer" | "isCorrect" | "result" | "responseMs" | "proposedRating" | "finalRating" | "feedbackShownAt" | "createdAt", ExtArgs["result"]["exerciseAttempt"]>
+export type ExerciseAttemptOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"ratingPolicyVersion" | "practiceContext" | "answerPolicySnapshot" | "evidenceCorrectionStatus" | "evidenceCorrectionNote" | "evidenceCorrectionAt" | "evidenceCorrectionIncidentKey" | "id" | "userId" | "skillId" | "exerciseId" | "answer" | "normalizedAnswer" | "isCorrect" | "result" | "responseMs" | "proposedRating" | "finalRating" | "feedbackShownAt" | "createdAt", ExtArgs["result"]["exerciseAttempt"]>
 export type ExerciseAttemptInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   skill?: boolean | Prisma.SkillDefaultArgs<ExtArgs>
@@ -1396,6 +1596,10 @@ export type $ExerciseAttemptPayload<ExtArgs extends runtime.Types.Extensions.Int
     ratingPolicyVersion: string
     practiceContext: runtime.JsonValue | null
     answerPolicySnapshot: runtime.JsonValue | null
+    evidenceCorrectionStatus: $Enums.ExerciseEvidenceCorrectionStatus
+    evidenceCorrectionNote: string | null
+    evidenceCorrectionAt: Date | null
+    evidenceCorrectionIncidentKey: string | null
     id: string
     userId: string
     skillId: string
@@ -1839,6 +2043,10 @@ export interface ExerciseAttemptFieldRefs {
   readonly ratingPolicyVersion: Prisma.FieldRef<"ExerciseAttempt", 'String'>
   readonly practiceContext: Prisma.FieldRef<"ExerciseAttempt", 'Json'>
   readonly answerPolicySnapshot: Prisma.FieldRef<"ExerciseAttempt", 'Json'>
+  readonly evidenceCorrectionStatus: Prisma.FieldRef<"ExerciseAttempt", 'ExerciseEvidenceCorrectionStatus'>
+  readonly evidenceCorrectionNote: Prisma.FieldRef<"ExerciseAttempt", 'String'>
+  readonly evidenceCorrectionAt: Prisma.FieldRef<"ExerciseAttempt", 'DateTime'>
+  readonly evidenceCorrectionIncidentKey: Prisma.FieldRef<"ExerciseAttempt", 'String'>
   readonly id: Prisma.FieldRef<"ExerciseAttempt", 'String'>
   readonly userId: Prisma.FieldRef<"ExerciseAttempt", 'String'>
   readonly skillId: Prisma.FieldRef<"ExerciseAttempt", 'String'>

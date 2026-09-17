@@ -27,6 +27,11 @@ export type HistoryReviewRow = {
   skillId: string;
   skillTitle: string;
   nextStateLabel: string;
+  eventKind: "scheduled" | "practice-only";
+  eventKindLabel: string;
+  evidenceCorrectionStatus: string;
+  evidenceCorrectionNote: string | null;
+  qualityReportReasons: string[];
 };
 
 export function HistoryReviewsTable({ reviews }: { reviews: HistoryReviewRow[] }) {
@@ -38,7 +43,7 @@ export function HistoryReviewsTable({ reviews }: { reviews: HistoryReviewRow[] }
         <Table className="historySimpleTable">
           <Table.Thead>
             <Table.Tr>
-              <Table.Th>Reviewed</Table.Th>
+              <Table.Th>Activity</Table.Th>
               <Table.Th>Skill</Table.Th>
               <Table.Th>Result</Table.Th>
               <Table.Th>Rating</Table.Th>
@@ -49,7 +54,7 @@ export function HistoryReviewsTable({ reviews }: { reviews: HistoryReviewRow[] }
           <Table.Tbody>
             {reviews.map((review) => (
               <Table.Tr key={review.id}>
-                <Table.Td data-label="Reviewed">
+                <Table.Td data-label="Activity">
                   <span className="historyDateText">{review.reviewedDayLabel}</span>
                   <span className="historySubText">{review.reviewedTimeLabel}</span>
                 </Table.Td>
@@ -58,6 +63,7 @@ export function HistoryReviewsTable({ reviews }: { reviews: HistoryReviewRow[] }
                   <span className="historyMetaLine">
                     <span>{review.collectionName}</span>
                     <span>{review.answerKindLabel}</span>
+                    <span className="historyEventLabel">{review.eventKindLabel}</span>
                   </span>
                 </Table.Td>
                 <Table.Td data-label="Result">
@@ -134,8 +140,28 @@ function HistoryReviewDetails({ review }: { review: HistoryReviewRow }) {
           {review.resultLabel}
         </Badge>
         <h3>{review.skillTitle}</h3>
+        <span className="historyEventLabel">{review.eventKindLabel}</span>
         <p>{review.reviewedFullLabel}</p>
       </div>
+
+      {review.eventKind === "practice-only" ? (
+        <aside className="historyPracticeOnlyNotice" role="status">
+          <strong>Practice-only exposure</strong>
+          <p>This activity was recorded for your history but did not change the FSRS schedule.</p>
+        </aside>
+      ) : null}
+
+      {review.evidenceCorrectionStatus !== "NOT_REQUIRED" ? (
+        <aside className="historyCorrectionNotice" role="status">
+          <strong>Schedule evidence corrected</strong>
+          <p>{review.evidenceCorrectionNote ?? "This retained record was excluded from the skill's FSRS replay."}</p>
+          <p>Your original answer and result remain available for audit.</p>
+        </aside>
+      ) : null}
+
+      {review.qualityReportReasons.length > 0 ? (
+        <p className="historyQualityReason">Reported issue: {review.qualityReportReasons.join(", ")}</p>
+      ) : null}
 
       <section className="historyReviewAnswer" aria-label="Question">
         <h4>Question</h4>

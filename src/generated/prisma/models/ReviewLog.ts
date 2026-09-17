@@ -90,6 +90,10 @@ export type ReviewLogMinAggregateOutputType = {
   schedulerName: string | null
   schedulerVersion: string | null
   desiredRetention: number | null
+  evidenceCorrectionStatus: $Enums.ExerciseEvidenceCorrectionStatus | null
+  evidenceCorrectionNote: string | null
+  evidenceCorrectionAt: Date | null
+  evidenceCorrectionIncidentKey: string | null
   createdAt: Date | null
 }
 
@@ -121,6 +125,10 @@ export type ReviewLogMaxAggregateOutputType = {
   schedulerName: string | null
   schedulerVersion: string | null
   desiredRetention: number | null
+  evidenceCorrectionStatus: $Enums.ExerciseEvidenceCorrectionStatus | null
+  evidenceCorrectionNote: string | null
+  evidenceCorrectionAt: Date | null
+  evidenceCorrectionIncidentKey: string | null
   createdAt: Date | null
 }
 
@@ -153,6 +161,10 @@ export type ReviewLogCountAggregateOutputType = {
   schedulerVersion: number
   desiredRetention: number
   schedulerParameters: number
+  evidenceCorrectionStatus: number
+  evidenceCorrectionNote: number
+  evidenceCorrectionAt: number
+  evidenceCorrectionIncidentKey: number
   createdAt: number
   _all: number
 }
@@ -222,6 +234,10 @@ export type ReviewLogMinAggregateInputType = {
   schedulerName?: true
   schedulerVersion?: true
   desiredRetention?: true
+  evidenceCorrectionStatus?: true
+  evidenceCorrectionNote?: true
+  evidenceCorrectionAt?: true
+  evidenceCorrectionIncidentKey?: true
   createdAt?: true
 }
 
@@ -253,6 +269,10 @@ export type ReviewLogMaxAggregateInputType = {
   schedulerName?: true
   schedulerVersion?: true
   desiredRetention?: true
+  evidenceCorrectionStatus?: true
+  evidenceCorrectionNote?: true
+  evidenceCorrectionAt?: true
+  evidenceCorrectionIncidentKey?: true
   createdAt?: true
 }
 
@@ -285,6 +305,10 @@ export type ReviewLogCountAggregateInputType = {
   schedulerVersion?: true
   desiredRetention?: true
   schedulerParameters?: true
+  evidenceCorrectionStatus?: true
+  evidenceCorrectionNote?: true
+  evidenceCorrectionAt?: true
+  evidenceCorrectionIncidentKey?: true
   createdAt?: true
   _all?: true
 }
@@ -404,6 +428,10 @@ export type ReviewLogGroupByOutputType = {
   schedulerVersion: string
   desiredRetention: number
   schedulerParameters: runtime.JsonValue
+  evidenceCorrectionStatus: $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote: string | null
+  evidenceCorrectionAt: Date | null
+  evidenceCorrectionIncidentKey: string | null
   createdAt: Date
   _count: ReviewLogCountAggregateOutputType | null
   _avg: ReviewLogAvgAggregateOutputType | null
@@ -459,6 +487,10 @@ export type ReviewLogWhereInput = {
   schedulerVersion?: Prisma.StringFilter<"ReviewLog"> | string
   desiredRetention?: Prisma.FloatFilter<"ReviewLog"> | number
   schedulerParameters?: Prisma.JsonFilter<"ReviewLog">
+  evidenceCorrectionStatus?: Prisma.EnumExerciseEvidenceCorrectionStatusFilter<"ReviewLog"> | $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: Prisma.StringNullableFilter<"ReviewLog"> | string | null
+  evidenceCorrectionAt?: Prisma.DateTimeNullableFilter<"ReviewLog"> | Date | string | null
+  evidenceCorrectionIncidentKey?: Prisma.StringNullableFilter<"ReviewLog"> | string | null
   createdAt?: Prisma.DateTimeFilter<"ReviewLog"> | Date | string
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   skill?: Prisma.XOR<Prisma.SkillScalarRelationFilter, Prisma.SkillWhereInput>
@@ -494,6 +526,10 @@ export type ReviewLogOrderByWithRelationInput = {
   schedulerVersion?: Prisma.SortOrder
   desiredRetention?: Prisma.SortOrder
   schedulerParameters?: Prisma.SortOrder
+  evidenceCorrectionStatus?: Prisma.SortOrder
+  evidenceCorrectionNote?: Prisma.SortOrderInput | Prisma.SortOrder
+  evidenceCorrectionAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  evidenceCorrectionIncidentKey?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   user?: Prisma.UserOrderByWithRelationInput
   skill?: Prisma.SkillOrderByWithRelationInput
@@ -533,6 +569,10 @@ export type ReviewLogWhereUniqueInput = Prisma.AtLeast<{
   schedulerVersion?: Prisma.StringFilter<"ReviewLog"> | string
   desiredRetention?: Prisma.FloatFilter<"ReviewLog"> | number
   schedulerParameters?: Prisma.JsonFilter<"ReviewLog">
+  evidenceCorrectionStatus?: Prisma.EnumExerciseEvidenceCorrectionStatusFilter<"ReviewLog"> | $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: Prisma.StringNullableFilter<"ReviewLog"> | string | null
+  evidenceCorrectionAt?: Prisma.DateTimeNullableFilter<"ReviewLog"> | Date | string | null
+  evidenceCorrectionIncidentKey?: Prisma.StringNullableFilter<"ReviewLog"> | string | null
   createdAt?: Prisma.DateTimeFilter<"ReviewLog"> | Date | string
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   skill?: Prisma.XOR<Prisma.SkillScalarRelationFilter, Prisma.SkillWhereInput>
@@ -568,6 +608,10 @@ export type ReviewLogOrderByWithAggregationInput = {
   schedulerVersion?: Prisma.SortOrder
   desiredRetention?: Prisma.SortOrder
   schedulerParameters?: Prisma.SortOrder
+  evidenceCorrectionStatus?: Prisma.SortOrder
+  evidenceCorrectionNote?: Prisma.SortOrderInput | Prisma.SortOrder
+  evidenceCorrectionAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  evidenceCorrectionIncidentKey?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   _count?: Prisma.ReviewLogCountOrderByAggregateInput
   _avg?: Prisma.ReviewLogAvgOrderByAggregateInput
@@ -608,6 +652,10 @@ export type ReviewLogScalarWhereWithAggregatesInput = {
   schedulerVersion?: Prisma.StringWithAggregatesFilter<"ReviewLog"> | string
   desiredRetention?: Prisma.FloatWithAggregatesFilter<"ReviewLog"> | number
   schedulerParameters?: Prisma.JsonWithAggregatesFilter<"ReviewLog">
+  evidenceCorrectionStatus?: Prisma.EnumExerciseEvidenceCorrectionStatusWithAggregatesFilter<"ReviewLog"> | $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: Prisma.StringNullableWithAggregatesFilter<"ReviewLog"> | string | null
+  evidenceCorrectionAt?: Prisma.DateTimeNullableWithAggregatesFilter<"ReviewLog"> | Date | string | null
+  evidenceCorrectionIncidentKey?: Prisma.StringNullableWithAggregatesFilter<"ReviewLog"> | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"ReviewLog"> | Date | string
 }
 
@@ -637,6 +685,10 @@ export type ReviewLogCreateInput = {
   schedulerVersion: string
   desiredRetention: number
   schedulerParameters: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  evidenceCorrectionStatus?: $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: string | null
+  evidenceCorrectionAt?: Date | string | null
+  evidenceCorrectionIncidentKey?: string | null
   createdAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutReviewLogsInput
   skill: Prisma.SkillCreateNestedOneWithoutReviewLogsInput
@@ -672,6 +724,10 @@ export type ReviewLogUncheckedCreateInput = {
   schedulerVersion: string
   desiredRetention: number
   schedulerParameters: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  evidenceCorrectionStatus?: $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: string | null
+  evidenceCorrectionAt?: Date | string | null
+  evidenceCorrectionIncidentKey?: string | null
   createdAt?: Date | string
 }
 
@@ -701,6 +757,10 @@ export type ReviewLogUpdateInput = {
   schedulerVersion?: Prisma.StringFieldUpdateOperationsInput | string
   desiredRetention?: Prisma.FloatFieldUpdateOperationsInput | number
   schedulerParameters?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  evidenceCorrectionStatus?: Prisma.EnumExerciseEvidenceCorrectionStatusFieldUpdateOperationsInput | $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  evidenceCorrectionAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  evidenceCorrectionIncidentKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutReviewLogsNestedInput
   skill?: Prisma.SkillUpdateOneRequiredWithoutReviewLogsNestedInput
@@ -736,6 +796,10 @@ export type ReviewLogUncheckedUpdateInput = {
   schedulerVersion?: Prisma.StringFieldUpdateOperationsInput | string
   desiredRetention?: Prisma.FloatFieldUpdateOperationsInput | number
   schedulerParameters?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  evidenceCorrectionStatus?: Prisma.EnumExerciseEvidenceCorrectionStatusFieldUpdateOperationsInput | $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  evidenceCorrectionAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  evidenceCorrectionIncidentKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -768,6 +832,10 @@ export type ReviewLogCreateManyInput = {
   schedulerVersion: string
   desiredRetention: number
   schedulerParameters: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  evidenceCorrectionStatus?: $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: string | null
+  evidenceCorrectionAt?: Date | string | null
+  evidenceCorrectionIncidentKey?: string | null
   createdAt?: Date | string
 }
 
@@ -797,6 +865,10 @@ export type ReviewLogUpdateManyMutationInput = {
   schedulerVersion?: Prisma.StringFieldUpdateOperationsInput | string
   desiredRetention?: Prisma.FloatFieldUpdateOperationsInput | number
   schedulerParameters?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  evidenceCorrectionStatus?: Prisma.EnumExerciseEvidenceCorrectionStatusFieldUpdateOperationsInput | $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  evidenceCorrectionAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  evidenceCorrectionIncidentKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -829,6 +901,10 @@ export type ReviewLogUncheckedUpdateManyInput = {
   schedulerVersion?: Prisma.StringFieldUpdateOperationsInput | string
   desiredRetention?: Prisma.FloatFieldUpdateOperationsInput | number
   schedulerParameters?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  evidenceCorrectionStatus?: Prisma.EnumExerciseEvidenceCorrectionStatusFieldUpdateOperationsInput | $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  evidenceCorrectionAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  evidenceCorrectionIncidentKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -882,6 +958,10 @@ export type ReviewLogCountOrderByAggregateInput = {
   schedulerVersion?: Prisma.SortOrder
   desiredRetention?: Prisma.SortOrder
   schedulerParameters?: Prisma.SortOrder
+  evidenceCorrectionStatus?: Prisma.SortOrder
+  evidenceCorrectionNote?: Prisma.SortOrder
+  evidenceCorrectionAt?: Prisma.SortOrder
+  evidenceCorrectionIncidentKey?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
 
@@ -931,6 +1011,10 @@ export type ReviewLogMaxOrderByAggregateInput = {
   schedulerName?: Prisma.SortOrder
   schedulerVersion?: Prisma.SortOrder
   desiredRetention?: Prisma.SortOrder
+  evidenceCorrectionStatus?: Prisma.SortOrder
+  evidenceCorrectionNote?: Prisma.SortOrder
+  evidenceCorrectionAt?: Prisma.SortOrder
+  evidenceCorrectionIncidentKey?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
 
@@ -962,6 +1046,10 @@ export type ReviewLogMinOrderByAggregateInput = {
   schedulerName?: Prisma.SortOrder
   schedulerVersion?: Prisma.SortOrder
   desiredRetention?: Prisma.SortOrder
+  evidenceCorrectionStatus?: Prisma.SortOrder
+  evidenceCorrectionNote?: Prisma.SortOrder
+  evidenceCorrectionAt?: Prisma.SortOrder
+  evidenceCorrectionIncidentKey?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
 
@@ -1141,6 +1229,10 @@ export type ReviewLogCreateWithoutUserInput = {
   schedulerVersion: string
   desiredRetention: number
   schedulerParameters: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  evidenceCorrectionStatus?: $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: string | null
+  evidenceCorrectionAt?: Date | string | null
+  evidenceCorrectionIncidentKey?: string | null
   createdAt?: Date | string
   skill: Prisma.SkillCreateNestedOneWithoutReviewLogsInput
   exerciseAttempt: Prisma.ExerciseAttemptCreateNestedOneWithoutReviewLogInput
@@ -1174,6 +1266,10 @@ export type ReviewLogUncheckedCreateWithoutUserInput = {
   schedulerVersion: string
   desiredRetention: number
   schedulerParameters: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  evidenceCorrectionStatus?: $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: string | null
+  evidenceCorrectionAt?: Date | string | null
+  evidenceCorrectionIncidentKey?: string | null
   createdAt?: Date | string
 }
 
@@ -1235,6 +1331,10 @@ export type ReviewLogScalarWhereInput = {
   schedulerVersion?: Prisma.StringFilter<"ReviewLog"> | string
   desiredRetention?: Prisma.FloatFilter<"ReviewLog"> | number
   schedulerParameters?: Prisma.JsonFilter<"ReviewLog">
+  evidenceCorrectionStatus?: Prisma.EnumExerciseEvidenceCorrectionStatusFilter<"ReviewLog"> | $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: Prisma.StringNullableFilter<"ReviewLog"> | string | null
+  evidenceCorrectionAt?: Prisma.DateTimeNullableFilter<"ReviewLog"> | Date | string | null
+  evidenceCorrectionIncidentKey?: Prisma.StringNullableFilter<"ReviewLog"> | string | null
   createdAt?: Prisma.DateTimeFilter<"ReviewLog"> | Date | string
 }
 
@@ -1264,6 +1364,10 @@ export type ReviewLogCreateWithoutSkillInput = {
   schedulerVersion: string
   desiredRetention: number
   schedulerParameters: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  evidenceCorrectionStatus?: $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: string | null
+  evidenceCorrectionAt?: Date | string | null
+  evidenceCorrectionIncidentKey?: string | null
   createdAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutReviewLogsInput
   exerciseAttempt: Prisma.ExerciseAttemptCreateNestedOneWithoutReviewLogInput
@@ -1296,6 +1400,10 @@ export type ReviewLogUncheckedCreateWithoutSkillInput = {
   schedulerVersion: string
   desiredRetention: number
   schedulerParameters: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  evidenceCorrectionStatus?: $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: string | null
+  evidenceCorrectionAt?: Date | string | null
+  evidenceCorrectionIncidentKey?: string | null
   createdAt?: Date | string
 }
 
@@ -1351,6 +1459,10 @@ export type ReviewLogCreateWithoutExerciseAttemptInput = {
   schedulerVersion: string
   desiredRetention: number
   schedulerParameters: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  evidenceCorrectionStatus?: $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: string | null
+  evidenceCorrectionAt?: Date | string | null
+  evidenceCorrectionIncidentKey?: string | null
   createdAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutReviewLogsInput
   skill: Prisma.SkillCreateNestedOneWithoutReviewLogsInput
@@ -1382,6 +1494,10 @@ export type ReviewLogUncheckedCreateWithoutExerciseAttemptInput = {
   schedulerVersion: string
   desiredRetention: number
   schedulerParameters: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  evidenceCorrectionStatus?: $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: string | null
+  evidenceCorrectionAt?: Date | string | null
+  evidenceCorrectionIncidentKey?: string | null
   createdAt?: Date | string
 }
 
@@ -1427,6 +1543,10 @@ export type ReviewLogUpdateWithoutExerciseAttemptInput = {
   schedulerVersion?: Prisma.StringFieldUpdateOperationsInput | string
   desiredRetention?: Prisma.FloatFieldUpdateOperationsInput | number
   schedulerParameters?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  evidenceCorrectionStatus?: Prisma.EnumExerciseEvidenceCorrectionStatusFieldUpdateOperationsInput | $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  evidenceCorrectionAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  evidenceCorrectionIncidentKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutReviewLogsNestedInput
   skill?: Prisma.SkillUpdateOneRequiredWithoutReviewLogsNestedInput
@@ -1458,6 +1578,10 @@ export type ReviewLogUncheckedUpdateWithoutExerciseAttemptInput = {
   schedulerVersion?: Prisma.StringFieldUpdateOperationsInput | string
   desiredRetention?: Prisma.FloatFieldUpdateOperationsInput | number
   schedulerParameters?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  evidenceCorrectionStatus?: Prisma.EnumExerciseEvidenceCorrectionStatusFieldUpdateOperationsInput | $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  evidenceCorrectionAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  evidenceCorrectionIncidentKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -1489,6 +1613,10 @@ export type ReviewLogCreateManyUserInput = {
   schedulerVersion: string
   desiredRetention: number
   schedulerParameters: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  evidenceCorrectionStatus?: $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: string | null
+  evidenceCorrectionAt?: Date | string | null
+  evidenceCorrectionIncidentKey?: string | null
   createdAt?: Date | string
 }
 
@@ -1518,6 +1646,10 @@ export type ReviewLogUpdateWithoutUserInput = {
   schedulerVersion?: Prisma.StringFieldUpdateOperationsInput | string
   desiredRetention?: Prisma.FloatFieldUpdateOperationsInput | number
   schedulerParameters?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  evidenceCorrectionStatus?: Prisma.EnumExerciseEvidenceCorrectionStatusFieldUpdateOperationsInput | $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  evidenceCorrectionAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  evidenceCorrectionIncidentKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   skill?: Prisma.SkillUpdateOneRequiredWithoutReviewLogsNestedInput
   exerciseAttempt?: Prisma.ExerciseAttemptUpdateOneRequiredWithoutReviewLogNestedInput
@@ -1551,6 +1683,10 @@ export type ReviewLogUncheckedUpdateWithoutUserInput = {
   schedulerVersion?: Prisma.StringFieldUpdateOperationsInput | string
   desiredRetention?: Prisma.FloatFieldUpdateOperationsInput | number
   schedulerParameters?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  evidenceCorrectionStatus?: Prisma.EnumExerciseEvidenceCorrectionStatusFieldUpdateOperationsInput | $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  evidenceCorrectionAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  evidenceCorrectionIncidentKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -1582,6 +1718,10 @@ export type ReviewLogUncheckedUpdateManyWithoutUserInput = {
   schedulerVersion?: Prisma.StringFieldUpdateOperationsInput | string
   desiredRetention?: Prisma.FloatFieldUpdateOperationsInput | number
   schedulerParameters?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  evidenceCorrectionStatus?: Prisma.EnumExerciseEvidenceCorrectionStatusFieldUpdateOperationsInput | $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  evidenceCorrectionAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  evidenceCorrectionIncidentKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -1612,6 +1752,10 @@ export type ReviewLogCreateManySkillInput = {
   schedulerVersion: string
   desiredRetention: number
   schedulerParameters: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  evidenceCorrectionStatus?: $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: string | null
+  evidenceCorrectionAt?: Date | string | null
+  evidenceCorrectionIncidentKey?: string | null
   createdAt?: Date | string
 }
 
@@ -1641,6 +1785,10 @@ export type ReviewLogUpdateWithoutSkillInput = {
   schedulerVersion?: Prisma.StringFieldUpdateOperationsInput | string
   desiredRetention?: Prisma.FloatFieldUpdateOperationsInput | number
   schedulerParameters?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  evidenceCorrectionStatus?: Prisma.EnumExerciseEvidenceCorrectionStatusFieldUpdateOperationsInput | $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  evidenceCorrectionAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  evidenceCorrectionIncidentKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutReviewLogsNestedInput
   exerciseAttempt?: Prisma.ExerciseAttemptUpdateOneRequiredWithoutReviewLogNestedInput
@@ -1673,6 +1821,10 @@ export type ReviewLogUncheckedUpdateWithoutSkillInput = {
   schedulerVersion?: Prisma.StringFieldUpdateOperationsInput | string
   desiredRetention?: Prisma.FloatFieldUpdateOperationsInput | number
   schedulerParameters?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  evidenceCorrectionStatus?: Prisma.EnumExerciseEvidenceCorrectionStatusFieldUpdateOperationsInput | $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  evidenceCorrectionAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  evidenceCorrectionIncidentKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -1703,6 +1855,10 @@ export type ReviewLogUncheckedUpdateManyWithoutSkillInput = {
   schedulerVersion?: Prisma.StringFieldUpdateOperationsInput | string
   desiredRetention?: Prisma.FloatFieldUpdateOperationsInput | number
   schedulerParameters?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  evidenceCorrectionStatus?: Prisma.EnumExerciseEvidenceCorrectionStatusFieldUpdateOperationsInput | $Enums.ExerciseEvidenceCorrectionStatus
+  evidenceCorrectionNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  evidenceCorrectionAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  evidenceCorrectionIncidentKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -1737,6 +1893,10 @@ export type ReviewLogSelect<ExtArgs extends runtime.Types.Extensions.InternalArg
   schedulerVersion?: boolean
   desiredRetention?: boolean
   schedulerParameters?: boolean
+  evidenceCorrectionStatus?: boolean
+  evidenceCorrectionNote?: boolean
+  evidenceCorrectionAt?: boolean
+  evidenceCorrectionIncidentKey?: boolean
   createdAt?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   skill?: boolean | Prisma.SkillDefaultArgs<ExtArgs>
@@ -1772,6 +1932,10 @@ export type ReviewLogSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Ext
   schedulerVersion?: boolean
   desiredRetention?: boolean
   schedulerParameters?: boolean
+  evidenceCorrectionStatus?: boolean
+  evidenceCorrectionNote?: boolean
+  evidenceCorrectionAt?: boolean
+  evidenceCorrectionIncidentKey?: boolean
   createdAt?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   skill?: boolean | Prisma.SkillDefaultArgs<ExtArgs>
@@ -1807,6 +1971,10 @@ export type ReviewLogSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Ext
   schedulerVersion?: boolean
   desiredRetention?: boolean
   schedulerParameters?: boolean
+  evidenceCorrectionStatus?: boolean
+  evidenceCorrectionNote?: boolean
+  evidenceCorrectionAt?: boolean
+  evidenceCorrectionIncidentKey?: boolean
   createdAt?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   skill?: boolean | Prisma.SkillDefaultArgs<ExtArgs>
@@ -1842,10 +2010,14 @@ export type ReviewLogSelectScalar = {
   schedulerVersion?: boolean
   desiredRetention?: boolean
   schedulerParameters?: boolean
+  evidenceCorrectionStatus?: boolean
+  evidenceCorrectionNote?: boolean
+  evidenceCorrectionAt?: boolean
+  evidenceCorrectionIncidentKey?: boolean
   createdAt?: boolean
 }
 
-export type ReviewLogOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "skillId" | "exerciseAttemptId" | "finalRating" | "reviewedAt" | "previousDueAt" | "nextDueAt" | "previousStability" | "nextStability" | "previousDifficulty" | "nextDifficulty" | "previousElapsedDays" | "nextElapsedDays" | "previousScheduledDays" | "nextScheduledDays" | "previousLearningSteps" | "nextLearningSteps" | "previousRepetitions" | "nextRepetitions" | "previousLapses" | "nextLapses" | "previousState" | "nextState" | "schedulerName" | "schedulerVersion" | "desiredRetention" | "schedulerParameters" | "createdAt", ExtArgs["result"]["reviewLog"]>
+export type ReviewLogOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "skillId" | "exerciseAttemptId" | "finalRating" | "reviewedAt" | "previousDueAt" | "nextDueAt" | "previousStability" | "nextStability" | "previousDifficulty" | "nextDifficulty" | "previousElapsedDays" | "nextElapsedDays" | "previousScheduledDays" | "nextScheduledDays" | "previousLearningSteps" | "nextLearningSteps" | "previousRepetitions" | "nextRepetitions" | "previousLapses" | "nextLapses" | "previousState" | "nextState" | "schedulerName" | "schedulerVersion" | "desiredRetention" | "schedulerParameters" | "evidenceCorrectionStatus" | "evidenceCorrectionNote" | "evidenceCorrectionAt" | "evidenceCorrectionIncidentKey" | "createdAt", ExtArgs["result"]["reviewLog"]>
 export type ReviewLogInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   skill?: boolean | Prisma.SkillDefaultArgs<ExtArgs>
@@ -1898,6 +2070,10 @@ export type $ReviewLogPayload<ExtArgs extends runtime.Types.Extensions.InternalA
     schedulerVersion: string
     desiredRetention: number
     schedulerParameters: runtime.JsonValue
+    evidenceCorrectionStatus: $Enums.ExerciseEvidenceCorrectionStatus
+    evidenceCorrectionNote: string | null
+    evidenceCorrectionAt: Date | null
+    evidenceCorrectionIncidentKey: string | null
     createdAt: Date
   }, ExtArgs["result"]["reviewLog"]>
   composites: {}
@@ -2353,6 +2529,10 @@ export interface ReviewLogFieldRefs {
   readonly schedulerVersion: Prisma.FieldRef<"ReviewLog", 'String'>
   readonly desiredRetention: Prisma.FieldRef<"ReviewLog", 'Float'>
   readonly schedulerParameters: Prisma.FieldRef<"ReviewLog", 'Json'>
+  readonly evidenceCorrectionStatus: Prisma.FieldRef<"ReviewLog", 'ExerciseEvidenceCorrectionStatus'>
+  readonly evidenceCorrectionNote: Prisma.FieldRef<"ReviewLog", 'String'>
+  readonly evidenceCorrectionAt: Prisma.FieldRef<"ReviewLog", 'DateTime'>
+  readonly evidenceCorrectionIncidentKey: Prisma.FieldRef<"ReviewLog", 'String'>
   readonly createdAt: Prisma.FieldRef<"ReviewLog", 'DateTime'>
 }
     

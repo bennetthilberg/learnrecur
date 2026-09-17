@@ -15,10 +15,10 @@ export function toHistoryReviewRow(review: PracticeHistoryReview): HistoryReview
     prompt: review.prompt,
     submittedAnswerDisplay: review.submittedAnswerDisplay,
     explanation: review.explanation,
-    finalRatingLabel: formatHistoryLabel(review.finalRating),
-    nextDueLabel: formatDueLabel(review.nextDueAt),
-    previousDueLabel: formatDueLabel(review.previousDueAt),
-    previousStateLabel: formatNullableHistoryLabel(review.previousState),
+    finalRatingLabel: review.finalRating ? formatHistoryLabel(review.finalRating) : "Practice only",
+    nextDueLabel: review.eventKind === "practice-only" ? "No schedule change" : formatDueLabel(review.nextDueAt),
+    previousDueLabel: review.eventKind === "practice-only" ? "Not scheduled" : formatDueLabel(review.previousDueAt),
+    previousStateLabel: review.eventKind === "practice-only" ? "Not scheduled" : formatNullableHistoryLabel(review.previousState),
     responseTimeLabel: formatResponseTime(review.responseMs),
     result: review.result === "CORRECT" ? "correct" : "incorrect",
     resultLabel: formatReviewResult(review.result),
@@ -27,7 +27,12 @@ export function toHistoryReviewRow(review: PracticeHistoryReview): HistoryReview
     reviewedTimeLabel: formatReviewTime(review.reviewedAt),
     skillId: review.skillId,
     skillTitle: review.skillTitle,
-    nextStateLabel: formatNullableHistoryLabel(review.nextState),
+    nextStateLabel: review.eventKind === "practice-only" ? "Not scheduled" : formatNullableHistoryLabel(review.nextState),
+    eventKind: review.eventKind,
+    eventKindLabel: review.eventKind === "practice-only" ? "Practice-only exposure" : "Scheduled review",
+    evidenceCorrectionStatus: review.evidenceCorrectionStatus,
+    evidenceCorrectionNote: review.evidenceCorrectionNote,
+    qualityReportReasons: review.qualityReportReasons.map(formatHistoryLabel),
   };
 }
 

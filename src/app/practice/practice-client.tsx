@@ -665,7 +665,7 @@ export function PracticeClient({ initialItem, canUseSampleData, recoveryKey, ini
           <div className="flagExerciseHeader">
             <div>
               <h2 id="flag-exercise-title">Report an issue</h2>
-              <p>This removes the exercise from practice. Reporting does not record an answer or change your review schedule.</p>
+              <p>This removes the exercise from practice. Reporting does not record an answer or change your review schedule. A confirmed defect can later exclude its evidence from schedule replay.</p>
             </div>
             <button
               ref={reportToggleRef}

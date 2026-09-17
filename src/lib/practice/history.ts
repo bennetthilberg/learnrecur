@@ -2,8 +2,10 @@ import "server-only";
 
 import {
   ExerciseAttemptResult,
+  ExerciseEvidenceCorrectionStatus,
   type AnswerKind,
   type FsrsRating,
+  type Prisma,
   type SkillFsrsState,
   type SkillStatus,
 } from "@/generated/prisma/client";
@@ -12,6 +14,8 @@ import { getPrisma } from "@/lib/prisma";
 
 const DEFAULT_HISTORY_LIMIT = 50;
 const MAX_HISTORY_LIMIT = 100;
+
+export type PracticeHistoryMode = "scheduled" | "practice-only";
 
 export type PracticeHistoryReview = {
   id: string;
@@ -26,7 +30,7 @@ export type PracticeHistoryReview = {
     typeof ExerciseAttemptResult.CORRECT | typeof ExerciseAttemptResult.INCORRECT
   >;
   responseMs: number | null;
-  finalRating: FsrsRating;
+  finalRating: FsrsRating | null;
   reviewedAt: Date;
   previousDueAt: Date | null;
   nextDueAt: Date | null;
@@ -36,6 +40,13 @@ export type PracticeHistoryReview = {
   prompt: string;
   submittedAnswerDisplay: string;
   explanation: string | null;
+  eventKind: PracticeHistoryMode;
+  practiceContext: Prisma.JsonValue | null;
+  evidenceCorrectionStatus: ExerciseEvidenceCorrectionStatus;
+  evidenceCorrectionNote: string | null;
+  evidenceCorrectionAt: Date | null;
+  evidenceCorrectionIncidentKey: string | null;
+  qualityReportReasons: string[];
 };
 
 export type PracticeHistoryResult = {
@@ -57,6 +68,7 @@ export type GetPracticeHistoryInput = {
   skillId?: string;
   collectionId?: string;
   incorrectOnly?: boolean;
+  mode?: PracticeHistoryMode;
   cursor?: { reviewedAt: string; id: string };
 };
 
@@ -107,16 +119,29 @@ export async function getSkillPracticeHistory(
 async function findPracticeHistoryReviews(
   input: GetPracticeHistoryInput & { skillId?: string },
 ): Promise<PracticeHistoryReview[]> {
-  const prisma = getPrisma();
-  const rows = await prisma.reviewLog.findMany({
+  return input.mode === "practice-only"
+    ? findPracticeOnlyHistoryReviews(input)
+    : findScheduledHistoryReviews(input);
+}
+
+async function findScheduledHistoryReviews(
+  input: GetPracticeHistoryInput & { skillId?: string },
+): Promise<PracticeHistoryReview[]> {
+  const rows = await getPrisma().reviewLog.findMany({
     where: {
       userId: input.userId,
       skillId: input.skillId,
-      skill: input.collectionId ? { userId: input.userId, collectionId: input.collectionId } : undefined,
-      ...(input.cursor ? { OR: [
-        { reviewedAt: { lt: new Date(input.cursor.reviewedAt) } },
-        { reviewedAt: new Date(input.cursor.reviewedAt), id: { gt: input.cursor.id } },
-      ] } : {}),
+      skill: input.collectionId
+        ? { userId: input.userId, collectionId: input.collectionId }
+        : undefined,
+      ...(input.cursor
+        ? {
+            OR: [
+              { reviewedAt: { lt: new Date(input.cursor.reviewedAt) } },
+              { reviewedAt: new Date(input.cursor.reviewedAt), id: { gt: input.cursor.id } },
+            ],
+          }
+        : {}),
       reviewedAt: {
         lte: input.now,
       },
@@ -125,7 +150,9 @@ async function findPracticeHistoryReviews(
           not: null,
         },
         result: {
-          in: input.incorrectOnly ? [ExerciseAttemptResult.INCORRECT] : [ExerciseAttemptResult.CORRECT, ExerciseAttemptResult.INCORRECT],
+          in: input.incorrectOnly
+            ? [ExerciseAttemptResult.INCORRECT]
+            : [ExerciseAttemptResult.CORRECT, ExerciseAttemptResult.INCORRECT],
         },
       },
     },
@@ -141,11 +168,20 @@ async function findPracticeHistoryReviews(
       nextDueAt: true,
       previousState: true,
       nextState: true,
+      evidenceCorrectionStatus: true,
+      evidenceCorrectionNote: true,
+      evidenceCorrectionAt: true,
+      evidenceCorrectionIncidentKey: true,
       exerciseAttempt: {
         select: {
           result: true,
           responseMs: true,
           answer: true,
+          practiceContext: true,
+          evidenceCorrectionStatus: true,
+          evidenceCorrectionNote: true,
+          evidenceCorrectionAt: true,
+          evidenceCorrectionIncidentKey: true,
           exercise: {
             select: {
               answerKind: true,
@@ -153,6 +189,10 @@ async function findPracticeHistoryReviews(
               prompt: true,
               choices: true,
               explanation: true,
+              flags: {
+                where: { userId: input.userId },
+                select: { reason: true },
+              },
             },
           },
           skill: {
@@ -171,27 +211,183 @@ async function findPracticeHistoryReviews(
     },
   });
 
+  return rows.map((row) => {
+    const correction = chooseCorrectionAnnotation({
+      primary: row.evidenceCorrectionStatus,
+      primaryNote: row.evidenceCorrectionNote,
+      primaryAt: row.evidenceCorrectionAt,
+      primaryIncidentKey: row.evidenceCorrectionIncidentKey,
+      fallback: row.exerciseAttempt.evidenceCorrectionStatus,
+      fallbackNote: row.exerciseAttempt.evidenceCorrectionNote,
+      fallbackAt: row.exerciseAttempt.evidenceCorrectionAt,
+      fallbackIncidentKey: row.exerciseAttempt.evidenceCorrectionIncidentKey,
+    });
+
+    return {
+      id: row.id,
+      skillId: row.skillId,
+      skillTitle: row.exerciseAttempt.skill.title,
+      skillStatus: row.exerciseAttempt.skill.status,
+      collectionName: row.exerciseAttempt.skill.collection?.name ?? null,
+      exerciseAttemptId: row.exerciseAttemptId,
+      answerKind: row.exerciseAttempt.exercise.answerKind,
+      result: row.exerciseAttempt.result as PracticeHistoryReview["result"],
+      responseMs: row.exerciseAttempt.responseMs,
+      finalRating: row.finalRating,
+      reviewedAt: row.reviewedAt,
+      previousDueAt: row.previousDueAt,
+      nextDueAt: row.nextDueAt,
+      previousState: row.previousState,
+      nextState: row.nextState,
+      correctAnswerDisplay: row.exerciseAttempt.exercise.correctAnswerDisplay,
+      prompt: row.exerciseAttempt.exercise.prompt,
+      submittedAnswerDisplay: formatSubmittedHistoryAnswer(
+        row.exerciseAttempt.answer,
+        row.exerciseAttempt.exercise.choices,
+      ),
+      explanation: row.exerciseAttempt.exercise.explanation,
+      eventKind: "scheduled" as const,
+      practiceContext: row.exerciseAttempt.practiceContext,
+      evidenceCorrectionStatus: correction.status,
+      evidenceCorrectionNote: correction.note,
+      evidenceCorrectionAt: correction.at,
+      evidenceCorrectionIncidentKey: correction.incidentKey,
+      qualityReportReasons: row.exerciseAttempt.exercise.flags.map((flag) => flag.reason),
+    };
+  });
+}
+
+async function findPracticeOnlyHistoryReviews(
+  input: GetPracticeHistoryInput & { skillId?: string },
+): Promise<PracticeHistoryReview[]> {
+  const rows = await getPrisma().exerciseAttempt.findMany({
+    where: {
+      userId: input.userId,
+      skillId: input.skillId,
+      skill: input.collectionId
+        ? { userId: input.userId, collectionId: input.collectionId }
+        : undefined,
+      createdAt: { lte: input.now },
+      reviewLog: { is: null },
+      AND: [
+        {
+          OR: [
+            { ratingPolicyVersion: "practice-only-v1" },
+            { practiceContext: { path: ["practiceOnly"], equals: true } },
+            { practiceContext: { path: ["sessionMode"], equals: "PRACTICE_ONLY" } },
+            { practiceContext: { path: ["exposure"], equals: "PRACTICE_ONLY" } },
+            { practiceContext: { path: ["exposure"], equals: "practice-only" } },
+          ],
+        },
+        ...(input.cursor
+          ? [{
+              OR: [
+                { createdAt: { lt: new Date(input.cursor.reviewedAt) } },
+                { createdAt: new Date(input.cursor.reviewedAt), id: { gt: input.cursor.id } },
+              ],
+            }]
+          : []),
+      ],
+      result: {
+        in: input.incorrectOnly
+          ? [ExerciseAttemptResult.INCORRECT]
+          : [ExerciseAttemptResult.CORRECT, ExerciseAttemptResult.INCORRECT],
+      },
+    },
+    orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+    take: normalizeHistoryLimit(input.limit),
+    select: {
+      id: true,
+      skillId: true,
+      result: true,
+      responseMs: true,
+      answer: true,
+      practiceContext: true,
+      evidenceCorrectionStatus: true,
+      evidenceCorrectionNote: true,
+      evidenceCorrectionAt: true,
+      evidenceCorrectionIncidentKey: true,
+      createdAt: true,
+      exercise: {
+        select: {
+          answerKind: true,
+          correctAnswerDisplay: true,
+          prompt: true,
+          choices: true,
+          explanation: true,
+          flags: {
+            where: { userId: input.userId },
+            select: { reason: true },
+          },
+        },
+      },
+      skill: {
+        select: {
+          title: true,
+          status: true,
+          collection: {
+            select: {
+              name: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
   return rows.map((row) => ({
     id: row.id,
     skillId: row.skillId,
-    skillTitle: row.exerciseAttempt.skill.title,
-    skillStatus: row.exerciseAttempt.skill.status,
-    collectionName: row.exerciseAttempt.skill.collection?.name ?? null,
-    exerciseAttemptId: row.exerciseAttemptId,
-    answerKind: row.exerciseAttempt.exercise.answerKind,
-    result: row.exerciseAttempt.result as PracticeHistoryReview["result"],
-    responseMs: row.exerciseAttempt.responseMs,
-    finalRating: row.finalRating,
-    reviewedAt: row.reviewedAt,
-    previousDueAt: row.previousDueAt,
-    nextDueAt: row.nextDueAt,
-    previousState: row.previousState,
-    nextState: row.nextState,
-    correctAnswerDisplay: row.exerciseAttempt.exercise.correctAnswerDisplay,
-    prompt: row.exerciseAttempt.exercise.prompt,
-    submittedAnswerDisplay: formatSubmittedHistoryAnswer(row.exerciseAttempt.answer, row.exerciseAttempt.exercise.choices),
-    explanation: row.exerciseAttempt.exercise.explanation,
+    skillTitle: row.skill.title,
+    skillStatus: row.skill.status,
+    collectionName: row.skill.collection?.name ?? null,
+    exerciseAttemptId: row.id,
+    answerKind: row.exercise.answerKind,
+    result: row.result as PracticeHistoryReview["result"],
+    responseMs: row.responseMs,
+    finalRating: null,
+    reviewedAt: row.createdAt,
+    previousDueAt: null,
+    nextDueAt: null,
+    previousState: null,
+    nextState: null,
+    correctAnswerDisplay: row.exercise.correctAnswerDisplay,
+    prompt: row.exercise.prompt,
+    submittedAnswerDisplay: formatSubmittedHistoryAnswer(row.answer, row.exercise.choices),
+    explanation: row.exercise.explanation,
+    eventKind: "practice-only" as const,
+    practiceContext: row.practiceContext,
+    evidenceCorrectionStatus: row.evidenceCorrectionStatus,
+    evidenceCorrectionNote: row.evidenceCorrectionNote,
+    evidenceCorrectionAt: row.evidenceCorrectionAt,
+    evidenceCorrectionIncidentKey: row.evidenceCorrectionIncidentKey,
+    qualityReportReasons: row.exercise.flags.map((flag) => flag.reason),
   }));
+}
+
+function chooseCorrectionAnnotation(input: {
+  primary: ExerciseEvidenceCorrectionStatus;
+  primaryNote: string | null;
+  primaryAt: Date | null;
+  primaryIncidentKey: string | null;
+  fallback: ExerciseEvidenceCorrectionStatus;
+  fallbackNote: string | null;
+  fallbackAt: Date | null;
+  fallbackIncidentKey: string | null;
+}) {
+  return input.primary !== ExerciseEvidenceCorrectionStatus.NOT_REQUIRED
+    ? {
+        status: input.primary,
+        note: input.primaryNote,
+        at: input.primaryAt,
+        incidentKey: input.primaryIncidentKey,
+      }
+    : {
+        status: input.fallback,
+        note: input.fallbackNote,
+        at: input.fallbackAt,
+        incidentKey: input.fallbackIncidentKey,
+      };
 }
 
 function normalizeHistoryLimit(limit: number | undefined): number {
@@ -214,5 +410,11 @@ export async function getPracticeHistoryPage(input: GetPracticeHistoryInput) {
   const rows = await findPracticeHistoryReviews({ ...input, limit: size + 1 });
   const reviews = rows.slice(0, size);
   const last = reviews.at(-1);
-  return { reviews, nextCursor: rows.length > size && last ? { reviewedAt: last.reviewedAt.toISOString(), id: last.id } : null };
+  return {
+    reviews,
+    nextCursor:
+      rows.length > size && last
+        ? { reviewedAt: last.reviewedAt.toISOString(), id: last.id }
+        : null,
+  };
 }
