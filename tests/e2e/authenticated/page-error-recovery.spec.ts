@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
-import { neon } from "@neondatabase/serverless";
+import { getTestPostgres } from "../support/postgres";
 import { expect, test } from "../fixtures/authenticated";
 
 for (const width of [390, 1280]) {
   test(`page errors retain navigation, focus and draft recovery at ${width}px`, async ({ page, clerkTestUser }, testInfo) => {
-    const sql = neon(process.env.DATABASE_URL!);
+    const sql = getTestPostgres(process.env.DATABASE_URL!);
     const collectionId = randomUUID();
     const title = `Error recovery ${width}`;
     await sql.query('INSERT INTO collections (id,"userId",name,"updatedAt") VALUES ($1,$2,$3,now())', [collectionId, clerkTestUser.id, title]);

@@ -1,4 +1,4 @@
-import { neon } from "@neondatabase/serverless";
+import { getTestPostgres } from "../tests/e2e/support/postgres";
 import { config as loadEnv } from "dotenv";
 import { appendFile } from "node:fs/promises";
 
@@ -78,7 +78,7 @@ function getAdminSql() {
   if (!adminUrl) {
     throw new Error("E2E_DIRECT_URL is required to manage the isolated test schema.");
   }
-  return neon(adminUrl);
+  return getTestPostgres(adminUrl);
 }
 
 function maskSecret(value: string) {

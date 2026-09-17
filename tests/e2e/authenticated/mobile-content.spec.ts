@@ -1,9 +1,9 @@
-import { neon } from "@neondatabase/serverless";
+import { getTestPostgres } from "../support/postgres";
 import { expect, test } from "../fixtures/learner-lifecycle";
 
 test("long practice content and math remain usable with enlarged text", async ({ page, learnerFixture }, testInfo) => {
   test.setTimeout(90_000);
-  const sql = neon(process.env.DATABASE_URL!);
+  const sql = getTestPostgres(process.env.DATABASE_URL!);
   const scenario = learnerFixture.scenarios.choice;
   const title = "Distinguishing permanent characteristics from temporary conditions in extended Spanish sentences";
   const layout = {

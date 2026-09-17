@@ -1,9 +1,9 @@
-import { neon } from "@neondatabase/serverless";
+import { getTestPostgres } from "../support/postgres";
 import { expect, test } from "../fixtures/learner-lifecycle";
 for (const { custom, scheduled } of [{ custom: false, scheduled: false }, { custom: true, scheduled: false }, { custom: true, scheduled: true }]) {
   test(`reports without answering or scheduling in ${custom ? scheduled ? "scheduled custom" : "custom" : "normal"} practice`, async ({ page, learnerFixture }, testInfo) => {
     const scenario = learnerFixture.scenarios.choice;
-    const sql = neon(process.env.DATABASE_URL!);
+    const sql = getTestPostgres(process.env.DATABASE_URL!);
     const readSchedule = () => sql.query('SELECT "dueAt", repetitions, lapses, "fsrsState" FROM skills WHERE id=$1 AND "userId"=$2', [scenario.skillId, learnerFixture.userId]);
     const before = await readSchedule();
     if (custom) {

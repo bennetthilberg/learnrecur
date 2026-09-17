@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
-import { neon } from "@neondatabase/serverless";
+import { getTestPostgres } from "../support/postgres";
 import { expect, test } from "../fixtures/learner-lifecycle";
 
 test("rename and move preserve unfinished edits and update the library", async ({ page, learnerFixture }, testInfo) => {
   test.setTimeout(90_000);
-  const sql = neon(process.env.DATABASE_URL!);
+  const sql = getTestPostgres(process.env.DATABASE_URL!);
   const skill = learnerFixture.scenarios.choice;
   await page.goto(`/skills/${skill.skillId}`);
   const [before] = await sql.query('SELECT "userId","dueAt",stability,difficulty,repetitions FROM skills WHERE id=$1', [skill.skillId]);

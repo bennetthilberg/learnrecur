@@ -1,8 +1,8 @@
-import { neon } from "@neondatabase/serverless";
+import { getTestPostgres } from "../support/postgres";
 import { expect, test } from "../fixtures/authenticated";
 
 test("copying practice timezone changes only the reminder draft until saved", async ({ page, clerkTestUser }, testInfo) => {
-  const sql = neon(process.env.DATABASE_URL!);
+  const sql = getTestPostgres(process.env.DATABASE_URL!);
   await sql.query('UPDATE users SET "practiceTimezone"=$1 WHERE id=$2', ["Asia/Kolkata", clerkTestUser.id]);
   await page.goto("/settings");
   const reminders = page.getByRole("region", { name: "Email reminders", exact: true });

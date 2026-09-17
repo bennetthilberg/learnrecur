@@ -1,9 +1,9 @@
-import { neon } from "@neondatabase/serverless";
+import { getTestPostgres } from "../support/postgres";
 import { expect, test } from "../fixtures/learner-lifecycle";
 
 test("structured instructions survive dashboard, practice recovery, and custom sessions", async ({ page, learnerFixture }, testInfo) => {
   test.setTimeout(90_000);
-  const sql = neon(process.env.DATABASE_URL!);
+  const sql = getTestPostgres(process.env.DATABASE_URL!);
   const scenario = learnerFixture.scenarios.choice;
   const layout = { instruction: "Complétez la phrase.", content: "Carlos ____ médecin." };
   const prompt = `${layout.instruction}\n\n${layout.content}`;

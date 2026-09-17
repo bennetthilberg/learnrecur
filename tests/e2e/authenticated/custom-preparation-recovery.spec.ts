@@ -1,9 +1,9 @@
-import { neon } from "@neondatabase/serverless";
+import { getTestPostgres } from "../support/postgres";
 import { expect, test } from "../fixtures/learner-lifecycle";
 
 test("an empty custom session survives refresh and continues after preparation", async ({ page, learnerFixture }, testInfo) => {
   test.setTimeout(90_000);
-  const sql = neon(process.env.DATABASE_URL!);
+  const sql = getTestPostgres(process.env.DATABASE_URL!);
   const skill = learnerFixture.scenarios.choice;
   await sql.query('UPDATE exercises SET "retiredAt"=NOW() WHERE "skillId"=$1', [skill.skillId]);
   await page.goto(`/practice/custom?skillId=${skill.skillId}`);

@@ -1,7 +1,6 @@
-import { neonConfig } from "@neondatabase/serverless";
-import { PrismaNeon } from "@prisma/adapter-neon";
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/client";
-import ws from "ws";
+import { getPostgresPoolConfig } from "./postgres-config";
 
 import { getDatabaseEnv } from "./env";
 
@@ -16,9 +15,7 @@ export function getPrisma(): PrismaClient {
 
   const { DATABASE_URL } = getDatabaseEnv();
 
-  neonConfig.webSocketConstructor = ws;
-
-  const adapter = new PrismaNeon({ connectionString: DATABASE_URL });
+  const adapter = new PrismaPg(getPostgresPoolConfig(DATABASE_URL));
   const prisma = new PrismaClient({
     adapter,
     transactionOptions: {

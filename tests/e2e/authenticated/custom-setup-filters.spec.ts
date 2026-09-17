@@ -1,9 +1,9 @@
-import { neon } from "@neondatabase/serverless";
+import { getTestPostgres } from "../support/postgres";
 import { expect, test } from "../fixtures/learner-lifecycle";
 
 test("custom setup previews filters and restores unfinished choices", async ({ page, learnerFixture }, testInfo) => {
   test.setTimeout(90_000);
-  const sql = neon(process.env.DATABASE_URL!);
+  const sql = getTestPostgres(process.env.DATABASE_URL!);
   const skill = learnerFixture.scenarios.choice;
   await sql.query('UPDATE skills SET tags=ARRAY[\'spanish\',\'verbs\'], "dueAt"=NOW()+INTERVAL \'1 day\' WHERE id=$1', [skill.skillId]);
   await page.goto(`/practice/custom?skillId=${skill.skillId}`);

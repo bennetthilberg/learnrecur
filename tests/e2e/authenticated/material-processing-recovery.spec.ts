@@ -1,11 +1,11 @@
 import { clickNavigation } from "../support/navigation";
 import { randomUUID } from "node:crypto";
-import { neon } from "@neondatabase/serverless";
+import { getTestPostgres } from "../support/postgres";
 import { expect, test } from "../fixtures/authenticated";
 
 test("a background import retains processing and failure state through navigation and refresh", async ({ page, clerkTestUser }, testInfo) => {
   test.setTimeout(60_000);
-  const sql = neon(process.env.DATABASE_URL!);
+  const sql = getTestPostgres(process.env.DATABASE_URL!);
   const materialId = randomUUID();
   const revisionId = randomUUID();
   await sql.query('INSERT INTO study_materials (id,"userId",title,kind,"updatedAt") VALUES ($1,$2,$3,\'PDF\',now())', [materialId, clerkTestUser.id, "Long reference import"]);

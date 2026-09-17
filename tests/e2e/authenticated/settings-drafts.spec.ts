@@ -1,9 +1,9 @@
 import { clickNavigation } from "../support/navigation";
-import { neon } from "@neondatabase/serverless";
+import { getTestPostgres } from "../support/postgres";
 import { expect, test } from "../fixtures/authenticated";
 
 test("practice edits survive navigation, failed saves and refresh without becoming saved preferences", async ({ page, clerkTestUser }, testInfo) => {
-  const sql = neon(process.env.DATABASE_URL!);
+  const sql = getTestPostgres(process.env.DATABASE_URL!);
   await sql.query('UPDATE users SET "dailyNewSkillLimit"=NULL WHERE id=$1', [clerkTestUser.id]);
   await page.goto("/settings");
   const form = page.getByRole("region", { name: "Practice preferences", exact: true });
@@ -91,7 +91,7 @@ test("retains edits through browser Back when tab storage is unavailable", async
 });
 
 test("reminder toggle shares the explicit save and discard behavior", async ({ page, clerkTestUser }, testInfo) => {
-  const sql = neon(process.env.DATABASE_URL!);
+  const sql = getTestPostgres(process.env.DATABASE_URL!);
   await page.goto("/settings");
   const form = page.getByRole("region", { name: "Email reminders", exact: true });
   const toggle = form.getByRole("checkbox", { name: "Email me when practice is due" });

@@ -111,7 +111,7 @@ export const RUNTIME_AUDIT_EXCEPTIONS: readonly RuntimeAuditException[] = [
     advisoryId: "GHSA-3f6p-5ww8-9rcr",
     packageName: "mysql2",
     rationale:
-      "MySQL2 is present only beneath the Prisma 7 CLI and is not used by the Neon production adapter. npm proposes Prisma 6.19.3, a major downgrade, so retain Prisma 7 and recheck on the next dependency review.",
+      "MySQL2 is present only beneath the Prisma 7 CLI and is not used by the PostgreSQL production adapter. npm proposes Prisma 6.19.3, a major downgrade, so retain Prisma 7 and recheck on the next dependency review.",
     ownerRole: "release engineering",
     expiresAt: "2026-10-03T23:59:59.999Z",
   },
@@ -119,7 +119,7 @@ export const RUNTIME_AUDIT_EXCEPTIONS: readonly RuntimeAuditException[] = [
     advisoryId: "GHSA-rgwj-5xj2-c3m3",
     packageName: "mysql2",
     rationale:
-      "MySQL2 is present only beneath the Prisma 7 CLI and is not used by the Neon production adapter. npm proposes Prisma 6.19.3, a major downgrade, so retain Prisma 7 and recheck on the next dependency review.",
+      "MySQL2 is present only beneath the Prisma 7 CLI and is not used by the PostgreSQL production adapter. npm proposes Prisma 6.19.3, a major downgrade, so retain Prisma 7 and recheck on the next dependency review.",
     ownerRole: "release engineering",
     expiresAt: "2026-10-03T23:59:59.999Z",
   },

@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
-import { neon } from "@neondatabase/serverless";
+import { getTestPostgres } from "../support/postgres";
 import { expect, test } from "../fixtures/authenticated";
 
 test("a large skills library supports combined filters and restores them after opening a skill", async ({ page, clerkTestUser }, testInfo) => {
   test.setTimeout(90_000);
-  const sql = neon(process.env.DATABASE_URL!);
+  const sql = getTestPostgres(process.env.DATABASE_URL!);
   const prefix = `library-${randomUUID()}`;
   const collectionId = `${prefix}-collection`;
   await page.goto("/dashboard");

@@ -1,4 +1,4 @@
-import { neon } from "@neondatabase/serverless";
+import { getTestPostgres } from "./postgres";
 import { randomUUID } from "node:crypto";
 
 const E2E_EXACT_INPUT_UNLOCK_REPETITIONS = 3;
@@ -555,5 +555,5 @@ function getTestSql() {
   if (!connectionString) {
     throw new Error("Authenticated E2E database helpers require DATABASE_URL.");
   }
-  return neon(connectionString);
+  return getTestPostgres(connectionString);
 }

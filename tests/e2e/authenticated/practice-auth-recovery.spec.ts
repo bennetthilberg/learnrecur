@@ -1,11 +1,11 @@
 import { createClerkClient } from "@clerk/backend";
-import { neon } from "@neondatabase/serverless";
+import { getTestPostgres } from "../support/postgres";
 import { expect, test } from "../fixtures/learner-lifecycle";
 
 for (const custom of [false, true]) {
   test(`restores a checked ${custom ? "custom" : "normal"} answer after the sign-in session ends`, async ({ page, clerkTestUser, learnerFixture }, testInfo) => {
     test.setTimeout(120_000);
-    const sql = neon(process.env.DATABASE_URL!);
+    const sql = getTestPostgres(process.env.DATABASE_URL!);
     await page.goto(custom ? "/practice/custom" : "/practice");
     if (custom) {
       await page.getByRole("spinbutton", { name: /^Exercises/ }).fill("3");

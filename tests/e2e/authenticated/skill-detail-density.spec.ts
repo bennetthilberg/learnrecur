@@ -1,9 +1,9 @@
-import { neon } from "@neondatabase/serverless";
+import { getTestPostgres } from "../support/postgres";
 import { expect, test } from "../fixtures/learner-lifecycle";
 
 test("skill detail shows one empty summary and only populated guidance", async ({ page, learnerFixture }, testInfo) => {
   const skill = learnerFixture.scenarios.choice;
-  const sql = neon(process.env.DATABASE_URL!);
+  const sql = getTestPostgres(process.env.DATABASE_URL!);
   await sql.query('UPDATE skills SET rules=NULL, examples=NULL, "exerciseConstraints"=NULL WHERE id=$1 AND "userId"=$2', [skill.skillId, skill.userId]);
   await page.goto(`/skills/${skill.skillId}`);
   const guidance = page.getByRole("region", { name: "Practice guidance", exact: true });

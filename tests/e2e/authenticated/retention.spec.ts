@@ -1,4 +1,4 @@
-import { neon } from "@neondatabase/serverless";
+import { getTestPostgres } from "../support/postgres";
 import { expect, test } from "../fixtures/learner-lifecycle";
 import {
   NATURAL_TEXT_POLICY,
@@ -12,7 +12,7 @@ for (const width of [1280, 390])
     learnerFixture,
   }, testInfo) => {
     test.setTimeout(90_000);
-    const sql = neon(process.env.DATABASE_URL!);
+    const sql = getTestPostgres(process.env.DATABASE_URL!);
     const userId = learnerFixture.userId;
     const spanish = learnerFixture.scenarios.text;
     await page.setViewportSize({ width, height: 900 });
@@ -290,7 +290,7 @@ test("balanced math and exact technical text use the same practice flow", async 
   page,
   learnerFixture,
 }) => {
-  const sql = neon(process.env.DATABASE_URL!);
+  const sql = getTestPostgres(process.env.DATABASE_URL!);
   const math = learnerFixture.scenarios.math;
   await page.goto(`/practice?collectionId=${math.collectionId}`);
   await page
