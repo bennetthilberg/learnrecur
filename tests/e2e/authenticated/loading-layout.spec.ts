@@ -65,14 +65,16 @@ for (const width of [1280, 390]) {
     const primary = await page.getByRole("button", { name: "Start session" }).boundingBox();
     const secondary = await page.getByRole("link", { name: "Cancel", exact: true }).boundingBox();
     expect(primary!.x).toBeGreaterThan(secondary!.x);
+    // Streaming can retain hidden page copies; measure the accessible form.
+    const setup = page.getByRole("region", { name: "Session choices", exact: true });
     if (width > 760) {
-      const columns = await page.locator(".customPracticeSetupGrid").evaluate((node) => getComputedStyle(node).gridTemplateColumns.split(" ").map(parseFloat));
+      const columns = await setup.locator(".customPracticeSetupGrid").evaluate((node) => getComputedStyle(node).gridTemplateColumns.split(" ").map(parseFloat));
       expect(columns[1] / columns[0]).toBeGreaterThan(.8);
     }
-    const legend = page.locator(".customPracticeSkillFieldset legend");
+    const legend = setup.locator(".customPracticeSkillFieldset legend");
     expect(await legend.locator("small").evaluate((node) => getComputedStyle(node).display)).toBe("block");
-    expect(await page.locator(".customPracticeSkillList input").count()).toBeGreaterThan(0);
-    const skillRows = await page.locator(".customPracticeSkillList label").evaluateAll((rows) => rows.map((row) => {
+    expect(await setup.locator(".customPracticeSkillList input").count()).toBeGreaterThan(0);
+    const skillRows = await setup.locator(".customPracticeSkillList label").evaluateAll((rows) => rows.map((row) => {
       const rect = row.getBoundingClientRect();
       return { top: rect.top, bottom: rect.bottom, contentBottom: row.querySelector("span")!.getBoundingClientRect().bottom };
     }));

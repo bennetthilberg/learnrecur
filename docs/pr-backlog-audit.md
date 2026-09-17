@@ -47,7 +47,12 @@ and runtime auditing passed. The combined unit/database run passed 1,699 tests
 and the coverage gates (81.70% lines and 72.42% branches). The initial browser
 run passed 123 of 124 tests; the mobile fast-animation check failed once, then
 passed three consecutive repeats at both viewport sizes without changes. A full
-rerun and hosted checks remain required before merging. Hosted CI must check
+rerun exposed selectors that also matched hidden streamed content and a browser
+history wait for the full load event. Scope those selectors to the visible form
+and accessible region, and wait for navigation commit before asserting the
+restored answer and single saved attempt. All five affected cases passed three
+repeats each. A final full rerun and hosted checks remain required before
+merging. Hosted CI must check
 the actual updated PR head.
 The historical receipt changes documentation only; no production configuration
 or application code is reverted by its merge.
