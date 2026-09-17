@@ -6,7 +6,7 @@ test("unfinished source text and context survive refresh and navigation", async 
   const text = page.getByRole("textbox", { name: "Add learning material", exact: true });
   await expect(text).toBeEnabled();
   await text.fill("Practice choosing ser or estar from context.");
-  await page.locator("form.createSkillMaterialForm").getByText("More options", { exact: true }).click();
+  await page.locator("form.createSkillMaterialForm:visible").getByText("More options", { exact: true }).click();
   await page.getByRole("textbox", { name: "Collection", exact: true }).fill("Spanish grammar");
   await page.getByRole("textbox", { name: "Source name", exact: true }).fill("Chapter 4");
   await page.getByRole("textbox", { name: "Focus", exact: true }).fill("Use short sentences.");
@@ -20,7 +20,7 @@ test("unfinished source text and context survive refresh and navigation", async 
   await expect(text).toHaveValue("Practice choosing ser or estar from context.");
   await page.reload();
   await expect(text).toHaveValue("Practice choosing ser or estar from context.");
-  await page.locator("form.createSkillMaterialForm").getByText("More options", { exact: true }).click();
+  await page.locator("form.createSkillMaterialForm:visible").getByText("More options", { exact: true }).click();
   await expect(page.getByRole("textbox", { name: "Collection", exact: true })).toHaveValue("Spanish grammar");
   await expect(page.getByRole("textbox", { name: "Source name", exact: true })).toHaveValue("Chapter 4");
   await expect(page.getByRole("textbox", { name: "Focus", exact: true })).toHaveValue("Use short sentences.");

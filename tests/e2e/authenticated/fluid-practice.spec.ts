@@ -258,7 +258,9 @@ for (const custom of [false, true]) {
       await page.goBack();
       await expect(page).not.toHaveURL(practiceUrl);
     } finally { release(); }
-    await page.goForward();
+    // The interrupted save can keep the load event pending; assert the restored
+    // route and answer below instead of waiting for every response to finish.
+    await page.goForward({ waitUntil: "commit" });
     await expect(page).toHaveURL(practiceUrl);
     await expect(page.locator(".practicePromptPanel:not([aria-hidden])")).toHaveText(first);
     await page.getByRole("button", { name: custom ? "Save practice" : "Continue", exact: true }).click();
