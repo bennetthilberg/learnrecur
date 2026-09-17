@@ -8,11 +8,13 @@ import {
 } from "@/generated/prisma/client";
 import { isPracticeReadModelExerciseReady } from "@/lib/practice/read-model-eligibility";
 import { getPrisma } from "@/lib/prisma";
+import { getSkillActivationUsage } from "@/lib/usage-limits";
 
 export type SkillLifecycleInput = {
   userId: string;
   skillId: string;
   transaction?: Prisma.TransactionClient;
+  now?: Date;
 };
 
 export type SkillLifecycleUpdatedResult = {
@@ -36,10 +38,19 @@ export type SkillLifecycleInvalidTransitionResult = {
   currentStatus: SkillStatus;
 };
 
+export type SkillLifecycleLimitedResult = {
+  status: "limited";
+  reason: "active-skill-limit";
+  message: string;
+  limit: number;
+  remaining: 0;
+};
+
 export type SkillLifecycleResult =
   | SkillLifecycleUpdatedResult
   | SkillLifecycleNotFoundResult
-  | SkillLifecycleInvalidTransitionResult;
+  | SkillLifecycleInvalidTransitionResult
+  | SkillLifecycleLimitedResult;
 
 type LifecycleSkillRecord = {
   id: string;
@@ -91,7 +102,26 @@ export async function archiveSkill(input: SkillLifecycleInput): Promise<SkillLif
 export async function restoreArchivedSkill(
   input: SkillLifecycleInput,
 ): Promise<SkillLifecycleResult> {
-  const prisma = input.transaction ?? getPrisma();
+  const transaction = input.transaction;
+  if (!transaction) {
+    return getPrisma().$transaction((tx) =>
+      restoreArchivedSkillInTransaction({ ...input, transaction: tx }),
+    );
+  }
+
+  return restoreArchivedSkillInTransaction({ ...input, transaction });
+}
+
+async function restoreArchivedSkillInTransaction(
+  input: SkillLifecycleInput & { transaction: Prisma.TransactionClient },
+): Promise<SkillLifecycleResult> {
+  const prisma = input.transaction;
+  await prisma.$queryRaw`
+    SELECT "id"
+    FROM "users"
+    WHERE "id" = ${input.userId}
+    FOR UPDATE
+  `;
   const skill = await prisma.skill.findFirst({
     where: {
       id: input.skillId,
@@ -126,6 +156,23 @@ export async function restoreArchivedSkill(
   }
 
   const nextStatus = shouldRestoreAsActive(skill) ? SkillStatus.ACTIVE : SkillStatus.DRAFT;
+  if (nextStatus === SkillStatus.ACTIVE) {
+    const usage = await getSkillActivationUsage({
+      userId: input.userId,
+      now: input.now ?? new Date(),
+      prisma,
+    });
+    if (usage.countedSkillCount >= usage.activeSkillLimit) {
+      return {
+        status: "limited",
+        reason: "active-skill-limit",
+        message: `The library limit is ${usage.activeSkillLimit} active or paused skills, including imports already reserved. Archive a skill before restoring another.`,
+        limit: usage.activeSkillLimit,
+        remaining: 0,
+      };
+    }
+  }
+
   const updateResult = await prisma.skill.updateMany({
     where: {
       id: input.skillId,

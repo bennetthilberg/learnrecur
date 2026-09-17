@@ -40,6 +40,7 @@ import {
 import { getPrisma } from "@/lib/prisma";
 import { getUserDataExport } from "@/lib/settings/data-export";
 import * as refillJobs from "@/lib/skills/refill-jobs";
+import { ALPHA_ACTIVE_SKILLS } from "@/lib/usage-limits";
 
 const runDatabaseTests = process.env.RUN_DATABASE_TESTS === "1";
 const describeDatabase = runDatabaseTests ? describe : describe.skip;
@@ -566,7 +567,7 @@ describeDatabase("agent access persistence", () => {
   it("serializes active-skill reservations at the shared account limit", async () => {
     const fixture = await createConnection("quota");
     await prisma.skill.createMany({
-      data: Array.from({ length: 99 }, (_, index) => ({
+      data: Array.from({ length: ALPHA_ACTIVE_SKILLS - 1 }, (_, index) => ({
         userId: fixture.userId,
         title: `Active skill ${index + 1}`,
         objective: `Practice active skill number ${index + 1}.`,

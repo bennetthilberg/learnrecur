@@ -633,8 +633,9 @@ export async function refillChoiceExercisesAction(
 
   return {
     status:
-      result.status === "not-queued" &&
-      (result.reason === "already-at-target" || result.reason === "job-in-progress")
+      (result.status === "deferred" ||
+        (result.status === "not-queued" &&
+          (result.reason === "already-at-target" || result.reason === "job-in-progress")))
         ? "saved"
         : "error",
     message: result.message,
@@ -679,10 +680,11 @@ export async function refillExactInputExercisesAction(
 
   return {
     status:
-      result.status === "not-queued" &&
-      (result.reason === "already-at-target" ||
-        result.reason === "exact-input-locked" ||
-        result.reason === "job-in-progress")
+      (result.status === "deferred" ||
+        (result.status === "not-queued" &&
+          (result.reason === "already-at-target" ||
+            result.reason === "exact-input-locked" ||
+            result.reason === "job-in-progress")))
         ? "saved"
         : "error",
     message: result.message,
@@ -727,10 +729,11 @@ export async function refillMathExercisesAction(
 
   return {
     status:
-      result.status === "not-queued" &&
-      (result.reason === "already-at-target" ||
-        result.reason === "exact-input-locked" ||
-        result.reason === "job-in-progress")
+      (result.status === "deferred" ||
+        (result.status === "not-queued" &&
+          (result.reason === "already-at-target" ||
+            result.reason === "exact-input-locked" ||
+            result.reason === "job-in-progress")))
         ? "saved"
         : "error",
     message: result.message,

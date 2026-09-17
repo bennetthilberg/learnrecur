@@ -20,6 +20,12 @@ import {
   agentReadinessRepairSchema,
 } from "@/lib/agent-access/contracts";
 import { AgentOperationError } from "@/lib/agent-access/operations";
+import {
+  getExerciseRefillUsage,
+  getPendingImportUsage,
+  getSkillActivationUsage,
+} from "@/lib/usage-limits";
+import { REFILL_DEFERRED_CHECKPOINT } from "@/lib/import-limits";
 import { getDailyNewSkillAllowance } from "@/lib/practice/daily-limit";
 import { flagPracticeExerciseAndQueueRefill } from "@/lib/practice";
 import { getPrisma } from "@/lib/prisma";
@@ -83,7 +89,23 @@ function guidanceConstraints(value: Prisma.JsonValue | null): string {
   return value.notes;
 }
 
-function publicGenerationErrorMessage(errorMessage: string | null): string | null {
+function readRefillRetryAt(value: Prisma.JsonValue | null): string | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const deferral = (value as Record<string, unknown>).refillDeferral;
+  if (!deferral || typeof deferral !== "object" || Array.isArray(deferral)) {
+    return null;
+  }
+  const retryAt = (deferral as Record<string, unknown>).retryAt;
+  return typeof retryAt === "string" && Number.isFinite(Date.parse(retryAt))
+    ? retryAt
+    : null;
+}
+
+function publicGenerationErrorMessage(
+  errorMessage: string | null,
+  checkpoint: string | null,
+): string | null {
+  if (checkpoint === REFILL_DEFERRED_CHECKPOINT) return null;
   return errorMessage ? "Exercise preparation failed. Retry the repair." : null;
 }
 
@@ -92,7 +114,8 @@ export type ReadinessPreparationStatus =
   | "partial"
   | "not-queued"
   | "ready"
-  | "in-progress";
+  | "in-progress"
+  | "deferred";
 
 /**
  * Summarize each bounded refill result without claiming work was queued when
@@ -106,6 +129,10 @@ export function summarizeReadinessPreparationStatus(
   const queuedCount = results.filter((result) => result.status === "queued").length;
   if (queuedCount === results.length) return "queued";
   if (queuedCount > 0) return "partial";
+
+  if (results.every((result) => result.status === "deferred")) {
+    return "deferred";
+  }
 
   if (
     results.every(
@@ -135,7 +162,17 @@ export async function getAgentProgressSummary(
   const prisma = getPrisma();
   const now = new Date();
   const collectionId = input.collection_id ?? null;
-  const [allowance, counts, attention, openFlagCount, failedJobs, pendingJobs] =
+  const [
+    allowance,
+    counts,
+    attention,
+    openFlagCount,
+    failedJobs,
+    pendingJobs,
+    activationUsage,
+    pendingImportUsage,
+    refillUsage,
+  ] =
     await Promise.all([
       getDailyNewSkillAllowance(prisma, auth.userId, now),
       loadProgressCounts({ userId: auth.userId, now, collectionId }),
@@ -156,6 +193,10 @@ export async function getAgentProgressSummary(
         where: {
           userId: auth.userId,
           status: GenerationJobStatus.FAILED,
+          OR: [
+            { checkpoint: { not: REFILL_DEFERRED_CHECKPOINT } },
+            { checkpoint: null },
+          ],
           ...(collectionId ? { skill: { collectionId } } : {}),
         },
       }),
@@ -168,6 +209,9 @@ export async function getAgentProgressSummary(
           ...(collectionId ? { skill: { collectionId } } : {}),
         },
       }),
+      getSkillActivationUsage({ userId: auth.userId, now, prisma }),
+      getPendingImportUsage({ userId: auth.userId, prisma }),
+      getExerciseRefillUsage({ userId: auth.userId, now, prisma }),
     ]);
   const troubleSpots = attention.items
     .filter((item) => item.kind === "repeated-misses" && item.repeatedMisses)
@@ -201,6 +245,29 @@ export async function getAgentProgressSummary(
     preparation: {
       pending_job_count: pendingJobs,
       failed_job_count: failedJobs,
+    },
+    import_limits: {
+      active_skill_count: activationUsage.activeSkillCount,
+      reserved_skill_count: activationUsage.reservedSkillCount,
+      counted_skill_count: activationUsage.countedSkillCount,
+      active_skill_limit: activationUsage.activeSkillLimit,
+      active_skill_remaining: Math.max(
+        0,
+        activationUsage.activeSkillLimit - activationUsage.countedSkillCount,
+      ),
+      daily_activation_used: activationUsage.activationsUsedToday,
+      daily_activation_limit: activationUsage.dailyActivationLimit,
+      daily_activation_remaining: Math.max(
+        0,
+        activationUsage.dailyActivationLimit - activationUsage.activationsUsedToday,
+      ),
+      pending_item_count: pendingImportUsage.pendingItemCount,
+      pending_item_limit: pendingImportUsage.pendingItemLimit,
+      pending_item_remaining: pendingImportUsage.remaining,
+      refill_job_count: refillUsage.jobsToday,
+      refill_job_limit: refillUsage.jobLimit,
+      refill_job_remaining: refillUsage.remaining,
+      next_utc_reset_at: activationUsage.nextUtcResetAt.toISOString(),
     },
     totals: {
       active_skill_count: counts.activeSkillCount,
@@ -403,6 +470,8 @@ export async function getAgentReadiness(
           errorMessage: true,
           retryCount: true,
           completedAt: true,
+          checkpoint: true,
+          stageMetrics: true,
         },
       },
     },
@@ -428,7 +497,12 @@ export async function getAgentReadiness(
               status: job.status,
               stage: job.stage,
               failure_category: job.failureCategory,
-              error_message: publicGenerationErrorMessage(job.errorMessage),
+              error_message: publicGenerationErrorMessage(
+                job.errorMessage,
+                job.checkpoint,
+              ),
+              deferred: job.checkpoint === REFILL_DEFERRED_CHECKPOINT,
+              retry_at: readRefillRetryAt(job.stageMetrics),
               retry_count: job.retryCount,
               completed_at: job.completedAt?.toISOString() ?? null,
             }
@@ -436,6 +510,8 @@ export async function getAgentReadiness(
         status_reason:
           skill.status !== SkillStatus.ACTIVE
             ? "skill_not_active"
+            : job?.checkpoint === REFILL_DEFERRED_CHECKPOINT
+              ? "deferred"
             : ready.length === 0
               ? "needs_preparation"
               : "ready",

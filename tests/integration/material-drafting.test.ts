@@ -5575,7 +5575,7 @@ describeDatabase("material multi-skill drafting", () => {
       status: "limited",
       code: "daily-activation-limit",
       message:
-        "No activation attempts remain today. Try this draft again after 00:00 UTC.",
+        "No activation attempts remain today. Try this draft again after 2032-02-06T00:00:00.000Z UTC.",
     });
     expect(retrySender).not.toHaveBeenCalled();
     await expect(

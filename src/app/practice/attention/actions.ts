@@ -8,11 +8,19 @@ import {
   adjudicateExerciseQualityIncident,
   ExerciseQualityIncidentError,
 } from "@/lib/practice";
+import {
+  queueExerciseReplacement,
+  type ExerciseReplacementResult,
+} from "@/lib/practice/quality-replacements";
 
 type SavedQualityDecision = Extract<
   Awaited<ReturnType<typeof adjudicateExerciseQualityIncident>>,
   { status: "adjudicated" }
 >;
+
+export type SavedQualityDecisionWithReplacement = SavedQualityDecision & {
+  replacement: ExerciseReplacementResult | null;
+};
 
 const resolveIssueInputSchema = z.strictObject({
   exerciseId: z.string().trim().min(1).max(200),
@@ -25,7 +33,7 @@ const resolveIssueInputSchema = z.strictObject({
 export type ResolveExerciseIssueActionResult =
   | {
       status: "saved";
-      result: SavedQualityDecision;
+      result: SavedQualityDecisionWithReplacement;
     }
   | {
       status: "invalid" | "stale" | "already-resolved" | "failed";
@@ -46,6 +54,7 @@ export async function resolveExerciseIssueAction(
   const { userId } = await auth.protect();
 
   try {
+    const now = new Date();
     const result = await adjudicateExerciseQualityIncident({
       userId,
       exerciseId: parsed.data.exerciseId,
@@ -53,7 +62,7 @@ export async function resolveExerciseIssueAction(
       adjudicationCode: parsed.data.reason,
       expectedUpdatedAt: new Date(parsed.data.expectedUpdatedAt),
       idempotencyKey: parsed.data.idempotencyKey,
-      now: new Date(),
+      now,
     });
 
     if (result.status === "not-found") {
@@ -63,9 +72,17 @@ export async function resolveExerciseIssueAction(
       };
     }
 
+    const replacement = result.adjudication === "confirmed"
+      ? await queueExerciseReplacement({
+          userId,
+          exerciseId: parsed.data.exerciseId,
+          now,
+        })
+      : null;
+
     revalidatePath("/practice/attention");
     revalidatePath("/history");
-    return { status: "saved", result };
+    return { status: "saved", result: { ...result, replacement } };
   } catch (error) {
     if (error instanceof ExerciseQualityIncidentError) {
       if (error.code === "stale") {

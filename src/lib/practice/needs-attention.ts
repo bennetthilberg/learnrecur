@@ -401,6 +401,7 @@ async function loadFindingCandidates(input: {
         AND rl."previousDueAt" IS NOT NULL
         AND rl."previousDueAt" <= rl."reviewedAt"
         AND ea."result" IN (${ExerciseAttemptResult.CORRECT}::"ExerciseAttemptResult", ${ExerciseAttemptResult.INCORRECT}::"ExerciseAttemptResult")
+        AND ea."evidenceCorrectionStatus" = ${ExerciseEvidenceCorrectionStatus.NOT_REQUIRED}::"ExerciseEvidenceCorrectionStatus"
         AND COALESCE(ea."practiceContext"->>'assistance', 'none') <> 'observed'
         AND COALESCE(ea."practiceContext"->>'practiceOnly', 'false') <> 'true'
         AND COALESCE(ea."practiceContext"->>'exposure', '') NOT IN ('PRACTICE_ONLY', 'practice-only')
@@ -589,6 +590,7 @@ async function loadRecentReviewRows(
         AND rl."previousDueAt" <= rl."reviewedAt"
         ${collectionFilter}
         AND ea."result" IN (${ExerciseAttemptResult.CORRECT}::"ExerciseAttemptResult", ${ExerciseAttemptResult.INCORRECT}::"ExerciseAttemptResult")
+        AND ea."evidenceCorrectionStatus" = ${ExerciseEvidenceCorrectionStatus.NOT_REQUIRED}::"ExerciseEvidenceCorrectionStatus"
         AND COALESCE(ea."practiceContext"->>'assistance', 'none') <> 'observed'
         AND COALESCE(ea."practiceContext"->>'practiceOnly', 'false') <> 'true'
         AND COALESCE(ea."practiceContext"->>'exposure', '') NOT IN ('PRACTICE_ONLY', 'practice-only')

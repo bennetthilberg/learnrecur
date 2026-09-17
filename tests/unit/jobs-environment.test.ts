@@ -18,6 +18,11 @@ describe("Lambda environment loading", () => {
     expect(() => selectWorkerEnvironment({ ...values, DATABASE_URL: "[SENSITIVE]" })).toThrow("JOB_ENVIRONMENT_INCOMPLETE");
     expect(selectWorkerEnvironment({ ...values, AWS_SECRET_ACCESS_KEY: "never-copy" })).not.toHaveProperty("AWS_SECRET_ACCESS_KEY");
   });
+  it("rejects invalid shared import capacity before loading a worker", () => {
+    const values = Object.fromEntries(params().map((parameter) => [parameter.Name.split("/").at(-1)!, parameter.Value]));
+    expect(() => selectWorkerEnvironment({ ...values, LEARNRECUR_ACTIVE_SKILL_LIMIT: "0" })).toThrow("JOB_ENVIRONMENT_INVALID");
+    expect(() => selectWorkerEnvironment({ ...values, LEARNRECUR_SKILL_ACTIVATIONS_PER_UTC_DAY: "not-a-number" })).toThrow("JOB_ENVIRONMENT_INVALID");
+  });
   it("loads paginated secrets from only its own environment", async () => {
     for (const key of WORKER_ENV_KEYS) vi.stubEnv(key, undefined);
     pages.mockImplementation(async function* () { yield { Parameters: params().slice(0, 3) }; yield { Parameters: params().slice(3) }; });

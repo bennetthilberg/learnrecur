@@ -24,12 +24,26 @@ function notQueued(
   return { status: "not-queued", reason, message: reason };
 }
 
+function deferred(): RefillQueueResult {
+  return {
+    status: "deferred",
+    reason: "quota-exceeded",
+    skillId: "skill-1",
+    generationJobId: "job-deferred",
+    readyExerciseCount: 1,
+    targetReadyCount: 5,
+    retryAt: "2026-06-24T00:00:00.000Z",
+    message: "deferred",
+  };
+}
+
 describe("readiness preparation status", () => {
   it.each([
     [[queued()], "queued"],
     [[notQueued("already-at-target")], "ready"],
     [[notQueued("job-in-progress")], "in-progress"],
     [[notQueued("quota-exceeded")], "not-queued"],
+    [[deferred()], "deferred"],
     [[queued(), notQueued("already-at-target")], "partial"],
   ] as const)("summarizes %j as %s", (results, expected) => {
     expect(summarizeReadinessPreparationStatus(results)).toBe(

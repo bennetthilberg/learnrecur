@@ -791,7 +791,7 @@ describe("material scope planning", () => {
     expect(result).toMatchObject({ status: "invalid", reason: "out-of-scope-evidence" });
   });
 
-  it("enforces the ten-skill cap at the planner boundary", () => {
+  it("enforces the 25-skill cap at the planner boundary", () => {
     const item = {
       key: "key",
       title: "Direct object pronouns",

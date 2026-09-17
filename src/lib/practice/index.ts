@@ -211,6 +211,16 @@ export type PracticeFlagRefillResult =
       message: string;
     }
   | {
+      status: "deferred";
+      reason: "quota-exceeded";
+      skillId: string;
+      generationJobId: string;
+      readyExerciseCount: number;
+      targetReadyCount: number;
+      retryAt: string;
+      message: string;
+    }
+  | {
       status: "not-queued";
       reason:
         | "already-at-target"
@@ -998,6 +1008,20 @@ function toPracticeFlagRefillResult(
       requestedCount: result.requestedCount,
       readyExerciseCount: result.readyExerciseCount,
       targetReadyCount: result.targetReadyCount,
+      message: result.message,
+      deferredEvent: result.deferredEvent,
+    };
+  }
+
+  if (result.status === "deferred") {
+    return {
+      status: "deferred",
+      reason: "quota-exceeded",
+      skillId: result.skillId,
+      generationJobId: result.generationJobId,
+      readyExerciseCount: result.readyExerciseCount,
+      targetReadyCount: result.targetReadyCount,
+      retryAt: result.retryAt,
       message: result.message,
       deferredEvent: result.deferredEvent,
     };

@@ -29,6 +29,7 @@ import {
   type MaterialDraftAiSetup,
 } from "@/lib/materials/ai";
 import {
+  MAX_SKILLS_PER_BATCH,
   activateBatchInputSchema,
   batchItemMutationInputSchema,
   confirmMaterialPlanInputSchema,
@@ -104,9 +105,7 @@ import {
   getPublicGeminiScopePlanningFailureMessage,
 } from "@/lib/gemini";
 import {
-  ALPHA_ACTIVE_SKILLS,
-  ALPHA_SKILL_ACTIVATIONS_PER_DAY,
-  startOfUtcDay,
+  getSkillActivationUsage,
 } from "@/lib/usage-limits";
 
 const PLANNING_CHUNK_LIMIT = 60;
@@ -1251,7 +1250,7 @@ export async function queueMaterialBatchActivation(input: {
   if (!parsed.success) {
     return {
       status: "invalid" as const,
-      message: "Choose between one and ten ready skills to add.",
+      message: `Choose between one and ${MAX_SKILLS_PER_BATCH} ready skills to add.`,
       fieldErrors: parsed.error.flatten().fieldErrors,
     };
   }
@@ -1658,31 +1657,12 @@ export async function queueMaterialBatchActivation(input: {
         message: "These skills are already being added or are active.",
       };
     }
-    const activationDayStart = startOfUtcDay(input.now);
-    const activationDayEnd = new Date(activationDayStart.getTime() + 24 * 60 * 60 * 1_000);
-    const [activeSkillCount, pendingActivationCount, activationsToday] = await Promise.all([
-      tx.skill.count({
-        where: {
-          userId: input.userId,
-          status: { in: [SkillStatus.ACTIVE, SkillStatus.PAUSED] },
-        },
-      }),
-      tx.skillDraftBatchItem.count({
-        where: {
-          userId: input.userId,
-          status: SkillDraftBatchItemStatus.ACTIVATING,
-          skill: { status: SkillStatus.DRAFT },
-        },
-      }),
-      tx.generationJob.count({
-        where: {
-          userId: input.userId,
-          kind: GenerationJobKind.SKILL_ACTIVATION,
-          createdAt: { gte: activationDayStart, lt: activationDayEnd },
-        },
-      }),
-    ]);
-    if (activeSkillCount + pendingActivationCount + reservableItems.length > ALPHA_ACTIVE_SKILLS) {
+    const usage = await getSkillActivationUsage({
+      userId: input.userId,
+      now: input.now,
+      prisma: tx,
+    });
+    if (usage.countedSkillCount + reservableItems.length > usage.activeSkillLimit) {
       await reconcileMaterialDraftBatchWithClient(tx, {
         userId: input.userId,
         batchId: batch.id,
@@ -1691,11 +1671,14 @@ export async function queueMaterialBatchActivation(input: {
       return {
         status: "limited" as const,
         code: "active-skill-limit" as const,
-        message: `Adding ${reservableItems.length} skill${reservableItems.length === 1 ? "" : "s"} would exceed the ${ALPHA_ACTIVE_SKILLS}-skill alpha limit, including skills already being added. Exclude some drafts or archive existing skills.`,
+        message: `Adding ${reservableItems.length} skill${reservableItems.length === 1 ? "" : "s"} would exceed the ${usage.activeSkillLimit}-skill library limit, including skills already reserved. Exclude some drafts or archive existing skills.`,
       };
     }
-    if (activationsToday + reservableItems.length > ALPHA_SKILL_ACTIVATIONS_PER_DAY) {
-      const remaining = Math.max(0, ALPHA_SKILL_ACTIVATIONS_PER_DAY - activationsToday);
+    if (usage.activationsUsedToday + reservableItems.length > usage.dailyActivationLimit) {
+      const remaining = Math.max(
+        0,
+        usage.dailyActivationLimit - usage.activationsUsedToday,
+      );
       await reconcileMaterialDraftBatchWithClient(tx, {
         userId: input.userId,
         batchId: batch.id,
@@ -1704,7 +1687,7 @@ export async function queueMaterialBatchActivation(input: {
       return {
         status: "limited" as const,
         code: "daily-activation-limit" as const,
-        message: `Only ${remaining} activation${remaining === 1 ? "" : "s"} remain today. Select fewer skills or try again after 00:00 UTC.`,
+        message: `Only ${remaining} activation${remaining === 1 ? "" : "s"} remain today. Select fewer skills or try again after ${usage.nextUtcResetAt.toISOString()} UTC.`,
       };
     }
 
@@ -2174,31 +2157,21 @@ async function claimMaterialBatchActivationSlot(input: {
     ) {
       return { status: "not-claimed" as const };
     }
-    const [activeSkillCount, pendingActivationCount] = await Promise.all([
-      tx.skill.count({
-        where: {
-          userId: input.userId,
-          status: { in: [SkillStatus.ACTIVE, SkillStatus.PAUSED] },
-        },
-      }),
-      tx.skillDraftBatchItem.count({
-        where: {
-          userId: input.userId,
-          status: SkillDraftBatchItemStatus.ACTIVATING,
-          skill: { status: SkillStatus.DRAFT },
-        },
-      }),
-    ]);
+    const usage = await getSkillActivationUsage({
+      userId: input.userId,
+      now: input.now,
+      prisma: tx,
+    });
     const projectedSkillCount =
-      activeSkillCount + pendingActivationCount + (retryingTransientFailure ? 1 : 0);
-    if (projectedSkillCount > ALPHA_ACTIVE_SKILLS) {
+      usage.countedSkillCount + (retryingTransientFailure ? 1 : 0);
+    if (projectedSkillCount > usage.activeSkillLimit) {
       if (item.status === SkillDraftBatchItemStatus.ACTIVATING) {
         await tx.skillDraftBatchItem.update({
           where: { id: item.id },
           data: {
             status: SkillDraftBatchItemStatus.FAILED,
             errorCode: "ACTIVATION_RETRYABLE_ACTIVE_SKILL_LIMIT",
-            errorMessage: `Activation would exceed the ${ALPHA_ACTIVE_SKILLS}-skill alpha limit. Archive a skill and retry.`,
+            errorMessage: `Activation would exceed the ${usage.activeSkillLimit}-skill library limit. Archive a skill and retry.`,
           },
         });
       }
@@ -2212,14 +2185,14 @@ async function claimMaterialBatchActivationSlot(input: {
             errorMessage:
               job.status === GenerationJobStatus.RUNNING
                 ? ACTIVATION_SUPERSEDED_JOB_MESSAGE
-                : `Activation would exceed the ${ALPHA_ACTIVE_SKILLS}-skill alpha limit.`,
+                : `Activation would exceed the ${usage.activeSkillLimit}-skill library limit.`,
             completedAt: input.now,
           },
         });
       }
       return {
         status: "limited" as const,
-        message: `Activation would exceed the ${ALPHA_ACTIVE_SKILLS}-skill alpha limit. Archive a skill and retry.`,
+        message: `Activation would exceed the ${usage.activeSkillLimit}-skill library limit. Archive a skill and retry.`,
       };
     }
     let claimedGenerationJobId: string;
@@ -2422,45 +2395,22 @@ export async function retryMaterialBatchActivationItem(input: {
         message,
       };
     }
-    const activationDayStart = startOfUtcDay(input.now);
-    const activationDayEnd = new Date(
-      activationDayStart.getTime() + 24 * 60 * 60 * 1_000,
-    );
-    const [activeSkillCount, pendingActivationCount, activationsToday] =
-      await Promise.all([
-        tx.skill.count({
-          where: {
-            userId: input.userId,
-            status: { in: [SkillStatus.ACTIVE, SkillStatus.PAUSED] },
-          },
-        }),
-        tx.skillDraftBatchItem.count({
-          where: {
-            userId: input.userId,
-            status: SkillDraftBatchItemStatus.ACTIVATING,
-            skill: { status: SkillStatus.DRAFT },
-          },
-        }),
-        tx.generationJob.count({
-          where: {
-            userId: input.userId,
-            kind: GenerationJobKind.SKILL_ACTIVATION,
-            createdAt: { gte: activationDayStart, lt: activationDayEnd },
-          },
-        }),
-      ]);
-    if (activeSkillCount + pendingActivationCount >= ALPHA_ACTIVE_SKILLS) {
+    const usage = await getSkillActivationUsage({
+      userId: input.userId,
+      now: input.now,
+      prisma: tx,
+    });
+    if (usage.countedSkillCount >= usage.activeSkillLimit) {
       return {
         status: "limited" as const,
-        message: `This retry would exceed the ${ALPHA_ACTIVE_SKILLS}-skill alpha limit, including skills already being added. Archive a skill or wait for an in-progress activation to finish.`,
+        message: `This retry would exceed the ${usage.activeSkillLimit}-skill library limit, including skills already reserved. Archive a skill or wait for an in-progress activation to finish.`,
       };
     }
-    if (activationsToday >= ALPHA_SKILL_ACTIVATIONS_PER_DAY) {
+    if (usage.activationsUsedToday >= usage.dailyActivationLimit) {
       return {
         status: "limited" as const,
         code: "daily-activation-limit" as const,
-        message:
-          "No activation attempts remain today. Try this draft again after 00:00 UTC.",
+        message: `No activation attempts remain today. Try this draft again after ${usage.nextUtcResetAt.toISOString()} UTC.`,
       };
     }
     if (

@@ -6,7 +6,10 @@ import Link from "next/link";
 
 import { formatHistoryLabel } from "@/lib/practice/history-formatters";
 import type { ExerciseQualityIssue } from "@/lib/practice/quality-issues";
-import { resolveExerciseIssueAction } from "./actions";
+import {
+  resolveExerciseIssueAction,
+  type SavedQualityDecisionWithReplacement,
+} from "./actions";
 
 type Resolution = "confirmed" | "rejected" | "inconclusive";
 type LocalState = "idle" | "pending" | "saved" | "stale" | "already-resolved" | "failed";
@@ -45,13 +48,15 @@ export function ExerciseQualityIssueCard({ issue }: { issue: ExerciseQualityIssu
       });
       if (result.status === "saved") {
         setState("saved");
-        setMessage(
-          result.result.idempotent
-            ? "This decision was already saved."
-            : resolution === "confirmed"
-              ? `Excluded ${result.result.affectedReviewCount} scheduled review${result.result.affectedReviewCount === 1 ? "" : "s"} from the replay.`
-              : "Decision saved. The report's evidence was not excluded.",
-        );
+        const correctionMessage = result.result.idempotent
+          ? "This decision was already saved."
+          : resolution === "confirmed"
+            ? `Excluded ${result.result.affectedReviewCount} scheduled review${result.result.affectedReviewCount === 1 ? "" : "s"} from the replay.`
+            : "Decision saved. The report's evidence was not excluded.";
+        const replacementMessage = result.result.replacement
+          ? formatReplacementOutcome(result.result.replacement)
+          : null;
+        setMessage([correctionMessage, replacementMessage].filter(Boolean).join(" "));
         return;
       }
       setState(result.status === "invalid" ? "failed" : result.status);
@@ -153,4 +158,22 @@ export function ExerciseQualityIssueCard({ issue }: { issue: ExerciseQualityIssu
       )}
     </article>
   );
+}
+
+function formatReplacementOutcome(
+  replacement: NonNullable<SavedQualityDecisionWithReplacement["replacement"]>,
+): string {
+  switch (replacement.status) {
+    case "queued":
+      return "Replacement preparation is queued.";
+    case "deferred":
+      return `Replacement preparation is deferred until ${replacement.retryAt} UTC; existing verified exercises remain available.`;
+    case "already-ready":
+      return "The skill already has enough ready exercises.";
+    case "in-progress":
+      return "Replacement preparation is already in progress.";
+    case "unavailable":
+    case "failed":
+      return replacement.message;
+  }
 }

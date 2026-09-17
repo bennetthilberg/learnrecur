@@ -108,7 +108,7 @@ describe("material contracts", () => {
     ).toThrow(/unique/i);
   });
 
-  it("requires a confirmed, unambiguous plan and caps a batch at ten skills", () => {
+  it("requires a confirmed, unambiguous plan and caps a batch at 25 skills", () => {
     const item = {
       key: "chapter-4-concept-1",
       title: "Spanish direct object pronouns",
@@ -145,7 +145,7 @@ describe("material contracts", () => {
     expect(() =>
       materialScopePlanSchema.parse({
         ...plan,
-        items: Array.from({ length: 11 }, (_, index) => ({
+        items: Array.from({ length: 26 }, (_, index) => ({
           ...item,
           key: `skill-${index + 1}`,
         })),
@@ -222,7 +222,7 @@ describe("material contracts", () => {
     ).toThrow();
   });
 
-  it("requires a nonempty, unique activation selection capped at ten items", () => {
+  it("requires a nonempty, unique activation selection capped at 25 items", () => {
     expect(
       activateBatchInputSchema.parse({ batchId: "batch_1", itemIds: ["item_1", "item_2"] }),
     ).toEqual({ batchId: "batch_1", itemIds: ["item_1", "item_2"] });
@@ -235,7 +235,7 @@ describe("material contracts", () => {
     expect(() =>
       activateBatchInputSchema.parse({
         batchId: "batch_1",
-        itemIds: Array.from({ length: 11 }, (_, index) => `item_${index}`),
+        itemIds: Array.from({ length: 26 }, (_, index) => `item_${index}`),
       }),
     ).toThrow();
 

@@ -424,8 +424,14 @@ export async function adjudicateExerciseQualityIncident(input: {
     const hasIndependentReview = plannedReviews.some(
       (review) => review.evidenceKind === "independent",
     );
+    const firstIndependentReviewId = plannedReviews.find(
+      (review) => review.evidenceKind === "independent",
+    )?.reviewId;
+    const firstIndependentReview = firstIndependentReviewId
+      ? reviews.find((review) => review.id === firstIndependentReviewId) ?? null
+      : null;
     const initial = hasIndependentReview
-      ? initialSchedule(reviews[0] ?? null, exercise.skill.createdAt)
+      ? initialSchedule(firstIndependentReview, exercise.skill.createdAt)
       : createInitialSkillSchedule(input.now);
     const replay = replayIndependentScheduleEvidence({
       initial,

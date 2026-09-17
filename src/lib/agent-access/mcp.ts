@@ -24,6 +24,12 @@ import {
   agentGetMaterialOutlineSchema,
   agentGetOperationSchema,
   agentListMaterialsSchema,
+  agentReadMaterialContentSchema,
+  agentExerciseAuditGetSchema,
+  agentExerciseAuditListSchema,
+  agentExerciseIssueListSchema,
+  agentExerciseIssueResolveSchema,
+  agentPracticeHistorySchema,
   agentPrepareFilesSchema,
   agentRetryOperationSchema,
   agentSearchMaterialExcerptsSchema,
@@ -59,6 +65,7 @@ import {
 import {
   getAgentMaterialOutline,
   listAgentMaterials,
+  readAgentMaterialContent,
   searchAgentMaterialExcerpts,
 } from "@/lib/agent-access/materials";
 import {
@@ -97,6 +104,15 @@ import {
 import { AgentMaterialIngestionError } from "@/lib/agent-access/material-ingestion";
 import { agentGetPracticeSettingsSchema, agentListPracticeTargetsSchema, agentUpdatePracticeSettingsSchema } from "./practice-contracts";
 import { getAgentPracticeSettings, listAgentPracticeTargets, updateAgentPracticeSettings } from "./practice";
+import {
+  getAgentExerciseAudit,
+  getAgentPracticeHistory,
+  listAgentExerciseAudit,
+} from "./exercise-audit-history";
+import {
+  listAgentExerciseIssues,
+  resolveAgentExerciseIssue,
+} from "./exercise-issues";
 
 export function registerLearnRecurMcpTools(server: McpServer) {
   registerTool(server, {
@@ -149,6 +165,52 @@ export function registerLearnRecurMcpTools(server: McpServer) {
     scopes: ["practice:write"],
     readOnly: false,
     handler: resumeAgentCustomSession,
+  });
+  registerTool(server, {
+    name: "practice.history",
+    title: "Read completed practice history",
+    description: "Read completed scheduled reviews and practice-only exposures with their original grading evidence, saved answer contract, schedule transition, and any exercise-correction status. Requires separate practice:history consent.",
+    schema: agentPracticeHistorySchema,
+    scopes: ["practice:history"],
+    readOnly: true,
+    handler: getAgentPracticeHistory,
+  });
+  registerTool(server, {
+    name: "exercises.list_for_audit",
+    title: "List exercises for audit",
+    description: "List a stable, paginated snapshot of one owned skill's full exercise contracts, verification state, provenance, and source references. This audit surface is separate from safe answer-free previews.",
+    schema: agentExerciseAuditListSchema,
+    scopes: ["exercises:audit"],
+    readOnly: true,
+    handler: listAgentExerciseAudit,
+  });
+  registerTool(server, {
+    name: "exercises.get_for_audit",
+    title: "Read one exercise audit record",
+    description: "Read the complete answer contract and provenance for one owned exercise, including retired exercises and sanitized source links.",
+    schema: agentExerciseAuditGetSchema,
+    scopes: ["exercises:audit"],
+    readOnly: true,
+    handler: getAgentExerciseAudit,
+  });
+  registerTool(server, {
+    name: "exercises.list_issues",
+    title: "List exercise quality issues",
+    description: "List owned exercise reports and durable correction state. The default queue includes pending adjudication and correction work even when legacy report status is already RESOLVED.",
+    schema: agentExerciseIssueListSchema,
+    scopes: ["exercises:audit"],
+    readOnly: true,
+    handler: listAgentExerciseIssues,
+  });
+  registerTool(server, {
+    name: "exercises.resolve_issue",
+    title: "Resolve an exercise quality issue",
+    description: "Adjudicate one owned exercise report. A confirmed defect retires the exercise, retains and annotates historical attempts, excludes the defective evidence from future schedule replay, and returns durable correction counts.",
+    schema: agentExerciseIssueResolveSchema,
+    scopes: ["exercises:resolve"],
+    readOnly: false,
+    destructiveHint: true,
+    handler: resolveAgentExerciseIssue,
   });
   registerTool(server, {
     name: "skills.search",
@@ -332,7 +394,7 @@ export function registerLearnRecurMcpTools(server: McpServer) {
   registerTool(server, {
     name: "skills.add_from_specs",
     title: "Add skills from structured specifications",
-    description: "Queue one to ten independent LearnRecur skills. LearnRecur verifies exercises and activates each skill asynchronously. Text candidates use policyVersion 2, preserve diacritics, and must match the skill or collection text profile. Skills may explicitly declare alreadyStudied and a nullable practicePreference override.",
+    description: "Queue one to 25 independent LearnRecur skills. LearnRecur verifies exercises and activates each skill asynchronously. Text candidates use policyVersion 2, preserve diacritics, and must match the skill or collection text profile. Skills may explicitly declare alreadyStudied and a nullable practicePreference override.",
     schema: agentAddFromSpecsSchema,
     scopes: ["skills:create"],
     readOnly: false,
@@ -350,7 +412,7 @@ export function registerLearnRecurMcpTools(server: McpServer) {
   registerTool(server, {
     name: "skills.add_from_material",
     title: "Add skills from a saved material",
-    description: "Queue up to ten skills from an owned, ready material revision. The expected revision prevents stale planning.",
+    description: "Queue up to 25 skills from an owned, ready material revision; the default generation batch is 10. The expected revision prevents stale planning.",
     schema: agentAddFromMaterialSchema,
     scopes: ["skills:create", "materials:read"],
     readOnly: false,
@@ -400,6 +462,15 @@ export function registerLearnRecurMcpTools(server: McpServer) {
     scopes: ["materials:read"],
     readOnly: true,
     handler: searchAgentMaterialExcerpts,
+  });
+  registerTool(server, {
+    name: "materials.read_content",
+    title: "Read material content in order",
+    description: "Traverse one owned material section or up to 10 PDF pages in stable, revision-bound segments. Returns exact offsets and explicit extraction gaps without running OCR, generating study content, or changing practice state.",
+    schema: agentReadMaterialContentSchema,
+    scopes: ["materials:read"],
+    readOnly: true,
+    handler: readAgentMaterialContent,
   });
   registerTool(server, {
     name: "materials.prepare_upload",
@@ -470,7 +541,7 @@ export function registerLearnRecurMcpTools(server: McpServer) {
   registerTool(server, {
     name: "operations.retry_failed",
     title: "Retry failed operation items",
-    description: "Retry up to ten failed items without changing successful siblings.",
+    description: "Retry up to 25 failed items without changing successful siblings.",
     schema: agentRetryOperationSchema,
     scopes: ["skills:create"],
     readOnly: false,
@@ -596,7 +667,13 @@ export function toPublicError(error: unknown): { code: string; message: string; 
   }
   if (error && typeof error === "object" && "code" in error && "message" in error) {
     const code = String(error.code);
-    const allowed = new Set(["material_not_found", "stale_material_revision", "invalid_cursor"]);
+    const allowed = new Set([
+      "material_not_found",
+      "stale_material_revision",
+      "material_not_ready",
+      "invalid_scope",
+      "invalid_cursor",
+    ]);
     if (allowed.has(code)) return { code, message: String(error.message), retryable: false };
   }
   if (error instanceof z.ZodError) {

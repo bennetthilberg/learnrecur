@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getGeminiEnv } from "@/lib/env";
+import { MAX_IMPORT_BATCH_ITEMS } from "@/lib/import-limits";
 import {
   GEMINI_LOW_THINKING_CONFIG,
   getGeminiRuntimeLogContext,
@@ -92,7 +93,7 @@ export const materialScopePlannerJsonSchema = {
     warnings: { type: "array", maxItems: 20, items: { type: "string" } },
     items: {
       type: "array",
-      maxItems: 10,
+      maxItems: MAX_IMPORT_BATCH_ITEMS,
       items: {
         type: "object",
         additionalProperties: false,
@@ -605,7 +606,7 @@ export function buildMaterialScopePlannerPrompt(input: MaterialScopePlannerInput
     "Honor requested ordinal and quantity phrases such as first concept or three concepts.",
     "Preserve the user's requested breadth. Do not silently narrow an open-ended topic such as 'numbers above 20' to an arbitrary smaller range.",
     "Split distinct requested topics into separate skills when that creates clearer practice targets.",
-    "Return at most 10 items. If the request cannot be mapped confidently, return ambiguous with no items and one actionable clarification.",
+    `Return at most ${MAX_IMPORT_BATCH_ITEMS} items. If the request cannot be mapped confidently, return ambiguous with no items and one actionable clarification.`,
     "Each resolved item must cite at least one section ID and one evidence chunk ID.",
     "For each item, list the concepts that belong in the skill in includeConcepts and nearby concepts that must stay out in excludeConcepts.",
     "Every included rule must be supported by the cited chunks. Cite adjacent chunks when a concept crosses a chunk boundary.",
