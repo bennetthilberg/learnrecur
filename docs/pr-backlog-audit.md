@@ -15,7 +15,11 @@ bounded pools, disposable PostgreSQL CI, and all current application code.
 | #116 | Fold concurrently 10.0.5 into #139. Preserve main's newer shell-quote 1.10.0 override instead of downgrading to 1.9.0. Close once the combined update is merged. |
 | #124 | Fold Undici 8.10.2 into #139 and verify URL-ingestion security tests and builds. Its declared Node requirement is >=22.19.0, compatible with Node 24. Close once the combined update is merged. |
 | #133 | Reconciled into replacement #139. Dependabot automatically closed and deleted its branch after the update; the complete reconciled commit is preserved in #139. The obsolete Neon adapter upgrade becomes matching PostgreSQL adapter/client/CLI 7.10.0. |
-| #134 | Preserve useful release evidence, explicitly label it as the September 9 historical receipt, and link to the current Heroku hosting record. |
+| #134 | Fold the useful release evidence into #139, explicitly label it as the September 9 historical receipt, and link to the current Heroku hosting record. Close the original after integration. |
+
+Dependabot also opened #140 during the audit. It was closed because it overlaps
+#139 and again bundles the held-back Clerk, Compute Engine, and React Native
+changes. Later releases should be evaluated separately from this verified batch.
 
 ## Deliberately retained dependencies
 
@@ -40,7 +44,10 @@ The existing security overrides remain, with PostCSS advanced consistently.
 
 Local installation, lint, Prisma validation/generation, web and worker builds,
 and runtime auditing passed. The combined unit/database run passed 1,699 tests
-and the coverage gates (81.70% lines and 72.42% branches). Browser tests and
-hosted checks remain required before merging. Hosted CI must check the actual updated PR head.
+and the coverage gates (81.70% lines and 72.42% branches). The initial browser
+run passed 123 of 124 tests; the mobile fast-animation check failed once, then
+passed three consecutive repeats at both viewport sizes without changes. A full
+rerun and hosted checks remain required before merging. Hosted CI must check
+the actual updated PR head.
 The historical receipt changes documentation only; no production configuration
 or application code is reverted by its merge.
