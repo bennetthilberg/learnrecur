@@ -74,6 +74,7 @@ async function dropDatabase(target: string) {
   await sql.query(`DROP DATABASE IF EXISTS "${target}" WITH (FORCE)`, []);
 }
 
+/** Connect to the configured test server for isolated database administration. */
 function getAdminSql() {
   if (!adminUrl) {
     throw new Error("E2E_DIRECT_URL is required to manage the isolated test schema.");

@@ -12,6 +12,7 @@ export function getTestPostgres(connectionString: string) {
   }
   const client = pool;
   return {
+    /** Execute parameterized fixture SQL and return its rows. */
     async query(text: string, values: unknown[] = []) {
       return (await client.query(text, values)).rows;
     },

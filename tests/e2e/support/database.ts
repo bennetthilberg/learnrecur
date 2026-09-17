@@ -550,6 +550,7 @@ function toNumber(value: unknown): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+/** Use the test database selected by the local environment or CI setup. */
 function getTestSql() {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) {

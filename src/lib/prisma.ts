@@ -8,6 +8,7 @@ const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
 };
 
+/** Reuse one Prisma client and its bounded pool per server process. */
 export function getPrisma(): PrismaClient {
   if (globalForPrisma.prisma) {
     return globalForPrisma.prisma;
