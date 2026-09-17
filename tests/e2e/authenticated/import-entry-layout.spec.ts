@@ -28,5 +28,5 @@ test("collections and creation use the same product vocabulary", async ({ page }
   await expect(page.getByRole("heading", { name: "Add a collection", exact: true })).toBeVisible();
   await expect(page.getByText(/study area/i)).toHaveCount(0);
   await page.goto("/skills/new");
-  await expect(page.getByText("Materials provide source content. Skills are what you practice. Collections keep related skills together.")).toBeVisible();
+  await expect(page.getByText("Materials provide source content. Skills are what you practice. Collections keep related skills together.").filter({ visible: true })).toBeVisible();
 });

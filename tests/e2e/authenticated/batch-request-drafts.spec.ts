@@ -1,11 +1,11 @@
 import { clickNavigation } from "../support/navigation";
 import { randomUUID } from "node:crypto";
-import { neon } from "@neondatabase/serverless";
+import { getTestPostgres } from "../support/postgres";
 import { expect, test } from "../fixtures/authenticated";
 
 test("batch requests restore their text and retry identity without submitting generation", async ({ page, clerkTestUser }, testInfo) => {
   test.setTimeout(90_000);
-  const sql = neon(process.env.DATABASE_URL!);
+  const sql = getTestPostgres(process.env.DATABASE_URL!);
   const materialId = `request-material-${randomUUID()}`;
   const revisionId = `request-revision-${randomUUID()}`;
   await page.goto("/dashboard");

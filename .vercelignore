@@ -9,3 +9,6 @@ test-results/
 AGENTS.md
 human-stuff.md
 docs/product-discovery/
+
+# Private database migration snapshots and credentials
+.migration-private/

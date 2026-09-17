@@ -2123,7 +2123,8 @@ describeDatabase("material multi-skill drafting", () => {
       throw new Error("expected two planned items");
     }
 
-    const staleUpdatedAt = new Date(Date.now() - 10 * 60 * 1_000);
+    // Stay strictly beyond the ten-minute lease, even within one clock tick.
+    const staleUpdatedAt = new Date(Date.now() - 11 * 60 * 1_000);
     await prisma.skillDraftBatchItem.update({
       where: { id: firstItem.id },
       data: { status: SkillDraftBatchItemStatus.GENERATING, updatedAt: staleUpdatedAt },

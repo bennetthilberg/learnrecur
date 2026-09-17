@@ -1,10 +1,10 @@
 import { clickNavigation } from "../support/navigation";
-import { neon } from "@neondatabase/serverless";
+import { getTestPostgres } from "../support/postgres";
 import { expect, test } from "../fixtures/learner-lifecycle";
 
 test("skill draft edits survive refresh and leave the saved skill unchanged until submission", async ({ page, learnerFixture }, testInfo) => {
   const skill = learnerFixture.scenarios.choice;
-  const sql = neon(process.env.DATABASE_URL!);
+  const sql = getTestPostgres(process.env.DATABASE_URL!);
   await sql.query('UPDATE skills SET status=\'DRAFT\' WHERE id=$1 AND "userId"=$2', [skill.skillId, skill.userId]);
   await page.goto(`/skills/${skill.skillId}`);
   const editor = page.locator("form.skillDraftForm");
@@ -37,7 +37,7 @@ test("skill draft edits survive refresh and leave the saved skill unchanged unti
 test("batch editor restores dismissed edits and clears them after a confirmed save", async ({ page, learnerFixture }) => {
   test.setTimeout(90_000);
   const skill = learnerFixture.scenarios.choice;
-  const sql = neon(process.env.DATABASE_URL!);
+  const sql = getTestPostgres(process.env.DATABASE_URL!);
   const materialId = `draft-test-material-${skill.skillId}`;
   const revisionId = `draft-test-revision-${skill.skillId}`;
   const batchId = `draft-test-batch-${skill.skillId}`;

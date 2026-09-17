@@ -1,4 +1,4 @@
-import { neon } from "@neondatabase/serverless";
+import { getTestPostgres } from "../support/postgres";
 import { readFile } from "node:fs/promises";
 import type { Page } from "@playwright/test";
 
@@ -92,7 +92,7 @@ test.describe("authenticated learner lifecycle", () => {
     test.setTimeout(60_000);
     const scenario = learnerFixture.scenarios.choice;
     await completeCorrectReview(page, scenario);
-    const sql = neon(process.env.DATABASE_URL!);
+    const sql = getTestPostgres(process.env.DATABASE_URL!);
     await sql.query(`INSERT INTO exercise_attempts SELECT (jsonb_populate_record(NULL::exercise_attempts,
       to_jsonb(a) || jsonb_build_object('id', a.id || '-history-' || n, 'result', 'INCORRECT', 'isCorrect', false))).*
       FROM exercise_attempts a CROSS JOIN generate_series(1, 51) n

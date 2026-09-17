@@ -51,3 +51,6 @@ human-stuff.md
 
 # AWS worker deployment artifacts
 .aws-build/
+
+# Private database migration snapshots and credentials
+.migration-private/

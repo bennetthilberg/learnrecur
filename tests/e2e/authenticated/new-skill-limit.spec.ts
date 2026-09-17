@@ -1,4 +1,4 @@
-import { neon } from "@neondatabase/serverless";
+import { getTestPostgres } from "../support/postgres";
 import { expect, test } from "../fixtures/learner-lifecycle";
 
 test.use({ actionTimeout: 10_000 });
@@ -9,7 +9,7 @@ for (const width of [1280, 390]) {
     learnerFixture,
   }, testInfo) => {
     test.setTimeout(90_000);
-    const sql = neon(process.env.DATABASE_URL!);
+    const sql = getTestPostgres(process.env.DATABASE_URL!);
     const userId = learnerFixture.userId;
     const fresh = learnerFixture.scenarios.choice;
     const review = learnerFixture.scenarios.text;
@@ -181,7 +181,7 @@ test("advanced retention and practice-day settings persist and reset", async ({
   learnerFixture,
 }, testInfo) => {
   test.setTimeout(60_000);
-  const sql = neon(process.env.DATABASE_URL!);
+  const sql = getTestPostgres(process.env.DATABASE_URL!);
   const userId = learnerFixture.userId;
   const settings = await sql.query(
     'SELECT "desiredRetention", "practiceDayStartMinutes", "practiceTimezone" FROM users WHERE id=$1',
@@ -269,7 +269,7 @@ test("preserves a fractional retention set outside the form during an unrelated 
   learnerFixture,
 }) => {
   test.setTimeout(60_000);
-  const sql = neon(process.env.DATABASE_URL!);
+  const sql = getTestPostgres(process.env.DATABASE_URL!);
   const userId = learnerFixture.userId;
   const settings = await sql.query(
     'SELECT "practicePreference", "mixedReview", "dailyNewSkillLimit", "practiceTimezone", "desiredRetention", "practiceDayStartMinutes" FROM users WHERE id=$1',

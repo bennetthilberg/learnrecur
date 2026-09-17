@@ -11,3 +11,6 @@ delete process.env.VERCEL_ENV;
 process.env.JOBS_ENVIRONMENT = "local";
 process.env.JOBS_QUEUE_URL = "https://sqs.us-east-1.amazonaws.com/000000000000/learnrecur-local-jobs.fifo";
 delete process.env.LEARNRECUR_DEPLOYMENT_TIER;
+
+// Lock-race tests use an additional observer connection beside two transactions.
+if (process.env.RUN_DATABASE_TESTS === "1") process.env.DATABASE_POOL_MAX = "5";

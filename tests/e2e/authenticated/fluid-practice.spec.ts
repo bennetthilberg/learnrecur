@@ -1,10 +1,10 @@
 import { customDraftSchema, normalDraftSchema } from "@/lib/practice/recovery";
 import { clickNavigation } from "../support/navigation";
-import { neon } from "@neondatabase/serverless";
+import { getTestPostgres } from "../support/postgres";
 import { expect, test } from "../fixtures/learner-lifecycle";
 
 for (const custom of [false, true]) test(`preserves an answered buffered question when its skill becomes unavailable in ${custom ? "custom" : "normal"} practice`, async ({ page, learnerFixture }) => {
-  const sql = neon(process.env.DATABASE_URL!);
+  const sql = getTestPostgres(process.env.DATABASE_URL!);
   if (custom) {
     await page.goto("/practice/custom");
     await page.getByRole("button", { name: "Start session", exact: true }).click();
@@ -110,7 +110,7 @@ for (const custom of [false, true]) {
 
 for (const custom of [false, true]) {
   test(`retries a lost save response without duplicating ${custom ? "custom" : "normal"} reviews`, async ({ page, learnerFixture }) => {
-    const sql = neon(process.env.DATABASE_URL!);
+    const sql = getTestPostgres(process.env.DATABASE_URL!);
     if (custom) {
       await page.goto("/practice/custom");
       await page.getByRole("button", { name: "Start session", exact: true }).click();
@@ -193,7 +193,7 @@ for (const custom of [false, true]) {
 for (const custom of [false, true]) {
   test(`keeps the next checked answer across a lost save and reload in ${custom ? "custom" : "normal"} practice`, async ({ page, learnerFixture }) => {
     test.setTimeout(60_000);
-    const sql = neon(process.env.DATABASE_URL!);
+    const sql = getTestPostgres(process.env.DATABASE_URL!);
     if (custom) {
       await page.goto("/practice/custom");
       await page.getByRole("button", { name: "Start session", exact: true }).click();
@@ -263,7 +263,7 @@ for (const custom of [false, true]) {
     await expect(page.locator(".practicePromptPanel:not([aria-hidden])")).toHaveText(first);
     await page.getByRole("button", { name: custom ? "Save practice" : "Continue", exact: true }).click();
     await expect(page.locator(".practicePromptPanel:not([aria-hidden])")).not.toHaveText(first);
-    const sql = neon(process.env.DATABASE_URL!);
+    const sql = getTestPostgres(process.env.DATABASE_URL!);
     await expect.poll(async () => (await sql.query('SELECT count(*)::int AS count FROM exercise_attempts WHERE "userId"=$1', [learnerFixture.userId]))[0].count).toBe(1);
   });
 }

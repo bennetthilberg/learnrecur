@@ -1,10 +1,10 @@
-import { neon } from "@neondatabase/serverless";
+import { getTestPostgres } from "../support/postgres";
 import { expect, test } from "../fixtures/learner-lifecycle";
 
 for (const custom of [false, true]) {
   test(`recovers an offline ${custom ? "custom" : "normal"} save without losing the checked answer`, async ({ page, learnerFixture }) => {
     test.setTimeout(90_000);
-    const sql = neon(process.env.DATABASE_URL!);
+    const sql = getTestPostgres(process.env.DATABASE_URL!);
     await page.goto(custom ? "/practice/custom" : "/practice");
     if (custom) {
       await page.getByRole("spinbutton", { name: /^Exercises/ }).fill("3");

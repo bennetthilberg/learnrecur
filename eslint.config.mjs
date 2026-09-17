@@ -5,6 +5,7 @@ const eslintConfig = [
   {
     ignores: [
       ".aws-build/**",
+      ".migration-private/**",
       "coverage/**",
       "playwright-report/**",
       "references/**",

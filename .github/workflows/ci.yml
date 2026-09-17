@@ -50,8 +50,23 @@ jobs:
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
     needs: verify
     runs-on: ubuntu-latest
-    # Database verification runs serially before browser tests on shared Neon.
+    # Use disposable PostgreSQL with pgvector; CI never connects to hosted learner data.
     timeout-minutes: 45
+    services:
+      postgres:
+        # Digest verified by the passing CI run 35251019804. Update through review.
+        image: pgvector/pgvector:pg18@sha256:2ba9ca5f2e7daa0f0e7723cba1ee9167bab54efd3640516a44ac1a928dd67e7a
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
     concurrency:
       group: authenticated-e2e-${{ github.repository }}
       cancel-in-progress: false
@@ -59,8 +74,8 @@ jobs:
       NEXT_PUBLIC_APP_URL: http://localhost:3000
       NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.E2E_CLERK_PUBLISHABLE_KEY }}
       CLERK_SECRET_KEY: ${{ secrets.E2E_CLERK_SECRET_KEY }}
-      E2E_DATABASE_URL: ${{ secrets.E2E_DATABASE_URL }}
-      E2E_DIRECT_URL: ${{ secrets.E2E_DIRECT_URL }}
+      E2E_DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable
+      E2E_DIRECT_URL: postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable
       E2E_DATABASE_NAME: e2e_${{ github.run_id }}_${{ github.run_attempt }}
       E2E_CLERK_USER_COUNT: "2"
     steps:
