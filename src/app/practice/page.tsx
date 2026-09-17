@@ -1,4 +1,3 @@
-import { getUserPracticePreferences } from "@/lib/practice/preferences";
 import { auth, currentUser } from "@clerk/nextjs/server";
 
 import { UserStatusPanel } from "@/components/app/user-status-panel";
@@ -39,18 +38,17 @@ export default async function PracticePage({ searchParams }: PracticePageProps) 
     );
   }
 
-  const preferences = await getUserPracticePreferences(userId);
   return (
     <main className="practiceShell">
       <SkillsTopbar current="practice" />
 
       {sessionId ? (
-        <CustomPracticeLoader key={sessionId} sessionId={sessionId} />
+        <CustomPracticeLoader userId={userId} key={sessionId} sessionId={sessionId} />
       ) : (
         <PracticeLoader
+          userId={userId}
           key={collectionId ?? "all"}
           collectionId={collectionId}
-          initialMixedReview={preferences.mixedReview}
           canUseSampleData={process.env.NODE_ENV !== "production"}
         />
       )}

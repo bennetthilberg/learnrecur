@@ -1,30 +1,23 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
-import Link from "next/link";
 
 import { UserStatusPanel } from "@/components/app/user-status-panel";
 import {
-  getPracticeHistory,
-  type PracticeHistoryReview,
+  getPracticeHistoryPage,
 } from "@/lib/practice/history";
-import {
-  formatDueLabel,
-  formatHistoryEnum,
-  formatHistoryLabel,
-  formatNullableHistoryLabel,
-  formatResponseTime,
-  formatReviewResult,
-} from "@/lib/practice/history-formatters";
 import { ensureDatabaseUser } from "@/lib/users";
 
 import { SkillsTopbar } from "../skills/skills-topbar";
-import {
-  HistoryReviewsTable,
-  type HistoryReviewRow,
-} from "./history-reviews-table";
+import { HistoryBrowser } from "./history-browser";
+import { toHistoryReviewRow } from "./history-row";
+import { getPrisma } from "@/lib/prisma";
+import { HistoryFilters } from "./history-filters";
 
 export const dynamic = "force-dynamic";
 
-export default async function HistoryPage() {
+export default async function HistoryPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const query = await searchParams;
+  const value = (key: string) => typeof query[key] === "string" ? query[key] as string : "";
+  const filters = { skillId: value("skillId") || undefined, collectionId: value("collectionId") || undefined, incorrectOnly: value("incorrectOnly") === "on" };
   const { userId } = await auth.protect();
   const clerkUser = await currentUser();
 
@@ -43,12 +36,17 @@ export default async function HistoryPage() {
     );
   }
 
-  const history = await getPracticeHistory({
+  const history = await getPracticeHistoryPage({
+    ...filters,
     userId,
     now: new Date(),
   });
 
   const reviewRows = history.reviews.map(toHistoryReviewRow);
+  const [skills, collections] = await Promise.all([
+    getPrisma().skill.findMany({ where: { userId }, select: { id: true, title: true }, orderBy: { title: "asc" } }),
+    getPrisma().collection.findMany({ where: { userId }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+  ]);
 
   return (
     <main className="skillShell historyShell">
@@ -64,81 +62,15 @@ export default async function HistoryPage() {
         </div>
       </header>
 
+      <HistoryFilters key={JSON.stringify(filters)} filters={filters} skills={skills} collections={collections} />
       <section className="skillPanel historyPanel" aria-labelledby="review-history-title">
         <div className="historyPanelIntro">
           <h2 id="review-history-title">Completed reviews</h2>
-          <p>Showing {formatCount(history.reviews.length)} most recent.</p>
+
         </div>
 
-        {history.reviews.length === 0 ? (
-          <div className="dashboardEmptyState">
-            <h3>No completed reviews yet</h3>
-            <p>
-              Answer a practice exercise, check it, then continue to record your
-              first completed review.
-            </p>
-            <Link className="secondaryButton" href="/practice">
-              Open practice
-            </Link>
-          </div>
-        ) : (
-          <HistoryReviewsTable reviews={reviewRows} />
-        )}
+        <HistoryBrowser key={JSON.stringify(filters)} initialReviews={reviewRows} initialCursor={history.nextCursor} filters={filters} />
       </section>
     </main>
   );
-}
-
-function formatAnswerKind(kind: PracticeHistoryReview["answerKind"]) {
-  return formatHistoryEnum(kind).replace("multiple choice", "choice");
-}
-
-function toHistoryReviewRow(review: PracticeHistoryReview): HistoryReviewRow {
-  return {
-    id: review.id,
-    answerKindLabel: formatAnswerKind(review.answerKind),
-    collectionName: review.collectionName ?? "Uncollected",
-    correctAnswerDisplay: review.correctAnswerDisplay,
-    finalRatingLabel: formatHistoryLabel(review.finalRating),
-    nextDueLabel: formatDueLabel(review.nextDueAt),
-    previousDueLabel: formatDueLabel(review.previousDueAt),
-    previousStateLabel: formatNullableHistoryLabel(review.previousState),
-    responseTimeLabel: formatResponseTime(review.responseMs),
-    result: review.result === "CORRECT" ? "correct" : "incorrect",
-    resultLabel: formatReviewResult(review.result),
-    reviewedFullLabel: formatReviewFull(review.reviewedAt),
-    reviewedDayLabel: formatReviewDay(review.reviewedAt),
-    reviewedTimeLabel: formatReviewTime(review.reviewedAt),
-    skillId: review.skillId,
-    skillTitle: review.skillTitle,
-    nextStateLabel: formatNullableHistoryLabel(review.nextState),
-  };
-}
-
-function formatReviewDay(date: Date) {
-  return date.toLocaleDateString("en-US", {
-    day: "numeric",
-    month: "short",
-  });
-}
-
-function formatReviewTime(date: Date) {
-  return date.toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
-
-function formatReviewFull(date: Date) {
-  return date.toLocaleString("en-US", {
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
-
-function formatCount(count: number) {
-  return new Intl.NumberFormat("en-US").format(count);
 }

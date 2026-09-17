@@ -1,3 +1,4 @@
+import { authReturnPath } from "@/lib/auth-return-path";
 import { SignIn } from "@clerk/nextjs";
 
 import { AuthShell } from "@/components/app/auth-shell";
@@ -10,7 +11,7 @@ export default async function SignInPage({
 }) {
   const { redirect_url: requestedRedirect } = await searchParams;
   const redirectUrl =
-    requestedRedirect === "/oauth/workos/complete" ? requestedRedirect : "/dashboard";
+    authReturnPath(requestedRedirect);
 
   return (
     <AuthShell

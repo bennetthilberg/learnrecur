@@ -1,3 +1,5 @@
+import type { StructuredPrompt } from "@/lib/practice/structured-prompt";
+import type { PracticeCheckingData } from "@/lib/practice/instant-feedback";
 import {
   AnswerKind,
   type ExerciseType,
@@ -20,12 +22,13 @@ export type ChoiceOption = {
   label: string;
 };
 
-export type PracticeExercise =
+export type PracticeExercise = PracticeCheckingData & (
   | {
       id: string;
       skillId: string;
       answerKind: typeof AnswerKind.CHOICE;
       prompt: string;
+      promptLayout?: StructuredPrompt | null;
       choices: ChoiceOption[];
       difficulty: number | null;
       expectedSeconds: number | null;
@@ -35,9 +38,10 @@ export type PracticeExercise =
       skillId: string;
       answerKind: typeof AnswerKind.TEXT | typeof AnswerKind.NUMERIC | typeof AnswerKind.MATH;
       prompt: string;
+      promptLayout?: StructuredPrompt | null;
       difficulty: number | null;
       expectedSeconds: number | null;
-    };
+    });
 
 export type PracticeScope =
   | {
@@ -65,6 +69,9 @@ export type PracticeItem =
     }
   | {
       status: "none-due";
+      nextReviewAt?: string | null;
+      nextReviewTimezone?: string;
+      preparationSkillIds?: string[];
       preparing?: boolean;
       dailyLimitReached?: boolean;
       message: string;
@@ -156,7 +163,7 @@ export type CustomPracticeSessionClientSummary = {
   completedCount: number;
 };
 
-export type CustomPracticeClientItem = {
+export type CustomPracticeClientItem = PracticeCheckingData & {
   itemKey: string;
   exerciseId: string;
   skillId: string;
@@ -164,6 +171,7 @@ export type CustomPracticeClientItem = {
   answerKind: AnswerKind;
   exerciseType?: ExerciseType;
   prompt: string;
+      promptLayout?: StructuredPrompt | null;
   choices: ChoiceOption[];
   difficulty: number | null;
   expectedSeconds: number | null;

@@ -1,5 +1,7 @@
 "use client";
 
+import { ActionNotification } from "@/components/app/action-notification";
+
 import { useActionState } from "react";
 
 import { refillChoiceExercisesAction, type SkillFormActionState } from "./actions";
@@ -33,9 +35,12 @@ export function SkillRefillForm({
         {isPending ? "Preparing" : buttonLabel}
       </button>
       {state.message ? (
-        <p className="skillFormMessage" data-tone={state.status} role="status">
-          {state.message}
-        </p>
+        <ActionNotification
+          id={`choice-refill-${skillId}`}
+          message={isPending ? null : state.message}
+          title="Prepare exercises"
+          tone={state.status === "error" ? "error" : "success"}
+        />
       ) : null}
     </form>
   );

@@ -5,7 +5,7 @@ import {
   CollectionStatus,
   type Prisma,
 } from "@/generated/prisma/client";
-import { getNextPracticeItem, previewNextPracticeItem } from "@/lib/practice";
+import { getNextPracticeItem, previewNextPracticeItem, previewPracticeItemBuffer } from "@/lib/practice";
 import { getPrisma } from "@/lib/prisma";
 
 import type { ChoiceOption, PracticeItem, PracticeScope } from "./types";
@@ -21,6 +21,8 @@ const COLLECTION_SCOPE_UNAVAILABLE_MESSAGE =
   "That collection is not available for practice.";
 
 export type PracticeScopeInput = {
+  excludeSkillId?: string;
+  preferredExerciseId?: string;
   mixedReview?: boolean;
   previousSkillId?: string | null;
   collectionId?: string | null;
@@ -82,6 +84,16 @@ export async function previewNextPracticeItemForUser(
   );
 }
 
+export async function preloadPracticeBufferForUser(userId: string, input: { collectionId: string | null; skillId: string; excludedSkillIds: string[]; limit: number }): Promise<PracticeItem[]> {
+  const scope = await resolvePracticeScopeForUser(userId, input);
+  if (scope.status !== "ready") return [];
+  const result = await previewPracticeItemBuffer({
+    userId, now: new Date(), collectionId: scope.collectionId, previousSkillId: input.excludedSkillIds.at(-1) ?? input.skillId,
+    excludedSkillIds: [input.skillId, ...input.excludedSkillIds], limit: input.limit, answerKinds: PRACTICE_ANSWER_KINDS,
+  });
+  return result.map((item) => toPracticeItem(item, scope.scope));
+}
+
 async function loadPracticeItemForUser(
   userId: string,
   now: Date,
@@ -101,7 +113,9 @@ async function loadPracticeItemForUser(
     userId,
     now,
     answerKinds: PRACTICE_ANSWER_KINDS,
-    mixedReview: scopeInput.mixedReview,
+    excludeSkillId: scopeInput.excludeSkillId,
+    preferredExerciseId: scopeInput.preferredExerciseId,
+    mixedReview: true,
     previousSkillId: scopeInput.previousSkillId,
     collectionId: scope.collectionId,
   });
@@ -160,6 +174,9 @@ function toPracticeItem(
     return {
       status: "none-due",
       preparing: result.preparing,
+      nextReviewAt: result.nextReviewAt?.toISOString() ?? null,
+      nextReviewTimezone: result.nextReviewTimezone,
+      preparationSkillIds: result.preparationSkillIds,
       dailyLimitReached: result.dailyLimitReached,
       message:
         !result.preparing &&
@@ -199,10 +216,14 @@ function toPracticeItem(
       scope,
       skill,
       exercise: {
+        answerSpec: result.exercise.answerSpec,
+        correctAnswerDisplay: result.exercise.correctAnswerDisplay,
+        explanation: result.exercise.explanation,
         id: result.exercise.id,
         skillId: result.exercise.skillId,
         answerKind: result.exercise.answerKind,
         prompt: result.exercise.prompt,
+      promptLayout: result.exercise.promptLayout,
         choices: parsedChoices,
         difficulty: result.exercise.difficulty,
         expectedSeconds: result.exercise.expectedSeconds,
@@ -227,10 +248,14 @@ function toPracticeItem(
     scope,
     skill,
     exercise: {
+      answerSpec: result.exercise.answerSpec,
+      correctAnswerDisplay: result.exercise.correctAnswerDisplay,
+      explanation: result.exercise.explanation,
       id: result.exercise.id,
       skillId: result.exercise.skillId,
       answerKind: result.exercise.answerKind,
       prompt: result.exercise.prompt,
+      promptLayout: result.exercise.promptLayout,
       difficulty: result.exercise.difficulty,
       expectedSeconds: result.exercise.expectedSeconds,
     },

@@ -23,7 +23,7 @@ export function PrimaryRouteLoading({
             ? "skillShell settingsShell"
             : config.kind === "new"
               ? "skillShell createSkillShell"
-              : "skillShell";
+              : "skillShell libraryShell";
 
   return (
     <main className={shellClassName} aria-busy="true">

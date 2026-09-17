@@ -39,16 +39,16 @@ Run the secret-free signed-out suite with `npm run test:e2e`, or both with `npm 
 
 The authenticated CI job accepts only same-repository pull requests and pushes to `main`. Fork pull requests do not receive or execute with authentication/database secrets.
 
-Configure these Actions secrets with an isolated Clerk development instance and non-production Neon branch:
+Configure these Actions secrets with an isolated Clerk development instance:
 
 - `E2E_CLERK_PUBLISHABLE_KEY`
 - `E2E_CLERK_SECRET_KEY`
-- `E2E_DATABASE_URL`
-- `E2E_DIRECT_URL`
 
-The initial repository secrets use the existing non-production development branch that already supports temporary integration-test rows. Each CI run creates a disposable PostgreSQL database, applies that checkout's migrations only inside the disposable database, and drops it after Playwright. Before creating a database, the serialized job also removes abandoned `e2e_<run>_<attempt>` databases from interrupted earlier jobs. The shared development database is never migrated by pull-request tests.
-
-Move `E2E_DATABASE_URL` and `E2E_DIRECT_URL` to a dedicated automation branch before granting untrusted collaborators write access or increasing CI concurrency. Per-run databases protect test data and migrations, but a separate Neon branch also isolates resource consumption and operational mistakes.
+CI starts a disposable PostgreSQL 18 service with pgvector. Each run creates a
+uniquely named test database, applies the checkout's migrations, runs database
+and browser tests, and drops the database afterward. Hosted database secrets
+are no longer consumed. Local test databases also need PostgreSQL and pgvector;
+do not use production credentials for tests.
 
 ## Failure recovery
 

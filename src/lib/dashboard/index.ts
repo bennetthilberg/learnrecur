@@ -14,7 +14,7 @@ import {
 import { isPracticeReadModelExerciseReady } from "@/lib/practice/read-model-eligibility";
 import { getPrisma } from "@/lib/prisma";
 
-const RECENT_WINDOW_DAYS = 14;
+export const RECENT_WINDOW_DAYS = 14;
 const ACTIVITY_WINDOW_DAYS = 35;
 
 export type DashboardCollectionSummary = {

@@ -31,7 +31,7 @@ test("opens a bounded practice-only session from normal practice and keeps it ou
   await expect(
     page.getByRole("checkbox", { name: new RegExp(scenario.skillTitle, "i") }),
   ).toBeChecked();
-  await page.getByRole("checkbox", { name: /Mixed review/i }).check();
+  await expect(page.getByRole("checkbox", { name: /Mixed review/i })).toHaveCount(0);
   const desktopSetupLayout = await page.evaluate(() => {
     const header = document.querySelector<HTMLElement>(".customPracticeHeader");
     const rect = header?.getBoundingClientRect();
@@ -73,12 +73,13 @@ test("opens a bounded practice-only session from normal practice and keeps it ou
   }
   await page.setViewportSize({ width: 1280, height: 900 });
 
-  await page.getByRole("combobox", { name: "Collection", exact: true }).selectOption(scenario.collectionId);
+  await page.getByRole("combobox", { name: "Collection", exact: true }).click();
+      await page.getByRole("option", { name: scenario.collectionName, exact: true }).click();
   await page.getByRole("checkbox", { name: new RegExp(scenario.skillTitle, "i") }).check();
   await page.getByRole("spinbutton", { name: /^Exercises\b/ }).fill("1");
   await page.getByRole("button", { name: "Start session", exact: true }).click();
   await expect(page).toHaveURL(/\/practice\?sessionId=/);
-  await expect(page.getByRole("heading", { name: "Review", exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Practice exercise", exact: true })).toBeVisible();
   await expect(page.getByLabel("Custom practice session")).toContainText("Practice only");
   await page.screenshot({
     path: testInfo.outputPath("custom-session-desktop.png"),
@@ -107,8 +108,15 @@ test("opens a bounded practice-only session from normal practice and keeps it ou
   await page.setViewportSize({ width: 1280, height: 900 });
 
   await page.locator(".choiceCard").first().click();
-  await page.getByRole("button", { name: "Check", exact: true }).click();
-  await expect(page.getByRole("heading", { name: scenario.skillTitle, exact: true })).toBeVisible();
+  await page.context().setOffline(true);
+  try {
+    await page.getByRole("button", { name: "Check", exact: true }).click();
+    await expect(page.getByRole("status")).toContainText("Correct", { timeout: 500 });
+  } finally {
+    await page.context().setOffline(false);
+  }
+  await expect(page.getByRole("heading", { name: scenario.skillTitle, exact: true })).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Practice exercise", exact: true })).toBeVisible();
   await expect(page.getByRole("status")).toContainText("Correct");
   await page.getByRole("button", { name: "Save practice", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Session complete.", exact: true })).toBeVisible();

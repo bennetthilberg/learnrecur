@@ -11,11 +11,11 @@ import {
   OpenWaterHeroWaves,
 } from "@/components/app/open-water";
 import { UserStatusPanel } from "@/components/app/user-status-panel";
-import { getDashboardHome, type DashboardHome } from "@/lib/dashboard";
+import { getDashboardHome, RECENT_WINDOW_DAYS, type DashboardHome } from "@/lib/dashboard";
 import { formatFsrsState } from "@/lib/formatters";
 import { ensureDatabaseUser } from "@/lib/users";
 
-import { MathText } from "../practice/math-text";
+import { PracticePrompt } from "../practice/practice-prompt";
 import { previewNextPracticeItemForUser } from "../practice/queries";
 import type { PracticeItem } from "../practice/types";
 import { SkillsTopbar } from "../skills/skills-topbar";
@@ -68,11 +68,11 @@ export default async function DashboardPage() {
           </h1>
           {hasDuePractice ? (
             <div className="openWaterHeroActions">
-              <Link className="bpbtn bpbtn-hero" href="/practice">
-                Start practice
-              </Link>
               <Link className="bpbtn bpbtn-ghost" href="/skills">
                 Browse skills
+              </Link>
+              <Link className="bpbtn bpbtn-hero" href="/practice">
+                Start practice
               </Link>
             </div>
           ) : (
@@ -97,7 +97,8 @@ export default async function DashboardPage() {
           value={formatCount(dashboard.activeSkillCount)}
         />
         <StatTile
-          label="Retention"
+          label="Recent accuracy"
+          description={`${dashboard.recentReviewCount} ${dashboard.recentReviewCount === 1 ? "answer" : "answers"} · last ${RECENT_WINDOW_DAYS} days`}
           value={formatAccuracy(dashboard.recentAccuracyPercent)}
           tone="green"
         />
@@ -135,11 +136,13 @@ function StatTile({
   label,
   value,
   unit,
+  description,
   tone = "ink",
 }: {
   label: string;
   value: string;
   unit?: string;
+  description?: string;
   tone?: "blue" | "green" | "ink";
 }) {
   return (
@@ -149,6 +152,7 @@ function StatTile({
         {value}
         {unit ? <span>{unit}</span> : null}
       </strong>
+      {description ? <p className="dashboardStatDescription">{description}</p> : null}
     </article>
   );
 }
@@ -171,15 +175,6 @@ function DashboardReviewCard({
       : caughtUp
         ? "You're all caught up for now."
         : "Practice is unavailable right now.";
-  const skillTitle = ready
-    ? item.skill.title
-    : deferred
-      ? item.preparing
-        ? "Preparation pending"
-        : "Daily limit reached"
-      : caughtUp
-        ? "Due queue clear"
-        : "Practice unavailable";
   const label = ready
     ? formatFsrsState(item.skill.fsrsState)
     : deferred
@@ -204,24 +199,15 @@ function DashboardReviewCard({
           <span>{label}</span>
           <span className="tnum">{activeSummary}</span>
         </div>
-        <p className="openWaterReviewHint">{skillTitle}</p>
-        <p className="disp openWaterReviewPrompt">
-          <MathText text={prompt} />
-        </p>
-        {ready ? (
-          <p className="openWaterReviewNote">
-            <strong>Instant check.</strong> Open practice to answer this{" "}
-            <span>verified exercise</span> and update the memory schedule.
-          </p>
-        ) : null}
+        {ready ? <PracticePrompt text={prompt} layout={item.exercise.promptLayout} /> : <p className="disp openWaterReviewPrompt">{prompt}</p>}
         <div className="openWaterReviewActions">
           {ready ? (
             <>
-              <Link className="bpbtn bpbtn-blue" href="/practice">
-                Practice now
-              </Link>
               <Link className="bpbtn bpbtn-white" href="/skills">
                 Review skills
+              </Link>
+              <Link className="bpbtn bpbtn-blue" href="/practice">
+                Practice now
               </Link>
             </>
           ) : (
@@ -256,8 +242,8 @@ function DashboardCollections({ dashboard }: { dashboard: DashboardHome }) {
         <h2 id="collections-title" className="disp openWaterSectionTitle">
           Collections
         </h2>
-        <Link className="bpbtn bpbtn-blue openWaterNewDeck" href="/skills/new">
-          + New skill
+        <Link className="bpbtn bpbtn-blue openWaterNewDeck" href="/collections">
+          Manage collections
         </Link>
       </div>
       {rows.length === 0 ? (

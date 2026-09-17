@@ -1,4 +1,4 @@
-import { neon } from "@neondatabase/serverless";
+import { getTestPostgres } from "../support/postgres";
 import { expect, test } from "../fixtures/learner-lifecycle";
 
 test.use({ actionTimeout: 10_000 });
@@ -9,7 +9,7 @@ for (const width of [1280, 390]) {
     learnerFixture,
   }, testInfo) => {
     test.setTimeout(90_000);
-    const sql = neon(process.env.DATABASE_URL!);
+    const sql = getTestPostgres(process.env.DATABASE_URL!);
     const userId = learnerFixture.userId;
     const fresh = learnerFixture.scenarios.choice;
     const review = learnerFixture.scenarios.text;
@@ -43,7 +43,8 @@ for (const width of [1280, 390]) {
         name: "Save practice preferences",
       });
       await expect(unlimited).toBeChecked();
-      await expect(limit).toBeDisabled();
+      await expect(limit).toHaveValue("Unlimited");
+      await expect(limit).toHaveAttribute("readonly", "");
       await unlimited.uncheck();
       await limit.fill("0");
       await page.getByText("Advanced practice settings", { exact: true }).click();
@@ -97,8 +98,8 @@ for (const width of [1280, 390]) {
       });
       // The cap does not prevent a previously reviewed skill from being shown.
       await page.goto(`/practice?collectionId=${review.collectionId}`);
-      await expect(page.getByRole("article")).toContainText(
-        review.exercise.prompt,
+      await expect.poll(async () => (await page.locator(".practicePromptPanel p").allTextContents()).join(" ").replace(/\s+/g, " ").trim()).toBe(
+        review.exercise.prompt.replace(/_+/g, "").replace(/\s+/g, " ").trim(),
       );
 
       await page.goto("/settings");
@@ -132,7 +133,7 @@ for (const width of [1280, 390]) {
         )[0].firstIntroducedAt,
       ).toBeNull();
       await page.goto(practiceUrl);
-      await expect(page.getByRole("article")).toContainText(
+      await expect.poll(async () => (await page.locator(".practicePromptPanel p").allTextContents()).join(" ").replace(/\s+/g, " ").trim()).toBe(
         fresh.exercise.prompt.replace(/_+/g, "").replace(/\s+/g, " ").trim(),
       );
       const before = (
@@ -144,7 +145,7 @@ for (const width of [1280, 390]) {
       expect(before.firstIntroducedAt).not.toBeNull();
       expect(before.repetitions).toBe(0);
       await page.reload();
-      await expect(page.getByRole("article")).toContainText(
+      await expect.poll(async () => (await page.locator(".practicePromptPanel p").allTextContents()).join(" ").replace(/\s+/g, " ").trim()).toBe(
         fresh.exercise.prompt.replace(/_+/g, "").replace(/\s+/g, " ").trim(),
       );
       expect(
@@ -180,7 +181,7 @@ test("advanced retention and practice-day settings persist and reset", async ({
   learnerFixture,
 }, testInfo) => {
   test.setTimeout(60_000);
-  const sql = neon(process.env.DATABASE_URL!);
+  const sql = getTestPostgres(process.env.DATABASE_URL!);
   const userId = learnerFixture.userId;
   const settings = await sql.query(
     'SELECT "desiredRetention", "practiceDayStartMinutes", "practiceTimezone" FROM users WHERE id=$1',
@@ -215,7 +216,8 @@ test("advanced retention and practice-day settings persist and reset", async ({
       exact: true,
     });
     await expect(defaultRetention).toBeChecked();
-    await expect(retention).toBeDisabled();
+    await expect(retention).toHaveValue("Using default: 90%");
+    await expect(retention).toHaveAttribute("readonly", "");
     await defaultRetention.uncheck();
     await retention.fill("97.5");
 
@@ -247,7 +249,8 @@ test("advanced retention and practice-day settings persist and reset", async ({
     await page.reload();
     await page.getByText("Advanced practice settings", { exact: true }).click();
     await expect(defaultRetention).toBeChecked();
-    await expect(retention).toBeDisabled();
+    await expect(retention).toHaveValue("Using default: 90%");
+    await expect(retention).toHaveAttribute("readonly", "");
   } finally {
     await sql.query(
       'UPDATE users SET "desiredRetention"=$1, "practiceDayStartMinutes"=$2, "practiceTimezone"=$3 WHERE id=$4',
@@ -266,10 +269,10 @@ test("preserves a fractional retention set outside the form during an unrelated 
   learnerFixture,
 }) => {
   test.setTimeout(60_000);
-  const sql = neon(process.env.DATABASE_URL!);
+  const sql = getTestPostgres(process.env.DATABASE_URL!);
   const userId = learnerFixture.userId;
   const settings = await sql.query(
-    'SELECT "mixedReview", "dailyNewSkillLimit", "practiceTimezone", "desiredRetention", "practiceDayStartMinutes" FROM users WHERE id=$1',
+    'SELECT "practicePreference", "mixedReview", "dailyNewSkillLimit", "practiceTimezone", "desiredRetention", "practiceDayStartMinutes" FROM users WHERE id=$1',
     [userId],
   );
 
@@ -285,7 +288,8 @@ test("preserves a fractional retention set outside the form during an unrelated 
     });
     await expect(retention).toHaveValue("90.5%");
 
-    await page.getByRole("switch", { name: "Mixed review by default" }).click();
+    await page.getByRole("combobox", { name: "Practice preference", exact: true }).click();
+      await page.getByRole("option", { name: "Recall first", exact: true }).click();
     await page.getByRole("button", { name: "Save practice preferences", exact: true }).click();
     await expect(page.getByText("Preferences saved", { exact: true })).toBeVisible();
 
@@ -299,7 +303,7 @@ test("preserves a fractional retention set outside the form during an unrelated 
     ).toEqual([{ desiredRetention: 0.905 }]);
   } finally {
     await sql.query(
-      'UPDATE users SET "mixedReview"=$1, "dailyNewSkillLimit"=$2, "practiceTimezone"=$3, "desiredRetention"=$4, "practiceDayStartMinutes"=$5 WHERE id=$6',
+      'UPDATE users SET "mixedReview"=$1, "dailyNewSkillLimit"=$2, "practiceTimezone"=$3, "desiredRetention"=$4, "practiceDayStartMinutes"=$5, "practicePreference"=$7 WHERE id=$6',
       [
         settings[0].mixedReview,
         settings[0].dailyNewSkillLimit,
@@ -307,6 +311,7 @@ test("preserves a fractional retention set outside the form during an unrelated 
         settings[0].desiredRetention,
         settings[0].practiceDayStartMinutes,
         userId,
+        settings[0].practicePreference,
       ],
     );
   }

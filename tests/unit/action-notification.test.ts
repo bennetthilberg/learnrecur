@@ -1,21 +1,19 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { showNotification } = vi.hoisted(() => ({ showNotification: vi.fn() }));
+import { notifications, notificationsStore } from "@mantine/notifications";
 
 vi.mock("react", async (importOriginal) => ({
   ...(await importOriginal<typeof import("react")>()),
   useEffect: (effect: () => void) => effect(),
 }));
 
-vi.mock("@mantine/notifications", () => ({
-  notifications: { show: showNotification },
-}));
-
 import { ActionNotification } from "@/components/app/action-notification";
 
 describe("ActionNotification", () => {
+  beforeEach(() => notifications.clean());
+
   it("shows transient errors through Mantine notifications", () => {
     renderToStaticMarkup(
       createElement(ActionNotification, {
@@ -26,7 +24,7 @@ describe("ActionNotification", () => {
       }),
     );
 
-    expect(showNotification).toHaveBeenCalledWith(
+    expect(notificationsStore.getState().notifications).toEqual([
       expect.objectContaining({
         className: "learnrecurNotification",
         color: "red",
@@ -37,11 +35,10 @@ describe("ActionNotification", () => {
         withBorder: true,
         withCloseButton: true,
       }),
-    );
+    ]);
   });
 
   it("does not show an empty notification", () => {
-    showNotification.mockClear();
     renderToStaticMarkup(
       createElement(ActionNotification, {
         id: "scope-planning-error",
@@ -51,6 +48,34 @@ describe("ActionNotification", () => {
       }),
     );
 
-    expect(showNotification).not.toHaveBeenCalled();
+    expect(notificationsStore.getState().notifications).toEqual([]);
+  });
+});
+
+describe("notification retries", () => {
+  beforeEach(() => notifications.clean());
+
+  function report(message: string | null, tone: "success" | "error" = "error") {
+    renderToStaticMarkup(createElement(ActionNotification, {
+      id: "collection-action", title: "Collection", message, tone,
+    }));
+  }
+
+  it("removes the old error when a retry clears its message", () => {
+    report("Collection name is required.");
+    report(null);
+    expect(notificationsStore.getState().notifications).toEqual([]);
+    report("Collection created.", "success");
+    expect(notificationsStore.getState().notifications).toEqual([
+      expect.objectContaining({ id: "collection-action", message: "Collection created.", color: "leaf" }),
+    ]);
+  });
+
+  it("replaces an existing message with the latest result without manual dismissal", () => {
+    report("Could not save collection.");
+    report("Collection saved.", "success");
+    expect(notificationsStore.getState().notifications).toEqual([
+      expect.objectContaining({ id: "collection-action", message: "Collection saved.", color: "leaf" }),
+    ]);
   });
 });

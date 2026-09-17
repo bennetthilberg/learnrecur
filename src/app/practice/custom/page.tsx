@@ -2,9 +2,8 @@ import { auth, currentUser } from "@clerk/nextjs/server";
 import Link from "next/link";
 
 import { CollectionStatus, SkillStatus } from "@/generated/prisma/client";
-import { getUserPracticePreferences } from "@/lib/practice/preferences";
 import { getPrisma } from "@/lib/prisma";
-import { resolveCustomPracticeSkillPrefill } from "@/lib/practice/custom-session-contracts";
+import { resolveCustomPracticeSkillPrefill, RECENTLY_MISSED_LOOKBACK_DAYS } from "@/lib/practice/custom-session-contracts";
 import { ensureDatabaseUser } from "@/lib/users";
 
 import { SkillsTopbar } from "../../skills/skills-topbar";
@@ -45,17 +44,19 @@ export default async function CustomPracticePage({
     );
   }
 
-  const [preferences, collections, skills] = await Promise.all([
-    getUserPracticePreferences(userId),
+  const now = new Date();
+  const missedSince = new Date(now.getTime() - RECENTLY_MISSED_LOOKBACK_DAYS * 86400000);
+  const [collections, skills] = await Promise.all([
     getPrisma().collection.findMany({
       where: { userId, status: CollectionStatus.ACTIVE },
       orderBy: [{ name: "asc" }, { id: "asc" }],
       select: { id: true, name: true },
     }),
     getPrisma().skill.findMany({
-      where: { userId, status: SkillStatus.ACTIVE },
+      where: { userId, status: SkillStatus.ACTIVE, stability: { not: null }, difficulty: { not: null } },
       orderBy: [{ title: "asc" }, { id: "asc" }],
-      select: { id: true, title: true, collectionId: true, tags: true },
+      select: { id: true, title: true, collectionId: true, tags: true, dueAt: true,
+        attempts: { where: { userId, result: "INCORRECT", createdAt: { gte: missedSince, lte: now } }, take: 1, select: { id: true } } },
     }),
   ]);
   const tags = [...new Set(skills.flatMap((skill) => skill.tags))].toSorted((a, b) =>
@@ -82,9 +83,9 @@ export default async function CustomPracticePage({
       </header>
       <CustomSessionSetup
         collections={collections}
-        initialMixedReview={preferences.mixedReview}
         initialSkillId={initialSkillId}
-        skills={skills}
+        skills={skills.map(({ attempts, dueAt, ...skill }) => ({ ...skill, dueAt: dueAt?.toISOString() ?? null, recentlyMissed: attempts.length > 0 }))}
+        previewAt={now.getTime()}
         tags={tags}
       />
     </main>

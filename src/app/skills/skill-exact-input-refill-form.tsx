@@ -1,5 +1,7 @@
 "use client";
 
+import { ActionNotification } from "@/components/app/action-notification";
+
 import { useActionState } from "react";
 
 import { refillExactInputExercisesAction, type SkillFormActionState } from "./actions";
@@ -32,13 +34,12 @@ export function SkillExactInputRefillForm({
         {pending ? "Preparing" : buttonLabel}
       </button>
       {state.message ? (
-        <p
-          className="skillFormMessage"
-          data-tone={state.status === "error" ? "error" : "saved"}
-          role="status"
-        >
-          {state.message}
-        </p>
+        <ActionNotification
+          id={`exact-input-refill-${skillId}`}
+          message={pending ? null : state.message}
+          title="Prepare exercises"
+          tone={state.status === "error" ? "error" : "success"}
+        />
       ) : null}
     </form>
   );

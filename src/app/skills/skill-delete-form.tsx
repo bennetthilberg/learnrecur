@@ -1,12 +1,19 @@
 "use client";
 
-import { useActionState } from "react";
+import { ActionNotification } from "@/components/app/action-notification";
 
-import { deleteSkillPermanentlyAction, type SkillFormActionState } from "./actions";
+import { useActionState, useState } from "react";
+
+import {
+  deleteSkillPermanentlyAction,
+  type SkillFormActionState,
+} from "./actions";
 
 type SkillDeleteFormProps = {
   skillId: string;
   skillTitle: string;
+  inline?: boolean;
+  onCancel?: () => void;
 };
 
 const initialState: SkillFormActionState = {
@@ -14,41 +21,77 @@ const initialState: SkillFormActionState = {
   message: null,
 };
 
-export function SkillDeleteForm({ skillId, skillTitle }: SkillDeleteFormProps) {
+export function SkillDeleteForm({
+  skillId,
+  skillTitle,
+  inline = false,
+  onCancel,
+}: SkillDeleteFormProps) {
   const [state, formAction, pending] = useActionState(
     deleteSkillPermanentlyAction,
     initialState,
   );
 
-  return (
-    <details className="skillLifecycleDetails skillDeleteDetails">
-      <summary aria-label={`Delete skill ${skillTitle} permanently`}>Delete permanently</summary>
-      <form className="skillLifecycleForm skillDeleteForm" action={formAction}>
-        <input name="skillId" type="hidden" value={skillId} />
-        <p>
-          Permanent delete removes this skill, its exercises, and its practice history. Shared
-          source material stays linked to any other skills.
-        </p>
-        <label className="skillDeleteConfirm">
-          <span>Type the skill title to confirm.</span>
-          <input
-            autoComplete="off"
+  const [confirmation, setConfirmation] = useState("");
+  const form = (
+    <form className="skillLifecycleForm skillDeleteForm" action={formAction}>
+      <input name="skillId" type="hidden" value={skillId} />
+      <p>
+        Permanent delete removes this skill, its exercises, and its practice
+        history. Shared source material stays linked to any other skills.
+      </p>
+      <label className="skillDeleteConfirm">
+        <span>Type the skill title to confirm.</span>
+        <input
+          autoComplete="off"
+          disabled={pending}
+          name="confirmationTitle"
+          value={confirmation}
+          onChange={(event) => setConfirmation(event.currentTarget.value)}
+          placeholder={skillTitle}
+          required
+          type="text"
+        />
+      </label>
+      {state.message ? (
+        <ActionNotification
+          id={`skill-delete-${skillId}`}
+          message={pending ? null : state.message}
+          title="Delete skill"
+          tone={state.status === "error" ? "error" : "success"}
+        />
+      ) : null}
+      <div className="skillActionDialogActions">
+        {onCancel ? (
+          <button
+            className="secondaryButton"
+            data-autofocus
             disabled={pending}
-            name="confirmationTitle"
-            placeholder={skillTitle}
-            required
-            type="text"
-          />
-        </label>
-        {state.message ? (
-          <p className="skillFormMessage" data-tone={state.status} role="status">
-            {state.message}
-          </p>
+            onClick={onCancel}
+            type="button"
+          >
+            Cancel
+          </button>
         ) : null}
-        <button className="secondaryButton" data-tone="danger" disabled={pending} type="submit">
+        <button
+          className="secondaryButton"
+          data-tone="danger"
+          disabled={pending || confirmation.trim() !== skillTitle.trim()}
+          type="submit"
+        >
           {pending ? "Deleting" : "Delete skill"}
         </button>
-      </form>
+      </div>
+    </form>
+  );
+  return inline ? (
+    form
+  ) : (
+    <details className="skillLifecycleDetails skillDeleteDetails">
+      <summary aria-label={`Delete skill ${skillTitle} permanently`}>
+        Delete permanently
+      </summary>
+      {form}
     </details>
   );
 }

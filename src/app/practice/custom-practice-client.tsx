@@ -1,7 +1,15 @@
 "use client";
+import { practiceSessionEnded } from "@/lib/practice/session-status";
 
-import { useEffect, useRef, useState } from "react";
+import { notifications } from "@mantine/notifications";
+import { ActionNotification } from "@/components/app/action-notification";
+
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { appendPracticeBuffer, PRACTICE_BUFFER_SIZE, PRACTICE_BUFFER_LOW_WATER } from "@/lib/practice/buffer";
+import { writeRecovery, type CustomDraft, type Recovery } from "@/lib/practice/recovery";
+import { confirmReviewSave, useReviewSaveGuard } from "./use-review-save-guard";
+import { getInstantPracticeFeedback } from "@/lib/practice/instant-feedback";
 
 import { AnswerKind, FsrsRating } from "@/generated/prisma/enums";
 import {
@@ -11,33 +19,47 @@ import {
 } from "@/lib/answer-limits";
 
 import {
+  flagCustomPracticeExerciseAction,
+  loadCustomPracticeSessionItemAction,
+  preloadCustomPracticeBufferAction,
   commitCustomPracticeAnswerAction,
-  previewCustomPracticeAnswerAction,
   resumeCustomPracticeSessionAction,
   stopCustomPracticeSessionAction,
 } from "./actions";
 import { MathText } from "./math-text";
+import { ExerciseReport } from "./exercise-report";
+import { RecoveryNotice } from "./recovery-notice";
+import { PracticePrompt } from "./practice-prompt";
 import type {
   CustomPracticeClientPreviewResult,
   CustomPracticeClientView,
 } from "./types";
 
 export function CustomPracticeClient({
-  initialView,
+  initialView, recoveryKey, initialRecovery,
 }: {
   initialView: CustomPracticeClientView;
+  recoveryKey?: string;
+  initialRecovery?: Recovery<CustomDraft> | null;
 }) {
+  const restored = initialRecovery?.pending ?? initialRecovery?.current;
+  const [showRecovery, setShowRecovery] = useState(Boolean(initialRecovery));
   const [view, setView] = useState(initialView);
-  const [answer, setAnswer] = useState("");
-  const [feedback, setFeedback] = useState<CustomPracticeClientPreviewResult | null>(null);
-  const [manualRating, setManualRating] = useState<FsrsRating>(FsrsRating.GOOD);
-  const [pending, setPending] = useState<"check" | "save" | "stop" | "resume" | null>(null);
-  const [revealingCueSeen, setRevealingCueSeen] = useState(
-    !(initialView.status === "ready" && initialView.session.mixedReview),
-  );
+  const [answer, setAnswer] = useState(restored?.answer ?? "");
+  const [feedback, setFeedback] = useState<CustomPracticeClientPreviewResult | null>(() => restored?.checked ? getInstantPracticeFeedback(restored.view.item, restored.answer) : null);
+  const [manualRating, setManualRating] = useState<FsrsRating>(restored?.rating ?? FsrsRating.GOOD);
+  const [pending, setPending] = useState<"check" | "save" | "stop" | "resume" | "flag" | "refresh" | null>(null);
+  const [reportedExerciseId, setReportedExerciseId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const continueButtonRef = useRef<HTMLButtonElement>(null);
+  const answerInputRef = useRef<HTMLInputElement>(null);
+  const firstChoiceRef = useRef<HTMLButtonElement>(null);
+  const previousItemKey = useRef<string | null>(null);
+  const focusPreparedItem = useRef(false);
+  const [preparationChecked, setPreparationChecked] = useState(false);
   const startedAt = useRef<number | null>(null);
   const submittedResponseMs = useRef<number | null>(null);
+  const restoredResponseMs = useRef<number | null>(restored?.responseMs ?? null);
 
   const readyItem = view.status === "ready" ? view.item : null;
   const activeSessionId = view.status === "ready" ? view.session.id : null;
@@ -52,8 +74,60 @@ export function CustomPracticeClient({
     }
 
     startedAt.current = performance.now();
-    submittedResponseMs.current = null;
+    submittedResponseMs.current = restoredResponseMs.current;
+    restoredResponseMs.current = null;
   }, [presentedItemKey]);
+
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
+  const [preloaded, setPreloaded] = useState<Extract<CustomPracticeClientView, { status: "ready" }>[]>([]);
+  const preloadRequest = useRef<{ key: string; promise: Promise<CustomPracticeClientView[]> } | null>(null);
+  const pendingDraft = useRef<CustomDraft | undefined>(undefined);
+  const deferredDraft = useRef<CustomDraft | undefined>(initialRecovery?.pending ? initialRecovery.current : initialRecovery?.deferred);
+  const currentDraft = useRef<CustomDraft | undefined>(restored);
+  const [protectedDraft, setProtectedDraft] = useState(true);
+  const { finishSave, navigationMessage } = useReviewSaveGuard(saving, Boolean(answer) && !protectedDraft);
+  useLayoutEffect(() => {
+    const current: CustomDraft | undefined = view.status === "ready" ? { view, answer, checked: feedback?.status === "checked", rating: manualRating, responseMs: submittedResponseMs.current } : undefined;
+    currentDraft.current = current;
+    const recoverable = current ?? deferredDraft.current;
+    if (recoveryKey) setProtectedDraft(writeRecovery(recoveryKey, recoverable && (recoverable.answer || pendingDraft.current || deferredDraft.current) ? { current: recoverable, pending: pendingDraft.current, deferred: deferredDraft.current } : null));
+  }, [view, answer, feedback, manualRating, recoveryKey, saving]);
+  useEffect(() => {
+    if (!activeSessionId || !presentedItemKey || saving || preloaded.length >= PRACTICE_BUFFER_LOW_WATER) return;
+    let active = true;
+    const key = [presentedItemKey, ...preloaded.map((next) => next.item.itemKey)].join(":");
+    if (preloadRequest.current?.key !== key) {
+      preloadRequest.current = { key, promise: preloadCustomPracticeBufferAction({
+        sessionId: activeSessionId, itemKey: presentedItemKey,
+        excludedItemKeys: preloaded.map((next) => next.item.itemKey), limit: PRACTICE_BUFFER_SIZE - preloaded.length,
+      }) };
+    }
+    void preloadRequest.current.promise.then((items) => {
+      const next = items.filter((candidate): candidate is Extract<CustomPracticeClientView, { status: "ready" }> => candidate.status === "ready");
+      if (active && next.length) setPreloaded((current) => appendPracticeBuffer(current, next, (candidate) => candidate.item.itemKey));
+    }).catch(() => {});
+    return () => { active = false; };
+  }, [activeSessionId, presentedItemKey, saving, preloaded]);
+  useEffect(() => {
+    const refresh = () => { if (document.visibilityState === "visible") { preloadRequest.current = null; setPreloaded([]); } };
+    document.addEventListener("visibilitychange", refresh);
+    return () => document.removeEventListener("visibilitychange", refresh);
+  }, []);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      const changed = previousItemKey.current !== null && previousItemKey.current !== presentedItemKey;
+      previousItemKey.current = presentedItemKey;
+      if (feedback?.status === "checked") {
+        continueButtonRef.current?.focus();
+      } else if ((changed || focusPreparedItem.current) && readyItem) {
+        focusPreparedItem.current = false;
+        (readyItem.answerKind === AnswerKind.CHOICE ? firstChoiceRef.current : answerInputRef.current)?.focus({ preventScroll: true });
+      }
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [presentedItemKey, readyItem, feedback, saving, pending]);
 
   const handleCheck = () => {
     if (!readyItem || answer.trim().length === 0 || pending) return;
@@ -62,64 +136,92 @@ export function CustomPracticeClient({
         ? 0
         : Math.max(0, Math.round(performance.now() - startedAt.current));
     submittedResponseMs.current = responseMs;
-    setPending("check");
     setActionError(null);
-    void previewCustomPracticeAnswerAction({
-      sessionId: activeSessionId ?? "",
-      itemKey: readyItem.itemKey,
-      exerciseId: readyItem.exerciseId,
-      submittedAnswer: answer,
-      responseMs,
-    })
-      .then((result) => {
-        setFeedback(result);
-        if (result.status === "checked") {
-          setManualRating(result.answerCheck.isCorrect ? FsrsRating.GOOD : FsrsRating.AGAIN);
-        }
-      })
-      .catch(() => setActionError("Could not check this answer. Try again."))
-      .finally(() => setPending(null));
+    const result = getInstantPracticeFeedback(readyItem, answer);
+    if (result.answerCheck.status !== "correct" && result.answerCheck.status !== "incorrect") {
+      setActionError(result.answerCheck.message ?? "Check your answer and try again.");
+      return;
+    }
+    setFeedback(result);
+    setManualRating(result.proposedRating ?? FsrsRating.GOOD);
   };
 
+  const [needsSignIn, setNeedsSignIn] = useState(false);
+
   const handleSave = () => {
-    if (!readyItem || !feedback || feedback.status !== "checked" || pending) return;
-    setPending("save");
+    if (!readyItem || !feedback || feedback.status !== "checked" || pending || needsSignIn) return;
+    if (savingRef.current) return;
+    savingRef.current = true;
+    pendingDraft.current = currentDraft.current;
+    if (recoveryKey && pendingDraft.current) writeRecovery(recoveryKey, { current: pendingDraft.current, pending: pendingDraft.current, deferred: deferredDraft.current });
+    setSaving(true);
+    const next = preloaded[0] ?? null;
+    const responseMs = submittedResponseMs.current ?? 0;
+    const restore = (message: string) => {
+      if (currentDraft.current?.view.item.itemKey !== readyItem.itemKey) deferredDraft.current = currentDraft.current;
+      pendingDraft.current = undefined;
+      finishSave(false);
+      setShowRecovery(true);
+      setPreloaded([]);
+      preloadRequest.current = null;
+      setView(view); setAnswer(answer); setFeedback(feedback); setManualRating(manualRating);
+      submittedResponseMs.current = responseMs;
+      if (next) restoredResponseMs.current = responseMs;
+      setActionError(message);
+    };
+    setPreloaded((current) => current.slice(1));
     setActionError(null);
-    void commitCustomPracticeAnswerAction({
-      sessionId: activeSessionId ?? "",
-      itemKey: readyItem.itemKey,
-      exerciseId: readyItem.exerciseId,
-      submittedAnswer: answer,
-      responseMs: submittedResponseMs.current ?? 0,
+    if (next) { setView(next); setAnswer(""); setFeedback(null); setManualRating(FsrsRating.GOOD); }
+    else setPending("save");
+    void confirmReviewSave(commitCustomPracticeAnswerAction({
+      sessionId: activeSessionId ?? "", itemKey: readyItem.itemKey, exerciseId: readyItem.exerciseId,
+      submittedAnswer: answer, responseMs,
       manualRating: view.status === "ready" && view.session.mode === "SCHEDULED" && feedback.answerCheck.isCorrect ? manualRating : null,
-      reducedRuleCues: view.status === "ready" && view.session.mixedReview && !revealingCueSeen,
+      reducedRuleCues: true,
+    })).then((result) => {
+      if (result.status !== "committed") { restore(result.message); return; }
+      pendingDraft.current = undefined;
+      finishSave(true);
+      setShowRecovery(false);
+      const recoveredNext = deferredDraft.current;
+      const same = next && result.next.status === "ready" && result.next.item.itemKey === next.item.itemKey;
+      const optimistic = currentDraft.current;
+      // The learner may already have answered the preview while this save ran.
+      // Keep that draft before accepting a different authoritative selection.
+      if (!same && next && optimistic?.view.item.itemKey === next.item.itemKey && optimistic?.answer) {
+        deferredDraft.current = optimistic;
+      }
+      if (recoveredNext && result.next.status === "ready" && recoveredNext.view.item.itemKey === result.next.item.itemKey) {
+        setView(result.next); setAnswer(recoveredNext.answer);
+        setFeedback(recoveredNext.checked ? getInstantPracticeFeedback(result.next.item, recoveredNext.answer) : null);
+        setManualRating(recoveredNext.rating ?? FsrsRating.GOOD);
+        restoredResponseMs.current = recoveredNext.responseMs;
+        if (deferredDraft.current === recoveredNext) deferredDraft.current = undefined;
+        return;
+      }
+      if (!same) {
+        setPreloaded([]);
+        preloadRequest.current = null;
+        setView(result.next); setAnswer(""); setFeedback(null); setManualRating(FsrsRating.GOOD);
+      }
+    }).catch(async () => {
+      restore("Could not confirm the save. Your checked answer is restored. Try saving again.");
+      const ended = await practiceSessionEnded();
+      setNeedsSignIn(ended);
+      if (ended) { setActionError(null); notifications.hide("custom-practice-error"); }
     })
-      .then((result) => {
-        if (result.status === "committed") {
-          setView(result.next);
-          setRevealingCueSeen(
-            result.next.status !== "ready" || !result.next.session.mixedReview,
-          );
-          setAnswer("");
-          setFeedback(null);
-          setManualRating(FsrsRating.GOOD);
-          startedAt.current = null;
-          return;
-        }
-        setFeedback({ status: "unavailable", message: result.message });
-      })
-      .catch(() => setActionError("Could not save this answer. Try again."))
-      .finally(() => setPending(null));
+      .finally(() => { savingRef.current = false; setSaving(false); setPending(null); });
   };
 
   const handleStop = () => {
-    if (!sessionId || pending) return;
+    if (!sessionId || pending || savingRef.current) return;
     setPending("stop");
     setActionError(null);
     void stopCustomPracticeSessionAction({ sessionId })
       .then((result) => {
+        setPreloaded([]);
+        preloadRequest.current = null;
         setView(result);
-        setRevealingCueSeen(true);
         setAnswer("");
         setFeedback(null);
         startedAt.current = null;
@@ -129,20 +231,36 @@ export function CustomPracticeClient({
   };
 
   const handleResume = () => {
-    if (!sessionId || pending) return;
+    if (!sessionId || pending || savingRef.current) return;
     setPending("resume");
     setActionError(null);
     void resumeCustomPracticeSessionAction({ sessionId })
       .then((result) => {
+        setPreloaded([]);
+        preloadRequest.current = null;
         setView(result);
-        setRevealingCueSeen(
-          result.status !== "ready" || !result.session.mixedReview,
-        );
         setAnswer("");
         setFeedback(null);
         startedAt.current = null;
       })
       .catch(() => setActionError("Could not resume this session. Try again."))
+      .finally(() => setPending(null));
+  };
+
+  const handleCheckPreparation = () => {
+    if (!sessionId || pending || savingRef.current) return;
+    setPending("refresh");
+    setActionError(null);
+    setPreparationChecked(false);
+    void loadCustomPracticeSessionItemAction({ sessionId })
+      .then((result) => {
+        focusPreparedItem.current = result.status === "ready";
+        setView(result);
+        setPreparationChecked(result.status === "preparing");
+        setPreloaded([]);
+        preloadRequest.current = null;
+      })
+      .catch(() => setActionError("Could not check preparation. Your session is kept. Try again."))
       .finally(() => setPending(null));
   };
 
@@ -156,27 +274,35 @@ export function CustomPracticeClient({
             : view.status === "stopped"
               ? "Session paused."
               : view.status === "preparing"
-                ? "Exercises are still preparing."
+                ? "No exercises are ready yet."
                 : view.status === "daily-limit"
                   ? "Daily new-skill limit reached."
                   : "This session is unavailable."}
         </h1>
-        <p>{view.message}</p>
-        {actionError ? <p className="skillFormMessage" data-tone="error" role="alert">{actionError}</p> : null}
+        <p role={preparationChecked ? "status" : undefined}>{preparationChecked ? "Still waiting for exercises. Your session is saved; check again shortly or open Needs attention." : view.message}</p>
+        {actionError ? <ActionNotification id="custom-practice-error" title="Could not update session" message={actionError} /> : null}
+        {reportedExerciseId ? <ActionNotification id={`custom-report-${reportedExerciseId}`} title="Report saved" tone="success" message="The exercise was removed. Your review schedule is unchanged." /> : null}
         {view.session ? (
           <p className="practiceMetaSummary tnum">
-            {view.session.completedCount} of {view.session.targetCount} exercises · {formatMode(view.session.mode)}
+            {view.session.completedCount} of {view.session.targetCount} {view.session.targetCount === 1 ? "exercise" : "exercises"} · {formatMode(view.session.mode)}
           </p>
         ) : null}
         <div className="practiceCompleteActions">
+          <Link className="secondaryButton" href="/practice/attention">Needs attention</Link>
+          {view.status !== "preparing" ? <>
+            <Link className="secondaryButton" href="/practice">Return to normal practice</Link>
+            <Link className={view.status === "stopped" || view.status === "daily-limit" ? "secondaryButton" : "primaryButton"} href="/practice/custom">Set up another session</Link>
+          </> : null}
+          {view.status === "preparing" || view.status === "daily-limit" ? (
+            <button className="primaryButton" type="button" onClick={handleCheckPreparation} disabled={pending !== null}>
+              {pending === "refresh" ? "Checking…" : "Check again"}
+            </button>
+          ) : null}
           {view.status === "stopped" ? (
             <button className="primaryButton" type="button" onClick={handleResume} disabled={pending !== null}>
               {pending === "resume" ? "Resuming" : "Resume session"}
             </button>
           ) : null}
-          <Link className="primaryButton" href="/practice/custom">Set up another session</Link>
-          <Link className="secondaryButton" href="/practice">Return to normal practice</Link>
-          <Link className="secondaryButton" href="/practice/attention">Needs attention</Link>
         </div>
       </section>
     );
@@ -201,17 +327,17 @@ export function CustomPracticeClient({
         </button>
         <Link href="/practice/attention">Needs attention</Link>
       </div>
-      <section className="practiceFrame customPracticeClient" aria-labelledby="custom-practice-title">
+      <section className="practiceFrame customPracticeClient" aria-label="Practice exercise" data-next-ready={preloaded.length > 0} data-buffered-count={preloaded.length}>
+        {showRecovery ? <RecoveryNotice needsSignIn={needsSignIn} storageKey={recoveryKey} saving={saving} /> : null}
         <div className="practiceMetaRow">
           <div>
-            <h1 id="custom-practice-title">{session.mixedReview && !checked ? "Review" : exercise.skillTitle}</h1>
             <p className="practiceMetaSummary tnum">Exercise {session.completedCount + 1} of {session.targetCount}</p>
           </div>
+          {saving || navigationMessage ? <p role="status" className="practiceMetaSummary">{navigationMessage ?? "Saving…"}</p> : null}
         </div>
-        <article className="practicePromptPanel">
-          <p><MathText formatBlanks text={exercise.prompt} /></p>
-        </article>
-        {actionError ? <p className="skillFormMessage" data-tone="error" role="alert">{actionError}</p> : null}
+        <PracticePrompt text={exercise.prompt} layout={exercise.promptLayout} />
+        {actionError ? <ActionNotification id="custom-practice-error" title="Could not update session" message={actionError} /> : null}
+        {reportedExerciseId ? <ActionNotification id={`custom-report-${reportedExerciseId}`} title="Report saved" tone="success" message="The exercise was removed. Your review schedule is unchanged." /> : null}
         {isChoice ? (
           <div className="choiceGrid" role="radiogroup" aria-label="Answer choices">
             {exercise.choices.map((choice, index) => (
@@ -220,6 +346,7 @@ export function CustomPracticeClient({
                 data-selected={answer === choice.id ? "true" : "false"}
                 data-tone={checked && (answer === choice.id || checked.correctChoiceId === choice.id) ? checked.answerCheck.isCorrect || checked.correctChoiceId === choice.id ? "correct" : "incorrect" : "neutral"}
                 key={choice.id}
+                ref={index === 0 ? firstChoiceRef : undefined}
                 type="button"
                 role="radio"
                 aria-checked={answer === choice.id}
@@ -235,6 +362,8 @@ export function CustomPracticeClient({
           <label className="exactAnswerField">
             <span>Your answer</span>
             <input
+              ref={answerInputRef}
+              onKeyDown={(event) => { if (event.key === "Enter" && !event.nativeEvent.isComposing && !event.repeat && !event.metaKey && !event.ctrlKey && !event.altKey) { event.preventDefault(); handleCheck(); } }}
               value={answer}
               inputMode={isNumeric ? "decimal" : "text"}
               autoComplete="off"
@@ -279,11 +408,24 @@ export function CustomPracticeClient({
         ) : null}
         {checked ? (
           <div className="practiceActions">
-            <button className="primaryButton" type="button" onClick={handleSave} disabled={pending !== null}>
+            <button ref={continueButtonRef} className="primaryButton" type="button" onClick={handleSave} disabled={needsSignIn || pending !== null || saving}>
               {pending === "save" ? "Saving" : session.mode === "PRACTICE_ONLY" ? "Save practice" : "Continue"}
             </button>
           </div>
         ) : null}
+        <ExerciseReport key={exercise.itemKey + exercise.exerciseId} disabled={pending !== null || saving} onReport={async (reasons, note) => {
+          setPending("flag");
+          try {
+            const result = await flagCustomPracticeExerciseAction({ sessionId: session.id, itemKey: exercise.itemKey, exerciseId: exercise.exerciseId, reasons, otherNote: note });
+            if (result.status !== "flagged") return result.message;
+            setPreloaded([]); preloadRequest.current = null;
+            pendingDraft.current = undefined; deferredDraft.current = undefined;
+            setReportedExerciseId(exercise.exerciseId);
+            setView(result.next); setAnswer(""); setFeedback(null); setShowRecovery(false);
+            setActionError(null); setManualRating(FsrsRating.GOOD);
+            return null;
+          } finally { setPending(null); }
+        }} />
       </section>
     </>
   );

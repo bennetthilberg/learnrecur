@@ -1,4 +1,4 @@
-import { neon } from "@neondatabase/serverless";
+import { getTestPostgres } from "./postgres";
 import { randomUUID } from "node:crypto";
 
 const E2E_EXACT_INPUT_UNLOCK_REPETITIONS = 3;
@@ -131,6 +131,10 @@ export async function createLearnerLifecycleFixture(input: {
       userId: input.userId,
     });
   }
+
+  // A worker account is reused across tests; preferences from a settings or
+  // completion scenario must not gate the next scenario's fresh skills.
+  await getTestSql().query('UPDATE users SET "dailyNewSkillLimit"=NULL, "practicePreference"=\'BALANCED\' WHERE id=$1', [input.userId]);
 
   const fixture: E2ELearnerLifecycleFixture = {
     userId: input.userId,
@@ -546,10 +550,11 @@ function toNumber(value: unknown): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+/** Use the test database selected by the local environment or CI setup. */
 function getTestSql() {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) {
     throw new Error("Authenticated E2E database helpers require DATABASE_URL.");
   }
-  return neon(connectionString);
+  return getTestPostgres(connectionString);
 }

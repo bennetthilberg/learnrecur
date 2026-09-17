@@ -1,5 +1,9 @@
 "use client";
 
+import { useFormDraft } from "@/components/app/use-form-draft";
+import { FormDraftNotice } from "@/components/app/form-draft-notice";
+import { skillEditorDraftSchema } from "@/lib/forms/skill-editor-drafts";
+
 import { Checkbox } from "@mantine/core";
 import Link from "next/link";
 import { forwardRef, useActionState, useEffect, useId, useRef } from "react";
@@ -68,9 +72,18 @@ export function SkillDraftForm(props: SkillDraftFormProps) {
   const onSaved = isEditMode ? props.onSaved : undefined;
   const addSkillServerAction =
     activationMode === "inline" ? addSkillDraftToPracticeInlineAction : addSkillDraftToPracticeAction;
-  const [draftState, saveAction, isSaving] = useActionState(saveSkillDraftAction, idleState);
+  const draft = useFormDraft(`skill-editor:${isEditMode ? props.skillId : "new"}`, initialValues, skillEditorDraftSchema);
+  const [draftState, saveAction, isSaving] = useActionState(async (previous: SkillFormActionState, formData: FormData) => {
+    const result = await saveSkillDraftAction(previous, formData);
+    if (result.status === "saved") draft.saved();
+    return result;
+  }, idleState);
   const [addSkillState, addSkillAction, isAddingSkill] = useActionState(
-    addSkillServerAction,
+    async (previous: SkillFormActionState, formData: FormData) => {
+      const result = await addSkillServerAction(previous, formData);
+      if (result.status === "saved" || result.status === "activated") draft.saved();
+      return result;
+    },
     idleState,
   );
   const formAction = isSaveOnlyEdit ? saveAction : isEditMode ? addSkillAction : saveAction;
@@ -80,19 +93,7 @@ export function SkillDraftForm(props: SkillDraftFormProps) {
     formState.status === "duplicate-warning"
       ? formState.duplicateMatch
       : undefined;
-  const displayedValues = formState.draftValues ?? initialValues;
-  const formRenderKey =
-    formState.draftValues
-      ? JSON.stringify([
-          formState.draftValues.title,
-          formState.draftValues.objective,
-          formState.draftValues.collectionName,
-          formState.draftValues.rules,
-          formState.draftValues.examples,
-          formState.draftValues.exerciseConstraints,
-          formState.draftValues.tags,
-        ])
-      : "initial-skill-draft";
+  const displayedValues = draft.value;
   const formRef = useRef<HTMLFormElement>(null);
   const duplicateDecisionRef = useRef<HTMLElement>(null);
   const submitLabel = isSubmitting
@@ -198,7 +199,6 @@ export function SkillDraftForm(props: SkillDraftFormProps) {
       <form
         action={formAction}
         className="skillPanel skillDraftForm"
-        key={formRenderKey}
         ref={formRef}
       >
         <div className="skillPanelHeader">
@@ -227,9 +227,10 @@ export function SkillDraftForm(props: SkillDraftFormProps) {
               label="Title"
               name="title"
               placeholder="Ser vs. estar in everyday sentences"
-              disabled={isSubmitting}
+              disabled={isSubmitting || !draft.ready}
               required
-              defaultValue={displayedValues.title}
+              value={displayedValues.title}
+              onChange={(event) => draft.update({ title: event.currentTarget.value })}
             />
 
             <SkillTextArea
@@ -237,9 +238,10 @@ export function SkillDraftForm(props: SkillDraftFormProps) {
               label="Objective"
               name="objective"
               placeholder="Choose whether ser or estar fits a short Spanish sentence, focusing on identity, location, and temporary state."
-              disabled={isSubmitting}
+              disabled={isSubmitting || !draft.ready}
               required
-              defaultValue={displayedValues.objective}
+              value={displayedValues.objective}
+              onChange={(event) => draft.update({ objective: event.currentTarget.value })}
               rows={4}
             />
 
@@ -249,16 +251,18 @@ export function SkillDraftForm(props: SkillDraftFormProps) {
                 label="Collection"
                 name="collectionName"
                 placeholder="Spanish grammar"
-                disabled={isSubmitting}
-                defaultValue={displayedValues.collectionName}
+                disabled={isSubmitting || !draft.ready}
+                value={displayedValues.collectionName}
+                onChange={(event) => draft.update({ collectionName: event.currentTarget.value })}
               />
               <SkillTextField
                 error={formState.fieldErrors?.tags?.[0]}
                 label="Tags"
                 name="tags"
                 placeholder="spanish, verbs, grammar"
-                disabled={isSubmitting}
-                defaultValue={displayedValues.tags}
+                disabled={isSubmitting || !draft.ready}
+                value={displayedValues.tags}
+                onChange={(event) => draft.update({ tags: event.currentTarget.value })}
               />
             </div>
           </div>
@@ -272,8 +276,9 @@ export function SkillDraftForm(props: SkillDraftFormProps) {
               label="Rules"
               name="rules"
               placeholder={"Use ser for identity.\nUse estar for location and temporary state."}
-              disabled={isSubmitting}
-              defaultValue={displayedValues.rules}
+              disabled={isSubmitting || !draft.ready}
+              value={displayedValues.rules}
+              onChange={(event) => draft.update({ rules: event.currentTarget.value })}
               rows={4}
             />
 
@@ -282,8 +287,9 @@ export function SkillDraftForm(props: SkillDraftFormProps) {
               label="Examples"
               name="examples"
               placeholder={"Soy estudiante.\nEstoy en casa."}
-              disabled={isSubmitting}
-              defaultValue={displayedValues.examples}
+              disabled={isSubmitting || !draft.ready}
+              value={displayedValues.examples}
+              onChange={(event) => draft.update({ examples: event.currentTarget.value })}
               rows={4}
             />
 
@@ -292,20 +298,22 @@ export function SkillDraftForm(props: SkillDraftFormProps) {
               label="Exercise constraints"
               name="exerciseConstraints"
               placeholder="Use short choices, avoid trick questions, and keep starter exercises beginner-friendly."
-              disabled={isSubmitting}
-              defaultValue={displayedValues.exerciseConstraints}
+              disabled={isSubmitting || !draft.ready}
+              value={displayedValues.exerciseConstraints}
+              onChange={(event) => draft.update({ exerciseConstraints: event.currentTarget.value })}
               rows={3}
             />
           </div>
         </fieldset>
 
-        {mode === "create" && <Checkbox name="alreadyStudied" label="I have already studied this skill" description="Allow suitable input practice from the first review." defaultChecked={displayedValues.alreadyStudied ?? false} disabled={isSubmitting}/>}
+        {mode === "create" && <Checkbox name="alreadyStudied" label="I have already studied this skill" description="Allow suitable input practice from the first review." checked={displayedValues.alreadyStudied ?? false} onChange={(event) => draft.update({ alreadyStudied: event.currentTarget.checked })} disabled={isSubmitting || !draft.ready}/>}
         {mode === "create" && <input type="hidden" name="familiarityPresent" value="true"/>}
+        <FormDraftNotice {...draft} restoredMessage={isSaveOnlyEdit ? "Unfinished edits restored. Save to apply them." : "Unfinished edits restored. Review them before adding the skill."} disabled={isSubmitting || !draft.ready} onDiscard={() => draft.discard()} />
         <div className="skillFormActions">
           {onBack ? (
             <button
               className="secondaryButton"
-              disabled={isSubmitting}
+              disabled={isSubmitting || !draft.ready}
               onClick={onBack}
               type="button"
             >
@@ -314,7 +322,7 @@ export function SkillDraftForm(props: SkillDraftFormProps) {
           ) : null}
           <button
             className={duplicateMatch ? "secondaryButton" : "primaryButton"}
-            disabled={isSubmitting}
+            disabled={isSubmitting || !draft.ready}
             type="submit"
           >
             {isEditMode && isSubmitting ? (
@@ -398,12 +406,7 @@ export const SkillDuplicateDecision = forwardRef<
         </div>
 
         <div className="skillDuplicateDecisionActions">
-          <Link
-            className="primaryButton"
-            href={`/skills/${match.skill.id}`}
-          >
-            Open existing skill
-          </Link>
+
           <button
             className="secondaryButton"
             disabled={isSubmitting}
@@ -423,6 +426,12 @@ export const SkillDuplicateDecision = forwardRef<
               ? "Checking and adding"
               : "Add as a separate skill anyway"}
           </button>
+          <Link
+            className="primaryButton"
+            href={`/skills/${match.skill.id}`}
+          >
+            Open existing skill
+          </Link>
         </div>
       </div>
     </section>

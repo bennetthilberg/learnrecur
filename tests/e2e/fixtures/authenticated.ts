@@ -43,7 +43,9 @@ export const test = base.extend<AuthenticatedFixtures, WorkerFixtures>({
     const page = await browser.newPage({ baseURL, storageState: undefined });
     await page.goto("/");
     await clerk.signIn({ page, emailAddress: clerkTestUser.email });
-    await page.goto("/dashboard");
+    // Signing in from / already redirects to Dashboard. Wait for that redirect
+    // rather than racing it with a second navigation (WebKit aborts the latter).
+    await page.waitForURL("**/dashboard");
     await expect(page.getByRole("heading", { name: /due skill/i })).toBeVisible();
     await page.context().storageState({ path: authFile });
     await page.close();

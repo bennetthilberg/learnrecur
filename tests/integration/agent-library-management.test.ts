@@ -804,7 +804,7 @@ describeDatabase("agent library and reminder management", () => {
           tags: [],
           skillIds: [skill.id],
           recentlyMissed: false,
-          mixedReview: false,
+          mixedReview: true,
         },
         items: [
           {

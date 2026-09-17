@@ -164,6 +164,13 @@ textarea::placeholder {
   opacity: 1;
 }
 
+/* Native labels wrap their input; Mantine links a separate label by id. */
+input[type="checkbox"]:enabled,
+label:has(input[type="checkbox"]:enabled),
+.mantine-Checkbox-root:has(input[type="checkbox"]:enabled) .mantine-Checkbox-label {
+  cursor: pointer;
+}
+
 a {
   color: inherit;
 }
@@ -5494,9 +5501,7 @@ a {
     font-size: var(--lr-text-xs);
   }
 
-  .practiceNav a[aria-current="page"] {
-    order: -1;
-  }
+
 
   .dashboardReadySummary {
     min-height: auto;
@@ -5831,3 +5836,33 @@ a {
     padding-left: 0;
   }
 }
+
+.skillsLibraryFilters {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+}
+.skillsLibraryResults {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-block: 20px;
+  color: var(--lr-text-secondary);
+}
+.skillsLibraryResults p { margin: 0; }
+.skillsLibraryMore { display: flex; justify-content: center; padding-top: 24px; }
+.skillsLibraryFilters > * { min-width: 0; }
+@media (max-width: 640px) {
+  .skillsLibraryFilters { grid-template-columns: minmax(0, 1fr); }
+}
+
+.skillOrganizationControls { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 24px; }
+.skillOrganizationForm { display: grid; gap: 20px; }
+.skillOrganizationForm > p { margin: 0; color: var(--lr-text-secondary); line-height: 1.6; }
+
+.customPracticeDraftFields { border: 0; padding: 0; margin: 0; min-width: 0; }
+.customPracticeMatchHelp { font-size: var(--lr-text-sm); color: var(--lr-text-secondary); line-height: 1.6; }
+.customPracticeSkillFieldset > p { margin: 0; }
+.customPracticeSetup > .formDraftNotice { margin-top: 24px; }

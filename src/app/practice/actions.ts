@@ -17,7 +17,10 @@ import {
 } from "@/lib/practice";
 import {
   commitCustomPracticeAnswer,
+  getCustomPracticeSession,
   createCustomPracticeSession,
+  preloadCustomPracticeSessionItem,
+  preloadCustomPracticeSessionBuffer,
   presentCustomPracticeSessionItem,
   previewCustomPracticeAnswer,
   resumeCustomPracticeSession,
@@ -34,6 +37,8 @@ import { ensureDevPracticeSampleData } from "@/lib/practice/sample-data";
 import { ensureDatabaseUser } from "@/lib/users";
 
 import {
+  previewNextPracticeItemForUser,
+  preloadPracticeBufferForUser,
   getNextChoicePracticeItemForUser,
   getNextPracticeItemForUser,
   resolvePracticeScopeForUser,
@@ -63,6 +68,7 @@ type PreviewPracticeAnswerInput = {
 };
 
 type CommitPracticeReviewInput = PreviewPracticeAnswerInput & {
+  preferredNextExerciseId?: string;
   attemptId: string;
   mixedReview?: boolean;
   reducedRuleCues?: boolean;
@@ -88,12 +94,41 @@ const flagChoicePracticeExerciseInputSchema = z.object({
 // Selecting the first exercise writes an introduction marker, so do this only
 // after Practice mounts in a visible tab, never during route rendering/prefetch.
 export async function loadPracticeItemAction(rawInput: unknown) {
-  const input = z.object({ collectionId: z.string().min(1).max(200).nullable(), mixedReview: z.boolean() }).parse(rawInput);
+  const input = z.object({ collectionId: z.string().min(1).max(200).nullable(), mixedReview: z.boolean().optional() }).parse(rawInput);
   const user = await requirePracticeUserId();
   if (user.status !== "ready") return { status: "unavailable" as const, message: user.message };
-  const item = await getNextPracticeItemForUser(user.userId, new Date(), input);
+  const item = await getNextPracticeItemForUser(user.userId, new Date(), { ...input, mixedReview: true });
   if (item.status !== "unavailable") after(async () => { await queueDueRetentionPreparation({ userId: user.userId, collectionId: input.collectionId, now: new Date() }); });
   return item;
+}
+
+// Read-only lookahead: never consumes a new-skill allowance before display.
+export async function preloadCustomPracticeBufferAction(rawInput: unknown): Promise<CustomPracticeClientView[]> {
+  const input = z.object({ sessionId: z.string().min(1).max(200), itemKey: z.string().min(1).max(200), excludedItemKeys: z.array(z.string().min(1).max(200)).max(10), limit: z.number().int().min(1).max(10) }).parse(rawInput);
+  const { userId } = await auth.protect();
+  return (await preloadCustomPracticeSessionBuffer({ ...input, userId })).map(toCustomPracticeClientView);
+}
+
+export async function preloadCustomPracticeItemAction(rawInput: unknown): Promise<CustomPracticeClientView | null> {
+  const input = z.object({ sessionId: z.string().min(1).max(200), itemKey: z.string().min(1).max(200) }).parse(rawInput);
+  const { userId } = await auth.protect();
+  const result = await preloadCustomPracticeSessionItem({ ...input, userId });
+  return result ? toCustomPracticeClientView(result) : null;
+}
+
+export async function preloadPracticeBufferAction(rawInput: unknown): Promise<import("./types").PracticeItem[]> {
+  const input = z.object({ collectionId: z.string().min(1).max(200).nullable(), skillId: z.string().min(1).max(200), excludedSkillIds: z.array(z.string().min(1).max(200)).max(10), limit: z.number().int().min(1).max(10) }).parse(rawInput);
+  const { userId } = await auth.protect();
+  return preloadPracticeBufferForUser(userId, input);
+}
+
+export async function preloadPracticeItemAction(rawInput: unknown): Promise<import("./types").PracticeItem | null> {
+  const input = z.object({ collectionId: z.string().min(1).max(200).nullable(), skillId: z.string().min(1).max(200) }).parse(rawInput);
+  const { userId } = await auth.protect();
+  const next = await previewNextPracticeItemForUser(userId, new Date(), {
+    collectionId: input.collectionId, excludeSkillId: input.skillId, previousSkillId: input.skillId,
+  });
+  return next.status === "ready" ? next : null;
 }
 
 export async function previewChoicePracticeAnswerAction(
@@ -204,8 +239,8 @@ export async function commitPracticeReviewAction(
     responseMs: input.responseMs,
     manualRating: normalizeManualRating(input.manualRating),
     reviewedAt,
-    mixedReview: input.mixedReview === true,
-    reducedRuleCues: input.mixedReview === true && input.reducedRuleCues === true,
+    mixedReview: true,
+    reducedRuleCues: input.reducedRuleCues === true,
     collectionId: scope.collectionId,
   });
 
@@ -217,7 +252,7 @@ export async function commitPracticeReviewAction(
       finalRating: result.finalRating,
       nextItem: await getNextPracticeItemForUser(userId, reviewedAt, {
         collectionId: scope.collectionId,
-        mixedReview: input.mixedReview === true,
+        mixedReview: true,
         previousSkillId: result.skill.id,
       }),
     };
@@ -270,7 +305,7 @@ export async function createCustomPracticeSessionAction(
     userId: practiceUser.userId,
     mode: parsed.data.mode,
     targetCount: parsed.data.targetCount,
-    scope: parsed.data.scope,
+    scope: { ...parsed.data.scope, mixedReview: true },
   });
   if (result.status === "unavailable") return result;
   return {
@@ -417,12 +452,16 @@ function toCustomPracticeClientView(view: CustomPracticeSessionView): CustomPrac
       completedCount: view.session.completedCount,
     },
     item: {
+      answerSpec: view.exercise.answerSpec,
+      correctAnswerDisplay: view.exercise.correctAnswerDisplay,
+      explanation: view.exercise.explanation,
       itemKey: view.sessionItem.itemKey,
       exerciseId: view.exercise.id,
       skillId: view.skill.id,
       skillTitle: view.skill.title,
       answerKind: view.exercise.answerKind,
       prompt: view.exercise.prompt,
+      promptLayout: view.exercise.promptLayout,
       choices: toChoiceOptions(view.exercise.choices),
       difficulty: view.exercise.difficulty,
       expectedSeconds: view.exercise.expectedSeconds,
@@ -520,7 +559,7 @@ export async function flagPracticeExerciseAction(
       message: formatFlagMessage(result.message, result.refill),
       nextItem: await getNextPracticeItemForUser(userId, flaggedAt, {
         collectionId: scope.collectionId,
-        mixedReview: flagInput.mixedReview,
+        mixedReview: true,
         previousSkillId: flagInput.previousSkillId,
       }),
     };
@@ -656,4 +695,19 @@ function formatFlagRefillMessage(refill: PracticeFlagRefillResult): string {
     default:
       return "Replacement preparation could not start.";
   }
+}
+
+export async function flagCustomPracticeExerciseAction(input: unknown) {
+  const user = await requirePracticeUserId();
+  if (user.status !== "ready") return { status: "not-flagged" as const, message: user.message };
+  const parsed = flagChoicePracticeExerciseInputSchema.extend({ sessionId: z.string().min(1).max(200), itemKey: z.string().min(1).max(200) }).safeParse(input);
+  if (!parsed.success) return { status: "not-flagged" as const, message: "Choose a valid report reason and keep notes under 500 characters." };
+  const data = parsed.data;
+  const session = await getCustomPracticeSession(user.userId, data.sessionId);
+  if (!session || session.status !== "ACTIVE" || !session.plan.some(item => item.itemKey === data.itemKey && item.exerciseId === data.exerciseId && item.status === "PRESENTED")) {
+    return { status: "not-flagged" as const, message: "This exercise is no longer the current item in this session. Reload practice to continue." };
+  }
+  const result = await flagPracticeExerciseAndQueueRefill({ userId: user.userId, exerciseId: data.exerciseId, reasons: data.reasons, otherNote: data.otherNote, flaggedAt: new Date() });
+  if (result.status !== "flagged") return { status: "not-flagged" as const, message: result.message };
+  return { status: "flagged" as const, next: toCustomPracticeClientView(await presentCustomPracticeSessionItem({ userId: user.userId, sessionId: data.sessionId })) };
 }

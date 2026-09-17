@@ -76,6 +76,7 @@ function setupTransaction(exercises: unknown[]) {
       }),
     },
     skill: {
+      findFirst: vi.fn().mockResolvedValue(null),
       findMany: vi.fn().mockResolvedValue([]),
       count: vi.fn().mockResolvedValue(0),
     },
@@ -125,6 +126,26 @@ describe("practice selection with a disappearing relation", () => {
         }),
       }),
     );
+  });
+
+  it("excludes the visible skill from read-only lookahead", async () => {
+    const tx = setupTransaction([makeExercise(makeSkill())]);
+    await previewNextPracticeItem({ userId: "user-null-relation", now, excludeSkillId: "visible-skill" });
+    expect(tx.exercise.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({
+      userId: "user-null-relation", skill: expect.objectContaining({ id: { not: "visible-skill" }, userId: "user-null-relation", dueAt: { lte: now } }),
+    }) }));
+  });
+
+  it("revalidates a preloaded exercise and falls back when it is no longer eligible", async () => {
+    const tx = setupTransaction([makeExercise(makeSkill())]);
+    tx.exercise.findMany.mockResolvedValueOnce([]);
+    await expect(previewNextPracticeItem({ userId: "user-null-relation", now, preferredExerciseId: "stale-exercise", collectionId: "scope" }))
+      .resolves.toMatchObject({ status: "ready", exercise: { id: "exercise-ready" } });
+    expect(tx.exercise.findMany).toHaveBeenNthCalledWith(1, expect.objectContaining({ where: expect.objectContaining({
+      id: "stale-exercise", userId: "user-null-relation", retiredAt: null,
+      skill: expect.objectContaining({ userId: "user-null-relation", collectionId: "scope", status: "ACTIVE", dueAt: { lte: now } }),
+    }) }));
+    expect(tx.exercise.findMany).toHaveBeenCalledTimes(2);
   });
 
   it("returns the normal empty result when every candidate relation disappeared", async () => {
