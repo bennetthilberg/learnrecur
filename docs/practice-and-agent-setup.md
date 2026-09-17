@@ -1,5 +1,10 @@
 # Practice and connected-agent release record
 
+This is a historical receipt for the September 9, 2026 rollout. Deployment IDs,
+Neon targets, worker versions, and provider state below describe that date, not
+the current environment. The September 17 PostgreSQL move supersedes those
+hosting details; see [the Heroku migration record](heroku-postgres-migration.md).
+
 Updated 2026-09-09 after PR 132 merged to `main` as
 `eecd414ec36b9262ce42b9204e20fdcb8c295f3c`. The merged tree is identical to
 reviewed application source `84b69b7261114488c4d04df8f419343e038c2392`.
