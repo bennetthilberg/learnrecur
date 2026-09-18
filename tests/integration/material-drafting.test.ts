@@ -56,8 +56,8 @@ import {
 } from "@/lib/skills/similarity";
 import type { SourceObjectStorage } from "@/lib/storage/s3";
 import {
-  ALPHA_ACTIVE_SKILLS,
   ALPHA_SKILL_ACTIVATIONS_PER_DAY,
+  getSkillActivationUsage,
 } from "@/lib/usage-limits";
 
 const runDatabaseTests = process.env.RUN_DATABASE_TESTS === "1";
@@ -5699,7 +5699,7 @@ describeDatabase("material multi-skill drafting", () => {
           createdAt: { gte: dayStart },
         },
       }),
-    ).resolves.toBe(10);
+    ).resolves.toBe(ALPHA_SKILL_ACTIVATIONS_PER_DAY);
   });
 
   it("skips a ready batch item whose skill was already activated elsewhere", async () => {
@@ -5772,10 +5772,7 @@ describeDatabase("material multi-skill drafting", () => {
   });
 
   it("rechecks active-skill capacity before consuming a queued reservation", async () => {
-    await prisma.skill.updateMany({
-      where: { userId, status: { in: [SkillStatus.ACTIVE, SkillStatus.PAUSED] } },
-      data: { status: SkillStatus.ARCHIVED },
-    });
+    await resetActivationCapacityFixtures();
     const ready = await createReadyBatch([
       {
         key: "queued-slot-recheck",
@@ -5798,12 +5795,14 @@ describeDatabase("material multi-skill drafting", () => {
         },
       }),
     ).toMatchObject({ status: "queued" });
-    const activeSkillCount = await prisma.skill.count({
-      where: { userId, status: { in: [SkillStatus.ACTIVE, SkillStatus.PAUSED] } },
+    const usage = await getSkillActivationUsage({
+      userId,
+      now: new Date("2026-07-12T12:01:00.000Z"),
+      prisma,
     });
     const fillerPrefix = `Queued slot recheck filler ${randomUUID()}`;
     await prisma.skill.createMany({
-      data: Array.from({ length: Math.max(0, ALPHA_ACTIVE_SKILLS - activeSkillCount) }, (_, index) => ({
+      data: Array.from({ length: Math.max(0, usage.activeSkillLimit - usage.countedSkillCount) }, (_, index) => ({
         userId,
         title: `${fillerPrefix} ${index}`,
         tags: [],
@@ -5835,10 +5834,7 @@ describeDatabase("material multi-skill drafting", () => {
   });
 
   it("reserves active-skill slots for queued activations and retry attempts", async () => {
-    await prisma.skill.updateMany({
-      where: { userId, status: { in: [SkillStatus.ACTIVE, SkillStatus.PAUSED] } },
-      data: { status: SkillStatus.ARCHIVED },
-    });
+    await resetActivationCapacityFixtures();
     const first = await createReadyBatch([
       {
         key: "active-slot-first",
@@ -5865,12 +5861,14 @@ describeDatabase("material multi-skill drafting", () => {
         errorMessage: "released before active-slot test",
       },
     });
-    const activeSkillCount = await prisma.skill.count({
-      where: { userId, status: { in: [SkillStatus.ACTIVE, SkillStatus.PAUSED] } },
+    const usage = await getSkillActivationUsage({
+      userId,
+      now: new Date("2026-07-11T12:00:00.000Z"),
+      prisma,
     });
     await prisma.skill.createMany({
       data: Array.from(
-        { length: Math.max(0, ALPHA_ACTIVE_SKILLS - 1 - activeSkillCount) },
+        { length: Math.max(0, usage.activeSkillLimit - 1 - usage.countedSkillCount) },
         (_, index) => ({
           userId,
           title: `Active slot filler ${index}`,
@@ -5955,6 +5953,30 @@ describeDatabase("material multi-skill drafting", () => {
       skill: { status: SkillStatus.DRAFT },
     });
   });
+
+  async function resetActivationCapacityFixtures() {
+    await prisma.skill.updateMany({
+      where: { userId, status: { in: [SkillStatus.ACTIVE, SkillStatus.PAUSED] } },
+      data: { status: SkillStatus.ARCHIVED },
+    });
+    await prisma.skillDraftBatchItem.updateMany({
+      where: { userId, status: SkillDraftBatchItemStatus.ACTIVATING },
+      data: {
+        status: SkillDraftBatchItemStatus.FAILED,
+        generationClaimId: null,
+        errorCode: "ACTIVATION_CAPACITY_TEST_CLEANUP",
+        errorMessage: "released before active-capacity test",
+      },
+    });
+    await prisma.generationJob.updateMany({
+      where: {
+        userId,
+        kind: GenerationJobKind.SKILL_ACTIVATION,
+        status: { in: [GenerationJobStatus.PENDING, GenerationJobStatus.RUNNING] },
+      },
+      data: { status: GenerationJobStatus.FAILED, completedAt: new Date() },
+    });
+  }
 
   it("resynchronizes a failed batch item whose skill became active elsewhere", async () => {
     const ready = await createReadyBatch([

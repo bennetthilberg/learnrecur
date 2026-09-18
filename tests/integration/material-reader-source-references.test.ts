@@ -1,6 +1,11 @@
 import { randomUUID } from "node:crypto";
 
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+
+vi.mock("@/lib/jobs/events", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/jobs/events")>()),
+  sendAgentSkillOperationRequested: vi.fn().mockResolvedValue(undefined),
+}));
 
 import {
   AgentOperationItemStatus,
@@ -126,6 +131,20 @@ describeDatabase("material reader and source references", () => {
         },
       }),
     ]);
+    const rootChunk = await prisma.materialChunk.create({
+      data: {
+        userId,
+        materialRevisionId: revision.id,
+        materialSectionId: root.id,
+        sourceFileId: sourceFile.id,
+        ordinal: 2,
+        text: "El capítulo introduce el sistema de pronombres y sus funciones.",
+        tokenEstimate: 10,
+        contentHash: `${runId}:${label}:root-chunk`,
+        locator: { kind: "pdf", pageRange: { start: 1, end: 3 } },
+        headingText: "Capítulo repetido",
+      },
+    });
     await prisma.materialPage.create({
       data: {
         userId,
@@ -153,7 +172,7 @@ describeDatabase("material reader and source references", () => {
         status: SkillStatus.DRAFT,
       },
     });
-    return { userId, material, revision, sourceFile, root, child, chunks, skill };
+    return { userId, material, revision, sourceFile, root, child, chunks, rootChunk, skill };
   }
 
   async function createConnection(userId: string, scopes: AgentAccessScope[]) {
@@ -224,9 +243,9 @@ describeDatabase("material reader and source references", () => {
     expect(text).toContain("pronombres");
     expect(text).toContain("\n\n");
     expect(first.segments[0]).toMatchObject({
-      revision_id: undefined,
       section_id: fixture.child.id,
       section_path: ["Capítulo repetido", "Capítulo repetido"],
+      locator: { revision_id: fixture.revision.id },
     });
     const pageRange = await readMaterialContent({
       userId: fixture.userId,
@@ -295,7 +314,7 @@ describeDatabase("material reader and source references", () => {
     await expect(
       resolveMaterialSourceReferences({
         userId: fixture.userId,
-        sourceRefs: [{ ...valid, evidence_chunk_ids: [fixture.chunks[0].id] }],
+        sourceRefs: [{ ...valid, evidence_chunk_ids: [fixture.rootChunk.id] }],
       }),
     ).rejects.toMatchObject({ code: "invalid_source_reference" });
     await expect(
@@ -321,14 +340,14 @@ describeDatabase("material reader and source references", () => {
         material_id: fixture.material.id,
         expected_revision_id: fixture.revision.id,
         section_ids: [fixture.root.id],
-        evidence_chunk_ids: [fixture.chunks[0].id],
+        evidence_chunk_ids: [fixture.rootChunk.id],
       }],
     });
     const stored = await prisma.skillSourceRef.findMany({ where: { skillId: fixture.skill.id }, select: { locator: true } });
     expect(stored).toHaveLength(1);
     expect(stored[0].locator).toMatchObject({
       materialRevisionId: fixture.revision.id,
-      evidenceChunkIds: [fixture.chunks[0].id, fixture.chunks[1].id].toSorted(),
+      evidenceChunkIds: [fixture.rootChunk.id, fixture.chunks[1].id].toSorted(),
       source: { kind: "pdf", pageRanges: [{ start: 1, end: 3 }] },
     });
     const auth = await createConnection(fixture.userId, ["skills:read"]);
