@@ -137,14 +137,14 @@ describe("practice read model cursors", () => {
     id: "exercise_b",
   };
   const historyCursor: PracticeHistoryReadModelCursor = {
-    version: 1,
+    version: 2,
     userId: "user_a",
     skillId: null,
     collectionId: "collection_a",
     result: "incorrect",
     mode: "practice-only",
     snapshotCutoff: "2026-09-17T12:00:00.000Z",
-    createdAt: "2026-09-17T11:00:00.000Z",
+    completedAt: "2026-09-17T11:00:00.000Z",
     id: "attempt_b",
   };
 
@@ -212,6 +212,7 @@ describe("practice read model safety summaries", () => {
         providerResponse: "private response",
         storageKey: "private/key",
       },
+      generationMetadata: null,
       exerciseSourceRefs: [{ sourceRevisionId: "revision_2", chunkId: "chunk_2" }],
       sourceRefs: [
         {
@@ -237,6 +238,45 @@ describe("practice read model safety summaries", () => {
       contentHashes: ["a".repeat(64)],
     });
     expect(JSON.stringify(summary)).not.toContain("private");
+  });
+
+  it("includes safe persisted generation context and hash-only provenance", () => {
+    const summary = summarizeExerciseProvenance({
+      exerciseProvenance: null,
+      generationMetadata: {
+        contextManifest: {
+          sourceRevisionIds: ["revision context"],
+          includedSources: [
+            {
+              sourceId: "source file",
+              chunkId: "chunk the verb",
+              fingerprint: "B".repeat(64),
+            },
+          ],
+        },
+      },
+      exerciseSourceRefs: null,
+      sourceRefs: [],
+    });
+
+    expect(summary).toMatchObject({
+      sourceBacked: true,
+      sourceRevisionIds: ["revision context"],
+      sourceFileIds: ["source file"],
+      evidenceAnchorIds: ["chunk the verb"],
+      contentHashes: ["b".repeat(64)],
+    });
+
+    const hashOnly = summarizeExerciseProvenance({
+      exerciseProvenance: { contentHashes: ["C".repeat(64)] },
+      generationMetadata: null,
+      exerciseSourceRefs: null,
+      sourceRefs: [],
+    });
+    expect(hashOnly).toMatchObject({
+      sourceBacked: true,
+      contentHashes: ["c".repeat(64)],
+    });
   });
 
   it("keeps pending reports separate from confirmed evidence exclusion", () => {

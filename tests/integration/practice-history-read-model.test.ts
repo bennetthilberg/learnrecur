@@ -83,6 +83,7 @@ describeDatabase("completed practice history read model", () => {
     practiceContext = Prisma.DbNull,
     scheduled = false,
     reviewedAt = createdAt,
+    feedbackShownAt = null,
     finalRating = FsrsRating.GOOD,
   }: {
     userId: string;
@@ -96,6 +97,7 @@ describeDatabase("completed practice history read model", () => {
     practiceContext?: Prisma.NullableJsonNullValueInput | Prisma.InputJsonValue;
     scheduled?: boolean;
     reviewedAt?: Date;
+    feedbackShownAt?: Date | null;
     finalRating?: FsrsRating;
   }) {
     const attempt = await prisma.exerciseAttempt.create({
@@ -111,6 +113,7 @@ describeDatabase("completed practice history read model", () => {
         responseMs: 3400,
         proposedRating: scheduled ? finalRating : null,
         finalRating: scheduled ? finalRating : null,
+        feedbackShownAt,
         answerPolicySnapshot,
         practiceContext,
         createdAt,
@@ -181,6 +184,7 @@ describeDatabase("completed practice history read model", () => {
         exposure: "SCHEDULED",
       },
       scheduled: true,
+      reviewedAt: new Date("2026-06-07T13:00:00.000Z"),
     });
     const practiceOnly = await createAttempt({
       userId,
@@ -188,6 +192,7 @@ describeDatabase("completed practice history read model", () => {
       exerciseId: exercise.id,
       result: ExerciseAttemptResult.INCORRECT,
       createdAt: new Date("2026-06-06T12:00:00.000Z"),
+      feedbackShownAt: new Date("2026-06-06T13:00:00.000Z"),
       answer: { raw: { response: "practice answer" } },
       practiceContext: {
         version: 1,
@@ -234,8 +239,8 @@ describeDatabase("completed practice history read model", () => {
     });
 
     expect(all.attempts.map((attempt) => attempt.id)).toEqual([
-      practiceOnly.id,
       scheduled.id,
+      practiceOnly.id,
     ]);
     expect(scheduledPage.attempts).toHaveLength(1);
     expect(practiceOnlyPage.attempts).toHaveLength(1);
@@ -256,6 +261,7 @@ describeDatabase("completed practice history read model", () => {
       },
       submittedAnswer: "saved answer",
       submittedAnswerStorage: { raw: "saved answer" },
+      correctAnswerDisplay: "saved",
       answerContractSource: "attempt",
       answerContractFallback: false,
       answerContract: {

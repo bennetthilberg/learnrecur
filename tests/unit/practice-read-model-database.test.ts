@@ -4,10 +4,12 @@ const mocks = vi.hoisted(() => ({
   exerciseFindMany: vi.fn(),
   exerciseFindFirst: vi.fn(),
   attemptFindMany: vi.fn(),
+  attemptQueryRaw: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({
   getPrisma: () => ({
+    $queryRaw: mocks.attemptQueryRaw,
     exercise: {
       findMany: mocks.exerciseFindMany,
       findFirst: mocks.exerciseFindFirst,
@@ -144,6 +146,7 @@ describe("practice read model database projections", () => {
   });
 
   it("maps immutable practice-only answers and applies the requested read filter", async () => {
+    mocks.attemptQueryRaw.mockResolvedValue([{ id: "attempt-1" }]);
     mocks.attemptFindMany.mockResolvedValue([historyRow()]);
 
     const page = await getCompletedPracticeHistoryPage({
@@ -167,14 +170,28 @@ describe("practice read model database projections", () => {
       mixedReview: true,
       reducedRuleCues: true,
     });
+    expect(mocks.attemptQueryRaw).toHaveBeenCalledTimes(1);
     expect(mocks.attemptFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        take: 21,
-        orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+        where: {
+          userId: "user-1",
+          id: { in: ["attempt-1"] },
+        },
       }),
     );
-    const where = mocks.attemptFindMany.mock.calls[0]?.[0]?.where;
-    expect(JSON.stringify(where)).toContain('"reviewLog":null');
-    expect(JSON.stringify(where)).toContain('"result":"CORRECT"');
+  });
+
+  it("accepts equivalent mode aliases without treating them as conflicting", async () => {
+    mocks.attemptQueryRaw.mockResolvedValue([]);
+
+    await expect(
+      getCompletedPracticeHistoryPage({
+        userId: "user-1",
+        mode: "practice-only",
+        submissionType: "practice_only",
+        now,
+      }),
+    ).resolves.toMatchObject({ attempts: [], nextCursor: null });
+    expect(mocks.attemptQueryRaw).toHaveBeenCalledTimes(1);
   });
 });

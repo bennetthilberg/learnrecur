@@ -1152,7 +1152,7 @@ function SkillRecentReviewsPanel({
                 <strong>{formatReviewDate(review.reviewedAt)}</strong>
                 <p className="skillReviewMeta">
                   <span>{formatReviewResult(review.result)}</span>
-                  <span>{review.finalRating ? formatHistoryLabel(review.finalRating) : "Practice only"}</span>
+                  <span>{review.finalRating == null ? "Practice only" : formatHistoryLabel(review.finalRating)}</span>
                   <span>{formatResponseTime(review.responseMs)}</span>
                 </p>
               </div>

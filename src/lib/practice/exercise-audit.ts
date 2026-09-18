@@ -31,7 +31,6 @@ const CURSOR_VERSION = 1 as const;
 const MAX_CURSOR_LENGTH = 8_000;
 const IDENTIFIER_MAX_LENGTH = 200;
 const HASH_PATTERN = /^[a-f0-9]{64}$/i;
-const IDENTIFIER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:/-]*$/;
 const CONTROL_CHARACTER_PATTERN = /[\u0000-\u001f\u007f]/u;
 
 const exerciseAuditSelect = {
@@ -290,8 +289,10 @@ export async function listExercisesForAudit(
             userId: input.userId,
           },
           answerKind: input.answerKind,
-          ...(lifecycle === "active" ? { retiredAt: null } : {}),
-          ...(lifecycle === "retired" ? { retiredAt: { not: null } } : {}),
+          ...(lifecycle === "active"
+            ? { OR: [{ retiredAt: null }, { retiredAt: { gt: snapshotCutoff } }] }
+            : {}),
+          ...(lifecycle === "retired" ? { retiredAt: { not: null, lte: snapshotCutoff } } : {}),
           createdAt: { lte: snapshotCutoff },
         },
         ...(cursor
@@ -434,6 +435,7 @@ export function mapExerciseAuditRecord(row: ExerciseAuditRow): ExerciseAuditReco
     exerciseSourceRefs,
     provenance: summarizeExerciseProvenance({
       exerciseProvenance: row.provenance,
+      generationMetadata: row.generationMetadata,
       exerciseSourceRefs: row.sourceRefs,
       sourceRefs,
     }),
@@ -442,6 +444,7 @@ export function mapExerciseAuditRecord(row: ExerciseAuditRow): ExerciseAuditReco
 
 export function summarizeExerciseProvenance(input: {
   exerciseProvenance: unknown;
+  generationMetadata: unknown;
   exerciseSourceRefs: unknown;
   sourceRefs: readonly SanitizedExerciseSourceRef[];
 }): ExerciseProvenanceSummary {
@@ -500,6 +503,7 @@ export function summarizeExerciseProvenance(input: {
     }
   };
 
+  readProvenanceObject(input.generationMetadata);
   readProvenanceObject(input.exerciseProvenance);
 
   if (Array.isArray(input.exerciseSourceRefs)) {
@@ -523,7 +527,10 @@ export function summarizeExerciseProvenance(input: {
   }
 
   const sourceBacked =
-    sourceRevisionIds.size > 0 || sourceFileIds.size > 0 || evidenceAnchorIds.size > 0;
+    sourceRevisionIds.size > 0 ||
+    sourceFileIds.size > 0 ||
+    evidenceAnchorIds.size > 0 ||
+    contentHashes.size > 0;
 
   return {
     sourceBacked,
@@ -750,7 +757,7 @@ function readSafeIdentifier(value: unknown): string | null {
   }
 
   const normalized = value.trim();
-  return IDENTIFIER_PATTERN.test(normalized) ? normalized : null;
+  return normalized || null;
 }
 
 function readSafeStringList(value: unknown): string[] {
