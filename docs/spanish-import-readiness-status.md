@@ -1,7 +1,7 @@
 # Spanish import readiness status
 
-Updated 2026-09-17 after PR review and deployment verification. This is a
-work-in-progress checkpoint, not a release receipt.
+Updated 2026-09-17 after the second PR review pass. This is a work-in-progress
+checkpoint, not a release receipt.
 
 The implementation provides the bounded, auditable plumbing for a future
 Spanish textbook pilot: sequential material reading, revision-bound source
@@ -26,8 +26,8 @@ contracts, exercise the issue correction flow, and record extraction gaps.
 
 The current feature branch is `a/spanish-import-readiness`. An existing open
 PR, #146, is the single PR target for this work. The implementation checkpoint
-`fe7a1da` was followed by review-fix commit `6dd1a10` and source-reference and
-consent-hardening commit `7fe1f63`. The unrelated untracked
+`fe7a1da` was followed by review-fix commits `6dd1a10`, `7fe1f63`, `49c99d9`,
+and `e340a17`. The unrelated untracked
 `docs/product-discovery/` directory belongs to the user and must remain
 untouched.
 
@@ -56,23 +56,33 @@ Implemented in the current working tree:
 Verification evidence for the current local checkpoint:
 
 - `npx tsc --noEmit`, `npm run lint`, and the production `npm run build` passed
-  after the PR review fixes and source-reference outcome migration;
-- the full unit suite passed 142 files and 1,220 tests;
-- anonymous Playwright passed 15 browser checks at desktop and mobile widths;
-- `npm run jobs:build` and `npm run check:runtime-audit` passed; the runtime
-  audit reports only three already-accepted dev-only Prisma CLI exceptions;
+  after the second PR review pass;
+- `npm run prisma:validate`, `npm run prisma:generate`, `npm run jobs:build`,
+  and `npm run check:runtime-audit` passed; the runtime audit reports only
+  three already-accepted dev-only Prisma CLI exceptions;
+- the full unit suite passed 142 files and 1,224 tests;
+- anonymous Playwright passed all 15 browser checks at desktop and mobile
+  widths using an isolated local port; an initial run had reused an unrelated
+  Spanish-grammar dev server already occupying port 3000 and is not product
+  evidence;
 - the focused refill/reservation suite passed 34 tests;
 - database integration remains an environment limitation: the configured Neon
   branch is read-only (`25006`) for temporary test writes and the bounded full
   run cannot complete there;
-- PR #146's `verify`, production Vercel, and staging Vercel checks passed on
-  `6dd1a10`; authenticated E2E and CodeRabbit were still pending when this
-  record was last refreshed;
+- an earlier remote authenticated run exposed 12 deterministic fixture and
+  read-model failures; `49c99d9` and `e340a17` repair those cases, including
+  authenticated fixtures, practice-only cutoff ordering, replay safety,
+  source-reference scope, and terminal material-operation state;
+- PR #146's next `verify`, authenticated E2E, and Vercel checks are the
+  authoritative post-push gate for `e340a17`; the prior production Vercel
+  deployment passed on `49c99d9`;
+- the latest CodeRabbit pass was rate-limited after posting its inline review;
+  all actionable findings from that pass are represented in `e340a17`, while
+  the generated coverage walkthrough is advisory rather than a release gate;
 - no live WorkOS registration/reconsent, licensed textbook, or representative
   material pilot has been performed for this branch.
 
-The implementation is ready for the final remote check reconciliation. The
-remaining external gate is authenticated E2E/CodeRabbit completion; the
+The implementation is ready for final remote check reconciliation. The
 database limitation must remain recorded as an environment limitation rather
 than a passing result. The next operator should inspect the final PR checks,
 confirm the migration is applied before using the new operation-item field,
