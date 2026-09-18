@@ -26,10 +26,10 @@ contracts, exercise the issue correction flow, and record extraction gaps.
 
 The current feature branch is `a/spanish-import-readiness`. An existing open
 PR, #146, is the single PR target for this work. The implementation checkpoint
-`fe7a1da` was followed by review-fix commit `6dd1a10`; the subsequent source
-reference and consent-hardening follow-up is the next local checkpoint before
-its push. The unrelated untracked `docs/product-discovery/` directory belongs
-to the user and must remain untouched.
+`fe7a1da` was followed by review-fix commit `6dd1a10` and source-reference and
+consent-hardening commit `7fe1f63`. The unrelated untracked
+`docs/product-discovery/` directory belongs to the user and must remain
+untouched.
 
 Implemented in the current working tree:
 
