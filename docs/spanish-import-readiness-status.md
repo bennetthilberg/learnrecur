@@ -1,7 +1,7 @@
 # Spanish import readiness status
 
-Updated 2026-09-17 after the second PR review pass. This is a work-in-progress
-checkpoint, not a release receipt.
+Updated 2026-09-17 after the final reviewer-fix and remote verification pass.
+This is a work-in-progress checkpoint, not a release receipt.
 
 The implementation provides the bounded, auditable plumbing for a future
 Spanish textbook pilot: sequential material reading, revision-bound source
@@ -27,7 +27,7 @@ contracts, exercise the issue correction flow, and record extraction gaps.
 The current feature branch is `a/spanish-import-readiness`. An existing open
 PR, #146, is the single PR target for this work. The implementation checkpoint
 `fe7a1da` was followed by review-fix commits `6dd1a10`, `7fe1f63`, `49c99d9`,
-and `e340a17`. The unrelated untracked
+`e340a17`, `3cdb901`, `968f782`, `7514e5a`, and `8ed83bf`. The unrelated untracked
 `docs/product-discovery/` directory belongs to the user and must remain
 untouched.
 
@@ -55,12 +55,14 @@ Implemented in the current working tree:
 
 Verification evidence for the current local checkpoint:
 
-- `npx tsc --noEmit`, `npm run lint`, and the production `npm run build` passed
-  after the second PR review pass;
+- `npx tsc --noEmit`, `npm run lint`, and the focused audit tests passed after
+  `8ed83bf`;
+- the full unit suite passed 142 files and 1,225 tests after `8ed83bf`;
+- the latest remote verify job passed lint, unit tests, Prisma validation and
+  generation, runtime audit, and the production build;
 - `npm run prisma:validate`, `npm run prisma:generate`, `npm run jobs:build`,
   and `npm run check:runtime-audit` passed; the runtime audit reports only
   three already-accepted dev-only Prisma CLI exceptions;
-- the full unit suite passed 142 files and 1,224 tests;
 - anonymous Playwright passed all 15 browser checks at desktop and mobile
   widths using an isolated local port; an initial run had reused an unrelated
   Spanish-grammar dev server already occupying port 3000 and is not product
@@ -68,26 +70,26 @@ Verification evidence for the current local checkpoint:
 - the focused refill/reservation suite passed 34 tests;
 - database integration remains an environment limitation: the configured Neon
   branch is read-only (`25006`) for temporary test writes and the bounded full
-  run cannot complete there;
-- an earlier remote authenticated run exposed 12 deterministic fixture and
-  read-model failures; `49c99d9` and `e340a17` repair those cases, including
-  authenticated fixtures, practice-only cutoff ordering, replay safety,
-  source-reference scope, and terminal material-operation state;
-- PR #146's next `verify`, authenticated E2E, and Vercel checks are the
-  authoritative post-push gate for `e340a17`; the prior production Vercel
-  deployment passed on `49c99d9`;
-- the latest CodeRabbit pass was rate-limited after posting its inline review;
-  all actionable findings from that pass are represented in `e340a17`, while
-  the generated coverage walkthrough is advisory rather than a release gate;
+  run cannot complete there. The remote isolated database run is authoritative;
+- remote CI run `35307403131` passed both the verify job and the authenticated
+  integration/coverage and browser job;
+- Vercel production deployed successfully at
+  `https://vercel.com/learn-recur/learnrecur/2FZvuoq3WmUnTTU3gvcYLmgHy55g`,
+  and agent staging deployed successfully at
+  `https://vercel.com/learn-recur/learnrecur-agent-staging/4dujVdhJEF1urvGUaWaD4TAcxSjP`;
+- the two current Codex review threads were answered and resolved in `8ed83bf`;
+  the prior CodeRabbit actionable threads are all resolved or outdated, and
+  the current PR has no unresolved non-outdated review thread. CodeRabbit's
+  status context remains pending with “Review in progress,” so it is not being
+  represented as a clean automated review pass;
 - no live WorkOS registration/reconsent, licensed textbook, or representative
   material pilot has been performed for this branch.
 
-The implementation is ready for final remote check reconciliation. The
-database limitation must remain recorded as an environment limitation rather
-than a passing result. The next operator should inspect the final PR checks,
-confirm the migration is applied before using the new operation-item field,
-and run the real-material pilot before making coverage or exercise-quality
-claims.
+The implementation is ready for review and merge consideration. The database
+limitation must remain recorded as an environment limitation rather than a
+passing result. The next operator should confirm the migration is applied
+before using the new operation-item field, and run the real-material pilot
+before making coverage or exercise-quality claims.
 
 Suggested resume commands:
 
