@@ -12,7 +12,7 @@ it("keeps current rows after failure and retries the same filtered cursor withou
   const host = document.createElement("div"); document.body.append(host);
   const root = createRoot(host);
   const first = { id: "1", skillTitle: "First review" } as HistoryReviewRow;
-  const cursor = { id: "1", reviewedAt: "2026-09-14T00:00:00.000Z" };
+  const cursor = { mode: "scheduled" as const, id: "1", reviewedAt: "2026-09-14T00:00:00.000Z" };
   load.mockRejectedValueOnce(new Error("offline"));
   try {
     await act(async () => root.render(createElement(HistoryBrowser, { initialReviews: [first], initialCursor: cursor, filters: { incorrectOnly: true, collectionId: "collection" } })));

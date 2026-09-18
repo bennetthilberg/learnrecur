@@ -4,6 +4,7 @@ import {
   MaterialRevisionStatus,
   StudyMaterialStatus,
 } from "@/generated/prisma/client";
+import { authorizeAgentRead } from "@/lib/agent-access/access";
 import type { AgentAuthContext } from "@/lib/agent-access/auth";
 import {
   agentGetMaterialOutlineSchema,
@@ -11,6 +12,7 @@ import {
   agentSearchMaterialExcerptsSchema,
 } from "@/lib/agent-access/contracts";
 import { consumeAgentReadRateLimit } from "@/lib/agent-access/operations";
+import { MaterialReaderError, materialReadContentSchema, readMaterialContent } from "@/lib/materials/reader";
 import { searchMaterialChunksLexical } from "@/lib/materials/retrieval";
 import { getPrisma } from "@/lib/prisma";
 
@@ -51,7 +53,11 @@ const MAX_EXCERPT_TOTAL_CHARS = 4_000;
 export class AgentMaterialError extends Error {
   constructor(
     readonly code:
-      "material_not_found" | "stale_material_revision" | "invalid_cursor",
+      | "material_not_found"
+      | "stale_material_revision"
+      | "material_not_ready"
+      | "invalid_cursor"
+      | "invalid_scope",
     message: string,
   ) {
     super(message);
@@ -263,6 +269,30 @@ export async function searchAgentMaterialExcerpts(
       ];
     }),
   };
+}
+
+export async function readAgentMaterialContent(
+  auth: AgentAuthContext,
+  rawInput: unknown,
+) {
+  const input = materialReadContentSchema.parse(rawInput);
+  await authorizeAgentRead(auth, "materials:read");
+  try {
+    return await readMaterialContent({
+      userId: auth.userId,
+      materialId: input.material_id,
+      expectedRevisionId: input.expected_revision_id,
+      ...(input.section_id ? { sectionId: input.section_id } : {}),
+      ...(input.page_range ? { pageRange: input.page_range } : {}),
+      ...(input.cursor ? { cursor: input.cursor } : {}),
+      maxChars: input.max_chars,
+    });
+  } catch (error) {
+    if (error instanceof MaterialReaderError) {
+      throw new AgentMaterialError(error.code, error.message);
+    }
+    throw error;
+  }
 }
 
 export function sanitizeLocator(locator: unknown) {

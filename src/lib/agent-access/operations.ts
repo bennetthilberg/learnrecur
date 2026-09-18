@@ -17,10 +17,8 @@ import {
 import type { AgentAuthContext } from "@/lib/agent-access/auth";
 import { runAgentSerializable as runAgentDatabaseTransaction } from "@/lib/agent-access/transactions";
 import {
-  AGENT_MAX_NONTERMINAL_ITEMS_PER_USER,
   AGENT_OPERATION_POLL_AFTER_MS,
   agentAddFromMaterialSchema,
-  agentAddFromSpecsSchema,
   agentAddFromTextSchema,
   agentContinueOperationSchema,
   agentPrepareFilesSchema,
@@ -29,22 +27,20 @@ import {
   buildAgentPayloadHash,
   normalizeAgentCandidateExercise,
 } from "@/lib/agent-access/contracts";
+import { MAX_IMPORT_BATCH_ITEMS } from "@/lib/import-limits";
 import { getPrisma } from "@/lib/prisma";
 import { sendAgentSkillOperationRequested } from "@/lib/jobs/events";
+import { getPendingImportUsage } from "@/lib/usage-limits";
+import {
+  MaterialSourceReferenceError,
+  parseAgentSpecInputWithSourceRefs,
+  resolveMaterialSourceReferences,
+  type MaterialSourceReferenceCache,
+} from "@/lib/materials/source-references";
 import {
   prepareSourceUpload,
   refreshPreparedSourceUpload,
 } from "@/lib/skills/uploads";
-
-const NONTERMINAL_ITEM_STATUSES: AgentOperationItemStatus[] = [
-  AgentOperationItemStatus.QUEUED,
-  AgentOperationItemStatus.PLANNING,
-  AgentOperationItemStatus.NEEDS_INPUT,
-  AgentOperationItemStatus.NEEDS_REVIEW,
-  AgentOperationItemStatus.GENERATING,
-  AgentOperationItemStatus.VERIFYING,
-  AgentOperationItemStatus.ACTIVATING,
-];
 
 const PUBLIC_OPERATION_SELECT = {
   id: true,
@@ -65,6 +61,7 @@ const PUBLIC_OPERATION_SELECT = {
       status: true,
       proposedTitle: true,
       duplicateConfidence: true,
+      sourceReferenceOutcome: true,
       resultSkillId: true,
       errorCode: true,
       retryCount: true,
@@ -91,6 +88,7 @@ export type PublicAgentOperation = {
     status: string;
     proposed_title: string | null;
     duplicate_confidence: string | null;
+    source_reference_outcome: Prisma.JsonValue | null;
     skill_id: string | null;
     skill_url: string | null;
     error_code: string | null;
@@ -123,7 +121,8 @@ export class AgentOperationError extends Error {
       | "setup_not_found"
       | "setup_stale"
       | "setup_in_progress"
-      | "setup_failed",
+      | "setup_failed"
+      | "exercise_not_found",
     message: string,
   ) {
     super(message);
@@ -176,7 +175,7 @@ export async function createAgentSpecOperation(
   auth: AgentAuthContext,
   rawInput: unknown,
 ): Promise<PublicAgentOperation> {
-  const input = agentAddFromSpecsSchema.parse(rawInput);
+  const input = parseAgentSpecInputWithSourceRefs(rawInput);
   const payloadHash = buildAgentPayloadHash(input);
   const claim = await runAgentSerializable(
     async (tx) => {
@@ -184,6 +183,21 @@ export async function createAgentSpecOperation(
       const replay = await findReplay(tx, auth, "skills.add_from_specs", input.idempotency_key, payloadHash);
       if (replay) return { operation: replay, created: false as const };
       await assertPendingItemLimit(tx, auth.userId, input.items.length);
+      const sourceReferenceCache: MaterialSourceReferenceCache = new Map();
+      for (const item of input.items) {
+        if (item.source_refs?.length) {
+          try {
+            await resolveMaterialSourceReferences({
+              userId: auth.userId,
+              sourceRefs: item.source_refs,
+              client: tx,
+              cache: sourceReferenceCache,
+            });
+          } catch (error) {
+            throw sourceReferenceOperationError(error);
+          }
+        }
+      }
       const operation = await tx.agentSkillOperation.create({
         data: {
           userId: auth.userId,
@@ -196,6 +210,7 @@ export async function createAgentSpecOperation(
             items: input.items.map((item) => ({
               client_reference: item.client_reference,
               skill: item.skill,
+              ...(item.source_refs ? { source_refs: item.source_refs } : {}),
             })),
           }),
           payloadExpiresAt: daysFromNow(30),
@@ -206,7 +221,10 @@ export async function createAgentSpecOperation(
               clientReference: item.client_reference,
               proposedTitle: item.skill.title,
               proposedObjective: item.skill.objective,
-              skillSnapshot: toJson(item.skill),
+              skillSnapshot: toJson({
+                ...item.skill,
+                ...(item.source_refs ? { source_refs: item.source_refs } : {}),
+              }),
               candidateFingerprint: buildAgentPayloadHash(item.skill),
               candidates: item.candidate_exercises
                 ? {
@@ -601,7 +619,7 @@ export async function retryFailedAgentOperationItems(
           ...(input.item_ids ? { id: { in: input.item_ids } } : {}),
         },
         select: { id: true, ordinal: true, retryCount: true, errorCode: true },
-        take: 10,
+        take: MAX_IMPORT_BATCH_ITEMS,
       });
       const failed = failedItems.filter((item) => isRetryableAgentItemError(item.errorCode));
       if (failed.length === 0) {
@@ -738,12 +756,26 @@ export function serializeAgentOperation(
       status: item.status.toLocaleLowerCase("en-US"),
       proposed_title: item.proposedTitle,
       duplicate_confidence: item.duplicateConfidence,
+      source_reference_outcome: item.sourceReferenceOutcome,
       skill_id: item.resultSkillId,
       skill_url: item.resultSkillId ? `/skills/${item.resultSkillId}` : null,
       error_code: item.errorCode,
       retry_count: item.retryCount,
     })),
   };
+}
+
+function sourceReferenceOperationError(error: unknown) {
+  if (error instanceof MaterialSourceReferenceError) {
+    if (error.code === "material_not_found") {
+      return new AgentOperationError("material_not_found", error.message);
+    }
+    if (error.code === "stale_material_revision") {
+      return new AgentOperationError("stale_material_revision", error.message);
+    }
+    return new AgentOperationError("invalid_input", error.message);
+  }
+  return new AgentOperationError("invalid_input", "The supplied source reference could not be validated.");
 }
 
 async function buildPreparedFileResponse(
@@ -898,6 +930,11 @@ async function assertActiveConnectionAndConsumeMutation(
   tx: Prisma.TransactionClient,
   auth: AgentAuthContext,
 ) {
+  // Keep pending-item and activation reservations serialized with native
+  // imports that use the same account lock. Serializable isolation protects
+  // the operation row itself, but the shared capacity counts span several
+  // tables and must be read while this lock is held.
+  await tx.$queryRaw`SELECT "id" FROM "users" WHERE "id" = ${auth.userId} FOR UPDATE`;
   await assertActiveConnection(tx, auth);
   await consumeRateLimit(tx, auth, AgentRateLimitKind.MUTATION, 10);
 }
@@ -933,30 +970,9 @@ async function assertPendingItemLimit(
   userId: string,
   requestedItems: number,
 ) {
-  const nonterminalItems = await tx.agentSkillOperationItem.count({
-    where: { userId, status: { in: NONTERMINAL_ITEM_STATUSES } },
-  });
-  const unmaterializedOperations = await tx.agentSkillOperation.findMany({
-    where: {
-      userId,
-      status: {
-        in: [
-          AgentOperationStatus.QUEUED,
-          AgentOperationStatus.PLANNING,
-          AgentOperationStatus.NEEDS_INPUT,
-        ],
-      },
-      items: { none: {} },
-    },
-    select: { requestedCount: true },
-  });
-  const reservedItems = unmaterializedOperations.reduce(
-    (total, operation) => total + operation.requestedCount,
-    0,
-  );
+  const usage = await getPendingImportUsage({ userId, prisma: tx });
   if (
-    nonterminalItems + reservedItems + requestedItems >
-    AGENT_MAX_NONTERMINAL_ITEMS_PER_USER
+    usage.pendingItemCount + requestedItems > usage.pendingItemLimit
   ) {
     throw new AgentOperationError("too_many_pending_items", "Finish or review pending agent skills before adding more.");
   }
@@ -1013,7 +1029,7 @@ function daysFromNow(days: number) {
   return new Date(Date.now() + days * 24 * 60 * 60 * 1_000);
 }
 
-async function enqueueOperation(userId: string, operationId: string) {
+export async function enqueueOperation(userId: string, operationId: string) {
   await sendAgentSkillOperationRequested({
     userId,
     operationId,

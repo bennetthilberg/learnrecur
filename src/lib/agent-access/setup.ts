@@ -12,7 +12,6 @@ import type { AgentAccessScope, AgentAuthContext } from "@/lib/agent-access/auth
 import {
   agentSetupApplySchema,
   agentSetupGetSchema,
-  agentSetupPreviewSchema,
   buildAgentPayloadHash,
 } from "@/lib/agent-access/contracts";
 import { AgentOperationError } from "@/lib/agent-access/operations";
@@ -30,6 +29,12 @@ import { updateAgentReminders } from "@/lib/agent-access/reminders";
 import {
   isAgentSerializationConflict,
 } from "@/lib/agent-access/transactions";
+import {
+  MaterialSourceReferenceError,
+  parseSetupInputWithSourceRefs,
+  resolveMaterialSourceReferences,
+  type MaterialSourceReferenceCache,
+} from "@/lib/materials/source-references";
 import { getPrisma } from "@/lib/prisma";
 import { normalizeReminderPreferenceInput } from "@/lib/reminders";
 
@@ -41,7 +46,7 @@ const SETUP_LEASE_MS = 10 * 60 * 1_000;
 const CLAIM_SERIALIZATION_RETRIES = 1;
 const CLAIM_RETRY_DELAY_MS = 10;
 
-type SetupInput = ReturnType<typeof agentSetupPreviewSchema.parse>;
+type SetupInput = ReturnType<typeof parseSetupInputWithSourceRefs>;
 type SetupResult = Record<string, unknown>;
 
 const PLAN_SELECT = {
@@ -288,6 +293,9 @@ export function requiredSetupScopes(input: SetupInput): AgentAccessScope[] {
       scopes.add("materials:read");
       if (skill.collection !== undefined) scopes.add("collections:read");
     }
+    if (skill.kind === "create_specs" && skill.source_refs?.length) {
+      scopes.add("materials:read");
+    }
     if (collectionReferenceForSkill(skill) || skill.kind === "create_material" && skill.collection !== undefined) {
       scopes.add("skills:write");
     }
@@ -306,6 +314,14 @@ export function stableHash(value: unknown) {
   // the same canonical representation as the agent idempotency contract so
   // an unchanged preview survives a read/compare round trip.
   return buildAgentPayloadHash(value);
+}
+
+function safeParseSetupInputWithSourceRefs(value: unknown) {
+  try {
+    return { success: true as const, data: parseSetupInputWithSourceRefs(value) };
+  } catch {
+    return { success: false as const, error: null };
+  }
 }
 
 function planSummary(input: SetupInput) {
@@ -375,6 +391,18 @@ export function projectSetupPlannedChanges(input: SetupInput) {
           title: skill.skill.title,
           objective: skill.skill.objective,
           placement: plannedPlacement(skill),
+          ...(skill.source_refs?.length
+            ? {
+                source_references: skill.source_refs.map((sourceRef) => ({
+                  material_id: sourceRef.material_id,
+                  expected_revision_id: sourceRef.expected_revision_id,
+                  ...(sourceRef.section_ids ? { section_ids: [...sourceRef.section_ids] } : {}),
+                  ...(sourceRef.evidence_chunk_ids
+                    ? { evidence_chunk_ids: [...sourceRef.evidence_chunk_ids] }
+                    : {}),
+                })),
+              }
+            : {}),
         };
       }
       if (skill.kind === "create_text") {
@@ -407,7 +435,7 @@ export function projectSetupPlannedChanges(input: SetupInput) {
 function publicPlan(plan: PlanRecord, input?: SetupInput): SetupResult {
   const parsedStoredInput = input
     ? null
-    : agentSetupPreviewSchema.safeParse(plan.requestedSpec);
+    : safeParseSetupInputWithSourceRefs(plan.requestedSpec);
   const storedInput = input ?? (parsedStoredInput?.success ? parsedStoredInput.data : null);
   const summary = input
     ? planSummary(input)
@@ -481,7 +509,16 @@ async function buildSnapshot(
   const skillIds = input.skills
     .filter((skill): skill is Extract<typeof skill, { kind: "reuse" }> => skill.kind === "reuse")
     .map((skill) => skill.skill_id);
-  const [collections, skills] = await Promise.all([
+  const sourceMaterialIds = [
+    ...new Set(
+      input.skills.flatMap((skill) =>
+        skill.kind === "create_specs"
+          ? skill.source_refs?.map((sourceRef) => sourceRef.material_id) ?? []
+          : [],
+      ),
+    ),
+  ];
+  const [collections, skills, sourceMaterials] = await Promise.all([
     collectionIds.length
       ? tx.collection.findMany({
           where: { userId: auth.userId, id: { in: collectionIds } },
@@ -494,6 +531,12 @@ async function buildSnapshot(
           select: { id: true, title: true, status: true, collectionId: true, tags: true, updatedAt: true },
         })
       : [],
+    sourceMaterialIds.length
+      ? tx.studyMaterial.findMany({
+          where: { userId: auth.userId, id: { in: sourceMaterialIds } },
+          select: { id: true, status: true, activeRevisionId: true },
+        })
+      : [],
   ]);
   if (collections.length !== collectionIds.length) {
     throw new AgentOperationError("collection_not_found", "One or more collections in the setup plan were not found.");
@@ -501,6 +544,7 @@ async function buildSnapshot(
   if (skills.length !== skillIds.length) {
     throw new AgentOperationError("skill_not_found", "One or more skills in the setup plan were not found.");
   }
+  const sourceMaterialById = new Map(sourceMaterials.map((material) => [material.id, material]));
   return {
     permission_version: auth.permissionVersion ?? null,
     user: {
@@ -539,6 +583,20 @@ async function buildSnapshot(
         tags: skill.tags,
         updated_at: skill.updatedAt.toISOString(),
       })),
+    source_references: input.skills.flatMap((skill) =>
+      skill.kind === "create_specs" && skill.source_refs?.length
+        ? [{
+            client_reference: skill.client_reference,
+            source_refs: skill.source_refs.map((sourceRef) => ({
+              ...sourceRef,
+              observed_active_revision_id:
+                sourceMaterialById.get(sourceRef.material_id)?.activeRevisionId ?? null,
+              observed_material_status:
+                sourceMaterialById.get(sourceRef.material_id)?.status ?? null,
+            })),
+          }]
+        : [],
+    ),
   };
 }
 
@@ -606,6 +664,36 @@ async function validateMaterialActions(
       if (count !== skill.section_ids.length) {
         throw new AgentOperationError("material_not_found", "One or more setup material sections were not found.");
       }
+    }
+  }
+}
+
+async function validateSourceReferenceActions(
+  tx: Prisma.TransactionClient,
+  auth: AgentAuthContext,
+  input: SetupInput,
+  cache: MaterialSourceReferenceCache,
+) {
+  for (const skill of input.skills) {
+    if (skill.kind !== "create_specs" || !skill.source_refs?.length) continue;
+    try {
+      await resolveMaterialSourceReferences({
+        userId: auth.userId,
+        sourceRefs: skill.source_refs,
+        client: tx,
+        cache,
+      });
+    } catch (error) {
+      if (error instanceof MaterialSourceReferenceError) {
+        if (error.code === "material_not_found") {
+          throw new AgentOperationError("material_not_found", error.message);
+        }
+        if (error.code === "stale_material_revision") {
+          throw new AgentOperationError("stale_material_revision", error.message);
+        }
+        throw new AgentOperationError("invalid_input", error.message);
+      }
+      throw new AgentOperationError("invalid_input", "The setup source reference could not be validated.");
     }
   }
 }
@@ -827,7 +915,7 @@ export async function previewAgentSetup(
   auth: AgentAuthContext,
   rawInput: unknown,
 ): Promise<SetupResult> {
-  const input = agentSetupPreviewSchema.parse(rawInput);
+  const input = parseSetupInputWithSourceRefs(rawInput);
   const payloadHash = buildAgentPayloadHash(input);
   return withAgentMutation(auth, "setup:write", async (tx) => {
     await assertSetupScopes(tx, auth, input);
@@ -850,6 +938,7 @@ export async function previewAgentSetup(
       return publicPlan(existing, input);
     }
     await validateMaterialActions(tx, auth, input);
+    await validateSourceReferenceActions(tx, auth, input, new Map());
     await validatePracticeAndReminderInputs(tx, auth, input);
     const snapshot = await buildSnapshot(tx, auth, input);
     const plan = await tx.agentSetupPlan.create({
@@ -884,7 +973,7 @@ async function claimSetupPlanOnce(auth: AgentAuthContext, planId: string) {
     if (plan.status === AgentSetupPlanStatus.STALE || plan.status === AgentSetupPlanStatus.CANCELED) {
       throw new AgentOperationError("setup_stale", "This setup plan is stale. Preview a new plan from current settings.");
     }
-    const spec = agentSetupPreviewSchema.parse(plan.requestedSpec);
+    const spec = parseSetupInputWithSourceRefs(plan.requestedSpec);
     const connection = await assertSetupScopes(
       tx,
       auth,
@@ -1115,7 +1204,7 @@ async function runAtomicSetupStep(
 ) {
   return withAgentMutation(auth, scopes, async (tx) => {
     const plan = await assertSetupLease(tx, planId, leaseToken);
-    const input = agentSetupPreviewSchema.parse(plan.requestedSpec);
+    const input = parseSetupInputWithSourceRefs(plan.requestedSpec);
     const currentSnapshot = await buildSnapshot(tx, auth, input);
     const completedActions = progressActions(plan);
     if (
@@ -1303,6 +1392,7 @@ function childOperationSpec(skill: SetupInput["skills"][number], planId: string,
           {
             client_reference: skill.client_reference,
             skill: skillSpec,
+            ...(skill.source_refs ? { source_refs: skill.source_refs } : {}),
             candidate_exercises: skill.candidate_exercises,
           },
         ],
@@ -1346,7 +1436,7 @@ async function applySetupActions(
   plan: PlanRecord,
   leaseToken: string,
 ): Promise<SetupResult> {
-  const input = agentSetupPreviewSchema.parse(plan.requestedSpec);
+  const input = parseSetupInputWithSourceRefs(plan.requestedSpec);
   const actions = progressActions(plan);
 
   const recordAction = (action: SetupActionRecord) => {

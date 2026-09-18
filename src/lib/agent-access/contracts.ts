@@ -14,9 +14,9 @@ import {
 } from "@/lib/answer-checking";
 
 export const AGENT_OPERATION_POLL_AFTER_MS = 3_000;
-export const AGENT_MAX_BATCH_ITEMS = 10;
+export const AGENT_MAX_BATCH_ITEMS = 25;
 export const AGENT_MAX_CANDIDATE_EXERCISES = 5;
-export const AGENT_MAX_NONTERMINAL_ITEMS_PER_USER = 10;
+export const AGENT_MAX_NONTERMINAL_ITEMS_PER_USER = 50;
 
 const idSchema = z.string().trim().min(1).max(200);
 const idempotencyKeySchema = z.string().trim().min(8).max(200);
@@ -157,6 +157,17 @@ export const agentSkillSpecSchema = z.strictObject({
   collection: collectionSchema,
 });
 
+export const agentSourceReferenceSchema = z.strictObject({
+  material_id: idSchema,
+  expected_revision_id: idSchema,
+  section_ids: z.array(idSchema).max(24).superRefine(uniqueStrings("Section IDs")).optional(),
+  evidence_chunk_ids: z.array(idSchema).max(80).superRefine(uniqueStrings("Evidence chunk IDs")).optional(),
+}).superRefine((value, context) => {
+  if (!value.section_ids?.length && !value.evidence_chunk_ids?.length) {
+    context.addIssue({ code: "custom", path: [], message: "A source reference needs a section or evidence chunk." });
+  }
+});
+
 const candidateListSchema = z
   .array(agentCandidateExerciseSchema)
   .min(1)
@@ -182,6 +193,7 @@ export const agentAddFromSpecsSchema = z
         z.strictObject({
           client_reference: clientReferenceSchema,
           skill: agentSkillSpecSchema,
+          source_refs: z.array(agentSourceReferenceSchema).max(8).optional(),
           candidate_exercises: candidateListSchema,
         }),
       )
@@ -219,7 +231,7 @@ export const agentAddFromMaterialSchema = z.strictObject({
     .max(24)
     .superRefine(uniqueStrings("Section IDs"))
     .optional(),
-  max_skills: z.number().int().min(1).max(10).default(10),
+  max_skills: z.number().int().min(1).max(25).default(10),
 });
 
 const fileSchema = z.strictObject({
@@ -277,6 +289,35 @@ export const agentSearchMaterialExcerptsSchema = z.strictObject({
   limit: z.number().int().min(1).max(5).default(3),
 });
 
+const materialPageRangeSchema = z
+  .strictObject({
+    start: z.number().int().min(1).max(100_000),
+    end: z.number().int().min(1).max(100_000),
+  })
+  .superRefine((value, context) => {
+    if (value.end < value.start) {
+      context.addIssue({ code: "custom", path: ["end"], message: "A page range cannot end before it starts." });
+    }
+    if (value.end - value.start + 1 > 10) {
+      context.addIssue({ code: "custom", path: ["end"], message: "A page range can contain at most 10 pages." });
+    }
+  });
+
+export const agentReadMaterialContentSchema = z
+  .strictObject({
+    material_id: idSchema,
+    expected_revision_id: idSchema,
+    section_id: idSchema.optional(),
+    page_range: materialPageRangeSchema.optional(),
+    cursor: z.string().trim().min(1).max(2_000).optional(),
+    max_chars: z.number().int().min(1).max(24_000).default(12_000),
+  })
+  .superRefine((value, context) => {
+    if (Boolean(value.section_id) === Boolean(value.page_range)) {
+      context.addIssue({ code: "custom", path: ["section_id"], message: "Choose exactly one of section_id or page_range." });
+    }
+  });
+
 export const agentGetOperationSchema = z.strictObject({ operation_id: idSchema });
 
 export const agentContinueOperationSchema = z.strictObject({
@@ -291,7 +332,7 @@ export const agentRetryOperationSchema = z.strictObject({
   item_ids: z
     .array(idSchema)
     .min(1)
-    .max(10)
+    .max(AGENT_MAX_BATCH_ITEMS)
     .superRefine(uniqueStrings("Item IDs"))
     .optional(),
 });
@@ -303,6 +344,41 @@ const collectionIdSchema = idSchema;
 const expectedUpdatedAtValueSchema = z.string().datetime({ offset: true });
 const expectedUpdatedAtSchema = expectedUpdatedAtValueSchema.optional();
 const expectedUpdatedAtBySkillSchema = z.record(idSchema, expectedUpdatedAtValueSchema).optional();
+
+export const agentExerciseAuditListSchema = z.strictObject({
+  skill_id: idSchema,
+  answer_kind: z.enum(["CHOICE", "TEXT", "NUMERIC", "MATH"]).optional(),
+  lifecycle: z.enum(["active", "retired", "all"]).default("active"),
+  cursor: z.string().trim().min(1).max(2_000).optional(),
+  limit: z.number().int().min(1).max(25).default(10),
+});
+
+export const agentExerciseAuditGetSchema = z.strictObject({
+  exercise_id: idSchema,
+});
+
+export const agentPracticeHistorySchema = z.strictObject({
+  skill_id: idSchema.optional(),
+  collection_id: collectionIdSchema.optional(),
+  result: z.enum(["CORRECT", "INCORRECT"]).optional(),
+  mode: z.enum(["scheduled", "practice_only", "all"]).default("all"),
+  cursor: z.string().trim().min(1).max(2_000).optional(),
+  limit: z.number().int().min(1).max(50).default(20),
+});
+
+export const agentExerciseIssueListSchema = z.strictObject({
+  cursor: z.string().trim().min(1).max(2_000).optional(),
+  include_resolved: z.boolean().default(false),
+  limit: z.number().int().min(1).max(50).default(20),
+});
+
+export const agentExerciseIssueResolveSchema = z.strictObject({
+  exercise_id: idSchema,
+  resolution: z.enum(["confirmed", "rejected", "inconclusive"]),
+  reason: z.string().trim().min(3).max(500),
+  expected_updated_at: expectedUpdatedAtValueSchema,
+  idempotency_key: idempotencyKeySchema,
+});
 
 export const agentSkillSearchSchema = z.strictObject({
   query: z.string().trim().min(1).max(120).optional(),
@@ -494,6 +570,7 @@ const setupCreateSpecSkillSchema = z
     kind: z.literal("create_specs"),
     client_reference: clientReferenceSchema,
     skill: agentSkillSpecSchema,
+    source_refs: z.array(agentSourceReferenceSchema).max(8).optional(),
     collection_reference: clientReferenceSchema.optional(),
     candidate_exercises: candidateListSchema,
   })
@@ -538,7 +615,7 @@ const setupCreateMaterialSkillSchema = z.strictObject({
   section_ids: z.array(idSchema).max(24).superRefine(uniqueStrings("Section IDs")).optional(),
   collection: collectionSchema,
   collection_reference: clientReferenceSchema.optional(),
-  max_skills: z.number().int().min(1).max(10).default(10),
+  max_skills: z.number().int().min(1).max(25).default(10),
 }).superRefine((value, context) => {
   if (value.collection !== undefined && value.collection_reference !== undefined) {
     context.addIssue({

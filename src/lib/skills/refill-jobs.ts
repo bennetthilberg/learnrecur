@@ -20,7 +20,11 @@ import {
   type ExerciseRefillEventSender,
 } from "@/lib/jobs/events";
 import { getPrisma } from "@/lib/prisma";
-import { checkExerciseRefillUsageLimit } from "@/lib/usage-limits";
+import {
+  checkExerciseRefillUsageLimit,
+  startOfUtcDay,
+} from "@/lib/usage-limits";
+import { REFILL_DEFERRED_CHECKPOINT } from "@/lib/import-limits";
 
 import {
   DEFAULT_READY_EXACT_INPUT_TARGET,
@@ -56,6 +60,16 @@ export type RefillQueueResult =
       requestedCount: number;
       readyExerciseCount: number;
       targetReadyCount: number;
+      message: string;
+    }
+  | {
+      status: "deferred";
+      reason: "quota-exceeded";
+      skillId: string;
+      generationJobId: string;
+      readyExerciseCount: number;
+      targetReadyCount: number;
+      retryAt: string;
       message: string;
     }
   | {
@@ -533,8 +547,63 @@ async function queueExerciseRefillJob({
     };
   }
 
-  const prisma = input.transaction ?? getPrisma();
+  // Standalone callers must keep the quota read and generation-job write in
+  // one account-locked transaction. Agent callers already pass their guarded
+  // transaction and publish the returned event after that transaction
+  // commits. This also makes the daily refill cap safe when two repair
+  // requests arrive at the same time.
+  if (!input.transaction) {
+    const result = await getPrisma().$transaction((tx) =>
+      queueExerciseRefillJob({
+        input: {
+          ...input,
+          transaction: tx,
+          deferEvent: true,
+        },
+        kind,
+        promptVersion,
+        requestedCount,
+        readyExerciseCount,
+        targetReadyCount,
+        sendEvent,
+        eventKind,
+      }),
+    );
+    return publishDeferredExerciseRefillEvent({
+      result,
+      now: input.now,
+      sender: input.sender,
+    });
+  }
+
+  const prisma = input.transaction;
   const sender = input.sender ?? awsExerciseRefillEventSender;
+  await prisma.$queryRaw`
+    SELECT "id"
+    FROM "users"
+    WHERE "id" = ${input.userId}
+    FOR UPDATE
+  `;
+
+  const currentSkill = await prisma.skill.findFirst({
+    where: { id: input.skillId, userId: input.userId },
+    select: { status: true },
+  });
+  if (!currentSkill) return skillNotFound();
+  if (currentSkill.status !== SkillStatus.ACTIVE) {
+    return skillNotActive("Only active skills can queue more practice exercises.");
+  }
+
+  const activeJob = await findActiveGenerationJob(
+    input.userId,
+    input.skillId,
+    kind,
+    prisma,
+  );
+  if (activeJob) {
+    return jobInProgress(activeJob.id, "Exercise preparation has already started.");
+  }
+
   const quota = await checkExerciseRefillUsageLimit({
     userId: input.userId,
     now: input.now,
@@ -542,12 +611,27 @@ async function queueExerciseRefillJob({
   });
 
   if (quota.status === "limited") {
+    const deferredJob = await createDeferredRefillMarker({
+      prisma,
+      userId: input.userId,
+      skillId: input.skillId,
+      kind,
+      promptVersion,
+      requestedCount,
+      eventKind,
+      targetReadyCount,
+      now: input.now,
+      retryAt: quota.resetAt ?? new Date(startOfUtcDay(input.now).getTime() + 24 * 60 * 60 * 1_000).toISOString(),
+    });
     return {
-      status: "not-queued",
+      status: "deferred",
       reason: "quota-exceeded",
-      message: quota.message,
+      skillId: input.skillId,
+      generationJobId: deferredJob.id,
       readyExerciseCount,
       targetReadyCount,
+      retryAt: deferredJob.retryAt,
+      message: `Exercise preparation is deferred until ${deferredJob.retryAt} UTC. Existing verified exercises remain available.`,
     };
   }
 
@@ -1078,6 +1162,57 @@ function withoutDeferredEvent(
   const publicResult = { ...result };
   delete publicResult.deferredEvent;
   return publicResult;
+}
+
+async function createDeferredRefillMarker(input: {
+  prisma: Pick<Prisma.TransactionClient, "generationJob">;
+  userId: string;
+  skillId: string;
+  kind: GenerationJobKind;
+  promptVersion: string;
+  requestedCount: number;
+  eventKind: DeferredExerciseRefillEvent["kind"];
+  targetReadyCount: number;
+  now: Date;
+  retryAt: string;
+}): Promise<{ id: string; retryAt: string }> {
+  const idempotencyKey = `${input.kind}:${input.skillId}:${REFILL_DEFERRED_CHECKPOINT}:${startOfUtcDay(input.now).toISOString()}`;
+  const marker = await input.prisma.generationJob.upsert({
+    where: {
+      userId_idempotencyKey: {
+        userId: input.userId,
+        idempotencyKey,
+      },
+    },
+    create: {
+      userId: input.userId,
+      skillId: input.skillId,
+      kind: input.kind,
+      status: GenerationJobStatus.FAILED,
+      stage: GenerationJobStage.FAILED,
+      checkpoint: REFILL_DEFERRED_CHECKPOINT,
+      provider: GEMINI_PROVIDER,
+      model: process.env.GEMINI_MODEL?.trim() || DEFAULT_GEMINI_MODEL,
+      promptVersion: input.promptVersion,
+      idempotencyKey,
+      requestedCount: input.requestedCount,
+      failureCategory: GenerationFailureCategory.COST_LIMIT,
+      errorMessage: `Exercise preparation is deferred until ${input.retryAt} UTC.`,
+      stageMetrics: {
+        refillDeferral: {
+          kind: input.eventKind,
+          targetReadyCount: input.targetReadyCount,
+          requestedAt: input.now.toISOString(),
+          retryAt: input.retryAt,
+        },
+      },
+      createdAt: input.now,
+      completedAt: input.now,
+    },
+    update: {},
+    select: { id: true },
+  });
+  return { id: marker.id, retryAt: input.retryAt };
 }
 
 async function createNewGenerationJob({

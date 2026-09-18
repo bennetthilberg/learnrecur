@@ -6,7 +6,6 @@ import {
   AgentOperationItemStatus,
   AgentOperationKind,
   AgentOperationStatus,
-  GenerationJobKind,
   Prisma,
   SkillDraftBatchItemStatus,
   SkillStatus,
@@ -24,10 +23,14 @@ import {
 } from "@/lib/skills/similarity";
 import { getPrisma } from "@/lib/prisma";
 import {
-  ALPHA_ACTIVE_SKILLS,
-  ALPHA_SKILL_ACTIVATIONS_PER_DAY,
-} from "@/lib/usage-limits";
-import { reduceAgentOperationStatus } from "@/lib/agent-access/operations";
+  MAX_IMPORT_BATCH_ITEMS,
+  MAX_INLINE_OPERATION_ITEMS_PER_DELIVERY,
+} from "@/lib/import-limits";
+import { getSkillActivationUsage } from "@/lib/usage-limits";
+import {
+  enqueueOperation,
+  reduceAgentOperationStatus,
+} from "@/lib/agent-access/operations";
 import { completeSourceUploadDrafts } from "@/lib/skills/uploads";
 import {
   confirmMaterialPlan,
@@ -36,6 +39,12 @@ import {
   runMaterialDraftItemJob,
 } from "@/lib/materials/batches";
 import { buildAgentCandidateDuplicateKey } from "@/lib/agent-access/contracts";
+import {
+  MaterialSourceReferenceError,
+  attachMaterialSourceReferencesToSkill,
+  parseMaterialSourceReferences,
+  type MaterialSourceReference,
+} from "@/lib/materials/source-references";
 
 const AGENT_OPERATION_INCLUDE = {
   items: { orderBy: { ordinal: "asc" as const }, include: { candidates: true } },
@@ -75,6 +84,14 @@ export function classifyAgentDuplicate(match: SkillSimilarityMatch | null) {
     confidence: match.confidence,
     skillId: match.skill.id,
   };
+}
+
+export function selectAgentOperationItemsForDelivery<
+  T extends { status: AgentOperationItemStatus },
+>(items: readonly T[]): T[] {
+  return items
+    .filter((item) => item.status === AgentOperationItemStatus.QUEUED)
+    .slice(0, MAX_INLINE_OPERATION_ITEMS_PER_DELIVERY);
 }
 
 export async function runAgentSkillOperationJob(input: {
@@ -147,8 +164,11 @@ export async function runAgentSkillOperationJob(input: {
 
   try {
   if (operation.kind === AgentOperationKind.MATERIAL_BATCH) {
-    await processMaterialOperation({ operation, now });
-    await reconcileAgentOperation(operation.id, input.userId, now);
+    const shouldReconcile = await processMaterialOperation({ operation, now });
+    if (shouldReconcile) {
+      await reconcileAgentOperation(operation.id, input.userId, now);
+      await queueAgentOperationContinuation(operation.id, input.userId);
+    }
     return { status: "processed" as const, operationId: operation.id };
   }
 
@@ -157,7 +177,8 @@ export async function runAgentSkillOperationJob(input: {
   } else if (operation.kind === AgentOperationKind.TEXT_SOURCE) {
     await processTextOperation({ operation, now });
   } else {
-    const candidates = operation.items.flatMap((item) => {
+    const itemsForDelivery = selectAgentOperationItemsForDelivery(operation.items);
+    const candidates = itemsForDelivery.flatMap((item) => {
       const snapshot = parseSkillSnapshot(item.skillSnapshot);
       return snapshot ? [{ key: item.id, title: snapshot.title, objective: snapshot.objective }] : [];
     });
@@ -167,8 +188,7 @@ export async function runAgentSkillOperationJob(input: {
       limitPerCandidate: 3,
     });
     const byItem = new Map(similarities.candidates.map((candidate) => [candidate.key, candidate]));
-    for (const item of operation.items) {
-      if (item.status !== AgentOperationItemStatus.QUEUED) continue;
+    for (const item of itemsForDelivery) {
       if (item.createdSkillId) {
         const reserved = await reserveAgentActivation(input.userId, item.id, now);
         if (!reserved) {
@@ -185,6 +205,26 @@ export async function runAgentSkillOperationJob(input: {
       }
       const duplicate = classifyAgentDuplicate(byItem.get(item.id)?.bestMatch ?? null);
       if (duplicate.action === "reuse") {
+        let sourceReferenceOutcome: AgentSourceReferenceOutcome | null = null;
+        if (snapshot.source_refs?.length) {
+          try {
+            sourceReferenceOutcome = summarizeAgentSourceReferenceOutcome(
+              await attachMaterialSourceReferencesToSkill({
+                userId: input.userId,
+                skillId: duplicate.skillId,
+                sourceRefs: snapshot.source_refs,
+              }),
+            );
+          } catch (error) {
+            await failItem(
+              item.id,
+              input.userId,
+              sourceReferenceErrorCode(error),
+              now,
+            );
+            continue;
+          }
+        }
         await prisma.agentSkillOperationItem.update({
           where: { id: item.id },
           data: {
@@ -192,6 +232,7 @@ export async function runAgentSkillOperationJob(input: {
             resultSkillId: duplicate.skillId,
             duplicateConfidence: duplicate.confidence,
             duplicateLibraryFingerprint: similarities.duplicateLibraryFingerprint,
+            sourceReferenceOutcome: sourceReferenceOutcome ? toJson(sourceReferenceOutcome) : undefined,
             completedAt: now,
           },
         });
@@ -214,6 +255,7 @@ export async function runAgentSkillOperationJob(input: {
   }
 
   await reconcileAgentOperation(operation.id, input.userId, now);
+  await queueAgentOperationContinuation(operation.id, input.userId);
   return { status: "processed" as const, operationId: operation.id };
   } catch (error) {
     await prisma.agentSkillOperationItem.updateMany({
@@ -244,13 +286,13 @@ export async function runAgentSkillOperationJob(input: {
 async function processMaterialOperation(input: {
   operation: AgentOperationWithItems;
   now: Date;
-}) {
+}): Promise<boolean> {
   const prisma = getPrisma();
   const payload = parseRecord(input.operation.requestPayload);
   const instruction = buildMaterialOperationInstruction(payload);
   const maxSkills =
     typeof payload.maxSkills === "number" && Number.isInteger(payload.maxSkills)
-      ? Math.min(10, Math.max(1, payload.maxSkills))
+      ? Math.min(MAX_IMPORT_BATCH_ITEMS, Math.max(1, payload.maxSkills))
       : 10;
   const sectionIds = stringArray(payload.sectionIds);
   const materialId = input.operation.materialRevision?.materialId;
@@ -259,7 +301,7 @@ async function processMaterialOperation(input: {
       where: { id: input.operation.id },
       data: { status: AgentOperationStatus.FAILED, errorCode: "INVALID_MATERIAL_REQUEST", completedAt: input.now },
     });
-    return;
+    return false;
   }
   const sectionTitles = sectionIds.length
     ? await prisma.materialSection.findMany({
@@ -277,7 +319,7 @@ async function processMaterialOperation(input: {
       where: { id: input.operation.id },
       data: { status: AgentOperationStatus.FAILED, errorCode: "MATERIAL_SECTION_NOT_FOUND", completedAt: input.now },
     });
-    return;
+    return false;
   }
   const planningInstruction = boundedMaterialInstruction(
     instruction,
@@ -316,7 +358,7 @@ async function processMaterialOperation(input: {
         errorMessage: "Clarify the chapters, sections, or concepts to cover.",
       },
     });
-      return;
+      return false;
     }
     if (planning.status !== "planned") {
     await prisma.agentSkillOperation.update({
@@ -329,7 +371,7 @@ async function processMaterialOperation(input: {
         completedAt: input.now,
       },
     });
-      return;
+      return false;
     }
     batchId = planning.batchId;
     if (planning.plan.items.length > maxSkills) {
@@ -342,7 +384,7 @@ async function processMaterialOperation(input: {
         errorMessage: `Clarify a narrower scope that yields no more than ${maxSkills} skills.`,
       },
     });
-      return;
+      return false;
     }
     const confirmed = await confirmMaterialPlan({
     userId: input.operation.userId,
@@ -361,7 +403,7 @@ async function processMaterialOperation(input: {
         completedAt: input.now,
       },
     });
-      return;
+      return false;
     }
   }
 
@@ -374,7 +416,7 @@ async function processMaterialOperation(input: {
         completedAt: input.now,
       },
     });
-    return;
+    return false;
   }
   const materialItems = await prisma.skillDraftBatchItem.findMany({
     where: { batchId, userId: input.operation.userId },
@@ -416,8 +458,8 @@ async function processMaterialOperation(input: {
     orderBy: { ordinal: "asc" },
   });
   const materialByOrdinal = new Map(materialItems.map((item) => [item.ordinal, item]));
-  for (const agentItem of agentItems) {
-    if (agentItem.status !== AgentOperationItemStatus.QUEUED) continue;
+  const itemsForDelivery = selectAgentOperationItemsForDelivery(agentItems);
+  for (const agentItem of itemsForDelivery) {
     if (agentItem.createdSkillId) {
       const reserved = await reserveAgentActivation(input.operation.userId, agentItem.id, input.now);
       if (!reserved) {
@@ -499,6 +541,7 @@ async function processMaterialOperation(input: {
     });
     await activateCreatedDraft(input.operation.userId, agentItem.id, skill.id, input.now);
   }
+  return true;
 }
 
 export function buildMaterialOperationInstruction(payload: Record<string, unknown>) {
@@ -725,6 +768,32 @@ async function activateCreatedDraft(userId: string, itemId: string, skillId: str
     await failItem(itemId, userId, "DRAFT_NOT_FOUND", now);
     return;
   }
+  const operationItem = await prisma.agentSkillOperationItem.findFirst({
+    where: { id: itemId, userId, createdSkillId: skillId },
+    select: { candidateFingerprint: true, duplicateLibraryFingerprint: true, skillSnapshot: true },
+  });
+  const snapshot = parseSkillSnapshot(operationItem?.skillSnapshot);
+  let sourceReferenceOutcome: AgentSourceReferenceOutcome | null = null;
+  if (snapshot?.source_refs?.length) {
+    try {
+      sourceReferenceOutcome = summarizeAgentSourceReferenceOutcome(
+        await attachMaterialSourceReferencesToSkill({
+          userId,
+          skillId,
+          sourceRefs: snapshot.source_refs,
+        }),
+      );
+    } catch (error) {
+      await prisma.skill.deleteMany({ where: { id: skillId, userId, status: SkillStatus.DRAFT } });
+      await failItem(
+        itemId,
+        userId,
+        sourceReferenceErrorCode(error),
+        now,
+      );
+      return;
+    }
+  }
   const duplicateResult = await findSimilarSkillsForUser({
     userId,
     candidates: [{ key: itemId, skillId, title: draft.title, objective: draft.objective }],
@@ -739,6 +808,21 @@ async function activateCreatedDraft(userId: string, itemId: string, skillId: str
     duplicate.action === "reuse" ||
     (duplicate.action === "review" && !reviewItem?.duplicateOverrideApprovedAt);
   if (shouldStopForDuplicate) {
+    if (duplicate.action === "reuse" && snapshot?.source_refs?.length) {
+      try {
+        sourceReferenceOutcome = summarizeAgentSourceReferenceOutcome(
+          await attachMaterialSourceReferencesToSkill({
+            userId,
+            skillId: duplicate.skillId,
+            sourceRefs: snapshot.source_refs,
+          }),
+        );
+      } catch (error) {
+        await prisma.skill.deleteMany({ where: { id: skillId, userId, status: SkillStatus.DRAFT } });
+        await failItem(itemId, userId, sourceReferenceErrorCode(error), now);
+        return;
+      }
+    }
     await prisma.agentSkillOperationItem.update({
       where: { id: itemId },
       data: {
@@ -747,6 +831,7 @@ async function activateCreatedDraft(userId: string, itemId: string, skillId: str
         duplicateConfidence: duplicate.confidence,
         duplicateLibraryFingerprint: duplicateResult.duplicateLibraryFingerprint,
         activationReservedAt: null,
+        sourceReferenceOutcome: sourceReferenceOutcome ? toJson(sourceReferenceOutcome) : undefined,
         completedAt: duplicate.action === "reuse" ? now : null,
       },
     });
@@ -758,10 +843,6 @@ async function activateCreatedDraft(userId: string, itemId: string, skillId: str
   await prisma.agentSkillOperationItem.update({
     where: { id: itemId },
     data: { duplicateLibraryFingerprint: duplicateResult.duplicateLibraryFingerprint },
-  });
-  const operationItem = await prisma.agentSkillOperationItem.findFirst({
-    where: { id: itemId, userId, createdSkillId: skillId },
-    select: { candidateFingerprint: true, duplicateLibraryFingerprint: true },
   });
   await prisma.agentSkillOperationItem.update({
     where: { id: itemId },
@@ -851,65 +932,38 @@ async function activateCreatedDraft(userId: string, itemId: string, skillId: str
   ]);
 }
 
+/**
+ * A delivery intentionally handles only a small prefix of queued items. The
+ * remaining rows are the durable continuation cursor; enqueueing another
+ * event gives them a fresh delivery identity without replaying terminal rows.
+ */
+async function queueAgentOperationContinuation(
+  operationId: string,
+  userId: string,
+): Promise<boolean> {
+  const prisma = getPrisma();
+  const queuedCount = await prisma.agentSkillOperationItem.count({
+    where: {
+      operationId,
+      userId,
+      status: AgentOperationItemStatus.QUEUED,
+    },
+  });
+  if (queuedCount === 0) return false;
+  await enqueueOperation(userId, operationId);
+  return true;
+}
+
 export async function reserveAgentActivation(userId: string, itemId: string, now: Date) {
   const prisma = getPrisma();
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
       return await prisma.$transaction(async (tx) => {
         await tx.$queryRaw`SELECT "id" FROM "users" WHERE "id" = ${userId} FOR UPDATE`;
-        const reservations = await tx.agentSkillOperationItem.count({
-          where: {
-            userId,
-            activationReservedAt: { not: null },
-            status: {
-              in: [
-                AgentOperationItemStatus.QUEUED,
-                AgentOperationItemStatus.GENERATING,
-                AgentOperationItemStatus.VERIFYING,
-                AgentOperationItemStatus.ACTIVATING,
-              ],
-            },
-          },
-        });
-        const active = await tx.skill.count({
-          where: { userId, status: { in: [SkillStatus.ACTIVE, SkillStatus.PAUSED] } },
-        });
-        const dayStart = new Date(
-          Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
-        );
-        const [activationsToday, unclaimedReservationsToday] = await Promise.all([
-          tx.generationJob.count({
-            where: {
-              userId,
-              kind: GenerationJobKind.SKILL_ACTIVATION,
-              createdAt: { gte: dayStart },
-            },
-          }),
-          tx.agentSkillOperationItem.count({
-            where: {
-              userId,
-              activationReservedAt: { gte: dayStart },
-              OR: [
-                { createdSkillId: null },
-                {
-                  createdSkill: {
-                    generationJobs: {
-                      none: {
-                        userId,
-                        kind: GenerationJobKind.SKILL_ACTIVATION,
-                        createdAt: { gte: dayStart },
-                      },
-                    },
-                  },
-                },
-              ],
-            },
-          }),
-        ]);
+        const usage = await getSkillActivationUsage({ userId, now, prisma: tx });
         if (
-          active + reservations >= ALPHA_ACTIVE_SKILLS ||
-          activationsToday + unclaimedReservationsToday >=
-            ALPHA_SKILL_ACTIVATIONS_PER_DAY
+          usage.countedSkillCount >= usage.activeSkillLimit ||
+          usage.activationsUsedToday >= usage.dailyActivationLimit
         ) {
           return false;
         }
@@ -976,7 +1030,38 @@ type SkillSnapshot = {
   exerciseConstraints: string;
   tags: string[];
   collection?: string;
+  source_refs?: MaterialSourceReference[];
 };
+
+export type AgentSourceReferenceOutcome = {
+  status: "attached" | "merged" | "preserved";
+  attachedCount: number;
+  mergedCount: number;
+  unchangedCount: number;
+};
+
+export function summarizeAgentSourceReferenceOutcome(input: {
+  attachedCount: number;
+  mergedCount: number;
+  unchangedCount: number;
+}): AgentSourceReferenceOutcome {
+  return {
+    status: input.attachedCount > 0
+      ? "attached"
+      : input.mergedCount > 0
+        ? "merged"
+        : "preserved",
+    attachedCount: input.attachedCount,
+    mergedCount: input.mergedCount,
+    unchangedCount: input.unchangedCount,
+  };
+}
+
+function sourceReferenceErrorCode(error: unknown) {
+  return error instanceof MaterialSourceReferenceError
+    ? `SOURCE_REFERENCE_${error.code}`
+    : "SOURCE_REFERENCE_INVALID";
+}
 
 export function buildSkillDraftInputFromSnapshot(snapshot: SkillSnapshot) {
   return {
@@ -1000,6 +1085,14 @@ export function parseSkillSnapshot(value: unknown): SkillSnapshot | null {
   const textPolicy = textPolicySchema.nullable().optional().safeParse(record.textPolicy);
   if (!practicePreference.success || !textPolicy.success ||
       (record.alreadyStudied !== undefined && typeof record.alreadyStudied !== "boolean")) return null;
+  let sourceRefs: MaterialSourceReference[] | undefined;
+  if (record.source_refs !== undefined) {
+    try {
+      sourceRefs = parseMaterialSourceReferences(record.source_refs);
+    } catch {
+      return null;
+    }
+  }
   return {
     ...(typeof record.alreadyStudied === "boolean" ? {alreadyStudied:record.alreadyStudied} : {}),
     ...(practicePreference.data !== undefined ? {practicePreference:practicePreference.data} : {}),
@@ -1011,6 +1104,7 @@ export function parseSkillSnapshot(value: unknown): SkillSnapshot | null {
     exerciseConstraints: typeof record.exerciseConstraints === "string" ? record.exerciseConstraints : "",
     tags: stringArray(record.tags),
     collection: typeof record.collection === "string" ? record.collection : undefined,
+    ...(sourceRefs !== undefined ? { source_refs: sourceRefs } : {}),
   };
 }
 

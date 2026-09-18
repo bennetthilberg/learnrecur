@@ -22,6 +22,7 @@ import {
 } from "@/lib/skills/lifecycle";
 import { getPrisma } from "@/lib/prisma";
 import { SCHEDULER_NAME, SCHEDULER_VERSION } from "@/lib/scheduling";
+import { ALPHA_ACTIVE_SKILLS } from "@/lib/usage-limits";
 
 import {
   createChoiceExercise,
@@ -326,5 +327,45 @@ describeDatabase("skill lifecycle controls", () => {
       previousStatus: SkillStatus.ARCHIVED,
       skill: { status: SkillStatus.DRAFT },
     });
+  });
+
+  it("does not restore a practice-ready archived skill beyond the shared cap", async () => {
+    const userId = await createUser("restore_cap");
+    await prisma.skill.createMany({
+      data: Array.from({ length: ALPHA_ACTIVE_SKILLS }, (_, index) => ({
+        userId,
+        title: `Counted restore cap skill ${index + 1}`,
+        status: SkillStatus.ACTIVE,
+      })),
+    });
+    const archived = await createSkillFixture(prisma, {
+      userId,
+      title: "Archived restore cap skill",
+      status: SkillStatus.ACTIVE,
+    });
+    await createChoiceExercise({ prisma, userId, skillId: archived.id });
+    await prisma.skill.update({
+      where: { id: archived.id },
+      data: { status: SkillStatus.ARCHIVED },
+    });
+
+    await expect(
+      restoreArchivedSkill({
+        userId,
+        skillId: archived.id,
+        now,
+      }),
+    ).resolves.toMatchObject({
+      status: "limited",
+      reason: "active-skill-limit",
+      limit: ALPHA_ACTIVE_SKILLS,
+      remaining: 0,
+    });
+    await expect(
+      prisma.skill.findUniqueOrThrow({
+        where: { id: archived.id },
+        select: { status: true },
+      }),
+    ).resolves.toEqual({ status: SkillStatus.ARCHIVED });
   });
 });

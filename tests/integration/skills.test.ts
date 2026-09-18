@@ -88,6 +88,7 @@ import {
   buildSkillDuplicateLibraryFingerprint,
   buildSkillDuplicateReviewFingerprint,
 } from "@/lib/skills/similarity";
+import { ALPHA_ACTIVE_SKILLS } from "@/lib/usage-limits";
 import { createInitialSkillSchedule } from "@/lib/scheduling";
 
 const runDatabaseTests = process.env.RUN_DATABASE_TESTS === "1";
@@ -1580,7 +1581,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
   it("enforces the active-skill cap when two activations finish together", async () => {
     const userId = await createUser("activate_concurrent_cap");
     await prisma.skill.createMany({
-      data: Array.from({ length: 99 }, (_, index) => ({
+      data: Array.from({ length: ALPHA_ACTIVE_SKILLS - 1 }, (_, index) => ({
         userId,
         title: `Active cap fixture ${index + 1}`,
         tags: [],
@@ -1611,19 +1612,12 @@ describeDatabase("skill drafts and Gemini activation", () => {
     );
 
     let startedCount = 0;
-    let signalBothStarted: (() => void) | undefined;
-    const bothStarted = new Promise<void>((resolve) => {
-      signalBothStarted = resolve;
-    });
     let releaseGenerators: (() => void) | undefined;
     const generatorsCanFinish = new Promise<void>((resolve) => {
       releaseGenerators = resolve;
     });
     const generator: ChoiceExerciseGenerator = async () => {
       startedCount += 1;
-      if (startedCount === 2) {
-        signalBothStarted?.();
-      }
       await generatorsCanFinish;
       return successfulGenerator({
         skill: {
@@ -1651,7 +1645,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
         }),
       ),
     );
-    await bothStarted;
+    await vi.waitFor(() => expect(startedCount).toBe(1));
     releaseGenerators?.();
     const activationResults = await activationResultsPromise;
 
@@ -1669,7 +1663,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
           status: { in: [SkillStatus.ACTIVE, SkillStatus.PAUSED] },
         },
       }),
-    ).resolves.toBe(100);
+    ).resolves.toBe(ALPHA_ACTIVE_SKILLS);
   });
 
   it("retries draft activation with a new job after superseding a stale worker", async () => {
@@ -6401,6 +6395,89 @@ describeDatabase("skill drafts and Gemini activation", () => {
       reason: "exact-input-locked",
     });
     expect(fake.exactInputEvents).toHaveLength(0);
+  });
+
+  it("records refill quota deferral durably and retries it after the UTC reset", async () => {
+    const userId = await createUser("refill_quota_deferred");
+    const skill = await createActiveSkillFixture({
+      userId,
+      title: "Deferred refill skill",
+    });
+    const fake = createFakeRefillSender();
+    await prisma.generationJob.createMany({
+      data: Array.from({ length: 50 }, (_, index) => ({
+        userId,
+        skillId: skill.id,
+        kind: GenerationJobKind.CHOICE_EXERCISE_GENERATION,
+        status: GenerationJobStatus.SUCCEEDED,
+        stage: "COMPLETE" as const,
+        provider: "test",
+        model: "test-gemini",
+        promptVersion: "test-refill",
+        idempotencyKey: `refill-quota-${index}`,
+        requestedCount: 1,
+        acceptedCount: 1,
+        createdAt: now,
+        completedAt: now,
+      })),
+    });
+
+    const first = await queueChoiceExerciseRefillForSkill({
+      userId,
+      skillId: skill.id,
+      now,
+      sender: fake.sender,
+      model: "test-gemini",
+    });
+    expect(first).toMatchObject({
+      status: "deferred",
+      reason: "quota-exceeded",
+      readyExerciseCount: 0,
+      targetReadyCount: DEFAULT_READY_EXERCISE_TARGET,
+      retryAt: "2026-06-05T00:00:00.000Z",
+    });
+    if (first.status !== "deferred") throw new Error("expected durable deferral");
+    await expect(
+      prisma.generationJob.findUniqueOrThrow({
+        where: { id: first.generationJobId },
+        select: { status: true, stage: true, checkpoint: true, failureCategory: true },
+      }),
+    ).resolves.toEqual({
+      status: GenerationJobStatus.FAILED,
+      stage: "FAILED",
+      checkpoint: "deferred-quota",
+      failureCategory: "COST_LIMIT",
+    });
+
+    const duplicate = await queueChoiceExerciseRefillForSkill({
+      userId,
+      skillId: skill.id,
+      now,
+      sender: fake.sender,
+      model: "test-gemini",
+    });
+    expect(duplicate).toMatchObject({
+      status: "deferred",
+      generationJobId: first.generationJobId,
+    });
+    await expect(
+      prisma.generationJob.count({
+        where: { userId, skillId: skill.id, checkpoint: "deferred-quota" },
+      }),
+    ).resolves.toBe(1);
+    expect(fake.choiceEvents).toHaveLength(0);
+
+    const retried = expectQueued(
+      await queueChoiceExerciseRefillForSkill({
+        userId,
+        skillId: skill.id,
+        now: new Date("2026-06-05T00:01:00.000Z"),
+        sender: fake.sender,
+        model: "test-gemini",
+      }),
+    );
+    expect(retried.generationJobId).not.toBe(first.generationJobId);
+    expect(fake.choiceEvents).toHaveLength(1);
   });
 
   it("enforces one pending or running generation job per user skill and kind", async () => {

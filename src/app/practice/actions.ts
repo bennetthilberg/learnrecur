@@ -682,6 +682,9 @@ function formatFlagRefillMessage(refill: PracticeFlagRefillResult): string {
   if (refill.status === "queued") {
     return "A replacement exercise is being prepared.";
   }
+  if (refill.status === "deferred") {
+    return refill.message;
+  }
 
   switch (refill.reason) {
     case "already-at-target":

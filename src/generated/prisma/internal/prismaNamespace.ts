@@ -3447,6 +3447,10 @@ export const ExerciseAttemptScalarFieldEnum = {
   ratingPolicyVersion: 'ratingPolicyVersion',
   practiceContext: 'practiceContext',
   answerPolicySnapshot: 'answerPolicySnapshot',
+  evidenceCorrectionStatus: 'evidenceCorrectionStatus',
+  evidenceCorrectionNote: 'evidenceCorrectionNote',
+  evidenceCorrectionAt: 'evidenceCorrectionAt',
+  evidenceCorrectionIncidentKey: 'evidenceCorrectionIncidentKey',
   id: 'id',
   userId: 'userId',
   skillId: 'skillId',
@@ -3494,6 +3498,10 @@ export const ReviewLogScalarFieldEnum = {
   schedulerVersion: 'schedulerVersion',
   desiredRetention: 'desiredRetention',
   schedulerParameters: 'schedulerParameters',
+  evidenceCorrectionStatus: 'evidenceCorrectionStatus',
+  evidenceCorrectionNote: 'evidenceCorrectionNote',
+  evidenceCorrectionAt: 'evidenceCorrectionAt',
+  evidenceCorrectionIncidentKey: 'evidenceCorrectionIncidentKey',
   createdAt: 'createdAt'
 } as const
 
@@ -3517,10 +3525,17 @@ export const ExerciseFlagScalarFieldEnum = {
   evidenceCorrectionAction: 'evidenceCorrectionAction',
   evidenceCorrectionStatus: 'evidenceCorrectionStatus',
   practiceEvidenceNeedsCorrection: 'practiceEvidenceNeedsCorrection',
+  affectedAttemptCount: 'affectedAttemptCount',
   affectedReviewCount: 'affectedReviewCount',
+  practiceOnlyAttemptCount: 'practiceOnlyAttemptCount',
   correctionStartedAt: 'correctionStartedAt',
   correctionCompletedAt: 'correctionCompletedAt',
   incidentKey: 'incidentKey',
+  replayedReviewCount: 'replayedReviewCount',
+  quarantinedExerciseCount: 'quarantinedExerciseCount',
+  resolutionIdempotencyKey: 'resolutionIdempotencyKey',
+  resolutionPayloadHash: 'resolutionPayloadHash',
+  updatedAt: 'updatedAt',
   createdAt: 'createdAt'
 } as const
 
@@ -3775,6 +3790,7 @@ export const AgentSkillOperationItemScalarFieldEnum = {
   duplicateLibraryFingerprint: 'duplicateLibraryFingerprint',
   duplicateConfidence: 'duplicateConfidence',
   duplicateOverrideApprovedAt: 'duplicateOverrideApprovedAt',
+  sourceReferenceOutcome: 'sourceReferenceOutcome',
   createdSkillId: 'createdSkillId',
   resultSkillId: 'resultSkillId',
   errorCode: 'errorCode',
@@ -4314,6 +4330,20 @@ export type ListEnumGenerationAuditDecisionFieldRefInput<$PrismaModel> = FieldRe
 
 
 /**
+ * Reference to a field of type 'ExerciseEvidenceCorrectionStatus'
+ */
+export type EnumExerciseEvidenceCorrectionStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ExerciseEvidenceCorrectionStatus'>
+
+
+
+/**
+ * Reference to a field of type 'ExerciseEvidenceCorrectionStatus[]'
+ */
+export type ListEnumExerciseEvidenceCorrectionStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ExerciseEvidenceCorrectionStatus[]'>
+
+
+
+/**
  * Reference to a field of type 'ExerciseAttemptResult'
  */
 export type EnumExerciseAttemptResultFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ExerciseAttemptResult'>
@@ -4394,20 +4424,6 @@ export type EnumExerciseEvidenceCorrectionActionFieldRefInput<$PrismaModel> = Fi
  * Reference to a field of type 'ExerciseEvidenceCorrectionAction[]'
  */
 export type ListEnumExerciseEvidenceCorrectionActionFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ExerciseEvidenceCorrectionAction[]'>
-    
-
-
-/**
- * Reference to a field of type 'ExerciseEvidenceCorrectionStatus'
- */
-export type EnumExerciseEvidenceCorrectionStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ExerciseEvidenceCorrectionStatus'>
-    
-
-
-/**
- * Reference to a field of type 'ExerciseEvidenceCorrectionStatus[]'
- */
-export type ListEnumExerciseEvidenceCorrectionStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ExerciseEvidenceCorrectionStatus[]'>
     
 
 
@@ -4896,4 +4912,3 @@ export type PrismaAction =
  * `PrismaClient` proxy available in interactive transactions.
  */
 export type TransactionClient = Omit<DefaultPrismaClient, runtime.ITXClientDenyList>
-

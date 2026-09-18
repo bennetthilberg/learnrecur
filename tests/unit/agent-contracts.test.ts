@@ -125,15 +125,24 @@ describe("agent MCP contracts", () => {
         items: [{ client_reference: "ser-estar", skill }],
       }),
     ).toThrow();
-    expect(() =>
+    expect(
       agentAddFromSpecsSchema.parse({
         idempotency_key: "spec-batch-001",
         items: Array.from({ length: 11 }, (_, index) => ({
           client_reference: `skill-${index}`,
           skill,
         })),
+      }).items,
+    ).toHaveLength(11);
+    expect(() =>
+      agentAddFromSpecsSchema.parse({
+        idempotency_key: "spec-batch-001",
+        items: Array.from({ length: 26 }, (_, index) => ({
+          client_reference: `skill-${index}`,
+          skill,
+        })),
       }),
-    ).toThrow();
+    ).toThrow(/25/);
   });
 
   it("requires unique client references and caps candidates", () => {
@@ -351,10 +360,10 @@ describe("agent MCP contracts", () => {
         idempotency_key: "setup-material-over-limit",
         skills: [
           { kind: "reuse", skill_id: "skill-1" },
-          { ...materialSkill, max_skills: 10 },
+          { ...materialSkill, max_skills: 25 },
         ],
       }),
-    ).toThrow(/at most 10 skills/i);
+    ).toThrow(/at most 25 skills/i);
 
     const parsed = agentSetupPreviewSchema.parse({
       idempotency_key: "setup-plan-001",

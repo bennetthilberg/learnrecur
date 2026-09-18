@@ -8,7 +8,12 @@ const inputSchema = z.object({
   skillId: z.string().max(200).optional(),
   collectionId: z.string().max(200).optional(),
   incorrectOnly: z.boolean().optional(),
-  cursor: z.object({ reviewedAt: z.iso.datetime(), id: z.string().min(1).max(200) }),
+  mode: z.enum(["scheduled", "practice-only"]).optional(),
+  cursor: z.object({
+    mode: z.enum(["scheduled", "practice-only"]),
+    reviewedAt: z.iso.datetime(),
+    id: z.string().min(1).max(200),
+  }),
 });
 export async function loadMoreHistoryAction(input: unknown) {
   const { userId } = await auth.protect();

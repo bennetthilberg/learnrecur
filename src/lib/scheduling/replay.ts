@@ -4,7 +4,11 @@ import {
   type SkillScheduleFields,
 } from "@/lib/scheduling";
 
-export type PracticeEvidenceKind = "independent" | "assisted" | "invalidated";
+export type PracticeEvidenceKind =
+  | "independent"
+  | "assisted"
+  | "invalidated"
+  | "practice-only";
 
 export type ScheduleReplayReview = {
   reviewId: string;

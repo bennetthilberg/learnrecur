@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { SkillStatus } from "@/generated/prisma/client";
+import {
+  AgentOperationItemStatus,
+  SkillStatus,
+} from "@/generated/prisma/client";
 import {
   buildMaterialOperationInstruction,
   buildSkillDraftInputFromSnapshot,
@@ -8,6 +11,8 @@ import {
   isMaterialLibraryOperation,
   parseSkillSnapshot,
   normalizeAgentItemErrorCode,
+  selectAgentOperationItemsForDelivery,
+  summarizeAgentSourceReferenceOutcome,
 } from "@/lib/agent-access/worker";
 
 const baseMatch = {
@@ -25,6 +30,22 @@ const baseMatch = {
     contentFingerprint: "fingerprint",
   },
 };
+
+describe("selectAgentOperationItemsForDelivery", () => {
+  it("keeps only five queued items and leaves terminal rows for idempotent retries", () => {
+    const items = [
+      { id: "done", status: AgentOperationItemStatus.ACTIVE },
+      ...Array.from({ length: 6 }, (_, index) => ({
+        id: `queued-${index + 1}`,
+        status: AgentOperationItemStatus.QUEUED,
+      })),
+    ];
+
+    expect(selectAgentOperationItemsForDelivery(items)).toEqual(
+      items.slice(1, 6),
+    );
+  });
+});
 
 describe("classifyAgentDuplicate", () => {
   it("reuses exact matches without spending quota", () => {
@@ -62,6 +83,16 @@ describe("classifyAgentDuplicate", () => {
 
   it("creates only when no match exists", () => {
     expect(classifyAgentDuplicate(null)).toEqual({ action: "create", confidence: null });
+  });
+});
+
+describe("summarizeAgentSourceReferenceOutcome", () => {
+  it.each([
+    [{ attachedCount: 1, mergedCount: 0, unchangedCount: 0 }, "attached"],
+    [{ attachedCount: 0, mergedCount: 1, unchangedCount: 0 }, "merged"],
+    [{ attachedCount: 0, mergedCount: 0, unchangedCount: 2 }, "preserved"],
+  ] as const)("reports %s as %s", (counts, status) => {
+    expect(summarizeAgentSourceReferenceOutcome(counts)).toMatchObject({ ...counts, status });
   });
 });
 

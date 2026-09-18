@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
+import { MAX_SKILLS_PER_BATCH } from "@/lib/materials/contracts";
 import {
   confirmMaterialPlan,
   excludeMaterialDraftItem,
@@ -19,7 +20,10 @@ import { ensureAuthenticatedDatabaseUser } from "@/lib/users";
 
 const automaticRepairInputSchema = z.strictObject({
   batchId: z.string().trim().min(1).max(64),
-  itemIds: z.array(z.string().trim().min(1).max(64)).min(1).max(10),
+  itemIds: z
+    .array(z.string().trim().min(1).max(64))
+    .min(1)
+    .max(MAX_SKILLS_PER_BATCH),
 });
 
 const useExistingDecisionInputSchema = z.strictObject({

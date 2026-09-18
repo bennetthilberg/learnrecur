@@ -14,6 +14,7 @@ import {
   getPracticeHistoryPage,
   getSkillPracticeHistory,
 } from "@/lib/practice/history";
+import { commitPracticeOnlyAttemptInTransaction } from "@/lib/practice";
 import { getPrisma } from "@/lib/prisma";
 
 import {
@@ -362,6 +363,52 @@ describeDatabase("practice history read model", () => {
     expect((await getPracticeHistoryPage({ ...filters, userId: other, cursor: first.nextCursor! })).reviews).toEqual([]);
     expect((await getPracticeHistoryPage({ ...filters, skillId: "missing" })).reviews).toEqual([]);
     expect((await getPracticeHistoryPage({ ...filters, collectionId: "missing" })).reviews).toEqual([]);
+  });
+
+  it("returns practice-only exposures only when explicitly requested and keeps them unscheduled", async () => {
+    const userId = await createUser("practice_only");
+    const fixture = await createReviewedAttempt({
+      userId,
+      label: "practice-only",
+      reviewedAt: new Date("2026-06-05T12:00:00.000Z"),
+    });
+    await prisma.skill.update({
+      where: { id: fixture.skill.id },
+      data: { firstIntroducedAt: new Date("2026-06-05T12:00:00.000Z") },
+    });
+    const practiceOnly = await prisma.$transaction((tx) => commitPracticeOnlyAttemptInTransaction(tx, {
+      userId,
+      exerciseId: fixture.exercise.id,
+      expectedSkillId: fixture.skill.id,
+      attemptId: `${runId}_practice_only_attempt`,
+      submittedAnswer: "right",
+      now: new Date("2026-06-06T12:00:00.000Z"),
+      mixedReview: true,
+      reducedRuleCues: false,
+      sessionContext: {
+        sessionId: `${runId}_practice_only_session`,
+        sessionMode: "PRACTICE_ONLY",
+        exposure: "PRACTICE_ONLY",
+      },
+    }));
+    expect(practiceOnly.status).toBe("committed");
+
+    const scheduledHistory = await getPracticeHistory({ userId, now });
+    const practiceHistory = await getPracticeHistory({ userId, now, mode: "practice-only" });
+    expect(scheduledHistory.reviews).toHaveLength(1);
+    expect(scheduledHistory.reviews[0]?.eventKind).toBe("scheduled");
+    expect(practiceHistory.reviews).toHaveLength(1);
+    expect(practiceHistory.reviews[0]).toMatchObject({
+      id: `${runId}_practice_only_attempt`,
+      eventKind: "practice-only",
+      finalRating: null,
+      previousDueAt: null,
+      nextDueAt: null,
+    });
+    expect(practiceHistory.reviews[0]?.practiceContext).toMatchObject({
+      sessionMode: "PRACTICE_ONLY",
+      exposure: "PRACTICE_ONLY",
+    });
   });
 
 });

@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { MAX_IMPORT_BATCH_ITEMS } from "@/lib/import-limits";
 import {
   MAX_MATERIAL_PDF_BYTES,
   MAX_MATERIAL_PDF_FILENAME_LENGTH,
@@ -18,7 +19,7 @@ export const MATERIAL_SCOPE_PLAN_VERSION = 1 as const;
 export const MAX_MATERIAL_PDF_PAGES = 1_000;
 export const MAX_WEBSITE_REVISION_BYTES = 50 * 1024 * 1024;
 export const MAX_WEBSITE_REVISION_PAGES = 250;
-export const MAX_SKILLS_PER_BATCH = 10;
+export const MAX_SKILLS_PER_BATCH = MAX_IMPORT_BATCH_ITEMS;
 
 const identifierSchema = z.string().trim().min(1).max(200);
 const uniqueIdentifiersSchema = (maximum: number) =>

@@ -1,5 +1,5 @@
 import "server-only";
-import type { Prisma } from "@/generated/prisma/client";
+import { ExerciseEvidenceCorrectionStatus, type Prisma } from "@/generated/prisma/client";
 import { getPrisma } from "@/lib/prisma";
 import { MAX_RECENT_EXERCISES_CONSIDERED } from "./exercise-planning";
 import {
@@ -24,6 +24,7 @@ export async function loadGenerationRecentEvidence(input: {
         reviewedAt: { lte: input.now },
         exerciseAttempt: {
           result: { in: ["CORRECT", "INCORRECT"] },
+          evidenceCorrectionStatus: ExerciseEvidenceCorrectionStatus.NOT_REQUIRED,
           exercise: { flags: { none: { adjudicationStatus: "CONFIRMED" } } },
         },
       },

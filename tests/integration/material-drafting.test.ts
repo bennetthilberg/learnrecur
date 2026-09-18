@@ -56,8 +56,8 @@ import {
 } from "@/lib/skills/similarity";
 import type { SourceObjectStorage } from "@/lib/storage/s3";
 import {
-  ALPHA_ACTIVE_SKILLS,
   ALPHA_SKILL_ACTIVATIONS_PER_DAY,
+  getSkillActivationUsage,
 } from "@/lib/usage-limits";
 
 const runDatabaseTests = process.env.RUN_DATABASE_TESTS === "1";
@@ -5553,9 +5553,7 @@ describeDatabase("material multi-skill drafting", () => {
           promptVersion: "skill-mcq-v0",
           requestedCount: 5,
           errorMessage: "retry quota fixture",
-          createdAt: new Date(
-            `2032-02-05T11:${String(index).padStart(2, "0")}:00.000Z`,
-          ),
+          createdAt: new Date(retryDayStart.getTime() + (index + 1) * 60_000),
         },
       });
     }
@@ -5575,7 +5573,7 @@ describeDatabase("material multi-skill drafting", () => {
       status: "limited",
       code: "daily-activation-limit",
       message:
-        "No activation attempts remain today. Try this draft again after 00:00 UTC.",
+        "No activation attempts remain today. Try this draft again after 2032-02-06T00:00:00.000Z UTC.",
     });
     expect(retrySender).not.toHaveBeenCalled();
     await expect(
@@ -5648,7 +5646,11 @@ describeDatabase("material multi-skill drafting", () => {
         createdAt: { gte: dayStart },
       },
     });
-    for (let index = existingCount; index < 9; index += 1) {
+    for (
+      let index = existingCount;
+      index < ALPHA_SKILL_ACTIVATIONS_PER_DAY - 1;
+      index += 1
+    ) {
       const skill = await prisma.skill.create({
         data: {
           userId,
@@ -5668,7 +5670,7 @@ describeDatabase("material multi-skill drafting", () => {
           promptVersion: "skill-mcq-v0",
           requestedCount: 5,
           errorMessage: "quota fixture",
-          createdAt: new Date(`2030-01-15T10:${String(index).padStart(2, "0")}:00.000Z`),
+          createdAt: new Date(dayStart.getTime() + (index + 1) * 60_000),
         },
       });
     }
@@ -5697,7 +5699,7 @@ describeDatabase("material multi-skill drafting", () => {
           createdAt: { gte: dayStart },
         },
       }),
-    ).resolves.toBe(10);
+    ).resolves.toBe(ALPHA_SKILL_ACTIVATIONS_PER_DAY);
   });
 
   it("skips a ready batch item whose skill was already activated elsewhere", async () => {
@@ -5770,6 +5772,7 @@ describeDatabase("material multi-skill drafting", () => {
   });
 
   it("rechecks active-skill capacity before consuming a queued reservation", async () => {
+    await resetActivationCapacityFixtures();
     const ready = await createReadyBatch([
       {
         key: "queued-slot-recheck",
@@ -5779,6 +5782,20 @@ describeDatabase("material multi-skill drafting", () => {
         evidenceChunkIds: [directChunkId],
       },
     ]);
+    const usage = await getSkillActivationUsage({
+      userId,
+      now: new Date("2026-07-12T12:01:00.000Z"),
+      prisma,
+    });
+    const fillerPrefix = `Queued slot recheck filler ${randomUUID()}`;
+    await prisma.skill.createMany({
+      data: Array.from({ length: Math.max(0, usage.activeSkillLimit - usage.countedSkillCount) }, (_, index) => ({
+        userId,
+        title: `${fillerPrefix} ${index}`,
+        tags: [],
+        status: SkillStatus.ARCHIVED,
+      })),
+    });
     const events: MaterialBatchActivationEvent[] = [];
     expect(
       await queueMaterialBatchActivation({
@@ -5792,17 +5809,9 @@ describeDatabase("material multi-skill drafting", () => {
         },
       }),
     ).toMatchObject({ status: "queued" });
-    const activeSkillCount = await prisma.skill.count({
-      where: { userId, status: { in: [SkillStatus.ACTIVE, SkillStatus.PAUSED] } },
-    });
-    const fillerPrefix = `Queued slot recheck filler ${randomUUID()}`;
-    await prisma.skill.createMany({
-      data: Array.from({ length: Math.max(0, ALPHA_ACTIVE_SKILLS - activeSkillCount) }, (_, index) => ({
-        userId,
-        title: `${fillerPrefix} ${index}`,
-        tags: [],
-        status: SkillStatus.ACTIVE,
-      })),
+    await prisma.skill.updateMany({
+      where: { userId, title: { startsWith: fillerPrefix } },
+      data: { status: SkillStatus.ACTIVE },
     });
     const generateChoiceExercises = vi.fn(async () => ({
       exercises: [generatedChoiceExercise(31), generatedChoiceExercise(32), generatedChoiceExercise(33)],
@@ -5829,6 +5838,7 @@ describeDatabase("material multi-skill drafting", () => {
   });
 
   it("reserves active-skill slots for queued activations and retry attempts", async () => {
+    await resetActivationCapacityFixtures();
     const first = await createReadyBatch([
       {
         key: "active-slot-first",
@@ -5855,12 +5865,14 @@ describeDatabase("material multi-skill drafting", () => {
         errorMessage: "released before active-slot test",
       },
     });
-    const activeSkillCount = await prisma.skill.count({
-      where: { userId, status: { in: [SkillStatus.ACTIVE, SkillStatus.PAUSED] } },
+    const usage = await getSkillActivationUsage({
+      userId,
+      now: new Date("2026-07-11T12:00:00.000Z"),
+      prisma,
     });
     await prisma.skill.createMany({
       data: Array.from(
-        { length: Math.max(0, ALPHA_ACTIVE_SKILLS - 1 - activeSkillCount) },
+        { length: Math.max(0, usage.activeSkillLimit - 1 - usage.countedSkillCount) },
         (_, index) => ({
           userId,
           title: `Active slot filler ${index}`,
@@ -5899,6 +5911,10 @@ describeDatabase("material multi-skill drafting", () => {
         errorCode: "ACTIVATION_RETRYABLE_TEST_FAILURE",
         errorMessage: "retry fixture",
       },
+    });
+    await prisma.generationJob.update({
+      where: { id: firstEvents[0].generationJobId },
+      data: { status: GenerationJobStatus.FAILED, completedAt: new Date() },
     });
     expect(
       await queueMaterialBatchActivation({
@@ -5945,6 +5961,30 @@ describeDatabase("material multi-skill drafting", () => {
       skill: { status: SkillStatus.DRAFT },
     });
   });
+
+  async function resetActivationCapacityFixtures() {
+    await prisma.skill.updateMany({
+      where: { userId, status: { in: [SkillStatus.ACTIVE, SkillStatus.PAUSED] } },
+      data: { status: SkillStatus.ARCHIVED },
+    });
+    await prisma.skillDraftBatchItem.updateMany({
+      where: { userId, status: SkillDraftBatchItemStatus.ACTIVATING },
+      data: {
+        status: SkillDraftBatchItemStatus.FAILED,
+        generationClaimId: null,
+        errorCode: "ACTIVATION_CAPACITY_TEST_CLEANUP",
+        errorMessage: "released before active-capacity test",
+      },
+    });
+    await prisma.generationJob.updateMany({
+      where: {
+        userId,
+        kind: GenerationJobKind.SKILL_ACTIVATION,
+        status: { in: [GenerationJobStatus.PENDING, GenerationJobStatus.RUNNING] },
+      },
+      data: { status: GenerationJobStatus.FAILED, completedAt: new Date() },
+    });
+  }
 
   it("resynchronizes a failed batch item whose skill became active elsewhere", async () => {
     const ready = await createReadyBatch([

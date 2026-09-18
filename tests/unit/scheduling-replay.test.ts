@@ -46,6 +46,13 @@ describe("replayIndependentScheduleEvidence", () => {
           evidenceKind: "invalidated",
         },
         {
+          reviewId: "review-practice-only",
+          attemptId: "attempt-practice-only",
+          reviewedAt: new Date("2026-01-03T12:02:00.000Z"),
+          rating: FsrsRating.EASY,
+          evidenceKind: "practice-only",
+        },
+        {
           reviewId: "review-independent-2",
           attemptId: "attempt-independent-2",
           reviewedAt: new Date("2026-01-04T12:01:00.000Z"),
@@ -62,6 +69,7 @@ describe("replayIndependentScheduleEvidence", () => {
     expect(result.excluded).toEqual([
       { reviewId: "review-assisted", reason: "assisted" },
       { reviewId: "review-invalidated", reason: "invalidated" },
+      { reviewId: "review-practice-only", reason: "practice-only" },
     ]);
     expect(result.schedule.repetitions).toBe(2);
     expect(result.schedule.lastReviewedAt).toEqual(

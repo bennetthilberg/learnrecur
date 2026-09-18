@@ -22,6 +22,7 @@ import {
   agentSkillUpdateSchema,
 } from "@/lib/agent-access/contracts";
 import { createCollection, restoreCollection, archiveCollection, updateCollection } from "@/lib/collections";
+import { skillSourceLocatorSchema } from "@/lib/materials/contracts";
 import { updateSkillDraft, updateSkillMetadata, updateSkillPracticeGuidance } from "@/lib/skills";
 import {
   isPracticeReadModelExerciseReady,
@@ -117,13 +118,25 @@ function sourceLink(source: {
   locator: Prisma.JsonValue | null;
   note: string | null;
 }) {
+  const materialLocator = skillSourceLocatorSchema.safeParse(source.locator);
+  const provenance = materialLocator.success
+    ? {
+        revision_id: materialLocator.data.materialRevisionId,
+        section_ids: materialLocator.data.materialSectionIds,
+        evidence_chunk_ids: materialLocator.data.evidenceChunkIds,
+        ...(materialLocator.data.source.kind === "pdf"
+          ? { page_ranges: materialLocator.data.source.pageRanges }
+          : { anchors: materialLocator.data.source.anchors }),
+      }
+    : {};
   return {
     source_id: source.id,
     source_uri: `learnrecur://sources/${source.id}`,
     name: source.originalName,
     kind: source.kind,
     status: source.status,
-    locator: source.locator,
+    locator: materialLocator.success ? materialLocator.data : source.locator,
+    ...provenance,
     note: source.note,
   };
 }

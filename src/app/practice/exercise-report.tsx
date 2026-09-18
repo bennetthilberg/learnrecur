@@ -30,7 +30,7 @@ export function ExerciseReport({ disabled, onReport }: { disabled: boolean; onRe
       </button>
     </div>
     {open ? <section id={id} className="flagExercisePanel" aria-label="Report an issue">
-      <div className="flagExerciseHeader"><div><h2>Report an issue</h2><p>This removes the exercise from practice. Reporting does not record an answer or change your review schedule.</p></div></div>
+      <div className="flagExerciseHeader"><div><h2>Report an issue</h2><p>This removes the exercise from practice. Reporting does not record an answer or change your review schedule. A confirmed defect can later exclude its evidence from schedule replay.</p></div></div>
       <div className="flagExerciseForm">
         <fieldset><legend>Issue type</legend><div className="flagReasonGrid">
           {FLAG_REASON_OPTIONS.map((option, index) => <label className="flagReasonOption" key={option.reason}>

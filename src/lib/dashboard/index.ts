@@ -6,6 +6,7 @@ import {
   AnswerKind,
   CollectionStatus,
   ExerciseAttemptResult,
+  ExerciseEvidenceCorrectionStatus,
   ExerciseVerificationStatus,
   SkillStatus,
   type Prisma,
@@ -149,6 +150,7 @@ export async function getDashboardHome(input: GetDashboardHomeInput): Promise<Da
         result: {
           in: [ExerciseAttemptResult.CORRECT, ExerciseAttemptResult.INCORRECT],
         },
+        evidenceCorrectionStatus: ExerciseEvidenceCorrectionStatus.NOT_REQUIRED,
       },
       select: {
         createdAt: true,

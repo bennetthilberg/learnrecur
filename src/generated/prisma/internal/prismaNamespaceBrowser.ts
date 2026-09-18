@@ -471,6 +471,10 @@ export const ExerciseAttemptScalarFieldEnum = {
   ratingPolicyVersion: 'ratingPolicyVersion',
   practiceContext: 'practiceContext',
   answerPolicySnapshot: 'answerPolicySnapshot',
+  evidenceCorrectionStatus: 'evidenceCorrectionStatus',
+  evidenceCorrectionNote: 'evidenceCorrectionNote',
+  evidenceCorrectionAt: 'evidenceCorrectionAt',
+  evidenceCorrectionIncidentKey: 'evidenceCorrectionIncidentKey',
   id: 'id',
   userId: 'userId',
   skillId: 'skillId',
@@ -518,6 +522,10 @@ export const ReviewLogScalarFieldEnum = {
   schedulerVersion: 'schedulerVersion',
   desiredRetention: 'desiredRetention',
   schedulerParameters: 'schedulerParameters',
+  evidenceCorrectionStatus: 'evidenceCorrectionStatus',
+  evidenceCorrectionNote: 'evidenceCorrectionNote',
+  evidenceCorrectionAt: 'evidenceCorrectionAt',
+  evidenceCorrectionIncidentKey: 'evidenceCorrectionIncidentKey',
   createdAt: 'createdAt'
 } as const
 
@@ -541,10 +549,17 @@ export const ExerciseFlagScalarFieldEnum = {
   evidenceCorrectionAction: 'evidenceCorrectionAction',
   evidenceCorrectionStatus: 'evidenceCorrectionStatus',
   practiceEvidenceNeedsCorrection: 'practiceEvidenceNeedsCorrection',
+  affectedAttemptCount: 'affectedAttemptCount',
   affectedReviewCount: 'affectedReviewCount',
+  practiceOnlyAttemptCount: 'practiceOnlyAttemptCount',
   correctionStartedAt: 'correctionStartedAt',
   correctionCompletedAt: 'correctionCompletedAt',
   incidentKey: 'incidentKey',
+  replayedReviewCount: 'replayedReviewCount',
+  quarantinedExerciseCount: 'quarantinedExerciseCount',
+  resolutionIdempotencyKey: 'resolutionIdempotencyKey',
+  resolutionPayloadHash: 'resolutionPayloadHash',
+  updatedAt: 'updatedAt',
   createdAt: 'createdAt'
 } as const
 
@@ -799,6 +814,7 @@ export const AgentSkillOperationItemScalarFieldEnum = {
   duplicateLibraryFingerprint: 'duplicateLibraryFingerprint',
   duplicateConfidence: 'duplicateConfidence',
   duplicateOverrideApprovedAt: 'duplicateOverrideApprovedAt',
+  sourceReferenceOutcome: 'sourceReferenceOutcome',
   createdSkillId: 'createdSkillId',
   resultSkillId: 'resultSkillId',
   errorCode: 'errorCode',

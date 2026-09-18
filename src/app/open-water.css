@@ -9632,3 +9632,260 @@ body {
   overflow: clip;
   z-index: 1;
 }
+
+.practiceAttentionIssueSection {
+  margin-top: 18px;
+  border-top: 1px solid var(--lr-divider);
+}
+
+.practiceAttentionIssueSection .practiceAttentionListHeader {
+  align-items: end;
+}
+
+.practiceAttentionIssueSection h2 {
+  margin: 0;
+  color: var(--lr-ink);
+  font-family: var(--lr-font-display);
+  font-size: 21px;
+  line-height: 1.2;
+}
+
+.practiceAttentionIssueSection .practiceAttentionListHeader p {
+  max-width: 680px;
+  margin-top: 8px;
+}
+
+.practiceAttentionIssueCard {
+  border: 1px solid var(--lr-card-border);
+  border-radius: 10px;
+  background: #FFFFFF;
+  padding: 18px;
+}
+
+.practiceAttentionIssueHeader {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+}
+
+.practiceAttentionIssueIcon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--lr-accent-soft);
+  color: var(--lr-danger-ink);
+}
+
+.practiceAttentionIssueCard h2 {
+  margin: 0;
+  color: var(--lr-ink);
+  font-family: var(--lr-font-display);
+  font-size: 18px;
+  line-height: 1.25;
+}
+
+.practiceAttentionIssuePrompt {
+  display: grid;
+  gap: 7px;
+  margin-top: 16px;
+  border-top: 1px solid var(--lr-divider);
+  padding-top: 14px;
+}
+
+.practiceAttentionIssuePrompt p,
+.practiceAttentionIssueAnswer,
+.practiceAttentionIssueExpected {
+  margin: 0;
+  color: var(--lr-ink);
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.practiceAttentionIssueLabel,
+.practiceAttentionIssueAnswer span,
+.practiceAttentionIssueExpected span {
+  color: var(--lr-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.practiceAttentionIssuePromptText {
+  font-weight: 650;
+}
+
+.practiceAttentionIssueAnswer em {
+  display: inline-block;
+  margin-left: 8px;
+  color: var(--lr-text-secondary);
+  font-size: 11px;
+  font-style: normal;
+}
+
+.practiceAttentionIssueReasons {
+  display: grid;
+  gap: 6px;
+  margin: 14px 0 0;
+  padding: 0;
+  color: var(--lr-ink);
+  font-size: 13px;
+  line-height: 1.4;
+  list-style: none;
+}
+
+.practiceAttentionIssueReasons li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+
+.practiceAttentionIssueReasons li span {
+  color: var(--lr-text-secondary);
+}
+
+.practiceAttentionIssueForm,
+.practiceAttentionIssueStatus {
+  margin-top: 16px;
+  border-top: 1px solid var(--lr-divider);
+  padding-top: 14px;
+}
+
+.practiceAttentionIssueFields {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.4fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
+.practiceAttentionIssueFields label {
+  display: grid;
+  gap: 6px;
+  color: var(--lr-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.practiceAttentionIssueFields select,
+.practiceAttentionIssueFields textarea {
+  width: 100%;
+  border: 1px solid var(--lr-btn-white-border);
+  border-radius: 7px;
+  background: #FFFFFF;
+  color: var(--lr-ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 400;
+  padding: 9px 10px;
+}
+
+.practiceAttentionIssueFields select:focus-visible,
+.practiceAttentionIssueFields textarea:focus-visible {
+  outline: 2px solid var(--lr-focus-outline);
+  outline-offset: 2px;
+}
+
+.practiceAttentionIssueFields textarea {
+  min-height: 62px;
+  resize: vertical;
+}
+
+.practiceAttentionIssueActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  margin-top: 14px;
+}
+
+.practiceAttentionIssueActions .primaryButton {
+  min-height: 42px;
+}
+
+.practiceAttentionIssueActions .textButton {
+  color: var(--lr-blue);
+  font-size: 12.5px;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 3px;
+}
+
+.practiceAttentionIssueActions .textButton:hover {
+  text-decoration-color: currentColor;
+}
+
+.practiceAttentionIssueStatus {
+  color: var(--lr-ink);
+}
+
+.practiceAttentionIssueStatus strong {
+  font-size: 14px;
+}
+
+.practiceAttentionIssueStatus p {
+  margin: 6px 0 0;
+  color: var(--lr-text-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.practiceAttentionIssueStatus .textButton {
+  display: inline-block;
+  margin-top: 10px;
+  color: var(--lr-blue);
+  font-size: 12.5px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.practiceAttentionIssueError {
+  margin: 10px 0 0;
+  color: var(--lr-danger-ink);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.historyEventLabel {
+  color: var(--lr-text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.historyCorrectionNotice,
+.historyPracticeOnlyNotice {
+  border-top: 1px solid var(--lr-divider);
+  padding-top: 14px;
+}
+
+.historyCorrectionNotice strong,
+.historyPracticeOnlyNotice strong {
+  color: var(--lr-ink);
+  font-size: 14px;
+}
+
+.historyCorrectionNotice p,
+.historyPracticeOnlyNotice p {
+  margin: 6px 0 0;
+  color: var(--lr-text-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.historyQualityReason {
+  margin: -8px 0 0;
+  color: var(--lr-text-secondary);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+@media (max-width: 620px) {
+  .practiceAttentionIssueFields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .practiceAttentionIssueActions .primaryButton {
+    width: 100%;
+  }
+}

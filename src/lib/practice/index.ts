@@ -51,6 +51,7 @@ import {
 
 export {
   adjudicateExerciseQualityIncident,
+  ExerciseQualityIncidentError,
   type ExerciseIncidentAdjudication,
   type ExerciseIncidentResult,
 } from "./quality-incidents";
@@ -207,6 +208,16 @@ export type PracticeFlagRefillResult =
       requestedCount: number;
       readyExerciseCount: number;
       targetReadyCount: number;
+      message: string;
+    }
+  | {
+      status: "deferred";
+      reason: "quota-exceeded";
+      skillId: string;
+      generationJobId: string;
+      readyExerciseCount: number;
+      targetReadyCount: number;
+      retryAt: string;
       message: string;
     }
   | {
@@ -827,9 +838,15 @@ export async function flagPracticeExercise(
           evidenceCorrectionStatus: practiceEvidenceNeedsCorrection
             ? ExerciseEvidenceCorrectionStatus.PENDING
             : ExerciseEvidenceCorrectionStatus.NOT_REQUIRED,
+          affectedAttemptCount: 0,
           affectedReviewCount: 0,
+          practiceOnlyAttemptCount: 0,
+          replayedReviewCount: 0,
+          quarantinedExerciseCount: 0,
           correctionStartedAt: null,
           correctionCompletedAt: null,
+          resolutionIdempotencyKey: null,
+          resolutionPayloadHash: null,
         },
       });
 
@@ -862,6 +879,12 @@ export async function flagPracticeExercise(
           evidenceCorrectionStatus: practiceEvidenceNeedsCorrection
             ? ExerciseEvidenceCorrectionStatus.PENDING
             : ExerciseEvidenceCorrectionStatus.NOT_REQUIRED,
+          affectedAttemptCount: 0,
+          practiceOnlyAttemptCount: 0,
+          replayedReviewCount: 0,
+          quarantinedExerciseCount: 0,
+          resolutionIdempotencyKey: null,
+          resolutionPayloadHash: null,
         })),
       });
     }
@@ -985,6 +1008,20 @@ function toPracticeFlagRefillResult(
       requestedCount: result.requestedCount,
       readyExerciseCount: result.readyExerciseCount,
       targetReadyCount: result.targetReadyCount,
+      message: result.message,
+      deferredEvent: result.deferredEvent,
+    };
+  }
+
+  if (result.status === "deferred") {
+    return {
+      status: "deferred",
+      reason: "quota-exceeded",
+      skillId: result.skillId,
+      generationJobId: result.generationJobId,
+      readyExerciseCount: result.readyExerciseCount,
+      targetReadyCount: result.targetReadyCount,
+      retryAt: result.retryAt,
       message: result.message,
       deferredEvent: result.deferredEvent,
     };

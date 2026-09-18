@@ -17,7 +17,12 @@ export const dynamic = "force-dynamic";
 export default async function HistoryPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const query = await searchParams;
   const value = (key: string) => typeof query[key] === "string" ? query[key] as string : "";
-  const filters = { skillId: value("skillId") || undefined, collectionId: value("collectionId") || undefined, incorrectOnly: value("incorrectOnly") === "on" };
+  const filters = {
+    skillId: value("skillId") || undefined,
+    collectionId: value("collectionId") || undefined,
+    incorrectOnly: value("incorrectOnly") === "on",
+    mode: value("mode") === "practice-only" ? "practice-only" as const : "scheduled" as const,
+  };
   const { userId } = await auth.protect();
   const clerkUser = await currentUser();
 
@@ -57,7 +62,8 @@ export default async function HistoryPage({ searchParams }: { searchParams: Prom
           <h1>History</h1>
           <p>
             See your recent review results, ratings, and next due dates. Choose
-            Details for the answer, response time, and schedule change.
+            Details for the answer, response time, and schedule change. Practice-only
+            exposures are available from the Activity filter and never change FSRS.
           </p>
         </div>
       </header>
@@ -65,7 +71,7 @@ export default async function HistoryPage({ searchParams }: { searchParams: Prom
       <HistoryFilters key={JSON.stringify(filters)} filters={filters} skills={skills} collections={collections} />
       <section className="skillPanel historyPanel" aria-labelledby="review-history-title">
         <div className="historyPanelIntro">
-          <h2 id="review-history-title">Completed reviews</h2>
+          <h2 id="review-history-title">Practice history</h2>
 
         </div>
 

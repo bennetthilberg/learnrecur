@@ -896,22 +896,26 @@ model Exercise {
 }
 
 model ExerciseAttempt {
-  ratingPolicyVersion String @default("speed-v1")
-  practiceContext     Json?
-  answerPolicySnapshot Json?
-  id               String                @id @default(cuid())
-  userId           String
-  skillId          String
-  exerciseId       String
-  answer           Json
-  normalizedAnswer String?
-  isCorrect        Boolean
-  result           ExerciseAttemptResult
-  responseMs       Int?
-  proposedRating   FsrsRating?
-  finalRating      FsrsRating?
-  feedbackShownAt  DateTime?
-  createdAt        DateTime              @default(now())
+  ratingPolicyVersion       String                         @default("speed-v1")
+  practiceContext           Json?
+  answerPolicySnapshot      Json?
+  evidenceCorrectionStatus  ExerciseEvidenceCorrectionStatus @default(NOT_REQUIRED)
+  evidenceCorrectionNote    String?
+  evidenceCorrectionAt      DateTime?
+  evidenceCorrectionIncidentKey String?
+  id                        String                         @id @default(cuid())
+  userId                    String
+  skillId                   String
+  exerciseId                String
+  answer                    Json
+  normalizedAnswer          String?
+  isCorrect                 Boolean
+  result                    ExerciseAttemptResult
+  responseMs                Int?
+  proposedRating            FsrsRating?
+  finalRating               FsrsRating?
+  feedbackShownAt           DateTime?
+  createdAt                 DateTime                     @default(now())
 
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   skill     Skill      @relation(fields: [skillId, userId], references: [id, userId], onDelete: Cascade)
@@ -923,6 +927,7 @@ model ExerciseAttempt {
   @@index([userId, createdAt])
   @@index([skillId, createdAt])
   @@index([exerciseId])
+  @@index([skillId, evidenceCorrectionStatus, createdAt])
   @@map("exercise_attempts")
 }
 
@@ -955,6 +960,10 @@ model ReviewLog {
   schedulerVersion      String
   desiredRetention      Float
   schedulerParameters   Json
+  evidenceCorrectionStatus ExerciseEvidenceCorrectionStatus @default(NOT_REQUIRED)
+  evidenceCorrectionNote   String?
+  evidenceCorrectionAt     DateTime?
+  evidenceCorrectionIncidentKey String?
   createdAt             DateTime        @default(now())
 
   user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -964,6 +973,7 @@ model ReviewLog {
   @@unique([exerciseAttemptId, skillId, userId])
   @@index([userId, reviewedAt])
   @@index([skillId, reviewedAt])
+  @@index([skillId, evidenceCorrectionStatus, reviewedAt])
   @@map("review_logs")
 }
 
@@ -984,10 +994,17 @@ model ExerciseFlag {
   evidenceCorrectionAction        ExerciseEvidenceCorrectionAction @default(NONE)
   evidenceCorrectionStatus        ExerciseEvidenceCorrectionStatus @default(NOT_REQUIRED)
   practiceEvidenceNeedsCorrection Boolean                          @default(false)
+  affectedAttemptCount            Int                              @default(0)
   affectedReviewCount             Int                              @default(0)
+  practiceOnlyAttemptCount        Int                              @default(0)
   correctionStartedAt             DateTime?
   correctionCompletedAt           DateTime?
   incidentKey                     String?
+  replayedReviewCount             Int                              @default(0)
+  quarantinedExerciseCount        Int                              @default(0)
+  resolutionIdempotencyKey        String?
+  resolutionPayloadHash            String?
+  updatedAt                       DateTime                         @updatedAt
   createdAt                       DateTime                         @default(now())
 
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -997,6 +1014,7 @@ model ExerciseFlag {
   @@index([exerciseId, status])
   @@index([adjudicationStatus, evidenceCorrectionStatus])
   @@index([incidentKey])
+  @@index([userId, resolutionIdempotencyKey])
   @@map("exercise_flags")
 }
 
@@ -1329,6 +1347,7 @@ model AgentSkillOperationItem {
   duplicateLibraryFingerprint String?
   duplicateConfidence         String?
   duplicateOverrideApprovedAt DateTime?
+  sourceReferenceOutcome      Json?
   createdSkillId              String?                  @unique
   resultSkillId               String?
   errorCode                   String?

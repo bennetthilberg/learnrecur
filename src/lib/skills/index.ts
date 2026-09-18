@@ -103,9 +103,9 @@ import {
   type SourceObjectStorage,
 } from "@/lib/storage/s3";
 import {
-  ALPHA_ACTIVE_SKILLS,
   checkPastedSourceDraftUsageLimit,
   checkSkillActivationUsageLimit,
+  getSkillActivationUsage,
 } from "@/lib/usage-limits";
 
 export const MIN_ACTIVATION_EXERCISES = 3;
@@ -3335,17 +3335,14 @@ export async function activateSkillDraft(
         generationJobId: generationJob.id,
       };
     }
-    const activeSkillCount = await tx.skill.count({
-      where: {
-        userId: input.userId,
-        status: {
-          in: [SkillStatus.ACTIVE, SkillStatus.PAUSED],
-        },
-      },
+    const activationUsage = await getSkillActivationUsage({
+      userId: input.userId,
+      now: input.now,
+      prisma: tx,
     });
-    if (activeSkillCount >= ALPHA_ACTIVE_SKILLS) {
+    if (activationUsage.countedSkillCount > activationUsage.activeSkillLimit) {
       const message =
-        `Alpha accounts can keep ${ALPHA_ACTIVE_SKILLS} active or paused skills.`;
+        `The library limit is ${activationUsage.activeSkillLimit} active or paused skills, including imports already reserved. Archive a skill before adding another.`;
       await tx.generationJob.update({
         where: { id: generationJob.id },
         data: {

@@ -4,7 +4,8 @@ import Link from "next/link";
 import { HistoryReviewsTable, type HistoryReviewRow } from "./history-reviews-table";
 import { loadMoreHistoryAction } from "./actions";
 import type { HistoryFilterValues } from "./history-filters";
-type Cursor = { reviewedAt: string; id: string } | null;
+import type { PracticeHistoryCursor } from "@/lib/practice/history";
+type Cursor = PracticeHistoryCursor | null;
 export function HistoryBrowser({ initialReviews, initialCursor, filters }: {
   initialReviews: HistoryReviewRow[]; initialCursor: Cursor; filters: HistoryFilterValues;
 }) {
@@ -13,7 +14,7 @@ export function HistoryBrowser({ initialReviews, initialCursor, filters }: {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState(false);
   const inFlight = useRef(false);
-  const filtered = Boolean(filters.skillId || filters.collectionId || filters.incorrectOnly);
+  const filtered = Boolean(filters.skillId || filters.collectionId || filters.incorrectOnly || filters.mode === "practice-only");
   async function loadMore() {
     if (!cursor || inFlight.current) return;
     inFlight.current = true; setPending(true); setError(false);
@@ -26,7 +27,7 @@ export function HistoryBrowser({ initialReviews, initialCursor, filters }: {
   }
   if (!reviews.length) return <div className="dashboardEmptyState">
     <h3>{filtered ? "No reviews match these filters" : "No completed reviews yet"}</h3>
-    <p>{filtered ? "Try another skill or collection, or clear the filters." : "Your completed practice reviews will appear here."}</p>
+    <p>{filtered ? "Try another skill, collection, or activity type, or clear the filters." : "Your completed practice reviews will appear here."}</p>
     <Link className="secondaryButton" href={filtered ? "/history" : "/practice"}>{filtered ? "Clear filters" : "Open practice"}</Link>
   </div>;
   return <>

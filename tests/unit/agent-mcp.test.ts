@@ -100,6 +100,11 @@ describe("registerLearnRecurMcpTools", () => {
       "practice.sessions.get",
       "practice.sessions.stop",
       "practice.sessions.resume",
+      "practice.history",
+      "exercises.list_for_audit",
+      "exercises.get_for_audit",
+      "exercises.list_issues",
+      "exercises.resolve_issue",
       "skills.search",
       "skills.get",
       "skills.update",
@@ -131,6 +136,7 @@ describe("registerLearnRecurMcpTools", () => {
       "materials.list",
       "materials.get_outline",
       "materials.search_excerpts",
+      "materials.read_content",
       "materials.prepare_upload",
       "materials.complete_upload",
       "materials.import_url",
@@ -170,7 +176,7 @@ describe("MCP resource discovery", () => {
     await expect(metadataResponse.json()).resolves.toMatchObject({
       resource: "https://learnrecur.com/mcp",
       authorization_servers: ["https://learnrecur-staging.authkit.app"],
-      scopes_supported: ["skills:create", "skills:read", "skills:write", "collections:read", "collections:write", "materials:read", "sources:upload", "practice:read", "practice:write", "reminders:read", "reminders:write", "progress:read", "setup:read", "setup:write"],
+      scopes_supported: ["skills:create", "skills:read", "skills:write", "collections:read", "collections:write", "materials:read", "exercises:audit", "practice:history", "exercises:resolve", "sources:upload", "practice:read", "practice:write", "reminders:read", "reminders:write", "progress:read", "setup:read", "setup:write"],
       bearer_methods_supported: ["header"],
     });
 
