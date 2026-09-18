@@ -33,6 +33,7 @@ import {
   MaterialSourceReferenceError,
   parseSetupInputWithSourceRefs,
   resolveMaterialSourceReferences,
+  type MaterialSourceReferenceCache,
 } from "@/lib/materials/source-references";
 import { getPrisma } from "@/lib/prisma";
 import { normalizeReminderPreferenceInput } from "@/lib/reminders";
@@ -508,7 +509,16 @@ async function buildSnapshot(
   const skillIds = input.skills
     .filter((skill): skill is Extract<typeof skill, { kind: "reuse" }> => skill.kind === "reuse")
     .map((skill) => skill.skill_id);
-  const [collections, skills] = await Promise.all([
+  const sourceMaterialIds = [
+    ...new Set(
+      input.skills.flatMap((skill) =>
+        skill.kind === "create_specs"
+          ? skill.source_refs?.map((sourceRef) => sourceRef.material_id) ?? []
+          : [],
+      ),
+    ),
+  ];
+  const [collections, skills, sourceMaterials] = await Promise.all([
     collectionIds.length
       ? tx.collection.findMany({
           where: { userId: auth.userId, id: { in: collectionIds } },
@@ -521,6 +531,12 @@ async function buildSnapshot(
           select: { id: true, title: true, status: true, collectionId: true, tags: true, updatedAt: true },
         })
       : [],
+    sourceMaterialIds.length
+      ? tx.studyMaterial.findMany({
+          where: { userId: auth.userId, id: { in: sourceMaterialIds } },
+          select: { id: true, status: true, activeRevisionId: true },
+        })
+      : [],
   ]);
   if (collections.length !== collectionIds.length) {
     throw new AgentOperationError("collection_not_found", "One or more collections in the setup plan were not found.");
@@ -528,6 +544,7 @@ async function buildSnapshot(
   if (skills.length !== skillIds.length) {
     throw new AgentOperationError("skill_not_found", "One or more skills in the setup plan were not found.");
   }
+  const sourceMaterialById = new Map(sourceMaterials.map((material) => [material.id, material]));
   return {
     permission_version: auth.permissionVersion ?? null,
     user: {
@@ -568,7 +585,16 @@ async function buildSnapshot(
       })),
     source_references: input.skills.flatMap((skill) =>
       skill.kind === "create_specs" && skill.source_refs?.length
-        ? [{ client_reference: skill.client_reference, source_refs: skill.source_refs }]
+        ? [{
+            client_reference: skill.client_reference,
+            source_refs: skill.source_refs.map((sourceRef) => ({
+              ...sourceRef,
+              observed_active_revision_id:
+                sourceMaterialById.get(sourceRef.material_id)?.activeRevisionId ?? null,
+              observed_material_status:
+                sourceMaterialById.get(sourceRef.material_id)?.status ?? null,
+            })),
+          }]
         : [],
     ),
   };
@@ -646,6 +672,7 @@ async function validateSourceReferenceActions(
   tx: Prisma.TransactionClient,
   auth: AgentAuthContext,
   input: SetupInput,
+  cache: MaterialSourceReferenceCache,
 ) {
   for (const skill of input.skills) {
     if (skill.kind !== "create_specs" || !skill.source_refs?.length) continue;
@@ -654,6 +681,7 @@ async function validateSourceReferenceActions(
         userId: auth.userId,
         sourceRefs: skill.source_refs,
         client: tx,
+        cache,
       });
     } catch (error) {
       if (error instanceof MaterialSourceReferenceError) {
@@ -910,7 +938,7 @@ export async function previewAgentSetup(
       return publicPlan(existing, input);
     }
     await validateMaterialActions(tx, auth, input);
-    await validateSourceReferenceActions(tx, auth, input);
+    await validateSourceReferenceActions(tx, auth, input, new Map());
     await validatePracticeAndReminderInputs(tx, auth, input);
     const snapshot = await buildSnapshot(tx, auth, input);
     const plan = await tx.agentSetupPlan.create({

@@ -145,6 +145,22 @@ describe("practice read model database projections", () => {
     expect(JSON.stringify(record)).not.toContain("generationMetadata");
   });
 
+  it("evaluates audit lifecycle against the requested snapshot cutoff", () => {
+    const record = mapExerciseAuditRecord(
+      {
+        ...auditRow("exercise-retired-after-snapshot"),
+        retiredAt: new Date("2026-06-08T12:00:00.000Z"),
+        retirementReason: "quality issue",
+      } as never,
+      new Date("2026-06-07T12:00:00.000Z"),
+    );
+
+    expect(record).toMatchObject({
+      lifecycle: "active",
+      retirement: { isRetired: false },
+    });
+  });
+
   it("maps immutable practice-only answers and applies the requested read filter", async () => {
     mocks.attemptQueryRaw.mockResolvedValue([{ id: "attempt-1" }]);
     mocks.attemptFindMany.mockResolvedValue([historyRow()]);

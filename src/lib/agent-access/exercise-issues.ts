@@ -110,6 +110,9 @@ export async function resolveAgentExerciseIssue(
       if (error.code === "stale") {
         throw new AgentOperationError("stale_state", error.message);
       }
+      if (error.code === "idempotency-conflict") {
+        throw new AgentOperationError("idempotency_conflict", error.message);
+      }
       throw new AgentOperationError("invalid_input", error.message);
     }
     throw error;

@@ -89,111 +89,11 @@ export async function getExerciseQualityIssues(input: {
   userId: string;
   limit?: number;
 }): Promise<ExerciseQualityIssue[]> {
-  if (!input.userId.trim()) {
-    throw new Error("getExerciseQualityIssues requires an owning userId.");
-  }
-
-  const rows = await getPrisma().exercise.findMany({
-    where: {
-      userId: input.userId,
-      flags: {
-        some: {
-          OR: [
-            { adjudicationStatus: ExerciseFlagAdjudicationStatus.PENDING },
-            {
-              evidenceCorrectionStatus: {
-                in: [
-                  ExerciseEvidenceCorrectionStatus.PENDING,
-                  ExerciseEvidenceCorrectionStatus.IN_PROGRESS,
-                  ExerciseEvidenceCorrectionStatus.BLOCKED,
-                ],
-              },
-            },
-          ],
-        },
-      },
-    },
-    orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
-    take: normalizeLimit(input.limit),
-    select: {
-      id: true,
-      skillId: true,
-      answerKind: true,
-      prompt: true,
-      choices: true,
-      correctAnswerDisplay: true,
-      updatedAt: true,
-      skill: {
-        select: {
-          title: true,
-          collection: { select: { name: true } },
-        },
-      },
-      flags: {
-        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-        select: {
-          id: true,
-          reason: true,
-          note: true,
-          status: true,
-          adjudicationStatus: true,
-          evidenceCorrectionStatus: true,
-          createdAt: true,
-          updatedAt: true,
-        },
-      },
-      attempts: {
-        where: {
-          userId: input.userId,
-          result: {
-            in: [ExerciseAttemptResult.CORRECT, ExerciseAttemptResult.INCORRECT],
-          },
-        },
-        orderBy: [{ createdAt: "desc" }, { id: "asc" }],
-        take: 3,
-        select: {
-          id: true,
-          result: true,
-          answer: true,
-          responseMs: true,
-          practiceContext: true,
-          ratingPolicyVersion: true,
-          createdAt: true,
-        },
-      },
-    },
+  const page = await listExerciseQualityIssues({
+    userId: input.userId,
+    limit: input.limit,
   });
-
-  return rows.map((row) => {
-    const issueFlags = row.flags.filter(isVisibleQualityIssueFlag);
-    const issueVersion = issueFlags
-      .map((flag) => flag.updatedAt)
-      .toSorted((left, right) => right.getTime() - left.getTime())[0];
-
-    if (!issueVersion) {
-      throw new Error(`Quality issue ${row.id} has no visible report version.`);
-    }
-
-    return {
-      exerciseId: row.id,
-      skillId: row.skillId,
-      skillTitle: row.skill.title,
-      collectionName: row.skill.collection?.name ?? null,
-      prompt: row.prompt,
-      correctAnswerDisplay: row.correctAnswerDisplay,
-      answerKind: row.answerKind,
-      issueVersion,
-      flags: issueFlags,
-      attempts: row.attempts.map((attempt) => ({
-        id: attempt.id,
-        result: attempt.result as ExerciseQualityIssueAttempt["result"],
-        submittedAnswerDisplay: formatSubmittedHistoryAnswer(attempt.answer, row.choices),
-        responseMs: attempt.responseMs,
-        completedAt: attempt.createdAt,
-        practiceOnly: isPracticeOnlyAttempt(attempt),
-      })),
-    };
-  });
+  return page.issues;
 }
 
 /**

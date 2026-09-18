@@ -85,7 +85,11 @@ export async function queueExerciseReplacement(input: {
       model: input.model,
     });
     return toReplacementResult(result);
-  } catch {
+  } catch (error) {
+    console.error("Replacement preparation failed", {
+      exerciseId: input.exerciseId,
+      error,
+    });
     return {
       status: "failed",
       message: "The schedule correction succeeded, but replacement preparation could not start. Retry preparation from the skill later.",

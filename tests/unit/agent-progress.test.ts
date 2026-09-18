@@ -44,6 +44,7 @@ describe("readiness preparation status", () => {
     [[notQueued("job-in-progress")], "in-progress"],
     [[notQueued("quota-exceeded")], "not-queued"],
     [[deferred()], "deferred"],
+    [[deferred(), notQueued("already-at-target")], "deferred"],
     [[queued(), notQueued("already-at-target")], "partial"],
   ] as const)("summarizes %j as %s", (results, expected) => {
     expect(summarizeReadinessPreparationStatus(results)).toBe(

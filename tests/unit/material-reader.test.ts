@@ -143,6 +143,25 @@ describe("material read traversal", () => {
     expect(combined).toBe(`Inicio\n\n${shared}fin de la lección.`);
   });
 
+  it("deduplicates long overlaps without truncating the overlap search window", () => {
+    const shared = "á".repeat(1_200);
+    const units = buildMaterialReadUnits({
+      kind: StudyMaterialKind.WEB,
+      revisionId: "revision-1",
+      selector: { kind: "section", sectionId: "section-1" },
+      sections: [section({ id: "section-1", ordinal: 0, title: "Long overlap" })],
+      chunks: [
+        chunk({ id: "chunk-1", sectionId: "section-1", ordinal: 0, text: `start${shared}` }),
+        chunk({ id: "chunk-2", sectionId: "section-1", ordinal: 1, text: `${shared}finish` }),
+      ],
+    });
+
+    expect(units[1]).toMatchObject({
+      text: "finish",
+      overlap: { withChunkId: "chunk-1", characters: 1_200 },
+    });
+  });
+
   it("splits a Unicode chunk at exact code-point offsets without losing boundaries", () => {
     const text = "mañana\n\n¿Dónde estás? 🧭";
     const units = buildMaterialReadUnits({

@@ -164,9 +164,11 @@ export async function runAgentSkillOperationJob(input: {
 
   try {
   if (operation.kind === AgentOperationKind.MATERIAL_BATCH) {
-    await processMaterialOperation({ operation, now });
-    await reconcileAgentOperation(operation.id, input.userId, now);
-    await queueAgentOperationContinuation(operation.id, input.userId);
+    const shouldReconcile = await processMaterialOperation({ operation, now });
+    if (shouldReconcile) {
+      await reconcileAgentOperation(operation.id, input.userId, now);
+      await queueAgentOperationContinuation(operation.id, input.userId);
+    }
     return { status: "processed" as const, operationId: operation.id };
   }
 
@@ -284,7 +286,7 @@ export async function runAgentSkillOperationJob(input: {
 async function processMaterialOperation(input: {
   operation: AgentOperationWithItems;
   now: Date;
-}) {
+}): Promise<boolean> {
   const prisma = getPrisma();
   const payload = parseRecord(input.operation.requestPayload);
   const instruction = buildMaterialOperationInstruction(payload);
@@ -299,7 +301,7 @@ async function processMaterialOperation(input: {
       where: { id: input.operation.id },
       data: { status: AgentOperationStatus.FAILED, errorCode: "INVALID_MATERIAL_REQUEST", completedAt: input.now },
     });
-    return;
+    return false;
   }
   const sectionTitles = sectionIds.length
     ? await prisma.materialSection.findMany({
@@ -317,7 +319,7 @@ async function processMaterialOperation(input: {
       where: { id: input.operation.id },
       data: { status: AgentOperationStatus.FAILED, errorCode: "MATERIAL_SECTION_NOT_FOUND", completedAt: input.now },
     });
-    return;
+    return false;
   }
   const planningInstruction = boundedMaterialInstruction(
     instruction,
@@ -356,7 +358,7 @@ async function processMaterialOperation(input: {
         errorMessage: "Clarify the chapters, sections, or concepts to cover.",
       },
     });
-      return;
+      return false;
     }
     if (planning.status !== "planned") {
     await prisma.agentSkillOperation.update({
@@ -369,7 +371,7 @@ async function processMaterialOperation(input: {
         completedAt: input.now,
       },
     });
-      return;
+      return false;
     }
     batchId = planning.batchId;
     if (planning.plan.items.length > maxSkills) {
@@ -382,7 +384,7 @@ async function processMaterialOperation(input: {
         errorMessage: `Clarify a narrower scope that yields no more than ${maxSkills} skills.`,
       },
     });
-      return;
+      return false;
     }
     const confirmed = await confirmMaterialPlan({
     userId: input.operation.userId,
@@ -401,7 +403,7 @@ async function processMaterialOperation(input: {
         completedAt: input.now,
       },
     });
-      return;
+      return false;
     }
   }
 
@@ -414,7 +416,7 @@ async function processMaterialOperation(input: {
         completedAt: input.now,
       },
     });
-    return;
+    return false;
   }
   const materialItems = await prisma.skillDraftBatchItem.findMany({
     where: { batchId, userId: input.operation.userId },
@@ -539,6 +541,7 @@ async function processMaterialOperation(input: {
     });
     await activateCreatedDraft(input.operation.userId, agentItem.id, skill.id, input.now);
   }
+  return true;
 }
 
 export function buildMaterialOperationInstruction(payload: Record<string, unknown>) {
@@ -744,28 +747,6 @@ async function createAndActivateItem(input: {
   if (draft.status !== "created") {
     await failItem(input.itemId, input.userId, "DRAFT_CREATE_FAILED", input.now);
     return;
-  }
-  if (input.snapshot.source_refs?.length) {
-    try {
-      await attachMaterialSourceReferencesToSkill({
-        userId: input.userId,
-        skillId: draft.skill.id,
-        sourceRefs: input.snapshot.source_refs,
-      });
-    } catch (error) {
-      await getPrisma().skill.deleteMany({
-        where: { id: draft.skill.id, userId: input.userId, status: SkillStatus.DRAFT },
-      });
-      await failItem(
-        input.itemId,
-        input.userId,
-        error instanceof MaterialSourceReferenceError
-          ? `SOURCE_REFERENCE_${error.code}`
-          : "SOURCE_REFERENCE_INVALID",
-        input.now,
-      );
-      return;
-    }
   }
   await getPrisma().agentSkillOperationItem.update({
     where: { id: input.itemId },

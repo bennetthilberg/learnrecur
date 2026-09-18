@@ -130,7 +130,14 @@ export function summarizeReadinessPreparationStatus(
   if (queuedCount === results.length) return "queued";
   if (queuedCount > 0) return "partial";
 
-  if (results.every((result) => result.status === "deferred")) {
+  if (
+    results.some((result) => result.status === "deferred") &&
+    results.every(
+      (result) =>
+        result.status === "deferred" ||
+        (result.status === "not-queued" && result.reason === "already-at-target"),
+    )
+  ) {
     return "deferred";
   }
 

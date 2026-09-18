@@ -210,6 +210,22 @@ type SourceReferenceChunk = {
   locator: Prisma.JsonValue;
 };
 
+type SourceReferenceScope = {
+  material: {
+    id: string;
+    kind: StudyMaterialKind;
+    activeRevisionId: string | null;
+  };
+  revision: { id: string };
+  allSections: SourceReferenceSection[];
+  sourceFiles: Array<{ id: string }>;
+  chunksById: Map<string, SourceReferenceChunk>;
+  missingChunkIds: Set<string>;
+  sectionChunksByKey: Map<string, SourceReferenceChunk[]>;
+};
+
+export type MaterialSourceReferenceCache = Map<string, SourceReferenceScope>;
+
 export type ResolvedMaterialSourceReference = {
   materialId: string;
   materialRevisionId: string;
@@ -343,70 +359,87 @@ export async function resolveMaterialSourceReferences(input: {
   userId: string;
   sourceRefs: readonly MaterialSourceReferenceInput[] | undefined;
   client?: SourceReferenceClient;
+  cache?: MaterialSourceReferenceCache;
 }): Promise<ResolvedMaterialSourceReference[]> {
   if (!input.sourceRefs?.length) return [];
   const sourceRefs = materialSourceReferencesSchema.parse(input.sourceRefs);
   const client = input.client ?? getPrisma();
+  const cache = input.cache ?? new Map<string, SourceReferenceScope>();
   const resolved: ResolvedMaterialSourceReference[] = [];
 
   for (const sourceRef of sourceRefs) {
-    const material = await client.studyMaterial.findFirst({
-      where: {
-        id: sourceRef.material_id,
-        userId: input.userId,
-        status: StudyMaterialStatus.ACTIVE,
-      },
-      select: { id: true, kind: true, activeRevisionId: true },
-    });
-    if (!material) {
-      throw new MaterialSourceReferenceError("material_not_found", "The source material was not found.");
-    }
-    if (material.activeRevisionId !== sourceRef.expected_revision_id) {
-      throw new MaterialSourceReferenceError(
-        "stale_material_revision",
-        "The source material revision changed before the reference could be saved.",
-      );
-    }
-    const revision = await client.materialRevision.findFirst({
-      where: {
-        id: sourceRef.expected_revision_id,
-        userId: input.userId,
-        materialId: material.id,
-        status: MaterialRevisionStatus.READY,
-      },
-      select: { id: true },
-    });
-    if (!revision) {
-      throw new MaterialSourceReferenceError(
-        "stale_material_revision",
-        "The source material revision is no longer ready.",
-      );
-    }
-    const [allSections, sourceFiles] = await Promise.all([
-      client.materialSection.findMany({
-        where: { userId: input.userId, materialRevisionId: revision.id },
-        orderBy: { ordinal: "asc" },
-        select: {
-          id: true,
-          parentId: true,
-          ordinal: true,
-          title: true,
-          pageStart: true,
-          pageEnd: true,
-          url: true,
-          anchor: true,
-        },
-      }),
-      client.sourceFile.findMany({
+    const scopeKey = `${sourceRef.material_id}\u0000${sourceRef.expected_revision_id}`;
+    let scope = cache.get(scopeKey);
+    if (!scope) {
+      const material = await client.studyMaterial.findFirst({
         where: {
+          id: sourceRef.material_id,
           userId: input.userId,
-          materialRevisionId: revision.id,
-          status: SourceFileStatus.READY,
+          status: StudyMaterialStatus.ACTIVE,
         },
-        orderBy: { id: "asc" },
-        select: { id: true, kind: true },
-      }),
-    ]);
+        select: { id: true, kind: true, activeRevisionId: true },
+      });
+      if (!material) {
+        throw new MaterialSourceReferenceError("material_not_found", "The source material was not found.");
+      }
+      if (material.activeRevisionId !== sourceRef.expected_revision_id) {
+        throw new MaterialSourceReferenceError(
+          "stale_material_revision",
+          "The source material revision changed before the reference could be saved.",
+        );
+      }
+      const revision = await client.materialRevision.findFirst({
+        where: {
+          id: sourceRef.expected_revision_id,
+          userId: input.userId,
+          materialId: material.id,
+          status: MaterialRevisionStatus.READY,
+        },
+        select: { id: true },
+      });
+      if (!revision) {
+        throw new MaterialSourceReferenceError(
+          "stale_material_revision",
+          "The source material revision is no longer ready.",
+        );
+      }
+      const [allSections, sourceFiles] = await Promise.all([
+        client.materialSection.findMany({
+          where: { userId: input.userId, materialRevisionId: revision.id },
+          orderBy: { ordinal: "asc" },
+          select: {
+            id: true,
+            parentId: true,
+            ordinal: true,
+            title: true,
+            pageStart: true,
+            pageEnd: true,
+            url: true,
+            anchor: true,
+          },
+        }),
+        client.sourceFile.findMany({
+          where: {
+            userId: input.userId,
+            materialRevisionId: revision.id,
+            status: SourceFileStatus.READY,
+          },
+          orderBy: { id: "asc" },
+          select: { id: true },
+        }),
+      ]);
+      scope = {
+        material,
+        revision,
+        allSections,
+        sourceFiles,
+        chunksById: new Map(),
+        missingChunkIds: new Set(),
+        sectionChunksByKey: new Map(),
+      };
+      cache.set(scopeKey, scope);
+    }
+    const { material, revision, allSections, sourceFiles } = scope;
     const sectionById = new Map(allSections.map((section) => [section.id, section]));
     const requestedSections = (sourceRef.section_ids ?? []).map((sectionId) => sectionById.get(sectionId));
     if (requestedSections.some((section) => !section)) {
@@ -420,10 +453,15 @@ export async function resolveMaterialSourceReferences(input: {
       allSections,
     );
     const requestedChunkIds = sourceRef.evidence_chunk_ids ?? [];
-    let chunks = requestedChunkIds.length
-      ? await client.materialChunk.findMany({
+    let chunks: SourceReferenceChunk[] = [];
+    if (requestedChunkIds.length) {
+      const missingChunkIds = requestedChunkIds.filter(
+        (chunkId) => !scope.chunksById.has(chunkId) && !scope.missingChunkIds.has(chunkId),
+      );
+      if (missingChunkIds.length) {
+        const loadedChunks = await client.materialChunk.findMany({
           where: {
-            id: { in: requestedChunkIds },
+            id: { in: missingChunkIds },
             userId: input.userId,
             materialRevisionId: revision.id,
           },
@@ -435,8 +473,19 @@ export async function resolveMaterialSourceReferences(input: {
             ordinal: true,
             locator: true,
           },
+        });
+        for (const chunk of loadedChunks) scope.chunksById.set(chunk.id, chunk);
+        for (const chunkId of missingChunkIds) {
+          if (!scope.chunksById.has(chunkId)) scope.missingChunkIds.add(chunkId);
+        }
+      }
+      chunks = requestedChunkIds
+        .flatMap((chunkId) => {
+          const chunk = scope.chunksById.get(chunkId);
+          return chunk ? [chunk] : [];
         })
-      : [];
+        .toSorted((left, right) => left.ordinal - right.ordinal || left.id.localeCompare(right.id));
+    }
     if (chunks.length !== requestedChunkIds.length) {
       throw new MaterialSourceReferenceError(
         "source_chunk_not_found",
@@ -450,22 +499,29 @@ export async function resolveMaterialSourceReferences(input: {
       );
     }
     if (!chunks.length && selectedSectionIds.size) {
-      chunks = await client.materialChunk.findMany({
-        where: {
-          userId: input.userId,
-          materialRevisionId: revision.id,
-          materialSectionId: { in: [...selectedSectionIds] },
-        },
-        orderBy: { ordinal: "asc" },
-        take: 81,
-        select: {
-          id: true,
-          materialSectionId: true,
-          sourceFileId: true,
-          ordinal: true,
-          locator: true,
-        },
-      });
+      const sectionCacheKey = [...selectedSectionIds].toSorted().join("\u0000");
+      const cachedChunks = scope.sectionChunksByKey.get(sectionCacheKey);
+      if (cachedChunks) {
+        chunks = cachedChunks;
+      } else {
+        chunks = await client.materialChunk.findMany({
+          where: {
+            userId: input.userId,
+            materialRevisionId: revision.id,
+            materialSectionId: { in: [...selectedSectionIds] },
+          },
+          orderBy: { ordinal: "asc" },
+          take: 81,
+          select: {
+            id: true,
+            materialSectionId: true,
+            sourceFileId: true,
+            ordinal: true,
+            locator: true,
+          },
+        });
+        scope.sectionChunksByKey.set(sectionCacheKey, chunks);
+      }
       if (chunks.length > 80) {
         throw new MaterialSourceReferenceError(
           "invalid_source_reference",

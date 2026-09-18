@@ -312,7 +312,9 @@ export async function listExercisesForAudit(
     select: exerciseAuditSelect,
   });
 
-  const exercises = rows.slice(0, limit).map(mapExerciseAuditRecord);
+  const exercises = rows.slice(0, limit).map((row) =>
+    mapExerciseAuditRecord(row, snapshotCutoff),
+  );
   const last = exercises.at(-1);
   const nextCursor = rows.length > limit && last
     ? encodeExerciseAuditCursor({
@@ -374,12 +376,16 @@ export async function findExerciseAudit(
   return result.status === "ready" ? result.exercise : null;
 }
 
-export function mapExerciseAuditRecord(row: ExerciseAuditRow): ExerciseAuditRecord {
+export function mapExerciseAuditRecord(
+  row: ExerciseAuditRow,
+  snapshotCutoff?: Date,
+): ExerciseAuditRecord {
   const choicesResult = choicesSchema.safeParse(row.choices);
   const choices = choicesResult.success ? choicesResult.data : null;
   const answerContract = buildAnswerContract(row.answerSpec, choices);
   const promptLayout = readStoredPromptLayout(row.prompt, row.generationMetadata);
-  const isRetired = row.retiredAt !== null;
+  const isRetired = row.retiredAt !== null &&
+    (snapshotCutoff === undefined || row.retiredAt <= snapshotCutoff);
   const sourceRefs = row.skill.sourceRefs.map(mapSourceRef);
   const exerciseSourceRefs = sanitizeExerciseSourceIdentities(row.sourceRefs);
 

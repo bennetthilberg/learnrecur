@@ -4,7 +4,8 @@ import Link from "next/link";
 import { HistoryReviewsTable, type HistoryReviewRow } from "./history-reviews-table";
 import { loadMoreHistoryAction } from "./actions";
 import type { HistoryFilterValues } from "./history-filters";
-type Cursor = { reviewedAt: string; id: string } | null;
+import type { PracticeHistoryCursor } from "@/lib/practice/history";
+type Cursor = PracticeHistoryCursor | null;
 export function HistoryBrowser({ initialReviews, initialCursor, filters }: {
   initialReviews: HistoryReviewRow[]; initialCursor: Cursor; filters: HistoryFilterValues;
 }) {

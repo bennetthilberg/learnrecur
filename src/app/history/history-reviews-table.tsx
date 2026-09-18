@@ -153,8 +153,8 @@ function HistoryReviewDetails({ review }: { review: HistoryReviewRow }) {
 
       {review.evidenceCorrectionStatus !== "NOT_REQUIRED" ? (
         <aside className="historyCorrectionNotice" role="status">
-          <strong>Schedule evidence corrected</strong>
-          <p>{review.evidenceCorrectionNote ?? "This retained record was excluded from the skill's FSRS replay."}</p>
+          <strong>{correctionStatusLabel(review.evidenceCorrectionStatus)}</strong>
+          <p>{review.evidenceCorrectionNote ?? correctionStatusDescription(review.evidenceCorrectionStatus)}</p>
           <p>Your original answer and result remain available for audit.</p>
         </aside>
       ) : null}
@@ -219,4 +219,34 @@ function HistoryReviewDetails({ review }: { review: HistoryReviewRow }) {
       </div>
     </div>
   );
+}
+
+function correctionStatusLabel(status: string) {
+  switch (status) {
+    case "COMPLETE":
+      return "Schedule evidence corrected";
+    case "PENDING":
+      return "Schedule correction pending";
+    case "IN_PROGRESS":
+      return "Schedule correction in progress";
+    case "BLOCKED":
+      return "Schedule correction blocked";
+    default:
+      return "Schedule correction status";
+  }
+}
+
+function correctionStatusDescription(status: string) {
+  switch (status) {
+    case "COMPLETE":
+      return "This retained record was excluded from the skill's FSRS replay.";
+    case "PENDING":
+      return "This retained record is awaiting schedule correction.";
+    case "IN_PROGRESS":
+      return "This retained record is being excluded from the skill's FSRS replay.";
+    case "BLOCKED":
+      return "Schedule correction needs attention before the skill's FSRS replay can be completed.";
+    default:
+      return "This retained record has a schedule correction status that needs attention.";
+  }
 }

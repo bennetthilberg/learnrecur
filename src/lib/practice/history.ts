@@ -17,6 +17,12 @@ const MAX_HISTORY_LIMIT = 100;
 
 export type PracticeHistoryMode = "scheduled" | "practice-only";
 
+export type PracticeHistoryCursor = {
+  mode: PracticeHistoryMode;
+  reviewedAt: string;
+  id: string;
+};
+
 export type PracticeHistoryReview = {
   id: string;
   skillId: string;
@@ -61,6 +67,13 @@ export type SkillPracticeHistoryResult =
       message: string;
     };
 
+export class PracticeHistoryCursorError extends Error {
+  constructor(message = "The practice history pagination cursor is invalid.") {
+    super(message);
+    this.name = "PracticeHistoryCursorError";
+  }
+}
+
 export type GetPracticeHistoryInput = {
   userId: string;
   now: Date;
@@ -69,7 +82,7 @@ export type GetPracticeHistoryInput = {
   collectionId?: string;
   incorrectOnly?: boolean;
   mode?: PracticeHistoryMode;
-  cursor?: { reviewedAt: string; id: string };
+  cursor?: PracticeHistoryCursor;
 };
 
 export type GetSkillPracticeHistoryInput = GetPracticeHistoryInput & {
@@ -119,7 +132,13 @@ export async function getSkillPracticeHistory(
 async function findPracticeHistoryReviews(
   input: GetPracticeHistoryInput & { skillId?: string },
 ): Promise<PracticeHistoryReview[]> {
-  return input.mode === "practice-only"
+  const mode = input.mode ?? "scheduled";
+  if (input.cursor && input.cursor.mode !== mode) {
+    throw new PracticeHistoryCursorError(
+      "The practice history cursor does not match the requested activity mode.",
+    );
+  }
+  return mode === "practice-only"
     ? findPracticeOnlyHistoryReviews(input)
     : findScheduledHistoryReviews(input);
 }
@@ -312,6 +331,7 @@ async function findPracticeOnlyHistoryReviews(
         OR ea."practiceContext"->>'exposure' IN ('PRACTICE_ONLY', 'practice-only')
       )
       AND ${resultFilter}
+      AND ea."finalRating" IS NULL
       AND COALESCE(ea."feedbackShownAt", ea."createdAt") <= ${input.now}
       ${cursorFilter}
     ORDER BY COALESCE(ea."feedbackShownAt", ea."createdAt") DESC,
@@ -449,7 +469,11 @@ export async function getPracticeHistoryPage(input: GetPracticeHistoryInput) {
     reviews,
     nextCursor:
       rows.length > size && last
-        ? { reviewedAt: last.reviewedAt.toISOString(), id: last.id }
+        ? {
+            mode: input.mode ?? "scheduled",
+            reviewedAt: last.reviewedAt.toISOString(),
+            id: last.id,
+          }
         : null,
   };
 }

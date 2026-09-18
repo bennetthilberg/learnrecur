@@ -236,6 +236,41 @@ function sectionPath(sectionId: string | null, sectionsById: ReadonlyMap<string,
   return path;
 }
 
+function collectSectionSubtreeIds(
+  rootId: string,
+  sections: readonly Pick<MaterialReaderSection, "id" | "parentId">[],
+) {
+  const selected = new Set([rootId]);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const section of sections) {
+      if (section.parentId && selected.has(section.parentId) && !selected.has(section.id)) {
+        selected.add(section.id);
+        changed = true;
+      }
+    }
+  }
+  return selected;
+}
+
+function sectionPageBounds(
+  sections: readonly MaterialReaderSection[],
+  selectedSectionIds: ReadonlySet<string>,
+) {
+  const boundedSections = sections.filter(
+    (section) =>
+      selectedSectionIds.has(section.id) &&
+      section.pageStart !== null &&
+      section.pageEnd !== null,
+  );
+  if (boundedSections.length === 0) return null;
+  return {
+    start: Math.min(...boundedSections.map((section) => section.pageStart!)),
+    end: Math.max(...boundedSections.map((section) => section.pageEnd!)),
+  };
+}
+
 function readRecord(value: unknown) {
   return value && typeof value === "object" && !Array.isArray(value)
     ? value as Record<string, unknown>
@@ -270,18 +305,24 @@ function largestSuffixPrefixOverlap(previous: string, current: string) {
   const previousPoints = Array.from(previous);
   const currentPoints = Array.from(current);
   const maximum = Math.min(previousPoints.length, currentPoints.length, 8_000);
-  for (let length = maximum; length >= 8; length -= 1) {
-    let matches = true;
-    const previousStart = previousPoints.length - length;
-    for (let index = 0; index < length; index += 1) {
-      if (previousPoints[previousStart + index] !== currentPoints[index]) {
-        matches = false;
-        break;
-      }
+  if (maximum < 8) return 0;
+
+  const sequence: Array<string | null> = [
+    ...currentPoints.slice(0, maximum),
+    null,
+    ...previousPoints.slice(-maximum),
+  ];
+  const prefixLengths = new Array<number>(sequence.length).fill(0);
+  for (let index = 1; index < sequence.length; index += 1) {
+    let candidate = prefixLengths[index - 1];
+    while (candidate > 0 && sequence[index] !== sequence[candidate]) {
+      candidate = prefixLengths[candidate - 1];
     }
-    if (matches) return length;
+    if (sequence[index] === sequence[candidate]) candidate += 1;
+    prefixLengths[index] = candidate;
   }
-  return 0;
+  const overlap = prefixLengths.at(-1) ?? 0;
+  return overlap >= 8 ? overlap : 0;
 }
 
 function unitLocator(input: {
@@ -695,16 +736,26 @@ export async function readMaterialContent(input: {
   const selector: MaterialReadSelector = parsed.section_id
     ? { kind: "section", sectionId: parsed.section_id }
     : { kind: "page_range", start: parsed.page_range!.start, end: parsed.page_range!.end };
-  const [sections, chunks, pages] = await Promise.all([
-    prisma.materialSection.findMany({
-      where: { userId: input.userId, materialRevisionId: revision.id },
-      orderBy: { ordinal: "asc" },
-      select: { id: true, parentId: true, ordinal: true, level: true, title: true, headingPath: true, pageStart: true, pageEnd: true, url: true, anchor: true },
-    }),
+  const sections = await prisma.materialSection.findMany({
+    where: { userId: input.userId, materialRevisionId: revision.id },
+    orderBy: { ordinal: "asc" },
+    select: { id: true, parentId: true, ordinal: true, level: true, title: true, headingPath: true, pageStart: true, pageEnd: true, url: true, anchor: true },
+  });
+  if (selector.kind === "section" && !sections.some((section) => section.id === selector.sectionId)) {
+    throw new MaterialReaderError("invalid_scope", "The requested material section was not found.");
+  }
+  const scopedSectionIds = selector.kind === "section"
+    ? collectSectionSubtreeIds(selector.sectionId, sections)
+    : null;
+  const scopedPageRange = parsed.page_range ?? (
+    scopedSectionIds ? sectionPageBounds(sections, scopedSectionIds) : null
+  );
+  const [chunks, pages] = await Promise.all([
     prisma.materialChunk.findMany({
       where: {
         userId: input.userId,
         materialRevisionId: revision.id,
+        ...(scopedSectionIds ? { materialSectionId: { in: [...scopedSectionIds] } } : {}),
       },
       orderBy: { ordinal: "asc" },
       select: { id: true, materialSectionId: true, ordinal: true, text: true, contentHash: true, locator: true, headingText: true },
@@ -714,8 +765,8 @@ export async function readMaterialContent(input: {
           where: {
             userId: input.userId,
             materialRevisionId: revision.id,
-            ...(parsed.page_range
-              ? { pageNumber: { gte: parsed.page_range.start, lte: parsed.page_range.end } }
+            ...(scopedPageRange
+              ? { pageNumber: { gte: scopedPageRange.start, lte: scopedPageRange.end } }
               : {}),
           },
           orderBy: { pageNumber: "asc" },

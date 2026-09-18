@@ -35,6 +35,7 @@ import {
   MaterialSourceReferenceError,
   parseAgentSpecInputWithSourceRefs,
   resolveMaterialSourceReferences,
+  type MaterialSourceReferenceCache,
 } from "@/lib/materials/source-references";
 import {
   prepareSourceUpload,
@@ -182,6 +183,7 @@ export async function createAgentSpecOperation(
       const replay = await findReplay(tx, auth, "skills.add_from_specs", input.idempotency_key, payloadHash);
       if (replay) return { operation: replay, created: false as const };
       await assertPendingItemLimit(tx, auth.userId, input.items.length);
+      const sourceReferenceCache: MaterialSourceReferenceCache = new Map();
       for (const item of input.items) {
         if (item.source_refs?.length) {
           try {
@@ -189,6 +191,7 @@ export async function createAgentSpecOperation(
               userId: auth.userId,
               sourceRefs: item.source_refs,
               client: tx,
+              cache: sourceReferenceCache,
             });
           } catch (error) {
             throw sourceReferenceOperationError(error);
