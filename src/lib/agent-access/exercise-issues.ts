@@ -37,7 +37,7 @@ export async function listAgentExerciseIssues(
 
     return {
       snapshot_cutoff: page.snapshotCutoff.toISOString(),
-      issues: page.issues.map(toPublicIssue),
+      issues: page.issues.map((issue) => toPublicIssue(issue, auth.scopes.includes("practice:history"))),
       next_cursor: page.nextCursor,
     };
   } catch (error) {
@@ -131,7 +131,10 @@ function toPublicReplacement(replacement: ExerciseReplacementResult | null) {
   };
 }
 
-function toPublicIssue(issue: Awaited<ReturnType<typeof listExerciseQualityIssues>>["issues"][number]) {
+export function toPublicIssue(
+  issue: Awaited<ReturnType<typeof listExerciseQualityIssues>>["issues"][number],
+  includeHistory: boolean,
+) {
   return {
     exercise_id: issue.exerciseId,
     skill_id: issue.skillId,
@@ -166,13 +169,17 @@ function toPublicIssue(issue: Awaited<ReturnType<typeof listExerciseQualityIssue
       created_at: flag.createdAt.toISOString(),
       updated_at: flag.updatedAt.toISOString(),
     })),
-    recent_attempts: issue.attempts.map((attempt) => ({
-      attempt_id: attempt.id,
-      result: attempt.result,
-      submitted_answer: attempt.submittedAnswerDisplay,
-      response_ms: attempt.responseMs,
-      completed_at: attempt.completedAt.toISOString(),
-      practice_only: attempt.practiceOnly,
-    })),
+    ...(includeHistory
+      ? {
+          recent_attempts: issue.attempts.map((attempt) => ({
+            attempt_id: attempt.id,
+            result: attempt.result,
+            submitted_answer: attempt.submittedAnswerDisplay,
+            response_ms: attempt.responseMs,
+            completed_at: attempt.completedAt.toISOString(),
+            practice_only: attempt.practiceOnly,
+          })),
+        }
+      : {}),
   };
 }

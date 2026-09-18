@@ -100,6 +100,7 @@ export type AgentSkillOperationItemCountAggregateOutputType = {
   duplicateLibraryFingerprint: number
   duplicateConfidence: number
   duplicateOverrideApprovedAt: number
+  sourceReferenceOutcome: number
   createdSkillId: number
   resultSkillId: number
   errorCode: number
@@ -188,6 +189,7 @@ export type AgentSkillOperationItemCountAggregateInputType = {
   duplicateLibraryFingerprint?: true
   duplicateConfidence?: true
   duplicateOverrideApprovedAt?: true
+  sourceReferenceOutcome?: true
   createdSkillId?: true
   resultSkillId?: true
   errorCode?: true
@@ -301,6 +303,7 @@ export type AgentSkillOperationItemGroupByOutputType = {
   duplicateLibraryFingerprint: string | null
   duplicateConfidence: string | null
   duplicateOverrideApprovedAt: Date | null
+  sourceReferenceOutcome: runtime.JsonValue | null
   createdSkillId: string | null
   resultSkillId: string | null
   errorCode: string | null
@@ -350,6 +353,7 @@ export type AgentSkillOperationItemWhereInput = {
   duplicateLibraryFingerprint?: Prisma.StringNullableFilter<"AgentSkillOperationItem"> | string | null
   duplicateConfidence?: Prisma.StringNullableFilter<"AgentSkillOperationItem"> | string | null
   duplicateOverrideApprovedAt?: Prisma.DateTimeNullableFilter<"AgentSkillOperationItem"> | Date | string | null
+  sourceReferenceOutcome?: Prisma.JsonNullableFilter<"AgentSkillOperationItem">
   createdSkillId?: Prisma.StringNullableFilter<"AgentSkillOperationItem"> | string | null
   resultSkillId?: Prisma.StringNullableFilter<"AgentSkillOperationItem"> | string | null
   errorCode?: Prisma.StringNullableFilter<"AgentSkillOperationItem"> | string | null
@@ -381,6 +385,7 @@ export type AgentSkillOperationItemOrderByWithRelationInput = {
   duplicateLibraryFingerprint?: Prisma.SortOrderInput | Prisma.SortOrder
   duplicateConfidence?: Prisma.SortOrderInput | Prisma.SortOrder
   duplicateOverrideApprovedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  sourceReferenceOutcome?: Prisma.SortOrderInput | Prisma.SortOrder
   createdSkillId?: Prisma.SortOrderInput | Prisma.SortOrder
   resultSkillId?: Prisma.SortOrderInput | Prisma.SortOrder
   errorCode?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -419,6 +424,7 @@ export type AgentSkillOperationItemWhereUniqueInput = Prisma.AtLeast<{
   duplicateLibraryFingerprint?: Prisma.StringNullableFilter<"AgentSkillOperationItem"> | string | null
   duplicateConfidence?: Prisma.StringNullableFilter<"AgentSkillOperationItem"> | string | null
   duplicateOverrideApprovedAt?: Prisma.DateTimeNullableFilter<"AgentSkillOperationItem"> | Date | string | null
+  sourceReferenceOutcome?: Prisma.JsonNullableFilter<"AgentSkillOperationItem">
   resultSkillId?: Prisma.StringNullableFilter<"AgentSkillOperationItem"> | string | null
   errorCode?: Prisma.StringNullableFilter<"AgentSkillOperationItem"> | string | null
   errorMessage?: Prisma.StringNullableFilter<"AgentSkillOperationItem"> | string | null
@@ -449,6 +455,7 @@ export type AgentSkillOperationItemOrderByWithAggregationInput = {
   duplicateLibraryFingerprint?: Prisma.SortOrderInput | Prisma.SortOrder
   duplicateConfidence?: Prisma.SortOrderInput | Prisma.SortOrder
   duplicateOverrideApprovedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  sourceReferenceOutcome?: Prisma.SortOrderInput | Prisma.SortOrder
   createdSkillId?: Prisma.SortOrderInput | Prisma.SortOrder
   resultSkillId?: Prisma.SortOrderInput | Prisma.SortOrder
   errorCode?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -483,6 +490,7 @@ export type AgentSkillOperationItemScalarWhereWithAggregatesInput = {
   duplicateLibraryFingerprint?: Prisma.StringNullableWithAggregatesFilter<"AgentSkillOperationItem"> | string | null
   duplicateConfidence?: Prisma.StringNullableWithAggregatesFilter<"AgentSkillOperationItem"> | string | null
   duplicateOverrideApprovedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"AgentSkillOperationItem"> | Date | string | null
+  sourceReferenceOutcome?: Prisma.JsonNullableWithAggregatesFilter<"AgentSkillOperationItem">
   createdSkillId?: Prisma.StringNullableWithAggregatesFilter<"AgentSkillOperationItem"> | string | null
   resultSkillId?: Prisma.StringNullableWithAggregatesFilter<"AgentSkillOperationItem"> | string | null
   errorCode?: Prisma.StringNullableWithAggregatesFilter<"AgentSkillOperationItem"> | string | null
@@ -507,6 +515,7 @@ export type AgentSkillOperationItemCreateInput = {
   duplicateLibraryFingerprint?: string | null
   duplicateConfidence?: string | null
   duplicateOverrideApprovedAt?: Date | string | null
+  sourceReferenceOutcome?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   errorCode?: string | null
   errorMessage?: string | null
   retryCount?: number
@@ -536,6 +545,7 @@ export type AgentSkillOperationItemUncheckedCreateInput = {
   duplicateLibraryFingerprint?: string | null
   duplicateConfidence?: string | null
   duplicateOverrideApprovedAt?: Date | string | null
+  sourceReferenceOutcome?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdSkillId?: string | null
   resultSkillId?: string | null
   errorCode?: string | null
@@ -561,6 +571,7 @@ export type AgentSkillOperationItemUpdateInput = {
   duplicateLibraryFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   duplicateConfidence?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   duplicateOverrideApprovedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  sourceReferenceOutcome?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   retryCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -590,6 +601,7 @@ export type AgentSkillOperationItemUncheckedUpdateInput = {
   duplicateLibraryFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   duplicateConfidence?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   duplicateOverrideApprovedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  sourceReferenceOutcome?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdSkillId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   resultSkillId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -617,6 +629,7 @@ export type AgentSkillOperationItemCreateManyInput = {
   duplicateLibraryFingerprint?: string | null
   duplicateConfidence?: string | null
   duplicateOverrideApprovedAt?: Date | string | null
+  sourceReferenceOutcome?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdSkillId?: string | null
   resultSkillId?: string | null
   errorCode?: string | null
@@ -641,6 +654,7 @@ export type AgentSkillOperationItemUpdateManyMutationInput = {
   duplicateLibraryFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   duplicateConfidence?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   duplicateOverrideApprovedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  sourceReferenceOutcome?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   retryCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -665,6 +679,7 @@ export type AgentSkillOperationItemUncheckedUpdateManyInput = {
   duplicateLibraryFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   duplicateConfidence?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   duplicateOverrideApprovedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  sourceReferenceOutcome?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdSkillId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   resultSkillId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -716,6 +731,7 @@ export type AgentSkillOperationItemCountOrderByAggregateInput = {
   duplicateLibraryFingerprint?: Prisma.SortOrder
   duplicateConfidence?: Prisma.SortOrder
   duplicateOverrideApprovedAt?: Prisma.SortOrder
+  sourceReferenceOutcome?: Prisma.SortOrder
   createdSkillId?: Prisma.SortOrder
   resultSkillId?: Prisma.SortOrder
   errorCode?: Prisma.SortOrder
@@ -991,6 +1007,7 @@ export type AgentSkillOperationItemCreateWithoutUserInput = {
   duplicateLibraryFingerprint?: string | null
   duplicateConfidence?: string | null
   duplicateOverrideApprovedAt?: Date | string | null
+  sourceReferenceOutcome?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   errorCode?: string | null
   errorMessage?: string | null
   retryCount?: number
@@ -1018,6 +1035,7 @@ export type AgentSkillOperationItemUncheckedCreateWithoutUserInput = {
   duplicateLibraryFingerprint?: string | null
   duplicateConfidence?: string | null
   duplicateOverrideApprovedAt?: Date | string | null
+  sourceReferenceOutcome?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdSkillId?: string | null
   resultSkillId?: string | null
   errorCode?: string | null
@@ -1074,6 +1092,7 @@ export type AgentSkillOperationItemScalarWhereInput = {
   duplicateLibraryFingerprint?: Prisma.StringNullableFilter<"AgentSkillOperationItem"> | string | null
   duplicateConfidence?: Prisma.StringNullableFilter<"AgentSkillOperationItem"> | string | null
   duplicateOverrideApprovedAt?: Prisma.DateTimeNullableFilter<"AgentSkillOperationItem"> | Date | string | null
+  sourceReferenceOutcome?: Prisma.JsonNullableFilter<"AgentSkillOperationItem">
   createdSkillId?: Prisma.StringNullableFilter<"AgentSkillOperationItem"> | string | null
   resultSkillId?: Prisma.StringNullableFilter<"AgentSkillOperationItem"> | string | null
   errorCode?: Prisma.StringNullableFilter<"AgentSkillOperationItem"> | string | null
@@ -1098,6 +1117,7 @@ export type AgentSkillOperationItemCreateWithoutCreatedSkillInput = {
   duplicateLibraryFingerprint?: string | null
   duplicateConfidence?: string | null
   duplicateOverrideApprovedAt?: Date | string | null
+  sourceReferenceOutcome?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   errorCode?: string | null
   errorMessage?: string | null
   retryCount?: number
@@ -1126,6 +1146,7 @@ export type AgentSkillOperationItemUncheckedCreateWithoutCreatedSkillInput = {
   duplicateLibraryFingerprint?: string | null
   duplicateConfidence?: string | null
   duplicateOverrideApprovedAt?: Date | string | null
+  sourceReferenceOutcome?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   resultSkillId?: string | null
   errorCode?: string | null
   errorMessage?: string | null
@@ -1160,6 +1181,7 @@ export type AgentSkillOperationItemCreateWithoutResultSkillInput = {
   duplicateLibraryFingerprint?: string | null
   duplicateConfidence?: string | null
   duplicateOverrideApprovedAt?: Date | string | null
+  sourceReferenceOutcome?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   errorCode?: string | null
   errorMessage?: string | null
   retryCount?: number
@@ -1188,6 +1210,7 @@ export type AgentSkillOperationItemUncheckedCreateWithoutResultSkillInput = {
   duplicateLibraryFingerprint?: string | null
   duplicateConfidence?: string | null
   duplicateOverrideApprovedAt?: Date | string | null
+  sourceReferenceOutcome?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdSkillId?: string | null
   errorCode?: string | null
   errorMessage?: string | null
@@ -1254,6 +1277,7 @@ export type AgentSkillOperationItemCreateWithoutOperationInput = {
   duplicateLibraryFingerprint?: string | null
   duplicateConfidence?: string | null
   duplicateOverrideApprovedAt?: Date | string | null
+  sourceReferenceOutcome?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   errorCode?: string | null
   errorMessage?: string | null
   retryCount?: number
@@ -1280,6 +1304,7 @@ export type AgentSkillOperationItemUncheckedCreateWithoutOperationInput = {
   duplicateLibraryFingerprint?: string | null
   duplicateConfidence?: string | null
   duplicateOverrideApprovedAt?: Date | string | null
+  sourceReferenceOutcome?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdSkillId?: string | null
   resultSkillId?: string | null
   errorCode?: string | null
@@ -1331,6 +1356,7 @@ export type AgentSkillOperationItemCreateWithoutCandidatesInput = {
   duplicateLibraryFingerprint?: string | null
   duplicateConfidence?: string | null
   duplicateOverrideApprovedAt?: Date | string | null
+  sourceReferenceOutcome?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   errorCode?: string | null
   errorMessage?: string | null
   retryCount?: number
@@ -1359,6 +1385,7 @@ export type AgentSkillOperationItemUncheckedCreateWithoutCandidatesInput = {
   duplicateLibraryFingerprint?: string | null
   duplicateConfidence?: string | null
   duplicateOverrideApprovedAt?: Date | string | null
+  sourceReferenceOutcome?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdSkillId?: string | null
   resultSkillId?: string | null
   errorCode?: string | null
@@ -1399,6 +1426,7 @@ export type AgentSkillOperationItemUpdateWithoutCandidatesInput = {
   duplicateLibraryFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   duplicateConfidence?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   duplicateOverrideApprovedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  sourceReferenceOutcome?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   retryCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -1427,6 +1455,7 @@ export type AgentSkillOperationItemUncheckedUpdateWithoutCandidatesInput = {
   duplicateLibraryFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   duplicateConfidence?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   duplicateOverrideApprovedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  sourceReferenceOutcome?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdSkillId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   resultSkillId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1452,6 +1481,7 @@ export type AgentSkillOperationItemCreateManyUserInput = {
   duplicateLibraryFingerprint?: string | null
   duplicateConfidence?: string | null
   duplicateOverrideApprovedAt?: Date | string | null
+  sourceReferenceOutcome?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdSkillId?: string | null
   resultSkillId?: string | null
   errorCode?: string | null
@@ -1476,6 +1506,7 @@ export type AgentSkillOperationItemUpdateWithoutUserInput = {
   duplicateLibraryFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   duplicateConfidence?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   duplicateOverrideApprovedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  sourceReferenceOutcome?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   retryCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -1503,6 +1534,7 @@ export type AgentSkillOperationItemUncheckedUpdateWithoutUserInput = {
   duplicateLibraryFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   duplicateConfidence?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   duplicateOverrideApprovedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  sourceReferenceOutcome?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdSkillId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   resultSkillId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1529,6 +1561,7 @@ export type AgentSkillOperationItemUncheckedUpdateManyWithoutUserInput = {
   duplicateLibraryFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   duplicateConfidence?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   duplicateOverrideApprovedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  sourceReferenceOutcome?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdSkillId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   resultSkillId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1555,6 +1588,7 @@ export type AgentSkillOperationItemCreateManyCreatedSkillInput = {
   duplicateLibraryFingerprint?: string | null
   duplicateConfidence?: string | null
   duplicateOverrideApprovedAt?: Date | string | null
+  sourceReferenceOutcome?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   resultSkillId?: string | null
   errorCode?: string | null
   errorMessage?: string | null
@@ -1580,6 +1614,7 @@ export type AgentSkillOperationItemCreateManyResultSkillInput = {
   duplicateLibraryFingerprint?: string | null
   duplicateConfidence?: string | null
   duplicateOverrideApprovedAt?: Date | string | null
+  sourceReferenceOutcome?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdSkillId?: string | null
   errorCode?: string | null
   errorMessage?: string | null
@@ -1603,6 +1638,7 @@ export type AgentSkillOperationItemUpdateWithoutCreatedSkillInput = {
   duplicateLibraryFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   duplicateConfidence?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   duplicateOverrideApprovedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  sourceReferenceOutcome?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   retryCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -1631,6 +1667,7 @@ export type AgentSkillOperationItemUncheckedUpdateWithoutCreatedSkillInput = {
   duplicateLibraryFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   duplicateConfidence?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   duplicateOverrideApprovedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  sourceReferenceOutcome?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   resultSkillId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1657,6 +1694,7 @@ export type AgentSkillOperationItemUncheckedUpdateManyWithoutCreatedSkillInput =
   duplicateLibraryFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   duplicateConfidence?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   duplicateOverrideApprovedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  sourceReferenceOutcome?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   resultSkillId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1680,6 +1718,7 @@ export type AgentSkillOperationItemUpdateWithoutResultSkillInput = {
   duplicateLibraryFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   duplicateConfidence?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   duplicateOverrideApprovedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  sourceReferenceOutcome?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   retryCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -1708,6 +1747,7 @@ export type AgentSkillOperationItemUncheckedUpdateWithoutResultSkillInput = {
   duplicateLibraryFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   duplicateConfidence?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   duplicateOverrideApprovedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  sourceReferenceOutcome?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdSkillId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1734,6 +1774,7 @@ export type AgentSkillOperationItemUncheckedUpdateManyWithoutResultSkillInput = 
   duplicateLibraryFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   duplicateConfidence?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   duplicateOverrideApprovedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  sourceReferenceOutcome?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdSkillId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1757,6 +1798,7 @@ export type AgentSkillOperationItemCreateManyOperationInput = {
   duplicateLibraryFingerprint?: string | null
   duplicateConfidence?: string | null
   duplicateOverrideApprovedAt?: Date | string | null
+  sourceReferenceOutcome?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdSkillId?: string | null
   resultSkillId?: string | null
   errorCode?: string | null
@@ -1781,6 +1823,7 @@ export type AgentSkillOperationItemUpdateWithoutOperationInput = {
   duplicateLibraryFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   duplicateConfidence?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   duplicateOverrideApprovedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  sourceReferenceOutcome?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   retryCount?: Prisma.IntFieldUpdateOperationsInput | number
@@ -1807,6 +1850,7 @@ export type AgentSkillOperationItemUncheckedUpdateWithoutOperationInput = {
   duplicateLibraryFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   duplicateConfidence?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   duplicateOverrideApprovedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  sourceReferenceOutcome?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdSkillId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   resultSkillId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1832,6 +1876,7 @@ export type AgentSkillOperationItemUncheckedUpdateManyWithoutOperationInput = {
   duplicateLibraryFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   duplicateConfidence?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   duplicateOverrideApprovedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  sourceReferenceOutcome?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdSkillId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   resultSkillId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1889,6 +1934,7 @@ export type AgentSkillOperationItemSelect<ExtArgs extends runtime.Types.Extensio
   duplicateLibraryFingerprint?: boolean
   duplicateConfidence?: boolean
   duplicateOverrideApprovedAt?: boolean
+  sourceReferenceOutcome?: boolean
   createdSkillId?: boolean
   resultSkillId?: boolean
   errorCode?: boolean
@@ -1921,6 +1967,7 @@ export type AgentSkillOperationItemSelectCreateManyAndReturn<ExtArgs extends run
   duplicateLibraryFingerprint?: boolean
   duplicateConfidence?: boolean
   duplicateOverrideApprovedAt?: boolean
+  sourceReferenceOutcome?: boolean
   createdSkillId?: boolean
   resultSkillId?: boolean
   errorCode?: boolean
@@ -1951,6 +1998,7 @@ export type AgentSkillOperationItemSelectUpdateManyAndReturn<ExtArgs extends run
   duplicateLibraryFingerprint?: boolean
   duplicateConfidence?: boolean
   duplicateOverrideApprovedAt?: boolean
+  sourceReferenceOutcome?: boolean
   createdSkillId?: boolean
   resultSkillId?: boolean
   errorCode?: boolean
@@ -1981,6 +2029,7 @@ export type AgentSkillOperationItemSelectScalar = {
   duplicateLibraryFingerprint?: boolean
   duplicateConfidence?: boolean
   duplicateOverrideApprovedAt?: boolean
+  sourceReferenceOutcome?: boolean
   createdSkillId?: boolean
   resultSkillId?: boolean
   errorCode?: boolean
@@ -1993,7 +2042,7 @@ export type AgentSkillOperationItemSelectScalar = {
   updatedAt?: boolean
 }
 
-export type AgentSkillOperationItemOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "operationId" | "ordinal" | "clientReference" | "status" | "proposedTitle" | "proposedObjective" | "skillSnapshot" | "candidateFingerprint" | "duplicateLibraryFingerprint" | "duplicateConfidence" | "duplicateOverrideApprovedAt" | "createdSkillId" | "resultSkillId" | "errorCode" | "errorMessage" | "retryCount" | "activationReservedAt" | "startedAt" | "completedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["agentSkillOperationItem"]>
+export type AgentSkillOperationItemOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "operationId" | "ordinal" | "clientReference" | "status" | "proposedTitle" | "proposedObjective" | "skillSnapshot" | "candidateFingerprint" | "duplicateLibraryFingerprint" | "duplicateConfidence" | "duplicateOverrideApprovedAt" | "sourceReferenceOutcome" | "createdSkillId" | "resultSkillId" | "errorCode" | "errorMessage" | "retryCount" | "activationReservedAt" | "startedAt" | "completedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["agentSkillOperationItem"]>
 export type AgentSkillOperationItemInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   operation?: boolean | Prisma.AgentSkillOperationDefaultArgs<ExtArgs>
@@ -2038,6 +2087,7 @@ export type $AgentSkillOperationItemPayload<ExtArgs extends runtime.Types.Extens
     duplicateLibraryFingerprint: string | null
     duplicateConfidence: string | null
     duplicateOverrideApprovedAt: Date | null
+    sourceReferenceOutcome: runtime.JsonValue | null
     createdSkillId: string | null
     resultSkillId: string | null
     errorCode: string | null
@@ -2489,6 +2539,7 @@ export interface AgentSkillOperationItemFieldRefs {
   readonly duplicateLibraryFingerprint: Prisma.FieldRef<"AgentSkillOperationItem", 'String'>
   readonly duplicateConfidence: Prisma.FieldRef<"AgentSkillOperationItem", 'String'>
   readonly duplicateOverrideApprovedAt: Prisma.FieldRef<"AgentSkillOperationItem", 'DateTime'>
+  readonly sourceReferenceOutcome: Prisma.FieldRef<"AgentSkillOperationItem", 'Json'>
   readonly createdSkillId: Prisma.FieldRef<"AgentSkillOperationItem", 'String'>
   readonly resultSkillId: Prisma.FieldRef<"AgentSkillOperationItem", 'String'>
   readonly errorCode: Prisma.FieldRef<"AgentSkillOperationItem", 'String'>

@@ -12,6 +12,7 @@ import {
   parseSkillSnapshot,
   normalizeAgentItemErrorCode,
   selectAgentOperationItemsForDelivery,
+  summarizeAgentSourceReferenceOutcome,
 } from "@/lib/agent-access/worker";
 
 const baseMatch = {
@@ -82,6 +83,16 @@ describe("classifyAgentDuplicate", () => {
 
   it("creates only when no match exists", () => {
     expect(classifyAgentDuplicate(null)).toEqual({ action: "create", confidence: null });
+  });
+});
+
+describe("summarizeAgentSourceReferenceOutcome", () => {
+  it.each([
+    [{ attachedCount: 1, mergedCount: 0, unchangedCount: 0 }, "attached"],
+    [{ attachedCount: 0, mergedCount: 1, unchangedCount: 0 }, "merged"],
+    [{ attachedCount: 0, mergedCount: 0, unchangedCount: 2 }, "preserved"],
+  ] as const)("reports %s as %s", (counts, status) => {
+    expect(summarizeAgentSourceReferenceOutcome(counts)).toMatchObject({ ...counts, status });
   });
 });
 

@@ -94,7 +94,7 @@ export function AgentAccessPanel({ resourceUrl, connections, activity }: {
       </div>
 
       <p className="agentPermissionCopy">
-        During connection, LearnRecur asks for only the permissions the agent requests: add skills, inspect or edit skills and collections, read materials, upload sources, read progress, manage reminders, or apply a reviewable setup plan. Existing connections need new consent before a new permission can be used. Disconnecting stops future calls and keeps existing skills.
+        During connection, LearnRecur asks for only the permissions the agent requests: add skills, inspect or edit skills and collections, read materials, audit exercise answer keys, read submitted practice answers, resolve exercise issues, upload sources, read progress, manage reminders, or apply a reviewable setup plan. Existing connections need new consent before a new permission can be used. Disconnecting stops future calls and keeps existing skills.
       </p>
 
       <div className="agentAccessSubsection">
@@ -182,6 +182,9 @@ function permissionSummary(scopes: string[]) {
           scope === "collections:read" ? ["read collections"] :
             scope === "collections:write" ? ["edit collections"] :
               scope === "materials:read" ? ["read materials"] :
+                scope === "exercises:audit" ? ["audit exercise answers"] :
+                  scope === "practice:history" ? ["read submitted answers"] :
+                    scope === "exercises:resolve" ? ["resolve exercise issues"] :
                 scope === "sources:upload" ? ["upload sources"] :
                   scope === "practice:read" ? ["read practice settings"] :
                     scope === "practice:write" ? ["edit practice settings"] :

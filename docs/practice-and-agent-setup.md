@@ -85,11 +85,12 @@ migration. A code rollback is safe only while the previous code does not read
 the new records; after dependent code is deployed, use a forward corrective
 migration for schema repair.
 
-The connected-agent scope catalog is the current 14-entry `AGENT_ACCESS_SCOPES`
+The connected-agent scope catalog is the current 17-entry `AGENT_ACCESS_SCOPES`
 list: `skills:create`, `skills:read`, `skills:write`, `collections:read`,
-`collections:write`, `materials:read`, `sources:upload`, `practice:read`,
-`practice:write`, `reminders:read`, `reminders:write`, `progress:read`,
-`setup:read`, and `setup:write`. WorkOS Connect application permissions and
+`collections:write`, `materials:read`, `exercises:audit`, `practice:history`,
+`exercises:resolve`, `sources:upload`, `practice:read`, `practice:write`,
+`reminders:read`, `reminders:write`, `progress:read`, `setup:read`, and
+`setup:write`. WorkOS Connect application permissions and
 CIMD default-scope configuration match this catalog; DCR remains disabled.
 Existing grants require reconsent because metadata alone does not add scopes.
 The authorization setup uses the stable `alpha.learnrecur.com/mcp` resource and

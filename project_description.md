@@ -733,3 +733,25 @@ Balanced is the user default. Nullable collection and skill overrides resolve sk
 Mixed review defaults off and can be changed for a session. It hides skill and collection cues until feedback, then varies compatible due skills while preserving overdue-day priority. Actual mode, mixed presentation, and comparison/rating policies are recorded with new attempts. Choice success and typed success remain distinguishable; neither proves spoken performance.
 
 Generation consumes bounded real recent evidence and can recover from historical lapses. Text policy changes retire future text stock and fence obsolete work without regrading history or resetting schedules. Connected agents can discover owned targets and read or edit every persistent practice setting using separately consented `practice:read` and `practice:write` MCP tools. See [retention implementation](docs/retention-implementation.md) for configuration, legacy behavior, bounded preparation, recovery rules, release prerequisites, and validation limits.
+
+## Auditable material imports and exercise recovery
+
+LearnRecur can support a substantial, subject-agnostic skill library without
+turning import into daily study. The shared import policy counts active and
+paused skills together, bounds pending work and delivery slices, and keeps the
+250-skill library ceiling separate from the learner's daily new-skill
+allowance. Import work does not introduce skills, create attempts, or advance
+FSRS state.
+
+Connected agents can traverse owned material revisions through
+`materials.read_content`, attach revision-bound source references before
+exercise generation, and inspect full answer contracts through the separately
+consented `exercises:audit` scope. `practice:history` is a separate consent
+because it reveals submitted learner answers. Reported exercises remain
+historical facts; confirmed defects can exclude their scheduling evidence and
+queue a replacement without rewriting the original attempt.
+
+This plumbing does not claim that a textbook has been imported or that
+generated exercises are linguistically correct. A real-material pilot must
+still record chapter coverage, source locators, extraction gaps, answer-key
+audits, and correction outcomes. See [the Spanish import readiness status](docs/spanish-import-readiness-status.md).

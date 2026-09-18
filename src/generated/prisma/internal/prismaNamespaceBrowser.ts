@@ -814,6 +814,7 @@ export const AgentSkillOperationItemScalarFieldEnum = {
   duplicateLibraryFingerprint: 'duplicateLibraryFingerprint',
   duplicateConfidence: 'duplicateConfidence',
   duplicateOverrideApprovedAt: 'duplicateOverrideApprovedAt',
+  sourceReferenceOutcome: 'sourceReferenceOutcome',
   createdSkillId: 'createdSkillId',
   resultSkillId: 'resultSkillId',
   errorCode: 'errorCode',

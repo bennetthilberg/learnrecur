@@ -203,6 +203,26 @@ export async function runAgentSkillOperationJob(input: {
       }
       const duplicate = classifyAgentDuplicate(byItem.get(item.id)?.bestMatch ?? null);
       if (duplicate.action === "reuse") {
+        let sourceReferenceOutcome: AgentSourceReferenceOutcome | null = null;
+        if (snapshot.source_refs?.length) {
+          try {
+            sourceReferenceOutcome = summarizeAgentSourceReferenceOutcome(
+              await attachMaterialSourceReferencesToSkill({
+                userId: input.userId,
+                skillId: duplicate.skillId,
+                sourceRefs: snapshot.source_refs,
+              }),
+            );
+          } catch (error) {
+            await failItem(
+              item.id,
+              input.userId,
+              sourceReferenceErrorCode(error),
+              now,
+            );
+            continue;
+          }
+        }
         await prisma.agentSkillOperationItem.update({
           where: { id: item.id },
           data: {
@@ -210,6 +230,7 @@ export async function runAgentSkillOperationJob(input: {
             resultSkillId: duplicate.skillId,
             duplicateConfidence: duplicate.confidence,
             duplicateLibraryFingerprint: similarities.duplicateLibraryFingerprint,
+            sourceReferenceOutcome: sourceReferenceOutcome ? toJson(sourceReferenceOutcome) : undefined,
             completedAt: now,
           },
         });
@@ -771,21 +792,22 @@ async function activateCreatedDraft(userId: string, itemId: string, skillId: str
     select: { candidateFingerprint: true, duplicateLibraryFingerprint: true, skillSnapshot: true },
   });
   const snapshot = parseSkillSnapshot(operationItem?.skillSnapshot);
+  let sourceReferenceOutcome: AgentSourceReferenceOutcome | null = null;
   if (snapshot?.source_refs?.length) {
     try {
-      await attachMaterialSourceReferencesToSkill({
-        userId,
-        skillId,
-        sourceRefs: snapshot.source_refs,
-      });
+      sourceReferenceOutcome = summarizeAgentSourceReferenceOutcome(
+        await attachMaterialSourceReferencesToSkill({
+          userId,
+          skillId,
+          sourceRefs: snapshot.source_refs,
+        }),
+      );
     } catch (error) {
       await prisma.skill.deleteMany({ where: { id: skillId, userId, status: SkillStatus.DRAFT } });
       await failItem(
         itemId,
         userId,
-        error instanceof MaterialSourceReferenceError
-          ? `SOURCE_REFERENCE_${error.code}`
-          : "SOURCE_REFERENCE_INVALID",
+        sourceReferenceErrorCode(error),
         now,
       );
       return;
@@ -805,6 +827,21 @@ async function activateCreatedDraft(userId: string, itemId: string, skillId: str
     duplicate.action === "reuse" ||
     (duplicate.action === "review" && !reviewItem?.duplicateOverrideApprovedAt);
   if (shouldStopForDuplicate) {
+    if (duplicate.action === "reuse" && snapshot?.source_refs?.length) {
+      try {
+        sourceReferenceOutcome = summarizeAgentSourceReferenceOutcome(
+          await attachMaterialSourceReferencesToSkill({
+            userId,
+            skillId: duplicate.skillId,
+            sourceRefs: snapshot.source_refs,
+          }),
+        );
+      } catch (error) {
+        await prisma.skill.deleteMany({ where: { id: skillId, userId, status: SkillStatus.DRAFT } });
+        await failItem(itemId, userId, sourceReferenceErrorCode(error), now);
+        return;
+      }
+    }
     await prisma.agentSkillOperationItem.update({
       where: { id: itemId },
       data: {
@@ -813,6 +850,7 @@ async function activateCreatedDraft(userId: string, itemId: string, skillId: str
         duplicateConfidence: duplicate.confidence,
         duplicateLibraryFingerprint: duplicateResult.duplicateLibraryFingerprint,
         activationReservedAt: null,
+        sourceReferenceOutcome: sourceReferenceOutcome ? toJson(sourceReferenceOutcome) : undefined,
         completedAt: duplicate.action === "reuse" ? now : null,
       },
     });
@@ -1013,6 +1051,36 @@ type SkillSnapshot = {
   collection?: string;
   source_refs?: MaterialSourceReference[];
 };
+
+export type AgentSourceReferenceOutcome = {
+  status: "attached" | "merged" | "preserved";
+  attachedCount: number;
+  mergedCount: number;
+  unchangedCount: number;
+};
+
+export function summarizeAgentSourceReferenceOutcome(input: {
+  attachedCount: number;
+  mergedCount: number;
+  unchangedCount: number;
+}): AgentSourceReferenceOutcome {
+  return {
+    status: input.attachedCount > 0
+      ? "attached"
+      : input.mergedCount > 0
+        ? "merged"
+        : "preserved",
+    attachedCount: input.attachedCount,
+    mergedCount: input.mergedCount,
+    unchangedCount: input.unchangedCount,
+  };
+}
+
+function sourceReferenceErrorCode(error: unknown) {
+  return error instanceof MaterialSourceReferenceError
+    ? `SOURCE_REFERENCE_${error.code}`
+    : "SOURCE_REFERENCE_INVALID";
+}
 
 export function buildSkillDraftInputFromSnapshot(snapshot: SkillSnapshot) {
   return {

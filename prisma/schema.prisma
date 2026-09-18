@@ -1347,6 +1347,7 @@ model AgentSkillOperationItem {
   duplicateLibraryFingerprint String?
   duplicateConfidence         String?
   duplicateOverrideApprovedAt DateTime?
+  sourceReferenceOutcome      Json?
   createdSkillId              String?                  @unique
   resultSkillId               String?
   errorCode                   String?

@@ -60,6 +60,7 @@ const PUBLIC_OPERATION_SELECT = {
       status: true,
       proposedTitle: true,
       duplicateConfidence: true,
+      sourceReferenceOutcome: true,
       resultSkillId: true,
       errorCode: true,
       retryCount: true,
@@ -86,6 +87,7 @@ export type PublicAgentOperation = {
     status: string;
     proposed_title: string | null;
     duplicate_confidence: string | null;
+    source_reference_outcome: Prisma.JsonValue | null;
     skill_id: string | null;
     skill_url: string | null;
     error_code: string | null;
@@ -751,6 +753,7 @@ export function serializeAgentOperation(
       status: item.status.toLocaleLowerCase("en-US"),
       proposed_title: item.proposedTitle,
       duplicate_confidence: item.duplicateConfidence,
+      source_reference_outcome: item.sourceReferenceOutcome,
       skill_id: item.resultSkillId,
       skill_url: item.resultSkillId ? `/skills/${item.resultSkillId}` : null,
       error_code: item.errorCode,

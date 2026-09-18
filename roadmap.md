@@ -1569,3 +1569,17 @@ Whenever a future decision is unclear, choose the option that makes this loop be
 The daily new-skill allowance follow-up adds account Settings/MCP controls, shared introduction accounting, and consistent practice/readiness limits. It preserves the one-skill FSRS schedule and does not add a separate exercise scheduler. See `docs/daily-new-skill-limit.md`.
 
 Implementation branch `a/retention-preferences` adds inherited practice preferences, explicit prior-study onboarding, versioned faithful text comparison, universal Good defaults, actual recent generation evidence with recoverable recovery, and optional mixed practice. MCP read/edit tools cover all persistent settings with separate consent, ownership checks, partial updates, and the shared text-policy lifecycle. The scope preserves one FSRS schedule per skill, deterministic feedback, and the current AWS job stack. No production migration or deployment is part of this slice. Detailed behavior, migration boundaries, verification, and configuration examples are maintained in [docs/retention-implementation.md](docs/retention-implementation.md).
+
+## Spanish textbook import readiness (implementation plumbing)
+
+The `a/spanish-import-readiness` branch adds the bounded, resumable plumbing
+needed to pilot complete-material imports while preserving the solo learner
+practice contract. It keeps the 250 active-or-paused skill ceiling separate
+from daily introductions, reads material revisions sequentially, persists
+revision-bound source references, exposes answer-bearing audit/history reads
+under separate MCP consent, and supports cumulative exercise-defect
+correction. These changes prepare a real-material pilot; they do not claim
+that a licensed textbook has been imported or that generated Spanish
+exercises have passed a representative quality review. The durable checkpoint,
+pilot checklist, and verification limits are recorded in
+[docs/spanish-import-readiness-status.md](docs/spanish-import-readiness-status.md).

@@ -196,7 +196,7 @@ export function registerLearnRecurMcpTools(server: McpServer) {
   registerTool(server, {
     name: "exercises.list_issues",
     title: "List exercise quality issues",
-    description: "List owned exercise reports and durable correction state. The default queue includes pending adjudication and correction work even when legacy report status is already RESOLVED.",
+    description: "List owned exercise reports and durable correction state. The default queue includes pending adjudication and correction work even when legacy report status is already RESOLVED. Submitted learner answers are included only when the connection also has separate practice:history consent.",
     schema: agentExerciseIssueListSchema,
     scopes: ["exercises:audit"],
     readOnly: true,

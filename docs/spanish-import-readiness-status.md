@@ -1,6 +1,7 @@
 # Spanish import readiness status
 
-Updated 2026-09-17. This is a work-in-progress checkpoint, not a release receipt.
+Updated 2026-09-17 after PR review and deployment verification. This is a
+work-in-progress checkpoint, not a release receipt.
 
 The implementation provides the bounded, auditable plumbing for a future
 Spanish textbook pilot: sequential material reading, revision-bound source
@@ -24,11 +25,11 @@ contracts, exercise the issue correction flow, and record extraction gaps.
 ## Development checkpoint
 
 The current feature branch is `a/spanish-import-readiness`. An existing open
-PR, #146, is the single PR target for this work. Local checkpoint commit
-`8dea53b` preserves the implementation slices before development pauses. It
-has not been pushed; the remote PR currently ends at `04632b4`. The unrelated
-untracked `docs/product-discovery/` directory belongs to the user and must
-remain untouched.
+PR, #146, is the single PR target for this work. The implementation checkpoint
+`fe7a1da` was followed by review-fix commit `6dd1a10`; the subsequent source
+reference and consent-hardening follow-up is the next local checkpoint before
+its push. The unrelated untracked `docs/product-discovery/` directory belongs
+to the user and must remain untouched.
 
 Implemented in the current working tree:
 
@@ -44,41 +45,39 @@ Implemented in the current working tree:
 - cumulative confirmed-defect correction, historical annotations, replay-safe
   scheduling, practice-only preservation, idempotency/stale guards, and
   separate replacement-queue outcomes;
+- duplicate reuse attaches compatible new source references and reports whether
+  evidence was attached, merged, or preserved on the operation item;
+- issue-list responses keep submitted answers behind the separate
+  `practice:history` consent, with the settings surface naming all three new
+  exercise-audit/history/resolution permissions;
 - focused Needs Attention and issue-resolution feedback in the learner UI;
 - import playbook and a small import ledger template.
 
-Verification evidence available before this pause:
+Verification evidence for the current local checkpoint:
 
-- `npx tsc --noEmit` passed after the MCP/domain integration and replacement
-  outcome changes;
-- the latest delegated full unit checkpoint reported 141 files and 1,213 tests
-  passed;
-- lint passed before the final material-reader boundary test was added;
+- `npx tsc --noEmit`, `npm run lint`, and the production `npm run build` passed
+  after the PR review fixes and source-reference outcome migration;
+- the full unit suite passed 142 files and 1,220 tests;
+- anonymous Playwright passed 15 browser checks at desktop and mobile widths;
+- `npm run jobs:build` and `npm run check:runtime-audit` passed; the runtime
+  audit reports only three already-accepted dev-only Prisma CLI exceptions;
 - the focused refill/reservation suite passed 34 tests;
-- database integration was attempted by the delegated quality slice and was
-  blocked by the configured read-only Neon PostgreSQL connection (`25006`) on
-  temporary INSERT/DELETE cleanup;
-- no live WorkOS registration/reconsent, deployment, licensed textbook, or
-  representative material pilot has been performed for this branch.
+- database integration remains an environment limitation: the configured Neon
+  branch is read-only (`25006`) for temporary test writes and the bounded full
+  run cannot complete there;
+- PR #146's `verify`, production Vercel, and staging Vercel checks passed on
+  `6dd1a10`; authenticated E2E and CodeRabbit were still pending when this
+  record was last refreshed;
+- no live WorkOS registration/reconsent, licensed textbook, or representative
+  material pilot has been performed for this branch.
 
-The current head is not yet merge-ready. Resume by first inspecting the
-checkpoint diff and then completing these items:
-
-1. Make duplicate skill reuse attach compatible new source references and
-   report whether they were attached, merged, or preserved; expose that result
-   on operation items.
-2. Ensure issue-list responses never expose submitted answers without the
-   separately consented `practice:history` scope; update the settings copy for
-   the three new consent scopes.
-3. Finish the current documentation follow-up in `project_description.md`,
-   `roadmap.md`, and this release record without rewriting historical live
-   claims.
-4. Run the focused tests, then the full lint, unit, Prisma, build, database,
-   browser, worker, and runtime-audit checks. Treat the read-only database
-   limitation as an explicit environment limitation rather than a passing
-   result.
-5. Inspect `git diff --check`, preserve `docs/product-discovery/`, push the
-   branch, update PR #146, and only then close the goal as complete.
+The implementation is ready for the final remote check reconciliation. The
+remaining external gate is authenticated E2E/CodeRabbit completion; the
+database limitation must remain recorded as an environment limitation rather
+than a passing result. The next operator should inspect the final PR checks,
+confirm the migration is applied before using the new operation-item field,
+and run the real-material pilot before making coverage or exercise-quality
+claims.
 
 Suggested resume commands:
 
