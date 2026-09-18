@@ -352,7 +352,7 @@ describeDatabase("material reader and source references", () => {
     });
     const auth = await createConnection(fixture.userId, ["skills:read"]);
     const publicSkill = await getAgentSkill(auth, { skill_id: fixture.skill.id });
-    expect(publicSkill).toMatchObject({
+    expect(publicSkill.skill).toMatchObject({
       source_links: [
         expect.objectContaining({
           revision_id: fixture.revision.id,

@@ -5796,10 +5796,6 @@ describeDatabase("material multi-skill drafting", () => {
         status: SkillStatus.ARCHIVED,
       })),
     });
-    await prisma.skill.updateMany({
-      where: { userId, title: { startsWith: fillerPrefix } },
-      data: { status: SkillStatus.ACTIVE },
-    });
     const events: MaterialBatchActivationEvent[] = [];
     expect(
       await queueMaterialBatchActivation({
@@ -5813,6 +5809,10 @@ describeDatabase("material multi-skill drafting", () => {
         },
       }),
     ).toMatchObject({ status: "queued" });
+    await prisma.skill.updateMany({
+      where: { userId, title: { startsWith: fillerPrefix } },
+      data: { status: SkillStatus.ACTIVE },
+    });
     const generateChoiceExercises = vi.fn(async () => ({
       exercises: [generatedChoiceExercise(31), generatedChoiceExercise(32), generatedChoiceExercise(33)],
     }));
