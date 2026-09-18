@@ -357,7 +357,7 @@ describeDatabase("material reader and source references", () => {
         expect.objectContaining({
           revision_id: fixture.revision.id,
           section_ids: [fixture.root.id, fixture.child.id].toSorted(),
-          evidence_chunk_ids: [fixture.chunks[0].id, fixture.chunks[1].id].toSorted(),
+          evidence_chunk_ids: [fixture.rootChunk.id, fixture.chunks[1].id].toSorted(),
           page_ranges: [{ start: 1, end: 3 }],
         }),
       ],

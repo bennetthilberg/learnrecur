@@ -5782,6 +5782,24 @@ describeDatabase("material multi-skill drafting", () => {
         evidenceChunkIds: [directChunkId],
       },
     ]);
+    const usage = await getSkillActivationUsage({
+      userId,
+      now: new Date("2026-07-12T12:01:00.000Z"),
+      prisma,
+    });
+    const fillerPrefix = `Queued slot recheck filler ${randomUUID()}`;
+    await prisma.skill.createMany({
+      data: Array.from({ length: Math.max(0, usage.activeSkillLimit - usage.countedSkillCount) }, (_, index) => ({
+        userId,
+        title: `${fillerPrefix} ${index}`,
+        tags: [],
+        status: SkillStatus.ARCHIVED,
+      })),
+    });
+    await prisma.skill.updateMany({
+      where: { userId, title: { startsWith: fillerPrefix } },
+      data: { status: SkillStatus.ACTIVE },
+    });
     const events: MaterialBatchActivationEvent[] = [];
     expect(
       await queueMaterialBatchActivation({
@@ -5795,20 +5813,6 @@ describeDatabase("material multi-skill drafting", () => {
         },
       }),
     ).toMatchObject({ status: "queued" });
-    const usage = await getSkillActivationUsage({
-      userId,
-      now: new Date("2026-07-12T12:01:00.000Z"),
-      prisma,
-    });
-    const fillerPrefix = `Queued slot recheck filler ${randomUUID()}`;
-    await prisma.skill.createMany({
-      data: Array.from({ length: Math.max(0, usage.activeSkillLimit - usage.countedSkillCount) }, (_, index) => ({
-        userId,
-        title: `${fillerPrefix} ${index}`,
-        tags: [],
-        status: SkillStatus.ACTIVE,
-      })),
-    });
     const generateChoiceExercises = vi.fn(async () => ({
       exercises: [generatedChoiceExercise(31), generatedChoiceExercise(32), generatedChoiceExercise(33)],
     }));
@@ -5907,6 +5911,10 @@ describeDatabase("material multi-skill drafting", () => {
         errorCode: "ACTIVATION_RETRYABLE_TEST_FAILURE",
         errorMessage: "retry fixture",
       },
+    });
+    await prisma.generationJob.update({
+      where: { id: firstEvents[0].generationJobId },
+      data: { status: GenerationJobStatus.FAILED, completedAt: new Date() },
     });
     expect(
       await queueMaterialBatchActivation({
