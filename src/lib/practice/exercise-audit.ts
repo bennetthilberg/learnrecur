@@ -30,6 +30,7 @@ const MAX_EXERCISE_AUDIT_LIMIT = 25;
 const CURSOR_VERSION = 1 as const;
 const MAX_CURSOR_LENGTH = 8_000;
 const IDENTIFIER_MAX_LENGTH = 200;
+const MAX_PROVENANCE_IDENTIFIERS = 128;
 const HASH_PATTERN = /^[a-f0-9]{64}$/i;
 const CONTROL_CHARACTER_PATTERN = /[\u0000-\u001f\u007f]/u;
 
@@ -441,7 +442,7 @@ export function mapExerciseAuditRecord(
     exerciseSourceRefs,
     provenance: summarizeExerciseProvenance({
       exerciseProvenance: row.provenance,
-      generationMetadata: row.generationMetadata,
+      generationContextManifest: readPersistedContextManifest(row.generationMetadata),
       exerciseSourceRefs: row.sourceRefs,
       sourceRefs,
     }),
@@ -450,7 +451,7 @@ export function mapExerciseAuditRecord(
 
 export function summarizeExerciseProvenance(input: {
   exerciseProvenance: unknown;
-  generationMetadata: unknown;
+  generationContextManifest: unknown;
   exerciseSourceRefs: unknown;
   sourceRefs: readonly SanitizedExerciseSourceRef[];
 }): ExerciseProvenanceSummary {
@@ -463,6 +464,34 @@ export function summarizeExerciseProvenance(input: {
   const addIdentifiers = (target: Set<string>, value: unknown) => {
     for (const candidate of readSafeStringList(value)) {
       target.add(candidate);
+    }
+  };
+
+  const readContextManifest = (value: unknown) => {
+    if (!isRecord(value)) {
+      return;
+    }
+
+    addIdentifiers(sourceRevisionIds, value.sourceRevisionIds);
+    addIdentifiers(sourceFileIds, value.sourceFileIds);
+    addIdentifiers(evidenceAnchorIds, value.sectionIds);
+    addIdentifiers(evidenceAnchorIds, value.chunkIds);
+    addHashes(contentHashes, value.contentHashes);
+    addHashes(contentHashes, value.sourceFingerprints);
+
+    if (Array.isArray(value.includedSources)) {
+      for (const source of value.includedSources.slice(0, MAX_PROVENANCE_IDENTIFIERS)) {
+        if (!isRecord(source)) {
+          continue;
+        }
+        addIdentifiers(sourceFileIds, source.sourceId);
+        addIdentifiers(sourceFileIds, source.sourceFileId);
+        addIdentifiers(sourceRevisionIds, source.revisionId);
+        addIdentifiers(sourceRevisionIds, source.sourceRevisionId);
+        addIdentifiers(evidenceAnchorIds, source.evidenceId);
+        addIdentifiers(evidenceAnchorIds, source.chunkId);
+        addHashes(contentHashes, source.fingerprint);
+      }
     }
   };
 
@@ -483,33 +512,10 @@ export function summarizeExerciseProvenance(input: {
     addHashes(contentHashes, value.contentHashes);
     addHashes(contentHashes, value.sourceFingerprints);
     addHashes(contentHashes, value.sourceHashes);
-
-    const contextManifest = value.contextManifest;
-    if (isRecord(contextManifest)) {
-      addIdentifiers(sourceRevisionIds, contextManifest.sourceRevisionIds);
-      addIdentifiers(sourceFileIds, contextManifest.sourceFileIds);
-      addIdentifiers(evidenceAnchorIds, contextManifest.sectionIds);
-      addIdentifiers(evidenceAnchorIds, contextManifest.chunkIds);
-      addHashes(contentHashes, contextManifest.contentHashes);
-
-      if (Array.isArray(contextManifest.includedSources)) {
-        for (const source of contextManifest.includedSources) {
-          if (!isRecord(source)) {
-            continue;
-          }
-          addIdentifiers(sourceFileIds, source.sourceId);
-          addIdentifiers(sourceFileIds, source.sourceFileId);
-          addIdentifiers(sourceRevisionIds, source.revisionId);
-          addIdentifiers(sourceRevisionIds, source.sourceRevisionId);
-          addIdentifiers(evidenceAnchorIds, source.evidenceId);
-          addIdentifiers(evidenceAnchorIds, source.chunkId);
-          addHashes(contentHashes, source.fingerprint);
-        }
-      }
-    }
+    readContextManifest(value.contextManifest);
   };
 
-  readProvenanceObject(input.generationMetadata);
+  readContextManifest(input.generationContextManifest);
   readProvenanceObject(input.exerciseProvenance);
 
   if (Array.isArray(input.exerciseSourceRefs)) {
@@ -565,6 +571,10 @@ function mapSourceRef(
     note: sourceRef.note ? cleanDisplayText(sourceRef.note, 1_000) : null,
     createdAt: sourceRef.createdAt,
   };
+}
+
+function readPersistedContextManifest(value: unknown): unknown {
+  return isRecord(value) && isRecord(value.contextManifest) ? value.contextManifest : null;
 }
 
 function sanitizeExerciseSourceIdentities(value: unknown): SanitizedExerciseSourceIdentity[] {
@@ -753,6 +763,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function readSafeIdentifier(value: unknown): string | null {
+  // Source identities are persisted evidence labels, not necessarily machine tokens.
+  // Keep human-readable IDs intact while bounding size and excluding controls.
   if (
     typeof value !== "string" ||
     value.length === 0 ||
@@ -776,7 +788,14 @@ function readSafeStringList(value: unknown): string[] {
     return [];
   }
 
-  return [...new Set(value.map(readSafeIdentifier).filter((item): item is string => item !== null))];
+  return [
+    ...new Set(
+      value
+        .slice(0, MAX_PROVENANCE_IDENTIFIERS)
+        .map(readSafeIdentifier)
+        .filter((item): item is string => item !== null),
+    ),
+  ];
 }
 
 function addHashes(target: Set<string>, value: unknown) {

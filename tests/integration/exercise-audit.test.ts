@@ -81,6 +81,17 @@ describeDatabase("exercise audit read model", () => {
             instruction: `Choose ${label}.`,
             content: "Select the right answer.",
           },
+          contextManifest: {
+            sourceRevisionIds: [`generation_revision_${label}`],
+            includedSources: [
+              {
+                sourceId: `generation_source_${label}`,
+                revisionId: `generation_revision_${label}`,
+                chunkId: `generation_chunk_${label}`,
+                fingerprint: "B".repeat(64),
+              },
+            ],
+          },
         },
         provenance: {
           kind: "SOURCE_DERIVED",
@@ -231,10 +242,14 @@ describeDatabase("exercise audit read model", () => {
       provenance: {
         sourceBacked: true,
         kind: "SOURCE_DERIVED",
-        sourceRevisionIds: ["revision_spanish_1"],
-        sourceFileIds: [sourceFile.id, "source-file-placeholder"],
-        evidenceAnchorIds: ["chunk_the verb"],
-        contentHashes: ["a".repeat(64)],
+        sourceRevisionIds: ["generation_revision_the verb", "revision_spanish_1"],
+        sourceFileIds: [
+          sourceFile.id,
+          "generation_source_the verb",
+          "source-file-placeholder",
+        ],
+        evidenceAnchorIds: ["generation_chunk_the verb", "chunk_the verb"],
+        contentHashes: ["b".repeat(64), "a".repeat(64)],
       },
     });
     expect(JSON.stringify(record)).not.toContain("private/should-not-return.pdf");

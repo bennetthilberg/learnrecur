@@ -212,7 +212,7 @@ describe("practice read model safety summaries", () => {
         providerResponse: "private response",
         storageKey: "private/key",
       },
-      generationMetadata: null,
+      generationContextManifest: null,
       exerciseSourceRefs: [{ sourceRevisionId: "revision_2", chunkId: "chunk_2" }],
       sourceRefs: [
         {
@@ -243,17 +243,17 @@ describe("practice read model safety summaries", () => {
   it("includes safe persisted generation context and hash-only provenance", () => {
     const summary = summarizeExerciseProvenance({
       exerciseProvenance: null,
-      generationMetadata: {
-        contextManifest: {
-          sourceRevisionIds: ["revision context"],
-          includedSources: [
-            {
-              sourceId: "source file",
-              chunkId: "chunk the verb",
-              fingerprint: "B".repeat(64),
-            },
-          ],
-        },
+      generationContextManifest: {
+        sourceRevisionIds: ["revision context"],
+        sourceFingerprints: [{ sourceId: "source file", fingerprint: "B".repeat(64) }],
+        includedSources: [
+          {
+            sourceId: "source file",
+            revisionId: "revision context",
+            chunkId: "chunk the verb",
+            fingerprint: "B".repeat(64),
+          },
+        ],
       },
       exerciseSourceRefs: null,
       sourceRefs: [],
@@ -269,7 +269,7 @@ describe("practice read model safety summaries", () => {
 
     const hashOnly = summarizeExerciseProvenance({
       exerciseProvenance: { contentHashes: ["C".repeat(64)] },
-      generationMetadata: null,
+      generationContextManifest: null,
       exerciseSourceRefs: null,
       sourceRefs: [],
     });
@@ -277,6 +277,30 @@ describe("practice read model safety summaries", () => {
       sourceBacked: true,
       contentHashes: ["c".repeat(64)],
     });
+  });
+
+  it("preserves human-readable provenance identities but bounds untrusted lists", () => {
+    const summary = summarizeExerciseProvenance({
+      exerciseProvenance: {
+        sourceIds: ["chunk the verb", "\u0000invalid", "x".repeat(201)],
+      },
+      generationContextManifest: null,
+      exerciseSourceRefs: [
+        {
+          sourceFileId: "Spanish source file",
+          sourceRevisionId: "revision 1",
+          evidenceChunkId: "chunk the verb",
+        },
+      ],
+      sourceRefs: [],
+    });
+
+    expect(summary.sourceFileIds).toContain("Spanish source file");
+    expect(summary.sourceFileIds).toContain("chunk the verb");
+    expect(summary.sourceRevisionIds).toContain("revision 1");
+    expect(summary.evidenceAnchorIds).toContain("chunk the verb");
+    expect(JSON.stringify(summary)).not.toContain("invalid");
+    expect(JSON.stringify(summary)).not.toContain("x".repeat(201));
   });
 
   it("keeps pending reports separate from confirmed evidence exclusion", () => {
