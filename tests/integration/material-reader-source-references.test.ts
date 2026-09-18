@@ -48,6 +48,9 @@ describeDatabase("material reader and source references", () => {
   async function createFixture(label: string) {
     const userId = `${runId}_${label}`;
     userIds.push(userId);
+    await prisma.user.create({
+      data: { id: userId, email: `${userId}@example.test` },
+    });
     const { material, revision } = await createMaterialWithInitialRevision({
       userId,
       title: `Spanish workbook ${label}`,

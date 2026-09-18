@@ -3,9 +3,9 @@ import "server-only";
 import {
   ExerciseAttemptResult,
   ExerciseEvidenceCorrectionStatus,
+  Prisma,
   type AnswerKind,
   type FsrsRating,
-  type Prisma,
   type SkillFsrsState,
   type SkillStatus,
 } from "@/generated/prisma/client";
@@ -260,42 +260,71 @@ async function findScheduledHistoryReviews(
 async function findPracticeOnlyHistoryReviews(
   input: GetPracticeHistoryInput & { skillId?: string },
 ): Promise<PracticeHistoryReview[]> {
-  const rows = await getPrisma().exerciseAttempt.findMany({
+  const prisma = getPrisma();
+  const resultFilter = input.incorrectOnly
+    ? Prisma.sql`ea."result" = ${ExerciseAttemptResult.INCORRECT}::"ExerciseAttemptResult"`
+    : Prisma.sql`ea."result" IN (${Prisma.join([
+        ExerciseAttemptResult.CORRECT,
+        ExerciseAttemptResult.INCORRECT,
+      ].map((result) => Prisma.sql`${result}::"ExerciseAttemptResult"`))})`;
+  const skillFilter = input.skillId
+    ? Prisma.sql`AND ea."skillId" = ${input.skillId}`
+    : Prisma.empty;
+  const collectionFilter = input.collectionId
+    ? Prisma.sql`AND s."collectionId" = ${input.collectionId}`
+    : Prisma.empty;
+  const cursorFilter = input.cursor
+    ? (() => {
+        const reviewedAt = new Date(input.cursor.reviewedAt);
+        return Prisma.sql`
+          AND (
+            COALESCE(ea."feedbackShownAt", ea."createdAt") < ${reviewedAt}
+            OR (
+              COALESCE(ea."feedbackShownAt", ea."createdAt") = ${reviewedAt}
+              AND ea."id" > ${input.cursor.id}
+            )
+          )
+        `;
+      })()
+    : Prisma.empty;
+  const ids = await prisma.$queryRaw<Array<{ id: string }>>`
+    SELECT ea."id"
+    FROM "exercise_attempts" ea
+    INNER JOIN "skills" s
+      ON s."id" = ea."skillId"
+     AND s."userId" = ea."userId"
+    INNER JOIN "exercises" e
+      ON e."id" = ea."exerciseId"
+     AND e."skillId" = ea."skillId"
+     AND e."userId" = ea."userId"
+    LEFT JOIN "review_logs" rl
+      ON rl."exerciseAttemptId" = ea."id"
+     AND rl."skillId" = ea."skillId"
+     AND rl."userId" = ea."userId"
+    WHERE ea."userId" = ${input.userId}
+      ${skillFilter}
+      ${collectionFilter}
+      AND rl."id" IS NULL
+      AND (
+        ea."ratingPolicyVersion" = 'practice-only-v1'
+        OR ea."practiceContext"->>'practiceOnly' = 'true'
+        OR ea."practiceContext"->>'sessionMode' = 'PRACTICE_ONLY'
+        OR ea."practiceContext"->>'exposure' IN ('PRACTICE_ONLY', 'practice-only')
+      )
+      AND ${resultFilter}
+      AND COALESCE(ea."feedbackShownAt", ea."createdAt") <= ${input.now}
+      ${cursorFilter}
+    ORDER BY COALESCE(ea."feedbackShownAt", ea."createdAt") DESC,
+      ea."id" ASC
+    LIMIT ${normalizeHistoryLimit(input.limit)}
+  `;
+  if (ids.length === 0) return [];
+
+  const rows = await prisma.exerciseAttempt.findMany({
     where: {
       userId: input.userId,
-      skillId: input.skillId,
-      skill: input.collectionId
-        ? { userId: input.userId, collectionId: input.collectionId }
-        : undefined,
-      createdAt: { lte: input.now },
-      reviewLog: { is: null },
-      AND: [
-        {
-          OR: [
-            { ratingPolicyVersion: "practice-only-v1" },
-            { practiceContext: { path: ["practiceOnly"], equals: true } },
-            { practiceContext: { path: ["sessionMode"], equals: "PRACTICE_ONLY" } },
-            { practiceContext: { path: ["exposure"], equals: "PRACTICE_ONLY" } },
-            { practiceContext: { path: ["exposure"], equals: "practice-only" } },
-          ],
-        },
-        ...(input.cursor
-          ? [{
-              OR: [
-                { createdAt: { lt: new Date(input.cursor.reviewedAt) } },
-                { createdAt: new Date(input.cursor.reviewedAt), id: { gt: input.cursor.id } },
-              ],
-            }]
-          : []),
-      ],
-      result: {
-        in: input.incorrectOnly
-          ? [ExerciseAttemptResult.INCORRECT]
-          : [ExerciseAttemptResult.CORRECT, ExerciseAttemptResult.INCORRECT],
-      },
+      id: { in: ids.map((row) => row.id) },
     },
-    orderBy: [{ createdAt: "desc" }, { id: "asc" }],
-    take: normalizeHistoryLimit(input.limit),
     select: {
       id: true,
       skillId: true,
@@ -307,6 +336,7 @@ async function findPracticeOnlyHistoryReviews(
       evidenceCorrectionNote: true,
       evidenceCorrectionAt: true,
       evidenceCorrectionIncidentKey: true,
+      feedbackShownAt: true,
       createdAt: true,
       exercise: {
         select: {
@@ -334,35 +364,40 @@ async function findPracticeOnlyHistoryReviews(
       },
     },
   });
+  const rowsById = new Map(rows.map((row) => [row.id, row]));
 
-  return rows.map((row) => ({
-    id: row.id,
-    skillId: row.skillId,
-    skillTitle: row.skill.title,
-    skillStatus: row.skill.status,
-    collectionName: row.skill.collection?.name ?? null,
-    exerciseAttemptId: row.id,
-    answerKind: row.exercise.answerKind,
-    result: row.result as PracticeHistoryReview["result"],
-    responseMs: row.responseMs,
-    finalRating: null,
-    reviewedAt: row.createdAt,
-    previousDueAt: null,
-    nextDueAt: null,
-    previousState: null,
-    nextState: null,
-    correctAnswerDisplay: row.exercise.correctAnswerDisplay,
-    prompt: row.exercise.prompt,
-    submittedAnswerDisplay: formatSubmittedHistoryAnswer(row.answer, row.exercise.choices),
-    explanation: row.exercise.explanation,
-    eventKind: "practice-only" as const,
-    practiceContext: row.practiceContext,
-    evidenceCorrectionStatus: row.evidenceCorrectionStatus,
-    evidenceCorrectionNote: row.evidenceCorrectionNote,
-    evidenceCorrectionAt: row.evidenceCorrectionAt,
-    evidenceCorrectionIncidentKey: row.evidenceCorrectionIncidentKey,
-    qualityReportReasons: row.exercise.flags.map((flag) => flag.reason),
-  }));
+  return ids.flatMap(({ id }) => {
+    const row = rowsById.get(id);
+    if (!row) return [];
+    return [{
+      id: row.id,
+      skillId: row.skillId,
+      skillTitle: row.skill.title,
+      skillStatus: row.skill.status,
+      collectionName: row.skill.collection?.name ?? null,
+      exerciseAttemptId: row.id,
+      answerKind: row.exercise.answerKind,
+      result: row.result as PracticeHistoryReview["result"],
+      responseMs: row.responseMs,
+      finalRating: null,
+      reviewedAt: row.feedbackShownAt ?? row.createdAt,
+      previousDueAt: null,
+      nextDueAt: null,
+      previousState: null,
+      nextState: null,
+      correctAnswerDisplay: row.exercise.correctAnswerDisplay,
+      prompt: row.exercise.prompt,
+      submittedAnswerDisplay: formatSubmittedHistoryAnswer(row.answer, row.exercise.choices),
+      explanation: row.exercise.explanation,
+      eventKind: "practice-only" as const,
+      practiceContext: row.practiceContext,
+      evidenceCorrectionStatus: row.evidenceCorrectionStatus,
+      evidenceCorrectionNote: row.evidenceCorrectionNote,
+      evidenceCorrectionAt: row.evidenceCorrectionAt,
+      evidenceCorrectionIncidentKey: row.evidenceCorrectionIncidentKey,
+      qualityReportReasons: row.exercise.flags.map((flag) => flag.reason),
+    }];
+  });
 }
 
 function chooseCorrectionAnnotation(input: {

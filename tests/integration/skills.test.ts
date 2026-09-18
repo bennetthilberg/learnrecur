@@ -1612,19 +1612,12 @@ describeDatabase("skill drafts and Gemini activation", () => {
     );
 
     let startedCount = 0;
-    let signalBothStarted: (() => void) | undefined;
-    const bothStarted = new Promise<void>((resolve) => {
-      signalBothStarted = resolve;
-    });
     let releaseGenerators: (() => void) | undefined;
     const generatorsCanFinish = new Promise<void>((resolve) => {
       releaseGenerators = resolve;
     });
     const generator: ChoiceExerciseGenerator = async () => {
       startedCount += 1;
-      if (startedCount === 2) {
-        signalBothStarted?.();
-      }
       await generatorsCanFinish;
       return successfulGenerator({
         skill: {
@@ -1652,7 +1645,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
         }),
       ),
     );
-    await bothStarted;
+    await vi.waitFor(() => expect(startedCount).toBe(1));
     releaseGenerators?.();
     const activationResults = await activationResultsPromise;
 

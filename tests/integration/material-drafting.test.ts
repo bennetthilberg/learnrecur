@@ -5553,9 +5553,7 @@ describeDatabase("material multi-skill drafting", () => {
           promptVersion: "skill-mcq-v0",
           requestedCount: 5,
           errorMessage: "retry quota fixture",
-          createdAt: new Date(
-            `2032-02-05T11:${String(index).padStart(2, "0")}:00.000Z`,
-          ),
+          createdAt: new Date(retryDayStart.getTime() + (index + 1) * 60_000),
         },
       });
     }
@@ -5648,7 +5646,11 @@ describeDatabase("material multi-skill drafting", () => {
         createdAt: { gte: dayStart },
       },
     });
-    for (let index = existingCount; index < 9; index += 1) {
+    for (
+      let index = existingCount;
+      index < ALPHA_SKILL_ACTIVATIONS_PER_DAY - 1;
+      index += 1
+    ) {
       const skill = await prisma.skill.create({
         data: {
           userId,
@@ -5668,7 +5670,7 @@ describeDatabase("material multi-skill drafting", () => {
           promptVersion: "skill-mcq-v0",
           requestedCount: 5,
           errorMessage: "quota fixture",
-          createdAt: new Date(`2030-01-15T10:${String(index).padStart(2, "0")}:00.000Z`),
+          createdAt: new Date(dayStart.getTime() + (index + 1) * 60_000),
         },
       });
     }
@@ -5770,6 +5772,10 @@ describeDatabase("material multi-skill drafting", () => {
   });
 
   it("rechecks active-skill capacity before consuming a queued reservation", async () => {
+    await prisma.skill.updateMany({
+      where: { userId, status: { in: [SkillStatus.ACTIVE, SkillStatus.PAUSED] } },
+      data: { status: SkillStatus.ARCHIVED },
+    });
     const ready = await createReadyBatch([
       {
         key: "queued-slot-recheck",
@@ -5829,6 +5835,10 @@ describeDatabase("material multi-skill drafting", () => {
   });
 
   it("reserves active-skill slots for queued activations and retry attempts", async () => {
+    await prisma.skill.updateMany({
+      where: { userId, status: { in: [SkillStatus.ACTIVE, SkillStatus.PAUSED] } },
+      data: { status: SkillStatus.ARCHIVED },
+    });
     const first = await createReadyBatch([
       {
         key: "active-slot-first",

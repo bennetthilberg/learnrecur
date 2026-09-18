@@ -198,6 +198,7 @@ suite("MCP practice settings HTTP and persistence", () => {
       "practice.sessions.get",
       "practice.sessions.stop",
       "practice.sessions.resume",
+      "practice.history",
     ]);
     expect(tools[0]._meta.securitySchemes[0].scopes).toEqual(["practice:read"]);
     expect(tools[1].annotations.readOnlyHint).toBe(true);
