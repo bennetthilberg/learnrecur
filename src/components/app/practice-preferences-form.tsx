@@ -212,6 +212,7 @@ export function PracticePreferencesForm(props: Props) {
                 description="New skills can enter practice without a daily limit. Scheduled reviews are always available."
                 value="Unlimited"
                 readOnly
+                disabled={disabled || unlimited}
               />
             ) : (
               <NumberInput

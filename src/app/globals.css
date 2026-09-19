@@ -132,7 +132,7 @@
 
 html {
   background: var(--lr-page);
-  scrollbar-gutter: stable;
+  scrollbar-gutter: auto;
 }
 
 html,
