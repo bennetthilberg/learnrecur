@@ -250,9 +250,11 @@ body {
 
 .openWaterBackground {
   position: fixed;
-  inset: 0;
-  width: 100%;
+  inset: 0 auto auto 0;
+  width: 100vw;
+  max-width: none;
   height: 100vh;
+  overflow: hidden;
   pointer-events: none;
   z-index: 0;
 }
@@ -9001,6 +9003,14 @@ body {
   min-height: 48px;
   font-size: 16px;
 }
+.practicePreferencesForm .mantine-Input-input:disabled {
+  border-color: var(--lr-line-strong);
+  background: var(--lr-panel-soft);
+  color: var(--lr-text-secondary);
+  cursor: not-allowed;
+  opacity: 1;
+  -webkit-text-fill-color: var(--lr-text-secondary);
+}
 .practicePreferencesForm .mantine-InputWrapper-description {
   margin-bottom: 8px;
 }
@@ -9012,6 +9022,12 @@ body {
 .practicePreferencesForm .mantine-Checkbox-inner,
 .practicePreferencesForm .mantine-Switch-track {
   margin-top: 2px;
+}
+.practicePreferencesForm .mantine-Checkbox-root:not(:has(.mantine-Checkbox-description)) .mantine-Checkbox-body {
+  align-items: center;
+}
+.practicePreferencesForm .mantine-Checkbox-root:not(:has(.mantine-Checkbox-description)) .mantine-Checkbox-inner {
+  margin-top: 0;
 }
 .practiceAdvancedSettings {
   border-top: 1px solid var(--lr-divider);
