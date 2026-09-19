@@ -51,9 +51,9 @@ read back successfully in staging and production:
 The repair also confirmed the two correction columns and
 `agent_skill_operation_items.sourceReferenceOutcome`. A production log query
 afterward found no new matching `P2022` correction-column errors. The permanent
-release fix performs a tier-aware configuration preflight, then makes
-production-target Vercel builds run tracked migrations before the application
-build, uses verified TLS for remote migration connections, and keeps
+release fix completes the fallible, tier-aware prebuild before
+production-target Vercel builds run tracked migrations, invokes Next directly
+afterward, uses verified TLS for remote migration connections, and keeps
 preview/development builds away from hosted migrations.
 
 Implemented in the current working tree:

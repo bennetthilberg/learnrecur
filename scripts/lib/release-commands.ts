@@ -22,16 +22,20 @@ export function getVercelBuildSteps(environment: string | undefined): ReleaseCom
 
   return [
     {
-      label: "deployment environment validation",
+      label: "release prebuild",
       command: "npm",
-      args: ["exec", "--", "tsx", "scripts/check-production-env.ts"],
+      args: ["run", "prebuild"],
     },
     {
       label: "database migrations",
       command: "npm",
       args: ["run", "prisma:deploy"],
     },
-    build,
+    {
+      label: "application build",
+      command: "npm",
+      args: ["exec", "--", "next", "build"],
+    },
   ];
 }
 

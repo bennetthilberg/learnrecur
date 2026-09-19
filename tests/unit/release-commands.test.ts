@@ -10,12 +10,12 @@ describe("release commands", () => {
   it("runs migrations before production Vercel builds", () => {
     expect(getVercelBuildSteps("production")).toEqual([
       {
-        label: "deployment environment validation",
+        label: "release prebuild",
         command: "npm",
-        args: ["exec", "--", "tsx", "scripts/check-production-env.ts"],
+        args: ["run", "prebuild"],
       },
       { label: "database migrations", command: "npm", args: ["run", "prisma:deploy"] },
-      { label: "application build", command: "npm", args: ["run", "build"] },
+      { label: "application build", command: "npm", args: ["exec", "--", "next", "build"] },
     ]);
   });
 
