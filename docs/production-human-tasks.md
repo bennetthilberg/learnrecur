@@ -62,12 +62,14 @@ npm run prisma:generate
 npm run prisma:deploy
 ```
 
-Production builds validate every required production variable before they touch
-the database. `prisma:deploy` loads local environment files for controlled
-operator runs, enforces verified TLS, and uses the checked-in AWS RDS regional
-trust bundle for Heroku. Preview and development Vercel builds skip hosted
-migrations. Do not add another release-time migration runner; Prisma's advisory
-lock is a last line of defense, not a substitute for one clear deployment path.
+Production-tier builds validate every required production variable before they
+touch the database. The dedicated staging project uses its tier-aware preflight
+instead of production queue rules. `prisma:deploy` loads local environment files
+for controlled operator runs, enforces verified TLS, and uses the checked-in AWS
+RDS regional trust bundle for Heroku. Preview and development Vercel builds skip
+hosted migrations. Do not add another release-time migration runner; Prisma's
+advisory lock is a last line of defense, not a substitute for one clear
+deployment path.
 
 ### 4. Create the Clerk production instance
 

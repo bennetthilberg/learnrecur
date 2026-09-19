@@ -22,9 +22,9 @@ export function getVercelBuildSteps(environment: string | undefined): ReleaseCom
 
   return [
     {
-      label: "production environment validation",
+      label: "deployment environment validation",
       command: "npm",
-      args: ["run", "env:check"],
+      args: ["exec", "--", "tsx", "scripts/check-production-env.ts"],
     },
     {
       label: "database migrations",
@@ -33,6 +33,14 @@ export function getVercelBuildSteps(environment: string | undefined): ReleaseCom
     },
     build,
   ];
+}
+
+export function getMigrationConnectionUrl(
+  environment: Readonly<Record<string, string | undefined>>,
+): string | undefined {
+  return [environment.DIRECT_URL, environment.DATABASE_URL]
+    .map((value) => value?.trim())
+    .find((value): value is string => Boolean(value));
 }
 
 export function buildMigrationConnectionUrl(

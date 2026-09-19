@@ -2,13 +2,18 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildMigrationConnectionUrl,
+  getMigrationConnectionUrl,
   getVercelBuildSteps,
 } from "../../scripts/lib/release-commands";
 
 describe("release commands", () => {
   it("runs migrations before production Vercel builds", () => {
     expect(getVercelBuildSteps("production")).toEqual([
-      { label: "production environment validation", command: "npm", args: ["run", "env:check"] },
+      {
+        label: "deployment environment validation",
+        command: "npm",
+        args: ["exec", "--", "tsx", "scripts/check-production-env.ts"],
+      },
       { label: "database migrations", command: "npm", args: ["run", "prisma:deploy"] },
       { label: "application build", command: "npm", args: ["run", "build"] },
     ]);
@@ -22,6 +27,24 @@ describe("release commands", () => {
       ]);
     },
   );
+
+  it("falls back to DATABASE_URL when DIRECT_URL is blank", () => {
+    expect(
+      getMigrationConnectionUrl({
+        DIRECT_URL: "  ",
+        DATABASE_URL: " postgres://runtime:secret@localhost:5432/app ",
+      }),
+    ).toBe("postgres://runtime:secret@localhost:5432/app");
+  });
+
+  it("prefers a non-blank DIRECT_URL for migrations", () => {
+    expect(
+      getMigrationConnectionUrl({
+        DIRECT_URL: " postgres://migrate:secret@localhost:5432/app ",
+        DATABASE_URL: "postgres://runtime:secret@localhost:5432/app",
+      }),
+    ).toBe("postgres://migrate:secret@localhost:5432/app");
+  });
 
   it("upgrades RDS migration connections to verified TLS", () => {
     const result = new URL(
