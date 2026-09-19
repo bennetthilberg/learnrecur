@@ -2,11 +2,15 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
+import { config as loadEnv } from "dotenv";
 
 import rdsCa from "../src/lib/rds-us-east-1-ca.json";
 import { buildMigrationConnectionUrl } from "./lib/release-commands";
 
 async function main() {
+  loadEnv({ path: ".env.local", quiet: true });
+  loadEnv({ path: ".env", quiet: true });
+
   const connectionUrl = process.env.DIRECT_URL ?? process.env.DATABASE_URL;
   if (!connectionUrl) {
     throw new Error("DIRECT_URL or DATABASE_URL is required to deploy migrations.");

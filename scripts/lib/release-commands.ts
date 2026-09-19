@@ -22,6 +22,11 @@ export function getVercelBuildSteps(environment: string | undefined): ReleaseCom
 
   return [
     {
+      label: "production environment validation",
+      command: "npm",
+      args: ["run", "env:check"],
+    },
+    {
       label: "database migrations",
       command: "npm",
       args: ["run", "prisma:deploy"],

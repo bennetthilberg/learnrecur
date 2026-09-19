@@ -8,6 +8,7 @@ import {
 describe("release commands", () => {
   it("runs migrations before production Vercel builds", () => {
     expect(getVercelBuildSteps("production")).toEqual([
+      { label: "production environment validation", command: "npm", args: ["run", "env:check"] },
       { label: "database migrations", command: "npm", args: ["run", "prisma:deploy"] },
       { label: "application build", command: "npm", args: ["run", "build"] },
     ]);
