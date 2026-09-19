@@ -132,7 +132,6 @@
 
 html {
   background: var(--lr-page);
-  overflow-x: clip;
   scrollbar-gutter: auto;
 }
 

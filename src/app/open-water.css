@@ -6535,6 +6535,7 @@ body {
   grid-template-columns: minmax(0, 1fr);
   align-items: start;
   gap: 18px;
+  min-width: 0;
 }
 
 .skillDetailHero {

@@ -25,29 +25,7 @@ test("skill draft edits survive refresh and leave the saved skill unchanged unti
   for (const width of [390, 1280]) {
     await page.setViewportSize({ width, height: 900 });
     await page.screenshot({ path: testInfo.outputPath(`skill-editor-draft-${width}.png`), fullPage: true });
-    const pageWidth = await page.evaluate(() => {
-      const offenders = Array.from(document.querySelectorAll<HTMLElement>("body *"))
-        .map((element) => {
-          const rect = element.getBoundingClientRect();
-          return {
-            className: element.className,
-            id: element.id,
-            left: Math.round(rect.left),
-            right: Math.round(rect.right),
-            tagName: element.tagName,
-          };
-        })
-        .filter(({ left, right }) => left < -1 || right > window.innerWidth + 1)
-        .slice(0, 8);
-      return {
-        bodyScrollWidth: document.body.scrollWidth,
-        clientWidth: document.documentElement.clientWidth,
-        offenders,
-        scrollWidth: document.documentElement.scrollWidth,
-        viewportWidth: window.innerWidth,
-      };
-    });
-    expect(pageWidth.scrollWidth, JSON.stringify(pageWidth)).toBeLessThanOrEqual(pageWidth.viewportWidth);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   }
   await editor.getByRole("button", { name: "Discard changes", exact: true }).click();
   await expect(title).toHaveValue(originalTitle);
