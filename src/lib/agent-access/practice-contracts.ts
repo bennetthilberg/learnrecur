@@ -16,6 +16,8 @@ import { practiceDayStartMinutesSchema } from "@/lib/practice/daily-limit-contra
 import { desiredRetentionSchema } from "@/lib/scheduling/contracts";
 
 const id = z.string().trim().min(1).max(200);
+const introductionQueueCollectionId = id.nullable();
+const introductionQueueIdempotencyKey = z.string().trim().min(8).max(200);
 export const agentPracticeTargetSchema = z.discriminatedUnion("scope", [
   z.strictObject({ scope: z.literal("user") }),
   z.strictObject({ scope: z.literal("collection"), id }),
@@ -61,6 +63,29 @@ export const agentUpdatePracticeSettingsSchema = z
         path: ["changes"],
         message:
           "Supply at least one setting supported by this target. User settings: practicePreference (non-null), mixedReview, dailyNewSkillLimit (0-1000 or null for unlimited), practiceTimezone (IANA timezone), desiredRetention (0.70-0.99 or null for the ts-fsrs default), practiceDayStartMinutes (0-1439). Collection: practicePreference, textPolicy. Skill: practicePreference, textPolicy, alreadyStudied.",
+      });
+    }
+  });
+
+export const agentGetIntroductionQueueSchema = z.strictObject({
+  collection_id: introductionQueueCollectionId,
+  cursor: z.string().trim().min(1).max(2_000).optional(),
+  limit: z.number().int().min(1).max(50).default(25),
+});
+
+export const agentUpdateIntroductionQueueSchema = z
+  .strictObject({
+    collection_id: introductionQueueCollectionId,
+    expected_version: z.number().int().min(0),
+    skill_ids: z.array(id).max(250),
+    idempotency_key: introductionQueueIdempotencyKey,
+  })
+  .superRefine(({ skill_ids }, context) => {
+    if (new Set(skill_ids).size !== skill_ids.length) {
+      context.addIssue({
+        code: "custom",
+        path: ["skill_ids"],
+        message: "skill_ids must contain each skill exactly once.",
       });
     }
   });

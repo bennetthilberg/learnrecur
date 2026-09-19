@@ -23,9 +23,7 @@ export async function GET() {
   );
   cookieStore.delete(WORKOS_EXTERNAL_AUTH_COOKIE);
   if (!externalAuthId) {
-    return NextResponse.redirect(
-      new URL("/settings?agentConnection=expired", config.resourceOrigin),
-    );
+    return redirectToSettings(config.resourceOrigin, "expired");
   }
 
   const clerkUser = await currentUser();
@@ -36,15 +34,11 @@ export async function GET() {
   }
   const emailAddress = clerkUser.primaryEmailAddress;
   if (!emailAddress?.emailAddress || emailAddress.verification?.status !== "verified") {
-    return NextResponse.redirect(
-      new URL("/settings?agentConnection=email", config.resourceOrigin),
-    );
+    return redirectToSettings(config.resourceOrigin, "email");
   }
   const databaseUser = await ensureDatabaseUser(clerkUser);
   if (databaseUser.status !== "ready") {
-    return NextResponse.redirect(
-      new URL("/settings?agentConnection=failed", config.resourceOrigin),
-    );
+    return redirectToSettings(config.resourceOrigin, "database_setup");
   }
 
   try {
@@ -66,8 +60,16 @@ export async function GET() {
       errorName: error instanceof Error ? error.name : "UnknownError",
       errorCode: getWorkosStandaloneAuthErrorCode(error),
     });
-    return NextResponse.redirect(
-      new URL("/settings?agentConnection=failed", config.resourceOrigin),
+    return redirectToSettings(
+      config.resourceOrigin,
+      getWorkosStandaloneAuthErrorCode(error),
     );
   }
+}
+
+function redirectToSettings(origin: string, error: string) {
+  const url = new URL("/settings", origin);
+  url.searchParams.set("agentConnection", error === "expired" || error === "email" ? error : "failed");
+  if (error !== "expired" && error !== "email") url.searchParams.set("agentError", error);
+  return NextResponse.redirect(url);
 }

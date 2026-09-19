@@ -146,6 +146,30 @@ describeDatabase("study data export", () => {
         exerciseConstraints: { style: "short classroom sentences" },
       },
     });
+    const queuedSkill = await createSkillFixture(prisma, {
+      userId,
+      collectionId: collectionB.id,
+      title: "Next verb lesson",
+      initialized: false,
+    });
+    const introductionQueue = await prisma.introductionQueue.create({
+      data: {
+        id: `${runId}_introduction_queue`,
+        userId,
+        collectionId: collectionB.id,
+        scopeKey: collectionB.id,
+        version: 4,
+      },
+    });
+    await prisma.introductionQueueEntry.create({
+      data: {
+        id: `${runId}_introduction_queue_entry`,
+        userId,
+        queueId: introductionQueue.id,
+        skillId: queuedSkill.id,
+        position: 0,
+      },
+    });
     await createSkillFixture(prisma, {
       userId: otherUserId,
       title: "Other user skill",
@@ -297,12 +321,28 @@ describeDatabase("study data export", () => {
     if (result.status !== "ready") {
       throw new Error("expected ready data export");
     }
-    expect(result.export.exportVersion).toBe(6);
+    expect(result.export.exportVersion).toBe(7);
     expect(result.export.agentConnections).toEqual([]);
     expect(result.export.agentOperations).toEqual([]);
     expect(result.export.agentOperationItems).toEqual([]);
     expect(result.export.practiceSessions).toEqual([]);
     expect(result.export.agentSetupPlans).toEqual([]);
+    expect(result.export.introductionQueues).toEqual([
+      expect.objectContaining({
+        id: introductionQueue.id,
+        collectionId: collectionB.id,
+        scopeKey: collectionB.id,
+        version: 4,
+      }),
+    ]);
+    expect(result.export.introductionQueueEntries).toEqual([
+      expect.objectContaining({
+        queueId: introductionQueue.id,
+        skillId: queuedSkill.id,
+        position: 0,
+      }),
+    ]);
+    expect(result.export.introductionQueueUpdates).toEqual([]);
     expect(result.export.generatedAt).toBe("2026-06-07T14:00:00.000Z");
     expect(result.export.user).toMatchObject({
       id: userId,

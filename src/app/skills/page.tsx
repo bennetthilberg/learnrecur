@@ -13,10 +13,12 @@ import {
 import { formatDisplayLabel, formatFsrsState } from "@/lib/formatters";
 import { ensureDatabaseUser } from "@/lib/users";
 import { getAgentAccessOverview } from "@/lib/agent-access/settings";
+import { getIntroductionQueueOverview } from "@/lib/practice/introduction-queue";
 
 import { SkillRowActions } from "./skill-row-actions";
 import { SkillsLibraryList } from "./skills-library-list";
 import { SkillsTopbar } from "./skills-topbar";
+import { IntroductionQueuePanel } from "./introduction-queue-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -47,9 +49,10 @@ export default async function SkillsPage({ searchParams }: SkillsPageProps) {
     );
   }
 
-  const [library, agentAccess] = await Promise.all([
+  const [library, agentAccess, introductionQueues] = await Promise.all([
     getSkillsLibrary({ userId, now: new Date() }),
     getAgentAccessOverview(userId),
+    getIntroductionQueueOverview(userId),
   ]);
 
   return (
@@ -80,6 +83,8 @@ export default async function SkillsPage({ searchParams }: SkillsPageProps) {
           tone="success"
         />
       ) : null}
+
+      {introductionQueues.length > 0 ? <IntroductionQueuePanel groups={introductionQueues} /> : null}
 
       {agentAccess.status === "ready" && agentAccess.preparing.length > 0 ? (
         <section className="skillPanel agentSkillQueuePanel" aria-labelledby="agent-preparing-title">

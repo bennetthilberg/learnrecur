@@ -10,6 +10,9 @@
  */
 export type * from './models/User'
 export type * from './models/PracticeSession'
+export type * from './models/IntroductionQueue'
+export type * from './models/IntroductionQueueEntry'
+export type * from './models/IntroductionQueueUpdate'
 export type * from './models/AccountDeletionJob'
 export type * from './models/Collection'
 export type * from './models/SourceFile'

@@ -399,6 +399,9 @@ type FieldRefInputType<Model, FieldType> = Model extends never ? never : FieldRe
 export const ModelName = {
   User: 'User',
   PracticeSession: 'PracticeSession',
+  IntroductionQueue: 'IntroductionQueue',
+  IntroductionQueueEntry: 'IntroductionQueueEntry',
+  IntroductionQueueUpdate: 'IntroductionQueueUpdate',
   AccountDeletionJob: 'AccountDeletionJob',
   Collection: 'Collection',
   SourceFile: 'SourceFile',
@@ -447,7 +450,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "practiceSession" | "accountDeletionJob" | "collection" | "sourceFile" | "studyMaterial" | "materialRevision" | "materialSection" | "materialChunk" | "materialPage" | "materialCleanupJob" | "skill" | "skillDraftBatch" | "skillDraftBatchItem" | "skillSourceRef" | "exercise" | "exerciseAttempt" | "reviewLog" | "exerciseFlag" | "generationJob" | "modelRelease" | "generationAuditRecord" | "reminderPreference" | "reminderSendLog" | "workosIdentity" | "agentConnection" | "agentSetupPlan" | "agentSkillOperation" | "agentOperationAction" | "agentOperationSource" | "agentSkillOperationItem" | "agentExerciseCandidate" | "agentRevocationOutbox" | "backgroundJobDelivery" | "agentRateLimitBucket"
+    modelProps: "user" | "practiceSession" | "introductionQueue" | "introductionQueueEntry" | "introductionQueueUpdate" | "accountDeletionJob" | "collection" | "sourceFile" | "studyMaterial" | "materialRevision" | "materialSection" | "materialChunk" | "materialPage" | "materialCleanupJob" | "skill" | "skillDraftBatch" | "skillDraftBatchItem" | "skillSourceRef" | "exercise" | "exerciseAttempt" | "reviewLog" | "exerciseFlag" | "generationJob" | "modelRelease" | "generationAuditRecord" | "reminderPreference" | "reminderSendLog" | "workosIdentity" | "agentConnection" | "agentSetupPlan" | "agentSkillOperation" | "agentOperationAction" | "agentOperationSource" | "agentSkillOperationItem" | "agentExerciseCandidate" | "agentRevocationOutbox" | "backgroundJobDelivery" | "agentRateLimitBucket"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -596,6 +599,228 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.PracticeSessionCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.PracticeSessionCountAggregateOutputType> | number
+        }
+      }
+    }
+    IntroductionQueue: {
+      payload: Prisma.$IntroductionQueuePayload<ExtArgs>
+      fields: Prisma.IntroductionQueueFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.IntroductionQueueFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IntroductionQueuePayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.IntroductionQueueFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IntroductionQueuePayload>
+        }
+        findFirst: {
+          args: Prisma.IntroductionQueueFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IntroductionQueuePayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.IntroductionQueueFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IntroductionQueuePayload>
+        }
+        findMany: {
+          args: Prisma.IntroductionQueueFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IntroductionQueuePayload>[]
+        }
+        create: {
+          args: Prisma.IntroductionQueueCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IntroductionQueuePayload>
+        }
+        createMany: {
+          args: Prisma.IntroductionQueueCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.IntroductionQueueCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IntroductionQueuePayload>[]
+        }
+        delete: {
+          args: Prisma.IntroductionQueueDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IntroductionQueuePayload>
+        }
+        update: {
+          args: Prisma.IntroductionQueueUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IntroductionQueuePayload>
+        }
+        deleteMany: {
+          args: Prisma.IntroductionQueueDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.IntroductionQueueUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.IntroductionQueueUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IntroductionQueuePayload>[]
+        }
+        upsert: {
+          args: Prisma.IntroductionQueueUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IntroductionQueuePayload>
+        }
+        aggregate: {
+          args: Prisma.IntroductionQueueAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateIntroductionQueue>
+        }
+        groupBy: {
+          args: Prisma.IntroductionQueueGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.IntroductionQueueGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.IntroductionQueueCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.IntroductionQueueCountAggregateOutputType> | number
+        }
+      }
+    }
+    IntroductionQueueEntry: {
+      payload: Prisma.$IntroductionQueueEntryPayload<ExtArgs>
+      fields: Prisma.IntroductionQueueEntryFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.IntroductionQueueEntryFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IntroductionQueueEntryPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.IntroductionQueueEntryFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IntroductionQueueEntryPayload>
+        }
+        findFirst: {
+          args: Prisma.IntroductionQueueEntryFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IntroductionQueueEntryPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.IntroductionQueueEntryFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IntroductionQueueEntryPayload>
+        }
+        findMany: {
+          args: Prisma.IntroductionQueueEntryFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IntroductionQueueEntryPayload>[]
+        }
+        create: {
+          args: Prisma.IntroductionQueueEntryCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IntroductionQueueEntryPayload>
+        }
+        createMany: {
+          args: Prisma.IntroductionQueueEntryCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.IntroductionQueueEntryCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IntroductionQueueEntryPayload>[]
+        }
+        delete: {
+          args: Prisma.IntroductionQueueEntryDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IntroductionQueueEntryPayload>
+        }
+        update: {
+          args: Prisma.IntroductionQueueEntryUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IntroductionQueueEntryPayload>
+        }
+        deleteMany: {
+          args: Prisma.IntroductionQueueEntryDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.IntroductionQueueEntryUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.IntroductionQueueEntryUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IntroductionQueueEntryPayload>[]
+        }
+        upsert: {
+          args: Prisma.IntroductionQueueEntryUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IntroductionQueueEntryPayload>
+        }
+        aggregate: {
+          args: Prisma.IntroductionQueueEntryAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateIntroductionQueueEntry>
+        }
+        groupBy: {
+          args: Prisma.IntroductionQueueEntryGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.IntroductionQueueEntryGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.IntroductionQueueEntryCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.IntroductionQueueEntryCountAggregateOutputType> | number
+        }
+      }
+    }
+    IntroductionQueueUpdate: {
+      payload: Prisma.$IntroductionQueueUpdatePayload<ExtArgs>
+      fields: Prisma.IntroductionQueueUpdateFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.IntroductionQueueUpdateFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IntroductionQueueUpdatePayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.IntroductionQueueUpdateFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IntroductionQueueUpdatePayload>
+        }
+        findFirst: {
+          args: Prisma.IntroductionQueueUpdateFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IntroductionQueueUpdatePayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.IntroductionQueueUpdateFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IntroductionQueueUpdatePayload>
+        }
+        findMany: {
+          args: Prisma.IntroductionQueueUpdateFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IntroductionQueueUpdatePayload>[]
+        }
+        create: {
+          args: Prisma.IntroductionQueueUpdateCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IntroductionQueueUpdatePayload>
+        }
+        createMany: {
+          args: Prisma.IntroductionQueueUpdateCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.IntroductionQueueUpdateCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IntroductionQueueUpdatePayload>[]
+        }
+        delete: {
+          args: Prisma.IntroductionQueueUpdateDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IntroductionQueueUpdatePayload>
+        }
+        update: {
+          args: Prisma.IntroductionQueueUpdateUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IntroductionQueueUpdatePayload>
+        }
+        deleteMany: {
+          args: Prisma.IntroductionQueueUpdateDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.IntroductionQueueUpdateUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.IntroductionQueueUpdateUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IntroductionQueueUpdatePayload>[]
+        }
+        upsert: {
+          args: Prisma.IntroductionQueueUpdateUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$IntroductionQueueUpdatePayload>
+        }
+        aggregate: {
+          args: Prisma.IntroductionQueueUpdateAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateIntroductionQueueUpdate>
+        }
+        groupBy: {
+          args: Prisma.IntroductionQueueUpdateGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.IntroductionQueueUpdateGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.IntroductionQueueUpdateCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.IntroductionQueueUpdateCountAggregateOutputType> | number
         }
       }
     }
@@ -3121,6 +3346,46 @@ export const PracticeSessionScalarFieldEnum = {
 export type PracticeSessionScalarFieldEnum = (typeof PracticeSessionScalarFieldEnum)[keyof typeof PracticeSessionScalarFieldEnum]
 
 
+export const IntroductionQueueScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  collectionId: 'collectionId',
+  scopeKey: 'scopeKey',
+  version: 'version',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type IntroductionQueueScalarFieldEnum = (typeof IntroductionQueueScalarFieldEnum)[keyof typeof IntroductionQueueScalarFieldEnum]
+
+
+export const IntroductionQueueEntryScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  queueId: 'queueId',
+  skillId: 'skillId',
+  position: 'position',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type IntroductionQueueEntryScalarFieldEnum = (typeof IntroductionQueueEntryScalarFieldEnum)[keyof typeof IntroductionQueueEntryScalarFieldEnum]
+
+
+export const IntroductionQueueUpdateScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  connectionId: 'connectionId',
+  queueId: 'queueId',
+  idempotencyKey: 'idempotencyKey',
+  payloadHash: 'payloadHash',
+  result: 'result',
+  createdAt: 'createdAt'
+} as const
+
+export type IntroductionQueueUpdateScalarFieldEnum = (typeof IntroductionQueueUpdateScalarFieldEnum)[keyof typeof IntroductionQueueUpdateScalarFieldEnum]
+
+
 export const AccountDeletionJobScalarFieldEnum = {
   id: 'id',
   userId: 'userId',
@@ -4333,14 +4598,14 @@ export type ListEnumGenerationAuditDecisionFieldRefInput<$PrismaModel> = FieldRe
  * Reference to a field of type 'ExerciseEvidenceCorrectionStatus'
  */
 export type EnumExerciseEvidenceCorrectionStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ExerciseEvidenceCorrectionStatus'>
-
+    
 
 
 /**
  * Reference to a field of type 'ExerciseEvidenceCorrectionStatus[]'
  */
 export type ListEnumExerciseEvidenceCorrectionStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ExerciseEvidenceCorrectionStatus[]'>
-
+    
 
 
 /**
@@ -4817,6 +5082,9 @@ export type PrismaClientOptions = PrismaClientOptionsWithAccelerateUrl | PrismaC
 export type GlobalOmitConfig = {
   user?: Prisma.UserOmit
   practiceSession?: Prisma.PracticeSessionOmit
+  introductionQueue?: Prisma.IntroductionQueueOmit
+  introductionQueueEntry?: Prisma.IntroductionQueueEntryOmit
+  introductionQueueUpdate?: Prisma.IntroductionQueueUpdateOmit
   accountDeletionJob?: Prisma.AccountDeletionJobOmit
   collection?: Prisma.CollectionOmit
   sourceFile?: Prisma.SourceFileOmit
@@ -4912,3 +5180,4 @@ export type PrismaAction =
  * `PrismaClient` proxy available in interactive transactions.
  */
 export type TransactionClient = Omit<DefaultPrismaClient, runtime.ITXClientDenyList>
+

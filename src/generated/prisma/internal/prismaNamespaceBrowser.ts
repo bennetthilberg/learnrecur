@@ -53,6 +53,9 @@ export const AnyNull = runtime.AnyNull
 export const ModelName = {
   User: 'User',
   PracticeSession: 'PracticeSession',
+  IntroductionQueue: 'IntroductionQueue',
+  IntroductionQueueEntry: 'IntroductionQueueEntry',
+  IntroductionQueueUpdate: 'IntroductionQueueUpdate',
   AccountDeletionJob: 'AccountDeletionJob',
   Collection: 'Collection',
   SourceFile: 'SourceFile',
@@ -143,6 +146,46 @@ export const PracticeSessionScalarFieldEnum = {
 } as const
 
 export type PracticeSessionScalarFieldEnum = (typeof PracticeSessionScalarFieldEnum)[keyof typeof PracticeSessionScalarFieldEnum]
+
+
+export const IntroductionQueueScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  collectionId: 'collectionId',
+  scopeKey: 'scopeKey',
+  version: 'version',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type IntroductionQueueScalarFieldEnum = (typeof IntroductionQueueScalarFieldEnum)[keyof typeof IntroductionQueueScalarFieldEnum]
+
+
+export const IntroductionQueueEntryScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  queueId: 'queueId',
+  skillId: 'skillId',
+  position: 'position',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type IntroductionQueueEntryScalarFieldEnum = (typeof IntroductionQueueEntryScalarFieldEnum)[keyof typeof IntroductionQueueEntryScalarFieldEnum]
+
+
+export const IntroductionQueueUpdateScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  connectionId: 'connectionId',
+  queueId: 'queueId',
+  idempotencyKey: 'idempotencyKey',
+  payloadHash: 'payloadHash',
+  result: 'result',
+  createdAt: 'createdAt'
+} as const
+
+export type IntroductionQueueUpdateScalarFieldEnum = (typeof IntroductionQueueUpdateScalarFieldEnum)[keyof typeof IntroductionQueueUpdateScalarFieldEnum]
 
 
 export const AccountDeletionJobScalarFieldEnum = {

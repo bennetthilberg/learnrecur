@@ -96,6 +96,8 @@ describe("registerLearnRecurMcpTools", () => {
       "practice.list_targets",
       "practice.get_settings",
       "practice.update_settings",
+      "practice.get_introduction_queue",
+      "practice.update_introduction_queue",
       "practice.sessions.create",
       "practice.sessions.get",
       "practice.sessions.stop",
@@ -196,5 +198,30 @@ describe("MCP resource discovery", () => {
     expect(response.headers.get("www-authenticate")).toContain(
       'resource_metadata="https://learnrecur.com/.well-known/oauth-protected-resource/mcp"',
     );
+  });
+
+  it("proxies authorization-server metadata for clients that skip protected-resource discovery", async () => {
+    enable();
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      Response.json({
+        issuer: "https://learnrecur-staging.authkit.app",
+        authorization_endpoint: "https://learnrecur-staging.authkit.app/oauth2/authorize",
+        scopes_supported: ["openid", "profile"],
+      }),
+    );
+    const metadataRoute = await import(
+      "@/app/.well-known/oauth-authorization-server/route"
+    );
+    const response = await metadataRoute.GET();
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      issuer: "https://learnrecur-staging.authkit.app",
+      scopes_supported: ["openid", "profile"],
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://learnrecur-staging.authkit.app/.well-known/oauth-authorization-server",
+      { cache: "no-store", redirect: "error" },
+    );
+    fetchMock.mockRestore();
   });
 });

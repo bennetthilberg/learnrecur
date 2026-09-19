@@ -2,6 +2,7 @@ import { readStoredPromptLayout, type StructuredPrompt } from "./structured-prom
 import { PRACTICE_BUFFER_SIZE } from "./buffer";
 import { wasSkillIntroduced } from "./daily-limit-contracts";
 import { getDailyNewSkillAllowance, previouslyIntroducedSkillWhere, unintroducedSkillWhere, recordSkillIntroduction } from "./daily-limit";
+import { compareIntroductionQueueCandidates, getIntroductionQueueOrder } from "./introduction-queue";
 import { selectMixedReviewSkill, type MixedReviewSkill } from "./mixed-review";
 import { practiceContextSchema, resolvePracticePreference, type PracticePreference } from "./policies";
 import "server-only";
@@ -397,22 +398,39 @@ export async function previewPracticeItemBuffer(input: GetNextPracticeItemInput 
     userId: input.userId, id: { in: input.excludedSkillIds }, ...unintroducedSkillWhere,
   } }) : 0;
   let remaining = allowance.remaining === null ? null : Math.max(0, allowance.remaining - reserved);
-  let candidates = await findEligibleExercises(prisma, { ...input, skillWhere: {
-    ...(remaining === 0 ? previouslyIntroducedSkillWhere : {}), id: { notIn: input.excludedSkillIds },
-  } });
+  let reviewCandidates = await findEligibleExercises(prisma, {
+    ...input,
+    skillWhere: { ...previouslyIntroducedSkillWhere, id: { notIn: input.excludedSkillIds } },
+  });
+  let newCandidates = remaining === 0
+    ? []
+    : await findEligibleExercises(prisma, {
+        ...input,
+        mixedReview: false,
+        skillWhere: { ...unintroducedSkillWhere, id: { notIn: input.excludedSkillIds } },
+      });
+  const newOrder = await getIntroductionQueueOrder(prisma, {
+    userId: input.userId,
+    collectionIds: newCandidates.map((candidate) => candidate.skill.collectionId),
+    sync: false,
+  });
   let previous: MixedReviewSkill | null = input.previousSkillId ? await prisma.skill.findFirst({
     where: { id: input.previousSkillId, userId: input.userId },
     select: { id: true, collectionId: true, tags: true, objective: true, dueAt: true },
   }).then((skill) => skill?.dueAt ? { ...skill, dueAt: skill.dueAt } : null) : null;
   const result: Extract<NextPracticeItemResult, { status: "ready" }>[] = [];
   const limit = Math.max(0, Math.min(input.limit ?? PRACTICE_BUFFER_SIZE, PRACTICE_BUFFER_SIZE));
-  while (candidates.length && result.length < limit) {
-    const selected = selectMixedReviewSkill(candidates.map((item) => ({ ...item.skill, tags: item.skill.tags ?? [], objective: item.skill.objective ?? null })), previous);
-    const exercise = candidates.find((item) => item.skill.id === selected?.id);
+  while (result.length < limit) {
+    const exercise = reviewCandidates.length > 0
+      ? selectReviewExercise(reviewCandidates, previous)
+      : remaining !== 0
+        ? selectIntroductionExercise(newCandidates, newOrder)
+        : null;
     if (!exercise) break;
-    candidates = candidates.filter((item) => item.skillId !== exercise.skillId);
-    if (!wasSkillIntroduced({ ...exercise.skill, firstIntroducedAt: exercise.skill.firstIntroducedAt ?? null })) {
-      if (remaining === 0) continue;
+    if (wasSkillIntroduced({ ...exercise.skill, firstIntroducedAt: exercise.skill.firstIntroducedAt ?? null })) {
+      reviewCandidates = reviewCandidates.filter((item) => item.skillId !== exercise.skillId);
+    } else {
+      newCandidates = newCandidates.filter((item) => item.skillId !== exercise.skillId);
       if (remaining !== null) remaining -= 1;
     }
     result.push({ status: "ready", skill: toPracticeSkillSummary(exercise.skill), exercise: toPracticeExerciseSummary(exercise) });
@@ -434,12 +452,35 @@ async function selectNextPracticeItem(
         input.userId,
         input.now,
       );
-      const skillWhere =
-        allowance.remaining === 0 ? previouslyIntroducedSkillWhere : {};
-      const selectionInput = { ...input, skillWhere: { ...skillWhere, ...(input.excludeSkillId ? { id: { not: input.excludeSkillId } } : {}) } };
+      const excludedSkill = input.excludeSkillId ? { id: { not: input.excludeSkillId } } : {};
       const preferred = input.preferredExerciseId
-        ? await findEligibleExercise(tx, { ...selectionInput, exerciseId: input.preferredExerciseId }) : null;
-      const exercise = preferred ?? await findEligibleExercise(tx, selectionInput);
+        ? await findEligibleExercise(tx, {
+            ...input,
+            skillWhere: {
+              ...(allowance.remaining === 0 ? previouslyIntroducedSkillWhere : {}),
+              ...excludedSkill,
+            },
+            exerciseId: input.preferredExerciseId,
+          })
+        : null;
+      const reviewExercise = preferred ?? await findEligibleExercise(tx, {
+        ...input,
+        skillWhere: { ...previouslyIntroducedSkillWhere, ...excludedSkill },
+      });
+      let exercise = reviewExercise;
+      if (!exercise && allowance.remaining !== 0) {
+        const newCandidates = await findEligibleExercises(tx, {
+          ...input,
+          mixedReview: false,
+          skillWhere: { ...unintroducedSkillWhere, ...excludedSkill },
+        });
+        const queueOrder = await getIntroductionQueueOrder(tx, {
+          userId: input.userId,
+          collectionIds: newCandidates.map((candidate) => candidate.skill.collectionId),
+          sync: recordIntroduction,
+        });
+        exercise = selectIntroductionExercise(newCandidates, queueOrder);
+      }
       if (!exercise) {
         const scope = {
           userId: input.userId,
@@ -448,7 +489,7 @@ async function selectNextPracticeItem(
           ...(input.collectionId ? { collectionId: input.collectionId } : {}),
         };
         const dueSkills = await tx.skill.findMany({
-          where: { ...scope, ...skillWhere },
+          where: { ...scope, ...previouslyIntroducedSkillWhere },
           orderBy: [{ dueAt: "asc" }, { id: "asc" }],
           take: 10,
           select: { id: true },
@@ -462,7 +503,7 @@ async function selectNextPracticeItem(
           where: { userId: input.userId, status: SkillStatus.ACTIVE,
             dueAt: { gt: input.now }, stability: { not: null }, difficulty: { not: null },
             ...(input.collectionId ? { collectionId: input.collectionId } : {}),
-            ...skillWhere },
+            ...previouslyIntroducedSkillWhere },
           orderBy: [{ dueAt: "asc" }, { id: "asc" }], select: { dueAt: true },
         });
         return {
@@ -1295,6 +1336,34 @@ async function findEligibleExercise(
   return ordered[0] ?? null;
 }
 
+function selectReviewExercise(
+  candidates: PracticeExerciseRecord[],
+  previous: MixedReviewSkill | null,
+): PracticeExerciseRecord | null {
+  const selected = selectMixedReviewSkill(
+    candidates.map((item) => ({
+      ...item.skill,
+      tags: item.skill.tags ?? [],
+      objective: item.skill.objective ?? null,
+    })),
+    previous,
+  );
+  return candidates.find((item) => item.skill.id === selected?.id) ?? null;
+}
+
+function selectIntroductionExercise(
+  candidates: PracticeExerciseRecord[],
+  order: ReadonlyMap<string, { collectionId: string | null; position: number }>,
+): PracticeExerciseRecord | null {
+  return candidates.toSorted((left, right) => {
+    return compareIntroductionQueueCandidates(
+      { skillId: left.skill.id, collectionId: left.skill.collectionId },
+      { skillId: right.skill.id, collectionId: right.skill.collectionId },
+      order,
+    ) || comparePracticeExercises(left, right);
+  })[0] ?? null;
+}
+
 async function findEligibleExercises(prisma: PracticeQueryClient, input: EligibleExerciseInput): Promise<PracticeExerciseRecord[]> {
   const answerKinds = [...(input.answerKinds ?? SUPPORTED_ANSWER_KINDS)].filter(
     isSupportedAnswerKind,
@@ -1750,7 +1819,14 @@ function toStoredAnswer(submittedAnswer: PracticeSubmittedAnswer): Prisma.InputJ
 
 type PracticeQueryClient = Pick<
   Prisma.TransactionClient,
-  "exercise" | "exerciseAttempt" | "exerciseFlag" | "reviewLog" | "skill"
+  | "exercise"
+  | "exerciseAttempt"
+  | "exerciseFlag"
+  | "reviewLog"
+  | "skill"
+  | "introductionQueue"
+  | "introductionQueueEntry"
+  | "collection"
 >;
 
 type RawEligibleExerciseRecord = Omit<

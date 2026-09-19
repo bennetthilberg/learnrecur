@@ -408,6 +408,9 @@ model User {
   agentCandidates        AgentExerciseCandidate[]
   practiceSessions       PracticeSession[]
   agentSetupPlans        AgentSetupPlan[]
+  introductionQueues       IntroductionQueue[]
+  introductionQueueEntries IntroductionQueueEntry[]
+  introductionQueueUpdates IntroductionQueueUpdate[]
 
   @@map("users")
 }
@@ -445,6 +448,66 @@ model PracticeSession {
   @@unique([id, userId])
   @@index([userId, status, updatedAt])
   @@map("practice_sessions")
+}
+
+model IntroductionQueue {
+  id           String   @id @default(cuid())
+  userId       String
+  collectionId String?
+  scopeKey     String
+  version      Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user       User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  collection Collection?               @relation(fields: [collectionId, userId], references: [id, userId], onDelete: NoAction)
+  entries    IntroductionQueueEntry[]
+  updates    IntroductionQueueUpdate[]
+
+  @@unique([id, userId])
+  @@unique([userId, scopeKey])
+  @@index([userId, updatedAt])
+  @@map("introduction_queues")
+}
+
+model IntroductionQueueEntry {
+  id        String   @id @default(cuid())
+  userId    String
+  queueId   String
+  skillId   String
+  position  Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  queue IntroductionQueue @relation(fields: [queueId, userId], references: [id, userId], onDelete: Cascade)
+  skill Skill             @relation(fields: [skillId, userId], references: [id, userId], onDelete: Cascade)
+
+  @@unique([id, userId])
+  @@unique([queueId, skillId])
+  @@unique([queueId, position])
+  @@index([userId, skillId])
+  @@map("introduction_queue_entries")
+}
+
+model IntroductionQueueUpdate {
+  id             String   @id @default(cuid())
+  userId         String
+  connectionId   String
+  queueId        String
+  idempotencyKey String
+  payloadHash    String
+  result         Json
+  createdAt      DateTime @default(now())
+
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  connection AgentConnection   @relation(fields: [connectionId, userId], references: [id, userId], onDelete: Cascade)
+  queue      IntroductionQueue @relation(fields: [queueId, userId], references: [id, userId], onDelete: Cascade)
+
+  @@unique([id, userId])
+  @@unique([connectionId, idempotencyKey])
+  @@index([queueId, createdAt])
+  @@map("introduction_queue_updates")
 }
 
 // This tombstone deliberately has no relation to User. It must survive the
@@ -495,6 +558,7 @@ model Collection {
   skills         Skill[]
   sourceFiles    SourceFile[]
   studyMaterials StudyMaterial[]
+  introductionQueues IntroductionQueue[]
 
   @@unique([id, userId])
   @@index([userId, status])
@@ -749,6 +813,7 @@ model Skill {
   draftBatchItems        SkillDraftBatchItem[]
   agentCreatedItems      AgentSkillOperationItem[] @relation("AgentCreatedSkill")
   agentResultItems       AgentSkillOperationItem[] @relation("AgentResultSkill")
+  introductionQueueEntries IntroductionQueueEntry[]
 
   @@unique([id, userId])
   @@index([userId, status, dueAt])
@@ -1227,6 +1292,7 @@ model AgentConnection {
   operationActions AgentOperationAction[]
   rateLimitBuckets AgentRateLimitBucket[]
   setupPlans       AgentSetupPlan[]
+  introductionQueueUpdates IntroductionQueueUpdate[]
 
   @@unique([id, userId])
   @@index([userId, status, connectedAt])

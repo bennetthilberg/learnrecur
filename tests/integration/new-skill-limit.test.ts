@@ -319,7 +319,7 @@ suite("daily introductions through persisted practice", () => {
     expect(exported).toMatchObject({
       status: "ready",
       export: {
-        exportVersion: 6,
+        exportVersion: 7,
         user: { dailyNewSkillLimit: 1, practiceTimezone: "America/Chicago" },
       },
     });
