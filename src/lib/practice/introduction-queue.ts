@@ -9,6 +9,10 @@ import {
 } from "@/generated/prisma/client";
 import { isPracticeReadModelExerciseReady, resolveReadModelTextPolicy } from "@/lib/practice/read-model-eligibility";
 import { getPrisma } from "@/lib/prisma";
+import {
+  previouslyIntroducedSkillWhere,
+  unintroducedSkillWhere,
+} from "./introduction-predicates";
 
 export const MAX_INTRODUCTION_QUEUE_ITEMS = 250;
 export const DEFAULT_INTRODUCTION_QUEUE_PAGE_SIZE = 25;
@@ -17,12 +21,6 @@ export const UNCOLLECTED_INTRODUCTION_QUEUE_KEY = "uncategorized";
 
 const INTRODUCTION_QUEUE_CURSOR_VERSION = 1;
 const QUEUE_TEMPORARY_POSITION_OFFSET = MAX_INTRODUCTION_QUEUE_ITEMS + 1_000;
-const unintroducedSkillWhere: Prisma.SkillWhereInput = {
-  firstIntroducedAt: null,
-  lastReviewedAt: null,
-  repetitions: 0,
-};
-
 type QueueClient = Pick<
   Prisma.TransactionClient,
   "introductionQueue" | "introductionQueueEntry" | "skill" | "collection"
@@ -255,11 +253,13 @@ export async function getIntroductionQueuePage(
   });
   const pageEntries = entries.slice(0, limit);
   const last = pageEntries.at(-1);
-  const skills = await tx.skill.findMany({
-    where: { userId: input.userId, collectionId: input.collectionId },
-    select: { firstIntroducedAt: true, lastReviewedAt: true, repetitions: true },
+  const introducedCount = await tx.skill.count({
+    where: {
+      userId: input.userId,
+      collectionId: input.collectionId,
+      ...previouslyIntroducedSkillWhere,
+    },
   });
-  const introducedCount = skills.filter((skill) => isIntroduced(skill)).length;
   const items = pageEntries.map(toQueueItem);
   const skipped = items
     .filter((item) => item.status !== "queued")
@@ -528,7 +528,7 @@ async function rewriteQueueEntries(
   }
   for (const [index, skillId] of desiredSkillIds.entries()) {
     const entry = existingBySkillId.get(skillId);
-    if (entry) {
+    if (entry && entry.position !== index) {
       await tx.introductionQueueEntry.update({
         where: { id_userId: { id: entry.id, userId } },
         data: { position: -(QUEUE_TEMPORARY_POSITION_OFFSET + index) },
@@ -548,33 +548,21 @@ async function rewriteQueueEntries(
   }
   const all = await tx.introductionQueueEntry.findMany({
     where: { userId, queueId },
-    select: { id: true },
+    select: { id: true, skillId: true, position: true },
   });
-  const bySkillId = new Map(
-    (await tx.introductionQueueEntry.findMany({
-      where: { userId, queueId },
-      select: { id: true, skillId: true },
-    })).map((entry) => [entry.skillId, entry.id]),
-  );
+  const bySkillId = new Map(all.map((entry) => [entry.skillId, entry]));
   if (all.length !== desiredSkillIds.length) {
     throw new Error("Introduction queue rewrite produced an unexpected number of entries.");
   }
   for (const [index, skillId] of desiredSkillIds.entries()) {
-    const id = bySkillId.get(skillId);
-    if (!id) throw new Error("Introduction queue rewrite lost an entry.");
+    const entry = bySkillId.get(skillId);
+    if (!entry) throw new Error("Introduction queue rewrite lost an entry.");
+    if (entry.position === index) continue;
     await tx.introductionQueueEntry.update({
-      where: { id_userId: { id, userId } },
+      where: { id_userId: { id: entry.id, userId } },
       data: { position: index },
     });
   }
-}
-
-function isIntroduced(skill: {
-  firstIntroducedAt: Date | null;
-  lastReviewedAt: Date | null;
-  repetitions: number;
-}): boolean {
-  return Boolean(skill.firstIntroducedAt || skill.lastReviewedAt || skill.repetitions > 0);
 }
 
 function sameStringArray(left: readonly string[], right: readonly string[]): boolean {

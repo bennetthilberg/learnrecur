@@ -3,7 +3,11 @@ import { PRACTICE_BUFFER_SIZE } from "./buffer";
 import { wasSkillIntroduced } from "./daily-limit-contracts";
 import { getDailyNewSkillAllowance, previouslyIntroducedSkillWhere, unintroducedSkillWhere, recordSkillIntroduction } from "./daily-limit";
 import { compareIntroductionQueueCandidates, getIntroductionQueueOrder } from "./introduction-queue";
-import { selectMixedReviewSkill, type MixedReviewSkill } from "./mixed-review";
+import {
+  areMixedReviewSkillsCompatible,
+  selectMixedReviewSkill,
+  type MixedReviewSkill,
+} from "./mixed-review";
 import { practiceContextSchema, resolvePracticePreference, type PracticePreference } from "./policies";
 import "server-only";
 
@@ -424,7 +428,7 @@ export async function previewPracticeItemBuffer(input: GetNextPracticeItemInput 
     const exercise = reviewCandidates.length > 0
       ? selectReviewExercise(reviewCandidates, previous)
       : remaining !== 0
-        ? selectIntroductionExercise(newCandidates, newOrder)
+        ? selectIntroductionExercise(newCandidates, newOrder, previous)
         : null;
     if (!exercise) break;
     if (wasSkillIntroduced({ ...exercise.skill, firstIntroducedAt: exercise.skill.firstIntroducedAt ?? null })) {
@@ -479,7 +483,17 @@ async function selectNextPracticeItem(
           collectionIds: newCandidates.map((candidate) => candidate.skill.collectionId),
           sync: recordIntroduction,
         });
-        exercise = selectIntroductionExercise(newCandidates, queueOrder);
+        const previous = input.mixedReview && input.previousSkillId
+          ? await tx.skill.findFirst({
+              where: {
+                id: input.previousSkillId,
+                userId: input.userId,
+                ...(input.collectionId ? { collectionId: input.collectionId } : {}),
+              },
+              select: { id: true, collectionId: true, tags: true, objective: true, dueAt: true },
+            }).then((skill) => skill?.dueAt ? { ...skill, dueAt: skill.dueAt } : null)
+          : null;
+        exercise = selectIntroductionExercise(newCandidates, queueOrder, previous);
       }
       if (!exercise) {
         const scope = {
@@ -488,8 +502,9 @@ async function selectNextPracticeItem(
           dueAt: { lte: input.now },
           ...(input.collectionId ? { collectionId: input.collectionId } : {}),
         };
+        const diagnosticSkillWhere = allowance.remaining === 0 ? previouslyIntroducedSkillWhere : {};
         const dueSkills = await tx.skill.findMany({
-          where: { ...scope, ...previouslyIntroducedSkillWhere },
+          where: { ...scope, ...diagnosticSkillWhere },
           orderBy: [{ dueAt: "asc" }, { id: "asc" }],
           take: 10,
           select: { id: true },
@@ -503,7 +518,7 @@ async function selectNextPracticeItem(
           where: { userId: input.userId, status: SkillStatus.ACTIVE,
             dueAt: { gt: input.now }, stability: { not: null }, difficulty: { not: null },
             ...(input.collectionId ? { collectionId: input.collectionId } : {}),
-            ...previouslyIntroducedSkillWhere },
+            ...diagnosticSkillWhere },
           orderBy: [{ dueAt: "asc" }, { id: "asc" }], select: { dueAt: true },
         });
         return {
@@ -1354,14 +1369,38 @@ function selectReviewExercise(
 function selectIntroductionExercise(
   candidates: PracticeExerciseRecord[],
   order: ReadonlyMap<string, { collectionId: string | null; position: number }>,
+  previous: MixedReviewSkill | null = null,
 ): PracticeExerciseRecord | null {
-  return candidates.toSorted((left, right) => {
+  const ordered = candidates.toSorted((left, right) => {
+    const leftOrder = order.get(left.skill.id);
+    const rightOrder = order.get(right.skill.id);
+    if (
+      leftOrder &&
+      rightOrder &&
+      leftOrder.position === rightOrder.position &&
+      left.skill.collectionId !== right.skill.collectionId
+    ) {
+      // Keep the existing due/rotation ordering when two collection queues
+      // are at the same rank. Queue rank still interleaves deeper entries.
+      return 0;
+    }
     return compareIntroductionQueueCandidates(
       { skillId: left.skill.id, collectionId: left.skill.collectionId },
       { skillId: right.skill.id, collectionId: right.skill.collectionId },
       order,
-    ) || comparePracticeExercises(left, right);
-  })[0] ?? null;
+    );
+  });
+  if (!previous) return ordered[0] ?? null;
+  return ordered.find((candidate) =>
+    candidate.skill.id !== previous.id &&
+    areMixedReviewSkillsCompatible(previous, {
+      id: candidate.skill.id,
+      collectionId: candidate.skill.collectionId,
+      tags: candidate.skill.tags ?? [],
+      objective: candidate.skill.objective ?? null,
+      dueAt: candidate.skill.dueAt,
+    }),
+  ) ?? ordered[0] ?? null;
 }
 
 async function findEligibleExercises(prisma: PracticeQueryClient, input: EligibleExerciseInput): Promise<PracticeExerciseRecord[]> {

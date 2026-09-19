@@ -1008,6 +1008,10 @@ suite("retention preferences through persisted practice", () => {
     });
     for (const skill of [a, b, future])
       await createChoiceExercise({ prisma, userId, skillId: skill.id });
+    await prisma.skill.updateMany({
+      where: { id: { in: [a.id, b.id, future.id] } },
+      data: { firstIntroducedAt: new Date(now.getTime() - 86400000) },
+    });
     expect(
       await getNextPracticeItem({
         userId,

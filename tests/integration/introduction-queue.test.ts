@@ -34,6 +34,8 @@ suite("persisted introduction queues", () => {
     const second = await createSkillFixture(prisma, { userId, title: "Second", collectionId: collection.id });
     const paused = await createSkillFixture(prisma, { userId, title: "Paused", collectionId: collection.id, status: "PAUSED" });
     const foreign = await createSkillFixture(prisma, { userId: otherUserId, title: "Foreign", collectionId: otherCollection.id });
+    await createChoiceExercise({ prisma, userId, skillId: first.id });
+    await createChoiceExercise({ prisma, userId, skillId: second.id });
 
     const initial = await prisma.$transaction((tx) =>
       getIntroductionQueuePage(tx, { userId, collectionId: collection.id, limit: 50 }),

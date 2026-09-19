@@ -153,6 +153,7 @@ export function registerLearnRecurMcpTools(server: McpServer) {
     schema: agentUpdateIntroductionQueueSchema,
     scopes: ["practice:write"],
     readOnly: false,
+    idempotent: true,
     handler: updateAgentIntroductionQueue,
   });
   registerTool(server, {
@@ -615,6 +616,7 @@ type ToolDefinition<T extends z.ZodType> = {
   scopes: AgentAccessScope[];
   alternativeScopes?: readonly (readonly AgentAccessScope[])[];
   readOnly: boolean;
+  idempotent?: boolean;
   destructiveHint?: boolean;
   handler: (
     auth: ReturnType<typeof requireAgentAuthContext>,
@@ -665,7 +667,7 @@ function registerTool<T extends z.ZodType>(server: McpServer, definition: ToolDe
       annotations: {
         readOnlyHint: definition.readOnly,
         destructiveHint: definition.destructiveHint ?? false,
-        idempotentHint: definition.readOnly,
+        idempotentHint: definition.idempotent ?? definition.readOnly,
         openWorldHint: false,
       },
       _meta: {

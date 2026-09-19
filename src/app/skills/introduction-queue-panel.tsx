@@ -49,7 +49,7 @@ export function IntroductionQueuePanel({ groups }: { groups: QueueGroup[] }) {
         skillIds,
       });
       setNotice(result.message);
-      if (result.status === "saved") router.refresh();
+      if (result.status === "saved" || result.code === "stale_state") router.refresh();
     });
   }
 

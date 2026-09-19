@@ -1,20 +1,10 @@
 import "server-only";
 import type { Prisma } from "@/generated/prisma/client";
 import { getPracticeDayBounds } from "./daily-limit-contracts";
+import { unintroducedSkillWhere } from "./introduction-predicates";
 import { removeSkillFromIntroductionQueues } from "./introduction-queue";
 
-export const previouslyIntroducedSkillWhere: Prisma.SkillWhereInput = {
-  OR: [
-    { firstIntroducedAt: { not: null } },
-    { lastReviewedAt: { not: null } },
-    { repetitions: { gt: 0 } },
-  ],
-};
-export const unintroducedSkillWhere: Prisma.SkillWhereInput = {
-  firstIntroducedAt: null,
-  lastReviewedAt: null,
-  repetitions: 0,
-};
+export { previouslyIntroducedSkillWhere, unintroducedSkillWhere } from "./introduction-predicates";
 
 // Call under the user row lock whenever the result authorizes an introduction.
 export async function getDailyNewSkillAllowance(
