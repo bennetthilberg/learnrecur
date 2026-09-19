@@ -254,6 +254,7 @@ body {
   width: 100vw;
   max-width: none;
   height: 100vh;
+  overflow: hidden;
   pointer-events: none;
   z-index: 0;
 }
