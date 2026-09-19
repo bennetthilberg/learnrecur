@@ -1,7 +1,7 @@
 # Spanish import readiness status
 
-Updated 2026-09-17 after the final reviewer-fix and remote verification pass.
-This is a work-in-progress checkpoint, not a release receipt.
+Updated 2026-09-18 after the production schema repair. This is a work-in-progress
+checkpoint, not a release receipt.
 
 The implementation provides the bounded, auditable plumbing for a future
 Spanish textbook pilot: sequential material reading, revision-bound source
@@ -24,12 +24,36 @@ contracts, exercise the issue correction flow, and record extraction gaps.
 
 ## Development checkpoint
 
-The current feature branch is `a/spanish-import-readiness`. An existing open
-PR, #146, is the single PR target for this work. The implementation checkpoint
-`fe7a1da` was followed by review-fix commits `6dd1a10`, `7fe1f63`, `49c99d9`,
-`e340a17`, `3cdb901`, `968f782`, `7514e5a`, and `8ed83bf`. The unrelated untracked
+PR #146 merged to `main` at `da807e6`. The implementation checkpoint `fe7a1da`
+was followed by review-fix commits `6dd1a10`, `7fe1f63`, `49c99d9`, `e340a17`,
+`3cdb901`, `968f782`, `7514e5a`, and `8ed83bf`. The unrelated untracked
 `docs/product-discovery/` directory belongs to the user and must remain
 untouched.
+
+### Production schema incident
+
+After PR #146 deployed, a newly authenticated production account reached the
+dashboard and history routes but both pages failed at their route error
+boundary. Vercel runtime logs identified Prisma `P2022` errors for missing
+`exercise_attempts.evidenceCorrectionStatus` and
+`review_logs.evidenceCorrectionStatus` columns. OAuth account creation itself
+succeeded.
+
+The production and staging migration ledgers had stopped at
+`20260908120000_advanced_practice_settings_and_sessions`; CI had applied the new
+migrations only to its disposable database. On 2026-09-18, production backup
+`b004` completed before repair. The following migrations were then applied and
+read back successfully in staging and production:
+
+- `20260917170000_quality_incident_replay_corrections`;
+- `20260918040000_agent_source_reference_outcomes`.
+
+The repair also confirmed the two correction columns and
+`agent_skill_operation_items.sourceReferenceOutcome`. A production log query
+afterward found no new matching `P2022` correction-column errors. The permanent
+release fix makes production-target Vercel builds run tracked migrations before
+the application build, uses verified TLS for remote migration connections, and
+keeps preview/development builds away from hosted migrations.
 
 Implemented in the current working tree:
 
@@ -85,17 +109,17 @@ Verification evidence for the current local checkpoint:
 - no live WorkOS registration/reconsent, licensed textbook, or representative
   material pilot has been performed for this branch.
 
-The implementation is ready for review and merge consideration. The database
-limitation must remain recorded as an environment limitation rather than a
-passing result. The next operator should confirm the migration is applied
-before using the new operation-item field, and run the real-material pilot
-before making coverage or exercise-quality claims.
+The Spanish import implementation is merged. The database limitation must
+remain recorded as an environment limitation rather than a passing result. The
+next operator should run the real-material pilot before making coverage or
+exercise-quality claims.
 
 Suggested resume commands:
 
 ```bash
 cd /Users/main/repos/learnrecur
-git switch a/spanish-import-readiness
+git switch main
+git pull --ff-only
 git status --short --branch
 sed -n '1,260p' docs/spanish-import-readiness-status.md
 rg -n "source_refs|recent_attempts|AGENT_ACCESS_SCOPES|permissionSummary" src tests docs

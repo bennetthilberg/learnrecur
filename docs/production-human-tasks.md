@@ -51,7 +51,9 @@ Steps:
 4. Copy the direct connection string to Vercel as `DIRECT_URL`.
 5. Confirm backups or point-in-time restore are enabled for your plan.
 6. Configure billing and storage alerts.
-7. Before app traffic, run production migrations:
+7. Production-target Vercel builds run tracked migrations before building the
+   application. For a controlled manual repair, run the same command from the
+   exact release checkout:
 
 ```bash
 npm ci
@@ -60,7 +62,10 @@ npm run prisma:generate
 npm run prisma:deploy
 ```
 
-Only run `prisma:deploy` from one controlled place for a release.
+`prisma:deploy` enforces verified TLS and uses the checked-in AWS RDS regional
+trust bundle for Heroku. Preview and development Vercel builds skip hosted
+migrations. Do not add another release-time migration runner; Prisma's advisory
+lock is a last line of defense, not a substitute for one clear deployment path.
 
 ### 4. Create the Clerk production instance
 

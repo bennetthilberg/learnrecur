@@ -11,6 +11,7 @@
     "agent:workos-gate": "tsx scripts/verify-workos-mcp-gate.ts",
     "prebuild": "tsx scripts/check-production-env.ts && NODE_OPTIONS=--conditions=react-server tsx scripts/export-aws-worker-configuration.ts",
     "build": "next build",
+    "vercel:build": "tsx scripts/vercel-build.ts",
     "start": "next start",
     "lint": "eslint",
     "ops": "NODE_OPTIONS='--conditions=react-server' tsx scripts/ops.ts",
@@ -27,7 +28,7 @@
     "prisma:validate": "prisma validate",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:deploy": "prisma migrate deploy",
+    "prisma:deploy": "tsx scripts/deploy-prisma-migrations.ts",
     "jobs:build": "tsx scripts/build-aws-jobs.ts",
     "jobs:dev": "NODE_OPTIONS='--conditions=react-server' tsx watch scripts/jobs-dev.ts"
   },
