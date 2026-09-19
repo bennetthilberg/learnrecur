@@ -460,7 +460,7 @@ model IntroductionQueue {
   updatedAt    DateTime @updatedAt
 
   user       User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  collection Collection?               @relation(fields: [collectionId, userId], references: [id, userId], onDelete: NoAction)
+  collection Collection?               @relation(fields: [collectionId, userId], references: [id, userId], onDelete: Cascade)
   entries    IntroductionQueueEntry[]
   updates    IntroductionQueueUpdate[]
 
