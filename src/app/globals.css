@@ -3533,7 +3533,7 @@ a {
 
 .skillLifecyclePanel,
 .skillRecoveryPanel {
-  width: min(100%, 1040px);
+  width: min(calc(100% - 28px), 1040px);
   margin: 18px auto 0;
 }
 
