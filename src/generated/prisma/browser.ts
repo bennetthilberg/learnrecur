@@ -28,6 +28,21 @@ export type User = Prisma.UserModel
  */
 export type PracticeSession = Prisma.PracticeSessionModel
 /**
+ * Model IntroductionQueue
+ * 
+ */
+export type IntroductionQueue = Prisma.IntroductionQueueModel
+/**
+ * Model IntroductionQueueEntry
+ * 
+ */
+export type IntroductionQueueEntry = Prisma.IntroductionQueueEntryModel
+/**
+ * Model IntroductionQueueUpdate
+ * 
+ */
+export type IntroductionQueueUpdate = Prisma.IntroductionQueueUpdateModel
+/**
  * Model AccountDeletionJob
  * 
  */

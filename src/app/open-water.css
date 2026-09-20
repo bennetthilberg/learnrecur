@@ -8293,6 +8293,27 @@ body {
   font-size: 15px;
 }
 
+.introductionQueueList {
+  margin: 0;
+  padding: 0;
+}
+
+.introductionQueueRow {
+  padding-right: 0;
+  padding-left: 0;
+}
+
+.introductionQueueControls {
+  display: inline-flex;
+  gap: 5px;
+}
+
+.introductionQueueControls .secondaryButton {
+  min-width: 32px;
+  min-height: 32px;
+  padding: 5px;
+}
+
 .agentDuplicateReviewHeader,
 .agentDuplicateCompare {
   width: min(calc(100% - 28px), 860px);

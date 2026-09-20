@@ -113,6 +113,7 @@ export class AgentOperationError extends Error {
       | "operation_not_retryable"
       | "upload_preparation_failed"
       | "invalid_input"
+      | "invalid_cursor"
       | "skill_not_found"
       | "skill_not_active"
       | "collection_not_found"

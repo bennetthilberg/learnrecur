@@ -220,7 +220,7 @@ test.describe("authenticated learner lifecycle", () => {
       await expect(page.getByText("Preferences saved", { exact: true })).toBeVisible();
     }
 
-    expect(exported.exportVersion).toBe(6);
+    expect(exported.exportVersion).toBe(7);
     expect(exported.user.id).toBe(clerkTestUser.id);
     expect(exported.collections.map((collection) => collection.id)).toContain(
       scenario.collectionId,

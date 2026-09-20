@@ -19,8 +19,16 @@ import { AccountDeletionPanel } from "./account-deletion/account-deletion-panel"
 
 export const dynamic = "force-dynamic";
 
-export default async function SettingsPage() {
+type SettingsPageProps = {
+  searchParams?: Promise<{
+    agentConnection?: string | string[];
+    agentError?: string | string[];
+  }>;
+};
+
+export default async function SettingsPage({ searchParams }: SettingsPageProps) {
   const { userId } = await auth.protect();
+  const resolvedSearchParams = searchParams ? await searchParams : {};
   const supportEmail = getSupportEmail();
   const clerkUser = await currentUser();
 
@@ -72,6 +80,8 @@ export default async function SettingsPage() {
     );
   }
 
+  const agentConnectionNotice = getAgentConnectionNotice(resolvedSearchParams);
+
   return (
     <main className="skillShell settingsShell">
       <SkillsTopbar current="settings" />
@@ -84,6 +94,15 @@ export default async function SettingsPage() {
         <div className="settingsSectionIntro"><h2 id="practice-preferences-title">Practice preferences</h2></div>
         <div className="settingsPreferencesBody"><PracticePreferencesForm target={{scope:"user"}} preference={practicePreferences.practicePreference} dailyNewSkillLimit={practicePreferences.dailyNewSkillLimit} practiceTimezone={practicePreferences.practiceTimezone} desiredRetention={practicePreferences.desiredRetention} practiceDayStartMinutes={practicePreferences.practiceDayStartMinutes}/></div>
       </section>
+
+      {agentConnectionNotice ? (
+        <section className="skillPanel settingsPanel agentConnectionFailure" aria-labelledby="agent-connection-failure-title" role="alert">
+          <div className="settingsSectionIntro">
+            <h2 id="agent-connection-failure-title">Agent connection needs attention</h2>
+            <p>{agentConnectionNotice}</p>
+          </div>
+        </section>
+      ) : null}
 
       <section className="skillPanel settingsPanel" aria-labelledby="reminder-settings-title">
         <div className="settingsSectionIntro" id="email-reminders">
@@ -182,4 +201,20 @@ export default async function SettingsPage() {
       </p>
     </main>
   );
+}
+
+function getAgentConnectionNotice(searchParams: Awaited<SettingsPageProps["searchParams"]>): string | null {
+  const connection = firstQueryValue(searchParams?.agentConnection);
+  const error = firstQueryValue(searchParams?.agentError);
+  if (connection === "expired") return "The connection link expired before LearnRecur could finish it. Start the connection again from your agent.";
+  if (connection === "email") return "The signed-in LearnRecur email must be verified before an agent connection can be completed.";
+  if (error === "identity_conflict") return "WorkOS found an identity mapping that is already linked to another LearnRecur account. No account data was changed. Sign in to the intended account and retry; if the problem persists, contact support so the two identities can be verified without merging accounts by email.";
+  if (error === "invalid_scope") return "The authorization provider rejected LearnRecur's MCP permissions. No account data was changed. Reconnect after the provider configuration is repaired; if it happens again, contact support and include the time of the failed attempt.";
+  if (error === "database_setup") return "LearnRecur could not finish account setup for this connection. No study data was changed. Refresh Settings and try again.";
+  if (connection === "failed" || error) return "LearnRecur could not finish this connection. No study data was changed. Try connecting again; if it fails again, contact support and include the time of the failed attempt.";
+  return null;
+}
+
+function firstQueryValue(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
 }

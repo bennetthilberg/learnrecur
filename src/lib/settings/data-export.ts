@@ -45,7 +45,7 @@ import type {
 } from "@/generated/prisma/client";
 import { getPrisma } from "@/lib/prisma";
 
-export const STUDY_DATA_EXPORT_VERSION = 6;
+export const STUDY_DATA_EXPORT_VERSION = 7;
 const PRIVATE_SOURCE_METADATA_KEYS = new Set([
   "bucketName",
   "objectKey",
@@ -57,7 +57,7 @@ const PRIVATE_SOURCE_METADATA_KEYS = new Set([
 export type StudyDataExportResult =
   | {
       status: "ready";
-      export: StudyDataExportV6;
+      export: StudyDataExportV7;
       filename: string;
     }
   | {
@@ -65,11 +65,14 @@ export type StudyDataExportResult =
       message: string;
     };
 
-export type StudyDataExportV6 = {
+export type StudyDataExportV7 = {
   exportVersion: typeof STUDY_DATA_EXPORT_VERSION;
   generatedAt: string;
   user: ExportUser;
   collections: ExportCollection[];
+  introductionQueues: ExportIntroductionQueue[];
+  introductionQueueEntries: ExportIntroductionQueueEntry[];
+  introductionQueueUpdates: ExportIntroductionQueueUpdate[];
   studyMaterials: ExportStudyMaterial[];
   materialRevisions: ExportMaterialRevision[];
   materialSections: ExportMaterialSection[];
@@ -208,6 +211,34 @@ export type ExportCollection = {
   status: CollectionStatus;
   createdAt: string;
   updatedAt: string;
+};
+
+export type ExportIntroductionQueue = {
+  id: string;
+  collectionId: string | null;
+  scopeKey: string;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ExportIntroductionQueueEntry = {
+  id: string;
+  queueId: string;
+  skillId: string;
+  position: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ExportIntroductionQueueUpdate = {
+  id: string;
+  connectionId: string;
+  queueId: string;
+  idempotencyKey: string;
+  payloadHash: string;
+  result: Prisma.JsonValue;
+  createdAt: string;
 };
 
 export type ExportSourceFile = {
@@ -632,6 +663,40 @@ export async function getUserDataExport(input: {
           status: true,
           createdAt: true,
           updatedAt: true,
+        },
+      },
+      introductionQueues: {
+        orderBy: { id: "asc" },
+        select: {
+          id: true,
+          collectionId: true,
+          scopeKey: true,
+          version: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      },
+      introductionQueueEntries: {
+        orderBy: { id: "asc" },
+        select: {
+          id: true,
+          queueId: true,
+          skillId: true,
+          position: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      },
+      introductionQueueUpdates: {
+        orderBy: { id: "asc" },
+        select: {
+          id: true,
+          connectionId: true,
+          queueId: true,
+          idempotencyKey: true,
+          payloadHash: true,
+          result: true,
+          createdAt: true,
         },
       },
       studyMaterials: {
@@ -1145,7 +1210,7 @@ export async function getUserDataExport(input: {
     };
   }
 
-  const exportData: StudyDataExportV6 = {
+  const exportData: StudyDataExportV7 = {
     exportVersion: STUDY_DATA_EXPORT_VERSION,
     generatedAt: serializeExportDate(input.generatedAt),
     user: {
@@ -1167,6 +1232,21 @@ export async function getUserDataExport(input: {
       ...collection,
       createdAt: serializeExportDate(collection.createdAt),
       updatedAt: serializeExportDate(collection.updatedAt),
+    })),
+    introductionQueues: user.introductionQueues.map((queue) => ({
+      ...queue,
+      createdAt: serializeExportDate(queue.createdAt),
+      updatedAt: serializeExportDate(queue.updatedAt),
+    })),
+    introductionQueueEntries: user.introductionQueueEntries.map((entry) => ({
+      ...entry,
+      createdAt: serializeExportDate(entry.createdAt),
+      updatedAt: serializeExportDate(entry.updatedAt),
+    })),
+    introductionQueueUpdates: user.introductionQueueUpdates.map((update) => ({
+      ...update,
+      result: sanitizeSourceFileMetadata(update.result) ?? {},
+      createdAt: serializeExportDate(update.createdAt),
     })),
     studyMaterials: user.studyMaterials.map((material) => ({
       ...material,

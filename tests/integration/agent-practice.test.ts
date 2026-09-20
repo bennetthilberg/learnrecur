@@ -194,18 +194,36 @@ suite("MCP practice settings HTTP and persistence", () => {
       "practice.list_targets",
       "practice.get_settings",
       "practice.update_settings",
+      "practice.get_introduction_queue",
+      "practice.update_introduction_queue",
       "practice.sessions.create",
       "practice.sessions.get",
       "practice.sessions.stop",
       "practice.sessions.resume",
       "practice.history",
     ]);
-    expect(tools[0]._meta.securitySchemes[0].scopes).toEqual(["practice:read"]);
-    expect(tools[1].annotations.readOnlyHint).toBe(true);
-    expect(tools[2]._meta.securitySchemes[0].scopes).toEqual([
+    type PublishedTool = {
+      name: string;
+      _meta: { securitySchemes: Array<{ scopes: string[] }> };
+      annotations: { readOnlyHint?: boolean };
+    };
+    const byName = new Map<string, PublishedTool>(
+      tools.map((tool: PublishedTool) => [tool.name, tool]),
+    );
+    expect(byName.get("practice.list_targets")?._meta.securitySchemes[0].scopes).toEqual([
+      "practice:read",
+    ]);
+    expect(byName.get("practice.get_settings")?.annotations.readOnlyHint).toBe(true);
+    expect(byName.get("practice.update_settings")?._meta.securitySchemes[0].scopes).toEqual([
       "practice:write",
     ]);
-    expect(tools[2].annotations.readOnlyHint).toBe(false);
+    expect(byName.get("practice.update_settings")?.annotations.readOnlyHint).toBe(false);
+    expect(byName.get("practice.get_introduction_queue")?._meta.securitySchemes[0].scopes).toEqual([
+      "practice:read",
+    ]);
+    expect(byName.get("practice.update_introduction_queue")?._meta.securitySchemes[0].scopes).toEqual([
+      "practice:write",
+    ]);
   });
 
   it("supports existing MCP clients using the 2025-11-25 protocol", async () => {
