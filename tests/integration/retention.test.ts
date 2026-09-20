@@ -1008,6 +1008,10 @@ suite("retention preferences through persisted practice", () => {
     });
     for (const skill of [a, b, future])
       await createChoiceExercise({ prisma, userId, skillId: skill.id });
+    await prisma.skill.updateMany({
+      where: { id: { in: [a.id, b.id, future.id] } },
+      data: { firstIntroducedAt: new Date(now.getTime() - 86400000) },
+    });
     expect(
       await getNextPracticeItem({
         userId,
@@ -1078,7 +1082,7 @@ suite("retention preferences through persisted practice", () => {
     const result = await getUserDataExport({ userId, generatedAt: now });
     expect(result).toMatchObject({
       status: "ready",
-      export: { exportVersion: 6 },
+      export: { exportVersion: 7 },
     });
     if (result.status !== "ready") throw Error("Missing export");
     expect(result.export.user).toMatchObject({

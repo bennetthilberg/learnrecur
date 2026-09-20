@@ -326,6 +326,9 @@ export type UserWhereInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateListRelationFilter
   practiceSessions?: Prisma.PracticeSessionListRelationFilter
   agentSetupPlans?: Prisma.AgentSetupPlanListRelationFilter
+  introductionQueues?: Prisma.IntroductionQueueListRelationFilter
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryListRelationFilter
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateListRelationFilter
 }
 
 export type UserOrderByWithRelationInput = {
@@ -373,6 +376,9 @@ export type UserOrderByWithRelationInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateOrderByRelationAggregateInput
   practiceSessions?: Prisma.PracticeSessionOrderByRelationAggregateInput
   agentSetupPlans?: Prisma.AgentSetupPlanOrderByRelationAggregateInput
+  introductionQueues?: Prisma.IntroductionQueueOrderByRelationAggregateInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryOrderByRelationAggregateInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateOrderByRelationAggregateInput
 }
 
 export type UserWhereUniqueInput = Prisma.AtLeast<{
@@ -423,6 +429,9 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   agentCandidates?: Prisma.AgentExerciseCandidateListRelationFilter
   practiceSessions?: Prisma.PracticeSessionListRelationFilter
   agentSetupPlans?: Prisma.AgentSetupPlanListRelationFilter
+  introductionQueues?: Prisma.IntroductionQueueListRelationFilter
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryListRelationFilter
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateListRelationFilter
 }, "id">
 
 export type UserOrderByWithAggregationInput = {
@@ -512,6 +521,9 @@ export type UserCreateInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateInput = {
@@ -559,6 +571,9 @@ export type UserUncheckedCreateInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionUncheckedCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserUpdateInput = {
@@ -606,6 +621,9 @@ export type UserUpdateInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateInput = {
@@ -653,6 +671,9 @@ export type UserUncheckedUpdateInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUncheckedUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateManyInput = {
@@ -834,6 +855,48 @@ export type UserUpdateOneRequiredWithoutPracticeSessionsNestedInput = {
   upsert?: Prisma.UserUpsertWithoutPracticeSessionsInput
   connect?: Prisma.UserWhereUniqueInput
   update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutPracticeSessionsInput, Prisma.UserUpdateWithoutPracticeSessionsInput>, Prisma.UserUncheckedUpdateWithoutPracticeSessionsInput>
+}
+
+export type UserCreateNestedOneWithoutIntroductionQueuesInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutIntroductionQueuesInput, Prisma.UserUncheckedCreateWithoutIntroductionQueuesInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutIntroductionQueuesInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneRequiredWithoutIntroductionQueuesNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutIntroductionQueuesInput, Prisma.UserUncheckedCreateWithoutIntroductionQueuesInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutIntroductionQueuesInput
+  upsert?: Prisma.UserUpsertWithoutIntroductionQueuesInput
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutIntroductionQueuesInput, Prisma.UserUpdateWithoutIntroductionQueuesInput>, Prisma.UserUncheckedUpdateWithoutIntroductionQueuesInput>
+}
+
+export type UserCreateNestedOneWithoutIntroductionQueueEntriesInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutIntroductionQueueEntriesInput, Prisma.UserUncheckedCreateWithoutIntroductionQueueEntriesInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutIntroductionQueueEntriesInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneRequiredWithoutIntroductionQueueEntriesNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutIntroductionQueueEntriesInput, Prisma.UserUncheckedCreateWithoutIntroductionQueueEntriesInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutIntroductionQueueEntriesInput
+  upsert?: Prisma.UserUpsertWithoutIntroductionQueueEntriesInput
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutIntroductionQueueEntriesInput, Prisma.UserUpdateWithoutIntroductionQueueEntriesInput>, Prisma.UserUncheckedUpdateWithoutIntroductionQueueEntriesInput>
+}
+
+export type UserCreateNestedOneWithoutIntroductionQueueUpdatesInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutIntroductionQueueUpdatesInput, Prisma.UserUncheckedCreateWithoutIntroductionQueueUpdatesInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutIntroductionQueueUpdatesInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneRequiredWithoutIntroductionQueueUpdatesNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutIntroductionQueueUpdatesInput, Prisma.UserUncheckedCreateWithoutIntroductionQueueUpdatesInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutIntroductionQueueUpdatesInput
+  upsert?: Prisma.UserUpsertWithoutIntroductionQueueUpdatesInput
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutIntroductionQueueUpdatesInput, Prisma.UserUpdateWithoutIntroductionQueueUpdatesInput>, Prisma.UserUncheckedUpdateWithoutIntroductionQueueUpdatesInput>
 }
 
 export type UserCreateNestedOneWithoutCollectionsInput = {
@@ -1286,6 +1349,9 @@ export type UserCreateWithoutPracticeSessionsInput = {
   agentOperationItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutUserInput
   agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutPracticeSessionsInput = {
@@ -1332,6 +1398,9 @@ export type UserUncheckedCreateWithoutPracticeSessionsInput = {
   agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutUserInput
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutPracticeSessionsInput = {
@@ -1394,6 +1463,9 @@ export type UserUpdateWithoutPracticeSessionsInput = {
   agentOperationItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutUserNestedInput
   agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutPracticeSessionsInput = {
@@ -1440,6 +1512,645 @@ export type UserUncheckedUpdateWithoutPracticeSessionsInput = {
   agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutUserNestedInput
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedUpdateManyWithoutUserNestedInput
+}
+
+export type UserCreateWithoutIntroductionQueuesInput = {
+  id: string
+  email?: string | null
+  name?: string | null
+  imageUrl?: string | null
+  lastSeenAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
+  dailyNewSkillLimit?: number | null
+  practiceTimezone?: string
+  desiredRetention?: number | null
+  practiceDayStartMinutes?: number
+  collections?: Prisma.CollectionCreateNestedManyWithoutUserInput
+  sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutUserInput
+  studyMaterials?: Prisma.StudyMaterialCreateNestedManyWithoutUserInput
+  materialRevisions?: Prisma.MaterialRevisionCreateNestedManyWithoutUserInput
+  materialSections?: Prisma.MaterialSectionCreateNestedManyWithoutUserInput
+  materialChunks?: Prisma.MaterialChunkCreateNestedManyWithoutUserInput
+  materialPages?: Prisma.MaterialPageCreateNestedManyWithoutUserInput
+  materialCleanupJobs?: Prisma.MaterialCleanupJobCreateNestedManyWithoutUserInput
+  skillDraftBatches?: Prisma.SkillDraftBatchCreateNestedManyWithoutUserInput
+  skillDraftBatchItems?: Prisma.SkillDraftBatchItemCreateNestedManyWithoutUserInput
+  skills?: Prisma.SkillCreateNestedManyWithoutUserInput
+  skillSourceRefs?: Prisma.SkillSourceRefCreateNestedManyWithoutUserInput
+  exercises?: Prisma.ExerciseCreateNestedManyWithoutUserInput
+  exerciseAttempts?: Prisma.ExerciseAttemptCreateNestedManyWithoutUserInput
+  reviewLogs?: Prisma.ReviewLogCreateNestedManyWithoutUserInput
+  exerciseFlags?: Prisma.ExerciseFlagCreateNestedManyWithoutUserInput
+  generationJobs?: Prisma.GenerationJobCreateNestedManyWithoutUserInput
+  generationAuditRecords?: Prisma.GenerationAuditRecordCreateNestedManyWithoutUserInput
+  reminderPreference?: Prisma.ReminderPreferenceCreateNestedOneWithoutUserInput
+  reminderSendLogs?: Prisma.ReminderSendLogCreateNestedManyWithoutUserInput
+  workosIdentity?: Prisma.WorkosIdentityCreateNestedOneWithoutUserInput
+  agentConnections?: Prisma.AgentConnectionCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceCreateNestedManyWithoutUserInput
+  agentOperations?: Prisma.AgentSkillOperationCreateNestedManyWithoutUserInput
+  agentOperationItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutUserInput
+  agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
+  practiceSessions?: Prisma.PracticeSessionCreateNestedManyWithoutUserInput
+  agentSetupPlans?: Prisma.AgentSetupPlanCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateCreateNestedManyWithoutUserInput
+}
+
+export type UserUncheckedCreateWithoutIntroductionQueuesInput = {
+  id: string
+  email?: string | null
+  name?: string | null
+  imageUrl?: string | null
+  lastSeenAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
+  dailyNewSkillLimit?: number | null
+  practiceTimezone?: string
+  desiredRetention?: number | null
+  practiceDayStartMinutes?: number
+  collections?: Prisma.CollectionUncheckedCreateNestedManyWithoutUserInput
+  sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutUserInput
+  studyMaterials?: Prisma.StudyMaterialUncheckedCreateNestedManyWithoutUserInput
+  materialRevisions?: Prisma.MaterialRevisionUncheckedCreateNestedManyWithoutUserInput
+  materialSections?: Prisma.MaterialSectionUncheckedCreateNestedManyWithoutUserInput
+  materialChunks?: Prisma.MaterialChunkUncheckedCreateNestedManyWithoutUserInput
+  materialPages?: Prisma.MaterialPageUncheckedCreateNestedManyWithoutUserInput
+  materialCleanupJobs?: Prisma.MaterialCleanupJobUncheckedCreateNestedManyWithoutUserInput
+  skillDraftBatches?: Prisma.SkillDraftBatchUncheckedCreateNestedManyWithoutUserInput
+  skillDraftBatchItems?: Prisma.SkillDraftBatchItemUncheckedCreateNestedManyWithoutUserInput
+  skills?: Prisma.SkillUncheckedCreateNestedManyWithoutUserInput
+  skillSourceRefs?: Prisma.SkillSourceRefUncheckedCreateNestedManyWithoutUserInput
+  exercises?: Prisma.ExerciseUncheckedCreateNestedManyWithoutUserInput
+  exerciseAttempts?: Prisma.ExerciseAttemptUncheckedCreateNestedManyWithoutUserInput
+  reviewLogs?: Prisma.ReviewLogUncheckedCreateNestedManyWithoutUserInput
+  exerciseFlags?: Prisma.ExerciseFlagUncheckedCreateNestedManyWithoutUserInput
+  generationJobs?: Prisma.GenerationJobUncheckedCreateNestedManyWithoutUserInput
+  generationAuditRecords?: Prisma.GenerationAuditRecordUncheckedCreateNestedManyWithoutUserInput
+  reminderPreference?: Prisma.ReminderPreferenceUncheckedCreateNestedOneWithoutUserInput
+  reminderSendLogs?: Prisma.ReminderSendLogUncheckedCreateNestedManyWithoutUserInput
+  workosIdentity?: Prisma.WorkosIdentityUncheckedCreateNestedOneWithoutUserInput
+  agentConnections?: Prisma.AgentConnectionUncheckedCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedCreateNestedManyWithoutUserInput
+  agentOperations?: Prisma.AgentSkillOperationUncheckedCreateNestedManyWithoutUserInput
+  agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutUserInput
+  agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
+  practiceSessions?: Prisma.PracticeSessionUncheckedCreateNestedManyWithoutUserInput
+  agentSetupPlans?: Prisma.AgentSetupPlanUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedCreateNestedManyWithoutUserInput
+}
+
+export type UserCreateOrConnectWithoutIntroductionQueuesInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutIntroductionQueuesInput, Prisma.UserUncheckedCreateWithoutIntroductionQueuesInput>
+}
+
+export type UserUpsertWithoutIntroductionQueuesInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutIntroductionQueuesInput, Prisma.UserUncheckedUpdateWithoutIntroductionQueuesInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutIntroductionQueuesInput, Prisma.UserUncheckedCreateWithoutIntroductionQueuesInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutIntroductionQueuesInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutIntroductionQueuesInput, Prisma.UserUncheckedUpdateWithoutIntroductionQueuesInput>
+}
+
+export type UserUpdateWithoutIntroductionQueuesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  imageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  dailyNewSkillLimit?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  practiceTimezone?: Prisma.StringFieldUpdateOperationsInput | string
+  desiredRetention?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  practiceDayStartMinutes?: Prisma.IntFieldUpdateOperationsInput | number
+  collections?: Prisma.CollectionUpdateManyWithoutUserNestedInput
+  sourceFiles?: Prisma.SourceFileUpdateManyWithoutUserNestedInput
+  studyMaterials?: Prisma.StudyMaterialUpdateManyWithoutUserNestedInput
+  materialRevisions?: Prisma.MaterialRevisionUpdateManyWithoutUserNestedInput
+  materialSections?: Prisma.MaterialSectionUpdateManyWithoutUserNestedInput
+  materialChunks?: Prisma.MaterialChunkUpdateManyWithoutUserNestedInput
+  materialPages?: Prisma.MaterialPageUpdateManyWithoutUserNestedInput
+  materialCleanupJobs?: Prisma.MaterialCleanupJobUpdateManyWithoutUserNestedInput
+  skillDraftBatches?: Prisma.SkillDraftBatchUpdateManyWithoutUserNestedInput
+  skillDraftBatchItems?: Prisma.SkillDraftBatchItemUpdateManyWithoutUserNestedInput
+  skills?: Prisma.SkillUpdateManyWithoutUserNestedInput
+  skillSourceRefs?: Prisma.SkillSourceRefUpdateManyWithoutUserNestedInput
+  exercises?: Prisma.ExerciseUpdateManyWithoutUserNestedInput
+  exerciseAttempts?: Prisma.ExerciseAttemptUpdateManyWithoutUserNestedInput
+  reviewLogs?: Prisma.ReviewLogUpdateManyWithoutUserNestedInput
+  exerciseFlags?: Prisma.ExerciseFlagUpdateManyWithoutUserNestedInput
+  generationJobs?: Prisma.GenerationJobUpdateManyWithoutUserNestedInput
+  generationAuditRecords?: Prisma.GenerationAuditRecordUpdateManyWithoutUserNestedInput
+  reminderPreference?: Prisma.ReminderPreferenceUpdateOneWithoutUserNestedInput
+  reminderSendLogs?: Prisma.ReminderSendLogUpdateManyWithoutUserNestedInput
+  workosIdentity?: Prisma.WorkosIdentityUpdateOneWithoutUserNestedInput
+  agentConnections?: Prisma.AgentConnectionUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUpdateManyWithoutUserNestedInput
+  agentOperations?: Prisma.AgentSkillOperationUpdateManyWithoutUserNestedInput
+  agentOperationItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutUserNestedInput
+  agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
+  practiceSessions?: Prisma.PracticeSessionUpdateManyWithoutUserNestedInput
+  agentSetupPlans?: Prisma.AgentSetupPlanUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUpdateManyWithoutUserNestedInput
+}
+
+export type UserUncheckedUpdateWithoutIntroductionQueuesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  imageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  dailyNewSkillLimit?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  practiceTimezone?: Prisma.StringFieldUpdateOperationsInput | string
+  desiredRetention?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  practiceDayStartMinutes?: Prisma.IntFieldUpdateOperationsInput | number
+  collections?: Prisma.CollectionUncheckedUpdateManyWithoutUserNestedInput
+  sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutUserNestedInput
+  studyMaterials?: Prisma.StudyMaterialUncheckedUpdateManyWithoutUserNestedInput
+  materialRevisions?: Prisma.MaterialRevisionUncheckedUpdateManyWithoutUserNestedInput
+  materialSections?: Prisma.MaterialSectionUncheckedUpdateManyWithoutUserNestedInput
+  materialChunks?: Prisma.MaterialChunkUncheckedUpdateManyWithoutUserNestedInput
+  materialPages?: Prisma.MaterialPageUncheckedUpdateManyWithoutUserNestedInput
+  materialCleanupJobs?: Prisma.MaterialCleanupJobUncheckedUpdateManyWithoutUserNestedInput
+  skillDraftBatches?: Prisma.SkillDraftBatchUncheckedUpdateManyWithoutUserNestedInput
+  skillDraftBatchItems?: Prisma.SkillDraftBatchItemUncheckedUpdateManyWithoutUserNestedInput
+  skills?: Prisma.SkillUncheckedUpdateManyWithoutUserNestedInput
+  skillSourceRefs?: Prisma.SkillSourceRefUncheckedUpdateManyWithoutUserNestedInput
+  exercises?: Prisma.ExerciseUncheckedUpdateManyWithoutUserNestedInput
+  exerciseAttempts?: Prisma.ExerciseAttemptUncheckedUpdateManyWithoutUserNestedInput
+  reviewLogs?: Prisma.ReviewLogUncheckedUpdateManyWithoutUserNestedInput
+  exerciseFlags?: Prisma.ExerciseFlagUncheckedUpdateManyWithoutUserNestedInput
+  generationJobs?: Prisma.GenerationJobUncheckedUpdateManyWithoutUserNestedInput
+  generationAuditRecords?: Prisma.GenerationAuditRecordUncheckedUpdateManyWithoutUserNestedInput
+  reminderPreference?: Prisma.ReminderPreferenceUncheckedUpdateOneWithoutUserNestedInput
+  reminderSendLogs?: Prisma.ReminderSendLogUncheckedUpdateManyWithoutUserNestedInput
+  workosIdentity?: Prisma.WorkosIdentityUncheckedUpdateOneWithoutUserNestedInput
+  agentConnections?: Prisma.AgentConnectionUncheckedUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedUpdateManyWithoutUserNestedInput
+  agentOperations?: Prisma.AgentSkillOperationUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutUserNestedInput
+  agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
+  practiceSessions?: Prisma.PracticeSessionUncheckedUpdateManyWithoutUserNestedInput
+  agentSetupPlans?: Prisma.AgentSetupPlanUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedUpdateManyWithoutUserNestedInput
+}
+
+export type UserCreateWithoutIntroductionQueueEntriesInput = {
+  id: string
+  email?: string | null
+  name?: string | null
+  imageUrl?: string | null
+  lastSeenAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
+  dailyNewSkillLimit?: number | null
+  practiceTimezone?: string
+  desiredRetention?: number | null
+  practiceDayStartMinutes?: number
+  collections?: Prisma.CollectionCreateNestedManyWithoutUserInput
+  sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutUserInput
+  studyMaterials?: Prisma.StudyMaterialCreateNestedManyWithoutUserInput
+  materialRevisions?: Prisma.MaterialRevisionCreateNestedManyWithoutUserInput
+  materialSections?: Prisma.MaterialSectionCreateNestedManyWithoutUserInput
+  materialChunks?: Prisma.MaterialChunkCreateNestedManyWithoutUserInput
+  materialPages?: Prisma.MaterialPageCreateNestedManyWithoutUserInput
+  materialCleanupJobs?: Prisma.MaterialCleanupJobCreateNestedManyWithoutUserInput
+  skillDraftBatches?: Prisma.SkillDraftBatchCreateNestedManyWithoutUserInput
+  skillDraftBatchItems?: Prisma.SkillDraftBatchItemCreateNestedManyWithoutUserInput
+  skills?: Prisma.SkillCreateNestedManyWithoutUserInput
+  skillSourceRefs?: Prisma.SkillSourceRefCreateNestedManyWithoutUserInput
+  exercises?: Prisma.ExerciseCreateNestedManyWithoutUserInput
+  exerciseAttempts?: Prisma.ExerciseAttemptCreateNestedManyWithoutUserInput
+  reviewLogs?: Prisma.ReviewLogCreateNestedManyWithoutUserInput
+  exerciseFlags?: Prisma.ExerciseFlagCreateNestedManyWithoutUserInput
+  generationJobs?: Prisma.GenerationJobCreateNestedManyWithoutUserInput
+  generationAuditRecords?: Prisma.GenerationAuditRecordCreateNestedManyWithoutUserInput
+  reminderPreference?: Prisma.ReminderPreferenceCreateNestedOneWithoutUserInput
+  reminderSendLogs?: Prisma.ReminderSendLogCreateNestedManyWithoutUserInput
+  workosIdentity?: Prisma.WorkosIdentityCreateNestedOneWithoutUserInput
+  agentConnections?: Prisma.AgentConnectionCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceCreateNestedManyWithoutUserInput
+  agentOperations?: Prisma.AgentSkillOperationCreateNestedManyWithoutUserInput
+  agentOperationItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutUserInput
+  agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
+  practiceSessions?: Prisma.PracticeSessionCreateNestedManyWithoutUserInput
+  agentSetupPlans?: Prisma.AgentSetupPlanCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateCreateNestedManyWithoutUserInput
+}
+
+export type UserUncheckedCreateWithoutIntroductionQueueEntriesInput = {
+  id: string
+  email?: string | null
+  name?: string | null
+  imageUrl?: string | null
+  lastSeenAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
+  dailyNewSkillLimit?: number | null
+  practiceTimezone?: string
+  desiredRetention?: number | null
+  practiceDayStartMinutes?: number
+  collections?: Prisma.CollectionUncheckedCreateNestedManyWithoutUserInput
+  sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutUserInput
+  studyMaterials?: Prisma.StudyMaterialUncheckedCreateNestedManyWithoutUserInput
+  materialRevisions?: Prisma.MaterialRevisionUncheckedCreateNestedManyWithoutUserInput
+  materialSections?: Prisma.MaterialSectionUncheckedCreateNestedManyWithoutUserInput
+  materialChunks?: Prisma.MaterialChunkUncheckedCreateNestedManyWithoutUserInput
+  materialPages?: Prisma.MaterialPageUncheckedCreateNestedManyWithoutUserInput
+  materialCleanupJobs?: Prisma.MaterialCleanupJobUncheckedCreateNestedManyWithoutUserInput
+  skillDraftBatches?: Prisma.SkillDraftBatchUncheckedCreateNestedManyWithoutUserInput
+  skillDraftBatchItems?: Prisma.SkillDraftBatchItemUncheckedCreateNestedManyWithoutUserInput
+  skills?: Prisma.SkillUncheckedCreateNestedManyWithoutUserInput
+  skillSourceRefs?: Prisma.SkillSourceRefUncheckedCreateNestedManyWithoutUserInput
+  exercises?: Prisma.ExerciseUncheckedCreateNestedManyWithoutUserInput
+  exerciseAttempts?: Prisma.ExerciseAttemptUncheckedCreateNestedManyWithoutUserInput
+  reviewLogs?: Prisma.ReviewLogUncheckedCreateNestedManyWithoutUserInput
+  exerciseFlags?: Prisma.ExerciseFlagUncheckedCreateNestedManyWithoutUserInput
+  generationJobs?: Prisma.GenerationJobUncheckedCreateNestedManyWithoutUserInput
+  generationAuditRecords?: Prisma.GenerationAuditRecordUncheckedCreateNestedManyWithoutUserInput
+  reminderPreference?: Prisma.ReminderPreferenceUncheckedCreateNestedOneWithoutUserInput
+  reminderSendLogs?: Prisma.ReminderSendLogUncheckedCreateNestedManyWithoutUserInput
+  workosIdentity?: Prisma.WorkosIdentityUncheckedCreateNestedOneWithoutUserInput
+  agentConnections?: Prisma.AgentConnectionUncheckedCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedCreateNestedManyWithoutUserInput
+  agentOperations?: Prisma.AgentSkillOperationUncheckedCreateNestedManyWithoutUserInput
+  agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutUserInput
+  agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
+  practiceSessions?: Prisma.PracticeSessionUncheckedCreateNestedManyWithoutUserInput
+  agentSetupPlans?: Prisma.AgentSetupPlanUncheckedCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedCreateNestedManyWithoutUserInput
+}
+
+export type UserCreateOrConnectWithoutIntroductionQueueEntriesInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutIntroductionQueueEntriesInput, Prisma.UserUncheckedCreateWithoutIntroductionQueueEntriesInput>
+}
+
+export type UserUpsertWithoutIntroductionQueueEntriesInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutIntroductionQueueEntriesInput, Prisma.UserUncheckedUpdateWithoutIntroductionQueueEntriesInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutIntroductionQueueEntriesInput, Prisma.UserUncheckedCreateWithoutIntroductionQueueEntriesInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutIntroductionQueueEntriesInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutIntroductionQueueEntriesInput, Prisma.UserUncheckedUpdateWithoutIntroductionQueueEntriesInput>
+}
+
+export type UserUpdateWithoutIntroductionQueueEntriesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  imageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  dailyNewSkillLimit?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  practiceTimezone?: Prisma.StringFieldUpdateOperationsInput | string
+  desiredRetention?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  practiceDayStartMinutes?: Prisma.IntFieldUpdateOperationsInput | number
+  collections?: Prisma.CollectionUpdateManyWithoutUserNestedInput
+  sourceFiles?: Prisma.SourceFileUpdateManyWithoutUserNestedInput
+  studyMaterials?: Prisma.StudyMaterialUpdateManyWithoutUserNestedInput
+  materialRevisions?: Prisma.MaterialRevisionUpdateManyWithoutUserNestedInput
+  materialSections?: Prisma.MaterialSectionUpdateManyWithoutUserNestedInput
+  materialChunks?: Prisma.MaterialChunkUpdateManyWithoutUserNestedInput
+  materialPages?: Prisma.MaterialPageUpdateManyWithoutUserNestedInput
+  materialCleanupJobs?: Prisma.MaterialCleanupJobUpdateManyWithoutUserNestedInput
+  skillDraftBatches?: Prisma.SkillDraftBatchUpdateManyWithoutUserNestedInput
+  skillDraftBatchItems?: Prisma.SkillDraftBatchItemUpdateManyWithoutUserNestedInput
+  skills?: Prisma.SkillUpdateManyWithoutUserNestedInput
+  skillSourceRefs?: Prisma.SkillSourceRefUpdateManyWithoutUserNestedInput
+  exercises?: Prisma.ExerciseUpdateManyWithoutUserNestedInput
+  exerciseAttempts?: Prisma.ExerciseAttemptUpdateManyWithoutUserNestedInput
+  reviewLogs?: Prisma.ReviewLogUpdateManyWithoutUserNestedInput
+  exerciseFlags?: Prisma.ExerciseFlagUpdateManyWithoutUserNestedInput
+  generationJobs?: Prisma.GenerationJobUpdateManyWithoutUserNestedInput
+  generationAuditRecords?: Prisma.GenerationAuditRecordUpdateManyWithoutUserNestedInput
+  reminderPreference?: Prisma.ReminderPreferenceUpdateOneWithoutUserNestedInput
+  reminderSendLogs?: Prisma.ReminderSendLogUpdateManyWithoutUserNestedInput
+  workosIdentity?: Prisma.WorkosIdentityUpdateOneWithoutUserNestedInput
+  agentConnections?: Prisma.AgentConnectionUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUpdateManyWithoutUserNestedInput
+  agentOperations?: Prisma.AgentSkillOperationUpdateManyWithoutUserNestedInput
+  agentOperationItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutUserNestedInput
+  agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
+  practiceSessions?: Prisma.PracticeSessionUpdateManyWithoutUserNestedInput
+  agentSetupPlans?: Prisma.AgentSetupPlanUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUpdateManyWithoutUserNestedInput
+}
+
+export type UserUncheckedUpdateWithoutIntroductionQueueEntriesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  imageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  dailyNewSkillLimit?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  practiceTimezone?: Prisma.StringFieldUpdateOperationsInput | string
+  desiredRetention?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  practiceDayStartMinutes?: Prisma.IntFieldUpdateOperationsInput | number
+  collections?: Prisma.CollectionUncheckedUpdateManyWithoutUserNestedInput
+  sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutUserNestedInput
+  studyMaterials?: Prisma.StudyMaterialUncheckedUpdateManyWithoutUserNestedInput
+  materialRevisions?: Prisma.MaterialRevisionUncheckedUpdateManyWithoutUserNestedInput
+  materialSections?: Prisma.MaterialSectionUncheckedUpdateManyWithoutUserNestedInput
+  materialChunks?: Prisma.MaterialChunkUncheckedUpdateManyWithoutUserNestedInput
+  materialPages?: Prisma.MaterialPageUncheckedUpdateManyWithoutUserNestedInput
+  materialCleanupJobs?: Prisma.MaterialCleanupJobUncheckedUpdateManyWithoutUserNestedInput
+  skillDraftBatches?: Prisma.SkillDraftBatchUncheckedUpdateManyWithoutUserNestedInput
+  skillDraftBatchItems?: Prisma.SkillDraftBatchItemUncheckedUpdateManyWithoutUserNestedInput
+  skills?: Prisma.SkillUncheckedUpdateManyWithoutUserNestedInput
+  skillSourceRefs?: Prisma.SkillSourceRefUncheckedUpdateManyWithoutUserNestedInput
+  exercises?: Prisma.ExerciseUncheckedUpdateManyWithoutUserNestedInput
+  exerciseAttempts?: Prisma.ExerciseAttemptUncheckedUpdateManyWithoutUserNestedInput
+  reviewLogs?: Prisma.ReviewLogUncheckedUpdateManyWithoutUserNestedInput
+  exerciseFlags?: Prisma.ExerciseFlagUncheckedUpdateManyWithoutUserNestedInput
+  generationJobs?: Prisma.GenerationJobUncheckedUpdateManyWithoutUserNestedInput
+  generationAuditRecords?: Prisma.GenerationAuditRecordUncheckedUpdateManyWithoutUserNestedInput
+  reminderPreference?: Prisma.ReminderPreferenceUncheckedUpdateOneWithoutUserNestedInput
+  reminderSendLogs?: Prisma.ReminderSendLogUncheckedUpdateManyWithoutUserNestedInput
+  workosIdentity?: Prisma.WorkosIdentityUncheckedUpdateOneWithoutUserNestedInput
+  agentConnections?: Prisma.AgentConnectionUncheckedUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedUpdateManyWithoutUserNestedInput
+  agentOperations?: Prisma.AgentSkillOperationUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutUserNestedInput
+  agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
+  practiceSessions?: Prisma.PracticeSessionUncheckedUpdateManyWithoutUserNestedInput
+  agentSetupPlans?: Prisma.AgentSetupPlanUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedUpdateManyWithoutUserNestedInput
+}
+
+export type UserCreateWithoutIntroductionQueueUpdatesInput = {
+  id: string
+  email?: string | null
+  name?: string | null
+  imageUrl?: string | null
+  lastSeenAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
+  dailyNewSkillLimit?: number | null
+  practiceTimezone?: string
+  desiredRetention?: number | null
+  practiceDayStartMinutes?: number
+  collections?: Prisma.CollectionCreateNestedManyWithoutUserInput
+  sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutUserInput
+  studyMaterials?: Prisma.StudyMaterialCreateNestedManyWithoutUserInput
+  materialRevisions?: Prisma.MaterialRevisionCreateNestedManyWithoutUserInput
+  materialSections?: Prisma.MaterialSectionCreateNestedManyWithoutUserInput
+  materialChunks?: Prisma.MaterialChunkCreateNestedManyWithoutUserInput
+  materialPages?: Prisma.MaterialPageCreateNestedManyWithoutUserInput
+  materialCleanupJobs?: Prisma.MaterialCleanupJobCreateNestedManyWithoutUserInput
+  skillDraftBatches?: Prisma.SkillDraftBatchCreateNestedManyWithoutUserInput
+  skillDraftBatchItems?: Prisma.SkillDraftBatchItemCreateNestedManyWithoutUserInput
+  skills?: Prisma.SkillCreateNestedManyWithoutUserInput
+  skillSourceRefs?: Prisma.SkillSourceRefCreateNestedManyWithoutUserInput
+  exercises?: Prisma.ExerciseCreateNestedManyWithoutUserInput
+  exerciseAttempts?: Prisma.ExerciseAttemptCreateNestedManyWithoutUserInput
+  reviewLogs?: Prisma.ReviewLogCreateNestedManyWithoutUserInput
+  exerciseFlags?: Prisma.ExerciseFlagCreateNestedManyWithoutUserInput
+  generationJobs?: Prisma.GenerationJobCreateNestedManyWithoutUserInput
+  generationAuditRecords?: Prisma.GenerationAuditRecordCreateNestedManyWithoutUserInput
+  reminderPreference?: Prisma.ReminderPreferenceCreateNestedOneWithoutUserInput
+  reminderSendLogs?: Prisma.ReminderSendLogCreateNestedManyWithoutUserInput
+  workosIdentity?: Prisma.WorkosIdentityCreateNestedOneWithoutUserInput
+  agentConnections?: Prisma.AgentConnectionCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceCreateNestedManyWithoutUserInput
+  agentOperations?: Prisma.AgentSkillOperationCreateNestedManyWithoutUserInput
+  agentOperationItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutUserInput
+  agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
+  practiceSessions?: Prisma.PracticeSessionCreateNestedManyWithoutUserInput
+  agentSetupPlans?: Prisma.AgentSetupPlanCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryCreateNestedManyWithoutUserInput
+}
+
+export type UserUncheckedCreateWithoutIntroductionQueueUpdatesInput = {
+  id: string
+  email?: string | null
+  name?: string | null
+  imageUrl?: string | null
+  lastSeenAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  agentAccessDisabledAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference
+  mixedReview?: boolean
+  dailyNewSkillLimit?: number | null
+  practiceTimezone?: string
+  desiredRetention?: number | null
+  practiceDayStartMinutes?: number
+  collections?: Prisma.CollectionUncheckedCreateNestedManyWithoutUserInput
+  sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutUserInput
+  studyMaterials?: Prisma.StudyMaterialUncheckedCreateNestedManyWithoutUserInput
+  materialRevisions?: Prisma.MaterialRevisionUncheckedCreateNestedManyWithoutUserInput
+  materialSections?: Prisma.MaterialSectionUncheckedCreateNestedManyWithoutUserInput
+  materialChunks?: Prisma.MaterialChunkUncheckedCreateNestedManyWithoutUserInput
+  materialPages?: Prisma.MaterialPageUncheckedCreateNestedManyWithoutUserInput
+  materialCleanupJobs?: Prisma.MaterialCleanupJobUncheckedCreateNestedManyWithoutUserInput
+  skillDraftBatches?: Prisma.SkillDraftBatchUncheckedCreateNestedManyWithoutUserInput
+  skillDraftBatchItems?: Prisma.SkillDraftBatchItemUncheckedCreateNestedManyWithoutUserInput
+  skills?: Prisma.SkillUncheckedCreateNestedManyWithoutUserInput
+  skillSourceRefs?: Prisma.SkillSourceRefUncheckedCreateNestedManyWithoutUserInput
+  exercises?: Prisma.ExerciseUncheckedCreateNestedManyWithoutUserInput
+  exerciseAttempts?: Prisma.ExerciseAttemptUncheckedCreateNestedManyWithoutUserInput
+  reviewLogs?: Prisma.ReviewLogUncheckedCreateNestedManyWithoutUserInput
+  exerciseFlags?: Prisma.ExerciseFlagUncheckedCreateNestedManyWithoutUserInput
+  generationJobs?: Prisma.GenerationJobUncheckedCreateNestedManyWithoutUserInput
+  generationAuditRecords?: Prisma.GenerationAuditRecordUncheckedCreateNestedManyWithoutUserInput
+  reminderPreference?: Prisma.ReminderPreferenceUncheckedCreateNestedOneWithoutUserInput
+  reminderSendLogs?: Prisma.ReminderSendLogUncheckedCreateNestedManyWithoutUserInput
+  workosIdentity?: Prisma.WorkosIdentityUncheckedCreateNestedOneWithoutUserInput
+  agentConnections?: Prisma.AgentConnectionUncheckedCreateNestedManyWithoutUserInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedCreateNestedManyWithoutUserInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedCreateNestedManyWithoutUserInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedCreateNestedManyWithoutUserInput
+  agentOperations?: Prisma.AgentSkillOperationUncheckedCreateNestedManyWithoutUserInput
+  agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutUserInput
+  agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
+  practiceSessions?: Prisma.PracticeSessionUncheckedCreateNestedManyWithoutUserInput
+  agentSetupPlans?: Prisma.AgentSetupPlanUncheckedCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedCreateNestedManyWithoutUserInput
+}
+
+export type UserCreateOrConnectWithoutIntroductionQueueUpdatesInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutIntroductionQueueUpdatesInput, Prisma.UserUncheckedCreateWithoutIntroductionQueueUpdatesInput>
+}
+
+export type UserUpsertWithoutIntroductionQueueUpdatesInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutIntroductionQueueUpdatesInput, Prisma.UserUncheckedUpdateWithoutIntroductionQueueUpdatesInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutIntroductionQueueUpdatesInput, Prisma.UserUncheckedCreateWithoutIntroductionQueueUpdatesInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutIntroductionQueueUpdatesInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutIntroductionQueueUpdatesInput, Prisma.UserUncheckedUpdateWithoutIntroductionQueueUpdatesInput>
+}
+
+export type UserUpdateWithoutIntroductionQueueUpdatesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  imageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  dailyNewSkillLimit?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  practiceTimezone?: Prisma.StringFieldUpdateOperationsInput | string
+  desiredRetention?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  practiceDayStartMinutes?: Prisma.IntFieldUpdateOperationsInput | number
+  collections?: Prisma.CollectionUpdateManyWithoutUserNestedInput
+  sourceFiles?: Prisma.SourceFileUpdateManyWithoutUserNestedInput
+  studyMaterials?: Prisma.StudyMaterialUpdateManyWithoutUserNestedInput
+  materialRevisions?: Prisma.MaterialRevisionUpdateManyWithoutUserNestedInput
+  materialSections?: Prisma.MaterialSectionUpdateManyWithoutUserNestedInput
+  materialChunks?: Prisma.MaterialChunkUpdateManyWithoutUserNestedInput
+  materialPages?: Prisma.MaterialPageUpdateManyWithoutUserNestedInput
+  materialCleanupJobs?: Prisma.MaterialCleanupJobUpdateManyWithoutUserNestedInput
+  skillDraftBatches?: Prisma.SkillDraftBatchUpdateManyWithoutUserNestedInput
+  skillDraftBatchItems?: Prisma.SkillDraftBatchItemUpdateManyWithoutUserNestedInput
+  skills?: Prisma.SkillUpdateManyWithoutUserNestedInput
+  skillSourceRefs?: Prisma.SkillSourceRefUpdateManyWithoutUserNestedInput
+  exercises?: Prisma.ExerciseUpdateManyWithoutUserNestedInput
+  exerciseAttempts?: Prisma.ExerciseAttemptUpdateManyWithoutUserNestedInput
+  reviewLogs?: Prisma.ReviewLogUpdateManyWithoutUserNestedInput
+  exerciseFlags?: Prisma.ExerciseFlagUpdateManyWithoutUserNestedInput
+  generationJobs?: Prisma.GenerationJobUpdateManyWithoutUserNestedInput
+  generationAuditRecords?: Prisma.GenerationAuditRecordUpdateManyWithoutUserNestedInput
+  reminderPreference?: Prisma.ReminderPreferenceUpdateOneWithoutUserNestedInput
+  reminderSendLogs?: Prisma.ReminderSendLogUpdateManyWithoutUserNestedInput
+  workosIdentity?: Prisma.WorkosIdentityUpdateOneWithoutUserNestedInput
+  agentConnections?: Prisma.AgentConnectionUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUpdateManyWithoutUserNestedInput
+  agentOperations?: Prisma.AgentSkillOperationUpdateManyWithoutUserNestedInput
+  agentOperationItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutUserNestedInput
+  agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
+  practiceSessions?: Prisma.PracticeSessionUpdateManyWithoutUserNestedInput
+  agentSetupPlans?: Prisma.AgentSetupPlanUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUpdateManyWithoutUserNestedInput
+}
+
+export type UserUncheckedUpdateWithoutIntroductionQueueUpdatesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  imageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  agentAccessDisabledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.EnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference
+  mixedReview?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  dailyNewSkillLimit?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  practiceTimezone?: Prisma.StringFieldUpdateOperationsInput | string
+  desiredRetention?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  practiceDayStartMinutes?: Prisma.IntFieldUpdateOperationsInput | number
+  collections?: Prisma.CollectionUncheckedUpdateManyWithoutUserNestedInput
+  sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutUserNestedInput
+  studyMaterials?: Prisma.StudyMaterialUncheckedUpdateManyWithoutUserNestedInput
+  materialRevisions?: Prisma.MaterialRevisionUncheckedUpdateManyWithoutUserNestedInput
+  materialSections?: Prisma.MaterialSectionUncheckedUpdateManyWithoutUserNestedInput
+  materialChunks?: Prisma.MaterialChunkUncheckedUpdateManyWithoutUserNestedInput
+  materialPages?: Prisma.MaterialPageUncheckedUpdateManyWithoutUserNestedInput
+  materialCleanupJobs?: Prisma.MaterialCleanupJobUncheckedUpdateManyWithoutUserNestedInput
+  skillDraftBatches?: Prisma.SkillDraftBatchUncheckedUpdateManyWithoutUserNestedInput
+  skillDraftBatchItems?: Prisma.SkillDraftBatchItemUncheckedUpdateManyWithoutUserNestedInput
+  skills?: Prisma.SkillUncheckedUpdateManyWithoutUserNestedInput
+  skillSourceRefs?: Prisma.SkillSourceRefUncheckedUpdateManyWithoutUserNestedInput
+  exercises?: Prisma.ExerciseUncheckedUpdateManyWithoutUserNestedInput
+  exerciseAttempts?: Prisma.ExerciseAttemptUncheckedUpdateManyWithoutUserNestedInput
+  reviewLogs?: Prisma.ReviewLogUncheckedUpdateManyWithoutUserNestedInput
+  exerciseFlags?: Prisma.ExerciseFlagUncheckedUpdateManyWithoutUserNestedInput
+  generationJobs?: Prisma.GenerationJobUncheckedUpdateManyWithoutUserNestedInput
+  generationAuditRecords?: Prisma.GenerationAuditRecordUncheckedUpdateManyWithoutUserNestedInput
+  reminderPreference?: Prisma.ReminderPreferenceUncheckedUpdateOneWithoutUserNestedInput
+  reminderSendLogs?: Prisma.ReminderSendLogUncheckedUpdateManyWithoutUserNestedInput
+  workosIdentity?: Prisma.WorkosIdentityUncheckedUpdateOneWithoutUserNestedInput
+  agentConnections?: Prisma.AgentConnectionUncheckedUpdateManyWithoutUserNestedInput
+  agentRateLimitBuckets?: Prisma.AgentRateLimitBucketUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationActions?: Prisma.AgentOperationActionUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationSources?: Prisma.AgentOperationSourceUncheckedUpdateManyWithoutUserNestedInput
+  agentOperations?: Prisma.AgentSkillOperationUncheckedUpdateManyWithoutUserNestedInput
+  agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutUserNestedInput
+  agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
+  practiceSessions?: Prisma.PracticeSessionUncheckedUpdateManyWithoutUserNestedInput
+  agentSetupPlans?: Prisma.AgentSetupPlanUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutCollectionsInput = {
@@ -1486,6 +2197,9 @@ export type UserCreateWithoutCollectionsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutCollectionsInput = {
@@ -1532,6 +2246,9 @@ export type UserUncheckedCreateWithoutCollectionsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionUncheckedCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutCollectionsInput = {
@@ -1594,6 +2311,9 @@ export type UserUpdateWithoutCollectionsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutCollectionsInput = {
@@ -1640,6 +2360,9 @@ export type UserUncheckedUpdateWithoutCollectionsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUncheckedUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutSourceFilesInput = {
@@ -1686,6 +2409,9 @@ export type UserCreateWithoutSourceFilesInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutSourceFilesInput = {
@@ -1732,6 +2458,9 @@ export type UserUncheckedCreateWithoutSourceFilesInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionUncheckedCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutSourceFilesInput = {
@@ -1794,6 +2523,9 @@ export type UserUpdateWithoutSourceFilesInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutSourceFilesInput = {
@@ -1840,6 +2572,9 @@ export type UserUncheckedUpdateWithoutSourceFilesInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUncheckedUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutStudyMaterialsInput = {
@@ -1886,6 +2621,9 @@ export type UserCreateWithoutStudyMaterialsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutStudyMaterialsInput = {
@@ -1932,6 +2670,9 @@ export type UserUncheckedCreateWithoutStudyMaterialsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionUncheckedCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutStudyMaterialsInput = {
@@ -1994,6 +2735,9 @@ export type UserUpdateWithoutStudyMaterialsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutStudyMaterialsInput = {
@@ -2040,6 +2784,9 @@ export type UserUncheckedUpdateWithoutStudyMaterialsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUncheckedUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutMaterialRevisionsInput = {
@@ -2086,6 +2833,9 @@ export type UserCreateWithoutMaterialRevisionsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutMaterialRevisionsInput = {
@@ -2132,6 +2882,9 @@ export type UserUncheckedCreateWithoutMaterialRevisionsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionUncheckedCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutMaterialRevisionsInput = {
@@ -2194,6 +2947,9 @@ export type UserUpdateWithoutMaterialRevisionsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutMaterialRevisionsInput = {
@@ -2240,6 +2996,9 @@ export type UserUncheckedUpdateWithoutMaterialRevisionsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUncheckedUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutMaterialSectionsInput = {
@@ -2286,6 +3045,9 @@ export type UserCreateWithoutMaterialSectionsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutMaterialSectionsInput = {
@@ -2332,6 +3094,9 @@ export type UserUncheckedCreateWithoutMaterialSectionsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionUncheckedCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutMaterialSectionsInput = {
@@ -2394,6 +3159,9 @@ export type UserUpdateWithoutMaterialSectionsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutMaterialSectionsInput = {
@@ -2440,6 +3208,9 @@ export type UserUncheckedUpdateWithoutMaterialSectionsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUncheckedUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutMaterialChunksInput = {
@@ -2486,6 +3257,9 @@ export type UserCreateWithoutMaterialChunksInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutMaterialChunksInput = {
@@ -2532,6 +3306,9 @@ export type UserUncheckedCreateWithoutMaterialChunksInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionUncheckedCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutMaterialChunksInput = {
@@ -2594,6 +3371,9 @@ export type UserUpdateWithoutMaterialChunksInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutMaterialChunksInput = {
@@ -2640,6 +3420,9 @@ export type UserUncheckedUpdateWithoutMaterialChunksInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUncheckedUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutMaterialPagesInput = {
@@ -2686,6 +3469,9 @@ export type UserCreateWithoutMaterialPagesInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutMaterialPagesInput = {
@@ -2732,6 +3518,9 @@ export type UserUncheckedCreateWithoutMaterialPagesInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionUncheckedCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutMaterialPagesInput = {
@@ -2794,6 +3583,9 @@ export type UserUpdateWithoutMaterialPagesInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutMaterialPagesInput = {
@@ -2840,6 +3632,9 @@ export type UserUncheckedUpdateWithoutMaterialPagesInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUncheckedUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutMaterialCleanupJobsInput = {
@@ -2886,6 +3681,9 @@ export type UserCreateWithoutMaterialCleanupJobsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutMaterialCleanupJobsInput = {
@@ -2932,6 +3730,9 @@ export type UserUncheckedCreateWithoutMaterialCleanupJobsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionUncheckedCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutMaterialCleanupJobsInput = {
@@ -2994,6 +3795,9 @@ export type UserUpdateWithoutMaterialCleanupJobsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutMaterialCleanupJobsInput = {
@@ -3040,6 +3844,9 @@ export type UserUncheckedUpdateWithoutMaterialCleanupJobsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUncheckedUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutSkillsInput = {
@@ -3086,6 +3893,9 @@ export type UserCreateWithoutSkillsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutSkillsInput = {
@@ -3132,6 +3942,9 @@ export type UserUncheckedCreateWithoutSkillsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionUncheckedCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutSkillsInput = {
@@ -3194,6 +4007,9 @@ export type UserUpdateWithoutSkillsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutSkillsInput = {
@@ -3240,6 +4056,9 @@ export type UserUncheckedUpdateWithoutSkillsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUncheckedUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutSkillDraftBatchesInput = {
@@ -3286,6 +4105,9 @@ export type UserCreateWithoutSkillDraftBatchesInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutSkillDraftBatchesInput = {
@@ -3332,6 +4154,9 @@ export type UserUncheckedCreateWithoutSkillDraftBatchesInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionUncheckedCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutSkillDraftBatchesInput = {
@@ -3394,6 +4219,9 @@ export type UserUpdateWithoutSkillDraftBatchesInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutSkillDraftBatchesInput = {
@@ -3440,6 +4268,9 @@ export type UserUncheckedUpdateWithoutSkillDraftBatchesInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUncheckedUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutSkillDraftBatchItemsInput = {
@@ -3486,6 +4317,9 @@ export type UserCreateWithoutSkillDraftBatchItemsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutSkillDraftBatchItemsInput = {
@@ -3532,6 +4366,9 @@ export type UserUncheckedCreateWithoutSkillDraftBatchItemsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionUncheckedCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutSkillDraftBatchItemsInput = {
@@ -3594,6 +4431,9 @@ export type UserUpdateWithoutSkillDraftBatchItemsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutSkillDraftBatchItemsInput = {
@@ -3640,6 +4480,9 @@ export type UserUncheckedUpdateWithoutSkillDraftBatchItemsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUncheckedUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutSkillSourceRefsInput = {
@@ -3686,6 +4529,9 @@ export type UserCreateWithoutSkillSourceRefsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutSkillSourceRefsInput = {
@@ -3732,6 +4578,9 @@ export type UserUncheckedCreateWithoutSkillSourceRefsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionUncheckedCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutSkillSourceRefsInput = {
@@ -3794,6 +4643,9 @@ export type UserUpdateWithoutSkillSourceRefsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutSkillSourceRefsInput = {
@@ -3840,6 +4692,9 @@ export type UserUncheckedUpdateWithoutSkillSourceRefsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUncheckedUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutExercisesInput = {
@@ -3886,6 +4741,9 @@ export type UserCreateWithoutExercisesInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutExercisesInput = {
@@ -3932,6 +4790,9 @@ export type UserUncheckedCreateWithoutExercisesInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionUncheckedCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutExercisesInput = {
@@ -3994,6 +4855,9 @@ export type UserUpdateWithoutExercisesInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutExercisesInput = {
@@ -4040,6 +4904,9 @@ export type UserUncheckedUpdateWithoutExercisesInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUncheckedUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutExerciseAttemptsInput = {
@@ -4086,6 +4953,9 @@ export type UserCreateWithoutExerciseAttemptsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutExerciseAttemptsInput = {
@@ -4132,6 +5002,9 @@ export type UserUncheckedCreateWithoutExerciseAttemptsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionUncheckedCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutExerciseAttemptsInput = {
@@ -4194,6 +5067,9 @@ export type UserUpdateWithoutExerciseAttemptsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutExerciseAttemptsInput = {
@@ -4240,6 +5116,9 @@ export type UserUncheckedUpdateWithoutExerciseAttemptsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUncheckedUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutReviewLogsInput = {
@@ -4286,6 +5165,9 @@ export type UserCreateWithoutReviewLogsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutReviewLogsInput = {
@@ -4332,6 +5214,9 @@ export type UserUncheckedCreateWithoutReviewLogsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionUncheckedCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutReviewLogsInput = {
@@ -4394,6 +5279,9 @@ export type UserUpdateWithoutReviewLogsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutReviewLogsInput = {
@@ -4440,6 +5328,9 @@ export type UserUncheckedUpdateWithoutReviewLogsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUncheckedUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutExerciseFlagsInput = {
@@ -4486,6 +5377,9 @@ export type UserCreateWithoutExerciseFlagsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutExerciseFlagsInput = {
@@ -4532,6 +5426,9 @@ export type UserUncheckedCreateWithoutExerciseFlagsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionUncheckedCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutExerciseFlagsInput = {
@@ -4594,6 +5491,9 @@ export type UserUpdateWithoutExerciseFlagsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutExerciseFlagsInput = {
@@ -4640,6 +5540,9 @@ export type UserUncheckedUpdateWithoutExerciseFlagsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUncheckedUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutGenerationJobsInput = {
@@ -4686,6 +5589,9 @@ export type UserCreateWithoutGenerationJobsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutGenerationJobsInput = {
@@ -4732,6 +5638,9 @@ export type UserUncheckedCreateWithoutGenerationJobsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionUncheckedCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutGenerationJobsInput = {
@@ -4794,6 +5703,9 @@ export type UserUpdateWithoutGenerationJobsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutGenerationJobsInput = {
@@ -4840,6 +5752,9 @@ export type UserUncheckedUpdateWithoutGenerationJobsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUncheckedUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutGenerationAuditRecordsInput = {
@@ -4886,6 +5801,9 @@ export type UserCreateWithoutGenerationAuditRecordsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutGenerationAuditRecordsInput = {
@@ -4932,6 +5850,9 @@ export type UserUncheckedCreateWithoutGenerationAuditRecordsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionUncheckedCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutGenerationAuditRecordsInput = {
@@ -4994,6 +5915,9 @@ export type UserUpdateWithoutGenerationAuditRecordsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutGenerationAuditRecordsInput = {
@@ -5040,6 +5964,9 @@ export type UserUncheckedUpdateWithoutGenerationAuditRecordsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUncheckedUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutReminderPreferenceInput = {
@@ -5086,6 +6013,9 @@ export type UserCreateWithoutReminderPreferenceInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutReminderPreferenceInput = {
@@ -5132,6 +6062,9 @@ export type UserUncheckedCreateWithoutReminderPreferenceInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionUncheckedCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutReminderPreferenceInput = {
@@ -5194,6 +6127,9 @@ export type UserUpdateWithoutReminderPreferenceInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutReminderPreferenceInput = {
@@ -5240,6 +6176,9 @@ export type UserUncheckedUpdateWithoutReminderPreferenceInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUncheckedUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutReminderSendLogsInput = {
@@ -5286,6 +6225,9 @@ export type UserCreateWithoutReminderSendLogsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutReminderSendLogsInput = {
@@ -5332,6 +6274,9 @@ export type UserUncheckedCreateWithoutReminderSendLogsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionUncheckedCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutReminderSendLogsInput = {
@@ -5394,6 +6339,9 @@ export type UserUpdateWithoutReminderSendLogsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutReminderSendLogsInput = {
@@ -5440,6 +6388,9 @@ export type UserUncheckedUpdateWithoutReminderSendLogsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUncheckedUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutWorkosIdentityInput = {
@@ -5486,6 +6437,9 @@ export type UserCreateWithoutWorkosIdentityInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutWorkosIdentityInput = {
@@ -5532,6 +6486,9 @@ export type UserUncheckedCreateWithoutWorkosIdentityInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionUncheckedCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutWorkosIdentityInput = {
@@ -5594,6 +6551,9 @@ export type UserUpdateWithoutWorkosIdentityInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutWorkosIdentityInput = {
@@ -5640,6 +6600,9 @@ export type UserUncheckedUpdateWithoutWorkosIdentityInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUncheckedUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutAgentConnectionsInput = {
@@ -5686,6 +6649,9 @@ export type UserCreateWithoutAgentConnectionsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutAgentConnectionsInput = {
@@ -5732,6 +6698,9 @@ export type UserUncheckedCreateWithoutAgentConnectionsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionUncheckedCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutAgentConnectionsInput = {
@@ -5794,6 +6763,9 @@ export type UserUpdateWithoutAgentConnectionsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutAgentConnectionsInput = {
@@ -5840,6 +6812,9 @@ export type UserUncheckedUpdateWithoutAgentConnectionsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUncheckedUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutAgentSetupPlansInput = {
@@ -5886,6 +6861,9 @@ export type UserCreateWithoutAgentSetupPlansInput = {
   agentOperationItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutUserInput
   agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutAgentSetupPlansInput = {
@@ -5932,6 +6910,9 @@ export type UserUncheckedCreateWithoutAgentSetupPlansInput = {
   agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutUserInput
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionUncheckedCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutAgentSetupPlansInput = {
@@ -5994,6 +6975,9 @@ export type UserUpdateWithoutAgentSetupPlansInput = {
   agentOperationItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutUserNestedInput
   agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutAgentSetupPlansInput = {
@@ -6040,6 +7024,9 @@ export type UserUncheckedUpdateWithoutAgentSetupPlansInput = {
   agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutUserNestedInput
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutAgentOperationsInput = {
@@ -6086,6 +7073,9 @@ export type UserCreateWithoutAgentOperationsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutAgentOperationsInput = {
@@ -6132,6 +7122,9 @@ export type UserUncheckedCreateWithoutAgentOperationsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionUncheckedCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutAgentOperationsInput = {
@@ -6194,6 +7187,9 @@ export type UserUpdateWithoutAgentOperationsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutAgentOperationsInput = {
@@ -6240,6 +7236,9 @@ export type UserUncheckedUpdateWithoutAgentOperationsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUncheckedUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutAgentOperationActionsInput = {
@@ -6286,6 +7285,9 @@ export type UserCreateWithoutAgentOperationActionsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutAgentOperationActionsInput = {
@@ -6332,6 +7334,9 @@ export type UserUncheckedCreateWithoutAgentOperationActionsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionUncheckedCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutAgentOperationActionsInput = {
@@ -6394,6 +7399,9 @@ export type UserUpdateWithoutAgentOperationActionsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutAgentOperationActionsInput = {
@@ -6440,6 +7448,9 @@ export type UserUncheckedUpdateWithoutAgentOperationActionsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUncheckedUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutAgentOperationSourcesInput = {
@@ -6486,6 +7497,9 @@ export type UserCreateWithoutAgentOperationSourcesInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutAgentOperationSourcesInput = {
@@ -6532,6 +7546,9 @@ export type UserUncheckedCreateWithoutAgentOperationSourcesInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionUncheckedCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutAgentOperationSourcesInput = {
@@ -6594,6 +7611,9 @@ export type UserUpdateWithoutAgentOperationSourcesInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutAgentOperationSourcesInput = {
@@ -6640,6 +7660,9 @@ export type UserUncheckedUpdateWithoutAgentOperationSourcesInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUncheckedUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutAgentOperationItemsInput = {
@@ -6686,6 +7709,9 @@ export type UserCreateWithoutAgentOperationItemsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutAgentOperationItemsInput = {
@@ -6732,6 +7758,9 @@ export type UserUncheckedCreateWithoutAgentOperationItemsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionUncheckedCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutAgentOperationItemsInput = {
@@ -6794,6 +7823,9 @@ export type UserUpdateWithoutAgentOperationItemsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutAgentOperationItemsInput = {
@@ -6840,6 +7872,9 @@ export type UserUncheckedUpdateWithoutAgentOperationItemsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUncheckedUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutAgentCandidatesInput = {
@@ -6886,6 +7921,9 @@ export type UserCreateWithoutAgentCandidatesInput = {
   agentOperationItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutAgentCandidatesInput = {
@@ -6932,6 +7970,9 @@ export type UserUncheckedCreateWithoutAgentCandidatesInput = {
   agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionUncheckedCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutAgentCandidatesInput = {
@@ -6994,6 +8035,9 @@ export type UserUpdateWithoutAgentCandidatesInput = {
   agentOperationItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutAgentCandidatesInput = {
@@ -7040,6 +8084,9 @@ export type UserUncheckedUpdateWithoutAgentCandidatesInput = {
   agentOperationItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUncheckedUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutAgentRateLimitBucketsInput = {
@@ -7086,6 +8133,9 @@ export type UserCreateWithoutAgentRateLimitBucketsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutAgentRateLimitBucketsInput = {
@@ -7132,6 +8182,9 @@ export type UserUncheckedCreateWithoutAgentRateLimitBucketsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedCreateNestedManyWithoutUserInput
   practiceSessions?: Prisma.PracticeSessionUncheckedCreateNestedManyWithoutUserInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedCreateNestedManyWithoutUserInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedCreateNestedManyWithoutUserInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutAgentRateLimitBucketsInput = {
@@ -7194,6 +8247,9 @@ export type UserUpdateWithoutAgentRateLimitBucketsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutAgentRateLimitBucketsInput = {
@@ -7240,6 +8296,9 @@ export type UserUncheckedUpdateWithoutAgentRateLimitBucketsInput = {
   agentCandidates?: Prisma.AgentExerciseCandidateUncheckedUpdateManyWithoutUserNestedInput
   practiceSessions?: Prisma.PracticeSessionUncheckedUpdateManyWithoutUserNestedInput
   agentSetupPlans?: Prisma.AgentSetupPlanUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedUpdateManyWithoutUserNestedInput
+  introductionQueueUpdates?: Prisma.IntroductionQueueUpdateUncheckedUpdateManyWithoutUserNestedInput
 }
 
 
@@ -7276,6 +8335,9 @@ export type UserCountOutputType = {
   agentCandidates: number
   practiceSessions: number
   agentSetupPlans: number
+  introductionQueues: number
+  introductionQueueEntries: number
+  introductionQueueUpdates: number
 }
 
 export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -7307,6 +8369,9 @@ export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.I
   agentCandidates?: boolean | UserCountOutputTypeCountAgentCandidatesArgs
   practiceSessions?: boolean | UserCountOutputTypeCountPracticeSessionsArgs
   agentSetupPlans?: boolean | UserCountOutputTypeCountAgentSetupPlansArgs
+  introductionQueues?: boolean | UserCountOutputTypeCountIntroductionQueuesArgs
+  introductionQueueEntries?: boolean | UserCountOutputTypeCountIntroductionQueueEntriesArgs
+  introductionQueueUpdates?: boolean | UserCountOutputTypeCountIntroductionQueueUpdatesArgs
 }
 
 /**
@@ -7515,6 +8580,27 @@ export type UserCountOutputTypeCountAgentSetupPlansArgs<ExtArgs extends runtime.
   where?: Prisma.AgentSetupPlanWhereInput
 }
 
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountIntroductionQueuesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.IntroductionQueueWhereInput
+}
+
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountIntroductionQueueEntriesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.IntroductionQueueEntryWhereInput
+}
+
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountIntroductionQueueUpdatesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.IntroductionQueueUpdateWhereInput
+}
+
 
 export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -7561,6 +8647,9 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   agentCandidates?: boolean | Prisma.User$agentCandidatesArgs<ExtArgs>
   practiceSessions?: boolean | Prisma.User$practiceSessionsArgs<ExtArgs>
   agentSetupPlans?: boolean | Prisma.User$agentSetupPlansArgs<ExtArgs>
+  introductionQueues?: boolean | Prisma.User$introductionQueuesArgs<ExtArgs>
+  introductionQueueEntries?: boolean | Prisma.User$introductionQueueEntriesArgs<ExtArgs>
+  introductionQueueUpdates?: boolean | Prisma.User$introductionQueueUpdatesArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["user"]>
 
@@ -7647,6 +8736,9 @@ export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   agentCandidates?: boolean | Prisma.User$agentCandidatesArgs<ExtArgs>
   practiceSessions?: boolean | Prisma.User$practiceSessionsArgs<ExtArgs>
   agentSetupPlans?: boolean | Prisma.User$agentSetupPlansArgs<ExtArgs>
+  introductionQueues?: boolean | Prisma.User$introductionQueuesArgs<ExtArgs>
+  introductionQueueEntries?: boolean | Prisma.User$introductionQueueEntriesArgs<ExtArgs>
+  introductionQueueUpdates?: boolean | Prisma.User$introductionQueueUpdatesArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type UserIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
@@ -7685,6 +8777,9 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     agentCandidates: Prisma.$AgentExerciseCandidatePayload<ExtArgs>[]
     practiceSessions: Prisma.$PracticeSessionPayload<ExtArgs>[]
     agentSetupPlans: Prisma.$AgentSetupPlanPayload<ExtArgs>[]
+    introductionQueues: Prisma.$IntroductionQueuePayload<ExtArgs>[]
+    introductionQueueEntries: Prisma.$IntroductionQueueEntryPayload<ExtArgs>[]
+    introductionQueueUpdates: Prisma.$IntroductionQueueUpdatePayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -8125,6 +9220,9 @@ export interface Prisma__UserClient<T, Null = never, ExtArgs extends runtime.Typ
   agentCandidates<T extends Prisma.User$agentCandidatesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$agentCandidatesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AgentExerciseCandidatePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   practiceSessions<T extends Prisma.User$practiceSessionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$practiceSessionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$PracticeSessionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   agentSetupPlans<T extends Prisma.User$agentSetupPlansArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$agentSetupPlansArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AgentSetupPlanPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  introductionQueues<T extends Prisma.User$introductionQueuesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$introductionQueuesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$IntroductionQueuePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  introductionQueueEntries<T extends Prisma.User$introductionQueueEntriesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$introductionQueueEntriesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$IntroductionQueueEntryPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  introductionQueueUpdates<T extends Prisma.User$introductionQueueUpdatesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$introductionQueueUpdatesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$IntroductionQueueUpdatePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -9268,6 +10366,78 @@ export type User$agentSetupPlansArgs<ExtArgs extends runtime.Types.Extensions.In
   take?: number
   skip?: number
   distinct?: Prisma.AgentSetupPlanScalarFieldEnum | Prisma.AgentSetupPlanScalarFieldEnum[]
+}
+
+/**
+ * User.introductionQueues
+ */
+export type User$introductionQueuesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the IntroductionQueue
+   */
+  select?: Prisma.IntroductionQueueSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the IntroductionQueue
+   */
+  omit?: Prisma.IntroductionQueueOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.IntroductionQueueInclude<ExtArgs> | null
+  where?: Prisma.IntroductionQueueWhereInput
+  orderBy?: Prisma.IntroductionQueueOrderByWithRelationInput | Prisma.IntroductionQueueOrderByWithRelationInput[]
+  cursor?: Prisma.IntroductionQueueWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.IntroductionQueueScalarFieldEnum | Prisma.IntroductionQueueScalarFieldEnum[]
+}
+
+/**
+ * User.introductionQueueEntries
+ */
+export type User$introductionQueueEntriesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the IntroductionQueueEntry
+   */
+  select?: Prisma.IntroductionQueueEntrySelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the IntroductionQueueEntry
+   */
+  omit?: Prisma.IntroductionQueueEntryOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.IntroductionQueueEntryInclude<ExtArgs> | null
+  where?: Prisma.IntroductionQueueEntryWhereInput
+  orderBy?: Prisma.IntroductionQueueEntryOrderByWithRelationInput | Prisma.IntroductionQueueEntryOrderByWithRelationInput[]
+  cursor?: Prisma.IntroductionQueueEntryWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.IntroductionQueueEntryScalarFieldEnum | Prisma.IntroductionQueueEntryScalarFieldEnum[]
+}
+
+/**
+ * User.introductionQueueUpdates
+ */
+export type User$introductionQueueUpdatesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the IntroductionQueueUpdate
+   */
+  select?: Prisma.IntroductionQueueUpdateSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the IntroductionQueueUpdate
+   */
+  omit?: Prisma.IntroductionQueueUpdateOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.IntroductionQueueUpdateInclude<ExtArgs> | null
+  where?: Prisma.IntroductionQueueUpdateWhereInput
+  orderBy?: Prisma.IntroductionQueueUpdateOrderByWithRelationInput | Prisma.IntroductionQueueUpdateOrderByWithRelationInput[]
+  cursor?: Prisma.IntroductionQueueUpdateWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.IntroductionQueueUpdateScalarFieldEnum | Prisma.IntroductionQueueUpdateScalarFieldEnum[]
 }
 
 /**

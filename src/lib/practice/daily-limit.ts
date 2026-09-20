@@ -1,19 +1,10 @@
 import "server-only";
 import type { Prisma } from "@/generated/prisma/client";
 import { getPracticeDayBounds } from "./daily-limit-contracts";
+import { unintroducedSkillWhere } from "./introduction-predicates";
+import { removeSkillFromIntroductionQueues } from "./introduction-queue";
 
-export const previouslyIntroducedSkillWhere: Prisma.SkillWhereInput = {
-  OR: [
-    { firstIntroducedAt: { not: null } },
-    { lastReviewedAt: { not: null } },
-    { repetitions: { gt: 0 } },
-  ],
-};
-export const unintroducedSkillWhere: Prisma.SkillWhereInput = {
-  firstIntroducedAt: null,
-  lastReviewedAt: null,
-  repetitions: 0,
-};
+export { previouslyIntroducedSkillWhere, unintroducedSkillWhere } from "./introduction-predicates";
 
 // Call under the user row lock whenever the result authorizes an introduction.
 export async function getDailyNewSkillAllowance(
@@ -72,13 +63,16 @@ export async function getDailyNewSkillAllowance(
 }
 
 export async function recordSkillIntroduction(
-  tx: Pick<Prisma.TransactionClient, "skill">,
+  tx: Pick<Prisma.TransactionClient, "skill" | "introductionQueueEntry" | "introductionQueue">,
   userId: string,
   skillId: string,
   now: Date,
 ) {
-  await tx.skill.updateMany({
+  const result = await tx.skill.updateMany({
     where: { id: skillId, userId, ...unintroducedSkillWhere },
     data: { firstIntroducedAt: now },
   });
+  if (result.count > 0) {
+    await removeSkillFromIntroductionQueues(tx, userId, skillId);
+  }
 }

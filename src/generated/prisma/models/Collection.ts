@@ -214,6 +214,7 @@ export type CollectionWhereInput = {
   skills?: Prisma.SkillListRelationFilter
   sourceFiles?: Prisma.SourceFileListRelationFilter
   studyMaterials?: Prisma.StudyMaterialListRelationFilter
+  introductionQueues?: Prisma.IntroductionQueueListRelationFilter
 }
 
 export type CollectionOrderByWithRelationInput = {
@@ -230,6 +231,7 @@ export type CollectionOrderByWithRelationInput = {
   skills?: Prisma.SkillOrderByRelationAggregateInput
   sourceFiles?: Prisma.SourceFileOrderByRelationAggregateInput
   studyMaterials?: Prisma.StudyMaterialOrderByRelationAggregateInput
+  introductionQueues?: Prisma.IntroductionQueueOrderByRelationAggregateInput
 }
 
 export type CollectionWhereUniqueInput = Prisma.AtLeast<{
@@ -250,6 +252,7 @@ export type CollectionWhereUniqueInput = Prisma.AtLeast<{
   skills?: Prisma.SkillListRelationFilter
   sourceFiles?: Prisma.SourceFileListRelationFilter
   studyMaterials?: Prisma.StudyMaterialListRelationFilter
+  introductionQueues?: Prisma.IntroductionQueueListRelationFilter
 }, "id" | "id_userId">
 
 export type CollectionOrderByWithAggregationInput = {
@@ -295,6 +298,7 @@ export type CollectionCreateInput = {
   skills?: Prisma.SkillCreateNestedManyWithoutCollectionInput
   sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutCollectionInput
   studyMaterials?: Prisma.StudyMaterialCreateNestedManyWithoutCollectionInput
+  introductionQueues?: Prisma.IntroductionQueueCreateNestedManyWithoutCollectionInput
 }
 
 export type CollectionUncheckedCreateInput = {
@@ -310,6 +314,7 @@ export type CollectionUncheckedCreateInput = {
   skills?: Prisma.SkillUncheckedCreateNestedManyWithoutCollectionInput
   sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutCollectionInput
   studyMaterials?: Prisma.StudyMaterialUncheckedCreateNestedManyWithoutCollectionInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedCreateNestedManyWithoutCollectionInput
 }
 
 export type CollectionUpdateInput = {
@@ -325,6 +330,7 @@ export type CollectionUpdateInput = {
   skills?: Prisma.SkillUpdateManyWithoutCollectionNestedInput
   sourceFiles?: Prisma.SourceFileUpdateManyWithoutCollectionNestedInput
   studyMaterials?: Prisma.StudyMaterialUpdateManyWithoutCollectionNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUpdateManyWithoutCollectionNestedInput
 }
 
 export type CollectionUncheckedUpdateInput = {
@@ -340,6 +346,7 @@ export type CollectionUncheckedUpdateInput = {
   skills?: Prisma.SkillUncheckedUpdateManyWithoutCollectionNestedInput
   sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutCollectionNestedInput
   studyMaterials?: Prisma.StudyMaterialUncheckedUpdateManyWithoutCollectionNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedUpdateManyWithoutCollectionNestedInput
 }
 
 export type CollectionCreateManyInput = {
@@ -387,6 +394,11 @@ export type CollectionOrderByRelationAggregateInput = {
   _count?: Prisma.SortOrder
 }
 
+export type CollectionNullableScalarRelationFilter = {
+  is?: Prisma.CollectionWhereInput | null
+  isNot?: Prisma.CollectionWhereInput | null
+}
+
 export type CollectionIdUserIdCompoundUniqueInput = {
   id: string
   userId: string
@@ -424,11 +436,6 @@ export type CollectionMinOrderByAggregateInput = {
   status?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
-}
-
-export type CollectionNullableScalarRelationFilter = {
-  is?: Prisma.CollectionWhereInput | null
-  isNot?: Prisma.CollectionWhereInput | null
 }
 
 export type CollectionCreateNestedManyWithoutUserInput = {
@@ -471,6 +478,22 @@ export type CollectionUncheckedUpdateManyWithoutUserNestedInput = {
   update?: Prisma.CollectionUpdateWithWhereUniqueWithoutUserInput | Prisma.CollectionUpdateWithWhereUniqueWithoutUserInput[]
   updateMany?: Prisma.CollectionUpdateManyWithWhereWithoutUserInput | Prisma.CollectionUpdateManyWithWhereWithoutUserInput[]
   deleteMany?: Prisma.CollectionScalarWhereInput | Prisma.CollectionScalarWhereInput[]
+}
+
+export type CollectionCreateNestedOneWithoutIntroductionQueuesInput = {
+  create?: Prisma.XOR<Prisma.CollectionCreateWithoutIntroductionQueuesInput, Prisma.CollectionUncheckedCreateWithoutIntroductionQueuesInput>
+  connectOrCreate?: Prisma.CollectionCreateOrConnectWithoutIntroductionQueuesInput
+  connect?: Prisma.CollectionWhereUniqueInput
+}
+
+export type CollectionUpdateOneWithoutIntroductionQueuesNestedInput = {
+  create?: Prisma.XOR<Prisma.CollectionCreateWithoutIntroductionQueuesInput, Prisma.CollectionUncheckedCreateWithoutIntroductionQueuesInput>
+  connectOrCreate?: Prisma.CollectionCreateOrConnectWithoutIntroductionQueuesInput
+  upsert?: Prisma.CollectionUpsertWithoutIntroductionQueuesInput
+  disconnect?: Prisma.CollectionWhereInput | boolean
+  delete?: Prisma.CollectionWhereInput | boolean
+  connect?: Prisma.CollectionWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.CollectionUpdateToOneWithWhereWithoutIntroductionQueuesInput, Prisma.CollectionUpdateWithoutIntroductionQueuesInput>, Prisma.CollectionUncheckedUpdateWithoutIntroductionQueuesInput>
 }
 
 export type NullableEnumPracticePreferenceFieldUpdateOperationsInput = {
@@ -541,6 +564,7 @@ export type CollectionCreateWithoutUserInput = {
   skills?: Prisma.SkillCreateNestedManyWithoutCollectionInput
   sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutCollectionInput
   studyMaterials?: Prisma.StudyMaterialCreateNestedManyWithoutCollectionInput
+  introductionQueues?: Prisma.IntroductionQueueCreateNestedManyWithoutCollectionInput
 }
 
 export type CollectionUncheckedCreateWithoutUserInput = {
@@ -555,6 +579,7 @@ export type CollectionUncheckedCreateWithoutUserInput = {
   skills?: Prisma.SkillUncheckedCreateNestedManyWithoutCollectionInput
   sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutCollectionInput
   studyMaterials?: Prisma.StudyMaterialUncheckedCreateNestedManyWithoutCollectionInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedCreateNestedManyWithoutCollectionInput
 }
 
 export type CollectionCreateOrConnectWithoutUserInput = {
@@ -598,6 +623,82 @@ export type CollectionScalarWhereInput = {
   updatedAt?: Prisma.DateTimeFilter<"Collection"> | Date | string
 }
 
+export type CollectionCreateWithoutIntroductionQueuesInput = {
+  practicePreference?: $Enums.PracticePreference | null
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  id?: string
+  name: string
+  description?: string | null
+  status?: $Enums.CollectionStatus
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  user: Prisma.UserCreateNestedOneWithoutCollectionsInput
+  skills?: Prisma.SkillCreateNestedManyWithoutCollectionInput
+  sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutCollectionInput
+  studyMaterials?: Prisma.StudyMaterialCreateNestedManyWithoutCollectionInput
+}
+
+export type CollectionUncheckedCreateWithoutIntroductionQueuesInput = {
+  practicePreference?: $Enums.PracticePreference | null
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  id?: string
+  userId: string
+  name: string
+  description?: string | null
+  status?: $Enums.CollectionStatus
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  skills?: Prisma.SkillUncheckedCreateNestedManyWithoutCollectionInput
+  sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutCollectionInput
+  studyMaterials?: Prisma.StudyMaterialUncheckedCreateNestedManyWithoutCollectionInput
+}
+
+export type CollectionCreateOrConnectWithoutIntroductionQueuesInput = {
+  where: Prisma.CollectionWhereUniqueInput
+  create: Prisma.XOR<Prisma.CollectionCreateWithoutIntroductionQueuesInput, Prisma.CollectionUncheckedCreateWithoutIntroductionQueuesInput>
+}
+
+export type CollectionUpsertWithoutIntroductionQueuesInput = {
+  update: Prisma.XOR<Prisma.CollectionUpdateWithoutIntroductionQueuesInput, Prisma.CollectionUncheckedUpdateWithoutIntroductionQueuesInput>
+  create: Prisma.XOR<Prisma.CollectionCreateWithoutIntroductionQueuesInput, Prisma.CollectionUncheckedCreateWithoutIntroductionQueuesInput>
+  where?: Prisma.CollectionWhereInput
+}
+
+export type CollectionUpdateToOneWithWhereWithoutIntroductionQueuesInput = {
+  where?: Prisma.CollectionWhereInput
+  data: Prisma.XOR<Prisma.CollectionUpdateWithoutIntroductionQueuesInput, Prisma.CollectionUncheckedUpdateWithoutIntroductionQueuesInput>
+}
+
+export type CollectionUpdateWithoutIntroductionQueuesInput = {
+  practicePreference?: Prisma.NullableEnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference | null
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.EnumCollectionStatusFieldUpdateOperationsInput | $Enums.CollectionStatus
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  user?: Prisma.UserUpdateOneRequiredWithoutCollectionsNestedInput
+  skills?: Prisma.SkillUpdateManyWithoutCollectionNestedInput
+  sourceFiles?: Prisma.SourceFileUpdateManyWithoutCollectionNestedInput
+  studyMaterials?: Prisma.StudyMaterialUpdateManyWithoutCollectionNestedInput
+}
+
+export type CollectionUncheckedUpdateWithoutIntroductionQueuesInput = {
+  practicePreference?: Prisma.NullableEnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference | null
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.EnumCollectionStatusFieldUpdateOperationsInput | $Enums.CollectionStatus
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  skills?: Prisma.SkillUncheckedUpdateManyWithoutCollectionNestedInput
+  sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutCollectionNestedInput
+  studyMaterials?: Prisma.StudyMaterialUncheckedUpdateManyWithoutCollectionNestedInput
+}
+
 export type CollectionCreateWithoutSourceFilesInput = {
   practicePreference?: $Enums.PracticePreference | null
   textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -610,6 +711,7 @@ export type CollectionCreateWithoutSourceFilesInput = {
   user: Prisma.UserCreateNestedOneWithoutCollectionsInput
   skills?: Prisma.SkillCreateNestedManyWithoutCollectionInput
   studyMaterials?: Prisma.StudyMaterialCreateNestedManyWithoutCollectionInput
+  introductionQueues?: Prisma.IntroductionQueueCreateNestedManyWithoutCollectionInput
 }
 
 export type CollectionUncheckedCreateWithoutSourceFilesInput = {
@@ -624,6 +726,7 @@ export type CollectionUncheckedCreateWithoutSourceFilesInput = {
   updatedAt?: Date | string
   skills?: Prisma.SkillUncheckedCreateNestedManyWithoutCollectionInput
   studyMaterials?: Prisma.StudyMaterialUncheckedCreateNestedManyWithoutCollectionInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedCreateNestedManyWithoutCollectionInput
 }
 
 export type CollectionCreateOrConnectWithoutSourceFilesInput = {
@@ -654,6 +757,7 @@ export type CollectionUpdateWithoutSourceFilesInput = {
   user?: Prisma.UserUpdateOneRequiredWithoutCollectionsNestedInput
   skills?: Prisma.SkillUpdateManyWithoutCollectionNestedInput
   studyMaterials?: Prisma.StudyMaterialUpdateManyWithoutCollectionNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUpdateManyWithoutCollectionNestedInput
 }
 
 export type CollectionUncheckedUpdateWithoutSourceFilesInput = {
@@ -668,6 +772,7 @@ export type CollectionUncheckedUpdateWithoutSourceFilesInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   skills?: Prisma.SkillUncheckedUpdateManyWithoutCollectionNestedInput
   studyMaterials?: Prisma.StudyMaterialUncheckedUpdateManyWithoutCollectionNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedUpdateManyWithoutCollectionNestedInput
 }
 
 export type CollectionCreateWithoutStudyMaterialsInput = {
@@ -682,6 +787,7 @@ export type CollectionCreateWithoutStudyMaterialsInput = {
   user: Prisma.UserCreateNestedOneWithoutCollectionsInput
   skills?: Prisma.SkillCreateNestedManyWithoutCollectionInput
   sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutCollectionInput
+  introductionQueues?: Prisma.IntroductionQueueCreateNestedManyWithoutCollectionInput
 }
 
 export type CollectionUncheckedCreateWithoutStudyMaterialsInput = {
@@ -696,6 +802,7 @@ export type CollectionUncheckedCreateWithoutStudyMaterialsInput = {
   updatedAt?: Date | string
   skills?: Prisma.SkillUncheckedCreateNestedManyWithoutCollectionInput
   sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutCollectionInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedCreateNestedManyWithoutCollectionInput
 }
 
 export type CollectionCreateOrConnectWithoutStudyMaterialsInput = {
@@ -726,6 +833,7 @@ export type CollectionUpdateWithoutStudyMaterialsInput = {
   user?: Prisma.UserUpdateOneRequiredWithoutCollectionsNestedInput
   skills?: Prisma.SkillUpdateManyWithoutCollectionNestedInput
   sourceFiles?: Prisma.SourceFileUpdateManyWithoutCollectionNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUpdateManyWithoutCollectionNestedInput
 }
 
 export type CollectionUncheckedUpdateWithoutStudyMaterialsInput = {
@@ -740,6 +848,7 @@ export type CollectionUncheckedUpdateWithoutStudyMaterialsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   skills?: Prisma.SkillUncheckedUpdateManyWithoutCollectionNestedInput
   sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutCollectionNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedUpdateManyWithoutCollectionNestedInput
 }
 
 export type CollectionCreateWithoutSkillsInput = {
@@ -754,6 +863,7 @@ export type CollectionCreateWithoutSkillsInput = {
   user: Prisma.UserCreateNestedOneWithoutCollectionsInput
   sourceFiles?: Prisma.SourceFileCreateNestedManyWithoutCollectionInput
   studyMaterials?: Prisma.StudyMaterialCreateNestedManyWithoutCollectionInput
+  introductionQueues?: Prisma.IntroductionQueueCreateNestedManyWithoutCollectionInput
 }
 
 export type CollectionUncheckedCreateWithoutSkillsInput = {
@@ -768,6 +878,7 @@ export type CollectionUncheckedCreateWithoutSkillsInput = {
   updatedAt?: Date | string
   sourceFiles?: Prisma.SourceFileUncheckedCreateNestedManyWithoutCollectionInput
   studyMaterials?: Prisma.StudyMaterialUncheckedCreateNestedManyWithoutCollectionInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedCreateNestedManyWithoutCollectionInput
 }
 
 export type CollectionCreateOrConnectWithoutSkillsInput = {
@@ -798,6 +909,7 @@ export type CollectionUpdateWithoutSkillsInput = {
   user?: Prisma.UserUpdateOneRequiredWithoutCollectionsNestedInput
   sourceFiles?: Prisma.SourceFileUpdateManyWithoutCollectionNestedInput
   studyMaterials?: Prisma.StudyMaterialUpdateManyWithoutCollectionNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUpdateManyWithoutCollectionNestedInput
 }
 
 export type CollectionUncheckedUpdateWithoutSkillsInput = {
@@ -812,6 +924,7 @@ export type CollectionUncheckedUpdateWithoutSkillsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutCollectionNestedInput
   studyMaterials?: Prisma.StudyMaterialUncheckedUpdateManyWithoutCollectionNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedUpdateManyWithoutCollectionNestedInput
 }
 
 export type CollectionCreateManyUserInput = {
@@ -837,6 +950,7 @@ export type CollectionUpdateWithoutUserInput = {
   skills?: Prisma.SkillUpdateManyWithoutCollectionNestedInput
   sourceFiles?: Prisma.SourceFileUpdateManyWithoutCollectionNestedInput
   studyMaterials?: Prisma.StudyMaterialUpdateManyWithoutCollectionNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUpdateManyWithoutCollectionNestedInput
 }
 
 export type CollectionUncheckedUpdateWithoutUserInput = {
@@ -851,6 +965,7 @@ export type CollectionUncheckedUpdateWithoutUserInput = {
   skills?: Prisma.SkillUncheckedUpdateManyWithoutCollectionNestedInput
   sourceFiles?: Prisma.SourceFileUncheckedUpdateManyWithoutCollectionNestedInput
   studyMaterials?: Prisma.StudyMaterialUncheckedUpdateManyWithoutCollectionNestedInput
+  introductionQueues?: Prisma.IntroductionQueueUncheckedUpdateManyWithoutCollectionNestedInput
 }
 
 export type CollectionUncheckedUpdateManyWithoutUserInput = {
@@ -873,12 +988,14 @@ export type CollectionCountOutputType = {
   skills: number
   sourceFiles: number
   studyMaterials: number
+  introductionQueues: number
 }
 
 export type CollectionCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   skills?: boolean | CollectionCountOutputTypeCountSkillsArgs
   sourceFiles?: boolean | CollectionCountOutputTypeCountSourceFilesArgs
   studyMaterials?: boolean | CollectionCountOutputTypeCountStudyMaterialsArgs
+  introductionQueues?: boolean | CollectionCountOutputTypeCountIntroductionQueuesArgs
 }
 
 /**
@@ -912,6 +1029,13 @@ export type CollectionCountOutputTypeCountStudyMaterialsArgs<ExtArgs extends run
   where?: Prisma.StudyMaterialWhereInput
 }
 
+/**
+ * CollectionCountOutputType without action
+ */
+export type CollectionCountOutputTypeCountIntroductionQueuesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.IntroductionQueueWhereInput
+}
+
 
 export type CollectionSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   practicePreference?: boolean
@@ -927,6 +1051,7 @@ export type CollectionSelect<ExtArgs extends runtime.Types.Extensions.InternalAr
   skills?: boolean | Prisma.Collection$skillsArgs<ExtArgs>
   sourceFiles?: boolean | Prisma.Collection$sourceFilesArgs<ExtArgs>
   studyMaterials?: boolean | Prisma.Collection$studyMaterialsArgs<ExtArgs>
+  introductionQueues?: boolean | Prisma.Collection$introductionQueuesArgs<ExtArgs>
   _count?: boolean | Prisma.CollectionCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["collection"]>
 
@@ -974,6 +1099,7 @@ export type CollectionInclude<ExtArgs extends runtime.Types.Extensions.InternalA
   skills?: boolean | Prisma.Collection$skillsArgs<ExtArgs>
   sourceFiles?: boolean | Prisma.Collection$sourceFilesArgs<ExtArgs>
   studyMaterials?: boolean | Prisma.Collection$studyMaterialsArgs<ExtArgs>
+  introductionQueues?: boolean | Prisma.Collection$introductionQueuesArgs<ExtArgs>
   _count?: boolean | Prisma.CollectionCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type CollectionIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -990,6 +1116,7 @@ export type $CollectionPayload<ExtArgs extends runtime.Types.Extensions.Internal
     skills: Prisma.$SkillPayload<ExtArgs>[]
     sourceFiles: Prisma.$SourceFilePayload<ExtArgs>[]
     studyMaterials: Prisma.$StudyMaterialPayload<ExtArgs>[]
+    introductionQueues: Prisma.$IntroductionQueuePayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     practicePreference: $Enums.PracticePreference | null
@@ -1399,6 +1526,7 @@ export interface Prisma__CollectionClient<T, Null = never, ExtArgs extends runti
   skills<T extends Prisma.Collection$skillsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Collection$skillsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$SkillPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   sourceFiles<T extends Prisma.Collection$sourceFilesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Collection$sourceFilesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$SourceFilePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   studyMaterials<T extends Prisma.Collection$studyMaterialsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Collection$studyMaterialsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$StudyMaterialPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  introductionQueues<T extends Prisma.Collection$introductionQueuesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Collection$introductionQueuesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$IntroductionQueuePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1907,6 +2035,30 @@ export type Collection$studyMaterialsArgs<ExtArgs extends runtime.Types.Extensio
   take?: number
   skip?: number
   distinct?: Prisma.StudyMaterialScalarFieldEnum | Prisma.StudyMaterialScalarFieldEnum[]
+}
+
+/**
+ * Collection.introductionQueues
+ */
+export type Collection$introductionQueuesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the IntroductionQueue
+   */
+  select?: Prisma.IntroductionQueueSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the IntroductionQueue
+   */
+  omit?: Prisma.IntroductionQueueOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.IntroductionQueueInclude<ExtArgs> | null
+  where?: Prisma.IntroductionQueueWhereInput
+  orderBy?: Prisma.IntroductionQueueOrderByWithRelationInput | Prisma.IntroductionQueueOrderByWithRelationInput[]
+  cursor?: Prisma.IntroductionQueueWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.IntroductionQueueScalarFieldEnum | Prisma.IntroductionQueueScalarFieldEnum[]
 }
 
 /**

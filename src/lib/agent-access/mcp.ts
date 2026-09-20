@@ -102,8 +102,15 @@ import {
   retryAgentMaterialIngestion,
 } from "@/lib/agent-access/material-ingestion";
 import { AgentMaterialIngestionError } from "@/lib/agent-access/material-ingestion";
-import { agentGetPracticeSettingsSchema, agentListPracticeTargetsSchema, agentUpdatePracticeSettingsSchema } from "./practice-contracts";
+import {
+  agentGetIntroductionQueueSchema,
+  agentGetPracticeSettingsSchema,
+  agentListPracticeTargetsSchema,
+  agentUpdateIntroductionQueueSchema,
+  agentUpdatePracticeSettingsSchema,
+} from "./practice-contracts";
 import { getAgentPracticeSettings, listAgentPracticeTargets, updateAgentPracticeSettings } from "./practice";
+import { getAgentIntroductionQueue, updateAgentIntroductionQueue } from "./introduction-queue";
 import {
   getAgentExerciseAudit,
   getAgentPracticeHistory,
@@ -129,6 +136,25 @@ export function registerLearnRecurMcpTools(server: McpServer) {
     name: "practice.update_settings", title: "Update practice settings",
     description: "Patch only supplied settings. User: practicePreference, mixedReview, dailyNewSkillLimit, practiceTimezone, desiredRetention (0.70-0.99 or null for the ts-fsrs default), and practiceDayStartMinutes (0-1439). Collection: nullable practicePreference and textPolicy. Skill: nullable practicePreference and textPolicy, alreadyStudied. Null restores inheritance. A policy change retires future text stock without regrading history or resetting schedules. Requires practice:write consent; creation permission alone is insufficient.",
     schema: agentUpdatePracticeSettingsSchema, scopes: ["practice:write"], readOnly: false, handler: updateAgentPracticeSettings,
+  });
+  registerTool(server, {
+    name: "practice.get_introduction_queue",
+    title: "Read the next new-skill queue",
+    description: "Read the persisted order of not-yet-introduced skills for one collection. Pass collection_id null for uncollected skills. The queue does not consume a daily introduction allowance, create attempts, or change FSRS. Results include stable pagination, a queue version, and non-selectable reasons for paused, archived, preparing, or unavailable entries.",
+    schema: agentGetIntroductionQueueSchema,
+    scopes: ["practice:read"],
+    readOnly: true,
+    handler: getAgentIntroductionQueue,
+  });
+  registerTool(server, {
+    name: "practice.update_introduction_queue",
+    title: "Reorder the next new-skill queue",
+    description: "Replace the order of every not-yet-introduced skill in one collection. Send the version returned by practice.get_introduction_queue and retry with a fresh version after a stale-state error. The update is idempotent and changes curriculum order only; it does not introduce skills, consume the daily limit, create attempts, or change FSRS.",
+    schema: agentUpdateIntroductionQueueSchema,
+    scopes: ["practice:write"],
+    readOnly: false,
+    idempotent: true,
+    handler: updateAgentIntroductionQueue,
   });
   registerTool(server, {
     name: "practice.sessions.create",
@@ -590,6 +616,7 @@ type ToolDefinition<T extends z.ZodType> = {
   scopes: AgentAccessScope[];
   alternativeScopes?: readonly (readonly AgentAccessScope[])[];
   readOnly: boolean;
+  idempotent?: boolean;
   destructiveHint?: boolean;
   handler: (
     auth: ReturnType<typeof requireAgentAuthContext>,
@@ -640,7 +667,7 @@ function registerTool<T extends z.ZodType>(server: McpServer, definition: ToolDe
       annotations: {
         readOnlyHint: definition.readOnly,
         destructiveHint: definition.destructiveHint ?? false,
-        idempotentHint: definition.readOnly,
+        idempotentHint: definition.idempotent ?? definition.readOnly,
         openWorldHint: false,
       },
       _meta: {

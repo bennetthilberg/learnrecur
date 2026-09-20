@@ -29,6 +29,10 @@ import {
   recordSkillIntroduction,
 } from "@/lib/practice/daily-limit";
 import {
+  compareIntroductionQueueCandidates,
+  getIntroductionQueueOrder,
+} from "@/lib/practice/introduction-queue";
+import {
   commitPracticeOnlyAttemptInTransaction,
   commitPracticeReviewInTransaction,
   type PracticeExerciseSummary,
@@ -959,11 +963,17 @@ async function buildSessionCandidates(
   }
 
   const skillById = new Map(skills.map((skill) => [skill.id, skill]));
+  const introductionOrder = await getIntroductionQueueOrder(tx, {
+    userId: input.userId,
+    collectionIds: skills.map((skill) => skill.collectionId),
+    sync: true,
+  });
   const orderedSkills = orderSessionSkills(
     [...sortedBySkill.keys()]
       .map((skillId) => skillById.get(skillId))
       .filter((skill): skill is SessionSkill => Boolean(skill))
       .sort(compareSessionSkills),
+    introductionOrder,
   );
   const orderedSkillIds = orderedSkills.map((skill) => skill.id);
   const candidates: SessionCandidate[] = [];
@@ -992,11 +1002,14 @@ function compareSessionSkills(left: SessionSkill, right: SessionSkill): number {
 
 function orderSessionSkills(
   skills: readonly SessionSkill[],
+  introductionOrder: ReadonlyMap<string, { collectionId: string | null; position: number }>,
 ): SessionSkill[] {
-  const dueSkills = skills.filter(
+  const introducedSkills = skills.filter(isSkillIntroduced);
+  const newSkills = skills.filter((skill) => !isSkillIntroduced(skill));
+  const dueSkills = introducedSkills.filter(
     (skill): skill is SessionSkill & { dueAt: Date } => skill.dueAt instanceof Date,
   );
-  const undatedSkills = skills.filter((skill) => skill.dueAt === null);
+  const undatedSkills = introducedSkills.filter((skill) => skill.dueAt === null);
   const ordered: SessionSkill[] = [];
   const remaining = [...dueSkills];
   let previous: (SessionSkill & { dueAt: Date }) | null = null;
@@ -1012,7 +1025,15 @@ function orderSessionSkills(
     previous = selected;
   }
 
-  return [...ordered, ...undatedSkills];
+  const orderedNewSkills = [...newSkills].sort((left, right) => {
+    return compareIntroductionQueueCandidates(
+      { skillId: left.id, collectionId: left.collectionId },
+      { skillId: right.id, collectionId: right.collectionId },
+      introductionOrder,
+    );
+  });
+
+  return [...ordered, ...undatedSkills.sort(compareSessionSkills), ...orderedNewSkills];
 }
 
 function createSessionItem(

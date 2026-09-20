@@ -455,6 +455,7 @@ export type SkillWhereInput = {
   draftBatchItems?: Prisma.SkillDraftBatchItemListRelationFilter
   agentCreatedItems?: Prisma.AgentSkillOperationItemListRelationFilter
   agentResultItems?: Prisma.AgentSkillOperationItemListRelationFilter
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryListRelationFilter
 }
 
 export type SkillOrderByWithRelationInput = {
@@ -502,6 +503,7 @@ export type SkillOrderByWithRelationInput = {
   draftBatchItems?: Prisma.SkillDraftBatchItemOrderByRelationAggregateInput
   agentCreatedItems?: Prisma.AgentSkillOperationItemOrderByRelationAggregateInput
   agentResultItems?: Prisma.AgentSkillOperationItemOrderByRelationAggregateInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryOrderByRelationAggregateInput
 }
 
 export type SkillWhereUniqueInput = Prisma.AtLeast<{
@@ -553,6 +555,7 @@ export type SkillWhereUniqueInput = Prisma.AtLeast<{
   draftBatchItems?: Prisma.SkillDraftBatchItemListRelationFilter
   agentCreatedItems?: Prisma.AgentSkillOperationItemListRelationFilter
   agentResultItems?: Prisma.AgentSkillOperationItemListRelationFilter
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryListRelationFilter
 }, "id" | "id_userId">
 
 export type SkillOrderByWithAggregationInput = {
@@ -678,6 +681,7 @@ export type SkillCreateInput = {
   draftBatchItems?: Prisma.SkillDraftBatchItemCreateNestedManyWithoutSkillInput
   agentCreatedItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutCreatedSkillInput
   agentResultItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutResultSkillInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryCreateNestedManyWithoutSkillInput
 }
 
 export type SkillUncheckedCreateInput = {
@@ -723,6 +727,7 @@ export type SkillUncheckedCreateInput = {
   draftBatchItems?: Prisma.SkillDraftBatchItemUncheckedCreateNestedManyWithoutSkillInput
   agentCreatedItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutCreatedSkillInput
   agentResultItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutResultSkillInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedCreateNestedManyWithoutSkillInput
 }
 
 export type SkillUpdateInput = {
@@ -768,6 +773,7 @@ export type SkillUpdateInput = {
   draftBatchItems?: Prisma.SkillDraftBatchItemUpdateManyWithoutSkillNestedInput
   agentCreatedItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutCreatedSkillNestedInput
   agentResultItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutResultSkillNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUpdateManyWithoutSkillNestedInput
 }
 
 export type SkillUncheckedUpdateInput = {
@@ -813,6 +819,7 @@ export type SkillUncheckedUpdateInput = {
   draftBatchItems?: Prisma.SkillDraftBatchItemUncheckedUpdateManyWithoutSkillNestedInput
   agentCreatedItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutCreatedSkillNestedInput
   agentResultItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutResultSkillNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedUpdateManyWithoutSkillNestedInput
 }
 
 export type SkillCreateManyInput = {
@@ -929,6 +936,11 @@ export type SkillListRelationFilter = {
 
 export type SkillOrderByRelationAggregateInput = {
   _count?: Prisma.SortOrder
+}
+
+export type SkillScalarRelationFilter = {
+  is?: Prisma.SkillWhereInput
+  isNot?: Prisma.SkillWhereInput
 }
 
 export type SkillIdUserIdCompoundUniqueInput = {
@@ -1059,11 +1071,6 @@ export type SkillNullableScalarRelationFilter = {
   isNot?: Prisma.SkillWhereInput | null
 }
 
-export type SkillScalarRelationFilter = {
-  is?: Prisma.SkillWhereInput
-  isNot?: Prisma.SkillWhereInput
-}
-
 export type SkillCreateNestedManyWithoutUserInput = {
   create?: Prisma.XOR<Prisma.SkillCreateWithoutUserInput, Prisma.SkillUncheckedCreateWithoutUserInput> | Prisma.SkillCreateWithoutUserInput[] | Prisma.SkillUncheckedCreateWithoutUserInput[]
   connectOrCreate?: Prisma.SkillCreateOrConnectWithoutUserInput | Prisma.SkillCreateOrConnectWithoutUserInput[]
@@ -1104,6 +1111,20 @@ export type SkillUncheckedUpdateManyWithoutUserNestedInput = {
   update?: Prisma.SkillUpdateWithWhereUniqueWithoutUserInput | Prisma.SkillUpdateWithWhereUniqueWithoutUserInput[]
   updateMany?: Prisma.SkillUpdateManyWithWhereWithoutUserInput | Prisma.SkillUpdateManyWithWhereWithoutUserInput[]
   deleteMany?: Prisma.SkillScalarWhereInput | Prisma.SkillScalarWhereInput[]
+}
+
+export type SkillCreateNestedOneWithoutIntroductionQueueEntriesInput = {
+  create?: Prisma.XOR<Prisma.SkillCreateWithoutIntroductionQueueEntriesInput, Prisma.SkillUncheckedCreateWithoutIntroductionQueueEntriesInput>
+  connectOrCreate?: Prisma.SkillCreateOrConnectWithoutIntroductionQueueEntriesInput
+  connect?: Prisma.SkillWhereUniqueInput
+}
+
+export type SkillUpdateOneRequiredWithoutIntroductionQueueEntriesNestedInput = {
+  create?: Prisma.XOR<Prisma.SkillCreateWithoutIntroductionQueueEntriesInput, Prisma.SkillUncheckedCreateWithoutIntroductionQueueEntriesInput>
+  connectOrCreate?: Prisma.SkillCreateOrConnectWithoutIntroductionQueueEntriesInput
+  upsert?: Prisma.SkillUpsertWithoutIntroductionQueueEntriesInput
+  connect?: Prisma.SkillWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.SkillUpdateToOneWithWhereWithoutIntroductionQueueEntriesInput, Prisma.SkillUpdateWithoutIntroductionQueueEntriesInput>, Prisma.SkillUncheckedUpdateWithoutIntroductionQueueEntriesInput>
 }
 
 export type SkillCreateNestedManyWithoutCollectionInput = {
@@ -1345,6 +1366,7 @@ export type SkillCreateWithoutUserInput = {
   draftBatchItems?: Prisma.SkillDraftBatchItemCreateNestedManyWithoutSkillInput
   agentCreatedItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutCreatedSkillInput
   agentResultItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutResultSkillInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryCreateNestedManyWithoutSkillInput
 }
 
 export type SkillUncheckedCreateWithoutUserInput = {
@@ -1389,6 +1411,7 @@ export type SkillUncheckedCreateWithoutUserInput = {
   draftBatchItems?: Prisma.SkillDraftBatchItemUncheckedCreateNestedManyWithoutSkillInput
   agentCreatedItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutCreatedSkillInput
   agentResultItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutResultSkillInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedCreateNestedManyWithoutSkillInput
 }
 
 export type SkillCreateOrConnectWithoutUserInput = {
@@ -1456,6 +1479,202 @@ export type SkillScalarWhereInput = {
   updatedAt?: Prisma.DateTimeFilter<"Skill"> | Date | string
 }
 
+export type SkillCreateWithoutIntroductionQueueEntriesInput = {
+  firstIntroducedAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference | null
+  alreadyStudied?: boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: number
+  id?: string
+  title: string
+  objective?: string | null
+  rules?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  examples?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  exerciseConstraints?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  tags?: Prisma.SkillCreatetagsInput | string[]
+  generationSpec?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  generationSpecVersion?: string | null
+  generationSpecFingerprint?: string | null
+  generationSpecStatus?: $Enums.SkillGenerationSpecStatus
+  similarityEmbeddingModel?: string | null
+  similarityEmbeddingFingerprint?: string | null
+  status?: $Enums.SkillStatus
+  dueAt?: Date | string | null
+  stability?: number | null
+  difficulty?: number | null
+  elapsedDays?: number
+  scheduledDays?: number
+  learningSteps?: number
+  repetitions?: number
+  lapses?: number
+  fsrsState?: $Enums.SkillFsrsState
+  lastReviewedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  user: Prisma.UserCreateNestedOneWithoutSkillsInput
+  collection?: Prisma.CollectionCreateNestedOneWithoutSkillsInput
+  sourceRefs?: Prisma.SkillSourceRefCreateNestedManyWithoutSkillInput
+  exercises?: Prisma.ExerciseCreateNestedManyWithoutSkillInput
+  attempts?: Prisma.ExerciseAttemptCreateNestedManyWithoutSkillInput
+  reviewLogs?: Prisma.ReviewLogCreateNestedManyWithoutSkillInput
+  generationJobs?: Prisma.GenerationJobCreateNestedManyWithoutSkillInput
+  generationAuditRecords?: Prisma.GenerationAuditRecordCreateNestedManyWithoutSkillInput
+  draftBatchItems?: Prisma.SkillDraftBatchItemCreateNestedManyWithoutSkillInput
+  agentCreatedItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutCreatedSkillInput
+  agentResultItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutResultSkillInput
+}
+
+export type SkillUncheckedCreateWithoutIntroductionQueueEntriesInput = {
+  firstIntroducedAt?: Date | string | null
+  practicePreference?: $Enums.PracticePreference | null
+  alreadyStudied?: boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: number
+  id?: string
+  userId: string
+  collectionId?: string | null
+  title: string
+  objective?: string | null
+  rules?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  examples?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  exerciseConstraints?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  tags?: Prisma.SkillCreatetagsInput | string[]
+  generationSpec?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  generationSpecVersion?: string | null
+  generationSpecFingerprint?: string | null
+  generationSpecStatus?: $Enums.SkillGenerationSpecStatus
+  similarityEmbeddingModel?: string | null
+  similarityEmbeddingFingerprint?: string | null
+  status?: $Enums.SkillStatus
+  dueAt?: Date | string | null
+  stability?: number | null
+  difficulty?: number | null
+  elapsedDays?: number
+  scheduledDays?: number
+  learningSteps?: number
+  repetitions?: number
+  lapses?: number
+  fsrsState?: $Enums.SkillFsrsState
+  lastReviewedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  sourceRefs?: Prisma.SkillSourceRefUncheckedCreateNestedManyWithoutSkillInput
+  exercises?: Prisma.ExerciseUncheckedCreateNestedManyWithoutSkillInput
+  attempts?: Prisma.ExerciseAttemptUncheckedCreateNestedManyWithoutSkillInput
+  reviewLogs?: Prisma.ReviewLogUncheckedCreateNestedManyWithoutSkillInput
+  generationJobs?: Prisma.GenerationJobUncheckedCreateNestedManyWithoutSkillInput
+  generationAuditRecords?: Prisma.GenerationAuditRecordUncheckedCreateNestedManyWithoutSkillInput
+  draftBatchItems?: Prisma.SkillDraftBatchItemUncheckedCreateNestedManyWithoutSkillInput
+  agentCreatedItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutCreatedSkillInput
+  agentResultItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutResultSkillInput
+}
+
+export type SkillCreateOrConnectWithoutIntroductionQueueEntriesInput = {
+  where: Prisma.SkillWhereUniqueInput
+  create: Prisma.XOR<Prisma.SkillCreateWithoutIntroductionQueueEntriesInput, Prisma.SkillUncheckedCreateWithoutIntroductionQueueEntriesInput>
+}
+
+export type SkillUpsertWithoutIntroductionQueueEntriesInput = {
+  update: Prisma.XOR<Prisma.SkillUpdateWithoutIntroductionQueueEntriesInput, Prisma.SkillUncheckedUpdateWithoutIntroductionQueueEntriesInput>
+  create: Prisma.XOR<Prisma.SkillCreateWithoutIntroductionQueueEntriesInput, Prisma.SkillUncheckedCreateWithoutIntroductionQueueEntriesInput>
+  where?: Prisma.SkillWhereInput
+}
+
+export type SkillUpdateToOneWithWhereWithoutIntroductionQueueEntriesInput = {
+  where?: Prisma.SkillWhereInput
+  data: Prisma.XOR<Prisma.SkillUpdateWithoutIntroductionQueueEntriesInput, Prisma.SkillUncheckedUpdateWithoutIntroductionQueueEntriesInput>
+}
+
+export type SkillUpdateWithoutIntroductionQueueEntriesInput = {
+  firstIntroducedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.NullableEnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference | null
+  alreadyStudied?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: Prisma.IntFieldUpdateOperationsInput | number
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  objective?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  rules?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  examples?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  exerciseConstraints?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  tags?: Prisma.SkillUpdatetagsInput | string[]
+  generationSpec?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  generationSpecVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  generationSpecFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  generationSpecStatus?: Prisma.EnumSkillGenerationSpecStatusFieldUpdateOperationsInput | $Enums.SkillGenerationSpecStatus
+  similarityEmbeddingModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  similarityEmbeddingFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.EnumSkillStatusFieldUpdateOperationsInput | $Enums.SkillStatus
+  dueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  stability?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  difficulty?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  elapsedDays?: Prisma.IntFieldUpdateOperationsInput | number
+  scheduledDays?: Prisma.IntFieldUpdateOperationsInput | number
+  learningSteps?: Prisma.IntFieldUpdateOperationsInput | number
+  repetitions?: Prisma.IntFieldUpdateOperationsInput | number
+  lapses?: Prisma.IntFieldUpdateOperationsInput | number
+  fsrsState?: Prisma.EnumSkillFsrsStateFieldUpdateOperationsInput | $Enums.SkillFsrsState
+  lastReviewedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  user?: Prisma.UserUpdateOneRequiredWithoutSkillsNestedInput
+  collection?: Prisma.CollectionUpdateOneWithoutSkillsNestedInput
+  sourceRefs?: Prisma.SkillSourceRefUpdateManyWithoutSkillNestedInput
+  exercises?: Prisma.ExerciseUpdateManyWithoutSkillNestedInput
+  attempts?: Prisma.ExerciseAttemptUpdateManyWithoutSkillNestedInput
+  reviewLogs?: Prisma.ReviewLogUpdateManyWithoutSkillNestedInput
+  generationJobs?: Prisma.GenerationJobUpdateManyWithoutSkillNestedInput
+  generationAuditRecords?: Prisma.GenerationAuditRecordUpdateManyWithoutSkillNestedInput
+  draftBatchItems?: Prisma.SkillDraftBatchItemUpdateManyWithoutSkillNestedInput
+  agentCreatedItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutCreatedSkillNestedInput
+  agentResultItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutResultSkillNestedInput
+}
+
+export type SkillUncheckedUpdateWithoutIntroductionQueueEntriesInput = {
+  firstIntroducedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  practicePreference?: Prisma.NullableEnumPracticePreferenceFieldUpdateOperationsInput | $Enums.PracticePreference | null
+  alreadyStudied?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  textPolicy?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  textPolicyRevision?: Prisma.IntFieldUpdateOperationsInput | number
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
+  collectionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  objective?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  rules?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  examples?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  exerciseConstraints?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  tags?: Prisma.SkillUpdatetagsInput | string[]
+  generationSpec?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  generationSpecVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  generationSpecFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  generationSpecStatus?: Prisma.EnumSkillGenerationSpecStatusFieldUpdateOperationsInput | $Enums.SkillGenerationSpecStatus
+  similarityEmbeddingModel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  similarityEmbeddingFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.EnumSkillStatusFieldUpdateOperationsInput | $Enums.SkillStatus
+  dueAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  stability?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  difficulty?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  elapsedDays?: Prisma.IntFieldUpdateOperationsInput | number
+  scheduledDays?: Prisma.IntFieldUpdateOperationsInput | number
+  learningSteps?: Prisma.IntFieldUpdateOperationsInput | number
+  repetitions?: Prisma.IntFieldUpdateOperationsInput | number
+  lapses?: Prisma.IntFieldUpdateOperationsInput | number
+  fsrsState?: Prisma.EnumSkillFsrsStateFieldUpdateOperationsInput | $Enums.SkillFsrsState
+  lastReviewedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  sourceRefs?: Prisma.SkillSourceRefUncheckedUpdateManyWithoutSkillNestedInput
+  exercises?: Prisma.ExerciseUncheckedUpdateManyWithoutSkillNestedInput
+  attempts?: Prisma.ExerciseAttemptUncheckedUpdateManyWithoutSkillNestedInput
+  reviewLogs?: Prisma.ReviewLogUncheckedUpdateManyWithoutSkillNestedInput
+  generationJobs?: Prisma.GenerationJobUncheckedUpdateManyWithoutSkillNestedInput
+  generationAuditRecords?: Prisma.GenerationAuditRecordUncheckedUpdateManyWithoutSkillNestedInput
+  draftBatchItems?: Prisma.SkillDraftBatchItemUncheckedUpdateManyWithoutSkillNestedInput
+  agentCreatedItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutCreatedSkillNestedInput
+  agentResultItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutResultSkillNestedInput
+}
+
 export type SkillCreateWithoutCollectionInput = {
   firstIntroducedAt?: Date | string | null
   practicePreference?: $Enums.PracticePreference | null
@@ -1498,6 +1717,7 @@ export type SkillCreateWithoutCollectionInput = {
   draftBatchItems?: Prisma.SkillDraftBatchItemCreateNestedManyWithoutSkillInput
   agentCreatedItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutCreatedSkillInput
   agentResultItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutResultSkillInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryCreateNestedManyWithoutSkillInput
 }
 
 export type SkillUncheckedCreateWithoutCollectionInput = {
@@ -1541,6 +1761,7 @@ export type SkillUncheckedCreateWithoutCollectionInput = {
   draftBatchItems?: Prisma.SkillDraftBatchItemUncheckedCreateNestedManyWithoutSkillInput
   agentCreatedItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutCreatedSkillInput
   agentResultItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutResultSkillInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedCreateNestedManyWithoutSkillInput
 }
 
 export type SkillCreateOrConnectWithoutCollectionInput = {
@@ -1611,6 +1832,7 @@ export type SkillCreateWithoutDraftBatchItemsInput = {
   generationAuditRecords?: Prisma.GenerationAuditRecordCreateNestedManyWithoutSkillInput
   agentCreatedItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutCreatedSkillInput
   agentResultItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutResultSkillInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryCreateNestedManyWithoutSkillInput
 }
 
 export type SkillUncheckedCreateWithoutDraftBatchItemsInput = {
@@ -1655,6 +1877,7 @@ export type SkillUncheckedCreateWithoutDraftBatchItemsInput = {
   generationAuditRecords?: Prisma.GenerationAuditRecordUncheckedCreateNestedManyWithoutSkillInput
   agentCreatedItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutCreatedSkillInput
   agentResultItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutResultSkillInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedCreateNestedManyWithoutSkillInput
 }
 
 export type SkillCreateOrConnectWithoutDraftBatchItemsInput = {
@@ -1715,6 +1938,7 @@ export type SkillUpdateWithoutDraftBatchItemsInput = {
   generationAuditRecords?: Prisma.GenerationAuditRecordUpdateManyWithoutSkillNestedInput
   agentCreatedItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutCreatedSkillNestedInput
   agentResultItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutResultSkillNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUpdateManyWithoutSkillNestedInput
 }
 
 export type SkillUncheckedUpdateWithoutDraftBatchItemsInput = {
@@ -1759,6 +1983,7 @@ export type SkillUncheckedUpdateWithoutDraftBatchItemsInput = {
   generationAuditRecords?: Prisma.GenerationAuditRecordUncheckedUpdateManyWithoutSkillNestedInput
   agentCreatedItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutCreatedSkillNestedInput
   agentResultItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutResultSkillNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedUpdateManyWithoutSkillNestedInput
 }
 
 export type SkillCreateWithoutSourceRefsInput = {
@@ -1803,6 +2028,7 @@ export type SkillCreateWithoutSourceRefsInput = {
   draftBatchItems?: Prisma.SkillDraftBatchItemCreateNestedManyWithoutSkillInput
   agentCreatedItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutCreatedSkillInput
   agentResultItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutResultSkillInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryCreateNestedManyWithoutSkillInput
 }
 
 export type SkillUncheckedCreateWithoutSourceRefsInput = {
@@ -1847,6 +2073,7 @@ export type SkillUncheckedCreateWithoutSourceRefsInput = {
   draftBatchItems?: Prisma.SkillDraftBatchItemUncheckedCreateNestedManyWithoutSkillInput
   agentCreatedItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutCreatedSkillInput
   agentResultItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutResultSkillInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedCreateNestedManyWithoutSkillInput
 }
 
 export type SkillCreateOrConnectWithoutSourceRefsInput = {
@@ -1907,6 +2134,7 @@ export type SkillUpdateWithoutSourceRefsInput = {
   draftBatchItems?: Prisma.SkillDraftBatchItemUpdateManyWithoutSkillNestedInput
   agentCreatedItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutCreatedSkillNestedInput
   agentResultItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutResultSkillNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUpdateManyWithoutSkillNestedInput
 }
 
 export type SkillUncheckedUpdateWithoutSourceRefsInput = {
@@ -1951,6 +2179,7 @@ export type SkillUncheckedUpdateWithoutSourceRefsInput = {
   draftBatchItems?: Prisma.SkillDraftBatchItemUncheckedUpdateManyWithoutSkillNestedInput
   agentCreatedItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutCreatedSkillNestedInput
   agentResultItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutResultSkillNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedUpdateManyWithoutSkillNestedInput
 }
 
 export type SkillCreateWithoutExercisesInput = {
@@ -1995,6 +2224,7 @@ export type SkillCreateWithoutExercisesInput = {
   draftBatchItems?: Prisma.SkillDraftBatchItemCreateNestedManyWithoutSkillInput
   agentCreatedItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutCreatedSkillInput
   agentResultItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutResultSkillInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryCreateNestedManyWithoutSkillInput
 }
 
 export type SkillUncheckedCreateWithoutExercisesInput = {
@@ -2039,6 +2269,7 @@ export type SkillUncheckedCreateWithoutExercisesInput = {
   draftBatchItems?: Prisma.SkillDraftBatchItemUncheckedCreateNestedManyWithoutSkillInput
   agentCreatedItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutCreatedSkillInput
   agentResultItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutResultSkillInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedCreateNestedManyWithoutSkillInput
 }
 
 export type SkillCreateOrConnectWithoutExercisesInput = {
@@ -2099,6 +2330,7 @@ export type SkillUpdateWithoutExercisesInput = {
   draftBatchItems?: Prisma.SkillDraftBatchItemUpdateManyWithoutSkillNestedInput
   agentCreatedItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutCreatedSkillNestedInput
   agentResultItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutResultSkillNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUpdateManyWithoutSkillNestedInput
 }
 
 export type SkillUncheckedUpdateWithoutExercisesInput = {
@@ -2143,6 +2375,7 @@ export type SkillUncheckedUpdateWithoutExercisesInput = {
   draftBatchItems?: Prisma.SkillDraftBatchItemUncheckedUpdateManyWithoutSkillNestedInput
   agentCreatedItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutCreatedSkillNestedInput
   agentResultItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutResultSkillNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedUpdateManyWithoutSkillNestedInput
 }
 
 export type SkillCreateWithoutAttemptsInput = {
@@ -2187,6 +2420,7 @@ export type SkillCreateWithoutAttemptsInput = {
   draftBatchItems?: Prisma.SkillDraftBatchItemCreateNestedManyWithoutSkillInput
   agentCreatedItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutCreatedSkillInput
   agentResultItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutResultSkillInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryCreateNestedManyWithoutSkillInput
 }
 
 export type SkillUncheckedCreateWithoutAttemptsInput = {
@@ -2231,6 +2465,7 @@ export type SkillUncheckedCreateWithoutAttemptsInput = {
   draftBatchItems?: Prisma.SkillDraftBatchItemUncheckedCreateNestedManyWithoutSkillInput
   agentCreatedItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutCreatedSkillInput
   agentResultItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutResultSkillInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedCreateNestedManyWithoutSkillInput
 }
 
 export type SkillCreateOrConnectWithoutAttemptsInput = {
@@ -2291,6 +2526,7 @@ export type SkillUpdateWithoutAttemptsInput = {
   draftBatchItems?: Prisma.SkillDraftBatchItemUpdateManyWithoutSkillNestedInput
   agentCreatedItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutCreatedSkillNestedInput
   agentResultItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutResultSkillNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUpdateManyWithoutSkillNestedInput
 }
 
 export type SkillUncheckedUpdateWithoutAttemptsInput = {
@@ -2335,6 +2571,7 @@ export type SkillUncheckedUpdateWithoutAttemptsInput = {
   draftBatchItems?: Prisma.SkillDraftBatchItemUncheckedUpdateManyWithoutSkillNestedInput
   agentCreatedItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutCreatedSkillNestedInput
   agentResultItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutResultSkillNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedUpdateManyWithoutSkillNestedInput
 }
 
 export type SkillCreateWithoutReviewLogsInput = {
@@ -2379,6 +2616,7 @@ export type SkillCreateWithoutReviewLogsInput = {
   draftBatchItems?: Prisma.SkillDraftBatchItemCreateNestedManyWithoutSkillInput
   agentCreatedItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutCreatedSkillInput
   agentResultItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutResultSkillInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryCreateNestedManyWithoutSkillInput
 }
 
 export type SkillUncheckedCreateWithoutReviewLogsInput = {
@@ -2423,6 +2661,7 @@ export type SkillUncheckedCreateWithoutReviewLogsInput = {
   draftBatchItems?: Prisma.SkillDraftBatchItemUncheckedCreateNestedManyWithoutSkillInput
   agentCreatedItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutCreatedSkillInput
   agentResultItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutResultSkillInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedCreateNestedManyWithoutSkillInput
 }
 
 export type SkillCreateOrConnectWithoutReviewLogsInput = {
@@ -2483,6 +2722,7 @@ export type SkillUpdateWithoutReviewLogsInput = {
   draftBatchItems?: Prisma.SkillDraftBatchItemUpdateManyWithoutSkillNestedInput
   agentCreatedItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutCreatedSkillNestedInput
   agentResultItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutResultSkillNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUpdateManyWithoutSkillNestedInput
 }
 
 export type SkillUncheckedUpdateWithoutReviewLogsInput = {
@@ -2527,6 +2767,7 @@ export type SkillUncheckedUpdateWithoutReviewLogsInput = {
   draftBatchItems?: Prisma.SkillDraftBatchItemUncheckedUpdateManyWithoutSkillNestedInput
   agentCreatedItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutCreatedSkillNestedInput
   agentResultItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutResultSkillNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedUpdateManyWithoutSkillNestedInput
 }
 
 export type SkillCreateWithoutGenerationJobsInput = {
@@ -2571,6 +2812,7 @@ export type SkillCreateWithoutGenerationJobsInput = {
   draftBatchItems?: Prisma.SkillDraftBatchItemCreateNestedManyWithoutSkillInput
   agentCreatedItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutCreatedSkillInput
   agentResultItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutResultSkillInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryCreateNestedManyWithoutSkillInput
 }
 
 export type SkillUncheckedCreateWithoutGenerationJobsInput = {
@@ -2615,6 +2857,7 @@ export type SkillUncheckedCreateWithoutGenerationJobsInput = {
   draftBatchItems?: Prisma.SkillDraftBatchItemUncheckedCreateNestedManyWithoutSkillInput
   agentCreatedItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutCreatedSkillInput
   agentResultItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutResultSkillInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedCreateNestedManyWithoutSkillInput
 }
 
 export type SkillCreateOrConnectWithoutGenerationJobsInput = {
@@ -2675,6 +2918,7 @@ export type SkillUpdateWithoutGenerationJobsInput = {
   draftBatchItems?: Prisma.SkillDraftBatchItemUpdateManyWithoutSkillNestedInput
   agentCreatedItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutCreatedSkillNestedInput
   agentResultItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutResultSkillNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUpdateManyWithoutSkillNestedInput
 }
 
 export type SkillUncheckedUpdateWithoutGenerationJobsInput = {
@@ -2719,6 +2963,7 @@ export type SkillUncheckedUpdateWithoutGenerationJobsInput = {
   draftBatchItems?: Prisma.SkillDraftBatchItemUncheckedUpdateManyWithoutSkillNestedInput
   agentCreatedItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutCreatedSkillNestedInput
   agentResultItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutResultSkillNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedUpdateManyWithoutSkillNestedInput
 }
 
 export type SkillCreateWithoutGenerationAuditRecordsInput = {
@@ -2763,6 +3008,7 @@ export type SkillCreateWithoutGenerationAuditRecordsInput = {
   draftBatchItems?: Prisma.SkillDraftBatchItemCreateNestedManyWithoutSkillInput
   agentCreatedItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutCreatedSkillInput
   agentResultItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutResultSkillInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryCreateNestedManyWithoutSkillInput
 }
 
 export type SkillUncheckedCreateWithoutGenerationAuditRecordsInput = {
@@ -2807,6 +3053,7 @@ export type SkillUncheckedCreateWithoutGenerationAuditRecordsInput = {
   draftBatchItems?: Prisma.SkillDraftBatchItemUncheckedCreateNestedManyWithoutSkillInput
   agentCreatedItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutCreatedSkillInput
   agentResultItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutResultSkillInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedCreateNestedManyWithoutSkillInput
 }
 
 export type SkillCreateOrConnectWithoutGenerationAuditRecordsInput = {
@@ -2867,6 +3114,7 @@ export type SkillUpdateWithoutGenerationAuditRecordsInput = {
   draftBatchItems?: Prisma.SkillDraftBatchItemUpdateManyWithoutSkillNestedInput
   agentCreatedItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutCreatedSkillNestedInput
   agentResultItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutResultSkillNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUpdateManyWithoutSkillNestedInput
 }
 
 export type SkillUncheckedUpdateWithoutGenerationAuditRecordsInput = {
@@ -2911,6 +3159,7 @@ export type SkillUncheckedUpdateWithoutGenerationAuditRecordsInput = {
   draftBatchItems?: Prisma.SkillDraftBatchItemUncheckedUpdateManyWithoutSkillNestedInput
   agentCreatedItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutCreatedSkillNestedInput
   agentResultItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutResultSkillNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedUpdateManyWithoutSkillNestedInput
 }
 
 export type SkillCreateWithoutAgentCreatedItemsInput = {
@@ -2955,6 +3204,7 @@ export type SkillCreateWithoutAgentCreatedItemsInput = {
   generationAuditRecords?: Prisma.GenerationAuditRecordCreateNestedManyWithoutSkillInput
   draftBatchItems?: Prisma.SkillDraftBatchItemCreateNestedManyWithoutSkillInput
   agentResultItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutResultSkillInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryCreateNestedManyWithoutSkillInput
 }
 
 export type SkillUncheckedCreateWithoutAgentCreatedItemsInput = {
@@ -2999,6 +3249,7 @@ export type SkillUncheckedCreateWithoutAgentCreatedItemsInput = {
   generationAuditRecords?: Prisma.GenerationAuditRecordUncheckedCreateNestedManyWithoutSkillInput
   draftBatchItems?: Prisma.SkillDraftBatchItemUncheckedCreateNestedManyWithoutSkillInput
   agentResultItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutResultSkillInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedCreateNestedManyWithoutSkillInput
 }
 
 export type SkillCreateOrConnectWithoutAgentCreatedItemsInput = {
@@ -3048,6 +3299,7 @@ export type SkillCreateWithoutAgentResultItemsInput = {
   generationAuditRecords?: Prisma.GenerationAuditRecordCreateNestedManyWithoutSkillInput
   draftBatchItems?: Prisma.SkillDraftBatchItemCreateNestedManyWithoutSkillInput
   agentCreatedItems?: Prisma.AgentSkillOperationItemCreateNestedManyWithoutCreatedSkillInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryCreateNestedManyWithoutSkillInput
 }
 
 export type SkillUncheckedCreateWithoutAgentResultItemsInput = {
@@ -3092,6 +3344,7 @@ export type SkillUncheckedCreateWithoutAgentResultItemsInput = {
   generationAuditRecords?: Prisma.GenerationAuditRecordUncheckedCreateNestedManyWithoutSkillInput
   draftBatchItems?: Prisma.SkillDraftBatchItemUncheckedCreateNestedManyWithoutSkillInput
   agentCreatedItems?: Prisma.AgentSkillOperationItemUncheckedCreateNestedManyWithoutCreatedSkillInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedCreateNestedManyWithoutSkillInput
 }
 
 export type SkillCreateOrConnectWithoutAgentResultItemsInput = {
@@ -3152,6 +3405,7 @@ export type SkillUpdateWithoutAgentCreatedItemsInput = {
   generationAuditRecords?: Prisma.GenerationAuditRecordUpdateManyWithoutSkillNestedInput
   draftBatchItems?: Prisma.SkillDraftBatchItemUpdateManyWithoutSkillNestedInput
   agentResultItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutResultSkillNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUpdateManyWithoutSkillNestedInput
 }
 
 export type SkillUncheckedUpdateWithoutAgentCreatedItemsInput = {
@@ -3196,6 +3450,7 @@ export type SkillUncheckedUpdateWithoutAgentCreatedItemsInput = {
   generationAuditRecords?: Prisma.GenerationAuditRecordUncheckedUpdateManyWithoutSkillNestedInput
   draftBatchItems?: Prisma.SkillDraftBatchItemUncheckedUpdateManyWithoutSkillNestedInput
   agentResultItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutResultSkillNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedUpdateManyWithoutSkillNestedInput
 }
 
 export type SkillUpsertWithoutAgentResultItemsInput = {
@@ -3251,6 +3506,7 @@ export type SkillUpdateWithoutAgentResultItemsInput = {
   generationAuditRecords?: Prisma.GenerationAuditRecordUpdateManyWithoutSkillNestedInput
   draftBatchItems?: Prisma.SkillDraftBatchItemUpdateManyWithoutSkillNestedInput
   agentCreatedItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutCreatedSkillNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUpdateManyWithoutSkillNestedInput
 }
 
 export type SkillUncheckedUpdateWithoutAgentResultItemsInput = {
@@ -3295,6 +3551,7 @@ export type SkillUncheckedUpdateWithoutAgentResultItemsInput = {
   generationAuditRecords?: Prisma.GenerationAuditRecordUncheckedUpdateManyWithoutSkillNestedInput
   draftBatchItems?: Prisma.SkillDraftBatchItemUncheckedUpdateManyWithoutSkillNestedInput
   agentCreatedItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutCreatedSkillNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedUpdateManyWithoutSkillNestedInput
 }
 
 export type SkillCreateManyUserInput = {
@@ -3374,6 +3631,7 @@ export type SkillUpdateWithoutUserInput = {
   draftBatchItems?: Prisma.SkillDraftBatchItemUpdateManyWithoutSkillNestedInput
   agentCreatedItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutCreatedSkillNestedInput
   agentResultItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutResultSkillNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUpdateManyWithoutSkillNestedInput
 }
 
 export type SkillUncheckedUpdateWithoutUserInput = {
@@ -3418,6 +3676,7 @@ export type SkillUncheckedUpdateWithoutUserInput = {
   draftBatchItems?: Prisma.SkillDraftBatchItemUncheckedUpdateManyWithoutSkillNestedInput
   agentCreatedItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutCreatedSkillNestedInput
   agentResultItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutResultSkillNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedUpdateManyWithoutSkillNestedInput
 }
 
 export type SkillUncheckedUpdateManyWithoutUserInput = {
@@ -3531,6 +3790,7 @@ export type SkillUpdateWithoutCollectionInput = {
   draftBatchItems?: Prisma.SkillDraftBatchItemUpdateManyWithoutSkillNestedInput
   agentCreatedItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutCreatedSkillNestedInput
   agentResultItems?: Prisma.AgentSkillOperationItemUpdateManyWithoutResultSkillNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUpdateManyWithoutSkillNestedInput
 }
 
 export type SkillUncheckedUpdateWithoutCollectionInput = {
@@ -3574,6 +3834,7 @@ export type SkillUncheckedUpdateWithoutCollectionInput = {
   draftBatchItems?: Prisma.SkillDraftBatchItemUncheckedUpdateManyWithoutSkillNestedInput
   agentCreatedItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutCreatedSkillNestedInput
   agentResultItems?: Prisma.AgentSkillOperationItemUncheckedUpdateManyWithoutResultSkillNestedInput
+  introductionQueueEntries?: Prisma.IntroductionQueueEntryUncheckedUpdateManyWithoutSkillNestedInput
 }
 
 export type SkillUncheckedUpdateManyWithoutCollectionInput = {
@@ -3625,6 +3886,7 @@ export type SkillCountOutputType = {
   draftBatchItems: number
   agentCreatedItems: number
   agentResultItems: number
+  introductionQueueEntries: number
 }
 
 export type SkillCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -3637,6 +3899,7 @@ export type SkillCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.
   draftBatchItems?: boolean | SkillCountOutputTypeCountDraftBatchItemsArgs
   agentCreatedItems?: boolean | SkillCountOutputTypeCountAgentCreatedItemsArgs
   agentResultItems?: boolean | SkillCountOutputTypeCountAgentResultItemsArgs
+  introductionQueueEntries?: boolean | SkillCountOutputTypeCountIntroductionQueueEntriesArgs
 }
 
 /**
@@ -3712,6 +3975,13 @@ export type SkillCountOutputTypeCountAgentResultItemsArgs<ExtArgs extends runtim
   where?: Prisma.AgentSkillOperationItemWhereInput
 }
 
+/**
+ * SkillCountOutputType without action
+ */
+export type SkillCountOutputTypeCountIntroductionQueueEntriesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.IntroductionQueueEntryWhereInput
+}
+
 
 export type SkillSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   firstIntroducedAt?: boolean
@@ -3758,6 +4028,7 @@ export type SkillSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   draftBatchItems?: boolean | Prisma.Skill$draftBatchItemsArgs<ExtArgs>
   agentCreatedItems?: boolean | Prisma.Skill$agentCreatedItemsArgs<ExtArgs>
   agentResultItems?: boolean | Prisma.Skill$agentResultItemsArgs<ExtArgs>
+  introductionQueueEntries?: boolean | Prisma.Skill$introductionQueueEntriesArgs<ExtArgs>
   _count?: boolean | Prisma.SkillCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["skill"]>
 
@@ -3886,6 +4157,7 @@ export type SkillInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   draftBatchItems?: boolean | Prisma.Skill$draftBatchItemsArgs<ExtArgs>
   agentCreatedItems?: boolean | Prisma.Skill$agentCreatedItemsArgs<ExtArgs>
   agentResultItems?: boolean | Prisma.Skill$agentResultItemsArgs<ExtArgs>
+  introductionQueueEntries?: boolean | Prisma.Skill$introductionQueueEntriesArgs<ExtArgs>
   _count?: boolean | Prisma.SkillCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type SkillIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -3911,6 +4183,7 @@ export type $SkillPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs 
     draftBatchItems: Prisma.$SkillDraftBatchItemPayload<ExtArgs>[]
     agentCreatedItems: Prisma.$AgentSkillOperationItemPayload<ExtArgs>[]
     agentResultItems: Prisma.$AgentSkillOperationItemPayload<ExtArgs>[]
+    introductionQueueEntries: Prisma.$IntroductionQueueEntryPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     firstIntroducedAt: Date | null
@@ -4351,6 +4624,7 @@ export interface Prisma__SkillClient<T, Null = never, ExtArgs extends runtime.Ty
   draftBatchItems<T extends Prisma.Skill$draftBatchItemsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Skill$draftBatchItemsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$SkillDraftBatchItemPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   agentCreatedItems<T extends Prisma.Skill$agentCreatedItemsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Skill$agentCreatedItemsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AgentSkillOperationItemPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   agentResultItems<T extends Prisma.Skill$agentResultItemsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Skill$agentResultItemsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AgentSkillOperationItemPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  introductionQueueEntries<T extends Prisma.Skill$introductionQueueEntriesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Skill$introductionQueueEntriesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$IntroductionQueueEntryPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -5046,6 +5320,30 @@ export type Skill$agentResultItemsArgs<ExtArgs extends runtime.Types.Extensions.
   take?: number
   skip?: number
   distinct?: Prisma.AgentSkillOperationItemScalarFieldEnum | Prisma.AgentSkillOperationItemScalarFieldEnum[]
+}
+
+/**
+ * Skill.introductionQueueEntries
+ */
+export type Skill$introductionQueueEntriesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the IntroductionQueueEntry
+   */
+  select?: Prisma.IntroductionQueueEntrySelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the IntroductionQueueEntry
+   */
+  omit?: Prisma.IntroductionQueueEntryOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.IntroductionQueueEntryInclude<ExtArgs> | null
+  where?: Prisma.IntroductionQueueEntryWhereInput
+  orderBy?: Prisma.IntroductionQueueEntryOrderByWithRelationInput | Prisma.IntroductionQueueEntryOrderByWithRelationInput[]
+  cursor?: Prisma.IntroductionQueueEntryWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.IntroductionQueueEntryScalarFieldEnum | Prisma.IntroductionQueueEntryScalarFieldEnum[]
 }
 
 /**

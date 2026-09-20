@@ -900,7 +900,7 @@ suite("custom practice sessions", () => {
       data: { firstIntroducedAt: new Date("2026-06-01T12:00:00.000Z") },
     });
     const skippedExercise = await createChoiceExercise({ prisma, userId, skillId: skippedSkill.id });
-    const blockedExercise = await createChoiceExercise({ prisma, userId, skillId: blockedSkill.id });
+    await createChoiceExercise({ prisma, userId, skillId: blockedSkill.id });
     const replacementExercise = await createChoiceExercise({ prisma, userId, skillId: replacementSkill.id });
 
     const created = await createCustomPracticeSession({
@@ -918,7 +918,7 @@ suite("custom practice sessions", () => {
     });
     if (created.status !== "ready") throw new Error("expected daily-limit replacement plan");
     expect(created.session.plan.map((item) => item.exerciseId)).toEqual(
-      expect.arrayContaining([skippedExercise.id, blockedExercise.id]),
+      expect.arrayContaining([skippedExercise.id, replacementExercise.id]),
     );
     await prisma.exercise.update({
       where: { id: skippedExercise.id },
@@ -933,7 +933,7 @@ suite("custom practice sessions", () => {
     expect(ready.status).toBe("ready");
     if (ready.status !== "ready") throw new Error("expected introduced replacement before limit");
     expect(ready.exercise.id).toBe(replacementExercise.id);
-    expect(ready.session.plan.some((item) => item.status === "SKIPPED")).toBe(false);
+    expect(ready.session.plan.some((item) => item.status === "SKIPPED")).toBe(true);
 
     const committed = await commitCustomPracticeAnswer({
       userId,

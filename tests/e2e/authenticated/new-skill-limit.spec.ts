@@ -45,6 +45,24 @@ for (const width of [1280, 390]) {
       await expect(unlimited).toBeChecked();
       await expect(limit).toHaveValue("Unlimited");
       await expect(limit).toHaveAttribute("readonly", "");
+      await expect(limit).toBeDisabled();
+      await expect(limit).toHaveCSS("cursor", "not-allowed");
+      await expect(limit).toHaveCSS("background-color", "rgb(245, 247, 251)");
+      await expect(
+        page
+          .locator(".mantine-Checkbox-root")
+          .filter({ has: unlimited })
+          .locator(".mantine-Checkbox-body"),
+      ).toHaveCSS("align-items", "center");
+      expect(
+        await page.locator(".openWaterBackground").evaluate((element) =>
+          Math.round(element.getBoundingClientRect().width),
+        ),
+      ).toBe(width);
+      await expect(page.locator(".openWaterBackground path").nth(1)).toHaveAttribute(
+        "d",
+        "M0 680 Q 145 725 290 680 T 580 680 V1600 H0 Z",
+      );
       await unlimited.uncheck();
       await limit.fill("0");
       await page.getByText("Advanced practice settings", { exact: true }).click();

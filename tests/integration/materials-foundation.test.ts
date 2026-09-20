@@ -292,7 +292,7 @@ describeDatabase("persistent material foundation", () => {
     if (exported.status !== "ready") {
       throw new Error("expected a ready export");
     }
-    expect(exported.export.exportVersion).toBe(6);
+    expect(exported.export.exportVersion).toBe(7);
     expect(exported.export.studyMaterials.map((entry) => entry.id)).toContain(material.id);
     expect(exported.export.materialRevisions).toEqual(
       expect.arrayContaining([
