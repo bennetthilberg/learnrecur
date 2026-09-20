@@ -41,17 +41,26 @@ Steps:
 7. Configure the production SQS queue URL and a scoped AWS publishing identity.
 8. Confirm authenticated `/api/readiness` can probe the matching production queue.
 
-### 3. Create the Neon production database
+### 3. Configure the Heroku production database
+
+The current production database is the Heroku Postgres database documented in
+[the Heroku hosting and migration record](heroku-postgres-migration.md). The
+older Neon project remains a read-only rollback target; do not create a new
+Neon production database for the current release.
 
 Steps:
 
-1. Create a Neon production project.
-2. Create the production database.
-3. Copy the pooled connection string to Vercel as `DATABASE_URL`.
-4. Copy the direct connection string to Vercel as `DIRECT_URL`.
-5. Confirm backups or point-in-time restore are enabled for your plan.
-6. Configure billing and storage alerts.
-7. Before app traffic, run production migrations:
+1. Confirm the `learnrecur-db` Heroku Postgres database and its Essential-0
+   plan are present.
+2. Confirm Heroku backups and continuous protection are enabled.
+3. Retrieve the current URL with `heroku config:get DATABASE_URL --app
+   learnrecur-db` into a mode-0600 local file; do not print or commit it.
+4. Set Vercel production `DATABASE_URL` and `DIRECT_URL` to matching URLs for
+   that same Heroku database.
+5. Configure billing and storage alerts.
+6. Production-target Vercel builds run tracked migrations before building the
+   application. For a controlled manual repair, run the same command from the
+   exact release checkout:
 
 ```bash
 npm ci
@@ -60,7 +69,18 @@ npm run prisma:generate
 npm run prisma:deploy
 ```
 
-Only run `prisma:deploy` from one controlled place for a release.
+Production-target builds require a nonblank `DIRECT_URL` and complete the full
+prebuild before touching the database. That phase validates every required
+production-tier variable and
+exports any requested AWS worker configuration; the dedicated staging project
+uses its tier-aware checks instead of production queue rules. After migrations,
+the release invokes Next directly so those fallible prebuild actions do not run
+twice. `prisma:deploy` loads local environment files for controlled operator
+runs, allows a manual `DATABASE_URL` fallback when `DIRECT_URL` is absent,
+enforces verified TLS, and uses the checked-in AWS RDS regional trust bundle for
+Heroku. Preview and development Vercel builds skip hosted migrations.
+Do not add another release-time migration runner; Prisma's advisory lock is a
+last line of defense, not a substitute for one clear deployment path.
 
 ### 4. Create the Clerk production instance
 
