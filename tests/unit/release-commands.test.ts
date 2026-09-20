@@ -28,13 +28,25 @@ describe("release commands", () => {
     },
   );
 
-  it("falls back to DATABASE_URL when DIRECT_URL is blank", () => {
+  it("falls back to DATABASE_URL only for an explicitly manual migration", () => {
     expect(
       getMigrationConnectionUrl({
         DIRECT_URL: "  ",
         DATABASE_URL: " postgres://runtime:secret@localhost:5432/app ",
-      }),
+      }, "manual"),
     ).toBe("postgres://runtime:secret@localhost:5432/app");
+  });
+
+  it("requires DIRECT_URL for hosted migrations when it is blank", () => {
+    expect(
+      getMigrationConnectionUrl(
+        {
+          DIRECT_URL: "  ",
+          DATABASE_URL: " postgres://runtime:secret@localhost:5432/app ",
+        },
+        "vercel",
+      ),
+    ).toBeUndefined();
   });
 
   it("prefers a non-blank DIRECT_URL for migrations", () => {
@@ -42,7 +54,7 @@ describe("release commands", () => {
       getMigrationConnectionUrl({
         DIRECT_URL: " postgres://migrate:secret@localhost:5432/app ",
         DATABASE_URL: "postgres://runtime:secret@localhost:5432/app",
-      }),
+      }, "vercel"),
     ).toBe("postgres://migrate:secret@localhost:5432/app");
   });
 
@@ -69,6 +81,21 @@ describe("release commands", () => {
 
     expect(result.searchParams.get("sslmode")).toBe("verify-full");
     expect(result.searchParams.has("sslrootcert")).toBe(false);
+  });
+
+  it.each([
+    "ec2-52-19-101-86.us-east-1.compute.amazonaws.com",
+    "ec2-52-19-101-86.compute-1.amazonaws.com",
+  ])("uses the AWS RDS bundle for production Heroku PostgreSQL host %s", (host) => {
+    const result = new URL(
+      buildMigrationConnectionUrl(
+        `postgres://user:password@${host}/app?sslmode=require`,
+        "/tmp/heroku-rds-ca.pem",
+      ),
+    );
+
+    expect(result.searchParams.get("sslmode")).toBe("verify-full");
+    expect(result.searchParams.get("sslrootcert")).toBe("/tmp/heroku-rds-ca.pem");
   });
 
   it("preserves explicitly unencrypted loopback connections for CI", () => {

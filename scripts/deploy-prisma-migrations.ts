@@ -14,9 +14,14 @@ async function main() {
   loadEnv({ path: ".env.local", quiet: true });
   loadEnv({ path: ".env", quiet: true });
 
-  const connectionUrl = getMigrationConnectionUrl(process.env);
+  const source = process.env.VERCEL_ENV ? "vercel" : "manual";
+  const connectionUrl = getMigrationConnectionUrl(process.env, source);
   if (!connectionUrl) {
-    throw new Error("DIRECT_URL or DATABASE_URL is required to deploy migrations.");
+    throw new Error(
+      source === "vercel"
+        ? "DIRECT_URL is required for hosted migrations."
+        : "DIRECT_URL or DATABASE_URL is required to deploy migrations.",
+    );
   }
 
   const temporaryDirectory = await mkdtemp(join(tmpdir(), "learnrecur-prisma-"));

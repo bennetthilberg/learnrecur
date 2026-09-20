@@ -37,9 +37,10 @@ race tests need independent blocker, waiter and observer connections.
 Remote connections require certificate and hostname verification. The checked-in
 public trust bundle, `src/lib/rds-us-east-1-ca.json`, comes from
 https://truststore.pki.rds.amazonaws.com/us-east-1/us-east-1-bundle.pem
-(retrieved 2026-09-17). Only `*.us-east-1.rds.amazonaws.com` hosts use that bundle;
-other hosts use system roots. Local disposable databases can use unencrypted
-loopback connections. Do not work around certificate failures with
+(retrieved 2026-09-17). Production Heroku Postgres hosts in US East 1 and
+`*.us-east-1.rds.amazonaws.com` hosts use that bundle; other hosts use system
+roots. Local disposable databases can use unencrypted loopback connections. Do
+not work around certificate failures with
 `rejectUnauthorized: false`. Refresh the official regional bundle when AWS
 rotates its certificate authorities, and verify both a real connection and the
 connection-config unit tests.

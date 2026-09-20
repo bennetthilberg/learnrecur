@@ -2,12 +2,16 @@ const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
 const INSECURE_SSL_MODES = new Set(["disable", "no-verify"]);
 const POSTGRES_PROTOCOLS = new Set(["postgres:", "postgresql:"]);
 const RDS_US_EAST_1_SUFFIX = ".us-east-1.rds.amazonaws.com";
+const HEROKU_US_EAST_1_HOST =
+  /^ec2-(?:\d+-){3}\d+(?:\.us-east-1\.compute|\.compute-1)\.amazonaws\.com$/;
 
 export type ReleaseCommand = Readonly<{
   label: string;
   command: "npm";
   args: readonly string[];
 }>;
+
+export type MigrationConnectionSource = "manual" | "vercel";
 
 export function getVercelBuildSteps(environment: string | undefined): ReleaseCommand[] {
   const build: ReleaseCommand = {
@@ -41,10 +45,13 @@ export function getVercelBuildSteps(environment: string | undefined): ReleaseCom
 
 export function getMigrationConnectionUrl(
   environment: Readonly<Record<string, string | undefined>>,
+  source: MigrationConnectionSource,
 ): string | undefined {
-  return [environment.DIRECT_URL, environment.DATABASE_URL]
-    .map((value) => value?.trim())
-    .find((value): value is string => Boolean(value));
+  const directUrl = environment.DIRECT_URL?.trim();
+  if (directUrl) return directUrl;
+  if (source !== "manual") return undefined;
+  const databaseUrl = environment.DATABASE_URL?.trim();
+  return databaseUrl || undefined;
 }
 
 export function buildMigrationConnectionUrl(
@@ -70,7 +77,10 @@ export function buildMigrationConnectionUrl(
   }
   url.searchParams.set("sslmode", "verify-full");
 
-  if (url.hostname.endsWith(RDS_US_EAST_1_SUFFIX)) {
+  if (
+    url.hostname.endsWith(RDS_US_EAST_1_SUFFIX) ||
+    HEROKU_US_EAST_1_HOST.test(url.hostname)
+  ) {
     url.searchParams.set("sslrootcert", rootCertificatePath);
   }
 
