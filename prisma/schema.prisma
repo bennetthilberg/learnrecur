@@ -1438,7 +1438,7 @@ model AgentSkillOperationItem {
   @@unique([operationId, clientReference])
   @@index([userId, status, createdAt])
   @@index([userId, status, workerClaimedAt])
-  @@index([status, workerClaimedAt, updatedAt])
+  @@index([status, workerClaimedAt, updatedAt], map: "agent_skill_items_status_claimed_updated_idx")
   @@index([resultSkillId])
   @@map("agent_skill_operation_items")
 }

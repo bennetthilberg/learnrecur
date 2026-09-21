@@ -6,5 +6,5 @@ ALTER TABLE "agent_skill_operation_items"
 CREATE INDEX CONCURRENTLY "agent_skill_operation_items_userId_status_workerClaimedAt_idx"
   ON "agent_skill_operation_items"("userId", "status", "workerClaimedAt");
 
-CREATE INDEX CONCURRENTLY "agent_skill_operation_items_status_workerClaimedAt_updatedAt_idx"
+CREATE INDEX CONCURRENTLY "agent_skill_items_status_claimed_updated_idx"
   ON "agent_skill_operation_items"("status", "workerClaimedAt", "updatedAt");

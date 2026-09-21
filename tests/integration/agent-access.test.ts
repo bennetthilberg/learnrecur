@@ -809,6 +809,59 @@ describeDatabase("agent access persistence", () => {
     ).resolves.toMatchObject({ status: AgentOperationStatus.SUCCEEDED, activeCount: 1 });
   });
 
+  it("does not reopen a stale child of a terminal operation", async () => {
+    const fixture = await createConnection("terminal-recovery");
+    const claimedAt = new Date("2026-08-13T13:45:00.000Z");
+    const skill = await prisma.skill.create({
+      data: {
+        userId: fixture.userId,
+        title: "Terminal recovery draft",
+        objective: "Keep terminal operations closed during stale recovery.",
+        status: SkillStatus.DRAFT,
+      },
+    });
+    const operation = await prisma.agentSkillOperation.create({
+      data: {
+        userId: fixture.userId,
+        connectionId: fixture.connection.id,
+        kind: AgentOperationKind.SPEC_BATCH,
+        toolName: "skills.add_from_specs",
+        status: AgentOperationStatus.FAILED,
+        idempotencyKey: `terminal-recovery-${runId}`,
+        payloadHash: "terminal".repeat(8),
+        requestedCount: 1,
+        items: {
+          create: {
+            ordinal: 0,
+            clientReference: "terminal-recovery-item",
+            status: AgentOperationItemStatus.ACTIVATING,
+            createdSkillId: skill.id,
+            workerClaimToken: "terminal-worker-token",
+            workerClaimedAt: claimedAt,
+            updatedAt: claimedAt,
+          },
+        },
+      },
+      include: { items: true },
+    });
+
+    vi.mocked(sendAgentSkillOperationRequested).mockClear();
+    await expect(
+      recoverStaleAgentOperationItems({
+        userId: fixture.userId,
+        operationId: operation.id,
+        now: new Date("2026-08-13T14:00:00.000Z"),
+      }),
+    ).resolves.toMatchObject({ scanned: 0, continuations: 0 });
+    await expect(
+      prisma.agentSkillOperationItem.findUniqueOrThrow({ where: { id: operation.items[0].id } }),
+    ).resolves.toMatchObject({
+      status: AgentOperationItemStatus.ACTIVATING,
+      workerClaimToken: "terminal-worker-token",
+    });
+    expect(sendAgentSkillOperationRequested).not.toHaveBeenCalled();
+  });
+
   it("serializes active-skill reservations at the shared account limit", async () => {
     const fixture = await createConnection("quota");
     await prisma.skill.createMany({

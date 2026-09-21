@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import {
   AgentOperationItemStatus,
   AgentOperationKind,
+  AgentOperationStatus,
   GenerationFailureCategory,
   GenerationJobKind,
   GenerationJobStage,
@@ -44,6 +45,12 @@ const STALE_RECOVERY_MESSAGE =
   "The activation worker stopped before completion. The item was returned to the queue.";
 const STALE_GENERATION_MESSAGE =
   "The activation worker lease expired before completion. The generation attempt can be retried.";
+const TERMINAL_OPERATION_STATUSES = [
+  AgentOperationStatus.SUCCEEDED,
+  AgentOperationStatus.PARTIAL,
+  AgentOperationStatus.FAILED,
+  AgentOperationStatus.CANCELED,
+] as const;
 
 function readObject(value: Prisma.JsonValue | null): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -81,7 +88,10 @@ export async function recoverStaleAgentOperationItems(input: {
     where: {
       ...(input.userId ? { userId: input.userId } : {}),
       ...(input.operationId ? { operationId: input.operationId } : {}),
-      operation: { kind: { in: [...RECOVERABLE_OPERATION_KINDS] } },
+      operation: {
+        kind: { in: [...RECOVERABLE_OPERATION_KINDS] },
+        status: { notIn: [...TERMINAL_OPERATION_STATUSES] },
+      },
       OR: [
         {
           status: { in: [...IN_FLIGHT_ITEM_STATUSES] },
@@ -152,7 +162,10 @@ export async function recoverStaleAgentOperationItems(input: {
       ...(input.operationId ? { operationId: input.operationId } : {}),
       status: AgentOperationItemStatus.QUEUED,
       errorCode: STALE_RECOVERY_ERROR,
-      operation: { kind: { in: [...RECOVERABLE_OPERATION_KINDS] } },
+      operation: {
+        kind: { in: [...RECOVERABLE_OPERATION_KINDS] },
+        status: { notIn: [...TERMINAL_OPERATION_STATUSES] },
+      },
     },
     orderBy: { updatedAt: "asc" },
     take: Math.min(input.limit ?? RECOVERY_BATCH_LIMIT, RECOVERY_BATCH_LIMIT),
@@ -168,6 +181,15 @@ export async function recoverStaleAgentOperationItems(input: {
   }
 
   for (const owner of continuationOwners.values()) {
+    const operation = await prisma.agentSkillOperation.findFirst({
+      where: {
+        id: owner.operationId,
+        userId: owner.userId,
+        status: { notIn: [...TERMINAL_OPERATION_STATUSES] },
+      },
+      select: { id: true },
+    });
+    if (!operation) continue;
     await reconcileAgentOperation({
       operationId: owner.operationId,
       userId: owner.userId,
@@ -203,6 +225,7 @@ async function recoverCandidate(input: {
   const claimWhere: Prisma.AgentSkillOperationItemWhereInput = {
     id: input.candidate.id,
     userId: input.candidate.userId,
+    operation: { status: { notIn: [...TERMINAL_OPERATION_STATUSES] } },
     ...(isLegacyCandidate
       ? { status: AgentOperationItemStatus.FAILED, errorCode: LEGACY_ACTIVATION_WAIT_ERROR }
       : { status: { in: [...IN_FLIGHT_ITEM_STATUSES] } }),
@@ -463,6 +486,7 @@ async function recoverCandidate(input: {
       where: {
         id: input.candidate.id,
         userId: input.candidate.userId,
+        operation: { status: { notIn: [...TERMINAL_OPERATION_STATUSES] } },
         workerClaimToken: recoveryToken,
         retryCount: retryExhausted
           ? { gte: AGENT_OPERATION_ITEM_RETRY_LIMIT - 1 }
@@ -524,6 +548,7 @@ async function promoteLegacyActivationWait(input: {
     where: {
       id: input.itemId,
       userId: input.userId,
+      operation: { status: { notIn: [...TERMINAL_OPERATION_STATUSES] } },
       workerClaimToken: input.recoveryToken,
       status: AgentOperationItemStatus.FAILED,
       errorCode: LEGACY_ACTIVATION_WAIT_ERROR,
@@ -551,6 +576,7 @@ async function finalizePublishedItem(input: {
     where: {
       id: input.itemId,
       userId: input.userId,
+      operation: { status: { notIn: [...TERMINAL_OPERATION_STATUSES] } },
       workerClaimToken: input.recoveryToken,
       OR: [
         { status: { in: [...IN_FLIGHT_ITEM_STATUSES] } },
