@@ -33,6 +33,7 @@ import {
 } from "@/lib/agent-access/operations";
 import { reconcileAgentOperation } from "@/lib/agent-access/reconciliation";
 import {
+  AGENT_OPERATION_ITEM_RETRY_LIMIT,
   AGENT_OPERATION_SOFT_DEADLINE_MS,
   shouldDeferAgentOperation,
 } from "@/lib/agent-access/recovery-policy";
@@ -264,7 +265,6 @@ export async function runAgentSkillOperationJob(input: {
       await releaseClaimForRetry({ itemId, userId: input.userId, now, claimToken });
     }
     await reconcileAgentOperation({ operationId: operation.id, userId: input.userId, now });
-    await queueAgentOperationContinuation(operation.id, input.userId);
     throw new AgentSkillWorkerError(
       error instanceof Error ? error.message : "Agent skill processing failed.",
       true,
@@ -350,12 +350,35 @@ async function releaseClaimForRetry(input: {
   claimToken: string;
   now: Date;
 }) {
-  await getPrisma().agentSkillOperationItem.updateMany({
+  const prisma = getPrisma();
+  const where = {
+    id: input.itemId,
+    userId: input.userId,
+    workerClaimToken: input.claimToken,
+    status: { in: [...CLAIMED_ITEM_STATUSES] },
+  } satisfies Prisma.AgentSkillOperationItemWhereInput;
+  const exhausted = await prisma.agentSkillOperationItem.updateMany({
     where: {
-      id: input.itemId,
-      userId: input.userId,
-      workerClaimToken: input.claimToken,
-      status: { in: [...CLAIMED_ITEM_STATUSES] },
+      ...where,
+      retryCount: { gte: AGENT_OPERATION_ITEM_RETRY_LIMIT - 1 },
+    },
+    data: {
+      status: AgentOperationItemStatus.FAILED,
+      activationReservedAt: null,
+      errorCode: "TRANSIENT_WORKER_FAILURE",
+      errorMessage:
+        "The worker stopped before the item completed and automatic retries are exhausted. Retry this item manually.",
+      retryCount: { increment: 1 },
+      completedAt: input.now,
+      workerClaimToken: null,
+      workerClaimedAt: null,
+    },
+  });
+  if (exhausted.count === 1) return;
+  await prisma.agentSkillOperationItem.updateMany({
+    where: {
+      ...where,
+      retryCount: { lt: AGENT_OPERATION_ITEM_RETRY_LIMIT - 1 },
     },
     data: {
       status: AgentOperationItemStatus.QUEUED,

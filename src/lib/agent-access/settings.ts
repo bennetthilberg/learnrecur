@@ -531,6 +531,7 @@ export async function runAgentAccessMaintenance(now: Date) {
   const prisma = getPrisma();
   const uploadCutoff = new Date(now.getTime() - AGENT_UPLOAD_WINDOW_MS);
   let refillRecoveryFailed = false;
+  let activationRecoveryFailed = false;
   const [purged, rateBuckets, pending, expiredUploads, refillEvents, activationRecovery] = await Promise.all([
     prisma.agentSkillOperation.updateMany({
       where: { payloadExpiresAt: { lte: now }, requestPayload: { not: Prisma.DbNull } },
@@ -573,7 +574,21 @@ export async function runAgentAccessMaintenance(now: Date) {
       });
       return { attempted: 0, delivered: 0, failed: 1 };
     }),
-    recoverStaleAgentOperationItems({ now }),
+    recoverStaleAgentOperationItems({ now }).catch((error: unknown) => {
+      activationRecoveryFailed = true;
+      console.error("[agent-access] activation item recovery failed during maintenance", {
+        errorName: error instanceof Error ? error.name : "UnknownError",
+      });
+      return {
+        scanned: 0,
+        requeued: 0,
+        finalized: 0,
+        waiting: 0,
+        unchanged: 0,
+        legacyPromoted: 0,
+        continuations: 0,
+      };
+    }),
   ]);
   let expiredUploadOperations = 0;
   for (const operation of expiredUploads) {
@@ -633,9 +648,13 @@ export async function runAgentAccessMaintenance(now: Date) {
     activationLegacyItemsPromoted: activationRecovery.legacyPromoted,
     activationContinuations: activationRecovery.continuations,
   };
-  if (refillRecoveryFailed) {
+  if (refillRecoveryFailed || activationRecoveryFailed) {
+    const failures = [
+      ...(refillRecoveryFailed ? ["refill events"] : []),
+      ...(activationRecoveryFailed ? ["activation items"] : []),
+    ];
     const retryableError = new Error(
-      "Agent access maintenance could not recover refill events.",
+      `Agent access maintenance could not recover ${failures.join(" and ")}.`,
     );
     Object.assign(retryableError, { retryable: true });
     throw retryableError;

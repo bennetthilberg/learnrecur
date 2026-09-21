@@ -10,12 +10,15 @@ import {
   GenerationJobStage,
   GenerationJobStatus,
   Prisma,
+  SkillDraftBatchItemStatus,
   SkillStatus,
 } from "@/generated/prisma/client";
 import { sendAgentSkillOperationRequested } from "@/lib/jobs/events";
+import { reconcileMaterialDraftBatch } from "@/lib/materials/batches";
 import { getPrisma } from "@/lib/prisma";
 import {
   AGENT_OPERATION_STALE_AFTER_MS,
+  AGENT_OPERATION_ITEM_RETRY_LIMIT,
   isAgentOperationClaimStale,
 } from "./recovery-policy";
 import { reconcileAgentOperation } from "./reconciliation";
@@ -24,6 +27,7 @@ const RECOVERY_BATCH_LIMIT = 25;
 const RECOVERABLE_OPERATION_KINDS = [
   AgentOperationKind.SPEC_BATCH,
   AgentOperationKind.TEXT_SOURCE,
+  AgentOperationKind.MATERIAL_BATCH,
   AgentOperationKind.QUICK_FILES,
 ] as const;
 const IN_FLIGHT_ITEM_STATUSES = [
@@ -41,16 +45,26 @@ const STALE_RECOVERY_MESSAGE =
 const STALE_GENERATION_MESSAGE =
   "The activation worker lease expired before completion. The generation attempt can be retried.";
 
+function readObject(value: Prisma.JsonValue | null): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
 type RecoveryCandidate = {
   id: string;
   userId: string;
   operationId: string;
+  operationKind: AgentOperationKind;
+  operationRequestPayload: Prisma.JsonValue | null;
+  ordinal: number;
   status: AgentOperationItemStatus;
   workerClaimToken: string | null;
   workerClaimedAt: Date | null;
   updatedAt: Date;
   createdSkillId: string | null;
   resultSkillId: string | null;
+  retryCount: number;
 };
 
 type RecoveryResult = "requeued" | "finalized" | "waiting" | "promoted" | "unchanged";
@@ -63,7 +77,7 @@ export async function recoverStaleAgentOperationItems(input: {
 }) {
   const prisma = getPrisma();
   const staleBefore = new Date(input.now.getTime() - AGENT_OPERATION_STALE_AFTER_MS);
-  const candidates = await prisma.agentSkillOperationItem.findMany({
+  const rawCandidates = await prisma.agentSkillOperationItem.findMany({
     where: {
       ...(input.userId ? { userId: input.userId } : {}),
       ...(input.operationId ? { operationId: input.operationId } : {}),
@@ -95,8 +109,16 @@ export async function recoverStaleAgentOperationItems(input: {
       updatedAt: true,
       createdSkillId: true,
       resultSkillId: true,
+      retryCount: true,
+      ordinal: true,
+      operation: { select: { kind: true, requestPayload: true } },
     },
   });
+  const candidates: RecoveryCandidate[] = rawCandidates.map(({ operation, ...candidate }) => ({
+    ...candidate,
+    operationKind: operation.kind,
+    operationRequestPayload: operation.requestPayload,
+  }));
 
   const changedOperations = new Set<string>();
   const counts = {
@@ -124,25 +146,44 @@ export async function recoverStaleAgentOperationItems(input: {
     }
   }
 
+  const queuedRecoveryItems = await prisma.agentSkillOperationItem.findMany({
+    where: {
+      ...(input.userId ? { userId: input.userId } : {}),
+      ...(input.operationId ? { operationId: input.operationId } : {}),
+      status: AgentOperationItemStatus.QUEUED,
+      errorCode: STALE_RECOVERY_ERROR,
+      operation: { kind: { in: [...RECOVERABLE_OPERATION_KINDS] } },
+    },
+    orderBy: { updatedAt: "asc" },
+    take: Math.min(input.limit ?? RECOVERY_BATCH_LIMIT, RECOVERY_BATCH_LIMIT),
+    select: { id: true, operationId: true, userId: true },
+  });
+  const continuationOwners = new Map<string, { operationId: string; userId: string }>();
   for (const operationId of changedOperations) {
     const candidate = candidates.find((item) => item.operationId === operationId);
-    if (!candidate) continue;
+    if (candidate) continuationOwners.set(operationId, candidate);
+  }
+  for (const item of queuedRecoveryItems) {
+    continuationOwners.set(item.operationId, item);
+  }
+
+  for (const owner of continuationOwners.values()) {
     await reconcileAgentOperation({
-      operationId,
-      userId: candidate.userId,
+      operationId: owner.operationId,
+      userId: owner.userId,
       now: input.now,
     });
     const queued = await prisma.agentSkillOperationItem.count({
       where: {
-        operationId,
-        userId: candidate.userId,
+        operationId: owner.operationId,
+        userId: owner.userId,
         status: AgentOperationItemStatus.QUEUED,
       },
     });
     if (queued > 0) {
       await sendAgentSkillOperationRequested({
-        userId: candidate.userId,
-        operationId,
+        userId: owner.userId,
+        operationId: owner.operationId,
         requestedAt: input.now.toISOString(),
       });
       counts.continuations += 1;
@@ -335,28 +376,142 @@ async function recoverCandidate(input: {
     });
   }
 
-  const requeued = await prisma.agentSkillOperationItem.updateMany({
-    where: {
-      id: input.candidate.id,
-      userId: input.candidate.userId,
-      workerClaimToken: recoveryToken,
-      OR: [
-        { status: { in: [...IN_FLIGHT_ITEM_STATUSES] } },
-        { status: AgentOperationItemStatus.FAILED, errorCode: LEGACY_ACTIVATION_WAIT_ERROR },
-      ],
-    },
-    data: {
-      status: AgentOperationItemStatus.QUEUED,
-      activationReservedAt: null,
-      errorCode: STALE_RECOVERY_ERROR,
-      errorMessage: STALE_RECOVERY_MESSAGE,
-      retryCount: { increment: 1 },
-      completedAt: null,
-      workerClaimToken: null,
-      workerClaimedAt: null,
-    },
+  const retryExhausted =
+    input.candidate.retryCount + 1 >= AGENT_OPERATION_ITEM_RETRY_LIMIT;
+  const staleBefore = new Date(input.now.getTime() - AGENT_OPERATION_STALE_AFTER_MS);
+  const recovery = await prisma.$transaction(async (tx) => {
+    const payload = readObject(input.candidate.operationRequestPayload);
+    const materialBatchId =
+      input.candidate.operationKind === AgentOperationKind.MATERIAL_BATCH &&
+      typeof payload.materialBatchId === "string"
+        ? payload.materialBatchId
+        : null;
+    let synchronizedMaterialBatchId: string | null = null;
+    let linkedMaterialSkillId: string | null = null;
+    if (materialBatchId) {
+      const materialItem = await tx.skillDraftBatchItem.findFirst({
+        where: {
+          batchId: materialBatchId,
+          userId: input.candidate.userId,
+          ordinal: input.candidate.ordinal,
+        },
+        select: { id: true, status: true, updatedAt: true, skillId: true },
+      });
+      if (
+        materialItem?.status === SkillDraftBatchItemStatus.GENERATING &&
+        materialItem.updatedAt > staleBefore
+      ) {
+        return { count: 0, freshMaterialGeneration: true, synchronizedMaterialBatchId: null };
+      }
+      if (materialItem?.status === SkillDraftBatchItemStatus.GENERATING) {
+        const synchronized = await tx.skillDraftBatchItem.updateMany({
+          where: {
+            id: materialItem.id,
+            userId: input.candidate.userId,
+            status: SkillDraftBatchItemStatus.GENERATING,
+            updatedAt: materialItem.updatedAt,
+          },
+          data: retryExhausted
+            ? {
+                status: SkillDraftBatchItemStatus.FAILED,
+                generationClaimId: null,
+                errorCode: "STALE_GENERATION_CLAIM",
+                errorMessage: "Draft generation stopped before it finished. Retry this item.",
+              }
+            : {
+                status: SkillDraftBatchItemStatus.PLANNED,
+                generationClaimId: null,
+                errorCode: null,
+                errorMessage: null,
+              },
+        });
+        if (synchronized.count === 0) {
+          return { count: 0, freshMaterialGeneration: true, synchronizedMaterialBatchId: null };
+        }
+        synchronizedMaterialBatchId = materialBatchId;
+      } else if (materialItem?.status === SkillDraftBatchItemStatus.READY) {
+        if (materialItem.skillId) {
+          // The worker can be terminated after material generation commits but
+          // before it copies the generated draft id onto the agent item.
+          // Preserve that durable result so the next delivery activates it
+          // instead of trying to generate the material item again.
+          linkedMaterialSkillId = materialItem.skillId;
+        } else {
+          const reset = await tx.skillDraftBatchItem.updateMany({
+            where: {
+              id: materialItem.id,
+              userId: input.candidate.userId,
+              status: SkillDraftBatchItemStatus.READY,
+              updatedAt: materialItem.updatedAt,
+            },
+            data: {
+              status: SkillDraftBatchItemStatus.PLANNED,
+              generationClaimId: null,
+              errorCode: null,
+              errorMessage: null,
+            },
+          });
+          if (reset.count === 0) {
+            return { count: 0, freshMaterialGeneration: true, synchronizedMaterialBatchId: null };
+          }
+          synchronizedMaterialBatchId = materialBatchId;
+        }
+      }
+    }
+
+    const updated = await tx.agentSkillOperationItem.updateMany({
+      where: {
+        id: input.candidate.id,
+        userId: input.candidate.userId,
+        workerClaimToken: recoveryToken,
+        retryCount: retryExhausted
+          ? { gte: AGENT_OPERATION_ITEM_RETRY_LIMIT - 1 }
+          : { lt: AGENT_OPERATION_ITEM_RETRY_LIMIT - 1 },
+        OR: [
+          { status: { in: [...IN_FLIGHT_ITEM_STATUSES] } },
+          { status: AgentOperationItemStatus.FAILED, errorCode: LEGACY_ACTIVATION_WAIT_ERROR },
+        ],
+      },
+      data: {
+        status: retryExhausted
+          ? AgentOperationItemStatus.FAILED
+          : AgentOperationItemStatus.QUEUED,
+        activationReservedAt: null,
+        errorCode: STALE_RECOVERY_ERROR,
+        errorMessage: retryExhausted
+          ? `${STALE_RECOVERY_MESSAGE} Automatic retries are exhausted; retry this item manually.`
+          : STALE_RECOVERY_MESSAGE,
+        retryCount: { increment: 1 },
+        completedAt: retryExhausted ? input.now : null,
+        workerClaimToken: null,
+        workerClaimedAt: null,
+        ...(linkedMaterialSkillId && !input.candidate.createdSkillId
+          ? { createdSkillId: linkedMaterialSkillId }
+          : {}),
+      },
+    });
+    return {
+      count: updated.count,
+      freshMaterialGeneration: false,
+      synchronizedMaterialBatchId: updated.count === 1 ? synchronizedMaterialBatchId : null,
+    };
   });
-  return requeued.count === 1 ? "requeued" : "unchanged";
+  if (recovery.freshMaterialGeneration) {
+    await releaseRecoveryClaim({
+      candidate: input.candidate,
+      recoveryToken,
+      now: input.now,
+    });
+    return "waiting";
+  }
+  if (recovery.synchronizedMaterialBatchId) {
+    await reconcileMaterialDraftBatch({
+      userId: input.candidate.userId,
+      batchId: recovery.synchronizedMaterialBatchId,
+      now: input.now,
+    });
+  }
+  return recovery.count === 1 ? "requeued" : "unchanged";
 }
 
 async function promoteLegacyActivationWait(input: {

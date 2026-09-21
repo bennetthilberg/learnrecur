@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   AGENT_OPERATION_CLEANUP_MARGIN_MS,
+  AGENT_OPERATION_ACTIVATION_RESERVE_MS,
   AGENT_OPERATION_SOFT_DEADLINE_MS,
   AGENT_OPERATION_STALE_AFTER_MS,
   isAgentOperationClaimStale,
@@ -28,7 +29,13 @@ describe("agent activation recovery policy", () => {
     ).toBe(true);
     expect(
       shouldDeferAgentOperation(
-        new Date(now.getTime() + AGENT_OPERATION_CLEANUP_MARGIN_MS + 1),
+        new Date(now.getTime() + AGENT_OPERATION_ACTIVATION_RESERVE_MS),
+        now,
+      ),
+    ).toBe(true);
+    expect(
+      shouldDeferAgentOperation(
+        new Date(now.getTime() + AGENT_OPERATION_ACTIVATION_RESERVE_MS + 1),
         now,
       ),
     ).toBe(false);

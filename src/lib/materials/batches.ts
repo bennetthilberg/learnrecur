@@ -78,7 +78,8 @@ import {
 import { getPrisma } from "@/lib/prisma";
 import type { SourceObjectStorage } from "@/lib/storage/s3";
 import {
-  ACTIVATION_GENERATION_TIMEOUT_MS,
+  ACTIVATION_GENERATION_STALE_AFTER_MS,
+  ACTIVATION_STALE_JOB_MESSAGE,
   ACTIVATION_SUPERSEDED_JOB_MESSAGE,
   activateSkillDraft,
   GEMINI_PROVIDER,
@@ -117,6 +118,13 @@ const MATERIAL_DRAFT_CLAIM_STALE_MS = 10 * 60 * 1_000;
 // Only recover a claim after the five-minute function window has elapsed.
 const MATERIAL_BATCH_ACTIVATION_CLAIM_STALE_MS = 5 * 60 * 1_000;
 const MAX_AUTOMATIC_TARGET_REPAIRS = 2;
+
+function isSupersededActivationJobMessage(message: string | null): boolean {
+  return (
+    message === ACTIVATION_SUPERSEDED_JOB_MESSAGE ||
+    message === ACTIVATION_STALE_JOB_MESSAGE
+  );
+}
 
 export class MaterialDraftGenerationError extends Error {
   readonly retryable: boolean;
@@ -2111,7 +2119,7 @@ async function claimMaterialBatchActivationSlot(input: {
     let supersededJobSource: typeof job = null;
     if (
       job?.status === GenerationJobStatus.FAILED &&
-      job.errorMessage === ACTIVATION_SUPERSEDED_JOB_MESSAGE
+      isSupersededActivationJobMessage(job.errorMessage)
     ) {
       supersededJobSource = job;
       job = await tx.generationJob.findFirst({
@@ -2142,7 +2150,7 @@ async function claimMaterialBatchActivationSlot(input: {
       });
       if (
         job?.status === GenerationJobStatus.FAILED &&
-        job.errorMessage === ACTIVATION_SUPERSEDED_JOB_MESSAGE
+        isSupersededActivationJobMessage(job.errorMessage)
       ) {
         supersededJobSource = job;
         job = null;
@@ -3011,7 +3019,7 @@ export async function excludeMaterialDraftItem(input: {
         return { status: "skill-not-draft" as const };
       }
       const activationStaleBefore = new Date(
-        input.now.getTime() - ACTIVATION_GENERATION_TIMEOUT_MS,
+        input.now.getTime() - ACTIVATION_GENERATION_STALE_AFTER_MS,
       );
       const activeActivation = await tx.generationJob.count({
         where: {
