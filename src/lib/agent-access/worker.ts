@@ -1,5 +1,6 @@
 import { practicePreferenceOverrideSchema, textPolicySchema, type PracticePreference, type TextPolicy } from "@/lib/practice/policies";
 import "server-only";
+import { randomUUID } from "node:crypto";
 
 import {
   AgentCandidateStatus,
@@ -29,8 +30,12 @@ import {
 import { getSkillActivationUsage } from "@/lib/usage-limits";
 import {
   enqueueOperation,
-  reduceAgentOperationStatus,
 } from "@/lib/agent-access/operations";
+import { reconcileAgentOperation } from "@/lib/agent-access/reconciliation";
+import {
+  AGENT_OPERATION_SOFT_DEADLINE_MS,
+  shouldDeferAgentOperation,
+} from "@/lib/agent-access/recovery-policy";
 import { completeSourceUploadDrafts } from "@/lib/skills/uploads";
 import {
   confirmMaterialPlan,
@@ -88,20 +93,26 @@ export function classifyAgentDuplicate(match: SkillSimilarityMatch | null) {
 
 export function selectAgentOperationItemsForDelivery<
   T extends { status: AgentOperationItemStatus },
->(items: readonly T[]): T[] {
+>(items: readonly T[], operationKind: AgentOperationKind = AgentOperationKind.SPEC_BATCH): T[] {
+  const limit = operationKind === AgentOperationKind.MATERIAL_BATCH
+    ? MAX_INLINE_OPERATION_ITEMS_PER_DELIVERY
+    : 1;
   return items
     .filter((item) => item.status === AgentOperationItemStatus.QUEUED)
-    .slice(0, MAX_INLINE_OPERATION_ITEMS_PER_DELIVERY);
+    .slice(0, limit);
 }
 
 export async function runAgentSkillOperationJob(input: {
   userId: string;
   operationId: string;
   now?: Date;
+  deadlineAt?: Date;
 }) {
   const prisma = getPrisma();
   const now = input.now ?? new Date();
-  let operation = await prisma.agentSkillOperation.findFirst({
+  const deadlineAt = input.deadlineAt ?? new Date(now.getTime() + AGENT_OPERATION_SOFT_DEADLINE_MS);
+  const clock = input.now ? () => now : () => new Date();
+  const operation = await prisma.agentSkillOperation.findFirst({
     where: { id: input.operationId, userId: input.userId },
     include: AGENT_OPERATION_INCLUDE,
   });
@@ -122,62 +133,34 @@ export async function runAgentSkillOperationJob(input: {
     return { status: "delegated" as const, operationId: operation.id };
   }
 
-  const reclaimed = await prisma.agentSkillOperationItem.updateMany({
-    where: {
-      operationId: operation.id,
-      userId: input.userId,
-      status: {
-        in: [
-          AgentOperationItemStatus.GENERATING,
-          AgentOperationItemStatus.VERIFYING,
-          AgentOperationItemStatus.ACTIVATING,
-        ],
-      },
-    },
-    data: {
-      status: AgentOperationItemStatus.QUEUED,
-      activationReservedAt: null,
-      errorCode: "TRANSIENT_WORKER_FAILURE",
-    },
-  });
-  if (reclaimed.count > 0) {
-    await prisma.agentSkillOperation.update({
-      where: { id: operation.id },
-      data: {
-        status: AgentOperationStatus.QUEUED,
-        errorCode: null,
-        errorMessage: null,
-        completedAt: null,
-      },
-    });
-    operation = await prisma.agentSkillOperation.findFirst({
-      where: { id: input.operationId, userId: input.userId },
-      include: AGENT_OPERATION_INCLUDE,
-    });
-    if (!operation) return { status: "not-found" as const };
-  }
-
   await prisma.agentSkillOperation.update({
     where: { id: operation.id },
     data: { startedAt: operation.startedAt ?? now },
   });
 
+  const claims = new Map<string, string>();
   try {
   if (operation.kind === AgentOperationKind.MATERIAL_BATCH) {
-    const shouldReconcile = await processMaterialOperation({ operation, now });
+    const shouldReconcile = await processMaterialOperation({
+      operation,
+      now,
+      deadlineAt,
+      clock,
+      claims,
+    });
     if (shouldReconcile) {
-      await reconcileAgentOperation(operation.id, input.userId, now);
+      await reconcileAgentOperation({ operationId: operation.id, userId: input.userId, now });
       await queueAgentOperationContinuation(operation.id, input.userId);
     }
     return { status: "processed" as const, operationId: operation.id };
   }
 
   if (operation.kind === AgentOperationKind.QUICK_FILES) {
-    await processFileOperation({ operation, now });
+    await processFileOperation({ operation, now, deadlineAt, clock, claims });
   } else if (operation.kind === AgentOperationKind.TEXT_SOURCE) {
-    await processTextOperation({ operation, now });
+    await processTextOperation({ operation, now, deadlineAt, clock, claims });
   } else {
-    const itemsForDelivery = selectAgentOperationItemsForDelivery(operation.items);
+    const itemsForDelivery = selectAgentOperationItemsForDelivery(operation.items, operation.kind);
     const candidates = itemsForDelivery.flatMap((item) => {
       const snapshot = parseSkillSnapshot(item.skillSnapshot);
       return snapshot ? [{ key: item.id, title: snapshot.title, objective: snapshot.objective }] : [];
@@ -189,18 +172,26 @@ export async function runAgentSkillOperationJob(input: {
     });
     const byItem = new Map(similarities.candidates.map((candidate) => [candidate.key, candidate]));
     for (const item of itemsForDelivery) {
+      if (shouldDeferAgentOperation(deadlineAt, clock())) break;
+      const claimToken = await claimQueuedAgentOperationItem({
+        itemId: item.id,
+        userId: input.userId,
+        now,
+      });
+      if (!claimToken) continue;
+      claims.set(item.id, claimToken);
       if (item.createdSkillId) {
-        const reserved = await reserveAgentActivation(input.userId, item.id, now);
+        const reserved = await reserveAgentActivation(input.userId, item.id, now, claimToken);
         if (!reserved) {
-          await failItem(item.id, input.userId, "QUOTA_EXCEEDED", now);
+          await failItem(item.id, input.userId, "QUOTA_EXCEEDED", now, claimToken);
           continue;
         }
-        await activateCreatedDraft(input.userId, item.id, item.createdSkillId, now);
+        await activateCreatedDraft(input.userId, item.id, item.createdSkillId, now, claimToken);
         continue;
       }
       const snapshot = parseSkillSnapshot(item.skillSnapshot);
       if (!snapshot) {
-        await failItem(item.id, input.userId, "INVALID_SKILL_SNAPSHOT", now);
+        await failItem(item.id, input.userId, "INVALID_SKILL_SNAPSHOT", now, claimToken);
         continue;
       }
       const duplicate = classifyAgentDuplicate(byItem.get(item.id)?.bestMatch ?? null);
@@ -221,12 +212,16 @@ export async function runAgentSkillOperationJob(input: {
               input.userId,
               sourceReferenceErrorCode(error),
               now,
+              claimToken,
             );
             continue;
           }
         }
-        await prisma.agentSkillOperationItem.update({
-          where: { id: item.id },
+        await updateClaimedAgentItem({
+          itemId: item.id,
+          userId: input.userId,
+          claimToken,
+          now,
           data: {
             status: AgentOperationItemStatus.REUSED,
             resultSkillId: duplicate.skillId,
@@ -234,48 +229,42 @@ export async function runAgentSkillOperationJob(input: {
             duplicateLibraryFingerprint: similarities.duplicateLibraryFingerprint,
             sourceReferenceOutcome: sourceReferenceOutcome ? toJson(sourceReferenceOutcome) : undefined,
             completedAt: now,
+            workerClaimToken: null,
+            workerClaimedAt: null,
           },
         });
         continue;
       }
       if (duplicate.action === "review" && !item.duplicateOverrideApprovedAt) {
-        await prisma.agentSkillOperationItem.update({
-          where: { id: item.id },
+        await updateClaimedAgentItem({
+          itemId: item.id,
+          userId: input.userId,
+          claimToken,
+          now,
           data: {
             status: AgentOperationItemStatus.NEEDS_REVIEW,
             resultSkillId: duplicate.skillId,
             duplicateConfidence: duplicate.confidence,
             duplicateLibraryFingerprint: similarities.duplicateLibraryFingerprint,
+            workerClaimToken: null,
+            workerClaimedAt: null,
           },
         });
         continue;
       }
-      await createAndActivateItem({ userId: input.userId, itemId: item.id, snapshot, now });
+      await createAndActivateItem({ userId: input.userId, itemId: item.id, snapshot, now, claimToken });
     }
   }
 
-  await reconcileAgentOperation(operation.id, input.userId, now);
+  await reconcileAgentOperation({ operationId: operation.id, userId: input.userId, now });
   await queueAgentOperationContinuation(operation.id, input.userId);
   return { status: "processed" as const, operationId: operation.id };
   } catch (error) {
-    await prisma.agentSkillOperationItem.updateMany({
-      where: {
-        operationId: operation.id,
-        userId: input.userId,
-        status: {
-          in: [
-            AgentOperationItemStatus.GENERATING,
-            AgentOperationItemStatus.VERIFYING,
-            AgentOperationItemStatus.ACTIVATING,
-          ],
-        },
-      },
-      data: {
-        status: AgentOperationItemStatus.QUEUED,
-        activationReservedAt: null,
-        errorCode: "TRANSIENT_WORKER_FAILURE",
-      },
-    });
+    for (const [itemId, claimToken] of claims) {
+      await releaseClaimForRetry({ itemId, userId: input.userId, now, claimToken });
+    }
+    await reconcileAgentOperation({ operationId: operation.id, userId: input.userId, now });
+    await queueAgentOperationContinuation(operation.id, input.userId);
     throw new AgentSkillWorkerError(
       error instanceof Error ? error.message : "Agent skill processing failed.",
       true,
@@ -283,11 +272,131 @@ export async function runAgentSkillOperationJob(input: {
   }
 }
 
+const CLAIMED_ITEM_STATUSES = [
+  AgentOperationItemStatus.GENERATING,
+  AgentOperationItemStatus.VERIFYING,
+  AgentOperationItemStatus.ACTIVATING,
+] as const;
+
+export async function claimQueuedAgentOperationItem(input: {
+  itemId: string;
+  userId: string;
+  now: Date;
+}): Promise<string | null> {
+  const claimToken = randomUUID();
+  const claimed = await getPrisma().agentSkillOperationItem.updateMany({
+    where: {
+      id: input.itemId,
+      userId: input.userId,
+      status: AgentOperationItemStatus.QUEUED,
+      workerClaimToken: null,
+    },
+    data: {
+      status: AgentOperationItemStatus.GENERATING,
+      workerClaimToken: claimToken,
+      workerClaimedAt: input.now,
+      startedAt: input.now,
+      completedAt: null,
+      errorCode: null,
+      errorMessage: null,
+    },
+  });
+  return claimed.count === 1 ? claimToken : null;
+}
+
+async function updateClaimedAgentItem(input: {
+  itemId: string;
+  userId: string;
+  claimToken: string;
+  now: Date;
+  data: Prisma.AgentSkillOperationItemUncheckedUpdateManyInput;
+}) {
+  const result = await getPrisma().agentSkillOperationItem.updateMany({
+    where: {
+      id: input.itemId,
+      userId: input.userId,
+      workerClaimToken: input.claimToken,
+      status: { in: [...CLAIMED_ITEM_STATUSES] },
+    },
+    data: {
+      ...input.data,
+      workerClaimedAt: input.data.workerClaimToken === null ? null : input.now,
+    },
+  });
+  if (result.count !== 1) {
+    throw new AgentSkillWorkerError("AGENT_ITEM_CLAIM_LOST", true);
+  }
+}
+
+async function touchClaimedAgentItem(input: {
+  itemId: string;
+  userId: string;
+  claimToken: string;
+  now: Date;
+  status?: AgentOperationItemStatus;
+}) {
+  await updateClaimedAgentItem({
+    ...input,
+    data: {
+      ...(input.status ? { status: input.status } : {}),
+      workerClaimedAt: input.now,
+    },
+  });
+}
+
+async function releaseClaimForRetry(input: {
+  itemId: string;
+  userId: string;
+  claimToken: string;
+  now: Date;
+}) {
+  await getPrisma().agentSkillOperationItem.updateMany({
+    where: {
+      id: input.itemId,
+      userId: input.userId,
+      workerClaimToken: input.claimToken,
+      status: { in: [...CLAIMED_ITEM_STATUSES] },
+    },
+    data: {
+      status: AgentOperationItemStatus.QUEUED,
+      activationReservedAt: null,
+      errorCode: "TRANSIENT_WORKER_FAILURE",
+      errorMessage: "The worker stopped before the item completed; it will be retried.",
+      retryCount: { increment: 1 },
+      completedAt: null,
+      workerClaimToken: null,
+      workerClaimedAt: null,
+    },
+  });
+}
+
+async function waitForActivation(input: {
+  itemId: string;
+  userId: string;
+  claimToken: string;
+  now: Date;
+}) {
+  await updateClaimedAgentItem({
+    ...input,
+    data: {
+      status: AgentOperationItemStatus.ACTIVATING,
+      errorCode: "ACTIVATION_WAITING",
+      errorMessage: "Another activation worker is still completing this draft.",
+      workerClaimToken: null,
+      workerClaimedAt: null,
+    },
+  });
+}
+
 async function processMaterialOperation(input: {
   operation: AgentOperationWithItems;
   now: Date;
+  deadlineAt: Date;
+  clock: () => Date;
+  claims: Map<string, string>;
 }): Promise<boolean> {
   const prisma = getPrisma();
+  if (shouldDeferAgentOperation(input.deadlineAt, input.clock())) return true;
   const payload = parseRecord(input.operation.requestPayload);
   const instruction = buildMaterialOperationInstruction(payload);
   const maxSkills =
@@ -458,31 +567,54 @@ async function processMaterialOperation(input: {
     orderBy: { ordinal: "asc" },
   });
   const materialByOrdinal = new Map(materialItems.map((item) => [item.ordinal, item]));
-  const itemsForDelivery = selectAgentOperationItemsForDelivery(agentItems);
+  const itemsForDelivery = selectAgentOperationItemsForDelivery(
+    agentItems,
+    AgentOperationKind.MATERIAL_BATCH,
+  );
   for (const agentItem of itemsForDelivery) {
+    if (shouldDeferAgentOperation(input.deadlineAt, input.clock())) break;
+    const claimToken = await claimQueuedAgentOperationItem({
+      itemId: agentItem.id,
+      userId: input.operation.userId,
+      now: input.now,
+    });
+    if (!claimToken) continue;
+    input.claims.set(agentItem.id, claimToken);
     if (agentItem.createdSkillId) {
-      const reserved = await reserveAgentActivation(input.operation.userId, agentItem.id, input.now);
+      const reserved = await reserveAgentActivation(
+        input.operation.userId,
+        agentItem.id,
+        input.now,
+        claimToken,
+      );
       if (!reserved) {
-        await failItem(agentItem.id, input.operation.userId, "QUOTA_EXCEEDED", input.now);
+        await failItem(agentItem.id, input.operation.userId, "QUOTA_EXCEEDED", input.now, claimToken);
         continue;
       }
-      await activateCreatedDraft(input.operation.userId, agentItem.id, agentItem.createdSkillId, input.now);
+      await activateCreatedDraft(
+        input.operation.userId,
+        agentItem.id,
+        agentItem.createdSkillId,
+        input.now,
+        claimToken,
+      );
       continue;
     }
     const materialItem = materialByOrdinal.get(agentItem.ordinal);
     if (!materialItem || materialItem.status !== SkillDraftBatchItemStatus.PLANNED) {
-      await failItem(agentItem.id, input.operation.userId, "MATERIAL_ITEM_NOT_READY", input.now);
+      await failItem(agentItem.id, input.operation.userId, "MATERIAL_ITEM_NOT_READY", input.now, claimToken);
       continue;
     }
-    const reserved = await reserveAgentActivation(input.operation.userId, agentItem.id, input.now);
+    const reserved = await reserveAgentActivation(
+      input.operation.userId,
+      agentItem.id,
+      input.now,
+      claimToken,
+    );
     if (!reserved) {
-      await failItem(agentItem.id, input.operation.userId, "QUOTA_EXCEEDED", input.now);
+      await failItem(agentItem.id, input.operation.userId, "QUOTA_EXCEEDED", input.now, claimToken);
       continue;
     }
-    await prisma.agentSkillOperationItem.update({
-      where: { id: agentItem.id },
-      data: { status: AgentOperationItemStatus.GENERATING, startedAt: input.now },
-    });
     let generated;
     try {
       generated = await runMaterialDraftItemJob({
@@ -492,38 +624,47 @@ async function processMaterialOperation(input: {
         now: input.now,
       });
     } catch (error) {
-      await prisma.agentSkillOperationItem.updateMany({
-        where: { id: agentItem.id, userId: input.operation.userId },
-        data: { status: AgentOperationItemStatus.QUEUED, activationReservedAt: null },
+      await releaseClaimForRetry({
+        itemId: agentItem.id,
+        userId: input.operation.userId,
+        claimToken,
+        now: input.now,
       });
       throw error;
     }
     if (generated.status === "excluded") {
-      await prisma.agentSkillOperationItem.update({
-        where: { id: agentItem.id },
+      await updateClaimedAgentItem({
+        itemId: agentItem.id,
+        userId: input.operation.userId,
+        claimToken,
+        now: input.now,
         data: {
           status: AgentOperationItemStatus.REUSED,
           resultSkillId: generated.duplicateSkillId,
           duplicateConfidence: "exact",
           activationReservedAt: null,
           completedAt: input.now,
+          workerClaimToken: null,
         },
       });
       continue;
     }
     if (generated.status !== "ready" || !generated.skillId) {
-      await failItem(agentItem.id, input.operation.userId, "MATERIAL_DRAFT_FAILED", input.now);
+      await failItem(agentItem.id, input.operation.userId, "MATERIAL_DRAFT_FAILED", input.now, claimToken);
       continue;
     }
     const skill = await prisma.skill.findFirst({
       where: { id: generated.skillId, userId: input.operation.userId, status: SkillStatus.DRAFT },
     });
     if (!skill) {
-      await failItem(agentItem.id, input.operation.userId, "DRAFT_NOT_FOUND", input.now);
+      await failItem(agentItem.id, input.operation.userId, "DRAFT_NOT_FOUND", input.now, claimToken);
       continue;
     }
-    await prisma.agentSkillOperationItem.update({
-      where: { id: agentItem.id },
+    await updateClaimedAgentItem({
+      itemId: agentItem.id,
+      userId: input.operation.userId,
+      claimToken,
+      now: input.now,
       data: {
         createdSkillId: skill.id,
         candidateFingerprint: buildSkillDuplicateCandidateFingerprint(skill),
@@ -539,7 +680,7 @@ async function processMaterialOperation(input: {
         }),
       },
     });
-    await activateCreatedDraft(input.operation.userId, agentItem.id, skill.id, input.now);
+    await activateCreatedDraft(input.operation.userId, agentItem.id, skill.id, input.now, claimToken);
   }
   return true;
 }
@@ -570,6 +711,9 @@ function boundedMaterialInstruction(
 async function processFileOperation(input: {
   operation: AgentOperationWithItems;
   now: Date;
+  deadlineAt: Date;
+  clock: () => Date;
+  claims: Map<string, string>;
 }) {
   const item = input.operation.items[0];
   const sourceFileIds = input.operation.sources.map((source) => source.sourceFileId);
@@ -578,24 +722,38 @@ async function processFileOperation(input: {
     return;
   }
   if (item.status !== AgentOperationItemStatus.QUEUED) return;
+  if (shouldDeferAgentOperation(input.deadlineAt, input.clock())) return;
+  const claimToken = await claimQueuedAgentOperationItem({
+    itemId: item.id,
+    userId: input.operation.userId,
+    now: input.now,
+  });
+  if (!claimToken) return;
+  input.claims.set(item.id, claimToken);
   if (item.createdSkillId) {
-    const reserved = await reserveAgentActivation(input.operation.userId, item.id, input.now);
+    const reserved = await reserveAgentActivation(
+      input.operation.userId,
+      item.id,
+      input.now,
+      claimToken,
+    );
     if (!reserved) {
-      await failItem(item.id, input.operation.userId, "QUOTA_EXCEEDED", input.now);
+      await failItem(item.id, input.operation.userId, "QUOTA_EXCEEDED", input.now, claimToken);
       return;
     }
-    await activateCreatedDraft(input.operation.userId, item.id, item.createdSkillId, input.now);
+    await activateCreatedDraft(input.operation.userId, item.id, item.createdSkillId, input.now, claimToken);
     return;
   }
-  const reserved = await reserveAgentActivation(input.operation.userId, item.id, input.now);
+  const reserved = await reserveAgentActivation(
+    input.operation.userId,
+    item.id,
+    input.now,
+    claimToken,
+  );
   if (!reserved) {
-    await failItem(item.id, input.operation.userId, "QUOTA_EXCEEDED", input.now);
+    await failItem(item.id, input.operation.userId, "QUOTA_EXCEEDED", input.now, claimToken);
     return;
   }
-  await getPrisma().agentSkillOperationItem.update({
-    where: { id: item.id },
-    data: { status: AgentOperationItemStatus.GENERATING, startedAt: input.now },
-  });
   const result = await completeSourceUploadDrafts({
     userId: input.operation.userId,
     sourceFileId: sourceFileIds[0],
@@ -604,12 +762,15 @@ async function processFileOperation(input: {
   });
   if (result.status !== "created" || !result.skills[0]) {
     const code = result.status === "not-created" ? result.reason : "SOURCE_NOT_FOUND";
-    await failItem(item.id, input.operation.userId, code, input.now);
+    await failItem(item.id, input.operation.userId, code, input.now, claimToken);
     return;
   }
   const generated = result.skills[0];
-  await getPrisma().agentSkillOperationItem.update({
-    where: { id: item.id },
+  await updateClaimedAgentItem({
+    itemId: item.id,
+    userId: input.operation.userId,
+    claimToken,
+    now: input.now,
     data: {
       createdSkillId: generated.id,
       candidateFingerprint: buildSkillDuplicateCandidateFingerprint(generated),
@@ -625,12 +786,15 @@ async function processFileOperation(input: {
       }),
     },
   });
-  await activateCreatedDraft(input.operation.userId, item.id, generated.id, input.now);
+  await activateCreatedDraft(input.operation.userId, item.id, generated.id, input.now, claimToken);
 }
 
 async function processTextOperation(input: {
   operation: AgentOperationWithItems;
   now: Date;
+  deadlineAt: Date;
+  clock: () => Date;
+  claims: Map<string, string>;
 }) {
   const item = input.operation.items[0];
   const source = input.operation.sourceFile;
@@ -639,10 +803,23 @@ async function processTextOperation(input: {
     return;
   }
   if (item.status !== AgentOperationItemStatus.QUEUED) return;
+  if (shouldDeferAgentOperation(input.deadlineAt, input.clock())) return;
+  const claimToken = await claimQueuedAgentOperationItem({
+    itemId: item.id,
+    userId: input.operation.userId,
+    now: input.now,
+  });
+  if (!claimToken) return;
+  input.claims.set(item.id, claimToken);
   if (item.createdSkillId) {
-    const reserved = await reserveAgentActivation(input.operation.userId, item.id, input.now);
+    const reserved = await reserveAgentActivation(
+      input.operation.userId,
+      item.id,
+      input.now,
+      claimToken,
+    );
     if (!reserved) {
-      await failItem(item.id, input.operation.userId, "QUOTA_EXCEEDED", input.now);
+      await failItem(item.id, input.operation.userId, "QUOTA_EXCEEDED", input.now, claimToken);
       return;
     }
     await activateCreatedDraft(
@@ -650,14 +827,11 @@ async function processTextOperation(input: {
       item.id,
       item.createdSkillId,
       input.now,
+      claimToken,
     );
     return;
   }
   const payload = parseRecord(input.operation.requestPayload);
-  await getPrisma().agentSkillOperationItem.update({
-    where: { id: item.id },
-    data: { status: AgentOperationItemStatus.GENERATING, startedAt: input.now },
-  });
   const result = await createSkillDraftFromSource({
     userId: input.operation.userId,
     now: input.now,
@@ -673,12 +847,21 @@ async function processTextOperation(input: {
     },
   });
   if (result.status !== "created" || !result.skills[0]) {
-    await failItem(item.id, input.operation.userId, result.status === "not-created" ? result.reason : "DRAFT_GENERATION_FAILED", input.now);
+    await failItem(
+      item.id,
+      input.operation.userId,
+      result.status === "not-created" ? result.reason : "DRAFT_GENERATION_FAILED",
+      input.now,
+      claimToken,
+    );
     return;
   }
   const generated = result.skills[0];
-  await getPrisma().agentSkillOperationItem.update({
-    where: { id: item.id },
+  await updateClaimedAgentItem({
+    itemId: item.id,
+    userId: input.operation.userId,
+    claimToken,
+    now: input.now,
     data: {
       createdSkillId: generated.id,
       candidateFingerprint: buildSkillDuplicateCandidateFingerprint(generated),
@@ -701,14 +884,18 @@ async function processTextOperation(input: {
   });
   const duplicate = classifyAgentDuplicate(similar.candidates[0]?.bestMatch ?? null);
   if (duplicate.action !== "create") {
-    await getPrisma().agentSkillOperationItem.update({
-      where: { id: item.id },
+    await updateClaimedAgentItem({
+      itemId: item.id,
+      userId: input.operation.userId,
+      claimToken,
+      now: input.now,
       data: {
         status: duplicate.action === "reuse" ? AgentOperationItemStatus.REUSED : AgentOperationItemStatus.NEEDS_REVIEW,
         resultSkillId: duplicate.skillId,
         duplicateConfidence: duplicate.confidence,
         duplicateLibraryFingerprint: similar.duplicateLibraryFingerprint,
         completedAt: duplicate.action === "reuse" ? input.now : null,
+        workerClaimToken: null,
       },
     });
     return;
@@ -717,12 +904,13 @@ async function processTextOperation(input: {
     input.operation.userId,
     item.id,
     input.now,
+    claimToken,
   );
   if (!reserved) {
-    await failItem(item.id, input.operation.userId, "QUOTA_EXCEEDED", input.now);
+    await failItem(item.id, input.operation.userId, "QUOTA_EXCEEDED", input.now, claimToken);
     return;
   }
-  await activateCreatedDraft(input.operation.userId, item.id, generated.id, input.now);
+  await activateCreatedDraft(input.operation.userId, item.id, generated.id, input.now, claimToken);
 }
 
 async function createAndActivateItem(input: {
@@ -730,42 +918,60 @@ async function createAndActivateItem(input: {
   itemId: string;
   snapshot: SkillSnapshot;
   now: Date;
+  claimToken: string;
 }) {
-  const reserved = await reserveAgentActivation(input.userId, input.itemId, input.now);
+  const reserved = await reserveAgentActivation(
+    input.userId,
+    input.itemId,
+    input.now,
+    input.claimToken,
+  );
   if (!reserved) {
-    await failItem(input.itemId, input.userId, "QUOTA_EXCEEDED", input.now);
+    await failItem(input.itemId, input.userId, "QUOTA_EXCEEDED", input.now, input.claimToken);
     return;
   }
-  await getPrisma().agentSkillOperationItem.update({
-    where: { id: input.itemId },
-    data: { status: AgentOperationItemStatus.GENERATING, startedAt: input.now },
-  });
   const draft = await createSkillDraft({
     userId: input.userId,
     input: buildSkillDraftInputFromSnapshot(input.snapshot),
   });
   if (draft.status !== "created") {
-    await failItem(input.itemId, input.userId, "DRAFT_CREATE_FAILED", input.now);
+    await failItem(input.itemId, input.userId, "DRAFT_CREATE_FAILED", input.now, input.claimToken);
     return;
   }
-  await getPrisma().agentSkillOperationItem.update({
-    where: { id: input.itemId },
+  await updateClaimedAgentItem({
+    itemId: input.itemId,
+    userId: input.userId,
+    claimToken: input.claimToken,
+    now: input.now,
     data: {
       createdSkillId: draft.skill.id,
       candidateFingerprint: buildSkillDuplicateCandidateFingerprint(draft.skill),
     },
   });
-  await activateCreatedDraft(input.userId, input.itemId, draft.skill.id, input.now);
+  await activateCreatedDraft(
+    input.userId,
+    input.itemId,
+    draft.skill.id,
+    input.now,
+    input.claimToken,
+  );
 }
 
-async function activateCreatedDraft(userId: string, itemId: string, skillId: string, now: Date) {
+async function activateCreatedDraft(
+  userId: string,
+  itemId: string,
+  skillId: string,
+  now: Date,
+  claimToken: string,
+) {
   const prisma = getPrisma();
+  await touchClaimedAgentItem({ itemId, userId, claimToken, now });
   const draft = await prisma.skill.findFirst({
     where: { id: skillId, userId, status: SkillStatus.DRAFT },
     select: { id: true, title: true, objective: true },
   });
   if (!draft) {
-    await failItem(itemId, userId, "DRAFT_NOT_FOUND", now);
+    await failItem(itemId, userId, "DRAFT_NOT_FOUND", now, claimToken);
     return;
   }
   const operationItem = await prisma.agentSkillOperationItem.findFirst({
@@ -790,6 +996,7 @@ async function activateCreatedDraft(userId: string, itemId: string, skillId: str
         userId,
         sourceReferenceErrorCode(error),
         now,
+        claimToken,
       );
       return;
     }
@@ -819,12 +1026,15 @@ async function activateCreatedDraft(userId: string, itemId: string, skillId: str
         );
       } catch (error) {
         await prisma.skill.deleteMany({ where: { id: skillId, userId, status: SkillStatus.DRAFT } });
-        await failItem(itemId, userId, sourceReferenceErrorCode(error), now);
+        await failItem(itemId, userId, sourceReferenceErrorCode(error), now, claimToken);
         return;
       }
     }
-    await prisma.agentSkillOperationItem.update({
-      where: { id: itemId },
+    await updateClaimedAgentItem({
+      itemId,
+      userId,
+      claimToken,
+      now,
       data: {
         status: duplicate.action === "reuse" ? AgentOperationItemStatus.REUSED : AgentOperationItemStatus.NEEDS_REVIEW,
         resultSkillId: duplicate.skillId,
@@ -833,6 +1043,7 @@ async function activateCreatedDraft(userId: string, itemId: string, skillId: str
         activationReservedAt: null,
         sourceReferenceOutcome: sourceReferenceOutcome ? toJson(sourceReferenceOutcome) : undefined,
         completedAt: duplicate.action === "reuse" ? now : null,
+        workerClaimToken: null,
       },
     });
     if (duplicate.action === "reuse") {
@@ -840,13 +1051,19 @@ async function activateCreatedDraft(userId: string, itemId: string, skillId: str
     }
     return;
   }
-  await prisma.agentSkillOperationItem.update({
-    where: { id: itemId },
+  await updateClaimedAgentItem({
+    itemId,
+    userId,
+    claimToken,
+    now,
     data: { duplicateLibraryFingerprint: duplicateResult.duplicateLibraryFingerprint },
   });
-  await prisma.agentSkillOperationItem.update({
-    where: { id: itemId },
-    data: { status: AgentOperationItemStatus.VERIFYING },
+  await touchClaimedAgentItem({
+    itemId,
+    userId,
+    claimToken,
+    now,
+    status: AgentOperationItemStatus.VERIFYING,
   });
   const candidates = await prisma.agentExerciseCandidate.findMany({
     where: { operationItemId: itemId, userId, status: AgentCandidateStatus.VALIDATED },
@@ -901,6 +1118,13 @@ async function activateCreatedDraft(userId: string, itemId: string, skillId: str
       });
     }
   }
+  await touchClaimedAgentItem({
+    itemId,
+    userId,
+    claimToken,
+    now,
+    status: AgentOperationItemStatus.ACTIVATING,
+  });
   const result = await activateSkillDraft({
     userId,
     skillId,
@@ -908,28 +1132,41 @@ async function activateCreatedDraft(userId: string, itemId: string, skillId: str
     skipUsageLimitCheck: true,
     verifiedAgentCandidateItemId: itemId,
     expectedDraftFingerprint: operationItem?.candidateFingerprint ?? undefined,
-    expectedDuplicateLibraryFingerprint:
-      operationItem?.duplicateLibraryFingerprint ?? undefined,
+    expectedDuplicateLibraryFingerprint: duplicateResult.duplicateLibraryFingerprint ?? undefined,
   });
   if (result.status !== "activated") {
-    await failItem(itemId, userId, result.reason, now);
+    if (result.reason === "activation-in-progress" || result.reason === "activation-superseded") {
+      await waitForActivation({ itemId, userId, claimToken, now });
+      return;
+    }
+    await failItem(itemId, userId, result.reason, now, claimToken);
     return;
   }
-  await prisma.$transaction([
-    prisma.agentSkillOperationItem.update({
-      where: { id: itemId },
+  await prisma.$transaction(async (tx) => {
+    const itemUpdate = await tx.agentSkillOperationItem.updateMany({
+      where: {
+        id: itemId,
+        userId,
+        workerClaimToken: claimToken,
+        status: AgentOperationItemStatus.ACTIVATING,
+      },
       data: {
         status: AgentOperationItemStatus.ACTIVE,
         resultSkillId: skillId,
         activationReservedAt: null,
         completedAt: now,
+        errorCode: null,
+        errorMessage: null,
+        workerClaimToken: null,
+        workerClaimedAt: null,
       },
-    }),
-    prisma.agentExerciseCandidate.updateMany({
+    });
+    if (itemUpdate.count !== 1) throw new AgentSkillWorkerError("AGENT_ITEM_CLAIM_LOST", true);
+    await tx.agentExerciseCandidate.updateMany({
       where: { operationItemId: itemId, userId, status: AgentCandidateStatus.VALIDATED },
       data: { status: AgentCandidateStatus.NOT_PROCESSED, verifierReason: "NOT_SELECTED" },
-    }),
-  ]);
+    });
+  });
 }
 
 /**
@@ -954,7 +1191,12 @@ async function queueAgentOperationContinuation(
   return true;
 }
 
-export async function reserveAgentActivation(userId: string, itemId: string, now: Date) {
+export async function reserveAgentActivation(
+  userId: string,
+  itemId: string,
+  now: Date,
+  claimToken?: string,
+) {
   const prisma = getPrisma();
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
@@ -972,11 +1214,17 @@ export async function reserveAgentActivation(userId: string, itemId: string, now
             id: itemId,
             userId,
             activationReservedAt: null,
+            ...(claimToken ? { workerClaimToken: claimToken } : { workerClaimToken: null }),
             status: {
               in: [AgentOperationItemStatus.QUEUED, AgentOperationItemStatus.GENERATING],
             },
           },
-          data: { activationReservedAt: now, errorCode: null, errorMessage: null },
+          data: {
+            activationReservedAt: now,
+            errorCode: null,
+            errorMessage: null,
+            ...(claimToken ? { workerClaimedAt: now } : {}),
+          },
         });
         return claimed.count === 1;
       }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
@@ -993,30 +1241,37 @@ export async function reserveAgentActivation(userId: string, itemId: string, now
   return false;
 }
 
-async function failItem(itemId: string, userId: string, errorCode: string, now: Date) {
+async function failItem(
+  itemId: string,
+  userId: string,
+  errorCode: string,
+  now: Date,
+  claimToken?: string,
+) {
   await getPrisma().agentSkillOperationItem.updateMany({
-    where: { id: itemId, userId },
-    data: { status: AgentOperationItemStatus.FAILED, errorCode: normalizeAgentItemErrorCode(errorCode), activationReservedAt: null, completedAt: now },
+    where: {
+      id: itemId,
+      userId,
+      ...(claimToken
+        ? {
+            workerClaimToken: claimToken,
+            status: { in: [...CLAIMED_ITEM_STATUSES] },
+          }
+        : { status: AgentOperationItemStatus.QUEUED }),
+    },
+    data: {
+      status: AgentOperationItemStatus.FAILED,
+      errorCode: normalizeAgentItemErrorCode(errorCode),
+      activationReservedAt: null,
+      completedAt: now,
+      workerClaimToken: null,
+      workerClaimedAt: null,
+    },
   });
 }
 
 export function normalizeAgentItemErrorCode(errorCode: string) {
   return errorCode.toUpperCase().replace(/[^A-Z0-9]+/g, "_");
-}
-
-async function reconcileAgentOperation(operationId: string, userId: string, now: Date) {
-  const prisma = getPrisma();
-  const items = await prisma.agentSkillOperationItem.findMany({ where: { operationId, userId }, select: { status: true } });
-  if (items.length === 0) return;
-  const status = reduceAgentOperationStatus(items.map((item) => item.status));
-  const activeCount = items.filter((item) => item.status === AgentOperationItemStatus.ACTIVE).length;
-  const reusedCount = items.filter((item) => item.status === AgentOperationItemStatus.REUSED).length;
-  const failedCount = items.filter((item) => item.status === AgentOperationItemStatus.FAILED).length;
-  const terminal = [AgentOperationStatus.SUCCEEDED, AgentOperationStatus.PARTIAL, AgentOperationStatus.FAILED, AgentOperationStatus.CANCELED].some((value) => value === status);
-  await prisma.agentSkillOperation.updateMany({
-    where: { id: operationId, userId },
-    data: { status, activeCount, reusedCount, failedCount, completedAt: terminal ? now : null },
-  });
 }
 
 type SkillSnapshot = {

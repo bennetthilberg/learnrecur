@@ -15,6 +15,7 @@ import { sendAgentConnectionRevocationRequested, sendAgentSkillOperationRequeste
 import { getPrisma } from "@/lib/prisma";
 import { cleanupPreparedSourceUploads } from "@/lib/skills/uploads";
 import { recoverPendingRefillEvents } from "@/lib/skills/refill-jobs";
+import { recoverStaleAgentOperationItems } from "@/lib/agent-access/recovery";
 
 const AGENT_UPLOAD_WINDOW_MS = 10 * 60 * 1_000;
 const WORKOS_AUTHORIZED_APPLICATION_PAGE_LIMIT = 100;
@@ -530,7 +531,7 @@ export async function runAgentAccessMaintenance(now: Date) {
   const prisma = getPrisma();
   const uploadCutoff = new Date(now.getTime() - AGENT_UPLOAD_WINDOW_MS);
   let refillRecoveryFailed = false;
-  const [purged, rateBuckets, pending, expiredUploads, refillEvents] = await Promise.all([
+  const [purged, rateBuckets, pending, expiredUploads, refillEvents, activationRecovery] = await Promise.all([
     prisma.agentSkillOperation.updateMany({
       where: { payloadExpiresAt: { lte: now }, requestPayload: { not: Prisma.DbNull } },
       data: { requestPayload: Prisma.DbNull, payloadExpiresAt: null },
@@ -572,6 +573,7 @@ export async function runAgentAccessMaintenance(now: Date) {
       });
       return { attempted: 0, delivered: 0, failed: 1 };
     }),
+    recoverStaleAgentOperationItems({ now }),
   ]);
   let expiredUploadOperations = 0;
   for (const operation of expiredUploads) {
@@ -624,6 +626,12 @@ export async function runAgentAccessMaintenance(now: Date) {
     refillEventsAttempted: refillEvents.attempted,
     refillEventsDelivered: refillEvents.delivered,
     refillEventsFailed: refillEvents.failed,
+    activationItemsScanned: activationRecovery.scanned,
+    activationItemsRequeued: activationRecovery.requeued,
+    activationItemsFinalized: activationRecovery.finalized,
+    activationItemsWaiting: activationRecovery.waiting,
+    activationLegacyItemsPromoted: activationRecovery.legacyPromoted,
+    activationContinuations: activationRecovery.continuations,
   };
   if (refillRecoveryFailed) {
     const retryableError = new Error(

@@ -1,4 +1,5 @@
 import { JOB_DEFINITIONS, buildJobEnvelope, getJobMessageGroupId } from "../../src/lib/jobs/contracts";
+import { JOB_TIMEOUT_SECONDS, SQS_VISIBILITY_TIMEOUT_SECONDS } from "../../src/lib/jobs/timing";
 import analysis from "./iam-actions.generated.json";
 
 const ref = (name: string) => ({ Ref: name });
@@ -31,7 +32,7 @@ export function createJobsTemplate(environment: "staging" | "production") {
       Properties: {
         QueueName: name("jobs.fifo"), FifoQueue: true, ContentBasedDeduplication: true,
         SqsManagedSseEnabled: true, MaximumMessageSize: 65536, MessageRetentionPeriod: 345600,
-        VisibilityTimeout: 3600, ReceiveMessageWaitTimeSeconds: 20,
+        VisibilityTimeout: SQS_VISIBILITY_TIMEOUT_SECONDS, ReceiveMessageWaitTimeSeconds: 20,
         RedrivePolicy: { deadLetterTargetArn: arn("DeadLetters"), maxReceiveCount: 6 },
       },
     },
@@ -62,7 +63,7 @@ export function createJobsTemplate(environment: "staging" | "production") {
       Type: "AWS::Lambda::Function", DependsOn: "WorkerLogGroup",
       Properties: {
         FunctionName: name("jobs-worker"), Runtime: "nodejs24.x", Architectures: ["arm64"],
-        Handler: "index.handler", MemorySize: 1024, Timeout: 600,
+        Handler: "index.handler", MemorySize: 1024, Timeout: JOB_TIMEOUT_SECONDS,
         Role: arn("WorkerRole"), Code: { S3Bucket: ref("CodeBucket"), S3Key: ref("CodeKey") },
         Environment: { Variables: { NODE_ENV: "production", LEARNRECUR_DEPLOYMENT_TIER: environment, JOBS_ENVIRONMENT: environment, JOBS_QUEUE_URL: ref("Queue"), JOBS_CONFIG_REVISION: ref("ConfigurationRevision") } },
       },

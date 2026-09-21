@@ -1420,6 +1420,8 @@ model AgentSkillOperationItem {
   errorMessage                String?
   retryCount                  Int                      @default(0)
   activationReservedAt        DateTime?
+  workerClaimToken            String?
+  workerClaimedAt             DateTime?
   startedAt                   DateTime?
   completedAt                 DateTime?
   createdAt                   DateTime                 @default(now())
@@ -1435,6 +1437,7 @@ model AgentSkillOperationItem {
   @@unique([operationId, ordinal])
   @@unique([operationId, clientReference])
   @@index([userId, status, createdAt])
+  @@index([userId, status, workerClaimedAt])
   @@index([resultSkillId])
   @@map("agent_skill_operation_items")
 }

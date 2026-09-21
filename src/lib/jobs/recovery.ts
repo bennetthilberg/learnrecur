@@ -2,6 +2,7 @@ import "server-only";
 
 import { getPrisma } from "@/lib/prisma";
 import { markRefillJobRetryableFailure } from "@/lib/skills/refill-jobs";
+import { recoverStaleAgentOperationItems } from "@/lib/agent-access/recovery";
 import type { JobEnvelope } from "./contracts";
 
 // Call only after the delivery ledger grants a retry lease. The eleven-minute
@@ -31,6 +32,14 @@ export async function recoverInterruptedJob(job: JobEnvelope): Promise<void> {
       if (await prisma.sourceFile.count({ where })) {
         throw Object.assign(new Error("JOB_SOURCE_RECOVERY_CONFLICT"), { retryable: false });
       }
+      return;
     }
+    case "learnrecur/agent-skill-operation.requested":
+      await recoverStaleAgentOperationItems({
+        userId: job.data.userId,
+        operationId: job.data.operationId,
+        now: new Date(),
+      });
+      return;
   }
 }

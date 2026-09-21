@@ -1,9 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { createJobsTemplate } from "../../infra/aws/jobs-template";
 import { getJobMessageGroupId, parseJobEnvelope } from "@/lib/jobs/contracts";
+import { hasValidJobTiming, JOB_LEASE_SECONDS, JOB_TIMEOUT_SECONDS, SQS_VISIBILITY_TIMEOUT_SECONDS } from "@/lib/jobs/timing";
 import localTemplate from "../../infra/aws/local-queues-template.json";
 
 describe("AWS deployment contract", () => {
+  it("keeps the worker deadline, delivery lease, and visibility windows ordered", () => {
+    expect(hasValidJobTiming()).toBe(true);
+  });
+
   it.each(["Queue", "DeadLetters"])("requires TLS for the local %s", (queue) => {
     expect(Object.values(localTemplate.Resources)).toContainEqual({
       Type: "AWS::SQS::QueuePolicy",
@@ -21,10 +26,12 @@ describe("AWS deployment contract", () => {
     expect(template.Parameters.EnableSchedules.Default).toBe("false");
     expect(template.Resources.Queue.Properties).toMatchObject({
       FifoQueue: true, ContentBasedDeduplication: true, SqsManagedSseEnabled: true,
-      QueueName: `learnrecur-${environment}-jobs.fifo`, VisibilityTimeout: 3600,
+      QueueName: `learnrecur-${environment}-jobs.fifo`, VisibilityTimeout: SQS_VISIBILITY_TIMEOUT_SECONDS,
       RedrivePolicy: { maxReceiveCount: 6 },
     });
-    expect(template.Resources.Worker.Properties).toMatchObject({ Runtime: "nodejs24.x", Architectures: ["arm64"], Timeout: 600 });
+    expect(template.Resources.Worker.Properties).toMatchObject({ Runtime: "nodejs24.x", Architectures: ["arm64"], Timeout: JOB_TIMEOUT_SECONDS });
+    expect(SQS_VISIBILITY_TIMEOUT_SECONDS).toBeGreaterThan(JOB_TIMEOUT_SECONDS);
+    expect(JOB_LEASE_SECONDS).toBeGreaterThan(JOB_TIMEOUT_SECONDS);
     expect(template.Resources.Worker.Properties).not.toHaveProperty("VpcConfig");
     expect(template.Resources.EventSource.Properties).toMatchObject({ BatchSize: 1, FunctionResponseTypes: ["ReportBatchItemFailures"] });
     expect(template.Resources.EventSource.Properties).not.toHaveProperty("ProvisionedPollerConfig");

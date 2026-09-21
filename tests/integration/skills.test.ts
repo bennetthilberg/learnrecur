@@ -25,7 +25,8 @@ import { getDashboardHome } from "@/lib/dashboard";
 import { DEFAULT_GEMINI_MODEL } from "@/lib/gemini";
 import { getPrisma } from "@/lib/prisma";
 import {
-  ACTIVATION_GENERATION_TIMEOUT_MS,
+  ACTIVATION_GENERATION_STALE_AFTER_MS,
+  ACTIVATION_STALE_JOB_MESSAGE,
   activateSkillDraft,
   createGeneratedSkillDraftsForSourceFile,
   createSkillDraft,
@@ -1511,7 +1512,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
     const secondActivation = activateSkillDraft({
       userId,
       skillId: draft.skill.id,
-      now: new Date(now.getTime() + ACTIVATION_GENERATION_TIMEOUT_MS + 1_000),
+      now: new Date(now.getTime() + ACTIVATION_GENERATION_STALE_AFTER_MS + 1_000),
       generateChoiceExercises: async () => {
         signalSecondStarted?.();
         await secondCanFinish;
@@ -1566,7 +1567,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
       ),
     ).toMatchObject({
       status: GenerationJobStatus.FAILED,
-      errorMessage: "A newer activation attempt replaced this one.",
+      errorMessage: ACTIVATION_STALE_JOB_MESSAGE,
     });
     expect(
       generationJobs.find(
@@ -1690,7 +1691,8 @@ describeDatabase("skill drafts and Gemini activation", () => {
         model: "stale-test-gemini",
         promptVersion: "skill-mcq-v0",
         requestedCount: 5,
-        startedAt: new Date(now.getTime() - ACTIVATION_GENERATION_TIMEOUT_MS - 1_000),
+        startedAt: new Date(now.getTime() - ACTIVATION_GENERATION_STALE_AFTER_MS - 1_000),
+        updatedAt: new Date(now.getTime() - ACTIVATION_GENERATION_STALE_AFTER_MS - 1_000),
       },
     });
 
@@ -1725,7 +1727,7 @@ describeDatabase("skill drafts and Gemini activation", () => {
       id: staleJob.id,
       status: GenerationJobStatus.FAILED,
       model: "stale-test-gemini",
-      errorMessage: "A newer activation attempt replaced this one.",
+      errorMessage: ACTIVATION_STALE_JOB_MESSAGE,
       completedAt: now,
     });
     expect(

@@ -5,9 +5,9 @@ import { createJobDeliveryStore } from "./delivery-store";
 import { loadWorkerEnvironment } from "./environment";
 import { createJobTransport } from "./transport";
 import { createJobWorker } from "./worker";
+import { JOB_LEASE_SECONDS } from "./timing";
 
-export const JOB_TIMEOUT_SECONDS = 600;
-export const JOB_LEASE_SECONDS = JOB_TIMEOUT_SECONDS + 60;
+export { JOB_LEASE_SECONDS, JOB_TIMEOUT_SECONDS } from "./timing";
 
 export async function createRuntimeWorker() {
   const config = getJobsConfig();

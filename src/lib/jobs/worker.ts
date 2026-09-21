@@ -8,6 +8,7 @@ import {
   type JobEnvelope,
   type JobEnvironment,
 } from "./contracts";
+import { JOB_SOFT_DEADLINE_MS } from "./timing";
 
 export type JobFailureCode =
   | "JOB_INVALID_MESSAGE"
@@ -22,7 +23,7 @@ export type JobClaim =
   | { status: "busy"; retryAfterSeconds: number }
   | { status: "dead-letter"; reason: JobFailureCode };
 
-export type JobExecutionContext = { attempt: number; maxAttempts: number };
+export type JobExecutionContext = { attempt: number; maxAttempts: number; deadlineAt?: Date };
 
 export type JobWorkerDependencies = {
   environment: JobEnvironment;
@@ -82,7 +83,11 @@ export function createJobWorker(dependencies: JobWorkerDependencies) {
     const maxAttempts = getJobDefinition(job.name).maxAttempts;
     const startedAt = dependencies.now().getTime();
     try {
-      await dependencies.execute(job, { attempt: claim.attempt - 1, maxAttempts });
+      await dependencies.execute(job, {
+        attempt: claim.attempt - 1,
+        maxAttempts,
+        deadlineAt: new Date(startedAt + JOB_SOFT_DEADLINE_MS),
+      });
     } catch (error) {
       const permanent = isPermanent(error);
       const terminal = permanent || claim.attempt >= maxAttempts;
