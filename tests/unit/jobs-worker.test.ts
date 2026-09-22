@@ -36,7 +36,10 @@ describe("SQS worker delivery safety", () => {
   it("acknowledges only after execution and durable completion", async () => {
     const { dependencies, run } = setup();
     expect(await run({ Records: [record()] })).toEqual({ batchItemFailures: [] });
-    expect(dependencies.execute).toHaveBeenCalledWith(expect.objectContaining({ name: "learnrecur/choice-refill.requested" }), { attempt: 0, maxAttempts: 3 });
+    expect(dependencies.execute).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "learnrecur/choice-refill.requested" }),
+      expect.objectContaining({ attempt: 0, maxAttempts: 3, deadlineAt: expect.any(Date) }),
+    );
     expect(dependencies.complete).toHaveBeenCalledOnce();
     expect(dependencies.deadLetter).not.toHaveBeenCalled();
   });

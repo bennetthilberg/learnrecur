@@ -15,6 +15,7 @@ import { sendAgentConnectionRevocationRequested, sendAgentSkillOperationRequeste
 import { getPrisma } from "@/lib/prisma";
 import { cleanupPreparedSourceUploads } from "@/lib/skills/uploads";
 import { recoverPendingRefillEvents } from "@/lib/skills/refill-jobs";
+import { recoverStaleAgentOperationItems } from "@/lib/agent-access/recovery";
 
 const AGENT_UPLOAD_WINDOW_MS = 10 * 60 * 1_000;
 const WORKOS_AUTHORIZED_APPLICATION_PAGE_LIMIT = 100;
@@ -530,7 +531,8 @@ export async function runAgentAccessMaintenance(now: Date) {
   const prisma = getPrisma();
   const uploadCutoff = new Date(now.getTime() - AGENT_UPLOAD_WINDOW_MS);
   let refillRecoveryFailed = false;
-  const [purged, rateBuckets, pending, expiredUploads, refillEvents] = await Promise.all([
+  let activationRecoveryFailed = false;
+  const [purged, rateBuckets, pending, expiredUploads, refillEvents, activationRecovery] = await Promise.all([
     prisma.agentSkillOperation.updateMany({
       where: { payloadExpiresAt: { lte: now }, requestPayload: { not: Prisma.DbNull } },
       data: { requestPayload: Prisma.DbNull, payloadExpiresAt: null },
@@ -571,6 +573,21 @@ export async function runAgentAccessMaintenance(now: Date) {
         errorName: error instanceof Error ? error.name : "UnknownError",
       });
       return { attempted: 0, delivered: 0, failed: 1 };
+    }),
+    recoverStaleAgentOperationItems({ now }).catch((error: unknown) => {
+      activationRecoveryFailed = true;
+      console.error("[agent-access] activation item recovery failed during maintenance", {
+        errorName: error instanceof Error ? error.name : "UnknownError",
+      });
+      return {
+        scanned: 0,
+        requeued: 0,
+        finalized: 0,
+        waiting: 0,
+        unchanged: 0,
+        legacyPromoted: 0,
+        continuations: 0,
+      };
     }),
   ]);
   let expiredUploadOperations = 0;
@@ -624,10 +641,20 @@ export async function runAgentAccessMaintenance(now: Date) {
     refillEventsAttempted: refillEvents.attempted,
     refillEventsDelivered: refillEvents.delivered,
     refillEventsFailed: refillEvents.failed,
+    activationItemsScanned: activationRecovery.scanned,
+    activationItemsRequeued: activationRecovery.requeued,
+    activationItemsFinalized: activationRecovery.finalized,
+    activationItemsWaiting: activationRecovery.waiting,
+    activationLegacyItemsPromoted: activationRecovery.legacyPromoted,
+    activationContinuations: activationRecovery.continuations,
   };
-  if (refillRecoveryFailed) {
+  if (refillRecoveryFailed || activationRecoveryFailed) {
+    const failures = [
+      ...(refillRecoveryFailed ? ["refill events"] : []),
+      ...(activationRecoveryFailed ? ["activation items"] : []),
+    ];
     const retryableError = new Error(
-      "Agent access maintenance could not recover refill events.",
+      `Agent access maintenance could not recover ${failures.join(" and ")}.`,
     );
     Object.assign(retryableError, { retryable: true });
     throw retryableError;

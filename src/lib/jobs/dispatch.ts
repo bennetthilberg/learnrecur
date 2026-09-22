@@ -43,7 +43,10 @@ export async function executeJob(job: JobEnvelope, context: JobExecutionContext)
     case "learnrecur/material-batch-activation.requested":
       return runMaterialBatchActivationJob({ ...job.data, ...context });
     case "learnrecur/agent-skill-operation.requested":
-      return runAgentSkillOperationJob(job.data);
+      return runAgentSkillOperationJob({
+        ...job.data,
+        ...(context.deadlineAt ? { deadlineAt: context.deadlineAt } : {}),
+      });
     case "learnrecur/agent-connection-revocation.requested":
       return runAgentConnectionRevocationJob(job.data);
     case "learnrecur/account-deletion.requested":

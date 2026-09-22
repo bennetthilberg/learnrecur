@@ -55,6 +55,8 @@ export type AgentSkillOperationItemMinAggregateOutputType = {
   errorMessage: string | null
   retryCount: number | null
   activationReservedAt: Date | null
+  workerClaimToken: string | null
+  workerClaimedAt: Date | null
   startedAt: Date | null
   completedAt: Date | null
   createdAt: Date | null
@@ -80,6 +82,8 @@ export type AgentSkillOperationItemMaxAggregateOutputType = {
   errorMessage: string | null
   retryCount: number | null
   activationReservedAt: Date | null
+  workerClaimToken: string | null
+  workerClaimedAt: Date | null
   startedAt: Date | null
   completedAt: Date | null
   createdAt: Date | null
@@ -107,6 +111,8 @@ export type AgentSkillOperationItemCountAggregateOutputType = {
   errorMessage: number
   retryCount: number
   activationReservedAt: number
+  workerClaimToken: number
+  workerClaimedAt: number
   startedAt: number
   completedAt: number
   createdAt: number
@@ -144,6 +150,8 @@ export type AgentSkillOperationItemMinAggregateInputType = {
   errorMessage?: true
   retryCount?: true
   activationReservedAt?: true
+  workerClaimToken?: true
+  workerClaimedAt?: true
   startedAt?: true
   completedAt?: true
   createdAt?: true
@@ -169,6 +177,8 @@ export type AgentSkillOperationItemMaxAggregateInputType = {
   errorMessage?: true
   retryCount?: true
   activationReservedAt?: true
+  workerClaimToken?: true
+  workerClaimedAt?: true
   startedAt?: true
   completedAt?: true
   createdAt?: true
@@ -196,6 +206,8 @@ export type AgentSkillOperationItemCountAggregateInputType = {
   errorMessage?: true
   retryCount?: true
   activationReservedAt?: true
+  workerClaimToken?: true
+  workerClaimedAt?: true
   startedAt?: true
   completedAt?: true
   createdAt?: true
@@ -310,6 +322,8 @@ export type AgentSkillOperationItemGroupByOutputType = {
   errorMessage: string | null
   retryCount: number
   activationReservedAt: Date | null
+  workerClaimToken: string | null
+  workerClaimedAt: Date | null
   startedAt: Date | null
   completedAt: Date | null
   createdAt: Date
@@ -360,6 +374,8 @@ export type AgentSkillOperationItemWhereInput = {
   errorMessage?: Prisma.StringNullableFilter<"AgentSkillOperationItem"> | string | null
   retryCount?: Prisma.IntFilter<"AgentSkillOperationItem"> | number
   activationReservedAt?: Prisma.DateTimeNullableFilter<"AgentSkillOperationItem"> | Date | string | null
+  workerClaimToken?: Prisma.StringNullableFilter<"AgentSkillOperationItem"> | string | null
+  workerClaimedAt?: Prisma.DateTimeNullableFilter<"AgentSkillOperationItem"> | Date | string | null
   startedAt?: Prisma.DateTimeNullableFilter<"AgentSkillOperationItem"> | Date | string | null
   completedAt?: Prisma.DateTimeNullableFilter<"AgentSkillOperationItem"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"AgentSkillOperationItem"> | Date | string
@@ -392,6 +408,8 @@ export type AgentSkillOperationItemOrderByWithRelationInput = {
   errorMessage?: Prisma.SortOrderInput | Prisma.SortOrder
   retryCount?: Prisma.SortOrder
   activationReservedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  workerClaimToken?: Prisma.SortOrderInput | Prisma.SortOrder
+  workerClaimedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   startedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   completedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -430,6 +448,8 @@ export type AgentSkillOperationItemWhereUniqueInput = Prisma.AtLeast<{
   errorMessage?: Prisma.StringNullableFilter<"AgentSkillOperationItem"> | string | null
   retryCount?: Prisma.IntFilter<"AgentSkillOperationItem"> | number
   activationReservedAt?: Prisma.DateTimeNullableFilter<"AgentSkillOperationItem"> | Date | string | null
+  workerClaimToken?: Prisma.StringNullableFilter<"AgentSkillOperationItem"> | string | null
+  workerClaimedAt?: Prisma.DateTimeNullableFilter<"AgentSkillOperationItem"> | Date | string | null
   startedAt?: Prisma.DateTimeNullableFilter<"AgentSkillOperationItem"> | Date | string | null
   completedAt?: Prisma.DateTimeNullableFilter<"AgentSkillOperationItem"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"AgentSkillOperationItem"> | Date | string
@@ -462,6 +482,8 @@ export type AgentSkillOperationItemOrderByWithAggregationInput = {
   errorMessage?: Prisma.SortOrderInput | Prisma.SortOrder
   retryCount?: Prisma.SortOrder
   activationReservedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  workerClaimToken?: Prisma.SortOrderInput | Prisma.SortOrder
+  workerClaimedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   startedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   completedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -497,6 +519,8 @@ export type AgentSkillOperationItemScalarWhereWithAggregatesInput = {
   errorMessage?: Prisma.StringNullableWithAggregatesFilter<"AgentSkillOperationItem"> | string | null
   retryCount?: Prisma.IntWithAggregatesFilter<"AgentSkillOperationItem"> | number
   activationReservedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"AgentSkillOperationItem"> | Date | string | null
+  workerClaimToken?: Prisma.StringNullableWithAggregatesFilter<"AgentSkillOperationItem"> | string | null
+  workerClaimedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"AgentSkillOperationItem"> | Date | string | null
   startedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"AgentSkillOperationItem"> | Date | string | null
   completedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"AgentSkillOperationItem"> | Date | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"AgentSkillOperationItem"> | Date | string
@@ -520,6 +544,8 @@ export type AgentSkillOperationItemCreateInput = {
   errorMessage?: string | null
   retryCount?: number
   activationReservedAt?: Date | string | null
+  workerClaimToken?: string | null
+  workerClaimedAt?: Date | string | null
   startedAt?: Date | string | null
   completedAt?: Date | string | null
   createdAt?: Date | string
@@ -552,6 +578,8 @@ export type AgentSkillOperationItemUncheckedCreateInput = {
   errorMessage?: string | null
   retryCount?: number
   activationReservedAt?: Date | string | null
+  workerClaimToken?: string | null
+  workerClaimedAt?: Date | string | null
   startedAt?: Date | string | null
   completedAt?: Date | string | null
   createdAt?: Date | string
@@ -576,6 +604,8 @@ export type AgentSkillOperationItemUpdateInput = {
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   retryCount?: Prisma.IntFieldUpdateOperationsInput | number
   activationReservedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  workerClaimToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  workerClaimedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -608,6 +638,8 @@ export type AgentSkillOperationItemUncheckedUpdateInput = {
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   retryCount?: Prisma.IntFieldUpdateOperationsInput | number
   activationReservedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  workerClaimToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  workerClaimedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -636,6 +668,8 @@ export type AgentSkillOperationItemCreateManyInput = {
   errorMessage?: string | null
   retryCount?: number
   activationReservedAt?: Date | string | null
+  workerClaimToken?: string | null
+  workerClaimedAt?: Date | string | null
   startedAt?: Date | string | null
   completedAt?: Date | string | null
   createdAt?: Date | string
@@ -659,6 +693,8 @@ export type AgentSkillOperationItemUpdateManyMutationInput = {
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   retryCount?: Prisma.IntFieldUpdateOperationsInput | number
   activationReservedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  workerClaimToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  workerClaimedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -686,6 +722,8 @@ export type AgentSkillOperationItemUncheckedUpdateManyInput = {
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   retryCount?: Prisma.IntFieldUpdateOperationsInput | number
   activationReservedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  workerClaimToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  workerClaimedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -738,6 +776,8 @@ export type AgentSkillOperationItemCountOrderByAggregateInput = {
   errorMessage?: Prisma.SortOrder
   retryCount?: Prisma.SortOrder
   activationReservedAt?: Prisma.SortOrder
+  workerClaimToken?: Prisma.SortOrder
+  workerClaimedAt?: Prisma.SortOrder
   startedAt?: Prisma.SortOrder
   completedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -768,6 +808,8 @@ export type AgentSkillOperationItemMaxOrderByAggregateInput = {
   errorMessage?: Prisma.SortOrder
   retryCount?: Prisma.SortOrder
   activationReservedAt?: Prisma.SortOrder
+  workerClaimToken?: Prisma.SortOrder
+  workerClaimedAt?: Prisma.SortOrder
   startedAt?: Prisma.SortOrder
   completedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -793,6 +835,8 @@ export type AgentSkillOperationItemMinOrderByAggregateInput = {
   errorMessage?: Prisma.SortOrder
   retryCount?: Prisma.SortOrder
   activationReservedAt?: Prisma.SortOrder
+  workerClaimToken?: Prisma.SortOrder
+  workerClaimedAt?: Prisma.SortOrder
   startedAt?: Prisma.SortOrder
   completedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -1012,6 +1056,8 @@ export type AgentSkillOperationItemCreateWithoutUserInput = {
   errorMessage?: string | null
   retryCount?: number
   activationReservedAt?: Date | string | null
+  workerClaimToken?: string | null
+  workerClaimedAt?: Date | string | null
   startedAt?: Date | string | null
   completedAt?: Date | string | null
   createdAt?: Date | string
@@ -1042,6 +1088,8 @@ export type AgentSkillOperationItemUncheckedCreateWithoutUserInput = {
   errorMessage?: string | null
   retryCount?: number
   activationReservedAt?: Date | string | null
+  workerClaimToken?: string | null
+  workerClaimedAt?: Date | string | null
   startedAt?: Date | string | null
   completedAt?: Date | string | null
   createdAt?: Date | string
@@ -1099,6 +1147,8 @@ export type AgentSkillOperationItemScalarWhereInput = {
   errorMessage?: Prisma.StringNullableFilter<"AgentSkillOperationItem"> | string | null
   retryCount?: Prisma.IntFilter<"AgentSkillOperationItem"> | number
   activationReservedAt?: Prisma.DateTimeNullableFilter<"AgentSkillOperationItem"> | Date | string | null
+  workerClaimToken?: Prisma.StringNullableFilter<"AgentSkillOperationItem"> | string | null
+  workerClaimedAt?: Prisma.DateTimeNullableFilter<"AgentSkillOperationItem"> | Date | string | null
   startedAt?: Prisma.DateTimeNullableFilter<"AgentSkillOperationItem"> | Date | string | null
   completedAt?: Prisma.DateTimeNullableFilter<"AgentSkillOperationItem"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"AgentSkillOperationItem"> | Date | string
@@ -1122,6 +1172,8 @@ export type AgentSkillOperationItemCreateWithoutCreatedSkillInput = {
   errorMessage?: string | null
   retryCount?: number
   activationReservedAt?: Date | string | null
+  workerClaimToken?: string | null
+  workerClaimedAt?: Date | string | null
   startedAt?: Date | string | null
   completedAt?: Date | string | null
   createdAt?: Date | string
@@ -1152,6 +1204,8 @@ export type AgentSkillOperationItemUncheckedCreateWithoutCreatedSkillInput = {
   errorMessage?: string | null
   retryCount?: number
   activationReservedAt?: Date | string | null
+  workerClaimToken?: string | null
+  workerClaimedAt?: Date | string | null
   startedAt?: Date | string | null
   completedAt?: Date | string | null
   createdAt?: Date | string
@@ -1186,6 +1240,8 @@ export type AgentSkillOperationItemCreateWithoutResultSkillInput = {
   errorMessage?: string | null
   retryCount?: number
   activationReservedAt?: Date | string | null
+  workerClaimToken?: string | null
+  workerClaimedAt?: Date | string | null
   startedAt?: Date | string | null
   completedAt?: Date | string | null
   createdAt?: Date | string
@@ -1216,6 +1272,8 @@ export type AgentSkillOperationItemUncheckedCreateWithoutResultSkillInput = {
   errorMessage?: string | null
   retryCount?: number
   activationReservedAt?: Date | string | null
+  workerClaimToken?: string | null
+  workerClaimedAt?: Date | string | null
   startedAt?: Date | string | null
   completedAt?: Date | string | null
   createdAt?: Date | string
@@ -1282,6 +1340,8 @@ export type AgentSkillOperationItemCreateWithoutOperationInput = {
   errorMessage?: string | null
   retryCount?: number
   activationReservedAt?: Date | string | null
+  workerClaimToken?: string | null
+  workerClaimedAt?: Date | string | null
   startedAt?: Date | string | null
   completedAt?: Date | string | null
   createdAt?: Date | string
@@ -1311,6 +1371,8 @@ export type AgentSkillOperationItemUncheckedCreateWithoutOperationInput = {
   errorMessage?: string | null
   retryCount?: number
   activationReservedAt?: Date | string | null
+  workerClaimToken?: string | null
+  workerClaimedAt?: Date | string | null
   startedAt?: Date | string | null
   completedAt?: Date | string | null
   createdAt?: Date | string
@@ -1361,6 +1423,8 @@ export type AgentSkillOperationItemCreateWithoutCandidatesInput = {
   errorMessage?: string | null
   retryCount?: number
   activationReservedAt?: Date | string | null
+  workerClaimToken?: string | null
+  workerClaimedAt?: Date | string | null
   startedAt?: Date | string | null
   completedAt?: Date | string | null
   createdAt?: Date | string
@@ -1392,6 +1456,8 @@ export type AgentSkillOperationItemUncheckedCreateWithoutCandidatesInput = {
   errorMessage?: string | null
   retryCount?: number
   activationReservedAt?: Date | string | null
+  workerClaimToken?: string | null
+  workerClaimedAt?: Date | string | null
   startedAt?: Date | string | null
   completedAt?: Date | string | null
   createdAt?: Date | string
@@ -1431,6 +1497,8 @@ export type AgentSkillOperationItemUpdateWithoutCandidatesInput = {
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   retryCount?: Prisma.IntFieldUpdateOperationsInput | number
   activationReservedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  workerClaimToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  workerClaimedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1462,6 +1530,8 @@ export type AgentSkillOperationItemUncheckedUpdateWithoutCandidatesInput = {
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   retryCount?: Prisma.IntFieldUpdateOperationsInput | number
   activationReservedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  workerClaimToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  workerClaimedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1488,6 +1558,8 @@ export type AgentSkillOperationItemCreateManyUserInput = {
   errorMessage?: string | null
   retryCount?: number
   activationReservedAt?: Date | string | null
+  workerClaimToken?: string | null
+  workerClaimedAt?: Date | string | null
   startedAt?: Date | string | null
   completedAt?: Date | string | null
   createdAt?: Date | string
@@ -1511,6 +1583,8 @@ export type AgentSkillOperationItemUpdateWithoutUserInput = {
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   retryCount?: Prisma.IntFieldUpdateOperationsInput | number
   activationReservedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  workerClaimToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  workerClaimedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1541,6 +1615,8 @@ export type AgentSkillOperationItemUncheckedUpdateWithoutUserInput = {
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   retryCount?: Prisma.IntFieldUpdateOperationsInput | number
   activationReservedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  workerClaimToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  workerClaimedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1568,6 +1644,8 @@ export type AgentSkillOperationItemUncheckedUpdateManyWithoutUserInput = {
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   retryCount?: Prisma.IntFieldUpdateOperationsInput | number
   activationReservedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  workerClaimToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  workerClaimedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1594,6 +1672,8 @@ export type AgentSkillOperationItemCreateManyCreatedSkillInput = {
   errorMessage?: string | null
   retryCount?: number
   activationReservedAt?: Date | string | null
+  workerClaimToken?: string | null
+  workerClaimedAt?: Date | string | null
   startedAt?: Date | string | null
   completedAt?: Date | string | null
   createdAt?: Date | string
@@ -1620,6 +1700,8 @@ export type AgentSkillOperationItemCreateManyResultSkillInput = {
   errorMessage?: string | null
   retryCount?: number
   activationReservedAt?: Date | string | null
+  workerClaimToken?: string | null
+  workerClaimedAt?: Date | string | null
   startedAt?: Date | string | null
   completedAt?: Date | string | null
   createdAt?: Date | string
@@ -1643,6 +1725,8 @@ export type AgentSkillOperationItemUpdateWithoutCreatedSkillInput = {
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   retryCount?: Prisma.IntFieldUpdateOperationsInput | number
   activationReservedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  workerClaimToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  workerClaimedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1673,6 +1757,8 @@ export type AgentSkillOperationItemUncheckedUpdateWithoutCreatedSkillInput = {
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   retryCount?: Prisma.IntFieldUpdateOperationsInput | number
   activationReservedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  workerClaimToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  workerClaimedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1700,6 +1786,8 @@ export type AgentSkillOperationItemUncheckedUpdateManyWithoutCreatedSkillInput =
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   retryCount?: Prisma.IntFieldUpdateOperationsInput | number
   activationReservedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  workerClaimToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  workerClaimedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1723,6 +1811,8 @@ export type AgentSkillOperationItemUpdateWithoutResultSkillInput = {
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   retryCount?: Prisma.IntFieldUpdateOperationsInput | number
   activationReservedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  workerClaimToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  workerClaimedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1753,6 +1843,8 @@ export type AgentSkillOperationItemUncheckedUpdateWithoutResultSkillInput = {
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   retryCount?: Prisma.IntFieldUpdateOperationsInput | number
   activationReservedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  workerClaimToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  workerClaimedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1780,6 +1872,8 @@ export type AgentSkillOperationItemUncheckedUpdateManyWithoutResultSkillInput = 
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   retryCount?: Prisma.IntFieldUpdateOperationsInput | number
   activationReservedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  workerClaimToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  workerClaimedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1805,6 +1899,8 @@ export type AgentSkillOperationItemCreateManyOperationInput = {
   errorMessage?: string | null
   retryCount?: number
   activationReservedAt?: Date | string | null
+  workerClaimToken?: string | null
+  workerClaimedAt?: Date | string | null
   startedAt?: Date | string | null
   completedAt?: Date | string | null
   createdAt?: Date | string
@@ -1828,6 +1924,8 @@ export type AgentSkillOperationItemUpdateWithoutOperationInput = {
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   retryCount?: Prisma.IntFieldUpdateOperationsInput | number
   activationReservedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  workerClaimToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  workerClaimedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1857,6 +1955,8 @@ export type AgentSkillOperationItemUncheckedUpdateWithoutOperationInput = {
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   retryCount?: Prisma.IntFieldUpdateOperationsInput | number
   activationReservedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  workerClaimToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  workerClaimedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1883,6 +1983,8 @@ export type AgentSkillOperationItemUncheckedUpdateManyWithoutOperationInput = {
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   retryCount?: Prisma.IntFieldUpdateOperationsInput | number
   activationReservedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  workerClaimToken?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  workerClaimedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1941,6 +2043,8 @@ export type AgentSkillOperationItemSelect<ExtArgs extends runtime.Types.Extensio
   errorMessage?: boolean
   retryCount?: boolean
   activationReservedAt?: boolean
+  workerClaimToken?: boolean
+  workerClaimedAt?: boolean
   startedAt?: boolean
   completedAt?: boolean
   createdAt?: boolean
@@ -1974,6 +2078,8 @@ export type AgentSkillOperationItemSelectCreateManyAndReturn<ExtArgs extends run
   errorMessage?: boolean
   retryCount?: boolean
   activationReservedAt?: boolean
+  workerClaimToken?: boolean
+  workerClaimedAt?: boolean
   startedAt?: boolean
   completedAt?: boolean
   createdAt?: boolean
@@ -2005,6 +2111,8 @@ export type AgentSkillOperationItemSelectUpdateManyAndReturn<ExtArgs extends run
   errorMessage?: boolean
   retryCount?: boolean
   activationReservedAt?: boolean
+  workerClaimToken?: boolean
+  workerClaimedAt?: boolean
   startedAt?: boolean
   completedAt?: boolean
   createdAt?: boolean
@@ -2036,13 +2144,15 @@ export type AgentSkillOperationItemSelectScalar = {
   errorMessage?: boolean
   retryCount?: boolean
   activationReservedAt?: boolean
+  workerClaimToken?: boolean
+  workerClaimedAt?: boolean
   startedAt?: boolean
   completedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type AgentSkillOperationItemOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "operationId" | "ordinal" | "clientReference" | "status" | "proposedTitle" | "proposedObjective" | "skillSnapshot" | "candidateFingerprint" | "duplicateLibraryFingerprint" | "duplicateConfidence" | "duplicateOverrideApprovedAt" | "sourceReferenceOutcome" | "createdSkillId" | "resultSkillId" | "errorCode" | "errorMessage" | "retryCount" | "activationReservedAt" | "startedAt" | "completedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["agentSkillOperationItem"]>
+export type AgentSkillOperationItemOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "operationId" | "ordinal" | "clientReference" | "status" | "proposedTitle" | "proposedObjective" | "skillSnapshot" | "candidateFingerprint" | "duplicateLibraryFingerprint" | "duplicateConfidence" | "duplicateOverrideApprovedAt" | "sourceReferenceOutcome" | "createdSkillId" | "resultSkillId" | "errorCode" | "errorMessage" | "retryCount" | "activationReservedAt" | "workerClaimToken" | "workerClaimedAt" | "startedAt" | "completedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["agentSkillOperationItem"]>
 export type AgentSkillOperationItemInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   operation?: boolean | Prisma.AgentSkillOperationDefaultArgs<ExtArgs>
@@ -2094,6 +2204,8 @@ export type $AgentSkillOperationItemPayload<ExtArgs extends runtime.Types.Extens
     errorMessage: string | null
     retryCount: number
     activationReservedAt: Date | null
+    workerClaimToken: string | null
+    workerClaimedAt: Date | null
     startedAt: Date | null
     completedAt: Date | null
     createdAt: Date
@@ -2546,6 +2658,8 @@ export interface AgentSkillOperationItemFieldRefs {
   readonly errorMessage: Prisma.FieldRef<"AgentSkillOperationItem", 'String'>
   readonly retryCount: Prisma.FieldRef<"AgentSkillOperationItem", 'Int'>
   readonly activationReservedAt: Prisma.FieldRef<"AgentSkillOperationItem", 'DateTime'>
+  readonly workerClaimToken: Prisma.FieldRef<"AgentSkillOperationItem", 'String'>
+  readonly workerClaimedAt: Prisma.FieldRef<"AgentSkillOperationItem", 'DateTime'>
   readonly startedAt: Prisma.FieldRef<"AgentSkillOperationItem", 'DateTime'>
   readonly completedAt: Prisma.FieldRef<"AgentSkillOperationItem", 'DateTime'>
   readonly createdAt: Prisma.FieldRef<"AgentSkillOperationItem", 'DateTime'>

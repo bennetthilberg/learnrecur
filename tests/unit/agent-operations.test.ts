@@ -38,6 +38,7 @@ describe("isRetryableAgentItemError", () => {
   it("accepts canonical and legacy punctuation for recoverable activation failures", () => {
     expect(isRetryableAgentItemError("SKILL_NOT_DRAFT")).toBe(true);
     expect(isRetryableAgentItemError("SKILL-NOT-DRAFT")).toBe(true);
+    expect(isRetryableAgentItemError("TRANSIENT_WORKER_FAILURE")).toBe(true);
   });
 
   it("does not retry unknown failures", () => {

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   AgentOperationItemStatus,
+  AgentOperationKind,
   SkillStatus,
 } from "@/generated/prisma/client";
 import {
@@ -14,6 +15,11 @@ import {
   selectAgentOperationItemsForDelivery,
   summarizeAgentSourceReferenceOutcome,
 } from "@/lib/agent-access/worker";
+import {
+  AGENT_OPERATION_CLEANUP_MARGIN_MS,
+  AGENT_OPERATION_SOFT_DEADLINE_MS,
+  AGENT_OPERATION_STALE_AFTER_MS,
+} from "@/lib/agent-access/recovery-policy";
 
 const baseMatch = {
   score: 1,
@@ -32,7 +38,7 @@ const baseMatch = {
 };
 
 describe("selectAgentOperationItemsForDelivery", () => {
-  it("keeps only five queued items and leaves terminal rows for idempotent retries", () => {
+  it("keeps one queued SPEC item and leaves terminal rows for idempotent continuations", () => {
     const items = [
       { id: "done", status: AgentOperationItemStatus.ACTIVE },
       ...Array.from({ length: 6 }, (_, index) => ({
@@ -42,8 +48,27 @@ describe("selectAgentOperationItemsForDelivery", () => {
     ];
 
     expect(selectAgentOperationItemsForDelivery(items)).toEqual(
-      items.slice(1, 6),
+      items.slice(1, 2),
     );
+  });
+
+  it("keeps the existing material batch slice separate from SPEC activation", () => {
+    const items = Array.from({ length: 6 }, (_, index) => ({
+      id: `queued-${index + 1}`,
+      status: AgentOperationItemStatus.QUEUED,
+    }));
+
+    expect(selectAgentOperationItemsForDelivery(items, AgentOperationKind.MATERIAL_BATCH)).toEqual(
+      items.slice(0, 5),
+    );
+  });
+});
+
+describe("agent activation timing", () => {
+  it("leaves enough time between the provider budget, soft deadline, and stale recovery", () => {
+    expect(AGENT_OPERATION_CLEANUP_MARGIN_MS).toBeGreaterThan(0);
+    expect(AGENT_OPERATION_SOFT_DEADLINE_MS).toBeGreaterThan(5 * 60_000);
+    expect(AGENT_OPERATION_STALE_AFTER_MS).toBeGreaterThan(AGENT_OPERATION_SOFT_DEADLINE_MS);
   });
 });
 

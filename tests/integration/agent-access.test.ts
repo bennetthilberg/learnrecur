@@ -16,6 +16,10 @@ import {
   AgentRateLimitKind,
   AgentRemoteRevocationStatus,
   AgentRevocationOutboxStatus,
+  GenerationFailureCategory,
+  GenerationJobKind,
+  GenerationJobStage,
+  GenerationJobStatus,
   SourceFileKind,
   SourceFileStatus,
   SkillStatus,
@@ -31,6 +35,7 @@ import {
   continueAgentOperation,
   createAgentSpecOperation,
 } from "@/lib/agent-access/operations";
+import { recoverStaleAgentOperationItems } from "@/lib/agent-access/recovery";
 import { listAgentMaterials } from "@/lib/agent-access/materials";
 import { reserveAgentActivation, runAgentSkillOperationJob } from "@/lib/agent-access/worker";
 import {
@@ -541,17 +546,28 @@ describeDatabase("agent access persistence", () => {
             status: AgentOperationItemStatus.ACTIVATING,
             createdSkillId: staleDraft.id,
             activationReservedAt: new Date("2026-08-13T11:00:00.000Z"),
+            workerClaimToken: "interrupted-token",
+            workerClaimedAt: new Date("2026-08-13T11:00:00.000Z"),
+            updatedAt: new Date("2026-08-13T11:00:00.000Z"),
           },
         },
       },
       include: { items: true },
     });
 
+    const recoveryNow = new Date("2026-08-13T11:10:00.000Z");
+    await expect(
+      recoverStaleAgentOperationItems({
+        userId: fixture.userId,
+        operationId: operation.id,
+        now: recoveryNow,
+      }),
+    ).resolves.toMatchObject({ requeued: 1, continuations: 1 });
     await expect(
       runAgentSkillOperationJob({
         userId: fixture.userId,
         operationId: operation.id,
-        now: new Date("2026-08-13T11:05:00.000Z"),
+        now: recoveryNow,
       }),
     ).resolves.toMatchObject({ status: "processed" });
     await expect(
@@ -562,6 +578,288 @@ describeDatabase("agent access persistence", () => {
       errorCode: "DRAFT_NOT_FOUND",
       activationReservedAt: null,
     });
+  });
+
+  it("fences stale activation recovery and preserves fresh generation work", async () => {
+    const staleFixture = await createConnection("stale-activation");
+    const staleNow = new Date("2026-08-13T12:00:00.000Z");
+    const staleClaimedAt = new Date("2026-08-13T11:45:00.000Z");
+    const staleSkill = await prisma.skill.create({
+      data: {
+        userId: staleFixture.userId,
+        title: "Stale recovery draft",
+        objective: "Practice a draft whose activation worker stopped.",
+        status: SkillStatus.DRAFT,
+      },
+    });
+    const staleJob = await prisma.generationJob.create({
+      data: {
+        userId: staleFixture.userId,
+        skillId: staleSkill.id,
+        kind: GenerationJobKind.SKILL_ACTIVATION,
+        status: GenerationJobStatus.RUNNING,
+        stage: GenerationJobStage.GENERATING,
+        provider: "google",
+        model: "recovery-test-gemini",
+        promptVersion: "recovery-test-v1",
+        requestedCount: 3,
+        startedAt: staleClaimedAt,
+        updatedAt: staleClaimedAt,
+      },
+    });
+    const staleOperation = await prisma.agentSkillOperation.create({
+      data: {
+        userId: staleFixture.userId,
+        connectionId: staleFixture.connection.id,
+        kind: AgentOperationKind.SPEC_BATCH,
+        toolName: "skills.add_from_specs",
+        status: AgentOperationStatus.ACTIVATING,
+        idempotencyKey: `stale-activation-${runId}`,
+        payloadHash: "2".repeat(64),
+        requestedCount: 1,
+        items: {
+          create: {
+            ordinal: 0,
+            clientReference: "stale-activation-item",
+            status: AgentOperationItemStatus.ACTIVATING,
+            createdSkillId: staleSkill.id,
+            activationReservedAt: staleClaimedAt,
+            workerClaimToken: "stale-worker-token",
+            workerClaimedAt: staleClaimedAt,
+            updatedAt: staleClaimedAt,
+          },
+        },
+      },
+      include: { items: true },
+    });
+
+    vi.mocked(sendAgentSkillOperationRequested).mockClear();
+    await expect(
+      recoverStaleAgentOperationItems({
+        userId: staleFixture.userId,
+        operationId: staleOperation.id,
+        now: staleNow,
+      }),
+    ).resolves.toMatchObject({ scanned: 1, requeued: 1, continuations: 1 });
+    await expect(
+      prisma.generationJob.findUniqueOrThrow({ where: { id: staleJob.id } }),
+    ).resolves.toMatchObject({
+      status: GenerationJobStatus.FAILED,
+      stage: GenerationJobStage.FAILED,
+      failureCategory: GenerationFailureCategory.TIMEOUT,
+      completedAt: staleNow,
+    });
+    const staleItem = await prisma.agentSkillOperationItem.findUniqueOrThrow({
+      where: { id: staleOperation.items[0].id },
+    });
+    expect(staleItem).toMatchObject({
+      status: AgentOperationItemStatus.QUEUED,
+      createdSkillId: staleSkill.id,
+      activationReservedAt: null,
+      workerClaimToken: null,
+      errorCode: "TRANSIENT_WORKER_FAILURE",
+      retryCount: 1,
+    });
+    expect(sendAgentSkillOperationRequested).toHaveBeenCalledWith({
+      userId: staleFixture.userId,
+      operationId: staleOperation.id,
+      requestedAt: staleNow.toISOString(),
+    });
+    await expect(
+      prisma.agentSkillOperation.findUniqueOrThrow({ where: { id: staleOperation.id } }),
+    ).resolves.toMatchObject({ status: AgentOperationStatus.QUEUED });
+
+    await expect(
+      prisma.agentSkillOperationItem.updateMany({
+        where: {
+          id: staleItem.id,
+          userId: staleFixture.userId,
+          workerClaimToken: "stale-worker-token",
+        },
+        data: { status: AgentOperationItemStatus.ACTIVE },
+      }),
+    ).resolves.toMatchObject({ count: 0 });
+
+    const freshFixture = await createConnection("fresh-activation");
+    const freshClaimedAt = new Date("2026-08-13T11:45:00.000Z");
+    const freshJobUpdatedAt = new Date("2026-08-13T11:59:00.000Z");
+    const freshSkill = await prisma.skill.create({
+      data: {
+        userId: freshFixture.userId,
+        title: "Fresh recovery draft",
+        objective: "Keep a live activation owned by its current worker.",
+        status: SkillStatus.DRAFT,
+      },
+    });
+    const freshJob = await prisma.generationJob.create({
+      data: {
+        userId: freshFixture.userId,
+        skillId: freshSkill.id,
+        kind: GenerationJobKind.SKILL_ACTIVATION,
+        status: GenerationJobStatus.RUNNING,
+        stage: GenerationJobStage.VERIFYING,
+        provider: "google",
+        model: "recovery-test-gemini",
+        promptVersion: "recovery-test-v1",
+        requestedCount: 3,
+        startedAt: freshClaimedAt,
+        updatedAt: freshJobUpdatedAt,
+      },
+    });
+    const freshOperation = await prisma.agentSkillOperation.create({
+      data: {
+        userId: freshFixture.userId,
+        connectionId: freshFixture.connection.id,
+        kind: AgentOperationKind.SPEC_BATCH,
+        toolName: "skills.add_from_specs",
+        status: AgentOperationStatus.ACTIVATING,
+        idempotencyKey: `fresh-activation-${runId}`,
+        payloadHash: "3".repeat(64),
+        requestedCount: 1,
+        items: {
+          create: {
+            ordinal: 0,
+            clientReference: "fresh-activation-item",
+            status: AgentOperationItemStatus.ACTIVATING,
+            createdSkillId: freshSkill.id,
+            activationReservedAt: freshClaimedAt,
+            workerClaimToken: "fresh-worker-token",
+            workerClaimedAt: freshClaimedAt,
+            updatedAt: freshClaimedAt,
+          },
+        },
+      },
+    });
+    await expect(
+      recoverStaleAgentOperationItems({
+        userId: freshFixture.userId,
+        operationId: freshOperation.id,
+        now: staleNow,
+      }),
+    ).resolves.toMatchObject({ scanned: 1, waiting: 1, requeued: 0 });
+    await expect(
+      prisma.generationJob.findUniqueOrThrow({ where: { id: freshJob.id } }),
+    ).resolves.toMatchObject({ status: GenerationJobStatus.RUNNING });
+    await expect(
+      prisma.agentSkillOperationItem.findFirstOrThrow({
+        where: { operationId: freshOperation.id },
+      }),
+    ).resolves.toMatchObject({
+      status: AgentOperationItemStatus.ACTIVATING,
+      workerClaimToken: "fresh-worker-token",
+      activationReservedAt: freshClaimedAt,
+    });
+  });
+
+  it("finalizes an activation that published before recovery inspected it", async () => {
+    const fixture = await createConnection("published-before-recovery");
+    const now = new Date("2026-08-13T12:00:00.000Z");
+    const claimedAt = new Date("2026-08-13T11:45:00.000Z");
+    const skill = await prisma.skill.create({
+      data: {
+        userId: fixture.userId,
+        title: "Published recovery skill",
+        objective: "Reconcile an activation after publication committed.",
+        status: SkillStatus.ACTIVE,
+      },
+    });
+    const operation = await prisma.agentSkillOperation.create({
+      data: {
+        userId: fixture.userId,
+        connectionId: fixture.connection.id,
+        kind: AgentOperationKind.SPEC_BATCH,
+        toolName: "skills.add_from_specs",
+        status: AgentOperationStatus.ACTIVATING,
+        idempotencyKey: `published-recovery-${runId}`,
+        payloadHash: "4".repeat(64),
+        requestedCount: 1,
+        items: {
+          create: {
+            ordinal: 0,
+            clientReference: "published-recovery-item",
+            status: AgentOperationItemStatus.ACTIVATING,
+            createdSkillId: skill.id,
+            activationReservedAt: claimedAt,
+            workerClaimToken: "published-worker-token",
+            workerClaimedAt: claimedAt,
+            updatedAt: claimedAt,
+          },
+        },
+      },
+    });
+
+    await expect(
+      recoverStaleAgentOperationItems({
+        userId: fixture.userId,
+        operationId: operation.id,
+        now,
+      }),
+    ).resolves.toMatchObject({ scanned: 1, finalized: 1, continuations: 0 });
+    await expect(
+      prisma.agentSkillOperationItem.findFirstOrThrow({ where: { operationId: operation.id } }),
+    ).resolves.toMatchObject({
+      status: AgentOperationItemStatus.ACTIVE,
+      resultSkillId: skill.id,
+      activationReservedAt: null,
+      workerClaimToken: null,
+      completedAt: now,
+    });
+    await expect(
+      prisma.agentSkillOperation.findUniqueOrThrow({ where: { id: operation.id } }),
+    ).resolves.toMatchObject({ status: AgentOperationStatus.SUCCEEDED, activeCount: 1 });
+  });
+
+  it("does not reopen a stale child of a terminal operation", async () => {
+    const fixture = await createConnection("terminal-recovery");
+    const claimedAt = new Date("2026-08-13T13:45:00.000Z");
+    const skill = await prisma.skill.create({
+      data: {
+        userId: fixture.userId,
+        title: "Terminal recovery draft",
+        objective: "Keep terminal operations closed during stale recovery.",
+        status: SkillStatus.DRAFT,
+      },
+    });
+    const operation = await prisma.agentSkillOperation.create({
+      data: {
+        userId: fixture.userId,
+        connectionId: fixture.connection.id,
+        kind: AgentOperationKind.SPEC_BATCH,
+        toolName: "skills.add_from_specs",
+        status: AgentOperationStatus.FAILED,
+        idempotencyKey: `terminal-recovery-${runId}`,
+        payloadHash: "terminal".repeat(8),
+        requestedCount: 1,
+        items: {
+          create: {
+            ordinal: 0,
+            clientReference: "terminal-recovery-item",
+            status: AgentOperationItemStatus.ACTIVATING,
+            createdSkillId: skill.id,
+            workerClaimToken: "terminal-worker-token",
+            workerClaimedAt: claimedAt,
+            updatedAt: claimedAt,
+          },
+        },
+      },
+      include: { items: true },
+    });
+
+    vi.mocked(sendAgentSkillOperationRequested).mockClear();
+    await expect(
+      recoverStaleAgentOperationItems({
+        userId: fixture.userId,
+        operationId: operation.id,
+        now: new Date("2026-08-13T14:00:00.000Z"),
+      }),
+    ).resolves.toMatchObject({ scanned: 0, continuations: 0 });
+    await expect(
+      prisma.agentSkillOperationItem.findUniqueOrThrow({ where: { id: operation.items[0].id } }),
+    ).resolves.toMatchObject({
+      status: AgentOperationItemStatus.ACTIVATING,
+      workerClaimToken: "terminal-worker-token",
+    });
+    expect(sendAgentSkillOperationRequested).not.toHaveBeenCalled();
   });
 
   it("serializes active-skill reservations at the shared account limit", async () => {

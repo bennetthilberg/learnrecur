@@ -4062,6 +4062,8 @@ export const AgentSkillOperationItemScalarFieldEnum = {
   errorMessage: 'errorMessage',
   retryCount: 'retryCount',
   activationReservedAt: 'activationReservedAt',
+  workerClaimToken: 'workerClaimToken',
+  workerClaimedAt: 'workerClaimedAt',
   startedAt: 'startedAt',
   completedAt: 'completedAt',
   createdAt: 'createdAt',

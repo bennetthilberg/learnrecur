@@ -41,7 +41,7 @@ import {
 import { loadLocalizedMaterialEvidence } from "@/lib/materials/evidence";
 import { getPrisma } from "@/lib/prisma";
 import {
-  ACTIVATION_GENERATION_TIMEOUT_MS,
+  ACTIVATION_GENERATION_STALE_AFTER_MS,
   ACTIVATION_SUPERSEDED_JOB_MESSAGE,
   activateSkillDraft,
   refillChoiceExercisesForSkill,
@@ -4217,7 +4217,7 @@ describeDatabase("material multi-skill drafting", () => {
       skillId: ready.items[0].skill.id,
       now: new Date(
         new Date("2026-07-18T12:01:00.000Z").getTime() +
-          ACTIVATION_GENERATION_TIMEOUT_MS +
+          ACTIVATION_GENERATION_STALE_AFTER_MS +
           1_000,
       ),
       generateChoiceExercises: async () => {

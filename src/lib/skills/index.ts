@@ -107,6 +107,14 @@ import {
   checkSkillActivationUsageLimit,
   getSkillActivationUsage,
 } from "@/lib/usage-limits";
+import { AGENT_OPERATION_STALE_AFTER_MS } from "@/lib/agent-access/recovery-policy";
+import {
+  ACTIVATION_PROVIDER_CHAIN_TIMEOUT_MS,
+  CHOICE_VERIFICATION_TIMEOUT_MS,
+  GENERATION_TIMEOUT_MS,
+} from "@/lib/skills/activation-timing";
+
+export { ACTIVATION_GENERATION_TIMEOUT_MS } from "@/lib/skills/activation-timing";
 
 export const MIN_ACTIVATION_EXERCISES = 3;
 export const REQUESTED_ACTIVATION_EXERCISES = 5;
@@ -134,18 +142,11 @@ export const MAX_TAGS_FIELD_LENGTH = MAX_TAGS * MAX_TAG_LENGTH + (MAX_TAGS - 1) 
 const MAX_TAG_INPUT_LENGTH = MAX_TAGS_FIELD_LENGTH;
 const PROMPT_NOTE_CHAR_LIMIT = 2_000;
 export const SOURCE_SKILL_DRAFT_PROMPT_VERSION = "source-skill-draft-v1";
-const GENERATION_TIMEOUT_MS = 45_000;
-const ACTIVATION_GENERATION_COMPLETION_SLACK_MS = 15_000;
-const ACTIVATION_PROVIDER_CHAIN_TIMEOUT_MS =
-  GENERATION_TIMEOUT_MS * 2 + ACTIVATION_GENERATION_COMPLETION_SLACK_MS;
-const CHOICE_VERIFICATION_TIMEOUT_MS =
-  GENERATION_TIMEOUT_MS * 4 + ACTIVATION_GENERATION_COMPLETION_SLACK_MS;
-export const ACTIVATION_GENERATION_TIMEOUT_MS =
-  ACTIVATION_PROVIDER_CHAIN_TIMEOUT_MS +
-  CHOICE_VERIFICATION_TIMEOUT_MS +
-  ACTIVATION_GENERATION_COMPLETION_SLACK_MS;
+export const ACTIVATION_GENERATION_STALE_AFTER_MS = AGENT_OPERATION_STALE_AFTER_MS;
 export const ACTIVATION_SUPERSEDED_JOB_MESSAGE =
   "A newer activation attempt replaced this one.";
+export const ACTIVATION_STALE_JOB_MESSAGE =
+  "The activation worker lease expired before completion. The generation attempt can be retried.";
 const ACTIVE_GENERATION_JOB_STATUSES: GenerationJobStatus[] = [
   GenerationJobStatus.PENDING,
   GenerationJobStatus.RUNNING,
@@ -8591,8 +8592,8 @@ async function createOrClaimActivationGenerationJob({
         data: {
           status: GenerationJobStatus.FAILED,
           stage: GenerationJobStage.FAILED,
-          failureCategory: GenerationFailureCategory.CANCELED,
-          errorMessage: ACTIVATION_SUPERSEDED_JOB_MESSAGE,
+          failureCategory: GenerationFailureCategory.TIMEOUT,
+          errorMessage: ACTIVATION_STALE_JOB_MESSAGE,
           completedAt: now,
         },
       });
@@ -8658,14 +8659,18 @@ function isFreshRunningGenerationJob(
   generationJob: {
     status: GenerationJobStatus;
     startedAt: Date | null;
+    updatedAt: Date;
   },
   now: Date,
 ) {
+  const lastActivityAt =
+    generationJob.updatedAt.getTime() <= now.getTime()
+      ? generationJob.updatedAt
+      : generationJob.startedAt;
   return (
     generationJob.status === GenerationJobStatus.RUNNING &&
-    generationJob.startedAt !== null &&
-    now.getTime() - generationJob.startedAt.getTime() <
-      ACTIVATION_GENERATION_TIMEOUT_MS
+    lastActivityAt !== null &&
+    now.getTime() - lastActivityAt.getTime() < ACTIVATION_GENERATION_STALE_AFTER_MS
   );
 }
 
