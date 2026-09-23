@@ -52,7 +52,11 @@ describeDatabase("material reader and source references", () => {
 
   async function createFixture(
     label: string,
-    options: { childPageEnd?: number; pageCount?: number } = {},
+    options: {
+      childPageEnd?: number;
+      pageCount?: number;
+      rootChunkMissingPageRange?: boolean;
+    } = {},
   ) {
     const userId = `${runId}_${label}`;
     userIds.push(userId);
@@ -144,7 +148,9 @@ describeDatabase("material reader and source references", () => {
         text: "El capítulo introduce el sistema de pronombres y sus funciones.",
         tokenEstimate: 10,
         contentHash: `${runId}:${label}:root-chunk`,
-        locator: { kind: "pdf", pageRange: { start: 1, end: 3 } },
+        locator: options.rootChunkMissingPageRange
+          ? { kind: "pdf" }
+          : { kind: "pdf", pageRange: { start: 1, end: 3 } },
         headingText: "Capítulo repetido",
       },
     });
@@ -296,7 +302,11 @@ describeDatabase("material reader and source references", () => {
   });
 
   it("derives canonical locators, validates selected scope, merges compatible links, and exposes them in skill reads", async () => {
-    const fixture = await createFixture("linking", { childPageEnd: 60, pageCount: 60 });
+    const fixture = await createFixture("linking", {
+      childPageEnd: 60,
+      pageCount: 60,
+      rootChunkMissingPageRange: true,
+    });
     const valid = {
       material_id: fixture.material.id,
       expected_revision_id: fixture.revision.id,
@@ -320,13 +330,13 @@ describeDatabase("material reader and source references", () => {
       sourceRefs: [{
         material_id: fixture.material.id,
         expected_revision_id: fixture.revision.id,
-        evidence_chunk_ids: [fixture.chunks[1].id],
+        evidence_chunk_ids: [fixture.chunks[1].id, fixture.rootChunk.id],
       }],
     });
     expect(chunkOnly[0].locator).toMatchObject({
-      materialSectionIds: [fixture.child.id],
-      evidenceChunkIds: [fixture.chunks[1].id],
-      source: { kind: "pdf", pageRanges: [{ start: 2, end: 2 }] },
+      materialSectionIds: [fixture.root.id, fixture.child.id],
+      evidenceChunkIds: [fixture.chunks[1].id, fixture.rootChunk.id],
+      source: { kind: "pdf", pageRanges: [{ start: 1, end: 3 }] },
     });
 
     await expect(

@@ -329,12 +329,16 @@ function buildCanonicalLocator(input: {
   );
   const chunkPageRanges = input.chunks.flatMap((chunk) => {
     const range = readPageRange(chunk.locator);
-    return range ? [range] : [];
+    if (range) return [range];
+    const section = input.sections.find((candidate) => candidate.id === chunk.materialSectionId);
+    return section?.pageStart
+      ? [{ start: section.pageStart, end: section.pageEnd ?? section.pageStart }]
+      : [];
   });
-  const pageRanges =
-    input.includeSectionPageRanges || chunkPageRanges.length !== input.chunks.length
-      ? [...sectionPageRanges, ...chunkPageRanges]
-      : chunkPageRanges;
+  const pageRanges = [
+    ...(input.includeSectionPageRanges ? sectionPageRanges : []),
+    ...chunkPageRanges,
+  ];
   const common = {
     version: MATERIAL_LOCATOR_VERSION,
     materialRevisionId: input.materialRevisionId,
