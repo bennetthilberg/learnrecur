@@ -27,6 +27,29 @@ describe("AWS job publishing", () => {
     expect(job.data).toEqual(data);
   });
 
+  it("preserves a continuation ID across ambiguous publisher retries", async () => {
+    const eventId = "agent-op-0123456789abcdef0123456789abcdef01234567";
+    await createJobPublisher(getJobsConfig(env))(
+      "learnrecur/agent-skill-operation.requested",
+      data,
+      { id: eventId },
+    );
+    const command = send.mock.calls[0][0].input;
+    const job = parseJobEnvelope(command.MessageBody, "staging");
+    expect(job.id).toBe(eventId);
+    expect(command.MessageDeduplicationId).toBe(eventId);
+  });
+
+  it("passes a stage abort signal to the SQS request", async () => {
+    const signal = new AbortController().signal;
+    await createJobPublisher(getJobsConfig(env))(
+      "learnrecur/agent-skill-operation.requested",
+      data,
+      { id: "agent-op-0123456789abcdef0123456789abcdef01234567", signal },
+    );
+    expect(send.mock.calls[0][1]).toEqual({ abortSignal: signal });
+  });
+
   it("does not contact AWS for invalid payloads", async () => {
     await expect(createJobPublisher(getJobsConfig(env))("learnrecur/agent-skill-operation.requested", { ...data, sourceText: "private" })).rejects.toThrow();
     expect(send).not.toHaveBeenCalled();

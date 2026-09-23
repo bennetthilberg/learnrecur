@@ -992,10 +992,19 @@ function daysFromNow(days: number) {
   return new Date(Date.now() + days * 24 * 60 * 60 * 1_000);
 }
 
-export async function enqueueOperation(userId: string, operationId: string) {
+export async function enqueueOperation(
+  userId: string,
+  operationId: string,
+  continuation?: { eventId: string; requestedAt: string; signal?: AbortSignal },
+) {
   await sendAgentSkillOperationRequested({
     userId,
     operationId,
-    requestedAt: new Date().toISOString(),
-  });
+    requestedAt: continuation?.requestedAt ?? new Date().toISOString(),
+  }, continuation
+    ? {
+        eventId: continuation.eventId,
+        ...(continuation.signal ? { signal: continuation.signal } : {}),
+      }
+    : undefined);
 }

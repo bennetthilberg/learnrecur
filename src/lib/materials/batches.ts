@@ -18,6 +18,7 @@ import {
   StudyMaterialStatus,
 } from "@/generated/prisma/client";
 import { getJobsEnvStatus } from "@/lib/jobs/config";
+import { AGENT_OPERATION_CLEANUP_MARGIN_MS } from "@/lib/agent-access/recovery-policy";
 import {
   awsMaterialBatchActivationEventSender,
   awsMaterialDraftItemEventSender,
@@ -576,6 +577,9 @@ export async function runMaterialDraftItemJob(input: {
   attempt?: number;
   maxAttempts?: number;
   now?: Date;
+  deadlineAt?: Date;
+  retryTransientOnWorkerDeadline?: boolean;
+  signal?: AbortSignal;
   aiSetup?: MaterialDraftAiSetup;
   sourceStorage?: SourceObjectStorage;
   sourceEvidenceLoader?: SkillSourceEvidenceLoader;
@@ -593,6 +597,7 @@ export async function runMaterialDraftItemJob(input: {
       proposedObjective: true,
       locator: true,
       generationMetadata: true,
+      generationClaimId: true,
       overlapSkillId: true,
       skillId: true,
       skill: { select: { id: true } },
@@ -656,11 +661,12 @@ export async function runMaterialDraftItemJob(input: {
     return { status: "excluded" as const };
   }
 
-  const claimId = input.requestedAt
-    ? createHash("sha256")
-        .update(`${input.itemId}\u0000${input.requestedAt}`)
-        .digest("hex")
-    : randomUUID();
+  const claimId = getMaterialDraftGenerationClaimId({
+    itemId: input.itemId,
+    requestedAt: input.requestedAt,
+    status: item.status,
+    existingClaimId: item.generationClaimId,
+  });
   const claimed = await prisma.skillDraftBatchItem.updateMany({
     where: {
       id: item.id,
@@ -786,6 +792,9 @@ export async function runMaterialDraftItemJob(input: {
         evidenceText,
         verificationNote,
         repairTarget: ai.repairTarget,
+        deadlineAt: input.deadlineAt,
+        cleanupMarginMs: input.deadlineAt ? AGENT_OPERATION_CLEANUP_MARGIN_MS : 0,
+        signal: input.signal,
         sourceMedia,
       });
       if (repaired.status === "failed") {
@@ -883,6 +892,9 @@ export async function runMaterialDraftItemJob(input: {
           return ai.generateDraft(draftInput);
         },
         verifyDraft: ai.verifyDraft,
+        deadlineAt: input.deadlineAt,
+        cleanupMarginMs: input.deadlineAt ? AGENT_OPERATION_CLEANUP_MARGIN_MS : 0,
+        signal: input.signal,
       });
       totalDraftAttempts += generated.attempts;
       if (generated.status === "ready") {
@@ -1131,12 +1143,13 @@ export async function runMaterialDraftItemJob(input: {
       return { status: "not-claimed" as const };
     }
     const normalized = normalizeMaterialDraftError(error);
-    const hasAutomaticRetryRemaining =
-      normalized.retryable &&
-      input.attempt !== undefined &&
-      input.maxAttempts !== undefined &&
-      input.attempt + 1 < input.maxAttempts;
-    const marked = hasAutomaticRetryRemaining
+    const releaseForRetry = shouldRetryMaterialDraftGeneration({
+      retryable: normalized.retryable,
+      attempt: input.attempt,
+      maxAttempts: input.maxAttempts,
+      retryTransientOnWorkerDeadline: input.retryTransientOnWorkerDeadline,
+    });
+    const marked = releaseForRetry
       ? await releaseMaterialDraftItemForRetry({
           userId: input.userId,
           itemId: item.id,
@@ -1157,6 +1170,40 @@ export async function runMaterialDraftItemJob(input: {
     await reconcileMaterialDraftBatch({ userId: input.userId, batchId: input.batchId, now });
     throw normalized;
   }
+}
+
+export function getMaterialDraftGenerationClaimId(input: {
+  itemId: string;
+  requestedAt?: string;
+  status: SkillDraftBatchItemStatus;
+  existingClaimId?: string | null;
+}) {
+  if (input.requestedAt) {
+    return createHash("sha256")
+      .update(`${input.itemId}\u0000${input.requestedAt}`)
+      .digest("hex");
+  }
+  if (
+    input.status === SkillDraftBatchItemStatus.PLANNED &&
+    input.existingClaimId
+  ) {
+    return input.existingClaimId;
+  }
+  return randomUUID();
+}
+
+export function shouldRetryMaterialDraftGeneration(input: {
+  retryable: boolean;
+  attempt?: number;
+  maxAttempts?: number;
+  retryTransientOnWorkerDeadline?: boolean;
+}) {
+  return input.retryable && (
+    input.retryTransientOnWorkerDeadline === true ||
+    (input.attempt !== undefined &&
+      input.maxAttempts !== undefined &&
+      input.attempt + 1 < input.maxAttempts)
+  );
 }
 
 export async function retryMaterialDraftItem(input: {

@@ -1,12 +1,23 @@
 import { describe, expect, it } from "vitest";
 import { createJobsTemplate } from "../../infra/aws/jobs-template";
 import { getJobMessageGroupId, parseJobEnvelope } from "@/lib/jobs/contracts";
-import { hasValidJobTiming, JOB_LEASE_SECONDS, JOB_TIMEOUT_SECONDS, SQS_VISIBILITY_TIMEOUT_SECONDS } from "@/lib/jobs/timing";
+import {
+  AGENT_SKILL_OPERATION_SOFT_DEADLINE_MS,
+  getJobSoftDeadlineMs,
+  hasValidJobTiming,
+  JOB_LEASE_SECONDS,
+  JOB_TIMEOUT_SECONDS,
+  SQS_VISIBILITY_TIMEOUT_SECONDS,
+} from "@/lib/jobs/timing";
 import localTemplate from "../../infra/aws/local-queues-template.json";
 
 describe("AWS deployment contract", () => {
   it("keeps the worker deadline, delivery lease, and visibility windows ordered", () => {
     expect(hasValidJobTiming()).toBe(true);
+    expect(getJobSoftDeadlineMs("learnrecur/agent-skill-operation.requested"))
+      .toBe(AGENT_SKILL_OPERATION_SOFT_DEADLINE_MS);
+    expect(AGENT_SKILL_OPERATION_SOFT_DEADLINE_MS).toBeLessThan(JOB_TIMEOUT_SECONDS * 1_000);
+    expect(getJobSoftDeadlineMs("learnrecur/choice-refill.requested")).toBe(6 * 60_000);
   });
 
   it.each(["Queue", "DeadLetters"])("requires TLS for the local %s", (queue) => {

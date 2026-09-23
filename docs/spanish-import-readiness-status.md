@@ -1,7 +1,7 @@
 # Spanish import readiness status
 
-Updated 2026-09-18 after the production schema repair. This is a work-in-progress
-checkpoint, not a release receipt.
+Updated 2026-09-23 for the worker deadline blocker follow-up. This is a
+work-in-progress checkpoint, not a release receipt.
 
 The implementation provides the bounded, auditable plumbing for a future
 Spanish textbook pilot: sequential material reading, revision-bound source
@@ -114,6 +114,50 @@ The Spanish import implementation is merged. The database limitation must
 remain recorded as an environment limitation rather than a passing result. The
 next operator should run the real-material pilot before making coverage or
 exercise-quality claims.
+
+## Worker deadline blocker follow-up — 2026-09-23
+
+The production handoff at 20:05 UTC reported 38 active skills, 50 pending
+operation items, and no activation progress after 19:47 UTC. The handoff's FIFO
+head-of-line explanation is an inference from the worker timing and live
+symptoms. AWS queue receipts and CloudWatch logs were not available because the
+local AWS session had expired, so this branch does not claim a confirmed queue
+diagnosis or a production fix.
+
+The fix is in progress on `a/activation-worker-deadline` and is not deployed:
+
+- Agent operation deliveries now have an eight-minute soft deadline, below
+  Lambda's ten-minute hard timeout, with reserved cleanup time.
+- Skill generation, exercise verification, embedding, material drafting, and
+  activation publication use bounded stages. Provider calls receive abort
+  signals; database publication transactions have explicit wait and execution
+  limits.
+- Timed-out work releases its claim and persists a bounded transient retry.
+  Eligible work can continue in a fresh delivery; maintenance republishes
+  queued work with a stable event ID after ambiguous sends.
+- Maintenance filters retry eligibility before applying its bounded scan, so
+  delayed retry rows cannot hide ready work behind the scan limit.
+- Publication checks preserve verified candidates and use transaction fences
+  to avoid duplicate skill activation. The worker does not alter introduction
+  timestamps, attempts, or FSRS history.
+
+Local verification for this branch:
+
+- `npm run test:unit`: 146 files and 1,271 tests passed;
+- `npx tsc --noEmit`, `npm run lint`, and `npm run prisma:validate` passed;
+- `npm run prisma:generate`, `npm run jobs:build`, and `npm run build` passed;
+- focused integration cases cover a verifier that never resolves, sibling
+  progress, activation-publication timeout, preservation of verified
+  candidates, and stable recovery event IDs. They could not run against the
+  configured Neon branch because it rejects test writes with SQLSTATE `25006`;
+- AWS credentials remain expired. Production queue behavior, production
+  deployment, duplicate-activation checks under a live mixed batch, and the
+  requested production smoke acceptance remain unverified.
+
+After PR CI and review, the operator should deploy through the normal release
+path, run the small mixed batch from the handoff, and verify sibling progress,
+terminal or bounded-retry outcomes, no duplicate activations, verified exercise
+inventory, and unchanged introduction/FSRS history before resuming imports.
 
 Suggested resume commands:
 

@@ -8,7 +8,7 @@ import {
   type JobEnvelope,
   type JobEnvironment,
 } from "./contracts";
-import { JOB_SOFT_DEADLINE_MS } from "./timing";
+import { getJobSoftDeadlineMs } from "./timing";
 
 export type JobFailureCode =
   | "JOB_INVALID_MESSAGE"
@@ -126,7 +126,7 @@ export function createJobWorker(dependencies: JobWorkerDependencies) {
       executionResult = await dependencies.execute(job, {
         attempt: claim.attempt - 1,
         maxAttempts,
-        deadlineAt: new Date(startedAt + JOB_SOFT_DEADLINE_MS),
+        deadlineAt: new Date(startedAt + getJobSoftDeadlineMs(job.name)),
       });
     } catch (error) {
       const permanent = isPermanent(error);

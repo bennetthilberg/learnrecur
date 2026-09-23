@@ -46,6 +46,7 @@ import {
   getGeminiRuntimeLogContext,
   getGeminiErrorLogDetails,
   getPublicGeminiFailureMessage,
+  isRetryableGeminiModelError,
   resolveGeminiRuntimeConfig,
   runLoggedGeminiOperation,
   runWithGeminiProviderFallback,
@@ -68,6 +69,11 @@ import {
   resolveOptionalMetaMuseFallbackConfig,
 } from "@/lib/meta-muse-fallback";
 import { getPrisma } from "@/lib/prisma";
+import {
+  getJobStageTimeoutMs,
+  isJobStageTimeoutError,
+  withAbortableTimeout,
+} from "@/lib/jobs/deadline";
 import { createInitialSkillSchedule } from "@/lib/scheduling";
 import {
   buildSkillDuplicateCandidateFingerprint,
@@ -107,11 +113,18 @@ import {
   checkSkillActivationUsageLimit,
   getSkillActivationUsage,
 } from "@/lib/usage-limits";
-import { AGENT_OPERATION_STALE_AFTER_MS } from "@/lib/agent-access/recovery-policy";
 import {
+  AGENT_OPERATION_CLEANUP_MARGIN_MS,
+  AGENT_OPERATION_STALE_AFTER_MS,
+} from "@/lib/agent-access/recovery-policy";
+import {
+  ACTIVATION_PUBLISH_TRANSACTION_MAX_WAIT_MS,
+  ACTIVATION_PUBLISH_TRANSACTION_TIMEOUT_MS,
   ACTIVATION_PROVIDER_CHAIN_TIMEOUT_MS,
   CHOICE_VERIFICATION_TIMEOUT_MS,
   GENERATION_TIMEOUT_MS,
+  ACTIVATION_RESERVATION_TRANSACTION_MAX_WAIT_MS,
+  ACTIVATION_RESERVATION_TRANSACTION_TIMEOUT_MS,
 } from "@/lib/skills/activation-timing";
 
 export { ACTIVATION_GENERATION_TIMEOUT_MS } from "@/lib/skills/activation-timing";
@@ -460,6 +473,7 @@ type SkillGenerationSourceRef = LocalizedMaterialSourceRef & {
 };
 
 export type ChoiceExerciseGeneratorInput = {
+  signal?: AbortSignal;
   skill: {
     textPolicy?: Prisma.JsonValue | null;
     textPolicyRevision?: number;
@@ -485,6 +499,7 @@ export type ChoiceExerciseGenerator = (
 ) => Promise<unknown>;
 
 export type ChoiceExerciseVerifierInput = {
+  signal?: AbortSignal;
   skill: ChoiceExerciseGeneratorInput["skill"];
   sourceContext: string | null;
   sourceMedia?: SourceMediaContext[];
@@ -504,6 +519,7 @@ export type ExactInputExerciseGenerator = (
 ) => Promise<unknown>;
 
 export type ExactInputExerciseVerifierInput = {
+  signal?: AbortSignal;
   qualityContext?: GenerationQualityContext;
   skill: ExactInputExerciseGeneratorInput["skill"];
   sourceContext: string | null;
@@ -523,6 +539,7 @@ export type MathExerciseGenerator = (
 ) => Promise<unknown>;
 
 export type MathExerciseVerifierInput = {
+  signal?: AbortSignal;
   qualityContext?: GenerationQualityContext;
   skill: MathExerciseGeneratorInput["skill"];
   sourceContext: string | null;
@@ -557,6 +574,7 @@ export type SourceSkillDraftInputResult =
 export type SkillDraftGeneratorInput = NormalizedSourceSkillDraftInput & {
   sourceContext: string;
   sourceMedia?: SourceMediaContext[];
+  signal?: AbortSignal;
 };
 
 export type SkillDraftGenerator = (input: SkillDraftGeneratorInput) => Promise<unknown>;
@@ -598,6 +616,8 @@ export type ActivateSkillDraftInput = {
     fingerprint: string;
   };
   now: Date;
+  deadlineAt?: Date;
+  signal?: AbortSignal;
   generationJobId?: string;
   generateChoiceExercises?: ChoiceExerciseGenerator;
   verifyChoiceExercises?: ChoiceExerciseVerifier;
@@ -612,6 +632,8 @@ export type AgentCandidateVerificationInput = {
   userId: string;
   skillId: string;
   now: Date;
+  deadlineAt?: Date;
+  signal?: AbortSignal;
   candidates: Array<{ candidateId: string; normalizedPayload: unknown }>;
 };
 
@@ -629,6 +651,7 @@ export type AgentCandidateVerificationResult =
       status: "not-verified";
       reason: "skill-not-draft" | "missing-gemini-env" | "verification-failed";
       message: string;
+      retryable?: boolean;
     };
 
 export type RefillChoiceExercisesInput = {
@@ -674,6 +697,8 @@ export type CreateSkillDraftFromSourceInput = {
   userId: string;
   input: unknown;
   now: Date;
+  deadlineAt?: Date;
+  signal?: AbortSignal;
   generateSkillDraft?: SkillDraftGenerator;
   model?: string;
   recoveredSourceFileId?: string | null;
@@ -717,6 +742,7 @@ export type SourceSkillDraftWriteResult =
         | "save-failed"
         | "source-not-found";
       message: string;
+      retryable?: boolean;
     };
 
 export type SkillActivationResult =
@@ -742,6 +768,7 @@ export type SkillActivationResult =
         | "skill-not-draft";
       message: string;
       generationJobId?: string;
+      retryable?: boolean;
     }
   | {
       status: "not-found";
@@ -2094,14 +2121,22 @@ export async function createSkillDraftFromSource(
   let rawGeneration: unknown;
 
   try {
-    rawGeneration = await withTimeout(
-      setup.generateSkillDraft({
+    rawGeneration = await withAbortableTimeout({
+      run: (signal) => setup.generateSkillDraft({
         ...normalized.value,
         sourceContext,
+        signal,
       }),
-      GENERATION_TIMEOUT_MS,
-      "generateSkillDraft timed out",
-    );
+      timeoutMs: getJobStageTimeoutMs({
+        deadlineAt: input.deadlineAt,
+        cleanupMarginMs: AGENT_OPERATION_CLEANUP_MARGIN_MS,
+        maxTimeoutMs: GENERATION_TIMEOUT_MS,
+        stage: "source skill draft generation",
+      }),
+      message: "generateSkillDraft timed out",
+      stage: "source skill draft generation",
+      parentSignal: input.signal,
+    });
   } catch (error) {
     console.error("[ai] skill draft generation failed", getGeminiErrorLogDetails(error));
     const message = getPublicGeminiFailureMessage(error);
@@ -2124,6 +2159,7 @@ export async function createSkillDraftFromSource(
       status: "not-created",
       reason: "generation-failed",
       message,
+      retryable: true,
     };
   }
 
@@ -2720,13 +2756,46 @@ export async function verifyUntrustedAgentExerciseCandidates(
     };
     const [choiceRaw, exactRaw, mathRaw] = await Promise.all([
       choiceCandidates.length
-        ? withTimeout(choiceSetup.verifyChoiceExercises({ ...verifierInput, candidates: choiceCandidates }), CHOICE_VERIFICATION_TIMEOUT_MS, "choice verifier timed out")
+        ? withAbortableTimeout({
+            run: (signal) => choiceSetup.verifyChoiceExercises({ ...verifierInput, signal, candidates: choiceCandidates }),
+            timeoutMs: getJobStageTimeoutMs({
+              deadlineAt: input.deadlineAt,
+              cleanupMarginMs: AGENT_OPERATION_CLEANUP_MARGIN_MS,
+              maxTimeoutMs: CHOICE_VERIFICATION_TIMEOUT_MS,
+              stage: "agent candidate verification",
+            }),
+            message: "choice verifier timed out",
+            stage: "agent candidate verification",
+            parentSignal: input.signal,
+          })
         : null,
       exactCandidates.length
-        ? withTimeout(exactSetup.verifyExactInputExercises({ ...verifierInput, candidates: exactCandidates }), ACTIVATION_PROVIDER_CHAIN_TIMEOUT_MS, "exact-input verifier timed out")
+        ? withAbortableTimeout({
+            run: (signal) => exactSetup.verifyExactInputExercises({ ...verifierInput, signal, candidates: exactCandidates }),
+            timeoutMs: getJobStageTimeoutMs({
+              deadlineAt: input.deadlineAt,
+              cleanupMarginMs: AGENT_OPERATION_CLEANUP_MARGIN_MS,
+              maxTimeoutMs: ACTIVATION_PROVIDER_CHAIN_TIMEOUT_MS,
+              stage: "agent exact-input candidate verification",
+            }),
+            message: "exact-input verifier timed out",
+            stage: "agent exact-input candidate verification",
+            parentSignal: input.signal,
+          })
         : null,
       mathCandidates.length
-        ? withTimeout(mathSetup.verifyMathExercises({ ...verifierInput, candidates: mathCandidates }), ACTIVATION_PROVIDER_CHAIN_TIMEOUT_MS, "math verifier timed out")
+        ? withAbortableTimeout({
+            run: (signal) => mathSetup.verifyMathExercises({ ...verifierInput, signal, candidates: mathCandidates }),
+            timeoutMs: getJobStageTimeoutMs({
+              deadlineAt: input.deadlineAt,
+              cleanupMarginMs: AGENT_OPERATION_CLEANUP_MARGIN_MS,
+              maxTimeoutMs: ACTIVATION_PROVIDER_CHAIN_TIMEOUT_MS,
+              stage: "agent math candidate verification",
+            }),
+            message: "math verifier timed out",
+            stage: "agent math candidate verification",
+            parentSignal: input.signal,
+          })
         : null,
     ]);
     const decisions = [
@@ -2739,10 +2808,14 @@ export async function verifyUntrustedAgentExerciseCandidates(
     }
     return { status: "verified", decisions };
   } catch (error) {
+    if (input.signal?.aborted) {
+      throw input.signal.reason instanceof Error ? input.signal.reason : error;
+    }
     return {
       status: "not-verified",
       reason: "verification-failed",
       message: `Agent exercise verification failed: ${formatEnvError(error)}`,
+      retryable: isJobStageTimeoutError(error) || isRetryableGeminiModelError(error),
     };
   }
 }
@@ -2753,6 +2826,23 @@ export async function activateSkillDraft(
   const prisma = getPrisma();
   const providerUsage = createAiProviderUsageTracker();
   const setup = resolveActivationSetup(input, providerUsage.record);
+  let reservationTimeoutMs: number;
+  try {
+    reservationTimeoutMs = getJobStageTimeoutMs({
+      deadlineAt: input.deadlineAt,
+      cleanupMarginMs: AGENT_OPERATION_CLEANUP_MARGIN_MS,
+      maxTimeoutMs: ACTIVATION_RESERVATION_TRANSACTION_TIMEOUT_MS,
+      stage: "activation reservation",
+    });
+  } catch (error) {
+    if (!isJobStageTimeoutError(error)) throw error;
+    return {
+      status: "not-activated",
+      reason: "generation-failed",
+      message: "Activation could not reserve its database work within the delivery window.",
+      retryable: true,
+    };
+  }
   const reservation = await prisma.$transaction(async (tx) => {
     await tx.$queryRaw`
       SELECT "id"
@@ -2934,6 +3024,22 @@ export async function activateSkillDraft(
       generationJob: generationJobResult.generationJob,
       parsedAgentCandidates,
     };
+  }, {
+    maxWait: Math.min(ACTIVATION_RESERVATION_TRANSACTION_MAX_WAIT_MS, reservationTimeoutMs),
+    timeout: reservationTimeoutMs,
+  }).catch((error: unknown) => {
+    const errorCode = typeof error === "object" && error !== null && "code" in error
+      ? (error as { code?: unknown }).code
+      : null;
+    if (errorCode === "P2028" || errorCode === "P2024") {
+      return {
+        status: "not-activated" as const,
+        reason: "generation-failed" as const,
+        message: "Activation could not reserve its database work within the delivery window.",
+        retryable: true,
+      };
+    }
+    throw error;
   });
 
   if (reservation.status !== "ready") {
@@ -3020,18 +3126,26 @@ export async function activateSkillDraft(
   let rawGeneration: unknown;
 
   try {
-    rawGeneration = await withTimeout(
-      setup.generateChoiceExercises({
+    rawGeneration = await withAbortableTimeout({
+      run: (signal) => setup.generateChoiceExercises({
         skill,
         sourceContext,
         sourceMedia,
         existingExerciseContext: null,
         qualityContext,
         requestedCount: REQUESTED_ACTIVATION_EXERCISES,
+        signal,
       }),
-      ACTIVATION_PROVIDER_CHAIN_TIMEOUT_MS,
-      "generateChoiceExercises timed out",
-    );
+      timeoutMs: getJobStageTimeoutMs({
+        deadlineAt: input.deadlineAt,
+        cleanupMarginMs: AGENT_OPERATION_CLEANUP_MARGIN_MS,
+        maxTimeoutMs: ACTIVATION_PROVIDER_CHAIN_TIMEOUT_MS,
+        stage: "activation exercise generation",
+      }),
+      message: "generateChoiceExercises timed out",
+      stage: "activation exercise generation",
+      parentSignal: input.signal,
+    });
   } catch (error) {
     const message = `Exercise generation failed: ${formatEnvError(error)}`;
     const jobFailed = await markGenerationJobFailed(prisma, generationJob.id, {
@@ -3050,6 +3164,7 @@ export async function activateSkillDraft(
       reason: "generation-failed",
       message,
       generationJobId: generationJob.id,
+      retryable: true,
     };
   }
 
@@ -3103,18 +3218,26 @@ export async function activateSkillDraft(
   let rawVerification: unknown;
 
   try {
-    rawVerification = await withTimeout(
-      setup.verifyChoiceExercises({
+    rawVerification = await withAbortableTimeout({
+      run: (signal) => setup.verifyChoiceExercises({
         skill,
         sourceContext,
         sourceMedia,
         existingExerciseContext: null,
         qualityContext,
         candidates,
+        signal,
       }),
-      CHOICE_VERIFICATION_TIMEOUT_MS,
-      "verifyChoiceExercises timed out",
-    );
+      timeoutMs: getJobStageTimeoutMs({
+        deadlineAt: input.deadlineAt,
+        cleanupMarginMs: AGENT_OPERATION_CLEANUP_MARGIN_MS,
+        maxTimeoutMs: CHOICE_VERIFICATION_TIMEOUT_MS,
+        stage: "activation exercise verification",
+      }),
+      message: "verifyChoiceExercises timed out",
+      stage: "activation exercise verification",
+      parentSignal: input.signal,
+    });
   } catch (error) {
     const message = `Exercise verification failed: ${formatEnvError(error)}`;
     const jobFailed = await markGenerationJobFailed(prisma, generationJob.id, {
@@ -3133,6 +3256,7 @@ export async function activateSkillDraft(
       reason: "verification-failed",
       message,
       generationJobId: generationJob.id,
+      retryable: true,
     };
   }
 
@@ -3184,8 +3308,45 @@ export async function activateSkillDraft(
     return activationSuperseded(generationJob.id);
   }
 
+  const handleActivationPublicationFailure = async (
+    error: unknown,
+  ): Promise<SkillActivationResult> => {
+    const message = `Exercise publication failed: ${formatEnvError(error)}`;
+    const errorCode = typeof error === "object" && error !== null && "code" in error
+      ? (error as { code?: unknown }).code
+      : null;
+    const failed = await markGenerationJobFailed(prisma, generationJob.id, {
+      message,
+      acceptedCount: 0,
+      rejectedCount: validation.rejectedCount + verification.exercises.length,
+      now: input.now,
+      failureCategory: isJobStageTimeoutError(error) || errorCode === "P2028"
+        ? GenerationFailureCategory.TIMEOUT
+        : GenerationFailureCategory.UNKNOWN,
+      providerUsage: providerUsage.latest(),
+    });
+    if (!failed) return activationSuperseded(generationJob.id);
+    return {
+      status: "not-activated" as const,
+      reason: "generation-failed" as const,
+      message,
+      generationJobId: generationJob.id,
+      retryable: true,
+    };
+  };
+  let publicationTimeoutMs: number;
+  try {
+    publicationTimeoutMs = getJobStageTimeoutMs({
+      deadlineAt: input.deadlineAt,
+      cleanupMarginMs: AGENT_OPERATION_CLEANUP_MARGIN_MS,
+      maxTimeoutMs: ACTIVATION_PUBLISH_TRANSACTION_TIMEOUT_MS,
+      stage: "activation publication",
+    });
+  } catch (error) {
+    return handleActivationPublicationFailure(error);
+  }
   const activation: SkillActivationResult = await mapGenerationPublicationRace(
-    prisma.$transaction(async (tx) => {
+      prisma.$transaction(async (tx): Promise<SkillActivationResult> => {
     await tx.$queryRaw`
       SELECT "id"
       FROM "users"
@@ -3526,9 +3687,12 @@ export async function activateSkillDraft(
       generationJobId: generationJob.id,
       exerciseCount: fallbackChoices.length + parsedAgentCandidates.length,
     };
-    }),
-    () => activationSuperseded(generationJob.id),
-  );
+      }, {
+        maxWait: Math.min(ACTIVATION_PUBLISH_TRANSACTION_MAX_WAIT_MS, publicationTimeoutMs),
+        timeout: publicationTimeoutMs,
+      }),
+      () => activationSuperseded(generationJob.id),
+    ).catch(handleActivationPublicationFailure);
   if (activation.status === "activated") {
     try {
       const current = await prisma.skill.findFirst({
@@ -6367,6 +6531,7 @@ export function createGeminiSkillDraftGenerator({
     const metaMuseFallbackForInput = metaMuseSkillDraftFallbackForInput(metaMuseFallback, input);
 
     return runWithGeminiProviderFallback({
+      signal: input.signal,
       fallback: metaMuseFallbackForInput
         ? {
             provider: META_MUSE_PROVIDER,
@@ -6381,17 +6546,19 @@ export function createGeminiSkillDraftGenerator({
         return runLoggedGeminiOperation({
           config: gemini,
           operation: "skill draft generation",
+          signal: input.signal,
           metadata: {
             promptChars: buildSourceSkillDraftPrompt(input).length,
             schemaName: "geminiSkillDraftJsonSchema",
             media: buildSourceMediaLogMetadata(input.sourceMedia),
           },
-          run: async (ai) => {
+          run: async (ai, signal) => {
             const prompt = buildSourceSkillDraftPrompt(input);
             const response = await ai.models.generateContent({
               model: gemini.model,
               contents: buildGeminiContentsWithSourceMedia(prompt, input.sourceMedia),
               config: {
+                abortSignal: signal,
                 responseMimeType: "application/json",
                 responseJsonSchema: geminiSkillDraftJsonSchema,
                 thinkingConfig: GEMINI_LOW_THINKING_CONFIG,
@@ -6430,6 +6597,7 @@ export function createMetaMuseSkillDraftGenerator({
         media: buildSourceMediaLogMetadata(input.sourceMedia),
       },
       operation: "skill draft generation",
+      signal: input.signal,
       responseJsonSchema: geminiSkillDraftJsonSchema,
       responseJsonSchemaName: "skillDraft",
       messages: [
@@ -6567,6 +6735,7 @@ export function createGeminiChoiceExerciseGenerator({
     const prompt = buildChoiceExercisePrompt(input);
 
     return runWithGeminiProviderFallback({
+      signal: input.signal,
       fallback: buildMetaMuseProviderFallback(
         metaMuseFallback,
         input.sourceMedia,
@@ -6581,17 +6750,19 @@ export function createGeminiChoiceExerciseGenerator({
           runLoggedGeminiOperation({
             config: gemini,
             operation: "choice exercise generation",
+            signal: input.signal,
             metadata: {
               requestedCount: input.requestedCount,
               promptChars: prompt.length,
               schemaName: "choiceExerciseResponse",
               media: buildSourceMediaLogMetadata(input.sourceMedia),
             },
-            run: async (ai) => {
+            run: async (ai, signal) => {
               const response = await ai.models.generateContent({
                 model: gemini.model,
                 contents: buildGeminiContentsWithSourceMedia(prompt, input.sourceMedia),
                 config: {
+                  abortSignal: signal,
                   responseMimeType: "application/json",
                   responseJsonSchema: buildGeminiResponseJsonSchema(input.requestedCount),
                   thinkingConfig: GEMINI_LOW_THINKING_CONFIG,
@@ -6627,6 +6798,7 @@ export function createGeminiChoiceExerciseVerifier({
 }): ChoiceExerciseVerifier {
   return async (input) => {
     return runWithGeminiProviderFallback({
+      signal: input.signal,
       fallback: buildMetaMuseProviderFallback(
         metaMuseFallback,
         input.sourceMedia,
@@ -6687,17 +6859,19 @@ async function runGeminiChoiceVerificationStage({
     runLoggedGeminiOperation({
       config: gemini,
       operation,
+      signal: input.signal,
       metadata: {
         candidateCount: input.candidates.length,
         promptChars: prompt.length,
         schemaName,
         media: buildSourceMediaLogMetadata(input.sourceMedia),
       },
-      run: async (ai) => {
+      run: async (ai, signal) => {
         const response = await ai.models.generateContent({
           model: gemini.model,
           contents: buildGeminiContentsWithSourceMedia(prompt, input.sourceMedia),
           config: {
+            abortSignal: signal,
             responseMimeType: "application/json",
             responseJsonSchema,
             thinkingConfig: GEMINI_LOW_THINKING_CONFIG,
@@ -6733,6 +6907,7 @@ export function createGeminiExactInputExerciseGenerator({
     const prompt = buildExactInputExercisePrompt(input);
 
     return runWithGeminiProviderFallback({
+      signal: input.signal,
       fallback: buildMetaMuseProviderFallback(
         metaMuseFallback,
         input.sourceMedia,
@@ -6746,17 +6921,19 @@ export function createGeminiExactInputExerciseGenerator({
         runLoggedGeminiOperation({
           config: gemini,
           operation: "exact-input exercise generation",
+          signal: input.signal,
           metadata: {
             requestedCount: input.requestedCount,
             promptChars: prompt.length,
             schemaName: "exactInputExerciseResponse",
             media: buildSourceMediaLogMetadata(input.sourceMedia),
           },
-          run: async (ai) => {
+          run: async (ai, signal) => {
             const response = await ai.models.generateContent({
               model: gemini.model,
               contents: buildGeminiContentsWithSourceMedia(prompt, input.sourceMedia),
               config: {
+                abortSignal: signal,
                 responseMimeType: "application/json",
                 responseJsonSchema: buildGeminiExactInputResponseJsonSchema(input.requestedCount),
                 thinkingConfig: GEMINI_LOW_THINKING_CONFIG,
@@ -6791,6 +6968,7 @@ function createGeminiExactInputExerciseVerifier({
     const prompt = buildExactInputExerciseVerificationPrompt(input);
 
     return runWithGeminiProviderFallback({
+      signal: input.signal,
       fallback: buildMetaMuseProviderFallback(
         metaMuseFallback,
         input.sourceMedia,
@@ -6804,17 +6982,19 @@ function createGeminiExactInputExerciseVerifier({
         runLoggedGeminiOperation({
           config: gemini,
           operation: "exact-input exercise verification",
+          signal: input.signal,
           metadata: {
             candidateCount: input.candidates.length,
             promptChars: prompt.length,
             schemaName: "exactInputExerciseVerification",
             media: buildSourceMediaLogMetadata(input.sourceMedia),
           },
-          run: async (ai) => {
+          run: async (ai, signal) => {
             const response = await ai.models.generateContent({
               model: gemini.model,
               contents: buildGeminiContentsWithSourceMedia(prompt, input.sourceMedia),
               config: {
+                abortSignal: signal,
                 responseMimeType: "application/json",
                 responseJsonSchema: buildGeminiExactInputVerificationJsonSchema(input.candidates.length),
                 thinkingConfig: GEMINI_LOW_THINKING_CONFIG,
@@ -6849,6 +7029,7 @@ function createGeminiMathExerciseGenerator({
     const prompt = buildMathExercisePrompt(input);
 
     return runWithGeminiProviderFallback({
+      signal: input.signal,
       fallback: buildMetaMuseProviderFallback(
         metaMuseFallback,
         input.sourceMedia,
@@ -6862,17 +7043,19 @@ function createGeminiMathExerciseGenerator({
         runLoggedGeminiOperation({
           config: gemini,
           operation: "math exercise generation",
+          signal: input.signal,
           metadata: {
             requestedCount: input.requestedCount,
             promptChars: prompt.length,
             schemaName: "mathExerciseResponse",
             media: buildSourceMediaLogMetadata(input.sourceMedia),
           },
-          run: async (ai) => {
+          run: async (ai, signal) => {
             const response = await ai.models.generateContent({
               model: gemini.model,
               contents: buildGeminiContentsWithSourceMedia(prompt, input.sourceMedia),
               config: {
+                abortSignal: signal,
                 responseMimeType: "application/json",
                 responseJsonSchema: buildGeminiMathResponseJsonSchema(input.requestedCount),
                 thinkingConfig: GEMINI_LOW_THINKING_CONFIG,
@@ -6907,6 +7090,7 @@ function createGeminiMathExerciseVerifier({
     const prompt = buildMathExerciseVerificationPrompt(input);
 
     return runWithGeminiProviderFallback({
+      signal: input.signal,
       fallback: buildMetaMuseProviderFallback(
         metaMuseFallback,
         input.sourceMedia,
@@ -6920,17 +7104,19 @@ function createGeminiMathExerciseVerifier({
         runLoggedGeminiOperation({
           config: gemini,
           operation: "math exercise verification",
+          signal: input.signal,
           metadata: {
             candidateCount: input.candidates.length,
             promptChars: prompt.length,
             schemaName: "mathExerciseVerification",
             media: buildSourceMediaLogMetadata(input.sourceMedia),
           },
-          run: async (ai) => {
+          run: async (ai, signal) => {
             const response = await ai.models.generateContent({
               model: gemini.model,
               contents: buildGeminiContentsWithSourceMedia(prompt, input.sourceMedia),
               config: {
+                abortSignal: signal,
                 responseMimeType: "application/json",
                 responseJsonSchema: buildGeminiMathVerificationJsonSchema(input.candidates.length),
                 thinkingConfig: GEMINI_LOW_THINKING_CONFIG,
@@ -6998,6 +7184,7 @@ export function createMetaMuseChoiceExerciseGenerator({
         media: buildSourceMediaLogMetadata(input.sourceMedia),
       },
       operation: "choice exercise generation",
+      signal: input.signal,
       responseJsonSchema: buildMetaMuseChoiceExerciseResponseJsonSchema(input.requestedCount),
       responseJsonSchemaName: "choiceExerciseResponse",
       messages: [
@@ -7083,6 +7270,7 @@ async function runMetaMuseChoiceVerificationStage({
       media: buildSourceMediaLogMetadata(input.sourceMedia),
     },
     operation,
+    signal: input.signal,
     responseJsonSchema,
     responseJsonSchemaName,
     messages: [
@@ -7117,6 +7305,7 @@ export function createMetaMuseExactInputExerciseGenerator({
         media: buildSourceMediaLogMetadata(input.sourceMedia),
       },
       operation: "exact-input exercise generation",
+      signal: input.signal,
       responseJsonSchema: buildMetaMuseExactInputResponseJsonSchema(input.requestedCount),
       responseJsonSchemaName: "exactInputExerciseResponse",
       messages: [
@@ -7152,6 +7341,7 @@ export function createMetaMuseExactInputExerciseVerifier({
         media: buildSourceMediaLogMetadata(input.sourceMedia),
       },
       operation: "exact-input exercise verification",
+      signal: input.signal,
       responseJsonSchema: buildMetaMuseExactInputVerificationJsonSchema(input.candidates.length),
       responseJsonSchemaName: "exactInputExerciseVerification",
       messages: [
@@ -7187,6 +7377,7 @@ export function createMetaMuseMathExerciseGenerator({
         media: buildSourceMediaLogMetadata(input.sourceMedia),
       },
       operation: "math exercise generation",
+      signal: input.signal,
       responseJsonSchema: buildMetaMuseMathResponseJsonSchema(input.requestedCount),
       responseJsonSchemaName: "mathExerciseResponse",
       messages: [
@@ -7222,6 +7413,7 @@ export function createMetaMuseMathExerciseVerifier({
         media: buildSourceMediaLogMetadata(input.sourceMedia),
       },
       operation: "math exercise verification",
+      signal: input.signal,
       responseJsonSchema: buildMetaMuseMathVerificationJsonSchema(input.candidates.length),
       responseJsonSchemaName: "mathExerciseVerification",
       messages: [

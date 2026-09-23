@@ -8,7 +8,34 @@ vi.mock("@/lib/jobs/events", async (importOriginal) => ({
   sendAgentSkillOperationRequested: vi.fn().mockResolvedValue(undefined),
 }));
 
+vi.mock("@/lib/skills/activation-timing", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/skills/activation-timing")>();
+  return {
+    ...actual,
+    GENERATION_TIMEOUT_MS: 15,
+    ACTIVATION_PROVIDER_CHAIN_TIMEOUT_MS: 30,
+    CHOICE_VERIFICATION_TIMEOUT_MS: 40,
+    ACTIVATION_GENERATION_COMPLETION_SLACK_MS: 5,
+    ACTIVATION_PUBLISH_TRANSACTION_MAX_WAIT_MS: 5,
+    ACTIVATION_PUBLISH_TRANSACTION_TIMEOUT_MS: 25,
+    ACTIVATION_RESERVATION_TRANSACTION_MAX_WAIT_MS: 5,
+    ACTIVATION_RESERVATION_TRANSACTION_TIMEOUT_MS: 20,
+    ACTIVATION_GENERATION_TIMEOUT_MS: 100,
+  };
+});
+
+vi.mock("@/lib/agent-access/recovery-policy", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/agent-access/recovery-policy")>();
+  return {
+    ...actual,
+    AGENT_OPERATION_CLEANUP_MARGIN_MS: 5,
+    AGENT_OPERATION_ACTIVATION_RESERVE_MS: 105,
+    AGENT_OPERATION_CANDIDATE_VERIFICATION_RESERVE_MS: 5,
+  };
+});
+
 import {
+  AgentCandidateStatus,
   AgentConnectionStatus,
   AgentOperationKind,
   AgentOperationItemStatus,
@@ -16,6 +43,8 @@ import {
   AgentRateLimitKind,
   AgentRemoteRevocationStatus,
   AgentRevocationOutboxStatus,
+  AnswerKind,
+  ExerciseType,
   GenerationFailureCategory,
   GenerationJobKind,
   GenerationJobStage,
@@ -95,6 +124,69 @@ describeDatabase("agent access persistence", () => {
       },
     });
     return { userId, identity, connection };
+  }
+
+  async function createQueuedDraftOperation(
+    fixture: Awaited<ReturnType<typeof createConnection>>,
+    label: string,
+  ) {
+    const skill = await prisma.skill.create({
+      data: {
+        userId: fixture.userId,
+        title: `${label} worker reliability skill`,
+        objective: `Practice the ${label} worker reliability path without blocking sibling operations.`,
+        status: SkillStatus.DRAFT,
+      },
+    });
+    const operation = await prisma.agentSkillOperation.create({
+      data: {
+        userId: fixture.userId,
+        connectionId: fixture.connection.id,
+        kind: AgentOperationKind.SPEC_BATCH,
+        toolName: "skills.add_from_specs",
+        status: AgentOperationStatus.QUEUED,
+        idempotencyKey: `worker-reliability-${label}-${runId}`,
+        payloadHash: randomUUID().replaceAll("-", "").padEnd(64, "a"),
+        requestedCount: 1,
+        items: {
+          create: {
+            ordinal: 0,
+            clientReference: `${label}-item`,
+            status: AgentOperationItemStatus.QUEUED,
+            createdSkillId: skill.id,
+          },
+        },
+      },
+      include: { items: true },
+    });
+    return { skill, operation, item: operation.items[0] };
+  }
+
+  function quickActivationOptions(verifyChoiceExercises?: (input: {
+    signal?: AbortSignal;
+    candidates: Array<{ candidateId: string }>;
+  }) => Promise<unknown>) {
+    return {
+      generateChoiceExercises: async () => ({
+        exercises: [1, 2, 3].map((index) => ({
+          prompt: `Choose the verified answer for reliability example ${index}.`,
+          choices: [
+            { id: "correct", label: `Correct answer ${index}` },
+            { id: "wrong", label: `Incorrect answer ${index}` },
+          ],
+          correctChoiceId: "correct",
+          explanation: `The skill contract establishes answer ${index}.`,
+          difficulty: 2,
+          expectedSeconds: 20,
+        })),
+      }),
+      verifyChoiceExercises: verifyChoiceExercises ?? (async ({ candidates }) => ({
+        verifications: candidates.map((candidate) => ({
+          candidateId: candidate.candidateId,
+          verdict: "verified",
+        })),
+      })),
+    };
   }
 
   it("revokes locally before queuing a durable remote revocation", async () => {
@@ -593,6 +685,198 @@ describeDatabase("agent access persistence", () => {
     }
   });
 
+  it("times out a stuck verifier, persists a retry, and lets a same-user sibling finish", async () => {
+    const fixture = await createConnection("verifier-deadline");
+    const stalled = await createQueuedDraftOperation(fixture, "stalled-verifier");
+    const siblings = await Promise.all(
+      ["healthy-sibling-a", "healthy-sibling-b", "healthy-sibling-c"]
+        .map((label) => createQueuedDraftOperation(fixture, label)),
+    );
+    let verifierAborted = false;
+    const deadlineAt = new Date(Date.now() + 30_000);
+    const startedAt = Date.now();
+
+    await expect(runAgentSkillOperationJob({
+      userId: fixture.userId,
+      operationId: stalled.operation.id,
+      deadlineAt,
+    }, {
+      activationOptions: quickActivationOptions(({ signal }) => new Promise((_, reject) => {
+        signal?.addEventListener("abort", () => {
+          verifierAborted = signal.aborted;
+          reject(signal.reason);
+        }, { once: true });
+      })),
+    })).resolves.toMatchObject({ status: "processed" });
+
+    expect(verifierAborted).toBe(true);
+    await expect(
+      prisma.agentSkillOperationItem.findUniqueOrThrow({ where: { id: stalled.item.id } }),
+    ).resolves.toMatchObject({
+      status: AgentOperationItemStatus.QUEUED,
+      errorCode: "TRANSIENT_WORKER_FAILURE",
+      retryCount: 1,
+      activationReservedAt: null,
+      workerClaimToken: null,
+    });
+    await expect(
+      prisma.generationJob.findFirstOrThrow({ where: { skillId: stalled.skill.id } }),
+    ).resolves.toMatchObject({
+      status: GenerationJobStatus.FAILED,
+      stage: GenerationJobStage.FAILED,
+      failureCategory: GenerationFailureCategory.TIMEOUT,
+    });
+    await expect(prisma.exercise.count({ where: { skillId: stalled.skill.id } })).resolves.toBe(0);
+
+    for (const sibling of siblings) {
+      await expect(runAgentSkillOperationJob({
+        userId: fixture.userId,
+        operationId: sibling.operation.id,
+        deadlineAt: new Date(Date.now() + 30_000),
+      }, { activationOptions: quickActivationOptions() })).resolves.toMatchObject({ status: "processed" });
+      await expect(prisma.skill.findUniqueOrThrow({ where: { id: sibling.skill.id } }))
+        .resolves.toMatchObject({ status: SkillStatus.ACTIVE, firstIntroducedAt: null });
+      await expect(
+        prisma.agentSkillOperationItem.findUniqueOrThrow({ where: { id: sibling.item.id } }),
+      ).resolves.toMatchObject({ status: AgentOperationItemStatus.ACTIVE, resultSkillId: sibling.skill.id });
+      await expect(prisma.exercise.count({ where: { skillId: sibling.skill.id } })).resolves.toBe(3);
+      await expect(prisma.exerciseAttempt.count({ where: { skillId: sibling.skill.id } })).resolves.toBe(0);
+    }
+    expect(Date.now() - startedAt).toBeLessThan(180_000);
+  }, 180_000);
+
+  it("recovers a candidate activation whose publication transaction times out", async () => {
+    const fixture = await createConnection("publishing-deadline");
+    const stalled = await createQueuedDraftOperation(fixture, "candidate-publishing");
+    const sibling = await createQueuedDraftOperation(fixture, "publishing-sibling");
+    await prisma.agentExerciseCandidate.create({
+      data: {
+        userId: fixture.userId,
+        operationItemId: stalled.item.id,
+        ordinal: 0,
+        kind: AnswerKind.CHOICE,
+        status: AgentCandidateStatus.VERIFIED,
+        normalizedPayload: {
+          candidateId: "candidate-publishing-1",
+          clientReference: "candidate-publishing-1",
+          type: ExerciseType.MULTIPLE_CHOICE,
+          answerKind: AnswerKind.CHOICE,
+          prompt: "Choose the correct example that was verified before publication.",
+          choices: [
+            { id: "correct", label: "The verified answer" },
+            { id: "wrong", label: "An incorrect answer" },
+          ],
+          answerSpec: { kind: "choice", correctChoiceId: "correct" },
+          correctAnswerDisplay: "The verified answer",
+          explanation: "The verified candidate must publish atomically with the skill.",
+          difficulty: 2,
+          expectedSeconds: 20,
+        },
+      },
+    });
+
+    const originalTransaction = prisma.$transaction.bind(prisma) as unknown as (
+      operation: unknown,
+      options?: { maxWait?: number; timeout?: number },
+    ) => Promise<unknown>;
+    const transactionSpy = vi.spyOn(prisma, "$transaction");
+    let publicationTimedOut = false;
+    let sawPublishingStage = false;
+    transactionSpy.mockImplementation(((...args: unknown[]) => {
+      const operation = args[0];
+      const options = args[1] as { maxWait?: number; timeout?: number } | undefined;
+      if (
+        !publicationTimedOut &&
+        typeof operation === "function" &&
+        options?.timeout === 25
+      ) {
+        publicationTimedOut = true;
+        return (async () => {
+          const generationJob = await prisma.generationJob.findFirst({
+            where: { skillId: stalled.skill.id },
+            orderBy: { createdAt: "desc" },
+            select: { stage: true },
+          });
+          sawPublishingStage = generationJob?.stage === GenerationJobStage.PUBLISHING;
+          await new Promise((resolve) => setTimeout(resolve, options.timeout));
+          throw Object.assign(new Error("The interactive transaction expired."), { code: "P2028" });
+        })();
+      }
+      return originalTransaction(operation, options);
+    }) as typeof prisma.$transaction);
+
+    try {
+      await expect(runAgentSkillOperationJob({
+        userId: fixture.userId,
+        operationId: stalled.operation.id,
+        deadlineAt: new Date(Date.now() + 30_000),
+      }, { activationOptions: quickActivationOptions() })).resolves.toMatchObject({ status: "processed" });
+    } finally {
+      transactionSpy.mockRestore();
+    }
+
+    expect(publicationTimedOut).toBe(true);
+    expect(sawPublishingStage).toBe(true);
+    await expect(
+      prisma.agentSkillOperationItem.findUniqueOrThrow({ where: { id: stalled.item.id } }),
+    ).resolves.toMatchObject({
+      status: AgentOperationItemStatus.QUEUED,
+      errorCode: "TRANSIENT_WORKER_FAILURE",
+      retryCount: 1,
+      activationReservedAt: null,
+    });
+    await expect(
+      prisma.agentExerciseCandidate.findFirstOrThrow({ where: { operationItemId: stalled.item.id } }),
+    ).resolves.toMatchObject({ status: AgentCandidateStatus.VERIFIED, exerciseId: null });
+    await expect(
+      prisma.generationJob.findFirstOrThrow({ where: { skillId: stalled.skill.id } }),
+    ).resolves.toMatchObject({
+      status: GenerationJobStatus.FAILED,
+      stage: GenerationJobStage.FAILED,
+      failureCategory: GenerationFailureCategory.TIMEOUT,
+    });
+    await expect(prisma.exercise.count({ where: { skillId: stalled.skill.id } })).resolves.toBe(0);
+
+    await expect(runAgentSkillOperationJob({
+      userId: fixture.userId,
+      operationId: sibling.operation.id,
+      deadlineAt: new Date(Date.now() + 30_000),
+    }, { activationOptions: quickActivationOptions() })).resolves.toMatchObject({ status: "processed" });
+    await expect(prisma.skill.findUniqueOrThrow({ where: { id: sibling.skill.id } }))
+      .resolves.toMatchObject({ status: SkillStatus.ACTIVE, firstIntroducedAt: null });
+    await expect(prisma.exercise.count({ where: { skillId: sibling.skill.id } })).resolves.toBe(3);
+    await expect(prisma.exerciseAttempt.count({ where: { skillId: sibling.skill.id } })).resolves.toBe(0);
+  }, 60_000);
+
+  it("sweeps queued operations after an ambiguous continuation publish with one stable event ID", async () => {
+    const fixture = await createConnection("continuation-recovery");
+    const queued = await createQueuedDraftOperation(fixture, "ambiguous-continuation");
+    const now = new Date();
+    vi.mocked(sendAgentSkillOperationRequested).mockClear();
+
+    await expect(recoverStaleAgentOperationItems({
+      userId: fixture.userId,
+      operationId: queued.operation.id,
+      now,
+    })).resolves.toMatchObject({ continuations: 1 });
+    await expect(recoverStaleAgentOperationItems({
+      userId: fixture.userId,
+      operationId: queued.operation.id,
+      now,
+    })).resolves.toMatchObject({ continuations: 1 });
+
+    expect(sendAgentSkillOperationRequested).toHaveBeenCalledTimes(2);
+    const first = vi.mocked(sendAgentSkillOperationRequested).mock.calls[0];
+    const second = vi.mocked(sendAgentSkillOperationRequested).mock.calls[1];
+    expect(first[0]).toMatchObject({ userId: fixture.userId, operationId: queued.operation.id });
+    expect(first[1]).toEqual({
+      eventId: expect.stringMatching(/^agent-op-[a-f0-9]{40}$/),
+      signal: expect.any(AbortSignal),
+    });
+    expect(second[1]).toMatchObject({ eventId: first[1]?.eventId });
+    expect(second[1]?.signal).toBeInstanceOf(AbortSignal);
+  }, 60_000);
+
   it("reclaims interrupted text items and resumes their stored draft", async () => {
     const fixture = await createConnection("worker-recovery");
     const [source, staleDraft] = await Promise.all([
@@ -746,11 +1030,17 @@ describeDatabase("agent access persistence", () => {
       errorCode: "TRANSIENT_WORKER_FAILURE",
       retryCount: 1,
     });
-    expect(sendAgentSkillOperationRequested).toHaveBeenCalledWith({
-      userId: staleFixture.userId,
-      operationId: staleOperation.id,
-      requestedAt: staleNow.toISOString(),
-    });
+    expect(sendAgentSkillOperationRequested).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: staleFixture.userId,
+        operationId: staleOperation.id,
+        requestedAt: expect.any(String),
+      }),
+      expect.objectContaining({
+        eventId: expect.stringMatching(/^agent-op-[a-f0-9]{40}$/),
+        signal: expect.any(AbortSignal),
+      }),
+    );
     await expect(
       prisma.agentSkillOperation.findUniqueOrThrow({ where: { id: staleOperation.id } }),
     ).resolves.toMatchObject({ status: AgentOperationStatus.QUEUED });
@@ -1110,11 +1400,17 @@ describeDatabase("agent access persistence", () => {
       failedCount: 0,
       completedAt: null,
     });
-    expect(sendAgentSkillOperationRequested).toHaveBeenCalledWith({
-      userId: fixture.userId,
-      operationId: operation.id,
-      requestedAt: now.toISOString(),
-    });
+    expect(sendAgentSkillOperationRequested).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: fixture.userId,
+        operationId: operation.id,
+        requestedAt: expect.any(String),
+      }),
+      expect.objectContaining({
+        eventId: expect.stringMatching(/^agent-op-[a-f0-9]{40}$/),
+        signal: expect.any(AbortSignal),
+      }),
+    );
     await expect(prisma.skill.count({ where: { userId: fixture.userId } })).resolves.toBe(1);
     await expect(prisma.exercise.count({ where: { userId: fixture.userId } })).resolves.toBe(0);
   });

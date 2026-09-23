@@ -40,6 +40,17 @@ describe("AWS background job contracts", () => {
     expect(job.id).toMatch(/^[a-f0-9-]{36}$/);
   });
 
+  it("accepts a stable event identity for durable continuation retries", () => {
+    const job = buildJobEnvelope(
+      "learnrecur/agent-skill-operation.requested",
+      { userId: "learner-a", operationId: "operation-a", requestedAt: refill.requestedAt },
+      "staging",
+      "agent-op-stable-continuation-1",
+    );
+    expect(job.id).toBe("agent-op-stable-continuation-1");
+    expect(parseJobEnvelope(JSON.stringify(job), "staging")).toEqual(job);
+  });
+
   it.each([
     ["different environment", (job: Record<string, unknown>) => ({ ...job, environment: "production" })],
     ["unsupported version", (job: Record<string, unknown>) => ({ ...job, version: 2 })],

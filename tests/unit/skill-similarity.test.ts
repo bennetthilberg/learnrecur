@@ -611,10 +611,14 @@ describe("user-scoped bulk skill similarity", () => {
       }),
     ];
     const generatedTexts: string[] = [];
-    const generator: SkillSimilarityEmbeddingGenerator = async ({ texts }) => {
+    const generatorCalls: { deadlineAt?: Date; signal?: AbortSignal }[] = [];
+    const generator: SkillSimilarityEmbeddingGenerator = async ({ texts, ...options }) => {
       generatedTexts.push(...texts);
+      generatorCalls.push(options);
       return texts.map((_, index) => unitEmbedding(index));
     };
+    const deadlineAt = new Date("2026-09-23T20:10:00.000Z");
+    const signal = new AbortController().signal;
     const fake = createSimilarityClient({
       onQuery: (sql) =>
         sql.includes('"semanticScore"')
@@ -638,6 +642,8 @@ describe("user-scoped bulk skill similarity", () => {
       ],
       embeddingGenerator: generator,
       embeddingModel: "gemini-embedding-2",
+      deadlineAt,
+      signal,
       prisma: fake.client,
     });
 
@@ -652,6 +658,7 @@ describe("user-scoped bulk skill similarity", () => {
       ),
     );
     expect(generatedTexts).toHaveLength(3);
+    expect(generatorCalls).toEqual([{ deadlineAt, signal }]);
   });
 
   it("batches cache misses with candidate texts and bounds cache write concurrency", async () => {

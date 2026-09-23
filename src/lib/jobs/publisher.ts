@@ -6,8 +6,12 @@ import { getJobsConfig, type JobsConfig } from "./config";
 
 export function createJobPublisher(config: JobsConfig) {
   const client = new SQSClient({ region: config.region, maxAttempts: 3 });
-  return async (name: string, data: unknown): Promise<void> => {
-    const job = buildJobEnvelope(name, data, config.environment);
+  return async (
+    name: string,
+    data: unknown,
+    options?: { id?: string; signal?: AbortSignal },
+  ): Promise<void> => {
+    const job = buildJobEnvelope(name, data, config.environment, options?.id);
     try {
       const response = await client.send(new SendMessageCommand({
         QueueUrl: config.queueUrl,
@@ -16,7 +20,7 @@ export function createJobPublisher(config: JobsConfig) {
         // The SDK retries this command with the same ID; ambiguous network
         // responses cannot enqueue a second copy within SQS's deduplication window.
         MessageDeduplicationId: job.id,
-      }));
+      }), options?.signal ? { abortSignal: options.signal } : undefined);
       if (!response.MessageId) throw new Error("JOB_RECEIPT_MISSING");
     } catch {
       throw new Error("JOB_PUBLISH_FAILED");
@@ -25,9 +29,13 @@ export function createJobPublisher(config: JobsConfig) {
 }
 
 let cached: { key: string; publish: ReturnType<typeof createJobPublisher> } | undefined;
-export async function publishJob(name: string, data: unknown): Promise<void> {
+export async function publishJob(
+  name: string,
+  data: unknown,
+  options?: { id?: string; signal?: AbortSignal },
+): Promise<void> {
   const config = getJobsConfig();
   const key = JSON.stringify(config);
   if (cached?.key !== key) cached = { key, publish: createJobPublisher(config) };
-  await cached.publish(name, data);
+  await cached.publish(name, data, options);
 }

@@ -75,10 +75,10 @@ const envelopeSchema = z.strictObject({
   data: z.unknown(),
 });
 
-export function buildJobEnvelope<N extends JobName>(name: N, data: unknown, environment: JobEnvironment): Extract<JobEnvelope, { name: N }>;
-export function buildJobEnvelope(name: string, data: unknown, environment: JobEnvironment): JobEnvelope;
-export function buildJobEnvelope(name: string, data: unknown, environment: JobEnvironment): JobEnvelope {
-  return parseJobEnvelope(JSON.stringify({ version: 1, id: randomUUID(), environment, name, data }), environment);
+export function buildJobEnvelope<N extends JobName>(name: N, data: unknown, environment: JobEnvironment, id?: string): Extract<JobEnvelope, { name: N }>;
+export function buildJobEnvelope(name: string, data: unknown, environment: JobEnvironment, id?: string): JobEnvelope;
+export function buildJobEnvelope(name: string, data: unknown, environment: JobEnvironment, id?: string): JobEnvelope {
+  return parseJobEnvelope(JSON.stringify({ version: 1, id: id ?? randomUUID(), environment, name, data }), environment);
 }
 
 export function parseJobEnvelope(body: string, environment: JobEnvironment): JobEnvelope {

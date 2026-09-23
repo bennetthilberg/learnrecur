@@ -62,6 +62,38 @@ describe("selectAgentOperationItemsForDelivery", () => {
       items.slice(0, 5),
     );
   });
+
+  it("skips transient items until their bounded retry backoff expires", () => {
+    const now = new Date("2026-09-23T20:00:00.000Z");
+    const items = [
+      {
+        id: "delayed",
+        status: AgentOperationItemStatus.QUEUED,
+        errorCode: "TRANSIENT_WORKER_FAILURE",
+        retryCount: 2,
+        updatedAt: new Date(now.getTime() - 59_000),
+      },
+      {
+        id: "ready",
+        status: AgentOperationItemStatus.QUEUED,
+        errorCode: "TRANSIENT_WORKER_FAILURE",
+        retryCount: 1,
+        updatedAt: new Date(now.getTime() - 30_000),
+      },
+      {
+        id: "ordinary",
+        status: AgentOperationItemStatus.QUEUED,
+        errorCode: null,
+        retryCount: 0,
+        updatedAt: now,
+      },
+    ];
+
+    expect(selectAgentOperationItemsForDelivery(items, AgentOperationKind.SPEC_BATCH, now).map(({ id }) => id))
+      .toEqual(["ready"]);
+    expect(selectAgentOperationItemsForDelivery(items, AgentOperationKind.MATERIAL_BATCH, now).map(({ id }) => id))
+      .toEqual(["ready", "ordinary"]);
+  });
 });
 
 describe("agent activation timing", () => {
