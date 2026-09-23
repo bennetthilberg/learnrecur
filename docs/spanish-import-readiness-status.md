@@ -137,22 +137,31 @@ deployed to production:
   Eligible work can continue in a fresh delivery; maintenance republishes
   queued work with a stable event ID after ambiguous sends.
 - Maintenance filters retry eligibility before applying its bounded scan, so
-  delayed retry rows cannot hide ready work behind the scan limit.
+  delayed retry rows and upload-waiting operations cannot hide ready work
+  behind the scan limit.
+- Continuation publish timeouts and failures now reject the current job
+  delivery for retry; ambiguous publication remains safe through stable event
+  IDs and item claim fencing.
+- Background material planning preserves an idempotent `PLANNING` batch for a
+  retryable worker timeout. Synchronous plan and replan actions return a normal
+  failed result instead of throwing through the action boundary.
 - Publication checks preserve verified candidates and use transaction fences
   to avoid duplicate skill activation. The worker does not alter introduction
   timestamps, attempts, or FSRS history.
 
 Local verification for this branch:
 
-- `npm run test:unit`: 146 files and 1,271 tests passed;
+- `npm run test:unit`: 146 files and 1,273 tests passed;
 - `npx tsc --noEmit`, `npm run lint`, and `npm run prisma:validate` passed;
 - `npm run prisma:generate`, `npm run jobs:build`, and `npm run build` passed;
-- `npm run test:db` passed all 46 files and 553 tests against a fresh temporary
+- `npm run test:db` passed all 46 files and 559 tests against a fresh temporary
   local PostgreSQL 18 database with `pgvector`; the tracked migrations applied
   successfully. The configured Neon branch remains read-only (`25006`);
 - the integration suite covers a verifier that never resolves, sibling
   progress, activation-publication timeout, preservation of verified
-  candidates, stable recovery event IDs, and upload-expiry isolation;
+  candidates, stable recovery event IDs, upload-expiry isolation, fairness when
+  upload-waiting rows exceed the continuation scan cap, retry after continuation
+  publication failure, and synchronous planning timeout results;
 - AWS credentials remain expired. Production queue behavior, production
   deployment, duplicate-activation checks under a live mixed batch, and the
   requested production smoke acceptance remain unverified.

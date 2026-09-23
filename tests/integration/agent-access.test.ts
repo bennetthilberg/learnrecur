@@ -656,6 +656,9 @@ describeDatabase("agent access persistence", () => {
         errorCode: "MATERIAL_PLANNING_TIMEOUT_RETRIES_EXHAUSTED",
       });
       expect(plan).toHaveBeenCalledTimes(3);
+      expect(plan).toHaveBeenCalledWith(expect.objectContaining({
+        preservePlanningOnTimeout: true,
+      }));
     } finally {
       plan.mockRestore();
     }
@@ -676,6 +679,49 @@ describeDatabase("agent access persistence", () => {
       prisma.agentSkillOperationItem.findUniqueOrThrow({ where: { id: queued.item.id } }),
     ).resolves.toMatchObject({ status: AgentOperationItemStatus.QUEUED });
   });
+
+  it("does not let awaiting-upload operations starve the bounded continuation scan", async () => {
+    const fixture = await createConnection("continuation-scan-capacity");
+    const staleCreatedAt = new Date("2026-08-13T10:00:00.000Z");
+    for (let index = 0; index < 30; index += 1) {
+      await prisma.agentSkillOperation.create({
+        data: {
+          userId: fixture.userId,
+          connectionId: fixture.connection.id,
+          kind: AgentOperationKind.QUICK_FILES,
+          toolName: "skills.prepare_files",
+          status: AgentOperationStatus.AWAITING_UPLOAD,
+          idempotencyKey: `awaiting-upload-${index}-${runId}`,
+          payloadHash: `${index}`.padStart(64, "a"),
+          requestedCount: 1,
+          createdAt: staleCreatedAt,
+          updatedAt: staleCreatedAt,
+          items: {
+            create: {
+              ordinal: 0,
+              clientReference: `awaiting-upload-${index}`,
+              status: AgentOperationItemStatus.QUEUED,
+              createdAt: staleCreatedAt,
+              updatedAt: staleCreatedAt,
+            },
+          },
+        },
+      });
+    }
+    const eligible = await createQueuedDraftOperation(fixture, "continuation-after-upload-backlog");
+    vi.mocked(sendAgentSkillOperationRequested).mockClear();
+
+    await expect(recoverStaleAgentOperationItems({
+      userId: fixture.userId,
+      now: new Date(),
+    })).resolves.toMatchObject({ continuations: 1 });
+
+    expect(sendAgentSkillOperationRequested).toHaveBeenCalledTimes(1);
+    expect(sendAgentSkillOperationRequested).toHaveBeenCalledWith(
+      expect.objectContaining({ operationId: eligible.operation.id, userId: fixture.userId }),
+      expect.objectContaining({ eventId: expect.stringMatching(/^agent-op-[a-f0-9]{40}$/) }),
+    );
+  }, 60_000);
 
   it("finishes expiry and revocation before retrying failed refill recovery", async () => {
     const fixture = await createConnection("maintenance-recovery-failure");
@@ -919,6 +965,65 @@ describeDatabase("agent access persistence", () => {
       .resolves.toMatchObject({ status: SkillStatus.ACTIVE, firstIntroducedAt: null });
     await expect(prisma.exercise.count({ where: { skillId: sibling.skill.id } })).resolves.toBe(3);
     await expect(prisma.exerciseAttempt.count({ where: { skillId: sibling.skill.id } })).resolves.toBe(0);
+  }, 60_000);
+
+  it("retries a delivery when its normal continuation publish fails", async () => {
+    const fixture = await createConnection("worker-continuation-publish-retry");
+    const first = await createQueuedDraftOperation(fixture, "continuation-publish-first");
+    const siblingSkill = await prisma.skill.create({
+      data: {
+        userId: fixture.userId,
+        title: "Continuation publish sibling",
+        objective: "Practice resuming a queued sibling after a continuation publish failure.",
+        status: SkillStatus.DRAFT,
+      },
+    });
+    const sibling = await prisma.agentSkillOperationItem.create({
+      data: {
+        userId: fixture.userId,
+        operationId: first.operation.id,
+        ordinal: 1,
+        clientReference: "continuation-publish-sibling",
+        status: AgentOperationItemStatus.QUEUED,
+        createdSkillId: siblingSkill.id,
+      },
+    });
+    await prisma.agentSkillOperation.update({
+      where: { id: first.operation.id },
+      data: { requestedCount: 2 },
+    });
+    vi.mocked(sendAgentSkillOperationRequested).mockClear();
+    vi.mocked(sendAgentSkillOperationRequested).mockRejectedValueOnce(
+      new Error("JOB_PUBLISH_FAILED"),
+    );
+
+    await expect(runAgentSkillOperationJob({
+      userId: fixture.userId,
+      operationId: first.operation.id,
+      deadlineAt: new Date(Date.now() + 120_000),
+    }, { activationOptions: quickActivationOptions() })).rejects.toMatchObject({
+      name: "AgentSkillWorkerError",
+      message: "AGENT_CONTINUATION_PUBLISH_FAILED",
+      retryable: true,
+    });
+    await expect(
+      prisma.agentSkillOperationItem.findUniqueOrThrow({ where: { id: first.item.id } }),
+    ).resolves.toMatchObject({ status: AgentOperationItemStatus.ACTIVE });
+    await expect(
+      prisma.agentSkillOperationItem.findUniqueOrThrow({ where: { id: sibling.id } }),
+    ).resolves.toMatchObject({ status: AgentOperationItemStatus.QUEUED, retryCount: 0 });
+    expect(sendAgentSkillOperationRequested).toHaveBeenCalledTimes(1);
+
+    await expect(runAgentSkillOperationJob({
+      userId: fixture.userId,
+      operationId: first.operation.id,
+      deadlineAt: new Date(Date.now() + 120_000),
+    }, { activationOptions: quickActivationOptions() })).resolves.toMatchObject({ status: "processed" });
+    await expect(
+      prisma.agentSkillOperationItem.findUniqueOrThrow({ where: { id: sibling.id } }),
+    ).resolves.toMatchObject({ status: AgentOperationItemStatus.ACTIVE, resultSkillId: siblingSkill.id });
+    await expect(prisma.exercise.count({ where: { skillId: siblingSkill.id } })).resolves.toBe(3);
+    await expect(prisma.exerciseAttempt.count({ where: { skillId: siblingSkill.id } })).resolves.toBe(0);
   }, 60_000);
 
   it("sweeps queued operations after an ambiguous continuation publish with one stable event ID", async () => {

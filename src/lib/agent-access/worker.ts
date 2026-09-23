@@ -472,7 +472,6 @@ async function failTimedOutAgentMaterialPlanning(input: {
 
 function isRecoverableWorkerTimeout(error: unknown) {
   if (isJobStageTimeoutError(error)) return true;
-  if (isContinuationPublishFailure(error)) return true;
   if (typeof error !== "object" || error === null || !("code" in error)) return false;
   return ["P2024", "P2028", "P2034", "P1002", "P1008"].includes(String(error.code));
 }
@@ -696,6 +695,7 @@ async function processMaterialOperation(input: {
       planning = await replanMaterialSkills({
       userId: input.operation.userId,
       now: input.now,
+      preservePlanningOnTimeout: true,
       input: {
         batchId,
         instruction: planningInstruction,
@@ -706,6 +706,7 @@ async function processMaterialOperation(input: {
       planning = await planMaterialSkills({
       userId: input.operation.userId,
       now: input.now,
+      preservePlanningOnTimeout: true,
       input: {
         materialId,
         materialRevisionId: input.operation.materialRevisionId,
@@ -1649,7 +1650,9 @@ async function queueAgentOperationContinuation(
     });
     return true;
   } catch (error) {
-    if (isJobStageTimeoutError(error) || isContinuationPublishFailure(error)) return false;
+    if (isJobStageTimeoutError(error) || isContinuationPublishFailure(error)) {
+      throw new AgentSkillWorkerError("AGENT_CONTINUATION_PUBLISH_FAILED", true);
+    }
     throw error;
   }
 }

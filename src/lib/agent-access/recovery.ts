@@ -181,7 +181,12 @@ export async function recoverStaleAgentOperationItems(input: {
       AND: [getAgentOperationRetryReadyWhere(input.now)],
       operation: {
         kind: { in: [...RECOVERABLE_OPERATION_KINDS] },
-        status: { notIn: [...TERMINAL_OPERATION_STATUSES] },
+        status: {
+          notIn: [
+            ...TERMINAL_OPERATION_STATUSES,
+            AgentOperationStatus.AWAITING_UPLOAD,
+          ],
+        },
       },
     },
     orderBy: { updatedAt: "asc" },

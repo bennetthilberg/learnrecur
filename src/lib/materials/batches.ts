@@ -155,6 +155,7 @@ export async function planMaterialSkills(input: {
   userId: string;
   input: unknown;
   now: Date;
+  preservePlanningOnTimeout?: boolean;
   aiSetup?: MaterialDraftAiSetup;
   embeddingGenerator?: MaterialEmbeddingGenerator | null;
   ocrGenerator?: MaterialOcrGenerator | null;
@@ -208,6 +209,7 @@ export async function planMaterialSkills(input: {
     userId: input.userId,
     batchId: batch.id,
     now: input.now,
+    preservePlanningOnTimeout: input.preservePlanningOnTimeout,
     aiSetup: input.aiSetup,
     embeddingGenerator: input.embeddingGenerator,
     ocrGenerator: input.ocrGenerator,
@@ -220,6 +222,7 @@ export async function replanMaterialSkills(input: {
   userId: string;
   input: unknown;
   now: Date;
+  preservePlanningOnTimeout?: boolean;
   aiSetup?: MaterialDraftAiSetup;
   embeddingGenerator?: MaterialEmbeddingGenerator | null;
   ocrGenerator?: MaterialOcrGenerator | null;
@@ -266,6 +269,7 @@ export async function replanMaterialSkills(input: {
     userId: input.userId,
     batchId: parsed.data.batchId,
     now: input.now,
+    preservePlanningOnTimeout: input.preservePlanningOnTimeout,
     aiSetup: input.aiSetup,
     embeddingGenerator: input.embeddingGenerator,
     ocrGenerator: input.ocrGenerator,
@@ -3486,6 +3490,7 @@ async function planExistingMaterialBatch(input: {
   userId: string;
   batchId: string;
   now: Date;
+  preservePlanningOnTimeout?: boolean;
   aiSetup?: MaterialDraftAiSetup;
   embeddingGenerator?: MaterialEmbeddingGenerator | null;
   ocrGenerator?: MaterialOcrGenerator | null;
@@ -3809,7 +3814,7 @@ async function planExistingMaterialBatch(input: {
       expectedUpdatedAt: batch.updatedAt,
     });
   } catch (error) {
-    if (isJobStageTimeoutError(error)) {
+    if (isJobStageTimeoutError(error) && input.preservePlanningOnTimeout) {
       // Keep the idempotent planning row in PLANNING so the same background
       // delivery can retry the provider call without turning a transient stall
       // into a permanent material-planning failure.

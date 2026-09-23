@@ -369,7 +369,7 @@ describeDatabase("material multi-skill drafting", () => {
     ).rejects.toThrow();
   });
 
-  it("keeps a planning batch retryable after a provider timeout", async () => {
+  it("keeps a planning batch retryable after a provider timeout when requested by a worker", async () => {
     const request = {
       materialId,
       materialRevisionId,
@@ -381,6 +381,7 @@ describeDatabase("material multi-skill drafting", () => {
       userId,
       input: request,
       now: new Date(),
+      preservePlanningOnTimeout: true,
       aiSetup: createAiSetup({
         planScope: async () => {
           throw new JobStageTimeoutError("Scope planner timed out.", "material scope planning");
@@ -420,6 +421,84 @@ describeDatabase("material multi-skill drafting", () => {
     });
 
     expect(retry).toMatchObject({ status: "planned", batchId: batch.id });
+  }, 60_000);
+
+  it("returns a failed planning result for synchronous planning timeouts", async () => {
+    const request = {
+      materialId,
+      materialRevisionId,
+      instruction: "Create one skill from indirect object pronouns in chapter four.",
+      idempotencyKey: `${runId}_planning_timeout_sync`,
+    };
+
+    await expect(planMaterialSkills({
+      userId,
+      input: request,
+      now: new Date(),
+      aiSetup: createAiSetup({
+        planScope: async () => {
+          throw new JobStageTimeoutError("Scope planner timed out.", "material scope planning");
+        },
+      }),
+      embeddingGenerator: null,
+    })).resolves.toMatchObject({ status: "failed" });
+
+    await expect(prisma.skillDraftBatch.findFirstOrThrow({
+      where: { userId, idempotencyKey: request.idempotencyKey },
+      select: { status: true, errorCode: true, errorMessage: true, completedAt: true },
+    })).resolves.toMatchObject({
+      status: SkillDraftBatchStatus.FAILED,
+      errorCode: "PLANNING_FAILED",
+      completedAt: expect.any(Date),
+    });
+
+    const planned = await planMaterialSkills({
+      userId,
+      input: {
+        materialId,
+        materialRevisionId,
+        instruction: "Plan a recoverable indirect object pronoun scope.",
+        idempotencyKey: `${runId}_replan_timeout_sync`,
+      },
+      now: new Date(),
+      aiSetup: createAiSetup({
+        planScope: async () => ({
+          resolutionStatus: "resolved",
+          resolvedScopeLabel: "Chapter four indirect object pronouns",
+          clarification: null,
+          warnings: [],
+          items: [{
+            key: "indirect-object-pronouns-sync-replan",
+            title: "Indirect object pronouns",
+            objective: "Choose the correct indirect object pronoun for a recipient in a short sentence.",
+            materialSectionIds: [indirectSectionId],
+            evidenceChunkIds: [indirectChunkId],
+          }],
+        }),
+      }),
+      embeddingGenerator: null,
+    });
+    expect(planned.status).toBe("planned");
+    if (planned.status !== "planned") throw new Error("expected a planned batch before replan");
+
+    await expect(replanMaterialSkills({
+      userId,
+      input: { batchId: planned.batchId, instruction: "Refine the same indirect pronoun scope." },
+      now: new Date(),
+      aiSetup: createAiSetup({
+        planScope: async () => {
+          throw new JobStageTimeoutError("Scope planner timed out.", "material scope planning");
+        },
+      }),
+      embeddingGenerator: null,
+    })).resolves.toMatchObject({ status: "failed" });
+    await expect(prisma.skillDraftBatch.findUniqueOrThrow({
+      where: { id: planned.batchId },
+      select: { status: true, errorCode: true },
+    })).resolves.toMatchObject({
+      status: SkillDraftBatchStatus.FAILED,
+      errorCode: "PLANNING_FAILED",
+    });
   }, 60_000);
 
   it("creates the planned skill when its reviewed duplicate disappears before confirmation", async () => {
