@@ -39,7 +39,7 @@ describe("all migrated job families", () => {
     ["material-cleanup.requested", { ...user, materialId: "material-a", cleanupJobId: "cleanup-a" }, "cleanup", { ...user, materialId: "material-a", cleanupJobId: "cleanup-a" }],
     ["material-draft-item.requested", item, "draft", { ...item, ...context }],
     ["material-batch-activation.requested", { ...item, generationJobId: "generation-a" }, "activation", { ...item, generationJobId: "generation-a", ...context }],
-    ["agent-skill-operation.requested", { ...user, operationId: "operation-a" }, "agent", { ...user, operationId: "operation-a" }],
+    ["agent-skill-operation.requested", { ...user, operationId: "operation-a" }, "agent", { ...user, operationId: "operation-a", deliveryAttempt: context }],
     ["agent-connection-revocation.requested", { ...user, connectionId: "connection-a" }, "revocation", { ...user, connectionId: "connection-a" }],
     ["account-deletion.requested", { ...user, deletionJobId: "deletion-a" }, "deletion", { ...user, deletionJobId: "deletion-a" }],
     ["account-deletion.recovery", { requestedAt }, "recovery", { now }],

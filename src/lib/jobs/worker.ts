@@ -40,6 +40,7 @@ const MAINTENANCE_LOG_FIELDS = [
   "activationItemsWaiting",
   "activationLegacyItemsPromoted",
   "activationContinuations",
+  "activationContinuationPublishFailures",
 ] as const;
 
 type MaintenanceLogFields = { [Field in typeof MAINTENANCE_LOG_FIELDS[number]]: number };

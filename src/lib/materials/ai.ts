@@ -2,6 +2,7 @@ import "server-only";
 
 import { getGeminiEnv } from "@/lib/env";
 import { MAX_IMPORT_BATCH_ITEMS } from "@/lib/import-limits";
+import { ACTIVATION_PROVIDER_CHAIN_TIMEOUT_MS } from "@/lib/skills/activation-timing";
 import {
   GEMINI_LOW_THINKING_CONFIG,
   getGeminiRuntimeLogContext,
@@ -306,6 +307,7 @@ function createGeminiMaterialScopeReviewer(
           config: input.gemini,
           operation: "material scope review",
           signal: reviewInput.signal,
+          timeoutMs: ACTIVATION_PROVIDER_CHAIN_TIMEOUT_MS,
           metadata: {
             promptChars: prompt.length,
             schemaName: "materialScopePlannerJsonSchema",
@@ -353,6 +355,7 @@ function createGeminiMaterialScopePlanner(
           config: input.gemini,
           operation: "material scope planning",
           signal: plannerInput.signal,
+          timeoutMs: ACTIVATION_PROVIDER_CHAIN_TIMEOUT_MS,
           metadata: {
             promptChars: prompt.length,
             schemaName: "materialScopePlannerJsonSchema",
@@ -389,6 +392,7 @@ function createGeminiMaterialDraftVerifier(
     const sourceMedia = verificationInput.sourceMedia ?? [];
 
     return runWithGeminiProviderFallback({
+      signal: verificationInput.signal,
       fallback: buildMaterialMetaMuseFallback(input.metaMuseFallback, (config) =>
         createMetaMuseMaterialDraftVerifier(config)(verificationInput),
       ),
@@ -399,6 +403,7 @@ function createGeminiMaterialDraftVerifier(
         runLoggedGeminiOperation({
           config: input.gemini,
           operation: "material draft verification",
+          signal: verificationInput.signal,
           metadata: {
             promptChars: prompt.length,
             schemaName: "draftVerificationJsonSchema",
@@ -411,7 +416,7 @@ function createGeminiMaterialDraftVerifier(
               mimeTypes: sourceMedia.map((media) => media.mimeType),
             },
           },
-          run: async (ai) => {
+          run: async (ai, signal) => {
             const response = await ai.models.generateContent({
               model: input.gemini.model,
               contents: [
@@ -429,6 +434,7 @@ function createGeminiMaterialDraftVerifier(
                 },
               ],
               config: {
+                abortSignal: signal,
                 responseMimeType: "application/json",
                 responseJsonSchema: draftVerificationJsonSchema,
                 thinkingConfig: GEMINI_LOW_THINKING_CONFIG,

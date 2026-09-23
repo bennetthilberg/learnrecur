@@ -18,6 +18,7 @@ import {
   StudyMaterialStatus,
 } from "@/generated/prisma/client";
 import { getJobsEnvStatus } from "@/lib/jobs/config";
+import { isJobStageTimeoutError } from "@/lib/jobs/deadline";
 import { AGENT_OPERATION_CLEANUP_MARGIN_MS } from "@/lib/agent-access/recovery-policy";
 import {
   awsMaterialBatchActivationEventSender,
@@ -238,7 +239,13 @@ export async function replanMaterialSkills(input: {
       id: parsed.data.batchId,
       userId: input.userId,
       confirmedAt: null,
-      status: { in: [SkillDraftBatchStatus.NEEDS_SCOPE, SkillDraftBatchStatus.PLANNED] },
+      status: {
+        in: [
+          SkillDraftBatchStatus.NEEDS_SCOPE,
+          SkillDraftBatchStatus.PLANNED,
+          SkillDraftBatchStatus.PLANNING,
+        ],
+      },
       items: { none: {} },
     },
     data: {
@@ -3802,6 +3809,12 @@ async function planExistingMaterialBatch(input: {
       expectedUpdatedAt: batch.updatedAt,
     });
   } catch (error) {
+    if (isJobStageTimeoutError(error)) {
+      // Keep the idempotent planning row in PLANNING so the same background
+      // delivery can retry the provider call without turning a transient stall
+      // into a permanent material-planning failure.
+      throw error;
+    }
     console.error("[materials] scope planning failed", {
       materialRevisionId: batch.materialRevisionId,
       error: error instanceof Error ? error.message : "Unknown scope planning error",

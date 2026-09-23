@@ -90,6 +90,7 @@ export function getAgentOperationRetryReadyWhere(
 
 export function buildAgentOperationContinuationCursor(input: {
   operationId: string;
+  operationUpdatedAt: Date;
   items: readonly { id: string; retryCount: number; updatedAt: Date }[];
 }) {
   const items = [...input.items]
@@ -100,11 +101,11 @@ export function buildAgentOperationContinuationCursor(input: {
     0,
   );
   const digest = createHash("sha256")
-    .update(JSON.stringify([input.operationId, items]))
+    .update(JSON.stringify([input.operationId, input.operationUpdatedAt.toISOString(), items]))
     .digest("hex")
     .slice(0, 40);
   return {
     eventId: `agent-op-${digest}`,
-    requestedAt: new Date(updatedAt).toISOString(),
+    requestedAt: new Date(Math.max(updatedAt, input.operationUpdatedAt.getTime())).toISOString(),
   };
 }

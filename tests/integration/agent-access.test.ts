@@ -76,6 +76,7 @@ import {
   sendAgentSkillOperationRequested,
 } from "@/lib/jobs/events";
 import { getPrisma } from "@/lib/prisma";
+import { JobStageTimeoutError } from "@/lib/jobs/deadline";
 import { getUserDataExport } from "@/lib/settings/data-export";
 import * as refillJobs from "@/lib/skills/refill-jobs";
 import { ALPHA_ACTIVE_SKILLS } from "@/lib/usage-limits";
@@ -604,6 +605,78 @@ describeDatabase("agent access persistence", () => {
     await expect(prisma.sourceFile.findUnique({ where: { id: source.id } })).resolves.toBeNull();
   });
 
+  it("retries material planning timeouts through the bounded delivery attempts", async () => {
+    const fixture = await createConnection("material-planning-timeout");
+    const { revision } = await createMaterialWithInitialRevision({
+      userId: fixture.userId,
+      title: "Spanish material planning timeout",
+      kind: StudyMaterialKind.PDF,
+    });
+    const operation = await prisma.agentSkillOperation.create({
+      data: {
+        userId: fixture.userId,
+        connectionId: fixture.connection.id,
+        kind: AgentOperationKind.MATERIAL_BATCH,
+        toolName: "skills.add_from_material",
+        status: AgentOperationStatus.QUEUED,
+        idempotencyKey: `material-planning-timeout-${runId}`,
+        payloadHash: "m".repeat(64),
+        requestedCount: 0,
+        materialRevisionId: revision.id,
+        requestPayload: { instruction: "Create one skill from Spanish pronouns.", maxSkills: 1 },
+      },
+    });
+    const plan = vi.spyOn(materialBatches, "planMaterialSkills").mockRejectedValue(
+      new JobStageTimeoutError("Scope planning timed out.", "material scope planning"),
+    );
+    try {
+      for (const attempt of [0, 1]) {
+        await expect(runAgentSkillOperationJob({
+          userId: fixture.userId,
+          operationId: operation.id,
+          deliveryAttempt: { attempt, maxAttempts: 3 },
+        })).rejects.toMatchObject({ retryable: true });
+        await expect(
+          prisma.agentSkillOperation.findUniqueOrThrow({ where: { id: operation.id } }),
+        ).resolves.toMatchObject({
+          status: AgentOperationStatus.QUEUED,
+          errorCode: null,
+          completedAt: null,
+        });
+      }
+      await expect(runAgentSkillOperationJob({
+        userId: fixture.userId,
+        operationId: operation.id,
+        deliveryAttempt: { attempt: 2, maxAttempts: 3 },
+      })).rejects.toMatchObject({ retryable: false });
+      await expect(
+        prisma.agentSkillOperation.findUniqueOrThrow({ where: { id: operation.id } }),
+      ).resolves.toMatchObject({
+        status: AgentOperationStatus.FAILED,
+        errorCode: "MATERIAL_PLANNING_TIMEOUT_RETRIES_EXHAUSTED",
+      });
+      expect(plan).toHaveBeenCalledTimes(3);
+    } finally {
+      plan.mockRestore();
+    }
+  }, 60_000);
+
+  it("fails maintenance when recovery continuation publication fails", async () => {
+    const fixture = await createConnection("maintenance-continuation-publish-failure");
+    const queued = await createQueuedDraftOperation(fixture, "publish-failure");
+    vi.mocked(sendAgentSkillOperationRequested).mockRejectedValueOnce(
+      new Error("JOB_PUBLISH_FAILED"),
+    );
+
+    await expect(runAgentAccessMaintenance(new Date())).rejects.toMatchObject({
+      message: "Agent access maintenance could not recover activation items.",
+      retryable: true,
+    });
+    await expect(
+      prisma.agentSkillOperationItem.findUniqueOrThrow({ where: { id: queued.item.id } }),
+    ).resolves.toMatchObject({ status: AgentOperationItemStatus.QUEUED });
+  });
+
   it("finishes expiry and revocation before retrying failed refill recovery", async () => {
     const fixture = await createConnection("maintenance-recovery-failure");
     const now = new Date("2026-08-13T10:11:00.000Z");
@@ -875,6 +948,18 @@ describeDatabase("agent access persistence", () => {
     });
     expect(second[1]).toMatchObject({ eventId: first[1]?.eventId });
     expect(second[1]?.signal).toBeInstanceOf(AbortSignal);
+
+    await prisma.agentSkillOperation.update({
+      where: { id: queued.operation.id },
+      data: { updatedAt: new Date(Date.now() + 1_000) },
+    });
+    await recoverStaleAgentOperationItems({
+      userId: fixture.userId,
+      operationId: queued.operation.id,
+      now: new Date(Date.now() + 1_000),
+    });
+    const third = vi.mocked(sendAgentSkillOperationRequested).mock.calls[2];
+    expect(third[1]?.eventId).not.toBe(first[1]?.eventId);
   }, 60_000);
 
   it("reclaims interrupted text items and resumes their stored draft", async () => {

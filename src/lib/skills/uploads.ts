@@ -2541,7 +2541,7 @@ function createGeminiSourceTextExtractor({
               mimeTypes: [input.mimeType],
             },
           },
-          run: async (ai) => {
+          run: async (ai, signal) => {
             const response = await ai.models.generateContent({
               model: gemini.model,
               contents: [
@@ -2561,6 +2561,7 @@ function createGeminiSourceTextExtractor({
                 },
               ],
               config: {
+                abortSignal: signal,
                 responseMimeType: "application/json",
                 responseJsonSchema: geminiSourceExtractionJsonSchema,
                 thinkingConfig: GEMINI_LOW_THINKING_CONFIG,

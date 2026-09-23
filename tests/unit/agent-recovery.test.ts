@@ -114,6 +114,7 @@ describe("agent activation recovery policy", () => {
   it("uses a stable cursor identity until the durable queue changes", () => {
     const input = {
       operationId: "operation-a",
+      operationUpdatedAt: now,
       items: [
         { id: "item-b", retryCount: 1, updatedAt: now },
         { id: "item-a", retryCount: 0, updatedAt: new Date(now.getTime() - 1_000) },
@@ -128,6 +129,10 @@ describe("agent activation recovery policy", () => {
     expect(buildAgentOperationContinuationCursor({
       ...input,
       items: input.items.map((item) => ({ ...item, retryCount: item.retryCount + 1 })),
+    }).eventId).not.toBe(first.eventId);
+    expect(buildAgentOperationContinuationCursor({
+      ...input,
+      operationUpdatedAt: new Date(now.getTime() + 1),
     }).eventId).not.toBe(first.eventId);
   });
 });

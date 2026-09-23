@@ -587,9 +587,13 @@ export async function runAgentAccessMaintenance(now: Date) {
         unchanged: 0,
         legacyPromoted: 0,
         continuations: 0,
+        continuationPublishFailures: 0,
       };
     }),
   ]);
+  if (activationRecovery.continuationPublishFailures > 0) {
+    activationRecoveryFailed = true;
+  }
   let expiredUploadOperations = 0;
   for (const operation of expiredUploads) {
     if (operation.status === AgentOperationStatus.AWAITING_UPLOAD) {
@@ -647,6 +651,7 @@ export async function runAgentAccessMaintenance(now: Date) {
     activationItemsWaiting: activationRecovery.waiting,
     activationLegacyItemsPromoted: activationRecovery.legacyPromoted,
     activationContinuations: activationRecovery.continuations,
+    activationContinuationPublishFailures: activationRecovery.continuationPublishFailures,
   };
   if (refillRecoveryFailed || activationRecoveryFailed) {
     const failures = [

@@ -10,6 +10,7 @@ import {
   GenerationJobKind,
   GenerationJobStatus,
   Prisma,
+  SkillDraftBatchStatus,
   SkillDraftBatchItemStatus,
   SkillStatus,
 } from "@/generated/prisma/client";
@@ -46,6 +47,7 @@ import {
   AGENT_OPERATION_CANDIDATE_VERIFICATION_RESERVE_MS,
   AGENT_OPERATION_SOFT_DEADLINE_MS,
   buildAgentOperationContinuationCursor,
+  getAgentOperationRetryReadyWhere,
   isAgentOperationRetryReady,
   shouldDeferAgentOperation,
 } from "@/lib/agent-access/recovery-policy";
@@ -146,6 +148,7 @@ export async function runAgentSkillOperationJob(
     operationId: string;
     now?: Date;
     deadlineAt?: Date;
+    deliveryAttempt?: { attempt: number; maxAttempts: number };
   },
   dependencies: AgentSkillWorkerDependencies = {},
 ) {
@@ -176,7 +179,10 @@ export async function runAgentSkillOperationJob(
 
   await prisma.agentSkillOperation.update({
     where: { id: operation.id },
-    data: { startedAt: operation.startedAt ?? now },
+    data: {
+      startedAt: operation.startedAt ?? now,
+      updatedAt: new Date(Math.max(Date.now(), operation.updatedAt.getTime() + 1)),
+    },
   });
 
   const claims = new Map<string, string>();
@@ -319,18 +325,149 @@ export async function runAgentSkillOperationJob(
     for (const [itemId, claimToken] of claims) {
       await releaseClaimForRetry({ itemId, userId: input.userId, now, claimToken });
     }
-    await reconcileAgentOperation({ operationId: operation.id, userId: input.userId, now });
     if (isRecoverableWorkerTimeout(error)) {
+      if (operation.kind === AgentOperationKind.MATERIAL_BATCH && claims.size === 0) {
+        const currentItemCount = await prisma.agentSkillOperationItem.count({
+          where: { operationId: operation.id, userId: input.userId },
+        });
+        if (currentItemCount === 0) {
+          const attempt = input.deliveryAttempt?.attempt ?? 0;
+          const maxAttempts = input.deliveryAttempt?.maxAttempts ?? 4;
+          if (attempt >= maxAttempts - 1) {
+            await failTimedOutAgentMaterialPlanning({
+              operationId: operation.id,
+              userId: input.userId,
+              requestPayload: operation.requestPayload,
+              now,
+            });
+            throw new AgentSkillWorkerError(
+              "MATERIAL_PLANNING_TIMEOUT_RETRIES_EXHAUSTED",
+              false,
+            );
+          }
+          throw new AgentSkillWorkerError("MATERIAL_PLANNING_RETRYABLE_TIMEOUT", true);
+        }
+      }
+      if (claims.size === 0) {
+        await retryQueuedAgentItemsAfterPreclaimFailure({
+          operationId: operation.id,
+          userId: input.userId,
+          limit: operation.kind === AgentOperationKind.MATERIAL_BATCH
+            ? MAX_INLINE_OPERATION_ITEMS_PER_DELIVERY
+            : 1,
+          now: clock(),
+        });
+      }
+      await reconcileAgentOperation({ operationId: operation.id, userId: input.userId, now });
       if (!isContinuationPublishFailure(error)) {
         await queueAgentOperationContinuation(operation.id, input.userId, clock(), deadlineAt);
       }
       return { status: "retry-scheduled" as const, operationId: operation.id };
     }
+    await reconcileAgentOperation({ operationId: operation.id, userId: input.userId, now });
     throw new AgentSkillWorkerError(
       error instanceof Error ? error.message : "Agent skill processing failed.",
       true,
     );
   }
+}
+
+async function retryQueuedAgentItemsAfterPreclaimFailure(input: {
+  operationId: string;
+  userId: string;
+  limit: number;
+  now: Date;
+}) {
+  const prisma = getPrisma();
+  const queuedItems = await prisma.agentSkillOperationItem.findMany({
+    where: {
+      operationId: input.operationId,
+      userId: input.userId,
+      status: AgentOperationItemStatus.QUEUED,
+      AND: [getAgentOperationRetryReadyWhere(input.now)],
+    },
+    orderBy: { ordinal: "asc" },
+    take: input.limit,
+    select: { id: true, retryCount: true, updatedAt: true },
+  });
+
+  for (const item of queuedItems) {
+    const exhausted = item.retryCount >= AGENT_OPERATION_ITEM_RETRY_LIMIT - 1;
+    await prisma.agentSkillOperationItem.updateMany({
+      where: {
+        id: item.id,
+        userId: input.userId,
+        status: AgentOperationItemStatus.QUEUED,
+        retryCount: item.retryCount,
+        updatedAt: item.updatedAt,
+      },
+      data: {
+        status: exhausted ? AgentOperationItemStatus.FAILED : AgentOperationItemStatus.QUEUED,
+        activationReservedAt: null,
+        errorCode: "TRANSIENT_WORKER_FAILURE",
+        errorMessage: exhausted
+          ? "The worker repeatedly stopped before processing this item. Retry it manually."
+          : "The worker stopped before processing this item; it will be retried.",
+        retryCount: { increment: 1 },
+        completedAt: exhausted ? input.now : null,
+        workerClaimToken: null,
+        workerClaimedAt: null,
+      },
+    });
+  }
+}
+
+async function failTimedOutAgentMaterialPlanning(input: {
+  operationId: string;
+  userId: string;
+  requestPayload: Prisma.JsonValue | null;
+  now: Date;
+}) {
+  const prisma = getPrisma();
+  const payload = parseRecord(input.requestPayload);
+  const batchId = typeof payload.materialBatchId === "string" ? payload.materialBatchId : null;
+  const errorMessage =
+    "Material planning timed out after the background job retry limit. Try the request again.";
+
+  await prisma.$transaction(async (tx) => {
+    const failed = await tx.agentSkillOperation.updateMany({
+      where: {
+        id: input.operationId,
+        userId: input.userId,
+        status: {
+          notIn: [
+            AgentOperationStatus.SUCCEEDED,
+            AgentOperationStatus.PARTIAL,
+            AgentOperationStatus.FAILED,
+            AgentOperationStatus.CANCELED,
+          ],
+        },
+        items: { none: {} },
+      },
+      data: {
+        status: AgentOperationStatus.FAILED,
+        errorCode: "MATERIAL_PLANNING_TIMEOUT_RETRIES_EXHAUSTED",
+        errorMessage,
+        completedAt: input.now,
+      },
+    });
+    if (failed.count !== 1) return;
+
+    await tx.skillDraftBatch.updateMany({
+      where: {
+        ...(batchId ? { id: batchId } : { idempotencyKey: `agent-${input.operationId}` }),
+        userId: input.userId,
+        status: SkillDraftBatchStatus.PLANNING,
+        items: { none: {} },
+      },
+      data: {
+        status: SkillDraftBatchStatus.FAILED,
+        errorCode: "PLANNING_TIMEOUT_RETRIES_EXHAUSTED",
+        errorMessage,
+        completedAt: input.now,
+      },
+    });
+  });
 }
 
 function isRecoverableWorkerTimeout(error: unknown) {
@@ -996,7 +1133,6 @@ async function processTextOperation(input: {
   const result = await createSkillDraftFromSource({
     userId: input.operation.userId,
     now: input.now,
-    recoveredSourceFileId: source.id,
     skipUsageLimitCheck: true,
     persistFailedSource: false,
     input: {
@@ -1472,14 +1608,21 @@ async function queueAgentOperationContinuation(
     throw error;
   }
   const prisma = getPrisma();
-  const queuedItems = await prisma.agentSkillOperationItem.findMany({
-    where: {
-      operationId,
-      userId,
-      status: AgentOperationItemStatus.QUEUED,
-    },
-    select: { id: true, retryCount: true, updatedAt: true, errorCode: true },
-  });
+  const [operation, queuedItems] = await Promise.all([
+    prisma.agentSkillOperation.findFirst({
+      where: { id: operationId, userId },
+      select: { updatedAt: true },
+    }),
+    prisma.agentSkillOperationItem.findMany({
+      where: {
+        operationId,
+        userId,
+        status: AgentOperationItemStatus.QUEUED,
+      },
+      select: { id: true, retryCount: true, updatedAt: true, errorCode: true },
+    }),
+  ]);
+  if (!operation) return false;
   const eligible = queuedItems.filter((item) => isAgentOperationRetryReady({
     errorCode: item.errorCode,
     retryCount: item.retryCount,
@@ -1487,7 +1630,11 @@ async function queueAgentOperationContinuation(
     now,
   }));
   if (eligible.length === 0) return false;
-  const cursor = buildAgentOperationContinuationCursor({ operationId, items: eligible });
+  const cursor = buildAgentOperationContinuationCursor({
+    operationId,
+    operationUpdatedAt: operation.updatedAt,
+    items: eligible,
+  });
   try {
     await withAbortableTimeout({
       run: (signal) => enqueueOperation(userId, operationId, { ...cursor, signal }),

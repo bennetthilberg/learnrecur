@@ -48,6 +48,7 @@ type GeminiOperationInput<T> = {
   metadata?: GeminiOperationMetadata;
   operation: string;
   signal?: AbortSignal;
+  timeoutMs?: number;
   run: (ai: GoogleGenAI, signal: AbortSignal) => Promise<{
     response: GenerateContentResponse;
     value: T;
@@ -110,6 +111,7 @@ export async function runLoggedGeminiOperation<T>({
   operation,
   run,
   signal,
+  timeoutMs,
 }: GeminiOperationInput<T>): Promise<T> {
   const requestId = buildGeminiRequestId();
   const startedAt = Date.now();
@@ -125,7 +127,7 @@ export async function runLoggedGeminiOperation<T>({
   try {
     const result = await withAbortableTimeout({
       run: (requestSignal) => run(new GoogleGenAI(config.clientOptions), requestSignal),
-      timeoutMs: GENERATION_TIMEOUT_MS,
+      timeoutMs: timeoutMs ?? GENERATION_TIMEOUT_MS,
       message: `${operation} timed out with Gemini.`,
       stage: `gemini ${operation}`,
       parentSignal: signal,

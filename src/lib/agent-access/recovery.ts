@@ -219,6 +219,20 @@ export async function recoverStaleAgentOperationItems(input: {
       userId: owner.userId,
       now: input.now,
     });
+    const currentOperation = await prisma.agentSkillOperation.findFirst({
+      where: {
+        id: owner.operationId,
+        userId: owner.userId,
+        status: {
+          notIn: [
+            ...TERMINAL_OPERATION_STATUSES,
+            AgentOperationStatus.AWAITING_UPLOAD,
+          ],
+        },
+      },
+      select: { updatedAt: true },
+    });
+    if (!currentOperation) continue;
     const queued = await prisma.agentSkillOperationItem.findMany({
       where: {
         operationId: owner.operationId,
@@ -234,6 +248,7 @@ export async function recoverStaleAgentOperationItems(input: {
     if (eligible.length > 0) {
       const cursor = buildAgentOperationContinuationCursor({
         operationId: owner.operationId,
+        operationUpdatedAt: currentOperation.updatedAt,
         items: eligible,
       });
       try {

@@ -73,6 +73,7 @@ describe("SQS worker delivery safety", () => {
       activationItemsWaiting: 3,
       activationLegacyItemsPromoted: 1,
       activationContinuations: 1,
+      activationContinuationPublishFailures: 0,
       privateSourceText: "must not be logged",
     });
 
@@ -94,6 +95,7 @@ describe("SQS worker delivery safety", () => {
       activationItemsWaiting: 3,
       activationLegacyItemsPromoted: 1,
       activationContinuations: 1,
+      activationContinuationPublishFailures: 0,
     }));
     expect(JSON.stringify(vi.mocked(dependencies.log).mock.calls)).not.toContain("must not be logged");
     expect(dependencies.complete).toHaveBeenCalledOnce();

@@ -40,6 +40,7 @@ import {
   storeMaterialChunkEmbedding,
 } from "@/lib/materials/retrieval";
 import { recoverBackMatterMaterialScope } from "@/lib/materials/drafting";
+import { JobStageTimeoutError } from "@/lib/jobs/deadline";
 import { loadLocalizedMaterialEvidence } from "@/lib/materials/evidence";
 import { getPrisma } from "@/lib/prisma";
 import {
@@ -367,6 +368,59 @@ describeDatabase("material multi-skill drafting", () => {
       }),
     ).rejects.toThrow();
   });
+
+  it("keeps a planning batch retryable after a provider timeout", async () => {
+    const request = {
+      materialId,
+      materialRevisionId,
+      instruction: "Create one skill from direct object pronouns in chapter four.",
+      idempotencyKey: `${runId}_planning_timeout_retry`,
+    };
+
+    await expect(planMaterialSkills({
+      userId,
+      input: request,
+      now: new Date(),
+      aiSetup: createAiSetup({
+        planScope: async () => {
+          throw new JobStageTimeoutError("Scope planner timed out.", "material scope planning");
+        },
+      }),
+      embeddingGenerator: null,
+    })).rejects.toMatchObject({ name: "JobStageTimeoutError", retryable: true });
+
+    const batch = await prisma.skillDraftBatch.findFirstOrThrow({
+      where: { userId, idempotencyKey: request.idempotencyKey },
+      select: { id: true, status: true, errorCode: true },
+    });
+    expect(batch).toMatchObject({ status: SkillDraftBatchStatus.PLANNING, errorCode: null });
+
+    const retry = await planMaterialSkills({
+      userId,
+      input: request,
+      now: new Date(),
+      aiSetup: createAiSetup({
+        planScope: async () => ({
+          resolutionStatus: "resolved",
+          resolvedScopeLabel: "Chapter four direct object pronouns",
+          clarification: null,
+          warnings: [],
+          items: [
+            {
+              key: "direct-object-pronouns-timeout-retry",
+              title: "Direct object pronouns",
+              objective: "Replace direct objects with the correct Spanish pronoun in short sentences.",
+              materialSectionIds: [directSectionId],
+              evidenceChunkIds: [directChunkId],
+            },
+          ],
+        }),
+      }),
+      embeddingGenerator: null,
+    });
+
+    expect(retry).toMatchObject({ status: "planned", batchId: batch.id });
+  }, 60_000);
 
   it("creates the planned skill when its reviewed duplicate disappears before confirmation", async () => {
     const fixtureId = randomUUID();

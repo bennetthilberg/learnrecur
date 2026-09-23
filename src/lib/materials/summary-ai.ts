@@ -37,11 +37,12 @@ export function createGeminiMaterialSummaryGenerator(): MaterialSummaryGenerator
         promptChars: prompt.length,
         schemaName: "material-summary-v1",
       },
-      run: async (ai: GoogleGenAI) => {
+      run: async (ai: GoogleGenAI, signal) => {
         const response = await ai.models.generateContent({
           model: config.model,
           contents: [{ role: "user", parts: [{ text: prompt }] }],
           config: {
+            abortSignal: signal,
             responseMimeType: "application/json",
             responseJsonSchema: materialSummaryJsonSchema,
             thinkingConfig: GEMINI_LOW_THINKING_CONFIG,

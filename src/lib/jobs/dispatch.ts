@@ -46,6 +46,7 @@ export async function executeJob(job: JobEnvelope, context: JobExecutionContext)
       return runAgentSkillOperationJob({
         ...job.data,
         ...(context.deadlineAt ? { deadlineAt: context.deadlineAt } : {}),
+        deliveryAttempt: { attempt: context.attempt, maxAttempts: context.maxAttempts },
       });
     case "learnrecur/agent-connection-revocation.requested":
       return runAgentConnectionRevocationJob(job.data);
