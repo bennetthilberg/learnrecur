@@ -3633,17 +3633,25 @@ async function planExistingMaterialBatch(input: {
           anchorChunkIds,
         }),
     });
-    if (recoveredScope.status === "ambiguous") {
+    if (
+      recoveredScope.status === "ambiguous" ||
+      (input.sectionIds !== undefined && recoveredScope.status === "recovered")
+    ) {
+      const explicitSelection = input.sectionIds !== undefined;
       const plan = materialScopeResolutionSchema.parse({
         version: 1,
         materialRevisionId: batch.materialRevisionId,
         instruction: batch.instruction,
         resolutionStatus: "ambiguous",
-        resolvedScopeLabel:
-          "The requested chapter was found only in answer-key or back-matter pages.",
-        warnings: ["LearnRecur could not confidently locate the instructional chapter."],
-        clarification:
-          "Choose the instructional page range or name a more specific section from the material.",
+        resolvedScopeLabel: explicitSelection
+          ? "The selected section appears to contain answer-key or back-matter content."
+          : "The requested chapter was found only in answer-key or back-matter pages.",
+        warnings: explicitSelection
+          ? ["The selected source scope does not contain confidently identified instructional content."]
+          : ["LearnRecur could not confidently locate the instructional chapter."],
+        clarification: explicitSelection
+          ? "Select an instructional section from this material before planning skills."
+          : "Choose the instructional page range or name a more specific section from the material.",
         items: [],
       });
       return saveProposedMaterialPlan({

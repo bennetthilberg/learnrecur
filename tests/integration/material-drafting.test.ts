@@ -39,6 +39,7 @@ import {
   searchMaterialChunksLexical,
   storeMaterialChunkEmbedding,
 } from "@/lib/materials/retrieval";
+import { recoverBackMatterMaterialScope } from "@/lib/materials/drafting";
 import { loadLocalizedMaterialEvidence } from "@/lib/materials/evidence";
 import { getPrisma } from "@/lib/prisma";
 import {
@@ -1965,6 +1966,164 @@ describeDatabase("material multi-skill drafting", () => {
         .map((chunk) => chunk.id)
         .filter((id) => answerKeyChunkIds.includes(id)),
     ).toEqual([]);
+
+    const rejectedScopePlanner = vi.fn<MaterialDraftAiSetup["planScope"]>();
+    const selectedAnswerKey = await planMaterialSkills({
+      userId,
+      input: {
+        materialId: material.id,
+        materialRevisionId: revision.id,
+        instruction: "Create a skill from the preterit tense rules in chapter fourteen.",
+        idempotencyKey: `${runId}_selected_answer_key_scope`,
+        sectionIds: [answerKey.id],
+      },
+      now: new Date(),
+      aiSetup: createAiSetup({ planScope: rejectedScopePlanner }),
+      embeddingGenerator: null,
+    });
+
+    expect(selectedAnswerKey.status).toBe("needs-scope");
+    expect(rejectedScopePlanner).not.toHaveBeenCalled();
+  });
+
+  it("does not widen an explicit section scope during back-matter recovery", async () => {
+    const { material, revision } = await createMaterialWithInitialRevision({
+      userId,
+      title: "Selected back-matter fixture",
+      kind: StudyMaterialKind.PDF,
+    });
+    const answerKeySection = await prisma.materialSection.create({
+      data: {
+        userId,
+        materialRevisionId: revision.id,
+        ordinal: 0,
+        level: 1,
+        title: "Chapter 14 The Preterit Tense",
+        normalizedTitle: "chapter 14 the preterit tense",
+        pageStart: 601,
+        pageEnd: 601,
+        headingPath: ["Chapter 14 The Preterit Tense"],
+      },
+    });
+    const instructionalSection = await prisma.materialSection.create({
+      data: {
+        userId,
+        materialRevisionId: revision.id,
+        ordinal: 1,
+        level: 1,
+        title: "Regular preterit conjugations",
+        normalizedTitle: "regular preterit conjugations",
+        pageStart: 255,
+        pageEnd: 299,
+        headingPath: ["Regular preterit conjugations"],
+      },
+    });
+    const answerKeyChunkIds = Array.from(
+      { length: 3 },
+      (_, index) => `${runId}_selected_back_matter_${index}`,
+    );
+    const teachingChunkIds = [
+      `${runId}_unselected_preterit_teaching_1`,
+      `${runId}_unselected_preterit_teaching_2`,
+    ];
+    const answerKeyEvidence = {
+      id: answerKeyChunkIds[0],
+      materialSectionId: answerKeySection.id,
+      headingText: answerKeySection.title,
+      text: "Answer key for chapter 14: The preterit tense forms completed past actions.",
+    };
+    const instructionalEvidence = teachingChunkIds.map((id, index) => ({
+      id,
+      materialSectionId: instructionalSection.id,
+      headingText: instructionalSection.title,
+      text:
+        index === 0
+          ? "The preterit tense is used for completed past actions. Drop the infinitive ending and add the regular -ar endings."
+          : "The preterit tense uses the same endings for regular -er and -ir verbs. Replace the infinitive ending.",
+    }));
+    await prisma.materialChunk.createMany({
+      data: [
+        ...answerKeyChunkIds.map((id, index) => ({
+          id,
+          userId,
+          materialRevisionId: revision.id,
+          materialSectionId: answerKeySection.id,
+          ordinal: index,
+          text: `Answer key: Chapter 14 The Preterit Tense. Entries and exercise answers ${index + 1}.`,
+          tokenEstimate: 12,
+          contentHash: `sha256:${id}`,
+          headingText: answerKeySection.title,
+          locator: { kind: "pdf", pageRange: { start: 601, end: 601 } },
+        })),
+        ...instructionalEvidence.map((chunk, index) => ({
+          id: chunk.id,
+          userId,
+          materialRevisionId: revision.id,
+          materialSectionId: instructionalSection.id,
+          ordinal: index + answerKeyChunkIds.length,
+          text: chunk.text,
+          tokenEstimate: 18,
+          contentHash: `sha256:${chunk.id}`,
+          headingText: instructionalSection.title,
+          locator: { kind: "pdf", pageRange: { start: 260 + index, end: 260 + index } },
+        })),
+      ],
+    });
+    await finalizeMaterialRevision({
+      userId,
+      materialId: material.id,
+      materialRevisionId: revision.id,
+      contentHash: `sha256:${runId}:selected-back-matter`,
+      byteSize: 16_384,
+      pageCount: 628,
+      storageBucket: "test-materials",
+      storageKey: `${runId}/selected-back-matter.pdf`,
+    });
+
+    const recoveredScope = await recoverBackMatterMaterialScope({
+      sections: [answerKeySection, instructionalSection],
+      sectionIds: [answerKeySection.id],
+      chunks: [answerKeyEvidence],
+      retrieveRevisionChunks: async () => instructionalEvidence,
+      retrieveSectionChunks: async () => instructionalEvidence,
+    });
+    expect(recoveredScope.status).toBe("recovered");
+    if (recoveredScope.status !== "recovered") {
+      throw new Error("expected the fixture to expose an out-of-scope recovery candidate");
+    }
+    expect(recoveredScope.sectionIds).toEqual([instructionalSection.id]);
+
+    const planScope = vi.fn<MaterialDraftAiSetup["planScope"]>(async () => ({
+      resolutionStatus: "resolved",
+      resolvedScopeLabel: "Regular preterit conjugations",
+      clarification: null,
+      warnings: [],
+      items: [
+        {
+          key: "regular-preterit-endings",
+          title: "Regular preterit endings",
+          objective: "Conjugate regular -ar, -er, and -ir verbs in the preterit.",
+          materialSectionIds: [instructionalSection.id],
+          evidenceChunkIds: teachingChunkIds,
+        },
+      ],
+    }));
+    const result = await planMaterialSkills({
+      userId,
+      input: {
+        materialId: material.id,
+        materialRevisionId: revision.id,
+        instruction: "Make one skill from chapter fourteen's preterit tense rules.",
+        idempotencyKey: `${runId}_bounded_back_matter_scope`,
+        sectionIds: [answerKeySection.id],
+      },
+      now: new Date(),
+      aiSetup: createAiSetup({ planScope }),
+      embeddingGenerator: null,
+    });
+
+    expect(result.status).toBe("needs-scope");
+    expect(planScope).not.toHaveBeenCalled();
   });
 
   it("recovers comparison terms split across a section despite a semantic decoy", async () => {
