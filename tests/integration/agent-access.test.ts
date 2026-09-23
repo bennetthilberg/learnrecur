@@ -857,15 +857,50 @@ describeDatabase("agent access persistence", () => {
       include: { items: true },
     });
 
-    await expect(
-      Promise.all([
-        runAgentSkillOperationJob({ userId: fixture.userId, operationId: operation.id, now }),
-        runAgentSkillOperationJob({ userId: fixture.userId, operationId: operation.id, now }),
-      ]),
-    ).resolves.toEqual([
-      { status: "processed", operationId: operation.id },
-      { status: "processed", operationId: operation.id },
-    ]);
+    const updateMany = prisma.agentSkillOperationItem.updateMany.bind(
+      prisma.agentSkillOperationItem,
+    );
+    let claimAttempts = 0;
+    let releaseClaims!: () => void;
+    const bothClaimsReached = new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(
+        () => reject(new Error("Both deliveries did not reach the item claim.")),
+        10_000,
+      );
+      releaseClaims = () => {
+        clearTimeout(timeout);
+        resolve();
+      };
+    });
+    const claimSpy = vi
+      .spyOn(prisma.agentSkillOperationItem, "updateMany")
+      .mockImplementation(async (args) => {
+        if (
+          args.where.id === operation.items[0].id &&
+          args.where.status === AgentOperationItemStatus.QUEUED
+        ) {
+          claimAttempts += 1;
+          if (claimAttempts === 2) releaseClaims();
+          await bothClaimsReached;
+        }
+        return updateMany(args);
+      });
+
+    try {
+      await expect(
+        Promise.all([
+          runAgentSkillOperationJob({ userId: fixture.userId, operationId: operation.id, now }),
+          runAgentSkillOperationJob({ userId: fixture.userId, operationId: operation.id, now }),
+        ]),
+      ).resolves.toEqual([
+        { status: "processed", operationId: operation.id },
+        { status: "processed", operationId: operation.id },
+      ]);
+      expect(claimAttempts).toBe(2);
+    } finally {
+      releaseClaims();
+      claimSpy.mockRestore();
+    }
 
     await expect(
       prisma.agentSkillOperationItem.findUniqueOrThrow({ where: { id: operation.items[0].id } }),
