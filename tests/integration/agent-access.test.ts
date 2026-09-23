@@ -874,14 +874,17 @@ describeDatabase("agent access persistence", () => {
     });
     const claimSpy = vi
       .spyOn(prisma.agentSkillOperationItem, "updateMany")
-      .mockImplementation(async (args) => {
+      .mockImplementation((args) => {
         if (
-          args.where.id === operation.items[0].id &&
-          args.where.status === AgentOperationItemStatus.QUEUED
+          args.where?.id === operation.items[0].id &&
+          args.where?.status === AgentOperationItemStatus.QUEUED
         ) {
           claimAttempts += 1;
           if (claimAttempts === 2) releaseClaims();
-          await bothClaimsReached;
+          return (async () => {
+            await bothClaimsReached;
+            return updateMany(args);
+          })() as unknown as ReturnType<typeof updateMany>;
         }
         return updateMany(args);
       });
