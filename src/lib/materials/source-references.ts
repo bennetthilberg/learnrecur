@@ -319,8 +319,22 @@ function buildCanonicalLocator(input: {
   sections: readonly SourceReferenceSection[];
   chunks: readonly SourceReferenceChunk[];
   evidenceChunkIds: readonly string[];
+  includeSectionPageRanges: boolean;
 }) {
   const sectionIds = input.sections.map((section) => section.id);
+  const sectionPageRanges = input.sections.flatMap((section) =>
+    section.pageStart
+      ? [{ start: section.pageStart, end: section.pageEnd ?? section.pageStart }]
+      : [],
+  );
+  const chunkPageRanges = input.chunks.flatMap((chunk) => {
+    const range = readPageRange(chunk.locator);
+    return range ? [range] : [];
+  });
+  const pageRanges =
+    input.includeSectionPageRanges || chunkPageRanges.length !== input.chunks.length
+      ? [...sectionPageRanges, ...chunkPageRanges]
+      : chunkPageRanges;
   const common = {
     version: MATERIAL_LOCATOR_VERSION,
     materialRevisionId: input.materialRevisionId,
@@ -331,17 +345,7 @@ function buildCanonicalLocator(input: {
     input.materialKind === StudyMaterialKind.PDF
       ? {
           kind: "pdf" as const,
-          pageRanges: mergePageRanges([
-            ...input.sections.flatMap((section) =>
-              section.pageStart
-                ? [{ start: section.pageStart, end: section.pageEnd ?? section.pageStart }]
-                : [],
-            ),
-            ...input.chunks.flatMap((chunk) => {
-              const range = readPageRange(chunk.locator);
-              return range ? [range] : [];
-            }),
-          ]),
+          pageRanges: mergePageRanges(pageRanges),
         }
       : { kind: "web" as const, anchors: uniqueWebAnchors(input.sections, input.chunks) };
 
@@ -567,6 +571,7 @@ export async function resolveMaterialSourceReferences(input: {
       sections,
       chunks,
       evidenceChunkIds,
+      includeSectionPageRanges: requestedSections.length > 0,
     });
     resolved.push({
       materialId: material.id,

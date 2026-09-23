@@ -311,6 +311,37 @@ describeDatabase("material reader and source references", () => {
         source: { kind: "pdf", pageRanges: [{ start: 2, end: 2 }] },
       },
     });
+
+    await prisma.materialSection.update({
+      where: { id: fixture.child.id },
+      data: { pageEnd: 60 },
+    });
+    const chunkOnly = await resolveMaterialSourceReferences({
+      userId: fixture.userId,
+      sourceRefs: [{
+        material_id: fixture.material.id,
+        expected_revision_id: fixture.revision.id,
+        evidence_chunk_ids: [fixture.chunks[1].id],
+      }],
+    });
+    expect(chunkOnly[0].locator).toMatchObject({
+      materialSectionIds: [fixture.child.id],
+      evidenceChunkIds: [fixture.chunks[1].id],
+      source: { kind: "pdf", pageRanges: [{ start: 2, end: 2 }] },
+    });
+    const sectionAndChunk = await resolveMaterialSourceReferences({
+      userId: fixture.userId,
+      sourceRefs: [valid],
+    });
+    expect(sectionAndChunk[0].locator.source).toMatchObject({
+      kind: "pdf",
+      pageRanges: [{ start: 2, end: 60 }],
+    });
+    await prisma.materialSection.update({
+      where: { id: fixture.child.id },
+      data: { pageEnd: 2 },
+    });
+
     await expect(
       resolveMaterialSourceReferences({
         userId: fixture.userId,
